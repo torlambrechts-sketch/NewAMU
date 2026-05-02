@@ -25,7 +25,9 @@ import type { WorkflowAction, WorkflowCondition, WorkflowXorActionsEnvelope } fr
 import {
   sourceModuleLabel,
 } from '../lib/workflowRuleSummary'
-import { WF_FIELD_INPUT, WF_FIELD_LABEL, WF_LEAD, WF_PANEL_INSET } from '../components/workflow/workflowPanelStyles'
+import { StandardInput } from '../components/ui/Input'
+import { StandardTextarea } from '../components/ui/Textarea'
+import { SearchableSelect } from '../components/ui/SearchableSelect'
 import { WorkflowRulesTab } from '../components/workflow/WorkflowRulesTab'
 import { WorkflowPage as ModuleRulesView } from './WorkflowPage'
 
@@ -331,30 +333,36 @@ export function WorkflowModulePage() {
             <p className="mb-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">{formErr}</p>
           )}
 
-          <div className={`${WF_PANEL_INSET} border-neutral-200/90`}>
-            <p className={WF_FIELD_LABEL}>Grunninfo</p>
-            <div className="mt-4 grid gap-4 md:grid-cols-2">
+          <div className="rounded-none border border-neutral-200/90 bg-[#f4f1ea] p-5 sm:p-6">
+            <p className="mb-4 text-[10px] font-bold uppercase tracking-wider text-neutral-500">Grunninfo</p>
+            <div className="grid gap-4 md:grid-cols-2">
               <div>
-                <label className={WF_FIELD_LABEL} htmlFor="wf-rule-name">Navn</label>
-                <input id="wf-rule-name" value={name} onChange={(e) => setName(e.target.value)} className={WF_FIELD_INPUT} placeholder="F.eks. Kritisk hendelse → HMS-oppgave" />
+                <label className="mb-1 text-[10px] font-bold uppercase tracking-wider text-neutral-500" htmlFor="wf-rule-name">Navn</label>
+                <StandardInput id="wf-rule-name" value={name} onChange={(e) => setName(e.target.value)} placeholder="F.eks. Kritisk hendelse → HMS-oppgave" />
               </div>
               <div>
-                <label className={WF_FIELD_LABEL} htmlFor="wf-rule-slug">Slug (ID)</label>
-                <input id="wf-rule-slug" value={slug} onChange={(e) => setSlug(e.target.value)} className={`${WF_FIELD_INPUT} font-mono text-xs`} placeholder="auto fra navn hvis tom" />
+                <label className="mb-1 text-[10px] font-bold uppercase tracking-wider text-neutral-500" htmlFor="wf-rule-slug">Slug (ID)</label>
+                <StandardInput id="wf-rule-slug" value={slug} onChange={(e) => setSlug(e.target.value)} className="font-mono text-xs" placeholder="auto fra navn hvis tom" />
               </div>
               <div>
-                <label className={WF_FIELD_LABEL} htmlFor="wf-rule-source">Kilde (modul)</label>
-                <select id="wf-rule-source" value={sourceModule} onChange={(e) => setSourceModule(e.target.value)} className={WF_FIELD_INPUT}>
-                  {WORKFLOW_SOURCE_MODULES.map((m) => <option key={m.value} value={m.value}>{m.label}</option>)}
-                </select>
+                <label className="mb-1 text-[10px] font-bold uppercase tracking-wider text-neutral-500" htmlFor="wf-rule-source">Kilde (modul)</label>
+                <SearchableSelect
+                  value={sourceModule}
+                  options={WORKFLOW_SOURCE_MODULES}
+                  onChange={setSourceModule}
+                />
               </div>
               <div>
-                <label className={WF_FIELD_LABEL} htmlFor="wf-rule-trigger">Utløser</label>
-                <select id="wf-rule-trigger" value={triggerOn} onChange={(e) => setTriggerOn(e.target.value as 'insert' | 'update' | 'both')} className={WF_FIELD_INPUT}>
-                  <option value="both">Lagring (ny + oppdatering)</option>
-                  <option value="insert">Kun første lagring</option>
-                  <option value="update">Kun oppdateringer</option>
-                </select>
+                <label className="mb-1 text-[10px] font-bold uppercase tracking-wider text-neutral-500" htmlFor="wf-rule-trigger">Utløser</label>
+                <SearchableSelect
+                  value={triggerOn}
+                  options={[
+                    { value: 'both', label: 'Lagring (ny + oppdatering)' },
+                    { value: 'insert', label: 'Kun første lagring' },
+                    { value: 'update', label: 'Kun oppdateringer' },
+                  ]}
+                  onChange={(val) => setTriggerOn(val as 'insert' | 'update' | 'both')}
+                />
               </div>
             </div>
           </div>
@@ -364,7 +372,7 @@ export function WorkflowModulePage() {
           </div>
 
           <div className="mt-6 border-t border-neutral-200/80 pt-4">
-            <div className={`${WF_PANEL_INSET} border-neutral-200/90`}>
+            <div className="rounded-none border border-neutral-200/90 bg-[#f4f1ea] p-5 sm:p-6">
               <button
                 type="button"
                 onClick={() => setDevJsonOpen((o) => !o)}
@@ -375,7 +383,7 @@ export function WorkflowModulePage() {
               </button>
               {devJsonOpen && (
                 <div className="mt-4 space-y-4 border-t border-neutral-200/80 pt-4">
-                  <p className={WF_LEAD}>Kun for feilsøking eller migrering. «Synkroniser til flyt» overskriver den visuelle byggeren.</p>
+                  <p className="text-sm leading-relaxed text-neutral-600">Kun for feilsøking eller migrering. «Synkroniser til flyt» overskriver den visuelle byggeren.</p>
                   <div className="flex flex-wrap gap-2">
                     <button type="button" onClick={() => { setConditionText(JSON.stringify(conditionJson, null, 2)); setActionsText(actionsToJsonString(actionsPayload)) }} className={BTN_SEC}>
                       Oppdater tekstfelt fra flyt
@@ -383,12 +391,12 @@ export function WorkflowModulePage() {
                     <button type="button" onClick={applyAdvancedToFlow} className={BTN_SEC}>Synkroniser JSON → flyt</button>
                   </div>
                   <div>
-                    <label className={WF_FIELD_LABEL} htmlFor="wf-dev-cond">Betingelse (JSON)</label>
-                    <textarea id="wf-dev-cond" value={conditionText} onChange={(e) => setConditionText(e.target.value)} rows={6} className={`${WF_FIELD_INPUT} font-mono text-xs`} />
+                    <label className="mb-1 text-[10px] font-bold uppercase tracking-wider text-neutral-500" htmlFor="wf-dev-cond">Betingelse (JSON)</label>
+                    <StandardTextarea id="wf-dev-cond" value={conditionText} onChange={(e) => setConditionText(e.target.value)} rows={6} className="font-mono text-xs" />
                   </div>
                   <div>
-                    <label className={WF_FIELD_LABEL} htmlFor="wf-dev-act">Handlinger (JSON)</label>
-                    <textarea id="wf-dev-act" value={actionsText} onChange={(e) => setActionsText(e.target.value)} rows={10} className={`${WF_FIELD_INPUT} font-mono text-xs`} />
+                    <label className="mb-1 text-[10px] font-bold uppercase tracking-wider text-neutral-500" htmlFor="wf-dev-act">Handlinger (JSON)</label>
+                    <StandardTextarea id="wf-dev-act" value={actionsText} onChange={(e) => setActionsText(e.target.value)} rows={10} className="font-mono text-xs" />
                   </div>
                 </div>
               )}

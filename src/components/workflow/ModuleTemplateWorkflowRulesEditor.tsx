@@ -6,7 +6,7 @@
 import { Plus, Trash2 } from 'lucide-react'
 import type { WorkflowAction, WorkflowRule, WorkflowTrigger } from '../../types/moduleTemplate'
 import { createNewWorkflowRule } from './workflowRuleFactory'
-import { WMR_BTN_CTA_FOREST, wmrCtaForestStyle } from './workflowModuleRulesLayoutKit'
+import { Button } from '../ui/Button'
 
 export type ModuleTemplateWorkflowRulesEditorVariant = 'workplace' | 'platformAdmin'
 
@@ -318,20 +318,27 @@ export function ModuleTemplateWorkflowRulesEditor({
       {!hideToolbar && (
         <div className="flex flex-wrap items-center justify-between gap-2">
           <p className="text-[11px] font-bold uppercase tracking-wide text-neutral-500">Regler for denne modulen</p>
-          <button
-            type="button"
-            disabled={disabled}
-            className={
-              variant === 'workplace'
-                ? `${WMR_BTN_CTA_FOREST} disabled:opacity-50`
-                : `${BTN_GHOST} disabled:opacity-50`
-            }
-            style={variant === 'workplace' ? wmrCtaForestStyle() : undefined}
-            onClick={() => onChange([...rules, createNewWorkflowRule(rules.length)])}
-          >
-            <Plus className="size-3.5" strokeWidth={variant === 'workplace' ? 2.5 : 2} />
-            Legg til regel
-          </button>
+          {variant === 'workplace' ? (
+            <Button
+              variant="primary"
+              size="sm"
+              disabled={disabled}
+              onClick={() => onChange([...rules, createNewWorkflowRule(rules.length)])}
+            >
+              <Plus className="size-3.5" strokeWidth={2.5} />
+              Legg til regel
+            </Button>
+          ) : (
+            <button
+              type="button"
+              disabled={disabled}
+              className={`${BTN_GHOST} disabled:opacity-50`}
+              onClick={() => onChange([...rules, createNewWorkflowRule(rules.length)])}
+            >
+              <Plus className="size-3.5" strokeWidth={2} />
+              Legg til regel
+            </button>
+          )}
         </div>
       )}
 
