@@ -1,9 +1,12 @@
 import { useMemo, useState } from 'react'
 import type { WorkflowCondition } from '../../types/workflow'
 import { WHERE_FIELDS_BY_PATH, WORKFLOW_ARRAY_PATHS, type WhereFieldOption } from '../../data/workflowConditionFields'
-import { WF_FIELD_INPUT, WF_FIELD_LABEL, WF_LEAD } from './workflowPanelStyles'
+import { StandardInput } from '../ui/Input'
+import { SearchableSelect } from '../ui/SearchableSelect'
+import { Button } from '../ui/Button'
 
-const R = 'rounded-none'
+const FIELD_LABEL = 'mb-1 text-[10px] font-bold uppercase tracking-wider text-neutral-500'
+const WF_LEAD = 'text-sm leading-relaxed text-neutral-600'
 
 type Props = {
   value: WorkflowCondition
@@ -49,26 +52,22 @@ function WhereValueInput({
     )
   }
   if (field.valueKind === 'enum' && field.options) {
+    const enumOptions = [
+      { value: '', label: '— Velg —' },
+      ...field.options,
+    ]
     return (
-      <select
+      <SearchableSelect
         value={typeof current === 'string' ? current : ''}
-        onChange={(e) => onChange(e.target.value)}
-        className={WF_FIELD_INPUT}
-      >
-        <option value="">— Velg —</option>
-        {field.options.map((o) => (
-          <option key={o.value} value={o.value}>
-            {o.label}
-          </option>
-        ))}
-      </select>
+        options={enumOptions}
+        onChange={(val) => onChange(val)}
+      />
     )
   }
   return (
-    <input
+    <StandardInput
       value={current != null ? String(current) : ''}
       onChange={(e) => onChange(e.target.value)}
-      className={WF_FIELD_INPUT}
       placeholder="Verdi"
     />
   )
@@ -96,26 +95,25 @@ export function WorkflowConditionForm({ value, onChange, sourceModule }: Props) 
       <div className="space-y-4 text-sm">
         <p className={WF_LEAD}>Brukes sjelden — sammenligner én verdi i data (punktum-notasjon).</p>
         <div>
-          <label className={WF_FIELD_LABEL} htmlFor="wf-fe-path">
+          <label className={FIELD_LABEL} htmlFor="wf-fe-path">
             Feltsti
           </label>
-          <input
+          <StandardInput
             id="wf-fe-path"
             value={value.path}
             onChange={(e) => onChange({ ...value, path: e.target.value })}
-            className={`${WF_FIELD_INPUT} font-mono text-xs`}
+            className="font-mono text-xs"
             placeholder="f.eks. tasks.0.status"
           />
         </div>
         <div>
-          <label className={WF_FIELD_LABEL} htmlFor="wf-fe-val">
+          <label className={FIELD_LABEL} htmlFor="wf-fe-val">
             Verdi
           </label>
-          <input
+          <StandardInput
             id="wf-fe-val"
             value={value.value}
             onChange={(e) => onChange({ ...value, value: e.target.value })}
-            className={WF_FIELD_INPUT}
           />
         </div>
       </div>
@@ -134,7 +132,7 @@ export function WorkflowConditionForm({ value, onChange, sourceModule }: Props) 
 
   if (m === 'and' || m === 'or' || m === 'xor') {
     return (
-      <p className="text-sm text-amber-900">
+      <p className="text-sm text-neutral-700">
         Denne betingelsen er sammensatt ({m}). Rediger under fanen «Avansert» eller bygg flyten på nytt i lineær/XOR-modus.
       </p>
     )
@@ -171,28 +169,22 @@ function ArrayAnyEditor({
     setCustomVal('')
   }
 
+  const pathSelectOptions = [
+    { value: '', label: '— Velg datatype —' },
+    ...pathOptions,
+  ]
+
   return (
     <div className="space-y-4 text-sm">
       <div>
-        <label className={WF_FIELD_LABEL} htmlFor="wf-array-path">
+        <label className={FIELD_LABEL} htmlFor="wf-array-path">
           Hvilken liste?
         </label>
-        <select
-          id="wf-array-path"
+        <SearchableSelect
           value={path}
-          onChange={(e) => {
-            const p = e.target.value
-            onChange({ match: 'array_any', path: p, where: {} })
-          }}
-          className={WF_FIELD_INPUT}
-        >
-          <option value="">— Velg datatype —</option>
-          {pathOptions.map((o) => (
-            <option key={o.value} value={o.value}>
-              {o.label}
-            </option>
-          ))}
-        </select>
+          options={pathSelectOptions}
+          onChange={(p) => onChange({ match: 'array_any', path: p, where: {} })}
+        />
       </div>
 
       {path ? (
@@ -201,17 +193,17 @@ function ArrayAnyEditor({
             Regelen kjører når <strong className="font-semibold">minst ett element</strong> i listen oppfyller alle valgte
             kriterier. Tomt kriterie = «enhver ny eller oppdatert rad» i listen.
           </p>
-          <div className={`${R} space-y-3 border border-neutral-200/90 bg-white p-4`}>
-            <p className={WF_FIELD_LABEL}>Kriterier</p>
+          <div className="space-y-3 rounded-lg border border-neutral-200/90 bg-white p-4">
+            <p className={FIELD_LABEL}>Kriterier</p>
             {fieldDefs.length === 0 ? (
-              <p className="text-xs text-amber-800">
+              <p className="text-xs text-neutral-500">
                 Ingen forhåndsdefinerte felter for denne listen — bruk egendefinert nedenfor, eller la stå tomt for «alle
                 rader».
               </p>
             ) : (
               fieldDefs.map((f) => (
                 <div key={f.key} className="grid gap-2 sm:grid-cols-[1fr_1.2fr] sm:items-end">
-                  <span className={`${WF_FIELD_LABEL} normal-case tracking-normal text-neutral-700`}>{f.label}</span>
+                  <span className={`${FIELD_LABEL} normal-case tracking-normal text-neutral-700`}>{f.label}</span>
                   <WhereValueInput
                     field={f}
                     current={where[f.key]}
@@ -227,27 +219,23 @@ function ArrayAnyEditor({
               ))
             )}
             <div className="border-t border-neutral-200/80 pt-4">
-              <p className={WF_FIELD_LABEL}>Egendefinert felt</p>
+              <p className={FIELD_LABEL}>Egendefinert felt</p>
               <div className="mt-2 flex flex-wrap items-end gap-2">
-                <input
+                <StandardInput
                   value={customKey}
                   onChange={(e) => setCustomKey(e.target.value)}
                   placeholder="Feltnavn"
-                  className={`${WF_FIELD_INPUT} min-w-[8rem] flex-1 text-xs`}
+                  className="min-w-[8rem] flex-1 text-xs"
                 />
-                <input
+                <StandardInput
                   value={customVal}
                   onChange={(e) => setCustomVal(e.target.value)}
                   placeholder="Verdi (valgfritt)"
-                  className={`${WF_FIELD_INPUT} min-w-[8rem] flex-1 text-xs`}
+                  className="min-w-[8rem] flex-1 text-xs"
                 />
-                <button
-                  type="button"
-                  onClick={addCustomCriterion}
-                  className={`${R} border border-neutral-800 bg-[#1a3d32] px-4 py-2.5 text-xs font-medium text-white hover:bg-[#142e26]`}
-                >
+                <Button variant="primary" size="sm" onClick={addCustomCriterion}>
                   Legg til
-                </button>
+                </Button>
               </div>
             </div>
           </div>

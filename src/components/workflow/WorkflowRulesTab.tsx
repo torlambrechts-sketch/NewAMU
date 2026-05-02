@@ -16,8 +16,12 @@ import {
   Zap,
 } from 'lucide-react'
 import { Link } from 'react-router-dom'
-import { WF_FIELD_INPUT, WF_FIELD_LABEL } from './workflowPanelStyles'
 import { getWorkflowTriggerEventsForModule } from './workflowTriggerRegistry'
+import { Button } from '../ui/Button'
+import { StandardInput } from '../ui/Input'
+import { StandardTextarea } from '../ui/Textarea'
+import { SearchableSelect } from '../ui/SearchableSelect'
+import { WarningBox } from '../ui/AlertBox'
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -65,14 +69,9 @@ export interface WorkflowRulesTabProps {
 
 // ── Constants ──────────────────────────────────────────────────────────────────
 
-const CARD = 'rounded-xl border border-neutral-200/80 bg-white shadow-sm'
 const CARD_SHADOW = { boxShadow: '0 1px 2px rgba(0,0,0,0.04)' } as const
-const BTN_SM =
-  'inline-flex items-center gap-1.5 rounded-lg border border-neutral-200 bg-white px-2.5 py-1.5 text-xs font-medium text-neutral-700 hover:bg-neutral-50 disabled:opacity-60'
-const BTN_PRIMARY =
-  'inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-60'
 
-const STEP_TYPE_OPTIONS: { value: StepType; label: string; icon?: React.ReactNode }[] = [
+const STEP_TYPE_OPTIONS: { value: StepType; label: string }[] = [
   { value: 'create_task', label: 'Opprett oppgave' },
   { value: 'create_deviation', label: 'Opprett avvik' },
   { value: 'send_notification', label: 'Send varsling (in-app)' },
@@ -85,6 +84,20 @@ const STEP_TYPE_OPTIONS: { value: StepType; label: string; icon?: React.ReactNod
   { value: 'update_record', label: 'Oppdater post' },
   { value: 'run_workflow', label: 'Kjør annen regel' },
   { value: 'wait', label: 'Vent (delay)' },
+]
+
+const SEVERITY_OPTIONS = [
+  { value: 'low', label: 'Lav' },
+  { value: 'medium', label: 'Middels' },
+  { value: 'high', label: 'Høy' },
+  { value: 'critical', label: 'Kritisk' },
+]
+
+const HTTP_METHOD_OPTIONS = [
+  { value: 'POST', label: 'POST' },
+  { value: 'PUT', label: 'PUT' },
+  { value: 'GET', label: 'GET' },
+  { value: 'PATCH', label: 'PATCH' },
 ]
 
 function stepTypeLabel(t: StepType): string {
@@ -138,19 +151,19 @@ function StepConfigEditor({
       return (
         <div className="grid gap-3 sm:grid-cols-2">
           <Field label="Tittel">
-            <input value={String(cfg.title ?? '')} onChange={(e) => set('title', e.target.value)} className={WF_FIELD_INPUT} />
+            <StandardInput value={String(cfg.title ?? '')} onChange={(e) => set('title', e.target.value)} />
           </Field>
           <Field label="Ansvarlig">
-            <input value={String(cfg.assignee ?? '')} onChange={(e) => set('assignee', e.target.value)} className={WF_FIELD_INPUT} placeholder="HMS" />
+            <StandardInput value={String(cfg.assignee ?? '')} onChange={(e) => set('assignee', e.target.value)} placeholder="HMS" />
           </Field>
           <Field label="Frist (dager)">
-            <input type="number" min={0} value={Number(cfg.dueInDays ?? 7)} onChange={(e) => set('dueInDays', Number(e.target.value))} className={WF_FIELD_INPUT} />
+            <StandardInput type="number" min={0} value={Number(cfg.dueInDays ?? 7)} onChange={(e) => set('dueInDays', Number(e.target.value))} />
           </Field>
           <Field label="Eierrolle">
-            <input value={String(cfg.ownerRole ?? 'HMS')} onChange={(e) => set('ownerRole', e.target.value)} className={WF_FIELD_INPUT} />
+            <StandardInput value={String(cfg.ownerRole ?? 'HMS')} onChange={(e) => set('ownerRole', e.target.value)} />
           </Field>
           <Field label="Beskrivelse" className="sm:col-span-2">
-            <textarea rows={2} value={String(cfg.description ?? '')} onChange={(e) => set('description', e.target.value)} className={WF_FIELD_INPUT} />
+            <StandardTextarea rows={2} value={String(cfg.description ?? '')} onChange={(e) => set('description', e.target.value)} />
           </Field>
         </div>
       )
@@ -159,18 +172,17 @@ function StepConfigEditor({
       return (
         <div className="grid gap-3 sm:grid-cols-2">
           <Field label="Tittel">
-            <input value={String(cfg.title ?? '')} onChange={(e) => set('title', e.target.value)} className={WF_FIELD_INPUT} />
+            <StandardInput value={String(cfg.title ?? '')} onChange={(e) => set('title', e.target.value)} />
           </Field>
           <Field label="Alvorlighetsgrad">
-            <select value={String(cfg.severity ?? 'medium')} onChange={(e) => set('severity', e.target.value)} className={WF_FIELD_INPUT}>
-              <option value="low">Lav</option>
-              <option value="medium">Middels</option>
-              <option value="high">Høy</option>
-              <option value="critical">Kritisk</option>
-            </select>
+            <SearchableSelect
+              value={String(cfg.severity ?? 'medium')}
+              options={SEVERITY_OPTIONS}
+              onChange={(val) => set('severity', val)}
+            />
           </Field>
           <Field label="Beskrivelse" className="sm:col-span-2">
-            <textarea rows={2} value={String(cfg.description ?? '')} onChange={(e) => set('description', e.target.value)} className={WF_FIELD_INPUT} />
+            <StandardTextarea rows={2} value={String(cfg.description ?? '')} onChange={(e) => set('description', e.target.value)} />
           </Field>
         </div>
       )
@@ -179,10 +191,10 @@ function StepConfigEditor({
       return (
         <div className="grid gap-3 sm:grid-cols-2">
           <Field label="Tittel">
-            <input value={String(cfg.title ?? '')} onChange={(e) => set('title', e.target.value)} className={WF_FIELD_INPUT} />
+            <StandardInput value={String(cfg.title ?? '')} onChange={(e) => set('title', e.target.value)} />
           </Field>
           <Field label="Tekst" className="sm:col-span-2">
-            <textarea rows={2} value={String(cfg.body ?? '')} onChange={(e) => set('body', e.target.value)} className={WF_FIELD_INPUT} />
+            <StandardTextarea rows={2} value={String(cfg.body ?? '')} onChange={(e) => set('body', e.target.value)} />
           </Field>
         </div>
       )
@@ -191,16 +203,16 @@ function StepConfigEditor({
       return (
         <div className="grid gap-3 sm:grid-cols-2">
           <Field label="Fra">
-            <input value={String(cfg.from ?? '')} onChange={(e) => set('from', e.target.value)} className={WF_FIELD_INPUT} placeholder="noreply@bedrift.no" />
+            <StandardInput value={String(cfg.from ?? '')} onChange={(e) => set('from', e.target.value)} placeholder="noreply@bedrift.no" />
           </Field>
           <Field label="Til">
-            <input value={String(cfg.to ?? '')} onChange={(e) => set('to', e.target.value)} className={WF_FIELD_INPUT} placeholder="hms@bedrift.no" />
+            <StandardInput value={String(cfg.to ?? '')} onChange={(e) => set('to', e.target.value)} placeholder="hms@bedrift.no" />
           </Field>
           <Field label="Emne" className="sm:col-span-2">
-            <input value={String(cfg.subject ?? '')} onChange={(e) => set('subject', e.target.value)} className={WF_FIELD_INPUT} />
+            <StandardInput value={String(cfg.subject ?? '')} onChange={(e) => set('subject', e.target.value)} />
           </Field>
           <Field label="Innhold" className="sm:col-span-2">
-            <textarea rows={4} value={String(cfg.body ?? '')} onChange={(e) => set('body', e.target.value)} className={WF_FIELD_INPUT} />
+            <StandardTextarea rows={4} value={String(cfg.body ?? '')} onChange={(e) => set('body', e.target.value)} />
           </Field>
         </div>
       )
@@ -210,18 +222,20 @@ function StepConfigEditor({
       return (
         <div className="grid gap-3 sm:grid-cols-2">
           <Field label="URL" className="sm:col-span-2">
-            <input value={String(cfg.url ?? '')} onChange={(e) => set('url', e.target.value)} className={`${WF_FIELD_INPUT} font-mono text-xs`} placeholder="https://…" />
+            <StandardInput value={String(cfg.url ?? '')} onChange={(e) => set('url', e.target.value)} className="font-mono text-xs" placeholder="https://…" />
           </Field>
           <Field label="Metode">
-            <select value={String(cfg.method ?? 'POST')} onChange={(e) => set('method', e.target.value)} className={WF_FIELD_INPUT}>
-              <option>POST</option><option>PUT</option><option>GET</option><option>PATCH</option>
-            </select>
+            <SearchableSelect
+              value={String(cfg.method ?? 'POST')}
+              options={HTTP_METHOD_OPTIONS}
+              onChange={(val) => set('method', val)}
+            />
           </Field>
           <Field label="Headers (JSON)">
-            <textarea rows={2} value={String(cfg.headers ?? '{}')} onChange={(e) => set('headers', e.target.value)} className={`${WF_FIELD_INPUT} font-mono text-xs`} />
+            <StandardTextarea rows={2} value={String(cfg.headers ?? '{}')} onChange={(e) => set('headers', e.target.value)} className="font-mono text-xs" />
           </Field>
           <Field label="Body" className="sm:col-span-2">
-            <textarea rows={3} value={String(cfg.body ?? '{}')} onChange={(e) => set('body', e.target.value)} className={`${WF_FIELD_INPUT} font-mono text-xs`} />
+            <StandardTextarea rows={3} value={String(cfg.body ?? '{}')} onChange={(e) => set('body', e.target.value)} className="font-mono text-xs" />
           </Field>
         </div>
       )
@@ -230,10 +244,10 @@ function StepConfigEditor({
       return (
         <div className="grid gap-3 sm:grid-cols-2">
           <Field label="Til (telefonnummer)">
-            <input value={String(cfg.to ?? '')} onChange={(e) => set('to', e.target.value)} className={WF_FIELD_INPUT} placeholder="+47 …" />
+            <StandardInput value={String(cfg.to ?? '')} onChange={(e) => set('to', e.target.value)} placeholder="+47 …" />
           </Field>
           <Field label="Melding" className="sm:col-span-2">
-            <textarea rows={2} value={String(cfg.message ?? '')} onChange={(e) => set('message', e.target.value)} className={WF_FIELD_INPUT} />
+            <StandardTextarea rows={2} value={String(cfg.message ?? '')} onChange={(e) => set('message', e.target.value)} />
           </Field>
         </div>
       )
@@ -242,10 +256,10 @@ function StepConfigEditor({
       return (
         <div className="grid gap-3 sm:grid-cols-2">
           <Field label="Kanal">
-            <input value={String(cfg.channel ?? '')} onChange={(e) => set('channel', e.target.value)} className={WF_FIELD_INPUT} placeholder="#hms-varslinger" />
+            <StandardInput value={String(cfg.channel ?? '')} onChange={(e) => set('channel', e.target.value)} placeholder="#hms-varslinger" />
           </Field>
           <Field label="Melding" className="sm:col-span-2">
-            <textarea rows={2} value={String(cfg.message ?? '')} onChange={(e) => set('message', e.target.value)} className={WF_FIELD_INPUT} />
+            <StandardTextarea rows={2} value={String(cfg.message ?? '')} onChange={(e) => set('message', e.target.value)} />
           </Field>
         </div>
       )
@@ -254,10 +268,10 @@ function StepConfigEditor({
       return (
         <div className="grid gap-3 sm:grid-cols-2">
           <Field label="Webhook URL">
-            <input value={String(cfg.webhookUrl ?? '')} onChange={(e) => set('webhookUrl', e.target.value)} className={`${WF_FIELD_INPUT} font-mono text-xs`} />
+            <StandardInput value={String(cfg.webhookUrl ?? '')} onChange={(e) => set('webhookUrl', e.target.value)} className="font-mono text-xs" />
           </Field>
           <Field label="Melding" className="sm:col-span-2">
-            <textarea rows={2} value={String(cfg.message ?? '')} onChange={(e) => set('message', e.target.value)} className={WF_FIELD_INPUT} />
+            <StandardTextarea rows={2} value={String(cfg.message ?? '')} onChange={(e) => set('message', e.target.value)} />
           </Field>
         </div>
       )
@@ -283,7 +297,7 @@ function Field({
 }) {
   return (
     <div className={className}>
-      <label className={WF_FIELD_LABEL}>{label}</label>
+      <p className="mb-1 text-[10px] font-bold uppercase tracking-wider text-neutral-500">{label}</p>
       {children}
     </div>
   )
@@ -312,35 +326,34 @@ function StepRow({
         <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-neutral-200 text-[10px] font-bold text-neutral-600">
           {index + 1}
         </span>
-        <select
-          value={step.step_type}
-          onChange={(e) => {
-            const t = e.target.value as StepType
-            onChange({ step_type: t, config_json: defaultConfigForType(t) })
-          }}
-          className="min-w-0 flex-1 rounded-lg border border-neutral-200 bg-white px-2 py-1 text-xs font-medium focus:border-[#1a3d32] focus:outline-none"
-        >
-          {STEP_TYPE_OPTIONS.map((o) => (
-            <option key={o.value} value={o.value}>{o.label}</option>
-          ))}
-        </select>
+        <div className="min-w-0 flex-1">
+          <SearchableSelect
+            value={step.step_type}
+            options={STEP_TYPE_OPTIONS}
+            onChange={(val) => {
+              const t = val as StepType
+              onChange({ step_type: t, config_json: defaultConfigForType(t) })
+            }}
+            triggerClassName="py-1 text-xs"
+          />
+        </div>
         <div className="flex items-center gap-1 text-xs text-neutral-500">
           <span>+</span>
-          <input
+          <StandardInput
             type="number"
             min={0}
             value={step.delay_minutes}
             onChange={(e) => onChange({ delay_minutes: Number(e.target.value) })}
-            className="w-14 rounded border border-neutral-200 bg-white px-1.5 py-1 text-center text-xs focus:border-[#1a3d32] focus:outline-none"
+            className="w-14 px-1.5 py-1 text-center text-xs"
           />
           <span>min</span>
         </div>
-        <button type="button" onClick={() => setOpen((p) => !p)} className="p-0.5 text-neutral-400 hover:text-neutral-700">
+        <Button variant="ghost" size="icon" onClick={() => setOpen((p) => !p)}>
           <Chevron className="h-4 w-4" />
-        </button>
-        <button type="button" onClick={onDelete} className="p-0.5 text-neutral-300 hover:text-red-500">
+        </Button>
+        <Button variant="ghost" size="icon" onClick={onDelete} className="text-neutral-300 hover:text-red-500">
           <Trash2 className="h-3.5 w-3.5" />
-        </button>
+        </Button>
       </div>
       {open && (
         <div className="border-t border-neutral-200 bg-white px-4 py-3">
@@ -399,35 +412,37 @@ function RuleEditor({
     setDraft((d) => ({ ...d, steps: (d.steps ?? []).filter((_, i) => i !== index) }))
   }
 
+  const triggerEventOptions = [
+    { value: '', label: '— Velg hendelse —' },
+    ...triggerEvents,
+  ]
+
   return (
     <div className="space-y-4">
-      <div className={`${CARD} p-4`} style={CARD_SHADOW}>
+      <div className="rounded-lg border border-neutral-200 bg-white p-4 shadow-sm" style={CARD_SHADOW}>
         <div className="grid gap-4 sm:grid-cols-2">
           <Field label="Regelnavn">
-            <input
+            <StandardInput
               value={draft.name}
               onChange={(e) => patch({ name: e.target.value })}
-              className="mt-1 w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm focus:border-[#1a3d32] focus:outline-none"
+              className="mt-1"
             />
           </Field>
           <Field label="Utløsende hendelse">
-            <select
-              value={draft.trigger_event_name ?? ''}
-              onChange={(e) => patch({ trigger_event_name: e.target.value })}
-              className="mt-1 w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm focus:border-[#1a3d32] focus:outline-none"
-            >
-              <option value="">— Velg hendelse —</option>
-              {triggerEvents.map((ev) => (
-                <option key={ev.value} value={ev.value}>{ev.label}</option>
-              ))}
-            </select>
+            <div className="mt-1">
+              <SearchableSelect
+                value={draft.trigger_event_name ?? ''}
+                options={triggerEventOptions}
+                onChange={(val) => patch({ trigger_event_name: val || null })}
+              />
+            </div>
           </Field>
           <Field label="Beskrivelse" className="sm:col-span-2">
-            <textarea
+            <StandardTextarea
               rows={2}
               value={draft.description}
               onChange={(e) => patch({ description: e.target.value })}
-              className="mt-1 w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm focus:border-[#1a3d32] focus:outline-none"
+              className="mt-1"
             />
           </Field>
         </div>
@@ -442,14 +457,14 @@ function RuleEditor({
         </label>
       </div>
 
-      <div className={`${CARD} p-4`} style={CARD_SHADOW}>
+      <div className="rounded-lg border border-neutral-200 bg-white p-4 shadow-sm" style={CARD_SHADOW}>
         <div className="mb-3 flex items-center justify-between">
           <p className="text-xs font-semibold uppercase tracking-wide text-neutral-500">
             Steg ({draft.steps?.length ?? 0})
           </p>
-          <button type="button" onClick={addStep} className={BTN_SM}>
+          <Button variant="secondary" size="sm" onClick={addStep}>
             <Plus className="h-3.5 w-3.5" /> Legg til steg
-          </button>
+          </Button>
         </div>
 
         <div className="space-y-2">
@@ -471,23 +486,22 @@ function RuleEditor({
       </div>
 
       <div className="flex justify-between">
-        <button
-          type="button"
+        <Button
+          variant="danger"
+          size="sm"
           onClick={() => onDelete(draft.id)}
-          className={`${BTN_SM} border-red-200 text-red-600 hover:bg-red-50`}
         >
           <Trash2 className="h-3.5 w-3.5" /> Slett regel
-        </button>
-        <button
-          type="button"
+        </Button>
+        <Button
+          variant="primary"
+          size="sm"
           onClick={() => onSave(draft)}
           disabled={saving}
-          className={BTN_PRIMARY}
-          style={{ backgroundColor: '#1a3d32' }}
         >
           {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
           Lagre regel
-        </button>
+        </Button>
       </div>
     </div>
   )
@@ -668,9 +682,9 @@ export function WorkflowRulesTab({ supabase, triggerModule, module, triggerEvent
       <aside className="space-y-2">
         <div className="flex items-center justify-between">
           <p className="text-xs font-semibold uppercase tracking-wide text-neutral-500">Regler</p>
-          <button type="button" onClick={() => void createRule()} className={BTN_SM}>
+          <Button variant="secondary" size="sm" onClick={() => void createRule()}>
             <Plus className="h-3.5 w-3.5" /> Ny
-          </button>
+          </Button>
         </div>
         <Link
           to="/workflow"
@@ -749,8 +763,8 @@ export function WorkflowRulesTab({ supabase, triggerModule, module, triggerEvent
       {/* Rule editor */}
       <div>
         {error && (
-          <div className="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-            {error}
+          <div className="mb-4">
+            <WarningBox>{error}</WarningBox>
           </div>
         )}
         {selectedRule ? (

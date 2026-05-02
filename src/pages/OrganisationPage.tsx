@@ -44,23 +44,21 @@ import {
 } from '../lib/layoutLabTokens'
 import { useUiTheme } from '../hooks/useUiTheme'
 import { mergeLayoutPayload } from '../lib/layoutLabTokens'
-import { AB_SCORECARD_CREAM_DEEP } from './actionboard/actionBoardScorecardLayout'
-import { WORKPLACE_FOREST } from '../components/layout/WorkplaceChrome'
-import { WorkplaceBoardTabStrip } from '../components/layout/WorkplaceBoardTabStrip'
 import { WorkplacePageHeading1 } from '../components/layout/WorkplacePageHeading1'
 import {
   WorkplaceStandardFormPanel,
   WPSTD_FORM_FIELD_LABEL,
   WPSTD_FORM_INSET,
-  WPSTD_FORM_INPUT_ON_WHITE,
   WPSTD_FORM_LEAD,
   WPSTD_FORM_ROW_GRID,
 } from '../components/layout/WorkplaceStandardFormPanel'
 import {
   WorkplaceStandardListLayout,
-  WORKPLACE_LIST_LAYOUT_CTA,
   type WorkplaceListViewMode,
 } from '../components/layout/WorkplaceStandardListLayout'
+import { Tabs } from '../components/ui/Tabs'
+import { Button } from '../components/ui/Button'
+import { StandardInput } from '../components/ui/Input'
 import type { EmploymentType, OrgEmployee, OrgEmployeeMandate, OrgUnit, OrgUnitKind, UserGroup } from '../types/organisation'
 import { MANDATE_TYPE_LABELS, MANDATE_TYPE_LAW_REFS } from '../types/organisation'
 import { fetchEnhetByOrgnr } from '../lib/brreg'
@@ -90,8 +88,7 @@ const ROLE_OPTIONS = ['Leder', 'Fagansvarlig', 'Fagmedarbeider', 'Saksbehandler'
 function OrgInsightTanStat({ big, title, sub }: { big: string; title: string; sub: string }) {
   return (
     <div
-      className="rounded-lg border border-neutral-200/60 px-5 py-4"
-      style={{ backgroundColor: AB_SCORECARD_CREAM_DEEP }}
+      className="rounded-lg border border-neutral-200/60 px-5 py-4 bg-[#EFE8DC]"
     >
       <p className="text-3xl font-bold tabular-nums text-neutral-900">{big}</p>
       <p className="mt-1 text-sm font-medium text-neutral-800">{title}</p>
@@ -671,7 +668,7 @@ export function OrganisationPage() {
     }))
     rows.sort((a, b) => b.count - a.count)
     const max = Math.max(...rows.map((r) => r.count), 1)
-    const colors = ['#2563eb', '#dc2626', WORKPLACE_FOREST, '#ea580c'] as const
+    const colors = ['#2563eb', '#dc2626', '#1a3d32', '#ea580c'] as const
     return rows.map((r, i) => ({ ...r, color: colors[i % colors.length], max }))
   }, [insightStats.byKind])
 
@@ -1343,7 +1340,7 @@ export function OrganisationPage() {
                       type="button"
                       onClick={() => setOrgSlidePanel({ kind: 'employee', mode: 'create' })}
                       className={`${HERO_ACTION_CLASS} text-white shadow-sm hover:opacity-95`}
-                      style={{ backgroundColor: WORKPLACE_FOREST }}
+                      style={{ backgroundColor: '#1a3d32' }}
                     >
                       <Plus className="size-4 shrink-0" /> Ny ansatt
                     </button>
@@ -1352,11 +1349,10 @@ export function OrganisationPage() {
               )
             }
             menu={
-              <WorkplaceBoardTabStrip
-                ariaLabel="Organisasjon — faner"
+              <Tabs
                 items={orgTabItems}
                 activeId={tab}
-                onSelect={(id) => setTab(id as Tab)}
+                onChange={(id) => setTab(id as Tab)}
               />
             }
           />
@@ -2827,7 +2823,7 @@ export function OrganisationPage() {
             id="org-new-unit"
             className="mt-2 overflow-hidden rounded-xl border border-neutral-200/80"
             onSubmit={handleCreateUnitLegacy}
-            style={{ backgroundColor: WORKPLACE_FOREST }}
+            style={{ backgroundColor: '#1a3d32' }}
           >
             <div className={ORG_MERGED_PANEL}>
               <div className={ORG_MERGED_COL}>

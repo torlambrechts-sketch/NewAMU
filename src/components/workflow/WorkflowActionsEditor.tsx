@@ -10,11 +10,19 @@ import {
   defaultTaskAction,
   summarizeAction,
 } from './workflowActionDefaults'
-import { WF_FIELD_INPUT, WF_FIELD_LABEL, WF_LEAD } from './workflowPanelStyles'
+import { Button } from '../ui/Button'
+import { StandardInput } from '../ui/Input'
+import { StandardTextarea } from '../ui/Textarea'
+import { SearchableSelect } from '../ui/SearchableSelect'
 
-const R = 'rounded-none'
-const BTN =
-  'inline-flex h-8 shrink-0 items-center justify-center gap-1 rounded-none border border-neutral-300 bg-white px-2 text-xs font-medium text-neutral-800 hover:bg-neutral-50'
+const FIELD_LABEL = 'mb-1 text-[10px] font-bold uppercase tracking-wider text-neutral-500'
+const WF_LEAD = 'text-sm leading-relaxed text-neutral-600'
+
+const WEBHOOK_METHOD_OPTIONS = [
+  { value: 'POST', label: 'POST' },
+  { value: 'PUT', label: 'PUT' },
+  { value: 'GET', label: 'GET' },
+]
 
 type DialogKind = 'email' | 'notification' | 'webhook' | null
 
@@ -37,22 +45,20 @@ function DeviationFields({
         «Inspeksjonsmodul».
       </p>
       <div>
-        <label className={WF_FIELD_LABEL}>Tittel-prefiks (valgfritt)</label>
-        <input
+        <label className={FIELD_LABEL}>Tittel-prefiks (valgfritt)</label>
+        <StandardInput
           value={a.titlePrefix ?? ''}
           onChange={(e) => onPatch({ titlePrefix: e.target.value || undefined })}
           placeholder="Standardtittel fra rundetittel"
-          className={WF_FIELD_INPUT}
         />
       </div>
       <div>
-        <label className={WF_FIELD_LABEL}>Frist (dager)</label>
-        <input
+        <label className={FIELD_LABEL}>Frist (dager)</label>
+        <StandardInput
           type="number"
           min={0}
           value={a.dueInDays ?? 1}
           onChange={(e) => onPatch({ dueInDays: Number(e.target.value) || 1 })}
-          className={WF_FIELD_INPUT}
         />
       </div>
       <label className={`flex items-center gap-2 ${WF_LEAD}`}>
@@ -78,38 +84,34 @@ function TaskFields({
   return (
     <div className="space-y-4 text-sm">
       <div>
-        <label className={WF_FIELD_LABEL}>Tittel</label>
-        <input
+        <label className={FIELD_LABEL}>Tittel</label>
+        <StandardInput
           value={t.title}
           onChange={(e) => onPatch({ title: e.target.value })}
-          className={WF_FIELD_INPUT}
         />
       </div>
       <div>
-        <label className={WF_FIELD_LABEL}>Beskrivelse</label>
-        <textarea
+        <label className={FIELD_LABEL}>Beskrivelse</label>
+        <StandardTextarea
           value={t.description ?? ''}
           onChange={(e) => onPatch({ description: e.target.value })}
           rows={2}
-          className={WF_FIELD_INPUT}
         />
       </div>
       <div>
-        <label className={WF_FIELD_LABEL}>Ansvarlig (tekst)</label>
-        <input
+        <label className={FIELD_LABEL}>Ansvarlig (tekst)</label>
+        <StandardInput
           value={t.assignee ?? ''}
           onChange={(e) => onPatch({ assignee: e.target.value })}
-          className={WF_FIELD_INPUT}
         />
       </div>
       <div>
-        <label className={WF_FIELD_LABEL}>Frist (dager)</label>
-        <input
+        <label className={FIELD_LABEL}>Frist (dager)</label>
+        <StandardInput
           type="number"
           min={0}
           value={t.dueInDays ?? 7}
           onChange={(e) => onPatch({ dueInDays: Number(e.target.value) || 0 })}
-          className={WF_FIELD_INPUT}
         />
       </div>
       <label className={`flex items-center gap-2 ${WF_LEAD}`}>
@@ -258,42 +260,42 @@ export function WorkflowActionsEditor({
   return (
     <div className="space-y-3 text-sm">
       <div className="flex flex-wrap gap-1.5">
-        <button type="button" className={BTN} onClick={() => onChange([...actions, defaultTaskAction()])}>
+        <Button variant="secondary" size="sm" onClick={() => onChange([...actions, defaultTaskAction()])}>
           <Plus className="size-3.5" /> Oppgave
-        </button>
-        <button type="button" className={BTN} onClick={() => onChange([...actions, defaultCreateDeviationAction()])}>
+        </Button>
+        <Button variant="secondary" size="sm" onClick={() => onChange([...actions, defaultCreateDeviationAction()])}>
           <AlertTriangle className="size-3.5" /> Avvik…
-        </button>
-        <button type="button" className={BTN} onClick={() => openNewDialog('email')}>
+        </Button>
+        <Button variant="secondary" size="sm" onClick={() => openNewDialog('email')}>
           <Mail className="size-3.5" /> E-post…
-        </button>
-        <button type="button" className={BTN} onClick={() => openNewDialog('notification')}>
+        </Button>
+        <Button variant="secondary" size="sm" onClick={() => openNewDialog('notification')}>
           <Radio className="size-3.5" /> Varsling…
-        </button>
-        <button type="button" className={BTN} onClick={() => openNewDialog('webhook')}>
+        </Button>
+        <Button variant="secondary" size="sm" onClick={() => openNewDialog('webhook')}>
           <Webhook className="size-3.5" /> Webhook…
-        </button>
-        <button type="button" className={BTN} onClick={() => onChange([...actions, defaultLogOnlyAction()])}>
+        </Button>
+        <Button variant="secondary" size="sm" onClick={() => onChange([...actions, defaultLogOnlyAction()])}>
           Logg
-        </button>
+        </Button>
       </div>
 
       <ul className="space-y-2">
         {actions.map((a, i) => (
-          <li key={i} className={`${R} flex flex-wrap items-start gap-2 border border-neutral-200/90 bg-white p-3`}>
-            <span className="shrink-0 rounded-none bg-white px-1.5 py-0.5 text-[10px] font-bold uppercase text-neutral-600">
+          <li key={i} className="flex flex-wrap items-start gap-2 rounded-lg border border-neutral-200/90 bg-white p-3">
+            <span className="shrink-0 rounded bg-neutral-100 px-1.5 py-0.5 text-[10px] font-bold uppercase text-neutral-600">
               {a.type.replace('_', ' ')}
             </span>
             <div className="min-w-0 flex-1 text-xs text-neutral-700">{summarizeAction(a)}</div>
             <div className="flex shrink-0 gap-1">
               {(a.type === 'send_email' || a.type === 'send_notification' || a.type === 'call_webhook') && (
-                <button type="button" className={BTN} onClick={() => openEditDialog(i)}>
+                <Button variant="ghost" size="sm" onClick={() => openEditDialog(i)}>
                   Rediger…
-                </button>
+                </Button>
               )}
-              <button type="button" className={`${BTN} text-red-700`} onClick={() => removeAt(i)} aria-label="Slett">
+              <Button variant="ghost" size="icon" onClick={() => removeAt(i)} aria-label="Slett" className="text-red-600 hover:text-red-700">
                 <Trash2 className="size-3.5" />
-              </button>
+              </Button>
             </div>
             {a.type === 'create_deviation' ? (
               <div className="w-full border-t border-neutral-200 pt-2">
@@ -307,11 +309,10 @@ export function WorkflowActionsEditor({
             ) : null}
             {a.type === 'log_only' ? (
               <div className="w-full border-t border-neutral-200/80 pt-3">
-                <label className={WF_FIELD_LABEL}>Merknad</label>
-                <input
+                <label className={FIELD_LABEL}>Merknad</label>
+                <StandardInput
                   value={a.note ?? ''}
                   onChange={(e) => patchLog(i, e.target.value)}
-                  className={WF_FIELD_INPUT}
                 />
               </div>
             ) : null}
@@ -319,7 +320,7 @@ export function WorkflowActionsEditor({
         ))}
       </ul>
 
-      {actions.length === 0 ? <p className="text-xs text-amber-800">Legg til minst én handling.</p> : null}
+      {actions.length === 0 ? <p className="text-xs text-neutral-500">Legg til minst én handling.</p> : null}
 
       {dialog ? (
         <>
@@ -329,7 +330,7 @@ export function WorkflowActionsEditor({
             className="fixed inset-0 z-[80] bg-black/40"
             onClick={closeDialog}
           />
-          <div className="fixed left-1/2 top-1/2 z-[90] w-[min(100%,28rem)] -translate-x-1/2 -translate-y-1/2 rounded-none border border-neutral-200/90 bg-[#f4f1ea] p-5 shadow-xl">
+          <div className="fixed left-1/2 top-1/2 z-[90] w-[min(100%,28rem)] -translate-x-1/2 -translate-y-1/2 rounded-xl border border-neutral-200/90 bg-white p-5 shadow-xl">
             {dialog === 'email' ? (
               <>
                 <h4 className="text-sm font-semibold text-neutral-900">
@@ -340,50 +341,38 @@ export function WorkflowActionsEditor({
                 </p>
                 <div className="mt-4 space-y-4">
                   <div>
-                    <label className={WF_FIELD_LABEL}>Fra (e-post)</label>
-                    <input
+                    <label className={FIELD_LABEL}>Fra (e-post)</label>
+                    <StandardInput
                       value={emailForm.fromAddress}
                       onChange={(e) => setEmailForm((f: WorkflowSendEmail) => ({ ...f, fromAddress: e.target.value }))}
-                      className={WF_FIELD_INPUT}
                     />
                   </div>
                   <div>
-                    <label className={WF_FIELD_LABEL}>Til (e-post)</label>
-                    <input
+                    <label className={FIELD_LABEL}>Til (e-post)</label>
+                    <StandardInput
                       value={emailForm.toAddress}
                       onChange={(e) => setEmailForm((f: WorkflowSendEmail) => ({ ...f, toAddress: e.target.value }))}
-                      className={WF_FIELD_INPUT}
                     />
                   </div>
                   <div>
-                    <label className={WF_FIELD_LABEL}>Emne</label>
-                    <input
+                    <label className={FIELD_LABEL}>Emne</label>
+                    <StandardInput
                       value={emailForm.subject}
                       onChange={(e) => setEmailForm((f: WorkflowSendEmail) => ({ ...f, subject: e.target.value }))}
-                      className={WF_FIELD_INPUT}
                     />
                   </div>
                   <div>
-                    <label className={WF_FIELD_LABEL}>Innhold</label>
-                    <textarea
+                    <label className={FIELD_LABEL}>Innhold</label>
+                    <StandardTextarea
                       value={emailForm.body}
                       onChange={(e) => setEmailForm((f: WorkflowSendEmail) => ({ ...f, body: e.target.value }))}
                       rows={5}
-                      className={WF_FIELD_INPUT}
                     />
                   </div>
                 </div>
                 <div className="mt-4 flex justify-end gap-2">
-                  <button type="button" className={BTN} onClick={closeDialog}>
-                    Avbryt
-                  </button>
-                  <button
-                    type="button"
-                    className={`${BTN} border-[#1a3d32] bg-[#1a3d32] text-white hover:bg-[#142e26]`}
-                    onClick={saveEmail}
-                  >
-                    OK
-                  </button>
+                  <Button variant="ghost" size="sm" onClick={closeDialog}>Avbryt</Button>
+                  <Button variant="primary" size="sm" onClick={saveEmail}>OK</Button>
                 </div>
               </>
             ) : null}
@@ -396,43 +385,32 @@ export function WorkflowActionsEditor({
                 </p>
                 <div className="mt-4 space-y-4">
                   <div>
-                    <label className={WF_FIELD_LABEL}>Tittel</label>
-                    <input
+                    <label className={FIELD_LABEL}>Tittel</label>
+                    <StandardInput
                       value={notifForm.title}
                       onChange={(e) => setNotifForm((f: WorkflowSendNotification) => ({ ...f, title: e.target.value }))}
-                      className={WF_FIELD_INPUT}
                     />
                   </div>
                   <div>
-                    <label className={WF_FIELD_LABEL}>Tekst</label>
-                    <textarea
+                    <label className={FIELD_LABEL}>Tekst</label>
+                    <StandardTextarea
                       value={notifForm.body}
                       onChange={(e) => setNotifForm((f: WorkflowSendNotification) => ({ ...f, body: e.target.value }))}
                       rows={3}
-                      className={WF_FIELD_INPUT}
                     />
                   </div>
                   <div>
-                    <label className={WF_FIELD_LABEL}>Kategori</label>
-                    <input
+                    <label className={FIELD_LABEL}>Kategori</label>
+                    <StandardInput
                       value={notifForm.category ?? ''}
                       onChange={(e) => setNotifForm((f: WorkflowSendNotification) => ({ ...f, category: e.target.value }))}
-                      className={WF_FIELD_INPUT}
                       placeholder="workflow"
                     />
                   </div>
                 </div>
                 <div className="mt-4 flex justify-end gap-2">
-                  <button type="button" className={BTN} onClick={closeDialog}>
-                    Avbryt
-                  </button>
-                  <button
-                    type="button"
-                    className={`${BTN} border-[#1a3d32] bg-[#1a3d32] text-white hover:bg-[#142e26]`}
-                    onClick={saveNotif}
-                  >
-                    OK
-                  </button>
+                  <Button variant="ghost" size="sm" onClick={closeDialog}>Avbryt</Button>
+                  <Button variant="primary" size="sm" onClick={saveNotif}>OK</Button>
                 </div>
               </>
             ) : null}
@@ -445,60 +423,48 @@ export function WorkflowActionsEditor({
                 </p>
                 <div className="mt-4 space-y-4">
                   <div>
-                    <label className={WF_FIELD_LABEL}>URL</label>
-                    <input
+                    <label className={FIELD_LABEL}>URL</label>
+                    <StandardInput
                       value={webhookForm.url}
                       onChange={(e) => setWebhookForm((f: WorkflowCallWebhook) => ({ ...f, url: e.target.value }))}
-                      className={`${WF_FIELD_INPUT} font-mono text-xs`}
+                      className="font-mono text-xs"
                     />
                   </div>
                   <div>
-                    <label className={WF_FIELD_LABEL}>Metode</label>
-                    <select
+                    <label className={FIELD_LABEL}>Metode</label>
+                    <SearchableSelect
                       value={webhookForm.method ?? 'POST'}
-                      onChange={(e) =>
+                      options={WEBHOOK_METHOD_OPTIONS}
+                      onChange={(val) =>
                         setWebhookForm((f: WorkflowCallWebhook) => ({
                           ...f,
-                          method: e.target.value as 'POST' | 'PUT' | 'GET',
+                          method: val as 'POST' | 'PUT' | 'GET',
                         }))
                       }
-                      className={WF_FIELD_INPUT}
-                    >
-                      <option value="POST">POST</option>
-                      <option value="PUT">PUT</option>
-                      <option value="GET">GET</option>
-                    </select>
+                    />
                   </div>
                   <div>
-                    <label className={WF_FIELD_LABEL}>Headers (JSON)</label>
-                    <textarea
+                    <label className={FIELD_LABEL}>Headers (JSON)</label>
+                    <StandardTextarea
                       value={webhookForm.headersJson ?? '{}'}
                       onChange={(e) => setWebhookForm((f: WorkflowCallWebhook) => ({ ...f, headersJson: e.target.value }))}
                       rows={2}
-                      className={`${WF_FIELD_INPUT} font-mono text-xs`}
+                      className="font-mono text-xs"
                     />
                   </div>
                   <div>
-                    <label className={WF_FIELD_LABEL}>Body</label>
-                    <textarea
+                    <label className={FIELD_LABEL}>Body</label>
+                    <StandardTextarea
                       value={webhookForm.body ?? ''}
                       onChange={(e) => setWebhookForm((f: WorkflowCallWebhook) => ({ ...f, body: e.target.value }))}
                       rows={3}
-                      className={`${WF_FIELD_INPUT} font-mono text-xs`}
+                      className="font-mono text-xs"
                     />
                   </div>
                 </div>
                 <div className="mt-4 flex justify-end gap-2">
-                  <button type="button" className={BTN} onClick={closeDialog}>
-                    Avbryt
-                  </button>
-                  <button
-                    type="button"
-                    className={`${BTN} border-[#1a3d32] bg-[#1a3d32] text-white hover:bg-[#142e26]`}
-                    onClick={saveWebhook}
-                  >
-                    OK
-                  </button>
+                  <Button variant="ghost" size="sm" onClick={closeDialog}>Avbryt</Button>
+                  <Button variant="primary" size="sm" onClick={saveWebhook}>OK</Button>
                 </div>
               </>
             ) : null}
