@@ -66,7 +66,7 @@ import IkHubPage from './pages/IkHubPage';
 import IkMalPage from './pages/IkMalPage';
 import IkTiltaksplanPage from './pages/IkTiltaksplanPage';
 import IkMedvirkningPage from './pages/IkMedvirkningPage';
-import IkKompetansePage.tsx from './pages/IkKompetansePage';
+import IkKompetansePage from './pages/IkKompetansePage';
 import IkLovregisterPage from './pages/IkLovregisterPage';
 import IkAnnualReviewPage from './pages/IkAnnualReviewPage';
 import WorkflowModulePage from './pages/WorkflowModulePage';
@@ -85,7 +85,6 @@ import PlatformBoxDesignerPage from './pages/platform/PlatformBoxDesignerPage';
 import PlatformRoadmapPage from './pages/platform/PlatformRoadmapPage';
 import PlatformUiAdvancedPage from './pages/platform/PlatformUiAdvancedPage';
 import InviteAcceptPage from './pages/InviteAcceptPage';
-import ProfilePage from './pages/ProfilePage';
 import NotFound from './pages/NotFound';
 
 const App: React.FC = () => {
