@@ -5,6 +5,7 @@ import { useDocuments } from '../../hooks/useDocuments'
 import { useOrgSetupContext } from '../../hooks/useOrgSetupContext'
 import { ModuleSectionCard, MODULE_TABLE_TH, MODULE_TABLE_TR_BODY } from '../../components/module'
 import { Button } from '../../components/ui/Button'
+import { InsightCardShell, DonutChartBlock, HorizontalMetricRow } from '../../components/ui/InsightPanels'
 import type { OrganizationMemberRow, ProfileRow } from '../../types/organization'
 import type { AcknowledgementAudience, WikiPage } from '../../types/documents'
 
@@ -284,29 +285,109 @@ export function ComplianceDashboard() {
 
   const total = coverage.length
   const covered = coverage.filter((c) => c.covered).length
+  const coveredOk = coverage.filter((c) => c.covered && !c.stale).length
+  const staleCount = coverage.filter((c) => c.covered && c.stale).length
+  const missing = total - covered
   const pct = total ? Math.round((covered / total) * 100) : 0
+  const donutSegments =
+    pct === 0
+      ? [{ pct: 100, color: '#e5e7eb' }]
+      : pct === 100
+        ? [{ pct: 100, color: '#10b981' }]
+        : [
+            { pct, color: '#10b981' },
+            { pct: 100 - pct, color: '#e5e7eb' },
+          ]
+  const barMax = Math.max(1, coveredOk, staleCount, missing)
 
   return (
     <>
-      <ModuleSectionCard className="mt-6">
-        <div className="flex flex-wrap items-center justify-between gap-4">
-          <div>
-            <div className="text-4xl font-bold tabular-nums text-[#1a3d32]">{pct}%</div>
-            <div className="text-sm text-neutral-600">av {total} lovkrav dekket av publiserte sider</div>
+      {/* ── Top row: two charts + verneombud info box ────────────────────── */}
+      <div className="mt-6 grid gap-4 md:grid-cols-3">
+
+        {/* Graph 1 — Coverage donut */}
+        <InsightCardShell className="flex flex-col overflow-hidden">
+          <div className="border-b border-neutral-100 px-4 py-3">
+            <p className="text-[11px] font-semibold uppercase tracking-wide text-neutral-500">Lovkrav-dekning</p>
+            <p className="mt-0.5 text-sm text-neutral-600">Publiserte sider mot aktive krav</p>
           </div>
-          <div className="text-right text-sm text-neutral-500">
-            <div>
-              <strong className="text-emerald-700">{covered}</strong> dekket
-            </div>
-            <div>
-              <strong className="text-amber-600">{total - covered}</strong> mangler
-            </div>
+          <div className="flex flex-1 flex-col items-center justify-center gap-3 px-4 py-5">
+            <DonutChartBlock
+              size={132}
+              segments={donutSegments}
+              centerLabel="Dekket"
+              centerValue={`${pct}%`}
+            />
+            <p className="text-center text-xs text-neutral-500">
+              <strong className="text-emerald-700">{covered}</strong> av {total} lovkrav dekket av publiserte sider
+            </p>
           </div>
-        </div>
-        <div className="mt-4 h-3 overflow-hidden rounded-full bg-neutral-200">
-          <div className="h-full rounded-full bg-emerald-500 transition-all" style={{ width: `${pct}%` }} />
-        </div>
-      </ModuleSectionCard>
+        </InsightCardShell>
+
+        {/* Graph 2 — Status breakdown bars */}
+        <InsightCardShell className="flex flex-col overflow-hidden">
+          <div className="border-b border-neutral-100 px-4 py-3">
+            <p className="text-[11px] font-semibold uppercase tracking-wide text-neutral-500">Statusfordeling</p>
+            <p className="mt-0.5 text-sm text-neutral-600">Krav etter dokumentasjonsstatus</p>
+          </div>
+          <div className="flex flex-1 flex-col justify-center space-y-3 px-4 py-5">
+            <HorizontalMetricRow label="Dekket" value={coveredOk} max={barMax} barColor="#10b981" />
+            <HorizontalMetricRow label="Forfalt revisjon" value={staleCount} max={barMax} barColor="#f59e0b" />
+            <HorizontalMetricRow label="Mangler" value={missing} max={barMax} barColor="#f87171" />
+          </div>
+          <div className="border-t border-neutral-100 bg-neutral-50/60 px-4 py-3">
+            <p className="text-2xl font-bold tabular-nums text-neutral-900">{total}</p>
+            <p className="text-xs text-neutral-600">Totalt lovkrav spores</p>
+          </div>
+        </InsightCardShell>
+
+        {/* Info box — Verneombud */}
+        <InsightCardShell className="flex flex-col overflow-hidden">
+          <div className="border-b border-neutral-100 px-4 py-3">
+            <p className="text-[11px] font-semibold uppercase tracking-wide text-neutral-500">AML §6-1</p>
+            <p className="mt-0.5 font-semibold text-neutral-900">Verneombud</p>
+          </div>
+          <div className="flex flex-1 flex-col gap-3 px-4 py-5">
+            <p className="text-sm text-neutral-600">
+              Mandat og valgperiode — revisjonsfrist følger 2-årsvalg.
+            </p>
+            <div>
+              {verneombudMandate.status === 'covered' ? (
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-medium text-emerald-800">
+                  <CheckCircle2 className="size-3.5" /> Dokumentert
+                </span>
+              ) : verneombudMandate.status === 'stale' ? (
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-100 px-2.5 py-1 text-xs font-medium text-amber-800">
+                  ⚠ Revisjon forfalt
+                </span>
+              ) : (
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-red-50 px-2.5 py-1 text-xs font-medium text-red-700">
+                  <Circle className="size-3.5" /> Ikke dokumentert
+                </span>
+              )}
+            </div>
+            {verneombudMandate.mandateExpires ? (
+              <div className="rounded-lg border border-neutral-100 bg-neutral-50 px-3 py-2.5">
+                <p className="text-[10px] font-semibold uppercase tracking-wide text-neutral-400">Mandat utløper</p>
+                <p className="mt-0.5 text-sm font-medium text-neutral-800">
+                  {new Date(verneombudMandate.mandateExpires).toLocaleDateString('no-NO')}
+                </p>
+                {verneombudMandate.page ? (
+                  <Link
+                    to={`/documents/page/${verneombudMandate.page.id}`}
+                    className="mt-1 block truncate text-xs font-medium text-[#1a3d32] hover:underline"
+                  >
+                    {verneombudMandate.page.title}
+                  </Link>
+                ) : null}
+              </div>
+            ) : (
+              <p className="text-xs text-amber-800">Ingen publisert mandat-side (AML §6-1)</p>
+            )}
+          </div>
+        </InsightCardShell>
+
+      </div>
 
       {employeeCount >= 50 ? (
         <div className="mt-8 space-y-4">
