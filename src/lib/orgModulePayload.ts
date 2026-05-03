@@ -16,6 +16,7 @@ export type OrgModulePayloadKey =
   | 'amu_election'
   | 'amu_settings'
   | 'survey_settings'
+  | 'documents_settings'
 
 export function orgModuleSnapKey(moduleKey: OrgModulePayloadKey, orgId: string, userId: string) {
   return `atics-org-mod:${moduleKey}:${orgId}:${userId}`

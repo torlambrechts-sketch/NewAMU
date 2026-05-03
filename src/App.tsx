@@ -76,7 +76,7 @@ import { WikiPageEditor } from './pages/documents/WikiPageEditor'
 import { ComplianceDashboard } from './pages/documents/ComplianceDashboard'
 import { AnnualReviewPage } from './pages/documents/AnnualReviewPage'
 import { InspectionArbeidstilsynetExportPage } from './pages/documents/InspectionArbeidstilsynetExportPage'
-import { DocumentTemplatesSettings } from './pages/documents/DocumentTemplatesSettings'
+
 import { DocumentsModuleAdminPage } from './pages/DocumentsModuleAdminPage'
 import { DocumentReviewsPage } from './pages/documents/DocumentReviewsPage'
 import { DocumentEditorTestPage } from './pages/documents/DocumentEditorTestPage'
