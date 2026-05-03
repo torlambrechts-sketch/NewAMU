@@ -1,378 +1,204 @@
-import {
-  createBrowserRouter,
-  createRoutesFromElements,
-  Navigate,
-  Outlet,
-  Route,
-  RouterProvider,
-} from 'react-router-dom'
-import { OrgSetupProvider } from './context/OrgSetupProvider'
-import { UiThemeProvider } from './context/UiThemeProvider'
-import { I18nProvider } from './context/I18nProvider'
-import { AticsShell } from './components/layout/AticsShell'
-import { OrgGate } from './components/OrgGate'
-import { PermissionGate } from './components/PermissionGate'
-import { OnboardingWizard } from './pages/OnboardingWizard'
-import { AuthPage } from './pages/AuthPage'
-import { InviteAcceptPage } from './pages/InviteAcceptPage'
-import { AdminPage } from './pages/AdminPage'
-import { ProfilePage } from './pages/ProfilePage'
-import { ReportingEnginePage } from './pages/ReportingEnginePage'
-import { WorkflowModulePage } from './pages/WorkflowModulePage'
-import { WorkplaceReportingPage } from './pages/WorkplaceReportingPage'
-import { WorkplaceDashboardPage } from './pages/WorkplaceDashboardPage'
-import { WorkplaceIncidentsPage } from './pages/WorkplaceIncidentsPage'
-import { WorkplaceAnonymousAmlPage } from './pages/WorkplaceAnonymousAmlPage'
-import { WorkplaceAnonymousAmlSettingsPage } from './pages/WorkplaceAnonymousAmlSettingsPage'
-import { PublicAnonymousAmlPage } from './pages/PublicAnonymousAmlPage'
-import { HrComplianceHub } from './pages/hr/HrComplianceHub'
-import { HrDiscussionPage } from './pages/hr/HrDiscussionPage'
-import { HrConsultationPage } from './pages/hr/HrConsultationPage'
-import { HrORosPage } from './pages/hr/HrORosPage'
-import { HrmEmployees } from './pages/HrmEmployees'
-import { HrmSalary } from './pages/HrmSalary'
-import { NotFound } from './pages/NotFound'
-import { CouncilModule } from './pages/CouncilModule'
-import { AmuPage } from '../modules/amu/AmuPage'
-import { AmuHubPage } from './pages/AmuHubPage'
-import { AmuModuleAdminPage } from './pages/AmuModuleAdminPage'
-import { MembersModule } from './pages/MembersModule'
-import { HseModule } from './pages/HseModule'
-import { OrgHealthModule } from './pages/OrgHealthModule'
-import { OrgHealthSettings } from './pages/OrgHealthSettings'
-import { InternalControlModule } from './pages/InternalControlModule'
-import { YearskontrollModule } from './pages/YearskontrollModule'
-import { ComplianceDashboardPage } from './pages/ComplianceDashboardPage'
-import { OrganisationPage } from './pages/OrganisationPage'
-import { AarshjulPage } from './pages/aarshjul/AarshjulPage'
-import { ActionBoardPage } from './pages/actionboard/ActionBoardPage'
-import { WorkplaceChrome } from './components/layout/WorkplaceChrome'
-import { ModuleLegalFrameworkProvider } from './components/module'
-import { WorkplacePublishedComposerProvider } from './context/WorkplacePublishedComposerProvider'
-import { ProjectDashboard } from './pages/ProjectDashboard'
-import { WelcomeDashboardPage } from './pages/WelcomeDashboardPage'
-import { TasksPage } from './pages/TasksPage'
-import { WorkspaceAuditLogPage } from './pages/WorkspaceAuditLogPage'
-import { LearningLayout } from './components/learning/LearningLayout'
-import { LearningDashboard } from './pages/learning/LearningDashboard'
-import { LearningCoursesList } from './pages/learning/LearningCoursesList'
-import { LearningCourseBuilder } from './pages/learning/LearningCourseBuilder'
-import { LearningPlayer } from './pages/learning/LearningPlayer'
-import { LearningCertifications } from './pages/learning/LearningCertifications'
-import { LearningInsights } from './pages/learning/LearningInsights'
-import { LearningParticipants } from './pages/learning/LearningParticipants'
-import { LearningSettings } from './pages/learning/LearningSettings'
-import { LearningFlowEntry } from './pages/learning/LearningFlowEntry'
-import { LearningComplianceMatrix } from './pages/learning/LearningComplianceMatrix'
-import { LearningPathsPage } from './pages/learning/LearningPathsPage'
-import { LearningExternalTraining } from './pages/learning/LearningExternalTraining'
-import { LearningCertificatePrintPage } from './pages/learning/LearningCertificatePrintPage'
-import { DocumentsHome } from './pages/documents/DocumentsHome'
-import { DocumentsMalbibliotekPage } from './pages/documents/DocumentsMalbibliotekPage'
-import { WikiSpaceView } from './pages/documents/WikiSpaceView'
-import { WikiPageView } from './pages/documents/WikiPageView'
-import { WikiPageEditRedirect } from './pages/documents/WikiPageEditRedirect'
-import { WikiPageEditor } from './pages/documents/WikiPageEditor'
-import { ComplianceDashboard } from './pages/documents/ComplianceDashboard'
-import { AnnualReviewPage } from './pages/documents/AnnualReviewPage'
-import { InspectionArbeidstilsynetExportPage } from './pages/documents/InspectionArbeidstilsynetExportPage'
-import { DocumentTemplatesSettings } from './pages/documents/DocumentTemplatesSettings'
-import { DocumentsModuleAdminPage } from './pages/DocumentsModuleAdminPage'
-import { DocumentReviewsPage } from './pages/documents/DocumentReviewsPage'
-import { DocumentEditorTestPage } from './pages/documents/DocumentEditorTestPage'
-import { DocumentKandidatdetaljLayoutTestPage } from './pages/documents/DocumentKandidatdetaljLayoutTestPage'
-import { WikiPageReferenceEditor } from './pages/documents/WikiPageReferenceEditor'
-import { DocumentsOrgTemplateEditorPage } from './pages/documents/DocumentsOrgTemplateEditorPage'
-import { DocumentsModuleShellLayout, DocumentsWikiOutlet } from '../modules/documents'
-import { RouteErrorBoundary } from './components/RouteErrorBoundary'
-import { DocumentsLayout } from './hooks/useDocuments'
-import { PlatformAdminLoginPage } from './pages/platform/PlatformAdminLoginPage'
-import { PlatformAdminLayout } from './pages/platform/PlatformAdminLayout'
-import { PlatformAdminDashboardPage } from './pages/platform/PlatformAdminDashboardPage'
-import { PlatformRoadmapPage } from './pages/platform/PlatformRoadmapPage'
-import { LayoutLabPage } from './pages/platform/LayoutLabPage'
-import { PlatformUiAdvancedPage } from './pages/platform/PlatformUiAdvancedPage'
-import { PlatformBoxDesignerPage } from './pages/platform/PlatformBoxDesignerPage'
-import { PlatformLayoutCompositionPage } from './pages/platform/PlatformLayoutCompositionPage'
-import { PlatformPinpointLayoutsPage } from './pages/platform/PlatformPinpointLayoutsPage'
-import { PlatformLayoutTemplatesPage } from './pages/platform/PlatformLayoutTemplatesPage'
-import { PlatformModuleTemplatesPage } from './pages/platform/PlatformModuleTemplatesPage'
-import { PlatformLayoutHubPage } from './pages/platform/PlatformLayoutHubPage'
-import { PublicWhistlePage } from './pages/PublicWhistlePage'
-import { WhistleStatusPage } from './pages/WhistleStatusPage'
-import { LandingPage } from './pages/LandingPage'
-import { ModuleSlugPage } from './pages/ModuleSlugPage'
-import { InspectionModulePage } from './pages/InspectionModulePage'
-import { InspectionModuleAdminPage } from './pages/InspectionModuleAdminPage'
-import { InspectionRoundDetailPage } from './pages/InspectionRoundDetailPage'
-import { VernerunderPageRoute } from './pages/VernerunderPage'
-import { VernerundeDetailPage } from './pages/VernerundeDetailPage'
-import { VernerunderAdminPage } from './pages/VernerunderAdminPage'
-import { SjaDetailPage } from './pages/SjaDetailPage'
-import { SjaModulePage } from './pages/SjaModulePage'
-import { SjaModuleAdminPage } from './pages/SjaModuleAdminPage'
-import { ModuleAdminPage } from './pages/ModuleAdminPage'
-import { AvvikPage } from './pages/AvvikPage'
-import { IkHubPage } from './pages/IkHubPage'
-import { IkLovregisterPage } from './pages/IkLovregisterPage'
-import { IkKompetansePage } from './pages/IkKompetansePage'
-import { IkMedvirkningPage } from './pages/IkMedvirkningPage'
-import { IkMalPage } from './pages/IkMalPage'
-import { IkTiltaksplanPage } from './pages/IkTiltaksplanPage'
-import { ActionPlanPage } from './pages/ActionPlanPage'
-import { ActionPlanAdminPage } from './pages/ActionPlanAdminPage'
-import { IkAnnualReviewPage } from './pages/IkAnnualReviewPage'
-import { AmuElectionHubPage } from './pages/AmuElectionHubPage'
-import { AmuElectionDetailPage } from './pages/AmuElectionDetailPage'
-import { AmuElectionAdminPage } from './pages/AmuElectionAdminPage'
-import { InternalControlAdminPage } from './pages/InternalControlAdminPage'
-import { RisikoSikkerhetFrontpage } from './pages/RisikoSikkerhetFrontpage'
-import { RosModulePage }         from './pages/RosModulePage'
-import { RosModuleAdminPage }    from './pages/RosModuleAdminPage'
-import { RosAnalysisDetailPage } from './pages/RosAnalysisDetailPage'
-import { SurveyModulePage } from './pages/SurveyModulePage'
-import { SurveyModuleAdminPage } from './pages/SurveyModuleAdminPage'
-import { SurveyOrgTemplateEditorPage } from './pages/SurveyOrgTemplateEditorPage'
-import { SurveyDetailPage } from './pages/SurveyDetailPage'
-import { SurveyRespondPage } from './pages/SurveyRespondPage'
+import React, { Suspense } from 'react';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import AticsShell from './components/layout/AticsShell';
+import RouteErrorBoundary from './components/RouteErrorBoundary';
+import AuthPage from './pages/AuthPage';
+import LandingPage from './pages/LandingPage';
+import WorkplaceDashboardPage from './pages/WorkplaceDashboardPage';
+import WorkplaceReportingPage from './pages/WorkplaceReportingPage';
+import WorkplaceIncidentsPage from './pages/WorkplaceIncidentsPage';
+import WorkplaceAnonymousAmlPage from './pages/WorkplaceAnonymousAmlPage';
+import PublicWhistlePage from './pages/PublicWhistlePage';
+import PublicAnonymousAmlPage from './pages/PublicAnonymousAmlPage';
+import WorkplaceAnonymousAmlSettingsPage from './pages/WorkplaceAnonymousAmlSettingsPage';
+import WorkspaceAuditLogPage from './pages/WorkspaceAuditLogPage';
+import AdminPage from './pages/AdminPage';
+import ProfilePage from './pages/ProfilePage';
+import ProjectDashboard from './pages/ProjectDashboard';
+import ModuleSlugPage from './pages/ModuleSlugPage';
+import ModuleAdminPage from './pages/ModuleAdminPage';
+import YearskontrollModule from './pages/YearskontrollModule';
+import InternalControlModule from './pages/InternalControlModule';
+import InternalControlAdminPage from './pages/InternalControlAdminPage';
+import ActionPlanPage from './pages/ActionPlanPage';
+import ActionBoardPage from './pages/actionboard/ActionBoardPage';
+import ActionPlanAdminPage from './pages/ActionPlanAdminPage';
+import OrgModuleDesignerPage from './pages/OrgModuleDesignerPage';
+import DocumentsHome from './pages/documents/DocumentsHome';
+import DocumentsModuleAdminPage from './pages/DocumentsModuleAdminPage';
+import WikiSpaceView from './pages/documents/WikiSpaceView';
+import WikiPageView from './pages/documents/WikiPageView';
+import WikiPageEditor from './pages/documents/WikiPageEditor';
+import DocumentsMalbibliotekPage from './pages/documents/DocumentsMalbibliotekPage';
+import DocumentsOrgTemplateEditorPage from './pages/documents/DocumentsOrgTemplateEditorPage';
+import AnnualReviewPage from './pages/documents/AnnualReviewPage';
+import DocumentReviewsPage from './pages/documents/DocumentReviewsPage';
+import DocumentAccessRequestsPanel from './pages/documents/DocumentAccessRequestsPanel';
+import InspectionArbeidstilsynetExportPage from './pages/documents/InspectionArbeidstilsynetExportPage';
+import InspectionModulePage from './pages/InspectionModulePage';
+import InspectionModuleAdminPage from './pages/InspectionModuleAdminPage';
+import InspectionRoundDetailPage from './pages/InspectionRoundDetailPage';
+import AarshjulPage from './pages/aarshjul/AarshjulPage';
+import HseModule from './pages/HseModule';
+import VernerunderPage from './pages/VernerunderPage';
+import VernerunderAdminPage from './pages/VernerunderAdminPage';
+import VernerundeDetailPage from './pages/VernerundeDetailPage';
+import MembersModule from './pages/MembersModule';
+import OrgHealthModule from './pages/OrgHealthModule';
+import OrgHealthSettings from './pages/OrgHealthSettings';
+import SurveyModulePage from './pages/SurveyModulePage';
+import SurveyModuleAdminPage from './pages/SurveyModuleAdminPage';
+import SurveyDetailPage from './pages/SurveyDetailPage';
+import SurveyOrgTemplateEditorPage from './pages/SurveyOrgTemplateEditorPage';
+import SurveyRespondPage from './pages/SurveyRespondPage';
+import SjaModulePage from './pages/SjaModulePage';
+import SjaModuleAdminPage from './pages/SjaModuleAdminPage';
+import SjaDetailPage from './pages/SjaDetailPage';
+import RosModulePage from './pages/RosModulePage';
+import RosModuleAdminPage from './pages/RosModuleAdminPage';
+import RosAnalysisDetailPage from './pages/RosAnalysisDetailPage';
+import AmuHubPage from './pages/AmuHubPage';
+import AmuModuleAdminPage from './pages/AmuModuleAdminPage';
+import AmuElectionHubPage from './pages/AmuElectionHubPage';
+import AmuElectionAdminPage from './pages/AmuElectionAdminPage';
+import AmuElectionDetailPage from './pages/AmuElectionDetailPage';
+import IkHubPage from './pages/IkHubPage';
+import IkMalPage from './pages/IkMalPage';
+import IkTiltaksplanPage from './pages/IkTiltaksplanPage';
+import IkMedvirkningPage from './pages/IkMedvirkningPage';
+import IkKompetansePage.tsx from './pages/IkKompetansePage';
+import IkLovregisterPage from './pages/IkLovregisterPage';
+import IkAnnualReviewPage from './pages/IkAnnualReviewPage';
+import WorkflowModulePage from './pages/WorkflowModulePage';
+import WorkflowPage from './pages/WorkflowPage';
+import ReportingEnginePage from './pages/ReportingEnginePage';
+import LayoutLabPage from './pages/platform/LayoutLabPage';
+import PlatformAdminLayout from './pages/platform/PlatformAdminLayout';
+import PlatformAdminDashboardPage from './pages/platform/PlatformAdminDashboardPage';
+import PlatformAdminLoginPage from './pages/platform/PlatformAdminLoginPage';
+import PlatformModuleTemplatesPage from './pages/platform/PlatformModuleTemplatesPage';
+import PlatformLayoutTemplatesPage from './pages/platform/PlatformLayoutTemplatesPage';
+import PlatformLayoutComposerPage from './pages/platform/PlatformLayoutComposerPage';
+import PlatformLayoutCompositionPage from './pages/platform/PlatformLayoutCompositionPage';
+import PlatformLayoutHubPage from './pages/platform/PlatformLayoutHubPage';
+import PlatformBoxDesignerPage from './pages/platform/PlatformBoxDesignerPage';
+import PlatformRoadmapPage from './pages/platform/PlatformRoadmapPage';
+import PlatformUiAdvancedPage from './pages/platform/PlatformUiAdvancedPage';
+import InviteAcceptPage from './pages/InviteAcceptPage';
+import ProfilePage from './pages/ProfilePage';
+import NotFound from './pages/NotFound';
 
-/**
- * Providers that depend on react-router (e.g. useOrgSetup → useLocation) must live *inside*
- * the router tree — not wrapping RouterProvider — or the app crashes with a blank screen.
- */
-function AppRouterLayout() {
+const App: React.FC = () => {
   return (
-    <OrgSetupProvider>
-      <UiThemeProvider>
-        <I18nProvider>
-          <Outlet />
-        </I18nProvider>
-      </UiThemeProvider>
-    </OrgSetupProvider>
-  )
-}
+    <BrowserRouter>
+      <Suspense fallback={<div className="flex h-screen items-center justify-center">Laster...</div>}>
+        <Routes>
+          <Route path="/" element={<LandingPage />} />
+          <Route path="/auth" element={<AuthPage />} />
+          <Route path="/invite/accept" element={<InviteAcceptPage />} />
+          <Route path="/whistle/:orgId" element={<PublicWhistlePage />} />
+          <Route path="/aml-report/:orgId" element={<PublicAnonymousAmlPage />} />
+          
+          <Route element={<AticsShell />}>
+            <Route path="/dashboard" element={<WorkplaceDashboardPage />} />
+            <Route path="/reporting" element={<WorkplaceReportingPage />} />
+            <Route path="/incidents" element={<WorkplaceIncidentsPage />} />
+            <Route path="/anonymous-aml" element={<WorkplaceAnonymousAmlPage />} />
+            <Route path="/anonymous-aml/settings" element={<WorkplaceAnonymousAmlSettingsPage />} />
+            <Route path="/audit-log" element={<WorkspaceAuditLogPage />} />
+            <Route path="/admin" element={<AdminPage />} />
+            <Route path="/profile" element={<ProfilePage />} />
+            
+            {/* Module Routes */}
+            <Route path="/m/:moduleSlug" element={<ModuleSlugPage />} />
+            <Route path="/m/:moduleSlug/admin" element={<ModuleAdminPage />} />
+            
+            {/* Specific Modules */}
+            <Route path="/aarshjul" element={<AarshjulPage />} />
+            <Route path="/action-plan" element={<ActionPlanPage />} />
+            <Route path="/action-board" element={<ActionBoardPage />} />
+            <Route path="/action-plan/admin" element={<ActionPlanAdminPage />} />
+            
+            {/* Documents Module */}
+            <Route path="/documents" element={<DocumentsHome />} />
+            <Route path="/documents/admin" element={<DocumentsModuleAdminPage />} />
+            <Route path="/documents/s/:spaceId" element={<WikiSpaceView />} />
+            <Route path="/documents/p/:pageId" element={<WikiPageView />} />
+            <Route path="/documents/p/:pageId/edit" element={<WikiPageEditor />} />
+            <Route path="/documents/templates" element={<DocumentsMalbibliotekPage />} />
+            <Route path="/documents/templates/:templateId" element={<DocumentsOrgTemplateEditorPage />} />
+            <Route path="/documents/annual-review" element={<AnnualReviewPage />} />
+            <Route path="/documents/reviews" element={<DocumentReviewsPage />} />
+            <Route path="/documents/access-requests" element={<DocumentAccessRequestsPanel />} />
+            <Route path="/documents/export/arbeidstilsynet" element={<InspectionArbeidstilsynetExportPage />} />
 
-const router = createBrowserRouter(
-  createRoutesFromElements(
-    <Route element={<AppRouterLayout />}>
-            <Route path="/hrm" element={<Navigate to="/hrm/employees" replace />} />
-            <Route path="/hrm/employees" element={<HrmEmployees />} />
-            <Route path="/hrm/salary" element={<HrmSalary />} />
-            <Route path="/404" element={<NotFound />} />
+            {/* Other Modules */}
+            <Route path="/inspection" element={<InspectionModulePage />} />
+            <Route path="/inspection/admin" element={<InspectionModuleAdminPage />} />
+            <Route path="/inspection/round/:roundId" element={<InspectionRoundDetailPage />} />
+            
+            <Route path="/hse" element={<HseModule />} />
+            <Route path="/vernerunder" element={<VernerunderPage />} />
+            <Route path="/vernerunder/admin" element={<VernerunderAdminPage />} />
+            <Route path="/vernerunder/:roundId" element={<VernerundeDetailPage />} />
+            
+            <Route path="/members" element={<MembersModule />} />
+            <Route path="/health" element={<OrgHealthModule />} />
+            <Route path="/health/settings" element={<OrgHealthSettings />} />
+            
+            <Route path="/surveys" element={<SurveyModulePage />} />
+            <Route path="/surveys/admin" element={<SurveyModuleAdminPage />} />
+            <Route path="/surveys/:surveyId" element={<SurveyDetailPage />} />
+            <Route path="/surveys/templates/:templateId" element={<SurveyOrgTemplateEditorPage />} />
+            
+            <Route path="/sja" element={<SjaModulePage />} />
+            <Route path="/sja/admin" element={<SjaModuleAdminPage />} />
+            <Route path="/sja/:sjaId" element={<SjaDetailPage />} />
+            
+            <Route path="/ros" element={<RosModulePage />} />
+            <Route path="/ros/admin" element={<RosModuleAdminPage />} />
+            <Route path="/ros/:analysisId" element={<RosAnalysisDetailPage />} />
+            
+            <Route path="/amu" element={<AmuHubPage />} />
+            <Route path="/amu/admin" element={<AmuModuleAdminPage />} />
+            <Route path="/amu-election" element={<AmuElectionHubPage />} />
+            <Route path="/amu-election/admin" element={<AmuElectionAdminPage />} />
+            <Route path="/amu-election/:electionId" element={<AmuElectionDetailPage />} />
 
-            <Route path="/login" element={<AuthPage mode="login" />} />
-            <Route path="/signup" element={<AuthPage mode="signup" />} />
-            <Route path="/platform-admin/login" element={<PlatformAdminLoginPage />} />
-            <Route path="/invite/:token" element={<InviteAcceptPage />} />
-            <Route path="/varsle/status" element={<WhistleStatusPage />} />
-            <Route path="/varsle/:slug" element={<PublicWhistlePage />} />
-            <Route path="/anonym-aml/:slug" element={<PublicAnonymousAmlPage />} />
-            <Route path="/survey-respond/:campaignId" element={<SurveyRespondPage />} />
-            {/* Public marketing / landing page — root "/" for all visitors */}
-            <Route index element={<LandingPage />} />
-            <Route path="/home" element={<Navigate to="/" replace />} />
-            <Route path="/landing" element={<Navigate to="/" replace />} />
+            <Route path="/internkontroll" element={<IkHubPage />} />
+            <Route path="/internkontroll/mal" element={<IkMalPage />} />
+            <Route path="/internkontroll/tiltaksplan" element={<IkTiltaksplanPage />} />
+            <Route path="/internkontroll/medvirkning" element={<IkMedvirkningPage />} />
+            <Route path="/internkontroll/kompetanse" element={<IkKompetansePage />} />
+            <Route path="/internkontroll/lovregister" element={<IkLovregisterPage />} />
+            <Route path="/internkontroll/annual-review" element={<IkAnnualReviewPage />} />
+            
+            <Route path="/workflows" element={<WorkflowModulePage />} />
+            <Route path="/workflows/:workflowId" element={<WorkflowPage />} />
+            <Route path="/reporting-engine" element={<ReportingEnginePage />} />
+          </Route>
 
-            <Route element={<OrgGate />}>
-              <Route path="platform-admin" element={<PlatformAdminLayout />}>
-                <Route index element={<PlatformAdminDashboardPage />} />
-                <Route path="roadmap" element={<PlatformRoadmapPage />} />
-                <Route path="layout-lab" element={<LayoutLabPage />} />
-                <Route path="ui-advanced" element={<PlatformUiAdvancedPage />} />
-                <Route path="box-designer" element={<PlatformBoxDesignerPage />} />
-                <Route path="layout-builder" element={<PlatformLayoutCompositionPage />} />
-                <Route path="layout-reference" element={<PlatformPinpointLayoutsPage />} />
-                <Route path="layout-templates" element={<PlatformLayoutTemplatesPage />} />
-                <Route path="module-templates" element={<PlatformModuleTemplatesPage />} />
-                <Route path="layout" element={<PlatformLayoutHubPage />} />
-                <Route path="layout-composer" element={<Navigate to="/platform-admin/layout#composer" replace />} />
-                <Route path="layout-standard" element={<Navigate to="/platform-admin/layout#standard" replace />} />
-                <Route path="layout-dashboard" element={<Navigate to="/platform-admin/layout#dashboard" replace />} />
-                <Route path="layout-split" element={<Navigate to="/platform-admin/layout#split" replace />} />
-                <Route path="*" element={<Navigate to="/platform-admin" replace />} />
-              </Route>
-              <Route path="onboarding" element={<OnboardingWizard />} />
-              <Route element={<PermissionGate />}>
-                <Route element={<DocumentsLayout />}>
-                  <Route element={<AticsShell />}>
-                    <Route
-                      element={
-                        <WorkplacePublishedComposerProvider>
-                          <ModuleLegalFrameworkProvider>
-                            <WorkplaceChrome />
-                          </ModuleLegalFrameworkProvider>
-                        </WorkplacePublishedComposerProvider>
-                      }
-                    >
-                      <Route path="app" element={<WelcomeDashboardPage />} />
-                      <Route path="dashboard/classic" element={<ProjectDashboard />} />
-                      <Route path="tasks" element={<TasksPage />} />
-                      <Route path="workspace/revisjonslogg" element={<WorkspaceAuditLogPage />} />
-                      <Route path="organisation" element={<OrganisationPage />} />
-                      <Route path="organisation/admin" element={<AdminPage />} />
-                      <Route path="reports" element={<ReportingEnginePage />} />
-                      <Route path="workplace-reporting" element={<WorkplaceReportingPage />} />
-                      <Route path="workplace-reporting/dashboard" element={<WorkplaceDashboardPage />} />
-                      <Route path="workplace-reporting/incidents" element={<WorkplaceIncidentsPage />} />
-                      <Route path="workplace-reporting/anonymous-aml/settings" element={<WorkplaceAnonymousAmlSettingsPage />} />
-                      <Route path="workplace-reporting/anonymous-aml" element={<WorkplaceAnonymousAmlPage />} />
-                      <Route path="aarshjul" element={<AarshjulPage />} />
-                      <Route path="action-board" element={<ActionBoardPage />} />
-                      <Route path="council" element={<CouncilModule />} />
-                      <Route path="council/amu" element={<AmuHubPage />} />
-                      <Route path="council/amu/admin" element={<AmuModuleAdminPage />} />
-                      <Route path="council/amu/:meetingId" element={<AmuPage />} />
-                      <Route path="members" element={<MembersModule />} />
-                      <Route path="org-health" element={<OrgHealthModule />} />
-                      <Route path="org-health/settings" element={<OrgHealthSettings />} />
-                      <Route path="compliance" element={<ComplianceDashboardPage />} />
-                      <Route path="internal-control" element={<InternalControlModule />} />
-                      <Route path="internkontroll" element={<IkHubPage />} />
-                      <Route path="internkontroll/lovregister" element={<IkLovregisterPage />} />
-                      <Route path="internkontroll/kompetanse" element={<IkKompetansePage />} />
-                      <Route path="internkontroll/medvirkning" element={<IkMedvirkningPage />} />
-                      <Route path="internkontroll/mal" element={<IkMalPage />} />
-                      <Route path="internkontroll/tiltaksplan" element={<IkTiltaksplanPage />} />
-                      <Route path="internkontroll/arsgjenomgang" element={<IkAnnualReviewPage />} />
-                      <Route path="internkontroll/amu-valg" element={<AmuElectionHubPage />} />
-                      <Route path="internkontroll/amu-valg/admin" element={<AmuElectionAdminPage />} />
-                      <Route path="internkontroll/amu-valg/:electionId" element={<AmuElectionDetailPage />} />
-                      <Route path="internkontroll/admin" element={<InternalControlAdminPage />} />
-                      <Route path="modules/aarskontroll" element={<YearskontrollModule />} />
-                      <Route path="hse" element={<HseModule />} />
-                      {/* Legacy HSE inspection settings → redirected to the canonical admin at
-                          /inspection-module/admin. Old deep-links continue to work. */}
-                      <Route
-                        path="hse/inspection-settings"
-                        element={<Navigate to="/inspection-module/admin" replace />}
-                      />
-                      {/* Phase 3: inspection module */}
-                      <Route path="inspection-module" element={<InspectionModulePage />} />
-                      <Route path="inspection-module/admin" element={<InspectionModuleAdminPage />} />
-                      {/* Avvik / funn — dedicated deviation management */}
-                      <Route path="avvik" element={<AvvikPage />} />
-                      <Route path="inspection-module/:roundId" element={<InspectionRoundDetailPage />} />
-                      <Route path="vernerunder/admin" element={<VernerunderAdminPage />} />
-                      <Route path="vernerunder/:vernerundeId" element={<VernerundeDetailPage />} />
-                      <Route path="vernerunder" element={<VernerunderPageRoute />} />
-                      <Route path="sja" element={<SjaModulePage />} />
-                      <Route path="sja/admin" element={<SjaModuleAdminPage />} />
-                      <Route path="sja/:sjaId" element={<SjaDetailPage />} />
-                      <Route path="tiltak" element={<ActionPlanPage />} />
-                      <Route path="tiltak/admin" element={<ActionPlanAdminPage />} />
-                      <Route path="action-plan" element={<ActionPlanPage />} />
-                      <Route path="action-plan/admin" element={<ActionPlanAdminPage />} />
-                      <Route path="risiko-sikkerhet" element={<RisikoSikkerhetFrontpage />} />
-                      <Route path="ros"         element={<RosModulePage />} />
-                      <Route path="ros/admin"   element={<RosModuleAdminPage />} />
-                      <Route path="ros/:rosId"  element={<RosAnalysisDetailPage />} />
-                      <Route path="survey" element={<SurveyModulePage />} />
-                      <Route path="survey/admin" element={<SurveyModuleAdminPage />} />
-                      {/* Single route so :templateId is set for `new` (static route left no params → "Mangler mal-ID"). */}
-                      <Route path="survey/templates/org/:templateId" element={<SurveyOrgTemplateEditorPage />} />
-                      <Route path="survey/:surveyId" element={<SurveyDetailPage />} />
-                      {/* Admin: module overview + RBAC */}
-                      <Route path="admin/modules" element={<ModuleAdminPage />} />
-                      {/* Phase 2: dynamic module route — loaded from `modules` table via registry */}
-                      <Route path="modules/:module_slug" element={<ModuleSlugPage />} />
-                      <Route path="admin" element={<Navigate to="/organisation/admin" replace />} />
-                      <Route path="profile" element={<ProfilePage />} />
-                      <Route path="learning/play/:courseId" element={<LearningPlayer />} />
-                      <Route path="learning/certificates/:certId/print" element={<LearningCertificatePrintPage />} />
-                      <Route path="learning/flow" element={<LearningFlowEntry />} />
-                      <Route path="learning" element={<LearningLayout />}>
-                        <Route index element={<LearningDashboard />} />
-                        <Route path="courses" element={<LearningCoursesList />} />
-                        <Route path="courses/:courseId" element={<LearningCourseBuilder />} />
-                        <Route path="certifications" element={<LearningCertifications />} />
-                        <Route path="insights" element={<LearningInsights />} />
-                        <Route path="participants" element={<LearningParticipants />} />
-                        <Route path="compliance" element={<LearningComplianceMatrix />} />
-                        <Route path="paths" element={<LearningPathsPage />} />
-                        <Route path="external" element={<LearningExternalTraining />} />
-                        <Route path="settings" element={<LearningSettings />} />
-                      </Route>
-                      <Route path="prosesser" element={<Navigate to="/workflow" replace />} />
-                      <Route path="workflow" element={<WorkflowModulePage />} />
-                      <Route path="hr" element={<HrComplianceHub />} />
-                      <Route path="hr/discussion" element={<HrDiscussionPage />} />
-                      <Route path="hr/consultation" element={<HrConsultationPage />} />
-                      <Route path="hr/o-ros" element={<HrORosPage />} />
-                      <Route element={<DocumentsModuleShellLayout />}>
-                        <Route path="documents/editor-test" element={<DocumentEditorTestPage />} />
-                        <Route
-                          path="documents/page/:pageId/reference-edit"
-                          element={
-                            <RouteErrorBoundary title="Kunne ikke åpne redigering">
-                              <WikiPageReferenceEditor />
-                            </RouteErrorBoundary>
-                          }
-                        />
-                        <Route path="documents/kandidatdetalj-layout-test" element={<DocumentKandidatdetaljLayoutTestPage />} />
-                        <Route path="documents/malbibliotek" element={<DocumentsMalbibliotekPage />} />
-                        <Route path="documents" element={<DocumentsHome />} />
-                        <Route path="documents/compliance" element={<ComplianceDashboard />} />
-                        <Route
-                          path="documents/compliance/inspection-export"
-                          element={
-                            <RouteErrorBoundary title="Kunne ikke vise tilsynsrapport">
-                              <InspectionArbeidstilsynetExportPage />
-                            </RouteErrorBoundary>
-                          }
-                        />
-                        <Route path="documents/admin" element={<Navigate to="/documents/templates" replace />} />
-                        <Route
-                          path="documents/templates/org/:templateId/edit"
-                          element={
-                            <RouteErrorBoundary title="Kunne ikke åpne malredigering">
-                              <DocumentsOrgTemplateEditorPage />
-                            </RouteErrorBoundary>
-                          }
-                        />
-                        <Route path="documents/templates" element={<DocumentsModuleAdminPage />} />
-                        <Route path="documents/reviews" element={<DocumentReviewsPage />} />
-                        <Route
-                          path="documents/aarsgjennomgang"
-                          element={
-                            <RouteErrorBoundary title="Kunne ikke vise årsgjennomgang">
-                              <AnnualReviewPage />
-                            </RouteErrorBoundary>
-                          }
-                        />
-                      </Route>
-                      <Route element={<DocumentsWikiOutlet />}>
-                        <Route path="documents/space/:spaceId" element={<WikiSpaceView />} />
-                        <Route
-                          path="documents/page/:pageId"
-                          element={
-                            <RouteErrorBoundary title="Kunne ikke vise dokumentet">
-                              <WikiPageView />
-                            </RouteErrorBoundary>
-                          }
-                        />
-                        <Route path="documents/page/:pageId/edit" element={<WikiPageEditRedirect />} />
-                        <Route
-                          path="documents/page/:pageId/wiki-edit"
-                          element={
-                            <RouteErrorBoundary title="Kunne ikke åpne redigering">
-                              <WikiPageEditor />
-                            </RouteErrorBoundary>
-                          }
-                        />
-                      </Route>
-                    </Route>
-                  </Route>
-                </Route>
-              </Route>
-            </Route>
+          {/* Platform Admin */}
+          <Route path="/platform/login" element={<PlatformAdminLoginPage />} />
+          <Route path="/platform" element={<PlatformAdminLayout />}>
+            <Route index element={<PlatformAdminDashboardPage />} />
+            <Route path="roadmap" element={<PlatformRoadmapPage />} />
+            <Route path="modules" element={<PlatformModuleTemplatesPage />} />
+            <Route path="layouts" element={<PlatformLayoutHubPage />} />
+            <Route path="layouts/templates" element={<PlatformLayoutTemplatesPage />} />
+            <Route path="layouts/composer" element={<PlatformLayoutComposerPage />} />
+            <Route path="layouts/composition/:compositionId" element={<PlatformLayoutCompositionPage />} />
+            <Route path="boxes" element={<PlatformBoxDesignerPage />} />
+            <Route path="ui-advanced" element={<PlatformUiAdvancedPage />} />
+            <Route path="lab" element={<LayoutLabPage />} />
+          </Route>
 
-            <Route path="*" element={<Navigate to="/404" replace />} />
-    </Route>,
-  ),
-)
+          <Route path="/surveys/respond/:token" element={<SurveyRespondPage />} />
+          <Route path="*" element={<NotFound />} />
+        </Routes>
+      </Suspense>
+    </BrowserRouter>
+  );
+};
 
-function App() {
-  return <RouterProvider router={router} />
-}
-
-export default App
+export default App;
