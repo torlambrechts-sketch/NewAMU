@@ -53,7 +53,7 @@ function subscribeClock(cb: () => void) {
   return () => window.clearInterval(id)
 }
 function getClockSnapshot() {
-  return Date.now()
+  return Math.floor(Date.now() / 60_000) * 60_000
 }
 
 function useBodyScrollLock(active: boolean) {
@@ -220,30 +220,35 @@ export function ComplianceDashboard() {
     }
   }, [showViewAgg, docs.fetchOrgPageViewCounts])
 
-  const coverage = docs.legalCoverage.map((item) => {
-    const coveredBy = docs.pages
-      .filter((p) => {
-        if (p.status !== 'published') return false
-        return item.templateIds.some((tid) => {
-          const tpl = docs.pageTemplates.find((t) => t.id === tid)
-          if (!tpl) return false
-          if (tid === 'tpl-verneombud-mandat') {
-            return p.legalRefs.some((r) => r === 'AML §6-1' || r.startsWith('AML §6-1'))
-          }
-          return tpl.page.legalRefs.some((r) => p.legalRefs.includes(r))
+  const coverage = useMemo(
+    () =>
+      docs.legalCoverage.map((item) => {
+        const coveredBy = docs.pages
+          .filter((p) => {
+            if (p.status !== 'published') return false
+            return item.templateIds.some((tid) => {
+              const tpl = docs.pageTemplates.find((t) => t.id === tid)
+              if (!tpl) return false
+              if (tid === 'tpl-verneombud-mandat') {
+                return p.legalRefs.some((r) => r === 'AML §6-1' || r.startsWith('AML §6-1'))
+              }
+              return tpl.page.legalRefs.some((r) => p.legalRefs.includes(r))
+            })
+          })
+          .map((p) => {
+            const ackCount = docs.receipts.filter((r) => r.pageId === p.id && r.pageVersion === p.version).length
+            const viewCount = showViewAgg ? viewCounts.get(p.id) ?? 0 : null
+            return { page: p, ackCount, viewCount }
+          })
+        const stale = coveredBy.some(({ page: p }) => {
+          if (!p.nextRevisionDueAt) return false
+          return new Date(p.nextRevisionDueAt).getTime() < nowMs
         })
-      })
-      .map((p) => {
-        const ackCount = docs.receipts.filter((r) => r.pageId === p.id && r.pageVersion === p.version).length
-        const viewCount = showViewAgg ? viewCounts.get(p.id) ?? 0 : null
-        return { page: p, ackCount, viewCount }
-      })
-    const stale = coveredBy.some(({ page: p }) => {
-      if (!p.nextRevisionDueAt) return false
-      return new Date(p.nextRevisionDueAt).getTime() < nowMs
-    })
-    return { ...item, coveredBy, covered: coveredBy.length > 0, stale }
-  })
+        return { ...item, coveredBy, covered: coveredBy.length > 0, stale }
+      }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [docs.legalCoverage, docs.pages, docs.pageTemplates, docs.receipts, showViewAgg, viewCounts, nowMs],
+  )
 
   const verneombudMandate = useMemo(() => {
     const candidates = docs.pages.filter(
