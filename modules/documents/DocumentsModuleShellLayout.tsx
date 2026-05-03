@@ -13,21 +13,46 @@ import { DocumentsHubSecondaryNav } from '../../src/components/documents/Documen
 import { DocumentsSearchHotkey } from '../../src/components/documents/DocumentsSearchHotkey'
 import { apiFetchAnnualReview } from '../../src/api/wikiAnnualReview'
 
-function DocumentsShellHeaderActions({ canEditDocs, onDocumentsHub }: { canEditDocs: boolean; onDocumentsHub: boolean }) {
-  const { requestOpenNewFolder, requestNewDocument } = useDocumentsHubActions()
+function DocumentsShellHeaderActions({
+  canEditDocs,
+  onDocumentsHub,
+  onMalbibliotek,
+}: {
+  canEditDocs: boolean
+  onDocumentsHub: boolean
+  onMalbibliotek: boolean
+}) {
+  const { requestOpenNewFolder, requestNewDocument, requestNewTemplate } = useDocumentsHubActions()
 
-  if (!canEditDocs || !onDocumentsHub) return null
+  if (!canEditDocs) return null
 
-  return (
-    <div className="flex shrink-0 flex-wrap items-center justify-end gap-2 lg:justify-end">
-      <Button variant="secondary" type="button" icon={<FolderPlus className="h-4 w-4" />} onClick={() => requestOpenNewFolder()}>
-        Ny mappe
-      </Button>
-      <Button variant="primary" type="button" icon={<Plus className="h-4 w-4" />} onClick={() => requestNewDocument()}>
-        Nytt dokument
-      </Button>
-    </div>
-  )
+  if (onDocumentsHub) {
+    return (
+      <div className="flex shrink-0 flex-wrap items-center justify-end gap-2 lg:justify-end">
+        <Button variant="secondary" type="button" icon={<FolderPlus className="h-4 w-4" />} onClick={() => requestOpenNewFolder()}>
+          Ny mappe
+        </Button>
+        <Button variant="primary" type="button" icon={<Plus className="h-4 w-4" />} onClick={() => requestNewDocument()}>
+          Nytt dokument
+        </Button>
+      </div>
+    )
+  }
+
+  if (onMalbibliotek) {
+    return (
+      <div className="flex shrink-0 flex-wrap items-center justify-end gap-2 lg:justify-end">
+        <Button variant="secondary" type="button" icon={<FolderPlus className="h-4 w-4" />} onClick={() => requestOpenNewFolder()}>
+          Ny malmapp
+        </Button>
+        <Button variant="primary" type="button" icon={<Plus className="h-4 w-4" />} onClick={() => requestNewTemplate()}>
+          Ny mal
+        </Button>
+      </div>
+    )
+  }
+
+  return null
 }
 
 function DocumentsModuleShellBody() {
@@ -64,14 +89,15 @@ function DocumentsModuleShellBody() {
   }, [can, supabase, organization?.id])
 
   const onDocumentsHub = location.pathname === '/documents'
+  const onMalbibliotek = location.pathname === '/documents/malbibliotek'
 
   const description = useMemo(() => {
     const p = location.pathname
     if (p.startsWith('/documents/templates')) {
       return (
         <p className="max-w-3xl text-sm text-neutral-600">
-          Administrer dokumentmaler: aktiver systemmaler, egne organisasjonsmaler, mappe-tilgang og JSON-import/eksport
-          (internkontrollforskriften § 5).
+          Modulinnstillinger for Dokumenter: revisjon, kvitteringer, maler, tilgangsstyring og arbeidsflyt
+          — tilpasset kravene i internkontrollforskriften §5 og arbeidsmiljøloven.
         </p>
       )
     }
@@ -117,7 +143,7 @@ function DocumentsModuleShellBody() {
         title={DOCUMENTS_MODULE_TITLE}
         description={description}
         tabs={nav}
-        headerActions={<DocumentsShellHeaderActions canEditDocs={canEditDocs} onDocumentsHub={onDocumentsHub} />}
+        headerActions={<DocumentsShellHeaderActions canEditDocs={canEditDocs} onDocumentsHub={onDocumentsHub} onMalbibliotek={onMalbibliotek} />}
       >
         <Outlet />
       </ModulePageShell>
