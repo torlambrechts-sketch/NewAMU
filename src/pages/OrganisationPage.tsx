@@ -51,13 +51,13 @@ import {
   WPSTD_FORM_INSET,
   WPSTD_FORM_LEAD,
   WPSTD_FORM_ROW_GRID,
-  WPSTD_FORM_INPUT_ON_WHITE,
 } from '../components/layout/WorkplaceStandardFormPanel'
 import {
   WorkplaceStandardListLayout,
-  WORKPLACE_LIST_LAYOUT_CTA,
   type WorkplaceListViewMode,
 } from '../components/layout/WorkplaceStandardListLayout'
+import { Button } from '../components/ui/Button'
+import { StandardInput } from '../components/ui/Input'
 import { Tabs } from '../components/ui/Tabs'
 import type { EmploymentType, OrgEmployee, OrgEmployeeMandate, OrgUnit, OrgUnitKind, UserGroup } from '../types/organisation'
 import { MANDATE_TYPE_LABELS, MANDATE_TYPE_LAW_REFS } from '../types/organisation'
