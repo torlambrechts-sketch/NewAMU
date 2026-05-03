@@ -1087,7 +1087,7 @@ export function OrganisationPage() {
               disabled={!groupForm.name.trim()}
             >
               {orgSlidePanel.mode === 'edit' ? 'Lagre gruppe' : 'Opprett gruppe'}
-            </button>
+            </Button>
             {orgSlidePanel.mode === 'edit' ? (
               <button
                 type="button"
@@ -1874,7 +1874,7 @@ export function OrganisationPage() {
                     }}
                   >
                     Nullstill
-                  </button>
+                  </Button>
                 </div>
               ) : unitStdViewMode === 'table' ? (
                 <div className="overflow-x-auto">
