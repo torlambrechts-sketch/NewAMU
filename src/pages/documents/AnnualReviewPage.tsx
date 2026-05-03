@@ -9,6 +9,7 @@ import { StandardInput } from '../../components/ui/Input'
 import { StandardTextarea } from '../../components/ui/Textarea'
 import { WarningBox } from '../../components/ui/AlertBox'
 import { ModuleSectionCard } from '../../components/module'
+import { getSupabaseErrorMessage } from '../../lib/supabaseError'
 import type { WikiAnnualReviewItemRow } from '../../api/wikiAnnualReview'
 
 const STATUS_OPTIONS: SelectOption[] = [
@@ -23,7 +24,7 @@ function subscribeClock(cb: () => void) {
   return () => window.clearInterval(id)
 }
 function getClockSnapshot() {
-  return Date.now()
+  return Math.floor(Date.now() / 60_000) * 60_000
 }
 
 function groupItems(items: WikiAnnualReviewItemRow[]) {
@@ -80,7 +81,7 @@ export function AnnualReviewPage() {
       setItems(it)
       setNotes(review.notes ?? '')
     } catch (e) {
-      setErr(e instanceof Error ? e.message : 'Feil ved lasting')
+      setErr(getSupabaseErrorMessage(e))
     } finally {
       setLoading(false)
     }
@@ -130,7 +131,7 @@ export function AnnualReviewPage() {
       await docs.finalizeAnnualReview(reviewId, year, notes)
       await load()
     } catch (e) {
-      setErr(e instanceof Error ? e.message : 'Kunne ikke fullføre')
+      setErr(getSupabaseErrorMessage(e))
     } finally {
       setFinishing(false)
     }

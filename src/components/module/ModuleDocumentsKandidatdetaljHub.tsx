@@ -17,6 +17,7 @@ import { InfoBox } from '../ui/AlertBox'
 import {
   useDocumentsHubActionsRegister,
   useDocumentsHubNewDocumentRegister,
+  useDocumentsHubNewTemplateRegister,
 } from '../../../modules/documents/DocumentsHubActionsContext'
 import { DocumentsTemplateLibraryBody } from '../documents/DocumentsTemplateLibraryBody'
 import { DocumentAccessRequestDialog } from '../documents/DocumentAccessRequestDialog'
@@ -504,6 +505,13 @@ export function ModuleDocumentsKandidatdetaljHub({
       void handleNewDocument()
     },
     centerContent === 'pages',
+  )
+
+  useDocumentsHubNewTemplateRegister(
+    useCallback(() => {
+      setNewTemplateKey((k) => k + 1)
+    }, []),
+    centerContent === 'templates',
   )
 
   const triggerUpload = () => {

@@ -74,7 +74,7 @@ export function DocumentsHubSecondaryNav({ canManage, annualReviewBadgeDot }: Pr
       })
       list.push({
         key: 'innstillinger',
-        label: 'Dokumentmaler',
+        label: 'Innstillinger',
         icon: Settings,
         to: '/documents/templates',
         end: false,

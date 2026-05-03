@@ -26,6 +26,7 @@ import {
   FileText,
   Calendar,
   ExternalLink,
+  type LucideIcon,
 } from 'lucide-react'
 import { Badge } from '../components/ui/Badge'
 import { InfoBox } from '../components/ui/AlertBox'
@@ -36,7 +37,6 @@ import { OrganisationHeaderIllustration } from '../components/organisation/Organ
 import { Mainbox1 } from '../components/layout/Mainbox1'
 import { Table1Shell } from '../components/layout/Table1Shell'
 import { Table1Toolbar } from '../components/layout/Table1Toolbar'
-import type { HubMenu1Item } from '../components/layout/HubMenu1Bar'
 import {
   table1BodyRowClass,
   table1CellPadding,
@@ -44,23 +44,21 @@ import {
 } from '../lib/layoutLabTokens'
 import { useUiTheme } from '../hooks/useUiTheme'
 import { mergeLayoutPayload } from '../lib/layoutLabTokens'
-import { AB_SCORECARD_CREAM_DEEP } from './actionboard/actionBoardScorecardLayout'
-import { WORKPLACE_FOREST } from '../components/layout/WorkplaceChrome'
-import { WorkplaceBoardTabStrip } from '../components/layout/WorkplaceBoardTabStrip'
 import { WorkplacePageHeading1 } from '../components/layout/WorkplacePageHeading1'
 import {
   WorkplaceStandardFormPanel,
   WPSTD_FORM_FIELD_LABEL,
   WPSTD_FORM_INSET,
-  WPSTD_FORM_INPUT_ON_WHITE,
   WPSTD_FORM_LEAD,
   WPSTD_FORM_ROW_GRID,
 } from '../components/layout/WorkplaceStandardFormPanel'
 import {
   WorkplaceStandardListLayout,
-  WORKPLACE_LIST_LAYOUT_CTA,
   type WorkplaceListViewMode,
 } from '../components/layout/WorkplaceStandardListLayout'
+import { Button } from '../components/ui/Button'
+import { StandardInput } from '../components/ui/Input'
+import { Tabs } from '../components/ui/Tabs'
 import type { EmploymentType, OrgEmployee, OrgEmployeeMandate, OrgUnit, OrgUnitKind, UserGroup } from '../types/organisation'
 import { MANDATE_TYPE_LABELS, MANDATE_TYPE_LAW_REFS } from '../types/organisation'
 import { fetchEnhetByOrgnr } from '../lib/brreg'
@@ -90,8 +88,7 @@ const ROLE_OPTIONS = ['Leder', 'Fagansvarlig', 'Fagmedarbeider', 'Saksbehandler'
 function OrgInsightTanStat({ big, title, sub }: { big: string; title: string; sub: string }) {
   return (
     <div
-      className="rounded-lg border border-neutral-200/60 px-5 py-4"
-      style={{ backgroundColor: AB_SCORECARD_CREAM_DEEP }}
+      className="rounded-lg border border-neutral-200/60 px-5 py-4 bg-[#EFE8DC]"
     >
       <p className="text-3xl font-bold tabular-nums text-neutral-900">{big}</p>
       <p className="mt-1 text-sm font-medium text-neutral-800">{title}</p>
@@ -671,11 +668,11 @@ export function OrganisationPage() {
     }))
     rows.sort((a, b) => b.count - a.count)
     const max = Math.max(...rows.map((r) => r.count), 1)
-    const colors = ['#2563eb', '#dc2626', WORKPLACE_FOREST, '#ea580c'] as const
+    const colors = ['#2563eb', '#dc2626', '#1a3d32', '#ea580c'] as const
     return rows.map((r, i) => ({ ...r, color: colors[i % colors.length], max }))
   }, [insightStats.byKind])
 
-  const TABS: { id: Tab; label: string; icon: React.ComponentType<{ className?: string }> }[] = [
+  const TABS: { id: Tab; label: string; icon: LucideIcon }[] = [
     { id: 'insights',   label: 'Oversikt',         icon: PieChart },
     { id: 'employees',  label: 'Ansatte',           icon: Users },
     { id: 'units',      label: 'Enheter',           icon: Building2 },
@@ -696,11 +693,11 @@ export function OrganisationPage() {
   const useStandardOrgList =
     tab === 'insights' || tab === 'employees' || tab === 'units' || tab === 'groups' || tab === 'mandates' || tab === 'gdpr'
 
-  const orgHubMenuItems = useMemo((): HubMenu1Item[] => {
+  const orgHubMenuItems = useMemo(() => {
     return TABS.map((t) => ({
       key: t.id,
       label: t.label,
-      icon: t.icon as HubMenu1Item['icon'],
+      icon: t.icon,
       active: tab === t.id,
       onClick: () => setTab(t.id),
       badgeCount: t.id === 'employees' ? org.activeEmployees.length : undefined,
@@ -721,15 +718,14 @@ export function OrganisationPage() {
         title={orgSlidePanel.mode === 'edit' ? 'Rediger ansatt' : 'Ny ansatt'}
         footer={
           <div className="flex w-full flex-col gap-2 sm:flex-row sm:justify-end">
-            <button
+            <Button
               type="submit"
               form="org-emp-slide-form"
               disabled={!empFormPanel.name.trim()}
-              className="flex w-full items-center justify-center rounded-none px-5 py-3.5 text-sm font-semibold uppercase tracking-[0.12em] text-white transition disabled:cursor-not-allowed disabled:opacity-45 sm:w-auto sm:min-w-[12rem]"
-              style={{ backgroundColor: WORKPLACE_LIST_LAYOUT_CTA }}
+              className="w-full sm:w-auto sm:min-w-[12rem]"
             >
               {orgSlidePanel.mode === 'edit' ? 'Lagre ansatt' : 'Opprett ansatt'}
-            </button>
+            </Button>
             <button
               type="button"
               onClick={closeOrgSlidePanel}
@@ -756,12 +752,11 @@ export function OrganisationPage() {
                   <label className={WPSTD_FORM_FIELD_LABEL} htmlFor="org-emp-name">
                     Fullt navn *
                   </label>
-                  <input
+                  <StandardInput
                     id="org-emp-name"
                     value={empFormPanel.name}
                     onChange={(e) => setEmpFormPanel((f) => ({ ...f, name: e.target.value }))}
                     required
-                    className={WPSTD_FORM_INPUT_ON_WHITE}
                     placeholder="Fornavn Etternavn"
                   />
                 </div>
@@ -769,12 +764,11 @@ export function OrganisationPage() {
                   <label className={WPSTD_FORM_FIELD_LABEL} htmlFor="org-emp-email">
                     E-post
                   </label>
-                  <input
+                  <StandardInput
                     id="org-emp-email"
                     type="email"
                     value={empFormPanel.email}
                     onChange={(e) => setEmpFormPanel((f) => ({ ...f, email: e.target.value }))}
-                    className={WPSTD_FORM_INPUT_ON_WHITE}
                     placeholder="navn@firma.no"
                   />
                 </div>
@@ -782,12 +776,11 @@ export function OrganisationPage() {
                   <label className={WPSTD_FORM_FIELD_LABEL} htmlFor="org-emp-phone">
                     Telefon
                   </label>
-                  <input
+                  <StandardInput
                     id="org-emp-phone"
                     type="tel"
                     value={empFormPanel.phone}
                     onChange={(e) => setEmpFormPanel((f) => ({ ...f, phone: e.target.value }))}
-                    className={WPSTD_FORM_INPUT_ON_WHITE}
                     placeholder="+47 …"
                   />
                 </div>
@@ -795,11 +788,10 @@ export function OrganisationPage() {
                   <label className={WPSTD_FORM_FIELD_LABEL} htmlFor="org-emp-job">
                     Stillingstittel
                   </label>
-                  <input
+                  <StandardInput
                     id="org-emp-job"
                     value={empFormPanel.jobTitle}
                     onChange={(e) => setEmpFormPanel((f) => ({ ...f, jobTitle: e.target.value }))}
-                    className={WPSTD_FORM_INPUT_ON_WHITE}
                   />
                 </div>
                 <div>
@@ -810,7 +802,7 @@ export function OrganisationPage() {
                     id="org-emp-role"
                     value={empFormPanel.role}
                     onChange={(e) => setEmpFormPanel((f) => ({ ...f, role: e.target.value }))}
-                    className={WPSTD_FORM_INPUT_ON_WHITE}
+                    className="mt-1.5 w-full rounded-none border border-neutral-300 bg-white px-3 py-2.5 text-sm text-neutral-900 shadow-none placeholder:text-neutral-400 focus:border-neutral-900 focus:outline-none focus:ring-1 focus:ring-neutral-900"
                   >
                     <option value="">— Velg —</option>
                     {ROLE_OPTIONS.map((r) => (
@@ -828,7 +820,7 @@ export function OrganisationPage() {
                     id="org-emp-unit"
                     value={empFormPanel.unitId}
                     onChange={(e) => setEmpFormPanel((f) => ({ ...f, unitId: e.target.value }))}
-                    className={WPSTD_FORM_INPUT_ON_WHITE}
+                    className="mt-1.5 w-full rounded-none border border-neutral-300 bg-white px-3 py-2.5 text-sm text-neutral-900 shadow-none placeholder:text-neutral-400 focus:border-neutral-900 focus:outline-none focus:ring-1 focus:ring-neutral-900"
                   >
                     <option value="">— Ingen —</option>
                     {org.units.map((u) => (
@@ -846,7 +838,7 @@ export function OrganisationPage() {
                     id="org-emp-reports"
                     value={empFormPanel.reportsToId}
                     onChange={(e) => setEmpFormPanel((f) => ({ ...f, reportsToId: e.target.value }))}
-                    className={WPSTD_FORM_INPUT_ON_WHITE}
+                    className="mt-1.5 w-full rounded-none border border-neutral-300 bg-white px-3 py-2.5 text-sm text-neutral-900 shadow-none placeholder:text-neutral-400 focus:border-neutral-900 focus:outline-none focus:ring-1 focus:ring-neutral-900"
                   >
                     <option value="">— Ingen —</option>
                     {org.employees
@@ -874,11 +866,10 @@ export function OrganisationPage() {
                   <label className={WPSTD_FORM_FIELD_LABEL} htmlFor="org-emp-loc">
                     Arbeidssted
                   </label>
-                  <input
+                  <StandardInput
                     id="org-emp-loc"
                     value={empFormPanel.location}
                     onChange={(e) => setEmpFormPanel((f) => ({ ...f, location: e.target.value }))}
-                    className={WPSTD_FORM_INPUT_ON_WHITE}
                   />
                 </div>
                 <div>
@@ -891,7 +882,7 @@ export function OrganisationPage() {
                     onChange={(e) =>
                       setEmpFormPanel((f) => ({ ...f, employmentType: e.target.value as EmploymentType }))
                     }
-                    className={WPSTD_FORM_INPUT_ON_WHITE}
+                    className="mt-1.5 w-full rounded-none border border-neutral-300 bg-white px-3 py-2.5 text-sm text-neutral-900 shadow-none placeholder:text-neutral-400 focus:border-neutral-900 focus:outline-none focus:ring-1 focus:ring-neutral-900"
                   >
                     {Object.entries(EMPLOYMENT_LABELS)
                       .filter(([k]) => k !== 'contractor')
@@ -910,12 +901,11 @@ export function OrganisationPage() {
                     <label className={WPSTD_FORM_FIELD_LABEL} htmlFor="org-emp-agency">
                       Bemanningsbyrå
                     </label>
-                    <input
+                    <StandardInput
                       id="org-emp-agency"
                       value={empFormPanel.agencyName}
                       onChange={(e) => setEmpFormPanel((f) => ({ ...f, agencyName: e.target.value }))}
                       placeholder="Navn på bemanningsbyrå (AML § 14-12)"
-                      className={WPSTD_FORM_INPUT_ON_WHITE}
                     />
                   </div>
                 )}
@@ -923,12 +913,11 @@ export function OrganisationPage() {
                   <label className={WPSTD_FORM_FIELD_LABEL} htmlFor="org-emp-start">
                     Startdato
                   </label>
-                  <input
+                  <StandardInput
                     id="org-emp-start"
                     type="date"
                     value={empFormPanel.startDate}
                     onChange={(e) => setEmpFormPanel((f) => ({ ...f, startDate: e.target.value }))}
-                    className={WPSTD_FORM_INPUT_ON_WHITE}
                   />
                 </div>
                 <div className="flex items-end pb-1">
@@ -955,15 +944,14 @@ export function OrganisationPage() {
         title={orgSlidePanel.mode === 'edit' ? 'Rediger enhet' : 'Ny enhet'}
         footer={
           <div className="flex w-full flex-col gap-2 sm:flex-row sm:justify-end">
-            <button
+            <Button
               type="submit"
               form="org-unit-slide-form"
               disabled={!unitForm.name.trim()}
-              className="flex w-full items-center justify-center rounded-none px-5 py-3.5 text-sm font-semibold uppercase tracking-[0.12em] text-white transition disabled:cursor-not-allowed disabled:opacity-45 sm:w-auto sm:min-w-[12rem]"
-              style={{ backgroundColor: WORKPLACE_LIST_LAYOUT_CTA }}
+              className="w-full sm:w-auto sm:min-w-[12rem]"
             >
               {orgSlidePanel.mode === 'edit' ? 'Lagre enhet' : 'Opprett enhet'}
-            </button>
+            </Button>
             {orgSlidePanel.mode === 'edit' ? (
               <button
                 type="button"
@@ -1000,12 +988,11 @@ export function OrganisationPage() {
                   <label className={WPSTD_FORM_FIELD_LABEL} htmlFor="org-unit-slide-name">
                     Navn *
                   </label>
-                  <input
+                  <StandardInput
                     id="org-unit-slide-name"
                     value={unitForm.name}
                     onChange={(e) => setUnitForm((f) => ({ ...f, name: e.target.value }))}
                     required
-                    className={WPSTD_FORM_INPUT_ON_WHITE}
                   />
                 </div>
                 <div>
@@ -1016,7 +1003,7 @@ export function OrganisationPage() {
                     id="org-unit-slide-kind"
                     value={unitForm.kind}
                     onChange={(e) => setUnitForm((f) => ({ ...f, kind: e.target.value as OrgUnitKind }))}
-                    className={WPSTD_FORM_INPUT_ON_WHITE}
+                    className="mt-1.5 w-full rounded-none border border-neutral-300 bg-white px-3 py-2.5 text-sm text-neutral-900 shadow-none placeholder:text-neutral-400 focus:border-neutral-900 focus:outline-none focus:ring-1 focus:ring-neutral-900"
                   >
                     {Object.entries(KIND_LABELS).map(([k, v]) => (
                       <option key={k} value={k}>
@@ -1033,7 +1020,7 @@ export function OrganisationPage() {
                     id="org-unit-slide-parent"
                     value={unitForm.parentId}
                     onChange={(e) => setUnitForm((f) => ({ ...f, parentId: e.target.value }))}
-                    className={WPSTD_FORM_INPUT_ON_WHITE}
+                    className="mt-1.5 w-full rounded-none border border-neutral-300 bg-white px-3 py-2.5 text-sm text-neutral-900 shadow-none placeholder:text-neutral-400 focus:border-neutral-900 focus:outline-none focus:ring-1 focus:ring-neutral-900"
                   >
                     <option value="">— Ingen (toppnivå) —</option>
                     {org.units
@@ -1060,11 +1047,10 @@ export function OrganisationPage() {
                   <label className={WPSTD_FORM_FIELD_LABEL} htmlFor="org-unit-slide-head">
                     Leder / enhetshode
                   </label>
-                  <input
+                  <StandardInput
                     id="org-unit-slide-head"
                     value={unitForm.headName}
                     onChange={(e) => setUnitForm((f) => ({ ...f, headName: e.target.value }))}
-                    className={WPSTD_FORM_INPUT_ON_WHITE}
                   />
                 </div>
                 <div>
@@ -1095,15 +1081,13 @@ export function OrganisationPage() {
         title={orgSlidePanel.mode === 'edit' ? 'Rediger brukergruppe' : 'Ny brukergruppe'}
         footer={
           <div className="flex w-full flex-col gap-2 sm:flex-row sm:justify-end">
-            <button
+            <Button
               type="submit"
               form="org-group-slide-form"
               disabled={!groupForm.name.trim()}
-              className="flex w-full items-center justify-center rounded-none px-5 py-3.5 text-sm font-semibold uppercase tracking-[0.12em] text-white transition disabled:cursor-not-allowed disabled:opacity-45 sm:w-auto sm:min-w-[12rem]"
-              style={{ backgroundColor: WORKPLACE_LIST_LAYOUT_CTA }}
             >
               {orgSlidePanel.mode === 'edit' ? 'Lagre gruppe' : 'Opprett gruppe'}
-            </button>
+            </Button>
             {orgSlidePanel.mode === 'edit' ? (
               <button
                 type="button"
@@ -1140,23 +1124,21 @@ export function OrganisationPage() {
                   <label className={WPSTD_FORM_FIELD_LABEL} htmlFor="org-group-slide-name">
                     Gruppenavn *
                   </label>
-                  <input
+                  <StandardInput
                     id="org-group-slide-name"
                     value={groupForm.name}
                     onChange={(e) => setGroupForm((f) => ({ ...f, name: e.target.value }))}
                     required
-                    className={WPSTD_FORM_INPUT_ON_WHITE}
                   />
                 </div>
                 <div>
                   <label className={WPSTD_FORM_FIELD_LABEL} htmlFor="org-group-slide-desc">
                     Beskrivelse
                   </label>
-                  <input
+                  <StandardInput
                     id="org-group-slide-desc"
                     value={groupForm.description}
                     onChange={(e) => setGroupForm((f) => ({ ...f, description: e.target.value }))}
-                    className={WPSTD_FORM_INPUT_ON_WHITE}
                     placeholder="Valgfritt"
                   />
                 </div>
@@ -1186,7 +1168,7 @@ export function OrganisationPage() {
                         employeeIds: e.target.value === 'units' ? [] : f.employeeIds,
                       }))
                     }
-                    className={WPSTD_FORM_INPUT_ON_WHITE}
+                    className="mt-1.5 w-full rounded-none border border-neutral-300 bg-white px-3 py-2.5 text-sm text-neutral-900 shadow-none placeholder:text-neutral-400 focus:border-neutral-900 focus:outline-none focus:ring-1 focus:ring-neutral-900"
                   >
                     <option value="all">Alle ansatte</option>
                     <option value="units">Bestemte enheter</option>
@@ -1343,7 +1325,7 @@ export function OrganisationPage() {
                       type="button"
                       onClick={() => setOrgSlidePanel({ kind: 'employee', mode: 'create' })}
                       className={`${HERO_ACTION_CLASS} text-white shadow-sm hover:opacity-95`}
-                      style={{ backgroundColor: WORKPLACE_FOREST }}
+                      style={{ backgroundColor: '#1a3d32' }}
                     >
                       <Plus className="size-4 shrink-0" /> Ny ansatt
                     </button>
@@ -1352,11 +1334,10 @@ export function OrganisationPage() {
               )
             }
             menu={
-              <WorkplaceBoardTabStrip
-                ariaLabel="Organisasjon — faner"
+              <Tabs
                 items={orgTabItems}
                 activeId={tab}
-                onSelect={(id) => setTab(id as Tab)}
+                onChange={(id) => setTab(id as Tab)}
               />
             }
           />
@@ -1546,9 +1527,8 @@ export function OrganisationPage() {
                             type="button"
                             onClick={() => setEmpSegment(id)}
                             className={`rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-wide ${
-                              selected ? 'text-white' : 'bg-white text-neutral-600 hover:bg-neutral-100'
+                              selected ? 'bg-[#1a3d32] text-white' : 'bg-white text-neutral-600 hover:bg-neutral-100'
                             }`}
-                            style={selected ? { backgroundColor: WORKPLACE_LIST_LAYOUT_CTA } : undefined}
                           >
                             {label}
                           </button>
@@ -1614,32 +1594,28 @@ export function OrganisationPage() {
             {!hasAnyEmployees ? (
               <div className="flex flex-col items-center justify-center border border-dashed border-neutral-200 py-16 text-center">
                 <p className="text-sm text-neutral-500">Ingen ansatte ennå</p>
-                <button
-                  type="button"
-                  onClick={() => setOrgSlidePanel({ kind: 'employee', mode: 'create' })}
-                  className="mt-4 inline-flex items-center gap-2 rounded-lg px-4 py-2.5 text-xs font-bold uppercase tracking-wide text-white shadow-sm"
-                  style={{ backgroundColor: WORKPLACE_LIST_LAYOUT_CTA }}
-                >
+                <Button onClick={() => setOrgSlidePanel({ kind: 'employee', mode: 'create' })}>
                   <Plus className="size-4 shrink-0" strokeWidth={2.5} />
                   Legg til ansatt
-                </button>
+                </Button>
               </div>
             ) : sortedFilteredEmployees.length === 0 ? (
               <div className="px-5 py-14 text-center md:px-6">
                 <p className="text-sm font-medium text-neutral-700">Ingen treff</p>
                 <p className="mt-1 text-xs text-neutral-500">Juster søk eller filter.</p>
-                <button
+                <Button
                   type="button"
+                  variant="secondary"
+                  size="sm"
+                  className="mt-4"
                   onClick={() => {
                     setEmpSegment('all')
                     setSearchEmp('')
                     setFilterUnit('')
                   }}
-                  className="mt-4 rounded-md px-4 py-2 text-xs font-bold uppercase tracking-wide text-white"
-                  style={{ backgroundColor: WORKPLACE_LIST_LAYOUT_CTA }}
                 >
                   Nullstill
-                </button>
+                </Button>
               </div>
             ) : empStdViewMode === 'table' ? (
               <div className="overflow-x-auto">
@@ -1840,9 +1816,8 @@ export function OrganisationPage() {
                               type="button"
                               onClick={() => setUnitKindSeg(id)}
                               className={`rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-wide ${
-                                selected ? 'text-white' : 'bg-white text-neutral-600 hover:bg-neutral-100'
+                                selected ? 'bg-[#1a3d32] text-white' : 'bg-white text-neutral-600 hover:bg-neutral-100'
                               }`}
-                              style={selected ? { backgroundColor: WORKPLACE_LIST_LAYOUT_CTA } : undefined}
                             >
                               {label}
                             </button>
@@ -1880,30 +1855,26 @@ export function OrganisationPage() {
               {org.units.length === 0 ? (
                 <div className="flex flex-col items-center justify-center border border-dashed border-neutral-200 py-16 text-center">
                   <p className="text-sm text-neutral-500">Ingen enheter ennå</p>
-                  <button
-                    type="button"
-                    onClick={() => openUnitPanel('create')}
-                    className="mt-4 inline-flex items-center gap-2 rounded-lg px-4 py-2.5 text-xs font-bold uppercase tracking-wide text-white shadow-sm"
-                    style={{ backgroundColor: WORKPLACE_LIST_LAYOUT_CTA }}
-                  >
+                  <Button className="mt-4" onClick={() => openUnitPanel('create')}>
                     <Plus className="size-4 shrink-0" strokeWidth={2.5} />
                     Opprett enhet
-                  </button>
+                  </Button>
                 </div>
               ) : sortedFilteredUnitRows.length === 0 ? (
                 <div className="px-5 py-14 text-center md:px-6">
                   <p className="text-sm font-medium text-neutral-700">Ingen treff</p>
-                  <button
+                  <Button
                     type="button"
+                    variant="secondary"
+                    size="sm"
+                    className="mt-4"
                     onClick={() => {
                       setUnitSearch('')
                       setUnitKindSeg('all')
                     }}
-                    className="mt-4 rounded-md px-4 py-2 text-xs font-bold uppercase tracking-wide text-white"
-                    style={{ backgroundColor: WORKPLACE_LIST_LAYOUT_CTA }}
                   >
                     Nullstill
-                  </button>
+                  </Button>
                 </div>
               ) : unitStdViewMode === 'table' ? (
                 <div className="overflow-x-auto">
@@ -2066,14 +2037,9 @@ export function OrganisationPage() {
               ) : groupsStdFiltered.length === 0 ? (
                 <div className="px-5 py-14 text-center md:px-6">
                   <p className="text-sm font-medium text-neutral-700">Ingen treff</p>
-                  <button
-                    type="button"
-                    onClick={() => setGroupStdSearch('')}
-                    className="mt-4 rounded-md px-4 py-2 text-xs font-bold uppercase tracking-wide text-white"
-                    style={{ backgroundColor: WORKPLACE_LIST_LAYOUT_CTA }}
-                  >
+                  <Button type="button" variant="secondary" size="sm" className="mt-4" onClick={() => setGroupStdSearch('')}>
                     Nullstill søk
-                  </button>
+                  </Button>
                 </div>
               ) : groupStdViewMode === 'table' ? (
                 <div className="overflow-x-auto">
@@ -2827,7 +2793,7 @@ export function OrganisationPage() {
             id="org-new-unit"
             className="mt-2 overflow-hidden rounded-xl border border-neutral-200/80"
             onSubmit={handleCreateUnitLegacy}
-            style={{ backgroundColor: WORKPLACE_FOREST }}
+            style={{ backgroundColor: '#1a3d32' }}
           >
             <div className={ORG_MERGED_PANEL}>
               <div className={ORG_MERGED_COL}>

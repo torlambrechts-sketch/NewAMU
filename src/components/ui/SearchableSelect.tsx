@@ -23,7 +23,7 @@ export function SearchableSelect({
   triggerClassName,
 }: {
   value: string
-  options: SelectOption[]
+  options: readonly SelectOption[]
   placeholder?: string
   onChange: (val: string) => void
   disabled?: boolean

@@ -49,6 +49,17 @@ export const AMU_WORKFLOW_TRIGGER_EVENTS = [
   { value: 'ON_AMU_MEETING_SIGNED', label: 'AMU-møte signert (distribuer referat)' },
 ] as const
 
+/** Documents module — revision, acknowledgement and annual-review lifecycle events. */
+export const DOCUMENTS_WORKFLOW_TRIGGER_EVENTS = [
+  { value: 'ON_DOCUMENT_PUBLISHED', label: 'Dokument publisert' },
+  { value: 'ON_DOCUMENT_REVISION_DUE', label: 'Revisjonsfrist nådd' },
+  { value: 'ON_DOCUMENT_REVISION_OVERDUE', label: 'Revisjon forfalt' },
+  { value: 'ON_DOCUMENT_ACK_COMPLETE', label: 'Alle kvitteringer mottatt' },
+  { value: 'ON_DOCUMENT_ACCESS_REQUESTED', label: 'Tilgangssøknad mottatt' },
+  { value: 'ON_ANNUAL_REVIEW_STARTED', label: 'Årsgjennomgang startet' },
+  { value: 'ON_ANNUAL_REVIEW_COMPLETED', label: 'Årsgjennomgang fullført' },
+] as const
+
 /** Match `workflow_dispatch_db_event` in survey enterprise migration (module `survey`). */
 export const SURVEY_WORKFLOW_TRIGGER_EVENTS = [
   { value: 'ON_SURVEY_PUBLISHED', label: 'Undersøkelse publisert' },
@@ -67,6 +78,7 @@ const REGISTRY: Record<string, readonly { value: string; label: string }[]> = {
   amu_election: AMU_ELECTION_WORKFLOW_TRIGGER_EVENTS,
   amu: AMU_WORKFLOW_TRIGGER_EVENTS,
   survey: SURVEY_WORKFLOW_TRIGGER_EVENTS,
+  documents: DOCUMENTS_WORKFLOW_TRIGGER_EVENTS,
 }
 
 export function getWorkflowTriggerEventsForModule(triggerModule: string): { value: string; label: string }[] {

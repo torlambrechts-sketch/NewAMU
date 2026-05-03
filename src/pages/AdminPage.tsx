@@ -1,9 +1,13 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useLocation, useSearchParams } from 'react-router-dom'
 import { Download, Loader2, Mail, Plus, Shield, Upload, UserCog, Users } from 'lucide-react'
-import { ModulePageIcon } from '../components/ModulePageIcon'
-import { HubMenu1Bar, type HubMenu1Item } from '../components/layout/HubMenu1Bar'
-import { WorkplacePageHeading1 } from '../components/layout/WorkplacePageHeading1'
+import { ModulePageShell, ModuleSectionCard } from '../components/module'
+import { Tabs } from '../components/ui/Tabs'
+import { StandardInput } from '../components/ui/Input'
+import { SearchableSelect } from '../components/ui/SearchableSelect'
+import { Button } from '../components/ui/Button'
+import { WarningBox } from '../components/ui/AlertBox'
+import { WPSTD_FORM_FIELD_LABEL } from '../components/layout/WorkplaceStandardFormPanel'
 import { getSupabaseBrowserClient } from '../lib/supabaseClient'
 import { useOrgSetupContext } from '../hooks/useOrgSetupContext'
 import { PERMISSION_KEYS, PERMISSION_LABELS } from '../lib/permissionKeys'
@@ -37,7 +41,7 @@ type DelegationRow = {
   note: string | null
 }
 
-const tabs = [
+const ADMIN_TABS = [
   { id: 'users', label: 'Brukere & invitasjoner', icon: Users },
   { id: 'roles', label: 'Roller & rettigheter', icon: Shield },
   { id: 'delegation', label: 'Delegering', icon: UserCog },
@@ -60,14 +64,7 @@ export function AdminPage() {
     setSearchParams({ tab: t }, { replace: true })
   }
 
-  const adminHubItems: HubMenu1Item[] = tabs.map((t) => ({
-    key: t.id,
-    label: t.label,
-    icon: t.icon,
-    active: tab === t.id,
-    onClick: () => setTab(t.id),
-  }))
-  const adminSectionLabel = tabs.find((t) => t.id === tab)?.label ?? 'Administrasjon'
+  const adminSectionLabel = ADMIN_TABS.find((t) => t.id === tab)?.label ?? 'Administrasjon'
 
   const [profiles, setProfiles] = useState<ProfileRow[]>([])
   const [roles, setRoles] = useState<RoleRow[]>([])
@@ -266,76 +263,91 @@ export function AdminPage() {
         { label: adminSectionLabel },
       ]
 
-  return (
-    <div className="mx-auto max-w-[1400px] px-4 py-8 md:px-8">
-      <WorkplacePageHeading1
-        breadcrumb={adminBreadcrumb}
-        title="Administrasjon"
-        description={`Brukere, invitasjoner, roller og delegering for ${organization.name} (${organization.organization_number}).`}
-        headerActions={
-          <ModulePageIcon className="bg-[#1a3d32] text-[#c9a227]">
-            <Shield className="size-9 md:size-10" strokeWidth={1.5} aria-hidden />
-          </ModulePageIcon>
-        }
-        menu={<HubMenu1Bar ariaLabel="Administrasjon — faner" items={adminHubItems} />}
-      />
+  const roleSelectOptions = roles.map((r) => ({ value: r.id, label: r.name }))
 
-      {error ? <p className="mt-4 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-800">{error}</p> : null}
+  return (
+    <ModulePageShell
+      breadcrumb={adminBreadcrumb}
+      title="Administrasjon"
+      description={`Brukere, invitasjoner, roller og delegering for ${organization.name} (${organization.organization_number}).`}
+      tabs={
+        <Tabs
+          items={ADMIN_TABS.map((t) => ({ id: t.id, label: t.label, icon: t.icon }))}
+          activeId={tab}
+          onChange={setTab}
+          overflow="scroll"
+        />
+      }
+    >
+      {error ? (
+        <WarningBox>{error}</WarningBox>
+      ) : null}
 
       {loading ? (
-        <div className="mt-8 flex justify-center gap-2 text-neutral-600">
-          <Loader2 className="size-6 animate-spin" />
+        <div className="flex min-h-[20vh] items-center justify-center">
+          <Loader2 className="size-8 animate-spin text-[#1a3d32]" />
         </div>
       ) : null}
 
       {tab === 'users' && !loading ? (
-        <div className="mt-8 space-y-8">
-          <section className="rounded-xl border border-neutral-200 bg-white p-5 shadow-sm">
+        <div className="space-y-6">
+          {/* Ny invitasjon */}
+          <ModuleSectionCard className="p-5">
             <h2 className="flex items-center gap-2 text-lg font-semibold text-neutral-900">
               <Mail className="size-5 text-[#1a3d32]" />
               Ny invitasjon
             </h2>
-            <div className="mt-4 flex flex-wrap gap-3">
-              <input
-                type="email"
-                placeholder="e-post"
-                value={inviteEmail}
-                onChange={(e) => setInviteEmail(e.target.value)}
-                className="min-w-[200px] flex-1 rounded-lg border border-neutral-200 px-3 py-2 text-sm"
-              />
-              <select
-                multiple
-                value={inviteRoleIds}
-                onChange={(e) =>
-                  setInviteRoleIds([...e.target.selectedOptions].map((o) => o.value))
-                }
-                className="min-h-[42px] min-w-[180px] rounded-lg border border-neutral-200 px-2 text-sm"
-              >
-                {roles.map((r) => (
-                  <option key={r.id} value={r.id}>
-                    {r.name}
-                  </option>
-                ))}
-              </select>
-              <button
-                type="button"
+            <div className="mt-4 space-y-3">
+              <div>
+                <label className={WPSTD_FORM_FIELD_LABEL}>E-post</label>
+                <StandardInput
+                  type="email"
+                  placeholder="e-post"
+                  value={inviteEmail}
+                  onChange={(e) => setInviteEmail(e.target.value)}
+                  className="mt-1.5"
+                />
+              </div>
+              <div>
+                <label className={WPSTD_FORM_FIELD_LABEL}>Roller (velg én eller flere)</label>
+                <div className="mt-2 flex flex-wrap gap-2">
+                  {roles.map((r) => (
+                    <button
+                      key={r.id}
+                      type="button"
+                      onClick={() =>
+                        setInviteRoleIds((prev) =>
+                          prev.includes(r.id) ? prev.filter((x) => x !== r.id) : [...prev, r.id],
+                        )
+                      }
+                      className={`rounded-lg border px-3 py-1.5 text-xs font-medium transition ${
+                        inviteRoleIds.includes(r.id)
+                          ? 'border-[#1a3d32] bg-[#1a3d32] text-white'
+                          : 'border-neutral-200 bg-white text-neutral-700 hover:border-neutral-300'
+                      }`}
+                    >
+                      {r.name}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <Button
+                variant="primary"
+                icon={<Plus className="size-4" />}
                 onClick={() => void createInvite()}
                 disabled={!inviteEmail.includes('@')}
-                className="inline-flex items-center gap-2 rounded-lg bg-[#1a3d32] px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
               >
-                <Plus className="size-4" />
                 Opprett lenke
-              </button>
+              </Button>
             </div>
             <p className="mt-2 text-xs text-neutral-500">
               Lenken kopieres til utklippstavle. Mottaker må registrere/logge inn med samme e-post.
             </p>
-          </section>
+          </ModuleSectionCard>
 
-          <section className="rounded-xl border border-neutral-200 bg-white p-5 shadow-sm">
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <h2 className="text-lg font-semibold text-neutral-900">Ventende invitasjoner</h2>
-            </div>
+          {/* Ventende invitasjoner */}
+          <ModuleSectionCard className="p-5">
+            <h2 className="text-lg font-semibold text-neutral-900">Ventende invitasjoner</h2>
             <ul className="mt-3 divide-y divide-neutral-100">
               {invites.filter((i) => i.status === 'pending').length === 0 ? (
                 <li className="py-2 text-sm text-neutral-500">Ingen</li>
@@ -347,32 +359,33 @@ export function AdminPage() {
                       <span>
                         {i.email} — utløper {new Date(i.expires_at).toLocaleDateString('nb-NO')}
                       </span>
-                      <button
-                        type="button"
+                      <Button
+                        variant="danger"
+                        size="sm"
                         onClick={() => void revokeInvite(i.id)}
-                        className="text-red-600 hover:underline"
                       >
                         Trekk tilbake
-                      </button>
+                      </Button>
                     </li>
                   ))
               )}
             </ul>
-          </section>
+          </ModuleSectionCard>
 
-          <section className="rounded-xl border border-neutral-200 bg-white p-5 shadow-sm">
+          {/* Brukere i organisasjonen */}
+          <ModuleSectionCard className="p-5">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <h2 className="text-lg font-semibold text-neutral-900">Brukere i organisasjonen</h2>
               <div className="flex gap-2">
-                <button
-                  type="button"
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  icon={<Download className="size-4" />}
                   onClick={exportUsersJson}
-                  className="inline-flex items-center gap-1 rounded-lg border border-neutral-200 px-3 py-1.5 text-sm"
                 >
-                  <Download className="size-4" />
                   Eksporter JSON
-                </button>
-                <label className="inline-flex cursor-pointer items-center gap-1 rounded-lg border border-neutral-200 px-3 py-1.5 text-sm">
+                </Button>
+                <label className="inline-flex cursor-pointer items-center gap-1 rounded-md border border-neutral-300 bg-white px-3 py-1.5 text-xs font-semibold text-neutral-700 transition-colors hover:bg-neutral-50">
                   <Upload className="size-4" />
                   Import JSON
                   <input
@@ -388,29 +401,30 @@ export function AdminPage() {
               </div>
             </div>
             <UserRoleTable sb={sb} profiles={profiles} roles={roles} onSave={updateUserRoles} />
-          </section>
+          </ModuleSectionCard>
         </div>
       ) : null}
 
       {tab === 'roles' && !loading ? (
-        <div className="mt-8 space-y-6">
-          <section className="rounded-xl border border-neutral-200 bg-white p-5 shadow-sm">
-            <h2 className="text-lg font-semibold">Ny rolle</h2>
+        <div className="space-y-6">
+          {/* Ny rolle */}
+          <ModuleSectionCard className="p-5">
+            <h2 className="text-lg font-semibold text-neutral-900">Ny rolle</h2>
             <div className="mt-3 flex flex-wrap gap-2">
-              <input
+              <StandardInput
                 placeholder="Slug (f.eks. hr)"
                 value={newRoleSlug}
                 onChange={(e) => setNewRoleSlug(e.target.value.toLowerCase().replace(/\s+/g, '-'))}
-                className="rounded-lg border border-neutral-200 px-3 py-2 text-sm"
+                className="w-auto min-w-[140px]"
               />
-              <input
+              <StandardInput
                 placeholder="Visningsnavn"
                 value={newRoleName}
                 onChange={(e) => setNewRoleName(e.target.value)}
-                className="rounded-lg border border-neutral-200 px-3 py-2 text-sm"
+                className="w-auto min-w-[180px]"
               />
-              <button
-                type="button"
+              <Button
+                variant="primary"
                 onClick={async () => {
                   if (!sb || !newRoleSlug.trim() || !newRoleName.trim()) return
                   const { error: err } = await sb.from('role_definitions').insert({
@@ -426,30 +440,28 @@ export function AdminPage() {
                     void load()
                   }
                 }}
-                className="rounded-lg bg-[#1a3d32] px-4 py-2 text-sm text-white"
               >
                 Opprett
-              </button>
+              </Button>
             </div>
-          </section>
+          </ModuleSectionCard>
 
           <ul className="space-y-2">
             {roles.map((r) => (
-              <li
-                key={r.id}
-                className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-neutral-100 bg-white px-4 py-3"
-              >
-                <div>
-                  <span className="font-medium">{r.name}</span>
-                  <span className="ml-2 text-xs text-neutral-500">{r.slug}</span>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => void openRoleEditor(r)}
-                  className="text-sm font-medium text-[#1a3d32] hover:underline"
-                >
-                  Rediger rettigheter
-                </button>
+              <li key={r.id}>
+                <ModuleSectionCard className="flex flex-wrap items-center justify-between gap-2 px-4 py-3" clip="visible">
+                  <div>
+                    <span className="font-medium text-neutral-900">{r.name}</span>
+                    <span className="ml-2 text-xs text-neutral-500">{r.slug}</span>
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => void openRoleEditor(r)}
+                  >
+                    Rediger rettigheter
+                  </Button>
+                </ModuleSectionCard>
               </li>
             ))}
           </ul>
@@ -457,7 +469,7 @@ export function AdminPage() {
           {editingRole ? (
             <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
               <div className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-2xl bg-white p-6 shadow-xl">
-                <h3 className="text-lg font-semibold">{editingRole.name}</h3>
+                <h3 className="text-lg font-semibold text-neutral-900">{editingRole.name}</h3>
                 <div className="mt-4 grid max-h-64 gap-2 overflow-y-auto">
                   {PERMISSION_KEYS.map((k) => (
                     <label key={k} className="flex items-center gap-2 text-sm">
@@ -477,20 +489,12 @@ export function AdminPage() {
                   ))}
                 </div>
                 <div className="mt-6 flex justify-end gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setEditingRole(null)}
-                    className="rounded-lg border border-neutral-200 px-4 py-2 text-sm"
-                  >
+                  <Button variant="secondary" onClick={() => setEditingRole(null)}>
                     Avbryt
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => void saveRolePermissions()}
-                    className="rounded-lg bg-[#1a3d32] px-4 py-2 text-sm text-white"
-                  >
+                  </Button>
+                  <Button variant="primary" onClick={() => void saveRolePermissions()}>
                     Lagre
-                  </button>
+                  </Button>
                 </div>
               </div>
             </div>
@@ -499,59 +503,65 @@ export function AdminPage() {
       ) : null}
 
       {tab === 'delegation' && !loading ? (
-        <div className="mt-8 space-y-6">
-          <section className="rounded-xl border border-neutral-200 bg-white p-5 shadow-sm">
-            <h2 className="text-lg font-semibold">Ny delegering</h2>
+        <div className="space-y-6">
+          <ModuleSectionCard className="p-5">
+            <h2 className="text-lg font-semibold text-neutral-900">Ny delegering</h2>
             <p className="mt-1 text-sm text-neutral-600">
               Gir mottaker rettigheter fra valgt rolle i perioden (i tillegg til egne roller).
             </p>
             <div className="mt-4 grid gap-3 sm:grid-cols-2">
-              <input
-                type="email"
-                placeholder="Mottakers e-post (må være bruker i org.)"
-                value={delTo}
-                onChange={(e) => setDelTo(e.target.value)}
-                className="rounded-lg border border-neutral-200 px-3 py-2 text-sm sm:col-span-2"
-              />
-              <select
-                value={delRoleId}
-                onChange={(e) => setDelRoleId(e.target.value)}
-                className="rounded-lg border border-neutral-200 px-3 py-2 text-sm"
-              >
-                <option value="">Velg rolle</option>
-                {roles.map((r) => (
-                  <option key={r.id} value={r.id}>
-                    {r.name}
-                  </option>
-                ))}
-              </select>
-              <input
-                type="datetime-local"
-                value={delEnds}
-                onChange={(e) => setDelEnds(e.target.value)}
-                className="rounded-lg border border-neutral-200 px-3 py-2 text-sm"
-              />
-              <button
-                type="button"
+              <div className="sm:col-span-2">
+                <label className={WPSTD_FORM_FIELD_LABEL}>Mottakers e-post</label>
+                <StandardInput
+                  type="email"
+                  placeholder="Mottakers e-post (må være bruker i org.)"
+                  value={delTo}
+                  onChange={(e) => setDelTo(e.target.value)}
+                  className="mt-1.5"
+                />
+              </div>
+              <div>
+                <label className={WPSTD_FORM_FIELD_LABEL}>Rolle</label>
+                <SearchableSelect
+                  value={delRoleId}
+                  options={roleSelectOptions}
+                  placeholder="Velg rolle"
+                  onChange={setDelRoleId}
+                />
+              </div>
+              <div>
+                <label className={WPSTD_FORM_FIELD_LABEL}>Sluttdato</label>
+                <StandardInput
+                  type="datetime-local"
+                  value={delEnds}
+                  onChange={(e) => setDelEnds(e.target.value)}
+                  className="mt-1.5"
+                />
+              </div>
+              <Button
+                variant="primary"
+                className="sm:col-span-2 justify-center"
                 onClick={() => void createDelegation()}
-                className="sm:col-span-2 rounded-lg bg-[#1a3d32] py-2 text-sm font-medium text-white"
               >
                 Opprett delegering
-              </button>
+              </Button>
             </div>
-          </section>
+          </ModuleSectionCard>
+
           <ul className="space-y-2">
             {delegations.map((d) => (
-              <li key={d.id} className="rounded-lg border border-neutral-100 bg-white px-4 py-3 text-sm">
-                Rolle {roles.find((x) => x.id === d.role_id)?.name ?? d.role_id} — til{' '}
-                {profiles.find((p) => p.id === d.to_user_id)?.email ?? d.to_user_id} — til{' '}
-                {new Date(d.ends_at).toLocaleString('nb-NO')}
+              <li key={d.id}>
+                <ModuleSectionCard className="px-4 py-3 text-sm text-neutral-700" clip="visible">
+                  Rolle {roles.find((x) => x.id === d.role_id)?.name ?? d.role_id} — til{' '}
+                  {profiles.find((p) => p.id === d.to_user_id)?.email ?? d.to_user_id} — til{' '}
+                  {new Date(d.ends_at).toLocaleString('nb-NO')}
+                </ModuleSectionCard>
               </li>
             ))}
           </ul>
         </div>
       ) : null}
-    </div>
+    </ModulePageShell>
   )
 }
 
@@ -607,30 +617,42 @@ function UserRoleTable({
               <td className="py-2 pr-4">{p.display_name}</td>
               <td className="py-2 pr-4 text-neutral-600">{p.email ?? '—'}</td>
               <td className="py-2">
-                <select
-                  multiple
-                  className="min-h-[36px] w-full max-w-xs rounded border border-neutral-200 px-1 text-xs"
-                  value={map[p.id] ?? []}
-                  onChange={(e) => {
-                    const v = [...e.target.selectedOptions].map((o) => o.value)
-                    setMap((prev) => ({ ...prev, [p.id]: v }))
-                  }}
-                >
-                  {roles.map((r) => (
-                    <option key={r.id} value={r.id}>
-                      {r.name}
-                    </option>
-                  ))}
-                </select>
+                <div className="flex flex-wrap gap-1">
+                  {roles.map((r) => {
+                    const active = (map[p.id] ?? []).includes(r.id)
+                    return (
+                      <button
+                        key={r.id}
+                        type="button"
+                        onClick={() =>
+                          setMap((prev) => {
+                            const cur = prev[p.id] ?? []
+                            return {
+                              ...prev,
+                              [p.id]: active ? cur.filter((x) => x !== r.id) : [...cur, r.id],
+                            }
+                          })
+                        }
+                        className={`rounded border px-2 py-0.5 text-xs font-medium transition ${
+                          active
+                            ? 'border-[#1a3d32] bg-[#1a3d32] text-white'
+                            : 'border-neutral-200 bg-white text-neutral-600 hover:border-neutral-300'
+                        }`}
+                      >
+                        {r.name}
+                      </button>
+                    )
+                  })}
+                </div>
               </td>
               <td className="py-2">
-                <button
-                  type="button"
+                <Button
+                  variant="secondary"
+                  size="sm"
                   onClick={() => onSave(p.id, map[p.id] ?? [])}
-                  className="rounded bg-neutral-100 px-2 py-1 text-xs font-medium hover:bg-neutral-200"
                 >
                   Lagre
-                </button>
+                </Button>
               </td>
             </tr>
           ))}

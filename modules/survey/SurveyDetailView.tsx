@@ -873,7 +873,7 @@ export function SurveyDetailView({ supabase }: Props) {
         title="Laster…"
         description="Henter detaljer."
         headerActions={
-          <Button type="button" variant="secondary" size="sm" onClick={() => navigate('/survey')}>
+          <Button type="button" variant="secondary" onClick={() => navigate('/survey')}>
             <ArrowLeft className="h-4 w-4" aria-hidden />
             Tilbake
           </Button>
@@ -893,7 +893,7 @@ export function SurveyDetailView({ supabase }: Props) {
         title={s.title}
         description={s.description ?? 'Detaljert visning — innstillinger, spørsmål, svar og analyse.'}
         headerActions={
-          <Button type="button" variant="secondary" size="sm" onClick={() => navigate('/survey')}>
+          <Button type="button" variant="secondary" onClick={() => navigate('/survey')}>
             <ArrowLeft className="h-4 w-4" aria-hidden />
             Tilbake
           </Button>
