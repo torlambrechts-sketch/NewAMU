@@ -25,6 +25,7 @@ function DocumentsShellHeaderActions({
   onMalbibliotek: boolean
 }) {
   const { requestOpenNewFolder, requestNewDocument } = useDocumentsHubActions()
+  const { requestOpenNewFolder, requestNewDocument } = useDocumentsHubActions()
 
   if (!canEditDocs) return null
 
@@ -43,8 +44,13 @@ function DocumentsShellHeaderActions({
 
   if (onMalbibliotek) {
     return (
-      <div className="flex shrink-0 flex-wrap items-center justify-end gap-2 lg:justify-end">
-        {/* Removed Ny malmapp and Ny mal buttons from Dokumentmaler box as requested */}
+      <div className="flex shrink-0 flex-wrap items-center gap-2 lg:gap-3">
+        <Button variant="secondary" type="button" icon={<FolderPlus className="h-4 w-4" />} onClick={() => requestOpenNewFolder()}>
+          Ny malmapp
+        </Button>
+        <Button variant="primary" type="button" icon={<Plus className="h-4 w-4" />} onClick={() => requestNewDocument()}>
+          Ny mal
+        </Button>
       </div>
     )
   }
@@ -62,7 +68,7 @@ function DocumentsModuleShellBody() {
   useEffect(() => {
     if (!can('documents.manage') || !supabase || !organization?.id) {
       queueMicrotask(() => setAnnualReviewDot(false))
-      return
+      return () => {}
     }
     const y = new Date().getFullYear()
     const now = new Date()
