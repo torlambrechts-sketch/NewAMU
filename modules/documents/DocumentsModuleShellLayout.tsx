@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Outlet, useLocation } from 'react-router-dom'
 import { FolderPlus, Plus } from 'lucide-react'
-import { ModulePageShell } from '../../src/components/module/ModulePageShell'
+import { ModuleLegalBanner, ModulePageShell } from '../../src/components/module'
 import { Button } from '../../src/components/ui/Button'
 import { useOrgSetupContext } from '../../src/hooks/useOrgSetupContext'
 import { canEditWikiDocuments } from '../../src/lib/documentsAccess'
@@ -12,6 +12,8 @@ import { DocumentsShellEmbeddedProvider } from './DocumentsShellContext'
 import { DocumentsHubSecondaryNav } from '../../src/components/documents/DocumentsHubSecondaryNav'
 import { DocumentsSearchHotkey } from '../../src/components/documents/DocumentsSearchHotkey'
 import { apiFetchAnnualReview } from '../../src/api/wikiAnnualReview'
+import { DOCUMENTS_MODULE_LEGAL_REFERENCES } from './documentsLegalReferences'
+import { ModuleLegalFrameworkProvider } from '../../src/components/module/ModuleLegalFrameworkContext'
 
 function DocumentsShellHeaderActions({
   canEditDocs,
@@ -145,6 +147,15 @@ function DocumentsModuleShellBody() {
         tabs={nav}
         headerActions={<DocumentsShellHeaderActions canEditDocs={canEditDocs} onDocumentsHub={onDocumentsHub} onMalbibliotek={onMalbibliotek} />}
       >
+        <ModuleLegalBanner
+          title="Dokumenter"
+          intro={
+            <p>
+              Regelverk for dokumenter.
+            </p>
+          }
+          references={DOCUMENTS_MODULE_LEGAL_REFERENCES}
+        />
         <Outlet />
       </ModulePageShell>
     </div>
@@ -158,10 +169,12 @@ function DocumentsModuleShellBody() {
  */
 export function DocumentsModuleShellLayout() {
   return (
-    <DocumentsHubActionsProvider>
-      <DocumentsShellEmbeddedProvider>
-        <DocumentsModuleShellBody />
-      </DocumentsShellEmbeddedProvider>
-    </DocumentsHubActionsProvider>
+    <ModuleLegalFrameworkProvider>
+      <DocumentsHubActionsProvider>
+        <DocumentsShellEmbeddedProvider>
+          <DocumentsModuleShellBody />
+        </DocumentsShellEmbeddedProvider>
+      </DocumentsHubActionsProvider>
+    </ModuleLegalFrameworkProvider>
   )
 }
