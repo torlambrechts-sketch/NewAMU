@@ -7,6 +7,10 @@ type Input = { supabase: SupabaseClient | null }
 
 export type AvvikAssignableUser = { id: string; displayName: string }
 
+function isAvvikLockedStatus(status: AvvikStatus): boolean {
+  return status === 'closed' || status === 'lukket'
+}
+
 export type AvvikModuleState = {
   loading: boolean
   error: string | null
@@ -14,7 +18,9 @@ export type AvvikModuleState = {
   assignableUsers: AvvikAssignableUser[]
   load: () => Promise<void>
   createAvvik: (payload: AvvikCreatePayload) => Promise<AvvikRow | null>
-  updateAvvik: (payload: AvvikUpdatePayload) => Promise<void>
+  updateAvvik: (payload: AvvikUpdatePayload) => Promise<boolean>
+  /** Same as `updateAvvik`, plus client-side guard when the deviation is closed (`lukket` / legacy `closed`). */
+  updateDeviation: (payload: AvvikUpdatePayload) => Promise<boolean>
   deleteAvvik: (avvikId: string) => Promise<void>
   clearError: () => void
 }
@@ -130,8 +136,8 @@ export function useAvvik({ supabase }: Input): AvvikModuleState {
   )
 
   const updateAvvik = useCallback(
-    async (payload: AvvikUpdatePayload) => {
-      if (!supabase) { setError('Supabase er ikke konfigurert.'); return }
+    async (payload: AvvikUpdatePayload): Promise<boolean> => {
+      if (!supabase) { setError('Supabase er ikke konfigurert.'); return false }
       setError(null)
       const row: Record<string, unknown> = {}
       if (payload.title !== undefined) row.title = payload.title.trim()
@@ -148,12 +154,26 @@ export function useAvvik({ supabase }: Input): AvvikModuleState {
         .eq('id', payload.avvikId)
         .select('*')
         .single()
-      if (err) { setError(err.message); return }
+      if (err) { setError(err.message); return false }
       const parsed = parseRow(data)
-      if (!parsed) { setError('Kunne ikke lese oppdatert avvik fra databasen.'); return }
+      if (!parsed) { setError('Kunne ikke lese oppdatert avvik fra databasen.'); return false }
       setAvvik((prev) => prev.map((a) => (a.id === payload.avvikId ? parsed : a)))
+      return true
     },
     [supabase],
+  )
+
+  const updateDeviation = useCallback(
+    async (payload: AvvikUpdatePayload): Promise<boolean> => {
+      if (!supabase) { setError('Supabase er ikke konfigurert.'); return false }
+      const existing = avvik.find((a) => a.id === payload.avvikId)
+      if (existing && isAvvikLockedStatus(existing.status)) {
+        setError('Avviket er lukket og kan ikke endres.')
+        return false
+      }
+      return updateAvvik(payload)
+    },
+    [supabase, avvik, updateAvvik],
   )
 
   const deleteAvvik = useCallback(
@@ -172,5 +192,5 @@ export function useAvvik({ supabase }: Input): AvvikModuleState {
 
   const clearError = useCallback(() => setError(null), [])
 
-  return { loading, error, avvik, assignableUsers, load, createAvvik, updateAvvik, deleteAvvik, clearError }
+  return { loading, error, avvik, assignableUsers, load, createAvvik, updateAvvik, updateDeviation, deleteAvvik, clearError }
 }
