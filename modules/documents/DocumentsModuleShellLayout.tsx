@@ -43,12 +43,6 @@ function DocumentsShellHeaderActions({
   if (onMalbibliotek) {
     return (
       <div className="flex shrink-0 flex-wrap items-center gap-2 lg:gap-3">
-        <Button variant="secondary" type="button" icon={<FolderPlus className="h-4 w-4" />} onClick={() => requestOpenNewFolder()}>
-          Ny malmapp
-        </Button>
-        <Button variant="primary" type="button" icon={<Plus className="h-4 w-4" />} onClick={() => requestNewDocument()}>
-          Ny mal
-        </Button>
       </div>
     )
   }
