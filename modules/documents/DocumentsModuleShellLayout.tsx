@@ -24,7 +24,7 @@ function DocumentsShellHeaderActions({
   onDocumentsHub: boolean
   onMalbibliotek: boolean
 }) {
-  const { requestOpenNewFolder, requestNewDocument, requestNewTemplate } = useDocumentsHubActions()
+  const { requestOpenNewFolder, requestNewDocument } = useDocumentsHubActions()
 
   if (!canEditDocs) return null
 
