@@ -42,7 +42,11 @@ function DocumentsShellHeaderActions({
   }
 
   if (onMalbibliotek) {
-    return null
+    return (
+      <div className="flex shrink-0 flex-wrap items-center justify-end gap-2 lg:justify-end">
+        {/* Removed Ny malmapp and Ny mal buttons from Dokumentmaler box as requested */}
+      </div>
+    )
   }
 
   return null
