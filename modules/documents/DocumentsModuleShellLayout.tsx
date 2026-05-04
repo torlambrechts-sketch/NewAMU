@@ -23,7 +23,7 @@ function DocumentsShellHeaderActions({
   onDocumentsHub: boolean
   onMalbibliotek: boolean
 }) {
-  const { requestOpenNewFolder, requestNewDocument } = useDocumentsHubActions()
+  const { requestOpenNewFolder, requestNewDocument, requestNewTemplate } = useDocumentsHubActions()
 
   if (!canEditDocs) return null
 
@@ -35,6 +35,9 @@ function DocumentsShellHeaderActions({
         </Button>
         <Button variant="primary" type="button" icon={<Plus className="h-4 w-4" />} onClick={() => requestNewDocument()}>
           Nytt dokument
+        </Button>
+        <Button variant="secondary" type="button" icon={<FolderPlus className="h-4 w-4" />} onClick={() => requestNewTemplate()}>
+          Ny mal
         </Button>
       </div>
     )
