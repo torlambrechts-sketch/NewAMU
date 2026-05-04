@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Outlet, useLocation } from 'react-router-dom'
-import { FolderPlus, Plus } from 'lucide-react'
 import { ModuleLegalBanner, ModulePageShell } from '../../src/components/module'
 import { Button } from '../../src/components/ui/Button'
 import { useOrgSetupContext } from '../../src/hooks/useOrgSetupContext'
@@ -24,7 +23,6 @@ function DocumentsShellHeaderActions({
   onDocumentsHub: boolean
   onMalbibliotek: boolean
 }) {
-  const { requestOpenNewFolder, requestNewDocument } = useDocumentsHubActions()
   const { requestOpenNewFolder, requestNewDocument } = useDocumentsHubActions()
 
   if (!canEditDocs) return null
