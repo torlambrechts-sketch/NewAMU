@@ -4,7 +4,6 @@ import {
   Loader2, Lock, RefreshCw, Settings,
 } from 'lucide-react'
 import { ModuleSectionCard } from '../components/module'
-import { ComplianceBanner } from '../components/ui/ComplianceBanner'
 import { Tabs, type TabItem } from '../components/ui/Tabs'
 import { WarningBox } from '../components/ui/AlertBox'
 import { useOrgSetupContext } from '../hooks/useOrgSetupContext'
@@ -98,12 +97,6 @@ export function DocumentsModuleAdminPage() {
   return (
     <div className="space-y-6">
       <Tabs className="w-full md:w-auto" overflow="scroll" items={ADMIN_TABS} activeId={tab} onChange={(id) => setTab(id as AdminTab)} />
-
-      <ComplianceBanner title="Modulinnstillinger — Dokumenter">
-        Innstillinger lagres for hele organisasjonen. Kun administratorer og personer med «documents.manage»
-        kan endre disse. Visse innstillinger påvirker samsvar med internkontrollforskriften (IK-f §5) og
-        arbeidsmiljøloven (AML §3-2).
-      </ComplianceBanner>
 
       {settingsError && <WarningBox>{settingsError}</WarningBox>}
 
