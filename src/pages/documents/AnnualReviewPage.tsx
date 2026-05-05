@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
-import { CheckCircle2, ExternalLink, Loader2 } from 'lucide-react'
+import { AlertTriangle, CheckCircle2, ExternalLink, Loader2, MinusCircle, XCircle } from 'lucide-react'
 import { useDocuments } from '../../hooks/useDocuments'
 import { Badge } from '../../components/ui/Badge'
 import { Button } from '../../components/ui/Button'
@@ -8,12 +8,8 @@ import { SearchableSelect, type SelectOption } from '../../components/ui/Searcha
 import { StandardInput } from '../../components/ui/Input'
 import { StandardTextarea } from '../../components/ui/Textarea'
 import { WarningBox } from '../../components/ui/AlertBox'
-import {
-  ModuleSectionCard,
-  MODULE_TABLE_TD,
-  MODULE_TABLE_TH,
-  MODULE_TABLE_TR_BODY,
-} from '../../components/module'
+import { ModuleSectionCard } from '../../components/module'
+import { List2Shell } from '../../components/layout/List2Shell'
 import { DonutChartBlock, HorizontalMetricRow, InsightCardShell } from '../../components/ui/InsightPanels'
 import { getSupabaseErrorMessage } from '../../lib/supabaseError'
 import type { WikiAnnualReviewItemRow } from '../../api/wikiAnnualReview'
@@ -25,11 +21,43 @@ const STATUS_OPTIONS: SelectOption[] = [
   { value: 'not_applicable', label: 'Ikke aktuelt' },
 ]
 
-const STATUS_BADGE: Record<WikiAnnualReviewItemRow['status'], { label: string; tone: 'success' | 'warning' | 'critical' | 'neutral' }> = {
-  ok: { label: 'OK', tone: 'success' },
-  needs_update: { label: 'Trenger oppdatering', tone: 'warning' },
-  not_applicable: { label: 'Ikke aktuelt', tone: 'neutral' },
-  pending: { label: 'Ikke vurdert', tone: 'critical' },
+type StatusPillTone = 'ok' | 'warning' | 'critical' | 'neutral'
+
+const STATUS_PILL: Record<
+  WikiAnnualReviewItemRow['status'],
+  { label: string; tone: StatusPillTone; icon: typeof AlertTriangle | null }
+> = {
+  ok: { label: 'OK', tone: 'ok', icon: CheckCircle2 },
+  needs_update: { label: 'Trenger oppdatering', tone: 'warning', icon: AlertTriangle },
+  not_applicable: { label: 'Ikke aktuelt', tone: 'neutral', icon: MinusCircle },
+  pending: { label: 'Ikke vurdert', tone: 'critical', icon: XCircle },
+}
+
+const STATUS_PILL_CLASS: Record<StatusPillTone, string> = {
+  ok: 'bg-emerald-100 text-emerald-900',
+  warning: 'bg-amber-100 text-amber-950',
+  critical: 'bg-red-100 text-red-900',
+  neutral: 'bg-neutral-100 text-neutral-700',
+}
+
+const STATUS_PILL_ICON_CLASS: Record<StatusPillTone, string> = {
+  ok: 'text-emerald-700',
+  warning: 'text-amber-700',
+  critical: 'text-red-700',
+  neutral: 'text-neutral-500',
+}
+
+function StatusPill({ status }: { status: WikiAnnualReviewItemRow['status'] }) {
+  const meta = STATUS_PILL[status]
+  const Icon = meta.icon
+  return (
+    <span
+      className={`inline-flex items-center gap-1.5 whitespace-nowrap rounded-full px-2.5 py-1 text-[11px] font-semibold ${STATUS_PILL_CLASS[meta.tone]}`}
+    >
+      {Icon ? <Icon className={`size-3.5 shrink-0 ${STATUS_PILL_ICON_CLASS[meta.tone]}`} aria-hidden /> : null}
+      {meta.label}
+    </span>
+  )
 }
 
 function subscribeClock(cb: () => void) {
@@ -371,6 +399,8 @@ export function AnnualReviewPage() {
   )
 }
 
+const SERIF = "'Libre Baskerville', Georgia, serif"
+
 function ItemTableCard({
   title,
   description,
@@ -387,31 +417,55 @@ function ItemTableCard({
   const ok = items.filter((i) => i.status === 'ok').length
   const needs = items.filter((i) => i.status === 'needs_update').length
   const pending = items.filter((i) => i.status === 'pending').length
+  const na = items.filter((i) => i.status === 'not_applicable').length
 
   return (
-    <ModuleSectionCard className="overflow-hidden p-0">
-      <div className="border-b border-neutral-100 bg-neutral-50 px-5 py-4">
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          <div className="min-w-0">
-            <h2 className="text-sm font-semibold text-neutral-900">{title}</h2>
-            <p className="mt-1 text-xs text-neutral-500">{description}</p>
-          </div>
-          <div className="flex shrink-0 flex-wrap items-center gap-1.5">
-            <Badge variant="neutral">{items.length} punkter</Badge>
-            {ok > 0 ? <Badge variant="success">{ok} OK</Badge> : null}
-            {needs > 0 ? <Badge variant="warning">{needs} oppdater</Badge> : null}
-            {pending > 0 ? <Badge variant="critical">{pending} ikke vurdert</Badge> : null}
-          </div>
+    <List2Shell>
+      <div className="flex flex-wrap items-start justify-between gap-3 border-b border-neutral-100 px-5 py-4">
+        <div className="min-w-0">
+          <h2 className="text-xl font-semibold text-neutral-900" style={{ fontFamily: SERIF }}>
+            {title}
+          </h2>
+          <p className="mt-1 text-sm text-neutral-600">{description}</p>
+        </div>
+        <div className="flex shrink-0 flex-wrap items-center gap-1.5">
+          <span className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-full bg-neutral-100 px-2.5 py-1 text-[11px] font-semibold text-neutral-700">
+            {items.length} punkter
+          </span>
+          {ok > 0 ? (
+            <span className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-full bg-emerald-100 px-2.5 py-1 text-[11px] font-semibold text-emerald-900">
+              <CheckCircle2 className="size-3.5 shrink-0 text-emerald-700" aria-hidden />
+              {ok} OK
+            </span>
+          ) : null}
+          {needs > 0 ? (
+            <span className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-full bg-amber-100 px-2.5 py-1 text-[11px] font-semibold text-amber-950">
+              <AlertTriangle className="size-3.5 shrink-0 text-amber-700" aria-hidden />
+              {needs} oppdater
+            </span>
+          ) : null}
+          {pending > 0 ? (
+            <span className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-full bg-red-100 px-2.5 py-1 text-[11px] font-semibold text-red-900">
+              <XCircle className="size-3.5 shrink-0 text-red-700" aria-hidden />
+              {pending} ikke vurdert
+            </span>
+          ) : null}
+          {na > 0 ? (
+            <span className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-full bg-neutral-100 px-2.5 py-1 text-[11px] font-semibold text-neutral-700">
+              <MinusCircle className="size-3.5 shrink-0 text-neutral-500" aria-hidden />
+              {na} ikke aktuelt
+            </span>
+          ) : null}
         </div>
       </div>
-      {items.length === 0 ? (
-        <p className="px-5 py-8 text-center text-sm text-neutral-500">Ingen punkter i denne gruppen.</p>
-      ) : (
-        <div className="overflow-x-auto">
+      <div className="overflow-x-auto">
+        {items.length === 0 ? (
+          <p className="px-5 py-10 text-center text-sm text-neutral-500">Ingen punkter i denne gruppen.</p>
+        ) : (
           <ItemTable items={items} onPatch={onPatch} disabled={disabled} />
-        </div>
-      )}
-    </ModuleSectionCard>
+        )}
+      </div>
+    </List2Shell>
   )
 }
 
@@ -427,29 +481,28 @@ function ItemTable({
   const [local, setLocal] = useState<Record<string, { status: WikiAnnualReviewItemRow['status']; notes: string }>>({})
 
   return (
-    <table className="w-full min-w-[760px] text-left text-sm">
+    <table className="w-full min-w-[820px] text-left text-sm">
       <thead>
-        <tr>
-          <th className={MODULE_TABLE_TH}>Hjemmel / krav</th>
-          <th className={MODULE_TABLE_TH}>Status</th>
-          <th className={MODULE_TABLE_TH}>Notat</th>
-          <th className={MODULE_TABLE_TH}>Side</th>
+        <tr className="border-b border-neutral-200 bg-neutral-50/90 text-[10px] font-bold uppercase tracking-wide text-neutral-500">
+          <th className="px-5 py-3">Hjemmel / krav</th>
+          <th className="px-5 py-3">Status</th>
+          <th className="px-5 py-3">Notat</th>
+          <th className="px-5 py-3">Side</th>
         </tr>
       </thead>
-      <tbody className="divide-y divide-neutral-100">
+      <tbody>
         {items.map((it) => {
           const st = local[it.id]?.status ?? it.status
           const nt = local[it.id]?.notes ?? it.reviewer_notes ?? ''
-          const meta = STATUS_BADGE[st]
           return (
-            <tr key={it.id} className={MODULE_TABLE_TR_BODY}>
-              <td className={MODULE_TABLE_TD}>
-                <div className="font-mono text-xs text-[#1a3d32]">{it.legal_ref}</div>
-                <div className="mt-0.5 text-neutral-700">{it.description}</div>
+            <tr key={it.id} className="border-b border-neutral-100 transition hover:bg-neutral-50/80">
+              <td className="px-5 py-4">
+                <p className="font-mono text-xs text-[#1a3d32]">{it.legal_ref}</p>
+                <p className="mt-0.5 text-neutral-700">{it.description}</p>
               </td>
-              <td className={MODULE_TABLE_TD}>
+              <td className="px-5 py-4">
                 <div className={`flex items-center gap-2 ${disabled ? 'pointer-events-none opacity-50' : ''}`}>
-                  <Badge variant={meta.tone}>{meta.label}</Badge>
+                  <StatusPill status={st} />
                   <SearchableSelect
                     value={st}
                     options={STATUS_OPTIONS}
@@ -462,7 +515,7 @@ function ItemTable({
                   />
                 </div>
               </td>
-              <td className={MODULE_TABLE_TD}>
+              <td className="px-5 py-4">
                 <StandardInput
                   type="text"
                   value={nt}
@@ -470,14 +523,14 @@ function ItemTable({
                   placeholder="Legg til vurdering…"
                   onChange={(e) => setLocal((s) => ({ ...s, [it.id]: { status: st, notes: e.target.value } }))}
                   onBlur={() => void onPatch(it.id, st, nt)}
-                  className="min-w-[180px]"
+                  className="min-w-[200px]"
                 />
               </td>
-              <td className={MODULE_TABLE_TD}>
+              <td className="px-5 py-4">
                 {it.page_id ? (
                   <Link
                     to={`/documents/page/${it.page_id}`}
-                    className="inline-flex items-center gap-1 text-[#1a3d32] hover:underline"
+                    className="inline-flex items-center gap-1 whitespace-nowrap text-[#1a3d32] hover:underline"
                   >
                     <ExternalLink className="h-3.5 w-3.5" /> Åpne
                   </Link>
