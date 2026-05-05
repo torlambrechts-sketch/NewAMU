@@ -1,12 +1,10 @@
 import { useCallback, useEffect, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
 import {
-  ArrowLeft, BookOpen, Download, FileText, GitBranch,
+  BookOpen, Download, FileText, GitBranch,
   Loader2, Lock, RefreshCw, Settings,
 } from 'lucide-react'
-import { ModulePageShell, ModuleSectionCard } from '../components/module'
+import { ModuleSectionCard } from '../components/module'
 import { ComplianceBanner } from '../components/ui/ComplianceBanner'
-import { Button } from '../components/ui/Button'
 import { Tabs, type TabItem } from '../components/ui/Tabs'
 import { WarningBox } from '../components/ui/AlertBox'
 import { useOrgSetupContext } from '../hooks/useOrgSetupContext'
@@ -40,7 +38,6 @@ const ADMIN_TABS: TabItem[] = [
 ]
 
 export function DocumentsModuleAdminPage() {
-  const navigate = useNavigate()
   const { supabase, can, isAdmin, organization } = useOrgSetupContext()
   const orgId = organization?.id
   const canManage = isAdmin || can('documents.manage')
@@ -92,82 +89,63 @@ export function DocumentsModuleAdminPage() {
   }, [supabase, orgId, settings])
 
   if (!canManage) {
-    return (
-      <ModulePageShell
-        breadcrumb={[{ label: 'HMS' }, { label: 'Dokumenter', to: '/documents' }, { label: 'Innstillinger' }]}
-        title="Innstillinger — Dokumenter"
-      >
-        <WarningBox>Du har ikke tilgang. Krever rollen «documents.manage» eller administrator.</WarningBox>
-      </ModulePageShell>
-    )
+    return <WarningBox>Du har ikke tilgang. Krever rollen «documents.manage» eller administrator.</WarningBox>
   }
 
   const saveProps = { settings, setSettings, saving, onSave: () => void handleSave() }
   const settingsTabs: AdminTab[] = ['generelt', 'revisjon', 'kvitteringer']
 
   return (
-    <ModulePageShell
-      breadcrumb={[{ label: 'HMS' }, { label: 'Dokumenter', to: '/documents' }, { label: 'Innstillinger' }]}
-      title="Innstillinger — Dokumenter"
-      description="Konfigurer standardinnstillinger, revisjonspolicy, kvitteringsregler og arbeidsflyt for hele virksomheten."
-      headerActions={
-        <Button type="button" variant="secondary" size="sm" onClick={() => navigate('/documents')}>
-          <ArrowLeft className="h-4 w-4" /> Tilbake
-        </Button>
-      }
-      tabs={
-        <Tabs className="w-full md:w-auto" overflow="scroll" items={ADMIN_TABS} activeId={tab} onChange={(id) => setTab(id as AdminTab)} />
-      }
-    >
-      <div className="space-y-6">
-        <ComplianceBanner title="Modulinnstillinger — Dokumenter">
-          Innstillinger lagres for hele organisasjonen. Kun administratorer og personer med «documents.manage»
-          kan endre disse. Visse innstillinger påvirker samsvar med internkontrollforskriften (IK-f §5) og
-          arbeidsmiljøloven (AML §3-2).
-        </ComplianceBanner>
+    <div className="space-y-6">
+      <Tabs className="w-full md:w-auto" overflow="scroll" items={ADMIN_TABS} activeId={tab} onChange={(id) => setTab(id as AdminTab)} />
 
-        {settingsError && <WarningBox>{settingsError}</WarningBox>}
+      <ComplianceBanner title="Modulinnstillinger — Dokumenter">
+        Innstillinger lagres for hele organisasjonen. Kun administratorer og personer med «documents.manage»
+        kan endre disse. Visse innstillinger påvirker samsvar med internkontrollforskriften (IK-f §5) og
+        arbeidsmiljøloven (AML §3-2).
+      </ComplianceBanner>
 
-        {settingsLoading && settingsTabs.includes(tab) && (
-          <p className="flex items-center gap-2 text-sm text-neutral-500">
-            <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> Laster innstillinger…
+      {settingsError && <WarningBox>{settingsError}</WarningBox>}
+
+      {settingsLoading && settingsTabs.includes(tab) && (
+        <p className="flex items-center gap-2 text-sm text-neutral-500">
+          <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> Laster innstillinger…
+        </p>
+      )}
+
+      {/* ── Settings tabs (load from DB) ───────────────────────────────── */}
+      {tab === 'generelt'     && !settingsLoading && <DocumentsSettingsGenerelt     {...saveProps} />}
+      {tab === 'revisjon'     && !settingsLoading && <DocumentsSettingsRevisjon     {...saveProps} />}
+      {tab === 'kvitteringer' && !settingsLoading && <DocumentsSettingsKvitteringer {...saveProps} />}
+
+      {/* ── Standalone tabs (own state / no global settings) ────────────── */}
+      {tab === 'maler'   && <DocumentsSettingsMaler />}
+      {tab === 'import'  && <DocumentsSettingsImportEksport />}
+      {tab === 'tilgang' && <DocumentsSettingsTilgang />}
+
+      {/* ── Arbeidsflyt ─────────────────────────────────────────────────── */}
+      {tab === 'arbeidsflyt' && (
+        <ModuleSectionCard className="p-5 md:p-6">
+          <div className="mb-3 flex items-center gap-2">
+            <GitBranch className="h-5 w-5 text-[#1a3d32]" />
+            <h2 className="text-lg font-semibold text-neutral-900">Arbeidsflyt</h2>
+          </div>
+          <p className="mb-1 text-sm text-neutral-600">
+            Koble dokumenthendelser til e-postregler og automatisering. Hendelser inkluderer publisering,
+            revisjonsfrist, kvitteringsstatus og årsgjennomgang.
           </p>
-        )}
-
-        {/* ── Settings tabs (load from DB) ───────────────────────────────── */}
-        {tab === 'generelt'     && !settingsLoading && <DocumentsSettingsGenerelt     {...saveProps} />}
-        {tab === 'revisjon'     && !settingsLoading && <DocumentsSettingsRevisjon     {...saveProps} />}
-        {tab === 'kvitteringer' && !settingsLoading && <DocumentsSettingsKvitteringer {...saveProps} />}
-
-        {/* ── Standalone tabs (own state / no global settings) ────────────── */}
-        {tab === 'maler'   && <DocumentsSettingsMaler />}
-        {tab === 'import'  && <DocumentsSettingsImportEksport />}
-        {tab === 'tilgang' && <DocumentsSettingsTilgang />}
-
-        {/* ── Arbeidsflyt ─────────────────────────────────────────────────── */}
-        {tab === 'arbeidsflyt' && (
-          <ModuleSectionCard className="p-5 md:p-6">
-            <div className="mb-3 flex items-center gap-2">
-              <GitBranch className="h-5 w-5 text-[#1a3d32]" />
-              <h2 className="text-lg font-semibold text-neutral-900">Arbeidsflyt</h2>
-            </div>
-            <p className="mb-1 text-sm text-neutral-600">
-              Koble dokumenthendelser til e-postregler og automatisering. Hendelser inkluderer publisering,
-              revisjonsfrist, kvitteringsstatus og årsgjennomgang.
-            </p>
-            <div className="mb-4 rounded-md border border-neutral-200 bg-neutral-50 p-3 text-xs text-neutral-600">
-              <strong className="text-neutral-800">Aktuelle lovkrav:</strong>{' '}
-              IK-f §5 nr. 5 (årsgjennomgang) · AML §3-2 (opplæring og informasjon) ·
-              Internkontrollforskriften §5 nr. 7 (oppdaterte prosedyrer).
-            </div>
-            <WorkflowRulesTab
-              supabase={supabase}
-              module="documents"
-              triggerEvents={DOCUMENTS_WORKFLOW_TRIGGER_EVENTS.map((e) => ({ value: e.value, label: e.label }))}
-            />
-          </ModuleSectionCard>
-        )}
-      </div>
-    </ModulePageShell>
+          <div className="mb-4 rounded-md border border-neutral-200 bg-neutral-50 p-3 text-xs text-neutral-600">
+            <strong className="text-neutral-800">Aktuelle lovkrav:</strong>{' '}
+            IK-f §5 nr. 5 (årsgjennomgang) · AML §3-2 (opplæring og informasjon) ·
+            Internkontrollforskriften §5 nr. 7 (oppdaterte prosedyrer).
+          </div>
+          <WorkflowRulesTab
+            supabase={supabase}
+            module="documents"
+            triggerEvents={DOCUMENTS_WORKFLOW_TRIGGER_EVENTS.map((e) => ({ value: e.value, label: e.label }))}
+          />
+        </ModuleSectionCard>
+      )}
+    </div>
   )
 }

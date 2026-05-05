@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { FolderPlus, Loader2, Pencil, Plus } from 'lucide-react'
+import { Loader2, Pencil } from 'lucide-react'
 import { useDocuments } from '../../hooks/useDocuments'
 import { useOrgSetupContext } from '../../hooks/useOrgSetupContext'
 import type { PageTemplate, SpaceCategory, WikiSpace } from '../../types/documents'
@@ -35,8 +35,6 @@ type Props = {
    * Første mappe brukes når brukeren velger «Hoved». Uten prop: alle aktive mapper unntatt `template_library`.
    */
   documentCatalogSpaces?: WikiSpace[]
-  /** Opprett ny malmappe (`template_library`). */
-  onNewTemplateFolder?: () => void
   /** Inkrementeres fra forelder for å åpne «Ny mal»-skjema (f.eks. hub-knapp når `showIntro`). */
   newTemplateKey?: number
 }
@@ -48,7 +46,6 @@ type Props = {
 export function DocumentsTemplateLibraryBody({
   destinationSpaces,
   documentCatalogSpaces,
-  onNewTemplateFolder,
   newTemplateKey = 0,
 }: Props) {
   const docs = useDocuments()
@@ -175,26 +172,12 @@ export function DocumentsTemplateLibraryBody({
   return (
     <>
       <ModuleSectionCard className="p-5 md:p-6">
-        <div className="mb-4 flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
-          <div className="min-w-0">
-            <h2 className="text-sm font-semibold text-neutral-900">Dokumentmaler</h2>
-            <span className="mt-1 block text-xs text-neutral-500">
-              {docs.pageTemplates.length}{' '}
-              {docs.backend === 'supabase' ? 'tilgjengelige dokumentmaler' : 'dokumentmal(er) (demo lokalt)'}
-            </span>
-          </div>
-          {canAdminTemplates ? (
-            <div className="flex shrink-0 flex-wrap items-center justify-end gap-2 lg:justify-end">
-              {onNewTemplateFolder ? (
-                <Button type="button" variant="secondary" icon={<FolderPlus className="h-4 w-4" />} onClick={onNewTemplateFolder}>
-                  Ny malmappe
-                </Button>
-              ) : null}
-              <Button type="button" variant="primary" icon={<Plus className="h-4 w-4" />} onClick={() => setCreateOpen(true)}>
-                Ny mal
-              </Button>
-            </div>
-          ) : null}
+        <div className="mb-4">
+          <h2 className="text-sm font-semibold text-neutral-900">Dokumentmaler</h2>
+          <span className="mt-1 block text-xs text-neutral-500">
+            {docs.pageTemplates.length}{' '}
+            {docs.backend === 'supabase' ? 'tilgjengelige dokumentmaler' : 'dokumentmal(er) (demo lokalt)'}
+          </span>
         </div>
         {templateActionErr ? (
           <div className="mb-3">

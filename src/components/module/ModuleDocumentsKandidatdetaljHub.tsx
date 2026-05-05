@@ -18,6 +18,7 @@ import {
   useDocumentsHubActionsRegister,
   useDocumentsHubNewDocumentRegister,
   useDocumentsHubNewTemplateRegister,
+  useDocumentsHubNewTemplateFolderRegister,
 } from '../../../modules/documents/DocumentsHubActionsContext'
 import { DocumentsTemplateLibraryBody } from '../documents/DocumentsTemplateLibraryBody'
 import { DocumentAccessRequestDialog } from '../documents/DocumentAccessRequestDialog'
@@ -514,6 +515,8 @@ export function ModuleDocumentsKandidatdetaljHub({
     centerContent === 'templates',
   )
 
+  useDocumentsHubNewTemplateFolderRegister(openNewTemplateFolderFromLibrary, centerContent === 'templates')
+
   const triggerUpload = () => {
     setUiError(null)
     if (!targetSpaceIdForActions) {
@@ -832,7 +835,6 @@ export function ModuleDocumentsKandidatdetaljHub({
             <DocumentsTemplateLibraryBody
               destinationSpaces={activeSpacesTemplates}
               documentCatalogSpaces={templateDocumentDestinationSpaces}
-              onNewTemplateFolder={canEditDocs ? openNewTemplateFolderFromLibrary : undefined}
               newTemplateKey={newTemplateKey}
             />
           ) : (

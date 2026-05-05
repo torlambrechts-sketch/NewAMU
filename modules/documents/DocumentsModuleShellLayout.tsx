@@ -24,7 +24,7 @@ function DocumentsShellHeaderActions({
   onDocumentsHub: boolean
   onMalbibliotek: boolean
 }) {
-  const { requestOpenNewFolder, requestNewDocument, requestNewTemplate } = useDocumentsHubActions()
+  const { requestOpenNewFolder, requestNewDocument, requestNewTemplate, requestNewTemplateFolder } = useDocumentsHubActions()
 
   if (!canEditDocs) return null
 
@@ -37,15 +37,21 @@ function DocumentsShellHeaderActions({
         <Button variant="primary" type="button" icon={<Plus className="h-4 w-4" />} onClick={() => requestNewDocument()}>
           Nytt dokument
         </Button>
-        <Button variant="secondary" type="button" icon={<FolderPlus className="h-4 w-4" />} onClick={() => requestNewTemplate()}>
-          Ny mal
-        </Button>
       </div>
     )
   }
 
   if (onMalbibliotek) {
-    return null
+    return (
+      <div className="flex shrink-0 flex-wrap items-center justify-end gap-2 lg:justify-end">
+        <Button variant="secondary" type="button" icon={<FolderPlus className="h-4 w-4" />} onClick={() => requestNewTemplateFolder()}>
+          Ny malmappe
+        </Button>
+        <Button variant="primary" type="button" icon={<Plus className="h-4 w-4" />} onClick={() => requestNewTemplate()}>
+          Ny mal
+        </Button>
+      </div>
+    )
   }
 
   return null

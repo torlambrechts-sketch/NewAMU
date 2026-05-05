@@ -7,34 +7,41 @@ const DocumentsHubActionsContext = createContext<{
   setOpenNewFolderHandler: (fn: VoidFn | null) => void
   setNewDocumentHandler: (fn: VoidFn | null) => void
   setNewTemplateHandler: (fn: VoidFn | null) => void
+  setNewTemplateFolderHandler: (fn: VoidFn | null) => void
   requestOpenNewFolder: () => void
   requestNewDocument: () => void
   requestNewTemplate: () => void
+  requestNewTemplateFolder: () => void
 } | null>(null)
 
 export function DocumentsHubActionsProvider({ children }: { children: ReactNode }) {
   const folderHandlerRef = useRef<VoidFn | null>(null)
   const documentHandlerRef = useRef<VoidFn | null>(null)
   const templateHandlerRef = useRef<VoidFn | null>(null)
+  const templateFolderHandlerRef = useRef<VoidFn | null>(null)
 
   const setOpenNewFolderHandler = useCallback((fn: VoidFn | null) => { folderHandlerRef.current = fn }, [])
   const setNewDocumentHandler = useCallback((fn: VoidFn | null) => { documentHandlerRef.current = fn }, [])
   const setNewTemplateHandler = useCallback((fn: VoidFn | null) => { templateHandlerRef.current = fn }, [])
+  const setNewTemplateFolderHandler = useCallback((fn: VoidFn | null) => { templateFolderHandlerRef.current = fn }, [])
 
   const requestOpenNewFolder = useCallback(() => { folderHandlerRef.current?.() }, [])
   const requestNewDocument = useCallback(() => { documentHandlerRef.current?.() }, [])
   const requestNewTemplate = useCallback(() => { templateHandlerRef.current?.() }, [])
+  const requestNewTemplateFolder = useCallback(() => { templateFolderHandlerRef.current?.() }, [])
 
   const value = useMemo(
     () => ({
       setOpenNewFolderHandler,
       setNewDocumentHandler,
       setNewTemplateHandler,
+      setNewTemplateFolderHandler,
       requestOpenNewFolder,
       requestNewDocument,
       requestNewTemplate,
+      requestNewTemplateFolder,
     }),
-    [setOpenNewFolderHandler, setNewDocumentHandler, setNewTemplateHandler, requestOpenNewFolder, requestNewDocument, requestNewTemplate],
+    [setOpenNewFolderHandler, setNewDocumentHandler, setNewTemplateHandler, setNewTemplateFolderHandler, requestOpenNewFolder, requestNewDocument, requestNewTemplate, requestNewTemplateFolder],
   )
 
   return <DocumentsHubActionsContext.Provider value={value}>{children}</DocumentsHubActionsContext.Provider>
@@ -75,14 +82,33 @@ export function useDocumentsHubNewTemplateRegister(onNewTemplate: () => void, en
   }, [ctx, onNewTemplate, enabled])
 }
 
+export function useDocumentsHubNewTemplateFolderRegister(onNewTemplateFolder: () => void, enabled = true) {
+  const ctx = useContext(DocumentsHubActionsContext)
+  useEffect(() => {
+    if (!ctx) return
+    if (!enabled) {
+      ctx.setNewTemplateFolderHandler(null)
+      return () => ctx.setNewTemplateFolderHandler(null)
+    }
+    ctx.setNewTemplateFolderHandler(onNewTemplateFolder)
+    return () => ctx.setNewTemplateFolderHandler(null)
+  }, [ctx, onNewTemplateFolder, enabled])
+}
+
 export function useDocumentsHubActions() {
   const ctx = useContext(DocumentsHubActionsContext)
   if (!ctx) {
-    return { requestOpenNewFolder: () => {}, requestNewDocument: () => {}, requestNewTemplate: () => {} }
+    return {
+      requestOpenNewFolder: () => {},
+      requestNewDocument: () => {},
+      requestNewTemplate: () => {},
+      requestNewTemplateFolder: () => {},
+    }
   }
   return {
     requestOpenNewFolder: ctx.requestOpenNewFolder,
     requestNewDocument: ctx.requestNewDocument,
     requestNewTemplate: ctx.requestNewTemplate,
+    requestNewTemplateFolder: ctx.requestNewTemplateFolder,
   }
 }
