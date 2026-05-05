@@ -1,324 +1,415 @@
+import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { ArrowRight, BookOpen, Flame } from 'lucide-react'
-import { useMemo } from 'react'
+import {
+  ArrowRight,
+  BookOpen,
+  Clock,
+  GraduationCap,
+  LayoutGrid,
+  List as ListIcon,
+  RefreshCw,
+  Search,
+} from 'lucide-react'
 import { useLearning } from '../../hooks/useLearning'
 import { useOrgSetupContext } from '../../hooks/useOrgSetupContext'
-import { CREAM, PIN_GREEN } from '../../components/learning/LearningLayout'
-import { Button } from '../../components/ui/Button'
-import { ComplianceBanner } from '../../components/ui/ComplianceBanner'
+import { Badge } from '../../components/ui/Badge'
+import { StandardInput } from '../../components/ui/Input'
 import { LayoutScoreStatRow } from '../../components/layout/LayoutScoreStatRow'
 import type { LayoutScoreStatItem } from '../../components/layout/platformLayoutKit'
+import { LayoutTable1PostingsShell } from '../../components/layout/LayoutTable1PostingsShell'
 import { ModuleSectionCard } from '../../components/module'
+import type { Course, CourseProgress } from '../../types/learning'
 
-function CompletionRings({
-  publishedPct,
-  enrolledPct,
-  certPct,
+const SERIF_FAMILY = "'Libre Baskerville', Georgia, serif"
+const PIN_GREEN = '#1a3d32'
+const MINT_BG = '#e7efe9'
+
+type FilterId = 'alle' | 'mine' | 'publisert' | 'utkast'
+type ViewMode = 'grid' | 'list'
+
+type CourseStat = {
+  assigned: number
+  completed: number
+  inProgress: number
+  overdue: number
+}
+
+function statusBadgeFor(status: Course['status']) {
+  if (status === 'published') return { variant: 'active' as const, label: 'Publisert' }
+  if (status === 'draft') return { variant: 'draft' as const, label: 'Utkast' }
+  return { variant: 'neutral' as const, label: 'Arkivert' }
+}
+
+function courseDurationMinutes(c: Course): number {
+  return c.modules.reduce((s, m) => s + (m.durationMinutes || 0), 0)
+}
+
+function isCourseProgressComplete(course: Course, p: CourseProgress | undefined): boolean {
+  if (!p || course.modules.length === 0) return false
+  if (p.completedAt) return true
+  return course.modules.every((m) => p.moduleProgress[m.id]?.completed)
+}
+
+function CourseCard({
+  course,
+  myProgress,
+  orgStats,
 }: {
-  publishedPct: number
-  enrolledPct: number
-  certPct: number
+  course: Course
+  myProgress: CourseProgress | undefined
+  orgStats: CourseStat | undefined
 }) {
-  const size = 112
-  const stroke = 10
-  const r = (size - stroke) / 2
-  const c = 2 * Math.PI * r
-  const p1 = Math.min(1, publishedPct)
-  const p2 = Math.min(1, enrolledPct)
-  const p3 = Math.min(1, certPct)
+  const status = statusBadgeFor(course.status)
+  const totalModules = course.modules.length
+  const totalMin = courseDurationMinutes(course)
+  const completed = myProgress
+    ? Object.values(myProgress.moduleProgress).filter((mp) => mp.completed).length
+    : 0
+  const pct = myProgress && totalModules > 0 ? Math.round((completed / totalModules) * 100) : 0
+
   return (
-    <div className="flex flex-col items-center gap-2">
-      <svg width={size} height={size} className="-rotate-90" aria-hidden>
-        <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="#e5e5e5" strokeWidth={stroke} />
-        <circle
-          cx={size / 2}
-          cy={size / 2}
-          r={r}
-          fill="none"
-          stroke={PIN_GREEN}
-          strokeWidth={stroke}
-          strokeDasharray={`${c * p1} ${c}`}
-          strokeLinecap="round"
-        />
-        <circle
-          cx={size / 2}
-          cy={size / 2}
-          r={r - stroke - 4}
-          fill="none"
-          stroke="#93c5af"
-          strokeWidth={stroke - 2}
-          strokeDasharray={`${c * p2} ${c}`}
-          strokeLinecap="round"
-        />
-        <circle
-          cx={size / 2}
-          cy={size / 2}
-          r={r - 2 * stroke - 4}
-          fill="none"
-          stroke="#fcd34d"
-          strokeWidth={stroke - 4}
-          strokeDasharray={`${c * p3} ${c}`}
-          strokeLinecap="round"
-        />
-      </svg>
-      <div className="text-center text-[10px] text-neutral-500">
-        <div>
-          <span className="inline-block size-2 rounded-full" style={{ backgroundColor: PIN_GREEN }} /> Publisert
+    <Link
+      to={`/learning/courses/${course.id}`}
+      className="group flex flex-col items-stretch gap-3 rounded-xl border border-neutral-200/80 bg-white p-5 text-left transition-all hover:-translate-y-0.5 hover:shadow-md"
+      style={{ boxShadow: '0 1px 2px rgba(0,0,0,0.04)' }}
+    >
+      <div className="flex items-start justify-between gap-2">
+        <div
+          className="flex h-10 w-10 items-center justify-center rounded-lg"
+          style={{ background: MINT_BG, color: PIN_GREEN }}
+        >
+          <GraduationCap className="h-5 w-5" />
         </div>
-        <div>
-          <span className="inline-block size-2 rounded-full bg-emerald-300" /> Påmeldt
-        </div>
-        <div>
-          <span className="inline-block size-2 rounded-full bg-amber-300" /> Sertifikat
-        </div>
+        <Badge variant={status.variant}>{status.label}</Badge>
       </div>
-    </div>
+
+      <div className="min-w-0">
+        <h3
+          className="line-clamp-2 text-base font-semibold leading-snug text-neutral-900"
+          style={{ fontFamily: SERIF_FAMILY }}
+        >
+          {course.title}
+        </h3>
+        <p className="mt-1.5 line-clamp-2 text-sm text-neutral-600">{course.description}</p>
+      </div>
+
+      {course.tags.length > 0 ? (
+        <div className="flex flex-wrap gap-1.5">
+          {course.tags.slice(0, 3).map((t) => (
+            <span
+              key={t}
+              className="rounded-full border border-neutral-200 bg-neutral-50 px-2 py-0.5 text-[11px] font-medium text-neutral-600"
+            >
+              {t}
+            </span>
+          ))}
+        </div>
+      ) : null}
+
+      <div className="mt-1 flex flex-wrap items-center gap-3 border-t border-neutral-100 pt-3 text-xs text-neutral-600">
+        <span className="inline-flex items-center gap-1">
+          <BookOpen className="h-3.5 w-3.5 text-neutral-500" />
+          {totalModules} {totalModules === 1 ? 'modul' : 'moduler'}
+        </span>
+        {totalMin > 0 ? (
+          <span className="inline-flex items-center gap-1">
+            <Clock className="h-3.5 w-3.5 text-neutral-500" />
+            ~{totalMin} min
+          </span>
+        ) : null}
+        {course.recertificationMonths ? (
+          <span className="inline-flex items-center gap-1">
+            <RefreshCw className="h-3.5 w-3.5 text-neutral-500" />
+            hver {course.recertificationMonths} mnd
+          </span>
+        ) : null}
+      </div>
+
+      {myProgress ? (
+        <div>
+          <div className="mb-1 flex items-center justify-between text-[11px] text-neutral-600">
+            <span>Din framgang</span>
+            <span className="font-semibold tabular-nums text-neutral-900">{pct}%</span>
+          </div>
+          <div className="h-1.5 w-full overflow-hidden rounded-full bg-neutral-100">
+            <div
+              className="h-full rounded-full"
+              style={{ width: `${pct}%`, background: PIN_GREEN }}
+            />
+          </div>
+        </div>
+      ) : orgStats && orgStats.assigned > 0 ? (
+        <div className="text-[11px] text-neutral-500">
+          {orgStats.completed}/{orgStats.assigned} fullført
+          {orgStats.overdue > 0 ? (
+            <span className="ml-1 font-semibold text-red-600">· {orgStats.overdue} forfalt</span>
+          ) : null}
+        </div>
+      ) : (
+        <div className="text-[11px] text-neutral-400">Ikke tildelt enda</div>
+      )}
+    </Link>
+  )
+}
+
+const TABLE_TH =
+  'px-5 py-3 text-left text-[10px] font-bold uppercase tracking-wider text-neutral-600'
+const TABLE_TR_BODY = 'border-t border-neutral-100 hover:bg-neutral-50/60 transition-colors'
+
+function CatalogTable({
+  courses,
+  orgStatsById,
+}: {
+  courses: Course[]
+  orgStatsById: Record<string, CourseStat>
+}) {
+  return (
+    <table className="w-full text-sm">
+      <thead className="bg-neutral-50/60">
+        <tr>
+          <th className={TABLE_TH}>Kurs</th>
+          <th className={TABLE_TH}>Status</th>
+          <th className={TABLE_TH}>Moduler</th>
+          <th className={TABLE_TH}>Tildelt</th>
+          <th className={TABLE_TH}>Fullført</th>
+          <th className={TABLE_TH}>Forfalt</th>
+          <th className={TABLE_TH}>Resertifisering</th>
+          <th className={TABLE_TH} />
+        </tr>
+      </thead>
+      <tbody>
+        {courses.map((c) => {
+          const stats = orgStatsById[c.id] ?? { assigned: 0, completed: 0, inProgress: 0, overdue: 0 }
+          const status = statusBadgeFor(c.status)
+          return (
+            <tr key={c.id} className={TABLE_TR_BODY}>
+              <td className="px-5 py-3">
+                <div className="flex items-center gap-3">
+                  <div
+                    className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md"
+                    style={{ background: MINT_BG, color: PIN_GREEN }}
+                  >
+                    <GraduationCap className="h-4 w-4" />
+                  </div>
+                  <div className="min-w-0">
+                    <div className="font-medium text-neutral-900">{c.title}</div>
+                    {c.tags.length > 0 ? (
+                      <div className="mt-0.5 line-clamp-1 text-xs text-neutral-500">
+                        {c.tags.join(' · ')}
+                      </div>
+                    ) : null}
+                  </div>
+                </div>
+              </td>
+              <td className="px-5 py-3">
+                <Badge variant={status.variant}>{status.label}</Badge>
+              </td>
+              <td className="px-5 py-3 tabular-nums text-neutral-700">{c.modules.length}</td>
+              <td className="px-5 py-3 tabular-nums text-neutral-700">{stats.assigned}</td>
+              <td className="px-5 py-3 tabular-nums text-neutral-700">{stats.completed}</td>
+              <td className="px-5 py-3 tabular-nums">
+                {stats.overdue > 0 ? (
+                  <span className="font-semibold text-red-600">{stats.overdue}</span>
+                ) : (
+                  <span className="text-neutral-400">0</span>
+                )}
+              </td>
+              <td className="px-5 py-3 text-neutral-700">
+                {c.recertificationMonths ? `Hver ${c.recertificationMonths}. mnd` : '—'}
+              </td>
+              <td className="px-5 py-3 text-right">
+                <Link
+                  to={`/learning/courses/${c.id}`}
+                  className="inline-flex items-center gap-1 rounded-md px-2.5 py-1 text-xs font-semibold text-neutral-700 transition-colors hover:bg-neutral-100 hover:text-neutral-900"
+                >
+                  Åpne
+                  <ArrowRight className="h-3.5 w-3.5" />
+                </Link>
+              </td>
+            </tr>
+          )
+        })}
+      </tbody>
+    </table>
   )
 }
 
 export function LearningDashboard() {
-  const {
-    stats,
-    courses,
-    streakWeeks,
-    pendingReviews,
-    departmentLeaderboard,
-    dismissReview,
-    isCourseUnlocked,
-  } = useLearning()
-  const { can } = useOrgSetupContext()
-  const canManage = can('learning.manage')
-  const published = courses.filter((c) => c.status === 'published')
-  const maxCourses = Math.max(1, stats.totalCourses || 1)
-  const ringPublished = stats.published / maxCourses
-  const ringEnrolled = Math.min(1, stats.enrolled / maxCourses)
-  const ringCert = Math.min(1, stats.certs / Math.max(1, stats.enrolled || 1))
+  const { courses, progress } = useLearning()
+  const { profile } = useOrgSetupContext()
 
-  const statItems: LayoutScoreStatItem[] = useMemo(
-    () => [
-      { big: String(stats.published), title: 'Publiserte kurs', sub: 'I organisasjonen' },
-      { big: String(stats.drafts), title: 'Utkast', sub: 'Ikke publisert' },
-      { big: String(stats.certs), title: 'Utstedte sertifikater', sub: 'Kursbevis' },
-      { big: String(stats.enrolled), title: 'Påmeldinger', sub: 'Fremdriftsrader' },
-    ],
-    [stats.published, stats.drafts, stats.certs, stats.enrolled],
+  const [view, setView] = useState<ViewMode>('grid')
+  const [filter, setFilter] = useState<FilterId>('alle')
+  const [search, setSearch] = useState('')
+
+  const myProgressById = useMemo<Record<string, CourseProgress>>(() => {
+    const out: Record<string, CourseProgress> = {}
+    for (const p of progress) {
+      if (!p.userId || p.userId === profile?.id) {
+        out[p.courseId] = p
+      }
+    }
+    return out
+  }, [progress, profile?.id])
+
+  const orgStatsById = useMemo<Record<string, CourseStat>>(() => {
+    const out: Record<string, CourseStat> = {}
+    for (const c of courses) {
+      const rows = progress.filter((p) => p.courseId === c.id)
+      const completed = rows.filter((p) => isCourseProgressComplete(c, p)).length
+      const inProgress = rows.length - completed
+      out[c.id] = {
+        assigned: rows.length,
+        completed,
+        inProgress,
+        overdue: 0,
+      }
+    }
+    return out
+  }, [courses, progress])
+
+  const visibleCourses = useMemo(() => {
+    return courses.filter((c) => {
+      if (filter === 'mine' && !myProgressById[c.id]) return false
+      if (filter === 'utkast' && c.status !== 'draft') return false
+      if (filter === 'publisert' && c.status !== 'published') return false
+      if (search.trim()) {
+        const q = search.trim().toLowerCase()
+        const haystack = `${c.title} ${c.description} ${c.tags.join(' ')}`.toLowerCase()
+        if (!haystack.includes(q)) return false
+      }
+      return true
+    })
+  }, [courses, filter, search, myProgressById])
+
+  const kpis = useMemo<LayoutScoreStatItem[]>(() => {
+    const totalAssigned = Object.values(orgStatsById).reduce((s, x) => s + x.assigned, 0)
+    const totalCompleted = Object.values(orgStatsById).reduce((s, x) => s + x.completed, 0)
+    const totalOverdue = Object.values(orgStatsById).reduce((s, x) => s + x.overdue, 0)
+    const completion = totalAssigned ? Math.round((totalCompleted / totalAssigned) * 100) : 0
+    const activeCount = courses.filter((c) => c.status === 'published').length
+    return [
+      { big: String(activeCount), title: 'Aktive kurs', sub: 'Publisert i katalog' },
+      { big: String(totalAssigned), title: 'Tildelinger', sub: 'Aktive på tvers av kurs' },
+      {
+        big: `${completion}%`,
+        title: 'Gjennomføring',
+        sub: `${totalCompleted} av ${totalAssigned} fullført`,
+      },
+      { big: String(totalOverdue), title: 'Forfalt', sub: 'Krever oppfølging' },
+    ]
+  }, [courses, orgStatsById])
+
+  const filterChips: { id: FilterId; label: string }[] = [
+    { id: 'alle', label: 'Alle' },
+    { id: 'mine', label: 'Mine kurs' },
+    { id: 'publisert', label: 'Publisert' },
+    { id: 'utkast', label: 'Utkast' },
+  ]
+
+  const headerActions = (
+    <div className="inline-flex rounded-md border border-neutral-200 bg-white p-0.5">
+      <button
+        type="button"
+        onClick={() => setView('grid')}
+        aria-pressed={view === 'grid'}
+        className={`inline-flex items-center gap-1 rounded px-2.5 py-1 text-xs font-medium transition-colors ${
+          view === 'grid' ? 'bg-neutral-100 text-neutral-900' : 'text-neutral-500 hover:text-neutral-800'
+        }`}
+      >
+        <LayoutGrid className="h-3.5 w-3.5" />
+        Kort
+      </button>
+      <button
+        type="button"
+        onClick={() => setView('list')}
+        aria-pressed={view === 'list'}
+        className={`inline-flex items-center gap-1 rounded px-2.5 py-1 text-xs font-medium transition-colors ${
+          view === 'list' ? 'bg-neutral-100 text-neutral-900' : 'text-neutral-500 hover:text-neutral-800'
+        }`}
+      >
+        <ListIcon className="h-3.5 w-3.5" />
+        Liste
+      </button>
+    </div>
   )
 
-  const statLinks = useMemo(
-    () => ({
-      0: (
-        <Link to="/learning/courses" className="mt-2 inline-block text-xs font-medium text-emerald-800 hover:underline">
-          Åpne kurs
-        </Link>
-      ),
-      1: (
-        <Link to="/learning/courses" className="mt-2 inline-block text-xs font-medium text-emerald-800 hover:underline">
-          Åpne kurs
-        </Link>
-      ),
-      2: (
-        <Link to="/learning/certifications" className="mt-2 inline-block text-xs font-medium text-emerald-800 hover:underline">
-          Se sertifikater
-        </Link>
-      ),
-      3: (
-        <Link to="/learning/participants" className="mt-2 inline-block text-xs font-medium text-emerald-800 hover:underline">
-          Se deltakere
-        </Link>
-      ),
-    }),
-    [],
+  const toolbar = (
+    <>
+      <div className="relative max-w-sm flex-1">
+        <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-neutral-400" />
+        <StandardInput
+          placeholder="Søk i tittel, tagger eller beskrivelse"
+          className="pl-9"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          aria-label="Søk i kurs"
+        />
+      </div>
+      <div className="flex flex-wrap items-center gap-1">
+        {filterChips.map((f) => {
+          const active = filter === f.id
+          return (
+            <button
+              key={f.id}
+              type="button"
+              onClick={() => setFilter(f.id)}
+              className={`rounded-md px-2.5 py-1 text-xs font-medium transition-colors ${
+                active
+                  ? 'bg-[#1a3d32] text-white'
+                  : 'text-neutral-600 hover:bg-neutral-100 hover:text-neutral-900'
+              }`}
+            >
+              {f.label}
+            </button>
+          )
+        })}
+      </div>
+    </>
   )
 
   return (
-    <div className="space-y-8">
-      <ModuleSectionCard>
-        <div className="flex flex-wrap items-start justify-between gap-4">
-          <div>
-            <h1
-              className="font-serif text-3xl font-semibold tracking-tight text-[#2D403A] md:text-4xl"
-              style={{ fontFamily: "'Libre Baskerville', Georgia, serif" }}
-            >
-              God dag
-            </h1>
-            <p className="mt-2 text-sm text-neutral-600">
-              Kurs, mikromoduler og sertifiseringer på ett sted.
-            </p>
-            {streakWeeks != null && streakWeeks > 0 ? (
-              <p className="mt-2 inline-flex items-center gap-2 rounded-full border border-orange-200 bg-orange-50 px-3 py-1 text-sm font-medium text-orange-950">
-                <Flame className="size-4 text-orange-600" aria-hidden />
-                Læringsstreak: {streakWeeks} {streakWeeks === 1 ? 'uke' : 'uker'}
-              </p>
-            ) : null}
-          </div>
-          {canManage && (
-            <Link
-              to="/learning/courses"
-              className="rounded-full border px-4 py-2 text-sm font-medium text-[#2D403A] hover:bg-white"
-              style={{ borderColor: `${PIN_GREEN}40`, backgroundColor: CREAM }}
-            >
-              Administrer
-            </Link>
-          )}
-        </div>
-      </ModuleSectionCard>
+    <div className="space-y-6">
+      <LayoutScoreStatRow items={kpis} />
 
-      <div className="overflow-hidden rounded-lg">
-        <ComplianceBanner title="Opplæring og dokumentasjon">
-          AML § 3-1 · § 6-5 · IK-forskriften § 5 — oversikt over opplæring i organisasjonen.{' '}
-          <Link to="/learning/compliance" className="font-medium text-white underline">
-            Se samsvar
-          </Link>
-        </ComplianceBanner>
-      </div>
-
-      <ModuleSectionCard>
-        <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_200px]">
-          <LayoutScoreStatRow items={statItems} columns={4} variant="compact" gap="tight" childrenByIndex={statLinks} />
-          <div className="flex items-center justify-center rounded-xl border border-neutral-200/80 bg-neutral-50/50 p-4">
-            <CompletionRings publishedPct={ringPublished} enrolledPct={ringEnrolled} certPct={ringCert} />
-          </div>
-        </div>
-      </ModuleSectionCard>
-
-      {pendingReviews.length > 0 ? (
-        <ModuleSectionCard>
-          <section>
-            <h2 className="font-serif text-lg font-semibold text-[#2D403A]">Gjentakelse (intervalltrening)</h2>
-            <p className="mt-1 text-sm text-neutral-700">
-              Du svarte feil på disse spørsmålene tidligere. En kort repetisjon styrker hukommelsen.
-            </p>
-            <ul className="mt-3 space-y-2">
-              {pendingReviews.slice(0, 5).map((r) => {
-                const c = courses.find((x) => x.id === r.courseId)
-                return (
-                  <li
-                    key={r.id}
-                    className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-amber-100 bg-amber-50/50 px-3 py-2 text-sm"
-                  >
-                    <span className="text-neutral-800">
-                      {c?.title ?? r.courseId} — modul {r.moduleId.slice(0, 8)}…
-                    </span>
-                    <div className="flex gap-2">
-                      <Link
-                        to={`/learning/play/${r.courseId}?module=${encodeURIComponent(r.moduleId)}`}
-                        className="text-xs font-medium text-emerald-800 underline"
-                      >
-                        Repeter
-                      </Link>
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        className="text-xs text-neutral-500 hover:text-neutral-800"
-                        onClick={() => void dismissReview(r.id)}
-                      >
-                        Avvis
-                      </Button>
-                    </div>
-                  </li>
-                )
-              })}
-            </ul>
-          </section>
-        </ModuleSectionCard>
-      ) : null}
-
-      {departmentLeaderboard.length > 0 ? (
-        <ModuleSectionCard>
-          <section>
-            <h2 className="font-serif text-lg font-semibold text-[#2D403A]">Avdelinger (aggregert)</h2>
-            <p className="mt-1 text-sm text-neutral-600">
-              Vi rangerer ikke enkeltpersoner — kun avdelingens gjennomsnittlige kursgjennomføring (publiserte kurs).
-              Koble brukere til avdeling i profilen for full effekt. Avdelinger med færre enn fem medarbeidere vises ikke
-              av personvernhensyn (GDPR art. 5).
-            </p>
-            <ul className="mt-4 space-y-2">
-              {departmentLeaderboard.map((d) => (
-                <li
-                  key={d.departmentId}
-                  className="flex items-center justify-between rounded-lg border border-neutral-100 px-3 py-2 text-sm"
-                >
-                  <span className="font-medium text-[#2D403A]">{d.departmentName}</span>
-                  <span className="tabular-nums text-neutral-700">
-                    {d.avgCompletionPct}% <span className="text-xs text-neutral-500">({d.memberCount} brukere)</span>
-                  </span>
-                </li>
-              ))}
-            </ul>
-          </section>
-        </ModuleSectionCard>
-      ) : null}
-
-      <ModuleSectionCard>
-        <section>
-          <div className="mb-4 flex items-center justify-between">
-            <h2 className="font-serif text-xl font-semibold text-[#2D403A]">{canManage ? 'Publiserte kurs' : 'Anbefalte kurs'}</h2>
-            {canManage && (
-              <Link to="/learning/courses" className="text-sm font-medium text-emerald-800 hover:underline">
-                + Opprett kurs
-              </Link>
-            )}
-          </div>
-          <div className="space-y-3">
-            {published.slice(0, 5).map((c) => {
-              const unlocked = isCourseUnlocked(c.id)
-              return (
-                <div
+      <ModuleSectionCard className="!p-0">
+        <LayoutTable1PostingsShell
+          wrap={false}
+          titleTypography="sans"
+          title="Kurskatalog"
+          description="Velg et kurs for å se moduler, deltakere og lovgrunnlag."
+          headerActions={headerActions}
+          toolbar={toolbar}
+          footer={
+            <span>
+              Viser {visibleCourses.length} av {courses.length} kurs
+            </span>
+          }
+        >
+          {view === 'grid' ? (
+            <div className="grid grid-cols-1 gap-4 px-5 py-5 sm:grid-cols-2 xl:grid-cols-3">
+              {visibleCourses.map((c) => (
+                <CourseCard
                   key={c.id}
-                  className={`block rounded-lg border border-neutral-200/80 bg-neutral-50/40 p-4 transition-colors ${
-                    unlocked ? 'hover:bg-neutral-50' : 'opacity-75'
-                  }`}
-                >
-                  <div className="flex flex-wrap items-start justify-between gap-2">
-                    <div className="min-w-0">
-                      {unlocked ? (
-                        <Link to={`/learning/courses/${c.id}`} className="font-serif text-lg font-semibold text-[#2D403A] hover:underline">
-                          {c.title}
-                        </Link>
-                      ) : (
-                        <p className="font-serif text-lg font-semibold text-neutral-500">{c.title}</p>
-                      )}
-                      <p className="mt-1 text-sm text-neutral-600 line-clamp-2">{c.description}</p>
-                      {!unlocked ? (
-                        <p className="mt-2 text-xs font-medium text-amber-800">Låst — fullfør forutsetningskurs først.</p>
-                      ) : null}
-                      <div className="mt-2 flex flex-wrap gap-2">
-                        <span className="rounded-full bg-emerald-100 px-2.5 py-0.5 text-xs font-medium text-emerald-900">
-                          {c.status.toUpperCase()}
-                        </span>
-                        {c.tags.map((t) => (
-                          <span key={t} className="rounded-full bg-neutral-100 px-2 py-0.5 text-xs text-neutral-600">
-                            {t}
-                          </span>
-                        ))}
-                      </div>
-                    </div>
-                    <div className="flex flex-col items-end gap-2 text-sm text-neutral-500">
-                      <span className="flex items-center gap-1">
-                        <BookOpen className="size-4" />
-                        {`${c.modules.length} ${c.modules.length === 1 ? 'modul' : 'moduler'}`}
-                      </span>
-                      {unlocked ? (
-                        <Link
-                          to={`/learning/play/${c.id}`}
-                          className="inline-flex items-center gap-1 text-xs font-medium text-emerald-800 hover:underline"
-                        >
-                          Start <ArrowRight className="size-3.5" />
-                        </Link>
-                      ) : null}
-                    </div>
-                  </div>
+                  course={c}
+                  myProgress={myProgressById[c.id]}
+                  orgStats={orgStatsById[c.id]}
+                />
+              ))}
+              {visibleCourses.length === 0 ? (
+                <div className="col-span-full py-12 text-center text-sm text-neutral-500">
+                  Ingen kurs samsvarer med filtrene.
                 </div>
-              )
-            })}
-            {published.length === 0 ? (
-              <p className="rounded-lg border border-dashed border-neutral-200 bg-neutral-50/60 p-8 text-center text-sm text-neutral-600">
-                {canManage ? 'Ingen publiserte kurs ennå.' : 'Ingen kurs tilgjengelig ennå.'}
-              </p>
-            ) : null}
-          </div>
-        </section>
+              ) : null}
+            </div>
+          ) : visibleCourses.length === 0 ? (
+            <div className="px-5 py-12 text-center text-sm text-neutral-500">
+              Ingen kurs samsvarer med filtrene.
+            </div>
+          ) : (
+            <CatalogTable courses={visibleCourses} orgStatsById={orgStatsById} />
+          )}
+        </LayoutTable1PostingsShell>
       </ModuleSectionCard>
     </div>
   )

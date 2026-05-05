@@ -33,7 +33,8 @@ function learningPageMeta(pathname: string): { section: string; description: str
   if (pathname === '/learning' || pathname === '/learning/') {
     return {
       section: 'Oversikt',
-      description: 'Publisering, påmelding, sertifikater og mikromoduler — samlet i én arbeidsflate.',
+      description:
+        'Tildel kurs, følg progresjon og dokumenter kompetanse i tråd med AML § 3-2 og IK-forskriften § 5 nr. 2.',
     }
   }
   if (pathname.startsWith('/learning/play/')) {
