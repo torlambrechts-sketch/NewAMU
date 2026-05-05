@@ -30,14 +30,16 @@ type Props = {
 
 export function AmuSettingsAarsrapport({ settings, setSettings, saving, onSave }: Props) {
   return (
-    <ModuleSectionCard className="p-5 md:p-6">
-      <h2 className="text-lg font-semibold text-neutral-900">Årsrapport</h2>
-      <p className="mt-1 text-sm text-neutral-600">
-        Konfigurer automatisk klargjøring, innhold og signeringskrav for AMU-årsrapporten.
-        Årsrapporten er påkrevd etter AML §7-2(5) og skal oppsummere virksomhetens HMS-arbeid.
-      </p>
+    <ModuleSectionCard className="overflow-hidden p-0">
+      <div className="border-b border-neutral-100 bg-neutral-50 px-5 py-4">
+        <h2 className="text-base font-semibold text-neutral-900">Årsrapport</h2>
+        <p className="mt-0.5 text-sm text-neutral-500">
+          Automatisk klargjøring, innhold og signering. Årsrapporten er påkrevd etter AML § 7-2 (5) og skal
+          oppsummere virksomhetens HMS-arbeid.
+        </p>
+      </div>
 
-      <div className="mt-6 space-y-0 divide-y divide-neutral-100">
+      <div className="divide-y divide-neutral-100">
 
         <div className={WPSTD_FORM_ROW_GRID}>
           <div>
@@ -94,6 +96,7 @@ export function AmuSettingsAarsrapport({ settings, setSettings, saving, onSave }
               { key: 'annual_report_include_whistleblowing' as const,  label: 'Varslingsstatistikk (anonymisert antall)' },
               { key: 'annual_report_include_inspections' as const,     label: 'Vernerunder / Inspeksjonsresultater' },
               { key: 'annual_report_include_surveys' as const,         label: 'Kartlegginger / Undersøkelsesresultater' },
+              { key: 'annual_report_include_hms_training' as const,    label: 'HMS-opplæring (FOR § 3-18) — gyldighetsstatus' },
             ]).map(({ key, label }) => (
               <div key={key}>
                 <span className={WPSTD_FORM_FIELD_LABEL}>{label}</span>
@@ -105,6 +108,28 @@ export function AmuSettingsAarsrapport({ settings, setSettings, saving, onSave }
                 </div>
               </div>
             ))}
+          </div>
+        </div>
+
+        <div className={WPSTD_FORM_ROW_GRID}>
+          <div>
+            <p className="text-sm font-medium text-neutral-800">Signeringsfrist</p>
+            <p className="mt-1 text-sm text-neutral-600">
+              Måneden årsrapporten senest skal være signert. Brukes til varsling og dashboard-status.
+            </p>
+          </div>
+          <div>
+            <span className={WPSTD_FORM_FIELD_LABEL}>Frist innen utløpet av</span>
+            <div className="mt-1.5">
+              <SearchableSelect
+                value={String(settings.annual_report_signing_deadline_month ?? 3)}
+                options={MONTH_OPTIONS}
+                onChange={(v) =>
+                  setSettings((p) => ({ ...p, annual_report_signing_deadline_month: Number(v) }))
+                }
+              />
+            </div>
+            <p className="mt-1 text-xs text-neutral-500">Anbefalt: mars (Q1)</p>
           </div>
         </div>
 
@@ -121,7 +146,7 @@ export function AmuSettingsAarsrapport({ settings, setSettings, saving, onSave }
 
       </div>
 
-      <div className="mt-6">
+      <div className="border-t border-neutral-100 bg-neutral-50/60 px-5 py-4">
         <Button type="button" variant="primary" disabled={saving} onClick={onSave}>
           {saving ? 'Lagrer…' : 'Lagre årsrapportinnstillinger'}
         </Button>

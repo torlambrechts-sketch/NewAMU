@@ -15,13 +15,16 @@ type Props = {
 
 export function AmuSettingsGenerelt({ settings, setSettings, saving, onSave }: Props) {
   return (
-    <ModuleSectionCard className="p-5 md:p-6">
-      <h2 className="text-lg font-semibold text-neutral-900">Generelle innstillinger</h2>
-      <p className="mt-1 text-sm text-neutral-600">
-        Grunnleggende konfigurasjon for AMU-utvalget — lovkrav, sammensetning og mandatperiode.
-      </p>
+    <ModuleSectionCard className="overflow-hidden p-0">
+      <div className="border-b border-neutral-100 bg-neutral-50 px-5 py-4">
+        <h2 className="text-base font-semibold text-neutral-900">Generelle innstillinger</h2>
+        <p className="mt-0.5 text-sm text-neutral-500">
+          Grunnleggende konfigurasjon for AMU-utvalget — lovkrav, sammensetning og mandatperiode (AML
+          kap. 7, IK-f § 5).
+        </p>
+      </div>
 
-      <div className="mt-6 space-y-0 divide-y divide-neutral-100">
+      <div className="divide-y divide-neutral-100">
 
         <div className={WPSTD_FORM_ROW_GRID}>
           <div>
@@ -172,16 +175,19 @@ export function AmuSettingsGenerelt({ settings, setSettings, saving, onSave }: P
           </div>
         </div>
 
+        <div className={WPSTD_FORM_ROW_GRID}>
+          <div />
+          <div>
+            <InfoBox>
+              Endringer her gjelder for hele virksomheten. Individuelle møte- og medlemsinnstillinger
+              håndteres direkte i møtevisningen.
+            </InfoBox>
+          </div>
+        </div>
+
       </div>
 
-      <div className="mt-6">
-        <InfoBox>
-          Endringer her gjelder for hele virksomheten. Individuelle møte- og medlemsinnstillinger
-          håndteres direkte i møtevisningen.
-        </InfoBox>
-      </div>
-
-      <div className="mt-4">
+      <div className="border-t border-neutral-100 bg-neutral-50/60 px-5 py-4">
         <Button type="button" variant="primary" disabled={saving} onClick={onSave}>
           {saving ? 'Lagrer…' : 'Lagre innstillinger'}
         </Button>

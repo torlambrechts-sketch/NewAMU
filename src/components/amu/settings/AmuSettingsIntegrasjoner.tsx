@@ -30,13 +30,15 @@ type Props = {
 
 export function AmuSettingsIntegrasjoner({ settings, setSettings, saving, onSave }: Props) {
   return (
-    <ModuleSectionCard className="p-5 md:p-6">
-      <h2 className="text-lg font-semibold text-neutral-900">Integrasjoner</h2>
-      <p className="mt-1 text-sm text-neutral-600">
-        Koble AMU-modulen til eksterne systemer via webhook, Slack, kalender og API.
-      </p>
+    <ModuleSectionCard className="overflow-hidden p-0">
+      <div className="border-b border-neutral-100 bg-neutral-50 px-5 py-4">
+        <h2 className="text-base font-semibold text-neutral-900">Integrasjoner</h2>
+        <p className="mt-0.5 text-sm text-neutral-500">
+          Koble AMU-modulen til eksterne systemer via webhook, Slack, kalender og API.
+        </p>
+      </div>
 
-      <div className="mt-6 space-y-10">
+      <div className="px-5 py-6 space-y-10">
 
         {/* ── Webhook ─────────────────────────────────────────────────── */}
         <section>
@@ -242,7 +244,7 @@ export function AmuSettingsIntegrasjoner({ settings, setSettings, saving, onSave
 
       </div>
 
-      <div className="mt-6">
+      <div className="border-t border-neutral-100 bg-neutral-50/60 px-5 py-4">
         <Button type="button" variant="primary" disabled={saving} onClick={onSave}>
           {saving ? 'Lagrer…' : 'Lagre integrasjoner'}
         </Button>

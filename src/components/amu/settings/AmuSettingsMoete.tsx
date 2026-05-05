@@ -12,6 +12,11 @@ const VOTING_DISPLAY_OPTIONS: SelectOption[] = [
   { value: 'hidden',  label: 'Skjult — stemmer registreres men vises ikke i referat' },
 ]
 
+const VISIBILITY_OPTIONS: SelectOption[] = [
+  { value: 'open',   label: 'Åpent — saksdokumenter synlig for alle ansatte etter signering' },
+  { value: 'closed', label: 'Lukket — taushetsplikt; kun medlemmer ser fullt referat' },
+]
+
 type Props = {
   settings: AmuModuleSettings
   setSettings: React.Dispatch<React.SetStateAction<AmuModuleSettings>>
@@ -21,13 +26,16 @@ type Props = {
 
 export function AmuSettingsMoete({ settings, setSettings, saving, onSave }: Props) {
   return (
-    <ModuleSectionCard className="p-5 md:p-6">
-      <h2 className="text-lg font-semibold text-neutral-900">Møte- og voteringsinnstillinger</h2>
-      <p className="mt-1 text-sm text-neutral-600">
-        Konfigurer hvordan møter gjennomføres, votering vises og agenda settes opp automatisk.
-      </p>
+    <ModuleSectionCard className="overflow-hidden p-0">
+      <div className="border-b border-neutral-100 bg-neutral-50 px-5 py-4">
+        <h2 className="text-base font-semibold text-neutral-900">Møte- og voteringsinnstillinger</h2>
+        <p className="mt-0.5 text-sm text-neutral-500">
+          Konfigurer hvordan møter gjennomføres, votering vises og automatisk saksliste settes opp etter
+          AML § 7-2 og IK-forskriften § 5.
+        </p>
+      </div>
 
-      <div className="mt-6 space-y-0 divide-y divide-neutral-100">
+      <div className="divide-y divide-neutral-100">
 
         {/* ── Voting ───────────────────────────────────────────────────── */}
         <div className={WPSTD_FORM_ROW_GRID}>
@@ -105,6 +113,29 @@ export function AmuSettingsMoete({ settings, setSettings, saving, onSave }: Prop
           </div>
         </div>
 
+        {settings.allow_hybrid !== false && (
+          <div className={WPSTD_FORM_ROW_GRID}>
+            <div>
+              <p className="text-sm font-medium text-neutral-800">Standard videolenke</p>
+              <p className="mt-1 text-sm text-neutral-600">
+                Mal som settes automatisk inn i innkallinger for hybride møter. Støtter
+                {' '}<code className="rounded bg-neutral-100 px-1 text-xs">{'{{title}}'}</code>.
+              </p>
+            </div>
+            <div>
+              <label className={WPSTD_FORM_FIELD_LABEL} htmlFor="moete-link">Videolenkemal</label>
+              <StandardInput
+                id="moete-link"
+                value={settings.default_video_link_template ?? ''}
+                onChange={(e) =>
+                  setSettings((p) => ({ ...p, default_video_link_template: e.target.value }))
+                }
+                placeholder="https://teams.microsoft.com/l/meetup-join/..."
+              />
+            </div>
+          </div>
+        )}
+
         <div className={WPSTD_FORM_ROW_GRID}>
           <div>
             <p className="text-sm font-medium text-neutral-800">Standard møtevarighet</p>
@@ -128,21 +159,49 @@ export function AmuSettingsMoete({ settings, setSettings, saving, onSave }: Prop
           </div>
         </div>
 
+        {/* ── Confidentiality default ──────────────────────────────────── */}
+        <div className={WPSTD_FORM_ROW_GRID}>
+          <div>
+            <p className="text-sm font-medium text-neutral-800">Standard synlighet for møter</p>
+            <p className="mt-1 text-sm text-neutral-600">
+              Regelen for hvem som kan se sakspapirer og signert referat. Velg «Lukket» når møtene
+              regelmessig behandler personalsaker eller varsling (Forvaltningsloven § 13).
+            </p>
+          </div>
+          <div>
+            <span className={WPSTD_FORM_FIELD_LABEL}>Synlighet</span>
+            <div className="mt-1.5">
+              <SearchableSelect
+                value={settings.default_meeting_visibility ?? 'open'}
+                options={VISIBILITY_OPTIONS}
+                onChange={(v) =>
+                  setSettings((p) => ({
+                    ...p,
+                    default_meeting_visibility: v as AmuModuleSettings['default_meeting_visibility'],
+                  }))
+                }
+              />
+            </div>
+          </div>
+        </div>
+
         {/* ── Agenda auto-include ──────────────────────────────────────── */}
         <div className={WPSTD_FORM_ROW_GRID}>
           <div>
             <p className="text-sm font-medium text-neutral-800">Automatisk saksliste</p>
             <p className="mt-1 text-sm text-neutral-600">
               Velg hvilke moduler som automatisk foreslår saker til nye AMU-møter. Gir et godt utgangspunkt
-              for dagsorden uten manuelt arbeid.
+              for dagsorden uten manuelt arbeid og dekker lovpålagte temaer (sykefravær, avvik, varsling).
             </p>
           </div>
           <div className="space-y-3">
             {([
-              { key: 'agenda_auto_include_deviations' as const,    label: 'Avvik — åpne saker med høy risikoscore' },
-              { key: 'agenda_auto_include_sick_leave' as const,    label: 'Sykefravær — statistikk fra forrige periode' },
-              { key: 'agenda_auto_include_whistleblowing' as const, label: 'Varsling — anonymisert antall åpne saker' },
-              { key: 'agenda_auto_include_inspections' as const,   label: 'Vernerunder / Inspeksjoner — åpne funn' },
+              { key: 'agenda_auto_include_deviations' as const,    label: 'Avvik — åpne saker over risikoterskel (AML § 5-1)' },
+              { key: 'agenda_auto_include_sick_leave' as const,    label: 'Sykefravær — statistikk fra forrige periode (AML § 4-6)' },
+              { key: 'agenda_auto_include_whistleblowing' as const, label: 'Varsling — anonymisert antall åpne saker (AML § 2 A-3)' },
+              { key: 'agenda_auto_include_inspections' as const,   label: 'Vernerunder / inspeksjoner — åpne funn (AML § 6-2)' },
+              { key: 'agenda_auto_include_action_items' as const,  label: 'Aktivpunkter — åpne / forfalt fra tidligere møter' },
+              { key: 'agenda_auto_include_employee_proposals' as const, label: 'Forslag fra ansatte — innboks (AML § 4-2)' },
             ]).map(({ key, label }) => (
               <div key={key}>
                 <span className={WPSTD_FORM_FIELD_LABEL}>{label}</span>
@@ -178,7 +237,7 @@ export function AmuSettingsMoete({ settings, setSettings, saving, onSave }: Prop
 
       </div>
 
-      <div className="mt-6">
+      <div className="border-t border-neutral-100 bg-neutral-50/60 px-5 py-4">
         <Button type="button" variant="primary" disabled={saving} onClick={onSave}>
           {saving ? 'Lagrer…' : 'Lagre møteinnstillinger'}
         </Button>
