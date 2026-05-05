@@ -1,11 +1,18 @@
 import { useMemo, useState } from 'react'
+import { GitBranch, Plus, Tag, Trash2 } from 'lucide-react'
 import { useLearning } from '../../hooks/useLearning'
 import { useOrgSetupContext } from '../../hooks/useOrgSetupContext'
-import { PIN_GREEN } from '../../components/learning/LearningLayout'
+import { Badge } from '../../components/ui/Badge'
 import { Button } from '../../components/ui/Button'
 import { ToggleSwitch } from '../../components/ui/FormToggles'
 import { StandardInput } from '../../components/ui/Input'
 import { StandardTextarea } from '../../components/ui/Textarea'
+import { LayoutScoreStatRow } from '../../components/layout/LayoutScoreStatRow'
+import type { LayoutScoreStatItem } from '../../components/layout/platformLayoutKit'
+import { ModuleSectionCard } from '../../components/module'
+import { ComplianceBanner } from '../../components/ui/ComplianceBanner'
+
+const SERIF_FAMILY = "'Libre Baskerville', Georgia, serif"
 
 export function LearningPathsPage() {
   const { can } = useOrgSetupContext()
@@ -57,130 +64,216 @@ export function LearningPathsPage() {
     })()
   }
 
+  const kpis = useMemo<LayoutScoreStatItem[]>(
+    () => [
+      { big: String(learningPaths.length), title: 'Læringsløp', sub: 'Definert' },
+      { big: String(pathEnrollments.length), title: 'Påmeldinger', sub: 'Aktive' },
+      { big: String(published.length), title: 'Tilgjengelige kurs', sub: 'Publisert i katalog' },
+    ],
+    [learningPaths.length, pathEnrollments.length, published.length],
+  )
+
   return (
-    <div className="space-y-8">
-      <div>
-        <h1 className="font-serif text-3xl font-semibold text-[#1d1f1c]">Læringsløp</h1>
-        <p className="mt-2 text-sm text-[#6b6f68]">
-          Grupper kurs og koble til profilflagg (f.eks. HMS-representant). Brukere meldes inn automatisk når flagget
-          stemmer med regelen.
-        </p>
-      </div>
+    <div className="space-y-6">
+      <ComplianceBanner title="Rollebasert opplæring">
+        Læringsløp grupperer kurs etter rolle (verneombud, AMU-medlem, leder) — sikrer riktig
+        opplæring etter AML § 3-5 (arbeidsgivers plikt) og § 6-5 (verneombud).
+      </ComplianceBanner>
+
       {learningError ? (
-        <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">{learningError}</p>
+        <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
+          {learningError}
+        </p>
       ) : null}
-      {learningLoading ? <p className="text-sm text-[#6b6f68]">Laster…</p> : null}
+      {learningLoading ? <p className="text-sm text-neutral-500">Laster…</p> : null}
+
+      <LayoutScoreStatRow items={kpis} columns={3} />
 
       <div className="grid gap-6 lg:grid-cols-2">
-        <div className="rounded-lg border border-[#e3ddcc] bg-[#fbf9f3] p-6">
-          <h2 className="font-semibold text-[#1d1f1c]">Dine løp</h2>
-          <ul className="mt-4 space-y-3">
-            {learningPaths.map((p) => (
-              <li key={p.id} className="rounded-lg border border-[#e3ddcc] bg-[#f7f5ee] p-3">
-                <div className="flex flex-wrap items-start justify-between gap-2">
-                  <div>
-                    <div className="font-medium text-[#1d1f1c]">{p.name}</div>
-                    <div className="text-xs text-[#6b6f68]">{p.slug}</div>
-                    {p.description ? <p className="mt-1 text-sm text-[#6b6f68]">{p.description}</p> : null}
-                    <p className="mt-2 text-xs text-[#6b6f68]">
-                      {p.courseIds.length} kurs · Regel: {p.rules.map((r) => `${r.metadataKey}=${JSON.stringify(r.expectedValue)}`).join(', ') || '—'}
-                    </p>
-                  </div>
-                  <span
-                    className={`rounded-full px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide ${
-                      enrolledSet.has(p.id) ? 'bg-[#e7efe9] text-[#1a3d32]' : 'bg-[#f7f5ee] text-[#6b6f68]'
-                    }`}
-                  >
-                    {enrolledSet.has(p.id) ? 'Påmeldt' : 'Ikke påmeldt'}
-                  </span>
-                </div>
-                {canManage ? (
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    className="mt-2 text-xs text-[#b3382a] hover:underline"
-                    onClick={() => {
-                      if (!window.confirm('Slette dette læringsløpet?')) return
-                      void (async () => {
-                        const r = await deleteLearningPath(p.id)
-                        setMsg(r.ok ? 'Slettet.' : r.error)
-                      })()
-                    }}
-                  >
-                    Slett
-                  </Button>
-                ) : null}
-              </li>
-            ))}
-          </ul>
+        <ModuleSectionCard>
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2">
+              <GitBranch className="h-5 w-5 text-[#1a3d32]" />
+              <h2
+                className="text-lg font-semibold text-neutral-900"
+                style={{ fontFamily: SERIF_FAMILY }}
+              >
+                Dine læringsløp
+              </h2>
+            </div>
+            <span className="text-xs text-neutral-500">{learningPaths.length} totalt</span>
+          </div>
+          <p className="mt-1 text-sm text-neutral-600">
+            Brukere meldes inn automatisk når metadata-flagget treffer regelen.
+          </p>
           {learningPaths.length === 0 ? (
-            <p className="py-6 text-center text-sm text-[#6b6f68]">Ingen løp opprettet ennå.</p>
-          ) : null}
-        </div>
+            <div className="mt-5 rounded-lg border border-dashed border-neutral-300 bg-neutral-50/40 px-5 py-10 text-center text-sm text-neutral-500">
+              Ingen løp opprettet ennå.
+            </div>
+          ) : (
+            <ul className="mt-4 space-y-3">
+              {learningPaths.map((p) => (
+                <li
+                  key={p.id}
+                  className="rounded-lg border border-neutral-200 bg-neutral-50/40 p-3"
+                >
+                  <div className="flex flex-wrap items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <div className="font-medium text-neutral-900">{p.name}</div>
+                      <div className="mt-0.5 inline-flex items-center gap-1 text-xs text-neutral-500">
+                        <Tag className="h-3 w-3" /> {p.slug}
+                      </div>
+                      {p.description ? (
+                        <p className="mt-1 text-sm text-neutral-600">{p.description}</p>
+                      ) : null}
+                      <p className="mt-2 text-xs text-neutral-500">
+                        {p.courseIds.length} kurs · Regel:{' '}
+                        {p.rules
+                          .map((r) => `${r.metadataKey}=${JSON.stringify(r.expectedValue)}`)
+                          .join(', ') || '—'}
+                      </p>
+                    </div>
+                    <Badge variant={enrolledSet.has(p.id) ? 'active' : 'neutral'}>
+                      {enrolledSet.has(p.id) ? 'Påmeldt' : 'Ikke påmeldt'}
+                    </Badge>
+                  </div>
+                  {canManage ? (
+                    <div className="mt-3 flex justify-end">
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        icon={<Trash2 className="h-3.5 w-3.5" />}
+                        onClick={() => {
+                          if (!window.confirm('Slette dette læringsløpet?')) return
+                          void (async () => {
+                            const r = await deleteLearningPath(p.id)
+                            setMsg(r.ok ? 'Slettet.' : r.error)
+                          })()
+                        }}
+                      >
+                        Slett
+                      </Button>
+                    </div>
+                  ) : null}
+                </li>
+              ))}
+            </ul>
+          )}
+        </ModuleSectionCard>
 
         {canManage ? (
-          <div className="rounded-lg border border-[#c5d3c8] bg-[#e7efe9] p-6">
-            <h2 className="font-semibold text-[#1a3d32]">Nytt læringsløp</h2>
+          <ModuleSectionCard>
+            <div className="flex items-center gap-2">
+              <Plus className="h-5 w-5 text-[#1a3d32]" />
+              <h2
+                className="text-lg font-semibold text-neutral-900"
+                style={{ fontFamily: SERIF_FAMILY }}
+              >
+                Nytt læringsløp
+              </h2>
+            </div>
+            <p className="mt-1 text-sm text-neutral-600">
+              Definer regel og velg kursene som skal være obligatoriske.
+            </p>
             <div className="mt-4 space-y-3">
-              <label className="block text-xs font-medium text-[#6b6f68]">
-                Navn
-                <StandardInput value={name} onChange={(e) => setName(e.target.value)} className="mt-1" />
-              </label>
-              <label className="block text-xs font-medium text-[#6b6f68]">
-                Slug (kortnavn)
+              <div>
+                <label className="mb-1 block text-xs font-semibold uppercase tracking-wider text-neutral-600">
+                  Navn
+                </label>
+                <StandardInput value={name} onChange={(e) => setName(e.target.value)} />
+              </div>
+              <div>
+                <label className="mb-1 block text-xs font-semibold uppercase tracking-wider text-neutral-600">
+                  Slug (kortnavn)
+                </label>
                 <StandardInput
                   value={slug}
                   onChange={(e) => setSlug(e.target.value)}
                   placeholder="f.eks. safety-rep"
-                  className="mt-1"
                 />
-              </label>
-              <label className="block text-xs font-medium text-[#6b6f68]">
-                Beskrivelse
-                <StandardTextarea value={description} onChange={(e) => setDescription(e.target.value)} rows={2} className="mt-1" />
-              </label>
+              </div>
               <div>
-                <p className="text-xs font-medium text-[#6b6f68]">Kurs i rekkefølge</p>
-                <ul className="mt-2 max-h-40 space-y-1 overflow-y-auto rounded-lg border border-[#e3ddcc] bg-white p-2">
-                  {published.map((c) => (
-                    <li key={c.id} className="flex items-center justify-between gap-2 py-1">
-                      <span className="min-w-0 flex-1 text-sm">{c.title}</span>
-                      <ToggleSwitch
-                        checked={selectedCourses.includes(c.id)}
-                        onChange={(on) => {
-                          if (on) {
-                            if (!selectedCourses.includes(c.id)) setSelectedCourses((prev) => [...prev, c.id])
-                          } else {
-                            setSelectedCourses((prev) => prev.filter((x) => x !== c.id))
-                          }
-                        }}
-                        label={`Velg kurs: ${c.title}`}
-                      />
+                <label className="mb-1 block text-xs font-semibold uppercase tracking-wider text-neutral-600">
+                  Beskrivelse
+                </label>
+                <StandardTextarea
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                  rows={2}
+                />
+              </div>
+              <div>
+                <label className="mb-1 block text-xs font-semibold uppercase tracking-wider text-neutral-600">
+                  Kurs i rekkefølge
+                </label>
+                <ul className="max-h-40 space-y-1 overflow-y-auto rounded-md border border-neutral-200 bg-white p-2">
+                  {published.length === 0 ? (
+                    <li className="px-2 py-1 text-xs text-neutral-500">
+                      Ingen publiserte kurs tilgjengelig.
                     </li>
-                  ))}
+                  ) : (
+                    published.map((c) => (
+                      <li
+                        key={c.id}
+                        className="flex items-center justify-between gap-2 rounded px-2 py-1 hover:bg-neutral-50"
+                      >
+                        <span className="min-w-0 flex-1 truncate text-sm text-neutral-800">{c.title}</span>
+                        <ToggleSwitch
+                          checked={selectedCourses.includes(c.id)}
+                          onChange={(on) => {
+                            if (on) {
+                              if (!selectedCourses.includes(c.id))
+                                setSelectedCourses((prev) => [...prev, c.id])
+                            } else {
+                              setSelectedCourses((prev) => prev.filter((x) => x !== c.id))
+                            }
+                          }}
+                          label={`Velg kurs: ${c.title}`}
+                        />
+                      </li>
+                    ))
+                  )}
                 </ul>
               </div>
               <div className="grid gap-2 sm:grid-cols-2">
-                <label className="text-xs text-[#6b6f68]">
-                  Metadata-nøkkel
-                  <StandardInput value={metaKey} onChange={(e) => setMetaKey(e.target.value)} className="mt-1" />
-                </label>
-                <label className="text-xs text-[#6b6f68]">
-                  Forventet verdi (true/false eller tekst)
-                  <StandardInput value={metaVal} onChange={(e) => setMetaVal(e.target.value)} className="mt-1" />
-                </label>
+                <div>
+                  <label className="mb-1 block text-xs font-semibold uppercase tracking-wider text-neutral-600">
+                    Metadata-nøkkel
+                  </label>
+                  <StandardInput value={metaKey} onChange={(e) => setMetaKey(e.target.value)} />
+                </div>
+                <div>
+                  <label className="mb-1 block text-xs font-semibold uppercase tracking-wider text-neutral-600">
+                    Forventet verdi
+                  </label>
+                  <StandardInput
+                    value={metaVal}
+                    onChange={(e) => setMetaVal(e.target.value)}
+                    placeholder="true / false / tekst"
+                  />
+                </div>
               </div>
-              <Button type="button" variant="primary" style={{ backgroundColor: PIN_GREEN }} onClick={submit}>
+            </div>
+            <div className="mt-5 flex items-center justify-end gap-2 border-t border-neutral-100 pt-4">
+              <Button
+                type="button"
+                variant="primary"
+                size="sm"
+                onClick={submit}
+                icon={<Plus className="h-3.5 w-3.5" />}
+              >
                 Opprett læringsløp
               </Button>
-              {msg ? <p className="text-xs text-[#1d1f1c]">{msg}</p> : null}
             </div>
-          </div>
+            {msg ? <p className="mt-2 text-xs text-neutral-700">{msg}</p> : null}
+          </ModuleSectionCard>
         ) : (
-          <div className="rounded-lg border border-[#e3ddcc] bg-[#fbf9f3] p-6 text-sm text-[#6b6f68]">
-            Kun kursansvarlige kan opprette læringsløp. Du ser dine påmeldinger til venstre.
-          </div>
+          <ModuleSectionCard>
+            <p className="text-sm text-neutral-600">
+              Kun kursansvarlige kan opprette læringsløp. Du ser dine påmeldinger til venstre.
+            </p>
+          </ModuleSectionCard>
         )}
       </div>
     </div>

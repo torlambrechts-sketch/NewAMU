@@ -1,15 +1,32 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
+import { CheckCircle2, FileUp, ShieldCheck, XCircle } from 'lucide-react'
 import { useLearning } from '../../hooks/useLearning'
 import { useOrgSetupContext } from '../../hooks/useOrgSetupContext'
-import { PIN_GREEN } from '../../components/learning/LearningLayout'
+import { Badge } from '../../components/ui/Badge'
 import { Button } from '../../components/ui/Button'
 import { StandardInput } from '../../components/ui/Input'
 import { WarningBox } from '../../components/ui/AlertBox'
+import { LayoutScoreStatRow } from '../../components/layout/LayoutScoreStatRow'
+import type { LayoutScoreStatItem } from '../../components/layout/platformLayoutKit'
+import { LayoutTable1PostingsShell } from '../../components/layout/LayoutTable1PostingsShell'
+import { ModuleSectionCard } from '../../components/module'
+import { ComplianceBanner } from '../../components/ui/ComplianceBanner'
 
-const STATUS_LABELS: Record<string, string> = {
-  pending: 'Venter godkjenning',
-  approved: 'Godkjent',
-  rejected: 'Avslått',
+const TABLE_TH =
+  'px-5 py-3 text-left text-[10px] font-bold uppercase tracking-wider text-neutral-600'
+const TABLE_TR_BODY = 'border-t border-neutral-100 hover:bg-neutral-50/60 transition-colors'
+
+const STATUS_BADGE: Record<string, { label: string; variant: 'warning' | 'success' | 'danger' }> = {
+  pending: { label: 'Venter godkjenning', variant: 'warning' },
+  approved: { label: 'Godkjent', variant: 'success' },
+  rejected: { label: 'Avslått', variant: 'danger' },
+}
+
+function fmtDate(iso: string | null | undefined) {
+  if (!iso) return '—'
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return iso
+  return d.toLocaleDateString('nb-NO', { day: '2-digit', month: 'short', year: 'numeric' })
 }
 
 export function LearningExternalTraining() {
@@ -55,126 +72,183 @@ export function LearningExternalTraining() {
     })()
   }
 
+  const kpis = useMemo<LayoutScoreStatItem[]>(() => {
+    const pending = externalCertificates.filter((x) => x.status === 'pending').length
+    const approved = externalCertificates.filter((x) => x.status === 'approved').length
+    const rejected = externalCertificates.filter((x) => x.status === 'rejected').length
+    return [
+      { big: String(externalCertificates.length), title: 'Innsendinger', sub: 'Totalt' },
+      { big: String(pending), title: 'Venter', sub: 'Til godkjenning' },
+      { big: String(approved), title: 'Godkjent', sub: 'Aktive' },
+      { big: String(rejected), title: 'Avslått', sub: 'Krever ny innsending' },
+    ]
+  }, [externalCertificates])
+
   return (
-    <div className="space-y-8">
-      <div>
-        <h1 className="font-serif text-3xl font-semibold text-[#2D403A]">Ekstern opplæring</h1>
-        <p className="mt-2 text-sm text-neutral-600">
-          Last opp dokumentasjon for kurs tatt utenfor plattformen. Leder godkjenner i listen under.
-        </p>
-      </div>
+    <div className="space-y-6">
+      <ComplianceBanner title="Ekstern opplæring">
+        Last opp dokumentasjon for kurs tatt utenfor plattformen — godkjent dokumentasjon er gyldig
+        som opplæringsbevis etter AML § 3-2 og IK-forskriften § 5 nr. 2.
+      </ComplianceBanner>
+
       {learningError ? (
-        <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">{learningError}</p>
+        <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
+          {learningError}
+        </p>
       ) : null}
       {learningLoading ? <p className="text-sm text-neutral-500">Laster…</p> : null}
 
-      <div className="grid gap-8 lg:grid-cols-2">
-        <div className="rounded-lg border border-[#e3ddcc] bg-[#fbf9f3] p-6">
-          <h2 className="font-semibold text-[#2D403A]">Ny dokumentasjon</h2>
+      <LayoutScoreStatRow items={kpis} />
+
+      <div className="grid gap-6 lg:grid-cols-2">
+        <ModuleSectionCard>
+          <div className="flex items-center gap-2">
+            <FileUp className="h-5 w-5 text-[#1a3d32]" />
+            <h2
+              className="text-lg font-semibold text-neutral-900"
+              style={{ fontFamily: "'Libre Baskerville', Georgia, serif" }}
+            >
+              Ny dokumentasjon
+            </h2>
+          </div>
+          <p className="mt-1 text-sm text-neutral-600">
+            Fyll inn detaljer og last opp PDF eller bilde av kursbevis.
+          </p>
           <div className="mt-4 space-y-3">
-            <label className="block text-xs font-medium text-neutral-600">
-              Tittel / kursnavn
-              <StandardInput value={title} onChange={(e) => setTitle(e.target.value)} className="mt-1" />
-            </label>
-            <label className="block text-xs font-medium text-neutral-600">
-              Utsteder (valgfritt)
-              <StandardInput value={issuer} onChange={(e) => setIssuer(e.target.value)} className="mt-1" />
-            </label>
-            <label className="block text-xs font-medium text-neutral-600">
-              Gyldig til (valgfritt)
+            <div>
+              <label className="mb-1 block text-xs font-semibold uppercase tracking-wider text-neutral-600">
+                Tittel / kursnavn
+              </label>
+              <StandardInput value={title} onChange={(e) => setTitle(e.target.value)} />
+            </div>
+            <div>
+              <label className="mb-1 block text-xs font-semibold uppercase tracking-wider text-neutral-600">
+                Utsteder (valgfritt)
+              </label>
+              <StandardInput value={issuer} onChange={(e) => setIssuer(e.target.value)} />
+            </div>
+            <div>
+              <label className="mb-1 block text-xs font-semibold uppercase tracking-wider text-neutral-600">
+                Gyldig til (valgfritt)
+              </label>
               <StandardInput
                 type="date"
                 value={validUntil}
                 onChange={(e) => setValidUntil(e.target.value)}
-                className="mt-1"
               />
-            </label>
-            <label className="block text-xs font-medium text-neutral-600">
-              Fil (PDF eller bilde)
+            </div>
+            <div>
+              <label className="mb-1 block text-xs font-semibold uppercase tracking-wider text-neutral-600">
+                Fil (PDF eller bilde)
+              </label>
               <input
                 type="file"
                 accept="application/pdf,image/*"
                 onChange={(e) => setFile(e.target.files?.[0] ?? null)}
-                className="mt-1 w-full text-sm"
+                className="block w-full rounded-md border border-neutral-300 bg-white text-sm text-neutral-700 file:mr-3 file:rounded-l-md file:border-0 file:bg-neutral-100 file:px-3 file:py-2 file:text-xs file:font-medium file:text-neutral-700 hover:file:bg-neutral-200"
               />
-            </label>
-            <Button type="button" variant="primary" style={{ backgroundColor: PIN_GREEN }} onClick={upload} disabled={uploading}>
+            </div>
+          </div>
+          <div className="mt-5 flex items-center justify-end gap-2 border-t border-neutral-100 pt-4">
+            <Button
+              type="button"
+              variant="primary"
+              size="sm"
+              onClick={upload}
+              disabled={uploading}
+              icon={<FileUp className="h-3.5 w-3.5" />}
+            >
               {uploading ? 'Laster opp…' : 'Send inn'}
             </Button>
-            {msg ? <p className="text-xs text-neutral-700">{msg}</p> : null}
           </div>
-        </div>
+          {msg ? <p className="mt-2 text-xs text-neutral-700">{msg}</p> : null}
+        </ModuleSectionCard>
 
-        <div className="rounded-lg border border-[#e3ddcc] bg-[#fbf9f3]">
-          <div className="border-b border-[#e3ddcc] bg-[#f7f5ee] px-4 py-3 text-sm font-medium text-[#1a3d32]">
-            Innsendte ({externalCertificates.length})
-          </div>
-          <ul className="divide-y divide-[#e3ddcc]">
-            {externalCertificates.map((x) => {
-              const statusColour = x.status === 'approved' ? 'text-[#2f7757]'
-                : x.status === 'rejected' ? 'text-[#b3382a]'
-                : 'text-[#c98a2b]'
-              return (
-                <li key={x.id} className="px-4 py-3 text-sm">
-                  <div className="flex flex-wrap items-start justify-between gap-2">
-                    <div>
-                      <div className="font-medium text-[#2D403A]">{x.title}</div>
-                      <div className="text-xs text-neutral-500">
-                        {x.issuer ?? '—'} · {x.validUntil ? `Gyldig til ${x.validUntil}` : 'Ingen utløpsdato'}
-                      </div>
-                      <div className={`mt-1 text-xs font-medium ${statusColour}`}>
-                        {STATUS_LABELS[x.status] ?? x.status}
-                      </div>
-                    </div>
-                    {canManage && x.status === 'pending' ? (
-                      <div className="flex flex-col gap-1">
-                        <div className="flex gap-2">
-                          <Button
-                            type="button"
-                            variant="secondary"
-                            size="sm"
-                            onClick={() => {
-                              void (async () => {
-                                const r = await approveExternalCertificate(x.id, true)
-                                if (!r.ok) setApproveError(r.error)
-                              })()
-                            }}
-                          >
-                            Godkjenn
-                          </Button>
-                          <Button
-                            type="button"
-                            variant="danger"
-                            size="sm"
-                            onClick={() => {
-                              void (async () => {
-                                const r = await approveExternalCertificate(x.id, false)
-                                if (!r.ok) setApproveError(r.error)
-                              })()
-                            }}
-                          >
-                            Avslå
-                          </Button>
-                        </div>
-                        {approveError ? (
-                          <div className="mt-2">
-                            <WarningBox>{approveError}</WarningBox>
-                          </div>
+        <ModuleSectionCard className="!p-0">
+          <LayoutTable1PostingsShell
+            wrap={false}
+            titleTypography="sans"
+            title="Innsendt dokumentasjon"
+            description={canManage ? 'Godkjenn eller avslå innsendinger.' : 'Dine innsendinger og status.'}
+            toolbar={
+              <div className="flex items-center gap-1.5 text-xs text-neutral-500">
+                <ShieldCheck className="h-3.5 w-3.5" />
+                Godkjent dokumentasjon teller som lovpålagt opplæring
+              </div>
+            }
+            footer={<span>{externalCertificates.length} innsendinger</span>}
+          >
+            {externalCertificates.length === 0 ? (
+              <div className="px-5 py-12 text-center text-sm text-neutral-500">
+                Ingen innsendte dokumenter ennå.
+              </div>
+            ) : (
+              <table className="w-full text-sm">
+                <thead className="bg-neutral-50/60">
+                  <tr>
+                    <th className={TABLE_TH}>Tittel</th>
+                    <th className={TABLE_TH}>Utsteder</th>
+                    <th className={TABLE_TH}>Gyldig til</th>
+                    <th className={TABLE_TH}>Status</th>
+                    {canManage ? <th className={TABLE_TH} /> : null}
+                  </tr>
+                </thead>
+                <tbody>
+                  {externalCertificates.map((x) => {
+                    const meta = STATUS_BADGE[x.status] ?? { label: x.status, variant: 'warning' as const }
+                    return (
+                      <tr key={x.id} className={TABLE_TR_BODY}>
+                        <td className="px-5 py-3 font-medium text-neutral-900">{x.title}</td>
+                        <td className="px-5 py-3 text-neutral-700">{x.issuer ?? '—'}</td>
+                        <td className="px-5 py-3 text-neutral-700">{fmtDate(x.validUntil)}</td>
+                        <td className="px-5 py-3">
+                          <Badge variant={meta.variant}>{meta.label}</Badge>
+                        </td>
+                        {canManage ? (
+                          <td className="px-5 py-3 text-right">
+                            {x.status === 'pending' ? (
+                              <div className="flex justify-end gap-1.5">
+                                <Button
+                                  size="sm"
+                                  variant="secondary"
+                                  icon={<CheckCircle2 className="h-3.5 w-3.5" />}
+                                  onClick={() => {
+                                    void (async () => {
+                                      const r = await approveExternalCertificate(x.id, true)
+                                      if (!r.ok) setApproveError(r.error)
+                                    })()
+                                  }}
+                                >
+                                  Godkjenn
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="danger"
+                                  icon={<XCircle className="h-3.5 w-3.5" />}
+                                  onClick={() => {
+                                    void (async () => {
+                                      const r = await approveExternalCertificate(x.id, false)
+                                      if (!r.ok) setApproveError(r.error)
+                                    })()
+                                  }}
+                                >
+                                  Avslå
+                                </Button>
+                              </div>
+                            ) : null}
+                          </td>
                         ) : null}
-                      </div>
-                    ) : null}
-                  </div>
-                </li>
-              )
-            })}
-          </ul>
-          {externalCertificates.length === 0 ? (
-            <div className="flex flex-col items-center gap-2 py-10 text-center">
-              <p className="text-sm text-[#6b6f68]">Ingen innsendte dokumenter ennå.</p>
-            </div>
-          ) : null}
-        </div>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            )}
+          </LayoutTable1PostingsShell>
+        </ModuleSectionCard>
       </div>
+
+      {approveError ? <WarningBox>{approveError}</WarningBox> : null}
     </div>
   )
 }

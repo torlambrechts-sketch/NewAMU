@@ -1,13 +1,27 @@
 import { useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { ChevronDown, Download, Upload } from 'lucide-react'
+import {
+  ChevronDown,
+  Copy,
+  Database,
+  Download,
+  RefreshCcw,
+  Save,
+  ShieldCheck,
+  Upload,
+  Webhook,
+} from 'lucide-react'
 import { useLearning } from '../../hooks/useLearning'
 import { useOrgSetupContext } from '../../hooks/useOrgSetupContext'
-import { PIN_GREEN } from '../../components/learning/LearningLayout'
+import { Badge } from '../../components/ui/Badge'
 import { WarningBox } from '../../components/ui/AlertBox'
 import { Button } from '../../components/ui/Button'
 import { ToggleSwitch } from '../../components/ui/FormToggles'
 import { StandardInput } from '../../components/ui/Input'
+import { ModuleSectionCard } from '../../components/module'
+import { ComplianceBanner } from '../../components/ui/ComplianceBanner'
+
+const SERIF_FAMILY = "'Libre Baskerville', Georgia, serif"
 
 function downloadJson(filename: string, json: string) {
   const blob = new Blob([json], { type: 'application/json' })
@@ -20,11 +34,29 @@ function downloadJson(filename: string, json: string) {
 }
 
 function slugTitle(title: string) {
-  return title
-    .slice(0, 40)
-    .replace(/[^\w\s-]/g, '')
-    .replace(/\s+/g, '-')
-    .toLowerCase() || 'course'
+  return (
+    title
+      .slice(0, 40)
+      .replace(/[^\w\s-]/g, '')
+      .replace(/\s+/g, '-')
+      .toLowerCase() || 'course'
+  )
+}
+
+function SectionHeading({ title, description, icon }: { title: string; description?: string; icon: React.ReactNode }) {
+  return (
+    <div className="flex items-start gap-3">
+      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg" style={{ background: '#e7efe9', color: '#1a3d32' }}>
+        {icon}
+      </div>
+      <div className="min-w-0">
+        <h2 className="text-lg font-semibold text-neutral-900" style={{ fontFamily: SERIF_FAMILY }}>
+          {title}
+        </h2>
+        {description ? <p className="mt-1 text-sm text-neutral-600">{description}</p> : null}
+      </div>
+    </div>
+  )
 }
 
 export function LearningSettings() {
@@ -102,46 +134,61 @@ export function LearningSettings() {
   }
 
   return (
-    <div className="max-w-2xl space-y-6">
-      <div>
-        <h1 className="font-serif text-3xl font-semibold text-[#1a3d32]">Innstillinger</h1>
-        <p className="mt-2 text-sm text-neutral-600">
-          {supabaseConfigured && organization
-            ? 'Kurs, fremdrift og sertifikater lagres i databasen for organisasjonen din.'
-            : 'Uten innlogget organisasjon lagres e-læringsdata lokalt i nettleseren (demo).'}
-        </p>
-      </div>
+    <div className="space-y-6">
+      <ComplianceBanner title="E-læring — innstillinger">
+        Klarert lagrer kurs, fremdrift og sertifikater for å dokumentere lovpålagt opplæring etter
+        AML § 3-2 og IK-forskriften § 5 nr. 2. Behandling skjer på arbeidsgivers ansvar (GDPR art. 6(1)(c) og (f)).
+      </ComplianceBanner>
+
+      <ModuleSectionCard>
+        <SectionHeading
+          icon={<Database className="h-5 w-5" />}
+          title="Lagring"
+          description={
+            supabaseConfigured && organization
+              ? 'Kurs, fremdrift og sertifikater lagres i databasen for organisasjonen din.'
+              : 'Uten innlogget organisasjon lagres e-læringsdata lokalt i nettleseren (demo).'
+          }
+        />
+        <div className="mt-4 flex flex-wrap gap-2">
+          <Badge variant={supabaseConfigured ? 'success' : 'warning'}>
+            {supabaseConfigured ? 'Supabase aktivert' : 'Lokal demo'}
+          </Badge>
+          {organization ? <Badge variant="info">{organization.name}</Badge> : null}
+        </div>
+      </ModuleSectionCard>
 
       {supabaseConfigured && organization && canManage && systemCourseSettings.length > 0 ? (
-        <div className="rounded-lg border border-[#e3ddcc] bg-[#fbf9f3] p-6">
+        <ModuleSectionCard>
+          <SectionHeading
+            icon={<Copy className="h-5 w-5" />}
+            title="Systemkurs for organisasjonen"
+            description="Slå av kurs du ikke vil tilby. «Kopier som mal» lager et eget utkast du kan redigere og publisere."
+          />
           {systemCourseActionError ? (
-            <div className="mb-4">
+            <div className="mt-4">
               <WarningBox>{systemCourseActionError}</WarningBox>
             </div>
           ) : null}
-          <h2 className="font-semibold text-[#1a3d32]">Systemkurs for organisasjonen</h2>
-          <p className="mt-2 text-sm text-neutral-600">
-            Slå av kurs du ikke vil tilby. «Kopier som mal» lager et eget utkast du kan redigere og publisere.
-          </p>
-          <ul className="mt-4 space-y-3">
+          <ul className="mt-4 space-y-2">
             {systemCourseSettings.map((s) => (
               <li
                 key={s.systemCourseId}
-                className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-[#e3ddcc] bg-[#fbf9f3] px-3 py-3"
+                className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-neutral-200 bg-neutral-50/40 px-3 py-3"
               >
                 <div className="min-w-0">
-                  <p className="font-medium text-[#1a3d32]">{s.title}</p>
-                  <p className="text-xs text-neutral-500">{s.slug}</p>
+                  <p className="font-medium text-neutral-900">{s.title}</p>
+                  <p className="font-mono text-xs text-neutral-500">{s.slug}</p>
                   {s.forkedCourseId ? (
                     <Link
                       to={`/learning/courses/${s.forkedCourseId}`}
-                      className="mt-1 inline-block text-xs font-medium text-emerald-800 underline"
+                      className="mt-1 inline-block text-xs font-medium text-[#1a3d32] underline"
                     >
                       Åpne tilpasset kurs (utkast)
                     </Link>
                   ) : null}
                 </div>
-                <div className="flex flex-wrap items-center gap-2">
+                <div className="flex flex-wrap items-center gap-3">
                   <div className="flex items-center gap-2">
                     <ToggleSwitch
                       checked={s.enabled}
@@ -160,6 +207,7 @@ export function LearningSettings() {
                     type="button"
                     variant="secondary"
                     size="sm"
+                    icon={<Copy className="h-3.5 w-3.5" />}
                     onClick={() => {
                       void (async () => {
                         setSystemCourseActionError(null)
@@ -176,7 +224,7 @@ export function LearningSettings() {
                   </Button>
                   <Link
                     to={`/learning/courses/${s.systemCourseId}`}
-                    className="text-xs font-medium text-emerald-800 underline"
+                    className="text-xs font-medium text-[#1a3d32] underline"
                   >
                     Systemkurs
                   </Link>
@@ -184,42 +232,48 @@ export function LearningSettings() {
               </li>
             ))}
           </ul>
-        </div>
+        </ModuleSectionCard>
       ) : null}
 
       {supabaseConfigured && organization && canManage ? (
-        <div className="rounded-lg border border-[#e3ddcc] bg-[#fbf9f3] p-6">
-          <h2 className="font-semibold text-[#1a3d32]">Flow-of-work & kanaler</h2>
-          <p className="mt-2 text-sm text-neutral-600">
-            Legg inn innkommende webhooks for Microsoft Teams eller Slack. En planlagt jobb (eller Edge Function) kan
-            sende ett mikromodul-utdrag i uken — URL lagres kryptert i produksjon anbefales.
-          </p>
-          <div className="mt-4 space-y-3">
+        <ModuleSectionCard>
+          <SectionHeading
+            icon={<Webhook className="h-5 w-5" />}
+            title="Flow-of-work — kanaler"
+            description="Innkommende webhooks for Microsoft Teams eller Slack. Bruk for ukentlige mikromodul-utdrag."
+          />
+          <div className="mt-4 grid gap-3 md:grid-cols-2">
             <div>
-              <label className="text-xs font-medium text-neutral-500">Teams (incoming webhook)</label>
+              <label className="mb-1 block text-xs font-semibold uppercase tracking-wider text-neutral-600">
+                Teams (incoming webhook)
+              </label>
               <StandardInput
                 value={teamsDisplay}
                 onChange={(e) => setTeamsUrl(e.target.value)}
-                placeholder="https://..."
-                className="mt-1 font-mono text-xs"
+                placeholder="https://…"
+                className="font-mono text-xs"
               />
             </div>
             <div>
-              <label className="text-xs font-medium text-neutral-500">Slack (incoming webhook)</label>
+              <label className="mb-1 block text-xs font-semibold uppercase tracking-wider text-neutral-600">
+                Slack (incoming webhook)
+              </label>
               <StandardInput
                 value={slackDisplay}
                 onChange={(e) => setSlackUrl(e.target.value)}
-                placeholder="https://hooks.slack.com/..."
-                className="mt-1 font-mono text-xs"
+                placeholder="https://hooks.slack.com/…"
+                className="font-mono text-xs"
               />
             </div>
-            <div>
-              <label className="text-xs font-medium text-neutral-500">Generisk HTTPS-endpoint</label>
+            <div className="md:col-span-2">
+              <label className="mb-1 block text-xs font-semibold uppercase tracking-wider text-neutral-600">
+                Generisk HTTPS-endpoint
+              </label>
               <StandardInput
                 value={genericDisplay}
                 onChange={(e) => setGenericUrl(e.target.value)}
-                placeholder="https://..."
-                className="mt-1 font-mono text-xs"
+                placeholder="https://…"
+                className="font-mono text-xs"
               />
             </div>
           </div>
@@ -228,47 +282,61 @@ export function LearningSettings() {
               <WarningBox>{flowSaveError}</WarningBox>
             </div>
           ) : null}
-          {flowMsg ? <p className="mt-2 text-sm text-emerald-800">{flowMsg}</p> : null}
+          <div className="mt-4 flex items-center justify-between gap-3 border-t border-neutral-100 pt-4">
+            <p className="text-xs text-neutral-500">
+              Auto-tildelinger fra HMS bruker RPC{' '}
+              <code className="rounded bg-neutral-100 px-1">learning_assign_module</code>.
+            </p>
+            <Button
+              type="button"
+              variant="primary"
+              size="sm"
+              icon={<Save className="h-3.5 w-3.5" />}
+              onClick={() => {
+                void (async () => {
+                  setFlowMsg(null)
+                  setFlowSaveError(null)
+                  const r = await saveFlowSettings({
+                    teamsWebhookUrl: teamsDisplay.trim() || null,
+                    slackWebhookUrl: slackDisplay.trim() || null,
+                    genericWebhookUrl: genericDisplay.trim() || null,
+                  })
+                  if (r.ok) setFlowMsg('Lagret.')
+                  else setFlowSaveError(r.error)
+                })()
+              }}
+            >
+              Lagre webhooks
+            </Button>
+          </div>
+          {flowMsg ? <p className="mt-2 text-xs text-emerald-700">{flowMsg}</p> : null}
+        </ModuleSectionCard>
+      ) : null}
+
+      <ModuleSectionCard>
+        <SectionHeading
+          icon={<Download className="h-5 w-5" />}
+          title="Eksport og import (JSON)"
+          description="Full sikkerhetskopi, eller del-eksport per kurs / fremdrift / sertifikater."
+        />
+        <div className="mt-4 flex flex-wrap gap-2">
           <Button
             type="button"
             variant="primary"
-            className="mt-4"
-            style={{ backgroundColor: PIN_GREEN }}
-            onClick={() => {
-              void (async () => {
-                setFlowMsg(null)
-                setFlowSaveError(null)
-                const r = await saveFlowSettings({
-                  teamsWebhookUrl: teamsDisplay.trim() || null,
-                  slackWebhookUrl: slackDisplay.trim() || null,
-                  genericWebhookUrl: genericDisplay.trim() || null,
-                })
-                if (r.ok) setFlowMsg('Lagret.')
-                else setFlowSaveError(r.error)
-              })()
-            }}
+            size="sm"
+            icon={<Download className="h-3.5 w-3.5" />}
+            onClick={handleExportFull}
           >
-            Lagre webhooks
+            Last ned alt
           </Button>
-          <p className="mt-3 text-xs text-neutral-500">
-            Automatiske tildelinger fra HMS bruker RPC <code className="rounded bg-neutral-100 px-1">learning_assign_module</code>{' '}
-            og tabellen <code className="rounded bg-neutral-100 px-1">learning_module_assignments</code>.
-          </p>
-        </div>
-      ) : null}
-
-      <div className="rounded-lg border border-[#e3ddcc] bg-[#fbf9f3] p-6">
-        <h2 className="font-semibold text-[#1a3d32]">Eksport og import (JSON)</h2>
-        <p className="mt-2 text-sm text-neutral-600">
-          Full sikkerhetskopi av alt, eller åpne detaljer for å eksportere eller importere per kurs, fremdrift eller
-          sertifikater.
-        </p>
-        <div className="mt-4 flex flex-wrap gap-3">
-          <Button type="button" variant="primary" icon={<Download className="size-4" />} onClick={handleExportFull}>
-            Last ned alt (JSON)
-          </Button>
-          <Button type="button" variant="secondary" icon={<Upload className="size-4" />} onClick={() => fileRefFull.current?.click()}>
-            Importer alt (JSON)
+          <Button
+            type="button"
+            variant="secondary"
+            size="sm"
+            icon={<Upload className="h-3.5 w-3.5" />}
+            onClick={() => fileRefFull.current?.click()}
+          >
+            Importer alt
           </Button>
           <input
             ref={fileRefFull}
@@ -279,32 +347,30 @@ export function LearningSettings() {
           />
         </div>
 
-        <details className="group mt-6 rounded-lg border border-[#e3ddcc] bg-[#fbf9f3]">
-          <summary className="flex cursor-pointer list-none items-center justify-between gap-2 px-4 py-3 text-sm font-medium text-[#1a3d32] marker:content-none [&::-webkit-details-marker]:hidden">
+        <details className="group mt-5 rounded-md border border-neutral-200 bg-neutral-50/40">
+          <summary className="flex cursor-pointer list-none items-center justify-between gap-2 px-4 py-3 text-sm font-medium text-neutral-800 marker:content-none [&::-webkit-details-marker]:hidden">
             <span>Per kurs og andre deler</span>
-            <ChevronDown className="size-4 shrink-0 transition-transform group-open:rotate-180" aria-hidden />
+            <ChevronDown className="h-4 w-4 shrink-0 text-neutral-500 transition-transform group-open:rotate-180" />
           </summary>
-          <div className="space-y-6 border-t border-[#e3ddcc] px-4 pb-4 pt-2">
+          <div className="space-y-4 border-t border-neutral-200 px-4 pb-4 pt-3">
             <p className="text-xs text-neutral-500">
-              Delvise filer flettes inn: eksisterende kurs med samme ID erstattes; fremdrift og sertifikater merges på
-              ID.
+              Delvise filer flettes inn: eksisterende kurs med samme ID erstattes; fremdrift og sertifikater merges på ID.
             </p>
-
             <div>
-              <h3 className="text-sm font-semibold text-[#1a3d32]">Kurs</h3>
-              <ul className="mt-2 space-y-2">
+              <h3 className="text-sm font-semibold text-neutral-900">Kurs</h3>
+              <ul className="mt-2 space-y-1.5">
                 {courses.map((c) => (
                   <li
                     key={c.id}
-                    className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-[#e3ddcc] bg-[#fbf9f3] px-3 py-2 text-sm"
+                    className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-neutral-200 bg-white px-3 py-2 text-sm"
                   >
-                    <span className="min-w-0 font-medium text-[#1a3d32]">{c.title}</span>
-                    <div className="flex shrink-0 gap-2">
+                    <span className="min-w-0 truncate font-medium text-neutral-900">{c.title}</span>
+                    <div className="flex shrink-0 gap-1.5">
                       <Button
                         type="button"
-                        variant="secondary"
+                        variant="ghost"
                         size="sm"
-                        icon={<Download className="size-3.5" />}
+                        icon={<Download className="h-3 w-3" />}
                         onClick={() => {
                           const json = exportCourseJson(c.id)
                           if (!json) return
@@ -315,9 +381,9 @@ export function LearningSettings() {
                       </Button>
                       <Button
                         type="button"
-                        variant="secondary"
+                        variant="ghost"
                         size="sm"
-                        icon={<Upload className="size-3.5" />}
+                        icon={<Upload className="h-3 w-3" />}
                         onClick={() => fileRefPartial.current?.click()}
                       >
                         Importer
@@ -330,69 +396,66 @@ export function LearningSettings() {
                 <p className="mt-2 text-sm text-neutral-500">Ingen kurs ennå.</p>
               ) : null}
             </div>
-
-            <div className="rounded-lg border border-[#e3ddcc] bg-[#fbf9f3] p-3">
-              <h3 className="text-sm font-semibold text-[#1a3d32]">Fremdrift (alle kurs)</h3>
-              <p className="mt-1 text-xs text-neutral-600">Alle CourseProgress-rader i én fil.</p>
-              <div className="mt-2 flex flex-wrap gap-2">
-                <Button
-                  type="button"
-                  variant="primary"
-                  size="sm"
-                  icon={<Download className="size-3.5" />}
-                  style={{ backgroundColor: PIN_GREEN }}
-                  onClick={() =>
-                    downloadJson(
-                      `atics-learning-progress-${new Date().toISOString().slice(0, 10)}.json`,
-                      exportProgressSliceJson(),
-                    )
-                  }
-                >
-                  Eksporter fremdrift
-                </Button>
-                <Button
-                  type="button"
-                  variant="secondary"
-                  size="sm"
-                  icon={<Upload className="size-3.5" />}
-                  onClick={() => fileRefPartial.current?.click()}
-                >
-                  Importer fremdrift
-                </Button>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div className="rounded-md border border-neutral-200 bg-white p-3">
+                <h3 className="text-sm font-semibold text-neutral-900">Fremdrift</h3>
+                <p className="mt-1 text-xs text-neutral-500">Alle CourseProgress-rader i én fil.</p>
+                <div className="mt-2 flex flex-wrap gap-1.5">
+                  <Button
+                    type="button"
+                    variant="primary"
+                    size="sm"
+                    icon={<Download className="h-3 w-3" />}
+                    onClick={() =>
+                      downloadJson(
+                        `atics-learning-progress-${new Date().toISOString().slice(0, 10)}.json`,
+                        exportProgressSliceJson(),
+                      )
+                    }
+                  >
+                    Eksporter
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    size="sm"
+                    icon={<Upload className="h-3 w-3" />}
+                    onClick={() => fileRefPartial.current?.click()}
+                  >
+                    Importer
+                  </Button>
+                </div>
+              </div>
+              <div className="rounded-md border border-neutral-200 bg-white p-3">
+                <h3 className="text-sm font-semibold text-neutral-900">Sertifikater</h3>
+                <p className="mt-1 text-xs text-neutral-500">Alle utstedte sertifikater i én fil.</p>
+                <div className="mt-2 flex flex-wrap gap-1.5">
+                  <Button
+                    type="button"
+                    variant="primary"
+                    size="sm"
+                    icon={<Download className="h-3 w-3" />}
+                    onClick={() =>
+                      downloadJson(
+                        `atics-learning-certificates-${new Date().toISOString().slice(0, 10)}.json`,
+                        exportCertificatesSliceJson(),
+                      )
+                    }
+                  >
+                    Eksporter
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    size="sm"
+                    icon={<Upload className="h-3 w-3" />}
+                    onClick={() => fileRefPartial.current?.click()}
+                  >
+                    Importer
+                  </Button>
+                </div>
               </div>
             </div>
-
-            <div className="rounded-lg border border-[#e3ddcc] bg-[#fbf9f3] p-3">
-              <h3 className="text-sm font-semibold text-[#1a3d32]">Sertifikater</h3>
-              <p className="mt-1 text-xs text-neutral-600">Alle utstedte sertifikater i én fil.</p>
-              <div className="mt-2 flex flex-wrap gap-2">
-                <Button
-                  type="button"
-                  variant="primary"
-                  size="sm"
-                  icon={<Download className="size-3.5" />}
-                  style={{ backgroundColor: PIN_GREEN }}
-                  onClick={() =>
-                    downloadJson(
-                      `atics-learning-certificates-${new Date().toISOString().slice(0, 10)}.json`,
-                      exportCertificatesSliceJson(),
-                    )
-                  }
-                >
-                  Eksporter sertifikater
-                </Button>
-                <Button
-                  type="button"
-                  variant="secondary"
-                  size="sm"
-                  icon={<Upload className="size-3.5" />}
-                  onClick={() => fileRefPartial.current?.click()}
-                >
-                  Importer sertifikater
-                </Button>
-              </div>
-            </div>
-
             <input
               ref={fileRefPartial}
               type="file"
@@ -405,48 +468,71 @@ export function LearningSettings() {
 
         {importMsg ? (
           <p
-            className={`mt-4 text-sm ${importMsg.type === 'ok' ? 'text-emerald-800' : 'text-red-700'}`}
+            className={`mt-4 text-sm ${importMsg.type === 'ok' ? 'text-emerald-700' : 'text-red-700'}`}
             role="status"
           >
             {importMsg.text}
           </p>
         ) : null}
-      </div>
+      </ModuleSectionCard>
 
-      <div className="rounded-lg border border-[#e3ddcc] bg-[#fbf9f3] p-6">
-        <h2 className="font-semibold text-[#1a3d32]">Tilbakestill demodata</h2>
-        <p className="mt-2 text-sm text-neutral-600">
-          Sletter kurs, fremdrift og sertifikater i denne nettleseren og gjenoppretter demodata («Sikkerhet 101»).
-        </p>
-        <Button
-          type="button"
-          variant="primary"
-          className="mt-4"
-          style={{ backgroundColor: PIN_GREEN }}
-          onClick={() => {
-            if (
-              window.confirm(
-                'Tilbakestille all e-læringsdata i denne nettleseren? Dette kan ikke angres.',
+      <ModuleSectionCard>
+        <SectionHeading
+          icon={<RefreshCcw className="h-5 w-5" />}
+          title="Tilbakestill demodata"
+          description="Sletter kurs, fremdrift og sertifikater i denne nettleseren og gjenoppretter demodata («Sikkerhet 101»)."
+        />
+        <div className="mt-5 flex items-center justify-end gap-2 border-t border-neutral-100 pt-4">
+          <Button
+            type="button"
+            variant="danger"
+            size="sm"
+            icon={<RefreshCcw className="h-3.5 w-3.5" />}
+            onClick={() => {
+              if (
+                window.confirm('Tilbakestille all e-læringsdata i denne nettleseren? Dette kan ikke angres.')
               )
-            )
-              resetDemo()
-          }}
-        >
-          Tilbakestill opplæringsdata
-        </Button>
-      </div>
-
-      <details className="rounded-lg border border-[#e3ddcc] bg-[#fbf9f3] p-4">
-        <summary className="cursor-pointer text-sm font-semibold text-[#1a3d32]">
-          Personvern og databehandling
-        </summary>
-        <div className="mt-3 space-y-2 text-xs leading-relaxed text-[#6b6f68]">
-          <p>Klarert e-læring samler inn og lagrer opplæringsdata (kursfremdrift, fullføringer, sertifikater og quizsvar) for å dokumentere opplæring i henhold til IK-forskriften § 5 og arbeidsmiljølovens krav.</p>
-          <p><strong className="text-[#1d1f1c]">Rettslig grunnlag:</strong> Berettiget interesse (GDPR art. 6(1)(f)) — dokumentasjon av lovpålagt opplæring.</p>
-          <p><strong className="text-[#1d1f1c]">Lagringstid:</strong> Opplæringsdata oppbevares så lenge arbeidsforholdet varer, og slettes på forespørsel.</p>
-          <p><strong className="text-[#1d1f1c]">Rettigheter:</strong> Du kan be om innsyn, retting eller sletting ved å kontakte dataansvarlig i din organisasjon.</p>
+                resetDemo()
+            }}
+          >
+            Tilbakestill opplæringsdata
+          </Button>
         </div>
-      </details>
+      </ModuleSectionCard>
+
+      <ModuleSectionCard>
+        <SectionHeading
+          icon={<ShieldCheck className="h-5 w-5" />}
+          title="Personvern og databehandling"
+          description="Klarert e-læring samler inn opplæringsdata for å dokumentere opplæring etter IK-forskriften § 5 og AML."
+        />
+        <dl className="mt-4 grid gap-3 text-sm sm:grid-cols-2">
+          <div className="rounded-md border border-neutral-200 bg-neutral-50/40 p-3">
+            <dt className="text-[10px] font-bold uppercase tracking-wider text-neutral-600">Rettslig grunnlag</dt>
+            <dd className="mt-1 text-neutral-700">
+              GDPR art. 6(1)(c) — rettslig forpliktelse (AML, IK-forskriften), supplert av (f) berettiget interesse.
+            </dd>
+          </div>
+          <div className="rounded-md border border-neutral-200 bg-neutral-50/40 p-3">
+            <dt className="text-[10px] font-bold uppercase tracking-wider text-neutral-600">Lagringstid</dt>
+            <dd className="mt-1 text-neutral-700">
+              Opplæringsdata lagres så lenge arbeidsforholdet varer. Sertifikater bevares som dokumentasjon.
+            </dd>
+          </div>
+          <div className="rounded-md border border-neutral-200 bg-neutral-50/40 p-3">
+            <dt className="text-[10px] font-bold uppercase tracking-wider text-neutral-600">Rettigheter</dt>
+            <dd className="mt-1 text-neutral-700">
+              Innsyn, retting og sletting på forespørsel — kontakt dataansvarlig i organisasjonen.
+            </dd>
+          </div>
+          <div className="rounded-md border border-neutral-200 bg-neutral-50/40 p-3">
+            <dt className="text-[10px] font-bold uppercase tracking-wider text-neutral-600">Sikkerhet</dt>
+            <dd className="mt-1 text-neutral-700">
+              Row-level security per organisasjon. Kursinnhold og progresjon er kryptert i hvile (Supabase).
+            </dd>
+          </div>
+        </dl>
+      </ModuleSectionCard>
     </div>
   )
 }

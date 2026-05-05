@@ -1,19 +1,21 @@
-import { ArrowDownUp, Search, Users } from 'lucide-react'
 import { useMemo, useState } from 'react'
+import { ArrowDownUp, Search, Users } from 'lucide-react'
 import { useLearning } from '../../hooks/useLearning'
 import { useOrgSetupContext } from '../../hooks/useOrgSetupContext'
 import type { CourseProgress } from '../../types/learning'
+import { Badge } from '../../components/ui/Badge'
 import { Button } from '../../components/ui/Button'
 import { StandardInput } from '../../components/ui/Input'
 import { SearchableSelect, type SelectOption } from '../../components/ui/SearchableSelect'
 import { LayoutTable1PostingsShell } from '../../components/layout/LayoutTable1PostingsShell'
-import {
-  LAYOUT_TABLE1_POSTINGS_BODY_ROW,
-  LAYOUT_TABLE1_POSTINGS_HEADER_ROW,
-  LAYOUT_TABLE1_POSTINGS_TD,
-  LAYOUT_TABLE1_POSTINGS_TH,
-} from '../../components/layout/layoutTable1PostingsKit'
+import { LayoutScoreStatRow } from '../../components/layout/LayoutScoreStatRow'
+import type { LayoutScoreStatItem } from '../../components/layout/platformLayoutKit'
 import { ModuleSectionCard } from '../../components/module'
+import { ComplianceBanner } from '../../components/ui/ComplianceBanner'
+
+const TABLE_TH =
+  'px-5 py-3 text-left text-[10px] font-bold uppercase tracking-wider text-neutral-600'
+const TABLE_TR_BODY = 'border-t border-neutral-100 hover:bg-neutral-50/60 transition-colors'
 
 type SortKey = 'learner' | 'course' | 'started' | 'days' | 'progress'
 type SortDir = 'asc' | 'desc'
@@ -32,16 +34,18 @@ function SortHead({
   onSort: (k: SortKey) => void
 }) {
   return (
-    <th className={LAYOUT_TABLE1_POSTINGS_TH}>
+    <th className={TABLE_TH}>
       <Button
         type="button"
         variant="ghost"
         size="sm"
         onClick={() => onSort(colKey)}
-        className="-ml-2 h-auto px-2 py-1 font-medium text-neutral-700 hover:bg-transparent hover:text-[#2D403A]"
+        className="-ml-2 h-auto px-2 py-1 font-bold text-[10px] uppercase tracking-wider text-neutral-600 hover:bg-transparent hover:text-neutral-900"
       >
         {label}
-        {activeKey === colKey ? <span className="text-[10px] font-normal text-neutral-500">{dir === 'asc' ? '↑' : '↓'}</span> : null}
+        {activeKey === colKey ? (
+          <span className="text-[10px] font-normal text-neutral-500">{dir === 'asc' ? '↑' : '↓'}</span>
+        ) : null}
       </Button>
     </th>
   )
@@ -58,18 +62,31 @@ function ProgressBarMini({ value }: { value: number }) {
   return (
     <div className="flex min-w-[120px] items-center gap-2">
       <div
-        role="progressbar" aria-valuenow={pct} aria-valuemin={0} aria-valuemax={100}
-        className="h-[6px] flex-1 overflow-hidden rounded-sm border border-[#e3ddcc] bg-[#f7f5ee]"
+        role="progressbar"
+        aria-valuenow={pct}
+        aria-valuemin={0}
+        aria-valuemax={100}
+        className="h-1.5 flex-1 overflow-hidden rounded-full bg-neutral-100"
       >
-        <div className="h-full rounded-sm transition-all" style={{ width: `${pct}%`, backgroundColor: '#1a3d32' }} />
+        <div
+          className="h-full rounded-full transition-all"
+          style={{ width: `${pct}%`, backgroundColor: '#1a3d32' }}
+        />
       </div>
-      <span className="shrink-0 tabular-nums text-xs text-[#6b6f68]">{pct}%</span>
+      <span className="shrink-0 tabular-nums text-xs text-neutral-600">{pct}%</span>
     </div>
   )
 }
 
 function rowKey(p: CourseProgress): string {
   return `${p.userId ?? 'local'}:${p.courseId}`
+}
+
+function statusFor(pct: number, days: number): { label: string; variant: 'success' | 'info' | 'neutral' | 'danger' } {
+  if (pct >= 1) return { label: 'Fullført', variant: 'success' }
+  if (days > 30) return { label: 'Forsinket', variant: 'danger' }
+  if (pct > 0) return { label: 'I gang', variant: 'info' }
+  return { label: 'Ikke startet', variant: 'neutral' }
 }
 
 export function LearningParticipants() {
@@ -82,8 +99,8 @@ export function LearningParticipants() {
   const [sortKey, setSortKey] = useState<SortKey>('started')
   const [sortDir, setSortDir] = useState<SortDir>('desc')
 
-  const rows = useMemo(() => {
-    const enriched = progress.map((p) => {
+  const enriched = useMemo(() => {
+    return progress.map((p) => {
       const c = courses.find((x) => x.id === p.courseId)
       const total = c?.modules.length ?? 0
       const done = c ? c.modules.filter((m) => p.moduleProgress[m.id]?.completed).length : 0
@@ -95,7 +112,9 @@ export function LearningParticipants() {
         '—'
       return { p, c, total, done, pct, days, name, courseTitle: c?.title ?? p.courseId }
     })
+  }, [progress, courses, canManage, profile])
 
+  const rows = useMemo(() => {
     let out = enriched.filter((r) => {
       if (courseFilter !== 'all' && r.p.courseId !== courseFilter) return false
       const q = query.trim().toLowerCase()
@@ -133,7 +152,19 @@ export function LearningParticipants() {
     })
 
     return out
-  }, [progress, courses, query, courseFilter, sortKey, sortDir, canManage, profile])
+  }, [enriched, query, courseFilter, sortKey, sortDir])
+
+  const kpis = useMemo<LayoutScoreStatItem[]>(() => {
+    const completed = enriched.filter((r) => r.pct >= 1).length
+    const inProgress = enriched.filter((r) => r.pct > 0 && r.pct < 1).length
+    const overdue = enriched.filter((r) => r.days > 30 && r.pct < 1).length
+    return [
+      { big: String(enriched.length), title: 'Tildelinger', sub: 'Aktive på tvers' },
+      { big: String(completed), title: 'Fullført', sub: 'Av deltakere' },
+      { big: String(inProgress), title: 'Pågående', sub: 'Aktive deltakere' },
+      { big: String(overdue), title: 'Forsinket', sub: '> 30 dager siden start' },
+    ]
+  }, [enriched])
 
   const courseFilterOptions: SelectOption[] = useMemo(
     () => [{ value: 'all', label: 'Alle kurs' }, ...courses.map((c) => ({ value: c.id, label: c.title }))],
@@ -151,89 +182,121 @@ export function LearningParticipants() {
 
   return (
     <div className="space-y-6">
-      <ModuleSectionCard>
-        <h1 className="font-serif text-3xl font-semibold text-[#2D403A]">Deltakere</h1>
-        <p className="mt-2 text-sm text-neutral-600">
-          {canManage
-            ? 'Fremdrift for alle brukere i organisasjonen (synlig for kursansvarlige).'
-            : 'Din egen fremdrift på tvers av kurs.'}
-        </p>
-      </ModuleSectionCard>
+      <ComplianceBanner title="Personvern">
+        Visning er begrenset til {canManage ? 'kursansvarlige (HMS-leder, avdelingsleder)' : 'din egen fremdrift'} jf.
+        GDPR art. 5(1)(c) og IK-forskriften § 5 nr. 2.
+      </ComplianceBanner>
+
       {learningError ? (
         <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">{learningError}</p>
       ) : null}
       {learningLoading ? <p className="text-sm text-neutral-600">Laster…</p> : null}
 
-      <LayoutTable1PostingsShell
-        title="Fremdrift"
-        titleTypography="sans"
-        description="Sorter kolonner eller filtrer på kurs."
-        toolbar={
-          <div className="flex w-full flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
-            <div className="relative max-w-md flex-1">
-              <Search className="pointer-events-none absolute left-3 top-1/2 z-10 size-4 -translate-y-1/2 text-neutral-400" />
-              <StandardInput
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                placeholder="Søk etter navn eller kurs…"
-                className="pl-10"
-                aria-label="Filtrer tabell"
-              />
+      <LayoutScoreStatRow items={kpis} />
+
+      <ModuleSectionCard className="!p-0">
+        <LayoutTable1PostingsShell
+          wrap={false}
+          titleTypography="sans"
+          title={canManage ? 'Fremdrift — alle deltakere' : 'Min fremdrift'}
+          description="Sorter kolonner eller filtrer på kurs."
+          toolbar={
+            <div className="flex w-full flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
+              <div className="relative max-w-md flex-1">
+                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-neutral-400" />
+                <StandardInput
+                  value={query}
+                  onChange={(e) => setQuery(e.target.value)}
+                  placeholder="Søk etter navn eller kurs…"
+                  className="pl-9"
+                  aria-label="Filtrer tabell"
+                />
+              </div>
+              <div className="flex min-w-0 flex-1 items-center gap-2 sm:max-w-xs">
+                <ArrowDownUp className="h-4 w-4 shrink-0 text-neutral-400" aria-hidden />
+                <SearchableSelect
+                  value={courseFilter}
+                  options={courseFilterOptions}
+                  onChange={setCourseFilter}
+                  placeholder="Velg kurs"
+                  className="mt-0 min-w-0 flex-1"
+                  triggerClassName="text-sm"
+                />
+              </div>
             </div>
-            <div className="flex min-w-0 flex-1 items-center gap-2 sm:max-w-xs">
-              <ArrowDownUp className="size-4 shrink-0 text-neutral-400" aria-hidden />
-              <SearchableSelect
-                value={courseFilter}
-                options={courseFilterOptions}
-                onChange={setCourseFilter}
-                placeholder="Velg kurs"
-                className="mt-0 min-w-0 flex-1"
-                triggerClassName="text-sm"
-              />
+          }
+          footer={<span>{rows.length} fremdriftsrader</span>}
+        >
+          {rows.length === 0 ? (
+            <div className="flex flex-col items-center gap-2 px-5 py-12 text-center">
+              <Users className="h-8 w-8 text-neutral-300" />
+              <p className="text-sm text-neutral-600">
+                Ingen treff — juster filter eller åpne et kurs for å starte fremdrift.
+              </p>
             </div>
-          </div>
-        }
-      >
-        {rows.length === 0 ? (
-          <p className="flex items-center justify-center gap-2 px-5 py-12 text-sm text-neutral-600">
-            <Users className="size-4" />
-            Ingen treff — juster filter eller åpne et kurs for å starte fremdrift.
-          </p>
-        ) : (
-          <table className="w-full min-w-[720px] text-left text-sm">
-            <thead>
-              <tr className={LAYOUT_TABLE1_POSTINGS_HEADER_ROW}>
-                <SortHead colKey="learner" label="Medarbeider" activeKey={sortKey} dir={sortDir} onSort={toggleSort} />
-                <SortHead colKey="course" label="Kurs" activeKey={sortKey} dir={sortDir} onSort={toggleSort} />
-                <SortHead colKey="started" label="Startet" activeKey={sortKey} dir={sortDir} onSort={toggleSort} />
-                <SortHead colKey="days" label="Dager siden start" activeKey={sortKey} dir={sortDir} onSort={toggleSort} />
-                <SortHead colKey="progress" label="Fremdrift" activeKey={sortKey} dir={sortDir} onSort={toggleSort} />
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map(({ p, total, done, pct, days, name, courseTitle }) => (
-                <tr key={rowKey(p)} className={LAYOUT_TABLE1_POSTINGS_BODY_ROW}>
-                  <td className={`${LAYOUT_TABLE1_POSTINGS_TD} font-medium text-[#1a3d32]`}>{name}</td>
-                  <td className={LAYOUT_TABLE1_POSTINGS_TD}>{courseTitle}</td>
-                  <td className={`${LAYOUT_TABLE1_POSTINGS_TD} text-xs text-neutral-500`}>{new Date(p.startedAt).toLocaleString()}</td>
-                  <td
-                    className={`${LAYOUT_TABLE1_POSTINGS_TD} tabular-nums ${days > 20 ? 'font-medium text-red-700' : 'text-neutral-700'}`}
-                  >
-                    {days}
-                    {days > 20 ? <span className="ml-1 text-[10px] font-normal text-red-700">(over 20 d.)</span> : null}
-                  </td>
-                  <td className={LAYOUT_TABLE1_POSTINGS_TD}>
-                    <div className="space-y-1">
-                      <ProgressBarMini value={pct} />
-                      <span className="text-xs text-neutral-500">{total ? `${done}/${total} moduler` : '—'}</span>
-                    </div>
-                  </td>
+          ) : (
+            <table className="w-full min-w-[720px] text-left text-sm">
+              <thead className="bg-neutral-50/60">
+                <tr>
+                  <SortHead colKey="learner" label="Medarbeider" activeKey={sortKey} dir={sortDir} onSort={toggleSort} />
+                  <SortHead colKey="course" label="Kurs" activeKey={sortKey} dir={sortDir} onSort={toggleSort} />
+                  <SortHead colKey="started" label="Startet" activeKey={sortKey} dir={sortDir} onSort={toggleSort} />
+                  <SortHead colKey="days" label="Dager siden start" activeKey={sortKey} dir={sortDir} onSort={toggleSort} />
+                  <SortHead colKey="progress" label="Fremdrift" activeKey={sortKey} dir={sortDir} onSort={toggleSort} />
+                  <th className={TABLE_TH}>Status</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
-      </LayoutTable1PostingsShell>
+              </thead>
+              <tbody>
+                {rows.map(({ p, total, done, pct, days, name, courseTitle }) => {
+                  const initials = name
+                    .split(' ')
+                    .map((s) => s[0])
+                    .filter(Boolean)
+                    .join('')
+                    .slice(0, 2)
+                    .toUpperCase()
+                  const status = statusFor(pct, days)
+                  return (
+                    <tr key={rowKey(p)} className={TABLE_TR_BODY}>
+                      <td className="px-5 py-3">
+                        <div className="flex items-center gap-2.5">
+                          <span
+                            className="flex h-7 w-7 items-center justify-center rounded-full text-[11px] font-semibold"
+                            style={{ background: '#e7efe9', color: '#1a3d32' }}
+                          >
+                            {initials || '–'}
+                          </span>
+                          <span className="font-medium text-neutral-900">{name}</span>
+                        </div>
+                      </td>
+                      <td className="px-5 py-3 text-neutral-700">{courseTitle}</td>
+                      <td className="px-5 py-3 text-xs text-neutral-500">
+                        {new Date(p.startedAt).toLocaleDateString('nb-NO')}
+                      </td>
+                      <td
+                        className={`px-5 py-3 tabular-nums ${days > 30 && pct < 1 ? 'font-semibold text-red-600' : 'text-neutral-700'}`}
+                      >
+                        {days}
+                      </td>
+                      <td className="px-5 py-3">
+                        <div className="space-y-1">
+                          <ProgressBarMini value={pct} />
+                          <span className="text-xs text-neutral-500">
+                            {total ? `${done}/${total} moduler` : '—'}
+                          </span>
+                        </div>
+                      </td>
+                      <td className="px-5 py-3">
+                        <Badge variant={status.variant}>{status.label}</Badge>
+                      </td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          )}
+        </LayoutTable1PostingsShell>
+      </ModuleSectionCard>
     </div>
   )
 }

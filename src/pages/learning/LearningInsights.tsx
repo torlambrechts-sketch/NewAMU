@@ -1,14 +1,28 @@
+import { useMemo } from 'react'
 import { BarChart3 } from 'lucide-react'
 import { useLearning } from '../../hooks/useLearning'
+import { LayoutScoreStatRow } from '../../components/layout/LayoutScoreStatRow'
+import type { LayoutScoreStatItem } from '../../components/layout/platformLayoutKit'
+import { LayoutTable1PostingsShell } from '../../components/layout/LayoutTable1PostingsShell'
+import { ModuleSectionCard } from '../../components/module'
+import { ComplianceBanner } from '../../components/ui/ComplianceBanner'
 
 const KIND_LABELS: Record<string, string> = {
-  flashcard: 'Flashkort', quiz: 'Quiz', text: 'Lese', image: 'Bilde',
-  video: 'Video', checklist: 'Sjekkliste', tips: 'Tips',
-  on_job: 'I praksis', event: 'Arrangement', other: 'Annet',
+  flashcard: 'Flashkort',
+  quiz: 'Quiz',
+  text: 'Tekst',
+  image: 'Bilde',
+  video: 'Video',
+  checklist: 'Sjekkliste',
+  tips: 'Tips',
+  on_job: 'På jobben',
+  event: 'Hendelse',
+  other: 'Annet',
 }
 
 export function LearningInsights() {
-  const { stats, courses } = useLearning()
+  const { stats, courses, progress, certificates } = useLearning()
+
   const moduleCount = courses.reduce((acc, c) => acc + c.modules.length, 0)
   const byKind = courses.flatMap((c) => c.modules).reduce(
     (acc, m) => {
@@ -18,46 +32,84 @@ export function LearningInsights() {
     {} as Record<string, number>,
   )
 
+  const completedRows = progress.filter(
+    (p) =>
+      p.completedAt ||
+      (() => {
+        const c = courses.find((x) => x.id === p.courseId)
+        return c && c.modules.length > 0 && c.modules.every((m) => p.moduleProgress[m.id]?.completed)
+      })(),
+  ).length
+  const completionPct = progress.length ? Math.round((completedRows / progress.length) * 100) : 0
+
+  const kpis = useMemo<LayoutScoreStatItem[]>(
+    () => [
+      { big: String(stats.totalCourses), title: 'Kurs', sub: 'I katalogen' },
+      { big: String(moduleCount), title: 'Moduler', sub: 'Totalt på tvers' },
+      { big: String(certificates.length), title: 'Sertifikater', sub: 'Utstedt' },
+      {
+        big: `${completionPct}%`,
+        title: 'Gjennomføring',
+        sub: `${completedRows} av ${progress.length} fullført`,
+      },
+    ],
+    [stats.totalCourses, moduleCount, certificates.length, completionPct, completedRows, progress.length],
+  )
+
+  const sortedKinds = Object.entries(byKind).sort((a, b) => b[1] - a[1])
+  const maxKind = sortedKinds.length > 0 ? Math.max(...sortedKinds.map(([, v]) => v)) : 0
+
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="font-serif text-3xl font-semibold text-[#2D403A]">Innsikt</h1>
-        <p className="mt-2 text-sm text-[#6b6f68]">Aggregert oversikt over gjennomføring i organisasjonen.</p>
-      </div>
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <InsightCard label="Kurs" value={stats.totalCourses} />
-        <InsightCard label="Moduler" value={moduleCount} />
-        <InsightCard label="Sertifikater" value={stats.certs} />
-        <InsightCard label="Påmeldinger" value={stats.enrolled} />
-      </div>
-      <div className="rounded-lg border border-[#e3ddcc] bg-[#fbf9f3] p-6">
-        <h2 className="flex items-center gap-2 font-semibold text-[#2D403A]">
-          <BarChart3 className="size-5" />
-          Moduler etter type
-        </h2>
-        <ul className="mt-4 space-y-2 text-sm">
-          {Object.entries(byKind)
-            .sort((a, b) => b[1] - a[1])
-            .map(([k, v]) => (
-              <li key={k} className="flex justify-between border-b border-[#e3ddcc] py-2 last:border-0">
-                <span className="text-[#6b6f68]">{KIND_LABELS[k] ?? k}</span>
-                <span className="font-medium tabular-nums">{v}</span>
-              </li>
-            ))}
-          {Object.keys(byKind).length === 0 ? (
-            <li className="text-[#6b6f68]">Ingen moduler ennå.</li>
-          ) : null}
-        </ul>
-      </div>
-    </div>
-  )
-}
+      <ComplianceBanner title="Dokumentasjon">
+        Aggregerte tall brukes til å dokumentere opplæring etter AML § 3-2 og IK-forskriften § 5 nr. 2.
+      </ComplianceBanner>
 
-function InsightCard({ label, value }: { label: string; value: number }) {
-  return (
-    <div className="rounded-lg border border-[#e3ddcc] bg-[#fbf9f3] p-4">
-      <div className="text-[11px] font-semibold uppercase tracking-[0.7px] text-[#6b6f68]">{label}</div>
-      <div className="mt-1 font-serif text-[28px] font-semibold leading-none text-[#1d1f1c]">{value}</div>
+      <LayoutScoreStatRow items={kpis} />
+
+      <ModuleSectionCard className="!p-0">
+        <LayoutTable1PostingsShell
+          wrap={false}
+          titleTypography="sans"
+          title="Moduler etter type"
+          description="Fordeling av modulformatene på tvers av kurskatalogen."
+          toolbar={
+            <div className="flex items-center gap-2 text-xs text-neutral-500">
+              <BarChart3 className="h-4 w-4 text-neutral-400" />
+              {sortedKinds.length} ulike formater
+            </div>
+          }
+          footer={<span>{moduleCount} moduler totalt</span>}
+        >
+          {sortedKinds.length === 0 ? (
+            <div className="px-5 py-12 text-center text-sm text-neutral-500">
+              Ingen moduler i katalogen ennå.
+            </div>
+          ) : (
+            <ul className="divide-y divide-neutral-100">
+              {sortedKinds.map(([kind, count]) => {
+                const pct = maxKind ? Math.round((count / maxKind) * 100) : 0
+                return (
+                  <li key={kind} className="flex items-center gap-4 px-5 py-3 text-sm">
+                    <div className="w-32 shrink-0 font-medium text-neutral-800">
+                      {KIND_LABELS[kind] ?? kind}
+                    </div>
+                    <div className="h-2 flex-1 overflow-hidden rounded-full bg-neutral-100">
+                      <div
+                        className="h-full rounded-full"
+                        style={{ width: `${pct}%`, background: '#1a3d32' }}
+                      />
+                    </div>
+                    <div className="w-12 shrink-0 text-right tabular-nums text-neutral-700">
+                      {count}
+                    </div>
+                  </li>
+                )
+              })}
+            </ul>
+          )}
+        </LayoutTable1PostingsShell>
+      </ModuleSectionCard>
     </div>
   )
 }

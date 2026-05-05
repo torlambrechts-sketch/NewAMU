@@ -1,16 +1,30 @@
 import { useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { BookOpen, CheckCircle2, Clock, Plus, Search, Star } from 'lucide-react'
+import {
+  ArrowRight,
+  BookOpen,
+  CheckCircle2,
+  Clock,
+  GraduationCap,
+  Plus,
+  RefreshCw,
+  Search,
+  Star,
+} from 'lucide-react'
 import { useLearning } from '../../hooks/useLearning'
 import { useOrgSetupContext } from '../../hooks/useOrgSetupContext'
 import type { Course, CourseStatus } from '../../types/learning'
-import { PIN_GREEN } from '../../components/learning/LearningLayout'
-import { AddTaskLink } from '../../components/tasks/AddTaskLink'
-import { HubMenu1Bar, type HubMenu1Item } from '../../components/layout/HubMenu1Bar'
 import { LearningPrivacyNotice } from '../../components/learning/LearningPrivacyNotice'
+import { Badge } from '../../components/ui/Badge'
 import { Button } from '../../components/ui/Button'
 import { StandardInput } from '../../components/ui/Input'
 import { SearchableSelect, type SelectOption } from '../../components/ui/SearchableSelect'
+import { LayoutTable1PostingsShell } from '../../components/layout/LayoutTable1PostingsShell'
+import { ModuleSectionCard } from '../../components/module'
+
+const SERIF_FAMILY = "'Libre Baskerville', Georgia, serif"
+const PIN_GREEN = '#1a3d32'
+const MINT_BG = '#e7efe9'
 
 const FAV_KEY = 'atics-learning-favourite-course-ids'
 
@@ -38,19 +52,26 @@ function courseTotalMinutes(c: Course): number {
   return c.modules.reduce((acc, m) => acc + (m.durationMinutes || 0), 0)
 }
 
+function statusBadgeFor(status: CourseStatus) {
+  if (status === 'published') return { variant: 'active' as const, label: 'Publisert' }
+  if (status === 'draft') return { variant: 'draft' as const, label: 'Utkast' }
+  return { variant: 'neutral' as const, label: 'Arkivert' }
+}
+
 function ProgressBarMini({ value }: { value: number }) {
   const pct = Math.round(Math.min(100, Math.max(0, value * 100)))
   return (
     <div
-      role="progressbar" aria-valuenow={pct} aria-valuemin={0} aria-valuemax={100}
-      className="h-[6px] w-full overflow-hidden rounded-sm border border-[#e3ddcc] bg-[#f7f5ee]"
+      role="progressbar"
+      aria-valuenow={pct}
+      aria-valuemin={0}
+      aria-valuemax={100}
+      className="h-1.5 w-full overflow-hidden rounded-full bg-neutral-100"
     >
-      <div className="h-full rounded-sm transition-all" style={{ width: `${pct}%`, backgroundColor: '#1a3d32' }} />
+      <div className="h-full rounded-full" style={{ width: `${pct}%`, backgroundColor: PIN_GREEN }} />
     </div>
   )
 }
-
-type TabId = 'all' | 'active' | 'complete' | 'fav'
 
 const COURSE_STATUS_OPTIONS: SelectOption[] = [
   { value: 'draft', label: 'Utkast' },
@@ -58,9 +79,11 @@ const COURSE_STATUS_OPTIONS: SelectOption[] = [
   { value: 'archived', label: 'Arkivert' },
 ]
 
+type TabId = 'all' | 'active' | 'complete' | 'fav'
+
 export function LearningCoursesList() {
   const navigate = useNavigate()
-  const { can, organization, profile } = useOrgSetupContext()
+  const { can, profile } = useOrgSetupContext()
   const canManage = can('learning.manage')
   const {
     courses,
@@ -78,8 +101,7 @@ export function LearningCoursesList() {
   const [desc, setDesc] = useState('')
   const [tab, setTab] = useState<TabId>('all')
   const [favourites, setFavourites] = useState<Set<string>>(loadFavouriteIds)
-
-  const creatorLabel = organization?.name?.trim() || 'Organisasjon'
+  const [showCreate, setShowCreate] = useState(false)
 
   const visibleCourses = useMemo(() => {
     let list = courses
@@ -138,57 +160,25 @@ export function LearningCoursesList() {
     })
   }
 
-  const courseFilterItems: HubMenu1Item[] = useMemo(
-    () => [
-      {
-        key: 'all',
-        label: 'Alle kurs',
-        icon: BookOpen,
-        active: tab === 'all',
-        badgeCount: tabCounts.all,
-        onClick: () => setTab('all'),
-      },
-      {
-        key: 'active',
-        label: 'Pågående',
-        icon: Clock,
-        active: tab === 'active',
-        badgeCount: tabCounts.active,
-        onClick: () => setTab('active'),
-      },
-      {
-        key: 'complete',
-        label: 'Fullført',
-        icon: CheckCircle2,
-        active: tab === 'complete',
-        badgeCount: tabCounts.complete,
-        onClick: () => setTab('complete'),
-      },
-      {
-        key: 'fav',
-        label: 'Favoritter',
-        icon: Star,
-        active: tab === 'fav',
-        badgeCount: tabCounts.fav,
-        onClick: () => setTab('fav'),
-      },
-    ],
-    [tab, tabCounts.active, tabCounts.all, tabCounts.complete, tabCounts.fav],
-  )
+  const filterChips: { id: TabId; label: string; count: number }[] = [
+    { id: 'all', label: 'Alle kurs', count: tabCounts.all },
+    { id: 'active', label: 'Pågående', count: tabCounts.active },
+    { id: 'complete', label: 'Fullført', count: tabCounts.complete },
+    { id: 'fav', label: 'Favoritter', count: tabCounts.fav },
+  ]
+
+  const headerActions = canManage ? (
+    <Button
+      size="sm"
+      icon={<Plus className="h-3.5 w-3.5" />}
+      onClick={() => setShowCreate((v) => !v)}
+    >
+      Nytt kurs
+    </Button>
+  ) : null
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <h1 className="font-serif text-3xl font-semibold" style={{ color: PIN_GREEN }}>
-            Kurs
-          </h1>
-          <p className="mt-1 text-sm text-neutral-600">
-            Flashkort, quiz, media, sjekklister og mikromoduler — samme uttrykk som resten av Klarert.
-          </p>
-        </div>
-      </div>
-
       {learningError ? (
         <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">{learningError}</p>
       ) : null}
@@ -196,210 +186,282 @@ export function LearningCoursesList() {
 
       {!learningError ? <LearningPrivacyNotice /> : null}
 
-      {canManage ? (
-        <form
-          onSubmit={(e) => {
-            e.preventDefault()
-            if (!title.trim()) return
-            const c = createCourse(title, desc)
-            setTitle('')
-            setDesc('')
-            navigate(`/learning/courses/${c.id}`)
-          }}
-          className="rounded-lg border border-[#e3ddcc] bg-[#fbf9f3] p-4"
-        >
-          <h2 className="text-sm font-semibold" style={{ color: PIN_GREEN }}>
+      {showCreate && canManage ? (
+        <ModuleSectionCard>
+          <h2
+            className="text-lg font-semibold text-neutral-900"
+            style={{ fontFamily: SERIF_FAMILY }}
+          >
             Nytt kurs
           </h2>
-          <div className="mt-3 flex flex-wrap gap-3">
-            <StandardInput
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              placeholder="Tittel"
-              className="min-w-[200px] flex-1"
-              required
-            />
-            <StandardInput
-              value={desc}
-              onChange={(e) => setDesc(e.target.value)}
-              placeholder="Kort beskrivelse"
-              className="min-w-[200px] flex-1"
-            />
-            <Button type="submit" variant="primary" icon={<Plus className="size-4" />}>
-              Opprett
-            </Button>
-          </div>
-        </form>
-      ) : (
-        <p className="rounded-lg border border-[#e3ddcc] bg-[#fbf9f3] p-4 text-sm text-[#6b6f68]">
-          Du har ikke tilgang til å opprette kurs. Be om rettigheten «E-learning — opprette og redigere kurs» (
-          <code className="rounded bg-neutral-100 px-1">learning.manage</code>).
-        </p>
-      )}
+          <p className="mt-1 text-sm text-neutral-600">
+            Du kan endre tittel og beskrivelse senere i kursbyggeren.
+          </p>
+          <form
+            onSubmit={(e) => {
+              e.preventDefault()
+              if (!title.trim()) return
+              const c = createCourse(title, desc)
+              setTitle('')
+              setDesc('')
+              setShowCreate(false)
+              navigate(`/learning/courses/${c.id}`)
+            }}
+            className="mt-4 grid gap-3 sm:grid-cols-2"
+          >
+            <div>
+              <label className="mb-1 block text-xs font-semibold uppercase tracking-wider text-neutral-600">
+                Tittel
+              </label>
+              <StandardInput
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                placeholder="f.eks. AML-grunnkurs"
+                required
+              />
+            </div>
+            <div>
+              <label className="mb-1 block text-xs font-semibold uppercase tracking-wider text-neutral-600">
+                Kort beskrivelse
+              </label>
+              <StandardInput
+                value={desc}
+                onChange={(e) => setDesc(e.target.value)}
+                placeholder="Hvem er målgruppen og hva lærer de?"
+              />
+            </div>
+            <div className="sm:col-span-2 flex justify-end gap-2 border-t border-neutral-100 pt-3">
+              <Button
+                type="button"
+                variant="secondary"
+                size="sm"
+                onClick={() => setShowCreate(false)}
+              >
+                Avbryt
+              </Button>
+              <Button type="submit" variant="primary" size="sm" icon={<Plus className="h-3.5 w-3.5" />}>
+                Opprett
+              </Button>
+            </div>
+          </form>
+        </ModuleSectionCard>
+      ) : null}
 
-      <HubMenu1Bar ariaLabel="Kurs — filter" items={courseFilterItems} />
-
-      <div className="flex flex-wrap items-center gap-3">
-        <div className="relative min-w-[200px] flex-1">
-          <Search className="pointer-events-none absolute left-3 top-1/2 z-10 size-4 -translate-y-1/2 text-neutral-400" />
-          <StandardInput
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
-            placeholder="Søk i kurs…"
-            className="rounded-full border-[#e3ddcc] bg-[#fbf9f3] py-2 pl-10 pr-4"
-            aria-label="Søk i kurs"
-          />
-        </div>
-      </div>
-
-      <div className="grid gap-6 sm:grid-cols-2 xl:grid-cols-3">
-        {filteredCards.map((c) => {
-          const unlocked = isCourseUnlocked(c.id)
-          const total = c.modules.length
-          const mins = courseTotalMinutes(c)
-          const p = progress.find((pr) => pr.courseId === c.id && (!pr.userId || pr.userId === profile?.id))
-          const done = total ? c.modules.filter((m) => p?.moduleProgress[m.id]?.completed).length : 0
-          const pct = total ? done / total : 0
-          const isFav = favourites.has(c.id)
-
-          return (
-            <article
-              key={c.id}
-              className={`flex flex-col overflow-hidden rounded-lg border border-[#e3ddcc] bg-[#fbf9f3] transition-shadow ${
-                unlocked ? 'hover:shadow-md' : 'opacity-80'
-              }`}
-            >
-              {/* Header image / gradient */}
-              <div className="relative h-36 shrink-0 rounded-t-lg bg-gradient-to-br from-[#1a3d32] via-[#234d3f] to-[#2f6b52]">
-                <div className="absolute inset-0 bg-gradient-to-br from-[#1a3d32]/95 to-[#143528] opacity-95" />
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  onClick={() => toggleFavourite(c.id)}
-                  className="absolute right-3 top-3 rounded-lg bg-black/25 p-2 text-white backdrop-blur-sm hover:bg-black/40 hover:text-white"
-                  aria-label={isFav ? 'Fjern fra favoritter' : 'Legg til favoritter'}
-                >
-                  <Star className={`size-4 ${isFav ? 'fill-[#c9a227] text-[#c9a227]' : 'text-white'}`} />
-                </Button>
-                <span className="absolute bottom-3 right-3 rounded-full bg-white/95 px-2.5 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-[#1a3d32]">
-                  {c.status === 'published' ? 'Publisert' : c.status === 'draft' ? 'Utkast' : 'Arkivert'}
-                </span>
+      <ModuleSectionCard className="!p-0">
+        <LayoutTable1PostingsShell
+          wrap={false}
+          titleTypography="sans"
+          title="Kurskatalog"
+          description="Velg et kurs for å se moduler, deltakere og lovgrunnlag."
+          headerActions={headerActions}
+          toolbar={
+            <>
+              <div className="relative max-w-sm flex-1">
+                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-neutral-400" />
+                <StandardInput
+                  value={q}
+                  onChange={(e) => setQ(e.target.value)}
+                  placeholder="Søk i tittel, tagger eller beskrivelse"
+                  className="pl-9"
+                  aria-label="Søk i kurs"
+                />
               </div>
-
-              <div className="flex flex-1 flex-col p-4">
-                <div className="min-h-0 flex-1">
-                  {unlocked ? (
-                    <Link
-                      to={`/learning/courses/${c.id}`}
-                      className="font-serif text-lg font-semibold leading-snug text-[#1a3d32] hover:underline"
+              <div className="flex flex-wrap items-center gap-1">
+                {filterChips.map((f) => {
+                  const active = tab === f.id
+                  return (
+                    <button
+                      key={f.id}
+                      type="button"
+                      onClick={() => setTab(f.id)}
+                      className={`inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-medium transition-colors ${
+                        active
+                          ? 'bg-[#1a3d32] text-white'
+                          : 'text-neutral-600 hover:bg-neutral-100 hover:text-neutral-900'
+                      }`}
                     >
-                      {c.title}
-                    </Link>
-                  ) : (
-                    <span className="font-serif text-lg font-semibold text-neutral-500">{c.title}</span>
-                  )}
-                  <p className="mt-2 line-clamp-2 text-sm text-[#6b6f68]">{c.description || 'Ingen beskrivelse.'}</p>
+                      {f.id === 'all' ? <BookOpen className="h-3 w-3" /> : null}
+                      {f.id === 'active' ? <Clock className="h-3 w-3" /> : null}
+                      {f.id === 'complete' ? <CheckCircle2 className="h-3 w-3" /> : null}
+                      {f.id === 'fav' ? <Star className="h-3 w-3" /> : null}
+                      {f.label}
+                      {f.count > 0 ? (
+                        <span
+                          className={`ml-0.5 rounded-full px-1.5 text-[10px] tabular-nums ${
+                            active ? 'bg-white/20 text-white' : 'bg-neutral-200 text-neutral-700'
+                          }`}
+                        >
+                          {f.count}
+                        </span>
+                      ) : null}
+                    </button>
+                  )
+                })}
+              </div>
+            </>
+          }
+          footer={
+            <span>
+              Viser {filteredCards.length} av {visibleCourses.length} kurs
+            </span>
+          }
+        >
+          <div className="grid grid-cols-1 gap-4 px-5 py-5 sm:grid-cols-2 xl:grid-cols-3">
+            {filteredCards.map((c) => {
+              const unlocked = isCourseUnlocked(c.id)
+              const total = c.modules.length
+              const mins = courseTotalMinutes(c)
+              const p = progress.find(
+                (pr) => pr.courseId === c.id && (!pr.userId || pr.userId === profile?.id),
+              )
+              const done = total ? c.modules.filter((m) => p?.moduleProgress[m.id]?.completed).length : 0
+              const pct = total ? done / total : 0
+              const isFav = favourites.has(c.id)
+              const status = statusBadgeFor(c.status)
 
-                  <div className="mt-4 flex flex-wrap items-center gap-4 text-xs text-[#6b6f68]">
-                    <span className="inline-flex items-center gap-1.5" title="Moduler">
-                      <BookOpen className="size-3.5 shrink-0" style={{ color: PIN_GREEN }} />
+              return (
+                <article
+                  key={c.id}
+                  className={`group flex flex-col gap-3 rounded-xl border border-neutral-200/80 bg-white p-5 transition-all hover:-translate-y-0.5 hover:shadow-md ${
+                    unlocked ? '' : 'opacity-80'
+                  }`}
+                  style={{ boxShadow: '0 1px 2px rgba(0,0,0,0.04)' }}
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <div
+                      className="flex h-10 w-10 items-center justify-center rounded-lg"
+                      style={{ background: MINT_BG, color: PIN_GREEN }}
+                    >
+                      <GraduationCap className="h-5 w-5" />
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <button
+                        type="button"
+                        onClick={() => toggleFavourite(c.id)}
+                        aria-label={isFav ? 'Fjern fra favoritter' : 'Legg til favoritter'}
+                        className="rounded p-1 text-neutral-400 transition-colors hover:bg-neutral-100 hover:text-amber-500"
+                      >
+                        <Star className={`h-4 w-4 ${isFav ? 'fill-amber-400 text-amber-500' : ''}`} />
+                      </button>
+                      <Badge variant={status.variant}>{status.label}</Badge>
+                    </div>
+                  </div>
+
+                  <div className="min-w-0">
+                    {unlocked ? (
+                      <Link
+                        to={`/learning/courses/${c.id}`}
+                        className="line-clamp-2 text-base font-semibold leading-snug text-neutral-900 hover:underline"
+                        style={{ fontFamily: SERIF_FAMILY }}
+                      >
+                        {c.title}
+                      </Link>
+                    ) : (
+                      <span
+                        className="line-clamp-2 text-base font-semibold leading-snug text-neutral-500"
+                        style={{ fontFamily: SERIF_FAMILY }}
+                      >
+                        {c.title}
+                      </span>
+                    )}
+                    <p className="mt-1.5 line-clamp-2 text-sm text-neutral-600">
+                      {c.description || 'Ingen beskrivelse.'}
+                    </p>
+                  </div>
+
+                  {c.tags.length > 0 ? (
+                    <div className="flex flex-wrap gap-1.5">
+                      {c.tags.slice(0, 3).map((t) => (
+                        <span
+                          key={t}
+                          className="rounded-full border border-neutral-200 bg-neutral-50 px-2 py-0.5 text-[11px] font-medium text-neutral-600"
+                        >
+                          {t}
+                        </span>
+                      ))}
+                    </div>
+                  ) : null}
+
+                  <div className="mt-1 flex flex-wrap items-center gap-3 border-t border-neutral-100 pt-3 text-xs text-neutral-600">
+                    <span className="inline-flex items-center gap-1">
+                      <BookOpen className="h-3.5 w-3.5 text-neutral-500" />
                       {total} {total === 1 ? 'modul' : 'moduler'}
                     </span>
-                    <span className="inline-flex items-center gap-1.5" title="Estimert tid">
-                      <Clock className="size-3.5 shrink-0" style={{ color: PIN_GREEN }} />
-                      {mins > 0 ? `~${mins} min` : '—'}
-                    </span>
+                    {mins > 0 ? (
+                      <span className="inline-flex items-center gap-1">
+                        <Clock className="h-3.5 w-3.5 text-neutral-500" />
+                        ~{mins} min
+                      </span>
+                    ) : null}
+                    {c.recertificationMonths ? (
+                      <span className="inline-flex items-center gap-1">
+                        <RefreshCw className="h-3.5 w-3.5 text-neutral-500" />
+                        hver {c.recertificationMonths} mnd
+                      </span>
+                    ) : null}
                   </div>
 
-                  {total > 0 ? (
-                    <div className="mt-3">
+                  {total > 0 && p ? (
+                    <div>
+                      <div className="mb-1 flex items-center justify-between text-[11px] text-neutral-600">
+                        <span>Din framgang</span>
+                        <span className="font-semibold tabular-nums text-neutral-900">
+                          {Math.round(pct * 100)}%
+                        </span>
+                      </div>
                       <ProgressBarMini value={pct} />
-                      <p className="mt-1 text-[11px] text-[#6b6f68]">
-                        Fremdrift: {done}/{total} moduler
-                      </p>
                     </div>
-                  ) : null}
+                  ) : !unlocked ? (
+                    <p className="text-[11px] font-medium text-amber-800">Låst — fullfør forutsetningskurs</p>
+                  ) : (
+                    <div className="text-[11px] text-neutral-400">Ikke tildelt enda</div>
+                  )}
 
-                  {!unlocked ? (
-                    <p className="mt-2 text-[11px] font-medium text-amber-800">Låst — fullfør forutsetninger</p>
-                  ) : null}
-                </div>
-
-                {/* Footer in card */}
-                <div className="mt-4 border-t border-neutral-100 pt-3">
-                  <div className="flex items-center justify-between gap-2">
-                    <div className="flex min-w-0 items-center gap-2">
-                      <div
-                        className="flex size-9 shrink-0 items-center justify-center rounded-full text-xs font-bold text-white"
-                        style={{ backgroundColor: PIN_GREEN }}
-                        aria-hidden
-                      >
-                        {creatorLabel.slice(0, 1).toUpperCase()}
+                  <div className="mt-1 flex flex-wrap items-center justify-end gap-1.5 border-t border-neutral-100 pt-3">
+                    {canManage ? (
+                      <div className="mr-auto" onClick={(e) => e.stopPropagation()}>
+                        <SearchableSelect
+                          value={c.status}
+                          options={COURSE_STATUS_OPTIONS}
+                          onChange={(val) => updateCourse(c.id, { status: val as CourseStatus })}
+                          triggerClassName="px-2 py-1 text-[10px]"
+                          className="mt-0"
+                        />
                       </div>
-                      <div className="min-w-0">
-                        <p className="truncate text-xs font-medium text-[#1a3d32]">{creatorLabel}</p>
-                        <p className="text-[11px] text-[#6b6f68]">Kursansvarlig</p>
-                      </div>
-                    </div>
-                    <div className="flex shrink-0 flex-col items-end gap-1 text-[11px]">
-                      <AddTaskLink
-                        title={`Oppfølging: ${c.title}`}
-                        module="learning"
-                        sourceType="learning_course"
-                        sourceId={c.id}
-                        sourceLabel={c.title}
-                        className="rounded-md border border-[#e3ddcc] px-2 py-0.5 font-medium text-[#1a3d32] hover:bg-neutral-50"
-                      >
-                        Oppgave
-                      </AddTaskLink>
-                      {canManage ? (
-                        <div className="max-w-[9rem]" onClick={(e) => e.stopPropagation()}>
-                          <SearchableSelect
-                            value={c.status}
-                            options={COURSE_STATUS_OPTIONS}
-                            onChange={(val) => updateCourse(c.id, { status: val as CourseStatus })}
-                            triggerClassName="max-w-[9rem] py-1.5 text-[10px]"
-                            className="mt-0"
-                          />
-                        </div>
-                      ) : null}
-                    </div>
-                  </div>
-                  <div className="mt-3 flex flex-wrap gap-2">
+                    ) : null}
                     {unlocked ? (
                       <Link
                         to={`/learning/play/${c.id}`}
-                        className="inline-flex flex-1 items-center justify-center rounded-md bg-[#1a3d32] px-3 py-2 text-center text-xs font-medium text-white hover:opacity-95"
+                        className="inline-flex items-center gap-1 rounded-md bg-[#1a3d32] px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-[#14312a]"
                       >
                         Åpne kurs
+                        <ArrowRight className="h-3 w-3" />
                       </Link>
                     ) : (
-                      <span className="inline-flex flex-1 cursor-not-allowed items-center justify-center rounded-full bg-neutral-200 px-3 py-2 text-center text-xs text-neutral-500">
+                      <span className="inline-flex items-center gap-1 rounded-md bg-neutral-200 px-3 py-1.5 text-xs font-semibold text-neutral-500">
                         Låst
                       </span>
                     )}
                     {canManage ? (
                       <Link
                         to={`/learning/courses/${c.id}`}
-                        className="inline-flex items-center justify-center rounded-md border border-[#e3ddcc] px-3 py-2 text-xs font-medium text-[#1a3d32] hover:bg-neutral-50"
+                        className="inline-flex items-center gap-1 rounded-md border border-neutral-300 bg-white px-3 py-1.5 text-xs font-semibold text-neutral-700 transition-colors hover:bg-neutral-50"
                       >
                         Bygger
                       </Link>
                     ) : null}
                   </div>
-                </div>
+                </article>
+              )
+            })}
+            {filteredCards.length === 0 && !learningLoading ? (
+              <div className="col-span-full py-12 text-center text-sm text-neutral-500">
+                Ingen kurs i dette filteret.
               </div>
-            </article>
-          )
-        })}
-      </div>
-
-      {filteredCards.length === 0 && !learningLoading ? (
-        <p className="rounded-lg border border-dashed border-[#e3ddcc] bg-[#fbf9f3] p-10 text-center text-sm text-[#6b6f68]">
-          Ingen kurs i dette filteret.
-        </p>
-      ) : null}
+            ) : null}
+          </div>
+        </LayoutTable1PostingsShell>
+      </ModuleSectionCard>
     </div>
   )
 }
