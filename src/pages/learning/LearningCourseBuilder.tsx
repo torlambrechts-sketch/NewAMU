@@ -9,6 +9,7 @@ import {
   Layers,
   PlayCircle,
   Plus,
+  Save,
   Trash2,
   Users,
 } from 'lucide-react'
@@ -526,24 +527,27 @@ function ModuleEditor({
   const [dur, setDur] = useState(mod.durationMinutes)
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-start justify-between gap-2">
+    <div className="space-y-5">
+      <div className="flex items-start justify-between gap-3">
         <div className="flex-1">
-          <label className="text-xs font-medium text-[#6b6f68]">Modultittel</label>
+          <label className={WPSTD_FORM_FIELD_LABEL} htmlFor="me-title">
+            Modultittel
+          </label>
           <StandardInput
+            id="me-title"
             value={title}
             onChange={(e) => {
               setTitle(e.target.value)
               updateModule(courseId, mod.id, { title: e.target.value })
             }}
-            className="mt-1 font-medium"
+            className="mt-1.5 font-medium"
           />
         </div>
         <Button
           type="button"
           variant="ghost"
           size="icon"
-          className="text-red-600 hover:bg-red-50"
+          className="mt-7 text-red-600 hover:bg-red-50"
           onClick={() => {
             if (window.confirm('Slett denne modulen?')) {
               deleteModule(courseId, mod.id)
@@ -556,8 +560,11 @@ function ModuleEditor({
         </Button>
       </div>
       <div>
-        <label className="text-xs font-medium text-[#6b6f68]">Varighet (minutter)</label>
+        <label className={WPSTD_FORM_FIELD_LABEL} htmlFor="me-duration">
+          Varighet (minutter)
+        </label>
         <StandardInput
+          id="me-duration"
           type="number"
           min={1}
           max={15}
@@ -567,15 +574,15 @@ function ModuleEditor({
             setDur(v)
             updateModule(courseId, mod.id, { durationMinutes: v })
           }}
-          className="mt-1 w-24"
+          className="mt-1.5 w-24"
         />
-        <p className="mt-1 text-[11px] text-[#6b6f68]">Mikrolæring: anbefalt maks ~3 min lesing/seing per modul.</p>
+        <p className="mt-1 text-xs text-neutral-500">Mikrolæring: anbefalt maks ~3 min lesing/seing per modul.</p>
       </div>
 
       {mod.kind === 'on_job' ? (
-        <div className="rounded-lg border border-dashed border-emerald-300 bg-emerald-50/50 p-4">
-          <p className="text-xs font-semibold text-[#1d1f1c]">QR for stedet (flow-of-work)</p>
-          <p className="mt-1 text-xs text-[#6b6f68]">
+        <div className="rounded-lg border border-neutral-200/80 bg-neutral-50/50 p-4">
+          <p className="text-xs font-semibold uppercase tracking-wider text-neutral-700">QR for stedet (flow-of-work)</p>
+          <p className="mt-1.5 text-xs text-neutral-600">
             Skriv ut og fest på f.eks. førstehjelpskasse eller truck. Skanning åpner modulen direkte uten å navigere i
             kursbiblioteket.
           </p>
@@ -586,14 +593,17 @@ function ModuleEditor({
               className="size-36 rounded-lg border border-white bg-white p-1 shadow"
             />
             <div className="min-w-0 flex-1 space-y-2">
-              <label className="text-[10px] font-medium uppercase text-[#6b6f68]">Dypelenke (flow)</label>
+              <label className={WPSTD_FORM_FIELD_LABEL} htmlFor={`me-deeplink-${mod.id}`}>
+                Dypelenke (flow)
+              </label>
               <StandardInput
+                id={`me-deeplink-${mod.id}`}
                 readOnly
                 value={`${typeof window !== 'undefined' ? window.location.origin : ''}/learning/flow?course=${encodeURIComponent(courseId)}&module=${encodeURIComponent(mod.id)}`}
-                className="font-mono text-[11px]"
+                className="mt-1.5 font-mono text-[11px]"
                 onFocus={(e) => e.target.select()}
               />
-              <p className="text-[10px] text-[#6b6f68]">
+              <p className="text-xs text-neutral-500">
                 Bruk denne i HMS-hendelser eller automasjon; tildeling lagres i <code>learning_module_assignments</code>.
               </p>
             </div>
@@ -635,76 +645,116 @@ function IltScheduleForm({
   const [msg, setMsg] = useState<string | null>(null)
 
   return (
-    <div className="rounded-lg border border-blue-200 bg-blue-50/50 p-4">
-      <p className="text-xs font-semibold text-[#1d1f1c]">Planlegg ILT / vILT-økt</p>
-      <p className="mt-1 text-xs text-[#6b6f68]">
+    <div className="rounded-lg border border-neutral-200/80 bg-neutral-50/50 p-4">
+      <p className="text-xs font-semibold uppercase tracking-wider text-neutral-700">Planlegg ILT / vILT-økt</p>
+      <p className="mt-1.5 text-xs text-neutral-600">
         Én økt per modul. Deltakere kan RSVP og oppmøte registreres i spilleren.
       </p>
-      <div className="mt-3 grid gap-2 sm:grid-cols-2">
-        <label className="text-xs text-[#6b6f68]">
-          Tittel på økt
-          <StandardInput value={title} onChange={(e) => setTitle(e.target.value)} className="mt-1" />
-        </label>
-        <label className="text-xs text-[#6b6f68]">
-          Start (lokal tid)
+      <div className="mt-4 grid gap-3 sm:grid-cols-2">
+        <div>
+          <label className={WPSTD_FORM_FIELD_LABEL} htmlFor={`ilt-title-${moduleId}`}>
+            Tittel på økt
+          </label>
           <StandardInput
+            id={`ilt-title-${moduleId}`}
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            className="mt-1.5"
+          />
+        </div>
+        <div>
+          <label className={WPSTD_FORM_FIELD_LABEL} htmlFor={`ilt-start-${moduleId}`}>
+            Start (lokal tid)
+          </label>
+          <StandardInput
+            id={`ilt-start-${moduleId}`}
             type="datetime-local"
             value={startsAt}
             onChange={(e) => setStartsAt(e.target.value)}
-            className="mt-1"
+            className="mt-1.5"
           />
-        </label>
-        <label className="text-xs text-[#6b6f68]">
-          Slutt (valgfritt)
+        </div>
+        <div>
+          <label className={WPSTD_FORM_FIELD_LABEL} htmlFor={`ilt-end-${moduleId}`}>
+            Slutt (valgfritt)
+          </label>
           <StandardInput
+            id={`ilt-end-${moduleId}`}
             type="datetime-local"
             value={endsAt}
             onChange={(e) => setEndsAt(e.target.value)}
-            className="mt-1"
+            className="mt-1.5"
           />
-        </label>
-        <label className="text-xs text-[#6b6f68]">
-          Sted / rom
-          <StandardInput value={locationText} onChange={(e) => setLocationText(e.target.value)} className="mt-1" />
-        </label>
-        <label className="text-xs text-[#6b6f68] sm:col-span-2">
-          Teams / Meet-lenke
-          <StandardInput value={meetingUrl} onChange={(e) => setMeetingUrl(e.target.value)} className="mt-1" />
-        </label>
-        <label className="text-xs text-[#6b6f68] sm:col-span-2">
-          Instruktør
-          <StandardInput value={instructorName} onChange={(e) => setInstructorName(e.target.value)} className="mt-1" />
-        </label>
+        </div>
+        <div>
+          <label className={WPSTD_FORM_FIELD_LABEL} htmlFor={`ilt-loc-${moduleId}`}>
+            Sted / rom
+          </label>
+          <StandardInput
+            id={`ilt-loc-${moduleId}`}
+            value={locationText}
+            onChange={(e) => setLocationText(e.target.value)}
+            className="mt-1.5"
+          />
+        </div>
+        <div className="sm:col-span-2">
+          <label className={WPSTD_FORM_FIELD_LABEL} htmlFor={`ilt-url-${moduleId}`}>
+            Teams / Meet-lenke
+          </label>
+          <StandardInput
+            id={`ilt-url-${moduleId}`}
+            value={meetingUrl}
+            onChange={(e) => setMeetingUrl(e.target.value)}
+            className="mt-1.5"
+          />
+        </div>
+        <div className="sm:col-span-2">
+          <label className={WPSTD_FORM_FIELD_LABEL} htmlFor={`ilt-instr-${moduleId}`}>
+            Instruktør
+          </label>
+          <StandardInput
+            id={`ilt-instr-${moduleId}`}
+            value={instructorName}
+            onChange={(e) => setInstructorName(e.target.value)}
+            className="mt-1.5"
+          />
+        </div>
       </div>
-      <Button
-        type="button"
-        variant="primary"
-        className="mt-3"
-        onClick={() => {
-          if (!startsAt) {
-            setMsg('Velg starttidspunkt.')
-            return
-          }
-          const isoStart = new Date(startsAt).toISOString()
-          const isoEnd = endsAt ? new Date(endsAt).toISOString() : null
-          void (async () => {
-            const r = await upsertIltEvent({
-              courseId,
-              moduleId,
-              title: title.trim() || defaultTitle,
-              startsAt: isoStart,
-              endsAt: isoEnd,
-              locationText: locationText.trim() || null,
-              meetingUrl: meetingUrl.trim() || null,
-              instructorName: instructorName.trim() || null,
-            })
-            setMsg(r.ok ? 'Lagret økt.' : r.error)
-          })()
-        }}
-      >
-        Lagre økt
-      </Button>
-      {msg ? <p className="mt-2 text-xs text-[#1d1f1c]">{msg}</p> : null}
+      <div className="mt-5 flex items-center justify-end border-t border-neutral-200/80 pt-4">
+        <Button
+          type="button"
+          variant="primary"
+          icon={<Save className="h-4 w-4" />}
+          onClick={() => {
+            if (!startsAt) {
+              setMsg('Velg starttidspunkt.')
+              return
+            }
+            const isoStart = new Date(startsAt).toISOString()
+            const isoEnd = endsAt ? new Date(endsAt).toISOString() : null
+            void (async () => {
+              const r = await upsertIltEvent({
+                courseId,
+                moduleId,
+                title: title.trim() || defaultTitle,
+                startsAt: isoStart,
+                endsAt: isoEnd,
+                locationText: locationText.trim() || null,
+                meetingUrl: meetingUrl.trim() || null,
+                instructorName: instructorName.trim() || null,
+              })
+              setMsg(r.ok ? 'Lagret økt.' : r.error)
+            })()
+          }}
+        >
+          Lagre økt
+        </Button>
+      </div>
+      {msg ? (
+        <p className="mt-3 text-xs text-neutral-700" role="status">
+          {msg}
+        </p>
+      ) : null}
     </div>
   )
 }

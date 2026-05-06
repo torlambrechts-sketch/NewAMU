@@ -1,14 +1,14 @@
 import { useEffect, useMemo, useRef, useState, type Dispatch, type SetStateAction } from 'react'
-import { Link, useParams, useSearchParams } from 'react-router-dom'
-import { Check, CheckCircle2, ChevronLeft, ChevronRight, ExternalLink, Play } from 'lucide-react'
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
+import { ArrowLeft, Check, CheckCircle2, ChevronLeft, ChevronRight, ExternalLink, Play } from 'lucide-react'
 import { useLearning, type IltEventRow } from '../../hooks/useLearning'
 import { useOrgSetupContext } from '../../hooks/useOrgSetupContext'
 import type { CourseModule, ModuleCompleteMeta } from '../../types/learning'
-import { PIN_GREEN } from '../../components/learning/LearningLayout'
 import { Button } from '../../components/ui/Button'
 import { StandardInput } from '../../components/ui/Input'
 import { InfoBox, WarningBox } from '../../components/ui/AlertBox'
 import { ToggleSwitch } from '../../components/ui/FormToggles'
+import { ModulePageShell, ModuleSectionCard } from '../../components/module'
 import { sanitizeLearningHtml } from '../../lib/sanitizeHtml'
 import { normalizeModuleHtml } from '../../lib/richTextDisplay'
 import { LearningPrivacyNotice } from '../../components/learning/LearningPrivacyNotice'
@@ -39,6 +39,7 @@ const KIND_LABELS: Record<string, string> = {
 }
 
 export function LearningPlayer() {
+  const navigate = useNavigate()
   const { courseId } = useParams<{ courseId: string }>()
   const [searchParams] = useSearchParams()
   const { can, supabase, organization, profile, supabaseConfigured } = useOrgSetupContext()
@@ -170,38 +171,72 @@ export function LearningPlayer() {
     return done / modules.length
   }, [course, modules, courseProgress?.moduleProgress])
 
+  const baseBreadcrumb = [
+    { label: 'Arbeidsflate', to: '/' },
+    { label: 'E-læring', to: '/learning' },
+    { label: 'Katalog', to: '/learning/katalog' },
+  ]
+
   if (!course || course.status !== 'published') {
     return (
-      <div className="mx-auto max-w-[1400px] px-4 py-6 md:px-8">
-        <div className="rounded-xl border border-amber-200 bg-amber-50 p-6 text-sm text-amber-950">
-          {course ? (
-            <>
-              Dette kurset er ikke publisert.{' '}
-              <Link to={`/learning/courses/${course.id}`} className="underline">
-                Åpne kursbygger
-              </Link>
-            </>
-          ) : (
-            'Kurset ble ikke funnet.'
-          )}
-        </div>
-      </div>
+      <ModulePageShell
+        breadcrumb={[...baseBreadcrumb, { label: course ? course.title : 'Ukjent kurs' }]}
+        title={course ? course.title : 'Kurs ikke funnet'}
+        description={course ? 'Kurset er ikke publisert ennå.' : undefined}
+        headerActions={
+          <Button
+            type="button"
+            variant="secondary"
+            icon={<ArrowLeft className="h-4 w-4" />}
+            onClick={() => navigate('/learning/katalog')}
+          >
+            Tilbake til katalog
+          </Button>
+        }
+      >
+        <ModuleSectionCard className="p-5 md:p-6">
+          <WarningBox>
+            {course ? (
+              <>
+                Dette kurset er ikke publisert.{' '}
+                <Link to={`/learning/courses/${course.id}`} className="font-medium underline">
+                  Åpne kursbygger
+                </Link>
+                .
+              </>
+            ) : (
+              'Kurset ble ikke funnet.'
+            )}
+          </WarningBox>
+        </ModuleSectionCard>
+      </ModulePageShell>
     )
   }
 
   if (!isCourseUnlocked(course.id)) {
     return (
-      <div className="mx-auto max-w-[1400px] px-4 py-6 md:px-8">
-        <div className="rounded-lg border border-[#e3ddcc] bg-[#fbf9f3] p-6 text-sm text-[#1d1f1c]">
-          <p className="font-medium text-[#1d1f1c]">Dette kurset er låst</p>
-          <p className="mt-2 text-[#6b6f68]">
+      <ModulePageShell
+        breadcrumb={[...baseBreadcrumb, { label: course.title }]}
+        title={course.title}
+        description="Kurset er låst inntil forutsetningene er fullført."
+        headerActions={
+          <Button
+            type="button"
+            variant="secondary"
+            icon={<ArrowLeft className="h-4 w-4" />}
+            onClick={() => navigate('/learning/katalog')}
+          >
+            Tilbake til katalog
+          </Button>
+        }
+      >
+        <ModuleSectionCard className="p-5 md:p-6">
+          <p className="font-medium text-neutral-900">Dette kurset er låst</p>
+          <p className="mt-1.5 text-sm text-neutral-600">
             Fullfør forutsetningskursene som er valgt for dette kurset, eller kontakt kursansvarlig.
           </p>
-          <Link to="/learning/courses" className="mt-4 inline-block text-[#1a3d32] underline">
-            Tilbake til kurslisten
-          </Link>
-        </div>
-      </div>
+        </ModuleSectionCard>
+      </ModulePageShell>
     )
   }
 
@@ -213,34 +248,42 @@ export function LearningPlayer() {
     if (idx < modules.length - 1) setIdx(idx + 1)
   }
 
+  const description = (
+    <span className="flex flex-wrap items-center gap-2 text-xs text-neutral-500">
+      <span className="text-sm text-neutral-600">{activeCourse.description}</span>
+      {totalDuration > 0 ? <span>· ~{totalDuration} min totalt</span> : null}
+    </span>
+  )
+
   return (
-      <div className="mx-auto max-w-[1400px] px-4 py-6 md:px-8">
-        <LearningPrivacyNotice />
-        <nav className="text-sm">
-        <Link to="/learning/courses" className="text-[#1a3d32] hover:underline">
-          ← Kurs
-        </Link>
-      </nav>
+    <ModulePageShell
+      breadcrumb={[...baseBreadcrumb, { label: activeCourse.title }]}
+      title={activeCourse.title}
+      description={description}
+      headerActions={
+        <Button
+          type="button"
+          variant="secondary"
+          icon={<ArrowLeft className="h-4 w-4" />}
+          onClick={() => navigate('/learning/katalog')}
+        >
+          Tilbake til katalog
+        </Button>
+      }
+    >
+      <LearningPrivacyNotice />
 
-      <div className="mt-6 grid gap-8 lg:grid-cols-[minmax(220px,280px)_1fr] lg:items-start">
+      <div className="grid gap-8 lg:grid-cols-[minmax(220px,280px)_1fr] lg:items-start">
         <aside className="space-y-4 lg:sticky lg:top-6">
-          <div>
-            <h1 className="font-serif text-xl font-semibold leading-snug text-[#2D403A]">{activeCourse.title}</h1>
-            <p className="mt-2 text-xs text-[#6b6f68] line-clamp-4">{activeCourse.description}</p>
-            {totalDuration > 0 ? (
-              <p className="mt-2 text-xs text-[#6b6f68]">~{totalDuration} min totalt</p>
-            ) : null}
-          </div>
-
-          <div className="rounded-lg border border-[#e3ddcc] bg-[#fbf9f3] p-4">
-            <p className="text-xs font-semibold uppercase tracking-wide text-[#6b6f68]">Fremdrift</p>
+          <div className="rounded-lg border border-neutral-200/80 bg-neutral-50/50 p-4">
+            <p className="text-xs font-semibold uppercase tracking-wide text-neutral-600">Fremdrift</p>
             <div className="mt-3">
               <ProgressBar value={overallProgress} label="Hele kurset" />
             </div>
           </div>
 
-          <nav aria-label="Innhold" className="rounded-lg border border-[#e3ddcc] bg-[#fbf9f3] p-3">
-            <p className="px-2 pb-2 text-xs font-semibold uppercase tracking-wide text-[#6b6f68]">Innhold</p>
+          <nav aria-label="Innhold" className="rounded-lg border border-neutral-200/80 bg-neutral-50/50 p-3">
+            <p className="px-2 pb-2 text-xs font-semibold uppercase tracking-wide text-neutral-600">Innhold</p>
             <div className="max-h-[min(60vh,520px)] space-y-4 overflow-y-auto pr-1">
               {chapters.map((ch) => (
                 <div key={ch.title}>
@@ -262,7 +305,7 @@ export function LearningPlayer() {
                             variant="ghost"
                             onClick={() => setIdx(i)}
                             className={`flex h-auto w-full flex-col gap-1 rounded-lg px-2 py-2 text-left text-sm font-normal transition-colors ${
-                              isActive ? 'bg-emerald-50 text-[#2D403A]' : 'text-neutral-700 hover:bg-neutral-50'
+                              isActive ? 'bg-emerald-50 text-[#1a3d32]' : 'text-neutral-700 hover:bg-neutral-50'
                             }`}
                           >
                             <span className="flex items-start gap-2">
@@ -275,11 +318,8 @@ export function LearningPlayer() {
                             <div className="pl-7">
                               <div className="h-1 w-full overflow-hidden rounded-full bg-neutral-100">
                                 <div
-                                  className="h-full rounded-full transition-all"
-                                  style={{
-                                    width: `${done ? 100 : isActive ? 40 : 0}%`,
-                                    backgroundColor: PIN_GREEN,
-                                  }}
+                                  className="h-full rounded-full bg-[#1a3d32] transition-all"
+                                  style={{ width: `${done ? 100 : isActive ? 40 : 0}%` }}
                                 />
                               </div>
                             </div>
@@ -296,10 +336,10 @@ export function LearningPlayer() {
 
         <div className="min-w-0 space-y-6">
           {current && (
-            <div className="rounded-lg border border-[#e3ddcc] bg-[#fbf9f3] p-6 md:p-8">
+            <ModuleSectionCard className="p-5 md:p-6">
               <div className="flex flex-wrap items-baseline justify-between gap-2">
-                <h2 className="font-serif text-2xl font-semibold text-[#1d1f1c]">{current.title}</h2>
-                <span className="text-xs text-[#6b6f68]">
+                <h2 className="text-lg font-semibold text-neutral-900 sm:text-xl">{current.title}</h2>
+                <span className="text-xs text-neutral-500">
                   ~{current.durationMinutes} min · {KIND_LABELS[current.kind] ?? current.kind}
                 </span>
               </div>
@@ -330,13 +370,14 @@ export function LearningPlayer() {
                   peerProfilesError={peerProfilesError}
                 />
               </div>
-            </div>
+            </ModuleSectionCard>
           )}
 
           <div className="flex justify-between">
             <Button
               type="button"
               variant="secondary"
+              icon={<ChevronLeft className="h-4 w-4" />}
               disabled={idx <= 0}
               onClick={() => setIdx((i) => Math.max(0, i - 1))}
             >
@@ -349,12 +390,16 @@ export function LearningPlayer() {
               onClick={() => setIdx((i) => Math.min(modules.length - 1, i + 1))}
             >
               Neste modul
+              <ChevronRight className="h-4 w-4" />
             </Button>
           </div>
 
-          <div className="rounded-lg border border-[#c5d3c8] bg-[#e7efe9] p-5">
-            <h3 className="font-semibold text-[#2D403A]">Kursbevis</h3>
-            <p className="mt-1 text-sm text-[#6b6f68]">
+          <ModuleSectionCard
+            className="p-5 md:p-6"
+            style={{ background: '#e7efe9', borderColor: '#c5d3c8' }}
+          >
+            <h3 className="text-base font-semibold text-neutral-900">Kursbevis</h3>
+            <p className="mt-1.5 text-sm text-neutral-700">
               {certNameLocked
                 ? 'Fullfør hver modul med knappen inne i modulen. Navn på kursbeviset hentes fra profilen din og kan ikke endres her.'
                 : 'Fullfør hver modul med knappen inne i modulen. Når du er ferdig, skriv inn navnet som skal stå på kursbeviset (demo / uten organisasjon).'}
@@ -406,17 +451,17 @@ export function LearningPlayer() {
                 {hasCert ? 'Kursbevis utstedt' : 'Hent kursbevis'}
               </Button>
             </div>
-            <p className="mt-2 text-xs text-[#6b6f68]">
+            <p className="mt-2 text-xs text-neutral-600">
               {!modulesComplete
                 ? 'Fullfør alle moduler for å låse opp kursbeviset.'
                 : hasCert
                   ? 'Du har allerede et kursbevis for dette kurset.'
                   : 'Du kan nå hente kursbeviset ditt.'}
             </p>
-          </div>
+          </ModuleSectionCard>
         </div>
       </div>
-    </div>
+    </ModulePageShell>
   )
 }
 
@@ -478,7 +523,7 @@ function EventModuleSection({
       />
 
       {ev ? (
-        <div className="rounded-lg border border-[#e3ddcc] bg-[#fbf9f3] p-4 text-sm">
+        <div className="rounded-lg border border-neutral-200/80 bg-neutral-50/50 p-4 text-sm">
           <p className="font-semibold text-[#2D403A]">{ev.title}</p>
           <p className="mt-1 text-neutral-600">
             {new Date(ev.startsAt).toLocaleString()}
@@ -529,7 +574,7 @@ function EventModuleSection({
       ) : null}
 
       {canManageLearning && ev && peerProfiles.length > 0 ? (
-        <div className="rounded-lg border border-[#e3ddcc] bg-[#fbf9f3] p-4">
+        <div className="rounded-lg border border-neutral-200/80 bg-neutral-50/50 p-4">
           <p className="text-xs font-semibold uppercase tracking-wide text-[#6b6f68]">Oppmøte (instruktør)</p>
           {attendanceError ? (
             <div className="mt-3">
@@ -561,7 +606,7 @@ function EventModuleSection({
         type="button"
         variant="primary"
         className="w-full rounded-full"
-        style={{ backgroundColor: PIN_GREEN }}
+
         onClick={() => onComplete()}
       >
         Fullfør modul
@@ -671,7 +716,7 @@ function ModulePlayer({
           type="button"
           variant="primary"
           className="w-full rounded-full"
-          style={{ backgroundColor: PIN_GREEN }}
+  
           onClick={() => onComplete()}
         >
           Fullfør kortsett
@@ -697,7 +742,7 @@ function ModulePlayer({
           const sel = quizAnswers[q.id]
           const ok = sel === q.correctIndex
           return (
-            <div key={q.id} className="rounded-lg border border-[#e3ddcc] bg-[#fbf9f3] p-4">
+            <div key={q.id} className="rounded-lg border border-neutral-200/80 bg-neutral-50/50 p-4">
               <p className="font-medium text-neutral-900">{q.question}</p>
               <ul className="mt-3 space-y-2">
                 {q.options.map((o, i) => (
@@ -711,7 +756,7 @@ function ModulePlayer({
                           ? sel === q.correctIndex
                             ? 'border-emerald-600 bg-emerald-50'
                             : 'border-red-400 bg-red-50'
-                          : 'border-[#e3ddcc] bg-[#fbf9f3]'
+                          : 'border-neutral-200/80 bg-neutral-50/50'
                       }`}
                     >
                       {o}
@@ -736,7 +781,7 @@ function ModulePlayer({
           type="button"
           variant="primary"
           className="w-full rounded-full"
-          style={{ backgroundColor: PIN_GREEN }}
+  
           disabled={!answered}
           onClick={() =>
             onComplete({
@@ -764,7 +809,7 @@ function ModulePlayer({
           type="button"
           variant="primary"
           className="mt-6 w-full rounded-full"
-          style={{ backgroundColor: PIN_GREEN }}
+  
           onClick={() => onComplete()}
         >
           Fortsett
@@ -782,7 +827,7 @@ function ModulePlayer({
           type="button"
           variant="primary"
           className="mt-4 w-full rounded-full"
-          style={{ backgroundColor: PIN_GREEN }}
+  
           onClick={() => onComplete()}
         >
           Fortsett
@@ -820,7 +865,7 @@ function ModulePlayer({
           type="button"
           variant="primary"
           className="mt-4 w-full rounded-full"
-          style={{ backgroundColor: PIN_GREEN }}
+  
           disabled={!allChecked}
           onClick={() => onComplete()}
         >
@@ -842,7 +887,7 @@ function ModulePlayer({
           type="button"
           variant="primary"
           className="mt-4 w-full rounded-full"
-          style={{ backgroundColor: PIN_GREEN }}
+  
           onClick={() => onComplete()}
         >
           Fortsett
@@ -872,16 +917,16 @@ function ModulePlayer({
     return (
       <div className="space-y-3">
         {c.tasks.map((t) => (
-          <div key={t.id} className="rounded-lg border border-[#e3ddcc] bg-[#fbf9f3] p-3">
+          <div key={t.id} className="rounded-lg border border-neutral-200/80 bg-neutral-50/50 p-4">
             <div className="font-medium">{t.title}</div>
-            <div className="text-sm text-neutral-600">{t.description}</div>
+            <div className="mt-1 text-sm text-neutral-600">{t.description}</div>
           </div>
         ))}
         <Button
           type="button"
           variant="primary"
           className="w-full rounded-full"
-          style={{ backgroundColor: PIN_GREEN }}
+  
           onClick={() => onComplete()}
         >
           Bekreft gjennomført
@@ -903,7 +948,7 @@ function ModulePlayer({
           type="button"
           variant="primary"
           className="mt-4 w-full rounded-full"
-          style={{ backgroundColor: PIN_GREEN }}
+  
           onClick={() => onComplete()}
         >
           Fortsett
@@ -1096,7 +1141,7 @@ function VideoPlayer({
 
       {/* ── External / unrecognised URL ──────────────────────────────────── */}
       {kind === 'external' && (
-        <div className="rounded-lg border border-[#e3ddcc] bg-[#fbf9f3] p-5">
+        <div className="rounded-lg border border-neutral-200/80 bg-neutral-50/50 p-5">
           <div className="flex items-start gap-3">
             <div className="flex size-10 shrink-0 items-center justify-center rounded-full bg-neutral-200">
               <Play className="size-5 text-neutral-600" />
@@ -1137,7 +1182,7 @@ function VideoPlayer({
         type="button"
         variant="primary"
         className="w-full rounded-full"
-        style={{ backgroundColor: PIN_GREEN }}
+
         disabled={!unlocked}
         onClick={() => onComplete()}
         title={unlocked ? undefined : `Se minst ${THRESHOLD}% av videoen for å gå videre`}
