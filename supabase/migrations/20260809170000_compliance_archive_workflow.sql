@@ -17,10 +17,18 @@
 -- inspection module. Adding 'archived' to that enum would affect
 -- inspection_rounds too. A separate flag keeps compliance archive
 -- semantics local.
+--
+-- Self-sufficient: the trigger updated below uses digest() from
+-- pgcrypto (introduced in 20260809160000_compliance_sign_state_checksum).
+-- Re-asserting the extension here so this migration can run independently
+-- if the prior one didn't apply for any reason. Idempotent.
+
+create extension if not exists pgcrypto with schema public;
 
 alter table public.compliance_checklist_executions
   add column if not exists archived_at timestamptz,
-  add column if not exists archived_by uuid references auth.users (id) on delete set null;
+  add column if not exists archived_by uuid references auth.users (id) on delete set null,
+  add column if not exists sign_checksum text;
 
 -- Only signed rows can be archived; archived_by is non-null iff
 -- archived_at is non-null.

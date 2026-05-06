@@ -14,6 +14,19 @@
 -- only move updated_at don't create version rows.
 --
 -- Existing templates are backfilled as version 1 by a one-time DO loop.
+--
+-- Self-sufficient: re-creates the compliance_review_status enum if it's
+-- missing so this migration can run independently of
+-- 20260808120000_compliance_templates_review_and_cadence.sql (which is
+-- where the enum was originally introduced). Idempotent — a no-op when
+-- the type already exists.
+
+do $$
+begin
+  if not exists (select 1 from pg_type where typname = 'compliance_review_status') then
+    create type public.compliance_review_status as enum ('draft', 'reviewed', 'approved');
+  end if;
+end $$;
 
 create table if not exists public.compliance_checklist_template_versions (
   id              uuid primary key default gen_random_uuid(),
