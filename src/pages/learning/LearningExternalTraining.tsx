@@ -88,20 +88,15 @@ export function LearningExternalTraining() {
       <LayoutScoreStatRow items={kpis} />
 
       <div className="grid gap-6 lg:grid-cols-2">
-        <ModuleSectionCard>
+        <ModuleSectionCard className="p-5 md:p-6">
           <div className="flex items-center gap-2">
             <FileUp className="h-5 w-5 text-[#1a3d32]" />
-            <h2
-              className="text-lg font-semibold text-neutral-900"
-              style={{ fontFamily: "'Libre Baskerville', Georgia, serif" }}
-            >
-              Ny dokumentasjon
-            </h2>
+            <h2 className="text-lg font-semibold text-neutral-900">Ny dokumentasjon</h2>
           </div>
-          <p className="mt-1 text-sm text-neutral-600">
+          <p className="mt-1.5 text-sm text-neutral-600">
             Fyll inn detaljer og last opp PDF eller bilde av kursbevis.
           </p>
-          <div className="mt-4 space-y-4">
+          <div className="mt-5 space-y-5">
             <div>
               <label className={WPSTD_FORM_FIELD_LABEL} htmlFor="ext-title">
                 Tittel / kursnavn
@@ -111,6 +106,7 @@ export function LearningExternalTraining() {
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
                 className="mt-1.5"
+                placeholder="F.eks. Kran- og løfteopplæring G4"
               />
             </div>
             <div>
@@ -122,6 +118,7 @@ export function LearningExternalTraining() {
                 value={issuer}
                 onChange={(e) => setIssuer(e.target.value)}
                 className="mt-1.5"
+                placeholder="F.eks. Norsk Sertifisering"
               />
             </div>
             <div>
@@ -140,29 +137,35 @@ export function LearningExternalTraining() {
               <label className={WPSTD_FORM_FIELD_LABEL} htmlFor="ext-file">
                 Fil (PDF eller bilde)
               </label>
+              <p className="mt-1 text-xs text-neutral-500">
+                Maks 10&nbsp;MB. Aksepterte formater: PDF, JPG, PNG.
+              </p>
               <input
                 id="ext-file"
                 type="file"
                 accept="application/pdf,image/*"
                 onChange={(e) => setFile(e.target.files?.[0] ?? null)}
                 aria-label="Last opp PDF eller bilde av kursbevis"
-                className="mt-1.5 block w-full rounded-md border border-neutral-300 bg-white text-sm text-neutral-700 file:mr-3 file:rounded-l-md file:border-0 file:bg-neutral-100 file:px-3 file:py-2 file:text-xs file:font-medium file:text-neutral-700 hover:file:bg-neutral-200"
+                className="mt-1.5 block w-full rounded-md border border-neutral-300 bg-white text-sm text-neutral-700 file:mr-3 file:rounded-l-md file:border-0 file:border-r file:border-neutral-300 file:bg-neutral-50 file:px-4 file:py-2.5 file:text-sm file:font-medium file:text-neutral-800 hover:file:bg-neutral-100"
               />
             </div>
           </div>
-          <div className="mt-5 flex items-center justify-end gap-2 border-t border-neutral-100 pt-4">
+          <div className="mt-6 flex items-center justify-end gap-2 border-t border-neutral-100 pt-4">
             <Button
               type="button"
               variant="primary"
-              size="sm"
               onClick={upload}
               disabled={uploading}
-              icon={<FileUp className="h-3.5 w-3.5" />}
+              icon={<FileUp className="h-4 w-4" />}
             >
               {uploading ? 'Laster opp…' : 'Send inn'}
             </Button>
           </div>
-          {msg ? <p className="mt-2 text-xs text-neutral-700">{msg}</p> : null}
+          {msg ? (
+            <p className="mt-3 text-xs text-neutral-700" role="status">
+              {msg}
+            </p>
+          ) : null}
         </ModuleSectionCard>
 
         <ModuleSectionCard className="!p-0">

@@ -21,8 +21,6 @@ import { StandardInput } from '../../components/ui/Input'
 import { ModuleSectionCard } from '../../components/module'
 import { WPSTD_FORM_FIELD_LABEL } from '../../components/layout/WorkplaceStandardFormPanel'
 
-const SERIF_FAMILY = "'Libre Baskerville', Georgia, serif"
-
 function downloadJson(filename: string, json: string) {
   const blob = new Blob([json], { type: 'application/json' })
   const url = URL.createObjectURL(blob)
@@ -46,14 +44,15 @@ function slugTitle(title: string) {
 function SectionHeading({ title, description, icon }: { title: string; description?: string; icon: React.ReactNode }) {
   return (
     <div className="flex items-start gap-3">
-      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg" style={{ background: '#e7efe9', color: '#1a3d32' }}>
+      <div
+        className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg"
+        style={{ background: '#e7efe9', color: '#1a3d32' }}
+      >
         {icon}
       </div>
       <div className="min-w-0">
-        <h2 className="text-lg font-semibold text-neutral-900" style={{ fontFamily: SERIF_FAMILY }}>
-          {title}
-        </h2>
-        {description ? <p className="mt-1 text-sm text-neutral-600">{description}</p> : null}
+        <h2 className="text-lg font-semibold text-neutral-900">{title}</h2>
+        {description ? <p className="mt-1.5 text-sm text-neutral-600">{description}</p> : null}
       </div>
     </div>
   )
@@ -135,7 +134,7 @@ export function LearningSettings() {
 
   return (
     <div className="space-y-6">
-      <ModuleSectionCard>
+      <ModuleSectionCard className="p-5 md:p-6">
         <SectionHeading
           icon={<Database className="h-5 w-5" />}
           title="Lagring"
@@ -154,7 +153,7 @@ export function LearningSettings() {
       </ModuleSectionCard>
 
       {supabaseConfigured && organization && canManage && systemCourseSettings.length > 0 ? (
-        <ModuleSectionCard>
+        <ModuleSectionCard className="p-5 md:p-6">
           <SectionHeading
             icon={<Copy className="h-5 w-5" />}
             title="Systemkurs for organisasjonen"
@@ -165,19 +164,19 @@ export function LearningSettings() {
               <WarningBox>{systemCourseActionError}</WarningBox>
             </div>
           ) : null}
-          <ul className="mt-4 space-y-2">
+          <ul className="mt-5 space-y-3">
             {systemCourseSettings.map((s) => (
               <li
                 key={s.systemCourseId}
-                className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-neutral-200 bg-neutral-50/40 px-3 py-3"
+                className="flex flex-wrap items-center justify-between gap-4 rounded-lg border border-neutral-200/80 bg-neutral-50/50 p-4"
               >
                 <div className="min-w-0">
                   <p className="font-medium text-neutral-900">{s.title}</p>
-                  <p className="font-mono text-xs text-neutral-500">{s.slug}</p>
+                  <p className="mt-0.5 font-mono text-xs text-neutral-500">{s.slug}</p>
                   {s.forkedCourseId ? (
                     <Link
                       to={`/learning/courses/${s.forkedCourseId}`}
-                      className="mt-1 inline-block text-xs font-medium text-[#1a3d32] underline"
+                      className="mt-2 inline-block text-xs font-medium text-[#1a3d32] underline"
                     >
                       Åpne tilpasset kurs (utkast)
                     </Link>
@@ -231,7 +230,7 @@ export function LearningSettings() {
       ) : null}
 
       {supabaseConfigured && organization && canManage ? (
-        <ModuleSectionCard>
+        <ModuleSectionCard className="p-5 md:p-6">
           <SectionHeading
             icon={<Webhook className="h-5 w-5" />}
             title="Flow-of-work — kanaler"
@@ -285,8 +284,7 @@ export function LearningSettings() {
             <Button
               type="button"
               variant="primary"
-              size="sm"
-              icon={<Save className="h-3.5 w-3.5" />}
+              icon={<Save className="h-4 w-4" />}
               onClick={() => {
                 void (async () => {
                   setFlowMsg(null)
@@ -308,18 +306,17 @@ export function LearningSettings() {
         </ModuleSectionCard>
       ) : null}
 
-      <ModuleSectionCard>
+      <ModuleSectionCard className="p-5 md:p-6">
         <SectionHeading
           icon={<Download className="h-5 w-5" />}
           title="Eksport og import (JSON)"
           description="Full sikkerhetskopi, eller del-eksport per kurs / fremdrift / sertifikater."
         />
-        <div className="mt-4 flex flex-wrap gap-2">
+        <div className="mt-5 flex flex-wrap gap-2">
           <Button
             type="button"
             variant="primary"
-            size="sm"
-            icon={<Download className="h-3.5 w-3.5" />}
+            icon={<Download className="h-4 w-4" />}
             onClick={handleExportFull}
           >
             Last ned alt
@@ -327,8 +324,7 @@ export function LearningSettings() {
           <Button
             type="button"
             variant="secondary"
-            size="sm"
-            icon={<Upload className="h-3.5 w-3.5" />}
+            icon={<Upload className="h-4 w-4" />}
             onClick={() => fileRefFull.current?.click()}
           >
             Importer alt
@@ -342,30 +338,30 @@ export function LearningSettings() {
           />
         </div>
 
-        <details className="group mt-5 rounded-md border border-neutral-200 bg-neutral-50/40">
+        <details className="group mt-6 rounded-md border border-neutral-200 bg-neutral-50/40">
           <summary className="flex cursor-pointer list-none items-center justify-between gap-2 px-4 py-3 text-sm font-medium text-neutral-800 marker:content-none [&::-webkit-details-marker]:hidden">
             <span>Per kurs og andre deler</span>
             <ChevronDown className="h-4 w-4 shrink-0 text-neutral-500 transition-transform group-open:rotate-180" />
           </summary>
-          <div className="space-y-4 border-t border-neutral-200 px-4 pb-4 pt-3">
+          <div className="space-y-5 border-t border-neutral-200 px-5 pb-5 pt-4">
             <p className="text-xs text-neutral-500">
               Delvise filer flettes inn: eksisterende kurs med samme ID erstattes; fremdrift og sertifikater merges på ID.
             </p>
             <div>
               <h3 className="text-sm font-semibold text-neutral-900">Kurs</h3>
-              <ul className="mt-2 space-y-1.5">
+              <ul className="mt-3 space-y-2">
                 {courses.map((c) => (
                   <li
                     key={c.id}
-                    className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-neutral-200 bg-white px-3 py-2 text-sm"
+                    className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-neutral-200/80 bg-white px-4 py-3 text-sm"
                   >
                     <span className="min-w-0 truncate font-medium text-neutral-900">{c.title}</span>
-                    <div className="flex shrink-0 gap-1.5">
+                    <div className="flex shrink-0 gap-2">
                       <Button
                         type="button"
                         variant="ghost"
                         size="sm"
-                        icon={<Download className="h-3 w-3" />}
+                        icon={<Download className="h-3.5 w-3.5" />}
                         onClick={() => {
                           const json = exportCourseJson(c.id)
                           if (!json) return
@@ -378,7 +374,7 @@ export function LearningSettings() {
                         type="button"
                         variant="ghost"
                         size="sm"
-                        icon={<Upload className="h-3 w-3" />}
+                        icon={<Upload className="h-3.5 w-3.5" />}
                         onClick={() => fileRefPartial.current?.click()}
                       >
                         Importer
@@ -388,19 +384,19 @@ export function LearningSettings() {
                 ))}
               </ul>
               {courses.length === 0 ? (
-                <p className="mt-2 text-sm text-neutral-500">Ingen kurs ennå.</p>
+                <p className="mt-3 text-sm text-neutral-500">Ingen kurs ennå.</p>
               ) : null}
             </div>
-            <div className="grid gap-3 sm:grid-cols-2">
-              <div className="rounded-md border border-neutral-200 bg-white p-3">
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-3 rounded-lg border border-neutral-200/80 bg-white p-4">
                 <h3 className="text-sm font-semibold text-neutral-900">Fremdrift</h3>
-                <p className="mt-1 text-xs text-neutral-500">Alle CourseProgress-rader i én fil.</p>
-                <div className="mt-2 flex flex-wrap gap-1.5">
+                <p className="text-xs text-neutral-500">Alle CourseProgress-rader i én fil.</p>
+                <div className="flex flex-wrap gap-2 pt-1">
                   <Button
                     type="button"
                     variant="primary"
                     size="sm"
-                    icon={<Download className="h-3 w-3" />}
+                    icon={<Download className="h-3.5 w-3.5" />}
                     onClick={() =>
                       downloadJson(
                         `atics-learning-progress-${new Date().toISOString().slice(0, 10)}.json`,
@@ -414,22 +410,22 @@ export function LearningSettings() {
                     type="button"
                     variant="secondary"
                     size="sm"
-                    icon={<Upload className="h-3 w-3" />}
+                    icon={<Upload className="h-3.5 w-3.5" />}
                     onClick={() => fileRefPartial.current?.click()}
                   >
                     Importer
                   </Button>
                 </div>
               </div>
-              <div className="rounded-md border border-neutral-200 bg-white p-3">
+              <div className="space-y-3 rounded-lg border border-neutral-200/80 bg-white p-4">
                 <h3 className="text-sm font-semibold text-neutral-900">Sertifikater</h3>
-                <p className="mt-1 text-xs text-neutral-500">Alle utstedte sertifikater i én fil.</p>
-                <div className="mt-2 flex flex-wrap gap-1.5">
+                <p className="text-xs text-neutral-500">Alle utstedte sertifikater i én fil.</p>
+                <div className="flex flex-wrap gap-2 pt-1">
                   <Button
                     type="button"
                     variant="primary"
                     size="sm"
-                    icon={<Download className="h-3 w-3" />}
+                    icon={<Download className="h-3.5 w-3.5" />}
                     onClick={() =>
                       downloadJson(
                         `atics-learning-certificates-${new Date().toISOString().slice(0, 10)}.json`,
@@ -443,7 +439,7 @@ export function LearningSettings() {
                     type="button"
                     variant="secondary"
                     size="sm"
-                    icon={<Upload className="h-3 w-3" />}
+                    icon={<Upload className="h-3.5 w-3.5" />}
                     onClick={() => fileRefPartial.current?.click()}
                   >
                     Importer
@@ -471,18 +467,17 @@ export function LearningSettings() {
         ) : null}
       </ModuleSectionCard>
 
-      <ModuleSectionCard>
+      <ModuleSectionCard className="p-5 md:p-6">
         <SectionHeading
           icon={<RefreshCcw className="h-5 w-5" />}
           title="Tilbakestill demodata"
           description="Sletter kurs, fremdrift og sertifikater i denne nettleseren og gjenoppretter demodata («Sikkerhet 101»)."
         />
-        <div className="mt-5 flex items-center justify-end gap-2 border-t border-neutral-100 pt-4">
+        <div className="mt-6 flex items-center justify-end gap-2 border-t border-neutral-100 pt-4">
           <Button
             type="button"
             variant="danger"
-            size="sm"
-            icon={<RefreshCcw className="h-3.5 w-3.5" />}
+            icon={<RefreshCcw className="h-4 w-4" />}
             onClick={() => {
               if (
                 window.confirm('Tilbakestille all e-læringsdata i denne nettleseren? Dette kan ikke angres.')
@@ -495,34 +490,34 @@ export function LearningSettings() {
         </div>
       </ModuleSectionCard>
 
-      <ModuleSectionCard>
+      <ModuleSectionCard className="p-5 md:p-6">
         <SectionHeading
           icon={<ShieldCheck className="h-5 w-5" />}
           title="Personvern og databehandling"
           description="Klarert e-læring samler inn opplæringsdata for å dokumentere opplæring etter IK-forskriften § 5 og AML."
         />
-        <dl className="mt-4 grid gap-3 text-sm sm:grid-cols-2">
-          <div className="rounded-md border border-neutral-200 bg-neutral-50/40 p-3">
+        <dl className="mt-5 grid gap-4 text-sm sm:grid-cols-2">
+          <div className="rounded-lg border border-neutral-200/80 bg-neutral-50/50 p-4">
             <dt className="text-[10px] font-bold uppercase tracking-wider text-neutral-600">Rettslig grunnlag</dt>
-            <dd className="mt-1 text-neutral-700">
+            <dd className="mt-2 text-neutral-700">
               GDPR art. 6(1)(c) — rettslig forpliktelse (AML, IK-forskriften), supplert av (f) berettiget interesse.
             </dd>
           </div>
-          <div className="rounded-md border border-neutral-200 bg-neutral-50/40 p-3">
+          <div className="rounded-lg border border-neutral-200/80 bg-neutral-50/50 p-4">
             <dt className="text-[10px] font-bold uppercase tracking-wider text-neutral-600">Lagringstid</dt>
-            <dd className="mt-1 text-neutral-700">
+            <dd className="mt-2 text-neutral-700">
               Opplæringsdata lagres så lenge arbeidsforholdet varer. Sertifikater bevares som dokumentasjon.
             </dd>
           </div>
-          <div className="rounded-md border border-neutral-200 bg-neutral-50/40 p-3">
+          <div className="rounded-lg border border-neutral-200/80 bg-neutral-50/50 p-4">
             <dt className="text-[10px] font-bold uppercase tracking-wider text-neutral-600">Rettigheter</dt>
-            <dd className="mt-1 text-neutral-700">
+            <dd className="mt-2 text-neutral-700">
               Innsyn, retting og sletting på forespørsel — kontakt dataansvarlig i organisasjonen.
             </dd>
           </div>
-          <div className="rounded-md border border-neutral-200 bg-neutral-50/40 p-3">
+          <div className="rounded-lg border border-neutral-200/80 bg-neutral-50/50 p-4">
             <dt className="text-[10px] font-bold uppercase tracking-wider text-neutral-600">Sikkerhet</dt>
-            <dd className="mt-1 text-neutral-700">
+            <dd className="mt-2 text-neutral-700">
               Row-level security per organisasjon. Kursinnhold og progresjon er kryptert i hvile (Supabase).
             </dd>
           </div>
