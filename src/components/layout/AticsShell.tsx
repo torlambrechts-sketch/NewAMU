@@ -844,7 +844,7 @@ function activeModuleForPath(modules: NavModule[], pathname: string, search: str
     const vern = modules.find((m) => m.to === '/vernerunder')
     if (vern) return vern
   }
-  // Exact-match first (handles /council?tab=board vs /council)
+  // Exact-match with query (handles /council?tab=board vs /council)
   for (const mod of modules) {
     if (mod.to.includes('?')) {
       const [p, q] = mod.to.split('?')
@@ -853,11 +853,20 @@ function activeModuleForPath(modules: NavModule[], pathname: string, search: str
       if (pathname === p && searchParams.get('tab') === params.get('tab')) return mod
     }
   }
-  // Then prefix match
+  // Exact pathname match — picks /compliance/checklists over /compliance even
+  // when /compliance appears earlier in the modules list (without this pass,
+  // a prefix match against a parent path wins by iteration order and the user
+  // lands on the wrong group's sub-menu).
   for (const mod of modules) {
     if (mod.to === '/') continue
     const base = mod.to.split('?')[0]
-    if (pathname === base || pathname.startsWith(base + '/') || pathname.startsWith(base + '?')) return mod
+    if (pathname === base) return mod
+  }
+  // Then prefix match (fallback for nested routes like /compliance/checklists/:id)
+  for (const mod of modules) {
+    if (mod.to === '/') continue
+    const base = mod.to.split('?')[0]
+    if (pathname.startsWith(base + '/') || pathname.startsWith(base + '?')) return mod
   }
   return modules[0]
 }

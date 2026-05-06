@@ -28,6 +28,13 @@ begin
   end if;
 end $$;
 
+-- Same self-sufficiency for the two columns added in 20260808120000 — the
+-- DO loop below selects v_template.review_status / cadence_hint so these
+-- columns must exist on compliance_checklist_templates. Idempotent.
+alter table public.compliance_checklist_templates
+  add column if not exists review_status public.compliance_review_status not null default 'draft',
+  add column if not exists cadence_hint  text;
+
 create table if not exists public.compliance_checklist_template_versions (
   id              uuid primary key default gen_random_uuid(),
   organization_id uuid not null references public.organizations (id) on delete cascade,

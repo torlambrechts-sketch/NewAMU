@@ -20,6 +20,35 @@
 --
 -- All rows are organization_id = NULL system rows. Idempotent on the
 -- partial unique index (pack, slug) WHERE organization_id IS NULL.
+--
+-- Audit-trigger fix: the original 20260807130000 schema migration attached
+-- the standard hse_audit_trigger to compliance_requirements. That trigger
+-- writes to hse_audit_log with organization_id taken from new.organization_id
+-- — which is NULL for system rows, violating hse_audit_log.organization_id
+-- NOT NULL. This migration replaces the trigger chain with three conditional
+-- triggers (insert/update/delete) that fire only when org_id is non-null,
+-- so system-row writes (managed exclusively via migrations, audited in git)
+-- skip the audit log cleanly. Idempotent — safe to re-run.
+
+drop trigger if exists compliance_requirements_audit_tg on public.compliance_requirements;
+drop trigger if exists compliance_requirements_audit_insert_tg on public.compliance_requirements;
+drop trigger if exists compliance_requirements_audit_update_tg on public.compliance_requirements;
+drop trigger if exists compliance_requirements_audit_delete_tg on public.compliance_requirements;
+
+create trigger compliance_requirements_audit_insert_tg
+  after insert on public.compliance_requirements
+  for each row when (new.organization_id is not null)
+  execute function public.hse_audit_trigger();
+
+create trigger compliance_requirements_audit_update_tg
+  after update on public.compliance_requirements
+  for each row when (coalesce(new.organization_id, old.organization_id) is not null)
+  execute function public.hse_audit_trigger();
+
+create trigger compliance_requirements_audit_delete_tg
+  after delete on public.compliance_requirements
+  for each row when (old.organization_id is not null)
+  execute function public.hse_audit_trigger();
 
 insert into public.compliance_requirements
   (organization_id, pack, slug, code, title, description, is_system, is_active)
