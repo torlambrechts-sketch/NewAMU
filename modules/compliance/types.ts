@@ -29,6 +29,13 @@ export type ChecklistItem = {
   severity_default?: ComplianceSeverity
   /** Inspector-facing help text */
   help?: string
+  /**
+   * Compliance requirement slugs this item satisfies. References
+   * compliance_requirements.slug — system slugs (e.g. "aml-3-1") or
+   * org-defined slugs. Optional; primary tagging is template-level via
+   * compliance_template_requirements.
+   */
+  requirement_slugs?: string[]
 }
 
 export type ChecklistDefinition = {
@@ -103,6 +110,36 @@ export type ComplianceResponseRow = {
 export type ComplianceAssignableUser = {
   id: string
   displayName: string
+}
+
+/**
+ * Compliance requirement (legal clause / standard section).
+ * organization_id NULL = system-defined (read-only from app). NOT NULL =
+ * org-authored custom requirement.
+ */
+export type ComplianceRequirementRow = {
+  id: string
+  organization_id: string | null
+  pack: CompliancePackSlug
+  slug: string
+  code: string
+  title: string
+  description: string | null
+  is_system: boolean
+  is_active: boolean
+  deleted_at: string | null
+  created_by: string | null
+  created_at: string
+  updated_at: string
+}
+
+/** Junction row linking a template to a requirement it satisfies. */
+export type ComplianceTemplateRequirementRow = {
+  template_id: string
+  requirement_id: string
+  organization_id: string
+  created_by: string | null
+  created_at: string
 }
 
 /** Org-wide aggregates fetched separately from the paginated list. */

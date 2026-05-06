@@ -7,7 +7,9 @@ import type {
   ChecklistDefinition,
   ChecklistItem,
   ComplianceExecutionRow,
+  ComplianceRequirementRow,
   ComplianceResponseRow,
+  ComplianceTemplateRequirementRow,
   ComplianceTemplateRow,
 } from './types'
 
@@ -22,6 +24,7 @@ const ChecklistItemSchema: z.ZodType<ChecklistItem> = z.object({
   iso_clause: z.string().optional(),
   severity_default: z.enum(['low', 'medium', 'high', 'critical']).optional(),
   help: z.string().optional(),
+  requirement_slugs: z.array(z.string()).optional(),
 })
 
 const ChecklistDefinitionSchema: z.ZodType<ChecklistDefinition> = z.object({
@@ -93,6 +96,34 @@ export const ComplianceResponseRowSchema: z.ZodType<ComplianceResponseRow> = z.o
   created_at: TimestampSchema,
   updated_at: TimestampSchema,
 })
+
+// ── Requirements taxonomy ──────────────────────────────────────────────────
+
+export const ComplianceRequirementRowSchema: z.ZodType<ComplianceRequirementRow> =
+  z.object({
+    id: UuidSchema,
+    organization_id: z.string().uuid().nullable(),
+    pack: PackSchema,
+    slug: z.string(),
+    code: z.string(),
+    title: z.string(),
+    description: z.string().nullable(),
+    is_system: z.boolean(),
+    is_active: z.boolean(),
+    deleted_at: z.string().nullable(),
+    created_by: z.string().uuid().nullable(),
+    created_at: TimestampSchema,
+    updated_at: TimestampSchema,
+  })
+
+export const ComplianceTemplateRequirementRowSchema: z.ZodType<ComplianceTemplateRequirementRow> =
+  z.object({
+    template_id: UuidSchema,
+    requirement_id: UuidSchema,
+    organization_id: UuidSchema,
+    created_by: z.string().uuid().nullable(),
+    created_at: TimestampSchema,
+  })
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
 
