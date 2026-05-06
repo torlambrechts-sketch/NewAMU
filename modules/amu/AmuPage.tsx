@@ -333,39 +333,40 @@ function MeetingsPanel({
               className={`${MODULE_TABLE_TR_BODY} cursor-pointer`}
               onClick={() => onOpen(m.id)}
             >
-              <td className="px-5 py-3">
+              <td className="px-5 py-3 text-sm">
                 <div className="flex items-center gap-3">
-                  <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-[#e7efe9] text-[#1a3d32]">
-                    <span className="text-[11px] font-semibold">Q{m.sequence_no}</span>
+                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-[#e7efe9] text-[#1a3d32]">
+                    <span className="text-sm font-semibold">Q{m.sequence_no}</span>
                   </div>
                   <div className="min-w-0">
-                    <div className="font-medium text-neutral-900">{m.title}</div>
-                    <div className="mt-0.5 text-xs text-neutral-500">
+                    <div className="text-sm font-semibold text-neutral-900">{m.title}</div>
+                    <div className="mt-0.5 text-sm text-neutral-500">
                       {m.year} · møte nr {m.sequence_no}
                     </div>
                   </div>
                 </div>
               </td>
-              <td className="px-5 py-3 text-neutral-700">{fmtDate(m.scheduled_at, true)}</td>
-              <td className="px-5 py-3 text-neutral-700">
+              <td className="px-5 py-3 text-sm text-neutral-700">{fmtDate(m.scheduled_at, true)}</td>
+              <td className="px-5 py-3 text-sm text-neutral-700">
                 {m.location ?? '—'}
                 {m.is_hybrid ? ' · hybrid' : ''}
               </td>
-              <td className="px-5 py-3 tabular-nums text-neutral-700">{itemCount}</td>
-              <td className="px-5 py-3">
-                <Badge variant={ui.variant}>{ui.label}</Badge>
+              <td className="px-5 py-3 text-sm tabular-nums text-neutral-700">{itemCount}</td>
+              <td className="px-5 py-3 text-sm">
+                <Badge variant={ui.variant} className="text-sm">
+                  {ui.label}
+                </Badge>
               </td>
               <td className="px-5 py-3 text-right">
                 <Button
                   variant="ghost"
-                  size="sm"
                   type="button"
                   onClick={(e) => {
                     e.stopPropagation()
                     onOpen(m.id)
                   }}
                 >
-                  Åpne <ArrowRight className="h-3.5 w-3.5" aria-hidden />
+                  Åpne <ArrowRight className="h-4 w-4" aria-hidden />
                 </Button>
               </td>
             </tr>
