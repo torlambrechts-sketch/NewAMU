@@ -1,7 +1,6 @@
 import { useState, type ReactNode } from 'react'
-import { ModulePageShell } from '../../src/components/module'
+import { ModuleLegalBanner, ModulePageShell } from '../../src/components/module'
 import { Button } from '../../src/components/ui/Button'
-import { ComplianceBanner } from '../../src/components/ui/ComplianceBanner'
 import { Tabs } from '../../src/components/ui/Tabs'
 import { WarningBox } from '../../src/components/ui/AlertBox'
 import { useAmu } from './useAmu'
@@ -11,6 +10,7 @@ import { MeetingRoomTab } from './tabs/MeetingRoomTab'
 import { MembersTab } from './tabs/MembersTab'
 import { OverviewTab } from './tabs/OverviewTab'
 import { ScheduleTab } from './tabs/ScheduleTab'
+import { AMU_MODULE_LEGAL_REFERENCES } from './amuLegalReferences'
 
 const TABS = [
   { id: 'overview', label: 'Oversikt' },
@@ -80,10 +80,17 @@ export function AmuPage({
       }
       loading={amu.loading}
     >
-      <ComplianceBanner title="Regelverk" className="rounded-md">
-        Lovpålagt utvalg for virksomheter med 50 eller flere ansatte. Referanser: AML § 7-1, § 7-2, § 7-3,
-        IK-forskriften § 5.
-      </ComplianceBanner>
+      <ModuleLegalBanner
+        title="Regelverk for arbeidsmiljøutvalg"
+        intro={
+          <p>
+            Arbeidsmiljøutvalget (AMU) er lovpålagt for virksomheter med 50 eller flere ansatte (eller 20+
+            når en av partene krever det) og forankres i arbeidsmiljølovens kapittel 7, internkontroll­
+            forskriften § 5 og forskrift om organisering, ledelse og medvirkning § 3-18.
+          </p>
+        }
+        references={AMU_MODULE_LEGAL_REFERENCES}
+      />
 
       {amu.error ? <WarningBox>{amu.error}</WarningBox> : null}
 

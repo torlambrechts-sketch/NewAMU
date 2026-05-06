@@ -10,6 +10,8 @@ import {
   Loader2,
   Plus,
   Save,
+  ShieldAlert,
+  ShieldCheck,
   SlidersHorizontal,
   Trash2,
   Vote,
@@ -33,6 +35,8 @@ import {
 import { AmuSettingsGenerelt } from '../components/amu/settings/AmuSettingsGenerelt'
 import { AmuSettingsMoete } from '../components/amu/settings/AmuSettingsMoete'
 import { AmuSettingsVarsler } from '../components/amu/settings/AmuSettingsVarsler'
+import { AmuSettingsVarsling } from '../components/amu/settings/AmuSettingsVarsling'
+import { AmuSettingsCompliance } from '../components/amu/settings/AmuSettingsCompliance'
 import { AmuSettingsAarsrapport } from '../components/amu/settings/AmuSettingsAarsrapport'
 import { AmuSettingsIntegrasjoner } from '../components/amu/settings/AmuSettingsIntegrasjoner'
 import { Button } from '../components/ui/Button'
@@ -58,6 +62,8 @@ type AdminTab =
   | 'generelt'
   | 'moete'
   | 'varsler'
+  | 'varsling'
+  | 'compliance'
   | 'aarsrapport'
   | 'integrasjoner'
   | 'standard_saksliste'
@@ -66,10 +72,12 @@ type AdminTab =
 const ADMIN_TABS: TabItem[] = [
   { id: 'generelt',          label: 'Generelt',          icon: SlidersHorizontal },
   { id: 'moete',             label: 'Møteinnstillinger', icon: Vote },
-  { id: 'varsler',           label: 'Varsler',           icon: Bell },
+  { id: 'standard_saksliste', label: 'Standard saksliste', icon: ClipboardList },
+  { id: 'varsler',           label: 'Varsler (e-post)',  icon: Bell },
+  { id: 'varsling',          label: 'Varsling',          icon: ShieldAlert },
+  { id: 'compliance',        label: 'Etterlevelse',      icon: ShieldCheck },
   { id: 'aarsrapport',       label: 'Årsrapport',        icon: FileText },
   { id: 'integrasjoner',     label: 'Integrasjoner',     icon: Globe },
-  { id: 'standard_saksliste', label: 'Standard saksliste', icon: ClipboardList },
   { id: 'arbeidsflyt',       label: 'Arbeidsflyt',       icon: GitBranch },
 ]
 
@@ -251,7 +259,14 @@ export function AmuModuleAdminPage({ embedded = false }: AmuModuleAdminPageProps
       )}
 
       {/* ── Settings loading state ─────────────────────────────────── */}
-      {settingsLoading && (tab === 'generelt' || tab === 'moete' || tab === 'varsler' || tab === 'aarsrapport' || tab === 'integrasjoner') && (
+      {settingsLoading &&
+        (tab === 'generelt' ||
+          tab === 'moete' ||
+          tab === 'varsler' ||
+          tab === 'varsling' ||
+          tab === 'compliance' ||
+          tab === 'aarsrapport' ||
+          tab === 'integrasjoner') && (
         <p className="flex items-center gap-2 text-sm text-neutral-500">
           <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
           Laster innstillinger…
@@ -264,8 +279,14 @@ export function AmuModuleAdminPage({ embedded = false }: AmuModuleAdminPageProps
       {/* ── Møteinnstillinger ─────────────────────────────────────────── */}
       {tab === 'moete' && !settingsLoading && <AmuSettingsMoete {...saveProps} />}
 
-      {/* ── Varsler ───────────────────────────────────────────────────── */}
+      {/* ── Varsler (e-post) ──────────────────────────────────────────── */}
       {tab === 'varsler' && !settingsLoading && <AmuSettingsVarsler {...saveProps} />}
+
+      {/* ── Varsling (whistleblowing — AML kap. 2 A) ──────────────────── */}
+      {tab === 'varsling' && !settingsLoading && <AmuSettingsVarsling {...saveProps} />}
+
+      {/* ── Etterlevelse / HMS-opplæring ──────────────────────────────── */}
+      {tab === 'compliance' && !settingsLoading && <AmuSettingsCompliance {...saveProps} />}
 
       {/* ── Årsrapport ────────────────────────────────────────────────── */}
       {tab === 'aarsrapport' && !settingsLoading && <AmuSettingsAarsrapport {...saveProps} />}
