@@ -29,6 +29,8 @@ export const PERMISSION_KEYS = [
   'sja.manage',
   /** Redigere inspeksjonsmodul (maler, lokasjoner, runder) */
   'inspection.manage',
+  /** Redigere compliance-sjekklister (maler, utførelser, signering) — pack-agnostisk primitiv */
+  'checklist.manage',
   /** Redigere tiltaksplan, kategorier og arbeidsflyt (IK) */
   'action_plan.manage',
   /** AMU-valg — administrere valg, kandidater og stemmeberettigede */
@@ -134,6 +136,7 @@ export const PERMISSION_LABELS: Record<PermissionKey, string> = {
   'ros.manage': 'ROS — redigere risikovurderinger',
   'sja.manage': 'SJA — redigere analyser og maler',
   'inspection.manage': 'Inspeksjonsmodul — redigere runder og innstillinger',
+  'checklist.manage': 'Compliance-sjekklister — opprette, besvare og signere',
   'action_plan.manage': 'Tiltaksplan — kategorier og arbeidsflyt',
   'amu_election.manage': 'AMU-valg — administrasjon',
   'survey.manage': 'Undersøkelse — administrasjon',
