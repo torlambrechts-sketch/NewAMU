@@ -322,6 +322,19 @@ type NavModule = {
 // out of Gamle moduler by cutting the object and pasting it into the correct
 // group below.
 // ─────────────────────────────────────────────────────────────────────────────
+
+// Permission gate for the synthetic Sjekklister menu — matches the /compliance
+// route gate in ROUTE_PERMISSION_ANY so anyone who can reach the page also
+// sees the menu entry.
+const COMPLIANCE_NAV_PERMS: PermissionKey[] = [
+  'module.view.hse',
+  'module.view.internal_control',
+  'module.view.org_health',
+  'module.view.hr_compliance',
+  'module.view.dashboard',
+  'checklist.manage',
+]
+
 const navGroups: NavGroup[] = [
   // ── 0. Oversikt ──────────────────────────────────────────────────────────
   // Top-level overview group hosting the unified task management hub
@@ -984,6 +997,16 @@ export function AticsShell() {
   // as the click target. Pinned templates appear as expandable sub-items when
   // the entry is active. Single-module group (the structure requires a group)
   // so the entry surfaces as a flat top-level item rather than a folder.
+  //
+  // Permission gate matches the /compliance route gate (ROUTE_PERMISSION_ANY)
+  // so anyone who can reach the page also sees the menu entry. Using the
+  // narrower 'checklist.manage' would hide the menu from view-only users who
+  // can still see the page itself — a confusing inconsistency.
+  //
+  // The group renders even when the org has no licensed compliance_packs;
+  // the page itself shows a clear "no packs licensed" warning, which is
+  // better UX than silently hiding the menu (the customer would have no
+  // path to discover the feature).
   const complianceNav = useComplianceNav()
   const mergedNavGroups = useMemo<NavGroup[]>(() => {
     const pinnedSubs: SubItem[] = complianceNav.items.map((item) => ({
@@ -993,7 +1016,7 @@ export function AticsShell() {
         if (pathname !== '/compliance/checklists') return false
         return new URLSearchParams(search).get('template') === item.templateSlug
       },
-      requirePerm: 'checklist.manage',
+      requirePermAny: COMPLIANCE_NAV_PERMS,
     }))
 
     const complianceGroup: NavGroup = {
@@ -1007,15 +1030,14 @@ export function AticsShell() {
           end: false,
           icon: ClipboardList,
           subs: pinnedSubs,
-          perm: 'checklist.manage' as PermissionKey,
+          permAny: COMPLIANCE_NAV_PERMS,
         },
       ],
     }
-    if (!complianceNav.hasAnyPack) return navGroups
     const idx = navGroups.findIndex((g) => g.id === 'gamle-moduler')
     if (idx === -1) return [...navGroups, complianceGroup]
     return [...navGroups.slice(0, idx), complianceGroup, ...navGroups.slice(idx)]
-  }, [complianceNav.items, complianceNav.hasAnyPack])
+  }, [complianceNav.items])
 
   const visibleGroups = useMemo(
     () => filterNavGroups(mergedNavGroups, gateNav, can, disabledModules, hiddenForUser),
