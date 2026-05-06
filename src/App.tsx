@@ -105,6 +105,9 @@ import { ModuleSlugPage } from './pages/ModuleSlugPage'
 import { InspectionModulePage } from './pages/InspectionModulePage'
 import { InspectionModuleAdminPage } from './pages/InspectionModuleAdminPage'
 import { InspectionRoundDetailPage } from './pages/InspectionRoundDetailPage'
+import { ChecklistsPage } from '../modules/compliance/ChecklistsPage'
+import { ChecklistExecutionPage } from '../modules/compliance/ChecklistExecutionPage'
+import { PackProvider } from './context/PackContext'
 import { VernerunderPageRoute } from './pages/VernerunderPage'
 import { VernerundeDetailPage } from './pages/VernerundeDetailPage'
 import { VernerunderAdminPage } from './pages/VernerunderAdminPage'
@@ -257,6 +260,23 @@ const router = createBrowserRouter(
                       <Route path="avvik" element={<Navigate to="/tasks/management?tab=avvik" replace />} />
                       <Route path="avvik/legacy" element={<AvvikPage />} />
                       <Route path="inspection-module/:roundId" element={<InspectionRoundDetailPage />} />
+                      {/* Compliance Checklist primitive — pack-aware (AML / ISO 45001) */}
+                      <Route
+                        path="compliance/checklists"
+                        element={
+                          <PackProvider>
+                            <ChecklistsPage />
+                          </PackProvider>
+                        }
+                      />
+                      <Route
+                        path="compliance/checklists/:executionId"
+                        element={
+                          <PackProvider>
+                            <ChecklistExecutionPage />
+                          </PackProvider>
+                        }
+                      />
                       <Route path="vernerunder/admin" element={<VernerunderAdminPage />} />
                       <Route path="vernerunder/:vernerundeId" element={<VernerundeDetailPage />} />
                       <Route path="vernerunder" element={<VernerunderPageRoute />} />
