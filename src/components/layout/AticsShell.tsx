@@ -321,6 +321,86 @@ type NavModule = {
 // group below.
 // ─────────────────────────────────────────────────────────────────────────────
 const navGroups: NavGroup[] = [
+  // ── 0. Oversikt ──────────────────────────────────────────────────────────
+  // Top-level overview group hosting the unified task management hub
+  // (oppgaver + avvik + varsling + anonym AML in one place).
+  {
+    id: 'oversikt',
+    label: 'Oversikt',
+    icon: LayoutGrid,
+    modules: [
+      {
+        to: '/tasks/management',
+        label: 'Oppgaver (Ny)',
+        end: false,
+        icon: Kanban,
+        subs: [
+          {
+            label: 'Oversikt',
+            path: '/tasks/management?tab=oversikt',
+            match: ({ pathname, search }) =>
+              pathname === '/tasks/management' &&
+              (!new URLSearchParams(search).get('tab') ||
+                new URLSearchParams(search).get('tab') === 'oversikt'),
+          },
+          {
+            label: 'Tavle',
+            path: '/tasks/management?tab=tavle',
+            match: ({ pathname, search }) =>
+              pathname === '/tasks/management' && new URLSearchParams(search).get('tab') === 'tavle',
+          },
+          {
+            label: 'Liste',
+            path: '/tasks/management?tab=liste',
+            match: ({ pathname, search }) =>
+              pathname === '/tasks/management' && new URLSearchParams(search).get('tab') === 'liste',
+          },
+          {
+            label: 'Planlegging',
+            path: '/tasks/management?tab=planlegging',
+            match: ({ pathname, search }) =>
+              pathname === '/tasks/management' &&
+              new URLSearchParams(search).get('tab') === 'planlegging',
+          },
+          {
+            label: 'Samarbeid',
+            path: '/tasks/management?tab=samarbeid',
+            match: ({ pathname, search }) =>
+              pathname === '/tasks/management' &&
+              new URLSearchParams(search).get('tab') === 'samarbeid',
+          },
+          {
+            label: 'Avvik',
+            path: '/tasks/management?tab=avvik',
+            match: ({ pathname, search }) =>
+              pathname === '/tasks/management' && new URLSearchParams(search).get('tab') === 'avvik',
+          },
+          {
+            label: 'Varsling',
+            path: '/tasks/management?tab=varsling',
+            match: ({ pathname, search }) =>
+              pathname === '/tasks/management' &&
+              new URLSearchParams(search).get('tab') === 'varsling',
+          },
+          {
+            label: 'Anonym AML',
+            path: '/tasks/management?tab=anonym',
+            match: ({ pathname, search }) =>
+              pathname === '/tasks/management' &&
+              new URLSearchParams(search).get('tab') === 'anonym',
+          },
+          {
+            label: 'Innstillinger',
+            path: '/tasks/management?tab=innstillinger',
+            match: ({ pathname, search }) =>
+              pathname === '/tasks/management' &&
+              new URLSearchParams(search).get('tab') === 'innstillinger',
+          },
+        ],
+      },
+    ],
+  },
+
   // ── 1. Risiko & Sikkerhet ────────────────────────────────────────────────
   {
     id: 'risiko-sikkerhet',
