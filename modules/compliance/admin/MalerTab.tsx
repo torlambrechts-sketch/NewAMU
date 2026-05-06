@@ -154,6 +154,12 @@ function TemplateRow({
             ) : null}
             {template.nav_pinned ? <Badge variant="success">Sidemeny</Badge> : null}
             {!template.is_active ? <Badge variant="neutral">Inaktiv</Badge> : null}
+            {template.review_status === 'draft' ? (
+              <Badge variant="warning">Utkast</Badge>
+            ) : null}
+            {template.review_status === 'approved' ? (
+              <Badge variant="success">Godkjent</Badge>
+            ) : null}
           </div>
           <p className="mt-1 text-xs text-neutral-500">
             <span className="font-mono">{template.slug}</span>
@@ -161,6 +167,12 @@ function TemplateRow({
             <span>
               {itemCount} {itemCount === 1 ? 'punkt' : 'punkter'}
             </span>
+            {template.cadence_hint ? (
+              <>
+                <span className="mx-1.5">·</span>
+                <span>{template.cadence_hint}</span>
+              </>
+            ) : null}
             {template.description ? (
               <>
                 <span className="mx-1.5">·</span>

@@ -56,6 +56,11 @@ export type ComplianceTemplateRow = {
   nav_pinned: boolean
   /** Platform-shipped baseline template. Cannot be hard-deleted (DB trigger). */
   is_system: boolean
+  /** Legal-review provenance flag — admin badge surfaces this so customers
+   *  can see whether a template has been independently verified. */
+  review_status: 'draft' | 'reviewed' | 'approved'
+  /** Non-binding cadence suggestion (e.g. "kvartalsvis", "årlig"). */
+  cadence_hint: string | null
   deleted_at: string | null
   created_by: string | null
   created_at: string
