@@ -52,6 +52,7 @@ import { WorkplacePublishedComposerProvider } from './context/WorkplacePublished
 import { ProjectDashboard } from './pages/ProjectDashboard'
 import { WelcomeDashboardPage } from './pages/WelcomeDashboardPage'
 import { TasksPage } from './pages/TasksPage'
+import { TasksManagementPage } from '../modules/tasks'
 import { WorkspaceAuditLogPage } from './pages/WorkspaceAuditLogPage'
 import { LearningLayout } from './components/learning/LearningLayout'
 import { LearningDashboard } from './pages/learning/LearningDashboard'
@@ -207,6 +208,7 @@ const router = createBrowserRouter(
                       <Route path="app" element={<WelcomeDashboardPage />} />
                       <Route path="dashboard/classic" element={<ProjectDashboard />} />
                       <Route path="tasks" element={<TasksPage />} />
+                      <Route path="tasks/management" element={<TasksManagementPage />} />
                       <Route path="workspace/revisjonslogg" element={<WorkspaceAuditLogPage />} />
                       <Route path="organisation" element={<OrganisationPage />} />
                       <Route path="organisation/admin" element={<AdminPage />} />

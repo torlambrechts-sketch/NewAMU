@@ -1,0 +1,5 @@
+export { TasksManagementPage } from './TasksManagementPage'
+export { useTaskExtensions } from './useTaskExtensions'
+export type { UseTaskExtensions } from './useTaskExtensions'
+export * from './types'
+export { TASK_MODULE_LEGAL_REFERENCES } from './taskLegalReferences'
