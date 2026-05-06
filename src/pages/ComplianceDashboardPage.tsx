@@ -26,6 +26,7 @@ import { useOrgHealth } from '../hooks/useOrgHealth'
 import { useWorkplaceReportingCases } from '../hooks/useWorkplaceReportingCases'
 import { HubMenu1Bar, type HubMenu1Item } from '../components/layout/HubMenu1Bar'
 import { WorkplacePageHeading1 } from '../components/layout/WorkplacePageHeading1'
+import { buildComplianceHubItems } from '../components/compliance/complianceHubMenu'
 import type { PermissionKey } from '../lib/permissionKeys'
 
 /** Layout-referanse «Dashboard (kompakt)» — samme kremflate som TanStatCard i pinpoint. */
@@ -264,18 +265,15 @@ export function ComplianceDashboardPage() {
   const openSurveys = oh.surveys.filter((s) => s.status === 'open').length
   const openCompliancePoints = rosDrafts + annualOpen + hse.stats.openInspections + hse.stats.openSja + openSurveys
 
+  /**
+   * Hub menu shows the four samsvar-perspectives (Oversikt / Kanban / AML / Internforskriften)
+   * shared with /compliance/kanban etc. Module cards remain on this overview page.
+   */
   const complianceHubItems: HubMenu1Item[] = useMemo(() => {
-    const fromCards = visible.map((c) => ({
-      key: c.to,
-      label: c.title,
-      icon: c.icon,
-      active: false,
-      to: c.to,
-      end: true as const,
-    }))
+    const base = buildComplianceHubItems('overview')
     if (can('module.view.dashboard')) {
       return [
-        ...fromCards,
+        ...base,
         {
           key: 'audit',
           label: 'Revisjonslogg',
@@ -286,8 +284,8 @@ export function ComplianceDashboardPage() {
         },
       ]
     }
-    return fromCards
-  }, [visible, can])
+    return base
+  }, [can])
 
   const showAmlTile = can('module.view.workplace_reporting') || can('module.view.org_health')
 
