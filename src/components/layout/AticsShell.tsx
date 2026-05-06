@@ -980,30 +980,33 @@ export function AticsShell() {
     })()
   }, [supabase, user])
 
-  // Compliance "Sjekklister" group — synthetic, populated from pinned
-  // templates the active org has licensed packs for. Inserted before the
-  // legacy "Gamle moduler" group so it surfaces as a primary product line.
+  // Compliance "Sjekklister" — high-level menu item with /compliance/checklists
+  // as the click target. Pinned templates appear as expandable sub-items when
+  // the entry is active. Single-module group (the structure requires a group)
+  // so the entry surfaces as a flat top-level item rather than a folder.
   const complianceNav = useComplianceNav()
   const mergedNavGroups = useMemo<NavGroup[]>(() => {
+    const pinnedSubs: SubItem[] = complianceNav.items.map((item) => ({
+      label: item.name,
+      path: item.to,
+      match: ({ pathname, search }) => {
+        if (pathname !== '/compliance/checklists') return false
+        return new URLSearchParams(search).get('template') === item.templateSlug
+      },
+      requirePerm: 'checklist.manage',
+    }))
+
     const complianceGroup: NavGroup = {
       id: 'sjekklister',
       label: 'Sjekklister',
       icon: ClipboardList,
       modules: [
-        ...complianceNav.items.map((item) => ({
-          to: item.to,
-          label: item.name,
-          end: false,
-          icon: ClipboardList,
-          subs: [],
-          perm: 'checklist.manage' as PermissionKey,
-        })),
         {
           to: '/compliance/checklists',
-          label: 'Alle sjekklister',
-          end: true,
-          icon: ListChecks,
-          subs: [],
+          label: 'Sjekklister',
+          end: false,
+          icon: ClipboardList,
+          subs: pinnedSubs,
           perm: 'checklist.manage' as PermissionKey,
         },
       ],
