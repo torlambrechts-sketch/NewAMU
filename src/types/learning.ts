@@ -58,6 +58,24 @@ export type CourseModule = {
   content: ModuleContent
   /** Estimated minutes (micro-learning) */
   durationMinutes: number
+  /**
+   * Optional grouping under a {@link CourseSection}. When `null`/absent, the module
+   * lives at the course root. Sections are persisted client-side until the matching
+   * Supabase migration lands; older callers can ignore this field.
+   */
+  sectionId?: string | null
+}
+
+/**
+ * Optional grouping inside a {@link Course} (a.k.a. «kapittel» / chapter). A course
+ * can have any number of sections; each module then belongs to one section, or to
+ * the course root when `sectionId` is empty.
+ */
+export type CourseSection = {
+  id: string
+  title: string
+  order: number
+  description?: string | null
 }
 
 /** system = shared catalog row; org = created in org; fork = copied from system for editing */
@@ -85,6 +103,11 @@ export type Course = {
   courseVersion?: number
   /** Months until recertification (optional) */
   recertificationMonths?: number | null
+  /**
+   * Optional sections that group {@link CourseModule modules} inside the course.
+   * Maps onto each module's {@link CourseModule.sectionId}.
+   */
+  sections?: CourseSection[]
 }
 
 export type ModuleProgress = {

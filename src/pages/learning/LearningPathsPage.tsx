@@ -7,16 +7,17 @@ import { Button } from '../../components/ui/Button'
 import { ToggleSwitch } from '../../components/ui/FormToggles'
 import { StandardInput } from '../../components/ui/Input'
 import { StandardTextarea } from '../../components/ui/Textarea'
+import { WarningBox } from '../../components/ui/AlertBox'
 import { LayoutScoreStatRow } from '../../components/layout/LayoutScoreStatRow'
 import type { LayoutScoreStatItem } from '../../components/layout/platformLayoutKit'
 import { ModuleSectionCard } from '../../components/module'
-import { ComplianceBanner } from '../../components/ui/ComplianceBanner'
+import { WPSTD_FORM_FIELD_LABEL } from '../../components/layout/WorkplaceStandardFormPanel'
 
 const SERIF_FAMILY = "'Libre Baskerville', Georgia, serif"
 
 export function LearningPathsPage() {
-  const { can } = useOrgSetupContext()
-  const canManage = can('learning.manage')
+  const { can, isAdmin } = useOrgSetupContext()
+  const canManage = isAdmin || can('learning.manage')
   const {
     courses,
     learningPaths,
@@ -69,25 +70,17 @@ export function LearningPathsPage() {
       { big: String(learningPaths.length), title: 'Læringsløp', sub: 'Definert' },
       { big: String(pathEnrollments.length), title: 'Påmeldinger', sub: 'Aktive' },
       { big: String(published.length), title: 'Tilgjengelige kurs', sub: 'Publisert i katalog' },
+      { big: String(courses.length), title: 'Kurs i katalog', sub: 'Inkl. utkast' },
     ],
-    [learningPaths.length, pathEnrollments.length, published.length],
+    [learningPaths.length, pathEnrollments.length, published.length, courses.length],
   )
 
   return (
     <div className="space-y-6">
-      <ComplianceBanner title="Rollebasert opplæring">
-        Læringsløp grupperer kurs etter rolle (verneombud, AMU-medlem, leder) — sikrer riktig
-        opplæring etter AML § 3-5 (arbeidsgivers plikt) og § 6-5 (verneombud).
-      </ComplianceBanner>
-
-      {learningError ? (
-        <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
-          {learningError}
-        </p>
-      ) : null}
+      {learningError ? <WarningBox>{learningError}</WarningBox> : null}
       {learningLoading ? <p className="text-sm text-neutral-500">Laster…</p> : null}
 
-      <LayoutScoreStatRow items={kpis} columns={3} />
+      <LayoutScoreStatRow items={kpis} />
 
       <div className="grid gap-6 lg:grid-cols-2">
         <ModuleSectionCard>
@@ -176,38 +169,45 @@ export function LearningPathsPage() {
             <p className="mt-1 text-sm text-neutral-600">
               Definer regel og velg kursene som skal være obligatoriske.
             </p>
-            <div className="mt-4 space-y-3">
+            <div className="mt-4 space-y-4">
               <div>
-                <label className="mb-1 block text-xs font-semibold uppercase tracking-wider text-neutral-600">
+                <label className={WPSTD_FORM_FIELD_LABEL} htmlFor="lp-name">
                   Navn
                 </label>
-                <StandardInput value={name} onChange={(e) => setName(e.target.value)} />
+                <StandardInput
+                  id="lp-name"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  className="mt-1.5"
+                />
               </div>
               <div>
-                <label className="mb-1 block text-xs font-semibold uppercase tracking-wider text-neutral-600">
+                <label className={WPSTD_FORM_FIELD_LABEL} htmlFor="lp-slug">
                   Slug (kortnavn)
                 </label>
                 <StandardInput
+                  id="lp-slug"
                   value={slug}
                   onChange={(e) => setSlug(e.target.value)}
                   placeholder="f.eks. safety-rep"
+                  className="mt-1.5"
                 />
               </div>
               <div>
-                <label className="mb-1 block text-xs font-semibold uppercase tracking-wider text-neutral-600">
+                <label className={WPSTD_FORM_FIELD_LABEL} htmlFor="lp-desc">
                   Beskrivelse
                 </label>
                 <StandardTextarea
+                  id="lp-desc"
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
                   rows={2}
+                  className="mt-1.5"
                 />
               </div>
               <div>
-                <label className="mb-1 block text-xs font-semibold uppercase tracking-wider text-neutral-600">
-                  Kurs i rekkefølge
-                </label>
-                <ul className="max-h-40 space-y-1 overflow-y-auto rounded-md border border-neutral-200 bg-white p-2">
+                <span className={WPSTD_FORM_FIELD_LABEL}>Kurs i rekkefølge</span>
+                <ul className="mt-1.5 max-h-40 space-y-1 overflow-y-auto rounded-md border border-neutral-200 bg-white p-2">
                   {published.length === 0 ? (
                     <li className="px-2 py-1 text-xs text-neutral-500">
                       Ingen publiserte kurs tilgjengelig.
@@ -236,21 +236,28 @@ export function LearningPathsPage() {
                   )}
                 </ul>
               </div>
-              <div className="grid gap-2 sm:grid-cols-2">
+              <div className="grid gap-3 sm:grid-cols-2">
                 <div>
-                  <label className="mb-1 block text-xs font-semibold uppercase tracking-wider text-neutral-600">
+                  <label className={WPSTD_FORM_FIELD_LABEL} htmlFor="lp-meta-key">
                     Metadata-nøkkel
                   </label>
-                  <StandardInput value={metaKey} onChange={(e) => setMetaKey(e.target.value)} />
+                  <StandardInput
+                    id="lp-meta-key"
+                    value={metaKey}
+                    onChange={(e) => setMetaKey(e.target.value)}
+                    className="mt-1.5"
+                  />
                 </div>
                 <div>
-                  <label className="mb-1 block text-xs font-semibold uppercase tracking-wider text-neutral-600">
+                  <label className={WPSTD_FORM_FIELD_LABEL} htmlFor="lp-meta-val">
                     Forventet verdi
                   </label>
                   <StandardInput
+                    id="lp-meta-val"
                     value={metaVal}
                     onChange={(e) => setMetaVal(e.target.value)}
                     placeholder="true / false / tekst"
+                    className="mt-1.5"
                   />
                 </div>
               </div>
@@ -259,9 +266,8 @@ export function LearningPathsPage() {
               <Button
                 type="button"
                 variant="primary"
-                size="sm"
                 onClick={submit}
-                icon={<Plus className="h-3.5 w-3.5" />}
+                icon={<Plus className="h-4 w-4" />}
               >
                 Opprett læringsløp
               </Button>

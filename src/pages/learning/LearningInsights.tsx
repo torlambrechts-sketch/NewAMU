@@ -5,7 +5,6 @@ import { LayoutScoreStatRow } from '../../components/layout/LayoutScoreStatRow'
 import type { LayoutScoreStatItem } from '../../components/layout/platformLayoutKit'
 import { LayoutTable1PostingsShell } from '../../components/layout/LayoutTable1PostingsShell'
 import { ModuleSectionCard } from '../../components/module'
-import { ComplianceBanner } from '../../components/ui/ComplianceBanner'
 
 const KIND_LABELS: Record<string, string> = {
   flashcard: 'Flashkort',
@@ -61,10 +60,6 @@ export function LearningInsights() {
 
   return (
     <div className="space-y-6">
-      <ComplianceBanner title="Dokumentasjon">
-        Aggregerte tall brukes til å dokumentere opplæring etter AML § 3-2 og IK-forskriften § 5 nr. 2.
-      </ComplianceBanner>
-
       <LayoutScoreStatRow items={kpis} />
 
       <ModuleSectionCard className="!p-0">

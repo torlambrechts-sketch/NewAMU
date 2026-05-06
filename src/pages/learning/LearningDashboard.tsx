@@ -17,7 +17,7 @@ import { StandardInput } from '../../components/ui/Input'
 import { LayoutScoreStatRow } from '../../components/layout/LayoutScoreStatRow'
 import type { LayoutScoreStatItem } from '../../components/layout/platformLayoutKit'
 import { LayoutTable1PostingsShell } from '../../components/layout/LayoutTable1PostingsShell'
-import { ModuleSectionCard } from '../../components/module'
+import { MODULE_TABLE_TH, MODULE_TABLE_TR_BODY, ModuleSectionCard } from '../../components/module'
 import type { Course, CourseProgress } from '../../types/learning'
 
 const SERIF_FAMILY = "'Libre Baskerville', Georgia, serif"
@@ -152,10 +152,6 @@ function CourseCard({
   )
 }
 
-const TABLE_TH =
-  'px-5 py-3 text-left text-[10px] font-bold uppercase tracking-wider text-neutral-600'
-const TABLE_TR_BODY = 'border-t border-neutral-100 hover:bg-neutral-50/60 transition-colors'
-
 function CatalogTable({
   courses,
   orgStatsById,
@@ -167,14 +163,14 @@ function CatalogTable({
     <table className="w-full text-sm">
       <thead className="bg-neutral-50/60">
         <tr>
-          <th className={TABLE_TH}>Kurs</th>
-          <th className={TABLE_TH}>Status</th>
-          <th className={TABLE_TH}>Moduler</th>
-          <th className={TABLE_TH}>Tildelt</th>
-          <th className={TABLE_TH}>Fullført</th>
-          <th className={TABLE_TH}>Forfalt</th>
-          <th className={TABLE_TH}>Resertifisering</th>
-          <th className={TABLE_TH} />
+          <th className={MODULE_TABLE_TH}>Kurs</th>
+          <th className={MODULE_TABLE_TH}>Status</th>
+          <th className={MODULE_TABLE_TH}>Moduler</th>
+          <th className={MODULE_TABLE_TH}>Tildelt</th>
+          <th className={MODULE_TABLE_TH}>Fullført</th>
+          <th className={MODULE_TABLE_TH}>Forfalt</th>
+          <th className={MODULE_TABLE_TH}>Resertifisering</th>
+          <th className={MODULE_TABLE_TH} />
         </tr>
       </thead>
       <tbody>
@@ -182,7 +178,7 @@ function CatalogTable({
           const stats = orgStatsById[c.id] ?? { assigned: 0, completed: 0, inProgress: 0, overdue: 0 }
           const status = statusBadgeFor(c.status)
           return (
-            <tr key={c.id} className={TABLE_TR_BODY}>
+            <tr key={c.id} className={MODULE_TABLE_TR_BODY}>
               <td className="px-5 py-3">
                 <div className="flex items-center gap-3">
                   <div

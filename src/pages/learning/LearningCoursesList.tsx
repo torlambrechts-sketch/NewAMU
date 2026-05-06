@@ -6,10 +6,11 @@ import {
   CheckCircle2,
   Clock,
   GraduationCap,
-  Plus,
+  Pencil,
   RefreshCw,
   Search,
   Star,
+  Trash2,
 } from 'lucide-react'
 import { useLearning } from '../../hooks/useLearning'
 import { useOrgSetupContext } from '../../hooks/useOrgSetupContext'
@@ -17,6 +18,7 @@ import type { Course, CourseStatus } from '../../types/learning'
 import { LearningPrivacyNotice } from '../../components/learning/LearningPrivacyNotice'
 import { Badge } from '../../components/ui/Badge'
 import { Button } from '../../components/ui/Button'
+import { WarningBox } from '../../components/ui/AlertBox'
 import { StandardInput } from '../../components/ui/Input'
 import { SearchableSelect, type SelectOption } from '../../components/ui/SearchableSelect'
 import { LayoutTable1PostingsShell } from '../../components/layout/LayoutTable1PostingsShell'
@@ -83,12 +85,13 @@ type TabId = 'all' | 'active' | 'complete' | 'fav'
 
 export function LearningCoursesList() {
   const navigate = useNavigate()
-  const { can, profile } = useOrgSetupContext()
-  const canManage = can('learning.manage')
+  const { can, isAdmin, profile } = useOrgSetupContext()
+  const canManage = isAdmin || can('learning.manage')
+  const canDelete = isAdmin || can('learning.delete') || canManage
   const {
     courses,
-    createCourse,
     updateCourse,
+    deleteCourse,
     learningLoading,
     learningError,
     isCourseUnlocked,
@@ -97,11 +100,9 @@ export function LearningCoursesList() {
   } = useLearning()
 
   const [q, setQ] = useState('')
-  const [title, setTitle] = useState('')
-  const [desc, setDesc] = useState('')
   const [tab, setTab] = useState<TabId>('all')
   const [favourites, setFavourites] = useState<Set<string>>(loadFavouriteIds)
-  const [showCreate, setShowCreate] = useState(false)
+  const [deleteError, setDeleteError] = useState<string | null>(null)
 
   const visibleCourses = useMemo(() => {
     let list = courses
@@ -160,6 +161,22 @@ export function LearningCoursesList() {
     })
   }
 
+  const handleDelete = (course: Course) => {
+    if (!canDelete) return
+    if (
+      !window.confirm(
+        `Slette kurset «${course.title}»? Modul, fremdrift og sertifikater fjernes også. Dette kan ikke angres.`,
+      )
+    ) {
+      return
+    }
+    void (async () => {
+      const r = await deleteCourse(course.id)
+      if (!r.ok) setDeleteError(r.error)
+      else setDeleteError(null)
+    })()
+  }
+
   const filterChips: { id: TabId; label: string; count: number }[] = [
     { id: 'all', label: 'Alle kurs', count: tabCounts.all },
     { id: 'active', label: 'Pågående', count: tabCounts.active },
@@ -167,85 +184,13 @@ export function LearningCoursesList() {
     { id: 'fav', label: 'Favoritter', count: tabCounts.fav },
   ]
 
-  const headerActions = canManage ? (
-    <Button
-      size="sm"
-      icon={<Plus className="h-3.5 w-3.5" />}
-      onClick={() => setShowCreate((v) => !v)}
-    >
-      Nytt kurs
-    </Button>
-  ) : null
-
   return (
     <div className="space-y-6">
-      {learningError ? (
-        <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">{learningError}</p>
-      ) : null}
+      {learningError ? <WarningBox>{learningError}</WarningBox> : null}
+      {deleteError ? <WarningBox>{deleteError}</WarningBox> : null}
       {learningLoading ? <p className="text-sm text-neutral-500">Laster kurs…</p> : null}
 
       {!learningError ? <LearningPrivacyNotice /> : null}
-
-      {showCreate && canManage ? (
-        <ModuleSectionCard>
-          <h2
-            className="text-lg font-semibold text-neutral-900"
-            style={{ fontFamily: SERIF_FAMILY }}
-          >
-            Nytt kurs
-          </h2>
-          <p className="mt-1 text-sm text-neutral-600">
-            Du kan endre tittel og beskrivelse senere i kursbyggeren.
-          </p>
-          <form
-            onSubmit={(e) => {
-              e.preventDefault()
-              if (!title.trim()) return
-              const c = createCourse(title, desc)
-              setTitle('')
-              setDesc('')
-              setShowCreate(false)
-              navigate(`/learning/courses/${c.id}`)
-            }}
-            className="mt-4 grid gap-3 sm:grid-cols-2"
-          >
-            <div>
-              <label className="mb-1 block text-xs font-semibold uppercase tracking-wider text-neutral-600">
-                Tittel
-              </label>
-              <StandardInput
-                value={title}
-                onChange={(e) => setTitle(e.target.value)}
-                placeholder="f.eks. AML-grunnkurs"
-                required
-              />
-            </div>
-            <div>
-              <label className="mb-1 block text-xs font-semibold uppercase tracking-wider text-neutral-600">
-                Kort beskrivelse
-              </label>
-              <StandardInput
-                value={desc}
-                onChange={(e) => setDesc(e.target.value)}
-                placeholder="Hvem er målgruppen og hva lærer de?"
-              />
-            </div>
-            <div className="sm:col-span-2 flex justify-end gap-2 border-t border-neutral-100 pt-3">
-              <Button
-                type="button"
-                variant="secondary"
-                size="sm"
-                onClick={() => setShowCreate(false)}
-              >
-                Avbryt
-              </Button>
-              <Button type="submit" variant="primary" size="sm" icon={<Plus className="h-3.5 w-3.5" />}>
-                Opprett
-              </Button>
-            </div>
-          </form>
-        </ModuleSectionCard>
-      ) : null}
 
       <ModuleSectionCard className="!p-0">
         <LayoutTable1PostingsShell
@@ -253,12 +198,12 @@ export function LearningCoursesList() {
           titleTypography="sans"
           title="Kurskatalog"
           description="Velg et kurs for å se moduler, deltakere og lovgrunnlag."
-          headerActions={headerActions}
           toolbar={
             <>
               <div className="relative max-w-sm flex-1">
                 <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-neutral-400" />
                 <StandardInput
+                  type="search"
                   value={q}
                   onChange={(e) => setQ(e.target.value)}
                   placeholder="Søk i tittel, tagger eller beskrivelse"
@@ -318,6 +263,7 @@ export function LearningCoursesList() {
               const pct = total ? done / total : 0
               const isFav = favourites.has(c.id)
               const status = statusBadgeFor(c.status)
+              const sectionCount = c.sections?.length ?? 0
 
               return (
                 <article
@@ -383,6 +329,12 @@ export function LearningCoursesList() {
                   ) : null}
 
                   <div className="mt-1 flex flex-wrap items-center gap-3 border-t border-neutral-100 pt-3 text-xs text-neutral-600">
+                    {sectionCount > 0 ? (
+                      <span className="inline-flex items-center gap-1">
+                        <BookOpen className="h-3.5 w-3.5 text-neutral-500" />
+                        {sectionCount} {sectionCount === 1 ? 'seksjon' : 'seksjoner'}
+                      </span>
+                    ) : null}
                     <span className="inline-flex items-center gap-1">
                       <BookOpen className="h-3.5 w-3.5 text-neutral-500" />
                       {total} {total === 1 ? 'modul' : 'moduler'}
@@ -443,12 +395,29 @@ export function LearningCoursesList() {
                       </span>
                     )}
                     {canManage ? (
-                      <Link
-                        to={`/learning/courses/${c.id}`}
-                        className="inline-flex items-center gap-1 rounded-md border border-neutral-300 bg-white px-3 py-1.5 text-xs font-semibold text-neutral-700 transition-colors hover:bg-neutral-50"
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="secondary"
+                        icon={<Pencil className="h-3 w-3" />}
+                        onClick={() => navigate(`/learning/courses/${c.id}`)}
+                        aria-label={`Rediger ${c.title}`}
                       >
-                        Bygger
-                      </Link>
+                        Rediger
+                      </Button>
+                    ) : null}
+                    {canDelete && c.origin !== 'system' ? (
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="ghost"
+                        icon={<Trash2 className="h-3 w-3" />}
+                        onClick={() => handleDelete(c)}
+                        aria-label={`Slett ${c.title}`}
+                        className="text-red-600 hover:bg-red-50 hover:text-red-700"
+                      >
+                        Slett
+                      </Button>
                     ) : null}
                   </div>
                 </article>
@@ -456,7 +425,7 @@ export function LearningCoursesList() {
             })}
             {filteredCards.length === 0 && !learningLoading ? (
               <div className="col-span-full py-12 text-center text-sm text-neutral-500">
-                Ingen kurs i dette filteret.
+                Ingen kurs i dette filteret. Bruk «Nytt kurs» øverst for å opprette ett.
               </div>
             ) : null}
           </div>

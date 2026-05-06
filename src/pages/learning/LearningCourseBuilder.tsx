@@ -2,6 +2,8 @@ import { useMemo, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { learningFlowEntryUrl, qrCodeImageUrl } from '../../lib/learningDeepLink'
 import {
+  ArrowLeft,
+  ArrowRight,
   Award,
   BarChart3,
   BookOpen,
@@ -9,6 +11,7 @@ import {
   Calendar,
   CircleDot,
   FileText,
+  FolderTree,
   GripVertical,
   HelpCircle,
   Image,
@@ -16,6 +19,8 @@ import {
   Lightbulb,
   ListChecks,
   MoreHorizontal,
+  Pencil,
+  PlayCircle,
   Plus,
   Trash2,
   Users,
@@ -24,15 +29,20 @@ import {
 import { useLearning } from '../../hooks/useLearning'
 import { useOrgSetupContext } from '../../hooks/useOrgSetupContext'
 import type { CourseModule, ModuleKind } from '../../types/learning'
-import { PIN_GREEN } from '../../components/learning/LearningLayout'
+import { LEARNING_MODULE_LEGAL_REFERENCES } from '../../components/learning/learningLegalReferences'
 import { RichTextEditor } from '../../components/learning/RichTextEditor'
 import { AddTaskLink } from '../../components/tasks/AddTaskLink'
 import { HubMenu1Bar, type HubMenu1Item } from '../../components/layout/HubMenu1Bar'
+import { Badge } from '../../components/ui/Badge'
 import { Button } from '../../components/ui/Button'
 import { ToggleSwitch } from '../../components/ui/FormToggles'
 import { StandardInput } from '../../components/ui/Input'
 import { StandardTextarea } from '../../components/ui/Textarea'
 import { WarningBox } from '../../components/ui/AlertBox'
+import { Tabs, type TabItem } from '../../components/ui/Tabs'
+import { ModuleLegalBanner, ModulePageShell, ModuleSectionCard } from '../../components/module'
+import { WPSTD_FORM_FIELD_LABEL } from '../../components/layout/WorkplaceStandardFormPanel'
+import { SearchableSelect, type SelectOption } from '../../components/ui/SearchableSelect'
 
 const MODULE_KINDS: { id: ModuleKind | 'all'; label: string; icon: HubMenu1Item['icon'] }[] = [
   { id: 'all', label: 'Alle moduler', icon: Layers },
@@ -66,14 +76,20 @@ type MainTab = 'info' | 'modules' | 'cert' | 'participants' | 'insights'
 export function LearningCourseBuilder() {
   const navigate = useNavigate()
   const { courseId } = useParams<{ courseId: string }>()
-  const { can } = useOrgSetupContext()
-  const canManage = can('learning.manage')
+  const { can, isAdmin } = useOrgSetupContext()
+  const canManage = isAdmin || can('learning.manage')
+  const canDelete = isAdmin || can('learning.delete') || canManage
   const {
     courses,
     updateCourse,
+    deleteCourse,
     addModule,
     updateModule,
     deleteModule,
+    addSection,
+    updateSection,
+    deleteSection,
+    assignModuleToSection,
     forkSystemCourse,
     learningLoading,
     learningError,
@@ -85,11 +101,14 @@ export function LearningCourseBuilder() {
   const isSystemCatalog =
     course && course.origin === 'system' && course.sourceSystemCourseId && course.modules.length > 0
 
-  const [mainTab, setMainTab] = useState<MainTab>('modules')
+  const [mainTab, setMainTab] = useState<MainTab>('info')
   const [typeFilter, setTypeFilter] = useState<ModuleKind | 'all'>('all')
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [tagInput, setTagInput] = useState('')
   const [builderActionError, setBuilderActionError] = useState<string | null>(null)
+  const [newSectionTitle, setNewSectionTitle] = useState('')
+  const [editingSectionId, setEditingSectionId] = useState<string | null>(null)
+  const [editingSectionTitle, setEditingSectionTitle] = useState('')
 
   const filteredModules = useMemo(() => {
     if (!course) return []
@@ -117,39 +136,81 @@ export function LearningCourseBuilder() {
   }, [course, typeFilter])
 
   const selected = course?.modules.find((m) => m.id === selectedId) ?? null
+  const sections = course?.sections ?? []
+
+  const breadcrumb = [
+    { label: 'Arbeidsflate', to: '/' },
+    { label: 'E-læring', to: '/learning' },
+    { label: 'Kurs', to: '/learning/courses' },
+    { label: course?.title ?? 'Kurs' },
+  ]
 
   if (learningLoading && courseId && !course) {
-    return <p className="text-sm text-[#6b6f68]">Laster kurs…</p>
+    return (
+      <ModulePageShell breadcrumb={breadcrumb} title="Laster kurs…" loading>
+        {null}
+      </ModulePageShell>
+    )
   }
 
   if (!course) {
     return (
-      <p className="text-[#6b6f68]">
-        Kurs ikke funnet. <Link to="/learning/courses" className="text-[#1a3d32] underline">Tilbake</Link>
-      </p>
+      <ModulePageShell
+        breadcrumb={breadcrumb}
+        title="Kurs ikke funnet"
+        notFound={{
+          title: 'Kurset finnes ikke',
+          backLabel: '← Tilbake til kurslisten',
+          onBack: () => navigate('/learning/courses'),
+        }}
+      >
+        {null}
+      </ModulePageShell>
     )
   }
 
   if (canManage && isSystemCatalog && course?.sourceSystemCourseId) {
     return (
-      <div className="max-w-2xl space-y-6">
-        <nav className="text-sm text-[#6b6f68]">
-          <Link to="/learning/courses" className="hover:text-[#1a3d32]">
-            Kurs
-          </Link>
-          <span className="mx-2 text-neutral-300">›</span>
-          <span className="font-medium text-[#1d1f1c]">{course.title}</span>
-        </nav>
-        <div className="rounded-lg border border-[#c5d3c8] bg-[#e7efe9] p-6">
-          <h1 className="font-serif text-2xl font-semibold text-[#1a3d32]">Systemkurs</h1>
-          <p className="mt-2 text-sm text-[#1d1f1c]">
-            Dette kurset leveres fra felles katalog og kan ikke redigeres direkte. Kopier det til din organisasjon for å
-            tilpasse innhold, rekkefølge og publisering.
+      <ModulePageShell
+        breadcrumb={breadcrumb}
+        title={course.title}
+        description="Dette kurset leveres fra Klarert sin systemkatalog."
+        headerActions={
+          <Button
+            type="button"
+            variant="secondary"
+            icon={<ArrowLeft className="h-4 w-4" />}
+            onClick={() => navigate('/learning/courses')}
+          >
+            Tilbake til kurs
+          </Button>
+        }
+      >
+        <ModuleSectionCard>
+          <h2 className="text-lg font-semibold text-neutral-900" style={{ fontFamily: "'Libre Baskerville', Georgia, serif" }}>
+            Systemkurs — kun lesetilgang
+          </h2>
+          <p className="mt-2 text-sm text-neutral-700">
+            Dette kurset leveres fra felles katalog og kan ikke redigeres direkte. Kopier det til
+            organisasjonen din for å tilpasse innhold, rekkefølge og publisering.
           </p>
-          <div className="mt-4 flex flex-wrap gap-3">
+          {builderActionError ? (
+            <div className="mt-3">
+              <WarningBox>{builderActionError}</WarningBox>
+            </div>
+          ) : null}
+          <div className="mt-5 flex flex-wrap items-center justify-end gap-2 border-t border-neutral-100 pt-4">
+            <Link
+              to={`/learning/play/${course.id}`}
+              className="inline-flex items-center gap-1.5 rounded-md border border-neutral-300 bg-white px-3 py-2 text-sm font-semibold text-neutral-700 transition-colors hover:bg-neutral-50"
+            >
+              <PlayCircle className="h-4 w-4" />
+              Forhåndsvisning
+            </Link>
             <Button
               type="button"
               variant="primary"
+              icon={<Plus className="h-4 w-4" />}
               onClick={() => {
                 void (async () => {
                   setBuilderActionError(null)
@@ -162,178 +223,256 @@ export function LearningCourseBuilder() {
                 })()
               }}
             >
-              Kopier og tilpass (mal)
+              Kopier og tilpass
             </Button>
-            <Link
-              to={`/learning/play/${course.id}`}
-              className="inline-flex items-center rounded-md border border-[#e3ddcc] bg-[#fbf9f3] px-4 py-2 text-sm font-medium text-[#1d1f1c] hover:bg-[#f7f5ee]"
-            >
-              Forhåndsvisning
-            </Link>
           </div>
-        </div>
-      </div>
+        </ModuleSectionCard>
+      </ModulePageShell>
     )
   }
 
   if (!canManage) {
     return (
-      <div className="space-y-4">
-        <nav className="text-sm text-[#6b6f68]">
-          <Link to="/learning/courses" className="hover:text-[#1a3d32]">
-            Kurs
-          </Link>
-          <span className="mx-2 text-neutral-300">›</span>
-          <span className="font-medium text-[#1d1f1c]">{course.title}</span>
-        </nav>
-        <p className="rounded-lg border border-amber-200 bg-amber-50/80 p-4 text-sm text-[#1d1f1c]">
-          Du har ikke tilgang til kursbyggeren. Bruk <Link to={`/learning/play/${course.id}`} className="font-medium text-[#1a3d32] underline">forhåndsvisning</Link> for å ta kurset, eller be om rettigheten «E-learning — opprette og redigere kurs».
-        </p>
-        <Link to="/learning/courses" className="text-sm font-medium text-[#1a3d32] hover:underline">
-          ← Tilbake til kurslisten
-        </Link>
-      </div>
+      <ModulePageShell
+        breadcrumb={breadcrumb}
+        title={course.title}
+        description="Du har ikke tilgang til kursbyggeren."
+        headerActions={
+          <Button
+            type="button"
+            variant="secondary"
+            icon={<ArrowLeft className="h-4 w-4" />}
+            onClick={() => navigate('/learning/courses')}
+          >
+            Tilbake til kurs
+          </Button>
+        }
+      >
+        <ModuleSectionCard>
+          <WarningBox>
+            Du har ikke tilgang til kursbyggeren. Bruk{' '}
+            <Link to={`/learning/play/${course.id}`} className="font-medium text-[#1a3d32] underline">
+              forhåndsvisning
+            </Link>{' '}
+            for å ta kurset, eller be om rettigheten «E-learning — opprette og redigere kurs».
+          </WarningBox>
+        </ModuleSectionCard>
+      </ModulePageShell>
     )
   }
 
+  // ── Tabs ─────────────────────────────────────────────────────────────────
+  const tabItems: TabItem[] = [
+    { id: 'info', label: 'Informasjon', icon: FileText },
+    { id: 'modules', label: 'Moduler', icon: Layers, badgeCount: course.modules.length },
+    { id: 'cert', label: 'Sertifisering', icon: Award },
+    { id: 'participants', label: 'Deltakere', icon: Users },
+    { id: 'insights', label: 'Innsikt', icon: BarChart3 },
+  ]
+
+  const statusBadgeVariant: 'active' | 'draft' | 'neutral' =
+    course.status === 'published' ? 'active' : course.status === 'draft' ? 'draft' : 'neutral'
+  const statusLabel =
+    course.status === 'published' ? 'Publisert' : course.status === 'draft' ? 'Utkast' : 'Arkivert'
+
+  const handleDeleteCourse = () => {
+    if (!canDelete) return
+    if (
+      !window.confirm(
+        `Slette kurset «${course.title}»? Modul, fremdrift og sertifikater fjernes også. Dette kan ikke angres.`,
+      )
+    ) {
+      return
+    }
+    void (async () => {
+      const r = await deleteCourse(course.id)
+      if (!r.ok) setBuilderActionError(r.error)
+      else navigate('/learning/courses')
+    })()
+  }
+
+  const sectionOptions: SelectOption[] = [
+    { value: '__root__', label: 'Uten seksjon (kursrot)' },
+    ...sections.map((s) => ({ value: s.id, label: s.title })),
+  ]
+
+  const headerActions = (
+    <div className="flex flex-wrap items-center gap-2">
+      <AddTaskLink
+        title={`Oppfølging: ${course.title}`}
+        description="Oppfølgingsoppgave fra kursbygger"
+        module="learning"
+        sourceType="learning_course"
+        sourceId={course.id}
+        sourceLabel={course.title}
+        ownerRole="Læringsansvarlig"
+      />
+      <Button
+        type="button"
+        variant="secondary"
+        icon={<ArrowLeft className="h-4 w-4" />}
+        onClick={() => navigate('/learning/courses')}
+      >
+        Tilbake til katalog
+      </Button>
+      <Link
+        to={`/learning/play/${course.id}`}
+        className="inline-flex items-center gap-1.5 rounded-md border border-neutral-300 bg-white px-3 py-2 text-sm font-semibold text-neutral-700 transition-colors hover:bg-neutral-50"
+      >
+        <PlayCircle className="h-4 w-4" />
+        Forhåndsvisning
+      </Link>
+      {canDelete ? (
+        <Button
+          type="button"
+          variant="danger"
+          icon={<Trash2 className="h-4 w-4" />}
+          onClick={handleDeleteCourse}
+        >
+          Slett kurs
+        </Button>
+      ) : null}
+    </div>
+  )
+
   return (
-    <div className="space-y-6">
-      {learningError ? (
-        <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">{learningError}</p>
-      ) : null}
-      {builderActionError ? (
-        <div className="mb-2">
-          <WarningBox>{builderActionError}</WarningBox>
-        </div>
-      ) : null}
-      {learningLoading ? <p className="text-sm text-[#6b6f68]">Laster…</p> : null}
-      <nav className="text-sm text-[#6b6f68]">
-        <Link to="/learning/courses" className="hover:text-[#1a3d32]">
-          Kurs
-        </Link>
-        <span className="mx-2 text-neutral-300">›</span>
-        <span className="font-medium text-[#1d1f1c]">{course.title}</span>
-      </nav>
-
-      <div className="flex flex-wrap items-start justify-between gap-4">
-        <div>
-          <div className="flex flex-wrap items-center gap-3">
-            <h1 className="font-serif text-3xl font-semibold text-[#1d1f1c]">{course.title}</h1>
-            <span
-              className={`rounded-full px-3 py-0.5 text-xs font-semibold uppercase tracking-wide ${
-                course.status === 'published'
-                  ? 'bg-[#e7efe9] text-[#1a3d32]'
-                  : course.status === 'draft'
-                    ? 'bg-amber-100 text-amber-900'
-                    : 'bg-neutral-200 text-[#1d1f1c]'
-              }`}
-            >
-              {course.status === 'published' ? 'Publisert' : course.status === 'draft' ? 'Utkast' : 'Arkivert'}
-            </span>
-          </div>
-          <p className="mt-2 max-w-2xl text-sm text-[#6b6f68]">{course.description}</p>
-        </div>
+    <ModulePageShell
+      breadcrumb={breadcrumb}
+      title={course.title}
+      description={
         <div className="flex flex-wrap items-center gap-2">
-          <AddTaskLink
-            title={`Oppfølging: ${course.title}`}
-            description="Oppfølgingsoppgave fra kursbygger"
-            module="learning"
-            sourceType="learning_course"
-            sourceId={course.id}
-            sourceLabel={course.title}
-            ownerRole="Læringsansvarlig"
-          />
-          <Link
-            to={`/learning/play/${course.id}`}
-            className="rounded-md px-4 py-2 text-sm font-medium text-white"
-            style={{ backgroundColor: PIN_GREEN }}
-          >
-            Forhåndsvisning
-          </Link>
+          <Badge variant={statusBadgeVariant}>{statusLabel}</Badge>
+          <span className="text-xs text-neutral-500">
+            v{course.courseVersion ?? 1} · {course.modules.length} moduler
+            {sections.length > 0 ? ` · ${sections.length} seksjoner` : ''}
+          </span>
         </div>
-      </div>
-
-      <HubMenu1Bar
-        ariaLabel="Kursbygger — seksjoner"
-        items={(
-          [
-            ['info', 'Kursinfo', FileText],
-            ['modules', 'Moduler', Layers],
-            ['cert', 'Sertifisering', Award],
-            ['participants', 'Deltakere', Users],
-            ['insights', 'Innsikt', BarChart3],
-          ] as const
-        ).map(([id, label, Icon]) => ({
-          key: id,
-          label,
-          icon: Icon,
-          active: mainTab === id,
-          onClick: () => setMainTab(id),
-        }))}
+      }
+      headerActions={headerActions}
+      tabs={
+        <Tabs
+          items={tabItems}
+          activeId={mainTab}
+          onChange={(id) => setMainTab(id as MainTab)}
+          overflow="scroll"
+        />
+      }
+    >
+      <ModuleLegalBanner
+        title="Regelverk for dette kurset"
+        intro={
+          <>
+            Innholdet skal dokumentere lovpålagt opplæring. Knytt kursmodulene til de aktuelle
+            paragrafene under for å gjøre samsvar enklere å revidere.
+          </>
+        }
+        references={LEARNING_MODULE_LEGAL_REFERENCES}
       />
 
+      {learningError ? <WarningBox>{learningError}</WarningBox> : null}
+      {builderActionError ? <WarningBox>{builderActionError}</WarningBox> : null}
+
       {mainTab === 'info' && (
-        <div className="rounded-lg border border-[#e3ddcc] bg-[#fbf9f3] p-6">
-          <label className="text-xs font-medium text-[#6b6f68]">Tittel</label>
-          <StandardInput
-            value={course.title}
-            onChange={(e) => updateCourse(course.id, { title: e.target.value })}
-            className="mt-1 max-w-xl"
-          />
-          <label className="mt-4 block text-xs font-medium text-[#6b6f68]">Beskrivelse</label>
-          <StandardTextarea
-            value={course.description}
-            onChange={(e) => updateCourse(course.id, { description: e.target.value })}
-            rows={4}
-            className="mt-1 max-w-2xl"
-          />
-          <div className="mt-4 flex flex-wrap gap-2">
-            {course.tags.map((t) => (
-              <span
-                key={t}
-                className="inline-flex items-center gap-1 rounded-full bg-[#f7f5ee] px-2 py-0.5 text-xs"
-              >
-                {t}
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  className="size-5 min-h-0 p-0 text-[#6b6f68] hover:text-red-600"
-                  onClick={() => updateCourse(course.id, { tags: course.tags.filter((x) => x !== t) })}
-                  aria-label={`Fjern etikett ${t}`}
-                >
-                  ×
-                </Button>
-              </span>
-            ))}
-            <StandardInput
-              value={tagInput}
-              onChange={(e) => setTagInput(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' && tagInput.trim()) {
-                  e.preventDefault()
-                  if (!course.tags.includes(tagInput.trim())) {
-                    updateCourse(course.id, { tags: [...course.tags, tagInput.trim()] })
+        <ModuleSectionCard>
+          <div className="grid gap-5 lg:grid-cols-2">
+            <div>
+              <label className={WPSTD_FORM_FIELD_LABEL} htmlFor="course-title">
+                Tittel
+              </label>
+              <StandardInput
+                id="course-title"
+                value={course.title}
+                onChange={(e) => updateCourse(course.id, { title: e.target.value })}
+                className="mt-1.5"
+              />
+            </div>
+            <div>
+              <label className={WPSTD_FORM_FIELD_LABEL} htmlFor="course-recert">
+                Resertifisering (måneder)
+              </label>
+              <StandardInput
+                id="course-recert"
+                type="number"
+                min={0}
+                max={120}
+                value={course.recertificationMonths ?? ''}
+                onChange={(e) => {
+                  const raw = e.target.value
+                  if (raw === '') {
+                    updateCourse(course.id, { recertificationMonths: null })
+                    return
                   }
-                  setTagInput('')
-                }
-              }}
-              placeholder="+ Legg til etikett"
-              className="w-36 rounded-full border-dashed py-0.5 text-xs"
-            />
-          </div>
-          {otherCourses.length > 0 ? (
-            <div className="mt-6 border-t border-[#e3ddcc] pt-4">
-              <p className="text-xs font-medium text-[#6b6f68]">Forutsetninger (lås opp dette kurset)</p>
-              <p className="mt-1 text-xs text-[#6b6f68]">
-                Velg kurs som må fullføres før dette blir tilgjengelig for deltakere.
+                  const n = Number(raw)
+                  if (Number.isNaN(n)) return
+                  updateCourse(course.id, { recertificationMonths: Math.min(120, Math.max(0, n)) })
+                }}
+                placeholder="La stå tom for ingen fornyelse"
+                className="mt-1.5"
+              />
+              <p className="mt-1 text-xs text-neutral-500">
+                Klarert sender automatisk varsel 60 dager før utløp.
               </p>
-              <ul className="mt-3 max-h-40 space-y-2 overflow-y-auto">
-                {otherCourses.map((oc) => (
+            </div>
+            <div className="lg:col-span-2">
+              <label className={WPSTD_FORM_FIELD_LABEL} htmlFor="course-desc">
+                Beskrivelse
+              </label>
+              <StandardTextarea
+                id="course-desc"
+                value={course.description}
+                onChange={(e) => updateCourse(course.id, { description: e.target.value })}
+                rows={4}
+                className="mt-1.5"
+              />
+            </div>
+            <div className="lg:col-span-2">
+              <span className={WPSTD_FORM_FIELD_LABEL}>Tagger</span>
+              <div className="mt-1.5 flex flex-wrap items-center gap-2">
+                {course.tags.map((t) => (
+                  <span
+                    key={t}
+                    className="inline-flex items-center gap-1 rounded-full border border-neutral-200 bg-neutral-50 px-2 py-0.5 text-xs font-medium text-neutral-700"
+                  >
+                    {t}
+                    <button
+                      type="button"
+                      className="ml-0.5 text-neutral-400 hover:text-red-600"
+                      onClick={() => updateCourse(course.id, { tags: course.tags.filter((x) => x !== t) })}
+                      aria-label={`Fjern etikett ${t}`}
+                    >
+                      ×
+                    </button>
+                  </span>
+                ))}
+                <StandardInput
+                  value={tagInput}
+                  onChange={(e) => setTagInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && tagInput.trim()) {
+                      e.preventDefault()
+                      if (!course.tags.includes(tagInput.trim())) {
+                        updateCourse(course.id, { tags: [...course.tags, tagInput.trim()] })
+                      }
+                      setTagInput('')
+                    }
+                  }}
+                  placeholder="+ Legg til etikett"
+                  className="w-44 py-1 text-xs"
+                />
+              </div>
+            </div>
+            {otherCourses.length > 0 ? (
+              <div className="lg:col-span-2 border-t border-neutral-100 pt-4">
+                <span className={WPSTD_FORM_FIELD_LABEL}>Forutsetninger</span>
+                <p className="mt-1 text-xs text-neutral-500">
+                  Velg kurs som må fullføres før dette blir tilgjengelig for deltakere.
+                </p>
+                <ul className="mt-3 max-h-48 space-y-2 overflow-y-auto rounded-md border border-neutral-200 bg-neutral-50/40 p-3">
+                  {otherCourses.map((oc) => (
                     <li key={oc.id} className="flex items-start justify-between gap-2 text-sm">
                       <div className="min-w-0 flex-1">
-                        <span className="font-medium text-[#1d1f1c]">{oc.title}</span>
-                        <span className="ml-2 text-xs text-[#6b6f68]">
+                        <span className="font-medium text-neutral-900">{oc.title}</span>
+                        <span className="ml-2 text-xs text-neutral-500">
                           ({oc.status === 'published' ? 'Publisert' : oc.status === 'draft' ? 'Utkast' : 'Arkivert'})
                         </span>
                       </div>
@@ -347,39 +486,13 @@ export function LearningCourseBuilder() {
                         label={`Forutsetning: ${oc.title}`}
                       />
                     </li>
-                ))}
-              </ul>
-            </div>
-          ) : null}
-          <div className="mt-6 border-t border-[#e3ddcc] pt-4">
-            <p className="text-xs font-medium text-[#6b6f68]">Oppfriskning / sertifisering</p>
-            <p className="mt-1 text-xs text-[#6b6f68]">
-              Antall måneder til sertifikatet utløper og må fornyes (valgfritt). Brukes for påminnelser og status.
-            </p>
-            <div className="mt-3 flex flex-wrap items-center gap-3">
-              <label className="text-sm text-[#1d1f1c]">
-                Måneder til fornyelse
-                <StandardInput
-                  type="number"
-                  min={0}
-                  max={120}
-                  value={course.recertificationMonths ?? ''}
-                  onChange={(e) => {
-                    const raw = e.target.value
-                    if (raw === '') {
-                      updateCourse(course.id, { recertificationMonths: null })
-                      return
-                    }
-                    const n = Number(raw)
-                    if (Number.isNaN(n)) return
-                    updateCourse(course.id, { recertificationMonths: Math.min(120, Math.max(0, n)) })
-                  }}
-                  placeholder="—"
-                  className="ml-2 mt-0 inline-block w-24"
-                />
-              </label>
-              <span className="text-xs text-[#6b6f68]">
-                Kursversjon: <strong>{course.courseVersion ?? 1}</strong> (økes ved innholdsendringer for revisjon)
+                  ))}
+                </ul>
+              </div>
+            ) : null}
+            <div className="lg:col-span-2 flex items-center justify-end gap-2 border-t border-neutral-100 pt-4 text-xs text-neutral-500">
+              <span>
+                Kursversjon: <strong className="tabular-nums text-neutral-900">{course.courseVersion ?? 1}</strong>
               </span>
               <Button
                 type="button"
@@ -398,68 +511,249 @@ export function LearningCourseBuilder() {
               </Button>
             </div>
           </div>
-        </div>
+        </ModuleSectionCard>
       )}
 
       {mainTab === 'modules' && (
-        <>
-          {/* Secondary pipeline / type filters */}
-          <HubMenu1Bar ariaLabel="Moduler — typefilter" items={moduleKindFilterItems} />
-
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <h2 className="font-serif text-lg font-semibold text-[#1d1f1c]">Modulbygger</h2>
-            <div className="flex flex-wrap gap-2">
-              {ADD_KINDS.map((a) => (
-                <Button
-                  key={a.kind}
-                  type="button"
-                  variant="secondary"
-                  size="sm"
-                  icon={<Plus className="size-3.5" />}
-                  onClick={() => {
-                    const mod = addModule(course.id, a.kind, a.label)
-                    if (mod) setSelectedId(mod.id)
-                  }}
-                >
-                  {a.label}
-                </Button>
-              ))}
+        <div className="space-y-6">
+          {/* Sections panel */}
+          <ModuleSectionCard>
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex items-center gap-2">
+                <FolderTree className="h-5 w-5 text-[#1a3d32]" />
+                <h2 className="text-lg font-semibold text-neutral-900" style={{ fontFamily: "'Libre Baskerville', Georgia, serif" }}>
+                  Seksjoner
+                </h2>
+              </div>
+              <span className="text-xs text-neutral-500">
+                {sections.length} {sections.length === 1 ? 'seksjon' : 'seksjoner'}
+              </span>
             </div>
-          </div>
+            <p className="mt-1 text-sm text-neutral-600">
+              Grupper modulene i seksjoner (kapitler). Modulene under «Uten seksjon» ligger på kursrota.
+            </p>
+
+            {sections.length > 0 ? (
+              <ul className="mt-4 space-y-2">
+                {sections
+                  .slice()
+                  .sort((a, b) => a.order - b.order)
+                  .map((sec) => {
+                    const inSection = course.modules.filter((m) => m.sectionId === sec.id).length
+                    const isEditing = editingSectionId === sec.id
+                    return (
+                      <li
+                        key={sec.id}
+                        className="flex flex-wrap items-center gap-2 rounded-md border border-neutral-200 bg-neutral-50/40 px-3 py-2"
+                      >
+                        {isEditing ? (
+                          <>
+                            <StandardInput
+                              value={editingSectionTitle}
+                              onChange={(e) => setEditingSectionTitle(e.target.value)}
+                              className="flex-1 py-1.5 text-sm"
+                              autoFocus
+                            />
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="primary"
+                              onClick={() => {
+                                if (editingSectionTitle.trim()) {
+                                  updateSection(course.id, sec.id, { title: editingSectionTitle.trim() })
+                                }
+                                setEditingSectionId(null)
+                                setEditingSectionTitle('')
+                              }}
+                            >
+                              Lagre
+                            </Button>
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="secondary"
+                              onClick={() => {
+                                setEditingSectionId(null)
+                                setEditingSectionTitle('')
+                              }}
+                            >
+                              Avbryt
+                            </Button>
+                          </>
+                        ) : (
+                          <>
+                            <span className="flex h-7 w-7 items-center justify-center rounded-md bg-[#e7efe9] text-[#1a3d32]">
+                              <FolderTree className="h-3.5 w-3.5" />
+                            </span>
+                            <span className="flex-1 truncate text-sm font-medium text-neutral-900">
+                              {sec.title}
+                            </span>
+                            <span className="text-xs text-neutral-500">
+                              {inSection} {inSection === 1 ? 'modul' : 'moduler'}
+                            </span>
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="ghost"
+                              icon={<Pencil className="h-3 w-3" />}
+                              onClick={() => {
+                                setEditingSectionId(sec.id)
+                                setEditingSectionTitle(sec.title)
+                              }}
+                              aria-label={`Rediger seksjon ${sec.title}`}
+                            >
+                              Rediger
+                            </Button>
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="ghost"
+                              icon={<Trash2 className="h-3 w-3" />}
+                              onClick={() => {
+                                if (
+                                  window.confirm(
+                                    `Slette seksjonen «${sec.title}»? Modulene flyttes til kursrota.`,
+                                  )
+                                ) {
+                                  deleteSection(course.id, sec.id)
+                                }
+                              }}
+                              className="text-red-600 hover:bg-red-50 hover:text-red-700"
+                              aria-label={`Slett seksjon ${sec.title}`}
+                            >
+                              Slett
+                            </Button>
+                          </>
+                        )}
+                      </li>
+                    )
+                  })}
+              </ul>
+            ) : (
+              <div className="mt-4 rounded-md border border-dashed border-neutral-300 bg-neutral-50/40 px-4 py-6 text-center text-sm text-neutral-500">
+                Ingen seksjoner ennå — kurset er flatt. Legg til en seksjon for å gruppere relaterte moduler.
+              </div>
+            )}
+
+            <div className="mt-4 flex flex-wrap items-end gap-2 border-t border-neutral-100 pt-4">
+              <div className="min-w-[200px] flex-1">
+                <label className={WPSTD_FORM_FIELD_LABEL} htmlFor="new-section-title">
+                  Ny seksjon
+                </label>
+                <StandardInput
+                  id="new-section-title"
+                  value={newSectionTitle}
+                  onChange={(e) => setNewSectionTitle(e.target.value)}
+                  placeholder="F.eks. Grunnlag, Praktiske øvelser, Kontrollspørsmål"
+                  className="mt-1.5"
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && newSectionTitle.trim()) {
+                      e.preventDefault()
+                      addSection(course.id, newSectionTitle.trim())
+                      setNewSectionTitle('')
+                    }
+                  }}
+                />
+              </div>
+              <Button
+                type="button"
+                variant="primary"
+                icon={<Plus className="h-4 w-4" />}
+                onClick={() => {
+                  if (!newSectionTitle.trim()) return
+                  addSection(course.id, newSectionTitle.trim())
+                  setNewSectionTitle('')
+                }}
+                disabled={!newSectionTitle.trim()}
+              >
+                Legg til seksjon
+              </Button>
+            </div>
+          </ModuleSectionCard>
+
+          {/* Type filter + add buttons */}
+          <ModuleSectionCard>
+            <HubMenu1Bar ariaLabel="Moduler — typefilter" items={moduleKindFilterItems} />
+            <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-neutral-100 pt-4">
+              <h2 className="text-lg font-semibold text-neutral-900" style={{ fontFamily: "'Libre Baskerville', Georgia, serif" }}>
+                Modulbygger
+              </h2>
+              <div className="flex flex-wrap gap-2">
+                {ADD_KINDS.map((a) => (
+                  <Button
+                    key={a.kind}
+                    type="button"
+                    variant="secondary"
+                    size="sm"
+                    icon={<Plus className="h-3.5 w-3.5" />}
+                    onClick={() => {
+                      const mod = addModule(course.id, a.kind, a.label)
+                      if (mod) setSelectedId(mod.id)
+                    }}
+                  >
+                    {a.label}
+                  </Button>
+                ))}
+              </div>
+            </div>
+          </ModuleSectionCard>
 
           <div className="grid gap-6 lg:grid-cols-[1fr_1fr]">
-            <div className="overflow-hidden rounded-lg border border-[#e3ddcc] bg-[#fbf9f3]">
-              <div className="border-b border-[#e3ddcc] bg-[#f7f5ee] px-4 py-2 text-xs font-medium text-[#6b6f68]">
-                Moduler
+            <ModuleSectionCard className="!p-0">
+              <div className="border-b border-neutral-100 px-5 py-3 text-sm font-semibold text-neutral-900">
+                Moduler {typeFilter === 'all' ? `(${filteredModules.length})` : `(${filteredModules.length} av ${course.modules.length})`}
               </div>
-              <ul className="divide-y divide-[#e3ddcc]">
-                {filteredModules.map((m) => (
-                  <li key={m.id}>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      onClick={() => setSelectedId(m.id)}
-                      className={`flex h-auto w-full items-center gap-3 rounded-none px-4 py-3 text-left text-sm font-normal hover:bg-[#f7f5ee] ${
-                        selectedId === m.id ? 'bg-[#e7efe9]' : ''
-                      }`}
-                    >
-                      <GripVertical className="size-4 shrink-0 text-[#6b6f68]" />
-                      <div className="min-w-0 flex-1">
-                        <div className="font-medium text-[#1d1f1c]">{m.title}</div>
-                        <div className="text-xs text-[#6b6f68]">
-                          {m.kind} · ~{m.durationMinutes} min
-                        </div>
-                      </div>
-                    </Button>
-                  </li>
-                ))}
-              </ul>
               {filteredModules.length === 0 ? (
-                <p className="px-4 py-8 text-center text-sm text-[#6b6f68]">Ingen moduler i dette filteret.</p>
-              ) : null}
-            </div>
+                <div className="px-5 py-12 text-center text-sm text-neutral-500">
+                  Ingen moduler i dette filteret.
+                </div>
+              ) : (
+                <ul className="divide-y divide-neutral-100">
+                  {filteredModules.map((m) => {
+                    const sec = sections.find((s) => s.id === m.sectionId)
+                    const active = selectedId === m.id
+                    return (
+                      <li key={m.id} className={active ? 'bg-[#e7efe9]/40' : ''}>
+                        <div className="flex items-center gap-2 px-5 py-3">
+                          <button
+                            type="button"
+                            onClick={() => setSelectedId(m.id)}
+                            className="flex flex-1 items-center gap-3 text-left"
+                          >
+                            <GripVertical className="h-4 w-4 shrink-0 text-neutral-400" />
+                            <div className="min-w-0 flex-1">
+                              <div className="flex items-center gap-2">
+                                <span className="truncate text-sm font-medium text-neutral-900">{m.title}</span>
+                                {sec ? (
+                                  <span className="rounded-full border border-neutral-200 bg-neutral-50 px-1.5 py-0.5 text-[10px] font-medium text-neutral-600">
+                                    {sec.title}
+                                  </span>
+                                ) : null}
+                              </div>
+                              <div className="mt-0.5 text-xs text-neutral-500">
+                                {m.kind} · ~{m.durationMinutes} min
+                              </div>
+                            </div>
+                            {active ? <ArrowRight className="h-4 w-4 text-[#1a3d32]" /> : null}
+                          </button>
+                          <SearchableSelect
+                            value={m.sectionId ?? '__root__'}
+                            options={sectionOptions}
+                            onChange={(v) =>
+                              assignModuleToSection(course.id, m.id, v === '__root__' ? null : v)
+                            }
+                            triggerClassName="px-2 py-1 text-[10px]"
+                            className="w-40"
+                          />
+                        </div>
+                      </li>
+                    )
+                  })}
+                </ul>
+              )}
+            </ModuleSectionCard>
 
-            <div className="rounded-lg border border-[#e3ddcc] bg-[#fbf9f3] p-5">
+            <ModuleSectionCard>
               {selected ? (
                 <ModuleEditor
                   key={selected.id}
@@ -471,43 +765,51 @@ export function LearningCourseBuilder() {
                   onDeleted={() => setSelectedId(null)}
                 />
               ) : (
-                <p className="text-sm text-[#6b6f68]">Velg en modul for å redigere innhold.</p>
+                <p className="text-sm text-neutral-600">Velg en modul fra listen for å redigere innhold.</p>
               )}
-            </div>
+            </ModuleSectionCard>
           </div>
-        </>
+        </div>
       )}
 
       {mainTab === 'cert' && (
-        <div className="rounded-lg border border-[#e3ddcc] bg-[#fbf9f3] p-6 text-sm text-[#6b6f68]">
-          Kursbevis utstedes når en deltaker fullfører alle moduler i{' '}
-          <Link to={`/learning/play/${course.id}`} className="text-[#1a3d32] underline">
-            deltakervisten
-          </Link>
-          . Administrer alle kursbevis under{' '}
-          <Link to="/learning/certifications" className="text-[#1a3d32] underline">
-            Sertifiseringer
-          </Link>
-          .
-        </div>
+        <ModuleSectionCard>
+          <p className="text-sm text-neutral-700">
+            Kursbevis utstedes når en deltaker fullfører alle moduler i{' '}
+            <Link to={`/learning/play/${course.id}`} className="font-medium text-[#1a3d32] underline">
+              deltakervisten
+            </Link>
+            . Administrer alle kursbevis under{' '}
+            <Link to="/learning/certifications" className="font-medium text-[#1a3d32] underline">
+              Sertifiseringer
+            </Link>
+            .
+          </p>
+        </ModuleSectionCard>
       )}
 
       {mainTab === 'participants' && (
-        <div className="rounded-lg border border-[#e3ddcc] bg-[#fbf9f3] p-6 text-sm text-[#6b6f68]">
-          Deltakeroversikt kobles til organisasjonens Supabase-profiler. Fremdrift for påmeldte vises i{' '}
-          <Link to="/learning/participants" className="text-[#1a3d32] underline">Deltakere</Link>.
-        </div>
+        <ModuleSectionCard>
+          <p className="text-sm text-neutral-700">
+            Deltakeroversikt kobles til organisasjonens Supabase-profiler. Fremdrift for påmeldte vises i{' '}
+            <Link to="/learning/participants" className="font-medium text-[#1a3d32] underline">
+              Deltakere
+            </Link>
+            .
+          </p>
+        </ModuleSectionCard>
       )}
 
       {mainTab === 'insights' && (
-        <div className="rounded-lg border border-[#e3ddcc] bg-[#fbf9f3] p-6">
-          <p className="text-sm text-[#6b6f68]">
-            Antall moduler: <strong className="text-[#1d1f1c]">{course.modules.length}</strong> · Publisert:{' '}
-            <strong className="text-[#1d1f1c]">{course.status === 'published' ? 'Ja' : 'Nei'}</strong>.
+        <ModuleSectionCard>
+          <p className="text-sm text-neutral-700">
+            Antall moduler: <strong className="text-neutral-900">{course.modules.length}</strong> · Seksjoner:{' '}
+            <strong className="text-neutral-900">{sections.length}</strong> · Publisert:{' '}
+            <strong className="text-neutral-900">{course.status === 'published' ? 'Ja' : 'Nei'}</strong>.
           </p>
-        </div>
+        </ModuleSectionCard>
       )}
-    </div>
+    </ModulePageShell>
   )
 }
 
@@ -684,7 +986,6 @@ function IltScheduleForm({
         type="button"
         variant="primary"
         className="mt-3"
-        style={{ backgroundColor: PIN_GREEN }}
         onClick={() => {
           if (!startsAt) {
             setMsg('Velg starttidspunkt.')

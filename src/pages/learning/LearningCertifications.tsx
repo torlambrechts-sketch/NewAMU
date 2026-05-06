@@ -7,12 +7,7 @@ import { StandardInput } from '../../components/ui/Input'
 import { LayoutTable1PostingsShell } from '../../components/layout/LayoutTable1PostingsShell'
 import { LayoutScoreStatRow } from '../../components/layout/LayoutScoreStatRow'
 import type { LayoutScoreStatItem } from '../../components/layout/platformLayoutKit'
-import { ModuleSectionCard } from '../../components/module'
-import { ComplianceBanner } from '../../components/ui/ComplianceBanner'
-
-const TABLE_TH =
-  'px-5 py-3 text-left text-[10px] font-bold uppercase tracking-wider text-neutral-600'
-const TABLE_TR_BODY = 'border-t border-neutral-100 hover:bg-neutral-50/60 transition-colors'
+import { MODULE_TABLE_TH, MODULE_TABLE_TR_BODY, ModuleSectionCard } from '../../components/module'
 
 function fmtDate(iso: string): string {
   if (!iso) return '—'
@@ -63,11 +58,6 @@ export function LearningCertifications() {
 
   return (
     <div className="space-y-6">
-      <ComplianceBanner title="Sertifikater">
-        Kursbeviset dokumenterer fullført opplæring etter AML § 3-2 og IK-forskriften § 5 nr. 2.
-        Klarert varsler automatisk 60 dager før utløp på resertifiseringskurs.
-      </ComplianceBanner>
-
       <LayoutScoreStatRow items={kpis} />
 
       <ModuleSectionCard className="!p-0">
@@ -107,18 +97,18 @@ export function LearningCertifications() {
             <table className="w-full min-w-[640px] text-left text-sm">
               <thead className="bg-neutral-50/60">
                 <tr>
-                  <th className={TABLE_TH}>Kurs</th>
-                  <th className={TABLE_TH}>Mottaker</th>
-                  <th className={TABLE_TH}>Utstedt</th>
-                  <th className={TABLE_TH}>Versjon</th>
-                  <th className={TABLE_TH}>Verifiseringskode</th>
-                  <th className={TABLE_TH}>Status</th>
-                  <th className={TABLE_TH} />
+                  <th className={MODULE_TABLE_TH}>Kurs</th>
+                  <th className={MODULE_TABLE_TH}>Mottaker</th>
+                  <th className={MODULE_TABLE_TH}>Utstedt</th>
+                  <th className={MODULE_TABLE_TH}>Versjon</th>
+                  <th className={MODULE_TABLE_TH}>Verifiseringskode</th>
+                  <th className={MODULE_TABLE_TH}>Status</th>
+                  <th className={MODULE_TABLE_TH} />
                 </tr>
               </thead>
               <tbody>
                 {filtered.map((c) => (
-                  <tr key={c.id} className={TABLE_TR_BODY}>
+                  <tr key={c.id} className={MODULE_TABLE_TR_BODY}>
                     <td className="px-5 py-3 font-medium text-neutral-900">{c.courseTitle}</td>
                     <td className="px-5 py-3 text-neutral-700">{c.learnerName}</td>
                     <td className="px-5 py-3 text-neutral-700">{fmtDate(c.issuedAt)}</td>

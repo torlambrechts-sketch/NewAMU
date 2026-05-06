@@ -6,16 +6,12 @@ import type { CourseProgress } from '../../types/learning'
 import { Badge } from '../../components/ui/Badge'
 import { Button } from '../../components/ui/Button'
 import { StandardInput } from '../../components/ui/Input'
+import { WarningBox } from '../../components/ui/AlertBox'
 import { SearchableSelect, type SelectOption } from '../../components/ui/SearchableSelect'
 import { LayoutTable1PostingsShell } from '../../components/layout/LayoutTable1PostingsShell'
 import { LayoutScoreStatRow } from '../../components/layout/LayoutScoreStatRow'
 import type { LayoutScoreStatItem } from '../../components/layout/platformLayoutKit'
-import { ModuleSectionCard } from '../../components/module'
-import { ComplianceBanner } from '../../components/ui/ComplianceBanner'
-
-const TABLE_TH =
-  'px-5 py-3 text-left text-[10px] font-bold uppercase tracking-wider text-neutral-600'
-const TABLE_TR_BODY = 'border-t border-neutral-100 hover:bg-neutral-50/60 transition-colors'
+import { MODULE_TABLE_TH, MODULE_TABLE_TR_BODY, ModuleSectionCard } from '../../components/module'
 
 type SortKey = 'learner' | 'course' | 'started' | 'days' | 'progress'
 type SortDir = 'asc' | 'desc'
@@ -34,7 +30,7 @@ function SortHead({
   onSort: (k: SortKey) => void
 }) {
   return (
-    <th className={TABLE_TH}>
+    <th className={MODULE_TABLE_TH}>
       <Button
         type="button"
         variant="ghost"
@@ -182,14 +178,7 @@ export function LearningParticipants() {
 
   return (
     <div className="space-y-6">
-      <ComplianceBanner title="Personvern">
-        Visning er begrenset til {canManage ? 'kursansvarlige (HMS-leder, avdelingsleder)' : 'din egen fremdrift'} jf.
-        GDPR art. 5(1)(c) og IK-forskriften § 5 nr. 2.
-      </ComplianceBanner>
-
-      {learningError ? (
-        <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">{learningError}</p>
-      ) : null}
+      {learningError ? <WarningBox>{learningError}</WarningBox> : null}
       {learningLoading ? <p className="text-sm text-neutral-600">Laster…</p> : null}
 
       <LayoutScoreStatRow items={kpis} />
@@ -243,7 +232,7 @@ export function LearningParticipants() {
                   <SortHead colKey="started" label="Startet" activeKey={sortKey} dir={sortDir} onSort={toggleSort} />
                   <SortHead colKey="days" label="Dager siden start" activeKey={sortKey} dir={sortDir} onSort={toggleSort} />
                   <SortHead colKey="progress" label="Fremdrift" activeKey={sortKey} dir={sortDir} onSort={toggleSort} />
-                  <th className={TABLE_TH}>Status</th>
+                  <th className={MODULE_TABLE_TH}>Status</th>
                 </tr>
               </thead>
               <tbody>
@@ -257,7 +246,7 @@ export function LearningParticipants() {
                     .toUpperCase()
                   const status = statusFor(pct, days)
                   return (
-                    <tr key={rowKey(p)} className={TABLE_TR_BODY}>
+                    <tr key={rowKey(p)} className={MODULE_TABLE_TR_BODY}>
                       <td className="px-5 py-3">
                         <div className="flex items-center gap-2.5">
                           <span

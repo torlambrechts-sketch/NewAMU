@@ -6,7 +6,6 @@ import { LayoutScoreStatRow } from '../../components/layout/LayoutScoreStatRow'
 import type { LayoutScoreStatItem } from '../../components/layout/platformLayoutKit'
 import { LayoutTable1PostingsShell } from '../../components/layout/LayoutTable1PostingsShell'
 import { ModuleSectionCard } from '../../components/module'
-import { ComplianceBanner } from '../../components/ui/ComplianceBanner'
 import { WarningBox } from '../../components/ui/AlertBox'
 
 function cellColor(status: string) {
@@ -63,14 +62,7 @@ export function LearningComplianceMatrix() {
 
   return (
     <div className="space-y-6">
-      <ComplianceBanner title="Team-heatmap">
-        Aggregert oversikt over opplæringsdekning per medarbeider — dokumenterer arbeidsgivers plikt til
-        opplæring etter AML § 3-2 og IK-forskriften § 5 nr. 2.
-      </ComplianceBanner>
-
-      {learningError ? (
-        <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">{learningError}</p>
-      ) : null}
+      {learningError ? <WarningBox>{learningError}</WarningBox> : null}
       {learningLoading ? <p className="text-sm text-neutral-600">Laster…</p> : null}
 
       <LayoutScoreStatRow items={kpis} />

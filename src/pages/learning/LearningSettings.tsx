@@ -19,7 +19,7 @@ import { Button } from '../../components/ui/Button'
 import { ToggleSwitch } from '../../components/ui/FormToggles'
 import { StandardInput } from '../../components/ui/Input'
 import { ModuleSectionCard } from '../../components/module'
-import { ComplianceBanner } from '../../components/ui/ComplianceBanner'
+import { WPSTD_FORM_FIELD_LABEL } from '../../components/layout/WorkplaceStandardFormPanel'
 
 const SERIF_FAMILY = "'Libre Baskerville', Georgia, serif"
 
@@ -135,11 +135,6 @@ export function LearningSettings() {
 
   return (
     <div className="space-y-6">
-      <ComplianceBanner title="E-læring — innstillinger">
-        Klarert lagrer kurs, fremdrift og sertifikater for å dokumentere lovpålagt opplæring etter
-        AML § 3-2 og IK-forskriften § 5 nr. 2. Behandling skjer på arbeidsgivers ansvar (GDPR art. 6(1)(c) og (f)).
-      </ComplianceBanner>
-
       <ModuleSectionCard>
         <SectionHeading
           icon={<Database className="h-5 w-5" />}
@@ -244,7 +239,7 @@ export function LearningSettings() {
           />
           <div className="mt-4 grid gap-3 md:grid-cols-2">
             <div>
-              <label className="mb-1 block text-xs font-semibold uppercase tracking-wider text-neutral-600">
+              <label className={WPSTD_FORM_FIELD_LABEL}>
                 Teams (incoming webhook)
               </label>
               <StandardInput
@@ -255,7 +250,7 @@ export function LearningSettings() {
               />
             </div>
             <div>
-              <label className="mb-1 block text-xs font-semibold uppercase tracking-wider text-neutral-600">
+              <label className={WPSTD_FORM_FIELD_LABEL}>
                 Slack (incoming webhook)
               </label>
               <StandardInput
@@ -266,7 +261,7 @@ export function LearningSettings() {
               />
             </div>
             <div className="md:col-span-2">
-              <label className="mb-1 block text-xs font-semibold uppercase tracking-wider text-neutral-600">
+              <label className={WPSTD_FORM_FIELD_LABEL}>
                 Generisk HTTPS-endpoint
               </label>
               <StandardInput

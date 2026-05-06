@@ -58,6 +58,8 @@ export const PERMISSION_KEYS = [
   'hr.o_ros.sign',
   /** Create/edit/publish courses; view org-wide learning progress in admin views */
   'learning.manage',
+  /** Delete (or archive) courses; gated separately from create/edit so a senior admin can revoke without granting full edit */
+  'learning.delete',
   /** Documents & wiki — folders, pages, compliance, template settings */
   'documents.manage',
   /** Documents & wiki — opprette og redigere sider (ikke malbibliotek-admin) */
@@ -150,6 +152,7 @@ export const PERMISSION_LABELS: Record<PermissionKey, string> = {
   'hr.o_ros.view': 'HR — O-ROS innsyn',
   'hr.o_ros.sign': 'HR — O-ROS signatur (AMU/VO)',
   'learning.manage': 'E-learning — opprette og redigere kurs',
+  'learning.delete': 'E-learning — slette eller arkivere kurs',
   'documents.manage': 'Documents & wiki — administrere maler og mapper',
   'documents.edit': 'Documents & wiki — redigere og publisere dokumenter',
   'documents.view': 'Documents & wiki — lese innhold (visning)',

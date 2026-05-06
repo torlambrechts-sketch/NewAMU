@@ -7,6 +7,7 @@ import type {
   Course,
   CourseModule,
   CourseProgress,
+  CourseSection,
   ModuleContent,
   ModuleKind,
   ModuleProgress,
@@ -1260,6 +1261,116 @@ export function useLearning() {
     [useSupabase, supabase, orgId, setState, refreshLearning],
   )
 
+  /**
+   * Permanently delete a course (and the modules / progress / certificates
+   * that the database cascades from it). RLS still gates by organization, but
+   * the *application-level* permission gate lives at the call site —
+   * `learning.delete` is the canonical key (`learning.manage` is a superset).
+   */
+  const deleteCourse = useCallback(
+    async (courseId: string): Promise<{ ok: true } | { ok: false; error: string }> => {
+      if (!useSupabase || !supabase || !orgId) {
+        setState((s) => ({
+          ...s,
+          courses: s.courses.filter((c) => c.id !== courseId),
+          progress: s.progress.filter((p) => p.courseId !== courseId),
+          certificates: s.certificates.filter((cert) => cert.courseId !== courseId),
+        }))
+        return { ok: true as const }
+      }
+      const { error: e } = await supabase
+        .from('learning_courses')
+        .delete()
+        .eq('id', courseId)
+        .eq('organization_id', orgId)
+      if (e) {
+        const msg = getSupabaseErrorMessage(e)
+        setError(msg)
+        return { ok: false as const, error: msg }
+      }
+      await refreshLearning()
+      return { ok: true as const }
+    },
+    [useSupabase, supabase, orgId, setState, refreshLearning],
+  )
+
+  /**
+   * Add a new section (chapter) to a course. Sections live on the local Course
+   * object until the matching `learning_course_sections` migration ships; calls
+   * are non-blocking and safe to invoke against Supabase-backed state.
+   */
+  const addSection = useCallback(
+    (courseId: string, title: string, description?: string): CourseSection | null => {
+      const id = (typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : `sec-${Date.now()}`)
+      const trimmed = title.trim() || 'Ny seksjon'
+      let created: CourseSection | null = null
+      setState((s) => ({
+        ...s,
+        courses: s.courses.map((c) => {
+          if (c.id !== courseId) return c
+          const next: CourseSection = {
+            id,
+            title: trimmed,
+            order: (c.sections?.length ?? 0),
+            description: description?.trim() || null,
+          }
+          created = next
+          return { ...c, sections: [...(c.sections ?? []), next], updatedAt: new Date().toISOString() }
+        }),
+      }))
+      return created
+    },
+    [setState],
+  )
+
+  const updateSection = useCallback(
+    (courseId: string, sectionId: string, patch: Partial<Omit<CourseSection, 'id'>>) => {
+      setState((s) => ({
+        ...s,
+        courses: s.courses.map((c) => {
+          if (c.id !== courseId) return c
+          const sections = (c.sections ?? []).map((sec) =>
+            sec.id === sectionId ? { ...sec, ...patch } : sec,
+          )
+          return { ...c, sections, updatedAt: new Date().toISOString() }
+        }),
+      }))
+    },
+    [setState],
+  )
+
+  const deleteSection = useCallback(
+    (courseId: string, sectionId: string) => {
+      setState((s) => ({
+        ...s,
+        courses: s.courses.map((c) => {
+          if (c.id !== courseId) return c
+          const sections = (c.sections ?? []).filter((sec) => sec.id !== sectionId)
+          // Modules in the deleted section fall back to the course root.
+          const modules = c.modules.map((m) =>
+            m.sectionId === sectionId ? { ...m, sectionId: null } : m,
+          )
+          return { ...c, sections, modules, updatedAt: new Date().toISOString() }
+        }),
+      }))
+    },
+    [setState],
+  )
+
+  const assignModuleToSection = useCallback(
+    (courseId: string, moduleId: string, sectionId: string | null) => {
+      setState((s) => ({
+        ...s,
+        courses: s.courses.map((c) => {
+          if (c.id !== courseId) return c
+          const modules = c.modules.map((m) => (m.id === moduleId ? { ...m, sectionId } : m))
+          return { ...c, modules, updatedAt: new Date().toISOString() }
+        }),
+      }))
+    },
+    [setState],
+  )
+
   const ensureProgress = useCallback(
     async (courseId: string): Promise<void> => {
       if (!useSupabase || !supabase || !orgId || !userId) {
@@ -1909,10 +2020,15 @@ export function useLearning() {
     refreshLearning,
     createCourse,
     updateCourse,
+    deleteCourse,
     addModule,
     updateModule,
     reorderModules,
     deleteModule,
+    addSection,
+    updateSection,
+    deleteSection,
+    assignModuleToSection,
     ensureProgress,
     setModuleCompleted,
     issueCertificate,

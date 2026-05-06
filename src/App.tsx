@@ -280,10 +280,11 @@ const router = createBrowserRouter(
                       <Route path="learning/play/:courseId" element={<LearningPlayer />} />
                       <Route path="learning/certificates/:certId/print" element={<LearningCertificatePrintPage />} />
                       <Route path="learning/flow" element={<LearningFlowEntry />} />
+                      {/* Detail page renders its own ModulePageShell (course title + tabs + status). */}
+                      <Route path="learning/courses/:courseId" element={<LearningCourseBuilder />} />
                       <Route path="learning" element={<LearningLayout />}>
                         <Route index element={<LearningDashboard />} />
                         <Route path="courses" element={<LearningCoursesList />} />
-                        <Route path="courses/:courseId" element={<LearningCourseBuilder />} />
                         <Route path="certifications" element={<LearningCertifications />} />
                         <Route path="insights" element={<LearningInsights />} />
                         <Route path="participants" element={<LearningParticipants />} />
