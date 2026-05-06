@@ -1231,7 +1231,7 @@ export function AmuPage({
       sub: expiringHmsCount > 0 ? 'Utløper innen 90 d' : 'Gyldige · FOR § 3-18',
     },
     {
-      big: filteredActions.length,
+      big: String(filteredActions.length),
       title: 'Åpne tiltak',
       sub:
         yearFilter === 'all'
