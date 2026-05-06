@@ -2,12 +2,8 @@ import { useCallback, useMemo, useState } from 'react'
 import { Outlet, useLocation, useNavigate } from 'react-router-dom'
 import {
   Award,
-  BarChart3,
   BookOpen,
-  ExternalLink,
-  GitBranch,
   LayoutDashboard,
-  LayoutGrid,
   Loader2,
   Plus,
   Settings,
@@ -65,52 +61,28 @@ function learningPageMeta(pathname: string): { section: string; description: str
       description: 'Struktur, moduler, publisering og versjonering for dette kurset.',
     }
   }
-  if (pathname.startsWith('/learning/courses')) {
+  if (pathname.startsWith('/learning/katalog')) {
     return {
-      section: 'Kurs',
-      description: 'Opprett og administrer kurs, tagger og publiseringsstatus.',
+      section: 'Katalog',
+      description: 'Alle kurs i organisasjonen — søk, filtrer og åpne for å redigere eller ta kurset.',
     }
   }
-  if (pathname.startsWith('/learning/certifications')) {
-    return {
-      section: 'Sertifiseringer',
-      description: 'Utstedte og fornybare sertifikater knyttet til fullførte kurs.',
-    }
-  }
-  if (pathname.startsWith('/learning/insights')) {
-    return {
-      section: 'Innsikt',
-      description: 'Aggregerte tall om gjennomføring og fullføring i organisasjonen.',
-    }
-  }
-  if (pathname.startsWith('/learning/participants')) {
+  if (pathname.startsWith('/learning/deltakere')) {
     return {
       section: 'Deltakere',
-      description: 'Hvem som er påmeldt og hvor langt de har kommet.',
+      description: 'Tildelinger og fremdrift — bytt mellom liste og team-heatmap øverst i visningen.',
     }
   }
-  if (pathname.startsWith('/learning/compliance')) {
+  if (pathname.startsWith('/learning/kompetanse')) {
     return {
-      section: 'Team heatmap',
-      description: 'Oversikt over opplæringsdekning per team eller avdeling.',
+      section: 'Kompetanse',
+      description: 'Kursbevis, fornybare sertifikater og ekstern opplæring samlet på ett sted.',
     }
   }
-  if (pathname.startsWith('/learning/paths')) {
-    return {
-      section: 'Læringsstier',
-      description: 'Koble kurs i rekkefølge for roller eller onboarding.',
-    }
-  }
-  if (pathname.startsWith('/learning/external')) {
-    return {
-      section: 'Ekstern opplæring',
-      description: 'Registrer opplæring utenfor plattformen for samsvar og oversikt.',
-    }
-  }
-  if (pathname.startsWith('/learning/settings')) {
+  if (pathname.startsWith('/learning/innstillinger')) {
     return {
       section: 'Innstillinger',
-      description: 'Preferanser og konfigurasjon for e-læringsmodulen.',
+      description: 'Preferanser, læringsstier, integrasjoner og personvern for e-læringsmodulen.',
     }
   }
   return {
@@ -174,8 +146,10 @@ export function LearningLayout() {
     }
   }, [createCourse, navigate, newDesc, newRecert, newTags, newTitle, updateCourse])
 
-  const learningHubItems: HubMenu1Item[] = useMemo(
-    () => [
+  // Five canonical tabs (matches Survey/Documents). Old routes still resolve via
+  // redirects in App.tsx, so deep links from emails / PDFs keep working.
+  const learningHubItems: HubMenu1Item[] = useMemo(() => {
+    const items: HubMenu1Item[] = [
       {
         key: 'dash',
         label: 'Oversikt',
@@ -184,64 +158,51 @@ export function LearningLayout() {
         onClick: () => navigate('/learning'),
       },
       {
-        key: 'courses',
-        label: 'Kurs',
+        key: 'katalog',
+        label: 'Katalog',
         icon: BookOpen,
-        active: pathname.startsWith('/learning/courses'),
-        onClick: () => navigate('/learning/courses'),
+        active:
+          pathname === '/learning/katalog' ||
+          pathname.startsWith('/learning/katalog/') ||
+          pathname.startsWith('/learning/courses'),
+        onClick: () => navigate('/learning/katalog'),
       },
       {
-        key: 'cert',
-        label: 'Sertifiseringer',
-        icon: Award,
-        active: pathname === '/learning/certifications',
-        onClick: () => navigate('/learning/certifications'),
-      },
-      {
-        key: 'insights',
-        label: 'Innsikt',
-        icon: BarChart3,
-        active: pathname === '/learning/insights',
-        onClick: () => navigate('/learning/insights'),
-      },
-      {
-        key: 'participants',
+        key: 'deltakere',
         label: 'Deltakere',
         icon: Users,
-        active: pathname === '/learning/participants',
-        onClick: () => navigate('/learning/participants'),
+        active:
+          pathname.startsWith('/learning/deltakere') ||
+          pathname.startsWith('/learning/participants') ||
+          pathname.startsWith('/learning/compliance'),
+        onClick: () => navigate('/learning/deltakere'),
       },
       {
-        key: 'compliance',
-        label: 'Team heatmap',
-        icon: LayoutGrid,
-        active: pathname === '/learning/compliance',
-        onClick: () => navigate('/learning/compliance'),
+        key: 'kompetanse',
+        label: 'Kompetanse',
+        icon: Award,
+        active:
+          pathname.startsWith('/learning/kompetanse') ||
+          pathname.startsWith('/learning/certifications') ||
+          pathname.startsWith('/learning/external'),
+        onClick: () => navigate('/learning/kompetanse'),
       },
-      {
-        key: 'paths',
-        label: 'Læringsstier',
-        icon: GitBranch,
-        active: pathname === '/learning/paths',
-        onClick: () => navigate('/learning/paths'),
-      },
-      {
-        key: 'external',
-        label: 'Ekstern opplæring',
-        icon: ExternalLink,
-        active: pathname === '/learning/external',
-        onClick: () => navigate('/learning/external'),
-      },
-      {
-        key: 'settings',
+    ]
+    if (canManage) {
+      items.push({
+        key: 'innstillinger',
         label: 'Innstillinger',
         icon: Settings,
-        active: pathname === '/learning/settings',
-        onClick: () => navigate('/learning/settings'),
-      },
-    ],
-    [navigate, pathname],
-  )
+        active:
+          pathname.startsWith('/learning/innstillinger') ||
+          pathname.startsWith('/learning/settings') ||
+          pathname.startsWith('/learning/paths') ||
+          pathname.startsWith('/learning/insights'),
+        onClick: () => navigate('/learning/innstillinger'),
+      })
+    }
+    return items
+  }, [canManage, navigate, pathname])
 
   const headerActions =
     canManage && !isBuilderRoute ? (
