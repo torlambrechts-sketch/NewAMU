@@ -1111,7 +1111,7 @@ export function useLearning() {
   )
 
   const addModule = useCallback(
-    (courseId: string, kind: ModuleKind, title: string): CourseModule | null => {
+    (courseId: string, kind: ModuleKind, title: string, sectionId: string | null = null): CourseModule | null => {
       const mod = emptyModule(kind, title.trim() || 'Untitled module', 0)
       if (!useSupabase || !supabase || !orgId) {
         let created: CourseModule | null = null
@@ -1120,7 +1120,7 @@ export function useLearning() {
           courses: s.courses.map((c) => {
             if (c.id !== courseId) return c
             const order = c.modules.length
-            const withOrder: CourseModule = { ...mod, order }
+            const withOrder: CourseModule = { ...mod, order, sectionId }
             created = withOrder
             return { ...c, modules: [...c.modules, withOrder], updatedAt: new Date().toISOString() }
           }),
@@ -1138,7 +1138,7 @@ export function useLearning() {
           return
         }
         const order = count ?? 0
-        const withOrder: CourseModule = { ...mod, order }
+        const withOrder: CourseModule = { ...mod, order, sectionId }
         const { error: e } = await supabase.from('learning_modules').insert({
           id: withOrder.id,
           organization_id: orgId,
@@ -1150,9 +1150,27 @@ export function useLearning() {
           duration_minutes: withOrder.durationMinutes,
         })
         if (e) setError(getSupabaseErrorMessage(e))
-        else await refreshLearning()
+        else {
+          // Section assignment lives in local state until the matching DB column lands.
+          if (sectionId) {
+            setState((s) => ({
+              ...s,
+              courses: s.courses.map((c) =>
+                c.id === courseId
+                  ? {
+                      ...c,
+                      modules: c.modules.map((m) =>
+                        m.id === withOrder.id ? { ...m, sectionId } : m,
+                      ),
+                    }
+                  : c,
+              ),
+            }))
+          }
+          await refreshLearning()
+        }
       })()
-      return { ...mod, order: 0 }
+      return { ...mod, order: 0, sectionId }
     },
     [useSupabase, supabase, orgId, setState, refreshLearning],
   )
@@ -1365,6 +1383,30 @@ export function useLearning() {
           if (c.id !== courseId) return c
           const modules = c.modules.map((m) => (m.id === moduleId ? { ...m, sectionId } : m))
           return { ...c, modules, updatedAt: new Date().toISOString() }
+        }),
+      }))
+    },
+    [setState],
+  )
+
+  /**
+   * Reorder course sections client-side. The new order is communicated as the full
+   * list of section IDs in the desired final order.
+   */
+  const reorderSections = useCallback(
+    (courseId: string, sectionIdsInOrder: string[]) => {
+      setState((s) => ({
+        ...s,
+        courses: s.courses.map((c) => {
+          if (c.id !== courseId) return c
+          const byId = new Map((c.sections ?? []).map((sec) => [sec.id, sec]))
+          const reordered = sectionIdsInOrder
+            .map((id, idx) => {
+              const sec = byId.get(id)
+              return sec ? { ...sec, order: idx } : null
+            })
+            .filter((x): x is NonNullable<typeof x> => x !== null)
+          return { ...c, sections: reordered, updatedAt: new Date().toISOString() }
         }),
       }))
     },
@@ -2029,6 +2071,7 @@ export function useLearning() {
     updateSection,
     deleteSection,
     assignModuleToSection,
+    reorderSections,
     ensureProgress,
     setModuleCompleted,
     issueCertificate,

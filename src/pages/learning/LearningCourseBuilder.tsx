@@ -1,38 +1,24 @@
-import { useMemo, useState } from 'react'
+import { useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { learningFlowEntryUrl, qrCodeImageUrl } from '../../lib/learningDeepLink'
 import {
   ArrowLeft,
-  ArrowRight,
   Award,
   BarChart3,
-  BookOpen,
-  Briefcase,
-  Calendar,
-  CircleDot,
   FileText,
-  FolderTree,
-  GripVertical,
-  HelpCircle,
-  Image,
   Layers,
-  Lightbulb,
-  ListChecks,
-  MoreHorizontal,
-  Pencil,
   PlayCircle,
   Plus,
   Trash2,
   Users,
-  Video,
 } from 'lucide-react'
 import { useLearning } from '../../hooks/useLearning'
+import { LearningSectionBuilder } from '../../components/learning/LearningSectionBuilder'
 import { useOrgSetupContext } from '../../hooks/useOrgSetupContext'
-import type { CourseModule, ModuleKind } from '../../types/learning'
+import type { CourseModule } from '../../types/learning'
 import { LEARNING_MODULE_LEGAL_REFERENCES } from '../../components/learning/learningLegalReferences'
 import { RichTextEditor } from '../../components/learning/RichTextEditor'
 import { AddTaskLink } from '../../components/tasks/AddTaskLink'
-import { HubMenu1Bar, type HubMenu1Item } from '../../components/layout/HubMenu1Bar'
 import { Badge } from '../../components/ui/Badge'
 import { Button } from '../../components/ui/Button'
 import { ToggleSwitch } from '../../components/ui/FormToggles'
@@ -42,34 +28,6 @@ import { WarningBox } from '../../components/ui/AlertBox'
 import { Tabs, type TabItem } from '../../components/ui/Tabs'
 import { ModuleLegalBanner, ModulePageShell, ModuleSectionCard } from '../../components/module'
 import { WPSTD_FORM_FIELD_LABEL } from '../../components/layout/WorkplaceStandardFormPanel'
-import { SearchableSelect, type SelectOption } from '../../components/ui/SearchableSelect'
-
-const MODULE_KINDS: { id: ModuleKind | 'all'; label: string; icon: HubMenu1Item['icon'] }[] = [
-  { id: 'all', label: 'Alle moduler', icon: Layers },
-  { id: 'flashcard', label: 'Flashkort', icon: CircleDot },
-  { id: 'quiz', label: 'Quiz', icon: HelpCircle },
-  { id: 'text', label: 'Tekst', icon: BookOpen },
-  { id: 'image', label: 'Bilder', icon: Image },
-  { id: 'video', label: 'Video', icon: Video },
-  { id: 'checklist', label: 'Sjekkliste', icon: ListChecks },
-  { id: 'tips', label: 'Praktiske tips', icon: Lightbulb },
-  { id: 'on_job', label: 'I jobben', icon: Briefcase },
-  { id: 'event', label: 'Arrangement (ILT)', icon: Calendar },
-  { id: 'other', label: 'Annet', icon: MoreHorizontal },
-]
-
-const ADD_KINDS: { kind: ModuleKind; label: string }[] = [
-  { kind: 'flashcard', label: 'Flashkort' },
-  { kind: 'quiz', label: 'Quiz' },
-  { kind: 'text', label: 'Tekst' },
-  { kind: 'image', label: 'Bilde' },
-  { kind: 'video', label: 'Video' },
-  { kind: 'checklist', label: 'Sjekkliste' },
-  { kind: 'tips', label: 'Praktiske tips' },
-  { kind: 'on_job', label: 'I jobben' },
-  { kind: 'event', label: 'Arrangement (ILT)' },
-  { kind: 'other', label: 'Annet' },
-]
 
 type MainTab = 'info' | 'modules' | 'cert' | 'participants' | 'insights'
 
@@ -79,61 +37,28 @@ export function LearningCourseBuilder() {
   const { can, isAdmin } = useOrgSetupContext()
   const canManage = isAdmin || can('learning.manage')
   const canDelete = isAdmin || can('learning.delete') || canManage
+  const learning = useLearning()
   const {
     courses,
     updateCourse,
     deleteCourse,
-    addModule,
     updateModule,
     deleteModule,
-    addSection,
-    updateSection,
-    deleteSection,
-    assignModuleToSection,
     forkSystemCourse,
     learningLoading,
     learningError,
     upsertIltEvent,
     bumpCourseVersion,
-  } = useLearning()
+  } = learning
   const otherCourses = courses.filter((c) => c.id !== courseId)
   const course = courses.find((c) => c.id === courseId)
   const isSystemCatalog =
     course && course.origin === 'system' && course.sourceSystemCourseId && course.modules.length > 0
 
   const [mainTab, setMainTab] = useState<MainTab>('info')
-  const [typeFilter, setTypeFilter] = useState<ModuleKind | 'all'>('all')
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [tagInput, setTagInput] = useState('')
   const [builderActionError, setBuilderActionError] = useState<string | null>(null)
-  const [newSectionTitle, setNewSectionTitle] = useState('')
-  const [editingSectionId, setEditingSectionId] = useState<string | null>(null)
-  const [editingSectionTitle, setEditingSectionTitle] = useState('')
-
-  const filteredModules = useMemo(() => {
-    if (!course) return []
-    const sorted = [...course.modules].sort((a, b) => a.order - b.order)
-    if (typeFilter === 'all') return sorted
-    return sorted.filter((m) => m.kind === typeFilter)
-  }, [course, typeFilter])
-
-  const moduleKindFilterItems: HubMenu1Item[] = useMemo(() => {
-    if (!course) return []
-    return MODULE_KINDS.map((k) => {
-      const count =
-        k.id === 'all'
-          ? course.modules.length
-          : course.modules.filter((m) => m.kind === k.id).length
-      return {
-        key: k.id,
-        label: k.label,
-        icon: k.icon,
-        active: typeFilter === k.id,
-        badgeCount: count,
-        onClick: () => setTypeFilter(k.id),
-      }
-    })
-  }, [course, typeFilter])
 
   const selected = course?.modules.find((m) => m.id === selectedId) ?? null
   const sections = course?.sections ?? []
@@ -290,11 +215,6 @@ export function LearningCourseBuilder() {
       else navigate('/learning/courses')
     })()
   }
-
-  const sectionOptions: SelectOption[] = [
-    { value: '__root__', label: 'Uten seksjon (kursrot)' },
-    ...sections.map((s) => ({ value: s.id, label: s.title })),
-  ]
 
   const headerActions = (
     <div className="flex flex-wrap items-center gap-2">
@@ -516,259 +436,35 @@ export function LearningCourseBuilder() {
 
       {mainTab === 'modules' && (
         <div className="space-y-6">
-          {/* Sections panel */}
-          <ModuleSectionCard>
-            <div className="flex items-center justify-between gap-3">
-              <div className="flex items-center gap-2">
-                <FolderTree className="h-5 w-5 text-[#1a3d32]" />
-                <h2 className="text-lg font-semibold text-neutral-900" style={{ fontFamily: "'Libre Baskerville', Georgia, serif" }}>
-                  Seksjoner
-                </h2>
-              </div>
-              <span className="text-xs text-neutral-500">
-                {sections.length} {sections.length === 1 ? 'seksjon' : 'seksjoner'}
-              </span>
-            </div>
-            <p className="mt-1 text-sm text-neutral-600">
-              Grupper modulene i seksjoner (kapitler). Modulene under «Uten seksjon» ligger på kursrota.
-            </p>
+          <LearningSectionBuilder
+            learning={learning}
+            courseId={course.id}
+            modules={course.modules}
+            sections={sections}
+            isLocked={!canManage}
+            selectedModuleId={selectedId}
+            onSelectModule={setSelectedId}
+          />
 
-            {sections.length > 0 ? (
-              <ul className="mt-4 space-y-2">
-                {sections
-                  .slice()
-                  .sort((a, b) => a.order - b.order)
-                  .map((sec) => {
-                    const inSection = course.modules.filter((m) => m.sectionId === sec.id).length
-                    const isEditing = editingSectionId === sec.id
-                    return (
-                      <li
-                        key={sec.id}
-                        className="flex flex-wrap items-center gap-2 rounded-md border border-neutral-200 bg-neutral-50/40 px-3 py-2"
-                      >
-                        {isEditing ? (
-                          <>
-                            <StandardInput
-                              value={editingSectionTitle}
-                              onChange={(e) => setEditingSectionTitle(e.target.value)}
-                              className="flex-1 py-1.5 text-sm"
-                              autoFocus
-                            />
-                            <Button
-                              type="button"
-                              size="sm"
-                              variant="primary"
-                              onClick={() => {
-                                if (editingSectionTitle.trim()) {
-                                  updateSection(course.id, sec.id, { title: editingSectionTitle.trim() })
-                                }
-                                setEditingSectionId(null)
-                                setEditingSectionTitle('')
-                              }}
-                            >
-                              Lagre
-                            </Button>
-                            <Button
-                              type="button"
-                              size="sm"
-                              variant="secondary"
-                              onClick={() => {
-                                setEditingSectionId(null)
-                                setEditingSectionTitle('')
-                              }}
-                            >
-                              Avbryt
-                            </Button>
-                          </>
-                        ) : (
-                          <>
-                            <span className="flex h-7 w-7 items-center justify-center rounded-md bg-[#e7efe9] text-[#1a3d32]">
-                              <FolderTree className="h-3.5 w-3.5" />
-                            </span>
-                            <span className="flex-1 truncate text-sm font-medium text-neutral-900">
-                              {sec.title}
-                            </span>
-                            <span className="text-xs text-neutral-500">
-                              {inSection} {inSection === 1 ? 'modul' : 'moduler'}
-                            </span>
-                            <Button
-                              type="button"
-                              size="sm"
-                              variant="ghost"
-                              icon={<Pencil className="h-3 w-3" />}
-                              onClick={() => {
-                                setEditingSectionId(sec.id)
-                                setEditingSectionTitle(sec.title)
-                              }}
-                              aria-label={`Rediger seksjon ${sec.title}`}
-                            >
-                              Rediger
-                            </Button>
-                            <Button
-                              type="button"
-                              size="sm"
-                              variant="ghost"
-                              icon={<Trash2 className="h-3 w-3" />}
-                              onClick={() => {
-                                if (
-                                  window.confirm(
-                                    `Slette seksjonen «${sec.title}»? Modulene flyttes til kursrota.`,
-                                  )
-                                ) {
-                                  deleteSection(course.id, sec.id)
-                                }
-                              }}
-                              className="text-red-600 hover:bg-red-50 hover:text-red-700"
-                              aria-label={`Slett seksjon ${sec.title}`}
-                            >
-                              Slett
-                            </Button>
-                          </>
-                        )}
-                      </li>
-                    )
-                  })}
-              </ul>
+          {/* Per-module editor (kept below the section builder, like survey's slide-out detail panel) */}
+          <ModuleSectionCard>
+            {selected ? (
+              <ModuleEditor
+                key={selected.id}
+                courseId={course.id}
+                mod={selected}
+                updateModule={updateModule}
+                deleteModule={deleteModule}
+                upsertIltEvent={upsertIltEvent}
+                onDeleted={() => setSelectedId(null)}
+              />
             ) : (
-              <div className="mt-4 rounded-md border border-dashed border-neutral-300 bg-neutral-50/40 px-4 py-6 text-center text-sm text-neutral-500">
-                Ingen seksjoner ennå — kurset er flatt. Legg til en seksjon for å gruppere relaterte moduler.
-              </div>
+              <p className="text-sm text-neutral-600">
+                Velg en modul fra listen over for å redigere innhold, eller dra en modultype fra
+                paletten for å opprette en ny.
+              </p>
             )}
-
-            <div className="mt-4 flex flex-wrap items-end gap-2 border-t border-neutral-100 pt-4">
-              <div className="min-w-[200px] flex-1">
-                <label className={WPSTD_FORM_FIELD_LABEL} htmlFor="new-section-title">
-                  Ny seksjon
-                </label>
-                <StandardInput
-                  id="new-section-title"
-                  value={newSectionTitle}
-                  onChange={(e) => setNewSectionTitle(e.target.value)}
-                  placeholder="F.eks. Grunnlag, Praktiske øvelser, Kontrollspørsmål"
-                  className="mt-1.5"
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' && newSectionTitle.trim()) {
-                      e.preventDefault()
-                      addSection(course.id, newSectionTitle.trim())
-                      setNewSectionTitle('')
-                    }
-                  }}
-                />
-              </div>
-              <Button
-                type="button"
-                variant="primary"
-                icon={<Plus className="h-4 w-4" />}
-                onClick={() => {
-                  if (!newSectionTitle.trim()) return
-                  addSection(course.id, newSectionTitle.trim())
-                  setNewSectionTitle('')
-                }}
-                disabled={!newSectionTitle.trim()}
-              >
-                Legg til seksjon
-              </Button>
-            </div>
           </ModuleSectionCard>
-
-          {/* Type filter + add buttons */}
-          <ModuleSectionCard>
-            <HubMenu1Bar ariaLabel="Moduler — typefilter" items={moduleKindFilterItems} />
-            <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-neutral-100 pt-4">
-              <h2 className="text-lg font-semibold text-neutral-900" style={{ fontFamily: "'Libre Baskerville', Georgia, serif" }}>
-                Modulbygger
-              </h2>
-              <div className="flex flex-wrap gap-2">
-                {ADD_KINDS.map((a) => (
-                  <Button
-                    key={a.kind}
-                    type="button"
-                    variant="secondary"
-                    size="sm"
-                    icon={<Plus className="h-3.5 w-3.5" />}
-                    onClick={() => {
-                      const mod = addModule(course.id, a.kind, a.label)
-                      if (mod) setSelectedId(mod.id)
-                    }}
-                  >
-                    {a.label}
-                  </Button>
-                ))}
-              </div>
-            </div>
-          </ModuleSectionCard>
-
-          <div className="grid gap-6 lg:grid-cols-[1fr_1fr]">
-            <ModuleSectionCard className="!p-0">
-              <div className="border-b border-neutral-100 px-5 py-3 text-sm font-semibold text-neutral-900">
-                Moduler {typeFilter === 'all' ? `(${filteredModules.length})` : `(${filteredModules.length} av ${course.modules.length})`}
-              </div>
-              {filteredModules.length === 0 ? (
-                <div className="px-5 py-12 text-center text-sm text-neutral-500">
-                  Ingen moduler i dette filteret.
-                </div>
-              ) : (
-                <ul className="divide-y divide-neutral-100">
-                  {filteredModules.map((m) => {
-                    const sec = sections.find((s) => s.id === m.sectionId)
-                    const active = selectedId === m.id
-                    return (
-                      <li key={m.id} className={active ? 'bg-[#e7efe9]/40' : ''}>
-                        <div className="flex items-center gap-2 px-5 py-3">
-                          <button
-                            type="button"
-                            onClick={() => setSelectedId(m.id)}
-                            className="flex flex-1 items-center gap-3 text-left"
-                          >
-                            <GripVertical className="h-4 w-4 shrink-0 text-neutral-400" />
-                            <div className="min-w-0 flex-1">
-                              <div className="flex items-center gap-2">
-                                <span className="truncate text-sm font-medium text-neutral-900">{m.title}</span>
-                                {sec ? (
-                                  <span className="rounded-full border border-neutral-200 bg-neutral-50 px-1.5 py-0.5 text-[10px] font-medium text-neutral-600">
-                                    {sec.title}
-                                  </span>
-                                ) : null}
-                              </div>
-                              <div className="mt-0.5 text-xs text-neutral-500">
-                                {m.kind} · ~{m.durationMinutes} min
-                              </div>
-                            </div>
-                            {active ? <ArrowRight className="h-4 w-4 text-[#1a3d32]" /> : null}
-                          </button>
-                          <SearchableSelect
-                            value={m.sectionId ?? '__root__'}
-                            options={sectionOptions}
-                            onChange={(v) =>
-                              assignModuleToSection(course.id, m.id, v === '__root__' ? null : v)
-                            }
-                            triggerClassName="px-2 py-1 text-[10px]"
-                            className="w-40"
-                          />
-                        </div>
-                      </li>
-                    )
-                  })}
-                </ul>
-              )}
-            </ModuleSectionCard>
-
-            <ModuleSectionCard>
-              {selected ? (
-                <ModuleEditor
-                  key={selected.id}
-                  courseId={course.id}
-                  mod={selected}
-                  updateModule={updateModule}
-                  deleteModule={deleteModule}
-                  upsertIltEvent={upsertIltEvent}
-                  onDeleted={() => setSelectedId(null)}
-                />
-              ) : (
-                <p className="text-sm text-neutral-600">Velg en modul fra listen for å redigere innhold.</p>
-              )}
-            </ModuleSectionCard>
-          </div>
         </div>
       )}
 
