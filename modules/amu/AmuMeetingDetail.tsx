@@ -115,20 +115,25 @@ function initials(name: string): string {
 
 function ViewToggle({ value, onChange }: { value: ViewMode; onChange: (v: ViewMode) => void }) {
   return (
-    <div className="inline-flex items-center rounded-md border border-neutral-200 bg-white p-0.5">
+    <div className="inline-flex items-center rounded-md border border-neutral-300 bg-white">
       {([
         ['list', ListIcon, 'Liste'],
         ['box', LayoutGrid, 'Boks'],
-      ] as const).map(([id, Icon, label]) => (
+      ] as const).map(([id, Icon, label], i) => (
         <button
           key={id}
           type="button"
           onClick={() => onChange(id)}
-          className={`inline-flex items-center gap-1.5 rounded px-2.5 py-1 text-xs font-medium transition-colors ${
-            value === id ? 'bg-neutral-100 text-neutral-900' : 'text-neutral-500 hover:text-neutral-800'
-          }`}
+          aria-pressed={value === id}
+          className={[
+            'inline-flex items-center gap-1.5 px-4 py-2 text-sm font-semibold transition-colors',
+            i === 0 ? 'rounded-l-md' : 'rounded-r-md border-l border-neutral-300',
+            value === id
+              ? 'bg-neutral-100 text-neutral-900'
+              : 'text-neutral-700 hover:bg-neutral-50',
+          ].join(' ')}
         >
-          <Icon className="h-3.5 w-3.5" aria-hidden />
+          <Icon className="h-4 w-4" aria-hidden />
           {label}
         </button>
       ))}
