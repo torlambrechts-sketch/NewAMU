@@ -1,10 +1,17 @@
-// ChecklistsPage — list view for compliance checklist executions, scoped to
-// the active regulation pack. Title, description, KPIs, action button and
-// the visible table all change when the user toggles the PackSwitcher in
-// the page header. Underlying data layer is unchanged.
+// ChecklistsPage — list view for compliance checklist executions, scoped
+// to the active regulation pack and (optionally) one template.
+//
+// When ?template=<slug> is present in the URL the page narrows to that
+// template — title, banner and create-CTA reflect the template, and only
+// executions of that template are listed. Without ?template=, the page
+// shows the pack-level overview.
+//
+// The pack switcher itself lives in the global top bar
+// (ShellCompliancePackSwitcher) so it is visible across compliance pages
+// at the same elevation as the org switcher.
 
 import { useEffect, useMemo, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { ChevronRight, Plus } from 'lucide-react'
 import { ModulePageShell } from '../../src/components/module/ModulePageShell'
 import { ModuleLegalBanner } from '../../src/components/module/ModuleLegalBanner'
@@ -21,7 +28,6 @@ import { WarningBox } from '../../src/components/ui/AlertBox'
 import { useActivePack } from '../../src/context/packContextValue'
 import { useOrgSetupContext } from '../../src/hooks/useOrgSetupContext'
 import { useChecklistModule } from './useChecklistModule'
-import { PackSwitcher } from './components/PackSwitcher'
 import { ComplianceCreateForm } from './ComplianceCreateForm'
 import type { ComplianceExecutionRow } from './types'
 
@@ -50,6 +56,9 @@ function formatDate(input: string | null) {
 
 export function ChecklistsPage() {
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
+  const templateSlugParam = searchParams.get('template')
+
   const pack = useActivePack()
   const { supabase } = useOrgSetupContext()
   const cl = useChecklistModule({ supabase })
@@ -61,43 +70,73 @@ export function ChecklistsPage() {
     void load({ pack: pack.slug })
   }, [load, pack.slug])
 
-  const packExecutions = useMemo(
-    () => cl.executions.filter((e) => e.pack === pack.slug),
-    [cl.executions, pack.slug],
-  )
-
   const packTemplates = useMemo(
     () => cl.templates.filter((t) => t.pack === pack.slug && t.is_active),
     [cl.templates, pack.slug],
   )
 
+  // Resolve the optional ?template= filter to one of the pack's active templates.
+  const focusedTemplate = useMemo(() => {
+    if (!templateSlugParam) return null
+    return packTemplates.find((t) => t.slug === templateSlugParam) ?? null
+  }, [packTemplates, templateSlugParam])
+
+  const visibleExecutions = useMemo(() => {
+    const packScoped = cl.executions.filter((e) => e.pack === pack.slug)
+    if (!focusedTemplate) return packScoped
+    return packScoped.filter((e) => e.template_id === focusedTemplate.id)
+  }, [cl.executions, pack.slug, focusedTemplate])
+
+  // Templates passed to the create form are constrained to the focused
+  // template when present (so the slide panel preselects it), otherwise
+  // any pack-active template.
+  const formTemplates = focusedTemplate ? [focusedTemplate] : packTemplates
+
+  const pageTitle = focusedTemplate ? focusedTemplate.name : pack.pluralLabel
+  const pageDescription = focusedTemplate
+    ? (focusedTemplate.description ?? pack.description)
+    : pack.description
+  const ctaLabel = focusedTemplate
+    ? `Ny ${focusedTemplate.name.toLowerCase()}`
+    : pack.ctaLabel
+
   return (
     <ModulePageShell
-      breadcrumb={[{ label: 'HMS' }, { label: pack.pluralLabel }]}
-      title={pack.pluralLabel}
-      description={pack.description}
+      breadcrumb={
+        focusedTemplate
+          ? [
+              { label: 'HMS' },
+              { label: pack.pluralLabel, to: '/compliance/checklists' },
+              { label: focusedTemplate.name },
+            ]
+          : [{ label: 'HMS' }, { label: pack.pluralLabel }]
+      }
+      title={pageTitle}
+      description={pageDescription}
       headerActions={
-        <div className="flex items-center gap-2">
-          <PackSwitcher />
-          <Button
-            variant="primary"
-            icon={<Plus className="h-4 w-4" />}
-            onClick={() => setCreateOpen(true)}
-            disabled={packTemplates.length === 0}
-          >
-            {pack.ctaLabel}
-          </Button>
-        </div>
+        <Button
+          variant="primary"
+          icon={<Plus className="h-4 w-4" />}
+          onClick={() => setCreateOpen(true)}
+          disabled={formTemplates.length === 0}
+        >
+          {ctaLabel}
+        </Button>
       }
     >
       <div className="space-y-6">
         {cl.error ? <WarningBox>{cl.error}</WarningBox> : null}
 
-        <ModuleLegalBanner
-          title={pack.shortName}
-          intro={<p>{pack.description}</p>}
-          references={pack.legalReferences.map((r) => ({ code: r.code, text: r.text }))}
-        />
+        {!focusedTemplate ? (
+          <ModuleLegalBanner
+            title={pack.shortName}
+            intro={<p>{pack.description}</p>}
+            references={pack.legalReferences.map((r) => ({
+              code: r.code,
+              text: r.text,
+            }))}
+          />
+        ) : null}
 
         <LayoutScoreStatRow
           items={[
@@ -121,10 +160,10 @@ export function ChecklistsPage() {
 
         <LayoutTable1PostingsShell
           wrap
-          title={pack.pluralLabel}
-          description={`Alle ${pack.pluralLabel.toLowerCase()} — sortert etter siste aktivitet.`}
+          title={pageTitle}
+          description={`Alle ${pageTitle.toLowerCase()} — sortert etter siste aktivitet.`}
           toolbar={null}
-          footer={<span className="text-neutral-500">{packExecutions.length} poster</span>}
+          footer={<span className="text-neutral-500">{visibleExecutions.length} poster</span>}
         >
           <div className="overflow-x-auto w-full">
             <table className="w-full min-w-[640px] border-collapse text-left text-sm">
@@ -137,28 +176,28 @@ export function ChecklistsPage() {
                 </tr>
               </thead>
               <tbody>
-                {packExecutions.length === 0 ? (
+                {visibleExecutions.length === 0 ? (
                   <tr>
                     <td colSpan={4}>
                       <div className="py-12 text-center">
                         <p className="text-sm text-neutral-500">
-                          Ingen {pack.pluralLabel.toLowerCase()} ennå.
+                          Ingen {pageTitle.toLowerCase()} ennå.
                         </p>
                         <div className="mt-3 inline-flex">
                           <Button
                             variant="primary"
                             icon={<Plus className="h-4 w-4" />}
                             onClick={() => setCreateOpen(true)}
-                            disabled={packTemplates.length === 0}
+                            disabled={formTemplates.length === 0}
                           >
-                            {pack.ctaLabel}
+                            {ctaLabel}
                           </Button>
                         </div>
                       </div>
                     </td>
                   </tr>
                 ) : (
-                  packExecutions.map((row) => (
+                  visibleExecutions.map((row) => (
                     <tr
                       key={row.id}
                       className={`${LAYOUT_TABLE1_POSTINGS_BODY_ROW} cursor-pointer hover:bg-neutral-50`}
@@ -188,7 +227,7 @@ export function ChecklistsPage() {
       <ComplianceCreateForm
         open={createOpen}
         onClose={() => setCreateOpen(false)}
-        templates={packTemplates}
+        templates={formTemplates}
         assignableUsers={cl.assignableUsers}
         onCreate={async (payload) => {
           const id = await cl.createExecution(payload)

@@ -51,6 +51,8 @@ import {
   ShellProfileMenuButton,
   ShellQuickCreateMenu,
 } from './ShellHeaderWidgets'
+import { ShellCompliancePackSwitcher } from './ShellCompliancePackSwitcher'
+import { useComplianceNav } from '../../../modules/compliance/useComplianceNav'
 import type { NavMode } from './aticsNavMode'
 
 // ─── Sub-item type ────────────────────────────────────────────────────────────
@@ -978,9 +980,43 @@ export function AticsShell() {
     })()
   }, [supabase, user])
 
+  // Compliance "Sjekklister" group — synthetic, populated from pinned
+  // templates the active org has licensed packs for. Inserted before the
+  // legacy "Gamle moduler" group so it surfaces as a primary product line.
+  const complianceNav = useComplianceNav()
+  const mergedNavGroups = useMemo<NavGroup[]>(() => {
+    const complianceGroup: NavGroup = {
+      id: 'sjekklister',
+      label: 'Sjekklister',
+      icon: ClipboardList,
+      modules: [
+        ...complianceNav.items.map((item) => ({
+          to: item.to,
+          label: item.name,
+          end: false,
+          icon: ClipboardList,
+          subs: [],
+          perm: 'checklist.manage' as PermissionKey,
+        })),
+        {
+          to: '/compliance/checklists',
+          label: 'Alle sjekklister',
+          end: true,
+          icon: ListChecks,
+          subs: [],
+          perm: 'checklist.manage' as PermissionKey,
+        },
+      ],
+    }
+    if (!complianceNav.hasAnyPack) return navGroups
+    const idx = navGroups.findIndex((g) => g.id === 'gamle-moduler')
+    if (idx === -1) return [...navGroups, complianceGroup]
+    return [...navGroups.slice(0, idx), complianceGroup, ...navGroups.slice(idx)]
+  }, [complianceNav.items, complianceNav.hasAnyPack])
+
   const visibleGroups = useMemo(
-    () => filterNavGroups(navGroups, gateNav, can, disabledModules, hiddenForUser),
-    [gateNav, can, disabledModules, hiddenForUser],
+    () => filterNavGroups(mergedNavGroups, gateNav, can, disabledModules, hiddenForUser),
+    [mergedNavGroups, gateNav, can, disabledModules, hiddenForUser],
   )
   const visibleModules = useMemo(() => allModulesFrom(visibleGroups), [visibleGroups])
 
@@ -1165,6 +1201,7 @@ export function AticsShell() {
                   <ShellCompanyBlock name={orgDisplayName} variant="sidebar" />
                   <ShellQuickCreateMenu variant="sidebar" />
                   <ShellComplianceIndicator variant="sidebar" />
+                  <ShellCompliancePackSwitcher variant="sidebar" />
                   <NotificationTray variant="sidebar" />
                   <ShellProfileMenuButton
                     variant="sidebar"
@@ -1233,6 +1270,7 @@ export function AticsShell() {
           <ShellCompanyBlock name={orgDisplayName} variant="topbar" />
           <ShellQuickCreateMenu variant="topbar" />
           <ShellComplianceIndicator variant="topbar" />
+          <ShellCompliancePackSwitcher variant="topbar" />
           <NotificationTray variant="topbar" />
           <ShellProfileMenuButton
             variant="topbar"
