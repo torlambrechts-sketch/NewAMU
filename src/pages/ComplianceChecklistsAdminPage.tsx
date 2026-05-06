@@ -24,6 +24,8 @@ import { useActivePack } from '../context/packContextValue'
 import { MalerTab } from '../../modules/compliance/admin/MalerTab'
 import { PakkerTab } from '../../modules/compliance/admin/PakkerTab'
 import { KravTab } from '../../modules/compliance/admin/KravTab'
+import { ArbeidsflytTab } from '../../modules/compliance/admin/ArbeidsflytTab'
+import { StatistikkTab } from '../../modules/compliance/admin/StatistikkTab'
 
 type AdminTab = 'maler' | 'pakker' | 'krav' | 'arbeidsflyt' | 'statistikk'
 
@@ -60,18 +62,8 @@ export function ComplianceChecklistsAdminPage() {
       {tab === 'maler' && <MalerTab />}
       {tab === 'pakker' && <PakkerTab />}
       {tab === 'krav' && <KravTab />}
-      {tab === 'arbeidsflyt' && <PlaceholderPanel label="Arbeidsflyt" />}
-      {tab === 'statistikk' && <PlaceholderPanel label="Statistikk" />}
+      {tab === 'arbeidsflyt' && <ArbeidsflytTab />}
+      {tab === 'statistikk' && <StatistikkTab />}
     </ModulePageShell>
-  )
-}
-
-function PlaceholderPanel({ label }: { label: string }) {
-  return (
-    <div className="rounded-lg border border-dashed border-neutral-300 bg-neutral-50/50 p-12 text-center">
-      <p className="text-sm text-neutral-500">
-        {label}-fanen kommer i neste oppdatering.
-      </p>
-    </div>
   )
 }

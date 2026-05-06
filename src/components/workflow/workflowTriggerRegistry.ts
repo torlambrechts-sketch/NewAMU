@@ -69,6 +69,19 @@ export const SURVEY_WORKFLOW_TRIGGER_EVENTS = [
   { value: 'ON_SURVEY_RESPONSE_RATE_THRESHOLD', label: 'Svarandel nådd (terskel)' },
 ] as const
 
+/** Match `process_compliance_checklist_response_workflow` trigger in
+ *  20260806120100_compliance_checklist_workflow.sql. The trigger fires
+ *  AFTER INSERT on compliance_checklist_responses where severity is set
+ *  (is_finding=true); rules are evaluated against the response payload
+ *  and dispatch via execute_compliance_checklist_rule_actions. */
+export const COMPLIANCE_CHECKLIST_WORKFLOW_TRIGGER_EVENTS = [
+  { value: 'response_finding_critical', label: 'Kritisk svar registrert' },
+  { value: 'response_finding_high',     label: 'Høy-alvor svar registrert' },
+  { value: 'response_finding_medium',   label: 'Middels-alvor svar registrert' },
+  { value: 'response_finding_low',      label: 'Lav-alvor svar registrert' },
+  { value: 'execution_signed',          label: 'Sjekkliste signert' },
+] as const
+
 const REGISTRY: Record<string, readonly { value: string; label: string }[]> = {
   inspection: INSPECTION_WORKFLOW_TRIGGER_EVENTS,
   ros: ROS_WORKFLOW_TRIGGER_EVENTS,
@@ -79,6 +92,7 @@ const REGISTRY: Record<string, readonly { value: string; label: string }[]> = {
   amu: AMU_WORKFLOW_TRIGGER_EVENTS,
   survey: SURVEY_WORKFLOW_TRIGGER_EVENTS,
   documents: DOCUMENTS_WORKFLOW_TRIGGER_EVENTS,
+  compliance_checklist: COMPLIANCE_CHECKLIST_WORKFLOW_TRIGGER_EVENTS,
 }
 
 export function getWorkflowTriggerEventsForModule(triggerModule: string): { value: string; label: string }[] {
