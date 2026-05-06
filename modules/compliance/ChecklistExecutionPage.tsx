@@ -18,6 +18,7 @@ import { useOrgSetupContext } from '../../src/hooks/useOrgSetupContext'
 import { useChecklistModule } from './useChecklistModule'
 import { parseChecklistDefinition } from './schema'
 import { SeverityBadge } from './components/SeverityBadge'
+import { PhotoItemControl } from './components/PhotoItemControl'
 import type {
   ChecklistItem,
   ComplianceExecutionRow,
@@ -220,6 +221,21 @@ export function ChecklistExecutionPage() {
                           severity: response?.severity ?? undefined,
                         })
                       }
+                      onUploadAttachment={(file) =>
+                        cl.uploadResponseAttachment({
+                          executionId,
+                          itemKey: item.key,
+                          file,
+                        })
+                      }
+                      onRemoveAttachment={(storagePath) =>
+                        cl.removeResponseAttachment({
+                          executionId,
+                          itemKey: item.key,
+                          storagePath,
+                        })
+                      }
+                      signUrl={cl.signAttachmentUrl}
                     />
                   </div>
 
@@ -305,9 +321,20 @@ type ControlProps = {
   response: ComplianceResponseRow | undefined
   readOnly: boolean
   onCommit: (value: unknown) => void | Promise<void>
+  onUploadAttachment: (file: File) => Promise<string | null>
+  onRemoveAttachment: (storagePath: string) => Promise<void>
+  signUrl: (storagePath: string, ttlSeconds?: number) => Promise<string | null>
 }
 
-function ItemControl({ item, response, readOnly, onCommit }: ControlProps) {
+function ItemControl({
+  item,
+  response,
+  readOnly,
+  onCommit,
+  onUploadAttachment,
+  onRemoveAttachment,
+  signUrl,
+}: ControlProps) {
   const value = readValue(response?.value)
 
   if (item.type === 'yes_no_na') {
@@ -373,10 +400,15 @@ function ItemControl({ item, response, readOnly, onCommit }: ControlProps) {
   }
 
   if (item.type === 'photo') {
+    const urls = Array.isArray(value.urls) ? (value.urls as string[]) : []
     return (
-      <p className="text-xs text-neutral-500">
-        Foto-opplasting støttes i neste versjon (lagres som base64 i jsonb).
-      </p>
+      <PhotoItemControl
+        paths={urls}
+        readOnly={readOnly}
+        onUpload={onUploadAttachment}
+        onRemove={onRemoveAttachment}
+        signUrl={signUrl}
+      />
     )
   }
 

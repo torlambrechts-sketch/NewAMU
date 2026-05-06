@@ -59,7 +59,24 @@ export type ChecklistModuleState = {
   }) => Promise<void>
 
   signExecution: (executionId: string) => Promise<void>
+
+  uploadResponseAttachment: (payload: {
+    executionId: string
+    itemKey: string
+    file: File
+  }) => Promise<string | null>
+
+  removeResponseAttachment: (payload: {
+    executionId: string
+    itemKey: string
+    storagePath: string
+  }) => Promise<void>
+
+  /** Sign a Supabase Storage path for inline display (e.g. <img src>). */
+  signAttachmentUrl: (storagePath: string, ttlSeconds?: number) => Promise<string | null>
 }
+
+const ATTACHMENT_BUCKET = 'compliance_checklist_files'
 
 const EMPTY_AGGREGATES: ComplianceAggregates = {
   totalExecutions: 0,
@@ -428,6 +445,151 @@ export function useChecklistModule(
     [supabase, orgId, canManage, executions, templates, responsesByExecutionId, reloadAggregates],
   )
 
+  // ── Attachments (Supabase Storage) ───────────────────────────────────────
+
+  const uploadResponseAttachment = useCallback(
+    async (payload: {
+      executionId: string
+      itemKey: string
+      file: File
+    }): Promise<string | null> => {
+      if (!supabase || !orgId) return null
+      if (!canManage) {
+        setError('Du har ikke tilgang til å laste opp filer.')
+        return null
+      }
+      setError(null)
+
+      const exec = executions.find((e) => e.id === payload.executionId)
+      if (exec?.status === 'signed') {
+        setError('Sjekklisten er signert og kan ikke endres.')
+        return null
+      }
+
+      // Sanitised filename — keep extension, strip path separators and
+      // collapse any other suspicious characters. Prepend a uuid for
+      // collision safety inside the (org, exec, item_key) folder.
+      const original = payload.file.name
+      const dot = original.lastIndexOf('.')
+      const ext = dot >= 0 ? original.slice(dot).toLowerCase() : ''
+      const stem = (dot >= 0 ? original.slice(0, dot) : original)
+        .replace(/[^A-Za-z0-9._-]+/g, '_')
+        .slice(0, 60) || 'fil'
+      const uuid = crypto.randomUUID()
+      const path = `${orgId}/${payload.executionId}/${payload.itemKey}/${uuid}-${stem}${ext}`
+
+      try {
+        const { error: upErr } = await supabase.storage
+          .from(ATTACHMENT_BUCKET)
+          .upload(path, payload.file, {
+            cacheControl: '3600',
+            contentType: payload.file.type || undefined,
+            upsert: false,
+          })
+        if (upErr) throw upErr
+
+        // Append to value.urls on the response. Existing urls preserved.
+        const existing =
+          (responsesByExecutionId[payload.executionId] ?? []).find(
+            (r) => r.item_key === payload.itemKey,
+          )
+        const prevValue =
+          existing?.value && typeof existing.value === 'object'
+            ? (existing.value as Record<string, unknown>)
+            : {}
+        const prevUrls = Array.isArray(prevValue.urls)
+          ? (prevValue.urls as string[])
+          : []
+        const nextValue = { ...prevValue, urls: [...prevUrls, path] }
+
+        await saveResponse({
+          executionId: payload.executionId,
+          itemKey: payload.itemKey,
+          value: nextValue,
+          comment: existing?.comment ?? undefined,
+          severity: existing?.severity ?? undefined,
+        })
+
+        return path
+      } catch (unknownError) {
+        setError(getSupabaseErrorMessage(unknownError))
+        return null
+      }
+    },
+    [supabase, orgId, canManage, executions, responsesByExecutionId, saveResponse],
+  )
+
+  const removeResponseAttachment = useCallback(
+    async (payload: {
+      executionId: string
+      itemKey: string
+      storagePath: string
+    }): Promise<void> => {
+      if (!supabase || !orgId) return
+      if (!canManage) {
+        setError('Du har ikke tilgang til å fjerne filer.')
+        return
+      }
+      setError(null)
+
+      const exec = executions.find((e) => e.id === payload.executionId)
+      if (exec?.status === 'signed') {
+        setError('Sjekklisten er signert og kan ikke endres.')
+        return
+      }
+
+      try {
+        const { error: rmErr } = await supabase.storage
+          .from(ATTACHMENT_BUCKET)
+          .remove([payload.storagePath])
+        if (rmErr) throw rmErr
+
+        // Drop the path from value.urls.
+        const existing =
+          (responsesByExecutionId[payload.executionId] ?? []).find(
+            (r) => r.item_key === payload.itemKey,
+          )
+        const prevValue =
+          existing?.value && typeof existing.value === 'object'
+            ? (existing.value as Record<string, unknown>)
+            : {}
+        const prevUrls = Array.isArray(prevValue.urls)
+          ? (prevValue.urls as string[])
+          : []
+        const nextValue = {
+          ...prevValue,
+          urls: prevUrls.filter((u) => u !== payload.storagePath),
+        }
+
+        await saveResponse({
+          executionId: payload.executionId,
+          itemKey: payload.itemKey,
+          value: nextValue,
+          comment: existing?.comment ?? undefined,
+          severity: existing?.severity ?? undefined,
+        })
+      } catch (unknownError) {
+        setError(getSupabaseErrorMessage(unknownError))
+      }
+    },
+    [supabase, orgId, canManage, executions, responsesByExecutionId, saveResponse],
+  )
+
+  const signAttachmentUrl = useCallback(
+    async (
+      storagePath: string,
+      ttlSeconds: number = 3600,
+    ): Promise<string | null> => {
+      if (!supabase) return null
+      const { data, error: signErr } = await supabase.storage
+        .from(ATTACHMENT_BUCKET)
+        .createSignedUrl(storagePath, ttlSeconds)
+      if (signErr) return null
+      return data?.signedUrl ?? null
+    },
+    [supabase],
+  )
+
   return useMemo(
     () => ({
       loading,
@@ -444,6 +606,9 @@ export function useChecklistModule(
       createExecution,
       saveResponse,
       signExecution,
+      uploadResponseAttachment,
+      removeResponseAttachment,
+      signAttachmentUrl,
     }),
     [
       loading,
@@ -460,6 +625,9 @@ export function useChecklistModule(
       createExecution,
       saveResponse,
       signExecution,
+      uploadResponseAttachment,
+      removeResponseAttachment,
+      signAttachmentUrl,
     ],
   )
 }
