@@ -52,6 +52,7 @@ import { WorkplacePublishedComposerProvider } from './context/WorkplacePublished
 import { ProjectDashboard } from './pages/ProjectDashboard'
 import { WelcomeDashboardPage } from './pages/WelcomeDashboardPage'
 import { TasksPage } from './pages/TasksPage'
+import { TasksManagementPage } from '../modules/tasks'
 import { WorkspaceAuditLogPage } from './pages/WorkspaceAuditLogPage'
 import { LearningLayout } from './components/learning/LearningLayout'
 import { LearningDashboard } from './pages/learning/LearningDashboard'
@@ -207,6 +208,7 @@ const router = createBrowserRouter(
                       <Route path="app" element={<WelcomeDashboardPage />} />
                       <Route path="dashboard/classic" element={<ProjectDashboard />} />
                       <Route path="tasks" element={<TasksPage />} />
+                      <Route path="tasks/management" element={<TasksManagementPage />} />
                       <Route path="workspace/revisjonslogg" element={<WorkspaceAuditLogPage />} />
                       <Route path="organisation" element={<OrganisationPage />} />
                       <Route path="organisation/admin" element={<AdminPage />} />
@@ -249,8 +251,9 @@ const router = createBrowserRouter(
                       {/* Phase 3: inspection module */}
                       <Route path="inspection-module" element={<InspectionModulePage />} />
                       <Route path="inspection-module/admin" element={<InspectionModuleAdminPage />} />
-                      {/* Avvik / funn — dedicated deviation management */}
-                      <Route path="avvik" element={<AvvikPage />} />
+                      {/* Avvik / funn — merged into the unified task management hub */}
+                      <Route path="avvik" element={<Navigate to="/tasks/management?tab=avvik" replace />} />
+                      <Route path="avvik/legacy" element={<AvvikPage />} />
                       <Route path="inspection-module/:roundId" element={<InspectionRoundDetailPage />} />
                       <Route path="vernerunder/admin" element={<VernerunderAdminPage />} />
                       <Route path="vernerunder/:vernerundeId" element={<VernerundeDetailPage />} />
