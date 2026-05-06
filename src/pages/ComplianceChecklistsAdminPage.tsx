@@ -22,6 +22,8 @@ import { ModulePageShell } from '../components/module/ModulePageShell'
 import { Tabs } from '../components/ui/Tabs'
 import { useActivePack } from '../context/packContextValue'
 import { MalerTab } from '../../modules/compliance/admin/MalerTab'
+import { PakkerTab } from '../../modules/compliance/admin/PakkerTab'
+import { KravTab } from '../../modules/compliance/admin/KravTab'
 
 type AdminTab = 'maler' | 'pakker' | 'krav' | 'arbeidsflyt' | 'statistikk'
 
@@ -56,8 +58,8 @@ export function ComplianceChecklistsAdminPage() {
       }
     >
       {tab === 'maler' && <MalerTab />}
-      {tab === 'pakker' && <PlaceholderPanel label="Pakker" />}
-      {tab === 'krav' && <PlaceholderPanel label="Krav" />}
+      {tab === 'pakker' && <PakkerTab />}
+      {tab === 'krav' && <KravTab />}
       {tab === 'arbeidsflyt' && <PlaceholderPanel label="Arbeidsflyt" />}
       {tab === 'statistikk' && <PlaceholderPanel label="Statistikk" />}
     </ModulePageShell>

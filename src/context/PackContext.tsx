@@ -22,7 +22,7 @@ import { PackContext, type PackContextValue } from './packContextValue'
 
 export function PackProvider({ children }: { children: ReactNode }) {
   const { supabase } = useOrgSetupContext()
-  const { loading, error, packs } = usePacks({ supabase })
+  const { loading, error, packs, updatePack, refresh } = usePacks({ supabase })
   const [searchParams, setSearchParams] = useSearchParams()
   const slugParam = searchParams.get('pack')
 
@@ -46,8 +46,17 @@ export function PackProvider({ children }: { children: ReactNode }) {
   )
 
   const value = useMemo<PackContextValue | null>(
-    () => (pack ? { pack, licensedPacks: packs, setPackSlug } : null),
-    [pack, packs, setPackSlug],
+    () =>
+      pack
+        ? {
+            pack,
+            licensedPacks: packs,
+            setPackSlug,
+            updatePack,
+            refreshPacks: refresh,
+          }
+        : null,
+    [pack, packs, setPackSlug, updatePack, refresh],
   )
 
   if (loading) {

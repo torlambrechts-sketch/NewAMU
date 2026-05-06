@@ -21,12 +21,25 @@ type UsePacksInput = {
   supabase: SupabaseClient | null
 }
 
+export type UpdatePackInput = {
+  slug: CompliancePackSlug
+  shortName?: string
+  pluralLabel?: string
+  ctaLabel?: string
+  description?: string
+  legalReferences?: PackLegalReference[]
+  kpiLabels?: PackKpiLabels
+  severityLabels?: PackSeverityLabels
+  position?: number
+}
+
 export type UsePacksReturn = {
   loading: boolean
   error: string | null
   packs: CompliancePack[]
   getPack: (slug: string | null | undefined) => CompliancePack | null
   refresh: () => Promise<void>
+  updatePack: (input: UpdatePackInput) => Promise<void>
 }
 
 // ── Zod (DB row shape) ──────────────────────────────────────────────────────
@@ -137,8 +150,50 @@ export function usePacks(input: UsePacksInput): UsePacksReturn {
     [packs],
   )
 
+  const updatePack = useCallback(
+    async (input: UpdatePackInput): Promise<void> => {
+      if (!supabase || !orgId) return
+      setError(null)
+
+      const update: Record<string, unknown> = {}
+      if (input.shortName !== undefined) update.short_name = input.shortName
+      if (input.pluralLabel !== undefined) update.plural_label = input.pluralLabel
+      if (input.ctaLabel !== undefined) update.cta_label = input.ctaLabel
+      if (input.description !== undefined) update.description = input.description
+      if (input.legalReferences !== undefined)
+        update.legal_references = input.legalReferences
+      if (input.kpiLabels !== undefined) update.kpi_labels = input.kpiLabels
+      if (input.severityLabels !== undefined)
+        update.severity_labels = input.severityLabels
+      if (input.position !== undefined) update.position = input.position
+      if (Object.keys(update).length === 0) return
+
+      try {
+        const { data, error: upErr } = await supabase
+          .from('compliance_packs')
+          .update(update)
+          .eq('organization_id', orgId)
+          .eq('slug', input.slug)
+          .select('*')
+          .single()
+        if (upErr) throw upErr
+
+        const parsed = CompliancePackRowSchema.safeParse(data)
+        if (parsed.success) {
+          const next = mapRowToPack(parsed.data)
+          setPacks((prev) =>
+            prev.map((p) => (p.slug === next.slug ? next : p)),
+          )
+        }
+      } catch (unknownError) {
+        setError(getSupabaseErrorMessage(unknownError))
+      }
+    },
+    [supabase, orgId],
+  )
+
   return useMemo(
-    () => ({ loading, error, packs, getPack, refresh: load }),
-    [loading, error, packs, getPack, load],
+    () => ({ loading, error, packs, getPack, refresh: load, updatePack }),
+    [loading, error, packs, getPack, load, updatePack],
   )
 }
