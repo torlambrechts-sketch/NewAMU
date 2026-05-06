@@ -80,6 +80,11 @@ export type ComplianceExecutionRow = {
   signed_by: string | null
   /** Frozen template definition at sign time. Null until signed. */
   definition_snapshot: unknown
+  /** SHA-256 of the canonical signed state, populated by trigger on sign. */
+  sign_checksum: string | null
+  /** Soft-archive flag (one-way). Only signed rows can be archived. */
+  archived_at: string | null
+  archived_by: string | null
   summary: string | null
   deleted_at: string | null
   created_by: string | null

@@ -40,7 +40,7 @@ export type ChecklistModuleState = {
   assignableUsers: ComplianceAssignableUser[]
   aggregates: ComplianceAggregates
 
-  load: (filters?: { pack?: CompliancePackSlug }) => Promise<void>
+  load: (filters?: { pack?: CompliancePackSlug; includeArchived?: boolean }) => Promise<void>
   loadDetail: (executionId: string) => Promise<void>
   reloadAggregates: (pack?: CompliancePackSlug) => Promise<void>
 
@@ -60,6 +60,9 @@ export type ChecklistModuleState = {
   }) => Promise<void>
 
   signExecution: (executionId: string) => Promise<void>
+
+  /** Archive a signed execution (one-way; cannot be undone). */
+  archiveExecution: (executionId: string) => Promise<void>
 
   uploadResponseAttachment: (payload: {
     executionId: string
@@ -226,7 +229,7 @@ export function useChecklistModule(
   // ── List load ────────────────────────────────────────────────────────────
 
   const load = useCallback(
-    async (filters?: { pack?: CompliancePackSlug }) => {
+    async (filters?: { pack?: CompliancePackSlug; includeArchived?: boolean }) => {
       if (!supabase || !orgId) return
       setLoading(true)
       setError(null)
@@ -253,6 +256,9 @@ export function useChecklistModule(
         if (filters?.pack) {
           templatesQ = templatesQ.eq('pack', filters.pack)
           executionsQ = executionsQ.eq('pack', filters.pack)
+        }
+        if (!filters?.includeArchived) {
+          executionsQ = executionsQ.is('archived_at', null)
         }
 
         const [templatesRes, executionsRes, usersRes] = await Promise.all([
@@ -481,6 +487,51 @@ export function useChecklistModule(
       }
     },
     [supabase, orgId, canManage, executions, templates, responsesByExecutionId, reloadAggregates],
+  )
+
+  const archiveExecution = useCallback(
+    async (executionId: string): Promise<void> => {
+      if (!supabase || !orgId) return
+      if (!canManage) {
+        setError('Du har ikke tilgang til å arkivere sjekklister.')
+        return
+      }
+      setError(null)
+
+      const exec = executions.find((e) => e.id === executionId)
+      if (!exec) {
+        setError('Sjekkliste ikke funnet.')
+        return
+      }
+      if (exec.status !== 'signed') {
+        setError('Bare signerte sjekklister kan arkiveres.')
+        return
+      }
+      if (exec.archived_at) {
+        setError('Sjekklisten er allerede arkivert.')
+        return
+      }
+
+      try {
+        const { data, error: upErr } = await supabase
+          .from('compliance_checklist_executions')
+          .update({ archived_at: new Date().toISOString() })
+          .eq('id', executionId)
+          .eq('organization_id', orgId)
+          .select('*')
+          .single()
+        if (upErr) throw upErr
+
+        const parsed = ComplianceExecutionRowSchema.safeParse(data)
+        if (parsed.success) {
+          // Default load filters out archived; drop from local state.
+          setExecutions((prev) => prev.filter((e) => e.id !== executionId))
+        }
+      } catch (unknownError) {
+        setError(getSupabaseErrorMessage(unknownError))
+      }
+    },
+    [supabase, orgId, canManage, executions],
   )
 
   // ── Attachments (Supabase Storage) ───────────────────────────────────────
@@ -838,6 +889,7 @@ export function useChecklistModule(
       createExecution,
       saveResponse,
       signExecution,
+      archiveExecution,
       uploadResponseAttachment,
       removeResponseAttachment,
       signAttachmentUrl,
@@ -863,6 +915,7 @@ export function useChecklistModule(
       createExecution,
       saveResponse,
       signExecution,
+      archiveExecution,
       uploadResponseAttachment,
       removeResponseAttachment,
       signAttachmentUrl,

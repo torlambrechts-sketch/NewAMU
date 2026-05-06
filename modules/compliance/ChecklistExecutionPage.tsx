@@ -5,7 +5,7 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
-import { ArrowLeft, CheckCircle2, Circle, Lock, ShieldCheck } from 'lucide-react'
+import { Archive, ArrowLeft, CheckCircle2, Circle, Lock, ShieldCheck } from 'lucide-react'
 import { ModulePageShell } from '../../src/components/module/ModulePageShell'
 import { ModuleSectionCard } from '../../src/components/module/ModuleSectionCard'
 import { Button } from '../../src/components/ui/Button'
@@ -135,12 +135,37 @@ export function ChecklistExecutionPage() {
             Tilbake
           </Link>
           {readOnly ? (
-            <Badge variant="signed">
-              <span className="inline-flex items-center gap-1">
-                <Lock className="h-3 w-3" />
-                {STATUS_LABEL[execution.status]}
-              </span>
-            </Badge>
+            <>
+              {execution.archived_at ? (
+                <Badge variant="neutral">
+                  <span className="inline-flex items-center gap-1">
+                    <Archive className="h-3 w-3" />
+                    Arkivert
+                  </span>
+                </Badge>
+              ) : (
+                <Badge variant="signed">
+                  <span className="inline-flex items-center gap-1">
+                    <Lock className="h-3 w-3" />
+                    {STATUS_LABEL[execution.status]}
+                  </span>
+                </Badge>
+              )}
+              {execution.status === 'signed' && !execution.archived_at ? (
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  icon={<Archive className="h-3.5 w-3.5" />}
+                  onClick={() => {
+                    if (window.confirm('Arkivere denne signerte sjekklisten? Handlingen kan ikke angres.')) {
+                      void cl.archiveExecution(executionId)
+                    }
+                  }}
+                >
+                  Arkiver
+                </Button>
+              ) : null}
+            </>
           ) : (
             <Button
               variant="primary"
