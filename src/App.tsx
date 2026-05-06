@@ -43,6 +43,9 @@ import { OrgHealthSettings } from './pages/OrgHealthSettings'
 import { InternalControlModule } from './pages/InternalControlModule'
 import { YearskontrollModule } from './pages/YearskontrollModule'
 import { ComplianceDashboardPage } from './pages/ComplianceDashboardPage'
+import { ComplianceKanbanPage } from './pages/ComplianceKanbanPage'
+import { ComplianceAmlPage } from './pages/ComplianceAmlPage'
+import { ComplianceInternforskriftenPage } from './pages/ComplianceInternforskriftenPage'
 import { OrganisationPage } from './pages/OrganisationPage'
 import { AarshjulPage } from './pages/aarshjul/AarshjulPage'
 import { ActionBoardPage } from './pages/actionboard/ActionBoardPage'
@@ -226,6 +229,9 @@ const router = createBrowserRouter(
                       <Route path="org-health" element={<OrgHealthModule />} />
                       <Route path="org-health/settings" element={<OrgHealthSettings />} />
                       <Route path="compliance" element={<ComplianceDashboardPage />} />
+                      <Route path="compliance/kanban" element={<ComplianceKanbanPage />} />
+                      <Route path="compliance/aml" element={<ComplianceAmlPage />} />
+                      <Route path="compliance/internforskriften" element={<ComplianceInternforskriftenPage />} />
                       <Route path="internal-control" element={<InternalControlModule />} />
                       <Route path="internkontroll" element={<IkHubPage />} />
                       <Route path="internkontroll/lovregister" element={<IkLovregisterPage />} />
