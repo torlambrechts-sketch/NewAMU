@@ -9,6 +9,7 @@ import { fetchAssignableUsers } from '../../src/hooks/useAssignableUsers'
 import { useOrgSetupContext } from '../../src/hooks/useOrgSetupContext'
 import { getSupabaseErrorMessage } from '../../src/lib/supabaseError'
 import type {
+  ChecklistDefinition,
   ComplianceAggregates,
   ComplianceAssignableUser,
   ComplianceExecutionRow,
@@ -74,6 +75,40 @@ export type ChecklistModuleState = {
 
   /** Sign a Supabase Storage path for inline display (e.g. <img src>). */
   signAttachmentUrl: (storagePath: string, ttlSeconds?: number) => Promise<string | null>
+
+  // ── Template administration ──────────────────────────────────────────────
+
+  createTemplate: (payload: {
+    pack: CompliancePackSlug
+    slug: string
+    name: string
+    description?: string
+    definition?: ChecklistDefinition
+  }) => Promise<string | null>
+
+  updateTemplate: (payload: {
+    templateId: string
+    name?: string
+    description?: string | null
+    definition?: ChecklistDefinition
+    nav_pinned?: boolean
+    is_active?: boolean
+  }) => Promise<void>
+
+  /** Soft delete (sets deleted_at). System rows are rejected by the DB trigger. */
+  softDeleteTemplate: (templateId: string) => Promise<void>
+
+  // ── Template ↔ requirement tagging ──────────────────────────────────────
+
+  /** Cached requirement-id list per template, populated on demand. */
+  requirementIdsByTemplateId: Record<string, string[]>
+
+  loadTemplateRequirements: (templateId: string) => Promise<void>
+
+  setTemplateRequirements: (
+    templateId: string,
+    requirementIds: string[],
+  ) => Promise<void>
 }
 
 const ATTACHMENT_BUCKET = 'compliance_checklist_files'
@@ -103,6 +138,9 @@ export function useChecklistModule(
   >({})
   const [assignableUsers, setAssignableUsers] = useState<ComplianceAssignableUser[]>([])
   const [aggregates, setAggregates] = useState<ComplianceAggregates>(EMPTY_AGGREGATES)
+  const [requirementIdsByTemplateId, setRequirementIdsByTemplateId] = useState<
+    Record<string, string[]>
+  >({})
 
   // ── Aggregates (org-wide; fetched separately from paginated list) ────────
 
@@ -590,6 +628,200 @@ export function useChecklistModule(
     [supabase],
   )
 
+  // ── Template administration ──────────────────────────────────────────────
+
+  const createTemplate = useCallback(
+    async (payload: {
+      pack: CompliancePackSlug
+      slug: string
+      name: string
+      description?: string
+      definition?: ChecklistDefinition
+    }): Promise<string | null> => {
+      if (!supabase || !orgId) return null
+      if (!canManage) {
+        setError('Du har ikke tilgang til å opprette maler.')
+        return null
+      }
+      setError(null)
+
+      try {
+        const { data, error: insErr } = await supabase
+          .from('compliance_checklist_templates')
+          .insert({
+            pack: payload.pack,
+            slug: payload.slug,
+            name: payload.name,
+            description: payload.description ?? null,
+            definition: payload.definition ?? { items: [] },
+            is_active: true,
+            nav_pinned: false,
+            is_system: false,
+          })
+          .select('*')
+          .single()
+        if (insErr) throw insErr
+
+        const parsed = ComplianceTemplateRowSchema.safeParse(data)
+        if (parsed.success) {
+          setTemplates((prev) => [...prev, parsed.data])
+          return parsed.data.id
+        }
+        return null
+      } catch (unknownError) {
+        setError(getSupabaseErrorMessage(unknownError))
+        return null
+      }
+    },
+    [supabase, orgId, canManage],
+  )
+
+  const updateTemplate = useCallback(
+    async (payload: {
+      templateId: string
+      name?: string
+      description?: string | null
+      definition?: ChecklistDefinition
+      nav_pinned?: boolean
+      is_active?: boolean
+    }): Promise<void> => {
+      if (!supabase || !orgId) return
+      if (!canManage) {
+        setError('Du har ikke tilgang til å redigere maler.')
+        return
+      }
+      setError(null)
+
+      const update: Record<string, unknown> = {}
+      if (payload.name !== undefined) update.name = payload.name
+      if (payload.description !== undefined) update.description = payload.description
+      if (payload.definition !== undefined) update.definition = payload.definition
+      if (payload.nav_pinned !== undefined) update.nav_pinned = payload.nav_pinned
+      if (payload.is_active !== undefined) update.is_active = payload.is_active
+      if (Object.keys(update).length === 0) return
+
+      try {
+        const { data, error: upErr } = await supabase
+          .from('compliance_checklist_templates')
+          .update(update)
+          .eq('id', payload.templateId)
+          .eq('organization_id', orgId)
+          .select('*')
+          .single()
+        if (upErr) throw upErr
+
+        const parsed = ComplianceTemplateRowSchema.safeParse(data)
+        if (parsed.success) {
+          setTemplates((prev) =>
+            prev.map((t) => (t.id === payload.templateId ? parsed.data : t)),
+          )
+        }
+      } catch (unknownError) {
+        setError(getSupabaseErrorMessage(unknownError))
+      }
+    },
+    [supabase, orgId, canManage],
+  )
+
+  const softDeleteTemplate = useCallback(
+    async (templateId: string): Promise<void> => {
+      if (!supabase || !orgId) return
+      if (!canManage) {
+        setError('Du har ikke tilgang til å slette maler.')
+        return
+      }
+      setError(null)
+
+      const t = templates.find((x) => x.id === templateId)
+      if (t?.is_system) {
+        setError('Systemmaler kan ikke slettes; sett dem inaktive i stedet.')
+        return
+      }
+
+      try {
+        const { error: upErr } = await supabase
+          .from('compliance_checklist_templates')
+          .update({ deleted_at: new Date().toISOString(), is_active: false })
+          .eq('id', templateId)
+          .eq('organization_id', orgId)
+        if (upErr) throw upErr
+
+        setTemplates((prev) => prev.filter((x) => x.id !== templateId))
+      } catch (unknownError) {
+        setError(getSupabaseErrorMessage(unknownError))
+      }
+    },
+    [supabase, orgId, canManage, templates],
+  )
+
+  // ── Template ↔ requirement tagging ──────────────────────────────────────
+
+  const loadTemplateRequirements = useCallback(
+    async (templateId: string): Promise<void> => {
+      if (!supabase || !orgId) return
+      try {
+        const { data, error: respErr } = await supabase
+          .from('compliance_template_requirements')
+          .select('requirement_id')
+          .eq('organization_id', orgId)
+          .eq('template_id', templateId)
+        if (respErr) throw respErr
+        const ids = (data ?? []).map((row) => row.requirement_id as string)
+        setRequirementIdsByTemplateId((prev) => ({ ...prev, [templateId]: ids }))
+      } catch (unknownError) {
+        setError(getSupabaseErrorMessage(unknownError))
+      }
+    },
+    [supabase, orgId],
+  )
+
+  const setTemplateRequirements = useCallback(
+    async (templateId: string, requirementIds: string[]): Promise<void> => {
+      if (!supabase || !orgId) return
+      if (!canManage) {
+        setError('Du har ikke tilgang til å redigere kravkobling.')
+        return
+      }
+      setError(null)
+
+      const current = new Set(requirementIdsByTemplateId[templateId] ?? [])
+      const next = new Set(requirementIds)
+      const toAdd = [...next].filter((id) => !current.has(id))
+      const toRemove = [...current].filter((id) => !next.has(id))
+
+      try {
+        if (toRemove.length > 0) {
+          const { error: rmErr } = await supabase
+            .from('compliance_template_requirements')
+            .delete()
+            .eq('organization_id', orgId)
+            .eq('template_id', templateId)
+            .in('requirement_id', toRemove)
+          if (rmErr) throw rmErr
+        }
+
+        if (toAdd.length > 0) {
+          const rows = toAdd.map((requirement_id) => ({
+            template_id: templateId,
+            requirement_id,
+          }))
+          const { error: insErr } = await supabase
+            .from('compliance_template_requirements')
+            .insert(rows)
+          if (insErr) throw insErr
+        }
+
+        setRequirementIdsByTemplateId((prev) => ({
+          ...prev,
+          [templateId]: [...next],
+        }))
+      } catch (unknownError) {
+        setError(getSupabaseErrorMessage(unknownError))
+      }
+    },
+    [supabase, orgId, canManage, requirementIdsByTemplateId],
+  )
+
   return useMemo(
     () => ({
       loading,
@@ -609,6 +841,12 @@ export function useChecklistModule(
       uploadResponseAttachment,
       removeResponseAttachment,
       signAttachmentUrl,
+      createTemplate,
+      updateTemplate,
+      softDeleteTemplate,
+      requirementIdsByTemplateId,
+      loadTemplateRequirements,
+      setTemplateRequirements,
     }),
     [
       loading,
@@ -628,6 +866,12 @@ export function useChecklistModule(
       uploadResponseAttachment,
       removeResponseAttachment,
       signAttachmentUrl,
+      createTemplate,
+      updateTemplate,
+      softDeleteTemplate,
+      requirementIdsByTemplateId,
+      loadTemplateRequirements,
+      setTemplateRequirements,
     ],
   )
 }
