@@ -94,7 +94,16 @@ export function AmuPage({
 
       {amu.error ? <WarningBox>{amu.error}</WarningBox> : null}
 
-      {activeTab === 'overview' ? <OverviewTab amu={amu} onOpenReport={() => setActiveTab('report')} /> : null}
+      {activeTab === 'overview' ? (
+        <OverviewTab
+          amu={amu}
+          onOpenReport={() => setActiveTab('report')}
+          onOpenLive={() => setActiveTab('meetingroom')}
+          onOpenAgenda={() => setActiveTab('schedule')}
+          onOpenMembers={() => setActiveTab('members')}
+          onOpenCritical={() => setActiveTab('critical')}
+        />
+      ) : null}
       {activeTab === 'members' ? <MembersTab amu={amu} /> : null}
       {activeTab === 'schedule' ? <ScheduleTab amu={amu} /> : null}
       {activeTab === 'meetingroom' ? <MeetingRoomTab amu={amu} /> : null}
