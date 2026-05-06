@@ -51,6 +51,9 @@ export const ComplianceTemplateRowSchema: z.ZodType<ComplianceTemplateRow> = z.o
   description: z.string().nullable(),
   definition: z.unknown(),
   is_active: z.boolean(),
+  // Default false so older DB instances (without the migration) still parse.
+  nav_pinned: z.boolean().default(false),
+  is_system: z.boolean().default(false),
   deleted_at: z.string().nullable(),
   created_by: z.string().uuid().nullable(),
   created_at: TimestampSchema,

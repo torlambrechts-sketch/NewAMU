@@ -7,6 +7,8 @@ import type { CompliancePack } from '../lib/compliance/packs'
 
 export type PackContextValue = {
   pack: CompliancePack
+  /** Org's licensed packs (is_active rows in compliance_packs), sorted by position. */
+  licensedPacks: CompliancePack[]
   setPackSlug: (slug: CompliancePackSlug) => void
 }
 
@@ -26,4 +28,12 @@ export function useSetActivePack(): (slug: CompliancePackSlug) => void {
     throw new Error('useSetActivePack must be used inside <PackProvider>')
   }
   return ctx.setPackSlug
+}
+
+export function useLicensedPacks(): CompliancePack[] {
+  const ctx = useContext(PackContext)
+  if (!ctx) {
+    throw new Error('useLicensedPacks must be used inside <PackProvider>')
+  }
+  return ctx.licensedPacks
 }

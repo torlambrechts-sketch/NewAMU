@@ -45,6 +45,10 @@ export type ComplianceTemplateRow = {
   /** Raw jsonb — parse with parseChecklistDefinition */
   definition: unknown
   is_active: boolean
+  /** Pinned to the "Sjekklister" sidebar group when true. */
+  nav_pinned: boolean
+  /** Platform-shipped baseline template. Cannot be hard-deleted (DB trigger). */
+  is_system: boolean
   deleted_at: string | null
   created_by: string | null
   created_at: string

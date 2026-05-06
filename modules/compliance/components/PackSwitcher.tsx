@@ -1,10 +1,13 @@
 // PackSwitcher — segmented control for the active compliance pack.
-// Lives in ModulePageShell.headerActions next to the primary CTA.
-// Brand-green selection, square corners (DESIGN_SYSTEM.md §5).
+// Reads licensed packs from the PackProvider (DB-driven). Hidden when only
+// one pack is licensed; the page still works but there's nothing to switch.
 
 import { Globe2, Shield } from 'lucide-react'
-import { useActivePack, useSetActivePack } from '../../../src/context/packContextValue'
-import { PACK_ORDER, PACKS } from '../../../src/lib/compliance/packs'
+import {
+  useActivePack,
+  useLicensedPacks,
+  useSetActivePack,
+} from '../../../src/context/packContextValue'
 import type { CompliancePackSlug } from '../types'
 
 const ICON: Record<CompliancePackSlug, typeof Shield> = {
@@ -15,6 +18,9 @@ const ICON: Record<CompliancePackSlug, typeof Shield> = {
 export function PackSwitcher() {
   const activePack = useActivePack()
   const setPackSlug = useSetActivePack()
+  const licensed = useLicensedPacks()
+
+  if (licensed.length < 2) return null
 
   return (
     <div
@@ -22,17 +28,16 @@ export function PackSwitcher() {
       aria-label="Velg regelverk"
       className="inline-flex border border-neutral-300 bg-white"
     >
-      {PACK_ORDER.map((slug) => {
-        const pack = PACKS[slug]
-        const Icon = ICON[slug]
+      {licensed.map((pack) => {
+        const Icon = ICON[pack.slug] ?? Shield
         const active = pack.slug === activePack.slug
         return (
           <button
-            key={slug}
+            key={pack.slug}
             role="tab"
             aria-selected={active}
             type="button"
-            onClick={() => setPackSlug(slug)}
+            onClick={() => setPackSlug(pack.slug)}
             className={[
               'inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium transition-colors',
               active
