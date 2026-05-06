@@ -1,10 +1,13 @@
 import { useEffect, useMemo, useState } from 'react'
-import { AlertTriangle, CheckCircle, Clock, ShieldCheck } from 'lucide-react'
+import { AlertOctagon, AlertTriangle, CheckCircle, Clock, Shield, ShieldAlert, ShieldCheck } from 'lucide-react'
 import { LayoutScoreStatRow } from '../../../src/components/layout/LayoutScoreStatRow'
 import { ModuleSectionCard } from '../../../src/components/module'
 import { Badge } from '../../../src/components/ui/Badge'
 import { Button } from '../../../src/components/ui/Button'
 import type { Task } from '../../../src/types/task'
+import type { AvvikRow } from '../../avvik/types'
+import type { WhistleblowingCaseRow } from '../../../src/types/whistleblowing'
+import type { AnonymousAmlReport } from '../../../src/types/orgHealth'
 import { MODULE_LABELS } from '../../../src/lib/taskNavigation'
 import {
   TASK_STATUS_LABELS,
@@ -19,8 +22,12 @@ import type { UseTaskExtensions } from '../useTaskExtensions'
 type Props = {
   tasks: Task[]
   ext: UseTaskExtensions
+  avvik: AvvikRow[]
+  varslingCases: WhistleblowingCaseRow[]
+  anonymReports: AnonymousAmlReport[]
   onOpenTask: (taskId: string) => void
   onJumpToBoard: () => void
+  onJumpTo: (tab: 'avvik' | 'varsling' | 'anonym') => void
 }
 
 /**
@@ -28,7 +35,16 @@ type Props = {
  * Mirrors the structure used by SurveyOversiktModuleTab so the look-and-feel
  * stays identical across modules.
  */
-export function TasksOverviewTab({ tasks, ext, onOpenTask, onJumpToBoard }: Props) {
+export function TasksOverviewTab({
+  tasks,
+  ext,
+  avvik,
+  varslingCases,
+  anonymReports,
+  onOpenTask,
+  onJumpToBoard,
+  onJumpTo,
+}: Props) {
   const [nowMs, setNowMs] = useState(() => Date.now())
   // Refresh "overdue" badges on the minute without re-rendering the rest of
   // the module — cheap (just a number), but ensures KPIs stay accurate while
@@ -100,9 +116,44 @@ export function TasksOverviewTab({ tasks, ext, onOpenTask, onJumpToBoard }: Prop
     ]
   }, [tasks])
 
+  const openAvvik = useMemo(
+    () => avvik.filter((a) => a.status !== 'closed' && a.status !== 'lukket'),
+    [avvik],
+  )
+  const criticalAvvik = useMemo(() => openAvvik.filter((a) => a.severity === 'critical'), [openAvvik])
+  const openVarsling = useMemo(() => varslingCases.filter((c) => c.status !== 'closed'), [varslingCases])
+  const last24hAnonym = useMemo(
+    () => anonymReports.filter((r) => nowMs - new Date(r.submittedAt).getTime() < 24 * 60 * 60 * 1000).length,
+    [anonymReports, nowMs],
+  )
+
   return (
     <div className="space-y-6">
       <LayoutScoreStatRow items={kpis} columns={4} />
+
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        <CategoryCard
+          icon={<AlertOctagon className="h-5 w-5 text-amber-700" aria-hidden />}
+          title="Avvik"
+          summary={`${openAvvik.length} åpne · ${criticalAvvik.length} kritiske`}
+          description="IK-forskriften § 5 nr. 7 — avvik håndteres systematisk."
+          onOpen={() => onJumpTo('avvik')}
+        />
+        <CategoryCard
+          icon={<ShieldAlert className="h-5 w-5 text-emerald-700" aria-hidden />}
+          title="Varsling"
+          summary={`${openVarsling.length} åpne saker`}
+          description="AML § 2 A — bekreftelse til varsler innen rimelig tid."
+          onOpen={() => onJumpTo('varsling')}
+        />
+        <CategoryCard
+          icon={<Shield className="h-5 w-5 text-emerald-700" aria-hidden />}
+          title="Anonym AML"
+          summary={`${anonymReports.length} totalt · ${last24hAnonym} siste 24t`}
+          description="AML § 4-3 — psykososial varsling uten identifisering."
+          onOpen={() => onJumpTo('anonym')}
+        />
+      </div>
 
       <div className="grid gap-4 lg:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)]">
         <ModuleSectionCard className="p-5">
@@ -171,6 +222,38 @@ export function TasksOverviewTab({ tasks, ext, onOpenTask, onJumpToBoard }: Prop
         </ModuleSectionCard>
       </div>
     </div>
+  )
+}
+
+function CategoryCard({
+  icon,
+  title,
+  summary,
+  description,
+  onOpen,
+}: {
+  icon: React.ReactNode
+  title: string
+  summary: string
+  description: string
+  onOpen: () => void
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onOpen}
+      className="group flex flex-col items-start gap-2 rounded-lg border border-neutral-200 bg-white p-4 text-left shadow-sm transition-colors hover:border-[#1a3d32]/40 hover:bg-emerald-50/40"
+    >
+      <div className="flex items-center gap-2">
+        {icon}
+        <span className="text-sm font-semibold text-neutral-900">{title}</span>
+      </div>
+      <p className="text-base font-semibold text-neutral-900">{summary}</p>
+      <p className="text-xs text-neutral-500">{description}</p>
+      <span className="mt-1 inline-flex items-center text-xs font-medium text-[#1a3d32] group-hover:underline">
+        Åpne →
+      </span>
+    </button>
   )
 }
 

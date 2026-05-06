@@ -1,11 +1,15 @@
-import { useCallback, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import {
+  AlertOctagon,
   ClipboardList,
   KanbanSquare,
   LayoutGrid,
   Plus,
   Settings,
+  Settings as SettingsIcon,
+  Shield,
+  ShieldAlert,
   Users,
   Workflow,
 } from 'lucide-react'
@@ -21,22 +25,50 @@ import { SlidePanel } from '../../src/components/layout/SlidePanel'
 import { WPSTD_FORM_FIELD_LABEL } from '../../src/components/layout/WorkplaceStandardFormPanel'
 import { useTasks } from '../../src/hooks/useTasks'
 import { useOrganisation } from '../../src/hooks/useOrganisation'
+import { useOrgSetupContext } from '../../src/hooks/useOrgSetupContext'
+import { useWhistleblowing } from '../../src/hooks/useWhistleblowing'
+import { useWorkplaceReportingCases } from '../../src/hooks/useWorkplaceReportingCases'
 import { TASK_OWNER_ROLE_OPTIONS } from '../../src/lib/taskFormOptions'
 import { MODULE_LABELS } from '../../src/lib/taskNavigation'
 import type { TaskModule, TaskStatus } from '../../src/types/task'
+import { useAvvik } from '../avvik/useAvvik'
 import { TASK_MODULE_LEGAL_REFERENCES } from './taskLegalReferences'
 import { TasksOverviewTab } from './tabs/TasksOverviewTab'
 import { TasksKanbanTab } from './tabs/TasksKanbanTab'
 import { TasksListTab } from './tabs/TasksListTab'
 import { TasksPlanningTab } from './tabs/TasksPlanningTab'
 import { TasksCollaborationTab } from './tabs/TasksCollaborationTab'
+import { TasksAvvikTab } from './tabs/TasksAvvikTab'
+import { TasksVarslingTab } from './tabs/TasksVarslingTab'
+import { TasksAnonymTab } from './tabs/TasksAnonymTab'
+import { TasksSettingsTab } from './tabs/TasksSettingsTab'
 import { TaskDetailPanel } from './TaskDetailPanel'
 import { useTaskExtensions } from './useTaskExtensions'
+import { useTaskModuleSettings } from './useTaskModuleSettings'
 import { TASK_PRIORITY_OPTIONS, type TaskPriority } from './types'
 
-type ModuleTab = 'oversikt' | 'tavle' | 'liste' | 'planlegging' | 'samarbeid'
+type ModuleTab =
+  | 'oversikt'
+  | 'tavle'
+  | 'liste'
+  | 'planlegging'
+  | 'samarbeid'
+  | 'avvik'
+  | 'varsling'
+  | 'anonym'
+  | 'innstillinger'
 
-const TAB_IDS: ReadonlyArray<ModuleTab> = ['oversikt', 'tavle', 'liste', 'planlegging', 'samarbeid']
+const TAB_IDS: ReadonlyArray<ModuleTab> = [
+  'oversikt',
+  'tavle',
+  'liste',
+  'planlegging',
+  'samarbeid',
+  'avvik',
+  'varsling',
+  'anonym',
+  'innstillinger',
+]
 
 const MODULE_OPTIONS: ReadonlyArray<{ value: TaskModule; label: string }> = (
   Object.keys(MODULE_LABELS) as TaskModule[]
@@ -55,9 +87,22 @@ const MODULE_OPTIONS: ReadonlyArray<{ value: TaskModule; label: string }> = (
 export function TasksManagementPage() {
   const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
+  const { supabase } = useOrgSetupContext()
   const tasksApi = useTasks()
   const ext = useTaskExtensions(tasksApi.tasks)
+  const settings = useTaskModuleSettings()
   const org = useOrganisation()
+  const avvikApi = useAvvik({ supabase })
+  const wb = useWhistleblowing()
+  const wr = useWorkplaceReportingCases()
+
+  // Avvik data is loaded on-demand the first time the related tab/overview is
+  // visible — the existing AvvikView already calls `load` when mounted, but we
+  // also need counts for the Oversikt KPIs.
+  useEffect(() => {
+    if (supabase) void avvikApi.load()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [supabase])
 
   const tabFromUrl = (searchParams.get('tab') as ModuleTab | null) ?? null
   const initialTab: ModuleTab = TAB_IDS.includes(tabFromUrl as ModuleTab) ? (tabFromUrl as ModuleTab) : 'oversikt'
@@ -66,18 +111,30 @@ export function TasksManagementPage() {
   const [createOpen, setCreateOpen] = useState(false)
 
   // Create-task draft local state.
-  const [draft, setDraft] = useState<DraftTask>(emptyDraft())
+  const [draft, setDraft] = useState<DraftTask>(emptyDraft({ priority: settings.settings.defaults.priority, ownerRole: settings.settings.defaults.ownerRole }))
 
   const moduleTabs: TabItem[] = useMemo(() => {
     const open = tasksApi.tasks.filter((t) => t.status !== 'done').length
+    const openAvvik = avvikApi.avvik.filter((a) => a.status !== 'closed' && a.status !== 'lukket').length
+    const openVarsling = wb.cases.filter((c) => c.status !== 'closed').length
     return [
       { id: 'oversikt', label: 'Oversikt', icon: LayoutGrid },
       { id: 'tavle', label: 'Tavle', icon: KanbanSquare, badgeCount: open || undefined },
       { id: 'liste', label: 'Liste', icon: ClipboardList },
       { id: 'planlegging', label: 'Planlegging', icon: Workflow, badgeCount: ext.projects.length || undefined },
       { id: 'samarbeid', label: 'Samarbeid', icon: Users },
+      {
+        id: 'avvik',
+        label: 'Avvik',
+        icon: AlertOctagon,
+        badgeCount: openAvvik || undefined,
+        badgeVariant: openAvvik > 0 && avvikApi.avvik.some((a) => a.severity === 'critical' && a.status !== 'closed' && a.status !== 'lukket') ? 'danger' : 'default',
+      },
+      { id: 'varsling', label: 'Varsling', icon: ShieldAlert, badgeCount: openVarsling || undefined },
+      { id: 'anonym', label: 'Anonym AML', icon: Shield },
+      { id: 'innstillinger', label: 'Innstillinger', icon: SettingsIcon },
     ]
-  }, [tasksApi.tasks, ext.projects.length])
+  }, [tasksApi.tasks, ext.projects.length, avvikApi.avvik, wb.cases])
 
   const selectedTask = useMemo(
     () => tasksApi.tasks.find((t) => t.id === selectedTaskId) ?? null,
@@ -137,11 +194,11 @@ export function TasksManagementPage() {
       subtasks: [],
       projectId: draft.projectId || undefined,
     })
-    setDraft(emptyDraft())
+    setDraft(emptyDraft({ priority: settings.settings.defaults.priority, ownerRole: settings.settings.defaults.ownerRole }))
     setCreateOpen(false)
     onChangeTab('tavle')
     setSelectedTaskId(created.id)
-  }, [draft, tasksApi, ext, org.displayEmployees, onChangeTab])
+  }, [draft, tasksApi, ext, org.displayEmployees, onChangeTab, settings.settings.defaults.priority, settings.settings.defaults.ownerRole])
 
   return (
     <>
@@ -197,8 +254,12 @@ export function TasksManagementPage() {
           <TasksOverviewTab
             tasks={tasksApi.tasks}
             ext={ext}
+            avvik={avvikApi.avvik}
+            varslingCases={wb.cases}
+            anonymReports={wr.anonymousAmlReports}
             onOpenTask={openTask}
             onJumpToBoard={() => onChangeTab('tavle')}
+            onJumpTo={(t) => onChangeTab(t)}
           />
         )}
 
@@ -218,6 +279,14 @@ export function TasksManagementPage() {
         {tab === 'samarbeid' && (
           <TasksCollaborationTab tasks={tasksApi.tasks} ext={ext} onOpenTask={openTask} />
         )}
+
+        {tab === 'avvik' && <TasksAvvikTab supabase={supabase} />}
+
+        {tab === 'varsling' && <TasksVarslingTab />}
+
+        {tab === 'anonym' && <TasksAnonymTab pageSlug={settings.settings.anonymAml.pageSlug} />}
+
+        {tab === 'innstillinger' && <TasksSettingsTab settings={settings} />}
       </ModulePageShell>
 
       <TaskDetailPanel
@@ -387,15 +456,15 @@ type DraftTask = {
   requiresMgmt: boolean
 }
 
-function emptyDraft(): DraftTask {
+function emptyDraft(defaults?: { priority?: TaskPriority; ownerRole?: string }): DraftTask {
   return {
     title: '',
     description: '',
     module: 'general',
-    priority: 'medium',
+    priority: defaults?.priority ?? 'medium',
     assigneeEmployeeId: '',
     assigneeName: '',
-    ownerRole: 'Ansvarlig',
+    ownerRole: defaults?.ownerRole ?? 'Ansvarlig',
     leaderEmployeeId: '',
     dueDate: '',
     projectId: '',

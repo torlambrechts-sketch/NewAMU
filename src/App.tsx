@@ -251,8 +251,9 @@ const router = createBrowserRouter(
                       {/* Phase 3: inspection module */}
                       <Route path="inspection-module" element={<InspectionModulePage />} />
                       <Route path="inspection-module/admin" element={<InspectionModuleAdminPage />} />
-                      {/* Avvik / funn — dedicated deviation management */}
-                      <Route path="avvik" element={<AvvikPage />} />
+                      {/* Avvik / funn — merged into the unified task management hub */}
+                      <Route path="avvik" element={<Navigate to="/tasks/management?tab=avvik" replace />} />
+                      <Route path="avvik/legacy" element={<AvvikPage />} />
                       <Route path="inspection-module/:roundId" element={<InspectionRoundDetailPage />} />
                       <Route path="vernerunder/admin" element={<VernerunderAdminPage />} />
                       <Route path="vernerunder/:vernerundeId" element={<VernerundeDetailPage />} />
