@@ -107,6 +107,7 @@ import { InspectionModuleAdminPage } from './pages/InspectionModuleAdminPage'
 import { InspectionRoundDetailPage } from './pages/InspectionRoundDetailPage'
 import { ChecklistsPage } from '../modules/compliance/ChecklistsPage'
 import { ChecklistExecutionPage } from '../modules/compliance/ChecklistExecutionPage'
+import { ComplianceChecklistsAdminPage } from './pages/ComplianceChecklistsAdminPage'
 import { PackProvider } from './context/PackContext'
 import { VernerunderPageRoute } from './pages/VernerunderPage'
 import { VernerundeDetailPage } from './pages/VernerundeDetailPage'
@@ -266,6 +267,14 @@ const router = createBrowserRouter(
                         element={
                           <PackProvider>
                             <ChecklistsPage />
+                          </PackProvider>
+                        }
+                      />
+                      <Route
+                        path="compliance/checklists/admin"
+                        element={
+                          <PackProvider>
+                            <ComplianceChecklistsAdminPage />
                           </PackProvider>
                         }
                       />

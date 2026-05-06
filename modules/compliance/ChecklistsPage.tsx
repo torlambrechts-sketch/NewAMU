@@ -11,8 +11,8 @@
 // at the same elevation as the org switcher.
 
 import { useEffect, useMemo, useState } from 'react'
-import { useNavigate, useSearchParams } from 'react-router-dom'
-import { ChevronRight, Plus } from 'lucide-react'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
+import { ChevronRight, Plus, Settings } from 'lucide-react'
 import { ModulePageShell } from '../../src/components/module/ModulePageShell'
 import { ModuleLegalBanner } from '../../src/components/module/ModuleLegalBanner'
 import { LayoutScoreStatRow } from '../../src/components/layout/LayoutScoreStatRow'
@@ -114,14 +114,23 @@ export function ChecklistsPage() {
       title={pageTitle}
       description={pageDescription}
       headerActions={
-        <Button
-          variant="primary"
-          icon={<Plus className="h-4 w-4" />}
-          onClick={() => setCreateOpen(true)}
-          disabled={formTemplates.length === 0}
-        >
-          {ctaLabel}
-        </Button>
+        <div className="flex items-center gap-2">
+          <Link
+            to="/compliance/checklists/admin"
+            aria-label="Innstillinger"
+            className="inline-flex items-center border border-neutral-300 bg-white px-3 py-2 text-neutral-600 transition-colors hover:bg-neutral-50"
+          >
+            <Settings className="h-4 w-4" aria-hidden />
+          </Link>
+          <Button
+            variant="primary"
+            icon={<Plus className="h-4 w-4" />}
+            onClick={() => setCreateOpen(true)}
+            disabled={formTemplates.length === 0}
+          >
+            {ctaLabel}
+          </Button>
+        </div>
       }
     >
       <div className="space-y-6">
