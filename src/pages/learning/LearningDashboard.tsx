@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import {
   ArrowRight,
+  BarChart3,
   BookOpen,
   Clock,
   GraduationCap,
@@ -20,9 +21,21 @@ import { LayoutTable1PostingsShell } from '../../components/layout/LayoutTable1P
 import { MODULE_TABLE_TH, MODULE_TABLE_TR_BODY, ModuleSectionCard } from '../../components/module'
 import type { Course, CourseProgress } from '../../types/learning'
 
-const SERIF_FAMILY = "'Libre Baskerville', Georgia, serif"
 const PIN_GREEN = '#1a3d32'
 const MINT_BG = '#e7efe9'
+
+const KIND_LABELS: Record<string, string> = {
+  flashcard: 'Flashkort',
+  quiz: 'Quiz',
+  text: 'Tekst',
+  image: 'Bilde',
+  video: 'Video',
+  checklist: 'Sjekkliste',
+  tips: 'Tips',
+  on_job: 'På jobben',
+  event: 'Hendelse',
+  other: 'Annet',
+}
 
 type FilterId = 'alle' | 'mine' | 'publisert' | 'utkast'
 type ViewMode = 'grid' | 'list'
@@ -84,12 +97,7 @@ function CourseCard({
       </div>
 
       <div className="min-w-0">
-        <h3
-          className="line-clamp-2 text-base font-semibold leading-snug text-neutral-900"
-          style={{ fontFamily: SERIF_FAMILY }}
-        >
-          {course.title}
-        </h3>
+        <h3 className="line-clamp-2 text-base font-semibold leading-snug text-neutral-900">{course.title}</h3>
         <p className="mt-1.5 line-clamp-2 text-sm text-neutral-600">{course.description}</p>
       </div>
 
@@ -231,12 +239,26 @@ function CatalogTable({
 }
 
 export function LearningDashboard() {
-  const { courses, progress } = useLearning()
-  const { profile } = useOrgSetupContext()
+  const { courses, progress, certificates } = useLearning()
+  const { profile, can, isAdmin } = useOrgSetupContext()
+  const canManage = isAdmin || can('learning.manage')
 
   const [view, setView] = useState<ViewMode>('grid')
   const [filter, setFilter] = useState<FilterId>('alle')
   const [search, setSearch] = useState('')
+
+  // Insights — folded in from the standalone /learning/insights route.
+  const moduleCount = courses.reduce((acc, c) => acc + c.modules.length, 0)
+  const byKind = useMemo(() => {
+    const out: Record<string, number> = {}
+    for (const c of courses) for (const m of c.modules) out[m.kind] = (out[m.kind] ?? 0) + 1
+    return out
+  }, [courses])
+  const sortedKinds = useMemo(
+    () => Object.entries(byKind).sort((a, b) => b[1] - a[1]),
+    [byKind],
+  )
+  const maxKind = sortedKinds.length > 0 ? Math.max(...sortedKinds.map(([, v]) => v)) : 0
 
   const myProgressById = useMemo<Record<string, CourseProgress>>(() => {
     const out: Record<string, CourseProgress> = {}
@@ -407,6 +429,52 @@ export function LearningDashboard() {
           )}
         </LayoutTable1PostingsShell>
       </ModuleSectionCard>
+
+      {canManage ? (
+        <ModuleSectionCard className="!p-0">
+          <LayoutTable1PostingsShell
+            wrap={false}
+            titleTypography="sans"
+            title="Innsikt — moduler etter type"
+            description="Fordeling av modulformatene på tvers av kurskatalogen."
+            toolbar={
+              <div className="flex items-center gap-2 text-xs text-neutral-500">
+                <BarChart3 className="h-4 w-4 text-neutral-400" />
+                {sortedKinds.length} ulike formater · {certificates.length} kursbevis utstedt
+              </div>
+            }
+            footer={<span>{moduleCount} moduler totalt på tvers av {courses.length} kurs</span>}
+          >
+            {sortedKinds.length === 0 ? (
+              <div className="px-5 py-12 text-center text-sm text-neutral-500">
+                Ingen moduler i katalogen ennå.
+              </div>
+            ) : (
+              <ul className="divide-y divide-neutral-100">
+                {sortedKinds.map(([kind, count]) => {
+                  const pct = maxKind ? Math.round((count / maxKind) * 100) : 0
+                  return (
+                    <li key={kind} className="flex items-center gap-4 px-5 py-3 text-sm">
+                      <div className="w-32 shrink-0 font-medium text-neutral-800">
+                        {KIND_LABELS[kind] ?? kind}
+                      </div>
+                      <div className="h-2 flex-1 overflow-hidden rounded-full bg-neutral-100">
+                        <div
+                          className="h-full rounded-full"
+                          style={{ width: `${pct}%`, background: PIN_GREEN }}
+                        />
+                      </div>
+                      <div className="w-12 shrink-0 text-right tabular-nums text-neutral-700">
+                        {count}
+                      </div>
+                    </li>
+                  )
+                })}
+              </ul>
+            )}
+          </LayoutTable1PostingsShell>
+        </ModuleSectionCard>
+      ) : null}
     </div>
   )
 }

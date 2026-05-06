@@ -196,8 +196,7 @@ export function LearningLayout() {
         active:
           pathname.startsWith('/learning/innstillinger') ||
           pathname.startsWith('/learning/settings') ||
-          pathname.startsWith('/learning/paths') ||
-          pathname.startsWith('/learning/insights'),
+          pathname.startsWith('/learning/paths'),
         onClick: () => navigate('/learning/innstillinger'),
       })
     }

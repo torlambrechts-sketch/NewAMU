@@ -20,7 +20,7 @@ export function LearningPrivacyNotice() {
               Klarert lagrer din læringsfremdrift, kursresultater og kursbevis på vegne av arbeidsgiveren som ledd i
               dokumentasjon av opplæring (AML § 3-1, IK-forskriften § 5). Grunnlaget er arbeidsavtalen (GDPR art. 6(1)(b)).
               Du kan be om innsyn eller sletting hos dataansvarlig i organisasjonen. Mer om innstillinger:{' '}
-              <Link to="/learning/settings" className="font-medium underline">
+              <Link to="/learning/innstillinger" className="font-medium underline">
                 E-læring — innstillinger
               </Link>
               .

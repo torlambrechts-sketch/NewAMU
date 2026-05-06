@@ -24,7 +24,6 @@ import { SearchableSelect, type SelectOption } from '../../components/ui/Searcha
 import { LayoutTable1PostingsShell } from '../../components/layout/LayoutTable1PostingsShell'
 import { ModuleSectionCard } from '../../components/module'
 
-const SERIF_FAMILY = "'Libre Baskerville', Georgia, serif"
 const PIN_GREEN = '#1a3d32'
 const MINT_BG = '#e7efe9'
 
@@ -298,15 +297,11 @@ export function LearningCoursesList() {
                       <Link
                         to={`/learning/courses/${c.id}`}
                         className="line-clamp-2 text-base font-semibold leading-snug text-neutral-900 hover:underline"
-                        style={{ fontFamily: SERIF_FAMILY }}
                       >
                         {c.title}
                       </Link>
                     ) : (
-                      <span
-                        className="line-clamp-2 text-base font-semibold leading-snug text-neutral-500"
-                        style={{ fontFamily: SERIF_FAMILY }}
-                      >
+                      <span className="line-clamp-2 text-base font-semibold leading-snug text-neutral-500">
                         {c.title}
                       </span>
                     )}

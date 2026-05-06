@@ -111,10 +111,8 @@ export function LearningCourseBuilder() {
           </Button>
         }
       >
-        <ModuleSectionCard>
-          <h2 className="text-lg font-semibold text-neutral-900" style={{ fontFamily: "'Libre Baskerville', Georgia, serif" }}>
-            Systemkurs — kun lesetilgang
-          </h2>
+        <ModuleSectionCard className="p-5 md:p-6">
+          <h2 className="text-lg font-semibold text-neutral-900">Systemkurs — kun lesetilgang</h2>
           <p className="mt-2 text-sm text-neutral-700">
             Dette kurset leveres fra felles katalog og kan ikke redigeres direkte. Kopier det til
             organisasjonen din for å tilpasse innhold, rekkefølge og publisering.
@@ -173,7 +171,7 @@ export function LearningCourseBuilder() {
           </Button>
         }
       >
-        <ModuleSectionCard>
+        <ModuleSectionCard className="p-5 md:p-6">
           <WarningBox>
             Du har ikke tilgang til kursbyggeren. Bruk{' '}
             <Link to={`/learning/play/${course.id}`} className="font-medium text-[#1a3d32] underline">
@@ -293,7 +291,7 @@ export function LearningCourseBuilder() {
       {builderActionError ? <WarningBox>{builderActionError}</WarningBox> : null}
 
       {mainTab === 'info' && (
-        <ModuleSectionCard>
+        <ModuleSectionCard className="p-5 md:p-6">
           <div className="grid gap-5 lg:grid-cols-2">
             <div>
               <label className={WPSTD_FORM_FIELD_LABEL} htmlFor="course-title">
@@ -447,7 +445,7 @@ export function LearningCourseBuilder() {
           />
 
           {/* Per-module editor (kept below the section builder, like survey's slide-out detail panel) */}
-          <ModuleSectionCard>
+          <ModuleSectionCard className="p-5 md:p-6">
             {selected ? (
               <ModuleEditor
                 key={selected.id}
@@ -469,7 +467,7 @@ export function LearningCourseBuilder() {
       )}
 
       {mainTab === 'cert' && (
-        <ModuleSectionCard>
+        <ModuleSectionCard className="p-5 md:p-6">
           <p className="text-sm text-neutral-700">
             Kursbevis utstedes når en deltaker fullfører alle moduler i{' '}
             <Link to={`/learning/play/${course.id}`} className="font-medium text-[#1a3d32] underline">
@@ -485,7 +483,7 @@ export function LearningCourseBuilder() {
       )}
 
       {mainTab === 'participants' && (
-        <ModuleSectionCard>
+        <ModuleSectionCard className="p-5 md:p-6">
           <p className="text-sm text-neutral-700">
             Deltakeroversikt kobles til organisasjonens Supabase-profiler. Fremdrift for påmeldte vises i{' '}
             <Link to="/learning/participants" className="font-medium text-[#1a3d32] underline">
@@ -497,7 +495,7 @@ export function LearningCourseBuilder() {
       )}
 
       {mainTab === 'insights' && (
-        <ModuleSectionCard>
+        <ModuleSectionCard className="p-5 md:p-6">
           <p className="text-sm text-neutral-700">
             Antall moduler: <strong className="text-neutral-900">{course.modules.length}</strong> · Seksjoner:{' '}
             <strong className="text-neutral-900">{sections.length}</strong> · Publisert:{' '}

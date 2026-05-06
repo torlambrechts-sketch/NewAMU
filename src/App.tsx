@@ -62,13 +62,10 @@ import { LearningDashboard } from './pages/learning/LearningDashboard'
 import { LearningCoursesList } from './pages/learning/LearningCoursesList'
 import { LearningCourseBuilder } from './pages/learning/LearningCourseBuilder'
 import { LearningPlayer } from './pages/learning/LearningPlayer'
-import { LearningCertifications } from './pages/learning/LearningCertifications'
-import { LearningInsights } from './pages/learning/LearningInsights'
 import { LearningDeltakerePage } from './pages/learning/LearningDeltakerePage'
+import { LearningKompetansePage } from './pages/learning/LearningKompetansePage'
 import { LearningSettings } from './pages/learning/LearningSettings'
 import { LearningFlowEntry } from './pages/learning/LearningFlowEntry'
-import { LearningPathsPage } from './pages/learning/LearningPathsPage'
-import { LearningExternalTraining } from './pages/learning/LearningExternalTraining'
 import { LearningCertificatePrintPage } from './pages/learning/LearningCertificatePrintPage'
 import { DocumentsHome } from './pages/documents/DocumentsHome'
 import { DocumentsMalbibliotekPage } from './pages/documents/DocumentsMalbibliotekPage'
@@ -295,19 +292,17 @@ const router = createBrowserRouter(
                         {/* Five canonical tabs */}
                         <Route path="katalog" element={<LearningCoursesList />} />
                         <Route path="deltakere" element={<LearningDeltakerePage />} />
-                        <Route path="kompetanse" element={<LearningCertifications />} />
+                        <Route path="kompetanse" element={<LearningKompetansePage />} />
                         <Route path="innstillinger" element={<LearningSettings />} />
-                        {/* Standalone pages still reachable via deep link / external CTAs;
-                            they are no longer in the tab strip but resolve so old links keep working. */}
-                        <Route path="paths" element={<LearningPathsPage />} />
-                        <Route path="external" element={<LearningExternalTraining />} />
-                        <Route path="insights" element={<LearningInsights />} />
                         {/* Back-compat redirects — old URLs land on the new IA. */}
                         <Route path="courses" element={<Navigate to="/learning/katalog" replace />} />
                         <Route path="participants" element={<Navigate to="/learning/deltakere" replace />} />
                         <Route path="compliance" element={<Navigate to="/learning/deltakere?view=heatmap" replace />} />
                         <Route path="certifications" element={<Navigate to="/learning/kompetanse" replace />} />
+                        <Route path="external" element={<Navigate to="/learning/kompetanse?tab=ekstern" replace />} />
                         <Route path="settings" element={<Navigate to="/learning/innstillinger" replace />} />
+                        <Route path="paths" element={<Navigate to="/learning/innstillinger?tab=stier" replace />} />
+                        <Route path="insights" element={<Navigate to="/learning" replace />} />
                       </Route>
                       <Route path="prosesser" element={<Navigate to="/workflow" replace />} />
                       <Route path="workflow" element={<WorkflowModulePage />} />
