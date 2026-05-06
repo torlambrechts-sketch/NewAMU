@@ -303,6 +303,13 @@ type NavModule = {
   permAny?: PermissionKey[]
   /** Maps to the slug in the modules table; item is hidden when the module is disabled. */
   moduleSlug?: string
+  /**
+   * When true, this module's sub-items render at module-level size and
+   * indent instead of the default compact sub-item styling. Used when the
+   * sub-items represent first-class destinations equal in importance to
+   * the parent (e.g. pinned templates under "Sjekklister").
+   */
+  flatSubs?: boolean
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -1040,6 +1047,7 @@ export function AticsShell() {
           icon: ClipboardList,
           subs: pinnedSubs,
           permAny: COMPLIANCE_NAV_PERMS,
+          flatSubs: true,
         },
       ],
     }
@@ -1180,9 +1188,18 @@ export function AticsShell() {
                       )}
                     </NavLink>
 
-                    {/* Sub-items — expanded inline when this module is active */}
+                    {/* Sub-items — expanded inline when this module is active.
+                        flatSubs modules (e.g. Sjekklister) render their sub-items
+                        at module-level size and zero extra indent so the templates
+                        read as co-equal first-class entries. */}
                     {isActiveMod && hasModSubs && (
-                      <div className="mb-1 ml-4 mt-0.5 border-l border-white/10 pl-3">
+                      <div
+                        className={
+                          mod.flatSubs
+                            ? 'mb-1 mt-0.5'
+                            : 'mb-1 ml-4 mt-0.5 border-l border-white/10 pl-3'
+                        }
+                      >
                         {modSubs.map((item) => {
                           const active = item.match({ pathname: location.pathname, search: location.search })
                           const SubIcon = item.Icon
@@ -1193,17 +1210,25 @@ export function AticsShell() {
                               to={item.path}
                               title={item.label}
                               aria-label={iconOnly ? item.label : undefined}
-                              className={`flex items-center gap-2 rounded-md text-xs transition-colors ${
-                                active
-                                  ? 'font-semibold text-white'
-                                  : 'text-white/50 hover:bg-white/5 hover:text-white/80'
-                              } ${
-                                iconOnly
-                                  ? 'size-8 shrink-0 justify-center p-0'
-                                  : 'px-2 py-1.5'
-                              }`}
+                              className={
+                                mod.flatSubs
+                                  ? `flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm font-medium transition-colors ${
+                                      active
+                                        ? 'bg-white/10 text-white'
+                                        : 'text-white/65 hover:bg-white/5 hover:text-white/90'
+                                    }`
+                                  : `flex items-center gap-2 rounded-md text-xs transition-colors ${
+                                      active
+                                        ? 'font-semibold text-white'
+                                        : 'text-white/50 hover:bg-white/5 hover:text-white/80'
+                                    } ${
+                                      iconOnly
+                                        ? 'size-8 shrink-0 justify-center p-0'
+                                        : 'px-2 py-1.5'
+                                    }`
+                              }
                             >
-                              {!iconOnly && active && (
+                              {!iconOnly && active && !mod.flatSubs && (
                                 <span className="h-3 w-0.5 shrink-0 rounded-full bg-[#c9a227]" aria-hidden />
                               )}
                               {!iconOnly && !active && <span className="h-3 w-0.5 shrink-0" aria-hidden />}
