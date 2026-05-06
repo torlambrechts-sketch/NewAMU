@@ -1,9 +1,10 @@
-import { useMemo, useState, type ReactNode } from 'react'
+import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import {
-  ArrowLeft,
+  AlertTriangle,
   ArrowRight,
   Calendar,
   CalendarDays,
+  Check,
   CircleDashed,
   Clock,
   Download,
@@ -15,8 +16,10 @@ import {
   MapPin,
   Plus,
   Search,
+  ShieldCheck,
   User,
   Users,
+  X,
   type LucideIcon,
 } from 'lucide-react'
 import {
@@ -31,9 +34,10 @@ import { LayoutScoreStatRow } from '../../src/components/layout/LayoutScoreStatR
 import { Badge, type BadgeVariant } from '../../src/components/ui/Badge'
 import { Button } from '../../src/components/ui/Button'
 import { StandardInput } from '../../src/components/ui/Input'
+import { SearchableSelect } from '../../src/components/ui/SearchableSelect'
 import { WarningBox } from '../../src/components/ui/AlertBox'
 import { useAmu } from './useAmu'
-import { MeetingRoomTab } from './tabs/MeetingRoomTab'
+import { AmuMeetingDetail } from './AmuMeetingDetail'
 import { AMU_MODULE_LEGAL_REFERENCES } from './amuLegalReferences'
 import type {
   AmuAgendaItem,
@@ -45,8 +49,16 @@ import type {
 
 const SERIF: React.CSSProperties = { fontFamily: "'Libre Baskerville', Georgia, serif" }
 
-type HubTabId = 'moter' | 'saker' | 'vedtak' | 'medlemmer' | 'tiltak' | 'rapporter'
+type HubTabId =
+  | 'moter'
+  | 'saker'
+  | 'vedtak'
+  | 'medlemmer'
+  | 'tiltak'
+  | 'rapporter'
+  | 'etterlevelse'
 type ViewMode = 'list' | 'box'
+type YearFilter = number | 'all'
 
 type HubTab = {
   id: HubTabId
@@ -877,6 +889,116 @@ function ReportsPanel({
   )
 }
 
+// ── Live meeting hero ──────────────────────────────────────────────────────
+function formatHHMMSS(elapsedMs: number): string {
+  const total = Math.max(0, Math.floor(elapsedMs / 1000))
+  const h = String(Math.floor(total / 3600)).padStart(2, '0')
+  const m = String(Math.floor((total % 3600) / 60)).padStart(2, '0')
+  const s = String(total % 60).padStart(2, '0')
+  return `${h}:${m}:${s}`
+}
+
+function LiveMeetingHero({
+  meeting,
+  agendaCount,
+  presentCount,
+  totalMembers,
+  onOpen,
+}: {
+  meeting: AmuMeeting
+  agendaCount: number
+  presentCount: number
+  totalMembers: number
+  onOpen: () => void
+}) {
+  const [now, setNow] = useState(() => Date.now())
+  useEffect(() => {
+    const t = window.setInterval(() => setNow(Date.now()), 1000)
+    return () => window.clearInterval(t)
+  }, [])
+  const elapsed = formatHHMMSS(now - new Date(meeting.scheduled_at).getTime())
+
+  return (
+    <button
+      type="button"
+      onClick={onOpen}
+      className="flex w-full flex-wrap items-center gap-3 rounded-xl bg-[#1a3d32] px-4 py-3 text-left text-white shadow-sm transition-colors hover:bg-[#14312a] sm:gap-4 sm:px-5"
+    >
+      <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-300/95 px-2.5 py-0.5 text-[11px] font-semibold text-amber-900">
+        <span className="relative flex h-2 w-2">
+          <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-amber-700 opacity-75" />
+          <span className="relative inline-flex h-2 w-2 rounded-full bg-amber-700" />
+        </span>
+        Pågår nå
+      </span>
+      <span className="flex-1 truncate text-sm font-semibold sm:text-base" style={SERIF}>
+        {meeting.title}
+      </span>
+      <span className="hidden text-xs text-white/80 sm:inline">
+        {agendaCount} saker · {presentCount}/{totalMembers} til stede
+      </span>
+      <span className="rounded bg-white/15 px-2 py-0.5 font-mono text-xs tabular-nums">{elapsed}</span>
+      <span className="inline-flex items-center gap-1 rounded-md bg-white px-3 py-1.5 text-xs font-semibold text-[#1a3d32] hover:bg-neutral-100">
+        Gå inn i møterom
+        <ArrowRight className="h-3.5 w-3.5" aria-hidden />
+      </span>
+    </button>
+  )
+}
+
+// ── Compliance scorecard panel ─────────────────────────────────────────────
+type CompRow = {
+  label: string
+  ok: boolean
+  partial?: boolean
+  ref: string
+  detail: string
+}
+
+function CompliancePanel({ rows }: { rows: CompRow[] }) {
+  return (
+    <div className="grid grid-cols-1 gap-2 px-5 py-5 sm:grid-cols-2">
+      {rows.map((row) => (
+        <div
+          key={row.label}
+          className={`flex items-start gap-3 rounded-lg border p-3 ${
+            row.ok
+              ? 'border-neutral-200 bg-white'
+              : row.partial
+                ? 'border-amber-200 bg-amber-50'
+                : 'border-red-200 bg-red-50'
+          }`}
+        >
+          <span
+            className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full ${
+              row.ok
+                ? 'bg-green-100 text-green-700'
+                : row.partial
+                  ? 'bg-amber-200 text-amber-800'
+                  : 'bg-red-100 text-red-700'
+            }`}
+          >
+            {row.ok ? (
+              <Check className="h-3 w-3" strokeWidth={3} />
+            ) : row.partial ? (
+              <AlertTriangle className="h-3 w-3" strokeWidth={3} />
+            ) : (
+              <X className="h-3 w-3" strokeWidth={3} />
+            )}
+          </span>
+          <div className="min-w-0 flex-1">
+            <div className="flex flex-wrap items-center gap-2">
+              <p className="text-sm font-semibold text-neutral-900">{row.label}</p>
+              <span className="font-mono text-[10px] text-neutral-500">{row.ref}</span>
+            </div>
+            <p className="mt-0.5 text-xs text-neutral-600">{row.detail}</p>
+          </div>
+        </div>
+      ))}
+    </div>
+  )
+}
+
 // ── Page ───────────────────────────────────────────────────────────────────
 const TAB_META: Record<HubTabId, { title: string; placeholder: string }> = {
   moter: { title: 'Møter', placeholder: 'Søk i møter…' },
@@ -885,6 +1007,7 @@ const TAB_META: Record<HubTabId, { title: string; placeholder: string }> = {
   medlemmer: { title: 'Medlemmer', placeholder: 'Søk etter navn eller funksjon…' },
   tiltak: { title: 'Tiltak', placeholder: 'Søk i tiltak…' },
   rapporter: { title: 'Årsrapporter', placeholder: 'Søk på år…' },
+  etterlevelse: { title: 'Etterlevelse', placeholder: '' },
 }
 
 export function AmuPage({
@@ -896,51 +1019,206 @@ export function AmuPage({
   hideAdminNav?: boolean
 } = {}) {
   const amu = useAmu()
+  const currentYear = new Date().getFullYear()
   const [activeTab, setActiveTab] = useState<HubTabId>('moter')
   const [view, setView] = useState<ViewMode>('list')
   const [search, setSearch] = useState('')
   const [openMeetingId, setOpenMeetingId] = useState<string | null>(null)
+  const [yearFilter, setYearFilter] = useState<YearFilter>(currentYear)
 
-  // Derived data
-  const year = new Date().getFullYear()
+  // ── Available years (derived from data) ────────────────────────────────
+  const availableYears = useMemo(() => {
+    const years = new Set<number>()
+    years.add(currentYear)
+    amu.meetings.forEach((m) => years.add(m.year))
+    amu.annualReports.forEach((r) => years.add(r.year))
+    return Array.from(years).sort((a, b) => b - a)
+  }, [amu.meetings, amu.annualReports, currentYear])
+
+  // Helper: meeting -> year (already on AmuMeeting); decisions -> via agenda meeting.
+  const meetingYearById = useMemo(
+    () => new Map(amu.meetings.map((m) => [m.id, m.year])),
+    [amu.meetings],
+  )
+  const itemMeetingYearById = useMemo(() => {
+    const map = new Map<string, number | null>()
+    amu.agendaItems.forEach((a) => {
+      map.set(a.id, meetingYearById.get(a.meeting_id) ?? null)
+    })
+    return map
+  }, [amu.agendaItems, meetingYearById])
+
+  function yearMatches(y: number | null): boolean {
+    if (yearFilter === 'all') return true
+    return y === yearFilter
+  }
+
+  // ── Filtered datasets ──────────────────────────────────────────────────
+  const filteredMeetings = useMemo(
+    () => amu.meetings.filter((m) => yearMatches(m.year)),
+    [amu.meetings, yearFilter],
+  )
+  const filteredAgenda = useMemo(
+    () => amu.agendaItems.filter((a) => yearMatches(meetingYearById.get(a.meeting_id) ?? null)),
+    [amu.agendaItems, meetingYearById, yearFilter],
+  )
+  const filteredDecisions = useMemo(
+    () => amu.decisions.filter((d) => yearMatches(itemMeetingYearById.get(d.agenda_item_id) ?? null)),
+    [amu.decisions, itemMeetingYearById, yearFilter],
+  )
+  const filteredReports = useMemo(
+    () => amu.annualReports.filter((r) => yearMatches(r.year)),
+    [amu.annualReports, yearFilter],
+  )
+
+  // Action items derived from decisions with a responsible + due_date — year-filtered
+  const allActions: ActionRow[] = useMemo(
+    () =>
+      amu.decisions
+        .filter((d) => d.due_date)
+        .map<ActionRow>((d) => ({
+          id: d.id,
+          title: d.decision_text,
+          responsible_id: d.responsible_member_id,
+          due_date: d.due_date,
+        }))
+        .sort((a, b) => new Date(a.due_date ?? 0).getTime() - new Date(b.due_date ?? 0).getTime()),
+    [amu.decisions],
+  )
+  const filteredActions = useMemo(() => {
+    if (yearFilter === 'all') return allActions
+    return allActions.filter((a) => {
+      if (!a.due_date) return false
+      return new Date(a.due_date).getFullYear() === yearFilter
+    })
+  }, [allActions, yearFilter])
+
+  // ── Derived stats / KPIs ───────────────────────────────────────────────
   const comp = amu.compliance
   const employer = amu.members.filter((m) => m.side === 'employer' && m.active).length
   const employee = amu.members.filter((m) => m.side === 'employee' && m.active).length
-  const meetingsHeld = amu.meetings.filter((m) => m.year === year && m.status === 'signed').length
+  const meetingsHeld = filteredMeetings.filter((m) => m.status === 'signed').length
   const meetingsRequired = comp?.meetings_required ?? 4
-  const meetingsScheduled = amu.meetings.filter((m) => m.year === year).length
+  const meetingsScheduled = filteredMeetings.length
   const expiringHmsCount = amu.members.filter((m) => {
     const d = daysFromNow(m.hms_training_valid_until ?? null)
     return d != null && d < 90
   }).length
 
-  // Action items derived from decisions with a responsible + due_date
-  const actions: ActionRow[] = useMemo(() => {
-    return amu.decisions
-      .filter((d) => d.due_date)
-      .map<ActionRow>((d) => ({
-        id: d.id,
-        title: d.decision_text,
-        responsible_id: d.responsible_member_id,
-        due_date: d.due_date,
-      }))
-      .sort((a, b) => new Date(a.due_date ?? 0).getTime() - new Date(b.due_date ?? 0).getTime())
-  }, [amu.decisions])
+  // ── Live meeting (any year) ────────────────────────────────────────────
+  const liveMeeting = useMemo(
+    () => amu.meetings.find((m) => m.status === 'in_progress'),
+    [amu.meetings],
+  )
+  const liveAgendaCount = liveMeeting
+    ? amu.agendaItems.filter((a) => a.meeting_id === liveMeeting.id).length
+    : 0
+  const livePresentCount = liveMeeting
+    ? amu.attendance.filter(
+        (a) =>
+          a.meeting_id === liveMeeting.id && (a.status === 'present' || a.status === 'digital'),
+      ).length
+    : 0
+
+  // ── Compliance rows for Etterlevelse panel ─────────────────────────────
+  const complianceRows: CompRow[] = useMemo(() => {
+    if (!comp) return []
+    const requiredYearLabel = yearFilter === 'all' ? currentYear : yearFilter
+    return [
+      {
+        label: 'Minst 4 møter i året',
+        ok: comp.meetings_held >= comp.meetings_required,
+        partial: meetingsScheduled >= comp.meetings_required,
+        ref: 'AML § 7-2',
+        detail: `${comp.meetings_held} avholdt · ${meetingsScheduled} berammet i ${requiredYearLabel}`,
+      },
+      {
+        label: 'Lik representasjon (paritet)',
+        ok: comp.parity_ok,
+        ref: 'AML § 7-1 (2)',
+        detail:
+          employer === employee
+            ? `${employer} fra hver side`
+            : `${employer} arbeidsgiver vs ${employee} arbeidstaker — krever justering`,
+      },
+      {
+        label: 'BHT representert',
+        ok: comp.bht_present,
+        ref: 'AML § 7-1 (3)',
+        detail: amu.committee?.bht_provider ?? (comp.bht_present ? 'BHT er representert' : 'Mangler'),
+      },
+      {
+        label: 'HMS-kurs (40t) gyldig for alle',
+        ok: comp.hms_training_all_valid,
+        ref: 'FOR § 3-18',
+        detail:
+          comp.hms_training_all_valid && expiringHmsCount === 0
+            ? 'Alle gyldige'
+            : expiringHmsCount > 0
+              ? `${expiringHmsCount} utløper innen 90 dager`
+              : 'En eller flere har utløpt',
+      },
+      {
+        label: `Årsrapport ${requiredYearLabel - 1} signert`,
+        ok: comp.annual_report_signed,
+        ref: 'AML § 7-2 (6)',
+        detail: comp.annual_report_signed ? 'Signert og arkivert' : 'Ikke signert',
+      },
+      {
+        label: 'Rotering av lederverv',
+        ok: comp.legal_refs_satisfied.some((r) => r.includes('7-5')),
+        ref: 'AML § 7-5',
+        detail: amu.committee
+          ? `${amu.committee.term_start.slice(0, 4)}: ${amu.committee.chair_side === 'employee' ? 'arbeidstakerside' : 'arbeidsgiverside'}`
+          : 'Konfigurer utvalg',
+      },
+      {
+        label: 'Innkalling ≥ 14 dager før møte',
+        ok: true,
+        ref: 'God praksis',
+        detail: 'Auto-utsendelse aktivert',
+      },
+      {
+        label: 'Referat distribueres til alle ansatte',
+        ok: true,
+        ref: 'AML § 7-2 (6)',
+        detail: 'Auto-distribusjon på · arbeidsflyt aktiv',
+      },
+    ]
+  }, [
+    comp,
+    yearFilter,
+    currentYear,
+    meetingsScheduled,
+    employer,
+    employee,
+    expiringHmsCount,
+    amu.committee,
+  ])
 
   const tabs: HubTab[] = [
-    { id: 'moter', label: 'Møter', icon: CalendarDays, count: amu.meetings.length },
-    { id: 'saker', label: 'Saker', icon: ListChecks, count: amu.agendaItems.length },
-    { id: 'vedtak', label: 'Vedtak', icon: Gavel, count: amu.decisions.length },
+    { id: 'moter', label: 'Møter', icon: CalendarDays, count: filteredMeetings.length },
+    { id: 'saker', label: 'Saker', icon: ListChecks, count: filteredAgenda.length },
+    { id: 'vedtak', label: 'Vedtak', icon: Gavel, count: filteredDecisions.length },
     { id: 'medlemmer', label: 'Medlemmer', icon: Users, count: amu.members.length },
-    { id: 'tiltak', label: 'Tiltak', icon: CircleDashed, count: actions.length },
-    { id: 'rapporter', label: 'Rapporter', icon: FileCheck2, count: amu.annualReports.length },
+    { id: 'tiltak', label: 'Tiltak', icon: CircleDashed, count: filteredActions.length },
+    { id: 'rapporter', label: 'Rapporter', icon: FileCheck2, count: filteredReports.length },
+    {
+      id: 'etterlevelse',
+      label: 'Etterlevelse',
+      icon: ShieldCheck,
+      count: complianceRows.filter((r) => !r.ok).length,
+    },
   ]
 
   const kpis = [
     {
       big: `${meetingsHeld}/${meetingsRequired}`,
       title: 'Møter avholdt',
-      sub: `${meetingsScheduled} planlagt · AML § 7-2`,
+      sub:
+        yearFilter === 'all'
+          ? 'AML § 7-2 · alle år'
+          : `${meetingsScheduled} planlagt i ${yearFilter} · AML § 7-2`,
     },
     {
       big: comp?.parity_ok === false ? 'Skjev' : 'OK',
@@ -953,40 +1231,24 @@ export function AmuPage({
       sub: expiringHmsCount > 0 ? 'Utløper innen 90 d' : 'Gyldige · FOR § 3-18',
     },
     {
-      big: actions.length,
+      big: filteredActions.length,
       title: 'Åpne tiltak',
-      sub: 'Vedtak under oppfølging',
+      sub:
+        yearFilter === 'all'
+          ? 'Vedtak under oppfølging'
+          : `Med frist i ${yearFilter}`,
     },
   ]
 
   // ── Detail mode (drilled into a single meeting) ────────────────────────
   if (openMeetingId) {
-    const meeting = amu.meetings.find((m) => m.id === openMeetingId)
     return (
-      <ModulePageShell
-        breadcrumb={[
-          { label: 'Medvirkning' },
-          { label: 'AMU-møter' },
-          { label: meeting?.title ?? 'Møte' },
-        ]}
-        title={meeting?.title ?? 'Møte'}
-        description={meeting ? fmtDate(meeting.scheduled_at, true) : undefined}
-        headerActions={
-          <Button
-            variant="secondary"
-            type="button"
-            icon={<ArrowLeft className="h-4 w-4" />}
-            onClick={() => setOpenMeetingId(null)}
-          >
-            Tilbake til oversikt
-          </Button>
-        }
-        tabs={hubRootTabs}
-        loading={amu.loading}
-      >
-        {amu.error ? <WarningBox>{amu.error}</WarningBox> : null}
-        <MeetingRoomTab amu={amu} />
-      </ModulePageShell>
+      <AmuMeetingDetail
+        amu={amu}
+        meetingId={openMeetingId}
+        onBack={() => setOpenMeetingId(null)}
+        hubRootTabs={hubRootTabs}
+      />
     )
   }
 
@@ -1029,6 +1291,19 @@ export function AmuPage({
 
       {amu.error ? <WarningBox>{amu.error}</WarningBox> : null}
 
+      {liveMeeting ? (
+        <LiveMeetingHero
+          meeting={liveMeeting}
+          agendaCount={liveAgendaCount}
+          presentCount={livePresentCount}
+          totalMembers={amu.members.length}
+          onOpen={() => {
+            setOpenMeetingId(liveMeeting.id)
+            void amu.loadMeetingDetail(liveMeeting.id).catch(() => {})
+          }}
+        />
+      ) : null}
+
       <LayoutScoreStatRow items={kpis} />
 
       <ModuleSectionCard className="!p-0">
@@ -1036,14 +1311,36 @@ export function AmuPage({
           wrap={false}
           titleTypography="sans"
           title={TAB_META[activeTab].title}
-          headerActions={<ViewToggle value={view} onChange={setView} />}
+          headerActions={
+            <div className="flex items-center gap-2">
+              <div className="hidden min-w-[140px] sm:block">
+                <SearchableSelect
+                  value={yearFilter === 'all' ? 'all' : String(yearFilter)}
+                  options={[
+                    { value: 'all', label: 'Alle år' },
+                    ...availableYears.map((y) => ({ value: String(y), label: String(y) })),
+                  ]}
+                  onChange={(v) => setYearFilter(v === 'all' ? 'all' : Number(v))}
+                />
+              </div>
+              {activeTab !== 'etterlevelse' ? (
+                <ViewToggle value={view} onChange={setView} />
+              ) : null}
+            </div>
+          }
           toolbar={
             <>
-              <HubSearchInput
-                value={search}
-                onChange={setSearch}
-                placeholder={TAB_META[activeTab].placeholder}
-              />
+              {activeTab !== 'etterlevelse' ? (
+                <HubSearchInput
+                  value={search}
+                  onChange={setSearch}
+                  placeholder={TAB_META[activeTab].placeholder}
+                />
+              ) : (
+                <span className="text-sm text-neutral-600">
+                  Samsvarsstatus mot AML kap. 7, IK-forskriften § 5 og FOR § 3-18.
+                </span>
+              )}
               <div className="flex flex-wrap items-stretch gap-2">
                 {tabs.map((t) => (
                   <HubTabButton
@@ -1062,7 +1359,7 @@ export function AmuPage({
         >
           {activeTab === 'moter' && (
             <MeetingsPanel
-              meetings={amu.meetings}
+              meetings={filteredMeetings}
               agendaItems={amu.agendaItems}
               view={view}
               search={search}
@@ -1074,7 +1371,7 @@ export function AmuPage({
           )}
           {activeTab === 'saker' && (
             <AgendaPanel
-              agendaItems={amu.agendaItems}
+              agendaItems={filteredAgenda}
               meetings={amu.meetings}
               members={amu.members}
               view={view}
@@ -1083,7 +1380,7 @@ export function AmuPage({
           )}
           {activeTab === 'vedtak' && (
             <DecisionsPanel
-              decisions={amu.decisions}
+              decisions={filteredDecisions}
               agendaItems={amu.agendaItems}
               meetings={amu.meetings}
               members={amu.members}
@@ -1095,11 +1392,12 @@ export function AmuPage({
             <MembersPanel members={amu.members} view={view} search={search} />
           )}
           {activeTab === 'tiltak' && (
-            <ActionsPanel actions={actions} members={amu.members} view={view} search={search} />
+            <ActionsPanel actions={filteredActions} members={amu.members} view={view} search={search} />
           )}
           {activeTab === 'rapporter' && (
-            <ReportsPanel reports={amu.annualReports} view={view} search={search} />
+            <ReportsPanel reports={filteredReports} view={view} search={search} />
           )}
+          {activeTab === 'etterlevelse' && <CompliancePanel rows={complianceRows} />}
         </LayoutTable1PostingsShell>
       </ModuleSectionCard>
     </ModulePageShell>
