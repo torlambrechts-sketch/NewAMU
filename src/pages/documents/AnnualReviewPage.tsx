@@ -501,18 +501,19 @@ function ItemTable({
                 <p className="mt-0.5 text-neutral-700">{it.description}</p>
               </td>
               <td className="px-5 py-4">
-                <div className={`flex items-center gap-2 ${disabled ? 'pointer-events-none opacity-50' : ''}`}>
+                <div className={`flex flex-wrap items-center gap-2 ${disabled ? 'pointer-events-none opacity-50' : ''}`}>
                   <StatusPill status={st} />
-                  <SearchableSelect
-                    value={st}
-                    options={STATUS_OPTIONS}
-                    onChange={(v) => {
-                      const val = v as WikiAnnualReviewItemRow['status']
-                      setLocal((s) => ({ ...s, [it.id]: { status: val, notes: nt } }))
-                      void onPatch(it.id, val, nt)
-                    }}
-                    triggerClassName="py-1 text-xs"
-                  />
+                  <div className="min-w-[200px]">
+                    <SearchableSelect
+                      value={st}
+                      options={STATUS_OPTIONS}
+                      onChange={(v) => {
+                        const val = v as WikiAnnualReviewItemRow['status']
+                        setLocal((s) => ({ ...s, [it.id]: { status: val, notes: nt } }))
+                        void onPatch(it.id, val, nt)
+                      }}
+                    />
+                  </div>
                 </div>
               </td>
               <td className="px-5 py-4">
