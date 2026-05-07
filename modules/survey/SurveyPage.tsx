@@ -23,6 +23,7 @@ import { InfoBox, WarningBox } from '../../src/components/ui/AlertBox'
 import { Tabs, type TabItem } from '../../src/components/ui/Tabs'
 import { useSurvey } from './useSurvey'
 import { useSurveyPacks, findLicensedPack } from './useSurveyPacks'
+import { useSurveyOrgTemplates } from './useSurveyOrgTemplates'
 import type { SurveyTemplateCatalogRow } from './surveyTemplateCatalogTypes'
 import { SURVEY_TYPE_OPTIONS } from './surveyLabels'
 import type { SurveyPackSlug, SurveyType } from './types'
@@ -31,6 +32,7 @@ import { SurveyKampanjerTab } from './tabs/SurveyKampanjerTab'
 import { SurveyMalerTab } from './tabs/SurveyMalerTab'
 import { SurveyLeverandorerTab } from './tabs/SurveyLeverandorerTab'
 import { SurveyAnalyseOverviewTab } from './tabs/SurveyAnalyseOverviewTab'
+import { SurveyHubLanding } from './SurveyHubLanding'
 import { SURVEY_MODULE_LEGAL_REFERENCES } from './surveyLegalReferences'
 
 
@@ -43,11 +45,30 @@ export function SurveyPage({ supabase }: Props) {
   const [searchParams, setSearchParams] = useSearchParams()
   const survey = useSurvey({ supabase })
   const { packs } = useSurveyPacks({ supabase })
+  const orgTemplates = useSurveyOrgTemplates({ supabase })
   const slugParam = searchParams.get('pack')
+  const templateParam = searchParams.get('template')
+  // Pack mode requires an explicit ?pack= so /survey with no params falls to
+  // the neutral hub instead of defaulting to packs[0] (Leverandør).
   const activePack = useMemo(
-    () => findLicensedPack(packs, (slugParam as SurveyPackSlug | null) ?? null),
+    () =>
+      slugParam
+        ? findLicensedPack(packs, (slugParam as SurveyPackSlug | null) ?? null)
+        : null,
     [packs, slugParam],
   )
+  const activeTemplate = useMemo(
+    () =>
+      templateParam
+        ? survey.templateCatalog.find((t) => t.id === templateParam) ?? null
+        : null,
+    [templateParam, survey.templateCatalog],
+  )
+  const mode: 'template' | 'pack' | 'hub' = activeTemplate
+    ? 'template'
+    : activePack
+    ? 'pack'
+    : 'hub'
   const [tab, setTab] = useState<ModuleTab>('oversikt')
 
   // Create panel state
@@ -64,23 +85,25 @@ export function SurveyPage({ supabase }: Props) {
   const [purpose, setPurpose] = useState('')
   const [creating, setCreating] = useState(false)
 
-  const packScopedTemplates = useMemo(() => {
-    if (!activePack) return survey.templateCatalog
-    return survey.templateCatalog.filter((t) => t.pack === activePack.slug)
-  }, [survey.templateCatalog, activePack])
+  const scopedTemplates = useMemo(() => {
+    if (activeTemplate) return [activeTemplate]
+    if (activePack) return survey.templateCatalog.filter((t) => t.pack === activePack.slug)
+    return survey.templateCatalog
+  }, [survey.templateCatalog, activePack, activeTemplate])
 
-  const packScopedSurveys = useMemo(() => {
-    if (!activePack) return survey.surveys
-    return survey.surveys.filter((s) => s.pack === activePack.slug)
-  }, [survey.surveys, activePack])
+  const scopedSurveys = useMemo(() => {
+    if (activeTemplate) return survey.surveys.filter((s) => s.catalog_id === activeTemplate.id)
+    if (activePack) return survey.surveys.filter((s) => s.pack === activePack.slug)
+    return survey.surveys
+  }, [survey.surveys, activePack, activeTemplate])
 
   const templateOptions = useMemo(() => {
-    const fromDb = packScopedTemplates.map((t) => ({
+    const fromDb = scopedTemplates.map((t) => ({
       value: t.id,
       label: `${t.name} (~${t.estimated_minutes} min)`,
     }))
     return [{ value: '', label: 'Uten mal' }, ...fromDb]
-  }, [packScopedTemplates])
+  }, [scopedTemplates])
 
   const templateInfo = useMemo((): SurveyTemplateCatalogRow | undefined => {
     if (!selectedTemplate) return undefined
@@ -90,7 +113,10 @@ export function SurveyPage({ supabase }: Props) {
   const { loadSurveys, loadTemplateCatalog } = survey
   useEffect(() => {
     void loadSurveys()
-  }, [loadSurveys])
+    // Load templates eagerly so the template+pack URL params resolve on first
+    // render and the hub landing has tiles to show.
+    void loadTemplateCatalog()
+  }, [loadSurveys, loadTemplateCatalog])
 
   const tabFromUrl = searchParams.get('tab')
   useEffect(() => {
@@ -98,10 +124,6 @@ export function SurveyPage({ supabase }: Props) {
       setTab(tabFromUrl)
     }
   }, [tabFromUrl])
-
-  useEffect(() => {
-    if (tab === 'maler') void loadTemplateCatalog()
-  }, [tab, loadTemplateCatalog])
 
   const openPanel = useCallback((type: SurveyType = 'internal') => {
     setSurveyType(type)
@@ -169,16 +191,36 @@ export function SurveyPage({ supabase }: Props) {
     [openPanel, survey.templateCatalog],
   )
 
+  const handlePrimaryCreate = useCallback(() => {
+    if (activeTemplate) {
+      handleUseTemplate(activeTemplate.id)
+      return
+    }
+    openPanel(activePack?.slug === 'vendor' ? 'external' : 'internal')
+  }, [activeTemplate, activePack, handleUseTemplate, openPanel])
+
   const isExternal = surveyType === 'external'
 
-  const moduleTabs: TabItem[] = useMemo(
-    () => [
+  const moduleTabs: TabItem[] = useMemo(() => {
+    if (mode === 'template') {
+      return [
+        { id: 'oversikt', label: 'Oversikt', icon: LayoutGrid },
+        {
+          id: 'kampanjer',
+          label: 'Kjøringer',
+          icon: ClipboardList,
+          badgeCount: scopedSurveys.length > 0 ? scopedSurveys.length : undefined,
+        },
+        { id: 'analyse', label: 'Analyse', icon: BarChart3 },
+      ]
+    }
+    return [
       { id: 'oversikt', label: 'Oversikt', icon: LayoutGrid },
       {
         id: 'kampanjer',
         label: activePack?.plural_label ?? 'Kampanjer',
         icon: ClipboardList,
-        badgeCount: packScopedSurveys.length > 0 ? packScopedSurveys.length : undefined,
+        badgeCount: scopedSurveys.length > 0 ? scopedSurveys.length : undefined,
       },
       { id: 'maler', label: 'Maler', icon: Package },
       {
@@ -186,29 +228,34 @@ export function SurveyPage({ supabase }: Props) {
         label: 'Leverandører',
         icon: Truck,
         badgeCount:
-          packScopedSurveys.filter((s) => s.survey_type === 'external').length || undefined,
+          scopedSurveys.filter((s) => s.survey_type === 'external').length || undefined,
       },
       { id: 'analyse', label: 'Analyse', icon: BarChart3 },
-    ],
-    [packScopedSurveys, activePack],
-  )
+    ]
+  }, [scopedSurveys, activePack, mode])
 
-  const packTitle = activePack?.plural_label ?? 'Undersøkelser'
-  const packDescription =
+  const headerTitle = activeTemplate?.name ?? activePack?.plural_label ?? 'Undersøkelser'
+  const headerDescription =
+    activeTemplate?.description ??
     activePack?.description ??
-    'Kartlegg arbeidsmiljø, mål psykososiale forhold, og innhent dokumentasjon fra leverandører.'
-  const packCtaLabel = activePack?.cta_label ?? 'Ny undersøkelse'
-  const packLegalRefs =
+    'Velg en mal eller pakke for å starte. Maler markert i menyen vises som faste valg.'
+  const headerCtaLabel = activeTemplate
+    ? `Ny ${activeTemplate.short_name ?? activeTemplate.name}`
+    : activePack?.cta_label ?? 'Ny undersøkelse'
+  const headerLegalRefs =
     activePack?.legal_references && activePack.legal_references.length > 0
       ? activePack.legal_references
       : SURVEY_MODULE_LEGAL_REFERENCES
+  const headerBreadcrumb = activeTemplate
+    ? [{ label: 'HMS' }, { label: 'Undersøkelser', to: '/survey' }, { label: activeTemplate.name }]
+    : [{ label: 'HMS' }, { label: headerTitle }]
 
   return (
     <>
       <ModulePageShell
-        breadcrumb={[{ label: 'HMS' }, { label: packTitle }]}
-        title={packTitle}
-        description={packDescription}
+        breadcrumb={headerBreadcrumb}
+        title={headerTitle}
+        description={headerDescription}
         headerActions={
           <div className="flex flex-wrap items-center gap-2">
             {survey.canManage && (
@@ -221,48 +268,63 @@ export function SurveyPage({ supabase }: Props) {
                 >
                   <span className="hidden sm:inline">Innstillinger</span>
                 </Button>
-                <Button
-                  type="button"
-                  variant="primary"
-                  icon={<Plus className="h-4 w-4" />}
-                  onClick={() => openPanel(activePack?.slug === 'vendor' ? 'external' : 'internal')}
-                >
-                  {packCtaLabel}
-                </Button>
+                {mode !== 'hub' ? (
+                  <Button
+                    type="button"
+                    variant="primary"
+                    icon={<Plus className="h-4 w-4" />}
+                    onClick={handlePrimaryCreate}
+                  >
+                    {headerCtaLabel}
+                  </Button>
+                ) : null}
               </>
             )}
           </div>
         }
         tabs={
-          <Tabs
-            className="w-full md:w-auto"
-            overflow="scroll"
-            items={moduleTabs}
-            activeId={tab}
-            onChange={(id) => {
-              const next = id as ModuleTab
-              setTab(next)
-              setSearchParams(
-                (prev) => {
-                  const p = new URLSearchParams(prev)
-                  p.set('tab', next)
-                  return p
-                },
-                { replace: true },
-              )
-            }}
-          />
+          mode === 'hub' ? null : (
+            <Tabs
+              className="w-full md:w-auto"
+              overflow="scroll"
+              items={moduleTabs}
+              activeId={tab}
+              onChange={(id) => {
+                const next = id as ModuleTab
+                setTab(next)
+                setSearchParams(
+                  (prev) => {
+                    const p = new URLSearchParams(prev)
+                    p.set('tab', next)
+                    return p
+                  },
+                  { replace: true },
+                )
+              }}
+            />
+          )
         }
       >
-        <ModuleLegalBanner
-          title={packTitle}
-          intro={<p>{packDescription}</p>}
-          references={packLegalRefs}
-        />
+        {mode !== 'hub' ? (
+          <ModuleLegalBanner
+            title={headerTitle}
+            intro={<p>{headerDescription}</p>}
+            references={headerLegalRefs}
+          />
+        ) : null}
 
         {survey.error && <WarningBox>{survey.error}</WarningBox>}
 
-        {survey.loading && packScopedSurveys.length === 0 ? (
+        {mode === 'hub' ? (
+          <SurveyHubLanding
+            packs={packs}
+            templates={survey.templateCatalog}
+            pinned={orgTemplates.templates}
+            loading={survey.templateCatalogLoading}
+            canManage={survey.canManage}
+            onOpenAdmin={() => navigate('/survey/admin')}
+          />
+        ) : survey.loading && scopedSurveys.length === 0 ? (
           <div className="flex items-center justify-center gap-2 py-16 text-sm text-neutral-500">
             <Loader2 className="h-5 w-5 animate-spin" aria-hidden />
             Laster undersøkelser…
@@ -271,22 +333,22 @@ export function SurveyPage({ supabase }: Props) {
           <>
             {tab === 'oversikt' && (
               <SurveyOversiktModuleTab
-                surveys={packScopedSurveys}
+                surveys={scopedSurveys}
                 loading={survey.loading}
-                onNewSurvey={() => openPanel(activePack?.slug === 'vendor' ? 'external' : 'internal')}
+                onNewSurvey={handlePrimaryCreate}
               />
             )}
             {tab === 'kampanjer' && (
               <SurveyKampanjerTab
-                surveys={packScopedSurveys}
+                surveys={scopedSurveys}
                 loading={survey.loading}
                 canManage={survey.canManage}
-                onNewSurvey={() => openPanel(activePack?.slug === 'vendor' ? 'external' : 'internal')}
+                onNewSurvey={handlePrimaryCreate}
               />
             )}
-            {tab === 'maler' && (
+            {mode === 'pack' && tab === 'maler' && (
               <SurveyMalerTab
-                templates={packScopedTemplates}
+                templates={scopedTemplates}
                 loading={survey.templateCatalogLoading}
                 onUseTemplate={handleUseTemplate}
                 onNewTemplate={() => navigate('/survey/templates/org/new')}
@@ -301,9 +363,9 @@ export function SurveyPage({ supabase }: Props) {
                 canManage={survey.canManage}
               />
             )}
-            {tab === 'leverandorer' && (
+            {mode === 'pack' && tab === 'leverandorer' && (
               <SurveyLeverandorerTab
-                surveys={packScopedSurveys}
+                surveys={scopedSurveys}
                 loading={survey.loading}
                 canManage={survey.canManage}
                 onNewExternalSurvey={() => openPanel('external')}
@@ -311,7 +373,7 @@ export function SurveyPage({ supabase }: Props) {
             )}
             {tab === 'analyse' && (
               <SurveyAnalyseOverviewTab
-                surveys={packScopedSurveys}
+                surveys={scopedSurveys}
                 loading={survey.loading}
               />
             )}

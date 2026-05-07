@@ -101,6 +101,8 @@ export type SurveyRow = {
   survey_amu_summary: string | null
   /** Pakke-slug — styrer terminologi, KPI, banner og topbar-filter. */
   pack: SurveyPackSlug
+  /** Hvilken katalogmal denne kjøringen ble spunnet ut fra (null = ingen mal). */
+  catalog_id: string | null
 }
 
 export const SurveyRowSchema = z.object({
@@ -127,10 +129,12 @@ export const SurveyRowSchema = z.object({
   survey_purpose: z.string().nullable().optional(),
   survey_amu_summary: z.string().nullable().optional(),
   pack: z.enum(['vendor', 'arbeidsmiljo', 'compliance', 'engagement', 'exit']).default('engagement'),
+  catalog_id: z.string().nullable().optional(),
 }).transform((row) => ({
   ...row,
   survey_purpose: row.survey_purpose ?? null,
   survey_amu_summary: row.survey_amu_summary ?? null,
+  catalog_id: row.catalog_id ?? null,
 }))
 
 export function parseSurveyRow(

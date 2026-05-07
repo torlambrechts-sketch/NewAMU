@@ -63,6 +63,7 @@ type CreateSurveyInput = {
   vendor_org_number?: string | null
   survey_purpose?: string | null
   pack?: 'vendor' | 'arbeidsmiljo' | 'compliance' | 'engagement' | 'exit'
+  catalog_id?: string | null
 }
 
 type UpsertQuestionInput = {
@@ -568,6 +569,7 @@ export function useSurvey({ supabase }: UseSurveyInput): UseSurveyState {
             vendor_org_number: input.vendor_org_number ?? null,
             survey_purpose: input.survey_purpose?.trim() || null,
             ...(input.pack ? { pack: input.pack } : {}),
+            ...(input.catalog_id !== undefined ? { catalog_id: input.catalog_id } : {}),
           })
           .select()
           .single()
@@ -1309,14 +1311,22 @@ export function useSurvey({ supabase }: UseSurveyInput): UseSurveyState {
           })
           if (!row) return false
         }
+        // Stamp the survey with the catalog id + pack so per-template views
+        // and reporting can find every instance spawned from this template.
+        await supabase
+          .from('surveys')
+          .update({ catalog_id: pr.data.id, pack: pr.data.pack })
+          .eq('id', surveyId)
+          .eq('organization_id', oid)
         await loadSurveyDetail(surveyId)
+        await loadSurveys()
         return true
       } catch (err) {
         setError(getSupabaseErrorMessage(err))
         return false
       }
     },
-    [supabase, assertOrg, requireManage, upsertQuestion, loadSurveyDetail],
+    [supabase, assertOrg, requireManage, upsertQuestion, loadSurveyDetail, loadSurveys],
   )
 
   const saveOrgTemplate = useCallback(
