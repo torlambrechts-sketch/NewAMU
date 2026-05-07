@@ -74,8 +74,26 @@ export function TemplateEditorPanel({ mode, template, onClose, onSaved }: Props)
   const [description, setDescription] = useState(template?.description ?? '')
   const [items, setItems] = useState<ChecklistItem[]>(initialItems)
   const [requirementIds, setRequirementIds] = useState<string[]>([])
+  const [categoryId, setCategoryId] = useState<string>(template?.category_id ?? '')
   const [submitting, setSubmitting] = useState(false)
   const [localError, setLocalError] = useState<string | null>(null)
+
+  // Pull categories on mount so the dropdown has options. Filtering by
+  // pack happens locally (the hook holds every licensed pack's categories).
+  const { loadCategories } = cl
+  useEffect(() => {
+    void loadCategories()
+  }, [loadCategories])
+
+  const categoryOptions = useMemo(() => {
+    const forPack = cl.categories
+      .filter((c) => c.pack === pack.slug && c.is_active)
+      .sort((a, b) => a.position - b.position || a.name.localeCompare(b.name, 'nb'))
+    return [
+      { value: '', label: 'Uten kategori' },
+      ...forPack.map((c) => ({ value: c.id, label: c.name })),
+    ]
+  }, [cl.categories, pack.slug])
 
   // Load existing requirement junction for edit mode.
   useEffect(() => {
@@ -128,6 +146,9 @@ export function TemplateEditorPanel({ mode, template, onClose, onSaved }: Props)
           setSubmitting(false)
           return
         }
+        if (categoryId) {
+          await cl.updateTemplate({ templateId: id, category_id: categoryId })
+        }
         if (requirementIds.length > 0) {
           await cl.setTemplateRequirements(id, requirementIds)
         }
@@ -137,6 +158,7 @@ export function TemplateEditorPanel({ mode, template, onClose, onSaved }: Props)
           name: name.trim(),
           description: description.trim() || null,
           definition: { items },
+          category_id: categoryId === '' ? null : categoryId,
         })
         await cl.setTemplateRequirements(template.id, requirementIds)
       }
@@ -227,6 +249,24 @@ export function TemplateEditorPanel({ mode, template, onClose, onSaved }: Props)
               rows={2}
               className="mt-1.5"
             />
+          </div>
+        </div>
+
+        {/* ── Category ──────────────────────────────────────────────────── */}
+        <div className={WPSTD_FORM_ROW_GRID}>
+          <p className={WPSTD_FORM_LEAD}>
+            Velg kategori — bestemmer hvor malen vises i sidemenyen og på forsiden.
+          </p>
+          <div>
+            <p className={WPSTD_FORM_FIELD_LABEL}>Kategori</p>
+            <div className="mt-1.5">
+              <SearchableSelect
+                value={categoryId}
+                options={categoryOptions}
+                onChange={setCategoryId}
+                placeholder="Uten kategori"
+              />
+            </div>
           </div>
         </div>
 

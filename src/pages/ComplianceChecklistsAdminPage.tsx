@@ -14,6 +14,7 @@ import { useState } from 'react'
 import {
   BarChart2,
   ClipboardList,
+  FolderTree,
   GitBranch,
   Layers,
   ShieldCheck,
@@ -22,15 +23,17 @@ import { ModulePageShell } from '../components/module/ModulePageShell'
 import { Tabs } from '../components/ui/Tabs'
 import { useActivePack } from '../context/packContextValue'
 import { MalerTab } from '../../modules/compliance/admin/MalerTab'
+import { KategorierTab } from '../../modules/compliance/admin/KategorierTab'
 import { PakkerTab } from '../../modules/compliance/admin/PakkerTab'
 import { KravTab } from '../../modules/compliance/admin/KravTab'
 import { ArbeidsflytTab } from '../../modules/compliance/admin/ArbeidsflytTab'
 import { StatistikkTab } from '../../modules/compliance/admin/StatistikkTab'
 
-type AdminTab = 'maler' | 'pakker' | 'krav' | 'arbeidsflyt' | 'statistikk'
+type AdminTab = 'maler' | 'kategorier' | 'pakker' | 'krav' | 'arbeidsflyt' | 'statistikk'
 
 const TAB_ITEMS = [
   { id: 'maler', label: 'Maler', icon: ClipboardList },
+  { id: 'kategorier', label: 'Kategorier', icon: FolderTree },
   { id: 'pakker', label: 'Pakker', icon: Layers },
   { id: 'krav', label: 'Krav', icon: ShieldCheck },
   { id: 'arbeidsflyt', label: 'Arbeidsflyt', icon: GitBranch },
@@ -60,6 +63,7 @@ export function ComplianceChecklistsAdminPage() {
       }
     >
       {tab === 'maler' && <MalerTab />}
+      {tab === 'kategorier' && <KategorierTab />}
       {tab === 'pakker' && <PakkerTab />}
       {tab === 'krav' && <KravTab />}
       {tab === 'arbeidsflyt' && <ArbeidsflytTab />}

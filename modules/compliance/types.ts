@@ -61,8 +61,30 @@ export type ComplianceTemplateRow = {
   review_status: 'draft' | 'reviewed' | 'approved'
   /** Non-binding cadence suggestion (e.g. "kvartalsvis", "årlig"). */
   cadence_hint: string | null
+  /** Optional grouping inside a pack (admin-defined). Null = "Uten kategori". */
+  category_id: string | null
   deleted_at: string | null
   created_by: string | null
+  created_at: string
+  updated_at: string
+}
+
+/**
+ * Per-org, per-pack template grouping admins curate from
+ * Innstillinger → Kategorier. Drives the expandable groups in the
+ * sidebar and the section headings in the hub tile grid.
+ */
+export type ComplianceCategoryRow = {
+  id: string
+  organization_id: string
+  pack: CompliancePackSlug
+  slug: string
+  name: string
+  description: string | null
+  position: number
+  is_active: boolean
+  is_system: boolean
+  deleted_at: string | null
   created_at: string
   updated_at: string
 }

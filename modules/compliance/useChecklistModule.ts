@@ -12,6 +12,7 @@ import type {
   ChecklistDefinition,
   ComplianceAggregates,
   ComplianceAssignableUser,
+  ComplianceCategoryRow,
   ComplianceExecutionRow,
   ComplianceResponseRow,
   CompliancePackSlug,
@@ -19,6 +20,7 @@ import type {
   ComplianceTemplateRow,
 } from './types'
 import {
+  ComplianceCategoryRowSchema,
   ComplianceExecutionRowSchema,
   ComplianceResponseRowSchema,
   ComplianceTemplateRowSchema,
@@ -110,10 +112,37 @@ export type ChecklistModuleState = {
     definition?: ChecklistDefinition
     nav_pinned?: boolean
     is_active?: boolean
+    category_id?: string | null
   }) => Promise<void>
 
   /** Soft delete (sets deleted_at). System rows are rejected by the DB trigger. */
   softDeleteTemplate: (templateId: string) => Promise<void>
+
+  // ── Categories (per-org, per-pack groupings) ────────────────────────────
+
+  /** Active categories for every licensed pack (deleted/inactive filtered out). */
+  categories: ComplianceCategoryRow[]
+
+  loadCategories: () => Promise<void>
+
+  createCategory: (payload: {
+    pack: CompliancePackSlug
+    slug: string
+    name: string
+    description?: string | null
+    position?: number
+  }) => Promise<string | null>
+
+  updateCategory: (payload: {
+    categoryId: string
+    name?: string
+    description?: string | null
+    position?: number
+    is_active?: boolean
+  }) => Promise<void>
+
+  /** Soft delete. Templates with this category fall back to "Uten kategori" via FK ON DELETE SET NULL. */
+  softDeleteCategory: (categoryId: string) => Promise<void>
 
   // ── Template ↔ requirement tagging ──────────────────────────────────────
 
@@ -158,6 +187,7 @@ export function useChecklistModule(
   const [requirementIdsByTemplateId, setRequirementIdsByTemplateId] = useState<
     Record<string, string[]>
   >({})
+  const [categories, setCategories] = useState<ComplianceCategoryRow[]>([])
 
   // ── Aggregates (org-wide; fetched separately from paginated list) ────────
 
@@ -280,6 +310,15 @@ export function useChecklistModule(
           .order('scheduled_for', { ascending: false, nullsFirst: false })
           .order('created_at', { ascending: false })
 
+        const categoriesQ = supabase
+          .from('compliance_checklist_categories')
+          .select('*')
+          .eq('organization_id', orgId)
+          .is('deleted_at', null)
+          .order('pack', { ascending: true })
+          .order('position', { ascending: true })
+          .order('name', { ascending: true })
+
         if (filters?.pack) {
           templatesQ = templatesQ.eq('pack', filters.pack)
           executionsQ = executionsQ.eq('pack', filters.pack)
@@ -288,23 +327,28 @@ export function useChecklistModule(
           executionsQ = executionsQ.is('archived_at', null)
         }
 
-        const [templatesRes, executionsRes, usersRes] = await Promise.all([
+        const [templatesRes, executionsRes, categoriesRes, usersRes] = await Promise.all([
           templatesQ,
           executionsQ,
+          categoriesQ,
           fetchAssignableUsers(supabase, orgId),
         ])
 
         if (templatesRes.error) throw templatesRes.error
         if (executionsRes.error) throw executionsRes.error
+        if (categoriesRes.error) throw categoriesRes.error
 
         const t = parseRows(templatesRes.data ?? [], ComplianceTemplateRowSchema)
         const e = parseRows(executionsRes.data ?? [], ComplianceExecutionRowSchema)
+        const c = parseRows(categoriesRes.data ?? [], ComplianceCategoryRowSchema)
         setTemplates(t.ok)
         setExecutions(e.ok)
+        setCategories(c.ok)
         setAssignableUsers(usersRes)
 
-        if (t.failed + e.failed > 0) {
-          setError(`Kunne ikke tolke ${t.failed + e.failed} rader fra databasen.`)
+        const failed = t.failed + e.failed + c.failed
+        if (failed > 0) {
+          setError(`Kunne ikke tolke ${failed} rader fra databasen.`)
         }
 
         await reloadAggregates(filters?.pack)
@@ -813,6 +857,7 @@ export function useChecklistModule(
       definition?: ChecklistDefinition
       nav_pinned?: boolean
       is_active?: boolean
+      category_id?: string | null
     }): Promise<void> => {
       if (!supabase || !orgId) return
       if (!canManage) {
@@ -827,6 +872,7 @@ export function useChecklistModule(
       if (payload.definition !== undefined) update.definition = payload.definition
       if (payload.nav_pinned !== undefined) update.nav_pinned = payload.nav_pinned
       if (payload.is_active !== undefined) update.is_active = payload.is_active
+      if (payload.category_id !== undefined) update.category_id = payload.category_id
       if (Object.keys(update).length === 0) return
 
       try {
@@ -881,6 +927,140 @@ export function useChecklistModule(
       }
     },
     [supabase, orgId, canManage, templates],
+  )
+
+  // ── Categories (per-org, per-pack) ──────────────────────────────────────
+
+  const loadCategories = useCallback(async (): Promise<void> => {
+    if (!supabase || !orgId) return
+    setError(null)
+    try {
+      const { data, error: selErr } = await supabase
+        .from('compliance_checklist_categories')
+        .select('*')
+        .eq('organization_id', orgId)
+        .is('deleted_at', null)
+        .order('pack', { ascending: true })
+        .order('position', { ascending: true })
+        .order('name', { ascending: true })
+      if (selErr) throw selErr
+      const parsed = parseRows(data ?? [], ComplianceCategoryRowSchema)
+      setCategories(parsed.ok)
+    } catch (unknownError) {
+      setError(getSupabaseErrorMessage(unknownError))
+    }
+  }, [supabase, orgId])
+
+  const createCategory = useCallback(
+    async (payload: {
+      pack: CompliancePackSlug
+      slug: string
+      name: string
+      description?: string | null
+      position?: number
+    }): Promise<string | null> => {
+      if (!supabase || !orgId) return null
+      if (!canManage) {
+        setError('Du har ikke tilgang til å opprette kategorier.')
+        return null
+      }
+      setError(null)
+      try {
+        const { data, error: insErr } = await supabase
+          .from('compliance_checklist_categories')
+          .insert({
+            pack: payload.pack,
+            slug: payload.slug,
+            name: payload.name,
+            description: payload.description ?? null,
+            position: payload.position ?? 100,
+            is_active: true,
+            is_system: false,
+          })
+          .select('*')
+          .single()
+        if (insErr) throw insErr
+        const parsed = ComplianceCategoryRowSchema.safeParse(data)
+        if (parsed.success) {
+          setCategories((prev) => [...prev, parsed.data])
+          return parsed.data.id
+        }
+        return null
+      } catch (unknownError) {
+        setError(getSupabaseErrorMessage(unknownError))
+        return null
+      }
+    },
+    [supabase, orgId, canManage],
+  )
+
+  const updateCategory = useCallback(
+    async (payload: {
+      categoryId: string
+      name?: string
+      description?: string | null
+      position?: number
+      is_active?: boolean
+    }): Promise<void> => {
+      if (!supabase || !orgId) return
+      if (!canManage) {
+        setError('Du har ikke tilgang til å redigere kategorier.')
+        return
+      }
+      setError(null)
+
+      const update: Record<string, unknown> = {}
+      if (payload.name !== undefined) update.name = payload.name
+      if (payload.description !== undefined) update.description = payload.description
+      if (payload.position !== undefined) update.position = payload.position
+      if (payload.is_active !== undefined) update.is_active = payload.is_active
+      if (Object.keys(update).length === 0) return
+
+      try {
+        const { data, error: upErr } = await supabase
+          .from('compliance_checklist_categories')
+          .update(update)
+          .eq('id', payload.categoryId)
+          .eq('organization_id', orgId)
+          .select('*')
+          .single()
+        if (upErr) throw upErr
+        const parsed = ComplianceCategoryRowSchema.safeParse(data)
+        if (parsed.success) {
+          setCategories((prev) => prev.map((c) => (c.id === parsed.data.id ? parsed.data : c)))
+        }
+      } catch (unknownError) {
+        setError(getSupabaseErrorMessage(unknownError))
+      }
+    },
+    [supabase, orgId, canManage],
+  )
+
+  const softDeleteCategory = useCallback(
+    async (categoryId: string): Promise<void> => {
+      if (!supabase || !orgId) return
+      if (!canManage) {
+        setError('Du har ikke tilgang til å slette kategorier.')
+        return
+      }
+      setError(null)
+      try {
+        // Drop the row from local state first; templates using it keep their
+        // category_id locally until the next reload, but the FK ON DELETE
+        // SET NULL also handles eventual consistency on the server side
+        // when the row is hard-deleted by an admin.
+        const { error: upErr } = await supabase
+          .from('compliance_checklist_categories')
+          .update({ deleted_at: new Date().toISOString(), is_active: false })
+          .eq('id', categoryId)
+          .eq('organization_id', orgId)
+        if (upErr) throw upErr
+        setCategories((prev) => prev.filter((c) => c.id !== categoryId))
+      } catch (unknownError) {
+        setError(getSupabaseErrorMessage(unknownError))
+      }
+    },
+    [supabase, orgId, canManage],
   )
 
   // ── Template ↔ requirement tagging ──────────────────────────────────────
@@ -975,6 +1155,11 @@ export function useChecklistModule(
       createTemplate,
       updateTemplate,
       softDeleteTemplate,
+      categories,
+      loadCategories,
+      createCategory,
+      updateCategory,
+      softDeleteCategory,
       requirementIdsByTemplateId,
       loadTemplateRequirements,
       setTemplateRequirements,
@@ -1002,6 +1187,11 @@ export function useChecklistModule(
       createTemplate,
       updateTemplate,
       softDeleteTemplate,
+      categories,
+      loadCategories,
+      createCategory,
+      updateCategory,
+      softDeleteCategory,
       requirementIdsByTemplateId,
       loadTemplateRequirements,
       setTemplateRequirements,

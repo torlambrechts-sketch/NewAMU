@@ -6,6 +6,7 @@ import { z } from 'zod'
 import type {
   ChecklistDefinition,
   ChecklistItem,
+  ComplianceCategoryRow,
   ComplianceExecutionRow,
   ComplianceRequirementRow,
   ComplianceResponseRow,
@@ -59,8 +60,24 @@ export const ComplianceTemplateRowSchema: z.ZodType<ComplianceTemplateRow> = z.o
   is_system: z.boolean().default(false),
   review_status: z.enum(['draft', 'reviewed', 'approved']).default('draft'),
   cadence_hint: z.string().nullable().default(null),
+  category_id: z.string().uuid().nullable().default(null),
   deleted_at: z.string().nullable(),
   created_by: z.string().uuid().nullable(),
+  created_at: TimestampSchema,
+  updated_at: TimestampSchema,
+})
+
+export const ComplianceCategoryRowSchema: z.ZodType<ComplianceCategoryRow> = z.object({
+  id: UuidSchema,
+  organization_id: UuidSchema,
+  pack: PackSchema,
+  slug: z.string(),
+  name: z.string(),
+  description: z.string().nullable(),
+  position: z.number().int().default(0),
+  is_active: z.boolean().default(true),
+  is_system: z.boolean().default(false),
+  deleted_at: z.string().nullable(),
   created_at: TimestampSchema,
   updated_at: TimestampSchema,
 })
