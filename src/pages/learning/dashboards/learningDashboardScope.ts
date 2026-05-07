@@ -132,6 +132,7 @@ const DONUT_STATUS: ReportModuleDonut = {
   title: 'Fordeling per status',
   segmentsPath: '',
   colSpan: 'md',
+  drillDimensionId: 'status',
 }
 const DONUT_CATEGORY: ReportModuleDonut = {
   id: 'donut-category',
@@ -140,6 +141,7 @@ const DONUT_CATEGORY: ReportModuleDonut = {
   title: 'Fordeling per kategori',
   segmentsPath: '',
   colSpan: 'md',
+  drillDimensionId: 'category',
 }
 const BAR_TOP_COURSES: ReportModuleBar = {
   id: 'bar-top-courses',
@@ -148,6 +150,7 @@ const BAR_TOP_COURSES: ReportModuleBar = {
   title: 'Mest fullførte kurs',
   seriesKeys: [],
   colSpan: 'md',
+  drillDimensionId: 'course',
 }
 const BAR_EXPIRING: ReportModuleBar = {
   id: 'bar-expiring',
@@ -164,6 +167,7 @@ const BAR_DEPARTMENT: ReportModuleBar = {
   title: 'Fullført per avdeling',
   seriesKeys: [],
   colSpan: 'md',
+  drillDimensionId: 'department',
 }
 const TABLE_TOP_COURSES: ReportModuleTable = {
   id: 'table-top-courses',

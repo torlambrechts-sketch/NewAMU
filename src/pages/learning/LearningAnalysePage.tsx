@@ -34,6 +34,8 @@ import type {
   DashboardDimension,
   DashboardFilter,
 } from '../../lib/dashboards/dashboardFilters'
+import { makeFilter } from '../../lib/dashboards/dashboardFilters'
+import type { DrillDownEvent } from '../../components/reports/ReportModuleWidget'
 
 type ProgressStatus = 'enrolled' | 'in_progress' | 'completed' | 'expired'
 
@@ -531,6 +533,34 @@ export function LearningAnalysePage() {
     />
   )
 
+  // Drill-down (3.2.2): translate a clicked segment label → option id for
+  // the matching dimension, then toggle a chip on the active filter set.
+  // Each branch knows the natural lookup map for its dimension.
+  const handleDrillDown = (e: DrillDownEvent) => {
+    let resolvedId: string | null = null
+    if (e.dimensionId === 'status') {
+      const opt = STATUS_OPTIONS.find((s) => s.label === e.segmentLabel)
+      resolvedId = opt?.id ?? null
+    } else if (e.dimensionId === 'category') {
+      const cat = cats.categories.find((c) => c.name === e.segmentLabel)
+      resolvedId = cat?.id ?? null
+    } else if (e.dimensionId === 'course') {
+      const course = learning.courses.find((c) => c.title === e.segmentLabel)
+      resolvedId = course?.id ?? null
+    } else if (e.dimensionId === 'department') {
+      const dep = orgSetup.departments.find((d) => d.name === e.segmentLabel)
+      resolvedId = dep?.id ?? null
+    }
+    if (!resolvedId) return
+    const existing = dashboard.filters.find(
+      (f) => f.dimensionId === e.dimensionId && f.value === resolvedId,
+    )
+    const next = existing
+      ? dashboard.filters.filter((f) => f.id !== existing.id)
+      : [...dashboard.filters, makeFilter(e.dimensionId, 'is', resolvedId)]
+    void dashboard.saveFilters(next)
+  }
+
   return (
     <>
       <ModuleAnalyticsDashboard
@@ -576,6 +606,7 @@ export function LearningAnalysePage() {
         onEdit={() => setEditOpen(true)}
         onAddWidget={() => setAddOpen(true)}
         widgetControlSlot={widgetControlSlot}
+        onDrillDown={handleDrillDown}
         filters={dashboard.filters}
         dimensions={dimensions}
         onFiltersChange={(next) => void dashboard.saveFilters(next)}

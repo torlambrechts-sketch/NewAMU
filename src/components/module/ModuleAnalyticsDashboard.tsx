@@ -17,7 +17,7 @@ import { Edit3, Plus } from 'lucide-react'
 import { ModulePageShell } from './ModulePageShell'
 import { Button } from '../ui/Button'
 import { WarningBox } from '../ui/AlertBox'
-import { ReportModulesGrid } from '../reports/ReportModuleWidget'
+import { ReportModulesGrid, type DrillDownEvent } from '../reports/ReportModuleWidget'
 import { DashboardFilterBar } from './dashboard/DashboardFilterBar'
 import type {
   DashboardDimension,
@@ -81,6 +81,13 @@ export interface ModuleAnalyticsDashboardProps {
    * appropriate for the host page.
    */
   titleChooser?: ReactNode
+  /**
+   * Optional drill-down handler. When set, donut/bar widgets that
+   * declare `drillDimensionId` become clickable; activating a segment
+   * fires this callback with the raw label so the page can map it to
+   * a chip and append it to the active filter set.
+   */
+  onDrillDown?: (e: DrillDownEvent) => void
 }
 
 export function ModuleAnalyticsDashboard({
@@ -102,6 +109,7 @@ export function ModuleAnalyticsDashboard({
   onFiltersChange,
   widgetControlSlot,
   titleChooser,
+  onDrillDown,
 }: ModuleAnalyticsDashboardProps) {
   const builtInFilterBar =
     !filterBar && dimensions && dimensions.length > 0 && filters && onFiltersChange ? (
@@ -181,6 +189,7 @@ export function ModuleAnalyticsDashboard({
             layoutMode="grid12"
             emptyLabel="Ingen data."
             controlSlot={widgetControlSlot}
+            onDrillDown={onDrillDown}
           />
         )}
       </div>

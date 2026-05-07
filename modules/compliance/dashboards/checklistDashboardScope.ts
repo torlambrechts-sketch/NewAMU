@@ -186,6 +186,7 @@ const DONUT_STATUS: ReportModuleDonut = {
   title: 'Fordeling per status',
   segmentsPath: '',
   colSpan: 'md',
+  drillDimensionId: 'status',
 }
 const DONUT_LOCATION: ReportModuleDonut = {
   id: 'donut-location',
@@ -194,6 +195,7 @@ const DONUT_LOCATION: ReportModuleDonut = {
   title: 'Fordeling per lokasjon',
   segmentsPath: '',
   colSpan: 'md',
+  drillDimensionId: 'location',
 }
 const DONUT_DEPARTMENT: ReportModuleDonut = {
   id: 'donut-department',
@@ -202,6 +204,7 @@ const DONUT_DEPARTMENT: ReportModuleDonut = {
   title: 'Fordeling per avdeling',
   segmentsPath: '',
   colSpan: 'md',
+  drillDimensionId: 'department',
 }
 const BAR_LOCATION: ReportModuleBar = {
   id: 'bar-location',
@@ -210,6 +213,7 @@ const BAR_LOCATION: ReportModuleBar = {
   title: 'Kjøringer per lokasjon',
   seriesKeys: [],
   colSpan: 'md',
+  drillDimensionId: 'location',
 }
 const BAR_DEPARTMENT: ReportModuleBar = {
   id: 'bar-department',
@@ -218,6 +222,7 @@ const BAR_DEPARTMENT: ReportModuleBar = {
   title: 'Kjøringer per avdeling',
   seriesKeys: [],
   colSpan: 'md',
+  drillDimensionId: 'department',
 }
 const DONUT_PACK: ReportModuleDonut = {
   id: 'donut-pack',
@@ -226,6 +231,7 @@ const DONUT_PACK: ReportModuleDonut = {
   title: 'Fordeling per regulativ pakke',
   segmentsPath: '',
   colSpan: 'md',
+  drillDimensionId: 'pack',
 }
 const BAR_SEVERITY: ReportModuleBar = {
   id: 'bar-severity',
@@ -234,6 +240,7 @@ const BAR_SEVERITY: ReportModuleBar = {
   title: 'Funn per alvorlighetsgrad',
   seriesKeys: ['Lav', 'Middels', 'Høy', 'Kritisk'],
   colSpan: 'md',
+  drillDimensionId: 'severity',
 }
 const BAR_TEMPLATE: ReportModuleBar = {
   id: 'bar-template',
@@ -245,6 +252,7 @@ const BAR_TEMPLATE: ReportModuleBar = {
   // so an instantiated copy reads "all keys" by default.
   seriesKeys: [],
   colSpan: 'md',
+  drillDimensionId: 'template',
 }
 const TABLE_TEMPLATE: ReportModuleTable = {
   id: 'table-template',

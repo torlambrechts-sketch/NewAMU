@@ -36,6 +36,8 @@ import type {
   DashboardDimension,
   DashboardFilter,
 } from '../../src/lib/dashboards/dashboardFilters'
+import { makeFilter } from '../../src/lib/dashboards/dashboardFilters'
+import type { DrillDownEvent } from '../../src/components/reports/ReportModuleWidget'
 
 const STATUS_OPTIONS = [
   { id: 'draft', label: 'Kladd' },
@@ -473,6 +475,39 @@ export function ChecklistsAnalysePage() {
     />
   )
 
+  // Drill-down (3.2.2): translate a clicked segment label → option id for
+  // the matching dimension, then toggle a chip on the active filter set.
+  const handleDrillDown = (e: DrillDownEvent) => {
+    let resolvedId: string | null = null
+    if (e.dimensionId === 'status') {
+      const opt = STATUS_OPTIONS.find((s) => s.label === e.segmentLabel)
+      resolvedId = opt?.id ?? null
+    } else if (e.dimensionId === 'severity') {
+      const opt = SEVERITY_OPTIONS.find((s) => s.label === e.segmentLabel)
+      resolvedId = opt?.id ?? null
+    } else if (e.dimensionId === 'pack') {
+      const p = packs.find((x) => x.shortName === e.segmentLabel || x.slug === e.segmentLabel)
+      resolvedId = p?.slug ?? null
+    } else if (e.dimensionId === 'template') {
+      const t = cl.templates.find((x) => x.name === e.segmentLabel)
+      resolvedId = t?.id ?? null
+    } else if (e.dimensionId === 'location') {
+      const loc = orgSetup.locations.find((l) => l.name === e.segmentLabel)
+      resolvedId = loc?.id ?? null
+    } else if (e.dimensionId === 'department') {
+      const dep = orgSetup.departments.find((d) => d.name === e.segmentLabel)
+      resolvedId = dep?.id ?? null
+    }
+    if (!resolvedId) return
+    const existing = dashboard.filters.find(
+      (f) => f.dimensionId === e.dimensionId && f.value === resolvedId,
+    )
+    const next = existing
+      ? dashboard.filters.filter((f) => f.id !== existing.id)
+      : [...dashboard.filters, makeFilter(e.dimensionId, 'is', resolvedId)]
+    void dashboard.saveFilters(next)
+  }
+
   return (
     <>
       <ModuleAnalyticsDashboard
@@ -516,6 +551,7 @@ export function ChecklistsAnalysePage() {
         onEdit={() => setEditOpen(true)}
         onAddWidget={() => setAddOpen(true)}
         widgetControlSlot={widgetControlSlot}
+        onDrillDown={handleDrillDown}
         filters={dashboard.filters}
         dimensions={dimensions}
         onFiltersChange={(next) => void dashboard.saveFilters(next)}

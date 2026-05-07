@@ -18,7 +18,28 @@ const COL_SPAN_CLASS: Record<ReportModuleColSpan, string> = {
 // used by the dashboard editor to surface a per-widget "..." menu.
 type WidgetControlSlot = (m: ReportModule) => ReactNode
 
-function DonutMini({ segments }: { segments: { label: string; value: number; color: string }[] }) {
+/**
+ * Drill-down event payload (3.2.2). Emitted when a clickable segment of
+ * a chart is activated. The runtime forwards the raw segment label;
+ * pages translate to a chip value (label → option id) using whatever
+ * lookup is natural for the dimension.
+ */
+export type DrillDownEvent = {
+  module: ReportModule
+  /** The segment / bar key the user clicked. */
+  segmentLabel: string
+  /** The dimension id declared on the widget (`module.drillDimensionId`). */
+  dimensionId: string
+}
+type OnDrillDown = (e: DrillDownEvent) => void
+
+function DonutMini({
+  segments,
+  onSliceClick,
+}: {
+  segments: { label: string; value: number; color: string }[]
+  onSliceClick?: (label: string) => void
+}) {
   const total = segments.reduce((a, s) => a + s.value, 0) || 1
   let startPct = 0
   const stops: string[] = []
@@ -41,15 +62,36 @@ function DonutMini({ segments }: { segments: { label: string; value: number; col
         </div>
       </div>
       <ul className="min-w-0 flex-1 space-y-1 text-xs">
-        {segments.map((s) => (
-          <li key={s.label} className="flex justify-between gap-2">
-            <span className="flex items-center gap-1.5 truncate text-neutral-600">
-              <span className="size-2 shrink-0 rounded-full" style={{ backgroundColor: s.color }} />
-              {s.label}
-            </span>
-            <span className="shrink-0 font-medium tabular-nums text-neutral-900">{s.value}</span>
-          </li>
-        ))}
+        {segments.map((s) => {
+          const inner = (
+            <>
+              <span className="flex items-center gap-1.5 truncate text-neutral-600">
+                <span className="size-2 shrink-0 rounded-full" style={{ backgroundColor: s.color }} />
+                {s.label}
+              </span>
+              <span className="shrink-0 font-medium tabular-nums text-neutral-900">{s.value}</span>
+            </>
+          )
+          if (onSliceClick) {
+            return (
+              <li key={s.label}>
+                <button
+                  type="button"
+                  onClick={() => onSliceClick(s.label)}
+                  className="-mx-1 flex w-full justify-between gap-2 rounded-sm px-1 py-0.5 hover:bg-neutral-100"
+                  title={`Filtrer på ${s.label}`}
+                >
+                  {inner}
+                </button>
+              </li>
+            )
+          }
+          return (
+            <li key={s.label} className="flex justify-between gap-2">
+              {inner}
+            </li>
+          )
+        })}
       </ul>
     </div>
   )
@@ -80,6 +122,7 @@ export function ReportModuleWidget({
   layoutMode = 'grid12',
   emptyLabel,
   controlSlot,
+  onDrillDown,
 }: {
   module: ReportModule
   datasets: Record<string, unknown>
@@ -89,6 +132,8 @@ export function ReportModuleWidget({
   emptyLabel?: string
   /** Optional renderer for a per-widget control (e.g. "..." menu). */
   controlSlot?: WidgetControlSlot
+  /** Optional drill-down handler; activates segment clicks on donut/bar widgets that declare `drillDimensionId`. */
+  onDrillDown?: OnDrillDown
 }) {
   const colors = ['#15803d', '#ca8a04', '#2563eb', '#c2410c', '#7c3aed']
   const ds = datasets[m.datasetKey]
@@ -205,6 +250,7 @@ export function ReportModuleWidget({
     const keys = m.seriesKeys.filter((k) => k in obj)
     const nums = keys.map((k) => Number(obj[k]) || 0)
     const max = Math.max(1, ...nums)
+    const drillable = !!(m.drillDimensionId && onDrillDown)
     return wrap(
       <>
         {titleBlock}
@@ -212,8 +258,8 @@ export function ReportModuleWidget({
           {keys.map((k, i) => {
             const v = nums[i] ?? 0
             const pct = Math.round((v / max) * 100)
-            return (
-              <div key={k}>
+            const inner = (
+              <>
                 <div className="flex justify-between text-xs text-neutral-600">
                   <span>{k}</span>
                   <span className="tabular-nums font-medium">{v}</span>
@@ -224,8 +270,24 @@ export function ReportModuleWidget({
                     style={{ width: `${pct}%`, backgroundColor: colors[i % colors.length] }}
                   />
                 </div>
-              </div>
+              </>
             )
+            if (drillable) {
+              return (
+                <button
+                  key={k}
+                  type="button"
+                  onClick={() =>
+                    onDrillDown?.({ module: m, segmentLabel: k, dimensionId: m.drillDimensionId! })
+                  }
+                  title={`Filtrer på ${k}`}
+                  className="block w-full rounded-sm px-1 py-0.5 text-left hover:bg-neutral-50"
+                >
+                  {inner}
+                </button>
+              )
+            }
+            return <div key={k}>{inner}</div>
           })}
         </div>
         {keys.length === 0 ? <EmptyWidget label={emptyLabel ?? "Ingen serier."} /> : null}
@@ -240,12 +302,17 @@ export function ReportModuleWidget({
     } else if (ds && typeof ds === 'object' && !Array.isArray(ds)) {
       segments = segmentsFromObject(ds as Record<string, unknown>, colors)
     }
+    const handleSlice =
+      m.drillDimensionId && onDrillDown
+        ? (label: string) =>
+            onDrillDown({ module: m, segmentLabel: label, dimensionId: m.drillDimensionId! })
+        : undefined
     return wrap(
       <>
         {titleBlock}
         {segments.length ? (
           <div className="mt-4">
-            <DonutMini segments={segments} />
+            <DonutMini segments={segments} onSliceClick={handleSlice} />
           </div>
         ) : (
           <EmptyWidget label={emptyLabel ?? 'Ingen data å vise.'} />
@@ -634,6 +701,7 @@ export function ReportModulesGrid({
   layoutMode = 'grid12',
   emptyLabel,
   controlSlot,
+  onDrillDown,
 }: {
   modules: ReportModule[]
   datasets: Record<string, unknown>
@@ -642,6 +710,8 @@ export function ReportModulesGrid({
   emptyLabel?: string
   /** Optional renderer for a per-widget control (e.g. "..." menu). */
   controlSlot?: WidgetControlSlot
+  /** Optional drill-down handler — propagated to every widget. */
+  onDrillDown?: OnDrillDown
 }) {
   const containerClass = (() => {
     if (layoutMode === 'grid12') return 'grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-12'
@@ -659,6 +729,7 @@ export function ReportModulesGrid({
           layoutMode={layoutMode}
           emptyLabel={emptyLabel}
           controlSlot={controlSlot}
+          onDrillDown={onDrillDown}
         />
       ))}
       {modules.length === 0 ? (

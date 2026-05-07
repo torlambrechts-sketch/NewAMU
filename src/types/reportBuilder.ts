@@ -70,12 +70,23 @@ export type ReportModuleBar = ReportModuleBase & {
   kind: 'bar'
   /** Keys in dataset object whose values are numbers */
   seriesKeys: string[]
+  /**
+   * When set, segments become clickable and the runtime emits a
+   * drill-down event tagged with this dimension id. The page receives the
+   * raw segment label and decides how to translate it into a chip value.
+   */
+  drillDimensionId?: string
 }
 
 export type ReportModuleDonut = ReportModuleBase & {
   kind: 'donut'
   /** Path to array of { label, value } */
   segmentsPath: string
+  /**
+   * When set, slices become clickable and the runtime emits a
+   * drill-down event tagged with this dimension id (see Bar above).
+   */
+  drillDimensionId?: string
 }
 
 export type ReportModuleLine = ReportModuleBase & {
