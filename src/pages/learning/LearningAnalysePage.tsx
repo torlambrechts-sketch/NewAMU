@@ -394,6 +394,42 @@ export function LearningAnalysePage() {
     const topCoursesBar: Record<string, number> = {}
     for (const [name, count] of topCourses) topCoursesBar[name] = count
 
+    // ── Users × courses heatmap (E-1 widget consumer) ────────────────────
+    // Top 12 most-active users × top 12 most-engaged courses; cells encode
+    // 0 = not started, 0.5 = in progress, 1 = completed. Capped on both
+    // dimensions so the grid stays legible on standard widget widths.
+    const learnerNameById = new Map<string, string>()
+    const courseTitleById = new Map<string, string>()
+    const userCellByPair = new Map<string, number>() // `${userId}:${courseId}` → cellValue
+    const userActivityCount = new Map<string, number>()
+    const courseActivityCount = new Map<string, number>()
+    for (const r of filtered) {
+      if (!r.userId) continue
+      const uid = r.userId
+      const cid = r.course.id
+      const cellValue = r.status === 'completed' ? 1 : r.status === 'in_progress' ? 0.5 : 0
+      userCellByPair.set(`${uid}:${cid}`, cellValue)
+      userActivityCount.set(uid, (userActivityCount.get(uid) ?? 0) + 1)
+      courseActivityCount.set(cid, (courseActivityCount.get(cid) ?? 0) + 1)
+      if (r.progress?.learnerName && !learnerNameById.has(uid)) {
+        learnerNameById.set(uid, r.progress.learnerName)
+      }
+      if (!courseTitleById.has(cid)) courseTitleById.set(cid, r.course.title)
+    }
+    const topUserIds = [...userActivityCount.entries()]
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 12)
+      .map(([uid]) => uid)
+    const topCourseIds = [...courseActivityCount.entries()]
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 12)
+      .map(([cid]) => cid)
+    const heatmapRows = topUserIds.map((uid) => learnerNameById.get(uid) ?? '—')
+    const heatmapColumns = topCourseIds.map((cid) => courseTitleById.get(cid) ?? '—')
+    const heatmapCells = topUserIds.map((uid) =>
+      topCourseIds.map((cid) => userCellByPair.get(`${uid}:${cid}`) ?? 0),
+    )
+
     return {
       learning_kpi_summary: {
         totalCourses,
@@ -411,6 +447,11 @@ export function LearningAnalysePage() {
       })),
       learning_certs_expiring_window: expiryWindowCounts,
       learning_completions_by_department: Object.fromEntries(departmentCounts),
+      learning_completions_by_user_heatmap: {
+        rows: heatmapRows,
+        columns: heatmapColumns,
+        cells: heatmapCells,
+      },
     } as Record<string, unknown>
   }, [
     learning.courses,

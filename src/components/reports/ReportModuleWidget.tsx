@@ -227,6 +227,36 @@ export function ReportModuleWidget({
       </>,
     )
   }
+  if (m.kind === 'heatmap') {
+    const rowsRaw = m.rowsPath ? getAtPath(ds, m.rowsPath) : (ds as Record<string, unknown> | null | undefined)?.rows
+    const colsRaw = m.columnsPath ? getAtPath(ds, m.columnsPath) : (ds as Record<string, unknown> | null | undefined)?.columns
+    const cellsRaw = m.cellsPath ? getAtPath(ds, m.cellsPath) : (ds as Record<string, unknown> | null | undefined)?.cells
+    const rows = Array.isArray(rowsRaw) ? (rowsRaw as unknown[]).map(String) : []
+    const columns = Array.isArray(colsRaw) ? (colsRaw as unknown[]).map(String) : []
+    const cells: number[][] = Array.isArray(cellsRaw)
+      ? (cellsRaw as unknown[]).map((row) =>
+          Array.isArray(row) ? (row as unknown[]).map((v) => Number(v) || 0) : [],
+        )
+      : []
+    return wrap(
+      <>
+        {titleBlock}
+        {rows.length === 0 || columns.length === 0 ? (
+          <EmptyWidget label={emptyLabel ?? 'Ingen data å vise.'} />
+        ) : (
+          <HeatmapMini
+            rows={rows}
+            columns={columns}
+            cells={cells}
+            accent={accent}
+            valueMin={m.valueMin}
+            valueMax={m.valueMax}
+            valueLabel={m.valueLabel}
+          />
+        )}
+      </>,
+    )
+  }
   if (m.kind === 'line') {
     const raw = m.pointsPath ? getAtPath(ds, m.pointsPath) : ds
     type Point = { x: string | number; y: number }
@@ -349,6 +379,97 @@ function LineMini({
           {Math.round(minY)}
         </text>
       </svg>
+    </div>
+  )
+}
+
+// Inline-SVG heatmap. Cells colour-mix against `accent` by their normalised
+// value (0 → near-white, 1 → solid accent). When `valueMin`/`valueMax` are
+// omitted the scale spans the visible cell range.
+function HeatmapMini({
+  rows,
+  columns,
+  cells,
+  accent,
+  valueMin,
+  valueMax,
+  valueLabel,
+}: {
+  rows: string[]
+  columns: string[]
+  cells: number[][]
+  accent: string
+  valueMin?: number
+  valueMax?: number
+  valueLabel?: string
+}) {
+  const flat = cells.flat().filter((v) => Number.isFinite(v))
+  const lo = valueMin ?? (flat.length ? Math.min(...flat) : 0)
+  const hi = valueMax ?? (flat.length ? Math.max(...flat) : 1)
+  const span = hi - lo || 1
+
+  // Truncate long labels for readability — the full label lands in the
+  // <title> tooltip below.
+  const truncate = (s: string, n: number) => (s.length > n ? `${s.slice(0, n - 1)}…` : s)
+
+  return (
+    <div className="mt-3 overflow-x-auto">
+      <table
+        className="border-collapse text-[11px]"
+        role="grid"
+        aria-label={`Heatmap${valueLabel ? `: ${valueLabel}` : ''}`}
+      >
+        <thead>
+          <tr>
+            <th className="sticky left-0 z-10 border border-neutral-200 bg-neutral-50 px-2 py-1 text-left font-semibold text-neutral-700" />
+            {columns.map((c) => (
+              <th
+                key={c}
+                title={c}
+                className="border border-neutral-200 bg-neutral-50 px-1.5 py-1 align-bottom font-semibold text-neutral-700"
+                style={{ minWidth: 40, maxWidth: 80 }}
+              >
+                <div className="origin-bottom-left -rotate-45 whitespace-nowrap text-left leading-none">
+                  {truncate(c, 18)}
+                </div>
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((rowLabel, ri) => (
+            <tr key={rowLabel}>
+              <th
+                scope="row"
+                title={rowLabel}
+                className="sticky left-0 z-10 border border-neutral-200 bg-neutral-50 px-2 py-1 text-left font-medium text-neutral-700"
+                style={{ minWidth: 140, maxWidth: 220 }}
+              >
+                {truncate(rowLabel, 28)}
+              </th>
+              {columns.map((colLabel, ci) => {
+                const v = cells[ri]?.[ci] ?? 0
+                const t = Math.max(0, Math.min(1, (v - lo) / span))
+                // Mix accent against white via alpha — quick & dependency-free.
+                const bg = `${accent}${Math.round((0.1 + t * 0.8) * 255)
+                  .toString(16)
+                  .padStart(2, '0')}`
+                const text = t > 0.55 ? '#ffffff' : '#1f2937'
+                return (
+                  <td
+                    key={colLabel}
+                    title={`${rowLabel} · ${colLabel}: ${v}${valueLabel ? ` ${valueLabel}` : ''}`}
+                    className="border border-neutral-200 px-2 py-1 text-center font-medium tabular-nums"
+                    style={{ backgroundColor: bg, color: text, minWidth: 40 }}
+                  >
+                    {Number.isFinite(v) ? (Number.isInteger(v) ? v : v.toFixed(1)) : '—'}
+                  </td>
+                )
+              })}
+            </tr>
+          ))}
+        </tbody>
+      </table>
     </div>
   )
 }

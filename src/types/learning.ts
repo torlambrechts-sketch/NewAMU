@@ -1,3 +1,12 @@
+export type {
+  TemplateMetadataField,
+  TemplateMetadataFieldKind,
+  TemplateMetadataFieldOption,
+  TemplateMetadataSchema,
+} from '../../modules/compliance/types'
+
+import type { TemplateMetadataSchema } from '../../modules/compliance/types'
+
 export type CourseStatus = 'draft' | 'published' | 'archived'
 
 export type ModuleKind =
@@ -110,6 +119,12 @@ export type Course = {
   sections?: CourseSection[]
   /** Optional grouping in the courses list + sidebar (admin-defined). Null = "Annet". */
   categoryId?: string | null
+  /**
+   * Field declarations driving the course completion metadata panel. Same shape as
+   * compliance/survey templates. Built-in kinds bind to typed FK columns on
+   * `learning_course_progress`; free-form kinds land in `learning_course_progress.metadata`.
+   */
+  metadataSchema?: TemplateMetadataSchema | null
 }
 
 /** Per-org curated category for grouping {@link Course} rows. */

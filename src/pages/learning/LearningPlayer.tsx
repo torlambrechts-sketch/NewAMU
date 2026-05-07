@@ -12,6 +12,7 @@ import { ModulePageShell, ModuleSectionCard } from '../../components/module'
 import { sanitizeLearningHtml } from '../../lib/sanitizeHtml'
 import { normalizeModuleHtml } from '../../lib/richTextDisplay'
 import { LearningPrivacyNotice } from '../../components/learning/LearningPrivacyNotice'
+import { LearningCompletionMetadataPanel } from './LearningCompletionMetadataPanel'
 
 function ProgressBar({ value, label }: { value: number; label?: string }) {
   const pct = Math.round(Math.min(100, Math.max(0, value * 100)))
@@ -42,7 +43,16 @@ export function LearningPlayer() {
   const navigate = useNavigate()
   const { courseId } = useParams<{ courseId: string }>()
   const [searchParams] = useSearchParams()
-  const { can, supabase, organization, profile, supabaseConfigured } = useOrgSetupContext()
+  const {
+    can,
+    supabase,
+    organization,
+    profile,
+    supabaseConfigured,
+    departments,
+    locations,
+    teams,
+  } = useOrgSetupContext()
   const canManageLearning = can('learning.manage')
   const {
     courses,
@@ -50,6 +60,7 @@ export function LearningPlayer() {
     progress,
     ensureProgress,
     setModuleCompleted,
+    setProgressMetadata,
     issueCertificate,
     isCourseUnlocked,
     iltEvents,
@@ -393,6 +404,16 @@ export function LearningPlayer() {
               <ChevronRight className="h-4 w-4" />
             </Button>
           </div>
+
+          <LearningCompletionMetadataPanel
+            course={activeCourse}
+            progress={courseProgress}
+            metadataSchema={activeCourse.metadataSchema ?? null}
+            locations={locations}
+            departments={departments}
+            teams={teams}
+            onSaveMetadata={setProgressMetadata}
+          />
 
           <ModuleSectionCard
             className="p-5 md:p-6"

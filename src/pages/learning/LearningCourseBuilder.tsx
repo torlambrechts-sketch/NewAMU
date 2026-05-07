@@ -18,6 +18,7 @@ import { LearningSectionBuilder } from '../../components/learning/LearningSectio
 import { useOrgSetupContext } from '../../hooks/useOrgSetupContext'
 import type { CourseModule } from '../../types/learning'
 import { LEARNING_MODULE_LEGAL_REFERENCES } from '../../components/learning/learningLegalReferences'
+import { LearningMetadataSchemaEditor } from './LearningMetadataSchemaEditor'
 import { RichTextEditor } from '../../components/learning/RichTextEditor'
 import { AddTaskLink } from '../../components/tasks/AddTaskLink'
 import { Badge } from '../../components/ui/Badge'
@@ -468,19 +469,37 @@ export function LearningCourseBuilder() {
       )}
 
       {mainTab === 'cert' && (
-        <ModuleSectionCard className="p-5 md:p-6">
-          <p className="text-sm text-neutral-700">
-            Kursbevis utstedes når en deltaker fullfører alle moduler i{' '}
-            <Link to={`/learning/play/${course.id}`} className="font-medium text-[#1a3d32] underline">
-              deltakervisten
-            </Link>
-            . Administrer alle kursbevis under{' '}
-            <Link to="/learning/certifications" className="font-medium text-[#1a3d32] underline">
-              Sertifiseringer
-            </Link>
-            .
-          </p>
-        </ModuleSectionCard>
+        <div className="space-y-6">
+          <ModuleSectionCard className="p-5 md:p-6">
+            <p className="text-sm text-neutral-700">
+              Kursbevis utstedes når en deltaker fullfører alle moduler i{' '}
+              <Link to={`/learning/play/${course.id}`} className="font-medium text-[#1a3d32] underline">
+                deltakervisten
+              </Link>
+              . Administrer alle kursbevis under{' '}
+              <Link to="/learning/certifications" className="font-medium text-[#1a3d32] underline">
+                Sertifiseringer
+              </Link>
+              .
+            </p>
+          </ModuleSectionCard>
+
+          <ModuleSectionCard className="p-5 md:p-6">
+            <h3 className="text-base font-semibold text-neutral-900">Hoveddata på kursbevis</h3>
+            <p className="mt-1 text-sm text-neutral-600">
+              Definer hvilke ekstra opplysninger som hentes inn på fullføringsskjermen.
+              Innebygde typer (lokasjon, avdeling, team) snapshottes automatisk fra
+              brukerens organisasjonsmedlemskap ved fullføring og kan filtreres på i
+              analyse.
+            </p>
+            <div className="mt-4">
+              <LearningMetadataSchemaEditor
+                schema={course.metadataSchema ?? null}
+                onChange={(next) => updateCourse(course.id, { metadataSchema: next })}
+              />
+            </div>
+          </ModuleSectionCard>
+        </div>
       )}
 
       {mainTab === 'participants' && (

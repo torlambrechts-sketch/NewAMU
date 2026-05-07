@@ -80,9 +80,10 @@ Executed: see `specs/elearning-parity.md`.
 | 5.3 | ✅ | Sidebar Analyse entry under "Kurs, læringsløp & sertifiseringer" | Learning T3 — `351c8fb`. |
 | 5.4 | ✅ | `/learning/analyse` page + scope registration | Learning T4 — `94eabeb`. Six filter dimensions including the e-learning-unique Utløp (certification expiry) chip. |
 | 5.5 | ✅ | Snapshot org-context columns on `learning_course_progress` | Learning T5 — `b970e4c`. Trigger snapshots user's org_member row at the completed_at transition; idempotent. |
-| 5.6 | 🚧 | Course `metadata_schema` + dynamic completion panel | DB columns + types in `b970e4c`; the completion-panel UI is a small follow-up (admins can populate via SQL until then). |
+| 5.6 | ✅ | Course `metadata_schema` + dynamic completion panel | Learning T6 — DB columns + types in `b970e4c`; UI now ships in `LearningCompletionMetadataPanel` (player) + `LearningMetadataSchemaEditor` (course builder, Sertifisering tab). Free-form fields persist into `learning_course_progress.metadata`; built-in kinds (location/department/team) read the trigger-snapshot. |
 | 5.7 | ✅ | Analytics dimensions including certification-expiry | Wired in T4 (Utløp chip uses Course.recertificationMonths + Certificate.issuedAt). |
-| 5.8 | ⏸ | `kind: 'heatmap'` widget engine extension | Learning E-1. Standalone; lands when convenient; users × courses matrix benefits everywhere. |
+| 5.8 | ✅ | `kind: 'heatmap'` widget engine extension | Learning E-1. New `ReportModuleHeatmap` kind in `src/types/reportBuilder.ts`, inline-SVG renderer in `ReportModuleWidget.tsx`, dataset key `learning_completions_by_user_heatmap`, catalog entry `heatmap-user-completions` (Brukere × kurs — fullføring). Generic — any scope can register a heatmap dataset. |
+| 5.9 | ✅ | Promote E-læring to top-level menu group | Sidebar group `id: 'laring'` injected next to Sjekklister + Undersøkelser; legacy entry removed from "Gamle moduler". `LEARNING_NAV_PERMS` mirrors the broad permAny pattern. |
 
 ---
 
@@ -99,7 +100,7 @@ Reusable runtime that any module registers a "scope" with and consumes via `Modu
 | 3.1.3 | ✅ | `dashboard_layouts` table (RLS, org+scope+slug+owner) — migration `20260828120023` |
 | 3.1.4 | ✅ | `useDashboardLayout` (load / save / reset / per-user fallthrough) |
 | 3.1.5 | ✅ | 12-col responsive grid + `colSpan` + `rowBreak` |
-| 3.1.6 | ✅ | Widget kinds: `kpi`, `bar`, `donut`, `line`, `table` |
+| 3.1.6 | ✅ | Widget kinds: `kpi`, `bar`, `donut`, `line`, `table`, `heatmap` |
 | 3.1.7 | ✅ | Open `ReportDatasetKey` to free string |
 | 3.1.8 | ✅ | Scope datasets metadata (`DatasetMeta`) |
 | 3.1.9 | ✅ | Scope dimensions metadata (`DashboardDimension`) |

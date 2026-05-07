@@ -13,6 +13,7 @@ import type {
   ModuleProgress,
   CourseOrigin,
   ModuleCompleteMeta,
+  TemplateMetadataSchema,
 } from '../types/learning'
 
 export const STORAGE_KEY = 'atics-learning-v1'
@@ -420,6 +421,7 @@ type DbCourseRow = {
   prerequisite_course_ids?: string[] | null
   course_version?: number | null
   recertification_months?: number | null
+  metadata_schema?: TemplateMetadataSchema | null
 }
 
 type DbOrgCourseSetting = {
@@ -453,6 +455,10 @@ type DbProgressRow = {
   module_progress: Record<string, ModuleProgress>
   started_at: string
   completed_at: string | null
+  location_id_at_completion?: string | null
+  department_id_at_completion?: string | null
+  team_id_at_completion?: string | null
+  metadata?: Record<string, unknown> | null
 }
 
 type DbCertRow = {
@@ -509,6 +515,7 @@ function coursesFromDb(courseRows: DbCourseRow[], moduleRows: DbModuleRow[]): Co
       forkedFromSystemId: null,
       courseVersion: c.course_version ?? 1,
       recertificationMonths: c.recertification_months ?? null,
+      metadataSchema: c.metadata_schema ?? { fields: [] },
     }
   })
 }
@@ -762,6 +769,10 @@ export function useLearning() {
         moduleProgress: r.module_progress ?? {},
         startedAt: r.started_at,
         completedAt: r.completed_at ?? undefined,
+        locationIdAtCompletion: r.location_id_at_completion ?? null,
+        departmentIdAtCompletion: r.department_id_at_completion ?? null,
+        teamIdAtCompletion: r.team_id_at_completion ?? null,
+        metadata: r.metadata ?? {},
       }))
       const certificates: Certificate[] = ((certRes.data ?? []) as DbCertRow[]).map((r) => ({
         id: r.id,
@@ -1102,6 +1113,7 @@ export function useLearning() {
         if (patch.tags !== undefined) row.tags = patch.tags
         if (patch.prerequisiteCourseIds !== undefined) row.prerequisite_course_ids = patch.prerequisiteCourseIds
         if (patch.recertificationMonths !== undefined) row.recertification_months = patch.recertificationMonths
+        if (patch.metadataSchema !== undefined) row.metadata_schema = patch.metadataSchema ?? { fields: [] }
         const { error: e } = await supabase.from('learning_courses').update(row).eq('id', id).eq('organization_id', orgId)
         if (e) setError(getSupabaseErrorMessage(e))
         else await refreshLearning()
@@ -1551,6 +1563,42 @@ export function useLearning() {
 
         await refreshLearning()
       })()
+    },
+    [useSupabase, supabase, orgId, userId, setState, refreshLearning],
+  )
+
+  const setProgressMetadata = useCallback(
+    async (courseId: string, metadata: Record<string, unknown>): Promise<{ ok: true } | { ok: false; error: string }> => {
+      if (!useSupabase || !supabase || !orgId || !userId) {
+        setState((s) => ({
+          ...s,
+          progress: s.progress.map((p) =>
+            p.courseId === courseId ? { ...p, metadata } : p,
+          ),
+        }))
+        return { ok: true }
+      }
+      const { data: row, error: fetchErr } = await supabase
+        .from('learning_course_progress')
+        .select('started_at')
+        .eq('organization_id', orgId)
+        .eq('user_id', userId)
+        .eq('course_id', courseId)
+        .maybeSingle()
+      if (fetchErr) return { ok: false, error: getSupabaseErrorMessage(fetchErr) }
+      const { error: upErr } = await supabase.from('learning_course_progress').upsert(
+        {
+          user_id: userId,
+          organization_id: orgId,
+          course_id: courseId,
+          started_at: row?.started_at ?? new Date().toISOString(),
+          metadata,
+        },
+        { onConflict: 'user_id,course_id' },
+      )
+      if (upErr) return { ok: false, error: getSupabaseErrorMessage(upErr) }
+      await refreshLearning()
+      return { ok: true }
     },
     [useSupabase, supabase, orgId, userId, setState, refreshLearning],
   )
@@ -2074,6 +2122,7 @@ export function useLearning() {
     reorderSections,
     ensureProgress,
     setModuleCompleted,
+    setProgressMetadata,
     issueCertificate,
     resetDemo,
     exportJson,

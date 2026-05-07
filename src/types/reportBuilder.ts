@@ -9,7 +9,7 @@
  */
 export type ReportDatasetKey = string
 
-export type ReportModuleKind = 'kpi' | 'table' | 'bar' | 'donut' | 'line'
+export type ReportModuleKind = 'kpi' | 'table' | 'bar' | 'donut' | 'line' | 'heatmap'
 
 /**
  * Widget layout hint, mapped to a 12-column responsive grid by the
@@ -70,12 +70,35 @@ export type ReportModuleLine = ReportModuleBase & {
   yLabel?: string
 }
 
+/**
+ * Two-dimensional grid where each cell is colour-coded by its numeric value.
+ * Default shape consumed: `{ rows: string[]; columns: string[]; cells: number[][] }`
+ * — `cells[r][c]` is the value at row `r` × column `c`. When any of `rowsPath`,
+ * `columnsPath`, or `cellsPath` are non-empty, the renderer reads from that
+ * dot-path inside the resolved dataset instead of the top-level keys.
+ *
+ * Values are min-maxed across the visible grid; pass `valueMax` to lock the
+ * upper bound (e.g. 1 for completion ratios, 100 for score-out-of-100).
+ */
+export type ReportModuleHeatmap = ReportModuleBase & {
+  kind: 'heatmap'
+  rowsPath?: string
+  columnsPath?: string
+  cellsPath?: string
+  /** Optional explicit value range; clamps colour scale. */
+  valueMin?: number
+  valueMax?: number
+  /** Tooltip label for the value (e.g. "Fullført %"). */
+  valueLabel?: string
+}
+
 export type ReportModule =
   | ReportModuleKpi
   | ReportModuleTable
   | ReportModuleBar
   | ReportModuleDonut
   | ReportModuleLine
+  | ReportModuleHeatmap
 
 export type CustomReportTemplate = {
   id: string

@@ -399,6 +399,13 @@ const SURVEY_NAV_PERMS: PermissionKey[] = [
   'survey.results.view',
 ]
 
+// Permission gate for the synthetic Læring menu — same broad pattern as
+// the two siblings so view-only/dashboard roles can still navigate.
+const LEARNING_NAV_PERMS: PermissionKey[] = [
+  'module.view.learning',
+  'module.view.dashboard',
+]
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Menu cleanup pass — preview layout with only Sjekklister + Undersøkelser at
 // the top. Every other module is parked in "Gamle moduler" so it stays
@@ -579,9 +586,6 @@ const gamleModulerModules: NavModule[] = [
   },
   { to: '/modules/aarskontroll', label: 'Årskontroll', end: true, icon: CalendarCheck, subs: [], perm: 'module.view.internal_control' },
   { to: '/compliance', label: 'Compliance-dashboard', end: true, icon: ShieldCheck, subs: [] },
-
-  // ── Opplæring & Kompetanse ───────────────────────────────────────────────
-  { to: '/learning', label: 'Kurs, læringsløp & sertifiseringer', end: true, icon: GraduationCap, subs: learningSubs, perm: 'module.view.learning', moduleSlug: 'learning' },
 
   // ── Organisasjon & HR ────────────────────────────────────────────────────
   { to: '/organisation/admin', label: 'Roller & administrasjon', end: true, icon: Shield, subs: organisationAdminSubs, perm: 'module.view.admin' },
@@ -1044,10 +1048,32 @@ export function AticsShell() {
       ],
     }
 
+    // Learning "Læring" group — flatSubs treatment matches Sjekklister and
+    // Undersøkelser so the secondary nav reads as one consistent layer. The
+    // sub-items come straight from the static `learningSubs` list since
+    // learning has no pinned-templates concept (per /specs/elearning-parity.md).
+    const learningGroup: NavGroup = {
+      id: 'laring',
+      label: 'Læring',
+      icon: GraduationCap,
+      modules: [
+        {
+          to: '/learning',
+          label: 'Læring',
+          end: false,
+          icon: GraduationCap,
+          subs: learningSubs.map((s) => ({ ...s, requirePermAny: LEARNING_NAV_PERMS })),
+          permAny: LEARNING_NAV_PERMS,
+          moduleSlug: 'learning',
+          flatSubs: true,
+        },
+      ],
+    }
+
     const idx = navGroups.findIndex((g) => g.id === 'gamle-moduler')
     const head = idx === -1 ? navGroups : navGroups.slice(0, idx)
     const tail = idx === -1 ? [] : navGroups.slice(idx)
-    return [...head, complianceGroup, surveyGroup, ...tail]
+    return [...head, complianceGroup, surveyGroup, learningGroup, ...tail]
   }, [complianceNav.items, complianceNav.categories, surveyNav.items, surveyNav.categories])
 
   const visibleGroups = useMemo(

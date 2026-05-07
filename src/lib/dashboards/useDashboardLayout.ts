@@ -27,7 +27,7 @@ const ReportModuleSchema = z.object({
   id: z.string(),
   title: z.string(),
   datasetKey: z.string(),
-  kind: z.enum(['kpi', 'table', 'bar', 'donut', 'line']),
+  kind: z.enum(['kpi', 'table', 'bar', 'donut', 'line', 'heatmap']),
 }).passthrough()
 
 const DashboardLayoutRowSchema = z.object({

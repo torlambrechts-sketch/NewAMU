@@ -12,6 +12,7 @@ import type {
   ReportModule,
   ReportModuleBar,
   ReportModuleDonut,
+  ReportModuleHeatmap,
   ReportModuleKpi,
   ReportModuleLine,
   ReportModuleTable,
@@ -39,6 +40,11 @@ const DATASETS: DatasetMeta[] = [
     key: 'learning_completions_by_department',
     label: 'Fullført per avdeling',
     shape: 'segments',
+  },
+  {
+    key: 'learning_completions_by_user_heatmap',
+    label: 'Fullføringer — brukere × kurs',
+    shape: 'rows',
   },
 ]
 
@@ -147,6 +153,20 @@ const TABLE_TOP_COURSES: ReportModuleTable = {
   rowKeys: [],
   colSpan: 'full',
 }
+const HEATMAP_USER_COMPLETIONS: ReportModuleHeatmap = {
+  id: 'heatmap-user-completions',
+  kind: 'heatmap',
+  datasetKey: 'learning_completions_by_user_heatmap',
+  title: 'Brukere × kurs — fullføring',
+  subtitle: 'Grønn = fullført, lys = ikke fullført',
+  // Completion ratios are 0 / 0.5 (in progress) / 1 (complete) — lock the
+  // colour scale so the gradient reads consistently regardless of which
+  // cells happen to be visible.
+  valueMin: 0,
+  valueMax: 1,
+  valueLabel: '(0 = ikke startet, 1 = fullført)',
+  colSpan: 'full',
+}
 
 const DEFAULT_LAYOUT: ReportModule[] = [
   KPI_ACTIVE_LEARNERS,
@@ -172,6 +192,12 @@ const WIDGET_CATALOG: WidgetCatalogEntry[] = [
   { catalogId: 'bar-expiring', category: 'Sertifikater', label: 'Utløpsvinduer — søylediagram', template: BAR_EXPIRING },
   { catalogId: 'bar-department', category: 'Org-kontekst', label: 'Per avdeling — søylediagram', template: BAR_DEPARTMENT },
   { catalogId: 'table-top-courses', category: 'Tabeller', label: 'Topp kurs — tabell', template: TABLE_TOP_COURSES },
+  {
+    catalogId: 'heatmap-user-completions',
+    category: 'Heatmap',
+    label: 'Brukere × kurs — fullføring',
+    template: HEATMAP_USER_COMPLETIONS,
+  },
 ]
 
 registerDashboardScope({
