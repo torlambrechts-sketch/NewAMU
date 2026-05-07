@@ -11,5 +11,6 @@ export function defaultCompatibleKinds(kind: ReportModuleKind): ReportModuleKind
     return ['donut', 'bar', 'table']
   }
   if (kind === 'line') return ['line']
+  if (kind === 'heatmap') return ['heatmap']
   return ['kpi']
 }

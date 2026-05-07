@@ -55,6 +55,7 @@ const KIND_LABELS: Record<ReportModuleKind, string> = {
   donut: 'Kakediagram',
   line: 'Linjediagram',
   table: 'Tabell',
+  heatmap: 'Heatmap',
 }
 
 // ── Lossless kind-switch helpers ────────────────────────────────────────────
@@ -126,6 +127,18 @@ function buildSwitched(
       pointsPath: (restored.pointsPath as string) ?? '',
       xLabel: restored.xLabel as string | undefined,
       yLabel: restored.yLabel as string | undefined,
+    } as ReportModule
+  }
+  if (nextKind === 'heatmap') {
+    return {
+      ...common,
+      kind: 'heatmap',
+      rowsPath: restored.rowsPath as string | undefined,
+      columnsPath: restored.columnsPath as string | undefined,
+      cellsPath: restored.cellsPath as string | undefined,
+      valueMin: restored.valueMin as number | undefined,
+      valueMax: restored.valueMax as number | undefined,
+      valueLabel: restored.valueLabel as string | undefined,
     } as ReportModule
   }
   return {

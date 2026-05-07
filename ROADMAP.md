@@ -139,11 +139,11 @@ Reusable runtime that any module registers a "scope" with and consumes via `Modu
 | 3.4.3 | 📋 | **Scheduled email reports** | `report_runs` table from the older custom-reports stack already exists in archive. Wire a cron sender that re-renders a saved layout into HTML and emails it. Out of scope until 3.2.1–3.2.4 land. |
 | 3.4.4 | 📋 | **Public share link** | Hash-token URL that exposes a read-only render of a single dashboard layout. RLS implications need careful design. |
 
-### 3.5 Engineering quality — 📋 planned
+### 3.5 Engineering quality
 
-| # | Item | Notes |
-|---|---|---|
-| 3.5.1 | **Dataset compute as a hook** | Today the page builds `datasets` and re-computes on filter change. As the dataset count grows, move per-dataset compute into selectors a hook can compose, with a single shared filter-application function. |
+| # | Status | Item | Notes |
+|---|---|---|---|
+| 3.5.1 | 🚧 | **Dataset compute as a hook** | Learning shipped — `useLearningDatasets` extracted into `src/pages/learning/dashboards/useLearningDatasets.ts` (page shrank ~290 lines). Compliance / Survey / Tasks still inline; same mechanical extraction will follow. Composite scopes (3.3.1) want this on every consumer. |
 | 3.5.2 | **Drop reliance on `crypto.randomUUID` polyfill in pages** | Centralise id minting in `dashboardRegistry.instantiateWidget` and a sibling `freshFilterId` so pages don't reimplement. |
 | 3.5.3 | **Storybook coverage for every widget kind** | Currently only end-to-end via `/compliance/checklists/analyse`. Add a stories file that exercises each kind × empty/short/long data so design regressions surface fast. |
 | 3.5.4 | **Server-side aggregates for big orgs** | `useChecklistModule.reloadAggregates` runs four count queries; with 50 widgets this becomes the bottleneck. Move to a single `compliance_checklist_aggregates` view (or RPC) that returns every metric the registered scope needs. |
