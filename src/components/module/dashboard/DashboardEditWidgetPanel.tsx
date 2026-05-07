@@ -1,19 +1,25 @@
-// DashboardEditWidgetPanel — per-widget config: rename, switch the
-// chart type (where the dataset shape supports it), and resize the
-// widget on the dashboard grid.
+// DashboardEditWidgetPanel — per-widget config: rename, set subtitle,
+// switch chart type (where the dataset shape supports it), pick
+// colSpan / rowBreak, and live-preview the result before saving.
 //
-// Compatible-kind heuristic — keep simple in v1:
-//   - segments-shaped dataset (Record<label, number>): donut ↔ bar ↔ table
-//   - kpi-record dataset: kpi only (table possible later)
-//   - line-shaped dataset (array of {x,y}): line only
-// Caller can override via `compatibleKinds`.
+// Lossless kind switching: when the user flips kpi → bar → kpi, the
+// kpi's `valuePath` (and other kind-specific fields) are preserved
+// under `_archive` so a round-trip restores the previous config.
+//
+// Caller passes `datasets` so the live preview renders against real
+// data. Duplicate / Remove buttons hand the current widget back to the
+// page; the editor closes after either.
 
 import { useState } from 'react'
+import { Copy, Trash2 } from 'lucide-react'
 import { SlidePanel } from '../../layout/SlidePanel'
 import { Button } from '../../ui/Button'
 import { StandardInput } from '../../ui/Input'
+import { StandardTextarea } from '../../ui/Textarea'
 import { SearchableSelect } from '../../ui/SearchableSelect'
+import { ToggleSwitch } from '../../ui/FormToggles'
 import { WPSTD_FORM_FIELD_LABEL } from '../../layout/WorkplaceStandardFormPanel'
+import { ReportModuleWidget } from '../../reports/ReportModuleWidget'
 import type {
   ReportModule,
   ReportModuleColSpan,
@@ -23,8 +29,12 @@ import type {
 type Props = {
   open: boolean
   widget: ReportModule | null
+  /** Live datasets for the preview — typically the same map the page renders. */
+  datasets: Record<string, unknown>
   onClose: () => void
   onSave: (next: ReportModule) => Promise<boolean> | boolean
+  onDuplicate?: (widget: ReportModule) => void
+  onRemove?: (widget: ReportModule) => void
   /**
    * Optional override list of kinds the widget can switch to. When
    * undefined the panel falls back to a "same kind only" rule.
@@ -47,25 +57,110 @@ const KIND_LABELS: Record<ReportModuleKind, string> = {
   table: 'Tabell',
 }
 
+// ── Lossless kind-switch helpers ────────────────────────────────────────────
+// We stash the kind-specific fields in a hidden `_archive` keyed by the
+// previous kind so flipping back restores the user's config (e.g. the
+// kpi valuePath, the donut segmentsPath).
+
+type Archive = Partial<Record<ReportModuleKind, Record<string, unknown>>>
+
+function archiveOf(m: ReportModule): Archive {
+  const a = (m as ReportModule & { _archive?: Archive })._archive
+  return a && typeof a === 'object' ? a : {}
+}
+
+function snapshotKindSpecifics(m: ReportModule): Record<string, unknown> {
+  if (m.kind === 'kpi') return { valuePath: m.valuePath, subtitle: m.subtitle }
+  if (m.kind === 'bar') return { seriesKeys: m.seriesKeys }
+  if (m.kind === 'donut') return { segmentsPath: m.segmentsPath }
+  if (m.kind === 'line') return { pointsPath: m.pointsPath, xLabel: m.xLabel, yLabel: m.yLabel }
+  if (m.kind === 'table') return { rowKeys: m.rowKeys }
+  return {}
+}
+
+function buildSwitched(
+  source: ReportModule,
+  nextKind: ReportModuleKind,
+  base: { title: string; subtitle: string | undefined; colSpan: ReportModuleColSpan; rowBreak: boolean },
+): ReportModule {
+  const archive: Archive = {
+    ...archiveOf(source),
+    [source.kind]: snapshotKindSpecifics(source),
+  }
+  const restored = archive[nextKind] ?? {}
+  const common = {
+    id: source.id,
+    title: base.title,
+    datasetKey: source.datasetKey,
+    colSpan: base.colSpan,
+    rowBreak: base.rowBreak,
+    subtitle: base.subtitle,
+    _archive: archive,
+  } as const
+
+  if (nextKind === 'kpi') {
+    return {
+      ...common,
+      kind: 'kpi',
+      valuePath: (restored.valuePath as string) ?? '',
+    } as ReportModule
+  }
+  if (nextKind === 'bar') {
+    return {
+      ...common,
+      kind: 'bar',
+      seriesKeys: (restored.seriesKeys as string[]) ?? [],
+    } as ReportModule
+  }
+  if (nextKind === 'donut') {
+    return {
+      ...common,
+      kind: 'donut',
+      segmentsPath: (restored.segmentsPath as string) ?? '',
+    } as ReportModule
+  }
+  if (nextKind === 'line') {
+    return {
+      ...common,
+      kind: 'line',
+      pointsPath: (restored.pointsPath as string) ?? '',
+      xLabel: restored.xLabel as string | undefined,
+      yLabel: restored.yLabel as string | undefined,
+    } as ReportModule
+  }
+  return {
+    ...common,
+    kind: 'table',
+    rowKeys: (restored.rowKeys as string[]) ?? [],
+  } as ReportModule
+}
+
+// ── Component ──────────────────────────────────────────────────────────────
+
 export function DashboardEditWidgetPanel({
   open,
   widget,
+  datasets,
   onClose,
   onSave,
+  onDuplicate,
+  onRemove,
   compatibleKinds,
 }: Props) {
   const [title, setTitle] = useState(widget?.title ?? '')
+  const [subtitle, setSubtitle] = useState(widget?.subtitle ?? '')
   const [colSpan, setColSpan] = useState<ReportModuleColSpan>(widget?.colSpan ?? 'md')
+  const [rowBreak, setRowBreak] = useState<boolean>(widget?.rowBreak ?? false)
   const [kind, setKind] = useState<ReportModuleKind>(widget?.kind ?? 'kpi')
   const [submitting, setSubmitting] = useState(false)
 
-  // Resync when target widget changes (set-state-during-render pattern;
-  // avoids a useEffect that the React Compiler flags).
   const [lastId, setLastId] = useState(widget?.id ?? null)
   if (widget && widget.id !== lastId) {
     setLastId(widget.id)
     setTitle(widget.title)
+    setSubtitle(widget.subtitle ?? '')
     setColSpan(widget.colSpan ?? 'md')
+    setRowBreak(widget.rowBreak ?? false)
     setKind(widget.kind)
   }
 
@@ -75,73 +170,39 @@ export function DashboardEditWidgetPanel({
     value: k,
     label: KIND_LABELS[k],
   }))
-
   const canSwitchKind = kindOptions.length > 1
+
+  const previewWidget: ReportModule =
+    kind === widget.kind
+      ? ({ ...widget, title, subtitle: subtitle || undefined, colSpan, rowBreak } as ReportModule)
+      : buildSwitched(widget, kind, {
+          title,
+          subtitle: subtitle || undefined,
+          colSpan,
+          rowBreak,
+        })
 
   const handleSave = async () => {
     setSubmitting(true)
     try {
-      // Type narrowing: when switching kinds we synthesise the missing
-      // fields conservatively. The renderer is forgiving — bar widgets
-      // with empty seriesKeys infer them at render time, donut with
-      // empty segmentsPath uses the dataset directly, etc.
-      let next: ReportModule
-      if (kind === widget.kind) {
-        next = { ...widget, title, colSpan }
-      } else if (kind === 'donut') {
-        next = {
-          id: widget.id,
-          title,
-          datasetKey: widget.datasetKey,
-          colSpan,
-          kind: 'donut',
-          segmentsPath: '',
-        }
-      } else if (kind === 'bar') {
-        next = {
-          id: widget.id,
-          title,
-          datasetKey: widget.datasetKey,
-          colSpan,
-          kind: 'bar',
-          seriesKeys: [],
-        }
-      } else if (kind === 'table') {
-        next = {
-          id: widget.id,
-          title,
-          datasetKey: widget.datasetKey,
-          colSpan,
-          kind: 'table',
-          rowKeys: [],
-        }
-      } else if (kind === 'line') {
-        next = {
-          id: widget.id,
-          title,
-          datasetKey: widget.datasetKey,
-          colSpan,
-          kind: 'line',
-          pointsPath: '',
-        }
-      } else {
-        // kpi — preserve valuePath if the widget already had one, else
-        // default to a numeric leaf the renderer will probe.
-        const valuePath = widget.kind === 'kpi' ? widget.valuePath : ''
-        next = {
-          id: widget.id,
-          title,
-          datasetKey: widget.datasetKey,
-          colSpan,
-          kind: 'kpi',
-          valuePath,
-        }
-      }
-      const ok = await onSave(next)
+      const ok = await onSave(previewWidget)
       if (ok) onClose()
     } finally {
       setSubmitting(false)
     }
+  }
+
+  const handleDuplicate = () => {
+    if (!onDuplicate) return
+    onDuplicate(previewWidget)
+    onClose()
+  }
+
+  const handleRemove = () => {
+    if (!onRemove) return
+    if (!window.confirm(`Fjerne widgeten «${widget.title}» fra oppsettet?`)) return
+    onRemove(widget)
+    onClose()
   }
 
   return (
@@ -151,13 +212,40 @@ export function DashboardEditWidgetPanel({
       titleId="dashboard-edit-widget"
       title={`Rediger ${widget.title}`}
       footer={
-        <div className="flex w-full justify-end gap-2">
-          <Button variant="secondary" onClick={onClose} disabled={submitting}>
-            Avbryt
-          </Button>
-          <Button variant="primary" onClick={() => void handleSave()} disabled={submitting}>
-            {submitting ? 'Lagrer …' : 'Lagre'}
-          </Button>
+        <div className="flex w-full flex-wrap items-center justify-between gap-2">
+          <div className="flex items-center gap-1">
+            {onDuplicate ? (
+              <Button
+                variant="ghost"
+                size="sm"
+                icon={<Copy className="h-4 w-4" />}
+                onClick={handleDuplicate}
+                disabled={submitting}
+              >
+                Dupliser
+              </Button>
+            ) : null}
+            {onRemove ? (
+              <Button
+                variant="ghost"
+                size="sm"
+                icon={<Trash2 className="h-4 w-4" />}
+                onClick={handleRemove}
+                disabled={submitting}
+                className="text-red-600 hover:bg-red-50 hover:text-red-700"
+              >
+                Fjern
+              </Button>
+            ) : null}
+          </div>
+          <div className="flex items-center gap-2">
+            <Button variant="secondary" onClick={onClose} disabled={submitting}>
+              Avbryt
+            </Button>
+            <Button variant="primary" onClick={() => void handleSave()} disabled={submitting}>
+              {submitting ? 'Lagrer …' : 'Lagre'}
+            </Button>
+          </div>
         </div>
       }
     >
@@ -170,6 +258,21 @@ export function DashboardEditWidgetPanel({
             id="widget-title"
             value={title}
             onChange={(e) => setTitle(e.target.value)}
+          />
+        </div>
+
+        <div>
+          <label className={WPSTD_FORM_FIELD_LABEL} htmlFor="widget-subtitle">
+            Kontekstlinje (valgfritt)
+          </label>
+          <p className="mb-1 text-xs text-neutral-500">
+            Vises under tittelen — f.eks. «Siste 12 måneder · Gruppert per pakke».
+          </p>
+          <StandardTextarea
+            id="widget-subtitle"
+            value={subtitle}
+            onChange={(e) => setSubtitle(e.target.value)}
+            rows={2}
           />
         </div>
 
@@ -188,27 +291,51 @@ export function DashboardEditWidgetPanel({
           )}
         </div>
 
-        <div>
-          <label className={WPSTD_FORM_FIELD_LABEL}>Bredde</label>
-          <SearchableSelect
-            value={colSpan}
-            options={COL_SPAN_OPTIONS}
-            onChange={(v) => setColSpan(v as ReportModuleColSpan)}
-          />
-          <p className="mt-1 text-xs text-neutral-500">
-            På store skjermer plasseres widgetene i et 12-kolonners rutenett. På
-            mindre skjermer flyter alle som én kolonne.
-          </p>
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label className={WPSTD_FORM_FIELD_LABEL}>Bredde</label>
+            <SearchableSelect
+              value={colSpan}
+              options={COL_SPAN_OPTIONS}
+              onChange={(v) => setColSpan(v as ReportModuleColSpan)}
+            />
+          </div>
+          <div>
+            <span className={WPSTD_FORM_FIELD_LABEL}>Bryt rad</span>
+            <p className="mb-1 mt-1 text-xs text-neutral-500">
+              Tving widgeten til å starte på en ny rad i rutenettet.
+            </p>
+            <ToggleSwitch
+              checked={rowBreak}
+              onChange={setRowBreak}
+              label="Bryt rad før denne widgeten"
+            />
+          </div>
         </div>
 
         <div className="rounded-md border border-neutral-200 bg-neutral-50/50 p-3 text-xs text-neutral-600">
           <p>
-            <span className="font-mono">{widget.datasetKey}</span> — datakilden er låst.
-            Bytt widget for å bruke en annen datakilde.
+            Datakilde: <span className="font-mono">{widget.datasetKey}</span>. Bytt widget
+            for å bruke en annen datakilde.
           </p>
+        </div>
+
+        {/* ── Live preview ──────────────────────────────────────────── */}
+        <div>
+          <p className={`${WPSTD_FORM_FIELD_LABEL} mb-2`}>Forhåndsvisning</p>
+          <div className="rounded-lg border border-neutral-200 bg-neutral-50/40 p-3">
+            <div className="grid grid-cols-1 gap-4 lg:grid-cols-12">
+              <ReportModuleWidget
+                module={previewWidget}
+                datasets={datasets}
+                accent="#1a3d32"
+                layoutMode="grid12"
+                emptyLabel="Ingen data."
+              />
+            </div>
+          </div>
         </div>
       </div>
     </SlidePanel>
   )
 }
-

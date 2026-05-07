@@ -16,6 +16,7 @@ import { z } from 'zod'
 import { useOrgSetupContext } from '../../hooks/useOrgSetupContext'
 import { getSupabaseErrorMessage } from '../supabaseError'
 import { getDashboardScope } from './dashboardRegistry'
+import type { DashboardFilter } from './dashboardFilters'
 import type { ReportModule } from '../../types/reportBuilder'
 
 const ReportModuleSchema = z.object({
@@ -52,6 +53,8 @@ type State = {
   row: DashboardLayoutRow | null
   /** Effective layout: row.layout if a row exists, else registry default. */
   layout: ReportModule[]
+  /** Effective filter chips. */
+  filters: DashboardFilter[]
   /** True iff `layout` came from the registry default (no DB row yet). */
   isDefault: boolean
 }
@@ -78,6 +81,7 @@ export function useDashboardLayout({
     error: null,
     row: null,
     layout: registryDefault,
+    filters: [],
     isDefault: true,
   })
 
@@ -121,6 +125,7 @@ export function useDashboardLayout({
           error: null,
           row: null,
           layout: registryDefault,
+          filters: [],
           isDefault: true,
         })
         return
@@ -132,6 +137,7 @@ export function useDashboardLayout({
           error: 'Kunne ikke tolke lagret oppsett — viser standard.',
           row: null,
           layout: registryDefault,
+          filters: [],
           isDefault: true,
         })
         return
@@ -141,6 +147,7 @@ export function useDashboardLayout({
         error: null,
         row: parsed.data,
         layout: parsed.data.layout as ReportModule[],
+        filters: (parsed.data.filters as DashboardFilter[]) ?? [],
         isDefault: false,
       })
     } catch (err) {
@@ -156,15 +163,17 @@ export function useDashboardLayout({
     void reload()
   }, [reload])
 
-  const saveLayout = useCallback(
-    async (layout: ReportModule[]): Promise<boolean> => {
+  const persist = useCallback(
+    async (patch: { layout?: ReportModule[]; filters?: DashboardFilter[] }): Promise<boolean> => {
       if (!supabase || !orgId) return false
       setState((s) => ({ ...s, error: null }))
+      const nextLayout = patch.layout ?? state.layout
+      const nextFilters = patch.filters ?? state.filters
       try {
         if (state.row) {
           const { data, error } = await supabase
             .from('dashboard_layouts')
-            .update({ layout })
+            .update({ layout: nextLayout, filters: nextFilters })
             .eq('id', state.row.id)
             .eq('version', state.row.version)
             .select('*')
@@ -177,6 +186,7 @@ export function useDashboardLayout({
               error: null,
               row: parsed.data,
               layout: parsed.data.layout as ReportModule[],
+              filters: (parsed.data.filters as DashboardFilter[]) ?? [],
               isDefault: false,
             })
           }
@@ -189,7 +199,8 @@ export function useDashboardLayout({
             scope_id: scopeId,
             slug,
             name: 'Standard',
-            layout,
+            layout: nextLayout,
+            filters: nextFilters,
             is_default: true,
           })
           .select('*')
@@ -202,6 +213,7 @@ export function useDashboardLayout({
             error: null,
             row: parsed.data,
             layout: parsed.data.layout as ReportModule[],
+            filters: (parsed.data.filters as DashboardFilter[]) ?? [],
             isDefault: false,
           })
         }
@@ -211,7 +223,17 @@ export function useDashboardLayout({
         return false
       }
     },
-    [supabase, orgId, scopeId, slug, state.row],
+    [supabase, orgId, scopeId, slug, state.row, state.layout, state.filters],
+  )
+
+  const saveLayout = useCallback(
+    (layout: ReportModule[]) => persist({ layout }),
+    [persist],
+  )
+
+  const saveFilters = useCallback(
+    (filters: DashboardFilter[]) => persist({ filters }),
+    [persist],
   )
 
   /**
@@ -226,6 +248,7 @@ export function useDashboardLayout({
         error: null,
         row: null,
         layout: registryDefault,
+        filters: [],
         isDefault: true,
       })
       return true
@@ -241,6 +264,7 @@ export function useDashboardLayout({
         error: null,
         row: null,
         layout: registryDefault,
+        filters: [],
         isDefault: true,
       })
       return true
@@ -254,6 +278,7 @@ export function useDashboardLayout({
     ...state,
     reload,
     saveLayout,
+    saveFilters,
     resetToDefault,
   }
 }

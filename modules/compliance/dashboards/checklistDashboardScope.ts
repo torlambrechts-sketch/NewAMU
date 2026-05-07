@@ -20,8 +20,43 @@ import type {
 } from '../../../src/types/reportBuilder'
 import {
   registerDashboardScope,
+  type DatasetMeta,
   type WidgetCatalogEntry,
 } from '../../../src/lib/dashboards/dashboardRegistry'
+
+const DATASETS: DatasetMeta[] = [
+  { key: 'checklist_kpi_summary', label: 'KPI-sammendrag', shape: 'kpi-record' },
+  {
+    key: 'checklist_executions_by_status',
+    label: 'Kjøringer per status',
+    shape: 'segments',
+  },
+  {
+    key: 'checklist_findings_by_severity',
+    label: 'Funn per alvorlighetsgrad',
+    shape: 'segments',
+  },
+  {
+    key: 'checklist_executions_by_template',
+    label: 'Kjøringer per mal',
+    shape: 'segments',
+  },
+  {
+    key: 'checklist_executions_by_pack',
+    label: 'Kjøringer per pakke',
+    shape: 'segments',
+  },
+  {
+    key: 'checklist_executions_over_time',
+    label: 'Kjøringer over tid',
+    shape: 'series',
+  },
+  {
+    key: 'checklist_findings_over_time',
+    label: 'Funn over tid',
+    shape: 'series',
+  },
+]
 
 export const CHECKLIST_DASHBOARD_SCOPE_ID = 'compliance_checklist'
 
@@ -248,4 +283,7 @@ registerDashboardScope({
   label: 'Sjekklister',
   defaultLayout: DEFAULT_LAYOUT,
   widgetCatalog: WIDGET_CATALOG,
+  datasets: DATASETS,
+  // Dimensions are declared by the page (ChecklistsAnalysePage) because
+  // their loadOptions need live org data (pack list, template list).
 })

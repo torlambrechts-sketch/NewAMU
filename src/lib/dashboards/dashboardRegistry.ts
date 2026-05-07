@@ -1,22 +1,23 @@
 // Module dashboard registry.
 //
-// Each module that exposes an analytics page registers a "scope" here:
-//   - scopeId: stable string that ties default layouts, saved
-//     dashboard_layouts rows and the widget catalog together
-//     (e.g. 'compliance_checklist', 'survey').
-//   - defaultLayout: the ReportModule[] rendered when no custom layout
-//     has been saved for this org/user yet. Same shape as the existing
-//     report-builder primitives so the renderer is shared.
-//   - widgetCatalog: full set of widgets the user can pick from in the
-//     "Add Widget" UI. Each catalog entry is a template that the editor
-//     stamps a unique id onto when added to a layout.
+// Each module that exposes an analytics page registers a "scope" here.
+// The registry holds three things per scope:
+//   - the default ReportModule[] layout shown when no saved row exists
+//   - the widget catalog ("Add Widget" picker)
+//   - the dimension catalog used by the filter chip bar
+//   - dataset metadata (id + label + shape hint) so the registry can
+//     answer "what keys does this scope publish?" without the runtime
+//     knowing module-specific details
 //
-// Phase 1 — registry + default layout consumption only. Phase 2 layers
-// persistence (dashboard_layouts table) and Phase 3 the editor UX on top.
-// The public surface is therefore intentionally narrow: register at
-// module load, look up at render.
+// The page that owns the source data is still responsible for actually
+// computing the dataset values — the registry doesn't pull from
+// Supabase. Compute happens via a `computeDatasets(filters)` callback
+// the page hands in to ModuleAnalyticsDashboard. That keeps "what data
+// exists" co-located with the data hook (useChecklistModule etc.) while
+// "how to display it" lives in the registry.
 
 import type { ReportModule } from '../../types/reportBuilder'
+import type { DashboardFilter, DashboardDimension } from './dashboardFilters'
 
 /**
  * One picker entry in the "Add Widget" catalog. Carries everything
@@ -39,6 +40,27 @@ export type WidgetCatalogEntry = {
   template: Omit<ReportModule, 'id'>
 }
 
+/**
+ * Dataset metadata declared by a scope. Used by the widget editor to
+ * label the "Datakilde" line and (later) to drive the Add Widget UI's
+ * shape-aware kind choices.
+ */
+export type DatasetMeta = {
+  /** Lookup key used at runtime in `datasets[key]`. */
+  key: string
+  /** User-facing label (Norwegian). */
+  label: string
+  /**
+   * Hint about the dataset's value shape so widgets can reject
+   * incompatible kinds:
+   *   - 'kpi-record' : Record<string, number>
+   *   - 'segments'   : Record<label, number>  (donut/bar/table)
+   *   - 'series'     : Array<{x, y}>          (line)
+   *   - 'rows'       : Array<Record<string, unknown>>  (table only)
+   */
+  shape: 'kpi-record' | 'segments' | 'series' | 'rows'
+}
+
 export type DashboardScope = {
   scopeId: string
   /** User-facing title used by ModuleAnalyticsDashboard when a page-level title isn't provided. */
@@ -47,6 +69,10 @@ export type DashboardScope = {
   defaultLayout: ReportModule[]
   /** Picker options for "Add Widget". */
   widgetCatalog: WidgetCatalogEntry[]
+  /** Datasets the scope publishes (used by the widget editor). */
+  datasets?: DatasetMeta[]
+  /** Filter dimensions exposed in the filter chip bar. */
+  dimensions?: DashboardDimension[]
 }
 
 const registry = new Map<string, DashboardScope>()
@@ -82,3 +108,6 @@ export function instantiateWidget(entry: WidgetCatalogEntry): ReportModule {
       : `w_${Math.random().toString(36).slice(2)}_${Date.now().toString(36)}`
   return { ...(entry.template as ReportModule), id } as ReportModule
 }
+
+/** Re-export so consumers don't have to import from two places. */
+export type { DashboardFilter, DashboardDimension }

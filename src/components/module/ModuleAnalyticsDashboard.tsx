@@ -18,6 +18,11 @@ import { ModulePageShell } from './ModulePageShell'
 import { Button } from '../ui/Button'
 import { WarningBox } from '../ui/AlertBox'
 import { ReportModulesGrid } from '../reports/ReportModuleWidget'
+import { DashboardFilterBar } from './dashboard/DashboardFilterBar'
+import type {
+  DashboardDimension,
+  DashboardFilter,
+} from '../../lib/dashboards/dashboardFilters'
 import type { ReportModule } from '../../types/reportBuilder'
 
 type WidgetControlSlot = (m: ReportModule) => ReactNode
@@ -53,8 +58,21 @@ export interface ModuleAnalyticsDashboardProps {
   onEdit?: () => void
   /** "Add Widget" button handler — hidden when null/undefined. */
   onAddWidget?: () => void
-  /** Optional filter chip bar slot rendered above the grid. */
+  /**
+   * Custom filter bar slot — when provided, rendered above the grid
+   * instead of the built-in DashboardFilterBar. Useful for embedding
+   * a different filter UX without touching the runtime.
+   */
   filterBar?: ReactNode
+  /**
+   * Filter chip state. When `dimensions` is non-empty the runtime
+   * renders the built-in DashboardFilterBar with these chips;
+   * `onFiltersChange` is called whenever the user adds, edits or
+   * removes a chip.
+   */
+  filters?: DashboardFilter[]
+  dimensions?: DashboardDimension[]
+  onFiltersChange?: (next: DashboardFilter[]) => void
   /** Per-widget control slot (rendered top-right of each widget shell). */
   widgetControlSlot?: WidgetControlSlot
 }
@@ -73,8 +91,21 @@ export function ModuleAnalyticsDashboard({
   onEdit,
   onAddWidget,
   filterBar,
+  filters,
+  dimensions,
+  onFiltersChange,
   widgetControlSlot,
 }: ModuleAnalyticsDashboardProps) {
+  const builtInFilterBar =
+    !filterBar && dimensions && dimensions.length > 0 && filters && onFiltersChange ? (
+      <div className="relative">
+        <DashboardFilterBar
+          filters={filters}
+          dimensions={dimensions}
+          onChange={onFiltersChange}
+        />
+      </div>
+    ) : null
   const showActions = Boolean(onEdit || onAddWidget)
 
   return (
@@ -116,7 +147,7 @@ export function ModuleAnalyticsDashboard({
     >
       <div className="space-y-6">
         {error ? <WarningBox>{error}</WarningBox> : null}
-        {filterBar}
+        {filterBar ?? builtInFilterBar}
         {loading && layout.length === 0 ? (
           <p className="py-12 text-center text-sm text-neutral-500">Laster …</p>
         ) : layout.length === 0 ? (

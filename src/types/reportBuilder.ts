@@ -1,21 +1,13 @@
-export type ReportDatasetKey =
-  | 'org_overview'
-  | 'tasks_by_status'
-  | 'tasks_table'
-  | 'compliance_score'
-  | 'amu_summary'
-  | 'ik_summary'
-  | 'arp_summary'
-  | 'sick_leave_summary'
-  | 'correlation_summary'
-  | 'cost_friction_summary'
-  | 'checklist_kpi_summary'
-  | 'checklist_executions_by_status'
-  | 'checklist_findings_by_severity'
-  | 'checklist_executions_by_template'
-  | 'checklist_executions_by_pack'
-  | 'checklist_executions_over_time'
-  | 'checklist_findings_over_time'
+/**
+ * Dataset key — the lookup key into the runtime's `datasets` map.
+ *
+ * Was a closed string union; opened to plain `string` so individual
+ * scopes (compliance_checklist, survey, …) can register their own
+ * keys without touching this core type. Convention: namespace with the
+ * scope id, e.g. `checklist:executions_by_status`. Older keys without
+ * the prefix continue to work since this is just a lookup string.
+ */
+export type ReportDatasetKey = string
 
 export type ReportModuleKind = 'kpi' | 'table' | 'bar' | 'donut' | 'line'
 
@@ -33,9 +25,13 @@ export type ReportModuleColSpan = 'sm' | 'md' | 'lg' | 'full'
 export type ReportModuleBase = {
   id: string
   title: string
+  /** Optional context line under the title (e.g. "Last 12 months · Grouped by pack"). */
+  subtitle?: string
   datasetKey: ReportDatasetKey
   /** Visual width on the dashboard grid (lg breakpoint). */
   colSpan?: ReportModuleColSpan
+  /** Force this widget to start on a new grid row (visual section break). */
+  rowBreak?: boolean
 }
 
 export type ReportModuleKpi = ReportModuleBase & {

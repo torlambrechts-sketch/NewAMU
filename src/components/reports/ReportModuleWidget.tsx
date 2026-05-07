@@ -103,10 +103,25 @@ export function ReportModuleWidget({
     // legacy grid2
     return m.kind === 'kpi' ? '' : 'lg:col-span-2'
   })()
+  // rowBreak forces this widget to start on a new row in the 12-col grid
+  // by snapping to col-start-1 (works only on lg+ where the grid is in
+  // effect; on smaller breakpoints everything's a single column anyway).
+  const rowBreakClass = layoutMode === 'grid12' && m.rowBreak ? 'lg:col-start-1' : ''
+
+  const titleBlock = (
+    <div className="min-w-0">
+      <p className="truncate text-[10px] font-bold uppercase tracking-wider text-neutral-500">
+        {m.title}
+      </p>
+      {m.subtitle ? (
+        <p className="mt-0.5 truncate text-[11px] text-neutral-500">{m.subtitle}</p>
+      ) : null}
+    </div>
+  )
 
   const wrap = (inner: ReactNode) => (
     <div
-      className={`${R} relative h-full min-h-[120px] border border-neutral-200/90 bg-white p-5 shadow-sm ${colSpanClass}`}
+      className={`${R} relative h-full min-h-[120px] border border-neutral-200/90 bg-white p-5 shadow-sm ${colSpanClass} ${rowBreakClass}`}
       style={m.kind === 'kpi' ? { boxShadow: `inset 0 3px 0 0 ${accent}` } : undefined}
     >
       {controlSlot ? (
@@ -120,9 +135,8 @@ export function ReportModuleWidget({
     const n = numberAtPath(ds, m.valuePath)
     return wrap(
       <>
-        <p className="text-[10px] font-bold uppercase tracking-wider text-neutral-500">{m.title}</p>
+        {titleBlock}
         <p className="mt-2 text-3xl font-semibold tabular-nums text-neutral-900">{n ?? '—'}</p>
-        {m.subtitle ? <p className="mt-1 text-xs text-neutral-500">{m.subtitle}</p> : null}
       </>,
     )
   }
@@ -131,7 +145,7 @@ export function ReportModuleWidget({
     const cols = m.rowKeys.length ? m.rowKeys : Object.keys(rows[0] ?? {})
     return wrap(
       <>
-        <p className="text-[10px] font-bold uppercase tracking-wider text-neutral-500">{m.title}</p>
+        {titleBlock}
         <div className="mt-3 overflow-x-auto border border-neutral-200">
           <table className="w-full min-w-[480px] border-collapse text-left text-xs">
             <thead>
@@ -156,7 +170,7 @@ export function ReportModuleWidget({
             </tbody>
           </table>
         </div>
-        {rows.length === 0 && emptyLabel ? <p className="mt-2 text-xs text-neutral-500">{emptyLabel}</p> : null}
+        {rows.length === 0 ? <EmptyWidget label={emptyLabel ?? "Ingen rader."} /> : null}
       </>,
     )
   }
@@ -167,7 +181,7 @@ export function ReportModuleWidget({
     const max = Math.max(1, ...nums)
     return wrap(
       <>
-        <p className="text-[10px] font-bold uppercase tracking-wider text-neutral-500">{m.title}</p>
+        {titleBlock}
         <div className="mt-4 space-y-2">
           {keys.map((k, i) => {
             const v = nums[i] ?? 0
@@ -188,7 +202,7 @@ export function ReportModuleWidget({
             )
           })}
         </div>
-        {keys.length === 0 && emptyLabel ? <p className="mt-2 text-xs text-neutral-500">{emptyLabel}</p> : null}
+        {keys.length === 0 ? <EmptyWidget label={emptyLabel ?? "Ingen serier."} /> : null}
       </>,
     )
   }
@@ -202,13 +216,13 @@ export function ReportModuleWidget({
     }
     return wrap(
       <>
-        <p className="text-[10px] font-bold uppercase tracking-wider text-neutral-500">{m.title}</p>
+        {titleBlock}
         {segments.length ? (
           <div className="mt-4">
             <DonutMini segments={segments} />
           </div>
         ) : (
-          <p className="mt-4 text-xs text-neutral-500">{emptyLabel ?? 'Ingen numeriske felt i datasettet for diagram.'}</p>
+          <EmptyWidget label={emptyLabel ?? 'Ingen data å vise.'} />
         )}
       </>,
     )
@@ -228,11 +242,9 @@ export function ReportModuleWidget({
       : []
     return wrap(
       <>
-        <p className="text-[10px] font-bold uppercase tracking-wider text-neutral-500">{m.title}</p>
+        {titleBlock}
         {points.length === 0 ? (
-          <p className="mt-4 text-xs text-neutral-500">
-            {emptyLabel ?? 'Ingen datapunkter for trendlinjen.'}
-          </p>
+          <EmptyWidget label={emptyLabel ?? 'Ingen datapunkter ennå.'} />
         ) : (
           <LineMini points={points} accent={accent} xLabel={m.xLabel} yLabel={m.yLabel} />
         )}
@@ -240,6 +252,18 @@ export function ReportModuleWidget({
     )
   }
   return null
+}
+
+// Soft empty-state for chart widgets: a quiet skeleton with a subtle
+// label so the widget keeps its space and visual rhythm even when the
+// underlying dataset is empty (zero data, filters too tight, etc.).
+function EmptyWidget({ label }: { label: string }) {
+  return (
+    <div className="mt-4 flex flex-col items-center justify-center gap-2 rounded-md border border-dashed border-neutral-200 bg-neutral-50/40 px-4 py-6 text-center">
+      <div className="h-1.5 w-12 rounded-full bg-neutral-200" />
+      <p className="text-xs text-neutral-500">{label}</p>
+    </div>
+  )
 }
 
 // Lightweight inline-SVG line chart — no charting dep, scales to its
