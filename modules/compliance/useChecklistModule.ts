@@ -42,7 +42,7 @@ export type ChecklistModuleState = {
 
   load: (filters?: { pack?: CompliancePackSlug; includeArchived?: boolean }) => Promise<void>
   loadDetail: (executionId: string) => Promise<void>
-  reloadAggregates: (pack?: CompliancePackSlug) => Promise<void>
+  reloadAggregates: (pack?: CompliancePackSlug, templateId?: string) => Promise<void>
 
   createExecution: (payload: {
     templateId: string
@@ -162,58 +162,71 @@ export function useChecklistModule(
   // ── Aggregates (org-wide; fetched separately from paginated list) ────────
 
   const reloadAggregates = useCallback(
-    async (pack?: CompliancePackSlug) => {
+    async (pack?: CompliancePackSlug, templateId?: string) => {
       if (!supabase || !orgId) return
       try {
-        const baseExec = supabase
-          .from('compliance_checklist_executions')
-          .select('*', { count: 'exact', head: true })
-          .eq('organization_id', orgId)
+        // `templateId` is the strongest filter — when set we drop the pack
+        // filter (template is already pack-scoped via FK).
+        const execTable = () =>
+          supabase
+            .from('compliance_checklist_executions')
+            .select('*', { count: 'exact', head: true })
+            .eq('organization_id', orgId)
 
-        const totalQ = pack ? baseExec.eq('pack', pack) : baseExec
-        const openQ = (pack
-          ? supabase
-              .from('compliance_checklist_executions')
-              .select('*', { count: 'exact', head: true })
-              .eq('organization_id', orgId)
-              .eq('pack', pack)
-          : supabase
-              .from('compliance_checklist_executions')
-              .select('*', { count: 'exact', head: true })
-              .eq('organization_id', orgId)
+        const totalQ = templateId
+          ? execTable().eq('template_id', templateId)
+          : pack
+          ? execTable().eq('pack', pack)
+          : execTable()
+
+        const openQ = (templateId
+          ? execTable().eq('template_id', templateId)
+          : pack
+          ? execTable().eq('pack', pack)
+          : execTable()
         ).in('status', ['draft', 'active'])
 
         const yearStart = new Date(new Date().getFullYear(), 0, 1).toISOString()
-        const ytdQ = (pack
-          ? supabase
-              .from('compliance_checklist_executions')
-              .select('*', { count: 'exact', head: true })
-              .eq('organization_id', orgId)
-              .eq('pack', pack)
-          : supabase
-              .from('compliance_checklist_executions')
-              .select('*', { count: 'exact', head: true })
-              .eq('organization_id', orgId)
+        const ytdQ = (templateId
+          ? execTable().eq('template_id', templateId)
+          : pack
+          ? execTable().eq('pack', pack)
+          : execTable()
         )
           .eq('status', 'signed')
           .gte('signed_at', yearStart)
 
-        // Critical findings via responses joined to executions for pack scope.
-        const critQ = pack
-          ? supabase
-              .from('compliance_checklist_responses')
-              .select('*, compliance_checklist_executions!inner(pack)', {
-                count: 'exact',
-                head: true,
-              })
-              .eq('organization_id', orgId)
-              .eq('severity', 'critical')
-              .eq('compliance_checklist_executions.pack', pack)
-          : supabase
-              .from('compliance_checklist_responses')
-              .select('*', { count: 'exact', head: true })
-              .eq('organization_id', orgId)
-              .eq('severity', 'critical')
+        // Critical findings — when scoped to a single template we filter on
+        // the exec's template_id via the inner join; for pack-only scope we
+        // filter on the inner pack; with no filters we count org-wide.
+        let critQ
+        if (templateId) {
+          critQ = supabase
+            .from('compliance_checklist_responses')
+            .select('*, compliance_checklist_executions!inner(template_id)', {
+              count: 'exact',
+              head: true,
+            })
+            .eq('organization_id', orgId)
+            .eq('severity', 'critical')
+            .eq('compliance_checklist_executions.template_id', templateId)
+        } else if (pack) {
+          critQ = supabase
+            .from('compliance_checklist_responses')
+            .select('*, compliance_checklist_executions!inner(pack)', {
+              count: 'exact',
+              head: true,
+            })
+            .eq('organization_id', orgId)
+            .eq('severity', 'critical')
+            .eq('compliance_checklist_executions.pack', pack)
+        } else {
+          critQ = supabase
+            .from('compliance_checklist_responses')
+            .select('*', { count: 'exact', head: true })
+            .eq('organization_id', orgId)
+            .eq('severity', 'critical')
+        }
 
         const [totalRes, openRes, ytdRes, critRes] = await Promise.all([
           totalQ,

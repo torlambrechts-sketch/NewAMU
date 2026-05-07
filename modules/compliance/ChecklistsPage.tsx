@@ -69,7 +69,7 @@ export function ChecklistsPage() {
   const licensedPacks = useLicensedPacks()
   const { supabase } = useOrgSetupContext()
   const cl = useChecklistModule({ supabase })
-  const { load } = cl
+  const { load, reloadAggregates } = cl
   const [createOpen, setCreateOpen] = useState(false)
 
   // Pack mode requires an explicit ?pack= so /compliance/checklists with no
@@ -100,15 +100,24 @@ export function ChecklistsPage() {
     ? 'pack'
     : 'hub'
 
-  // Reload when mode/pack changes. Hub mode loads everything (no pack filter)
-  // so the tile grid can show templates from every licensed pack.
+  // Reload when mode/pack/template changes.
+  //   hub      → load everything (no filter) so tiles see every pack.
+  //   pack     → list + aggregates scoped to pack.
+  //   template → list scoped to pack, but aggregates re-run with the
+  //              template_id filter so the boxes below the heading
+  //              reflect only this template's executions.
   useEffect(() => {
     if (mode === 'hub') {
       void load()
+    } else if (focusedTemplate) {
+      void (async () => {
+        await load({ pack: focusedTemplate.pack })
+        await reloadAggregates(focusedTemplate.pack, focusedTemplate.id)
+      })()
     } else if (activePack) {
       void load({ pack: activePack.slug })
     }
-  }, [load, mode, activePack])
+  }, [load, reloadAggregates, mode, activePack, focusedTemplate])
 
   const visibleExecutions = useMemo(() => {
     if (mode === 'hub') return cl.executions
