@@ -51,6 +51,43 @@ Mirror the entire checklist reshape on `/survey`. Architecture is in place; the 
 
 **Suggested order of work for survey port:** 2.5 (analytics — biggest visible gain) → 2.6 (categories — lots of leverage) → 2.7 (sidebar) → 2.4 (metadata edits — low traffic).
 
+**Survey port executed:** all items 2.1–2.10 done. See `specs/survey-parity.md` for the original plan.
+
+---
+
+## 4 · Tasks (Oppgaver) — parity port (planned)
+
+Materially smaller than survey because tasks have different bones (jsonb store, source-type as categorisation, no template concept). See `specs/tasks-parity.md` for the executable plan.
+
+| # | Status | Item | Notes |
+|---|---|---|---|
+| 4.1 | 📋 | `/tasks/management/analyse` page using ModuleAnalyticsDashboard | Tasks T1 in the spec. |
+| 4.2 | 📋 | Filter dimensions: status, module, source, priority, assignee, due-window, department-via-employee-join | Tasks T2. |
+| 4.3 | 📋 | Sidebar fixed Settings + Analyse children under "Oppgaver" | Tasks T3. |
+| 4.4 | ⏸ | Categories — explicitly skipped | `sourceType` enum already segments tasks; a parallel category table would shadow the enum. |
+| 4.5 | ⏸ | Org-context FKs / metadata_schema — explicitly skipped | Tasks live in jsonb; no normalised row to ALTER. |
+
+**Estimated effort:** ~1 day (no DB; reuses the dashboard engine).
+
+---
+
+## 5 · E-learning — parity port (planned)
+
+Most parity-friendly of the three remaining modules. See `specs/elearning-parity.md`.
+
+| # | Status | Item | Notes |
+|---|---|---|---|
+| 5.1 | 📋 | `learning_categories` table + admin tab | Learning T1. Default seeds: HMS-grunnopplæring, Brann, Førstehjelp, Verneombud, Onboarding, Eksterne kurs. |
+| 5.2 | 📋 | Categories on LearningCoursesList + sidebar | Learning T2. |
+| 5.3 | 📋 | Sidebar fixed Settings + Analyse children under "Læring" | Learning T3. |
+| 5.4 | 📋 | `/learning/analyse` page + scope registration | Learning T4. |
+| 5.5 | 📋 | Snapshot org-context columns on `learning_course_progress` | Learning T5. Immutable snapshot at completion (preserves audit trail across employee transfers). |
+| 5.6 | 📋 | Course `metadata_schema` + dynamic completion panel | Learning T6. Default fields: external_cert_id, external_hours, practical_test_score, provider. |
+| 5.7 | 📋 | Analytics dimensions including certification-expiry | Learning T7. The genuinely-new dimension specific to e-learning. |
+| 5.8 | ⏸ | `kind: 'heatmap'` widget engine extension | Learning E-1. Standalone, lands when convenient; users × courses matrix benefits everywhere. |
+
+**Estimated effort:** ~2 days for the port; heatmap widget +1 day if/when it lands.
+
 ---
 
 ## 3. Analytics Dashboard Engine
