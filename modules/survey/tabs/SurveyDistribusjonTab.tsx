@@ -574,7 +574,9 @@ export function SurveyDistribusjonTab({ survey, s }: { survey: UseSurveyState; s
                         {invs.map((inv) => (
                           <tr key={inv.id} className="border-b border-neutral-50">
                             <td className="px-4 py-2.5 text-neutral-800">
-                              {nameByProfileId[inv.profile_id] ?? inv.profile_id.slice(0, 8)}
+                              {inv.profile_id
+                                ? nameByProfileId[inv.profile_id] ?? inv.profile_id.slice(0, 8)
+                                : inv.recipient_email ?? '—'}
                             </td>
                             <td className="px-4 py-2.5 text-neutral-600">{inv.email_snapshot ?? '—'}</td>
                             <td className="px-4 py-2.5 text-neutral-600">

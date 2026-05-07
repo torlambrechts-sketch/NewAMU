@@ -456,7 +456,11 @@ export type SurveyInvitationRow = {
   organization_id: string
   survey_id: string
   distribution_id: string
-  profile_id: string
+  /** XOR with vendor_id — null on vendor-only invitations. */
+  profile_id: string | null
+  /** XOR with profile_id — set on vendor-pack survey invitations. */
+  vendor_id: string | null
+  recipient_email: string | null
   department_id: string | null
   email_snapshot: string | null
   /** Opaque secret for personal survey link (?invite=) — null before migration or legacy rows */
@@ -478,7 +482,9 @@ const SurveyInvitationRowSchema = z.object({
   organization_id: z.string().uuid(),
   survey_id: z.string().uuid(),
   distribution_id: z.string().uuid(),
-  profile_id: z.string().uuid(),
+  profile_id: z.string().uuid().nullable(),
+  vendor_id: z.string().uuid().nullable().optional(),
+  recipient_email: z.string().nullable().optional(),
   department_id: z.string().uuid().nullable(),
   email_snapshot: z.string().nullable(),
   access_token: z.string().min(1).nullable().optional(),
@@ -494,6 +500,8 @@ const SurveyInvitationRowSchema = z.object({
   updated_at: z.string(),
 }).transform((row) => ({
   ...row,
+  vendor_id: row.vendor_id ?? null,
+  recipient_email: row.recipient_email ?? null,
   access_token: row.access_token ?? null,
   email_sent_at: row.email_sent_at ?? null,
   email_send_error: row.email_send_error ?? null,

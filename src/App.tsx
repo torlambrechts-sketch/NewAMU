@@ -136,6 +136,7 @@ import { RosModuleAdminPage }    from './pages/RosModuleAdminPage'
 import { RosAnalysisDetailPage } from './pages/RosAnalysisDetailPage'
 import { SurveyModulePage } from './pages/SurveyModulePage'
 import { SurveyModuleAdminPage } from './pages/SurveyModuleAdminPage'
+import { SurveyVendorsPage } from './pages/SurveyVendorsPage'
 import { SurveyOrgTemplateEditorPage } from './pages/SurveyOrgTemplateEditorPage'
 import { SurveyDetailPage } from './pages/SurveyDetailPage'
 import { SurveyRespondPage } from './pages/SurveyRespondPage'
@@ -302,6 +303,7 @@ const router = createBrowserRouter(
                       <Route path="ros/:rosId"  element={<RosAnalysisDetailPage />} />
                       <Route path="survey" element={<SurveyModulePage />} />
                       <Route path="survey/admin" element={<SurveyModuleAdminPage />} />
+                      <Route path="survey/leverandorer" element={<SurveyVendorsPage />} />
                       {/* Single route so :templateId is set for `new` (static route left no params → "Mangler mal-ID"). */}
                       <Route path="survey/templates/org/:templateId" element={<SurveyOrgTemplateEditorPage />} />
                       <Route path="survey/:surveyId" element={<SurveyDetailPage />} />
