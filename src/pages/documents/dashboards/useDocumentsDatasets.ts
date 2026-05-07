@@ -169,6 +169,11 @@ export function useDocumentsDatasets({
     let pendingReview = 0 // page.reviewRequired && !reviewerId
     let retentionOverdue = 0
     let publishedYtd = 0
+    /** YTD-published count for the equivalent date range last year — drives
+     *  the comparison delta on the "Publisert i år" KPI (documents-parity §T11). */
+    let publishedPrevYtd = 0
+    const prevYearStart = new Date(now.getFullYear() - 1, 0, 1)
+    const prevYearCutoff = new Date(now.getFullYear() - 1, now.getMonth(), now.getDate())
     const statusCounts: Record<string, number> = { Kladd: 0, Publisert: 0, Arkivert: 0 }
     const spaceCounts = new Map<string, number>()
     const templateCounts = new Map<string, number>()
@@ -190,6 +195,14 @@ export function useDocumentsDatasets({
       months.push({ key: monthKey(d), label: monthLabel(d) })
     }
     const publishedByMonth = new Map<string, number>(months.map((m) => [m.key, 0]))
+    // Previous-period series (months 23..12 ago) — drives the line widget's
+    // dashed comparison overlay (documents-parity §T11).
+    const prevMonths: { key: string; label: string }[] = []
+    for (let i = 23; i >= 12; i--) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1)
+      prevMonths.push({ key: monthKey(d), label: monthLabel(d) })
+    }
+    const publishedByMonthPrev = new Map<string, number>(prevMonths.map((m) => [m.key, 0]))
 
     const spaceById = new Map(spaces.map((s) => [s.id, s.title]))
     const templateById = new Map(orgCustomTemplates.map((t) => [t.id, t.label]))
@@ -203,9 +216,12 @@ export function useDocumentsDatasets({
         const at = p.updatedAt ? new Date(p.updatedAt) : null
         if (at) {
           if (at >= yearStart) publishedYtd += 1
+          if (at >= prevYearStart && at <= prevYearCutoff) publishedPrevYtd += 1
           const k = monthKey(at)
           if (publishedByMonth.has(k))
             publishedByMonth.set(k, (publishedByMonth.get(k) ?? 0) + 1)
+          else if (publishedByMonthPrev.has(k))
+            publishedByMonthPrev.set(k, (publishedByMonthPrev.get(k) ?? 0) + 1)
         }
       } else if (p.status === 'archived') {
         statusCounts.Arkivert += 1
@@ -263,6 +279,11 @@ export function useDocumentsDatasets({
         x: m.label,
         y: publishedByMonth.get(m.key) ?? 0,
       })),
+      documents_published_over_time_prev: prevMonths.map((m) => ({
+        x: m.label,
+        y: publishedByMonthPrev.get(m.key) ?? 0,
+      })),
+      documents_kpi_summary_prev: { publishedYtd: publishedPrevYtd },
     } as Record<string, unknown>
   }, [filters, rawPages, spaces, orgCustomTemplates, accessRequestsOpen])
 }

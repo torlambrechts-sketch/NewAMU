@@ -87,6 +87,26 @@ Executed: see `specs/elearning-parity.md`.
 
 ---
 
+## 6 · Documents (Wiki, prosedyrer & maler) — parity port
+
+Executed: see `specs/documents-parity.md`.
+
+| # | Status | Item | Notes |
+|---|---|---|---|
+| 6.1 | ✅ | Promote to top-level NavGroup | T1 — Sidebar group `id: 'dokumenter'` (FileText icon) injected between Undersøkelser and Oppgaver. `DOCUMENTS_NAV_PERMS` gates a flatSubs list with fixed Analyse + Innstillinger plus existing Oversikt / Samsvar / Dokumentmaler / Årsgjennomgang. |
+| 6.2 | ✅ | `/documents/analyse` page + scope | T2 — Fifth consumer of `ModuleAnalyticsDashboard`. Accent `#0f766e` (deep teal). Six datasets, eleven catalog widgets covering KPI / status / space / retention / templates / over-time. |
+| 6.3 | ✅ | Filter dimensions | T3 — Six dimensions: Plass / Mal / Status / Retention / Eier / Periode. Retention buckets compute from `wiki_pages.next_revision_due_at`. |
+| 6.4 | ✅ | Drill-down on click | T4 — Status / Plass / Mal / Retention donut + bar widgets are clickable; chip toggles on re-click. |
+| 6.5 | ✅ | `nav_pinned` column on `document_org_templates` | T5 — Migration `20260828120032`; `OrgCustomTemplate.navPinned` + `setOrgTemplateNavPinned` mutation. |
+| 6.6 | ✅ | `useDocumentNav` + sidebar pinned-templates render | T6 — Pinned templates surface below the fixed sub-list, grouped by category (single-category mode skips headers). |
+| 6.7 | ✅ | Provision bundle migration | T7 — `provision_documents_baseline_for_org` ensures every (org, system template) pair has an explicit `document_org_template_settings` row; trigger on `organizations` insert + backfill loop. |
+| 6.8 | ✅ | `metadata_schema` on templates + `metadata` on `wiki_pages` | T8 — Migration `20260828120034`; both jsonb columns default to valid literals. Type re-exports from `modules/compliance/types`. |
+| 6.9 | ✅ | Schema-driven panel in DocumentEditorWorkbench | T9 — `DocumentMetadataPanel` renders above the body when the page's `metadata.__template_id` resolves to a template with a non-empty schema. Free-form values persist via `setPageMetadata`. |
+| 6.10 | ✅ | Admin authoring UI | T10 — Sidebar pin toggle + inline `LearningMetadataSchemaEditor` (module-agnostic) in the customPanelTpl slide-out of `DocumentTemplatesSettings`. |
+| 6.11 | ✅ | Comparison-mode datasets | T11 — `documents_kpi_summary_prev` (yoy YTD published) + `documents_published_over_time_prev` (months 23..12 ago). YTD KPI gains a delta chip + sparkline; line widget gains the dashed comparison series. |
+
+---
+
 ## 3. Analytics Dashboard Engine
 
 Reusable runtime that any module registers a "scope" with and consumes via `ModuleAnalyticsDashboard`.

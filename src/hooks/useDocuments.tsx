@@ -9,6 +9,7 @@ import type {
   ContentBlock,
   PageTemplate,
   SpaceCategory,
+  TemplateMetadataSchema,
   WikiPage,
   WikiPageLang,
   WikiPageVersionSnapshot,
@@ -155,6 +156,13 @@ export type OrgCustomTemplate = {
    *  "Dokumenter" group. Defaults to false — admins opt in via the
    *  templates settings page (documents-parity §T5/T6). */
   navPinned?: boolean
+  /**
+   * Field declarations driving the schema-driven metadata panel above
+   * the page body when a page is authored from this template
+   * (documents-parity §T8). Same shape as the metadata schemas on
+   * compliance / survey / learning templates.
+   */
+  metadataSchema?: TemplateMetadataSchema | null
 }
 
 function loadLocalOrgTemplates(): OrgCustomTemplate[] {
@@ -291,6 +299,7 @@ function mapPage(
     scheduled_deletion_at?: string | null
     review_required?: boolean | null
     reviewer_id?: string | null
+    metadata?: Record<string, unknown> | null
   },
   authorFallback: string,
 ): WikiPage {
@@ -330,6 +339,7 @@ function mapPage(
     updatedAt: row.updated_at,
     reviewRequired: row.review_required ?? false,
     reviewerId: row.reviewer_id ?? null,
+    metadata: (row.metadata as Record<string, unknown> | null) ?? {},
   }
 }
 
@@ -736,6 +746,9 @@ function useDocumentsStore() {
             legalBasis: (r.legal_basis as string[]) ?? [],
             pagePayload: r.page_payload as OrgCustomTemplate['pagePayload'],
             navPinned: (r as { nav_pinned?: boolean }).nav_pinned ?? false,
+            metadataSchema:
+              (r as { metadata_schema?: TemplateMetadataSchema | null }).metadata_schema ??
+              { fields: [] },
           })),
         )
         setRemoteState(data)
@@ -873,6 +886,60 @@ function useDocumentsStore() {
       return id
     },
     [useRemote, supabase, orgId, userId, refreshDocuments],
+  )
+
+  /** Persist a template's metadata_schema (documents-parity §T8). The
+   *  schema drives the panel rendered above the page body in
+   *  DocumentEditorWorkbench when a page is authored from this template. */
+  const setOrgTemplateMetadataSchema = useCallback(
+    async (id: string, schema: TemplateMetadataSchema) => {
+      if (!useRemote) {
+        setLocalOrgCustomTemplates((prev) => {
+          const next = prev.map((x) => (x.id === id ? { ...x, metadataSchema: schema } : x))
+          saveLocalOrgTemplates(next)
+          return next
+        })
+        return
+      }
+      if (!supabase || !orgId) return
+      const { error: e } = await supabase
+        .from('document_org_templates')
+        .update({ metadata_schema: schema })
+        .eq('id', id)
+        .eq('organization_id', orgId)
+      if (e) throw e
+      setOrgCustomTemplates((prev) =>
+        prev.map((x) => (x.id === id ? { ...x, metadataSchema: schema } : x)),
+      )
+    },
+    [useRemote, supabase, orgId],
+  )
+
+  /** Patch a single page's `metadata` jsonb (documents-parity §T8/T9).
+   *  The host editor calls this on field blur, mirroring the survey /
+   *  learning metadata-panel flush. */
+  const setPageMetadata = useCallback(
+    async (pageId: string, metadata: Record<string, unknown>) => {
+      if (!useRemote) {
+        setLocalState((s) => ({
+          ...s,
+          pages: s.pages.map((p) => (p.id === pageId ? { ...p, metadata } : p)),
+        }))
+        return
+      }
+      if (!supabase || !orgId) return
+      const { error: e } = await supabase
+        .from('wiki_pages')
+        .update({ metadata })
+        .eq('id', pageId)
+        .eq('organization_id', orgId)
+      if (e) throw e
+      setRemoteState((s) => ({
+        ...s,
+        pages: s.pages.map((p) => (p.id === pageId ? { ...p, metadata } : p)),
+      }))
+    },
+    [useRemote, supabase, orgId],
   )
 
   /** Toggle whether the template appears as a sidebar shortcut. Persists
@@ -2319,6 +2386,8 @@ function useDocumentsStore() {
     saveOrgCustomTemplate,
     deleteOrgCustomTemplate,
     setOrgTemplateNavPinned,
+    setOrgTemplateMetadataSchema,
+    setPageMetadata,
     stats,
     createSpace,
     updateSpace,

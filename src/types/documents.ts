@@ -4,6 +4,16 @@
 // Blocks are either rich-text or a reference to a named dynamic module.
 // This keeps content portable and independently renderable.
 
+// Template metadata schemas are module-agnostic — same shape as
+// compliance/survey/learning templates. Re-exported here so
+// page-builder code doesn't have to import from compliance directly.
+export type {
+  TemplateMetadataField,
+  TemplateMetadataFieldKind,
+  TemplateMetadataFieldOption,
+  TemplateMetadataSchema,
+} from '../../modules/compliance/types'
+
 // ─── Content blocks ───────────────────────────────────────────────────────────
 
 /** Stable id for editor ordering / drag-and-drop; optional on legacy JSON from DB */
@@ -166,6 +176,12 @@ export type WikiPage = {
   reviewRequired?: boolean
   /** Bruker-id for godkjenner når `reviewRequired` er satt. */
   reviewerId?: string | null
+  /**
+   * Free-form per-page metadata bag keyed by the source template's
+   * `metadata_schema` (documents-parity §T8). Empty `{}` for pages
+   * authored without a template.
+   */
+  metadata?: Record<string, unknown>
 }
 
 /** Immutable snapshot when a version was published (audit) */

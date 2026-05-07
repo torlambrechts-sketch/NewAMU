@@ -11,7 +11,7 @@ today (those live in repo-root `*.md` files).
 | `survey-parity.md` | ✅ executed | Concrete plan to bring `modules/survey/` up to architectural parity with checklists. T1–T7 + 2.9 + 2.10 shipped (last commit `a3c1c77`). Spec preserved as a reference for future modules. |
 | `tasks-parity.md` | ✅ executed | Tasks port T1–T3 shipped (commit `6bd167e`). |
 | `elearning-parity.md` | ✅ executed | Learning port T1–T7 shipped across `9a6b3d7` → `351c8fb` → `94eabeb` → `b970e4c`. T6 completion-panel UI + admin authoring + the `kind: 'heatmap'` widget engine extension (E-1) shipped on top. E-læring promoted to a top-level sidebar group next to Sjekklister + Undersøkelser. |
-| `documents-parity.md` | 📋 ready (OQs in §9 to resolve) | Plan to bring `src/pages/documents/` to parity. C-5 + C-6 drop out (no sign event, no org-context FKs); rest of the playbook applies. T1–T10 across four phases (discovery + analyse → pinned templates + provision → metadata_schema → polish). 11 tasks total, 3 idempotent migrations. |
+| `documents-parity.md` | ✅ executed | T1–T11 shipped across `3ac68d7` (Phase A) → `<Phase B>` → `<Phase C+D>`. Documents sidebar group, `/documents/analyse` page with six filter dimensions + drill-down, nav-pinned templates, provision bundle, metadata_schema on templates + metadata on pages, schema-driven panel in editor, admin authoring UI, and YoY comparison-mode datasets all live. 3 idempotent migrations (20260828120032/33/34). |
 
 ## How to execute one of these
 

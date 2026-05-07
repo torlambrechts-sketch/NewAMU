@@ -27,6 +27,16 @@ const DATASETS: DatasetMeta[] = [
   { key: 'documents_top_templates', label: 'Mest brukte maler', shape: 'segments' },
   { key: 'documents_retention_buckets', label: 'Retention — utløpsvinduer', shape: 'segments' },
   { key: 'documents_published_over_time', label: 'Publisert over tid', shape: 'series' },
+  {
+    key: 'documents_published_over_time_prev',
+    label: 'Publisert over tid (forrige periode)',
+    shape: 'series',
+  },
+  {
+    key: 'documents_kpi_summary_prev',
+    label: 'KPI-sammendrag (forrige periode)',
+    shape: 'kpi-record',
+  },
 ]
 
 const KPI_TOTAL: ReportModuleKpi = {
@@ -82,6 +92,12 @@ const KPI_YTD: ReportModuleKpi = {
   valuePath: 'publishedYtd',
   subtitle: 'YTD',
   colSpan: 'sm',
+  comparisonDatasetKey: 'documents_kpi_summary_prev',
+  comparisonValuePath: 'publishedYtd',
+  comparisonLabel: 'vs. samme periode i fjor',
+  comparisonGoal: 'increase',
+  sparklineDatasetKey: 'documents_published_over_time',
+  sparklinePath: '',
 }
 
 const LINE_PUBLISHED: ReportModuleLine = {
@@ -93,6 +109,10 @@ const LINE_PUBLISHED: ReportModuleLine = {
   xLabel: 'Måned',
   yLabel: 'Antall',
   colSpan: 'md',
+  comparisonDatasetKey: 'documents_published_over_time_prev',
+  comparisonPointsPath: '',
+  primaryLabel: 'Siste 12 mnd.',
+  comparisonLabel: '12 mnd. tilbake',
 }
 const DONUT_STATUS: ReportModuleDonut = {
   id: 'donut-status',

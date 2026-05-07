@@ -28,6 +28,7 @@ import { SearchableSelect, type SelectOption } from '../ui/SearchableSelect'
 import { StandardInput } from '../ui/Input'
 import { StandardTextarea } from '../ui/Textarea'
 import { TipTapRichTextEditor } from './TipTapRichTextEditor'
+import { DocumentMetadataPanel } from '../../pages/documents/DocumentMetadataPanel'
 import { DOCUMENT_EDITOR_SECTIONS, type DocumentEditorSectionId } from './documentEditorSections'
 import { useDocuments } from '../../hooks/useDocuments'
 import { useOrgSetupContext } from '../../hooks/useOrgSetupContext'
@@ -166,6 +167,17 @@ export function DocumentEditorWorkbench({
     [persistOrgTemplate, orgTemplateId, docs.orgCustomTemplates],
   )
   const originalPage = mode === 'persist' && pageId && !persistOrgTemplate ? docs.pages.find((p) => p.id === pageId) : undefined
+  // Resolve the page's source template via the convention key
+  // `metadata.__template_id`. When a page was authored from an org-custom
+  // template, we stash the template id there so the metadata panel can
+  // surface the schema. Pages without that key (or with no matching
+  // template) skip the panel entirely. (documents-parity §T9)
+  const sourceTemplate = useMemo(() => {
+    if (!originalPage) return null
+    const tplId = (originalPage.metadata as { __template_id?: unknown } | undefined)?.__template_id
+    if (typeof tplId !== 'string' || !tplId) return null
+    return docs.orgCustomTemplates.find((t) => t.id === tplId) ?? null
+  }, [originalPage, docs.orgCustomTemplates])
   const original = persistOrgTemplate ? orgTemplateRow?.pagePayload : originalPage
 
   const folderWriteBlocked =
@@ -563,6 +575,19 @@ export function DocumentEditorWorkbench({
           </div>
 
           <div className="flex min-h-0 flex-1 flex-col overflow-auto">
+            {/* Schema-driven metadata panel (documents-parity §T9). Renders
+                only when the page was authored from a template carrying a
+                non-empty metadata_schema. */}
+            {originalPage && sourceTemplate?.metadataSchema?.fields?.length ? (
+              <div className="border-b border-neutral-100 p-3">
+                <DocumentMetadataPanel
+                  page={originalPage}
+                  metadataSchema={sourceTemplate.metadataSchema}
+                  onSaveMetadata={docs.setPageMetadata}
+                  disabled={editorReadOnly}
+                />
+              </div>
+            ) : null}
             <div className="flex min-h-0 w-full flex-1 flex-col border-neutral-200/90 bg-white shadow-sm lg:border-r-0">
               <div className="min-h-0 flex-1 border-b border-neutral-100">
                 <TipTapRichTextEditor

@@ -20,6 +20,10 @@ import {
   parseDocumentTemplateExport,
   parseWikiPageExport,
 } from '../../lib/documentJsonImportExport'
+// LearningMetadataSchemaEditor is module-agnostic; the file name is a
+// historical artifact (it was the first scope to need an inline schema
+// editor). Reusing it for documents avoids a near-identical copy.
+import { LearningMetadataSchemaEditor } from '../learning/LearningMetadataSchemaEditor'
 
 const CATEGORY_LABELS: Record<SpaceCategory, string> = {
   hms_handbook: 'HMS-håndbok',
@@ -645,6 +649,39 @@ export function DocumentTemplatesSettings() {
               {customPanelTpl && (
                 <>
                   <p className="text-neutral-600">{customPanelTpl.description || 'Ingen beskrivelse.'}</p>
+
+                  {/* Sidebar pin toggle (documents-parity §T6 admin surface). */}
+                  <div className="flex items-center gap-3 rounded-md border border-neutral-200 p-3">
+                    <ToggleSwitch
+                      checked={customPanelTpl.navPinned ?? false}
+                      onChange={(v) => void docs.setOrgTemplateNavPinned(customPanelTpl.id, v)}
+                      label="Vist i sidemenyen"
+                    />
+                    <div>
+                      <span className="text-sm text-neutral-700">Vist i sidemenyen</span>
+                      <p className="text-xs text-neutral-500">
+                        Dukker opp som hurtigvalg under «Dokumenter» i venstremenyen.
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Schema-driven metadata authoring (documents-parity §T10). */}
+                  <div className="rounded-md border border-neutral-200 p-3">
+                    <p className="mb-1 text-sm font-semibold text-neutral-800">
+                      Hoveddata-felt
+                    </p>
+                    <p className="mb-3 text-xs text-neutral-500">
+                      Disse feltene vises over sideinnholdet når en side opprettes
+                      fra denne malen, og lagres på siden.
+                    </p>
+                    <LearningMetadataSchemaEditor
+                      schema={customPanelTpl.metadataSchema ?? null}
+                      onChange={(next) =>
+                        void docs.setOrgTemplateMetadataSchema(customPanelTpl.id, next)
+                      }
+                    />
+                  </div>
+
                   <Button
                     type="button"
                     variant="danger"
