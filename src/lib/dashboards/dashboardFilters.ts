@@ -11,6 +11,8 @@
 // about packs or templates; it just hands the active filter list back
 // to the page's `computeDatasets(filters)` callback.
 
+import { freshId } from './freshId'
+
 export type DashboardFilterOperator = 'is' | 'is_not' | 'in' | 'between' | 'after' | 'before'
 
 export type DashboardFilter = {
@@ -74,16 +76,10 @@ export function filtersEqual(a: DashboardFilter[], b: DashboardFilter[]): boolea
   return true
 }
 
-const cryptoLike = (globalThis as { crypto?: { randomUUID?: () => string } }).crypto
-function freshId(): string {
-  if (typeof cryptoLike?.randomUUID === 'function') return cryptoLike.randomUUID()
-  return `f_${Math.random().toString(36).slice(2)}_${Date.now().toString(36)}`
-}
-
 export function makeFilter(
   dimensionId: string,
   operator: DashboardFilterOperator,
   value: unknown,
 ): DashboardFilter {
-  return { id: freshId(), dimensionId, operator, value }
+  return { id: freshId('f'), dimensionId, operator, value }
 }

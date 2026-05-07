@@ -143,10 +143,10 @@ Reusable runtime that any module registers a "scope" with and consumes via `Modu
 
 | # | Status | Item | Notes |
 |---|---|---|---|
-| 3.5.1 | 🚧 | **Dataset compute as a hook** | Learning shipped — `useLearningDatasets` extracted into `src/pages/learning/dashboards/useLearningDatasets.ts` (page shrank ~290 lines). Compliance / Survey / Tasks still inline; same mechanical extraction will follow. Composite scopes (3.3.1) want this on every consumer. |
-| 3.5.2 | **Drop reliance on `crypto.randomUUID` polyfill in pages** | Centralise id minting in `dashboardRegistry.instantiateWidget` and a sibling `freshFilterId` so pages don't reimplement. |
-| 3.5.3 | **Storybook coverage for every widget kind** | Currently only end-to-end via `/compliance/checklists/analyse`. Add a stories file that exercises each kind × empty/short/long data so design regressions surface fast. |
-| 3.5.4 | **Server-side aggregates for big orgs** | `useChecklistModule.reloadAggregates` runs four count queries; with 50 widgets this becomes the bottleneck. Move to a single `compliance_checklist_aggregates` view (or RPC) that returns every metric the registered scope needs. |
+| 3.5.1 | ✅ | **Dataset compute as a hook** | All four scopes graduated — `useLearningDatasets`, `useChecklistDatasets`, `useSurveyDatasets`, `useTasksDatasets` live next to their respective scope registrations. ~900 LOC moved out of analyse pages into testable callable hooks. Composite scopes (3.3.1) can now compose them directly. |
+| 3.5.2 | ✅ | **Centralise id minting** | New `src/lib/dashboards/freshId.ts` is the single source of truth. `instantiateWidget` and `makeFilter` both go through it; the four per-page `cryptoUuid` copies are gone. |
+| 3.5.3 | 📋 | **Storybook coverage for every widget kind** | Currently only end-to-end via `/compliance/checklists/analyse`. Add a stories file that exercises each kind × empty/short/long data so design regressions surface fast. |
+| 3.5.4 | 📋 | **Server-side aggregates for big orgs** | `useChecklistModule.reloadAggregates` runs four count queries; with 50 widgets this becomes the bottleneck. Move to a single `compliance_checklist_aggregates` view (or RPC) that returns every metric the registered scope needs. |
 
 ---
 

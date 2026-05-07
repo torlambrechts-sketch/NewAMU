@@ -18,6 +18,7 @@
 
 import type { ReportModule } from '../../types/reportBuilder'
 import type { DashboardFilter, DashboardDimension } from './dashboardFilters'
+import { freshId } from './freshId'
 
 /**
  * One picker entry in the "Add Widget" catalog. Carries everything
@@ -101,13 +102,9 @@ export function listDashboardScopes(): DashboardScope[] {
  * fallback for older runtimes.
  */
 export function instantiateWidget(entry: WidgetCatalogEntry): ReportModule {
-  const cryptoLike = (globalThis as { crypto?: { randomUUID?: () => string } }).crypto
-  const id =
-    typeof cryptoLike?.randomUUID === 'function'
-      ? cryptoLike.randomUUID()
-      : `w_${Math.random().toString(36).slice(2)}_${Date.now().toString(36)}`
-  return { ...(entry.template as ReportModule), id } as ReportModule
+  return { ...(entry.template as ReportModule), id: freshId('w') } as ReportModule
 }
 
 /** Re-export so consumers don't have to import from two places. */
 export type { DashboardFilter, DashboardDimension }
+export { freshId } from './freshId'

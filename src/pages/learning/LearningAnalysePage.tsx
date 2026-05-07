@@ -30,6 +30,7 @@ import {
 import './dashboards/learningDashboardScope'
 import { STATUS_OPTIONS, useLearningDatasets } from './dashboards/useLearningDatasets'
 import { useDashboardLayout } from '../../lib/dashboards/useDashboardLayout'
+import { freshId } from '../../lib/dashboards/freshId'
 import type { ReportModule } from '../../types/reportBuilder'
 import type { DashboardDimension } from '../../lib/dashboards/dashboardFilters'
 import { makeFilter } from '../../lib/dashboards/dashboardFilters'
@@ -143,7 +144,7 @@ export function LearningAnalysePage() {
       ariaLabel={`Meny for widget ${m.title}`}
       onEdit={() => setEditWidget(m)}
       onDuplicate={() => {
-        const dup = { ...m, id: cryptoUuid(), title: `${m.title} (kopi)` }
+        const dup = { ...m, id: freshId('w'), title: `${m.title} (kopi)` }
         void dashboard.saveLayout([...dashboard.layout, dup])
       }}
       onExportCsv={() => downloadCsv(widgetToCsv(m, datasets))}
@@ -254,7 +255,7 @@ export function LearningAnalysePage() {
         datasets={datasets}
         onClose={() => setEditWidget(null)}
         onDuplicate={(w) => {
-          const dup = { ...w, id: cryptoUuid(), title: `${w.title} (kopi)` }
+          const dup = { ...w, id: freshId('w'), title: `${w.title} (kopi)` }
           void dashboard.saveLayout([...dashboard.layout, dup])
         }}
         onRemove={(w) => {
@@ -272,8 +273,3 @@ export function LearningAnalysePage() {
   )
 }
 
-const cryptoLike = (globalThis as { crypto?: { randomUUID?: () => string } }).crypto
-function cryptoUuid(): string {
-  if (typeof cryptoLike?.randomUUID === 'function') return cryptoLike.randomUUID()
-  return `w_${Math.random().toString(36).slice(2)}_${Date.now().toString(36)}`
-}
