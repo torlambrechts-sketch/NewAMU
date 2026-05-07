@@ -30,6 +30,8 @@ export type SurveyQuestionType =
   | 'file_upload'
   | 'datetime'
   | 'signature'
+  | 'photo'
+  | 'respondent_signature'
 
 export type SurveyActionPlanStatus = 'open' | 'in_progress' | 'closed'
 
@@ -65,6 +67,8 @@ const SurveyQuestionTypeSchema = z.enum([
   'file_upload',
   'datetime',
   'signature',
+  'photo',
+  'respondent_signature',
 ])
 const SurveyActionPlanStatusSchema = z.enum(['open', 'in_progress', 'closed'])
 const SurveyPillarSchema = z.enum(['psychosocial', 'physical', 'organization', 'safety_culture', 'custom'])

@@ -105,6 +105,8 @@ export const QUESTION_TYPE_OPTIONS: { value: SurveyQuestionType; label: string }
   { value: 'file_upload', label: 'Filopplasting' },
   { value: 'datetime', label: 'Dato / tid' },
   { value: 'signature', label: 'Signatur' },
+  { value: 'photo', label: 'Bilde' },
+  { value: 'respondent_signature', label: 'Respondentsignatur' },
 ]
 
 /** Spørsmålstyper som kan trekkes inn fra paletten i byggeren (rekkefølge = UI). */
@@ -131,6 +133,8 @@ export const SURVEY_BUILDER_PALETTE: { type: SurveyQuestionType; label: string; 
   { type: 'file_upload', label: 'Fil', hint: 'Vedlegg' },
   { type: 'datetime', label: 'Dato/tid', hint: 'Planlegging' },
   { type: 'signature', label: 'Signatur', hint: 'Samtykke' },
+  { type: 'photo', label: 'Bilde', hint: 'Foto-vedlegg' },
+  { type: 'respondent_signature', label: 'Respondentsignatur', hint: 'Bekreftelse fra respondent (compliance)' },
 ]
 
 export const SURVEY_TYPE_OPTIONS: { value: SurveyType; label: string }[] = [
