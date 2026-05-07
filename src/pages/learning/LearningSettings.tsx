@@ -16,6 +16,7 @@ import {
   Webhook,
 } from 'lucide-react'
 import { useLearning } from '../../hooks/useLearning'
+import { KategorierSection } from './LearningKategorierSection'
 import { useOrgSetupContext } from '../../hooks/useOrgSetupContext'
 import { Badge } from '../../components/ui/Badge'
 import { WarningBox } from '../../components/ui/AlertBox'
@@ -27,7 +28,7 @@ import { Tabs, type TabItem } from '../../components/ui/Tabs'
 import { ModuleSectionCard } from '../../components/module'
 import { WPSTD_FORM_FIELD_LABEL } from '../../components/layout/WorkplaceStandardFormPanel'
 
-type SettingsTab = 'generelt' | 'stier' | 'system' | 'integrasjoner' | 'eksport'
+type SettingsTab = 'generelt' | 'kategorier' | 'stier' | 'system' | 'integrasjoner' | 'eksport'
 
 function downloadJson(filename: string, json: string) {
   const blob = new Blob([json], { type: 'application/json' })
@@ -110,6 +111,7 @@ export function LearningSettings() {
 
   const tabItems: TabItem[] = [
     { id: 'generelt', label: 'Generelt', icon: Cog },
+    { id: 'kategorier', label: 'Kategorier', icon: Tag },
     { id: 'stier', label: 'Læringsstier', icon: GitBranch },
     { id: 'system', label: 'Systemkurs', icon: Copy },
     { id: 'integrasjoner', label: 'Integrasjoner', icon: Webhook },
@@ -132,6 +134,7 @@ export function LearningSettings() {
       <Tabs items={tabItems} activeId={tab} onChange={(id) => setTabParam(id as SettingsTab)} overflow="scroll" />
 
       {tab === 'generelt' ? <GeneraltSection /> : null}
+      {tab === 'kategorier' ? <KategorierSection /> : null}
       {tab === 'stier' ? <StierSection /> : null}
       {tab === 'system' ? <SystemkursSection /> : null}
       {tab === 'integrasjoner' ? <IntegrasjonerSection /> : null}

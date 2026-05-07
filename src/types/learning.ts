@@ -108,6 +108,20 @@ export type Course = {
    * Maps onto each module's {@link CourseModule.sectionId}.
    */
   sections?: CourseSection[]
+  /** Optional grouping in the courses list + sidebar (admin-defined). Null = "Annet". */
+  categoryId?: string | null
+}
+
+/** Per-org curated category for grouping {@link Course} rows. */
+export type LearningCategory = {
+  id: string
+  organization_id: string
+  slug: string
+  name: string
+  description: string | null
+  position: number
+  is_active: boolean
+  is_system: boolean
 }
 
 export type ModuleProgress = {
