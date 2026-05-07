@@ -41,11 +41,13 @@ Mirror the entire checklist reshape on `/survey`. Architecture is in place; the 
 | 2.1 | ✅ | Neutral hub + per-template reframing | Earlier commit `e2db7d4` — done. |
 | 2.2 | ✅ | Stay-on-template after submit | Same commit. |
 | 2.3 | ✅ | `surveys.catalog_id` link column | Migration `20260828120018`. |
-| 2.4 | 📋 | Amendable response metadata after close | Equivalent of checklist's `ExecutionMetadataPanel`: rename, change description, add late respondent notes. Decide whether to add `attendees`-equivalent (`respondent_notes text[]`?). |
-| 2.5 | 📋 | Survey analytics page | Mirror `ChecklistsAnalysePage` using `ModuleAnalyticsDashboard`. New scope `survey` with: response rate KPIs, completion-over-time line, per-template volume bar, per-pack donut. |
-| 2.6 | 📋 | Survey categories | Same shape as checklist categories — table, admin tab, hub grouping, sidebar collapsible groups. Survey templates already have a `category text` column from the original schema; decide whether to migrate to the structured `survey_categories` table or keep the lighter free-text. |
-| 2.7 | 📋 | Sidebar — Analyse + Innstillinger fixed children under Undersøkelser | Mirror Sjekklister sidebar shape via `useSurveyNav`. |
-| 2.8 | 📋 | Survey scope dimensions | Pakke / Mal / Status (open/closed) / Anonym (yes/no) / Periode (publish or close date). |
+| 2.4 | ✅ | Amendable metadata via SurveyMetadataPanel (post-close edits) | T6 — `74f24eb`. |
+| 2.5 | ✅ | Survey analytics page | T4 — `4c1bbc4`. Honest gap: response-rate KPIs are 0 placeholder until response_count lands on the row or a server-side aggregate ships. |
+| 2.6 | ✅ | Survey categories | T1 — `9db20ec`. Structured `survey_template_categories` table; per-OQ-1 attaches to `survey_org_templates`. |
+| 2.7 | ✅ | Sidebar — Analyse + Innstillinger fixed children + collapsible category groups | T2+T3 — `1d4492a`. |
+| 2.8 | ✅ | Survey scope dimensions | T7 — adds Pakke / Mal / Status / Kategori / Lokasjon / Avdeling / Deltaker / Anonymitet / Periode. |
+| 2.9 | 📋 | Admin authoring UI for `metadata_schema` on survey_org_templates | DB + hook ready; SQL works. Needs a slot in `SurveyMalerOpsCard` or a new "Hoveddata" sub-panel in the Maler admin tab. |
+| 2.10 | 📋 | Response-count + response-rate aggregates | Backfill `surveys.response_count` (or expose via RPC) so the existing KPI tiles + line widgets fill in. |
 
 **Suggested order of work for survey port:** 2.5 (analytics — biggest visible gain) → 2.6 (categories — lots of leverage) → 2.7 (sidebar) → 2.4 (metadata edits — low traffic).
 

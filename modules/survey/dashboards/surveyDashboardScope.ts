@@ -34,6 +34,16 @@ const DATASETS: DatasetMeta[] = [
     label: 'Svarprosent over tid',
     shape: 'series',
   },
+  {
+    key: 'survey_responses_by_location',
+    label: 'Per lokasjon',
+    shape: 'segments',
+  },
+  {
+    key: 'survey_responses_by_department',
+    label: 'Per avdeling',
+    shape: 'segments',
+  },
 ]
 
 // ── Default-layout widgets ────────────────────────────────────────────────
@@ -152,6 +162,38 @@ const TABLE_TEMPLATE: ReportModuleTable = {
   rowKeys: [],
   colSpan: 'full',
 }
+const DONUT_LOCATION: ReportModuleDonut = {
+  id: 'donut-location',
+  kind: 'donut',
+  datasetKey: 'survey_responses_by_location',
+  title: 'Fordeling per lokasjon',
+  segmentsPath: '',
+  colSpan: 'md',
+}
+const DONUT_DEPARTMENT: ReportModuleDonut = {
+  id: 'donut-department',
+  kind: 'donut',
+  datasetKey: 'survey_responses_by_department',
+  title: 'Fordeling per avdeling',
+  segmentsPath: '',
+  colSpan: 'md',
+}
+const BAR_LOCATION: ReportModuleBar = {
+  id: 'bar-location',
+  kind: 'bar',
+  datasetKey: 'survey_responses_by_location',
+  title: 'Undersøkelser per lokasjon',
+  seriesKeys: [],
+  colSpan: 'md',
+}
+const BAR_DEPARTMENT: ReportModuleBar = {
+  id: 'bar-department',
+  kind: 'bar',
+  datasetKey: 'survey_responses_by_department',
+  title: 'Undersøkelser per avdeling',
+  seriesKeys: [],
+  colSpan: 'md',
+}
 
 const DEFAULT_LAYOUT: ReportModule[] = [
   KPI_TOTAL,
@@ -178,6 +220,32 @@ const WIDGET_CATALOG: WidgetCatalogEntry[] = [
   { catalogId: 'donut-anon', category: 'Diagrammer', label: 'Anonymitet — kakediagram', template: DONUT_ANON },
   { catalogId: 'bar-template', category: 'Diagrammer', label: 'Topp brukte maler', template: BAR_TEMPLATE },
   { catalogId: 'table-template', category: 'Tabeller', label: 'Maler — tabell', template: TABLE_TEMPLATE },
+  {
+    catalogId: 'donut-location',
+    category: 'Org-kontekst',
+    label: 'Lokasjon — kakediagram',
+    description: 'Undersøkelser fordelt på lokasjon (krever at malen har lokasjon-felt).',
+    template: DONUT_LOCATION,
+  },
+  {
+    catalogId: 'donut-department',
+    category: 'Org-kontekst',
+    label: 'Avdeling — kakediagram',
+    description: 'Undersøkelser fordelt på avdeling (krever at malen har avdeling-felt).',
+    template: DONUT_DEPARTMENT,
+  },
+  {
+    catalogId: 'bar-location',
+    category: 'Org-kontekst',
+    label: 'Lokasjon — søylediagram',
+    template: BAR_LOCATION,
+  },
+  {
+    catalogId: 'bar-department',
+    category: 'Org-kontekst',
+    label: 'Avdeling — søylediagram',
+    template: BAR_DEPARTMENT,
+  },
 ]
 
 registerDashboardScope({

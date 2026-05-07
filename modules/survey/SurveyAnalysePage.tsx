@@ -18,6 +18,8 @@ import { defaultCompatibleKinds } from '../../src/components/module/dashboard/da
 import { useOrgSetupContext } from '../../src/hooks/useOrgSetupContext'
 import { useSurvey } from './useSurvey'
 import { useSurveyPacks } from './useSurveyPacks'
+import { useSurveyCategories } from './useSurveyCategories'
+import { useSurveyOrgTemplates } from './useSurveyOrgTemplates'
 import {
   SURVEY_DASHBOARD_SCOPE_ID,
   // Side-effect import: registers the scope on module load.
@@ -42,6 +44,10 @@ type FilterSelectors = {
   packs: { ids: Set<string>; mode: 'include' | 'exclude' } | null
   templates: { ids: Set<string>; mode: 'include' | 'exclude' } | null
   statuses: { ids: Set<SurveyStatus>; mode: 'include' | 'exclude' } | null
+  categories: { ids: Set<string>; mode: 'include' | 'exclude' } | null
+  locations: { ids: Set<string>; mode: 'include' | 'exclude' } | null
+  departments: { ids: Set<string>; mode: 'include' | 'exclude' } | null
+  participants: { ids: Set<string>; mode: 'include' | 'exclude' } | null
   anonymous: 'only' | 'exclude' | null
   from: Date | null
   to: Date | null
@@ -52,6 +58,10 @@ function buildSelectors(filters: DashboardFilter[]): FilterSelectors {
     packs: null,
     templates: null,
     statuses: null,
+    categories: null,
+    locations: null,
+    departments: null,
+    participants: null,
     anonymous: null,
     from: null,
     to: null,
@@ -70,6 +80,18 @@ function buildSelectors(filters: DashboardFilter[]): FilterSelectors {
     } else if (f.dimensionId === 'status') {
       const ids = setOf<SurveyStatus>(f.value)
       if (ids.size) out.statuses = { ids, mode }
+    } else if (f.dimensionId === 'category') {
+      const ids = setOf<string>(f.value)
+      if (ids.size) out.categories = { ids, mode }
+    } else if (f.dimensionId === 'location') {
+      const ids = setOf<string>(f.value)
+      if (ids.size) out.locations = { ids, mode }
+    } else if (f.dimensionId === 'department') {
+      const ids = setOf<string>(f.value)
+      if (ids.size) out.departments = { ids, mode }
+    } else if (f.dimensionId === 'participant') {
+      const ids = setOf<string>(f.value)
+      if (ids.size) out.participants = { ids, mode }
     } else if (f.dimensionId === 'anonymity') {
       const v = typeof f.value === 'string' ? f.value : ''
       if (v === 'anonymous') out.anonymous = 'only'
@@ -102,9 +124,12 @@ const dateInRange = (d: Date | null, from: Date | null, to: Date | null): boolea
 }
 
 export function SurveyAnalysePage() {
-  const { supabase } = useOrgSetupContext()
+  const orgSetup = useOrgSetupContext()
+  const { supabase } = orgSetup
   const survey = useSurvey({ supabase })
   const { packs } = useSurveyPacks({ supabase })
+  const surveyCategories = useSurveyCategories({ supabase })
+  const surveyOrgTemplates = useSurveyOrgTemplates({ supabase })
 
   const { loadSurveys, loadTemplateCatalog } = survey
   useEffect(() => {
@@ -144,6 +169,42 @@ export function SurveyAnalysePage() {
         loadOptions: () => STATUS_OPTIONS.map((s) => ({ id: s.id, label: s.label })),
       },
       {
+        id: 'category',
+        label: 'Kategori',
+        description: 'Filtrer på kategorier definert i Innstillinger → Kategorier.',
+        kind: 'enum',
+        defaultOperator: 'in',
+        loadOptions: () =>
+          surveyCategories.categories.map((c) => ({ id: c.id, label: c.name })),
+      },
+      {
+        id: 'location',
+        label: 'Lokasjon',
+        description: 'Filtrer på undersøkelsens lokasjon.',
+        kind: 'enum',
+        defaultOperator: 'in',
+        loadOptions: () =>
+          orgSetup.locations.map((l) => ({ id: l.id, label: l.name })),
+      },
+      {
+        id: 'department',
+        label: 'Avdeling',
+        description: 'Filtrer på undersøkelsens avdeling.',
+        kind: 'enum',
+        defaultOperator: 'in',
+        loadOptions: () =>
+          orgSetup.departments.map((d) => ({ id: d.id, label: d.name })),
+      },
+      {
+        id: 'participant',
+        label: 'Deltaker',
+        description: 'Inkluder kun undersøkelser der disse medlemmene deltar.',
+        kind: 'enum',
+        defaultOperator: 'in',
+        loadOptions: () =>
+          orgSetup.members.map((m) => ({ id: m.id, label: m.display_name })),
+      },
+      {
         id: 'anonymity',
         label: 'Anonymitet',
         description: 'Begrens til anonyme eller identifiserte undersøkelser.',
@@ -163,8 +224,25 @@ export function SurveyAnalysePage() {
         defaultOperator: 'between',
       },
     ],
-    [packs, survey.templateCatalog],
+    [
+      packs,
+      survey.templateCatalog,
+      surveyCategories.categories,
+      orgSetup.locations,
+      orgSetup.departments,
+      orgSetup.members,
+    ],
   )
+
+  // Catalog id → category id lookup for the category filter. Cheap to
+  // build once per render; the underlying tables move rarely.
+  const categoryByCatalogId = useMemo(() => {
+    const m = new Map<string, string | null>()
+    for (const t of surveyOrgTemplates.templates) {
+      m.set(t.catalogId, t.categoryId)
+    }
+    return m
+  }, [surveyOrgTemplates.templates])
 
   const datasets = useMemo(() => {
     const sel = buildSelectors(dashboard.filters)
@@ -179,7 +257,33 @@ export function SurveyAnalysePage() {
       if (sel.templates && !s.catalog_id) {
         if (sel.templates.mode === 'include') return false
       }
+      if (sel.categories) {
+        const catId = s.catalog_id ? categoryByCatalogId.get(s.catalog_id) ?? null : null
+        if (!catId) {
+          if (sel.categories.mode === 'include') return false
+        } else if (!matchesSet(sel.categories, catId)) {
+          return false
+        }
+      }
       if (!matchesSet(sel.statuses, s.status)) return false
+      if (sel.locations) {
+        if (!s.location_id) {
+          if (sel.locations.mode === 'include') return false
+        } else if (!matchesSet(sel.locations, s.location_id)) {
+          return false
+        }
+      }
+      if (sel.departments) {
+        if (!s.department_id) {
+          if (sel.departments.mode === 'include') return false
+        } else if (!matchesSet(sel.departments, s.department_id)) {
+          return false
+        }
+      }
+      if (sel.participants) {
+        const intersects = s.participant_member_ids.some((id) => sel.participants!.ids.has(id))
+        if (sel.participants.mode === 'include' ? !intersects : intersects) return false
+      }
       if (sel.anonymous === 'only' && !s.is_anonymous) return false
       if (sel.anonymous === 'exclude' && s.is_anonymous) return false
       if (sel.from || sel.to) {
@@ -208,6 +312,10 @@ export function SurveyAnalysePage() {
     }
     const packCounts: Record<string, number> = {}
     const templateCounts = new Map<string, number>()
+    const locationCounts = new Map<string, number>()
+    const departmentCounts = new Map<string, number>()
+    const locationById = new Map(orgSetup.locations.map((l) => [l.id, l.name]))
+    const departmentById = new Map(orgSetup.departments.map((d) => [d.id, d.name]))
 
     const monthKey = (d: Date) =>
       `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
@@ -252,6 +360,16 @@ export function SurveyAnalysePage() {
         templateCounts.set('(ad-hoc)', (templateCounts.get('(ad-hoc)') ?? 0) + 1)
       }
 
+      const locName = s.location_id
+        ? locationById.get(s.location_id) ?? '(ukjent)'
+        : '(uten lokasjon)'
+      locationCounts.set(locName, (locationCounts.get(locName) ?? 0) + 1)
+
+      const depName = s.department_id
+        ? departmentById.get(s.department_id) ?? '(ukjent)'
+        : '(uten avdeling)'
+      departmentCounts.set(depName, (departmentCounts.get(depName) ?? 0) + 1)
+
       const published = s.published_at ? new Date(s.published_at) : null
       if (published) {
         const k = monthKey(published)
@@ -285,6 +403,8 @@ export function SurveyAnalysePage() {
       survey_status_distribution: statusCounts,
       survey_pack_distribution: packCounts,
       survey_template_distribution: templateBar,
+      survey_responses_by_location: Object.fromEntries(locationCounts),
+      survey_responses_by_department: Object.fromEntries(departmentCounts),
       survey_anonymity_distribution: {
         Anonym: anonymous,
         Identifisert: total - anonymous,
@@ -298,7 +418,15 @@ export function SurveyAnalysePage() {
         y: 0,
       })),
     } as Record<string, unknown>
-  }, [survey.surveys, survey.templateCatalog, packs, dashboard.filters])
+  }, [
+    survey.surveys,
+    survey.templateCatalog,
+    packs,
+    orgSetup.locations,
+    orgSetup.departments,
+    categoryByCatalogId,
+    dashboard.filters,
+  ])
 
   // Hydrate bar widgets with empty seriesKeys from the live dataset, same
   // pattern as the checklist analyse page.
