@@ -9,8 +9,8 @@ today (those live in repo-root `*.md` files).
 |---|---|---|
 | `PLAYBOOK.md` | ✅ stable | Generic process spec — slicing principle, task shape, checkpoints, architect review checklist. Read this first before any module port. |
 | `survey-parity.md` | ✅ executed | Concrete plan to bring `modules/survey/` up to architectural parity with checklists. T1–T7 + 2.9 + 2.10 shipped (last commit `a3c1c77`). Spec preserved as a reference for future modules. |
-| `tasks-parity.md` | 📋 ready to execute | Tasks port (significantly reduced scope: only C-3 + C-4 + C-9 apply). ~1 day. |
-| `elearning-parity.md` | 📋 ready to execute (after OQ-L1/L3/L6 sign-off) | E-learning port + the `kind: 'heatmap'` widget engine extension. Most parity-friendly of the three. ~2 days for the port; heatmap widget +1 day. |
+| `tasks-parity.md` | ✅ executed | Tasks port T1–T3 shipped (commit `6bd167e`). |
+| `elearning-parity.md` | ✅ executed (T6 completion-panel UI is a small follow-up) | Learning port T1–T7 shipped across `9a6b3d7` → `351c8fb` → `94eabeb` → `b970e4c`. The `kind: 'heatmap'` widget engine extension (E-1) is still a separate micro-feature. |
 
 ## How to execute one of these
 

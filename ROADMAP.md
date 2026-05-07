@@ -55,38 +55,34 @@ Mirror the entire checklist reshape on `/survey`. Architecture is in place; the 
 
 ---
 
-## 4 · Tasks (Oppgaver) — parity port (planned)
+## 4 · Tasks (Oppgaver) — parity port
 
-Materially smaller than survey because tasks have different bones (jsonb store, source-type as categorisation, no template concept). See `specs/tasks-parity.md` for the executable plan.
+Executed: see `specs/tasks-parity.md` and commit `6bd167e`.
 
 | # | Status | Item | Notes |
 |---|---|---|---|
-| 4.1 | 📋 | `/tasks/management/analyse` page using ModuleAnalyticsDashboard | Tasks T1 in the spec. |
-| 4.2 | 📋 | Filter dimensions: status, module, source, priority, assignee, due-window, department-via-employee-join | Tasks T2. |
-| 4.3 | 📋 | Sidebar fixed Settings + Analyse children under "Oppgaver" | Tasks T3. |
+| 4.1 | ✅ | `/tasks/management/analyse` page using ModuleAnalyticsDashboard | Tasks T1. |
+| 4.2 | ✅ | Filter dimensions: status, module, source, priority, assignee, due-window, department-via-employee-join | Tasks T2. |
+| 4.3 | ✅ | Sidebar Analyse entry under Oppgavestyring | Tasks T3. |
 | 4.4 | ⏸ | Categories — explicitly skipped | `sourceType` enum already segments tasks; a parallel category table would shadow the enum. |
 | 4.5 | ⏸ | Org-context FKs / metadata_schema — explicitly skipped | Tasks live in jsonb; no normalised row to ALTER. |
 
-**Estimated effort:** ~1 day (no DB; reuses the dashboard engine).
-
 ---
 
-## 5 · E-learning — parity port (planned)
+## 5 · E-learning — parity port
 
-Most parity-friendly of the three remaining modules. See `specs/elearning-parity.md`.
+Executed: see `specs/elearning-parity.md`.
 
 | # | Status | Item | Notes |
 |---|---|---|---|
-| 5.1 | 📋 | `learning_categories` table + admin tab | Learning T1. Default seeds: HMS-grunnopplæring, Brann, Førstehjelp, Verneombud, Onboarding, Eksterne kurs. |
-| 5.2 | 📋 | Categories on LearningCoursesList + sidebar | Learning T2. |
-| 5.3 | 📋 | Sidebar fixed Settings + Analyse children under "Læring" | Learning T3. |
-| 5.4 | 📋 | `/learning/analyse` page + scope registration | Learning T4. |
-| 5.5 | 📋 | Snapshot org-context columns on `learning_course_progress` | Learning T5. Immutable snapshot at completion (preserves audit trail across employee transfers). |
-| 5.6 | 📋 | Course `metadata_schema` + dynamic completion panel | Learning T6. Default fields: external_cert_id, external_hours, practical_test_score, provider. |
-| 5.7 | 📋 | Analytics dimensions including certification-expiry | Learning T7. The genuinely-new dimension specific to e-learning. |
-| 5.8 | ⏸ | `kind: 'heatmap'` widget engine extension | Learning E-1. Standalone, lands when convenient; users × courses matrix benefits everywhere. |
-
-**Estimated effort:** ~2 days for the port; heatmap widget +1 day if/when it lands.
+| 5.1 | ✅ | `learning_categories` table + admin tab | Learning T1 — `9a6b3d7`. Default seeds: HMS-grunnopplæring, Brann, Førstehjelp, Verneombud, Onboarding, Eksterne kurs. |
+| 5.2 | ✅ | Categories on LearningCoursesList | Learning T2 — `351c8fb`. List groups courses by category with section headings + count chips. |
+| 5.3 | ✅ | Sidebar Analyse entry under "Kurs, læringsløp & sertifiseringer" | Learning T3 — `351c8fb`. |
+| 5.4 | ✅ | `/learning/analyse` page + scope registration | Learning T4 — `94eabeb`. Six filter dimensions including the e-learning-unique Utløp (certification expiry) chip. |
+| 5.5 | ✅ | Snapshot org-context columns on `learning_course_progress` | Learning T5 — `b970e4c`. Trigger snapshots user's org_member row at the completed_at transition; idempotent. |
+| 5.6 | 🚧 | Course `metadata_schema` + dynamic completion panel | DB columns + types in `b970e4c`; the completion-panel UI is a small follow-up (admins can populate via SQL until then). |
+| 5.7 | ✅ | Analytics dimensions including certification-expiry | Wired in T4 (Utløp chip uses Course.recertificationMonths + Certificate.issuedAt). |
+| 5.8 | ⏸ | `kind: 'heatmap'` widget engine extension | Learning E-1. Standalone; lands when convenient; users × courses matrix benefits everywhere. |
 
 ---
 
