@@ -16,12 +16,28 @@ type UseSurveyPacksInput = {
   supabase: SupabaseClient | null
 }
 
+export type UpdateSurveyPackInput = {
+  slug: SurveyPackSlug
+  shortName?: string
+  pluralLabel?: string
+  ctaLabel?: string
+  description?: string
+  legalReferences?: { code: string; text: string }[]
+  kpiLabels?: { open: string; critical: string; ytd: string }
+  requiresPublishSnapshot?: boolean
+  defaultAnonymous?: boolean
+  defaultAnonymityThreshold?: number
+  position?: number
+  isActive?: boolean
+}
+
 export type UseSurveyPacksReturn = {
   loading: boolean
   error: string | null
   packs: SurveyPackRow[]
   getPack: (slug: string | null | undefined) => SurveyPackRow | null
   refresh: () => Promise<void>
+  updatePack: (input: UpdateSurveyPackInput) => Promise<void>
 }
 
 export function useSurveyPacks(input: UseSurveyPacksInput): UseSurveyPacksReturn {
@@ -82,9 +98,48 @@ export function useSurveyPacks(input: UseSurveyPacksInput): UseSurveyPacksReturn
     [packs],
   )
 
+  const updatePack = useCallback(
+    async (input: UpdateSurveyPackInput): Promise<void> => {
+      if (!supabase || !orgId) return
+      const update: Record<string, unknown> = {}
+      if (input.shortName !== undefined) update.short_name = input.shortName
+      if (input.pluralLabel !== undefined) update.plural_label = input.pluralLabel
+      if (input.ctaLabel !== undefined) update.cta_label = input.ctaLabel
+      if (input.description !== undefined) update.description = input.description
+      if (input.legalReferences !== undefined) update.legal_references = input.legalReferences
+      if (input.kpiLabels !== undefined) update.kpi_labels = input.kpiLabels
+      if (input.requiresPublishSnapshot !== undefined)
+        update.requires_publish_snapshot = input.requiresPublishSnapshot
+      if (input.defaultAnonymous !== undefined) update.default_anonymous = input.defaultAnonymous
+      if (input.defaultAnonymityThreshold !== undefined)
+        update.default_anonymity_threshold = input.defaultAnonymityThreshold
+      if (input.position !== undefined) update.position = input.position
+      if (input.isActive !== undefined) update.is_active = input.isActive
+      if (Object.keys(update).length === 0) return
+
+      try {
+        const { data, error: upErr } = await supabase
+          .from('survey_packs')
+          .update(update)
+          .eq('organization_id', orgId)
+          .eq('slug', input.slug)
+          .select('*')
+          .single()
+        if (upErr) throw upErr
+        const parsed = SurveyPackRowSchema.safeParse(data)
+        if (parsed.success) {
+          setPacks((prev) => prev.map((p) => (p.slug === parsed.data.slug ? parsed.data : p)))
+        }
+      } catch (unknownError) {
+        setError(getSupabaseErrorMessage(unknownError))
+      }
+    },
+    [supabase, orgId],
+  )
+
   return useMemo(
-    () => ({ loading, error, packs, getPack, refresh: load }),
-    [loading, error, packs, getPack, load],
+    () => ({ loading, error, packs, getPack, refresh: load, updatePack }),
+    [loading, error, packs, getPack, load, updatePack],
   )
 }
 

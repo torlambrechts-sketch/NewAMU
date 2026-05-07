@@ -2,8 +2,9 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   ArrowLeft, BookOpen, Download, GitBranch, Globe,
-  LayoutGrid, Loader2, Mail, Plus, Settings, Smartphone, Trash2, Upload,
+  Layers, LayoutGrid, Loader2, Mail, Plus, Settings, Smartphone, Trash2, Upload,
 } from 'lucide-react'
+import { SurveyPakkerTab } from '../../modules/survey/admin/SurveyPakkerTab'
 import { SlidePanel } from '../components/layout/SlidePanel'
 import { WPSTD_FORM_FIELD_LABEL } from '../components/layout/WorkplaceStandardFormPanel'
 import { LayoutTable1PostingsShell } from '../components/layout/LayoutTable1PostingsShell'
@@ -40,7 +41,7 @@ import { SurveySettingsIntegrasjoner } from '../components/survey/settings/Surve
 
 const SETTINGS_KEY = 'survey_settings' as const
 
-type AdminTab = 'generelt' | 'utseende' | 'epost' | 'sms' | 'integrasjoner' | 'sporsmalbank' | 'maler' | 'arbeidsflyt'
+type AdminTab = 'generelt' | 'utseende' | 'epost' | 'sms' | 'integrasjoner' | 'sporsmalbank' | 'maler' | 'pakker' | 'arbeidsflyt'
 
 const ADMIN_TABS: TabItem[] = [
   { id: 'generelt',      label: 'Generelt',     icon: Settings  },
@@ -50,6 +51,7 @@ const ADMIN_TABS: TabItem[] = [
   { id: 'integrasjoner', label: 'Integrasjoner', icon: Globe     },
   { id: 'sporsmalbank',  label: 'Spørsmålsbank', icon: BookOpen  },
   { id: 'maler',         label: 'Maler',         icon: Download  },
+  { id: 'pakker',        label: 'Pakker',        icon: Layers    },
   { id: 'arbeidsflyt',   label: 'Arbeidsflyt',   icon: GitBranch },
 ]
 
@@ -335,6 +337,9 @@ export function SurveyModuleAdminPage() {
             )}
           </ModuleSectionCard>
         )}
+
+        {/* ── Pakker (DB-driven pack display + behaviour defaults) ──────── */}
+        {tab === 'pakker' && <SurveyPakkerTab supabase={supabase} />}
 
         {/* ── Arbeidsflyt ──────────────────────────────────────────────── */}
         {tab === 'arbeidsflyt' && (
