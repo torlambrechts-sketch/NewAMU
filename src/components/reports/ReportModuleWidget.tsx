@@ -1,8 +1,22 @@
 import type { ReactNode } from 'react'
-import type { ReportModule } from '../../types/reportBuilder'
+import type { ReportModule, ReportModuleColSpan } from '../../types/reportBuilder'
 import { getAtPath, numberAtPath } from '../../lib/reportDatasets'
 
 const R = 'rounded-none'
+
+// Tailwind-safe lg-col-span classes per ReportModuleColSpan. Mobile and
+// md breakpoints flow as a single column to keep tiles legible on
+// narrow screens; lg is where the 12-col grid takes effect.
+const COL_SPAN_CLASS: Record<ReportModuleColSpan, string> = {
+  sm: 'lg:col-span-3',
+  md: 'lg:col-span-6',
+  lg: 'lg:col-span-9',
+  full: 'lg:col-span-12',
+}
+
+// Optional control slot rendered top-right of every widget shell —
+// used by the dashboard editor to surface a per-widget "..." menu.
+type WidgetControlSlot = (m: ReportModule) => ReactNode
 
 function DonutMini({ segments }: { segments: { label: string; value: number; color: string }[] }) {
   const total = segments.reduce((a, s) => a + s.value, 0) || 1
@@ -51,14 +65,21 @@ function segmentsFromObject(o: Record<string, unknown>, colors: string[]) {
     }))
 }
 
-export type ReportModuleLayoutMode = 'grid2' | 'fluid'
+/**
+ * Layout hint for the parent grid. 'grid2' is the legacy 2-col mode
+ * (now equivalent to widgets defaulting to colSpan='md'); 'grid12' is
+ * the new 12-col responsive grid that honours colSpan per widget;
+ * 'fluid' lets widgets size themselves with no layout shell.
+ */
+export type ReportModuleLayoutMode = 'grid2' | 'grid12' | 'fluid'
 
 export function ReportModuleWidget({
   module: m,
   datasets,
   accent,
-  layoutMode = 'grid2',
+  layoutMode = 'grid12',
   emptyLabel,
+  controlSlot,
 }: {
   module: ReportModule
   datasets: Record<string, unknown>
@@ -66,16 +87,31 @@ export function ReportModuleWidget({
   layoutMode?: ReportModuleLayoutMode
   /** When dataset is missing, show this instead of hiding */
   emptyLabel?: string
+  /** Optional renderer for a per-widget control (e.g. "..." menu). */
+  controlSlot?: WidgetControlSlot
 }) {
   const colors = ['#15803d', '#ca8a04', '#2563eb', '#c2410c', '#7c3aed']
   const ds = datasets[m.datasetKey]
-  const wide = layoutMode === 'grid2' && (m.kind === 'table' || m.kind === 'bar' || m.kind === 'donut')
+
+  // Width strategy:
+  //   grid12 → honour m.colSpan (default 'md' = 6/12 cols)
+  //   grid2  → legacy two-column behaviour (kpi 1-col, others wide)
+  //   fluid  → no col-span class; caller is in charge
+  const colSpanClass = (() => {
+    if (layoutMode === 'fluid') return ''
+    if (layoutMode === 'grid12') return COL_SPAN_CLASS[m.colSpan ?? 'md']
+    // legacy grid2
+    return m.kind === 'kpi' ? '' : 'lg:col-span-2'
+  })()
 
   const wrap = (inner: ReactNode) => (
     <div
-      className={`${R} h-full min-h-[120px] border border-neutral-200/90 bg-white p-5 shadow-sm ${wide ? 'lg:col-span-2' : ''}`}
+      className={`${R} relative h-full min-h-[120px] border border-neutral-200/90 bg-white p-5 shadow-sm ${colSpanClass}`}
       style={m.kind === 'kpi' ? { boxShadow: `inset 0 3px 0 0 ${accent}` } : undefined}
     >
+      {controlSlot ? (
+        <div className="absolute right-3 top-3 z-10">{controlSlot(m)}</div>
+      ) : null}
       {inner}
     </div>
   )
@@ -177,24 +213,145 @@ export function ReportModuleWidget({
       </>,
     )
   }
+  if (m.kind === 'line') {
+    const raw = m.pointsPath ? getAtPath(ds, m.pointsPath) : ds
+    type Point = { x: string | number; y: number }
+    const points = Array.isArray(raw)
+      ? (raw as unknown[]).flatMap((p) => {
+          if (!p || typeof p !== 'object') return []
+          const obj = p as Record<string, unknown>
+          const x = obj.x ?? obj.label
+          const y = obj.y ?? obj.value
+          if ((typeof x !== 'string' && typeof x !== 'number') || typeof y !== 'number') return []
+          return [{ x, y } as Point]
+        })
+      : []
+    return wrap(
+      <>
+        <p className="text-[10px] font-bold uppercase tracking-wider text-neutral-500">{m.title}</p>
+        {points.length === 0 ? (
+          <p className="mt-4 text-xs text-neutral-500">
+            {emptyLabel ?? 'Ingen datapunkter for trendlinjen.'}
+          </p>
+        ) : (
+          <LineMini points={points} accent={accent} xLabel={m.xLabel} yLabel={m.yLabel} />
+        )}
+      </>,
+    )
+  }
   return null
+}
+
+// Lightweight inline-SVG line chart — no charting dep, scales to its
+// container width via viewBox + preserveAspectRatio.
+function LineMini({
+  points,
+  accent,
+  xLabel,
+  yLabel,
+}: {
+  points: { x: string | number; y: number }[]
+  accent: string
+  xLabel?: string
+  yLabel?: string
+}) {
+  const W = 600
+  const H = 180
+  const PAD = 28
+  const ys = points.map((p) => p.y)
+  const minY = Math.min(0, ...ys)
+  const maxY = Math.max(1, ...ys)
+  const range = maxY - minY || 1
+  const stepX = points.length > 1 ? (W - PAD * 2) / (points.length - 1) : 0
+  const xy = points.map((p, i) => {
+    const x = PAD + i * stepX
+    const y = H - PAD - ((p.y - minY) / range) * (H - PAD * 2)
+    return { x, y, raw: p }
+  })
+  const path = xy
+    .map((pt, i) => `${i === 0 ? 'M' : 'L'} ${pt.x.toFixed(1)} ${pt.y.toFixed(1)}`)
+    .join(' ')
+  const area = `${path} L ${xy[xy.length - 1]?.x.toFixed(1)} ${H - PAD} L ${xy[0]?.x.toFixed(1)} ${H - PAD} Z`
+  // Pick up to 6 evenly-spaced x-axis labels so dense data doesn't overlap.
+  const showEvery = Math.max(1, Math.ceil(xy.length / 6))
+  return (
+    <div className="mt-3">
+      <svg
+        viewBox={`0 0 ${W} ${H}`}
+        preserveAspectRatio="none"
+        className="h-44 w-full"
+        role="img"
+        aria-label={`${yLabel ?? 'Verdi'} over ${xLabel ?? 'tid'}`}
+      >
+        {/* horizontal gridlines */}
+        {[0.25, 0.5, 0.75].map((f) => {
+          const y = PAD + f * (H - PAD * 2)
+          return (
+            <line
+              key={f}
+              x1={PAD}
+              x2={W - PAD}
+              y1={y}
+              y2={y}
+              stroke="#e5e7eb"
+              strokeDasharray="3 3"
+            />
+          )
+        })}
+        <line x1={PAD} y1={H - PAD} x2={W - PAD} y2={H - PAD} stroke="#d4d4d8" />
+        <path d={area} fill={accent} fillOpacity={0.08} />
+        <path d={path} fill="none" stroke={accent} strokeWidth={2} strokeLinejoin="round" />
+        {xy.map((pt, i) => (
+          <circle key={i} cx={pt.x} cy={pt.y} r={2.5} fill={accent} />
+        ))}
+        {xy.map((pt, i) =>
+          i % showEvery === 0 ? (
+            <text
+              key={`xl-${i}`}
+              x={pt.x}
+              y={H - PAD + 14}
+              fontSize={10}
+              fill="#6b7280"
+              textAnchor="middle"
+            >
+              {String(pt.raw.x)}
+            </text>
+          ) : null,
+        )}
+        <text x={PAD - 4} y={PAD + 4} fontSize={10} fill="#6b7280" textAnchor="end">
+          {Math.round(maxY)}
+        </text>
+        <text x={PAD - 4} y={H - PAD + 4} fontSize={10} fill="#6b7280" textAnchor="end">
+          {Math.round(minY)}
+        </text>
+      </svg>
+    </div>
+  )
 }
 
 export function ReportModulesGrid({
   modules,
   datasets,
   accent,
-  layoutMode = 'grid2',
+  layoutMode = 'grid12',
   emptyLabel,
+  controlSlot,
 }: {
   modules: ReportModule[]
   datasets: Record<string, unknown>
   accent: string
   layoutMode?: ReportModuleLayoutMode
   emptyLabel?: string
+  /** Optional renderer for a per-widget control (e.g. "..." menu). */
+  controlSlot?: WidgetControlSlot
 }) {
+  const containerClass = (() => {
+    if (layoutMode === 'grid12') return 'grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-12'
+    if (layoutMode === 'grid2') return 'grid grid-cols-1 gap-4 lg:grid-cols-2'
+    return 'flex flex-col gap-4'
+  })()
   return (
-    <div className={`grid grid-cols-1 gap-4 ${layoutMode === 'grid2' ? 'lg:grid-cols-2' : ''}`}>
+    <div className={containerClass}>
       {modules.map((m) => (
         <ReportModuleWidget
           key={m.id}
@@ -203,10 +360,11 @@ export function ReportModulesGrid({
           accent={accent}
           layoutMode={layoutMode}
           emptyLabel={emptyLabel}
+          controlSlot={controlSlot}
         />
       ))}
       {modules.length === 0 ? (
-        <p className={`text-sm text-neutral-500 ${layoutMode === 'grid2' ? 'lg:col-span-2' : ''}`}>
+        <p className={`text-sm text-neutral-500 ${layoutMode === 'grid12' ? 'lg:col-span-12' : layoutMode === 'grid2' ? 'lg:col-span-2' : ''}`}>
           Legg til moduler i redigeringspanelet.
         </p>
       ) : null}

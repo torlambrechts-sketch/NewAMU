@@ -14,13 +14,28 @@ export type ReportDatasetKey =
   | 'checklist_findings_by_severity'
   | 'checklist_executions_by_template'
   | 'checklist_executions_by_pack'
+  | 'checklist_executions_over_time'
+  | 'checklist_findings_over_time'
 
-export type ReportModuleKind = 'kpi' | 'table' | 'bar' | 'donut'
+export type ReportModuleKind = 'kpi' | 'table' | 'bar' | 'donut' | 'line'
+
+/**
+ * Widget layout hint, mapped to a 12-column responsive grid by the
+ * dashboard runtime.
+ *   sm    →  3 cols  (KPI tile, 4-up on lg)
+ *   md    →  6 cols  (donut, bar — 2-up on lg)
+ *   lg    →  9 cols  (wide chart with side legend)
+ *   full  → 12 cols  (table, single highlight chart)
+ * Defaults to 'md' when omitted so existing layouts keep their look.
+ */
+export type ReportModuleColSpan = 'sm' | 'md' | 'lg' | 'full'
 
 export type ReportModuleBase = {
   id: string
   title: string
   datasetKey: ReportDatasetKey
+  /** Visual width on the dashboard grid (lg breakpoint). */
+  colSpan?: ReportModuleColSpan
 }
 
 export type ReportModuleKpi = ReportModuleBase & {
@@ -47,7 +62,24 @@ export type ReportModuleDonut = ReportModuleBase & {
   segmentsPath: string
 }
 
-export type ReportModule = ReportModuleKpi | ReportModuleTable | ReportModuleBar | ReportModuleDonut
+export type ReportModuleLine = ReportModuleBase & {
+  kind: 'line'
+  /**
+   * Path to an array of { x: string|number; y: number } points. When
+   * empty string, the dataset itself is treated as the array.
+   */
+  pointsPath: string
+  /** Optional axis labels. */
+  xLabel?: string
+  yLabel?: string
+}
+
+export type ReportModule =
+  | ReportModuleKpi
+  | ReportModuleTable
+  | ReportModuleBar
+  | ReportModuleDonut
+  | ReportModuleLine
 
 export type CustomReportTemplate = {
   id: string

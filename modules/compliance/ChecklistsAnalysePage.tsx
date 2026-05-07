@@ -10,10 +10,12 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { ArrowLeft, BarChart3 } from 'lucide-react'
+import { ArrowLeft, BarChart3, MoreHorizontal } from 'lucide-react'
 import { ModuleAnalyticsDashboard } from '../../src/components/module/ModuleAnalyticsDashboard'
 import { DashboardEditLayoutPanel } from '../../src/components/module/dashboard/DashboardEditLayoutPanel'
 import { DashboardAddWidgetPanel } from '../../src/components/module/dashboard/DashboardAddWidgetPanel'
+import { DashboardEditWidgetPanel } from '../../src/components/module/dashboard/DashboardEditWidgetPanel'
+import { defaultCompatibleKinds } from '../../src/components/module/dashboard/dashboardWidgetKinds'
 import { useLicensedPacks } from '../../src/context/packContextValue'
 import { useOrgSetupContext } from '../../src/hooks/useOrgSetupContext'
 import {
@@ -48,6 +50,21 @@ export function ChecklistsAnalysePage() {
     const packCounts: Record<string, number> = {}
     const templateCounts = new Map<string, number>()
 
+    // Last 12 months of "executions created" + "findings registered",
+    // bucketed by year-month. Pre-seed every month at zero so the line
+    // chart shows a continuous x-axis even with sparse data.
+    const monthKey = (d: Date) =>
+      `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+    const monthLabel = (d: Date) =>
+      d.toLocaleDateString('nb-NO', { month: 'short', year: '2-digit' })
+    const months: { key: string; label: string }[] = []
+    for (let i = 11; i >= 0; i--) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1)
+      months.push({ key: monthKey(d), label: monthLabel(d) })
+    }
+    const execByMonth = new Map<string, number>(months.map((m) => [m.key, 0]))
+    const findByMonth = new Map<string, number>(months.map((m) => [m.key, 0]))
+
     for (const e of cl.executions) {
       total += 1
       if (e.status === 'signed') {
@@ -69,6 +86,12 @@ export function ChecklistsAnalysePage() {
       const tpl = cl.templates.find((t) => t.id === e.template_id)
       const tplName = tpl?.name ?? 'Ukjent mal'
       templateCounts.set(tplName, (templateCounts.get(tplName) ?? 0) + 1)
+
+      const created = e.created_at ? new Date(e.created_at) : null
+      if (created) {
+        const k = monthKey(created)
+        if (execByMonth.has(k)) execByMonth.set(k, (execByMonth.get(k) ?? 0) + 1)
+      }
     }
 
     const sev: Record<ComplianceSeverity, number> = {
@@ -85,6 +108,11 @@ export function ChecklistsAnalysePage() {
           findings += 1
           if (r.severity) sev[r.severity] = (sev[r.severity] ?? 0) + 1
           if (r.severity === 'critical') critical += 1
+          const at = r.created_at ? new Date(r.created_at) : null
+          if (at) {
+            const k = monthKey(at)
+            if (findByMonth.has(k)) findByMonth.set(k, (findByMonth.get(k) ?? 0) + 1)
+          }
         }
       }
     }
@@ -113,6 +141,14 @@ export function ChecklistsAnalysePage() {
       },
       checklist_executions_by_template: templateBar,
       checklist_executions_by_pack: packCounts,
+      checklist_executions_over_time: months.map((m) => ({
+        x: m.label,
+        y: execByMonth.get(m.key) ?? 0,
+      })),
+      checklist_findings_over_time: months.map((m) => ({
+        x: m.label,
+        y: findByMonth.get(m.key) ?? 0,
+      })),
     } as Record<string, unknown>
   }, [cl.executions, cl.responsesByExecutionId, cl.templates, packs])
 
@@ -146,6 +182,20 @@ export function ChecklistsAnalysePage() {
 
   const [editOpen, setEditOpen] = useState(false)
   const [addOpen, setAddOpen] = useState(false)
+  const [editWidget, setEditWidget] = useState<ReportModule | null>(null)
+
+  // Per-widget "..." menu rendered inside each tile by ReportModulesGrid.
+  // Opens the widget editor with the clicked widget pre-selected.
+  const widgetControlSlot = (m: ReportModule) => (
+    <button
+      type="button"
+      onClick={() => setEditWidget(m)}
+      aria-label={`Rediger widget ${m.title}`}
+      className="rounded-md p-1 text-neutral-400 transition-colors hover:bg-neutral-100 hover:text-neutral-700"
+    >
+      <MoreHorizontal className="h-4 w-4" aria-hidden />
+    </button>
+  )
 
   return (
     <>
@@ -173,6 +223,7 @@ export function ChecklistsAnalysePage() {
         emptyState={empty}
         onEdit={() => setEditOpen(true)}
         onAddWidget={() => setAddOpen(true)}
+        widgetControlSlot={widgetControlSlot}
       />
 
       <DashboardEditLayoutPanel
@@ -188,6 +239,19 @@ export function ChecklistsAnalysePage() {
         onClose={() => setAddOpen(false)}
         scopeId={CHECKLIST_DASHBOARD_SCOPE_ID}
         onAdd={(widget: ReportModule) => dashboard.saveLayout([...dashboard.layout, widget])}
+      />
+
+      <DashboardEditWidgetPanel
+        open={editWidget !== null}
+        widget={editWidget}
+        onClose={() => setEditWidget(null)}
+        onSave={async (next) => {
+          const ok = await dashboard.saveLayout(
+            dashboard.layout.map((m) => (m.id === next.id ? next : m)),
+          )
+          return ok
+        }}
+        compatibleKinds={editWidget ? defaultCompatibleKinds(editWidget.kind) : undefined}
       />
     </>
   )

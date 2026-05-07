@@ -15,6 +15,8 @@ import type {
   ReportModuleBar,
   ReportModuleDonut,
   ReportModuleKpi,
+  ReportModuleLine,
+  ReportModuleTable,
 } from '../../../src/types/reportBuilder'
 import {
   registerDashboardScope,
@@ -30,6 +32,7 @@ const KPI_TOTAL: ReportModuleKpi = {
   title: 'Totalt antall sjekklister',
   valuePath: 'total',
   subtitle: 'Alle aktive (ikke arkiverte) kjøringer',
+  colSpan: 'sm',
 }
 const KPI_OPEN: ReportModuleKpi = {
   id: 'kpi-open',
@@ -38,6 +41,7 @@ const KPI_OPEN: ReportModuleKpi = {
   title: 'Åpne / under arbeid',
   valuePath: 'open',
   subtitle: 'Status kladd eller aktiv',
+  colSpan: 'sm',
 }
 const KPI_YTD: ReportModuleKpi = {
   id: 'kpi-ytd',
@@ -46,6 +50,7 @@ const KPI_YTD: ReportModuleKpi = {
   title: 'Signert i år',
   valuePath: 'ytd',
   subtitle: 'YTD signerte runder',
+  colSpan: 'sm',
 }
 const KPI_CRITICAL: ReportModuleKpi = {
   id: 'kpi-critical',
@@ -54,6 +59,7 @@ const KPI_CRITICAL: ReportModuleKpi = {
   title: 'Kritiske funn',
   valuePath: 'critical',
   subtitle: 'Krever oppfølging',
+  colSpan: 'sm',
 }
 const KPI_FINDINGS: ReportModuleKpi = {
   id: 'kpi-findings',
@@ -62,6 +68,7 @@ const KPI_FINDINGS: ReportModuleKpi = {
   title: 'Totalt antall funn',
   valuePath: 'findings',
   subtitle: 'Alle alvorlighetsgrader',
+  colSpan: 'sm',
 }
 const KPI_SIGNED: ReportModuleKpi = {
   id: 'kpi-signed',
@@ -70,6 +77,27 @@ const KPI_SIGNED: ReportModuleKpi = {
   title: 'Signerte sjekklister',
   valuePath: 'signed',
   subtitle: 'Ferdig dokumentert',
+  colSpan: 'sm',
+}
+const LINE_EXEC_OVER_TIME: ReportModuleLine = {
+  id: 'line-exec-over-time',
+  kind: 'line',
+  datasetKey: 'checklist_executions_over_time',
+  title: 'Sjekklister over tid',
+  pointsPath: '',
+  xLabel: 'Måned',
+  yLabel: 'Antall',
+  colSpan: 'md',
+}
+const LINE_FINDINGS_OVER_TIME: ReportModuleLine = {
+  id: 'line-findings-over-time',
+  kind: 'line',
+  datasetKey: 'checklist_findings_over_time',
+  title: 'Funn over tid',
+  pointsPath: '',
+  xLabel: 'Måned',
+  yLabel: 'Antall',
+  colSpan: 'md',
 }
 const DONUT_STATUS: ReportModuleDonut = {
   id: 'donut-status',
@@ -77,6 +105,7 @@ const DONUT_STATUS: ReportModuleDonut = {
   datasetKey: 'checklist_executions_by_status',
   title: 'Fordeling per status',
   segmentsPath: '',
+  colSpan: 'md',
 }
 const DONUT_PACK: ReportModuleDonut = {
   id: 'donut-pack',
@@ -84,6 +113,7 @@ const DONUT_PACK: ReportModuleDonut = {
   datasetKey: 'checklist_executions_by_pack',
   title: 'Fordeling per regulativ pakke',
   segmentsPath: '',
+  colSpan: 'md',
 }
 const BAR_SEVERITY: ReportModuleBar = {
   id: 'bar-severity',
@@ -91,6 +121,7 @@ const BAR_SEVERITY: ReportModuleBar = {
   datasetKey: 'checklist_findings_by_severity',
   title: 'Funn per alvorlighetsgrad',
   seriesKeys: ['Lav', 'Middels', 'Høy', 'Kritisk'],
+  colSpan: 'md',
 }
 const BAR_TEMPLATE: ReportModuleBar = {
   id: 'bar-template',
@@ -101,17 +132,28 @@ const BAR_TEMPLATE: ReportModuleBar = {
   // dataset keys — the catalog version intentionally leaves it empty
   // so an instantiated copy reads "all keys" by default.
   seriesKeys: [],
+  colSpan: 'md',
+}
+const TABLE_TEMPLATE: ReportModuleTable = {
+  id: 'table-template',
+  kind: 'table',
+  datasetKey: 'checklist_executions_by_template',
+  title: 'Maler — tabell',
+  rowKeys: [],
+  colSpan: 'full',
 }
 
+// Best-practice default layout: dense KPI strip, then a wide trend line,
+// then split donut + bar breakdowns, then a final wide chart.
 const DEFAULT_LAYOUT: ReportModule[] = [
   KPI_TOTAL,
   KPI_OPEN,
   KPI_YTD,
   KPI_CRITICAL,
+  LINE_EXEC_OVER_TIME,
   DONUT_STATUS,
   BAR_SEVERITY,
   BAR_TEMPLATE,
-  DONUT_PACK,
 ]
 
 const WIDGET_CATALOG: WidgetCatalogEntry[] = [
@@ -175,8 +217,29 @@ const WIDGET_CATALOG: WidgetCatalogEntry[] = [
   {
     catalogId: 'bar-template',
     category: 'Diagrammer',
-    label: 'Topp brukte maler',
+    label: 'Topp brukte maler — søylediagram',
     template: BAR_TEMPLATE,
+  },
+  {
+    catalogId: 'table-template',
+    category: 'Tabeller',
+    label: 'Maler — tabell',
+    description: 'Alle maler med antall kjøringer i en tabell.',
+    template: TABLE_TEMPLATE,
+  },
+  {
+    catalogId: 'line-exec-over-time',
+    category: 'Trend',
+    label: 'Sjekklister over tid',
+    description: 'Antall opprettede sjekklister per måned siste 12 mnd.',
+    template: LINE_EXEC_OVER_TIME,
+  },
+  {
+    catalogId: 'line-findings-over-time',
+    category: 'Trend',
+    label: 'Funn over tid',
+    description: 'Antall registrerte funn per måned siste 12 mnd.',
+    template: LINE_FINDINGS_OVER_TIME,
   },
 ]
 

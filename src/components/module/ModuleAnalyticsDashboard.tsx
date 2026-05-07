@@ -20,6 +20,8 @@ import { WarningBox } from '../ui/AlertBox'
 import { ReportModulesGrid } from '../reports/ReportModuleWidget'
 import type { ReportModule } from '../../types/reportBuilder'
 
+type WidgetControlSlot = (m: ReportModule) => ReactNode
+
 export interface ModuleAnalyticsDashboardProps {
   /** Page title, shown in the header. */
   title: string
@@ -53,6 +55,8 @@ export interface ModuleAnalyticsDashboardProps {
   onAddWidget?: () => void
   /** Optional filter chip bar slot rendered above the grid. */
   filterBar?: ReactNode
+  /** Per-widget control slot (rendered top-right of each widget shell). */
+  widgetControlSlot?: WidgetControlSlot
 }
 
 export function ModuleAnalyticsDashboard({
@@ -69,6 +73,7 @@ export function ModuleAnalyticsDashboard({
   onEdit,
   onAddWidget,
   filterBar,
+  widgetControlSlot,
 }: ModuleAnalyticsDashboardProps) {
   const showActions = Boolean(onEdit || onAddWidget)
 
@@ -125,8 +130,9 @@ export function ModuleAnalyticsDashboard({
             modules={layout}
             datasets={datasets}
             accent={accent}
-            layoutMode="grid2"
+            layoutMode="grid12"
             emptyLabel="Ingen data."
+            controlSlot={widgetControlSlot}
           />
         )}
       </div>
