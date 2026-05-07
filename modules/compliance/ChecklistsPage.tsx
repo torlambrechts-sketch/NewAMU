@@ -180,6 +180,7 @@ export function ChecklistsPage() {
           <ChecklistsHubLanding
             packs={licensedPacks}
             templates={cl.templates}
+            categories={cl.categories}
             loading={cl.loading}
             canManage={true}
             onOpenAdmin={() => navigate('/compliance/checklists/admin')}

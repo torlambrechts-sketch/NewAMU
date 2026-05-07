@@ -68,6 +68,13 @@ type SubItem = {
   /** Save horizontal space: show only `Icon` in the nav row; `label` is used for tooltip and accessibility. */
   iconOnly?: boolean
   Icon?: ComponentType<{ className?: string; 'aria-hidden'?: boolean | 'true' | 'false' }>
+  /**
+   * 'header' renders the row as a non-interactive section heading (no
+   * NavLink) so a flatSubs list can group items under labels like
+   * "Vernerunder", "Fysisk og kjemisk". Defaults to 'item' (the existing
+   * link behaviour). path/match are still required but ignored for headers.
+   */
+  kind?: 'item' | 'header'
 }
 
 function visibleSubs(
@@ -75,12 +82,33 @@ function visibleSubs(
   gateNav: boolean,
   can: (k: PermissionKey) => boolean,
 ): SubItem[] {
-  if (!gateNav) return subs
-  return subs.filter((s) => {
+  const passes = (s: SubItem) => {
+    if (!gateNav) return true
     if (s.requirePermAny?.length) return s.requirePermAny.some((k) => can(k))
     if (s.requirePerm) return can(s.requirePerm)
     return true
-  })
+  }
+  const filtered = subs.filter(passes)
+  // Drop dangling headers — a header followed by no items (or by another
+  // header) would render as an empty category label. Walk once: keep a
+  // header only if at least one non-header item follows it before the
+  // next header.
+  const out: SubItem[] = []
+  for (let i = 0; i < filtered.length; i++) {
+    const s = filtered[i]!
+    if (s.kind === 'header') {
+      let hasItem = false
+      for (let j = i + 1; j < filtered.length; j++) {
+        const next = filtered[j]!
+        if (next.kind === 'header') break
+        hasItem = true
+        break
+      }
+      if (!hasItem) continue
+    }
+    out.push(s)
+  }
+  return out
 }
 
 // ─── Sub-item lists (all paths/labels unchanged) ──────────────────────────────
@@ -824,15 +852,57 @@ export function AticsShell() {
       },
     ]
 
-    const compliancePinnedSubs: SubItem[] = complianceNav.items.map((item) => ({
-      label: item.name,
-      path: item.to,
-      match: ({ pathname, search }) => {
-        if (pathname !== '/compliance/checklists') return false
-        return new URLSearchParams(search).get('template') === item.templateSlug
-      },
-      requirePermAny: COMPLIANCE_NAV_PERMS,
-    }))
+    // Group pinned templates by category. Categories with no pinned items
+    // are skipped; uncategorised items collect under "Uten kategori".
+    // Single-category mode (zero or one non-empty category) renders flat
+    // — adding a single header would just be visual noise.
+    const compliancePinnedSubs: SubItem[] = (() => {
+      type GroupKey = string // category id, or '__uncat__'
+      const UNCAT: GroupKey = '__uncat__'
+      const buckets = new Map<GroupKey, typeof complianceNav.items>()
+      for (const it of complianceNav.items) {
+        const key: GroupKey = it.categoryId ?? UNCAT
+        const list = buckets.get(key) ?? []
+        list.push(it)
+        buckets.set(key, list)
+      }
+      const orderedCats = complianceNav.categories
+        .filter((c) => buckets.has(c.id))
+        .sort((a, b) => a.position - b.position || a.name.localeCompare(b.name, 'nb'))
+      const tail = buckets.has(UNCAT) ? [{ id: UNCAT, name: 'Uten kategori' } as const] : []
+      const orderedKeys: { id: string; name: string }[] = [
+        ...orderedCats.map((c) => ({ id: c.id, name: c.name })),
+        ...tail,
+      ]
+      const showHeaders = orderedKeys.length > 1
+
+      const subs: SubItem[] = []
+      for (const cat of orderedKeys) {
+        const list = buckets.get(cat.id) ?? []
+        if (list.length === 0) continue
+        if (showHeaders) {
+          subs.push({
+            kind: 'header',
+            label: cat.name,
+            path: `__cat:${cat.id}`,
+            match: () => false,
+            requirePermAny: COMPLIANCE_NAV_PERMS,
+          })
+        }
+        for (const item of list) {
+          subs.push({
+            label: item.name,
+            path: item.to,
+            match: ({ pathname, search }) => {
+              if (pathname !== '/compliance/checklists') return false
+              return new URLSearchParams(search).get('template') === item.templateSlug
+            },
+            requirePermAny: COMPLIANCE_NAV_PERMS,
+          })
+        }
+      }
+      return subs
+    })()
 
     const complianceGroup: NavGroup = {
       id: 'sjekklister',
@@ -884,7 +954,7 @@ export function AticsShell() {
     const head = idx === -1 ? navGroups : navGroups.slice(0, idx)
     const tail = idx === -1 ? [] : navGroups.slice(idx)
     return [...head, complianceGroup, surveyGroup, ...tail]
-  }, [complianceNav.items, surveyNav.items])
+  }, [complianceNav.items, complianceNav.categories, surveyNav.items])
 
   const visibleGroups = useMemo(
     () => filterNavGroups(mergedNavGroups, gateNav, can, disabledModules, hiddenForUser),
@@ -1031,6 +1101,18 @@ export function AticsShell() {
                         }
                       >
                         {modSubs.map((item) => {
+                          if (item.kind === 'header') {
+                            // Section heading inside a flatSubs list. Non-
+                            // interactive — just labels a category group.
+                            return (
+                              <div
+                                key={`hdr:${item.path}:${item.label}`}
+                                className="mt-3 px-2.5 pb-1 pt-2 text-[10px] font-semibold uppercase tracking-wider text-white/40 first:mt-0"
+                              >
+                                {item.label}
+                              </div>
+                            )
+                          }
                           const active = item.match({ pathname: location.pathname, search: location.search })
                           const SubIcon = item.Icon
                           const iconOnly = item.iconOnly && SubIcon
@@ -1278,7 +1360,7 @@ export function AticsShell() {
           <div className="border-t border-white/[0.07] bg-[var(--ui-nav-sub)]">
             <div className="mx-auto flex max-w-[1400px] flex-wrap items-center gap-3 px-4 py-2 md:px-8">
               <nav className="flex min-w-0 flex-1 flex-wrap gap-x-1 gap-y-1" aria-label="Section">
-                {subItems.map((item) => {
+                {subItems.filter((it) => it.kind !== 'header').map((item) => {
                   const active = item.match({ pathname: location.pathname, search: location.search })
                   const SubIcon = item.Icon
                   const iconOnly = item.iconOnly && SubIcon
