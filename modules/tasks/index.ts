@@ -1,4 +1,5 @@
 export { TasksManagementPage } from './TasksManagementPage'
+export { TasksAnalysePage } from './TasksAnalysePage'
 export { useTaskExtensions } from './useTaskExtensions'
 export type { UseTaskExtensions } from './useTaskExtensions'
 export { useTaskModuleSettings } from './useTaskModuleSettings'

@@ -404,6 +404,12 @@ const SURVEY_NAV_PERMS: PermissionKey[] = [
 
 const oppgaverManagementSubs: SubItem[] = [
   {
+    label: 'Analyse',
+    path: '/tasks/management/analyse',
+    Icon: BarChart3,
+    match: ({ pathname }) => pathname === '/tasks/management/analyse',
+  },
+  {
     label: 'Oversikt',
     path: '/tasks/management?tab=oversikt',
     match: ({ pathname, search }) =>

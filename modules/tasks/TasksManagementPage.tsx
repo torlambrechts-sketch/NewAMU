@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import {
   AlertOctagon,
+  BarChart3,
   ClipboardList,
   KanbanSquare,
   LayoutGrid,
@@ -208,6 +209,14 @@ export function TasksManagementPage() {
         description="Komplett oppfølging av oppgaver og tiltak — Kanban, sprint og faseplan i ett — med innebygd samsvar mot AML og IK-forskriften."
         headerActions={
           <div className="flex flex-wrap items-center gap-2">
+            <Button
+              type="button"
+              variant="secondary"
+              icon={<BarChart3 className="h-4 w-4" />}
+              onClick={() => navigate('/tasks/management/analyse')}
+            >
+              <span className="hidden sm:inline">Analyse</span>
+            </Button>
             <Button
               type="button"
               variant="secondary"
