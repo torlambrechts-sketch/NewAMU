@@ -23,6 +23,7 @@ import { Tabs, type TabItem } from '../../src/components/ui/Tabs'
 import { useOrgSetupContext } from '../../src/hooks/useOrgSetupContext'
 import { useSurvey } from './useSurvey'
 import type { UseSurveyState } from './useSurvey'
+import { SurveyAttestasjonCard } from './SurveyAttestasjonCard'
 import { SurveyResponseReadPanel } from './SurveyResponseReadPanel'
 import { surveyStatusBadgeVariant, surveyStatusLabel } from './surveyLabels'
 import { globalQuestionIdOrder } from './surveyQuestionGlobalOrder'
@@ -205,6 +206,11 @@ function OversiktTab({
 
   return (
     <div className="space-y-6">
+      <SurveyAttestasjonCard
+        s={s}
+        invitations={survey.invitations}
+        responseCount={survey.responses.length}
+      />
       <ModuleSectionCard className="p-5 md:p-6">
         <div className={WPSTD_FORM_ROW_GRID}>
           <div>
