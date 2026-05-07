@@ -65,6 +65,7 @@ import { LearningPlayer } from './pages/learning/LearningPlayer'
 import { LearningDeltakerePage } from './pages/learning/LearningDeltakerePage'
 import { LearningKompetansePage } from './pages/learning/LearningKompetansePage'
 import { LearningSettings } from './pages/learning/LearningSettings'
+import { LearningAnalysePage } from './pages/learning/LearningAnalysePage'
 import { LearningFlowEntry } from './pages/learning/LearningFlowEntry'
 import { LearningCertificatePrintPage } from './pages/learning/LearningCertificatePrintPage'
 import { DocumentsHome } from './pages/documents/DocumentsHome'
@@ -336,6 +337,7 @@ const router = createBrowserRouter(
                         <Route path="katalog" element={<LearningCoursesList />} />
                         <Route path="deltakere" element={<LearningDeltakerePage />} />
                         <Route path="kompetanse" element={<LearningKompetansePage />} />
+                        <Route path="analyse" element={<LearningAnalysePage />} />
                         <Route path="innstillinger" element={<LearningSettings />} />
                         {/* Back-compat redirects — old URLs land on the new IA. */}
                         <Route path="courses" element={<Navigate to="/learning/katalog" replace />} />
