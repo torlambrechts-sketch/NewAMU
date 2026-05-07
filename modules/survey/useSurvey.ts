@@ -62,6 +62,7 @@ type CreateSurveyInput = {
   vendor_name?: string | null
   vendor_org_number?: string | null
   survey_purpose?: string | null
+  pack?: 'vendor' | 'arbeidsmiljo' | 'compliance' | 'engagement' | 'exit'
 }
 
 type UpsertQuestionInput = {
@@ -566,6 +567,7 @@ export function useSurvey({ supabase }: UseSurveyInput): UseSurveyState {
             vendor_name: input.vendor_name ?? null,
             vendor_org_number: input.vendor_org_number ?? null,
             survey_purpose: input.survey_purpose?.trim() || null,
+            ...(input.pack ? { pack: input.pack } : {}),
           })
           .select()
           .single()

@@ -22,9 +22,10 @@ import { YesNoToggle } from '../../src/components/ui/FormToggles'
 import { InfoBox, WarningBox } from '../../src/components/ui/AlertBox'
 import { Tabs, type TabItem } from '../../src/components/ui/Tabs'
 import { useSurvey } from './useSurvey'
+import { useSurveyPacks, findLicensedPack } from './useSurveyPacks'
 import type { SurveyTemplateCatalogRow } from './surveyTemplateCatalogTypes'
 import { SURVEY_TYPE_OPTIONS } from './surveyLabels'
-import type { SurveyType } from './types'
+import type { SurveyPackSlug, SurveyType } from './types'
 import { SurveyOversiktModuleTab } from './tabs/SurveyOversiktModuleTab'
 import { SurveyKampanjerTab } from './tabs/SurveyKampanjerTab'
 import { SurveyMalerTab } from './tabs/SurveyMalerTab'
@@ -41,6 +42,12 @@ export function SurveyPage({ supabase }: Props) {
   const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
   const survey = useSurvey({ supabase })
+  const { packs } = useSurveyPacks({ supabase })
+  const slugParam = searchParams.get('pack')
+  const activePack = useMemo(
+    () => findLicensedPack(packs, (slugParam as SurveyPackSlug | null) ?? null),
+    [packs, slugParam],
+  )
   const [tab, setTab] = useState<ModuleTab>('oversikt')
 
   // Create panel state
@@ -57,13 +64,23 @@ export function SurveyPage({ supabase }: Props) {
   const [purpose, setPurpose] = useState('')
   const [creating, setCreating] = useState(false)
 
+  const packScopedTemplates = useMemo(() => {
+    if (!activePack) return survey.templateCatalog
+    return survey.templateCatalog.filter((t) => t.pack === activePack.slug)
+  }, [survey.templateCatalog, activePack])
+
+  const packScopedSurveys = useMemo(() => {
+    if (!activePack) return survey.surveys
+    return survey.surveys.filter((s) => s.pack === activePack.slug)
+  }, [survey.surveys, activePack])
+
   const templateOptions = useMemo(() => {
-    const fromDb = survey.templateCatalog.map((t) => ({
+    const fromDb = packScopedTemplates.map((t) => ({
       value: t.id,
       label: `${t.name} (~${t.estimated_minutes} min)`,
     }))
     return [{ value: '', label: 'Uten mal' }, ...fromDb]
-  }, [survey.templateCatalog])
+  }, [packScopedTemplates])
 
   const templateInfo = useMemo((): SurveyTemplateCatalogRow | undefined => {
     if (!selectedTemplate) return undefined
@@ -117,6 +134,7 @@ export function SurveyPage({ supabase }: Props) {
       vendor_name: vendorName.trim() || null,
       vendor_org_number: vendorOrgNumber.trim() || null,
       survey_purpose: purpose.trim() || null,
+      pack: activePack?.slug,
     })
 
     if (!row) {
@@ -131,7 +149,7 @@ export function SurveyPage({ supabase }: Props) {
     setCreating(false)
     closePanel()
     navigate(`/survey/${row.id}`)
-  }, [title, description, isAnonymous, surveyType, startDate, endDate, vendorName, vendorOrgNumber, purpose, selectedTemplate, survey, closePanel, navigate])
+  }, [title, description, isAnonymous, surveyType, startDate, endDate, vendorName, vendorOrgNumber, purpose, selectedTemplate, activePack, survey, closePanel, navigate])
 
   const handleUseTemplate = useCallback(
     (templateId: string) => {
@@ -158,28 +176,39 @@ export function SurveyPage({ supabase }: Props) {
       { id: 'oversikt', label: 'Oversikt', icon: LayoutGrid },
       {
         id: 'kampanjer',
-        label: 'Kampanjer',
+        label: activePack?.plural_label ?? 'Kampanjer',
         icon: ClipboardList,
-        badgeCount: survey.surveys.length > 0 ? survey.surveys.length : undefined,
+        badgeCount: packScopedSurveys.length > 0 ? packScopedSurveys.length : undefined,
       },
       { id: 'maler', label: 'Maler', icon: Package },
       {
         id: 'leverandorer',
         label: 'Leverandører',
         icon: Truck,
-        badgeCount: survey.surveys.filter((s) => s.survey_type === 'external').length || undefined,
+        badgeCount:
+          packScopedSurveys.filter((s) => s.survey_type === 'external').length || undefined,
       },
       { id: 'analyse', label: 'Analyse', icon: BarChart3 },
     ],
-    [survey.surveys],
+    [packScopedSurveys, activePack],
   )
+
+  const packTitle = activePack?.plural_label ?? 'Undersøkelser'
+  const packDescription =
+    activePack?.description ??
+    'Kartlegg arbeidsmiljø, mål psykososiale forhold, og innhent dokumentasjon fra leverandører.'
+  const packCtaLabel = activePack?.cta_label ?? 'Ny undersøkelse'
+  const packLegalRefs =
+    activePack?.legal_references && activePack.legal_references.length > 0
+      ? activePack.legal_references
+      : SURVEY_MODULE_LEGAL_REFERENCES
 
   return (
     <>
       <ModulePageShell
-        breadcrumb={[{ label: 'HMS' }, { label: 'Undersøkelser' }]}
-        title="Undersøkelser"
-        description="Kartlegg arbeidsmiljø, mål psykososiale forhold, og innhent dokumentasjon fra leverandører."
+        breadcrumb={[{ label: 'HMS' }, { label: packTitle }]}
+        title={packTitle}
+        description={packDescription}
         headerActions={
           <div className="flex flex-wrap items-center gap-2">
             {survey.canManage && (
@@ -196,9 +225,9 @@ export function SurveyPage({ supabase }: Props) {
                   type="button"
                   variant="primary"
                   icon={<Plus className="h-4 w-4" />}
-                  onClick={() => openPanel('internal')}
+                  onClick={() => openPanel(activePack?.slug === 'vendor' ? 'external' : 'internal')}
                 >
-                  Ny undersøkelse
+                  {packCtaLabel}
                 </Button>
               </>
             )}
@@ -226,19 +255,14 @@ export function SurveyPage({ supabase }: Props) {
         }
       >
         <ModuleLegalBanner
-          title="Organisasjonsundersøkelser"
-          intro={
-            <p>
-              Kartlegging av arbeidsmiljø, psykososiale forhold og leverandørdokumentasjon forankres i
-              arbeidsmiljøloven, personvernregelverket og — for leverandører — åpenhetsloven.
-            </p>
-          }
-          references={SURVEY_MODULE_LEGAL_REFERENCES}
+          title={packTitle}
+          intro={<p>{packDescription}</p>}
+          references={packLegalRefs}
         />
 
         {survey.error && <WarningBox>{survey.error}</WarningBox>}
 
-        {survey.loading && survey.surveys.length === 0 ? (
+        {survey.loading && packScopedSurveys.length === 0 ? (
           <div className="flex items-center justify-center gap-2 py-16 text-sm text-neutral-500">
             <Loader2 className="h-5 w-5 animate-spin" aria-hidden />
             Laster undersøkelser…
@@ -247,22 +271,22 @@ export function SurveyPage({ supabase }: Props) {
           <>
             {tab === 'oversikt' && (
               <SurveyOversiktModuleTab
-                surveys={survey.surveys}
+                surveys={packScopedSurveys}
                 loading={survey.loading}
-                onNewSurvey={() => openPanel('internal')}
+                onNewSurvey={() => openPanel(activePack?.slug === 'vendor' ? 'external' : 'internal')}
               />
             )}
             {tab === 'kampanjer' && (
               <SurveyKampanjerTab
-                surveys={survey.surveys}
+                surveys={packScopedSurveys}
                 loading={survey.loading}
                 canManage={survey.canManage}
-                onNewSurvey={() => openPanel('internal')}
+                onNewSurvey={() => openPanel(activePack?.slug === 'vendor' ? 'external' : 'internal')}
               />
             )}
             {tab === 'maler' && (
               <SurveyMalerTab
-                templates={survey.templateCatalog}
+                templates={packScopedTemplates}
                 loading={survey.templateCatalogLoading}
                 onUseTemplate={handleUseTemplate}
                 onNewTemplate={() => navigate('/survey/templates/org/new')}
@@ -279,7 +303,7 @@ export function SurveyPage({ supabase }: Props) {
             )}
             {tab === 'leverandorer' && (
               <SurveyLeverandorerTab
-                surveys={survey.surveys}
+                surveys={packScopedSurveys}
                 loading={survey.loading}
                 canManage={survey.canManage}
                 onNewExternalSurvey={() => openPanel('external')}
@@ -287,7 +311,7 @@ export function SurveyPage({ supabase }: Props) {
             )}
             {tab === 'analyse' && (
               <SurveyAnalyseOverviewTab
-                surveys={survey.surveys}
+                surveys={packScopedSurveys}
                 loading={survey.loading}
               />
             )}

@@ -80,6 +80,7 @@ export const CatalogRowForListSchema = z.object({
   law_ref: z.string().nullable().optional(),
   body: CatalogTemplateBodySchema,
   is_active: z.boolean().default(true),
+  pack: z.enum(['vendor', 'arbeidsmiljo', 'compliance', 'engagement', 'exit']).default('engagement'),
   created_at: z.string().optional(),
   updated_at: z.string().optional(),
 })
