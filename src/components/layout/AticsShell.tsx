@@ -271,6 +271,12 @@ const councilSubs: SubItem[] = [
 
 const learningSubs: SubItem[] = [
   { label: 'Dashboard', path: '/learning', match: ({ pathname }) => pathname === '/learning' },
+  {
+    label: 'Analyse',
+    path: '/learning/analyse',
+    Icon: BarChart3,
+    match: ({ pathname }) => pathname === '/learning/analyse',
+  },
   { label: 'Courses', path: '/learning/courses', match: ({ pathname }) => pathname === '/learning/courses' || pathname.startsWith('/learning/courses/') },
   { label: 'Certifications', path: '/learning/certifications', match: ({ pathname }) => pathname === '/learning/certifications' },
   { label: 'Insights', path: '/learning/insights', match: ({ pathname }) => pathname === '/learning/insights' },

@@ -13,6 +13,7 @@ import {
   Trash2,
 } from 'lucide-react'
 import { useLearning } from '../../hooks/useLearning'
+import { useLearningCategories } from '../../hooks/useLearningCategories'
 import { useOrgSetupContext } from '../../hooks/useOrgSetupContext'
 import type { Course, CourseStatus } from '../../types/learning'
 import { LearningPrivacyNotice } from '../../components/learning/LearningPrivacyNotice'
@@ -84,7 +85,8 @@ type TabId = 'all' | 'active' | 'complete' | 'fav'
 
 export function LearningCoursesList() {
   const navigate = useNavigate()
-  const { can, isAdmin, profile } = useOrgSetupContext()
+  const orgSetup = useOrgSetupContext()
+  const { supabase, can, isAdmin, profile } = orgSetup
   const canManage = isAdmin || can('learning.manage')
   const canDelete = isAdmin || can('learning.delete') || canManage
   const {
@@ -97,6 +99,7 @@ export function LearningCoursesList() {
     progress,
     certificates,
   } = useLearning()
+  const { categories } = useLearningCategories({ supabase })
 
   const [q, setQ] = useState('')
   const [tab, setTab] = useState<TabId>('all')
@@ -149,6 +152,40 @@ export function LearningCoursesList() {
       return true
     })
   }, [visibleCourses, tab, favourites, certificates, progress, profile?.id])
+
+  // Bucket the filtered cards by category. Categories with no courses are
+  // skipped; uncategorised courses fall into a synthetic "Annet" bucket.
+  // Single-category mode (only one non-empty bucket) drops the headers
+  // entirely — visual noise otherwise.
+  const groupedCards = useMemo(() => {
+    type Bucket = {
+      key: string
+      name: string
+      position: number
+      cards: typeof filteredCards
+    }
+    const byKey = new Map<string, Bucket>()
+    for (const c of categories.filter((x) => x.is_active)) {
+      byKey.set(c.id, { key: c.id, name: c.name, position: c.position, cards: [] })
+    }
+    const uncategorised: Bucket = {
+      key: '__uncat__',
+      name: 'Annet',
+      position: 9999,
+      cards: [],
+    }
+    for (const card of filteredCards) {
+      const target =
+        (card.categoryId && byKey.get(card.categoryId)) || uncategorised
+      target.cards.push(card)
+    }
+    const ordered = [...byKey.values()].filter((b) => b.cards.length > 0)
+    if (uncategorised.cards.length > 0) ordered.push(uncategorised)
+    ordered.sort((a, b) => a.position - b.position || a.name.localeCompare(b.name, 'nb'))
+    return ordered
+  }, [filteredCards, categories])
+
+  const showGroupHeaders = groupedCards.length > 1
 
   const toggleFavourite = (courseId: string) => {
     setFavourites((prev) => {
@@ -250,8 +287,17 @@ export function LearningCoursesList() {
             </span>
           }
         >
-          <div className="grid grid-cols-1 gap-4 px-5 py-5 sm:grid-cols-2 xl:grid-cols-3">
-            {filteredCards.map((c) => {
+          <div className="space-y-5 px-5 py-5">
+            {groupedCards.map((bucket) => (
+              <div key={bucket.key}>
+                {showGroupHeaders ? (
+                  <div className="mb-2 flex items-baseline gap-2 border-b border-neutral-200/70 pb-1.5">
+                    <h3 className="text-sm font-semibold text-neutral-900">{bucket.name}</h3>
+                    <span className="text-xs text-neutral-500">{bucket.cards.length}</span>
+                  </div>
+                ) : null}
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
+                  {bucket.cards.map((c) => {
               const unlocked = isCourseUnlocked(c.id)
               const total = c.modules.length
               const mins = courseTotalMinutes(c)
@@ -418,8 +464,11 @@ export function LearningCoursesList() {
                 </article>
               )
             })}
+                </div>
+              </div>
+            ))}
             {filteredCards.length === 0 && !learningLoading ? (
-              <div className="col-span-full py-12 text-center text-sm text-neutral-500">
+              <div className="py-12 text-center text-sm text-neutral-500">
                 Ingen kurs i dette filteret. Bruk «Nytt kurs» øverst for å opprette ett.
               </div>
             ) : null}
