@@ -10,9 +10,12 @@ import {
   Calendar,
   CalendarRange,
   CalendarCheck,
+  ChevronDown,
+  ChevronRight,
   ClipboardList,
   ClipboardCheck,
   FileText,
+  FolderTree,
   GraduationCap,
   HardHat,
   History,
@@ -69,12 +72,20 @@ type SubItem = {
   iconOnly?: boolean
   Icon?: ComponentType<{ className?: string; 'aria-hidden'?: boolean | 'true' | 'false' }>
   /**
-   * 'header' renders the row as a non-interactive section heading (no
-   * NavLink) so a flatSubs list can group items under labels like
-   * "Vernerunder", "Fysisk og kjemisk". Defaults to 'item' (the existing
-   * link behaviour). path/match are still required but ignored for headers.
+   * 'header' renders the row as a clickable section heading (no NavLink)
+   * that toggles expand/collapse for its child items. Items below a
+   * header are linked to it via `headerKey`; the header carries the
+   * same value. Defaults to 'item' (the existing link behaviour).
+   * path/match are still required but ignored for headers.
    */
   kind?: 'item' | 'header'
+  /**
+   * Stable identifier shared between a header row and the items that
+   * belong to it. Items without `headerKey` (e.g. fixed subs like
+   * Analyse / Innstillinger) always render; items with `headerKey`
+   * render only when the parent header is expanded.
+   */
+  headerKey?: string
 }
 
 function visibleSubs(
@@ -856,12 +867,13 @@ export function AticsShell() {
     // are skipped; uncategorised items collect under "Uten kategori".
     // Single-category mode (zero or one non-empty category) renders flat
     // — adding a single header would just be visual noise.
+    //
+    // Each item carries a `headerKey` matching its category header so the
+    // renderer can fold/unfold a category by toggling that key.
     const compliancePinnedSubs: SubItem[] = (() => {
-      type GroupKey = string // category id, or '__uncat__'
-      const UNCAT: GroupKey = '__uncat__'
-      const buckets = new Map<GroupKey, typeof complianceNav.items>()
+      const buckets = new Map<string, typeof complianceNav.items>()
       for (const it of complianceNav.items) {
-        const key: GroupKey = it.categoryId ?? UNCAT
+        const key = it.headerKey
         const list = buckets.get(key) ?? []
         list.push(it)
         buckets.set(key, list)
@@ -869,10 +881,12 @@ export function AticsShell() {
       const orderedCats = complianceNav.categories
         .filter((c) => buckets.has(c.id))
         .sort((a, b) => a.position - b.position || a.name.localeCompare(b.name, 'nb'))
-      const tail = buckets.has(UNCAT) ? [{ id: UNCAT, name: 'Uten kategori' } as const] : []
+      const uncategorised = [...buckets.entries()]
+        .filter(([key]) => key.endsWith(':__uncat__'))
+        .map(([key]) => ({ id: key, name: 'Uten kategori' }))
       const orderedKeys: { id: string; name: string }[] = [
         ...orderedCats.map((c) => ({ id: c.id, name: c.name })),
-        ...tail,
+        ...uncategorised,
       ]
       const showHeaders = orderedKeys.length > 1
 
@@ -886,6 +900,8 @@ export function AticsShell() {
             label: cat.name,
             path: `__cat:${cat.id}`,
             match: () => false,
+            headerKey: cat.id,
+            Icon: FolderTree,
             requirePermAny: COMPLIANCE_NAV_PERMS,
           })
         }
@@ -897,6 +913,10 @@ export function AticsShell() {
               if (pathname !== '/compliance/checklists') return false
               return new URLSearchParams(search).get('template') === item.templateSlug
             },
+            // When showHeaders is false there's only one group, so we
+            // skip the header entirely and clear headerKey so the item
+            // always renders.
+            headerKey: showHeaders ? cat.id : undefined,
             requirePermAny: COMPLIANCE_NAV_PERMS,
           })
         }
@@ -964,6 +984,20 @@ export function AticsShell() {
 
   const [navMode, setNavMode] = useState<NavMode>(loadNavMode)
   const [subNavCollapsed, setSubNavCollapsed] = useState(loadSubNavCollapsed)
+  // User-explicit expand state for category headers in flatSubs lists.
+  // Keyed by headerKey. When a key is absent, we fall back to the auto rule
+  // (expand if the header contains the currently active item). The map is
+  // intentionally not persisted — sidebar groups feel right when the page
+  // you're on is opened by default after navigation.
+  const [expandedHeaders, setExpandedHeaders] = useState<Map<string, boolean>>(new Map())
+  const toggleHeader = useCallback((headerKey: string, autoOpen: boolean) => {
+    setExpandedHeaders((prev) => {
+      const next = new Map(prev)
+      const current = next.has(headerKey) ? next.get(headerKey)! : autoOpen
+      next.set(headerKey, !current)
+      return next
+    })
+  }, [])
 
   const toggleSubNavCollapsed = useCallback(() => {
     setSubNavCollapsed((c) => {
@@ -1100,58 +1134,103 @@ export function AticsShell() {
                             : 'mb-1 ml-4 mt-0.5 border-l border-white/10 pl-3'
                         }
                       >
-                        {modSubs.map((item) => {
-                          if (item.kind === 'header') {
-                            // Section heading inside a flatSubs list. Non-
-                            // interactive — just labels a category group.
-                            return (
-                              <div
-                                key={`hdr:${item.path}:${item.label}`}
-                                className="mt-3 px-2.5 pb-1 pt-2 text-[10px] font-semibold uppercase tracking-wider text-white/40 first:mt-0"
-                              >
-                                {item.label}
-                              </div>
-                            )
+                        {(() => {
+                          // Pre-compute auto-expand: a header is auto-open
+                          // when any item beneath it (before the next
+                          // header) matches the current location.
+                          const loc = { pathname: location.pathname, search: location.search }
+                          const autoOpenByKey = new Map<string, boolean>()
+                          for (let i = 0; i < modSubs.length; i++) {
+                            const s = modSubs[i]!
+                            if (s.kind !== 'header' || !s.headerKey) continue
+                            let hasActive = false
+                            for (let j = i + 1; j < modSubs.length; j++) {
+                              const next = modSubs[j]!
+                              if (next.kind === 'header') break
+                              if (next.match(loc)) { hasActive = true; break }
+                            }
+                            autoOpenByKey.set(s.headerKey, hasActive)
                           }
-                          const active = item.match({ pathname: location.pathname, search: location.search })
-                          const SubIcon = item.Icon
-                          const iconOnly = item.iconOnly && SubIcon
-                          return (
-                            <NavLink
-                              key={item.path + item.label}
-                              to={item.path}
-                              title={item.label}
-                              aria-label={iconOnly ? item.label : undefined}
-                              className={
-                                mod.flatSubs
-                                  ? `flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm font-medium transition-colors ${
-                                      active
-                                        ? 'bg-white/10 text-white'
-                                        : 'text-white/65 hover:bg-white/5 hover:text-white/90'
-                                    }`
-                                  : `flex items-center gap-2 rounded-md text-xs transition-colors ${
-                                      active
-                                        ? 'font-semibold text-white'
-                                        : 'text-white/50 hover:bg-white/5 hover:text-white/80'
-                                    } ${
-                                      iconOnly
-                                        ? 'size-8 shrink-0 justify-center p-0'
-                                        : 'px-2 py-1.5'
-                                    }`
-                              }
-                            >
-                              {!iconOnly && active && !mod.flatSubs && (
-                                <span className="h-3 w-0.5 shrink-0 rounded-full bg-[#c9a227]" aria-hidden />
-                              )}
-                              {!iconOnly && !active && <span className="h-3 w-0.5 shrink-0" aria-hidden />}
-                              {iconOnly ? (
-                                <SubIcon className="size-4 shrink-0 opacity-90" aria-hidden />
-                              ) : (
-                                item.label
-                              )}
-                            </NavLink>
-                          )
-                        })}
+
+                          return modSubs.map((item) => {
+                            if (item.kind === 'header') {
+                              const HeaderIcon = item.Icon ?? FolderTree
+                              const key = item.headerKey ?? `${item.path}:${item.label}`
+                              const auto = autoOpenByKey.get(key) ?? false
+                              const expanded = expandedHeaders.has(key)
+                                ? expandedHeaders.get(key)!
+                                : auto
+                              return (
+                                <button
+                                  key={`hdr:${key}`}
+                                  type="button"
+                                  onClick={() => toggleHeader(key, auto)}
+                                  aria-expanded={expanded}
+                                  className="mt-3 flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-[11px] font-semibold uppercase tracking-wider text-white/55 transition-colors hover:bg-white/5 hover:text-white/80 first:mt-0"
+                                >
+                                  <HeaderIcon className="size-3.5 shrink-0 opacity-80" aria-hidden />
+                                  <span className="min-w-0 flex-1 truncate">{item.label}</span>
+                                  {expanded ? (
+                                    <ChevronDown className="size-3.5 shrink-0 opacity-70" aria-hidden />
+                                  ) : (
+                                    <ChevronRight className="size-3.5 shrink-0 opacity-70" aria-hidden />
+                                  )}
+                                </button>
+                              )
+                            }
+                            // Items belonging to a header: render only if
+                            // that header is currently expanded. Items
+                            // without a headerKey always render.
+                            if (item.headerKey) {
+                              const auto = autoOpenByKey.get(item.headerKey) ?? false
+                              const expanded = expandedHeaders.has(item.headerKey)
+                                ? expandedHeaders.get(item.headerKey)!
+                                : auto
+                              if (!expanded) return null
+                            }
+                            const active = item.match(loc)
+                            const SubIcon = item.Icon
+                            const iconOnly = item.iconOnly && SubIcon
+                            const indented = Boolean(item.headerKey)
+                            return (
+                              <NavLink
+                                key={item.path + item.label}
+                                to={item.path}
+                                title={item.label}
+                                aria-label={iconOnly ? item.label : undefined}
+                                className={
+                                  mod.flatSubs
+                                    ? `flex items-center gap-2.5 rounded-lg ${indented ? 'pl-7 pr-2.5' : 'px-2.5'} py-2 text-sm font-medium transition-colors ${
+                                        active
+                                          ? 'bg-white/10 text-white'
+                                          : 'text-white/65 hover:bg-white/5 hover:text-white/90'
+                                      }`
+                                    : `flex items-center gap-2 rounded-md text-xs transition-colors ${
+                                        active
+                                          ? 'font-semibold text-white'
+                                          : 'text-white/50 hover:bg-white/5 hover:text-white/80'
+                                      } ${
+                                        iconOnly
+                                          ? 'size-8 shrink-0 justify-center p-0'
+                                          : 'px-2 py-1.5'
+                                      }`
+                                }
+                              >
+                                {!iconOnly && active && !mod.flatSubs && (
+                                  <span className="h-3 w-0.5 shrink-0 rounded-full bg-[#c9a227]" aria-hidden />
+                                )}
+                                {!iconOnly && !active && !mod.flatSubs && (
+                                  <span className="h-3 w-0.5 shrink-0" aria-hidden />
+                                )}
+                                {iconOnly ? (
+                                  <SubIcon className="size-4 shrink-0 opacity-90" aria-hidden />
+                                ) : (
+                                  item.label
+                                )}
+                              </NavLink>
+                            )
+                          })
+                        })()}
                       </div>
                     )}
                   </div>

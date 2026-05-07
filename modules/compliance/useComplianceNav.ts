@@ -20,6 +20,8 @@ export type CompliancePinnedNavItem = {
   pack: CompliancePackSlug
   /** Category id, null = uncategorised. */
   categoryId: string | null
+  /** Stable key linking this item to its category header in the sidebar. */
+  headerKey: string
   /** Path including ?template= and ?pack= so a deep link reproduces the view. */
   to: string
 }
@@ -121,6 +123,9 @@ export function useComplianceNav(): UseComplianceNavReturn {
         name: t.name,
         pack: t.pack,
         categoryId: t.category_id,
+        // Stable key shared with the matching header row so the sidebar
+        // can group + toggle items by their (org-scoped) category.
+        headerKey: t.category_id ?? `${t.pack}:__uncat__`,
         to: `/compliance/checklists?template=${encodeURIComponent(t.slug)}&pack=${encodeURIComponent(t.pack)}`,
       }))
   }, [pinned, packs, activePackParam])
