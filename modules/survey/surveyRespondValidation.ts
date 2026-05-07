@@ -246,6 +246,19 @@ export function answerMeetsRequiredContent(
     if (x.startsWith('fileRef:')) return true
     return Boolean(x)
   }
+  if (t === 'respondent_signature') {
+    // Stored as JSON {signedAt, signedBy} or a non-empty text confirmation.
+    // Same minimal check as 'signature' — non-empty payload.
+    const x = a.text?.trim() ?? ''
+    if (x.startsWith('fileRef:')) return true
+    return Boolean(x)
+  }
+  if (t === 'photo') {
+    // Stored as a Storage path (org_id/survey_id/question_id/uuid-name) in
+    // answer_text. Path is non-empty when a file is uploaded.
+    const x = a.text?.trim() ?? ''
+    return Boolean(x)
+  }
   if (t === 'matrix') {
     const o = parseMatrixRankingJson(a.text ?? null)
     if (!o) return false
