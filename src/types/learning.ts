@@ -148,6 +148,12 @@ export type CourseProgress = {
   userId?: string
   /** Display name from profiles (participants table) */
   learnerName?: string
+  /** Org-context snapshots set by trigger on completion. Null until completed. */
+  locationIdAtCompletion?: string | null
+  departmentIdAtCompletion?: string | null
+  teamIdAtCompletion?: string | null
+  /** Free-form per-course metadata (driven by Course.metadataSchema). */
+  metadata?: Record<string, unknown>
 }
 
 export type Certificate = {

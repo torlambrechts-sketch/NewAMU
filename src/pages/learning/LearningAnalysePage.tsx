@@ -206,16 +206,21 @@ export function LearningAnalysePage() {
     const departmentNameById = new Map(
       orgSetup.departments.map((d) => [d.id, d.name]),
     )
-    const memberDepartmentById = (userId?: string): string | null => {
+    // Department resolution prefers the trigger-maintained snapshot on
+    // CourseProgress (set at completion by migration 20260828120030).
+    // Falls back to the user→member→department lookup when no snapshot
+    // exists (in-progress rows, legacy completions before the trigger).
+    const memberDepartmentByUser = (userId?: string): string | null => {
       if (!userId) return null
-      // CourseProgress.userId is auth.users.id; organization_members are
-      // not direct FKs to auth.users in this codebase but the name display
-      // typically resolves via the user's profile. For analytics-side
-      // bucketing we'll use the user's email→member match if available;
-      // otherwise the department snapshot is null. Hooks higher up own
-      // the better resolution path.
       const member = orgSetup.members.find((m) => m.id === userId)
       return member ? departmentByMemberId.get(member.id) ?? null : null
+    }
+    const departmentForRow = (
+      progress: CourseProgress | undefined,
+      userId: string | undefined,
+    ): string | null => {
+      if (progress?.departmentIdAtCompletion) return progress.departmentIdAtCompletion
+      return memberDepartmentByUser(userId)
     }
 
     type ProgressRow = {
@@ -277,7 +282,7 @@ export function LearningAnalysePage() {
       if (!matchesSet(sel.courses, r.course.id)) return false
       if (!matchesSet(sel.statuses, r.status)) return false
       if (sel.departments) {
-        const dep = memberDepartmentById(r.userId)
+        const dep = departmentForRow(r.progress, r.userId)
         if (!dep) {
           if (sel.departments.mode === 'include') return false
         } else if (!matchesSet(sel.departments, dep)) {
@@ -374,7 +379,7 @@ export function LearningAnalysePage() {
       const courseLabel = r.course.title
       courseCounts.set(courseLabel, (courseCounts.get(courseLabel) ?? 0) + 1)
 
-      const dep = memberDepartmentById(r.userId)
+      const dep = departmentForRow(r.progress, r.userId)
       const depLabel = dep
         ? departmentNameById.get(dep) ?? '(ukjent)'
         : '(uten avdeling)'
