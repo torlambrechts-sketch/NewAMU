@@ -1,1 +1,0 @@
-archive/20260801025000_amu_chair_permission.sql

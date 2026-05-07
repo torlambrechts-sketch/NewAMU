@@ -1,1 +1,0 @@
-archive/20260731220000_wiki_space_access_grant_capability_columns.sql

@@ -1,12 +1,12 @@
 # SQL migrations
 
-**New migrations** — add timestamped `*.sql` files in **`supabase/migrations/`** (convention: at repo root of this folder, e.g. `20260801120000_my_change.sql`), **not** under **`archive/`**. **Do not add or update** SQL in `supabase/migrations/archive/`; that tree is the historical chain only. New work is always a new file with a timestamp after the latest migration in the tree.
+**New migrations** — add timestamped `*.sql` files in **`supabase/migrations/`** (convention: at repo root of this folder, e.g. `20260828120031_my_change.sql`), **not** under **`archive/`**. **Do not add or update** SQL in `supabase/migrations/archive/`; that tree is the historical chain only. New work is always a new file with a timestamp after the latest migration in the tree.
 
-**`archive/`** — legacy chain kept for reference and for `apply-migrations` compatibility on old clones. New environments should still apply; treat as read-only when developing.
+**`archive/`** — legacy chain kept for reference and for `apply-migrations` compatibility on old clones. New environments should still apply; treat as read-only when developing. Shipped feature batches (AMU, the early compliance/survey/wiki rollouts, etc.) are moved here once the work is stable so the active development surface stays focused on in-flight work.
 
-They are **not** “run once then forgotten”: new environments still apply the full chain in filename order (`YYYYMMDDHHMMSS_...`).
+They are **not** "run once then forgotten": new environments still apply the full chain in filename order (`YYYYMMDDHHMMSS_...`).
 
-**`../../scripts/apply-migrations.sh`** (from repo root: `scripts/apply-migrations.sh` / `npm run db:migrate`) — Runs every `*.sql` file with `psql`, sorted by migration filename.
+**`../../scripts/apply-migrations.sh`** (from repo root: `scripts/apply-migrations.sh` / `npm run db:migrate`) — Runs every `*.sql` file under this tree (top-level **and** `archive/`) with `psql`, sorted by migration **basename** (timestamp prefix). The folder a file lives in does not change *whether* or *when* it runs — it's purely organisational. Each migration must therefore have a globally unique basename across both folders.
 
 **Adding a new migration:** create `supabase/migrations/YYYYMMDDHHMMSS_my_change.sql` with a timestamp **after** the latest existing migration anywhere under this tree.
 

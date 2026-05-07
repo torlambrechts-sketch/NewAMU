@@ -1,1 +1,0 @@
-archive/20260731180200_wiki_pages_pii_columns_for_select_policy.sql
