@@ -6,6 +6,7 @@ import {
 } from 'lucide-react'
 import { SurveyPakkerTab } from '../../modules/survey/admin/SurveyPakkerTab'
 import { SurveyLeverandorerTab } from '../../modules/survey/admin/SurveyLeverandorerTab'
+import { SurveyMalerOpsCard } from '../../modules/survey/admin/SurveyMalerOpsCard'
 import { SlidePanel } from '../components/layout/SlidePanel'
 import { WPSTD_FORM_FIELD_LABEL } from '../components/layout/WorkplaceStandardFormPanel'
 import { LayoutTable1PostingsShell } from '../components/layout/LayoutTable1PostingsShell'
@@ -305,6 +306,7 @@ export function SurveyModuleAdminPage() {
 
         {/* ── Maler ───────────────────────────────────────────────────── */}
         {tab === 'maler' && (
+          <>
           <ModuleSectionCard className="p-5 md:p-6">
             <h2 className="text-lg font-semibold text-neutral-900">Organisasjonsmaler — JSON</h2>
             <p className="mt-1 text-sm text-neutral-600">Eksporter og importer egendefinerte undersøkelsesmaler. Filformatet er versjonert.</p>
@@ -338,6 +340,8 @@ export function SurveyModuleAdminPage() {
               </div>
             )}
           </ModuleSectionCard>
+          <SurveyMalerOpsCard supabase={supabase} />
+          </>
         )}
 
         {/* ── Pakker (DB-driven pack display + behaviour defaults) ──────── */}

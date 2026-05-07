@@ -4,8 +4,8 @@
 // override fields with COALESCE so consumers see a single resolved
 // template object.
 //
-// Read-only in this commit. Mutations (toggle nav_pinned, set overrides,
-// update review_status) ship in the admin commit (Commit 9).
+// Read + minimal admin mutations (toggle nav_pinned, set review_status).
+// Override authoring is handled separately in the Maler import/export flow.
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import type { SupabaseClient } from '@supabase/supabase-js'
@@ -59,6 +59,11 @@ export type UseSurveyOrgTemplatesReturn = {
   forPack: (pack: SurveyPackSlug) => ResolvedSurveyTemplate[]
   pinnedForPack: (pack: SurveyPackSlug) => ResolvedSurveyTemplate[]
   refresh: () => Promise<void>
+  setNavPinned: (overrideId: string, pinned: boolean) => Promise<void>
+  setReviewStatus: (
+    overrideId: string,
+    status: 'draft' | 'reviewed' | 'approved',
+  ) => Promise<void>
 }
 
 type CatalogJoin = {
@@ -167,8 +172,64 @@ export function useSurveyOrgTemplates(
     [templates],
   )
 
+  const applyPatch = useCallback(
+    async (
+      overrideId: string,
+      patch: { nav_pinned?: boolean; review_status?: 'draft' | 'reviewed' | 'approved' },
+    ): Promise<void> => {
+      if (!supabase || !orgId) return
+      try {
+        const { data, error: upErr } = await supabase
+          .from('survey_org_templates')
+          .update(patch)
+          .eq('id', overrideId)
+          .eq('organization_id', orgId)
+          .select(
+            '*, survey_template_catalog!inner(id, name, short_name, description, body, is_system)',
+          )
+          .single()
+        if (upErr) throw upErr
+        const parsed = SurveyOrgTemplateRowSchema.safeParse(data)
+        if (parsed.success) {
+          const joined = (data as { survey_template_catalog?: CatalogJoin | null })
+            .survey_template_catalog
+          setRows((prev) =>
+            prev.map((r) =>
+              r.id === overrideId
+                ? { ...parsed.data, survey_template_catalog: joined ?? null }
+                : r,
+            ),
+          )
+        }
+      } catch (unknownError) {
+        setError(getSupabaseErrorMessage(unknownError))
+      }
+    },
+    [supabase, orgId],
+  )
+
+  const setNavPinned = useCallback(
+    (overrideId: string, pinned: boolean) => applyPatch(overrideId, { nav_pinned: pinned }),
+    [applyPatch],
+  )
+
+  const setReviewStatus = useCallback(
+    (overrideId: string, status: 'draft' | 'reviewed' | 'approved') =>
+      applyPatch(overrideId, { review_status: status }),
+    [applyPatch],
+  )
+
   return useMemo(
-    () => ({ loading, error, templates, forPack, pinnedForPack, refresh: load }),
-    [loading, error, templates, forPack, pinnedForPack, load],
+    () => ({
+      loading,
+      error,
+      templates,
+      forPack,
+      pinnedForPack,
+      refresh: load,
+      setNavPinned,
+      setReviewStatus,
+    }),
+    [loading, error, templates, forPack, pinnedForPack, load, setNavPinned, setReviewStatus],
   )
 }
