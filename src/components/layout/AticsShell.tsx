@@ -52,7 +52,9 @@ import {
   ShellQuickCreateMenu,
 } from './ShellHeaderWidgets'
 import { ShellCompliancePackSwitcher } from './ShellCompliancePackSwitcher'
+import { ShellSurveyPackSwitcher } from './ShellSurveyPackSwitcher'
 import { useComplianceNav } from '../../../modules/compliance/useComplianceNav'
+import { useSurveyNav } from '../../../modules/survey/useSurveyNav'
 import type { NavMode } from './aticsNavMode'
 
 // ─── Sub-item type ────────────────────────────────────────────────────────────
@@ -340,6 +342,18 @@ const COMPLIANCE_NAV_PERMS: PermissionKey[] = [
   'module.view.hr_compliance',
   'module.view.dashboard',
   'checklist.manage',
+]
+
+// Permission gate for the synthetic Undersøkelser menu — anyone who can
+// view a survey-relevant module sees it. Mirrors the broad permAny pattern
+// used for Sjekklister so view-only roles aren't excluded.
+const SURVEY_NAV_PERMS: PermissionKey[] = [
+  'module.view.survey',
+  'module.view.org_health',
+  'module.view.hse',
+  'module.view.dashboard',
+  'survey.manage',
+  'survey.results.view',
 ]
 
 const navGroups: NavGroup[] = [
@@ -1024,8 +1038,9 @@ export function AticsShell() {
   // better UX than silently hiding the menu (the customer would have no
   // path to discover the feature).
   const complianceNav = useComplianceNav()
+  const surveyNav = useSurveyNav()
   const mergedNavGroups = useMemo<NavGroup[]>(() => {
-    const pinnedSubs: SubItem[] = complianceNav.items.map((item) => ({
+    const compliancePinnedSubs: SubItem[] = complianceNav.items.map((item) => ({
       label: item.name,
       path: item.to,
       match: ({ pathname, search }) => {
@@ -1045,16 +1060,47 @@ export function AticsShell() {
           label: 'Sjekklister',
           end: false,
           icon: ClipboardList,
-          subs: pinnedSubs,
+          subs: compliancePinnedSubs,
           permAny: COMPLIANCE_NAV_PERMS,
           flatSubs: true,
         },
       ],
     }
+
+    // Survey "Undersøkelser" group — same flatSubs treatment as Sjekklister.
+    // Pinned templates filtered by active pack focus (?pack=) via useSurveyNav.
+    const surveyPinnedSubs: SubItem[] = surveyNav.items.map((item) => ({
+      label: item.templateName,
+      path: item.to,
+      match: ({ pathname, search }) => {
+        if (pathname !== '/survey') return false
+        return new URLSearchParams(search).get('template') === item.catalogId
+      },
+      requirePermAny: SURVEY_NAV_PERMS,
+    }))
+
+    const surveyGroup: NavGroup = {
+      id: 'undersokelser',
+      label: 'Undersøkelser',
+      icon: Megaphone,
+      modules: [
+        {
+          to: '/survey',
+          label: 'Undersøkelser',
+          end: false,
+          icon: Megaphone,
+          subs: surveyPinnedSubs,
+          permAny: SURVEY_NAV_PERMS,
+          flatSubs: true,
+        },
+      ],
+    }
+
     const idx = navGroups.findIndex((g) => g.id === 'gamle-moduler')
-    if (idx === -1) return [...navGroups, complianceGroup]
-    return [...navGroups.slice(0, idx), complianceGroup, ...navGroups.slice(idx)]
-  }, [complianceNav.items])
+    const head = idx === -1 ? navGroups : navGroups.slice(0, idx)
+    const tail = idx === -1 ? [] : navGroups.slice(idx)
+    return [...head, complianceGroup, surveyGroup, ...tail]
+  }, [complianceNav.items, surveyNav.items])
 
   const visibleGroups = useMemo(
     () => filterNavGroups(mergedNavGroups, gateNav, can, disabledModules, hiddenForUser),
@@ -1261,6 +1307,7 @@ export function AticsShell() {
                   <ShellQuickCreateMenu variant="sidebar" />
                   <ShellComplianceIndicator variant="sidebar" />
                   <ShellCompliancePackSwitcher variant="sidebar" />
+                  <ShellSurveyPackSwitcher variant="sidebar" />
                   <NotificationTray variant="sidebar" />
                   <ShellProfileMenuButton
                     variant="sidebar"
@@ -1330,6 +1377,7 @@ export function AticsShell() {
           <ShellQuickCreateMenu variant="topbar" />
           <ShellComplianceIndicator variant="topbar" />
           <ShellCompliancePackSwitcher variant="topbar" />
+          <ShellSurveyPackSwitcher variant="topbar" />
           <NotificationTray variant="topbar" />
           <ShellProfileMenuButton
             variant="topbar"
