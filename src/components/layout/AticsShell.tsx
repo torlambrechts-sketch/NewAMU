@@ -288,8 +288,6 @@ const learningSubs: SubItem[] = [
   { label: 'Settings', path: '/learning/settings', match: ({ pathname }) => pathname === '/learning/settings' },
 ]
 
-/** Documents module uses in-page Oversikt / Innstillinger root tabs — no duplicate sidebar subs (UI_PLACEMENT_RULES §11). */
-const documentsSubs: SubItem[] = []
 
 const workplaceReportingSubs: SubItem[] = WORKPLACE_REPORTING_NAV.map((item) => {
   const base: SubItem = {
@@ -410,6 +408,14 @@ const LEARNING_NAV_PERMS: PermissionKey[] = [
 // Permission gate for the synthetic Oppgaver menu — same broad pattern.
 const TASKS_NAV_PERMS: PermissionKey[] = [
   'module.view.tasks',
+  'module.view.dashboard',
+]
+
+// Permission gate for the synthetic Dokumenter menu — same broad pattern.
+const DOCUMENTS_NAV_PERMS: PermissionKey[] = [
+  'documents.view',
+  'documents.edit',
+  'documents.manage',
   'module.view.dashboard',
 ]
 
@@ -560,16 +566,6 @@ const gamleModulerModules: NavModule[] = [
     moduleSlug: 'org-health',
   },
 
-  // ── Dokumentasjon ────────────────────────────────────────────────────────
-  {
-    to: '/documents',
-    label: 'Wiki, prosedyrer & maler',
-    end: false,
-    icon: FileText,
-    subs: documentsSubs,
-    permAny: ['module.view.dashboard', 'documents.view', 'documents.edit', 'documents.manage'],
-    moduleSlug: 'documents',
-  },
   {
     to: '/internkontroll/arsgjenomgang',
     label: 'Årsgjennomgang',
@@ -1068,6 +1064,70 @@ export function AticsShell() {
       ],
     }
 
+    // Dokumenter group — promoted to top-level alongside Sjekklister /
+    // Undersøkelser / Oppgaver / Læring per documents-parity §T1. Sub-list
+    // is the existing DOCUMENTS_NAV plus fixed Analyse + Innstillinger
+    // children at the top (T2 + T3 wire up the targets). Pinned templates
+    // (T6) will land below this list when shipped.
+    const documentsFixedSubs: SubItem[] = [
+      {
+        label: 'Analyse',
+        path: '/documents/analyse',
+        Icon: BarChart3,
+        match: ({ pathname }) => pathname === '/documents/analyse',
+        requirePermAny: DOCUMENTS_NAV_PERMS,
+      },
+      {
+        label: 'Oversikt',
+        path: '/documents',
+        match: ({ pathname }) => pathname === '/documents',
+        requirePermAny: DOCUMENTS_NAV_PERMS,
+      },
+      {
+        label: 'Samsvar',
+        path: '/documents/compliance',
+        match: ({ pathname }) => pathname.startsWith('/documents/compliance'),
+        requirePermAny: DOCUMENTS_NAV_PERMS,
+      },
+      {
+        label: 'Dokumentmaler',
+        path: '/documents/templates',
+        match: ({ pathname }) => pathname === '/documents/templates',
+        requirePermAny: DOCUMENTS_NAV_PERMS,
+      },
+      {
+        label: 'Årsgjennomgang',
+        path: '/documents/aarsgjennomgang',
+        match: ({ pathname }) => pathname === '/documents/aarsgjennomgang',
+        requirePerm: 'documents.manage',
+      },
+      {
+        label: 'Innstillinger',
+        path: '/documents/admin',
+        Icon: Settings,
+        match: ({ pathname }) => pathname.startsWith('/documents/admin'),
+        requirePerm: 'documents.manage',
+      },
+    ]
+
+    const documentsGroup: NavGroup = {
+      id: 'dokumenter',
+      label: 'Dokumenter',
+      icon: FileText,
+      modules: [
+        {
+          to: '/documents',
+          label: 'Dokumenter',
+          end: false,
+          icon: FileText,
+          subs: documentsFixedSubs,
+          permAny: DOCUMENTS_NAV_PERMS,
+          moduleSlug: 'documents',
+          flatSubs: true,
+        },
+      ],
+    }
+
     // Oppgaver group — promoted to top-level alongside Sjekklister /
     // Undersøkelser / Læring per session-end IA cleanup. Same flatSubs
     // treatment so the management tabs read at module level.
@@ -1116,7 +1176,7 @@ export function AticsShell() {
     const idx = navGroups.findIndex((g) => g.id === 'gamle-moduler')
     const head = idx === -1 ? navGroups : navGroups.slice(0, idx)
     const tail = idx === -1 ? [] : navGroups.slice(idx)
-    return [...head, hmsOverviewGroup, complianceGroup, surveyGroup, tasksGroup, learningGroup, ...tail]
+    return [...head, hmsOverviewGroup, complianceGroup, surveyGroup, documentsGroup, tasksGroup, learningGroup, ...tail]
   }, [complianceNav.items, complianceNav.categories, surveyNav.items, surveyNav.categories])
 
   const visibleGroups = useMemo(

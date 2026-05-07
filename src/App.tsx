@@ -70,6 +70,7 @@ import { HmsOverviewPage } from './pages/overview/HmsOverviewPage'
 import { LearningFlowEntry } from './pages/learning/LearningFlowEntry'
 import { LearningCertificatePrintPage } from './pages/learning/LearningCertificatePrintPage'
 import { DocumentsHome } from './pages/documents/DocumentsHome'
+import { DocumentsAnalysePage } from './pages/documents/DocumentsAnalysePage'
 import { DocumentsMalbibliotekPage } from './pages/documents/DocumentsMalbibliotekPage'
 import { WikiSpaceView } from './pages/documents/WikiSpaceView'
 import { WikiPageView } from './pages/documents/WikiPageView'
@@ -370,6 +371,7 @@ const router = createBrowserRouter(
                         <Route path="documents/kandidatdetalj-layout-test" element={<DocumentKandidatdetaljLayoutTestPage />} />
                         <Route path="documents/malbibliotek" element={<DocumentsMalbibliotekPage />} />
                         <Route path="documents" element={<DocumentsHome />} />
+                        <Route path="documents/analyse" element={<DocumentsAnalysePage />} />
                         <Route path="documents/compliance" element={<ComplianceDashboard />} />
                         <Route
                           path="documents/compliance/inspection-export"
