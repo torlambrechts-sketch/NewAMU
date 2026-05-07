@@ -16,6 +16,7 @@ import { DashboardAddWidgetPanel } from '../../src/components/module/dashboard/D
 import { DashboardEditWidgetPanel } from '../../src/components/module/dashboard/DashboardEditWidgetPanel'
 import { DashboardWidgetMenu } from '../../src/components/module/dashboard/DashboardWidgetMenu'
 import { DashboardChooser } from '../../src/components/module/dashboard/DashboardChooser'
+import { downloadCsv, widgetToCsv } from '../../src/lib/reports/widgetCsv'
 import { defaultCompatibleKinds } from '../../src/components/module/dashboard/dashboardWidgetKinds'
 import { useLicensedPacks } from '../../src/context/packContextValue'
 import { useOrgSetupContext } from '../../src/hooks/useOrgSetupContext'
@@ -468,6 +469,7 @@ export function ChecklistsAnalysePage() {
         const dup = { ...m, id: cryptoUuid(), title: `${m.title} (kopi)` }
         void dashboard.saveLayout([...dashboard.layout, dup])
       }}
+      onExportCsv={() => downloadCsv(widgetToCsv(m, datasets))}
       onRemove={() => {
         if (!window.confirm(`Fjerne widgeten «${m.title}»?`)) return
         void dashboard.saveLayout(dashboard.layout.filter((x) => x.id !== m.id))

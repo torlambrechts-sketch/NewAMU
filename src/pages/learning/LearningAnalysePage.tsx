@@ -18,6 +18,7 @@ import { DashboardAddWidgetPanel } from '../../components/module/dashboard/Dashb
 import { DashboardEditWidgetPanel } from '../../components/module/dashboard/DashboardEditWidgetPanel'
 import { DashboardWidgetMenu } from '../../components/module/dashboard/DashboardWidgetMenu'
 import { DashboardChooser } from '../../components/module/dashboard/DashboardChooser'
+import { downloadCsv, widgetToCsv } from '../../lib/reports/widgetCsv'
 import { defaultCompatibleKinds } from '../../components/module/dashboard/dashboardWidgetKinds'
 import { useOrgSetupContext } from '../../hooks/useOrgSetupContext'
 import { useLearning } from '../../hooks/useLearning'
@@ -526,6 +527,7 @@ export function LearningAnalysePage() {
         const dup = { ...m, id: cryptoUuid(), title: `${m.title} (kopi)` }
         void dashboard.saveLayout([...dashboard.layout, dup])
       }}
+      onExportCsv={() => downloadCsv(widgetToCsv(m, datasets))}
       onRemove={() => {
         if (!window.confirm(`Fjerne widgeten «${m.title}»?`)) return
         void dashboard.saveLayout(dashboard.layout.filter((x) => x.id !== m.id))

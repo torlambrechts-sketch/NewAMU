@@ -3,16 +3,17 @@
 // outside click or Escape.
 
 import { useEffect, useRef, useState } from 'react'
-import { Copy, Edit3, MoreHorizontal, Trash2 } from 'lucide-react'
+import { Copy, Download, Edit3, MoreHorizontal, Trash2 } from 'lucide-react'
 
 type Props = {
   onEdit: () => void
   onDuplicate?: () => void
   onRemove?: () => void
+  onExportCsv?: () => void
   ariaLabel?: string
 }
 
-export function DashboardWidgetMenu({ onEdit, onDuplicate, onRemove, ariaLabel }: Props) {
+export function DashboardWidgetMenu({ onEdit, onDuplicate, onRemove, onExportCsv, ariaLabel }: Props) {
   const [open, setOpen] = useState(false)
   const popRef = useRef<HTMLDivElement | null>(null)
 
@@ -74,6 +75,20 @@ export function DashboardWidgetMenu({ onEdit, onDuplicate, onRemove, ariaLabel }
             >
               <Copy className="h-4 w-4 text-neutral-500" aria-hidden />
               Dupliser
+            </button>
+          ) : null}
+          {onExportCsv ? (
+            <button
+              type="button"
+              role="menuitem"
+              onClick={() => {
+                setOpen(false)
+                onExportCsv()
+              }}
+              className="flex w-full items-center gap-2 border-t border-neutral-100 px-3 py-2 text-left text-sm text-neutral-800 hover:bg-neutral-50"
+            >
+              <Download className="h-4 w-4 text-neutral-500" aria-hidden />
+              Eksporter CSV
             </button>
           ) : null}
           {onRemove ? (

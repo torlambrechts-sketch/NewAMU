@@ -130,14 +130,14 @@ Reusable runtime that any module registers a "scope" with and consumes via `Modu
 | 3.3.1 | **Composite scopes** ("HMS Overview" mixing checklist + survey + avvik on one dashboard) | The registry is per-scope; we need a *composite* scope model that can pull datasets from multiple registered scopes, plus filter dimensions that apply across them. Worth designing only after a second module (survey) is registered so the abstraction has two real consumers. |
 | 3.3.2 | **Cross-scope filters** | A "Period" filter applied at composite level should fan out into each scope's `applyFilters`. Same dependency. |
 
-### 3.4 Outputs — 📋 planned
+### 3.4 Outputs
 
-| # | Item | Notes |
-|---|---|---|
-| 3.4.1 | **CSV export per widget** | Add a CSV download to the "..." menu. Tables map directly; bar/donut export the underlying segment table; KPI exports the value + filter context. |
-| 3.4.2 | **PDF export of the whole dashboard** | Print-friendly stylesheet, use a server-side render or `html2canvas`. Lower priority — PDF is heavy and people generally screenshot. |
-| 3.4.3 | **Scheduled email reports** | `report_runs` table from the older custom-reports stack already exists in archive. Wire a cron sender that re-renders a saved layout into HTML and emails it. Out of scope until 3.2.1–3.2.4 land. |
-| 3.4.4 | **Public share link** | Hash-token URL that exposes a read-only render of a single dashboard layout. RLS implications need careful design. |
+| # | Status | Item | Notes |
+|---|---|---|---|
+| 3.4.1 | ✅ | **CSV export per widget** | New `src/lib/reports/widgetCsv.ts` serialises any `ReportModule` + `datasets` into a CSV payload (per-kind: KPI = value+comparison; table/bar/donut = labelled rows; line = X/Y; heatmap = 2-D matrix). `DashboardWidgetMenu` exposes "Eksporter CSV"; wired on all four analyse pages with UTF-8 BOM so Excel renders æøå. |
+| 3.4.2 | 📋 | **PDF export of the whole dashboard** | Print-friendly stylesheet, use a server-side render or `html2canvas`. Lower priority — PDF is heavy and people generally screenshot. |
+| 3.4.3 | 📋 | **Scheduled email reports** | `report_runs` table from the older custom-reports stack already exists in archive. Wire a cron sender that re-renders a saved layout into HTML and emails it. Out of scope until 3.2.1–3.2.4 land. |
+| 3.4.4 | 📋 | **Public share link** | Hash-token URL that exposes a read-only render of a single dashboard layout. RLS implications need careful design. |
 
 ### 3.5 Engineering quality — 📋 planned
 
