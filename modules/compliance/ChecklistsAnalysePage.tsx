@@ -362,9 +362,12 @@ export function ChecklistsAnalysePage() {
         title="Analyse"
         description="Volum, status, alvorlighetsgrader og malbruk på tvers av alle sjekklistepakker."
         headerActions={
+          // Match the Button component's default secondary size so this
+          // sits flush with "Rediger oppsett" / "Legg til widget" added
+          // by ModuleAnalyticsDashboard.
           <Link
             to="/compliance/checklists"
-            className="inline-flex items-center gap-1.5 border border-neutral-300 bg-white px-3 py-2 text-sm font-medium text-neutral-700 hover:bg-neutral-50"
+            className="inline-flex items-center justify-center gap-1.5 rounded-md border border-neutral-300 bg-white px-4 py-2 text-sm font-semibold text-neutral-700 transition-colors hover:bg-neutral-50"
           >
             <ArrowLeft className="h-4 w-4" />
             Tilbake

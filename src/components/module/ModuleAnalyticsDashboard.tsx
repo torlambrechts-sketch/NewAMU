@@ -122,7 +122,6 @@ export function ModuleAnalyticsDashboard({
                 <Button
                   type="button"
                   variant="secondary"
-                  size="sm"
                   icon={<Edit3 className="h-4 w-4" />}
                   onClick={onEdit}
                 >
@@ -133,7 +132,6 @@ export function ModuleAnalyticsDashboard({
                 <Button
                   type="button"
                   variant="primary"
-                  size="sm"
                   icon={<Plus className="h-4 w-4" />}
                   onClick={onAddWidget}
                 >

@@ -19,11 +19,15 @@ import { getDashboardScope } from './dashboardRegistry'
 import type { DashboardFilter } from './dashboardFilters'
 import type { ReportModule } from '../../types/reportBuilder'
 
+// Loose widget shape — `passthrough()` keeps kind-specific fields
+// (valuePath, segmentsPath, seriesKeys, …) intact across the round-
+// trip even though they aren't in the explicit schema. The kind enum
+// must stay in sync with the union in src/types/reportBuilder.ts.
 const ReportModuleSchema = z.object({
   id: z.string(),
   title: z.string(),
   datasetKey: z.string(),
-  kind: z.enum(['kpi', 'table', 'bar', 'donut']),
+  kind: z.enum(['kpi', 'table', 'bar', 'donut', 'line']),
 }).passthrough()
 
 const DashboardLayoutRowSchema = z.object({
