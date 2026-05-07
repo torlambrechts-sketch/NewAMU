@@ -106,18 +106,25 @@ export function ChecklistsPage() {
   //   template → list scoped to pack, but aggregates re-run with the
   //              template_id filter so the boxes below the heading
   //              reflect only this template's executions.
+  // Depend on stable string ids — `focusedTemplate` is a memoised object
+  // that gets a new identity on every templates reload, which would cause
+  // the effect to re-fire after each `load()` and produce the bouncing
+  // numbers (template-scoped → pack-scoped → template-scoped → …).
+  const focusedTemplateId = focusedTemplate?.id ?? null
+  const focusedTemplatePack = focusedTemplate?.pack ?? null
+  const activePackSlug = activePack?.slug ?? null
   useEffect(() => {
     if (mode === 'hub') {
       void load()
-    } else if (focusedTemplate) {
+    } else if (focusedTemplateId && focusedTemplatePack) {
       void (async () => {
-        await load({ pack: focusedTemplate.pack })
-        await reloadAggregates(focusedTemplate.pack, focusedTemplate.id)
+        await load({ pack: focusedTemplatePack })
+        await reloadAggregates(focusedTemplatePack, focusedTemplateId)
       })()
-    } else if (activePack) {
-      void load({ pack: activePack.slug })
+    } else if (activePackSlug) {
+      void load({ pack: activePackSlug })
     }
-  }, [load, reloadAggregates, mode, activePack, focusedTemplate])
+  }, [load, reloadAggregates, mode, activePackSlug, focusedTemplateId, focusedTemplatePack])
 
   const visibleExecutions = useMemo(() => {
     if (mode === 'hub') return cl.executions
@@ -241,18 +248,22 @@ export function ChecklistsPage() {
           items={[
             {
               big: String(cl.aggregates.openCount),
-              title: pack.kpiLabels.open,
-              sub: 'Under behandling',
+              // Pack mode keeps the customer-tuned pack label (e.g.
+              // "Åpne vernerunder"); template mode falls back to a
+              // generic label so the box doesn't lie about which template
+              // it represents — the sub line carries the template name.
+              title: focusedTemplate ? 'Åpne kjøringer' : pack.kpiLabels.open,
+              sub: focusedTemplate ? focusedTemplate.name : 'Under behandling',
             },
             {
               big: String(cl.aggregates.criticalFindings),
-              title: pack.kpiLabels.critical,
+              title: focusedTemplate ? 'Kritiske funn' : pack.kpiLabels.critical,
               sub: 'Krever oppfølging',
             },
             {
               big: String(cl.aggregates.ytdCompleted),
-              title: pack.kpiLabels.ytd,
-              sub: 'Signert i år',
+              title: focusedTemplate ? 'Signert i år' : pack.kpiLabels.ytd,
+              sub: focusedTemplate ? focusedTemplate.name : 'Signert i år',
             },
           ]}
         />
