@@ -23,6 +23,8 @@ import { Tabs, type TabItem } from '../../src/components/ui/Tabs'
 import { useOrgSetupContext } from '../../src/hooks/useOrgSetupContext'
 import { useSurvey } from './useSurvey'
 import type { UseSurveyState } from './useSurvey'
+import { useSurveyOrgTemplates } from './useSurveyOrgTemplates'
+import { SurveyMetadataPanel } from './components/SurveyMetadataPanel'
 import { SurveyAttestasjonCard } from './SurveyAttestasjonCard'
 import { SurveyResponseReadPanel } from './SurveyResponseReadPanel'
 import { surveyStatusBadgeVariant, surveyStatusLabel } from './surveyLabels'
@@ -561,10 +563,12 @@ function SvarTab({
 export function SurveyDetailView({ supabase }: Props) {
   const { surveyId } = useParams<{ surveyId: string }>()
   const navigate = useNavigate()
-  const { organization, profile } = useOrgSetupContext()
+  const orgSetup = useOrgSetupContext()
+  const { organization, profile } = orgSetup
   const isOrgAdmin = profile?.is_org_admin === true
   const orgId = organization?.id
   const survey = useSurvey({ supabase })
+  const orgTemplates = useSurveyOrgTemplates({ supabase })
   const [tab, setTab] = useState<DetailTab>('oversikt')
   const [nameByUserId, setNameByUserId] = useState<Record<string, string>>({})
   const profileFetchId = useRef(0)
@@ -996,6 +1000,28 @@ export function SurveyDetailView({ supabase }: Props) {
           />
 
           {survey.error ? <WarningBox>{survey.error}</WarningBox> : null}
+
+          {/* Schema-driven hoveddata, visible across all tabs. The
+              template's metadata_schema declares which org-context and
+              free-form fields appear here; the existing OversiktTab
+              card keeps title/description editing for backward compat. */}
+          <SurveyMetadataPanel
+            survey={s}
+            templateMetadataSchema={
+              s.catalog_id
+                ? orgTemplates.templates.find((t) => t.catalogId === s.catalog_id)
+                    ?.metadataSchema ?? null
+                : null
+            }
+            locations={orgSetup.locations}
+            departments={orgSetup.departments}
+            teams={orgSetup.teams}
+            members={orgSetup.members}
+            hideUniversalFields
+            onSave={async (payload) => {
+              await survey.updateSurvey(s.id, payload)
+            }}
+          />
 
           {tab === 'oversikt' && (
             <OversiktTab

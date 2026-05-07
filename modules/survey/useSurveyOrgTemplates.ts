@@ -14,6 +14,7 @@ import { getSupabaseErrorMessage } from '../../src/lib/supabaseError'
 import type {
   SurveyOrgTemplateRow,
   SurveyPackSlug,
+  TemplateMetadataSchema,
 } from './types'
 import { SurveyOrgTemplateRowSchema } from './types'
 
@@ -52,6 +53,8 @@ export type ResolvedSurveyTemplate = {
   cadenceHint: string | null
   /** Optional category assignment. Null = "Uten kategori". */
   categoryId: string | null
+  /** Per-template metadata field declarations. */
+  metadataSchema: TemplateMetadataSchema
 }
 
 export type UseSurveyOrgTemplatesReturn = {
@@ -68,6 +71,8 @@ export type UseSurveyOrgTemplatesReturn = {
   ) => Promise<void>
   /** Assign / clear the category on an org-template override. */
   setCategoryId: (overrideId: string, categoryId: string | null) => Promise<void>
+  /** Replace the template's metadata_schema. */
+  setMetadataSchema: (overrideId: string, schema: TemplateMetadataSchema) => Promise<void>
 }
 
 type CatalogJoin = {
@@ -162,6 +167,7 @@ export function useSurveyOrgTemplates(
           reviewStatus: r.review_status,
           cadenceHint: r.cadence_hint,
           categoryId: r.category_id,
+          metadataSchema: r.metadata_schema,
         }
       })
   }, [rows])
@@ -184,6 +190,7 @@ export function useSurveyOrgTemplates(
         nav_pinned?: boolean
         review_status?: 'draft' | 'reviewed' | 'approved'
         category_id?: string | null
+        metadata_schema?: TemplateMetadataSchema
       },
     ): Promise<void> => {
       if (!supabase || !orgId) return
@@ -234,6 +241,12 @@ export function useSurveyOrgTemplates(
     [applyPatch],
   )
 
+  const setMetadataSchema = useCallback(
+    (overrideId: string, schema: TemplateMetadataSchema) =>
+      applyPatch(overrideId, { metadata_schema: schema }),
+    [applyPatch],
+  )
+
   return useMemo(
     () => ({
       loading,
@@ -245,6 +258,7 @@ export function useSurveyOrgTemplates(
       setNavPinned,
       setReviewStatus,
       setCategoryId,
+      setMetadataSchema,
     }),
     [
       loading,
@@ -256,6 +270,7 @@ export function useSurveyOrgTemplates(
       setNavPinned,
       setReviewStatus,
       setCategoryId,
+      setMetadataSchema,
     ],
   )
 }

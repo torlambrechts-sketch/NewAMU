@@ -669,10 +669,79 @@ export type SurveyOrgTemplateRow = {
   cadence_hint: string | null
   /** Optional grouping inside a pack (admin-defined). Null = "Uten kategori". */
   category_id: string | null
+  /** Field declarations driving the survey instance metadata editor. */
+  metadata_schema: TemplateMetadataSchema
   deleted_at: string | null
   created_by: string | null
   created_at: string
   updated_at: string
+}
+
+// ── Template metadata schema (module-agnostic shape; mirrors compliance) ──
+
+export type TemplateMetadataFieldKind =
+  | 'location'      // bound to surveys.location_id
+  | 'department'    // bound to surveys.department_id
+  | 'team'          // bound to surveys.team_id
+  | 'participants'  // bound to surveys.participant_member_ids
+  | 'text'          // free-form, lands in surveys.metadata[key]
+  | 'number'        // free-form numeric, lands in surveys.metadata[key]
+  | 'select'        // single-choice, lands in surveys.metadata[key]
+
+export type TemplateMetadataFieldOption = { id: string; label: string }
+
+export type TemplateMetadataField = {
+  key: string
+  kind: TemplateMetadataFieldKind
+  label?: string
+  help?: string
+  required?: boolean
+  options?: TemplateMetadataFieldOption[]
+}
+
+export type TemplateMetadataSchema = { fields: TemplateMetadataField[] }
+
+const METADATA_KINDS = new Set<TemplateMetadataFieldKind>([
+  'location',
+  'department',
+  'team',
+  'participants',
+  'text',
+  'number',
+  'select',
+])
+
+const TemplateMetadataFieldSchema: z.ZodType<TemplateMetadataField> = z.object({
+  key: z.string().min(1),
+  kind: z.enum(['location', 'department', 'team', 'participants', 'text', 'number', 'select']),
+  label: z.string().optional(),
+  help: z.string().optional(),
+  required: z.boolean().optional(),
+  options: z
+    .array(z.object({ id: z.string(), label: z.string() }))
+    .optional(),
+})
+
+const TemplateMetadataSchemaSchema: z.ZodType<TemplateMetadataSchema> = z.object({
+  fields: z.array(TemplateMetadataFieldSchema).default([]),
+})
+
+export function parseTemplateMetadataSchema(input: unknown): TemplateMetadataSchema {
+  if (input == null || typeof input !== 'object') return { fields: [] }
+  const strict = TemplateMetadataSchemaSchema.safeParse(input)
+  if (strict.success) return strict.data
+  const obj = input as { fields?: unknown }
+  if (!Array.isArray(obj.fields)) return { fields: [] }
+  const ok: TemplateMetadataField[] = []
+  for (const row of obj.fields) {
+    if (!row || typeof row !== 'object') continue
+    const r = row as Record<string, unknown>
+    if (typeof r.key !== 'string' || typeof r.kind !== 'string') continue
+    if (!METADATA_KINDS.has(r.kind as TemplateMetadataFieldKind)) continue
+    const parsed = TemplateMetadataFieldSchema.safeParse(r)
+    if (parsed.success) ok.push(parsed.data)
+  }
+  return { fields: ok }
 }
 
 export const SurveyOrgTemplateRowSchema: z.ZodType<SurveyOrgTemplateRow> = z.object({
@@ -688,6 +757,10 @@ export const SurveyOrgTemplateRowSchema: z.ZodType<SurveyOrgTemplateRow> = z.obj
   review_status: z.enum(['draft', 'reviewed', 'approved']),
   cadence_hint: z.string().nullable(),
   category_id: z.string().uuid().nullable().default(null),
+  metadata_schema: z
+    .unknown()
+    .transform((u) => parseTemplateMetadataSchema(u))
+    .default({ fields: [] }),
   deleted_at: z.string().nullable(),
   created_by: z.string().uuid().nullable(),
   created_at: z.string(),

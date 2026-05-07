@@ -605,6 +605,11 @@ export function useSurvey({ supabase }: UseSurveyInput): UseSurveyState {
           | 'vendor_org_number'
           | 'survey_purpose'
           | 'survey_amu_summary'
+          | 'location_id'
+          | 'department_id'
+          | 'team_id'
+          | 'participant_member_ids'
+          | 'metadata'
         >
       >,
     ) => {
