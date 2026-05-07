@@ -541,3 +541,115 @@ export const SURVEY_TYPE_LABEL: Record<SurveyType, string> = {
   exit: 'Sluttsamtale',
   onboarding: 'Onboarding',
 }
+
+// ── Survey packs (regulation lens; see GLOBAL_SURVEY_PLAN.md §2.1) ─────────
+
+export type SurveyPackSlug =
+  | 'vendor'
+  | 'arbeidsmiljo'
+  | 'compliance'
+  | 'engagement'
+  | 'exit'
+
+export type SurveyPackLegalReference = {
+  code: string
+  text: string
+}
+
+export type SurveyPackKpiLabels = {
+  open: string
+  critical: string
+  ytd: string
+}
+
+export type SurveyPackRow = {
+  id: string
+  organization_id: string
+  slug: SurveyPackSlug
+  short_name: string
+  plural_label: string
+  cta_label: string
+  description: string
+  legal_references: SurveyPackLegalReference[]
+  kpi_labels: SurveyPackKpiLabels
+  requires_publish_snapshot: boolean
+  default_anonymous: boolean
+  default_anonymity_threshold: number
+  position: number
+  is_active: boolean
+  deleted_at: string | null
+  created_by: string | null
+  created_at: string
+  updated_at: string
+}
+
+const SurveyPackLegalReferenceSchema: z.ZodType<SurveyPackLegalReference> = z.object({
+  code: z.string(),
+  text: z.string(),
+})
+
+const SurveyPackKpiLabelsSchema: z.ZodType<SurveyPackKpiLabels> = z.object({
+  open: z.string(),
+  critical: z.string(),
+  ytd: z.string(),
+})
+
+export const SurveyPackRowSchema: z.ZodType<SurveyPackRow> = z.object({
+  id: z.string().uuid(),
+  organization_id: z.string().uuid(),
+  slug: z.enum(['vendor', 'arbeidsmiljo', 'compliance', 'engagement', 'exit']),
+  short_name: z.string(),
+  plural_label: z.string(),
+  cta_label: z.string(),
+  description: z.string(),
+  legal_references: z.array(SurveyPackLegalReferenceSchema),
+  kpi_labels: SurveyPackKpiLabelsSchema,
+  requires_publish_snapshot: z.boolean(),
+  default_anonymous: z.boolean(),
+  default_anonymity_threshold: z.number().int(),
+  position: z.number().int(),
+  is_active: z.boolean(),
+  deleted_at: z.string().nullable(),
+  created_by: z.string().uuid().nullable(),
+  created_at: z.string(),
+  updated_at: z.string(),
+})
+
+// ── Survey org templates (per-org overrides + nav_pinned) ─────────────────
+
+export type SurveyOrgTemplateRow = {
+  id: string
+  organization_id: string
+  catalog_id: string
+  pack: SurveyPackSlug
+  /** NULL = inherit from catalog; non-NULL = org override. */
+  name_override: string | null
+  description_override: string | null
+  body_override: unknown | null
+  nav_pinned: boolean
+  is_active: boolean
+  review_status: 'draft' | 'reviewed' | 'approved'
+  cadence_hint: string | null
+  deleted_at: string | null
+  created_by: string | null
+  created_at: string
+  updated_at: string
+}
+
+export const SurveyOrgTemplateRowSchema: z.ZodType<SurveyOrgTemplateRow> = z.object({
+  id: z.string().uuid(),
+  organization_id: z.string().uuid(),
+  catalog_id: z.string(),
+  pack: z.enum(['vendor', 'arbeidsmiljo', 'compliance', 'engagement', 'exit']),
+  name_override: z.string().nullable(),
+  description_override: z.string().nullable(),
+  body_override: z.unknown().nullable(),
+  nav_pinned: z.boolean(),
+  is_active: z.boolean(),
+  review_status: z.enum(['draft', 'reviewed', 'approved']),
+  cadence_hint: z.string().nullable(),
+  deleted_at: z.string().nullable(),
+  created_by: z.string().uuid().nullable(),
+  created_at: z.string(),
+  updated_at: z.string(),
+})
