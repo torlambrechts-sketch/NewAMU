@@ -103,6 +103,14 @@ export type SurveyRow = {
   pack: SurveyPackSlug
   /** Hvilken katalogmal denne kjøringen ble spunnet ut fra (null = ingen mal). */
   catalog_id: string | null
+  /** Optional org-context FKs surfaced on the survey instance. */
+  location_id: string | null
+  department_id: string | null
+  team_id: string | null
+  /** Tracked org-member participants. References organization_members.id. */
+  participant_member_ids: string[]
+  /** Free-form per-template metadata (driven by org_template.metadata_schema). */
+  metadata: Record<string, unknown>
 }
 
 export const SurveyRowSchema = z.object({
@@ -130,11 +138,21 @@ export const SurveyRowSchema = z.object({
   survey_amu_summary: z.string().nullable().optional(),
   pack: z.enum(['vendor', 'arbeidsmiljo', 'compliance', 'engagement', 'exit']).default('engagement'),
   catalog_id: z.string().nullable().optional(),
+  location_id: z.string().uuid().nullable().optional(),
+  department_id: z.string().uuid().nullable().optional(),
+  team_id: z.string().uuid().nullable().optional(),
+  participant_member_ids: z.array(z.string().uuid()).optional(),
+  metadata: z.record(z.string(), z.unknown()).optional(),
 }).transform((row) => ({
   ...row,
   survey_purpose: row.survey_purpose ?? null,
   survey_amu_summary: row.survey_amu_summary ?? null,
   catalog_id: row.catalog_id ?? null,
+  location_id: row.location_id ?? null,
+  department_id: row.department_id ?? null,
+  team_id: row.team_id ?? null,
+  participant_member_ids: row.participant_member_ids ?? [],
+  metadata: row.metadata ?? {},
 }))
 
 export function parseSurveyRow(
