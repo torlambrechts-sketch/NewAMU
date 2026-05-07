@@ -9,6 +9,11 @@ export type ReportDatasetKey =
   | 'sick_leave_summary'
   | 'correlation_summary'
   | 'cost_friction_summary'
+  | 'checklist_kpi_summary'
+  | 'checklist_executions_by_status'
+  | 'checklist_findings_by_severity'
+  | 'checklist_executions_by_template'
+  | 'checklist_executions_by_pack'
 
 export type ReportModuleKind = 'kpi' | 'table' | 'bar' | 'donut'
 

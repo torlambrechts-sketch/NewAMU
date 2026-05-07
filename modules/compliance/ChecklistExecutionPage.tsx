@@ -4,7 +4,7 @@
 // severity + comment. Saves each response on commit. Signing locks the row.
 
 import { useEffect, useMemo, useState } from 'react'
-import { Link, useParams } from 'react-router-dom'
+import { Link, useNavigate, useParams } from 'react-router-dom'
 import { Archive, ArrowLeft, CheckCircle2, Circle, Lock, ShieldCheck } from 'lucide-react'
 import { ModulePageShell } from '../../src/components/module/ModulePageShell'
 import { ModuleSectionCard } from '../../src/components/module/ModuleSectionCard'
@@ -19,6 +19,7 @@ import { useChecklistModule } from './useChecklistModule'
 import { parseChecklistDefinition } from './schema'
 import { SeverityBadge } from './components/SeverityBadge'
 import { PhotoItemControl } from './components/PhotoItemControl'
+import { ExecutionMetadataPanel } from './components/ExecutionMetadataPanel'
 import type {
   ChecklistItem,
   ComplianceExecutionRow,
@@ -47,10 +48,11 @@ function readValue(value: unknown): Record<string, unknown> {
 export function ChecklistExecutionPage() {
   const params = useParams<{ executionId: string }>()
   const executionId = params.executionId ?? ''
+  const navigate = useNavigate()
   const pack = useActivePack()
   const { supabase } = useOrgSetupContext()
   const cl = useChecklistModule({ supabase })
-  const { load, loadDetail, saveResponse, signExecution } = cl
+  const { load, loadDetail, saveResponse, signExecution, updateExecutionMetadata } = cl
 
   const [activeFinding, setActiveFinding] = useState<Record<string, boolean>>({})
 
@@ -94,9 +96,25 @@ export function ChecklistExecutionPage() {
   const findingsCount = Object.values(responsesByKey).filter((r) => r.is_finding).length
   const readOnly = execution?.status === 'signed'
 
+  // Back link returns to the template's execution list (?template=…&pack=…)
+  // when we know which template this came from. Without that, we fall back
+  // to the pack lens; without that, the hub.
+  const templateBackUrl = useMemo(() => {
+    if (template) {
+      return `/compliance/checklists?template=${encodeURIComponent(template.slug)}&pack=${encodeURIComponent(template.pack)}`
+    }
+    if (execution) {
+      return `/compliance/checklists?pack=${encodeURIComponent(execution.pack)}`
+    }
+    return '/compliance/checklists'
+  }, [template, execution])
+
   const onSign = async () => {
     if (!executionId) return
     await signExecution(executionId)
+    // Land back on the template page so the user sees their newly-signed
+    // checklist in the list and can start the next one.
+    navigate(templateBackUrl)
   }
 
   if (!execution) {
@@ -104,7 +122,7 @@ export function ChecklistExecutionPage() {
       <ModulePageShell
         breadcrumb={[
           { label: 'HMS' },
-          { label: pack.pluralLabel, to: '/compliance/checklists' },
+          { label: 'Sjekklister', to: '/compliance/checklists' },
           { label: '…' },
         ]}
         title="Laster …"
@@ -120,7 +138,10 @@ export function ChecklistExecutionPage() {
     <ModulePageShell
       breadcrumb={[
         { label: 'HMS' },
-        { label: pack.pluralLabel, to: '/compliance/checklists' },
+        { label: 'Sjekklister', to: '/compliance/checklists' },
+        ...(template
+          ? [{ label: template.name, to: templateBackUrl }]
+          : [{ label: pack.pluralLabel, to: templateBackUrl }]),
         { label: execution.title },
       ]}
       title={execution.title}
@@ -128,7 +149,7 @@ export function ChecklistExecutionPage() {
       headerActions={
         <div className="flex items-center gap-2">
           <Link
-            to="/compliance/checklists"
+            to={templateBackUrl}
             className="inline-flex items-center gap-1.5 border border-neutral-300 bg-white px-3 py-2 text-sm font-medium text-neutral-700 hover:bg-neutral-50"
           >
             <ArrowLeft className="h-4 w-4" />
@@ -194,9 +215,16 @@ export function ChecklistExecutionPage() {
 
         {readOnly ? (
           <InfoBox>
-            Sjekklisten er signert {execution.signed_at ? `(${new Date(execution.signed_at).toLocaleString('nb-NO')})` : ''}. Innhold og svar er låst.
+            Sjekklisten er signert {execution.signed_at ? `(${new Date(execution.signed_at).toLocaleString('nb-NO')})` : ''}.
+            {' '}Svar og spørsmål er låst, men tittel, sammendrag og deltakere kan fortsatt redigeres som etterregistrering.
           </InfoBox>
         ) : null}
+
+        <ExecutionMetadataPanel
+          execution={execution}
+          assignableUsers={cl.assignableUsers}
+          onSave={(payload) => updateExecutionMetadata({ executionId, ...payload })}
+        />
 
         <ModuleSectionCard className="p-5 md:p-6">
           <h2 className="text-lg font-semibold text-neutral-900">Punkter</h2>

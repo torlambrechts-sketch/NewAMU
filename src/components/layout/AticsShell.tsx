@@ -30,6 +30,7 @@ import {
   Shield,
   ShieldAlert,
   ShieldCheck,
+  Settings,
   Users,
   UsersRound,
   Vote,
@@ -802,6 +803,27 @@ export function AticsShell() {
   const complianceNav = useComplianceNav()
   const surveyNav = useSurveyNav()
   const mergedNavGroups = useMemo<NavGroup[]>(() => {
+    // Fixed sub-entries that always sit under "Sjekklister" — Analyse and
+    // Innstillinger live here so the user has a clear path to org-level
+    // dashboards and pack/template configuration without leaving the menu
+    // group. Pinned templates follow.
+    const complianceFixedSubs: SubItem[] = [
+      {
+        label: 'Analyse',
+        path: '/compliance/checklists/analyse',
+        Icon: BarChart3,
+        match: ({ pathname }) => pathname === '/compliance/checklists/analyse',
+        requirePermAny: COMPLIANCE_NAV_PERMS,
+      },
+      {
+        label: 'Innstillinger',
+        path: '/compliance/checklists/admin',
+        Icon: Settings,
+        match: ({ pathname }) => pathname.startsWith('/compliance/checklists/admin'),
+        requirePermAny: COMPLIANCE_NAV_PERMS,
+      },
+    ]
+
     const compliancePinnedSubs: SubItem[] = complianceNav.items.map((item) => ({
       label: item.name,
       path: item.to,
@@ -822,7 +844,7 @@ export function AticsShell() {
           label: 'Sjekklister',
           end: false,
           icon: ClipboardList,
-          subs: compliancePinnedSubs,
+          subs: [...complianceFixedSubs, ...compliancePinnedSubs],
           permAny: COMPLIANCE_NAV_PERMS,
           flatSubs: true,
         },

@@ -81,6 +81,7 @@ export const ComplianceExecutionRowSchema: z.ZodType<ComplianceExecutionRow> = z
   archived_at: z.string().nullable().default(null),
   archived_by: z.string().uuid().nullable().default(null),
   summary: z.string().nullable(),
+  attendees: z.array(z.string()).default([]),
   deleted_at: z.string().nullable(),
   created_by: z.string().uuid().nullable(),
   created_at: TimestampSchema,

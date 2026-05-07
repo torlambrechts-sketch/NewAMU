@@ -86,6 +86,8 @@ export type ComplianceExecutionRow = {
   archived_at: string | null
   archived_by: string | null
   summary: string | null
+  /** Free-form attendee names. Amendable post-sign (not part of the digest). */
+  attendees: string[]
   deleted_at: string | null
   created_by: string | null
   created_at: string

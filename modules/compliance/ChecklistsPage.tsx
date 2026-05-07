@@ -17,7 +17,7 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
-import { ChevronRight, Plus, Settings } from 'lucide-react'
+import { BarChart3, ChevronRight, Plus, Settings } from 'lucide-react'
 import { ModulePageShell } from '../../src/components/module/ModulePageShell'
 import { ModuleLegalBanner } from '../../src/components/module/ModuleLegalBanner'
 import { LayoutScoreStatRow } from '../../src/components/layout/LayoutScoreStatRow'
@@ -139,13 +139,24 @@ export function ChecklistsPage() {
         title="Sjekklister"
         description="Velg en mal eller pakke for å starte. Maler markert i menyen vises som faste valg."
         headerActions={
-          <Link
-            to="/compliance/checklists/admin"
-            aria-label="Innstillinger"
-            className="inline-flex items-center border border-neutral-300 bg-white px-3 py-2 text-neutral-600 transition-colors hover:bg-neutral-50"
-          >
-            <Settings className="h-4 w-4" aria-hidden />
-          </Link>
+          <div className="flex items-center gap-2">
+            <Link
+              to="/compliance/checklists/analyse"
+              aria-label="Analyse"
+              className="inline-flex items-center gap-1.5 border border-neutral-300 bg-white px-3 py-2 text-sm font-medium text-neutral-700 transition-colors hover:bg-neutral-50"
+            >
+              <BarChart3 className="h-4 w-4" aria-hidden />
+              <span className="hidden sm:inline">Analyse</span>
+            </Link>
+            <Link
+              to="/compliance/checklists/admin"
+              aria-label="Innstillinger"
+              className="inline-flex items-center gap-1.5 border border-neutral-300 bg-white px-3 py-2 text-sm font-medium text-neutral-700 transition-colors hover:bg-neutral-50"
+            >
+              <Settings className="h-4 w-4" aria-hidden />
+              <span className="hidden sm:inline">Innstillinger</span>
+            </Link>
+          </div>
         }
       >
         <div className="space-y-6">
@@ -192,13 +203,6 @@ export function ChecklistsPage() {
       description={pageDescription}
       headerActions={
         <div className="flex items-center gap-2">
-          <Link
-            to="/compliance/checklists/admin"
-            aria-label="Innstillinger"
-            className="inline-flex items-center border border-neutral-300 bg-white px-3 py-2 text-neutral-600 transition-colors hover:bg-neutral-50"
-          >
-            <Settings className="h-4 w-4" aria-hidden />
-          </Link>
           <Button
             variant="primary"
             icon={<Plus className="h-4 w-4" />}

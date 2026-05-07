@@ -64,6 +64,20 @@ export type ChecklistModuleState = {
   /** Archive a signed execution (one-way; cannot be undone). */
   archiveExecution: (executionId: string) => Promise<void>
 
+  /**
+   * Amend non-canonical metadata (title, summary, attendees, assignment,
+   * schedule). Allowed even on signed executions — these fields don't feed
+   * the sign_checksum digest.
+   */
+  updateExecutionMetadata: (payload: {
+    executionId: string
+    title?: string
+    summary?: string | null
+    attendees?: string[]
+    assignedTo?: string | null
+    scheduledFor?: string | null
+  }) => Promise<void>
+
   uploadResponseAttachment: (payload: {
     executionId: string
     itemKey: string
@@ -534,6 +548,57 @@ export function useChecklistModule(
     [supabase, orgId, canManage, executions],
   )
 
+  // Amendable metadata. Allowed both pre- and post-sign — the BEFORE UPDATE
+  // trigger keeps the canonical signed state (definition_snapshot, signed_at,
+  // signed_by, sign_checksum, status going backward) locked, but lets these
+  // soft fields flow through. Used for editing title / summary / attendees
+  // on a finished checklist when the AMU realises a name was misspelled or
+  // wants to add a late attendee.
+  const updateExecutionMetadata = useCallback(
+    async (payload: {
+      executionId: string
+      title?: string
+      summary?: string | null
+      attendees?: string[]
+      assignedTo?: string | null
+      scheduledFor?: string | null
+    }): Promise<void> => {
+      if (!supabase || !orgId) return
+      if (!canManage) {
+        setError('Du har ikke tilgang til å oppdatere sjekklister.')
+        return
+      }
+      setError(null)
+
+      const update: Record<string, unknown> = {}
+      if (payload.title !== undefined) update.title = payload.title
+      if (payload.summary !== undefined) update.summary = payload.summary
+      if (payload.attendees !== undefined) update.attendees = payload.attendees
+      if (payload.assignedTo !== undefined) update.assigned_to = payload.assignedTo
+      if (payload.scheduledFor !== undefined) update.scheduled_for = payload.scheduledFor
+      if (Object.keys(update).length === 0) return
+
+      try {
+        const { data, error: upErr } = await supabase
+          .from('compliance_checklist_executions')
+          .update(update)
+          .eq('id', payload.executionId)
+          .eq('organization_id', orgId)
+          .select('*')
+          .single()
+        if (upErr) throw upErr
+
+        const parsed = ComplianceExecutionRowSchema.safeParse(data)
+        if (parsed.success) {
+          setExecutions((prev) => prev.map((e) => (e.id === parsed.data.id ? parsed.data : e)))
+        }
+      } catch (unknownError) {
+        setError(getSupabaseErrorMessage(unknownError))
+      }
+    },
+    [supabase, orgId, canManage],
+  )
+
   // ── Attachments (Supabase Storage) ───────────────────────────────────────
 
   const uploadResponseAttachment = useCallback(
@@ -890,6 +955,7 @@ export function useChecklistModule(
       saveResponse,
       signExecution,
       archiveExecution,
+      updateExecutionMetadata,
       uploadResponseAttachment,
       removeResponseAttachment,
       signAttachmentUrl,
@@ -916,6 +982,7 @@ export function useChecklistModule(
       saveResponse,
       signExecution,
       archiveExecution,
+      updateExecutionMetadata,
       uploadResponseAttachment,
       removeResponseAttachment,
       signAttachmentUrl,
