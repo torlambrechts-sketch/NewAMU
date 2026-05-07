@@ -8,10 +8,12 @@
 // adds the Edit Layout / Add Widget callbacks the runtime already has
 // hooks for.
 
-import { useEffect, useMemo } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { ArrowLeft, BarChart3 } from 'lucide-react'
 import { ModuleAnalyticsDashboard } from '../../src/components/module/ModuleAnalyticsDashboard'
+import { DashboardEditLayoutPanel } from '../../src/components/module/dashboard/DashboardEditLayoutPanel'
+import { DashboardAddWidgetPanel } from '../../src/components/module/dashboard/DashboardAddWidgetPanel'
 import { useLicensedPacks } from '../../src/context/packContextValue'
 import { useOrgSetupContext } from '../../src/hooks/useOrgSetupContext'
 import {
@@ -19,9 +21,10 @@ import {
   // Side-effect import: registers the scope on module load.
 } from './dashboards/checklistDashboardScope'
 import './dashboards/checklistDashboardScope'
-import { getDashboardScope } from '../../src/lib/dashboards/dashboardRegistry'
+import { useDashboardLayout } from '../../src/lib/dashboards/useDashboardLayout'
 import { useChecklistModule } from './useChecklistModule'
 import type { ComplianceSeverity } from './types'
+import type { ReportModule } from '../../src/types/reportBuilder'
 
 export function ChecklistsAnalysePage() {
   const { supabase } = useOrgSetupContext()
@@ -113,22 +116,22 @@ export function ChecklistsAnalysePage() {
     } as Record<string, unknown>
   }, [cl.executions, cl.responsesByExecutionId, cl.templates, packs])
 
-  // Hydrate layout from the registered default. Bar widgets that ship
-  // with empty seriesKeys (catalog templates) get their keys filled in
-  // from the live dataset so the bar renders without a separate config
-  // step. Phase 2 will swap this for a persisted layout when one exists.
-  const layout = useMemo(() => {
-    const scope = getDashboardScope(CHECKLIST_DASHBOARD_SCOPE_ID)
-    if (!scope) return []
-    return scope.defaultLayout.map((m) => {
-      if (m.kind === 'bar' && m.seriesKeys.length === 0) {
-        const ds = datasets[m.datasetKey] as Record<string, unknown> | undefined
-        const keys = ds && typeof ds === 'object' ? Object.keys(ds) : []
-        return { ...m, seriesKeys: keys }
-      }
-      return m
-    })
-  }, [datasets])
+  // Layout: persisted dashboard_layouts row when one exists, otherwise
+  // the registry default. Either way bar widgets with empty seriesKeys
+  // get their keys filled from the live dataset so the bar renders.
+  const dashboard = useDashboardLayout({ supabase, scopeId: CHECKLIST_DASHBOARD_SCOPE_ID })
+  const layout = useMemo(
+    () =>
+      dashboard.layout.map((m) => {
+        if (m.kind === 'bar' && m.seriesKeys.length === 0) {
+          const ds = datasets[m.datasetKey] as Record<string, unknown> | undefined
+          const keys = ds && typeof ds === 'object' ? Object.keys(ds) : []
+          return { ...m, seriesKeys: keys }
+        }
+        return m
+      }),
+    [dashboard.layout, datasets],
+  )
 
   const empty =
     cl.executions.length === 0 ? (
@@ -141,29 +144,51 @@ export function ChecklistsAnalysePage() {
       </div>
     ) : null
 
+  const [editOpen, setEditOpen] = useState(false)
+  const [addOpen, setAddOpen] = useState(false)
+
   return (
-    <ModuleAnalyticsDashboard
-      breadcrumb={[
-        { label: 'HMS' },
-        { label: 'Sjekklister', to: '/compliance/checklists' },
-        { label: 'Analyse' },
-      ]}
-      title="Analyse"
-      description="Volum, status, alvorlighetsgrader og malbruk på tvers av alle sjekklistepakker."
-      headerActions={
-        <Link
-          to="/compliance/checklists"
-          className="inline-flex items-center gap-1.5 border border-neutral-300 bg-white px-3 py-2 text-sm font-medium text-neutral-700 hover:bg-neutral-50"
-        >
-          <ArrowLeft className="h-4 w-4" />
-          Tilbake
-        </Link>
-      }
-      layout={layout}
-      datasets={datasets}
-      loading={cl.loading}
-      error={cl.error}
-      emptyState={empty}
-    />
+    <>
+      <ModuleAnalyticsDashboard
+        breadcrumb={[
+          { label: 'HMS' },
+          { label: 'Sjekklister', to: '/compliance/checklists' },
+          { label: 'Analyse' },
+        ]}
+        title="Analyse"
+        description="Volum, status, alvorlighetsgrader og malbruk på tvers av alle sjekklistepakker."
+        headerActions={
+          <Link
+            to="/compliance/checklists"
+            className="inline-flex items-center gap-1.5 border border-neutral-300 bg-white px-3 py-2 text-sm font-medium text-neutral-700 hover:bg-neutral-50"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            Tilbake
+          </Link>
+        }
+        layout={layout}
+        datasets={datasets}
+        loading={cl.loading || dashboard.loading}
+        error={cl.error ?? dashboard.error}
+        emptyState={empty}
+        onEdit={() => setEditOpen(true)}
+        onAddWidget={() => setAddOpen(true)}
+      />
+
+      <DashboardEditLayoutPanel
+        open={editOpen}
+        onClose={() => setEditOpen(false)}
+        layout={dashboard.layout}
+        onSave={(next) => dashboard.saveLayout(next)}
+        onResetToDefault={dashboard.isDefault ? undefined : () => dashboard.resetToDefault()}
+      />
+
+      <DashboardAddWidgetPanel
+        open={addOpen}
+        onClose={() => setAddOpen(false)}
+        scopeId={CHECKLIST_DASHBOARD_SCOPE_ID}
+        onAdd={(widget: ReportModule) => dashboard.saveLayout([...dashboard.layout, widget])}
+      />
+    </>
   )
 }
