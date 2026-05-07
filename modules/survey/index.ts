@@ -13,3 +13,9 @@ export type {
   UseSurveyOrgTemplatesReturn,
   ResolvedSurveyTemplate,
 } from './useSurveyOrgTemplates'
+export { useVendors } from './useVendors'
+export type {
+  UseVendorsReturn,
+  CreateVendorInput,
+  UpdateVendorInput,
+} from './useVendors'

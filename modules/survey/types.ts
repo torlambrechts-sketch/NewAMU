@@ -653,3 +653,45 @@ export const SurveyOrgTemplateRowSchema: z.ZodType<SurveyOrgTemplateRow> = z.obj
   created_at: z.string(),
   updated_at: z.string(),
 })
+
+// ── Vendors (used by vendor-pack surveys) ────────────────────────────────
+
+export type VendorStatus = 'active' | 'inactive' | 'offboarded'
+
+export type VendorRow = {
+  id: string
+  organization_id: string
+  display_name: string
+  org_number: string | null
+  primary_email: string | null
+  contact_name: string | null
+  status: VendorStatus
+  metadata: Record<string, unknown>
+  is_active: boolean
+  deleted_at: string | null
+  created_by: string | null
+  created_at: string
+  updated_at: string
+}
+
+export const VendorRowSchema: z.ZodType<VendorRow> = z.object({
+  id: z.string().uuid(),
+  organization_id: z.string().uuid(),
+  display_name: z.string(),
+  org_number: z.string().nullable(),
+  primary_email: z.string().nullable(),
+  contact_name: z.string().nullable(),
+  status: z.enum(['active', 'inactive', 'offboarded']),
+  metadata: z.record(z.string(), z.unknown()).default({}),
+  is_active: z.boolean(),
+  deleted_at: z.string().nullable(),
+  created_by: z.string().uuid().nullable(),
+  created_at: z.string(),
+  updated_at: z.string(),
+})
+
+export const VENDOR_STATUS_LABEL: Record<VendorStatus, string> = {
+  active: 'Aktiv',
+  inactive: 'Inaktiv',
+  offboarded: 'Avsluttet',
+}
