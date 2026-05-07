@@ -10,7 +10,7 @@
 //                  apply requirement junction changes.
 
 import { useEffect, useMemo, useState } from 'react'
-import { Plus, Trash2 } from 'lucide-react'
+import { ChevronDown, ChevronUp, Plus, Trash2 } from 'lucide-react'
 import { FormModal } from '../../../src/template'
 import { Button } from '../../../src/components/ui/Button'
 import { StandardInput } from '../../../src/components/ui/Input'
@@ -33,6 +33,8 @@ import type {
   ChecklistItemType,
   ComplianceSeverity,
   ComplianceTemplateRow,
+  TemplateMetadataField,
+  TemplateMetadataFieldKind,
 } from '../types'
 
 const ITEM_TYPE_OPTIONS: { value: ChecklistItemType; label: string }[] = [
@@ -75,6 +77,9 @@ export function TemplateEditorPanel({ mode, template, onClose, onSaved }: Props)
   const [items, setItems] = useState<ChecklistItem[]>(initialItems)
   const [requirementIds, setRequirementIds] = useState<string[]>([])
   const [categoryId, setCategoryId] = useState<string>(template?.category_id ?? '')
+  const [metadataFields, setMetadataFields] = useState<TemplateMetadataField[]>(
+    template?.metadata_schema?.fields ?? [],
+  )
   const [submitting, setSubmitting] = useState(false)
   const [localError, setLocalError] = useState<string | null>(null)
 
@@ -146,8 +151,12 @@ export function TemplateEditorPanel({ mode, template, onClose, onSaved }: Props)
           setSubmitting(false)
           return
         }
-        if (categoryId) {
-          await cl.updateTemplate({ templateId: id, category_id: categoryId })
+        if (categoryId || metadataFields.length > 0) {
+          await cl.updateTemplate({
+            templateId: id,
+            category_id: categoryId || null,
+            metadata_schema: { fields: metadataFields },
+          })
         }
         if (requirementIds.length > 0) {
           await cl.setTemplateRequirements(id, requirementIds)
@@ -159,6 +168,7 @@ export function TemplateEditorPanel({ mode, template, onClose, onSaved }: Props)
           description: description.trim() || null,
           definition: { items },
           category_id: categoryId === '' ? null : categoryId,
+          metadata_schema: { fields: metadataFields },
         })
         await cl.setTemplateRequirements(template.id, requirementIds)
       }
@@ -266,6 +276,90 @@ export function TemplateEditorPanel({ mode, template, onClose, onSaved }: Props)
                 onChange={setCategoryId}
                 placeholder="Uten kategori"
               />
+            </div>
+          </div>
+        </div>
+
+        {/* ── Metadata schema (per-template fields) ──────────────────────── */}
+        <div className={WPSTD_FORM_ROW_GRID}>
+          <p className={WPSTD_FORM_LEAD}>
+            Felt som vises i hoveddata-panelet på utførelsen — for eksempel
+            lokasjon for vernerunder, eller deltakere for AMU-protokoll.
+            Innebygde typer (lokasjon, avdeling, team, deltakere) kobles
+            mot organisasjonsstrukturen og er filtrerbare i analyse.
+          </p>
+          <div>
+            <p className={WPSTD_FORM_FIELD_LABEL}>Hoveddata-felt</p>
+            <ul className="mt-1.5 space-y-2">
+              {metadataFields.length === 0 ? (
+                <li className="rounded-md border border-dashed border-neutral-300 bg-neutral-50/50 p-4 text-center text-xs text-neutral-500">
+                  Ingen ekstra felt definert. Trykk «Legg til felt» for å begynne.
+                </li>
+              ) : (
+                metadataFields.map((f, idx) => (
+                  <MetadataFieldRow
+                    key={`${f.key}-${idx}`}
+                    field={f}
+                    onChange={(next) =>
+                      setMetadataFields((prev) =>
+                        prev.map((x, i) => (i === idx ? next : x)),
+                      )
+                    }
+                    onRemove={() =>
+                      setMetadataFields((prev) => prev.filter((_, i) => i !== idx))
+                    }
+                    onMove={(dir) =>
+                      setMetadataFields((prev) => {
+                        const target = idx + dir
+                        if (target < 0 || target >= prev.length) return prev
+                        const copy = [...prev]
+                        const [picked] = copy.splice(idx, 1)
+                        if (!picked) return prev
+                        copy.splice(target, 0, picked)
+                        return copy
+                      })
+                    }
+                    disableUp={idx === 0}
+                    disableDown={idx === metadataFields.length - 1}
+                  />
+                ))
+              )}
+            </ul>
+            <div className="mt-3 flex flex-wrap gap-2">
+              <Button
+                type="button"
+                variant="secondary"
+                size="sm"
+                icon={<Plus className="h-3.5 w-3.5" />}
+                onClick={() =>
+                  setMetadataFields((prev) => [
+                    ...prev,
+                    {
+                      key: `field_${prev.length + 1}`,
+                      kind: 'text',
+                      label: '',
+                      required: false,
+                    },
+                  ])
+                }
+              >
+                Legg til felt
+              </Button>
+              {metadataFields.length === 0 ? (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() =>
+                    setMetadataFields([
+                      { key: 'location', kind: 'location', required: true },
+                      { key: 'participants', kind: 'participants', required: true },
+                    ])
+                  }
+                >
+                  Bruk anbefalt for vernerunde
+                </Button>
+              ) : null}
             </div>
           </div>
         </div>
@@ -530,5 +624,158 @@ function ItemEditor({
         <span>Påkrevd for å kunne signere</span>
       </label>
     </div>
+  )
+}
+
+// ── Metadata schema field row ──────────────────────────────────────────────
+
+const METADATA_KIND_OPTIONS: { value: TemplateMetadataFieldKind; label: string }[] = [
+  { value: 'location', label: 'Lokasjon (org-FK)' },
+  { value: 'department', label: 'Avdeling (org-FK)' },
+  { value: 'team', label: 'Team (org-FK)' },
+  { value: 'participants', label: 'Deltakere (medlemmer)' },
+  { value: 'text', label: 'Fritekst' },
+  { value: 'number', label: 'Tall' },
+  { value: 'select', label: 'Valg fra liste' },
+]
+
+function MetadataFieldRow({
+  field,
+  onChange,
+  onRemove,
+  onMove,
+  disableUp,
+  disableDown,
+}: {
+  field: TemplateMetadataField
+  onChange: (next: TemplateMetadataField) => void
+  onRemove: () => void
+  onMove: (dir: -1 | 1) => void
+  disableUp: boolean
+  disableDown: boolean
+}) {
+  return (
+    <li className="rounded-md border border-neutral-200 bg-white p-3">
+      <div className="flex flex-wrap items-start gap-2">
+        <div className="grid min-w-0 flex-1 grid-cols-1 gap-2 sm:grid-cols-2">
+          <div>
+            <p className={`${WPSTD_FORM_FIELD_LABEL} mb-1`}>Type</p>
+            <SearchableSelect
+              value={field.kind}
+              options={METADATA_KIND_OPTIONS}
+              onChange={(v) => {
+                const kind = v as TemplateMetadataFieldKind
+                // For built-in kinds, force the key to a stable canonical
+                // name so analytics filters match. Free-form kinds keep
+                // whatever key the admin typed.
+                const canonical: Record<TemplateMetadataFieldKind, string | null> = {
+                  location: 'location',
+                  department: 'department',
+                  team: 'team',
+                  participants: 'participants',
+                  text: null,
+                  number: null,
+                  select: null,
+                }
+                const nextKey = canonical[kind] ?? field.key
+                onChange({ ...field, kind, key: nextKey })
+              }}
+            />
+          </div>
+          <div>
+            <p className={`${WPSTD_FORM_FIELD_LABEL} mb-1`}>Synlig label</p>
+            <StandardInput
+              value={field.label ?? ''}
+              onChange={(e) => onChange({ ...field, label: e.target.value })}
+              placeholder="(bruker standard)"
+            />
+          </div>
+          {field.kind === 'text' || field.kind === 'number' || field.kind === 'select' ? (
+            <div>
+              <p className={`${WPSTD_FORM_FIELD_LABEL} mb-1`}>Nøkkel</p>
+              <StandardInput
+                value={field.key}
+                onChange={(e) =>
+                  onChange({
+                    ...field,
+                    key: e.target.value
+                      .toLowerCase()
+                      .replace(/[^a-z0-9_]+/g, '_')
+                      .replace(/^_|_$/g, ''),
+                  })
+                }
+                placeholder="vaer"
+              />
+            </div>
+          ) : null}
+          {field.kind === 'select' ? (
+            <div className="sm:col-span-2">
+              <p className={`${WPSTD_FORM_FIELD_LABEL} mb-1`}>Valg (id|label, ett per linje)</p>
+              <StandardTextarea
+                value={(field.options ?? []).map((o) => `${o.id}|${o.label}`).join('\n')}
+                onChange={(e) =>
+                  onChange({
+                    ...field,
+                    options: e.target.value
+                      .split('\n')
+                      .map((line) => line.trim())
+                      .filter(Boolean)
+                      .map((line) => {
+                        const [id, ...rest] = line.split('|')
+                        return {
+                          id: (id ?? '').trim(),
+                          label: rest.join('|').trim() || (id ?? '').trim(),
+                        }
+                      })
+                      .filter((o) => o.id),
+                  })
+                }
+                rows={3}
+                placeholder={'sol|Sol\nregn|Regn\nsno|Snø'}
+              />
+            </div>
+          ) : null}
+          <div className="sm:col-span-2">
+            <label className="inline-flex items-center gap-2 text-xs text-neutral-700">
+              <ToggleSwitch
+                checked={field.required ?? false}
+                onChange={(v) => onChange({ ...field, required: v })}
+                label="Påkrevd"
+              />
+              <span>Påkrevd</span>
+            </label>
+          </div>
+        </div>
+        <div className="flex shrink-0 flex-col gap-0.5">
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            icon={<ChevronUp className="h-3.5 w-3.5" />}
+            onClick={() => onMove(-1)}
+            disabled={disableUp}
+            aria-label="Flytt opp"
+          />
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            icon={<ChevronDown className="h-3.5 w-3.5" />}
+            onClick={() => onMove(1)}
+            disabled={disableDown}
+            aria-label="Flytt ned"
+          />
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            icon={<Trash2 className="h-3.5 w-3.5" />}
+            onClick={onRemove}
+            aria-label="Fjern felt"
+            className="text-red-600 hover:bg-red-50 hover:text-red-700"
+          />
+        </div>
+      </div>
+    </li>
   )
 }

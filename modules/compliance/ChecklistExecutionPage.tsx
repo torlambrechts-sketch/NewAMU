@@ -50,7 +50,8 @@ export function ChecklistExecutionPage() {
   const executionId = params.executionId ?? ''
   const navigate = useNavigate()
   const pack = useActivePack()
-  const { supabase } = useOrgSetupContext()
+  const orgSetup = useOrgSetupContext()
+  const { supabase } = orgSetup
   const cl = useChecklistModule({ supabase })
   const { load, loadDetail, saveResponse, signExecution, updateExecutionMetadata } = cl
 
@@ -222,7 +223,12 @@ export function ChecklistExecutionPage() {
 
         <ExecutionMetadataPanel
           execution={execution}
+          templateMetadataSchema={template?.metadata_schema ?? null}
           assignableUsers={cl.assignableUsers}
+          locations={orgSetup.locations}
+          departments={orgSetup.departments}
+          teams={orgSetup.teams}
+          members={orgSetup.members}
           onSave={(payload) => updateExecutionMetadata({ executionId, ...payload })}
         />
 
