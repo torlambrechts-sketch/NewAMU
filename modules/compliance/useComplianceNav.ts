@@ -75,11 +75,13 @@ export function useComplianceNav(): UseComplianceNavReturn {
   const items = useMemo<CompliancePinnedNavItem[]>(() => {
     const licensedSlugs = new Set(packs.map((p) => p.slug))
 
-    // Default focus = first licensed pack (matches PackProvider fallback).
+    // Hub mode (no ?pack=) shows pinned templates from every licensed pack
+    // so the sidebar mirrors the hub tile grid. With ?pack= set, narrow to
+    // that pack's templates.
     const focusSlug =
       activePackParam && licensedSlugs.has(activePackParam as CompliancePackSlug)
         ? (activePackParam as CompliancePackSlug)
-        : (packs[0]?.slug ?? null)
+        : null
 
     return pinned
       .filter((t) => licensedSlugs.has(t.pack))

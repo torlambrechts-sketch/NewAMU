@@ -84,10 +84,12 @@ export function useSurveyNav(): UseSurveyNavReturn {
 
   const items = useMemo<SurveyPinnedNavItem[]>(() => {
     const licensedSlugs = new Set(packs.map((p) => p.slug))
+    // Hub mode (no ?pack=) shows pinned templates from every licensed pack
+    // so the sidebar mirrors the hub tile grid. With ?pack= set, narrow.
     const focusSlug =
       activePackParam && licensedSlugs.has(activePackParam as SurveyPackSlug)
         ? (activePackParam as SurveyPackSlug)
-        : (packs[0]?.slug ?? null)
+        : null
 
     return pinned
       .filter((t) => licensedSlugs.has(t.pack))

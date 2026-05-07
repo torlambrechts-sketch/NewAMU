@@ -1,14 +1,19 @@
-// ChecklistsPage — list view for compliance checklist executions, scoped
-// to the active regulation pack and (optionally) one template.
+// ChecklistsPage — three-mode landing for compliance checklists.
 //
-// When ?template=<slug> is present in the URL the page narrows to that
-// template — title, banner and create-CTA reflect the template, and only
-// executions of that template are listed. Without ?template=, the page
-// shows the pack-level overview.
+//   hub        no params              — neutral landing, tile grid by pack
+//                                       listing pinned (or system) templates
+//   pack       ?pack=<slug>           — pack lens: KPI row, banner, all
+//                                       executions for the pack
+//   template   ?template=<slug>       — single-template focus: title and
+//                                       CTA reflect the template; list shows
+//                                       only executions of that template
+//
+// The URL is the source of truth for mode. URL-driven instead of
+// useActivePack() so /compliance/checklists with no ?pack= renders the hub
+// rather than silently defaulting to the first licensed pack.
 //
 // The pack switcher itself lives in the global top bar
-// (ShellCompliancePackSwitcher) so it is visible across compliance pages
-// at the same elevation as the org switcher.
+// (ShellCompliancePackSwitcher) so it stays visible across compliance pages.
 
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
@@ -25,11 +30,12 @@ import {
 import { Button } from '../../src/components/ui/Button'
 import { Badge } from '../../src/components/ui/Badge'
 import { WarningBox } from '../../src/components/ui/AlertBox'
-import { useActivePack } from '../../src/context/packContextValue'
+import { useLicensedPacks } from '../../src/context/packContextValue'
 import { useOrgSetupContext } from '../../src/hooks/useOrgSetupContext'
 import { useChecklistModule } from './useChecklistModule'
 import { ComplianceCreateForm } from './ComplianceCreateForm'
-import type { ComplianceExecutionRow } from './types'
+import { ChecklistsHubLanding } from './ChecklistsHubLanding'
+import type { ComplianceExecutionRow, CompliancePackSlug } from './types'
 
 const STATUS_LABEL: Record<ComplianceExecutionRow['status'], string> = {
   draft: 'Kladd',
@@ -57,41 +63,107 @@ function formatDate(input: string | null) {
 export function ChecklistsPage() {
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
+  const packSlugParam = searchParams.get('pack')
   const templateSlugParam = searchParams.get('template')
 
-  const pack = useActivePack()
+  const licensedPacks = useLicensedPacks()
   const { supabase } = useOrgSetupContext()
   const cl = useChecklistModule({ supabase })
   const { load } = cl
   const [createOpen, setCreateOpen] = useState(false)
 
-  // Reload when the active pack changes — KPIs + list are pack-scoped server-side.
-  useEffect(() => {
-    void load({ pack: pack.slug })
-  }, [load, pack.slug])
+  // Pack mode requires an explicit ?pack= so /compliance/checklists with no
+  // params falls to the neutral hub instead of defaulting to packs[0].
+  const activePack = useMemo(() => {
+    if (!packSlugParam) return null
+    return licensedPacks.find((p) => p.slug === (packSlugParam as CompliancePackSlug)) ?? null
+  }, [licensedPacks, packSlugParam])
 
-  const packTemplates = useMemo(
-    () => cl.templates.filter((t) => t.pack === pack.slug && t.is_active),
-    [cl.templates, pack.slug],
-  )
-
-  // Resolve the optional ?template= filter to one of the pack's active templates.
+  // Template mode is anchored on the URL slug. We resolve against all loaded
+  // templates so a deep-link like ?template=foo&pack=bar works on first
+  // render even before the pack-filtered load finishes.
   const focusedTemplate = useMemo(() => {
     if (!templateSlugParam) return null
-    return packTemplates.find((t) => t.slug === templateSlugParam) ?? null
-  }, [packTemplates, templateSlugParam])
+    if (activePack) {
+      return (
+        cl.templates.find(
+          (t) => t.slug === templateSlugParam && t.pack === activePack.slug && t.is_active,
+        ) ?? null
+      )
+    }
+    return cl.templates.find((t) => t.slug === templateSlugParam && t.is_active) ?? null
+  }, [cl.templates, activePack, templateSlugParam])
+
+  const mode: 'template' | 'pack' | 'hub' = focusedTemplate
+    ? 'template'
+    : activePack
+    ? 'pack'
+    : 'hub'
+
+  // Reload when mode/pack changes. Hub mode loads everything (no pack filter)
+  // so the tile grid can show templates from every licensed pack.
+  useEffect(() => {
+    if (mode === 'hub') {
+      void load()
+    } else if (activePack) {
+      void load({ pack: activePack.slug })
+    }
+  }, [load, mode, activePack])
 
   const visibleExecutions = useMemo(() => {
-    const packScoped = cl.executions.filter((e) => e.pack === pack.slug)
-    if (!focusedTemplate) return packScoped
-    return packScoped.filter((e) => e.template_id === focusedTemplate.id)
-  }, [cl.executions, pack.slug, focusedTemplate])
+    if (mode === 'hub') return cl.executions
+    if (focusedTemplate) {
+      return cl.executions.filter(
+        (e) => e.pack === focusedTemplate.pack && e.template_id === focusedTemplate.id,
+      )
+    }
+    if (activePack) return cl.executions.filter((e) => e.pack === activePack.slug)
+    return cl.executions
+  }, [cl.executions, mode, activePack, focusedTemplate])
 
-  // Templates passed to the create form are constrained to the focused
-  // template when present (so the slide panel preselects it), otherwise
-  // any pack-active template.
-  const formTemplates = focusedTemplate ? [focusedTemplate] : packTemplates
+  // Templates passed to the create form: in template mode, just the focused
+  // one (the slide panel preselects it); in pack mode, the pack's active
+  // templates; never shown in hub mode.
+  const formTemplates = useMemo(() => {
+    if (focusedTemplate) return [focusedTemplate]
+    if (activePack) {
+      return cl.templates.filter((t) => t.pack === activePack.slug && t.is_active)
+    }
+    return []
+  }, [cl.templates, activePack, focusedTemplate])
 
+  if (mode === 'hub') {
+    return (
+      <ModulePageShell
+        breadcrumb={[{ label: 'HMS' }, { label: 'Sjekklister' }]}
+        title="Sjekklister"
+        description="Velg en mal eller pakke for å starte. Maler markert i menyen vises som faste valg."
+        headerActions={
+          <Link
+            to="/compliance/checklists/admin"
+            aria-label="Innstillinger"
+            className="inline-flex items-center border border-neutral-300 bg-white px-3 py-2 text-neutral-600 transition-colors hover:bg-neutral-50"
+          >
+            <Settings className="h-4 w-4" aria-hidden />
+          </Link>
+        }
+      >
+        <div className="space-y-6">
+          {cl.error ? <WarningBox>{cl.error}</WarningBox> : null}
+          <ChecklistsHubLanding
+            packs={licensedPacks}
+            templates={cl.templates}
+            loading={cl.loading}
+            canManage={true}
+            onOpenAdmin={() => navigate('/compliance/checklists/admin')}
+          />
+        </div>
+      </ModulePageShell>
+    )
+  }
+
+  // pack/template modes share most chrome — diverge only on copy + filtering.
+  const pack = activePack!
   const pageTitle = focusedTemplate ? focusedTemplate.name : pack.pluralLabel
   const pageDescription = focusedTemplate
     ? (focusedTemplate.description ?? pack.description)
@@ -106,10 +178,15 @@ export function ChecklistsPage() {
         focusedTemplate
           ? [
               { label: 'HMS' },
-              { label: pack.pluralLabel, to: '/compliance/checklists' },
+              { label: 'Sjekklister', to: '/compliance/checklists' },
+              { label: pack.pluralLabel, to: `/compliance/checklists?pack=${pack.slug}` },
               { label: focusedTemplate.name },
             ]
-          : [{ label: 'HMS' }, { label: pack.pluralLabel }]
+          : [
+              { label: 'HMS' },
+              { label: 'Sjekklister', to: '/compliance/checklists' },
+              { label: pack.pluralLabel },
+            ]
       }
       title={pageTitle}
       description={pageDescription}
