@@ -81,6 +81,22 @@ export type DashboardScope = {
    * (e.g. compliance flips accent based on the active `?pack=` focus).
    */
   accent?: string
+  /**
+   * Composite scopes (3.3.1): when set, this scope is a composition of
+   * widgets pulled from multiple member scopes (e.g. "HMS Overview"
+   * pulling KPIs from compliance + survey + tasks + learning).
+   *
+   * The composite's `defaultLayout` and `widgetCatalog` reference dataset
+   * keys from any of the listed member scopes — host pages compute each
+   * member's datasets via its `useXxxDatasets` hook and merge the results
+   * into one map. Cross-scope filters work because each per-scope hook
+   * picks up the chips it understands and ignores the rest.
+   *
+   * Member scopeIds must be other registered scopes; the composite
+   * itself is just a normal scope row, so saved layouts persist via
+   * `dashboard_layouts` exactly like a per-module dashboard.
+   */
+  compositeMembers?: string[]
 }
 
 const registry = new Map<string, DashboardScope>()

@@ -123,12 +123,12 @@ Reusable runtime that any module registers a "scope" with and consumes via `Modu
 | 3.2.6 | 📋 | **Auto subtitle from filters** | Synthesise the "Last 12 months · Grouped by Pack" line from active filters + dataset shape. Right now subtitle is free text the admin types. |
 | 3.2.7 | 📋 | **Dataset-shape-aware "Add Widget"** | Catalog already declares dataset shapes; picker could group by what kinds the data supports and offer "kpi or table" choices on add. Needs `compatibleKinds: ReportModuleKind[]` on each catalog entry. |
 
-### 3.3 Cross-module — ⏸ deferred
+### 3.3 Cross-module
 
-| # | Item | Why deferred |
-|---|---|---|
-| 3.3.1 | **Composite scopes** ("HMS Overview" mixing checklist + survey + avvik on one dashboard) | The registry is per-scope; we need a *composite* scope model that can pull datasets from multiple registered scopes, plus filter dimensions that apply across them. Worth designing only after a second module (survey) is registered so the abstraction has two real consumers. |
-| 3.3.2 | **Cross-scope filters** | A "Period" filter applied at composite level should fan out into each scope's `applyFilters`. Same dependency. |
+| # | Status | Item | Notes |
+|---|---|---|---|
+| 3.3.1 | ✅ | **Composite scopes** | `DashboardScope.compositeMembers?: string[]` declares the member scopes a composite pulls from. New `hms_overview` composite registered in `src/pages/overview/dashboards/hmsOverviewScope.ts`; new `/overview/hms` page (`HmsOverviewPage`) imports each member's `useXxxDatasets` hook, merges the four dataset maps (keys are scope-namespaced so collisions are impossible), and renders one dashboard. Layout/filters persist via the existing `dashboard_layouts` table — composites are just registered scopes. |
+| 3.3.2 | ✅ | **Cross-scope filters** | The same `dashboard.filters` array is passed to every member scope's hook. Each hook picks up the chips it understands and ignores the rest, so a single "department" or date-range chip narrows compliance + survey + tasks + learning consistently. The composite page exposes only the dimensions that have meaningful effect across multiple scopes; per-module dimensions stay on the module's own analyse page. |
 
 ### 3.4 Outputs
 

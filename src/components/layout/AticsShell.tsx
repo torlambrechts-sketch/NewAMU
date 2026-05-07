@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState, type ComponentType } from 'react'
 import { NavLink, Outlet, useLocation } from 'react-router-dom'
 import {
+  Activity,
   AlertTriangle,
   BarChart3,
   Briefcase,
@@ -406,6 +407,12 @@ const LEARNING_NAV_PERMS: PermissionKey[] = [
   'module.view.dashboard',
 ]
 
+// Permission gate for the synthetic Oppgaver menu — same broad pattern.
+const TASKS_NAV_PERMS: PermissionKey[] = [
+  'module.view.tasks',
+  'module.view.dashboard',
+]
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Menu cleanup pass — preview layout with only Sjekklister + Undersøkelser at
 // the top. Every other module is parked in "Gamle moduler" so it stays
@@ -489,15 +496,6 @@ const oppgaverManagementSubs: SubItem[] = [
 // single "Gamle moduler" group while we audit the IA. Order preserved from the
 // previous group structure so muscle memory still works.
 const gamleModulerModules: NavModule[] = [
-  // ── Oversikt ────────────────────────────────────────────────────────────
-  {
-    to: '/tasks/management',
-    label: 'Oppgaver (Ny)',
-    end: false,
-    icon: Kanban,
-    subs: oppgaverManagementSubs,
-  },
-
   // ── Risiko & Sikkerhet ───────────────────────────────────────────────────
   { to: '/risiko-sikkerhet', label: 'Risiko & Sikkerhet — oversikt', end: true, icon: LayoutGrid, subs: [] },
   { to: '/sja', label: 'Sikker Jobbanalyse', end: false, icon: ShieldAlert, subs: [] },
@@ -1070,10 +1068,55 @@ export function AticsShell() {
       ],
     }
 
+    // Oppgaver group — promoted to top-level alongside Sjekklister /
+    // Undersøkelser / Læring per session-end IA cleanup. Same flatSubs
+    // treatment so the management tabs read at module level.
+    const tasksGroup: NavGroup = {
+      id: 'oppgaver',
+      label: 'Oppgaver',
+      icon: Kanban,
+      modules: [
+        {
+          to: '/tasks/management',
+          label: 'Oppgaver',
+          end: false,
+          icon: Kanban,
+          subs: oppgaverManagementSubs.map((s) => ({ ...s, requirePermAny: TASKS_NAV_PERMS })),
+          permAny: TASKS_NAV_PERMS,
+          moduleSlug: 'tasks',
+          flatSubs: true,
+        },
+      ],
+    }
+
+    // Composite "HMS Overview" group — sits at the top of the merged nav
+    // since it's the org-wide entry point that pulls in widgets from
+    // every other module group below it.
+    const hmsOverviewGroup: NavGroup = {
+      id: 'hms-oversikt',
+      label: 'HMS-oversikt',
+      icon: Activity,
+      modules: [
+        {
+          to: '/overview/hms',
+          label: 'HMS-oversikt',
+          end: true,
+          icon: Activity,
+          subs: [],
+          permAny: [
+            ...COMPLIANCE_NAV_PERMS,
+            ...SURVEY_NAV_PERMS,
+            ...LEARNING_NAV_PERMS,
+            'module.view.tasks',
+          ],
+        },
+      ],
+    }
+
     const idx = navGroups.findIndex((g) => g.id === 'gamle-moduler')
     const head = idx === -1 ? navGroups : navGroups.slice(0, idx)
     const tail = idx === -1 ? [] : navGroups.slice(idx)
-    return [...head, complianceGroup, surveyGroup, learningGroup, ...tail]
+    return [...head, hmsOverviewGroup, complianceGroup, surveyGroup, tasksGroup, learningGroup, ...tail]
   }, [complianceNav.items, complianceNav.categories, surveyNav.items, surveyNav.categories])
 
   const visibleGroups = useMemo(

@@ -66,6 +66,7 @@ import { LearningDeltakerePage } from './pages/learning/LearningDeltakerePage'
 import { LearningKompetansePage } from './pages/learning/LearningKompetansePage'
 import { LearningSettings } from './pages/learning/LearningSettings'
 import { LearningAnalysePage } from './pages/learning/LearningAnalysePage'
+import { HmsOverviewPage } from './pages/overview/HmsOverviewPage'
 import { LearningFlowEntry } from './pages/learning/LearningFlowEntry'
 import { LearningCertificatePrintPage } from './pages/learning/LearningCertificatePrintPage'
 import { DocumentsHome } from './pages/documents/DocumentsHome'
@@ -217,6 +218,7 @@ const router = createBrowserRouter(
                       <Route path="tasks" element={<TasksPage />} />
                       <Route path="tasks/management" element={<TasksManagementPage />} />
                       <Route path="tasks/management/analyse" element={<TasksAnalysePage />} />
+                      <Route path="overview/hms" element={<HmsOverviewPage />} />
                       <Route path="workspace/revisjonslogg" element={<WorkspaceAuditLogPage />} />
                       <Route path="organisation" element={<OrganisationPage />} />
                       <Route path="organisation/admin" element={<AdminPage />} />
