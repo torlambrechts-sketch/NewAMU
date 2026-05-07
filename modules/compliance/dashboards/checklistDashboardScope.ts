@@ -56,6 +56,16 @@ const DATASETS: DatasetMeta[] = [
     label: 'Funn over tid',
     shape: 'series',
   },
+  {
+    key: 'checklist_executions_by_location',
+    label: 'Kjøringer per lokasjon',
+    shape: 'segments',
+  },
+  {
+    key: 'checklist_executions_by_department',
+    label: 'Kjøringer per avdeling',
+    shape: 'segments',
+  },
 ]
 
 export const CHECKLIST_DASHBOARD_SCOPE_ID = 'compliance_checklist'
@@ -140,6 +150,38 @@ const DONUT_STATUS: ReportModuleDonut = {
   datasetKey: 'checklist_executions_by_status',
   title: 'Fordeling per status',
   segmentsPath: '',
+  colSpan: 'md',
+}
+const DONUT_LOCATION: ReportModuleDonut = {
+  id: 'donut-location',
+  kind: 'donut',
+  datasetKey: 'checklist_executions_by_location',
+  title: 'Fordeling per lokasjon',
+  segmentsPath: '',
+  colSpan: 'md',
+}
+const DONUT_DEPARTMENT: ReportModuleDonut = {
+  id: 'donut-department',
+  kind: 'donut',
+  datasetKey: 'checklist_executions_by_department',
+  title: 'Fordeling per avdeling',
+  segmentsPath: '',
+  colSpan: 'md',
+}
+const BAR_LOCATION: ReportModuleBar = {
+  id: 'bar-location',
+  kind: 'bar',
+  datasetKey: 'checklist_executions_by_location',
+  title: 'Kjøringer per lokasjon',
+  seriesKeys: [],
+  colSpan: 'md',
+}
+const BAR_DEPARTMENT: ReportModuleBar = {
+  id: 'bar-department',
+  kind: 'bar',
+  datasetKey: 'checklist_executions_by_department',
+  title: 'Kjøringer per avdeling',
+  seriesKeys: [],
   colSpan: 'md',
 }
 const DONUT_PACK: ReportModuleDonut = {
@@ -275,6 +317,32 @@ const WIDGET_CATALOG: WidgetCatalogEntry[] = [
     label: 'Funn over tid',
     description: 'Antall registrerte funn per måned siste 12 mnd.',
     template: LINE_FINDINGS_OVER_TIME,
+  },
+  {
+    catalogId: 'donut-location',
+    category: 'Org-kontekst',
+    label: 'Lokasjon — kakediagram',
+    description: 'Kjøringer fordelt på lokasjon (krever at malen har lokasjon-felt).',
+    template: DONUT_LOCATION,
+  },
+  {
+    catalogId: 'donut-department',
+    category: 'Org-kontekst',
+    label: 'Avdeling — kakediagram',
+    description: 'Kjøringer fordelt på avdeling (krever at malen har avdeling-felt).',
+    template: DONUT_DEPARTMENT,
+  },
+  {
+    catalogId: 'bar-location',
+    category: 'Org-kontekst',
+    label: 'Lokasjon — søylediagram',
+    template: BAR_LOCATION,
+  },
+  {
+    catalogId: 'bar-department',
+    category: 'Org-kontekst',
+    label: 'Avdeling — søylediagram',
+    template: BAR_DEPARTMENT,
   },
 ]
 

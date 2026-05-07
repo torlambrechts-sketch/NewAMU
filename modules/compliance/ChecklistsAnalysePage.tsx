@@ -59,6 +59,9 @@ type FilterSelectors = {
   templates: { ids: Set<string>; mode: 'include' | 'exclude' } | null
   statuses: { ids: Set<string>; mode: 'include' | 'exclude' } | null
   severities: { ids: Set<ComplianceSeverity>; mode: 'include' | 'exclude' } | null
+  locations: { ids: Set<string>; mode: 'include' | 'exclude' } | null
+  departments: { ids: Set<string>; mode: 'include' | 'exclude' } | null
+  participants: { ids: Set<string>; mode: 'include' | 'exclude' } | null
   from: Date | null
   to: Date | null
 }
@@ -69,6 +72,9 @@ function buildSelectors(filters: DashboardFilter[]): FilterSelectors {
     templates: null,
     statuses: null,
     severities: null,
+    locations: null,
+    departments: null,
+    participants: null,
     from: null,
     to: null,
   }
@@ -89,6 +95,15 @@ function buildSelectors(filters: DashboardFilter[]): FilterSelectors {
     } else if (f.dimensionId === 'severity') {
       const ids = setOf<ComplianceSeverity>(f.value)
       if (ids.size) out.severities = { ids, mode }
+    } else if (f.dimensionId === 'location') {
+      const ids = setOf<string>(f.value)
+      if (ids.size) out.locations = { ids, mode }
+    } else if (f.dimensionId === 'department') {
+      const ids = setOf<string>(f.value)
+      if (ids.size) out.departments = { ids, mode }
+    } else if (f.dimensionId === 'participant') {
+      const ids = setOf<string>(f.value)
+      if (ids.size) out.participants = { ids, mode }
     } else if (f.dimensionId === 'date') {
       if (f.operator === 'between' && f.value && typeof f.value === 'object') {
         const r = f.value as { from?: string; to?: string }
@@ -117,7 +132,8 @@ const dateInRange = (d: Date | null, from: Date | null, to: Date | null): boolea
 }
 
 export function ChecklistsAnalysePage() {
-  const { supabase } = useOrgSetupContext()
+  const orgSetup = useOrgSetupContext()
+  const { supabase } = orgSetup
   const cl = useChecklistModule({ supabase })
   const packs = useLicensedPacks()
 
@@ -168,6 +184,33 @@ export function ChecklistsAnalysePage() {
         loadOptions: () => SEVERITY_OPTIONS.map((s) => ({ id: s.id, label: s.label })),
       },
       {
+        id: 'location',
+        label: 'Lokasjon',
+        description: 'Filtrer på utførelsens lokasjon.',
+        kind: 'enum',
+        defaultOperator: 'in',
+        loadOptions: () =>
+          orgSetup.locations.map((l) => ({ id: l.id, label: l.name })),
+      },
+      {
+        id: 'department',
+        label: 'Avdeling',
+        description: 'Filtrer på utførelsens avdeling.',
+        kind: 'enum',
+        defaultOperator: 'in',
+        loadOptions: () =>
+          orgSetup.departments.map((d) => ({ id: d.id, label: d.name })),
+      },
+      {
+        id: 'participant',
+        label: 'Deltaker',
+        description: 'Inkluder kun utførelser der disse medlemmene var deltakere.',
+        kind: 'enum',
+        defaultOperator: 'in',
+        loadOptions: () =>
+          orgSetup.members.map((m) => ({ id: m.id, label: m.display_name })),
+      },
+      {
         id: 'date',
         label: 'Periode',
         description: 'Filter på opprettet/signert dato.',
@@ -175,7 +218,7 @@ export function ChecklistsAnalysePage() {
         defaultOperator: 'between',
       },
     ],
-    [packs, cl.templates],
+    [packs, cl.templates, orgSetup.locations, orgSetup.departments, orgSetup.members],
   )
 
   const datasets = useMemo(() => {
@@ -187,6 +230,27 @@ export function ChecklistsAnalysePage() {
       if (!matchesSet(sel.packs, e.pack)) return false
       if (!matchesSet(sel.templates, e.template_id)) return false
       if (!matchesSet(sel.statuses, e.status)) return false
+      // Org-context filters: a null FK on the execution flunks an
+      // include-mode filter (match nothing) and passes an exclude-mode
+      // filter (not in set).
+      if (sel.locations) {
+        if (!e.location_id) {
+          if (sel.locations.mode === 'include') return false
+        } else if (!matchesSet(sel.locations, e.location_id)) {
+          return false
+        }
+      }
+      if (sel.departments) {
+        if (!e.department_id) {
+          if (sel.departments.mode === 'include') return false
+        } else if (!matchesSet(sel.departments, e.department_id)) {
+          return false
+        }
+      }
+      if (sel.participants) {
+        const intersects = e.participant_member_ids.some((id) => sel.participants!.ids.has(id))
+        if (sel.participants.mode === 'include' ? !intersects : intersects) return false
+      }
       if (sel.from || sel.to) {
         const at = e.signed_at ? new Date(e.signed_at) : e.created_at ? new Date(e.created_at) : null
         if (!dateInRange(at, sel.from, sel.to)) return false
@@ -205,6 +269,10 @@ export function ChecklistsAnalysePage() {
     const statusCounts: Record<string, number> = { Kladd: 0, Aktiv: 0, Signert: 0 }
     const packCounts: Record<string, number> = {}
     const templateCounts = new Map<string, number>()
+    const locationCounts = new Map<string, number>()
+    const departmentCounts = new Map<string, number>()
+    const locationById = new Map(orgSetup.locations.map((l) => [l.id, l.name]))
+    const departmentById = new Map(orgSetup.departments.map((d) => [d.id, d.name]))
 
     const monthKey = (d: Date) =>
       `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
@@ -238,6 +306,14 @@ export function ChecklistsAnalysePage() {
       const tpl = cl.templates.find((t) => t.id === e.template_id)
       const tplName = tpl?.name ?? 'Ukjent mal'
       templateCounts.set(tplName, (templateCounts.get(tplName) ?? 0) + 1)
+
+      const locName = e.location_id ? locationById.get(e.location_id) ?? '(ukjent)' : '(uten lokasjon)'
+      locationCounts.set(locName, (locationCounts.get(locName) ?? 0) + 1)
+
+      const depName = e.department_id
+        ? departmentById.get(e.department_id) ?? '(ukjent)'
+        : '(uten avdeling)'
+      departmentCounts.set(depName, (departmentCounts.get(depName) ?? 0) + 1)
 
       const created = e.created_at ? new Date(e.created_at) : null
       if (created) {
@@ -294,6 +370,8 @@ export function ChecklistsAnalysePage() {
       },
       checklist_executions_by_template: templateBar,
       checklist_executions_by_pack: packCounts,
+      checklist_executions_by_location: Object.fromEntries(locationCounts),
+      checklist_executions_by_department: Object.fromEntries(departmentCounts),
       checklist_executions_over_time: months.map((m) => ({
         x: m.label,
         y: execByMonth.get(m.key) ?? 0,
@@ -303,7 +381,15 @@ export function ChecklistsAnalysePage() {
         y: findByMonth.get(m.key) ?? 0,
       })),
     } as Record<string, unknown>
-  }, [cl.executions, cl.responsesByExecutionId, cl.templates, packs, dashboard.filters])
+  }, [
+    cl.executions,
+    cl.responsesByExecutionId,
+    cl.templates,
+    packs,
+    orgSetup.locations,
+    orgSetup.departments,
+    dashboard.filters,
+  ])
 
   // Layout: persisted dashboard_layouts row when one exists, otherwise
   // the registry default. Either way bar widgets with empty seriesKeys
