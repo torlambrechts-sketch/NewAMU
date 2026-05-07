@@ -942,16 +942,78 @@ export function AticsShell() {
     }
 
     // Survey "Undersøkelser" group — same flatSubs treatment as Sjekklister.
-    // Pinned templates filtered by active pack focus (?pack=) via useSurveyNav.
-    const surveyPinnedSubs: SubItem[] = surveyNav.items.map((item) => ({
-      label: item.templateName,
-      path: item.to,
-      match: ({ pathname, search }) => {
-        if (pathname !== '/survey') return false
-        return new URLSearchParams(search).get('template') === item.catalogId
+    // Fixed sub-entries that always sit under "Undersøkelser" — Analyse
+    // and Innstillinger live here so the user has a clear path to org-
+    // level dashboards and pack/template configuration without leaving
+    // the menu group. Pinned templates follow.
+    const surveyFixedSubs: SubItem[] = [
+      {
+        label: 'Analyse',
+        path: '/survey/analyse',
+        Icon: BarChart3,
+        match: ({ pathname }) => pathname === '/survey/analyse',
+        requirePermAny: SURVEY_NAV_PERMS,
       },
-      requirePermAny: SURVEY_NAV_PERMS,
-    }))
+      {
+        label: 'Innstillinger',
+        path: '/survey/admin',
+        Icon: Settings,
+        match: ({ pathname }) => pathname.startsWith('/survey/admin'),
+        requirePermAny: SURVEY_NAV_PERMS,
+      },
+    ]
+
+    // Pinned templates grouped by category, mirroring the compliance
+    // version. Single-category mode skips headers (visual noise).
+    const surveyPinnedSubs: SubItem[] = (() => {
+      const buckets = new Map<string, typeof surveyNav.items>()
+      for (const it of surveyNav.items) {
+        const list = buckets.get(it.headerKey) ?? []
+        list.push(it)
+        buckets.set(it.headerKey, list)
+      }
+      const orderedCats = surveyNav.categories
+        .filter((c) => buckets.has(c.id))
+        .sort((a, b) => a.position - b.position || a.name.localeCompare(b.name, 'nb'))
+      const uncategorised = [...buckets.entries()]
+        .filter(([key]) => key.endsWith(':__uncat__'))
+        .map(([key]) => ({ id: key, name: 'Uten kategori' }))
+      const orderedKeys: { id: string; name: string }[] = [
+        ...orderedCats.map((c) => ({ id: c.id, name: c.name })),
+        ...uncategorised,
+      ]
+      const showHeaders = orderedKeys.length > 1
+
+      const subs: SubItem[] = []
+      for (const cat of orderedKeys) {
+        const list = buckets.get(cat.id) ?? []
+        if (list.length === 0) continue
+        if (showHeaders) {
+          subs.push({
+            kind: 'header',
+            label: cat.name,
+            path: `__cat:${cat.id}`,
+            match: () => false,
+            headerKey: cat.id,
+            Icon: FolderTree,
+            requirePermAny: SURVEY_NAV_PERMS,
+          })
+        }
+        for (const item of list) {
+          subs.push({
+            label: item.templateName,
+            path: item.to,
+            match: ({ pathname, search }) => {
+              if (pathname !== '/survey') return false
+              return new URLSearchParams(search).get('template') === item.catalogId
+            },
+            headerKey: showHeaders ? cat.id : undefined,
+            requirePermAny: SURVEY_NAV_PERMS,
+          })
+        }
+      }
+      return subs
+    })()
 
     const surveyGroup: NavGroup = {
       id: 'undersokelser',
@@ -963,7 +1025,7 @@ export function AticsShell() {
           label: 'Undersøkelser',
           end: false,
           icon: Megaphone,
-          subs: surveyPinnedSubs,
+          subs: [...surveyFixedSubs, ...surveyPinnedSubs],
           permAny: SURVEY_NAV_PERMS,
           flatSubs: true,
         },
@@ -974,7 +1036,7 @@ export function AticsShell() {
     const head = idx === -1 ? navGroups : navGroups.slice(0, idx)
     const tail = idx === -1 ? [] : navGroups.slice(idx)
     return [...head, complianceGroup, surveyGroup, ...tail]
-  }, [complianceNav.items, complianceNav.categories, surveyNav.items])
+  }, [complianceNav.items, complianceNav.categories, surveyNav.items, surveyNav.categories])
 
   const visibleGroups = useMemo(
     () => filterNavGroups(mergedNavGroups, gateNav, can, disabledModules, hiddenForUser),

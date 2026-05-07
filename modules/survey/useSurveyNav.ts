@@ -1,10 +1,10 @@
 // Survey nav feed — supplies the AticsShell sidebar with dynamically-built
-// "Undersøkelser" entries from the org's licensed packs and pinned templates.
-// Filters by the active pack focus when ?pack= is present in the URL.
+// "Undersøkelser" entries from the org's licensed packs, their admin-defined
+// categories, and pinned templates. Filters by the active pack focus when
+// ?pack= is present in the URL.
 //
 // Mirrors modules/compliance/useComplianceNav.ts. Read-only; no mutations
-// (admin pinning lives in the Maler tab via useSurveyOrgTemplates updates,
-// landing in a follow-up).
+// (admin pinning lives in the Maler tab via useSurveyOrgTemplates updates).
 
 import { useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
@@ -16,14 +16,26 @@ export type SurveyPinnedNavItem = {
   catalogId: string
   templateName: string
   pack: SurveyPackSlug
+  /** Category id, null = uncategorised. */
+  categoryId: string | null
+  /** Stable key linking this item to its category header in the sidebar. */
+  headerKey: string
   /** Path including ?template= and ?pack= so a deep link reproduces the view. */
   to: string
+}
+
+export type SurveyNavCategory = {
+  id: string
+  pack: SurveyPackSlug
+  name: string
+  position: number
 }
 
 export type UseSurveyNavReturn = {
   loading: boolean
   hasAnyPack: boolean
   items: SurveyPinnedNavItem[]
+  categories: SurveyNavCategory[]
 }
 
 type PinnedRow = {
@@ -31,6 +43,14 @@ type PinnedRow = {
   pack: SurveyPackSlug
   name_override: string | null
   catalog_name: string
+  category_id: string | null
+}
+
+type CategoryRow = {
+  id: string
+  pack: SurveyPackSlug
+  name: string
+  position: number
 }
 
 export function useSurveyNav(): UseSurveyNavReturn {
@@ -41,40 +61,55 @@ export function useSurveyNav(): UseSurveyNavReturn {
   const activePackParam = searchParams.get('pack')
 
   const [pinned, setPinned] = useState<PinnedRow[]>([])
+  const [categoryRows, setCategoryRows] = useState<CategoryRow[]>([])
   const [fetchedFor, setFetchedFor] = useState<string | null>(null)
   const targetKey = supabase && orgId ? orgId : null
 
   useEffect(() => {
     if (!supabase || !orgId) return
     let cancelled = false
-    supabase
-      .from('survey_org_templates')
-      .select('catalog_id, pack, name_override, survey_template_catalog!inner(name)')
-      .eq('organization_id', orgId)
-      .eq('nav_pinned', true)
-      .eq('is_active', true)
-      .is('deleted_at', null)
-      .then(({ data, error }) => {
-        if (cancelled) return
-        if (error) {
-          setPinned([])
-        } else {
-          const rows: PinnedRow[] = []
-          for (const raw of data ?? []) {
-            const catalog = (raw as { survey_template_catalog?: { name?: string } | null })
-              .survey_template_catalog
-            if (!catalog?.name) continue
-            rows.push({
-              catalog_id: (raw as { catalog_id: string }).catalog_id,
-              pack: (raw as { pack: SurveyPackSlug }).pack,
-              name_override: (raw as { name_override: string | null }).name_override,
-              catalog_name: catalog.name,
-            })
-          }
-          setPinned(rows)
+    void Promise.all([
+      supabase
+        .from('survey_org_templates')
+        .select(
+          'catalog_id, pack, name_override, category_id, survey_template_catalog!inner(name)',
+        )
+        .eq('organization_id', orgId)
+        .eq('nav_pinned', true)
+        .eq('is_active', true)
+        .is('deleted_at', null),
+      supabase
+        .from('survey_template_categories')
+        .select('id, pack, name, position')
+        .eq('organization_id', orgId)
+        .eq('is_active', true)
+        .is('deleted_at', null)
+        .order('pack', { ascending: true })
+        .order('position', { ascending: true })
+        .order('name', { ascending: true }),
+    ]).then(([tplRes, catRes]) => {
+      if (cancelled) return
+      if (tplRes.error) {
+        setPinned([])
+      } else {
+        const rows: PinnedRow[] = []
+        for (const raw of tplRes.data ?? []) {
+          const catalog = (raw as { survey_template_catalog?: { name?: string } | null })
+            .survey_template_catalog
+          if (!catalog?.name) continue
+          rows.push({
+            catalog_id: (raw as { catalog_id: string }).catalog_id,
+            pack: (raw as { pack: SurveyPackSlug }).pack,
+            name_override: (raw as { name_override: string | null }).name_override,
+            catalog_name: catalog.name,
+            category_id: (raw as { category_id: string | null }).category_id ?? null,
+          })
         }
-        setFetchedFor(orgId)
-      })
+        setPinned(rows)
+      }
+      setCategoryRows(catRes.error ? [] : ((catRes.data ?? []) as CategoryRow[]))
+      setFetchedFor(orgId)
+    })
     return () => {
       cancelled = true
     }
@@ -84,8 +119,6 @@ export function useSurveyNav(): UseSurveyNavReturn {
 
   const items = useMemo<SurveyPinnedNavItem[]>(() => {
     const licensedSlugs = new Set(packs.map((p) => p.slug))
-    // Hub mode (no ?pack=) shows pinned templates from every licensed pack
-    // so the sidebar mirrors the hub tile grid. With ?pack= set, narrow.
     const focusSlug =
       activePackParam && licensedSlugs.has(activePackParam as SurveyPackSlug)
         ? (activePackParam as SurveyPackSlug)
@@ -98,14 +131,24 @@ export function useSurveyNav(): UseSurveyNavReturn {
         catalogId: t.catalog_id,
         templateName: t.name_override ?? t.catalog_name,
         pack: t.pack,
+        categoryId: t.category_id,
+        headerKey: t.category_id ?? `${t.pack}:__uncat__`,
         to: `/survey?template=${encodeURIComponent(t.catalog_id)}&pack=${encodeURIComponent(t.pack)}`,
       }))
       .sort((a, b) => a.templateName.localeCompare(b.templateName, 'nb'))
   }, [pinned, packs, activePackParam])
 
+  const categories = useMemo<SurveyNavCategory[]>(() => {
+    const licensedSlugs = new Set(packs.map((p) => p.slug))
+    return categoryRows
+      .filter((c) => licensedSlugs.has(c.pack))
+      .map((c) => ({ id: c.id, pack: c.pack, name: c.name, position: c.position }))
+  }, [categoryRows, packs])
+
   return {
     loading,
     hasAnyPack: packs.length > 0,
     items,
+    categories,
   }
 }

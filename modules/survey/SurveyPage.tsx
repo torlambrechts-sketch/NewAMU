@@ -24,6 +24,7 @@ import { Tabs, type TabItem } from '../../src/components/ui/Tabs'
 import { useSurvey } from './useSurvey'
 import { useSurveyPacks, findLicensedPack } from './useSurveyPacks'
 import { useSurveyOrgTemplates } from './useSurveyOrgTemplates'
+import { useSurveyCategories } from './useSurveyCategories'
 import type { SurveyTemplateCatalogRow } from './surveyTemplateCatalogTypes'
 import { SURVEY_TYPE_OPTIONS } from './surveyLabels'
 import type { SurveyPackSlug, SurveyType } from './types'
@@ -46,6 +47,7 @@ export function SurveyPage({ supabase }: Props) {
   const survey = useSurvey({ supabase })
   const { packs } = useSurveyPacks({ supabase })
   const orgTemplates = useSurveyOrgTemplates({ supabase })
+  const surveyCategories = useSurveyCategories({ supabase })
   const slugParam = searchParams.get('pack')
   const templateParam = searchParams.get('template')
   // Pack mode requires an explicit ?pack= so /survey with no params falls to
@@ -320,6 +322,7 @@ export function SurveyPage({ supabase }: Props) {
             packs={packs}
             templates={survey.templateCatalog}
             pinned={orgTemplates.templates}
+            categories={surveyCategories.categories}
             loading={survey.templateCatalogLoading}
             canManage={survey.canManage}
             onOpenAdmin={() => navigate('/survey/admin')}
