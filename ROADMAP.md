@@ -117,8 +117,8 @@ Reusable runtime that any module registers a "scope" with and consumes via `Modu
 |---|---|---|---|
 | 3.2.1 | ✅ | **Comparison mode** ("this period vs last period" delta on KPI) | KPI tile gains an optional delta chip (▲/▼ %, colour driven by `comparisonGoal`) + an inline sparkline; line widget renders an optional dashed comparison series sharing the y-scale. Generic plumbing on the registry — wired on learning ("Fullført i år" + "Fullføringer over tid") and compliance ("Signert i år", "Kritiske funn", both over-time lines) so the comparison spans modules. |
 | 3.2.2 | 📋 | **Drill-down on click** | Clicking a donut slice / bar segment pre-filters the dashboard to that slice (or opens the source list). Needs a per-widget `onSliceClick` policy in the registry. |
-| 3.2.3 | 📋 | **Save / load named dashboards** | Schema already supports it via `slug` + `owner_user_id`. UI: chooser dropdown next to the page title, "Save as", "Save as private copy", rename, delete. |
-| 3.2.4 | 📋 | **Per-user private layouts** | `owner_user_id` column exists; UI for "make this my private view" missing. |
+| 3.2.3 | ✅ | **Save / load named dashboards** | `useDashboardLayout` now exposes `available` / `selectLayout` / `saveAs` / `renameActive` / `deleteActive` / `markActiveDefault`. New `DashboardChooser` renders inline with the page title via the new `titleChooser` slot on `ModuleAnalyticsDashboard`. Wired on all four analyse pages (compliance, survey, tasks, learning). |
+| 3.2.4 | ✅ | **Per-user private layouts** | `saveAs({ isPrivate: true })` writes `owner_user_id = me`; the chooser groups them under "Mine private visninger". The query `or` filter shows shared rows + the current user's private rows. |
 | 3.2.5 | 📋 | **Drag-to-resize** | Today widgets resize via the editor's colSpan dropdown. Adds a corner handle for direct manipulation. Requires careful interaction with the rowBreak hint. |
 | 3.2.6 | 📋 | **Auto subtitle from filters** | Synthesise the "Last 12 months · Grouped by Pack" line from active filters + dataset shape. Right now subtitle is free text the admin types. |
 | 3.2.7 | 📋 | **Dataset-shape-aware "Add Widget"** | Catalog already declares dataset shapes; picker could group by what kinds the data supports and offer "kpi or table" choices on add. Needs `compatibleKinds: ReportModuleKind[]` on each catalog entry. |
@@ -155,7 +155,7 @@ Reusable runtime that any module registers a "scope" with and consumes via `Modu
 | # | Status | Item | Notes |
 |---|---|---|---|
 | 4.1 | 📋 | Real drag-and-drop library | Today the Edit Layout panel uses native HTML5 drag-and-drop. For multi-column or grouped reordering (and accessibility), bring in `@dnd-kit/core`. Defer until we actually hit the limitation. |
-| 4.2 | 📋 | Surface "saved view" chooser in module headers | Once 3.2.3 lands, every analyse page gets a dropdown next to the title like the reference designs ("Recruitment Overview ▼"). |
+| 4.2 | ✅ | Surface "saved view" chooser in module headers | Shipped as part of 3.2.3 — every analyse page gets a `DashboardChooser` dropdown inline with the title. |
 | 4.3 | 📋 | Audit log for dashboard edits | `dashboard_layouts.version` bumps on every save but we don't expose history. Useful for "who broke the dashboard?" forensics. Mirrors `compliance_template_versions` shape. |
 | 4.4 | 📋 | Light/dark accent themes | `accent` is already a prop. Wire it to the org's `compliance_pack` colour palette so AML and ISO dashboards visually differ. |
 | 4.5 | 📋 | Mobile dashboard pass | The 12-col grid collapses cleanly to single column at `<lg` but the editor and filter-chip popovers haven't been tested on touch. |

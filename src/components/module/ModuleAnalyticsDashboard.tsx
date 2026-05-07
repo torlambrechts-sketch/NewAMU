@@ -75,6 +75,12 @@ export interface ModuleAnalyticsDashboardProps {
   onFiltersChange?: (next: DashboardFilter[]) => void
   /** Per-widget control slot (rendered top-right of each widget shell). */
   widgetControlSlot?: WidgetControlSlot
+  /**
+   * Optional saved-view chooser slot — rendered inline next to the page
+   * title. Pass a <DashboardChooser /> instance, or anything else
+   * appropriate for the host page.
+   */
+  titleChooser?: ReactNode
 }
 
 export function ModuleAnalyticsDashboard({
@@ -95,6 +101,7 @@ export function ModuleAnalyticsDashboard({
   dimensions,
   onFiltersChange,
   widgetControlSlot,
+  titleChooser,
 }: ModuleAnalyticsDashboardProps) {
   const builtInFilterBar =
     !filterBar && dimensions && dimensions.length > 0 && filters && onFiltersChange ? (
@@ -108,10 +115,22 @@ export function ModuleAnalyticsDashboard({
     ) : null
   const showActions = Boolean(onEdit || onAddWidget)
 
+  // When a chooser is provided, render it inline with the title so the
+  // page header reads "Læring · analyse  [Standard ▼]" — mirrors the
+  // reference designs from the roadmap.
+  const titleNode = titleChooser ? (
+    <span className="inline-flex items-center gap-3">
+      <span>{title}</span>
+      {titleChooser}
+    </span>
+  ) : (
+    title
+  )
+
   return (
     <ModulePageShell
       breadcrumb={breadcrumb ?? []}
-      title={title}
+      title={titleNode}
       description={description}
       headerActions={
         <div className="flex items-center gap-2">

@@ -15,6 +15,7 @@ import { DashboardEditLayoutPanel } from '../../src/components/module/dashboard/
 import { DashboardAddWidgetPanel } from '../../src/components/module/dashboard/DashboardAddWidgetPanel'
 import { DashboardEditWidgetPanel } from '../../src/components/module/dashboard/DashboardEditWidgetPanel'
 import { DashboardWidgetMenu } from '../../src/components/module/dashboard/DashboardWidgetMenu'
+import { DashboardChooser } from '../../src/components/module/dashboard/DashboardChooser'
 import { defaultCompatibleKinds } from '../../src/components/module/dashboard/dashboardWidgetKinds'
 import { useLicensedPacks } from '../../src/context/packContextValue'
 import { useOrgSetupContext } from '../../src/hooks/useOrgSetupContext'
@@ -482,6 +483,19 @@ export function ChecklistsAnalysePage() {
         ]}
         title="Analyse"
         description="Volum, status, alvorlighetsgrader og malbruk på tvers av alle sjekklistepakker."
+        titleChooser={
+          <DashboardChooser
+            available={dashboard.available}
+            activeRow={dashboard.row}
+            isDefault={dashboard.isDefault}
+            currentUserId={dashboard.currentUserId}
+            onSelect={dashboard.selectLayout}
+            onSaveAs={dashboard.saveAs}
+            onRename={dashboard.renameActive}
+            onDelete={dashboard.deleteActive}
+            onMarkDefault={dashboard.markActiveDefault}
+          />
+        }
         headerActions={
           // Match the Button component's default secondary size so this
           // sits flush with "Rediger oppsett" / "Legg til widget" added

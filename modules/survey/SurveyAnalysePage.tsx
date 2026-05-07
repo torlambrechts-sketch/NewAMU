@@ -14,6 +14,7 @@ import { DashboardEditLayoutPanel } from '../../src/components/module/dashboard/
 import { DashboardAddWidgetPanel } from '../../src/components/module/dashboard/DashboardAddWidgetPanel'
 import { DashboardEditWidgetPanel } from '../../src/components/module/dashboard/DashboardEditWidgetPanel'
 import { DashboardWidgetMenu } from '../../src/components/module/dashboard/DashboardWidgetMenu'
+import { DashboardChooser } from '../../src/components/module/dashboard/DashboardChooser'
 import { defaultCompatibleKinds } from '../../src/components/module/dashboard/dashboardWidgetKinds'
 import { useOrgSetupContext } from '../../src/hooks/useOrgSetupContext'
 import { useSurvey } from './useSurvey'
@@ -495,6 +496,19 @@ export function SurveyAnalysePage() {
         ]}
         title="Analyse"
         description="Volum, svarprosent og malbruk på tvers av alle undersøkelsespakker."
+        titleChooser={
+          <DashboardChooser
+            available={dashboard.available}
+            activeRow={dashboard.row}
+            isDefault={dashboard.isDefault}
+            currentUserId={dashboard.currentUserId}
+            onSelect={dashboard.selectLayout}
+            onSaveAs={dashboard.saveAs}
+            onRename={dashboard.renameActive}
+            onDelete={dashboard.deleteActive}
+            onMarkDefault={dashboard.markActiveDefault}
+          />
+        }
         headerActions={
           <Link
             to="/survey"

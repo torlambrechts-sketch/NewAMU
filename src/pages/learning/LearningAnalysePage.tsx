@@ -17,6 +17,7 @@ import { DashboardEditLayoutPanel } from '../../components/module/dashboard/Dash
 import { DashboardAddWidgetPanel } from '../../components/module/dashboard/DashboardAddWidgetPanel'
 import { DashboardEditWidgetPanel } from '../../components/module/dashboard/DashboardEditWidgetPanel'
 import { DashboardWidgetMenu } from '../../components/module/dashboard/DashboardWidgetMenu'
+import { DashboardChooser } from '../../components/module/dashboard/DashboardChooser'
 import { defaultCompatibleKinds } from '../../components/module/dashboard/dashboardWidgetKinds'
 import { useOrgSetupContext } from '../../hooks/useOrgSetupContext'
 import { useLearning } from '../../hooks/useLearning'
@@ -539,6 +540,19 @@ export function LearningAnalysePage() {
         ]}
         title="Analyse"
         description="Volum, fullføring, sertifikatutløp og kursbruk på tvers av læringsmodulen."
+        titleChooser={
+          <DashboardChooser
+            available={dashboard.available}
+            activeRow={dashboard.row}
+            isDefault={dashboard.isDefault}
+            currentUserId={dashboard.currentUserId}
+            onSelect={dashboard.selectLayout}
+            onSaveAs={dashboard.saveAs}
+            onRename={dashboard.renameActive}
+            onDelete={dashboard.deleteActive}
+            onMarkDefault={dashboard.markActiveDefault}
+          />
+        }
         headerActions={
           <Link
             to="/learning"
