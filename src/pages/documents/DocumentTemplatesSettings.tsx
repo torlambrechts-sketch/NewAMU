@@ -219,6 +219,16 @@ export function DocumentTemplatesSettings() {
     () => (customPanelId ? customOnly.find((t) => t.id === customPanelId) ?? null : null),
     [customOnly, customPanelId],
   )
+  // The OrgCustomTemplate carries the per-org admin fields (`navPinned`,
+  // `metadataSchema`) that PageTemplate doesn't. Resolve via id when the
+  // slide-out is open. (documents-parity §T6 + §T10)
+  const customPanelOverride = useMemo(
+    () =>
+      customPanelId
+        ? docs.orgCustomTemplates.find((c) => c.id === customPanelId) ?? null
+        : null,
+    [customPanelId, docs.orgCustomTemplates],
+  )
 
   useBodyScrollLock(Boolean(systemPanelId || customPanelId))
 
@@ -653,7 +663,7 @@ export function DocumentTemplatesSettings() {
                   {/* Sidebar pin toggle (documents-parity §T6 admin surface). */}
                   <div className="flex items-center gap-3 rounded-md border border-neutral-200 p-3">
                     <ToggleSwitch
-                      checked={customPanelTpl.navPinned ?? false}
+                      checked={customPanelOverride?.navPinned ?? false}
                       onChange={(v) => void docs.setOrgTemplateNavPinned(customPanelTpl.id, v)}
                       label="Vist i sidemenyen"
                     />
@@ -675,7 +685,7 @@ export function DocumentTemplatesSettings() {
                       fra denne malen, og lagres på siden.
                     </p>
                     <LearningMetadataSchemaEditor
-                      schema={customPanelTpl.metadataSchema ?? null}
+                      schema={customPanelOverride?.metadataSchema ?? null}
                       onChange={(next) =>
                         void docs.setOrgTemplateMetadataSchema(customPanelTpl.id, next)
                       }
