@@ -40,7 +40,13 @@ export const CatalogTemplateQuestionSchema = z.object({
   required: z.boolean().default(true),
   /** Lovkrav — eksplisitt fra mal; erstatter tekstanalyse */
   is_mandatory: z.boolean().optional(),
+  /**
+   * @deprecated Use law_ref (free text). Retained for backward compat with
+   * existing catalog rows that carry one of the original three enum values.
+   */
   mandatory_law: z.enum(['AML_4_3', 'AML_4_4', 'AML_6_2']).optional(),
+  /** Free-text legal reference per question — same shape as compliance items. */
+  law_ref: z.string().optional(),
   subscale: z.string().optional(),
   anchors: z.object({ low: z.string(), high: z.string() }).optional(),
   options: z.array(z.string()).optional(),

@@ -233,9 +233,18 @@ export function catalogQuestionToUpsert(q: CatalogTemplateQuestion, orderIndex: 
         isRequired: q.required,
         config: {},
       }
+    case 'photo':
       return {
         questionText: q.text,
-        questionType: 'text',
+        questionType: 'photo',
+        orderIndex,
+        isRequired: q.required,
+        config: {},
+      }
+    case 'respondent_signature':
+      return {
+        questionText: q.text,
+        questionType: 'respondent_signature',
         orderIndex,
         isRequired: q.required,
         config: {},
