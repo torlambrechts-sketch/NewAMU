@@ -44,8 +44,13 @@ create index if not exists vendors_org_active_idx
   on public.vendors (organization_id, is_active)
   where deleted_at is null;
 
-create index if not exists vendors_org_search_idx
-  on public.vendors using gin (organization_id, to_tsvector('simple', display_name));
+-- Btree on (organization_id, display_name) — adequate for the vendor picker
+-- query (WHERE organization_id = X AND display_name ILIKE %y%). The original
+-- attempt at a GIN composite index failed because UUID has no default
+-- operator class for GIN; switching to btree avoids the btree_gin extension
+-- dependency.
+create index if not exists vendors_org_name_idx
+  on public.vendors (organization_id, display_name);
 
 alter table public.vendors enable row level security;
 

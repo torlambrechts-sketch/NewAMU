@@ -16,9 +16,44 @@
 -- if needed (the bucket + RLS pattern accommodates either by changing
 -- the answer storage format, not the bucket policies).
 
--- ── 1. survey_question_type enum: add 'photo' ──────────────────────────────
+-- ── 1. Extend the question_type CHECK constraints to include 'photo'
+--      and 'respondent_signature'.
+--
+-- Note: question_type is a TEXT column with a CHECK constraint — NOT a
+-- Postgres enum. The original migration in this file used ALTER TYPE
+-- which fails because no such type exists. Both org_survey_questions
+-- and survey_question_bank carry the constraint and must be updated
+-- together.
 
-alter type public.survey_question_type add value if not exists 'photo';
+alter table public.org_survey_questions
+  drop constraint if exists org_survey_questions_question_type_check;
+
+alter table public.org_survey_questions
+  add constraint org_survey_questions_question_type_check
+  check (question_type in (
+    'rating_1_to_5', 'rating_1_to_10', 'text', 'yes_no',
+    'single_select', 'multi_select', 'multiple_choice',
+    'short_text', 'long_text', 'email', 'number',
+    'rating_visual', 'slider', 'dropdown', 'image_choice',
+    'likert_scale', 'matrix', 'ranking', 'nps',
+    'file_upload', 'datetime', 'signature',
+    'photo', 'respondent_signature'
+  ));
+
+alter table public.survey_question_bank
+  drop constraint if exists survey_question_bank_question_type_check;
+
+alter table public.survey_question_bank
+  add constraint survey_question_bank_question_type_check
+  check (question_type in (
+    'rating_1_to_5', 'rating_1_to_10', 'text', 'yes_no',
+    'single_select', 'multi_select', 'multiple_choice',
+    'short_text', 'long_text', 'email', 'number',
+    'rating_visual', 'slider', 'dropdown', 'image_choice',
+    'likert_scale', 'matrix', 'ranking', 'nps',
+    'file_upload', 'datetime', 'signature',
+    'photo', 'respondent_signature'
+  ));
 
 -- ── 2. Storage bucket ──────────────────────────────────────────────────────
 

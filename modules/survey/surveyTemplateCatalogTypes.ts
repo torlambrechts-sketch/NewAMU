@@ -28,6 +28,8 @@ export const CatalogQuestionTypeSchema = z.enum([
   'file_upload',
   'datetime',
   'signature',
+  'photo',
+  'respondent_signature',
 ])
 export type CatalogQuestionType = z.infer<typeof CatalogQuestionTypeSchema>
 
