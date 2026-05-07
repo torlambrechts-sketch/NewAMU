@@ -1,18 +1,26 @@
-// Compliance Checklists analytics — KPI cards, status donut, severity bar,
-// per-template volume bar, per-pack donut. Uses the platform-wide
-// ReportModulesGrid (same renderer as the platform-admin/layout dashboards
-// surface) so the visual language matches the rest of the product.
+// Compliance Checklists analytics — first consumer of the new
+// ModuleAnalyticsDashboard runtime + dashboardRegistry.
+//
+// The page resolves datasets from useChecklistModule and hands them to
+// the runtime alongside the registered default layout. Phase 1 (this
+// commit): pure refactor — no UX change. Phase 2 will swap the default
+// layout for a persisted dashboard_layouts row when one exists. Phase 3
+// adds the Edit Layout / Add Widget callbacks the runtime already has
+// hooks for.
 
 import { useEffect, useMemo } from 'react'
 import { Link } from 'react-router-dom'
 import { ArrowLeft, BarChart3 } from 'lucide-react'
-import { ModulePageShell } from '../../src/components/module/ModulePageShell'
-import { ReportModulesGrid } from '../../src/components/reports/ReportModuleWidget'
-import { WarningBox } from '../../src/components/ui/AlertBox'
+import { ModuleAnalyticsDashboard } from '../../src/components/module/ModuleAnalyticsDashboard'
 import { useLicensedPacks } from '../../src/context/packContextValue'
 import { useOrgSetupContext } from '../../src/hooks/useOrgSetupContext'
+import {
+  CHECKLIST_DASHBOARD_SCOPE_ID,
+  // Side-effect import: registers the scope on module load.
+} from './dashboards/checklistDashboardScope'
+import './dashboards/checklistDashboardScope'
+import { getDashboardScope } from '../../src/lib/dashboards/dashboardRegistry'
 import { useChecklistModule } from './useChecklistModule'
-import type { ReportModule } from '../../src/types/reportBuilder'
 import type { ComplianceSeverity } from './types'
 
 export function ChecklistsAnalysePage() {
@@ -60,7 +68,6 @@ export function ChecklistsAnalysePage() {
       templateCounts.set(tplName, (templateCounts.get(tplName) ?? 0) + 1)
     }
 
-    // Findings by severity — flatten responsesByExecutionId.
     const sev: Record<ComplianceSeverity, number> = {
       low: 0,
       medium: 0,
@@ -79,7 +86,6 @@ export function ChecklistsAnalysePage() {
       }
     }
 
-    // Top 8 templates by volume so the bar chart stays readable.
     const topTemplates = [...templateCounts.entries()]
       .sort((a, b) => b[1] - a[1])
       .slice(0, 8)
@@ -107,84 +113,36 @@ export function ChecklistsAnalysePage() {
     } as Record<string, unknown>
   }, [cl.executions, cl.responsesByExecutionId, cl.templates, packs])
 
-  const modules: ReportModule[] = useMemo(() => {
-    const templateKeys = Object.keys(
-      (datasets.checklist_executions_by_template as Record<string, number>) ?? {},
-    )
-    const packKeys = Object.keys(
-      (datasets.checklist_executions_by_pack as Record<string, number>) ?? {},
-    )
-    return [
-      {
-        id: 'kpi-total',
-        kind: 'kpi',
-        datasetKey: 'checklist_kpi_summary',
-        title: 'Totalt antall sjekklister',
-        valuePath: 'total',
-        subtitle: 'Alle aktive (ikke arkiverte) kjøringer',
-      },
-      {
-        id: 'kpi-open',
-        kind: 'kpi',
-        datasetKey: 'checklist_kpi_summary',
-        title: 'Åpne / under arbeid',
-        valuePath: 'open',
-        subtitle: 'Status kladd eller aktiv',
-      },
-      {
-        id: 'kpi-ytd',
-        kind: 'kpi',
-        datasetKey: 'checklist_kpi_summary',
-        title: 'Signert i år',
-        valuePath: 'ytd',
-        subtitle: 'YTD signerte runder',
-      },
-      {
-        id: 'kpi-critical',
-        kind: 'kpi',
-        datasetKey: 'checklist_kpi_summary',
-        title: 'Kritiske funn',
-        valuePath: 'critical',
-        subtitle: 'Krever oppfølging',
-      },
-      {
-        id: 'donut-status',
-        kind: 'donut',
-        datasetKey: 'checklist_executions_by_status',
-        title: 'Fordeling per status',
-        segmentsPath: '',
-      },
-      {
-        id: 'bar-severity',
-        kind: 'bar',
-        datasetKey: 'checklist_findings_by_severity',
-        title: 'Funn per alvorlighetsgrad',
-        seriesKeys: ['Lav', 'Middels', 'Høy', 'Kritisk'],
-      },
-      {
-        id: 'bar-template',
-        kind: 'bar',
-        datasetKey: 'checklist_executions_by_template',
-        title: 'Mest brukte maler (topp 8)',
-        seriesKeys: templateKeys,
-      },
-      {
-        id: 'donut-pack',
-        kind: 'donut',
-        datasetKey: 'checklist_executions_by_pack',
-        title: 'Fordeling per regulativ pakke',
-        segmentsPath: '',
-      },
-    ].filter((m) => {
-      // Drop empty series so the grid doesn't render hollow widgets.
-      if (m.kind === 'bar' && m.id === 'bar-template') return templateKeys.length > 0
-      if (m.kind === 'donut' && m.id === 'donut-pack') return packKeys.length > 0
-      return true
-    }) as ReportModule[]
+  // Hydrate layout from the registered default. Bar widgets that ship
+  // with empty seriesKeys (catalog templates) get their keys filled in
+  // from the live dataset so the bar renders without a separate config
+  // step. Phase 2 will swap this for a persisted layout when one exists.
+  const layout = useMemo(() => {
+    const scope = getDashboardScope(CHECKLIST_DASHBOARD_SCOPE_ID)
+    if (!scope) return []
+    return scope.defaultLayout.map((m) => {
+      if (m.kind === 'bar' && m.seriesKeys.length === 0) {
+        const ds = datasets[m.datasetKey] as Record<string, unknown> | undefined
+        const keys = ds && typeof ds === 'object' ? Object.keys(ds) : []
+        return { ...m, seriesKeys: keys }
+      }
+      return m
+    })
   }, [datasets])
 
+  const empty =
+    cl.executions.length === 0 ? (
+      <div className="rounded-md border border-dashed border-neutral-300 bg-white p-8 text-center">
+        <BarChart3 className="mx-auto h-8 w-8 text-neutral-300" aria-hidden />
+        <p className="mt-3 text-sm text-neutral-600">
+          Ingen sjekklister å analysere ennå. Opprett eller signer en kjøring for å se
+          tallene her.
+        </p>
+      </div>
+    ) : null
+
   return (
-    <ModulePageShell
+    <ModuleAnalyticsDashboard
       breadcrumb={[
         { label: 'HMS' },
         { label: 'Sjekklister', to: '/compliance/checklists' },
@@ -201,29 +159,11 @@ export function ChecklistsAnalysePage() {
           Tilbake
         </Link>
       }
-    >
-      <div className="space-y-6">
-        {cl.error ? <WarningBox>{cl.error}</WarningBox> : null}
-        {cl.loading && cl.executions.length === 0 ? (
-          <p className="py-12 text-center text-sm text-neutral-500">Laster …</p>
-        ) : cl.executions.length === 0 ? (
-          <div className="rounded-md border border-dashed border-neutral-300 bg-white p-8 text-center">
-            <BarChart3 className="mx-auto h-8 w-8 text-neutral-300" aria-hidden />
-            <p className="mt-3 text-sm text-neutral-600">
-              Ingen sjekklister å analysere ennå. Opprett eller signer en kjøring for å se
-              tallene her.
-            </p>
-          </div>
-        ) : (
-          <ReportModulesGrid
-            modules={modules}
-            datasets={datasets}
-            accent="#1a3d32"
-            layoutMode="grid2"
-            emptyLabel="Ingen data."
-          />
-        )}
-      </div>
-    </ModulePageShell>
+      layout={layout}
+      datasets={datasets}
+      loading={cl.loading}
+      error={cl.error}
+      emptyState={empty}
+    />
   )
 }
