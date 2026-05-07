@@ -12,6 +12,7 @@ today (those live in repo-root `*.md` files).
 | `tasks-parity.md` | ✅ executed | Tasks port T1–T3 shipped (commit `6bd167e`). |
 | `elearning-parity.md` | ✅ executed | Learning port T1–T7 shipped across `9a6b3d7` → `351c8fb` → `94eabeb` → `b970e4c`. T6 completion-panel UI + admin authoring + the `kind: 'heatmap'` widget engine extension (E-1) shipped on top. E-læring promoted to a top-level sidebar group next to Sjekklister + Undersøkelser. |
 | `documents-parity.md` | ✅ executed | T1–T11 shipped across `3ac68d7` (Phase A) → `<Phase B>` → `<Phase C+D>`. Documents sidebar group, `/documents/analyse` page with six filter dimensions + drill-down, nav-pinned templates, provision bundle, metadata_schema on templates + metadata on pages, schema-driven panel in editor, admin authoring UI, and YoY comparison-mode datasets all live. 3 idempotent migrations (20260828120032/33/34). |
+| `category-architecture.md` | 📋 ready (OQs in §9 to resolve) | Cross-module overhaul: two-level taxonomy (regulation + category), multi-select regulation toggles in top bar, sidebar groups by Cat 2 with expand/collapse, per-module "Alle X" page with action-board-style filtering. T1–T8 across three phases, 2 idempotent migrations. **Big enough to need sign-off before execution.** |
 
 ## How to execute one of these
 
