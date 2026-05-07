@@ -151,6 +151,10 @@ export type OrgCustomTemplate = {
   category: SpaceCategory
   legalBasis: string[]
   pagePayload: Omit<WikiPage, 'id' | 'spaceId' | 'createdAt' | 'updatedAt' | 'authorId' | 'version'>
+  /** When true, this template surfaces as a sidebar shortcut under the
+   *  "Dokumenter" group. Defaults to false — admins opt in via the
+   *  templates settings page (documents-parity §T5/T6). */
+  navPinned?: boolean
 }
 
 function loadLocalOrgTemplates(): OrgCustomTemplate[] {
@@ -731,6 +735,7 @@ function useDocumentsStore() {
             category: r.category as SpaceCategory,
             legalBasis: (r.legal_basis as string[]) ?? [],
             pagePayload: r.page_payload as OrgCustomTemplate['pagePayload'],
+            navPinned: (r as { nav_pinned?: boolean }).nav_pinned ?? false,
           })),
         )
         setRemoteState(data)
@@ -868,6 +873,35 @@ function useDocumentsStore() {
       return id
     },
     [useRemote, supabase, orgId, userId, refreshDocuments],
+  )
+
+  /** Toggle whether the template appears as a sidebar shortcut. Persists
+   *  to `document_org_templates.nav_pinned`; reads back via the
+   *  `useDocumentNav` hook (documents-parity §T5/T6). */
+  const setOrgTemplateNavPinned = useCallback(
+    async (id: string, pinned: boolean) => {
+      if (!useRemote) {
+        setLocalOrgCustomTemplates((prev) => {
+          const next = prev.map((x) => (x.id === id ? { ...x, navPinned: pinned } : x))
+          saveLocalOrgTemplates(next)
+          return next
+        })
+        return
+      }
+      if (!supabase || !orgId) return
+      const { error: e } = await supabase
+        .from('document_org_templates')
+        .update({ nav_pinned: pinned })
+        .eq('id', id)
+        .eq('organization_id', orgId)
+      if (e) throw e
+      // Optimistic refresh — the table has a before-update trigger that
+      // bumps updated_at, so re-running the loader picks up the new value.
+      setOrgCustomTemplates((prev) =>
+        prev.map((x) => (x.id === id ? { ...x, navPinned: pinned } : x)),
+      )
+    },
+    [useRemote, supabase, orgId],
   )
 
   const deleteOrgCustomTemplate = useCallback(
@@ -2284,6 +2318,7 @@ function useDocumentsStore() {
     setSystemTemplateEnabled,
     saveOrgCustomTemplate,
     deleteOrgCustomTemplate,
+    setOrgTemplateNavPinned,
     stats,
     createSpace,
     updateSpace,

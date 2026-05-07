@@ -57,6 +57,7 @@ import { ShellCompliancePackSwitcher } from './ShellCompliancePackSwitcher'
 import { ShellSurveyPackSwitcher } from './ShellSurveyPackSwitcher'
 import { useComplianceNav } from '../../../modules/compliance/useComplianceNav'
 import { useSurveyNav } from '../../../modules/survey/useSurveyNav'
+import { useDocumentNav } from '../../hooks/useDocumentNav'
 import type { NavMode } from './aticsNavMode'
 
 // ─── Sub-item type ────────────────────────────────────────────────────────────
@@ -851,6 +852,7 @@ export function AticsShell() {
   // path to discover the feature).
   const complianceNav = useComplianceNav()
   const surveyNav = useSurveyNav()
+  const documentNav = useDocumentNav()
   const mergedNavGroups = useMemo<NavGroup[]>(() => {
     // Fixed sub-entries that always sit under "Sjekklister" — Analyse and
     // Innstillinger live here so the user has a clear path to org-level
@@ -1110,6 +1112,49 @@ export function AticsShell() {
       },
     ]
 
+    // Pinned templates grouped by category, mirroring surveyPinnedSubs.
+    // Single-category mode skips the headers (visual cleanliness).
+    const documentsPinnedSubs: SubItem[] = (() => {
+      const buckets = new Map<string, typeof documentNav.items>()
+      for (const it of documentNav.items) {
+        const list = buckets.get(it.headerKey) ?? []
+        list.push(it)
+        buckets.set(it.headerKey, list)
+      }
+      const orderedCats = documentNav.categories.filter((c) => buckets.has(c.id))
+      const showHeaders = orderedCats.length > 1
+
+      const subs: SubItem[] = []
+      for (const cat of orderedCats) {
+        const list = buckets.get(cat.id) ?? []
+        if (list.length === 0) continue
+        if (showHeaders) {
+          subs.push({
+            kind: 'header',
+            label: cat.name,
+            path: `__cat:${cat.id}`,
+            match: () => false,
+            headerKey: cat.id,
+            Icon: FolderTree,
+            requirePermAny: DOCUMENTS_NAV_PERMS,
+          })
+        }
+        for (const item of list) {
+          subs.push({
+            label: item.templateName,
+            path: item.to,
+            match: ({ pathname, search }) => {
+              if (pathname !== '/documents/templates') return false
+              return new URLSearchParams(search).get('template') === item.templateId
+            },
+            headerKey: showHeaders ? cat.id : undefined,
+            requirePermAny: DOCUMENTS_NAV_PERMS,
+          })
+        }
+      }
+      return subs
+    })()
+
     const documentsGroup: NavGroup = {
       id: 'dokumenter',
       label: 'Dokumenter',
@@ -1120,7 +1165,7 @@ export function AticsShell() {
           label: 'Dokumenter',
           end: false,
           icon: FileText,
-          subs: documentsFixedSubs,
+          subs: [...documentsFixedSubs, ...documentsPinnedSubs],
           permAny: DOCUMENTS_NAV_PERMS,
           moduleSlug: 'documents',
           flatSubs: true,
