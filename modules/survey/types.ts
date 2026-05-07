@@ -111,6 +111,10 @@ export type SurveyRow = {
   participant_member_ids: string[]
   /** Free-form per-template metadata (driven by org_template.metadata_schema). */
   metadata: Record<string, unknown>
+  /** Cached count of org_survey_responses for this survey (trigger-maintained). */
+  response_count: number
+  /** Cached count of survey_invitations for this survey (trigger-maintained). */
+  invitation_count: number
 }
 
 export const SurveyRowSchema = z.object({
@@ -143,6 +147,8 @@ export const SurveyRowSchema = z.object({
   team_id: z.string().uuid().nullable().optional(),
   participant_member_ids: z.array(z.string().uuid()).optional(),
   metadata: z.record(z.string(), z.unknown()).optional(),
+  response_count: z.number().int().optional(),
+  invitation_count: z.number().int().optional(),
 }).transform((row) => ({
   ...row,
   survey_purpose: row.survey_purpose ?? null,
@@ -153,6 +159,8 @@ export const SurveyRowSchema = z.object({
   team_id: row.team_id ?? null,
   participant_member_ids: row.participant_member_ids ?? [],
   metadata: row.metadata ?? {},
+  response_count: row.response_count ?? 0,
+  invitation_count: row.invitation_count ?? 0,
 }))
 
 export function parseSurveyRow(

@@ -46,8 +46,8 @@ Mirror the entire checklist reshape on `/survey`. Architecture is in place; the 
 | 2.6 | ✅ | Survey categories | T1 — `9db20ec`. Structured `survey_template_categories` table; per-OQ-1 attaches to `survey_org_templates`. |
 | 2.7 | ✅ | Sidebar — Analyse + Innstillinger fixed children + collapsible category groups | T2+T3 — `1d4492a`. |
 | 2.8 | ✅ | Survey scope dimensions | T7 — adds Pakke / Mal / Status / Kategori / Lokasjon / Avdeling / Deltaker / Anonymitet / Periode. |
-| 2.9 | 📋 | Admin authoring UI for `metadata_schema` on survey_org_templates | DB + hook ready; SQL works. Needs a slot in `SurveyMalerOpsCard` or a new "Hoveddata" sub-panel in the Maler admin tab. |
-| 2.10 | 📋 | Response-count + response-rate aggregates | Backfill `surveys.response_count` (or expose via RPC) so the existing KPI tiles + line widgets fill in. |
+| 2.9 | ✅ | Admin authoring UI for `metadata_schema` on survey_org_templates | `25c6acb`. New "Hoveddata" column on `SurveyMalerOpsCard` opens a slide panel with category dropdown + field editor + recommended-preset button per pack. |
+| 2.10 | ✅ | Response-count + response-rate aggregates | `surveys.response_count` + `surveys.invitation_count` cached columns maintained by AFTER INSERT/DELETE triggers (migration `20260828120028`). KPI tiles + responses-over-time line now reflect real data. |
 
 **Suggested order of work for survey port:** 2.5 (analytics — biggest visible gain) → 2.6 (categories — lots of leverage) → 2.7 (sidebar) → 2.4 (metadata edits — low traffic).
 

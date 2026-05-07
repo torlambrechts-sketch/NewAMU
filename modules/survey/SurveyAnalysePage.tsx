@@ -370,20 +370,32 @@ export function SurveyAnalysePage() {
         : '(uten avdeling)'
       departmentCounts.set(depName, (departmentCounts.get(depName) ?? 0) + 1)
 
+      // Attribute each survey's responses to the month it was published.
+      // Approximation — a more accurate version would bucket each
+      // org_survey_responses row by its own submitted_at, but that would
+      // require loading per-response data on the analyse list view.
       const published = s.published_at ? new Date(s.published_at) : null
       if (published) {
         const k = monthKey(published)
         if (publishedByMonth.has(k))
-          publishedByMonth.set(k, (publishedByMonth.get(k) ?? 0) + 1)
+          publishedByMonth.set(k, (publishedByMonth.get(k) ?? 0) + s.response_count)
       }
     }
 
-    // We don't have per-response counts loaded here either; KPI uses 0 as a
-    // placeholder until a future migration brings response_count onto the
-    // surveys row (or until we add a server-side aggregate). The dataset
-    // shape is wired so the UI doesn't break when that lands.
-    const responses = 0
-    const responseRatePct = 0
+    // Cached counts on the surveys row are maintained by triggers in
+    // migration 20260828120028. Sum across the filtered set; rate is
+    // total responses / total invitations across published surveys
+    // (drafts + archived contribute zero invitations).
+    let responses = 0
+    let invitationsTotal = 0
+    for (const s of surveys) {
+      responses += s.response_count
+      if (s.status === 'active' || s.status === 'closed') {
+        invitationsTotal += s.invitation_count
+      }
+    }
+    const responseRatePct =
+      invitationsTotal > 0 ? Math.round((responses / invitationsTotal) * 100) : 0
 
     const topTemplates = [...templateCounts.entries()]
       .sort((a, b) => b[1] - a[1])
