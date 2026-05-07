@@ -255,4 +255,5 @@ registerDashboardScope({
   widgetCatalog: WIDGET_CATALOG,
   datasets: DATASETS,
   // Dimensions are page-side (need live org data for pack/template lists).
+  accent: '#7c3aed', // purple — pairs with the Megaphone module icon
 })

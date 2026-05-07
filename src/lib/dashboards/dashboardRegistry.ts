@@ -74,6 +74,13 @@ export type DashboardScope = {
   datasets?: DatasetMeta[]
   /** Filter dimensions exposed in the filter chip bar. */
   dimensions?: DashboardDimension[]
+  /**
+   * Default accent colour for this scope's dashboards. Used by
+   * `ModuleAnalyticsDashboard` when the host page doesn't pass an
+   * explicit `accent` prop. Pages may still override per-render
+   * (e.g. compliance flips accent based on the active `?pack=` focus).
+   */
+  accent?: string
 }
 
 const registry = new Map<string, DashboardScope>()

@@ -31,6 +31,7 @@ import './dashboards/learningDashboardScope'
 import { STATUS_OPTIONS, useLearningDatasets } from './dashboards/useLearningDatasets'
 import { useDashboardLayout } from '../../lib/dashboards/useDashboardLayout'
 import { freshId } from '../../lib/dashboards/freshId'
+import { getDashboardScope } from '../../lib/dashboards/dashboardRegistry'
 import type { ReportModule } from '../../types/reportBuilder'
 import type { DashboardDimension } from '../../lib/dashboards/dashboardFilters'
 import { makeFilter } from '../../lib/dashboards/dashboardFilters'
@@ -186,6 +187,7 @@ export function LearningAnalysePage() {
   return (
     <>
       <ModuleAnalyticsDashboard
+        accent={getDashboardScope(LEARNING_DASHBOARD_SCOPE_ID)?.accent}
         breadcrumb={[
           { label: 'Læring', to: '/learning' },
           { label: 'Analyse' },

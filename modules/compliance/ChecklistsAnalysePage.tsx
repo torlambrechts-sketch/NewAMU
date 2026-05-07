@@ -8,7 +8,7 @@
 // against a filtered subset of executions / responses.
 
 import { useEffect, useMemo, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import { ArrowLeft, BarChart3 } from 'lucide-react'
 import { ModuleAnalyticsDashboard } from '../../src/components/module/ModuleAnalyticsDashboard'
 import { DashboardEditLayoutPanel } from '../../src/components/module/dashboard/DashboardEditLayoutPanel'
@@ -27,6 +27,8 @@ import {
 import './dashboards/checklistDashboardScope'
 import { useDashboardLayout } from '../../src/lib/dashboards/useDashboardLayout'
 import { freshId } from '../../src/lib/dashboards/freshId'
+import { getDashboardScope } from '../../src/lib/dashboards/dashboardRegistry'
+import { packAccentFor } from './dashboards/packAccents'
 import { useChecklistModule } from './useChecklistModule'
 import {
   STATUS_OPTIONS,
@@ -44,6 +46,13 @@ export function ChecklistsAnalysePage() {
   const { supabase } = orgSetup
   const cl = useChecklistModule({ supabase })
   const packs = useLicensedPacks()
+  const [searchParams] = useSearchParams()
+  const activePack = searchParams.get('pack')
+  // Per 4.4: pack-specific accent flips the dashboard palette (AML green
+  // vs ISO blue) so admins working with multiple packs see at-a-glance
+  // which scope they're in. Falls back to the scope's default colour.
+  const accent =
+    packAccentFor(activePack) ?? getDashboardScope(CHECKLIST_DASHBOARD_SCOPE_ID)?.accent
 
   const { load } = cl
   useEffect(() => {
@@ -222,6 +231,7 @@ export function ChecklistsAnalysePage() {
   return (
     <>
       <ModuleAnalyticsDashboard
+        accent={accent}
         breadcrumb={[
           { label: 'HMS' },
           { label: 'Sjekklister', to: '/compliance/checklists' },

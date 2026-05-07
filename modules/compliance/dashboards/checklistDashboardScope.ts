@@ -397,4 +397,7 @@ registerDashboardScope({
   datasets: DATASETS,
   // Dimensions are declared by the page (ChecklistsAnalysePage) because
   // their loadOptions need live org data (pack list, template list).
+  accent: '#1a3d32', // brand green — default; ChecklistsAnalysePage flips
+                     // to a pack-specific colour when ?pack= is active
+                     // (see PACK_ACCENTS in modules/compliance/dashboards/packAccents.ts).
 })

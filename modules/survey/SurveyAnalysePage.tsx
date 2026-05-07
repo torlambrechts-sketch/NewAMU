@@ -30,6 +30,7 @@ import './dashboards/surveyDashboardScope'
 import { STATUS_OPTIONS, useSurveyDatasets } from './dashboards/useSurveyDatasets'
 import { useDashboardLayout } from '../../src/lib/dashboards/useDashboardLayout'
 import { freshId } from '../../src/lib/dashboards/freshId'
+import { getDashboardScope } from '../../src/lib/dashboards/dashboardRegistry'
 import type { ReportModule } from '../../src/types/reportBuilder'
 import type { DashboardDimension } from '../../src/lib/dashboards/dashboardFilters'
 
@@ -214,6 +215,7 @@ export function SurveyAnalysePage() {
   return (
     <>
       <ModuleAnalyticsDashboard
+        accent={getDashboardScope(SURVEY_DASHBOARD_SCOPE_ID)?.accent}
         breadcrumb={[
           { label: 'HMS' },
           { label: 'Undersøkelser', to: '/survey' },

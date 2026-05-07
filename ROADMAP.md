@@ -157,7 +157,7 @@ Reusable runtime that any module registers a "scope" with and consumes via `Modu
 | 4.1 | 📋 | Real drag-and-drop library | Today the Edit Layout panel uses native HTML5 drag-and-drop. For multi-column or grouped reordering (and accessibility), bring in `@dnd-kit/core`. Defer until we actually hit the limitation. |
 | 4.2 | ✅ | Surface "saved view" chooser in module headers | Shipped as part of 3.2.3 — every analyse page gets a `DashboardChooser` dropdown inline with the title. |
 | 4.3 | 📋 | Audit log for dashboard edits | `dashboard_layouts.version` bumps on every save but we don't expose history. Useful for "who broke the dashboard?" forensics. Mirrors `compliance_template_versions` shape. |
-| 4.4 | 📋 | Light/dark accent themes | `accent` is already a prop. Wire it to the org's `compliance_pack` colour palette so AML and ISO dashboards visually differ. |
+| 4.4 | ✅ | Per-scope + per-pack accent | `DashboardScope.accent` is now a registry field; each scope picks its own palette (compliance brand green / survey purple / tasks amber / learning teal). `ChecklistsAnalysePage` flips to a pack-specific accent (`PACK_ACCENTS` in `modules/compliance/dashboards/packAccents.ts`) when `?pack=aml-amu` vs `?pack=iso-45001` is active. |
 | 4.5 | 📋 | Mobile dashboard pass | The 12-col grid collapses cleanly to single column at `<lg` but the editor and filter-chip popovers haven't been tested on touch. |
 
 ---

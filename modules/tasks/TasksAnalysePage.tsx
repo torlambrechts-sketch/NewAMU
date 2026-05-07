@@ -36,6 +36,7 @@ import {
 } from './dashboards/useTasksDatasets'
 import { useDashboardLayout } from '../../src/lib/dashboards/useDashboardLayout'
 import { freshId } from '../../src/lib/dashboards/freshId'
+import { getDashboardScope } from '../../src/lib/dashboards/dashboardRegistry'
 import type { ReportModule } from '../../src/types/reportBuilder'
 import type { DashboardDimension } from '../../src/lib/dashboards/dashboardFilters'
 
@@ -174,6 +175,7 @@ export function TasksAnalysePage() {
   return (
     <>
       <ModuleAnalyticsDashboard
+        accent={getDashboardScope(TASKS_DASHBOARD_SCOPE_ID)?.accent}
         breadcrumb={[
           { label: 'Arbeidsflate' },
           { label: 'Oppgavestyring', to: '/tasks/management' },

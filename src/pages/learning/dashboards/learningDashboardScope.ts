@@ -230,4 +230,5 @@ registerDashboardScope({
   defaultLayout: DEFAULT_LAYOUT,
   widgetCatalog: WIDGET_CATALOG,
   datasets: DATASETS,
+  accent: '#0e7490', // teal — visually pairs with the GraduationCap module icon
 })

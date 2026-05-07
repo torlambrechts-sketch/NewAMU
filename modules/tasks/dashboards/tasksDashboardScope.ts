@@ -195,4 +195,5 @@ registerDashboardScope({
   defaultLayout: DEFAULT_LAYOUT,
   widgetCatalog: WIDGET_CATALOG,
   datasets: DATASETS,
+  accent: '#c2410c', // amber — pairs with the Kanban "todo" feel
 })
