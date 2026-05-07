@@ -24,6 +24,11 @@ The first module reshaped around the "template-as-first-class" model.
 | 1.10 | 📋 | Per-category icon picker in admin | Today every category uses `FolderTree`. Add an icon column + dropdown in the Kategorier editor. ~half day. |
 | 1.11 | 📋 | Drag-to-reorder categories | Today admin sets `position` numerically. Replace with HTML5 drag handle (same pattern as the dashboard editor). ~half day. |
 | 1.12 | 📋 | "Save as private layout" for analytics | `dashboard_layouts.owner_user_id` is already in the schema; UI to save/load per-user copies missing. |
+| 1.13 | ✅ | Execution org-context (location / department / team) + participants | Migration `20260828120024`; typed FK columns + `metadata jsonb` for free-form. Sign trigger relaxed to allow these post-sign. |
+| 1.14 | ✅ | Template `metadata_schema` (per-template field declarations) | Templates declare which fields apply (`location`, `department`, `team`, `participants`, `text`, `number`, `select`); execution editor renders accordingly. |
+| 1.15 | ✅ | Schema-driven ExecutionMetadataPanel | Per-template fields surface alongside universal fields. Free-form attendees kept for non-system / external participants. |
+| 1.16 | ✅ | Analytics filters: Lokasjon, Avdeling, Deltaker | Plus `checklist_executions_by_location` / `_by_department` datasets and donut/bar widgets in the catalog. |
+| 1.17 | 📋 | Asset / object dimension | When the org introduces an "asset" model (machines, vehicles, premises items), wire a `metadata_schema` `kind: 'asset'` against an `assets` table — same shape as location. |
 
 ---
 
