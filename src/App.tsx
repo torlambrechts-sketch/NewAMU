@@ -141,6 +141,7 @@ import { SurveyVendorsPage } from './pages/SurveyVendorsPage'
 import { SurveyOrgTemplateEditorPage } from './pages/SurveyOrgTemplateEditorPage'
 import { SurveyDetailPage } from './pages/SurveyDetailPage'
 import { SurveyRespondPage } from './pages/SurveyRespondPage'
+import { SurveyAnalysePage } from '../modules/survey/SurveyAnalysePage'
 
 /**
  * Providers that depend on react-router (e.g. useOrgSetup → useLocation) must live *inside*
@@ -312,6 +313,7 @@ const router = createBrowserRouter(
                       <Route path="ros/:rosId"  element={<RosAnalysisDetailPage />} />
                       <Route path="survey" element={<SurveyModulePage />} />
                       <Route path="survey/admin" element={<SurveyModuleAdminPage />} />
+                      <Route path="survey/analyse" element={<SurveyAnalysePage />} />
                       <Route path="survey/leverandorer" element={<SurveyVendorsPage />} />
                       {/* Single route so :templateId is set for `new` (static route left no params → "Mangler mal-ID"). */}
                       <Route path="survey/templates/org/:templateId" element={<SurveyOrgTemplateEditorPage />} />

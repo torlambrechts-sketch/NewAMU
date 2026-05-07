@@ -262,6 +262,16 @@ export function SurveyPage({ supabase }: Props) {
           <div className="flex flex-wrap items-center gap-2">
             {survey.canManage && (
               <>
+                {mode === 'hub' ? (
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    icon={<BarChart3 className="h-4 w-4" />}
+                    onClick={() => navigate('/survey/analyse')}
+                  >
+                    <span className="hidden sm:inline">Analyse</span>
+                  </Button>
+                ) : null}
                 <Button
                   type="button"
                   variant="secondary"
