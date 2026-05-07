@@ -31,6 +31,8 @@ export type ComplianceNavCategory = {
   pack: CompliancePackSlug
   name: string
   position: number
+  /** Cat 1 of the cross-module taxonomy (category-architecture §T2). */
+  regulationId: string | null
 }
 
 export type UseComplianceNavReturn = {
@@ -56,6 +58,7 @@ type CategoryRow = {
   pack: CompliancePackSlug
   name: string
   position: number
+  regulation_id: string | null
 }
 
 export function useComplianceNav(): UseComplianceNavReturn {
@@ -84,7 +87,7 @@ export function useComplianceNav(): UseComplianceNavReturn {
         .order('name', { ascending: true }),
       supabase
         .from('compliance_checklist_categories')
-        .select('id, pack, name, position')
+        .select('id, pack, name, position, regulation_id')
         .eq('organization_id', orgId)
         .eq('is_active', true)
         .is('deleted_at', null)
@@ -134,7 +137,13 @@ export function useComplianceNav(): UseComplianceNavReturn {
     const licensedSlugs = new Set(packs.map((p) => p.slug))
     return categoryRows
       .filter((c) => licensedSlugs.has(c.pack))
-      .map((c) => ({ id: c.id, pack: c.pack, name: c.name, position: c.position }))
+      .map((c) => ({
+        id: c.id,
+        pack: c.pack,
+        name: c.name,
+        position: c.position,
+        regulationId: c.regulation_id ?? null,
+      }))
   }, [categoryRows, packs])
 
   return {

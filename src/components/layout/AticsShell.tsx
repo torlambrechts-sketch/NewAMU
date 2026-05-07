@@ -54,6 +54,8 @@ import {
   ShellQuickCreateMenu,
 } from './ShellHeaderWidgets'
 import { ShellCompliancePackSwitcher } from './ShellCompliancePackSwitcher'
+import { RegulationFilterMenu } from './RegulationFilterMenu'
+import { useRegulationFilter } from '../../context/RegulationFilterContext'
 import { ShellSurveyPackSwitcher } from './ShellSurveyPackSwitcher'
 import { useComplianceNav } from '../../../modules/compliance/useComplianceNav'
 import { useSurveyNav } from '../../../modules/survey/useSurveyNav'
@@ -126,15 +128,6 @@ function visibleSubs(
 
 // ─── Sub-item lists (all paths/labels unchanged) ──────────────────────────────
 
-const tasksSubs: SubItem[] = [
-  {
-    label: 'Oppgaveliste',
-    path: '/tasks?view=list',
-    match: ({ pathname, search }) =>
-      pathname === '/tasks' &&
-      (!new URLSearchParams(search).get('view') || new URLSearchParams(search).get('view') === 'list'),
-  },
-]
 
 const internkontrollSubs: SubItem[] = [
   {
@@ -604,7 +597,8 @@ const gamleModulerModules: NavModule[] = [
   // ── Eksisterende "Gamle moduler" innhold ─────────────────────────────────
   { to: '/', label: 'Dashboards', end: true, icon: Home, subs: [], perm: 'module.view.dashboard' },
   { to: '/workspace/revisjonslogg', label: 'Revisjonslogg', end: true, icon: History, subs: [], perm: 'module.view.dashboard' },
-  { to: '/tasks', label: 'Tasks', end: false, icon: LayoutGrid, subs: tasksSubs, perm: 'module.view.tasks', moduleSlug: 'tasks' },
+  // Tasks + Learning have their own top-level NavGroups (Oppgaver / Læring) —
+  // legacy duplicates removed per category-architecture §T6.
   { to: '/action-board', label: 'Action Board', end: false, icon: Kanban, subs: [], perm: 'module.view.dashboard' },
   { to: '/hse', label: 'HSE / HMS (legacy)', end: false, icon: HardHat, subs: hseSubs, perm: 'module.view.hse', moduleSlug: 'hse' },
   { to: '/admin/modules', label: 'Moduloversikt', end: false, icon: Boxes, subs: [] },
@@ -853,6 +847,7 @@ export function AticsShell() {
   const complianceNav = useComplianceNav()
   const surveyNav = useSurveyNav()
   const documentNav = useDocumentNav()
+  const { isActive: isRegulationActive, activeRegulationIds } = useRegulationFilter()
   const mergedNavGroups = useMemo<NavGroup[]>(() => {
     // Fixed sub-entries that always sit under "Sjekklister" — Analyse and
     // Innstillinger live here so the user has a clear path to org-level
@@ -892,6 +887,7 @@ export function AticsShell() {
       }
       const orderedCats = complianceNav.categories
         .filter((c) => buckets.has(c.id))
+        .filter((c) => isRegulationActive(c.regulationId))
         .sort((a, b) => a.position - b.position || a.name.localeCompare(b.name, 'nb'))
       const uncategorised = [...buckets.entries()]
         .filter(([key]) => key.endsWith(':__uncat__'))
@@ -986,6 +982,7 @@ export function AticsShell() {
       }
       const orderedCats = surveyNav.categories
         .filter((c) => buckets.has(c.id))
+        .filter((c) => isRegulationActive(c.regulationId))
         .sort((a, b) => a.position - b.position || a.name.localeCompare(b.name, 'nb'))
       const uncategorised = [...buckets.entries()]
         .filter(([key]) => key.endsWith(':__uncat__'))
@@ -1121,7 +1118,9 @@ export function AticsShell() {
         list.push(it)
         buckets.set(it.headerKey, list)
       }
-      const orderedCats = documentNav.categories.filter((c) => buckets.has(c.id))
+      const orderedCats = documentNav.categories
+        .filter((c) => buckets.has(c.id))
+        .filter((c) => isRegulationActive(c.regulationId))
       const showHeaders = orderedCats.length > 1
 
       const subs: SubItem[] = []
@@ -1222,7 +1221,16 @@ export function AticsShell() {
     const head = idx === -1 ? navGroups : navGroups.slice(0, idx)
     const tail = idx === -1 ? [] : navGroups.slice(idx)
     return [...head, hmsOverviewGroup, complianceGroup, surveyGroup, documentsGroup, tasksGroup, learningGroup, ...tail]
-  }, [complianceNav.items, complianceNav.categories, surveyNav.items, surveyNav.categories])
+  }, [
+    complianceNav.items,
+    complianceNav.categories,
+    surveyNav.items,
+    surveyNav.categories,
+    documentNav.items,
+    documentNav.categories,
+    isRegulationActive,
+    activeRegulationIds,
+  ])
 
   const visibleGroups = useMemo(
     () => filterNavGroups(mergedNavGroups, gateNav, can, disabledModules, hiddenForUser),
@@ -1499,6 +1507,12 @@ export function AticsShell() {
                   <ShellCompanyBlock name={orgDisplayName} variant="sidebar" />
                   <ShellQuickCreateMenu variant="sidebar" />
                   <ShellComplianceIndicator variant="sidebar" />
+                  {/* Cross-module Cat 1 filter (regulations) — replaces the
+                      single-pack switchers as the dominant control. The
+                      compliance + survey pack switchers stay for module-
+                      internal pack focus where the URL ?pack= param matters
+                      (e.g. compliance accent flip). */}
+                  <RegulationFilterMenu variant="sidebar" />
                   <ShellCompliancePackSwitcher variant="sidebar" />
                   <ShellSurveyPackSwitcher variant="sidebar" />
                   <NotificationTray variant="sidebar" />
@@ -1569,6 +1583,7 @@ export function AticsShell() {
           <ShellCompanyBlock name={orgDisplayName} variant="topbar" />
           <ShellQuickCreateMenu variant="topbar" />
           <ShellComplianceIndicator variant="topbar" />
+          <RegulationFilterMenu variant="topbar" />
           <ShellCompliancePackSwitcher variant="topbar" />
           <ShellSurveyPackSwitcher variant="topbar" />
           <NotificationTray variant="topbar" />

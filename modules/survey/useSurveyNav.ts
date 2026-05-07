@@ -29,6 +29,9 @@ export type SurveyNavCategory = {
   pack: SurveyPackSlug
   name: string
   position: number
+  /** Cat 1 of the cross-module taxonomy (category-architecture §T2).
+   *  Null when the admin hasn't classified this category under a regulation. */
+  regulationId: string | null
 }
 
 export type UseSurveyNavReturn = {
@@ -51,6 +54,7 @@ type CategoryRow = {
   pack: SurveyPackSlug
   name: string
   position: number
+  regulation_id: string | null
 }
 
 export function useSurveyNav(): UseSurveyNavReturn {
@@ -80,7 +84,7 @@ export function useSurveyNav(): UseSurveyNavReturn {
         .is('deleted_at', null),
       supabase
         .from('survey_template_categories')
-        .select('id, pack, name, position')
+        .select('id, pack, name, position, regulation_id')
         .eq('organization_id', orgId)
         .eq('is_active', true)
         .is('deleted_at', null)
@@ -142,7 +146,13 @@ export function useSurveyNav(): UseSurveyNavReturn {
     const licensedSlugs = new Set(packs.map((p) => p.slug))
     return categoryRows
       .filter((c) => licensedSlugs.has(c.pack))
-      .map((c) => ({ id: c.id, pack: c.pack, name: c.name, position: c.position }))
+      .map((c) => ({
+        id: c.id,
+        pack: c.pack,
+        name: c.name,
+        position: c.position,
+        regulationId: c.regulation_id ?? null,
+      }))
   }, [categoryRows, packs])
 
   return {

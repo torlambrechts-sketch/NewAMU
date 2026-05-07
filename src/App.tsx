@@ -10,6 +10,7 @@ import { OrgSetupProvider } from './context/OrgSetupProvider'
 import { UiThemeProvider } from './context/UiThemeProvider'
 import { I18nProvider } from './context/I18nProvider'
 import { AticsShell } from './components/layout/AticsShell'
+import { RegulationFilterProvider } from './context/RegulationFilterContext'
 import { OrgGate } from './components/OrgGate'
 import { PermissionGate } from './components/PermissionGate'
 import { OnboardingWizard } from './pages/OnboardingWizard'
@@ -204,6 +205,13 @@ const router = createBrowserRouter(
               <Route path="onboarding" element={<OnboardingWizard />} />
               <Route element={<PermissionGate />}>
                 <Route element={<DocumentsLayout />}>
+                  <Route
+                    element={
+                      <RegulationFilterProvider>
+                        <Outlet />
+                      </RegulationFilterProvider>
+                    }
+                  >
                   <Route element={<AticsShell />}>
                     <Route
                       element={
@@ -422,6 +430,7 @@ const router = createBrowserRouter(
                         />
                       </Route>
                     </Route>
+                  </Route>
                   </Route>
                 </Route>
               </Route>

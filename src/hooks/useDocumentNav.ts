@@ -26,6 +26,8 @@ export type DocumentNavCategory = {
   /** Norwegian display label, mirrored from documents space-category labels. */
   name: string
   position: number
+  /** Cat 1 of the cross-module taxonomy (category-architecture §T2). */
+  regulationId: string | null
 }
 
 export type UseDocumentNavReturn = {
@@ -54,6 +56,15 @@ const CATEGORY_ORDER: Record<SpaceCategory, number> = {
   procedure: 3,
   guide: 4,
   template_library: 5,
+}
+
+// Mirrors the deterministic backfill in 20260828120036 — keep aligned.
+const CATEGORY_REGULATION: Record<SpaceCategory, string | null> = {
+  hms_handbook: 'ik-f',
+  procedure: 'ik-f',
+  policy: null,
+  guide: null,
+  template_library: null,
 }
 
 export function useDocumentNav(): UseDocumentNavReturn {
@@ -115,6 +126,7 @@ export function useDocumentNav(): UseDocumentNavReturn {
         id: c,
         name: CATEGORY_LABEL[c] ?? c,
         position: CATEGORY_ORDER[c] ?? 99,
+        regulationId: CATEGORY_REGULATION[c] ?? null,
       }))
       .sort((a, b) => a.position - b.position)
   }, [items])
