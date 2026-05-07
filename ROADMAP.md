@@ -107,6 +107,18 @@ Executed: see `specs/documents-parity.md`.
 
 ---
 
+## 7 · Two-level taxonomy — cross-module overhaul
+
+Executed: see `specs/category-architecture.md`.
+
+| # | Status | Item | Notes |
+|---|---|---|---|
+| 7.1 | ✅ | Phase A · DB foundation | T1 + T2 + T3. Regulations table + seeds (9 baseline regulations: AML / IK-f / ISO 9001/14001/45001 / Åpenhetsloven / GDPR / Likestillingsloven / NS-EN ISO 19011), `regulation_id` column on the four per-org category tables (compliance / survey / learning / wiki_spaces), deterministic backfill per the OQ-A2 map, same-org coherence trigger, plus `regulationForSource.ts` mapping TaskSourceType + TaskModule → regulation. No UX change — pure foundation. |
+| 7.2 | 📋 | Phase B · Top bar + sidebar shape | T4 (RegulationFilterContext + multi-select toggle menu replacing ShellCompliancePackSwitcher) → T5 (shared `buildCategorisedSubs` builder) → T6 (drop legacy "Gamle moduler" tasks + learning leftovers). |
+| 7.3 | 📋 | Phase C · Alle X pages + filter fan-out | T7 (generic ModuleAlleListPage + 5 thin instantiations) → T8 (regulation filter fan-out into per-page chips). |
+
+---
+
 ## 3. Analytics Dashboard Engine
 
 Reusable runtime that any module registers a "scope" with and consumes via `ModuleAnalyticsDashboard`.

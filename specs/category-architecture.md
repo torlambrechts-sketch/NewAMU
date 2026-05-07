@@ -5,7 +5,7 @@
 > compliance, survey, tasks, learning, documents, AticsShell, and the
 > top-bar pack switcher.
 
-**Owner of this spec:** human. **Spec status:** `📋 ready` after §9 OQs.
+**Owner of this spec:** human. **Spec status:** `📋 ready` (all OQs resolved — see §9).
 
 ---
 
@@ -339,15 +339,13 @@ After T1–T8 ship:
 
 Both additive; safe on a deployed DB.
 
-## 9 · Open questions
+## 9 · Open questions — resolved
 
-| ID | Question | Default |
+| ID | Question | Resolution |
 |---|---|---|
-| OQ-A1 | Final regulation list to seed? | Ship 9 above; admins add more |
-| OQ-A2 | Pack→regulation backfill map confirmed? | See §T2 table |
-| OQ-A3 | "Select all / none" shortcuts in the menu? | Yes — minor UX |
-| OQ-A4 | When zero regulations are active, "show nothing" or "show all"? | Show all |
-| OQ-A5 | Are tasks the only module without a category column? | Yes; resolved via source enum |
-| OQ-A6 | Should the "Alle X" filter strip share state with `dashboard.filters`? | No — separate concern; the table view has its own page-local state |
-
-Resolve before flipping to `📋 ready`.
+| OQ-A1 | Final regulation list to seed? | **Ship the 9 in §T1** (AML, IK-f, ISO 9001/14001/45001, Åpenhetsloven, GDPR, Likestillingsloven, NS-EN ISO 19011). Admins add org-specific extras via Innstillinger. |
+| OQ-A2 | Pack→regulation backfill map confirmed? | **Use the map in §T2 as proposed.** survey.engagement + survey.exit + most policy spaces stay null intentionally. |
+| OQ-A3 | "Select all / none" shortcuts in the menu? | **Yes, both.** One-click reset; matches OQ-A4's "empty = show all" semantics. |
+| OQ-A4 | When zero regulations are active, "show nothing" or "show all"? | **Show all.** Standard pattern; users discover the filter without getting locked out. |
+| OQ-A5 | Are tasks the only module without a category column? | **Yes.** Source enum already segments tasks; regulation resolves via `regulationForSource.ts` (T3). No schema change. |
+| OQ-A6 | Should the "Alle X" filter strip share state with `dashboard.filters`? | **No — page-local state.** Different surface, different mental model. Avoids surprising side-effects. |
