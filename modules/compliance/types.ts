@@ -63,10 +63,47 @@ export type ComplianceTemplateRow = {
   cadence_hint: string | null
   /** Optional grouping inside a pack (admin-defined). Null = "Uten kategori". */
   category_id: string | null
+  /** Field declarations that drive the execution metadata editor — see TemplateMetadataSchema. */
+  metadata_schema: TemplateMetadataSchema
   deleted_at: string | null
   created_by: string | null
   created_at: string
   updated_at: string
+}
+
+/**
+ * Per-template metadata field declarations. Drives ExecutionMetadataPanel
+ * + the create form. See migration 20260828120024 for the rationale.
+ */
+export type TemplateMetadataFieldKind =
+  | 'location'      // bound to executions.location_id
+  | 'department'    // bound to executions.department_id
+  | 'team'          // bound to executions.team_id
+  | 'participants'  // bound to executions.participant_member_ids
+  | 'text'          // free-form, lands in executions.metadata[key]
+  | 'number'        // free-form numeric, lands in executions.metadata[key]
+  | 'select'        // single-choice, lands in executions.metadata[key]
+
+export type TemplateMetadataFieldOption = {
+  id: string
+  label: string
+}
+
+export type TemplateMetadataField = {
+  /** Stable key used in executions.metadata (or the typed-FK column). */
+  key: string
+  kind: TemplateMetadataFieldKind
+  /** Optional override label. Falls back to a sensible default per kind. */
+  label?: string
+  /** Optional help text rendered under the field. */
+  help?: string
+  required?: boolean
+  /** For kind='select' only: choosable options. */
+  options?: TemplateMetadataFieldOption[]
+}
+
+export type TemplateMetadataSchema = {
+  fields: TemplateMetadataField[]
 }
 
 /**
@@ -110,6 +147,14 @@ export type ComplianceExecutionRow = {
   summary: string | null
   /** Free-form attendee names. Amendable post-sign (not part of the digest). */
   attendees: string[]
+  /** Optional org-context FKs surfaced on the execution. */
+  location_id: string | null
+  department_id: string | null
+  team_id: string | null
+  /** Tracked org-member participants. References organization_members.id. */
+  participant_member_ids: string[]
+  /** Free-form per-template metadata (driven by template.metadata_schema). */
+  metadata: Record<string, unknown>
   deleted_at: string | null
   created_by: string | null
   created_at: string

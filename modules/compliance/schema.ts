@@ -12,6 +12,8 @@ import type {
   ComplianceResponseRow,
   ComplianceTemplateRequirementRow,
   ComplianceTemplateRow,
+  TemplateMetadataField,
+  TemplateMetadataSchema,
 } from './types'
 
 // ── Definition (jsonb) ──────────────────────────────────────────────────────
@@ -35,6 +37,56 @@ const ChecklistDefinitionSchema: z.ZodType<ChecklistDefinition> = z.object({
 export function parseChecklistDefinition(input: unknown): ChecklistDefinition {
   const parsed = ChecklistDefinitionSchema.safeParse(input)
   return parsed.success ? parsed.data : { items: [] }
+}
+
+// ── Template metadata schema ───────────────────────────────────────────────
+// Forgiving: unknown kinds are dropped, missing fields[] returns []. This
+// keeps ChecklistsAnalysePage / TemplateEditor robust to older rows.
+
+const METADATA_KINDS = new Set([
+  'location',
+  'department',
+  'team',
+  'participants',
+  'text',
+  'number',
+  'select',
+])
+
+const TemplateMetadataFieldSchema: z.ZodType<TemplateMetadataField> = z.object({
+  key: z.string().min(1),
+  kind: z.enum(['location', 'department', 'team', 'participants', 'text', 'number', 'select']),
+  label: z.string().optional(),
+  help: z.string().optional(),
+  required: z.boolean().optional(),
+  options: z
+    .array(z.object({ id: z.string(), label: z.string() }))
+    .optional(),
+})
+
+const TemplateMetadataSchemaSchema: z.ZodType<TemplateMetadataSchema> = z.object({
+  fields: z.array(TemplateMetadataFieldSchema).default([]),
+})
+
+export function parseMetadataSchema(input: unknown): TemplateMetadataSchema {
+  if (input == null || typeof input !== 'object') return { fields: [] }
+  // First try strict — happy path.
+  const strict = TemplateMetadataSchemaSchema.safeParse(input)
+  if (strict.success) return strict.data
+  // Fall back: walk the array and keep only the rows that parse, so a
+  // single corrupt field doesn't lose the whole template.
+  const obj = input as { fields?: unknown }
+  if (!Array.isArray(obj.fields)) return { fields: [] }
+  const ok: TemplateMetadataField[] = []
+  for (const row of obj.fields) {
+    if (!row || typeof row !== 'object') continue
+    const r = row as Record<string, unknown>
+    if (typeof r.key !== 'string' || typeof r.kind !== 'string') continue
+    if (!METADATA_KINDS.has(r.kind)) continue
+    const parsed = TemplateMetadataFieldSchema.safeParse(r)
+    if (parsed.success) ok.push(parsed.data)
+  }
+  return { fields: ok }
 }
 
 // ── Rows ────────────────────────────────────────────────────────────────────
@@ -61,6 +113,10 @@ export const ComplianceTemplateRowSchema: z.ZodType<ComplianceTemplateRow> = z.o
   review_status: z.enum(['draft', 'reviewed', 'approved']).default('draft'),
   cadence_hint: z.string().nullable().default(null),
   category_id: z.string().uuid().nullable().default(null),
+  metadata_schema: z
+    .unknown()
+    .transform((u) => parseMetadataSchema(u))
+    .default({ fields: [] }),
   deleted_at: z.string().nullable(),
   created_by: z.string().uuid().nullable(),
   created_at: TimestampSchema,
@@ -99,6 +155,11 @@ export const ComplianceExecutionRowSchema: z.ZodType<ComplianceExecutionRow> = z
   archived_by: z.string().uuid().nullable().default(null),
   summary: z.string().nullable(),
   attendees: z.array(z.string()).default([]),
+  location_id: z.string().uuid().nullable().default(null),
+  department_id: z.string().uuid().nullable().default(null),
+  team_id: z.string().uuid().nullable().default(null),
+  participant_member_ids: z.array(z.string().uuid()).default([]),
+  metadata: z.record(z.string(), z.unknown()).default({}),
   deleted_at: z.string().nullable(),
   created_by: z.string().uuid().nullable(),
   created_at: TimestampSchema,

@@ -18,6 +18,7 @@ import type {
   CompliancePackSlug,
   ComplianceSeverity,
   ComplianceTemplateRow,
+  TemplateMetadataSchema,
 } from './types'
 import {
   ComplianceCategoryRowSchema,
@@ -78,6 +79,12 @@ export type ChecklistModuleState = {
     attendees?: string[]
     assignedTo?: string | null
     scheduledFor?: string | null
+    locationId?: string | null
+    departmentId?: string | null
+    teamId?: string | null
+    participantMemberIds?: string[]
+    /** Free-form per-template metadata bag (template.metadata_schema-driven). */
+    metadata?: Record<string, unknown>
   }) => Promise<void>
 
   uploadResponseAttachment: (payload: {
@@ -113,6 +120,7 @@ export type ChecklistModuleState = {
     nav_pinned?: boolean
     is_active?: boolean
     category_id?: string | null
+    metadata_schema?: TemplateMetadataSchema
   }) => Promise<void>
 
   /** Soft delete (sets deleted_at). System rows are rejected by the DB trigger. */
@@ -619,6 +627,11 @@ export function useChecklistModule(
       attendees?: string[]
       assignedTo?: string | null
       scheduledFor?: string | null
+      locationId?: string | null
+      departmentId?: string | null
+      teamId?: string | null
+      participantMemberIds?: string[]
+      metadata?: Record<string, unknown>
     }): Promise<void> => {
       if (!supabase || !orgId) return
       if (!canManage) {
@@ -633,6 +646,12 @@ export function useChecklistModule(
       if (payload.attendees !== undefined) update.attendees = payload.attendees
       if (payload.assignedTo !== undefined) update.assigned_to = payload.assignedTo
       if (payload.scheduledFor !== undefined) update.scheduled_for = payload.scheduledFor
+      if (payload.locationId !== undefined) update.location_id = payload.locationId
+      if (payload.departmentId !== undefined) update.department_id = payload.departmentId
+      if (payload.teamId !== undefined) update.team_id = payload.teamId
+      if (payload.participantMemberIds !== undefined)
+        update.participant_member_ids = payload.participantMemberIds
+      if (payload.metadata !== undefined) update.metadata = payload.metadata
       if (Object.keys(update).length === 0) return
 
       try {
@@ -858,6 +877,7 @@ export function useChecklistModule(
       nav_pinned?: boolean
       is_active?: boolean
       category_id?: string | null
+      metadata_schema?: TemplateMetadataSchema
     }): Promise<void> => {
       if (!supabase || !orgId) return
       if (!canManage) {
@@ -873,6 +893,7 @@ export function useChecklistModule(
       if (payload.nav_pinned !== undefined) update.nav_pinned = payload.nav_pinned
       if (payload.is_active !== undefined) update.is_active = payload.is_active
       if (payload.category_id !== undefined) update.category_id = payload.category_id
+      if (payload.metadata_schema !== undefined) update.metadata_schema = payload.metadata_schema
       if (Object.keys(update).length === 0) return
 
       try {
