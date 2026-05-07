@@ -308,6 +308,11 @@ export function LearningAnalysePage() {
     let activeLearners = 0
     let totalCompleted = 0
     let completedYtd = 0
+    /** YTD count for the equivalent date range last year — drives the
+     *  comparison delta on the "Fullført i år" KPI. */
+    let completedPrevYtd = 0
+    const prevYearStart = new Date(now.getFullYear() - 1, 0, 1)
+    const prevYearCutoff = new Date(now.getFullYear() - 1, now.getMonth(), now.getDate())
     let certsExpiring30d = 0
     const statusCounts: Record<string, number> = {
       Påmeldt: 0,
@@ -335,6 +340,14 @@ export function LearningAnalysePage() {
       months.push({ key: monthKey(d), label: monthLabel(d) })
     }
     const completionsByMonth = new Map<string, number>(months.map((m) => [m.key, 0]))
+    // Previous-period series (months 23..12 ago) used by the line widget's
+    // comparison overlay so users can see year-over-year shape.
+    const prevMonths: { key: string; label: string }[] = []
+    for (let i = 23; i >= 12; i--) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1)
+      prevMonths.push({ key: monthKey(d), label: monthLabel(d) })
+    }
+    const completionsByMonthPrev = new Map<string, number>(prevMonths.map((m) => [m.key, 0]))
 
     // Distinct courses contributing to filtered set
     const seenCourseIds = new Set<string>()
@@ -353,10 +366,16 @@ export function LearningAnalysePage() {
         totalCompleted += 1
         const issued = new Date(r.cert.issuedAt)
         if (issued >= yearStart) completedYtd += 1
+        if (issued >= prevYearStart && issued <= prevYearCutoff) completedPrevYtd += 1
         if (completionsByMonth.has(monthKey(issued))) {
           completionsByMonth.set(
             monthKey(issued),
             (completionsByMonth.get(monthKey(issued)) ?? 0) + 1,
+          )
+        } else if (completionsByMonthPrev.has(monthKey(issued))) {
+          completionsByMonthPrev.set(
+            monthKey(issued),
+            (completionsByMonthPrev.get(monthKey(issued)) ?? 0) + 1,
           )
         }
       }
@@ -445,6 +464,11 @@ export function LearningAnalysePage() {
         x: m.label,
         y: completionsByMonth.get(m.key) ?? 0,
       })),
+      learning_completions_over_time_prev: prevMonths.map((m) => ({
+        x: m.label,
+        y: completionsByMonthPrev.get(m.key) ?? 0,
+      })),
+      learning_kpi_summary_prev: { completedYtd: completedPrevYtd },
       learning_certs_expiring_window: expiryWindowCounts,
       learning_completions_by_department: Object.fromEntries(departmentCounts),
       learning_completions_by_user_heatmap: {

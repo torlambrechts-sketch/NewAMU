@@ -111,17 +111,17 @@ Reusable runtime that any module registers a "scope" with and consumes via `Modu
 | 3.1.14 | ✅ | "..." popover menu (Edit / Duplicate / Remove) |
 | 3.1.15 | ✅ | Soft skeleton empty states |
 
-### 3.2 High-impact next steps — 📋 planned
+### 3.2 High-impact next steps
 
-| # | Item | Why |
-|---|---|---|
-| 3.2.1 | **Comparison mode** ("this period vs last period" delta on KPI) | Single most impactful add-on for management reporting. KPI tile gains a delta + sparkline; line widget can render two series side-by-side. |
-| 3.2.2 | **Drill-down on click** | Clicking a donut slice / bar segment pre-filters the dashboard to that slice (or opens the source list). Needs a per-widget `onSliceClick` policy in the registry. |
-| 3.2.3 | **Save / load named dashboards** | Schema already supports it via `slug` + `owner_user_id`. UI: chooser dropdown next to the page title, "Save as", "Save as private copy", rename, delete. |
-| 3.2.4 | **Per-user private layouts** | `owner_user_id` column exists; UI for "make this my private view" missing. |
-| 3.2.5 | **Drag-to-resize** | Today widgets resize via the editor's colSpan dropdown. Adds a corner handle for direct manipulation. Requires careful interaction with the rowBreak hint. |
-| 3.2.6 | **Auto subtitle from filters** | Synthesise the "Last 12 months · Grouped by Pack" line from active filters + dataset shape. Right now subtitle is free text the admin types. |
-| 3.2.7 | **Dataset-shape-aware "Add Widget"** | Catalog already declares dataset shapes; picker could group by what kinds the data supports and offer "kpi or table" choices on add. Needs `compatibleKinds: ReportModuleKind[]` on each catalog entry. |
+| # | Status | Item | Notes |
+|---|---|---|---|
+| 3.2.1 | ✅ | **Comparison mode** ("this period vs last period" delta on KPI) | KPI tile gains an optional delta chip (▲/▼ %, colour driven by `comparisonGoal`) + an inline sparkline; line widget renders an optional dashed comparison series sharing the y-scale. Generic plumbing on the registry — wired on learning ("Fullført i år" + "Fullføringer over tid") and compliance ("Signert i år", "Kritiske funn", both over-time lines) so the comparison spans modules. |
+| 3.2.2 | 📋 | **Drill-down on click** | Clicking a donut slice / bar segment pre-filters the dashboard to that slice (or opens the source list). Needs a per-widget `onSliceClick` policy in the registry. |
+| 3.2.3 | 📋 | **Save / load named dashboards** | Schema already supports it via `slug` + `owner_user_id`. UI: chooser dropdown next to the page title, "Save as", "Save as private copy", rename, delete. |
+| 3.2.4 | 📋 | **Per-user private layouts** | `owner_user_id` column exists; UI for "make this my private view" missing. |
+| 3.2.5 | 📋 | **Drag-to-resize** | Today widgets resize via the editor's colSpan dropdown. Adds a corner handle for direct manipulation. Requires careful interaction with the rowBreak hint. |
+| 3.2.6 | 📋 | **Auto subtitle from filters** | Synthesise the "Last 12 months · Grouped by Pack" line from active filters + dataset shape. Right now subtitle is free text the admin types. |
+| 3.2.7 | 📋 | **Dataset-shape-aware "Add Widget"** | Catalog already declares dataset shapes; picker could group by what kinds the data supports and offer "kpi or table" choices on add. Needs `compatibleKinds: ReportModuleKind[]` on each catalog entry. |
 
 ### 3.3 Cross-module — ⏸ deferred
 

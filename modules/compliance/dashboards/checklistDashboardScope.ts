@@ -66,6 +66,21 @@ const DATASETS: DatasetMeta[] = [
     label: 'Kjøringer per avdeling',
     shape: 'segments',
   },
+  {
+    key: 'checklist_kpi_summary_prev',
+    label: 'KPI-sammendrag (forrige periode)',
+    shape: 'kpi-record',
+  },
+  {
+    key: 'checklist_executions_over_time_prev',
+    label: 'Kjøringer over tid (forrige periode)',
+    shape: 'series',
+  },
+  {
+    key: 'checklist_findings_over_time_prev',
+    label: 'Funn over tid (forrige periode)',
+    shape: 'series',
+  },
 ]
 
 export const CHECKLIST_DASHBOARD_SCOPE_ID = 'compliance_checklist'
@@ -96,6 +111,12 @@ const KPI_YTD: ReportModuleKpi = {
   valuePath: 'ytd',
   subtitle: 'YTD signerte runder',
   colSpan: 'sm',
+  comparisonDatasetKey: 'checklist_kpi_summary_prev',
+  comparisonValuePath: 'ytd',
+  comparisonLabel: 'vs. samme periode i fjor',
+  comparisonGoal: 'increase',
+  sparklineDatasetKey: 'checklist_executions_over_time',
+  sparklinePath: '',
 }
 const KPI_CRITICAL: ReportModuleKpi = {
   id: 'kpi-critical',
@@ -105,6 +126,12 @@ const KPI_CRITICAL: ReportModuleKpi = {
   valuePath: 'critical',
   subtitle: 'Krever oppfølging',
   colSpan: 'sm',
+  comparisonDatasetKey: 'checklist_kpi_summary_prev',
+  comparisonValuePath: 'critical',
+  comparisonLabel: 'vs. samme periode i fjor',
+  comparisonGoal: 'decrease',
+  sparklineDatasetKey: 'checklist_findings_over_time',
+  sparklinePath: '',
 }
 const KPI_FINDINGS: ReportModuleKpi = {
   id: 'kpi-findings',
@@ -133,6 +160,10 @@ const LINE_EXEC_OVER_TIME: ReportModuleLine = {
   xLabel: 'Måned',
   yLabel: 'Antall',
   colSpan: 'md',
+  comparisonDatasetKey: 'checklist_executions_over_time_prev',
+  comparisonPointsPath: '',
+  primaryLabel: 'Siste 12 mnd.',
+  comparisonLabel: '12 mnd. tilbake',
 }
 const LINE_FINDINGS_OVER_TIME: ReportModuleLine = {
   id: 'line-findings-over-time',
@@ -143,6 +174,10 @@ const LINE_FINDINGS_OVER_TIME: ReportModuleLine = {
   xLabel: 'Måned',
   yLabel: 'Antall',
   colSpan: 'md',
+  comparisonDatasetKey: 'checklist_findings_over_time_prev',
+  comparisonPointsPath: '',
+  primaryLabel: 'Siste 12 mnd.',
+  comparisonLabel: '12 mnd. tilbake',
 }
 const DONUT_STATUS: ReportModuleDonut = {
   id: 'donut-status',

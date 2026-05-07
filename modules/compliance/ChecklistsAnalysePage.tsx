@@ -266,6 +266,11 @@ export function ChecklistsAnalysePage() {
     let open = 0
     let signed = 0
     let ytd = 0
+    /** Signed-in-equivalent-window-last-year — drives the comparison delta on the YTD KPI. */
+    let prevYtd = 0
+    let prevCritical = 0
+    const prevYearStart = new Date(now.getFullYear() - 1, 0, 1)
+    const prevYearCutoff = new Date(now.getFullYear() - 1, now.getMonth(), now.getDate())
     const statusCounts: Record<string, number> = { Kladd: 0, Aktiv: 0, Signert: 0 }
     const packCounts: Record<string, number> = {}
     const templateCounts = new Map<string, number>()
@@ -285,13 +290,26 @@ export function ChecklistsAnalysePage() {
     }
     const execByMonth = new Map<string, number>(months.map((m) => [m.key, 0]))
     const findByMonth = new Map<string, number>(months.map((m) => [m.key, 0]))
+    // Previous-period series (months 23..12 ago) drives the line widget's
+    // comparison overlay so signers can see year-over-year cadence.
+    const prevMonths: { key: string; label: string }[] = []
+    for (let i = 23; i >= 12; i--) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1)
+      prevMonths.push({ key: monthKey(d), label: monthLabel(d) })
+    }
+    const execByMonthPrev = new Map<string, number>(prevMonths.map((m) => [m.key, 0]))
+    const findByMonthPrev = new Map<string, number>(prevMonths.map((m) => [m.key, 0]))
 
     for (const e of executions) {
       total += 1
       if (e.status === 'signed') {
         signed += 1
         statusCounts.Signert = (statusCounts.Signert ?? 0) + 1
-        if (e.signed_at && new Date(e.signed_at) >= yearStart) ytd += 1
+        if (e.signed_at) {
+          const signedAt = new Date(e.signed_at)
+          if (signedAt >= yearStart) ytd += 1
+          if (signedAt >= prevYearStart && signedAt <= prevYearCutoff) prevYtd += 1
+        }
       } else if (e.status === 'active') {
         open += 1
         statusCounts.Aktiv = (statusCounts.Aktiv ?? 0) + 1
@@ -319,6 +337,7 @@ export function ChecklistsAnalysePage() {
       if (created) {
         const k = monthKey(created)
         if (execByMonth.has(k)) execByMonth.set(k, (execByMonth.get(k) ?? 0) + 1)
+        else if (execByMonthPrev.has(k)) execByMonthPrev.set(k, (execByMonthPrev.get(k) ?? 0) + 1)
       }
     }
 
@@ -342,6 +361,10 @@ export function ChecklistsAnalysePage() {
         if (at) {
           const k = monthKey(at)
           if (findByMonth.has(k)) findByMonth.set(k, (findByMonth.get(k) ?? 0) + 1)
+          else if (findByMonthPrev.has(k)) findByMonthPrev.set(k, (findByMonthPrev.get(k) ?? 0) + 1)
+          if (r.severity === 'critical' && at >= prevYearStart && at <= prevYearCutoff) {
+            prevCritical += 1
+          }
         }
       }
     }
@@ -361,6 +384,10 @@ export function ChecklistsAnalysePage() {
         findings,
         critical,
       },
+      checklist_kpi_summary_prev: {
+        ytd: prevYtd,
+        critical: prevCritical,
+      },
       checklist_executions_by_status: statusCounts,
       checklist_findings_by_severity: {
         Lav: sev.low,
@@ -376,9 +403,17 @@ export function ChecklistsAnalysePage() {
         x: m.label,
         y: execByMonth.get(m.key) ?? 0,
       })),
+      checklist_executions_over_time_prev: prevMonths.map((m) => ({
+        x: m.label,
+        y: execByMonthPrev.get(m.key) ?? 0,
+      })),
       checklist_findings_over_time: months.map((m) => ({
         x: m.label,
         y: findByMonth.get(m.key) ?? 0,
+      })),
+      checklist_findings_over_time_prev: prevMonths.map((m) => ({
+        x: m.label,
+        y: findByMonthPrev.get(m.key) ?? 0,
       })),
     } as Record<string, unknown>
   }, [

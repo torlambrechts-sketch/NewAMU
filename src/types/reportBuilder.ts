@@ -39,6 +39,26 @@ export type ReportModuleKpi = ReportModuleBase & {
   /** Dot-path into resolved dataset for numeric value, e.g. "activeEmployees" */
   valuePath: string
   subtitle?: string
+  /**
+   * Optional dataset key holding the comparison value (e.g. previous period).
+   * When omitted, the renderer reads `comparisonValuePath` against the same
+   * dataset as `valuePath` — useful when the page bakes both numbers into a
+   * single kpi-record (`{ current: 12, previous: 10 }`).
+   */
+  comparisonDatasetKey?: string
+  /** Dot-path to the comparison number. Renders no delta when unset. */
+  comparisonValuePath?: string
+  /** Free text shown next to the delta chip (e.g. "vs. forrige måned"). */
+  comparisonLabel?: string
+  /**
+   * Whether higher = better. 'increase' colours upward deltas green,
+   * 'decrease' inverts (e.g. "antall kritiske avvik"). Defaults to 'increase'.
+   */
+  comparisonGoal?: 'increase' | 'decrease'
+  /** Optional dataset key for the inline sparkline trend (defaults to the KPI dataset). */
+  sparklineDatasetKey?: string
+  /** Dot-path to an array of `{ x, y }` points for the inline sparkline. */
+  sparklinePath?: string
 }
 
 export type ReportModuleTable = ReportModuleBase & {
@@ -68,6 +88,14 @@ export type ReportModuleLine = ReportModuleBase & {
   /** Optional axis labels. */
   xLabel?: string
   yLabel?: string
+  /** Optional dataset key holding the comparison series (defaults to the line dataset). */
+  comparisonDatasetKey?: string
+  /** Dot-path to the comparison `{ x, y }[]` series. Renders dashed alongside the primary path. */
+  comparisonPointsPath?: string
+  /** Legend label for the primary series (defaults to `title`). */
+  primaryLabel?: string
+  /** Legend label for the comparison series. */
+  comparisonLabel?: string
 }
 
 /**

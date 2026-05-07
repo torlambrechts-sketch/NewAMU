@@ -46,6 +46,16 @@ const DATASETS: DatasetMeta[] = [
     label: 'Fullføringer — brukere × kurs',
     shape: 'rows',
   },
+  {
+    key: 'learning_completions_over_time_prev',
+    label: 'Fullføringer over tid (forrige periode)',
+    shape: 'series',
+  },
+  {
+    key: 'learning_kpi_summary_prev',
+    label: 'KPI-sammendrag (forrige periode)',
+    shape: 'kpi-record',
+  },
 ]
 
 // ── Default widgets ───────────────────────────────────────────────────────
@@ -76,6 +86,12 @@ const KPI_COMPLETED_YTD: ReportModuleKpi = {
   valuePath: 'completedYtd',
   subtitle: 'YTD',
   colSpan: 'sm',
+  comparisonDatasetKey: 'learning_kpi_summary_prev',
+  comparisonValuePath: 'completedYtd',
+  comparisonLabel: 'vs. samme periode i fjor',
+  comparisonGoal: 'increase',
+  sparklineDatasetKey: 'learning_completions_over_time',
+  sparklinePath: '',
 }
 const KPI_CERTS_EXPIRING: ReportModuleKpi = {
   id: 'kpi-certs-expiring',
@@ -104,6 +120,10 @@ const LINE_COMPLETIONS: ReportModuleLine = {
   xLabel: 'Måned',
   yLabel: 'Antall',
   colSpan: 'md',
+  comparisonDatasetKey: 'learning_completions_over_time_prev',
+  comparisonPointsPath: '',
+  primaryLabel: 'Siste 12 mnd.',
+  comparisonLabel: '12 mnd. tilbake',
 }
 const DONUT_STATUS: ReportModuleDonut = {
   id: 'donut-status',

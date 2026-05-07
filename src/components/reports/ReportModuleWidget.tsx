@@ -133,10 +133,36 @@ export function ReportModuleWidget({
 
   if (m.kind === 'kpi') {
     const n = numberAtPath(ds, m.valuePath)
+    const cmpDs = m.comparisonDatasetKey ? datasets[m.comparisonDatasetKey] : ds
+    const cmp = m.comparisonValuePath ? numberAtPath(cmpDs, m.comparisonValuePath) : null
+    const sparkDs = m.sparklineDatasetKey ? datasets[m.sparklineDatasetKey] : ds
+    const sparkRaw = m.sparklinePath ? getAtPath(sparkDs, m.sparklinePath) : null
+    const sparkPoints = Array.isArray(sparkRaw)
+      ? (sparkRaw as unknown[]).flatMap((p) => {
+          if (!p || typeof p !== 'object') return []
+          const obj = p as Record<string, unknown>
+          const y = obj.y ?? obj.value
+          if (typeof y !== 'number') return []
+          return [y]
+        })
+      : []
     return wrap(
       <>
         {titleBlock}
-        <p className="mt-2 text-3xl font-semibold tabular-nums text-neutral-900">{n ?? '—'}</p>
+        <div className="mt-2 flex items-baseline gap-2">
+          <p className="text-3xl font-semibold tabular-nums text-neutral-900">{n ?? '—'}</p>
+          {cmp != null && n != null ? (
+            <KpiDeltaChip current={n} previous={cmp} goal={m.comparisonGoal ?? 'increase'} />
+          ) : null}
+        </div>
+        {m.comparisonLabel && cmp != null ? (
+          <p className="mt-0.5 text-[11px] text-neutral-500">{m.comparisonLabel}</p>
+        ) : null}
+        {sparkPoints.length > 1 ? (
+          <div className="mt-2">
+            <Sparkline values={sparkPoints} accent={accent} />
+          </div>
+        ) : null}
       </>,
     )
   }
@@ -258,17 +284,22 @@ export function ReportModuleWidget({
     )
   }
   if (m.kind === 'line') {
-    const raw = m.pointsPath ? getAtPath(ds, m.pointsPath) : ds
     type Point = { x: string | number; y: number }
-    const points = Array.isArray(raw)
-      ? (raw as unknown[]).flatMap((p) => {
-          if (!p || typeof p !== 'object') return []
-          const obj = p as Record<string, unknown>
-          const x = obj.x ?? obj.label
-          const y = obj.y ?? obj.value
-          if ((typeof x !== 'string' && typeof x !== 'number') || typeof y !== 'number') return []
-          return [{ x, y } as Point]
-        })
+    const parsePoints = (raw: unknown): Point[] =>
+      Array.isArray(raw)
+        ? (raw as unknown[]).flatMap((p) => {
+            if (!p || typeof p !== 'object') return []
+            const obj = p as Record<string, unknown>
+            const x = obj.x ?? obj.label
+            const y = obj.y ?? obj.value
+            if ((typeof x !== 'string' && typeof x !== 'number') || typeof y !== 'number') return []
+            return [{ x, y } as Point]
+          })
+        : []
+    const points = parsePoints(m.pointsPath ? getAtPath(ds, m.pointsPath) : ds)
+    const cmpDs = m.comparisonDatasetKey ? datasets[m.comparisonDatasetKey] : ds
+    const cmpPoints = m.comparisonPointsPath
+      ? parsePoints(getAtPath(cmpDs, m.comparisonPointsPath))
       : []
     return wrap(
       <>
@@ -276,7 +307,15 @@ export function ReportModuleWidget({
         {points.length === 0 ? (
           <EmptyWidget label={emptyLabel ?? 'Ingen datapunkter ennå.'} />
         ) : (
-          <LineMini points={points} accent={accent} xLabel={m.xLabel} yLabel={m.yLabel} />
+          <LineMini
+            points={points}
+            comparisonPoints={cmpPoints.length > 1 ? cmpPoints : undefined}
+            primaryLabel={m.primaryLabel ?? m.title}
+            comparisonLabel={m.comparisonLabel}
+            accent={accent}
+            xLabel={m.xLabel}
+            yLabel={m.yLabel}
+          />
         )}
       </>,
     )
@@ -297,14 +336,24 @@ function EmptyWidget({ label }: { label: string }) {
 }
 
 // Lightweight inline-SVG line chart — no charting dep, scales to its
-// container width via viewBox + preserveAspectRatio.
+// container width via viewBox + preserveAspectRatio. When
+// `comparisonPoints` are passed, both series share the same y-scale and
+// are drawn against a shared x-axis indexed by the *primary* series — the
+// comparison series is plotted by index so the visual delta reads
+// directly even when x labels (e.g. months) differ between periods.
 function LineMini({
   points,
+  comparisonPoints,
+  primaryLabel,
+  comparisonLabel,
   accent,
   xLabel,
   yLabel,
 }: {
   points: { x: string | number; y: number }[]
+  comparisonPoints?: { x: string | number; y: number }[]
+  primaryLabel?: string
+  comparisonLabel?: string
   accent: string
   xLabel?: string
   yLabel?: string
@@ -312,24 +361,51 @@ function LineMini({
   const W = 600
   const H = 180
   const PAD = 28
-  const ys = points.map((p) => p.y)
-  const minY = Math.min(0, ...ys)
-  const maxY = Math.max(1, ...ys)
+  const allYs = [...points.map((p) => p.y), ...(comparisonPoints?.map((p) => p.y) ?? [])]
+  const minY = Math.min(0, ...allYs)
+  const maxY = Math.max(1, ...allYs)
   const range = maxY - minY || 1
   const stepX = points.length > 1 ? (W - PAD * 2) / (points.length - 1) : 0
-  const xy = points.map((p, i) => {
-    const x = PAD + i * stepX
-    const y = H - PAD - ((p.y - minY) / range) * (H - PAD * 2)
-    return { x, y, raw: p }
-  })
-  const path = xy
-    .map((pt, i) => `${i === 0 ? 'M' : 'L'} ${pt.x.toFixed(1)} ${pt.y.toFixed(1)}`)
-    .join(' ')
+  const project = (series: { x: string | number; y: number }[]) =>
+    series.map((p, i) => {
+      const x = PAD + i * stepX
+      const y = H - PAD - ((p.y - minY) / range) * (H - PAD * 2)
+      return { x, y, raw: p }
+    })
+  const xy = project(points)
+  // Comparison series is truncated/padded against the primary's length so
+  // both share the same x positions even if the underlying ranges differ.
+  const cmpXy = comparisonPoints
+    ? project(comparisonPoints.slice(0, points.length))
+    : []
+  const toPath = (pts: { x: number; y: number }[]) =>
+    pts.map((pt, i) => `${i === 0 ? 'M' : 'L'} ${pt.x.toFixed(1)} ${pt.y.toFixed(1)}`).join(' ')
+  const path = toPath(xy)
+  const cmpPath = cmpXy.length ? toPath(cmpXy) : ''
   const area = `${path} L ${xy[xy.length - 1]?.x.toFixed(1)} ${H - PAD} L ${xy[0]?.x.toFixed(1)} ${H - PAD} Z`
   // Pick up to 6 evenly-spaced x-axis labels so dense data doesn't overlap.
   const showEvery = Math.max(1, Math.ceil(xy.length / 6))
   return (
     <div className="mt-3">
+      {comparisonPoints && comparisonPoints.length > 1 ? (
+        <div className="mb-1 flex items-center gap-3 text-[10px] text-neutral-600">
+          <span className="inline-flex items-center gap-1.5">
+            <span className="inline-block h-[2px] w-4" style={{ backgroundColor: accent }} />
+            {primaryLabel ?? 'Nåværende periode'}
+          </span>
+          <span className="inline-flex items-center gap-1.5 text-neutral-500">
+            <span
+              className="inline-block h-[2px] w-4"
+              style={{
+                backgroundImage: `linear-gradient(to right, ${accent} 50%, transparent 0%)`,
+                backgroundSize: '4px 2px',
+                backgroundRepeat: 'repeat-x',
+              }}
+            />
+            {comparisonLabel ?? 'Forrige periode'}
+          </span>
+        </div>
+      ) : null}
       <svg
         viewBox={`0 0 ${W} ${H}`}
         preserveAspectRatio="none"
@@ -354,6 +430,17 @@ function LineMini({
         })}
         <line x1={PAD} y1={H - PAD} x2={W - PAD} y2={H - PAD} stroke="#d4d4d8" />
         <path d={area} fill={accent} fillOpacity={0.08} />
+        {cmpPath ? (
+          <path
+            d={cmpPath}
+            fill="none"
+            stroke={accent}
+            strokeOpacity={0.55}
+            strokeWidth={1.5}
+            strokeDasharray="4 3"
+            strokeLinejoin="round"
+          />
+        ) : null}
         <path d={path} fill="none" stroke={accent} strokeWidth={2} strokeLinejoin="round" />
         {xy.map((pt, i) => (
           <circle key={i} cx={pt.x} cy={pt.y} r={2.5} fill={accent} />
@@ -380,6 +467,72 @@ function LineMini({
         </text>
       </svg>
     </div>
+  )
+}
+
+// Tiny per-KPI delta chip. Direction is computed from current vs previous;
+// colour is driven by `goal` so "fewer is better" KPIs (e.g. critical
+// findings) flip the green/red mapping.
+function KpiDeltaChip({
+  current,
+  previous,
+  goal,
+}: {
+  current: number
+  previous: number
+  goal: 'increase' | 'decrease'
+}) {
+  if (previous === 0 && current === 0) return null
+  const diff = current - previous
+  const pct = previous === 0 ? null : (diff / Math.abs(previous)) * 100
+  const up = diff > 0
+  const flat = diff === 0
+  const isGood = flat ? null : goal === 'increase' ? up : !up
+  const color = isGood == null ? '#6b7280' : isGood ? '#15803d' : '#b91c1c'
+  const bg = isGood == null ? '#f3f4f6' : isGood ? '#dcfce7' : '#fee2e2'
+  const arrow = flat ? '→' : up ? '▲' : '▼'
+  const label =
+    pct == null
+      ? `${up ? '+' : ''}${diff}`
+      : `${up ? '+' : ''}${pct.toFixed(pct >= 10 || pct <= -10 ? 0 : 1)} %`
+  return (
+    <span
+      className="inline-flex items-center gap-1 rounded-sm px-1.5 py-0.5 text-[10px] font-semibold tabular-nums"
+      style={{ color, backgroundColor: bg }}
+      title={`Forrige periode: ${previous}`}
+    >
+      <span aria-hidden>{arrow}</span>
+      {label}
+    </span>
+  )
+}
+
+// Sub-pixel sparkline — auto-scales over the values, no axis chrome.
+function Sparkline({ values, accent }: { values: number[]; accent: string }) {
+  const W = 120
+  const H = 28
+  const PAD = 2
+  const minY = Math.min(...values)
+  const maxY = Math.max(...values)
+  const range = maxY - minY || 1
+  const step = values.length > 1 ? (W - PAD * 2) / (values.length - 1) : 0
+  const pts = values.map((y, i) => {
+    const px = PAD + i * step
+    const py = H - PAD - ((y - minY) / range) * (H - PAD * 2)
+    return `${px.toFixed(1)},${py.toFixed(1)}`
+  })
+  return (
+    <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" className="h-7 w-full" aria-hidden>
+      <polyline
+        points={pts.join(' ')}
+        fill="none"
+        stroke={accent}
+        strokeOpacity={0.85}
+        strokeWidth={1.5}
+        strokeLinejoin="round"
+        strokeLinecap="round"
+      />
+    </svg>
   )
 }
 
