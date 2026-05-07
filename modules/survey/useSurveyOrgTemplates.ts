@@ -50,6 +50,8 @@ export type ResolvedSurveyTemplate = {
   isActive: boolean
   reviewStatus: 'draft' | 'reviewed' | 'approved'
   cadenceHint: string | null
+  /** Optional category assignment. Null = "Uten kategori". */
+  categoryId: string | null
 }
 
 export type UseSurveyOrgTemplatesReturn = {
@@ -64,6 +66,8 @@ export type UseSurveyOrgTemplatesReturn = {
     overrideId: string,
     status: 'draft' | 'reviewed' | 'approved',
   ) => Promise<void>
+  /** Assign / clear the category on an org-template override. */
+  setCategoryId: (overrideId: string, categoryId: string | null) => Promise<void>
 }
 
 type CatalogJoin = {
@@ -157,6 +161,7 @@ export function useSurveyOrgTemplates(
           isActive: r.is_active,
           reviewStatus: r.review_status,
           cadenceHint: r.cadence_hint,
+          categoryId: r.category_id,
         }
       })
   }, [rows])
@@ -175,7 +180,11 @@ export function useSurveyOrgTemplates(
   const applyPatch = useCallback(
     async (
       overrideId: string,
-      patch: { nav_pinned?: boolean; review_status?: 'draft' | 'reviewed' | 'approved' },
+      patch: {
+        nav_pinned?: boolean
+        review_status?: 'draft' | 'reviewed' | 'approved'
+        category_id?: string | null
+      },
     ): Promise<void> => {
       if (!supabase || !orgId) return
       try {
@@ -219,6 +228,12 @@ export function useSurveyOrgTemplates(
     [applyPatch],
   )
 
+  const setCategoryId = useCallback(
+    (overrideId: string, categoryId: string | null) =>
+      applyPatch(overrideId, { category_id: categoryId }),
+    [applyPatch],
+  )
+
   return useMemo(
     () => ({
       loading,
@@ -229,7 +244,18 @@ export function useSurveyOrgTemplates(
       refresh: load,
       setNavPinned,
       setReviewStatus,
+      setCategoryId,
     }),
-    [loading, error, templates, forPack, pinnedForPack, load, setNavPinned, setReviewStatus],
+    [
+      loading,
+      error,
+      templates,
+      forPack,
+      pinnedForPack,
+      load,
+      setNavPinned,
+      setReviewStatus,
+      setCategoryId,
+    ],
   )
 }

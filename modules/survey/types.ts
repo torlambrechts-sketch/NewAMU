@@ -649,6 +649,8 @@ export type SurveyOrgTemplateRow = {
   is_active: boolean
   review_status: 'draft' | 'reviewed' | 'approved'
   cadence_hint: string | null
+  /** Optional grouping inside a pack (admin-defined). Null = "Uten kategori". */
+  category_id: string | null
   deleted_at: string | null
   created_by: string | null
   created_at: string
@@ -667,8 +669,42 @@ export const SurveyOrgTemplateRowSchema: z.ZodType<SurveyOrgTemplateRow> = z.obj
   is_active: z.boolean(),
   review_status: z.enum(['draft', 'reviewed', 'approved']),
   cadence_hint: z.string().nullable(),
+  category_id: z.string().uuid().nullable().default(null),
   deleted_at: z.string().nullable(),
   created_by: z.string().uuid().nullable(),
+  created_at: z.string(),
+  updated_at: z.string(),
+})
+
+// ── Survey template categories (per-org, per-pack) ────────────────────────
+// Mirrors ComplianceCategoryRow. Admin curates via the Kategorier admin tab.
+
+export type SurveyCategoryRow = {
+  id: string
+  organization_id: string
+  pack: SurveyPackSlug
+  slug: string
+  name: string
+  description: string | null
+  position: number
+  is_active: boolean
+  is_system: boolean
+  deleted_at: string | null
+  created_at: string
+  updated_at: string
+}
+
+export const SurveyCategoryRowSchema: z.ZodType<SurveyCategoryRow> = z.object({
+  id: z.string().uuid(),
+  organization_id: z.string().uuid(),
+  pack: z.enum(['vendor', 'arbeidsmiljo', 'compliance', 'engagement', 'exit']),
+  slug: z.string(),
+  name: z.string(),
+  description: z.string().nullable(),
+  position: z.number().int().default(0),
+  is_active: z.boolean().default(true),
+  is_system: z.boolean().default(false),
+  deleted_at: z.string().nullable(),
   created_at: z.string(),
   updated_at: z.string(),
 })

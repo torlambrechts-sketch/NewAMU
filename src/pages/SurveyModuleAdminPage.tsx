@@ -7,6 +7,7 @@ import {
 import { SurveyPakkerTab } from '../../modules/survey/admin/SurveyPakkerTab'
 import { SurveyLeverandorerTab } from '../../modules/survey/admin/SurveyLeverandorerTab'
 import { SurveyMalerOpsCard } from '../../modules/survey/admin/SurveyMalerOpsCard'
+import { SurveyKategorierTab } from '../../modules/survey/admin/SurveyKategorierTab'
 import { SlidePanel } from '../components/layout/SlidePanel'
 import { WPSTD_FORM_FIELD_LABEL } from '../components/layout/WorkplaceStandardFormPanel'
 import { LayoutTable1PostingsShell } from '../components/layout/LayoutTable1PostingsShell'
@@ -43,7 +44,7 @@ import { SurveySettingsIntegrasjoner } from '../components/survey/settings/Surve
 
 const SETTINGS_KEY = 'survey_settings' as const
 
-type AdminTab = 'generelt' | 'utseende' | 'epost' | 'sms' | 'integrasjoner' | 'sporsmalbank' | 'maler' | 'pakker' | 'leverandorer' | 'arbeidsflyt'
+type AdminTab = 'generelt' | 'utseende' | 'epost' | 'sms' | 'integrasjoner' | 'sporsmalbank' | 'maler' | 'kategorier' | 'pakker' | 'leverandorer' | 'arbeidsflyt'
 
 const ADMIN_TABS: TabItem[] = [
   { id: 'generelt',      label: 'Generelt',     icon: Settings  },
@@ -53,6 +54,7 @@ const ADMIN_TABS: TabItem[] = [
   { id: 'integrasjoner', label: 'Integrasjoner', icon: Globe     },
   { id: 'sporsmalbank',  label: 'Spørsmålsbank', icon: BookOpen  },
   { id: 'maler',         label: 'Maler',         icon: Download  },
+  { id: 'kategorier',    label: 'Kategorier',    icon: Layers    },
   { id: 'pakker',        label: 'Pakker',        icon: Layers    },
   { id: 'leverandorer',  label: 'Leverandører',  icon: Building2 },
   { id: 'arbeidsflyt',   label: 'Arbeidsflyt',   icon: GitBranch },
@@ -345,6 +347,7 @@ export function SurveyModuleAdminPage() {
         )}
 
         {/* ── Pakker (DB-driven pack display + behaviour defaults) ──────── */}
+        {tab === 'kategorier' && <SurveyKategorierTab supabase={supabase} />}
         {tab === 'pakker' && <SurveyPakkerTab supabase={supabase} />}
 
         {/* ── Leverandører (vendor master record CRUD) ─────────────────── */}
