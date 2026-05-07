@@ -6,7 +6,7 @@
 // card so the JSON authoring flow stays untouched.
 
 import { useMemo, useState } from 'react'
-import { ChevronDown, FileCheck2, Pin, PinOff } from 'lucide-react'
+import { ChevronDown, FileCheck2, Pin, PinOff, Settings2 } from 'lucide-react'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { Badge } from '../../../src/components/ui/Badge'
 import { Button } from '../../../src/components/ui/Button'
@@ -21,8 +21,10 @@ import {
 } from '../../../src/components/layout/layoutTable1PostingsKit'
 import { SearchableSelect, type SelectOption } from '../../../src/components/ui/SearchableSelect'
 import { useSurveyOrgTemplates, type ResolvedSurveyTemplate } from '../useSurveyOrgTemplates'
+import { useSurveyCategories } from '../useSurveyCategories'
 import { useSurveyPacks } from '../useSurveyPacks'
 import type { SurveyPackSlug } from '../types'
+import { SurveyTemplateMetadataEditorPanel } from './SurveyTemplateMetadataEditorPanel'
 
 type Props = {
   supabase: SupabaseClient | null
@@ -49,8 +51,11 @@ const REVIEW_STATUS_OPTIONS: SelectOption[] = (
 type PackFilter = SurveyPackSlug | 'all'
 
 export function SurveyMalerOpsCard({ supabase }: Props) {
-  const { templates, error, setNavPinned, setReviewStatus } = useSurveyOrgTemplates({ supabase })
+  const { templates, error, setNavPinned, setReviewStatus, setCategoryId, setMetadataSchema } =
+    useSurveyOrgTemplates({ supabase })
+  const surveyCategories = useSurveyCategories({ supabase })
   const { packs } = useSurveyPacks({ supabase })
+  const [editTarget, setEditTarget] = useState<ResolvedSurveyTemplate | null>(null)
   const [filter, setFilter] = useState<PackFilter>('all')
   const [busyId, setBusyId] = useState<string | null>(null)
 
@@ -146,6 +151,7 @@ export function SurveyMalerOpsCard({ supabase }: Props) {
                     <th className={LAYOUT_TABLE1_POSTINGS_TH}>Navn</th>
                     <th className={LAYOUT_TABLE1_POSTINGS_TH}>Pakke</th>
                     <th className={LAYOUT_TABLE1_POSTINGS_TH}>Type</th>
+                    <th className={LAYOUT_TABLE1_POSTINGS_TH}>Hoveddata</th>
                     <th className={LAYOUT_TABLE1_POSTINGS_TH}>Sidemeny</th>
                     <th className={LAYOUT_TABLE1_POSTINGS_TH}>Gjennomgang</th>
                   </tr>
@@ -165,6 +171,23 @@ export function SurveyMalerOpsCard({ supabase }: Props) {
                           <Badge variant={t.isSystem ? 'warning' : 'neutral'}>
                             {t.isSystem ? 'System' : 'Egen'}
                           </Badge>
+                        </td>
+                        <td className={LAYOUT_TABLE1_POSTINGS_TD}>
+                          <div className="inline-flex items-center gap-1.5">
+                            <Badge variant="neutral">
+                              {t.metadataSchema?.fields?.length ?? 0} felt
+                            </Badge>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              icon={<Settings2 className="h-3.5 w-3.5" />}
+                              disabled={!t.overrideId}
+                              onClick={() => setEditTarget(t)}
+                            >
+                              Rediger
+                            </Button>
+                          </div>
                         </td>
                         <td className={LAYOUT_TABLE1_POSTINGS_TD}>
                           <Button
@@ -203,6 +226,19 @@ export function SurveyMalerOpsCard({ supabase }: Props) {
           )}
         </LayoutTable1PostingsShell>
       </div>
+
+      <SurveyTemplateMetadataEditorPanel
+        open={editTarget !== null}
+        template={editTarget}
+        categories={surveyCategories.categories}
+        onClose={() => setEditTarget(null)}
+        onSaveCategory={async (overrideId, categoryId) => {
+          await setCategoryId(overrideId, categoryId)
+        }}
+        onSaveMetadataSchema={async (overrideId, fields) => {
+          await setMetadataSchema(overrideId, { fields })
+        }}
+      />
     </ModuleSectionCard>
   )
 }
