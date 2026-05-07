@@ -35,35 +35,54 @@ export function SurveyHubLanding({
 }: Props) {
   const navigate = useNavigate()
 
-  const tilesByPack = useMemo(() => {
-    const byPack = new Map<SurveyPackSlug, ResolvedSurveyTemplate[]>()
-    for (const t of pinned) {
-      if (!t.isActive) continue
-      const list = byPack.get(t.pack) ?? []
-      list.push(t)
-      byPack.set(t.pack, list)
+  // Build one tile per template, joining the pinned (org-overrides) set with
+  // the catalog (system + org). Sort: pinned first → system → custom.
+  // Within each tier, alphabetical (nb). This makes the hub a discovery
+  // surface — every active template is visible — while still surfacing the
+  // admin's "favourites" up top.
+  type Tile = {
+    id: string
+    name: string
+    description: string | null
+    estimatedMinutes: number | null
+    isPinned: boolean
+    isSystem: boolean
+    pack: SurveyPackSlug
+  }
+  const pinnedById = useMemo(() => {
+    const map = new Map<string, ResolvedSurveyTemplate>()
+    for (const p of pinned) {
+      if (p.isActive) map.set(p.catalogId, p)
     }
-    for (const list of byPack.values()) {
-      list.sort((a, b) => a.name.localeCompare(b.name, 'nb'))
-    }
-    return byPack
+    return map
   }, [pinned])
 
-  const fallbackTilesByPack = useMemo(() => {
-    // When the org has no nav_pinned overrides yet, surface system templates
-    // for each pack so the hub never appears empty after first license.
-    const byPack = new Map<SurveyPackSlug, SurveyTemplateCatalogRow[]>()
+  const tilesByPack = useMemo(() => {
+    const byPack = new Map<SurveyPackSlug, Tile[]>()
     for (const t of templates) {
-      if (!t.is_system) continue
+      if (t.is_active === false) continue
+      const pinnedRow = pinnedById.get(t.id)
       const list = byPack.get(t.pack) ?? []
-      list.push(t)
+      list.push({
+        id: t.id,
+        name: pinnedRow?.name ?? t.name,
+        description: pinnedRow?.description ?? t.description ?? null,
+        estimatedMinutes: t.estimated_minutes ?? null,
+        isPinned: !!pinnedRow,
+        isSystem: t.is_system,
+        pack: t.pack,
+      })
       byPack.set(t.pack, list)
     }
-    for (const list of byPack.values()) {
-      list.sort((a, b) => a.name.localeCompare(b.name, 'nb'))
-    }
+    const tier = (t: Tile) => (t.isPinned ? 0 : t.isSystem ? 1 : 2)
+    byPack.forEach((list) =>
+      list.sort((a, b) => {
+        const d = tier(a) - tier(b)
+        return d !== 0 ? d : a.name.localeCompare(b.name, 'nb')
+      }),
+    )
     return byPack
-  }, [templates])
+  }, [templates, pinnedById])
 
   if (loading && packs.length === 0) {
     return (
@@ -91,24 +110,7 @@ export function SurveyHubLanding({
   return (
     <div className="space-y-6">
       {packs.map((pack) => {
-        const pinnedTiles = tilesByPack.get(pack.slug) ?? []
-        const fallbackTiles = fallbackTilesByPack.get(pack.slug) ?? []
-        const useFallback = pinnedTiles.length === 0 && fallbackTiles.length > 0
-        const tiles = pinnedTiles.length > 0
-          ? pinnedTiles.map((t) => ({
-              id: t.catalogId,
-              name: t.name,
-              description: t.description,
-              isSystem: t.isSystem,
-              estimatedMinutes: null as number | null,
-            }))
-          : fallbackTiles.map((t) => ({
-              id: t.id,
-              name: t.name,
-              description: t.description ?? null,
-              isSystem: t.is_system,
-              estimatedMinutes: t.estimated_minutes ?? null,
-            }))
+        const tiles = tilesByPack.get(pack.slug) ?? []
 
         return (
           <ModuleSectionCard key={pack.slug} className="p-5 md:p-6">
@@ -117,12 +119,6 @@ export function SurveyHubLanding({
                 <div className="flex items-center gap-2">
                   <h2 className="text-lg font-semibold text-neutral-900">{pack.plural_label}</h2>
                   <Badge variant="info">{pack.short_name}</Badge>
-                  {useFallback ? (
-                    <Badge variant="neutral">
-                      <Sparkles className="mr-1 inline h-3 w-3" aria-hidden />
-                      System
-                    </Badge>
-                  ) : null}
                 </div>
                 <p className="mt-1.5 text-sm text-neutral-600">{pack.description}</p>
               </div>
@@ -166,7 +162,14 @@ export function SurveyHubLanding({
                             </span>
                           ) : null}
                         </span>
-                        {t.isSystem ? <Badge variant="neutral">System</Badge> : null}
+                        {t.isPinned ? (
+                          <Badge variant="success">
+                            <Sparkles className="mr-1 inline h-3 w-3" aria-hidden />
+                            Festet
+                          </Badge>
+                        ) : t.isSystem ? (
+                          <Badge variant="neutral">System</Badge>
+                        ) : null}
                       </div>
                       {t.description ? (
                         <p className="line-clamp-2 text-xs text-neutral-600">{t.description}</p>

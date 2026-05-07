@@ -31,26 +31,26 @@ export function ChecklistsHubLanding({
 }: Props) {
   const navigate = useNavigate()
 
+  // Show every active template per pack so the hub doubles as a discovery
+  // surface — not just a launcher for whatever happens to be nav_pinned.
+  // Sort: pinned first (admin's "favourites"), then system baselines, then
+  // org-authored custom templates. Within each tier, alphabetical (nb).
   const tilesByPack = useMemo(() => {
-    const pinned = new Map<CompliancePackSlug, ComplianceTemplateRow[]>()
-    const system = new Map<CompliancePackSlug, ComplianceTemplateRow[]>()
+    const byPack = new Map<CompliancePackSlug, ComplianceTemplateRow[]>()
     for (const t of templates) {
       if (!t.is_active) continue
-      if (t.nav_pinned) {
-        const list = pinned.get(t.pack) ?? []
-        list.push(t)
-        pinned.set(t.pack, list)
-      } else if (t.is_system) {
-        const list = system.get(t.pack) ?? []
-        list.push(t)
-        system.set(t.pack, list)
-      }
+      const list = byPack.get(t.pack) ?? []
+      list.push(t)
+      byPack.set(t.pack, list)
     }
-    const sortByName = (a: ComplianceTemplateRow, b: ComplianceTemplateRow) =>
-      a.name.localeCompare(b.name, 'nb')
-    pinned.forEach((list) => list.sort(sortByName))
-    system.forEach((list) => list.sort(sortByName))
-    return { pinned, system }
+    const tier = (t: ComplianceTemplateRow) => (t.nav_pinned ? 0 : t.is_system ? 1 : 2)
+    byPack.forEach((list) =>
+      list.sort((a, b) => {
+        const d = tier(a) - tier(b)
+        return d !== 0 ? d : a.name.localeCompare(b.name, 'nb')
+      }),
+    )
+    return byPack
   }, [templates])
 
   if (loading && packs.length === 0) {
@@ -77,10 +77,7 @@ export function ChecklistsHubLanding({
   return (
     <div className="space-y-6">
       {packs.map((pack) => {
-        const pinnedTiles = tilesByPack.pinned.get(pack.slug) ?? []
-        const systemTiles = tilesByPack.system.get(pack.slug) ?? []
-        const useFallback = pinnedTiles.length === 0 && systemTiles.length > 0
-        const tiles = pinnedTiles.length > 0 ? pinnedTiles : systemTiles
+        const tiles = tilesByPack.get(pack.slug) ?? []
 
         return (
           <ModuleSectionCard key={pack.slug} className="p-5 md:p-6">
@@ -89,12 +86,6 @@ export function ChecklistsHubLanding({
                 <div className="flex items-center gap-2">
                   <h2 className="text-lg font-semibold text-neutral-900">{pack.pluralLabel}</h2>
                   <Badge variant="info">{pack.shortName}</Badge>
-                  {useFallback ? (
-                    <Badge variant="neutral">
-                      <Sparkles className="mr-1 inline h-3 w-3" aria-hidden />
-                      System
-                    </Badge>
-                  ) : null}
                 </div>
                 <p className="mt-1.5 text-sm text-neutral-600">{pack.description}</p>
               </div>
@@ -140,7 +131,14 @@ export function ChecklistsHubLanding({
                             </span>
                           ) : null}
                         </span>
-                        {t.is_system ? <Badge variant="neutral">System</Badge> : null}
+                        {t.nav_pinned ? (
+                          <Badge variant="success">
+                            <Sparkles className="mr-1 inline h-3 w-3" aria-hidden />
+                            Festet
+                          </Badge>
+                        ) : t.is_system ? (
+                          <Badge variant="neutral">System</Badge>
+                        ) : null}
                       </div>
                       {t.description ? (
                         <p className="line-clamp-2 text-xs text-neutral-600">{t.description}</p>
