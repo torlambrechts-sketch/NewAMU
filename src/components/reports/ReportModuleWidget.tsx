@@ -1,5 +1,5 @@
-import { useRef, useState, type PointerEvent as ReactPointerEvent, type ReactNode } from 'react'
-import type { ReportModule, ReportModuleColSpan } from '../../types/reportBuilder'
+import { useRef, useState, type DragEvent as ReactDragEvent, type PointerEvent as ReactPointerEvent, type ReactNode } from 'react'
+import type { ReportModule, ReportModuleColSpan, ReportModuleKind } from '../../types/reportBuilder'
 import { getAtPath, numberAtPath } from '../../lib/reportDatasets'
 
 // Polished widget surface (Klarert dashboard kit V1 — see
@@ -53,6 +53,15 @@ export type OnWidgetResize = (m: ReportModule, next: ReportModuleColSpan) => voi
 
 /** Inline X-to-remove callback used by V3 edit mode. */
 export type OnWidgetRemove = (m: ReportModule) => void
+
+/** Drop-from-library callback (V3 edit mode) — fired when the user drags
+ *  a `WidgetCatalogEntry` from the docked library rail and drops it on
+ *  the grid. The `catalogId` is the registered entry's id; the optional
+ *  `kindOverride` lets the rail communicate a per-entry kind selection. */
+export type OnDropFromLibrary = (payload: {
+  catalogId: string
+  kindOverride?: ReportModuleKind
+}) => void
 
 /**
  * Drill-down event payload (3.2.2). Emitted when a clickable segment of
@@ -852,6 +861,7 @@ export function ReportModulesGrid({
   onResize,
   editMode,
   onRemove,
+  onDropFromLibrary,
 }: {
   modules: ReportModule[]
   datasets: Record<string, unknown>
@@ -868,7 +878,11 @@ export function ReportModulesGrid({
   editMode?: boolean
   /** Inline X-to-remove handler — propagated to every widget. */
   onRemove?: OnWidgetRemove
+  /** Drop-from-library handler — when set, the grid becomes a drop
+   *  target for items dragged out of `DashboardWidgetLibraryRail`. */
+  onDropFromLibrary?: OnDropFromLibrary
 }) {
+  const [isDragOver, setIsDragOver] = useState(false)
   const containerClass = (() => {
     if (layoutMode === 'grid12') return 'grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-12'
     if (layoutMode === 'grid2') return 'grid grid-cols-1 gap-4 lg:grid-cols-2'
@@ -877,8 +891,55 @@ export function ReportModulesGrid({
   // The data-attribute lets a child widget locate the 12-col grid at
   // pointerdown time without prop-drilling a ref.
   const dataGrid = layoutMode === 'grid12' ? '12' : undefined
+
+  const dropEnabled = !!(editMode && onDropFromLibrary)
+  const parsePayload = (e: ReactDragEvent): { catalogId: string; kindOverride?: ReportModuleKind } | null => {
+    const raw =
+      e.dataTransfer.getData('application/x-klarert-catalog-id') ||
+      (e.dataTransfer.getData('text/plain') || '').replace(/^klarert-widget:/, '')
+    if (!raw) return null
+    const [catalogId, kind] = raw.split('::')
+    if (!catalogId) return null
+    return { catalogId, kindOverride: kind ? (kind as ReportModuleKind) : undefined }
+  }
+
   return (
-    <div className={containerClass} data-dashboard-grid={dataGrid}>
+    <div
+      className={`${containerClass} ${dropEnabled && isDragOver ? 'rounded-xl ring-2 ring-[#1a3d32]/40 ring-offset-4 ring-offset-[#f7f6f2] transition-shadow' : ''}`}
+      data-dashboard-grid={dataGrid}
+      onDragOver={
+        dropEnabled
+          ? (e) => {
+              if (!e.dataTransfer.types.includes('application/x-klarert-catalog-id')) return
+              e.preventDefault()
+              e.dataTransfer.dropEffect = 'copy'
+              if (!isDragOver) setIsDragOver(true)
+            }
+          : undefined
+      }
+      onDragLeave={
+        dropEnabled
+          ? (e) => {
+              // Only clear when actually leaving the grid (not crossing
+              // between children). Compare relatedTarget to the current
+              // target's bounding rect.
+              if (!(e.currentTarget as HTMLElement).contains(e.relatedTarget as Node | null)) {
+                setIsDragOver(false)
+              }
+            }
+          : undefined
+      }
+      onDrop={
+        dropEnabled
+          ? (e) => {
+              e.preventDefault()
+              setIsDragOver(false)
+              const payload = parsePayload(e)
+              if (payload) onDropFromLibrary?.(payload)
+            }
+          : undefined
+      }
+    >
       {modules.map((m) => (
         <ReportModuleWidget
           key={m.id}

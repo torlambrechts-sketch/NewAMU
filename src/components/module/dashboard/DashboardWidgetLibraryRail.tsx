@@ -181,7 +181,24 @@ export function DashboardWidgetLibraryRail({ scopeId, onAdd, onClose }: Props) {
                   return (
                     <div
                       key={entry.catalogId}
-                      className="rounded-lg border border-neutral-200 bg-white px-3 py-2.5 transition-colors hover:border-[#1a3d32] hover:bg-[#1a3d32]/[0.02]"
+                      draggable
+                      onDragStart={(e) => {
+                        // Custom MIME so the grid drop handler can
+                        // distinguish library drops from any other text
+                        // drag the user might initiate. Plain text is a
+                        // fallback for browsers that ignore custom types.
+                        e.dataTransfer.effectAllowed = 'copy'
+                        e.dataTransfer.setData(
+                          'application/x-klarert-catalog-id',
+                          `${entry.catalogId}::${activeKind}`,
+                        )
+                        e.dataTransfer.setData(
+                          'text/plain',
+                          `klarert-widget:${entry.catalogId}::${activeKind}`,
+                        )
+                      }}
+                      title="Klikk + eller dra inn i oppsettet"
+                      className="cursor-grab rounded-lg border border-neutral-200 bg-white px-3 py-2.5 transition-colors hover:border-[#1a3d32] hover:bg-[#1a3d32]/[0.02] active:cursor-grabbing"
                     >
                       <div className="flex items-start justify-between gap-2">
                         <div className="min-w-0 flex-1">
@@ -239,7 +256,7 @@ export function DashboardWidgetLibraryRail({ scopeId, onAdd, onClose }: Props) {
 
       <footer className="border-t border-neutral-100 px-4 py-3">
         <p className="text-[11px] text-neutral-500">
-          Tips: dra hjørnet på en widget for å justere bredde.
+          Tips: klikk + eller dra widgeten inn i oppsettet.
         </p>
       </footer>
     </aside>

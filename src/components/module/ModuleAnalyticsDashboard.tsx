@@ -17,7 +17,12 @@ import { Edit3, Plus } from 'lucide-react'
 import { ModulePageShell } from './ModulePageShell'
 import { Button } from '../ui/Button'
 import { WarningBox } from '../ui/AlertBox'
-import { ReportModulesGrid, type DrillDownEvent, type OnWidgetResize } from '../reports/ReportModuleWidget'
+import {
+  ReportModulesGrid,
+  type DrillDownEvent,
+  type OnDropFromLibrary,
+  type OnWidgetResize,
+} from '../reports/ReportModuleWidget'
 import { DashboardFilterBar } from './dashboard/DashboardFilterBar'
 import type {
   DashboardDimension,
@@ -107,6 +112,9 @@ export interface ModuleAnalyticsDashboardProps {
   widgetLibrarySlot?: ReactNode
   /** Inline X-to-remove handler in edit mode — fires per widget. */
   onRemoveWidget?: (m: ReportModule) => void
+  /** Drop-from-library handler — when set + editMode + widgetLibrarySlot,
+   *  the grid accepts drag-and-drop from the rail (V3 design pattern). */
+  onDropFromLibrary?: OnDropFromLibrary
 }
 
 export function ModuleAnalyticsDashboard({
@@ -133,6 +141,7 @@ export function ModuleAnalyticsDashboard({
   editMode,
   widgetLibrarySlot,
   onRemoveWidget,
+  onDropFromLibrary,
 }: ModuleAnalyticsDashboardProps) {
   const builtInFilterBar =
     !filterBar && dimensions && dimensions.length > 0 && filters && onFiltersChange ? (
@@ -237,6 +246,7 @@ export function ModuleAnalyticsDashboard({
                 onResize={onResize}
                 editMode
                 onRemove={onRemoveWidget}
+                onDropFromLibrary={onDropFromLibrary}
               />
             </div>
             {widgetLibrarySlot}

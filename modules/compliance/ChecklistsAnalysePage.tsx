@@ -20,6 +20,7 @@ import { DashboardChooser } from '../../src/components/module/dashboard/Dashboar
 import { Button } from '../../src/components/ui/Button'
 import { downloadCsv, widgetToCsv } from '../../src/lib/reports/widgetCsv'
 import { defaultCompatibleKinds } from '../../src/components/module/dashboard/dashboardWidgetKinds'
+import { instantiateWidget } from '../../src/lib/dashboards/dashboardRegistry'
 import { useLicensedPacks } from '../../src/context/packContextValue'
 import { useOrgSetupContext } from '../../src/hooks/useOrgSetupContext'
 import {
@@ -303,11 +304,12 @@ export function ChecklistsAnalysePage() {
         loading={cl.loading || dashboard.loading}
         error={cl.error ?? dashboard.error}
         emptyState={empty}
-        // The legacy SlidePanel-based "Rediger oppsett" + "Legg til widget"
-        // are hidden when edit mode is on (the inline rail + per-widget X
-        // cover the same flows). They stay available below xl so narrower
-        // viewports keep the modal flow.
-        onEdit={editMode ? undefined : () => setEditOpen(true)}
+        // The inline "Rediger oppsett" toggle in headerActions replaces the
+        // runtime's onEdit/onAddWidget chrome — passing `undefined` here so
+        // we don't end up with two "Rediger oppsett" buttons. The legacy
+        // SlidePanels stay registered below as fallbacks (e.g. when we
+        // need to surface them again for a narrower viewport).
+        onEdit={undefined}
         onAddWidget={editMode ? undefined : () => setAddOpen(true)}
         widgetControlSlot={widgetControlSlot}
         onDrillDown={handleDrillDown}
@@ -328,6 +330,18 @@ export function ChecklistsAnalysePage() {
         onRemoveWidget={(w) => {
           if (!window.confirm(`Fjerne widgeten «${w.title}»?`)) return
           void dashboard.saveLayout(dashboard.layout.filter((x) => x.id !== w.id))
+        }}
+        onDropFromLibrary={({ catalogId, kindOverride }) => {
+          const scope = getDashboardScope(CHECKLIST_DASHBOARD_SCOPE_ID)
+          const entry = scope?.widgetCatalog.find((c) => c.catalogId === catalogId)
+          if (!entry) return
+          const widget = instantiateWidget(entry)
+          const final = (
+            kindOverride && kindOverride !== entry.template.kind
+              ? { ...(widget as Record<string, unknown>), kind: kindOverride }
+              : widget
+          ) as ReportModule
+          void dashboard.saveLayout([...dashboard.layout, final])
         }}
         filters={dashboard.filters}
         dimensions={dimensions}
