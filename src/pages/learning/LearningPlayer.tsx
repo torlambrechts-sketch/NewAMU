@@ -191,7 +191,12 @@ export function LearningPlayer() {
     { label: 'Katalog', to: '/learning/katalog' },
   ]
 
-  if (!course || course.status !== 'published') {
+  // Admins (or anyone arriving via the builder's "Forhåndsvisning" link
+  // with `?preview=1`) can render an unpublished course in the player —
+  // it's the only way to actually preview a draft. Learners still hit
+  // the "ikke publisert" warning.
+  const isPreviewMode = searchParams.get('preview') === '1' || canManageLearning
+  if (!course || (course.status !== 'published' && !isPreviewMode)) {
     return (
       <ModulePageShell
         breadcrumb={[...baseBreadcrumb, { label: course ? course.title : 'Ukjent kurs' }]}
@@ -262,8 +267,14 @@ export function LearningPlayer() {
     if (idx < modules.length - 1) setIdx(idx + 1)
   }
 
+  const isDraftPreview = activeCourse.status !== 'published'
   const description = (
     <span className="flex flex-wrap items-center gap-2 text-xs text-neutral-500">
+      {isDraftPreview ? (
+        <span className="inline-flex items-center gap-1 rounded-full border border-amber-300 bg-amber-50 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wider text-amber-800">
+          Utkast · forhåndsvisning
+        </span>
+      ) : null}
       <span className="text-sm text-neutral-600">{activeCourse.description}</span>
       {totalDuration > 0 ? <span>· ~{totalDuration} min totalt</span> : null}
     </span>

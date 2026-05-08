@@ -336,19 +336,11 @@ export function LearningCourseBuilder() {
         Tilbake til katalog
       </Button>
       <Link
-        to={`/learning/play/${course.id}`}
+        to={`/learning/play/${course.id}?preview=1`}
         className="inline-flex items-center gap-1.5 rounded-md border border-neutral-300 bg-white px-3 py-2 text-sm font-semibold text-neutral-700 transition-colors hover:bg-neutral-50"
       >
         <PlayCircle className="h-4 w-4" />
         Forhåndsvisning
-      </Link>
-      <Link
-        to={`/learning/courses/${course.id}/dokument-test`}
-        className="inline-flex items-center gap-1.5 rounded-md border border-dashed border-neutral-300 bg-white px-3 py-2 text-sm font-medium text-neutral-600 transition-colors hover:border-[#1a3d32] hover:text-[#1a3d32]"
-        title="Eksperimentell visning som låner dokumenteditorens overflate"
-      >
-        <FileText className="h-4 w-4" />
-        Test: dokument-modus
       </Link>
       {canDelete ? (
         <Button
