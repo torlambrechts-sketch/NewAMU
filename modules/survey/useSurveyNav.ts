@@ -1,10 +1,23 @@
 // Survey nav feed — supplies the AticsShell sidebar with dynamically-built
-// "Undersøkelser" entries from the org's licensed packs, their admin-defined
-// categories, and pinned templates. Filters by the active pack focus when
-// ?pack= is present in the URL.
+// "Undersøkelser" entries from the org's licensed packs and admin-defined
+// categories. Filters by the active pack focus when ?pack= is present.
 //
-// Mirrors modules/compliance/useComplianceNav.ts. Read-only; no mutations
-// (admin pinning lives in the Maler tab via useSurveyOrgTemplates updates).
+// IMPORTANT design choice (changed during the empty-sidebar bug hunt):
+// the sidebar reads the SYSTEM CATALOG directly (`survey_template_catalog`
+// where is_system + is_active) rather than the per-org override layer
+// (`survey_org_templates`). Reasons:
+//   - The hub renders catalog rows directly (the "Festet" badge is
+//     `!!pinnedRow`, but the tile renders regardless). The sidebar
+//     should mirror that visibility, not depend on an additional
+//     provisioning chain that has historically broken (rows missing,
+//     nav_pinned=false, FK schema-cache invisibility).
+//   - Per-template visibility is configured by toggling the catalog
+//     `is_active` flag (admins do this in the Maler tab via
+//     useSurveyOrgTemplates, which still owns name overrides + admin
+//     state). Sidebar visibility doesn't depend on that.
+//   - Category overrides + name overrides from `survey_org_templates`
+//     are layered on top when present, but their absence never empties
+//     the sidebar.
 
 import { useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
@@ -41,11 +54,15 @@ export type UseSurveyNavReturn = {
   categories: SurveyNavCategory[]
 }
 
-type PinnedRow = {
-  catalog_id: string
+type CatalogRow = {
+  id: string
   pack: SurveyPackSlug
+  name: string
+}
+
+type OrgOverrideRow = {
+  catalog_id: string
   name_override: string | null
-  catalog_name: string
   category_id: string | null
 }
 
@@ -64,7 +81,8 @@ export function useSurveyNav(): UseSurveyNavReturn {
   const [searchParams] = useSearchParams()
   const activePackParam = searchParams.get('pack')
 
-  const [pinned, setPinned] = useState<PinnedRow[]>([])
+  const [catalogRows, setCatalogRows] = useState<CatalogRow[]>([])
+  const [overrideRows, setOverrideRows] = useState<OrgOverrideRow[]>([])
   const [categoryRows, setCategoryRows] = useState<CategoryRow[]>([])
   const [fetchedFor, setFetchedFor] = useState<string | null>(null)
   const targetKey = supabase && orgId ? orgId : null
@@ -72,26 +90,19 @@ export function useSurveyNav(): UseSurveyNavReturn {
   useEffect(() => {
     if (!supabase || !orgId) return
     let cancelled = false
-    // Three separate queries instead of a single PostgREST `!inner`
-    // join: the join historically drops every row when PostgREST's
-    // schema cache hasn't picked up the FK constraint, AND the
-    // `nav_pinned=true` filter has been observed to hide every
-    // template on customer DBs where re-provision migrations left
-    // the column false. We fetch overrides + catalog + categories
-    // separately and stitch in JS, mirroring how `useSurveyOrgTemplates`
-    // (the hub) does it. Result: the sidebar mirrors what the hub
-    // shows.
     void Promise.all([
       supabase
+        .from('survey_template_catalog')
+        .select('id, pack, name')
+        .eq('is_active', true)
+        .eq('is_system', true)
+        .order('name', { ascending: true }),
+      supabase
         .from('survey_org_templates')
-        .select('catalog_id, pack, name_override, category_id, nav_pinned')
+        .select('catalog_id, name_override, category_id')
         .eq('organization_id', orgId)
         .eq('is_active', true)
         .is('deleted_at', null),
-      supabase
-        .from('survey_template_catalog')
-        .select('id, name')
-        .eq('is_active', true),
       supabase
         .from('survey_template_categories')
         .select('id, pack, name, position, regulation_id')
@@ -103,45 +114,19 @@ export function useSurveyNav(): UseSurveyNavReturn {
         .order('name', { ascending: true }),
     ])
       .catch((e) => {
-        // A network blip shouldn't leave `pinned` permanently empty.
-        // Mark the org as fetched so `loading` flips off, surface a
-        // dev-time warning. The user keeps the fixed sub-entries
-        // (Analyse / Alle / Innstillinger) and reloads the page to retry.
         if (cancelled) return null
         console.warn('useSurveyNav fetch failed', e)
         setFetchedFor(orgId)
         return null
       })
       .then((res) => {
-      if (!res || cancelled) return
-      const [tplRes, catalogRes, catRes] = res
-      const catalogNameById = new Map<string, string>()
-      for (const c of catalogRes.data ?? []) {
-        const id = (c as { id?: string }).id
-        const name = (c as { name?: string }).name
-        if (id && name) catalogNameById.set(id, name)
-      }
-      if (tplRes.error) {
-        setPinned([])
-      } else {
-        const rows: PinnedRow[] = []
-        for (const raw of tplRes.data ?? []) {
-          const catalogId = (raw as { catalog_id: string }).catalog_id
-          const catalogName = catalogNameById.get(catalogId)
-          if (!catalogName) continue
-          rows.push({
-            catalog_id: catalogId,
-            pack: (raw as { pack: SurveyPackSlug }).pack,
-            name_override: (raw as { name_override: string | null }).name_override,
-            catalog_name: catalogName,
-            category_id: (raw as { category_id: string | null }).category_id ?? null,
-          })
-        }
-        setPinned(rows)
-      }
-      setCategoryRows(catRes.error ? [] : ((catRes.data ?? []) as CategoryRow[]))
-      setFetchedFor(orgId)
-    })
+        if (!res || cancelled) return
+        const [catalogRes, overrideRes, catRes] = res
+        setCatalogRows(catalogRes.error ? [] : ((catalogRes.data ?? []) as CatalogRow[]))
+        setOverrideRows(overrideRes.error ? [] : ((overrideRes.data ?? []) as OrgOverrideRow[]))
+        setCategoryRows(catRes.error ? [] : ((catRes.data ?? []) as CategoryRow[]))
+        setFetchedFor(orgId)
+      })
     return () => {
       cancelled = true
     }
@@ -150,26 +135,29 @@ export function useSurveyNav(): UseSurveyNavReturn {
   const loading = packsLoading || (targetKey !== null && targetKey !== fetchedFor)
 
   const items = useMemo<SurveyPinnedNavItem[]>(() => {
-    // No `licensedSlugs.has(t.pack)` filter: if we got the row from
-    // `survey_org_templates`, the pack value is valid by FK. The
-    // earlier double-check against `useSurveyPacks` was racy on first
-    // render — when packs hadn't loaded yet, every pinned row was
-    // dropped and the sidebar stayed empty. The pack-focus filter
-    // (when `?pack=` is set in the URL) stays — that's an explicit
-    // user-driven narrow.
+    // Per-catalog overlay: pick up the per-org name + category if an
+    // override row exists; otherwise fall through to the catalog row.
+    const overrideById = new Map<string, OrgOverrideRow>()
+    for (const o of overrideRows) overrideById.set(o.catalog_id, o)
+
     const focusSlug = activePackParam ? (activePackParam as SurveyPackSlug) : null
-    return pinned
-      .filter((t) => focusSlug === null || t.pack === focusSlug)
-      .map((t) => ({
-        catalogId: t.catalog_id,
-        templateName: t.name_override ?? t.catalog_name,
-        pack: t.pack,
-        categoryId: t.category_id,
-        headerKey: t.category_id ?? `${t.pack}:__uncat__`,
-        to: `/survey?template=${encodeURIComponent(t.catalog_id)}&pack=${encodeURIComponent(t.pack)}`,
-      }))
+
+    return catalogRows
+      .filter((c) => focusSlug === null || c.pack === focusSlug)
+      .map((c) => {
+        const ov = overrideById.get(c.id)
+        const categoryId = ov?.category_id ?? null
+        return {
+          catalogId: c.id,
+          templateName: ov?.name_override ?? c.name,
+          pack: c.pack,
+          categoryId,
+          headerKey: categoryId ?? `${c.pack}:__uncat__`,
+          to: `/survey?template=${encodeURIComponent(c.id)}&pack=${encodeURIComponent(c.pack)}`,
+        } satisfies SurveyPinnedNavItem
+      })
       .sort((a, b) => a.templateName.localeCompare(b.templateName, 'nb'))
-  }, [pinned, activePackParam])
+  }, [catalogRows, overrideRows, activePackParam])
 
   const categories = useMemo<SurveyNavCategory[]>(() => {
     return categoryRows.map((c) => ({
