@@ -310,17 +310,17 @@ export function useAdminTemplates(): UseAdminTemplatesReturn {
   return { loading, error, rows, refresh }
 }
 
-function mapBy<K extends string, V>(
+function mapBy(
   data: unknown[] | null | undefined,
-  keyField: K,
-  valueField: K,
-): Map<string, V> {
-  const out = new Map<string, V>()
+  keyField: string,
+  valueField: string,
+): Map<string, string> {
+  const out = new Map<string, string>()
   for (const r of data ?? []) {
     const row = r as Record<string, unknown>
     const k = row[keyField]
     const v = row[valueField]
-    if (typeof k === 'string') out.set(k, v as V)
+    if (typeof k === 'string' && typeof v === 'string') out.set(k, v)
   }
   return out
 }
