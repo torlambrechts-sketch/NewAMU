@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react'
+import { useRef, useState, type PointerEvent as ReactPointerEvent, type ReactNode } from 'react'
 import type { ReportModule, ReportModuleColSpan } from '../../types/reportBuilder'
 import { getAtPath, numberAtPath } from '../../lib/reportDatasets'
 
@@ -14,9 +14,36 @@ const COL_SPAN_CLASS: Record<ReportModuleColSpan, string> = {
   full: 'lg:col-span-12',
 }
 
+// Numeric column count per colSpan — used by the resize handle to map a
+// drag delta back to a snapped colSpan value (3.2.5).
+const COL_SPAN_COLS: Record<ReportModuleColSpan, number> = {
+  sm: 3,
+  md: 6,
+  lg: 9,
+  full: 12,
+}
+const COL_SPAN_ORDER: ReportModuleColSpan[] = ['sm', 'md', 'lg', 'full']
+function snapToColSpan(cols: number): ReportModuleColSpan {
+  let best: ReportModuleColSpan = 'md'
+  let bestDiff = Number.POSITIVE_INFINITY
+  for (const span of COL_SPAN_ORDER) {
+    const diff = Math.abs(COL_SPAN_COLS[span] - cols)
+    if (diff < bestDiff) {
+      bestDiff = diff
+      best = span
+    }
+  }
+  return best
+}
+
 // Optional control slot rendered top-right of every widget shell —
 // used by the dashboard editor to surface a per-widget "..." menu.
 type WidgetControlSlot = (m: ReportModule) => ReactNode
+
+/** Resize callback (3.2.5) — fired when a user drags the SE handle and
+ *  releases on a different colSpan, or clicks it (which cycles through
+ *  sm → md → lg → full → sm). */
+export type OnWidgetResize = (m: ReportModule, next: ReportModuleColSpan) => void
 
 /**
  * Drill-down event payload (3.2.2). Emitted when a clickable segment of
@@ -123,6 +150,7 @@ export function ReportModuleWidget({
   emptyLabel,
   controlSlot,
   onDrillDown,
+  onResize,
 }: {
   module: ReportModule
   datasets: Record<string, unknown>
@@ -134,9 +162,20 @@ export function ReportModuleWidget({
   controlSlot?: WidgetControlSlot
   /** Optional drill-down handler; activates segment clicks on donut/bar widgets that declare `drillDimensionId`. */
   onDrillDown?: OnDrillDown
+  /** Optional resize handler — when set, an SE drag handle appears (3.2.5). */
+  onResize?: OnWidgetResize
 }) {
   const colors = ['#15803d', '#ca8a04', '#2563eb', '#c2410c', '#7c3aed']
   const ds = datasets[m.datasetKey]
+
+  // Resize state (3.2.5): when the user drags the SE handle, we override
+  // the rendered colSpan with `pendingSpan` so the live preview snaps to
+  // each grid step. On pointerup we commit via `onResize`. The drag is
+  // lg-only — below lg the grid collapses to one or two cols and a
+  // 12-col span doesn't apply.
+  const wrapRef = useRef<HTMLDivElement | null>(null)
+  const [pendingSpan, setPendingSpan] = useState<ReportModuleColSpan | null>(null)
+  const effectiveSpan: ReportModuleColSpan = pendingSpan ?? m.colSpan ?? 'md'
 
   // Width strategy:
   //   grid12 → honour m.colSpan (default 'md' = 6/12 cols)
@@ -144,7 +183,7 @@ export function ReportModuleWidget({
   //   fluid  → no col-span class; caller is in charge
   const colSpanClass = (() => {
     if (layoutMode === 'fluid') return ''
-    if (layoutMode === 'grid12') return COL_SPAN_CLASS[m.colSpan ?? 'md']
+    if (layoutMode === 'grid12') return COL_SPAN_CLASS[effectiveSpan]
     // legacy grid2
     return m.kind === 'kpi' ? '' : 'lg:col-span-2'
   })()
@@ -164,15 +203,89 @@ export function ReportModuleWidget({
     </div>
   )
 
+  const startResize = (e: ReactPointerEvent<HTMLButtonElement>) => {
+    if (!onResize || layoutMode !== 'grid12') return
+    if (typeof window !== 'undefined' && !window.matchMedia('(min-width: 1024px)').matches) {
+      // Below lg the 12-col grid is inactive; fall back to a click-cycle.
+      const next = COL_SPAN_ORDER[(COL_SPAN_ORDER.indexOf(m.colSpan ?? 'md') + 1) % COL_SPAN_ORDER.length]!
+      onResize(m, next)
+      return
+    }
+    const handle = e.currentTarget
+    const widget = wrapRef.current
+    const grid = widget?.closest<HTMLElement>('[data-dashboard-grid="12"]')
+    if (!widget || !grid) return
+    const gridRect = grid.getBoundingClientRect()
+    const widgetRect = widget.getBoundingClientRect()
+    // Tailwind `gap-4` = 16px; 11 gaps between 12 cols.
+    const colWidth = (gridRect.width - 11 * 16) / 12
+    if (!Number.isFinite(colWidth) || colWidth <= 0) return
+    const startX = e.clientX
+    const startSpan = m.colSpan ?? 'md'
+    const startCols = COL_SPAN_COLS[startSpan]
+    let didMove = false
+    let lastSpan: ReportModuleColSpan = startSpan
+    const widgetLeftCol = Math.round((widgetRect.left - gridRect.left) / (colWidth + 16))
+
+    const onMove = (ev: PointerEvent) => {
+      const dx = ev.clientX - startX
+      const colsDelta = Math.round(dx / (colWidth + 16))
+      const projected = startCols + colsDelta
+      // Clamp so the widget never extends past the grid's right edge.
+      const maxCols = Math.max(3, Math.min(12, 12 - widgetLeftCol))
+      const clamped = Math.max(3, Math.min(maxCols, projected))
+      const next = snapToColSpan(clamped)
+      if (Math.abs(dx) > 4) didMove = true
+      if (next !== lastSpan) {
+        lastSpan = next
+        setPendingSpan(next)
+      }
+    }
+    const onUp = () => {
+      handle.removeEventListener('pointermove', onMove)
+      handle.removeEventListener('pointerup', onUp)
+      handle.removeEventListener('pointercancel', onUp)
+      try { handle.releasePointerCapture(e.pointerId) } catch { /* noop */ }
+      setPendingSpan(null)
+      const finalSpan = lastSpan
+      if (didMove) {
+        if (finalSpan !== startSpan) onResize(m, finalSpan)
+      } else {
+        // No drag → cycle to the next size.
+        const next = COL_SPAN_ORDER[(COL_SPAN_ORDER.indexOf(startSpan) + 1) % COL_SPAN_ORDER.length]!
+        onResize(m, next)
+      }
+    }
+    try { handle.setPointerCapture(e.pointerId) } catch { /* noop */ }
+    handle.addEventListener('pointermove', onMove)
+    handle.addEventListener('pointerup', onUp)
+    handle.addEventListener('pointercancel', onUp)
+  }
+
   const wrap = (inner: ReactNode) => (
     <div
-      className={`${R} relative h-full min-h-[120px] border border-neutral-200/90 bg-white p-5 shadow-sm ${colSpanClass} ${rowBreakClass}`}
+      ref={wrapRef}
+      className={`${R} group relative h-full min-h-[120px] border border-neutral-200/90 bg-white p-5 shadow-sm ${colSpanClass} ${rowBreakClass}`}
       style={m.kind === 'kpi' ? { boxShadow: `inset 0 3px 0 0 ${accent}` } : undefined}
     >
       {controlSlot ? (
         <div className="absolute right-3 top-3 z-10">{controlSlot(m)}</div>
       ) : null}
       {inner}
+      {onResize && layoutMode === 'grid12' ? (
+        <button
+          type="button"
+          onPointerDown={startResize}
+          aria-label={`Endre størrelse på ${m.title}`}
+          title="Dra for å endre bredde · klikk for å bla gjennom størrelser"
+          className="absolute bottom-0 right-0 hidden h-4 w-4 cursor-se-resize items-end justify-end p-0.5 text-neutral-300 transition-colors hover:text-neutral-700 focus:flex focus:outline-none focus:ring-1 focus:ring-neutral-400 group-hover:flex lg:flex"
+        >
+          <svg viewBox="0 0 8 8" aria-hidden className="h-3 w-3">
+            <path d="M7 1 L7 7 L1 7" fill="none" stroke="currentColor" strokeWidth="1.2" />
+            <path d="M7 4 L4 7" stroke="currentColor" strokeWidth="1.2" />
+          </svg>
+        </button>
+      ) : null}
     </div>
   )
 
@@ -702,6 +815,7 @@ export function ReportModulesGrid({
   emptyLabel,
   controlSlot,
   onDrillDown,
+  onResize,
 }: {
   modules: ReportModule[]
   datasets: Record<string, unknown>
@@ -712,14 +826,19 @@ export function ReportModulesGrid({
   controlSlot?: WidgetControlSlot
   /** Optional drill-down handler — propagated to every widget. */
   onDrillDown?: OnDrillDown
+  /** Optional resize handler (3.2.5) — propagated to every widget. */
+  onResize?: OnWidgetResize
 }) {
   const containerClass = (() => {
     if (layoutMode === 'grid12') return 'grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-12'
     if (layoutMode === 'grid2') return 'grid grid-cols-1 gap-4 lg:grid-cols-2'
     return 'flex flex-col gap-4'
   })()
+  // The data-attribute lets a child widget locate the 12-col grid at
+  // pointerdown time without prop-drilling a ref.
+  const dataGrid = layoutMode === 'grid12' ? '12' : undefined
   return (
-    <div className={containerClass}>
+    <div className={containerClass} data-dashboard-grid={dataGrid}>
       {modules.map((m) => (
         <ReportModuleWidget
           key={m.id}
@@ -730,6 +849,7 @@ export function ReportModulesGrid({
           emptyLabel={emptyLabel}
           controlSlot={controlSlot}
           onDrillDown={onDrillDown}
+          onResize={onResize}
         />
       ))}
       {modules.length === 0 ? (

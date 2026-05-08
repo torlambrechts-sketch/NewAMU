@@ -17,7 +17,7 @@ import { Edit3, Plus } from 'lucide-react'
 import { ModulePageShell } from './ModulePageShell'
 import { Button } from '../ui/Button'
 import { WarningBox } from '../ui/AlertBox'
-import { ReportModulesGrid, type DrillDownEvent } from '../reports/ReportModuleWidget'
+import { ReportModulesGrid, type DrillDownEvent, type OnWidgetResize } from '../reports/ReportModuleWidget'
 import { DashboardFilterBar } from './dashboard/DashboardFilterBar'
 import type {
   DashboardDimension,
@@ -89,6 +89,13 @@ export interface ModuleAnalyticsDashboardProps {
    * a chip and append it to the active filter set.
    */
   onDrillDown?: (e: DrillDownEvent) => void
+  /**
+   * Optional widget-resize handler (3.2.5). When set, each widget
+   * renders a SE drag handle that snaps to the four `colSpan` values.
+   * Pages typically wire this to `dashboard.saveLayout(...)` so the
+   * change persists immediately.
+   */
+  onResize?: OnWidgetResize
 }
 
 export function ModuleAnalyticsDashboard({
@@ -111,6 +118,7 @@ export function ModuleAnalyticsDashboard({
   widgetControlSlot,
   titleChooser,
   onDrillDown,
+  onResize,
 }: ModuleAnalyticsDashboardProps) {
   const builtInFilterBar =
     !filterBar && dimensions && dimensions.length > 0 && filters && onFiltersChange ? (
@@ -207,6 +215,7 @@ export function ModuleAnalyticsDashboard({
             emptyLabel="Ingen data."
             controlSlot={widgetControlSlot}
             onDrillDown={onDrillDown}
+            onResize={onResize}
           />
         )}
       </div>

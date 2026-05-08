@@ -229,6 +229,11 @@ export function TasksAnalysePage() {
         onEdit={() => setEditOpen(true)}
         onAddWidget={() => setAddOpen(true)}
         widgetControlSlot={widgetControlSlot}
+        onResize={(w, next) =>
+          void dashboard.saveLayout(
+            dashboard.layout.map((x) => (x.id === w.id ? { ...x, colSpan: next } : x)),
+          )
+        }
         filters={dashboard.filters}
         dimensions={dimensions}
         onFiltersChange={(next) => void dashboard.saveFilters(next)}
