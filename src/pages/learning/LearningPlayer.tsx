@@ -442,15 +442,6 @@ export function LearningPlayer() {
             </Button>
           </div>
 
-          <LearningCompletionMetadataPanel
-            course={activeCourse}
-            progress={courseProgress}
-            metadataSchema={activeCourse.metadataSchema ?? null}
-            locations={locations}
-            departments={departments}
-            teams={teams}
-            onSaveMetadata={setProgressMetadata}
-          />
         </div>
       </div>
 
@@ -530,6 +521,21 @@ export function LearningPlayer() {
                 ? 'Du har allerede et kursbevis for dette kurset.'
                 : 'Du kan nå hente kursbeviset ditt.'}
           </p>
+
+          {/* Hoveddata for kursbevis — was inline in the player body
+              before, but appeared on every page of the course while
+              the user was viewing modules. Moved into the Kursbevis
+              panel so it's only visible when actively dealing with
+              the certificate. */}
+          <LearningCompletionMetadataPanel
+            course={activeCourse}
+            progress={courseProgress}
+            metadataSchema={activeCourse.metadataSchema ?? null}
+            locations={locations}
+            departments={departments}
+            teams={teams}
+            onSaveMetadata={setProgressMetadata}
+          />
         </div>
       </SlidePanel>
     </ModulePageShell>
@@ -738,7 +744,7 @@ function ModulePlayer({
           type="button"
           variant="ghost"
           onClick={() => setFlashFlipped(!flashFlipped)}
-          className="relative mx-auto block aspect-[9/16] w-full max-w-sm overflow-hidden rounded-lg border border-[#e3ddcc] p-0"
+          className="relative mx-auto block aspect-[5/3] w-full max-w-md overflow-hidden rounded-lg border border-[#e3ddcc] p-0"
           style={{
             background: flashFlipped
               ? 'linear-gradient(160deg, #1e3d35 0%, #2D403A 100%)'
