@@ -2,10 +2,12 @@
 // topic. Header strip surfaces totals per status. Design source:
 // ui_kits/aml-compliance/AmlPieces1.jsx ModulesOverview + ModuleCard.
 
-import { ChevronRight } from 'lucide-react'
+import { useMemo, useState } from 'react'
+import { Search } from 'lucide-react'
 import * as Lucide from 'lucide-react'
 import type { ComponentType, SVGProps } from 'react'
 import { ModuleSectionCard } from '../module/ModuleSectionCard'
+import { StandardInput } from '../ui/Input'
 import type { AmlModuleStatus, AmlModuleSummary } from '../../data/amlComplianceSeed'
 
 const SERIF = "'Libre Baskerville', Georgia, serif"
@@ -20,8 +22,40 @@ const STATUS_TOKENS: Record<
 }
 
 export function AmlModulesOverview({ modules }: { modules: AmlModuleSummary[] }) {
+  const [search, setSearch] = useState('')
+  const [activeStatuses, setActiveStatuses] = useState<Set<AmlModuleStatus>>(new Set())
+
   const totals: Record<AmlModuleStatus, number> = { green: 0, amber: 0, red: 0 }
   for (const m of modules) totals[m.status] += 1
+
+  const visible = useMemo(() => {
+    const q = search.trim().toLowerCase()
+    return modules.filter((m) => {
+      if (activeStatuses.size > 0 && !activeStatuses.has(m.status)) return false
+      if (q) {
+        const haystack = [m.title, m.law, m.desc, m.owner].join(' ').toLowerCase()
+        if (!haystack.includes(q)) return false
+      }
+      return true
+    })
+  }, [modules, search, activeStatuses])
+
+  const toggleStatus = (s: AmlModuleStatus) => {
+    setActiveStatuses((prev) => {
+      const next = new Set(prev)
+      if (next.has(s)) next.delete(s)
+      else next.add(s)
+      return next
+    })
+  }
+  const showOnlyDeviations = () => {
+    setActiveStatuses(new Set<AmlModuleStatus>(['amber', 'red']))
+  }
+  const hasActiveFilters = search !== '' || activeStatuses.size > 0
+  const clearFilters = () => {
+    setSearch('')
+    setActiveStatuses(new Set())
+  }
 
   return (
     <ModuleSectionCard className="!p-0">
@@ -39,18 +73,70 @@ export function AmlModulesOverview({ modules }: { modules: AmlModuleSummary[] })
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2 text-xs">
-          <StatusChip status="green" count={totals.green} label="på sporet" />
-          <StatusChip status="amber" count={totals.amber} label="følg opp" />
-          <StatusChip status="red" count={totals.red} label="utenfor krav" />
-          <button className="ml-2 inline-flex items-center gap-1 text-xs text-neutral-600 hover:text-neutral-900">
-            Vis bare avvik <ChevronRight className="h-3 w-3" />
+          <StatusChip
+            status="green"
+            count={totals.green}
+            label="på sporet"
+            active={activeStatuses.has('green')}
+            onClick={() => toggleStatus('green')}
+          />
+          <StatusChip
+            status="amber"
+            count={totals.amber}
+            label="følg opp"
+            active={activeStatuses.has('amber')}
+            onClick={() => toggleStatus('amber')}
+          />
+          <StatusChip
+            status="red"
+            count={totals.red}
+            label="utenfor krav"
+            active={activeStatuses.has('red')}
+            onClick={() => toggleStatus('red')}
+          />
+          <button
+            type="button"
+            onClick={showOnlyDeviations}
+            className="ml-2 inline-flex items-center gap-1 text-xs text-neutral-600 hover:text-neutral-900"
+          >
+            Vis bare avvik
           </button>
         </div>
       </div>
-      <div className="grid gap-3 px-5 pb-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-        {modules.map((m) => (
-          <ModuleCard key={m.id} m={m} />
-        ))}
+
+      <div className="flex flex-wrap items-center gap-2 border-y border-neutral-100 bg-neutral-50/40 px-5 py-2.5">
+        <div className="relative flex-1 min-w-[200px] max-w-[320px]">
+          <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-neutral-400" />
+          <StandardInput
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Søk modul, lov, ansvarlig…"
+            className="pl-8 py-1.5 text-xs"
+            aria-label="Søk moduler"
+          />
+        </div>
+        {hasActiveFilters ? (
+          <button
+            type="button"
+            onClick={clearFilters}
+            className="text-[11px] text-neutral-500 hover:text-neutral-800"
+          >
+            Tilbakestill
+          </button>
+        ) : null}
+        <span className="ml-auto text-[11px] text-neutral-500">
+          Viser {visible.length} av {modules.length}
+        </span>
+      </div>
+
+      <div className="grid gap-3 px-5 pb-5 pt-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+        {visible.length === 0 ? (
+          <p className="col-span-full py-8 text-center text-sm text-neutral-500">
+            Ingen moduler matcher filtrene.
+          </p>
+        ) : (
+          visible.map((m) => <ModuleCard key={m.id} m={m} />)
+        )}
       </div>
     </ModuleSectionCard>
   )
@@ -60,20 +146,30 @@ function StatusChip({
   status,
   count,
   label,
+  active,
+  onClick,
 }: {
   status: AmlModuleStatus
   count: number
   label: string
+  active: boolean
+  onClick: () => void
 }) {
   const t = STATUS_TOKENS[status]
   return (
-    <span
-      className="inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 font-semibold"
+    <button
+      type="button"
+      onClick={onClick}
+      aria-pressed={active}
+      className={
+        'inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-xs font-semibold transition-shadow ' +
+        (active ? 'shadow-[inset_0_0_0_1px_#1a3d32]' : '')
+      }
       style={{ background: t.bg, borderColor: t.border, color: t.text }}
     >
       <span className="h-1.5 w-1.5 rounded-full" style={{ background: t.bar }} />
       {count} {label}
-    </span>
+    </button>
   )
 }
 

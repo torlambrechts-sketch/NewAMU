@@ -18,17 +18,13 @@ import { AmlModulesOverview } from '../../components/aml/AmlModulesOverview'
 import { AmlOutstandingTasksTable } from '../../components/aml/AmlOutstandingTasksTable'
 import { AmlKlarertFeed } from '../../components/aml/AmlKlarertFeed'
 import { AmlRegelverkBar } from '../../components/aml/AmlRegelverkBar'
-import {
-  AML_KLARERT_FEED,
-  AML_MODULES,
-  AML_SCORE,
-  AML_TASKS,
-} from '../../data/amlComplianceSeed'
+import { useAmlComplianceData } from '../../hooks/useAmlComplianceData'
 
 const SERIF = "'Libre Baskerville', Georgia, serif"
 
 export function ComplianceArbeidsmiljolovenPage() {
   const [selectedMonth, setSelectedMonth] = useState<number | null>(null)
+  const data = useAmlComplianceData()
 
   return (
     <ModulePageShell
@@ -76,7 +72,7 @@ export function ComplianceArbeidsmiljolovenPage() {
       }
     >
       <div className="space-y-6">
-        <AmlScoreHero score={AML_SCORE} />
+        <AmlScoreHero score={data.score} />
 
         <ModuleSectionCard className="!p-0">
           <div className="grid gap-0 lg:grid-cols-[1fr_360px]">
@@ -105,6 +101,9 @@ export function ComplianceArbeidsmiljolovenPage() {
               </div>
               <div className="mx-auto mt-4 max-w-[640px]">
                 <AmlYearWheel
+                  today={data.today}
+                  items={data.wheel}
+                  legend={data.ringLegend}
                   selectedMonth={selectedMonth}
                   onSelectMonth={setSelectedMonth}
                 />
@@ -115,6 +114,9 @@ export function ComplianceArbeidsmiljolovenPage() {
               style={{ background: '#fbf9f3' }}
             >
               <AmlYearWheelMonthList
+                today={data.today}
+                items={data.wheel}
+                legend={data.ringLegend}
                 selectedMonth={selectedMonth}
                 onClear={() => setSelectedMonth(null)}
               />
@@ -123,7 +125,7 @@ export function ComplianceArbeidsmiljolovenPage() {
                   Tegnforklaring · ringer
                 </p>
                 <div className="mt-2">
-                  <AmlYearWheelLegend />
+                  <AmlYearWheelLegend legend={data.ringLegend} />
                 </div>
               </div>
               <div className="rounded-md border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900">
@@ -141,11 +143,11 @@ export function ComplianceArbeidsmiljolovenPage() {
           </div>
         </ModuleSectionCard>
 
-        <AmlModulesOverview modules={AML_MODULES} />
+        <AmlModulesOverview modules={data.modules} />
 
         <div className="grid gap-6 xl:grid-cols-[1.7fr_1fr]">
-          <AmlOutstandingTasksTable tasks={AML_TASKS} />
-          <AmlKlarertFeed feed={AML_KLARERT_FEED} />
+          <AmlOutstandingTasksTable tasks={data.tasks} />
+          <AmlKlarertFeed feed={data.feed} />
         </div>
 
         <AmlRegelverkBar />
