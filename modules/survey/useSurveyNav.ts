@@ -72,16 +72,26 @@ export function useSurveyNav(): UseSurveyNavReturn {
   useEffect(() => {
     if (!supabase || !orgId) return
     let cancelled = false
+    // Three separate queries instead of a single PostgREST `!inner`
+    // join: the join historically drops every row when PostgREST's
+    // schema cache hasn't picked up the FK constraint, AND the
+    // `nav_pinned=true` filter has been observed to hide every
+    // template on customer DBs where re-provision migrations left
+    // the column false. We fetch overrides + catalog + categories
+    // separately and stitch in JS, mirroring how `useSurveyOrgTemplates`
+    // (the hub) does it. Result: the sidebar mirrors what the hub
+    // shows.
     void Promise.all([
       supabase
         .from('survey_org_templates')
-        .select(
-          'catalog_id, pack, name_override, category_id, survey_template_catalog!inner(name)',
-        )
+        .select('catalog_id, pack, name_override, category_id, nav_pinned')
         .eq('organization_id', orgId)
-        .eq('nav_pinned', true)
         .eq('is_active', true)
         .is('deleted_at', null),
+      supabase
+        .from('survey_template_catalog')
+        .select('id, name')
+        .eq('is_active', true),
       supabase
         .from('survey_template_categories')
         .select('id, pack, name, position, regulation_id')
@@ -91,30 +101,27 @@ export function useSurveyNav(): UseSurveyNavReturn {
         .order('pack', { ascending: true })
         .order('position', { ascending: true })
         .order('name', { ascending: true }),
-    ]).then(([tplRes, catRes]) => {
+    ]).then(([tplRes, catalogRes, catRes]) => {
       if (cancelled) return
+      const catalogNameById = new Map<string, string>()
+      for (const c of catalogRes.data ?? []) {
+        const id = (c as { id?: string }).id
+        const name = (c as { name?: string }).name
+        if (id && name) catalogNameById.set(id, name)
+      }
       if (tplRes.error) {
         setPinned([])
       } else {
         const rows: PinnedRow[] = []
         for (const raw of tplRes.data ?? []) {
-          // PostgREST returns the FK join as either a single object or
-          // a single-element array depending on schema-cache visibility
-          // of the FK constraint. Accept both shapes — historically the
-          // array form silently dropped pinned templates from the
-          // sidebar even when the hub showed them, because the
-          // single-object access path saw `undefined`.
-          const rawJoin = (raw as { survey_template_catalog?: unknown })
-            .survey_template_catalog
-          const catalog = Array.isArray(rawJoin)
-            ? (rawJoin[0] as { name?: string } | undefined)
-            : (rawJoin as { name?: string } | null | undefined)
-          if (!catalog?.name) continue
+          const catalogId = (raw as { catalog_id: string }).catalog_id
+          const catalogName = catalogNameById.get(catalogId)
+          if (!catalogName) continue
           rows.push({
-            catalog_id: (raw as { catalog_id: string }).catalog_id,
+            catalog_id: catalogId,
             pack: (raw as { pack: SurveyPackSlug }).pack,
             name_override: (raw as { name_override: string | null }).name_override,
-            catalog_name: catalog.name,
+            catalog_name: catalogName,
             category_id: (raw as { category_id: string | null }).category_id ?? null,
           })
         }
