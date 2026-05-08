@@ -25,6 +25,7 @@ import {
   Home,
   Kanban,
   LayoutGrid,
+  LayoutTemplate,
   ListTodo,
   Megaphone,
   ScrollText,
@@ -404,6 +405,15 @@ const REGISTERS_NAV_PERMS: PermissionKey[] = [
   'module.view.org_health',
   'module.view.internal_control',
   'documents.view',
+]
+
+// Permission gate for the umbrella Admin menu. Strict — only org
+// administrators / role managers see it. Sub-pages enforce their own
+// page-level perms.
+const ADMIN_NAV_PERMS: PermissionKey[] = [
+  'module.view.admin',
+  'users.manage',
+  'roles.manage',
 ]
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -1358,6 +1368,75 @@ export function AticsShell() {
       ],
     }
 
+    // Admin group — umbrella for company configuration, user
+    // management, access rights, and the cross-module template
+    // browser. Most sub-entries deep-link to existing surfaces
+    // (OrganisationPage tabs, AdminPage); only Maler is a new page.
+    const adminFixedSubs: SubItem[] = [
+      {
+        label: 'Selskap',
+        path: '/organisation',
+        Icon: Building2,
+        match: ({ pathname, search }) =>
+          pathname === '/organisation' &&
+          (() => {
+            const tab = new URLSearchParams(search).get('tab')
+            return !tab || tab === 'insights' || tab === 'settings'
+          })(),
+        requirePermAny: ADMIN_NAV_PERMS,
+      },
+      {
+        label: 'Ansatte & enheter',
+        path: '/organisation?tab=employees',
+        match: ({ pathname, search }) => {
+          if (pathname !== '/organisation') return false
+          const tab = new URLSearchParams(search).get('tab')
+          return tab === 'employees' || tab === 'units'
+        },
+        requirePermAny: ADMIN_NAV_PERMS,
+      },
+      {
+        label: 'Brukere & roller',
+        path: '/organisation/admin',
+        Icon: Users,
+        match: ({ pathname }) => pathname.startsWith('/organisation/admin'),
+        requirePermAny: ADMIN_NAV_PERMS,
+      },
+      {
+        label: 'Tilgang & verv',
+        path: '/organisation?tab=mandates',
+        match: ({ pathname, search }) => {
+          if (pathname !== '/organisation') return false
+          const tab = new URLSearchParams(search).get('tab')
+          return tab === 'mandates' || tab === 'groups'
+        },
+        requirePermAny: ADMIN_NAV_PERMS,
+      },
+      {
+        label: 'Maler',
+        path: '/admin/templates',
+        Icon: LayoutTemplate,
+        match: ({ pathname }) => pathname === '/admin/templates',
+        requirePermAny: ADMIN_NAV_PERMS,
+      },
+    ]
+    const adminGroup: NavGroup = {
+      id: 'admin',
+      label: 'Admin',
+      icon: Shield,
+      modules: [
+        {
+          to: '/organisation',
+          label: 'Admin',
+          end: false,
+          icon: Shield,
+          subs: adminFixedSubs,
+          permAny: ADMIN_NAV_PERMS,
+          flatSubs: true,
+        },
+      ],
+    }
+
     // Oppgaver group — promoted to top-level alongside Sjekklister /
     // Undersøkelser / Læring per session-end IA cleanup. Same flatSubs
     // treatment so the management tabs read at module level.
@@ -1406,7 +1485,7 @@ export function AticsShell() {
     const idx = navGroups.findIndex((g) => g.id === 'gamle-moduler')
     const head = idx === -1 ? navGroups : navGroups.slice(0, idx)
     const tail = idx === -1 ? [] : navGroups.slice(idx)
-    return [...head, hmsOverviewGroup, complianceGroup, surveyGroup, documentsGroup, registersGroup, tasksGroup, learningGroup, ...tail]
+    return [...head, hmsOverviewGroup, complianceGroup, surveyGroup, documentsGroup, registersGroup, tasksGroup, learningGroup, adminGroup, ...tail]
   }, [
     complianceNav.items,
     complianceNav.categories,

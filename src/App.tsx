@@ -47,6 +47,7 @@ import { ComplianceDashboardPage } from './pages/ComplianceDashboardPage'
 import { ComplianceKanbanPage } from './pages/ComplianceKanbanPage'
 import { ComplianceAmlPage } from './pages/ComplianceAmlPage'
 import { ComplianceArbeidsmiljolovenPage } from './pages/compliance/ComplianceArbeidsmiljolovenPage'
+import { AdminTemplatesPage } from './pages/admin/AdminTemplatesPage'
 import { ComplianceInternforskriftenPage } from './pages/ComplianceInternforskriftenPage'
 import { OrganisationPage } from './pages/OrganisationPage'
 import { AarshjulPage } from './pages/aarshjul/AarshjulPage'
@@ -354,6 +355,7 @@ const router = createBrowserRouter(
                       <Route path="survey/:surveyId" element={<SurveyDetailPage />} />
                       {/* Admin: module overview + RBAC */}
                       <Route path="admin/modules" element={<ModuleAdminPage />} />
+                      <Route path="admin/templates" element={<AdminTemplatesPage />} />
                       {/* Phase 2: dynamic module route — loaded from `modules` table via registry */}
                       <Route path="modules/:module_slug" element={<ModuleSlugPage />} />
                       <Route path="admin" element={<Navigate to="/organisation/admin" replace />} />
