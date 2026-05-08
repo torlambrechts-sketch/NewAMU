@@ -46,6 +46,7 @@ import { YearskontrollModule } from './pages/YearskontrollModule'
 import { ComplianceDashboardPage } from './pages/ComplianceDashboardPage'
 import { ComplianceKanbanPage } from './pages/ComplianceKanbanPage'
 import { ComplianceAmlPage } from './pages/ComplianceAmlPage'
+import { ComplianceArbeidsmiljolovenPage } from './pages/compliance/ComplianceArbeidsmiljolovenPage'
 import { ComplianceInternforskriftenPage } from './pages/ComplianceInternforskriftenPage'
 import { OrganisationPage } from './pages/OrganisationPage'
 import { AarshjulPage } from './pages/aarshjul/AarshjulPage'
@@ -259,6 +260,7 @@ const router = createBrowserRouter(
                       <Route path="compliance" element={<ComplianceDashboardPage />} />
                       <Route path="compliance/kanban" element={<ComplianceKanbanPage />} />
                       <Route path="compliance/aml" element={<ComplianceAmlPage />} />
+                      <Route path="compliance/arbeidsmiljoloven" element={<ComplianceArbeidsmiljolovenPage />} />
                       <Route path="compliance/internforskriften" element={<ComplianceInternforskriftenPage />} />
                       <Route path="internal-control" element={<InternalControlModule />} />
                       <Route path="internkontroll" element={<IkHubPage />} />
