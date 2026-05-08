@@ -1,15 +1,17 @@
 // DashboardEditLayoutPanel — slide-panel UX for arranging widgets in
-// a dashboard layout. Two interactions:
+// a dashboard layout. Three interactions:
 //
-//   1. Drag a row by its grip handle to reorder. Native HTML5 drag-and-
-//      drop (no library) — accessible enough for v1 and zero-dep.
-//   2. Click the toggle to enable/disable a widget; disabled widgets
+//   1. Drag a row by its grip handle to reorder (desktop). Native HTML5
+//      drag-and-drop (no library).
+//   2. Up/down arrow buttons reorder one slot at a time — the touch
+//      equivalent (HTML5 DnD doesn't fire on touch devices).
+//   3. Click the toggle to enable/disable a widget; disabled widgets
 //      are kept in the order list but stripped at save time.
 //
 // Saves on "Lagre" by calling onSave with the new ReportModule[].
 
 import { useState } from 'react'
-import { GripVertical, Trash2 } from 'lucide-react'
+import { ChevronDown, ChevronUp, GripVertical, Trash2 } from 'lucide-react'
 import { SlidePanel } from '../../layout/SlidePanel'
 import { Button } from '../../ui/Button'
 import { Badge } from '../../ui/Badge'
@@ -130,8 +132,9 @@ export function DashboardEditLayoutPanel({
     >
       <div className="space-y-3">
         <p className="text-sm text-neutral-600">
-          Dra widgetene for å endre rekkefølge. Slå av/på, eller fjern fra oppsettet.
-          Endringer lagres som standardoppsett for hele organisasjonen.
+          Dra widgetene for å endre rekkefølge — eller bruk pilene på små skjermer.
+          Slå av/på, eller fjern fra oppsettet. Endringer lagres som standardoppsett
+          for hele organisasjonen.
         </p>
 
         {draft.length === 0 ? (
@@ -181,11 +184,31 @@ export function DashboardEditLayoutPanel({
                   }`}
                 >
                   <span
-                    className="cursor-grab text-neutral-400 hover:text-neutral-700 active:cursor-grabbing"
+                    className="hidden cursor-grab text-neutral-400 hover:text-neutral-700 active:cursor-grabbing sm:inline-flex"
                     aria-hidden
                   >
                     <GripVertical className="h-5 w-5" />
                   </span>
+                  <div className="flex shrink-0 flex-col gap-0.5 sm:hidden">
+                    <button
+                      type="button"
+                      onClick={() => reorder(idx, idx - 1)}
+                      disabled={idx === 0}
+                      aria-label={`Flytt ${m.title} opp`}
+                      className="rounded-sm p-1 text-neutral-400 hover:bg-neutral-100 hover:text-neutral-700 disabled:opacity-30"
+                    >
+                      <ChevronUp className="h-4 w-4" aria-hidden />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => reorder(idx, idx + 1)}
+                      disabled={idx === draft.length - 1}
+                      aria-label={`Flytt ${m.title} ned`}
+                      className="rounded-sm p-1 text-neutral-400 hover:bg-neutral-100 hover:text-neutral-700 disabled:opacity-30"
+                    >
+                      <ChevronDown className="h-4 w-4" aria-hidden />
+                    </button>
+                  </div>
                   <ToggleSwitch
                     checked={on}
                     onChange={(v) => toggle(m.id, v)}

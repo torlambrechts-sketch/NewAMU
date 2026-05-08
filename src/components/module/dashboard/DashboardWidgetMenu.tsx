@@ -19,17 +19,19 @@ export function DashboardWidgetMenu({ onEdit, onDuplicate, onRemove, onExportCsv
 
   useEffect(() => {
     if (!open) return
-    const onDoc = (e: MouseEvent) => {
+    const onDoc = (e: PointerEvent) => {
       if (!popRef.current) return
       if (!popRef.current.contains(e.target as Node)) setOpen(false)
     }
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') setOpen(false)
     }
-    document.addEventListener('mousedown', onDoc)
+    // pointerdown fires for both mouse and touch; mousedown alone misses
+    // taps on touch devices and the popover stays open after tap-outside.
+    document.addEventListener('pointerdown', onDoc)
     document.addEventListener('keydown', onKey)
     return () => {
-      document.removeEventListener('mousedown', onDoc)
+      document.removeEventListener('pointerdown', onDoc)
       document.removeEventListener('keydown', onKey)
     }
   }, [open])

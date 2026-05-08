@@ -54,10 +54,11 @@ export function DashboardChooser({
   const [submitting, setSubmitting] = useState(false)
   const containerRef = useRef<HTMLDivElement | null>(null)
 
-  // Close on click-outside / Esc.
+  // Close on click-outside / Esc. pointerdown covers mouse + touch so
+  // tap-outside on phones / iPads dismisses the chooser correctly.
   useEffect(() => {
     if (!open) return
-    const onDoc = (e: MouseEvent) => {
+    const onDoc = (e: PointerEvent) => {
       if (!containerRef.current) return
       if (!containerRef.current.contains(e.target as Node)) {
         setOpen(false)
@@ -70,10 +71,10 @@ export function DashboardChooser({
         setSubmode(null)
       }
     }
-    document.addEventListener('mousedown', onDoc)
+    document.addEventListener('pointerdown', onDoc)
     document.addEventListener('keydown', onKey)
     return () => {
-      document.removeEventListener('mousedown', onDoc)
+      document.removeEventListener('pointerdown', onDoc)
       document.removeEventListener('keydown', onKey)
     }
   }, [open])

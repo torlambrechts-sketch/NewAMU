@@ -190,7 +190,7 @@ Reusable runtime that any module registers a "scope" with and consumes via `Modu
 | 4.2 | ✅ | Surface "saved view" chooser in module headers | Shipped as part of 3.2.3 — every analyse page gets a `DashboardChooser` dropdown inline with the title. |
 | 4.3 | 📋 | Audit log for dashboard edits | `dashboard_layouts.version` bumps on every save but we don't expose history. Useful for "who broke the dashboard?" forensics. Mirrors `compliance_template_versions` shape. |
 | 4.4 | ✅ | Per-scope + per-pack accent | `DashboardScope.accent` is now a registry field; each scope picks its own palette (compliance brand green / survey purple / tasks amber / learning teal). `ChecklistsAnalysePage` flips to a pack-specific accent (`PACK_ACCENTS` in `modules/compliance/dashboards/packAccents.ts`) when `?pack=aml-amu` vs `?pack=iso-45001` is active. |
-| 4.5 | 📋 | Mobile dashboard pass | The 12-col grid collapses cleanly to single column at `<lg` but the editor and filter-chip popovers haven't been tested on touch. |
+| 4.5 | ✅ | Mobile dashboard pass | Three touch-affecting fixes: (a) `DashboardWidgetMenu`, `DashboardFilterBar` (both popovers) and `DashboardChooser` outside-click listeners switched from `mousedown` → `pointerdown` so taps dismiss the popover on iOS / Android (mousedown does not fire on touch). (b) `DashboardEditLayoutPanel` adds up/down arrow buttons next to each widget row, visible on `<sm` only — HTML5 drag-and-drop doesn't fire on touch, the arrows give the same one-slot reorder primitive. The grip handle stays for desktop. (c) The new resize handle (3.2.5) was already gated to `lg:flex` since the 12-col grid is desktop-only. |
 
 ---
 
