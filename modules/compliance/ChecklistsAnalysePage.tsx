@@ -28,6 +28,8 @@ import './dashboards/checklistDashboardScope'
 import { useDashboardLayout } from '../../src/lib/dashboards/useDashboardLayout'
 import { freshId } from '../../src/lib/dashboards/freshId'
 import { getDashboardScope } from '../../src/lib/dashboards/dashboardRegistry'
+import { useRegulationFilter } from '../../src/context/RegulationFilterContext'
+import { useComplianceNav } from './useComplianceNav'
 import { packAccentFor } from './dashboards/packAccents'
 import { useChecklistModule } from './useChecklistModule'
 import {
@@ -138,9 +140,27 @@ export function ChecklistsAnalysePage() {
     [packs, cl.templates, orgSetup.locations, orgSetup.departments, orgSetup.members],
   )
 
+  // Cross-module regulation filter (category-architecture §T8). Resolve
+  // each execution's regulation via template → category → regulation.id;
+  // null when the chain breaks. Pre-filter here so the dataset hook
+  // computes against the narrowed set.
+  const complianceNav = useComplianceNav()
+  const { isActive: isRegulationActive } = useRegulationFilter()
+  const filteredExecutions = useMemo(() => {
+    const categoryRegulationById = new Map(
+      complianceNav.categories.map((c) => [c.id, c.regulationId] as const),
+    )
+    const templateCategoryById = new Map(cl.templates.map((t) => [t.id, t.category_id] as const))
+    return cl.executions.filter((e) => {
+      const catId = templateCategoryById.get(e.template_id) ?? null
+      const regId = catId ? (categoryRegulationById.get(catId) ?? null) : null
+      return isRegulationActive(regId)
+    })
+  }, [cl.executions, cl.templates, complianceNav.categories, isRegulationActive])
+
   const datasets = useChecklistDatasets({
     filters: dashboard.filters,
-    executions: cl.executions,
+    executions: filteredExecutions,
     responsesByExecutionId: cl.responsesByExecutionId,
     templates: cl.templates,
     packs,

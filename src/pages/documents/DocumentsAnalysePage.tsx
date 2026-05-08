@@ -20,6 +20,7 @@ import { defaultCompatibleKinds } from '../../components/module/dashboard/dashbo
 import { useDashboardLayout } from '../../lib/dashboards/useDashboardLayout'
 import { freshId } from '../../lib/dashboards/freshId'
 import { getDashboardScope } from '../../lib/dashboards/dashboardRegistry'
+import { useRegulationFilter } from '../../context/RegulationFilterContext'
 import { useOrgSetupContext } from '../../hooks/useOrgSetupContext'
 import { useDocuments } from '../../hooks/useDocuments'
 import {
@@ -106,9 +107,17 @@ export function DocumentsAnalysePage() {
     [docs.wikiAccessRequests],
   )
 
+  // Cross-module regulation filter (category-architecture §T8).
+  // Resolve via wiki_spaces.regulation_id (filled by the T2 backfill).
+  const { isActive: isRegulationActive } = useRegulationFilter()
+  const filteredPages = useMemo(() => {
+    const spaceRegById = new Map(docs.spaces.map((s) => [s.id, s.regulationId ?? null] as const))
+    return docs.pages.filter((p) => isRegulationActive(spaceRegById.get(p.spaceId) ?? null))
+  }, [docs.pages, docs.spaces, isRegulationActive])
+
   const datasets = useDocumentsDatasets({
     filters: dashboard.filters,
-    pages: docs.pages,
+    pages: filteredPages,
     spaces: docs.spaces,
     orgCustomTemplates: docs.orgCustomTemplates,
     accessRequestsOpen,

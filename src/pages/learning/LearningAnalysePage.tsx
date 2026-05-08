@@ -32,6 +32,7 @@ import { STATUS_OPTIONS, useLearningDatasets } from './dashboards/useLearningDat
 import { useDashboardLayout } from '../../lib/dashboards/useDashboardLayout'
 import { freshId } from '../../lib/dashboards/freshId'
 import { getDashboardScope } from '../../lib/dashboards/dashboardRegistry'
+import { useRegulationFilter } from '../../context/RegulationFilterContext'
 import type { ReportModule } from '../../types/reportBuilder'
 import type { DashboardDimension } from '../../lib/dashboards/dashboardFilters'
 import { makeFilter } from '../../lib/dashboards/dashboardFilters'
@@ -103,11 +104,34 @@ export function LearningAnalysePage() {
     [cats.categories, learning.courses, orgSetup.members, orgSetup.departments],
   )
 
+  // Cross-module regulation filter (category-architecture §T8). Resolve
+  // via course.categoryId → category.regulation_id. Pre-filter both
+  // courses and downstream progress / certificates so the dataset
+  // compute respects the active set without touching the hook signature.
+  const { isActive: isRegulationActive } = useRegulationFilter()
+  const { filteredCourses, filteredProgress, filteredCertificates } = useMemo(() => {
+    const catRegById = new Map(
+      cats.categories.map((c) => [c.id, c.regulation_id ?? null] as const),
+    )
+    const allowedCourseIds = new Set<string>()
+    const courses = learning.courses.filter((c) => {
+      const regId = c.categoryId ? (catRegById.get(c.categoryId) ?? null) : null
+      const ok = isRegulationActive(regId)
+      if (ok) allowedCourseIds.add(c.id)
+      return ok
+    })
+    return {
+      filteredCourses: courses,
+      filteredProgress: learning.progress.filter((p) => allowedCourseIds.has(p.courseId)),
+      filteredCertificates: learning.certificates.filter((c) => allowedCourseIds.has(c.courseId)),
+    }
+  }, [learning.courses, learning.progress, learning.certificates, cats.categories, isRegulationActive])
+
   const datasets = useLearningDatasets({
     filters: dashboard.filters,
-    courses: learning.courses,
-    progress: learning.progress,
-    certificates: learning.certificates,
+    courses: filteredCourses,
+    progress: filteredProgress,
+    certificates: filteredCertificates,
     categories: cats.categories,
     members: orgSetup.members,
     departments: orgSetup.departments,

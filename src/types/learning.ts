@@ -137,6 +137,9 @@ export type LearningCategory = {
   position: number
   is_active: boolean
   is_system: boolean
+  /** Cat 1 of the cross-module taxonomy (category-architecture §T2).
+   *  Null when the admin hasn't classified this category under a regulation. */
+  regulation_id?: string | null
 }
 
 export type ModuleProgress = {

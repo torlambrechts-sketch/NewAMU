@@ -22,6 +22,7 @@ const LearningCategoryRowSchema: z.ZodType<LearningCategory> = z.object({
   position: z.number().int().default(0),
   is_active: z.boolean().default(true),
   is_system: z.boolean().default(false),
+  regulation_id: z.string().nullable().optional(),
 })
 
 type Input = { supabase: SupabaseClient | null }

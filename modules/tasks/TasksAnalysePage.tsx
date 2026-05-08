@@ -37,6 +37,8 @@ import {
 import { useDashboardLayout } from '../../src/lib/dashboards/useDashboardLayout'
 import { freshId } from '../../src/lib/dashboards/freshId'
 import { getDashboardScope } from '../../src/lib/dashboards/dashboardRegistry'
+import { useRegulationFilter } from '../../src/context/RegulationFilterContext'
+import { regulationForSource } from '../../src/lib/regulations/regulationForSource'
 import type { ReportModule } from '../../src/types/reportBuilder'
 import type { DashboardDimension } from '../../src/lib/dashboards/dashboardFilters'
 
@@ -115,9 +117,17 @@ export function TasksAnalysePage() {
     [orgSetup.members, orgSetup.departments],
   )
 
+  // Cross-module regulation filter (category-architecture §T8). Tasks
+  // resolve via TaskSourceType → regulation lookup (no category column).
+  const { isActive: isRegulationActive } = useRegulationFilter()
+  const filteredTasks = useMemo(
+    () => tasksApi.tasks.filter((t) => isRegulationActive(regulationForSource(t.sourceType))),
+    [tasksApi.tasks, isRegulationActive],
+  )
+
   const datasets = useTasksDatasets({
     filters: dashboard.filters,
-    tasks: tasksApi.tasks,
+    tasks: filteredTasks,
     ext,
     members: orgSetup.members,
     departments: orgSetup.departments,

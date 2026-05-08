@@ -272,6 +272,7 @@ const learningSubs: SubItem[] = [
     Icon: BarChart3,
     match: ({ pathname }) => pathname === '/learning/analyse',
   },
+  { label: 'Alle kurs', path: '/learning/alle', match: ({ pathname }) => pathname === '/learning/alle' },
   { label: 'Courses', path: '/learning/courses', match: ({ pathname }) => pathname === '/learning/courses' || pathname.startsWith('/learning/courses/') },
   { label: 'Certifications', path: '/learning/certifications', match: ({ pathname }) => pathname === '/learning/certifications' },
   { label: 'Insights', path: '/learning/insights', match: ({ pathname }) => pathname === '/learning/insights' },
@@ -428,6 +429,11 @@ const oppgaverManagementSubs: SubItem[] = [
     path: '/tasks/management/analyse',
     Icon: BarChart3,
     match: ({ pathname }) => pathname === '/tasks/management/analyse',
+  },
+  {
+    label: 'Alle oppgaver',
+    path: '/tasks/management/alle',
+    match: ({ pathname }) => pathname === '/tasks/management/alle',
   },
   {
     label: 'Oversikt',
@@ -862,6 +868,12 @@ export function AticsShell() {
         requirePermAny: COMPLIANCE_NAV_PERMS,
       },
       {
+        label: 'Alle sjekklister',
+        path: '/compliance/checklists/alle',
+        match: ({ pathname }) => pathname === '/compliance/checklists/alle',
+        requirePermAny: COMPLIANCE_NAV_PERMS,
+      },
+      {
         label: 'Innstillinger',
         path: '/compliance/checklists/admin',
         Icon: Settings,
@@ -960,6 +972,12 @@ export function AticsShell() {
         path: '/survey/analyse',
         Icon: BarChart3,
         match: ({ pathname }) => pathname === '/survey/analyse',
+        requirePermAny: SURVEY_NAV_PERMS,
+      },
+      {
+        label: 'Alle undersøkelser',
+        path: '/survey/alle',
+        match: ({ pathname }) => pathname === '/survey/alle',
         requirePermAny: SURVEY_NAV_PERMS,
       },
       {
@@ -1074,6 +1092,12 @@ export function AticsShell() {
         path: '/documents/analyse',
         Icon: BarChart3,
         match: ({ pathname }) => pathname === '/documents/analyse',
+        requirePermAny: DOCUMENTS_NAV_PERMS,
+      },
+      {
+        label: 'Alle dokumenter',
+        path: '/documents/alle',
+        match: ({ pathname }) => pathname === '/documents/alle',
         requirePermAny: DOCUMENTS_NAV_PERMS,
       },
       {

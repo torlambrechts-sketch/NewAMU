@@ -221,6 +221,9 @@ export type WikiSpace = {
   isAmuSpace?: boolean
   /** Optional parent folder (max depth 3 including root). */
   parentSpaceId?: string | null
+  /** Cat 1 of the cross-module taxonomy (category-architecture §T2).
+   *  Null when the admin hasn't classified the space under a regulation. */
+  regulationId?: string | null
   createdAt: string
   updatedAt: string
 }

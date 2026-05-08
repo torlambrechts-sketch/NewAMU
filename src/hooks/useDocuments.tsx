@@ -253,6 +253,7 @@ function mapSpace(row: {
   updated_at: string
   is_amu_space?: boolean | null
   parent_space_id?: string | null
+  regulation_id?: string | null
 }): WikiSpace {
   return {
     id: row.id,
@@ -263,6 +264,7 @@ function mapSpace(row: {
     status: row.status as WikiSpace['status'],
     isAmuSpace: row.is_amu_space ?? undefined,
     parentSpaceId: row.parent_space_id ?? undefined,
+    regulationId: row.regulation_id ?? null,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   }

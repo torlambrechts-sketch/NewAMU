@@ -57,6 +57,11 @@ import { ProjectDashboard } from './pages/ProjectDashboard'
 import { WelcomeDashboardPage } from './pages/WelcomeDashboardPage'
 import { TasksPage } from './pages/TasksPage'
 import { TasksManagementPage, TasksAnalysePage } from '../modules/tasks'
+import { TasksAllePage } from '../modules/tasks/TasksAllePage'
+import { ChecklistsAllePage } from '../modules/compliance/ChecklistsAllePage'
+import { SurveyAllePage } from '../modules/survey/SurveyAllePage'
+import { DocumentsAllePage } from './pages/documents/DocumentsAllePage'
+import { LearningAllePage } from './pages/learning/LearningAllePage'
 import { WorkspaceAuditLogPage } from './pages/WorkspaceAuditLogPage'
 import { LearningLayout } from './components/learning/LearningLayout'
 import { LearningDashboard } from './pages/learning/LearningDashboard'
@@ -227,6 +232,7 @@ const router = createBrowserRouter(
                       <Route path="tasks" element={<TasksPage />} />
                       <Route path="tasks/management" element={<TasksManagementPage />} />
                       <Route path="tasks/management/analyse" element={<TasksAnalysePage />} />
+                      <Route path="tasks/management/alle" element={<TasksAllePage />} />
                       <Route path="overview/hms" element={<HmsOverviewPage />} />
                       <Route path="workspace/revisjonslogg" element={<WorkspaceAuditLogPage />} />
                       <Route path="organisation" element={<OrganisationPage />} />
@@ -303,6 +309,14 @@ const router = createBrowserRouter(
                         }
                       />
                       <Route
+                        path="compliance/checklists/alle"
+                        element={
+                          <PackProvider>
+                            <ChecklistsAllePage />
+                          </PackProvider>
+                        }
+                      />
+                      <Route
                         path="compliance/checklists/:executionId"
                         element={
                           <PackProvider>
@@ -327,6 +341,7 @@ const router = createBrowserRouter(
                       <Route path="survey" element={<SurveyModulePage />} />
                       <Route path="survey/admin" element={<SurveyModuleAdminPage />} />
                       <Route path="survey/analyse" element={<SurveyAnalysePage />} />
+                      <Route path="survey/alle" element={<SurveyAllePage />} />
                       <Route path="survey/leverandorer" element={<SurveyVendorsPage />} />
                       {/* Single route so :templateId is set for `new` (static route left no params → "Mangler mal-ID"). */}
                       <Route path="survey/templates/org/:templateId" element={<SurveyOrgTemplateEditorPage />} />
@@ -349,6 +364,7 @@ const router = createBrowserRouter(
                         <Route path="deltakere" element={<LearningDeltakerePage />} />
                         <Route path="kompetanse" element={<LearningKompetansePage />} />
                         <Route path="analyse" element={<LearningAnalysePage />} />
+                        <Route path="alle" element={<LearningAllePage />} />
                         <Route path="innstillinger" element={<LearningSettings />} />
                         {/* Back-compat redirects — old URLs land on the new IA. */}
                         <Route path="courses" element={<Navigate to="/learning/katalog" replace />} />
@@ -380,6 +396,7 @@ const router = createBrowserRouter(
                         <Route path="documents/malbibliotek" element={<DocumentsMalbibliotekPage />} />
                         <Route path="documents" element={<DocumentsHome />} />
                         <Route path="documents/analyse" element={<DocumentsAnalysePage />} />
+                        <Route path="documents/alle" element={<DocumentsAllePage />} />
                         <Route path="documents/compliance" element={<ComplianceDashboard />} />
                         <Route
                           path="documents/compliance/inspection-export"

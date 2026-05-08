@@ -31,6 +31,8 @@ import { STATUS_OPTIONS, useSurveyDatasets } from './dashboards/useSurveyDataset
 import { useDashboardLayout } from '../../src/lib/dashboards/useDashboardLayout'
 import { freshId } from '../../src/lib/dashboards/freshId'
 import { getDashboardScope } from '../../src/lib/dashboards/dashboardRegistry'
+import { useRegulationFilter } from '../../src/context/RegulationFilterContext'
+import { useSurveyNav } from './useSurveyNav'
 import type { ReportModule } from '../../src/types/reportBuilder'
 import type { DashboardDimension } from '../../src/lib/dashboards/dashboardFilters'
 
@@ -156,9 +158,25 @@ export function SurveyAnalysePage() {
     return m
   }, [surveyOrgTemplates.templates])
 
+  // Cross-module regulation filter (category-architecture §T8).
+  // Resolve a survey's regulation via catalog_id → category → regulation.
+  const surveyNav = useSurveyNav()
+  const { isActive: isRegulationActive } = useRegulationFilter()
+  const filteredSurveys = useMemo(() => {
+    const catRegById = new Map(
+      surveyNav.categories.map((c) => [c.id, c.regulationId] as const),
+    )
+    return survey.surveys.filter((s) => {
+      if (!s.catalog_id) return isRegulationActive(null)
+      const catId = categoryByCatalogId.get(s.catalog_id)
+      const regId = catId ? (catRegById.get(catId) ?? null) : null
+      return isRegulationActive(regId)
+    })
+  }, [survey.surveys, categoryByCatalogId, surveyNav.categories, isRegulationActive])
+
   const datasets = useSurveyDatasets({
     filters: dashboard.filters,
-    surveys: survey.surveys,
+    surveys: filteredSurveys,
     templateCatalog: survey.templateCatalog,
     packs,
     locations: orgSetup.locations,
