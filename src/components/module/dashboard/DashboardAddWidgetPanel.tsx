@@ -3,19 +3,27 @@
 // `category`; supports text search; clicking "Legg til" instantiates a
 // fresh ReportModule (registry mints the id) and appends it to the
 // current layout via onAdd.
+//
+// Dataset-shape-aware (3.2.7): a "Datakilde" filter narrows the catalog
+// by the underlying dataset shape (kpi-record / segments / series / rows),
+// and entries that declare `compatibleKinds` show a kind selector so the
+// user can instantiate the same dataset as e.g. a donut OR a bar.
 
 import { useMemo, useState } from 'react'
 import { Plus, Search } from 'lucide-react'
 import { SlidePanel } from '../../layout/SlidePanel'
 import { Button } from '../../ui/Button'
 import { StandardInput } from '../../ui/Input'
+import { SearchableSelect } from '../../ui/SearchableSelect'
 import { Badge } from '../../ui/Badge'
 import {
   getDashboardScope,
   instantiateWidget,
+  type DatasetMeta,
   type WidgetCatalogEntry,
 } from '../../../lib/dashboards/dashboardRegistry'
-import type { ReportModule } from '../../../types/reportBuilder'
+import type { ReportModule, ReportModuleKind } from '../../../types/reportBuilder'
+import { defaultCompatibleKinds } from './dashboardWidgetKinds'
 
 type Props = {
   open: boolean
@@ -25,15 +33,48 @@ type Props = {
   onAdd: (next: ReportModule) => Promise<boolean> | boolean
 }
 
+const SHAPE_LABEL: Record<DatasetMeta['shape'], string> = {
+  'kpi-record': 'KPI-tall',
+  segments: 'Segmenter',
+  series: 'Tidsserie',
+  rows: 'Rader',
+}
+
+const KIND_LABEL: Record<ReportModuleKind, string> = {
+  kpi: 'KPI',
+  bar: 'Søylediagram',
+  donut: 'Kakediagram',
+  line: 'Linjediagram',
+  table: 'Tabell',
+  heatmap: 'Heatmap',
+}
+
 export function DashboardAddWidgetPanel({ open, onClose, scopeId, onAdd }: Props) {
   const scope = getDashboardScope(scopeId)
   const [query, setQuery] = useState('')
+  const [shapeFilter, setShapeFilter] = useState<DatasetMeta['shape'] | ''>('')
+  const [kindOverride, setKindOverride] = useState<Record<string, ReportModuleKind>>({})
   const [submitting, setSubmitting] = useState<string | null>(null)
+
+  const datasetShapeByKey = useMemo(() => {
+    const m = new Map<string, DatasetMeta['shape']>()
+    for (const d of scope?.datasets ?? []) m.set(d.key, d.shape)
+    return m
+  }, [scope])
+
+  const compatibleFor = (entry: WidgetCatalogEntry): ReportModuleKind[] =>
+    entry.compatibleKinds && entry.compatibleKinds.length > 0
+      ? entry.compatibleKinds
+      : defaultCompatibleKinds(entry.template.kind)
 
   const grouped = useMemo(() => {
     if (!scope) return [] as { category: string; entries: WidgetCatalogEntry[] }[]
     const q = query.trim().toLowerCase()
     const matches = scope.widgetCatalog.filter((e) => {
+      if (shapeFilter) {
+        const shape = datasetShapeByKey.get(e.template.datasetKey)
+        if (shape !== shapeFilter) return false
+      }
       if (!q) return true
       return (
         e.label.toLowerCase().includes(q) ||
@@ -54,13 +95,22 @@ export function DashboardAddWidgetPanel({ open, onClose, scopeId, onAdd }: Props
         category,
         entries: entries.sort((a, b) => a.label.localeCompare(b.label, 'nb')),
       }))
-  }, [scope, query])
+  }, [scope, query, shapeFilter, datasetShapeByKey])
 
   const handleAdd = async (entry: WidgetCatalogEntry) => {
     setSubmitting(entry.catalogId)
     try {
+      const desiredKind = kindOverride[entry.catalogId] ?? entry.template.kind
       const widget = instantiateWidget(entry)
-      const ok = await onAdd(widget)
+      // Apply kind override when the user picked a different compatible
+      // kind from the dropdown. Cast is safe because compatibleFor()
+      // gates the dropdown to kinds the dataset shape supports.
+      const final = (
+        desiredKind === entry.template.kind
+          ? widget
+          : { ...(widget as Record<string, unknown>), kind: desiredKind }
+      ) as ReportModule
+      const ok = await onAdd(final)
       if (ok) onClose()
     } finally {
       setSubmitting(null)
@@ -96,6 +146,31 @@ export function DashboardAddWidgetPanel({ open, onClose, scopeId, onAdd }: Props
           />
         </div>
 
+        {/* Shape filter (3.2.7). Datasets the scope publishes drive the
+            options — narrows the catalog to "what can I do with this
+            kind of data?" */}
+        {scope?.datasets && scope.datasets.length > 0 ? (
+          <div className="flex items-center gap-2">
+            <span className="text-[11px] font-semibold uppercase tracking-wide text-neutral-500">
+              Datakilde
+            </span>
+            <div className="min-w-[200px]">
+              <SearchableSelect
+                value={shapeFilter}
+                options={[
+                  { value: '', label: 'Alle' },
+                  ...[...new Set(scope.datasets.map((d) => d.shape))].map((s) => ({
+                    value: s,
+                    label: SHAPE_LABEL[s],
+                  })),
+                ]}
+                onChange={(v) => setShapeFilter((v as DatasetMeta['shape']) || '')}
+                placeholder="Alle"
+              />
+            </div>
+          </div>
+        ) : null}
+
         {!scope ? (
           <p className="rounded-md border border-dashed border-neutral-300 bg-neutral-50 p-6 text-center text-sm text-neutral-500">
             Ingen widgets registrert for dette området ennå.
@@ -113,6 +188,10 @@ export function DashboardAddWidgetPanel({ open, onClose, scopeId, onAdd }: Props
               <ul className="space-y-2">
                 {g.entries.map((entry) => {
                   const isSubmitting = submitting === entry.catalogId
+                  const compatible = compatibleFor(entry)
+                  const datasetShape = datasetShapeByKey.get(entry.template.datasetKey)
+                  const selectedKind =
+                    kindOverride[entry.catalogId] ?? entry.template.kind
                   return (
                     <li
                       key={entry.catalogId}
@@ -123,10 +202,35 @@ export function DashboardAddWidgetPanel({ open, onClose, scopeId, onAdd }: Props
                         {entry.description ? (
                           <p className="mt-1 text-xs text-neutral-600">{entry.description}</p>
                         ) : null}
-                        <p className="mt-1.5 text-xs text-neutral-500">
-                          <Badge variant="neutral">{entry.template.kind}</Badge>{' '}
+                        <p className="mt-1.5 flex flex-wrap items-center gap-1.5 text-xs text-neutral-500">
+                          <Badge variant="neutral">
+                            {KIND_LABEL[selectedKind] ?? selectedKind}
+                          </Badge>
+                          {datasetShape ? (
+                            <Badge variant="neutral">{SHAPE_LABEL[datasetShape]}</Badge>
+                          ) : null}
                           <span className="ml-1 font-mono">{entry.template.datasetKey}</span>
                         </p>
+                        {/* Kind override (3.2.7) — only when the entry has
+                            more than one compatible kind. */}
+                        {compatible.length > 1 ? (
+                          <div className="mt-2 max-w-[220px]">
+                            <SearchableSelect
+                              value={selectedKind}
+                              options={compatible.map((k) => ({
+                                value: k,
+                                label: KIND_LABEL[k] ?? k,
+                              }))}
+                              onChange={(v) =>
+                                setKindOverride((prev) => ({
+                                  ...prev,
+                                  [entry.catalogId]: v as ReportModuleKind,
+                                }))
+                              }
+                              aria-label="Vis som"
+                            />
+                          </div>
+                        ) : null}
                       </div>
                       <Button
                         variant="primary"

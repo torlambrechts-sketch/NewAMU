@@ -109,6 +109,35 @@ export function ChecklistsAllePage() {
       searchableText={(r) =>
         [r.title, r.pack, templateById.get(r.template_id)?.name].filter(Boolean).join(' ')
       }
+      chipFilters={[
+        {
+          kind: 'enum',
+          id: 'status',
+          label: 'Status',
+          options: [
+            { id: 'draft', label: 'Kladd' },
+            { id: 'active', label: 'Aktiv' },
+            { id: 'signed', label: 'Signert' },
+          ],
+          accessor: (r) => r.status,
+        },
+        {
+          kind: 'enum',
+          id: 'pack',
+          label: 'Pakke',
+          options: [...new Set(cl.executions.map((e) => e.pack))].map((p) => ({
+            id: p,
+            label: p,
+          })),
+          accessor: (r) => r.pack,
+        },
+        {
+          kind: 'date_range',
+          id: 'created',
+          label: 'Opprettet',
+          accessor: (r) => r.created_at ?? null,
+        },
+      ]}
     />
   )
 }

@@ -93,6 +93,32 @@ export function DocumentsAllePage() {
       categoryNameById={categoryNameById}
       getRegulationId={(r) => spaceRegulationById.get(r.spaceId) ?? null}
       searchableText={(r) => [r.title, r.summary ?? '', ...(r.legalRefs ?? [])].join(' ')}
+      chipFilters={[
+        {
+          kind: 'enum',
+          id: 'status',
+          label: 'Status',
+          options: [
+            { id: 'draft', label: 'Kladd' },
+            { id: 'published', label: 'Publisert' },
+            { id: 'archived', label: 'Arkivert' },
+          ],
+          accessor: (r) => r.status,
+        },
+        {
+          kind: 'enum',
+          id: 'space',
+          label: 'Plass',
+          options: docs.spaces.map((s) => ({ id: s.id, label: s.title })),
+          accessor: (r) => r.spaceId,
+        },
+        {
+          kind: 'date_range',
+          id: 'updated',
+          label: 'Oppdatert',
+          accessor: (r) => r.updatedAt,
+        },
+      ]}
     />
   )
 }

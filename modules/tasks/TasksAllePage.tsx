@@ -9,7 +9,7 @@ import { ModuleAlleListPage } from '../../src/components/module/ModuleAlleListPa
 import { Badge } from '../../src/components/ui/Badge'
 import { useTasks } from '../../src/hooks/useTasks'
 import { regulationForSource } from '../../src/lib/regulations/regulationForSource'
-import { SOURCE_OPTIONS } from './dashboards/useTasksDatasets'
+import { MODULE_OPTIONS, SOURCE_OPTIONS } from './dashboards/useTasksDatasets'
 import type { Task } from '../../src/types/task'
 
 const STATUS_VARIANT: Record<string, 'draft' | 'active' | 'signed' | 'neutral'> = {
@@ -86,6 +86,39 @@ export function TasksAllePage() {
       categoryNameById={SOURCE_LABEL}
       getRegulationId={(r) => regulationForSource(r.sourceType)}
       searchableText={(r) => [r.title, r.assignee ?? '', r.description ?? ''].join(' ')}
+      chipFilters={[
+        {
+          kind: 'enum',
+          id: 'status',
+          label: 'Status',
+          options: [
+            { id: 'todo', label: 'Todo' },
+            { id: 'in_progress', label: 'Pågående' },
+            { id: 'done', label: 'Fullført' },
+          ],
+          accessor: (r) => r.status,
+        },
+        {
+          kind: 'enum',
+          id: 'module',
+          label: 'Modul',
+          options: MODULE_OPTIONS,
+          accessor: (r) => r.module,
+        },
+        {
+          kind: 'enum',
+          id: 'source',
+          label: 'Kilde',
+          options: SOURCE_OPTIONS,
+          accessor: (r) => r.sourceType,
+        },
+        {
+          kind: 'date_range',
+          id: 'due',
+          label: 'Forfall',
+          accessor: (r) => r.dueDate ?? null,
+        },
+      ]}
     />
   )
 }

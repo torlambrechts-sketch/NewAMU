@@ -1,18 +1,19 @@
 // ModuleAlleListPage — generic "Alle X" table view for every capability
-// module (category-architecture §T7). Renders a search + table with
-// category-grouped rows. Drops below the per-module Analyse page in the
-// sidebar so users have one canonical place to scan + filter every
-// instance the module knows about.
+// module (category-architecture §T7). Renders a search + filter chip strip
+// + table with category-grouped rows. Drops below the per-module Analyse
+// page in the sidebar so users have one canonical place to scan + filter
+// every instance the module knows about.
 //
 // Generic over `RowT` so per-module pages stay thin: each one declares
-// its row source, columns, search adapter, and category resolver, then
-// hands the rest to the dashboard shell. The active regulation filter
-// from RegulationFilterContext is applied automatically.
+// its row source, columns, search adapter, category resolver, and
+// (optionally) a chip-filter list. The active regulation filter from
+// RegulationFilterContext is applied automatically.
 
 import { Fragment, useMemo, useState, type ReactNode } from 'react'
-import { Search } from 'lucide-react'
+import { Search, X } from 'lucide-react'
 import { ModulePageShell } from './ModulePageShell'
 import { StandardInput } from '../ui/Input'
+import { SearchableSelect } from '../ui/SearchableSelect'
 import { useRegulationFilter } from '../../context/RegulationFilterContext'
 
 export type ModuleAlleColumn<RowT> = {
@@ -25,6 +26,33 @@ export type ModuleAlleColumn<RowT> = {
   /** Approximate fixed width in tailwind units; useful for status badges. */
   width?: string
 }
+
+/** Single-select enum chip — typical for status / module / source / owner. */
+export type ModuleAlleChipEnum<RowT> = {
+  kind: 'enum'
+  id: string
+  label: string
+  options: { id: string; label: string }[]
+  /** Returns the row's value for this chip; null when the row has no value. */
+  accessor: (row: RowT) => string | null
+}
+
+/** Date-range chip — narrows by an ISO timestamp accessor. */
+export type ModuleAlleChipDateRange<RowT> = {
+  kind: 'date_range'
+  id: string
+  label: string
+  /** Returns an ISO timestamp string or null. */
+  accessor: (row: RowT) => string | null
+}
+
+export type ModuleAlleChipFilter<RowT> =
+  | ModuleAlleChipEnum<RowT>
+  | ModuleAlleChipDateRange<RowT>
+
+type ChipState =
+  | { kind: 'enum'; value: string }
+  | { kind: 'date_range'; from: string; to: string }
 
 export interface ModuleAlleListPageProps<RowT> {
   title: string
@@ -41,6 +69,8 @@ export interface ModuleAlleListPageProps<RowT> {
   getRegulationId: (row: RowT) => string | null
   /** Free-text search adapter — joined string is matched case-insensitively. */
   searchableText: (row: RowT) => string
+  /** Optional filter chips rendered in a strip below the search box. */
+  chipFilters?: ModuleAlleChipFilter<RowT>[]
   /** Empty-state node when zero rows survive filtering. */
   emptyState?: ReactNode
   /** Optional accent for the search-bar focus + table chrome. */
@@ -58,19 +88,84 @@ export function ModuleAlleListPage<RowT>({
   categoryNameById,
   getRegulationId,
   searchableText,
+  chipFilters,
   emptyState,
 }: ModuleAlleListPageProps<RowT>) {
   const { isActive: isRegulationActive } = useRegulationFilter()
   const [query, setQuery] = useState('')
+  const [chipState, setChipState] = useState<Record<string, ChipState>>({})
+
+  const setEnumChip = (id: string, value: string) => {
+    setChipState((prev) => {
+      const next = { ...prev }
+      if (!value) delete next[id]
+      else next[id] = { kind: 'enum', value }
+      return next
+    })
+  }
+  const setDateChip = (id: string, patch: { from?: string; to?: string }) => {
+    setChipState((prev) => {
+      const cur = (prev[id] as { kind: 'date_range'; from: string; to: string } | undefined) ?? {
+        kind: 'date_range' as const,
+        from: '',
+        to: '',
+      }
+      const next: ChipState = {
+        kind: 'date_range',
+        from: patch.from ?? cur.from,
+        to: patch.to ?? cur.to,
+      }
+      const out = { ...prev }
+      if (next.from === '' && next.to === '') delete out[id]
+      else out[id] = next
+      return out
+    })
+  }
+  const clearChip = (id: string) => {
+    setChipState((prev) => {
+      const next = { ...prev }
+      delete next[id]
+      return next
+    })
+  }
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase()
     return rows.filter((r) => {
       if (!isRegulationActive(getRegulationId(r))) return false
-      if (q.length === 0) return true
-      return searchableText(r).toLowerCase().includes(q)
+      if (q.length > 0 && !searchableText(r).toLowerCase().includes(q)) return false
+      // Chip filters
+      for (const chip of chipFilters ?? []) {
+        const state = chipState[chip.id]
+        if (!state) continue
+        if (chip.kind === 'enum' && state.kind === 'enum') {
+          if (chip.accessor(r) !== state.value) return false
+        } else if (chip.kind === 'date_range' && state.kind === 'date_range') {
+          const raw = chip.accessor(r)
+          if (!raw) return false
+          const at = new Date(raw).getTime()
+          if (state.from) {
+            const from = new Date(state.from).getTime()
+            if (at < from) return false
+          }
+          if (state.to) {
+            // Inclusive end-of-day
+            const to = new Date(`${state.to}T23:59:59`).getTime()
+            if (at > to) return false
+          }
+        }
+      }
+      return true
     })
-  }, [rows, query, isRegulationActive, getRegulationId, searchableText])
+  }, [
+    rows,
+    query,
+    isRegulationActive,
+    getRegulationId,
+    searchableText,
+    chipFilters,
+    chipState,
+  ])
 
   // Group by category id for the default sort. When no categoryNameById
   // is supplied we still group, just without rendered headers.
@@ -115,6 +210,85 @@ export function ModuleAlleListPage<RowT>({
             className="pl-9"
           />
         </div>
+
+        {/* Chip filter strip (action-board pattern). */}
+        {chipFilters && chipFilters.length > 0 ? (
+          <div className="flex flex-wrap items-end gap-3">
+            {chipFilters.map((chip) => {
+              if (chip.kind === 'enum') {
+                const state = chipState[chip.id]
+                const value = state?.kind === 'enum' ? state.value : ''
+                return (
+                  <div key={chip.id} className="flex flex-col gap-1">
+                    <label className="text-[11px] font-semibold uppercase tracking-wide text-neutral-500">
+                      {chip.label}
+                    </label>
+                    <div className="flex items-center gap-1.5">
+                      <div className="min-w-[180px]">
+                        <SearchableSelect
+                          value={value}
+                          options={[
+                            { value: '', label: 'Alle' },
+                            ...chip.options.map((o) => ({ value: o.id, label: o.label })),
+                          ]}
+                          onChange={(v) => setEnumChip(chip.id, v)}
+                          placeholder="Alle"
+                        />
+                      </div>
+                      {value ? (
+                        <button
+                          type="button"
+                          onClick={() => clearChip(chip.id)}
+                          aria-label={`Fjern ${chip.label}-filter`}
+                          className="rounded-md border border-neutral-200 bg-white p-1.5 text-neutral-500 transition-colors hover:bg-neutral-100"
+                        >
+                          <X className="h-3.5 w-3.5" aria-hidden />
+                        </button>
+                      ) : null}
+                    </div>
+                  </div>
+                )
+              }
+              const state = chipState[chip.id]
+              const from = state?.kind === 'date_range' ? state.from : ''
+              const to = state?.kind === 'date_range' ? state.to : ''
+              return (
+                <div key={chip.id} className="flex flex-col gap-1">
+                  <label className="text-[11px] font-semibold uppercase tracking-wide text-neutral-500">
+                    {chip.label}
+                  </label>
+                  <div className="flex items-center gap-1.5">
+                    <StandardInput
+                      type="date"
+                      value={from}
+                      onChange={(e) => setDateChip(chip.id, { from: e.target.value })}
+                      aria-label={`${chip.label} fra`}
+                      className="w-[150px]"
+                    />
+                    <span className="text-xs text-neutral-400">–</span>
+                    <StandardInput
+                      type="date"
+                      value={to}
+                      onChange={(e) => setDateChip(chip.id, { to: e.target.value })}
+                      aria-label={`${chip.label} til`}
+                      className="w-[150px]"
+                    />
+                    {from || to ? (
+                      <button
+                        type="button"
+                        onClick={() => clearChip(chip.id)}
+                        aria-label={`Fjern ${chip.label}-filter`}
+                        className="rounded-md border border-neutral-200 bg-white p-1.5 text-neutral-500 transition-colors hover:bg-neutral-100"
+                      >
+                        <X className="h-3.5 w-3.5" aria-hidden />
+                      </button>
+                    ) : null}
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        ) : null}
 
         {/* Table — category headers separate row groups */}
         {filtered.length === 0 ? (

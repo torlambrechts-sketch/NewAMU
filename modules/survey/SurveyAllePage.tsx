@@ -120,6 +120,36 @@ export function SurveyAllePage() {
         return catId ? (categoryRegulationById.get(catId) ?? null) : null
       }}
       searchableText={(r) => [r.title, r.pack, r.description ?? ''].join(' ')}
+      chipFilters={[
+        {
+          kind: 'enum',
+          id: 'status',
+          label: 'Status',
+          options: [
+            { id: 'draft', label: 'Kladd' },
+            { id: 'active', label: 'Aktiv' },
+            { id: 'closed', label: 'Lukket' },
+            { id: 'archived', label: 'Arkivert' },
+          ],
+          accessor: (r) => r.status,
+        },
+        {
+          kind: 'enum',
+          id: 'pack',
+          label: 'Pakke',
+          options: [...new Set(survey.surveys.map((s) => s.pack))].map((p) => ({
+            id: p,
+            label: p,
+          })),
+          accessor: (r) => r.pack,
+        },
+        {
+          kind: 'date_range',
+          id: 'published',
+          label: 'Publisert',
+          accessor: (r) => r.published_at ?? null,
+        },
+      ]}
     />
   )
 }

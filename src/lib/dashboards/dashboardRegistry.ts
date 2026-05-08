@@ -39,6 +39,14 @@ export type WidgetCatalogEntry = {
    * own id is ignored at insertion time.
    */
   template: Omit<ReportModule, 'id'>
+  /**
+   * Shape-aware add-widget hint (3.2.7). When set, the picker shows
+   * these as alternative kinds the user can instantiate from the same
+   * catalog entry (e.g. a `segments` dataset can be added as either a
+   * donut or a bar). When omitted, the picker derives the list via
+   * `defaultCompatibleKinds(template.kind)`.
+   */
+  compatibleKinds?: import('../../types/reportBuilder').ReportModuleKind[]
 }
 
 /**

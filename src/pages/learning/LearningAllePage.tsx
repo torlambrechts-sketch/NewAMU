@@ -94,6 +94,32 @@ export function LearningAllePage() {
       categoryNameById={categoryNameById}
       getRegulationId={(r) => (r.categoryId ? (categoryRegulationById.get(r.categoryId) ?? null) : null)}
       searchableText={(r) => [r.title, r.description, ...r.tags].join(' ')}
+      chipFilters={[
+        {
+          kind: 'enum',
+          id: 'status',
+          label: 'Status',
+          options: [
+            { id: 'draft', label: 'Kladd' },
+            { id: 'published', label: 'Publisert' },
+            { id: 'archived', label: 'Arkivert' },
+          ],
+          accessor: (r) => r.status,
+        },
+        {
+          kind: 'enum',
+          id: 'category',
+          label: 'Kategori',
+          options: cats.categories.map((c) => ({ id: c.id, label: c.name })),
+          accessor: (r) => r.categoryId ?? null,
+        },
+        {
+          kind: 'date_range',
+          id: 'updated',
+          label: 'Sist endret',
+          accessor: (r) => r.updatedAt,
+        },
+      ]}
     />
   )
 }
