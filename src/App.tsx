@@ -68,6 +68,8 @@ import { LearningDashboard } from './pages/learning/LearningDashboard'
 import { LearningCoursesList } from './pages/learning/LearningCoursesList'
 import { LearningCourseBuilder } from './pages/learning/LearningCourseBuilder'
 import { RegistersHubPage } from './pages/registers/RegistersHubPage'
+import { RegistersAnalysePage } from './pages/registers/RegistersAnalysePage'
+import { RegistersAdminPage } from './pages/registers/RegistersAdminPage'
 import { RegisterTypePage } from './pages/registers/RegisterTypePage'
 import { LearningPlayer } from './pages/learning/LearningPlayer'
 import { LearningDeltakerePage } from './pages/learning/LearningDeltakerePage'
@@ -360,6 +362,8 @@ const router = createBrowserRouter(
                       {/* Detail page renders its own ModulePageShell (course title + tabs + status). */}
                       <Route path="learning/courses/:courseId" element={<LearningCourseBuilder />} />
                       <Route path="registers" element={<RegistersHubPage />} />
+                      <Route path="registers/analyse" element={<RegistersAnalysePage />} />
+                      <Route path="registers/admin" element={<RegistersAdminPage />} />
                       <Route path="registers/:typeId" element={<RegisterTypePage />} />
                       <Route path="learning" element={<LearningLayout />}>
                         <Route index element={<LearningDashboard />} />
