@@ -22,10 +22,10 @@ export function AmlScoreHero({
   const totalModules = score.modulesGreen + score.modulesAmber + score.modulesRed
   return (
     <section
-      className="overflow-hidden rounded-2xl border"
+      className="overflow-hidden rounded-2xl border text-white"
       style={{
-        background: 'linear-gradient(180deg, #fbf9f3 0%, #F1ECDF 100%)',
-        borderColor: '#e3ddcc',
+        background: 'linear-gradient(180deg, #1a3d32 0%, #142e26 100%)',
+        borderColor: '#0d201a',
       }}
     >
       <div className="grid gap-6 p-6 md:grid-cols-[auto_1fr_auto] md:items-center md:gap-10 md:p-8">
@@ -33,16 +33,16 @@ export function AmlScoreHero({
         <div className="flex items-center gap-5">
           <ScoreRing pct={score.pct} />
           <div>
-            <p className="text-[10px] font-bold uppercase tracking-wider text-neutral-600">
+            <p className="text-[10px] font-bold uppercase tracking-wider text-white/70">
               Samlet etterlevelse
             </p>
-            <p className="mt-1 text-sm font-semibold text-neutral-900">
-              <span className="inline-flex items-center gap-1 rounded-full border border-green-200 bg-green-100 px-2 py-0.5 text-[11px] font-semibold text-green-800">
+            <p className="mt-1 text-sm font-semibold text-white">
+              <span className="inline-flex items-center gap-1 rounded-full border border-emerald-300/40 bg-emerald-400/15 px-2 py-0.5 text-[11px] font-semibold text-emerald-100">
                 ▲ {score.delta} pp
               </span>
-              <span className="ml-2 text-neutral-600">siden Q1</span>
+              <span className="ml-2 text-white/70">siden Q1</span>
             </p>
-            <p className="mt-2 max-w-[20rem] text-xs text-neutral-600">
+            <p className="mt-2 max-w-[20rem] text-xs text-white/70">
               Beregnet over {totalModules} moduler, vektet etter lovkrav.
               Sist signert {score.signed} av {score.signer}.
             </p>
@@ -63,15 +63,15 @@ export function AmlScoreHero({
         </div>
 
         {/* Last sign / next audit (right rail) */}
-        <div className="hidden flex-col items-end gap-1 border-l border-[#e3ddcc] pl-8 md:flex">
-          <p className="text-[10px] font-bold uppercase tracking-wider text-neutral-600">
+        <div className="hidden flex-col items-end gap-1 border-l border-white/15 pl-8 md:flex">
+          <p className="text-[10px] font-bold uppercase tracking-wider text-white/70">
             Neste IK-revisjon
           </p>
-          <p className="text-sm font-semibold text-neutral-900">{nextAuditLabel}</p>
-          <p className="text-xs text-neutral-600">{nextAuditDaysLeft} dager igjen</p>
+          <p className="text-sm font-semibold text-white">{nextAuditLabel}</p>
+          <p className="text-xs text-white/70">{nextAuditDaysLeft} dager igjen</p>
           <button
             type="button"
-            className="mt-2 inline-flex items-center gap-1 text-xs font-semibold text-[#1a3d32] hover:underline"
+            className="mt-2 inline-flex items-center gap-1 text-xs font-semibold text-emerald-200 hover:text-white hover:underline"
           >
             Forbered revisjon <ChevronRight className="h-3 w-3" />
           </button>
@@ -85,16 +85,18 @@ function ScoreRing({
   pct,
   size = 132,
   thickness = 14,
-  accent = '#1a3d32',
 }: {
   pct: number
   size?: number
   thickness?: number
-  accent?: string
 }) {
   const r = size / 2 - thickness / 2
   const c = 2 * Math.PI * r
   const dash = (pct / 100) * c
+  // Inverted palette for the dark hero: muted track, white-with-warm-
+  // gold accent on the active arc, white numerals.
+  const trackStroke = 'rgba(255,255,255,0.18)'
+  const accent = '#c9a227'
   return (
     <svg
       width={size}
@@ -103,7 +105,14 @@ function ScoreRing({
       className="shrink-0"
       aria-label={`Etterlevelse ${pct} % av krav`}
     >
-      <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="#e5e5e5" strokeWidth={thickness} />
+      <circle
+        cx={size / 2}
+        cy={size / 2}
+        r={r}
+        fill="none"
+        stroke={trackStroke}
+        strokeWidth={thickness}
+      />
       <circle
         cx={size / 2}
         cy={size / 2}
@@ -122,7 +131,7 @@ function ScoreRing({
         textAnchor="middle"
         fontSize={32}
         fontWeight={700}
-        fill="#171717"
+        fill="#ffffff"
         style={{ fontFamily: 'Inter', fontVariantNumeric: 'tabular-nums' }}
       >
         {pct}
@@ -132,7 +141,7 @@ function ScoreRing({
         y={size / 2 + 22}
         textAnchor="middle"
         fontSize={11}
-        fill="#525252"
+        fill="rgba(255,255,255,0.7)"
         style={{ fontFamily: 'Inter', letterSpacing: '0.06em' }}
       >
         % AV KRAV
