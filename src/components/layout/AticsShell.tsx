@@ -53,10 +53,8 @@ import {
   ShellProfileMenuButton,
   ShellQuickCreateMenu,
 } from './ShellHeaderWidgets'
-import { ShellCompliancePackSwitcher } from './ShellCompliancePackSwitcher'
 import { RegulationFilterMenu } from './RegulationFilterMenu'
 import { useRegulationFilter } from '../../context/RegulationFilterContext'
-import { ShellSurveyPackSwitcher } from './ShellSurveyPackSwitcher'
 import { useComplianceNav } from '../../../modules/compliance/useComplianceNav'
 import { useSurveyNav } from '../../../modules/survey/useSurveyNav'
 import { useDocumentNav } from '../../hooks/useDocumentNav'
@@ -1537,8 +1535,6 @@ export function AticsShell() {
                       internal pack focus where the URL ?pack= param matters
                       (e.g. compliance accent flip). */}
                   <RegulationFilterMenu variant="sidebar" />
-                  <ShellCompliancePackSwitcher variant="sidebar" />
-                  <ShellSurveyPackSwitcher variant="sidebar" />
                   <NotificationTray variant="sidebar" />
                   <ShellProfileMenuButton
                     variant="sidebar"
@@ -1607,9 +1603,15 @@ export function AticsShell() {
           <ShellCompanyBlock name={orgDisplayName} variant="topbar" />
           <ShellQuickCreateMenu variant="topbar" />
           <ShellComplianceIndicator variant="topbar" />
+          {/* Regulation filter is the single cross-module top-bar
+              dropdown. The legacy per-module pack switchers
+              (ShellCompliancePackSwitcher, ShellSurveyPackSwitcher)
+              were removed — having both made the top bar render two
+              dropdowns on /compliance/* and /survey/*. The URL
+              `?pack=` mechanism still works for direct links; the
+              dashboards just fall back to the scope's default accent
+              when the param is absent. */}
           <RegulationFilterMenu variant="topbar" />
-          <ShellCompliancePackSwitcher variant="topbar" />
-          <ShellSurveyPackSwitcher variant="topbar" />
           <NotificationTray variant="topbar" />
           <ShellProfileMenuButton
             variant="topbar"
