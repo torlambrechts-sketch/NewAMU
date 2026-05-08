@@ -12,6 +12,7 @@ import {
   CalendarRange,
   CalendarCheck,
   ChevronDown,
+  Database,
   ChevronRight,
   ClipboardList,
   ClipboardCheck,
@@ -59,6 +60,7 @@ import { useComplianceNav } from '../../../modules/compliance/useComplianceNav'
 import { useSurveyNav } from '../../../modules/survey/useSurveyNav'
 import { useLearningNav } from '../../hooks/useLearningNav'
 import { useDocumentNav } from '../../hooks/useDocumentNav'
+import { useRegistersNav } from '../../hooks/useRegistersNav'
 import type { NavMode } from './aticsNavMode'
 
 // ─── Sub-item type ────────────────────────────────────────────────────────────
@@ -391,6 +393,17 @@ const DOCUMENTS_NAV_PERMS: PermissionKey[] = [
   'documents.edit',
   'documents.manage',
   'module.view.dashboard',
+]
+
+// Permission gate for the Register menu — broad pattern: anyone who can
+// view any HMS module surface gets the menu. The page-level RLS ensures
+// per-record reads stay org-scoped.
+const REGISTERS_NAV_PERMS: PermissionKey[] = [
+  'module.view.dashboard',
+  'module.view.hse',
+  'module.view.org_health',
+  'documents.view',
+  'compliance.view',
 ]
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -833,6 +846,7 @@ export function AticsShell() {
   const surveyNav = useSurveyNav()
   const learningNav = useLearningNav()
   const documentNav = useDocumentNav()
+  const registersNav = useRegistersNav()
   const { isActive: isRegulationActive, activeRegulationIds } = useRegulationFilter()
   const mergedNavGroups = useMemo<NavGroup[]>(() => {
     // Fixed sub-entries that always sit under "Sjekklister" — Analyse and
@@ -1254,6 +1268,88 @@ export function AticsShell() {
       ],
     }
 
+    // Register group — strukturerte registre på tvers av regelverk
+    // (kjemikalier, leverandører, GDPR-behandlingsprotokoll, …). Same
+    // flatSubs shape as Sjekklister / Undersøkelser / Dokumenter.
+    const registersFixedSubs: SubItem[] = [
+      {
+        label: 'Analyse',
+        path: '/registers/analyse',
+        Icon: BarChart3,
+        match: ({ pathname }) => pathname === '/registers/analyse',
+        requirePermAny: REGISTERS_NAV_PERMS,
+      },
+      {
+        label: 'Innstillinger',
+        path: '/registers/admin',
+        Icon: Settings,
+        match: ({ pathname }) => pathname.startsWith('/registers/admin'),
+        requirePermAny: REGISTERS_NAV_PERMS,
+      },
+    ]
+
+    const registerTypeSubs: SubItem[] = (() => {
+      const buckets = new Map<string, typeof registersNav.items>()
+      for (const it of registersNav.items) {
+        const list = buckets.get(it.headerKey) ?? []
+        list.push(it)
+        buckets.set(it.headerKey, list)
+      }
+      const orderedCats = registersNav.categories
+        .filter((c) => buckets.has(c.id))
+        .filter((c) => isRegulationActive(c.regulationId))
+        .sort((a, b) => a.position - b.position || a.name.localeCompare(b.name, 'nb'))
+      const uncategorised = buckets.has('__uncat__')
+        ? [{ id: '__uncat__', name: 'Uten kategori' }]
+        : []
+      const orderedKeys = [...orderedCats.map((c) => ({ id: c.id, name: c.name })), ...uncategorised]
+      const showHeaders = orderedKeys.length > 1
+      const subs: SubItem[] = []
+      for (const cat of orderedKeys) {
+        const list = buckets.get(cat.id) ?? []
+        if (list.length === 0) continue
+        if (showHeaders) {
+          subs.push({
+            kind: 'header',
+            label: cat.name,
+            path: `__cat:${cat.id}`,
+            match: () => false,
+            headerKey: cat.id,
+            Icon: FolderTree,
+            requirePermAny: REGISTERS_NAV_PERMS,
+          })
+        }
+        for (const item of list) {
+          subs.push({
+            label: item.name,
+            path: item.to,
+            match: ({ pathname }) => pathname === item.to,
+            headerKey: showHeaders ? cat.id : undefined,
+            requirePermAny: REGISTERS_NAV_PERMS,
+          })
+        }
+      }
+      return subs
+    })()
+
+    const registersGroup: NavGroup = {
+      id: 'register',
+      label: 'Register',
+      icon: Database,
+      modules: [
+        {
+          to: '/registers',
+          label: 'Register',
+          end: false,
+          icon: Database,
+          subs: [...registersFixedSubs, ...registerTypeSubs],
+          permAny: REGISTERS_NAV_PERMS,
+          moduleSlug: 'registers',
+          flatSubs: true,
+        },
+      ],
+    }
+
     // Oppgaver group — promoted to top-level alongside Sjekklister /
     // Undersøkelser / Læring per session-end IA cleanup. Same flatSubs
     // treatment so the management tabs read at module level.
@@ -1302,7 +1398,7 @@ export function AticsShell() {
     const idx = navGroups.findIndex((g) => g.id === 'gamle-moduler')
     const head = idx === -1 ? navGroups : navGroups.slice(0, idx)
     const tail = idx === -1 ? [] : navGroups.slice(idx)
-    return [...head, hmsOverviewGroup, complianceGroup, surveyGroup, documentsGroup, tasksGroup, learningGroup, ...tail]
+    return [...head, hmsOverviewGroup, complianceGroup, surveyGroup, documentsGroup, tasksGroup, learningGroup, registersGroup, ...tail]
   }, [
     complianceNav.items,
     complianceNav.categories,
@@ -1314,6 +1410,8 @@ export function AticsShell() {
     documentNav.categories,
     learningNav.items,
     learningNav.categories,
+    registersNav.items,
+    registersNav.categories,
     isRegulationActive,
     activeRegulationIds,
   ])
