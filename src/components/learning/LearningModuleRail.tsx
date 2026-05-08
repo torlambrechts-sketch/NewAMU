@@ -35,8 +35,6 @@ import {
 import type { ComponentType } from 'react'
 import type { CourseModule, ModuleKind } from '../../types/learning'
 
-const SERIF = "'Libre Baskerville', Georgia, serif"
-
 type KindMeta = { label: string; icon: ComponentType<{ className?: string }> }
 
 const LEARNING_KIND_META: Record<ModuleKind, KindMeta> = {
@@ -254,8 +252,7 @@ function AddModuleMenu({ onAdd }: { onAdd: (kind: ModuleKind) => void }) {
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}
-        className="flex w-full items-center justify-center gap-1.5 rounded-md border border-dashed border-neutral-300 bg-white px-3 py-2.5 text-sm font-medium text-neutral-700 transition-colors hover:border-[#1a3d32] hover:bg-[#e7efe9] hover:text-[#1a3d32]"
-        style={{ fontFamily: SERIF }}
+        className="flex w-full items-center justify-center gap-1.5 rounded-md border border-dashed border-neutral-300 bg-white px-3 py-2.5 text-sm font-semibold text-neutral-700 transition-colors hover:border-[#1a3d32] hover:bg-[#e7efe9] hover:text-[#1a3d32]"
       >
         <Plus className="h-4 w-4" />
         Ny modul
