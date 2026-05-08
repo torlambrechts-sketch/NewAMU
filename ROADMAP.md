@@ -195,6 +195,23 @@ Reusable runtime that any module registers a "scope" with and consumes via `Modu
 
 ---
 
+## 5. Compliance gap-and-audit planner *(placeholder)*
+
+Picks up where the AML template baseline (PR #175) leaves off. The seed migrations close the *content* gap; the next module is the *planning surface* on top of that content — so an org and an auditor can see "where are we, what's the plan, when does it land?"
+
+| # | Status | Item | Notes |
+|---|---|---|---|
+| 5.1 | 📋 | Gap view per regulation | Read-only matrix: rows = paragraph (drives off `compliance_checklist_templates.law_refs[]`, `survey_template_catalog.law_refs[]`, `register_types.aml_paragraphs[]`, `document_system_templates.legal_basis[]`, `learning_*.law_refs`); columns = artifact type. Cell shows ✅ in place / ⚠ partial / ❌ missing, with hover detail. The data is already in the schema after `_120043` — this is a UI/aggregation pass. |
+| 5.2 | 📋 | Plan & timeline (Gantt-ish) | For each ⚠ / ❌ cell, attach a planned closure: owner, start, due, milestone, status. Persisted in a new `compliance_plan_items` table (org-scoped, FK to law_ref string). Visualised as a tasks/Gantt feed grouped by chapter. Ties into Tasks-modulen so the same row is also a `Task`. |
+| 5.3 | 📋 | Auditor view | Read-only, shareable URL (signed token, 30-day expiry). Shows §-by-§ status + active plan items + last-completed evidence (last execution / last review). Lets en revisor følge framdriften uten at vi gir dem full innlogging. Mirror of `survey_invitation_tokens` token pattern. |
+| 5.4 | 📋 | Evidence ledger per § | "Hva har vi gjort siste 12 mnd. på § 2A?" — tidslinje av executions, surveys gjennomført, dokumenter signert/acknowledged, læringskurs gjennomført, register-records lagt til. Kommer nær gratis så snart 5.1 er på plass; 5.4 er bare "samme query, sortert kronologisk." |
+| 5.5 | 📋 | KPIs for ledelsen | Topp-linje for AMU: % AML-dekning, åpne pålegg fra `aml_18_tilsynssaker`, ARP-redegjørelse-status, antall §-er uten plan. Et widget i `hms_overview`-composite scope. |
+| 5.6 | ⏸ | Multi-rammeverks-mapping (ISO 45001, GDPR, åpenhetsloven) | Samme planner-struktur, men `regulation_id` + `paragraph` istedet for hardkodet AML. Avvent til 5.1–5.4 har én komplett bruker — for tidlig å abstrahere. |
+
+**Hvorfor placeholder:** Innholdet er nå seedet (PR #175). Den naturlige neste sprinten er å bygge planner-flatene over disse dataene slik at et tilsynsbesøk kan starte med "her er vår plan" istedet for "her er sjekklistene våre". Sett opp som egen modul-spec (`specs/compliance-planner.md`) når arbeidet plukkes opp.
+
+---
+
 ## Suggested order of work
 
 If picking up cold, do these in this order — each builds on the previous and exposes any abstraction problems early:
