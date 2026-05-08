@@ -114,20 +114,87 @@ export function useAmlComplianceData(): UseAmlComplianceDataReturn {
   // The visible task list. When the org has 0 AML-relevant tasks we
   // show the seed so the table doesn't render empty during demo;
   // production deploys with real activity will override this.
-  const tasks = realAmlTasks.length > 0 ? realAmlTasks : AML_TASKS
+  const usingTaskSeed = realAmlTasks.length === 0
+  const tasks = usingTaskSeed ? AML_TASKS : realAmlTasks
+
+  // Task counts grouped by AML module label (matches AML_MODULES.title
+  // so the overlay below can match exactly). Drives the per-card
+  // "Open: N · M forfalt" footer + the score's 14-day window.
+  const taskAggregate = useMemo(() => {
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+    const dueSoonCutoff = new Date(today)
+    dueSoonCutoff.setDate(dueSoonCutoff.getDate() + 14)
+
+    const perModule = new Map<string, { open: number; overdue: number }>()
+    let openTotal = 0
+    let overdueTotal = 0
+    let dueSoonTotal = 0
+    for (const t of allTasks) {
+      if (t.status === 'done') continue
+      if (!AML_TASK_SOURCE_TYPES.has(t.sourceType)) continue
+      const moduleLabel =
+        SOURCE_TYPE_TO_MODULE_LABEL[t.sourceType] ?? labelFromSourceType(t.sourceType)
+      const due = new Date(t.dueDate)
+      const isOverdue = !Number.isNaN(due.getTime()) && due < today
+      const isDueSoon =
+        !Number.isNaN(due.getTime()) &&
+        due >= today &&
+        due <= dueSoonCutoff
+      const bucket = perModule.get(moduleLabel) ?? { open: 0, overdue: 0 }
+      bucket.open += 1
+      if (isOverdue) bucket.overdue += 1
+      perModule.set(moduleLabel, bucket)
+      openTotal += 1
+      if (isOverdue) overdueTotal += 1
+      if (isDueSoon) dueSoonTotal += 1
+    }
+    return { perModule, openTotal, overdueTotal, dueSoonTotal }
+  }, [allTasks])
+
+  // Overlay real task counts onto the seed modules. We keep the seed's
+  // progress + metric + status because those need per-module hooks
+  // (AMU meeting count, vernerunde rounds, læring completion %) that
+  // don't all exist yet. Open + overdue counts are the easy
+  // task-derived overlay that's true for every module.
+  const modules = useMemo<AmlModuleSummary[]>(() => {
+    if (usingTaskSeed) return AML_MODULES
+    return AML_MODULES.map((m) => {
+      const real = taskAggregate.perModule.get(m.title)
+      if (!real) return m
+      return { ...m, open: real.open, overdue: real.overdue }
+    })
+  }, [usingTaskSeed, taskAggregate])
+
+  // Overlay real task-derived KPIs onto the seed score. Pct + module
+  // counts stay seed because those depend on the per-module status
+  // computation that lands later.
+  const score = useMemo<AmlComplianceScore>(() => {
+    if (usingTaskSeed) return AML_SCORE
+    return {
+      ...AML_SCORE,
+      tasksOpen: taskAggregate.openTotal,
+      tasksOverdue: taskAggregate.overdueTotal,
+      tasksDueSoon: taskAggregate.dueSoonTotal,
+    }
+  }, [usingTaskSeed, taskAggregate])
 
   return {
     today: AML_TODAY,
-    score: AML_SCORE,
-    modules: AML_MODULES,
+    score,
+    modules,
     tasks,
     wheel: AML_WHEEL,
     ringLegend: AML_RING_LEGEND,
     feed: AML_KLARERT_FEED,
     isUsingSeed: {
-      score: true,
-      modules: true,
-      tasks: realAmlTasks.length === 0,
+      // Score's pct + module-counts still seed; only the task-derived
+      // KPIs (open / overdue / due-soon) use real data.
+      score: usingTaskSeed,
+      // Modules' progress + metric + status still seed; open + overdue
+      // overlaid from real tasks when available.
+      modules: usingTaskSeed,
+      tasks: usingTaskSeed,
       wheel: true,
       feed: true,
     },

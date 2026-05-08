@@ -72,6 +72,23 @@ export function ComplianceArbeidsmiljolovenPage() {
       }
     >
       <div className="space-y-6">
+        {data.isUsingSeed.tasks ||
+        data.isUsingSeed.score ||
+        data.isUsingSeed.modules ||
+        data.isUsingSeed.wheel ||
+        data.isUsingSeed.feed ? (
+          <div className="rounded-md border border-amber-200 bg-amber-50 px-4 py-2.5 text-xs text-amber-900">
+            <p className="font-semibold">Demo-data i bruk</p>
+            <p className="mt-0.5 text-amber-800">
+              {data.isUsingSeed.tasks
+                ? 'Ingen AML-tilknyttede oppgaver i organisasjonen ennå — vi viser eksempeldata. '
+                : 'Oppgaver er reelle. '}
+              Score, moduler, årshjul og Klarert-feed kobles til ekte data i en senere
+              utrulling.
+            </p>
+          </div>
+        ) : null}
+
         <AmlScoreHero score={data.score} />
 
         <ModuleSectionCard className="!p-0">
