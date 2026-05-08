@@ -57,6 +57,7 @@ import { RegulationFilterMenu } from './RegulationFilterMenu'
 import { useRegulationFilter } from '../../context/RegulationFilterContext'
 import { useComplianceNav } from '../../../modules/compliance/useComplianceNav'
 import { useSurveyNav } from '../../../modules/survey/useSurveyNav'
+import { useLearningNav } from '../../hooks/useLearningNav'
 import { useDocumentNav } from '../../hooks/useDocumentNav'
 import type { NavMode } from './aticsNavMode'
 
@@ -261,26 +262,6 @@ const councilSubs: SubItem[] = [
     },
   },
 ]
-
-const learningSubs: SubItem[] = [
-  { label: 'Dashboard', path: '/learning', match: ({ pathname }) => pathname === '/learning' },
-  {
-    label: 'Analyse',
-    path: '/learning/analyse',
-    Icon: BarChart3,
-    match: ({ pathname }) => pathname === '/learning/analyse',
-  },
-  { label: 'Alle kurs', path: '/learning/alle', match: ({ pathname }) => pathname === '/learning/alle' },
-  { label: 'Courses', path: '/learning/courses', match: ({ pathname }) => pathname === '/learning/courses' || pathname.startsWith('/learning/courses/') },
-  { label: 'Certifications', path: '/learning/certifications', match: ({ pathname }) => pathname === '/learning/certifications' },
-  { label: 'Insights', path: '/learning/insights', match: ({ pathname }) => pathname === '/learning/insights' },
-  { label: 'Participants', path: '/learning/participants', match: ({ pathname }) => pathname === '/learning/participants' },
-  { label: 'Team heatmap', path: '/learning/compliance', match: ({ pathname }) => pathname === '/learning/compliance' },
-  { label: 'Paths', path: '/learning/paths', match: ({ pathname }) => pathname === '/learning/paths' },
-  { label: 'External training', path: '/learning/external', match: ({ pathname }) => pathname === '/learning/external' },
-  { label: 'Settings', path: '/learning/settings', match: ({ pathname }) => pathname === '/learning/settings' },
-]
-
 
 const workplaceReportingSubs: SubItem[] = WORKPLACE_REPORTING_NAV.map((item) => {
   const base: SubItem = {
@@ -850,6 +831,7 @@ export function AticsShell() {
   // path to discover the feature).
   const complianceNav = useComplianceNav()
   const surveyNav = useSurveyNav()
+  const learningNav = useLearningNav()
   const documentNav = useDocumentNav()
   const { isActive: isRegulationActive, activeRegulationIds } = useRegulationFilter()
   const mergedNavGroups = useMemo<NavGroup[]>(() => {
@@ -1085,10 +1067,80 @@ export function AticsShell() {
       ],
     }
 
-    // Learning "Læring" group — flatSubs treatment matches Sjekklister and
-    // Undersøkelser so the secondary nav reads as one consistent layer. The
-    // sub-items come straight from the static `learningSubs` list since
-    // learning has no pinned-templates concept (per /specs/elearning-parity.md).
+    // Learning "Læring" group — matches Sjekklister + Undersøkelser:
+    // fixed Analyse + Alle kurs + Innstillinger entries up top, then
+    // published courses grouped by category with collapsible headers.
+    const learningFixedSubs: SubItem[] = [
+      {
+        label: 'Analyse',
+        path: '/learning/analyse',
+        Icon: BarChart3,
+        match: ({ pathname }) => pathname === '/learning/analyse',
+        requirePermAny: LEARNING_NAV_PERMS,
+      },
+      {
+        label: 'Alle kurs',
+        path: '/learning/alle',
+        match: ({ pathname }) => pathname === '/learning/alle',
+        requirePermAny: LEARNING_NAV_PERMS,
+      },
+      {
+        label: 'Innstillinger',
+        path: '/learning/innstillinger',
+        Icon: Settings,
+        match: ({ pathname }) => pathname.startsWith('/learning/innstillinger'),
+        requirePermAny: LEARNING_NAV_PERMS,
+      },
+    ]
+
+    const learningCourseSubs: SubItem[] = (() => {
+      const buckets = new Map<string, typeof learningNav.items>()
+      for (const it of learningNav.items) {
+        const list = buckets.get(it.headerKey) ?? []
+        list.push(it)
+        buckets.set(it.headerKey, list)
+      }
+      const orderedCats = learningNav.categories
+        .filter((c) => buckets.has(c.id))
+        .filter((c) => isRegulationActive(c.regulationId))
+        .sort((a, b) => a.position - b.position || a.name.localeCompare(b.name, 'nb'))
+      const uncategorised = buckets.has('__uncat__')
+        ? [{ id: '__uncat__', name: 'Uten kategori' }]
+        : []
+      const orderedKeys: { id: string; name: string }[] = [
+        ...orderedCats.map((c) => ({ id: c.id, name: c.name })),
+        ...uncategorised,
+      ]
+      const showHeaders = orderedKeys.length > 1
+
+      const subs: SubItem[] = []
+      for (const cat of orderedKeys) {
+        const list = buckets.get(cat.id) ?? []
+        if (list.length === 0) continue
+        if (showHeaders) {
+          subs.push({
+            kind: 'header',
+            label: cat.name,
+            path: `__cat:${cat.id}`,
+            match: () => false,
+            headerKey: cat.id,
+            Icon: FolderTree,
+            requirePermAny: LEARNING_NAV_PERMS,
+          })
+        }
+        for (const item of list) {
+          subs.push({
+            label: item.title,
+            path: item.to,
+            match: ({ pathname }) => pathname === item.to,
+            headerKey: showHeaders ? cat.id : undefined,
+            requirePermAny: LEARNING_NAV_PERMS,
+          })
+        }
+      }
+      return subs
+    })()
+
     const learningGroup: NavGroup = {
       id: 'laring',
       label: 'Læring',
@@ -1099,7 +1151,7 @@ export function AticsShell() {
           label: 'Læring',
           end: false,
           icon: GraduationCap,
-          subs: learningSubs.map((s) => ({ ...s, requirePermAny: LEARNING_NAV_PERMS })),
+          subs: [...learningFixedSubs, ...learningCourseSubs],
           permAny: LEARNING_NAV_PERMS,
           moduleSlug: 'learning',
           flatSubs: true,
@@ -1112,6 +1164,10 @@ export function AticsShell() {
     // is the existing DOCUMENTS_NAV plus fixed Analyse + Innstillinger
     // children at the top (T2 + T3 wire up the targets). Pinned templates
     // (T6) will land below this list when shipped.
+    // Keep only the cross-module canon (Analyse / Alle / Innstillinger).
+    // The legacy Oversikt / Samsvar / Dokumentmaler / Årsgjennomgang
+    // entries are still routable via direct URL but no longer clutter
+    // the sidebar — same shape as Sjekklister + Undersøkelser.
     const documentsFixedSubs: SubItem[] = [
       {
         label: 'Analyse',
@@ -1125,30 +1181,6 @@ export function AticsShell() {
         path: '/documents/alle',
         match: ({ pathname }) => pathname === '/documents/alle',
         requirePermAny: DOCUMENTS_NAV_PERMS,
-      },
-      {
-        label: 'Oversikt',
-        path: '/documents',
-        match: ({ pathname }) => pathname === '/documents',
-        requirePermAny: DOCUMENTS_NAV_PERMS,
-      },
-      {
-        label: 'Samsvar',
-        path: '/documents/compliance',
-        match: ({ pathname }) => pathname.startsWith('/documents/compliance'),
-        requirePermAny: DOCUMENTS_NAV_PERMS,
-      },
-      {
-        label: 'Dokumentmaler',
-        path: '/documents/templates',
-        match: ({ pathname }) => pathname === '/documents/templates',
-        requirePermAny: DOCUMENTS_NAV_PERMS,
-      },
-      {
-        label: 'Årsgjennomgang',
-        path: '/documents/aarsgjennomgang',
-        match: ({ pathname }) => pathname === '/documents/aarsgjennomgang',
-        requirePerm: 'documents.manage',
       },
       {
         label: 'Innstillinger',
@@ -1280,6 +1312,8 @@ export function AticsShell() {
     surveyNav.packShortNameBySlug,
     documentNav.items,
     documentNav.categories,
+    learningNav.items,
+    learningNav.categories,
     isRegulationActive,
     activeRegulationIds,
   ])
