@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { learningFlowEntryUrl, qrCodeImageUrl } from '../../lib/learningDeepLink'
 import {
@@ -80,6 +80,32 @@ export function LearningCourseBuilder() {
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [tagInput, setTagInput] = useState('')
   const [builderActionError, setBuilderActionError] = useState<string | null>(null)
+
+  // Local-state mirrors for the course-level inputs. updateCourse fires
+  // a Supabase write + refreshLearning() per call, which on every
+  // keystroke caused the controlled inputs to flicker / drop
+  // characters / lose focus while the round-trip was in flight.
+  // Local state keeps the visible value stable; the write happens in
+  // parallel and the refetch eventually converges.
+  const [titleDraft, setTitleDraft] = useState(course?.title ?? '')
+  const [descriptionDraft, setDescriptionDraft] = useState(course?.description ?? '')
+  const [recertDraft, setRecertDraft] = useState<string>(
+    course?.recertificationMonths == null ? '' : String(course.recertificationMonths),
+  )
+  const lastSyncedCourseId = useRef<string | null>(null)
+  useEffect(() => {
+    // Only re-sync when the course id changes (navigating between
+    // courses). Mid-typing refreshes return the same course id and
+    // must NOT clobber the draft.
+    if (!course) return
+    if (lastSyncedCourseId.current === course.id) return
+    lastSyncedCourseId.current = course.id
+    queueMicrotask(() => {
+      setTitleDraft(course.title)
+      setDescriptionDraft(course.description)
+      setRecertDraft(course.recertificationMonths == null ? '' : String(course.recertificationMonths))
+    })
+  }, [course])
 
   const selected = course?.modules.find((m) => m.id === selectedId) ?? null
   const sections = course?.sections ?? []
@@ -402,8 +428,11 @@ export function LearningCourseBuilder() {
               </label>
               <StandardInput
                 id="course-title"
-                value={course.title}
-                onChange={(e) => updateCourse(course.id, { title: e.target.value })}
+                value={titleDraft}
+                onChange={(e) => {
+                  setTitleDraft(e.target.value)
+                  updateCourse(course.id, { title: e.target.value })
+                }}
                 className="mt-1.5"
               />
             </div>
@@ -416,9 +445,10 @@ export function LearningCourseBuilder() {
                 type="number"
                 min={0}
                 max={120}
-                value={course.recertificationMonths ?? ''}
+                value={recertDraft}
                 onChange={(e) => {
                   const raw = e.target.value
+                  setRecertDraft(raw)
                   if (raw === '') {
                     updateCourse(course.id, { recertificationMonths: null })
                     return
@@ -440,8 +470,11 @@ export function LearningCourseBuilder() {
               </label>
               <StandardTextarea
                 id="course-desc"
-                value={course.description}
-                onChange={(e) => updateCourse(course.id, { description: e.target.value })}
+                value={descriptionDraft}
+                onChange={(e) => {
+                  setDescriptionDraft(e.target.value)
+                  updateCourse(course.id, { description: e.target.value })
+                }}
                 rows={4}
                 className="mt-1.5"
               />
