@@ -125,6 +125,11 @@ export type Course = {
    * `learning_course_progress`; free-form kinds land in `learning_course_progress.metadata`.
    */
   metadataSchema?: TemplateMetadataSchema | null
+  /**
+   * Canonical law-reference codes this course is anchored to (Lovverk tab).
+   * Resolved against `LEARNING_MODULE_LEGAL_REFERENCES` for display.
+   */
+  lawRefs?: string[]
 }
 
 /** Per-org curated category for grouping {@link Course} rows. */

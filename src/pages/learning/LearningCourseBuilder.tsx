@@ -4,11 +4,13 @@ import { learningFlowEntryUrl, qrCodeImageUrl } from '../../lib/learningDeepLink
 import {
   ArrowLeft,
   BarChart3,
+  Check,
   FileText,
   Layers,
   PlayCircle,
   Plus,
   Save,
+  Scale,
   Trash2,
   Users,
 } from 'lucide-react'
@@ -32,10 +34,11 @@ import { WPSTD_FORM_FIELD_LABEL } from '../../components/layout/WorkplaceStandar
 
 // Tab IDs match the editor design (`ui_kits/elearning/editor`): innhold
 // (modules first, the primary task), detaljer (course info + sertifikat
-// authoring + metadata schema), participants/insights kept as
-// informational tabs. The legacy `cert` tab is gone — its content folds
-// into the Detaljer tab as a Sertifikat sub-card.
-type MainTab = 'innhold' | 'detaljer' | 'participants' | 'insights'
+// authoring + metadata schema), lovverk (canonical law-reference picker),
+// participants/insights kept as informational tabs. The legacy `cert`
+// tab is gone — its content folds into the Detaljer tab as a Sertifikat
+// sub-card.
+type MainTab = 'innhold' | 'detaljer' | 'lovverk' | 'participants' | 'insights'
 
 export function LearningCourseBuilder() {
   const navigate = useNavigate()
@@ -197,6 +200,12 @@ export function LearningCourseBuilder() {
   const tabItems: TabItem[] = [
     { id: 'innhold', label: 'Innhold', icon: Layers, badgeCount: course.modules.length },
     { id: 'detaljer', label: 'Detaljer', icon: FileText },
+    {
+      id: 'lovverk',
+      label: 'Lovverk',
+      icon: Scale,
+      badgeCount: (course.lawRefs?.length ?? 0) || undefined,
+    },
     { id: 'participants', label: 'Deltakere', icon: Users },
     { id: 'insights', label: 'Innsikt', icon: BarChart3 },
   ]
@@ -499,6 +508,61 @@ export function LearningCourseBuilder() {
                 paletten for å opprette en ny.
               </p>
             )}
+          </ModuleSectionCard>
+        </div>
+      )}
+
+      {mainTab === 'lovverk' && (
+        <div className="space-y-6">
+          <ModuleSectionCard className="p-5 md:p-6">
+            <h3 className="text-base font-semibold text-neutral-900">Lovgrunnlag</h3>
+            <p className="mt-1 text-sm text-neutral-600">
+              Velg paragrafene som hjemler kurset. Disse refereres i AMU-årsrapporten og
+              vises for deltakeren ved fullføring.
+            </p>
+            <div className="mt-5 grid gap-2 sm:grid-cols-2">
+              {LEARNING_MODULE_LEGAL_REFERENCES.map((ref) => {
+                const on = (course.lawRefs ?? []).includes(ref.code)
+                return (
+                  <button
+                    key={ref.code}
+                    type="button"
+                    onClick={() => {
+                      const cur = course.lawRefs ?? []
+                      const next = on ? cur.filter((c) => c !== ref.code) : [...cur, ref.code]
+                      updateCourse(course.id, { lawRefs: next })
+                    }}
+                    className={
+                      'flex items-start gap-3 rounded-md border px-3 py-2.5 text-left transition-colors ' +
+                      (on
+                        ? 'border-[#1a3d32] bg-[#e7efe9]'
+                        : 'border-neutral-200 bg-white hover:border-neutral-300 hover:bg-neutral-50')
+                    }
+                  >
+                    <span
+                      className={
+                        'mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded border ' +
+                        (on
+                          ? 'border-[#1a3d32] bg-[#1a3d32] text-white'
+                          : 'border-neutral-300 bg-white')
+                      }
+                    >
+                      {on ? <Check className="h-3 w-3" /> : null}
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <Badge variant="info">{ref.code}</Badge>
+                      <p className="mt-1.5 text-sm text-neutral-700">{ref.text}</p>
+                    </div>
+                  </button>
+                )
+              })}
+            </div>
+            {(course.lawRefs?.length ?? 0) === 0 ? (
+              <p className="mt-4 text-xs text-neutral-500">
+                Ingen paragrafer valgt. Som minimum bør AML § 3-2 og IK-forskriften
+                § 5 nr. 2 være på plass for opplæringskurs.
+              </p>
+            ) : null}
           </ModuleSectionCard>
         </div>
       )}

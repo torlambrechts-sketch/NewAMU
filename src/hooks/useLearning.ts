@@ -422,6 +422,7 @@ type DbCourseRow = {
   course_version?: number | null
   recertification_months?: number | null
   metadata_schema?: TemplateMetadataSchema | null
+  law_refs?: string[] | null
 }
 
 type DbOrgCourseSetting = {
@@ -516,6 +517,7 @@ function coursesFromDb(courseRows: DbCourseRow[], moduleRows: DbModuleRow[]): Co
       courseVersion: c.course_version ?? 1,
       recertificationMonths: c.recertification_months ?? null,
       metadataSchema: c.metadata_schema ?? { fields: [] },
+      lawRefs: c.law_refs ?? [],
     }
   })
 }
@@ -1114,6 +1116,7 @@ export function useLearning() {
         if (patch.prerequisiteCourseIds !== undefined) row.prerequisite_course_ids = patch.prerequisiteCourseIds
         if (patch.recertificationMonths !== undefined) row.recertification_months = patch.recertificationMonths
         if (patch.metadataSchema !== undefined) row.metadata_schema = patch.metadataSchema ?? { fields: [] }
+        if (patch.lawRefs !== undefined) row.law_refs = patch.lawRefs ?? []
         const { error: e } = await supabase.from('learning_courses').update(row).eq('id', id).eq('organization_id', orgId)
         if (e) setError(getSupabaseErrorMessage(e))
         else await refreshLearning()

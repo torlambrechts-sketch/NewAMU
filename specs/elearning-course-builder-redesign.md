@@ -4,13 +4,22 @@
 > `specs/elearning-parity.md` (the existing learning architecture).
 
 **Owner of this spec:** human.
-**Spec status:** `🚧 in-flight — Phase B shipped` (T3 + T4 + T5).
-T2 deferred: the design's three-pane editor with `Lovverk` /
-`Forhåndsvis` tabs needs a new `course.lawRefs` field + an inline
-preview surface — both bigger scope. Design source captured under
+**Spec status:** `🚧 in-flight — Phase B shipped + Lovverk added`.
+T3 + T4 + T5 done (Phase B). Lovverk tab landed (T2 partial — needed
+a new `learning_courses.law_refs jsonb` column + `Course.lawRefs?:
+string[]` type). Forhåndsvis tab skipped — the existing
+"Forhåndsvisning" header button already routes to `/learning/play/:id`,
+adding a tab whose only content is a redirect link is bad UX.
+
+The design's three-pane editor shell rewrite (320px module rail + flex
+editor pane on the Innhold tab) remains deferred — the existing
+`LearningSectionBuilder` component's section/chapter model is
+fundamentally different from the design's flat ordered list, and a
+data model change would be required to fully match.
+
+Design source captured under
 `/tmp/design-extract/contents/klarert-design-system/project/ui_kits/elearning/editor/`
-during this session (Phase B drew from `CourseEditor.jsx` + the
-README's tab list).
+during this session.
 
 ---
 
