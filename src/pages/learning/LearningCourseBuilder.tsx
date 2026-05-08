@@ -5,6 +5,7 @@ import {
   ArrowLeft,
   BarChart3,
   Check,
+  Download,
   FileText,
   Layers,
   PlayCircle,
@@ -12,10 +13,19 @@ import {
   Save,
   Scale,
   Trash2,
+  Upload,
   Users,
 } from 'lucide-react'
 import { useLearning } from '../../hooks/useLearning'
 import { LearningModuleRail } from '../../components/learning/LearningModuleRail'
+import {
+  downloadJson,
+  jsonFilename,
+  parseCourseJson,
+  pickJsonFile,
+  serialiseCourse,
+  serialiseModule,
+} from '../../lib/learning/courseJsonIo'
 import { useOrgSetupContext } from '../../hooks/useOrgSetupContext'
 import type { CourseModule } from '../../types/learning'
 import { LEARNING_MODULE_LEGAL_REFERENCES } from '../../components/learning/learningLegalReferences'
@@ -233,6 +243,61 @@ export function LearningCourseBuilder() {
     })()
   }
 
+  // ── JSON I/O ─────────────────────────────────────────────────────────────
+  // Serialise the entire course (or a single module) to JSON so authors
+  // can hand-edit + re-import. See src/lib/learning/courseJsonIo.ts for
+  // the schema. Per-module export lives in the rail's "..." menu.
+  const handleExportCourse = () => {
+    setBuilderActionError(null)
+    downloadJson(jsonFilename(course.title, 'kurs'), serialiseCourse(course))
+  }
+  const handleImportCourse = async () => {
+    setBuilderActionError(null)
+    const json = await pickJsonFile()
+    if (json == null) return
+    const parsed = parseCourseJson(json)
+    if (!parsed.ok) {
+      setBuilderActionError(`Importfeil: ${parsed.error}`)
+      return
+    }
+    if (
+      !window.confirm(
+        `Importere ${parsed.value.modules.length} moduler fra fil? Eksisterende moduler beholdes; nye legges til på slutten.`,
+      )
+    ) {
+      return
+    }
+    // Course-level fields: only update what the JSON explicitly sets,
+    // leaving the rest untouched. We don't overwrite status (importer
+    // shouldn't accidentally publish a draft).
+    const patch: Partial<Course> = {}
+    if (parsed.value.title) patch.title = parsed.value.title
+    if (parsed.value.description !== undefined) patch.description = parsed.value.description
+    if (parsed.value.tags) patch.tags = parsed.value.tags
+    if (parsed.value.recertificationMonths !== undefined) {
+      patch.recertificationMonths = parsed.value.recertificationMonths
+    }
+    if (parsed.value.categoryId !== undefined) patch.categoryId = parsed.value.categoryId
+    if (parsed.value.lawRefs) patch.lawRefs = parsed.value.lawRefs
+    if (Object.keys(patch).length > 0) updateCourse(course.id, patch)
+    // Append modules in order. addModule mints fresh ids; the module's
+    // own `order` field is recomputed from its position at insert time.
+    for (const m of parsed.value.modules) {
+      const created = addModule(course.id, m.kind, m.title, m.sectionId ?? null)
+      if (created) {
+        updateModule(course.id, created.id, {
+          durationMinutes: m.durationMinutes,
+          content: m.content as CourseModule['content'],
+        })
+      }
+    }
+  }
+
+  const handleExportModule = (mod: CourseModule) => {
+    setBuilderActionError(null)
+    downloadJson(jsonFilename(mod.title || 'modul', `modul-${mod.kind}`), serialiseModule(mod))
+  }
+
   const headerActions = (
     <div className="flex flex-wrap items-center gap-2">
       <AddTaskLink
@@ -247,6 +312,24 @@ export function LearningCourseBuilder() {
       <Button
         type="button"
         variant="secondary"
+        icon={<Download className="h-4 w-4" />}
+        onClick={handleExportCourse}
+        title="Last ned hele kurset som JSON"
+      >
+        Eksporter
+      </Button>
+      <Button
+        type="button"
+        variant="secondary"
+        icon={<Upload className="h-4 w-4" />}
+        onClick={() => void handleImportCourse()}
+        title="Importer JSON og legg modulene til kurset"
+      >
+        Importer
+      </Button>
+      <Button
+        type="button"
+        variant="secondary"
         icon={<ArrowLeft className="h-4 w-4" />}
         onClick={() => navigate('/learning/courses')}
       >
@@ -258,6 +341,14 @@ export function LearningCourseBuilder() {
       >
         <PlayCircle className="h-4 w-4" />
         Forhåndsvisning
+      </Link>
+      <Link
+        to={`/learning/courses/${course.id}/dokument-test`}
+        className="inline-flex items-center gap-1.5 rounded-md border border-dashed border-neutral-300 bg-white px-3 py-2 text-sm font-medium text-neutral-600 transition-colors hover:border-[#1a3d32] hover:text-[#1a3d32]"
+        title="Eksperimentell visning som låner dokumenteditorens overflate"
+      >
+        <FileText className="h-4 w-4" />
+        Test: dokument-modus
       </Link>
       {canDelete ? (
         <Button
@@ -526,6 +617,10 @@ export function LearningCourseBuilder() {
               onAdd={(kind) => {
                 const created = addModule(course.id, kind, 'Ny modul', null)
                 if (created) setSelectedId(created.id)
+              }}
+              onExport={(id) => {
+                const target = course.modules.find((m) => m.id === id)
+                if (target) handleExportModule(target)
               }}
             />
           </aside>

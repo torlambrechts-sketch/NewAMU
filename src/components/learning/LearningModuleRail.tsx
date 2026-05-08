@@ -21,6 +21,7 @@ import {
   ChevronUp,
   ClipboardList,
   Copy,
+  Download,
   HelpCircle,
   Image as ImageIcon,
   Lightbulb,
@@ -71,6 +72,10 @@ type Props = {
   onDuplicate: (id: string) => void
   onDelete: (id: string) => void
   onAdd: (kind: ModuleKind) => void
+  /** Optional — when provided the rail's "..." menu adds an
+   *  "Eksporter JSON" item per module. Caller serialises the module
+   *  + downloads the file. */
+  onExport?: (id: string) => void
 }
 
 export function LearningModuleRail({
@@ -82,6 +87,7 @@ export function LearningModuleRail({
   onDuplicate,
   onDelete,
   onAdd,
+  onExport,
 }: Props) {
   const totalMin = modules.reduce((s, m) => s + (m.durationMinutes || 0), 0)
 
@@ -172,6 +178,7 @@ export function LearningModuleRail({
                     <RailMenu
                       onDuplicate={() => onDuplicate(m.id)}
                       onDelete={() => onDelete(m.id)}
+                      onExport={onExport ? () => onExport(m.id) : undefined}
                     />
                   </div>
                 )}
@@ -193,9 +200,11 @@ export function LearningModuleRail({
 function RailMenu({
   onDuplicate,
   onDelete,
+  onExport,
 }: {
   onDuplicate: () => void
   onDelete: () => void
+  onExport?: () => void
 }) {
   const [open, setOpen] = useState(false)
   const ref = useRef<HTMLDivElement | null>(null)
@@ -218,7 +227,7 @@ function RailMenu({
         <MoreVertical className="h-3.5 w-3.5" />
       </button>
       {open ? (
-        <div className="absolute right-0 z-20 mt-1 w-36 overflow-hidden rounded-md border border-neutral-200 bg-white shadow-lg">
+        <div className="absolute right-0 z-20 mt-1 w-40 overflow-hidden rounded-md border border-neutral-200 bg-white shadow-lg">
           <button
             type="button"
             onClick={() => {
@@ -229,13 +238,25 @@ function RailMenu({
           >
             <Copy className="h-3 w-3" /> Dupliser
           </button>
+          {onExport ? (
+            <button
+              type="button"
+              onClick={() => {
+                setOpen(false)
+                onExport()
+              }}
+              className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-xs text-neutral-700 hover:bg-neutral-50"
+            >
+              <Download className="h-3 w-3" /> Eksporter JSON
+            </button>
+          ) : null}
           <button
             type="button"
             onClick={() => {
               setOpen(false)
               onDelete()
             }}
-            className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-xs text-red-600 hover:bg-red-50"
+            className="flex w-full items-center gap-2 border-t border-neutral-100 px-3 py-1.5 text-left text-xs text-red-600 hover:bg-red-50"
           >
             <Trash2 className="h-3 w-3" /> Slett
           </button>

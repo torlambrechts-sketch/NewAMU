@@ -67,6 +67,7 @@ import { LearningLayout } from './components/learning/LearningLayout'
 import { LearningDashboard } from './pages/learning/LearningDashboard'
 import { LearningCoursesList } from './pages/learning/LearningCoursesList'
 import { LearningCourseBuilder } from './pages/learning/LearningCourseBuilder'
+import { LearningCourseDocumentModeTest } from './pages/learning/LearningCourseDocumentModeTest'
 import { LearningPlayer } from './pages/learning/LearningPlayer'
 import { LearningDeltakerePage } from './pages/learning/LearningDeltakerePage'
 import { LearningKompetansePage } from './pages/learning/LearningKompetansePage'
@@ -357,6 +358,7 @@ const router = createBrowserRouter(
                       <Route path="learning/flow" element={<LearningFlowEntry />} />
                       {/* Detail page renders its own ModulePageShell (course title + tabs + status). */}
                       <Route path="learning/courses/:courseId" element={<LearningCourseBuilder />} />
+                      <Route path="learning/courses/:courseId/dokument-test" element={<LearningCourseDocumentModeTest />} />
                       <Route path="learning" element={<LearningLayout />}>
                         <Route index element={<LearningDashboard />} />
                         {/* Five canonical tabs */}
