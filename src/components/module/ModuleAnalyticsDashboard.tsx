@@ -23,6 +23,7 @@ import type {
   DashboardDimension,
   DashboardFilter,
 } from '../../lib/dashboards/dashboardFilters'
+import { summariseFilters } from '../../lib/dashboards/summariseFilters'
 import type { ReportModule } from '../../types/reportBuilder'
 
 type WidgetControlSlot = (m: ReportModule) => ReactNode
@@ -135,11 +136,27 @@ export function ModuleAnalyticsDashboard({
     title
   )
 
+  // Auto-subtitle from active filter chips (3.2.6). Appended below the
+  // page-supplied description so consumers don't have to hand-type
+  // "narrowed to Avdeling: Salg · Status: Signert".
+  const filtersSubtitle =
+    filters && filters.length > 0 && dimensions
+      ? summariseFilters({ filters, dimensions })
+      : ''
+  const compositeDescription = filtersSubtitle ? (
+    <span className="block">
+      {description ? <span className="block">{description}</span> : null}
+      <span className="block text-xs italic text-neutral-500">{filtersSubtitle}</span>
+    </span>
+  ) : (
+    description
+  )
+
   return (
     <ModulePageShell
       breadcrumb={breadcrumb ?? []}
       title={titleNode}
-      description={description}
+      description={compositeDescription}
       headerActions={
         <div className="flex items-center gap-2">
           {headerActions}
