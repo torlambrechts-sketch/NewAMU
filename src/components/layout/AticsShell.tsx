@@ -402,8 +402,8 @@ const REGISTERS_NAV_PERMS: PermissionKey[] = [
   'module.view.dashboard',
   'module.view.hse',
   'module.view.org_health',
+  'module.view.internal_control',
   'documents.view',
-  'compliance.view',
 ]
 
 // ─────────────────────────────────────────────────────────────────────────────
