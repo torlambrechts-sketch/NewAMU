@@ -27,7 +27,7 @@ import {
   serialiseModule,
 } from '../../lib/learning/courseJsonIo'
 import { useOrgSetupContext } from '../../hooks/useOrgSetupContext'
-import type { CourseModule } from '../../types/learning'
+import type { Course, CourseModule } from '../../types/learning'
 import { LEARNING_MODULE_LEGAL_REFERENCES } from '../../components/learning/learningLegalReferences'
 import { LearningMetadataSchemaEditor } from './LearningMetadataSchemaEditor'
 import { RichTextEditor } from '../../components/learning/RichTextEditor'
