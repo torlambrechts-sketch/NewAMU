@@ -74,41 +74,34 @@ create trigger register_types_set_updated_at
 
 alter table public.register_types enable row level security;
 
+-- RLS uses the established helpers — current_org_id() / is_org_admin() /
+-- user_has_permission(). organization_members in this codebase is an HR
+-- directory table without a user_id column, so we route access through
+-- profiles.organization_id (the auth-linked org id) instead.
+
 drop policy if exists register_types_select on public.register_types;
 create policy register_types_select on public.register_types
   for select to authenticated
   using (
-    -- system types visible to everyone in any org they're a member of
-    (organization_id is null and exists (
-      select 1 from public.organization_members om
-      where om.user_id = auth.uid()
-    ))
+    -- system types visible to anyone with a current org
+    (organization_id is null and public.current_org_id() is not null)
     or
     -- org types visible to members of that org
-    (organization_id is not null and exists (
-      select 1 from public.organization_members om
-      where om.user_id = auth.uid() and om.organization_id = register_types.organization_id
-    ))
+    organization_id = public.current_org_id()
   );
 
 drop policy if exists register_types_write on public.register_types;
 create policy register_types_write on public.register_types
   for all to authenticated
   using (
-    organization_id is not null and exists (
-      select 1 from public.organization_members om
-      where om.user_id = auth.uid()
-        and om.organization_id = register_types.organization_id
-        and om.role in ('admin', 'owner')
-    )
+    organization_id is not null
+    and organization_id = public.current_org_id()
+    and (public.is_org_admin() or public.user_has_permission('internkontroll.manage'))
   )
   with check (
-    organization_id is not null and exists (
-      select 1 from public.organization_members om
-      where om.user_id = auth.uid()
-        and om.organization_id = register_types.organization_id
-        and om.role in ('admin', 'owner')
-    )
+    organization_id is not null
+    and organization_id = public.current_org_id()
+    and (public.is_org_admin() or public.user_has_permission('internkontroll.manage'))
   );
 
 -- ── 2. register_categories ────────────────────────────────────────────────
@@ -150,27 +143,19 @@ alter table public.register_categories enable row level security;
 drop policy if exists register_categories_member_select on public.register_categories;
 create policy register_categories_member_select on public.register_categories
   for select to authenticated
-  using (exists (
-    select 1 from public.organization_members om
-    where om.user_id = auth.uid()
-      and om.organization_id = register_categories.organization_id
-  ));
+  using (organization_id = public.current_org_id());
 
 drop policy if exists register_categories_admin_write on public.register_categories;
 create policy register_categories_admin_write on public.register_categories
   for all to authenticated
-  using (exists (
-    select 1 from public.organization_members om
-    where om.user_id = auth.uid()
-      and om.organization_id = register_categories.organization_id
-      and om.role in ('admin', 'owner')
-  ))
-  with check (exists (
-    select 1 from public.organization_members om
-    where om.user_id = auth.uid()
-      and om.organization_id = register_categories.organization_id
-      and om.role in ('admin', 'owner')
-  ));
+  using (
+    organization_id = public.current_org_id()
+    and (public.is_org_admin() or public.user_has_permission('internkontroll.manage'))
+  )
+  with check (
+    organization_id = public.current_org_id()
+    and (public.is_org_admin() or public.user_has_permission('internkontroll.manage'))
+  );
 
 -- ── 3. register_org_settings ──────────────────────────────────────────────
 
@@ -201,27 +186,19 @@ alter table public.register_org_settings enable row level security;
 drop policy if exists register_org_settings_member_select on public.register_org_settings;
 create policy register_org_settings_member_select on public.register_org_settings
   for select to authenticated
-  using (exists (
-    select 1 from public.organization_members om
-    where om.user_id = auth.uid()
-      and om.organization_id = register_org_settings.organization_id
-  ));
+  using (organization_id = public.current_org_id());
 
 drop policy if exists register_org_settings_admin_write on public.register_org_settings;
 create policy register_org_settings_admin_write on public.register_org_settings
   for all to authenticated
-  using (exists (
-    select 1 from public.organization_members om
-    where om.user_id = auth.uid()
-      and om.organization_id = register_org_settings.organization_id
-      and om.role in ('admin', 'owner')
-  ))
-  with check (exists (
-    select 1 from public.organization_members om
-    where om.user_id = auth.uid()
-      and om.organization_id = register_org_settings.organization_id
-      and om.role in ('admin', 'owner')
-  ));
+  using (
+    organization_id = public.current_org_id()
+    and (public.is_org_admin() or public.user_has_permission('internkontroll.manage'))
+  )
+  with check (
+    organization_id = public.current_org_id()
+    and (public.is_org_admin() or public.user_has_permission('internkontroll.manage'))
+  );
 
 -- ── 4. register_records ───────────────────────────────────────────────────
 
@@ -266,25 +243,13 @@ alter table public.register_records enable row level security;
 drop policy if exists register_records_member_select on public.register_records;
 create policy register_records_member_select on public.register_records
   for select to authenticated
-  using (exists (
-    select 1 from public.organization_members om
-    where om.user_id = auth.uid()
-      and om.organization_id = register_records.organization_id
-  ));
+  using (organization_id = public.current_org_id());
 
 drop policy if exists register_records_member_write on public.register_records;
 create policy register_records_member_write on public.register_records
   for all to authenticated
-  using (exists (
-    select 1 from public.organization_members om
-    where om.user_id = auth.uid()
-      and om.organization_id = register_records.organization_id
-  ))
-  with check (exists (
-    select 1 from public.organization_members om
-    where om.user_id = auth.uid()
-      and om.organization_id = register_records.organization_id
-  ));
+  using (organization_id = public.current_org_id())
+  with check (organization_id = public.current_org_id());
 
 -- ── 5. register_record_revisions ──────────────────────────────────────────
 -- Always-on audit trail. The table is cheap (jsonb diffs only fire on
@@ -336,8 +301,6 @@ create policy register_record_revisions_member_select on public.register_record_
   using (exists (
     select 1
       from public.register_records rr
-      join public.organization_members om
-        on om.organization_id = rr.organization_id
-       and om.user_id = auth.uid()
      where rr.id = register_record_revisions.record_id
+       and rr.organization_id = public.current_org_id()
   ));
