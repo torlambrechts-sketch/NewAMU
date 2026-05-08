@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type Dispatch, type SetStateAction } from 'react'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
-import { ArrowLeft, Check, CheckCircle2, ChevronLeft, ChevronRight, ExternalLink, Play } from 'lucide-react'
+import { Award, ArrowLeft, Check, CheckCircle2, ChevronLeft, ChevronRight, ExternalLink, Lock, Play } from 'lucide-react'
 import { useLearning, type IltEventRow } from '../../hooks/useLearning'
 import { useOrgSetupContext } from '../../hooks/useOrgSetupContext'
 import type { CourseModule, ModuleCompleteMeta } from '../../types/learning'
@@ -9,6 +9,7 @@ import { StandardInput } from '../../components/ui/Input'
 import { InfoBox, WarningBox } from '../../components/ui/AlertBox'
 import { ToggleSwitch } from '../../components/ui/FormToggles'
 import { ModulePageShell, ModuleSectionCard } from '../../components/module'
+import { SlidePanel } from '../../components/layout/SlidePanel'
 import { sanitizeLearningHtml } from '../../lib/sanitizeHtml'
 import { normalizeModuleHtml } from '../../lib/richTextDisplay'
 import { LearningPrivacyNotice } from '../../components/learning/LearningPrivacyNotice'
@@ -161,11 +162,13 @@ export function LearningPlayer() {
       course.modules.length > 0 &&
       course.modules.every((m) => courseProgress?.moduleProgress[m.id]?.completed),
   )
-  const hasCert = course
-    ? certificates.some((c) => c.courseId === course.id)
-    : false
+  const courseCert = course
+    ? certificates.find((c) => c.courseId === course.id)
+    : undefined
+  const hasCert = !!courseCert
 
   const certNameLocked = Boolean(supabaseConfigured && profile?.display_name?.trim())
+  const [kursbevisOpen, setKursbevisOpen] = useState(false)
 
   useEffect(() => {
     if (hasCert) queueMicrotask(() => setCertFeedback(null))
@@ -272,14 +275,35 @@ export function LearningPlayer() {
       title={activeCourse.title}
       description={description}
       headerActions={
-        <Button
-          type="button"
-          variant="secondary"
-          icon={<ArrowLeft className="h-4 w-4" />}
-          onClick={() => navigate('/learning/katalog')}
-        >
-          Tilbake til katalog
-        </Button>
+        <div className="flex flex-wrap items-center gap-2">
+          {hasCert && courseCert ? (
+            <Link
+              to={`/learning/certificates/${courseCert.id}/print`}
+              className="inline-flex items-center gap-1.5 rounded-md border border-[#1a3d32] bg-[#e7efe9] px-3 py-2 text-sm font-semibold text-[#1a3d32] transition-colors hover:bg-[#d8e3dc]"
+            >
+              <Award className="h-4 w-4" />
+              Kursbevis
+            </Link>
+          ) : (
+            <Button
+              type="button"
+              variant="secondary"
+              icon={modulesComplete ? <Award className="h-4 w-4" /> : <Lock className="h-4 w-4" />}
+              disabled={!modulesComplete}
+              onClick={() => setKursbevisOpen(true)}
+            >
+              {modulesComplete ? 'Hent kursbevis' : 'Kursbevis (låst)'}
+            </Button>
+          )}
+          <Button
+            type="button"
+            variant="secondary"
+            icon={<ArrowLeft className="h-4 w-4" />}
+            onClick={() => navigate('/learning/katalog')}
+          >
+            Tilbake til katalog
+          </Button>
+        </div>
       }
     >
       <LearningPrivacyNotice />
@@ -414,74 +438,87 @@ export function LearningPlayer() {
             teams={teams}
             onSaveMetadata={setProgressMetadata}
           />
-
-          <ModuleSectionCard
-            className="p-5 md:p-6"
-            style={{ background: '#e7efe9', borderColor: '#c5d3c8' }}
-          >
-            <h3 className="text-base font-semibold text-neutral-900">Kursbevis</h3>
-            <p className="mt-1.5 text-sm text-neutral-700">
-              {certNameLocked
-                ? 'Fullfør hver modul med knappen inne i modulen. Navn på kursbeviset hentes fra profilen din og kan ikke endres her.'
-                : 'Fullfør hver modul med knappen inne i modulen. Når du er ferdig, skriv inn navnet som skal stå på kursbeviset (demo / uten organisasjon).'}
-            </p>
-            {certFeedback?.kind === 'success' ? (
-              <div className="mt-3">
-                <InfoBox>
-                  Kursbevis er utstedt. Verifiseringskode: <span className="font-mono font-semibold">{certFeedback.verifyCode}</span>
-                </InfoBox>
-              </div>
-            ) : null}
-            {certFeedback?.kind === 'error' ? (
-              <div className="mt-3">
-                <WarningBox>{certFeedback.message}</WarningBox>
-              </div>
-            ) : null}
-            <div className="mt-3 flex flex-wrap items-end gap-2">
-              <div className="min-w-[200px] flex-1">
-                <label htmlFor="learning-learner-name" className="sr-only">
-                  Navn på kursbevis
-                </label>
-                <StandardInput
-                  id="learning-learner-name"
-                  value={learnerName}
-                  onChange={(e) => {
-                    setLearnerName(e.target.value)
-                    setCertFeedback(null)
-                  }}
-                  placeholder="Fullt navn på kursbeviset"
-                  disabled={!modulesComplete || hasCert || certNameLocked}
-                />
-              </div>
-              <Button
-                type="button"
-                variant="primary"
-                disabled={!modulesComplete || hasCert}
-                onClick={() => {
-                  void (async () => {
-                    setCertFeedback(null)
-                    const r = await issueCertificate(activeCourse.id, learnerName)
-                    if (r.ok) {
-                      setCertFeedback({ kind: 'success', verifyCode: r.certificate.verifyCode })
-                    } else {
-                      setCertFeedback({ kind: 'error', message: r.error })
-                    }
-                  })()
-                }}
-              >
-                {hasCert ? 'Kursbevis utstedt' : 'Hent kursbevis'}
-              </Button>
-            </div>
-            <p className="mt-2 text-xs text-neutral-600">
-              {!modulesComplete
-                ? 'Fullfør alle moduler for å låse opp kursbeviset.'
-                : hasCert
-                  ? 'Du har allerede et kursbevis for dette kurset.'
-                  : 'Du kan nå hente kursbeviset ditt.'}
-            </p>
-          </ModuleSectionCard>
         </div>
       </div>
+
+      <SlidePanel
+        open={kursbevisOpen}
+        onClose={() => setKursbevisOpen(false)}
+        titleId="learning-player-kursbevis"
+        title="Kursbevis"
+        footer={
+          <div className="flex w-full items-center justify-between gap-2">
+            <Button type="button" variant="secondary" onClick={() => setKursbevisOpen(false)}>
+              Lukk
+            </Button>
+            <Button
+              type="button"
+              variant="primary"
+              icon={<Award className="h-4 w-4" />}
+              disabled={!modulesComplete || hasCert}
+              onClick={() => {
+                void (async () => {
+                  setCertFeedback(null)
+                  const r = await issueCertificate(activeCourse.id, learnerName)
+                  if (r.ok) {
+                    setCertFeedback({ kind: 'success', verifyCode: r.certificate.verifyCode })
+                  } else {
+                    setCertFeedback({ kind: 'error', message: r.error })
+                  }
+                })()
+              }}
+            >
+              {hasCert ? 'Kursbevis utstedt' : 'Hent kursbevis'}
+            </Button>
+          </div>
+        }
+      >
+        <div className="space-y-4">
+          <p className="text-sm text-neutral-700">
+            {certNameLocked
+              ? 'Navn på kursbeviset hentes fra profilen din og kan ikke endres her.'
+              : 'Skriv inn navnet som skal stå på kursbeviset.'}
+          </p>
+          {certFeedback?.kind === 'success' ? (
+            <InfoBox>
+              Kursbevis er utstedt. Verifiseringskode:{' '}
+              <span className="font-mono font-semibold">{certFeedback.verifyCode}</span>.{' '}
+              {courseCert ? (
+                <Link
+                  to={`/learning/certificates/${courseCert.id}/print`}
+                  className="font-medium text-[#1a3d32] underline"
+                >
+                  Vis kursbevis
+                </Link>
+              ) : null}
+            </InfoBox>
+          ) : null}
+          {certFeedback?.kind === 'error' ? <WarningBox>{certFeedback.message}</WarningBox> : null}
+          <div>
+            <label htmlFor="learning-learner-name" className="text-[10px] font-bold uppercase tracking-wider text-neutral-800">
+              Navn på kursbevis
+            </label>
+            <StandardInput
+              id="learning-learner-name"
+              value={learnerName}
+              onChange={(e) => {
+                setLearnerName(e.target.value)
+                setCertFeedback(null)
+              }}
+              placeholder="Fullt navn på kursbeviset"
+              disabled={!modulesComplete || hasCert || certNameLocked}
+              className="mt-1.5"
+            />
+          </div>
+          <p className="text-xs text-neutral-600">
+            {!modulesComplete
+              ? 'Fullfør alle moduler for å låse opp kursbeviset.'
+              : hasCert
+                ? 'Du har allerede et kursbevis for dette kurset.'
+                : 'Du kan nå hente kursbeviset ditt.'}
+          </p>
+        </div>
+      </SlidePanel>
     </ModulePageShell>
   )
 }

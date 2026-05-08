@@ -3,7 +3,6 @@ import { Link, useNavigate, useParams } from 'react-router-dom'
 import { learningFlowEntryUrl, qrCodeImageUrl } from '../../lib/learningDeepLink'
 import {
   ArrowLeft,
-  Award,
   BarChart3,
   FileText,
   Layers,
@@ -31,7 +30,12 @@ import { Tabs, type TabItem } from '../../components/ui/Tabs'
 import { ModuleLegalBanner, ModulePageShell, ModuleSectionCard } from '../../components/module'
 import { WPSTD_FORM_FIELD_LABEL } from '../../components/layout/WorkplaceStandardFormPanel'
 
-type MainTab = 'info' | 'modules' | 'cert' | 'participants' | 'insights'
+// Tab IDs match the editor design (`ui_kits/elearning/editor`): innhold
+// (modules first, the primary task), detaljer (course info + sertifikat
+// authoring + metadata schema), participants/insights kept as
+// informational tabs. The legacy `cert` tab is gone — its content folds
+// into the Detaljer tab as a Sertifikat sub-card.
+type MainTab = 'innhold' | 'detaljer' | 'participants' | 'insights'
 
 export function LearningCourseBuilder() {
   const navigate = useNavigate()
@@ -57,7 +61,7 @@ export function LearningCourseBuilder() {
   const isSystemCatalog =
     course && course.origin === 'system' && course.sourceSystemCourseId && course.modules.length > 0
 
-  const [mainTab, setMainTab] = useState<MainTab>('info')
+  const [mainTab, setMainTab] = useState<MainTab>('innhold')
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [tagInput, setTagInput] = useState('')
   const [builderActionError, setBuilderActionError] = useState<string | null>(null)
@@ -187,10 +191,12 @@ export function LearningCourseBuilder() {
   }
 
   // ── Tabs ─────────────────────────────────────────────────────────────────
+  // Order matches the editor design (modules-first since editing content
+  // is the primary builder task). The Sertifikat content from the legacy
+  // `cert` tab now lives as a sub-card inside Detaljer.
   const tabItems: TabItem[] = [
-    { id: 'info', label: 'Informasjon', icon: FileText },
-    { id: 'modules', label: 'Moduler', icon: Layers, badgeCount: course.modules.length },
-    { id: 'cert', label: 'Sertifisering', icon: Award },
+    { id: 'innhold', label: 'Innhold', icon: Layers, badgeCount: course.modules.length },
+    { id: 'detaljer', label: 'Detaljer', icon: FileText },
     { id: 'participants', label: 'Deltakere', icon: Users },
     { id: 'insights', label: 'Innsikt', icon: BarChart3 },
   ]
@@ -292,7 +298,8 @@ export function LearningCourseBuilder() {
       {learningError ? <WarningBox>{learningError}</WarningBox> : null}
       {builderActionError ? <WarningBox>{builderActionError}</WarningBox> : null}
 
-      {mainTab === 'info' && (
+      {mainTab === 'detaljer' && (
+        <div className="space-y-6">
         <ModuleSectionCard className="p-5 md:p-6">
           <div className="grid gap-5 lg:grid-cols-2">
             <div>
@@ -432,9 +439,37 @@ export function LearningCourseBuilder() {
             </div>
           </div>
         </ModuleSectionCard>
+
+        <ModuleSectionCard className="p-5 md:p-6">
+          <h3 className="text-base font-semibold text-neutral-900">Sertifikat</h3>
+          <p className="mt-1 text-sm text-neutral-600">
+            Kursbevis utstedes når deltakeren fullfører alle obligatoriske moduler.
+            Administrer alle utstedte kursbevis under{' '}
+            <Link to="/learning/certifications" className="font-medium text-[#1a3d32] underline">
+              Sertifiseringer
+            </Link>
+            .
+          </p>
+          <div className="mt-5">
+            <p className="text-[10px] font-bold uppercase tracking-wider text-neutral-700">
+              Hoveddata på kursbevis
+            </p>
+            <p className="mt-1 text-xs text-neutral-500">
+              Definer ekstra opplysninger som hentes ved fullføring. Innebygde typer
+              (lokasjon, avdeling, team) snapshottes automatisk fra organisasjonsmedlemskap.
+            </p>
+            <div className="mt-3">
+              <LearningMetadataSchemaEditor
+                schema={course.metadataSchema ?? null}
+                onChange={(next) => updateCourse(course.id, { metadataSchema: next })}
+              />
+            </div>
+          </div>
+        </ModuleSectionCard>
+        </div>
       )}
 
-      {mainTab === 'modules' && (
+      {mainTab === 'innhold' && (
         <div className="space-y-6">
           <LearningSectionBuilder
             learning={learning}
@@ -464,40 +499,6 @@ export function LearningCourseBuilder() {
                 paletten for å opprette en ny.
               </p>
             )}
-          </ModuleSectionCard>
-        </div>
-      )}
-
-      {mainTab === 'cert' && (
-        <div className="space-y-6">
-          <ModuleSectionCard className="p-5 md:p-6">
-            <p className="text-sm text-neutral-700">
-              Kursbevis utstedes når en deltaker fullfører alle moduler i{' '}
-              <Link to={`/learning/play/${course.id}`} className="font-medium text-[#1a3d32] underline">
-                deltakervisten
-              </Link>
-              . Administrer alle kursbevis under{' '}
-              <Link to="/learning/certifications" className="font-medium text-[#1a3d32] underline">
-                Sertifiseringer
-              </Link>
-              .
-            </p>
-          </ModuleSectionCard>
-
-          <ModuleSectionCard className="p-5 md:p-6">
-            <h3 className="text-base font-semibold text-neutral-900">Hoveddata på kursbevis</h3>
-            <p className="mt-1 text-sm text-neutral-600">
-              Definer hvilke ekstra opplysninger som hentes inn på fullføringsskjermen.
-              Innebygde typer (lokasjon, avdeling, team) snapshottes automatisk fra
-              brukerens organisasjonsmedlemskap ved fullføring og kan filtreres på i
-              analyse.
-            </p>
-            <div className="mt-4">
-              <LearningMetadataSchemaEditor
-                schema={course.metadataSchema ?? null}
-                onChange={(next) => updateCourse(course.id, { metadataSchema: next })}
-              />
-            </div>
           </ModuleSectionCard>
         </div>
       )}

@@ -4,8 +4,13 @@
 > `specs/elearning-parity.md` (the existing learning architecture).
 
 **Owner of this spec:** human.
-**Spec status:** `🚧 draft — design source needed (OQ-CB1)` before
-flipping to `📋 ready`.
+**Spec status:** `🚧 in-flight — Phase B shipped` (T3 + T4 + T5).
+T2 deferred: the design's three-pane editor with `Lovverk` /
+`Forhåndsvis` tabs needs a new `course.lawRefs` field + an inline
+preview surface — both bigger scope. Design source captured under
+`/tmp/design-extract/contents/klarert-design-system/project/ui_kits/elearning/editor/`
+during this session (Phase B drew from `CourseEditor.jsx` + the
+README's tab list).
 
 ---
 
