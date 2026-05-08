@@ -98,8 +98,17 @@ export function useSurveyNav(): UseSurveyNavReturn {
       } else {
         const rows: PinnedRow[] = []
         for (const raw of tplRes.data ?? []) {
-          const catalog = (raw as { survey_template_catalog?: { name?: string } | null })
+          // PostgREST returns the FK join as either a single object or
+          // a single-element array depending on schema-cache visibility
+          // of the FK constraint. Accept both shapes — historically the
+          // array form silently dropped pinned templates from the
+          // sidebar even when the hub showed them, because the
+          // single-object access path saw `undefined`.
+          const rawJoin = (raw as { survey_template_catalog?: unknown })
             .survey_template_catalog
+          const catalog = Array.isArray(rawJoin)
+            ? (rawJoin[0] as { name?: string } | undefined)
+            : (rawJoin as { name?: string } | null | undefined)
           if (!catalog?.name) continue
           rows.push({
             catalog_id: (raw as { catalog_id: string }).catalog_id,
