@@ -182,6 +182,13 @@ export type WikiPage = {
    * authored without a template.
    */
   metadata?: Record<string, unknown>
+  /**
+   * Source template id the page was authored from. References
+   * `document_org_templates.id`. Null when the page wasn't created
+   * from a template (free-form). Drives the schema-driven metadata
+   * panel in DocumentEditorWorkbench.
+   */
+  createdFromTemplateId?: string | null
 }
 
 /** Immutable snapshot when a version was published (audit) */

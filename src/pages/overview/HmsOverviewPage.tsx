@@ -40,6 +40,8 @@ import { useSurveyDatasets } from '../../../modules/survey/dashboards/useSurveyD
 import { useTasks } from '../../hooks/useTasks'
 import { useTaskExtensions } from '../../../modules/tasks/useTaskExtensions'
 import { useTasksDatasets } from '../../../modules/tasks/dashboards/useTasksDatasets'
+import { useDocuments } from '../../hooks/useDocuments'
+import { useDocumentsDatasets } from '../documents/dashboards/useDocumentsDatasets'
 import {
   HMS_OVERVIEW_SCOPE_ID,
   // Side-effect import: registers the composite scope on module load.
@@ -52,6 +54,7 @@ import '../../../modules/compliance/dashboards/checklistDashboardScope'
 import '../../../modules/survey/dashboards/surveyDashboardScope'
 import '../../../modules/tasks/dashboards/tasksDashboardScope'
 import '../learning/dashboards/learningDashboardScope'
+import '../documents/dashboards/documentsDashboardScope'
 import type { ReportModule } from '../../types/reportBuilder'
 import type { DashboardDimension } from '../../lib/dashboards/dashboardFilters'
 
@@ -73,6 +76,8 @@ export function HmsOverviewPage() {
 
   const learning = useLearning()
   const cats = useLearningCategories({ supabase })
+
+  const docs = useDocuments()
 
   const dashboard = useDashboardLayout({ supabase, scopeId: HMS_OVERVIEW_SCOPE_ID })
 
@@ -147,11 +152,22 @@ export function HmsOverviewPage() {
     members: orgSetup.members,
     departments: orgSetup.departments,
   })
+  const accessRequestsOpen = useMemo(
+    () => docs.wikiAccessRequests.filter((r) => r.status === 'pending').length,
+    [docs.wikiAccessRequests],
+  )
+  const documentsDs = useDocumentsDatasets({
+    filters: dashboard.filters,
+    pages: docs.pages,
+    spaces: docs.spaces,
+    orgCustomTemplates: docs.orgCustomTemplates,
+    accessRequestsOpen,
+  })
 
   // Merge — keys are scope-namespaced so collisions are impossible.
   const datasets = useMemo<Record<string, unknown>>(
-    () => ({ ...checklistDs, ...surveyDs, ...tasksDs, ...learningDs }),
-    [checklistDs, surveyDs, tasksDs, learningDs],
+    () => ({ ...checklistDs, ...surveyDs, ...tasksDs, ...learningDs, ...documentsDs }),
+    [checklistDs, surveyDs, tasksDs, learningDs, documentsDs],
   )
 
   const layout = useMemo(
@@ -227,8 +243,16 @@ export function HmsOverviewPage() {
         }
         layout={layout}
         datasets={datasets}
-        loading={cl.loading || survey.loading || learning.learningLoading || dashboard.loading}
-        error={cl.error ?? survey.error ?? learning.learningError ?? dashboard.error}
+        loading={
+          cl.loading ||
+          survey.loading ||
+          learning.learningLoading ||
+          docs.loading ||
+          dashboard.loading
+        }
+        error={
+          cl.error ?? survey.error ?? learning.learningError ?? docs.error ?? dashboard.error
+        }
         emptyState={
           <div className="rounded-md border border-dashed border-neutral-300 bg-white p-8 text-center">
             <BarChart3 className="mx-auto h-8 w-8 text-neutral-300" aria-hidden />

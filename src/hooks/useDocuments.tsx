@@ -302,6 +302,7 @@ function mapPage(
     review_required?: boolean | null
     reviewer_id?: string | null
     metadata?: Record<string, unknown> | null
+    created_from_template_id?: string | null
   },
   authorFallback: string,
 ): WikiPage {
@@ -342,6 +343,7 @@ function mapPage(
     reviewRequired: row.review_required ?? false,
     reviewerId: row.reviewer_id ?? null,
     metadata: (row.metadata as Record<string, unknown> | null) ?? {},
+    createdFromTemplateId: row.created_from_template_id ?? null,
   }
 }
 

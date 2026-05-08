@@ -6,6 +6,7 @@ import { ArrowLeft } from 'lucide-react'
 import { ModuleAlleListPage } from '../../components/module/ModuleAlleListPage'
 import { Badge } from '../../components/ui/Badge'
 import { useDocuments } from '../../hooks/useDocuments'
+import { useOrgSetupContext } from '../../hooks/useOrgSetupContext'
 import type { WikiPage } from '../../types/documents'
 
 const STATUS_VARIANT: Record<string, 'draft' | 'active' | 'signed' | 'neutral'> = {
@@ -21,6 +22,7 @@ const STATUS_LABEL: Record<string, string> = {
 
 export function DocumentsAllePage() {
   const docs = useDocuments()
+  const { orgProfiles } = useOrgSetupContext()
 
   const categoryNameById = useMemo(
     () => new Map(docs.spaces.map((s) => [s.id, s.title])),
@@ -30,6 +32,20 @@ export function DocumentsAllePage() {
     () => new Map(docs.spaces.map((s) => [s.id, s.regulationId ?? null])),
     [docs.spaces],
   )
+  // auth user_id → display name. wiki_pages.author_id references
+  // auth.users.id which orgProfiles is also keyed on, so this is direct.
+  const ownerNameByUserId = useMemo(
+    () => new Map(orgProfiles.map((p) => [p.id, p.display_name || p.email || '—'])),
+    [orgProfiles],
+  )
+  // Distinct owner ids actually present in the page set drive the chip's
+  // option list, so admins only see owners they can pick.
+  const ownerOptions = useMemo(() => {
+    const present = new Set(docs.pages.map((p) => p.authorId).filter(Boolean) as string[])
+    return [...present]
+      .map((id) => ({ id, label: ownerNameByUserId.get(id) ?? '(ukjent)' }))
+      .sort((a, b) => a.label.localeCompare(b.label, 'nb'))
+  }, [docs.pages, ownerNameByUserId])
 
   return (
     <ModuleAlleListPage<WikiPage>
@@ -66,6 +82,15 @@ export function DocumentsAllePage() {
             <Badge variant={STATUS_VARIANT[r.status] ?? 'neutral'}>
               {STATUS_LABEL[r.status] ?? r.status}
             </Badge>
+          ),
+        },
+        {
+          key: 'owner',
+          label: 'Eier',
+          render: (r) => (
+            <span className="text-xs text-neutral-700">
+              {r.authorId ? (ownerNameByUserId.get(r.authorId) ?? '(ukjent)') : '—'}
+            </span>
           ),
         },
         {
@@ -111,6 +136,13 @@ export function DocumentsAllePage() {
           label: 'Plass',
           options: docs.spaces.map((s) => ({ id: s.id, label: s.title })),
           accessor: (r) => r.spaceId,
+        },
+        {
+          kind: 'enum',
+          id: 'owner',
+          label: 'Eier',
+          options: ownerOptions,
+          accessor: (r) => r.authorId ?? null,
         },
         {
           kind: 'date_range',
