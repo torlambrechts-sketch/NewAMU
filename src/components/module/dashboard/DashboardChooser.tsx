@@ -153,7 +153,11 @@ export function DashboardChooser({
   if (!hasAnyView && isDefault) return null
 
   return (
-    <div ref={containerRef} className="relative inline-block">
+    // `font-sans` resets the font-family because this chooser is slotted
+    // inline next to the page H1, which sets Libre Baskerville on its
+    // children via inline style. Without this reset the dropdown reads
+    // in serif while every other UI dropdown is Inter sans.
+    <div ref={containerRef} className="relative inline-block font-sans">
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}
