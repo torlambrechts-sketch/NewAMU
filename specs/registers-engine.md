@@ -11,7 +11,18 @@
 commit `0b49d87`.
 **Target module:** new `modules/registers/` + `src/pages/registers/`.
 **Owner of this spec:** human.
-**Spec status:** `📋 ready to execute` after open questions (§9) answered.
+**Spec status:** `🚧 in flight — Phase A starting`. OQs resolved 2026-05:
+- **OQ-R1: Custom register types in v1** — yes. Build for scalability;
+  admins can author their own register types alongside platform-shipped
+  ones. The data layer already supports this (`register_types.organization_id`
+  is nullable; null = system, set = per-org). v1 ships a basic schema
+  editor for the common field kinds (text, number, date, select,
+  select_multi, boolean, doc_ref); advanced kinds can layer on later.
+- **OQ-R3: Sidebar shape** — match Sjekklister + Undersøkelser.
+  Single "Register" NavGroup with `Analyse + Innstillinger` as fixed
+  flatSubs, then enabled register types grouped by category (just like
+  Survey's pinned templates by category). Same regulation chip filter
+  as the rest of the modules.
 
 ---
 
@@ -79,7 +90,7 @@ same `ModuleAnalyticsDashboard` runtime.
 | **R-2 Cross-regulation linking** | ✅ in scope | `register_types.regulation_ids text[]` (multi). One register type can serve multiple regulations (chemicals → AML §4-5 + ISO 14001 + REACH simultaneously). The `RegulationFilterMenu` already on the top bar narrows the visible types. |
 | **R-3 Review cadence + due reminders** | ✅ in scope | `register_records.review_due_at` driven by the type's `default_review_cadence_months` (override per record). Surfaces in dashboard KPI + Notification tray. |
 | **R-4 Evidence attachments** | ✅ in scope | `register_records.evidence_doc_refs text[]` linking to `wiki_pages` ids. SDS files, contracts, audit reports — Documents already stores them. |
-| **R-5 Custom register types (admin-authored)** | 📋 deferred | Defer to a follow-up. Built-in types cover the common cases; custom types add a "schema editor" UX which is its own project. |
+| **R-5 Custom register types (admin-authored)** | ✅ in scope | OQ-R1 resolved: build for scalability. Admin authors register types via a schema-builder UX in `/registers/admin`. v1 supports the common field kinds (text, number, date, select, select_multi, boolean, doc_ref); advanced kinds (location_multi, conditional fields, formula columns) can layer on later. |
 
 **Reduced scope:** C-5 dropped (no sign event); custom types deferred (R-5).
 Total tasks: T1–T9 across three phases.
