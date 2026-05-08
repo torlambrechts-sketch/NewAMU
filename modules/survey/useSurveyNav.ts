@@ -101,8 +101,20 @@ export function useSurveyNav(): UseSurveyNavReturn {
         .order('pack', { ascending: true })
         .order('position', { ascending: true })
         .order('name', { ascending: true }),
-    ]).then(([tplRes, catalogRes, catRes]) => {
-      if (cancelled) return
+    ])
+      .catch((e) => {
+        // A network blip shouldn't leave `pinned` permanently empty.
+        // Mark the org as fetched so `loading` flips off, surface a
+        // dev-time warning. The user keeps the fixed sub-entries
+        // (Analyse / Alle / Innstillinger) and reloads the page to retry.
+        if (cancelled) return null
+        console.warn('useSurveyNav fetch failed', e)
+        setFetchedFor(orgId)
+        return null
+      })
+      .then((res) => {
+      if (!res || cancelled) return
+      const [tplRes, catalogRes, catRes] = res
       const catalogNameById = new Map<string, string>()
       for (const c of catalogRes.data ?? []) {
         const id = (c as { id?: string }).id
@@ -138,14 +150,15 @@ export function useSurveyNav(): UseSurveyNavReturn {
   const loading = packsLoading || (targetKey !== null && targetKey !== fetchedFor)
 
   const items = useMemo<SurveyPinnedNavItem[]>(() => {
-    const licensedSlugs = new Set(packs.map((p) => p.slug))
-    const focusSlug =
-      activePackParam && licensedSlugs.has(activePackParam as SurveyPackSlug)
-        ? (activePackParam as SurveyPackSlug)
-        : null
-
+    // No `licensedSlugs.has(t.pack)` filter: if we got the row from
+    // `survey_org_templates`, the pack value is valid by FK. The
+    // earlier double-check against `useSurveyPacks` was racy on first
+    // render — when packs hadn't loaded yet, every pinned row was
+    // dropped and the sidebar stayed empty. The pack-focus filter
+    // (when `?pack=` is set in the URL) stays — that's an explicit
+    // user-driven narrow.
+    const focusSlug = activePackParam ? (activePackParam as SurveyPackSlug) : null
     return pinned
-      .filter((t) => licensedSlugs.has(t.pack))
       .filter((t) => focusSlug === null || t.pack === focusSlug)
       .map((t) => ({
         catalogId: t.catalog_id,
@@ -156,20 +169,17 @@ export function useSurveyNav(): UseSurveyNavReturn {
         to: `/survey?template=${encodeURIComponent(t.catalog_id)}&pack=${encodeURIComponent(t.pack)}`,
       }))
       .sort((a, b) => a.templateName.localeCompare(b.templateName, 'nb'))
-  }, [pinned, packs, activePackParam])
+  }, [pinned, activePackParam])
 
   const categories = useMemo<SurveyNavCategory[]>(() => {
-    const licensedSlugs = new Set(packs.map((p) => p.slug))
-    return categoryRows
-      .filter((c) => licensedSlugs.has(c.pack))
-      .map((c) => ({
-        id: c.id,
-        pack: c.pack,
-        name: c.name,
-        position: c.position,
-        regulationId: c.regulation_id ?? null,
-      }))
-  }, [categoryRows, packs])
+    return categoryRows.map((c) => ({
+      id: c.id,
+      pack: c.pack,
+      name: c.name,
+      position: c.position,
+      regulationId: c.regulation_id ?? null,
+    }))
+  }, [categoryRows])
 
   return {
     loading,
