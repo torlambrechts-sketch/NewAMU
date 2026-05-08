@@ -157,21 +157,32 @@ export function DashboardChooser({
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}
-        className="inline-flex items-center gap-1.5 rounded-md border border-neutral-200 bg-white px-2.5 py-1 text-sm font-medium text-neutral-700 hover:bg-neutral-50"
+        className={
+          'inline-flex items-center gap-2 border bg-white px-3 py-2 text-sm font-medium text-neutral-800 outline-none transition-colors ' +
+          (open
+            ? 'border-[#1a3d32] ring-1 ring-[#1a3d32]/25'
+            : 'border-neutral-300 hover:border-neutral-400')
+        }
         aria-haspopup="listbox"
         aria-expanded={open}
       >
-        <span className="max-w-[200px] truncate">{triggerLabel}</span>
+        <span className="max-w-[220px] truncate">{triggerLabel}</span>
         {activeIsPrivate ? <Lock className="h-3.5 w-3.5 text-neutral-400" aria-hidden /> : null}
         {activeRow?.is_default ? <Pin className="h-3.5 w-3.5 text-neutral-400" aria-hidden /> : null}
-        <ChevronDown className="h-3.5 w-3.5 text-neutral-500" aria-hidden />
+        <ChevronDown
+          className={
+            'h-4 w-4 shrink-0 transition-transform ' +
+            (open ? 'rotate-180 text-[#1a3d32]' : 'text-neutral-400')
+          }
+          aria-hidden
+        />
       </button>
 
       {open ? (
         <div
           role="listbox"
           aria-label="Velg visning"
-          className="absolute left-0 z-30 mt-1 w-[300px] rounded-md border border-neutral-200 bg-white shadow-lg"
+          className="absolute left-0 z-30 mt-1 w-[300px] border border-neutral-300 bg-white shadow-lg"
         >
           {submode === null ? (
             <div className="py-1">
@@ -265,7 +276,7 @@ export function DashboardChooser({
                     void submitSubmode()
                   }
                 }}
-                className="block w-full rounded-md border border-neutral-200 bg-white px-2 py-1 text-sm focus:border-neutral-400 focus:outline-none"
+                className="block w-full border border-neutral-300 bg-white px-3 py-2 text-sm outline-none transition-colors focus:border-[#1a3d32] focus:ring-1 focus:ring-[#1a3d32]/25"
                 placeholder="Navn på visningen"
               />
               <div className="flex justify-end gap-2 pt-1">
@@ -317,25 +328,31 @@ function RowGroup({
         {label}
       </div>
       <ul role="group">
-        {rows.map((r) => (
-          <li key={r.id}>
-            <button
-              type="button"
-              role="option"
-              aria-selected={r.id === activeId}
-              onClick={() => onSelect(r.id)}
-              className={`flex w-full items-center justify-between gap-2 px-3 py-1.5 text-left text-sm hover:bg-neutral-50 ${
-                r.id === activeId ? 'bg-[#f4faf6]' : ''
-              }`}
-            >
-              <span className="min-w-0 flex-1 truncate">{r.name}</span>
-              <span className="flex shrink-0 items-center gap-1 text-neutral-400">
-                {r.is_default ? <Pin className="h-3 w-3" aria-label="Standard" /> : null}
-                {r.id === activeId ? <Check className="h-3.5 w-3.5 text-[#1a3d32]" /> : null}
-              </span>
-            </button>
-          </li>
-        ))}
+        {rows.map((r) => {
+          const isActive = r.id === activeId
+          return (
+            <li key={r.id}>
+              <button
+                type="button"
+                role="option"
+                aria-selected={isActive}
+                onClick={() => onSelect(r.id)}
+                className={
+                  'flex w-full items-center justify-between gap-2 border-l-2 px-3 py-2 text-left text-sm transition-colors hover:bg-neutral-50 ' +
+                  (isActive
+                    ? 'border-[#1a3d32] bg-neutral-100 font-medium text-neutral-900'
+                    : 'border-transparent text-neutral-800')
+                }
+              >
+                <span className="min-w-0 flex-1 truncate">{r.name}</span>
+                <span className="flex shrink-0 items-center gap-1 text-neutral-400">
+                  {r.is_default ? <Pin className="h-3 w-3" aria-label="Standard" /> : null}
+                  {isActive ? <Check className="h-3.5 w-3.5 text-[#1a3d32]" /> : null}
+                </span>
+              </button>
+            </li>
+          )
+        })}
       </ul>
     </>
   )
@@ -356,9 +373,10 @@ function ActionRow({
     <button
       type="button"
       onClick={onClick}
-      className={`flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm hover:bg-neutral-50 ${
-        destructive ? 'text-red-700 hover:bg-red-50' : 'text-neutral-700'
-      }`}
+      className={
+        'flex w-full items-center gap-2 border-l-2 border-transparent px-3 py-2 text-left text-sm transition-colors hover:bg-neutral-50 ' +
+        (destructive ? 'text-red-700 hover:bg-red-50' : 'text-neutral-700')
+      }
     >
       <span className="text-neutral-500" aria-hidden>
         {icon}
