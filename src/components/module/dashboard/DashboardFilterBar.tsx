@@ -61,7 +61,10 @@ export function DashboardFilterBar({ filters, dimensions, onChange }: Props) {
   }
 
   return (
-    <div className="rounded-lg border border-neutral-200 bg-white px-4 py-2.5 shadow-sm">
+    <div
+      className="rounded-xl border border-neutral-200/80 bg-white px-4 py-2.5"
+      style={{ boxShadow: '0 1px 2px rgba(0,0,0,0.03)' }}
+    >
       <div className="flex flex-wrap items-center gap-2">
         <button
           type="button"

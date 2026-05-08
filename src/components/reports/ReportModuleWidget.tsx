@@ -2,7 +2,13 @@ import { useRef, useState, type PointerEvent as ReactPointerEvent, type ReactNod
 import type { ReportModule, ReportModuleColSpan } from '../../types/reportBuilder'
 import { getAtPath, numberAtPath } from '../../lib/reportDatasets'
 
-const R = 'rounded-none'
+// Polished widget surface (Klarert dashboard kit V1 — see
+// `ui_kits/dashboard/Widgets.jsx` `WidgetCard`). Earlier iterations of
+// this runtime used `rounded-none` for a squared, utilitarian feel; the
+// design kit calls for `rounded-xl` with a subtle `0 1px 2px` shadow
+// and a soft hairline border.
+const R = 'rounded-xl'
+const WIDGET_SHADOW = '0 1px 2px rgba(0,0,0,0.04)'
 
 // Tailwind-safe lg-col-span classes per ReportModuleColSpan. Mobile and
 // md breakpoints flow as a single column to keep tiles legible on
@@ -274,8 +280,12 @@ export function ReportModuleWidget({
   const wrap = (inner: ReactNode) => (
     <div
       ref={wrapRef}
-      className={`${R} group relative h-full min-h-[120px] border bg-white p-5 shadow-sm ${editMode ? 'border-dashed border-[#1a3d32]/30 ring-1 ring-[#1a3d32]/10' : 'border-neutral-200/90'} ${colSpanClass} ${rowBreakClass}`}
-      style={m.kind === 'kpi' ? { boxShadow: `inset 0 3px 0 0 ${accent}` } : undefined}
+      className={`${R} group relative h-full min-h-[120px] border bg-white p-5 ${editMode ? 'border-dashed border-[#1a3d32]/30 ring-1 ring-[#1a3d32]/10' : 'border-neutral-200/70'} ${colSpanClass} ${rowBreakClass}`}
+      style={
+        m.kind === 'kpi'
+          ? { boxShadow: `inset 0 3px 0 0 ${accent}, ${WIDGET_SHADOW}` }
+          : { boxShadow: WIDGET_SHADOW }
+      }
     >
       {controlSlot || (editMode && onRemove) ? (
         <div className="absolute right-3 top-3 z-10 flex items-center gap-1">

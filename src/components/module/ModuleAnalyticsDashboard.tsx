@@ -216,7 +216,7 @@ export function ModuleAnalyticsDashboard({
           <p className="py-12 text-center text-sm text-neutral-500">Laster …</p>
         ) : layout.length === 0 ? (
           (emptyState ?? (
-            <div className="rounded-md border border-dashed border-neutral-300 bg-white p-8 text-center text-sm text-neutral-600">
+            <div className="rounded-xl border border-dashed border-neutral-300 bg-white p-8 text-center text-sm text-neutral-600">
               Ingen widgets i dette oppsettet ennå.
             </div>
           ))
