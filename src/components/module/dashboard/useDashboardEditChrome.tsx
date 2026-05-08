@@ -39,7 +39,7 @@ type Args = {
   /** Current widget layout (from useDashboardLayout). */
   layout: ReportModule[]
   /** Persists the new layout (typically `dashboard.saveLayout`). */
-  saveLayout: (next: ReportModule[]) => Promise<boolean> | boolean | void
+  saveLayout: (next: ReportModule[]) => Promise<boolean> | boolean
 }
 
 type EditChromeModuleProps = {
