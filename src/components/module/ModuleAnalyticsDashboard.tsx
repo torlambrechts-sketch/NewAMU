@@ -96,6 +96,17 @@ export interface ModuleAnalyticsDashboardProps {
    * change persists immediately.
    */
   onResize?: OnWidgetResize
+  /**
+   * Edit-mode (V3 design): when true, the runtime renders the inline
+   * `widgetLibrarySlot` as a docked right rail (instead of the modal-
+   * style "Add widget" SlidePanel) and widgets show always-on edit
+   * chrome (resize handle visible without hover, X-to-remove inline).
+   */
+  editMode?: boolean
+  /** Slot for the docked widget library rail in edit mode. */
+  widgetLibrarySlot?: ReactNode
+  /** Inline X-to-remove handler in edit mode — fires per widget. */
+  onRemoveWidget?: (m: ReportModule) => void
 }
 
 export function ModuleAnalyticsDashboard({
@@ -119,6 +130,9 @@ export function ModuleAnalyticsDashboard({
   titleChooser,
   onDrillDown,
   onResize,
+  editMode,
+  widgetLibrarySlot,
+  onRemoveWidget,
 }: ModuleAnalyticsDashboardProps) {
   const builtInFilterBar =
     !filterBar && dimensions && dimensions.length > 0 && filters && onFiltersChange ? (
@@ -206,6 +220,27 @@ export function ModuleAnalyticsDashboard({
               Ingen widgets i dette oppsettet ennå.
             </div>
           ))
+        ) : editMode && widgetLibrarySlot ? (
+          // V3 edit mode: dock the widget library as a sticky right rail
+          // (≥ xl) and let the grid fill the remaining width. Below xl the
+          // rail hides itself and falls back to the modal "+Legg til widget".
+          <div className="flex gap-4">
+            <div className="min-w-0 flex-1">
+              <ReportModulesGrid
+                modules={layout}
+                datasets={datasets}
+                accent={accent}
+                layoutMode="grid12"
+                emptyLabel="Ingen data."
+                controlSlot={widgetControlSlot}
+                onDrillDown={onDrillDown}
+                onResize={onResize}
+                editMode
+                onRemove={onRemoveWidget}
+              />
+            </div>
+            {widgetLibrarySlot}
+          </div>
         ) : (
           <ReportModulesGrid
             modules={layout}

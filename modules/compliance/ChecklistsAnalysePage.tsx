@@ -9,13 +9,15 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
-import { ArrowLeft, BarChart3 } from 'lucide-react'
+import { ArrowLeft, BarChart3, Check, PenLine } from 'lucide-react'
 import { ModuleAnalyticsDashboard } from '../../src/components/module/ModuleAnalyticsDashboard'
 import { DashboardEditLayoutPanel } from '../../src/components/module/dashboard/DashboardEditLayoutPanel'
 import { DashboardAddWidgetPanel } from '../../src/components/module/dashboard/DashboardAddWidgetPanel'
 import { DashboardEditWidgetPanel } from '../../src/components/module/dashboard/DashboardEditWidgetPanel'
+import { DashboardWidgetLibraryRail } from '../../src/components/module/dashboard/DashboardWidgetLibraryRail'
 import { DashboardWidgetMenu } from '../../src/components/module/dashboard/DashboardWidgetMenu'
 import { DashboardChooser } from '../../src/components/module/dashboard/DashboardChooser'
+import { Button } from '../../src/components/ui/Button'
 import { downloadCsv, widgetToCsv } from '../../src/lib/reports/widgetCsv'
 import { defaultCompatibleKinds } from '../../src/components/module/dashboard/dashboardWidgetKinds'
 import { useLicensedPacks } from '../../src/context/packContextValue'
@@ -198,6 +200,11 @@ export function ChecklistsAnalysePage() {
   const [editOpen, setEditOpen] = useState(false)
   const [addOpen, setAddOpen] = useState(false)
   const [editWidget, setEditWidget] = useState<ReportModule | null>(null)
+  // V3 edit mode (Klarert dashboard kit): inline edit chrome + docked
+  // widget-library rail. Replaces the SlidePanel-based "Rediger oppsett"
+  // and "Legg til widget" flow on this page; the SlidePanels stay as
+  // fallbacks for narrower viewports / smaller scopes.
+  const [editMode, setEditMode] = useState(false)
 
   const widgetControlSlot = (m: ReportModule) => (
     <DashboardWidgetMenu
@@ -273,24 +280,35 @@ export function ChecklistsAnalysePage() {
           />
         }
         headerActions={
-          // Match the Button component's default secondary size so this
-          // sits flush with "Rediger oppsett" / "Legg til widget" added
-          // by ModuleAnalyticsDashboard.
-          <Link
-            to="/compliance/checklists"
-            className="inline-flex items-center justify-center gap-1.5 rounded-md border border-neutral-300 bg-white px-4 py-2 text-sm font-semibold text-neutral-700 transition-colors hover:bg-neutral-50"
-          >
-            <ArrowLeft className="h-4 w-4" />
-            Tilbake
-          </Link>
+          <div className="flex flex-wrap items-center gap-2">
+            <Button
+              type="button"
+              variant={editMode ? 'primary' : 'secondary'}
+              icon={editMode ? <Check className="h-4 w-4" /> : <PenLine className="h-4 w-4" />}
+              onClick={() => setEditMode((v) => !v)}
+            >
+              {editMode ? 'Lagre oppsett' : 'Rediger oppsett'}
+            </Button>
+            <Link
+              to="/compliance/checklists"
+              className="inline-flex items-center justify-center gap-1.5 rounded-md border border-neutral-300 bg-white px-4 py-2 text-sm font-semibold text-neutral-700 transition-colors hover:bg-neutral-50"
+            >
+              <ArrowLeft className="h-4 w-4" />
+              Tilbake
+            </Link>
+          </div>
         }
         layout={layout}
         datasets={datasets}
         loading={cl.loading || dashboard.loading}
         error={cl.error ?? dashboard.error}
         emptyState={empty}
-        onEdit={() => setEditOpen(true)}
-        onAddWidget={() => setAddOpen(true)}
+        // The legacy SlidePanel-based "Rediger oppsett" + "Legg til widget"
+        // are hidden when edit mode is on (the inline rail + per-widget X
+        // cover the same flows). They stay available below xl so narrower
+        // viewports keep the modal flow.
+        onEdit={editMode ? undefined : () => setEditOpen(true)}
+        onAddWidget={editMode ? undefined : () => setAddOpen(true)}
         widgetControlSlot={widgetControlSlot}
         onDrillDown={handleDrillDown}
         onResize={(w, next) =>
@@ -298,6 +316,19 @@ export function ChecklistsAnalysePage() {
             dashboard.layout.map((x) => (x.id === w.id ? { ...x, colSpan: next } : x)),
           )
         }
+        editMode={editMode}
+        widgetLibrarySlot={
+          editMode ? (
+            <DashboardWidgetLibraryRail
+              scopeId={CHECKLIST_DASHBOARD_SCOPE_ID}
+              onAdd={(widget) => dashboard.saveLayout([...dashboard.layout, widget])}
+            />
+          ) : undefined
+        }
+        onRemoveWidget={(w) => {
+          if (!window.confirm(`Fjerne widgeten «${w.title}»?`)) return
+          void dashboard.saveLayout(dashboard.layout.filter((x) => x.id !== w.id))
+        }}
         filters={dashboard.filters}
         dimensions={dimensions}
         onFiltersChange={(next) => void dashboard.saveFilters(next)}

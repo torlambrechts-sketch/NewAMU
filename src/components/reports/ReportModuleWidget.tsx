@@ -45,6 +45,9 @@ type WidgetControlSlot = (m: ReportModule) => ReactNode
  *  sm → md → lg → full → sm). */
 export type OnWidgetResize = (m: ReportModule, next: ReportModuleColSpan) => void
 
+/** Inline X-to-remove callback used by V3 edit mode. */
+export type OnWidgetRemove = (m: ReportModule) => void
+
 /**
  * Drill-down event payload (3.2.2). Emitted when a clickable segment of
  * a chart is activated. The runtime forwards the raw segment label;
@@ -151,6 +154,8 @@ export function ReportModuleWidget({
   controlSlot,
   onDrillDown,
   onResize,
+  editMode,
+  onRemove,
 }: {
   module: ReportModule
   datasets: Record<string, unknown>
@@ -164,6 +169,10 @@ export function ReportModuleWidget({
   onDrillDown?: OnDrillDown
   /** Optional resize handler — when set, an SE drag handle appears (3.2.5). */
   onResize?: OnWidgetResize
+  /** V3 edit mode — when true, resize handle is always visible and an X-to-remove appears top-right. */
+  editMode?: boolean
+  /** Inline X-to-remove handler — only shown when editMode is true. */
+  onRemove?: OnWidgetRemove
 }) {
   const colors = ['#15803d', '#ca8a04', '#2563eb', '#c2410c', '#7c3aed']
   const ds = datasets[m.datasetKey]
@@ -265,11 +274,26 @@ export function ReportModuleWidget({
   const wrap = (inner: ReactNode) => (
     <div
       ref={wrapRef}
-      className={`${R} group relative h-full min-h-[120px] border border-neutral-200/90 bg-white p-5 shadow-sm ${colSpanClass} ${rowBreakClass}`}
+      className={`${R} group relative h-full min-h-[120px] border bg-white p-5 shadow-sm ${editMode ? 'border-dashed border-[#1a3d32]/30 ring-1 ring-[#1a3d32]/10' : 'border-neutral-200/90'} ${colSpanClass} ${rowBreakClass}`}
       style={m.kind === 'kpi' ? { boxShadow: `inset 0 3px 0 0 ${accent}` } : undefined}
     >
-      {controlSlot ? (
-        <div className="absolute right-3 top-3 z-10">{controlSlot(m)}</div>
+      {controlSlot || (editMode && onRemove) ? (
+        <div className="absolute right-3 top-3 z-10 flex items-center gap-1">
+          {controlSlot ? controlSlot(m) : null}
+          {editMode && onRemove ? (
+            <button
+              type="button"
+              onClick={() => onRemove(m)}
+              aria-label={`Fjern widgeten ${m.title}`}
+              title="Fjern widget"
+              className="rounded-md p-1 text-neutral-400 transition-colors hover:bg-red-50 hover:text-red-600"
+            >
+              <svg viewBox="0 0 16 16" aria-hidden className="h-4 w-4">
+                <path d="M3 3 L13 13 M13 3 L3 13" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+              </svg>
+            </button>
+          ) : null}
+        </div>
       ) : null}
       {inner}
       {onResize && layoutMode === 'grid12' ? (
@@ -278,7 +302,7 @@ export function ReportModuleWidget({
           onPointerDown={startResize}
           aria-label={`Endre størrelse på ${m.title}`}
           title="Dra for å endre bredde · klikk for å bla gjennom størrelser"
-          className="absolute bottom-0 right-0 hidden h-4 w-4 cursor-se-resize items-end justify-end p-0.5 text-neutral-300 transition-colors hover:text-neutral-700 focus:flex focus:outline-none focus:ring-1 focus:ring-neutral-400 group-hover:flex lg:flex"
+          className={`absolute bottom-0 right-0 h-4 w-4 cursor-se-resize items-end justify-end p-0.5 text-neutral-300 transition-colors hover:text-neutral-700 focus:flex focus:outline-none focus:ring-1 focus:ring-neutral-400 ${editMode ? 'flex' : 'hidden focus:flex group-hover:flex lg:flex'}`}
         >
           <svg viewBox="0 0 8 8" aria-hidden className="h-3 w-3">
             <path d="M7 1 L7 7 L1 7" fill="none" stroke="currentColor" strokeWidth="1.2" />
@@ -816,6 +840,8 @@ export function ReportModulesGrid({
   controlSlot,
   onDrillDown,
   onResize,
+  editMode,
+  onRemove,
 }: {
   modules: ReportModule[]
   datasets: Record<string, unknown>
@@ -828,6 +854,10 @@ export function ReportModulesGrid({
   onDrillDown?: OnDrillDown
   /** Optional resize handler (3.2.5) — propagated to every widget. */
   onResize?: OnWidgetResize
+  /** V3 edit mode — propagated to every widget so chrome is always-on. */
+  editMode?: boolean
+  /** Inline X-to-remove handler — propagated to every widget. */
+  onRemove?: OnWidgetRemove
 }) {
   const containerClass = (() => {
     if (layoutMode === 'grid12') return 'grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-12'
@@ -850,6 +880,8 @@ export function ReportModulesGrid({
           controlSlot={controlSlot}
           onDrillDown={onDrillDown}
           onResize={onResize}
+          editMode={editMode}
+          onRemove={onRemove}
         />
       ))}
       {modules.length === 0 ? (
