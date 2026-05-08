@@ -158,7 +158,7 @@ export function DashboardChooser({
         type="button"
         onClick={() => setOpen((o) => !o)}
         className={
-          'inline-flex items-center gap-2 border bg-white px-3 py-2 text-sm font-medium text-neutral-800 outline-none transition-colors ' +
+          'inline-flex items-center gap-2 border bg-white px-3 py-2.5 text-sm text-neutral-900 outline-none transition-colors ' +
           (open
             ? 'border-[#1a3d32] ring-1 ring-[#1a3d32]/25'
             : 'border-neutral-300 hover:border-neutral-400')
@@ -338,7 +338,7 @@ function RowGroup({
                 aria-selected={isActive}
                 onClick={() => onSelect(r.id)}
                 className={
-                  'flex w-full items-center justify-between gap-2 border-l-2 px-3 py-2 text-left text-sm transition-colors hover:bg-neutral-50 ' +
+                  'flex w-full items-center justify-between gap-2 border-l-2 px-3 py-2.5 text-left text-sm transition-colors hover:bg-neutral-50 ' +
                   (isActive
                     ? 'border-[#1a3d32] bg-neutral-100 font-medium text-neutral-900'
                     : 'border-transparent text-neutral-800')
@@ -374,7 +374,7 @@ function ActionRow({
       type="button"
       onClick={onClick}
       className={
-        'flex w-full items-center gap-2 border-l-2 border-transparent px-3 py-2 text-left text-sm transition-colors hover:bg-neutral-50 ' +
+        'flex w-full items-center gap-2 border-l-2 border-transparent px-3 py-2.5 text-left text-sm transition-colors hover:bg-neutral-50 ' +
         (destructive ? 'text-red-700 hover:bg-red-50' : 'text-neutral-700')
       }
     >
