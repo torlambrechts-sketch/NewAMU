@@ -23,6 +23,11 @@ export type RegisterPinnedNavItem = {
   headerKey: string
   /** Path to the per-type list page. */
   to: string
+  /** Cross-module taxonomy: type-level regulation tags. The sidebar
+   *  uses these alongside category.regulation_id so the regelverk
+   *  chip can narrow visible types even when their category isn't
+   *  classified. */
+  regulationIds: string[]
 }
 
 export type RegisterNavCategory = {
@@ -44,6 +49,7 @@ type TypeRow = {
   organization_id: string | null
   name: string
   is_active: boolean
+  regulation_ids: string[] | null
 }
 type SettingsRow = {
   register_type_id: string
@@ -76,7 +82,7 @@ export function useRegistersNav(): UseRegistersNavReturn {
     void Promise.all([
       supabase
         .from('register_types')
-        .select('id, organization_id, name, is_active')
+        .select('id, organization_id, name, is_active, regulation_ids')
         .eq('is_active', true),
       supabase
         .from('register_org_settings')
@@ -136,6 +142,7 @@ export function useRegistersNav(): UseRegistersNavReturn {
           categoryId,
           headerKey: categoryId ?? '__uncat__',
           to: `/registers/${encodeURIComponent(t.id)}`,
+          regulationIds: t.regulation_ids ?? [],
         }
       })
       .filter((x): x is RegisterPinnedNavItem => x !== null)

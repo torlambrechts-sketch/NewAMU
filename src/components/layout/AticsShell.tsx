@@ -1289,8 +1289,16 @@ export function AticsShell() {
     ]
 
     const registerTypeSubs: SubItem[] = (() => {
+      // Narrow by the top-bar regelverk filter: a type is visible when
+      // it has no regulation tags (generic) OR at least one of its tags
+      // is in the active regulation set. Mirrors the hub-page filter.
+      const filteredNavItems = registersNav.items.filter(
+        (it) =>
+          it.regulationIds.length === 0 ||
+          it.regulationIds.some((rid) => isRegulationActive(rid)),
+      )
       const buckets = new Map<string, typeof registersNav.items>()
-      for (const it of registersNav.items) {
+      for (const it of filteredNavItems) {
         const list = buckets.get(it.headerKey) ?? []
         list.push(it)
         buckets.set(it.headerKey, list)
@@ -1398,7 +1406,7 @@ export function AticsShell() {
     const idx = navGroups.findIndex((g) => g.id === 'gamle-moduler')
     const head = idx === -1 ? navGroups : navGroups.slice(0, idx)
     const tail = idx === -1 ? [] : navGroups.slice(idx)
-    return [...head, hmsOverviewGroup, complianceGroup, surveyGroup, documentsGroup, tasksGroup, learningGroup, registersGroup, ...tail]
+    return [...head, hmsOverviewGroup, complianceGroup, surveyGroup, documentsGroup, registersGroup, tasksGroup, learningGroup, ...tail]
   }, [
     complianceNav.items,
     complianceNav.categories,
