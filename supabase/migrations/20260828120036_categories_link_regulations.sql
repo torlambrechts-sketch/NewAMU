@@ -32,18 +32,31 @@ set local search_path = public, pg_catalog;
 -- formal FK because PostgreSQL doesn't support multi-column FKs against
 -- a primary key whose first column would be redundant in the local
 -- table. Instead we add a CHECK trigger to enforce same-org coherence.
+--
+-- Each `alter` is gated on the table actually existing — DBs partially
+-- caught up may not yet have e.g. `survey_template_categories` (added
+-- in migration 20260828120025). Skipping silently keeps the rest of
+-- this migration applicable.
 
-alter table public.compliance_checklist_categories
-  add column if not exists regulation_id text;
-
-alter table public.survey_template_categories
-  add column if not exists regulation_id text;
-
-alter table public.learning_categories
-  add column if not exists regulation_id text;
-
-alter table public.wiki_spaces
-  add column if not exists regulation_id text;
+do $$
+begin
+  if to_regclass('public.compliance_checklist_categories') is not null then
+    execute 'alter table public.compliance_checklist_categories
+             add column if not exists regulation_id text';
+  end if;
+  if to_regclass('public.survey_template_categories') is not null then
+    execute 'alter table public.survey_template_categories
+             add column if not exists regulation_id text';
+  end if;
+  if to_regclass('public.learning_categories') is not null then
+    execute 'alter table public.learning_categories
+             add column if not exists regulation_id text';
+  end if;
+  if to_regclass('public.wiki_spaces') is not null then
+    execute 'alter table public.wiki_spaces
+             add column if not exists regulation_id text';
+  end if;
+end $$;
 
 -- ── 2. Same-org coherence trigger ─────────────────────────────────────────
 -- Catches the only realistic foot-gun: assigning a regulation_id that
@@ -71,67 +84,92 @@ begin
 end;
 $$;
 
-drop trigger if exists compliance_checklist_categories_reg_check on public.compliance_checklist_categories;
-create trigger compliance_checklist_categories_reg_check
-  before insert or update of regulation_id on public.compliance_checklist_categories
-  for each row execute function public.regulation_id_must_match_org();
+do $$
+begin
+  if to_regclass('public.compliance_checklist_categories') is not null then
+    execute 'drop trigger if exists compliance_checklist_categories_reg_check on public.compliance_checklist_categories';
+    execute 'create trigger compliance_checklist_categories_reg_check
+             before insert or update of regulation_id on public.compliance_checklist_categories
+             for each row execute function public.regulation_id_must_match_org()';
+  end if;
+  if to_regclass('public.survey_template_categories') is not null then
+    execute 'drop trigger if exists survey_template_categories_reg_check on public.survey_template_categories';
+    execute 'create trigger survey_template_categories_reg_check
+             before insert or update of regulation_id on public.survey_template_categories
+             for each row execute function public.regulation_id_must_match_org()';
+  end if;
+  if to_regclass('public.learning_categories') is not null then
+    execute 'drop trigger if exists learning_categories_reg_check on public.learning_categories';
+    execute 'create trigger learning_categories_reg_check
+             before insert or update of regulation_id on public.learning_categories
+             for each row execute function public.regulation_id_must_match_org()';
+  end if;
+  if to_regclass('public.wiki_spaces') is not null then
+    execute 'drop trigger if exists wiki_spaces_reg_check on public.wiki_spaces';
+    execute 'create trigger wiki_spaces_reg_check
+             before insert or update of regulation_id on public.wiki_spaces
+             for each row execute function public.regulation_id_must_match_org()';
+  end if;
+end $$;
 
-drop trigger if exists survey_template_categories_reg_check on public.survey_template_categories;
-create trigger survey_template_categories_reg_check
-  before insert or update of regulation_id on public.survey_template_categories
-  for each row execute function public.regulation_id_must_match_org();
+-- ── 3-6. Per-table backfills ──────────────────────────────────────────────
+-- Each block guarded by `to_regclass(...)` so partially-applied DBs skip
+-- the missing tables instead of erroring.
 
-drop trigger if exists learning_categories_reg_check on public.learning_categories;
-create trigger learning_categories_reg_check
-  before insert or update of regulation_id on public.learning_categories
-  for each row execute function public.regulation_id_must_match_org();
+do $$
+begin
+  -- 3. compliance_checklist_categories — pack maps directly to regulation.
+  if to_regclass('public.compliance_checklist_categories') is not null then
+    execute $sql$
+      update public.compliance_checklist_categories
+         set regulation_id = case pack
+           when 'aml-amu'    then 'aml'
+           when 'iso-45001'  then 'iso-45001'
+           else null
+         end
+       where regulation_id is null
+         and pack is not null
+    $sql$;
+  end if;
 
-drop trigger if exists wiki_spaces_reg_check on public.wiki_spaces;
-create trigger wiki_spaces_reg_check
-  before insert or update of regulation_id on public.wiki_spaces
-  for each row execute function public.regulation_id_must_match_org();
+  -- 4. survey_template_categories
+  if to_regclass('public.survey_template_categories') is not null then
+    execute $sql$
+      update public.survey_template_categories
+         set regulation_id = case pack
+           when 'vendor'       then 'apenhetsloven'
+           when 'arbeidsmiljo' then 'aml'
+           when 'compliance'   then 'ik-f'
+           else null
+         end
+       where regulation_id is null
+         and pack is not null
+    $sql$;
+  end if;
 
--- ── 3. Backfill: compliance_checklist_categories ──────────────────────────
--- Pack maps directly to regulation. Existing categories carry a `pack`
--- column (per migration 20260828120022); the mapping is one-to-one.
+  -- 5. wiki_spaces
+  if to_regclass('public.wiki_spaces') is not null then
+    execute $sql$
+      update public.wiki_spaces
+         set regulation_id = case category
+           when 'hms_handbook' then 'ik-f'
+           when 'procedure'    then 'ik-f'
+           else null
+         end
+       where regulation_id is null
+    $sql$;
+  end if;
 
-update public.compliance_checklist_categories
-   set regulation_id = case pack
-     when 'aml-amu'    then 'aml'
-     when 'iso-45001'  then 'iso-45001'
-     else null
-   end
- where regulation_id is null
-   and pack is not null;
-
--- ── 4. Backfill: survey_template_categories ───────────────────────────────
-
-update public.survey_template_categories
-   set regulation_id = case pack
-     when 'vendor'       then 'apenhetsloven'
-     when 'arbeidsmiljo' then 'aml'
-     when 'compliance'   then 'ik-f'
-     else null  -- engagement, exit → admin-assigned
-   end
- where regulation_id is null
-   and pack is not null;
-
--- ── 5. Backfill: wiki_spaces ──────────────────────────────────────────────
-
-update public.wiki_spaces
-   set regulation_id = case category
-     when 'hms_handbook' then 'ik-f'
-     when 'procedure'    then 'ik-f'
-     else null
-   end
- where regulation_id is null;
-
--- ── 6. Backfill: learning_categories ──────────────────────────────────────
--- Heuristic via slug — the seeded slugs from migration 20260828120029
--- (HMS-grunnopplæring, brann, førstehjelp, verneombud, onboarding)
--- mostly trace back to AML competence requirements.
-
-update public.learning_categories
-   set regulation_id = 'aml'
- where regulation_id is null
-   and slug in ('hms-grunnopplaring', 'brann', 'forstehjelp', 'verneombud', 'onboarding');
+  -- 6. learning_categories — heuristic via slug; seeded slugs from
+  -- migration 20260828120029 (HMS-grunnopplæring, brann, førstehjelp,
+  -- verneombud, onboarding) mostly trace back to AML competence
+  -- requirements.
+  if to_regclass('public.learning_categories') is not null then
+    execute $sql$
+      update public.learning_categories
+         set regulation_id = 'aml'
+       where regulation_id is null
+         and slug in ('hms-grunnopplaring', 'brann', 'forstehjelp', 'verneombud', 'onboarding')
+    $sql$;
+  end if;
+end $$;

@@ -37,12 +37,30 @@ create index if not exists wiki_pages_created_from_template_idx
 -- id under that key inside the metadata jsonb. The FK supersedes it.
 -- Only flip rows where the convention key actually points at a row we
 -- recognise (and the column is still null).
-update public.wiki_pages p
-   set created_from_template_id = t.id
-  from public.document_org_templates t
- where p.created_from_template_id is null
-   and t.id = (p.metadata ->> '__template_id')
-   and t.organization_id = p.organization_id;
+--
+-- Gated on `wiki_pages.metadata` existing — it's added in migration
+-- 20260828120034_documents_metadata_schema.sql; if a DB hasn't reached
+-- that migration yet, the backfill is a no-op (callers can re-run this
+-- migration safely once metadata is in place).
+do $$
+begin
+  if exists (
+    select 1
+      from information_schema.columns
+     where table_schema = 'public'
+       and table_name = 'wiki_pages'
+       and column_name = 'metadata'
+  ) then
+    execute $sql$
+      update public.wiki_pages p
+         set created_from_template_id = t.id
+        from public.document_org_templates t
+       where p.created_from_template_id is null
+         and t.id = (p.metadata ->> '__template_id')
+         and t.organization_id = p.organization_id
+    $sql$;
+  end if;
+end $$;
 
 -- ── 2. Owner backfill ────────────────────────────────────────────────────
 -- Any wiki_pages row without an explicit author gets mapped to the
