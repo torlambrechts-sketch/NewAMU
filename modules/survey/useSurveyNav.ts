@@ -52,6 +52,10 @@ export type UseSurveyNavReturn = {
   hasAnyPack: boolean
   items: SurveyPinnedNavItem[]
   categories: SurveyNavCategory[]
+  /** Lookup pack short name by slug — used by the sidebar to label
+   *  per-pack uncategorised buckets so multiple "Uten kategori"
+   *  headers don't collide. */
+  packShortNameBySlug: Record<string, string>
 }
 
 type CatalogRow = {
@@ -174,5 +178,6 @@ export function useSurveyNav(): UseSurveyNavReturn {
     hasAnyPack: packs.length > 0,
     items,
     categories,
+    packShortNameBySlug: Object.fromEntries(packs.map((p) => [p.slug, p.short_name])),
   }
 }

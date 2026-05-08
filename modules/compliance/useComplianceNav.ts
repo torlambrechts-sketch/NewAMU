@@ -43,6 +43,10 @@ export type UseComplianceNavReturn = {
   items: CompliancePinnedNavItem[]
   /** Categories the items reference (active only), sorted for stable headers. */
   categories: ComplianceNavCategory[]
+  /** Lookup pack short name by slug — used by the sidebar to label
+   *  per-pack uncategorised buckets so multiple "Uten kategori"
+   *  headers don't collide. */
+  packShortNameBySlug: Record<string, string>
 }
 
 type PinnedTemplateRow = {
@@ -151,5 +155,6 @@ export function useComplianceNav(): UseComplianceNavReturn {
     hasAnyPack: packs.length > 0,
     items,
     categories,
+    packShortNameBySlug: Object.fromEntries(packs.map((p) => [p.slug, p.shortName])),
   }
 }

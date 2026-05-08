@@ -899,9 +899,24 @@ export function AticsShell() {
         .filter((c) => buckets.has(c.id))
         .filter((c) => isRegulationActive(c.regulationId))
         .sort((a, b) => a.position - b.position || a.name.localeCompare(b.name, 'nb'))
-      const uncategorised = [...buckets.entries()]
-        .filter(([key]) => key.endsWith(':__uncat__'))
-        .map(([key]) => ({ id: key, name: 'Uten kategori' }))
+      // Each pack with uncategorised templates gets its own bucket
+      // keyed `${pack}:__uncat__`. When multiple packs are licensed
+      // we'd render N "Uten kategori" headers stacked together
+      // (indistinguishable). Label each with the pack's short name
+      // so the user can tell them apart; fall back to the generic
+      // label only when a single bucket exists.
+      const uncategorisedEntries = [...buckets.entries()].filter(([key]) =>
+        key.endsWith(':__uncat__'),
+      )
+      const uncategorised = uncategorisedEntries.map(([key]) => {
+        const slug = key.slice(0, -':__uncat__'.length)
+        const packLabel = complianceNav.packShortNameBySlug[slug]
+        return {
+          id: key,
+          name:
+            uncategorisedEntries.length > 1 && packLabel ? packLabel : 'Uten kategori',
+        }
+      })
       const orderedKeys: { id: string; name: string }[] = [
         ...orderedCats.map((c) => ({ id: c.id, name: c.name })),
         ...uncategorised,
@@ -1000,9 +1015,22 @@ export function AticsShell() {
         .filter((c) => buckets.has(c.id))
         .filter((c) => isRegulationActive(c.regulationId))
         .sort((a, b) => a.position - b.position || a.name.localeCompare(b.name, 'nb'))
-      const uncategorised = [...buckets.entries()]
-        .filter(([key]) => key.endsWith(':__uncat__'))
-        .map(([key]) => ({ id: key, name: 'Uten kategori' }))
+      // Multi-pack uncategorised buckets — see compliance branch above
+      // for the rationale. Label per-pack so the user can tell them
+      // apart; fall back to the generic "Uten kategori" when a single
+      // bucket exists.
+      const uncategorisedEntries = [...buckets.entries()].filter(([key]) =>
+        key.endsWith(':__uncat__'),
+      )
+      const uncategorised = uncategorisedEntries.map(([key]) => {
+        const slug = key.slice(0, -':__uncat__'.length)
+        const packLabel = surveyNav.packShortNameBySlug[slug]
+        return {
+          id: key,
+          name:
+            uncategorisedEntries.length > 1 && packLabel ? packLabel : 'Uten kategori',
+        }
+      })
       const orderedKeys: { id: string; name: string }[] = [
         ...orderedCats.map((c) => ({ id: c.id, name: c.name })),
         ...uncategorised,
@@ -1246,8 +1274,10 @@ export function AticsShell() {
   }, [
     complianceNav.items,
     complianceNav.categories,
+    complianceNav.packShortNameBySlug,
     surveyNav.items,
     surveyNav.categories,
+    surveyNav.packShortNameBySlug,
     documentNav.items,
     documentNav.categories,
     isRegulationActive,
