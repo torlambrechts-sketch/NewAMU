@@ -15,7 +15,7 @@ import {
   Users,
 } from 'lucide-react'
 import { useLearning } from '../../hooks/useLearning'
-import { LearningSectionBuilder } from '../../components/learning/LearningSectionBuilder'
+import { LearningModuleRail } from '../../components/learning/LearningModuleRail'
 import { useOrgSetupContext } from '../../hooks/useOrgSetupContext'
 import type { CourseModule } from '../../types/learning'
 import { LEARNING_MODULE_LEGAL_REFERENCES } from '../../components/learning/learningLegalReferences'
@@ -53,6 +53,8 @@ export function LearningCourseBuilder() {
     deleteCourse,
     updateModule,
     deleteModule,
+    addModule,
+    reorderModules,
     forkSystemCourse,
     learningLoading,
     learningError,
@@ -479,19 +481,55 @@ export function LearningCourseBuilder() {
       )}
 
       {mainTab === 'innhold' && (
-        <div className="space-y-6">
-          <LearningSectionBuilder
-            learning={learning}
-            courseId={course.id}
-            modules={course.modules}
-            sections={sections}
-            isLocked={!canManage}
-            selectedModuleId={selectedId}
-            onSelectModule={setSelectedId}
-          />
-
-          {/* Per-module editor (kept below the section builder, like survey's slide-out detail panel) */}
-          <ModuleSectionCard className="p-5 md:p-6">
+        // Three-pane layout matching the Klarert dashboard kit's
+        // CourseEditor design (`ui_kits/elearning/editor`): 320px
+        // module rail on the left, flex editor pane on the right.
+        // Modules display flat (no section grouping) per the design.
+        <div
+          className="grid h-[calc(100vh-260px)] min-h-[640px] grid-cols-1 overflow-hidden rounded-xl border border-neutral-200/80 bg-neutral-50 lg:grid-cols-[320px_minmax(0,1fr)]"
+          style={{ boxShadow: '0 1px 2px rgba(0,0,0,0.04)' }}
+        >
+          <aside className="overflow-hidden border-b border-neutral-200 bg-white lg:border-b-0 lg:border-r">
+            <LearningModuleRail
+              modules={course.modules}
+              activeId={selectedId}
+              isLocked={!canManage}
+              onSelect={(id) => setSelectedId(id)}
+              onMove={(idx, dir) => {
+                const next = course.modules.slice()
+                const target = idx + dir
+                if (target < 0 || target >= next.length) return
+                const tmp = next[idx]!
+                next[idx] = next[target]!
+                next[target] = tmp
+                void reorderModules(
+                  course.id,
+                  next.map((m) => m.id),
+                )
+              }}
+              onDuplicate={(id) => {
+                const src = course.modules.find((m) => m.id === id)
+                if (!src) return
+                const created = addModule(
+                  course.id,
+                  src.kind,
+                  `${src.title || 'Modul'} (kopi)`,
+                  src.sectionId ?? null,
+                )
+                if (created) setSelectedId(created.id)
+              }}
+              onDelete={(id) => {
+                if (!window.confirm('Slett denne modulen?')) return
+                deleteModule(course.id, id)
+                if (selectedId === id) setSelectedId(null)
+              }}
+              onAdd={(kind) => {
+                const created = addModule(course.id, kind, 'Ny modul', null)
+                if (created) setSelectedId(created.id)
+              }}
+            />
+          </aside>
+          <main className="overflow-y-auto p-5 md:p-6">
             {selected ? (
               <ModuleEditor
                 key={selected.id}
@@ -503,12 +541,16 @@ export function LearningCourseBuilder() {
                 onDeleted={() => setSelectedId(null)}
               />
             ) : (
-              <p className="text-sm text-neutral-600">
-                Velg en modul fra listen over for å redigere innhold, eller dra en modultype fra
-                paletten for å opprette en ny.
-              </p>
+              <div className="flex h-full items-center justify-center p-8 text-center">
+                <div>
+                  <Layers className="mx-auto h-10 w-10 text-neutral-300" aria-hidden />
+                  <p className="mt-3 text-sm text-neutral-500">
+                    Velg en modul fra listen, eller legg til en ny.
+                  </p>
+                </div>
+              </div>
             )}
-          </ModuleSectionCard>
+          </main>
         </div>
       )}
 
