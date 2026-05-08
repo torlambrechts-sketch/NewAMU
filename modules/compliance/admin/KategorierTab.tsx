@@ -25,6 +25,7 @@ import { SlidePanel } from '../../../src/components/layout/SlidePanel'
 import {
   WPSTD_FORM_FIELD_LABEL,
 } from '../../../src/components/layout/WorkplaceStandardFormPanel'
+import { CategoryReorderList } from '../../../src/components/categories/CategoryReorderList'
 import { useChecklistModule } from '../useChecklistModule'
 import type { ComplianceCategoryRow } from '../types'
 
@@ -88,15 +89,27 @@ export function KategorierTab() {
           gi dem nytt navn eller deaktivere dem, men ikke slette.
         </p>
 
-        <ul className="mt-5 space-y-3">
-          {visible.length === 0 ? (
-            <li className="rounded-lg border border-dashed border-neutral-300 bg-neutral-50/50 p-6 text-center text-sm text-neutral-500">
-              Ingen kategorier for {pack.shortName} ennå.
-            </li>
-          ) : (
-            visible.map((c) => (
+        <div className="mt-5">
+          <CategoryReorderList
+            items={visible}
+            emptyState={
+              <p className="rounded-lg border border-dashed border-neutral-300 bg-neutral-50/50 p-6 text-center text-sm text-neutral-500">
+                Ingen kategorier for {pack.shortName} ennå.
+              </p>
+            }
+            onReorder={async (orderedIds) => {
+              const byId = new Map(visible.map((c) => [c.id, c]))
+              await Promise.all(
+                orderedIds.map((id, idx) => {
+                  const cat = byId.get(id)
+                  const next = (idx + 1) * 10
+                  if (!cat || cat.position === next) return Promise.resolve()
+                  return cl.updateCategory({ categoryId: id, position: next })
+                }),
+              )
+            }}
+            renderItem={(c) => (
               <CategoryRow
-                key={c.id}
                 category={c}
                 templateCount={templateCount.get(c.id) ?? 0}
                 onEdit={() => setEditTarget({ mode: 'edit', category: c })}
@@ -105,9 +118,9 @@ export function KategorierTab() {
                 }
                 onDelete={() => cl.softDeleteCategory(c.id)}
               />
-            ))
-          )}
-        </ul>
+            )}
+          />
+        </div>
       </ModuleSectionCard>
 
       {editTarget ? (
@@ -169,7 +182,7 @@ function CategoryRow({
   }
 
   return (
-    <li className="rounded-lg border border-neutral-200/80 bg-neutral-50/50 p-4">
+    <>
       <div className="flex flex-wrap items-start justify-between gap-3">
         <button type="button" onClick={onEdit} className="min-w-0 flex-1 text-left">
           <div className="flex flex-wrap items-center gap-2">
@@ -227,7 +240,7 @@ function CategoryRow({
           <span>Aktiv</span>
         </label>
       </div>
-    </li>
+    </>
   )
 }
 
