@@ -13,6 +13,7 @@ import { ModuleAnalyticsDashboard } from '../../components/module/ModuleAnalytic
 import { DashboardEditLayoutPanel } from '../../components/module/dashboard/DashboardEditLayoutPanel'
 import { DashboardAddWidgetPanel } from '../../components/module/dashboard/DashboardAddWidgetPanel'
 import { DashboardEditWidgetPanel } from '../../components/module/dashboard/DashboardEditWidgetPanel'
+import { useDashboardEditChrome } from '../../components/module/dashboard/useDashboardEditChrome'
 import { DashboardWidgetMenu } from '../../components/module/dashboard/DashboardWidgetMenu'
 import { DashboardChooser } from '../../components/module/dashboard/DashboardChooser'
 import { downloadCsv, widgetToCsv } from '../../lib/reports/widgetCsv'
@@ -149,6 +150,11 @@ export function DocumentsAnalysePage() {
   const [editOpen, setEditOpen] = useState(false)
   const [addOpen, setAddOpen] = useState(false)
   const [editWidget, setEditWidget] = useState<ReportModule | null>(null)
+  const editChrome = useDashboardEditChrome({
+    scopeId: DOCUMENTS_DASHBOARD_SCOPE_ID,
+    layout: dashboard.layout,
+    saveLayout: dashboard.saveLayout,
+  })
 
   const widgetControlSlot = (m: ReportModule) => (
     <DashboardWidgetMenu
@@ -217,27 +223,30 @@ export function DocumentsAnalysePage() {
           />
         }
         headerActions={
-          <Link
-            to="/documents"
-            onClick={(e) => {
-              if (!e.metaKey && !e.ctrlKey) {
-                e.preventDefault()
-                navigate('/documents')
-              }
-            }}
-            className="inline-flex items-center justify-center gap-1.5 rounded-md border border-neutral-300 bg-white px-4 py-2 text-sm font-semibold text-neutral-700 transition-colors hover:bg-neutral-50"
-          >
-            <ArrowLeft className="h-4 w-4" />
-            Tilbake
-          </Link>
+          <div className="flex flex-wrap items-center gap-2">
+            {editChrome.toggleButton}
+            <Link
+              to="/documents"
+              onClick={(e) => {
+                if (!e.metaKey && !e.ctrlKey) {
+                  e.preventDefault()
+                  navigate('/documents')
+                }
+              }}
+              className="inline-flex items-center justify-center gap-1.5 rounded-md border border-neutral-300 bg-white px-4 py-2 text-sm font-semibold text-neutral-700 transition-colors hover:bg-neutral-50"
+            >
+              <ArrowLeft className="h-4 w-4" />
+              Tilbake
+            </Link>
+          </div>
         }
         layout={layout}
         datasets={datasets}
         loading={docs.loading || dashboard.loading}
         error={docs.error ?? dashboard.error}
         emptyState={empty}
-        onEdit={() => setEditOpen(true)}
-        onAddWidget={() => setAddOpen(true)}
+        onEdit={undefined}
+        onAddWidget={editChrome.editMode ? undefined : () => setAddOpen(true)}
         widgetControlSlot={widgetControlSlot}
         onDrillDown={handleDrillDown}
         onResize={(w, next) =>
@@ -245,6 +254,7 @@ export function DocumentsAnalysePage() {
             dashboard.layout.map((x) => (x.id === w.id ? { ...x, colSpan: next } : x)),
           )
         }
+        {...editChrome.moduleProps}
         filters={dashboard.filters}
         dimensions={dimensions}
         onFiltersChange={(next) => void dashboard.saveFilters(next)}

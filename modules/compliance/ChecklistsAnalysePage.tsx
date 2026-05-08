@@ -9,18 +9,16 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
-import { ArrowLeft, BarChart3, Check, PenLine } from 'lucide-react'
+import { ArrowLeft, BarChart3 } from 'lucide-react'
 import { ModuleAnalyticsDashboard } from '../../src/components/module/ModuleAnalyticsDashboard'
 import { DashboardEditLayoutPanel } from '../../src/components/module/dashboard/DashboardEditLayoutPanel'
 import { DashboardAddWidgetPanel } from '../../src/components/module/dashboard/DashboardAddWidgetPanel'
 import { DashboardEditWidgetPanel } from '../../src/components/module/dashboard/DashboardEditWidgetPanel'
-import { DashboardWidgetLibraryRail } from '../../src/components/module/dashboard/DashboardWidgetLibraryRail'
+import { useDashboardEditChrome } from '../../src/components/module/dashboard/useDashboardEditChrome'
 import { DashboardWidgetMenu } from '../../src/components/module/dashboard/DashboardWidgetMenu'
 import { DashboardChooser } from '../../src/components/module/dashboard/DashboardChooser'
-import { Button } from '../../src/components/ui/Button'
 import { downloadCsv, widgetToCsv } from '../../src/lib/reports/widgetCsv'
 import { defaultCompatibleKinds } from '../../src/components/module/dashboard/dashboardWidgetKinds'
-import { instantiateWidget } from '../../src/lib/dashboards/dashboardRegistry'
 import { useLicensedPacks } from '../../src/context/packContextValue'
 import { useOrgSetupContext } from '../../src/hooks/useOrgSetupContext'
 import {
@@ -201,11 +199,11 @@ export function ChecklistsAnalysePage() {
   const [editOpen, setEditOpen] = useState(false)
   const [addOpen, setAddOpen] = useState(false)
   const [editWidget, setEditWidget] = useState<ReportModule | null>(null)
-  // V3 edit mode (Klarert dashboard kit): inline edit chrome + docked
-  // widget-library rail. Replaces the SlidePanel-based "Rediger oppsett"
-  // and "Legg til widget" flow on this page; the SlidePanels stay as
-  // fallbacks for narrower viewports / smaller scopes.
-  const [editMode, setEditMode] = useState(false)
+  const editChrome = useDashboardEditChrome({
+    scopeId: CHECKLIST_DASHBOARD_SCOPE_ID,
+    layout: dashboard.layout,
+    saveLayout: dashboard.saveLayout,
+  })
 
   const widgetControlSlot = (m: ReportModule) => (
     <DashboardWidgetMenu
@@ -282,14 +280,7 @@ export function ChecklistsAnalysePage() {
         }
         headerActions={
           <div className="flex flex-wrap items-center gap-2">
-            <Button
-              type="button"
-              variant={editMode ? 'primary' : 'secondary'}
-              icon={editMode ? <Check className="h-4 w-4" /> : <PenLine className="h-4 w-4" />}
-              onClick={() => setEditMode((v) => !v)}
-            >
-              {editMode ? 'Lagre oppsett' : 'Rediger oppsett'}
-            </Button>
+            {editChrome.toggleButton}
             <Link
               to="/compliance/checklists"
               className="inline-flex items-center justify-center gap-1.5 rounded-md border border-neutral-300 bg-white px-4 py-2 text-sm font-semibold text-neutral-700 transition-colors hover:bg-neutral-50"
@@ -304,13 +295,11 @@ export function ChecklistsAnalysePage() {
         loading={cl.loading || dashboard.loading}
         error={cl.error ?? dashboard.error}
         emptyState={empty}
-        // The inline "Rediger oppsett" toggle in headerActions replaces the
-        // runtime's onEdit/onAddWidget chrome — passing `undefined` here so
-        // we don't end up with two "Rediger oppsett" buttons. The legacy
-        // SlidePanels stay registered below as fallbacks (e.g. when we
-        // need to surface them again for a narrower viewport).
+        // The inline edit-mode toggle replaces the runtime's onEdit
+        // button. Add Widget stays available off edit-mode for users who
+        // prefer the modal flow.
         onEdit={undefined}
-        onAddWidget={editMode ? undefined : () => setAddOpen(true)}
+        onAddWidget={editChrome.editMode ? undefined : () => setAddOpen(true)}
         widgetControlSlot={widgetControlSlot}
         onDrillDown={handleDrillDown}
         onResize={(w, next) =>
@@ -318,31 +307,7 @@ export function ChecklistsAnalysePage() {
             dashboard.layout.map((x) => (x.id === w.id ? { ...x, colSpan: next } : x)),
           )
         }
-        editMode={editMode}
-        widgetLibrarySlot={
-          editMode ? (
-            <DashboardWidgetLibraryRail
-              scopeId={CHECKLIST_DASHBOARD_SCOPE_ID}
-              onAdd={(widget) => dashboard.saveLayout([...dashboard.layout, widget])}
-            />
-          ) : undefined
-        }
-        onRemoveWidget={(w) => {
-          if (!window.confirm(`Fjerne widgeten «${w.title}»?`)) return
-          void dashboard.saveLayout(dashboard.layout.filter((x) => x.id !== w.id))
-        }}
-        onDropFromLibrary={({ catalogId, kindOverride }) => {
-          const scope = getDashboardScope(CHECKLIST_DASHBOARD_SCOPE_ID)
-          const entry = scope?.widgetCatalog.find((c) => c.catalogId === catalogId)
-          if (!entry) return
-          const widget = instantiateWidget(entry)
-          const final = (
-            kindOverride && kindOverride !== entry.template.kind
-              ? { ...(widget as Record<string, unknown>), kind: kindOverride }
-              : widget
-          ) as ReportModule
-          void dashboard.saveLayout([...dashboard.layout, final])
-        }}
+        {...editChrome.moduleProps}
         filters={dashboard.filters}
         dimensions={dimensions}
         onFiltersChange={(next) => void dashboard.saveFilters(next)}

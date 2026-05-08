@@ -13,6 +13,7 @@ import { ModuleAnalyticsDashboard } from '../../src/components/module/ModuleAnal
 import { DashboardEditLayoutPanel } from '../../src/components/module/dashboard/DashboardEditLayoutPanel'
 import { DashboardAddWidgetPanel } from '../../src/components/module/dashboard/DashboardAddWidgetPanel'
 import { DashboardEditWidgetPanel } from '../../src/components/module/dashboard/DashboardEditWidgetPanel'
+import { useDashboardEditChrome } from '../../src/components/module/dashboard/useDashboardEditChrome'
 import { DashboardWidgetMenu } from '../../src/components/module/dashboard/DashboardWidgetMenu'
 import { DashboardChooser } from '../../src/components/module/dashboard/DashboardChooser'
 import { downloadCsv, widgetToCsv } from '../../src/lib/reports/widgetCsv'
@@ -213,6 +214,11 @@ export function SurveyAnalysePage() {
   const [editOpen, setEditOpen] = useState(false)
   const [addOpen, setAddOpen] = useState(false)
   const [editWidget, setEditWidget] = useState<ReportModule | null>(null)
+  const editChrome = useDashboardEditChrome({
+    scopeId: SURVEY_DASHBOARD_SCOPE_ID,
+    layout: dashboard.layout,
+    saveLayout: dashboard.saveLayout,
+  })
 
   const widgetControlSlot = (m: ReportModule) => (
     <DashboardWidgetMenu
@@ -255,27 +261,31 @@ export function SurveyAnalysePage() {
           />
         }
         headerActions={
-          <Link
-            to="/survey"
-            className="inline-flex items-center justify-center gap-1.5 rounded-md border border-neutral-300 bg-white px-4 py-2 text-sm font-semibold text-neutral-700 transition-colors hover:bg-neutral-50"
-          >
-            <ArrowLeft className="h-4 w-4" />
-            Tilbake
-          </Link>
+          <div className="flex flex-wrap items-center gap-2">
+            {editChrome.toggleButton}
+            <Link
+              to="/survey"
+              className="inline-flex items-center justify-center gap-1.5 rounded-md border border-neutral-300 bg-white px-4 py-2 text-sm font-semibold text-neutral-700 transition-colors hover:bg-neutral-50"
+            >
+              <ArrowLeft className="h-4 w-4" />
+              Tilbake
+            </Link>
+          </div>
         }
         layout={layout}
         datasets={datasets}
         loading={survey.loading || dashboard.loading}
         error={survey.error ?? dashboard.error}
         emptyState={empty}
-        onEdit={() => setEditOpen(true)}
-        onAddWidget={() => setAddOpen(true)}
+        onEdit={undefined}
+        onAddWidget={editChrome.editMode ? undefined : () => setAddOpen(true)}
         widgetControlSlot={widgetControlSlot}
         onResize={(w, next) =>
           void dashboard.saveLayout(
             dashboard.layout.map((x) => (x.id === w.id ? { ...x, colSpan: next } : x)),
           )
         }
+        {...editChrome.moduleProps}
         filters={dashboard.filters}
         dimensions={dimensions}
         onFiltersChange={(next) => void dashboard.saveFilters(next)}
