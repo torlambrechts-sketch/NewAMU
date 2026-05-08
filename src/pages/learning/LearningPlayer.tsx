@@ -232,7 +232,9 @@ export function LearningPlayer() {
     )
   }
 
-  if (!isCourseUnlocked(course.id)) {
+  // Preview mode (admins / `?preview=1`) bypasses the prerequisite
+  // lock so authors can always look at their own course while building.
+  if (!isPreviewMode && !isCourseUnlocked(course.id)) {
     return (
       <ModulePageShell
         breadcrumb={[...baseBreadcrumb, { label: course.title }]}
