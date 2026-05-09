@@ -43,7 +43,7 @@ begin
   loop
     execute format(
       'select %s($1, $2)',
-      v_fn::text
+      v_fn::regproc::text
     ) using v_pack.organization_id, v_pack.slug;
   end loop;
 end $$;
