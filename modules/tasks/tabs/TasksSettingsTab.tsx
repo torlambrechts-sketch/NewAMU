@@ -1,5 +1,16 @@
-import { type ReactNode } from 'react'
+import { useState, type ReactNode } from 'react'
+import {
+  AlertOctagon,
+  Bell,
+  Globe,
+  Mail,
+  Settings as SettingsIcon,
+  Shield,
+  ShieldAlert,
+  ShieldCheck,
+} from 'lucide-react'
 import { ModuleSectionCard } from '../../../src/components/module'
+import { Tabs, type TabItem } from '../../../src/components/ui/Tabs'
 import { Button } from '../../../src/components/ui/Button'
 import { StandardInput } from '../../../src/components/ui/Input'
 import { StandardTextarea } from '../../../src/components/ui/Textarea'
@@ -16,21 +27,53 @@ import {
 import { TASK_PRIORITY_OPTIONS } from '../types'
 import type { UseTaskModuleSettings } from '../useTaskModuleSettings'
 
+type SettingsSubTab =
+  | 'generelt'
+  | 'varslinger'
+  | 'epost'
+  | 'integrasjoner'
+  | 'avvik'
+  | 'varsling'
+  | 'anonym'
+  | 'etterlevelse'
+
+const SUB_TABS: TabItem[] = [
+  { id: 'generelt',      label: 'Generelt',     icon: SettingsIcon },
+  { id: 'varslinger',    label: 'Varslinger',   icon: Bell },
+  { id: 'epost',         label: 'E-post',       icon: Mail },
+  { id: 'integrasjoner', label: 'Integrasjoner', icon: Globe },
+  { id: 'avvik',         label: 'Avvik',        icon: AlertOctagon },
+  { id: 'varsling',      label: 'Varsling',     icon: ShieldAlert },
+  { id: 'anonym',        label: 'Anonym AML',   icon: Shield },
+  { id: 'etterlevelse',  label: 'Etterlevelse', icon: ShieldCheck },
+]
+
 type Props = {
   settings: UseTaskModuleSettings
 }
 
 export function TasksSettingsTab({ settings }: Props) {
+  const [tab, setTab] = useState<SettingsSubTab>('generelt')
+
   return (
     <div className="space-y-4">
-      <GeneraltSection settings={settings} />
-      <NotificationsSection settings={settings} />
-      <EmailSection settings={settings} />
-      <IntegrationsSection settings={settings} />
-      <AvvikSection settings={settings} />
-      <VarslingSection settings={settings} />
-      <AnonymSection settings={settings} />
-      <ComplianceSection settings={settings} />
+      <ModuleSectionCard className="p-3">
+        <Tabs
+          overflow="scroll"
+          items={SUB_TABS}
+          activeId={tab}
+          onChange={(id) => setTab(id as SettingsSubTab)}
+        />
+      </ModuleSectionCard>
+
+      {tab === 'generelt'      && <GeneraltSection settings={settings} />}
+      {tab === 'varslinger'    && <NotificationsSection settings={settings} />}
+      {tab === 'epost'         && <EmailSection settings={settings} />}
+      {tab === 'integrasjoner' && <IntegrationsSection settings={settings} />}
+      {tab === 'avvik'         && <AvvikSection settings={settings} />}
+      {tab === 'varsling'      && <VarslingSection settings={settings} />}
+      {tab === 'anonym'        && <AnonymSection settings={settings} />}
+      {tab === 'etterlevelse'  && <ComplianceSection settings={settings} />}
     </div>
   )
 }
