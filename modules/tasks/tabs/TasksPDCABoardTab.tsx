@@ -6,7 +6,7 @@
 // narrows visible cards. Drag-and-drop reorders pdca_phase via
 // updateItem. Column "+ Ny" pre-fills the correct source_category.
 import { useState } from 'react'
-import { AlertTriangle, ClipboardList, Plus, Search, TrendingUp } from 'lucide-react'
+import { ClipboardList, Plus, Search } from 'lucide-react'
 import { useSearchParams } from 'react-router-dom'
 import type { TaskItem, TaskPack, TaskPdcaPhase, TaskSourceCategory } from '../../../src/types/task'
 import { useTaskItems } from '../useTaskItems'

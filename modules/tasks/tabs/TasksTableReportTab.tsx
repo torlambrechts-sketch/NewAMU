@@ -286,8 +286,9 @@ export function TasksTableReportTab() {
         <SlidePanel
           open
           onClose={() => setSelectedProjectId(null)}
+          titleId="project-detail-panel"
           title={selectedProject.title}
-          width="lg"
+          footer={null}
         >
           <TaskProjectDetailPanel
             project={selectedProject}

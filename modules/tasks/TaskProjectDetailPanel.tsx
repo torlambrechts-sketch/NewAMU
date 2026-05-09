@@ -88,7 +88,6 @@ export function TaskProjectDetailPanel({ project, onClose }: Props) {
   const handleAddNote = async () => {
     if (!addNoteLabel.trim()) return
     await addEvidence({
-      organizationId: project.organizationId,
       projectId: project.id,
       kind: 'note',
       label: addNoteLabel.trim(),
