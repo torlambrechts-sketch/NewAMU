@@ -1550,7 +1550,7 @@ export function WorkflowEditorV2({ ruleId }: { ruleId: string }) {
   const [steps, setSteps] = useState<WfStep[]>([])
   const [activeStepId, setActiveStepId] = useState<string | null>(null)
   const [dirtyIds, setDirtyIds] = useState<Set<string>>(new Set())
-  const [tab, setTab] = useState<EditorTab>('steg')
+  const [tab, setTab] = useState<EditorTab>('detaljer')
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved'>('idle')
   const [lastSaved, setLastSaved] = useState<string | null>(null)
   const [rulePatch, setRulePatch] = useState<Partial<WorkflowRuleRow>>({})
@@ -1697,8 +1697,8 @@ export function WorkflowEditorV2({ ruleId }: { ruleId: string }) {
   const sourceModule = rulePatch.source_module ?? rule?.source_module ?? 'hse'
 
   const tabDefs: { id: EditorTab; label: string }[] = [
-    { id: 'steg', label: 'Steg' },
     { id: 'detaljer', label: 'Detaljer' },
+    { id: 'steg', label: 'Steg' },
     { id: 'lovverk', label: 'Lovverk' },
     { id: 'testkjor', label: 'Test-kjør' },
   ]
