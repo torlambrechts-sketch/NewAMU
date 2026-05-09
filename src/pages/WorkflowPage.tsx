@@ -9,7 +9,6 @@ import { useCallback, useMemo, useState } from 'react'
 import {
   ArrowRight,
   ArrowUpDown,
-  CheckCircle2,
   GitFork,
   History,
   MoreHorizontal,
