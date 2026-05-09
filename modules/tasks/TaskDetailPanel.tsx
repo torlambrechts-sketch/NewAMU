@@ -1,16 +1,20 @@
-// TaskDetailPanel — full task item view in a slide-over panel.
-// Shows status stepper, participants, core fields, subtasks, and activity log.
-// Evidence, consultations, and advanced CAPA fields come in Phase 2/5.
+// TaskDetailPanel — full task item detail in a right slide-over.
+// Tabbed layout: Oppgave (status + fields), Aktivitet (comments + log),
+// Bevis (evidence), Konsultasjoner (ISO 45001 § 5.4 participation).
 
 import { useCallback, useEffect, useState } from 'react'
 import { Calendar, Clock, User, Users, X } from 'lucide-react'
 import { useOrgSetupContext } from '../../src/hooks/useOrgSetupContext'
 import { WORKPLACE_PAGE_SERIF } from '../../src/components/layout/WorkplacePageHeading1'
 import { WORKPLACE_STANDARD_LIST_OVERLAY_Z_INDEX } from '../../src/components/layout/WorkplaceStandardListLayout'
-import { Badge } from '../../src/components/ui/Badge'
+import { Tabs } from '../../src/components/ui/Tabs'
 import { TaskStatusBadge, TASK_STATUS_LABEL } from './components/TaskStatusBadge'
 import { TaskPriorityBadge } from './components/TaskPriorityBadge'
 import { TaskSubtaskList } from './components/TaskSubtaskList'
+import { TaskCommentThread } from './components/TaskCommentThread'
+import { TaskEvidenceSection } from './components/TaskEvidenceSection'
+import { TaskConsultationLog } from './components/TaskConsultationLog'
+import { TaskActivityFeed } from './components/TaskActivityFeed'
 import type { TaskItemStatus, TaskItemPriority } from '../../src/types/task'
 import type { TaskItemRow } from './useTaskItemsData'
 
@@ -32,11 +36,7 @@ const CAPA_FLOW: TaskItemStatus[] = [
   'closed',
 ]
 
-const SIMPLE_FLOW: TaskItemStatus[] = [
-  'open',
-  'in_progress',
-  'closed',
-]
+const SIMPLE_FLOW: TaskItemStatus[] = ['open', 'in_progress', 'closed']
 
 function fmtDate(s: string | null) {
   if (!s) return '—'
@@ -66,40 +66,54 @@ type DetailRow = {
   templateKind: string | null
 }
 
+const TABS = [
+  { id: 'oppgave', label: 'Oppgave' },
+  { id: 'aktivitet', label: 'Aktivitet' },
+  { id: 'bevis', label: 'Bevis' },
+  { id: 'konsultasjoner', label: 'Konsultasjoner' },
+]
+
 export function TaskDetailPanel({ open, onClose, item, onStatusChange }: Props) {
   const { supabase } = useOrgSetupContext()
   const [detail, setDetail] = useState<DetailRow | null>(null)
+  const [tab, setTab] = useState('oppgave')
   const [changingStatus, setChangingStatus] = useState(false)
 
-  const loadDetail = useCallback(async (id: string) => {
-    if (!supabase) return
-    const { data } = await supabase
-      .from('task_items')
-      .select(
-        'id, title, description, status, priority, owner_name, assignee_name, due_date, sla_due_at, created_at, closed_at, template_kind',
-      )
-      .eq('id', id)
-      .single()
-    if (data) {
-      setDetail({
-        id: String(data.id),
-        title: String(data.title ?? ''),
-        description: String(data.description ?? ''),
-        status: (data.status ?? 'open') as TaskItemStatus,
-        priority: (data.priority ?? 'medium') as TaskItemPriority,
-        ownerName: data.owner_name ? String(data.owner_name) : null,
-        assigneeName: data.assignee_name ? String(data.assignee_name) : null,
-        dueDate: data.due_date ? String(data.due_date) : null,
-        slaDueAt: data.sla_due_at ? String(data.sla_due_at) : null,
-        createdAt: String(data.created_at),
-        closedAt: data.closed_at ? String(data.closed_at) : null,
-        templateKind: data.template_kind ? String(data.template_kind) : null,
-      })
-    }
-  }, [supabase])
+  const loadDetail = useCallback(
+    async (id: string) => {
+      if (!supabase) return
+      const { data } = await supabase
+        .from('task_items')
+        .select(
+          'id, title, description, status, priority, owner_name, assignee_name, due_date, sla_due_at, created_at, closed_at, template_kind',
+        )
+        .eq('id', id)
+        .single()
+      if (data) {
+        setDetail({
+          id: String(data.id),
+          title: String(data.title ?? ''),
+          description: String(data.description ?? ''),
+          status: (data.status ?? 'open') as TaskItemStatus,
+          priority: (data.priority ?? 'medium') as TaskItemPriority,
+          ownerName: data.owner_name ? String(data.owner_name) : null,
+          assigneeName: data.assignee_name ? String(data.assignee_name) : null,
+          dueDate: data.due_date ? String(data.due_date) : null,
+          slaDueAt: data.sla_due_at ? String(data.sla_due_at) : null,
+          createdAt: String(data.created_at),
+          closedAt: data.closed_at ? String(data.closed_at) : null,
+          templateKind: data.template_kind ? String(data.template_kind) : null,
+        })
+      }
+    },
+    [supabase],
+  )
 
   useEffect(() => {
-    if (open && item) void loadDetail(item.id)
+    if (open && item) {
+      setTab('oppgave')
+      void loadDetail(item.id)
+    }
     if (!open) setDetail(null)
   }, [open, item, loadDetail])
 
@@ -112,7 +126,6 @@ export function TaskDetailPanel({ open, onClose, item, onStatusChange }: Props) 
   }
 
   if (!open) return null
-
   const row = detail ?? item
   if (!row) return null
 
@@ -129,7 +142,7 @@ export function TaskDetailPanel({ open, onClose, item, onStatusChange }: Props) 
       }}
     >
       <div
-        className="flex h-full w-full max-w-[min(100vw,760px)] flex-col bg-[#f7f6f2] shadow-[-12px_0_40px_rgba(0,0,0,0.12)]"
+        className="flex h-full w-full max-w-[min(100vw,800px)] flex-col bg-[#f7f6f2] shadow-[-12px_0_40px_rgba(0,0,0,0.12)]"
         role="dialog"
         aria-modal="true"
         aria-label={row.title}
@@ -147,6 +160,11 @@ export function TaskDetailPanel({ open, onClose, item, onStatusChange }: Props) 
             <div className="mt-2 flex flex-wrap items-center gap-2">
               <TaskStatusBadge status={row.status as TaskItemStatus} />
               <TaskPriorityBadge priority={row.priority as TaskItemPriority} />
+              {row.dueDate && new Date(row.dueDate) < new Date() && row.status !== 'closed' && row.status !== 'cancelled' && (
+                <span className="rounded-full border border-red-200 bg-red-50 px-2 py-0.5 text-[11px] font-semibold text-red-700">
+                  Forfalt
+                </span>
+              )}
             </div>
           </div>
           <button
@@ -159,147 +177,182 @@ export function TaskDetailPanel({ open, onClose, item, onStatusChange }: Props) 
           </button>
         </header>
 
-        {/* Scrollable body */}
+        {/* Tab strip */}
+        <div className="shrink-0 border-b border-neutral-200/90 bg-[#f7f6f2] px-5">
+          <Tabs items={TABS} activeId={tab} onChange={setTab} overflow="scroll" />
+        </div>
+
+        {/* Body */}
         <div className="min-h-0 flex-1 overflow-y-auto">
-          <div className="space-y-6 px-6 py-6">
+          <div className="px-6 py-6 space-y-6">
 
-            {/* Status stepper */}
-            {onStatusChange && (
-              <section>
-                <p className="mb-3 text-[10px] font-bold uppercase tracking-wider text-neutral-500">
-                  Status
-                </p>
-                <div className="flex flex-wrap gap-2">
-                  {flow.map((s, idx) => {
-                    const isActive = s === row.status
-                    const isDone = currentIdx > idx
-                    const isNext = currentIdx >= 0 && idx === currentIdx + 1
-                    return (
-                      <button
-                        key={s}
-                        type="button"
-                        disabled={changingStatus || isActive}
-                        onClick={() => void handleStatusChange(s)}
-                        className={`rounded-full border px-3 py-1 text-xs font-medium transition ${
-                          isActive
-                            ? 'border-[#c2410c] bg-[#c2410c] text-white'
-                            : isDone
-                            ? 'border-green-200 bg-green-50 text-green-700'
-                            : isNext
-                            ? 'border-[#c2410c]/30 bg-orange-50 text-[#c2410c] hover:border-[#c2410c] hover:bg-[#c2410c] hover:text-white'
-                            : 'border-neutral-200 bg-white text-neutral-500 hover:border-neutral-300'
-                        } disabled:cursor-not-allowed`}
-                      >
-                        {TASK_STATUS_LABEL[s]}
-                      </button>
-                    )
-                  })}
-                  {/* Always allow cancellation */}
-                  {row.status !== 'cancelled' && row.status !== 'closed' && (
-                    <button
-                      type="button"
-                      disabled={changingStatus}
-                      onClick={() => void handleStatusChange('cancelled')}
-                      className="rounded-full border border-neutral-200 bg-white px-3 py-1 text-xs font-medium text-neutral-400 transition hover:border-red-200 hover:bg-red-50 hover:text-red-600"
-                    >
-                      Kanseller
-                    </button>
+            {/* ── Oppgave tab ── */}
+            {tab === 'oppgave' && (
+              <>
+                {/* Status stepper */}
+                {onStatusChange && (
+                  <section>
+                    <p className="mb-3 text-[10px] font-bold uppercase tracking-wider text-neutral-500">
+                      Status
+                    </p>
+                    <div className="flex flex-wrap gap-2">
+                      {flow.map((s, idx) => {
+                        const isActive = s === row.status
+                        const isDone = currentIdx > idx
+                        const isNext = currentIdx >= 0 && idx === currentIdx + 1
+                        return (
+                          <button
+                            key={s}
+                            type="button"
+                            disabled={changingStatus || isActive}
+                            onClick={() => void handleStatusChange(s)}
+                            className={`rounded-full border px-3 py-1 text-xs font-medium transition ${
+                              isActive
+                                ? 'border-[#c2410c] bg-[#c2410c] text-white'
+                                : isDone
+                                ? 'border-green-200 bg-green-50 text-green-700'
+                                : isNext
+                                ? 'border-[#c2410c]/30 bg-orange-50 text-[#c2410c] hover:border-[#c2410c] hover:bg-[#c2410c] hover:text-white'
+                                : 'border-neutral-200 bg-white text-neutral-400 hover:border-neutral-300 hover:text-neutral-600'
+                            } disabled:cursor-not-allowed`}
+                          >
+                            {TASK_STATUS_LABEL[s]}
+                          </button>
+                        )
+                      })}
+                      {row.status !== 'cancelled' && row.status !== 'closed' && (
+                        <button
+                          type="button"
+                          disabled={changingStatus}
+                          onClick={() => void handleStatusChange('cancelled')}
+                          className="rounded-full border border-neutral-200 bg-white px-3 py-1 text-xs font-medium text-neutral-400 transition hover:border-red-200 hover:bg-red-50 hover:text-red-600"
+                        >
+                          Kanseller
+                        </button>
+                      )}
+                    </div>
+                  </section>
+                )}
+
+                {/* Description */}
+                {row.description && (
+                  <section>
+                    <p className="mb-2 text-[10px] font-bold uppercase tracking-wider text-neutral-500">
+                      Beskrivelse
+                    </p>
+                    <p className="whitespace-pre-wrap text-sm leading-relaxed text-neutral-700">
+                      {row.description}
+                    </p>
+                  </section>
+                )}
+
+                {/* Meta grid */}
+                <section className="grid grid-cols-2 gap-4 sm:grid-cols-3">
+                  {row.ownerName && (
+                    <div className="flex items-start gap-2">
+                      <User className="mt-0.5 h-4 w-4 shrink-0 text-neutral-400" />
+                      <div>
+                        <p className="text-[10px] font-bold uppercase tracking-wider text-neutral-500">
+                          Ansvarlig
+                        </p>
+                        <p className="mt-0.5 text-sm text-neutral-800">{row.ownerName}</p>
+                      </div>
+                    </div>
                   )}
-                </div>
+                  {row.assigneeName && (
+                    <div className="flex items-start gap-2">
+                      <Users className="mt-0.5 h-4 w-4 shrink-0 text-neutral-400" />
+                      <div>
+                        <p className="text-[10px] font-bold uppercase tracking-wider text-neutral-500">
+                          Tildelt
+                        </p>
+                        <p className="mt-0.5 text-sm text-neutral-800">{row.assigneeName}</p>
+                      </div>
+                    </div>
+                  )}
+                  {row.dueDate && (
+                    <div className="flex items-start gap-2">
+                      <Calendar className="mt-0.5 h-4 w-4 shrink-0 text-neutral-400" />
+                      <div>
+                        <p className="text-[10px] font-bold uppercase tracking-wider text-neutral-500">
+                          Frist
+                        </p>
+                        <p className={`mt-0.5 text-sm ${
+                          new Date(row.dueDate) < new Date() && row.status !== 'closed'
+                            ? 'font-medium text-red-600'
+                            : 'text-neutral-800'
+                        }`}>
+                          {fmtDate(row.dueDate)}
+                        </p>
+                      </div>
+                    </div>
+                  )}
+                  {row.slaDueAt && (
+                    <div className="flex items-start gap-2">
+                      <Clock className="mt-0.5 h-4 w-4 shrink-0 text-neutral-400" />
+                      <div>
+                        <p className="text-[10px] font-bold uppercase tracking-wider text-neutral-500">
+                          SLA-frist
+                        </p>
+                        <p className="mt-0.5 text-sm text-neutral-800">{fmtDate(row.slaDueAt)}</p>
+                      </div>
+                    </div>
+                  )}
+                  <div className="flex items-start gap-2">
+                    <Calendar className="mt-0.5 h-4 w-4 shrink-0 text-neutral-400" />
+                    <div>
+                      <p className="text-[10px] font-bold uppercase tracking-wider text-neutral-500">
+                        Opprettet
+                      </p>
+                      <p className="mt-0.5 text-sm text-neutral-800">{fmtDate(row.createdAt)}</p>
+                    </div>
+                  </div>
+                  {row.closedAt && (
+                    <div className="flex items-start gap-2">
+                      <Calendar className="mt-0.5 h-4 w-4 shrink-0 text-neutral-400" />
+                      <div>
+                        <p className="text-[10px] font-bold uppercase tracking-wider text-neutral-500">
+                          Lukket
+                        </p>
+                        <p className="mt-0.5 text-sm text-neutral-800">{fmtDate(row.closedAt)}</p>
+                      </div>
+                    </div>
+                  )}
+                </section>
+
+                {/* Subtasks */}
+                <section className="rounded-lg border border-neutral-200/80 bg-white p-4">
+                  <TaskSubtaskList taskItemId={row.id} />
+                </section>
+              </>
+            )}
+
+            {/* ── Aktivitet tab ── */}
+            {tab === 'aktivitet' && (
+              <>
+                <section className="rounded-lg border border-neutral-200/80 bg-white p-4">
+                  <TaskCommentThread taskItemId={row.id} />
+                </section>
+                <section className="rounded-lg border border-neutral-200/80 bg-white p-4">
+                  <TaskActivityFeed taskItemId={row.id} />
+                </section>
+              </>
+            )}
+
+            {/* ── Bevis tab ── */}
+            {tab === 'bevis' && (
+              <section className="rounded-lg border border-neutral-200/80 bg-white p-4">
+                <TaskEvidenceSection taskItemId={row.id} />
               </section>
             )}
 
-            {/* Description */}
-            {row.description && (
-              <section>
-                <p className="mb-2 text-[10px] font-bold uppercase tracking-wider text-neutral-500">
-                  Beskrivelse
-                </p>
-                <p className="whitespace-pre-wrap text-sm leading-relaxed text-neutral-700">
-                  {row.description}
-                </p>
+            {/* ── Konsultasjoner tab ── */}
+            {tab === 'konsultasjoner' && (
+              <section className="rounded-lg border border-neutral-200/80 bg-white p-4">
+                <TaskConsultationLog taskItemId={row.id} />
               </section>
             )}
 
-            {/* Meta grid */}
-            <section className="grid grid-cols-2 gap-4 sm:grid-cols-3">
-              {row.ownerName && (
-                <div className="flex items-start gap-2">
-                  <User className="mt-0.5 h-4 w-4 shrink-0 text-neutral-400" />
-                  <div>
-                    <p className="text-[10px] font-bold uppercase tracking-wider text-neutral-500">
-                      Ansvarlig
-                    </p>
-                    <p className="mt-0.5 text-sm text-neutral-800">{row.ownerName}</p>
-                  </div>
-                </div>
-              )}
-              {row.assigneeName && (
-                <div className="flex items-start gap-2">
-                  <Users className="mt-0.5 h-4 w-4 shrink-0 text-neutral-400" />
-                  <div>
-                    <p className="text-[10px] font-bold uppercase tracking-wider text-neutral-500">
-                      Tildelt
-                    </p>
-                    <p className="mt-0.5 text-sm text-neutral-800">{row.assigneeName}</p>
-                  </div>
-                </div>
-              )}
-              {row.dueDate && (
-                <div className="flex items-start gap-2">
-                  <Calendar className="mt-0.5 h-4 w-4 shrink-0 text-neutral-400" />
-                  <div>
-                    <p className="text-[10px] font-bold uppercase tracking-wider text-neutral-500">
-                      Frist
-                    </p>
-                    <p className="mt-0.5 text-sm text-neutral-800">{fmtDate(row.dueDate)}</p>
-                  </div>
-                </div>
-              )}
-              {row.slaDueAt && (
-                <div className="flex items-start gap-2">
-                  <Clock className="mt-0.5 h-4 w-4 shrink-0 text-neutral-400" />
-                  <div>
-                    <p className="text-[10px] font-bold uppercase tracking-wider text-neutral-500">
-                      SLA-frist
-                    </p>
-                    <p className="mt-0.5 text-sm text-neutral-800">{fmtDate(row.slaDueAt)}</p>
-                  </div>
-                </div>
-              )}
-              <div className="flex items-start gap-2">
-                <Calendar className="mt-0.5 h-4 w-4 shrink-0 text-neutral-400" />
-                <div>
-                  <p className="text-[10px] font-bold uppercase tracking-wider text-neutral-500">
-                    Opprettet
-                  </p>
-                  <p className="mt-0.5 text-sm text-neutral-800">{fmtDate(row.createdAt)}</p>
-                </div>
-              </div>
-              {row.closedAt && (
-                <div className="flex items-start gap-2">
-                  <Calendar className="mt-0.5 h-4 w-4 shrink-0 text-neutral-400" />
-                  <div>
-                    <p className="text-[10px] font-bold uppercase tracking-wider text-neutral-500">
-                      Lukket
-                    </p>
-                    <p className="mt-0.5 text-sm text-neutral-800">{fmtDate(row.closedAt)}</p>
-                  </div>
-                </div>
-              )}
-            </section>
-
-            {/* Subtasks */}
-            <section className="rounded-lg border border-neutral-200/80 bg-white p-4">
-              <TaskSubtaskList taskItemId={row.id} />
-            </section>
-
-            {/* Phase 2 placeholder sections */}
-            <section className="rounded-lg border border-dashed border-neutral-200 p-4 text-center">
-              <p className="text-xs text-neutral-400">
-                Kommentarer, bevis og konsultasjonslogg implementeres i fase 2.
-              </p>
-            </section>
           </div>
         </div>
       </div>
