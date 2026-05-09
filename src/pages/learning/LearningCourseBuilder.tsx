@@ -329,11 +329,8 @@ export function LearningCourseBuilder() {
       <AddTaskLink
         title={`Oppfølging: ${course.title}`}
         description="Oppfølgingsoppgave fra kursbygger"
-        module="learning"
-        sourceType="learning_course"
         sourceId={course.id}
         sourceLabel={course.title}
-        ownerRole="Læringsansvarlig"
       />
       <Button
         type="button"

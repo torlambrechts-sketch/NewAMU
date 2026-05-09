@@ -292,7 +292,7 @@ export function ProjectDashboard() {
                       <span className={`size-2.5 shrink-0 ${task.status === 'in_progress' ? 'bg-sky-500' : 'bg-neutral-300'}`} />
                       <div className="flex-1 min-w-0">
                         <span className="text-sm text-neutral-900 truncate">{task.title}</span>
-                        {task.ownerRole && <span className="ml-2 text-xs text-neutral-400">{task.ownerRole}</span>}
+                        {task.ownerName && <span className="ml-2 text-xs text-neutral-400">{task.ownerName}</span>}
                       </div>
                       {task.status === 'in_progress' && (
                         <span className="shrink-0 bg-sky-100 px-2 py-0.5 text-[10px] font-semibold text-sky-700">Pågår</span>

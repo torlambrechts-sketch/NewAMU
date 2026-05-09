@@ -577,9 +577,6 @@ export function OrgHealthModule() {
                 <div className="mt-4 border-t border-neutral-100 pt-4">
                   <AddTaskLink
                     title="Oppfølging organisasjonshelse"
-                    module="org_health"
-                    sourceType="manual"
-                    ownerRole="HR / HMS"
                   />
                 </div>
               </div>
@@ -1001,12 +998,8 @@ export function OrgHealthModule() {
                         <AddTaskLink
                           title={`IA-oppfølging sykefravær ${r.periodLabel}`}
                           description={r.notes?.slice(0, 200)}
-                          module="org_health"
-                          sourceType="nav_report"
                           sourceId={r.id}
                           sourceLabel={r.periodLabel}
-                          ownerRole="Leder / IA"
-                          requiresManagementSignOff
                           className="text-xs"
                         />
                       </td>
@@ -1147,11 +1140,8 @@ export function OrgHealthModule() {
                     <div className="mt-2">
                       <AddTaskLink
                         title={`Tiltak: ${def?.label ?? m.metricKey}`}
-                        module="org_health"
-                        sourceType="labor_metric"
                         sourceId={m.id}
                         sourceLabel={def?.label}
-                        ownerRole="HMS"
                       />
                     </div>
                   </li>
@@ -1479,12 +1469,8 @@ function SurveyAdminPanel({
                 <div className="border-t border-neutral-200 px-5 py-4">
                   <AddTaskLink
                     title={`Tiltak etter undersøkelse: ${survey.title.slice(0, 60)}`}
-                    module="org_health"
-                    sourceType="survey"
                     sourceId={survey.id}
                     sourceLabel={survey.title}
-                    ownerRole="HR / leder"
-                    requiresManagementSignOff
                   />
                 </div>
               ) : null}

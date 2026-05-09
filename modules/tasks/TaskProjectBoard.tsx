@@ -10,7 +10,7 @@
 // onDragLeave uses relatedTarget guard to avoid child-element false fires.
 
 import { useRef, useState } from 'react'
-import { GripVertical, Plus, X } from 'lucide-react'
+import { Plus, X } from 'lucide-react'
 import { TaskProjectCard } from './components/TaskProjectCard'
 import type { TaskItemRow } from './useTaskItemsData'
 import type { TaskPdcaPhase, TaskItemStatus, TaskProject } from '../../src/types/task'

@@ -664,8 +664,6 @@ export function WikiPageView() {
               <AddTaskLink
                 title={`Revider dokument: ${page.title}`}
                 description={`Systematisk gjennomgang (IK-f §5). Frist: ${page.nextRevisionDueAt ? new Date(page.nextRevisionDueAt).toLocaleDateString('no-NO') : ''}.`}
-                module="hse"
-                sourceType="manual"
                 sourceId={page.id}
                 sourceLabel={page.title}
               >

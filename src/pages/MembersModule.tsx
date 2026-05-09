@@ -166,10 +166,6 @@ export function MembersModule() {
             <div className="mt-3 flex justify-center">
               <AddTaskLink
                 title="Oppfølging representasjon / AMU"
-                module="members"
-                sourceType="representatives"
-                ownerRole="Tillitsvalgt"
-                requiresManagementSignOff
               />
             </div>
           </div>

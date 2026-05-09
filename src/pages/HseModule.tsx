@@ -3833,11 +3833,8 @@ export function HseModule() {
                         <div className="mt-6">
                           <AddTaskLink
                             title={`SJA oppfølging: ${sjaPanelExisting.title.slice(0, 60)}`}
-                            module="hse"
-                            sourceType="hse_sja"
                             sourceId={sjaPanelExisting.id}
                             sourceLabel={sjaPanelExisting.title}
-                            ownerRole="Arbeidsleder / HMS"
                             className={`${HERO_ACTION_CLASS} border border-neutral-300 bg-white text-xs text-[#1a3d32]`}
                           />
                         </div>
@@ -5089,11 +5086,8 @@ export function HseModule() {
                   <AddTaskLink
                     title={`Oppfølging inspeksjon: ${panelInspection.title.slice(0, 60)}`}
                     description={panelInspection.followUp || panelInspection.findings?.slice(0, 200)}
-                    module="hse"
-                    sourceType="hse_inspection"
                     sourceId={panelInspection.id}
                     sourceLabel={panelInspection.title}
-                    ownerRole={panelInspection.responsible || 'Ansvarlig'}
                     className={`${HERO_ACTION_CLASS} inline-flex gap-1.5 border border-neutral-300 bg-white text-xs text-[#1a3d32]`}
                   />
                 </div>
@@ -5723,11 +5717,8 @@ function SafetyRoundCard({
                       <AddTaskLink
                         title={`Avvik: ${item.label.slice(0, 60)}`}
                         description={detail?.description?.slice(0, 200)}
-                        module="hse"
-                        sourceType="hse_safety_round"
                         sourceId={round.id}
                         sourceLabel={`${round.title} — ${item.label}`}
-                        ownerRole={detail?.assignee || 'Verneombud'}
                       />
                     )}
                   </div>
