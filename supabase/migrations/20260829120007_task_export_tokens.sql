@@ -23,8 +23,10 @@ set local search_path = public, pg_catalog;
 create table if not exists public.task_export_tokens (
   id              uuid primary key default gen_random_uuid(),
   -- 256-bit tilfeldig token (hex-kodet) — brukes i URL-en
+  -- Two gen_random_uuid() calls concatenated give 256 bits of randomness
+  -- without requiring the pgcrypto extension.
   token           text not null unique
-    default encode(gen_random_bytes(32), 'hex'),
+    default replace(gen_random_uuid()::text, '-', '') || replace(gen_random_uuid()::text, '-', ''),
   organization_id uuid not null references public.organizations (id) on delete cascade,
   project_id      uuid not null references public.task_projects (id) on delete cascade,
   pack            public.task_pack not null,
