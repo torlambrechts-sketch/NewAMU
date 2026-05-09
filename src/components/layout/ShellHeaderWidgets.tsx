@@ -15,7 +15,7 @@ import { LanguageSwitcher } from '../LanguageSwitcher'
 import { useCouncil } from '../../hooks/useCouncil'
 import { useHse } from '../../hooks/useHse'
 import { useInternalControl } from '../../hooks/useInternalControl'
-import { useTasks } from '../../hooks/useTasks'
+import { useTaskItemsData } from '../../../modules/tasks/useTaskItemsData'
 import type { NavMode } from './aticsNavMode'
 
 type ProfileMenuProps = {
@@ -307,7 +307,7 @@ export function ShellComplianceIndicator({ variant }: { variant: 'sidebar' | 'to
   const council = useCouncil()
   const hse = useHse()
   const ic = useInternalControl()
-  const ts = useTasks()
+  const ts = useTaskItemsData()
   const [open, setOpen] = useState(false)
   const ref = useCloseOnOutsideClick(open, () => setOpen(false))
 
@@ -393,7 +393,7 @@ export function ShellComplianceIndicator({ variant }: { variant: 'sidebar' | 'to
       sectionsAcc.push({ id: 'hse', title: 'HMS', items: hseItems })
     }
 
-    const overdueTasks = ts.tasks.filter((x) => x.status !== 'done' && x.dueDate && x.dueDate < today)
+    const overdueTasks = ts.items.filter((x) => x.status !== 'closed' && x.status !== 'cancelled' && x.dueDate && x.dueDate < today)
     if (overdueTasks.length) {
       sectionsAcc.push({
         id: 'tasks',
@@ -426,7 +426,7 @@ export function ShellComplianceIndicator({ variant }: { variant: 'sidebar' | 'to
     else if (sectionsAcc.length > 0) level = 'yellow'
 
     return { level, sections: sectionsAcc }
-  }, [council.compliance, hse.stats, hse.incidents, ic.rosAssessments, ic.annualReviews, ts.tasks, today, year])
+  }, [council.compliance, hse.stats, hse.incidents, ic.rosAssessments, ic.annualReviews, ts.items, today, year])
 
   const dotClass =
     level === 'green'

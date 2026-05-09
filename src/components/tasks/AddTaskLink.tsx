@@ -5,18 +5,13 @@
 
 import { Link } from 'react-router-dom'
 import type { ReactNode } from 'react'
-import type { TaskModule, TaskSourceType } from '../../types/task'
 
 type Props = {
   children: ReactNode
   title?: string
   description?: string
-  module?: TaskModule
-  sourceType?: TaskSourceType
   sourceId?: string
   sourceLabel?: string
-  ownerRole?: string
-  requiresManagementSignOff?: boolean
   className?: string
 }
 

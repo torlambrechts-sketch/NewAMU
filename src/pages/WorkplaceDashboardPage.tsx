@@ -4,7 +4,7 @@ import { GripVertical, LayoutDashboard, Loader2, Pencil, Plus, Save, X } from 'l
 import { useOrganisation } from '../hooks/useOrganisation'
 import { useOrgSetupContext } from '../hooks/useOrgSetupContext'
 import { useReporting } from '../hooks/useReporting'
-import { useTasks } from '../hooks/useTasks'
+import { useTaskItemsData } from '../../modules/tasks/useTaskItemsData'
 import { useUiTheme } from '../hooks/useUiTheme'
 import { useWorkplaceDashboard } from '../hooks/useWorkplaceDashboard'
 import { mergeLayoutPayload } from '../lib/layoutLabTokens'
@@ -59,7 +59,7 @@ export function WorkplaceDashboardPage() {
   const { supabaseConfigured } = useOrgSetupContext()
   const org = useOrganisation()
   const rep = useReporting()
-  const { tasks } = useTasks()
+  const { items: tasks } = useTaskItemsData()
   const { payload: layoutPayload } = useUiTheme()
   const layout = mergeLayoutPayload(layoutPayload)
   const accent = layout.accent

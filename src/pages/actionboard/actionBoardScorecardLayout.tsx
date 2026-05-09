@@ -5,8 +5,24 @@
 import { type DragEvent, type ReactNode } from 'react'
 import { Link } from 'react-router-dom'
 import { Calendar, GripVertical } from 'lucide-react'
-import { MODULE_LABELS } from '../../lib/taskNavigation'
-import type { TaskModule, TaskStatus } from '../../types/task'
+/** Board-level status — maps to the three columns on the ActionBoard. */
+export type TaskStatus = 'todo' | 'in_progress' | 'done'
+
+const MODULE_LABELS: Record<string, string> = {
+  general: 'Generelt',
+  council: 'Arbeidsmiljøråd',
+  members: 'Representasjon',
+  org_health: 'Organisasjonshelse',
+  hse: 'HMS',
+  hrm: 'Personal',
+  learning: 'Læring',
+  oppgave: 'Generell oppgave',
+  avvik: 'Avvik / Hendelse',
+  nestenulykke: 'Nestenulykke',
+  tiltak: 'Tiltak',
+  risiko: 'Risikovurdering',
+  forslag: 'Forslag',
+}
 
 export const AB_SCORECARD_CREAM = '#F9F7F2'
 export const AB_SCORECARD_CREAM_DEEP = '#EFE8DC'
@@ -56,7 +72,7 @@ const STATUS_LABELS: Record<TaskStatus, string> = {
 }
 
 function moduleLabel(m: string) {
-  return MODULE_LABELS[m as TaskModule] ?? m
+  return MODULE_LABELS[m] ?? m
 }
 
 /** Map status to a 0–5 bar like layout-reference score rows */

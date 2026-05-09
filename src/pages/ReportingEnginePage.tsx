@@ -26,7 +26,7 @@ import { useWorkplaceKpiStripStyle } from '../hooks/useWorkplaceKpiStripStyle'
 import { useUiTheme } from '../hooks/useUiTheme'
 import { mergeLayoutPayload } from '../lib/layoutLabTokens'
 import { useOrganisation } from '../hooks/useOrganisation'
-import { useTasks } from '../hooks/useTasks'
+import { useTaskItemsData } from '../../modules/tasks/useTaskItemsData'
 import { useReportBuilder } from '../hooks/useReportBuilder'
 import { useReportRuns } from '../hooks/useReportRuns'
 import { useReportSchedules } from '../hooks/useReportSchedules'
@@ -165,7 +165,7 @@ export function ReportingEnginePage() {
   const { organization, supabaseConfigured, profile, user } = useOrgSetupContext()
   const rep = useReporting()
   const org = useOrganisation()
-  const { tasks } = useTasks()
+  const { items: tasks } = useTaskItemsData()
   const rb = useReportBuilder()
   const schedules = useReportSchedules()
   const {

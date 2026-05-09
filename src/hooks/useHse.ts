@@ -55,9 +55,21 @@ import type {
   SickLeaveAbsenceType,
   TrainingRecord,
 } from '../types/hse'
-import type { Task as KanbanTask } from '../types/task'
-
-type KanbanTaskSeed = Omit<KanbanTask, 'id' | 'createdAt'> & Partial<Pick<KanbanTask, 'id' | 'createdAt'>>
+type KanbanTaskSeed = {
+  title?: string
+  description?: string
+  status?: string
+  assignee?: string
+  ownerRole?: string
+  dueDate?: string
+  module?: string
+  sourceType?: string
+  sourceId?: string
+  sourceLabel?: string
+  requiresManagementSignOff?: boolean
+  id?: string
+  createdAt?: string
+}
 
 const STORAGE_KEY = 'atics-hse-v2'
 const MODULE_KEY = 'hse' as const

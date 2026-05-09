@@ -20,7 +20,7 @@ import { useWorkplacePublishedComposerStacks } from '../hooks/useWorkplacePublis
 import type { InternalControlAuditEntry, RosAssessment, RosCategory, RosWorkspaceCategory } from '../types/internalControl'
 import { isRosDocumentDraft, isRosRiskRowDraft, isRosRowDoneForTracking } from '../types/internalControl'
 import { useHrCompliance } from '../hooks/useHrCompliance'
-import { useTasks } from '../hooks/useTasks'
+import { useTaskItemsData } from '../../modules/tasks/useTaskItemsData'
 import { useWorkplaceKpiStripStyle } from '../hooks/useWorkplaceKpiStripStyle'
 import { formatLevel1AuditLine } from '../lib/level1Signature'
 import {
@@ -85,7 +85,7 @@ export function InternalControlModule() {
   const { barStyle: kpiStripStyle } = useWorkplaceKpiStripStyle()
   const ic = useInternalControl()
   const hr = useHrCompliance()
-  const { addTask } = useTasks()
+  const taskItems = useTaskItemsData()
   const { supabase, supabaseConfigured, organization } = useOrgSetupContext()
   const { publishedStackTemplates } = useWorkplacePublishedComposerStacks()
   const [searchParams, setSearchParams] = useSearchParams()
@@ -382,22 +382,19 @@ export function InternalControlModule() {
         const measure = row.proposedMeasures!.trim()
         const who = row.responsible!.trim()
         const due = row.dueDate!.trim()
-        addTask({
+        void taskItems.createItem({
           title: `ROS-tiltak: ${measure.slice(0, 80)}${measure.length > 80 ? '…' : ''}`,
           description: buildRosApprovedTaskDescription(ros, row),
-          assignee: who,
-          ownerRole: 'Ansvarlig (ROS)',
+          assigneeName: who,
+          ownerName: 'Ansvarlig (ROS)',
           dueDate: due,
-          status: 'todo',
-          module: 'hse',
-          sourceType: 'ros_measure',
-          sourceId: ros.id,
-          sourceLabel: `ROS-rad ${row.id.slice(0, 8)}`,
-          requiresManagementSignOff: false,
+          priority: 'medium',
+          templateSlug: 'tiltak',
+          templateKind: 'tiltak',
         })
       }
     },
-    [addTask],
+    [taskItems],
   )
 
   const icHubItems: HubMenu1Item[] = useMemo(

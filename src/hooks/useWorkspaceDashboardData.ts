@@ -4,7 +4,7 @@ import { useHse } from './useHse'
 import { useInternalControl } from './useInternalControl'
 import { useLearning } from './useLearning'
 import { useOrgHealth } from './useOrgHealth'
-import { useTasks } from './useTasks'
+import { useTaskItemsData } from '../../modules/tasks/useTaskItemsData'
 
 const today = new Date()
 export const DASHBOARD_TODAY_STR = today.toISOString().slice(0, 10)
@@ -35,14 +35,14 @@ export function useWorkspaceDashboardData() {
   const ic = useInternalControl()
   const learning = useLearning()
   const oh = useOrgHealth()
-  const ts = useTasks()
+  const ts = useTaskItemsData()
 
   const openTasks = useMemo(
     () =>
-      ts.tasks
-        .filter((t) => t.status !== 'done')
+      ts.items
+        .filter((t) => t.status !== 'closed' && t.status !== 'cancelled')
         .sort((a, b) => ((a.dueDate || '9999') < (b.dueDate || '9999') ? -1 : 1)),
-    [ts.tasks],
+    [ts.items],
   )
 
   const overdueTasks = useMemo(

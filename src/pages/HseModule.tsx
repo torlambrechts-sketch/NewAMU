@@ -41,7 +41,7 @@ import { useWorkplaceKpiStripStyle } from '../hooks/useWorkplaceKpiStripStyle'
 import { useOrgSetupContext } from '../hooks/useOrgSetupContext'
 import { canViewIncident } from '../lib/incidentAccess'
 import { canViewSickLeaveCase } from '../lib/sickLeaveAccess'
-import { useTasks } from '../hooks/useTasks'
+import { useTaskItemsData } from '../../modules/tasks/useTaskItemsData'
 import { useUiTheme } from '../hooks/useUiTheme'
 import { formatLevel1AuditLine } from '../lib/level1Signature'
 import {
@@ -263,7 +263,7 @@ export function HseModule() {
     useWorkplacePublishedComposerStacks()
   const { supabaseConfigured, supabase, organization, profile, user, isAdmin, departments } = useOrgSetupContext()
   const org = useOrganisation()
-  const { addTask } = useTasks()
+  const taskItems = useTaskItemsData()
   const { barStyle: kpiStripStyle } = useWorkplaceKpiStripStyle()
   const { payload: layoutPayload } = useUiTheme()
   const layout = mergeLayoutPayload(layoutPayload)
@@ -1989,19 +1989,15 @@ export function HseModule() {
     const assignee = leaderEmp?.name?.trim() || sc.managerName.trim() || 'Nærmeste leder'
     for (const m of sc.milestones) {
       if (m.completedAt) continue
-      addTask({
+      void taskItems.createItem({
         title: `Sykefravær: ${m.label}`,
         description: `Sak: ${sc.employeeName} (fra ${formatDate(sc.sickFrom)}).\n${m.lawRef}\nFrist: ${formatDate(m.dueAt)}`,
-        status: 'todo',
-        assignee,
-        assigneeEmployeeId: sc.managerEmployeeId,
+        priority: 'medium',
+        assigneeName: assignee,
+        ownerName: 'Nærmeste leder',
         dueDate: m.dueAt,
-        module: 'hse',
-        sourceType: 'hse_sick_leave_milestone',
-        sourceId: `${sc.id}:${m.kind}`,
-        sourceLabel: sc.employeeName,
-        ownerRole: 'Nærmeste leder',
-        requiresManagementSignOff: false,
+        templateSlug: 'oppgave-generell',
+        templateKind: 'oppgave',
       })
     }
   }
@@ -2795,7 +2791,7 @@ export function HseModule() {
                       round={hse.safetyRounds.find((r) => r.id === roundPanelId)!}
                       templates={hse.checklistTemplates}
                       hse={hse}
-                      addTask={addTask}
+                      createItem={taskItems.createItem}
                     />
                   ) : (
                     <p className="text-sm text-neutral-600">Fant ikke denne runden.</p>
@@ -5065,8 +5061,17 @@ export function HseModule() {
                           if (!r.ok) return
                           const links: { findingId: string; taskId: string }[] = []
                           for (const s of r.seeds) {
-                            const t = addTask({ ...s.task, status: 'todo' })
-                            links.push({ findingId: s.findingId, taskId: t.id })
+                            const id = await taskItems.createItem({
+                              title: s.task.title ?? '',
+                              description: s.task.description ?? '',
+                              priority: 'medium',
+                              assigneeName: s.task.assignee ?? undefined,
+                              ownerName: s.task.ownerRole ?? undefined,
+                              dueDate: s.task.dueDate ?? undefined,
+                              templateSlug: 'oppgave-generell',
+                              templateKind: 'oppgave',
+                            })
+                            if (id) links.push({ findingId: s.findingId, taskId: id })
                           }
                           if (links.length) hse.linkInspectionFindingTasks(insDraftId, links)
                           setFinalizeName('')
@@ -5525,12 +5530,12 @@ function SafetyRoundCard({
   round,
   templates,
   hse,
-  addTask,
+  createItem,
 }: {
   round: SafetyRound
   templates: ChecklistTemplate[]
   hse: ReturnType<typeof useHse>
-  addTask: ReturnType<typeof useTasks>['addTask']
+  createItem: ReturnType<typeof useTaskItemsData>['createItem']
 }) {
   const checklist = useMemo(() => {
     const tpl = templates.find((t) => t.id === (round.checklistTemplateId ?? SAFETY_ROUND_TEMPLATE_ID))
@@ -5788,7 +5793,16 @@ function SafetyRoundCard({
                 const r = await hse.signSafetyRound(round.id, 'management')
                 if (r.ok && r.seeds.length) {
                   for (const t of r.seeds) {
-                    addTask(t)
+                    void createItem({
+                      title: t.title ?? '',
+                      description: t.description ?? '',
+                      priority: 'medium',
+                      assigneeName: t.assignee ?? undefined,
+                      ownerName: t.ownerRole ?? undefined,
+                      dueDate: t.dueDate ?? undefined,
+                      templateSlug: 'oppgave-generell',
+                      templateKind: 'oppgave',
+                    })
                   }
                 }
               }}
@@ -5800,7 +5814,16 @@ function SafetyRoundCard({
                 const r = await hse.signSafetyRound(round.id, 'safety_rep')
                 if (r.ok && r.seeds.length) {
                   for (const t of r.seeds) {
-                    addTask(t)
+                    void createItem({
+                      title: t.title ?? '',
+                      description: t.description ?? '',
+                      priority: 'medium',
+                      assigneeName: t.assignee ?? undefined,
+                      ownerName: t.ownerRole ?? undefined,
+                      dueDate: t.dueDate ?? undefined,
+                      templateSlug: 'oppgave-generell',
+                      templateKind: 'oppgave',
+                    })
                   }
                 }
               }}

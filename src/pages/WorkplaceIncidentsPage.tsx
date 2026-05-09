@@ -5,7 +5,6 @@ import { useHse } from '../hooks/useHse'
 import { useOrganisation } from '../hooks/useOrganisation'
 import { useOrgSetupContext } from '../hooks/useOrgSetupContext'
 import { canEditIncidentRootCause, canViewIncident } from '../lib/incidentAccess'
-import { buildTaskPrefillQuery } from '../lib/taskNavigation'
 import type {
   Incident,
   IncidentCategory,
@@ -1010,18 +1009,7 @@ export function WorkplaceIncidentsPage() {
                     {incidentPanelExisting ? (
                       <p className="mt-4 text-xs text-neutral-600">
                         <Link
-                          to={`/tasks?${buildTaskPrefillQuery({
-                            title: `Oppfølging: ${KIND_LABELS[incidentPanelExisting.kind]}`,
-                            description: incidentPanelExisting.description.slice(0, 200),
-                            module: 'hse',
-                            sourceType: 'hse_incident',
-                            sourceId: incidentPanelExisting.id,
-                            sourceLabel: `${incidentPanelExisting.location} · ${SEVERITY_LABELS[incidentPanelExisting.severity]}`,
-                            ownerRole: 'HMS / verneombud',
-                            requiresManagementSignOff:
-                              incidentPanelExisting.severity === 'high' ||
-                              incidentPanelExisting.severity === 'critical',
-                          })}`}
+                          to="/tasks/management?template=avvik"
                           className="font-semibold text-[#1a3d32] underline"
                         >
                           Opprett oppfølgingsoppgave i Oppgaver →
