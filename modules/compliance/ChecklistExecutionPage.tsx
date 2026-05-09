@@ -5,7 +5,7 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
-import { Archive, ArrowLeft, CheckCircle2, Circle, Flag, Lock, ShieldCheck } from 'lucide-react'
+import { Archive, ArrowLeft, CheckCircle2, Circle, Lock, ShieldCheck } from 'lucide-react'
 import { ModulePageShell } from '../../src/components/module/ModulePageShell'
 import { ModuleSectionCard } from '../../src/components/module/ModuleSectionCard'
 import { Button } from '../../src/components/ui/Button'
@@ -27,18 +27,6 @@ import type {
   ComplianceResponseRow,
   ComplianceSeverity,
 } from './types'
-
-// Segment-button palette — mirrors FormToggles.tsx / YesNoToggle
-const SEG_ACTIVE = { backgroundColor: '#1a3d32', color: 'white' } as const
-const SEG_IDLE   = { backgroundColor: 'white',    color: '#9ca3af' } as const
-
-// Severity active colours: yellow → orange → red → dark red
-const SEVERITY_COLOR: Record<ComplianceSeverity, string> = {
-  low:      '#ca8a04',
-  medium:   '#d97706',
-  high:     '#dc2626',
-  critical: '#991b1b',
-}
 
 const STATUS_LABEL: Record<ComplianceExecutionRow['status'], string> = {
   draft: 'Kladd',
@@ -325,7 +313,6 @@ export function ChecklistExecutionPage() {
 
                   {!readOnly ? (
                     <div className="mt-3 border-t border-neutral-200/80 pt-3">
-                      {/* "Marker som funn" — styled as a segment pill */}
                       <button
                         type="button"
                         onClick={() =>
@@ -334,49 +321,42 @@ export function ChecklistExecutionPage() {
                             [item.key]: !isFindingExpanded,
                           }))
                         }
-                        style={isFindingExpanded ? SEG_ACTIVE : SEG_IDLE}
-                        className="inline-flex items-center gap-2 rounded-md border border-neutral-300 px-3 py-2 text-xs font-medium transition-colors"
+                        className="inline-flex items-center gap-1.5 text-xs font-medium text-neutral-600 hover:text-neutral-900"
                       >
-                        {isFindingExpanded
-                          ? <CheckCircle2 className="h-3.5 w-3.5 shrink-0" />
-                          : <Flag className="h-3.5 w-3.5 shrink-0" />}
+                        {isFindingExpanded ? (
+                          <CheckCircle2 className="h-4 w-4" />
+                        ) : (
+                          <Circle className="h-4 w-4" />
+                        )}
                         Marker som funn
                       </button>
 
                       {isFindingExpanded ? (
                         <div className="mt-3 space-y-3">
-                          {/* Severity — full-width segmented group with severity colours */}
-                          <div className="flex overflow-hidden rounded-md border border-neutral-300">
-                            {SEVERITIES.map((s, i) => {
-                              const isActive = response?.severity === s
-                              return (
-                                <button
-                                  key={s}
-                                  type="button"
-                                  onClick={() =>
-                                    saveResponse({
-                                      executionId,
-                                      itemKey: item.key,
-                                      value: response?.value ?? {},
-                                      comment: response?.comment ?? undefined,
-                                      severity: s,
-                                    })
-                                  }
-                                  style={isActive
-                                    ? { backgroundColor: SEVERITY_COLOR[s], color: 'white' }
-                                    : SEG_IDLE}
-                                  className={[
-                                    'flex flex-1 items-center justify-center gap-2 px-3 py-3 text-xs font-semibold transition-colors',
-                                    i > 0 ? 'border-l border-neutral-300' : '',
-                                  ].join(' ')}
-                                >
-                                  {isActive
-                                    ? <CheckCircle2 className="h-3.5 w-3.5 shrink-0" />
-                                    : <Circle className="h-3.5 w-3.5 shrink-0" />}
-                                  {pack.severityLabels[s]}
-                                </button>
-                              )
-                            })}
+                          <div className="flex flex-wrap gap-2">
+                            {SEVERITIES.map((s) => (
+                              <button
+                                key={s}
+                                type="button"
+                                onClick={() =>
+                                  saveResponse({
+                                    executionId,
+                                    itemKey: item.key,
+                                    value: response?.value ?? {},
+                                    comment: response?.comment ?? undefined,
+                                    severity: s,
+                                  })
+                                }
+                                className={[
+                                  'inline-flex items-center gap-1.5 border px-2.5 py-1 text-xs font-semibold transition-colors',
+                                  response?.severity === s
+                                    ? 'border-[#1a3d32] bg-[#1a3d32] text-white'
+                                    : 'border-neutral-300 bg-white text-neutral-700 hover:bg-neutral-50',
+                                ].join(' ')}
+                              >
+                                {pack.severityLabels[s]}
+                              </button>
+                            ))}
                           </div>
                           <StandardTextarea
                             value={response?.comment ?? ''}
@@ -437,8 +417,8 @@ function ItemControl({
       { id: 'na', label: 'Ikke aktuelt', ok: null },
     ]
     return (
-      <div className={['flex overflow-hidden rounded-md border border-neutral-300', readOnly ? 'opacity-60' : ''].join(' ')}>
-        {opts.map((o, i) => {
+      <div className="flex flex-wrap gap-2">
+        {opts.map((o) => {
           const active =
             (o.id === 'yes' && current === true) ||
             (o.id === 'no' && current === false) ||
@@ -449,15 +429,14 @@ function ItemControl({
               type="button"
               disabled={readOnly}
               onClick={() => onCommit({ ok: o.ok })}
-              style={active ? SEG_ACTIVE : SEG_IDLE}
               className={[
-                'flex flex-1 items-center justify-center gap-2 px-4 py-3 text-sm font-medium transition-colors',
-                i > 0 ? 'border-l border-neutral-300' : '',
+                'border px-3 py-1.5 text-sm font-medium transition-colors',
+                active
+                  ? 'border-[#1a3d32] bg-[#1a3d32] text-white'
+                  : 'border-neutral-300 bg-white text-neutral-700 hover:bg-neutral-50',
+                readOnly ? 'cursor-not-allowed opacity-60' : '',
               ].join(' ')}
             >
-              {active
-                ? <CheckCircle2 className="h-4 w-4 shrink-0" />
-                : <Circle className="h-4 w-4 shrink-0" />}
               {o.label}
             </button>
           )
@@ -508,28 +487,19 @@ function ItemControl({
   if (item.type === 'signature') {
     const signed = value.signedAt as string | undefined
     return signed ? (
-      <div className="flex overflow-hidden rounded-md border border-neutral-300">
-        <span
-          style={SEG_ACTIVE}
-          className="flex flex-1 items-center justify-center gap-2 px-4 py-3 text-sm font-medium"
-        >
-          <CheckCircle2 className="h-4 w-4 shrink-0" />
-          Signert {new Date(signed).toLocaleString('nb-NO', { day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit' })}
-        </span>
-      </div>
+      <p className="text-xs text-neutral-700">
+        Signert {new Date(signed).toLocaleString('nb-NO')}
+      </p>
     ) : (
-      <div className={['flex overflow-hidden rounded-md border border-neutral-300', readOnly ? 'opacity-60' : ''].join(' ')}>
-        <button
-          type="button"
-          disabled={readOnly}
-          onClick={() => onCommit({ signedAt: new Date().toISOString() })}
-          style={SEG_IDLE}
-          className="flex flex-1 items-center justify-center gap-2 px-4 py-3 text-sm font-medium transition-colors"
-        >
-          <Circle className="h-4 w-4 shrink-0" />
-          Signer punkt
-        </button>
-      </div>
+      <Button
+        type="button"
+        variant="primary"
+        size="sm"
+        disabled={readOnly}
+        onClick={() => onCommit({ signedAt: new Date().toISOString() })}
+      >
+        Signer punkt
+      </Button>
     )
   }
 

@@ -4,7 +4,7 @@
 // The component commits on each change so the caller only needs an onSave callback.
 
 import { useState } from 'react'
-import { CheckCircle2, Circle, HelpCircle, MapPin, Package } from 'lucide-react'
+import { MapPin, Package, HelpCircle } from 'lucide-react'
 import { SearchableSelect } from '../../../src/components/ui/SearchableSelect'
 import { StandardInput } from '../../../src/components/ui/Input'
 import { WPSTD_FORM_FIELD_LABEL } from '../../../src/components/layout/WorkplaceStandardFormPanel'
@@ -72,21 +72,20 @@ export function ChecklistScopeSelector({
           Angi hva eller hvem denne runden er knyttet til — lokasjon, et element i
           en katalog (leverandør, maskin, kontrakt …) eller et fritekst-emne.
         </p>
-        {/* Segmented group — matches YesNoToggle / checklist response buttons */}
-        <div className={['flex overflow-hidden rounded-md border border-neutral-300', readOnly ? 'opacity-60' : ''].join(' ')}>
-          {/* "Ikke satt" */}
+        <div className="flex flex-wrap gap-2">
+          {/* "Ikke satt" pill */}
           <button
             type="button"
             disabled={readOnly}
             onClick={() => selectType(null)}
-            style={scopeType === null
-              ? { backgroundColor: '#374151', color: 'white' }
-              : { backgroundColor: 'white', color: '#9ca3af' }}
-            className="flex flex-1 items-center justify-center gap-2 px-4 py-3 text-xs font-medium transition-colors"
+            className={[
+              'inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium transition-colors',
+              scopeType === null
+                ? 'border-neutral-600 bg-neutral-800 text-white'
+                : 'border-neutral-300 bg-white text-neutral-600 hover:bg-neutral-50',
+              readOnly ? 'cursor-not-allowed opacity-60' : '',
+            ].join(' ')}
           >
-            {scopeType === null
-              ? <CheckCircle2 className="h-3.5 w-3.5 shrink-0" />
-              : <Circle className="h-3.5 w-3.5 shrink-0" />}
             Ikke satt
           </button>
 
@@ -96,14 +95,15 @@ export function ChecklistScopeSelector({
               type="button"
               disabled={readOnly}
               onClick={() => selectType(opt.id)}
-              style={scopeType === opt.id
-                ? { backgroundColor: '#1a3d32', color: 'white' }
-                : { backgroundColor: 'white', color: '#9ca3af' }}
-              className="flex flex-1 items-center justify-center gap-2 border-l border-neutral-300 px-4 py-3 text-xs font-medium transition-colors"
+              className={[
+                'inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium transition-colors',
+                scopeType === opt.id
+                  ? 'border-[#1a3d32] bg-[#1a3d32] text-white'
+                  : 'border-neutral-300 bg-white text-neutral-600 hover:bg-neutral-50',
+                readOnly ? 'cursor-not-allowed opacity-60' : '',
+              ].join(' ')}
             >
-              {scopeType === opt.id
-                ? <CheckCircle2 className="h-3.5 w-3.5 shrink-0" />
-                : opt.icon}
+              {opt.icon}
               {opt.label}
             </button>
           ))}
