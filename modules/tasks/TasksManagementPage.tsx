@@ -14,7 +14,6 @@ import {
   Workflow,
 } from 'lucide-react'
 import { ModuleLegalBanner, ModulePageShell } from '../../src/components/module'
-import { Tabs, type TabItem } from '../../src/components/ui/Tabs'
 import { Button } from '../../src/components/ui/Button'
 import { SearchableSelect } from '../../src/components/ui/SearchableSelect'
 import { StandardInput } from '../../src/components/ui/Input'
@@ -117,29 +116,6 @@ export function TasksManagementPage() {
   // Create-task draft local state.
   const [draft, setDraft] = useState<DraftTask>(emptyDraft({ priority: settings.settings.defaults.priority, ownerRole: settings.settings.defaults.ownerRole }))
 
-  const moduleTabs: TabItem[] = useMemo(() => {
-    const open = tasksApi.tasks.filter((t) => t.status !== 'done').length
-    const openAvvik = avvikApi.avvik.filter((a) => a.status !== 'closed' && a.status !== 'lukket').length
-    const openVarsling = wb.cases.filter((c) => c.status !== 'closed').length
-    return [
-      { id: 'oversikt', label: 'Oversikt', icon: LayoutGrid },
-      { id: 'liste', label: 'Oppgaveliste', icon: ClipboardList, badgeCount: open || undefined },
-      { id: 'planlegging', label: 'Planlegging', icon: Workflow, badgeCount: ext.projects.length || undefined },
-      { id: 'samarbeid', label: 'Samarbeid', icon: Users },
-      {
-        id: 'avvik',
-        label: 'Avvik',
-        icon: AlertOctagon,
-        badgeCount: openAvvik || undefined,
-        badgeVariant: openAvvik > 0 && avvikApi.avvik.some((a) => a.severity === 'critical' && a.status !== 'closed' && a.status !== 'lukket') ? 'danger' : 'default',
-      },
-      { id: 'varsling', label: 'Varsling', icon: ShieldAlert, badgeCount: openVarsling || undefined },
-      { id: 'anonym', label: 'Anonym AML', icon: Shield },
-      { id: 'revisor', label: 'Revisorpakke', icon: Shield },
-      { id: 'innstillinger', label: 'Innstillinger', icon: SettingsIcon },
-    ]
-  }, [tasksApi.tasks, ext.projects.length, avvikApi.avvik, wb.cases])
-
   const selectedTask = useMemo(
     () => tasksApi.tasks.find((t) => t.id === selectedTaskId) ?? null,
     [tasksApi.tasks, selectedTaskId],
@@ -236,15 +212,6 @@ headerActions={
               Ny oppgave / avvik / tiltak
             </Button>
           </div>
-        }
-        tabs={
-          <Tabs
-            className="w-full md:w-auto"
-            overflow="scroll"
-            items={moduleTabs}
-            activeId={tab}
-            onChange={(id) => onChangeTab(id as ModuleTab)}
-          />
         }
       >
         <ModuleLegalBanner
