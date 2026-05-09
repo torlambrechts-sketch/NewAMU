@@ -250,7 +250,6 @@ export function TasksAnalysePage() {
       <DashboardEditLayoutPanel
         open={editOpen}
         onClose={() => setEditOpen(false)}
-        scopeId={TASKS_DASHBOARD_SCOPE_ID}
         layout={dashboard.layout}
         onSave={async (next) => {
           await dashboard.saveLayout(next)
@@ -275,7 +274,7 @@ export function TasksAnalysePage() {
           open
           onClose={() => setEditWidget(null)}
           widget={editWidget}
-          scopeId={TASKS_DASHBOARD_SCOPE_ID}
+          datasets={datasets}
           onSave={async (updated) => {
             await dashboard.saveLayout(
               dashboard.layout.map((m) => (m.id === updated.id ? updated : m)),
