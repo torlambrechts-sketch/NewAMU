@@ -169,7 +169,7 @@ export function ProjectDashboard() {
           sub={overdueTasks.length > 0 ? `${overdueTasks.length} forfalt` : 'Ingen forfalte'}
           icon={ListChecks}
           iconBg="bg-[#1a3d32]"
-          to="/tasks"
+          to="/tasks/management"
           urgent={overdueTasks.length > 0}
         />
         <KpiCard
@@ -277,7 +277,7 @@ export function ProjectDashboard() {
           <div className="border border-neutral-200/90 bg-white shadow-sm">
             <div className="border-b border-neutral-100 px-5 py-3 flex items-center justify-between">
               <h2 className="text-xs font-bold uppercase tracking-wide text-neutral-500">Åpne oppgaver</h2>
-              <Link to="/tasks" className="text-xs font-medium text-[#1a3d32] hover:underline">Se alle →</Link>
+              <Link to="/tasks/management" className="text-xs font-medium text-[#1a3d32] hover:underline">Se alle →</Link>
             </div>
             {openTasks.length === 0 ? (
               <p className="px-5 py-6 text-center text-sm text-neutral-400">Ingen åpne oppgaver.</p>
@@ -287,7 +287,7 @@ export function ProjectDashboard() {
                   const overdue = task.dueDate && task.dueDate < todayStr
                   const d = task.dueDate ? daysUntil(task.dueDate) : null
                   return (
-                    <Link key={task.id} to="/tasks"
+                    <Link key={task.id} to="/tasks/management"
                       className={`flex items-center gap-3 px-5 py-3 hover:bg-neutral-50 transition-colors ${overdue ? 'bg-red-50/40' : ''}`}>
                       <span className={`size-2.5 shrink-0 ${task.status === 'in_progress' ? 'bg-sky-500' : 'bg-neutral-300'}`} />
                       <div className="flex-1 min-w-0">
@@ -306,7 +306,7 @@ export function ProjectDashboard() {
                   )
                 })}
                 {openTasks.length > 7 && (
-                  <Link to="/tasks" className="block px-5 py-2.5 text-center text-xs font-medium text-[#1a3d32] hover:underline bg-neutral-50">
+                  <Link to="/tasks/management" className="block px-5 py-2.5 text-center text-xs font-medium text-[#1a3d32] hover:underline bg-neutral-50">
                     + {openTasks.length - 7} flere oppgaver
                   </Link>
                 )}

@@ -526,7 +526,7 @@ export function InternalControlModule() {
                 Revisjonslogg (Workspace)
               </Link>
               . Varsling (AML kap. 2A) i{' '}
-              <Link to="/tasks?view=whistle" className="font-medium text-[#1a3d32] underline">
+              <Link to="/tasks/management?tab=varsling" className="font-medium text-[#1a3d32] underline">
                 Oppgaver → Varslingssaker
               </Link>
               .
@@ -633,7 +633,7 @@ export function InternalControlModule() {
                       >
                         Gå til ROS →
                       </button>
-                      <Link to="/tasks?view=whistle" className="text-[10px] font-bold uppercase tracking-wider text-[#1a3d32] hover:underline">
+                      <Link to="/tasks/management?tab=varsling" className="text-[10px] font-bold uppercase tracking-wider text-[#1a3d32] hover:underline">
                         Varslingssaker →
                       </Link>
                       <Link to="/workplace-reporting/anonymous-aml" className="text-[10px] font-bold uppercase tracking-wider text-[#1a3d32] hover:underline">
@@ -666,7 +666,7 @@ export function InternalControlModule() {
           description={
             <p>
               ROS, årsgjennomgang og logg. Varsling ligger under{' '}
-              <Link to="/tasks?view=whistle" className="font-medium text-[#1a3d32] underline">
+              <Link to="/tasks/management?tab=varsling" className="font-medium text-[#1a3d32] underline">
                 Oppgaver → Varslingssaker
               </Link>
               .
@@ -1011,7 +1011,7 @@ export function InternalControlModule() {
             <p>
               Årlig gjennomgang etter internkontrollforskriften § 5.8. Data lagres i databasen med revisjonsspor og
               signatur. Varsling:{' '}
-              <Link to="/tasks?view=whistle" className="font-medium text-[#1a3d32] underline">
+              <Link to="/tasks/management?tab=varsling" className="font-medium text-[#1a3d32] underline">
                 Oppgaver → Varslingssaker
               </Link>
               . Handlingsplan:{' '}

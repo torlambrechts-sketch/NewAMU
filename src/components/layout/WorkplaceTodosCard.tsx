@@ -20,7 +20,7 @@ export type WorkplaceTodosCardProps = {
   /** Badge count — default: number of items */
   badge?: string | number
   items: WorkplaceTodoItem[]
-  /** Primary CTA — e.g. `AddTaskLink` or link to `/tasks?quickNew=task` */
+  /** Primary CTA — e.g. `AddTaskLink` or link to `/tasks/management?quickNew=task` */
   addTaskSlot?: ReactNode
   emptyHint?: string
   className?: string
@@ -52,7 +52,7 @@ export function WorkplaceTodosCard({
       <div className="flex flex-wrap items-center justify-end gap-2 border-b border-neutral-100 bg-neutral-50/60 px-4 py-2.5">
         {addTaskSlot ?? (
           <Link
-            to="/tasks?quickNew=task"
+            to="/tasks/management?quickNew=task"
             className="inline-flex items-center gap-1 rounded-md border border-neutral-200 bg-white px-2.5 py-1.5 text-xs font-semibold text-neutral-800 shadow-sm hover:bg-neutral-50"
           >
             <Plus className="size-3.5" aria-hidden />

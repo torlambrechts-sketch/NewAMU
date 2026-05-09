@@ -61,7 +61,6 @@ import { ModuleLegalFrameworkProvider } from './components/module'
 import { WorkplacePublishedComposerProvider } from './context/WorkplacePublishedComposerProvider'
 import { ProjectDashboard } from './pages/ProjectDashboard'
 import { WelcomeDashboardPage } from './pages/WelcomeDashboardPage'
-import { TasksPage } from './pages/TasksPage'
 import { TasksManagementPage, TasksAnalysePage } from '../modules/tasks'
 import { TasksAllePage } from '../modules/tasks/TasksAllePage'
 import { ChecklistsAllePage } from '../modules/compliance/ChecklistsAllePage'
@@ -247,7 +246,7 @@ const router = createBrowserRouter(
                     >
                       <Route path="app" element={<WelcomeDashboardPage />} />
                       <Route path="dashboard/classic" element={<ProjectDashboard />} />
-                      <Route path="tasks" element={<TasksPage />} />
+                      <Route path="tasks" element={<Navigate to="/tasks/management" replace />} />
                       <Route path="tasks/management" element={<TasksManagementPage />} />
                       <Route path="tasks/management/analyse" element={<TasksAnalysePage />} />
                       <Route path="tasks/management/alle" element={<TasksAllePage />} />

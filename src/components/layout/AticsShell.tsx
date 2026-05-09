@@ -687,7 +687,7 @@ function activeModuleForPath(modules: NavModule[], pathname: string, search: str
     if (pathname === '/workplace-reporting/incidents') return hub
     if (pathname === '/workplace-reporting/dashboard') return hub
     if (pathname === '/org-health' && sp.get('tab') === 'reporting') return hub
-    if (pathname === '/tasks' && sp.get('view') === 'whistle') return hub
+    if (pathname === '/tasks/management' && sp.get('tab') === 'varsling') return hub
   }
   if (pathname === '/organisation/admin' || pathname.startsWith('/organisation/admin/')) {
     const adminMod = modules.find((m) => m.to === '/organisation/admin')
