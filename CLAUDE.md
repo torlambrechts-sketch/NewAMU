@@ -12,6 +12,8 @@ it loads every session. Point to authoritative docs; don't duplicate them.
 | Roadmap status across the whole product | `ROADMAP.md` |
 | Public documents for designers / PMs | `*.md` at repo root (DESIGN_SYSTEM, MODULE_SPEC, etc.) — these are *output*, not process |
 | Migrations to apply on a fresh DB | `supabase/migrations/` (top level + `archive/`, both run; sorted by basename — see `scripts/apply-migrations.sh`) |
+| Per-module template surfaces + seeding pattern | This file, *Template surfaces* below. Concrete examples in PR #175 (commits `f67c833` … `5d94df0`). |
+| Compliance gap-and-audit planner (next sprint) | `ROADMAP.md` §5 — placeholder, not built yet. Promote to `specs/compliance-planner.md` when work starts. |
 
 When asked to plan a new module port, **copy the latest parity spec** as a
 starting point and run the senior-architect checklist in `PLAYBOOK.md §7`
@@ -95,6 +97,46 @@ Pages resolve the accent via `getDashboardScope(scopeId)?.accent` and pass
 it to `ModuleAnalyticsDashboard`. Compliance overrides with `packAccentFor`
 based on the URL.
 
+## Template surfaces
+
+Each template-shipping module stores its content in a different shape.
+Before seeding new templates, copy the pattern from the most recent
+seed migration for that module — don't invent a new one.
+
+| Module | System table | Per-org table | Provision fn | Law-ref column |
+|---|---|---|---|---|
+| compliance | *(none — templates live per-org)* | `compliance_checklist_templates` | `provision_compliance_baseline_for_org(org, pack)` | `law_refs text[]` (template) + `definition.items[].law_ref` (per item) |
+| survey | `survey_template_catalog` | `survey_org_templates` (override) | `provision_survey_baseline_for_org(org)` | `law_refs text[]` (catalog + override) + legacy `law_ref text` |
+| documents | `document_system_templates` | `document_org_templates` (custom) + `document_org_template_settings` (toggle) | `provision_documents_baseline_for_org(org)` | `legal_basis text[]` |
+| registers | `register_types` (org_id NULL = system) | `register_org_settings` (toggle) | `provision_registers_baseline_for_org(org)` | `regulation_ids text[]` (frameworks) + `aml_paragraphs text[]` (paragraphs) |
+| learning | `learning_system_courses` + `learning_system_course_locales` | `learning_org_course_settings` (toggle/fork) → `learning_courses` | inline (no provision fn yet) | `law_refs jsonb` on `learning_courses` |
+
+Conventions every seed migration follows:
+- **Idempotent**: `on conflict (...) do update set …` for system rows;
+  `on conflict (organization_id, slug) do update set …` for the
+  per-org compliance pattern. Loop `for v_org_id in select id from organizations` to backfill existing tenants.
+- **Header comment**: 4–8 lines explaining *which gap is closed*,
+  *which §*, and the *self-audit* (Arbeidstilsynet POV — pålegg-grunner
+  addressed + restrisiko deferred). PR #175 commits show the shape.
+- **Law-ref string format**: `'AML § 4-3'`, `'AML § 2A-7 (5)'`,
+  `'IK-f § 5 nr. 7'`, `'GDPR Art. 35'`,
+  `'Likestillings- og diskrimineringsloven § 26'`. The dashboard
+  drill-down + planner do exact-string matching against these arrays.
+- **Compliance enums**: `compliance_pack` = `'aml-amu' | 'iso-45001'`;
+  `compliance_review_status` = `'draft' | 'reviewed' | 'approved'`;
+  `cadence_hint` is plain `text` (no check) — common values
+  `'arlig'`, `'halvarlig'`, `'kvartalsvis'`, `'ad_hoc'`.
+- **Document `page_payload` blocks**: `alert | heading | text | module |
+  law_ref | acknowledgement_footer`. HTML inside `text.body` (incl.
+  tables) is allowed. Module-block names: `live_org_chart`,
+  `live_risk_feed`, `action_button`, `acknowledgement_footer`.
+- **Learning module shape**: `{id, title, kind: 'text'|'quiz',
+  estimatedMinutes, content?, questions?, lawRefs?, passingScore?}`.
+
+The roadmap §5 (compliance gap-and-audit planner) is the next
+consumer of this template-surface convention — it reads `law_refs[]`
+across all five modules to produce the gap matrix.
+
 ## Module parity port — capability shorthand
 
 When porting a module, run the C-1..C-9 inventory from `PLAYBOOK §4` and
@@ -150,3 +192,15 @@ the cleanup recipe).
   the production build (see commit `39aa826`).
 - Per-page `cryptoUuid()` polyfill → use `freshId(prefix)` from the
   registry. The polyfill copies are a smell.
+- Single-column FK to `public.regulations(id)` → `regulations` has a
+  composite PK `(organization_id, id)` so a single-column FK won't
+  bind (42830). Use plain `text` + the `regulation_id_must_match_org()`
+  trigger from `_120036` (see `register_categories` in `_120041` and
+  PR #177 for the exact recipe).
+- Seeding compliance content without the *Arbeidstilsynet self-audit*
+  header → reviewers can't tell which pålegg-grunn is addressed vs
+  what's still restrisiko. The header pays for itself the first time
+  someone asks "why does the template stop here?"
+- `survey_template_catalog.law_ref` (singular text) is legacy —
+  always set `law_refs text[]` too. `_120043` backfills the old rows
+  but new seeds must populate both for the planner to find them.
