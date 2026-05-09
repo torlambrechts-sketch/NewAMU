@@ -444,18 +444,11 @@ const oppgaverManagementSubs: SubItem[] = [
   },
   // ── Pack-architecture views (primary surfaces) ───────────────────────────
   {
-    label: 'PDCA-tavle',
-    path: '/tasks/management?tab=pdca',
-    Icon: Kanban,
-    match: ({ pathname, search }) =>
-      pathname === '/tasks/management' && new URLSearchParams(search).get('tab') === 'pdca',
-  },
-  {
-    label: 'Tabellvisning',
-    path: '/tasks/management?tab=rapport',
+    label: 'Oppgaveliste',
+    path: '/tasks/management?tab=liste',
     Icon: ClipboardList,
     match: ({ pathname, search }) =>
-      pathname === '/tasks/management' && new URLSearchParams(search).get('tab') === 'rapport',
+      pathname === '/tasks/management' && new URLSearchParams(search).get('tab') === 'liste',
   },
   {
     label: 'Revisorpakke',
@@ -478,12 +471,6 @@ const oppgaverManagementSubs: SubItem[] = [
       pathname === '/tasks/management' &&
       (!new URLSearchParams(search).get('tab') ||
         new URLSearchParams(search).get('tab') === 'oversikt'),
-  },
-  {
-    label: 'Tavle (klassisk)',
-    path: '/tasks/management?tab=tavle',
-    match: ({ pathname, search }) =>
-      pathname === '/tasks/management' && new URLSearchParams(search).get('tab') === 'tavle',
   },
   {
     label: 'Planlegging',
