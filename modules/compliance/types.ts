@@ -15,6 +15,7 @@ export type ChecklistItemType =
   | 'number'
   | 'photo'
   | 'signature'
+  | 'date'
 
 export type ChecklistItem = {
   key: string
