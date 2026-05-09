@@ -7,7 +7,7 @@ import { Link } from 'react-router-dom'
 import type { ReactNode } from 'react'
 
 type Props = {
-  children: ReactNode
+  children?: ReactNode
   title?: string
   description?: string
   sourceId?: string
@@ -18,7 +18,7 @@ type Props = {
 export function AddTaskLink({ children, className = '' }: Props) {
   return (
     <Link to="/tasks/management" className={className}>
-      {children}
+      {children ?? 'Ny oppgave'}
     </Link>
   )
 }
