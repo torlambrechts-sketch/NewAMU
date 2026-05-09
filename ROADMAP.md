@@ -208,7 +208,7 @@ Picks up where the AML template baseline (PR #175) leaves off. The seed migratio
 | 5.5 | 📋 | KPIs for ledelsen | Topp-linje for AMU: % AML-dekning, åpne pålegg fra `aml_18_tilsynssaker`, ARP-redegjørelse-status, antall §-er uten plan. Et widget i `hms_overview`-composite scope. |
 | 5.6 | ⏸ | Multi-rammeverks-mapping (ISO 45001, GDPR, åpenhetsloven) | Samme planner-struktur, men `regulation_id` + `paragraph` istedet for hardkodet AML. Avvent til 5.1–5.4 har én komplett bruker — for tidlig å abstrahere. |
 
-**Hvorfor placeholder:** Innholdet er nå seedet (PR #175). Den naturlige neste sprinten er å bygge planner-flatene over disse dataene slik at et tilsynsbesøk kan starte med "her er vår plan" istedet for "her er sjekklistene våre". Sett opp som egen modul-spec (`specs/compliance-planner.md`) når arbeidet plukkes opp.
+**Status:** Full handover-spec ligger i [`specs/compliance-planner.md`](specs/compliance-planner.md) — inkluderer data-inventar (eksakt SQL-union over alle fem template-flater), schema for `compliance_plan_items`, fil-for-fil deliverables per item, mønstre å speile, og en one-shot-prompt for neste sesjon. Innholdet er seedet (PR #175). Neste sesjon kan starte direkte fra spec'en.
 
 ---
 

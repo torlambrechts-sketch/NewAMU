@@ -13,7 +13,7 @@ it loads every session. Point to authoritative docs; don't duplicate them.
 | Public documents for designers / PMs | `*.md` at repo root (DESIGN_SYSTEM, MODULE_SPEC, etc.) — these are *output*, not process |
 | Migrations to apply on a fresh DB | `supabase/migrations/` (top level + `archive/`, both run; sorted by basename — see `scripts/apply-migrations.sh`) |
 | Per-module template surfaces + seeding pattern | This file, *Template surfaces* below. Concrete examples in PR #175 (commits `f67c833` … `5d94df0`). |
-| Compliance gap-and-audit planner (next sprint) | `ROADMAP.md` §5 — placeholder, not built yet. Promote to `specs/compliance-planner.md` when work starts. |
+| Compliance gap-and-audit planner (next sprint) | `specs/compliance-planner.md` — full handover spec with data inventory, deliverables, schema, and one-shot prompt. `ROADMAP.md` §5 has the status row. |
 
 When asked to plan a new module port, **copy the latest parity spec** as a
 starting point and run the senior-architect checklist in `PLAYBOOK.md §7`
