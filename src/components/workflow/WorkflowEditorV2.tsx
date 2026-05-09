@@ -52,7 +52,7 @@ import { useWorkflows } from '../../hooks/useWorkflows'
 import { getWfModuleMeta } from './workflowModuleRegistry'
 import { getWorkflowTriggerEventsForModule } from './workflowTriggerRegistry'
 import { WORKFLOW_SOURCE_MODULES } from '../../types/workflow'
-import type { WorkflowRuleRow, WorkflowCondition, WorkflowAction } from '../../types/workflow'
+import type { WorkflowRuleRow } from '../../types/workflow'
 import { freshId } from '../../lib/dashboards/freshId'
 
 // ─── Step model ───────────────────────────────────────────────────────────────
@@ -1696,7 +1696,6 @@ export function WorkflowEditorV2({ ruleId }: { ruleId: string }) {
 
   const displayName = rulePatch.name ?? rule?.name ?? '…'
   const sourceModule = rulePatch.source_module ?? rule?.source_module ?? 'hse'
-  const modMeta = getWfModuleMeta(sourceModule)
 
   const tabDefs: { id: EditorTab; label: string }[] = [
     { id: 'steg', label: 'Steg' },
