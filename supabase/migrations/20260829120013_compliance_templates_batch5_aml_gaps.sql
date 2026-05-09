@@ -1258,7 +1258,7 @@ begin
     where is_active = true
       and deleted_at is null
   loop
-    execute format('select %s($1, $2)', v_fn::text)
+    execute format('select %s($1, $2)', v_fn::regproc::text)
       using v_pack.organization_id, v_pack.slug;
   end loop;
 end $$;
