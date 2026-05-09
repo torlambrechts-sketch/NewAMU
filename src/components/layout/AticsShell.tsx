@@ -426,6 +426,7 @@ const ADMIN_NAV_PERMS: PermissionKey[] = [
 // ─────────────────────────────────────────────────────────────────────────────
 
 const oppgaverManagementSubs: SubItem[] = [
+  // ── Analyse + admin ──────────────────────────────────────────────────────
   {
     label: 'Analyse',
     path: '/tasks/management/analyse',
@@ -433,10 +434,42 @@ const oppgaverManagementSubs: SubItem[] = [
     match: ({ pathname }) => pathname === '/tasks/management/analyse',
   },
   {
+    label: 'Innstillinger',
+    path: '/tasks/management?tab=innstillinger',
+    Icon: Settings,
+    match: ({ pathname, search }) =>
+      pathname === '/tasks/management' &&
+      new URLSearchParams(search).get('tab') === 'innstillinger',
+  },
+  // ── Pack-architecture views (primary surfaces) ───────────────────────────
+  {
+    label: 'PDCA-tavle',
+    path: '/tasks/management?tab=pdca',
+    Icon: Kanban,
+    match: ({ pathname, search }) =>
+      pathname === '/tasks/management' && new URLSearchParams(search).get('tab') === 'pdca',
+  },
+  {
+    label: 'Tabellvisning',
+    path: '/tasks/management?tab=rapport',
+    Icon: ClipboardList,
+    match: ({ pathname, search }) =>
+      pathname === '/tasks/management' && new URLSearchParams(search).get('tab') === 'rapport',
+  },
+  {
+    label: 'Revisorpakke',
+    path: '/tasks/management?tab=revisor',
+    Icon: Shield,
+    match: ({ pathname, search }) =>
+      pathname === '/tasks/management' && new URLSearchParams(search).get('tab') === 'revisor',
+  },
+  // ── Alle oppgaver (tverrgående listevisning) ──────────────────────────────
+  {
     label: 'Alle oppgaver',
     path: '/tasks/management/alle',
     match: ({ pathname }) => pathname === '/tasks/management/alle',
   },
+  // ── Eksisterende faner (bakoverkompatibilitet) ───────────────────────────
   {
     label: 'Oversikt',
     path: '/tasks/management?tab=oversikt',
@@ -446,16 +479,10 @@ const oppgaverManagementSubs: SubItem[] = [
         new URLSearchParams(search).get('tab') === 'oversikt'),
   },
   {
-    label: 'Tavle',
+    label: 'Tavle (klassisk)',
     path: '/tasks/management?tab=tavle',
     match: ({ pathname, search }) =>
       pathname === '/tasks/management' && new URLSearchParams(search).get('tab') === 'tavle',
-  },
-  {
-    label: 'Liste',
-    path: '/tasks/management?tab=liste',
-    match: ({ pathname, search }) =>
-      pathname === '/tasks/management' && new URLSearchParams(search).get('tab') === 'liste',
   },
   {
     label: 'Planlegging',
@@ -490,13 +517,6 @@ const oppgaverManagementSubs: SubItem[] = [
     match: ({ pathname, search }) =>
       pathname === '/tasks/management' &&
       new URLSearchParams(search).get('tab') === 'anonym',
-  },
-  {
-    label: 'Innstillinger',
-    path: '/tasks/management?tab=innstillinger',
-    match: ({ pathname, search }) =>
-      pathname === '/tasks/management' &&
-      new URLSearchParams(search).get('tab') === 'innstillinger',
   },
 ]
 
