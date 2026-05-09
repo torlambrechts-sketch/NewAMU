@@ -52,8 +52,10 @@ export function TasksManagementPage() {
   const templateSlug = searchParams.get('template')
   const projectId = searchParams.get('project')
 
+  const isTemplateMode = !!templateSlug && !projectId
+
   const tplData = useTaskTemplates()
-  const projectsData = useTaskProjects()
+  const projectsData = useTaskProjects({ skip: isTemplateMode })
   const itemData = useTaskItemsData(
     projectId
       ? { projectId }
@@ -65,6 +67,7 @@ export function TasksManagementPage() {
   const [createOpen, setCreateOpen] = useState(false)
   const [projectCreateOpen, setProjectCreateOpen] = useState(false)
   const [selectedItem, setSelectedItem] = useState<TaskItemRow | null>(null)
+  const [boardError, setBoardError] = useState<string | null>(null)
 
   const focusedTemplate = useMemo(() => {
     if (!templateSlug) return null
@@ -84,27 +87,40 @@ export function TasksManagementPage() {
     const proj = focusedProject
     const methodologyLabel = proj.methodology === 'pdca' ? 'PDCA' : 'Kanban'
 
+    const KANBAN_COL_STATUS: Record<string, TaskItemStatus> = {
+      backlog: 'open',
+      progress: 'in_progress',
+      review: 'effectiveness_pending',
+    }
+
     const handleMoveCard = async (
       itemId: string,
       newPhase: TaskPdcaPhase | null,
       newStatus: TaskItemStatus | null,
-    ) => {
-      if (newPhase) await itemData.updatePdcaPhase(itemId, newPhase)
-      else if (newStatus) await itemData.updateStatus(itemId, newStatus)
+    ): Promise<boolean> => {
+      setBoardError(null)
+      const ok = newPhase
+        ? await itemData.updatePdcaPhase(itemId, newPhase)
+        : newStatus
+        ? await itemData.updateStatus(itemId, newStatus)
+        : true
+      if (!ok) setBoardError('Kunne ikke flytte oppgaven. Kontroller tilkoblingen og prøv igjen.')
+      return ok
     }
 
-    const handleQuickCreate = async (colKey: string, title: string) => {
-      await itemData.createItem({
+    const handleQuickCreate = async (colKey: string, title: string): Promise<string | null> => {
+      setBoardError(null)
+      const id = await itemData.createItem({
         title,
         priority: 'medium',
         projectId: proj.id,
-        pdcaPhase: (proj.methodology === 'pdca' ? (colKey as TaskPdcaPhase) : 'do'),
-        ...(proj.methodology === 'kanban' && {
-          // map column key to initial status
-          ...(colKey === 'backlog' && {}),
-          ...(colKey === 'progress' && {}),
-        }),
+        templateSlug: 'oppgave-generell',
+        templateKind: 'oppgave',
+        pdcaPhase: proj.methodology === 'pdca' ? (colKey as TaskPdcaPhase) : 'do',
+        status: proj.methodology === 'kanban' ? (KANBAN_COL_STATUS[colKey] ?? 'open') : 'open',
       })
+      if (!id) setBoardError('Kunne ikke opprette oppgave.')
+      return id
     }
 
     return (
@@ -151,7 +167,9 @@ export function TasksManagementPage() {
                 ))}
               </div>
             )}
-            {itemData.error && <WarningBox>{itemData.error}</WarningBox>}
+            {(itemData.error ?? boardError) && (
+              <WarningBox>{itemData.error ?? boardError}</WarningBox>
+            )}
             <TaskProjectBoard
               project={proj}
               items={itemData.items}

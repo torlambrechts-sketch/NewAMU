@@ -2,7 +2,7 @@
 // Templates are grouped by admin-assigned category into tile sections.
 // Projects section is rendered below templates.
 
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { KanbanSquare, Plus, Settings, Sparkles } from 'lucide-react'
 import { Button } from '../../src/components/ui/Button'
@@ -51,6 +51,7 @@ export function TasksHubLanding({
   onOpenProject,
 }: Props) {
   const navigate = useNavigate()
+  const [showAllProjects, setShowAllProjects] = useState(false)
 
   const buckets = useMemo<Bucket[]>(() => {
     const catBuckets: Bucket[] = categories.map((c) => ({
@@ -189,21 +190,34 @@ export function TasksHubLanding({
             <h2 className="text-sm font-semibold text-neutral-900">Prosjekttavler</h2>
             <span className="text-xs text-neutral-500">{projects.filter((p) => p.status === 'active').length} aktive</span>
           </div>
-          {onCreateProject && (
-            <button
-              type="button"
-              onClick={onCreateProject}
-              className="inline-flex items-center gap-1.5 rounded border border-neutral-200 bg-white px-2.5 py-1 text-xs font-medium text-neutral-700 transition hover:border-[#c2410c]/30 hover:text-[#c2410c]"
-            >
-              <Plus className="h-3.5 w-3.5" />
-              Nytt prosjekt
-            </button>
-          )}
+          <div className="flex items-center gap-2">
+            {projects.some((p) => p.status !== 'active') && (
+              <button
+                type="button"
+                onClick={() => setShowAllProjects((v) => !v)}
+                className="text-xs text-neutral-400 underline-offset-2 hover:text-neutral-600 hover:underline"
+              >
+                {showAllProjects
+                  ? 'Skjul avsluttede'
+                  : `Vis avsluttede (${projects.filter((p) => p.status !== 'active').length})`}
+              </button>
+            )}
+            {onCreateProject && (
+              <button
+                type="button"
+                onClick={onCreateProject}
+                className="inline-flex items-center gap-1.5 rounded border border-neutral-200 bg-white px-2.5 py-1 text-xs font-medium text-neutral-700 transition hover:border-[#c2410c]/30 hover:text-[#c2410c]"
+              >
+                <Plus className="h-3.5 w-3.5" />
+                Nytt prosjekt
+              </button>
+            )}
+          </div>
         </div>
 
-        {projects.length === 0 ? (
+        {projects.filter((p) => showAllProjects || p.status === 'active').length === 0 ? (
           <p className="py-4 text-center text-sm text-neutral-500">
-            Ingen prosjekttavler ennå.{' '}
+            Ingen aktive prosjekttavler.{' '}
             {onCreateProject && (
               <button
                 type="button"
@@ -216,12 +230,16 @@ export function TasksHubLanding({
           </p>
         ) : (
           <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {projects.map((proj) => (
+            {projects.filter((p) => showAllProjects || p.status === 'active').map((proj) => (
               <li key={proj.id}>
                 <button
                   type="button"
                   onClick={() => (onOpenProject ? onOpenProject(proj.id) : undefined)}
-                  className="group flex h-full w-full flex-col gap-2 rounded-lg border border-neutral-200/80 bg-white p-4 text-left transition-all hover:border-[#c2410c]/30 hover:bg-orange-50/30 hover:shadow-sm"
+                  className={`group flex h-full w-full flex-col gap-2 rounded-lg border p-4 text-left transition-all ${
+                    proj.status === 'active'
+                      ? 'border-neutral-200/80 bg-white hover:border-[#c2410c]/30 hover:bg-orange-50/30 hover:shadow-sm'
+                      : 'border-neutral-200/50 bg-neutral-50/60 opacity-60 hover:opacity-80'
+                  }`}
                 >
                   <div className="flex items-start gap-2.5">
                     <span className="mt-0.5 shrink-0 text-[#c2410c]/60 transition group-hover:text-[#c2410c]">

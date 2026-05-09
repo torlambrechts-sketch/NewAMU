@@ -30,9 +30,10 @@ export type UseTaskProjectsReturn = {
   reload: () => void
 }
 
-export function useTaskProjects(): UseTaskProjectsReturn {
+export function useTaskProjects(opts?: { skip?: boolean }): UseTaskProjectsReturn {
   const { supabase, organization } = useOrgSetupContext()
   const orgId = organization?.id ?? null
+  const skip = opts?.skip ?? false
   const [projects, setProjects] = useState<TaskProject[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -40,7 +41,7 @@ export function useTaskProjects(): UseTaskProjectsReturn {
   const reload = useCallback(() => setVersion((v) => v + 1), [])
 
   useEffect(() => {
-    if (!supabase || !orgId) return
+    if (!supabase || !orgId || skip) return
     let cancelled = false
     setLoading(true)
     void supabase
@@ -81,7 +82,7 @@ export function useTaskProjects(): UseTaskProjectsReturn {
     return () => {
       cancelled = true
     }
-  }, [supabase, orgId, version])
+  }, [supabase, orgId, version, skip])
 
   const createProject = useCallback(
     async (input: CreateProjectInput): Promise<string | null> => {

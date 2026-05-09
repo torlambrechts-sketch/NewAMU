@@ -30,6 +30,7 @@ export type CreateTaskItemInput = {
   title: string
   description?: string
   priority: TaskItemPriority
+  status?: TaskItemStatus
   templateSlug?: string
   templateKind?: TaskTemplateKind
   assigneeName?: string
@@ -45,8 +46,8 @@ export type UseTaskItemsDataReturn = {
   items: TaskItemRow[]
   error: string | null
   createItem: (input: CreateTaskItemInput) => Promise<string | null>
-  updateStatus: (id: string, status: TaskItemStatus) => Promise<void>
-  updatePdcaPhase: (id: string, phase: TaskPdcaPhase) => Promise<void>
+  updateStatus: (id: string, status: TaskItemStatus) => Promise<boolean>
+  updatePdcaPhase: (id: string, phase: TaskPdcaPhase) => Promise<boolean>
   reload: () => void
 }
 
@@ -136,7 +137,7 @@ export function useTaskItemsData(
           title: input.title,
           description: input.description ?? '',
           priority: input.priority,
-          status: 'open',
+          status: input.status ?? 'open',
           pack: 'aml-amu',
           source_category: input.templateKind ?? 'general',
           pdca_phase: input.pdcaPhase ?? 'do',
@@ -158,21 +159,41 @@ export function useTaskItemsData(
   )
 
   const updateStatus = useCallback(
-    async (id: string, status: TaskItemStatus): Promise<void> => {
-      if (!supabase) return
+    async (id: string, status: TaskItemStatus): Promise<boolean> => {
+      if (!supabase) return false
+      // Optimistic update — apply immediately, revert on failure
+      setItems((prev) =>
+        prev.map((i) =>
+          i.id === id
+            ? { ...i, status, ...(status === 'closed' ? { closedAt: new Date().toISOString() } : {}) }
+            : i,
+        ),
+      )
       const patch: Record<string, unknown> = { status }
       if (status === 'closed') patch.closed_at = new Date().toISOString()
-      await supabase.from('task_items').update(patch).eq('id', id)
-      reload()
+      const { error: upErr } = await supabase.from('task_items').update(patch).eq('id', id)
+      if (upErr) {
+        reload() // revert by reloading from DB
+        return false
+      }
+      return true
     },
     [supabase, reload],
   )
 
   const updatePdcaPhase = useCallback(
-    async (id: string, phase: TaskPdcaPhase): Promise<void> => {
-      if (!supabase) return
-      await supabase.from('task_items').update({ pdca_phase: phase }).eq('id', id)
-      reload()
+    async (id: string, phase: TaskPdcaPhase): Promise<boolean> => {
+      if (!supabase) return false
+      setItems((prev) => prev.map((i) => (i.id === id ? { ...i, pdcaPhase: phase } : i)))
+      const { error: upErr } = await supabase
+        .from('task_items')
+        .update({ pdca_phase: phase })
+        .eq('id', id)
+      if (upErr) {
+        reload()
+        return false
+      }
+      return true
     },
     [supabase, reload],
   )
