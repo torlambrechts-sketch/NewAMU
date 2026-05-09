@@ -112,7 +112,10 @@ create table if not exists public.register_categories (
   slug            text not null,
   name            text not null,
   description     text,
-  regulation_id   text references public.regulations (id) on delete set null,
+  regulation_id   text,  -- soft-FK; coherence enforced by `regulation_id_must_match_org` trigger below.
+                          -- `public.regulations` has a composite PK (organization_id, id), so a
+                          -- single-column FK won't bind. Same pattern as compliance / survey /
+                          -- learning / wiki_spaces category tables (see _120036).
   position        integer not null default 0,
   is_active       boolean not null default true,
   is_system       boolean not null default false,
