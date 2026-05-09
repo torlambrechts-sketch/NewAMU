@@ -1,16 +1,5 @@
-import { useState, type ReactNode } from 'react'
-import {
-  AlertOctagon,
-  Bell,
-  Globe,
-  Mail,
-  Settings as SettingsIcon,
-  Shield,
-  ShieldAlert,
-  ShieldCheck,
-} from 'lucide-react'
+import { type ReactNode } from 'react'
 import { ModuleSectionCard } from '../../../src/components/module'
-import { Tabs, type TabItem } from '../../../src/components/ui/Tabs'
 import { Button } from '../../../src/components/ui/Button'
 import { StandardInput } from '../../../src/components/ui/Input'
 import { StandardTextarea } from '../../../src/components/ui/Textarea'
@@ -27,53 +16,21 @@ import {
 import { TASK_PRIORITY_OPTIONS } from '../types'
 import type { UseTaskModuleSettings } from '../useTaskModuleSettings'
 
-type SettingsSubTab =
-  | 'generelt'
-  | 'varslinger'
-  | 'epost'
-  | 'integrasjoner'
-  | 'avvik'
-  | 'varsling'
-  | 'anonym'
-  | 'etterlevelse'
-
-const SUB_TABS: TabItem[] = [
-  { id: 'generelt', label: 'Generelt', icon: SettingsIcon },
-  { id: 'varslinger', label: 'Varslinger', icon: Bell },
-  { id: 'epost', label: 'E-post', icon: Mail },
-  { id: 'integrasjoner', label: 'Integrasjoner', icon: Globe },
-  { id: 'avvik', label: 'Avvik', icon: AlertOctagon },
-  { id: 'varsling', label: 'Varsling', icon: ShieldAlert },
-  { id: 'anonym', label: 'Anonym AML', icon: Shield },
-  { id: 'etterlevelse', label: 'Etterlevelse', icon: ShieldCheck },
-]
-
 type Props = {
   settings: UseTaskModuleSettings
 }
 
 export function TasksSettingsTab({ settings }: Props) {
-  const [tab, setTab] = useState<SettingsSubTab>('generelt')
-
   return (
     <div className="space-y-4">
-      <ModuleSectionCard className="p-3">
-        <Tabs
-          overflow="scroll"
-          items={SUB_TABS}
-          activeId={tab}
-          onChange={(id) => setTab(id as SettingsSubTab)}
-        />
-      </ModuleSectionCard>
-
-      {tab === 'generelt' && <GeneraltSection settings={settings} />}
-      {tab === 'varslinger' && <NotificationsSection settings={settings} />}
-      {tab === 'epost' && <EmailSection settings={settings} />}
-      {tab === 'integrasjoner' && <IntegrationsSection settings={settings} />}
-      {tab === 'avvik' && <AvvikSection settings={settings} />}
-      {tab === 'varsling' && <VarslingSection settings={settings} />}
-      {tab === 'anonym' && <AnonymSection settings={settings} />}
-      {tab === 'etterlevelse' && <ComplianceSection settings={settings} />}
+      <GeneraltSection settings={settings} />
+      <NotificationsSection settings={settings} />
+      <EmailSection settings={settings} />
+      <IntegrationsSection settings={settings} />
+      <AvvikSection settings={settings} />
+      <VarslingSection settings={settings} />
+      <AnonymSection settings={settings} />
+      <ComplianceSection settings={settings} />
     </div>
   )
 }
@@ -82,13 +39,11 @@ export function TasksSettingsTab({ settings }: Props) {
 
 function SettingsCard({
   title,
-  description,
   children,
   resetLabel,
   onReset,
 }: {
   title: string
-  description?: ReactNode
   children: ReactNode
   resetLabel?: string
   onReset?: () => void
@@ -96,10 +51,7 @@ function SettingsCard({
   return (
     <ModuleSectionCard className="p-5 md:p-6">
       <header className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h2 className="text-lg font-semibold text-neutral-900">{title}</h2>
-          {description ? <p className="mt-1 max-w-3xl text-sm text-neutral-600">{description}</p> : null}
-        </div>
+        <h2 className="text-lg font-semibold text-neutral-900">{title}</h2>
         {onReset ? (
           <Button type="button" variant="secondary" size="sm" onClick={onReset}>
             {resetLabel ?? 'Tilbakestill'}
@@ -158,7 +110,6 @@ function GeneraltSection({ settings: s }: Props) {
   return (
     <SettingsCard
       title="Generelle innstillinger"
-      description="Standardverdier som brukes når en ny oppgave opprettes uten eksplisitte valg."
       onReset={() => reset('defaults')}
     >
       <FormRow label="Standard prioritet" hint="Gjelder nye oppgaver opprettet manuelt eller fra arbeidsflyt.">
@@ -220,7 +171,6 @@ function NotificationsSection({ settings: s }: Props) {
   return (
     <SettingsCard
       title="Varslinger"
-      description="Når og hvordan brukere skal varsles om endringer på oppgaver de er tilknyttet."
       onReset={() => reset('notifications')}
     >
       <ToggleRow
@@ -325,7 +275,6 @@ function EmailSection({ settings: s }: Props) {
   return (
     <SettingsCard
       title="E-postmaler"
-      description="Maler brukt av varslingstjenesten. Variabler: {{name}}, {{title}}, {{due}}, {{link}}."
       onReset={() => reset('email')}
     >
       <InfoBox>
@@ -402,7 +351,6 @@ function IntegrationsSection({ settings: s }: Props) {
   return (
     <SettingsCard
       title="Integrasjoner"
-      description="Send hendelser til eksterne systemer. URL-er bør beskyttes som hemmeligheter."
       onReset={() => reset('integrations')}
     >
       <ToggleRow
@@ -480,7 +428,6 @@ function AvvikSection({ settings: s }: Props) {
   return (
     <SettingsCard
       title="Avvik"
-      description="Standardadferd for avviksregisteret (deviations). IK-forskriften § 5 nr. 7 — avvik skal håndteres systematisk."
       onReset={() => reset('avvik')}
     >
       <FormRow label="Standard alvorlighet">
@@ -537,7 +484,6 @@ function VarslingSection({ settings: s }: Props) {
   return (
     <SettingsCard
       title="Varsling (whistleblowing)"
-      description="AML §§ 2 A-1 til 2 A-7. Skriftlig tilbakemelding til varsler innen rimelig tid og taushetsplikt om identitet."
       onReset={() => reset('varsling')}
     >
       <FormRow
@@ -597,7 +543,6 @@ function AnonymSection({ settings: s }: Props) {
   return (
     <SettingsCard
       title="Anonym AML-rapportering"
-      description="Offentlig kanal for anonyme henvendelser om arbeidsmiljø. Fritekst lagres ikke; kun kategori, hastegrad og tidspunkt."
       onReset={() => reset('anonymAml')}
     >
       <ToggleRow
@@ -646,7 +591,6 @@ function ComplianceSection({ settings: s }: Props) {
   return (
     <SettingsCard
       title="Etterlevelse"
-      description="Innstillinger som styrer dokumentasjon, signaturer og dataminimering."
       onReset={() => reset('compliance')}
     >
       <ToggleRow

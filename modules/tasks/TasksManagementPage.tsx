@@ -4,7 +4,6 @@ import {
   AlertOctagon,
   BarChart3,
   ClipboardList,
-  KanbanSquare,
   LayoutGrid,
   Plus,
   Settings,
@@ -35,15 +34,12 @@ import type { TaskModule, TaskStatus } from '../../src/types/task'
 import { useAvvik } from '../avvik/useAvvik'
 import { TASK_MODULE_LEGAL_REFERENCES } from './taskLegalReferences'
 import { TasksOverviewTab } from './tabs/TasksOverviewTab'
-import { TasksKanbanTab } from './tabs/TasksKanbanTab'
-import { TasksListTab } from './tabs/TasksListTab'
+import { TasksListView } from './tabs/TasksListView'
 import { TasksPlanningTab } from './tabs/TasksPlanningTab'
 import { TasksCollaborationTab } from './tabs/TasksCollaborationTab'
 import { TasksAvvikTab } from './tabs/TasksAvvikTab'
 import { TasksVarslingTab } from './tabs/TasksVarslingTab'
 import { TasksAnonymTab } from './tabs/TasksAnonymTab'
-import { TasksPDCABoardTab } from './tabs/TasksPDCABoardTab'
-import { TasksTableReportTab } from './tabs/TasksTableReportTab'
 import { TasksAuditPackTab } from './tabs/TasksAuditPackTab'
 import { NewTaskModal } from './components/NewTaskModal'
 import { TasksSettingsTab } from './tabs/TasksSettingsTab'
@@ -54,10 +50,7 @@ import { TASK_PRIORITY_OPTIONS, type TaskPriority } from './types'
 
 type ModuleTab =
   | 'oversikt'
-  | 'pdca'
-  | 'tavle'
   | 'liste'
-  | 'rapport'
   | 'planlegging'
   | 'samarbeid'
   | 'avvik'
@@ -68,10 +61,7 @@ type ModuleTab =
 
 const TAB_IDS: ReadonlyArray<ModuleTab> = [
   'oversikt',
-  'pdca',
-  'tavle',
   'liste',
-  'rapport',
   'planlegging',
   'samarbeid',
   'avvik',
@@ -133,10 +123,7 @@ export function TasksManagementPage() {
     const openVarsling = wb.cases.filter((c) => c.status !== 'closed').length
     return [
       { id: 'oversikt', label: 'Oversikt', icon: LayoutGrid },
-      { id: 'pdca', label: 'PDCA-tavle', icon: KanbanSquare },
-      { id: 'tavle', label: 'Tavle', icon: KanbanSquare, badgeCount: open || undefined },
-      { id: 'liste', label: 'Liste', icon: ClipboardList },
-      { id: 'rapport', label: 'Tabellvisning', icon: ClipboardList },
+      { id: 'liste', label: 'Oppgaveliste', icon: ClipboardList, badgeCount: open || undefined },
       { id: 'planlegging', label: 'Planlegging', icon: Workflow, badgeCount: ext.projects.length || undefined },
       { id: 'samarbeid', label: 'Samarbeid', icon: Users },
       {
@@ -275,10 +262,6 @@ export function TasksManagementPage() {
 
         {tasksApi.error ? <WarningBox>{tasksApi.error}</WarningBox> : null}
 
-        {tab === 'pdca' && <TasksPDCABoardTab />}
-
-        {tab === 'rapport' && <TasksTableReportTab />}
-
         {tab === 'revisor' && <TasksAuditPackTab />}
 
         {tab === 'oversikt' && (
@@ -289,21 +272,19 @@ export function TasksManagementPage() {
             varslingCases={wb.cases}
             anonymReports={wr.anonymousAmlReports}
             onOpenTask={openTask}
-            onJumpToBoard={() => onChangeTab('tavle')}
-            onJumpTo={(t) => onChangeTab(t)}
+            onJumpToBoard={() => onChangeTab('liste')}
+            onJumpTo={(t) => onChangeTab(t as ModuleTab)}
           />
         )}
 
-        {tab === 'tavle' && (
-          <TasksKanbanTab
+        {tab === 'liste' && (
+          <TasksListView
             tasks={tasksApi.tasks}
             ext={ext}
-            onSetStatus={(id, status) => tasksApi.setStatus(id, status as TaskStatus)}
             onOpenTask={openTask}
+            onSetStatus={(id, status) => tasksApi.setStatus(id, status as TaskStatus)}
           />
         )}
-
-        {tab === 'liste' && <TasksListTab tasks={tasksApi.tasks} ext={ext} onOpenTask={openTask} />}
 
         {tab === 'planlegging' && <TasksPlanningTab tasks={tasksApi.tasks} ext={ext} onOpenTask={openTask} />}
 
