@@ -277,6 +277,15 @@ const workplaceReportingSubs: SubItem[] = WORKPLACE_REPORTING_NAV.map((item) => 
   return base
 })
 
+// Permission gate for the umbrella Admin menu. Strict — only org
+// administrators / role managers see it. Sub-pages enforce their own
+// page-level perms.
+const ADMIN_NAV_PERMS: PermissionKey[] = [
+  'module.view.admin',
+  'users.manage',
+  'roles.manage',
+]
+
 const organisationAdminSubs: SubItem[] = [
   {
     label: 'Brukere & invitasjoner',
@@ -296,6 +305,13 @@ const organisationAdminSubs: SubItem[] = [
     path: '/organisation/admin?tab=delegation',
     match: ({ pathname, search }) =>
       pathname === '/organisation/admin' && new URLSearchParams(search).get('tab') === 'delegation',
+  },
+  {
+    label: 'Automatisering',
+    path: '/workflow',
+    Icon: Workflow,
+    match: ({ pathname }) => pathname.startsWith('/workflow'),
+    requirePermAny: ADMIN_NAV_PERMS,
   },
 ]
 
@@ -407,14 +423,6 @@ const REGISTERS_NAV_PERMS: PermissionKey[] = [
   'documents.view',
 ]
 
-// Permission gate for the umbrella Admin menu. Strict — only org
-// administrators / role managers see it. Sub-pages enforce their own
-// page-level perms.
-const ADMIN_NAV_PERMS: PermissionKey[] = [
-  'module.view.admin',
-  'users.manage',
-  'roles.manage',
-]
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Menu cleanup pass — preview layout with only Sjekklister + Undersøkelser at
@@ -619,7 +627,7 @@ const gamleModulerModules: NavModule[] = [
 
   // ── Administrasjon ───────────────────────────────────────────────────────
   { to: '/organisation', label: 'Organisasjon', end: false, icon: Building2, subs: [], perm: 'module.view.dashboard' },
-  { to: '/workflow', label: 'Arbeidsflyt', end: false, icon: Workflow, subs: [] },
+  // Automatisering/Arbeidsflyt moved to organisationAdminSubs
   { to: '/reports', label: 'Rapporter', end: false, icon: BarChart3, subs: [], perm: 'module.view.reports' },
 
   // ── Eksisterende "Gamle moduler" innhold ─────────────────────────────────
