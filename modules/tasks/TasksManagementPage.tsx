@@ -1,17 +1,9 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import {
-  AlertOctagon,
   BarChart3,
-  ClipboardList,
-  LayoutGrid,
   Plus,
   Settings,
-  Settings as SettingsIcon,
-  Shield,
-  ShieldAlert,
-  Users,
-  Workflow,
 } from 'lucide-react'
 import { ModuleLegalBanner, ModulePageShell } from '../../src/components/module'
 import { Button } from '../../src/components/ui/Button'
