@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react'
 
-export type ChecklistFieldType = 'yes_no_na' | 'text' | 'number' | 'photo' | 'signature'
+export type ChecklistFieldType = 'yes_no_na' | 'text' | 'number' | 'photo' | 'signature' | 'date'
 
 export type ChecklistItem = {
   key: string

@@ -7,7 +7,7 @@
 // render. Authors can edit or delete their own comments inline.
 
 import { useEffect, useRef, useState } from 'react'
-import { AtSign, Pencil, Send, Trash2, X } from 'lucide-react'
+import { AtSign, Pencil, Send, Trash2 } from 'lucide-react'
 import { ModuleSectionCard } from '../../../src/components/module/ModuleSectionCard'
 import { Button } from '../../../src/components/ui/Button'
 import type { ChecklistCommentRow } from '../types'
