@@ -908,6 +908,7 @@ export function useChecklistModule(
         const { data, error: insErr } = await supabase
           .from('compliance_checklist_comments')
           .insert({
+            organization_id: orgId,
             execution_id: payload.executionId,
             item_key: payload.itemKey ?? null,
             body: payload.body.trim(),
