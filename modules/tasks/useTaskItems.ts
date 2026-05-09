@@ -89,6 +89,11 @@ export function useTaskItems(filters: TaskItemFilters = {}) {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
+  // Stable instance ID so each mounted hook gets its own Supabase channel,
+  // preventing "cannot add postgres_changes callbacks after subscribe()" when
+  // multiple components use this hook simultaneously.
+  const instanceId = useRef(`${Date.now()}-${Math.random().toString(36).slice(2)}`)
+
   const filtersKey = JSON.stringify(filters)
 
   const refresh = useCallback(async () => {
@@ -147,7 +152,7 @@ export function useTaskItems(filters: TaskItemFilters = {}) {
   useEffect(() => {
     if (!supabase || !orgId) return
     const channel = supabase
-      .channel(`task_items:org:${orgId}`)
+      .channel(`task_items:org:${orgId}:${instanceId.current}`)
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'task_items', filter: `organization_id=eq.${orgId}` },
