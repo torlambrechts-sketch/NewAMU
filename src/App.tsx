@@ -5,6 +5,7 @@ import {
   Outlet,
   Route,
   RouterProvider,
+  useParams,
 } from 'react-router-dom'
 import { OrgSetupProvider } from './context/OrgSetupProvider'
 import { UiThemeProvider } from './context/UiThemeProvider'
@@ -20,6 +21,8 @@ import { AdminPage } from './pages/AdminPage'
 import { ProfilePage } from './pages/ProfilePage'
 import { ReportingEnginePage } from './pages/ReportingEnginePage'
 import { WorkflowModulePage } from './pages/WorkflowModulePage'
+import { WorkflowPage } from './pages/WorkflowPage'
+import { WorkflowEditorV2 } from './components/workflow/WorkflowEditorV2'
 import { WorkplaceReportingPage } from './pages/WorkplaceReportingPage'
 import { WorkplaceDashboardPage } from './pages/WorkplaceDashboardPage'
 import { WorkplaceIncidentsPage } from './pages/WorkplaceIncidentsPage'
@@ -163,6 +166,13 @@ import { SurveyAnalysePage } from '../modules/survey/SurveyAnalysePage'
  * Providers that depend on react-router (e.g. useOrgSetup → useLocation) must live *inside*
  * the router tree — not wrapping RouterProvider — or the app crashes with a blank screen.
  */
+
+function WorkflowEditorRoute() {
+  const { ruleId } = useParams<{ ruleId: string }>()
+  if (!ruleId) return null
+  return <WorkflowEditorV2 ruleId={ruleId} />
+}
+
 function AppRouterLayout() {
   return (
     <OrgSetupProvider>
@@ -391,7 +401,9 @@ const router = createBrowserRouter(
                         <Route path="insights" element={<Navigate to="/learning" replace />} />
                       </Route>
                       <Route path="prosesser" element={<Navigate to="/workflow" replace />} />
-                      <Route path="workflow" element={<WorkflowModulePage />} />
+                      <Route path="workflow" element={<WorkflowPage />} />
+                      <Route path="workflow/:ruleId" element={<WorkflowEditorRoute />} />
+                      <Route path="workflow/admin" element={<WorkflowModulePage />} />
                       <Route path="hr" element={<HrComplianceHub />} />
                       <Route path="hr/discussion" element={<HrDiscussionPage />} />
                       <Route path="hr/consultation" element={<HrConsultationPage />} />
