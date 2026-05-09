@@ -5,7 +5,7 @@
 // the "Del revisorpakke" button that generates a signed 30-day token.
 // This same layout is re-used by the public TasksAuditView (/tasks/audit/:token).
 import { useMemo, useState } from 'react'
-import { CheckCircle, Clock, FileText, Share2, XCircle } from 'lucide-react'
+import { CheckCircle, Clock, Share2, XCircle } from 'lucide-react'
 import { useSearchParams } from 'react-router-dom'
 import type { TaskItem, TaskPack, TaskProject, TaskProjectEvidence } from '../../../src/types/task'
 import { useTaskItems } from '../useTaskItems'
@@ -82,7 +82,7 @@ function CoverageRow({
 export function TasksAuditPackTab({ tokenData }: Props = {}) {
   const [searchParams] = useSearchParams()
   const activePack = (searchParams.get('pack') as TaskPack | null) ?? 'aml-amu'
-  const { organisation } = useOrganisation()
+  const { settings } = useOrganisation()
   const { supabase } = useOrgSetupContext()
   const [shareLoading, setShareLoading] = useState(false)
   const [shareResults, setShareResults] = useState<Record<string, string>>({})
@@ -133,7 +133,7 @@ export function TasksAuditPackTab({ tokenData }: Props = {}) {
   }
 
   // When rendering from public token URL, use pre-fetched tokenData
-  const orgName = tokenData?.orgName ?? organisation?.name ?? 'Organisasjon'
+  const orgName = tokenData?.orgName ?? settings.orgName ?? 'Organisasjon'
   const pack = tokenData?.pack ?? activePack
   const generatedAt = tokenData?.generatedAt ?? new Date().toISOString()
 

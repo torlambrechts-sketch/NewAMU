@@ -238,10 +238,3 @@ export function useTaskProjectEvidence(projectId: string | undefined) {
   return { evidence, loading, refresh, addEvidence, removeEvidence }
 }
 
-/** Generate a 30-day auditor export token via DB RPC */
-export async function generateTaskExportToken(
-  supabase: Parameters<typeof useOrgSetupContext>[0] extends infer T ? never : never,
-  projectId: string,
-): Promise<string | null> {
-  return null // placeholder — real call in TasksAuditPackTab via supabase.rpc('generate_task_export_token')
-}
