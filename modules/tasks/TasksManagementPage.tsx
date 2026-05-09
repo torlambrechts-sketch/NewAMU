@@ -1,14 +1,14 @@
 // TasksManagementPage — three-mode routing for the Oppgaver module.
 //
-//   hub        no ?template=       — tile grid by category (TasksHubLanding)
-//   template   ?template=<slug>    — filtered task list + create button
-//   project    ?project=<id>       — Phase 2: kanban/PDCA board (placeholder)
+//   hub        no ?template=, no ?project=  — tile grid + projects list
+//   template   ?template=<slug>             — filtered task list + create button
+//   project    ?project=<id>               — kanban/PDCA board
 //
 // URL is the source of truth for mode. No silent defaulting.
 
 import { useMemo, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
-import { BarChart3, ChevronRight, Plus, Settings } from 'lucide-react'
+import { BarChart3, ChevronRight, KanbanSquare, Plus, Settings } from 'lucide-react'
 import { ModulePageShell } from '../../src/components/module/ModulePageShell'
 import { LayoutTable1PostingsShell } from '../../src/components/layout/LayoutTable1PostingsShell'
 import {
@@ -21,13 +21,16 @@ import { WarningBox } from '../../src/components/ui/AlertBox'
 import { TasksHubLanding } from './TasksHubLanding'
 import { TaskCreateForm } from './TaskCreateForm'
 import { TaskDetailPanel } from './TaskDetailPanel'
+import { TaskProjectBoard } from './TaskProjectBoard'
+import { TaskProjectCreateForm } from './TaskProjectCreateForm'
 import { TaskStatusBadge } from './components/TaskStatusBadge'
 import { TaskPriorityBadge } from './components/TaskPriorityBadge'
 import { TaskKindIcon } from './components/TaskKindIcon'
 import { useTaskTemplates } from './useTaskTemplates'
 import { useTaskItemsData } from './useTaskItemsData'
+import { useTaskProjects } from './useTaskProjects'
 import type { TaskItemRow } from './useTaskItemsData'
-import type { TaskItemStatus } from '../../src/types/task'
+import type { TaskItemStatus, TaskPdcaPhase } from '../../src/types/task'
 
 function fmtDate(s: string | null) {
   if (!s) return '—'
@@ -47,11 +50,20 @@ export function TasksManagementPage() {
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
   const templateSlug = searchParams.get('template')
+  const projectId = searchParams.get('project')
 
   const tplData = useTaskTemplates()
-  const itemData = useTaskItemsData(templateSlug)
+  const projectsData = useTaskProjects()
+  const itemData = useTaskItemsData(
+    projectId
+      ? { projectId }
+      : templateSlug
+      ? { templateSlug }
+      : { templateSlug: null },
+  )
 
   const [createOpen, setCreateOpen] = useState(false)
+  const [projectCreateOpen, setProjectCreateOpen] = useState(false)
   const [selectedItem, setSelectedItem] = useState<TaskItemRow | null>(null)
 
   const focusedTemplate = useMemo(() => {
@@ -59,44 +71,161 @@ export function TasksManagementPage() {
     return tplData.templates.find((t) => t.slug === templateSlug) ?? null
   }, [tplData.templates, templateSlug])
 
-  const mode: 'hub' | 'template' = focusedTemplate ? 'template' : 'hub'
+  const focusedProject = useMemo(() => {
+    if (!projectId) return null
+    return projectsData.projects.find((p) => p.id === projectId) ?? null
+  }, [projectsData.projects, projectId])
 
-  // Hub mode
+  const mode: 'hub' | 'template' | 'project' =
+    focusedProject ? 'project' : focusedTemplate ? 'template' : 'hub'
+
+  // ── Project board mode ────────────────────────────────────────────────────
+  if (mode === 'project' && focusedProject) {
+    const proj = focusedProject
+    const methodologyLabel = proj.methodology === 'pdca' ? 'PDCA' : 'Kanban'
+
+    const handleMoveCard = async (
+      itemId: string,
+      newPhase: TaskPdcaPhase | null,
+      newStatus: TaskItemStatus | null,
+    ) => {
+      if (newPhase) await itemData.updatePdcaPhase(itemId, newPhase)
+      else if (newStatus) await itemData.updateStatus(itemId, newStatus)
+    }
+
+    const handleQuickCreate = async (colKey: string, title: string) => {
+      await itemData.createItem({
+        title,
+        priority: 'medium',
+        projectId: proj.id,
+        pdcaPhase: (proj.methodology === 'pdca' ? (colKey as TaskPdcaPhase) : 'do'),
+        ...(proj.methodology === 'kanban' && {
+          // map column key to initial status
+          ...(colKey === 'backlog' && {}),
+          ...(colKey === 'progress' && {}),
+        }),
+      })
+    }
+
+    return (
+      <>
+        <ModulePageShell
+          breadcrumb={[
+            { label: 'Oppgaver', to: '/tasks/management' },
+            { label: proj.title },
+          ]}
+          title={
+            <span className="flex items-center gap-2">
+              <KanbanSquare className="h-5 w-5 text-[#c2410c]/70" />
+              {proj.title}
+            </span>
+          }
+          description={proj.description || undefined}
+          headerActions={
+            <div className="flex items-center gap-2">
+              <span className="hidden rounded border border-neutral-200 bg-white px-2 py-1 text-xs font-medium text-neutral-600 sm:inline">
+                {methodologyLabel}
+              </span>
+              {proj.status === 'active' && (
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => void projectsData.updateProject(proj.id, { status: 'closed' })}
+                >
+                  Lukk prosjekt
+                </Button>
+              )}
+            </div>
+          }
+        >
+          <div className="space-y-4">
+            {proj.lawRefs.length > 0 && (
+              <div className="flex flex-wrap gap-1.5">
+                {proj.lawRefs.map((ref) => (
+                  <span
+                    key={ref}
+                    className="rounded bg-neutral-100 px-2 py-0.5 text-xs font-medium text-neutral-600"
+                  >
+                    {ref}
+                  </span>
+                ))}
+              </div>
+            )}
+            {itemData.error && <WarningBox>{itemData.error}</WarningBox>}
+            <TaskProjectBoard
+              project={proj}
+              items={itemData.items}
+              onCardClick={setSelectedItem}
+              onMoveCard={handleMoveCard}
+              onQuickCreate={handleQuickCreate}
+            />
+          </div>
+        </ModulePageShell>
+
+        <TaskDetailPanel
+          open={selectedItem !== null}
+          onClose={() => setSelectedItem(null)}
+          item={selectedItem}
+          onStatusChange={async (id, status) => {
+            await itemData.updateStatus(id, status)
+            setSelectedItem((prev) => (prev?.id === id ? { ...prev, status } : prev))
+          }}
+        />
+      </>
+    )
+  }
+
+  // ── Hub mode ─────────────────────────────────────────────────────────────
   if (mode === 'hub') {
     return (
-      <ModulePageShell
-        breadcrumb={[{ label: 'Oppgaver' }]}
-        title="Oppgaver"
-        description="Velg en mal for å opprette og følge opp oppgaver, avvik, risiko og forslag."
-        headerActions={
-          <div className="flex items-center gap-2">
-            <Link
-              to="/tasks/management/analyse"
-              className="inline-flex items-center gap-1.5 border border-neutral-300 bg-white px-3 py-2 text-sm font-medium text-neutral-700 transition-colors hover:bg-neutral-50"
-            >
-              <BarChart3 className="h-4 w-4" aria-hidden />
-              <span className="hidden sm:inline">Analyse</span>
-            </Link>
-            <Link
-              to="/tasks/management/admin"
-              className="inline-flex items-center gap-1.5 border border-neutral-300 bg-white px-3 py-2 text-sm font-medium text-neutral-700 transition-colors hover:bg-neutral-50"
-            >
-              <Settings className="h-4 w-4" aria-hidden />
-              <span className="hidden sm:inline">Innstillinger</span>
-            </Link>
+      <>
+        <ModulePageShell
+          breadcrumb={[{ label: 'Oppgaver' }]}
+          title="Oppgaver"
+          description="Velg en mal for å opprette og følge opp oppgaver, avvik, risiko og forslag."
+          headerActions={
+            <div className="flex items-center gap-2">
+              <Link
+                to="/tasks/management/analyse"
+                className="inline-flex items-center gap-1.5 border border-neutral-300 bg-white px-3 py-2 text-sm font-medium text-neutral-700 transition-colors hover:bg-neutral-50"
+              >
+                <BarChart3 className="h-4 w-4" aria-hidden />
+                <span className="hidden sm:inline">Analyse</span>
+              </Link>
+              <Link
+                to="/tasks/management/admin"
+                className="inline-flex items-center gap-1.5 border border-neutral-300 bg-white px-3 py-2 text-sm font-medium text-neutral-700 transition-colors hover:bg-neutral-50"
+              >
+                <Settings className="h-4 w-4" aria-hidden />
+                <span className="hidden sm:inline">Innstillinger</span>
+              </Link>
+            </div>
+          }
+        >
+          <div className="space-y-6">
+            {tplData.error && <WarningBox>{tplData.error}</WarningBox>}
+            <TasksHubLanding
+              templates={tplData.templates}
+              categories={tplData.categories}
+              loading={tplData.loading}
+              canManage={true}
+              projects={projectsData.projects}
+              onCreateProject={() => setProjectCreateOpen(true)}
+              onOpenProject={(id) => navigate(`/tasks/management?project=${id}`)}
+            />
           </div>
-        }
-      >
-        <div className="space-y-6">
-          {tplData.error && <WarningBox>{tplData.error}</WarningBox>}
-          <TasksHubLanding
-            templates={tplData.templates}
-            categories={tplData.categories}
-            loading={tplData.loading}
-            canManage={true}
-          />
-        </div>
-      </ModulePageShell>
+        </ModulePageShell>
+
+        <TaskProjectCreateForm
+          open={projectCreateOpen}
+          onClose={() => setProjectCreateOpen(false)}
+          onCreate={async (input) => {
+            const id = await projectsData.createProject(input)
+            if (id) navigate(`/tasks/management?project=${id}`)
+            return id
+          }}
+        />
+      </>
     )
   }
 

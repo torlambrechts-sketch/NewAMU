@@ -1,10 +1,10 @@
 // useTaskItemsData — task_items CRUD for a single org, optionally scoped to
-// one template slug. Separate from the legacy useTasks.ts stub (which is a
-// no-op kept for backward-compat with cross-module consumers).
+// one template slug or project. Separate from the legacy useTasks.ts stub
+// (which is a no-op kept for backward-compat with cross-module consumers).
 
 import { useCallback, useEffect, useState } from 'react'
 import { useOrgSetupContext } from '../../src/hooks/useOrgSetupContext'
-import type { TaskItemStatus, TaskItemPriority, TaskTemplateKind } from '../../src/types/task'
+import type { TaskItemStatus, TaskItemPriority, TaskTemplateKind, TaskPdcaPhase } from '../../src/types/task'
 
 export type TaskItemRow = {
   id: string
@@ -21,6 +21,9 @@ export type TaskItemRow = {
   createdAt: string
   updatedAt: string
   closedAt: string | null
+  projectId: string | null
+  pdcaPhase: TaskPdcaPhase
+  parentItemId: string | null
 }
 
 export type CreateTaskItemInput = {
@@ -32,6 +35,9 @@ export type CreateTaskItemInput = {
   assigneeName?: string
   ownerName?: string
   dueDate?: string
+  projectId?: string
+  pdcaPhase?: TaskPdcaPhase
+  parentItemId?: string
 }
 
 export type UseTaskItemsDataReturn = {
@@ -40,10 +46,23 @@ export type UseTaskItemsDataReturn = {
   error: string | null
   createItem: (input: CreateTaskItemInput) => Promise<string | null>
   updateStatus: (id: string, status: TaskItemStatus) => Promise<void>
+  updatePdcaPhase: (id: string, phase: TaskPdcaPhase) => Promise<void>
   reload: () => void
 }
 
-export function useTaskItemsData(templateSlug?: string | null): UseTaskItemsDataReturn {
+type UseTaskItemsDataOpts = {
+  templateSlug?: string | null
+  projectId?: string | null
+}
+
+export function useTaskItemsData(
+  templateSlugOrOpts?: string | null | UseTaskItemsDataOpts,
+): UseTaskItemsDataReturn {
+  const opts: UseTaskItemsDataOpts =
+    typeof templateSlugOrOpts === 'object' && templateSlugOrOpts !== null && !Array.isArray(templateSlugOrOpts)
+      ? templateSlugOrOpts
+      : { templateSlug: templateSlugOrOpts as string | null | undefined }
+
   const { supabase, organization } = useOrgSetupContext()
   const orgId = organization?.id ?? null
 
@@ -62,15 +81,14 @@ export function useTaskItemsData(templateSlug?: string | null): UseTaskItemsData
     let query = supabase
       .from('task_items')
       .select(
-        'id, title, description, status, priority, template_slug, template_kind, owner_name, assignee_name, due_date, sla_due_at, created_at, updated_at, closed_at',
+        'id, title, description, status, priority, template_slug, template_kind, owner_name, assignee_name, due_date, sla_due_at, created_at, updated_at, closed_at, project_id, pdca_phase, parent_item_id',
       )
       .eq('organization_id', orgId)
       .is('deleted_at', null)
       .order('created_at', { ascending: false })
 
-    if (templateSlug) {
-      query = query.eq('template_slug', templateSlug)
-    }
+    if (opts.templateSlug) query = query.eq('template_slug', opts.templateSlug)
+    if (opts.projectId) query = query.eq('project_id', opts.projectId)
 
     void query.then(({ data, error: qErr }) => {
       if (cancelled) return
@@ -95,6 +113,9 @@ export function useTaskItemsData(templateSlug?: string | null): UseTaskItemsData
             createdAt: String(r.created_at),
             updatedAt: String(r.updated_at),
             closedAt: r.closed_at ? String(r.closed_at) : null,
+            projectId: r.project_id ? String(r.project_id) : null,
+            pdcaPhase: (r.pdca_phase ?? 'do') as TaskPdcaPhase,
+            parentItemId: r.parent_item_id ? String(r.parent_item_id) : null,
           })),
         )
       }
@@ -103,7 +124,7 @@ export function useTaskItemsData(templateSlug?: string | null): UseTaskItemsData
     return () => {
       cancelled = true
     }
-  }, [supabase, orgId, templateSlug, version])
+  }, [supabase, orgId, opts.templateSlug, opts.projectId, version])
 
   const createItem = useCallback(
     async (input: CreateTaskItemInput): Promise<string | null> => {
@@ -118,12 +139,14 @@ export function useTaskItemsData(templateSlug?: string | null): UseTaskItemsData
           status: 'open',
           pack: 'aml-amu',
           source_category: input.templateKind ?? 'general',
-          pdca_phase: 'do',
+          pdca_phase: input.pdcaPhase ?? 'do',
           template_slug: input.templateSlug ?? null,
           template_kind: input.templateKind ?? null,
           assignee_name: input.assigneeName ?? null,
           owner_name: input.ownerName ?? null,
           due_date: input.dueDate ?? null,
+          project_id: input.projectId ?? null,
+          parent_item_id: input.parentItemId ?? null,
         })
         .select('id')
         .single()
@@ -137,11 +160,22 @@ export function useTaskItemsData(templateSlug?: string | null): UseTaskItemsData
   const updateStatus = useCallback(
     async (id: string, status: TaskItemStatus): Promise<void> => {
       if (!supabase) return
-      await supabase.from('task_items').update({ status }).eq('id', id)
+      const patch: Record<string, unknown> = { status }
+      if (status === 'closed') patch.closed_at = new Date().toISOString()
+      await supabase.from('task_items').update(patch).eq('id', id)
       reload()
     },
     [supabase, reload],
   )
 
-  return { loading, items, error, createItem, updateStatus, reload }
+  const updatePdcaPhase = useCallback(
+    async (id: string, phase: TaskPdcaPhase): Promise<void> => {
+      if (!supabase) return
+      await supabase.from('task_items').update({ pdca_phase: phase }).eq('id', id)
+      reload()
+    },
+    [supabase, reload],
+  )
+
+  return { loading, items, error, createItem, updateStatus, updatePdcaPhase, reload }
 }
