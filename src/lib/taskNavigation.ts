@@ -1,13 +1,18 @@
+// taskNavigation — Phase 0 stub.
+// Legacy query-string helpers for the old task prefill URL pattern.
+// Retained for backward-compat with WorkplaceIncidentsPage and
+// actionBoardScorecardLayout. Will be removed when those modules migrate.
+
 import type { TaskModule, TaskSourceType } from '../types/task'
 
 export const MODULE_LABELS: Record<TaskModule, string> = {
-  general: 'Generelt',
-  council: 'Arbeidsmiljøråd',
-  members: 'Representasjon',
+  general:    'Generelt',
+  council:    'Arbeidsmiljøråd',
+  members:    'Representasjon',
   org_health: 'Organisasjonshelse',
-  hse: 'HMS',
-  hrm: 'Personal',
-  learning: 'Læring',
+  hse:        'HMS',
+  hrm:        'Personal',
+  learning:   'Læring',
 }
 
 export function buildTaskPrefillQuery(params: {

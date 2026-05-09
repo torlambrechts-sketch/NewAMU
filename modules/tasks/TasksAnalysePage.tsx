@@ -1,15 +1,9 @@
-// Tasks analytics page — third consumer of ModuleAnalyticsDashboard.
-// Owns dataset compute (from useTasks + useTaskExtensions) and hands
-// the result to the runtime + the registered tasks scope.
-//
-// Per /specs/tasks-parity.md: tasks live in jsonb (org_module_payload),
-// not a normalised table. So the analyse page does no FK joining at
-// the SQL level — all bucketing is client-side over the in-memory list.
-// The "department" dimension resolves Task.assigneeEmployeeId →
-// organization_members.department_id at compute time.
+// TasksAnalysePage — analytics dashboard for the Oppgaver module.
+// Loads all task_items for the org, hands the snapshot to useTasksDatasets,
+// and renders ModuleAnalyticsDashboard. Mirrors SurveyAnalysePage in shape.
 
-import { useEffect, useMemo, useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { ArrowLeft, BarChart3 } from 'lucide-react'
 import { ModuleAnalyticsDashboard } from '../../src/components/module/ModuleAnalyticsDashboard'
 import { DashboardEditLayoutPanel } from '../../src/components/module/dashboard/DashboardEditLayoutPanel'
@@ -19,127 +13,148 @@ import { useDashboardEditChrome } from '../../src/components/module/dashboard/us
 import { DashboardWidgetMenu } from '../../src/components/module/dashboard/DashboardWidgetMenu'
 import { DashboardChooser } from '../../src/components/module/dashboard/DashboardChooser'
 import { downloadCsv, widgetToCsv } from '../../src/lib/reports/widgetCsv'
-import { defaultCompatibleKinds } from '../../src/components/module/dashboard/dashboardWidgetKinds'
 import { useOrgSetupContext } from '../../src/hooks/useOrgSetupContext'
-import { useTasks } from '../../src/hooks/useTasks'
-import { useTaskExtensions } from './useTaskExtensions'
-import {
-  TASKS_DASHBOARD_SCOPE_ID,
-  // Side-effect import: registers the scope on module load.
-} from './dashboards/tasksDashboardScope'
-import './dashboards/tasksDashboardScope'
-import {
-  STATUS_OPTIONS,
-  MODULE_OPTIONS,
-  SOURCE_OPTIONS,
-  PRIORITY_OPTIONS,
-  useTasksDatasets,
-} from './dashboards/useTasksDatasets'
 import { useDashboardLayout } from '../../src/lib/dashboards/useDashboardLayout'
 import { freshId } from '../../src/lib/dashboards/freshId'
 import { getDashboardScope } from '../../src/lib/dashboards/dashboardRegistry'
-import { useRegulationFilter } from '../../src/context/RegulationFilterContext'
-import { regulationForSource } from '../../src/lib/regulations/regulationForSource'
+import {
+  TASKS_DASHBOARD_SCOPE_ID,
+} from './dashboards/tasksDashboardScope'
+import './dashboards/tasksDashboardScope'
+import { useTasksDatasets, type TaskItemSnapshot } from './dashboards/useTasksDatasets'
+import { useTaskTemplates } from './useTaskTemplates'
 import type { ReportModule } from '../../src/types/reportBuilder'
 import type { DashboardDimension } from '../../src/lib/dashboards/dashboardFilters'
+import type { TaskTemplateKind, TaskItemStatus, TaskItemPriority } from '../../src/types/task'
 
-// ── Static option lists for filter dimensions ─────────────────────────────
+const STATUS_OPTIONS = [
+  { id: 'open', label: 'Åpen' },
+  { id: 'in_progress', label: 'Under behandling' },
+  { id: 'root_cause_identified', label: 'Rotårsak identifisert' },
+  { id: 'action_defined', label: 'Tiltak definert' },
+  { id: 'action_implemented', label: 'Tiltak implementert' },
+  { id: 'effectiveness_pending', label: 'Venter på verifikasjon' },
+  { id: 'effectiveness_verified', label: 'Verifisert effektiv' },
+  { id: 'closed', label: 'Lukket' },
+  { id: 'cancelled', label: 'Kansellert' },
+]
 
+const KIND_OPTIONS = [
+  { id: 'oppgave', label: 'Generell oppgave' },
+  { id: 'avvik', label: 'Avvik / Hendelse' },
+  { id: 'nestenulykke', label: 'Nestenulykke' },
+  { id: 'tiltak', label: 'Tiltak' },
+  { id: 'risiko', label: 'Risikovurdering' },
+  { id: 'forslag', label: 'Forslag' },
+  { id: 'sykefravær', label: 'Sykefravær-oppfølging' },
+]
 
-// ── Page ──────────────────────────────────────────────────────────────────
+const PRIORITY_OPTIONS = [
+  { id: 'low', label: 'Lav' },
+  { id: 'medium', label: 'Middels' },
+  { id: 'high', label: 'Høy' },
+  { id: 'critical', label: 'Kritisk' },
+]
 
 export function TasksAnalysePage() {
-  const navigate = useNavigate()
-  const orgSetup = useOrgSetupContext()
-  const tasksApi = useTasks()
-  const ext = useTaskExtensions(tasksApi.tasks)
-  const dashboard = useDashboardLayout({
-    supabase: orgSetup.supabase,
-    scopeId: TASKS_DASHBOARD_SCOPE_ID,
-  })
+  const { supabase, organization } = useOrgSetupContext()
+  const orgId = organization?.id ?? null
+  const tplData = useTaskTemplates()
 
-  // Filter dimensions. The department dimension is the one place this page
-  // does any "joining" — it walks the resolved map at filter-eval time.
+  const [snapshots, setSnapshots] = useState<TaskItemSnapshot[]>([])
+  const [dataLoading, setDataLoading] = useState(false)
+  const [dataError, setDataError] = useState<string | null>(null)
+
+  const loadSnapshots = useCallback(async () => {
+    if (!supabase || !orgId) return
+    setDataLoading(true)
+    const { data, error: e } = await supabase
+      .from('task_items')
+      .select(
+        'id, status, priority, template_kind, template_slug, due_date, sla_due_at, closed_at, created_at',
+      )
+      .eq('organization_id', orgId)
+      .is('deleted_at', null)
+    setDataLoading(false)
+    if (e) { setDataError(e.message); return }
+
+    // Build template slug → name map from loaded templates
+    const nameBySlug = new Map(tplData.templates.map((t) => [t.slug, t.name]))
+
+    setSnapshots(
+      (data ?? []).map((r) => ({
+        id: String(r.id),
+        status: (r.status ?? 'open') as TaskItemStatus,
+        priority: (r.priority ?? 'medium') as TaskItemPriority,
+        templateKind: r.template_kind ? (r.template_kind as TaskTemplateKind) : null,
+        templateSlug: r.template_slug ? String(r.template_slug) : null,
+        templateName: r.template_slug ? (nameBySlug.get(r.template_slug) ?? r.template_slug) : null,
+        dueDate: r.due_date ? String(r.due_date) : null,
+        slaDueAt: r.sla_due_at ? String(r.sla_due_at) : null,
+        closedAt: r.closed_at ? String(r.closed_at) : null,
+        createdAt: String(r.created_at),
+      })),
+    )
+  }, [supabase, orgId, tplData.templates])
+
+  useEffect(() => {
+    void loadSnapshots()
+  }, [loadSnapshots])
+
+  const dashboard = useDashboardLayout({ supabase, scopeId: TASKS_DASHBOARD_SCOPE_ID })
+
   const dimensions: DashboardDimension[] = useMemo(
     () => [
       {
+        id: 'kind',
+        label: 'Maltype',
+        description: 'Begrens til én eller flere maltyper.',
+        kind: 'enum',
+        defaultOperator: 'in',
+        loadOptions: () => KIND_OPTIONS,
+      },
+      {
         id: 'status',
         label: 'Status',
+        description: 'Filtrer på CAPA-status.',
         kind: 'enum',
         defaultOperator: 'in',
-        loadOptions: () => STATUS_OPTIONS.map((s) => ({ id: s.id, label: s.label })),
-      },
-      {
-        id: 'module',
-        label: 'Modul',
-        kind: 'enum',
-        defaultOperator: 'in',
-        loadOptions: () => MODULE_OPTIONS.map((m) => ({ id: m.id, label: m.label })),
-      },
-      {
-        id: 'source',
-        label: 'Kilde',
-        kind: 'enum',
-        defaultOperator: 'in',
-        loadOptions: () => SOURCE_OPTIONS.map((s) => ({ id: s.id, label: s.label })),
+        loadOptions: () => STATUS_OPTIONS,
       },
       {
         id: 'priority',
         label: 'Prioritet',
         kind: 'enum',
         defaultOperator: 'in',
-        loadOptions: () => PRIORITY_OPTIONS.map((p) => ({ id: p.id, label: p.label })),
+        loadOptions: () => PRIORITY_OPTIONS,
       },
       {
-        id: 'assignee',
-        label: 'Ansvarlig',
+        id: 'template',
+        label: 'Mal',
+        description: 'Filtrer på én spesifikk mal.',
         kind: 'enum',
         defaultOperator: 'in',
-        loadOptions: () =>
-          orgSetup.members.map((m) => ({ id: m.id, label: m.display_name })),
+        loadOptions: () => tplData.templates.map((t) => ({ id: t.slug, label: t.name })),
       },
       {
-        id: 'department',
-        label: 'Avdeling',
-        description: 'Resolved fra ansvarlig-ansattens avdeling.',
-        kind: 'enum',
-        defaultOperator: 'in',
-        loadOptions: () =>
-          orgSetup.departments.map((d) => ({ id: d.id, label: d.name })),
-      },
-      {
-        id: 'due',
-        label: 'Forfall',
-        description: 'Filter på frist (dueDate).',
+        id: 'date',
+        label: 'Periode',
+        description: 'Begrens opprettelsesdato.',
         kind: 'date_range',
         defaultOperator: 'between',
       },
     ],
-    [orgSetup.members, orgSetup.departments],
+    [tplData.templates],
   )
 
-  // Cross-module regulation filter (category-architecture §T8). Tasks
-  // resolve via TaskSourceType → regulation lookup (no category column).
-  const { isActive: isRegulationActive } = useRegulationFilter()
-  const filteredTasks = useMemo(
-    () => tasksApi.tasks.filter((t) => isRegulationActive(regulationForSource(t.sourceType))),
-    [tasksApi.tasks, isRegulationActive],
-  )
-
-  const datasets = useTasksDatasets({
-    filters: dashboard.filters,
-    tasks: filteredTasks,
-    ext,
-    members: orgSetup.members,
-    departments: orgSetup.departments,
-  })
+  const datasets = useTasksDatasets(snapshots, dashboard.filters)
 
   const layout = useMemo(
     () =>
       dashboard.layout.map((m) => {
         if (m.kind === 'bar' && m.seriesKeys.length === 0) {
-          const ds = datasets[m.datasetKey] as Record<string, unknown> | undefined
-          const keys = ds && typeof ds === 'object' ? Object.keys(ds) : []
+          const ds = datasets[m.datasetKey]
+          const keys = Array.isArray(ds) ? ds.map((s: { id: string }) => s.id) : []
           return { ...m, seriesKeys: keys }
         }
         return m
@@ -148,12 +163,11 @@ export function TasksAnalysePage() {
   )
 
   const empty =
-    tasksApi.tasks.length === 0 ? (
+    snapshots.length === 0 && !dataLoading ? (
       <div className="rounded-md border border-dashed border-neutral-300 bg-white p-8 text-center">
         <BarChart3 className="mx-auto h-8 w-8 text-neutral-300" aria-hidden />
         <p className="mt-3 text-sm text-neutral-600">
-          Ingen oppgaver å analysere ennå. Opprett en oppgave eller koble til en
-          kilde for å se tallene her.
+          Ingen oppgaver å analysere ennå. Opprett oppgaver for å se tallene her.
         </p>
       </div>
     ) : null
@@ -161,6 +175,7 @@ export function TasksAnalysePage() {
   const [editOpen, setEditOpen] = useState(false)
   const [addOpen, setAddOpen] = useState(false)
   const [editWidget, setEditWidget] = useState<ReportModule | null>(null)
+
   const editChrome = useDashboardEditChrome({
     scopeId: TASKS_DASHBOARD_SCOPE_ID,
     layout: dashboard.layout,
@@ -183,22 +198,16 @@ export function TasksAnalysePage() {
     />
   )
 
-  // useTasks loads from local/Supabase on mount; nothing to call here.
-  useEffect(() => {
-    /* parity with other analyse pages */
-  }, [])
-
   return (
     <>
       <ModuleAnalyticsDashboard
         accent={getDashboardScope(TASKS_DASHBOARD_SCOPE_ID)?.accent}
         breadcrumb={[
-          { label: 'Arbeidsflate' },
-          { label: 'Oppgavestyring', to: '/tasks/management' },
+          { label: 'Oppgaver', to: '/tasks/management' },
           { label: 'Analyse' },
         ]}
         title="Analyse"
-        description="Volum, status, kilde og forfallsbilde på tvers av oppgaveinnboksen."
+        description="CAPA-trakt, SLA-etterlevelse, statusfordeling og trend på tvers av alle oppgavemaler."
         titleChooser={
           <DashboardChooser
             available={dashboard.available}
@@ -217,12 +226,6 @@ export function TasksAnalysePage() {
             {editChrome.toggleButton}
             <Link
               to="/tasks/management"
-              onClick={(e) => {
-                if (!e.metaKey && !e.ctrlKey) {
-                  e.preventDefault()
-                  navigate('/tasks/management')
-                }
-              }}
               className="inline-flex items-center justify-center gap-1.5 rounded-md border border-neutral-300 bg-white px-4 py-2 text-sm font-semibold text-neutral-700 transition-colors hover:bg-neutral-50"
             >
               <ArrowLeft className="h-4 w-4" />
@@ -232,59 +235,53 @@ export function TasksAnalysePage() {
         }
         layout={layout}
         datasets={datasets}
-        loading={tasksApi.loading || dashboard.loading}
-        error={tasksApi.error ?? dashboard.error}
+        loading={dataLoading || dashboard.loading}
+        error={dataError ?? dashboard.error}
         emptyState={empty}
-        onEdit={undefined}
-        onAddWidget={editChrome.editMode ? undefined : () => setAddOpen(true)}
-        widgetControlSlot={widgetControlSlot}
-        onResize={(w, next) =>
-          void dashboard.saveLayout(
-            dashboard.layout.map((x) => (x.id === w.id ? { ...x, colSpan: next } : x)),
-          )
-        }
-        {...editChrome.moduleProps}
-        filters={dashboard.filters}
         dimensions={dimensions}
-        onFiltersChange={(next) => void dashboard.saveFilters(next)}
+        filters={dashboard.filters}
+        onFiltersChange={dashboard.setFilters}
+        widgetControlSlot={widgetControlSlot}
+        editMode={editChrome.editMode}
+        onEditLayout={() => setEditOpen(true)}
+        onAddWidget={() => setAddOpen(true)}
       />
 
       <DashboardEditLayoutPanel
         open={editOpen}
         onClose={() => setEditOpen(false)}
+        scopeId={TASKS_DASHBOARD_SCOPE_ID}
         layout={dashboard.layout}
-        onSave={(next) => dashboard.saveLayout(next)}
-        onResetToDefault={dashboard.isDefault ? undefined : () => dashboard.resetToDefault()}
+        onSave={(next) => {
+          void dashboard.saveLayout(next)
+          setEditOpen(false)
+        }}
       />
 
       <DashboardAddWidgetPanel
         open={addOpen}
         onClose={() => setAddOpen(false)}
         scopeId={TASKS_DASHBOARD_SCOPE_ID}
-        onAdd={(widget: ReportModule) => dashboard.saveLayout([...dashboard.layout, widget])}
+        onAdd={(tpl) => {
+          void dashboard.saveLayout([...dashboard.layout, { ...tpl, id: freshId('w') }])
+          setAddOpen(false)
+        }}
       />
 
-      <DashboardEditWidgetPanel
-        open={editWidget !== null}
-        widget={editWidget}
-        datasets={datasets}
-        onClose={() => setEditWidget(null)}
-        onDuplicate={(w) => {
-          const dup = { ...w, id: freshId('w'), title: `${w.title} (kopi)` }
-          void dashboard.saveLayout([...dashboard.layout, dup])
-        }}
-        onRemove={(w) => {
-          void dashboard.saveLayout(dashboard.layout.filter((m) => m.id !== w.id))
-        }}
-        onSave={async (next) => {
-          const ok = await dashboard.saveLayout(
-            dashboard.layout.map((m) => (m.id === next.id ? next : m)),
-          )
-          return ok
-        }}
-        compatibleKinds={editWidget ? defaultCompatibleKinds(editWidget.kind) : undefined}
-      />
+      {editWidget && (
+        <DashboardEditWidgetPanel
+          open
+          onClose={() => setEditWidget(null)}
+          widget={editWidget}
+          scopeId={TASKS_DASHBOARD_SCOPE_ID}
+          onSave={(updated) => {
+            void dashboard.saveLayout(
+              dashboard.layout.map((m) => (m.id === updated.id ? updated : m)),
+            )
+            setEditWidget(null)
+          }}
+        />
+      )}
     </>
   )
 }
-

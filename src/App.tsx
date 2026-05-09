@@ -29,7 +29,6 @@ import { WorkplaceIncidentsPage } from './pages/WorkplaceIncidentsPage'
 import { WorkplaceAnonymousAmlPage } from './pages/WorkplaceAnonymousAmlPage'
 import { WorkplaceAnonymousAmlSettingsPage } from './pages/WorkplaceAnonymousAmlSettingsPage'
 import { PublicAnonymousAmlPage } from './pages/PublicAnonymousAmlPage'
-import { TasksAuditView } from './pages/tasks/TasksAuditView'
 import { HrComplianceHub } from './pages/hr/HrComplianceHub'
 import { HrDiscussionPage } from './pages/hr/HrDiscussionPage'
 import { HrConsultationPage } from './pages/hr/HrConsultationPage'
@@ -63,6 +62,7 @@ import { ProjectDashboard } from './pages/ProjectDashboard'
 import { WelcomeDashboardPage } from './pages/WelcomeDashboardPage'
 import { TasksManagementPage, TasksAnalysePage } from '../modules/tasks'
 import { TasksAllePage } from '../modules/tasks/TasksAllePage'
+import { TasksAdminPage } from '../modules/tasks/admin/TasksAdminPage'
 import { ChecklistsAllePage } from '../modules/compliance/ChecklistsAllePage'
 import { SurveyAllePage } from '../modules/survey/SurveyAllePage'
 import { DocumentsAllePage } from './pages/documents/DocumentsAllePage'
@@ -199,7 +199,6 @@ const router = createBrowserRouter(
             <Route path="/varsle/status" element={<WhistleStatusPage />} />
             <Route path="/varsle/:slug" element={<PublicWhistlePage />} />
             <Route path="/anonym-aml/:slug" element={<PublicAnonymousAmlPage />} />
-            <Route path="/tasks/audit/:token" element={<TasksAuditView />} />
             <Route path="/survey-respond/:campaignId" element={<SurveyRespondPage />} />
             {/* Public marketing / landing page — root "/" for all visitors */}
             <Route index element={<LandingPage />} />
@@ -250,6 +249,8 @@ const router = createBrowserRouter(
                       <Route path="tasks/management" element={<TasksManagementPage />} />
                       <Route path="tasks/management/analyse" element={<TasksAnalysePage />} />
                       <Route path="tasks/management/alle" element={<TasksAllePage />} />
+                      <Route path="tasks/management/admin" element={<TasksAdminPage />} />
+                      <Route path="tasks/management/admin/:tab" element={<TasksAdminPage />} />
                       <Route path="overview/hms" element={<HmsOverviewPage />} />
                       <Route path="workspace/revisjonslogg" element={<WorkspaceAuditLogPage />} />
                       <Route path="organisation" element={<OrganisationPage />} />
@@ -297,8 +298,8 @@ const router = createBrowserRouter(
                       {/* Phase 3: inspection module */}
                       <Route path="inspection-module" element={<InspectionModulePage />} />
                       <Route path="inspection-module/admin" element={<InspectionModuleAdminPage />} />
-                      {/* Avvik / funn — merged into the unified task management hub */}
-                      <Route path="avvik" element={<Navigate to="/tasks/management?tab=avvik" replace />} />
+                      {/* Avvik — now a task template in the new tasks module */}
+                      <Route path="avvik" element={<Navigate to="/tasks/management?template=avvik" replace />} />
                       <Route path="avvik/legacy" element={<AvvikPage />} />
                       <Route path="inspection-module/:roundId" element={<InspectionRoundDetailPage />} />
                       {/* Compliance Checklist primitive — pack-aware (AML / ISO 45001) */}

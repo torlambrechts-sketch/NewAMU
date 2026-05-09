@@ -1,513 +1,361 @@
-import { useCallback, useMemo, useState } from 'react'
-import { Check, MessageSquare, Plus, Trash2, X } from 'lucide-react'
-import { Badge } from '../../src/components/ui/Badge'
-import { Button } from '../../src/components/ui/Button'
-import { SearchableSelect } from '../../src/components/ui/SearchableSelect'
-import { StandardInput } from '../../src/components/ui/Input'
-import { StandardTextarea } from '../../src/components/ui/Textarea'
-import { SlidePanel } from '../../src/components/layout/SlidePanel'
-import { WPSTD_FORM_FIELD_LABEL } from '../../src/components/layout/WorkplaceStandardFormPanel'
+// TaskDetailPanel — full task item detail in a right slide-over.
+// Tabbed layout: Oppgave (status + fields), Aktivitet (comments + log),
+// Bevis (evidence), Konsultasjoner (ISO 45001 § 5.4 participation).
+
+import { useCallback, useEffect, useState } from 'react'
+import { Calendar, Clock, User, Users, X } from 'lucide-react'
 import { useOrgSetupContext } from '../../src/hooks/useOrgSetupContext'
-import { useOrganisation } from '../../src/hooks/useOrganisation'
-import type { Task } from '../../src/types/task'
-import { MODULE_LABELS } from '../../src/lib/taskNavigation'
-import {
-  TASK_PRIORITY_LABELS,
-  TASK_STATUS_LABELS,
-  TASK_STATUS_ORDER,
-  formatDueDate,
-  isOverdue,
-  priorityBadgeVariant,
-  statusBadgeVariant,
-} from './taskUiHelpers'
-import { TASK_DEFAULT_LABEL_SUGGESTIONS, TASK_PRIORITY_OPTIONS, type TaskPriority } from './types'
-import type { UseTaskExtensions } from './useTaskExtensions'
+import { WORKPLACE_PAGE_SERIF } from '../../src/components/layout/WorkplacePageHeading1'
+import { WORKPLACE_STANDARD_LIST_OVERLAY_Z_INDEX } from '../../src/components/layout/WorkplaceStandardListLayout'
+import { Tabs } from '../../src/components/ui/Tabs'
+import { TaskStatusBadge, TASK_STATUS_LABEL } from './components/TaskStatusBadge'
+import { TaskPriorityBadge } from './components/TaskPriorityBadge'
+import { TaskSubtaskList } from './components/TaskSubtaskList'
+import { TaskCommentThread } from './components/TaskCommentThread'
+import { TaskEvidenceSection } from './components/TaskEvidenceSection'
+import { TaskConsultationLog } from './components/TaskConsultationLog'
+import { TaskActivityFeed } from './components/TaskActivityFeed'
+import type { TaskItemStatus, TaskItemPriority } from '../../src/types/task'
+import type { TaskItemRow } from './useTaskItemsData'
 
 type Props = {
   open: boolean
-  task: Task | null
-  ext: UseTaskExtensions
   onClose: () => void
-  onSetStatus: (taskId: string, status: Task['status']) => void
-  onDelete: (taskId: string) => void
-  onSignAsAssignee: (taskId: string) => void | Promise<unknown>
-  onSignManagement: (taskId: string) => void | Promise<unknown>
+  item: TaskItemRow | null
+  onStatusChange?: (id: string, status: TaskItemStatus) => Promise<void>
 }
 
-/**
- * Right-aligned slide panel that lets users review and refine a single task.
- * The signed core fields (status / signature) flow through the parent's
- * `useTasks` callbacks; only the planning metadata (priority, labels,
- * comments, …) is mutated through `useTaskExtensions`.
- */
-export function TaskDetailPanel(props: Props) {
-  // Render an inner body keyed on the task id so all per-task draft state
-  // resets cleanly when a different task is opened — no setState-in-effect.
-  if (!props.task) {
-    return (
-      <SlidePanel
-        open={false}
-        onClose={props.onClose}
-        titleId="task-detail-panel"
-        title=""
-        footer={<span aria-hidden />}
-      >
-        <span aria-hidden />
-      </SlidePanel>
-    )
+const CAPA_FLOW: TaskItemStatus[] = [
+  'open',
+  'in_progress',
+  'root_cause_identified',
+  'action_defined',
+  'action_implemented',
+  'effectiveness_pending',
+  'effectiveness_verified',
+  'closed',
+]
+
+const SIMPLE_FLOW: TaskItemStatus[] = ['open', 'in_progress', 'closed']
+
+function fmtDate(s: string | null) {
+  if (!s) return '—'
+  try {
+    return new Date(s).toLocaleDateString('nb-NO', { dateStyle: 'medium' })
+  } catch {
+    return s
   }
-  return <TaskDetailPanelBody key={props.task.id} {...props} task={props.task} />
 }
 
-type BodyProps = Omit<Props, 'task'> & { task: Task }
+function isCapaKind(kind: string | null) {
+  return kind === 'avvik' || kind === 'nestenulykke' || kind === 'risiko'
+}
 
-function TaskDetailPanelBody({
-  open,
-  task,
-  ext,
-  onClose,
-  onSetStatus,
-  onDelete,
-  onSignAsAssignee,
-  onSignManagement,
-}: BodyProps) {
-  const { profile, user } = useOrgSetupContext()
-  const org = useOrganisation()
+type DetailRow = {
+  id: string
+  title: string
+  description: string
+  status: TaskItemStatus
+  priority: TaskItemPriority
+  ownerName: string | null
+  assigneeName: string | null
+  dueDate: string | null
+  slaDueAt: string | null
+  createdAt: string
+  closedAt: string | null
+  templateKind: string | null
+}
 
-  const [commentDraft, setCommentDraft] = useState('')
-  const [subtaskDraft, setSubtaskDraft] = useState('')
-  const [labelDraft, setLabelDraft] = useState('')
+const TABS = [
+  { id: 'oppgave', label: 'Oppgave' },
+  { id: 'aktivitet', label: 'Aktivitet' },
+  { id: 'bevis', label: 'Bevis' },
+  { id: 'konsultasjoner', label: 'Konsultasjoner' },
+]
 
-  const projectOptions = useMemo(
-    () => [
-      { value: '', label: 'Uten prosjekt' },
-      ...ext.projects.map((p) => ({ value: p.id, label: p.name })),
-    ],
-    [ext.projects],
+export function TaskDetailPanel({ open, onClose, item, onStatusChange }: Props) {
+  const { supabase } = useOrgSetupContext()
+  const [detail, setDetail] = useState<DetailRow | null>(null)
+  const [tab, setTab] = useState('oppgave')
+  const [changingStatus, setChangingStatus] = useState(false)
+
+  const loadDetail = useCallback(
+    async (id: string) => {
+      if (!supabase) return
+      const { data } = await supabase
+        .from('task_items')
+        .select(
+          'id, title, description, status, priority, owner_name, assignee_name, due_date, sla_due_at, created_at, closed_at, template_kind',
+        )
+        .eq('id', id)
+        .single()
+      if (data) {
+        setDetail({
+          id: String(data.id),
+          title: String(data.title ?? ''),
+          description: String(data.description ?? ''),
+          status: (data.status ?? 'open') as TaskItemStatus,
+          priority: (data.priority ?? 'medium') as TaskItemPriority,
+          ownerName: data.owner_name ? String(data.owner_name) : null,
+          assigneeName: data.assignee_name ? String(data.assignee_name) : null,
+          dueDate: data.due_date ? String(data.due_date) : null,
+          slaDueAt: data.sla_due_at ? String(data.sla_due_at) : null,
+          createdAt: String(data.created_at),
+          closedAt: data.closed_at ? String(data.closed_at) : null,
+          templateKind: data.template_kind ? String(data.template_kind) : null,
+        })
+      }
+    },
+    [supabase],
   )
 
-  const milestoneOptions = useMemo(() => {
-    const projectId = ext.taskExtensionMap.get(task.id)?.projectId
-    if (!projectId) return [{ value: '', label: 'Ingen milepæl tilgjengelig — knytt til prosjekt først' }]
-    const items = ext.milestones.filter((m) => m.projectId === projectId)
-    return [{ value: '', label: 'Uten milepæl' }, ...items.map((m) => ({ value: m.id, label: `${m.name} (${formatDueDate(m.dueDate)})` }))]
-  }, [task, ext.taskExtensionMap, ext.milestones])
-
-  const watcherOptions = useMemo(
-    () => org.displayEmployees.map((e) => ({ value: e.id, label: e.name })),
-    [org.displayEmployees],
-  )
-
-  const taskExtension = ext.taskExtensionMap.get(task.id)
-
-  const authorName = profile?.display_name?.trim() || profile?.email || user?.email || 'Bruker'
-  const authorUserId = user?.id ?? undefined
-
-  const submitComment = useCallback(() => {
-    ext.addComment(task.id, commentDraft, authorName, authorUserId)
-    setCommentDraft('')
-  }, [task.id, ext, commentDraft, authorName, authorUserId])
-
-  const submitSubtask = useCallback(() => {
-    ext.addSubtask(task.id, subtaskDraft)
-    setSubtaskDraft('')
-  }, [task.id, ext, subtaskDraft])
-
-  const submitLabel = useCallback(() => {
-    const label = labelDraft.trim()
-    if (!label || !taskExtension) return
-    if (taskExtension.labels.includes(label)) {
-      setLabelDraft('')
-      return
+  useEffect(() => {
+    if (open && item) {
+      setTab('oppgave')
+      void loadDetail(item.id)
     }
-    ext.upsertExtension(task.id, { labels: [...taskExtension.labels, label] })
-    setLabelDraft('')
-  }, [task.id, ext, labelDraft, taskExtension])
+    if (!open) setDetail(null)
+  }, [open, item, loadDetail])
 
-  const removeLabel = useCallback(
-    (label: string) => {
-      if (!taskExtension) return
-      ext.upsertExtension(task.id, { labels: taskExtension.labels.filter((l) => l !== label) })
-    },
-    [task.id, ext, taskExtension],
-  )
+  const handleStatusChange = async (newStatus: TaskItemStatus) => {
+    if (!detail || !onStatusChange) return
+    setChangingStatus(true)
+    await onStatusChange(detail.id, newStatus)
+    setDetail((prev) => (prev ? { ...prev, status: newStatus } : prev))
+    setChangingStatus(false)
+  }
 
-  const toggleWatcher = useCallback(
-    (employeeId: string) => {
-      if (!taskExtension) return
-      const next = taskExtension.watchers.includes(employeeId)
-        ? taskExtension.watchers.filter((w) => w !== employeeId)
-        : [...taskExtension.watchers, employeeId]
-      ext.upsertExtension(task.id, { watchers: next })
-    },
-    [task.id, ext, taskExtension],
-  )
+  if (!open) return null
+  const row = detail ?? item
+  if (!row) return null
 
-  const overdue = isOverdue(task)
+  const flow = isCapaKind(row.templateKind) ? CAPA_FLOW : SIMPLE_FLOW
+  const currentIdx = flow.indexOf(row.status as TaskItemStatus)
 
   return (
-    <SlidePanel
-      open={open}
-      onClose={onClose}
-      titleId="task-detail-panel"
-      title={task.title}
-      footer={
-        <div className="flex w-full flex-wrap items-center justify-between gap-2">
-          <Button
-            type="button"
-            variant="danger"
-            size="sm"
-            icon={<Trash2 className="h-4 w-4" />}
-            onClick={() => {
-              if (window.confirm('Slett oppgaven? Handlingen kan ikke angres.')) {
-                onDelete(task.id)
-                onClose()
-              }
-            }}
-          >
-            Slett
-          </Button>
-          <div className="flex flex-wrap gap-2">
-            {!task.assigneeSignature ? (
-              <Button
-                type="button"
-                variant="secondary"
-                size="sm"
-                icon={<Check className="h-4 w-4" />}
-                onClick={() => void onSignAsAssignee(task.id)}
-              >
-                Signer som ansvarlig
-              </Button>
-            ) : null}
-            {task.requiresManagementSignOff && task.assigneeSignature && !task.managementSignature ? (
-              <Button
-                type="button"
-                variant="primary"
-                size="sm"
-                icon={<Check className="h-4 w-4" />}
-                onClick={() => void onSignManagement(task.id)}
-              >
-                Signer som leder
-              </Button>
-            ) : null}
-          </div>
-        </div>
-      }
+    <div
+      className="fixed inset-0 flex justify-end bg-black/45 backdrop-blur-[2px]"
+      style={{ zIndex: WORKPLACE_STANDARD_LIST_OVERLAY_Z_INDEX }}
+      role="presentation"
+      onMouseDown={(e) => {
+        if (e.target === e.currentTarget) onClose()
+      }}
     >
-      <div className="space-y-5">
-        <header>
-          <div className="flex flex-wrap items-center gap-2">
-            <Badge variant={statusBadgeVariant(task.status)}>{TASK_STATUS_LABELS[task.status]}</Badge>
-            {taskExtension ? (
-              <Badge variant={priorityBadgeVariant(taskExtension.priority)}>
-                {TASK_PRIORITY_LABELS[taskExtension.priority]}
-              </Badge>
-            ) : null}
-            {overdue ? <Badge variant="critical">Forfalt</Badge> : null}
-            {task.requiresManagementSignOff ? <Badge variant="info">Krever ledersignatur</Badge> : null}
+      <div
+        className="flex h-full w-full max-w-[min(100vw,800px)] flex-col bg-[#f7f6f2] shadow-[-12px_0_40px_rgba(0,0,0,0.12)]"
+        role="dialog"
+        aria-modal="true"
+        aria-label={row.title}
+        onMouseDown={(e) => e.stopPropagation()}
+      >
+        {/* Header */}
+        <header className="flex shrink-0 items-start justify-between gap-4 border-b border-neutral-200/90 bg-[#f7f6f2] px-6 py-5">
+          <div className="min-w-0 flex-1">
+            <h2
+              className="text-xl font-semibold tracking-tight text-neutral-900 sm:text-2xl"
+              style={{ fontFamily: WORKPLACE_PAGE_SERIF }}
+            >
+              {row.title}
+            </h2>
+            <div className="mt-2 flex flex-wrap items-center gap-2">
+              <TaskStatusBadge status={row.status as TaskItemStatus} />
+              <TaskPriorityBadge priority={row.priority as TaskItemPriority} />
+              {row.dueDate && new Date(row.dueDate) < new Date() && row.status !== 'closed' && row.status !== 'cancelled' && (
+                <span className="rounded-full border border-red-200 bg-red-50 px-2 py-0.5 text-[11px] font-semibold text-red-700">
+                  Forfalt
+                </span>
+              )}
+            </div>
           </div>
-          <p className="mt-2 text-sm text-neutral-600">
-            {task.description?.trim() ? task.description : 'Ingen beskrivelse oppgitt.'}
-          </p>
-          <dl className="mt-3 grid grid-cols-2 gap-3 text-xs text-neutral-600">
-            <div>
-              <dt className="font-semibold uppercase tracking-wider text-neutral-500">Ansvarlig</dt>
-              <dd>{task.assignee}</dd>
-            </div>
-            <div>
-              <dt className="font-semibold uppercase tracking-wider text-neutral-500">Frist</dt>
-              <dd className={overdue ? 'font-semibold text-red-600' : ''}>
-                {formatDueDate(task.dueDate)}
-              </dd>
-            </div>
-            <div>
-              <dt className="font-semibold uppercase tracking-wider text-neutral-500">Modul</dt>
-              <dd>{MODULE_LABELS[task.module]}</dd>
-            </div>
-            <div>
-              <dt className="font-semibold uppercase tracking-wider text-neutral-500">Kilde</dt>
-              <dd>{task.sourceLabel ?? task.sourceType}</dd>
-            </div>
-          </dl>
+          <button
+            type="button"
+            onClick={onClose}
+            className="shrink-0 rounded p-2 text-neutral-500 transition hover:bg-neutral-200/60 hover:text-neutral-800"
+            aria-label="Lukk"
+          >
+            <X className="size-5" />
+          </button>
         </header>
 
-        <section>
-          <span className={WPSTD_FORM_FIELD_LABEL}>Status</span>
-          <div className="mt-1.5 flex flex-wrap gap-2">
-            {TASK_STATUS_ORDER.map((status) => (
-              <button
-                key={status}
-                type="button"
-                onClick={() => onSetStatus(task.id, status)}
-                className={`rounded-md border px-3 py-1.5 text-xs font-medium transition-colors ${
-                  task.status === status
-                    ? 'border-[#1a3d32] bg-[#1a3d32] text-white'
-                    : 'border-neutral-300 bg-white text-neutral-700 hover:bg-neutral-50'
-                }`}
-              >
-                {TASK_STATUS_LABELS[status]}
-              </button>
-            ))}
-          </div>
-        </section>
+        {/* Tab strip */}
+        <div className="shrink-0 border-b border-neutral-200/90 bg-[#f7f6f2] px-5">
+          <Tabs items={TABS} activeId={tab} onChange={setTab} overflow="scroll" />
+        </div>
 
-        <section className="grid gap-4 md:grid-cols-2">
-          <div>
-            <span className={WPSTD_FORM_FIELD_LABEL}>Prioritet</span>
-            <div className="mt-1.5">
-              <SearchableSelect
-                value={taskExtension?.priority ?? 'medium'}
-                options={TASK_PRIORITY_OPTIONS.map((p) => ({ value: p.value, label: p.label }))}
-                onChange={(v) => ext.upsertExtension(task.id, { priority: v as TaskPriority })}
-              />
-            </div>
-          </div>
-          <div>
-            <span className={WPSTD_FORM_FIELD_LABEL}>Prosjekt</span>
-            <div className="mt-1.5">
-              <SearchableSelect
-                value={taskExtension?.projectId ?? ''}
-                options={projectOptions}
-                placeholder="Velg prosjekt"
-                onChange={(v) =>
-                  ext.upsertExtension(task.id, {
-                    projectId: v || undefined,
-                    milestoneId: undefined,
-                  })
-                }
-              />
-            </div>
-          </div>
-        </section>
+        {/* Body */}
+        <div className="min-h-0 flex-1 overflow-y-auto">
+          <div className="px-6 py-6 space-y-6">
 
-        <section className="grid gap-4 md:grid-cols-2">
-          <div>
-            <span className={WPSTD_FORM_FIELD_LABEL}>Milepæl</span>
-            <div className="mt-1.5">
-              <SearchableSelect
-                value={taskExtension?.milestoneId ?? ''}
-                options={milestoneOptions}
-                onChange={(v) => ext.upsertExtension(task.id, { milestoneId: v || undefined })}
-                disabled={!taskExtension?.projectId}
-              />
-            </div>
-          </div>
-          <div className="grid grid-cols-2 gap-2">
-            <div>
-              <label className={WPSTD_FORM_FIELD_LABEL}>Estimat (timer)</label>
-              <StandardInput
-                type="number"
-                min={0}
-                step={0.25}
-                value={taskExtension?.estimateHours ?? ''}
-                onChange={(e) =>
-                  ext.upsertExtension(task.id, {
-                    estimateHours: e.target.value ? Number(e.target.value) : undefined,
-                  })
-                }
-                placeholder="—"
-              />
-            </div>
-            <div>
-              <label className={WPSTD_FORM_FIELD_LABEL}>Brukt</label>
-              <StandardInput
-                type="number"
-                min={0}
-                step={0.25}
-                value={taskExtension?.spentHours ?? ''}
-                onChange={(e) =>
-                  ext.upsertExtension(task.id, {
-                    spentHours: e.target.value ? Number(e.target.value) : undefined,
-                  })
-                }
-                placeholder="—"
-              />
-            </div>
-          </div>
-        </section>
+            {/* ── Oppgave tab ── */}
+            {tab === 'oppgave' && (
+              <>
+                {/* Status stepper */}
+                {onStatusChange && (
+                  <section>
+                    <p className="mb-3 text-[10px] font-bold uppercase tracking-wider text-neutral-500">
+                      Status
+                    </p>
+                    <div className="flex flex-wrap gap-2">
+                      {flow.map((s, idx) => {
+                        const isActive = s === row.status
+                        const isDone = currentIdx > idx
+                        const isNext = currentIdx >= 0 && idx === currentIdx + 1
+                        return (
+                          <button
+                            key={s}
+                            type="button"
+                            disabled={changingStatus || isActive}
+                            onClick={() => void handleStatusChange(s)}
+                            className={`rounded-full border px-3 py-1 text-xs font-medium transition ${
+                              isActive
+                                ? 'border-[#c2410c] bg-[#c2410c] text-white'
+                                : isDone
+                                ? 'border-green-200 bg-green-50 text-green-700'
+                                : isNext
+                                ? 'border-[#c2410c]/30 bg-orange-50 text-[#c2410c] hover:border-[#c2410c] hover:bg-[#c2410c] hover:text-white'
+                                : 'border-neutral-200 bg-white text-neutral-400 hover:border-neutral-300 hover:text-neutral-600'
+                            } disabled:cursor-not-allowed`}
+                          >
+                            {TASK_STATUS_LABEL[s]}
+                          </button>
+                        )
+                      })}
+                      {row.status !== 'cancelled' && row.status !== 'closed' && (
+                        <button
+                          type="button"
+                          disabled={changingStatus}
+                          onClick={() => void handleStatusChange('cancelled')}
+                          className="rounded-full border border-neutral-200 bg-white px-3 py-1 text-xs font-medium text-neutral-400 transition hover:border-red-200 hover:bg-red-50 hover:text-red-600"
+                        >
+                          Kanseller
+                        </button>
+                      )}
+                    </div>
+                  </section>
+                )}
 
-        <section>
-          <span className={WPSTD_FORM_FIELD_LABEL}>Etiketter</span>
-          <div className="mt-1.5 flex flex-wrap gap-1.5">
-            {taskExtension && taskExtension.labels.length > 0 ? (
-              taskExtension.labels.map((label) => (
-                <span
-                  key={label}
-                  className="inline-flex items-center gap-1 rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-0.5 text-xs font-semibold text-emerald-800"
-                >
-                  {label}
-                  <button
-                    type="button"
-                    onClick={() => removeLabel(label)}
-                    className="text-emerald-700 hover:text-emerald-900"
-                    aria-label={`Fjern etikett ${label}`}
-                  >
-                    <X className="h-3 w-3" aria-hidden />
-                  </button>
-                </span>
-              ))
-            ) : (
-              <span className="text-xs text-neutral-500">Ingen etiketter — legg til en under.</span>
-            )}
-          </div>
-          <div className="mt-2 flex flex-wrap gap-2">
-            <StandardInput
-              value={labelDraft}
-              onChange={(e) => setLabelDraft(e.target.value)}
-              placeholder="Ny etikett — f.eks. Risikovurdering"
-              className="flex-1 min-w-[10rem]"
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') {
-                  e.preventDefault()
-                  submitLabel()
-                }
-              }}
-            />
-            <Button type="button" variant="secondary" size="sm" icon={<Plus className="h-3.5 w-3.5" />} onClick={submitLabel}>
-              Legg til
-            </Button>
-          </div>
-          <div className="mt-2 flex flex-wrap gap-1.5">
-            {TASK_DEFAULT_LABEL_SUGGESTIONS.filter(
-              (s) => !taskExtension?.labels.includes(s),
-            ).map((s) => (
-              <button
-                key={s}
-                type="button"
-                onClick={() => {
-                  if (!taskExtension) return
-                  ext.upsertExtension(task.id, { labels: [...taskExtension.labels, s] })
-                }}
-                className="rounded-full border border-neutral-200 bg-white px-2 py-0.5 text-[11px] text-neutral-600 hover:bg-neutral-50"
-              >
-                + {s}
-              </button>
-            ))}
-          </div>
-        </section>
+                {/* Description */}
+                {row.description && (
+                  <section>
+                    <p className="mb-2 text-[10px] font-bold uppercase tracking-wider text-neutral-500">
+                      Beskrivelse
+                    </p>
+                    <p className="whitespace-pre-wrap text-sm leading-relaxed text-neutral-700">
+                      {row.description}
+                    </p>
+                  </section>
+                )}
 
-        <section>
-          <span className={WPSTD_FORM_FIELD_LABEL}>Watchers (følger oppgaven)</span>
-          <div className="mt-1.5 flex flex-wrap gap-1.5">
-            {watcherOptions.length === 0 ? (
-              <p className="text-xs text-neutral-500">Ingen ansatte registrert i organisasjonen.</p>
-            ) : (
-              watcherOptions.map((opt) => {
-                const active = taskExtension?.watchers.includes(opt.value) ?? false
-                return (
-                  <button
-                    key={opt.value}
-                    type="button"
-                    onClick={() => toggleWatcher(opt.value)}
-                    className={`rounded-full border px-2.5 py-0.5 text-[11px] font-medium transition-colors ${
-                      active
-                        ? 'border-[#1a3d32] bg-[#1a3d32] text-white'
-                        : 'border-neutral-300 bg-white text-neutral-700 hover:bg-neutral-50'
-                    }`}
-                  >
-                    {opt.label}
-                  </button>
-                )
-              })
-            )}
-          </div>
-        </section>
-
-        <section>
-          <span className={WPSTD_FORM_FIELD_LABEL}>Sjekkliste / delaktiviteter</span>
-          {taskExtension && taskExtension.subtasks.length > 0 ? (
-            <ul className="mt-1.5 space-y-1">
-              {taskExtension.subtasks.map((sub) => (
-                <li key={sub.id} className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => ext.toggleSubtask(task.id, sub.id)}
-                    className={`inline-flex h-4 w-4 shrink-0 items-center justify-center rounded border ${
-                      sub.done
-                        ? 'border-[#1a3d32] bg-[#1a3d32] text-white'
-                        : 'border-neutral-300 bg-white'
-                    }`}
-                    aria-pressed={sub.done}
-                    aria-label={sub.done ? 'Marker som ikke ferdig' : 'Marker som ferdig'}
-                  >
-                    {sub.done ? <Check className="h-3 w-3" aria-hidden /> : null}
-                  </button>
-                  <span
-                    className={`text-sm ${sub.done ? 'text-neutral-400 line-through' : 'text-neutral-800'}`}
-                  >
-                    {sub.title}
-                  </span>
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <p className="mt-1.5 text-xs text-neutral-500">Ingen delaktiviteter enda.</p>
-          )}
-          <div className="mt-2 flex flex-wrap gap-2">
-            <StandardInput
-              value={subtaskDraft}
-              onChange={(e) => setSubtaskDraft(e.target.value)}
-              placeholder="Ny delaktivitet"
-              className="flex-1 min-w-[12rem]"
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') {
-                  e.preventDefault()
-                  submitSubtask()
-                }
-              }}
-            />
-            <Button
-              type="button"
-              variant="secondary"
-              size="sm"
-              icon={<Plus className="h-3.5 w-3.5" />}
-              onClick={submitSubtask}
-              disabled={!subtaskDraft.trim()}
-            >
-              Legg til
-            </Button>
-          </div>
-        </section>
-
-        <section>
-          <span className={WPSTD_FORM_FIELD_LABEL}>Kommentarer</span>
-          <div className="mt-1.5 space-y-2">
-            {taskExtension && taskExtension.comments.length > 0 ? (
-              taskExtension.comments.map((c) => (
-                <div key={c.id} className="rounded-md border border-neutral-200 bg-neutral-50 p-3">
-                  <div className="flex items-center justify-between gap-2 text-xs text-neutral-500">
-                    <span className="font-medium text-neutral-800">{c.authorName}</span>
-                    <span>{new Date(c.at).toLocaleString('nb-NO')}</span>
+                {/* Meta grid */}
+                <section className="grid grid-cols-2 gap-4 sm:grid-cols-3">
+                  {row.ownerName && (
+                    <div className="flex items-start gap-2">
+                      <User className="mt-0.5 h-4 w-4 shrink-0 text-neutral-400" />
+                      <div>
+                        <p className="text-[10px] font-bold uppercase tracking-wider text-neutral-500">
+                          Ansvarlig
+                        </p>
+                        <p className="mt-0.5 text-sm text-neutral-800">{row.ownerName}</p>
+                      </div>
+                    </div>
+                  )}
+                  {row.assigneeName && (
+                    <div className="flex items-start gap-2">
+                      <Users className="mt-0.5 h-4 w-4 shrink-0 text-neutral-400" />
+                      <div>
+                        <p className="text-[10px] font-bold uppercase tracking-wider text-neutral-500">
+                          Tildelt
+                        </p>
+                        <p className="mt-0.5 text-sm text-neutral-800">{row.assigneeName}</p>
+                      </div>
+                    </div>
+                  )}
+                  {row.dueDate && (
+                    <div className="flex items-start gap-2">
+                      <Calendar className="mt-0.5 h-4 w-4 shrink-0 text-neutral-400" />
+                      <div>
+                        <p className="text-[10px] font-bold uppercase tracking-wider text-neutral-500">
+                          Frist
+                        </p>
+                        <p className={`mt-0.5 text-sm ${
+                          new Date(row.dueDate) < new Date() && row.status !== 'closed'
+                            ? 'font-medium text-red-600'
+                            : 'text-neutral-800'
+                        }`}>
+                          {fmtDate(row.dueDate)}
+                        </p>
+                      </div>
+                    </div>
+                  )}
+                  {row.slaDueAt && (
+                    <div className="flex items-start gap-2">
+                      <Clock className="mt-0.5 h-4 w-4 shrink-0 text-neutral-400" />
+                      <div>
+                        <p className="text-[10px] font-bold uppercase tracking-wider text-neutral-500">
+                          SLA-frist
+                        </p>
+                        <p className="mt-0.5 text-sm text-neutral-800">{fmtDate(row.slaDueAt)}</p>
+                      </div>
+                    </div>
+                  )}
+                  <div className="flex items-start gap-2">
+                    <Calendar className="mt-0.5 h-4 w-4 shrink-0 text-neutral-400" />
+                    <div>
+                      <p className="text-[10px] font-bold uppercase tracking-wider text-neutral-500">
+                        Opprettet
+                      </p>
+                      <p className="mt-0.5 text-sm text-neutral-800">{fmtDate(row.createdAt)}</p>
+                    </div>
                   </div>
-                  <p className="mt-1 whitespace-pre-wrap text-sm text-neutral-800">{c.body}</p>
-                </div>
-              ))
-            ) : (
-              <p className="text-xs text-neutral-500">Ingen kommentarer enda.</p>
+                  {row.closedAt && (
+                    <div className="flex items-start gap-2">
+                      <Calendar className="mt-0.5 h-4 w-4 shrink-0 text-neutral-400" />
+                      <div>
+                        <p className="text-[10px] font-bold uppercase tracking-wider text-neutral-500">
+                          Lukket
+                        </p>
+                        <p className="mt-0.5 text-sm text-neutral-800">{fmtDate(row.closedAt)}</p>
+                      </div>
+                    </div>
+                  )}
+                </section>
+
+                {/* Subtasks */}
+                <section className="rounded-lg border border-neutral-200/80 bg-white p-4">
+                  <TaskSubtaskList taskItemId={row.id} />
+                </section>
+              </>
             )}
+
+            {/* ── Aktivitet tab ── */}
+            {tab === 'aktivitet' && (
+              <>
+                <section className="rounded-lg border border-neutral-200/80 bg-white p-4">
+                  <TaskCommentThread taskItemId={row.id} />
+                </section>
+                <section className="rounded-lg border border-neutral-200/80 bg-white p-4">
+                  <TaskActivityFeed taskItemId={row.id} />
+                </section>
+              </>
+            )}
+
+            {/* ── Bevis tab ── */}
+            {tab === 'bevis' && (
+              <section className="rounded-lg border border-neutral-200/80 bg-white p-4">
+                <TaskEvidenceSection taskItemId={row.id} />
+              </section>
+            )}
+
+            {/* ── Konsultasjoner tab ── */}
+            {tab === 'konsultasjoner' && (
+              <section className="rounded-lg border border-neutral-200/80 bg-white p-4">
+                <TaskConsultationLog taskItemId={row.id} />
+              </section>
+            )}
+
           </div>
-          <div className="mt-2 space-y-2">
-            <StandardTextarea
-              rows={3}
-              value={commentDraft}
-              onChange={(e) => setCommentDraft(e.target.value)}
-              placeholder="Skriv en kommentar — synlig for alle med tilgang til oppgaven"
-            />
-            <div className="flex justify-end">
-              <Button
-                type="button"
-                variant="primary"
-                size="sm"
-                icon={<MessageSquare className="h-3.5 w-3.5" />}
-                onClick={submitComment}
-                disabled={!commentDraft.trim()}
-              >
-                Legg til kommentar
-              </Button>
-            </div>
-          </div>
-        </section>
+        </div>
       </div>
-    </SlidePanel>
+    </div>
   )
 }

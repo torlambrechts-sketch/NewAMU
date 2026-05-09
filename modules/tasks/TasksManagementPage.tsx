@@ -1,449 +1,265 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
-import { useNavigate, useSearchParams } from 'react-router-dom'
+// TasksManagementPage — three-mode routing for the Oppgaver module.
+//
+//   hub        no ?template=       — tile grid by category (TasksHubLanding)
+//   template   ?template=<slug>    — filtered task list + create button
+//   project    ?project=<id>       — Phase 2: kanban/PDCA board (placeholder)
+//
+// URL is the source of truth for mode. No silent defaulting.
+
+import { useMemo, useState } from 'react'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
+import { BarChart3, ChevronRight, Plus, Settings } from 'lucide-react'
+import { ModulePageShell } from '../../src/components/module/ModulePageShell'
+import { LayoutTable1PostingsShell } from '../../src/components/layout/LayoutTable1PostingsShell'
 import {
-  BarChart3,
-  Plus,
-  Settings,
-} from 'lucide-react'
-import { ModuleLegalBanner, ModulePageShell } from '../../src/components/module'
+  LAYOUT_TABLE1_POSTINGS_BODY_ROW,
+  LAYOUT_TABLE1_POSTINGS_HEADER_ROW,
+  LAYOUT_TABLE1_POSTINGS_TH,
+} from '../../src/components/layout/layoutTable1PostingsKit'
 import { Button } from '../../src/components/ui/Button'
-import { SearchableSelect } from '../../src/components/ui/SearchableSelect'
-import { StandardInput } from '../../src/components/ui/Input'
-import { StandardTextarea } from '../../src/components/ui/Textarea'
-import { YesNoToggle } from '../../src/components/ui/FormToggles'
 import { WarningBox } from '../../src/components/ui/AlertBox'
-import { SlidePanel } from '../../src/components/layout/SlidePanel'
-import { WPSTD_FORM_FIELD_LABEL } from '../../src/components/layout/WorkplaceStandardFormPanel'
-import { useTasks } from '../../src/hooks/useTasks'
-import { useOrganisation } from '../../src/hooks/useOrganisation'
-import { useOrgSetupContext } from '../../src/hooks/useOrgSetupContext'
-import { useWhistleblowing } from '../../src/hooks/useWhistleblowing'
-import { useWorkplaceReportingCases } from '../../src/hooks/useWorkplaceReportingCases'
-import { TASK_OWNER_ROLE_OPTIONS } from '../../src/lib/taskFormOptions'
-import { MODULE_LABELS } from '../../src/lib/taskNavigation'
-import type { TaskModule, TaskStatus } from '../../src/types/task'
-import { useAvvik } from '../avvik/useAvvik'
-import { TASK_MODULE_LEGAL_REFERENCES } from './taskLegalReferences'
-import { TasksOverviewTab } from './tabs/TasksOverviewTab'
-import { TasksListView } from './tabs/TasksListView'
-import { TasksPlanningTab } from './tabs/TasksPlanningTab'
-import { TasksCollaborationTab } from './tabs/TasksCollaborationTab'
-import { TasksAvvikTab } from './tabs/TasksAvvikTab'
-import { TasksVarslingTab } from './tabs/TasksVarslingTab'
-import { TasksAnonymTab } from './tabs/TasksAnonymTab'
-import { TasksAuditPackTab } from './tabs/TasksAuditPackTab'
-import { NewTaskModal } from './components/NewTaskModal'
-import { TasksSettingsTab } from './tabs/TasksSettingsTab'
+import { TasksHubLanding } from './TasksHubLanding'
+import { TaskCreateForm } from './TaskCreateForm'
 import { TaskDetailPanel } from './TaskDetailPanel'
-import { useTaskExtensions } from './useTaskExtensions'
-import { useTaskModuleSettings } from './useTaskModuleSettings'
-import { TASK_PRIORITY_OPTIONS, type TaskPriority } from './types'
+import { TaskStatusBadge } from './components/TaskStatusBadge'
+import { TaskPriorityBadge } from './components/TaskPriorityBadge'
+import { TaskKindIcon } from './components/TaskKindIcon'
+import { useTaskTemplates } from './useTaskTemplates'
+import { useTaskItemsData } from './useTaskItemsData'
+import type { TaskItemRow } from './useTaskItemsData'
+import type { TaskItemStatus } from '../../src/types/task'
 
-type ModuleTab =
-  | 'oversikt'
-  | 'liste'
-  | 'planlegging'
-  | 'samarbeid'
-  | 'avvik'
-  | 'varsling'
-  | 'anonym'
-  | 'revisor'
-  | 'innstillinger'
+function fmtDate(s: string | null) {
+  if (!s) return '—'
+  try {
+    return new Date(s).toLocaleDateString('nb-NO', { dateStyle: 'short' })
+  } catch {
+    return s
+  }
+}
 
-const TAB_IDS: ReadonlyArray<ModuleTab> = [
-  'oversikt',
-  'liste',
-  'planlegging',
-  'samarbeid',
-  'avvik',
-  'varsling',
-  'anonym',
-  'revisor',
-  'innstillinger',
-]
+function isOverdue(dueDate: string | null, status: TaskItemStatus) {
+  if (!dueDate || status === 'closed' || status === 'cancelled') return false
+  return new Date(dueDate) < new Date()
+}
 
-const MODULE_OPTIONS: ReadonlyArray<{ value: TaskModule; label: string }> = (
-  Object.keys(MODULE_LABELS) as TaskModule[]
-).map((value) => ({ value, label: MODULE_LABELS[value] }))
-
-/**
- * Comprehensive task management module.
- *
- * Wraps the existing signed `useTasks` store with planning + collaboration
- * extensions, surfaced through five tabs (Oversikt / Tavle / Liste /
- * Planlegging / Samarbeid). Layout, typography and colour tokens come from
- * Survey / Documents (`ModulePageShell`, `Tabs`, `ModuleSectionCard`,
- * `LayoutScoreStatRow`, `SlidePanel`, …) so the module fits seamlessly into
- * the rest of Klarert without introducing a parallel design language.
- */
 export function TasksManagementPage() {
   const navigate = useNavigate()
-  const [searchParams, setSearchParams] = useSearchParams()
-  const { supabase } = useOrgSetupContext()
-  const tasksApi = useTasks()
-  const ext = useTaskExtensions(tasksApi.tasks)
-  const settings = useTaskModuleSettings()
-  const org = useOrganisation()
-  const avvikApi = useAvvik({ supabase })
-  const wb = useWhistleblowing()
-  const wr = useWorkplaceReportingCases()
+  const [searchParams] = useSearchParams()
+  const templateSlug = searchParams.get('template')
 
-  // Avvik data is loaded on-demand the first time the related tab/overview is
-  // visible — the existing AvvikView already calls `load` when mounted, but we
-  // also need counts for the Oversikt KPIs.
-  useEffect(() => {
-    if (supabase) void avvikApi.load()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [supabase])
+  const tplData = useTaskTemplates()
+  const itemData = useTaskItemsData(templateSlug)
 
-  const tabFromUrl = (searchParams.get('tab') as ModuleTab | null) ?? null
-  const initialTab: ModuleTab = TAB_IDS.includes(tabFromUrl as ModuleTab) ? (tabFromUrl as ModuleTab) : 'oversikt'
-  const [tab, setTab] = useState<ModuleTab>(initialTab)
-  const [selectedTaskId, setSelectedTaskId] = useState<string | null>(
-    searchParams.get('openTask') ?? null,
-  )
   const [createOpen, setCreateOpen] = useState(false)
-  const [newTaskModalOpen, setNewTaskModalOpen] = useState(false)
+  const [selectedItem, setSelectedItem] = useState<TaskItemRow | null>(null)
 
-  // Create-task draft local state.
-  const [draft, setDraft] = useState<DraftTask>(emptyDraft({ priority: settings.settings.defaults.priority, ownerRole: settings.settings.defaults.ownerRole }))
+  const focusedTemplate = useMemo(() => {
+    if (!templateSlug) return null
+    return tplData.templates.find((t) => t.slug === templateSlug) ?? null
+  }, [tplData.templates, templateSlug])
 
-  const selectedTask = useMemo(
-    () => tasksApi.tasks.find((t) => t.id === selectedTaskId) ?? null,
-    [tasksApi.tasks, selectedTaskId],
-  )
+  const mode: 'hub' | 'template' = focusedTemplate ? 'template' : 'hub'
 
-  const employeeOptions = useMemo(
-    () => [
-      { value: '', label: 'Ikke tilknyttet ansatt' },
-      ...org.displayEmployees.map((e) => ({ value: e.id, label: e.name })),
-    ],
-    [org.displayEmployees],
-  )
+  // Hub mode
+  if (mode === 'hub') {
+    return (
+      <ModulePageShell
+        breadcrumb={[{ label: 'Oppgaver' }]}
+        title="Oppgaver"
+        description="Velg en mal for å opprette og følge opp oppgaver, avvik, risiko og forslag."
+        headerActions={
+          <div className="flex items-center gap-2">
+            <Link
+              to="/tasks/management/analyse"
+              className="inline-flex items-center gap-1.5 border border-neutral-300 bg-white px-3 py-2 text-sm font-medium text-neutral-700 transition-colors hover:bg-neutral-50"
+            >
+              <BarChart3 className="h-4 w-4" aria-hidden />
+              <span className="hidden sm:inline">Analyse</span>
+            </Link>
+            <Link
+              to="/tasks/management/admin"
+              className="inline-flex items-center gap-1.5 border border-neutral-300 bg-white px-3 py-2 text-sm font-medium text-neutral-700 transition-colors hover:bg-neutral-50"
+            >
+              <Settings className="h-4 w-4" aria-hidden />
+              <span className="hidden sm:inline">Innstillinger</span>
+            </Link>
+          </div>
+        }
+      >
+        <div className="space-y-6">
+          {tplData.error && <WarningBox>{tplData.error}</WarningBox>}
+          <TasksHubLanding
+            templates={tplData.templates}
+            categories={tplData.categories}
+            loading={tplData.loading}
+            canManage={true}
+          />
+        </div>
+      </ModulePageShell>
+    )
+  }
 
-  const onChangeTab = useCallback(
-    (next: ModuleTab) => {
-      setTab(next)
-      setSearchParams(
-        (prev) => {
-          const p = new URLSearchParams(prev)
-          p.set('tab', next)
-          return p
-        },
-        { replace: true },
-      )
-    },
-    [setSearchParams],
-  )
-
-  const openTask = useCallback((taskId: string) => setSelectedTaskId(taskId), [])
-  const closeTask = useCallback(() => setSelectedTaskId(null), [])
-
-  const handleCreate = useCallback(() => {
-    if (!draft.title.trim()) return
-    const employeeName = draft.assigneeEmployeeId
-      ? org.displayEmployees.find((e) => e.id === draft.assigneeEmployeeId)?.name ?? ''
-      : draft.assigneeName
-    const created = tasksApi.addTask({
-      title: draft.title.trim(),
-      description: draft.description.trim(),
-      status: 'todo',
-      assignee: employeeName.trim() || 'Unassigned',
-      assigneeEmployeeId: draft.assigneeEmployeeId || undefined,
-      ownerRole: draft.ownerRole,
-      leaderEmployeeId: draft.leaderEmployeeId || undefined,
-      dueDate: draft.dueDate.trim() || '—',
-      module: draft.module,
-      sourceType: 'manual',
-      requiresManagementSignOff: draft.requiresMgmt,
-    })
-    ext.upsertExtension(created.id, {
-      priority: draft.priority,
-      labels: [],
-      dependsOn: [],
-      watchers: [],
-      comments: [],
-      subtasks: [],
-      projectId: draft.projectId || undefined,
-    })
-    setDraft(emptyDraft({ priority: settings.settings.defaults.priority, ownerRole: settings.settings.defaults.ownerRole }))
-    setCreateOpen(false)
-    onChangeTab('liste')
-    setSelectedTaskId(created.id)
-  }, [draft, tasksApi, ext, org.displayEmployees, onChangeTab, settings.settings.defaults.priority, settings.settings.defaults.ownerRole])
+  // Template mode
+  const tpl = focusedTemplate!
+  const ctaLabel = `Ny ${tpl.name.toLowerCase()}`
 
   return (
     <>
       <ModulePageShell
-        breadcrumb={[{ label: 'Arbeidsflate' }, { label: 'Oppgavestyring' }]}
-        title="Oppgavestyring"
-headerActions={
-          <div className="flex flex-wrap items-center gap-2">
+        breadcrumb={[
+          { label: 'Oppgaver', to: '/tasks/management' },
+          { label: tpl.name },
+        ]}
+        title={
+          <span className="flex items-center gap-2">
+            <TaskKindIcon kind={tpl.templateKind} className="h-5 w-5 text-[#c2410c]/70" />
+            {tpl.name}
+          </span>
+        }
+        description={tpl.description || undefined}
+        headerActions={
+          <div className="flex items-center gap-2">
             <Button
-              type="button"
-              variant="secondary"
-              icon={<BarChart3 className="h-4 w-4" />}
-              onClick={() => navigate('/tasks/management/analyse')}
-            >
-              <span className="hidden sm:inline">Analyse</span>
-            </Button>
-            <Button
-              type="button"
-              variant="secondary"
-              icon={<Settings className="h-4 w-4" />}
-              onClick={() => navigate('/workspace/revisjonslogg')}
-            >
-              <span className="hidden sm:inline">Revisjonslogg</span>
-            </Button>
-            <Button
-              type="button"
               variant="primary"
               icon={<Plus className="h-4 w-4" />}
-              onClick={() => setNewTaskModalOpen(true)}
+              onClick={() => setCreateOpen(true)}
             >
-              Ny oppgave / avvik / tiltak
+              {ctaLabel}
             </Button>
           </div>
         }
       >
-        <ModuleLegalBanner
-          title="Oppgavestyring i tråd med arbeidsmiljøloven"
-          intro={
-            <p>
-              Hver oppgave er en sporbar del av det systematiske HMS-arbeidet. Modulen knytter
-              ansvarlig, frist, prioritet og signatur til regelverk som AML § 3-1, § 4-1 og
-              IK-forskriften § 5 — slik at oppfølging dokumenteres uten ekstra arbeid.
-            </p>
-          }
-          references={TASK_MODULE_LEGAL_REFERENCES}
-        />
+        <div className="space-y-6">
+          {itemData.error && <WarningBox>{itemData.error}</WarningBox>}
 
-        {tasksApi.error ? <WarningBox>{tasksApi.error}</WarningBox> : null}
+          {/* Law refs */}
+          {tpl.lawRefs.length > 0 && (
+            <div className="flex flex-wrap gap-1.5">
+              {tpl.lawRefs.map((ref) => (
+                <span
+                  key={ref}
+                  className="rounded bg-neutral-100 px-2 py-0.5 text-xs font-medium text-neutral-600"
+                >
+                  {ref}
+                </span>
+              ))}
+            </div>
+          )}
 
-        {tab === 'revisor' && <TasksAuditPackTab />}
-
-        {tab === 'oversikt' && (
-          <TasksOverviewTab
-            tasks={tasksApi.tasks}
-            ext={ext}
-            avvik={avvikApi.avvik}
-            varslingCases={wb.cases}
-            anonymReports={wr.anonymousAmlReports}
-            onOpenTask={openTask}
-            onJumpToBoard={() => onChangeTab('liste')}
-            onJumpTo={(t) => onChangeTab(t as ModuleTab)}
-          />
-        )}
-
-        {tab === 'liste' && (
-          <TasksListView
-            tasks={tasksApi.tasks}
-            ext={ext}
-            onOpenTask={openTask}
-            onSetStatus={(id, status) => tasksApi.setStatus(id, status as TaskStatus)}
-          />
-        )}
-
-        {tab === 'planlegging' && <TasksPlanningTab tasks={tasksApi.tasks} ext={ext} onOpenTask={openTask} />}
-
-        {tab === 'samarbeid' && (
-          <TasksCollaborationTab tasks={tasksApi.tasks} ext={ext} onOpenTask={openTask} />
-        )}
-
-        {tab === 'avvik' && <TasksAvvikTab supabase={supabase} />}
-
-        {tab === 'varsling' && <TasksVarslingTab />}
-
-        {tab === 'anonym' && <TasksAnonymTab pageSlug={settings.settings.anonymAml.pageSlug} />}
-
-        {tab === 'innstillinger' && <TasksSettingsTab settings={settings} />}
+          <LayoutTable1PostingsShell
+            wrap
+            title={tpl.name}
+            description={`Alle ${tpl.name.toLowerCase()} — sortert etter opprettelsesdato.`}
+            toolbar={null}
+            footer={
+              <span className="text-neutral-500">
+                {itemData.loading ? 'Laster…' : `${itemData.items.length} poster`}
+              </span>
+            }
+          >
+            <div className="overflow-x-auto w-full">
+              <table className="w-full min-w-[640px] border-collapse text-left text-sm">
+                <thead>
+                  <tr className={LAYOUT_TABLE1_POSTINGS_HEADER_ROW}>
+                    <th className={LAYOUT_TABLE1_POSTINGS_TH}>Tittel</th>
+                    <th className={LAYOUT_TABLE1_POSTINGS_TH}>Status</th>
+                    <th className={LAYOUT_TABLE1_POSTINGS_TH}>Prioritet</th>
+                    <th className={LAYOUT_TABLE1_POSTINGS_TH}>Ansvarlig</th>
+                    <th className={LAYOUT_TABLE1_POSTINGS_TH}>Frist</th>
+                    <th className={`w-8 ${LAYOUT_TABLE1_POSTINGS_TH}`} />
+                  </tr>
+                </thead>
+                <tbody>
+                  {itemData.loading && itemData.items.length === 0 ? (
+                    <tr>
+                      <td colSpan={6}>
+                        <div className="py-12 text-center">
+                          <p className="text-sm text-neutral-500">Laster oppgaver…</p>
+                        </div>
+                      </td>
+                    </tr>
+                  ) : itemData.items.length === 0 ? (
+                    <tr>
+                      <td colSpan={6}>
+                        <div className="py-12 text-center">
+                          <p className="text-sm text-neutral-500">
+                            Ingen {tpl.name.toLowerCase()} ennå.
+                          </p>
+                          <div className="mt-3 inline-flex">
+                            <Button
+                              variant="primary"
+                              icon={<Plus className="h-4 w-4" />}
+                              onClick={() => setCreateOpen(true)}
+                            >
+                              {ctaLabel}
+                            </Button>
+                          </div>
+                        </div>
+                      </td>
+                    </tr>
+                  ) : (
+                    itemData.items.map((row) => (
+                      <tr
+                        key={row.id}
+                        className={`${LAYOUT_TABLE1_POSTINGS_BODY_ROW} cursor-pointer hover:bg-neutral-50`}
+                        onClick={() => setSelectedItem(row)}
+                      >
+                        <td className="px-5 py-3 font-medium text-neutral-900">{row.title}</td>
+                        <td className="px-5 py-3">
+                          <TaskStatusBadge status={row.status} />
+                        </td>
+                        <td className="px-5 py-3">
+                          <TaskPriorityBadge priority={row.priority} />
+                        </td>
+                        <td className="px-5 py-3 text-neutral-600">
+                          {row.ownerName ?? row.assigneeName ?? '—'}
+                        </td>
+                        <td
+                          className={`px-5 py-3 text-sm ${
+                            isOverdue(row.dueDate, row.status)
+                              ? 'font-medium text-red-600'
+                              : 'text-neutral-600'
+                          }`}
+                        >
+                          {fmtDate(row.dueDate)}
+                        </td>
+                        <td className="w-8 px-3 py-3 text-neutral-300">
+                          <ChevronRight className="h-4 w-4" />
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </LayoutTable1PostingsShell>
+        </div>
       </ModulePageShell>
 
-      {newTaskModalOpen && (
-        <NewTaskModal
-          onClose={() => setNewTaskModalOpen(false)}
-        />
-      )}
-
-      <TaskDetailPanel
-        open={selectedTaskId !== null}
-        task={selectedTask}
-        ext={ext}
-        onClose={closeTask}
-        onSetStatus={(id, status) => tasksApi.setStatus(id, status as TaskStatus)}
-        onDelete={(id) => tasksApi.deleteTask(id)}
-        onSignAsAssignee={(id) => tasksApi.signAsAssignee(id)}
-        onSignManagement={(id) => tasksApi.signManagement(id)}
-      />
-
-      <SlidePanel
+      {/* Create form */}
+      <TaskCreateForm
         open={createOpen}
         onClose={() => setCreateOpen(false)}
-        title="Ny oppgave"
-        titleId="task-create-panel"
-        footer={
-          <div className="flex w-full justify-end gap-2">
-            <Button type="button" variant="secondary" onClick={() => setCreateOpen(false)}>
-              Avbryt
-            </Button>
-            <Button
-              type="button"
-              variant="primary"
-              icon={<Plus className="h-4 w-4" />}
-              onClick={handleCreate}
-              disabled={!draft.title.trim()}
-            >
-              Opprett
-            </Button>
-          </div>
-        }
-      >
-        <div className="space-y-5">
-          <div>
-            <label className={WPSTD_FORM_FIELD_LABEL} htmlFor="task-title">
-              Tittel <span className="text-red-500">*</span>
-            </label>
-            <StandardInput
-              id="task-title"
-              value={draft.title}
-              onChange={(e) => setDraft((d) => ({ ...d, title: e.target.value }))}
-              placeholder="F.eks. Følg opp risikovurdering avd. lager"
-            />
-          </div>
-          <div>
-            <label className={WPSTD_FORM_FIELD_LABEL} htmlFor="task-desc">
-              Beskrivelse
-            </label>
-            <StandardTextarea
-              id="task-desc"
-              rows={3}
-              value={draft.description}
-              onChange={(e) => setDraft((d) => ({ ...d, description: e.target.value }))}
-              placeholder="Hva må gjøres, hvorfor, og hvem skal informeres?"
-            />
-          </div>
-          <div className="grid gap-3 md:grid-cols-2">
-            <div>
-              <span className={WPSTD_FORM_FIELD_LABEL}>Modul</span>
-              <SearchableSelect
-                value={draft.module}
-                options={MODULE_OPTIONS}
-                onChange={(v) => setDraft((d) => ({ ...d, module: v as TaskModule }))}
-              />
-            </div>
-            <div>
-              <span className={WPSTD_FORM_FIELD_LABEL}>Prioritet</span>
-              <SearchableSelect
-                value={draft.priority}
-                options={TASK_PRIORITY_OPTIONS.map((p) => ({ value: p.value, label: p.label }))}
-                onChange={(v) => setDraft((d) => ({ ...d, priority: v as TaskPriority }))}
-              />
-            </div>
-          </div>
-          <div className="grid gap-3 md:grid-cols-2">
-            <div>
-              <span className={WPSTD_FORM_FIELD_LABEL}>Ansvarlig (ansatt)</span>
-              <SearchableSelect
-                value={draft.assigneeEmployeeId}
-                options={employeeOptions}
-                onChange={(v) => setDraft((d) => ({ ...d, assigneeEmployeeId: v }))}
-                placeholder="Velg ansvarlig"
-              />
-            </div>
-            <div>
-              <label className={WPSTD_FORM_FIELD_LABEL} htmlFor="task-assignee-name">
-                Eller fri tekst
-              </label>
-              <StandardInput
-                id="task-assignee-name"
-                value={draft.assigneeName}
-                onChange={(e) => setDraft((d) => ({ ...d, assigneeName: e.target.value }))}
-                placeholder="Navn — brukes hvis ansatt ikke er valgt"
-              />
-            </div>
-          </div>
-          <div className="grid gap-3 md:grid-cols-2">
-            <div>
-              <span className={WPSTD_FORM_FIELD_LABEL}>Rolle</span>
-              <SearchableSelect
-                value={draft.ownerRole}
-                options={TASK_OWNER_ROLE_OPTIONS.map((r) => ({ value: r, label: r }))}
-                onChange={(v) => setDraft((d) => ({ ...d, ownerRole: v }))}
-              />
-            </div>
-            <div>
-              <label className={WPSTD_FORM_FIELD_LABEL} htmlFor="task-due">
-                Frist
-              </label>
-              <StandardInput
-                id="task-due"
-                type="date"
-                value={draft.dueDate}
-                onChange={(e) => setDraft((d) => ({ ...d, dueDate: e.target.value }))}
-              />
-            </div>
-          </div>
-          <div className="grid gap-3 md:grid-cols-2">
-            <div>
-              <span className={WPSTD_FORM_FIELD_LABEL}>Leder (godkjenner)</span>
-              <SearchableSelect
-                value={draft.leaderEmployeeId}
-                options={employeeOptions}
-                onChange={(v) => setDraft((d) => ({ ...d, leaderEmployeeId: v }))}
-                placeholder="Valgfritt — kreves ved medsignatur"
-              />
-            </div>
-            <div>
-              <span className={WPSTD_FORM_FIELD_LABEL}>Prosjekt</span>
-              <SearchableSelect
-                value={draft.projectId}
-                options={[{ value: '', label: 'Uten prosjekt' }, ...ext.projects.map((p) => ({ value: p.id, label: p.name }))]}
-                onChange={(v) => setDraft((d) => ({ ...d, projectId: v }))}
-              />
-            </div>
-          </div>
-          <div>
-            <span className={WPSTD_FORM_FIELD_LABEL}>Krever ledersignatur (AML § 4-1)</span>
-            <p className="mb-2 text-xs text-neutral-500">
-              Brukes når oppgaven gjelder risikoreduserende tiltak som må verifiseres av ledelsen.
-            </p>
-            <YesNoToggle
-              value={draft.requiresMgmt}
-              onChange={(v) => setDraft((d) => ({ ...d, requiresMgmt: v }))}
-            />
-          </div>
-        </div>
-      </SlidePanel>
+        template={tpl}
+        onCreate={async (input) => {
+          const id = await itemData.createItem(input)
+          if (id) setCreateOpen(false)
+          return id
+        }}
+      />
+
+      {/* Detail panel */}
+      <TaskDetailPanel
+        open={selectedItem !== null}
+        onClose={() => setSelectedItem(null)}
+        item={selectedItem}
+        onStatusChange={async (id, status) => {
+          await itemData.updateStatus(id, status)
+          // Reflect status change in the selected item
+          setSelectedItem((prev) => (prev?.id === id ? { ...prev, status } : prev))
+        }}
+      />
     </>
   )
-}
-
-type DraftTask = {
-  title: string
-  description: string
-  module: TaskModule
-  priority: TaskPriority
-  assigneeEmployeeId: string
-  assigneeName: string
-  ownerRole: string
-  leaderEmployeeId: string
-  dueDate: string
-  projectId: string
-  requiresMgmt: boolean
-}
-
-function emptyDraft(defaults?: { priority?: TaskPriority; ownerRole?: string }): DraftTask {
-  return {
-    title: '',
-    description: '',
-    module: 'general',
-    priority: defaults?.priority ?? 'medium',
-    assigneeEmployeeId: '',
-    assigneeName: '',
-    ownerRole: defaults?.ownerRole ?? 'Ansvarlig',
-    leaderEmployeeId: '',
-    dueDate: '',
-    projectId: '',
-    requiresMgmt: false,
-  }
 }
