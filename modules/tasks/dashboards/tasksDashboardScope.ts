@@ -35,6 +35,10 @@ const DATASETS: DatasetMeta[] = [
   { key: 'tasks_overdue_over_time', label: 'Forfalt over tid', shape: 'series' },
   { key: 'tasks_distribution_by_assignee', label: 'Per ansvarlig', shape: 'segments' },
   { key: 'tasks_distribution_by_department', label: 'Per avdeling', shape: 'segments' },
+  // Pack-architecture datasets (task_items table)
+  { key: 'tasks_pdca_distribution', label: 'PDCA-fordeling', shape: 'segments' },
+  { key: 'tasks_source_category_breakdown', label: 'Kategori (avvik/risiko/tiltak)', shape: 'segments' },
+  { key: 'tasks_law_ref_coverage', label: 'Paragrafdekning', shape: 'segments' },
 ]
 
 // ── Default widgets ───────────────────────────────────────────────────────
@@ -161,6 +165,33 @@ const TABLE_OVERDUE: ReportModuleTable = {
   colSpan: 'full',
 }
 
+// ── Pack-architecture widgets ────────────────────────────────────────────
+
+const BAR_PDCA: ReportModuleBar = {
+  id: 'bar-pdca-distribution',
+  kind: 'bar',
+  datasetKey: 'tasks_pdca_distribution',
+  title: 'PDCA-fordeling',
+  seriesKeys: ['Plan', 'Do', 'Check', 'Act'],
+  colSpan: 'md',
+}
+const DONUT_CATEGORY: ReportModuleDonut = {
+  id: 'donut-source-category',
+  kind: 'donut',
+  datasetKey: 'tasks_source_category_breakdown',
+  title: 'Kategori (Avvik / Risiko / Tiltak)',
+  segmentsPath: '',
+  colSpan: 'md',
+}
+const TABLE_LAW_REF_COVERAGE: ReportModuleTable = {
+  id: 'table-law-ref-coverage',
+  kind: 'table',
+  datasetKey: 'tasks_law_ref_coverage',
+  title: 'Paragrafdekning — åpne vs. fullført',
+  rowKeys: ['paragraph', 'open', 'done', 'total'],
+  colSpan: 'full',
+}
+
 const DEFAULT_LAYOUT: ReportModule[] = [
   KPI_TOTAL,
   KPI_OPEN,
@@ -173,6 +204,10 @@ const DEFAULT_LAYOUT: ReportModule[] = [
 ]
 
 const WIDGET_CATALOG: WidgetCatalogEntry[] = [
+  // Pack-architecture widgets — shown first so they surface in the default catalog view
+  { catalogId: 'bar-pdca-distribution', category: 'Pakke', label: 'PDCA-fordeling', template: BAR_PDCA },
+  { catalogId: 'donut-source-category', category: 'Pakke', label: 'Kategori (Avvik / Risiko / Tiltak)', template: DONUT_CATEGORY },
+  { catalogId: 'table-law-ref-coverage', category: 'Pakke', label: 'Paragrafdekning', template: TABLE_LAW_REF_COVERAGE },
   { catalogId: 'kpi-total', category: 'Volum', label: 'Totalt antall oppgaver', template: KPI_TOTAL },
   { catalogId: 'kpi-open', category: 'Volum', label: 'Åpne / pågående', template: KPI_OPEN },
   { catalogId: 'kpi-overdue', category: 'Volum', label: 'Forfalt', template: KPI_OVERDUE },
@@ -187,6 +222,7 @@ const WIDGET_CATALOG: WidgetCatalogEntry[] = [
   { catalogId: 'bar-assignee', category: 'Org-kontekst', label: 'Topp ansvarlige', template: BAR_ASSIGNEE },
   { catalogId: 'bar-department', category: 'Org-kontekst', label: 'Per avdeling', template: BAR_DEPARTMENT },
   { catalogId: 'table-overdue', category: 'Tabeller', label: 'Topp ansvarlige — tabell', template: TABLE_OVERDUE },
+  { catalogId: 'table-law-ref-coverage-2', category: 'Tabeller', label: 'Paragrafdekning — tabell', template: TABLE_LAW_REF_COVERAGE },
 ]
 
 registerDashboardScope({

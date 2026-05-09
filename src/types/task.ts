@@ -2,6 +2,152 @@ import type { Level1SystemSignatureMeta } from './level1Signature'
 
 export type TaskStatus = 'todo' | 'in_progress' | 'done'
 
+// ── Pack architecture (mirrors compliance_pack) ──────────────────────────
+
+export type TaskPack = 'aml-amu' | 'iso-45001'
+
+/** Lovkrav-kategori — mappes til PDCA-fase og AML-paragraf */
+export type TaskSourceCategory = 'avvik' | 'risikovurdering' | 'tiltak' | 'general'
+
+/** PDCA-fase på PDCA-tavlen */
+export type TaskPdcaPhase = 'plan' | 'do' | 'check' | 'act'
+
+export type TaskItemPriority = 'low' | 'medium' | 'high' | 'critical'
+
+/** Relasjonell oppgave (task_items-tabellen). Erstatter JSON Task for nye oppgaver. */
+export type TaskItem = {
+  id: string
+  organizationId: string
+  projectId?: string
+  pack: TaskPack
+  sourceCategory: TaskSourceCategory
+  pdcaPhase: TaskPdcaPhase
+  title: string
+  description: string
+  status: TaskStatus
+  priority: TaskItemPriority
+  lawRefs: string[]
+  assigneeUserId?: string
+  assigneeName?: string
+  ownerRole?: string
+  dueDate?: string
+  /** Bro til eksisterende TaskSourceType-verdier */
+  sourceType?: TaskSourceType
+  sourceId?: string
+  requiresSignOff: boolean
+  assigneeSignedAt?: string
+  assigneeSignedBy?: string
+  managementSignedAt?: string
+  managementSignedBy?: string
+  closedAt?: string
+  closedBy?: string
+  deletedAt?: string
+  createdBy?: string
+  createdAt: string
+  updatedAt: string
+}
+
+/** Prosjekt-container for PDCA-syklus med bevissamling */
+export type TaskProject = {
+  id: string
+  organizationId: string
+  pack: TaskPack
+  title: string
+  description: string
+  methodology: 'kanban' | 'pdca' | 'waterfall'
+  status: 'active' | 'closed' | 'archived'
+  startDate?: string
+  endDate?: string
+  lawRefs: string[]
+  leadUserId?: string
+  deletedAt?: string
+  createdBy?: string
+  createdAt: string
+  updatedAt: string
+}
+
+/** Bevispost knyttet til et prosjekt */
+export type TaskProjectEvidence = {
+  id: string
+  organizationId: string
+  projectId: string
+  kind: 'file' | 'checklist_execution' | 'survey_response' | 'register_record' | 'note'
+  label: string
+  externalRefTable?: string
+  externalRefId?: string
+  filePath?: string
+  uploadedBy?: string
+  createdAt: string
+}
+
+/** Systemmal for oppgavekategori */
+export type TaskTemplateCatalog = {
+  id: string
+  organizationId?: string
+  slug: string
+  pack: TaskPack
+  sourceCategory: TaskSourceCategory
+  name: string
+  description: string
+  lawRefs: string[]
+  defaultPdcaPhase: TaskPdcaPhase
+  definition: {
+    fields: Array<{
+      id: string
+      label: string
+      kind: 'text' | 'textarea' | 'date' | 'datetime' | 'daterange' | 'number' | 'boolean'
+      required: boolean
+    }>
+    checklistItems: Array<{ id: string; text: string }>
+  }
+  cadenceHint?: string
+  isActive: boolean
+  isSystem: boolean
+  createdAt: string
+  updatedAt: string
+}
+
+/** Per-org mal-aktivering */
+export type TaskOrgTemplate = {
+  id: string
+  organizationId: string
+  catalogId: string
+  navPinned: boolean
+  isActive: boolean
+  deletedAt?: string
+  createdAt: string
+  updatedAt: string
+}
+
+/** Revisortilgangstoken for prosjektpakke */
+export type TaskExportToken = {
+  id: string
+  token: string
+  organizationId: string
+  projectId: string
+  pack: TaskPack
+  expiresAt: string
+  createdBy?: string
+  createdAt: string
+  revokedAt?: string
+}
+
+/** Per-org pakkekonfigurasjon */
+export type TaskPackConfig = {
+  id: string
+  organizationId: string
+  slug: TaskPack
+  shortName: string
+  pluralLabel: string
+  ctaLabel: string
+  description: string
+  legalReferences: Array<{ code: string; text: string }>
+  kpiLabels: { open: string; critical: string; ytd: string }
+  severityLabels: { critical: string; high: string; medium: string; low: string }
+  position: number
+  isActive: boolean
+}
+
 export type TaskModule =
   | 'general'
   | 'council'
