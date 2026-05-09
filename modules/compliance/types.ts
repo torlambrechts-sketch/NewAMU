@@ -156,6 +156,17 @@ export type ComplianceExecutionRow = {
   participant_member_ids: string[]
   /** Free-form per-template metadata (driven by template.metadata_schema). */
   metadata: Record<string, unknown>
+  /**
+   * Subject of the execution.
+   * 'location'       → resolved via location_id
+   * 'catalogue_item' → resolved via scope_catalogue_item_label
+   * 'other'          → resolved via scope_other_label
+   */
+  scope_type: ChecklistScopeType | null
+  /** Free-text label when scope_type='catalogue_item'. */
+  scope_catalogue_item_label: string | null
+  /** Free-text description when scope_type='other'. */
+  scope_other_label: string | null
   deleted_at: string | null
   created_by: string | null
   created_at: string
@@ -186,6 +197,9 @@ export type ComplianceResponseRow = {
   created_at: string
   updated_at: string
 }
+
+/** What a checklist execution is *about* — its subject. */
+export type ChecklistScopeType = 'location' | 'catalogue_item' | 'other'
 
 export type ComplianceAssignableUser = {
   id: string
@@ -220,6 +234,25 @@ export type ComplianceTemplateRequirementRow = {
   organization_id: string
   created_by: string | null
   created_at: string
+}
+
+/**
+ * A timestamped comment on a checklist execution (or a specific item within it).
+ * item_key null = execution-level; non-null = item-level discussion.
+ * author_name is denormalized for display stability.
+ * mentions carries the UUIDs of @-mentioned organization members.
+ */
+export type ChecklistCommentRow = {
+  id: string
+  organization_id: string
+  execution_id: string
+  item_key: string | null
+  body: string
+  author_id: string
+  author_name: string
+  mentions: string[]
+  created_at: string
+  updated_at: string
 }
 
 /** Org-wide aggregates fetched separately from the paginated list. */

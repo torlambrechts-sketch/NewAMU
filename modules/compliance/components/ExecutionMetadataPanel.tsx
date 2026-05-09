@@ -32,6 +32,7 @@ import type {
   TemplateMetadataField,
   TemplateMetadataSchema,
 } from '../types'
+import { ChecklistScopeSelector } from './ChecklistScopeSelector'
 
 type SavePayload = {
   title?: string
@@ -44,6 +45,9 @@ type SavePayload = {
   teamId?: string | null
   participantMemberIds?: string[]
   metadata?: Record<string, unknown>
+  scopeType?: import('../types').ChecklistScopeType | null
+  scopeCatalogueItemLabel?: string | null
+  scopeOtherLabel?: string | null
 }
 
 type Props = {
@@ -305,6 +309,29 @@ export function ExecutionMetadataPanel({
             value={assignedTo}
             options={userOptions}
             onChange={flushAssigned}
+          />
+        </div>
+
+        {/* ── Scope ────────────────────────────────────────────────────── */}
+        <div className="md:col-span-2">
+          <ChecklistScopeSelector
+            scopeType={execution.scope_type}
+            locationId={locationId || null}
+            catalogueItemLabel={execution.scope_catalogue_item_label}
+            otherLabel={execution.scope_other_label}
+            locations={locations}
+            readOnly={false}
+            onSave={(patch) => {
+              const p: SavePayload = {}
+              if (patch.scopeType !== undefined) p.scopeType = patch.scopeType
+              if (patch.locationId !== undefined) p.locationId = patch.locationId
+              if (patch.catalogueItemLabel !== undefined)
+                p.scopeCatalogueItemLabel = patch.catalogueItemLabel
+              if (patch.otherLabel !== undefined) p.scopeOtherLabel = patch.otherLabel
+              // When scope_type changes to location, sync the locationId state too.
+              if (patch.locationId !== undefined) setLocationId(patch.locationId ?? '')
+              void onSave(p)
+            }}
           />
         </div>
 

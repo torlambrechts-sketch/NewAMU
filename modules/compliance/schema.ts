@@ -4,6 +4,7 @@
 
 import { z } from 'zod'
 import type {
+  ChecklistCommentRow,
   ChecklistDefinition,
   ChecklistItem,
   ComplianceCategoryRow,
@@ -160,6 +161,9 @@ export const ComplianceExecutionRowSchema: z.ZodType<ComplianceExecutionRow> = z
   team_id: z.string().uuid().nullable().default(null),
   participant_member_ids: z.array(z.string().uuid()).default([]),
   metadata: z.record(z.string(), z.unknown()).default({}),
+  scope_type: z.enum(['location', 'catalogue_item', 'other']).nullable().default(null),
+  scope_catalogue_item_label: z.string().nullable().default(null),
+  scope_other_label: z.string().nullable().default(null),
   deleted_at: z.string().nullable(),
   created_by: z.string().uuid().nullable(),
   created_at: TimestampSchema,
@@ -208,6 +212,19 @@ export const ComplianceTemplateRequirementRowSchema: z.ZodType<ComplianceTemplat
     created_by: z.string().uuid().nullable(),
     created_at: TimestampSchema,
   })
+
+export const ChecklistCommentRowSchema: z.ZodType<ChecklistCommentRow> = z.object({
+  id: UuidSchema,
+  organization_id: UuidSchema,
+  execution_id: UuidSchema,
+  item_key: z.string().nullable(),
+  body: z.string(),
+  author_id: UuidSchema,
+  author_name: z.string(),
+  mentions: z.array(UuidSchema).default([]),
+  created_at: TimestampSchema,
+  updated_at: TimestampSchema,
+})
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
 

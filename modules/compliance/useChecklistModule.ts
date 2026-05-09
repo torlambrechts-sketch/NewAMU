@@ -9,7 +9,9 @@ import { fetchAssignableUsers } from '../../src/hooks/useAssignableUsers'
 import { useOrgSetupContext } from '../../src/hooks/useOrgSetupContext'
 import { getSupabaseErrorMessage } from '../../src/lib/supabaseError'
 import type {
+  ChecklistCommentRow,
   ChecklistDefinition,
+  ChecklistScopeType,
   ComplianceAggregates,
   ComplianceAssignableUser,
   ComplianceCategoryRow,
@@ -21,6 +23,7 @@ import type {
   TemplateMetadataSchema,
 } from './types'
 import {
+  ChecklistCommentRowSchema,
   ComplianceCategoryRowSchema,
   ComplianceExecutionRowSchema,
   ComplianceResponseRowSchema,
@@ -43,9 +46,33 @@ export type ChecklistModuleState = {
   assignableUsers: ComplianceAssignableUser[]
   aggregates: ComplianceAggregates
 
+  /** Comments keyed by execution_id, loaded on demand. */
+  commentsByExecutionId: Record<string, ChecklistCommentRow[]>
+
   load: (filters?: { pack?: CompliancePackSlug; includeArchived?: boolean }) => Promise<void>
   loadDetail: (executionId: string) => Promise<void>
   reloadAggregates: (pack?: CompliancePackSlug, templateId?: string) => Promise<void>
+
+  /** Load (or reload) comments for a single execution. */
+  loadComments: (executionId: string) => Promise<void>
+
+  /** Post a new comment. Returns the saved row, or null on error. */
+  addComment: (payload: {
+    executionId: string
+    itemKey?: string
+    body: string
+    mentions?: string[]
+  }) => Promise<ChecklistCommentRow | null>
+
+  /** Edit body + mentions of an existing comment (author only). */
+  updateComment: (payload: {
+    commentId: string
+    body: string
+    mentions?: string[]
+  }) => Promise<void>
+
+  /** Delete a comment (author only). */
+  deleteComment: (commentId: string, executionId: string) => Promise<void>
 
   createExecution: (payload: {
     templateId: string
@@ -85,6 +112,10 @@ export type ChecklistModuleState = {
     participantMemberIds?: string[]
     /** Free-form per-template metadata bag (template.metadata_schema-driven). */
     metadata?: Record<string, unknown>
+    /** Scope — what this checklist is about. */
+    scopeType?: ChecklistScopeType | null
+    scopeCatalogueItemLabel?: string | null
+    scopeOtherLabel?: string | null
   }) => Promise<void>
 
   uploadResponseAttachment: (payload: {
@@ -196,6 +227,9 @@ export function useChecklistModule(
     Record<string, string[]>
   >({})
   const [categories, setCategories] = useState<ComplianceCategoryRow[]>([])
+  const [commentsByExecutionId, setCommentsByExecutionId] = useState<
+    Record<string, ChecklistCommentRow[]>
+  >({})
 
   // ── Aggregates (org-wide; fetched separately from paginated list) ────────
 
@@ -632,6 +666,9 @@ export function useChecklistModule(
       teamId?: string | null
       participantMemberIds?: string[]
       metadata?: Record<string, unknown>
+      scopeType?: ChecklistScopeType | null
+      scopeCatalogueItemLabel?: string | null
+      scopeOtherLabel?: string | null
     }): Promise<void> => {
       if (!supabase || !orgId) return
       if (!canManage) {
@@ -652,6 +689,11 @@ export function useChecklistModule(
       if (payload.participantMemberIds !== undefined)
         update.participant_member_ids = payload.participantMemberIds
       if (payload.metadata !== undefined) update.metadata = payload.metadata
+      if (payload.scopeType !== undefined) update.scope_type = payload.scopeType
+      if (payload.scopeCatalogueItemLabel !== undefined)
+        update.scope_catalogue_item_label = payload.scopeCatalogueItemLabel
+      if (payload.scopeOtherLabel !== undefined)
+        update.scope_other_label = payload.scopeOtherLabel
       if (Object.keys(update).length === 0) return
 
       try {
@@ -818,6 +860,138 @@ export function useChecklistModule(
       return data?.signedUrl ?? null
     },
     [supabase],
+  )
+
+  // ── Comments ─────────────────────────────────────────────────────────────
+
+  const loadComments = useCallback(
+    async (executionId: string): Promise<void> => {
+      if (!supabase || !orgId) return
+      try {
+        const { data, error: selErr } = await supabase
+          .from('compliance_checklist_comments')
+          .select('*')
+          .eq('organization_id', orgId)
+          .eq('execution_id', executionId)
+          .order('created_at', { ascending: true })
+        if (selErr) throw selErr
+        const parsed = parseRows(data ?? [], ChecklistCommentRowSchema)
+        setCommentsByExecutionId((prev) => ({ ...prev, [executionId]: parsed.ok }))
+      } catch (unknownError) {
+        setError(getSupabaseErrorMessage(unknownError))
+      }
+    },
+    [supabase, orgId],
+  )
+
+  const addComment = useCallback(
+    async (payload: {
+      executionId: string
+      itemKey?: string
+      body: string
+      mentions?: string[]
+    }): Promise<ChecklistCommentRow | null> => {
+      if (!supabase || !orgId) return null
+      setError(null)
+
+      // Resolve the current user's display name for denormalization.
+      const userResp = await supabase.auth.getUser()
+      const uid = userResp.data.user?.id
+      if (!uid) {
+        setError('Du er ikke innlogget.')
+        return null
+      }
+      const author = assignableUsers.find((u) => u.id === uid)
+      const authorName = author?.displayName ?? userResp.data.user?.email ?? uid
+
+      try {
+        const { data, error: insErr } = await supabase
+          .from('compliance_checklist_comments')
+          .insert({
+            execution_id: payload.executionId,
+            item_key: payload.itemKey ?? null,
+            body: payload.body.trim(),
+            author_id: uid,
+            author_name: authorName,
+            mentions: payload.mentions ?? [],
+          })
+          .select('*')
+          .single()
+        if (insErr) throw insErr
+
+        const parsed = ChecklistCommentRowSchema.safeParse(data)
+        if (!parsed.success) return null
+
+        setCommentsByExecutionId((prev) => {
+          const list = prev[payload.executionId] ?? []
+          return { ...prev, [payload.executionId]: [...list, parsed.data] }
+        })
+        return parsed.data
+      } catch (unknownError) {
+        setError(getSupabaseErrorMessage(unknownError))
+        return null
+      }
+    },
+    [supabase, orgId, assignableUsers],
+  )
+
+  const updateComment = useCallback(
+    async (payload: {
+      commentId: string
+      body: string
+      mentions?: string[]
+    }): Promise<void> => {
+      if (!supabase || !orgId) return
+      setError(null)
+      try {
+        const { data, error: upErr } = await supabase
+          .from('compliance_checklist_comments')
+          .update({ body: payload.body.trim(), mentions: payload.mentions ?? [] })
+          .eq('id', payload.commentId)
+          .eq('organization_id', orgId)
+          .select('*')
+          .single()
+        if (upErr) throw upErr
+
+        const parsed = ChecklistCommentRowSchema.safeParse(data)
+        if (!parsed.success) return
+
+        setCommentsByExecutionId((prev) => {
+          const executionId = parsed.data.execution_id
+          const list = prev[executionId] ?? []
+          return {
+            ...prev,
+            [executionId]: list.map((c) => (c.id === parsed.data.id ? parsed.data : c)),
+          }
+        })
+      } catch (unknownError) {
+        setError(getSupabaseErrorMessage(unknownError))
+      }
+    },
+    [supabase, orgId],
+  )
+
+  const deleteComment = useCallback(
+    async (commentId: string, executionId: string): Promise<void> => {
+      if (!supabase || !orgId) return
+      setError(null)
+      try {
+        const { error: delErr } = await supabase
+          .from('compliance_checklist_comments')
+          .delete()
+          .eq('id', commentId)
+          .eq('organization_id', orgId)
+        if (delErr) throw delErr
+
+        setCommentsByExecutionId((prev) => {
+          const list = prev[executionId] ?? []
+          return { ...prev, [executionId]: list.filter((c) => c.id !== commentId) }
+        })
+      } catch (unknownError) {
+        setError(getSupabaseErrorMessage(unknownError))
+      }
+    },
+    [supabase, orgId],
   )
 
   // ── Template administration ──────────────────────────────────────────────
@@ -1162,6 +1336,7 @@ export function useChecklistModule(
       responsesByExecutionId,
       assignableUsers,
       aggregates,
+      commentsByExecutionId,
       load,
       loadDetail,
       reloadAggregates,
@@ -1173,6 +1348,10 @@ export function useChecklistModule(
       uploadResponseAttachment,
       removeResponseAttachment,
       signAttachmentUrl,
+      loadComments,
+      addComment,
+      updateComment,
+      deleteComment,
       createTemplate,
       updateTemplate,
       softDeleteTemplate,
@@ -1194,6 +1373,7 @@ export function useChecklistModule(
       responsesByExecutionId,
       assignableUsers,
       aggregates,
+      commentsByExecutionId,
       load,
       loadDetail,
       reloadAggregates,
@@ -1205,6 +1385,10 @@ export function useChecklistModule(
       uploadResponseAttachment,
       removeResponseAttachment,
       signAttachmentUrl,
+      loadComments,
+      addComment,
+      updateComment,
+      deleteComment,
       createTemplate,
       updateTemplate,
       softDeleteTemplate,
