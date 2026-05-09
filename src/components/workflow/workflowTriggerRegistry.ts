@@ -82,6 +82,24 @@ export const COMPLIANCE_CHECKLIST_WORKFLOW_TRIGGER_EVENTS = [
   { value: 'execution_signed',          label: 'Sjekkliste signert' },
 ] as const
 
+export const TASKS_WORKFLOW_TRIGGER_EVENTS = [
+  { value: 'ON_TASK_CREATED',        label: 'Oppgave opprettet' },
+  { value: 'ON_TASK_STATUS_CHANGED', label: 'Status endret' },
+  { value: 'ON_TASK_OVERDUE_MARKED', label: 'Oppgave forfalt' },
+  { value: 'ON_TASK_SIGNED',         label: 'Utfører signert' },
+] as const
+
+export const LEARNING_WORKFLOW_TRIGGER_EVENTS = [
+  { value: 'ON_COURSE_STARTED',     label: 'Kurs startet' },
+  { value: 'ON_COURSE_COMPLETED',   label: 'Kurs fullført' },
+  { value: 'ON_CERTIFICATE_ISSUED', label: 'Sertifikat utstedt' },
+] as const
+
+export const REGISTERS_WORKFLOW_TRIGGER_EVENTS = [
+  { value: 'ON_REGISTER_RECORD_CREATED', label: 'Registerrad opprettet' },
+  { value: 'ON_REGISTER_RECORD_UPDATED', label: 'Registerrad oppdatert' },
+] as const
+
 const REGISTRY: Record<string, readonly { value: string; label: string }[]> = {
   inspection: INSPECTION_WORKFLOW_TRIGGER_EVENTS,
   ros: ROS_WORKFLOW_TRIGGER_EVENTS,
@@ -93,6 +111,9 @@ const REGISTRY: Record<string, readonly { value: string; label: string }[]> = {
   survey: SURVEY_WORKFLOW_TRIGGER_EVENTS,
   documents: DOCUMENTS_WORKFLOW_TRIGGER_EVENTS,
   compliance_checklist: COMPLIANCE_CHECKLIST_WORKFLOW_TRIGGER_EVENTS,
+  tasks: TASKS_WORKFLOW_TRIGGER_EVENTS,
+  learning: LEARNING_WORKFLOW_TRIGGER_EVENTS,
+  registers: REGISTERS_WORKFLOW_TRIGGER_EVENTS,
 }
 
 export function getWorkflowTriggerEventsForModule(triggerModule: string): { value: string; label: string }[] {

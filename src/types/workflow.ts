@@ -61,9 +61,48 @@ export type WorkflowActionCreateDeviation = {
   assignFromRound?: boolean
 }
 
+export type WorkflowActionCreateTaskItem = {
+  type: 'create_task_item'
+  pack: string
+  sourceCategory: string
+  pdcaPhase: string
+  title: string
+  priority?: string
+  dueInDays?: number
+}
+
+export type WorkflowActionCreateRosDraft = {
+  type: 'create_ros_draft'
+  template: string
+  linkSource: boolean
+}
+
+export type WorkflowActionAddAmuAgendaItem = {
+  type: 'add_amu_agenda_item'
+  agendaItem: string
+  priority: 'lav' | 'normal' | 'høy' | 'kritisk'
+}
+
+export type WorkflowActionRequestSignature = {
+  type: 'request_signature'
+  document: string
+  deadlineDays: number
+}
+
+export type WorkflowActionWaitDelay = {
+  type: 'wait_delay'
+  amount: number
+  unit: 'minutes' | 'hours' | 'days' | 'weeks'
+}
+
 export type WorkflowAction =
   | WorkflowActionCreateTask
+  | WorkflowActionCreateTaskItem
   | WorkflowActionCreateDeviation
+  | WorkflowActionCreateRosDraft
+  | WorkflowActionAddAmuAgendaItem
+  | WorkflowActionRequestSignature
+  | WorkflowActionWaitDelay
   | WorkflowActionSendEmail
   | WorkflowActionSendNotification
   | WorkflowActionCallWebhook
@@ -110,6 +149,8 @@ export const WORKFLOW_SOURCE_MODULES = [
   { value: 'internal_control', label: 'Internkontroll (ROS, årsgjennomgang)' },
   { value: 'org_health', label: 'Organisasjonshelse (undersøkelser, sykefravær, …)' },
   { value: 'tasks', label: 'Oppgaver' },
+  { value: 'learning', label: 'E-læring (kurs, sertifikater)' },
+  { value: 'registers', label: 'Registre (kjemikalier, maskiner, …)' },
   { value: 'workplace_reporting', label: 'Arbeidsplassrapportering (saker, anonym AML, …)' },
   { value: 'wiki_published', label: 'Wiki — side publisert' },
 ] as const
