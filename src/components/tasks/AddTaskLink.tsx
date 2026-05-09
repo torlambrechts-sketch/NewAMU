@@ -39,7 +39,7 @@ export function AddTaskLink({
     requiresManagementSignOff,
   })
   return (
-    <Link to={`/tasks?${qs}`} className={className}>
+    <Link to={`/tasks/management?${qs}`} className={className}>
       <Plus className="size-3.5" />
       {children ?? 'Oppfølgingsoppgave'}
     </Link>

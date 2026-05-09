@@ -46,7 +46,7 @@ export const WORKPLACE_REPORTING_NAV: readonly WorkplaceReportingNavItem[] = [
     requirePermAny: ['module.view.workplace_reporting', 'module.view.org_health'],
   },
   {
-    to: '/tasks?view=whistle',
+    to: '/tasks/management?tab=varsling',
     label: 'Varslingssaker',
     end: false,
     desc: 'Oppfølging i oppgaver (komité / admin).',

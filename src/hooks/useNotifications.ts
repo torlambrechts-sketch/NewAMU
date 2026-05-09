@@ -68,7 +68,7 @@ export function useNotifications() {
             title: 'Medsignatur påkrevd',
             body: t.title,
             createdAt: t.createdAt,
-            href: `/tasks?view=list&openTask=${encodeURIComponent(t.id)}`,
+            href: `/tasks/management?openTask=${encodeURIComponent(t.id)}`,
             severity: 'warning',
           })
         }
@@ -87,7 +87,7 @@ export function useNotifications() {
           title: 'Ledergodkjenning venter',
           body: t.title,
           createdAt: t.createdAt,
-          href: `/tasks?view=list&openTask=${encodeURIComponent(t.id)}`,
+          href: `/tasks/management?openTask=${encodeURIComponent(t.id)}`,
         })
       }
 
@@ -98,7 +98,7 @@ export function useNotifications() {
           title: 'Signer som utfører',
           body: t.title,
           createdAt: t.createdAt,
-          href: `/tasks?view=list&openTask=${encodeURIComponent(t.id)}`,
+          href: `/tasks/management?openTask=${encodeURIComponent(t.id)}`,
         })
       }
 
@@ -111,7 +111,7 @@ export function useNotifications() {
             title: d === 0 ? 'Oppgave forfaller i dag' : `Oppgave forfaller om ${d} d.`,
             body: t.title,
             createdAt: new Date().toISOString(),
-            href: `/tasks?view=list&openTask=${encodeURIComponent(t.id)}`,
+            href: `/tasks/management?openTask=${encodeURIComponent(t.id)}`,
             severity: d <= 2 ? 'warning' : 'info',
           })
         }
@@ -127,7 +127,7 @@ export function useNotifications() {
             title: 'Varslingssak trenger oppfølging',
             body: c.title ?? 'Uten tittel',
             createdAt: c.received_at ?? new Date().toISOString(),
-            href: `/tasks?view=whistle`,
+            href: `/tasks/management?tab=varsling`,
             severity: 'warning',
           })
         }

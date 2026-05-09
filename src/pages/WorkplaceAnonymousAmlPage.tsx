@@ -336,7 +336,7 @@ export function WorkplaceAnonymousAmlPage() {
 
           <p className="text-sm text-neutral-600">
             For strukturert varsling med saksbehandling:{' '}
-            <Link to="/tasks?view=whistle" className="font-medium text-[#1a3d32] underline">
+            <Link to="/tasks/management?tab=varsling" className="font-medium text-[#1a3d32] underline">
               Oppgaver → varslingssaker
             </Link>
             .

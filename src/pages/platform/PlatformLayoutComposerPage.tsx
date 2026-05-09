@@ -1048,7 +1048,7 @@ function ComposableWorkplaceEventsDayBlock() {
             { id: 'a2', initials: 'ML' },
             { id: 'a3', initials: 'SO' },
           ],
-          to: '/tasks',
+          to: '/tasks/management',
         }}
       />
       <p className="text-xs text-neutral-500">
@@ -1072,7 +1072,7 @@ function ComposableWorkplaceTodosBlock() {
             title: 'Fullfør vernerunde Q2',
             description: 'Gå gjennom sjekkliste og lukk åpne avvik i HMS.',
             dueLabel: 'I dag',
-            href: '/tasks',
+            href: '/tasks/management',
           },
           {
             id: 't2',
@@ -1086,7 +1086,7 @@ function ComposableWorkplaceTodosBlock() {
             title: 'Oppdater stillingsinstruks verneombud',
             description: 'Koordiner med HR etter valg.',
             dueLabel: '12. mai',
-            href: '/tasks',
+            href: '/tasks/management',
           },
         ]}
       />

@@ -118,7 +118,9 @@ export function TasksManagementPage() {
   const tabFromUrl = (searchParams.get('tab') as ModuleTab | null) ?? null
   const initialTab: ModuleTab = TAB_IDS.includes(tabFromUrl as ModuleTab) ? (tabFromUrl as ModuleTab) : 'oversikt'
   const [tab, setTab] = useState<ModuleTab>(initialTab)
-  const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null)
+  const [selectedTaskId, setSelectedTaskId] = useState<string | null>(
+    searchParams.get('openTask') ?? null,
+  )
   const [createOpen, setCreateOpen] = useState(false)
   const [newTaskModalOpen, setNewTaskModalOpen] = useState(false)
 
@@ -235,7 +237,7 @@ export function TasksManagementPage() {
               type="button"
               variant="secondary"
               icon={<Settings className="h-4 w-4" />}
-              onClick={() => navigate('/tasks?view=audit')}
+              onClick={() => navigate('/workspace/revisjonslogg')}
             >
               <span className="hidden sm:inline">Revisjonslogg</span>
             </Button>

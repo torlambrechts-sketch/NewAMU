@@ -154,7 +154,7 @@ export function WelcomeDashboardPage() {
                   </p>
                 </div>
                 <Link
-                  to="/tasks"
+                  to="/tasks/management"
                   className="inline-flex items-center gap-1 text-xs font-semibold uppercase tracking-wide text-neutral-700 hover:text-neutral-900"
                 >
                   Se oppgaver <ChevronRight className="size-3.5" />
@@ -184,7 +184,7 @@ export function WelcomeDashboardPage() {
               <div className="flex flex-wrap items-center justify-between gap-2 border-b border-neutral-100 px-4 py-3">
                 <p className="text-sm font-semibold text-neutral-900">Neste på listen</p>
                 <Link
-                  to="/tasks"
+                  to="/tasks/management"
                   className="text-xs font-semibold uppercase tracking-wide text-neutral-600 hover:text-neutral-900"
                 >
                   Alle oppgaver
@@ -199,7 +199,7 @@ export function WelcomeDashboardPage() {
                     return (
                       <Link
                         key={task.id}
-                        to={`/tasks?view=list&openTask=${encodeURIComponent(task.id)}`}
+                        to={`/tasks/management?openTask=${encodeURIComponent(task.id)}`}
                         className="flex items-center gap-3 px-4 py-3.5 transition-colors hover:bg-neutral-50/80"
                       >
                         <ListChecks className="size-4 shrink-0 text-neutral-400" />
@@ -229,7 +229,7 @@ export function WelcomeDashboardPage() {
                 }
                 {openTasks.length > 6 ?
                   <Link
-                    to="/tasks"
+                    to="/tasks/management"
                     className="block px-4 py-2.5 text-center text-xs font-semibold text-[#1a3d32] hover:bg-neutral-50"
                   >
                     + {openTasks.length - 6} flere <ChevronDown className="inline size-3" />
@@ -356,7 +356,7 @@ export function WelcomeDashboardPage() {
                   ))}
               </ul>
               {unreadList.length > 6 ?
-                <Link to="/tasks" className="block border-t border-neutral-100 px-4 py-2 text-center text-xs font-medium text-[#1a3d32]">
+                <Link to="/tasks/management" className="block border-t border-neutral-100 px-4 py-2 text-center text-xs font-medium text-[#1a3d32]">
                   Se flere i oppgaver →
                 </Link>
               : null}

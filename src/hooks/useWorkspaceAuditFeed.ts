@@ -78,7 +78,7 @@ export function useWorkspaceAuditFeed() {
         action: a.action,
         message: a.message,
         detail: a.taskId ? `Oppgave-ID: ${a.taskId}` : undefined,
-        linkTo: '/tasks?view=list',
+        linkTo: '/tasks/management',
       })
     }
 

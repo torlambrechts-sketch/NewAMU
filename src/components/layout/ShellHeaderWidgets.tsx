@@ -265,11 +265,11 @@ export function ShellQuickCreateMenu({ variant }: { variant: 'sidebar' | 'topbar
       </button>
       {open ? (
         <div className={panelClass} role="menu">
-          <button type="button" role="menuitem" className={itemClass} onClick={() => go('/tasks?quickNew=task')}>
+          <button type="button" role="menuitem" className={itemClass} onClick={() => go('/tasks/management?quickNew=task')}>
             <ClipboardList className="size-4 shrink-0 opacity-80" />
             Ny oppgave
           </button>
-          <button type="button" role="menuitem" className={itemClass} onClick={() => go('/tasks?view=whistle&openWhistle=1')}>
+          <button type="button" role="menuitem" className={itemClass} onClick={() => go('/tasks/management?tab=varsling')}>
             <Megaphone className="size-4 shrink-0 opacity-80" />
             Ny varslingssak
           </button>
@@ -401,7 +401,7 @@ export function ShellComplianceIndicator({ variant }: { variant: 'sidebar' | 'to
         items: [
           {
             label: `${overdueTasks.length} forfalte oppgave(r)`,
-            to: '/tasks?view=list',
+            to: '/tasks/management',
           },
         ],
       })

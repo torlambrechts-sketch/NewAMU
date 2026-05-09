@@ -1615,7 +1615,7 @@ function ResponseForm({
                 <div className={`${R_FLAT} mb-2 border-2 border-amber-400 bg-amber-50 px-3 py-2 text-xs font-medium text-amber-950`}>
                   Viktig: Dette er en anonym undersøkelse. Ikke skriv navn, stillingstitler eller identifiserende
                   opplysninger i dette feltet. Reelle varsler skal meldes via{' '}
-                  <Link to="/tasks?view=whistle" className="underline">
+                  <Link to="/tasks/management?tab=varsling" className="underline">
                     Varslingskanalen
                   </Link>
                   .

@@ -104,7 +104,7 @@ export function ActionBoardPage() {
         detail: t.description?.slice(0, 80) || t.sourceLabel,
         status: t.status,
         module: t.module,
-        link: '/tasks',
+        link: '/tasks/management',
         dueDate: t.dueDate || undefined,
         overdue: !!t.dueDate && t.dueDate < today && t.status !== 'done',
         isDraggable: true,
@@ -345,7 +345,7 @@ export function ActionBoardPage() {
                 <ActionBoardPill tone="green">Oppgaver {taskCount}</ActionBoardPill>
                 <ActionBoardPill tone="blue">Andre {otherCount}</ActionBoardPill>
                 <Link
-                  to="/tasks?view=list"
+                  to="/tasks/management"
                   className="inline-flex items-center gap-2 rounded-md px-3 py-2 text-xs font-semibold uppercase text-white shadow-sm"
                   style={{ backgroundColor: AB_SCORECARD_FOREST }}
                 >
