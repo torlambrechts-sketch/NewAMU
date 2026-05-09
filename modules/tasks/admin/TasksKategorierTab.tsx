@@ -5,7 +5,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { FolderOpen, Pencil, Plus, Trash2 } from 'lucide-react'
 import { useOrgSetupContext } from '../../../src/hooks/useOrgSetupContext'
-import { Badge } from '../../../src/components/ui/Badge'
 import { Button } from '../../../src/components/ui/Button'
 import { StandardInput } from '../../../src/components/ui/Input'
 import { WarningBox } from '../../../src/components/ui/AlertBox'
@@ -119,13 +118,18 @@ export function TasksKategorierTab() {
       .eq('id', id)
   }
 
-  const handleReorder = async (reordered: CategoryRow[]) => {
+  const handleReorder = async (orderedIds: string[]) => {
     if (!supabase) return
-    const updates = reordered.map((c, i) => ({ id: c.id, position: (i + 1) * 10 }))
-    setCategories(reordered.map((c, i) => ({ ...c, position: (i + 1) * 10 })))
+    setCategories((prev) => {
+      const byId = new Map(prev.map((c) => [c.id, c]))
+      return orderedIds.flatMap((id, i) => {
+        const c = byId.get(id)
+        return c ? [{ ...c, position: (i + 1) * 10 }] : []
+      })
+    })
     await Promise.all(
-      updates.map(({ id, position }) =>
-        supabase.from('task_template_categories').update({ position }).eq('id', id),
+      orderedIds.map((id, i) =>
+        supabase.from('task_template_categories').update({ position: (i + 1) * 10 }).eq('id', id),
       ),
     )
   }

@@ -1465,10 +1465,6 @@ export function CouncilModule() {
                 <div className="border-t border-neutral-200 pt-6">
                   <AddTaskLink
                     title="Oppfølging representasjon / AMU"
-                    module="members"
-                    sourceType="representatives"
-                    ownerRole="Tillitsvalgt"
-                    requiresManagementSignOff
                   />
                 </div>
                 </div>
@@ -2403,12 +2399,8 @@ export function CouncilModule() {
                             <AddTaskLink
                               title={`Oppfølging: ${c.title.slice(0, 80)}`}
                               description={c.lawRef}
-                              module="council"
-                              sourceType="council_compliance"
                               sourceId={c.id}
                               sourceLabel={c.title}
-                              ownerRole="HMS / råd"
-                              requiresManagementSignOff={false}
                             />
                           ) : (
                             <span className="text-xs text-emerald-700">Fullført</span>
@@ -3237,11 +3229,8 @@ function MeetingDetailPanel({
             <AddTaskLink
               title={`Oppfølging etter møte: ${meeting.title.slice(0, 60)}`}
               description={meeting.minutes?.slice(0, 300)}
-              module="council"
-              sourceType="council_meeting"
               sourceId={meeting.id}
               sourceLabel={meeting.title}
-              ownerRole="Saksbehandler"
             />
           </div>
         </div>

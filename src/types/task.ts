@@ -1,7 +1,6 @@
 // task.ts — canonical type definitions for the tasks module.
 // Relational types for task_items v2, template system, and ISO 45001 lifecycle.
 
-import type { Level1SystemSignatureMeta } from './level1Signature'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // SECTION A — New relational types

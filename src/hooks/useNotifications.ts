@@ -13,12 +13,6 @@ function normEmail(s: string | null | undefined) {
   return t || undefined
 }
 
-function daysUntilDue(due: string): number | null {
-  if (!due || due === '—') return null
-  const t = new Date(due + 'T12:00:00').getTime()
-  if (Number.isNaN(t)) return null
-  return Math.ceil((t - Date.now()) / (24 * 60 * 60 * 1000))
-}
 
 export function useNotifications() {
   const { user, profile, permissionKeys, isAdmin } = useOrgSetupContext()

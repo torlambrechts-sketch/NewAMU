@@ -80,7 +80,7 @@ export function WelcomeDashboardPage() {
     const overdue = overdueTasks.length
     const overdueSet = new Set(overdueTasks.map((t) => t.id))
     const notOverdue = openTasks.filter((t) => !overdueSet.has(t.id))
-    const todoOk = notOverdue.filter((t) => t.status === 'todo').length
+    const todoOk = notOverdue.filter((t) => t.status === 'open').length
     const progOk = notOverdue.filter((t) => t.status === 'in_progress').length
     const segs: { pct: number; color: string; label: string }[] = []
     if (todoOk > 0) segs.push({ pct: (todoOk / total) * 100, color: FOREST, label: 'Todo' })
@@ -205,8 +205,8 @@ export function WelcomeDashboardPage() {
                         <ListChecks className="size-4 shrink-0 text-neutral-400" />
                         <div className="min-w-0 flex-1">
                           <p className="truncate text-sm font-medium text-neutral-900">{task.title}</p>
-                          {task.ownerRole ?
-                            <p className="text-xs text-neutral-500">{task.ownerRole}</p>
+                          {task.ownerName ?
+                            <p className="text-xs text-neutral-500">{task.ownerName}</p>
                           : null}
                         </div>
                         {task.status === 'in_progress' ?

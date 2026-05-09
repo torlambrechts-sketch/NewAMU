@@ -173,7 +173,7 @@ export function TasksManagementReviewPage() {
         </div>
       }
     >
-      {error && <WarningBox className="print:hidden">{error}</WarningBox>}
+      {error && <div className="print:hidden"><WarningBox>{error}</WarningBox></div>}
 
       {loading && items.length === 0 ? (
         <p className="py-16 text-center text-sm text-neutral-500">Laster data…</p>

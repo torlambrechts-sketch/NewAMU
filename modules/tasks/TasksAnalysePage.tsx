@@ -240,10 +240,10 @@ export function TasksAnalysePage() {
         emptyState={empty}
         dimensions={dimensions}
         filters={dashboard.filters}
-        onFiltersChange={dashboard.setFilters}
+        onFiltersChange={(f) => { void dashboard.saveFilters(f) }}
         widgetControlSlot={widgetControlSlot}
         editMode={editChrome.editMode}
-        onEditLayout={() => setEditOpen(true)}
+        onEdit={() => setEditOpen(true)}
         onAddWidget={() => setAddOpen(true)}
       />
 
@@ -252,9 +252,10 @@ export function TasksAnalysePage() {
         onClose={() => setEditOpen(false)}
         scopeId={TASKS_DASHBOARD_SCOPE_ID}
         layout={dashboard.layout}
-        onSave={(next) => {
-          void dashboard.saveLayout(next)
+        onSave={async (next) => {
+          await dashboard.saveLayout(next)
           setEditOpen(false)
+          return true
         }}
       />
 
@@ -262,9 +263,10 @@ export function TasksAnalysePage() {
         open={addOpen}
         onClose={() => setAddOpen(false)}
         scopeId={TASKS_DASHBOARD_SCOPE_ID}
-        onAdd={(tpl) => {
-          void dashboard.saveLayout([...dashboard.layout, { ...tpl, id: freshId('w') }])
+        onAdd={async (tpl) => {
+          await dashboard.saveLayout([...dashboard.layout, { ...tpl, id: freshId('w') }])
           setAddOpen(false)
+          return true
         }}
       />
 
@@ -274,11 +276,12 @@ export function TasksAnalysePage() {
           onClose={() => setEditWidget(null)}
           widget={editWidget}
           scopeId={TASKS_DASHBOARD_SCOPE_ID}
-          onSave={(updated) => {
-            void dashboard.saveLayout(
+          onSave={async (updated) => {
+            await dashboard.saveLayout(
               dashboard.layout.map((m) => (m.id === updated.id ? updated : m)),
             )
             setEditWidget(null)
+            return true
           }}
         />
       )}

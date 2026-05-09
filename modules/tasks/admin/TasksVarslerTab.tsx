@@ -6,12 +6,11 @@
 // All settings live in task_module_settings (same row as TasksSLATab).
 
 import { useCallback, useEffect, useState } from 'react'
-import { Bell, Mail, AlertTriangle, Clock } from 'lucide-react'
+import { Mail, AlertTriangle, Clock } from 'lucide-react'
 import { useOrgSetupContext } from '../../../src/hooks/useOrgSetupContext'
 import { Button } from '../../../src/components/ui/Button'
 import { StandardInput } from '../../../src/components/ui/Input'
 import { ToggleSwitch } from '../../../src/components/ui/FormToggles'
-import { WarningBox } from '../../../src/components/ui/AlertBox'
 import { ModuleSectionCard } from '../../../src/components/module/ModuleSectionCard'
 import {
   WPSTD_FORM_FIELD_LABEL,
