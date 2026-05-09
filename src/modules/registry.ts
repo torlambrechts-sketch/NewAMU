@@ -141,7 +141,7 @@ const REGISTRY: Record<string, ModuleRegistryEntry> = {
     slug: 'tasks',
     displayName: 'Oppgaver',
     component: lazy(() =>
-      import('../modules/tasks').then((m) => ({ default: m.TasksManagementPage })),
+      import('../../modules/tasks').then((m) => ({ default: m.TasksManagementPage })),
     ),
     configSchema: baseConfig,
   },
