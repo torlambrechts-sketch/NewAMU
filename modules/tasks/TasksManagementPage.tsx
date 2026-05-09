@@ -209,8 +209,7 @@ export function TasksManagementPage() {
       <ModulePageShell
         breadcrumb={[{ label: 'Arbeidsflate' }, { label: 'Oppgavestyring' }]}
         title="Oppgavestyring"
-        description="Komplett oppfølging av oppgaver og tiltak — Kanban, sprint og faseplan i ett — med innebygd samsvar mot AML og IK-forskriften."
-        headerActions={
+headerActions={
           <div className="flex flex-wrap items-center gap-2">
             <Button
               type="button"
