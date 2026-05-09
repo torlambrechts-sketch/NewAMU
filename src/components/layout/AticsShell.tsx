@@ -306,13 +306,6 @@ const organisationAdminSubs: SubItem[] = [
     match: ({ pathname, search }) =>
       pathname === '/organisation/admin' && new URLSearchParams(search).get('tab') === 'delegation',
   },
-  {
-    label: 'Automatisering',
-    path: '/workflow',
-    Icon: Workflow,
-    match: ({ pathname }) => pathname.startsWith('/workflow'),
-    requirePermAny: ADMIN_NAV_PERMS,
-  },
 ]
 
 // ─── Navigation groups ────────────────────────────────────────────────────────
@@ -1445,6 +1438,13 @@ export function AticsShell() {
         path: '/admin/templates',
         Icon: LayoutTemplate,
         match: ({ pathname }) => pathname === '/admin/templates',
+        requirePermAny: ADMIN_NAV_PERMS,
+      },
+      {
+        label: 'Automatisering',
+        path: '/workflow',
+        Icon: Workflow,
+        match: ({ pathname }) => pathname.startsWith('/workflow'),
         requirePermAny: ADMIN_NAV_PERMS,
       },
     ]
