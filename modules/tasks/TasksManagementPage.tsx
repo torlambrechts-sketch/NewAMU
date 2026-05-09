@@ -8,7 +8,7 @@
 
 import { useMemo, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
-import { BarChart3, ChevronRight, KanbanSquare, Plus, Settings } from 'lucide-react'
+import { BarChart3, ChevronRight, KanbanSquare, Plus, Printer, Settings } from 'lucide-react'
 import { ModulePageShell } from '../../src/components/module/ModulePageShell'
 import { LayoutTable1PostingsShell } from '../../src/components/layout/LayoutTable1PostingsShell'
 import {
@@ -185,6 +185,13 @@ export function TasksManagementPage() {
           description="Velg en mal for å opprette og følge opp oppgaver, avvik, risiko og forslag."
           headerActions={
             <div className="flex items-center gap-2">
+              <Link
+                to="/tasks/management/review"
+                className="inline-flex items-center gap-1.5 border border-neutral-300 bg-white px-3 py-2 text-sm font-medium text-neutral-700 transition-colors hover:bg-neutral-50"
+              >
+                <Printer className="h-4 w-4" aria-hidden />
+                <span className="hidden sm:inline">Gjennomgang</span>
+              </Link>
               <Link
                 to="/tasks/management/analyse"
                 className="inline-flex items-center gap-1.5 border border-neutral-300 bg-white px-3 py-2 text-sm font-medium text-neutral-700 transition-colors hover:bg-neutral-50"

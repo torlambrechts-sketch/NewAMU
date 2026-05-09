@@ -200,17 +200,27 @@ export function TaskDetailPanel({ open, onClose, item, onStatusChange }: Props) 
                         const isActive = s === row.status
                         const isDone = currentIdx > idx
                         const isNext = currentIdx >= 0 && idx === currentIdx + 1
+                        // Gate: avvik/nestenulykke cannot skip directly to closed
+                        const isCapaClose =
+                          s === 'closed' && isCapaKind(row.templateKind) && row.status !== 'effectiveness_verified'
                         return (
                           <button
                             key={s}
                             type="button"
-                            disabled={changingStatus || isActive}
+                            disabled={changingStatus || isActive || isCapaClose}
+                            title={
+                              isCapaClose
+                                ? 'Fullfør CAPA-flyten (til «Verifisert effektiv») for å lukke'
+                                : undefined
+                            }
                             onClick={() => void handleStatusChange(s)}
                             className={`rounded-full border px-3 py-1 text-xs font-medium transition ${
                               isActive
                                 ? 'border-[#c2410c] bg-[#c2410c] text-white'
                                 : isDone
                                 ? 'border-green-200 bg-green-50 text-green-700'
+                                : isCapaClose
+                                ? 'cursor-not-allowed border-neutral-100 bg-neutral-50 text-neutral-300'
                                 : isNext
                                 ? 'border-[#c2410c]/30 bg-orange-50 text-[#c2410c] hover:border-[#c2410c] hover:bg-[#c2410c] hover:text-white'
                                 : 'border-neutral-200 bg-white text-neutral-400 hover:border-neutral-300 hover:text-neutral-600'
@@ -231,6 +241,16 @@ export function TaskDetailPanel({ open, onClose, item, onStatusChange }: Props) 
                         </button>
                       )}
                     </div>
+                    {/* Soft gate hint for avvik not yet at effectiveness_verified */}
+                    {isCapaKind(row.templateKind) &&
+                      row.status !== 'closed' &&
+                      row.status !== 'cancelled' &&
+                      row.status !== 'effectiveness_verified' && (
+                        <p className="mt-2 flex items-center gap-1.5 text-[11px] text-amber-700">
+                          <span className="inline-block h-1.5 w-1.5 rounded-full bg-amber-500" />
+                          Lukking krever fullstendig CAPA-flyt (AML § 5-2 / ISO 45001 § 10.2)
+                        </p>
+                      )}
                   </section>
                 )}
 

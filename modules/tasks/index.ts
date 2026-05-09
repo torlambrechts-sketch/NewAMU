@@ -1,8 +1,9 @@
-// Tasks module — Phase 4.
-// Hub landing + three-mode routing + PDCA/Kanban project boards.
+// Tasks module — Phase 5.
+// Full compliance enforcement: CAPA gate, AML §5-1 auto-task, ISO §9.3 review.
 
 export { TasksManagementPage } from './TasksManagementPage'
 export { TasksAnalysePage } from './TasksAnalysePage'
+export { TasksManagementReviewPage } from './TasksManagementReviewPage'
 export { TasksHubLanding } from './TasksHubLanding'
 export { TaskCreateForm } from './TaskCreateForm'
 export { TaskDetailPanel } from './TaskDetailPanel'
