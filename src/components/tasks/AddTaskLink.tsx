@@ -1,47 +1,29 @@
+// AddTaskLink — Phase 0 stub.
+// Previously navigated to the legacy task prefill URL. Now navigates to the
+// new tasks hub. Consuming modules will be updated to use TaskForm directly
+// in later phases.
+
 import { Link } from 'react-router-dom'
-import { Plus } from 'lucide-react'
-import { buildTaskPrefillQuery } from '../../lib/taskNavigation'
+import type { ReactNode } from 'react'
 import type { TaskModule, TaskSourceType } from '../../types/task'
 
 type Props = {
-  title: string
+  children: ReactNode
+  title?: string
   description?: string
-  module: TaskModule
-  sourceType: TaskSourceType
+  module?: TaskModule
+  sourceType?: TaskSourceType
   sourceId?: string
   sourceLabel?: string
   ownerRole?: string
   requiresManagementSignOff?: boolean
   className?: string
-  children?: React.ReactNode
 }
 
-export function AddTaskLink({
-  title,
-  description,
-  module,
-  sourceType,
-  sourceId,
-  sourceLabel,
-  ownerRole,
-  requiresManagementSignOff,
-  className = 'inline-flex items-center gap-1.5 rounded-full border border-neutral-200 bg-white px-3 py-1.5 text-xs font-medium text-[#1a3d32] shadow-sm hover:bg-neutral-50',
-  children,
-}: Props) {
-  const qs = buildTaskPrefillQuery({
-    title,
-    description,
-    module,
-    sourceType,
-    sourceId,
-    sourceLabel,
-    ownerRole,
-    requiresManagementSignOff,
-  })
+export function AddTaskLink({ children, className = '' }: Props) {
   return (
-    <Link to={`/tasks/management?${qs}`} className={className}>
-      <Plus className="size-3.5" />
-      {children ?? 'Oppfølgingsoppgave'}
+    <Link to="/tasks/management" className={className}>
+      {children}
     </Link>
   )
 }

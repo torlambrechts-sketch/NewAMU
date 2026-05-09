@@ -62,6 +62,7 @@ import { useSurveyNav } from '../../../modules/survey/useSurveyNav'
 import { useLearningNav } from '../../hooks/useLearningNav'
 import { useDocumentNav } from '../../hooks/useDocumentNav'
 import { useRegistersNav } from '../../hooks/useRegistersNav'
+import { useTaskNav } from '../../../modules/tasks/useTaskNav'
 import type { NavMode } from './aticsNavMode'
 
 // ─── Sub-item type ────────────────────────────────────────────────────────────
@@ -426,87 +427,8 @@ const REGISTERS_NAV_PERMS: PermissionKey[] = [
 // of this commit.
 // ─────────────────────────────────────────────────────────────────────────────
 
-const oppgaverManagementSubs: SubItem[] = [
-  // ── Analyse + admin ──────────────────────────────────────────────────────
-  {
-    label: 'Analyse',
-    path: '/tasks/management/analyse',
-    Icon: BarChart3,
-    match: ({ pathname }) => pathname === '/tasks/management/analyse',
-  },
-  {
-    label: 'Innstillinger',
-    path: '/tasks/management?tab=innstillinger',
-    Icon: Settings,
-    match: ({ pathname, search }) =>
-      pathname === '/tasks/management' &&
-      new URLSearchParams(search).get('tab') === 'innstillinger',
-  },
-  // ── Pack-architecture views (primary surfaces) ───────────────────────────
-  {
-    label: 'Oppgaveliste',
-    path: '/tasks/management?tab=liste',
-    Icon: ClipboardList,
-    match: ({ pathname, search }) =>
-      pathname === '/tasks/management' && new URLSearchParams(search).get('tab') === 'liste',
-  },
-  {
-    label: 'Revisorpakke',
-    path: '/tasks/management?tab=revisor',
-    Icon: Shield,
-    match: ({ pathname, search }) =>
-      pathname === '/tasks/management' && new URLSearchParams(search).get('tab') === 'revisor',
-  },
-  // ── Alle oppgaver (tverrgående listevisning) ──────────────────────────────
-  {
-    label: 'Alle oppgaver',
-    path: '/tasks/management/alle',
-    match: ({ pathname }) => pathname === '/tasks/management/alle',
-  },
-  // ── Eksisterende faner (bakoverkompatibilitet) ───────────────────────────
-  {
-    label: 'Oversikt',
-    path: '/tasks/management?tab=oversikt',
-    match: ({ pathname, search }) =>
-      pathname === '/tasks/management' &&
-      (!new URLSearchParams(search).get('tab') ||
-        new URLSearchParams(search).get('tab') === 'oversikt'),
-  },
-  {
-    label: 'Planlegging',
-    path: '/tasks/management?tab=planlegging',
-    match: ({ pathname, search }) =>
-      pathname === '/tasks/management' &&
-      new URLSearchParams(search).get('tab') === 'planlegging',
-  },
-  {
-    label: 'Samarbeid',
-    path: '/tasks/management?tab=samarbeid',
-    match: ({ pathname, search }) =>
-      pathname === '/tasks/management' &&
-      new URLSearchParams(search).get('tab') === 'samarbeid',
-  },
-  {
-    label: 'Avvik',
-    path: '/tasks/management?tab=avvik',
-    match: ({ pathname, search }) =>
-      pathname === '/tasks/management' && new URLSearchParams(search).get('tab') === 'avvik',
-  },
-  {
-    label: 'Varsling',
-    path: '/tasks/management?tab=varsling',
-    match: ({ pathname, search }) =>
-      pathname === '/tasks/management' &&
-      new URLSearchParams(search).get('tab') === 'varsling',
-  },
-  {
-    label: 'Anonym AML',
-    path: '/tasks/management?tab=anonym',
-    match: ({ pathname, search }) =>
-      pathname === '/tasks/management' &&
-      new URLSearchParams(search).get('tab') === 'anonym',
-  },
-]
+// oppgaverManagementSubs removed — tasks nav is now dynamic via useTaskNav
+// (same pattern as complianceNav / surveyNav). Built inside mergedNavGroups below.
 
 // Every module previously surfaced as a top-level entry, now flattened into a
 // single "Gamle moduler" group while we audit the IA. Order preserved from the
@@ -865,6 +787,7 @@ export function AticsShell() {
   const learningNav = useLearningNav()
   const documentNav = useDocumentNav()
   const registersNav = useRegistersNav()
+  const tasksNav = useTaskNav()
   const { isActive: isRegulationActive, activeRegulationIds } = useRegulationFilter()
   const mergedNavGroups = useMemo<NavGroup[]>(() => {
     // Fixed sub-entries that always sit under "Sjekklister" — Analyse and
@@ -1452,9 +1375,79 @@ export function AticsShell() {
       ],
     }
 
-    // Oppgaver group — promoted to top-level alongside Sjekklister /
-    // Undersøkelser / Læring per session-end IA cleanup. Same flatSubs
-    // treatment so the management tabs read at module level.
+    // Oppgaver group — dynamic nav identical in shape to Sjekklister / Undersøkelser.
+    // Fixed subs: Analyse, Alle oppgaver, Innstillinger.
+    // Pinned templates follow, grouped by category with collapsible headers.
+    const tasksFixedSubs: SubItem[] = [
+      {
+        label: 'Analyse',
+        path: '/tasks/management/analyse',
+        Icon: BarChart3,
+        match: ({ pathname }) => pathname === '/tasks/management/analyse',
+        requirePermAny: TASKS_NAV_PERMS,
+      },
+      {
+        label: 'Alle oppgaver',
+        path: '/tasks/management/alle',
+        match: ({ pathname }) => pathname === '/tasks/management/alle',
+        requirePermAny: TASKS_NAV_PERMS,
+      },
+      {
+        label: 'Innstillinger',
+        path: '/tasks/management/admin',
+        Icon: Settings,
+        match: ({ pathname }) => pathname.startsWith('/tasks/management/admin'),
+        requirePermAny: TASKS_NAV_PERMS,
+      },
+    ]
+
+    const tasksPinnedSubs: SubItem[] = (() => {
+      const buckets = new Map<string, typeof tasksNav.items>()
+      for (const it of tasksNav.items) {
+        const list = buckets.get(it.headerKey) ?? []
+        list.push(it)
+        buckets.set(it.headerKey, list)
+      }
+      const orderedCats = tasksNav.categories
+        .filter((c) => buckets.has(c.id))
+        .sort((a, b) => a.position - b.position || a.name.localeCompare(b.name, 'nb'))
+      const uncategorisedEntries = [...buckets.entries()].filter(([key]) => key === '__uncat__')
+      const orderedKeys: { id: string; name: string }[] = [
+        ...orderedCats.map((c) => ({ id: c.id, name: c.name })),
+        ...(uncategorisedEntries.length > 0 ? [{ id: '__uncat__', name: 'Uten kategori' }] : []),
+      ]
+      const showHeaders = orderedKeys.length > 1
+      const subs: SubItem[] = []
+      for (const cat of orderedKeys) {
+        const list = buckets.get(cat.id) ?? []
+        if (list.length === 0) continue
+        if (showHeaders) {
+          subs.push({
+            kind: 'header',
+            label: cat.name,
+            path: `__cat:${cat.id}`,
+            match: () => false,
+            headerKey: cat.id,
+            Icon: FolderTree,
+            requirePermAny: TASKS_NAV_PERMS,
+          })
+        }
+        for (const item of list) {
+          subs.push({
+            label: item.name,
+            path: item.to,
+            match: ({ pathname, search }) => {
+              if (pathname !== '/tasks/management') return false
+              return new URLSearchParams(search).get('template') === item.templateSlug
+            },
+            headerKey: showHeaders ? cat.id : undefined,
+            requirePermAny: TASKS_NAV_PERMS,
+          })
+        }
+      }
+      return subs
+    })()
+
     const tasksGroup: NavGroup = {
       id: 'oppgaver',
       label: 'Oppgaver',
@@ -1465,7 +1458,7 @@ export function AticsShell() {
           label: 'Oppgaver',
           end: false,
           icon: Kanban,
-          subs: oppgaverManagementSubs.map((s) => ({ ...s, requirePermAny: TASKS_NAV_PERMS })),
+          subs: [...tasksFixedSubs, ...tasksPinnedSubs],
           permAny: TASKS_NAV_PERMS,
           moduleSlug: 'tasks',
           flatSubs: true,
@@ -1514,6 +1507,8 @@ export function AticsShell() {
     learningNav.categories,
     registersNav.items,
     registersNav.categories,
+    tasksNav.items,
+    tasksNav.categories,
     isRegulationActive,
     activeRegulationIds,
   ])
