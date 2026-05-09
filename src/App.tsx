@@ -26,6 +26,7 @@ import { WorkplaceIncidentsPage } from './pages/WorkplaceIncidentsPage'
 import { WorkplaceAnonymousAmlPage } from './pages/WorkplaceAnonymousAmlPage'
 import { WorkplaceAnonymousAmlSettingsPage } from './pages/WorkplaceAnonymousAmlSettingsPage'
 import { PublicAnonymousAmlPage } from './pages/PublicAnonymousAmlPage'
+import { TasksAuditView } from './pages/tasks/TasksAuditView'
 import { HrComplianceHub } from './pages/hr/HrComplianceHub'
 import { HrDiscussionPage } from './pages/hr/HrDiscussionPage'
 import { HrConsultationPage } from './pages/hr/HrConsultationPage'
@@ -189,6 +190,7 @@ const router = createBrowserRouter(
             <Route path="/varsle/status" element={<WhistleStatusPage />} />
             <Route path="/varsle/:slug" element={<PublicWhistlePage />} />
             <Route path="/anonym-aml/:slug" element={<PublicAnonymousAmlPage />} />
+            <Route path="/tasks/audit/:token" element={<TasksAuditView />} />
             <Route path="/survey-respond/:campaignId" element={<SurveyRespondPage />} />
             {/* Public marketing / landing page — root "/" for all visitors */}
             <Route index element={<LandingPage />} />

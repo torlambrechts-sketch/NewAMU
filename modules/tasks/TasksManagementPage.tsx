@@ -42,6 +42,10 @@ import { TasksCollaborationTab } from './tabs/TasksCollaborationTab'
 import { TasksAvvikTab } from './tabs/TasksAvvikTab'
 import { TasksVarslingTab } from './tabs/TasksVarslingTab'
 import { TasksAnonymTab } from './tabs/TasksAnonymTab'
+import { TasksPDCABoardTab } from './tabs/TasksPDCABoardTab'
+import { TasksTableReportTab } from './tabs/TasksTableReportTab'
+import { TasksAuditPackTab } from './tabs/TasksAuditPackTab'
+import { NewTaskModal } from './components/NewTaskModal'
 import { TasksSettingsTab } from './tabs/TasksSettingsTab'
 import { TaskDetailPanel } from './TaskDetailPanel'
 import { useTaskExtensions } from './useTaskExtensions'
@@ -50,24 +54,30 @@ import { TASK_PRIORITY_OPTIONS, type TaskPriority } from './types'
 
 type ModuleTab =
   | 'oversikt'
+  | 'pdca'
   | 'tavle'
   | 'liste'
+  | 'rapport'
   | 'planlegging'
   | 'samarbeid'
   | 'avvik'
   | 'varsling'
   | 'anonym'
+  | 'revisor'
   | 'innstillinger'
 
 const TAB_IDS: ReadonlyArray<ModuleTab> = [
   'oversikt',
+  'pdca',
   'tavle',
   'liste',
+  'rapport',
   'planlegging',
   'samarbeid',
   'avvik',
   'varsling',
   'anonym',
+  'revisor',
   'innstillinger',
 ]
 
@@ -110,6 +120,7 @@ export function TasksManagementPage() {
   const [tab, setTab] = useState<ModuleTab>(initialTab)
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null)
   const [createOpen, setCreateOpen] = useState(false)
+  const [newTaskModalOpen, setNewTaskModalOpen] = useState(false)
 
   // Create-task draft local state.
   const [draft, setDraft] = useState<DraftTask>(emptyDraft({ priority: settings.settings.defaults.priority, ownerRole: settings.settings.defaults.ownerRole }))
@@ -120,8 +131,10 @@ export function TasksManagementPage() {
     const openVarsling = wb.cases.filter((c) => c.status !== 'closed').length
     return [
       { id: 'oversikt', label: 'Oversikt', icon: LayoutGrid },
+      { id: 'pdca', label: 'PDCA-tavle', icon: KanbanSquare },
       { id: 'tavle', label: 'Tavle', icon: KanbanSquare, badgeCount: open || undefined },
       { id: 'liste', label: 'Liste', icon: ClipboardList },
+      { id: 'rapport', label: 'Tabellvisning', icon: ClipboardList },
       { id: 'planlegging', label: 'Planlegging', icon: Workflow, badgeCount: ext.projects.length || undefined },
       { id: 'samarbeid', label: 'Samarbeid', icon: Users },
       {
@@ -133,6 +146,7 @@ export function TasksManagementPage() {
       },
       { id: 'varsling', label: 'Varsling', icon: ShieldAlert, badgeCount: openVarsling || undefined },
       { id: 'anonym', label: 'Anonym AML', icon: Shield },
+      { id: 'revisor', label: 'Revisorpakke', icon: Shield },
       { id: 'innstillinger', label: 'Innstillinger', icon: SettingsIcon },
     ]
   }, [tasksApi.tasks, ext.projects.length, avvikApi.avvik, wb.cases])
@@ -229,9 +243,9 @@ export function TasksManagementPage() {
               type="button"
               variant="primary"
               icon={<Plus className="h-4 w-4" />}
-              onClick={() => setCreateOpen(true)}
+              onClick={() => setNewTaskModalOpen(true)}
             >
-              Ny oppgave
+              Ny oppgave / avvik / tiltak
             </Button>
           </div>
         }
@@ -258,6 +272,12 @@ export function TasksManagementPage() {
         />
 
         {tasksApi.error ? <WarningBox>{tasksApi.error}</WarningBox> : null}
+
+        {tab === 'pdca' && <TasksPDCABoardTab />}
+
+        {tab === 'rapport' && <TasksTableReportTab />}
+
+        {tab === 'revisor' && <TasksAuditPackTab />}
 
         {tab === 'oversikt' && (
           <TasksOverviewTab
@@ -297,6 +317,12 @@ export function TasksManagementPage() {
 
         {tab === 'innstillinger' && <TasksSettingsTab settings={settings} />}
       </ModulePageShell>
+
+      {newTaskModalOpen && (
+        <NewTaskModal
+          onClose={() => setNewTaskModalOpen(false)}
+        />
+      )}
 
       <TaskDetailPanel
         open={selectedTaskId !== null}
