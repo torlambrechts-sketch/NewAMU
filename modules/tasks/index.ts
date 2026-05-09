@@ -1,6 +1,11 @@
-// Tasks module — Phase 0 stub.
-// Full implementation begins in Phase 1 (TasksHubLanding, TasksManagementPage, etc.).
-// App.tsx imports are satisfied here so the build stays green during the rebuild.
+// Tasks module — Phase 1.
+// Hub landing + three-mode routing + task CRUD operational.
+// Phase 2: project mode (kanban/PDCA). Phase 3: full admin.
 
 export { TasksManagementPage } from './TasksManagementPage'
 export { TasksAnalysePage } from './TasksAnalysePage'
+export { TasksHubLanding } from './TasksHubLanding'
+export { TaskCreateForm } from './TaskCreateForm'
+export { TaskDetailPanel } from './TaskDetailPanel'
+export { useTaskTemplates } from './useTaskTemplates'
+export { useTaskItemsData } from './useTaskItemsData'
