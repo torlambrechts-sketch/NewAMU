@@ -2,7 +2,7 @@
 // JSON org_module_payloads for new tasks. Old JSON tasks remain readable
 // via useTaskExtensions; this hook is the write surface for the new
 // pack-aware architecture.
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useOrgSetupContext } from '../../src/hooks/useOrgSetupContext'
 import type {
   TaskItem,
@@ -139,7 +139,11 @@ export function useTaskItems(filters: TaskItemFilters = {}) {
     void refresh()
   }, [refresh])
 
-  // Realtime subscription
+  // Keep a stable ref so the realtime effect never needs to re-subscribe on filter changes.
+  const refreshRef = useRef(refresh)
+  useEffect(() => { refreshRef.current = refresh }, [refresh])
+
+  // Realtime subscription — only recreated when supabase client or org changes.
   useEffect(() => {
     if (!supabase || !orgId) return
     const channel = supabase
@@ -147,11 +151,11 @@ export function useTaskItems(filters: TaskItemFilters = {}) {
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'task_items', filter: `organization_id=eq.${orgId}` },
-        () => { void refresh() },
+        () => { void refreshRef.current() },
       )
       .subscribe()
     return () => { void supabase.removeChannel(channel) }
-  }, [supabase, orgId, refresh])
+  }, [supabase, orgId])
 
   const createItem = useCallback(
     async (payload: Omit<TaskItem, 'id' | 'organizationId' | 'createdAt' | 'updatedAt'>): Promise<TaskItem | null> => {
