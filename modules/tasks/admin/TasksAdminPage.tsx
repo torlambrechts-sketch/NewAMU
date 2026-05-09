@@ -1,9 +1,8 @@
 // TasksAdminPage — settings for the Oppgaver module.
-// Tabs: Maler (activate/pin), Kategorier (CRUD + reorder), SLA & Innstillinger.
-// Varsler and Roller come in Phase 3.
+// Tabs: Maler (activate/pin), Kategorier (CRUD + reorder), SLA & Innstillinger,
+//       Varsler (notification triggers). Roller deferred to Phase 6.
 
 import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
 import { FolderOpen, CheckSquare, Clock, Bell, Users } from 'lucide-react'
 import { ModulePageShell } from '../../../src/components/module/ModulePageShell'
 import { Tabs } from '../../../src/components/ui/Tabs'
@@ -11,17 +10,17 @@ import { Badge } from '../../../src/components/ui/Badge'
 import { TasksMalerTab } from './TasksMalerTab'
 import { TasksKategorierTab } from './TasksKategorierTab'
 import { TasksSLATab } from './TasksSLATab'
+import { TasksVarslerTab } from './TasksVarslerTab'
 
 const TABS = [
   { id: 'maler', label: 'Maler', icon: CheckSquare },
   { id: 'kategorier', label: 'Kategorier', icon: FolderOpen },
   { id: 'sla', label: 'SLA & Innstillinger', icon: Clock },
-  { id: 'varsler', label: 'Varsler', icon: Bell, disabled: true },
+  { id: 'varsler', label: 'Varsler', icon: Bell },
   { id: 'roller', label: 'Roller', icon: Users, disabled: true },
 ]
 
 export function TasksAdminPage() {
-  const navigate = useNavigate()
   const [activeTab, setActiveTab] = useState('maler')
 
   return (
@@ -41,7 +40,7 @@ export function TasksAdminPage() {
                 <t.icon className="h-3.5 w-3.5" aria-hidden />
                 {t.label}
                 {t.disabled && (
-                  <Badge variant="neutral" className="text-[9px]">Fase 3</Badge>
+                  <Badge variant="neutral" className="text-[9px]">Fase 6</Badge>
                 )}
               </span>
             ),
@@ -56,11 +55,10 @@ export function TasksAdminPage() {
       {activeTab === 'maler' && <TasksMalerTab />}
       {activeTab === 'kategorier' && <TasksKategorierTab />}
       {activeTab === 'sla' && <TasksSLATab />}
-      {(activeTab === 'varsler' || activeTab === 'roller') && (
+      {activeTab === 'varsler' && <TasksVarslerTab />}
+      {activeTab === 'roller' && (
         <div className="flex flex-col items-center justify-center min-h-[30vh] gap-3 text-neutral-500">
-          <p className="text-sm font-medium text-neutral-700">
-            {activeTab === 'varsler' ? 'Varsler' : 'Roller'} — implementeres i fase 3
-          </p>
+          <p className="text-sm font-medium text-neutral-700">Roller — implementeres i fase 6</p>
         </div>
       )}
     </ModulePageShell>

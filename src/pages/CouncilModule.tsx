@@ -40,7 +40,7 @@ import { useOrganisation } from '../hooks/useOrganisation'
 import { useLearning } from '../hooks/useLearning'
 import { useHse } from '../hooks/useHse'
 import { useInternalControl } from '../hooks/useInternalControl'
-import { useTasks } from '../hooks/useTasks'
+import { useTaskItemsData } from '../../modules/tasks/useTaskItemsData'
 import { formatLevel1AuditLine } from '../lib/level1Signature'
 import { avatarUrlFromSeed } from '../lib/avatarUrl'
 import type {
@@ -301,7 +301,7 @@ export function CouncilModule() {
   const learning = useLearning()
   const hse = useHse()
   const ic = useInternalControl()
-  const { addTask } = useTasks()
+  const taskItems = useTaskItemsData()
   const { complianceThresholds: ct } = org
 
   const location = useLocation()
@@ -860,16 +860,15 @@ export function CouncilModule() {
   // ── Task generator from agenda decisions ─────────────────────────────────────
 
   function createTaskFromDecision(description: string, responsible: string, dueDate: string, meetingTitle: string) {
-    addTask({
+    void taskItems.createItem({
       title: description.slice(0, 120),
       description: `Vedtak fra AMU-møte: ${meetingTitle}`,
-      status: 'todo',
-      assignee: responsible,
-      ownerRole: 'AMU-vedtak',
+      priority: 'medium',
+      assigneeName: responsible,
+      ownerName: 'AMU-vedtak',
       dueDate,
-      module: 'council',
-      sourceType: 'council_meeting',
-      requiresManagementSignOff: false,
+      templateSlug: 'oppgave-generell',
+      templateKind: 'oppgave',
     })
   }
 

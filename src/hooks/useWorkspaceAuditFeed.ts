@@ -4,8 +4,6 @@ import { useHse } from './useHse'
 import { useInternalControl } from './useInternalControl'
 import { useOrgHealth } from './useOrgHealth'
 import { useRepresentatives } from './useRepresentatives'
-import { useTasks } from './useTasks'
-
 export const WORKSPACE_AUDIT_SOURCES = [
   'all',
   'tasks',
@@ -59,7 +57,6 @@ export function parseWorkspaceAuditSourceParam(raw: string | null): WorkspaceAud
 }
 
 export function useWorkspaceAuditFeed() {
-  const ts = useTasks()
   const ic = useInternalControl()
   const hse = useHse()
   const oh = useOrgHealth()
@@ -69,18 +66,7 @@ export function useWorkspaceAuditFeed() {
   const rows = useMemo(() => {
     const out: WorkspaceAuditFeedRow[] = []
 
-    for (const a of ts.auditLog) {
-      out.push({
-        id: `tasks-${a.id}`,
-        at: a.at,
-        source: 'tasks',
-        sourceLabel: SOURCE_LABELS.tasks,
-        action: a.action,
-        message: a.message,
-        detail: a.taskId ? `Oppgave-ID: ${a.taskId}` : undefined,
-        linkTo: '/tasks/management',
-      })
-    }
+
 
     for (const a of ic.auditTrail) {
       out.push({
@@ -152,7 +138,6 @@ export function useWorkspaceAuditFeed() {
     out.sort((a, b) => b.at.localeCompare(a.at))
     return out
   }, [
-    ts.auditLog,
     ic.auditTrail,
     hse.auditTrail,
     oh.auditTrail,

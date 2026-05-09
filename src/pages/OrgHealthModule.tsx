@@ -31,7 +31,7 @@ import { useWorkplaceReportingCases } from '../hooks/useWorkplaceReportingCases'
 import { useOrganisation } from '../hooks/useOrganisation'
 import { useWorkplaceKpiStripStyle } from '../hooks/useWorkplaceKpiStripStyle'
 import { useOrgSetupContext } from '../hooks/useOrgSetupContext'
-import { useTasks } from '../hooks/useTasks'
+import { useTaskItemsData } from '../../modules/tasks/useTaskItemsData'
 import { useUiTheme } from '../hooks/useUiTheme'
 import {
   mergeLayoutPayload,
@@ -94,7 +94,7 @@ export function OrgHealthModule() {
   const oh = useOrgHealth()
   const wr = useWorkplaceReportingCases()
   const org = useOrganisation()
-  const { addTask } = useTasks()
+  const taskItems = useTaskItemsData()
   const docs = useDocuments()
   const { barStyle: kpiStripStyle } = useWorkplaceKpiStripStyle()
   const { payload: layoutPayload } = useUiTheme()
@@ -286,21 +286,17 @@ export function OrgHealthModule() {
 
   const onLowPsychSafetyClose = useCallback(
     (ev: SurveyCloseSideEffect) => {
-      addTask({
+      void taskItems.createItem({
         title: `Arbeidsmiljøoppfølging: ${ev.targetLabel ?? 'målgruppe'} (psykologisk trygghet)`,
         description: `Undersøkelse «${ev.surveyTitle}» er lukket med lav gjennomsnittsscore på psykologisk trygghet (snitt ${ev.psychSafetyMean} på skala der høyere er bedre, n=${ev.responseCount}).\n\nI henhold til AML § 3-1 skal arbeidsmiljøet kartlegges og følges opp systematisk. Initier oppfølging i målgruppen og dokumenter tiltak.`,
-        status: 'todo',
-        assignee: 'HR / HMS',
+        priority: 'high',
+        assigneeName: 'HR / HMS',
         dueDate: new Date().toISOString().slice(0, 10),
-        module: 'org_health',
-        sourceType: 'survey',
-        sourceId: ev.surveyId,
-        sourceLabel: ev.surveyTitle,
-        ownerRole: 'HR Manager',
-        requiresManagementSignOff: true,
+        templateSlug: 'oppgave-generell',
+        templateKind: 'oppgave',
       })
     },
-    [addTask],
+    [taskItems],
   )
 
   const handleCloseSurveyFromPanel = useCallback(

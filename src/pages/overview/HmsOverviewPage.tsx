@@ -38,8 +38,7 @@ import { useSurvey } from '../../../modules/survey/useSurvey'
 import { useSurveyPacks } from '../../../modules/survey/useSurveyPacks'
 import { useSurveyOrgTemplates } from '../../../modules/survey/useSurveyOrgTemplates'
 import { useSurveyDatasets } from '../../../modules/survey/dashboards/useSurveyDatasets'
-import { useTasks } from '../../hooks/useTasks'
-import { useTaskExtensions } from '../../../modules/tasks/useTaskExtensions'
+import { useTaskItemsData } from '../../../modules/tasks/useTaskItemsData'
 import { useTasksDatasets } from '../../../modules/tasks/dashboards/useTasksDatasets'
 import { useDocuments } from '../../hooks/useDocuments'
 import { useDocumentsDatasets } from '../documents/dashboards/useDocumentsDatasets'
@@ -72,8 +71,7 @@ export function HmsOverviewPage() {
   const { packs: surveyPacks } = useSurveyPacks({ supabase })
   const surveyOrgTemplates = useSurveyOrgTemplates({ supabase })
 
-  const tasksApi = useTasks()
-  const ext = useTaskExtensions(tasksApi.tasks)
+  const tasksApi = useTaskItemsData()
 
   const learning = useLearning()
   const cats = useLearningCategories({ supabase })
@@ -137,13 +135,21 @@ export function HmsOverviewPage() {
     departments: orgSetup.departments,
     categoryByCatalogId,
   })
-  const tasksDs = useTasksDatasets({
-    filters: dashboard.filters,
-    tasks: tasksApi.tasks,
-    ext,
-    members: orgSetup.members,
-    departments: orgSetup.departments,
-  })
+  const tasksDs = useTasksDatasets(
+    tasksApi.items.map((t) => ({
+      id: t.id,
+      status: t.status,
+      priority: t.priority,
+      templateKind: t.templateKind,
+      templateSlug: t.templateSlug,
+      templateName: null,
+      dueDate: t.dueDate,
+      slaDueAt: t.slaDueAt,
+      closedAt: t.closedAt,
+      createdAt: t.createdAt,
+    })),
+    dashboard.filters,
+  )
   const learningDs = useLearningDatasets({
     filters: dashboard.filters,
     courses: learning.courses,

@@ -6,7 +6,6 @@ import {
   saveReadNotificationIds,
 } from '../lib/notificationPreferences'
 import { useOrgSetupContext } from './useOrgSetupContext'
-import { useTasks } from './useTasks'
 import { useWhistleblowing } from './useWhistleblowing'
 
 function normEmail(s: string | null | undefined) {
@@ -23,7 +22,6 @@ function daysUntilDue(due: string): number | null {
 
 export function useNotifications() {
   const { user, profile, permissionKeys, isAdmin } = useOrgSetupContext()
-  const { tasks } = useTasks()
   const wb = useWhistleblowing()
   const userId = user?.id ?? null
   const userEmail = normEmail(profile?.email ?? user?.email ?? undefined)
@@ -59,65 +57,6 @@ export function useNotifications() {
     const out: AppNotification[] = []
     if (!userEmail || !prefs.channels.inApp) return out
 
-    for (const t of tasks) {
-      if (prefs.categories.tasks_sign && t.sourceType === 'task_cosign_request' && t.status !== 'done') {
-        if (normEmail(t.assigneeSignerEmail) === userEmail) {
-          out.push({
-            id: `task-cosign-${t.id}`,
-            category: 'tasks_sign',
-            title: 'Medsignatur påkrevd',
-            body: t.title,
-            createdAt: t.createdAt,
-            href: `/tasks/management?openTask=${encodeURIComponent(t.id)}`,
-            severity: 'warning',
-          })
-        }
-      }
-
-      if (
-        prefs.categories.tasks_sign &&
-        t.requiresManagementSignOff &&
-        t.assigneeSignature &&
-        !t.managementSignature &&
-        normEmail(t.managementSignerEmail) === userEmail
-      ) {
-        out.push({
-          id: `task-mgmt-${t.id}`,
-          category: 'tasks_sign',
-          title: 'Ledergodkjenning venter',
-          body: t.title,
-          createdAt: t.createdAt,
-          href: `/tasks/management?openTask=${encodeURIComponent(t.id)}`,
-        })
-      }
-
-      if (prefs.categories.tasks_sign && !t.assigneeSignature && normEmail(t.assigneeSignerEmail) === userEmail) {
-        out.push({
-          id: `task-assignee-${t.id}`,
-          category: 'tasks_sign',
-          title: 'Signer som utfører',
-          body: t.title,
-          createdAt: t.createdAt,
-          href: `/tasks/management?openTask=${encodeURIComponent(t.id)}`,
-        })
-      }
-
-      if (prefs.categories.tasks_due && t.status !== 'done' && normEmail(t.assigneeSignerEmail) === userEmail) {
-        const d = daysUntilDue(t.dueDate)
-        if (d !== null && d >= 0 && d <= 7) {
-          out.push({
-            id: `task-due-${t.id}`,
-            category: 'tasks_due',
-            title: d === 0 ? 'Oppgave forfaller i dag' : `Oppgave forfaller om ${d} d.`,
-            body: t.title,
-            createdAt: new Date().toISOString(),
-            href: `/tasks/management?openTask=${encodeURIComponent(t.id)}`,
-            severity: d <= 2 ? 'warning' : 'info',
-          })
-        }
-      }
-    }
-
     if (prefs.categories.whistle && canWhistle) {
       for (const c of wb.cases) {
         if (c.status === 'received' || c.status === 'triage') {
@@ -135,7 +74,7 @@ export function useNotifications() {
     }
 
     return out.sort((a, b) => b.createdAt.localeCompare(a.createdAt))
-  }, [tasks, userEmail, prefs, canWhistle, wb.cases])
+  }, [userEmail, prefs, canWhistle, wb.cases])
 
   const deduped = useMemo(() => {
     const seen = new Set<string>()

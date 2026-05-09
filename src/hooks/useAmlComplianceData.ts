@@ -1,15 +1,10 @@
-// useAmlComplianceData — Phase B partial. Aggregates the data the
-// Arbeidsmiljøloven dashboard reads (`/compliance/arbeidsmiljoloven`)
-// from the existing per-module hooks. v1 wires real data for:
-//   - Utestående oppgaver  ← useTasks() filtered to AML-relevant
-//                            sourceType / module + mapped to AmlTask
-// Other surfaces (modules grid, score, year wheel, Klarert feed) fall
-// through to the seed shipped in src/data/amlComplianceSeed.ts. The
-// per-topic `computeStatus` adapter table lands in a follow-up — the
-// hook's interface stays stable so the page never has to change.
+// useAmlComplianceData — Aggregates the data the Arbeidsmiljøloven
+// dashboard reads (`/compliance/arbeidsmiljoloven`).
+// Task data comes from useTaskItemsData (all non-closed items mapped by templateKind).
+// Other surfaces fall through to the seed in src/data/amlComplianceSeed.ts.
 
 import { useMemo } from 'react'
-import { useTasks } from './useTasks'
+import { useTaskItemsData, type TaskItemRow } from '../../modules/tasks/useTaskItemsData'
 import {
   AML_KLARERT_FEED,
   AML_MODULES,
@@ -27,7 +22,7 @@ import {
   type AmlToday,
   type AmlWheelItem,
 } from '../data/amlComplianceSeed'
-import type { Task, TaskSourceType } from '../types/task'
+import type { TaskTemplateKind } from '../types/task'
 
 export type UseAmlComplianceDataReturn = {
   today: AmlToday
@@ -48,66 +43,34 @@ export type UseAmlComplianceDataReturn = {
   }
 }
 
-// AML-relevant task source types. Anything from these contributes to
-// the Arbeidsmiljøloven outstanding-tasks table; manual / unrelated
-// tasks do not.
-const AML_TASK_SOURCE_TYPES = new Set<TaskSourceType>([
-  'hse_safety_round',
-  'hse_inspection',
-  'hse_inspection_finding',
-  'hse_incident',
-  'hse_sja',
-  'hse_sick_leave_milestone',
-  'nav_report',
-  'ros_measure',
-  'annual_review_action',
-  'council_meeting',
-  'council_compliance',
-  'representatives',
-])
-
-// Topic / module mapping driving the "Modul" column on the table.
-// Same identifiers as the AML_MODULES seed so a future drill-through
-// can reach the right card.
-const SOURCE_TYPE_TO_MODULE_LABEL: Partial<Record<TaskSourceType, string>> = {
-  hse_safety_round: 'Vernerunder',
-  hse_inspection: 'Vernerunder',
-  hse_inspection_finding: 'Avvik',
-  hse_incident: 'Avvik',
-  hse_sja: 'SJA',
-  hse_sick_leave_milestone: 'Sykefravær',
-  nav_report: 'Sykefravær',
-  ros_measure: 'ROS-analyser',
-  annual_review_action: 'Internkontroll',
-  council_meeting: 'AMU',
-  council_compliance: 'AMU',
-  representatives: 'Verneombud',
+// Template kind → AML module label mapping.
+const KIND_TO_MODULE_LABEL: Partial<Record<TaskTemplateKind, string>> = {
+  avvik: 'Avvik',
+  nestenulykke: 'Avvik',
+  risiko: 'ROS-analyser',
+  tiltak: 'Internkontroll',
+  'sykefravær': 'Sykefravær',
+  forslag: 'Forslag',
+  oppgave: 'Generelle oppgaver',
 }
 
-// Best-effort mapping of source type → AML §. Mirrors AML_MODULES.law.
-const SOURCE_TYPE_TO_LAW: Partial<Record<TaskSourceType, string>> = {
-  hse_safety_round: '§ 3-1 (2) c',
-  hse_inspection: '§ 3-1 (2) c',
-  hse_inspection_finding: '§ 3-1 (2) e',
-  hse_incident: '§ 3-1 (2) e',
-  hse_sja: 'IK § 5 nr. 6',
-  hse_sick_leave_milestone: '§ 4-6 (3)',
-  nav_report: '§ 4-6 (3)',
-  ros_measure: '§ 3-1',
-  annual_review_action: 'IK § 5',
-  council_meeting: '§ 7-2',
-  council_compliance: '§ 7-2',
-  representatives: '§ 6-2',
+// Template kind → AML § mapping.
+const KIND_TO_LAW: Partial<Record<TaskTemplateKind, string>> = {
+  avvik: '§ 3-1 (2) e',
+  nestenulykke: '§ 3-1 (2) e',
+  risiko: '§ 3-1',
+  tiltak: 'IK § 5',
+  'sykefravær': '§ 4-6 (3)',
 }
 
 export function useAmlComplianceData(): UseAmlComplianceDataReturn {
-  const { tasks: allTasks } = useTasks()
+  const { items: allTasks } = useTaskItemsData()
 
   const realAmlTasks = useMemo<AmlTask[]>(() => {
     const today = new Date()
     today.setHours(0, 0, 0, 0)
     return allTasks
-      .filter((t) => t.status !== 'done' && AML_TASK_SOURCE_TYPES.has(t.sourceType))
+      .filter((t) => t.status !== 'closed' && t.status !== 'cancelled')
       .map((t) => mapTaskToAmlTask(t, today))
   }, [allTasks])
 
@@ -131,11 +94,10 @@ export function useAmlComplianceData(): UseAmlComplianceDataReturn {
     let overdueTotal = 0
     let dueSoonTotal = 0
     for (const t of allTasks) {
-      if (t.status === 'done') continue
-      if (!AML_TASK_SOURCE_TYPES.has(t.sourceType)) continue
+      if (t.status === 'closed' || t.status === 'cancelled') continue
       const moduleLabel =
-        SOURCE_TYPE_TO_MODULE_LABEL[t.sourceType] ?? labelFromSourceType(t.sourceType)
-      const due = new Date(t.dueDate)
+        (t.templateKind ? KIND_TO_MODULE_LABEL[t.templateKind] : undefined) ?? 'Generelle oppgaver'
+      const due = new Date(t.dueDate ?? '')
       const isOverdue = !Number.isNaN(due.getTime()) && due < today
       const isDueSoon =
         !Number.isNaN(due.getTime()) &&
@@ -201,8 +163,8 @@ export function useAmlComplianceData(): UseAmlComplianceDataReturn {
   }
 }
 
-function mapTaskToAmlTask(t: Task, todayStart: Date): AmlTask {
-  const due = new Date(t.dueDate)
+function mapTaskToAmlTask(t: TaskItemRow, todayStart: Date): AmlTask {
+  const due = new Date(t.dueDate ?? '')
   const overdue = !Number.isNaN(due.getTime()) && due < todayStart
   const daysLate = overdue
     ? Math.max(1, Math.floor((todayStart.getTime() - due.getTime()) / 86_400_000))
@@ -210,37 +172,23 @@ function mapTaskToAmlTask(t: Task, todayStart: Date): AmlTask {
   return {
     id: t.id,
     title: t.title,
-    module: SOURCE_TYPE_TO_MODULE_LABEL[t.sourceType] ?? labelFromSourceType(t.sourceType),
-    law: SOURCE_TYPE_TO_LAW[t.sourceType] ?? '—',
+    module: (t.templateKind ? KIND_TO_MODULE_LABEL[t.templateKind] : undefined) ?? 'Generelle oppgaver',
+    law: (t.templateKind ? KIND_TO_LAW[t.templateKind] : undefined) ?? '—',
     severity: deriveSeverity(t, overdue),
-    owner: t.assignee || t.ownerRole || '—',
+    owner: t.assigneeName || t.ownerName || '—',
     due: formatNorwegianShort(due),
     overdue,
     daysLate,
   }
 }
 
-function deriveSeverity(t: Task, overdue: boolean): AmlTaskSeverity {
-  // Heuristic: overdue + IA / sick-leave / incident → critical.
-  // Overdue otherwise → high. Source-type heuristics for non-overdue.
-  const sick =
-    t.sourceType === 'hse_sick_leave_milestone' || t.sourceType === 'nav_report'
-  const incident =
-    t.sourceType === 'hse_incident' || t.sourceType === 'hse_inspection_finding'
-  if (overdue && (sick || incident)) return 'critical'
-  if (overdue) return 'high'
-  if (sick || incident) return 'high'
-  if (t.sourceType === 'ros_measure') return 'high'
-  if (t.requiresManagementSignOff) return 'medium'
-  if (t.sourceType === 'council_meeting' || t.sourceType === 'representatives') return 'medium'
+function deriveSeverity(t: TaskItemRow, overdue: boolean): AmlTaskSeverity {
+  if (t.priority === 'critical') return 'critical'
+  if (overdue && (t.templateKind === 'sykefravær' || t.templateKind === 'avvik')) return 'critical'
+  if (overdue || t.priority === 'high') return 'high'
+  if (t.templateKind === 'risiko' || t.templateKind === 'avvik') return 'high'
+  if (t.priority === 'medium') return 'medium'
   return 'low'
-}
-
-function labelFromSourceType(s: TaskSourceType): string {
-  return s
-    .replace(/^hse_/, '')
-    .replace(/_/g, ' ')
-    .replace(/\b\w/g, (c) => c.toUpperCase())
 }
 
 function formatNorwegianShort(d: Date): string {

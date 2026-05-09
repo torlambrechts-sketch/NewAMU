@@ -1,9 +1,5 @@
 // task.ts — canonical type definitions for the tasks module.
-//
-// Section A: New relational types (task_items v2, template system, ISO 45001).
-// Section B: Legacy types retained for backward-compat with cross-module consumers
-//            (useTasks stub, HseModule, CouncilModule, InternalControlModule, etc.).
-//            These will be removed as each consuming module migrates in later phases.
+// Relational types for task_items v2, template system, and ISO 45001 lifecycle.
 
 import type { Level1SystemSignatureMeta } from './level1Signature'
 
@@ -192,8 +188,8 @@ export type TaskItem = {
   recurrenceCadence?: string
   nextRecurrenceDate?: string
 
-  // Legacy source bridge
-  sourceType?: TaskSourceType
+  // Legacy source bridge — plain string to avoid coupling to deprecated enum
+  sourceType?: string
   sourceId?: string
 
   requiresSignOff: boolean
@@ -396,76 +392,3 @@ export type TaskExportToken = {
   revokedAt?: string
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// SECTION B — Legacy types (backward-compat, to be removed in later phases)
-// Consumed by: useTasks stub, HseModule, CouncilModule, InternalControlModule,
-// OrgHealthModule, ActionBoardPage, regulationForSource, reportDatasets, etc.
-// ─────────────────────────────────────────────────────────────────────────────
-
-/** @deprecated Use TaskItemStatus */
-export type TaskStatus = 'todo' | 'in_progress' | 'done'
-
-/** @deprecated Use TaskTemplateKind for routing; module is a legacy concept */
-export type TaskModule =
-  | 'general'
-  | 'council'
-  | 'members'
-  | 'org_health'
-  | 'hse'
-  | 'hrm'
-  | 'learning'
-
-/** @deprecated Legacy source type enum — bridges to TaskTemplateKind in the new model */
-export type TaskSourceType =
-  | 'manual'
-  | 'task_cosign_request'
-  | 'council_meeting'
-  | 'council_compliance'
-  | 'representatives'
-  | 'survey'
-  | 'hse_safety_round'
-  | 'hse_inspection'
-  | 'hse_inspection_finding'
-  | 'hse_incident'
-  | 'hse_sja'
-  | 'hse_sick_leave_milestone'
-  | 'nav_report'
-  | 'labor_metric'
-  | 'learning_course'
-  | 'ros_measure'
-  | 'annual_review_action'
-
-export type DigitalSignature = {
-  signerName: string
-  signerUserId?: string
-  signedAt: string
-  level1?: Level1SystemSignatureMeta
-}
-
-/** @deprecated Full legacy task type — stored in org_module_payloads jsonb blob */
-export type Task = {
-  id: string
-  title: string
-  description: string
-  status: TaskStatus
-  assignee: string
-  assigneeEmployeeId?: string
-  ownerRole: string
-  leaderEmployeeId?: string
-  leaderName?: string
-  dueDate: string
-  createdAt: string
-  module: TaskModule
-  sourceType: TaskSourceType
-  sourceId?: string
-  sourceLabel?: string
-  requiresManagementSignOff: boolean
-  assigneeSignature?: DigitalSignature
-  managementSignature?: DigitalSignature
-  assigneeSignerEmail?: string
-  assigneeSignerEmployeeId?: string
-  managementSignerEmail?: string
-  managementSignerEmployeeId?: string
-  managementSignerName?: string
-  cosignParentTaskId?: string
-}

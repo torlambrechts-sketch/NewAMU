@@ -63,6 +63,7 @@ import { WelcomeDashboardPage } from './pages/WelcomeDashboardPage'
 import { TasksManagementPage, TasksAnalysePage } from '../modules/tasks'
 import { TasksAllePage } from '../modules/tasks/TasksAllePage'
 import { TasksAdminPage } from '../modules/tasks/admin/TasksAdminPage'
+import { TasksManagementReviewPage } from '../modules/tasks/TasksManagementReviewPage'
 import { ChecklistsAllePage } from '../modules/compliance/ChecklistsAllePage'
 import { SurveyAllePage } from '../modules/survey/SurveyAllePage'
 import { DocumentsAllePage } from './pages/documents/DocumentsAllePage'
@@ -251,6 +252,7 @@ const router = createBrowserRouter(
                       <Route path="tasks/management/alle" element={<TasksAllePage />} />
                       <Route path="tasks/management/admin" element={<TasksAdminPage />} />
                       <Route path="tasks/management/admin/:tab" element={<TasksAdminPage />} />
+                      <Route path="tasks/management/review" element={<TasksManagementReviewPage />} />
                       <Route path="overview/hms" element={<HmsOverviewPage />} />
                       <Route path="workspace/revisjonslogg" element={<WorkspaceAuditLogPage />} />
                       <Route path="organisation" element={<OrganisationPage />} />

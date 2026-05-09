@@ -9,10 +9,10 @@ import { AlertTriangle, Download, History, LayoutGrid, Plus, Search, ShieldAlert
 import { useCouncil } from '../../hooks/useCouncil'
 import { useHse } from '../../hooks/useHse'
 import { useInternalControl } from '../../hooks/useInternalControl'
-import { useTasks } from '../../hooks/useTasks'
+import { useTaskItemsData } from '../../../modules/tasks/useTaskItemsData'
 import { useCostSettings } from '../../hooks/useCostSettings'
 import { useOrgSetupContext } from '../../hooks/useOrgSetupContext'
-import type { Task, TaskStatus } from '../../types/task'
+import type { TaskStatus } from './actionBoardScorecardLayout'
 import {
   AB_SCORECARD_CREAM_DEEP,
   AB_SCORECARD_FOREST,
@@ -71,7 +71,7 @@ function compareDueSoon(a: ActionBoardScorecardItem, b: ActionBoardScorecardItem
 
 export function ActionBoardPage() {
   const { supabaseConfigured } = useOrgSetupContext()
-  const tasks = useTasks()
+  const taskItems = useTaskItemsData()
   const hse = useHse()
   const ic = useInternalControl()
   const council = useCouncil()
@@ -87,26 +87,30 @@ export function ActionBoardPage() {
   const [dragOverCol, setDragOverCol] = useState<TaskStatus | null>(null)
 
   const boardError =
-    [tasks.error, hse.error, ic.error, council.error, cost.error].filter(Boolean).join(' ') || null
+    [taskItems.error, hse.error, ic.error, council.error, cost.error].filter(Boolean).join(' ') || null
   const boardLoading =
-    supabaseConfigured && (tasks.loading || hse.loading || ic.loading || council.loading || cost.loading)
+    supabaseConfigured && (taskItems.loading || hse.loading || ic.loading || council.loading || cost.loading)
 
   const today = new Date().toISOString().slice(0, 10)
 
   const items = useMemo<ActionBoardScorecardItem[]>(() => {
     const all: ActionBoardScorecardItem[] = []
 
-    tasks.tasks.forEach((t: Task) => {
+    taskItems.items.forEach((t) => {
+      const boardStatus: TaskStatus =
+        t.status === 'closed' || t.status === 'cancelled' ? 'done'
+        : t.status === 'open' ? 'todo'
+        : 'in_progress'
       all.push({
         id: `task-${t.id}`,
         source: 'task',
         title: t.title,
-        detail: t.description?.slice(0, 80) || t.sourceLabel,
-        status: t.status,
-        module: t.module,
+        detail: t.description?.slice(0, 80) ?? undefined,
+        status: boardStatus,
+        module: (t.templateKind ?? 'general') as string,
         link: '/tasks/management',
-        dueDate: t.dueDate || undefined,
-        overdue: !!t.dueDate && t.dueDate < today && t.status !== 'done',
+        dueDate: t.dueDate ?? undefined,
+        overdue: !!t.dueDate && t.dueDate < today && boardStatus !== 'done',
         isDraggable: true,
         taskId: t.id,
       })
@@ -234,7 +238,7 @@ export function ActionBoardPage() {
       })
 
     return all
-  }, [tasks.tasks, hse, ic, council, today])
+  }, [taskItems.items, hse, ic, council, today])
 
   const filtered = useMemo(() => {
     let list = filterSource === 'all' ? items : items.filter((i) => i.source === filterSource)
@@ -484,7 +488,11 @@ export function ActionBoardPage() {
                   e.preventDefault()
                   const id = e.dataTransfer.getData(DRAG_TYPE)
                   if (id) {
-                    tasks.setStatus(id, col)
+                    const newStatus =
+                      col === 'done' ? 'closed' as const
+                      : col === 'in_progress' ? 'in_progress' as const
+                      : 'open' as const
+                    void taskItems.updateStatus(id, newStatus)
                   }
                   setDragTaskId(null)
                   setDragOverCol(null)

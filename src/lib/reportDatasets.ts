@@ -1,4 +1,4 @@
-import type { Task } from '../types/task'
+import type { TaskItemRow } from '../../modules/tasks/useTaskItemsData'
 import type { OrgEmployee, OrgUnit, OrgSettings } from '../types/organisation'
 import type { ReportDatasetKey } from '../types/reportBuilder'
 
@@ -8,11 +8,11 @@ export type OrgSnapshot = {
   units: OrgUnit[]
 }
 
-function taskStatusCounts(tasks: Task[]) {
-  const todo = tasks.filter((t) => t.status === 'todo').length
+function taskStatusCounts(tasks: TaskItemRow[]) {
+  const open = tasks.filter((t) => t.status === 'open').length
   const prog = tasks.filter((t) => t.status === 'in_progress').length
-  const done = tasks.filter((t) => t.status === 'done').length
-  return { todo, in_progress: prog, done, total: tasks.length }
+  const closed = tasks.filter((t) => t.status === 'closed').length
+  return { open, in_progress: prog, closed, total: tasks.length }
 }
 
 function pickSummary(obj: unknown): Record<string, unknown> {
@@ -30,7 +30,7 @@ export async function buildReportDatasets(input: {
   keys: ReportDatasetKey[]
   year: number
   org: OrgSnapshot
-  tasks: Task[]
+  tasks: TaskItemRow[]
   fetchAmuAnnual: (y: number) => Promise<unknown | null>
   fetchAnnualIk: (y: number) => Promise<unknown | null>
   fetchArp: (y: number) => Promise<unknown | null>
@@ -60,8 +60,8 @@ export async function buildReportDatasets(input: {
     out.tasks_table = input.tasks.slice(0, 12).map((t) => ({
       title: t.title,
       status: t.status,
-      assignee: t.assignee,
-      module: t.module,
+      assignee: t.assigneeName ?? t.ownerName ?? '',
+      templateKind: t.templateKind ?? '',
       dueDate: t.dueDate,
     }))
   }
