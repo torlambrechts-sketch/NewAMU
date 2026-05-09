@@ -21,7 +21,7 @@ import type {
 const ChecklistItemSchema: z.ZodType<ChecklistItem> = z.object({
   key: z.string().min(1),
   prompt: z.string().min(1),
-  type: z.enum(['yes_no_na', 'text', 'number', 'photo', 'signature']),
+  type: z.enum(['yes_no_na', 'text', 'number', 'photo', 'signature', 'date']),
   required: z.boolean().optional(),
   law_ref: z.string().optional(),
   iso_clause: z.string().optional(),

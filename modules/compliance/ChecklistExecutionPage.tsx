@@ -490,5 +490,17 @@ function ItemControl({
     )
   }
 
+  if (item.type === 'date') {
+    const dateVal = (value.date as string) ?? ''
+    return (
+      <StandardInput
+        type="date"
+        value={dateVal}
+        onChange={(e) => onCommit({ date: e.target.value })}
+        readOnly={readOnly}
+      />
+    )
+  }
+
   return null
 }

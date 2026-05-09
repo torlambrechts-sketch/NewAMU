@@ -185,6 +185,19 @@ function ChecklistItemExecutionRow({
             }}
           />
         )}
+        {fieldType === 'date' && (
+          <StandardInput
+            type="date"
+            value={displayedValue}
+            readOnly={readOnly}
+            onChange={(e) => {
+              if (readOnly) return
+              const next = e.target.value
+              setOptimisticValue(next)
+              void save(next, notes.trim().length > 0 ? notes : null, true)
+            }}
+          />
+        )}
         {(fieldType === 'photo' || fieldType === 'signature') && (
           <p className="text-xs italic text-neutral-400">{fieldType === 'signature' ? 'Signatur' : 'Foto'} registreres ikke her.</p>
         )}
