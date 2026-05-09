@@ -49,7 +49,6 @@ import {
 import { useNavigate } from 'react-router-dom'
 import { ModulePageShell, ModuleSectionCard } from '../module'
 import { useWorkflows } from '../../hooks/useWorkflows'
-import { getWfModuleMeta } from './workflowModuleRegistry'
 import { getWorkflowTriggerEventsForModule } from './workflowTriggerRegistry'
 import { WORKFLOW_SOURCE_MODULES } from '../../types/workflow'
 import type { WorkflowRuleRow } from '../../types/workflow'
