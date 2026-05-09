@@ -200,7 +200,7 @@ export function TasksManagementPage() {
     })
     setDraft(emptyDraft({ priority: settings.settings.defaults.priority, ownerRole: settings.settings.defaults.ownerRole }))
     setCreateOpen(false)
-    onChangeTab('tavle')
+    onChangeTab('liste')
     setSelectedTaskId(created.id)
   }, [draft, tasksApi, ext, org.displayEmployees, onChangeTab, settings.settings.defaults.priority, settings.settings.defaults.ownerRole])
 
