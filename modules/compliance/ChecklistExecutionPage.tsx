@@ -20,6 +20,7 @@ import { parseChecklistDefinition } from './schema'
 import { SeverityBadge } from './components/SeverityBadge'
 import { PhotoItemControl } from './components/PhotoItemControl'
 import { ExecutionMetadataPanel } from './components/ExecutionMetadataPanel'
+import { ExecutionCommentThread } from './components/ExecutionCommentThread'
 import type {
   ChecklistItem,
   ComplianceExecutionRow,
@@ -230,6 +231,18 @@ export function ChecklistExecutionPage() {
           teams={orgSetup.teams}
           members={orgSetup.members}
           onSave={(payload) => updateExecutionMetadata({ executionId, ...payload })}
+        />
+
+        <ExecutionCommentThread
+          executionId={executionId}
+          itemKey={null}
+          currentUserId={cl.currentUserId}
+          comments={cl.commentsByExecutionId[executionId] ?? []}
+          members={orgSetup.members}
+          onLoad={() => cl.loadComments(executionId)}
+          onAdd={cl.addComment}
+          onUpdate={cl.updateComment}
+          onDelete={cl.deleteComment}
         />
 
         <ModuleSectionCard className="p-5 md:p-6">
