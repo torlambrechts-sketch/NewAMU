@@ -3,6 +3,7 @@ import type { LucideIcon } from 'lucide-react'
 import {
   Box,
   LayoutGrid,
+  Layers,
   LayoutTemplate,
   Loader2,
   LogOut,
@@ -31,6 +32,7 @@ const nav: {
   { to: '/platform-admin/layout-templates', label: 'Layout-maler', icon: LayoutTemplate },
   { to: '/platform-admin/module-templates', label: 'Modul-maler', icon: Settings },
   { to: '/platform-admin/layout', label: 'Layout (arbeidsflate)', icon: LayoutTemplate },
+  { to: '/platform-admin/layout-elements', label: 'Layout-elementer', icon: Layers },
 ]
 
 export function PlatformAdminLayout() {
