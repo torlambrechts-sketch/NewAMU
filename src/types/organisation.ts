@@ -11,6 +11,8 @@ export type OrgSettings = {
   hasCollectiveAgreement: boolean
   /** Name of the main collective agreement if applicable */
   collectiveAgreementName?: string
+  /** Whether the org has signed an IA-agreement with NAV Arbeidslivssenter */
+  hasIaAgreement?: boolean
   /** Industry sector — affects some compliance thresholds */
   industrySector?: string
   /**

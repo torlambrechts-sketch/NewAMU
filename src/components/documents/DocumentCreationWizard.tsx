@@ -269,16 +269,24 @@ type OrgInfoValues = {
   hasCollectiveAgreement: boolean
   collectiveAgreementName: string
   hasIaAgreement: boolean
+  // Beredskap-specific fields — only collected for tpl-beredskap
+  assemblyPoint: string
+  aedLocation: string
+  bhtPhone: string
 }
 
 function StepOrgInfo({
   values,
   onChange,
   naceBeskrivelse,
+  bhtPliktig,
+  isBeredskap,
 }: {
   values: OrgInfoValues
   onChange: (patch: Partial<OrgInfoValues>) => void
   naceBeskrivelse: string
+  bhtPliktig: boolean
+  isBeredskap: boolean
 }) {
   return (
     <>
@@ -311,6 +319,14 @@ function StepOrgInfo({
             {naceBeskrivelse}
           </p>
           <p className="mt-1 text-[11px] text-neutral-400">Hentet fra Enhetsregisteret — brukes til å foreslå relevante risikoer i neste steg.</p>
+        </div>
+      ) : null}
+      {bhtPliktig && !values.hasBht ? (
+        <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+          <p className="font-medium">BHT-plikt oppdaget</p>
+          <p className="mt-0.5 text-amber-800">
+            Din bransje ({naceBeskrivelse || 'NACE-kode registrert'}) er BHT-pliktig etter AML §3-3 og BHT-forskriften. Huk av for BHT under for å inkludere BHT-avsnittet i policyen.
+          </p>
         </div>
       ) : null}
       <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-neutral-200 bg-white p-3.5 hover:bg-neutral-50 transition-colors">
@@ -363,6 +379,42 @@ function StepOrgInfo({
           <p className="text-xs text-neutral-500 mt-0.5">Virksomheten har IA-avtale med NAV. Legger til avsnitt om IA-forpliktelser i policyen.</p>
         </div>
       </label>
+      {isBeredskap ? (
+        <>
+          <div className="rounded-xl border border-blue-100 bg-blue-50 px-4 py-3 text-sm text-blue-900">
+            Fyll inn beredskapsinformasjon — erstatter [Fyll inn]-plassholdere i planen automatisk.
+          </div>
+          <FieldRow label="Samlingsplass" hint="Synlig adresse/sted fra alle utganger — erstatter {{assemblyPoint}}">
+            <input
+              type="text"
+              className={INPUT_CLS}
+              value={values.assemblyPoint}
+              onChange={(e) => onChange({ assemblyPoint: e.target.value })}
+              placeholder="F.eks. Parkeringsplass nord for inngangspartiet"
+            />
+          </FieldRow>
+          <FieldRow label="AED-plassering" hint="Hjertestarterens plassering i bygget — erstatter {{aedLocation}}">
+            <input
+              type="text"
+              className={INPUT_CLS}
+              value={values.aedLocation}
+              onChange={(e) => onChange({ aedLocation: e.target.value })}
+              placeholder="F.eks. Resepsjonsdisk, 1. etasje"
+            />
+          </FieldRow>
+          {values.hasBht ? (
+            <FieldRow label="BHT-telefon" hint="BHT-kontakttelefon for beredskap — erstatter {{bhtPhone}}">
+              <input
+                type="tel"
+                className={INPUT_CLS}
+                value={values.bhtPhone}
+                onChange={(e) => onChange({ bhtPhone: e.target.value })}
+                placeholder="F.eks. 815 00 100"
+              />
+            </FieldRow>
+          ) : null}
+        </>
+      ) : null}
     </>
   )
 }
@@ -609,13 +661,18 @@ export function DocumentCreationWizard({
   const today = todayIso()
   const nextYear = addMonthsToIso(today, 12)
 
+  const isBeredskap = template?.id === 'tpl-beredskap'
+
   const [orgInfo, setOrgInfo] = useState<OrgInfoValues>({
     orgName: org.settings.orgName,
     employeeCount: String(org.complianceThresholds.totalEmployeeCount || org.settings.employeeCount || 0),
     hasBht: preset.bhtPliktig,
     hasCollectiveAgreement: org.settings.hasCollectiveAgreement,
     collectiveAgreementName: org.settings.collectiveAgreementName ?? '',
-    hasIaAgreement: false,
+    hasIaAgreement: org.settings.hasIaAgreement ?? false,
+    assemblyPoint: '',
+    aedLocation: '',
+    bhtPhone: '',
   })
 
   const [risks, setRisks] = useState<RiskValues>({
@@ -642,7 +699,10 @@ export function DocumentCreationWizard({
       hasBht: preset.bhtPliktig,
       hasCollectiveAgreement: org.settings.hasCollectiveAgreement,
       collectiveAgreementName: org.settings.collectiveAgreementName ?? '',
-      hasIaAgreement: false,
+      hasIaAgreement: org.settings.hasIaAgreement ?? false,
+      assemblyPoint: '',
+      aedLocation: '',
+      bhtPhone: '',
     })
     setRisks({
       selectedRisks: preset.risks.filter((r) => r.defaultSelected).map((r) => r.id),
@@ -739,6 +799,10 @@ export function DocumentCreationWizard({
         revisionIntervalMonths: template.page.revisionIntervalMonths,
         templateId: template.id,
       })
+      // Persist IA-agreement status so future documents pre-fill correctly
+      if (isPolicy && orgInfo.hasIaAgreement !== (org.settings.hasIaAgreement ?? false)) {
+        org.updateSettings({ hasIaAgreement: orgInfo.hasIaAgreement })
+      }
       onCreated(page.id)
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Kunne ikke opprette dokumentet. Prøv igjen.')
@@ -758,6 +822,10 @@ export function DocumentCreationWizard({
     const selectedRiskItems = preset.risks.filter((r) =>
       risks.selectedRisks.includes(r.id)
     )
+
+    // Sector-specific training items derived from selected risk items
+    const sectorTrainingItems = selectedRiskItems
+      .map((r) => `Opplæring i ${r.label.toLowerCase()} — ${r.description}`)
 
     return {
       orgName: orgInfo.orgName,
@@ -780,6 +848,10 @@ export function DocumentCreationWizard({
       collectiveAgreementName: orgInfo.collectiveAgreementName,
       hasIaAgreement: orgInfo.hasIaAgreement,
       sectorRisks: selectedRiskItems.map((r) => r.label),
+      assemblyPoint: orgInfo.assemblyPoint,
+      aedLocation: orgInfo.aedLocation,
+      bhtPhone: orgInfo.bhtPhone,
+      sectorTrainingItems,
     }
   }
 
@@ -820,6 +892,8 @@ export function DocumentCreationWizard({
           values={orgInfo}
           onChange={(patch) => { setOrgInfo((v) => ({ ...v, ...patch })); setError(null) }}
           naceBeskrivelse={naceBeskrivelse}
+          bhtPliktig={preset.bhtPliktig}
+          isBeredskap={isBeredskap}
         />
       )}
 
