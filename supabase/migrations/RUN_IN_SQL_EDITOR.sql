@@ -3168,8 +3168,7 @@ insert into public.document_system_templates (
   label        = excluded.label,
   description  = excluded.description,
   legal_basis  = excluded.legal_basis,
-  page_payload = excluded.page_payload,
-  updated_at   = now();
+  page_payload = excluded.page_payload;
 
 -- ── 2. Psykososialt arbeidsmiljø — systemdokumentasjon ───────────────
 insert into public.document_system_templates (
@@ -3212,8 +3211,7 @@ insert into public.document_system_templates (
   label        = excluded.label,
   description  = excluded.description,
   legal_basis  = excluded.legal_basis,
-  page_payload = excluded.page_payload,
-  updated_at   = now();
+  page_payload = excluded.page_payload;
 
 -- ── 3. Kjemisk eksponering og stoffkartotek — systemdokumentasjon ────
 insert into public.document_system_templates (
@@ -3256,8 +3254,7 @@ insert into public.document_system_templates (
   label        = excluded.label,
   description  = excluded.description,
   legal_basis  = excluded.legal_basis,
-  page_payload = excluded.page_payload,
-  updated_at   = now();
+  page_payload = excluded.page_payload;
 
 -- ── 4. Avviksbehandling og personskaderapportering — systemdokumentasjon
 insert into public.document_system_templates (
@@ -3299,8 +3296,7 @@ insert into public.document_system_templates (
   label        = excluded.label,
   description  = excluded.description,
   legal_basis  = excluded.legal_basis,
-  page_payload = excluded.page_payload,
-  updated_at   = now();
+  page_payload = excluded.page_payload;
 
 -- ── 5. HMS-opplæring — systemdokumentasjon ───────────────────────────
 insert into public.document_system_templates (
@@ -3341,8 +3337,7 @@ insert into public.document_system_templates (
   label        = excluded.label,
   description  = excluded.description,
   legal_basis  = excluded.legal_basis,
-  page_payload = excluded.page_payload,
-  updated_at   = now();
+  page_payload = excluded.page_payload;
 
 -- ── 6. Sykefraværsoppfølging — systemdokumentasjon ───────────────────
 insert into public.document_system_templates (
@@ -3382,8 +3377,7 @@ insert into public.document_system_templates (
   label        = excluded.label,
   description  = excluded.description,
   legal_basis  = excluded.legal_basis,
-  page_payload = excluded.page_payload,
-  updated_at   = now();
+  page_payload = excluded.page_payload;
 
 -- ── 7. Systematisk internkontroll — systemdokumentasjon ──────────────
 insert into public.document_system_templates (
@@ -3428,8 +3422,7 @@ insert into public.document_system_templates (
   label        = excluded.label,
   description  = excluded.description,
   legal_basis  = excluded.legal_basis,
-  page_payload = excluded.page_payload,
-  updated_at   = now();
+  page_payload = excluded.page_payload;
 
 -- ── Auto-enable for all existing orgs ────────────────────────────────
 -- provision_documents_baseline_for_org handles new tenants going forward.
