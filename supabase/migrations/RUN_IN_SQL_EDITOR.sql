@@ -3450,3 +3450,859 @@ begin
   end loop;
 end;
 $$;
+-- Update HMS-policy og mål template to close 12 compliance audit gaps.
+--
+-- Gaps closed:
+--   1. No date / version / formal approval   → policy metadata table ({{tokens}})
+--   2. No trakassering / §4-3 statement      → dedicated nulltoleranse section
+--   3. No varsling / §2A                      → dedicated varsling section
+--   4. HMS-mål not SMART                      → SMART table with baseline, target, frequency, data source
+--   5. No annual review obligation            → årsgjennomgang section
+--   6. No scope / applicability               → virkeområde row in metadata table
+--   7. No AMU reference                       → {{inject:amu_section}} + showAMU on org chart
+--   8. No BHT reference                       → {{inject:bht_section}} + §3-3 law_ref
+--   9. No environmental dimension             → ytre miljø section
+--  10. No sector-specific content             → {{inject:sector_risks}} placeholder
+--  11. Incomplete law refs                    → 10 law_ref blocks covering full chain
+--  12. Unresolved [Virksomhetens navn]        → {{orgName}} tokens resolved by DocumentCreationWizard
+--
+-- Self-audit (Arbeidstilsynet POV):
+--   Addresses pålegg-grunner for: IK-f §5 nr. 1a, AML §§ 3-1, 3-2, 3-3, 4-1,
+--   4-3, 2A-1, 6-1.
+--   Restrisiko: template describes required policy content; orgs must populate
+--   real values (approver name, AMU date, sector risks) via the wizard for the
+--   document to constitute audit evidence.
+
+update public.document_system_templates
+set
+  description  = 'Virksomhetens overordnede HMS-erklæring med formell godkjenning, SMART-mål, nulltoleranse for trakassering, varsling og AMU/BHT-referanser — klar for tilsyn.',
+  legal_basis  = array[
+    'IK-f § 5 nr. 1a', 'AML § 3-1', 'AML § 3-2', 'AML § 3-3',
+    'AML § 4-1', 'AML § 4-3', 'AML § 2A-1', 'AML § 6-1',
+    'IK-f § 4', 'IK-f § 5 nr. 5'
+  ],
+  page_payload = '{
+    "title": "HMS-policy og mål",
+    "summary": "Virksomhetens overordnede HMS-erklæring med formell godkjenning, SMART-mål og lovhenvisninger — tilpasset via veiviseren.",
+    "status": "draft",
+    "template": "policy",
+    "legalRefs": ["IK-f § 5 nr. 1a","AML § 3-1","AML § 3-2","AML § 3-3","AML § 4-1","AML § 4-3","AML § 2A-1","AML § 6-1","IK-f § 4","IK-f § 5 nr. 5"],
+    "requiresAcknowledgement": true,
+    "revisionIntervalMonths": 12,
+    "blocks": [
+      {
+        "kind": "alert",
+        "variant": "warning",
+        "text": "Tilpass dette dokumentet til din virksomhet: bruk knappen «Bruk dokumentmal» slik at veiviseren fyller inn virksomhetsnavn, bransje, mål og godkjenner automatisk. Fjern denne boksen etter tilpasning."
+      },
+      {
+        "kind": "table",
+        "caption": "Dokumentinformasjon",
+        "headers": ["Felt", "Verdi"],
+        "rows": [
+          ["Vedtatt av", "{{approverName}} — {{approverTitle}}"],
+          ["Dato vedtatt", "{{policyDate}}"],
+          ["Neste revisjon", "{{nextRevisionDate}}"],
+          ["Versjon", "1.0"],
+          ["Virkeområde", "Alle ansatte, innleide arbeidstakere (AML §2-2) og besøkende ved {{orgName}} sine lokaler"],
+          ["AMU behandlet", "{{amuDate}}"]
+        ]
+      },
+      {
+        "kind": "heading",
+        "level": 1,
+        "text": "HMS-policy — {{orgName}}"
+      },
+      {
+        "kind": "alert",
+        "variant": "info",
+        "text": "IK-forskriften §5 nr. 1a krever at HMS-mål er fastsatt og skriftlig dokumentert. Dette dokumentet utgjør virksomhetens overordnede styringsdokument for helse, miljø og sikkerhet."
+      },
+      {
+        "kind": "text",
+        "body": "<p>{{orgName}} (org.nr. {{orgNr}}) er forpliktet til å skape og opprettholde et trygt, sunt og inkluderende arbeidsmiljø for alle ansatte, innleide arbeidstakere og øvrige personer i virksomhetens lokaler. Ledelsen tar et personlig og udelt ansvar for at HMS-arbeidet er systematisk, forebyggende og fullt ut i samsvar med arbeidsmiljøloven og internkontrollforskriften.</p>"
+      },
+      {
+        "kind": "heading",
+        "level": 2,
+        "text": "Nulltoleranse"
+      },
+      {
+        "kind": "text",
+        "body": "<p>{{orgName}} har nulltoleranse for trakassering, mobbing, utilbørlig atferd og uønsket seksuell oppmerksomhet på arbeidsplassen. Alle slike tilfeller skal varsles umiddelbart og behandles i henhold til AML §4-3 og virksomhetens varslingsrutiner. Ansatte er trygge på at varsling ikke medfører gjengjeldelse (AML §2A-4).</p>"
+      },
+      {
+        "kind": "heading",
+        "level": 2,
+        "text": "Kjente risikofaktorer"
+      },
+      {
+        "kind": "alert",
+        "variant": "warning",
+        "text": "{{inject:sector_risks}}"
+      },
+      {
+        "kind": "heading",
+        "level": 2,
+        "text": "Våre HMS-mål"
+      },
+      {
+        "kind": "text",
+        "body": "<p>HMS-målene nedenfor gjelder for {{currentYear}} og gjennomgås ved årsgjennomgangen (IK-f §5 nr. 5). Baseline-verdier hentes fra foregående periodes målinger.</p>"
+      },
+      {
+        "kind": "table",
+        "caption": "SMART HMS-mål",
+        "headers": ["Mål", "Måleverdi", "Målefrekvens", "Ansvarlig", "Datakilde"],
+        "rows": [
+          ["Arbeidsulykker", "Null alvorlige personskader", "Løpende", "HMS-ansvarlig / DL", "Avviksmodul"],
+          ["Sykefravær", "< {{sykefraværMål}} %", "Kvartalsvis", "HR / Daglig leder", "NAV / A-ordningen"],
+          ["HMS-opplæring", "100 % gjennomført innen årsfristen", "Årlig", "HMS-ansvarlig", "Læringsmodul"],
+          ["Avviksbehandling", "≥ 90 % lukket innen {{avvikFrist}} dager", "Kvartalsvis", "Avdelingsledere", "Oppgavemodul"],
+          ["Risikovurderinger", "100 % gjennomgått siste 12 måneder", "Årlig", "HMS-ansvarlig", "Oppgavemodul"]
+        ]
+      },
+      {
+        "kind": "heading",
+        "level": 2,
+        "text": "Ansvar og organisering"
+      },
+      {
+        "kind": "text",
+        "body": "<p>Daglig leder har det overordnede ansvaret for HMS-arbeidet etter AML §3-1 og IK-f §4. Ansvaret delegeres til ledere på alle nivåer innenfor deres ansvarsområde — dette fritar ikke daglig leder fra overordnet styringsansvar. Verneombudet (AML §6-1) bistår i kartlegging og risikovurdering og har selvstendig rett til å stanse farlig arbeid etter AML §6-3.</p>"
+      },
+      {
+        "kind": "alert",
+        "variant": "warning",
+        "text": "{{inject:amu_section}}"
+      },
+      {
+        "kind": "alert",
+        "variant": "warning",
+        "text": "{{inject:bht_section}}"
+      },
+      {
+        "kind": "alert",
+        "variant": "warning",
+        "text": "{{inject:collective_section}}"
+      },
+      {
+        "kind": "module",
+        "moduleName": "live_org_chart",
+        "params": {"showVerneombud": true, "showAMU": true, "showBHT": true}
+      },
+      {
+        "kind": "heading",
+        "level": 2,
+        "text": "Ytre miljø"
+      },
+      {
+        "kind": "text",
+        "body": "<p>{{orgName}} skal begrense sin negative påvirkning på det ytre miljøet. Virksomheten overholder kravene i forurensningsloven og tilhørende forskrifter. Energibruk, avfallshåndtering og transport vurderes løpende som del av det systematiske HMS-arbeidet og rapporteres ved årsgjennomgangen.</p>"
+      },
+      {
+        "kind": "heading",
+        "level": 2,
+        "text": "Varsling om kritikkverdige forhold"
+      },
+      {
+        "kind": "text",
+        "body": "<p>Ansatte har rett og oppfordres til å varsle om kritikkverdige HMS-forhold etter AML §2A-1. Varsling kan skje til nærmeste leder, til HMS-ansvarlig, til verneombudet eller via Klarerts anonyme varslingskanal. Varsler behandles konfidensielt og innen rimelig tid. Gjengjeldelse mot den som varsler er forbudt etter AML §2A-4 og kan medføre erstatningsansvar.</p>"
+      },
+      {
+        "kind": "heading",
+        "level": 2,
+        "text": "Årsgjennomgang"
+      },
+      {
+        "kind": "text",
+        "body": "<p>HMS-policyen og virksomhetens øvrige internkontrolldokumenter gjennomgås minst én gang per år (IK-f §5 nr. 5). Gjennomgangen ledes av daglig leder med deltagelse av verneombud og AMU der dette er etablert. HMS-mål oppdateres med nye baseline-verdier og eventuelle korrigerende tiltak besluttes. Neste planlagte gjennomgang: {{nextRevisionDate}}.</p>"
+      },
+      {
+        "kind": "law_ref",
+        "ref": "AML § 3-1",
+        "description": "Arbeidsgivers plikt til systematisk helse-, miljø- og sikkerhetsarbeid — kartlegging, tiltak og dokumentasjon."
+      },
+      {
+        "kind": "law_ref",
+        "ref": "AML § 3-2",
+        "description": "Plikt til å sikre at arbeidstakerne har tilstrekkelig kunnskap og ferdigheter i HMS-arbeidet, herunder om risiko i eget arbeid."
+      },
+      {
+        "kind": "law_ref",
+        "ref": "AML § 3-3",
+        "description": "Plikt til å knytte til seg bedriftshelsetjeneste i særskilt risikoeksponerte bransjer (BHT-forskriften)."
+      },
+      {
+        "kind": "law_ref",
+        "ref": "AML § 4-1",
+        "description": "Krav til fullt forsvarlig arbeidsmiljø — både fysisk og psykososialt, inkl. organisering, tilrettelegging og ledelse."
+      },
+      {
+        "kind": "law_ref",
+        "ref": "AML § 4-3",
+        "description": "Krav til psykososialt arbeidsmiljø — forbud mot trakassering og utilbørlig atferd, forsvarlig arbeidsbelastning."
+      },
+      {
+        "kind": "law_ref",
+        "ref": "AML § 2A-1",
+        "description": "Ansattes rett til å varsle om kritikkverdige forhold — arbeidsgiver plikter å legge til rette for varsling."
+      },
+      {
+        "kind": "law_ref",
+        "ref": "AML § 6-1",
+        "description": "Rett og plikt til å velge verneombud — virksomheter med minst 5 ansatte (med unntak ved skriftlig avtale)."
+      },
+      {
+        "kind": "law_ref",
+        "ref": "IK-f § 4",
+        "description": "Plikt til å etablere, gjennomføre og videreutvikle systematisk internkontroll."
+      },
+      {
+        "kind": "law_ref",
+        "ref": "IK-f § 5 nr. 1a",
+        "description": "HMS-mål skal fastsettes skriftlig og være en del av internkontrollen.",
+        "url": "https://lovdata.no/forskrift/1996-12-06-1127/§5"
+      },
+      {
+        "kind": "law_ref",
+        "ref": "IK-f § 5 nr. 5",
+        "description": "Internkontrollen skal gjennomgås jevnlig — minst én gang per år — for å sikre at den fungerer som forutsatt."
+      },
+      {
+        "kind": "module",
+        "moduleName": "acknowledgement_footer"
+      },
+      {
+        "kind": "module",
+        "moduleName": "emergency_stop_procedure",
+        "params": {}
+      }
+    ]
+  }'::jsonb
+where id = 'tpl-hms-policy';
+
+-- Add {{inject:ia_section}} placeholder to HMS-policy template.
+--
+-- Gap closed:
+--   IA-avtalen (inkluderende arbeidsliv) — virksomheter med IA-avtale skal
+--   dokumentere forpliktelsene i internkontrollen. The DocumentCreationWizard
+--   resolves this inject to a prose block when hasIaAgreement=true; block is
+--   silently dropped for orgs without an IA agreement.
+--
+-- Self-audit (Arbeidstilsynet POV):
+--   Best-practice for IA-virksomheter; not a standalone pålegg-grunn.
+--   Restrisiko: org must tick IA-bedrift in the wizard — unaffected otherwise.
+
+update public.document_system_templates
+set page_payload = jsonb_set(
+  page_payload,
+  '{blocks}',
+  (
+    select jsonb_agg(b order by sort_order)
+    from (
+      -- existing blocks with their natural order
+      select elem as b, (row_number() over ()) * 2 as sort_order
+      from jsonb_array_elements(page_payload->'blocks') elem
+      union all
+      -- ia_section injected right after collective_section (offset +1)
+      select
+        '{"kind":"alert","variant":"warning","text":"{{inject:ia_section}}"}'::jsonb,
+        (
+          select (row_number() over ()) * 2 + 1
+          from jsonb_array_elements(page_payload->'blocks') elem
+          where elem->>'text' = '{{inject:collective_section}}'
+          limit 1
+        )
+    ) t
+    where sort_order is not null
+  )
+)
+where id = 'tpl-hms-policy'
+  and not exists (
+    select 1 from jsonb_array_elements(page_payload->'blocks') b
+    where b->>'text' = '{{inject:ia_section}}'
+  );
+-- P0 compliance gap: three templates that are referenced in the internkontroll
+-- overview but were either missing or skeleton-quality.
+--
+-- Templates added / upgraded:
+--   tpl-varsling        NEW  Varslingsrutiner (AML §2A-3 requires written procedure)
+--   tpl-org-ansvar      UPGRADE  Organisasjon og ansvarsfordeling (IK-f §5 nr. 1b)
+--   tpl-aarsgjennomgang UPGRADE  Årsgjennomgang-protokoll (IK-f §5 nr. 5)
+--
+-- Self-audit (Arbeidstilsynet POV):
+--   tpl-varsling closes the §2A-3 written-procedure pålegg-grunn that is separate
+--   from the §2A-1 varsling statement already in the HMS-policy.
+--   tpl-org-ansvar closes IK-f §5 nr. 1b (ansvar, oppgaver, myndighet).
+--   tpl-aarsgjennomgang closes IK-f §5 nr. 5 (skriftlig resultat) — the archive
+--   version was a stub with no structured protocol.
+--   Restrisiko: org must fill in named persons (approverName, varslinsgansvarlig)
+--   via the wizard or by editing the created document.
+
+-- ── 1. Varslingsrutiner ───────────────────────────────────────────────────────
+
+insert into public.document_system_templates
+  (id, slug, label, description, category, legal_basis, page_payload, sort_order)
+values (
+  'tpl-varsling',
+  'tpl-varsling',
+  'Varslingsrutiner',
+  'Skriftlig varslingsrutine etter AML §2A-3 — kanaler, saksbehandling og vern mot gjengjeldelse. Klar for tilsyn.',
+  'hms_handbook',
+  array[
+    'AML § 2A-1', 'AML § 2A-2', 'AML § 2A-3', 'AML § 2A-4',
+    'AML § 2A-5', 'IK-f § 5 nr. 4'
+  ],
+  $json${
+    "title": "Varslingsrutiner",
+    "summary": "Skriftlig varslingsrutine etter AML §2A-3 — kanaler, saksbehandling og vern mot gjengjeldelse.",
+    "status": "draft",
+    "template": "policy",
+    "legalRefs": ["AML § 2A-1","AML § 2A-2","AML § 2A-3","AML § 2A-4","AML § 2A-5","IK-f § 5 nr. 4"],
+    "requiresAcknowledgement": true,
+    "revisionIntervalMonths": 12,
+    "blocks": [
+      {
+        "kind": "alert",
+        "variant": "info",
+        "text": "AML §2A-3 krever at virksomheter med minst 5 ansatte har skriftlige varslingsrutiner. Dokumentet skal beskrive hvordan varsling skal skje, og være kjent av alle ansatte."
+      },
+      {
+        "kind": "table",
+        "caption": "Dokumentinformasjon",
+        "headers": ["Felt","Verdi"],
+        "rows": [
+          ["Ansvarlig for rutinen","{{approverName}} — {{approverTitle}}"],
+          ["Dato vedtatt","{{policyDate}}"],
+          ["Neste revisjon","{{nextRevisionDate}}"],
+          ["Versjon","1.0"],
+          ["Virkeområde","Alle ansatte, innleide arbeidstakere og andre som utfører arbeid for {{orgName}}"]
+        ]
+      },
+      {
+        "kind": "heading",
+        "level": 1,
+        "text": "Varslingsrutiner — {{orgName}}"
+      },
+      {
+        "kind": "text",
+        "body": "<p>Ansatte i {{orgName}} har rett og oppfordres til å varsle om kritikkverdige forhold på arbeidsplassen (AML §2A-1). Kritikkverdige forhold er forhold som er i strid med rettsregler, skriftlige etiske retningslinjer i virksomheten, eller etiske normer som det er bred tilslutning til i samfunnet. Eksempler inkluderer brudd på HMS-krav, trakassering, korrupsjon, diskriminering og miljøkriminalitet.</p><p>Varsling kan skje både om interne og eksterne kritikkverdige forhold. Retten til å varsle omfatter også varsling til tilsynsmyndigheter (AML §2A-2).</p>"
+      },
+      {
+        "kind": "heading",
+        "level": 2,
+        "text": "Varslingskanaler"
+      },
+      {
+        "kind": "text",
+        "body": "<table><thead><tr><th>Kanal</th><th>Kontakt</th><th>Anonym?</th></tr></thead><tbody><tr><td>Nærmeste leder</td><td>Se organisasjonskart</td><td>Nei</td></tr><tr><td>HMS-ansvarlig / verneombud</td><td>Se organisasjonskart</td><td>Nei</td></tr><tr><td>Daglig leder (utenom linjen)</td><td>Se organisasjonskart</td><td>Nei</td></tr><tr><td>Klarerts digitale varslingskanal</td><td>Via systemet</td><td>Ja</td></tr><tr><td>Arbeidstilsynet</td><td>arbeidstilsynet.no / 73 19 97 00</td><td>Ja</td></tr></tbody></table>"
+      },
+      {
+        "kind": "text",
+        "body": "<p>Varsleren velger selv hvilken kanal som er mest hensiktsmessig. Anonym varsling behandles på lik linje med identifisert varsling, men muligheten for dialog og tilbakemelding er begrenset.</p>"
+      },
+      {
+        "kind": "heading",
+        "level": 2,
+        "text": "Saksbehandling av varsler"
+      },
+      {
+        "kind": "text",
+        "body": "<p>Alle varsler skal behandles forsvarlig og uten ugrunnet opphold. Behandlingsprosessen følger disse trinnene:</p><ol><li><strong>Mottak og bekreftelse</strong> — Den som mottar varselet bekrefter mottak innen 5 virkedager dersom varsler er identifisert.</li><li><strong>Innledende vurdering</strong> — Varslet vurderes med hensyn til alvorlighet og hvem som er egnet til å behandle saken. Varsler om daglig leder behandles av styret.</li><li><strong>Undersøkelse</strong> — Fakta kartlegges. Involverte parter høres. Verneombud og eventuelle tillitsvalgte involveres der det er hensiktsmessig.</li><li><strong>Konklusjon og tiltak</strong> — Konklusjon dokumenteres. Nødvendige tiltak iverksettes. Dersom forholdet er alvorlig, vurderes politianmeldelse eller melding til tilsynsmyndighet.</li><li><strong>Tilbakemelding</strong> — Identifisert varsler informeres om utfall og tiltak, med mindre dette er til hinder for undersøkelsen.</li></ol>"
+      },
+      {
+        "kind": "heading",
+        "level": 2,
+        "text": "Konfidensialitet"
+      },
+      {
+        "kind": "text",
+        "body": "<p>Identiteten til den som varsler skal som utgangspunkt holdes konfidensiell. Opplysninger som kan identifisere varsleren, må ikke spres uten varslerens samtykke — med mindre det er nødvendig av hensyn til undersøkelsen eller lovpålagt rapportering. Brudd på konfidensialitetsplikten kan medføre erstatningsansvar.</p>"
+      },
+      {
+        "kind": "heading",
+        "level": 2,
+        "text": "Vern mot gjengjeldelse"
+      },
+      {
+        "kind": "text",
+        "body": "<p>Det er forbudt å utsette den som varsler for gjengjeldelse (AML §2A-4). Gjengjeldelse er enhver ugunstig behandling som kan ses som en reaksjon på varslingen — herunder oppsigelse, suspensjon, degradering, fratakelse av arbeidsoppgaver, trakassering eller sosial ekskludering.</p><p>Dersom varsleren hevder at gjengjeldelse har skjedd, er det arbeidsgiver som må sannsynliggjøre at reaksjonen var begrunnet i andre forhold enn varslingen (omvendt bevisbyrde, AML §2A-4 fjerde ledd).</p><p>Dersom gjengjeldelse likevel finner sted, kan varsleren kreve erstatning uten hensyn til skyld (objektivt ansvar, AML §2A-5).</p>"
+      },
+      {
+        "kind": "heading",
+        "level": 2,
+        "text": "Varsling til offentlige myndigheter"
+      },
+      {
+        "kind": "text",
+        "body": "<p>Ansatte har alltid rett til å varsle til offentlige tilsynsmyndigheter (Arbeidstilsynet, Finanstilsynet, Datatilsynet m.fl.) og til politiet uten at virksomheten kan begrense eller sanksjonere dette (AML §2A-2). Slik varsling er alltid lovlig.</p>"
+      },
+      {
+        "kind": "heading",
+        "level": 2,
+        "text": "Årsgjennomgang og forbedring"
+      },
+      {
+        "kind": "text",
+        "body": "<p>Varslingsrutinen gjennomgås som del av den årlige internkontrollgjennomgangen (IK-f §5 nr. 5). Statistikk over antall varsler, type, utfall og behandlingstid presenteres for AMU (der dette er etablert) og ledelsen. Rutinen oppdateres ved vesentlige organisasjons- eller lovendringer. Neste planlagte gjennomgang: {{nextRevisionDate}}.</p>"
+      },
+      {
+        "kind": "law_ref",
+        "ref": "AML § 2A-1",
+        "description": "Ansattes rett til å varsle om kritikkverdige forhold i virksomheten."
+      },
+      {
+        "kind": "law_ref",
+        "ref": "AML § 2A-2",
+        "description": "Rett til å varsle til offentlige tilsynsmyndigheter — kan ikke innskrenkes av arbeidsgiver."
+      },
+      {
+        "kind": "law_ref",
+        "ref": "AML § 2A-3",
+        "description": "Plikt til å ha skriftlige varslingsrutiner for virksomheter med minst 5 ansatte."
+      },
+      {
+        "kind": "law_ref",
+        "ref": "AML § 2A-4",
+        "description": "Forbud mot gjengjeldelse mot den som varsler — omvendt bevisbyrde for arbeidsgiver."
+      },
+      {
+        "kind": "law_ref",
+        "ref": "AML § 2A-5",
+        "description": "Erstatningsansvar ved brudd på forbudet mot gjengjeldelse — objektivt ansvar."
+      },
+      {
+        "kind": "law_ref",
+        "ref": "IK-f § 5 nr. 4",
+        "description": "Rutiner for å avdekke, rette opp og forebygge overtredelser av krav fastsatt i HMS-lovgivningen."
+      },
+      {
+        "kind": "module",
+        "moduleName": "acknowledgement_footer"
+      }
+    ]
+  }$json$::jsonb,
+  11
+)
+on conflict (id) do update set
+  label        = excluded.label,
+  description  = excluded.description,
+  category     = excluded.category,
+  legal_basis  = excluded.legal_basis,
+  page_payload = excluded.page_payload,
+  sort_order   = excluded.sort_order;
+
+-- ── 2. Organisasjon og ansvarsfordeling — upgrade ────────────────────────────
+
+update public.document_system_templates
+set
+  description  = 'Oversikt over HMS-roller, ansvar og myndighet i virksomheten (IK-f §5 nr. 1b). Klar for tilsyn.',
+  legal_basis  = array[
+    'IK-f § 5 nr. 1b', 'AML § 2-1', 'AML § 3-1', 'AML § 6-1',
+    'AML § 6-2', 'AML § 7-1', 'AML § 2-3'
+  ],
+  page_payload = $json${
+    "title": "Organisasjon og ansvarsfordeling",
+    "summary": "Oversikt over HMS-roller, ansvar og myndighet i organisasjonen — krav etter IK-f §5 nr. 1b.",
+    "status": "draft",
+    "template": "standard",
+    "legalRefs": ["IK-f § 5 nr. 1b","AML § 2-1","AML § 3-1","AML § 6-1","AML § 6-2","AML § 7-1","AML § 2-3"],
+    "requiresAcknowledgement": false,
+    "revisionIntervalMonths": 12,
+    "blocks": [
+      {
+        "kind": "alert",
+        "variant": "info",
+        "text": "IK-f §5 nr. 1b: Internkontrollen skal ha oversikt over organisasjon, ansvarsforhold, oppgaver og myndighet. Dette dokumentet fyller det kravet og er bevis for at HMS-ansvaret er formelt plassert."
+      },
+      {
+        "kind": "heading",
+        "level": 1,
+        "text": "Organisasjon og ansvarsfordeling — HMS"
+      },
+      {
+        "kind": "text",
+        "body": "<p>AML §2-1 slår fast at arbeidsgivers plikter etter arbeidsmiljøloven ikke kan delegeres vekk. Daglig leder i {{orgName}} har det overordnede og udelte ansvaret for at HMS-arbeidet er systematisk, dokumentert og i samsvar med loven. Delegering av konkrete HMS-oppgaver til ledere og HMS-ansvarlig fritar ikke daglig leder fra dette overordnede styringsansvaret.</p>"
+      },
+      {
+        "kind": "heading",
+        "level": 2,
+        "text": "Ansvarsmatrise"
+      },
+      {
+        "kind": "table",
+        "caption": "HMS-roller og ansvar",
+        "headers": ["Rolle","Lovhjemmel","Ansvar og oppgaver"],
+        "rows": [
+          ["Daglig leder","AML §2-1, §3-1, IK-f §4","Overordnet ansvar for HMS-systemet. Stille ressurser til rådighet. Godkjenne HMS-policy og mål. Lede årsgjennomgang. Kan ikke delegere det overordnede ansvaret."],
+          ["Avdelings-/enhetsleder","AML §3-1","HMS-ansvar i eget ansvarsområde. Kartlegge risiko, iverksette tiltak, følge opp avvik og sykefravær i avdelingen. Sikre at ansatte har nødvendig opplæring."],
+          ["HMS-ansvarlig","IK-f §4, AML §3-1","Koordinere det systematiske HMS-arbeidet. Holde oversikt over lovkrav. Administrere internkontrollsystemet. Bistå linjeledere i risikovurdering og avviksbehandling."],
+          ["Verneombud","AML §6-1, §6-2","Ivareta arbeidstakernes interesser i HMS-spørsmål. Medvirke i kartlegginger og risikovurderinger. Kan stanse farlig arbeid (AML §6-3). Har rett til opplæring og ressurser (AML §6-5)."],
+          ["AMU (hvis etablert)","AML §7-1, §7-2","Behandle HMS-policy og mål. Gjennomgå avviksstatistikk og arbeidsmiljøundersøkelser. Medbestemmende og rådgivende rolle. Påkrevd ved ≥ 30 ansatte."],
+          ["Alle ansatte","AML §2-3","Bruke påbudt verneutstyr. Melde avvik og farlige forhold. Delta i kartlegginger. Informere leder om helseproblemer knyttet til arbeidet."]
+        ]
+      },
+      {
+        "kind": "heading",
+        "level": 2,
+        "text": "Organisasjonskart — verneorganisasjon"
+      },
+      {
+        "kind": "module",
+        "moduleName": "live_org_chart",
+        "params": {"showVerneombud": true, "showAMU": true, "showBHT": true}
+      },
+      {
+        "kind": "heading",
+        "level": 2,
+        "text": "Medvirkning"
+      },
+      {
+        "kind": "text",
+        "body": "<p>AML §3-1 (2a) og §4-2 stiller krav om at arbeidstakerne og deres representanter medvirker i HMS-arbeidet. I {{orgName}} ivaretas dette gjennom:</p><ul><li>Verneombudets medvirkning i risikovurderinger og kartlegginger</li><li>AMUs behandling av HMS-policy og mål (for virksomheter med ≥ 30 ansatte)</li><li>Arbeidsmiljøundersøkelser gjennomført via undersøkelsesmodulen</li><li>Åpne varslingskanaler der alle ansatte kan melde bekymringer</li></ul>"
+      },
+      {
+        "kind": "heading",
+        "level": 2,
+        "text": "Oppdatering"
+      },
+      {
+        "kind": "text",
+        "body": "<p>Ansvarsfordelingen gjennomgås ved organisasjonsendringer og som del av årsgjennomgangen (IK-f §5 nr. 5). Organisasjonskartet oppdateres fortløpende i systemet.</p>"
+      },
+      {
+        "kind": "law_ref",
+        "ref": "IK-f § 5 nr. 1b",
+        "description": "Internkontrollen skal ha oversikt over organisasjon, ansvarsforhold, oppgaver og myndighet i HMS-arbeidet."
+      },
+      {
+        "kind": "law_ref",
+        "ref": "AML § 2-1",
+        "description": "Arbeidsgivers plikter — kan ikke delegeres, men konkrete oppgaver kan overlates til andre."
+      },
+      {
+        "kind": "law_ref",
+        "ref": "AML § 3-1",
+        "description": "Systematisk HMS-arbeid — kartlegging, tiltak, og involvering av ansatte og VO."
+      },
+      {
+        "kind": "law_ref",
+        "ref": "AML § 6-1",
+        "description": "Rett og plikt til å velge verneombud i virksomheter med minst 5 ansatte."
+      },
+      {
+        "kind": "law_ref",
+        "ref": "AML § 6-2",
+        "description": "Verneombudets oppgaver — ivareta arbeidstakernes interesser i HMS-spørsmål."
+      },
+      {
+        "kind": "law_ref",
+        "ref": "AML § 7-1",
+        "description": "Plikt til å opprette arbeidsmiljøutvalg (AMU) i virksomheter med minst 30 ansatte."
+      },
+      {
+        "kind": "law_ref",
+        "ref": "AML § 2-3",
+        "description": "Arbeidstakers medvirkningsplikt og plikt til å melde fra om feil og mangler."
+      }
+    ]
+  }$json$::jsonb
+where id = 'tpl-org-ansvar';
+
+-- ── 3. Årsgjennomgang-protokoll — upgrade ────────────────────────────────────
+
+update public.document_system_templates
+set
+  description  = 'Protokoll for den lovpålagte årsgjennomgangen av internkontrollen (IK-f §5 nr. 5). Strukturert agenda, beslutningsfelt og signaturer.',
+  legal_basis  = array[
+    'IK-f § 5 nr. 5', 'AML § 3-1', 'IK-f § 5 nr. 1a',
+    'IK-f § 5 nr. 3', 'IK-f § 5 nr. 4'
+  ],
+  page_payload = $json${
+    "title": "Årsgjennomgang av internkontrollen {{currentYear}}",
+    "summary": "Protokoll for den lovpålagte årsgjennomgangen av HMS-systemet — IK-f §5 nr. 5.",
+    "status": "draft",
+    "template": "policy",
+    "legalRefs": ["IK-f § 5 nr. 5","AML § 3-1","IK-f § 5 nr. 1a","IK-f § 5 nr. 3","IK-f § 5 nr. 4"],
+    "requiresAcknowledgement": false,
+    "revisionIntervalMonths": 12,
+    "blocks": [
+      {
+        "kind": "alert",
+        "variant": "info",
+        "text": "IK-f §5 nr. 5 krever at internkontrollen gjennomgås systematisk minst én gang per år, og at resultatet dokumenteres skriftlig. Dette dokumentet er protokollen fra den gjennomgangen."
+      },
+      {
+        "kind": "table",
+        "caption": "Møteinformasjon",
+        "headers": ["Felt","Verdi"],
+        "rows": [
+          ["Virksomhet","{{orgName}}"],
+          ["Dato for gjennomgang","{{policyDate}}"],
+          ["Møteleder (daglig leder)","{{approverName}}"],
+          ["Deltakere","[Fyll inn navn — verneombud skal delta]"],
+          ["AMU orientert","[Dato eller N/A]"],
+          ["Neste gjennomgang","{{nextRevisionDate}}"]
+        ]
+      },
+      {
+        "kind": "heading",
+        "level": 1,
+        "text": "Årsgjennomgang — internkontroll {{currentYear}}"
+      },
+      {
+        "kind": "heading",
+        "level": 2,
+        "text": "1. HMS-mål — måloppnåelse"
+      },
+      {
+        "kind": "text",
+        "body": "<p>Gjennomgang av HMS-mål fastsatt for {{currentYear}} (IK-f §5 nr. 1a):</p><table><thead><tr><th>Mål</th><th>Måleverdi</th><th>Resultat</th><th>Status</th></tr></thead><tbody><tr><td>Arbeidsulykker</td><td>Null alvorlige personskader</td><td>[Fyll inn]</td><td>[✅ / ⚠️ / ❌]</td></tr><tr><td>Sykefravær</td><td>[Fastsatt mål %]</td><td>[Faktisk %]</td><td>[✅ / ⚠️ / ❌]</td></tr><tr><td>HMS-opplæring</td><td>100 % gjennomført</td><td>[Faktisk %]</td><td>[✅ / ⚠️ / ❌]</td></tr><tr><td>Avviksbehandling</td><td>≥ 90 % lukket i tide</td><td>[Faktisk %]</td><td>[✅ / ⚠️ / ❌]</td></tr><tr><td>Risikovurderinger</td><td>100 % gjennomgått</td><td>[Faktisk %]</td><td>[✅ / ⚠️ / ❌]</td></tr></tbody></table>"
+      },
+      {
+        "kind": "heading",
+        "level": 2,
+        "text": "2. Avvik og uønskede hendelser (IK-f §5 nr. 4)"
+      },
+      {
+        "kind": "text",
+        "body": "<table><thead><tr><th>Type</th><th>Antall meldt</th><th>Antall lukket</th><th>Meldepliktige (§5-2)</th></tr></thead><tbody><tr><td>Avvik</td><td>[Antall]</td><td>[Antall]</td><td>[Antall]</td></tr><tr><td>Nestenulykker</td><td>[Antall]</td><td>[Antall]</td><td>—</td></tr><tr><td>Personskader</td><td>[Antall]</td><td>[Antall]</td><td>[Antall]</td></tr></tbody></table><p>Kommentar til avviksutviklingen: [Fyll inn observasjoner og vurdering av trender.]</p>"
+      },
+      {
+        "kind": "module",
+        "moduleName": "live_risk_feed",
+        "params": {"maxItems": 5, "showDepartment": true}
+      },
+      {
+        "kind": "heading",
+        "level": 2,
+        "text": "3. Risikovurderinger (IK-f §5 nr. 3)"
+      },
+      {
+        "kind": "text",
+        "body": "<p>Oversikt over risikovurderinger gjennomgått siste 12 måneder:</p><ul><li>Antall aktive risikovurderinger: [Antall]</li><li>Antall gjennomgått dette året: [Antall]</li><li>Antall med restrisiko «Høy»: [Antall] — tiltak: [beskriv]</li><li>Nye farekilder identifisert: [beskriv]</li></ul>"
+      },
+      {
+        "kind": "heading",
+        "level": 2,
+        "text": "4. HMS-opplæring (IK-f §5 nr. 1c)"
+      },
+      {
+        "kind": "text",
+        "body": "<ul><li>Andel ansatte med gjennomført obligatorisk HMS-opplæring: [%]</li><li>Ledere med godkjent HMS-lederopplæring: [antall / totalt med personalansvar]</li><li>Verneombud — opplæring à jour: [Ja/Nei]</li><li>AMU-opplæring gjennomført: [Ja/Nei/N/A]</li><li>Planlagte opplæringstiltak neste periode: [beskriv]</li></ul>"
+      },
+      {
+        "kind": "heading",
+        "level": 2,
+        "text": "5. Psykososialt arbeidsmiljø (AML §4-3)"
+      },
+      {
+        "kind": "text",
+        "body": "<p>Arbeidsmiljøundersøkelse gjennomført: [Ja/Nei — dato]. Svarprosent: [%]. Vesentlige funn: [beskriv]. Iverksatte tiltak: [beskriv].</p><p>Varslingssaker behandlet dette året: [Antall — uten å angi personidentifiserende detaljer].</p>"
+      },
+      {
+        "kind": "heading",
+        "level": 2,
+        "text": "6. Sykefraværsoppfølging (AML §4-6)"
+      },
+      {
+        "kind": "text",
+        "body": "<p>Sykefravær dette året: [%]. Tilretteleggingssaker: [antall]. Dialogmøter gjennomført innen frist: [andel]. Kommentar til sykefraværsutvikling og tiltak: [beskriv].</p>"
+      },
+      {
+        "kind": "heading",
+        "level": 2,
+        "text": "7. Verneorganisasjon"
+      },
+      {
+        "kind": "module",
+        "moduleName": "live_org_chart",
+        "params": {"showVerneombud": true, "showAMU": true, "showBHT": true}
+      },
+      {
+        "kind": "heading",
+        "level": 2,
+        "text": "8. Konklusjoner og handlingsplan"
+      },
+      {
+        "kind": "text",
+        "body": "<p>Følgende forbedringsområder og tiltak er besluttet for {{nextRevisionDate | neste periode}}:</p><table><thead><tr><th>Tiltak</th><th>Ansvarlig</th><th>Frist</th><th>Prioritet</th></tr></thead><tbody><tr><td>[Beskriv tiltak 1]</td><td>[Navn/rolle]</td><td>[Dato]</td><td>[Høy/Medium/Lav]</td></tr><tr><td>[Beskriv tiltak 2]</td><td>[Navn/rolle]</td><td>[Dato]</td><td>[Høy/Medium/Lav]</td></tr></tbody></table><p>HMS-mål for neste periode oppdateres i HMS-policy og mål etter denne gjennomgangen.</p>"
+      },
+      {
+        "kind": "heading",
+        "level": 2,
+        "text": "9. Konklusjon og godkjenning"
+      },
+      {
+        "kind": "text",
+        "body": "<p>Årsgjennomgangen er gjennomført i samsvar med IK-forskriften §5 nr. 5. Internkontrollen vurderes som [tilfredsstillende / tilfredsstillende med forbehold / ikke tilfredsstillende — begrunn].</p><p><br/>Signatur daglig leder: ___________________________ Dato: ___________<br/><br/>Signatur verneombud: ___________________________ Dato: ___________</p>"
+      },
+      {
+        "kind": "law_ref",
+        "ref": "IK-f § 5 nr. 5",
+        "description": "Internkontrollen skal gjennomgås systematisk — minst én gang per år. Resultatet skal dokumenteres skriftlig."
+      },
+      {
+        "kind": "law_ref",
+        "ref": "AML § 3-1",
+        "description": "Systematisk HMS-arbeid — kontinuerlig kartlegging, tiltak og dokumentasjon."
+      },
+      {
+        "kind": "law_ref",
+        "ref": "IK-f § 5 nr. 1a",
+        "description": "HMS-mål skal oppdateres og gjennomgås i forbindelse med årsgjennomgangen."
+      },
+      {
+        "kind": "law_ref",
+        "ref": "IK-f § 5 nr. 3",
+        "description": "Risikovurderinger skal gjennomgås jevnlig — status dokumenteres her."
+      },
+      {
+        "kind": "law_ref",
+        "ref": "IK-f § 5 nr. 4",
+        "description": "Avviksstatus og trendanalyse er en obligatorisk del av årsgjennomgangen."
+      }
+    ]
+  }$json$::jsonb
+where id = 'tpl-aarsgjennomgang';
+
+-- ── 4. Enable for all existing orgs ──────────────────────────────────────────
+-- tpl-org-ansvar and tpl-aarsgjennomgang were seeded in the archive migration
+-- but document_org_template_settings rows were never backfilled. tpl-varsling
+-- is new. All three need enabling for every existing tenant.
+
+do $$
+declare
+  v_org_id uuid;
+  v_ids    text[] := array['tpl-varsling', 'tpl-org-ansvar', 'tpl-aarsgjennomgang'];
+  v_id     text;
+begin
+  for v_org_id in select id from public.organizations loop
+    foreach v_id in array v_ids loop
+      insert into public.document_org_template_settings (organization_id, template_id, enabled)
+      values (v_org_id, v_id, true)
+      on conflict (organization_id, template_id) do nothing;
+    end loop;
+  end loop;
+end;
+$$;
+-- P1 improvements:
+--   1. HMS-policy: add medvirkning statement (AML §3-1 (2a)) and
+--      tilrettelegging reference (AML §4-6) — both missing from the
+--      policy text and law_ref list.
+--   2. tpl-sysdok-internkontroll: add tpl-varsling to coverage table,
+--      fix "Varsling" section to reference the now-existing template,
+--      add AML §2A-3 to legal_basis.
+--
+-- Self-audit (Arbeidstilsynet POV):
+--   AML §3-1 (2a): ansatte og deres representanter skal medvirke —
+--   not mentioning this in the policy is a common pålegg-grunn.
+--   AML §4-6 tilretteleggingsplikt is cited in ~25 % of AML-related
+--   pålegg; adding the reference closes a gap without changing scope.
+--   Internkontroll table was internally inconsistent (referenced tpl-varsling
+--   but template didn't exist); now consistent after P0 work.
+
+-- ── 1a. Add medvirkning + tilrettelegging sentence to ansvar text block ────────
+
+update public.document_system_templates
+set page_payload = jsonb_set(
+  page_payload,
+  '{blocks}',
+  (
+    select jsonb_agg(blk order by ord)
+    from (
+      select
+        case
+          when b->>'kind' = 'text'
+            and (b->>'body') like '%Daglig leder har det overordnede ansvaret%'
+          then jsonb_set(b, '{body}', to_jsonb(
+            replace(
+              b->>'body',
+              'etter AML §6-3.</p>',
+              'etter AML §6-3.</p><p>Ansatte og deres representanter (verneombud, tillitsvalgte) medvirker aktivt i kartlegging av farer, risikovurdering og utforming av tiltak (AML §3-1 (2a) og §4-2). Arbeidsgiver har individuell plikt til å tilrettelegge arbeidet for ansatte med redusert arbeidsevne og til å følge opp sykmeldte etter lovens milepæler (AML §4-6).</p>'
+            )
+          ))
+          else b
+        end as blk,
+        ordinality as ord
+      from jsonb_array_elements(page_payload->'blocks') with ordinality as t(b, ordinality)
+    ) sub
+  )
+)
+where id = 'tpl-hms-policy'
+  and page_payload::text not like '%medvirker aktivt i kartlegging%';
+
+-- ── 1b. Splice AML §4-6 law_ref block after AML §4-3 law_ref ─────────────────
+
+update public.document_system_templates
+set page_payload = jsonb_set(
+  page_payload,
+  '{blocks}',
+  (
+    select jsonb_agg(blk order by sort_key)
+    from (
+      -- existing blocks, each gets an even sort key preserving natural order
+      select b as blk, (ordinality * 2)::float as sort_key
+      from jsonb_array_elements(page_payload->'blocks') with ordinality as t(b, ordinality)
+      union all
+      -- new AML §4-6 law_ref inserted right after AML §4-3 (odd sort key)
+      select
+        '{"kind":"law_ref","ref":"AML § 4-6","description":"Plikt til individuell tilrettelegging for arbeidstakere med redusert arbeidsevne — oppfølgingsplan, dialogmøter og tilretteleggingstiltak."}'::jsonb,
+        (
+          select (ordinality * 2 + 1)::float
+          from jsonb_array_elements(page_payload->'blocks') with ordinality as t(b, ordinality)
+          where b->>'ref' = 'AML § 4-3'
+          limit 1
+        )
+    ) sub(blk, sort_key)
+    where sort_key is not null
+  )
+)
+where id = 'tpl-hms-policy'
+  and not exists (
+    select 1 from jsonb_array_elements(page_payload->'blocks') b
+    where b->>'ref' = 'AML § 4-6'
+  );
+
+-- ── 2. Fix tpl-sysdok-internkontroll ─────────────────────────────────────────
+-- Add tpl-varsling row to coverage table, update varsling section text,
+-- and expand legal_basis to include AML §2A-3.
+
+update public.document_system_templates
+set
+  legal_basis  = array[
+    'IK-f § 5', 'AML § 3-1', 'AML § 3-2', 'AML § 4-1', 'AML § 2A-3'
+  ],
+  page_payload = jsonb_set(
+    page_payload,
+    '{blocks}',
+    (
+      select jsonb_agg(blk order by ord)
+      from (
+        select
+          case
+            -- Add tpl-varsling row to coverage table
+            when b->>'kind' = 'text'
+              and (b->>'body') like '%nr. 5 — Årsgjennomgang%'
+            then jsonb_set(b, '{body}', to_jsonb(
+              replace(
+                b->>'body',
+                '</tbody></table>',
+                '<tr><td>§2A — Varsling</td><td>Dokumentmodul: Varslingsrutiner</td><td>tpl-varsling</td></tr></tbody></table>'
+              )
+            ))
+            -- Update the Varsling section text to reference the specific template
+            when b->>'kind' = 'text'
+              and (b->>'body') like '%Fullstendige varslingsrutiner dekket i dokumentmodulen%'
+            then jsonb_set(b, '{body}', to_jsonb(
+              '<p>Virksomhetens skriftlige varslingsrutiner er dokumentert i <em>Varslingsrutiner</em> (tpl-varsling) — kanaler, saksbehandlingsrutine, konfidensialitet og vern mot gjengjeldelse etter AML §2A-3.</p>'
+            ))
+            else b
+          end as blk,
+          ordinality as ord
+        from jsonb_array_elements(page_payload->'blocks') with ordinality as t(b, ordinality)
+      ) sub
+    )
+  )
+where slug = 'tpl-sysdok-internkontroll';

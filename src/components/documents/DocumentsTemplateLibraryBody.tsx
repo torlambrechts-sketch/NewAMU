@@ -27,11 +27,6 @@ const categoryOptions: SelectOption[] = (Object.keys(CATEGORY_LABELS) as SpaceCa
 
 type Props = {
   /**
-   * Mapper brukeren kan opprette dokument fra (f.eks. kun `template_library`-mapper på malbibliotek-siden).
-   * Tom liste → ingen «Bruk mal».
-   */
-  destinationSpaces?: WikiSpace[]
-  /**
    * Dokumentmapper (ikke malbibliotek) for «Bruk mal» / systemmal — rediger som dokument.
    * Første mappe brukes når brukeren velger «Hoved». Uten prop: alle aktive mapper unntatt `template_library`.
    */
@@ -46,7 +41,6 @@ type Props = {
  * «Bruk dokumentmal» → DocumentCreationWizard (4-stegs for policy-maler, 1-stegs for øvrige).
  */
 export function DocumentsTemplateLibraryBody({
-  destinationSpaces,
   documentCatalogSpaces,
   newTemplateKey = 0,
 }: Props) {

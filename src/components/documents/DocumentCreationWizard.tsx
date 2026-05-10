@@ -268,6 +268,7 @@ type OrgInfoValues = {
   hasBht: boolean
   hasCollectiveAgreement: boolean
   collectiveAgreementName: string
+  hasIaAgreement: boolean
 }
 
 function StepOrgInfo({
@@ -349,6 +350,19 @@ function StepOrgInfo({
           />
         </FieldRow>
       )}
+      <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-neutral-200 bg-white p-3.5 hover:bg-neutral-50 transition-colors">
+        <input
+          type="checkbox"
+          checked={values.hasIaAgreement}
+          onChange={(e) => onChange({ hasIaAgreement: e.target.checked })}
+          className="mt-0.5 size-4 rounded border-neutral-300"
+          style={{ accentColor: '#0f766e' }}
+        />
+        <div>
+          <span className="text-sm font-medium text-neutral-900">IA-bedrift (inkluderende arbeidsliv)</span>
+          <p className="text-xs text-neutral-500 mt-0.5">Virksomheten har IA-avtale med NAV. Legger til avsnitt om IA-forpliktelser i policyen.</p>
+        </div>
+      </label>
     </>
   )
 }
@@ -601,6 +615,7 @@ export function DocumentCreationWizard({
     hasBht: preset.bhtPliktig,
     hasCollectiveAgreement: org.settings.hasCollectiveAgreement,
     collectiveAgreementName: org.settings.collectiveAgreementName ?? '',
+    hasIaAgreement: false,
   })
 
   const [risks, setRisks] = useState<RiskValues>({
@@ -627,6 +642,7 @@ export function DocumentCreationWizard({
       hasBht: preset.bhtPliktig,
       hasCollectiveAgreement: org.settings.hasCollectiveAgreement,
       collectiveAgreementName: org.settings.collectiveAgreementName ?? '',
+      hasIaAgreement: false,
     })
     setRisks({
       selectedRisks: preset.risks.filter((r) => r.defaultSelected).map((r) => r.id),
@@ -669,10 +685,18 @@ export function DocumentCreationWizard({
     { value: '', label: '— Skriv inn navn manuelt —' },
     ...org.activeEmployees
       .filter((e) => e.active)
-      .map((e) => ({
-        value: e.name,
-        label: e.name + (e.jobTitle ? ` — ${e.jobTitle}` : ''),
-      })),
+      .sort((a, b) => {
+        const aHms = a.mandates?.some((m) => m.mandateType === 'hms_ansvarlig') ?? false
+        const bHms = b.mandates?.some((m) => m.mandateType === 'hms_ansvarlig') ?? false
+        if (aHms !== bHms) return aHms ? -1 : 1
+        return 0
+      })
+      .map((e) => {
+        const isHms = e.mandates?.some((m) => m.mandateType === 'hms_ansvarlig')
+        const titlePart = e.jobTitle ? ` — ${e.jobTitle}` : ''
+        const badge = isHms ? ' ★' : ''
+        return { value: e.name, label: e.name + titlePart + badge }
+      }),
   ]
 
   // ── Navigation ─────────────────────────────────────────────────────────────
@@ -754,6 +778,7 @@ export function DocumentCreationWizard({
       hasBht: orgInfo.hasBht,
       hasCollectiveAgreement: orgInfo.hasCollectiveAgreement,
       collectiveAgreementName: orgInfo.collectiveAgreementName,
+      hasIaAgreement: orgInfo.hasIaAgreement,
       sectorRisks: selectedRiskItems.map((r) => r.label),
     }
   }
