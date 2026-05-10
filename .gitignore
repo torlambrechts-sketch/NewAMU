@@ -23,3 +23,6 @@ dist-ssr
 *.sln
 *.sw?
 .aider*
+
+# Supabase CLI generated files
+supabase/.temp/
