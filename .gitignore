@@ -26,3 +26,6 @@ dist-ssr
 
 # Supabase CLI generated files
 supabase/.temp/
+
+# Generated SQL merge files for manual DB application
+supabase/migrations/RUN_IN_SQL_EDITOR.sql
