@@ -24,6 +24,7 @@ export type TemplateContext = {
   hasBht: boolean
   hasCollectiveAgreement: boolean
   collectiveAgreementName: string
+  hasIaAgreement: boolean
   sectorRisks: string[]      // display labels of user-selected risk items
 }
 
@@ -76,6 +77,13 @@ function makeCollectiveAgreementBlock(name: string): ContentBlock {
   }
 }
 
+function makeIaBlock(): ContentBlock {
+  return {
+    kind: 'text',
+    body: `<p>Virksomheten har inngått avtale om et mer inkluderende arbeidsliv (IA-avtalen) med NAV Arbeidslivssenter. IA-arbeidet er en integrert del av det systematiske HMS-arbeidet og bidrar til å forebygge sykefravær, tilrettelegge for ansatte med redusert arbeidsevne og øke den reelle pensjonsalderen. Virksomheten forplikter seg til å gjennomføre IA-delmål i samarbeid med tillitsvalgte og verneombudet.</p>`,
+  }
+}
+
 // ─── Main resolver ────────────────────────────────────────────────────────────
 
 const SETUP_WARN_PREFIX = 'Tilpass dette dokumentet'
@@ -114,6 +122,9 @@ export function resolveTemplateTokens(
           if (ctx.hasCollectiveAgreement) {
             result.push(makeCollectiveAgreementBlock(ctx.collectiveAgreementName))
           }
+          continue
+        case '{{inject:ia_section}}':
+          if (ctx.hasIaAgreement) result.push(makeIaBlock())
           continue
       }
     }
