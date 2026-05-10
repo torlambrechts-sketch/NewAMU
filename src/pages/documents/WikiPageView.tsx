@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState, useSyncExternalStore } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
-import { Eye, History, Pencil, Printer } from 'lucide-react'
+import { Eye, History, MessageSquare, PanelLeft, Pencil, Printer } from 'lucide-react'
 import { useDocuments } from '../../hooks/useDocuments'
 import { useOrgSetupContext } from '../../hooks/useOrgSetupContext'
 import { useWikiPageComments, fetchWikiMentionRecipientsFromHtml } from '../../hooks/useWikiPageComments'
@@ -35,6 +35,12 @@ const TEMPLATE_CLASS = {
   standard: 'max-w-3xl',
   wide: 'max-w-5xl',
   policy: 'max-w-2xl',
+}
+
+const FONT_PROSE: Record<'sm' | 'base' | 'lg', 'sm' | 'base' | 'lg'> = {
+  sm: 'sm',
+  base: 'base',
+  lg: 'lg',
 }
 
 let _clockNow = Date.now()
@@ -119,6 +125,10 @@ export function WikiPageView() {
   const [editAccessErr, setEditAccessErr] = useState<string | null>(null)
   const [editAccessDone, setEditAccessDone] = useState(false)
   const [diffVersion, setDiffVersion] = useState<WikiPageVersionSnapshot | null>(null)
+  const [tocOpen, setTocOpen] = useState(true)
+  const [fontSize, setFontSize] = useState<'sm' | 'base' | 'lg'>(() => {
+    try { return (localStorage.getItem('wiki-font-size') as 'sm' | 'base' | 'lg') || 'base' } catch { return 'base' }
+  })
 
   const page = docs.pages.find((p) => p.id === pageId)
   const space = page ? docs.spaces.find((s) => s.id === page.spaceId) : null
@@ -141,6 +151,10 @@ export function WikiPageView() {
   useEffect(() => {
     setDiffVersion(null)
   }, [pageId])
+
+  useEffect(() => {
+    try { localStorage.setItem('wiki-font-size', fontSize) } catch { /* quota */ }
+  }, [fontSize])
 
   const folderRestricted =
     page && space
@@ -698,89 +712,208 @@ export function WikiPageView() {
       )}
 
       {activeTabExt === 'innhold' && (
-        <ModuleSectionCard>
+        <ModuleSectionCard clip="visible" className="overflow-visible">
+          {/* ── Reading toolbar ── */}
           <div
             data-print-hide
-            className={`flex flex-col gap-6 lg:flex-row lg:items-start ${TEMPLATE_CLASS[templateKey]} mx-auto w-full`}
+            className="no-print sticky top-0 z-20 flex items-center gap-1 rounded-t-xl border-b border-neutral-200 bg-white/95 px-3 py-2 backdrop-blur-sm"
           >
-            {headingToc.length >= 3 ? (
-              <aside className="hidden w-52 shrink-0 md:sticky md:top-24 md:block">
-                <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-neutral-500">Innhold</p>
-                <nav>
-                  <ul className="space-y-1">
-                    {headingToc.map((h) => (
-                      <li key={h.id} style={{ paddingLeft: `${(h.level - 1) * 10}px` }}>
-                        <a
-                          href={`#${h.id}`}
-                          className={`block truncate text-xs leading-5 ${
-                            tocActiveId === h.id ? 'font-semibold text-[#1a3d32]' : 'text-neutral-500 hover:text-neutral-800'
-                          }`}
-                          onClick={(e) => {
-                            e.preventDefault()
-                            document.getElementById(h.id)?.scrollIntoView({ behavior: 'smooth' })
-                          }}
-                        >
-                          {h.text}
-                        </a>
-                      </li>
-                    ))}
-                  </ul>
-                </nav>
-              </aside>
-            ) : null}
-            <div className="min-w-0 flex-1">
-            {page.containsPii ? (
-              <div
-                className="mb-6 rounded-lg border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-sky-950"
-                role="status"
+            {/* TOC toggle */}
+            {headingToc.length > 0 && (
+              <button
+                type="button"
+                onClick={() => setTocOpen((o) => !o)}
+                title={tocOpen ? 'Skjul innholdsliste' : 'Vis innholdsliste'}
+                className={`inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-medium transition-colors ${
+                  tocOpen ? 'bg-[#1a3d32]/10 text-[#1a3d32]' : 'text-neutral-500 hover:bg-neutral-100'
+                }`}
               >
-                <p className="font-semibold text-sky-950">Dette dokumentet inneholder personopplysninger.</p>
-                {page.piiLegalBasis?.trim() ? (
-                  <p className="mt-1 text-sm text-sky-900">
-                    <span className="font-medium">Behandlingsgrunnlag:</span> {page.piiLegalBasis}
+                <PanelLeft className="size-3.5" aria-hidden />
+                <span className="hidden sm:inline">Innholdsliste</span>
+              </button>
+            )}
+
+            <div className="mx-1.5 h-4 w-px shrink-0 bg-neutral-200" aria-hidden />
+
+            {/* Font size controls */}
+            <span className="hidden select-none text-[10px] font-semibold uppercase tracking-widest text-neutral-400 sm:inline">
+              Størrelse
+            </span>
+            {(['sm', 'base', 'lg'] as const).map((s, i) => (
+              <button
+                key={s}
+                type="button"
+                onClick={() => setFontSize(s)}
+                title={s === 'sm' ? 'Liten tekst' : s === 'base' ? 'Normal tekst' : 'Stor tekst'}
+                className={`inline-flex size-7 items-center justify-center rounded-md transition-colors ${
+                  fontSize === s
+                    ? 'bg-[#1a3d32]/10 font-semibold text-[#1a3d32]'
+                    : 'text-neutral-400 hover:bg-neutral-100 hover:text-neutral-700'
+                }`}
+              >
+                <span aria-hidden style={{ fontSize: ['11px', '13px', '15px'][i], lineHeight: 1 }}>
+                  A
+                </span>
+              </button>
+            ))}
+
+            <div className="flex-1" />
+
+            {/* Open comment count */}
+            {comments.length > 0 && (
+              <span className="inline-flex items-center gap-1 rounded-md px-2 py-1.5 text-xs text-neutral-500">
+                <MessageSquare className="size-3.5" aria-hidden />
+                {comments.filter((c) => !c.resolved).length > 0
+                  ? comments.filter((c) => !c.resolved).length
+                  : null}
+              </span>
+            )}
+
+            <div className="mx-1 h-4 w-px shrink-0 bg-neutral-200" aria-hidden />
+
+            {/* Print */}
+            <button
+              type="button"
+              onClick={() => window.print()}
+              title="Skriv ut / Last ned PDF"
+              className="inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs text-neutral-500 hover:bg-neutral-100"
+            >
+              <Printer className="size-3.5" aria-hidden />
+              <span className="hidden sm:inline">Skriv ut</span>
+            </button>
+
+            {/* Edit */}
+            {canEditDocs && (
+              <button
+                type="button"
+                title={canEditThisDoc ? 'Rediger dokument' : folderRestricted ? 'Be om redigeringstilgang' : 'Ingen skrivetilgang'}
+                onClick={() => {
+                  if (canEditThisDoc) {
+                    navigate(`/documents/page/${page.id}/reference-edit`)
+                  } else if (folderRestricted && user?.id) {
+                    setEditAccessErr(null)
+                    setEditAccessDone(false)
+                    setEditAccessOpen(true)
+                  }
+                }}
+                className="inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs text-neutral-500 hover:bg-neutral-100"
+              >
+                <Pencil className="size-3.5" aria-hidden />
+                <span className="hidden sm:inline">Rediger</span>
+              </button>
+            )}
+          </div>
+
+          {/* ── Three-panel layout ── */}
+          <div className="flex items-start">
+            {/* Left TOC rail */}
+            {tocOpen && headingToc.length > 0 && (
+              <aside
+                data-print-hide
+                className="no-print sticky hidden w-56 shrink-0 self-start overflow-y-auto border-r border-neutral-100 md:block"
+                style={{ top: '41px', maxHeight: 'calc(100dvh - 120px)' }}
+                aria-label="Dokumentnavigasjon"
+              >
+                <div className="py-6 pl-5 pr-4">
+                  <p className="mb-3 text-[10px] font-bold uppercase tracking-widest text-neutral-400">
+                    Innhold
                   </p>
-                ) : null}
-                {page.piiRetentionNote?.trim() ? (
-                  <p className="mt-1 text-sm text-sky-900">
-                    <span className="font-medium">Lagringstid:</span> {page.piiRetentionNote}
-                  </p>
-                ) : null}
+                  <nav>
+                    <ul className="space-y-0.5">
+                      {headingToc.map((h) => {
+                        const active = tocActiveId === h.id
+                        return (
+                          <li key={h.id} style={{ paddingLeft: `${(h.level - 1) * 10}px` }}>
+                            <a
+                              href={`#${h.id}`}
+                              className={`flex items-center gap-2 rounded-md py-1 pr-2 text-xs leading-5 transition-all ${
+                                active
+                                  ? 'border-l-2 border-[#1a3d32] bg-[#1a3d32]/5 pl-[6px] font-semibold text-[#1a3d32]'
+                                  : 'pl-2 text-neutral-500 hover:bg-neutral-50 hover:text-neutral-800'
+                              }`}
+                              onClick={(e) => {
+                                e.preventDefault()
+                                document.getElementById(h.id)?.scrollIntoView({ behavior: 'smooth' })
+                              }}
+                            >
+                              {h.level === 1 && (
+                                <span
+                                  className="size-1.5 shrink-0 rounded-full bg-current opacity-50"
+                                  aria-hidden
+                                />
+                              )}
+                              <span className="truncate">{h.text}</span>
+                            </a>
+                          </li>
+                        )
+                      })}
+                    </ul>
+                  </nav>
+                </div>
+              </aside>
+            )}
+
+            {/* Main prose area */}
+            <div
+              className={`min-w-0 flex-1 py-8 ${
+                tocOpen && headingToc.length > 0 ? 'px-8 md:px-10' : 'px-6 md:px-10'
+              }`}
+            >
+              {page.containsPii ? (
+                <div
+                  className="mb-6 rounded-lg border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-sky-950"
+                  role="status"
+                >
+                  <p className="font-semibold text-sky-950">Dette dokumentet inneholder personopplysninger.</p>
+                  {page.piiLegalBasis?.trim() ? (
+                    <p className="mt-1 text-sm text-sky-900">
+                      <span className="font-medium">Behandlingsgrunnlag:</span> {page.piiLegalBasis}
+                    </p>
+                  ) : null}
+                  {page.piiRetentionNote?.trim() ? (
+                    <p className="mt-1 text-sm text-sky-900">
+                      <span className="font-medium">Lagringstid:</span> {page.piiRetentionNote}
+                    </p>
+                  ) : null}
+                </div>
+              ) : null}
+              <div className={`mx-auto ${TEMPLATE_CLASS[templateKey]}`}>
+                <WikiBlockRenderer
+                  blocks={Array.isArray(page.blocks) ? page.blocks : []}
+                  pageId={page.id}
+                  pageVersion={page.version}
+                  lang={page.lang ?? 'nb'}
+                  fontSize={FONT_PROSE[fontSize]}
+                  blockFooter={(idx) =>
+                    page.status === 'published' ? (
+                      <WikiBlockCommentsPanel
+                        blockIndex={idx}
+                        comments={comments}
+                        currentUserId={user?.id}
+                        canView={can('documents.view')}
+                        canComment={Boolean(user?.id && can('documents.view'))}
+                        onAdd={async (bi, body) => {
+                          await addComment({ blockIndex: bi, body, authorName: profile?.display_name ?? '' })
+                          const recipients = await fetchWikiMentionRecipientsFromHtml(supabase, `<p>${body}</p>`)
+                          if (recipients.length > 0) {
+                            const chips = recipients
+                              .map((r) => `<span data-mention="true" data-user-id="${r.id}">@${r.label}</span>`)
+                              .join(' ')
+                            await notifyWikiMentions({
+                              html: `<p>Kommentar på «${page.title}»: ${chips}</p>`,
+                              pageId: page.id,
+                              context: 'comment',
+                              actorName: profile?.display_name ?? '',
+                            })
+                          }
+                        }}
+                        onResolve={(id, r) => setResolved(id, r)}
+                        onDelete={(id) => removeComment(id)}
+                      />
+                    ) : null
+                  }
+                />
               </div>
-            ) : null}
-            <WikiBlockRenderer
-              blocks={Array.isArray(page.blocks) ? page.blocks : []}
-              pageId={page.id}
-              pageVersion={page.version}
-              lang={page.lang ?? 'nb'}
-              blockFooter={(idx) =>
-                page.status === 'published' ? (
-                  <WikiBlockCommentsPanel
-                    blockIndex={idx}
-                    comments={comments}
-                    currentUserId={user?.id}
-                    canView={can('documents.view')}
-                    canComment={Boolean(user?.id && can('documents.view'))}
-                    onAdd={async (bi, body) => {
-                      await addComment({ blockIndex: bi, body, authorName: profile?.display_name ?? '' })
-                      const recipients = await fetchWikiMentionRecipientsFromHtml(supabase, `<p>${body}</p>`)
-                      if (recipients.length > 0) {
-                        const chips = recipients
-                          .map((r) => `<span data-mention="true" data-user-id="${r.id}">@${r.label}</span>`)
-                          .join(' ')
-                        await notifyWikiMentions({
-                          html: `<p>Kommentar på «${page.title}»: ${chips}</p>`,
-                          pageId: page.id,
-                          context: 'comment',
-                          actorName: profile?.display_name ?? '',
-                        })
-                      }
-                    }}
-                    onResolve={(id, r) => setResolved(id, r)}
-                    onDelete={(id) => removeComment(id)}
-                  />
-                ) : null
-              }
-            />
             </div>
           </div>
         </ModuleSectionCard>
