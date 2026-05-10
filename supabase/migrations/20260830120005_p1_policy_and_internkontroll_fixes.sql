@@ -107,7 +107,7 @@ set
             when b->>'kind' = 'text'
               and (b->>'body') like '%Fullstendige varslingsrutiner dekket i dokumentmodulen%'
             then jsonb_set(b, '{body}', to_jsonb(
-              '<p>Virksomhetens skriftlige varslingsrutiner er dokumentert i <em>Varslingsrutiner</em> (tpl-varsling) — kanaler, saksbehandlingsrutine, konfidensialitet og vern mot gjengjeldelse etter AML §2A-3.</p>'
+              '<p>Virksomhetens skriftlige varslingsrutiner er dokumentert i <em>Varslingsrutiner</em> (tpl-varsling) — kanaler, saksbehandlingsrutine, konfidensialitet og vern mot gjengjeldelse etter AML §2A-3.</p>'::text
             ))
             else b
           end as blk,
