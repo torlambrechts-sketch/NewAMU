@@ -387,7 +387,7 @@ export function TasksMalerTab() {
                   Aktiv
                 </th>
                 <th className="px-3 py-3 text-center text-[10px] font-bold uppercase tracking-wider text-neutral-500">
-                  Festet i meny
+                  Vis i meny
                 </th>
                 <th className="px-3 py-3 text-[10px] font-bold uppercase tracking-wider text-neutral-500" />
               </tr>
@@ -439,11 +439,11 @@ export function TasksMalerTab() {
                           ? 'border-[#c2410c]/30 bg-orange-50 text-[#c2410c]'
                           : 'border-neutral-200 bg-white text-neutral-400 hover:border-neutral-300'
                       }`}
-                      aria-label={t.navPinned ? 'Fjern fra meny' : 'Fest i meny'}
+                      aria-label={t.navPinned ? 'Skjul fra meny' : 'Vis i meny'}
                     >
                       {t.navPinned
-                        ? <><PinOff className="h-3.5 w-3.5" /> Festet</>
-                        : <><Pin className="h-3.5 w-3.5" /> Fest</>
+                        ? <><Pin className="h-3.5 w-3.5" /> Vises</>
+                        : <><PinOff className="h-3.5 w-3.5" /> Skjult</>
                       }
                     </button>
                   </td>

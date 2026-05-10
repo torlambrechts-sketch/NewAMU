@@ -2491,8 +2491,8 @@ begin
     values (
       p_org_id,
       v_tpl.id,
-      -- pin avvik, tiltak, risiko by default
-      (v_tpl.slug in ('avvik', 'tiltak', 'risiko')),
+      -- all system templates show in nav by default; admin can hide per org
+      true,
       true,
       case v_tpl.slug
         when 'avvik'               then v_cat_avvik
