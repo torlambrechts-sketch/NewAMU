@@ -2,12 +2,18 @@ import { useSyncExternalStore } from 'react'
 import { Link } from 'react-router-dom'
 import { Archive } from 'lucide-react'
 
+let _clockNow = Date.now()
+
 function subscribeClock(cb: () => void) {
-  const id = window.setInterval(cb, 60_000)
+  const id = window.setInterval(() => {
+    _clockNow = Date.now()
+    cb()
+  }, 60_000)
   return () => window.clearInterval(id)
 }
+
 function getClockSnapshot() {
-  return Date.now()
+  return _clockNow
 }
 
 type Props = {

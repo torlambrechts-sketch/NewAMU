@@ -37,12 +37,18 @@ const TEMPLATE_CLASS = {
   policy: 'max-w-2xl',
 }
 
+let _clockNow = Date.now()
+
 function subscribeClock(cb: () => void) {
-  const id = window.setInterval(cb, 60_000)
+  const id = window.setInterval(() => {
+    _clockNow = Date.now()
+    cb()
+  }, 60_000)
   return () => window.clearInterval(id)
 }
+
 function getClockSnapshot() {
-  return Date.now()
+  return _clockNow
 }
 
 function statusBadgeVariant(status: PageStatus): 'success' | 'draft' | 'neutral' {
