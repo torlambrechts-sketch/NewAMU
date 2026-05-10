@@ -6,7 +6,7 @@
 --   tpl-opplaering  standard→policy, adds {{tokens}}, role matrix, sector
 --                   training note, onboarding requirement, AMU training
 --   tpl-amu-rapport adds {{currentYear}}/{{orgName}} tokens, structured
---                   meeting log, risk feed, complete law refs
+--                   meeting log, risk feed, comeplete law refs
 --   tpl-rusmiddel   replaces [Virksomhetens navn] with {{orgName}},
 --                   adds AML §9-4 + §4-3 refs, improves oppfølging section
 --
