@@ -833,7 +833,6 @@ export function ModuleDocumentsKandidatdetaljHub({
         <div className="min-w-0 bg-white p-4 md:p-6">
           {centerContent === 'templates' ? (
             <DocumentsTemplateLibraryBody
-              destinationSpaces={activeSpacesTemplates}
               documentCatalogSpaces={templateDocumentDestinationSpaces}
               newTemplateKey={newTemplateKey}
             />
