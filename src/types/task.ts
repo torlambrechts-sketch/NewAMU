@@ -54,7 +54,7 @@ export type TaskItemStatus =
 export type TaskMetadataField = {
   id: string
   label: string
-  kind: 'text' | 'textarea' | 'date' | 'datetime' | 'daterange' | 'number' | 'boolean' | 'select'
+  kind: 'text' | 'textarea' | 'date' | 'datetime' | 'daterange' | 'number' | 'boolean' | 'select' | 'risk_matrix' | 'person' | 'location'
   required: boolean
   /** For kind='select' */
   options?: string[]
