@@ -106,9 +106,9 @@ export function SurveyMalerOpsCard({ supabase }: Props) {
           <div>
             <h2 className="text-lg font-semibold text-neutral-900">Promotering & gjennomgang</h2>
             <p className="mt-1.5 text-sm text-neutral-600">
-              Styr om en mal vises i sidemenyen (Pin) og hvor den står i den
-              interne gjennomgangsprosessen. Endringer trer i kraft umiddelbart
-              for alle brukere i organisasjonen.
+              Styr om en mal vises i sidemenyen og hvor den står i den
+              interne gjennomgangsprosessen. Maler vises som standard — skjul
+              dem enkeltvis ved behov. Endringer trer i kraft umiddelbart.
             </p>
           </div>
         </div>
@@ -152,7 +152,7 @@ export function SurveyMalerOpsCard({ supabase }: Props) {
                     <th className={LAYOUT_TABLE1_POSTINGS_TH}>Pakke</th>
                     <th className={LAYOUT_TABLE1_POSTINGS_TH}>Type</th>
                     <th className={LAYOUT_TABLE1_POSTINGS_TH}>Hoveddata</th>
-                    <th className={LAYOUT_TABLE1_POSTINGS_TH}>Sidemeny</th>
+                    <th className={LAYOUT_TABLE1_POSTINGS_TH}>Vis i meny</th>
                     <th className={LAYOUT_TABLE1_POSTINGS_TH}>Gjennomgang</th>
                   </tr>
                 </thead>
@@ -198,7 +198,7 @@ export function SurveyMalerOpsCard({ supabase }: Props) {
                             onClick={() => void handleTogglePin(t)}
                             icon={t.navPinned ? <Pin className="h-3.5 w-3.5" /> : <PinOff className="h-3.5 w-3.5" />}
                           >
-                            {t.navPinned ? 'Pinnet' : 'Ikke pinnet'}
+                            {t.navPinned ? 'Vises' : 'Skjult'}
                           </Button>
                         </td>
                         <td className={LAYOUT_TABLE1_POSTINGS_TD}>

@@ -253,7 +253,7 @@ const router = createBrowserRouter(
                       <Route path="tasks/management/admin" element={<TasksAdminPage />} />
                       <Route path="tasks/management/admin/:tab" element={<TasksAdminPage />} />
                       <Route path="tasks/management/review" element={<TasksManagementReviewPage />} />
-                      <Route path="overview/hms" element={<HmsOverviewPage />} />
+                      <Route path="overview/hms" element={<PackProvider><HmsOverviewPage /></PackProvider>} />
                       <Route path="workspace/revisjonslogg" element={<WorkspaceAuditLogPage />} />
                       <Route path="organisation" element={<OrganisationPage />} />
                       <Route path="organisation/admin" element={<AdminPage />} />
