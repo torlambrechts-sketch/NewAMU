@@ -26,6 +26,12 @@ export type TemplateContext = {
   collectiveAgreementName: string
   hasIaAgreement: boolean
   sectorRisks: string[]      // display labels of user-selected risk items
+  // ── Beredskap tokens ───────────────────────────────────────────────────────
+  assemblyPoint: string      // physical muster point address/description
+  aedLocation: string        // AED defibrillator location in building
+  bhtPhone: string           // BHT emergency/contact phone number
+  // ── Sector training ────────────────────────────────────────────────────────
+  sectorTrainingItems: string[] // sector-specific required training labels
 }
 
 // ─── String token replacement ─────────────────────────────────────────────────
@@ -44,6 +50,9 @@ function applyTokens(text: string, ctx: TemplateContext): string {
     .replace(/\{\{avvikFrist\}\}/g, ctx.avvikFrist || '14')
     .replace(/\{\{naceBeskrivelse\}\}/g, ctx.naceBeskrivelse || '')
     .replace(/\{\{currentYear\}\}/g, ctx.currentYear || String(new Date().getFullYear()))
+    .replace(/\{\{assemblyPoint\}\}/g, ctx.assemblyPoint || '[Samlingsplass — fyll inn adresse/sted]')
+    .replace(/\{\{aedLocation\}\}/g, ctx.aedLocation || '[AED-plassering — fyll inn]')
+    .replace(/\{\{bhtPhone\}\}/g, ctx.bhtPhone || '[BHT-telefon — fyll inn]')
 }
 
 // ─── Injected content blocks ──────────────────────────────────────────────────
@@ -74,6 +83,20 @@ function makeCollectiveAgreementBlock(name: string): ContentBlock {
   return {
     kind: 'text',
     body: `<p>Virksomheten er tariffbundet${name ? ` gjennom ${name}` : ''}. Tillitsvalgte involveres i HMS-arbeidet etter avtalens bestemmelser og har rett til å delta i AMUs arbeid på lik linje med verneombudet.</p>`,
+  }
+}
+
+function makeSectorTrainingBlock(items: string[], naceBeskrivelse: string): ContentBlock {
+  if (items.length === 0) {
+    return {
+      kind: 'text',
+      body: `<p>I tillegg til obligatorisk grunnopplæring krever virksomhetens bransje${naceBeskrivelse ? ` (${naceBeskrivelse})` : ''} sektorspesifikk opplæring. Kartlegg kravene i risikovurderingen og legg dem til som vedlegg til denne planen.</p>`,
+    }
+  }
+  const items_html = items.map((i) => `<li>${i}</li>`).join('')
+  return {
+    kind: 'text',
+    body: `<p>Basert på bransje${naceBeskrivelse ? ` (${naceBeskrivelse})` : ''} er følgende sektorspesifikk opplæring påkrevd i tillegg til grunnopplæringen:</p><ul>${items_html}</ul><p>Gjennomføring dokumenteres i læringsmodulen. Krav oppdateres ved endringer i arbeidsoppgaver eller risikoprofil.</p>`,
   }
 }
 
@@ -125,6 +148,9 @@ export function resolveTemplateTokens(
           continue
         case '{{inject:ia_section}}':
           if (ctx.hasIaAgreement) result.push(makeIaBlock())
+          continue
+        case '{{inject:sector_training_note}}':
+          result.push(makeSectorTrainingBlock(ctx.sectorTrainingItems, ctx.naceBeskrivelse))
           continue
       }
     }
