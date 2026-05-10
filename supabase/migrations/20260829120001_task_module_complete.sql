@@ -2914,14 +2914,14 @@ begin
   if new.reviewer_user_id is null then
     raise exception
       'RISIKO_REVIEWER_GATE: Risikovurdering kan ikke lukkes uten at en uavhengig '
-      'gjennomgang er dokumentert. Sett reviewer_user_id til en annen person enn eier.',
+      'gjennomgang er dokumentert. Sett reviewer_user_id til en annen person enn eier.'
       using errcode = 'P0002';
   end if;
 
   if new.reviewer_user_id = new.created_by then
     raise exception
       'RISIKO_REVIEWER_GATE: Risikovurdering krever uavhengig gjennomgang — '
-      'reviewer kan ikke være samme person som opprettet oppgaven (ISO 45001 § 5.3).',
+      'reviewer kan ikke være samme person som opprettet oppgaven (ISO 45001 § 5.3).'
       using errcode = 'P0002';
   end if;
 
