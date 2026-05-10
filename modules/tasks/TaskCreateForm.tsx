@@ -3,6 +3,8 @@
 // metadata_schema fields defined on the template.
 
 import { useEffect, useState } from 'react'
+import { ChevronDown } from 'lucide-react'
+import type { TaskMetadataField } from '../../src/types/task'
 import { SlidePanel } from '../../src/components/layout/SlidePanel'
 import { Button } from '../../src/components/ui/Button'
 import { StandardInput } from '../../src/components/ui/Input'
@@ -11,10 +13,57 @@ import {
   WPSTD_FORM_LEAD,
   WPSTD_FORM_ROW_GRID,
 } from '../../src/components/layout/WorkplaceStandardFormPanel'
+import { useOrgSetupContext } from '../../src/hooks/useOrgSetupContext'
+import { fetchAssignableUsers, type AssignableUser } from '../../src/hooks/useAssignableUsers'
 import type { TaskTemplateRow } from './useTaskTemplates'
 import type { CreateTaskItemInput } from './useTaskItemsData'
 import type { TaskItemPriority } from '../../src/types/task'
 import { TASK_PRIORITY_LABEL } from './components/TaskPriorityBadge'
+import { RiskMatrix } from './components/RiskMatrix'
+import { PersonSelect } from './components/PersonSelect'
+import { LocationSelect } from './components/LocationSelect'
+
+// Group a flat fields array into sections using 'section' sentinel fields.
+type FieldGroup = { label: string | null; fields: TaskMetadataField[] }
+
+function groupFields(fields: TaskMetadataField[]): FieldGroup[] {
+  const groups: FieldGroup[] = []
+  let current: FieldGroup = { label: null, fields: [] }
+  for (const f of fields) {
+    if (f.kind === 'section') {
+      if (current.fields.length > 0) groups.push(current)
+      current = { label: f.label, fields: [] }
+    } else {
+      current.fields.push(f)
+    }
+  }
+  if (current.fields.length > 0) groups.push(current)
+  return groups
+}
+
+function CollapsibleSection({ label, children, defaultOpen = true }: {
+  label: string
+  children: React.ReactNode
+  defaultOpen?: boolean
+}) {
+  const [open, setOpen] = useState(defaultOpen)
+  return (
+    <div>
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        className="flex w-full items-center gap-2 border-b border-neutral-200 bg-neutral-50/80 px-4 py-2.5 text-left transition hover:bg-neutral-100/60 md:px-5"
+      >
+        <ChevronDown
+          className={`h-4 w-4 shrink-0 text-[#c2410c]/60 transition-transform duration-150 ${open ? '' : '-rotate-90'}`}
+          aria-hidden
+        />
+        <span className="text-[10px] font-bold uppercase tracking-wider text-neutral-600">{label}</span>
+      </button>
+      {open && <div>{children}</div>}
+    </div>
+  )
+}
 
 type Props = {
   open: boolean
@@ -33,10 +82,20 @@ const EMPTY_FORM = {
 }
 
 export function TaskCreateForm({ open, onClose, template, onCreate }: Props) {
+  const { supabase, organization, locations } = useOrgSetupContext()
   const [form, setForm] = useState(EMPTY_FORM)
   const [metaValues, setMetaValues] = useState<Record<string, string>>({})
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [orgUsers, setOrgUsers] = useState<AssignableUser[]>([])
+
+  // Load org members once when form opens
+  useEffect(() => {
+    if (!open || !supabase) return
+    void fetchAssignableUsers(supabase, organization?.id).then(setOrgUsers)
+  }, [open, supabase, organization?.id])
+
+  const locationOptions = locations.map((l) => l.name)
 
   // Pre-fill title on template change
   useEffect(() => {
@@ -210,78 +269,113 @@ export function TaskCreateForm({ open, onClose, template, onCreate }: Props) {
           </div>
         </div>
 
-        {/* Template-specific metadata fields */}
-        {fields.length > 0 && (
-          <>
-            <div className="px-4 py-3 md:px-5">
-              <p className="text-[10px] font-bold uppercase tracking-wider text-neutral-400">
-                {template.name} — tilleggsfelt
-              </p>
-            </div>
-            {fields.map((field) => (
-              <div key={field.id} className={WPSTD_FORM_ROW_GRID}>
-                <div>
-                  <p className={WPSTD_FORM_FIELD_LABEL}>
-                    {field.label}
-                    {field.required && <span className="ml-1 text-red-500">*</span>}
+        {/* Template-specific metadata fields — grouped into collapsible sections */}
+        {fields.length > 0 && (() => {
+          const groups = groupFields(fields)
+          const hasSections = groups.some((g) => g.label !== null)
+          return (
+            <>
+              {!hasSections && (
+                <div className="px-4 py-3 md:px-5">
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-neutral-400">
+                    {template.name} — tilleggsfelt
                   </p>
                 </div>
-                <div>
-                  {field.kind === 'textarea' ? (
-                    <textarea
-                      value={metaValues[field.id] ?? ''}
-                      onChange={(e) =>
-                        setMetaValues((prev) => ({ ...prev, [field.id]: e.target.value }))
-                      }
-                      rows={3}
-                      placeholder={field.label}
-                      className="w-full rounded border border-neutral-300 bg-white px-3 py-2.5 text-sm text-neutral-900 placeholder:text-neutral-400 focus:border-[#c2410c] focus:outline-none focus:ring-1 focus:ring-[#c2410c]/20"
-                    />
-                  ) : field.kind === 'select' ? (
-                    <select
-                      value={metaValues[field.id] ?? ''}
-                      onChange={(e) =>
-                        setMetaValues((prev) => ({ ...prev, [field.id]: e.target.value }))
-                      }
-                      className="w-full rounded border border-neutral-300 bg-white px-3 py-2.5 text-sm text-neutral-900 focus:border-[#c2410c] focus:outline-none focus:ring-1 focus:ring-[#c2410c]/20"
-                    >
-                      <option value="">Velg…</option>
-                      {(field.options ?? []).map((opt) => (
-                        <option key={opt} value={opt}>
-                          {opt}
-                        </option>
-                      ))}
-                    </select>
-                  ) : field.kind === 'boolean' ? (
-                    <label className="flex items-center gap-2">
-                      <input
-                        type="checkbox"
-                        checked={metaValues[field.id] === 'true'}
-                        onChange={(e) =>
-                          setMetaValues((prev) => ({
-                            ...prev,
-                            [field.id]: e.target.checked ? 'true' : 'false',
-                          }))
-                        }
-                        className="h-4 w-4 rounded border-neutral-300 text-[#c2410c] focus:ring-[#c2410c]/20"
-                      />
-                      <span className="text-sm text-neutral-700">{field.label}</span>
-                    </label>
-                  ) : (
-                    <StandardInput
-                      type={field.kind === 'date' ? 'date' : field.kind === 'number' ? 'number' : 'text'}
-                      value={metaValues[field.id] ?? ''}
-                      onChange={(e) =>
-                        setMetaValues((prev) => ({ ...prev, [field.id]: e.target.value }))
-                      }
-                      placeholder={field.label}
-                    />
-                  )}
-                </div>
-              </div>
-            ))}
-          </>
-        )}
+              )}
+              {groups.map((group, gi) => {
+                const content = group.fields.map((field) => (
+                  <div
+                    key={field.id}
+                    className={field.kind === 'risk_matrix' ? 'px-4 py-3 md:px-5' : WPSTD_FORM_ROW_GRID}
+                  >
+                    {field.kind !== 'risk_matrix' && (
+                      <div>
+                        <p className={WPSTD_FORM_FIELD_LABEL}>
+                          {field.label}
+                          {field.required && <span className="ml-1 text-red-500">*</span>}
+                        </p>
+                      </div>
+                    )}
+                    <div>
+                      {field.kind === 'risk_matrix' ? (
+                        (() => {
+                          const probId = field.options?.find((o) => o.startsWith('prob:'))?.slice(5) ?? ''
+                          const consId = field.options?.find((o) => o.startsWith('cons:'))?.slice(5) ?? ''
+                          const p = metaValues[probId] ? Number(metaValues[probId]) : null
+                          const c = metaValues[consId] ? Number(metaValues[consId]) : null
+                          return <RiskMatrix probability={p} consequence={c} />
+                        })()
+                      ) : field.kind === 'person' ? (
+                        <PersonSelect
+                          users={orgUsers}
+                          value={metaValues[field.id] ?? ''}
+                          onChange={(v) => setMetaValues((prev) => ({ ...prev, [field.id]: v }))}
+                          placeholder={`Velg ${field.label.toLowerCase()}…`}
+                        />
+                      ) : field.kind === 'location' ? (
+                        <LocationSelect
+                          locationNames={locationOptions}
+                          value={metaValues[field.id] ?? ''}
+                          onChange={(v) => setMetaValues((prev) => ({ ...prev, [field.id]: v }))}
+                        />
+                      ) : field.kind === 'textarea' ? (
+                        <textarea
+                          value={metaValues[field.id] ?? ''}
+                          onChange={(e) => setMetaValues((prev) => ({ ...prev, [field.id]: e.target.value }))}
+                          rows={3}
+                          placeholder={field.label}
+                          className="w-full rounded border border-neutral-300 bg-white px-3 py-2.5 text-sm text-neutral-900 placeholder:text-neutral-400 focus:border-[#c2410c] focus:outline-none focus:ring-1 focus:ring-[#c2410c]/20"
+                        />
+                      ) : field.kind === 'select' ? (
+                        <select
+                          value={metaValues[field.id] ?? ''}
+                          onChange={(e) => setMetaValues((prev) => ({ ...prev, [field.id]: e.target.value }))}
+                          className="w-full rounded border border-neutral-300 bg-white px-3 py-2.5 text-sm text-neutral-900 focus:border-[#c2410c] focus:outline-none focus:ring-1 focus:ring-[#c2410c]/20"
+                        >
+                          <option value="">Velg…</option>
+                          {(field.options ?? []).map((opt) => (
+                            <option key={opt} value={opt}>{opt}</option>
+                          ))}
+                        </select>
+                      ) : field.kind === 'boolean' ? (
+                        <label className="flex items-center gap-2">
+                          <input
+                            type="checkbox"
+                            checked={metaValues[field.id] === 'true'}
+                            onChange={(e) =>
+                              setMetaValues((prev) => ({
+                                ...prev,
+                                [field.id]: e.target.checked ? 'true' : 'false',
+                              }))
+                            }
+                            className="h-4 w-4 rounded border-neutral-300 text-[#c2410c] focus:ring-[#c2410c]/20"
+                          />
+                          <span className="text-sm text-neutral-700">{field.label}</span>
+                        </label>
+                      ) : (
+                        <StandardInput
+                          type={field.kind === 'date' ? 'date' : field.kind === 'number' ? 'number' : 'text'}
+                          value={metaValues[field.id] ?? ''}
+                          onChange={(e) => setMetaValues((prev) => ({ ...prev, [field.id]: e.target.value }))}
+                          placeholder={field.label}
+                        />
+                      )}
+                    </div>
+                  </div>
+                ))
+
+                if (group.label) {
+                  return (
+                    <CollapsibleSection key={`section-${gi}`} label={group.label}>
+                      {content}
+                    </CollapsibleSection>
+                  )
+                }
+                return <div key={`group-${gi}`}>{content}</div>
+              })}
+            </>
+          )
+        })()}
 
         {error && (
           <div className="px-4 py-3 md:px-5">
