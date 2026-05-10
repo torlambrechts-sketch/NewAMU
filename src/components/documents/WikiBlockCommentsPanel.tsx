@@ -32,8 +32,6 @@ export function WikiBlockCommentsPanel({
   const [err, setErr] = useState<string | null>(null)
   const [showResolved, setShowResolved] = useState(false)
 
-  if (!canView) return null
-
   const forBlock = useMemo(
     () => comments.filter((c) => c.blockIndex === blockIndex),
     [comments, blockIndex],
@@ -42,6 +40,8 @@ export function WikiBlockCommentsPanel({
     () => forBlock.filter((c) => showResolved || !c.resolved),
     [forBlock, showResolved],
   )
+
+  if (!canView) return null
 
   async function submit() {
     const body = draft.trim()
