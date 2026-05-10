@@ -11,10 +11,15 @@ import {
   WPSTD_FORM_LEAD,
   WPSTD_FORM_ROW_GRID,
 } from '../../src/components/layout/WorkplaceStandardFormPanel'
+import { useOrgSetupContext } from '../../src/hooks/useOrgSetupContext'
+import { fetchAssignableUsers, type AssignableUser } from '../../src/hooks/useAssignableUsers'
 import type { TaskTemplateRow } from './useTaskTemplates'
 import type { CreateTaskItemInput } from './useTaskItemsData'
 import type { TaskItemPriority } from '../../src/types/task'
 import { TASK_PRIORITY_LABEL } from './components/TaskPriorityBadge'
+import { RiskMatrix } from './components/RiskMatrix'
+import { PersonSelect } from './components/PersonSelect'
+import { LocationSelect } from './components/LocationSelect'
 
 type Props = {
   open: boolean
@@ -33,10 +38,20 @@ const EMPTY_FORM = {
 }
 
 export function TaskCreateForm({ open, onClose, template, onCreate }: Props) {
+  const { supabase, organization, locations } = useOrgSetupContext()
   const [form, setForm] = useState(EMPTY_FORM)
   const [metaValues, setMetaValues] = useState<Record<string, string>>({})
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [orgUsers, setOrgUsers] = useState<AssignableUser[]>([])
+
+  // Load org members once when form opens
+  useEffect(() => {
+    if (!open || !supabase) return
+    void fetchAssignableUsers(supabase, organization?.id).then(setOrgUsers)
+  }, [open, supabase, organization?.id])
+
+  const locationOptions = locations.map((l) => l.name)
 
   // Pre-fill title on template change
   useEffect(() => {
@@ -219,15 +234,49 @@ export function TaskCreateForm({ open, onClose, template, onCreate }: Props) {
               </p>
             </div>
             {fields.map((field) => (
-              <div key={field.id} className={WPSTD_FORM_ROW_GRID}>
+              <div key={field.id} className={field.kind === 'risk_matrix' ? 'px-4 py-3 md:px-5' : WPSTD_FORM_ROW_GRID}>
+                {field.kind !== 'risk_matrix' && (
+                  <div>
+                    <p className={WPSTD_FORM_FIELD_LABEL}>
+                      {field.label}
+                      {field.required && <span className="ml-1 text-red-500">*</span>}
+                    </p>
+                  </div>
+                )}
                 <div>
-                  <p className={WPSTD_FORM_FIELD_LABEL}>
-                    {field.label}
-                    {field.required && <span className="ml-1 text-red-500">*</span>}
-                  </p>
-                </div>
-                <div>
-                  {field.kind === 'textarea' ? (
+                  {field.kind === 'risk_matrix' ? (
+                    (() => {
+                      const probId = field.options?.find((o) => o.startsWith('prob:'))?.slice(5) ?? ''
+                      const consId = field.options?.find((o) => o.startsWith('cons:'))?.slice(5) ?? ''
+                      const rProbId = field.options?.find((o) => o.startsWith('rprob:'))?.slice(6) ?? ''
+                      const rConsId = field.options?.find((o) => o.startsWith('rcons:'))?.slice(6) ?? ''
+                      const p = metaValues[probId] ? Number(metaValues[probId]) : null
+                      const c = metaValues[consId] ? Number(metaValues[consId]) : null
+                      const rp = rProbId && metaValues[rProbId] ? Number(metaValues[rProbId]) : null
+                      const rc = rConsId && metaValues[rConsId] ? Number(metaValues[rConsId]) : null
+                      return (
+                        <RiskMatrix
+                          probability={p}
+                          consequence={c}
+                          residualProbability={rp}
+                          residualConsequence={rc}
+                        />
+                      )
+                    })()
+                  ) : field.kind === 'person' ? (
+                    <PersonSelect
+                      users={orgUsers}
+                      value={metaValues[field.id] ?? ''}
+                      onChange={(v) => setMetaValues((prev) => ({ ...prev, [field.id]: v }))}
+                      placeholder={`Velg ${field.label.toLowerCase()}…`}
+                    />
+                  ) : field.kind === 'location' ? (
+                    <LocationSelect
+                      locationNames={locationOptions}
+                      value={metaValues[field.id] ?? ''}
+                      onChange={(v) => setMetaValues((prev) => ({ ...prev, [field.id]: v }))}
+                    />
+                  ) : field.kind === 'textarea' ? (
                     <textarea
                       value={metaValues[field.id] ?? ''}
                       onChange={(e) =>

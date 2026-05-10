@@ -35,7 +35,7 @@ type OrgTemplateRow = {
 
 type CategoryRow = { id: string; name: string; position: number }
 
-type FieldKind = 'text' | 'textarea' | 'number' | 'boolean' | 'select' | 'date' | 'datetime'
+type FieldKind = 'text' | 'textarea' | 'number' | 'boolean' | 'select' | 'date' | 'datetime' | 'person' | 'location'
 
 type FieldDraft = {
   _key: string
@@ -79,6 +79,8 @@ const FIELD_KIND_LABELS: Record<FieldKind, string> = {
   select: 'Nedtrekksliste',
   date: 'Dato',
   datetime: 'Dato og tid',
+  person: 'Person (velg fra ansatte)',
+  location: 'Sted (velg fra lokasjoner)',
 }
 
 let _keySeq = 0

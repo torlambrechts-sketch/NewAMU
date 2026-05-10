@@ -2108,6 +2108,9 @@ insert into public.task_template_catalog (
   updated_at      = now();
 
 -- ── 2. Avvik / Hendelse ───────────────────────────────────────────────────
+-- Improvements vs. previous: verneombud-varsling (AML § 6-2), structured
+-- root-cause method (Arbeidstilsynet expects documented approach), severity
+-- options cleaned up (nestenulykke removed — wrong template), melder added.
 
 insert into public.task_template_catalog (
   id, slug, pack, source_category, template_kind, name, description,
@@ -2119,24 +2122,28 @@ insert into public.task_template_catalog (
   'aml-amu', 'avvik', 'avvik',
   'Avvik / Hendelse',
   'Melding og oppfølging av avvik, ulykker og uønskede hendelser. Fullstendig CAPA-livssyklus med rotårsaksanalyse og tilknyttet tiltak.',
-  array['AML § 5-1', 'AML § 5-2', 'IK-f § 5 nr. 7'],
+  array['AML § 5-1', 'AML § 5-2', 'AML § 6-2', 'IK-f § 5 nr. 7'],
   'check', 'ad_hoc', true, true,
   '{"fields":[],"checklist_items":[]}'::jsonb,
   '{"fields":[
     {"id":"f1","label":"Hva skjedde?","kind":"textarea","required":true},
     {"id":"f2","label":"Tidspunkt for hendelsen","kind":"datetime","required":true},
-    {"id":"f3","label":"Sted / arbeidssted","kind":"text","required":true},
-    {"id":"f4","label":"Hvem var involvert?","kind":"text","required":false},
-    {"id":"f5","label":"Personskade?","kind":"boolean","required":true},
-    {"id":"f6","label":"Skadens art og omfang (hvis personskade)","kind":"textarea","required":false},
-    {"id":"f7","label":"Kategori","kind":"select","required":true,
-      "options":["Fysisk/ergonomisk","Kjemisk/biologisk","Psykososialt","Brann/eksplosjon","Fall/ulykke","Utstyr/maskiner","Annet"]},
-    {"id":"f8","label":"Alvorlighetsgrad","kind":"select","required":true,
-      "options":["Kritisk – alvorlig personskade","Alvorlig – behandling nødvendig","Moderat – førstehjelp","Mindre – nesten-ulykke"]},
-    {"id":"f9","label":"Umiddelbare tiltak iverksatt","kind":"textarea","required":false},
-    {"id":"f10","label":"Rotårsaksanalyse","kind":"textarea","required":false},
-    {"id":"f11","label":"Varslet Arbeidstilsynet?","kind":"boolean","required":false},
-    {"id":"f12","label":"Dato varslet Arbeidstilsynet","kind":"date","required":false}
+    {"id":"f3","label":"Sted / arbeidssted","kind":"location","required":true},
+    {"id":"f4","label":"Hvem var involvert (navn / rolle)?","kind":"person","required":false},
+    {"id":"f5","label":"Melder / rapportert av","kind":"person","required":false},
+    {"id":"f6","label":"Personskade?","kind":"boolean","required":true},
+    {"id":"f7","label":"Skadens art og omfang (hvis personskade)","kind":"textarea","required":false},
+    {"id":"f8","label":"Hendelseskategori","kind":"select","required":true,
+      "options":["Fysisk / ergonomisk","Kjemisk / biologisk","Psykososialt","Brann / eksplosjon","Fall / ulykke","Utstyr / maskiner","Farlig stoff / utslipp","Annet"]},
+    {"id":"f9","label":"Alvorlighetsgrad","kind":"select","required":true,
+      "options":["Kritisk – alvorlig personskade / dødsfall","Alvorlig – sykehusbehandling nødvendig","Moderat – legebehandling / førstehjelp","Lav – ingen personskade, kun materiell"]},
+    {"id":"f10","label":"Umiddelbare tiltak iverksatt","kind":"textarea","required":false},
+    {"id":"f11","label":"Verneombud varslet? (AML § 6-2)","kind":"boolean","required":true},
+    {"id":"f12","label":"Rotårsaksanalyse-metode","kind":"select","required":false,
+      "options":["5-Hvorfor","Årsak-virkning (Ishikawa)","Hendelsesforløp / tidslinje","Fri analyse"]},
+    {"id":"f13","label":"Rotårsaksanalyse","kind":"textarea","required":false},
+    {"id":"f14","label":"Meldepliktig til Arbeidstilsynet? (AML § 5-2)","kind":"boolean","required":false},
+    {"id":"f15","label":"Dato varslet Arbeidstilsynet","kind":"date","required":false}
   ]}'::jsonb
 ) on conflict (slug) do update set
   template_kind   = excluded.template_kind,
@@ -2147,6 +2154,9 @@ insert into public.task_template_catalog (
   updated_at      = now();
 
 -- ── 3. Nestenulykke / Farlig forhold ─────────────────────────────────────
+-- Improvements: type classification, potential severity, verneombud,
+-- recurrence likelihood, and mandatory corrective proposal.
+-- AML § 5-1 requires ALL near-misses to be recorded and followed up.
 
 insert into public.task_template_catalog (
   id, slug, pack, source_category, template_kind, name, description,
@@ -2158,16 +2168,24 @@ insert into public.task_template_catalog (
   'aml-amu', 'avvik', 'nestenulykke',
   'Nestenulykke / Farlig forhold',
   'Registrering av nestenulykker og farlige forhold som ikke medførte skade, men som kunne ha ført til det.',
-  array['AML § 5-1', 'IK-f § 5 nr. 6'],
+  array['AML § 5-1', 'AML § 6-2', 'IK-f § 5 nr. 6'],
   'check', 'ad_hoc', true, true,
   '{"fields":[],"checklist_items":[]}'::jsonb,
   '{"fields":[
     {"id":"f1","label":"Beskriv nestenulykken / det farlige forholdet","kind":"textarea","required":true},
     {"id":"f2","label":"Tidspunkt","kind":"datetime","required":true},
-    {"id":"f3","label":"Sted","kind":"text","required":true},
-    {"id":"f4","label":"Hva kunne ha skjedd i verste fall?","kind":"textarea","required":true},
-    {"id":"f5","label":"Bakenforliggende årsak","kind":"textarea","required":false},
-    {"id":"f6","label":"Foreslått forebyggende tiltak","kind":"textarea","required":false}
+    {"id":"f3","label":"Sted / arbeidssted","kind":"location","required":true},
+    {"id":"f4","label":"Type hendelse","kind":"select","required":true,
+      "options":["Farlig handling (menneskelig feil)","Farlig tilstand (fysisk / teknisk)","Systemsvikt / prosedyresvikt","Nær-miss ved transport / forflytning","Annet"]},
+    {"id":"f5","label":"Hva kunne ha skjedd i verste fall?","kind":"textarea","required":true},
+    {"id":"f6","label":"Potensiell alvorlighet hvis ulykken hadde skjedd","kind":"select","required":true,
+      "options":["Kritisk – alvorlig personskade / dødsfall","Alvorlig – sykehusbehandling","Moderat – legebehandling","Lav – kun materiell skade"]},
+    {"id":"f7","label":"Sannsynlighet for gjentakelse","kind":"select","required":false,
+      "options":["Høy – vil skje igjen uten tiltak","Middels – kan skje igjen","Lav – usannsynlig gjentakelse"]},
+    {"id":"f8","label":"Bakenforliggende årsak","kind":"textarea","required":false},
+    {"id":"f9","label":"Verneombud varslet? (AML § 6-2)","kind":"boolean","required":true},
+    {"id":"f10","label":"Foreslått forebyggende tiltak","kind":"textarea","required":true},
+    {"id":"f11","label":"Krever fullstendig risikovurdering?","kind":"boolean","required":false}
   ]}'::jsonb
 ) on conflict (slug) do update set
   template_kind   = excluded.template_kind,
@@ -2178,6 +2196,11 @@ insert into public.task_template_catalog (
   updated_at      = now();
 
 -- ── 4. Forbedringstiltak ──────────────────────────────────────────────────
+-- Major revision: ISO 45001 § 8.1.2 hierarchy of controls is now the primary
+-- type selector (eliminering first, PPE last). Added traceability to source,
+-- mandatory deadline, verneombud involvement (AML § 6-2), and a structured
+-- effectiveness verification gate (ISO 45001 § 10.2 f).
+-- Removed "Kompenserende" — not a recognised CAPA category.
 
 insert into public.task_template_catalog (
   id, slug, pack, source_category, template_kind, name, description,
@@ -2188,20 +2211,30 @@ insert into public.task_template_catalog (
   'tiltak',
   'aml-amu', 'tiltak', 'tiltak',
   'Forbedringstiltak',
-  'Planlegging, gjennomføring og verifisering av forebyggende og korrigerende tiltak.',
-  array['AML § 3-2', 'AML § 4-1', 'IK-f § 5 nr. 7', 'IK-f § 5 nr. 8'],
+  'Planlegging, gjennomføring og verifisering av forebyggende og korrigerende tiltak. Følger ISO 45001 § 8.1.2 kontrolltiltakshierarki.',
+  array['AML § 3-2', 'AML § 4-1', 'AML § 6-2', 'IK-f § 5 nr. 7', 'IK-f § 5 nr. 8', 'NS-EN ISO 45001 § 8.1.2'],
   'do', 'kvartalsvis', true, true,
   '{"fields":[],"checklist_items":[]}'::jsonb,
   '{"fields":[
-    {"id":"f1","label":"Tiltaksbeskrivelse","kind":"textarea","required":true},
-    {"id":"f2","label":"Type tiltak","kind":"select","required":true,
-      "options":["Forebyggende","Korrigerende","Kompenserende","Teknisk","Administrativt","Verneutstyr"]},
-    {"id":"f3","label":"Bakgrunn / risiko som adresseres","kind":"textarea","required":true},
-    {"id":"f4","label":"Forventet effekt / akseptansekriterium","kind":"textarea","required":true},
-    {"id":"f5","label":"Estimert kostnad (NOK)","kind":"number","required":false},
-    {"id":"f6","label":"Startdato","kind":"date","required":false},
-    {"id":"f7","label":"Gjennomføringsmetode","kind":"textarea","required":false},
-    {"id":"f8","label":"Effektvurdering etter gjennomføring","kind":"textarea","required":false}
+    {"id":"f1","label":"Tiltaksbeskrivelse — hva skal gjøres?","kind":"textarea","required":true},
+    {"id":"f2","label":"Kontrolltiltaktype (ISO 45001 § 8.1.2 — velg høyest mulig nivå)","kind":"select","required":true,
+      "options":["1. Eliminering – fjern kilden helt","2. Substitusjon – erstatt med noe mindre farlig","3. Teknisk tiltak – barrierer, avskjerming, automatisering","4. Administrativt tiltak – rutiner, opplæring, rotasjon","5. Verneutstyr (PPE) – siste utvei"]},
+    {"id":"f3","label":"Bakgrunn — hvilken risiko eller avvik adresseres?","kind":"textarea","required":true},
+    {"id":"f4","label":"Kilde — avvik- eller risikoreferanse (tittel / ID)","kind":"text","required":false},
+    {"id":"f5","label":"Forventet effekt og akseptansekriterium","kind":"textarea","required":true},
+    {"id":"f6","label":"Hastegrad","kind":"select","required":true,
+      "options":["Akutt – iverksettes umiddelbart","Høy – innen 1 måned","Middels – innen 3 måneder","Lav – innen 6 måneder"]},
+    {"id":"f7","label":"Startdato","kind":"date","required":false},
+    {"id":"f8","label":"Ferdigstillelsesdato / frist","kind":"date","required":true},
+    {"id":"f9","label":"Estimert kostnad (NOK)","kind":"number","required":false},
+    {"id":"f10","label":"Gjennomføringsmetode og ansvarlig person","kind":"textarea","required":false},
+    {"id":"f11","label":"Verneombud / ansatterepresentant involvert (AML § 6-2)","kind":"boolean","required":true},
+    {"id":"f12","label":"Bekreftet gjennomført av","kind":"person","required":false},
+    {"id":"f13","label":"Dato bekreftet gjennomført","kind":"date","required":false},
+    {"id":"f14","label":"Effektvurdering — ble forventet effekt oppnådd? (ISO 45001 § 10.2 f)","kind":"select","required":false,
+      "options":["Ja – fullt ut, tiltaket kan lukkes","Delvis – ytterligere tiltak er nødvendig","Nei – nytt tiltak er iverksatt"]},
+    {"id":"f15","label":"Effektvurdering utført av","kind":"person","required":false},
+    {"id":"f16","label":"Dato for effektvurdering","kind":"date","required":false}
   ]}'::jsonb
 ) on conflict (slug) do update set
   template_kind   = excluded.template_kind,
@@ -2239,14 +2272,18 @@ insert into public.task_template_catalog (
     {"id":"f7","label":"Eksisterende barrierer og tiltak","kind":"textarea","required":false},
     {"id":"f8","label":"Sannsynlighet uten tiltak (1=svært lav – 5=svært høy)","kind":"number","required":true},
     {"id":"f9","label":"Konsekvens uten tiltak (1=ubetydelig – 5=katastrofal)","kind":"number","required":true},
+    {"id":"fm1","label":"Risikomatrise — innledende risikonivå","kind":"risk_matrix","required":false,
+      "options":["prob:f8","cons:f9"]},
     {"id":"f10","label":"Risikonivå uten tiltak","kind":"select","required":false,
       "options":["Lav (1–4)","Middels (5–12)","Høy (13–25)"]},
     {"id":"f11","label":"Planlagte nye tiltak","kind":"textarea","required":false},
     {"id":"f12","label":"Sannsynlighet etter tiltak (1–5)","kind":"number","required":false},
     {"id":"f13","label":"Konsekvens etter tiltak (1–5)","kind":"number","required":false},
+    {"id":"fm2","label":"Risikomatrise — residualrisiko etter tiltak","kind":"risk_matrix","required":false,
+      "options":["prob:f12","cons:f13"]},
     {"id":"f14","label":"Restrisiko akseptabel?","kind":"boolean","required":false},
     {"id":"f15","label":"Begrunnelse for aksept av restrisiko","kind":"textarea","required":false},
-    {"id":"f16","label":"Uavhengig gjennomgang utført av (navn)","kind":"text","required":true},
+    {"id":"f16","label":"Uavhengig gjennomgang utført av","kind":"person","required":true},
     {"id":"f17","label":"Dato for gjennomgang","kind":"date","required":true},
     {"id":"f18","label":"Neste gjennomgangsdato","kind":"date","required":false}
   ]}'::jsonb
@@ -2259,6 +2296,9 @@ insert into public.task_template_catalog (
   updated_at      = now();
 
 -- ── 6. Forslag & Forbedring ───────────────────────────────────────────────
+-- Improvements: anonymous submission flag (AML § 4-3 psychological safety),
+-- AMU-notification field (AML § 7-2), employer decision tracking with
+-- mandatory reasoning if rejected — closes the AML § 4-2 medvirkning loop.
 
 insert into public.task_template_catalog (
   id, slug, pack, source_category, template_kind, name, description,
@@ -2269,19 +2309,24 @@ insert into public.task_template_catalog (
   'forslag',
   'aml-amu', 'general', 'forslag',
   'Forslag & Forbedring',
-  'Innspill og forslag fra ansatte til forbedring av arbeidsmiljøet. AMU-relevant: § 4-2 medvirkning, § 8-1 informasjon og drøfting.',
-  array['AML § 4-2', 'AML § 8-1', 'IK-f § 5 nr. 8'],
+  'Innspill og forslag fra ansatte til forbedring av arbeidsmiljøet. AMU-relevant: § 4-2 medvirkning, § 7-2 AMU-behandling, § 8-1 informasjon og drøfting.',
+  array['AML § 4-2', 'AML § 4-3', 'AML § 7-2', 'AML § 8-1', 'IK-f § 5 nr. 8'],
   'act', 'ad_hoc', true, true,
   '{"fields":[],"checklist_items":[]}'::jsonb,
   '{"fields":[
     {"id":"f1","label":"Beskriv forslaget","kind":"textarea","required":true},
     {"id":"f2","label":"Kategori","kind":"select","required":true,
-      "options":["HMS","Arbeidsmiljø / trivsel","Effektivitet","Kompetanse / opplæring","Utstyr / teknologi","Annet"]},
+      "options":["HMS – forebygging av skader","Arbeidsmiljø / trivsel","Ergonomi / fysisk arbeidsmiljø","Effektivitet / prosessforbedring","Kompetanse / opplæring","Utstyr / teknologi","Annet"]},
     {"id":"f3","label":"Forventet gevinst / forbedring","kind":"textarea","required":false},
     {"id":"f4","label":"Berørte avdelinger / arbeidsgrupper","kind":"text","required":false},
-    {"id":"f5","label":"Estimert gjennomføringskostnad","kind":"text","required":false},
-    {"id":"f6","label":"Forslagsstillers vurdering av prioritet","kind":"select","required":false,
-      "options":["Høy – bør gjøres snarest","Middels – innen 6 måneder","Lav – langsiktig forbedring"]}
+    {"id":"f5","label":"Estimert gjennomføringskostnad (NOK)","kind":"number","required":false},
+    {"id":"f6","label":"Forslagsstillers prioritetsvurdering","kind":"select","required":false,
+      "options":["Høy – bør gjøres snarest","Middels – innen 6 måneder","Lav – langsiktig forbedring"]},
+    {"id":"f7","label":"Anonymt innspill? (AML § 4-3)","kind":"boolean","required":false},
+    {"id":"f8","label":"Behandlet i AMU / med ansatterepresentant? (AML § 7-2)","kind":"boolean","required":false},
+    {"id":"f9","label":"Arbeidsgivers beslutning","kind":"select","required":false,
+      "options":["Under vurdering","Akseptert – planlegges gjennomført","Utsatt – revurderes senere","Avvist"]},
+    {"id":"f10","label":"Begrunnelse for beslutning (obligatorisk ved avvisning)","kind":"textarea","required":false}
   ]}'::jsonb
 ) on conflict (slug) do update set
   template_kind   = excluded.template_kind,
@@ -2292,6 +2337,10 @@ insert into public.task_template_catalog (
   updated_at      = now();
 
 -- ── 7. Sykefravær-oppfølging ──────────────────────────────────────────────
+-- Improvements: AML § 4-6 mandates a 4-week oppfølgingsplan sent to sykmelder
+-- (previously missing). Added dates for Dialogmøte 1 (7 uker, arbeidsgiver)
+-- and Dialogmøte 2 (26 uker, NAV). Tilretteleggingstype structured as select.
+-- Ftrl § 8-7a: gradert sykmelding encouraged — reflected in follow-up fields.
 
 insert into public.task_template_catalog (
   id, slug, pack, source_category, template_kind, name, description,
@@ -2302,22 +2351,69 @@ insert into public.task_template_catalog (
   'sykefravær-oppfølging',
   'aml-amu', 'tiltak', 'sykefravær',
   'Sykefravær-oppfølging',
-  'Strukturert oppfølging av sykemeldte etter AML § 4-6: 7-ukerssamtale, 16-ukersplan og 26-ukersrapportering til NAV.',
-  array['AML § 4-6', 'Ftrl § 8-7a'],
+  'Strukturert oppfølging av sykemeldte etter AML § 4-6: 4-ukersplan, 7-ukerssamtale (Dialogmøte 1), 26-ukersplan (Dialogmøte 2, NAV) og tilrettelegging.',
+  array['AML § 4-6', 'Ftrl § 8-7a', 'Ftrl § 8-6'],
   'do', 'ad_hoc', true, true,
   '{"fields":[],"checklist_items":[]}'::jsonb,
   '{"fields":[
-    {"id":"f1","label":"Ansatt (navn)","kind":"text","required":true},
+    {"id":"f1","label":"Ansatt (sykemeldt)","kind":"person","required":true},
     {"id":"f2","label":"Første sykedag","kind":"date","required":true},
-    {"id":"f3","label":"Diagnose / diagnosegruppe (valgfritt)","kind":"text","required":false},
+    {"id":"f3","label":"Diagnose / diagnosegruppe (valgfritt — kan utelates)","kind":"text","required":false},
     {"id":"f4","label":"Type sykefravær","kind":"select","required":true,
-      "options":["100% sykemeldt","Gradert sykemeldt","Egenmelding"]},
-    {"id":"f5","label":"Oppfølgingssamtale 7 uker — gjennomført?","kind":"boolean","required":false},
-    {"id":"f6","label":"Oppfølgingsplan 16 uker — sendt NAV?","kind":"boolean","required":false},
-    {"id":"f7","label":"26-ukersrapport — sendt?","kind":"boolean","required":false},
-    {"id":"f8","label":"Tilretteleggingstiltak iverksatt","kind":"textarea","required":false},
-    {"id":"f9","label":"BHT invitert til oppfølging?","kind":"boolean","required":false},
-    {"id":"f10","label":"Forventet tilbakekomstdato","kind":"date","required":false}
+      "options":["100 % sykemeldt","Gradert sykemeldt (delvis arbeid)","Egenmelding (kortvarig)"]},
+    {"id":"f5","label":"4 uker — oppfølgingsplan sendt sykmelder? (AML § 4-6 tredje ledd)","kind":"boolean","required":false},
+    {"id":"f6","label":"Dato oppfølgingsplan sendt","kind":"date","required":false},
+    {"id":"f7","label":"Dialogmøte 1 (7 uker) — gjennomført? (AML § 4-6 fjerde ledd)","kind":"boolean","required":false},
+    {"id":"f8","label":"Dato Dialogmøte 1","kind":"date","required":false},
+    {"id":"f9","label":"Tilretteleggingstype","kind":"select","required":false,
+      "options":["Teknisk – hjelpemidler, utstyr, tilpasning av arbeidssted","Organisatorisk – endret arbeidstid, fleksibilitet","Endrede arbeidsoppgaver – andre eller lettere oppgaver","Gradert tilbakegang – kombinert friskmelding","Kombinasjon av tiltak"]},
+    {"id":"f10","label":"Tilretteleggingstiltak — beskrivelse","kind":"textarea","required":false},
+    {"id":"f11","label":"BHT (bedriftshelsetjeneste) involvert?","kind":"boolean","required":false},
+    {"id":"f12","label":"Dialogmøte 2 (26 uker, NAV) — gjennomført?","kind":"boolean","required":false},
+    {"id":"f13","label":"Dato Dialogmøte 2","kind":"date","required":false},
+    {"id":"f14","label":"Forventet tilbakekomstdato (full stilling)","kind":"date","required":false}
+  ]}'::jsonb
+) on conflict (slug) do update set
+  template_kind   = excluded.template_kind,
+  name            = excluded.name,
+  description     = excluded.description,
+  law_refs        = excluded.law_refs,
+  metadata_schema = excluded.metadata_schema,
+  updated_at      = now();
+
+-- ── 8. Forbedringsprosjekt (PDCA) ────────────────────────────────────────
+-- Upsert for the legacy v1 slug to add metadata_schema + template_kind.
+-- Fixes: daterange field kind replaced with two date fields.
+-- Additions: problem statement, measurable KPIs (ISO 45001 § 6.2.1),
+-- AMU treatment (AML § 7-2), mandatory worker involvement (AML § 4-2),
+-- budget commitment, and a formal project sign-off field.
+
+insert into public.task_template_catalog (
+  slug, template_kind, name, description,
+  law_refs, metadata_schema
+) values (
+  'forbedringsprosjekt',
+  'tiltak',
+  'Forbedringsprosjekt (PDCA)',
+  'Komplett PDCA-syklus for systematisk forbedring av arbeidsmiljøet. Inkluderer AMU-behandling, målbare suksesskriterier og formell prosjektavslutning.',
+  array['AML § 3-2', 'AML § 4-2', 'AML § 7-2', 'IK-f § 5 nr. 8', 'NS-EN ISO 45001 § 6.2.1'],
+  '{"fields":[
+    {"id":"f1","label":"Prosjektnavn","kind":"text","required":true},
+    {"id":"f2","label":"Bakgrunn — hva er problemet eller risikoen?","kind":"textarea","required":true},
+    {"id":"f3","label":"Mål — ønsket tilstand etter prosjektet","kind":"textarea","required":true},
+    {"id":"f4","label":"Målbare suksesskriterier / KPIer (ISO 45001 § 6.2.1)","kind":"textarea","required":true},
+    {"id":"f5","label":"Behandlet i AMU? (AML § 7-2)","kind":"boolean","required":true},
+    {"id":"f6","label":"Dato AMU-behandling","kind":"date","required":false},
+    {"id":"f7","label":"Involverte arbeidstakere / representanter (AML § 4-2)","kind":"textarea","required":true},
+    {"id":"f8","label":"Prosjektleder","kind":"person","required":true},
+    {"id":"f9","label":"Prosjektstart","kind":"date","required":false},
+    {"id":"f10","label":"Prosjektslutt / frist","kind":"date","required":false},
+    {"id":"f11","label":"Budsjett / ressursbehov (NOK eller beskrivelse)","kind":"text","required":false},
+    {"id":"f12","label":"Planlagte tiltak (Plan-fasen)","kind":"textarea","required":false},
+    {"id":"f13","label":"Gjennomførte tiltak (Do-fasen)","kind":"textarea","required":false},
+    {"id":"f14","label":"Resultater og avviksmåling mot KPI (Check-fasen)","kind":"textarea","required":false},
+    {"id":"f15","label":"Standardisering og videreføring (Act-fasen)","kind":"textarea","required":false},
+    {"id":"f16","label":"Prosjekt godkjent og avsluttet av","kind":"person","required":false}
   ]}'::jsonb
 ) on conflict (slug) do update set
   template_kind   = excluded.template_kind,
