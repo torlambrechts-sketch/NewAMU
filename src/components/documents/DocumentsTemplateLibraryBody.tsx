@@ -10,6 +10,7 @@ import { StandardInput } from '../ui/Input'
 import { SearchableSelect, type SelectOption } from '../ui/SearchableSelect'
 import { WarningBox } from '../ui/AlertBox'
 import { canAdminDocumentTemplates, canEditWikiDocuments } from '../../lib/documentsAccess'
+import { DocumentCreationWizard } from './DocumentCreationWizard'
 
 const CATEGORY_LABELS: Record<SpaceCategory, string> = {
   hms_handbook: 'HMS-håndbok',
@@ -42,6 +43,7 @@ type Props = {
 /**
  * Malbibliotek grid (brukt i hub med `centerContent="templates"`).
  * Rediger (blyant): organisasjonsmal → TipTap på egen rute; systemmal → ny wiki-side fra mal i valgt malmappe, deretter TipTap.
+ * «Bruk dokumentmal» → DocumentCreationWizard (4-stegs for policy-maler, 1-stegs for øvrige).
  */
 export function DocumentsTemplateLibraryBody({
   destinationSpaces,
@@ -54,7 +56,6 @@ export function DocumentsTemplateLibraryBody({
   const canEditDocs = canEditWikiDocuments(can, profile?.is_org_admin)
   const canAdminTemplates = canAdminDocumentTemplates(can, profile?.is_org_admin)
   const activeSpaces = useMemo(() => docs.spaces.filter((s) => s.status === 'active'), [docs.spaces])
-  const dest = destinationSpaces ?? activeSpaces
 
   const documentFoldersForNewPage = useMemo(() => {
     if (documentCatalogSpaces?.length) return documentCatalogSpaces
@@ -63,17 +64,9 @@ export function DocumentsTemplateLibraryBody({
 
   const defaultDocumentSpaceId = documentFoldersForNewPage[0]?.id ?? ''
 
-  const resolveDocumentSpaceId = useCallback(
-    (picked: string) => {
-      const t = picked.trim()
-      if (t) return t
-      return defaultDocumentSpaceId
-    },
-    [defaultDocumentSpaceId],
-  )
-
   const orgCustomIds = useMemo(() => new Set(docs.orgCustomTemplates.map((t) => t.id)), [docs.orgCustomTemplates])
 
+  // ── "Ny mal" state ────────────────────────────────────────────────────────
   const [createOpen, setCreateOpen] = useState(false)
   const [createLabel, setCreateLabel] = useState('')
   const [createDesc, setCreateDesc] = useState('')
@@ -83,6 +76,10 @@ export function DocumentsTemplateLibraryBody({
 
   const [editingTemplateId, setEditingTemplateId] = useState<string | null>(null)
   const [templateActionErr, setTemplateActionErr] = useState<string | null>(null)
+
+  // ── Wizard state ──────────────────────────────────────────────────────────
+  const [wizardTemplate, setWizardTemplate] = useState<PageTemplate | null>(null)
+  const wizardOpen = wizardTemplate !== null
 
   useEffect(() => {
     if (newTemplateKey <= 0) return
@@ -103,7 +100,7 @@ export function DocumentsTemplateLibraryBody({
 
   const openSystemTemplateAsDocument = useCallback(
     async (tpl: PageTemplate) => {
-      const sid = resolveDocumentSpaceId('')
+      const sid = defaultDocumentSpaceId
       if (!sid) {
         setTemplateActionErr('Opprett en dokumentmappe under Dokumenter før du redigerer systemmal som dokument.')
         return
@@ -132,7 +129,7 @@ export function DocumentsTemplateLibraryBody({
         setEditingTemplateId(null)
       }
     },
-    [resolveDocumentSpaceId, docs, navigate],
+    [defaultDocumentSpaceId, docs, navigate],
   )
 
   const handleCreate = async (e: React.FormEvent) => {
@@ -189,42 +186,50 @@ export function DocumentsTemplateLibraryBody({
             <TemplateCard
               key={tpl.id}
               tpl={tpl}
-              spaces={dest}
-              documentFolders={documentFoldersForNewPage}
-              defaultDocumentSpaceId={defaultDocumentSpaceId}
               canAdminTemplate={canAdminTemplates}
               canCreateDocumentFromTemplate={canEditDocs}
               isOrgCustom={orgCustomIds.has(tpl.id)}
               busyEdit={editingTemplateId === tpl.id}
+              hasDestination={!!defaultDocumentSpaceId}
               onEditOrg={() => openOrgTemplateEditor(tpl)}
               onEditSystem={() => void openSystemTemplateAsDocument(tpl)}
-              onUse={async (spaceId) => {
-                const sid = resolveDocumentSpaceId(spaceId)
-                if (!sid) {
+              onUse={() => {
+                if (!defaultDocumentSpaceId) {
                   setTemplateActionErr('Opprett en dokumentmappe under Dokumenter før du bruker malen.')
                   return
                 }
-                const page = await docs.createPage(
-                  sid,
-                  tpl.page.title,
-                  tpl.page.template,
-                  tpl.page.blocks,
-                  {
-                    legalRefs: tpl.page.legalRefs,
-                    requiresAcknowledgement: tpl.page.requiresAcknowledgement,
-                    summary: tpl.page.summary,
-                    acknowledgementAudience: tpl.page.acknowledgementAudience,
-                    revisionIntervalMonths: tpl.page.revisionIntervalMonths,
-                    templateId: tpl.id,
-                  },
-                )
-                navigate(`/documents/page/${page.id}/reference-edit`)
+                setTemplateActionErr(null)
+                setWizardTemplate(tpl)
               }}
             />
           ))}
         </div>
       </ModuleSectionCard>
 
+      {/* DocumentCreationWizard — fires for all templates */}
+      <DocumentCreationWizard
+        open={wizardOpen}
+        onClose={() => setWizardTemplate(null)}
+        template={wizardTemplate}
+        documentFolders={documentFoldersForNewPage}
+        defaultDocumentSpaceId={defaultDocumentSpaceId}
+        onCreate={async (spaceId, blocks, opts) => {
+          if (!wizardTemplate) throw new Error('Ingen mal valgt.')
+          return docs.createPage(
+            spaceId,
+            wizardTemplate.page.title,
+            wizardTemplate.page.template,
+            blocks,
+            opts,
+          )
+        }}
+        onCreated={(pageId) => {
+          setWizardTemplate(null)
+          navigate(`/documents/page/${pageId}/reference-edit`)
+        }}
+      />
+
+      {/* "Ny mal" modal */}
       {createOpen && canAdminTemplates ? (
         <div
           className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-4 sm:items-center"
@@ -288,45 +293,30 @@ export function DocumentsTemplateLibraryBody({
   )
 }
 
+// ─── TemplateCard ─────────────────────────────────────────────────────────────
+// Simplified — no inline space selector; wizard handles placement.
+
 function TemplateCard({
   tpl,
-  spaces,
-  documentFolders,
-  defaultDocumentSpaceId,
   canAdminTemplate,
   canCreateDocumentFromTemplate,
   isOrgCustom,
   busyEdit,
+  hasDestination,
   onEditOrg,
   onEditSystem,
   onUse,
 }: {
   tpl: PageTemplate
-  spaces: WikiSpace[]
-  /** Document folders (not template library) for «Bruk mal» target. */
-  documentFolders: WikiSpace[]
-  /** Real space id used when user picks «Hoved» (empty value). */
-  defaultDocumentSpaceId: string
   canAdminTemplate: boolean
   canCreateDocumentFromTemplate: boolean
   isOrgCustom: boolean
   busyEdit: boolean
+  hasDestination: boolean
   onEditOrg: () => void
   onEditSystem: () => void | Promise<void>
-  /** Pass `''` for «Hoved» — parent resolves to default document folder. */
-  onUse: (spaceId: string) => void | Promise<void>
+  onUse: () => void
 }) {
-  const [open, setOpen] = useState(false)
-  /** `''` = Hoved (default document folder). */
-  const [selected, setSelected] = useState('')
-  const [busy, setBusy] = useState(false)
-
-  const documentSpaceOptions: SelectOption[] = useMemo(() => {
-    const main: SelectOption = { value: '', label: 'Hoved (dokumenter)' }
-    const rest = documentFolders.map((s) => ({ value: s.id, label: s.title }))
-    return [main, ...rest]
-  }, [documentFolders])
-
   return (
     <div className="rounded-lg border border-neutral-200/80 bg-neutral-50/50 p-4">
       <div className="flex items-start justify-between gap-2">
@@ -361,52 +351,15 @@ function TemplateCard({
           </span>
         )}
       </div>
-      {open ? (
-        <div className="mt-3 space-y-2">
-          <label className="mb-1 block text-[11px] font-medium text-neutral-500">Plasser dokument i</label>
-          <SearchableSelect
-            value={selected}
-            options={documentSpaceOptions}
-            onChange={(v) => setSelected(v)}
-            disabled={!defaultDocumentSpaceId}
-          />
-          {!defaultDocumentSpaceId ? (
-            <p className="text-[11px] text-amber-800">Opprett en dokumentmappe under Dokumenter først.</p>
-          ) : null}
-          <div className="flex flex-wrap items-center justify-end gap-2">
-            <Button type="button" variant="secondary" onClick={() => setOpen(false)}>
-              Avbryt
-            </Button>
-            <Button
-              type="button"
-              variant="primary"
-              disabled={busy || !defaultDocumentSpaceId || !canCreateDocumentFromTemplate}
-              onClick={() => {
-                setBusy(true)
-                void Promise.resolve(onUse(selected)).finally(() => {
-                  setBusy(false)
-                  setOpen(false)
-                })
-              }}
-            >
-              {busy ? '…' : 'Start nytt dokument'}
-            </Button>
-          </div>
-        </div>
-      ) : (
-        <Button
-          type="button"
-          variant="secondary"
-          className="mt-3 w-full"
-          onClick={() => {
-            setSelected('')
-            setOpen(true)
-          }}
-          disabled={spaces.length === 0 || !canCreateDocumentFromTemplate}
-        >
-          Bruk dokumentmal
-        </Button>
-      )}
+      <Button
+        type="button"
+        variant="secondary"
+        className="mt-3 w-full"
+        onClick={onUse}
+        disabled={!hasDestination || !canCreateDocumentFromTemplate}
+      >
+        Bruk dokumentmal
+      </Button>
     </div>
   )
 }
