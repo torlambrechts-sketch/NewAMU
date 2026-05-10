@@ -33,11 +33,6 @@ const ZONE_LABEL: Record<'low' | 'medium' | 'high', string> = {
   high: 'Høy',
 }
 
-const ZONE_DOT: Record<'low' | 'medium' | 'high', string> = {
-  low: 'bg-green-600',
-  medium: 'bg-amber-500',
-  high: 'bg-red-600',
-}
 
 const CONS_LABELS = ['', 'Ubetydelig', 'Lav', 'Moderat', 'Alvorlig', 'Katastrofal']
 const PROB_LABELS = ['', 'Svært lav', 'Lav', 'Middels', 'Høy', 'Svært høy']
