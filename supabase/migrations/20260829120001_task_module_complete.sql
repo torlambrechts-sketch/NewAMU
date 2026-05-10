@@ -2410,14 +2410,18 @@ insert into public.task_template_catalog (
 -- budget commitment, and a formal project sign-off field.
 
 insert into public.task_template_catalog (
-  slug, template_kind, name, description,
-  law_refs, metadata_schema
+  id, slug, pack, source_category, template_kind, name, description,
+  law_refs, default_pdca_phase, cadence_hint, is_active, is_system,
+  definition, metadata_schema
 ) values (
+  '00000000-1000-4000-a000-000000000006',
   'forbedringsprosjekt',
-  'tiltak',
+  'aml-amu', 'tiltak', 'tiltak',
   'Forbedringsprosjekt (PDCA)',
   'Komplett PDCA-syklus for systematisk forbedring av arbeidsmiljøet. Inkluderer AMU-behandling, målbare suksesskriterier og formell prosjektavslutning.',
   array['AML § 3-2', 'AML § 4-2', 'AML § 7-2', 'IK-f § 5 nr. 8', 'NS-EN ISO 45001 § 6.2.1'],
+  'act', 'arlig', true, true,
+  '{"fields":[],"checklist_items":[]}'::jsonb,
   '{"fields":[
     {"id":"s1","label":"Prosjektbeskrivelse","kind":"section","required":false},
     {"id":"f1","label":"Prosjektnavn","kind":"text","required":true},
