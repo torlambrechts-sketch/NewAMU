@@ -1,9 +1,9 @@
-import { useEffect, useMemo, useState, useSyncExternalStore } from 'react'
+import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { Eye, History, Pencil, Printer } from 'lucide-react'
 import { useDocuments } from '../../hooks/useDocuments'
 import { useOrgSetupContext } from '../../hooks/useOrgSetupContext'
-import { useWikiPageComments, fetchWikiMentionRecipientsFromHtml } from '../../hooks/useWikiPageComments'
+import { useWikiPageComments } from '../../hooks/useWikiPageComments'
 import { RetentionBadge } from './RetentionBadge'
 import { WikiBlockRenderer } from './WikiBlockRenderer'
 import { AddTaskLink } from '../../components/tasks/AddTaskLink'
@@ -23,6 +23,8 @@ import { DOCUMENTS_MODULE_TITLE } from '../../data/documentsNav'
 import type { ContentBlock, HeadingBlock, PageStatus, WikiPage, WikiPageVersionSnapshot } from '../../types/documents'
 import { headingAnchorId } from '../../lib/wikiPageLinks'
 import { WikiBlockCommentsPanel } from '../../components/documents/WikiBlockCommentsPanel'
+import { DocumentActivityTimeline } from '../../components/documents/DocumentActivityTimeline'
+import { DocumentReviewRequestPanel } from '../../components/documents/DocumentReviewRequestPanel'
 import { WikiVersionDiff } from '../../components/documents/WikiVersionDiff'
 import {
   canViewWikiSpace,
@@ -63,7 +65,7 @@ const STATUS_LABEL: Record<PageStatus, string> = {
   archived: 'Arkivert',
 }
 
-type DetailTab = 'informasjon' | 'innhold' | 'versjoner' | 'visninger'
+type DetailTab = 'informasjon' | 'innhold' | 'diskusjon' | 'versjoner' | 'visninger'
 
 function publishedPageToSnapshot(page: WikiPage): WikiPageVersionSnapshot {
   return {
@@ -90,7 +92,8 @@ export function WikiPageView() {
   const { pageId } = useParams<{ pageId: string }>()
   const navigate = useNavigate()
   const docs = useDocuments()
-  const { can, user, profile, members, supabase, organization, isAdmin } = useOrgSetupContext()
+  const { can, user, profile, members, supabase, organization, isAdmin, orgProfiles, permissionKeys } =
+    useOrgSetupContext()
   const canEditDocs = canEditWikiDocuments(can, profile?.is_org_admin)
   const bypassFolderRbac = canBypassWikiFolderGrants(can, profile?.is_org_admin)
   const {
@@ -102,8 +105,26 @@ export function WikiPageView() {
     fetchPageBacklinks,
     fetchOrgPageViewCounts,
     notifyWikiMentions,
+    wikiRetentionCategories,
+    wikiReviewRequests,
+    submitForReview,
+    approveReviewRequest,
+    requestReviewChanges,
+    auditLedger,
   } = docs
-  const { comments, addComment, setResolved, removeComment } = useWikiPageComments(pageId)
+  const { comments, addComment, editComment, setResolved, removeComment } = useWikiPageComments(pageId)
+  const mentionUsers = useMemo(
+    () =>
+      orgProfiles
+        .filter((p) => p.id && p.display_name)
+        .map((p) => ({ id: p.id, displayName: p.display_name })),
+    [orgProfiles],
+  )
+  const canSeeConfidential = isAdmin || permissionKeys.has('whistleblowing.committee')
+  const resolveMemberName = useCallback(
+    (uid: string) => orgProfiles.find((p) => p.id === uid)?.display_name ?? uid.slice(0, 8),
+    [orgProfiles],
+  )
   const [backlinkIds, setBacklinkIds] = useState<string[]>([])
   const [viewRow, setViewRow] = useState<{ uniqueViewers: number; viewsLast30: number } | null>(null)
   const [ackFooterVisible, setAckFooterVisible] = useState(false)
@@ -196,7 +217,25 @@ export function WikiPageView() {
     }
   }, [canEditThisDoc])
 
-  const legalRefs = page && Array.isArray(page.legalRefs) ? page.legalRefs : []
+  const legalRefs = useMemo(
+    () => (page && Array.isArray(page.legalRefs) ? page.legalRefs : []),
+    [page],
+  )
+  const retentionCategoryRow = useMemo(
+    () => (page?.retentionCategory ? wikiRetentionCategories.find((r) => r.slug === page.retentionCategory) ?? null : null),
+    [page?.retentionCategory, wikiRetentionCategories],
+  )
+  const retentionHint = useMemo(() => {
+    if (!retentionCategoryRow) return undefined
+    const yrs = retentionCategoryRow.maxYears ?? retentionCategoryRow.minYears
+    return `Bevares i ${yrs} år (${retentionCategoryRow.label}).`
+  }, [retentionCategoryRow])
+  const pageLegalBasis = useMemo(() => {
+    const set = new Set<string>()
+    for (const r of legalRefs) set.add(r)
+    if (retentionCategoryRow) for (const r of retentionCategoryRow.legalRefs) set.add(r)
+    return [...set]
+  }, [legalRefs, retentionCategoryRow])
   const templateKey: keyof typeof TEMPLATE_CLASS =
     page && (page.template === 'wide' || page.template === 'policy' || page.template === 'standard')
       ? page.template
@@ -321,10 +360,18 @@ export function WikiPageView() {
     return () => obs.disconnect()
   }, [headingToc, activeTabExt])
 
+  const discussionCount = useMemo(
+    () => comments.filter((c) => !c.deletedAt && (!c.isConfidential || canSeeConfidential)).length,
+    [comments, canSeeConfidential],
+  )
   const tabItems = useMemo((): TabItem[] => {
     const base: TabItem[] = [
       { id: 'informasjon', label: 'Informasjon' },
       { id: 'innhold', label: 'Innhold' },
+      {
+        id: 'diskusjon',
+        label: discussionCount > 0 ? `Diskusjon (${discussionCount})` : 'Diskusjon',
+      },
       {
         id: 'versjoner',
         label: versionCount > 0 ? `Versjoner (${versionCount})` : 'Versjoner',
@@ -334,7 +381,7 @@ export function WikiPageView() {
       base.push({ id: 'visninger', label: 'Visninger' })
     }
     return base
-  }, [versionCount, showViewsTab])
+  }, [versionCount, showViewsTab, discussionCount])
 
   if (!pageId) {
     return (
@@ -558,20 +605,41 @@ export function WikiPageView() {
       </div>
 
       <ModuleLegalBanner
-        title="Dokumentasjon og internkontroll"
+        title="Dokumentasjon, medvirkning og varsling"
+        intro={
+          <>
+            Dette dokumentet er en del av internkontrollen. Kommentarer, forslag og avvik skal være sporbare;
+            varslinger er konfidensielle og kan ikke endres etter innsending.
+          </>
+        }
         references={[
           {
-            code: 'IK-forskriften § 5',
+            code: 'IK-f § 5 nr. 7',
             text: (
-              <>
-                Virksomheten skal systematisk sikre at lover og forskrifter blir fulgt — dokumentert, tilgjengelig og
-                revidert etter behov.
-              </>
+              <>Virksomheten skal systematisk avdekke, dokumentere og lukke avvik fra lover, forskrifter og egne rutiner.</>
             ),
           },
           {
             code: 'AML § 3-1',
-            text: <>Arbeidsmiljøloven krever skriftlig dokumentasjon av risikovurdering og tiltak der det er relevant.</>,
+            text: <>Medvirkning: alle ansatte har rett til å si fra om risiko, forbedringer og avvik.</>,
+          },
+          {
+            code: 'AML kap. 2A',
+            text: (
+              <>
+                Varsling om kritikkverdige forhold er konfidensielt; arbeidsgiver skal ha en trygg, sporbar kanal og
+                forbud mot gjengjeldelse.
+              </>
+            ),
+          },
+          {
+            code: 'GDPR Art. 6 / 9',
+            text: (
+              <>
+                Behandling av personopplysninger i kommentarer skal ha rettsgrunnlag, lagres ikke lenger enn nødvendig
+                og særkategorier behandles bare når loven krever det.
+              </>
+            ),
           },
         ]}
       />
@@ -753,27 +821,42 @@ export function WikiPageView() {
               pageVersion={page.version}
               lang={page.lang ?? 'nb'}
               blockFooter={(idx) =>
-                page.status === 'published' ? (
+                page.status !== 'archived' ? (
                   <WikiBlockCommentsPanel
                     blockIndex={idx}
                     comments={comments}
                     currentUserId={user?.id}
                     canView={can('documents.view')}
                     canComment={Boolean(user?.id && can('documents.view'))}
-                    onAdd={async (bi, body) => {
-                      await addComment({ blockIndex: bi, body, authorName: profile?.display_name ?? '' })
-                      const recipients = await fetchWikiMentionRecipientsFromHtml(supabase, `<p>${body}</p>`)
-                      if (recipients.length > 0) {
-                        const chips = recipients
-                          .map((r) => `<span data-mention="true" data-user-id="${r.id}">@${r.label}</span>`)
+                    mentionUsers={mentionUsers}
+                    retentionHint={retentionHint}
+                    canSeeConfidential={canSeeConfidential}
+                    onAdd={async (args) => {
+                      await addComment({
+                        blockIndex: args.blockIndex,
+                        body: args.body,
+                        authorName: profile?.display_name ?? '',
+                        parentCommentId: args.parentCommentId ?? null,
+                        kind: args.kind,
+                        severity: args.severity,
+                        isAnonymous: args.isAnonymous,
+                        isConfidential: args.isConfidential,
+                        legalBasis: pageLegalBasis,
+                      })
+                      if (args.mentionedUserIds.length > 0) {
+                        const chips = args.mentionedUserIds
+                          .map((id) => `<span data-mention="true" data-user-id="${id}"></span>`)
                           .join(' ')
                         await notifyWikiMentions({
-                          html: `<p>Kommentar på «${page.title}»: ${chips}</p>`,
+                          html: `<p>${args.kind === 'varsling' ? 'Varsling' : 'Kommentar'} på «${page.title}»: ${chips} ${args.body}</p>`,
                           pageId: page.id,
                           context: 'comment',
-                          actorName: profile?.display_name ?? '',
+                          actorName: args.isAnonymous ? 'Anonym ansatt' : profile?.display_name ?? '',
                         })
                       }
+                    }}
+                    onEdit={async (id, body) => {
+                      await editComment({ commentId: id, body })
                     }}
                     onResolve={(id, r) => setResolved(id, r)}
                     onDelete={(id) => removeComment(id)}
@@ -782,6 +865,58 @@ export function WikiPageView() {
               }
             />
             </div>
+          </div>
+        </ModuleSectionCard>
+      )}
+
+      {activeTabExt === 'diskusjon' && (
+        <ModuleSectionCard>
+          <div className="grid gap-6 lg:grid-cols-[1fr_320px]">
+            <div className="space-y-4">
+              <div>
+                <h2 className="text-sm font-semibold text-neutral-900">Forespørsel om godkjenning</h2>
+                <p className="mt-1 text-xs text-neutral-500">
+                  Når dokumentet krever godkjenning før publisering, vises forespørselen her.
+                </p>
+                <div className="mt-3">
+                  <DocumentReviewRequestPanel
+                    page={page}
+                    requests={wikiReviewRequests}
+                    currentUserId={user?.id}
+                    reviewerName={page.reviewerId ? resolveMemberName(page.reviewerId) : undefined}
+                    onSubmitForReview={submitForReview}
+                    onApprove={approveReviewRequest}
+                    onRequestChanges={requestReviewChanges}
+                  />
+                </div>
+              </div>
+
+              <div>
+                <h2 className="text-sm font-semibold text-neutral-900">Aktivitet</h2>
+                <p className="mt-1 text-xs text-neutral-500">
+                  Sporbar tidslinje for revisjon — opprettelse, publisering, godkjenninger og signaturer.
+                </p>
+                <div className="mt-3">
+                  <DocumentActivityTimeline
+                    pageId={page.id}
+                    entries={auditLedger}
+                    resolveUserName={resolveMemberName}
+                  />
+                </div>
+              </div>
+            </div>
+
+            <aside className="space-y-2 rounded-lg border border-neutral-200 bg-neutral-50 p-4 text-xs text-neutral-700">
+              <p className="font-semibold text-neutral-800">Slik bruker du diskusjon</p>
+              <ul className="list-inside list-disc space-y-1">
+                <li>Bytt til <strong>Innhold</strong> for å kommentere en bestemt blokk i dokumentet.</li>
+                <li>Bruk <strong>@</strong> for å varsle en kollega — de får varsel i appen.</li>
+                <li>Merk innlegget som <strong>Forslag</strong>, <strong>Avvik</strong> eller <strong>Varsling</strong> etter hva som passer.</li>
+                <li>
+                  <strong>Konfidensiell varsling</strong> følger AML § 2A — append-only, og synlig kun for deg, organisasjonsadmin og varslingsutvalget.
+                </li>
+              </ul>
+            </aside>
           </div>
         </ModuleSectionCard>
       )}

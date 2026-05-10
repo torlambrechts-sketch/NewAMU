@@ -8,6 +8,9 @@ const DEFAULT_CATEGORIES: Record<NotificationCategoryKey, boolean> = {
   tasks_due: true,
   whistle: true,
   compliance: true,
+  documents_mention: true,
+  documents_review: true,
+  documents_comment: true,
 }
 
 export const DEFAULT_NOTIFICATION_PREFS: NotificationPreferences = {
@@ -38,6 +41,9 @@ export function parseNotificationPreferences(raw: unknown): NotificationPreferen
       tasks_due: cat?.tasks_due !== false,
       whistle: cat?.whistle !== false,
       compliance: cat?.compliance !== false,
+      documents_mention: cat?.documents_mention !== false,
+      documents_review: cat?.documents_review !== false,
+      documents_comment: cat?.documents_comment !== false,
     },
     toastEnabled: o.toastEnabled !== false,
   }

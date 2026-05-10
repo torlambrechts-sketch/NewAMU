@@ -5,7 +5,14 @@ export type NotificationChannelPrefs = {
   webhook: boolean
 }
 
-export type NotificationCategoryKey = 'tasks_sign' | 'tasks_due' | 'whistle' | 'compliance'
+export type NotificationCategoryKey =
+  | 'tasks_sign'
+  | 'tasks_due'
+  | 'whistle'
+  | 'compliance'
+  | 'documents_mention'
+  | 'documents_review'
+  | 'documents_comment'
 
 export type NotificationCategoryPrefs = Record<NotificationCategoryKey, boolean>
 

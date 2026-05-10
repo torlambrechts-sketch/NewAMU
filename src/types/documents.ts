@@ -300,6 +300,15 @@ export type WikiReviewRequest = {
   resolvedAt: string | null
 }
 
+export type WikiPageCommentKind = 'comment' | 'suggestion' | 'avvik_proposal' | 'varsling'
+export type WikiPageCommentSeverity = 'low' | 'medium' | 'high' | 'critical'
+
+export type WikiPageCommentEditEntry = {
+  at: string
+  by: string
+  prevBody: string
+}
+
 export type WikiPageComment = {
   id: string
   pageId: string
@@ -309,6 +318,25 @@ export type WikiPageComment = {
   authorName: string
   resolved: boolean
   createdAt: string
+  /** Reply chain — null on top-level comments. */
+  parentCommentId?: string | null
+  /** Intent of the post. Drives UI chip + downstream behaviour (avvik bridge, varsling). */
+  kind: WikiPageCommentKind
+  /** Required when kind is `avvik_proposal` or `varsling`. */
+  severity?: WikiPageCommentSeverity | null
+  /** UI hides author name when true; author_id stays for RLS. */
+  isAnonymous: boolean
+  /** Append-only varsling channel. Visible only to author + admin + whistleblowing.committee. */
+  isConfidential: boolean
+  /** Inherited from parent page on the client (page.retentionCategory → legalRefs). */
+  legalBasis: string[]
+  /** Append-only list of previous versions of `body`. */
+  editedHistory: WikiPageCommentEditEntry[]
+  /** Soft delete + resolve metadata. */
+  resolvedAt?: string | null
+  resolvedBy?: string | null
+  deletedAt?: string | null
+  updatedAt?: string | null
 }
 
 export type WikiMentionNotification = {

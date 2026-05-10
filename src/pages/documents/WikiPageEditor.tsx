@@ -23,6 +23,7 @@ import {
   FileText,
   GripVertical,
   Loader2,
+  MessageSquare,
   RotateCcw,
   Save,
   Settings,
@@ -45,6 +46,8 @@ import { CSS } from '@dnd-kit/utilities'
 import { useDocuments } from '../../hooks/useDocuments'
 import { useOrgSetupContext } from '../../hooks/useOrgSetupContext'
 import { TipTapRichTextEditor } from '../../components/documents/TipTapRichTextEditor'
+import { DocumentActivityTimeline } from '../../components/documents/DocumentActivityTimeline'
+import { DocumentReviewRequestPanel } from '../../components/documents/DocumentReviewRequestPanel'
 import {
   ModuleLegalBanner,
   ModulePageShell,
@@ -117,7 +120,7 @@ const IMAGE_WIDTH_OPTIONS: SelectOption[] = [
   { value: 'medium', label: 'Medium' },
 ]
 
-type EditTab = 'innhold' | 'innstillinger'
+type EditTab = 'innhold' | 'innstillinger' | 'samarbeid'
 
 function editorStatusBadgeVariant(s: 'draft' | 'published' | 'archived'): 'draft' | 'success' | 'neutral' {
   if (s === 'published') return 'success'
@@ -167,8 +170,21 @@ export function WikiPageEditor() {
   const { pageId } = useParams<{ pageId: string }>()
   const navigate = useNavigate()
   const docs = useDocuments()
-  const { ensurePageLoaded, pageHydrateLoading, pageHydrateError } = docs
-  const { departments, supabase, organization } = useOrgSetupContext()
+  const {
+    ensurePageLoaded,
+    pageHydrateLoading,
+    pageHydrateError,
+    wikiReviewRequests,
+    submitForReview,
+    approveReviewRequest,
+    requestReviewChanges,
+    auditLedger,
+  } = docs
+  const { departments, supabase, organization, user, orgProfiles } = useOrgSetupContext()
+  const resolveMemberName = useCallback(
+    (uid: string) => orgProfiles.find((p) => p.id === uid)?.display_name ?? uid.slice(0, 8),
+    [orgProfiles],
+  )
 
   const original = docs.pages.find((p) => p.id === pageId)
   const space = original ? docs.spaces.find((s) => s.id === original.spaceId) : null
@@ -543,6 +559,7 @@ export function WikiPageEditor() {
   const editTabItems = [
     { id: 'innhold', label: 'Innhold', icon: FileText },
     { id: 'innstillinger', label: 'Innstillinger', icon: Settings },
+    { id: 'samarbeid', label: 'Samarbeid', icon: MessageSquare },
   ]
 
   return (
@@ -598,14 +615,38 @@ export function WikiPageEditor() {
       tabs={<Tabs items={editTabItems} activeId={editTab} onChange={(id) => setEditTab(id as EditTab)} />}
     >
       <ModuleLegalBanner
-        title="Dokumentasjon og revisjon"
+        title="Dokumentasjon, samarbeid og revisjon"
+        intro={
+          <>
+            Utkast og publisering følger internkontrollen. Inviter kolleger til å kommentere og foreslå forbedringer
+            mens dokumentet er under arbeid — varslinger om kritikkverdige forhold går i en separat, konfidensiell
+            kanal.
+          </>
+        }
         references={[
           {
-            code: 'IK-forskriften § 5',
+            code: 'IK-f § 5',
             text: (
               <>
                 Virksomheten skal systematisk sikre at lover og forskrifter blir fulgt — dokumentert, tilgjengelig og
                 revidert etter behov.
+              </>
+            ),
+          },
+          {
+            code: 'AML § 3-1',
+            text: <>Medvirkning: ansatte skal kunne påvirke utforming av rutiner og melde forbedringsforslag.</>,
+          },
+          {
+            code: 'AML kap. 2A',
+            text: <>Varsling om kritikkverdige forhold er konfidensiell, sporbar og fri for gjengjeldelse.</>,
+          },
+          {
+            code: 'GDPR Art. 6 / 9',
+            text: (
+              <>
+                Kommentarer og samarbeidshistorikk er personopplysninger — lagres etter dokumentets oppbevaringsregel
+                og slettes når den utløper.
               </>
             ),
           },
@@ -1104,6 +1145,60 @@ export function WikiPageEditor() {
         </div>
       </div>
       )}
+
+      {editTab === 'samarbeid' ? (
+        <div className="mt-6 grid gap-6 lg:grid-cols-[1fr_320px]">
+          <div className="space-y-4">
+            <ModuleSectionCard>
+              <h3 className="mb-3 border-b border-neutral-100 pb-2 text-sm font-semibold text-neutral-900">
+                Godkjenning
+              </h3>
+              <DocumentReviewRequestPanel
+                page={original}
+                requests={wikiReviewRequests}
+                currentUserId={user?.id}
+                reviewerName={original.reviewerId ? resolveMemberName(original.reviewerId) : undefined}
+                onSubmitForReview={submitForReview}
+                onApprove={approveReviewRequest}
+                onRequestChanges={requestReviewChanges}
+              />
+            </ModuleSectionCard>
+
+            <ModuleSectionCard>
+              <h3 className="mb-3 border-b border-neutral-100 pb-2 text-sm font-semibold text-neutral-900">
+                Aktivitet
+              </h3>
+              <p className="mb-3 text-xs text-neutral-500">
+                Sporbar tidslinje for revisjon (IK-f § 5). Hendelsene legges til automatisk og kan ikke endres.
+              </p>
+              <DocumentActivityTimeline
+                pageId={original.id}
+                entries={auditLedger}
+                resolveUserName={resolveMemberName}
+              />
+            </ModuleSectionCard>
+          </div>
+          <aside className="space-y-3 rounded-lg border border-neutral-200 bg-neutral-50 p-4 text-xs text-neutral-700">
+            <p className="font-semibold text-neutral-800">Diskusjon</p>
+            <p>
+              Kommentarer, forslag og avvik legges til på den enkelte blokk i forhåndsvisningen — slik kan kolleger
+              peke på akkurat det de mener noe om.
+            </p>
+            <Button
+              type="button"
+              variant="secondary"
+              size="sm"
+              onClick={() => navigate(`/documents/page/${original.id}?tab=diskusjon`)}
+            >
+              Åpne i forhåndsvisning
+            </Button>
+            <p className="border-t border-neutral-200 pt-2 text-[11px] text-neutral-500">
+              <strong>Tips:</strong> Bruk «Konfidensiell varsling» for å håndtere kritikkverdige forhold etter AML § 2A.
+              Slike innlegg er append-only og synlig kun for varslingsutvalget.
+            </p>
+          </aside>
+        </div>
+      ) : null}
 
       {blocker.state === 'blocked' ? (
         <div
