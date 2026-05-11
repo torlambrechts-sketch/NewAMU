@@ -655,7 +655,7 @@ function AgendaTab({
           Ingen agendapunkter ennå. Trykk «Legg til sak» for å begynne.
         </p>
       ) : (
-        <ol id="agenda-items-list" className="space-y-3">
+        <ol id="agenda-items-list" className="divide-y divide-neutral-200/80 border-t border-neutral-200/80">
           {ordered.map((item, idx) => (
             <AgendaItemEditor
               key={item.id}
@@ -740,16 +740,24 @@ function AgendaItemEditor({
   }
 
   return (
-    <li id={`agenda-${item.id}`} className="rounded-lg border border-neutral-200/80 bg-neutral-50/50 p-4">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div className="min-w-0 flex-1">
-          <p className="text-sm font-semibold text-neutral-900">
-            {item.title}
-          </p>
-          {item.description ? (
-            <p className="mt-1 text-xs text-neutral-600">{item.description}</p>
-          ) : null}
-          <div className="mt-1.5 flex flex-wrap items-center gap-2">
+    <li
+      id={`agenda-${item.id}`}
+      className="py-8 first:pt-6"
+    >
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(220px,28%)_1fr] lg:gap-10">
+        {/* ── Left gutter: prompt, badges, controls ───────────────────── */}
+        <div className="min-w-0 space-y-3">
+          <div className="space-y-1.5">
+            <p className="text-sm font-semibold leading-snug text-neutral-900">
+              {item.title}
+            </p>
+            {item.description ? (
+              <p className="text-xs leading-relaxed text-neutral-600">
+                {item.description}
+              </p>
+            ) : null}
+          </div>
+          <div className="flex flex-wrap items-center gap-1.5">
             {item.is_mandatory ? <Badge variant="critical">Obligatorisk</Badge> : null}
             {item.is_manual ? <Badge variant="info">Manuell</Badge> : null}
             {item.law_ref ? (
@@ -759,121 +767,120 @@ function AgendaItemEditor({
             ) : null}
             {item.duration_minutes != null ? (
               <span className="text-[11px] text-neutral-500">
-                {item.duration_minutes} min
+                ⏱ {item.duration_minutes} min
               </span>
             ) : null}
           </div>
-        </div>
-        {/* Builder controls — reorder + edit + delete */}
-        <div className="flex items-center gap-1">
-          {onMoveUp ? (
-            <button
-              type="button"
-              onClick={onMoveUp}
-              className="rounded p-1.5 text-neutral-500 hover:bg-neutral-100 hover:text-neutral-900"
-              aria-label="Flytt opp"
-              title="Flytt opp"
-            >
-              <ArrowUp className="h-3.5 w-3.5" />
-            </button>
-          ) : null}
-          {onMoveDown ? (
-            <button
-              type="button"
-              onClick={onMoveDown}
-              className="rounded p-1.5 text-neutral-500 hover:bg-neutral-100 hover:text-neutral-900"
-              aria-label="Flytt ned"
-              title="Flytt ned"
-            >
-              <ArrowDown className="h-3.5 w-3.5" />
-            </button>
-          ) : null}
-          {onEdit ? (
-            <button
-              type="button"
-              onClick={onEdit}
-              className="rounded p-1.5 text-neutral-500 hover:bg-neutral-100 hover:text-neutral-900"
-              aria-label="Rediger sak"
-              title="Rediger sak"
-            >
-              <Edit3 className="h-3.5 w-3.5" />
-            </button>
-          ) : null}
-          {onRemove ? (
-            <button
-              type="button"
-              onClick={onRemove}
-              className="rounded p-1.5 text-red-500 hover:bg-red-50 hover:text-red-700"
-              aria-label="Slett sak"
-              title="Slett sak"
-            >
-              <Trash2 className="h-3.5 w-3.5" />
-            </button>
-          ) : null}
-        </div>
-      </div>
-
-      {binding ? (
-        <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50/70 p-3 text-xs text-amber-900">
-          <div className="flex flex-wrap items-start justify-between gap-2">
-            <p className="font-semibold uppercase tracking-wider text-amber-900/80 text-[10px]">
-              Møteforberedelse
-            </p>
-            <div className="flex items-center gap-2">
-              {!locked ? (
-                <>
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    type="button"
-                    onClick={onRefreshBinding}
-                    title="Oppdater datasnapshot for denne saken"
-                  >
-                    Oppdater data
-                  </Button>
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    type="button"
-                    onClick={() => {
-                      setMinutes((prev) => {
-                        if (prev && prev.trim().length > 0) {
-                          return `${prev}\n\n${binding.summaryMarkdown}`
-                        }
-                        return binding.summaryMarkdown
-                      })
-                    }}
-                  >
-                    Bruk forberedelse
-                  </Button>
-                </>
+          {(onMoveUp || onMoveDown || onEdit || onRemove) && !locked ? (
+            <div className="flex items-center gap-0.5 pt-1">
+              {onMoveUp ? (
+                <button
+                  type="button"
+                  onClick={onMoveUp}
+                  className="rounded p-1.5 text-neutral-500 hover:bg-neutral-100 hover:text-neutral-900"
+                  aria-label="Flytt opp"
+                  title="Flytt opp"
+                >
+                  <ArrowUp className="h-3.5 w-3.5" />
+                </button>
+              ) : null}
+              {onMoveDown ? (
+                <button
+                  type="button"
+                  onClick={onMoveDown}
+                  className="rounded p-1.5 text-neutral-500 hover:bg-neutral-100 hover:text-neutral-900"
+                  aria-label="Flytt ned"
+                  title="Flytt ned"
+                >
+                  <ArrowDown className="h-3.5 w-3.5" />
+                </button>
+              ) : null}
+              {onEdit ? (
+                <button
+                  type="button"
+                  onClick={onEdit}
+                  className="rounded p-1.5 text-neutral-500 hover:bg-neutral-100 hover:text-neutral-900"
+                  aria-label="Rediger sak"
+                  title="Rediger sak"
+                >
+                  <Edit3 className="h-3.5 w-3.5" />
+                </button>
+              ) : null}
+              {onRemove ? (
+                <button
+                  type="button"
+                  onClick={onRemove}
+                  className="rounded p-1.5 text-red-500 hover:bg-red-50 hover:text-red-700"
+                  aria-label="Slett sak"
+                  title="Slett sak"
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                </button>
               ) : null}
             </div>
-          </div>
-          <p className="mt-2 whitespace-pre-wrap leading-relaxed">
-            {binding.summaryMarkdown}
-          </p>
-          {binding.error ? (
-            <p className="mt-2 text-[11px] italic text-amber-700">⚠ {binding.error}</p>
           ) : null}
         </div>
-      ) : null}
 
-      <div className="mt-3 grid gap-3 md:grid-cols-2">
-        <div>
-          <label className={WPSTD_FORM_FIELD_LABEL} htmlFor={`agenda-${item.id}-min`}>
-            Sammendrag
-          </label>
-          <StandardTextarea
-            id={`agenda-${item.id}-min`}
-            className="mt-1.5"
-            rows={3}
-            value={minutes}
-            onChange={(e) => setMinutes(e.target.value)}
-            disabled={locked}
-          />
-        </div>
-        <div className="space-y-3">
+        {/* ── Right column: labeled controls ──────────────────────────── */}
+        <div className="space-y-5">
+          {binding ? (
+            <div className="rounded-lg border border-amber-200 bg-amber-50/60 p-3 text-xs text-amber-900">
+              <div className="flex flex-wrap items-start justify-between gap-2">
+                <p className={`${WPSTD_FORM_FIELD_LABEL} !text-amber-900/80`}>
+                  Møteforberedelse
+                </p>
+                {!locked ? (
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      type="button"
+                      onClick={onRefreshBinding}
+                      title="Oppdater datasnapshot for denne saken"
+                    >
+                      Oppdater data
+                    </Button>
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      type="button"
+                      onClick={() => {
+                        setMinutes((prev) => {
+                          if (prev && prev.trim().length > 0) {
+                            return `${prev}\n\n${binding.summaryMarkdown}`
+                          }
+                          return binding.summaryMarkdown
+                        })
+                      }}
+                    >
+                      Bruk forberedelse
+                    </Button>
+                  </div>
+                ) : null}
+              </div>
+              <p className="mt-2 whitespace-pre-wrap leading-relaxed">
+                {binding.summaryMarkdown}
+              </p>
+              {binding.error ? (
+                <p className="mt-2 text-[11px] italic text-amber-700">⚠ {binding.error}</p>
+              ) : null}
+            </div>
+          ) : null}
+
+          <div>
+            <label className={WPSTD_FORM_FIELD_LABEL} htmlFor={`agenda-${item.id}-min`}>
+              Sammendrag
+            </label>
+            <StandardTextarea
+              id={`agenda-${item.id}-min`}
+              className="mt-1.5"
+              rows={3}
+              value={minutes}
+              onChange={(e) => setMinutes(e.target.value)}
+              disabled={locked}
+            />
+          </div>
+
           <div>
             <label className={WPSTD_FORM_FIELD_LABEL} htmlFor={`agenda-${item.id}-dec`}>
               Vedtak
@@ -887,6 +894,7 @@ function AgendaItemEditor({
               disabled={locked}
             />
           </div>
+
           <div>
             <label className={WPSTD_FORM_FIELD_LABEL} htmlFor={`agenda-${item.id}-st`}>
               Vedtaksstatus
@@ -904,66 +912,54 @@ function AgendaItemEditor({
               disabled={locked}
             />
           </div>
-        </div>
-      </div>
 
-      <div className="mt-3 grid gap-3 md:grid-cols-3">
-        <div>
-          <label className={WPSTD_FORM_FIELD_LABEL} htmlFor={`agenda-${item.id}-for`}>
-            Stemmer for
-          </label>
-          <StandardInput
-            id={`agenda-${item.id}-for`}
-            className="mt-1.5"
-            type="number"
-            min={0}
-            value={voteFor}
-            onChange={(e) => setVoteFor(e.target.value)}
-            disabled={locked}
-          />
-        </div>
-        <div>
-          <label className={WPSTD_FORM_FIELD_LABEL} htmlFor={`agenda-${item.id}-against`}>
-            Stemmer mot
-          </label>
-          <StandardInput
-            id={`agenda-${item.id}-against`}
-            className="mt-1.5"
-            type="number"
-            min={0}
-            value={voteAgainst}
-            onChange={(e) => setVoteAgainst(e.target.value)}
-            disabled={locked}
-          />
-        </div>
-        <div>
-          <label className={WPSTD_FORM_FIELD_LABEL} htmlFor={`agenda-${item.id}-abstain`}>
-            Avholdende
-          </label>
-          <StandardInput
-            id={`agenda-${item.id}-abstain`}
-            className="mt-1.5"
-            type="number"
-            min={0}
-            value={voteAbstain}
-            onChange={(e) => setVoteAbstain(e.target.value)}
-            disabled={locked}
-          />
-        </div>
-      </div>
+          <div>
+            <label className={WPSTD_FORM_FIELD_LABEL}>Stemmer</label>
+            <div className="mt-1.5 grid gap-2 sm:grid-cols-3">
+              <StandardInput
+                id={`agenda-${item.id}-for`}
+                type="number"
+                min={0}
+                placeholder="For"
+                value={voteFor}
+                onChange={(e) => setVoteFor(e.target.value)}
+                disabled={locked}
+              />
+              <StandardInput
+                id={`agenda-${item.id}-against`}
+                type="number"
+                min={0}
+                placeholder="Mot"
+                value={voteAgainst}
+                onChange={(e) => setVoteAgainst(e.target.value)}
+                disabled={locked}
+              />
+              <StandardInput
+                id={`agenda-${item.id}-abstain`}
+                type="number"
+                min={0}
+                placeholder="Avholdende"
+                value={voteAbstain}
+                onChange={(e) => setVoteAbstain(e.target.value)}
+                disabled={locked}
+              />
+            </div>
+          </div>
 
-      <div className="mt-4 flex items-center justify-end gap-3 border-t border-neutral-200/80 pt-3">
-        {savedAt ? <Badge variant="signed">Lagret</Badge> : null}
-        <Button
-          variant="primary"
-          type="button"
-          size="sm"
-          icon={<Edit3 className="h-3.5 w-3.5" />}
-          onClick={handleSave}
-          disabled={locked || busy}
-        >
-          Lagre sak
-        </Button>
+          <div className="flex items-center justify-end gap-3 pt-1">
+            {savedAt ? <Badge variant="signed">Lagret</Badge> : null}
+            <Button
+              variant="primary"
+              type="button"
+              size="sm"
+              icon={<Edit3 className="h-3.5 w-3.5" />}
+              onClick={handleSave}
+              disabled={locked || busy}
+            >
+              Lagre sak
+            </Button>
+          </div>
+        </div>
       </div>
     </li>
   )
