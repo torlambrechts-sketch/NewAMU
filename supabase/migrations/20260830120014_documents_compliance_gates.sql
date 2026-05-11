@@ -71,6 +71,12 @@ create index if not exists wiki_page_comments_scheduled_deletion_idx
 -- to wiki_retention_categories.max_years for the slug, then to 5 (the
 -- HMS-dokumentasjon baseline) so nothing escapes a retention bound. Sets
 -- scheduled_deletion_at in the same pass so the two columns stay in sync.
+--
+-- Defensive: the categories table + the per-page retention columns are
+-- created by wiki_retention_framework, which lives in archive/. Some
+-- environments apply migrations one-by-one via the dashboard and may
+-- not have run the archived migrations yet, so this function tolerates
+-- their absence and falls back to the 5-year baseline.
 create or replace function public.wiki_page_comments_inherit_retention()
 returns trigger
 language plpgsql
@@ -79,13 +85,27 @@ set search_path = public
 as $$
 declare
   v_max int;
+  v_cat_slug text;
+  v_has_categories boolean := to_regclass('public.wiki_retention_categories') is not null;
 begin
   if new.retention_max_years is null then
-    select coalesce(p.retain_maximum_years, c.max_years, 5)
-      into v_max
-    from public.wiki_pages p
-    left join public.wiki_retention_categories c on c.slug = p.retention_category
-    where p.id = new.page_id;
+    begin
+      select p.retain_maximum_years, p.retention_category
+        into v_max, v_cat_slug
+        from public.wiki_pages p
+       where p.id = new.page_id;
+    exception
+      when undefined_column then
+        v_max := null;
+        v_cat_slug := null;
+    end;
+
+    if v_max is null and v_cat_slug is not null and v_has_categories then
+      execute 'select max_years from public.wiki_retention_categories where slug = $1 limit 1'
+        into v_max
+        using v_cat_slug;
+    end if;
+
     if v_max is null then
       v_max := 5;
     end if;
@@ -109,23 +129,51 @@ create trigger wiki_page_comments_retention_inherit
   for each row execute function public.wiki_page_comments_inherit_retention();
 
 -- Backfill existing rows so the retention columns are populated for any
--- comments authored before this migration ran.
-update public.wiki_page_comments c
-   set retention_max_years = coalesce(
-     (select coalesce(p.retain_maximum_years, cat.max_years, 5)
-        from public.wiki_pages p
-        left join public.wiki_retention_categories cat on cat.slug = p.retention_category
-        where p.id = c.page_id
-        limit 1),
-     5
-   )
- where c.retention_max_years is null;
+-- comments authored before this migration ran. Same defence as the
+-- trigger above: branch on whether the retention framework is present.
+do $backfill$
+declare
+  v_has_categories boolean := to_regclass('public.wiki_retention_categories') is not null;
+  v_has_pages_retention boolean := exists (
+    select 1 from information_schema.columns
+    where table_schema = 'public'
+      and table_name = 'wiki_pages'
+      and column_name = 'retain_maximum_years'
+  );
+begin
+  if v_has_pages_retention and v_has_categories then
+    update public.wiki_page_comments c
+       set retention_max_years = coalesce(
+         (select coalesce(p.retain_maximum_years, cat.max_years, 5)
+            from public.wiki_pages p
+            left join public.wiki_retention_categories cat on cat.slug = p.retention_category
+            where p.id = c.page_id
+            limit 1),
+         5
+       )
+     where c.retention_max_years is null;
+  elsif v_has_pages_retention then
+    update public.wiki_page_comments c
+       set retention_max_years = coalesce(
+         (select p.retain_maximum_years
+            from public.wiki_pages p
+           where p.id = c.page_id
+           limit 1),
+         5
+       )
+     where c.retention_max_years is null;
+  else
+    update public.wiki_page_comments
+       set retention_max_years = 5
+     where retention_max_years is null;
+  end if;
 
-update public.wiki_page_comments
-   set scheduled_deletion_at = created_at + (retention_max_years * interval '1 year')
- where scheduled_deletion_at is null
-   and retention_max_years is not null
-   and retention_max_years > 0;
+  update public.wiki_page_comments
+     set scheduled_deletion_at = created_at + (retention_max_years * interval '1 year')
+   where scheduled_deletion_at is null
+     and retention_max_years is not null
+     and retention_max_years > 0;
+end $backfill$;
 
 -- 3. Confidential append-only trigger: permit deletion after retention -----
 
