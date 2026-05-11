@@ -38,7 +38,7 @@ import { StandardTextarea } from '../../components/ui/Textarea'
 import { SearchableSelect } from '../../components/ui/SearchableSelect'
 import { Tabs } from '../../components/ui/Tabs'
 import { WarningBox, InfoBox } from '../../components/ui/AlertBox'
-import { WorkplaceNoticePanel } from '../../components/layout/WorkplaceNoticePanel'
+import { MandatoryGapsNoticePanel } from '../../../modules/meetings/components/MandatoryGapsNoticePanel'
 import { WPSTD_FORM_FIELD_LABEL } from '../../components/layout/WorkplaceStandardFormPanel'
 import { useOrgSetupContext } from '../../hooks/useOrgSetupContext'
 import { useMeetings, useMeetingDataBindings } from '../../../modules/meetings'
@@ -355,51 +355,53 @@ export function MeetingsDetailView() {
       ) : null}
 
       {tab === 'agenda' ? (
-        <ModuleSectionCard className="p-5 md:p-6">
-          <AgendaTab
-            items={meetings.detail.agendaItems}
-            locked={isLocked}
-            mandatoryGaps={mandatoryGaps}
-            bindings={bindings.resolvedByAgendaItemId}
-            suggestedSignals={bindings.extraSignalsBySource}
-            priorOpenDecisions={meetings.detail.priorOpenDecisions}
-            onSave={meetings.setAgendaMinutes}
-            onAddItem={() => {
-              setAgendaEditTarget(null)
-              setAgendaFormOpen(true)
-            }}
-            onEditItem={(item) => {
-              setAgendaEditTarget(item)
-              setAgendaFormOpen(true)
-            }}
-            onRemoveItem={async (id) => {
-              await meetings.removeAgendaItem(id)
-            }}
-            onReorder={async (orderedIds) => {
-              await meetings.reorderAgendaItems(meeting.id, orderedIds)
-            }}
-            onRefreshBinding={async (itemId) => {
-              const snap = bindings.resolvedByAgendaItemId.get(itemId)
-              if (snap) await meetings.writeBindingSnapshot(itemId, snap)
-            }}
-            onAddSuggestedTopic={async (topic) => {
-              // Materialise the suggestion as a manual agenda item +
-              // immediately seed its binding_snapshot + SAMMENDRAG.
-              const created = await meetings.addAgendaItem({
-                meetingId: meeting.id,
-                title:
-                  topic.snapshot.summaryMarkdown.split('\n')[0].slice(0, 100) ||
-                  topic.source,
-              })
-              if (created) {
-                await meetings.writeBindingSnapshot(created.id, topic.snapshot)
-                await meetings.setAgendaMinutes(created.id, {
-                  minutesSummary: topic.snapshot.summaryMarkdown,
+        <div className="space-y-4">
+          <MandatoryGapsNoticePanel gaps={mandatoryGaps} />
+          <ModuleSectionCard className="p-5 md:p-6">
+            <AgendaTab
+              items={meetings.detail.agendaItems}
+              locked={isLocked}
+              bindings={bindings.resolvedByAgendaItemId}
+              suggestedSignals={bindings.extraSignalsBySource}
+              priorOpenDecisions={meetings.detail.priorOpenDecisions}
+              onSave={meetings.setAgendaMinutes}
+              onAddItem={() => {
+                setAgendaEditTarget(null)
+                setAgendaFormOpen(true)
+              }}
+              onEditItem={(item) => {
+                setAgendaEditTarget(item)
+                setAgendaFormOpen(true)
+              }}
+              onRemoveItem={async (id) => {
+                await meetings.removeAgendaItem(id)
+              }}
+              onReorder={async (orderedIds) => {
+                await meetings.reorderAgendaItems(meeting.id, orderedIds)
+              }}
+              onRefreshBinding={async (itemId) => {
+                const snap = bindings.resolvedByAgendaItemId.get(itemId)
+                if (snap) await meetings.writeBindingSnapshot(itemId, snap)
+              }}
+              onAddSuggestedTopic={async (topic) => {
+                // Materialise the suggestion as a manual agenda item +
+                // immediately seed its binding_snapshot + SAMMENDRAG.
+                const created = await meetings.addAgendaItem({
+                  meetingId: meeting.id,
+                  title:
+                    topic.snapshot.summaryMarkdown.split('\n')[0].slice(0, 100) ||
+                    topic.source,
                 })
-              }
-            }}
-          />
-        </ModuleSectionCard>
+                if (created) {
+                  await meetings.writeBindingSnapshot(created.id, topic.snapshot)
+                  await meetings.setAgendaMinutes(created.id, {
+                    minutesSummary: topic.snapshot.summaryMarkdown,
+                  })
+                }
+              }}
+            />
+          </ModuleSectionCard>
+        </div>
       ) : null}
 
       <AgendaItemFormPanel
@@ -576,7 +578,6 @@ function computeMandatoryGaps(meeting: MeetingRow, items: MeetingAgendaItemRow[]
 function AgendaTab({
   items,
   locked,
-  mandatoryGaps,
   bindings,
   suggestedSignals,
   priorOpenDecisions,
@@ -590,7 +591,6 @@ function AgendaTab({
 }: {
   items: MeetingAgendaItemRow[]
   locked: boolean
-  mandatoryGaps: string[]
   bindings: Map<string, RenderedBindingResult>
   suggestedSignals: Map<MeetingDataBindingSource, RenderedBindingResult>
   priorOpenDecisions: ReturnType<typeof useMeetings>['detail']['priorOpenDecisions']
@@ -629,29 +629,6 @@ function AgendaTab({
         </div>
         <span className="text-xs text-neutral-500">{items.length} saker</span>
       </div>
-
-      {mandatoryGaps.length > 0 ? (
-        <WorkplaceNoticePanel
-          variant="warning"
-          title="Obligatoriske saker mangler innhold"
-          badge={mandatoryGaps.length}
-          items={[
-            ...mandatoryGaps.slice(0, 5).map((title, idx) => ({
-              id: `gap-${idx}`,
-              title,
-              subtitle: 'Må fylles ut før signering',
-            })),
-            ...(mandatoryGaps.length > 5
-              ? [
-                  {
-                    id: 'gap-more',
-                    title: `… og ${mandatoryGaps.length - 5} til`,
-                  },
-                ]
-              : []),
-          ]}
-        />
-      ) : null}
 
       <SuggestedTopicsCard
         signals={suggestedSignals}
