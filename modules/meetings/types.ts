@@ -70,6 +70,63 @@ export type MeetingFramework = (typeof MEETING_FRAMEWORK_VALUES)[number]
 
 // ── Definition jsonb shapes (system + org template body) ──────────────────
 
+/** Data sources the resolver hook (useMeetingDataBindings) can fan out
+ *  to. Each value maps to a switch arm in the resolver that returns a
+ *  RenderedBindingResult. Adding a value here = adding an arm. */
+export const MEETING_DATA_BINDING_SOURCES = [
+  'sick_leave_stats',
+  'vernerunde_findings',
+  'incidents',
+  'open_ros_high',
+  'training_completion',
+  'open_decisions',
+  'whistleblowing_anonymized',
+  'survey_results',
+  'compliance_checklist_status',
+  'bht_annual_report',
+  'ik_annual_review_status',
+  'headcount_and_amu_composition',
+] as const
+export type MeetingDataBindingSource = (typeof MEETING_DATA_BINDING_SOURCES)[number]
+
+export const MEETING_DATA_BINDING_WINDOWS = [
+  'last_month',
+  'last_quarter',
+  'last_half_year',
+  'last_year',
+  'current',
+  'all_open',
+] as const
+export type MeetingDataBindingWindow = (typeof MEETING_DATA_BINDING_WINDOWS)[number]
+
+export const MEETING_DATA_BINDING_PRESENTATIONS = [
+  'summary',
+  'table',
+  'trend',
+  'sparkline',
+] as const
+export type MeetingDataBindingPresentation = (typeof MEETING_DATA_BINDING_PRESENTATIONS)[number]
+
+export type MeetingDataBinding = {
+  source: MeetingDataBindingSource
+  window?: MeetingDataBindingWindow
+  presentation?: MeetingDataBindingPresentation
+  scope?: { locationId?: string; departmentId?: string; teamId?: string }
+}
+
+/** Resolver output — stored as `meeting_agenda_items.binding_snapshot` jsonb. */
+export type RenderedBindingResult = {
+  source: MeetingDataBindingSource
+  window?: MeetingDataBindingWindow
+  resolvedAt: string
+  /** Markdown-friendly summary string the UI shows above the minutes textarea. */
+  summaryMarkdown: string
+  /** Optional tabular data the UI can render as a small table. */
+  dataRows?: Array<Record<string, unknown>>
+  /** Set when the resolver couldn't produce a summary. The UI shows it as a soft warning. */
+  error?: string
+}
+
 export type MeetingTemplateAgendaItem = {
   key: string
   title: string
@@ -79,6 +136,14 @@ export type MeetingTemplateAgendaItem = {
   voteRequired?: boolean
   conflictCheck?: boolean
   defaultPosition: number
+  /** Optional binding to a cross-module data source. Resolver populates
+   *  `meeting_agenda_items.binding_snapshot` from this at meeting creation. */
+  dataBinding?: MeetingDataBinding
+  /** Marker for honesty pass (H2b) — used by UI to label "Anbefalt, ikke lov-grunnet". */
+  recommended?: boolean
+  /** Optional override of the meeting-level cadence for this specific item
+   *  (e.g. biennial lønnskartlegging within an annual likestillings-møte). */
+  cadenceOverride?: MeetingCadence
 }
 
 export type MeetingTemplatePrepItem = {
@@ -270,6 +335,7 @@ export type MeetingAgendaItemRow = {
   vote_against: number | null
   vote_abstain: number | null
   conflict_of_interest: Array<{ member_id: string; reason: string }> | null
+  binding_snapshot: RenderedBindingResult | null
   created_at: string
   updated_at: string
 }
@@ -361,6 +427,21 @@ const TemplateMetadataSchemaSchema = z
   })
   .passthrough()
 
+const MeetingDataBindingSchema = z
+  .object({
+    source: z.enum(MEETING_DATA_BINDING_SOURCES),
+    window: z.enum(MEETING_DATA_BINDING_WINDOWS).optional(),
+    presentation: z.enum(MEETING_DATA_BINDING_PRESENTATIONS).optional(),
+    scope: z
+      .object({
+        locationId: z.string().optional(),
+        departmentId: z.string().optional(),
+        teamId: z.string().optional(),
+      })
+      .optional(),
+  })
+  .passthrough()
+
 const MeetingTemplateAgendaItemSchema = z
   .object({
     key: z.string(),
@@ -371,6 +452,9 @@ const MeetingTemplateAgendaItemSchema = z
     voteRequired: z.boolean().optional(),
     conflictCheck: z.boolean().optional(),
     defaultPosition: z.number().int().default(0),
+    dataBinding: MeetingDataBindingSchema.optional(),
+    recommended: z.boolean().optional(),
+    cadenceOverride: MeetingCadenceSchema.optional(),
   })
   .passthrough()
 
@@ -546,6 +630,18 @@ export const MeetingAgendaItemRowSchema = z
     conflict_of_interest: z
       .array(z.object({ member_id: z.string(), reason: z.string() }))
       .nullable(),
+    binding_snapshot: z
+      .object({
+        source: z.string(),
+        window: z.string().optional(),
+        resolvedAt: z.string(),
+        summaryMarkdown: z.string(),
+        dataRows: z.array(z.record(z.string(), z.unknown())).optional(),
+        error: z.string().optional(),
+      })
+      .passthrough()
+      .nullable()
+      .default(null),
     created_at: z.string(),
     updated_at: z.string(),
   })
