@@ -151,9 +151,14 @@ export function DocumentModerationQueuePage() {
         )}
       </ModuleSectionCard>
 
-      <Button type="button" variant="secondary" className="mt-6" onClick={() => navigate('/documents')}>
-        Tilbake til dokumenter
-      </Button>
+      <div className="mt-6 flex flex-wrap gap-2">
+        <Button type="button" variant="secondary" onClick={() => navigate('/documents')}>
+          Tilbake til dokumenter
+        </Button>
+        <Button type="button" variant="ghost" onClick={() => navigate('/documents/privacy')}>
+          Personvern (GDPR Art. 15 / 17)
+        </Button>
+      </div>
     </ModulePageShell>
   )
 }
