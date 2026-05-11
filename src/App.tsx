@@ -36,10 +36,10 @@ import { HrORosPage } from './pages/hr/HrORosPage'
 import { HrmEmployees } from './pages/HrmEmployees'
 import { HrmSalary } from './pages/HrmSalary'
 import { NotFound } from './pages/NotFound'
-import { CouncilModule } from './pages/CouncilModule'
-import { AmuPage } from '../modules/amu/AmuPage'
-import { AmuHubPage } from './pages/AmuHubPage'
-import { AmuModuleAdminPage } from './pages/AmuModuleAdminPage'
+import { MeetingsHubPage } from './pages/meetings/MeetingsHubPage'
+import { MeetingsDetailView } from './pages/meetings/MeetingsDetailView'
+import { MeetingsAdminPage } from './pages/meetings/MeetingsAdminPage'
+import { MeetingsAnalysePage } from './pages/meetings/MeetingsAnalysePage'
 import { MembersModule } from './pages/MembersModule'
 import { HseModule } from './pages/HseModule'
 import { OrgHealthModule } from './pages/OrgHealthModule'
@@ -148,9 +148,6 @@ import { IkTiltaksplanPage } from './pages/IkTiltaksplanPage'
 import { ActionPlanPage } from './pages/ActionPlanPage'
 import { ActionPlanAdminPage } from './pages/ActionPlanAdminPage'
 import { IkAnnualReviewPage } from './pages/IkAnnualReviewPage'
-import { AmuElectionHubPage } from './pages/AmuElectionHubPage'
-import { AmuElectionDetailPage } from './pages/AmuElectionDetailPage'
-import { AmuElectionAdminPage } from './pages/AmuElectionAdminPage'
 import { InternalControlAdminPage } from './pages/InternalControlAdminPage'
 import { RisikoSikkerhetFrontpage } from './pages/RisikoSikkerhetFrontpage'
 import { RosModulePage }         from './pages/RosModulePage'
@@ -268,10 +265,10 @@ const router = createBrowserRouter(
                       <Route path="workplace-reporting/anonymous-aml" element={<WorkplaceAnonymousAmlPage />} />
                       <Route path="aarshjul" element={<AarshjulPage />} />
                       <Route path="action-board" element={<ActionBoardPage />} />
-                      <Route path="council" element={<CouncilModule />} />
-                      <Route path="council/amu" element={<AmuHubPage />} />
-                      <Route path="council/amu/admin" element={<AmuModuleAdminPage />} />
-                      <Route path="council/amu/:meetingId" element={<AmuPage />} />
+                      <Route path="meetings" element={<MeetingsHubPage />} />
+                      <Route path="meetings/analyse" element={<MeetingsAnalysePage />} />
+                      <Route path="meetings/admin" element={<MeetingsAdminPage />} />
+                      <Route path="meetings/:meetingId" element={<MeetingsDetailView />} />
                       <Route path="members" element={<MembersModule />} />
                       <Route path="org-health" element={<OrgHealthModule />} />
                       <Route path="org-health/settings" element={<OrgHealthSettings />} />
@@ -288,9 +285,6 @@ const router = createBrowserRouter(
                       <Route path="internkontroll/mal" element={<IkMalPage />} />
                       <Route path="internkontroll/tiltaksplan" element={<IkTiltaksplanPage />} />
                       <Route path="internkontroll/arsgjenomgang" element={<IkAnnualReviewPage />} />
-                      <Route path="internkontroll/amu-valg" element={<AmuElectionHubPage />} />
-                      <Route path="internkontroll/amu-valg/admin" element={<AmuElectionAdminPage />} />
-                      <Route path="internkontroll/amu-valg/:electionId" element={<AmuElectionDetailPage />} />
                       <Route path="internkontroll/admin" element={<InternalControlAdminPage />} />
                       <Route path="modules/aarskontroll" element={<YearskontrollModule />} />
                       <Route path="hse" element={<HseModule />} />
