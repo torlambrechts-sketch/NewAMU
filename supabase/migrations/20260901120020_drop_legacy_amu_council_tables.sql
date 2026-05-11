@@ -105,8 +105,10 @@ begin
     where source_module in ('amu', 'amu_election');
   end if;
   if to_regclass('public.workflow_rules') is not null then
+    -- workflow_rules uses `source_module text` (not `module`). Verified
+    -- 2026-05 against live schema via information_schema.columns.
     delete from public.workflow_rules
-    where module in ('amu', 'amu_election');
+    where source_module in ('amu', 'amu_election');
   end if;
 end $$;
 
