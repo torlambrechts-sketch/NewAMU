@@ -266,11 +266,46 @@ const router = createBrowserRouter(
                       <Route path="workplace-reporting/anonymous-aml" element={<WorkplaceAnonymousAmlPage />} />
                       <Route path="aarshjul" element={<AarshjulPage />} />
                       <Route path="action-board" element={<ActionBoardPage />} />
-                      <Route path="meetings" element={<MeetingsHubPage />} />
-                      <Route path="meetings/analyse" element={<MeetingsAnalysePage />} />
-                      <Route path="meetings/admin" element={<MeetingsAdminPage />} />
-                      <Route path="meetings/:meetingId/eksport" element={<MeetingsExportPage />} />
-                      <Route path="meetings/:meetingId" element={<MeetingsDetailView />} />
+                      <Route
+                        path="meetings"
+                        element={
+                          <RouteErrorBoundary title="Kunne ikke vise møter">
+                            <MeetingsHubPage />
+                          </RouteErrorBoundary>
+                        }
+                      />
+                      <Route
+                        path="meetings/analyse"
+                        element={
+                          <RouteErrorBoundary title="Kunne ikke vise analyse">
+                            <MeetingsAnalysePage />
+                          </RouteErrorBoundary>
+                        }
+                      />
+                      <Route
+                        path="meetings/admin"
+                        element={
+                          <RouteErrorBoundary title="Kunne ikke vise innstillinger">
+                            <MeetingsAdminPage />
+                          </RouteErrorBoundary>
+                        }
+                      />
+                      <Route
+                        path="meetings/:meetingId/eksport"
+                        element={
+                          <RouteErrorBoundary title="Kunne ikke vise protokoll-pakke">
+                            <MeetingsExportPage />
+                          </RouteErrorBoundary>
+                        }
+                      />
+                      <Route
+                        path="meetings/:meetingId"
+                        element={
+                          <RouteErrorBoundary title="Kunne ikke vise møte">
+                            <MeetingsDetailView />
+                          </RouteErrorBoundary>
+                        }
+                      />
                       <Route path="members" element={<MembersModule />} />
                       <Route path="org-health" element={<OrgHealthModule />} />
                       <Route path="org-health/settings" element={<OrgHealthSettings />} />
