@@ -40,6 +40,23 @@ export function PermissionGate() {
     return <Outlet />
   }
 
+  const isMeetingsPath = path === '/meetings' || path.startsWith('/meetings/')
+  /** Mirrors MEETINGS_NAV_PERMS in AticsShell — the gate must allow at least
+   *  what the sidebar offers, otherwise clicking the visible nav entry
+   *  bounces the user to /home. Includes isAdmin fallback so the migration
+   *  20260901120030 backfill doesn't have to have run yet. */
+  if (isMeetingsPath) {
+    const allowedMeetings =
+      can('module.view.meetings') ||
+      can('meetings.manage') ||
+      can('module.view.dashboard') ||
+      profile?.is_org_admin === true
+    if (!allowedMeetings) {
+      return <Navigate to="/home" replace state={{ accessDenied: 'module.view.meetings' }} />
+    }
+    return <Outlet />
+  }
+
   const isDocumentsPath = path === '/documents' || path.startsWith('/documents/')
   const isDocumentsEditorPath =
     /\/reference-edit$/.test(path) ||
