@@ -97,11 +97,11 @@ const REGISTRY: Record<string, ModuleRegistryEntry> = {
     configSchema: hseConfig,
   },
 
-  council: {
-    slug: 'council',
-    displayName: 'Styremøter',
+  meetings: {
+    slug: 'meetings',
+    displayName: 'Møter',
     component: lazy(() =>
-      import('../pages/CouncilModule').then((m) => ({ default: m.CouncilModule })),
+      import('../pages/meetings/MeetingsHubPage').then((m) => ({ default: m.MeetingsHubPage })),
     ),
     configSchema: baseConfig,
   },

@@ -232,7 +232,7 @@ export function ActionBoardPage() {
           detail: c.lawRef,
           status: 'todo',
           module: 'council',
-          link: '/council?tab=requirements',
+          link: '/meetings',
           isDraggable: false,
         })
       })

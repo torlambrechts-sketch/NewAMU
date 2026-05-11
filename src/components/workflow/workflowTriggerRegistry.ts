@@ -37,16 +37,11 @@ export const VERNERUNDER_WORKFLOW_TRIGGER_EVENTS = [
   { value: 'ON_FINDING_UPDATED', label: 'Funn oppdatert' },
 ] as const
 
-/** AMU-valg — hendelser fra database (statusendringer på amu_elections). */
-export const AMU_ELECTION_WORKFLOW_TRIGGER_EVENTS = [
-  { value: 'ON_ELECTION_NOMINATION_OPEN', label: 'Nominasjon åpnet' },
-  { value: 'ON_ELECTION_VOTING_OPEN', label: 'Stemmegivning åpnet' },
-  { value: 'ON_ELECTION_CLOSED', label: 'Valg avsluttet' },
-] as const
-
-export const AMU_WORKFLOW_TRIGGER_EVENTS = [
-  { value: 'ON_AMU_MEETING_SCHEDULED', label: 'AMU-møte planlagt (kalenderinnkalling til deltakere)' },
-  { value: 'ON_AMU_MEETING_SIGNED', label: 'AMU-møte signert (distribuer referat)' },
+/** Møter — hendelser fra meetings_module. */
+export const MEETINGS_WORKFLOW_TRIGGER_EVENTS = [
+  { value: 'ON_MEETING_SCHEDULED', label: 'Møte planlagt' },
+  { value: 'ON_MEETING_SIGNED', label: 'Protokoll signert' },
+  { value: 'ON_MEETING_DECISION_LOGGED', label: 'Vedtak registrert' },
 ] as const
 
 /** Documents module — revision, acknowledgement and annual-review lifecycle events. */
@@ -106,8 +101,7 @@ const REGISTRY: Record<string, readonly { value: string; label: string }[]> = {
   action_plan: ACTION_PLAN_WORKFLOW_TRIGGER_EVENTS,
   internkontroll: INTERNKONTROLL_WORKFLOW_TRIGGER_EVENTS,
   vernerunder: VERNERUNDER_WORKFLOW_TRIGGER_EVENTS,
-  amu_election: AMU_ELECTION_WORKFLOW_TRIGGER_EVENTS,
-  amu: AMU_WORKFLOW_TRIGGER_EVENTS,
+  meetings: MEETINGS_WORKFLOW_TRIGGER_EVENTS,
   survey: SURVEY_WORKFLOW_TRIGGER_EVENTS,
   documents: DOCUMENTS_WORKFLOW_TRIGGER_EVENTS,
   compliance_checklist: COMPLIANCE_CHECKLIST_WORKFLOW_TRIGGER_EVENTS,

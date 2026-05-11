@@ -106,7 +106,7 @@ export function useWorkspaceDashboardData() {
           date: m.startsAt,
           kind: 'AMU-møte',
           colour: '#1a3d32',
-          to: '/council?tab=meetings',
+          to: '/meetings',
         }),
       )
     activeSickLeave.forEach((c) =>

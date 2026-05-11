@@ -5,14 +5,9 @@ export const PERMISSION_KEYS = [
   'roles.manage',
   'delegation.manage',
   'module.view.dashboard',
-  'module.view.council',
   'module.view.members',
   'module.view.org_health',
   'module.view.hse',
-  /** AMU / arbeidsmiljøutvalg — full redigering av møter, agenda og vedtak */
-  'amu.manage',
-  /** AMU — signere referat og årsrapport (møteleder / nestleder) */
-  'amu.chair',
   /** Organisasjonsundersøkelser (QPSNordic/ARK, AMU, tiltak) */
   'module.view.survey',
   'module.view.inspection',
@@ -33,8 +28,6 @@ export const PERMISSION_KEYS = [
   'checklist.manage',
   /** Redigere tiltaksplan, kategorier og arbeidsflyt (IK) */
   'action_plan.manage',
-  /** AMU-valg — administrere valg, kandidater og stemmeberettigede */
-  'amu_election.manage',
   /** Konfigurere/kjøre organisasjonsundersøkelser (ny modul) */
   'survey.manage',
   /** Varslingsmottak — full innsyn i whistleblowing_cases (AML kap. 2A) */
@@ -129,12 +122,9 @@ export const PERMISSION_LABELS: Record<PermissionKey, string> = {
   'roles.manage': 'Administrere roller og tilganger',
   'delegation.manage': 'Delegere roller',
   'module.view.dashboard': 'Dashboard / prosjekt',
-  'module.view.council': 'Council',
   'module.view.members': 'Members',
   'module.view.org_health': 'Org health',
   'module.view.hse': 'HSE',
-  'amu.manage': 'AMU — redigere møter og protokoll',
-  'amu.chair': 'AMU — signere referat og årsrapport',
   'module.view.survey': 'Organisasjonsundersøkelse',
   'module.view.inspection': 'Inspeksjonsmodul',
   'module.view.internal_control': 'Internkontroll',
@@ -146,7 +136,6 @@ export const PERMISSION_LABELS: Record<PermissionKey, string> = {
   'inspection.manage': 'Inspeksjonsmodul — redigere runder og innstillinger',
   'checklist.manage': 'Compliance-sjekklister — opprette, besvare og signere',
   'action_plan.manage': 'Tiltaksplan — kategorier og arbeidsflyt',
-  'amu_election.manage': 'AMU-valg — administrasjon',
   'survey.manage': 'Undersøkelse — administrasjon',
   'whistleblowing.committee': 'Varslingsmottak',
   'module.view.tasks': 'Tasks',

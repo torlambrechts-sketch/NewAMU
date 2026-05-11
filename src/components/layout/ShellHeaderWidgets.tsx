@@ -324,7 +324,7 @@ export function ShellComplianceIndicator({ variant }: { variant: 'sidebar' | 'to
         title: 'AMU / krav og vedtak',
         items: councilOpen.slice(0, 6).map((c) => ({
           label: c.title,
-          to: '/council?tab=requirements',
+          to: '/meetings',
         })),
       })
     }

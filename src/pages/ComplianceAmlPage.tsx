@@ -84,7 +84,7 @@ const AML_CHAPTERS: AmlChapter[] = [
     title: 'Verneombud',
     topics: [
       { paragraf: '§ 6-1', topic: 'Plikt til å velge verneombud', modules: [{ label: 'Verneombud', to: '/internkontroll/medvirkning' }] },
-      { paragraf: '§ 6-2', topic: 'Verneombudets oppgaver', modules: [{ label: 'AMU/VO', to: '/council/amu' }] },
+      { paragraf: '§ 6-2', topic: 'Verneombudets oppgaver', modules: [{ label: 'AMU/VO', to: '/meetings' }] },
       { paragraf: '§ 6-3', topic: 'Stansingsrett', modules: [{ label: 'Avvik', to: '/workplace-reporting/incidents' }] },
       { paragraf: '§ 6-4', topic: 'Verneombud velges av arbeidstakerne', modules: [{ label: 'AMU-valg', to: '/internkontroll/amu-valg' }] },
       { paragraf: '§ 6-5', topic: 'Opplæring av verneombud', modules: [{ label: 'Kompetanse', to: '/internkontroll/kompetanse' }] },
@@ -94,9 +94,9 @@ const AML_CHAPTERS: AmlChapter[] = [
     number: 7,
     title: 'Arbeidsmiljøutvalg',
     topics: [
-      { paragraf: '§ 7-1', topic: 'Plikt til å opprette AMU', modules: [{ label: 'AMU', to: '/council/amu' }] },
-      { paragraf: '§ 7-2', topic: 'AMUs oppgaver', modules: [{ label: 'AMU', to: '/council/amu' }] },
-      { paragraf: '§ 7-3', topic: 'Særskilte lokale forhold', modules: [{ label: 'AMU', to: '/council/amu' }] },
+      { paragraf: '§ 7-1', topic: 'Plikt til å opprette AMU', modules: [{ label: 'AMU', to: '/meetings' }] },
+      { paragraf: '§ 7-2', topic: 'AMUs oppgaver', modules: [{ label: 'AMU', to: '/meetings' }] },
+      { paragraf: '§ 7-3', topic: 'Særskilte lokale forhold', modules: [{ label: 'AMU', to: '/meetings' }] },
     ],
   },
   {

@@ -109,7 +109,7 @@ export function AarshjulPage() {
           month,
           year,
           status: m.status === 'completed' ? 'done' : m.status === 'cancelled' ? 'done' : statusFor(m.startsAt),
-          link: '/council?tab=meetings',
+          link: '/meetings',
           detail: `${m.location} · Q${m.quarterSlot ?? '?'}`,
         })
       })

@@ -149,7 +149,7 @@ export function ProjectDashboard() {
             </div>
             {nextMeeting ? (
               <Link
-                to="/council?tab=meetings"
+                to="/meetings"
                 className="inline-flex items-center gap-2 border border-[#1a3d32]/20 bg-[#1a3d32]/5 px-3 py-2 text-xs font-medium text-[#1a3d32] transition-colors hover:bg-[#1a3d32]/10"
               >
                 <Calendar className="size-3.5" />
@@ -196,7 +196,7 @@ export function ProjectDashboard() {
           sub={`${openComplianceTotal - openComplianceDone} gjenstår`}
           icon={CheckCircle2}
           iconBg={openComplianceDone === openComplianceTotal ? 'bg-emerald-600' : 'bg-sky-600'}
-          to="/council?tab=requirements"
+          to="/meetings"
         />
       </div>
 
@@ -236,7 +236,7 @@ export function ProjectDashboard() {
           <div className="border border-neutral-200/90 bg-white shadow-sm">
             <div className="border-b border-neutral-100 px-5 py-3 flex items-center justify-between">
               <h2 className="text-xs font-bold uppercase tracking-wide text-neutral-500">Kommende AMU-møter</h2>
-              <Link to="/council?tab=meetings" className="text-xs font-medium text-[#1a3d32] hover:underline">Se alle →</Link>
+              <Link to="/meetings" className="text-xs font-medium text-[#1a3d32] hover:underline">Se alle →</Link>
             </div>
             {upcomingMeetings.length === 0 ? (
               <p className="px-5 py-6 text-center text-sm text-neutral-400">Ingen planlagte møter.</p>
@@ -245,7 +245,7 @@ export function ProjectDashboard() {
                 {upcomingMeetings.map((m) => {
                   const d = daysUntil(m.startsAt)
                   return (
-                    <Link key={m.id} to="/council?tab=meetings"
+                    <Link key={m.id} to="/meetings"
                       className="flex items-center gap-4 px-5 py-3.5 hover:bg-neutral-50 transition-colors">
                       {/* Coloured date box */}
                       <div className="flex size-11 shrink-0 flex-col items-center justify-center bg-[#1a3d32] text-white">
@@ -388,7 +388,7 @@ export function ProjectDashboard() {
             </div>
             <div className="grid grid-cols-2 divide-x divide-y divide-neutral-100">
               {[
-                { label: 'AMU-møter i år', value: council.meetings.filter((m) => m.governanceYear === today.getFullYear()).length, colour: 'text-[#1a3d32]', to: '/council?tab=meetings' },
+                { label: 'AMU-møter i år', value: council.meetings.filter((m) => m.governanceYear === today.getFullYear()).length, colour: 'text-[#1a3d32]', to: '/meetings' },
                 { label: 'Vernerunder', value: hse.stats.rounds, colour: 'text-emerald-700', to: '/vernerunder' },
                 { label: 'Inspeksjoner åpne', value: hse.stats.openInspections, colour: hse.stats.openInspections > 0 ? 'text-amber-600' : 'text-neutral-700', to: '/hse?tab=inspections' },
                 { label: 'ROS-vurderinger', value: ic.stats.rosCount, colour: 'text-sky-700', to: '/internal-control?tab=ros' },
@@ -508,7 +508,7 @@ export function ProjectDashboard() {
               {[
                 { label: 'Meld hendelse', to: '/hse?tab=incidents', icon: ShieldAlert, iconCls: 'text-red-500', bg: 'bg-red-50' },
                 { label: 'Ny ROS', to: '/internal-control?tab=ros', icon: AlertTriangle, iconCls: 'text-amber-500', bg: 'bg-amber-50' },
-                { label: 'Council', to: '/council', icon: Scale, iconCls: 'text-[#1a3d32]', bg: 'bg-emerald-50' },
+                { label: 'Council', to: '/meetings', icon: Scale, iconCls: 'text-[#1a3d32]', bg: 'bg-emerald-50' },
                 { label: 'Internkontroll', to: '/internal-control', icon: ClipboardList, iconCls: 'text-violet-600', bg: 'bg-violet-50' },
                 { label: 'Documents', to: '/documents', icon: FileText, iconCls: 'text-sky-600', bg: 'bg-sky-50' },
                 { label: 'Organisasjon', to: '/organisation', icon: Users, iconCls: 'text-emerald-600', bg: 'bg-emerald-50' },
