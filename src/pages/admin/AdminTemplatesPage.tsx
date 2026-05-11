@@ -27,6 +27,7 @@ const SOURCE_KEYS: AdminTemplateSource[] = [
   'documents',
   'learning',
   'registers',
+  'meetings',
 ]
 const STATUS_KEYS: AdminTemplateStatus[] = [
   'active',
@@ -105,7 +106,7 @@ export function AdminTemplatesPage() {
         { label: 'Maler' },
       ]}
       title="Maler"
-      description="Alle maler i organisasjonen — sjekklister, undersøkelser, dokumenter, kurs, registertyper. Klikk en rad for å redigere i modulen som eier malen."
+      description="Alle maler i organisasjonen — sjekklister, undersøkelser, dokumenter, kurs, registertyper, møtemaler. Klikk en rad for å redigere i modulen som eier malen."
       headerActions={
         <div className="flex items-center gap-2">
           <Button

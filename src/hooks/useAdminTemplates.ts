@@ -16,6 +16,7 @@ export type AdminTemplateSource =
   | 'documents'
   | 'learning'
   | 'registers'
+  | 'meetings'
 
 export type AdminTemplateStatus =
   | 'active'
@@ -30,6 +31,7 @@ export const ADMIN_TEMPLATE_SOURCE_LABELS: Record<AdminTemplateSource, string> =
   documents: 'Dokumenter',
   learning: 'Læring',
   registers: 'Register',
+  meetings: 'Møter',
 }
 
 export const ADMIN_TEMPLATE_STATUS_LABELS: Record<AdminTemplateStatus, string> = {
@@ -94,6 +96,10 @@ export function useAdminTemplates(): UseAdminTemplatesReturn {
             learningCats,
             registerTypes,
             registerCats,
+            meetingSystemTpls,
+            meetingOrgSettings,
+            meetingOrgTpls,
+            meetingCats,
           ] = await Promise.all([
             supabase
               .from('compliance_checklist_templates')
@@ -141,6 +147,25 @@ export function useAdminTemplates(): UseAdminTemplatesReturn {
               .select('id, organization_id, name, is_active, is_system, updated_at'),
             supabase
               .from('register_categories')
+              .select('id, name')
+              .eq('organization_id', orgId)
+              .eq('is_active', true)
+              .is('deleted_at', null),
+            supabase
+              .from('meeting_system_templates')
+              .select('id, label, is_active, updated_at')
+              .eq('is_active', true),
+            supabase
+              .from('meeting_org_template_settings')
+              .select('system_template_id, enabled, category_id, override_name')
+              .eq('organization_id', orgId),
+            supabase
+              .from('meeting_org_templates')
+              .select('id, name, category_id, is_active, updated_at, deleted_at')
+              .eq('organization_id', orgId)
+              .is('deleted_at', null),
+            supabase
+              .from('meeting_template_categories')
               .select('id, name')
               .eq('organization_id', orgId)
               .eq('is_active', true)
@@ -288,6 +313,65 @@ export function useAdminTemplates(): UseAdminTemplatesReturn {
               isSystem: row.is_system,
               updatedAt: row.updated_at,
               editUrl: `/registers/${encodeURIComponent(row.id)}`,
+            })
+          }
+
+          // Meetings — system templates (with per-org enabled toggle) + org custom templates
+          const meetingCatById = mapBy(meetingCats.data, 'id', 'name')
+          const meetingSettingsBySystemId = new Map<
+            string,
+            { enabled: boolean; category_id: string | null; override_name: string | null }
+          >()
+          for (const s of meetingOrgSettings.data ?? []) {
+            const row = s as {
+              system_template_id: string
+              enabled: boolean
+              category_id: string | null
+              override_name: string | null
+            }
+            meetingSettingsBySystemId.set(row.system_template_id, {
+              enabled: row.enabled,
+              category_id: row.category_id,
+              override_name: row.override_name,
+            })
+          }
+          for (const r of meetingSystemTpls.data ?? []) {
+            const row = r as { id: string; label: string; is_active: boolean; updated_at: string }
+            const setting = meetingSettingsBySystemId.get(row.id)
+            const enabled = setting?.enabled ?? true
+            const catId = setting?.category_id ?? null
+            out.push({
+              rowId: `meetings:sys:${row.id}`,
+              source: 'meetings',
+              sourceLabel: ADMIN_TEMPLATE_SOURCE_LABELS.meetings,
+              id: row.id,
+              name: setting?.override_name ?? row.label,
+              category: catId ? meetingCatById.get(catId) ?? null : null,
+              status: enabled ? 'active' : 'inactive',
+              isSystem: true,
+              updatedAt: row.updated_at,
+              editUrl: `/meetings/admin`,
+            })
+          }
+          for (const r of meetingOrgTpls.data ?? []) {
+            const row = r as {
+              id: string
+              name: string
+              category_id: string | null
+              is_active: boolean
+              updated_at: string | null
+            }
+            out.push({
+              rowId: `meetings:org:${row.id}`,
+              source: 'meetings',
+              sourceLabel: ADMIN_TEMPLATE_SOURCE_LABELS.meetings,
+              id: row.id,
+              name: row.name,
+              category: row.category_id ? meetingCatById.get(row.category_id) ?? null : null,
+              status: row.is_active ? 'active' : 'inactive',
+              isSystem: false,
+              updatedAt: row.updated_at,
+              editUrl: `/meetings/admin`,
             })
           }
 
