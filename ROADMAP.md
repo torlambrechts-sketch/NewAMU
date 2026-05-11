@@ -218,13 +218,25 @@ Template-driven meeting engine that supersedes `CouncilModule.tsx` meeting CRUD 
 
 | # | Status | Item | Notes |
 |---|---|---|---|
-| 8.1 | 📋 | Phase A · DB schema + provision fn | Migration `20260901120000_meetings_module_core.sql` — 10 tables, RLS (incl. confidentiality_level enforcement), BEFORE-UPDATE lock trigger, `provision_meetings_baseline_for_org` + on-org-insert trigger. |
-| 8.2 | 📋 | Phase A · Seed system templates | Migration `20260901120001_meetings_seed_system_templates.sql` — 18+ system templates (AML §6/§7/§8/§15, IK-f §5, Hovedavtalen §9-3, Likestillingsloven §26a, ISO 9001/27001/45001/14001 §9.3, GDPR art. 30/35). |
-| 8.3 | 📋 | Phase B · Module skeleton | `modules/meetings/{types.ts, schema.ts, useMeetings.ts, index.ts, meetingsLabels.ts, useMeetingsNav.ts}`. |
-| 8.4 | 📋 | Phase C · UI shell | Hub landing, detail view (Oversikt / Agenda / Deltakere / Vedtak / Protokoll tabs), all-page, minimal admin. |
-| 8.5 | 📋 | Phase D · Analyse page + scope | `meetingsDashboardScope` (cyan #0891b2), 11 datasets incl. invitation-compliance + law_ref coverage + decision register over time. |
-| 8.6 | 📋 | Phase E · Sidebar + routes + perms | `meetingsGroup` between Documents and Tasks. `MEETINGS_NAV_PERMS` + `module.view.meetings` + `meetings.manage` + `meetings.manage_confidential`. |
-| 8.7 | ⏸ | Phase F · Merger | Migrate AMU module + Council meetings as system templates with import script — separate spec. |
+| 8.1 | ✅ | Phase A · DB schema + provision fn | Migration `20260901120000_meetings_module_core.sql` — 10 tables, RLS (incl. confidentiality_level enforcement), BEFORE-UPDATE lock trigger, `provision_meetings_baseline_for_org` + on-org-insert trigger. |
+| 8.2 | ✅ | Phase A · Seed system templates | Migration `20260901120001_meetings_seed_system_templates.sql` — 19 system templates (AML §6/§7/§8/§15, IK-f §5, Hovedavtalen §9-3, Likestillingsloven §26/§26a, ISO 9001/27001/45001/14001 §9.3, GDPR art. 26/30/32/35). |
+| 8.3 | ✅ | Phase B · Module skeleton | `modules/meetings/{types.ts, useMeetings.ts, index.ts, meetingsLabels.ts, useMeetingsNav.ts, MeetingsHubView.tsx, meetingsLegalReferences.ts, useMeetingDataBindings.ts}` + `dashboards/{meetingsDashboardScope, useMeetingsDatasets}`. |
+| 8.4 | ✅ | Phase C · UI shell | Hub view (root-tab orchestrator) + detail view (Informasjon / Agenda / Deltakere / Vedtak / Protokoll tabs — H6 retrofit on canonical primitives) + admin (Maler + Kategorier + custom template editor SlidePanel) + analyse + export-til-PDF route. |
+| 8.5 | ✅ | Phase D · Analyse page + scope | `meetingsDashboardScope` (cyan #0891b2), 11 datasets incl. invitation-compliance + law_ref coverage + decision register over time. |
+| 8.6 | ✅ | Phase E · Sidebar + routes + perms | `meetingsGroup` between Dokumenter and Register. `MEETINGS_NAV_PERMS` + `module.view.meetings` + `meetings.manage` + `meetings.manage_confidential`. PR #238 added route-gate fallback for `module.view.dashboard` / `isAdmin`. |
+| 8.7 | ✅ | Phase F · Legacy cleanup | AMU + Council surface deleted in PR #237. AMU election re-homed as `amu-valg-system` placeholder under `survey_template_catalog` (full eligibility/sealing impl deferred). |
+| 8.8 | ✅ | H0 · Lovdata verification | Live-fetched verification log at `specs/meetings-lovdata-verification.md`. Confirmed § 26a biennial, AML § 7-1 30-ansatte, § 7-2 (2) bokstaver verbatim. Drops bogus forskrift § 3-2 / § 3-4 citations. |
+| 8.9 | ✅ | H1-H5 · Content fixes | 8 citation corrections, 8 topic additions (§ 18-9, § 7-2 (2) a/c/d/f, § 8-2, § 15-2, § 2A-3/-4), mandatory-flag honesty pass on MUS/allmote/personalmote, ISO 9001/45001/14001 + GDPR DPIA/ROPA completeness, attendee enum extension (tillitsvalgt + hovedverneombud), biennial lønnskartlegging cadence. |
+| 8.10 | ✅ | H6 · Custom template editor | `MeetingsTemplateEditorPanel` (FormModal-based) wired in admin Maler tab with name + slug + framework + cadence + category + duration + lead days + confidentiality + min-employees + law refs + roles + agenda repeater. |
+| 8.11 | ✅ | H7-H8 · Schema additions | `default_confidentiality_level` column (drøfting/varsling/MUS → restricted) + `minimum_employee_count` column (AMU 30, bedriftsutvalg 100, lønnskartlegging 50) + hub tile warning badges. |
+| 8.12 | ✅ | H9 · Møteforberedelse-pakke | `dataBinding` schema + `useMeetingDataBindings` resolver hook + agenda callout with "Bruk forberedelse" copy. 6 productive resolvers (sick_leave_stats, incidents, vernerunde_findings, open_ros_high, training_completion, headcount_and_amu_composition) + actionable manual-prep messages for the remaining 5 sources. |
+| 8.13 | ✅ | H10 · Optimised AMU årsmøte | New `amu-arsmote-arsrapport` template covering all § 7-2 (2) bokstaver a-f as discrete items, full bindings, tillitsvalgt + hovedverneombud roles. Legacy `amu-arsrapport-q4` marked `is_active = false`. |
+| 8.14 | ✅ | H11 · Vedtaksregister | Open decisions auto-spawn `task_items` rows; implemented/dropped decisions close the linked task. Prior open decisions surface as carry-over banner on Agenda tab. |
+| 8.15 | ✅ | H12 · Audit Export-pakke | Print-friendly `/meetings/:id/eksport` route. No new dependency — browser Skriv ut → Lagre som PDF. |
+| 8.16 | 🟡 | Reviewer-gated · Hovedavtalen § 9-3 | Paywalled. `bedriftsutvalg` template's `minimum_employee_count=100` + missing ny-teknologi/personalpolitikk topics gated on reviewer confirming against current LO-NHO text. Log §6 in `specs/meetings-lovdata-verification.md`. |
+| 8.17 | 🟡 | Reviewer-gated · ISO 27001:2022 § 9.3.2 | Paywalled. Current `iso-27001-isms-gjennomgang` template still has Phase A's wrong sub-letter labels; H3 explicitly deferred. Log §7. |
+| 8.18 | ⏸ | DB-side workflow event emission | `MEETINGS_WORKFLOW_TRIGGER_EVENTS` declared in TS catalog; no Postgres trigger emits them. Configurable rules won't fire until DB triggers ship. |
+| 8.19 | ⏸ | AMU election full implementation | `amu-valg-system` placeholder reserved in `survey_template_catalog`. Eligibility gating + double-envelope ballots + result sealing + konstitueringsmøte template all unimplemented. Tracked under a separate spec. |
 
 ---
 
