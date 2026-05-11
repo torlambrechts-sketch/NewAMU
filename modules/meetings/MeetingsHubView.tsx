@@ -13,7 +13,9 @@ import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import {
   ArrowRight,
   BarChart3,
+  ChevronRight,
   Clock,
+  Eye,
   ListChecks,
   Plus,
   Scale,
@@ -22,6 +24,13 @@ import {
 import { ModulePageShell } from '../../src/components/module/ModulePageShell'
 import { ModuleSectionCard } from '../../src/components/module/ModuleSectionCard'
 import { ModuleLegalBanner } from '../../src/components/module/ModuleLegalBanner'
+import { LayoutScoreStatRow } from '../../src/components/layout/LayoutScoreStatRow'
+import { LayoutTable1PostingsShell } from '../../src/components/layout/LayoutTable1PostingsShell'
+import {
+  LAYOUT_TABLE1_POSTINGS_BODY_ROW,
+  LAYOUT_TABLE1_POSTINGS_HEADER_ROW,
+  LAYOUT_TABLE1_POSTINGS_TH,
+} from '../../src/components/layout/layoutTable1PostingsKit'
 import { Button } from '../../src/components/ui/Button'
 import { Badge } from '../../src/components/ui/Badge'
 import { StandardInput } from '../../src/components/ui/Input'
@@ -90,6 +99,7 @@ export function MeetingsHubView({ tabs, bodyOnly = false, hideAdminNav = false }
   const activeTemplateId = searchParams.get('template')
   const [createOpen, setCreateOpen] = useState(false)
   const [presetTemplateId, setPresetTemplateId] = useState<string | null>(null)
+  const [templatePeekOpen, setTemplatePeekOpen] = useState(false)
 
   const activeTemplate = useMemo(
     () =>
@@ -99,27 +109,40 @@ export function MeetingsHubView({ tabs, bodyOnly = false, hideAdminNav = false }
     [meetings.templates, activeTemplateId],
   )
 
+  const openCreateForActive = () => {
+    setPresetTemplateId(activeTemplate?.systemTemplateId ?? activeTemplate?.orgTemplateId ?? null)
+    setCreateOpen(true)
+  }
+
   const headerActions = (
     <div className="flex flex-wrap items-center gap-2">
-      <Button
-        type="button"
-        variant="secondary"
-        icon={<BarChart3 className="h-4 w-4" />}
-        onClick={() => navigate('/meetings/analyse')}
-      >
-        <span className="hidden sm:inline">Analyse</span>
-      </Button>
+      {activeTemplate ? (
+        <Button
+          type="button"
+          variant="secondary"
+          icon={<Eye className="h-4 w-4" />}
+          onClick={() => setTemplatePeekOpen(true)}
+        >
+          <span className="hidden sm:inline">Vis mal</span>
+        </Button>
+      ) : (
+        <Button
+          type="button"
+          variant="secondary"
+          icon={<BarChart3 className="h-4 w-4" />}
+          onClick={() => navigate('/meetings/analyse')}
+        >
+          <span className="hidden sm:inline">Analyse</span>
+        </Button>
+      )}
       {meetings.canManage ? (
         <Button
           type="button"
           variant="primary"
           icon={<Plus className="h-4 w-4" />}
-          onClick={() => {
-            setPresetTemplateId(activeTemplate?.systemTemplateId ?? activeTemplate?.orgTemplateId ?? null)
-            setCreateOpen(true)
-          }}
+          onClick={openCreateForActive}
         >
-          Nytt møte
+          {activeTemplate ? `Nytt ${activeTemplate.name.toLowerCase()}` : 'Nytt møte'}
         </Button>
       ) : null}
     </div>
@@ -129,34 +152,30 @@ export function MeetingsHubView({ tabs, bodyOnly = false, hideAdminNav = false }
     <>
       {meetings.error ? <WarningBox>{meetings.error}</WarningBox> : null}
 
-      <ModuleLegalBanner
-        title="Møter — lovpålagte fora og styringssystem"
-        intro="Møteregisteret samler AMU, drøftingsmøter, ledelsens gjennomgang og GDPR-fora med protokoll, vedtak og oppfølging i én tråd."
-        references={MEETINGS_LEGAL_REFERENCES}
-      />
-
       {activeTemplate ? (
         <TemplateDrilldown
           meetings={meetings}
           template={activeTemplate}
-          onBack={() => setSearchParams({})}
-          onCreate={() => {
-            setPresetTemplateId(activeTemplate.systemTemplateId ?? activeTemplate.orgTemplateId ?? null)
-            setCreateOpen(true)
-          }}
+          onCreate={openCreateForActive}
         />
       ) : (
-        <TemplateGallery
-          templates={meetings.templates}
-          categories={meetings.categories}
-          orgHeadcount={orgHeadcount}
-          onSelect={(t) =>
-            setSearchParams({ template: t.systemTemplateId ?? t.orgTemplateId ?? '' })
-          }
-        />
+        <>
+          <ModuleLegalBanner
+            title="Møter — lovpålagte fora og styringssystem"
+            intro="Møteregisteret samler AMU, drøftingsmøter, ledelsens gjennomgang og GDPR-fora med protokoll, vedtak og oppfølging i én tråd."
+            references={MEETINGS_LEGAL_REFERENCES}
+          />
+          <TemplateGallery
+            templates={meetings.templates}
+            categories={meetings.categories}
+            orgHeadcount={orgHeadcount}
+            onSelect={(t) =>
+              setSearchParams({ template: t.systemTemplateId ?? t.orgTemplateId ?? '' })
+            }
+          />
+          <UpcomingMeetingsCard meetings={meetings.meetings} />
+        </>
       )}
-
-      <UpcomingMeetingsCard meetings={meetings.meetings} />
 
       <CreateMeetingSlidePanel
         open={createOpen}
@@ -164,16 +183,38 @@ export function MeetingsHubView({ tabs, bodyOnly = false, hideAdminNav = false }
         meetings={meetings}
         presetTemplateId={presetTemplateId}
       />
+
+      {activeTemplate ? (
+        <TemplatePeekSlidePanel
+          open={templatePeekOpen}
+          onClose={() => setTemplatePeekOpen(false)}
+          template={activeTemplate}
+        />
+      ) : null}
     </>
   )
 
   if (bodyOnly) return body
 
+  const breadcrumb = activeTemplate
+    ? [
+        { label: 'HMS' },
+        { label: 'Møter', to: '/meetings' },
+        { label: activeTemplate.name },
+      ]
+    : [{ label: 'HMS' }, { label: 'Møter' }]
+
+  const title = activeTemplate ? activeTemplate.name : 'Møter'
+  const description = activeTemplate
+    ? (activeTemplate.description ??
+        'Planlagte og pågående møter for denne malen. Bruk «Vis mal» for å se obligatoriske saker og krav.')
+    : 'Planlegg, gjennomfør og dokumenter lovpålagte møter på tvers av AML, IK-forskriften, ISO og GDPR.'
+
   return (
     <ModulePageShell
-      breadcrumb={[{ label: 'HMS' }, { label: 'Møter' }]}
-      title="Møter"
-      description="Planlegg, gjennomfør og dokumenter lovpålagte møter på tvers av AML, IK-forskriften, ISO og GDPR."
+      breadcrumb={breadcrumb}
+      title={title}
+      description={description}
       tabs={tabs}
       headerActions={headerActions}
       loading={meetings.loading && meetings.templates.length === 0}
@@ -297,169 +338,261 @@ function TemplateGallery({
   )
 }
 
-// ── Template drilldown card ───────────────────────────────────────────────
+// ── Template drilldown — checklist-shaped (KPI row + meetings table) ──────
 
 function TemplateDrilldown({
   meetings,
   template,
-  onBack,
   onCreate,
 }: {
   meetings: MeetingsHookValue
   template: ResolvedMeetingTemplate
-  onBack: () => void
   onCreate: () => void
 }) {
+  const navigate = useNavigate()
+
   const templateMeetings = useMemo(() => {
     const id = template.systemTemplateId ?? template.orgTemplateId
     return meetings.meetings
       .filter((m) => m.system_template_id === id || m.org_template_id === id)
       .sort((a, b) => (b.scheduled_at ?? '').localeCompare(a.scheduled_at ?? ''))
-      .slice(0, 20)
   }, [meetings.meetings, template])
+
+  const aggregates = useMemo(() => {
+    const currentYear = new Date().getFullYear()
+    let open = 0
+    let awaitingSign = 0
+    let signedYtd = 0
+    for (const m of templateMeetings) {
+      if (m.status === 'planned' || m.status === 'in_progress') open += 1
+      if (m.status === 'completed' && !m.protocol_signed_at) awaitingSign += 1
+      if (
+        m.protocol_signed_at &&
+        new Date(m.protocol_signed_at).getFullYear() === currentYear
+      ) {
+        signedYtd += 1
+      }
+    }
+    return { open, awaitingSign, signedYtd }
+  }, [templateMeetings])
 
   return (
     <>
-      <ModuleSectionCard className="p-5 md:p-6">
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          <div className="min-w-0">
-            <button
-              type="button"
-              onClick={onBack}
-              className="text-[10px] font-bold uppercase tracking-wider text-neutral-500 hover:text-neutral-900"
-            >
-              ← Tilbake til alle maler
-            </button>
-            <h2 className="mt-1 text-lg font-semibold text-neutral-900">{template.name}</h2>
-            <div className="mt-1 flex flex-wrap items-center gap-2">
-              <Badge variant="info">{frameworkLabel(template.framework)}</Badge>
-              <Badge variant="neutral">{templateCadenceLabel(template)}</Badge>
-              {isRestrictedTemplate(template) ? (
-                <Badge variant="warning">Begrenset som standard</Badge>
-              ) : null}
-            </div>
-            {template.description ? (
-              <p className="mt-3 text-sm leading-relaxed text-neutral-700">{template.description}</p>
-            ) : null}
-          </div>
-          {meetings.canManage ? (
-            <Button
-              type="button"
-              variant="primary"
-              icon={<Plus className="h-4 w-4" />}
-              onClick={onCreate}
-            >
-              Nytt møte fra malen
-            </Button>
+      <LayoutScoreStatRow
+        items={[
+          {
+            big: String(aggregates.open),
+            title: 'Åpne møter',
+            sub: 'Planlagt eller pågående',
+          },
+          {
+            big: String(aggregates.awaitingSign),
+            title: 'Mangler signering',
+            sub: 'Gjennomført, men protokoll ikke signert',
+          },
+          {
+            big: String(aggregates.signedYtd),
+            title: 'Signert i år',
+            sub: template.name,
+          },
+        ]}
+      />
+
+      <LayoutTable1PostingsShell
+        wrap
+        title={template.name}
+        description={`Alle ${template.name.toLowerCase()} — sortert etter siste aktivitet.`}
+        toolbar={null}
+        footer={<span className="text-neutral-500">{templateMeetings.length} poster</span>}
+      >
+        <div className="overflow-x-auto w-full">
+          <table className="w-full min-w-[640px] border-collapse text-left text-sm">
+            <thead>
+              <tr className={LAYOUT_TABLE1_POSTINGS_HEADER_ROW}>
+                <th className={LAYOUT_TABLE1_POSTINGS_TH}>Tittel</th>
+                <th className={LAYOUT_TABLE1_POSTINGS_TH}>Status</th>
+                <th className={LAYOUT_TABLE1_POSTINGS_TH}>Planlagt</th>
+                <th className={`w-8 ${LAYOUT_TABLE1_POSTINGS_TH}`} />
+              </tr>
+            </thead>
+            <tbody>
+              {templateMeetings.length === 0 ? (
+                <tr>
+                  <td colSpan={4}>
+                    <div className="py-12 text-center">
+                      <p className="text-sm text-neutral-500">
+                        Ingen {template.name.toLowerCase()} ennå.
+                      </p>
+                      {meetings.canManage ? (
+                        <div className="mt-3 inline-flex">
+                          <Button
+                            variant="primary"
+                            icon={<Plus className="h-4 w-4" />}
+                            onClick={onCreate}
+                          >
+                            Nytt {template.name.toLowerCase()}
+                          </Button>
+                        </div>
+                      ) : null}
+                    </div>
+                  </td>
+                </tr>
+              ) : (
+                templateMeetings.map((m) => (
+                  <tr
+                    key={m.id}
+                    className={`${LAYOUT_TABLE1_POSTINGS_BODY_ROW} cursor-pointer hover:bg-neutral-50`}
+                    onClick={() => navigate(`/meetings/${m.id}`)}
+                  >
+                    <td className="px-5 py-3 font-medium text-neutral-900">{m.title}</td>
+                    <td className="px-5 py-3">
+                      <Badge variant={STATUS_BADGE[m.status]}>
+                        {MEETING_STATUS_LABEL[m.status]}
+                      </Badge>
+                      {m.confidentiality_level !== 'standard' ? (
+                        <Badge variant="warning" className="ml-1.5">
+                          {MEETING_CONFIDENTIALITY_LABEL[m.confidentiality_level]}
+                        </Badge>
+                      ) : null}
+                    </td>
+                    <td className="px-5 py-3 text-neutral-700">{fmtDate(m.scheduled_at)}</td>
+                    <td className="px-5 py-3 text-right">
+                      <ChevronRight className="ml-auto h-4 w-4 text-neutral-400" />
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      </LayoutTable1PostingsShell>
+    </>
+  )
+}
+
+// ── Template peek panel — shows the malen content (agenda + krav) ─────────
+
+function TemplatePeekSlidePanel({
+  open,
+  onClose,
+  template,
+}: {
+  open: boolean
+  onClose: () => void
+  template: ResolvedMeetingTemplate
+}) {
+  return (
+    <SlidePanel
+      open={open}
+      onClose={onClose}
+      titleId="meetings-template-peek-title"
+      title={`Mal: ${template.name}`}
+      footer={
+        <div className="flex w-full items-center justify-end">
+          <Button variant="secondary" onClick={onClose}>
+            Lukk
+          </Button>
+        </div>
+      }
+    >
+      <div className="space-y-5">
+        <div className="flex flex-wrap items-center gap-2">
+          <Badge variant="info">{frameworkLabel(template.framework)}</Badge>
+          <Badge variant="neutral">{templateCadenceLabel(template)}</Badge>
+          {isRestrictedTemplate(template) ? (
+            <Badge variant="warning">Begrenset som standard</Badge>
           ) : null}
         </div>
 
-        <div className="mt-5 grid gap-6 lg:grid-cols-[1fr_320px]">
-          <div>
-            <h3 className="mb-2 text-sm font-semibold text-neutral-900">Obligatoriske saker</h3>
-            {template.definition.agendaItems.length === 0 ? (
-              <p className="text-sm text-neutral-600">Ingen saker i malen.</p>
-            ) : (
-              <ol className="space-y-3">
-                {template.definition.agendaItems
-                  .slice()
-                  .sort((a, b) => a.defaultPosition - b.defaultPosition)
-                  .map((item) => (
-                    <li
-                      key={item.key}
-                      className="rounded-lg border border-neutral-200/80 bg-neutral-50/50 p-4"
-                    >
-                      <div className="flex flex-wrap items-start justify-between gap-2">
-                        <p className="text-sm font-semibold text-neutral-900">{item.title}</p>
-                        {item.isMandatory ? <Badge variant="critical">Obligatorisk</Badge> : null}
-                      </div>
-                      {item.description ? (
-                        <p className="mt-2 text-xs text-neutral-600">{item.description}</p>
-                      ) : null}
-                      {item.lawRef ? (
-                        <p className="mt-2 inline-flex items-center gap-1 text-[11px] text-neutral-500">
-                          <Scale className="h-3 w-3" /> {item.lawRef}
-                        </p>
-                      ) : null}
-                    </li>
-                  ))}
-              </ol>
-            )}
-          </div>
+        {template.description ? (
+          <p className="text-sm leading-relaxed text-neutral-700">{template.description}</p>
+        ) : null}
 
-          <aside className="space-y-4">
-            <div className="rounded-lg border border-neutral-200/80 bg-neutral-50/50 p-4">
-              <p className="text-[10px] font-bold uppercase tracking-wider text-neutral-600">Krav</p>
-              <dl className="mt-2 space-y-1.5 text-xs text-neutral-700">
-                <div className="flex justify-between gap-3">
-                  <dt>Kadens</dt>
-                  <dd className="font-semibold">{templateCadenceLabel(template)}</dd>
-                </div>
-                <div className="flex justify-between gap-3">
-                  <dt>Varighet</dt>
-                  <dd className="font-semibold">
-                    {template.defaultDurationMinutes ? `${template.defaultDurationMinutes} min` : '—'}
-                  </dd>
-                </div>
-                <div className="flex justify-between gap-3">
-                  <dt>Innkallingsfrist</dt>
-                  <dd className="font-semibold">
-                    {template.definition.invitationLeadDays
-                      ? `${template.definition.invitationLeadDays} dager`
-                      : '—'}
-                  </dd>
-                </div>
-              </dl>
-              {template.definition.requiredAttendees.length ? (
-                <div className="mt-3 border-t border-neutral-200/80 pt-3">
-                  <p className="mb-1 inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider text-neutral-600">
-                    <Users className="h-3 w-3" /> Påkrevde roller
-                  </p>
-                  <ul className="space-y-0.5 text-xs text-neutral-700">
-                    {template.definition.requiredAttendees.map((r, idx) => (
-                      <li key={idx}>
-                        {r.role}
-                        {r.count ? ` × ${r.count}` : ''}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              ) : null}
+        <div className="rounded-lg border border-neutral-200/80 bg-neutral-50/50 p-4">
+          <p className="text-[10px] font-bold uppercase tracking-wider text-neutral-600">Krav</p>
+          <dl className="mt-2 space-y-1.5 text-xs text-neutral-700">
+            <div className="flex justify-between gap-3">
+              <dt>Kadens</dt>
+              <dd className="font-semibold">{templateCadenceLabel(template)}</dd>
             </div>
-            {template.lawRefs.length ? (
-              <div className="rounded-lg border border-neutral-200/80 bg-neutral-50/50 p-4">
-                <p className="inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider text-neutral-600">
-                  <Scale className="h-3 w-3" /> Lovreferanser
-                </p>
-                <ul className="mt-2 space-y-0.5 text-xs text-neutral-700">
-                  {template.lawRefs.map((r) => (
-                    <li key={r}>{r}</li>
-                  ))}
-                </ul>
-              </div>
-            ) : null}
-          </aside>
+            <div className="flex justify-between gap-3">
+              <dt>Varighet</dt>
+              <dd className="font-semibold">
+                {template.defaultDurationMinutes ? `${template.defaultDurationMinutes} min` : '—'}
+              </dd>
+            </div>
+            <div className="flex justify-between gap-3">
+              <dt>Innkallingsfrist</dt>
+              <dd className="font-semibold">
+                {template.definition.invitationLeadDays
+                  ? `${template.definition.invitationLeadDays} dager`
+                  : '—'}
+              </dd>
+            </div>
+          </dl>
+          {template.definition.requiredAttendees.length ? (
+            <div className="mt-3 border-t border-neutral-200/80 pt-3">
+              <p className="mb-1 inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider text-neutral-600">
+                <Users className="h-3 w-3" /> Påkrevde roller
+              </p>
+              <ul className="space-y-0.5 text-xs text-neutral-700">
+                {template.definition.requiredAttendees.map((r, idx) => (
+                  <li key={idx}>
+                    {r.role}
+                    {r.count ? ` × ${r.count}` : ''}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
         </div>
-      </ModuleSectionCard>
 
-      <ModuleSectionCard className="p-5 md:p-6">
-        <div className="flex items-center justify-between gap-3">
-          <h3 className="text-sm font-semibold text-neutral-900">Møter med denne malen</h3>
-          <span className="text-xs text-neutral-500">{templateMeetings.length}</span>
+        <div>
+          <h3 className="mb-2 text-sm font-semibold text-neutral-900">Obligatoriske saker</h3>
+          {template.definition.agendaItems.length === 0 ? (
+            <p className="text-sm text-neutral-600">Ingen saker i malen.</p>
+          ) : (
+            <ol className="space-y-3">
+              {template.definition.agendaItems
+                .slice()
+                .sort((a, b) => a.defaultPosition - b.defaultPosition)
+                .map((item) => (
+                  <li
+                    key={item.key}
+                    className="rounded-lg border border-neutral-200/80 bg-neutral-50/50 p-4"
+                  >
+                    <div className="flex flex-wrap items-start justify-between gap-2">
+                      <p className="text-sm font-semibold text-neutral-900">{item.title}</p>
+                      {item.isMandatory ? <Badge variant="critical">Obligatorisk</Badge> : null}
+                    </div>
+                    {item.description ? (
+                      <p className="mt-2 text-xs text-neutral-600">{item.description}</p>
+                    ) : null}
+                    {item.lawRef ? (
+                      <p className="mt-2 inline-flex items-center gap-1 text-[11px] text-neutral-500">
+                        <Scale className="h-3 w-3" /> {item.lawRef}
+                      </p>
+                    ) : null}
+                  </li>
+                ))}
+            </ol>
+          )}
         </div>
-        {templateMeetings.length === 0 ? (
-          <p className="mt-3 text-sm text-neutral-600">
-            Ingen møter har brukt malen ennå. «Nytt møte fra malen» oppretter det første.
-          </p>
-        ) : (
-          <ul className="mt-4 space-y-3">
-            {templateMeetings.map((m) => (
-              <MeetingListItem key={m.id} meeting={m} />
-            ))}
-          </ul>
-        )}
-      </ModuleSectionCard>
-    </>
+
+        {template.lawRefs.length ? (
+          <div className="rounded-lg border border-neutral-200/80 bg-neutral-50/50 p-4">
+            <p className="inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider text-neutral-600">
+              <Scale className="h-3 w-3" /> Lovreferanser
+            </p>
+            <ul className="mt-2 space-y-0.5 text-xs text-neutral-700">
+              {template.lawRefs.map((r) => (
+                <li key={r}>{r}</li>
+              ))}
+            </ul>
+          </div>
+        ) : null}
+      </div>
+    </SlidePanel>
   )
 }
 
