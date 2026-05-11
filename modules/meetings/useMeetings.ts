@@ -72,6 +72,15 @@ export type CreateMeetingInput = {
   metadata?: Record<string, unknown>
 }
 
+export type PriorOpenDecision = {
+  id: string
+  decision_text: string
+  decision_at: string
+  meeting_id: string
+  meeting_title: string
+  meeting_scheduled_at: string | null
+}
+
 export type MeetingDetail = {
   meeting: MeetingRow | null
   agendaItems: MeetingAgendaItemRow[]
@@ -79,6 +88,7 @@ export type MeetingDetail = {
   decisions: MeetingDecisionRow[]
   actionItems: MeetingActionItemRow[]
   signatures: MeetingSignatureRow[]
+  priorOpenDecisions: PriorOpenDecision[]
 }
 
 const EMPTY_DETAIL: MeetingDetail = {
@@ -88,6 +98,7 @@ const EMPTY_DETAIL: MeetingDetail = {
   decisions: [],
   actionItems: [],
   signatures: [],
+  priorOpenDecisions: [],
 }
 
 export type UseMeetingsState = {
@@ -257,6 +268,132 @@ function snapshotDefinition(template: ResolvedMeetingTemplate): MeetingTemplateD
   return JSON.parse(JSON.stringify(template.definition)) as MeetingTemplateDefinition
 }
 
+/** H11b — load open decisions from prior meetings using the same template.
+ *  RLS scopes by organization so the supabase client only returns the
+ *  caller's org rows. Skips the current meeting itself. */
+async function loadPriorOpenDecisions(
+  supabase: Supabase,
+  current: MeetingRow,
+): Promise<PriorOpenDecision[]> {
+  const templateCol = current.system_template_id
+    ? { field: 'system_template_id', value: current.system_template_id }
+    : current.org_template_id
+      ? { field: 'org_template_id', value: current.org_template_id }
+      : null
+  if (!templateCol) return []
+
+  const priorMeetingsRes = await supabase
+    .from('meetings')
+    .select('id, title, scheduled_at')
+    .eq('organization_id', current.organization_id)
+    .eq(templateCol.field, templateCol.value)
+    .neq('id', current.id)
+    .is('archived_at', null)
+    .order('scheduled_at', { ascending: false, nullsFirst: false })
+    .limit(10)
+  if (priorMeetingsRes.error || !priorMeetingsRes.data?.length) return []
+  const priorMeetings = priorMeetingsRes.data as Array<{
+    id: string
+    title: string
+    scheduled_at: string | null
+  }>
+  const titleById = new Map(priorMeetings.map((m) => [m.id, m.title]))
+  const scheduledById = new Map(priorMeetings.map((m) => [m.id, m.scheduled_at]))
+
+  const decisionsRes = await supabase
+    .from('meeting_decisions')
+    .select('id, decision_text, decision_at, meeting_id')
+    .in('meeting_id', priorMeetings.map((m) => m.id))
+    .eq('status', 'open')
+    .order('decision_at', { ascending: false })
+    .limit(20)
+  if (decisionsRes.error || !decisionsRes.data) return []
+  return (decisionsRes.data as Array<{
+    id: string
+    decision_text: string
+    decision_at: string
+    meeting_id: string
+  }>).map((d) => ({
+    id: d.id,
+    decision_text: d.decision_text,
+    decision_at: d.decision_at,
+    meeting_id: d.meeting_id,
+    meeting_title: titleById.get(d.meeting_id) ?? '—',
+    meeting_scheduled_at: scheduledById.get(d.meeting_id) ?? null,
+  }))
+}
+
+/** H11a — Vedtaksregister bridge. Open meeting decisions spawn (or refresh)
+ *  a `task_items` row so the decision lands on the user's task board. The
+ *  task's id is stored on `meeting_decisions.follow_up_task_id` so re-saving
+ *  doesn't duplicate. Closed decisions close the task. */
+async function syncDecisionTask(args: {
+  supabase: Supabase
+  orgId: string
+  decisionId: string
+  meeting: MeetingRow
+  decisionText: string
+  status: MeetingDecisionStatus
+  existingTaskId: string | null
+}): Promise<void> {
+  const { supabase, orgId, decisionId, meeting, decisionText, status, existingTaskId } = args
+  const title = decisionText.length > 120 ? `${decisionText.slice(0, 117)}…` : decisionText
+  const description = `Vedtak fra møte: ${meeting.title}\nKilde: meeting_decisions/${decisionId}`
+
+  if (status === 'open') {
+    if (existingTaskId) {
+      // Reopen if closed; refresh title/description in case decision text edited.
+      await supabase
+        .from('task_items')
+        .update({
+          title,
+          description,
+          status: 'open',
+          closed_at: null,
+        })
+        .eq('id', existingTaskId)
+      return
+    }
+    const ins = await supabase
+      .from('task_items')
+      .insert({
+        organization_id: orgId,
+        title,
+        description,
+        priority: 'medium',
+        status: 'open',
+        pack: 'aml-amu',
+        source_category: 'tiltak',
+        template_kind: 'tiltak',
+        pdca_phase: 'do',
+        due_date: meeting.next_meeting_proposed_at
+          ? meeting.next_meeting_proposed_at.slice(0, 10)
+          : null,
+      })
+      .select('id')
+      .single()
+    if (ins.data?.id) {
+      await supabase
+        .from('meeting_decisions')
+        .update({ follow_up_task_id: ins.data.id })
+        .eq('id', decisionId)
+    }
+    return
+  }
+
+  // Decision is implemented or dropped — close the linked task (if any).
+  if (existingTaskId) {
+    await supabase
+      .from('task_items')
+      .update({
+        status: 'closed',
+        closed_at: new Date().toISOString(),
+        description: `${description}\nLukket pga. vedtaksstatus: ${status}`,
+      })
+      .eq('id', existingTaskId)
+  }
+}
+
 async function loadOrgSettingsRow(
   supabase: Supabase,
   orgId: string,
@@ -375,13 +512,24 @@ export function useMeetings(): UseMeetingsState {
             .order('signed_at', { ascending: true }),
         ])
         const meetingParsed = parseMeetingRow(mRes.data)
+        const meetingRow = meetingParsed.success ? meetingParsed.data : null
+
+        // H11b — Prior open decisions carry-over. Find decisions still
+        // open on prior meetings of the same template; let the user pick
+        // up unfinished business from "forrige møte".
+        let priorOpenDecisions: PriorOpenDecision[] = []
+        if (meetingRow) {
+          priorOpenDecisions = await loadPriorOpenDecisions(supabase, meetingRow)
+        }
+
         setDetail({
-          meeting: meetingParsed.success ? meetingParsed.data : null,
+          meeting: meetingRow,
           agendaItems: collect(aiRes.data, parseMeetingAgendaItemRow),
           attendees: collect(atRes.data, parseMeetingAttendeeRow),
           decisions: collect(dRes.data, parseMeetingDecisionRow),
           actionItems: collect(acRes.data, parseMeetingActionItemRow),
           signatures: collect(sRes.data, parseMeetingSignatureRow),
+          priorOpenDecisions,
         })
       } catch (e) {
         setError(getSupabaseErrorMessage(e))
@@ -519,31 +667,70 @@ export function useMeetings(): UseMeetingsState {
       // We keep at most one register row per agenda item — the latest
       // edit overwrites it. Clearing decisionText removes the register
       // entry so the agenda is the source of truth.
-      if (detail.meeting) {
+      if (detail.meeting && orgId) {
         if (patch.decisionText) {
+          const status = (patch.decisionStatus ?? 'open') as MeetingDecisionStatus
           const existing = await supabase
             .from('meeting_decisions')
-            .select('id')
+            .select('id, follow_up_task_id')
             .eq('agenda_item_id', agendaItemId)
             .limit(1)
             .maybeSingle()
+          let decisionId: string | null = null
+          let existingTaskId: string | null = null
           if (existing.data?.id) {
+            decisionId = existing.data.id as string
+            existingTaskId = (existing.data.follow_up_task_id as string | null) ?? null
             await supabase
               .from('meeting_decisions')
               .update({
                 decision_text: patch.decisionText,
-                status: (patch.decisionStatus ?? 'open') as MeetingDecisionStatus,
+                status,
               })
-              .eq('id', existing.data.id)
+              .eq('id', decisionId)
           } else {
-            await supabase.from('meeting_decisions').insert({
-              meeting_id: detail.meeting.id,
-              agenda_item_id: agendaItemId,
-              decision_text: patch.decisionText,
-              status: (patch.decisionStatus ?? 'open') as MeetingDecisionStatus,
+            const ins = await supabase
+              .from('meeting_decisions')
+              .insert({
+                meeting_id: detail.meeting.id,
+                agenda_item_id: agendaItemId,
+                decision_text: patch.decisionText,
+                status,
+              })
+              .select('id')
+              .single()
+            if (ins.data?.id) decisionId = ins.data.id as string
+          }
+          // H11a — Vedtaksregister: keep a linked follow-up task row
+          // in sync with the decision. Open decisions spawn or refresh
+          // a task; implemented/dropped decisions close the task.
+          if (decisionId) {
+            await syncDecisionTask({
+              supabase,
+              orgId,
+              decisionId,
+              meeting: detail.meeting,
+              decisionText: patch.decisionText,
+              status,
+              existingTaskId,
             })
           }
         } else if (patch.decisionText === null) {
+          // Decision cleared — close any linked task before removing
+          // the register row so the task carries the audit trail.
+          const existing = await supabase
+            .from('meeting_decisions')
+            .select('follow_up_task_id')
+            .eq('agenda_item_id', agendaItemId)
+            .limit(1)
+            .maybeSingle()
+          const linkedTaskId = (existing.data?.follow_up_task_id as string | null) ?? null
+          if (linkedTaskId) {
+            await supabase
+              .from('task_items')
+              .update({ status: 'closed', closed_at: new Date().toISOString() })
+              .eq('id', linkedTaskId)
+          }
           await supabase
             .from('meeting_decisions')
             .delete()
@@ -553,7 +740,7 @@ export function useMeetings(): UseMeetingsState {
       if (detailMeetingId) await loadDetail(detailMeetingId)
       return true
     },
-    [supabase, detail.meeting, detailMeetingId, loadDetail],
+    [supabase, orgId, detail.meeting, detailMeetingId, loadDetail],
   )
 
   const upsertAttendee: UseMeetingsState['upsertAttendee'] = useCallback(
