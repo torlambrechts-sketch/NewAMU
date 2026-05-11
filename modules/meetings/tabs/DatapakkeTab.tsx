@@ -24,16 +24,24 @@ import {
 } from '../components/ReportingPeriodPicker'
 import type {
   MeetingAgendaItemRow,
+  MeetingDataBinding,
   MeetingRow,
   MeetingTemplateAgendaItem,
   RenderedBindingResult,
 } from '../types'
+import { SIGNAL_LABEL } from '../lib/frameworkSignals'
+import { bindingToReportModule } from '../lib/bindingToReportModule'
+import { ReportModuleWidget } from '../../../src/components/reports/ReportModuleWidget'
+
+const MEETINGS_ACCENT = '#0891b2'
 
 export type DatapakkeTabProps = {
   meeting: MeetingRow
   agendaItems: MeetingAgendaItemRow[]
   /** Live-resolved bindings from useMeetingDataBindings — used when refreshing. */
   liveBindings: Map<string, RenderedBindingResult>
+  /** Framework-relevant signals NOT mapped to any agenda item. */
+  extraSignals: Map<MeetingDataBinding['source'], RenderedBindingResult>
   locked: boolean
   onChangePeriod: (period: PeriodValue) => Promise<void>
   onRefreshAll: () => Promise<void>
@@ -51,6 +59,7 @@ export function DatapakkeTab({
   meeting,
   agendaItems,
   liveBindings,
+  extraSignals,
   locked,
   onChangePeriod,
   onRefreshAll,
@@ -76,7 +85,10 @@ export function DatapakkeTab({
     )
   }, [meeting, agendaItems])
 
-  if (bindingItems.length === 0) {
+  const extraSignalsArr: Array<[MeetingDataBinding['source'], RenderedBindingResult]> =
+    Array.from(extraSignals.entries())
+
+  if (bindingItems.length === 0 && extraSignalsArr.length === 0) {
     return (
       <ModuleSectionCard className="p-5 md:p-6">
         <ModulePageEmpty
@@ -173,11 +185,52 @@ export function DatapakkeTab({
         ) : null}
       </ModuleSectionCard>
 
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-        {itemsForRender.map((item) => (
-          <BindingChartCard key={item.id} item={item} meetingId={meeting.id} />
-        ))}
-      </div>
+      {itemsForRender.length > 0 ? (
+        <div className="space-y-2">
+          <p className="text-[10px] font-bold uppercase tracking-wider text-neutral-500">
+            Fra agendaen
+          </p>
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+            {itemsForRender.map((item) => (
+              <BindingChartCard key={item.id} item={item} meetingId={meeting.id} />
+            ))}
+          </div>
+        </div>
+      ) : null}
+
+      {extraSignalsArr.length > 0 ? (
+        <div className="space-y-2">
+          <p className="text-[10px] font-bold uppercase tracking-wider text-neutral-500">
+            Andre signaler fra systemet
+          </p>
+          <p className="text-xs text-neutral-600">
+            Disse datakildene er relevante for {meeting.definition_snapshot?.framework ?? 'denne'}-møter
+            men er ikke knyttet til en agenda-sak. Bruk «Foreslåtte saker» på Agenda-fanen for å legge dem til.
+          </p>
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+            {extraSignalsArr.map(([source, snap]) => {
+              const { module: reportModule, datasets } = bindingToReportModule(
+                `extra-${source}`,
+                snap,
+              )
+              return (
+                <div key={source} className="space-y-2">
+                  <ReportModuleWidget
+                    module={reportModule}
+                    datasets={datasets}
+                    accent={MEETINGS_ACCENT}
+                    layoutMode="fluid"
+                    emptyLabel="Ingen data i perioden"
+                  />
+                  <p className="text-[11px] text-neutral-500">
+                    Datakilde: {SIGNAL_LABEL[source]?.title ?? source}
+                  </p>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      ) : null}
 
       <SlidePanel
         open={periodOpen}

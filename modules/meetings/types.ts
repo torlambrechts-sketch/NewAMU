@@ -144,6 +144,10 @@ export type MeetingTemplateAgendaItem = {
   /** Optional override of the meeting-level cadence for this specific item
    *  (e.g. biennial lønnskartlegging within an annual likestillings-møte). */
   cadenceOverride?: MeetingCadence
+  /** Per-item time budget in minutes. Copied into
+   *  `meeting_agenda_items.duration_minutes` at meeting creation; the
+   *  user can override it in the agenda builder. */
+  defaultDurationMinutes?: number
 }
 
 export type MeetingTemplatePrepItem = {
@@ -170,6 +174,10 @@ export type MeetingTemplateDefinition = {
   invitationLeadDays?: number
   protocolRoles: Array<'chair' | 'secretary' | 'management'>
   defaultActionTaskModule?: string
+  /** Set at meeting-creation by `snapshotDefinition()` so the framework
+   *  travels with the immutable snapshot. Legacy meetings (created
+   *  before H9d) may have this missing — consumers default to 'INTERNAL'. */
+  framework?: MeetingFramework
 }
 
 // ── Metadata schema (shared with compliance / survey / documents) ─────────
@@ -470,6 +478,7 @@ const MeetingTemplateAgendaItemSchema = z
     dataBinding: MeetingDataBindingSchema.optional(),
     recommended: z.boolean().optional(),
     cadenceOverride: MeetingCadenceSchema.optional(),
+    defaultDurationMinutes: z.number().int().nonnegative().optional(),
   })
   .passthrough()
 
@@ -503,6 +512,7 @@ const MeetingTemplateDefinitionSchema = z
     invitationLeadDays: z.number().int().optional(),
     protocolRoles: z.array(z.enum(['chair', 'secretary', 'management'])).default(['chair']),
     defaultActionTaskModule: z.string().optional(),
+    framework: MeetingFrameworkSchema.optional(),
   })
   .passthrough()
 
