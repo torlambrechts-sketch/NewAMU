@@ -5,7 +5,7 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import { useDocuments } from '../../hooks/useDocuments'
 import { useOrgSetupContext } from '../../hooks/useOrgSetupContext'
 import { useRepresentatives } from '../../hooks/useRepresentatives'
-import { useCouncil } from '../../hooks/useCouncil'
+import { useMeetings } from '../../../modules/meetings'
 import { useInternalControl } from '../../hooks/useInternalControl'
 import { DocumentsModuleLayout } from '../../components/documents/DocumentsModuleLayout'
 import { formatBrregAddress } from '../../lib/brreg'
@@ -77,7 +77,7 @@ export function InspectionArbeidstilsynetExportPage() {
   const docs = useDocuments()
   const { organization, members, profile, supabase, isAdmin } = useOrgSetupContext()
   const rep = useRepresentatives()
-  const council = useCouncil()
+  const meetingsHook = useMeetings()
   const ic = useInternalControl()
 
   const [includeNames, setIncludeNames] = useState(false)
@@ -154,11 +154,34 @@ export function InspectionArbeidstilsynetExportPage() {
   }, [rep.members])
 
   const amuLastMeeting = useMemo(() => {
-    const done = council.meetings.filter((m) => m.status === 'completed')
+    // Pull the most recent completed meeting across all frameworks. The
+    // export caller (Arbeidstilsynet) cares that *some* HMS-fora was
+    // documented, not specifically AMU vs verneombudsmøte vs drøfting.
+    const done = meetingsHook.meetings.filter(
+      (m) => m.status === 'completed' && m.scheduled_at,
+    )
     if (done.length === 0) return null
-    const best = done.reduce((a, b) => (a.startsAt > b.startsAt ? a : b))
-    return best.startsAt
-  }, [council.meetings])
+    const best = done.reduce((a, b) =>
+      (a.scheduled_at ?? '') > (b.scheduled_at ?? '') ? a : b,
+    )
+    return best.scheduled_at ?? null
+  }, [meetingsHook.meetings])
+
+  const amuMembers = useMemo(() => {
+    // Board composition moved to the Representanter module. Surface
+    // current AMU mandate-holders so the Arbeidstilsynet export remains
+    // a single self-contained document.
+    return rep.members.filter(
+      (m) =>
+        m.officeRole === 'employee_chair' ||
+        m.officeRole === 'employee_deputy' ||
+        m.officeRole === 'employee_member' ||
+        m.officeRole === 'leadership_chair' ||
+        m.officeRole === 'leadership_deputy' ||
+        m.officeRole === 'leadership_member' ||
+        m.isVerneombud,
+    )
+  }, [rep.members])
 
   const annualLockedThisYear = useMemo(() => {
     const list = icAnnualPayload ?? ic.annualReviews
@@ -346,13 +369,13 @@ export function InspectionArbeidstilsynetExportPage() {
               <tr>
                 <td className="py-1.5 pr-4 font-medium text-neutral-600 align-top">AMU</td>
                 <td className="py-1.5">
-                  Etablert: {council.board.length > 0 || council.meetings.length > 0 ? 'Ja' : 'Ukjent / ikke registrert'}
+                  Etablert: {amuMembers.length > 0 || meetingsHook.meetings.length > 0 ? 'Ja' : 'Ukjent / ikke registrert'}
                   <br />
                   Siste møtedato (fullført): {amuLastMeeting ? formatDate(amuLastMeeting) : '—'}
                   <br />
-                  Medlemmer (Council):{' '}
-                  {council.board.length > 0
-                    ? council.board.map((b) => maskName(b.name, includeNames)).join(', ')
+                  AMU- og verneombudsmedlemmer:{' '}
+                  {amuMembers.length > 0
+                    ? amuMembers.map((b) => maskName(b.name, includeNames)).join(', ')
                     : '—'}
                 </td>
               </tr>

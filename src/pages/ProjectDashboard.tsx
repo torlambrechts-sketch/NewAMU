@@ -82,7 +82,7 @@ export function ProjectDashboard() {
   const {
     today,
     todayStr,
-    council,
+    meetings,
     hse,
     ic,
     learning,
@@ -95,8 +95,8 @@ export function ProjectDashboard() {
     openHighRisks,
     annualEvents,
     weekDays,
-    openComplianceDone,
-    openComplianceTotal,
+    signedMeetings,
+    completedMeetings,
   } = useWorkspaceDashboardData()
 
   const classicHubItems: HubMenu1Item[] = useMemo(
@@ -191,11 +191,11 @@ export function ProjectDashboard() {
           urgent={hse.stats.violence > 0}
         />
         <KpiCard
-          label="Compliance"
-          value={`${openComplianceDone}/${openComplianceTotal}`}
-          sub={`${openComplianceTotal - openComplianceDone} gjenstår`}
+          label="Protokoll signert"
+          value={`${signedMeetings}/${completedMeetings}`}
+          sub={`${Math.max(completedMeetings - signedMeetings, 0)} mangler signatur`}
           icon={CheckCircle2}
-          iconBg={openComplianceDone === openComplianceTotal ? 'bg-emerald-600' : 'bg-sky-600'}
+          iconBg={completedMeetings > 0 && signedMeetings === completedMeetings ? 'bg-emerald-600' : 'bg-sky-600'}
           to="/meetings"
         />
       </div>
@@ -259,8 +259,7 @@ export function ProjectDashboard() {
                       <div className="flex-1 min-w-0">
                         <div className="text-sm font-semibold text-neutral-900 truncate">{m.title}</div>
                         <div className="text-xs text-neutral-400">
-                          kl. {fmtTime(m.startsAt)} · {m.location}
-                          {m.quarterSlot ? ` · Q${m.quarterSlot}` : ''}
+                          kl. {fmtTime(m.startsAt)}
                         </div>
                       </div>
                       <span className={`shrink-0 px-2 py-0.5 text-xs font-bold ${d <= 3 ? 'bg-red-500 text-white' : d <= 7 ? 'bg-amber-400 text-white' : 'bg-emerald-100 text-emerald-700'}`}>
@@ -388,7 +387,7 @@ export function ProjectDashboard() {
             </div>
             <div className="grid grid-cols-2 divide-x divide-y divide-neutral-100">
               {[
-                { label: 'AMU-møter i år', value: council.meetings.filter((m) => m.governanceYear === today.getFullYear()).length, colour: 'text-[#1a3d32]', to: '/meetings' },
+                { label: 'Møter i år', value: meetings.filter((m) => m.year === today.getFullYear()).length, colour: 'text-[#1a3d32]', to: '/meetings' },
                 { label: 'Vernerunder', value: hse.stats.rounds, colour: 'text-emerald-700', to: '/vernerunder' },
                 { label: 'Inspeksjoner åpne', value: hse.stats.openInspections, colour: hse.stats.openInspections > 0 ? 'text-amber-600' : 'text-neutral-700', to: '/hse?tab=inspections' },
                 { label: 'ROS-vurderinger', value: ic.stats.rosCount, colour: 'text-sky-700', to: '/internal-control?tab=ros' },

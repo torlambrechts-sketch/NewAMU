@@ -37,7 +37,6 @@ export type ActionBoardSource =
   | 'ros_risk'
   | 'inspection'
   | 'sja'
-  | 'amu_compliance'
 
 export type ActionBoardScorecardItem = {
   id: string
@@ -62,7 +61,6 @@ const SOURCE_LABELS: Record<ActionBoardSource, string> = {
   ros_risk: 'ROS-risiko',
   inspection: 'Inspeksjon',
   sja: 'SJA',
-  amu_compliance: 'AMU-sjekkliste',
 }
 
 const STATUS_LABELS: Record<TaskStatus, string> = {

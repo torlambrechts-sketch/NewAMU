@@ -12,7 +12,6 @@ import {
   User,
 } from 'lucide-react'
 import { LanguageSwitcher } from '../LanguageSwitcher'
-import { useCouncil } from '../../hooks/useCouncil'
 import { useHse } from '../../hooks/useHse'
 import { useInternalControl } from '../../hooks/useInternalControl'
 import { useTaskItemsData } from '../../../modules/tasks/useTaskItemsData'
@@ -304,7 +303,6 @@ type GapSection = {
 }
 
 export function ShellComplianceIndicator({ variant }: { variant: 'sidebar' | 'topbar' }) {
-  const council = useCouncil()
   const hse = useHse()
   const ic = useInternalControl()
   const ts = useTaskItemsData()
@@ -317,17 +315,10 @@ export function ShellComplianceIndicator({ variant }: { variant: 'sidebar' | 'to
   const { level, sections } = useMemo(() => {
     const sectionsAcc: GapSection[] = []
 
-    const councilOpen = council.compliance.filter((c) => !c.done)
-    if (councilOpen.length) {
-      sectionsAcc.push({
-        id: 'council',
-        title: 'AMU / krav og vedtak',
-        items: councilOpen.slice(0, 6).map((c) => ({
-          label: c.title,
-          to: '/meetings',
-        })),
-      })
-    }
+    // Compliance gaps for Møter now flow through the meetings module's
+    // mandatory-topics gap detector inside <MeetingsDetailView>. The
+    // shell-header indicator doesn't surface them — the user sees them
+    // contextually when opening a meeting.
 
     const rosRed = ic.rosAssessments.flatMap((r) =>
       r.rows
@@ -426,7 +417,7 @@ export function ShellComplianceIndicator({ variant }: { variant: 'sidebar' | 'to
     else if (sectionsAcc.length > 0) level = 'yellow'
 
     return { level, sections: sectionsAcc }
-  }, [council.compliance, hse.stats, hse.incidents, ic.rosAssessments, ic.annualReviews, ts.items, today, year])
+  }, [hse.stats, hse.incidents, ic.rosAssessments, ic.annualReviews, ts.items, today, year])
 
   const dotClass =
     level === 'green'

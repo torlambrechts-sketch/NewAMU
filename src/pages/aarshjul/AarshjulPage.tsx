@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { AlertTriangle, CheckCircle2, ChevronRight } from 'lucide-react'
-import { useCouncil } from '../../hooks/useCouncil'
+import { useMeetings } from '../../../modules/meetings'
 import { useHse } from '../../hooks/useHse'
 import { isSafetyRoundUpcoming, safetyRoundCalendarDateIso } from '../../lib/safetyRoundCalendar'
 import { useInternalControl } from '../../hooks/useInternalControl'
@@ -81,7 +81,7 @@ function statusFor(dateIso: string, done?: boolean): WheelEvent['status'] {
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export function AarshjulPage() {
-  const council = useCouncil()
+  const meetingsHook = useMeetings()
   const hse = useHse()
   const ic = useInternalControl()
   const oh = useOrgHealth()
@@ -97,20 +97,24 @@ export function AarshjulPage() {
   const events = useMemo<WheelEvent[]>(() => {
     const all: WheelEvent[] = []
 
-    // AMU meetings
-    council.meetings
-      .filter((m) => m.governanceYear === year)
+    // Møter (any framework — AMU, drøfting, ISO, GDPR)
+    meetingsHook.meetings
+      .filter((m) => m.scheduled_at && new Date(m.scheduled_at).getFullYear() === year)
       .forEach((m) => {
-        const { month } = isoToMonthYear(m.startsAt)
+        const startsAt = m.scheduled_at as string
+        const { month } = isoToMonthYear(startsAt)
         all.push({
           id: m.id,
           kind: 'amu_meeting',
           label: m.title,
           month,
           year,
-          status: m.status === 'completed' ? 'done' : m.status === 'cancelled' ? 'done' : statusFor(m.startsAt),
-          link: '/meetings',
-          detail: `${m.location} · Q${m.quarterSlot ?? '?'}`,
+          status:
+            m.status === 'completed' || m.status === 'cancelled'
+              ? 'done'
+              : statusFor(startsAt),
+          link: `/meetings/${m.id}`,
+          detail: m.location_label ?? '',
         })
       })
 
@@ -221,7 +225,7 @@ export function AarshjulPage() {
       })
 
     return all
-  }, [year, council, hse, ic, oh, learning])
+  }, [year, meetingsHook.meetings, hse, ic, oh, learning])
 
   const filtered = useMemo(
     () => events.filter((e) => filterKind === 'all' || e.kind === filterKind),

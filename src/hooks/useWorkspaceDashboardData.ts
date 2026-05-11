@@ -1,10 +1,11 @@
 import { useMemo } from 'react'
-import { useCouncil } from './useCouncil'
 import { useHse } from './useHse'
 import { useInternalControl } from './useInternalControl'
 import { useLearning } from './useLearning'
 import { useOrgHealth } from './useOrgHealth'
 import { useTaskItemsData } from '../../modules/tasks/useTaskItemsData'
+import { useMeetings } from '../../modules/meetings'
+import type { MeetingRow } from '../../modules/meetings'
 
 const today = new Date()
 export const DASHBOARD_TODAY_STR = today.toISOString().slice(0, 10)
@@ -29,13 +30,43 @@ export function daysUntil(iso: string) {
   return Math.ceil((new Date(iso).getTime() - Date.now()) / 86400000)
 }
 
+/** Calendar-shaped meeting view exposed to the project dashboard. Aliases
+ *  the meetings module's row so consumers stay decoupled from the row
+ *  shape. */
+export type DashboardMeetingEntry = {
+  id: string
+  title: string
+  startsAt: string
+  status: MeetingRow['status']
+  year: number
+}
+
+function toEntry(m: MeetingRow): DashboardMeetingEntry | null {
+  if (!m.scheduled_at) return null
+  return {
+    id: m.id,
+    title: m.title,
+    startsAt: m.scheduled_at,
+    status: m.status,
+    year: new Date(m.scheduled_at).getFullYear(),
+  }
+}
+
 export function useWorkspaceDashboardData() {
-  const council = useCouncil()
+  const meetings = useMeetings()
   const hse = useHse()
   const ic = useInternalControl()
   const learning = useLearning()
   const oh = useOrgHealth()
   const ts = useTaskItemsData()
+
+  const meetingEntries = useMemo<DashboardMeetingEntry[]>(
+    () =>
+      meetings.meetings
+        .map(toEntry)
+        .filter((m): m is DashboardMeetingEntry => m !== null),
+    [meetings.meetings],
+  )
 
   const openTasks = useMemo(
     () =>
@@ -52,11 +83,11 @@ export function useWorkspaceDashboardData() {
 
   const upcomingMeetings = useMemo(
     () =>
-      council.meetings
+      meetingEntries
         .filter((m) => m.status === 'planned' && m.startsAt > today.toISOString())
         .sort((a, b) => a.startsAt.localeCompare(b.startsAt))
         .slice(0, 5),
-    [council.meetings],
+    [meetingEntries],
   )
 
   const nextMeeting = upcomingMeetings[0]
@@ -98,15 +129,15 @@ export function useWorkspaceDashboardData() {
 
   const annualEvents = useMemo(() => {
     const evts: { label: string; date: string; kind: string; colour: string; to: string }[] = []
-    council.meetings
+    meetingEntries
       .filter((m) => m.status === 'planned' && m.startsAt > today.toISOString())
       .forEach((m) =>
         evts.push({
           label: m.title,
           date: m.startsAt,
-          kind: 'AMU-møte',
-          colour: '#1a3d32',
-          to: '/meetings',
+          kind: 'Møte',
+          colour: '#0891b2',
+          to: `/meetings/${m.id}`,
         }),
       )
     activeSickLeave.forEach((c) =>
@@ -145,7 +176,7 @@ export function useWorkspaceDashboardData() {
         }),
       )
     return evts.sort((a, b) => a.date.localeCompare(b.date)).slice(0, 8)
-  }, [council.meetings, activeSickLeave, hse.trainingRecords, oh.surveys])
+  }, [meetingEntries, activeSickLeave, hse.trainingRecords, oh.surveys])
 
   const weekDays = useMemo(() => {
     const start = new Date(today)
@@ -154,28 +185,41 @@ export function useWorkspaceDashboardData() {
       const d = new Date(start)
       d.setDate(start.getDate() + i)
       const iso = d.toISOString().slice(0, 10)
-      const meetings = council.meetings.filter((m) => m.startsAt.startsWith(iso) && m.status !== 'cancelled')
-      const milestones = activeSickLeave.flatMap((c) => c.milestones.filter((m) => !m.completedAt && m.dueAt === iso))
+      const dayMeetings = meetingEntries.filter(
+        (m) => m.startsAt.startsWith(iso) && m.status !== 'cancelled',
+      )
+      const milestones = activeSickLeave.flatMap((c) =>
+        c.milestones.filter((m) => !m.completedAt && m.dueAt === iso),
+      )
       return {
         iso,
         dayName: d.toLocaleDateString('no-NO', { weekday: 'short' }),
         dayNum: d.getDate(),
-        meetings,
+        meetings: dayMeetings,
         milestones,
         isToday: iso === DASHBOARD_TODAY_STR,
       }
     })
-  }, [council.meetings, activeSickLeave])
+  }, [meetingEntries, activeSickLeave])
 
-  const openComplianceDone = council.compliance.filter((c) => c.done).length
-  const openComplianceTotal = council.compliance.length
+  // Compliance KPI on the project dashboard now reads "signed meetings vs
+  // completed meetings" — i.e. how much of what's done has been protocol-
+  // signed. Closes the council-compliance card without losing the slot.
+  const completedMeetings = meetingEntries.filter((m) => m.status === 'completed').length
+  const signedMeetings = meetings.meetings.filter(
+    (m) => m.status === 'completed' && !!m.protocol_signed_at,
+  ).length
 
-  const openIncidents = useMemo(() => hse.incidents.filter((i) => i.status !== 'closed').length, [hse.incidents])
+  const openIncidents = useMemo(
+    () => hse.incidents.filter((i) => i.status !== 'closed').length,
+    [hse.incidents],
+  )
 
   return {
     today,
     todayStr: DASHBOARD_TODAY_STR,
-    council,
+    meetings: meetingEntries,
+    meetingsLoading: meetings.loading,
     hse,
     ic,
     learning,
@@ -190,8 +234,10 @@ export function useWorkspaceDashboardData() {
     openHighRisks,
     annualEvents,
     weekDays,
-    openComplianceDone,
-    openComplianceTotal,
+    /** Number of completed meetings that have a signed protocol. */
+    signedMeetings,
+    /** Number of completed meetings (signed + unsigned). */
+    completedMeetings,
     openIncidents,
   }
 }
