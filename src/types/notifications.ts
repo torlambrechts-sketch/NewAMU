@@ -13,6 +13,7 @@ export type NotificationCategoryKey =
   | 'documents_mention'
   | 'documents_review'
   | 'documents_comment'
+  | 'documents_moderation'
 
 export type NotificationCategoryPrefs = Record<NotificationCategoryKey, boolean>
 

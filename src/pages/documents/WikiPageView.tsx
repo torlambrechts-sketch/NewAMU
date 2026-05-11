@@ -23,6 +23,7 @@ import { DOCUMENTS_MODULE_TITLE } from '../../data/documentsNav'
 import type { ContentBlock, HeadingBlock, PageStatus, WikiPage, WikiPageVersionSnapshot } from '../../types/documents'
 import { headingAnchorId } from '../../lib/wikiPageLinks'
 import { WikiBlockCommentsPanel } from '../../components/documents/WikiBlockCommentsPanel'
+import { DocumentAcknowledgementsPanel } from '../../components/documents/DocumentAcknowledgementsPanel'
 import { DocumentActivityTimeline } from '../../components/documents/DocumentActivityTimeline'
 import { DocumentAvvikChip, DocumentAvvikPanel } from '../../components/documents/DocumentAvvikPanel'
 import { DocumentReviewRequestPanel } from '../../components/documents/DocumentReviewRequestPanel'
@@ -911,6 +912,18 @@ export function WikiPageView() {
                   <DocumentAvvikPanel linked={linkedAvvik} loading={avvikLoading} />
                 </div>
               </div>
+
+              {page.requiresAcknowledgement ? (
+                <div>
+                  <h2 className="text-sm font-semibold text-neutral-900">Signaturer</h2>
+                  <p className="mt-1 text-xs text-neutral-500">
+                    Hvem i målgruppen har signert «Lest og forstått» for nåværende versjon.
+                  </p>
+                  <div className="mt-3">
+                    <DocumentAcknowledgementsPanel page={page} receipts={docs.receipts} />
+                  </div>
+                </div>
+              ) : null}
 
               <div>
                 <h2 className="text-sm font-semibold text-neutral-900">Aktivitet</h2>

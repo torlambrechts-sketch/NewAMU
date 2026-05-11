@@ -337,6 +337,8 @@ export type WikiPageComment = {
   resolvedBy?: string | null
   deletedAt?: string | null
   updatedAt?: string | null
+  /** Set by the moderation trigger when a body matched a harassment keyword. */
+  hiddenUntilReviewed?: boolean
 }
 
 export type WikiMentionNotification = {

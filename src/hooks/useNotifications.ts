@@ -24,9 +24,10 @@ type DocumentsNotificationFeed = {
     requesterId: string
     createdAt: string
   }[]
+  moderationPending: number
 }
 
-const EMPTY_DOC_FEED: DocumentsNotificationFeed = { mentions: [], reviews: [] }
+const EMPTY_DOC_FEED: DocumentsNotificationFeed = { mentions: [], reviews: [], moderationPending: 0 }
 
 function normEmail(s: string | null | undefined) {
   const t = s?.trim().toLowerCase()
@@ -50,7 +51,9 @@ export function useNotifications() {
     let cancelled = false
     void (async () => {
       try {
-        const [mentionsRes, reviewsRes] = await Promise.all([
+        const canModerate =
+          isAdmin || permissionKeys.has('documents.manage') || permissionKeys.has('whistleblowing.committee')
+        const [mentionsRes, reviewsRes, moderationRes] = await Promise.all([
           supabase
             .from('wiki_mention_notifications')
             .select('id, page_id, actor_name, snippet, context, created_at, read_at')
@@ -67,8 +70,19 @@ export function useNotifications() {
             .eq('status', 'pending')
             .order('created_at', { ascending: false })
             .limit(20),
+          canModerate
+            ? supabase
+                .from('wiki_comment_moderation_flags')
+                .select('id', { count: 'exact', head: true })
+                .eq('organization_id', orgId)
+                .eq('action', 'pending_review')
+            : Promise.resolve({ count: 0 as number | null }),
         ])
         if (cancelled) return
+        const moderationCount =
+          typeof (moderationRes as { count?: number | null }).count === 'number'
+            ? ((moderationRes as { count: number }).count ?? 0)
+            : 0
         setDocFeed({
           mentions: (mentionsRes.data ?? []).map((m: Record<string, unknown>) => ({
             id: String(m.id),
@@ -85,6 +99,7 @@ export function useNotifications() {
             requesterId: typeof r.requester_id === 'string' ? r.requester_id : '',
             createdAt: typeof r.created_at === 'string' ? r.created_at : new Date().toISOString(),
           })),
+          moderationPending: moderationCount,
         })
       } catch {
         if (!cancelled) setDocFeed(EMPTY_DOC_FEED)
@@ -93,7 +108,7 @@ export function useNotifications() {
     return () => {
       cancelled = true
     }
-  }, [supabase, orgId, userId])
+  }, [supabase, orgId, userId, isAdmin, permissionKeys])
 
   const prefs: NotificationPreferences = useMemo(
     () => parseNotificationPreferences(profile?.notification_preferences),
@@ -168,6 +183,18 @@ export function useNotifications() {
           severity: 'warning',
         })
       }
+    }
+
+    if (prefs.categories.documents_moderation && docFeed.moderationPending > 0) {
+      out.push({
+        id: 'doc-moderation-pending',
+        category: 'documents_moderation',
+        title: 'Kommentarer venter på moderering',
+        body: `${docFeed.moderationPending} kommentar${docFeed.moderationPending === 1 ? '' : 'er'} er flagget for gjennomgang.`,
+        createdAt: new Date().toISOString(),
+        href: '/documents/moderation',
+        severity: 'warning',
+      })
     }
 
     return out.sort((a, b) => b.createdAt.localeCompare(a.createdAt))

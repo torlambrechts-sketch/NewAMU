@@ -468,11 +468,13 @@ function CommentRow({
   return (
     <div
       className={`rounded border px-2 py-1.5 text-xs ${
-        comment.isConfidential
-          ? 'border-red-200 bg-red-50/60'
-          : comment.resolved
-            ? 'border-neutral-200 bg-white/60 opacity-70'
-            : 'border-neutral-200 bg-white'
+        comment.hiddenUntilReviewed
+          ? 'border-amber-300 bg-amber-50/80'
+          : comment.isConfidential
+            ? 'border-red-200 bg-red-50/60'
+            : comment.resolved
+              ? 'border-neutral-200 bg-white/60 opacity-70'
+              : 'border-neutral-200 bg-white'
       }`}
     >
       <div className="flex flex-wrap items-center gap-1.5">
@@ -482,6 +484,11 @@ function CommentRow({
           {chip.icon}
           {chip.label}
         </span>
+        {comment.hiddenUntilReviewed ? (
+          <span className="inline-flex items-center rounded-full border border-amber-300 bg-amber-100 px-1.5 py-0.5 text-[10px] font-medium text-amber-900">
+            Avventer moderering
+          </span>
+        ) : null}
         {comment.severity ? (
           <Badge variant={severityVariant(comment.severity)}>{severityLabel(comment.severity)}</Badge>
         ) : null}

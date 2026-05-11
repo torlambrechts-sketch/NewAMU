@@ -98,6 +98,7 @@ import { InspectionArbeidstilsynetExportPage } from './pages/documents/Inspectio
 
 import { DocumentsModuleAdminPage } from './pages/DocumentsModuleAdminPage'
 import { DocumentReviewsPage } from './pages/documents/DocumentReviewsPage'
+import { DocumentModerationQueuePage } from './pages/documents/DocumentModerationQueuePage'
 import { DocumentEditorTestPage } from './pages/documents/DocumentEditorTestPage'
 import { DocumentKandidatdetaljLayoutTestPage } from './pages/documents/DocumentKandidatdetaljLayoutTestPage'
 import { WikiPageReferenceEditor } from './pages/documents/WikiPageReferenceEditor'
@@ -447,6 +448,7 @@ const router = createBrowserRouter(
                         />
                         <Route path="documents/templates" element={<DocumentsModuleAdminPage />} />
                         <Route path="documents/reviews" element={<DocumentReviewsPage />} />
+                        <Route path="documents/moderation" element={<DocumentModerationQueuePage />} />
                         <Route
                           path="documents/aarsgjennomgang"
                           element={
