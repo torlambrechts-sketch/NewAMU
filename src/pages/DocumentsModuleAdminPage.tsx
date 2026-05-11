@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import {
-  BookOpen, Download, FileText, GitBranch,
-  Loader2, Lock, RefreshCw, Settings,
+  BarChart2, BookOpen, Download, FileText, GitBranch,
+  Layers, Loader2, Lock, RefreshCw, Settings, ShieldCheck,
 } from 'lucide-react'
 import { ModuleSectionCard } from '../components/module'
 import { Tabs, type TabItem } from '../components/ui/Tabs'
@@ -21,19 +21,25 @@ import { DocumentsSettingsKvitteringer } from '../components/documents/settings/
 import { DocumentsSettingsMaler } from '../components/documents/settings/DocumentsSettingsMaler'
 import { DocumentsSettingsImportEksport } from '../components/documents/settings/DocumentsSettingsImportEksport'
 import { DocumentsSettingsTilgang } from '../components/documents/settings/DocumentsSettingsTilgang'
+import { DocumentsPakkerTab } from '../../modules/documents/admin/DocumentsPakkerTab'
+import { DocumentsKravTab } from '../../modules/documents/admin/DocumentsKravTab'
+import { DocumentsStatistikkTab } from '../../modules/documents/admin/DocumentsStatistikkTab'
 
 const SETTINGS_KEY = 'documents_settings' as const
 
-type AdminTab = 'generelt' | 'revisjon' | 'kvitteringer' | 'maler' | 'import' | 'tilgang' | 'arbeidsflyt'
+type AdminTab = 'generelt' | 'revisjon' | 'kvitteringer' | 'maler' | 'pakker' | 'krav' | 'import' | 'tilgang' | 'arbeidsflyt' | 'statistikk'
 
 const ADMIN_TABS: TabItem[] = [
   { id: 'generelt',     label: 'Generelt',       icon: Settings    },
   { id: 'revisjon',     label: 'Revisjon',        icon: RefreshCw   },
   { id: 'kvitteringer', label: 'Kvitteringer',    icon: FileText    },
   { id: 'maler',        label: 'Maler',           icon: BookOpen    },
+  { id: 'pakker',       label: 'Pakker',          icon: Layers      },
+  { id: 'krav',         label: 'Krav',            icon: ShieldCheck },
   { id: 'import',       label: 'Import/Eksport',  icon: Download    },
   { id: 'tilgang',      label: 'Tilgang',         icon: Lock        },
   { id: 'arbeidsflyt',  label: 'Arbeidsflyt',     icon: GitBranch   },
+  { id: 'statistikk',   label: 'Statistikk',      icon: BarChart2   },
 ]
 
 export function DocumentsModuleAdminPage() {
@@ -112,9 +118,12 @@ export function DocumentsModuleAdminPage() {
       {tab === 'kvitteringer' && !settingsLoading && <DocumentsSettingsKvitteringer {...saveProps} />}
 
       {/* ── Standalone tabs (own state / no global settings) ────────────── */}
-      {tab === 'maler'   && <DocumentsSettingsMaler />}
-      {tab === 'import'  && <DocumentsSettingsImportEksport />}
-      {tab === 'tilgang' && <DocumentsSettingsTilgang />}
+      {tab === 'maler'      && <DocumentsSettingsMaler />}
+      {tab === 'pakker'     && <DocumentsPakkerTab />}
+      {tab === 'krav'       && <DocumentsKravTab />}
+      {tab === 'import'     && <DocumentsSettingsImportEksport />}
+      {tab === 'tilgang'    && <DocumentsSettingsTilgang />}
+      {tab === 'statistikk' && <DocumentsStatistikkTab />}
 
       {/* ── Arbeidsflyt ─────────────────────────────────────────────────── */}
       {tab === 'arbeidsflyt' && (

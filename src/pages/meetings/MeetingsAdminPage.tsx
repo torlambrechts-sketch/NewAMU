@@ -1,4 +1,4 @@
-// Møter — admin (Innstillinger). Tabs: Maler, Kategorier, Arbeidsflyt.
+// Møter — admin (Innstillinger). Tabs: Maler, Kategorier, Pakker, Krav, Arbeidsflyt, Statistikk.
 //
 // Renders embedded under the hub orchestrator (`MeetingsHubPage`) when
 // `embedded={true}` so the chrome stays stable across root tabs. The
@@ -11,6 +11,7 @@ import { useMemo, useState, type FormEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   Award,
+  BarChart2,
   Building2,
   ClipboardList,
   Edit3,
@@ -24,6 +25,7 @@ import {
   Save,
   Scale,
   Shield,
+  ShieldCheck,
   Tags,
   Users,
 } from 'lucide-react'
@@ -51,13 +53,19 @@ import {
 } from '../../../modules/meetings/meetingsLabels'
 import type { MeetingOrgTemplateRow } from '../../../modules/meetings/types'
 import { MeetingsTemplateEditorPanel } from './MeetingsTemplateEditorPanel'
+import { MeetingsPakkerTab } from '../../../modules/meetings/admin/MeetingsPakkerTab'
+import { MeetingsKravTab } from '../../../modules/meetings/admin/MeetingsKravTab'
+import { MeetingsStatistikkTab } from '../../../modules/meetings/admin/MeetingsStatistikkTab'
 
-type AdminTab = 'maler' | 'kategorier' | 'arbeidsflyt'
+type AdminTab = 'maler' | 'kategorier' | 'pakker' | 'krav' | 'arbeidsflyt' | 'statistikk'
 
 const ADMIN_TABS: TabItem[] = [
   { id: 'maler', label: 'Maler', icon: ClipboardList },
   { id: 'kategorier', label: 'Kategorier', icon: Tags },
+  { id: 'pakker', label: 'Pakker', icon: Layers },
+  { id: 'krav', label: 'Krav', icon: ShieldCheck },
   { id: 'arbeidsflyt', label: 'Arbeidsflyt', icon: GitBranch },
+  { id: 'statistikk', label: 'Statistikk', icon: BarChart2 },
 ]
 
 // Framework icon map — keeps visual parity with TaskKindIcon in Oppgaver.
@@ -126,6 +134,8 @@ export function MeetingsAdminPage({ embedded = false }: { embedded?: boolean } =
       {meetings.error ? <WarningBox>{meetings.error}</WarningBox> : null}
       {tab === 'maler' && <TemplatesTab />}
       {tab === 'kategorier' && <CategoriesTab />}
+      {tab === 'pakker' && <MeetingsPakkerTab />}
+      {tab === 'krav' && <MeetingsKravTab />}
       {tab === 'arbeidsflyt' && (
         <ModuleSectionCard className="p-5 md:p-6">
           <div className="mb-3 flex items-center gap-2">
@@ -143,6 +153,7 @@ export function MeetingsAdminPage({ embedded = false }: { embedded?: boolean } =
           />
         </ModuleSectionCard>
       )}
+      {tab === 'statistikk' && <MeetingsStatistikkTab />}
     </>
   )
 

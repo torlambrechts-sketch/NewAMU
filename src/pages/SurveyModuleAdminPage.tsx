@@ -1,14 +1,16 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
-  ArrowLeft, BookOpen, Building2, ClipboardList, Download, FolderTree,
+  ArrowLeft, BarChart2, BookOpen, Building2, ClipboardList, Download, FolderTree,
   GitBranch, Globe, Layers, LayoutGrid, Loader2, Mail, Plus, Settings,
-  Smartphone, Trash2, Upload,
+  ShieldCheck, Smartphone, Trash2, Upload,
 } from 'lucide-react'
 import { SurveyPakkerTab } from '../../modules/survey/admin/SurveyPakkerTab'
 import { SurveyLeverandorerTab } from '../../modules/survey/admin/SurveyLeverandorerTab'
 import { SurveyMalerOpsCard } from '../../modules/survey/admin/SurveyMalerOpsCard'
 import { SurveyKategorierTab } from '../../modules/survey/admin/SurveyKategorierTab'
+import { SurveyKravTab } from '../../modules/survey/admin/SurveyKravTab'
+import { SurveyStatistikkTab } from '../../modules/survey/admin/SurveyStatistikkTab'
 import { SlidePanel } from '../components/layout/SlidePanel'
 import { WPSTD_FORM_FIELD_LABEL } from '../components/layout/WorkplaceStandardFormPanel'
 import { LayoutTable1PostingsShell } from '../components/layout/LayoutTable1PostingsShell'
@@ -45,7 +47,7 @@ import { SurveySettingsIntegrasjoner } from '../components/survey/settings/Surve
 
 const SETTINGS_KEY = 'survey_settings' as const
 
-type AdminTab = 'generelt' | 'utseende' | 'epost' | 'sms' | 'integrasjoner' | 'sporsmalbank' | 'maler' | 'kategorier' | 'pakker' | 'leverandorer' | 'arbeidsflyt'
+type AdminTab = 'generelt' | 'utseende' | 'epost' | 'sms' | 'integrasjoner' | 'sporsmalbank' | 'maler' | 'kategorier' | 'pakker' | 'krav' | 'leverandorer' | 'arbeidsflyt' | 'statistikk'
 
 const ADMIN_TABS: TabItem[] = [
   { id: 'generelt',      label: 'Generelt',     icon: Settings  },
@@ -57,8 +59,10 @@ const ADMIN_TABS: TabItem[] = [
   { id: 'maler',         label: 'Maler',         icon: ClipboardList  },
   { id: 'kategorier',    label: 'Kategorier',    icon: FolderTree     },
   { id: 'pakker',        label: 'Pakker',        icon: Layers         },
+  { id: 'krav',          label: 'Krav',          icon: ShieldCheck    },
   { id: 'leverandorer',  label: 'Leverandører',  icon: Building2 },
   { id: 'arbeidsflyt',   label: 'Arbeidsflyt',   icon: GitBranch },
+  { id: 'statistikk',    label: 'Statistikk',    icon: BarChart2 },
 ]
 
 export function SurveyModuleAdminPage() {
@@ -365,6 +369,7 @@ export function SurveyModuleAdminPage() {
         {/* ── Pakker (DB-driven pack display + behaviour defaults) ──────── */}
         {tab === 'kategorier' && <SurveyKategorierTab supabase={supabase} />}
         {tab === 'pakker' && <SurveyPakkerTab supabase={supabase} />}
+        {tab === 'krav' && <SurveyKravTab supabase={supabase} />}
 
         {/* ── Leverandører (vendor master record CRUD) ─────────────────── */}
         {tab === 'leverandorer' && <SurveyLeverandorerTab supabase={supabase} />}
@@ -380,6 +385,7 @@ export function SurveyModuleAdminPage() {
             <WorkflowRulesTab supabase={supabase} module="survey" triggerEvents={SURVEY_WORKFLOW_TRIGGER_EVENTS.map((e) => ({ value: e.value, label: e.label }))} />
           </ModuleSectionCard>
         )}
+        {tab === 'statistikk' && <SurveyStatistikkTab supabase={supabase} />}
       </div>
 
       <SlidePanel open={showAdd} onClose={() => setShowAdd(false)} title="Nytt spørsmål i bank" titleId="qbank-panel-title"
