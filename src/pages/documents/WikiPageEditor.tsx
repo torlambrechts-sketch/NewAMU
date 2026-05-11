@@ -23,6 +23,7 @@ import {
   FileText,
   GripVertical,
   Loader2,
+  MessageSquare,
   RotateCcw,
   Save,
   Settings,
@@ -44,7 +45,13 @@ import { arrayMove, SortableContext, useSortable, verticalListSortingStrategy } 
 import { CSS } from '@dnd-kit/utilities'
 import { useDocuments } from '../../hooks/useDocuments'
 import { useOrgSetupContext } from '../../hooks/useOrgSetupContext'
+import { useDocumentPresence, type BlockLock } from '../../hooks/useDocumentPresence'
 import { TipTapRichTextEditor } from '../../components/documents/TipTapRichTextEditor'
+import { DocumentActivityTimeline } from '../../components/documents/DocumentActivityTimeline'
+import { DocumentDraftCollaborators } from '../../components/documents/DocumentDraftCollaborators'
+import { DocumentPresenceStack } from '../../components/documents/DocumentPresenceStack'
+import { DocumentPublishGatesPanel } from '../../components/documents/DocumentPublishGatesPanel'
+import { DocumentReviewRequestPanel } from '../../components/documents/DocumentReviewRequestPanel'
 import {
   ModuleLegalBanner,
   ModulePageShell,
@@ -117,7 +124,7 @@ const IMAGE_WIDTH_OPTIONS: SelectOption[] = [
   { value: 'medium', label: 'Medium' },
 ]
 
-type EditTab = 'innhold' | 'innstillinger'
+type EditTab = 'innhold' | 'innstillinger' | 'samarbeid'
 
 function editorStatusBadgeVariant(s: 'draft' | 'published' | 'archived'): 'draft' | 'success' | 'neutral' {
   if (s === 'published') return 'success'
@@ -167,8 +174,23 @@ export function WikiPageEditor() {
   const { pageId } = useParams<{ pageId: string }>()
   const navigate = useNavigate()
   const docs = useDocuments()
-  const { ensurePageLoaded, pageHydrateLoading, pageHydrateError } = docs
-  const { departments, supabase, organization } = useOrgSetupContext()
+  const {
+    ensurePageLoaded,
+    pageHydrateLoading,
+    pageHydrateError,
+    wikiReviewRequests,
+    submitForReview,
+    approveReviewRequest,
+    requestReviewChanges,
+    auditLedger,
+  } = docs
+  const { departments, supabase, organization, user, orgProfiles, isAdmin, permissionKeys } =
+    useOrgSetupContext()
+  const resolveMemberName = useCallback(
+    (uid: string) => orgProfiles.find((p) => p.id === uid)?.display_name ?? uid.slice(0, 8),
+    [orgProfiles],
+  )
+  const canModerateLocks = isAdmin || permissionKeys.has('documents.manage')
 
   const original = docs.pages.find((p) => p.id === pageId)
   const space = original ? docs.spaces.find((s) => s.id === original.spaceId) : null
@@ -215,6 +237,8 @@ export function WikiPageEditor() {
   const [saveErrorSource, setSaveErrorSource] = useState<'lagre' | 'publiser' | null>(null)
   const saveErrorRef = useRef<HTMLDivElement>(null)
   const [selectedIdx, setSelectedIdx] = useState<number | null>(null)
+  const presence = useDocumentPresence(pageId)
+  const prevSelectedIdxRef = useRef<number | null>(null)
   const [pageLang, setPageLang] = useState<WikiPageLang>(() => original?.lang ?? 'nb')
   const [a11yOpen, setA11yOpen] = useState(false)
   const [a11yWarnings, setA11yWarnings] = useState<string[]>([])
@@ -280,6 +304,46 @@ export function WikiPageEditor() {
   const blocker = useBlocker(
     ({ currentLocation, nextLocation }) => dirty && currentLocation.pathname !== nextLocation.pathname,
   )
+
+  // Admin force-takeover: releases another user's lock and writes an audit
+  // ledger entry. Wrapped here so the editor's `supabase`, `original`, and
+  // `user` are in scope.
+  const overrideLockWithAudit = useCallback(
+    async (idx: number) => {
+      if (!supabase || !organization?.id || !original || !user?.id) return
+      await presence.overrideLock(idx, {
+        writeAuditEntry: async () => {
+          await supabase.from('wiki_audit_ledger').insert({
+            organization_id: organization.id,
+            page_id: original.id,
+            page_title: original.title,
+            action: 'lock_overridden',
+            user_id: user.id,
+            from_version: original.version,
+            to_version: original.version,
+            snapshot: `Blokk ${idx + 1}`,
+          })
+        },
+      })
+    },
+    [supabase, organization?.id, original, user?.id, presence],
+  )
+
+  // Selecting a block tries to lock it; deselecting releases. Lock is
+  // advisory — if someone else holds it, we still allow editing locally
+  // (the indicator surfaces the conflict).
+  useEffect(() => {
+    const prev = prevSelectedIdxRef.current
+    if (prev != null && prev !== selectedIdx) {
+      void presence.releaseBlockLock(prev)
+    }
+    prevSelectedIdxRef.current = selectedIdx
+    presence.setFocusedBlock(selectedIdx)
+    if (selectedIdx != null) {
+      void presence.acquireBlockLock(selectedIdx)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- presence functions are stable refs; depending on them would loop.
+  }, [selectedIdx])
 
   useEffect(() => {
     if (!dirty) return
@@ -543,6 +607,7 @@ export function WikiPageEditor() {
   const editTabItems = [
     { id: 'innhold', label: 'Innhold', icon: FileText },
     { id: 'innstillinger', label: 'Innstillinger', icon: Settings },
+    { id: 'samarbeid', label: 'Samarbeid', icon: MessageSquare },
   ]
 
   return (
@@ -563,6 +628,7 @@ export function WikiPageEditor() {
       }
       headerActions={
         <div className="flex flex-wrap items-center gap-2">
+          <DocumentPresenceStack users={presence.presence} currentUserId={user?.id} />
           <Badge variant={editorStatusBadgeVariant(original.status)} className="text-xs">
             {EDITOR_STATUS_LABEL[original.status]}
           </Badge>
@@ -598,14 +664,38 @@ export function WikiPageEditor() {
       tabs={<Tabs items={editTabItems} activeId={editTab} onChange={(id) => setEditTab(id as EditTab)} />}
     >
       <ModuleLegalBanner
-        title="Dokumentasjon og revisjon"
+        title="Dokumentasjon, samarbeid og revisjon"
+        intro={
+          <>
+            Utkast og publisering følger internkontrollen. Inviter kolleger til å kommentere og foreslå forbedringer
+            mens dokumentet er under arbeid — varslinger om kritikkverdige forhold går i en separat, konfidensiell
+            kanal.
+          </>
+        }
         references={[
           {
-            code: 'IK-forskriften § 5',
+            code: 'IK-f § 5',
             text: (
               <>
                 Virksomheten skal systematisk sikre at lover og forskrifter blir fulgt — dokumentert, tilgjengelig og
                 revidert etter behov.
+              </>
+            ),
+          },
+          {
+            code: 'AML § 3-1',
+            text: <>Medvirkning: ansatte skal kunne påvirke utforming av rutiner og melde forbedringsforslag.</>,
+          },
+          {
+            code: 'AML kap. 2A',
+            text: <>Varsling om kritikkverdige forhold er konfidensiell, sporbar og fri for gjengjeldelse.</>,
+          },
+          {
+            code: 'GDPR Art. 6 / 9',
+            text: (
+              <>
+                Kommentarer og samarbeidshistorikk er personopplysninger — lagres etter dokumentets oppbevaringsregel
+                og slettes når den utløper.
               </>
             ),
           },
@@ -749,6 +839,10 @@ export function WikiPageEditor() {
                       dropHighlight={overBlockId === block.instanceId && activeBlockId !== block.instanceId}
                       supabase={supabase}
                       orgId={organization?.id ?? null}
+                      lockHolder={presence.heldBy(idx)}
+                      isHeldByMe={presence.isHeldByMe(idx)}
+                      canOverrideLock={canModerateLocks}
+                      onOverrideLock={() => void overrideLockWithAudit(idx)}
                     />
                   )}
                 </SortableBlockRow>
@@ -1105,6 +1199,90 @@ export function WikiPageEditor() {
       </div>
       )}
 
+      {editTab === 'samarbeid' ? (
+        <div className="mt-6 grid gap-6 lg:grid-cols-[1fr_320px]">
+          <div className="space-y-4">
+            <ModuleSectionCard>
+              <h3 className="mb-3 border-b border-neutral-100 pb-2 text-sm font-semibold text-neutral-900">
+                Publiseringskrav
+              </h3>
+              <p className="mb-3 text-xs text-neutral-500">
+                Avgjør hvem som må uttale seg før dokumentet kan publiseres. Verneombudskravet håndheves i databasen
+                (AML § 6-2) — publisering blokkeres til en verneombud-kommentar finnes.
+              </p>
+              <DocumentPublishGatesPanel page={original} />
+            </ModuleSectionCard>
+
+            <ModuleSectionCard>
+              <h3 className="mb-3 border-b border-neutral-100 pb-2 text-sm font-semibold text-neutral-900">
+                Godkjenning
+              </h3>
+              <DocumentReviewRequestPanel
+                page={original}
+                requests={wikiReviewRequests}
+                currentUserId={user?.id}
+                reviewerName={original.reviewerId ? resolveMemberName(original.reviewerId) : undefined}
+                onSubmitForReview={submitForReview}
+                onApprove={approveReviewRequest}
+                onRequestChanges={requestReviewChanges}
+              />
+            </ModuleSectionCard>
+
+            <ModuleSectionCard>
+              <h3 className="mb-3 border-b border-neutral-100 pb-2 text-sm font-semibold text-neutral-900">
+                Samarbeidere
+              </h3>
+              <p className="mb-3 text-xs text-neutral-500">
+                Inviter kolleger til å lese og kommentere mens dokumentet er utkast. De får tilgang til denne
+                versjonen, selv om mappetillatelsene ellers ikke ville gitt det. Tilgangen utløper når dokumentet
+                publiseres — da gjelder mappens tillatelser igjen.
+              </p>
+              <DocumentDraftCollaborators
+                pageId={original.id}
+                pageStatus={original.status}
+                canManage={true}
+              />
+            </ModuleSectionCard>
+
+            <ModuleSectionCard>
+              <h3 className="mb-3 border-b border-neutral-100 pb-2 text-sm font-semibold text-neutral-900">
+                Aktivitet
+              </h3>
+              <p className="mb-3 text-xs text-neutral-500">
+                Sporbar tidslinje for revisjon (IK-f § 5). Hendelsene legges til automatisk og kan ikke endres.
+              </p>
+              <DocumentActivityTimeline
+                pageId={original.id}
+                entries={auditLedger}
+                resolveUserName={resolveMemberName}
+                onCompareVersion={(fromVersion) => {
+                  navigate(`/documents/page/${original.id}?tab=versjoner&compare=${fromVersion}`)
+                }}
+              />
+            </ModuleSectionCard>
+          </div>
+          <aside className="space-y-3 rounded-lg border border-neutral-200 bg-neutral-50 p-4 text-xs text-neutral-700">
+            <p className="font-semibold text-neutral-800">Diskusjon</p>
+            <p>
+              Kommentarer, forslag og avvik legges til på den enkelte blokk i forhåndsvisningen — slik kan kolleger
+              peke på akkurat det de mener noe om.
+            </p>
+            <Button
+              type="button"
+              variant="secondary"
+              size="sm"
+              onClick={() => navigate(`/documents/page/${original.id}?tab=diskusjon`)}
+            >
+              Åpne i forhåndsvisning
+            </Button>
+            <p className="border-t border-neutral-200 pt-2 text-[11px] text-neutral-500">
+              <strong>Tips:</strong> Bruk «Konfidensiell varsling» for å håndtere kritikkverdige forhold etter AML § 2A.
+              Slike innlegg er append-only og synlig kun for varslingsutvalget.
+            </p>
+          </aside>
+        </div>
+      ) : null}
+
       {blocker.state === 'blocked' ? (
         <div
           role="dialog"
@@ -1179,6 +1357,10 @@ function BlockItem({
   dropHighlight,
   supabase,
   orgId,
+  lockHolder,
+  isHeldByMe,
+  canOverrideLock,
+  onOverrideLock,
 }: {
   block: ContentBlock
   selected: boolean
@@ -1192,7 +1374,12 @@ function BlockItem({
   dropHighlight?: boolean
   supabase: SupabaseClient | null
   orgId: string | null
+  lockHolder?: BlockLock | null
+  isHeldByMe?: boolean
+  canOverrideLock?: boolean
+  onOverrideLock?: () => void
 }) {
+  const lockedByOther = Boolean(lockHolder && !isHeldByMe)
   const kindLabel: Record<ContentBlock['kind'], string> = {
     heading: 'Overskrift',
     text: 'Tekst',
@@ -1207,7 +1394,13 @@ function BlockItem({
 
   return (
     <div
-      className={`rounded-none border bg-white shadow-sm ${selected ? 'border-[#1a3d32]' : 'border-neutral-200'} ${dropHighlight ? 'ring-2 ring-[#1a3d32]/40 ring-offset-2' : ''}`}
+      className={`rounded-none border bg-white shadow-sm ${
+        lockedByOther
+          ? 'border-amber-300 ring-1 ring-amber-200'
+          : selected
+            ? 'border-[#1a3d32]'
+            : 'border-neutral-200'
+      } ${dropHighlight ? 'ring-2 ring-[#1a3d32]/40 ring-offset-2' : ''}`}
     >
       <div className="flex items-center gap-2 px-3 py-2">
         <span
@@ -1226,6 +1419,33 @@ function BlockItem({
           <span className="size-1.5 shrink-0 rounded-full bg-neutral-300" aria-hidden />
           <span className="truncate text-xs font-medium text-neutral-500">{kindLabel[block.kind]}</span>
         </button>
+        {lockedByOther && lockHolder ? (
+          <div className="inline-flex items-center gap-1">
+            <span
+              className="inline-flex items-center gap-1 rounded-full border border-amber-300 bg-amber-50 px-2 py-0.5 text-[10px] font-medium text-amber-900"
+              title={`${lockHolder.holderName} redigerer denne blokken`}
+            >
+              <svg viewBox="0 0 24 24" className="size-3" fill="currentColor" aria-hidden>
+                <path d="M12 2a5 5 0 0 0-5 5v3H5a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-8a2 2 0 0 0-2-2h-2V7a5 5 0 0 0-5-5zm-3 8V7a3 3 0 0 1 6 0v3H9z" />
+              </svg>
+              {lockHolder.holderName} redigerer
+            </span>
+            {canOverrideLock && onOverrideLock ? (
+              <button
+                type="button"
+                onClick={onOverrideLock}
+                className="rounded border border-amber-300 bg-white px-1.5 py-0.5 text-[10px] font-medium text-amber-900 hover:bg-amber-50"
+                title="Overstyr låsen og frigi blokken (logges i revisjonssporet)"
+              >
+                Overstyr
+              </button>
+            ) : null}
+          </div>
+        ) : isHeldByMe ? (
+          <span className="inline-flex items-center rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-medium text-emerald-900">
+            Du redigerer
+          </span>
+        ) : null}
         <div className="flex shrink-0 items-center gap-0.5">
           <button
             type="button"

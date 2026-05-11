@@ -1,8 +1,10 @@
-import type { TextareaHTMLAttributes } from 'react'
+import { forwardRef, type TextareaHTMLAttributes } from 'react'
 import { twMerge } from 'tailwind-merge'
 
 import { standardFieldClassName } from './Input'
 
-export function StandardTextarea({ className, ...props }: TextareaHTMLAttributes<HTMLTextAreaElement>) {
-  return <textarea className={twMerge(standardFieldClassName, className)} {...props} />
-}
+export const StandardTextarea = forwardRef<HTMLTextAreaElement, TextareaHTMLAttributes<HTMLTextAreaElement>>(
+  function StandardTextarea({ className, ...props }, ref) {
+    return <textarea ref={ref} className={twMerge(standardFieldClassName, className)} {...props} />
+  },
+)
