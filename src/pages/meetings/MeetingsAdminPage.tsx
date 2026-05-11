@@ -119,14 +119,17 @@ export function MeetingsAdminPage({ embedded = false }: { embedded?: boolean } =
 
 function TemplatesTab() {
   const meetings = useMeetings()
+  const { orgSettings } = meetings
   const [editorOpen, setEditorOpen] = useState(false)
   const [editTarget, setEditTarget] = useState<MeetingOrgTemplateRow | null>(null)
 
+  // Destructure orgSettings above so the dep is the array itself, not a
+  // property access on the unstable hook return — keeps eslint quiet.
   const settingsById = useMemo(() => {
-    const m = new Map<string, (typeof meetings.orgSettings)[number]>()
-    for (const s of meetings.orgSettings) m.set(s.system_template_id, s)
+    const m = new Map<string, (typeof orgSettings)[number]>()
+    for (const s of orgSettings) m.set(s.system_template_id, s)
     return m
-  }, [meetings.orgSettings])
+  }, [orgSettings])
 
   const categoryOptions = useMemo(
     () => [

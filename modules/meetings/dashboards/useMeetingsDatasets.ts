@@ -135,9 +135,11 @@ export function useMeetingsDatasets({
   categoryByMeetingId,
 }: MeetingsDatasetsArgs): Record<string, unknown> {
   const selectors = useMemo(() => buildSelectors(filters), [filters])
-  const now = new Date()
 
   return useMemo(() => {
+    // Pin a single `now` reference inside the memo body so the deps
+    // array doesn't depend on a fresh Date each render.
+    const now = new Date()
     const templateLabelByKey = new Map<string, string>()
     const templateCategoryByKey = new Map<string, string | null>()
     for (const t of templates) {
@@ -324,5 +326,5 @@ export function useMeetingsDatasets({
       meeting_instances_by_department,
       meeting_law_ref_coverage,
     }
-  }, [selectors, meetings, decisions, templates, locations, departments, categoryByMeetingId, now])
+  }, [selectors, meetings, decisions, templates, locations, departments, categoryByMeetingId])
 }
