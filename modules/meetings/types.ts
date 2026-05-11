@@ -146,6 +146,7 @@ export type MeetingSystemTemplateRow = {
   default_duration_minutes: number | null
   default_category_slug: string | null
   default_confidentiality_level: MeetingConfidentialityLevel
+  minimum_employee_count: number | null
   definition: MeetingTemplateDefinition
   metadata_schema: TemplateMetadataSchema
   is_active: boolean
@@ -202,6 +203,7 @@ export type MeetingOrgTemplateRow = {
   cadence_hint: MeetingCadence | null
   default_duration_minutes: number | null
   default_confidentiality_level: MeetingConfidentialityLevel
+  minimum_employee_count: number | null
   definition: MeetingTemplateDefinition
   metadata_schema: TemplateMetadataSchema
   nav_pinned: boolean
@@ -418,6 +420,7 @@ export const MeetingSystemTemplateRowSchema = z
     default_duration_minutes: z.number().int().nullable(),
     default_category_slug: z.string().nullable(),
     default_confidentiality_level: MeetingConfidentialitySchema.default('standard'),
+    minimum_employee_count: z.number().int().nullable().default(null),
     definition: MeetingTemplateDefinitionSchema,
     metadata_schema: TemplateMetadataSchemaSchema,
     is_active: z.boolean(),
@@ -474,6 +477,7 @@ export const MeetingOrgTemplateRowSchema = z
     cadence_hint: MeetingCadenceSchema.nullable(),
     default_duration_minutes: z.number().int().nullable(),
     default_confidentiality_level: MeetingConfidentialitySchema.default('standard'),
+    minimum_employee_count: z.number().int().nullable().default(null),
     definition: MeetingTemplateDefinitionSchema,
     metadata_schema: TemplateMetadataSchemaSchema,
     nav_pinned: z.boolean(),
@@ -666,6 +670,7 @@ export type ResolvedMeetingTemplate = {
   cadenceHint: MeetingCadence | null
   defaultDurationMinutes: number | null
   defaultConfidentialityLevel: MeetingConfidentialityLevel
+  minimumEmployeeCount: number | null
   categoryId: string | null
   navPinned: boolean
   position: number

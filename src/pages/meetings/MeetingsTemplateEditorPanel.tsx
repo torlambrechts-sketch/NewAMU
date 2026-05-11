@@ -92,6 +92,7 @@ export function MeetingsTemplateEditorPanel({
   const [defaultDurationMinutes, setDefaultDurationMinutes] = useState<string>('60')
   const [defaultConfidentialityLevel, setDefaultConfidentialityLevel] =
     useState<MeetingConfidentialityLevel>('standard')
+  const [minimumEmployeeCount, setMinimumEmployeeCount] = useState<string>('')
   const [invitationLeadDays, setInvitationLeadDays] = useState<string>('')
   const [lawRefsCsv, setLawRefsCsv] = useState<string>('')
   const [requiredAttendees, setRequiredAttendees] = useState<MeetingAttendeeRole[]>(['chair'])
@@ -111,6 +112,11 @@ export function MeetingsTemplateEditorPanel({
       setCategoryId(editTarget.category_id ?? '')
       setDefaultDurationMinutes(String(editTarget.default_duration_minutes ?? 60))
       setDefaultConfidentialityLevel(editTarget.default_confidentiality_level ?? 'standard')
+      setMinimumEmployeeCount(
+        editTarget.minimum_employee_count != null
+          ? String(editTarget.minimum_employee_count)
+          : '',
+      )
       setInvitationLeadDays(
         editTarget.definition.invitationLeadDays != null
           ? String(editTarget.definition.invitationLeadDays)
@@ -139,6 +145,7 @@ export function MeetingsTemplateEditorPanel({
       setCategoryId('')
       setDefaultDurationMinutes('60')
       setDefaultConfidentialityLevel('standard')
+      setMinimumEmployeeCount('')
       setInvitationLeadDays('')
       setLawRefsCsv('')
       setRequiredAttendees(['chair'])
@@ -241,6 +248,7 @@ export function MeetingsTemplateEditorPanel({
         .filter((s) => s.length > 0)
       const durationNum = parseInt(defaultDurationMinutes, 10)
       const leadDaysNum = invitationLeadDays.trim() ? parseInt(invitationLeadDays, 10) : null
+      const minEmpNum = minimumEmployeeCount.trim() ? parseInt(minimumEmployeeCount, 10) : null
       const definition: MeetingTemplateDefinition = {
         preparationChecklist: editTarget?.definition.preparationChecklist ?? [],
         agendaItems: agendaItems
@@ -267,6 +275,7 @@ export function MeetingsTemplateEditorPanel({
         cadenceHint: cadenceHint || null,
         defaultDurationMinutes: Number.isFinite(durationNum) ? durationNum : null,
         defaultConfidentialityLevel,
+        minimumEmployeeCount: minEmpNum != null && Number.isFinite(minEmpNum) ? minEmpNum : null,
         definition,
         navPinned: editTarget?.nav_pinned ?? false,
         isActive: editTarget?.is_active ?? true,
@@ -437,6 +446,26 @@ export function MeetingsTemplateEditorPanel({
               strengere som standard.
             </p>
           </div>
+        </div>
+
+        <div>
+          <label className={WPSTD_FORM_FIELD_LABEL} htmlFor="mte-minemp">
+            Minste antall ansatte (terskel)
+          </label>
+          <StandardInput
+            id="mte-minemp"
+            className="mt-1.5"
+            type="number"
+            min={0}
+            value={minimumEmployeeCount}
+            onChange={(e) => setMinimumEmployeeCount(e.target.value)}
+            placeholder="ingen terskel"
+          />
+          <p className="mt-1 text-xs text-neutral-500">
+            Hvis satt, vises malen med advarsel-merke i hovedsiden for organisasjoner under
+            terskelen. Eksempler: AMU = 30 (AML § 7-1), bedriftsutvalg = 100 (Hovedavtalen § 9-3),
+            lønnskartlegging = 50 (Likestillingsloven § 26).
+          </p>
         </div>
 
         <div>

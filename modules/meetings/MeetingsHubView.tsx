@@ -29,6 +29,7 @@ import { SearchableSelect } from '../../src/components/ui/SearchableSelect'
 import { WarningBox } from '../../src/components/ui/AlertBox'
 import { SlidePanel } from '../../src/components/layout/SlidePanel'
 import { WPSTD_FORM_FIELD_LABEL } from '../../src/components/layout/WorkplaceStandardFormPanel'
+import { useOrgSetupContext } from '../../src/hooks/useOrgSetupContext'
 import { useMeetings } from './useMeetings'
 import { MEETINGS_LEGAL_REFERENCES } from './meetingsLegalReferences'
 import {
@@ -82,6 +83,8 @@ export interface MeetingsHubViewProps {
 
 export function MeetingsHubView({ tabs, bodyOnly = false, hideAdminNav = false }: MeetingsHubViewProps) {
   const meetings = useMeetings()
+  const orgSetup = useOrgSetupContext()
+  const orgHeadcount = orgSetup.members?.length ?? 0
   const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
   const activeTemplateId = searchParams.get('template')
@@ -146,6 +149,7 @@ export function MeetingsHubView({ tabs, bodyOnly = false, hideAdminNav = false }
         <TemplateGallery
           templates={meetings.templates}
           categories={meetings.categories}
+          orgHeadcount={orgHeadcount}
           onSelect={(t) =>
             setSearchParams({ template: t.systemTemplateId ?? t.orgTemplateId ?? '' })
           }
@@ -188,10 +192,12 @@ export function MeetingsHubView({ tabs, bodyOnly = false, hideAdminNav = false }
 function TemplateGallery({
   templates,
   categories,
+  orgHeadcount,
   onSelect,
 }: {
   templates: ResolvedMeetingTemplate[]
   categories: ReturnType<typeof useMeetings>['categories']
+  orgHeadcount: number
   onSelect: (t: ResolvedMeetingTemplate) => void
 }) {
   const grouped = useMemo(() => {
@@ -240,37 +246,48 @@ function TemplateGallery({
                 {group.name}
               </h3>
               <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                {group.templates.map((t) => (
-                  <li
-                    key={t.key}
-                    className="flex flex-col gap-2 rounded-lg border border-neutral-200/80 bg-neutral-50/50 p-4"
-                  >
-                    <button
-                      type="button"
-                      onClick={() => onSelect(t)}
-                      className="flex flex-col gap-2 text-left"
+                {group.templates.map((t) => {
+                  const belowThreshold =
+                    t.minimumEmployeeCount != null && orgHeadcount < t.minimumEmployeeCount
+                  return (
+                    <li
+                      key={t.key}
+                      className="flex flex-col gap-2 rounded-lg border border-neutral-200/80 bg-neutral-50/50 p-4"
                     >
-                      <div className="flex items-start justify-between gap-2">
-                        <span className="text-sm font-semibold text-neutral-900">{t.name}</span>
-                        <Badge variant="info">{frameworkLabel(t.framework)}</Badge>
-                      </div>
-                      {t.description ? (
-                        <p className="line-clamp-3 text-xs text-neutral-600">{t.description}</p>
-                      ) : null}
-                      <div className="mt-auto flex flex-wrap items-center gap-3 pt-2 text-[11px] text-neutral-500">
-                        <span className="inline-flex items-center gap-1">
-                          <Clock className="h-3 w-3" /> {templateCadenceLabel(t)}
-                        </span>
-                        {t.definition.agendaItems.length ? (
-                          <span className="inline-flex items-center gap-1">
-                            <ListChecks className="h-3 w-3" />
-                            {t.definition.agendaItems.length} saker
-                          </span>
+                      <button
+                        type="button"
+                        onClick={() => onSelect(t)}
+                        className="flex flex-col gap-2 text-left"
+                      >
+                        <div className="flex items-start justify-between gap-2">
+                          <span className="text-sm font-semibold text-neutral-900">{t.name}</span>
+                          <Badge variant="info">{frameworkLabel(t.framework)}</Badge>
+                        </div>
+                        {t.description ? (
+                          <p className="line-clamp-3 text-xs text-neutral-600">{t.description}</p>
                         ) : null}
-                      </div>
-                    </button>
-                  </li>
-                ))}
+                        {belowThreshold ? (
+                          <div>
+                            <Badge variant="warning">
+                              Krever {t.minimumEmployeeCount}+ ansatte
+                            </Badge>
+                          </div>
+                        ) : null}
+                        <div className="mt-auto flex flex-wrap items-center gap-3 pt-2 text-[11px] text-neutral-500">
+                          <span className="inline-flex items-center gap-1">
+                            <Clock className="h-3 w-3" /> {templateCadenceLabel(t)}
+                          </span>
+                          {t.definition.agendaItems.length ? (
+                            <span className="inline-flex items-center gap-1">
+                              <ListChecks className="h-3 w-3" />
+                              {t.definition.agendaItems.length} saker
+                            </span>
+                          ) : null}
+                        </div>
+                      </button>
+                    </li>
+                  )
+                })}
               </ul>
             </div>
           ))
