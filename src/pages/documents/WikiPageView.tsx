@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from 'react'
-import { Link, useNavigate, useParams } from 'react-router-dom'
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { Eye, History, Pencil, Printer } from 'lucide-react'
 import { useDocuments } from '../../hooks/useDocuments'
 import { useOrgSetupContext } from '../../hooks/useOrgSetupContext'
@@ -22,6 +22,7 @@ import { Tabs, type TabItem } from '../../components/ui/Tabs'
 import { DOCUMENTS_MODULE_TITLE } from '../../data/documentsNav'
 import type { ContentBlock, HeadingBlock, PageStatus, WikiPage, WikiPageVersionSnapshot } from '../../types/documents'
 import { headingAnchorId } from '../../lib/wikiPageLinks'
+import { useTickingClock } from '../../lib/useTickingClock'
 import { WikiBlockCommentsPanel } from '../../components/documents/WikiBlockCommentsPanel'
 import { DocumentAcknowledgementsPanel } from '../../components/documents/DocumentAcknowledgementsPanel'
 import { DocumentActivityTimeline } from '../../components/documents/DocumentActivityTimeline'
@@ -40,20 +41,6 @@ const TEMPLATE_CLASS = {
   standard: 'max-w-3xl',
   wide: 'max-w-5xl',
   policy: 'max-w-2xl',
-}
-
-let _clockNow = Date.now()
-
-function subscribeClock(cb: () => void) {
-  const id = window.setInterval(() => {
-    _clockNow = Date.now()
-    cb()
-  }, 60_000)
-  return () => window.clearInterval(id)
-}
-
-function getClockSnapshot() {
-  return _clockNow
 }
 
 function statusBadgeVariant(status: PageStatus): 'success' | 'draft' | 'neutral' {
@@ -94,6 +81,7 @@ function publishedPageToSnapshot(page: WikiPage): WikiPageVersionSnapshot {
 export function WikiPageView() {
   const { pageId } = useParams<{ pageId: string }>()
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
   const docs = useDocuments()
   const { can, user, profile, members, supabase, organization, isAdmin, orgProfiles, permissionKeys } =
     useOrgSetupContext()
@@ -116,7 +104,12 @@ export function WikiPageView() {
     auditLedger,
   } = docs
   const { comments, addComment, editComment, setResolved, removeComment } = useWikiPageComments(pageId)
-  const { linked: linkedAvvik, loading: avvikLoading, refresh: refreshAvvik } = useWikiPageAvvik(pageId)
+  const {
+    linked: linkedAvvik,
+    loading: avvikLoading,
+    refresh: refreshAvvik,
+    promoteCommentToAvvik,
+  } = useWikiPageAvvik(pageId)
   const openAvvikCount = useMemo(() => linkedAvvik.filter((a) => !a.closedAt).length, [linkedAvvik])
   const mentionUsers = useMemo(
     () =>
@@ -134,7 +127,7 @@ export function WikiPageView() {
   const [viewRow, setViewRow] = useState<{ uniqueViewers: number; viewsLast30: number } | null>(null)
   const [ackFooterVisible, setAckFooterVisible] = useState(false)
   const [tocActiveId, setTocActiveId] = useState<string | null>(null)
-  const timeNow = useSyncExternalStore(subscribeClock, getClockSnapshot, getClockSnapshot)
+  const timeNow = useTickingClock()
   const [accessReqBusy, setAccessReqBusy] = useState(false)
   const [accessReqErr, setAccessReqErr] = useState<string | null>(null)
   const [accessReqDone, setAccessReqDone] = useState(false)
@@ -257,7 +250,27 @@ export function WikiPageView() {
   const revisionSoon = due != null && daysToDue != null && daysToDue <= 60
 
   const showViewsTab = Boolean(isAdmin || can('documents.manage'))
-  const [activeTabExt, setActiveTabExt] = useState<DetailTab>('informasjon')
+  const [activeTabExt, setActiveTabExt] = useState<DetailTab>(() => {
+    const t = searchParams.get('tab')
+    if (t === 'innhold' || t === 'diskusjon' || t === 'versjoner' || t === 'visninger') return t
+    return 'informasjon'
+  })
+
+  // Honour ?compare=<version> by jumping to Versjoner with the snapshot
+  // selected. Runs once `versions` is loaded for the current page.
+  useEffect(() => {
+    const compareRaw = searchParams.get('compare')
+    if (!compareRaw) return
+    const compareVer = Number(compareRaw)
+    if (!Number.isFinite(compareVer)) return
+    if (!page) return
+    const snap = docs.versionsForPage(page.id).find((v) => v.version === compareVer)
+    if (snap) {
+      setDiffVersion(snap)
+      setActiveTabExt('versjoner')
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- one-shot deep-link
+  }, [page?.id, searchParams])
 
   const headingToc = useMemo(() => {
     if (!page?.blocks) return [] as { id: string; text: string; level: number }[]
@@ -837,6 +850,21 @@ export function WikiPageView() {
                     mentionUsers={mentionUsers}
                     retentionHint={retentionHint}
                     canSeeConfidential={canSeeConfidential}
+                    inviteCollaboratorsHref={
+                      page.status === 'draft' && canEditThisDoc
+                        ? `/documents/page/${page.id}/edit?tab=samarbeid`
+                        : undefined
+                    }
+                    onPromoteToAvvik={async ({ commentId, body, severity }) => {
+                      const id = await promoteCommentToAvvik({
+                        commentId,
+                        body,
+                        severity,
+                        pageTitle: page.title,
+                      })
+                      await refreshAvvik()
+                      return id
+                    }}
                     onAdd={async (args) => {
                       await addComment({
                         blockIndex: args.blockIndex,
@@ -935,6 +963,13 @@ export function WikiPageView() {
                     pageId={page.id}
                     entries={auditLedger}
                     resolveUserName={resolveMemberName}
+                    onCompareVersion={(fromVersion) => {
+                      const snap = versions.find((v) => v.version === fromVersion)
+                      if (snap) {
+                        setDiffVersion(snap)
+                        setActiveTabExt('versjoner')
+                      }
+                    }}
                   />
                 </div>
               </div>

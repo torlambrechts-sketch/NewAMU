@@ -24,6 +24,10 @@ type Props = {
   resolveUserName?: (userId: string) => string
   /** Show empty state copy. */
   emptyLabel?: string
+  /** When provided, "Sammenlign" appears on published/approved entries that
+   *  carry a fromVersion so the reviewer can jump to the side-by-side diff
+   *  in the Versjoner tab. */
+  onCompareVersion?: (fromVersion: number) => void
 }
 
 const ACTION_LABEL: Record<AuditLedgerEntry['action'], string> = {
@@ -61,7 +65,13 @@ function ActionIcon({ action }: { action: AuditLedgerEntry['action'] }) {
   }
 }
 
-export function DocumentActivityTimeline({ pageId, entries, resolveUserName, emptyLabel }: Props) {
+export function DocumentActivityTimeline({
+  pageId,
+  entries,
+  resolveUserName,
+  emptyLabel,
+  onCompareVersion,
+}: Props) {
   const forPage = entries
     .filter((e) => e.pageId === pageId)
     .slice()
@@ -102,6 +112,18 @@ export function DocumentActivityTimeline({ pageId, entries, resolveUserName, emp
               </p>
               {entry.snapshot ? (
                 <p className="mt-1 line-clamp-2 text-[11px] italic text-neutral-500">{entry.snapshot}</p>
+              ) : null}
+              {onCompareVersion &&
+              (entry.action === 'published' || entry.action === 'approved') &&
+              entry.fromVersion &&
+              entry.fromVersion !== entry.toVersion ? (
+                <button
+                  type="button"
+                  className="mt-1 inline-flex items-center text-[11px] text-[#0f766e] underline"
+                  onClick={() => onCompareVersion(entry.fromVersion!)}
+                >
+                  Sammenlign v{entry.fromVersion} → v{entry.toVersion}
+                </button>
               ) : null}
             </div>
           </li>

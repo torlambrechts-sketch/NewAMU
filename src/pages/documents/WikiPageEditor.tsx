@@ -183,11 +183,13 @@ export function WikiPageEditor() {
     requestReviewChanges,
     auditLedger,
   } = docs
-  const { departments, supabase, organization, user, orgProfiles } = useOrgSetupContext()
+  const { departments, supabase, organization, user, orgProfiles, isAdmin, permissionKeys } =
+    useOrgSetupContext()
   const resolveMemberName = useCallback(
     (uid: string) => orgProfiles.find((p) => p.id === uid)?.display_name ?? uid.slice(0, 8),
     [orgProfiles],
   )
+  const canModerateLocks = isAdmin || permissionKeys.has('documents.manage')
 
   const original = docs.pages.find((p) => p.id === pageId)
   const space = original ? docs.spaces.find((s) => s.id === original.spaceId) : null
@@ -300,6 +302,30 @@ export function WikiPageEditor() {
 
   const blocker = useBlocker(
     ({ currentLocation, nextLocation }) => dirty && currentLocation.pathname !== nextLocation.pathname,
+  )
+
+  // Admin force-takeover: releases another user's lock and writes an audit
+  // ledger entry. Wrapped here so the editor's `supabase`, `original`, and
+  // `user` are in scope.
+  const overrideLockWithAudit = useCallback(
+    async (idx: number) => {
+      if (!supabase || !organization?.id || !original || !user?.id) return
+      await presence.overrideLock(idx, {
+        writeAuditEntry: async () => {
+          await supabase.from('wiki_audit_ledger').insert({
+            organization_id: organization.id,
+            page_id: original.id,
+            page_title: original.title,
+            action: 'lock_overridden',
+            user_id: user.id,
+            from_version: original.version,
+            to_version: original.version,
+            snapshot: `Blokk ${idx + 1}`,
+          })
+        },
+      })
+    },
+    [supabase, organization?.id, original, user?.id, presence],
   )
 
   // Selecting a block tries to lock it; deselecting releases. Lock is
@@ -814,6 +840,8 @@ export function WikiPageEditor() {
                       orgId={organization?.id ?? null}
                       lockHolder={presence.heldBy(idx)}
                       isHeldByMe={presence.isHeldByMe(idx)}
+                      canOverrideLock={canModerateLocks}
+                      onOverrideLock={() => void overrideLockWithAudit(idx)}
                     />
                   )}
                 </SortableBlockRow>
@@ -1215,6 +1243,9 @@ export function WikiPageEditor() {
                 pageId={original.id}
                 entries={auditLedger}
                 resolveUserName={resolveMemberName}
+                onCompareVersion={(fromVersion) => {
+                  navigate(`/documents/page/${original.id}?tab=versjoner&compare=${fromVersion}`)
+                }}
               />
             </ModuleSectionCard>
           </div>
@@ -1316,6 +1347,8 @@ function BlockItem({
   orgId,
   lockHolder,
   isHeldByMe,
+  canOverrideLock,
+  onOverrideLock,
 }: {
   block: ContentBlock
   selected: boolean
@@ -1331,6 +1364,8 @@ function BlockItem({
   orgId: string | null
   lockHolder?: BlockLock | null
   isHeldByMe?: boolean
+  canOverrideLock?: boolean
+  onOverrideLock?: () => void
 }) {
   const lockedByOther = Boolean(lockHolder && !isHeldByMe)
   const kindLabel: Record<ContentBlock['kind'], string> = {
@@ -1373,15 +1408,27 @@ function BlockItem({
           <span className="truncate text-xs font-medium text-neutral-500">{kindLabel[block.kind]}</span>
         </button>
         {lockedByOther && lockHolder ? (
-          <span
-            className="inline-flex items-center gap-1 rounded-full border border-amber-300 bg-amber-50 px-2 py-0.5 text-[10px] font-medium text-amber-900"
-            title={`${lockHolder.holderName} redigerer denne blokken`}
-          >
-            <svg viewBox="0 0 24 24" className="size-3" fill="currentColor" aria-hidden>
-              <path d="M12 2a5 5 0 0 0-5 5v3H5a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-8a2 2 0 0 0-2-2h-2V7a5 5 0 0 0-5-5zm-3 8V7a3 3 0 0 1 6 0v3H9z" />
-            </svg>
-            {lockHolder.holderName} redigerer
-          </span>
+          <div className="inline-flex items-center gap-1">
+            <span
+              className="inline-flex items-center gap-1 rounded-full border border-amber-300 bg-amber-50 px-2 py-0.5 text-[10px] font-medium text-amber-900"
+              title={`${lockHolder.holderName} redigerer denne blokken`}
+            >
+              <svg viewBox="0 0 24 24" className="size-3" fill="currentColor" aria-hidden>
+                <path d="M12 2a5 5 0 0 0-5 5v3H5a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-8a2 2 0 0 0-2-2h-2V7a5 5 0 0 0-5-5zm-3 8V7a3 3 0 0 1 6 0v3H9z" />
+              </svg>
+              {lockHolder.holderName} redigerer
+            </span>
+            {canOverrideLock && onOverrideLock ? (
+              <button
+                type="button"
+                onClick={onOverrideLock}
+                className="rounded border border-amber-300 bg-white px-1.5 py-0.5 text-[10px] font-medium text-amber-900 hover:bg-amber-50"
+                title="Overstyr låsen og frigi blokken (logges i revisjonssporet)"
+              >
+                Overstyr
+              </button>
+            ) : null}
+          </div>
         ) : isHeldByMe ? (
           <span className="inline-flex items-center rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-medium text-emerald-900">
             Du redigerer

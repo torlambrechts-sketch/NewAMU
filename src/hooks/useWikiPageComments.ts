@@ -29,6 +29,7 @@ type DbRow = {
   deleted_at?: string | null
   updated_at?: string | null
   hidden_until_reviewed?: boolean | null
+  linked_avvik_id?: string | null
 }
 
 const VALID_KINDS = new Set<WikiPageCommentKind>(['comment', 'suggestion', 'avvik_proposal', 'varsling'])
@@ -77,6 +78,7 @@ function mapRow(row: DbRow): WikiPageComment {
     deletedAt: row.deleted_at ?? null,
     updatedAt: row.updated_at ?? null,
     hiddenUntilReviewed: row.hidden_until_reviewed === true,
+    linkedAvvikId: row.linked_avvik_id ?? null,
   }
 }
 

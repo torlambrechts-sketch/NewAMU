@@ -6,12 +6,14 @@
 // AML § 2A); retention is inherited from the parent page (GDPR Art. 5(1)(e)).
 
 import { useMemo, useState, type ReactNode } from 'react'
-import { Lock, MessageSquare, Pencil, Reply, ShieldAlert, Sparkles, Trash2 } from 'lucide-react'
+import { Link } from 'react-router-dom'
+import { Lock, MessageSquare, Pencil, Reply, ShieldAlert, Sparkles, Trash2, UserPlus } from 'lucide-react'
 import { Button } from '../ui/Button'
 import { ToggleSwitch } from '../ui/FormToggles'
 import { Badge } from '../ui/Badge'
 import { MentionAutocomplete, type MentionUser } from './MentionAutocomplete'
 import { canEditComment } from '../../hooks/useWikiPageComments'
+import { useTickingClock } from '../../lib/useTickingClock'
 import type {
   WikiPageComment,
   WikiPageCommentKind,
@@ -41,10 +43,22 @@ type Props = {
   retentionHint?: string
   /** True if the viewer holds whistleblowing.committee or is org admin. */
   canSeeConfidential?: boolean
+  /** When the page is a draft and the viewer can edit, surfaces a "Inviter
+   *  en kollega" CTA in the empty state, deep-linking to the editor's
+   *  Samarbeid tab. */
+  inviteCollaboratorsHref?: string
   onAdd: (args: AddCommentArgs) => Promise<void>
   onEdit: (commentId: string, body: string) => Promise<void>
   onResolve: (commentId: string, resolved: boolean) => Promise<void>
   onDelete: (commentId: string) => Promise<void>
+  /** Optional: when present, "Meld som avvik" appears on plain comments /
+   *  suggestions that aren't already linked. Returning a deviation id is
+   *  enough; caller refreshes its avvik list. */
+  onPromoteToAvvik?: (input: {
+    commentId: string
+    body: string
+    severity: WikiPageCommentSeverity
+  }) => Promise<string | null>
 }
 
 const KIND_OPTIONS: { value: WikiPageCommentKind; label: string; description: string }[] = [
@@ -101,11 +115,14 @@ export function WikiBlockCommentsPanel({
   mentionUsers,
   retentionHint,
   canSeeConfidential = false,
+  inviteCollaboratorsHref,
   onAdd,
   onEdit,
   onResolve,
   onDelete,
+  onPromoteToAvvik,
 }: Props) {
+  const now = useTickingClock()
   const [open, setOpen] = useState(false)
   const [filter, setFilter] = useState<FilterKey>('all')
   const [showResolved, setShowResolved] = useState(false)
@@ -254,7 +271,18 @@ export function WikiBlockCommentsPanel({
           </div>
 
           {tops.length === 0 ? (
-            <p className="text-xs text-neutral-500">Ingen innlegg ennå. Vær først ut.</p>
+            <div className="rounded border border-dashed border-neutral-200 bg-white p-3 text-xs text-neutral-500">
+              <p>Ingen innlegg ennå. Vær først ut.</p>
+              {inviteCollaboratorsHref ? (
+                <Link
+                  to={inviteCollaboratorsHref}
+                  className="mt-2 inline-flex items-center gap-1 text-[#0f766e] underline"
+                >
+                  <UserPlus className="size-3" aria-hidden />
+                  Inviter en kollega til dokumentet
+                </Link>
+              ) : null}
+            </div>
           ) : (
             <ul className="space-y-2">
               {tops.map((c) => (
@@ -262,6 +290,7 @@ export function WikiBlockCommentsPanel({
                   <CommentRow
                     comment={c}
                     currentUserId={currentUserId}
+                    now={now}
                     onStartEdit={() => setEditing({ id: c.id, body: c.body })}
                     onStartReply={() => {
                       setReplyParent(c.id)
@@ -272,6 +301,7 @@ export function WikiBlockCommentsPanel({
                     }}
                     onResolve={(r) => void onResolve(c.id, r)}
                     onDelete={() => void onDelete(c.id)}
+                    onPromoteToAvvik={onPromoteToAvvik}
                   />
                   {repliesByParent.get(c.id)?.length ? (
                     <ul className="ml-5 mt-2 space-y-2 border-l border-neutral-200 pl-3">
@@ -280,9 +310,11 @@ export function WikiBlockCommentsPanel({
                           <CommentRow
                             comment={r}
                             currentUserId={currentUserId}
+                            now={now}
                             onStartEdit={() => setEditing({ id: r.id, body: r.body })}
                             onResolve={(res) => void onResolve(r.id, res)}
                             onDelete={() => void onDelete(r.id)}
+                            onPromoteToAvvik={onPromoteToAvvik}
                           />
                         </li>
                       ))}
@@ -449,22 +481,38 @@ export function WikiBlockCommentsPanel({
 function CommentRow({
   comment,
   currentUserId,
+  now,
   onStartEdit,
   onStartReply,
   onResolve,
   onDelete,
+  onPromoteToAvvik,
 }: {
   comment: WikiPageComment
   currentUserId: string | undefined
+  now: number
   onStartEdit: () => void
   onStartReply?: () => void
   onResolve: (resolved: boolean) => void
   onDelete: () => void
+  onPromoteToAvvik?: (input: {
+    commentId: string
+    body: string
+    severity: WikiPageCommentSeverity
+  }) => Promise<string | null>
 }) {
   const chip = kindChip(comment.kind)
-  // eslint-disable-next-line react-hooks/purity -- 15-minute edit window naturally depends on wall-clock time.
-  const canEdit = canEditComment(comment, currentUserId, Date.now())
+  const canEdit = canEditComment(comment, currentUserId, now)
   const isOwn = currentUserId === comment.authorId
+  const [promoteOpen, setPromoteOpen] = useState(false)
+  const [promoting, setPromoting] = useState(false)
+  const canPromote =
+    Boolean(onPromoteToAvvik) &&
+    !comment.linkedAvvikId &&
+    (comment.kind === 'comment' || comment.kind === 'suggestion') &&
+    !comment.deletedAt &&
+    !comment.hiddenUntilReviewed &&
+    !comment.isConfidential
   return (
     <div
       className={`rounded border px-2 py-1.5 text-xs ${
@@ -528,6 +576,54 @@ function CommentRow({
           >
             {comment.resolved ? 'Gjenåpne' : comment.kind === 'suggestion' ? 'Marker som tatt i bruk' : 'Løs ut'}
           </button>
+        ) : null}
+        {canPromote ? (
+          <div className="relative inline-flex">
+            <button
+              type="button"
+              className="inline-flex items-center gap-1 text-[11px] text-orange-700 underline"
+              onClick={() => setPromoteOpen((o) => !o)}
+            >
+              <ShieldAlert className="size-3" aria-hidden /> Meld som avvik
+            </button>
+            {promoteOpen ? (
+              <div className="absolute left-0 top-5 z-20 w-48 rounded-md border border-neutral-200 bg-white p-2 text-[11px] shadow-lg">
+                <p className="mb-1 font-medium text-neutral-700">Velg alvorlighet:</p>
+                <ul className="space-y-0.5">
+                  {(['low', 'medium', 'high', 'critical'] as WikiPageCommentSeverity[]).map((s) => (
+                    <li key={s}>
+                      <button
+                        type="button"
+                        disabled={promoting}
+                        className="w-full rounded px-2 py-1 text-left hover:bg-neutral-50 disabled:opacity-50"
+                        onClick={async () => {
+                          if (!onPromoteToAvvik) return
+                          setPromoting(true)
+                          try {
+                            await onPromoteToAvvik({
+                              commentId: comment.id,
+                              body: comment.body,
+                              severity: s,
+                            })
+                            setPromoteOpen(false)
+                          } finally {
+                            setPromoting(false)
+                          }
+                        }}
+                      >
+                        {severityLabel(s)}
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ) : null}
+          </div>
+        ) : null}
+        {comment.linkedAvvikId ? (
+          <span className="inline-flex items-center gap-1 text-[11px] text-orange-700">
+            <ShieldAlert className="size-3" aria-hidden /> Avvik opprettet
+          </span>
         ) : null}
         {isOwn && !comment.isConfidential ? (
           <button

@@ -339,6 +339,8 @@ export type WikiPageComment = {
   updatedAt?: string | null
   /** Set by the moderation trigger when a body matched a harassment keyword. */
   hiddenUntilReviewed?: boolean
+  /** Deviation row this comment is linked to (auto-promote trigger or manual). */
+  linkedAvvikId?: string | null
 }
 
 export type WikiMentionNotification = {
