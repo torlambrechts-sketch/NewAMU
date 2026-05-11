@@ -81,6 +81,18 @@ export function MeetingsDetailView() {
     return () => clearDetail()
   }, [meetingId, loadDetail, clearDetail])
 
+  // IMPORTANT: every hook must be called on every render in the same order.
+  // useMeetingDataBindings ALSO fans out to several child hooks (useHse,
+  // useInternalControl, useOrgSetupContext, useRepresentatives). Calling it
+  // after the early-return guards below would change the hook count between
+  // "loading / not-found" renders and "loaded" renders — React error #310.
+  // The hook handles null meeting / empty agendaItems internally (returns
+  // an empty resolved map), so it's safe to call unconditionally up front.
+  const bindings = useMeetingDataBindings({
+    meeting: meetings.detail.meeting,
+    agendaItems: meetings.detail.agendaItems,
+  })
+
   if (!meetingId) {
     return (
       <ModulePageEmpty
@@ -123,10 +135,6 @@ export function MeetingsDetailView() {
 
   const isLocked = !!meeting.protocol_signed_at
   const mandatoryGaps = computeMandatoryGaps(meeting, meetings.detail.agendaItems)
-  const bindings = useMeetingDataBindings({
-    meeting,
-    agendaItems: meetings.detail.agendaItems,
-  })
 
   const tabItems = [
     { id: 'informasjon', label: 'Informasjon', icon: ClipboardList },
