@@ -38,6 +38,7 @@ import { StandardTextarea } from '../../components/ui/Textarea'
 import { SearchableSelect } from '../../components/ui/SearchableSelect'
 import { Tabs } from '../../components/ui/Tabs'
 import { WarningBox, InfoBox } from '../../components/ui/AlertBox'
+import { WorkplaceNoticePanel } from '../../components/layout/WorkplaceNoticePanel'
 import { WPSTD_FORM_FIELD_LABEL } from '../../components/layout/WorkplaceStandardFormPanel'
 import { useOrgSetupContext } from '../../hooks/useOrgSetupContext'
 import { useMeetings, useMeetingDataBindings } from '../../../modules/meetings'
@@ -629,6 +630,29 @@ function AgendaTab({
         <span className="text-xs text-neutral-500">{items.length} saker</span>
       </div>
 
+      {mandatoryGaps.length > 0 ? (
+        <WorkplaceNoticePanel
+          variant="warning"
+          title="Obligatoriske saker mangler innhold"
+          badge={mandatoryGaps.length}
+          items={[
+            ...mandatoryGaps.slice(0, 5).map((title, idx) => ({
+              id: `gap-${idx}`,
+              title,
+              subtitle: 'Må fylles ut før signering',
+            })),
+            ...(mandatoryGaps.length > 5
+              ? [
+                  {
+                    id: 'gap-more',
+                    title: `… og ${mandatoryGaps.length - 5} til`,
+                  },
+                ]
+              : []),
+          ]}
+        />
+      ) : null}
+
       <SuggestedTopicsCard
         signals={suggestedSignals}
         locked={locked}
@@ -636,18 +660,6 @@ function AgendaTab({
       />
 
       <AgendaBuilderToolbar items={items} locked={locked} onAddItem={onAddItem} />
-
-      {mandatoryGaps.length > 0 ? (
-        <WarningBox>
-          <strong>Mangler:</strong> {mandatoryGaps.length} obligatorisk{mandatoryGaps.length === 1 ? '' : 'e'} sak{mandatoryGaps.length === 1 ? '' : 'er'} har ikke protokollført innhold:
-          <ul className="mt-1.5 list-inside list-disc text-xs">
-            {mandatoryGaps.slice(0, 5).map((title) => (
-              <li key={title}>{title}</li>
-            ))}
-            {mandatoryGaps.length > 5 ? <li>… og {mandatoryGaps.length - 5} til</li> : null}
-          </ul>
-        </WarningBox>
-      ) : null}
 
       {priorOpenDecisions.length > 0 ? (
         <InfoBox>
