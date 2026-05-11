@@ -40,6 +40,7 @@ import { MeetingsHubPage } from './pages/meetings/MeetingsHubPage'
 import { MeetingsDetailView } from './pages/meetings/MeetingsDetailView'
 import { MeetingsAdminPage } from './pages/meetings/MeetingsAdminPage'
 import { MeetingsAnalysePage } from './pages/meetings/MeetingsAnalysePage'
+import { MeetingsExportPage } from './pages/meetings/MeetingsExportPage'
 import { MembersModule } from './pages/MembersModule'
 import { HseModule } from './pages/HseModule'
 import { OrgHealthModule } from './pages/OrgHealthModule'
@@ -268,6 +269,7 @@ const router = createBrowserRouter(
                       <Route path="meetings" element={<MeetingsHubPage />} />
                       <Route path="meetings/analyse" element={<MeetingsAnalysePage />} />
                       <Route path="meetings/admin" element={<MeetingsAdminPage />} />
+                      <Route path="meetings/:meetingId/eksport" element={<MeetingsExportPage />} />
                       <Route path="meetings/:meetingId" element={<MeetingsDetailView />} />
                       <Route path="members" element={<MembersModule />} />
                       <Route path="org-health" element={<OrgHealthModule />} />

@@ -200,6 +200,7 @@ export function MeetingsDetailView() {
             locked={isLocked}
             mandatoryGaps={mandatoryGaps}
             bindings={bindings.resolvedByAgendaItemId}
+            priorOpenDecisions={meetings.detail.priorOpenDecisions}
             onSave={meetings.setAgendaMinutes}
           />
         </ModuleSectionCard>
@@ -351,12 +352,14 @@ function AgendaTab({
   locked,
   mandatoryGaps,
   bindings,
+  priorOpenDecisions,
   onSave,
 }: {
   items: MeetingAgendaItemRow[]
   locked: boolean
   mandatoryGaps: string[]
   bindings: Map<string, RenderedBindingResult>
+  priorOpenDecisions: ReturnType<typeof useMeetings>['detail']['priorOpenDecisions']
   onSave: ReturnType<typeof useMeetings>['setAgendaMinutes']
 }) {
   return (
@@ -381,6 +384,25 @@ function AgendaTab({
             {mandatoryGaps.length > 5 ? <li>… og {mandatoryGaps.length - 5} til</li> : null}
           </ul>
         </WarningBox>
+      ) : null}
+
+      {priorOpenDecisions.length > 0 ? (
+        <InfoBox>
+          <strong>Vedtak fra tidligere møter ({priorOpenDecisions.length}):</strong>
+          <ul className="mt-1.5 space-y-1 text-xs">
+            {priorOpenDecisions.slice(0, 8).map((d) => (
+              <li key={d.id}>
+                <span className="text-neutral-900">«{d.decision_text}»</span>{' '}
+                <span className="text-neutral-500">
+                  — {d.meeting_title} ({fmtDate(d.meeting_scheduled_at)})
+                </span>
+              </li>
+            ))}
+            {priorOpenDecisions.length > 8 ? (
+              <li>… og {priorOpenDecisions.length - 8} til</li>
+            ) : null}
+          </ul>
+        </InfoBox>
       ) : null}
 
       {items.length === 0 ? (
@@ -861,6 +883,19 @@ function ProtocolTab({
         fase (jf. Council Review §3.4). Bekreftelsen låser identitetsbærende kolonner mot endring,
         men metadata forblir editerbar.
       </InfoBox>
+
+      <div>
+        <Link
+          to={`/meetings/${meetingId}/eksport`}
+          className="inline-flex items-center gap-1.5 rounded-md border border-neutral-300 bg-white px-3 py-2 text-sm font-medium text-neutral-700 hover:bg-neutral-50"
+        >
+          Last ned protokoll-pakke
+        </Link>
+        <p className="mt-1 text-xs text-neutral-500">
+          Genererer en utskriftsklar protokoll inkludert deltakere, agenda, vedtak,
+          oppgaver, signaturer og forberedelsesdata (Skriv ut → Lagre som PDF).
+        </p>
+      </div>
 
       {mandatoryGaps.length > 0 ? (
         <WarningBox>
