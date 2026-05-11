@@ -1,5 +1,17 @@
 import { useMemo, useState } from 'react'
-import { Loader2, Plus, Trash2, X } from 'lucide-react'
+import {
+  BookOpen,
+  ClipboardList,
+  FileSearch,
+  FileText,
+  Library,
+  Loader2,
+  Plus,
+  Shield,
+  Trash2,
+  X,
+} from 'lucide-react'
+import type { ComponentType } from 'react'
 import { useDocuments } from '../../../hooks/useDocuments'
 import { useOrgSetupContext } from '../../../hooks/useOrgSetupContext'
 import type { PageTemplate, SpaceCategory } from '../../../types/documents'
@@ -17,6 +29,20 @@ const CATEGORY_LABELS: Record<SpaceCategory, string> = {
   procedure: 'Prosedyre',
   guide: 'Veiledning',
   template_library: 'Malbibliotek',
+}
+
+// Per-category icon — visual parity with TaskKindIcon in Oppgaver.
+const CATEGORY_ICON: Record<SpaceCategory, ComponentType<{ className?: string }>> = {
+  hms_handbook: Shield,
+  policy: FileText,
+  procedure: ClipboardList,
+  guide: BookOpen,
+  template_library: Library,
+}
+
+function DocumentCategoryIcon({ category, className = 'h-4 w-4' }: { category: SpaceCategory; className?: string }) {
+  const Icon = CATEGORY_ICON[category] ?? FileSearch
+  return <Icon className={className} aria-hidden />
 }
 
 const categoryOptions: SelectOption[] = (Object.keys(CATEGORY_LABELS) as SpaceCategory[]).map((c) => ({
@@ -121,8 +147,15 @@ export function DocumentsSettingsMaler() {
                   return (
                     <tr key={t.id} className={`${MODULE_TABLE_TR_BODY} cursor-pointer`} onClick={() => setPanelId(t.id)}>
                       <td className="px-5 py-3 align-middle">
-                        <span className="font-medium text-[#1a3d32]">{t.label}</span>
-                        <p className="mt-0.5 line-clamp-1 text-xs text-neutral-500">{t.description}</p>
+                        <div className="flex items-center gap-2">
+                          <div className="shrink-0 rounded border border-neutral-200 bg-neutral-50 p-1.5">
+                            <DocumentCategoryIcon category={t.category} className="h-3.5 w-3.5 text-[#0f766e]" />
+                          </div>
+                          <div>
+                            <span className="font-medium text-[#1a3d32]">{t.label}</span>
+                            <p className="mt-0.5 line-clamp-1 text-xs text-neutral-500">{t.description}</p>
+                          </div>
+                        </div>
                       </td>
                       <td className="px-5 py-3 align-middle text-xs text-neutral-600">{CATEGORY_LABELS[t.category]}</td>
                       <td className="px-5 py-3 align-middle" onClick={(e) => e.stopPropagation()}>
@@ -183,8 +216,15 @@ export function DocumentsSettingsMaler() {
                   {customOnly.map((t) => (
                     <tr key={t.id} className={`${MODULE_TABLE_TR_BODY} cursor-pointer`} onClick={() => setPanelId(t.id)}>
                       <td className="px-5 py-3 align-middle">
-                        <span className="font-medium text-[#1a3d32]">{t.label}</span>
-                        <p className="mt-0.5 text-xs text-neutral-500">{t.description}</p>
+                        <div className="flex items-center gap-2">
+                          <div className="shrink-0 rounded border border-neutral-200 bg-neutral-50 p-1.5">
+                            <DocumentCategoryIcon category={t.category} className="h-3.5 w-3.5 text-[#0f766e]" />
+                          </div>
+                          <div>
+                            <span className="font-medium text-[#1a3d32]">{t.label}</span>
+                            <p className="mt-0.5 text-xs text-neutral-500">{t.description}</p>
+                          </div>
+                        </div>
                       </td>
                       <td className="px-5 py-3 align-middle" onClick={(e) => e.stopPropagation()}>
                         <Button type="button" variant="danger" size="sm" onClick={() => void removeCustom(t.id)} disabled={busyId === t.id}>

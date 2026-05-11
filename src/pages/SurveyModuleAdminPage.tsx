@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
-  ArrowLeft, BookOpen, Building2, Download, GitBranch, Globe,
-  Layers, LayoutGrid, Loader2, Mail, Plus, Settings, Smartphone, Trash2, Upload,
+  ArrowLeft, BookOpen, Building2, ClipboardList, Download, FolderTree,
+  GitBranch, Globe, Layers, LayoutGrid, Loader2, Mail, Plus, Settings,
+  Smartphone, Trash2, Upload,
 } from 'lucide-react'
 import { SurveyPakkerTab } from '../../modules/survey/admin/SurveyPakkerTab'
 import { SurveyLeverandorerTab } from '../../modules/survey/admin/SurveyLeverandorerTab'
@@ -52,10 +53,10 @@ const ADMIN_TABS: TabItem[] = [
   { id: 'epost',         label: 'E-post',        icon: Mail      },
   { id: 'sms',           label: 'SMS',           icon: Smartphone },
   { id: 'integrasjoner', label: 'Integrasjoner', icon: Globe     },
-  { id: 'sporsmalbank',  label: 'Spørsmålsbank', icon: BookOpen  },
-  { id: 'maler',         label: 'Maler',         icon: Download  },
-  { id: 'kategorier',    label: 'Kategorier',    icon: Layers    },
-  { id: 'pakker',        label: 'Pakker',        icon: Layers    },
+  { id: 'sporsmalbank',  label: 'Spørsmålsbank', icon: BookOpen       },
+  { id: 'maler',         label: 'Maler',         icon: ClipboardList  },
+  { id: 'kategorier',    label: 'Kategorier',    icon: FolderTree     },
+  { id: 'pakker',        label: 'Pakker',        icon: Layers         },
   { id: 'leverandorer',  label: 'Leverandører',  icon: Building2 },
   { id: 'arbeidsflyt',   label: 'Arbeidsflyt',   icon: GitBranch },
 ]
@@ -309,8 +310,24 @@ export function SurveyModuleAdminPage() {
         {/* ── Maler ───────────────────────────────────────────────────── */}
         {tab === 'maler' && (
           <>
+          {/* Template list — primary surface, matches the compliance MalerTab pattern */}
           <ModuleSectionCard className="p-5 md:p-6">
-            <h2 className="text-lg font-semibold text-neutral-900">Organisasjonsmaler — JSON</h2>
+            <div className="mb-3 flex items-center gap-2">
+              <ClipboardList className="h-5 w-5 text-[#7c3aed]" aria-hidden />
+              <h2 className="text-lg font-semibold text-neutral-900">Undersøkelsesmaler</h2>
+            </div>
+            <p className="mb-5 text-sm text-neutral-600">
+              Aktiver, fest i sidemenyen og angi gjennomgangsstatus for systemets og organisasjonens maler.
+            </p>
+            <SurveyMalerOpsCard supabase={supabase} />
+          </ModuleSectionCard>
+
+          {/* JSON import / export — secondary, below the template list */}
+          <ModuleSectionCard className="p-5 md:p-6">
+            <div className="mb-3 flex items-center gap-2">
+              <Download className="h-5 w-5 text-neutral-500" aria-hidden />
+              <h2 className="text-base font-semibold text-neutral-900">Import / Eksport — JSON</h2>
+            </div>
             <p className="mt-1 text-sm text-neutral-600">Eksporter og importer egendefinerte undersøkelsesmaler. Filformatet er versjonert.</p>
             <div className="mt-4"><InfoBox>Format: <code className="rounded bg-neutral-100 px-1 text-xs">klarert-survey-org-template-export-v1</code></InfoBox></div>
             {jsonErr && <div className="mt-4"><WarningBox>{jsonErr}</WarningBox></div>}
@@ -342,7 +359,6 @@ export function SurveyModuleAdminPage() {
               </div>
             )}
           </ModuleSectionCard>
-          <SurveyMalerOpsCard supabase={supabase} />
           </>
         )}
 
