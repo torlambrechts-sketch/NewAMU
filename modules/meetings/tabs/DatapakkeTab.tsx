@@ -105,14 +105,21 @@ export function DatapakkeTab({
 
   // Build a single `ReportModule[]` + dataset map for the agenda-bound
   // widgets so they render through the same grid12 layout as the Analyse
-  // page. Agenda-item title travels as the widget subtitle.
+  // page. Agenda-item title travels as the widget subtitle. Every binding
+  // widget is normalised to colSpan='md' so the grid pairs uniformly
+  // (the per-binding `colSpan` from `bindingToReportModule` defaults vary
+  // and leave awkward whitespace when a `full` table sits next to nothing).
   const { agendaModules, agendaDatasets } = useMemo(() => {
     const modules: ReportModule[] = []
     const datasets: Record<string, unknown> = {}
     for (const item of itemsForRender) {
       if (!item.binding_snapshot) continue
       const spec = bindingToReportModule(item.id, item.binding_snapshot)
-      modules.push({ ...spec.module, subtitle: `Agenda-punkt: ${item.title}` })
+      modules.push({
+        ...spec.module,
+        colSpan: 'md',
+        subtitle: `Agenda-punkt: ${item.title}`,
+      })
       Object.assign(datasets, spec.datasets)
     }
     return { agendaModules: modules, agendaDatasets: datasets }
@@ -125,6 +132,7 @@ export function DatapakkeTab({
       const spec = bindingToReportModule(`extra-${source}`, snap)
       modules.push({
         ...spec.module,
+        colSpan: 'md',
         subtitle: `Datakilde: ${SIGNAL_LABEL[source]?.title ?? source}`,
       })
       Object.assign(datasets, spec.datasets)
@@ -219,10 +227,15 @@ export function DatapakkeTab({
       </ModuleSectionCard>
 
       {agendaModules.length > 0 ? (
-        <div className="space-y-2">
-          <p className="text-[10px] font-bold uppercase tracking-wider text-neutral-500">
-            Fra agendaen
-          </p>
+        <section className="space-y-3">
+          <div className="flex items-center gap-3 border-l-4 border-[#0891b2] pl-3">
+            <h3 className="text-sm font-semibold uppercase tracking-wide text-neutral-800">
+              Fra agendaen
+            </h3>
+            <span className="text-xs text-neutral-500">
+              {agendaModules.length} datakilde{agendaModules.length === 1 ? '' : 'r'} knyttet til sakene
+            </span>
+          </div>
           <ReportModulesGrid
             modules={agendaModules}
             datasets={agendaDatasets}
@@ -230,14 +243,19 @@ export function DatapakkeTab({
             layoutMode="grid12"
             emptyLabel="Ingen data i perioden"
           />
-        </div>
+        </section>
       ) : null}
 
       {extraModules.length > 0 ? (
-        <div className="space-y-2">
-          <p className="text-[10px] font-bold uppercase tracking-wider text-neutral-500">
-            Andre signaler fra systemet
-          </p>
+        <section className="space-y-3">
+          <div className="flex items-center gap-3 border-l-4 border-neutral-300 pl-3">
+            <h3 className="text-sm font-semibold uppercase tracking-wide text-neutral-800">
+              Andre signaler fra systemet
+            </h3>
+            <span className="text-xs text-neutral-500">
+              {extraModules.length} kilde{extraModules.length === 1 ? '' : 'r'} ikke på agendaen
+            </span>
+          </div>
           <p className="text-xs text-neutral-600">
             Disse datakildene er relevante for {meeting.definition_snapshot?.framework ?? 'denne'}-møter
             men er ikke knyttet til en agenda-sak. Bruk «Foreslåtte saker» på Agenda-fanen for å legge dem til.
@@ -249,7 +267,7 @@ export function DatapakkeTab({
             layoutMode="grid12"
             emptyLabel="Ingen data i perioden"
           />
-        </div>
+        </section>
       ) : null}
 
       <SlidePanel

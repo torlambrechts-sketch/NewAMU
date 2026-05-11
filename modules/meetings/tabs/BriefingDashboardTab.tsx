@@ -65,10 +65,12 @@ export function BriefingDashboardTab({
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-end justify-between gap-2">
-        <div className="min-w-0">
-          <h2 className="text-lg font-semibold text-neutral-900">Dashboard</h2>
-          <p className="mt-0.5 text-sm text-neutral-600">
+      <div className="flex items-center gap-3 border-l-4 border-[#0891b2] pl-3">
+        <div className="min-w-0 flex-1">
+          <h3 className="text-sm font-semibold uppercase tracking-wide text-neutral-800">
+            Dashboard
+          </h3>
+          <p className="mt-0.5 text-xs text-neutral-600">
             Widgets definert i malen, scoped til møtets rapporteringsperiode. Endre periode fra Datapakke-fanen.
           </p>
         </div>
