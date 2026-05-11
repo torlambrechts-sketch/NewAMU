@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
-import { Eye, History, MessageSquare, PanelLeft, Pencil, Printer } from 'lucide-react'
+import { Eye, History, Maximize2, MessageSquare, Minimize2, PanelLeft, Pencil, Printer } from 'lucide-react'
 import { useDocuments } from '../../hooks/useDocuments'
 import { useOrgSetupContext } from '../../hooks/useOrgSetupContext'
 import { useWikiPageComments } from '../../hooks/useWikiPageComments'
@@ -43,11 +43,6 @@ const TEMPLATE_CLASS = {
   policy: 'max-w-2xl',
 }
 
-const FONT_PROSE: Record<'sm' | 'base' | 'lg', 'sm' | 'base' | 'lg'> = {
-  sm: 'sm',
-  base: 'base',
-  lg: 'lg',
-}
 function statusBadgeVariant(status: PageStatus): 'success' | 'draft' | 'neutral' {
   if (status === 'published') return 'success'
   if (status === 'draft') return 'draft'
@@ -144,6 +139,9 @@ export function WikiPageView() {
   const [editAccessDone, setEditAccessDone] = useState(false)
   const [diffVersion, setDiffVersion] = useState<WikiPageVersionSnapshot | null>(null)
   const [tocOpen, setTocOpen] = useState(true)
+  const [widthFull, setWidthFull] = useState(() => {
+    try { return localStorage.getItem('wiki-width-full') !== 'false' } catch { return true }
+  })
   const [fontSize, setFontSize] = useState<'sm' | 'base' | 'lg'>(() => {
     try { return (localStorage.getItem('wiki-font-size') as 'sm' | 'base' | 'lg') || 'base' } catch { return 'base' }
   })
@@ -173,6 +171,10 @@ export function WikiPageView() {
   useEffect(() => {
     try { localStorage.setItem('wiki-font-size', fontSize) } catch { /* quota */ }
   }, [fontSize])
+
+  useEffect(() => {
+    try { localStorage.setItem('wiki-width-full', String(widthFull)) } catch { /* quota */ }
+  }, [widthFull])
 
   const folderRestricted =
     page && space
@@ -265,8 +267,8 @@ export function WikiPageView() {
   const showViewsTab = Boolean(isAdmin || can('documents.manage'))
   const [activeTabExt, setActiveTabExt] = useState<DetailTab>(() => {
     const t = searchParams.get('tab')
-    if (t === 'innhold' || t === 'diskusjon' || t === 'versjoner' || t === 'visninger') return t
-    return 'informasjon'
+    if (t === 'informasjon' || t === 'innhold' || t === 'diskusjon' || t === 'versjoner' || t === 'visninger') return t
+    return 'innhold'
   })
 
   // Honour ?compare=<version> by jumping to Versjoner with the snapshot
@@ -843,6 +845,23 @@ export function WikiPageView() {
               </button>
             ))}
 
+            <div className="mx-1.5 h-4 w-px shrink-0 bg-neutral-200" aria-hidden />
+
+            {/* Width toggle */}
+            <button
+              type="button"
+              onClick={() => setWidthFull((w) => !w)}
+              title={widthFull ? 'Lesemodus (smalere bredde)' : 'Full bredde'}
+              className={`inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-medium transition-colors ${
+                widthFull ? 'text-neutral-500 hover:bg-neutral-100' : 'bg-[#1a3d32]/10 text-[#1a3d32]'
+              }`}
+            >
+              {widthFull
+                ? <Minimize2 className="size-3.5" aria-hidden />
+                : <Maximize2 className="size-3.5" aria-hidden />}
+              <span className="hidden sm:inline">{widthFull ? 'Lesemodus' : 'Full bredde'}</span>
+            </button>
+
             <div className="flex-1" />
 
             {/* Open comment count */}
@@ -963,13 +982,13 @@ export function WikiPageView() {
                   ) : null}
                 </div>
               ) : null}
-              <div className={`mx-auto ${TEMPLATE_CLASS[templateKey]}`}>
+              <div className={widthFull ? '' : `mx-auto ${TEMPLATE_CLASS[templateKey]}`}>
                 <WikiBlockRenderer
                   blocks={Array.isArray(page.blocks) ? page.blocks : []}
                   pageId={page.id}
                   pageVersion={page.version}
                   lang={page.lang ?? 'nb'}
-                  fontSize={FONT_PROSE[fontSize]}
+                  fontSize={fontSize}
                   blockFooter={(idx) =>
                     page.status !== 'archived' ? (
                       <WikiBlockCommentsPanel
