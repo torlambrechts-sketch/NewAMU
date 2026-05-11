@@ -1058,127 +1058,130 @@ export function WikiPageView() {
       )}
 
       {activeTabExt === 'diskusjon' && (
-        <ModuleSectionCard>
-          <div className="grid gap-6 lg:grid-cols-[1fr_320px]">
-            <div className="space-y-4">
-              <div>
-                <h2 className="text-sm font-semibold text-neutral-900">Forespørsel om godkjenning</h2>
-                <p className="mt-1 text-xs text-neutral-500">
-                  Når dokumentet krever godkjenning før publisering, vises forespørselen her.
-                </p>
-                <div className="mt-3">
-                  <DocumentReviewRequestPanel
-                    page={page}
-                    requests={wikiReviewRequests}
-                    currentUserId={user?.id}
-                    reviewerName={page.reviewerId ? resolveMemberName(page.reviewerId) : undefined}
-                    onSubmitForReview={submitForReview}
-                    onApprove={approveReviewRequest}
-                    onRequestChanges={requestReviewChanges}
-                  />
-                </div>
-              </div>
+        <div className="space-y-6">
+          <InfoBox>
+            <strong>Slik bruker du diskusjon:</strong> bytt til <em>Innhold</em> for å kommentere en bestemt blokk,
+            bruk <strong>@</strong> for å varsle en kollega, og merk innlegget som <em>Forslag</em>,{' '}
+            <em>Avvik</em> eller <em>Varsling</em> etter hva som passer. Konfidensiell varsling følger AML § 2A —
+            append-only, og synlig kun for deg, organisasjonsadmin og varslingsutvalget.
+          </InfoBox>
 
-              <div>
-                <h2 className="text-sm font-semibold text-neutral-900">
-                  Avvik knyttet til dokumentet
-                </h2>
-                <p className="mt-1 text-xs text-neutral-500">
-                  Når noen melder et avvik fra dette dokumentet (eller forfatter forslår et høy-/kritisk-alvorlig avvik
-                  i en kommentar), dukker det opp her — og i avvik-modulen.
-                </p>
-                <div className="mt-3">
-                  <DocumentAvvikPanel linked={linkedAvvik} loading={avvikLoading} />
-                </div>
-              </div>
-
-              {page.requiresAcknowledgement ? (
-                <div>
-                  <h2 className="text-sm font-semibold text-neutral-900">Signaturer</h2>
-                  <p className="mt-1 text-xs text-neutral-500">
-                    Hvem i målgruppen har signert «Lest og forstått» for nåværende versjon.
-                  </p>
-                  <div className="mt-3">
-                    <DocumentAcknowledgementsPanel page={page} receipts={docs.receipts} />
-                  </div>
-                </div>
-              ) : null}
-
-              <div>
-                <h2 className="text-sm font-semibold text-neutral-900">Aktivitet</h2>
-                <p className="mt-1 text-xs text-neutral-500">
-                  Sporbar tidslinje for revisjon — opprettelse, publisering, godkjenninger og signaturer.
-                </p>
-                <div className="mt-3">
-                  <DocumentActivityTimeline
-                    pageId={page.id}
-                    entries={auditLedger}
-                    resolveUserName={resolveMemberName}
-                    onCompareVersion={(fromVersion) => {
-                      const snap = versions.find((v) => v.version === fromVersion)
-                      if (snap) {
-                        setDiffVersion(snap)
-                        setActiveTabExt('versjoner')
-                      }
-                    }}
-                  />
-                </div>
-              </div>
+          <ModuleSectionCard className="p-5 md:p-6">
+            <h2 className="text-lg font-semibold text-neutral-900">Forespørsel om godkjenning</h2>
+            <p className="mt-1.5 text-sm text-neutral-600">
+              Når dokumentet krever godkjenning før publisering, vises forespørselen her.
+            </p>
+            <div className="mt-5">
+              <DocumentReviewRequestPanel
+                page={page}
+                requests={wikiReviewRequests}
+                currentUserId={user?.id}
+                reviewerName={page.reviewerId ? resolveMemberName(page.reviewerId) : undefined}
+                onSubmitForReview={submitForReview}
+                onApprove={approveReviewRequest}
+                onRequestChanges={requestReviewChanges}
+              />
             </div>
+          </ModuleSectionCard>
 
-            <aside className="space-y-2 rounded-lg border border-neutral-200 bg-neutral-50 p-4 text-xs text-neutral-700">
-              <p className="font-semibold text-neutral-800">Slik bruker du diskusjon</p>
-              <ul className="list-inside list-disc space-y-1">
-                <li>Bytt til <strong>Innhold</strong> for å kommentere en bestemt blokk i dokumentet.</li>
-                <li>Bruk <strong>@</strong> for å varsle en kollega — de får varsel i appen.</li>
-                <li>Merk innlegget som <strong>Forslag</strong>, <strong>Avvik</strong> eller <strong>Varsling</strong> etter hva som passer.</li>
-                <li>
-                  <strong>Konfidensiell varsling</strong> følger AML § 2A — append-only, og synlig kun for deg, organisasjonsadmin og varslingsutvalget.
-                </li>
-              </ul>
-            </aside>
-          </div>
-        </ModuleSectionCard>
+          <ModuleSectionCard className="p-5 md:p-6">
+            <h2 className="text-lg font-semibold text-neutral-900">Avvik knyttet til dokumentet</h2>
+            <p className="mt-1.5 text-sm text-neutral-600">
+              Når noen melder et avvik fra dette dokumentet (eller forfatter forslår et høy-/kritisk-alvorlig avvik
+              i en kommentar), dukker det opp her — og i avvik-modulen.
+            </p>
+            <div className="mt-5">
+              <DocumentAvvikPanel linked={linkedAvvik} loading={avvikLoading} />
+            </div>
+          </ModuleSectionCard>
+
+          {page.requiresAcknowledgement ? (
+            <ModuleSectionCard className="p-5 md:p-6">
+              <h2 className="text-lg font-semibold text-neutral-900">Signaturer</h2>
+              <p className="mt-1.5 text-sm text-neutral-600">
+                Hvem i målgruppen har signert «Lest og forstått» for nåværende versjon.
+              </p>
+              <div className="mt-5">
+                <DocumentAcknowledgementsPanel page={page} receipts={docs.receipts} />
+              </div>
+            </ModuleSectionCard>
+          ) : null}
+
+          <ModuleSectionCard className="p-5 md:p-6">
+            <h2 className="text-lg font-semibold text-neutral-900">Aktivitet</h2>
+            <p className="mt-1.5 text-sm text-neutral-600">
+              Sporbar tidslinje for revisjon — opprettelse, publisering, godkjenninger og signaturer.
+            </p>
+            <div className="mt-5">
+              <DocumentActivityTimeline
+                pageId={page.id}
+                entries={auditLedger}
+                resolveUserName={resolveMemberName}
+                onCompareVersion={(fromVersion) => {
+                  const snap = versions.find((v) => v.version === fromVersion)
+                  if (snap) {
+                    setDiffVersion(snap)
+                    setActiveTabExt('versjoner')
+                  }
+                }}
+              />
+            </div>
+          </ModuleSectionCard>
+        </div>
       )}
 
       {activeTabExt === 'visninger' && showViewsTab ? (
-        <ModuleSectionCard>
-          <h2 className="text-sm font-semibold text-neutral-900">Visninger (aggregert)</h2>
-          <p className="mt-1 text-xs text-neutral-500">
+        <ModuleSectionCard className="p-5 md:p-6">
+          <h2 className="text-lg font-semibold text-neutral-900">Visninger (aggregert)</h2>
+          <p className="mt-1.5 text-sm text-neutral-600">
             Unike brukere og visninger siste 30 dager (kun for administratorer og dokumentansvarlige).
           </p>
           {viewRow ? (
-            <ul className="mt-4 space-y-2 text-sm text-neutral-800">
-              <li>Unike brukere (totalt i DB for denne siden): {viewRow.uniqueViewers}</li>
-              <li>Visninger siste 30 dager: {viewRow.viewsLast30}</li>
+            <ul className="mt-5 space-y-3">
+              <li className="flex flex-wrap items-center justify-between gap-4 rounded-lg border border-neutral-200/80 bg-neutral-50/50 p-4">
+                <span className="text-sm text-neutral-800">Unike brukere (totalt i DB for denne siden)</span>
+                <span className="text-base font-semibold text-neutral-900">{viewRow.uniqueViewers}</span>
+              </li>
+              <li className="flex flex-wrap items-center justify-between gap-4 rounded-lg border border-neutral-200/80 bg-neutral-50/50 p-4">
+                <span className="text-sm text-neutral-800">Visninger siste 30 dager</span>
+                <span className="text-base font-semibold text-neutral-900">{viewRow.viewsLast30}</span>
+              </li>
             </ul>
           ) : (
-            <p className="mt-4 text-sm text-neutral-500">Ingen visningsdata ennå.</p>
+            <p className="mt-5 text-sm text-neutral-500">Ingen visningsdata ennå.</p>
           )}
         </ModuleSectionCard>
       ) : null}
 
       {activeTabExt === 'versjoner' && (
-        <ModuleSectionCard>
+        <ModuleSectionCard className="p-5 md:p-6">
           {versions.length === 0 ? (
-            <p className="text-sm text-neutral-600">Ingen arkiverte publiserte versjoner ennå.</p>
-          ) : (
             <>
-              <h2 className="flex items-center gap-2 text-sm font-semibold text-neutral-900">
-                <History className="size-4 text-[#1a3d32]" aria-hidden />
+              <h2 className="flex items-center gap-2 text-lg font-semibold text-neutral-900">
+                <History className="size-5 text-[#1a3d32]" aria-hidden />
                 Publiserte versjoner (arkiv)
               </h2>
-              <p className="mt-1 text-xs text-neutral-500">
+              <p className="mt-1.5 text-sm text-neutral-600">
+                Ingen arkiverte publiserte versjoner ennå. Første publisering oppretter v1 i arkivet.
+              </p>
+            </>
+          ) : (
+            <>
+              <div className="flex items-center gap-2">
+                <History className="size-5 text-[#1a3d32]" aria-hidden />
+                <h2 className="text-lg font-semibold text-neutral-900">Publiserte versjoner (arkiv)</h2>
+              </div>
+              <p className="mt-1.5 text-sm text-neutral-600">
                 Hver publisering fryser forrige versjon for revisjon og tilsyn.
               </p>
-              <ul className="mt-3 space-y-2 text-sm">
+              <ul className="mt-5 space-y-3">
                 {versions.map((v) => (
                   <li
                     key={v.id}
-                    className="flex flex-wrap items-center justify-between gap-2 border-b border-neutral-100 pb-2 last:border-0"
+                    className="flex flex-wrap items-center justify-between gap-4 rounded-lg border border-neutral-200/80 bg-neutral-50/50 p-4"
                   >
                     <div className="min-w-0 flex-1">
-                      <span className="font-medium text-neutral-800">
+                      <span className="text-sm font-medium text-neutral-900">
                         v{v.version} — {v.title}
                       </span>
                       <span className="mt-0.5 block text-xs text-neutral-500">
@@ -1188,9 +1191,8 @@ export function WikiPageView() {
                     {currentPublishedSnapshot && v.version < currentPublishedSnapshot.version ? (
                       <Button
                         type="button"
-                        variant="ghost"
+                        variant="secondary"
                         size="sm"
-                        className="shrink-0 text-xs text-[#1a3d32] underline"
                         onClick={() => setDiffVersion(v)}
                       >
                         Sammenlign
@@ -1201,9 +1203,9 @@ export function WikiPageView() {
               </ul>
               {diffVersion && currentPublishedSnapshot ? (
                 <div className="mt-6 border-t border-neutral-100 pt-4">
-                  <div className="mb-2 flex items-center justify-between gap-2">
+                  <div className="mb-3 flex items-center justify-between gap-2">
                     <h3 className="text-sm font-semibold text-neutral-900">Endringer</h3>
-                    <Button type="button" variant="ghost" size="sm" className="text-xs text-neutral-600" onClick={() => setDiffVersion(null)}>
+                    <Button type="button" variant="secondary" size="sm" onClick={() => setDiffVersion(null)}>
                       Lukk
                     </Button>
                   </div>
