@@ -46,8 +46,8 @@ function widgetTitle(snapshot: RenderedBindingResult): string {
 
 /**
  * Maps a `RenderedBindingResult` to a self-contained widget spec. The
- * caller (`BindingChartCard`) passes `module` + `datasets` to
- * `ReportModuleWidget`.
+ * caller passes `module` + `datasets` to a `ReportModuleWidget`
+ * (or `ReportModulesGrid` once aggregated).
  *
  * `widgetId` should be unique within the meeting — typically the agenda
  * item id so React keys are stable on re-render.

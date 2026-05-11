@@ -11,10 +11,9 @@
 // period chip is read-only here; chairs change it from the Datapakke tab.
 
 import { useMemo } from 'react'
-import { BarChart3, CalendarRange } from 'lucide-react'
+import { CalendarRange } from 'lucide-react'
 import { ModuleSectionCard } from '../../../src/components/module/ModuleSectionCard'
 import { ModulePageEmpty } from '../../../src/components/module/ModulePageShell'
-import { Badge } from '../../../src/components/ui/Badge'
 import { ReportModulesGrid } from '../../../src/components/reports/ReportModuleWidget'
 import { useMeetingBriefingDatasets } from '../dashboards/useMeetingBriefingDatasets'
 import type {
@@ -65,30 +64,24 @@ export function BriefingDashboardTab({
   }
 
   return (
-    <div className="space-y-5">
-      <ModuleSectionCard className="p-5 md:p-6">
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          <div className="min-w-0 flex-1">
-            <div className="flex items-center gap-2">
-              <BarChart3 className="h-5 w-5 text-[#0891b2]" />
-              <h2 className="text-lg font-semibold text-neutral-900">Dashboard</h2>
-            </div>
-            <p className="mt-1.5 text-sm text-neutral-600">
-              Widgets definert i malen, scoped til møtets rapporteringsperiode.
-              Endre periode fra Datapakke-fanen.
-            </p>
-            <div className="mt-2 flex flex-wrap items-center gap-2">
-              <Badge variant="info">
-                <CalendarRange className="mr-1 inline h-3 w-3" />
-                {fmtPeriod(meeting)}
-              </Badge>
-              <span className="text-xs text-neutral-500">
-                {layout.length} widget{layout.length === 1 ? '' : 's'}
-              </span>
-            </div>
-          </div>
+    <div className="space-y-4">
+      <div className="flex flex-wrap items-end justify-between gap-2">
+        <div className="min-w-0">
+          <h2 className="text-lg font-semibold text-neutral-900">Dashboard</h2>
+          <p className="mt-0.5 text-sm text-neutral-600">
+            Widgets definert i malen, scoped til møtets rapporteringsperiode. Endre periode fra Datapakke-fanen.
+          </p>
         </div>
-      </ModuleSectionCard>
+      </div>
+
+      <div className="flex flex-wrap items-center gap-2 rounded-lg border border-neutral-200 bg-white px-3 py-2 text-xs text-neutral-600">
+        <CalendarRange className="h-4 w-4 text-neutral-400" />
+        <span className="font-medium text-neutral-700">Periode:</span>
+        <span>{fmtPeriod(meeting)}</span>
+        <span className="ml-auto text-neutral-400">
+          {layout.length} widget{layout.length === 1 ? '' : 's'}
+        </span>
+      </div>
 
       <ReportModulesGrid
         modules={layout}
