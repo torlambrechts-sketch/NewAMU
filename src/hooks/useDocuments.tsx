@@ -301,6 +301,7 @@ function mapPage(
     scheduled_deletion_at?: string | null
     review_required?: boolean | null
     reviewer_id?: string | null
+    requires_verneombud_review?: boolean | null
     metadata?: Record<string, unknown> | null
     created_from_template_id?: string | null
   },
@@ -342,6 +343,7 @@ function mapPage(
     updatedAt: row.updated_at,
     reviewRequired: row.review_required ?? false,
     reviewerId: row.reviewer_id ?? null,
+    requiresVerneombudReview: row.requires_verneombud_review ?? false,
     metadata: (row.metadata as Record<string, unknown> | null) ?? {},
     createdFromTemplateId: row.created_from_template_id ?? null,
   }
@@ -1121,6 +1123,7 @@ function useDocumentsStore() {
           | 'nextRevisionDueAt'
           | 'reviewRequired'
           | 'reviewerId'
+          | 'requiresVerneombudReview'
         >
       > & { templateId?: string },
     ) => {
@@ -1149,6 +1152,7 @@ function useDocumentsStore() {
           author_id: userId,
           review_required: opts?.reviewRequired ?? false,
           reviewer_id: opts?.reviewerId ?? null,
+          requires_verneombud_review: opts?.requiresVerneombudReview ?? false,
         }
         if (opts?.templateId === 'tpl-personvern-ansatt') {
           pageRow.contains_pii = true
@@ -1215,6 +1219,7 @@ function useDocumentsStore() {
         authorId: authorFallback,
         reviewRequired: opts?.reviewRequired ?? false,
         reviewerId: opts?.reviewerId ?? null,
+        requiresVerneombudReview: opts?.requiresVerneombudReview ?? false,
       }
       const entry = ledgerEntryLocal(page, 'created')
       setLocalState((s) => ({
@@ -1256,6 +1261,7 @@ function useDocumentsStore() {
           | 'archivedAt'
           | 'reviewRequired'
           | 'reviewerId'
+          | 'requiresVerneombudReview'
         >
       >,
     ) => {
@@ -1273,6 +1279,8 @@ function useDocumentsStore() {
         if (patch.status !== undefined) dbPatch.status = patch.status
         if (patch.reviewRequired !== undefined) dbPatch.review_required = patch.reviewRequired
         if (patch.reviewerId !== undefined) dbPatch.reviewer_id = patch.reviewerId
+        if (patch.requiresVerneombudReview !== undefined)
+          dbPatch.requires_verneombud_review = patch.requiresVerneombudReview
         if (patch.blocks !== undefined) dbPatch.blocks = stripContentBlockInstanceIds(patch.blocks)
         if (patch.legalRefs !== undefined) dbPatch.legal_refs = patch.legalRefs
         if (patch.lang !== undefined) dbPatch.lang = patch.lang

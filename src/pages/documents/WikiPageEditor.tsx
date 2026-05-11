@@ -50,6 +50,7 @@ import { TipTapRichTextEditor } from '../../components/documents/TipTapRichTextE
 import { DocumentActivityTimeline } from '../../components/documents/DocumentActivityTimeline'
 import { DocumentDraftCollaborators } from '../../components/documents/DocumentDraftCollaborators'
 import { DocumentPresenceStack } from '../../components/documents/DocumentPresenceStack'
+import { DocumentPublishGatesPanel } from '../../components/documents/DocumentPublishGatesPanel'
 import { DocumentReviewRequestPanel } from '../../components/documents/DocumentReviewRequestPanel'
 import {
   ModuleLegalBanner,
@@ -1201,6 +1202,17 @@ export function WikiPageEditor() {
       {editTab === 'samarbeid' ? (
         <div className="mt-6 grid gap-6 lg:grid-cols-[1fr_320px]">
           <div className="space-y-4">
+            <ModuleSectionCard>
+              <h3 className="mb-3 border-b border-neutral-100 pb-2 text-sm font-semibold text-neutral-900">
+                Publiseringskrav
+              </h3>
+              <p className="mb-3 text-xs text-neutral-500">
+                Avgjør hvem som må uttale seg før dokumentet kan publiseres. Verneombudskravet håndheves i databasen
+                (AML § 6-2) — publisering blokkeres til en verneombud-kommentar finnes.
+              </p>
+              <DocumentPublishGatesPanel page={original} />
+            </ModuleSectionCard>
+
             <ModuleSectionCard>
               <h3 className="mb-3 border-b border-neutral-100 pb-2 text-sm font-semibold text-neutral-900">
                 Godkjenning

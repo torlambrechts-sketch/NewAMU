@@ -176,6 +176,10 @@ export type WikiPage = {
   reviewRequired?: boolean
   /** Bruker-id for godkjenner når `reviewRequired` er satt. */
   reviewerId?: string | null
+  /** When true, publish is hard-blocked at the DB until a verneombud
+   *  (profile.learning_metadata.is_safety_rep = true) has commented on
+   *  the page. Maps to AML § 6-2. */
+  requiresVerneombudReview?: boolean
   /**
    * Free-form per-page metadata bag keyed by the source template's
    * `metadata_schema` (documents-parity §T8). Empty `{}` for pages
