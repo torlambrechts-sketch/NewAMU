@@ -17,7 +17,6 @@ import { Badge } from '../../../src/components/ui/Badge'
 import { Button } from '../../../src/components/ui/Button'
 import { InfoBox } from '../../../src/components/ui/AlertBox'
 import { SlidePanel } from '../../../src/components/layout/SlidePanel'
-import { BindingChartCard } from '../components/BindingChartCard'
 import {
   ReportingPeriodPicker,
   type PeriodValue,
@@ -31,7 +30,8 @@ import type {
 } from '../types'
 import { SIGNAL_LABEL } from '../lib/frameworkSignals'
 import { bindingToReportModule } from '../lib/bindingToReportModule'
-import { ReportModuleWidget } from '../../../src/components/reports/ReportModuleWidget'
+import { ReportModulesGrid } from '../../../src/components/reports/ReportModuleWidget'
+import type { ReportModule } from '../../../src/types/reportBuilder'
 
 const MEETINGS_ACCENT = '#0891b2'
 
@@ -86,7 +86,51 @@ export function DatapakkeTab({
   }, [meeting, agendaItems])
 
   const extraSignalsArr: Array<[MeetingDataBinding['source'], RenderedBindingResult]> =
-    Array.from(extraSignals.entries())
+    useMemo(() => Array.from(extraSignals.entries()), [extraSignals])
+
+  // Hydrate items with live bindings when available (for items where the
+  // chair just changed the period — the live hook resolves before the
+  // snapshot column updates).
+  const itemsForRender = useMemo(
+    () =>
+      bindingItems.map((item) => {
+        const live = liveBindings.get(item.id)
+        if (live && !item.binding_snapshot) {
+          return { ...item, binding_snapshot: live }
+        }
+        return item
+      }),
+    [bindingItems, liveBindings],
+  )
+
+  // Build a single `ReportModule[]` + dataset map for the agenda-bound
+  // widgets so they render through the same grid12 layout as the Analyse
+  // page. Agenda-item title travels as the widget subtitle.
+  const { agendaModules, agendaDatasets } = useMemo(() => {
+    const modules: ReportModule[] = []
+    const datasets: Record<string, unknown> = {}
+    for (const item of itemsForRender) {
+      if (!item.binding_snapshot) continue
+      const spec = bindingToReportModule(item.id, item.binding_snapshot)
+      modules.push({ ...spec.module, subtitle: `Agenda-punkt: ${item.title}` })
+      Object.assign(datasets, spec.datasets)
+    }
+    return { agendaModules: modules, agendaDatasets: datasets }
+  }, [itemsForRender])
+
+  const { extraModules, extraDatasets } = useMemo(() => {
+    const modules: ReportModule[] = []
+    const datasets: Record<string, unknown> = {}
+    for (const [source, snap] of extraSignalsArr) {
+      const spec = bindingToReportModule(`extra-${source}`, snap)
+      modules.push({
+        ...spec.module,
+        subtitle: `Datakilde: ${SIGNAL_LABEL[source]?.title ?? source}`,
+      })
+      Object.assign(datasets, spec.datasets)
+    }
+    return { extraModules: modules, extraDatasets: datasets }
+  }, [extraSignalsArr])
 
   if (bindingItems.length === 0 && extraSignalsArr.length === 0) {
     return (
@@ -112,17 +156,6 @@ export function DatapakkeTab({
       setRefreshing(false)
     }
   }
-
-  // Hydrate items with live bindings when available (for items where the
-  // chair just changed the period — the live hook resolves before the
-  // snapshot column updates).
-  const itemsForRender = bindingItems.map((item) => {
-    const live = liveBindings.get(item.id)
-    if (live && !item.binding_snapshot) {
-      return { ...item, binding_snapshot: live }
-    }
-    return item
-  })
 
   return (
     <div className="space-y-5">
@@ -185,20 +218,22 @@ export function DatapakkeTab({
         ) : null}
       </ModuleSectionCard>
 
-      {itemsForRender.length > 0 ? (
+      {agendaModules.length > 0 ? (
         <div className="space-y-2">
           <p className="text-[10px] font-bold uppercase tracking-wider text-neutral-500">
             Fra agendaen
           </p>
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-            {itemsForRender.map((item) => (
-              <BindingChartCard key={item.id} item={item} meetingId={meeting.id} />
-            ))}
-          </div>
+          <ReportModulesGrid
+            modules={agendaModules}
+            datasets={agendaDatasets}
+            accent={MEETINGS_ACCENT}
+            layoutMode="grid12"
+            emptyLabel="Ingen data i perioden"
+          />
         </div>
       ) : null}
 
-      {extraSignalsArr.length > 0 ? (
+      {extraModules.length > 0 ? (
         <div className="space-y-2">
           <p className="text-[10px] font-bold uppercase tracking-wider text-neutral-500">
             Andre signaler fra systemet
@@ -207,28 +242,13 @@ export function DatapakkeTab({
             Disse datakildene er relevante for {meeting.definition_snapshot?.framework ?? 'denne'}-møter
             men er ikke knyttet til en agenda-sak. Bruk «Foreslåtte saker» på Agenda-fanen for å legge dem til.
           </p>
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-            {extraSignalsArr.map(([source, snap]) => {
-              const { module: reportModule, datasets } = bindingToReportModule(
-                `extra-${source}`,
-                snap,
-              )
-              return (
-                <div key={source} className="space-y-2">
-                  <ReportModuleWidget
-                    module={reportModule}
-                    datasets={datasets}
-                    accent={MEETINGS_ACCENT}
-                    layoutMode="fluid"
-                    emptyLabel="Ingen data i perioden"
-                  />
-                  <p className="text-[11px] text-neutral-500">
-                    Datakilde: {SIGNAL_LABEL[source]?.title ?? source}
-                  </p>
-                </div>
-              )
-            })}
-          </div>
+          <ReportModulesGrid
+            modules={extraModules}
+            datasets={extraDatasets}
+            accent={MEETINGS_ACCENT}
+            layoutMode="grid12"
+            emptyLabel="Ingen data i perioden"
+          />
         </div>
       ) : null}
 
