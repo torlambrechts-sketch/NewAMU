@@ -1002,7 +1002,7 @@ export function WikiPageView() {
                         canSeeConfidential={canSeeConfidential}
                         inviteCollaboratorsHref={
                           page.status === 'draft' && canEditThisDoc
-                            ? `/documents/page/${page.id}/edit?tab=samarbeid`
+                            ? `/documents/page/${page.id}/reference-edit?sidebar=collaboration`
                             : undefined
                         }
                         onPromoteToAvvik={async ({ commentId, body, severity }) => {

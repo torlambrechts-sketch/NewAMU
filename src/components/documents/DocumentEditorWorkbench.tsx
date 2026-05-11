@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import type { Editor } from '@tiptap/core'
 import {
   AlertTriangle,
@@ -19,6 +20,7 @@ import {
   Shield,
   Type,
   User,
+  Users,
 } from 'lucide-react'
 import { ModuleSectionCard } from '../module/ModuleSectionCard'
 import { Badge } from '../ui/Badge'
@@ -33,6 +35,7 @@ import { DOCUMENT_EDITOR_SECTIONS, type DocumentEditorSectionId } from './docume
 import { useDocuments } from '../../hooks/useDocuments'
 import { useOrgSetupContext } from '../../hooks/useOrgSetupContext'
 import { useDirtyGuard } from '../../hooks/useDirtyGuard'
+import { useDocumentPresence } from '../../hooks/useDocumentPresence'
 import { getSupabaseErrorMessage } from '../../lib/supabaseError'
 import {
   canViewWikiSpace,
@@ -42,6 +45,11 @@ import {
 import { canBypassWikiFolderGrants, canEditWikiDocuments } from '../../lib/documentsAccess'
 import { DocumentAccessRequestDialog } from './DocumentAccessRequestDialog'
 import { DocumentAccessRequestForm } from './DocumentAccessRequestForm'
+import { DocumentActivityTimeline } from './DocumentActivityTimeline'
+import { DocumentDraftCollaborators } from './DocumentDraftCollaborators'
+import { DocumentPresenceStack } from './DocumentPresenceStack'
+import { DocumentPublishGatesPanel } from './DocumentPublishGatesPanel'
+import { DocumentReviewRequestPanel } from './DocumentReviewRequestPanel'
 import type { ContentBlock, PageTemplate } from '../../types/documents'
 
 const INITIAL_HTML = `<h1>Arbeidsavtale / HMS-dokument (utkast)</h1><p>Rediger dokumentet direkte på siden. Bruk <strong>Innhold</strong> for å sette inn standardseksjoner knyttet til arbeidsmiljøloven og internkontrollforskriften. TipTap gir overskrifter (H1–H3), lister, lenker, understreking og horisontal linje.</p><p></p>`
@@ -49,7 +57,7 @@ const INITIAL_HTML = `<h1>Arbeidsavtale / HMS-dokument (utkast)</h1><p>Rediger d
 /** Vertical stack spacing for spec form (matches module form density). */
 const SPEC_FORM_STACK = 'space-y-4'
 
-type SidebarMode = 'content' | 'specification' | 'history'
+type SidebarMode = 'content' | 'specification' | 'history' | 'collaboration'
 
 const CATEGORY_OPTIONS: SelectOption[] = [
   { value: 'hms', label: 'HMS / internkontroll' },
@@ -157,8 +165,18 @@ export function DocumentEditorWorkbench({
     pageHydrateLoading,
     pageHydrateError,
     ensurePageLoaded,
+    wikiReviewRequests,
+    submitForReview,
+    approveReviewRequest,
+    requestReviewChanges,
+    auditLedger,
   } = docs
-  const { can, user, profile, members } = useOrgSetupContext()
+  const { can, user, profile, members, orgProfiles } = useOrgSetupContext()
+  const [searchParams] = useSearchParams()
+  const resolveMemberName = useCallback(
+    (uid: string) => orgProfiles.find((p) => p.id === uid)?.display_name ?? uid.slice(0, 8),
+    [orgProfiles],
+  )
   const canEditDocs = canEditWikiDocuments(can, profile?.is_org_admin)
   const bypassFolderRbac = canBypassWikiFolderGrants(can, profile?.is_org_admin)
   const persistOrgTemplate = mode === 'persist' && Boolean(orgTemplateId)
@@ -218,7 +236,15 @@ export function DocumentEditorWorkbench({
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState<string | null>(null)
   const hydratedKeyRef = useRef<string | null>(null)
-  const [sidebarMode, setSidebarMode] = useState<SidebarMode>('content')
+  const [sidebarMode, setSidebarMode] = useState<SidebarMode>(() => {
+    const s = searchParams.get('sidebar')
+    if (s === 'content' || s === 'specification' || s === 'history' || s === 'collaboration') return s
+    return 'content'
+  })
+  // Page-level realtime presence (avatar stack in the title strip). Per-block
+  // soft locks don't apply to the TipTap surface — locking the whole doc
+  // would be too coarse. Skipped intentionally.
+  const presence = useDocumentPresence(originalPage?.id)
   const [recipient, setRecipient] = useState('employee')
 
   const [specCategory, setSpecCategory] = useState('hms')
@@ -567,7 +593,10 @@ export function DocumentEditorWorkbench({
                 </Button>
               ) : null}
             </div>
-            <div className="flex shrink-0 items-center gap-1">
+            <div className="flex shrink-0 items-center gap-2">
+              {originalPage ? (
+                <DocumentPresenceStack users={presence.presence} currentUserId={user?.id} />
+              ) : null}
               <Button type="button" variant="ghost" size="icon" aria-label="Legg til side">
                 <Plus className="h-4 w-4" />
               </Button>
@@ -654,6 +683,20 @@ export function DocumentEditorWorkbench({
             >
               <History className="h-4 w-4" />
             </Button>
+            {originalPage ? (
+              <Button
+                type="button"
+                variant={sidebarMode === 'collaboration' ? 'primary' : 'ghost'}
+                size="icon"
+                className="rounded-full"
+                aria-pressed={sidebarMode === 'collaboration'}
+                onClick={() => setSidebarMode('collaboration')}
+                aria-label="Samarbeid"
+                title="Samarbeid — godkjenning, samarbeidere, aktivitet"
+              >
+                <Users className="h-4 w-4" />
+              </Button>
+            ) : null}
           </div>
 
           <div className="min-h-0 flex-1 overflow-y-auto p-4">
@@ -800,7 +843,7 @@ export function DocumentEditorWorkbench({
                   </div>
                 </div>
               </>
-            ) : (
+            ) : sidebarMode === 'history' ? (
               <>
                 <h2 className="text-sm font-semibold text-neutral-900">Historikk</h2>
                 <p className="mt-1 text-xs text-neutral-500">
@@ -831,6 +874,74 @@ export function DocumentEditorWorkbench({
                   ))}
                 </ul>
               </>
+            ) : originalPage ? (
+              <div className="space-y-5">
+                <div>
+                  <h2 className="text-sm font-semibold text-neutral-900">Samarbeid</h2>
+                  <p className="mt-1 text-xs text-neutral-500">
+                    Publiseringskrav, samarbeidere, godkjenning og revisjonsspor for dette dokumentet.
+                  </p>
+                </div>
+
+                <section>
+                  <h3 className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-neutral-500">
+                    Publiseringskrav
+                  </h3>
+                  <DocumentPublishGatesPanel page={originalPage} />
+                </section>
+
+                <section>
+                  <h3 className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-neutral-500">
+                    Samarbeidere på utkast
+                  </h3>
+                  <DocumentDraftCollaborators
+                    pageId={originalPage.id}
+                    pageStatus={originalPage.status}
+                    canManage={canEditDocs}
+                  />
+                </section>
+
+                <section>
+                  <h3 className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-neutral-500">
+                    Godkjenning
+                  </h3>
+                  <DocumentReviewRequestPanel
+                    page={originalPage}
+                    requests={wikiReviewRequests}
+                    currentUserId={user?.id}
+                    reviewerName={originalPage.reviewerId ? resolveMemberName(originalPage.reviewerId) : undefined}
+                    onSubmitForReview={submitForReview}
+                    onApprove={approveReviewRequest}
+                    onRequestChanges={requestReviewChanges}
+                  />
+                </section>
+
+                <section>
+                  <h3 className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-neutral-500">
+                    Aktivitet
+                  </h3>
+                  <DocumentActivityTimeline
+                    pageId={originalPage.id}
+                    entries={auditLedger}
+                    resolveUserName={resolveMemberName}
+                  />
+                </section>
+
+                <p className="rounded border border-neutral-200 bg-white p-2 text-[11px] text-neutral-500">
+                  <strong>Tips:</strong> Diskusjon på enkeltblokker skjer i forhåndsvisningen.{' '}
+                  <a
+                    href={`/documents/page/${originalPage.id}?tab=diskusjon`}
+                    className="text-[#0f766e] underline"
+                  >
+                    Åpne forhåndsvisning
+                  </a>
+                  .
+                </p>
+              </div>
+            ) : (
+              <p className="text-xs text-neutral-500">
+                Samarbeid er tilgjengelig når dokumentet er lagret.
+              </p>
             )}
           </div>
         </div>
