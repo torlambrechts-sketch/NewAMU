@@ -45,8 +45,11 @@ import { arrayMove, SortableContext, useSortable, verticalListSortingStrategy } 
 import { CSS } from '@dnd-kit/utilities'
 import { useDocuments } from '../../hooks/useDocuments'
 import { useOrgSetupContext } from '../../hooks/useOrgSetupContext'
+import { useDocumentPresence, type BlockLock } from '../../hooks/useDocumentPresence'
 import { TipTapRichTextEditor } from '../../components/documents/TipTapRichTextEditor'
 import { DocumentActivityTimeline } from '../../components/documents/DocumentActivityTimeline'
+import { DocumentDraftCollaborators } from '../../components/documents/DocumentDraftCollaborators'
+import { DocumentPresenceStack } from '../../components/documents/DocumentPresenceStack'
 import { DocumentReviewRequestPanel } from '../../components/documents/DocumentReviewRequestPanel'
 import {
   ModuleLegalBanner,
@@ -231,6 +234,8 @@ export function WikiPageEditor() {
   const [saveErrorSource, setSaveErrorSource] = useState<'lagre' | 'publiser' | null>(null)
   const saveErrorRef = useRef<HTMLDivElement>(null)
   const [selectedIdx, setSelectedIdx] = useState<number | null>(null)
+  const presence = useDocumentPresence(pageId)
+  const prevSelectedIdxRef = useRef<number | null>(null)
   const [pageLang, setPageLang] = useState<WikiPageLang>(() => original?.lang ?? 'nb')
   const [a11yOpen, setA11yOpen] = useState(false)
   const [a11yWarnings, setA11yWarnings] = useState<string[]>([])
@@ -296,6 +301,22 @@ export function WikiPageEditor() {
   const blocker = useBlocker(
     ({ currentLocation, nextLocation }) => dirty && currentLocation.pathname !== nextLocation.pathname,
   )
+
+  // Selecting a block tries to lock it; deselecting releases. Lock is
+  // advisory — if someone else holds it, we still allow editing locally
+  // (the indicator surfaces the conflict).
+  useEffect(() => {
+    const prev = prevSelectedIdxRef.current
+    if (prev != null && prev !== selectedIdx) {
+      void presence.releaseBlockLock(prev)
+    }
+    prevSelectedIdxRef.current = selectedIdx
+    presence.setFocusedBlock(selectedIdx)
+    if (selectedIdx != null) {
+      void presence.acquireBlockLock(selectedIdx)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- presence functions are stable refs; depending on them would loop.
+  }, [selectedIdx])
 
   useEffect(() => {
     if (!dirty) return
@@ -580,6 +601,7 @@ export function WikiPageEditor() {
       }
       headerActions={
         <div className="flex flex-wrap items-center gap-2">
+          <DocumentPresenceStack users={presence.presence} currentUserId={user?.id} />
           <Badge variant={editorStatusBadgeVariant(original.status)} className="text-xs">
             {EDITOR_STATUS_LABEL[original.status]}
           </Badge>
@@ -790,6 +812,8 @@ export function WikiPageEditor() {
                       dropHighlight={overBlockId === block.instanceId && activeBlockId !== block.instanceId}
                       supabase={supabase}
                       orgId={organization?.id ?? null}
+                      lockHolder={presence.heldBy(idx)}
+                      isHeldByMe={presence.isHeldByMe(idx)}
                     />
                   )}
                 </SortableBlockRow>
@@ -1166,6 +1190,22 @@ export function WikiPageEditor() {
 
             <ModuleSectionCard>
               <h3 className="mb-3 border-b border-neutral-100 pb-2 text-sm font-semibold text-neutral-900">
+                Samarbeidere
+              </h3>
+              <p className="mb-3 text-xs text-neutral-500">
+                Inviter kolleger til å lese og kommentere mens dokumentet er utkast. De får tilgang til denne
+                versjonen, selv om mappetillatelsene ellers ikke ville gitt det. Tilgangen utløper når dokumentet
+                publiseres — da gjelder mappens tillatelser igjen.
+              </p>
+              <DocumentDraftCollaborators
+                pageId={original.id}
+                pageStatus={original.status}
+                canManage={true}
+              />
+            </ModuleSectionCard>
+
+            <ModuleSectionCard>
+              <h3 className="mb-3 border-b border-neutral-100 pb-2 text-sm font-semibold text-neutral-900">
                 Aktivitet
               </h3>
               <p className="mb-3 text-xs text-neutral-500">
@@ -1274,6 +1314,8 @@ function BlockItem({
   dropHighlight,
   supabase,
   orgId,
+  lockHolder,
+  isHeldByMe,
 }: {
   block: ContentBlock
   selected: boolean
@@ -1287,7 +1329,10 @@ function BlockItem({
   dropHighlight?: boolean
   supabase: SupabaseClient | null
   orgId: string | null
+  lockHolder?: BlockLock | null
+  isHeldByMe?: boolean
 }) {
+  const lockedByOther = Boolean(lockHolder && !isHeldByMe)
   const kindLabel: Record<ContentBlock['kind'], string> = {
     heading: 'Overskrift',
     text: 'Tekst',
@@ -1302,7 +1347,13 @@ function BlockItem({
 
   return (
     <div
-      className={`rounded-none border bg-white shadow-sm ${selected ? 'border-[#1a3d32]' : 'border-neutral-200'} ${dropHighlight ? 'ring-2 ring-[#1a3d32]/40 ring-offset-2' : ''}`}
+      className={`rounded-none border bg-white shadow-sm ${
+        lockedByOther
+          ? 'border-amber-300 ring-1 ring-amber-200'
+          : selected
+            ? 'border-[#1a3d32]'
+            : 'border-neutral-200'
+      } ${dropHighlight ? 'ring-2 ring-[#1a3d32]/40 ring-offset-2' : ''}`}
     >
       <div className="flex items-center gap-2 px-3 py-2">
         <span
@@ -1321,6 +1372,21 @@ function BlockItem({
           <span className="size-1.5 shrink-0 rounded-full bg-neutral-300" aria-hidden />
           <span className="truncate text-xs font-medium text-neutral-500">{kindLabel[block.kind]}</span>
         </button>
+        {lockedByOther && lockHolder ? (
+          <span
+            className="inline-flex items-center gap-1 rounded-full border border-amber-300 bg-amber-50 px-2 py-0.5 text-[10px] font-medium text-amber-900"
+            title={`${lockHolder.holderName} redigerer denne blokken`}
+          >
+            <svg viewBox="0 0 24 24" className="size-3" fill="currentColor" aria-hidden>
+              <path d="M12 2a5 5 0 0 0-5 5v3H5a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-8a2 2 0 0 0-2-2h-2V7a5 5 0 0 0-5-5zm-3 8V7a3 3 0 0 1 6 0v3H9z" />
+            </svg>
+            {lockHolder.holderName} redigerer
+          </span>
+        ) : isHeldByMe ? (
+          <span className="inline-flex items-center rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-medium text-emerald-900">
+            Du redigerer
+          </span>
+        ) : null}
         <div className="flex shrink-0 items-center gap-0.5">
           <button
             type="button"

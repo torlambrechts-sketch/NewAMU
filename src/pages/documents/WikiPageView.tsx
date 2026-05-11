@@ -24,8 +24,10 @@ import type { ContentBlock, HeadingBlock, PageStatus, WikiPage, WikiPageVersionS
 import { headingAnchorId } from '../../lib/wikiPageLinks'
 import { WikiBlockCommentsPanel } from '../../components/documents/WikiBlockCommentsPanel'
 import { DocumentActivityTimeline } from '../../components/documents/DocumentActivityTimeline'
+import { DocumentAvvikChip, DocumentAvvikPanel } from '../../components/documents/DocumentAvvikPanel'
 import { DocumentReviewRequestPanel } from '../../components/documents/DocumentReviewRequestPanel'
 import { WikiVersionDiff } from '../../components/documents/WikiVersionDiff'
+import { useWikiPageAvvik } from '../../hooks/useWikiPageAvvik'
 import {
   canViewWikiSpace,
   folderAllowsWritePageInSpace,
@@ -113,6 +115,8 @@ export function WikiPageView() {
     auditLedger,
   } = docs
   const { comments, addComment, editComment, setResolved, removeComment } = useWikiPageComments(pageId)
+  const { linked: linkedAvvik, loading: avvikLoading, refresh: refreshAvvik } = useWikiPageAvvik(pageId)
+  const openAvvikCount = useMemo(() => linkedAvvik.filter((a) => !a.closedAt).length, [linkedAvvik])
   const mentionUsers = useMemo(
     () =>
       orgProfiles
@@ -555,6 +559,7 @@ export function WikiPageView() {
           <Badge variant={statusBadgeVariant(page.status)}>
             {STATUS_LABEL[page.status]}
           </Badge>
+          <DocumentAvvikChip count={openAvvikCount} />
           {showSignBadge && alreadySigned ? (
             <Badge variant="success">
               Signert
@@ -854,6 +859,9 @@ export function WikiPageView() {
                           actorName: args.isAnonymous ? 'Anonym ansatt' : profile?.display_name ?? '',
                         })
                       }
+                      if (args.kind === 'avvik_proposal') {
+                        await refreshAvvik()
+                      }
                     }}
                     onEdit={async (id, body) => {
                       await editComment({ commentId: id, body })
@@ -888,6 +896,19 @@ export function WikiPageView() {
                     onApprove={approveReviewRequest}
                     onRequestChanges={requestReviewChanges}
                   />
+                </div>
+              </div>
+
+              <div>
+                <h2 className="text-sm font-semibold text-neutral-900">
+                  Avvik knyttet til dokumentet
+                </h2>
+                <p className="mt-1 text-xs text-neutral-500">
+                  Når noen melder et avvik fra dette dokumentet (eller forfatter forslår et høy-/kritisk-alvorlig avvik
+                  i en kommentar), dukker det opp her — og i avvik-modulen.
+                </p>
+                <div className="mt-3">
+                  <DocumentAvvikPanel linked={linkedAvvik} loading={avvikLoading} />
                 </div>
               </div>
 
