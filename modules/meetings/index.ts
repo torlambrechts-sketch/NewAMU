@@ -11,3 +11,8 @@ export type {
 } from './useMeetingsNav'
 export { MEETINGS_LEGAL_REFERENCES } from './meetingsLegalReferences'
 export { MeetingsHubView } from './MeetingsHubView'
+export { useMeetingDataBindings } from './useMeetingDataBindings'
+export type {
+  UseMeetingDataBindingsArgs,
+  UseMeetingDataBindingsReturn,
+} from './useMeetingDataBindings'
