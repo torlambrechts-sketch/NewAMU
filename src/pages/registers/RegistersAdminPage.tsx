@@ -15,7 +15,6 @@ import {
   Package,
   Pin,
   Plus,
-  Shield,
   Sparkles,
   Trash2,
 } from 'lucide-react'
