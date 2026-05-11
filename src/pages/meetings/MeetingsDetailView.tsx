@@ -884,6 +884,19 @@ function ProtocolTab({
         men metadata forblir editerbar.
       </InfoBox>
 
+      <div>
+        <Link
+          to={`/meetings/${meetingId}/eksport`}
+          className="inline-flex items-center gap-1.5 rounded-md border border-neutral-300 bg-white px-3 py-2 text-sm font-medium text-neutral-700 hover:bg-neutral-50"
+        >
+          Last ned protokoll-pakke
+        </Link>
+        <p className="mt-1 text-xs text-neutral-500">
+          Genererer en utskriftsklar protokoll inkludert deltakere, agenda, vedtak,
+          oppgaver, signaturer og forberedelsesdata (Skriv ut → Lagre som PDF).
+        </p>
+      </div>
+
       {mandatoryGaps.length > 0 ? (
         <WarningBox>
           Protokollen kan ikke signeres før obligatoriske saker er fylt ut. Mangler{' '}
