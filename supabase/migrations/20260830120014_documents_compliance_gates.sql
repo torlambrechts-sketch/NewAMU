@@ -55,15 +55,13 @@ create trigger wiki_pages_verneombud_gate
 alter table public.wiki_page_comments
   add column if not exists retention_max_years int;
 
+-- Stored, but not a generated column: Postgres requires generation
+-- expressions to be IMMUTABLE, and timestamptz + interval (and
+-- make_interval) are STABLE at best — they depend on timezone
+-- resolution. Compute the deletion date in the BEFORE INSERT trigger
+-- below instead, so the value is fixed when the row is written.
 alter table public.wiki_page_comments
-  add column if not exists scheduled_deletion_at timestamptz
-    generated always as (
-      case
-        when retention_max_years is not null and retention_max_years > 0
-        then created_at + make_interval(years => retention_max_years)
-        else null
-      end
-    ) stored;
+  add column if not exists scheduled_deletion_at timestamptz;
 
 create index if not exists wiki_page_comments_scheduled_deletion_idx
   on public.wiki_page_comments (scheduled_deletion_at)
@@ -71,7 +69,8 @@ create index if not exists wiki_page_comments_scheduled_deletion_idx
 
 -- Inherit retention from the parent page's category on insert. Falls back
 -- to wiki_retention_categories.max_years for the slug, then to 5 (the
--- HMS-dokumentasjon baseline) so nothing escapes a retention bound.
+-- HMS-dokumentasjon baseline) so nothing escapes a retention bound. Sets
+-- scheduled_deletion_at in the same pass so the two columns stay in sync.
 create or replace function public.wiki_page_comments_inherit_retention()
 returns trigger
 language plpgsql
@@ -81,18 +80,23 @@ as $$
 declare
   v_max int;
 begin
-  if new.retention_max_years is not null then
-    return new;
+  if new.retention_max_years is null then
+    select coalesce(p.retain_maximum_years, c.max_years, 5)
+      into v_max
+    from public.wiki_pages p
+    left join public.wiki_retention_categories c on c.slug = p.retention_category
+    where p.id = new.page_id;
+    if v_max is null then
+      v_max := 5;
+    end if;
+    new.retention_max_years := v_max;
   end if;
-  select coalesce(p.retain_maximum_years, c.max_years, 5)
-    into v_max
-  from public.wiki_pages p
-  left join public.wiki_retention_categories c on c.slug = p.retention_category
-  where p.id = new.page_id;
-  if v_max is null then
-    v_max := 5;
+  if new.scheduled_deletion_at is null
+     and new.retention_max_years is not null
+     and new.retention_max_years > 0 then
+    new.scheduled_deletion_at :=
+      coalesce(new.created_at, now()) + (new.retention_max_years * interval '1 year');
   end if;
-  new.retention_max_years := v_max;
   return new;
 end;
 $$;
@@ -104,7 +108,8 @@ create trigger wiki_page_comments_retention_inherit
   before insert on public.wiki_page_comments
   for each row execute function public.wiki_page_comments_inherit_retention();
 
--- Backfill existing rows so their generated column populates.
+-- Backfill existing rows so the retention columns are populated for any
+-- comments authored before this migration ran.
 update public.wiki_page_comments c
    set retention_max_years = coalesce(
      (select coalesce(p.retain_maximum_years, cat.max_years, 5)
@@ -115,6 +120,12 @@ update public.wiki_page_comments c
      5
    )
  where c.retention_max_years is null;
+
+update public.wiki_page_comments
+   set scheduled_deletion_at = created_at + (retention_max_years * interval '1 year')
+ where scheduled_deletion_at is null
+   and retention_max_years is not null
+   and retention_max_years > 0;
 
 -- 3. Confidential append-only trigger: permit deletion after retention -----
 
