@@ -11,7 +11,7 @@
 - `modules/survey/` — provision bundle + recovery pattern.
 - `modules/amu/` + `src/pages/CouncilModule.tsx` — existing AMU-specific surfaces; the new module **supersedes the council module's meeting CRUD** and **co-exists** with AMU for now (Phase F will migrate AMU into the meetings module as a template).
 
-**Owner:** human. **Spec status:** `📋 ready to execute` (architect self-review §10).
+**Owner:** human. **Spec status:** `✅ shipped` — Phases A–F merged via PRs #237–#241 plus follow-up H0–H12. See `ROADMAP.md §8` for the post-ship status table and `specs/meetings-lovdata-verification.md` for the live legal-text verification log.
 
 ---
 
@@ -393,9 +393,9 @@ Acceptance: `/meetings/analyse` opens, KPI tiles render, default layout matches 
 
 Acceptance: top-level "Møter" entry visible in sidebar with Analyse/Innstillinger children and pinned templates below.
 
-### Phase F (deferred — separate spec) · Migrate AMU as a template + import existing council meetings
+### Phase F (✅ shipped) · Legacy AMU + Council removal
 
-Out of scope for this spec. Documented in a follow-up `specs/meetings-amu-merger.md` after Phase A-E ships.
+Shipped in PR #237. The legacy `modules/amu/`, `modules/amu_election/`, `src/pages/CouncilModule.tsx`, and ~14 supporting files were deleted; `useCouncil` consumers migrated to `useMeetings`. The AMU election capability was re-homed as the `amu-valg-system` placeholder row in `survey_template_catalog` (full eligibility/sealing/handoff implementation deferred — see `ROADMAP.md §8.19`).
 
 ---
 

@@ -254,11 +254,17 @@ export function MeetingsTemplateEditorPanel({
         agendaItems: agendaItems
           .slice()
           .sort((a, b) => a.defaultPosition - b.defaultPosition)
-          .map(({ _localId: _unused, ...item }) => ({
-            ...item,
-            description: item.description?.trim() || undefined,
-            lawRef: item.lawRef?.trim() || undefined,
-          })),
+          .map((item) => {
+            // Drop the local-only id we used for React key stability;
+            // it's not part of the persisted shape.
+            const { _localId, ...persisted } = item
+            void _localId
+            return {
+              ...persisted,
+              description: persisted.description?.trim() || undefined,
+              lawRef: persisted.lawRef?.trim() || undefined,
+            }
+          }),
         requiredAttendees: requiredAttendees.map((r) => ({ role: r })),
         invitationLeadDays: leadDaysNum != null && Number.isFinite(leadDaysNum) ? leadDaysNum : undefined,
         protocolRoles: editTarget?.definition.protocolRoles ?? ['chair'],

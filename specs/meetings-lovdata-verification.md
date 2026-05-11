@@ -233,3 +233,8 @@ Distribution to **both** styrende organer AND ansattes organisasjoner is mandato
    - Either: paste the standard's clause 9.3.2 text into this log as an appendix, OR provide a screenshot OR confirm "training-knowledge structure is correct".
 
 Once both items are reviewer-confirmed, H2 + H3 are unblocked end-to-end.
+
+### Retry log
+
+- **2026-05-11 (post-H10 closeout):** WebFetch retry attempted on `lo.no/contentassets/.../hovedavtalen-2022-2025.pdf` (404) and `iso.org/standard/27001` (403). Both still inaccessible without authenticated/paid access. No change to gating status.
+

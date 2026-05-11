@@ -3,6 +3,7 @@ import { useHse } from './useHse'
 import { useInternalControl } from './useInternalControl'
 import { useOrgHealth } from './useOrgHealth'
 import { useRepresentatives } from './useRepresentatives'
+import { useMeetings } from '../../modules/meetings'
 export const WORKSPACE_AUDIT_SOURCES = [
   'all',
   'tasks',
@@ -54,6 +55,7 @@ export function useWorkspaceAuditFeed() {
   const hse = useHse()
   const oh = useOrgHealth()
   const rep = useRepresentatives()
+  const meetings = useMeetings()
 
   const rows = useMemo(() => {
     const out: WorkspaceAuditFeedRow[] = []
@@ -99,10 +101,47 @@ export function useWorkspaceAuditFeed() {
       })
     }
 
-    // Møter audit entries now flow through Supabase RLS-aware queries
-    // on `meetings` + `meeting_decisions` rather than the local-state
-    // council demo; this feed is migrated to that source in a follow-up
-    // (tracked under specs/meetings-amu-merger.md).
+    // Møter — emit "opprettet" and "protokoll signert" events from the
+    // loaded meetings list. Decisions / agenda-level audit events live
+    // on the meeting_decisions / meeting_agenda_items child rows; a
+    // cross-meeting decisions feed needs a supabase view (tracked as
+    // future H-phase work). For the workspace audit feed, the two
+    // meeting-level lifecycle events are the most actionable signal.
+    for (const m of meetings.meetings ?? []) {
+      out.push({
+        id: `meeting-created-${m.id}`,
+        at: m.created_at,
+        source: 'meetings',
+        sourceLabel: SOURCE_LABELS.meetings,
+        action: 'opprettet',
+        message: `Møte opprettet: ${m.title}`,
+        detail: m.scheduled_at ? `Planlagt ${new Date(m.scheduled_at).toLocaleString('nb-NO')}` : undefined,
+        linkTo: `/meetings/${m.id}`,
+      })
+      if (m.protocol_signed_at) {
+        out.push({
+          id: `meeting-signed-${m.id}`,
+          at: m.protocol_signed_at,
+          source: 'meetings',
+          sourceLabel: SOURCE_LABELS.meetings,
+          action: 'signert',
+          message: `Protokoll signert: ${m.title}`,
+          detail: m.protocol_signed_by ? `Av medlem ${m.protocol_signed_by.slice(0, 8)}` : undefined,
+          linkTo: `/meetings/${m.id}`,
+        })
+      }
+      if (m.status === 'cancelled') {
+        out.push({
+          id: `meeting-cancelled-${m.id}`,
+          at: m.updated_at,
+          source: 'meetings',
+          sourceLabel: SOURCE_LABELS.meetings,
+          action: 'avlyst',
+          message: `Møte avlyst: ${m.title}`,
+          linkTo: `/meetings/${m.id}`,
+        })
+      }
+    }
 
     for (const a of rep.auditTrail) {
       out.push({
@@ -123,6 +162,7 @@ export function useWorkspaceAuditFeed() {
     ic.auditTrail,
     hse.auditTrail,
     oh.auditTrail,
+    meetings.meetings,
     rep.auditTrail,
   ])
 

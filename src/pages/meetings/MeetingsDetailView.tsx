@@ -11,7 +11,7 @@
 // the decision text per agenda item — they remain editable until the
 // protocol is signed.
 
-import { useEffect, useState, type FormEvent } from 'react'
+import { useEffect, useMemo, useState, type FormEvent } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import {
   AlertTriangle,
@@ -35,9 +35,11 @@ import { SearchableSelect } from '../../components/ui/SearchableSelect'
 import { Tabs } from '../../components/ui/Tabs'
 import { WarningBox, InfoBox } from '../../components/ui/AlertBox'
 import { WPSTD_FORM_FIELD_LABEL } from '../../components/layout/WorkplaceStandardFormPanel'
+import { useOrgSetupContext } from '../../hooks/useOrgSetupContext'
 import { useMeetings, useMeetingDataBindings } from '../../../modules/meetings'
 import {
   MEETING_ACTION_STATUS_LABEL,
+  MEETING_ATTENDEE_ROLE_LABEL,
   MEETING_CONFIDENTIALITY_LABEL,
   MEETING_DECISION_STATUS_LABEL,
   MEETING_STATUS_LABEL,
@@ -45,6 +47,7 @@ import {
 import type {
   MeetingActionStatus,
   MeetingAgendaItemRow,
+  MeetingAttendeeRole,
   MeetingDecisionStatus,
   MeetingRow,
   MeetingStatus,
@@ -71,9 +74,18 @@ function fmtDate(iso: string | null): string {
 export function MeetingsDetailView() {
   const { meetingId = '' } = useParams<{ meetingId: string }>()
   const navigate = useNavigate()
+  const { members } = useOrgSetupContext()
   const meetings = useMeetings()
   const { loadDetail, clearDetail } = meetings
   const [tab, setTab] = useState<Tab>('informasjon')
+
+  const memberById = useMemo(() => {
+    const m = new Map<string, string>()
+    for (const member of members ?? []) {
+      m.set(member.id, member.display_name ?? member.id.slice(0, 8))
+    }
+    return m
+  }, [members])
 
   useEffect(() => {
     if (!meetingId) return
@@ -216,7 +228,7 @@ export function MeetingsDetailView() {
 
       {tab === 'deltakere' ? (
         <ModuleSectionCard className="p-5 md:p-6">
-          <AttendeesTab attendees={meetings.detail.attendees} />
+          <AttendeesTab attendees={meetings.detail.attendees} memberById={memberById} />
         </ModuleSectionCard>
       ) : null}
 
@@ -649,8 +661,10 @@ function AgendaItemEditor({
 
 function AttendeesTab({
   attendees,
+  memberById,
 }: {
   attendees: ReturnType<typeof useMeetings>['detail']['attendees']
+  memberById: Map<string, string>
 }) {
   if (attendees.length === 0) {
     return (
@@ -680,10 +694,12 @@ function AttendeesTab({
       <tbody>
         {attendees.map((a) => (
           <tr key={`${a.meeting_id}-${a.member_id}`} className="border-t border-neutral-100">
-            <td className="px-5 py-3 font-mono text-xs text-neutral-700">
-              {a.member_id.slice(0, 8)}…
+            <td className="px-5 py-3 text-sm text-neutral-900">
+              {memberById.get(a.member_id) ?? `${a.member_id.slice(0, 8)}…`}
             </td>
-            <td className="px-5 py-3 text-sm text-neutral-700">{a.role}</td>
+            <td className="px-5 py-3 text-sm text-neutral-700">
+              {MEETING_ATTENDEE_ROLE_LABEL[a.role as MeetingAttendeeRole] ?? a.role}
+            </td>
             <td className="px-5 py-3 text-sm text-neutral-700">
               {a.present === null ? '—' : a.present ? 'Ja' : 'Nei'}
             </td>
