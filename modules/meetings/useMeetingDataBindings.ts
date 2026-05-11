@@ -23,6 +23,7 @@ import type {
   MeetingTemplateAgendaItem,
   RenderedBindingResult,
 } from './types'
+import { FRAMEWORK_SIGNAL_SOURCES } from './lib/frameworkSignals'
 
 export type UseMeetingDataBindingsArgs = {
   meeting: MeetingRow | null
@@ -32,6 +33,10 @@ export type UseMeetingDataBindingsArgs = {
 export type UseMeetingDataBindingsReturn = {
   /** Resolved snapshot per agenda-item id. Missing key = no binding. */
   resolvedByAgendaItemId: Map<string, RenderedBindingResult>
+  /** Framework-relevant signals NOT mapped to an agenda item yet. The
+   *  Datapakke tab renders these as additional widgets, and the Agenda
+   *  tab uses them to suggest new agenda items. Keyed by source. */
+  extraSignalsBySource: Map<MeetingDataBinding['source'], RenderedBindingResult>
   /** True while underlying module data is loading. */
   loading: boolean
 }
@@ -122,6 +127,11 @@ export function useMeetingDataBindings({
   )
   const crossModule = useCrossModuleCounts(meeting?.organization_id ?? null, range)
 
+  const ctxObj = useMemo<ResolveCtx>(
+    () => ({ hse, ic, orgSetup, rep, orgHealth, crossModule, meeting }),
+    [hse, ic, orgSetup, rep, orgHealth, crossModule, meeting],
+  )
+
   const resolvedByAgendaItemId = useMemo(() => {
     const out = new Map<string, RenderedBindingResult>()
     if (!meeting) return out
@@ -137,21 +147,70 @@ export function useMeetingDataBindings({
     if (bindingByKey.size === 0) return out
 
     const resolvedAt = new Date().toISOString()
-    const ctx: ResolveCtx = { hse, ic, orgSetup, rep, orgHealth, crossModule, meeting }
 
     for (const item of agendaItems) {
       if (!item.template_item_key) continue
       const binding = bindingByKey.get(item.template_item_key)
       if (!binding) continue
 
-      const result = resolveBinding(binding, resolvedAt, ctx)
+      const result = resolveBinding(binding, resolvedAt, ctxObj)
       if (result) out.set(item.id, result)
     }
     return out
-  }, [meeting, agendaItems, hse, ic, orgSetup, rep, orgHealth, crossModule])
+  }, [meeting, agendaItems, ctxObj])
+
+  // Framework-relevant signals NOT bound to any agenda item.
+  // The Datapakke tab uses these as additional widgets; the Agenda tab
+  // uses them to suggest new topics when something newsworthy surfaces
+  // (e.g. 5 critical incidents but no `incidents` agenda item).
+  const extraSignalsBySource = useMemo(() => {
+    const out = new Map<MeetingDataBinding['source'], RenderedBindingResult>()
+    if (!meeting) return out
+
+    const framework = meeting.definition_snapshot?.framework
+    if (!framework) return out
+
+    const frameworkSources =
+      (FRAMEWORK_SIGNAL_SOURCES as Record<string, Array<MeetingDataBinding['source']>>)[
+        framework
+      ] ?? []
+    if (frameworkSources.length === 0) return out
+
+    // Sources already covered by the template's agenda bindings.
+    const covered = new Set<MeetingDataBinding['source']>()
+    const snapshot = meeting.definition_snapshot
+    if (snapshot?.agendaItems?.length) {
+      for (const tpl of snapshot.agendaItems as MeetingTemplateAgendaItem[]) {
+        if (tpl.dataBinding) covered.add(tpl.dataBinding.source)
+      }
+    }
+
+    const resolvedAt = new Date().toISOString()
+
+    for (const source of frameworkSources) {
+      if (covered.has(source)) continue
+      // Use the same default `window` per source as the templates do —
+      // pickWindowRange will still prefer meeting.reporting_period_* when set.
+      const defaultWindow: MeetingDataBinding['window'] =
+        source === 'open_decisions' || source === 'open_ros_high'
+          ? 'all_open'
+          : source === 'headcount_and_amu_composition'
+            ? 'current'
+            : 'last_quarter'
+      const binding: MeetingDataBinding = {
+        source,
+        window: defaultWindow,
+        presentation: 'summary',
+      }
+      const result = resolveBinding(binding, resolvedAt, ctxObj)
+      if (result && !result.error) out.set(source, result)
+    }
+    return out
+  }, [meeting, ctxObj])
 
   return {
     resolvedByAgendaItemId,
+    extraSignalsBySource,
     loading: (hse.loading ?? false) || crossModule.loading,
   }
 }

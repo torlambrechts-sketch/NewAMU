@@ -325,7 +325,12 @@ function resolveTemplates(
 
 function snapshotDefinition(template: ResolvedMeetingTemplate): MeetingTemplateDefinition {
   // Deep-clone via JSON to detach from the cached resolved template object.
-  return JSON.parse(JSON.stringify(template.definition)) as MeetingTemplateDefinition
+  // Also stamp the framework onto the snapshot so downstream consumers
+  // (resolver, Datapakke, signal scanner) don't have to re-look-up the
+  // template from the meeting's foreign keys.
+  const cloned = JSON.parse(JSON.stringify(template.definition)) as MeetingTemplateDefinition
+  cloned.framework = template.framework
+  return cloned
 }
 
 /** H11b — load open decisions from prior meetings using the same template.
@@ -681,6 +686,7 @@ export function useMeetings(): UseMeetingsState {
             law_ref: item.lawRef ?? null,
             is_mandatory: item.isMandatory,
             is_manual: false,
+            duration_minutes: item.defaultDurationMinutes ?? null,
           }))
         const agendaIns = await supabase.from('meeting_agenda_items').insert(rows)
         if (agendaIns.error) {

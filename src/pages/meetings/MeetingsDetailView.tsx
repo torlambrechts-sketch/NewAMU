@@ -11,7 +11,7 @@
 // the decision text per agenda item — they remain editable until the
 // protocol is signed.
 
-import { useEffect, useMemo, useState, type FormEvent } from 'react'
+import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import {
   AlertTriangle,
@@ -47,7 +47,14 @@ import {
   AgendaItemFormPanel,
   type AgendaItemFormValue,
 } from '../../../modules/meetings/components/AgendaItemFormPanel'
+import {
+  SuggestedTopicsCard,
+  type SuggestedTopic,
+} from '../../../modules/meetings/components/SuggestedTopicsCard'
 import type { PeriodValue } from '../../../modules/meetings/components/ReportingPeriodPicker'
+import type { MeetingDataBinding } from '../../../modules/meetings'
+
+type MeetingDataBindingSource = MeetingDataBinding['source']
 import {
   MEETING_ACTION_STATUS_LABEL,
   MEETING_ATTENDEE_ROLE_LABEL,
@@ -130,6 +137,54 @@ export function MeetingsDetailView() {
     meeting: meetings.detail.meeting,
     agendaItems: meetings.detail.agendaItems,
   })
+
+  // Auto-fill — when a freshly-created meeting is opened, write the
+  // resolver output directly into each agenda item's binding_snapshot
+  // AND seed its empty `minutes_summary` with the resolver's
+  // `summaryMarkdown`. The chair now sees real numbers on the Agenda
+  // tab from the first render, instead of having to click "Bruk
+  // forberedelse" for every item. Only runs:
+  //   - once per meeting open (ref-gated)
+  //   - never for signed protocols (locked)
+  //   - only on items that have no minutes_summary yet (preserves user edits)
+  //   - skips placeholder resolvers (snap.error set)
+  const autoFilledRef = useRef<string | null>(null)
+  useEffect(() => {
+    const m = meetings.detail.meeting
+    if (!m) return
+    if (m.protocol_signed_at) return
+    if (autoFilledRef.current === m.id) return
+    if (meetings.detail.agendaItems.length === 0) return
+    if (bindings.resolvedByAgendaItemId.size === 0) return
+    if (bindings.loading) return
+
+    autoFilledRef.current = m.id
+
+    void (async () => {
+      for (const item of meetings.detail.agendaItems) {
+        const snap = bindings.resolvedByAgendaItemId.get(item.id)
+        if (!snap) continue
+        // Persist the snapshot if missing — makes the Datapakke load
+        // instantly on next view + freezes the value for audit.
+        if (!item.binding_snapshot) {
+          await meetings.writeBindingSnapshot(item.id, snap)
+        }
+        // Seed SAMMENDRAG only when empty AND the resolver returned real
+        // data (not a manual-prep placeholder error message).
+        if (!item.minutes_summary?.trim() && !snap.error) {
+          await meetings.setAgendaMinutes(item.id, {
+            minutesSummary: snap.summaryMarkdown,
+          })
+        }
+      }
+    })()
+  }, [
+    meetings.detail.meeting,
+    meetings.detail.agendaItems,
+    bindings.resolvedByAgendaItemId,
+    bindings.loading,
+    meetings,
+  ])
 
   if (!meetingId) {
     return (
@@ -259,6 +314,7 @@ export function MeetingsDetailView() {
           meeting={meeting}
           agendaItems={meetings.detail.agendaItems}
           liveBindings={bindings.resolvedByAgendaItemId}
+          extraSignals={bindings.extraSignalsBySource}
           locked={isLocked}
           onChangePeriod={async (p: PeriodValue) => {
             const ok = await meetings.updateMeetingPeriod(meeting.id, p)
@@ -286,6 +342,7 @@ export function MeetingsDetailView() {
             locked={isLocked}
             mandatoryGaps={mandatoryGaps}
             bindings={bindings.resolvedByAgendaItemId}
+            suggestedSignals={bindings.extraSignalsBySource}
             priorOpenDecisions={meetings.detail.priorOpenDecisions}
             onSave={meetings.setAgendaMinutes}
             onAddItem={() => {
@@ -305,6 +362,22 @@ export function MeetingsDetailView() {
             onRefreshBinding={async (itemId) => {
               const snap = bindings.resolvedByAgendaItemId.get(itemId)
               if (snap) await meetings.writeBindingSnapshot(itemId, snap)
+            }}
+            onAddSuggestedTopic={async (topic) => {
+              // Materialise the suggestion as a manual agenda item +
+              // immediately seed its binding_snapshot + SAMMENDRAG.
+              const created = await meetings.addAgendaItem({
+                meetingId: meeting.id,
+                title:
+                  topic.snapshot.summaryMarkdown.split('\n')[0].slice(0, 100) ||
+                  topic.source,
+              })
+              if (created) {
+                await meetings.writeBindingSnapshot(created.id, topic.snapshot)
+                await meetings.setAgendaMinutes(created.id, {
+                  minutesSummary: topic.snapshot.summaryMarkdown,
+                })
+              }
             }}
           />
         </ModuleSectionCard>
@@ -486,6 +559,7 @@ function AgendaTab({
   locked,
   mandatoryGaps,
   bindings,
+  suggestedSignals,
   priorOpenDecisions,
   onSave,
   onAddItem,
@@ -493,11 +567,13 @@ function AgendaTab({
   onRemoveItem,
   onReorder,
   onRefreshBinding,
+  onAddSuggestedTopic,
 }: {
   items: MeetingAgendaItemRow[]
   locked: boolean
   mandatoryGaps: string[]
   bindings: Map<string, RenderedBindingResult>
+  suggestedSignals: Map<MeetingDataBindingSource, RenderedBindingResult>
   priorOpenDecisions: ReturnType<typeof useMeetings>['detail']['priorOpenDecisions']
   onSave: ReturnType<typeof useMeetings>['setAgendaMinutes']
   onAddItem: () => void
@@ -505,6 +581,7 @@ function AgendaTab({
   onRemoveItem: (id: string) => Promise<void>
   onReorder: (orderedIds: string[]) => Promise<void>
   onRefreshBinding: (itemId: string) => Promise<void>
+  onAddSuggestedTopic: (topic: SuggestedTopic) => Promise<void>
 }) {
   // Sort by position so up/down reorder operates on the displayed order.
   const ordered = items.slice().sort((a, b) => a.position - b.position)
@@ -533,6 +610,12 @@ function AgendaTab({
         </div>
         <span className="text-xs text-neutral-500">{items.length} saker</span>
       </div>
+
+      <SuggestedTopicsCard
+        signals={suggestedSignals}
+        locked={locked}
+        onAddTopic={onAddSuggestedTopic}
+      />
 
       <AgendaBuilderToolbar items={items} locked={locked} onAddItem={onAddItem} />
 
