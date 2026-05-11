@@ -34,8 +34,14 @@ function isAlertVariant(v: unknown): v is keyof typeof alertStyles {
   return v === 'info' || v === 'warning' || v === 'danger' || v === 'tip'
 }
 
+const FONT_SIZE_PX: Record<'sm' | 'base' | 'lg', string> = {
+  sm: '0.875rem',
+  base: '1rem',
+  lg: '1.125rem',
+}
+
 export function WikiBlockRenderer({ blocks, pageId, pageVersion, lang = 'nb', blockFooter, fontSize = 'base' }: Props) {
-  const proseSize = fontSize === 'sm' ? 'prose-sm' : fontSize === 'lg' ? 'prose-lg' : ''
+  const fontSizePx = FONT_SIZE_PX[fontSize]
   const headingCounts = new Map<string, number>()
   return (
     <article lang={lang} className="space-y-4">
@@ -77,7 +83,8 @@ export function WikiBlockRenderer({ blocks, pageId, pageVersion, lang = 'nb', bl
           case 'text':
             node = (
               <article
-                className={`prose ${proseSize} max-w-none text-neutral-800 [&_a]:text-[#1a3d32] [&_a]:underline [&_table]:w-full [&_table]:border-collapse [&_td]:border [&_td]:border-neutral-200 [&_td]:px-3 [&_td]:py-1.5 [&_td]:text-sm [&_th]:border [&_th]:border-neutral-200 [&_th]:bg-neutral-50 [&_th]:px-3 [&_th]:py-1.5 [&_th]:text-left [&_th]:text-xs [&_th]:font-semibold [&_th]:uppercase [&_th]:tracking-wide [&_th]:text-neutral-500`}
+                className="prose max-w-none text-neutral-800 [&_a]:text-[#1a3d32] [&_a]:underline [&_table]:w-full [&_table]:border-collapse [&_td]:border [&_td]:border-neutral-200 [&_td]:px-3 [&_td]:py-1.5 [&_td]:text-sm [&_th]:border [&_th]:border-neutral-200 [&_th]:bg-neutral-50 [&_th]:px-3 [&_th]:py-1.5 [&_th]:text-left [&_th]:text-xs [&_th]:font-semibold [&_th]:uppercase [&_th]:tracking-wide [&_th]:text-neutral-500"
+                style={{ fontSize: fontSizePx }}
                 dangerouslySetInnerHTML={{
                   __html: sanitizeLearningHtml(typeof block.body === 'string' ? block.body : ''),
                 }}
