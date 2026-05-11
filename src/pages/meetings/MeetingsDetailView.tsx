@@ -15,6 +15,9 @@ import { useEffect, useMemo, useState, type FormEvent } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import {
   AlertTriangle,
+  ArrowDown,
+  ArrowUp,
+  BarChart3,
   CheckCircle2,
   ClipboardList,
   Edit3,
@@ -23,6 +26,7 @@ import {
   Plus,
   Scale,
   ShieldCheck,
+  Trash2,
   Users,
 } from 'lucide-react'
 import { ModulePageShell, ModulePageEmpty } from '../../components/module/ModulePageShell'
@@ -37,6 +41,13 @@ import { WarningBox, InfoBox } from '../../components/ui/AlertBox'
 import { WPSTD_FORM_FIELD_LABEL } from '../../components/layout/WorkplaceStandardFormPanel'
 import { useOrgSetupContext } from '../../hooks/useOrgSetupContext'
 import { useMeetings, useMeetingDataBindings } from '../../../modules/meetings'
+import { DatapakkeTab } from '../../../modules/meetings/tabs/DatapakkeTab'
+import { AgendaBuilderToolbar } from '../../../modules/meetings/components/AgendaBuilderToolbar'
+import {
+  AgendaItemFormPanel,
+  type AgendaItemFormValue,
+} from '../../../modules/meetings/components/AgendaItemFormPanel'
+import type { PeriodValue } from '../../../modules/meetings/components/ReportingPeriodPicker'
 import {
   MEETING_ACTION_STATUS_LABEL,
   MEETING_ATTENDEE_ROLE_LABEL,
@@ -55,7 +66,7 @@ import type {
   RenderedBindingResult,
 } from '../../../modules/meetings/types'
 
-type Tab = 'informasjon' | 'agenda' | 'deltakere' | 'vedtak' | 'protokoll'
+type Tab = 'informasjon' | 'datapakke' | 'agenda' | 'deltakere' | 'vedtak' | 'protokoll'
 
 const STATUS_BADGE: Record<MeetingStatus, 'draft' | 'active' | 'signed' | 'neutral'> = {
   planned: 'active',
@@ -79,6 +90,12 @@ export function MeetingsDetailView() {
   const { loadDetail, clearDetail } = meetings
   const [tab, setTab] = useState<Tab>('informasjon')
 
+  // Agenda builder state — slide-panel for add/edit.
+  const [agendaFormOpen, setAgendaFormOpen] = useState(false)
+  const [agendaEditTarget, setAgendaEditTarget] = useState<
+    import('../../../modules/meetings').MeetingAgendaItemRow | null
+  >(null)
+
   const memberById = useMemo(() => {
     const m = new Map<string, string>()
     for (const member of members ?? []) {
@@ -86,6 +103,15 @@ export function MeetingsDetailView() {
     }
     return m
   }, [members])
+
+  const memberOptions = useMemo(
+    () =>
+      (members ?? []).map((m) => ({
+        value: m.id,
+        label: m.display_name ?? m.id.slice(0, 8),
+      })),
+    [members],
+  )
 
   useEffect(() => {
     if (!meetingId) return
@@ -148,8 +174,23 @@ export function MeetingsDetailView() {
   const isLocked = !!meeting.protocol_signed_at
   const mandatoryGaps = computeMandatoryGaps(meeting, meetings.detail.agendaItems)
 
-  const tabItems = [
+  // Hide Datapakke tab when the template defines no bindings — saves a
+  // confusing empty-state for MUS / allmøte / personalmøte / legacy meetings.
+  const hasAnyBinding = (() => {
+    const tplItems = meeting.definition_snapshot?.agendaItems
+    if (!tplItems?.length) return false
+    return tplItems.some((tpl) => 'dataBinding' in tpl && tpl.dataBinding)
+  })()
+
+  const tabItems: Array<{
+    id: Tab
+    label: string
+    icon: typeof ClipboardList
+    badgeCount?: number
+    badgeVariant?: 'danger'
+  }> = [
     { id: 'informasjon', label: 'Informasjon', icon: ClipboardList },
+    ...(hasAnyBinding ? [{ id: 'datapakke' as const, label: 'Datapakke', icon: BarChart3 }] : []),
     {
       id: 'agenda',
       label: 'Agenda',
@@ -213,6 +254,31 @@ export function MeetingsDetailView() {
         </ModuleSectionCard>
       ) : null}
 
+      {tab === 'datapakke' ? (
+        <DatapakkeTab
+          meeting={meeting}
+          agendaItems={meetings.detail.agendaItems}
+          liveBindings={bindings.resolvedByAgendaItemId}
+          locked={isLocked}
+          onChangePeriod={async (p: PeriodValue) => {
+            const ok = await meetings.updateMeetingPeriod(meeting.id, p)
+            if (ok) {
+              // Re-run resolver immediately and write every snapshot.
+              for (const item of meetings.detail.agendaItems) {
+                const snap = bindings.resolvedByAgendaItemId.get(item.id)
+                if (snap) await meetings.writeBindingSnapshot(item.id, snap)
+              }
+            }
+          }}
+          onRefreshAll={async () => {
+            for (const item of meetings.detail.agendaItems) {
+              const snap = bindings.resolvedByAgendaItemId.get(item.id)
+              if (snap) await meetings.writeBindingSnapshot(item.id, snap)
+            }
+          }}
+        />
+      ) : null}
+
       {tab === 'agenda' ? (
         <ModuleSectionCard className="p-5 md:p-6">
           <AgendaTab
@@ -222,9 +288,57 @@ export function MeetingsDetailView() {
             bindings={bindings.resolvedByAgendaItemId}
             priorOpenDecisions={meetings.detail.priorOpenDecisions}
             onSave={meetings.setAgendaMinutes}
+            onAddItem={() => {
+              setAgendaEditTarget(null)
+              setAgendaFormOpen(true)
+            }}
+            onEditItem={(item) => {
+              setAgendaEditTarget(item)
+              setAgendaFormOpen(true)
+            }}
+            onRemoveItem={async (id) => {
+              await meetings.removeAgendaItem(id)
+            }}
+            onReorder={async (orderedIds) => {
+              await meetings.reorderAgendaItems(meeting.id, orderedIds)
+            }}
+            onRefreshBinding={async (itemId) => {
+              const snap = bindings.resolvedByAgendaItemId.get(itemId)
+              if (snap) await meetings.writeBindingSnapshot(itemId, snap)
+            }}
           />
         </ModuleSectionCard>
       ) : null}
+
+      <AgendaItemFormPanel
+        open={agendaFormOpen}
+        onClose={() => setAgendaFormOpen(false)}
+        initial={agendaEditTarget}
+        memberOptions={memberOptions}
+        onSubmit={async (v: AgendaItemFormValue) => {
+          const durationMinutes = v.durationMinutes.trim()
+            ? Math.max(0, parseInt(v.durationMinutes, 10) || 0)
+            : null
+          if (agendaEditTarget) {
+            await meetings.updateAgendaItem(agendaEditTarget.id, {
+              title: v.title,
+              description: v.description.trim() || null,
+              lawRef: v.lawRef.trim() || null,
+              durationMinutes,
+              presenterMemberId: v.presenterMemberId || null,
+            })
+          } else {
+            await meetings.addAgendaItem({
+              meetingId: meeting.id,
+              title: v.title,
+              description: v.description.trim() || null,
+              lawRef: v.lawRef.trim() || null,
+              durationMinutes,
+              presenterMemberId: v.presenterMemberId || null,
+            })
+          }
+        }}
+      />
 
       {tab === 'deltakere' ? (
         <ModuleSectionCard className="p-5 md:p-6">
@@ -374,6 +488,11 @@ function AgendaTab({
   bindings,
   priorOpenDecisions,
   onSave,
+  onAddItem,
+  onEditItem,
+  onRemoveItem,
+  onReorder,
+  onRefreshBinding,
 }: {
   items: MeetingAgendaItemRow[]
   locked: boolean
@@ -381,7 +500,28 @@ function AgendaTab({
   bindings: Map<string, RenderedBindingResult>
   priorOpenDecisions: ReturnType<typeof useMeetings>['detail']['priorOpenDecisions']
   onSave: ReturnType<typeof useMeetings>['setAgendaMinutes']
+  onAddItem: () => void
+  onEditItem: (item: MeetingAgendaItemRow) => void
+  onRemoveItem: (id: string) => Promise<void>
+  onReorder: (orderedIds: string[]) => Promise<void>
+  onRefreshBinding: (itemId: string) => Promise<void>
 }) {
+  // Sort by position so up/down reorder operates on the displayed order.
+  const ordered = items.slice().sort((a, b) => a.position - b.position)
+
+  function moveUp(idx: number) {
+    if (idx === 0) return
+    const next = ordered.slice()
+    ;[next[idx - 1], next[idx]] = [next[idx], next[idx - 1]]
+    void onReorder(next.map((i) => i.id))
+  }
+  function moveDown(idx: number) {
+    if (idx === ordered.length - 1) return
+    const next = ordered.slice()
+    ;[next[idx], next[idx + 1]] = [next[idx + 1], next[idx]]
+    void onReorder(next.map((i) => i.id))
+  }
+
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -393,6 +533,8 @@ function AgendaTab({
         </div>
         <span className="text-xs text-neutral-500">{items.length} saker</span>
       </div>
+
+      <AgendaBuilderToolbar items={items} locked={locked} onAddItem={onAddItem} />
 
       {mandatoryGaps.length > 0 ? (
         <WarningBox>
@@ -425,19 +567,30 @@ function AgendaTab({
         </InfoBox>
       ) : null}
 
-      {items.length === 0 ? (
+      {ordered.length === 0 ? (
         <p className="text-sm text-neutral-600">
-          Ingen agendapunkter — maler skal materialisere disse automatisk.
+          Ingen agendapunkter ennå. Trykk «Legg til sak» for å begynne.
         </p>
       ) : (
-        <ol className="space-y-3">
-          {items.map((item) => (
+        <ol id="agenda-items-list" className="space-y-3">
+          {ordered.map((item, idx) => (
             <AgendaItemEditor
               key={item.id}
               item={item}
               locked={locked}
               binding={bindings.get(item.id)}
               onSave={onSave}
+              onEdit={item.is_manual ? () => onEditItem(item) : undefined}
+              onRemove={
+                !locked && !item.is_mandatory
+                  ? () => void onRemoveItem(item.id)
+                  : undefined
+              }
+              onMoveUp={!locked && idx > 0 ? () => moveUp(idx) : undefined}
+              onMoveDown={
+                !locked && idx < ordered.length - 1 ? () => moveDown(idx) : undefined
+              }
+              onRefreshBinding={() => void onRefreshBinding(item.id)}
             />
           ))}
         </ol>
@@ -451,11 +604,21 @@ function AgendaItemEditor({
   locked,
   binding,
   onSave,
+  onEdit,
+  onRemove,
+  onMoveUp,
+  onMoveDown,
+  onRefreshBinding,
 }: {
   item: MeetingAgendaItemRow
   locked: boolean
   binding: RenderedBindingResult | undefined
   onSave: ReturnType<typeof useMeetings>['setAgendaMinutes']
+  onEdit?: () => void
+  onRemove?: () => void
+  onMoveUp?: () => void
+  onMoveDown?: () => void
+  onRefreshBinding: () => void
 }) {
   const [minutes, setMinutes] = useState(item.minutes_summary ?? '')
   const [decisionText, setDecisionText] = useState(item.decision_text ?? '')
@@ -494,23 +657,76 @@ function AgendaItemEditor({
   }
 
   return (
-    <li className="rounded-lg border border-neutral-200/80 bg-neutral-50/50 p-4">
+    <li id={`agenda-${item.id}`} className="rounded-lg border border-neutral-200/80 bg-neutral-50/50 p-4">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0 flex-1">
           <p className="text-sm font-semibold text-neutral-900">
-            {item.position + 1}. {item.title}
+            {item.title}
           </p>
           {item.description ? (
             <p className="mt-1 text-xs text-neutral-600">{item.description}</p>
           ) : null}
           <div className="mt-1.5 flex flex-wrap items-center gap-2">
             {item.is_mandatory ? <Badge variant="critical">Obligatorisk</Badge> : null}
+            {item.is_manual ? <Badge variant="info">Manuell</Badge> : null}
             {item.law_ref ? (
               <span className="inline-flex items-center gap-1 text-[11px] text-neutral-500">
                 <Scale className="h-3 w-3" /> {item.law_ref}
               </span>
             ) : null}
+            {item.duration_minutes != null ? (
+              <span className="text-[11px] text-neutral-500">
+                {item.duration_minutes} min
+              </span>
+            ) : null}
           </div>
+        </div>
+        {/* Builder controls — reorder + edit + delete */}
+        <div className="flex items-center gap-1">
+          {onMoveUp ? (
+            <button
+              type="button"
+              onClick={onMoveUp}
+              className="rounded p-1.5 text-neutral-500 hover:bg-neutral-100 hover:text-neutral-900"
+              aria-label="Flytt opp"
+              title="Flytt opp"
+            >
+              <ArrowUp className="h-3.5 w-3.5" />
+            </button>
+          ) : null}
+          {onMoveDown ? (
+            <button
+              type="button"
+              onClick={onMoveDown}
+              className="rounded p-1.5 text-neutral-500 hover:bg-neutral-100 hover:text-neutral-900"
+              aria-label="Flytt ned"
+              title="Flytt ned"
+            >
+              <ArrowDown className="h-3.5 w-3.5" />
+            </button>
+          ) : null}
+          {onEdit ? (
+            <button
+              type="button"
+              onClick={onEdit}
+              className="rounded p-1.5 text-neutral-500 hover:bg-neutral-100 hover:text-neutral-900"
+              aria-label="Rediger sak"
+              title="Rediger sak"
+            >
+              <Edit3 className="h-3.5 w-3.5" />
+            </button>
+          ) : null}
+          {onRemove ? (
+            <button
+              type="button"
+              onClick={onRemove}
+              className="rounded p-1.5 text-red-500 hover:bg-red-50 hover:text-red-700"
+              aria-label="Slett sak"
+              title="Slett sak"
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+            </button>
+          ) : null}
         </div>
       </div>
 
@@ -520,23 +736,36 @@ function AgendaItemEditor({
             <p className="font-semibold uppercase tracking-wider text-amber-900/80 text-[10px]">
               Møteforberedelse
             </p>
-            {!locked ? (
-              <Button
-                variant="secondary"
-                size="sm"
-                type="button"
-                onClick={() => {
-                  setMinutes((prev) => {
-                    if (prev && prev.trim().length > 0) {
-                      return `${prev}\n\n${binding.summaryMarkdown}`
-                    }
-                    return binding.summaryMarkdown
-                  })
-                }}
-              >
-                Bruk forberedelse
-              </Button>
-            ) : null}
+            <div className="flex items-center gap-2">
+              {!locked ? (
+                <>
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    type="button"
+                    onClick={onRefreshBinding}
+                    title="Oppdater datasnapshot for denne saken"
+                  >
+                    Oppdater data
+                  </Button>
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    type="button"
+                    onClick={() => {
+                      setMinutes((prev) => {
+                        if (prev && prev.trim().length > 0) {
+                          return `${prev}\n\n${binding.summaryMarkdown}`
+                        }
+                        return binding.summaryMarkdown
+                      })
+                    }}
+                  >
+                    Bruk forberedelse
+                  </Button>
+                </>
+              ) : null}
+            </div>
           </div>
           <p className="mt-2 whitespace-pre-wrap leading-relaxed">
             {binding.summaryMarkdown}

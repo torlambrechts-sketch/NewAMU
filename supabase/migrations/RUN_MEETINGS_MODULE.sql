@@ -26,6 +26,8 @@
 --   20260901120049  meetings_amu_arsmote_v2 (H10)
 --   20260901120050  meetings_workflow_event_emission (G1 + G2 — closeout)
 --   20260901120051  meetings_amu_konstitueringsmote (stretch — post-valg template)
+--   20260902120000  meetings_autofill_agenda (reporting period + builder + attachments + lock triggers)
+--   20260902120001  meetings_template_binding_backfill (bindings on 15 templates × all frameworks)
 --
 -- ============================================================================
 
@@ -3970,3 +3972,563 @@ on conflict (id) do update set
 -- select id, label, is_active, sort_order, minimum_employee_count
 -- from public.meeting_system_templates
 -- where id = 'amu-konstitueringsmote';
+
+
+-- ============================================================================
+-- FROM: 20260902120000_meetings_autofill_agenda.sql
+-- ============================================================================
+
+-- Meetings — auto-fill agenda + agenda builder + Sherpany extras.
+--
+-- Why
+--   Today every meeting opens with empty `minutes_summary` boxes. The chair
+--   manually gathers sykefravær / avvik / vernerunder / opplæring numbers
+--   each time. We already have `useMeetingDataBindings` + `binding_snapshot`
+--   column from H9a, but no reporting period, no eager snapshot, no agenda
+--   builder. This migration unlocks the next three capabilities together:
+--
+--     1. Reporting period on meetings (so AMU Q1 2026 can lock "Q4 2025")
+--     2. Agenda builder columns (is_manual, duration_minutes, presenter)
+--     3. Attachments junction → wiki_pages (Sherpany-style pre-read docs)
+--
+-- Compliance posture
+--   AML § 7-2 (1) — AMU skal følge utviklingen i arbeidsmiljøet; explicit
+--     period bounds make this auditable per kvartal.
+--   AML § 7-2 (6) — årsrapport requires aggregated yearly data; period =
+--     previous calendar year supports this.
+--   Forskrift om org. ledelse § 3-16 — referat fra møtene; agenda
+--     builder changes are caught by audit trail. Once signed the
+--     agenda is fully locked (new trigger).
+--
+-- Idempotent: ADD COLUMN IF NOT EXISTS, CREATE TABLE IF NOT EXISTS,
+--   CREATE OR REPLACE FUNCTION / TRIGGER patterns throughout.
+
+set local search_path = public, pg_catalog;
+
+-- ╭─────────────────────────────────────────────────────────────────────────╮
+-- │ 1. Reporting period on meetings                                         │
+-- ╰─────────────────────────────────────────────────────────────────────────╯
+
+alter table public.meetings
+  add column if not exists reporting_period_start date,
+  add column if not exists reporting_period_end   date,
+  add column if not exists reporting_period_label text;
+
+comment on column public.meetings.reporting_period_start is
+  'Inclusive lower bound of the reporting period this meeting reviews. NULL means fall back to relative window from dataBinding.';
+comment on column public.meetings.reporting_period_end is
+  'Inclusive upper bound of the reporting period this meeting reviews. NULL means fall back to relative window from dataBinding.';
+comment on column public.meetings.reporting_period_label is
+  'Human label for the period (e.g. "Q4 2025", "2024"). Free text; resolvers do not parse it.';
+
+-- ╭─────────────────────────────────────────────────────────────────────────╮
+-- │ 2. Agenda builder + Sherpany extras                                     │
+-- ╰─────────────────────────────────────────────────────────────────────────╯
+
+alter table public.meeting_agenda_items
+  add column if not exists is_manual           boolean not null default false,
+  add column if not exists duration_minutes    integer
+    check (duration_minutes is null or duration_minutes >= 0),
+  add column if not exists presenter_member_id uuid
+    references public.organization_members (id) on delete set null;
+
+comment on column public.meeting_agenda_items.is_manual is
+  'True when added via agenda builder (no template_item_key). Template items default to false.';
+comment on column public.meeting_agenda_items.duration_minutes is
+  'Per-item time budget. Optional. Sum yields the total meeting time forecast.';
+comment on column public.meeting_agenda_items.presenter_member_id is
+  'Member who presents this item in the meeting (distinct from prepared_by_member_id who wrote the pre-read).';
+
+-- Backfill is_manual = true for existing rows that were inserted without a
+-- template item key. Template-derived rows keep the default `false`.
+update public.meeting_agenda_items
+   set is_manual = true
+ where template_item_key is null
+   and is_manual = false;
+
+-- ╭─────────────────────────────────────────────────────────────────────────╮
+-- │ 3. Attachments junction → wiki_pages                                    │
+-- ╰─────────────────────────────────────────────────────────────────────────╯
+
+create table if not exists public.meeting_agenda_attachments (
+  id             uuid primary key default gen_random_uuid(),
+  agenda_item_id uuid not null references public.meeting_agenda_items (id) on delete cascade,
+  wiki_page_id   text not null references public.wiki_pages (id) on delete cascade,
+  position       integer not null default 0,
+  created_at     timestamptz not null default now(),
+  created_by     uuid references public.organization_members (id) on delete set null,
+  unique (agenda_item_id, wiki_page_id)
+);
+
+create index if not exists meeting_agenda_attachments_item_idx
+  on public.meeting_agenda_attachments (agenda_item_id, position);
+
+alter table public.meeting_agenda_attachments enable row level security;
+
+-- Visibility inherits from parent agenda item (which inherits from meeting).
+-- Wiki pages have their own RLS — the picker enforces that, and select here
+-- is permissive because the FK already requires a visible wiki_page row.
+drop policy if exists meeting_agenda_attachments_select on public.meeting_agenda_attachments;
+create policy meeting_agenda_attachments_select
+  on public.meeting_agenda_attachments for select
+  using (
+    exists (select 1 from public.meeting_agenda_items i where i.id = agenda_item_id)
+  );
+
+drop policy if exists meeting_agenda_attachments_write on public.meeting_agenda_attachments;
+create policy meeting_agenda_attachments_write
+  on public.meeting_agenda_attachments for all
+  using (
+    exists (select 1 from public.meeting_agenda_items i where i.id = agenda_item_id)
+  )
+  with check (
+    exists (select 1 from public.meeting_agenda_items i where i.id = agenda_item_id)
+  );
+
+-- ╭─────────────────────────────────────────────────────────────────────────╮
+-- │ 4. Extend meetings BEFORE-UPDATE lock to cover reporting_period_*       │
+-- ╰─────────────────────────────────────────────────────────────────────────╯
+
+create or replace function public.meetings_before_update_defaults()
+returns trigger language plpgsql security definer as
+$$
+begin
+  -- Always immutable
+  if new.organization_id is distinct from old.organization_id then
+    raise exception 'organization_id is immutable on meetings';
+  end if;
+  if new.source_kind is distinct from old.source_kind then
+    raise exception 'source_kind is immutable on meetings';
+  end if;
+  if new.system_template_id is distinct from old.system_template_id then
+    raise exception 'system_template_id is immutable on meetings';
+  end if;
+  if new.org_template_id is distinct from old.org_template_id then
+    raise exception 'org_template_id is immutable on meetings';
+  end if;
+  if new.created_by is distinct from old.created_by then
+    raise exception 'created_by is immutable on meetings';
+  end if;
+
+  if old.protocol_signed_at is not null
+     and new.confidentiality_level is distinct from old.confidentiality_level then
+    raise exception 'Meeting % is signed; confidentiality_level is locked', old.id
+      using errcode = 'check_violation';
+  end if;
+
+  if old.protocol_signed_at is not null then
+    if new.protocol_signed_at is null then
+      raise exception 'Meeting % is signed; protocol_signed_at cannot revert', old.id
+        using errcode = 'check_violation';
+    end if;
+    if new.protocol_signed_by is distinct from old.protocol_signed_by then
+      raise exception 'Meeting % is signed; protocol_signed_by is locked', old.id
+        using errcode = 'check_violation';
+    end if;
+    if new.sign_checksum is distinct from old.sign_checksum then
+      raise exception 'Meeting % is signed; sign_checksum is locked', old.id
+        using errcode = 'check_violation';
+    end if;
+    if new.definition_snapshot is distinct from old.definition_snapshot then
+      raise exception 'Meeting % is signed; definition_snapshot is locked', old.id
+        using errcode = 'check_violation';
+    end if;
+    if new.metadata_schema_snapshot is distinct from old.metadata_schema_snapshot then
+      raise exception 'Meeting % is signed; metadata_schema_snapshot is locked', old.id
+        using errcode = 'check_violation';
+    end if;
+    if new.status not in ('completed','cancelled') then
+      raise exception 'Meeting % is signed; status cannot revert to %', old.id, new.status
+        using errcode = 'check_violation';
+    end if;
+    -- New: reporting period locks together with the rest of the identity
+    -- bundle once the protocol is signed.
+    if new.reporting_period_start is distinct from old.reporting_period_start then
+      raise exception 'Meeting % is signed; reporting_period_start is locked', old.id
+        using errcode = 'check_violation';
+    end if;
+    if new.reporting_period_end is distinct from old.reporting_period_end then
+      raise exception 'Meeting % is signed; reporting_period_end is locked', old.id
+        using errcode = 'check_violation';
+    end if;
+    if new.reporting_period_label is distinct from old.reporting_period_label then
+      raise exception 'Meeting % is signed; reporting_period_label is locked', old.id
+        using errcode = 'check_violation';
+    end if;
+  end if;
+
+  return new;
+end;
+$$;
+
+-- ╭─────────────────────────────────────────────────────────────────────────╮
+-- │ 5. NEW lock trigger on meeting_agenda_items                             │
+-- ╰─────────────────────────────────────────────────────────────────────────╯
+-- After protocol_signed_at, the agenda structure freezes. Only binding
+-- refresh and the minutes/decision/vote fields (which already flow through
+-- setAgendaMinutes after sign) stay editable.
+
+create or replace function public.meeting_agenda_items_before_change()
+returns trigger language plpgsql security definer as
+$$
+declare
+  locked boolean;
+  meeting_id_eff uuid;
+begin
+  meeting_id_eff := coalesce(new.meeting_id, old.meeting_id);
+  select protocol_signed_at is not null
+    into locked
+    from public.meetings
+   where id = meeting_id_eff;
+
+  if locked then
+    if tg_op = 'INSERT' then
+      raise exception 'Meeting % is signed; cannot add agenda items', meeting_id_eff
+        using errcode = 'check_violation';
+    end if;
+    if tg_op = 'DELETE' then
+      raise exception 'Meeting % is signed; cannot delete agenda items', meeting_id_eff
+        using errcode = 'check_violation';
+    end if;
+    -- UPDATE: allow only the "soft" fields that flow during/after sign.
+    if new.position           is distinct from old.position
+       or new.title           is distinct from old.title
+       or new.description     is distinct from old.description
+       or new.law_ref         is distinct from old.law_ref
+       or new.is_mandatory    is distinct from old.is_mandatory
+       or new.is_manual       is distinct from old.is_manual
+       or new.duration_minutes is distinct from old.duration_minutes
+       or new.presenter_member_id is distinct from old.presenter_member_id
+       or new.template_item_key is distinct from old.template_item_key
+    then
+      raise exception 'Meeting % is signed; agenda structure is locked', meeting_id_eff
+        using errcode = 'check_violation';
+    end if;
+  end if;
+
+  return coalesce(new, old);
+end;
+$$;
+
+drop trigger if exists meeting_agenda_items_lock_tg on public.meeting_agenda_items;
+create trigger meeting_agenda_items_lock_tg
+  before insert or update or delete on public.meeting_agenda_items
+  for each row execute function public.meeting_agenda_items_before_change();
+
+-- Verification
+-- select column_name from information_schema.columns
+--  where table_schema='public' and table_name='meetings'
+--    and column_name like 'reporting_period%';                            -- 3 rows
+-- select column_name from information_schema.columns
+--  where table_schema='public' and table_name='meeting_agenda_items'
+--    and column_name in ('is_manual','duration_minutes','presenter_member_id');  -- 3 rows
+-- select tgname from pg_trigger where tgname = 'meeting_agenda_items_lock_tg';   -- 1 row
+
+
+-- ============================================================================
+-- FROM: 20260902120001_meetings_template_binding_backfill.sql
+-- ============================================================================
+
+-- Meetings — backfill dataBinding on 15 binding-eligible system templates.
+--
+-- Why
+--   Companion to 20260902120000_meetings_autofill_agenda.sql. Adds
+--   `dataBinding` to agenda items where a module hook can supply data,
+--   covering every framework (AML, ISO 9001/14001/45001/27001, GDPR,
+--   Hovedavtalen, Likestillingsloven) — not just AMU.
+--
+--   Once meetings are created from these templates after this migration,
+--   `useMeetings.createMeeting` will eagerly resolve every binding into
+--   `meeting_agenda_items.binding_snapshot`, surfacing graphical data in
+--   the new Datapakke tab + the agenda callout.
+--
+-- Idempotence
+--   Each UPDATE rewrites `definition->'agendaItems'` by merging a
+--   `{"dataBinding": ...}` object onto the matching item with the `||`
+--   operator. `||` overwrites the dataBinding key on re-run, so the
+--   migration converges on the same definition every time.
+--
+--   Templates already carrying bindings (`amu-arsmote-arsrapport`,
+--   `amu-konstitueringsmote`) are NOT touched.
+--
+-- Compliance posture
+--   No data deleted; only definitions enriched. Existing meetings'
+--   `definition_snapshot` is frozen and not modified — already-signed
+--   protocols remain bit-exact identical.
+
+set local search_path = public, pg_catalog;
+
+-- ─── helper: rewrite a single template's agenda items by key → dataBinding ──
+-- Implemented inline per-template via a CTE pattern so we don't have to ship
+-- a permanent function for a one-shot data migration.
+
+-- ═════════════════════════════════════════════════════════════════════════
+--  AML — Arbeidsmiljøloven
+-- ═════════════════════════════════════════════════════════════════════════
+
+-- AMU kvartalsmøte Q1 — operativ HMS-status (vernerunder, sykefravær, opplæring, avvik)
+update public.meeting_system_templates
+set definition = jsonb_set(definition, '{agendaItems}', (
+  select jsonb_agg(
+    case item->>'key'
+      when 'vernerunder' then item || '{"dataBinding":{"source":"vernerunde_findings","window":"last_quarter","presentation":"summary"}}'::jsonb
+      when 'sykefravar'  then item || '{"dataBinding":{"source":"sick_leave_stats","window":"last_quarter","presentation":"table"}}'::jsonb
+      when 'opplaering'  then item || '{"dataBinding":{"source":"training_completion","window":"last_quarter","presentation":"summary"}}'::jsonb
+      when 'avvik'       then item || '{"dataBinding":{"source":"incidents","window":"last_quarter","presentation":"chart"}}'::jsonb
+      else item
+    end
+  )
+  from jsonb_array_elements(definition->'agendaItems') item
+)),
+updated_at = now()
+where id = 'amu-kvartalsmote-q1';
+
+-- AMU kvartalsmøte Q2 — arbeidsmiljøundersøkelse + risikobilde + fysisk miljø
+update public.meeting_system_templates
+set definition = jsonb_set(definition, '{agendaItems}', (
+  select jsonb_agg(
+    case item->>'key'
+      when 'arbeidsmiljoundersokelse' then item || '{"dataBinding":{"source":"survey_results","window":"last_half_year","presentation":"summary"}}'::jsonb
+      when 'ros'                       then item || '{"dataBinding":{"source":"open_ros_high","window":"current","presentation":"table"}}'::jsonb
+      when 'fysisk_miljo'              then item || '{"dataBinding":{"source":"vernerunde_findings","window":"last_quarter","presentation":"summary"}}'::jsonb
+      else item
+    end
+  )
+  from jsonb_array_elements(definition->'agendaItems') item
+)),
+updated_at = now()
+where id = 'amu-kvartalsmote-q2';
+
+-- AMU kvartalsmøte Q3 — psykososialt, varsling, mobbing
+update public.meeting_system_templates
+set definition = jsonb_set(definition, '{agendaItems}', (
+  select jsonb_agg(
+    case item->>'key'
+      when 'psykososial' then item || '{"dataBinding":{"source":"survey_results","window":"last_half_year","presentation":"summary"}}'::jsonb
+      when 'varsling'    then item || '{"dataBinding":{"source":"whistleblowing_anonymized","window":"last_quarter","presentation":"summary"}}'::jsonb
+      when 'mobbing'     then item || '{"dataBinding":{"source":"whistleblowing_anonymized","window":"last_quarter","presentation":"summary"}}'::jsonb
+      else item
+    end
+  )
+  from jsonb_array_elements(definition->'agendaItems') item
+)),
+updated_at = now()
+where id = 'amu-kvartalsmote-q3';
+
+-- AMU årsrapport Q4 (legacy v1, still active) — full year aggregates
+update public.meeting_system_templates
+set definition = jsonb_set(definition, '{agendaItems}', (
+  select jsonb_agg(
+    case item->>'key'
+      when 'composition'          then item || '{"dataBinding":{"source":"headcount_and_amu_composition","window":"current","presentation":"summary"}}'::jsonb
+      when 'sykefravar_arsstats'  then item || '{"dataBinding":{"source":"sick_leave_stats","window":"last_year","presentation":"table"}}'::jsonb
+      when 'hendelser'            then item || '{"dataBinding":{"source":"incidents","window":"last_year","presentation":"chart"}}'::jsonb
+      when 'opplaering'           then item || '{"dataBinding":{"source":"training_completion","window":"last_year","presentation":"summary"}}'::jsonb
+      when 'arbeidsmiljoplan'     then item || '{"dataBinding":{"source":"open_ros_high","window":"current","presentation":"table"}}'::jsonb
+      else item
+    end
+  )
+  from jsonb_array_elements(definition->'agendaItems') item
+)),
+updated_at = now()
+where id = 'amu-arsrapport-q4';
+
+-- Verneombud-møte — operativ vernerunde + sykefravær + opplæring
+update public.meeting_system_templates
+set definition = jsonb_set(definition, '{agendaItems}', (
+  select jsonb_agg(
+    case item->>'key'
+      when 'vernerunder' then item || '{"dataBinding":{"source":"vernerunde_findings","window":"last_quarter","presentation":"summary"}}'::jsonb
+      when 'avvik'       then item || '{"dataBinding":{"source":"incidents","window":"last_quarter","presentation":"chart"}}'::jsonb
+      when 'opplaering'  then item || '{"dataBinding":{"source":"training_completion","window":"last_quarter","presentation":"summary"}}'::jsonb
+      else item
+    end
+  )
+  from jsonb_array_elements(definition->'agendaItems') item
+)),
+updated_at = now()
+where id = 'verneombud-mote';
+
+-- ═════════════════════════════════════════════════════════════════════════
+--  AML — drøfting + medvirkning (Hovedavtalen surface)
+-- ═════════════════════════════════════════════════════════════════════════
+
+-- Bedriftsutvalg — drift, organisasjon, medvirkning
+update public.meeting_system_templates
+set definition = jsonb_set(definition, '{agendaItems}', (
+  select jsonb_agg(
+    case item->>'key'
+      when 'drift'       then item || '{"dataBinding":{"source":"headcount_and_amu_composition","window":"current","presentation":"summary"}}'::jsonb
+      when 'medvirkning' then item || '{"dataBinding":{"source":"open_decisions","window":"all_open","presentation":"summary"}}'::jsonb
+      else item
+    end
+  )
+  from jsonb_array_elements(definition->'agendaItems') item
+)),
+updated_at = now()
+where id = 'bedriftsutvalg';
+
+-- Varslingsutvalg — anonymisert oversikt + oppfølging
+update public.meeting_system_templates
+set definition = jsonb_set(definition, '{agendaItems}', (
+  select jsonb_agg(
+    case item->>'key'
+      when 'sak'      then item || '{"dataBinding":{"source":"whistleblowing_anonymized","window":"last_quarter","presentation":"summary"}}'::jsonb
+      when 'oversikt' then item || '{"dataBinding":{"source":"open_decisions","window":"all_open","presentation":"summary"}}'::jsonb
+      else item
+    end
+  )
+  from jsonb_array_elements(definition->'agendaItems') item
+)),
+updated_at = now()
+where id = 'varslingsutvalg';
+
+-- Drøftingsmøte — omstilling
+update public.meeting_system_templates
+set definition = jsonb_set(definition, '{agendaItems}', (
+  select jsonb_agg(
+    case item->>'key'
+      when 'konsekvenser' then item || '{"dataBinding":{"source":"headcount_and_amu_composition","window":"current","presentation":"summary"}}'::jsonb
+      when 'synspunkter'  then item || '{"dataBinding":{"source":"survey_results","window":"last_year","presentation":"summary"}}'::jsonb
+      else item
+    end
+  )
+  from jsonb_array_elements(definition->'agendaItems') item
+)),
+updated_at = now()
+where id = 'drofting-omstilling';
+
+-- Drøftingsmøte — likestilling (Likestillingsloven § 26 surface)
+update public.meeting_system_templates
+set definition = jsonb_set(definition, '{agendaItems}', (
+  select jsonb_agg(
+    case item->>'key'
+      when 'kjonnsbalanse'  then item || '{"dataBinding":{"source":"headcount_and_amu_composition","window":"current","presentation":"summary"}}'::jsonb
+      when 'diskriminering' then item || '{"dataBinding":{"source":"survey_results","window":"last_half_year","presentation":"summary"}}'::jsonb
+      else item
+    end
+  )
+  from jsonb_array_elements(definition->'agendaItems') item
+)),
+updated_at = now()
+where id = 'drofting-likestilling';
+
+-- ═════════════════════════════════════════════════════════════════════════
+--  ISO Styringssystem
+-- ═════════════════════════════════════════════════════════════════════════
+
+-- ISO 9001 — Ledelsens gjennomgang
+update public.meeting_system_templates
+set definition = jsonb_set(definition, '{agendaItems}', (
+  select jsonb_agg(
+    case item->>'key'
+      when 'prev_actions'            then item || '{"dataBinding":{"source":"open_decisions","window":"all_open","presentation":"summary"}}'::jsonb
+      when 'audit_results'           then item || '{"dataBinding":{"source":"compliance_checklist_status","window":"last_year","presentation":"summary"}}'::jsonb
+      when 'nonconformities'         then item || '{"dataBinding":{"source":"incidents","window":"last_year","presentation":"chart"}}'::jsonb
+      when 'risk_opportunity_actions' then item || '{"dataBinding":{"source":"open_ros_high","window":"current","presentation":"table"}}'::jsonb
+      when 'performance'             then item || '{"dataBinding":{"source":"training_completion","window":"last_year","presentation":"summary"}}'::jsonb
+      else item
+    end
+  )
+  from jsonb_array_elements(definition->'agendaItems') item
+)),
+updated_at = now()
+where id = 'iso-9001-ledelsens-gjennomgang';
+
+-- ISO 27001 — ISMS-gjennomgang (sub-letter restructure reviewer-gated per H0 log)
+update public.meeting_system_templates
+set definition = jsonb_set(definition, '{agendaItems}', (
+  select jsonb_agg(
+    case item->>'key'
+      when 'prev_actions'    then item || '{"dataBinding":{"source":"open_decisions","window":"all_open","presentation":"summary"}}'::jsonb
+      when 'incidents'       then item || '{"dataBinding":{"source":"incidents","window":"last_year","presentation":"chart"}}'::jsonb
+      when 'risk_assessment' then item || '{"dataBinding":{"source":"open_ros_high","window":"current","presentation":"table"}}'::jsonb
+      when 'controls'        then item || '{"dataBinding":{"source":"compliance_checklist_status","window":"last_year","presentation":"summary"}}'::jsonb
+      else item
+    end
+  )
+  from jsonb_array_elements(definition->'agendaItems') item
+)),
+updated_at = now()
+where id = 'iso-27001-isms-gjennomgang';
+
+-- ISO 45001 — Ledelsens gjennomgang (HMS-tung — bredeste bindings-sett)
+update public.meeting_system_templates
+set definition = jsonb_set(definition, '{agendaItems}', (
+  select jsonb_agg(
+    case item->>'key'
+      when 'prev_actions'      then item || '{"dataBinding":{"source":"open_decisions","window":"all_open","presentation":"summary"}}'::jsonb
+      when 'performance'       then item || '{"dataBinding":{"source":"training_completion","window":"last_year","presentation":"summary"}}'::jsonb
+      when 'risks'             then item || '{"dataBinding":{"source":"open_ros_high","window":"current","presentation":"table"}}'::jsonb
+      when 'oh_incidents'      then item || '{"dataBinding":{"source":"incidents","window":"last_year","presentation":"chart"}}'::jsonb
+      when 'oh_compliance_eval' then item || '{"dataBinding":{"source":"compliance_checklist_status","window":"last_year","presentation":"summary"}}'::jsonb
+      when 'oh_audit_results'  then item || '{"dataBinding":{"source":"vernerunde_findings","window":"last_year","presentation":"summary"}}'::jsonb
+      else item
+    end
+  )
+  from jsonb_array_elements(definition->'agendaItems') item
+)),
+updated_at = now()
+where id = 'iso-45001-ledelsens-gjennomgang';
+
+-- ISO 14001 — Miljøgjennomgang (miljø-spesifikke målinger forblir manuelle)
+update public.meeting_system_templates
+set definition = jsonb_set(definition, '{agendaItems}', (
+  select jsonb_agg(
+    case item->>'key'
+      when 'prev_actions' then item || '{"dataBinding":{"source":"open_decisions","window":"all_open","presentation":"summary"}}'::jsonb
+      when 'compliance'   then item || '{"dataBinding":{"source":"compliance_checklist_status","window":"last_year","presentation":"summary"}}'::jsonb
+      when 'incidents'    then item || '{"dataBinding":{"source":"incidents","window":"last_year","presentation":"chart"}}'::jsonb
+      when 'env_audits'   then item || '{"dataBinding":{"source":"compliance_checklist_status","window":"last_year","presentation":"summary"}}'::jsonb
+      else item
+    end
+  )
+  from jsonb_array_elements(definition->'agendaItems') item
+)),
+updated_at = now()
+where id = 'iso-14001-miljogjennomgang';
+
+-- ═════════════════════════════════════════════════════════════════════════
+--  GDPR (Personvern)
+-- ═════════════════════════════════════════════════════════════════════════
+
+-- GDPR DPIA-gjennomgang — risiko + beslutning
+update public.meeting_system_templates
+set definition = jsonb_set(definition, '{agendaItems}', (
+  select jsonb_agg(
+    case item->>'key'
+      when 'risks'    then item || '{"dataBinding":{"source":"open_ros_high","window":"current","presentation":"table"}}'::jsonb
+      when 'decision' then item || '{"dataBinding":{"source":"open_decisions","window":"all_open","presentation":"summary"}}'::jsonb
+      else item
+    end
+  )
+  from jsonb_array_elements(definition->'agendaItems') item
+)),
+updated_at = now()
+where id = 'gdpr-dpia-gjennomgang';
+
+-- GDPR ROPA-årsgjennomgang — beslutninger fra forrige år (artikkel-30 stats manuelle)
+update public.meeting_system_templates
+set definition = jsonb_set(definition, '{agendaItems}', (
+  select jsonb_agg(
+    case item->>'key'
+      when 'decisions' then item || '{"dataBinding":{"source":"open_decisions","window":"all_open","presentation":"summary"}}'::jsonb
+      else item
+    end
+  )
+  from jsonb_array_elements(definition->'agendaItems') item
+)),
+updated_at = now()
+where id = 'gdpr-ropa-arsgjennomgang';
+
+-- ─── Verification ────────────────────────────────────────────────────────
+-- select id,
+--   (select count(*) from jsonb_array_elements(definition->'agendaItems') i where i ? 'dataBinding') as bindings,
+--   jsonb_array_length(definition->'agendaItems') as total_items
+-- from public.meeting_system_templates
+-- where is_active
+-- order by id;
+--
+-- Expected: 15 templates touched here gain bindings on 2-6 items each.
+-- amu-arsmote-arsrapport and amu-konstitueringsmote already had bindings.
+-- mus, allmote, personalmote remain 0 bindings (correct — no module data).
