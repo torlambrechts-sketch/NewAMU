@@ -8,6 +8,7 @@ import { useMemo, useState, type FormEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   ClipboardList,
+  Edit3,
   FolderTree,
   Pin,
   Plus,
@@ -34,6 +35,8 @@ import {
   MEETING_CADENCE_LABEL,
   frameworkLabel,
 } from '../../../modules/meetings/meetingsLabels'
+import type { MeetingOrgTemplateRow } from '../../../modules/meetings/types'
+import { MeetingsTemplateEditorPanel } from './MeetingsTemplateEditorPanel'
 
 type AdminTab = 'maler' | 'kategorier'
 
@@ -116,6 +119,9 @@ export function MeetingsAdminPage({ embedded = false }: { embedded?: boolean } =
 
 function TemplatesTab() {
   const meetings = useMeetings()
+  const [editorOpen, setEditorOpen] = useState(false)
+  const [editTarget, setEditTarget] = useState<MeetingOrgTemplateRow | null>(null)
+
   const settingsById = useMemo(() => {
     const m = new Map<string, (typeof meetings.orgSettings)[number]>()
     for (const s of meetings.orgSettings) m.set(s.system_template_id, s)
@@ -130,17 +136,114 @@ function TemplatesTab() {
     [meetings.categories],
   )
 
+  const categoryNameById = useMemo(() => {
+    const m = new Map<string, string>()
+    for (const c of meetings.categories) m.set(c.id, c.name)
+    return m
+  }, [meetings.categories])
+
+  function openCreate() {
+    setEditTarget(null)
+    setEditorOpen(true)
+  }
+  function openEdit(template: MeetingOrgTemplateRow) {
+    setEditTarget(template)
+    setEditorOpen(true)
+  }
+
   return (
-    <ModuleSectionCard className="!p-0">
-      <div className="flex items-center justify-between gap-3 border-b border-neutral-100 px-5 py-4">
-        <div>
-          <h2 className="text-lg font-semibold text-neutral-900">Maler</h2>
-          <p className="mt-0.5 text-sm text-neutral-600">
-            Systemmaler kan slås av per organisasjon, knyttes til kategorier og festes i sidemenyen.
-          </p>
+    <div className="space-y-6">
+      <ModuleSectionCard className="!p-0">
+        <div className="flex items-center justify-between gap-3 border-b border-neutral-100 px-5 py-4">
+          <div>
+            <h2 className="text-lg font-semibold text-neutral-900">Egne maler</h2>
+            <p className="mt-0.5 text-sm text-neutral-600">
+              Organisasjonsspesifikke maler. Disse vises sammen med systemmalene i hovedsiden.
+            </p>
+          </div>
+          <Button
+            variant="primary"
+            type="button"
+            size="sm"
+            icon={<Plus className="h-3.5 w-3.5" />}
+            onClick={openCreate}
+          >
+            Ny mal
+          </Button>
         </div>
-        <span className="text-xs text-neutral-500">{meetings.systemTemplates.length} maler</span>
-      </div>
+        {meetings.orgTemplates.length === 0 ? (
+          <p className="px-5 py-5 text-sm text-neutral-600">
+            Ingen egne maler ennå. Trykk «Ny mal» for å bygge en organisasjonsspesifikk mal med egen agenda og roller.
+          </p>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[720px] border-collapse text-left text-sm">
+              <thead className="bg-neutral-50/60">
+                <tr>
+                  <th className={MODULE_TABLE_TH}>Mal</th>
+                  <th className={MODULE_TABLE_TH}>Rammeverk</th>
+                  <th className={MODULE_TABLE_TH}>Kadens</th>
+                  <th className={MODULE_TABLE_TH}>Kategori</th>
+                  <th className={MODULE_TABLE_TH}>Aktiv</th>
+                  <th className={MODULE_TABLE_TH}>Handling</th>
+                </tr>
+              </thead>
+              <tbody>
+                {meetings.orgTemplates.map((t) => (
+                  <tr key={t.id} className={MODULE_TABLE_TR_BODY}>
+                    <td className="px-5 py-4 align-middle">
+                      <div className="font-medium text-neutral-900">{t.name}</div>
+                      {t.description ? (
+                        <p className="mt-0.5 line-clamp-2 text-xs text-neutral-600">
+                          {t.description}
+                        </p>
+                      ) : null}
+                    </td>
+                    <td className="px-5 py-4 align-middle">
+                      <Badge variant="info">{frameworkLabel(t.framework)}</Badge>
+                    </td>
+                    <td className="px-5 py-4 align-middle text-xs text-neutral-600">
+                      {t.cadence_hint ? MEETING_CADENCE_LABEL[t.cadence_hint] : '—'}
+                    </td>
+                    <td className="px-5 py-4 align-middle text-xs text-neutral-600">
+                      {t.category_id ? categoryNameById.get(t.category_id) ?? '—' : 'Uten kategori'}
+                    </td>
+                    <td className="px-5 py-4 align-middle text-center">
+                      {t.is_active ? (
+                        <Badge variant="active">Aktiv</Badge>
+                      ) : (
+                        <Badge variant="neutral">Inaktiv</Badge>
+                      )}
+                    </td>
+                    <td className="px-5 py-4 align-middle text-center">
+                      <Button
+                        variant="ghost"
+                        type="button"
+                        size="sm"
+                        icon={<Edit3 className="h-3.5 w-3.5" />}
+                        onClick={() => openEdit(t)}
+                      >
+                        Rediger
+                      </Button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </ModuleSectionCard>
+
+      <ModuleSectionCard className="!p-0">
+        <div className="flex items-center justify-between gap-3 border-b border-neutral-100 px-5 py-4">
+          <div>
+            <h2 className="text-lg font-semibold text-neutral-900">Systemmaler</h2>
+            <p className="mt-0.5 text-sm text-neutral-600">
+              Systemmaler kan slås av per organisasjon, knyttes til kategorier og festes i sidemenyen.
+            </p>
+          </div>
+          <span className="text-xs text-neutral-500">{meetings.systemTemplates.length} maler</span>
+        </div>
       <div className="overflow-x-auto">
         <table className="w-full min-w-[720px] border-collapse text-left text-sm">
           <thead className="bg-neutral-50/60">
@@ -211,7 +314,14 @@ function TemplatesTab() {
           </tbody>
         </table>
       </div>
-    </ModuleSectionCard>
+      </ModuleSectionCard>
+
+      <MeetingsTemplateEditorPanel
+        open={editorOpen}
+        onClose={() => setEditorOpen(false)}
+        editTarget={editTarget}
+      />
+    </div>
   )
 }
 
