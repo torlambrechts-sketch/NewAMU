@@ -43,7 +43,6 @@ export function PermissionGate() {
   const isDocumentsPath = path === '/documents' || path.startsWith('/documents/')
   const isDocumentsEditorPath =
     /\/reference-edit$/.test(path) ||
-    path.includes('/wiki-edit') ||
     (path.includes('/documents/templates/org/') && path.includes('/edit'))
 
   const isSurveyTemplateEditorPath = path.startsWith('/survey/templates/org/')

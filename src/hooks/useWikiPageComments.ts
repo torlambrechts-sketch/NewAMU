@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import type { SupabaseClient } from '@supabase/supabase-js'
 import { useOrgSetupContext } from './useOrgSetupContext'
 import type {
   WikiPageComment,
@@ -315,22 +314,4 @@ export function useWikiPageComments(pageId: string | undefined) {
     setResolved,
     removeComment,
   }
-}
-
-export async function fetchWikiMentionRecipientsFromHtml(
-  supabase: SupabaseClient | null | undefined,
-  html: string,
-): Promise<{ id: string; label: string }[]> {
-  if (!supabase) return []
-  const doc = new DOMParser().parseFromString(html, 'text/html')
-  const ids = new Set<string>()
-  doc.querySelectorAll('[data-user-id]').forEach((el) => {
-    const id = el.getAttribute('data-user-id')
-    if (id) ids.add(id)
-  })
-  if (ids.size === 0) return []
-  const { data, error } = await supabase.from('profiles').select('id, display_name').in('id', [...ids])
-  if (error || !data) return [...ids].map((id) => ({ id, label: id }))
-  const map = new Map(data.map((r: { id: string; display_name: string }) => [r.id, r.display_name]))
-  return [...ids].map((id) => ({ id, label: map.get(id) ?? id }))
 }

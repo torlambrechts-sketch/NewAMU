@@ -19,10 +19,7 @@ export function DocumentPresenceStack({ users, currentUserId, max = 5 }: Props) 
       <ul className="flex -space-x-1.5">
         {visible.map((u) => {
           const isMe = u.userId === currentUserId
-          const title =
-            u.focusedBlockIndex != null
-              ? `${u.displayName}${isMe ? ' (deg)' : ''} — redigerer blokk ${u.focusedBlockIndex + 1}`
-              : `${u.displayName}${isMe ? ' (deg)' : ''}`
+          const title = `${u.displayName}${isMe ? ' (deg)' : ''}`
           return (
             <li key={u.userId}>
               <span

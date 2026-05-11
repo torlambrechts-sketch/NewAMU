@@ -91,7 +91,6 @@ import { DocumentsMalbibliotekPage } from './pages/documents/DocumentsMalbibliot
 import { WikiSpaceView } from './pages/documents/WikiSpaceView'
 import { WikiPageView } from './pages/documents/WikiPageView'
 import { WikiPageEditRedirect } from './pages/documents/WikiPageEditRedirect'
-import { WikiPageEditor } from './pages/documents/WikiPageEditor'
 import { ComplianceDashboard } from './pages/documents/ComplianceDashboard'
 import { AnnualReviewPage } from './pages/documents/AnnualReviewPage'
 import { InspectionArbeidstilsynetExportPage } from './pages/documents/InspectionArbeidstilsynetExportPage'
@@ -471,14 +470,6 @@ const router = createBrowserRouter(
                           }
                         />
                         <Route path="documents/page/:pageId/edit" element={<WikiPageEditRedirect />} />
-                        <Route
-                          path="documents/page/:pageId/wiki-edit"
-                          element={
-                            <RouteErrorBoundary title="Kunne ikke åpne redigering">
-                              <WikiPageEditor />
-                            </RouteErrorBoundary>
-                          }
-                        />
                       </Route>
                     </Route>
                   </Route>
