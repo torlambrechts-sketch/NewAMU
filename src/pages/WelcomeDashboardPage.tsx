@@ -281,7 +281,7 @@ export function WelcomeDashboardPage() {
               <div className="rounded-lg border border-amber-200/80 bg-amber-50/90 px-3 py-2 text-sm text-amber-950">
                 <span className="font-medium">Neste AMU-møte:</span>{' '}
                 {fmtDate(nextMeeting.startsAt)} kl. {fmtTime(nextMeeting.startsAt)}
-                <Link to="/council?tab=meetings" className="ml-1 font-semibold text-[#1a3d32] underline">
+                <Link to="/meetings" className="ml-1 font-semibold text-[#1a3d32] underline">
                   Åpne
                 </Link>
               </div>
@@ -318,7 +318,7 @@ export function WelcomeDashboardPage() {
                         {fmtDate(upcomingMeetings[0]!.startsAt)} · {fmtTime(upcomingMeetings[0]!.startsAt)}
                       </p>
                       <Link
-                        to="/council?tab=meetings"
+                        to="/meetings"
                         className="mt-1 inline-block text-sm font-semibold text-orange-600 hover:underline"
                       >
                         Gå til møter →
@@ -382,7 +382,7 @@ export function WelcomeDashboardPage() {
                   Hendelser
                 </Link>
                 <Link
-                  to="/council?tab=meetings"
+                  to="/meetings"
                   className="flex items-center gap-3 px-4 py-3 text-sm text-neutral-800 hover:bg-neutral-50"
                 >
                   <Calendar className="size-4 text-[#1a3d32]" />

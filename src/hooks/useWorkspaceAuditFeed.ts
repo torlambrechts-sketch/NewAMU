@@ -1,5 +1,4 @@
 import { useMemo } from 'react'
-import { useCouncil } from './useCouncil'
 import { useHse } from './useHse'
 import { useInternalControl } from './useInternalControl'
 import { useOrgHealth } from './useOrgHealth'
@@ -10,7 +9,7 @@ export const WORKSPACE_AUDIT_SOURCES = [
   'internal_control',
   'hse',
   'org_health',
-  'council',
+  'meetings',
   'representatives',
 ] as const
 
@@ -32,14 +31,8 @@ const SOURCE_LABELS: Record<Exclude<WorkspaceAuditSourceFilter, 'all'>, string> 
   internal_control: 'Internkontroll',
   hse: 'HSE / HMS',
   org_health: 'Organisasjonshelse',
-  council: 'Arbeidsmiljøråd',
+  meetings: 'Møter',
   representatives: 'Representanter',
-}
-
-function formatMeetingAuditKind(kind: string) {
-  if (kind === 'decision') return 'Vedtak'
-  if (kind === 'discussion') return 'Diskusjon'
-  return 'Notat'
 }
 
 export function parseWorkspaceAuditSourceParam(raw: string | null): WorkspaceAuditSourceFilter {
@@ -48,7 +41,7 @@ export function parseWorkspaceAuditSourceParam(raw: string | null): WorkspaceAud
     raw === 'internal_control' ||
     raw === 'hse' ||
     raw === 'org_health' ||
-    raw === 'council' ||
+    raw === 'meetings' ||
     raw === 'representatives'
   ) {
     return raw
@@ -60,7 +53,6 @@ export function useWorkspaceAuditFeed() {
   const ic = useInternalControl()
   const hse = useHse()
   const oh = useOrgHealth()
-  const council = useCouncil()
   const rep = useRepresentatives()
 
   const rows = useMemo(() => {
@@ -107,20 +99,10 @@ export function useWorkspaceAuditFeed() {
       })
     }
 
-    for (const m of council.meetings) {
-      for (const e of m.auditTrail) {
-        out.push({
-          id: `council-${m.id}-${e.id}`,
-          at: e.at,
-          source: 'council',
-          sourceLabel: SOURCE_LABELS.council,
-          action: e.kind,
-          message: e.text,
-          detail: `${m.title}${e.author ? ` · ${e.author}` : ''} · ${formatMeetingAuditKind(e.kind)}`,
-          linkTo: `/council?tab=meetings`,
-        })
-      }
-    }
+    // Møter audit entries now flow through Supabase RLS-aware queries
+    // on `meetings` + `meeting_decisions` rather than the local-state
+    // council demo; this feed is migrated to that source in a follow-up
+    // (tracked under specs/meetings-amu-merger.md).
 
     for (const a of rep.auditTrail) {
       out.push({
@@ -141,7 +123,6 @@ export function useWorkspaceAuditFeed() {
     ic.auditTrail,
     hse.auditTrail,
     oh.auditTrail,
-    council.meetings,
     rep.auditTrail,
   ])
 
@@ -151,7 +132,7 @@ export function useWorkspaceAuditFeed() {
       internal_control: 0,
       hse: 0,
       org_health: 0,
-      council: 0,
+      meetings: 0,
       representatives: 0,
     }
     for (const r of rows) {

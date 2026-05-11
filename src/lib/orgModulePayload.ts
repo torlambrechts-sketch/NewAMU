@@ -13,8 +13,6 @@ export type OrgModulePayloadKey =
   | 'workplace_reporting'
   | 'workplace_dashboard'
   | 'internkontroll_settings'
-  | 'amu_election'
-  | 'amu_settings'
   | 'survey_settings'
   | 'documents_settings'
 

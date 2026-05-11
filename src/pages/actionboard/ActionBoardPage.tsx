@@ -6,7 +6,6 @@
 import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { AlertTriangle, Download, History, LayoutGrid, Plus, Search, ShieldAlert, Users } from 'lucide-react'
-import { useCouncil } from '../../hooks/useCouncil'
 import { useHse } from '../../hooks/useHse'
 import { useInternalControl } from '../../hooks/useInternalControl'
 import { useTaskItemsData } from '../../../modules/tasks/useTaskItemsData'
@@ -37,7 +36,6 @@ const SOURCE_COLOUR: Record<ActionBoardSource, string> = {
   ros_risk: 'bg-amber-100 text-amber-900',
   inspection: 'bg-sky-100 text-sky-900',
   sja: 'bg-purple-100 text-purple-900',
-  amu_compliance: 'bg-[#1a3d32]/15 text-[#1a3d32]',
 }
 
 const STATUS_LABELS: Record<TaskStatus, string> = {
@@ -74,7 +72,6 @@ export function ActionBoardPage() {
   const taskItems = useTaskItemsData()
   const hse = useHse()
   const ic = useInternalControl()
-  const council = useCouncil()
   const cost = useCostSettings()
 
   const [boardTab, setBoardTab] = useState<BoardTab>('board')
@@ -87,9 +84,9 @@ export function ActionBoardPage() {
   const [dragOverCol, setDragOverCol] = useState<TaskStatus | null>(null)
 
   const boardError =
-    [taskItems.error, hse.error, ic.error, council.error, cost.error].filter(Boolean).join(' ') || null
+    [taskItems.error, hse.error, ic.error, cost.error].filter(Boolean).join(' ') || null
   const boardLoading =
-    supabaseConfigured && (taskItems.loading || hse.loading || ic.loading || council.loading || cost.loading)
+    supabaseConfigured && (taskItems.loading || hse.loading || ic.loading || cost.loading)
 
   const today = new Date().toISOString().slice(0, 10)
 
@@ -222,23 +219,13 @@ export function ActionBoardPage() {
         })
       })
 
-    council.compliance
-      .filter((c) => !c.done)
-      .forEach((c) => {
-        all.push({
-          id: `amu-${c.id}`,
-          source: 'amu_compliance',
-          title: c.title,
-          detail: c.lawRef,
-          status: 'todo',
-          module: 'council',
-          link: '/council?tab=requirements',
-          isDraggable: false,
-        })
-      })
+    // Møter-specific compliance items now live inside each meeting's
+    // mandatory-topics gap detector (<MeetingsDetailView> Agenda tab).
+    // The action board no longer aggregates them — it would duplicate
+    // the same information the user sees in context.
 
     return all
-  }, [taskItems.items, hse, ic, council, today])
+  }, [taskItems.items, hse, ic, today])
 
   const filtered = useMemo(() => {
     let list = filterSource === 'all' ? items : items.filter((i) => i.source === filterSource)

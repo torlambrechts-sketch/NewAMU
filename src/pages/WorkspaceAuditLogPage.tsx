@@ -18,7 +18,7 @@ const SOURCE_ORDER: Exclude<WorkspaceAuditSourceFilter, 'all'>[] = [
   'internal_control',
   'hse',
   'org_health',
-  'council',
+  'meetings',
   'representatives',
 ]
 
@@ -27,7 +27,7 @@ const SOURCE_SHORT: Record<Exclude<WorkspaceAuditSourceFilter, 'all'>, string> =
   internal_control: 'IK',
   hse: 'HSE',
   org_health: 'Org.helse',
-  council: 'AMU',
+  meetings: 'Møter',
   representatives: 'Repr.',
 }
 
@@ -36,7 +36,7 @@ const SOURCE_PERM: Record<Exclude<WorkspaceAuditSourceFilter, 'all'>, Permission
   internal_control: 'module.view.internal_control',
   hse: 'module.view.hse',
   org_health: 'module.view.org_health',
-  council: 'module.view.council',
+  meetings: 'module.view.meetings',
   representatives: 'module.view.members',
 }
 
@@ -96,7 +96,7 @@ export function WorkspaceAuditLogPage() {
       internal_control: 0,
       hse: 0,
       org_health: 0,
-      council: 0,
+      meetings: 0,
       representatives: 0,
     }
     for (const r of list) {

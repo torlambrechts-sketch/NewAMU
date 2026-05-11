@@ -352,7 +352,7 @@ export const PAGE_TEMPLATES: PageTemplate[] = [
         { kind: 'text', body: '<ul><li>Ivareta arbeidstakernes interesser i saker som angår arbeidsmiljøet</li><li>Se til at virksomheten er innrettet og vedlikeholdt, og at arbeidet er ordnet på forsvarlig måte</li><li>Ta opp spørsmål om sikkerheten med arbeidsgiver</li><li>Melde fra til myndigheter om nødvendig</li></ul>' },
         { kind: 'heading', level: 2, text: 'Rettigheter (AML §6-3 og §6-5)' },
         { kind: 'text', body: '<ul><li>Rett til å stanse farlig arbeid (§6-3)</li><li>Rett til nødvendig opplæring — minst 40 timer (§6-5)</li><li>Rett til å ta opp saker uten å bli forfulgt</li><li>Arbeidsgiveren dekker kostnader til opplæring</li></ul>' },
-        { kind: 'module', moduleName: 'action_button', params: { label: 'Send AMU-sak', route: '/council?tab=meetings', variant: 'secondary' } },
+        { kind: 'module', moduleName: 'action_button', params: { label: 'Send AMU-sak', route: '/meetings', variant: 'secondary' } },
         { kind: 'law_ref', ref: 'AML §6-2', description: 'Verneombudets oppgaver', url: 'https://lovdata.no/lov/2005-06-17-62/§6-2' },
         { kind: 'law_ref', ref: 'AML §6-3', description: 'Verneombudets rett til å stanse farlig arbeid', url: 'https://lovdata.no/lov/2005-06-17-62/§6-3' },
         { kind: 'law_ref', ref: 'AML §6-5', description: 'Opplæring og ressurser', url: 'https://lovdata.no/lov/2005-06-17-62/§6-5' },

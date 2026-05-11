@@ -5,14 +5,9 @@ export const PERMISSION_KEYS = [
   'roles.manage',
   'delegation.manage',
   'module.view.dashboard',
-  'module.view.council',
   'module.view.members',
   'module.view.org_health',
   'module.view.hse',
-  /** AMU / arbeidsmiljøutvalg — full redigering av møter, agenda og vedtak */
-  'amu.manage',
-  /** AMU — signere referat og årsrapport (møteleder / nestleder) */
-  'amu.chair',
   /** Organisasjonsundersøkelser (QPSNordic/ARK, AMU, tiltak) */
   'module.view.survey',
   'module.view.inspection',
@@ -33,8 +28,6 @@ export const PERMISSION_KEYS = [
   'checklist.manage',
   /** Redigere tiltaksplan, kategorier og arbeidsflyt (IK) */
   'action_plan.manage',
-  /** AMU-valg — administrere valg, kandidater og stemmeberettigede */
-  'amu_election.manage',
   /** Konfigurere/kjøre organisasjonsundersøkelser (ny modul) */
   'survey.manage',
   /** Varslingsmottak — full innsyn i whistleblowing_cases (AML kap. 2A) */
@@ -108,6 +101,14 @@ export const PERMISSION_KEYS = [
   /** Last ned rådata/aggregerte undersøkelsesdata */
   'survey.results.export',
 
+  // ─── Meetings (Møter) ─────────────────────────────────────────────────────
+  /** Møter — lese møter, agenda, protokoll og vedtak */
+  'module.view.meetings',
+  /** Møter — opprette, redigere og signere møter, samt administrere maler */
+  'meetings.manage',
+  /** Møter — innsyn i konfidensielle / begrensede møter (drøftelsessamtaler, varslingsutvalg) */
+  'meetings.manage_confidential',
+
   // ─── Organisation ─────────────────────────────────────────────────────────
   /** Eksporter ansatt/org-data (GDPR Art. 20 forespørsler) */
   'org.export',
@@ -121,12 +122,9 @@ export const PERMISSION_LABELS: Record<PermissionKey, string> = {
   'roles.manage': 'Administrere roller og tilganger',
   'delegation.manage': 'Delegere roller',
   'module.view.dashboard': 'Dashboard / prosjekt',
-  'module.view.council': 'Council',
   'module.view.members': 'Members',
   'module.view.org_health': 'Org health',
   'module.view.hse': 'HSE',
-  'amu.manage': 'AMU — redigere møter og protokoll',
-  'amu.chair': 'AMU — signere referat og årsrapport',
   'module.view.survey': 'Organisasjonsundersøkelse',
   'module.view.inspection': 'Inspeksjonsmodul',
   'module.view.internal_control': 'Internkontroll',
@@ -138,7 +136,6 @@ export const PERMISSION_LABELS: Record<PermissionKey, string> = {
   'inspection.manage': 'Inspeksjonsmodul — redigere runder og innstillinger',
   'checklist.manage': 'Compliance-sjekklister — opprette, besvare og signere',
   'action_plan.manage': 'Tiltaksplan — kategorier og arbeidsflyt',
-  'amu_election.manage': 'AMU-valg — administrasjon',
   'survey.manage': 'Undersøkelse — administrasjon',
   'whistleblowing.committee': 'Varslingsmottak',
   'module.view.tasks': 'Tasks',
@@ -173,13 +170,15 @@ export const PERMISSION_LABELS: Record<PermissionKey, string> = {
   'whistleblowing.assign': 'Varsling — tildele saksbehandlere',
   'survey.results.view': 'Undersøkelse — se resultater (k-anonymitet)',
   'survey.results.export': 'Undersøkelse — eksportere data',
+  'module.view.meetings': 'Møter — lese møter, agenda og vedtak',
+  'meetings.manage': 'Møter — administrere møter, agenda, protokoll og maler',
+  'meetings.manage_confidential': 'Møter — innsyn i konfidensielle møter (drøfting, varsling)',
   'org.export': 'Organisasjon — eksportere ansatt- og org-data (GDPR Art. 20)',
 }
 
 /** Route prefix → permission (primary nav). Index route checked separately. */
 export const ROUTE_PERMISSION: { pathPrefix: string; permission: PermissionKey }[] = [
-  { pathPrefix: '/council/amu', permission: 'module.view.council' },
-  { pathPrefix: '/council', permission: 'module.view.council' },
+  { pathPrefix: '/meetings', permission: 'module.view.meetings' },
   { pathPrefix: '/members', permission: 'module.view.members' },
   { pathPrefix: '/org-health', permission: 'module.view.org_health' },
   { pathPrefix: '/hse', permission: 'module.view.hse' },

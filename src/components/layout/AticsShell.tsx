@@ -28,7 +28,6 @@ import {
   LayoutTemplate,
   ListTodo,
   Megaphone,
-  ScrollText,
   PanelLeft,
   PanelRight,
   Boxes,
@@ -38,9 +37,8 @@ import {
   ShieldCheck,
   Settings,
   Users,
-  UsersRound,
-  Vote,
   Workflow,
+  CalendarDays,
 } from 'lucide-react'
 import { NotificationTray } from '../notifications/NotificationTray'
 import { SurveyPendingInvitesBanner } from '../../../modules/survey/SurveyPendingInvitesBanner'
@@ -63,6 +61,7 @@ import { useLearningNav } from '../../hooks/useLearningNav'
 import { useDocumentNav } from '../../hooks/useDocumentNav'
 import { useRegistersNav } from '../../hooks/useRegistersNav'
 import { useTaskNav } from '../../../modules/tasks/useTaskNav'
+import { useMeetingsNav } from '../../../modules/meetings/useMeetingsNav'
 import type { NavMode } from './aticsNavMode'
 
 // ─── Sub-item type ────────────────────────────────────────────────────────────
@@ -164,13 +163,6 @@ const internkontrollSubs: SubItem[] = [
     match: ({ pathname }) => pathname === '/internkontroll/tiltaksplan',
   },
   {
-    label: 'AMU-valg',
-    path: '/internkontroll/amu-valg',
-    match: ({ pathname }) =>
-      pathname === '/internkontroll/amu-valg' ||
-      pathname.startsWith('/internkontroll/amu-valg/'),
-  },
-  {
     label: 'ROS-analyse',
     path: '/internal-control?tab=ros',
     match: ({ pathname, search }) => pathname === '/internal-control' && new URLSearchParams(search).get('tab') === 'ros',
@@ -236,35 +228,6 @@ const orgHealthSubs: SubItem[] = [
   { label: 'Sykefravær (NAV)', path: '/org-health?tab=nav', match: ({ pathname, search }) => pathname === '/org-health' && new URLSearchParams(search).get('tab') === 'nav' },
   { label: 'AML-indikatorer', path: '/org-health?tab=metrics', match: ({ pathname, search }) => pathname === '/org-health' && new URLSearchParams(search).get('tab') === 'metrics' },
   { label: 'Veikart', path: '/org-health/settings', match: ({ pathname }) => pathname === '/org-health/settings' },
-]
-
-const councilSubs: SubItem[] = [
-  {
-    label: 'Oversikt',
-    path: '/council?tab=overview',
-    match: ({ pathname, search }) =>
-      pathname === '/council' &&
-      (!new URLSearchParams(search).get('tab') || new URLSearchParams(search).get('tab') === 'overview'),
-  },
-  {
-    label: 'Styre og Valg',
-    path: '/council?tab=board',
-    match: ({ pathname, search }) =>
-      pathname === '/council' &&
-      (new URLSearchParams(search).get('tab') === 'board' || new URLSearchParams(search).get('tab') === 'election'),
-  },
-  { label: 'Møter', path: '/council?tab=meetings', match: ({ pathname, search }) => pathname === '/council' && new URLSearchParams(search).get('tab') === 'meetings' },
-  {
-    label: 'Krav og vedtak',
-    path: '/council?tab=requirements',
-    match: ({ pathname, search }) => {
-      const t = new URLSearchParams(search).get('tab')
-      return (
-        pathname === '/council' &&
-        (t === 'requirements' || t === 'compliance' || t === 'decisions')
-      )
-    },
-  },
 ]
 
 const workplaceReportingSubs: SubItem[] = WORKPLACE_REPORTING_NAV.map((item) => {
@@ -417,6 +380,15 @@ const REGISTERS_NAV_PERMS: PermissionKey[] = [
   'documents.view',
 ]
 
+// Møter nav permission gate — anyone with the meetings-view permission
+// (or the broader dashboard / HMS roles) gets the menu. Page-level RLS
+// ensures restricted/confidential rows stay hidden from non-participants.
+const MEETINGS_NAV_PERMS: PermissionKey[] = [
+  'module.view.meetings',
+  'meetings.manage',
+  'module.view.dashboard',
+]
+
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Menu cleanup pass — preview layout with only Sjekklister + Undersøkelser at
@@ -466,28 +438,8 @@ const gamleModulerModules: NavModule[] = [
   },
   { to: '/tiltak', label: 'Tiltaksplan', end: false, icon: ListTodo, perm: 'module.view.hse', subs: [] },
   { to: '/aarshjul', label: 'Årshjul', end: false, icon: CalendarRange, subs: [], perm: 'module.view.dashboard' },
-  {
-    to: '/internkontroll/amu-valg',
-    label: 'AMU-valg',
-    end: false,
-    icon: Vote,
-    perm: 'module.view.internal_control',
-    moduleSlug: 'amu_election',
-    subs: [],
-  },
 
-  // ── Arbeidsmiljø & AMU ───────────────────────────────────────────────────
-  { to: '/council/amu', label: 'AMU', end: false, icon: ScrollText, perm: 'module.view.council', subs: [] },
-  {
-    to: '/council',
-    label: 'Medvirkning (Council Room)',
-    end: false,
-    icon: UsersRound,
-    subs: councilSubs,
-    perm: 'module.view.council',
-    moduleSlug: 'council',
-  },
-  { to: '/council?tab=board', label: 'Representanter', end: false, icon: Users, subs: [], perm: 'module.view.members', moduleSlug: 'members' },
+  { to: '/members', label: 'Representanter', end: false, icon: Users, subs: [], perm: 'module.view.members', moduleSlug: 'members' },
   {
     to: '/org-health',
     label: 'Organisasjonshelse',
@@ -602,9 +554,9 @@ function activeModuleForPath(modules: NavModule[], pathname: string, search: str
     const adminMod = modules.find((m) => m.to === '/organisation/admin')
     if (adminMod) return adminMod
   }
-  const amuMod = modules.find((m) => m.to === '/council/amu')
-  if (amuMod && (pathname === '/council/amu' || pathname.startsWith('/council/amu/'))) {
-    return amuMod
+  if (pathname === '/meetings' || pathname.startsWith('/meetings/')) {
+    const mtg = modules.find((m) => m.to === '/meetings')
+    if (mtg) return mtg
   }
   if (pathname === '/vernerunder' || pathname.startsWith('/vernerunder/')) {
     const vern = modules.find((m) => m.to === '/vernerunder')
@@ -671,10 +623,10 @@ function workspaceRevisjonsloggSubs(): SubItem[] {
       requirePerm: 'module.view.org_health',
     },
     {
-      label: 'AMU / råd',
-      path: '/workspace/revisjonslogg?source=council',
-      match: srcMatch('council'),
-      requirePerm: 'module.view.council',
+      label: 'Møter',
+      path: '/workspace/revisjonslogg?source=meetings',
+      match: srcMatch('meetings'),
+      requirePerm: 'module.view.meetings',
     },
     {
       label: 'Representanter',
@@ -690,8 +642,6 @@ function subNavForPath(modules: NavModule[], pathname: string, search: string): 
   if (mod.to === '/workspace/revisjonslogg') {
     return workspaceRevisjonsloggSubs()
   }
-  // For Members shortcut, show council subs
-  if (mod.to === '/council?tab=board') return councilSubs
   return mod.subs
 }
 
@@ -788,6 +738,7 @@ export function AticsShell() {
   const documentNav = useDocumentNav()
   const registersNav = useRegistersNav()
   const tasksNav = useTaskNav()
+  const meetingsNav = useMeetingsNav()
   const { isActive: isRegulationActive, activeRegulationIds } = useRegulationFilter()
   const mergedNavGroups = useMemo<NavGroup[]>(() => {
     // Fixed sub-entries that always sit under "Sjekklister" — Analyse and
@@ -1466,6 +1417,88 @@ export function AticsShell() {
       ],
     }
 
+    // Møter — fixed Analyse + Innstillinger + pinned templates grouped by
+    // category, mirrors surveyGroup / documentsGroup.
+    const meetingsFixedSubs: SubItem[] = [
+      {
+        label: 'Analyse',
+        path: '/meetings/analyse',
+        Icon: BarChart3,
+        match: ({ pathname }) => pathname === '/meetings/analyse',
+        requirePermAny: MEETINGS_NAV_PERMS,
+      },
+      {
+        label: 'Innstillinger',
+        path: '/meetings/admin',
+        Icon: Settings,
+        match: ({ pathname }) => pathname.startsWith('/meetings/admin'),
+        requirePerm: 'meetings.manage',
+      },
+    ]
+    const meetingsPinnedSubs: SubItem[] = (() => {
+      const pinned = meetingsNav.items.filter((it) => it.navPinned)
+      if (pinned.length === 0) return []
+      const buckets = new Map<string, typeof pinned>()
+      for (const it of pinned) {
+        const list = buckets.get(it.headerKey) ?? []
+        list.push(it)
+        buckets.set(it.headerKey, list)
+      }
+      const orderedCats = meetingsNav.categories
+        .filter((c) => buckets.has(c.id))
+        .sort((a, b) => a.position - b.position || a.name.localeCompare(b.name, 'nb'))
+      const uncategorised = buckets.has('__uncat__') ? [{ id: '__uncat__', name: 'Uten kategori' }] : []
+      const orderedKeys = [...orderedCats.map((c) => ({ id: c.id, name: c.name })), ...uncategorised]
+      const showHeaders = orderedKeys.length > 1
+      const subs: SubItem[] = []
+      for (const cat of orderedKeys) {
+        const list = buckets.get(cat.id) ?? []
+        if (list.length === 0) continue
+        if (showHeaders) {
+          subs.push({
+            kind: 'header',
+            label: cat.name,
+            path: `__cat:${cat.id}`,
+            match: () => false,
+            headerKey: cat.id,
+            Icon: FolderTree,
+            requirePermAny: MEETINGS_NAV_PERMS,
+          })
+        }
+        for (const item of list) {
+          subs.push({
+            label: item.templateName,
+            path: item.to,
+            match: ({ pathname, search }) => {
+              if (pathname !== '/meetings') return false
+              return new URLSearchParams(search).get('template') === item.templateId
+            },
+            headerKey: showHeaders ? cat.id : undefined,
+            requirePermAny: MEETINGS_NAV_PERMS,
+          })
+        }
+      }
+      return subs
+    })()
+
+    const meetingsGroup: NavGroup = {
+      id: 'moter',
+      label: 'Møter',
+      icon: CalendarDays,
+      modules: [
+        {
+          to: '/meetings',
+          label: 'Møter',
+          end: false,
+          icon: CalendarDays,
+          subs: [...meetingsFixedSubs, ...meetingsPinnedSubs],
+          permAny: MEETINGS_NAV_PERMS,
+          moduleSlug: 'meetings',
+          flatSubs: true,
+        },
+      ],
+    }
+
     // Composite "HMS Overview" group — sits at the top of the merged nav
     // since it's the org-wide entry point that pulls in widgets from
     // every other module group below it.
@@ -1493,7 +1526,7 @@ export function AticsShell() {
     const idx = navGroups.findIndex((g) => g.id === 'gamle-moduler')
     const head = idx === -1 ? navGroups : navGroups.slice(0, idx)
     const tail = idx === -1 ? [] : navGroups.slice(idx)
-    return [...head, hmsOverviewGroup, complianceGroup, surveyGroup, documentsGroup, registersGroup, tasksGroup, learningGroup, adminGroup, ...tail]
+    return [...head, hmsOverviewGroup, complianceGroup, surveyGroup, documentsGroup, meetingsGroup, registersGroup, tasksGroup, learningGroup, adminGroup, ...tail]
   }, [
     complianceNav.items,
     complianceNav.categories,
@@ -1509,6 +1542,8 @@ export function AticsShell() {
     registersNav.categories,
     tasksNav.items,
     tasksNav.categories,
+    meetingsNav.items,
+    meetingsNav.categories,
     isRegulationActive,
     activeRegulationIds,
   ])

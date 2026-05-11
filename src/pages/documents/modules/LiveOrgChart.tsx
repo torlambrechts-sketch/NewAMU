@@ -1,5 +1,9 @@
+// Live organisation chart block — shows verneombud + AMU members on a
+// document page. Reads from the Representanter (members) module; the
+// legacy Council board source has been removed (the meetings module
+// supersedes it).
+
 import { useRepresentatives } from '../../../hooks/useRepresentatives'
-import { useCouncil } from '../../../hooks/useCouncil'
 import { avatarUrlFromSeed } from '../../../lib/avatarUrl'
 
 type Props = {
@@ -18,10 +22,9 @@ const roleLabels: Record<string, string> = {
 
 export function LiveOrgChart({ showAMU = true, showVerneombud = true }: Props) {
   const rep = useRepresentatives()
-  const council = useCouncil()
 
   const verneombud = rep.members.filter(
-    (m) => m.officeRole === 'employee_chair' || m.officeRole === 'employee_deputy',
+    (m) => m.isVerneombud || m.officeRole === 'employee_chair' || m.officeRole === 'employee_deputy',
   )
   const amuMembers = rep.members
 
@@ -40,11 +43,20 @@ export function LiveOrgChart({ showAMU = true, showVerneombud = true }: Props) {
           ) : (
             <div className="flex flex-wrap gap-3">
               {verneombud.map((m) => (
-                <div key={m.id} className="flex items-center gap-2 rounded-lg border border-neutral-200 bg-white px-3 py-2">
-                  <img src={avatarUrlFromSeed(m.id + m.name, 40)} alt="" className="size-8 rounded-full object-cover" />
+                <div
+                  key={m.id}
+                  className="flex items-center gap-2 rounded-lg border border-neutral-200 bg-white px-3 py-2"
+                >
+                  <img
+                    src={avatarUrlFromSeed(m.id + m.name, 40)}
+                    alt=""
+                    className="size-8 rounded-full object-cover"
+                  />
                   <div>
                     <div className="text-sm font-medium text-neutral-900">{m.name}</div>
-                    <div className="text-xs text-neutral-500">{roleLabels[m.officeRole] ?? m.officeRole}</div>
+                    <div className="text-xs text-neutral-500">
+                      {roleLabels[m.officeRole] ?? m.officeRole}
+                    </div>
                   </div>
                 </div>
               ))}
@@ -56,40 +68,38 @@ export function LiveOrgChart({ showAMU = true, showVerneombud = true }: Props) {
       {showAMU && (
         <div className="mb-4">
           <h4 className="mb-2 text-sm font-semibold text-neutral-700">AMU — Arbeidsmiljøutvalg</h4>
-          {council.board.length > 0 ? (
+          {amuMembers.length > 0 ? (
             <div className="flex flex-wrap gap-3">
-              {council.board.map((m) => (
-                <div key={m.id} className="flex items-center gap-2 rounded-lg border border-neutral-200 bg-white px-3 py-2">
-                  <img src={avatarUrlFromSeed(m.id + m.name, 40)} alt="" className="size-8 rounded-full object-cover" />
+              {amuMembers.map((m) => (
+                <div
+                  key={m.id}
+                  className="flex items-center gap-2 rounded-lg border border-neutral-200 bg-white px-3 py-2"
+                >
+                  <img
+                    src={avatarUrlFromSeed(m.id + m.name, 40)}
+                    alt=""
+                    className="size-8 rounded-full object-cover"
+                  />
                   <div>
                     <div className="text-sm font-medium text-neutral-900">{m.name}</div>
                     <div className="text-xs text-neutral-500">
-                      {m.role === 'leader' ? 'Leder' : m.role === 'deputy' ? 'Nestleder' : 'Medlem'}
+                      {roleLabels[m.officeRole] ?? m.officeRole}
                     </div>
                   </div>
                 </div>
               ))}
             </div>
-          ) : amuMembers.length > 0 ? (
-            <div className="flex flex-wrap gap-3">
-              {amuMembers.map((m) => (
-                <div key={m.id} className="flex items-center gap-2 rounded-lg border border-neutral-200 bg-white px-3 py-2">
-                  <img src={avatarUrlFromSeed(m.id + m.name, 40)} alt="" className="size-8 rounded-full object-cover" />
-                  <div>
-                    <div className="text-sm font-medium text-neutral-900">{m.name}</div>
-                    <div className="text-xs text-neutral-500">{roleLabels[m.officeRole] ?? m.officeRole}</div>
-                  </div>
-                </div>
-              ))}
-            </div>
           ) : (
-            <p className="text-sm text-neutral-500">AMU er ikke satt opp ennå. Gå til Council Room for å registrere valg og representanter.</p>
+            <p className="text-sm text-neutral-500">
+              AMU er ikke satt opp ennå. Gå til <a href="/members" className="underline">Representanter</a> for
+              å registrere valg og representanter.
+            </p>
           )}
         </div>
       )}
 
       <p className="mt-1 text-xs text-neutral-400">
-        Data hentes live fra Council-modulen. Endringer der reflekteres umiddelbart her.
+        Data hentes fra Representanter-modulen. Endringer der reflekteres umiddelbart her.
       </p>
     </div>
   )

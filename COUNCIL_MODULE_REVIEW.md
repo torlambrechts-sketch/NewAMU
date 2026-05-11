@@ -1,5 +1,28 @@
 # Worker Council Module — Review & Enhancement Suggestions
 
+> **Status: HISTORICAL.** This review predates the meetings module port (PR #237).
+> The legacy AMU + Working Council code reviewed here (`CouncilModule.tsx`,
+> `useCouncil.ts`, `useRepresentatives.ts`, parts of `types/council.ts`) was
+> **deleted** as part of the port (phase F2 cleanup). The compliance gaps
+> and UX observations called out below were used to inform the new module's
+> design — see `specs/meetings-parity.md` §5 (compliance plan) and §2 (architecture
+> decisions). This document is preserved for traceability.
+>
+> Where to look now:
+> - Meetings (AMU, drøfting, ISO, GDPR) → `modules/meetings/` + `/meetings`
+> - Verneombud-valg → `survey_template_catalog` row `amu-valg-system`
+>   (placeholder until eligibility + sealed-ballot work ships)
+> - Representanter (board / mandates) → `src/pages/MembersModule.tsx`
+>   (`/members`)
+>
+> ---
+>
+> Original review preserved below for reference.
+
+---
+
+# Worker Council Module — Review & Enhancement Suggestions
+
 > **Status:** Suggestions only — no code changes made.  
 > **Scope:** CouncilModule.tsx, useCouncil.ts, useRepresentatives.ts, types/council.ts,  
 > types/representatives.ts, data/meetingGovernance.ts, data/norwegianLabourCompliance.ts,  
