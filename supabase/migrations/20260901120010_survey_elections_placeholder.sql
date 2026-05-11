@@ -62,12 +62,11 @@ values
       'requires_eligibility_gating', true,
       'requires_one_vote_per_voter', true,
       'requires_result_sealing', true,
-      'follow_up_meeting_template_slug', 'amu-konstitueringsmote',
       'eligibility', jsonb_build_object(
         'voter_role_hint', 'employee',
         'office_term_months', 24
       ),
-      'notes', 'Krever full implementasjon: stemmeberettigede-liste, double-envelope og forsegling.'
+      'notes', 'Krever full implementasjon: stemmeberettigede-liste, double-envelope og forsegling. Resultatet skal materialisere et AMU-konstitueringsmøte (mal seedes senere).'
     ),
     'arbeidsmiljo',
     array['AML § 6-3', 'AML § 7-3', 'Forskrift om verneombud']

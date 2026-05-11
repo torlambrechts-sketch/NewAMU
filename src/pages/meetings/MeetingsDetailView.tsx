@@ -1,15 +1,20 @@
-// Møter — detail view (single meeting).
+// Møter — detail view (one meeting).
 //
-// Tabs: Oversikt, Agenda, Deltakere, Vedtak, Protokoll.
-// All tabs share the loaded MeetingDetail from useMeetings. Agenda tab
-// owns per-item minutes + decision editing. Protokoll tab handles
-// confirmation signing (level1-style, *not* legally binding eSign).
+// Tabs: Informasjon · Agenda · Deltakere · Vedtak · Protokoll.
+//
+// Mandatory-topics banner surfaces any `definition_snapshot.agendaItems[]`
+// with `isMandatory: true` that don't have a `minutes_summary` registered
+// yet — closing the AML § 7-2 (6) gap (Q4 årsmøte must touch every
+// mandatory sak before signing).
+//
+// Vote inputs (vote_for / vote_against / vote_abstain) ride alongside
+// the decision text per agenda item — they remain editable until the
+// protocol is signed.
 
 import { useEffect, useState, type FormEvent } from 'react'
-import { Link, useParams } from 'react-router-dom'
+import { Link, useNavigate, useParams } from 'react-router-dom'
 import {
   AlertTriangle,
-  ArrowLeft,
   CheckCircle2,
   ClipboardList,
   Edit3,
@@ -20,6 +25,16 @@ import {
   ShieldCheck,
   Users,
 } from 'lucide-react'
+import { ModulePageShell, ModulePageEmpty } from '../../components/module/ModulePageShell'
+import { ModuleSectionCard } from '../../components/module/ModuleSectionCard'
+import { Badge } from '../../components/ui/Badge'
+import { Button } from '../../components/ui/Button'
+import { StandardInput } from '../../components/ui/Input'
+import { StandardTextarea } from '../../components/ui/Textarea'
+import { SearchableSelect } from '../../components/ui/SearchableSelect'
+import { Tabs } from '../../components/ui/Tabs'
+import { WarningBox, InfoBox } from '../../components/ui/AlertBox'
+import { WPSTD_FORM_FIELD_LABEL } from '../../components/layout/WorkplaceStandardFormPanel'
 import { useMeetings } from '../../../modules/meetings'
 import {
   MEETING_ACTION_STATUS_LABEL,
@@ -31,17 +46,19 @@ import type {
   MeetingActionStatus,
   MeetingAgendaItemRow,
   MeetingDecisionStatus,
+  MeetingRow,
+  MeetingStatus,
+  MeetingTemplateAgendaItem,
 } from '../../../modules/meetings/types'
 
-type Tab = 'overview' | 'agenda' | 'attendees' | 'decisions' | 'protocol'
+type Tab = 'informasjon' | 'agenda' | 'deltakere' | 'vedtak' | 'protokoll'
 
-const TABS: { id: Tab; label: string; icon: typeof ClipboardList }[] = [
-  { id: 'overview', label: 'Oversikt', icon: ClipboardList },
-  { id: 'agenda', label: 'Agenda', icon: ListChecks },
-  { id: 'attendees', label: 'Deltakere', icon: Users },
-  { id: 'decisions', label: 'Vedtak', icon: CheckCircle2 },
-  { id: 'protocol', label: 'Protokoll', icon: PenSquare },
-]
+const STATUS_BADGE: Record<MeetingStatus, 'draft' | 'active' | 'signed' | 'neutral'> = {
+  planned: 'active',
+  in_progress: 'active',
+  completed: 'signed',
+  cancelled: 'neutral',
+}
 
 function fmtDate(iso: string | null): string {
   if (!iso) return '—'
@@ -52,9 +69,10 @@ function fmtDate(iso: string | null): string {
 
 export function MeetingsDetailView() {
   const { meetingId = '' } = useParams<{ meetingId: string }>()
+  const navigate = useNavigate()
   const meetings = useMeetings()
   const { loadDetail, clearDetail } = meetings
-  const [tab, setTab] = useState<Tab>('overview')
+  const [tab, setTab] = useState<Tab>('informasjon')
 
   useEffect(() => {
     if (!meetingId) return
@@ -62,115 +80,173 @@ export function MeetingsDetailView() {
     return () => clearDetail()
   }, [meetingId, loadDetail, clearDetail])
 
-  const detail = meetings.detail
-  const meeting = detail.meeting
-  const isLocked = !!meeting?.protocol_signed_at
-
-  if (meetings.detailLoading && !meeting) {
-    return <div className="mx-auto max-w-6xl px-4 py-10 text-sm text-neutral-600">Laster møtet…</div>
-  }
-  if (!meeting) {
+  if (!meetingId) {
     return (
-      <div className="mx-auto max-w-6xl px-4 py-10 text-sm text-neutral-600">
-        Fant ikke møtet.{' '}
-        <Link to="/meetings" className="text-cyan-700 underline">
-          Gå tilbake
-        </Link>
-      </div>
+      <ModulePageEmpty
+        title="Ingen møte valgt"
+        backLabel="← Til Møter"
+        onBack={() => navigate('/meetings')}
+      />
     )
   }
 
+  if (meetings.detailLoading && !meetings.detail.meeting) {
+    return (
+      <ModulePageShell
+        breadcrumb={[{ label: 'HMS' }, { label: 'Møter', to: '/meetings' }, { label: 'Laster…' }]}
+        title="Laster møte…"
+        loading
+        loadingLabel="Henter agenda, deltakere og protokoll."
+      >
+        {null}
+      </ModulePageShell>
+    )
+  }
+
+  const meeting = meetings.detail.meeting
+  if (!meeting) {
+    return (
+      <ModulePageShell
+        breadcrumb={[{ label: 'HMS' }, { label: 'Møter', to: '/meetings' }, { label: 'Ikke funnet' }]}
+        title="Møtet finnes ikke"
+        notFound={{
+          title: 'Fant ikke møtet — det kan være slettet, arkivert eller utenfor din tilgang.',
+          backLabel: '← Til Møter',
+          onBack: () => navigate('/meetings'),
+        }}
+      >
+        {null}
+      </ModulePageShell>
+    )
+  }
+
+  const isLocked = !!meeting.protocol_signed_at
+  const mandatoryGaps = computeMandatoryGaps(meeting, meetings.detail.agendaItems)
+
+  const tabItems = [
+    { id: 'informasjon', label: 'Informasjon', icon: ClipboardList },
+    {
+      id: 'agenda',
+      label: 'Agenda',
+      icon: ListChecks,
+      badgeCount: mandatoryGaps.length || undefined,
+      badgeVariant: mandatoryGaps.length ? ('danger' as const) : undefined,
+    },
+    { id: 'deltakere', label: 'Deltakere', icon: Users },
+    { id: 'vedtak', label: 'Vedtak', icon: CheckCircle2 },
+    { id: 'protokoll', label: 'Protokoll', icon: PenSquare },
+  ]
+
   return (
-    <div className="mx-auto w-full max-w-6xl px-4 pb-12 pt-6">
-      <header className="mb-4 flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <Link
-            to="/meetings"
-            className="inline-flex items-center gap-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-neutral-500 hover:text-neutral-900"
-          >
-            <ArrowLeft className="h-3 w-3" /> Møter
-          </Link>
-          <h1 className="mt-1 font-serif text-3xl font-semibold text-neutral-900">
-            {meeting.title}
-          </h1>
-          <p className="mt-1 text-xs text-neutral-600">
-            {fmtDate(meeting.scheduled_at)} · {MEETING_STATUS_LABEL[meeting.status]} ·{' '}
-            <span className="font-semibold">
+    <ModulePageShell
+      breadcrumb={[
+        { label: 'HMS' },
+        { label: 'Møter', to: '/meetings' },
+        { label: meeting.title },
+      ]}
+      title={meeting.title}
+      description={
+        <span className="text-sm text-neutral-600">
+          {fmtDate(meeting.scheduled_at)} ·{' '}
+          {meeting.location_label ? `${meeting.location_label} · ` : ''}
+          {MEETING_CONFIDENTIALITY_LABEL[meeting.confidentiality_level]}
+        </span>
+      }
+      headerActions={
+        <div className="flex flex-wrap items-center gap-2">
+          {meeting.confidentiality_level !== 'standard' ? (
+            <Badge variant="warning">
               {MEETING_CONFIDENTIALITY_LABEL[meeting.confidentiality_level]}
-            </span>
-          </p>
+            </Badge>
+          ) : null}
+          <Badge variant={STATUS_BADGE[meeting.status]}>
+            {MEETING_STATUS_LABEL[meeting.status]}
+          </Badge>
+          {isLocked ? (
+            <Badge variant="signed">
+              <ShieldCheck className="mr-1 inline h-3 w-3" />
+              Signert
+            </Badge>
+          ) : null}
         </div>
-        {isLocked ? (
-          <span className="inline-flex items-center gap-1 border border-emerald-700 bg-emerald-50 px-2 py-1 text-[11px] font-semibold text-emerald-800">
-            <ShieldCheck className="h-3 w-3" /> Protokoll signert {fmtDate(meeting.protocol_signed_at)}
-          </span>
-        ) : null}
-      </header>
+      }
+      tabs={<Tabs items={tabItems} activeId={tab} onChange={(id) => setTab(id as Tab)} />}
+    >
+      {meetings.error ? <WarningBox>{meetings.error}</WarningBox> : null}
 
-      <nav className="mb-4 flex flex-wrap gap-1 border-b border-neutral-200">
-        {TABS.map((t) => {
-          const Icon = t.icon
-          const active = t.id === tab
-          return (
-            <button
-              key={t.id}
-              type="button"
-              onClick={() => setTab(t.id)}
-              className={`inline-flex items-center gap-1.5 px-3 py-2 text-sm font-semibold ${
-                active
-                  ? 'border-b-2 border-cyan-700 text-cyan-700'
-                  : 'text-neutral-600 hover:text-neutral-900'
-              }`}
-            >
-              <Icon className="h-4 w-4" />
-              {t.label}
-            </button>
-          )
-        })}
-      </nav>
+      {mandatoryGaps.length > 0 && tab !== 'agenda' ? (
+        <InfoBox>
+          <strong>{mandatoryGaps.length}</strong> obligatorisk{mandatoryGaps.length === 1 ? '' : 'e'} sak{mandatoryGaps.length === 1 ? '' : 'er'} mangler protokollført innhold.
+          Gå til <button type="button" className="underline" onClick={() => setTab('agenda')}>Agenda</button>{' '}
+          for å fullføre før signering.
+        </InfoBox>
+      ) : null}
 
-      {tab === 'overview' ? <OverviewTab meeting={meeting} /> : null}
+      {tab === 'informasjon' ? (
+        <ModuleSectionCard className="p-5 md:p-6">
+          <InformationTab meeting={meeting} />
+        </ModuleSectionCard>
+      ) : null}
+
       {tab === 'agenda' ? (
-        <AgendaTab
-          items={detail.agendaItems}
-          locked={isLocked}
-          onSave={meetings.setAgendaMinutes}
-        />
+        <ModuleSectionCard className="p-5 md:p-6">
+          <AgendaTab
+            items={meetings.detail.agendaItems}
+            locked={isLocked}
+            mandatoryGaps={mandatoryGaps}
+            onSave={meetings.setAgendaMinutes}
+          />
+        </ModuleSectionCard>
       ) : null}
-      {tab === 'attendees' ? <AttendeesTab attendees={detail.attendees} /> : null}
-      {tab === 'decisions' ? (
-        <DecisionsTab
-          decisions={detail.decisions}
-          actionItems={detail.actionItems}
-          onAddAction={meetings.addActionItem}
-          onSetActionStatus={meetings.setActionItemStatus}
-          locked={isLocked}
-          meetingId={meeting.id}
-        />
+
+      {tab === 'deltakere' ? (
+        <ModuleSectionCard className="p-5 md:p-6">
+          <AttendeesTab attendees={meetings.detail.attendees} />
+        </ModuleSectionCard>
       ) : null}
-      {tab === 'protocol' ? (
-        <ProtocolTab
-          meetingId={meeting.id}
-          signatures={detail.signatures}
-          locked={isLocked}
-          onSign={meetings.signProtocol}
-          canManage={meetings.canManage}
-        />
+
+      {tab === 'vedtak' ? (
+        <ModuleSectionCard className="p-5 md:p-6">
+          <DecisionsTab
+            meetingId={meeting.id}
+            decisions={meetings.detail.decisions}
+            actionItems={meetings.detail.actionItems}
+            locked={isLocked}
+            onAddAction={meetings.addActionItem}
+            onSetActionStatus={meetings.setActionItemStatus}
+          />
+        </ModuleSectionCard>
       ) : null}
-    </div>
+
+      {tab === 'protokoll' ? (
+        <ModuleSectionCard className="p-5 md:p-6">
+          <ProtocolTab
+            meetingId={meeting.id}
+            signatures={meetings.detail.signatures}
+            mandatoryGaps={mandatoryGaps}
+            locked={isLocked}
+            canManage={meetings.canManage}
+            onSign={meetings.signProtocol}
+          />
+        </ModuleSectionCard>
+      ) : null}
+    </ModulePageShell>
   )
 }
 
-function OverviewTab({ meeting }: { meeting: NonNullable<ReturnType<typeof useMeetings>['detail']['meeting']> }) {
+// ── Informasjon ───────────────────────────────────────────────────────────
+
+function InformationTab({ meeting }: { meeting: MeetingRow }) {
   const snap = meeting.definition_snapshot
   return (
-    <div className="grid gap-4 lg:grid-cols-3">
-      <section className="space-y-3 lg:col-span-2">
-        {meeting.description ? (
-          <p className="text-sm leading-relaxed text-neutral-800">{meeting.description}</p>
-        ) : (
-          <p className="text-sm text-neutral-500">Ingen beskrivelse.</p>
-        )}
+    <div className="grid gap-6 lg:grid-cols-[1fr_320px]">
+      <div className="space-y-4">
+        <div>
+          <h2 className="text-lg font-semibold text-neutral-900">Om møtet</h2>
+          <p className="mt-1.5 text-sm text-neutral-600">
+            {meeting.description ?? 'Ingen beskrivelse registrert.'}
+          </p>
+        </div>
         {snap?.invitationLeadDays && meeting.scheduled_at ? (
           <InvitationBadge
             invitationLeadDays={snap.invitationLeadDays}
@@ -178,31 +254,29 @@ function OverviewTab({ meeting }: { meeting: NonNullable<ReturnType<typeof useMe
             invitationSentAt={meeting.invitation_sent_at}
           />
         ) : null}
-      </section>
-      <aside className="space-y-3">
-        <div className="border border-neutral-200 bg-white p-3 text-xs">
-          <h3 className="mb-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-neutral-500">
-            Detaljer
-          </h3>
-          <dl className="space-y-1 text-neutral-700">
+      </div>
+      <aside className="space-y-4">
+        <div className="rounded-lg border border-neutral-200/80 bg-neutral-50/50 p-4">
+          <p className="text-[10px] font-bold uppercase tracking-wider text-neutral-600">Detaljer</p>
+          <dl className="mt-2 space-y-1.5 text-xs text-neutral-700">
+            <div className="flex justify-between gap-3">
+              <dt>Status</dt>
+              <dd className="font-semibold">{MEETING_STATUS_LABEL[meeting.status]}</dd>
+            </div>
             <div className="flex justify-between gap-3">
               <dt>Sted</dt>
               <dd className="font-semibold">{meeting.location_label ?? '—'}</dd>
             </div>
             <div className="flex justify-between gap-3">
-              <dt>Møteleder</dt>
-              <dd className="font-semibold text-right">
-                {meeting.protocol_signed_by ? '—' : '—'}
+              <dt>Beslutningsdyktig</dt>
+              <dd className="font-semibold">
+                {meeting.quorum_met === null ? 'Ukjent' : meeting.quorum_met ? 'Ja' : 'Nei'}
               </dd>
             </div>
             <div className="flex justify-between gap-3">
-              <dt>Quorum</dt>
+              <dt>Konfidensialitet</dt>
               <dd className="font-semibold">
-                {meeting.quorum_met === null
-                  ? 'Ukjent'
-                  : meeting.quorum_met
-                  ? 'Ja'
-                  : 'Nei'}
+                {MEETING_CONFIDENTIALITY_LABEL[meeting.confidentiality_level]}
               </dd>
             </div>
           </dl>
@@ -224,9 +298,9 @@ function InvitationBadge({
   const sched = new Date(scheduledAt)
   if (!invitationSentAt) {
     return (
-      <div className="inline-flex items-center gap-2 border border-amber-300 bg-amber-50 px-3 py-1.5 text-xs text-amber-900">
-        <AlertTriangle className="h-3.5 w-3.5" />
-        Innkalling ikke registrert (minst {invitationLeadDays} dagers frist)
+      <div className="inline-flex items-center gap-2 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-900">
+        <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
+        Innkalling ikke registrert (minst {invitationLeadDays} dagers frist iht. forskrift om organisering).
       </div>
     )
   }
@@ -234,42 +308,85 @@ function InvitationBadge({
   const diffDays = Math.floor((sched.getTime() - sent.getTime()) / (1000 * 60 * 60 * 24))
   if (diffDays < invitationLeadDays) {
     return (
-      <div className="inline-flex items-center gap-2 border border-red-300 bg-red-50 px-3 py-1.5 text-xs text-red-900">
-        <AlertTriangle className="h-3.5 w-3.5" />
-        Innkalling sendt {diffDays} dager før – frist er {invitationLeadDays} dager.
+      <div className="inline-flex items-center gap-2 rounded-lg border border-red-300 bg-red-50 px-3 py-2 text-xs text-red-900">
+        <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
+        Innkalling sendt {diffDays} dager før — frist er {invitationLeadDays} dager.
       </div>
     )
   }
   return (
-    <div className="inline-flex items-center gap-2 border border-emerald-300 bg-emerald-50 px-3 py-1.5 text-xs text-emerald-900">
-      <CheckCircle2 className="h-3.5 w-3.5" />
+    <div className="inline-flex items-center gap-2 rounded-lg border border-emerald-300 bg-emerald-50 px-3 py-2 text-xs text-emerald-900">
+      <CheckCircle2 className="h-3.5 w-3.5 shrink-0" />
       Innkalling sendt i god tid ({diffDays} dager før).
     </div>
   )
 }
 
+// ── Agenda ────────────────────────────────────────────────────────────────
+
+function computeMandatoryGaps(meeting: MeetingRow, items: MeetingAgendaItemRow[]): string[] {
+  const snap = meeting.definition_snapshot
+  if (!snap?.agendaItems?.length) return []
+  const minutesByKey = new Map<string, string | null>()
+  for (const item of items) {
+    if (item.template_item_key) minutesByKey.set(item.template_item_key, item.minutes_summary)
+  }
+  const gaps: string[] = []
+  for (const tplItem of snap.agendaItems as MeetingTemplateAgendaItem[]) {
+    if (!tplItem.isMandatory) continue
+    const minutes = minutesByKey.get(tplItem.key)
+    if (!minutes || !minutes.trim()) gaps.push(tplItem.title)
+  }
+  return gaps
+}
+
 function AgendaTab({
   items,
   locked,
+  mandatoryGaps,
   onSave,
 }: {
   items: MeetingAgendaItemRow[]
   locked: boolean
+  mandatoryGaps: string[]
   onSave: ReturnType<typeof useMeetings>['setAgendaMinutes']
 }) {
-  if (items.length === 0) {
-    return (
-      <p className="text-sm text-neutral-600">
-        Ingen agendapunkter. (Maler skal materialisere disse automatisk.)
-      </p>
-    )
-  }
   return (
-    <ol className="space-y-3">
-      {items.map((item) => (
-        <AgendaItemEditor key={item.id} item={item} locked={locked} onSave={onSave} />
-      ))}
-    </ol>
+    <div className="space-y-4">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h2 className="text-lg font-semibold text-neutral-900">Agenda</h2>
+          <p className="mt-1.5 text-sm text-neutral-600">
+            Notér sammendrag, vedtak og stemmer per sak. Obligatoriske saker må fylles ut før signering.
+          </p>
+        </div>
+        <span className="text-xs text-neutral-500">{items.length} saker</span>
+      </div>
+
+      {mandatoryGaps.length > 0 ? (
+        <WarningBox>
+          <strong>Mangler:</strong> {mandatoryGaps.length} obligatorisk{mandatoryGaps.length === 1 ? '' : 'e'} sak{mandatoryGaps.length === 1 ? '' : 'er'} har ikke protokollført innhold:
+          <ul className="mt-1.5 list-inside list-disc text-xs">
+            {mandatoryGaps.slice(0, 5).map((title) => (
+              <li key={title}>{title}</li>
+            ))}
+            {mandatoryGaps.length > 5 ? <li>… og {mandatoryGaps.length - 5} til</li> : null}
+          </ul>
+        </WarningBox>
+      ) : null}
+
+      {items.length === 0 ? (
+        <p className="text-sm text-neutral-600">
+          Ingen agendapunkter — maler skal materialisere disse automatisk.
+        </p>
+      ) : (
+        <ol className="space-y-3">
+          {items.map((item) => (
+            <AgendaItemEditor key={item.id} item={item} locked={locked} onSave={onSave} />
+          ))}
+        </ol>
+      )}
+    </div>
   )
 }
 
@@ -287,24 +404,39 @@ function AgendaItemEditor({
   const [decisionStatus, setDecisionStatus] = useState<MeetingDecisionStatus | ''>(
     item.decision_status ?? '',
   )
+  const [voteFor, setVoteFor] = useState<string>(item.vote_for?.toString() ?? '')
+  const [voteAgainst, setVoteAgainst] = useState<string>(item.vote_against?.toString() ?? '')
+  const [voteAbstain, setVoteAbstain] = useState<string>(item.vote_abstain?.toString() ?? '')
   const [busy, setBusy] = useState(false)
+  const [savedAt, setSavedAt] = useState<number | null>(null)
+
+  function parseInt0(v: string): number | null {
+    if (v.trim() === '') return null
+    const n = parseInt(v, 10)
+    return Number.isFinite(n) && n >= 0 ? n : null
+  }
 
   async function handleSave() {
     if (locked || busy) return
     setBusy(true)
+    setSavedAt(null)
     try {
-      await onSave(item.id, {
+      const ok = await onSave(item.id, {
         minutesSummary: minutes || null,
         decisionText: decisionText || null,
         decisionStatus: decisionStatus || null,
+        voteFor: parseInt0(voteFor),
+        voteAgainst: parseInt0(voteAgainst),
+        voteAbstain: parseInt0(voteAbstain),
       })
+      if (ok) setSavedAt(Date.now())
     } finally {
       setBusy(false)
     }
   }
 
   return (
-    <li className="border border-neutral-200 bg-white p-4">
+    <li className="rounded-lg border border-neutral-200/80 bg-neutral-50/50 p-4">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0 flex-1">
           <p className="text-sm font-semibold text-neutral-900">
@@ -313,97 +445,170 @@ function AgendaItemEditor({
           {item.description ? (
             <p className="mt-1 text-xs text-neutral-600">{item.description}</p>
           ) : null}
-          <div className="mt-1 flex flex-wrap gap-3 text-[11px] text-neutral-500">
-            {item.is_mandatory ? (
-              <span className="inline-flex items-center gap-1 border border-cyan-700 px-1.5 py-0.5 font-semibold text-cyan-700">
-                Obligatorisk
-              </span>
-            ) : null}
+          <div className="mt-1.5 flex flex-wrap items-center gap-2">
+            {item.is_mandatory ? <Badge variant="critical">Obligatorisk</Badge> : null}
             {item.law_ref ? (
-              <span className="inline-flex items-center gap-1">
+              <span className="inline-flex items-center gap-1 text-[11px] text-neutral-500">
                 <Scale className="h-3 w-3" /> {item.law_ref}
               </span>
             ) : null}
           </div>
         </div>
       </div>
-      <div className="mt-3 grid gap-2 sm:grid-cols-2">
-        <label className="text-xs text-neutral-700">
-          Sammendrag
-          <textarea
-            className="mt-1 w-full border border-neutral-300 bg-white px-2 py-1.5 text-sm"
+
+      <div className="mt-3 grid gap-3 md:grid-cols-2">
+        <div>
+          <label className={WPSTD_FORM_FIELD_LABEL} htmlFor={`agenda-${item.id}-min`}>
+            Sammendrag
+          </label>
+          <StandardTextarea
+            id={`agenda-${item.id}-min`}
+            className="mt-1.5"
+            rows={3}
             value={minutes}
             onChange={(e) => setMinutes(e.target.value)}
             disabled={locked}
-            rows={3}
           />
-        </label>
-        <div className="space-y-2">
-          <label className="block text-xs text-neutral-700">
-            Vedtak
-            <textarea
-              className="mt-1 w-full border border-neutral-300 bg-white px-2 py-1.5 text-sm"
+        </div>
+        <div className="space-y-3">
+          <div>
+            <label className={WPSTD_FORM_FIELD_LABEL} htmlFor={`agenda-${item.id}-dec`}>
+              Vedtak
+            </label>
+            <StandardTextarea
+              id={`agenda-${item.id}-dec`}
+              className="mt-1.5"
+              rows={2}
               value={decisionText}
               onChange={(e) => setDecisionText(e.target.value)}
               disabled={locked}
-              rows={2}
             />
-          </label>
-          <label className="block text-xs text-neutral-700">
-            Status
-            <select
-              className="mt-1 w-full border border-neutral-300 bg-white px-2 py-1.5 text-sm"
+          </div>
+          <div>
+            <label className={WPSTD_FORM_FIELD_LABEL} htmlFor={`agenda-${item.id}-st`}>
+              Vedtaksstatus
+            </label>
+            <SearchableSelect
               value={decisionStatus}
-              onChange={(e) => setDecisionStatus(e.target.value as MeetingDecisionStatus | '')}
+              options={[
+                { value: '', label: '—' },
+                { value: 'open', label: MEETING_DECISION_STATUS_LABEL.open },
+                { value: 'implemented', label: MEETING_DECISION_STATUS_LABEL.implemented },
+                { value: 'dropped', label: MEETING_DECISION_STATUS_LABEL.dropped },
+              ]}
+              onChange={(v) => setDecisionStatus(v as MeetingDecisionStatus | '')}
+              className="mt-1.5"
               disabled={locked}
-            >
-              <option value="">—</option>
-              <option value="open">{MEETING_DECISION_STATUS_LABEL.open}</option>
-              <option value="implemented">{MEETING_DECISION_STATUS_LABEL.implemented}</option>
-              <option value="dropped">{MEETING_DECISION_STATUS_LABEL.dropped}</option>
-            </select>
-          </label>
+            />
+          </div>
         </div>
       </div>
-      <div className="mt-3 flex justify-end">
-        <button
+
+      <div className="mt-3 grid gap-3 md:grid-cols-3">
+        <div>
+          <label className={WPSTD_FORM_FIELD_LABEL} htmlFor={`agenda-${item.id}-for`}>
+            Stemmer for
+          </label>
+          <StandardInput
+            id={`agenda-${item.id}-for`}
+            className="mt-1.5"
+            type="number"
+            min={0}
+            value={voteFor}
+            onChange={(e) => setVoteFor(e.target.value)}
+            disabled={locked}
+          />
+        </div>
+        <div>
+          <label className={WPSTD_FORM_FIELD_LABEL} htmlFor={`agenda-${item.id}-against`}>
+            Stemmer mot
+          </label>
+          <StandardInput
+            id={`agenda-${item.id}-against`}
+            className="mt-1.5"
+            type="number"
+            min={0}
+            value={voteAgainst}
+            onChange={(e) => setVoteAgainst(e.target.value)}
+            disabled={locked}
+          />
+        </div>
+        <div>
+          <label className={WPSTD_FORM_FIELD_LABEL} htmlFor={`agenda-${item.id}-abstain`}>
+            Avholdende
+          </label>
+          <StandardInput
+            id={`agenda-${item.id}-abstain`}
+            className="mt-1.5"
+            type="number"
+            min={0}
+            value={voteAbstain}
+            onChange={(e) => setVoteAbstain(e.target.value)}
+            disabled={locked}
+          />
+        </div>
+      </div>
+
+      <div className="mt-4 flex items-center justify-end gap-3 border-t border-neutral-200/80 pt-3">
+        {savedAt ? <Badge variant="signed">Lagret</Badge> : null}
+        <Button
+          variant="primary"
           type="button"
+          size="sm"
+          icon={<Edit3 className="h-3.5 w-3.5" />}
           onClick={handleSave}
           disabled={locked || busy}
-          className="inline-flex items-center gap-1.5 border border-neutral-300 bg-white px-3 py-1.5 text-xs font-semibold text-neutral-700 hover:bg-neutral-50 disabled:opacity-60"
         >
-          <Edit3 className="h-3.5 w-3.5" /> Lagre
-        </button>
+          Lagre sak
+        </Button>
       </div>
     </li>
   )
 }
 
-function AttendeesTab({ attendees }: { attendees: ReturnType<typeof useMeetings>['detail']['attendees'] }) {
+// ── Deltakere ─────────────────────────────────────────────────────────────
+
+function AttendeesTab({
+  attendees,
+}: {
+  attendees: ReturnType<typeof useMeetings>['detail']['attendees']
+}) {
   if (attendees.length === 0) {
     return (
       <p className="text-sm text-neutral-600">
-        Ingen deltakere registrert ennå. Bruk møtekortet eller agenda-arket for å markere oppmøte.
+        Ingen deltakere registrert ennå.
       </p>
     )
   }
   return (
-    <table className="w-full border border-neutral-200 bg-white text-sm">
-      <thead className="bg-neutral-50 text-[11px] uppercase tracking-[0.12em] text-neutral-500">
+    <table className="w-full border-collapse text-left text-sm">
+      <thead className="bg-neutral-50/60">
         <tr>
-          <th className="px-3 py-2 text-left">Deltaker</th>
-          <th className="px-3 py-2 text-left">Rolle</th>
-          <th className="px-3 py-2 text-left">Til stede</th>
-          <th className="px-3 py-2 text-left">Notat</th>
+          <th className="px-5 py-3 text-[10px] font-bold uppercase tracking-wider text-neutral-700">
+            Deltaker
+          </th>
+          <th className="px-5 py-3 text-[10px] font-bold uppercase tracking-wider text-neutral-700">
+            Rolle
+          </th>
+          <th className="px-5 py-3 text-[10px] font-bold uppercase tracking-wider text-neutral-700">
+            Til stede
+          </th>
+          <th className="px-5 py-3 text-[10px] font-bold uppercase tracking-wider text-neutral-700">
+            Notat
+          </th>
         </tr>
       </thead>
       <tbody>
         {attendees.map((a) => (
           <tr key={`${a.meeting_id}-${a.member_id}`} className="border-t border-neutral-100">
-            <td className="px-3 py-2 font-mono text-xs">{a.member_id.slice(0, 8)}…</td>
-            <td className="px-3 py-2">{a.role}</td>
-            <td className="px-3 py-2">{a.present === null ? '—' : a.present ? 'Ja' : 'Nei'}</td>
-            <td className="px-3 py-2 text-neutral-600">{a.notes ?? '—'}</td>
+            <td className="px-5 py-3 font-mono text-xs text-neutral-700">
+              {a.member_id.slice(0, 8)}…
+            </td>
+            <td className="px-5 py-3 text-sm text-neutral-700">{a.role}</td>
+            <td className="px-5 py-3 text-sm text-neutral-700">
+              {a.present === null ? '—' : a.present ? 'Ja' : 'Nei'}
+            </td>
+            <td className="px-5 py-3 text-sm text-neutral-600">{a.notes ?? '—'}</td>
           </tr>
         ))}
       </tbody>
@@ -411,20 +616,22 @@ function AttendeesTab({ attendees }: { attendees: ReturnType<typeof useMeetings>
   )
 }
 
+// ── Vedtak ────────────────────────────────────────────────────────────────
+
 function DecisionsTab({
+  meetingId,
   decisions,
   actionItems,
+  locked,
   onAddAction,
   onSetActionStatus,
-  locked,
-  meetingId,
 }: {
+  meetingId: string
   decisions: ReturnType<typeof useMeetings>['detail']['decisions']
   actionItems: ReturnType<typeof useMeetings>['detail']['actionItems']
+  locked: boolean
   onAddAction: ReturnType<typeof useMeetings>['addActionItem']
   onSetActionStatus: ReturnType<typeof useMeetings>['setActionItemStatus']
-  locked: boolean
-  meetingId: string
 }) {
   const [desc, setDesc] = useState('')
   const [due, setDue] = useState('')
@@ -452,19 +659,26 @@ function DecisionsTab({
   return (
     <div className="space-y-6">
       <section>
-        <h2 className="mb-2 text-sm font-semibold uppercase tracking-[0.12em] text-neutral-600">
-          Vedtak
-        </h2>
+        <div className="flex items-center justify-between gap-3">
+          <h2 className="text-lg font-semibold text-neutral-900">Vedtak</h2>
+          <span className="text-xs text-neutral-500">{decisions.length}</span>
+        </div>
         {decisions.length === 0 ? (
-          <p className="text-sm text-neutral-600">Ingen vedtak registrert.</p>
+          <p className="mt-3 text-sm text-neutral-600">Ingen vedtak registrert.</p>
         ) : (
-          <ul className="divide-y divide-neutral-200 border border-neutral-200 bg-white">
+          <ul className="mt-4 space-y-3">
             {decisions.map((d) => (
-              <li key={d.id} className="px-3 py-2 text-sm">
-                <p className="font-semibold text-neutral-900">{d.decision_text}</p>
-                <p className="text-[11px] text-neutral-500">
-                  {fmtDate(d.decision_at)} · {MEETING_DECISION_STATUS_LABEL[d.status]}
-                </p>
+              <li
+                key={d.id}
+                className="rounded-lg border border-neutral-200/80 bg-neutral-50/50 p-4"
+              >
+                <p className="text-sm font-semibold text-neutral-900">{d.decision_text}</p>
+                <div className="mt-2 flex flex-wrap items-center gap-2 text-[11px] text-neutral-500">
+                  <span>{fmtDate(d.decision_at)}</span>
+                  <Badge variant={d.status === 'implemented' ? 'signed' : d.status === 'dropped' ? 'neutral' : 'active'}>
+                    {MEETING_DECISION_STATUS_LABEL[d.status]}
+                  </Badge>
+                </div>
               </li>
             ))}
           </ul>
@@ -472,39 +686,45 @@ function DecisionsTab({
       </section>
 
       <section>
-        <h2 className="mb-2 text-sm font-semibold uppercase tracking-[0.12em] text-neutral-600">
-          Oppfølgingsoppgaver
-        </h2>
+        <div className="flex items-center justify-between gap-3 border-t border-neutral-100 pt-4">
+          <h2 className="text-lg font-semibold text-neutral-900">Oppfølgingsoppgaver</h2>
+          <span className="text-xs text-neutral-500">{actionItems.length}</span>
+        </div>
         {actionItems.length === 0 ? (
-          <p className="text-sm text-neutral-600">Ingen oppgaver registrert.</p>
+          <p className="mt-3 text-sm text-neutral-600">Ingen oppgaver registrert.</p>
         ) : (
-          <table className="w-full border border-neutral-200 bg-white text-sm">
-            <thead className="bg-neutral-50 text-[11px] uppercase tracking-[0.12em] text-neutral-500">
+          <table className="mt-4 w-full border-collapse text-left text-sm">
+            <thead className="bg-neutral-50/60">
               <tr>
-                <th className="px-3 py-2 text-left">Oppgave</th>
-                <th className="px-3 py-2 text-left">Frist</th>
-                <th className="px-3 py-2 text-left">Status</th>
+                <th className="px-5 py-3 text-[10px] font-bold uppercase tracking-wider text-neutral-700">
+                  Oppgave
+                </th>
+                <th className="px-5 py-3 text-[10px] font-bold uppercase tracking-wider text-neutral-700">
+                  Frist
+                </th>
+                <th className="px-5 py-3 text-[10px] font-bold uppercase tracking-wider text-neutral-700">
+                  Status
+                </th>
               </tr>
             </thead>
             <tbody>
               {actionItems.map((a) => (
                 <tr key={a.id} className="border-t border-neutral-100">
-                  <td className="px-3 py-2">{a.description}</td>
-                  <td className="px-3 py-2">{a.due_date ?? '—'}</td>
-                  <td className="px-3 py-2">
-                    <select
-                      className="border border-neutral-300 bg-white px-1.5 py-1 text-xs"
+                  <td className="px-5 py-3 text-sm text-neutral-800">{a.description}</td>
+                  <td className="px-5 py-3 text-sm text-neutral-700">{a.due_date ?? '—'}</td>
+                  <td className="px-5 py-3">
+                    <SearchableSelect
                       value={a.status}
-                      onChange={(e) =>
-                        void onSetActionStatus(a.id, e.target.value as MeetingActionStatus)
-                      }
+                      options={[
+                        { value: 'open', label: MEETING_ACTION_STATUS_LABEL.open },
+                        { value: 'in_progress', label: MEETING_ACTION_STATUS_LABEL.in_progress },
+                        { value: 'done', label: MEETING_ACTION_STATUS_LABEL.done },
+                        { value: 'dropped', label: MEETING_ACTION_STATUS_LABEL.dropped },
+                      ]}
+                      onChange={(v) => void onSetActionStatus(a.id, v as MeetingActionStatus)}
                       disabled={locked}
-                    >
-                      <option value="open">{MEETING_ACTION_STATUS_LABEL.open}</option>
-                      <option value="in_progress">{MEETING_ACTION_STATUS_LABEL.in_progress}</option>
-                      <option value="done">{MEETING_ACTION_STATUS_LABEL.done}</option>
-                      <option value="dropped">{MEETING_ACTION_STATUS_LABEL.dropped}</option>
-                    </select>
+                      triggerClassName="py-1.5 text-xs"
+                    />
                   </td>
                 </tr>
               ))}
@@ -513,31 +733,38 @@ function DecisionsTab({
         )}
 
         {locked ? null : (
-          <form onSubmit={handleAdd} className="mt-3 flex flex-wrap items-end gap-2">
-            <label className="flex-1 text-xs text-neutral-700">
-              Ny oppgave
-              <input
-                className="mt-1 w-full border border-neutral-300 bg-white px-2 py-1.5 text-sm"
+          <form onSubmit={handleAdd} className="mt-4 grid gap-3 md:grid-cols-[1fr_180px_auto] md:items-end">
+            <div>
+              <label className={WPSTD_FORM_FIELD_LABEL} htmlFor="meetings-new-action">
+                Ny oppgave
+              </label>
+              <StandardInput
+                id="meetings-new-action"
+                className="mt-1.5"
                 value={desc}
                 onChange={(e) => setDesc(e.target.value)}
               />
-            </label>
-            <label className="text-xs text-neutral-700">
-              Frist
-              <input
+            </div>
+            <div>
+              <label className={WPSTD_FORM_FIELD_LABEL} htmlFor="meetings-new-action-due">
+                Frist
+              </label>
+              <StandardInput
+                id="meetings-new-action-due"
                 type="date"
-                className="mt-1 border border-neutral-300 bg-white px-2 py-1.5 text-sm"
+                className="mt-1.5"
                 value={due}
                 onChange={(e) => setDue(e.target.value)}
               />
-            </label>
-            <button
+            </div>
+            <Button
+              variant="primary"
               type="submit"
+              icon={<Plus className="h-4 w-4" />}
               disabled={busy || !desc.trim()}
-              className="inline-flex items-center gap-1.5 bg-neutral-900 px-3 py-2 text-sm font-semibold text-white disabled:opacity-60"
             >
-              <Plus className="h-4 w-4" /> Legg til
-            </button>
+              Legg til
+            </Button>
           </form>
         )}
       </section>
@@ -545,18 +772,22 @@ function DecisionsTab({
   )
 }
 
+// ── Protokoll ─────────────────────────────────────────────────────────────
+
 function ProtocolTab({
   meetingId,
   signatures,
+  mandatoryGaps,
   locked,
-  onSign,
   canManage,
+  onSign,
 }: {
   meetingId: string
   signatures: ReturnType<typeof useMeetings>['detail']['signatures']
+  mandatoryGaps: string[]
   locked: boolean
-  onSign: ReturnType<typeof useMeetings>['signProtocol']
   canManage: boolean
+  onSign: ReturnType<typeof useMeetings>['signProtocol']
 }) {
   const [name, setName] = useState('')
   const [role, setRole] = useState<'chair' | 'secretary' | 'management' | 'member' | 'other'>('chair')
@@ -576,26 +807,45 @@ function ProtocolTab({
 
   return (
     <div className="space-y-4">
-      <div className="border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-900">
-        <strong>Bekreftelse — ikke juridisk signatur.</strong> BankID-integrasjon
-        kommer i en senere fase (jf. Council Review §3.4).
-      </div>
+      <InfoBox>
+        <strong>Bekreftelse — ikke juridisk signatur.</strong> BankID-integrasjon kommer i en senere
+        fase (jf. Council Review §3.4). Bekreftelsen låser identitetsbærende kolonner mot endring,
+        men metadata forblir editerbar.
+      </InfoBox>
+
+      {mandatoryGaps.length > 0 ? (
+        <WarningBox>
+          Protokollen kan ikke signeres før obligatoriske saker er fylt ut. Mangler{' '}
+          <strong>{mandatoryGaps.length}</strong>.{' '}
+          <Link to="?" className="underline">
+            Tilbake til agenda
+          </Link>
+        </WarningBox>
+      ) : null}
 
       {signatures.length > 0 ? (
-        <table className="w-full border border-neutral-200 bg-white text-sm">
-          <thead className="bg-neutral-50 text-[11px] uppercase tracking-[0.12em] text-neutral-500">
+        <table className="w-full border-collapse text-left text-sm">
+          <thead className="bg-neutral-50/60">
             <tr>
-              <th className="px-3 py-2 text-left">Navn</th>
-              <th className="px-3 py-2 text-left">Rolle</th>
-              <th className="px-3 py-2 text-left">Tidspunkt</th>
+              <th className="px-5 py-3 text-[10px] font-bold uppercase tracking-wider text-neutral-700">
+                Navn
+              </th>
+              <th className="px-5 py-3 text-[10px] font-bold uppercase tracking-wider text-neutral-700">
+                Rolle
+              </th>
+              <th className="px-5 py-3 text-[10px] font-bold uppercase tracking-wider text-neutral-700">
+                Tidspunkt
+              </th>
             </tr>
           </thead>
           <tbody>
             {signatures.map((s) => (
               <tr key={s.id} className="border-t border-neutral-100">
-                <td className="px-3 py-2 font-semibold">{s.signer_name}</td>
-                <td className="px-3 py-2">{s.signer_role}</td>
-                <td className="px-3 py-2 text-neutral-600">{fmtDate(s.signed_at)}</td>
+                <td className="px-5 py-3 text-sm font-semibold text-neutral-900">
+                  {s.signer_name}
+                </td>
+                <td className="px-5 py-3 text-sm text-neutral-700">{s.signer_role}</td>
+                <td className="px-5 py-3 text-sm text-neutral-600">{fmtDate(s.signed_at)}</td>
               </tr>
             ))}
           </tbody>
@@ -605,36 +855,43 @@ function ProtocolTab({
       )}
 
       {canManage && !locked ? (
-        <form onSubmit={handleSign} className="flex flex-wrap items-end gap-2 border border-neutral-200 bg-white p-3">
-          <label className="flex-1 text-xs text-neutral-700">
-            Navn
-            <input
-              className="mt-1 w-full border border-neutral-300 bg-white px-2 py-1.5 text-sm"
+        <form onSubmit={handleSign} className="grid gap-3 md:grid-cols-[1fr_180px_auto] md:items-end border-t border-neutral-100 pt-4">
+          <div>
+            <label className={WPSTD_FORM_FIELD_LABEL} htmlFor="meetings-sign-name">
+              Navn
+            </label>
+            <StandardInput
+              id="meetings-sign-name"
+              className="mt-1.5"
               value={name}
               onChange={(e) => setName(e.target.value)}
             />
-          </label>
-          <label className="text-xs text-neutral-700">
-            Rolle
-            <select
-              className="mt-1 border border-neutral-300 bg-white px-2 py-1.5 text-sm"
+          </div>
+          <div>
+            <label className={WPSTD_FORM_FIELD_LABEL} htmlFor="meetings-sign-role">
+              Rolle
+            </label>
+            <SearchableSelect
               value={role}
-              onChange={(e) => setRole(e.target.value as typeof role)}
-            >
-              <option value="chair">Møteleder</option>
-              <option value="secretary">Sekretær</option>
-              <option value="management">Ledelse</option>
-              <option value="member">Medlem</option>
-              <option value="other">Annet</option>
-            </select>
-          </label>
-          <button
+              options={[
+                { value: 'chair', label: 'Møteleder' },
+                { value: 'secretary', label: 'Sekretær' },
+                { value: 'management', label: 'Ledelse' },
+                { value: 'member', label: 'Medlem' },
+                { value: 'other', label: 'Annet' },
+              ]}
+              onChange={(v) => setRole(v as typeof role)}
+              className="mt-1.5"
+            />
+          </div>
+          <Button
+            variant="primary"
             type="submit"
-            disabled={busy || !name.trim()}
-            className="inline-flex items-center gap-1.5 bg-cyan-700 px-3 py-2 text-sm font-semibold text-white disabled:opacity-60"
+            icon={<PenSquare className="h-4 w-4" />}
+            disabled={busy || !name.trim() || mandatoryGaps.length > 0}
           >
-            <PenSquare className="h-4 w-4" /> Bekreft protokollen
-          </button>
+            Bekreft protokoll
+          </Button>
         </form>
       ) : null}
     </div>

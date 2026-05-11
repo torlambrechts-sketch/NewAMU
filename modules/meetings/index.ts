@@ -9,4 +9,5 @@ export type {
   MeetingsNavCategory,
   UseMeetingsNavReturn,
 } from './useMeetingsNav'
-export { MeetingsLegalReferences } from './meetingsLegalReferences'
+export { MEETINGS_LEGAL_REFERENCES } from './meetingsLegalReferences'
+export { MeetingsHubView } from './MeetingsHubView'

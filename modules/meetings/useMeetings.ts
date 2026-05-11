@@ -490,15 +490,40 @@ export function useMeetings(): UseMeetingsState {
         setError(getSupabaseErrorMessage(res.error))
         return false
       }
-      // Materialise decision row when decisionText was filled.
-      if (patch.decisionText && detail.meeting) {
-        const decisionRow = {
-          meeting_id: detail.meeting.id,
-          agenda_item_id: agendaItemId,
-          decision_text: patch.decisionText,
-          status: (patch.decisionStatus ?? 'open') as MeetingDecisionStatus,
+      // Mirror per-agenda decision text into the cross-meeting register.
+      // We keep at most one register row per agenda item — the latest
+      // edit overwrites it. Clearing decisionText removes the register
+      // entry so the agenda is the source of truth.
+      if (detail.meeting) {
+        if (patch.decisionText) {
+          const existing = await supabase
+            .from('meeting_decisions')
+            .select('id')
+            .eq('agenda_item_id', agendaItemId)
+            .limit(1)
+            .maybeSingle()
+          if (existing.data?.id) {
+            await supabase
+              .from('meeting_decisions')
+              .update({
+                decision_text: patch.decisionText,
+                status: (patch.decisionStatus ?? 'open') as MeetingDecisionStatus,
+              })
+              .eq('id', existing.data.id)
+          } else {
+            await supabase.from('meeting_decisions').insert({
+              meeting_id: detail.meeting.id,
+              agenda_item_id: agendaItemId,
+              decision_text: patch.decisionText,
+              status: (patch.decisionStatus ?? 'open') as MeetingDecisionStatus,
+            })
+          }
+        } else if (patch.decisionText === null) {
+          await supabase
+            .from('meeting_decisions')
+            .delete()
+            .eq('agenda_item_id', agendaItemId)
         }
-        await supabase.from('meeting_decisions').insert(decisionRow)
       }
       if (detailMeetingId) await loadDetail(detailMeetingId)
       return true
