@@ -237,4 +237,5 @@ Once both items are reviewer-confirmed, H2 + H3 are unblocked end-to-end.
 ### Retry log
 
 - **2026-05-11 (post-H10 closeout):** WebFetch retry attempted on `lo.no/contentassets/.../hovedavtalen-2022-2025.pdf` (404) and `iso.org/standard/27001` (403). Both still inaccessible without authenticated/paid access. No change to gating status.
+- **2026-05-11 (closeout-stretch):** Third WebFetch sweep — 6 additional URLs: `snl.no/Hovedavtalen` (no § 9-3 substance), `isms.online/iso-27001-management-review` (404), `iso.org/obp` (403), `arbinn.nho.no` (members-gated 403), `no.wikipedia.org/wiki/Bedriftsutvalg` + `en.wikipedia.org/wiki/ISO/IEC_27000-series` (no clause-level detail), `regjeringen.no/...medbestemmelse` (404). No public source surfaces verbatim text for either G6 or G7. **Both items remain reviewer-gated** — punted to follow-up PR with login-portal access.
 
