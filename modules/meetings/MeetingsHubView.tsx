@@ -58,11 +58,10 @@ function templateCadenceLabel(t: ResolvedMeetingTemplate): string {
 }
 
 function isRestrictedTemplate(t: ResolvedMeetingTemplate): boolean {
-  // Drøfting, varsling and MUS templates default to restricted confidentiality
-  // per the senior-architect decision (CLAUDE.md template-surfaces note +
-  // ORG_ACCESS_CONTROL_ANALYSIS.md AML § 15-1 gap).
-  const slug = t.systemTemplateId ?? ''
-  return /^(drofting-|varslingsutvalg|mus)/.test(slug)
+  // Reads the template-level `defaultConfidentialityLevel` field (DB column
+  // populated by H7 migration). Slug-based heuristic removed — admins can
+  // now control the default per template in the editor.
+  return t.defaultConfidentialityLevel !== 'standard'
 }
 
 const STATUS_BADGE: Record<MeetingStatus, 'draft' | 'active' | 'signed' | 'neutral'> = {
@@ -538,7 +537,7 @@ function CreateMeetingSlidePanel({
       (t) => t.systemTemplateId === preset || t.orgTemplateId === preset,
     )
     setTitle(tpl?.name ?? '')
-    setConfidentiality(tpl && isRestrictedTemplate(tpl) ? 'restricted' : 'standard')
+    setConfidentiality(tpl?.defaultConfidentialityLevel ?? 'standard')
     setScheduledAt('')
   }, [open, presetTemplateId, meetings.templates])
 
@@ -621,7 +620,7 @@ function CreateMeetingSlidePanel({
               )
               if (tpl) {
                 setTitle(tpl.name)
-                setConfidentiality(isRestrictedTemplate(tpl) ? 'restricted' : 'standard')
+                setConfidentiality(tpl.defaultConfidentialityLevel ?? 'standard')
               }
             }}
             placeholder="Velg en mal …"

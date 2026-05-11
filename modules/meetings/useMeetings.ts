@@ -168,6 +168,7 @@ export type UseMeetingsState = {
     lawRefs?: string[]
     cadenceHint?: MeetingCadence | null
     defaultDurationMinutes?: number | null
+    defaultConfidentialityLevel?: MeetingConfidentialityLevel
     definition: MeetingTemplateDefinition
     metadataSchema?: TemplateMetadataSchema
     navPinned?: boolean
@@ -210,6 +211,7 @@ function resolveTemplates(
       lawRefs: t.law_refs ?? [],
       cadenceHint: t.cadence_hint,
       defaultDurationMinutes: t.default_duration_minutes,
+      defaultConfidentialityLevel: t.default_confidentiality_level ?? 'standard',
       categoryId,
       navPinned: setting?.nav_pinned ?? false,
       position: setting?.position ?? t.sort_order,
@@ -233,6 +235,7 @@ function resolveTemplates(
       lawRefs: ot.law_refs ?? [],
       cadenceHint: ot.cadence_hint,
       defaultDurationMinutes: ot.default_duration_minutes,
+      defaultConfidentialityLevel: ot.default_confidentiality_level ?? 'standard',
       categoryId: ot.category_id,
       navPinned: ot.nav_pinned,
       position: 1000,
@@ -752,6 +755,7 @@ export function useMeetings(): UseMeetingsState {
         law_refs: input.lawRefs ?? [],
         cadence_hint: input.cadenceHint ?? null,
         default_duration_minutes: input.defaultDurationMinutes ?? null,
+        default_confidentiality_level: input.defaultConfidentialityLevel ?? 'standard',
         definition: input.definition,
         metadata_schema: input.metadataSchema ?? { fields: [] },
         nav_pinned: input.navPinned ?? false,

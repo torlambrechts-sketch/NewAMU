@@ -21,16 +21,19 @@ import { useMeetings } from '../../../modules/meetings'
 import {
   MEETING_ATTENDEE_ROLE_LABEL,
   MEETING_CADENCE_LABEL,
+  MEETING_CONFIDENTIALITY_LABEL,
   MEETING_FRAMEWORK_LABEL,
 } from '../../../modules/meetings/meetingsLabels'
 import {
   MEETING_ATTENDEE_ROLE_VALUES,
   MEETING_CADENCE_VALUES,
+  MEETING_CONFIDENTIALITY_VALUES,
   MEETING_FRAMEWORK_VALUES,
 } from '../../../modules/meetings/types'
 import type {
   MeetingAttendeeRole,
   MeetingCadence,
+  MeetingConfidentialityLevel,
   MeetingFramework,
   MeetingOrgTemplateRow,
   MeetingTemplateAgendaItem,
@@ -87,6 +90,8 @@ export function MeetingsTemplateEditorPanel({
   const [cadenceHint, setCadenceHint] = useState<MeetingCadence | ''>('')
   const [categoryId, setCategoryId] = useState<string>('')
   const [defaultDurationMinutes, setDefaultDurationMinutes] = useState<string>('60')
+  const [defaultConfidentialityLevel, setDefaultConfidentialityLevel] =
+    useState<MeetingConfidentialityLevel>('standard')
   const [invitationLeadDays, setInvitationLeadDays] = useState<string>('')
   const [lawRefsCsv, setLawRefsCsv] = useState<string>('')
   const [requiredAttendees, setRequiredAttendees] = useState<MeetingAttendeeRole[]>(['chair'])
@@ -105,6 +110,7 @@ export function MeetingsTemplateEditorPanel({
       setCadenceHint(editTarget.cadence_hint ?? '')
       setCategoryId(editTarget.category_id ?? '')
       setDefaultDurationMinutes(String(editTarget.default_duration_minutes ?? 60))
+      setDefaultConfidentialityLevel(editTarget.default_confidentiality_level ?? 'standard')
       setInvitationLeadDays(
         editTarget.definition.invitationLeadDays != null
           ? String(editTarget.definition.invitationLeadDays)
@@ -132,6 +138,7 @@ export function MeetingsTemplateEditorPanel({
       setCadenceHint('')
       setCategoryId('')
       setDefaultDurationMinutes('60')
+      setDefaultConfidentialityLevel('standard')
       setInvitationLeadDays('')
       setLawRefsCsv('')
       setRequiredAttendees(['chair'])
@@ -259,6 +266,7 @@ export function MeetingsTemplateEditorPanel({
         lawRefs,
         cadenceHint: cadenceHint || null,
         defaultDurationMinutes: Number.isFinite(durationNum) ? durationNum : null,
+        defaultConfidentialityLevel,
         definition,
         navPinned: editTarget?.nav_pinned ?? false,
         isActive: editTarget?.is_active ?? true,
@@ -387,7 +395,7 @@ export function MeetingsTemplateEditorPanel({
           </div>
         </div>
 
-        <div className="grid gap-4 md:grid-cols-2">
+        <div className="grid gap-4 md:grid-cols-3">
           <div>
             <label className={WPSTD_FORM_FIELD_LABEL} htmlFor="mte-duration">Standardvarighet (minutter)</label>
             <StandardInput
@@ -410,6 +418,24 @@ export function MeetingsTemplateEditorPanel({
               onChange={(e) => setInvitationLeadDays(e.target.value)}
               placeholder="valgfritt"
             />
+          </div>
+          <div>
+            <label className={WPSTD_FORM_FIELD_LABEL} htmlFor="mte-confidentiality">
+              Standard konfidensialitet
+            </label>
+            <SearchableSelect
+              value={defaultConfidentialityLevel}
+              options={MEETING_CONFIDENTIALITY_VALUES.map((v) => ({
+                value: v,
+                label: MEETING_CONFIDENTIALITY_LABEL[v],
+              }))}
+              onChange={(v) => setDefaultConfidentialityLevel(v as MeetingConfidentialityLevel)}
+              className="mt-1.5"
+            />
+            <p className="mt-1 text-xs text-neutral-500">
+              Drøftings-, varslings- og personalmøter bør stå som «Begrenset» eller
+              strengere som standard.
+            </p>
           </div>
         </div>
 
