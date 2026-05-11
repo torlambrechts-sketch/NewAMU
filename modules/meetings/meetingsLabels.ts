@@ -45,8 +45,10 @@ export const MEETING_ATTENDEE_ROLE_LABEL: Record<MeetingAttendeeRole, string> = 
   observer: 'Observatør',
   guest: 'Gjest',
   verneombud: 'Verneombud',
+  hovedverneombud: 'Hovedverneombud',
   employer_rep: 'Arbeidsgiverrepr.',
   employee_rep: 'Ansattrepr.',
+  tillitsvalgt: 'Tillitsvalgt',
 }
 
 export const MEETING_SIGNER_ROLE_LABEL: Record<MeetingSignerRole, string> = {

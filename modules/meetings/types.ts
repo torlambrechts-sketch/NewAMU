@@ -35,8 +35,10 @@ export const MEETING_ATTENDEE_ROLE_VALUES = [
   'observer',
   'guest',
   'verneombud',
+  'hovedverneombud',
   'employer_rep',
   'employee_rep',
+  'tillitsvalgt',
 ] as const
 export type MeetingAttendeeRole = (typeof MEETING_ATTENDEE_ROLE_VALUES)[number]
 
