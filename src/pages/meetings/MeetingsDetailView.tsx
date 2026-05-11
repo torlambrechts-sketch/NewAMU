@@ -42,6 +42,10 @@ import { WPSTD_FORM_FIELD_LABEL } from '../../components/layout/WorkplaceStandar
 import { useOrgSetupContext } from '../../hooks/useOrgSetupContext'
 import { useMeetings, useMeetingDataBindings } from '../../../modules/meetings'
 import { DatapakkeTab } from '../../../modules/meetings/tabs/DatapakkeTab'
+import { BriefingDashboardTab } from '../../../modules/meetings/tabs/BriefingDashboardTab'
+// Side-effect: register the briefing dashboard scope so the runtime
+// can render template-declared layouts via `ReportModulesGrid`.
+import '../../../modules/meetings/dashboards/meetingBriefingDashboardScope'
 import { AgendaBuilderToolbar } from '../../../modules/meetings/components/AgendaBuilderToolbar'
 import {
   AgendaItemFormPanel,
@@ -73,7 +77,7 @@ import type {
   RenderedBindingResult,
 } from '../../../modules/meetings/types'
 
-type Tab = 'informasjon' | 'datapakke' | 'agenda' | 'deltakere' | 'vedtak' | 'protokoll'
+type Tab = 'informasjon' | 'datapakke' | 'dashboard' | 'agenda' | 'deltakere' | 'vedtak' | 'protokoll'
 
 const STATUS_BADGE: Record<MeetingStatus, 'draft' | 'active' | 'signed' | 'neutral'> = {
   planned: 'active',
@@ -236,6 +240,10 @@ export function MeetingsDetailView() {
     if (!tplItems?.length) return false
     return tplItems.some((tpl) => 'dataBinding' in tpl && tpl.dataBinding)
   })()
+  const hasBriefingDashboard = (() => {
+    const dash = meeting.definition_snapshot?.dashboard
+    return !!(dash && Array.isArray(dash.layout) && dash.layout.length > 0)
+  })()
 
   const tabItems: Array<{
     id: Tab
@@ -246,6 +254,9 @@ export function MeetingsDetailView() {
   }> = [
     { id: 'informasjon', label: 'Informasjon', icon: ClipboardList },
     ...(hasAnyBinding ? [{ id: 'datapakke' as const, label: 'Datapakke', icon: BarChart3 }] : []),
+    ...(hasBriefingDashboard
+      ? [{ id: 'dashboard' as const, label: 'Dashboard', icon: BarChart3 }]
+      : []),
     {
       id: 'agenda',
       label: 'Agenda',
@@ -332,6 +343,13 @@ export function MeetingsDetailView() {
               if (snap) await meetings.writeBindingSnapshot(item.id, snap)
             }
           }}
+        />
+      ) : null}
+
+      {tab === 'dashboard' ? (
+        <BriefingDashboardTab
+          meeting={meeting}
+          agendaItems={meetings.detail.agendaItems}
         />
       ) : null}
 

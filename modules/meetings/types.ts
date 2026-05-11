@@ -166,6 +166,22 @@ export type MeetingTemplateQuorum =
   | { kind: 'percent'; value: number }
   | { kind: 'count'; value: number }
 
+/** Briefing-dashboard block authored on a template (PR addendum: dashboard
+ *  on meeting templates). When set, the meeting detail view renders a
+ *  Dashboard tab built from the named widgets, with their datasets pulled
+ *  from `useMeetingBriefingDatasets` and scoped to the meeting period.
+ *  Today only `scopeId: 'meeting_briefing'` is wired. */
+export type MeetingTemplateDashboard = {
+  scopeId: 'meeting_briefing'
+  /** Dashboard-engine widget instances. Each `datasetKey` must be one of
+   *  the keys the briefing scope publishes. */
+  layout: Array<Record<string, unknown>>
+  /** Resolution window when meeting.reporting_period_* is unset.
+   *  Defaults to 'meeting_period' (which falls back to 'last_year' if
+   *  no explicit period is on the meeting). */
+  defaultPeriod?: 'meeting_period' | 'last_year' | 'last_quarter' | 'ytd'
+}
+
 export type MeetingTemplateDefinition = {
   preparationChecklist: MeetingTemplatePrepItem[]
   agendaItems: MeetingTemplateAgendaItem[]
@@ -178,6 +194,8 @@ export type MeetingTemplateDefinition = {
    *  travels with the immutable snapshot. Legacy meetings (created
    *  before H9d) may have this missing — consumers default to 'INTERNAL'. */
   framework?: MeetingFramework
+  /** Optional briefing-dashboard block. See {@link MeetingTemplateDashboard}. */
+  dashboard?: MeetingTemplateDashboard
 }
 
 // ── Metadata schema (shared with compliance / survey / documents) ─────────
@@ -498,6 +516,28 @@ const MeetingTemplateRequiredAttendeeSchema = z
   })
   .passthrough()
 
+// Loose widget shape — keeps kind-specific fields (valuePath, segmentsPath,
+// seriesKeys, …) intact across the round-trip even though they aren't in
+// the explicit schema. Mirrors src/lib/dashboards/useDashboardLayout.ts.
+const MeetingDashboardWidgetSchema = z
+  .object({
+    id: z.string(),
+    title: z.string(),
+    datasetKey: z.string(),
+    kind: z.enum(['kpi', 'table', 'bar', 'donut', 'line', 'heatmap']),
+  })
+  .passthrough()
+
+const MeetingTemplateDashboardSchema = z
+  .object({
+    scopeId: z.literal('meeting_briefing'),
+    layout: z.array(MeetingDashboardWidgetSchema).default([]),
+    defaultPeriod: z
+      .enum(['meeting_period', 'last_year', 'last_quarter', 'ytd'])
+      .optional(),
+  })
+  .passthrough()
+
 const MeetingTemplateDefinitionSchema = z
   .object({
     preparationChecklist: z.array(MeetingTemplatePrepItemSchema).default([]),
@@ -513,6 +553,7 @@ const MeetingTemplateDefinitionSchema = z
     protocolRoles: z.array(z.enum(['chair', 'secretary', 'management'])).default(['chair']),
     defaultActionTaskModule: z.string().optional(),
     framework: MeetingFrameworkSchema.optional(),
+    dashboard: MeetingTemplateDashboardSchema.optional(),
   })
   .passthrough()
 
