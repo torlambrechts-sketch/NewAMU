@@ -15,10 +15,12 @@ import type {
   MeetingAgendaItemRow,
   MeetingAttendeeRole,
   MeetingAttendeeRow,
+  MeetingCadence,
   MeetingCategoryRow,
   MeetingConfidentialityLevel,
   MeetingDecisionRow,
   MeetingDecisionStatus,
+  MeetingFramework,
   MeetingOrgTemplateRow,
   MeetingOrgTemplateSettingRow,
   MeetingRow,
@@ -155,6 +157,23 @@ export type UseMeetingsState = {
     description?: string | null
     position?: number
   }) => Promise<MeetingCategoryRow | null>
+  upsertOrgTemplate: (input: {
+    id?: string
+    slug: string
+    name: string
+    description?: string | null
+    categoryId?: string | null
+    framework: MeetingFramework
+    frameworks?: string[]
+    lawRefs?: string[]
+    cadenceHint?: MeetingCadence | null
+    defaultDurationMinutes?: number | null
+    definition: MeetingTemplateDefinition
+    metadataSchema?: TemplateMetadataSchema
+    navPinned?: boolean
+    isActive?: boolean
+  }) => Promise<MeetingOrgTemplateRow | null>
+  deleteOrgTemplate: (id: string) => Promise<boolean>
   refresh: () => Promise<void>
   clearError: () => void
 }
@@ -717,6 +736,63 @@ export function useMeetings(): UseMeetingsState {
     [supabase, orgId, loadList],
   )
 
+  // ── Admin: org-custom meeting templates (full CRUD) ───────────────────────
+
+  const upsertOrgTemplate: UseMeetingsState['upsertOrgTemplate'] = useCallback(
+    async (input) => {
+      if (!supabase || !orgId) return null
+      const baseRow = {
+        organization_id: orgId,
+        slug: input.slug,
+        name: input.name,
+        description: input.description ?? null,
+        category_id: input.categoryId ?? null,
+        framework: input.framework,
+        frameworks: input.frameworks ?? [input.framework],
+        law_refs: input.lawRefs ?? [],
+        cadence_hint: input.cadenceHint ?? null,
+        default_duration_minutes: input.defaultDurationMinutes ?? null,
+        definition: input.definition,
+        metadata_schema: input.metadataSchema ?? { fields: [] },
+        nav_pinned: input.navPinned ?? false,
+        is_active: input.isActive ?? true,
+      }
+      const row = input.id ? { id: input.id, ...baseRow } : baseRow
+      const res = await supabase
+        .from('meeting_org_templates')
+        .upsert(row, { onConflict: input.id ? 'id' : 'organization_id,slug' })
+        .select('*')
+        .single()
+      if (res.error || !res.data) {
+        setError(getSupabaseErrorMessage(res.error))
+        return null
+      }
+      const parsed = parseMeetingOrgTemplateRow(res.data)
+      if (!parsed.success) return null
+      await loadList()
+      return parsed.data
+    },
+    [supabase, orgId, loadList],
+  )
+
+  const deleteOrgTemplate: UseMeetingsState['deleteOrgTemplate'] = useCallback(
+    async (id) => {
+      if (!supabase) return false
+      // Soft delete via deleted_at so analytics keep referencing the row.
+      const res = await supabase
+        .from('meeting_org_templates')
+        .update({ deleted_at: new Date().toISOString(), is_active: false })
+        .eq('id', id)
+      if (res.error) {
+        setError(getSupabaseErrorMessage(res.error))
+        return false
+      }
+      await loadList()
+      return true
+    },
+    [supabase, loadList],
+  )
+
   const clearError = useCallback(() => setError(null), [])
 
   return {
@@ -748,6 +824,8 @@ export function useMeetings(): UseMeetingsState {
     setTemplatePinned,
     renameTemplate,
     upsertCategory,
+    upsertOrgTemplate,
+    deleteOrgTemplate,
     refresh,
     clearError,
   }
