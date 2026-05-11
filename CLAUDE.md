@@ -8,7 +8,7 @@ it loads every session. Point to authoritative docs; don't duplicate them.
 | Need | Look here |
 |---|---|
 | Module parity ports (process spec) | `specs/PLAYBOOK.md` |
-| Per-module port plans + status | `specs/<module>-parity.md` (`survey`, `tasks`, `elearning`, `documents`) |
+| Per-module port plans + status | `specs/<module>-parity.md` (`survey`, `tasks`, `elearning`, `documents`, `meetings`) |
 | Roadmap status across the whole product | `ROADMAP.md` |
 | Public documents for designers / PMs | `*.md` at repo root (DESIGN_SYSTEM, MODULE_SPEC, etc.) — these are *output*, not process |
 | Migrations to apply on a fresh DB | `supabase/migrations/` (top level + `archive/`, both run; sorted by basename — see `scripts/apply-migrations.sh`) |
@@ -21,9 +21,9 @@ before changing status to `📋 ready`.
 
 ## Dashboard engine
 
-Reusable runtime any module registers a "scope" with. After eight modules
-adopted it (compliance / survey / tasks / learning / documents + the
-`hms_overview` composite), the architecture has stabilised.
+Reusable runtime any module registers a "scope" with. After nine modules
+adopted it (compliance / survey / tasks / learning / documents / meetings +
+the `hms_overview` composite), the architecture has stabilised.
 
 Layout per scope:
 
@@ -71,7 +71,7 @@ module that's gone through parity port appears as a top-level `NavGroup`
 with `flatSubs: true`:
 
 ```
-HMS-oversikt → Sjekklister → Undersøkelser → Dokumenter → Oppgaver → Læring
+HMS-oversikt → Sjekklister → Undersøkelser → Dokumenter → Møter → Register → Oppgaver → Læring
 ```
 
 Conventions when promoting a module:
