@@ -38,6 +38,11 @@ import { SearchableSelect } from '../../src/components/ui/SearchableSelect'
 import { WarningBox } from '../../src/components/ui/AlertBox'
 import { SlidePanel } from '../../src/components/layout/SlidePanel'
 import { WPSTD_FORM_FIELD_LABEL } from '../../src/components/layout/WorkplaceStandardFormPanel'
+import {
+  ReportingPeriodPicker,
+  type PeriodValue,
+} from './components/ReportingPeriodPicker'
+import { suggestPeriodForTemplate } from './lib/suggestPeriodForTemplate'
 import { useOrgSetupContext } from '../../src/hooks/useOrgSetupContext'
 import { useMeetings } from './useMeetings'
 import { MEETINGS_LEGAL_REFERENCES } from './meetingsLegalReferences'
@@ -676,6 +681,7 @@ function CreateMeetingSlidePanel({
   const [title, setTitle] = useState('')
   const [scheduledAt, setScheduledAt] = useState('')
   const [confidentiality, setConfidentiality] = useState<MeetingConfidentialityLevel>('standard')
+  const [period, setPeriod] = useState<PeriodValue>({ start: null, end: null, label: null })
   const [busy, setBusy] = useState(false)
 
   // Sync local state with preset when panel opens.
@@ -689,7 +695,25 @@ function CreateMeetingSlidePanel({
     setTitle(tpl?.name ?? '')
     setConfidentiality(tpl?.defaultConfidentialityLevel ?? 'standard')
     setScheduledAt('')
+    // Smart-suggest reporting period from the template's cadenceHint.
+    setPeriod(suggestPeriodForTemplate(tpl?.cadenceHint ?? null, null))
   }, [open, presetTemplateId, meetings.templates])
+
+  // Re-suggest period when the user changes scheduledAt — the relative
+  // window anchors on scheduledAt when set, else on `now`.
+  useEffect(() => {
+    if (!open || !scheduledAt) return
+    const tpl = meetings.templates.find(
+      (t) => t.systemTemplateId === templateId || t.orgTemplateId === templateId,
+    )
+    if (!tpl?.cadenceHint) return
+    setPeriod((prev) => {
+      // Don't override an explicit user edit; only re-suggest when the
+      // user hasn't touched the period yet (still matches a preset).
+      if (prev.start || prev.end || prev.label) return prev
+      return suggestPeriodForTemplate(tpl.cadenceHint ?? null, scheduledAt)
+    })
+  }, [scheduledAt, templateId, meetings.templates, open])
 
   const templateOptions = useMemo(
     () =>
@@ -721,6 +745,9 @@ function CreateMeetingSlidePanel({
         orgTemplateId: selectedTemplate?.orgTemplateId ?? undefined,
         scheduledAt: scheduledAt ? new Date(scheduledAt).toISOString() : null,
         confidentialityLevel: confidentiality,
+        reportingPeriodStart: period.start,
+        reportingPeriodEnd: period.end,
+        reportingPeriodLabel: period.label,
       })
       if (created) {
         onClose()
@@ -821,6 +848,12 @@ function CreateMeetingSlidePanel({
             Drøftingsmøter og varslingssaker er begrenset som standard.
           </p>
         </div>
+        <ReportingPeriodPicker
+          value={period}
+          onChange={setPeriod}
+          anchor={scheduledAt || null}
+          hint="Hvilken periode skal møtet gjennomgå? Forslag genereres fra malens kadens. Bindinger som filtrerer på dato bruker disse bounds."
+        />
       </form>
     </SlidePanel>
   )

@@ -311,6 +311,9 @@ export type MeetingRow = {
   protocol_signed_by: string | null
   sign_checksum: string | null
   archived_at: string | null
+  reporting_period_start: string | null
+  reporting_period_end: string | null
+  reporting_period_label: string | null
   created_at: string
   updated_at: string
   created_by: string | null
@@ -328,6 +331,9 @@ export type MeetingAgendaItemRow = {
   law_ref: string | null
   prepared_by_member_id: string | null
   is_mandatory: boolean
+  is_manual: boolean
+  duration_minutes: number | null
+  presenter_member_id: string | null
   minutes_summary: string | null
   decision_text: string | null
   decision_status: MeetingDecisionStatus | null
@@ -338,6 +344,15 @@ export type MeetingAgendaItemRow = {
   binding_snapshot: RenderedBindingResult | null
   created_at: string
   updated_at: string
+}
+
+export type MeetingAgendaAttachmentRow = {
+  id: string
+  agenda_item_id: string
+  wiki_page_id: string
+  position: number
+  created_at: string
+  created_by: string | null
 }
 
 export type MeetingAttendeeRow = {
@@ -604,6 +619,9 @@ export const MeetingRowSchema = z
     protocol_signed_by: z.string().uuid().nullable(),
     sign_checksum: z.string().nullable(),
     archived_at: z.string().nullable(),
+    reporting_period_start: z.string().nullable().default(null),
+    reporting_period_end: z.string().nullable().default(null),
+    reporting_period_label: z.string().nullable().default(null),
     created_at: z.string(),
     updated_at: z.string(),
     created_by: z.string().uuid().nullable(),
@@ -621,6 +639,9 @@ export const MeetingAgendaItemRowSchema = z
     law_ref: z.string().nullable(),
     prepared_by_member_id: z.string().uuid().nullable(),
     is_mandatory: z.boolean(),
+    is_manual: z.boolean().default(false),
+    duration_minutes: z.number().int().nullable().default(null),
+    presenter_member_id: z.string().uuid().nullable().default(null),
     minutes_summary: z.string().nullable(),
     decision_text: z.string().nullable(),
     decision_status: MeetingDecisionStatusSchema.nullable(),
@@ -644,6 +665,17 @@ export const MeetingAgendaItemRowSchema = z
       .default(null),
     created_at: z.string(),
     updated_at: z.string(),
+  })
+  .passthrough()
+
+export const MeetingAgendaAttachmentRowSchema = z
+  .object({
+    id: z.string().uuid(),
+    agenda_item_id: z.string().uuid(),
+    wiki_page_id: z.string(),
+    position: z.number().int().default(0),
+    created_at: z.string(),
+    created_by: z.string().uuid().nullable(),
   })
   .passthrough()
 
@@ -737,6 +769,9 @@ export const parseMeetingRow = mk<MeetingRow>(
 )
 export const parseMeetingAgendaItemRow = mk<MeetingAgendaItemRow>(
   MeetingAgendaItemRowSchema as unknown as z.ZodType<MeetingAgendaItemRow>,
+)
+export const parseMeetingAgendaAttachmentRow = mk<MeetingAgendaAttachmentRow>(
+  MeetingAgendaAttachmentRowSchema as unknown as z.ZodType<MeetingAgendaAttachmentRow>,
 )
 export const parseMeetingAttendeeRow = mk<MeetingAttendeeRow>(
   MeetingAttendeeRowSchema as unknown as z.ZodType<MeetingAttendeeRow>,

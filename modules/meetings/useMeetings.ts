@@ -33,6 +33,7 @@ import type {
 } from './types'
 import {
   parseMeetingActionItemRow,
+  parseMeetingAgendaAttachmentRow,
   parseMeetingAgendaItemRow,
   parseMeetingAttendeeRow,
   parseMeetingCategoryRow,
@@ -70,6 +71,35 @@ export type CreateMeetingInput = {
   teamId?: string | null
   participantMemberIds?: string[]
   metadata?: Record<string, unknown>
+  reportingPeriodStart?: string | null
+  reportingPeriodEnd?: string | null
+  reportingPeriodLabel?: string | null
+}
+
+export type AgendaItemInput = {
+  meetingId: string
+  title: string
+  description?: string | null
+  lawRef?: string | null
+  durationMinutes?: number | null
+  presenterMemberId?: string | null
+  /** Sparse-position insertion. Computes `position = insertAfterPosition + 5`
+   *  when set, else `max(position) + 10`. */
+  insertAfterPosition?: number
+}
+
+export type AgendaItemPatch = {
+  title?: string
+  description?: string | null
+  lawRef?: string | null
+  durationMinutes?: number | null
+  presenterMemberId?: string | null
+}
+
+export type ReportingPeriodInput = {
+  start: string | null
+  end: string | null
+  label: string | null
 }
 
 export type PriorOpenDecision = {
@@ -189,6 +219,36 @@ export type UseMeetingsState = {
   deleteOrgTemplate: (id: string) => Promise<boolean>
   refresh: () => Promise<void>
   clearError: () => void
+
+  // ── Agenda builder ─────────────────────────────────────────────────────
+  /** Add a manual (non-template) agenda item. Refuses post-sign. */
+  addAgendaItem: (input: AgendaItemInput) => Promise<MeetingAgendaItemRow | null>
+  /** Patch title/description/duration/presenter on an unsigned meeting's item. */
+  updateAgendaItem: (id: string, patch: AgendaItemPatch) => Promise<boolean>
+  /** Remove a non-mandatory agenda item (server enforces is_mandatory guard). */
+  removeAgendaItem: (id: string) => Promise<boolean>
+  /** Reorder by passing the desired final id sequence; positions = i*10. */
+  reorderAgendaItems: (meetingId: string, orderedIds: string[]) => Promise<boolean>
+
+  // ── Reporting period ──────────────────────────────────────────────────
+  updateMeetingPeriod: (id: string, period: ReportingPeriodInput) => Promise<boolean>
+
+  // ── Binding snapshots ─────────────────────────────────────────────────
+  /** Re-resolve a single agenda item's binding and write the snapshot.
+   *  Caller provides the fresh snapshot (computed by resolveAllForMeeting). */
+  writeBindingSnapshot: (
+    agendaItemId: string,
+    snapshot: import('./types').RenderedBindingResult | null,
+  ) => Promise<boolean>
+
+  // ── Attachments (Sherpany-style pre-read docs) ────────────────────────
+  /** Link a wiki_page as pre-read attachment to an agenda item. */
+  addAttachment: (agendaItemId: string, wikiPageId: string) => Promise<boolean>
+  removeAttachment: (attachmentId: string) => Promise<boolean>
+  /** Read attachments for a given agenda item (lazy on demand). */
+  listAttachments: (
+    agendaItemId: string,
+  ) => Promise<import('./types').MeetingAgendaAttachmentRow[]>
 }
 
 const META_DEFAULT: TemplateMetadataSchema = { fields: [] }
@@ -593,6 +653,9 @@ export function useMeetings(): UseMeetingsState {
         metadata: input.metadata ?? {},
         definition_snapshot: resolvedTpl ? snapshotDefinition(resolvedTpl) : null,
         metadata_schema_snapshot: resolvedTpl?.metadataSchema ?? null,
+        reporting_period_start: input.reportingPeriodStart ?? null,
+        reporting_period_end: input.reportingPeriodEnd ?? null,
+        reporting_period_label: input.reportingPeriodLabel ?? null,
       }
       const ins = await supabase.from('meetings').insert(insertRow).select('*').single()
       if (ins.error || !ins.data) {
@@ -610,12 +673,14 @@ export function useMeetings(): UseMeetingsState {
           .sort((a, b) => a.defaultPosition - b.defaultPosition)
           .map((item, idx) => ({
             meeting_id: meeting.id,
-            position: idx,
+            // Sparse positions (gap of 10) so manual inserts are cheap.
+            position: idx * 10,
             template_item_key: item.key,
             title: item.title,
             description: item.description ?? null,
             law_ref: item.lawRef ?? null,
             is_mandatory: item.isMandatory,
+            is_manual: false,
           }))
         const agendaIns = await supabase.from('meeting_agenda_items').insert(rows)
         if (agendaIns.error) {
@@ -988,6 +1053,272 @@ export function useMeetings(): UseMeetingsState {
     [supabase, loadList],
   )
 
+  // ── Agenda builder ───────────────────────────────────────────────────────
+
+  const addAgendaItem: UseMeetingsState['addAgendaItem'] = useCallback(
+    async (input) => {
+      if (!supabase) return null
+      // Compute position: max(position) + 10, or insertAfterPosition + 5 when
+      // provided. Sparse positions avoid re-numbering on every insert.
+      const existing = detail.agendaItems.filter((a) => a.meeting_id === input.meetingId)
+      let position: number
+      if (typeof input.insertAfterPosition === 'number') {
+        position = input.insertAfterPosition + 5
+      } else if (existing.length === 0) {
+        position = 0
+      } else {
+        position = Math.max(...existing.map((a) => a.position)) + 10
+      }
+      const insertRow = {
+        meeting_id: input.meetingId,
+        position,
+        template_item_key: null,
+        title: input.title.trim(),
+        description: input.description?.trim() || null,
+        law_ref: input.lawRef?.trim() || null,
+        is_mandatory: false,
+        is_manual: true,
+        duration_minutes: input.durationMinutes ?? null,
+        presenter_member_id: input.presenterMemberId ?? null,
+      }
+      const ins = await supabase
+        .from('meeting_agenda_items')
+        .insert(insertRow)
+        .select('*')
+        .single()
+      if (ins.error || !ins.data) {
+        setError(getSupabaseErrorMessage(ins.error))
+        return null
+      }
+      const parsed = parseMeetingAgendaItemRow(ins.data)
+      if (!parsed.success) return null
+      // Append to local detail state.
+      setDetail((prev) =>
+        prev.meeting?.id === input.meetingId
+          ? { ...prev, agendaItems: [...prev.agendaItems, parsed.data] }
+          : prev,
+      )
+      return parsed.data
+    },
+    [supabase, detail.agendaItems],
+  )
+
+  const updateAgendaItem: UseMeetingsState['updateAgendaItem'] = useCallback(
+    async (id, patch) => {
+      if (!supabase) return false
+      const dbPatch: Record<string, unknown> = {}
+      if (patch.title !== undefined) dbPatch.title = patch.title.trim()
+      if (patch.description !== undefined)
+        dbPatch.description = patch.description?.trim() || null
+      if (patch.lawRef !== undefined) dbPatch.law_ref = patch.lawRef?.trim() || null
+      if (patch.durationMinutes !== undefined) dbPatch.duration_minutes = patch.durationMinutes
+      if (patch.presenterMemberId !== undefined)
+        dbPatch.presenter_member_id = patch.presenterMemberId
+      if (Object.keys(dbPatch).length === 0) return true
+      const res = await supabase.from('meeting_agenda_items').update(dbPatch).eq('id', id)
+      if (res.error) {
+        setError(getSupabaseErrorMessage(res.error))
+        return false
+      }
+      setDetail((prev) => ({
+        ...prev,
+        agendaItems: prev.agendaItems.map((a) =>
+          a.id === id
+            ? {
+                ...a,
+                ...(patch.title !== undefined ? { title: patch.title.trim() } : {}),
+                ...(patch.description !== undefined
+                  ? { description: patch.description?.trim() || null }
+                  : {}),
+                ...(patch.lawRef !== undefined ? { law_ref: patch.lawRef?.trim() || null } : {}),
+                ...(patch.durationMinutes !== undefined
+                  ? { duration_minutes: patch.durationMinutes }
+                  : {}),
+                ...(patch.presenterMemberId !== undefined
+                  ? { presenter_member_id: patch.presenterMemberId }
+                  : {}),
+              }
+            : a,
+        ),
+      }))
+      return true
+    },
+    [supabase],
+  )
+
+  const removeAgendaItem: UseMeetingsState['removeAgendaItem'] = useCallback(
+    async (id) => {
+      if (!supabase) return false
+      const target = detail.agendaItems.find((a) => a.id === id)
+      if (target?.is_mandatory) {
+        setError('Kan ikke slette en obligatorisk sak.')
+        return false
+      }
+      const res = await supabase.from('meeting_agenda_items').delete().eq('id', id)
+      if (res.error) {
+        setError(getSupabaseErrorMessage(res.error))
+        return false
+      }
+      setDetail((prev) => ({
+        ...prev,
+        agendaItems: prev.agendaItems.filter((a) => a.id !== id),
+      }))
+      return true
+    },
+    [supabase, detail.agendaItems],
+  )
+
+  const reorderAgendaItems: UseMeetingsState['reorderAgendaItems'] = useCallback(
+    async (meetingId, orderedIds) => {
+      if (!supabase) return false
+      // Batch updates — sparse positions (steps of 10) so subsequent
+      // single-item reorders stay cheap.
+      const updates = orderedIds.map((id, idx) =>
+        supabase!.from('meeting_agenda_items').update({ position: idx * 10 }).eq('id', id),
+      )
+      const results = await Promise.all(updates)
+      const firstError = results.find((r) => r.error)
+      if (firstError?.error) {
+        setError(getSupabaseErrorMessage(firstError.error))
+        return false
+      }
+      setDetail((prev) =>
+        prev.meeting?.id === meetingId
+          ? {
+              ...prev,
+              agendaItems: orderedIds
+                .map((id, idx) => {
+                  const found = prev.agendaItems.find((a) => a.id === id)
+                  return found ? { ...found, position: idx * 10 } : null
+                })
+                .filter((a): a is MeetingAgendaItemRow => a !== null),
+            }
+          : prev,
+      )
+      return true
+    },
+    [supabase],
+  )
+
+  // ── Reporting period ─────────────────────────────────────────────────────
+
+  const updateMeetingPeriod: UseMeetingsState['updateMeetingPeriod'] = useCallback(
+    async (id, period) => {
+      if (!supabase) return false
+      const res = await supabase
+        .from('meetings')
+        .update({
+          reporting_period_start: period.start,
+          reporting_period_end: period.end,
+          reporting_period_label: period.label,
+        })
+        .eq('id', id)
+      if (res.error) {
+        setError(getSupabaseErrorMessage(res.error))
+        return false
+      }
+      setMeetings((prev) =>
+        prev.map((m) =>
+          m.id === id
+            ? {
+                ...m,
+                reporting_period_start: period.start,
+                reporting_period_end: period.end,
+                reporting_period_label: period.label,
+              }
+            : m,
+        ),
+      )
+      setDetail((prev) =>
+        prev.meeting?.id === id
+          ? {
+              ...prev,
+              meeting: {
+                ...prev.meeting,
+                reporting_period_start: period.start,
+                reporting_period_end: period.end,
+                reporting_period_label: period.label,
+              },
+            }
+          : prev,
+      )
+      return true
+    },
+    [supabase],
+  )
+
+  // ── Binding snapshots ───────────────────────────────────────────────────
+
+  const writeBindingSnapshot: UseMeetingsState['writeBindingSnapshot'] = useCallback(
+    async (agendaItemId, snapshot) => {
+      if (!supabase) return false
+      const res = await supabase
+        .from('meeting_agenda_items')
+        .update({ binding_snapshot: snapshot })
+        .eq('id', agendaItemId)
+      if (res.error) {
+        setError(getSupabaseErrorMessage(res.error))
+        return false
+      }
+      setDetail((prev) => ({
+        ...prev,
+        agendaItems: prev.agendaItems.map((a) =>
+          a.id === agendaItemId ? { ...a, binding_snapshot: snapshot } : a,
+        ),
+      }))
+      return true
+    },
+    [supabase],
+  )
+
+  // ── Attachments ──────────────────────────────────────────────────────────
+
+  const addAttachment: UseMeetingsState['addAttachment'] = useCallback(
+    async (agendaItemId, wikiPageId) => {
+      if (!supabase) return false
+      const res = await supabase.from('meeting_agenda_attachments').insert({
+        agenda_item_id: agendaItemId,
+        wiki_page_id: wikiPageId,
+      })
+      if (res.error) {
+        setError(getSupabaseErrorMessage(res.error))
+        return false
+      }
+      return true
+    },
+    [supabase],
+  )
+
+  const removeAttachment: UseMeetingsState['removeAttachment'] = useCallback(
+    async (attachmentId) => {
+      if (!supabase) return false
+      const res = await supabase
+        .from('meeting_agenda_attachments')
+        .delete()
+        .eq('id', attachmentId)
+      if (res.error) {
+        setError(getSupabaseErrorMessage(res.error))
+        return false
+      }
+      return true
+    },
+    [supabase],
+  )
+
+  const listAttachments: UseMeetingsState['listAttachments'] = useCallback(
+    async (agendaItemId) => {
+      if (!supabase) return []
+      const res = await supabase
+        .from('meeting_agenda_attachments')
+        .select('*')
+        .eq('agenda_item_id', agendaItemId)
+        .order('position', { ascending: true })
+      if (res.error || !res.data) return []
+      return collect(res.data, parseMeetingAgendaAttachmentRow)
+    },
+    [supabase],
+  )
+
   const clearError = useCallback(() => setError(null), [])
 
   return {
@@ -1023,5 +1354,14 @@ export function useMeetings(): UseMeetingsState {
     deleteOrgTemplate,
     refresh,
     clearError,
+    addAgendaItem,
+    updateAgendaItem,
+    removeAgendaItem,
+    reorderAgendaItems,
+    updateMeetingPeriod,
+    writeBindingSnapshot,
+    addAttachment,
+    removeAttachment,
+    listAttachments,
   }
 }
