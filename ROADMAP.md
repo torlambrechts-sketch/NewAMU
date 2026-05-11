@@ -212,6 +212,22 @@ Picks up where the AML template baseline (PR #175) leaves off. The seed migratio
 
 ---
 
+## 8 · Meetings (Møter) — new module
+
+Template-driven meeting engine that supersedes `CouncilModule.tsx` meeting CRUD and generalises AMU / bedriftsutvalg / verneombud / drøfting / ISO 9001+27001+45001+14001 / GDPR meetings as a single set of system templates. Full spec in [`specs/meetings-parity.md`](specs/meetings-parity.md).
+
+| # | Status | Item | Notes |
+|---|---|---|---|
+| 8.1 | 📋 | Phase A · DB schema + provision fn | Migration `20260901120000_meetings_module_core.sql` — 10 tables, RLS (incl. confidentiality_level enforcement), BEFORE-UPDATE lock trigger, `provision_meetings_baseline_for_org` + on-org-insert trigger. |
+| 8.2 | 📋 | Phase A · Seed system templates | Migration `20260901120001_meetings_seed_system_templates.sql` — 18+ system templates (AML §6/§7/§8/§15, IK-f §5, Hovedavtalen §9-3, Likestillingsloven §26a, ISO 9001/27001/45001/14001 §9.3, GDPR art. 30/35). |
+| 8.3 | 📋 | Phase B · Module skeleton | `modules/meetings/{types.ts, schema.ts, useMeetings.ts, index.ts, meetingsLabels.ts, useMeetingsNav.ts}`. |
+| 8.4 | 📋 | Phase C · UI shell | Hub landing, detail view (Oversikt / Agenda / Deltakere / Vedtak / Protokoll tabs), all-page, minimal admin. |
+| 8.5 | 📋 | Phase D · Analyse page + scope | `meetingsDashboardScope` (cyan #0891b2), 11 datasets incl. invitation-compliance + law_ref coverage + decision register over time. |
+| 8.6 | 📋 | Phase E · Sidebar + routes + perms | `meetingsGroup` between Documents and Tasks. `MEETINGS_NAV_PERMS` + `module.view.meetings` + `meetings.manage` + `meetings.manage_confidential`. |
+| 8.7 | ⏸ | Phase F · Merger | Migrate AMU module + Council meetings as system templates with import script — separate spec. |
+
+---
+
 ## Suggested order of work
 
 If picking up cold, do these in this order — each builds on the previous and exposes any abstraction problems early:
