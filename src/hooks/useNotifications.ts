@@ -8,6 +8,27 @@ import {
 import { useOrgSetupContext } from './useOrgSetupContext'
 import { useWhistleblowing } from './useWhistleblowing'
 
+type DocumentsNotificationFeed = {
+  mentions: {
+    id: string
+    pageId: string | null
+    actorName: string
+    snippet: string
+    context: 'editor' | 'comment'
+    createdAt: string
+  }[]
+  reviews: {
+    id: string
+    pageId: string
+    pageVersion: number
+    requesterId: string
+    createdAt: string
+  }[]
+  moderationPending: number
+}
+
+const EMPTY_DOC_FEED: DocumentsNotificationFeed = { mentions: [], reviews: [], moderationPending: 0 }
+
 function normEmail(s: string | null | undefined) {
   const t = s?.trim().toLowerCase()
   return t || undefined
@@ -15,10 +36,79 @@ function normEmail(s: string | null | undefined) {
 
 
 export function useNotifications() {
-  const { user, profile, permissionKeys, isAdmin } = useOrgSetupContext()
+  const { user, profile, permissionKeys, isAdmin, supabase, organization } = useOrgSetupContext()
   const wb = useWhistleblowing()
   const userId = user?.id ?? null
   const userEmail = normEmail(profile?.email ?? user?.email ?? undefined)
+  const orgId = organization?.id ?? null
+  const [docFeed, setDocFeed] = useState<DocumentsNotificationFeed>(EMPTY_DOC_FEED)
+
+  useEffect(() => {
+    if (!supabase || !orgId || !userId) {
+      queueMicrotask(() => setDocFeed(EMPTY_DOC_FEED))
+      return
+    }
+    let cancelled = false
+    void (async () => {
+      try {
+        const canModerate =
+          isAdmin || permissionKeys.has('documents.manage') || permissionKeys.has('whistleblowing.committee')
+        const [mentionsRes, reviewsRes, moderationRes] = await Promise.all([
+          supabase
+            .from('wiki_mention_notifications')
+            .select('id, page_id, actor_name, snippet, context, created_at, read_at')
+            .eq('organization_id', orgId)
+            .eq('recipient_user_id', userId)
+            .is('read_at', null)
+            .order('created_at', { ascending: false })
+            .limit(20),
+          supabase
+            .from('wiki_review_requests')
+            .select('id, page_id, page_version, requester_id, status, created_at')
+            .eq('organization_id', orgId)
+            .eq('reviewer_id', userId)
+            .eq('status', 'pending')
+            .order('created_at', { ascending: false })
+            .limit(20),
+          canModerate
+            ? supabase
+                .from('wiki_comment_moderation_flags')
+                .select('id', { count: 'exact', head: true })
+                .eq('organization_id', orgId)
+                .eq('action', 'pending_review')
+            : Promise.resolve({ count: 0 as number | null }),
+        ])
+        if (cancelled) return
+        const moderationCount =
+          typeof (moderationRes as { count?: number | null }).count === 'number'
+            ? ((moderationRes as { count: number }).count ?? 0)
+            : 0
+        setDocFeed({
+          mentions: (mentionsRes.data ?? []).map((m: Record<string, unknown>) => ({
+            id: String(m.id),
+            pageId: typeof m.page_id === 'string' ? m.page_id : null,
+            actorName: typeof m.actor_name === 'string' ? m.actor_name : 'Kollega',
+            snippet: typeof m.snippet === 'string' ? m.snippet : '',
+            context: m.context === 'editor' ? 'editor' : 'comment',
+            createdAt: typeof m.created_at === 'string' ? m.created_at : new Date().toISOString(),
+          })),
+          reviews: (reviewsRes.data ?? []).map((r: Record<string, unknown>) => ({
+            id: String(r.id),
+            pageId: typeof r.page_id === 'string' ? r.page_id : '',
+            pageVersion: typeof r.page_version === 'number' ? r.page_version : 1,
+            requesterId: typeof r.requester_id === 'string' ? r.requester_id : '',
+            createdAt: typeof r.created_at === 'string' ? r.created_at : new Date().toISOString(),
+          })),
+          moderationPending: moderationCount,
+        })
+      } catch {
+        if (!cancelled) setDocFeed(EMPTY_DOC_FEED)
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [supabase, orgId, userId, isAdmin, permissionKeys])
 
   const prefs: NotificationPreferences = useMemo(
     () => parseNotificationPreferences(profile?.notification_preferences),
@@ -67,8 +157,48 @@ export function useNotifications() {
       }
     }
 
+    if (prefs.categories.documents_mention) {
+      for (const m of docFeed.mentions) {
+        out.push({
+          id: `doc-mention-${m.id}`,
+          category: 'documents_mention',
+          title: `${m.actorName} nevnte deg`,
+          body: m.snippet.length > 140 ? `${m.snippet.slice(0, 140)}…` : m.snippet || 'Du ble nevnt i et dokument.',
+          createdAt: m.createdAt,
+          href: m.pageId ? `/documents/page/${m.pageId}?tab=diskusjon` : '/documents',
+          severity: 'info',
+        })
+      }
+    }
+
+    if (prefs.categories.documents_review) {
+      for (const r of docFeed.reviews) {
+        out.push({
+          id: `doc-review-${r.id}`,
+          category: 'documents_review',
+          title: 'Dokument venter på godkjenning',
+          body: `v${r.pageVersion} er sendt til deg for gjennomgang.`,
+          createdAt: r.createdAt,
+          href: `/documents/page/${r.pageId}?tab=diskusjon`,
+          severity: 'warning',
+        })
+      }
+    }
+
+    if (prefs.categories.documents_moderation && docFeed.moderationPending > 0) {
+      out.push({
+        id: 'doc-moderation-pending',
+        category: 'documents_moderation',
+        title: 'Kommentarer venter på moderering',
+        body: `${docFeed.moderationPending} kommentar${docFeed.moderationPending === 1 ? '' : 'er'} er flagget for gjennomgang.`,
+        createdAt: new Date().toISOString(),
+        href: '/documents/moderation',
+        severity: 'warning',
+      })
+    }
+
     return out.sort((a, b) => b.createdAt.localeCompare(a.createdAt))
-  }, [userEmail, prefs, canWhistle, wb.cases])
+  }, [userEmail, prefs, canWhistle, wb.cases, docFeed])
 
   const deduped = useMemo(() => {
     const seen = new Set<string>()

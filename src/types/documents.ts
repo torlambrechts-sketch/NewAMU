@@ -176,6 +176,10 @@ export type WikiPage = {
   reviewRequired?: boolean
   /** Bruker-id for godkjenner når `reviewRequired` er satt. */
   reviewerId?: string | null
+  /** When true, publish is hard-blocked at the DB until a verneombud
+   *  (profile.learning_metadata.is_safety_rep = true) has commented on
+   *  the page. Maps to AML § 6-2. */
+  requiresVerneombudReview?: boolean
   /**
    * Free-form per-page metadata bag keyed by the source template's
    * `metadata_schema` (documents-parity §T8). Empty `{}` for pages
@@ -300,6 +304,15 @@ export type WikiReviewRequest = {
   resolvedAt: string | null
 }
 
+export type WikiPageCommentKind = 'comment' | 'suggestion' | 'avvik_proposal' | 'varsling'
+export type WikiPageCommentSeverity = 'low' | 'medium' | 'high' | 'critical'
+
+export type WikiPageCommentEditEntry = {
+  at: string
+  by: string
+  prevBody: string
+}
+
 export type WikiPageComment = {
   id: string
   pageId: string
@@ -309,6 +322,29 @@ export type WikiPageComment = {
   authorName: string
   resolved: boolean
   createdAt: string
+  /** Reply chain — null on top-level comments. */
+  parentCommentId?: string | null
+  /** Intent of the post. Drives UI chip + downstream behaviour (avvik bridge, varsling). */
+  kind: WikiPageCommentKind
+  /** Required when kind is `avvik_proposal` or `varsling`. */
+  severity?: WikiPageCommentSeverity | null
+  /** UI hides author name when true; author_id stays for RLS. */
+  isAnonymous: boolean
+  /** Append-only varsling channel. Visible only to author + admin + whistleblowing.committee. */
+  isConfidential: boolean
+  /** Inherited from parent page on the client (page.retentionCategory → legalRefs). */
+  legalBasis: string[]
+  /** Append-only list of previous versions of `body`. */
+  editedHistory: WikiPageCommentEditEntry[]
+  /** Soft delete + resolve metadata. */
+  resolvedAt?: string | null
+  resolvedBy?: string | null
+  deletedAt?: string | null
+  updatedAt?: string | null
+  /** Set by the moderation trigger when a body matched a harassment keyword. */
+  hiddenUntilReviewed?: boolean
+  /** Deviation row this comment is linked to (auto-promote trigger or manual). */
+  linkedAvvikId?: string | null
 }
 
 export type WikiMentionNotification = {
