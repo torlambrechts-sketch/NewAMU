@@ -498,7 +498,7 @@ export const MeetingRowSchema = z
     department_id: z.string().uuid().nullable(),
     team_id: z.string().uuid().nullable(),
     participant_member_ids: z.array(z.string().uuid()).default([]),
-    metadata: z.record(z.unknown()).default({}),
+    metadata: z.record(z.string(), z.unknown()).default({}),
     definition_snapshot: MeetingTemplateDefinitionSchema.nullable(),
     metadata_schema_snapshot: TemplateMetadataSchemaSchema.nullable(),
     invitation_sent_at: z.string().nullable(),

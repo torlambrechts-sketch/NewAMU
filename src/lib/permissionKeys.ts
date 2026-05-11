@@ -108,6 +108,14 @@ export const PERMISSION_KEYS = [
   /** Last ned rådata/aggregerte undersøkelsesdata */
   'survey.results.export',
 
+  // ─── Meetings (Møter) ─────────────────────────────────────────────────────
+  /** Møter — lese møter, agenda, protokoll og vedtak */
+  'module.view.meetings',
+  /** Møter — opprette, redigere og signere møter, samt administrere maler */
+  'meetings.manage',
+  /** Møter — innsyn i konfidensielle / begrensede møter (drøftelsessamtaler, varslingsutvalg) */
+  'meetings.manage_confidential',
+
   // ─── Organisation ─────────────────────────────────────────────────────────
   /** Eksporter ansatt/org-data (GDPR Art. 20 forespørsler) */
   'org.export',
@@ -173,6 +181,9 @@ export const PERMISSION_LABELS: Record<PermissionKey, string> = {
   'whistleblowing.assign': 'Varsling — tildele saksbehandlere',
   'survey.results.view': 'Undersøkelse — se resultater (k-anonymitet)',
   'survey.results.export': 'Undersøkelse — eksportere data',
+  'module.view.meetings': 'Møter — lese møter, agenda og vedtak',
+  'meetings.manage': 'Møter — administrere møter, agenda, protokoll og maler',
+  'meetings.manage_confidential': 'Møter — innsyn i konfidensielle møter (drøfting, varsling)',
   'org.export': 'Organisasjon — eksportere ansatt- og org-data (GDPR Art. 20)',
 }
 

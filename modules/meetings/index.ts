@@ -1,0 +1,12 @@
+// Barrel — modules/meetings public surface.
+export * from './types'
+export * from './meetingsLabels'
+export { useMeetings } from './useMeetings'
+export type { UseMeetingsState, CreateMeetingInput, MeetingDetail } from './useMeetings'
+export { useMeetingsNav } from './useMeetingsNav'
+export type {
+  MeetingsPinnedNavItem,
+  MeetingsNavCategory,
+  UseMeetingsNavReturn,
+} from './useMeetingsNav'
+export { MeetingsLegalReferences } from './meetingsLegalReferences'
