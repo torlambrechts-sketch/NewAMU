@@ -35,7 +35,7 @@ import { SearchableSelect } from '../../components/ui/SearchableSelect'
 import { Tabs } from '../../components/ui/Tabs'
 import { WarningBox, InfoBox } from '../../components/ui/AlertBox'
 import { WPSTD_FORM_FIELD_LABEL } from '../../components/layout/WorkplaceStandardFormPanel'
-import { useMeetings } from '../../../modules/meetings'
+import { useMeetings, useMeetingDataBindings } from '../../../modules/meetings'
 import {
   MEETING_ACTION_STATUS_LABEL,
   MEETING_CONFIDENTIALITY_LABEL,
@@ -49,6 +49,7 @@ import type {
   MeetingRow,
   MeetingStatus,
   MeetingTemplateAgendaItem,
+  RenderedBindingResult,
 } from '../../../modules/meetings/types'
 
 type Tab = 'informasjon' | 'agenda' | 'deltakere' | 'vedtak' | 'protokoll'
@@ -122,6 +123,10 @@ export function MeetingsDetailView() {
 
   const isLocked = !!meeting.protocol_signed_at
   const mandatoryGaps = computeMandatoryGaps(meeting, meetings.detail.agendaItems)
+  const bindings = useMeetingDataBindings({
+    meeting,
+    agendaItems: meetings.detail.agendaItems,
+  })
 
   const tabItems = [
     { id: 'informasjon', label: 'Informasjon', icon: ClipboardList },
@@ -194,6 +199,7 @@ export function MeetingsDetailView() {
             items={meetings.detail.agendaItems}
             locked={isLocked}
             mandatoryGaps={mandatoryGaps}
+            bindings={bindings.resolvedByAgendaItemId}
             onSave={meetings.setAgendaMinutes}
           />
         </ModuleSectionCard>
@@ -344,11 +350,13 @@ function AgendaTab({
   items,
   locked,
   mandatoryGaps,
+  bindings,
   onSave,
 }: {
   items: MeetingAgendaItemRow[]
   locked: boolean
   mandatoryGaps: string[]
+  bindings: Map<string, RenderedBindingResult>
   onSave: ReturnType<typeof useMeetings>['setAgendaMinutes']
 }) {
   return (
@@ -382,7 +390,13 @@ function AgendaTab({
       ) : (
         <ol className="space-y-3">
           {items.map((item) => (
-            <AgendaItemEditor key={item.id} item={item} locked={locked} onSave={onSave} />
+            <AgendaItemEditor
+              key={item.id}
+              item={item}
+              locked={locked}
+              binding={bindings.get(item.id)}
+              onSave={onSave}
+            />
           ))}
         </ol>
       )}
@@ -393,10 +407,12 @@ function AgendaTab({
 function AgendaItemEditor({
   item,
   locked,
+  binding,
   onSave,
 }: {
   item: MeetingAgendaItemRow
   locked: boolean
+  binding: RenderedBindingResult | undefined
   onSave: ReturnType<typeof useMeetings>['setAgendaMinutes']
 }) {
   const [minutes, setMinutes] = useState(item.minutes_summary ?? '')
@@ -455,6 +471,39 @@ function AgendaItemEditor({
           </div>
         </div>
       </div>
+
+      {binding ? (
+        <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50/70 p-3 text-xs text-amber-900">
+          <div className="flex flex-wrap items-start justify-between gap-2">
+            <p className="font-semibold uppercase tracking-wider text-amber-900/80 text-[10px]">
+              Møteforberedelse
+            </p>
+            {!locked ? (
+              <Button
+                variant="secondary"
+                size="sm"
+                type="button"
+                onClick={() => {
+                  setMinutes((prev) => {
+                    if (prev && prev.trim().length > 0) {
+                      return `${prev}\n\n${binding.summaryMarkdown}`
+                    }
+                    return binding.summaryMarkdown
+                  })
+                }}
+              >
+                Bruk forberedelse
+              </Button>
+            ) : null}
+          </div>
+          <p className="mt-2 whitespace-pre-wrap leading-relaxed">
+            {binding.summaryMarkdown}
+          </p>
+          {binding.error ? (
+            <p className="mt-2 text-[11px] italic text-amber-700">⚠ {binding.error}</p>
+          ) : null}
+        </div>
+      ) : null}
 
       <div className="mt-3 grid gap-3 md:grid-cols-2">
         <div>
