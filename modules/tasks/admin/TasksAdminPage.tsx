@@ -5,19 +5,18 @@
 import { useState } from 'react'
 import { FolderOpen, CheckSquare, Clock, Bell, Users } from 'lucide-react'
 import { ModulePageShell } from '../../../src/components/module/ModulePageShell'
-import { Tabs } from '../../../src/components/ui/Tabs'
-import { Badge } from '../../../src/components/ui/Badge'
+import { Tabs, type TabItem } from '../../../src/components/ui/Tabs'
 import { TasksMalerTab } from './TasksMalerTab'
 import { TasksKategorierTab } from './TasksKategorierTab'
 import { TasksSLATab } from './TasksSLATab'
 import { TasksVarslerTab } from './TasksVarslerTab'
 
-const TABS = [
-  { id: 'maler', label: 'Maler', icon: CheckSquare },
-  { id: 'kategorier', label: 'Kategorier', icon: FolderOpen },
-  { id: 'sla', label: 'SLA & Innstillinger', icon: Clock },
-  { id: 'varsler', label: 'Varsler', icon: Bell },
-  { id: 'roller', label: 'Roller', icon: Users, disabled: true },
+const TABS: TabItem[] = [
+  { id: 'maler',      label: 'Maler',              icon: CheckSquare },
+  { id: 'kategorier', label: 'Kategorier',          icon: FolderOpen  },
+  { id: 'sla',        label: 'SLA & Innstillinger', icon: Clock       },
+  { id: 'varsler',    label: 'Varsler',             icon: Bell        },
+  { id: 'roller',     label: 'Roller',              icon: Users, disabled: true },
 ]
 
 export function TasksAdminPage() {
@@ -33,19 +32,7 @@ export function TasksAdminPage() {
       description="Administrer maler, kategorier, SLA-frister og compliance-regler for oppgavemodulen."
       tabs={
         <Tabs
-          items={TABS.map((t) => ({
-            id: t.id,
-            label: (
-              <span className="flex items-center gap-1.5">
-                <t.icon className="h-3.5 w-3.5" aria-hidden />
-                {t.label}
-                {t.disabled && (
-                  <Badge variant="neutral" className="text-[9px]">Fase 6</Badge>
-                )}
-              </span>
-            ),
-            disabled: t.disabled,
-          }))}
+          items={TABS}
           activeId={activeTab}
           onChange={setActiveTab}
           overflow="scroll"
