@@ -158,6 +158,10 @@ export type WikiPage = {
   acknowledgementAudience?: AcknowledgementAudience
   /** When audience is department */
   acknowledgementDepartmentId?: string | null
+  /** Compliance fase 1: rolle-slugs som SKAL kvittere */
+  requiredAckRoles?: string[]
+  /** Compliance fase 1: rolle-slugs som SKAL signere (signature_block) */
+  requiredSignatureRoles?: string[]
   /** Next mandatory review (IK-f §5 — systematic review) */
   nextRevisionDueAt?: string | null
   revisionIntervalMonths?: number
