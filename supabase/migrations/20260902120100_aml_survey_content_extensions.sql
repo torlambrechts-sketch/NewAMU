@@ -37,6 +37,10 @@
 set local search_path = public, pg_catalog;
 
 -- ── 1. Utvid CHECK-constraint på org_survey_questions for nye typer ──────
+--
+-- VIKTIG: må inkludere ALLE eksisterende type-verdier fra
+-- 20260811120500_survey_photo_type_and_storage.sql + mine 4 nye.
+-- Hvis bare nye typer listes vil eksisterende rader bryte constraint.
 
 alter table public.org_survey_questions
   drop constraint if exists org_survey_questions_question_type_check;
@@ -44,18 +48,16 @@ alter table public.org_survey_questions
 alter table public.org_survey_questions
   add constraint org_survey_questions_question_type_check
   check (question_type in (
-    'rating_1_to_5',
-    'rating_1_to_10',
-    'text',
-    'yes_no',
-    'single_select',
-    'multi_select',
-    'multiple_choice',
+    -- Eksisterende (fra 20260811120500):
+    'rating_1_to_5', 'rating_1_to_10', 'text', 'yes_no',
+    'single_select', 'multi_select', 'multiple_choice',
+    'short_text', 'long_text', 'email', 'number',
+    'rating_visual', 'slider', 'dropdown', 'image_choice',
+    'likert_scale', 'matrix', 'ranking', 'nps',
+    'file_upload', 'datetime', 'signature',
+    'photo', 'respondent_signature',
     -- Compliance-driven (specs/aml-survey-content.md §2):
-    'voting',
-    'consent',
-    'traffic_light',
-    'priority_top3'
+    'voting', 'consent', 'traffic_light', 'priority_top3'
   ));
 
 alter table public.survey_question_bank
@@ -64,17 +66,14 @@ alter table public.survey_question_bank
 alter table public.survey_question_bank
   add constraint survey_question_bank_question_type_check
   check (question_type in (
-    'rating_1_to_5',
-    'rating_1_to_10',
-    'text',
-    'yes_no',
-    'single_select',
-    'multi_select',
-    'multiple_choice',
-    'voting',
-    'consent',
-    'traffic_light',
-    'priority_top3'
+    'rating_1_to_5', 'rating_1_to_10', 'text', 'yes_no',
+    'single_select', 'multi_select', 'multiple_choice',
+    'short_text', 'long_text', 'email', 'number',
+    'rating_visual', 'slider', 'dropdown', 'image_choice',
+    'likert_scale', 'matrix', 'ranking', 'nps',
+    'file_upload', 'datetime', 'signature',
+    'photo', 'respondent_signature',
+    'voting', 'consent', 'traffic_light', 'priority_top3'
   ));
 
 -- ── 2. UPDATE — tpl-qps-nordic (full QPS Nordic 34+) ─────────────────────
