@@ -8,6 +8,12 @@ import { LiveRiskFeed } from './modules/LiveRiskFeed'
 import { ActionButton } from './modules/ActionButton'
 import { AcknowledgementFooter } from './modules/AcknowledgementFooter'
 import { EmergencyStopProcedure } from './modules/EmergencyStopProcedure'
+import { SignatureBlock } from './modules/SignatureBlock'
+import { RevisionLog } from './modules/RevisionLog'
+import { ConfidentialityMarker } from './modules/ConfidentialityMarker'
+import { ContactCard } from './modules/ContactCard'
+import { RetentionMarker } from './modules/RetentionMarker'
+import { TrainingMatrix } from './modules/TrainingMatrix'
 
 type Props = {
   blocks: ContentBlock[]
@@ -254,6 +260,80 @@ export function WikiBlockRenderer({ blocks, pageId, pageVersion, lang = 'nb', bl
                 break
               case 'emergency_stop_procedure':
                 node = <EmergencyStopProcedure />
+                break
+              case 'signature_block':
+                node = (
+                  <SignatureBlock
+                    pageId={pageId}
+                    pageVersion={pageVersion}
+                    parties={Array.isArray(p.parties) ? (p.parties as string[]) : undefined}
+                    requireDate={p.requireDate !== false}
+                    notes={typeof p.notes === 'string' ? p.notes : undefined}
+                  />
+                )
+                break
+              case 'revision_log':
+                node = (
+                  <RevisionLog
+                    pageId={pageId}
+                    maxEntries={typeof p.maxEntries === 'number' ? p.maxEntries : 5}
+                  />
+                )
+                break
+              case 'confidentiality_marker':
+                node = (
+                  <ConfidentialityMarker
+                    classification={
+                      p.classification === 'aapen'
+                        ? 'aapen'
+                        : p.classification === 'strengt_fortrolig'
+                          ? 'strengt_fortrolig'
+                          : 'fortrolig'
+                    }
+                    accessList={Array.isArray(p.accessList) ? (p.accessList as string[]) : undefined}
+                  />
+                )
+                break
+              case 'contact_card':
+                node = (
+                  <ContactCard
+                    role={
+                      p.role === 'varslings_mottak'
+                        ? 'varslings_mottak'
+                        : p.role === 'bht'
+                          ? 'bht'
+                          : p.role === 'verneombud'
+                            ? 'verneombud'
+                            : p.role === 'tilsynet'
+                              ? 'tilsynet'
+                              : p.role === 'datatilsynet'
+                                ? 'datatilsynet'
+                                : 'custom'
+                    }
+                    name={typeof p.name === 'string' ? p.name : undefined}
+                    phone={typeof p.phone === 'string' ? p.phone : undefined}
+                    email={typeof p.email === 'string' ? p.email : undefined}
+                    url={typeof p.url === 'string' ? p.url : undefined}
+                  />
+                )
+                break
+              case 'retention_marker':
+                node = (
+                  <RetentionMarker
+                    category={typeof p.category === 'string' ? p.category : undefined}
+                    minYears={typeof p.minYears === 'number' ? p.minYears : undefined}
+                    legalRef={typeof p.legalRef === 'string' ? p.legalRef : undefined}
+                  />
+                )
+                break
+              case 'training_matrix':
+                node = (
+                  <TrainingMatrix
+                    roleSlugs={Array.isArray(p.roleSlugs) ? (p.roleSlugs as string[]) : undefined}
+                    courseIds={Array.isArray(p.courseIds) ? (p.courseIds as string[]) : undefined}
+                    onlyGaps={p.onlyGaps === true}
+                  />
+                )
                 break
               default:
                 node = (

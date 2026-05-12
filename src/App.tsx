@@ -84,6 +84,8 @@ import { LearningKompetansePage } from './pages/learning/LearningKompetansePage'
 import { LearningSettings } from './pages/learning/LearningSettings'
 import { LearningAnalysePage } from './pages/learning/LearningAnalysePage'
 import { HmsOverviewPage } from './pages/overview/HmsOverviewPage'
+import { ComplianceCompanyPage } from './pages/admin/ComplianceCompanyPage'
+import { CompliancePersonalPage } from './pages/admin/CompliancePersonalPage'
 import { LearningFlowEntry } from './pages/learning/LearningFlowEntry'
 import { LearningCertificatePrintPage } from './pages/learning/LearningCertificatePrintPage'
 import { DocumentsHome } from './pages/documents/DocumentsHome'
@@ -255,6 +257,8 @@ const router = createBrowserRouter(
                       <Route path="tasks/management/admin/:tab" element={<TasksAdminPage />} />
                       <Route path="tasks/management/review" element={<TasksManagementReviewPage />} />
                       <Route path="overview/hms" element={<PackProvider><HmsOverviewPage /></PackProvider>} />
+                      <Route path="overview/compliance-selskap" element={<ComplianceCompanyPage />} />
+                      <Route path="overview/compliance-min" element={<CompliancePersonalPage />} />
                       <Route path="workspace/revisjonslogg" element={<WorkspaceAuditLogPage />} />
                       <Route path="organisation" element={<OrganisationPage />} />
                       <Route path="organisation/admin" element={<AdminPage />} />

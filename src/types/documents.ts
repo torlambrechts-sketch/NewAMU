@@ -87,7 +87,15 @@ export type ModuleBlock = ContentBlockInstance & {
     | 'action_button'
     | 'acknowledgement_footer'
     | 'emergency_stop_procedure'
-  params?: Record<string, string | number | boolean>
+    // Compliance-driven additions (specs/aml-documents-content.md §14):
+    | 'signature_block'         // Two-party signature (worker + leader) with date
+    | 'revision_log'            // Auto-rendered version history from wiki_revisions
+    | 'confidentiality_marker'  // Restricted-access banner with access list
+    | 'contact_card'            // Structured contact card (varslings­mottak, BHT, etc.)
+    | 'retention_marker'        // Retention category + min-years + deletion-date footer
+    // Fase 3 — opplærings-register-kobling:
+    | 'training_matrix'         // Rolle × kurs matrise med opplærings-status
+  params?: Record<string, string | number | boolean | string[]>
 }
 
 export type ContentBlock =
@@ -150,6 +158,10 @@ export type WikiPage = {
   acknowledgementAudience?: AcknowledgementAudience
   /** When audience is department */
   acknowledgementDepartmentId?: string | null
+  /** Compliance fase 1: rolle-slugs som SKAL kvittere */
+  requiredAckRoles?: string[]
+  /** Compliance fase 1: rolle-slugs som SKAL signere (signature_block) */
+  requiredSignatureRoles?: string[]
   /** Next mandatory review (IK-f §5 — systematic review) */
   nextRevisionDueAt?: string | null
   revisionIntervalMonths?: number
@@ -218,7 +230,21 @@ export type WikiPageVersionSnapshot = {
 
 // ─── Space ────────────────────────────────────────────────────────────────────
 
-export type SpaceCategory = 'hms_handbook' | 'policy' | 'procedure' | 'guide' | 'template_library'
+export type SpaceCategory =
+  | 'hms_handbook'
+  | 'policy'
+  | 'procedure'
+  | 'guide'
+  | 'template_library'
+  // Compliance-driven additions (specs/aml-documents-content.md §15):
+  | 'varsling'      // Varsling — § 2A-2 routines, intake records
+  | 'personal'      // Personal — § 14-5/6 contracts, § 4-6 follow-up
+  | 'personvern'    // GDPR — Art. 30 protocol, Art. 35 DPIA, Art. 13/14 notices
+  | 'likestilling'  // LDL § 26 ARP-redegjørelse, lønns­kartlegging
+  | 'protokoll'     // § 8-1/§ 15-1 drøftings­protokoller, AMU
+  | 'register'      // Eksponerings­register, opplærings­register
+  | 'beredskap'     // Brann, krise, evakuering — § 4-1, brannvern­loven
+  | 'bransje'       // SHA-plan, asbest, byggherre­dokumenter
 
 export type WikiSpace = {
   id: string

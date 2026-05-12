@@ -92,6 +92,9 @@ Conventions when promoting a module:
 | `learning` | `#0e7490` | Teal |
 | `documents` | `#0f766e` | Deep teal — distinct from learning in the composite |
 | `hms_overview` | `#4338ca` | Indigo — reads as "different layer" from each member |
+| `role_compliance` | `#a21caf` | Magenta — distinct from learning/documents teal so the role-vs-resource axis stands out (`src/pages/admin/dashboards/roleComplianceDashboardScope.ts`) |
+| `compliance_company` | `#991b1b` | Dyp rød — selskaps-bred compliance på tvers av moduler. Inkluderer «Ikke-dekkede lovkrav»-widget (`src/pages/admin/dashboards/complianceCompanyDashboardScope.ts`) |
+| `compliance_personal` | `#65a30d` | Olive — personlig krav-oversikt for ansatt (`src/pages/admin/dashboards/compliancePersonalDashboardScope.ts`) |
 
 Pages resolve the accent via `getDashboardScope(scopeId)?.accent` and pass
 it to `ModuleAnalyticsDashboard`. Compliance overrides with `packAccentFor`
