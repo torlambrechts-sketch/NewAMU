@@ -73,30 +73,154 @@ export function useComplianceCompanyDatasets(filters: DashboardFilter[]): Record
     due_within_24h_count?: number
     nearest_deadline_at?: string | null
   } | null>(null)
+  // Cross-modul-aggregat (selskap-bredt, uavhengig av rolle-tildelinger)
+  const [moduleStats, setModuleStats] = useState<{
+    learningTotal: number
+    learningCompleted: number
+    learningExpired: number
+    docsTotal: number
+    docsRequiringAck: number
+    docsAcked: number
+    checklistsTotal: number
+    checklistsSigned: number
+    checklistsOpen: number
+    rosTotal: number
+    rosApproved: number
+    rosDraft: number
+    tasksOpen: number
+    tasksOverdue: number
+    surveysActive: number
+    surveysClosed: number
+    meetingsTotal: number
+    meetingsCompleted: number
+    employeeCount: number
+  }>({
+    learningTotal: 0, learningCompleted: 0, learningExpired: 0,
+    docsTotal: 0, docsRequiringAck: 0, docsAcked: 0,
+    checklistsTotal: 0, checklistsSigned: 0, checklistsOpen: 0,
+    rosTotal: 0, rosApproved: 0, rosDraft: 0,
+    tasksOpen: 0, tasksOverdue: 0,
+    surveysActive: 0, surveysClosed: 0,
+    meetingsTotal: 0, meetingsCompleted: 0,
+    employeeCount: 0,
+  })
   const [loaded, setLoaded] = useState(false)
 
   useEffect(() => {
     if (!supabase || !organization?.id) return
     let cancelled = false
+    const orgId = organization.id
+
     void Promise.all([
+      // Rolle-baserte instanser (eksisterende)
       supabase
         .from('org_role_requirement_instances')
         .select('id, user_id, role_slug, requirement_kind, resource_id, resource_label, hjemmel, status, severity, due_at, completed_at')
-        .eq('organization_id', organization.id),
-      supabase
-        .from('profiles')
-        .select('id, display_name')
-        .eq('organization_id', organization.id),
-      supabase
-        .from('gdpr_breach_status_view')
-        .select('*')
-        .eq('organization_id', organization.id)
-        .maybeSingle(),
-    ]).then(([iRes, pRes, bRes]) => {
+        .eq('organization_id', orgId),
+      supabase.from('profiles').select('id, display_name').eq('organization_id', orgId),
+      supabase.from('gdpr_breach_status_view').select('*').eq('organization_id', orgId).maybeSingle(),
+      // ── Cross-modul-aggregat ──
+      // Læring: alle org-kurs + fullføringer
+      supabase.from('learning_courses').select('id, recertification_months', { count: 'exact', head: false })
+        .eq('organization_id', orgId).eq('status', 'published'),
+      supabase.from('learning_course_progress')
+        .select('course_id, completed_at')
+        .eq('organization_id', orgId),
+      // Dokumenter: publiserte sider med ack-krav + receipts
+      supabase.from('wiki_pages')
+        .select('id, requires_acknowledgement', { count: 'exact', head: false })
+        .eq('organization_id', orgId).eq('status', 'published'),
+      supabase.from('wiki_compliance_receipts')
+        .select('page_id, user_id', { count: 'exact', head: true })
+        .eq('organization_id', orgId),
+      // Compliance-sjekklister
+      supabase.from('compliance_checklist_executions')
+        .select('id, status, signed_at')
+        .eq('organization_id', orgId),
+      // ROS
+      supabase.from('ros_analyses').select('id, status').eq('organization_id', orgId),
+      // Tasks (avvik)
+      supabase.from('task_items').select('id, status, due_date').eq('organization_id', orgId),
+      // Surveys
+      supabase.from('surveys').select('id, status').eq('organization_id', orgId),
+      // Meetings
+      supabase.from('meetings').select('id, status').eq('organization_id', orgId),
+      // Employee-count
+      supabase.from('profiles').select('id', { count: 'exact', head: true }).eq('organization_id', orgId),
+    ]).then(([
+      iRes, pRes, bRes,
+      learnCourseRes, learnProgRes,
+      docsRes, docsReceiptsRes,
+      checklistsRes, rosRes, tasksRes, surveysRes, meetingsRes, empRes,
+    ]) => {
       if (cancelled) return
-      setInstances((iRes.data ?? []) as Instance[])
-      setProfiles((pRes.data ?? []) as Profile[])
+      setInstances(((iRes.data ?? []) as Instance[]))
+      setProfiles(((pRes.data ?? []) as Profile[]))
       setBreachStatus(bRes.data as typeof breachStatus)
+
+      // Læring
+      const learnCourses = (learnCourseRes.data ?? []) as { id: string; recertification_months: number | null }[]
+      const learnProg = (learnProgRes.data ?? []) as { course_id: string; completed_at: string | null }[]
+      const now = Date.now()
+      const oneMonth = 1000 * 60 * 60 * 24 * 30
+      let learningExpired = 0
+      const courseRecert = new Map(learnCourses.map((c) => [c.id, c.recertification_months]))
+      for (const p of learnProg) {
+        if (!p.completed_at) continue
+        const recert = courseRecert.get(p.course_id)
+        if (recert && new Date(p.completed_at).getTime() + recert * oneMonth < now) learningExpired += 1
+      }
+
+      // Sjekklister
+      const checklists = (checklistsRes.data ?? []) as { status: string; signed_at: string | null }[]
+      const checklistsSigned = checklists.filter((c) => c.signed_at != null).length
+      const checklistsOpen = checklists.filter((c) => !c.signed_at && c.status !== 'cancelled').length
+
+      // ROS
+      const ros = (rosRes.data ?? []) as { status: string }[]
+      const rosApproved = ros.filter((r) => r.status === 'approved').length
+      const rosDraft = ros.filter((r) => r.status === 'draft' || r.status === 'in_review').length
+
+      // Tasks
+      const tasks = (tasksRes.data ?? []) as { status: string; due_date: string | null }[]
+      const tasksOpen = tasks.filter((t) => t.status !== 'done').length
+      const tasksOverdue = tasks.filter((t) => t.status !== 'done' && t.due_date && new Date(t.due_date).getTime() < now).length
+
+      // Surveys
+      const surveys = (surveysRes.data ?? []) as { status: string }[]
+      const surveysActive = surveys.filter((s) => s.status === 'active').length
+      const surveysClosed = surveys.filter((s) => s.status === 'closed').length
+
+      // Meetings
+      const meetings = (meetingsRes.data ?? []) as { status: string }[]
+      const meetingsCompleted = meetings.filter((m) => m.status === 'completed').length
+
+      // Documents requiring ack
+      const docs = (docsRes.data ?? []) as { id: string; requires_acknowledgement: boolean }[]
+      const docsRequiringAck = docs.filter((d) => d.requires_acknowledgement).length
+
+      setModuleStats({
+        learningTotal: learnCourses.length,
+        learningCompleted: learnProg.filter((p) => p.completed_at != null).length,
+        learningExpired,
+        docsTotal: docsRes.count ?? docs.length,
+        docsRequiringAck,
+        docsAcked: docsReceiptsRes.count ?? 0,
+        checklistsTotal: checklists.length,
+        checklistsSigned,
+        checklistsOpen,
+        rosTotal: ros.length,
+        rosApproved,
+        rosDraft,
+        tasksOpen,
+        tasksOverdue,
+        surveysActive,
+        surveysClosed,
+        meetingsTotal: meetings.length,
+        meetingsCompleted,
+        employeeCount: empRes.count ?? 0,
+      })
+
       setLoaded(true)
     })
     return () => { cancelled = true }
@@ -196,18 +320,135 @@ export function useComplianceCompanyDatasets(filters: DashboardFilter[]): Record
     const breachOverdue = breachStatus?.overdue_count ?? 0
     const breachDueWithin24h = breachStatus?.due_within_24h_count ?? 0
 
-    return {
-      cc_kpi_summary: {
+    // ── Cross-modul-aggregat — selskap-bredt ─────────────────────────────
+    // Beregn coverage rates på tvers av moduler, ikke bare rolle-instanser.
+    const ms = moduleStats
+    const learningRate = ms.learningTotal > 0 && ms.employeeCount > 0
+      ? Math.round((ms.learningCompleted / (ms.learningTotal * ms.employeeCount)) * 100)
+      : 0
+    const docsAckRate = ms.docsRequiringAck > 0 && ms.employeeCount > 0
+      ? Math.round((ms.docsAcked / (ms.docsRequiringAck * ms.employeeCount)) * 100)
+      : 0
+    const checklistsCompletionRate = ms.checklistsTotal > 0
+      ? Math.round((ms.checklistsSigned / ms.checklistsTotal) * 100)
+      : 0
+    const rosApprovalRate = ms.rosTotal > 0
+      ? Math.round((ms.rosApproved / ms.rosTotal) * 100)
+      : 0
+
+    // Modul-health-tabell: viser status per HMS-modul org-bredt
+    const modulesHealth = [
+      {
+        module: 'Læring (kurs)',
+        total: ms.learningTotal * ms.employeeCount,
+        completed: ms.learningCompleted,
+        gap: ms.learningTotal * ms.employeeCount - ms.learningCompleted,
+        overdueOrExpired: ms.learningExpired,
+        coveragePct: learningRate,
+      },
+      {
+        module: 'Dokumenter (kvittering)',
+        total: ms.docsRequiringAck * ms.employeeCount,
+        completed: ms.docsAcked,
+        gap: Math.max(0, ms.docsRequiringAck * ms.employeeCount - ms.docsAcked),
+        overdueOrExpired: 0,
+        coveragePct: docsAckRate,
+      },
+      {
+        module: 'Compliance-sjekklister',
+        total: ms.checklistsTotal,
+        completed: ms.checklistsSigned,
+        gap: ms.checklistsOpen,
+        overdueOrExpired: 0,
+        coveragePct: checklistsCompletionRate,
+      },
+      {
+        module: 'ROS / risikovurdering',
+        total: ms.rosTotal,
+        completed: ms.rosApproved,
+        gap: ms.rosDraft,
+        overdueOrExpired: 0,
+        coveragePct: rosApprovalRate,
+      },
+      {
+        module: 'Avvik (tasks)',
+        total: ms.tasksOpen,
+        completed: 0,
+        gap: ms.tasksOpen,
+        overdueOrExpired: ms.tasksOverdue,
+        coveragePct: 0,
+      },
+      {
+        module: 'Møter (AMU/styre)',
+        total: ms.meetingsTotal,
+        completed: ms.meetingsCompleted,
+        gap: ms.meetingsTotal - ms.meetingsCompleted,
+        overdueOrExpired: 0,
+        coveragePct: ms.meetingsTotal > 0 ? Math.round((ms.meetingsCompleted / ms.meetingsTotal) * 100) : 0,
+      },
+      {
+        module: 'Undersøkelser',
+        total: ms.surveysActive + ms.surveysClosed,
+        completed: ms.surveysClosed,
+        gap: ms.surveysActive,
+        overdueOrExpired: 0,
+        coveragePct: (ms.surveysActive + ms.surveysClosed) > 0
+          ? Math.round((ms.surveysClosed / (ms.surveysActive + ms.surveysClosed)) * 100) : 0,
+      },
+      {
+        module: 'Funksjonelle roller',
         total,
         completed,
-        overdue,
-        pending,
+        gap: pending,
+        overdueOrExpired: overdue,
+        coveragePct: complianceRate,
+      },
+    ]
+
+    // Total cross-modul compliance (vektet aggregat)
+    const totalCrossModule =
+      ms.learningTotal * ms.employeeCount +
+      ms.docsRequiringAck * ms.employeeCount +
+      ms.checklistsTotal +
+      ms.rosTotal +
+      ms.meetingsTotal +
+      total
+    const completedCrossModule =
+      ms.learningCompleted +
+      ms.docsAcked +
+      ms.checklistsSigned +
+      ms.rosApproved +
+      ms.meetingsCompleted +
+      completed
+    const overdueCrossModule = overdue + ms.tasksOverdue + ms.learningExpired
+    const overallComplianceRate = totalCrossModule > 0
+      ? Math.round((completedCrossModule / totalCrossModule) * 100)
+      : 0
+
+    return {
+      cc_kpi_summary: {
+        // Cross-modul aggregert
+        total: totalCrossModule,
+        completed: completedCrossModule,
+        overdue: overdueCrossModule,
+        pending: totalCrossModule - completedCrossModule - overdueCrossModule,
         criticalOpen,
         unmappedCount,
-        complianceRate,
+        complianceRate: overallComplianceRate,
         breachActive,
         breachOverdue,
         breachDueWithin24h,
+        // Per-modul detalj
+        learningRate,
+        docsAckRate,
+        checklistsCompletionRate,
+        rosApprovalRate,
+        tasksOpen: ms.tasksOpen,
+        tasksOverdue: ms.tasksOverdue,
+        employeeCount: ms.employeeCount,
+        // Rolle-spesifikt (det gamle)
+        roleInstancesTotal: total,
+        roleInstancesCompleted: completed,
       },
       cc_status_distribution: statusDist,
       cc_kind_distribution: kindDist,
@@ -215,9 +456,10 @@ export function useComplianceCompanyDatasets(filters: DashboardFilter[]): Record
       cc_role_status_heatmap: heatmapRows,
       cc_overdue_table: overdueRows,
       cc_modules_coverage: moduleRows,
+      cc_modules_health: modulesHealth,
       cc_unmapped_requirements: UNMAPPED_REQUIREMENTS,
     }
-  }, [instances, profiles, breachStatus, loaded, filters])
+  }, [instances, profiles, breachStatus, moduleStats, loaded, filters])
 }
 
 export function useCompliancePersonalDatasets(): Record<string, unknown> {
