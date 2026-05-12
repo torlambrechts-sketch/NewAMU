@@ -74,7 +74,7 @@ type UpsertQuestionInput = {
   orderIndex: number
   isRequired: boolean
   isMandatory?: boolean
-  mandatoryLaw?: 'AML_4_3' | 'AML_4_4' | 'AML_6_2' | null
+  mandatoryLaw?: 'AML_4_3' | 'AML_4_3_3' | 'AML_4_4' | 'AML_4_1_3' | 'AML_6_2' | 'LDL_26' | null
   config?: Record<string, unknown>
   sectionId?: string | null
 }

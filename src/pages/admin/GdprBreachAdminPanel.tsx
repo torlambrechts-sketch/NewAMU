@@ -50,14 +50,6 @@ const BREACH_TYPE: SelectOption[] = [
   { value: 'combined', label: 'Kombinert' },
 ]
 
-const STATUS: SelectOption[] = [
-  { value: 'detected', label: 'Oppdaget' },
-  { value: 'investigating', label: 'Under undersøkelse' },
-  { value: 'reported', label: 'Rapportert Datatilsynet' },
-  { value: 'resolved', label: 'Avsluttet' },
-  { value: 'dismissed', label: 'Avvist' },
-]
-
 const STATUS_LABEL: Record<string, string> = {
   detected: 'Oppdaget',
   investigating: 'Under undersøkelse',
@@ -187,11 +179,14 @@ export function GdprBreachAdminPanel() {
   }
 
   return (
-    <ModuleSectionCard
-      title="GDPR brudd-hendelser"
-      description="Registrer og spor brudd etter GDPR Art. 33 (varsling til Datatilsynet innen 72 timer) og Art. 34 (varsling til berørte ved høy risiko)."
-      icon={ShieldAlert}
-    >
+    <ModuleSectionCard className="p-5 md:p-6">
+      <div className="mb-3 flex items-center gap-2">
+        <ShieldAlert className="h-5 w-5 text-red-700" aria-hidden />
+        <h2 className="text-lg font-semibold text-neutral-900">GDPR brudd-hendelser</h2>
+      </div>
+      <p className="mb-5 text-sm text-neutral-600">
+        Registrer og spor brudd etter GDPR Art. 33 (varsling til Datatilsynet innen 72 timer) og Art. 34 (varsling til berørte ved høy risiko).
+      </p>
       {error ? <WarningBox>{error}</WarningBox> : null}
 
       <div className="mb-4 flex gap-2">

@@ -59,26 +59,14 @@ const BAR_ROLES: ReportModuleBar = {
 
 const TABLE_OPEN: ReportModuleTable = {
   id: 'table-open', kind: 'table', datasetKey: 'cp_open_table',
-  title: 'Åpne krav — handle nå', rowsPath: '',
-  columns: [
-    { key: 'role', label: 'Rolle' },
-    { key: 'kind', label: 'Type' },
-    { key: 'resource', label: 'Krav' },
-    { key: 'dueAt', label: 'Frist' },
-    { key: 'daysUntilDue', label: 'Dager' },
-    { key: 'severity', label: 'Alvor' },
-  ],
+  title: 'Åpne krav — handle nå',
+  rowKeys: ['role', 'kind', 'resource', 'dueAt', 'daysUntilDue', 'severity'],
   colSpan: 'full',
 }
 const TABLE_COMPLETED: ReportModuleTable = {
   id: 'table-completed', kind: 'table', datasetKey: 'cp_completed_table',
-  title: 'Oppfylt — historikk', rowsPath: '',
-  columns: [
-    { key: 'role', label: 'Rolle' },
-    { key: 'kind', label: 'Type' },
-    { key: 'resource', label: 'Krav' },
-    { key: 'completedAt', label: 'Bestått' },
-  ],
+  title: 'Oppfylt — historikk',
+  rowKeys: ['role', 'kind', 'resource', 'completedAt'],
   colSpan: 'lg',
 }
 

@@ -211,11 +211,14 @@ export function IntegrationsAdminPanel() {
   }
 
   return (
-    <ModuleSectionCard
-      title="Integrasjoner"
-      description="Aktiver og konfigurer integrasjoner mot eksterne tjenester. Hemmeligheter lagres separat i Supabase Vault."
-      icon={Plug}
-    >
+    <ModuleSectionCard className="p-5 md:p-6">
+      <div className="mb-3 flex items-center gap-2">
+        <Plug className="h-5 w-5 text-[#1a3d32]" aria-hidden />
+        <h2 className="text-lg font-semibold text-neutral-900">Integrasjoner</h2>
+      </div>
+      <p className="mb-5 text-sm text-neutral-600">
+        Aktiver og konfigurer integrasjoner mot eksterne tjenester. Hemmeligheter lagres separat i Supabase Vault.
+      </p>
       {loading ? (
         <div className="flex items-center gap-2 text-sm text-neutral-600">
           <Loader2 className="h-4 w-4 animate-spin" />

@@ -249,5 +249,50 @@ export function catalogQuestionToUpsert(q: CatalogTemplateQuestion, orderIndex: 
         isRequired: q.required,
         config: {},
       }
+    // Compliance-driven types added in fase 4 (specs/aml-survey-content.md §2)
+    // — UI-rendering kommer i fase 5+. Inntil da: lagre som single_select/yes_no
+    // med opsjons-config så data ikke går tapt.
+    case 'voting':
+      return {
+        questionText: q.text,
+        questionType: 'single_select',
+        orderIndex,
+        isRequired: q.required,
+        config: { options: q.options ?? ['For', 'Mot', 'Avhold'], semantic: 'voting' },
+      }
+    case 'consent':
+      return {
+        questionText: q.text,
+        questionType: 'yes_no',
+        orderIndex,
+        isRequired: q.required,
+        config: { semantic: 'consent' },
+      }
+    case 'traffic_light':
+      return {
+        questionText: q.text,
+        questionType: 'single_select',
+        orderIndex,
+        isRequired: q.required,
+        config: { options: ['Grønn', 'Gul', 'Rød'], semantic: 'traffic_light' },
+      }
+    case 'priority_top3':
+      return {
+        questionText: q.text,
+        questionType: 'multi_select',
+        orderIndex,
+        isRequired: q.required,
+        config: { options: q.options ?? [], maxSelections: 3, semantic: 'priority_top3' },
+      }
+  }
+  // Unreachable fallback — TS exhaustiveness sjekk vil flagge nye q.type
+  // verdier som mangler her ved kompilering.
+  void defaultQuestionPayload
+  return {
+    questionText: q.text,
+    questionType: 'text',
+    orderIndex,
+    isRequired: q.required,
+    config: {},
   }
 }
