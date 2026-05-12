@@ -3,7 +3,7 @@
 // Brukes både som dedikert side under HMS-oversikt og som admin-tab.
 
 import { useMemo, useState } from 'react'
-import { Download } from 'lucide-react'
+import { Download, FileText } from 'lucide-react'
 import { ModuleAnalyticsDashboard } from '../../components/module/ModuleAnalyticsDashboard'
 import { DashboardEditLayoutPanel } from '../../components/module/dashboard/DashboardEditLayoutPanel'
 import { DashboardAddWidgetPanel } from '../../components/module/dashboard/DashboardAddWidgetPanel'
@@ -47,6 +47,7 @@ export function ComplianceCompanyPage() {
   const dashboard = useDashboardLayout({ supabase, scopeId: COMPLIANCE_COMPANY_SCOPE_ID })
   const datasets = useComplianceCompanyDatasets(dashboard.filters)
   const [exporting, setExporting] = useState(false)
+  const [exportingPdf, setExportingPdf] = useState(false)
 
   async function exportToTilsynet() {
     if (!supabase || !organization?.id) return
@@ -65,6 +66,30 @@ export function ComplianceCompanyPage() {
       alert(`Eksport feilet: ${e instanceof Error ? e.message : 'ukjent'}`)
     } finally {
       setExporting(false)
+    }
+  }
+
+  async function exportToPdf() {
+    if (!supabase || !organization?.id) return
+    setExportingPdf(true)
+    try {
+      const { data, error } = await supabase.functions.invoke('compliance-audit-pdf', {
+        body: { org_id: organization.id },
+      })
+      if (error) throw error
+      // Data fra invoke kommer som ArrayBuffer/Blob når Content-Type er application/pdf
+      const blob = data instanceof Blob ? data : new Blob([data as ArrayBuffer], { type: 'application/pdf' })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      const stamp = new Date().toISOString().split('T')[0]
+      a.download = `tilsyns-eksport-${stamp}.pdf`
+      a.click()
+      URL.revokeObjectURL(url)
+    } catch (e) {
+      alert(`PDF-eksport feilet: ${e instanceof Error ? e.message : 'ukjent'}`)
+    } finally {
+      setExportingPdf(false)
     }
   }
 
@@ -135,7 +160,16 @@ export function ComplianceCompanyPage() {
               className="inline-flex items-center gap-1.5 rounded-md border border-red-300 bg-red-50 px-4 py-2 text-sm font-semibold text-red-900 transition-colors hover:bg-red-100 disabled:opacity-50"
             >
               <Download className="h-4 w-4" />
-              {exporting ? 'Eksporterer…' : 'Tilsyns-eksport (CSV)'}
+              {exporting ? 'Eksporterer…' : 'CSV'}
+            </button>
+            <button
+              type="button"
+              onClick={exportToPdf}
+              disabled={exportingPdf}
+              className="inline-flex items-center gap-1.5 rounded-md border border-red-300 bg-red-100 px-4 py-2 text-sm font-semibold text-red-900 transition-colors hover:bg-red-200 disabled:opacity-50"
+            >
+              <FileText className="h-4 w-4" />
+              {exportingPdf ? 'Genererer PDF…' : 'Tilsyns-rapport (PDF)'}
             </button>
           </div>
         }
