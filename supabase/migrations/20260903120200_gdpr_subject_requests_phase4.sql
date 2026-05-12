@@ -21,7 +21,9 @@ create table if not exists public.gdpr_subject_requests (
   organization_id uuid not null references public.organizations(id) on delete cascade,
   -- Mottak
   received_at timestamptz not null default now(),
-  deadline_at timestamptz generated always as (received_at + interval '30 days') stored,
+  -- deadline_at settes via trigger (samme portabilitets-hensyn som
+  -- gdpr_breach_incidents — se 20260903120100)
+  deadline_at timestamptz not null,
   -- Kategorisering
   request_type text not null check (request_type in (
     'access',          -- Art. 15 innsyn
@@ -62,7 +64,21 @@ create index if not exists gsr_deadline_idx on public.gdpr_subject_requests (org
   where status in ('received','identity_check','in_progress','extended');
 
 comment on table public.gdpr_subject_requests is
-  'GDPR individrettigheter Art. 15-21. 30-dagers-frist hard-coded GENERATED.';
+  'GDPR individrettigheter Art. 15-21. 30-dagers-frist settes via trigger ved insert.';
+
+-- Trigger: set deadline_at = received_at + 30 days på insert (hard-coded).
+create or replace function public.set_gdpr_subject_request_deadline()
+returns trigger as $$
+begin
+  new.deadline_at := new.received_at + interval '30 days';
+  return new;
+end;
+$$ language plpgsql;
+
+drop trigger if exists gsr_set_deadline on public.gdpr_subject_requests;
+create trigger gsr_set_deadline
+  before insert on public.gdpr_subject_requests
+  for each row execute function public.set_gdpr_subject_request_deadline();
 
 drop trigger if exists gsr_set_updated_at on public.gdpr_subject_requests;
 create trigger gsr_set_updated_at

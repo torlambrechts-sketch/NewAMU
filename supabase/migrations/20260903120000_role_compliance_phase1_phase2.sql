@@ -358,9 +358,10 @@ begin
   select count(*) into v_superseded from updated;
 
   -- (g) Marker waived — krav for tildelinger som er utløpt
+  -- Ambiguity fix: `notes` finnes på begge tabeller; kvalifiser med i.
   update public.org_role_requirement_instances i
   set status = 'waived',
-      notes = coalesce(notes || ' | ', '') || 'Tildeling utløpt ' || a.valid_to,
+      notes = coalesce(i.notes || ' | ', '') || 'Tildeling utløpt ' || a.valid_to,
       last_evaluated_at = now()
   from public.org_functional_role_assignments a
   where i.assignment_id = a.id
