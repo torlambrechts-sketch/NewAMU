@@ -52,31 +52,11 @@
 
 set local search_path = public, pg_catalog;
 
--- ── 1. Utvid CHECK-constraint på wiki_pages.category ─────────────────────
-
-alter table public.wiki_pages
-  drop constraint if exists wiki_pages_category_check;
-
-alter table public.wiki_pages
-  add constraint wiki_pages_category_check
-  check (category in (
-    'hms_handbook',
-    'policy',
-    'procedure',
-    'guide',
-    'template_library',
-    -- Compliance-driven (specs/aml-documents-content.md §15):
-    'varsling',
-    'personal',
-    'personvern',
-    'likestilling',
-    'protokoll',
-    'register',
-    'beredskap',
-    'bransje'
-  ));
-
--- ── 2. Utvid CHECK-constraint på wiki_spaces.category ────────────────────
+-- ── 1. Utvid CHECK-constraint på wiki_spaces.category ────────────────────
+--
+-- NB: wiki_pages har IKKE category-kolonne (verifisert mot
+-- 20260412120000_wiki_documents.sql); kategori sitter bare på spaces +
+-- document_org_templates. Page-kategori utledes via space-tilhørighet.
 
 alter table public.wiki_spaces
   drop constraint if exists wiki_spaces_category_check;

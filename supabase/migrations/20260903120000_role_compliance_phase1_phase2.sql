@@ -67,7 +67,7 @@ select
   'course'::text as requirement_kind,
   sc.id::text as resource_id,
   coalesce(scl.title, sc.slug) as resource_label,
-  array_to_string(sc.law_refs::text[], ', ') as hjemmel,
+  (select string_agg(value, ', ') from jsonb_array_elements_text(coalesce(sc.law_refs, '[]'::jsonb))) as hjemmel,
   null::int as recurrence_months,
   90 as due_after_assignment_days,
   'high' as severity
@@ -83,7 +83,7 @@ union all
 select
   c.organization_id, unnest(c.required_for_roles),
   'course', c.id::text, c.title,
-  array_to_string(coalesce(c.law_refs, '[]'::jsonb)::text[]::text[], ', '),
+  (select string_agg(value, ', ') from jsonb_array_elements_text(coalesce(c.law_refs, '[]'::jsonb))),
   c.recertification_months, 90, 'high'
 from public.learning_courses c
 where array_length(c.required_for_roles, 1) > 0
@@ -284,7 +284,7 @@ begin
     set status = 'completed',
         completed_at = lp.completed_at,
         last_evaluated_at = now()
-    from public.learning_progress lp
+    from public.learning_course_progress lp
     where i.requirement_kind = 'course'
       and i.status in ('pending','in_progress','overdue')
       and lp.user_id = i.user_id
