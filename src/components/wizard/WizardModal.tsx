@@ -252,9 +252,29 @@ function WizardFieldRenderer({
 
 // ─── Main modal ───────────────────────────────────────────────────────────────
 
-export function WizardModal({ def, onClose }: { def: WizardDef; onClose: () => void }) {
-  const [stepIndex, setStepIndex] = useState(0)
-  const [values, setValues] = useState<Record<string, string | boolean>>({})
+export type WizardModalProps = {
+  def: WizardDef
+  onClose: () => void
+  /** Pre-populate values from a resumable run. */
+  initialValues?: Record<string, string | boolean>
+  /** Start at this step index (for resume). */
+  initialStep?: number
+  /**
+   * Called after each step advance with (nextStepIndex, currentValues).
+   * Used by StudioWizardLauncher to persist `compliance_wizard_runs`.
+   */
+  onStepChange?: (nextStepIndex: number, values: Record<string, string | boolean>) => void
+}
+
+export function WizardModal({
+  def,
+  onClose,
+  initialValues,
+  initialStep,
+  onStepChange,
+}: WizardModalProps) {
+  const [stepIndex, setStepIndex] = useState(initialStep ?? 0)
+  const [values, setValues] = useState<Record<string, string | boolean>>(initialValues ?? {})
   const [error, setError] = useState<string | null>(null)
   const [done, setDone] = useState(false)
   const [advancing, setAdvancing] = useState(false)
@@ -322,9 +342,12 @@ export function WizardModal({ def, onClose }: { def: WizardDef; onClose: () => v
 
     if (isLast) {
       def.onSubmit(values)
+      onStepChange?.(stepIndex + 1, values)
       setDone(true)
     } else {
-      setStepIndex((i) => i + 1)
+      const next = stepIndex + 1
+      onStepChange?.(next, values)
+      setStepIndex(next)
     }
   }
 

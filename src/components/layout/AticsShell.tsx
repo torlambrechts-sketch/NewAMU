@@ -41,6 +41,7 @@ import {
   UserCheck,
   UserSearch,
   Users,
+  Wand2,
   Workflow,
   CalendarDays,
 } from 'lucide-react'
@@ -1610,6 +1611,13 @@ export function AticsShell() {
         path: '/overview/regelverk',
         Icon: ScrollText,
         match: ({ pathname }) => pathname.startsWith('/overview/regelverk'),
+        requirePermAny: ADMIN_NAV_PERMS,
+      },
+      {
+        label: 'Compliance Studio',
+        path: '/compliance-studio',
+        Icon: Wand2,
+        match: ({ pathname }) => pathname.startsWith('/compliance-studio'),
         requirePermAny: ADMIN_NAV_PERMS,
       },
       {
