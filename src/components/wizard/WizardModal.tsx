@@ -1,10 +1,13 @@
 import { useEffect, useRef, useState } from 'react'
-import { AlertCircle, CheckCircle2, ChevronLeft, ChevronRight, Loader2, X } from 'lucide-react'
+import { AlertCircle, Check, CheckCircle2, ChevronLeft, ChevronRight, Loader2, X } from 'lucide-react'
 import type { WizardDef, WizardField } from './types'
 
 // ─── Colour map ───────────────────────────────────────────────────────────────
 
-const ACCENT: Record<string, { ring: string; bg: string; text: string; btn: string; progress: string }> = {
+const ACCENT: Record<
+  string,
+  { ring: string; bg: string; text: string; btn: string; progress: string }
+> = {
   red:     { ring: 'ring-red-200',     bg: 'bg-red-50',     text: 'text-red-700',     btn: 'bg-red-600 hover:bg-red-700',     progress: 'bg-red-500' },
   amber:   { ring: 'ring-amber-200',   bg: 'bg-amber-50',   text: 'text-amber-800',   btn: 'bg-amber-600 hover:bg-amber-700', progress: 'bg-amber-500' },
   emerald: { ring: 'ring-emerald-200', bg: 'bg-emerald-50', text: 'text-emerald-800', btn: 'bg-emerald-700 hover:bg-emerald-800', progress: 'bg-emerald-600' },
@@ -12,6 +15,9 @@ const ACCENT: Record<string, { ring: string; bg: string; text: string; btn: stri
   purple:  { ring: 'ring-purple-200',  bg: 'bg-purple-50',  text: 'text-purple-800',  btn: 'bg-purple-600 hover:bg-purple-700', progress: 'bg-purple-500' },
   neutral: { ring: 'ring-neutral-200', bg: 'bg-neutral-50', text: 'text-neutral-700', btn: 'bg-[#1a3d32] hover:bg-[#142e26]', progress: 'bg-[#1a3d32]' },
 }
+
+const FOREST = '#1a3d32'
+const SERIF = "'Libre Baskerville', Georgia, serif"
 
 // ─── Individual field renderer ────────────────────────────────────────────────
 
@@ -26,99 +32,133 @@ function WizardFieldRenderer({
   onChange: (v: string | boolean) => void
   accent: (typeof ACCENT)[string]
 }) {
-  const baseInput = `mt-1 w-full rounded-xl border border-neutral-200 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 ${accent.ring} focus:border-transparent transition-shadow`
+  const baseInput = `block w-full rounded-none border border-neutral-300 bg-white px-3 py-2.5 text-sm text-neutral-900 placeholder:text-neutral-400 focus:border-neutral-900 focus:outline-none focus:ring-1 focus:ring-neutral-900`
 
   if (field.kind === 'info') {
     return (
-      <div className={`rounded-xl border ${accent.ring} ${accent.bg} px-4 py-3`}>
-        <p className={`text-sm ${accent.text}`} dangerouslySetInnerHTML={{ __html: field.infoBody ?? '' }} />
+      <div className={`border ${accent.ring} ${accent.bg} px-4 py-3`}>
+        <p
+          className={`text-sm leading-relaxed ${accent.text}`}
+          dangerouslySetInnerHTML={{ __html: field.infoBody ?? '' }}
+        />
       </div>
     )
   }
 
   if (field.kind === 'severity') {
     const opts = [
-      { value: 'low',      label: 'Lav',     colour: 'border-emerald-300 bg-emerald-50 text-emerald-800', dot: 'bg-emerald-500', desc: 'Liten konsekvens, lav sannsynlighet' },
-      { value: 'medium',   label: 'Middels', colour: 'border-amber-300 bg-amber-50 text-amber-800',       dot: 'bg-amber-500',   desc: 'Moderat konsekvens eller sannsynlighet' },
-      { value: 'high',     label: 'Høy',     colour: 'border-red-300 bg-red-50 text-red-800',             dot: 'bg-red-500',     desc: 'Alvorlig konsekvens og/eller høy sannsynlighet' },
-      { value: 'critical', label: 'Kritisk', colour: 'border-red-600 bg-red-700 text-white',              dot: 'bg-white',       desc: 'Umiddelbar fare for liv eller helse' },
+      { value: 'low',      label: 'Lav',     dot: 'bg-emerald-500', desc: 'Liten konsekvens, lav sannsynlighet' },
+      { value: 'medium',   label: 'Middels', dot: 'bg-amber-500',   desc: 'Moderat konsekvens eller sannsynlighet' },
+      { value: 'high',     label: 'Høy',     dot: 'bg-red-500',     desc: 'Alvorlig konsekvens og/eller høy sannsynlighet' },
+      { value: 'critical', label: 'Kritisk', dot: 'bg-red-700',     desc: 'Umiddelbar fare for liv eller helse' },
     ]
     return (
-      <div className="grid grid-cols-2 gap-2 mt-1">
-        {opts.map((opt) => (
-          <button
-            key={opt.value}
-            type="button"
-            onClick={() => onChange(opt.value)}
-            className={`flex items-start gap-3 rounded-xl border-2 p-3 text-left transition-all ${
-              value === opt.value ? `${opt.colour} ring-2 ring-offset-1 ring-current shadow-sm` : 'border-neutral-200 bg-white hover:border-neutral-300'
-            }`}
-          >
-            <span className={`mt-0.5 size-3 shrink-0 rounded-full ${value === opt.value ? opt.dot : 'bg-neutral-300'}`} />
-            <div>
-              <div className="text-sm font-semibold">{opt.label}</div>
-              <div className={`text-xs mt-0.5 ${value === opt.value ? 'opacity-80' : 'text-neutral-500'}`}>{opt.desc}</div>
-            </div>
-          </button>
-        ))}
+      <div className="grid grid-cols-2 gap-2">
+        {opts.map((opt) => {
+          const selected = value === opt.value
+          return (
+            <button
+              key={opt.value}
+              type="button"
+              onClick={() => onChange(opt.value)}
+              className={`flex items-start gap-3 border p-3 text-left transition-all ${
+                selected
+                  ? 'border-[#1a3d32] bg-[#1a3d32]/5 ring-1 ring-[#1a3d32]'
+                  : 'border-neutral-300 bg-white hover:border-neutral-400'
+              }`}
+            >
+              <span className={`mt-1 size-3 shrink-0 rounded-full ${opt.dot}`} />
+              <div>
+                <div className="text-sm font-semibold text-neutral-900">{opt.label}</div>
+                <div className="mt-0.5 text-xs text-neutral-500">{opt.desc}</div>
+              </div>
+            </button>
+          )
+        })}
       </div>
     )
   }
 
   if (field.kind === 'radio-cards') {
     return (
-      <div className="mt-1 grid gap-2">
-        {(field.options ?? []).map((opt) => (
-          <button
-            key={opt.value}
-            type="button"
-            onClick={() => onChange(opt.value)}
-            className={`flex items-start gap-3 rounded-xl border-2 p-3.5 text-left transition-all ${
-              value === opt.value
-                ? `border-[#1a3d32] bg-[#1a3d32]/5 ring-1 ring-[#1a3d32] shadow-sm`
-                : 'border-neutral-200 bg-white hover:border-neutral-300 hover:bg-neutral-50'
-            }`}
-          >
-            {opt.icon && <span className="text-xl shrink-0">{opt.icon}</span>}
-            <div className="flex-1 min-w-0">
-              <div className="text-sm font-semibold text-neutral-900">{opt.label}</div>
-              {opt.description && <div className="text-xs text-neutral-500 mt-0.5">{opt.description}</div>}
-            </div>
-            <span className={`mt-1 shrink-0 size-4 rounded-full border-2 flex items-center justify-center transition-colors ${
-              value === opt.value ? 'border-[#1a3d32] bg-[#1a3d32]' : 'border-neutral-300'
-            }`}>
-              {value === opt.value && <span className="size-1.5 rounded-full bg-white" />}
-            </span>
-          </button>
-        ))}
+      <div className="grid gap-2">
+        {(field.options ?? []).map((opt) => {
+          const selected = value === opt.value
+          return (
+            <button
+              key={opt.value}
+              type="button"
+              onClick={() => onChange(opt.value)}
+              className={`flex items-center gap-3 border p-3 text-left transition-all ${
+                selected
+                  ? 'border-[#1a3d32] bg-[#1a3d32] text-white'
+                  : 'border-neutral-300 bg-white text-neutral-900 hover:border-neutral-400'
+              }`}
+            >
+              <span
+                className={`grid size-5 shrink-0 place-items-center rounded-full border-2 ${
+                  selected ? 'border-white bg-[#1a3d32]' : 'border-neutral-300 bg-white'
+                }`}
+              >
+                {selected ? <Check className="size-3 text-white" /> : null}
+              </span>
+              {opt.icon ? <span className="text-base">{opt.icon}</span> : null}
+              <div className="min-w-0 flex-1">
+                <div className="text-sm font-semibold">{opt.label}</div>
+                {opt.description ? (
+                  <div className={`mt-0.5 text-xs ${selected ? 'text-white/80' : 'text-neutral-500'}`}>
+                    {opt.description}
+                  </div>
+                ) : null}
+              </div>
+            </button>
+          )
+        })}
       </div>
     )
   }
 
+  // Yes/No tokort — speiler Vanta/Greenhouse-mønsteret i screenshot.
   if (field.kind === 'checkbox') {
+    const checked = value === true || value === 'true'
+    const Btn = ({ active, label, onClick }: { active: boolean; label: string; onClick: () => void }) => (
+      <button
+        type="button"
+        onClick={onClick}
+        className={`flex items-center gap-3 border px-4 py-3 text-left transition-all ${
+          active
+            ? 'border-[#1a3d32] bg-[#1a3d32] text-white'
+            : 'border-neutral-300 bg-white text-neutral-900 hover:border-neutral-400'
+        }`}
+      >
+        <span
+          className={`grid size-5 shrink-0 place-items-center rounded-full border-2 ${
+            active ? 'border-white' : 'border-neutral-300'
+          }`}
+        >
+          {active ? <Check className="size-3 text-white" /> : null}
+        </span>
+        <span className="text-sm font-semibold">{label}</span>
+      </button>
+    )
     return (
-      <label className="mt-2 flex cursor-pointer items-start gap-3 rounded-xl border border-neutral-200 bg-white p-3.5 hover:bg-neutral-50 transition-colors">
-        <input
-          type="checkbox"
-          checked={value === true || value === 'true'}
-          onChange={(e) => onChange(e.target.checked)}
-          className={`mt-0.5 size-4 rounded border-neutral-300 focus:ring-1 ${accent.ring}`}
-          style={{ accentColor: '#1a3d32' }}
-        />
-        <div>
-          <span className="text-sm font-medium text-neutral-900">{field.label}</span>
-          {field.hint && <p className="text-xs text-neutral-500 mt-0.5">{field.hint}</p>}
-        </div>
-      </label>
+      <div className="grid grid-cols-2 gap-2">
+        <Btn active={checked} label="Ja" onClick={() => onChange(true)} />
+        <Btn active={!checked} label="Nei" onClick={() => onChange(false)} />
+      </div>
     )
   }
 
   if (field.kind === 'checkbox-group') {
-    const selected: string[] = value && typeof value === 'string' ? JSON.parse(value || '[]') : []
+    const selected: string[] =
+      value && typeof value === 'string' ? (JSON.parse(value || '[]') as string[]) : []
     return (
-      <div className="mt-1 space-y-2">
+      <div className="space-y-2">
         {(field.options ?? []).map((opt) => (
-          <label key={opt.value} className="flex cursor-pointer items-center gap-3 rounded-lg border border-neutral-200 px-3 py-2.5 hover:bg-neutral-50 transition-colors">
+          <label
+            key={opt.value}
+            className="flex cursor-pointer items-center gap-3 border border-neutral-300 bg-white px-3 py-2.5 hover:bg-neutral-50"
+          >
             <input
               type="checkbox"
               checked={selected.includes(opt.value)}
@@ -128,12 +168,14 @@ function WizardFieldRenderer({
                   : selected.filter((v) => v !== opt.value)
                 onChange(JSON.stringify(next))
               }}
-              className="size-4 rounded border-neutral-300"
-              style={{ accentColor: '#1a3d32' }}
+              className="size-4"
+              style={{ accentColor: FOREST }}
             />
             <div>
               <span className="text-sm font-medium text-neutral-900">{opt.label}</span>
-              {opt.description && <p className="text-xs text-neutral-500">{opt.description}</p>}
+              {opt.description ? (
+                <p className="text-xs text-neutral-500">{opt.description}</p>
+              ) : null}
             </div>
           </label>
         ))}
@@ -147,12 +189,11 @@ function WizardFieldRenderer({
     const opts = field.options ?? []
     if (opts.length === 0) {
       return (
-        <div className="mt-2 rounded-xl border border-dashed border-neutral-300 bg-neutral-50 px-4 py-3 text-sm text-neutral-600">
+        <div className="border border-dashed border-neutral-300 bg-white px-4 py-3 text-sm text-neutral-600">
           {field.emptyHint ?? 'Ingen kandidater funnet for dette kravet ennå.'}
         </div>
       )
     }
-    // Grupper etter `group` (eks: "Kurs", "Dokument") med stabil rekkefølge.
     const groups = new Map<string, typeof opts>()
     for (const o of opts) {
       const g = o.group ?? 'Annet'
@@ -167,10 +208,10 @@ function WizardFieldRenderer({
       onChange(JSON.stringify(next))
     }
     return (
-      <div className="mt-1 space-y-3">
+      <div className="space-y-3">
         {[...groups.entries()].map(([group, items]) => (
-          <div key={group} className="rounded-xl border border-neutral-200 bg-white">
-            <p className="border-b border-neutral-100 px-3 py-1.5 text-[10px] font-bold uppercase tracking-wide text-neutral-500">
+          <div key={group} className="border border-neutral-300 bg-white">
+            <p className="border-b border-neutral-200 px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-neutral-600">
               {group} · {items.length}
             </p>
             <ul>
@@ -183,8 +224,8 @@ function WizardFieldRenderer({
                         type="checkbox"
                         checked={checked}
                         onChange={() => toggle(opt.value)}
-                        className="mt-0.5 size-4 rounded border-neutral-300"
-                        style={{ accentColor: '#1a3d32' }}
+                        className="mt-0.5 size-4"
+                        style={{ accentColor: FOREST }}
                       />
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-2">
@@ -214,10 +255,16 @@ function WizardFieldRenderer({
 
   if (field.kind === 'select') {
     return (
-      <select value={value as string} onChange={(e) => onChange(e.target.value)} className={baseInput}>
+      <select
+        value={value as string}
+        onChange={(e) => onChange(e.target.value)}
+        className={baseInput}
+      >
         {!field.required && <option value="">— Velg —</option>}
         {(field.options ?? []).map((opt) => (
-          <option key={opt.value} value={opt.value}>{opt.label}</option>
+          <option key={opt.value} value={opt.value}>
+            {opt.label}
+          </option>
         ))}
       </select>
     )
@@ -250,19 +297,61 @@ function WizardFieldRenderer({
   )
 }
 
+// ─── Step rail (right side, numbered list) ────────────────────────────────────
+
+function StepRail({
+  steps,
+  currentIndex,
+  onJump,
+}: {
+  steps: { id: string; title: string }[]
+  currentIndex: number
+  onJump: (idx: number) => void
+}) {
+  return (
+    <ol className="space-y-3">
+      {steps.map((s, i) => {
+        const isCurrent = i === currentIndex
+        const isPast = i < currentIndex
+        const numberCls = isPast
+          ? 'bg-[#1a3d32] text-white'
+          : isCurrent
+            ? 'border-2 border-[#1a3d32] bg-white text-[#1a3d32]'
+            : 'border border-neutral-300 bg-white text-neutral-500'
+        const labelCls = isCurrent
+          ? 'font-semibold text-neutral-900'
+          : isPast
+            ? 'text-neutral-700'
+            : 'text-neutral-400'
+        return (
+          <li key={s.id}>
+            <button
+              type="button"
+              onClick={() => (i <= currentIndex ? onJump(i) : undefined)}
+              disabled={i > currentIndex}
+              className="flex w-full items-center gap-3 text-left disabled:cursor-default"
+            >
+              <span
+                className={`grid size-7 shrink-0 place-items-center rounded-full text-xs font-bold ${numberCls}`}
+              >
+                {isPast ? <Check className="size-4" /> : i + 1}
+              </span>
+              <span className={`text-sm ${labelCls}`}>{s.title}</span>
+            </button>
+          </li>
+        )
+      })}
+    </ol>
+  )
+}
+
 // ─── Main modal ───────────────────────────────────────────────────────────────
 
 export type WizardModalProps = {
   def: WizardDef
   onClose: () => void
-  /** Pre-populate values from a resumable run. */
   initialValues?: Record<string, string | boolean>
-  /** Start at this step index (for resume). */
   initialStep?: number
-  /**
-   * Called after each step advance with (nextStepIndex, currentValues).
-   * Used by StudioWizardLauncher to persist `compliance_wizard_runs`.
-   */
   onStepChange?: (nextStepIndex: number, values: Record<string, string | boolean>) => void
 }
 
@@ -285,11 +374,11 @@ export function WizardModal({
   const step = def.steps[stepIndex]
   const totalSteps = def.steps.length
   const isLast = stepIndex === totalSteps - 1
-  const progress = ((stepIndex + 1) / totalSteps) * 100
 
-  // Close on Escape
   useEffect(() => {
-    function handler(e: KeyboardEvent) { if (e.key === 'Escape') onClose() }
+    function handler(e: KeyboardEvent) {
+      if (e.key === 'Escape') onClose()
+    }
     window.addEventListener('keydown', handler)
     return () => window.removeEventListener('keydown', handler)
   }, [onClose])
@@ -309,21 +398,26 @@ export function WizardModal({
 
   async function handleNext() {
     if (advancing) return
-    // Validate required fields
-    const missing = visibleFields(step.fields)
-      .filter((f) => f.required && f.kind !== 'checkbox' && f.kind !== 'info' && !getField(f.id))
+    const missing = visibleFields(step.fields).filter(
+      (f) =>
+        f.required &&
+        f.kind !== 'checkbox' &&
+        f.kind !== 'info' &&
+        !getField(f.id),
+    )
     if (missing.length > 0) {
       setError(`Vennligst fyll inn: ${missing.map((f) => f.label).join(', ')}`)
       return
     }
-    // Custom validation
     if (step.validate) {
       const err = step.validate(values)
-      if (err) { setError(err); return }
+      if (err) {
+        setError(err)
+        return
+      }
     }
     setError(null)
 
-    // Async side-effect (provisjonering, etc.) — blokkerer fremgang ved feil.
     if (step.onAdvance) {
       setAdvancing(true)
       try {
@@ -366,7 +460,7 @@ export function WizardModal({
         className="fixed inset-0 z-50 flex justify-end bg-black/45 backdrop-blur-[2px]"
       >
         <div
-          className="flex h-full w-full max-w-[min(100vw,720px)] flex-col bg-[#f7f6f2] shadow-[-12px_0_40px_rgba(0,0,0,0.12)]"
+          className="flex h-full w-full max-w-[min(100vw,1100px)] flex-col bg-[#f7f6f2] shadow-[-12px_0_40px_rgba(0,0,0,0.12)]"
           role="dialog"
           aria-modal="true"
           onMouseDown={(e) => e.stopPropagation()}
@@ -375,7 +469,9 @@ export function WizardModal({
             <div className="flex size-16 items-center justify-center rounded-full bg-emerald-100">
               <CheckCircle2 className="size-9 text-emerald-600" />
             </div>
-            <h2 className="text-2xl font-semibold text-neutral-900">Fullført!</h2>
+            <h2 className="text-2xl font-semibold text-neutral-900" style={{ fontFamily: SERIF }}>
+              Fullført!
+            </h2>
             <p className="max-w-md text-sm text-neutral-600">
               {def.description ?? `${def.title} er registrert.`}
             </p>
@@ -401,101 +497,126 @@ export function WizardModal({
       className="fixed inset-0 z-50 flex justify-end bg-black/45 backdrop-blur-[2px]"
     >
       <div
-        className="relative flex h-full w-full max-w-[min(100vw,720px)] flex-col overflow-hidden bg-[#f7f6f2] shadow-[-12px_0_40px_rgba(0,0,0,0.12)]"
+        className="relative flex h-full w-full max-w-[min(100vw,1100px)] flex-col overflow-hidden bg-[#f7f6f2] shadow-[-12px_0_40px_rgba(0,0,0,0.12)]"
         role="dialog"
         aria-modal="true"
         onMouseDown={(e) => e.stopPropagation()}
       >
         {/* ── Header ──────────────────────────────────────────────────── */}
-        <div className={`shrink-0 px-6 pb-4 pt-5 ${accent.bg}`}>
-          <div className="flex items-start justify-between gap-3">
-            <div>
-              <div className="flex items-center gap-2">
-                {step.icon && <span className="text-2xl">{step.icon}</span>}
-                <h2 className="text-lg font-semibold text-neutral-900">{def.title}</h2>
-              </div>
-              <p className={`mt-0.5 text-sm font-medium ${accent.text}`}>{step.title}</p>
-              {step.subtitle && <p className="mt-0.5 text-xs text-neutral-500">{step.subtitle}</p>}
+        <header className="flex shrink-0 items-start justify-between gap-4 border-b border-neutral-200/90 bg-[#f7f6f2] px-6 py-5 sm:px-8 sm:py-6">
+          <div className="min-w-0">
+            <div className="text-[10px] font-bold uppercase tracking-wider text-neutral-500">
+              {step.icon ? <span className="mr-1.5">{step.icon}</span> : null}
+              Trinn {stepIndex + 1} av {totalSteps}
             </div>
-            <button
-              type="button"
-              onClick={onClose}
-              className="rounded-lg p-1.5 text-neutral-400 hover:bg-black/8 hover:text-neutral-700 transition-colors shrink-0"
-              aria-label="Lukk"
+            <h2
+              className="mt-1 text-2xl font-semibold tracking-tight text-neutral-900 sm:text-3xl"
+              style={{ fontFamily: SERIF }}
             >
-              <X className="size-4" />
-            </button>
+              {def.title}
+            </h2>
+            <p className="mt-1 text-sm text-neutral-600">
+              {step.title}
+              {step.subtitle ? <span className="text-neutral-400"> · {step.subtitle}</span> : null}
+            </p>
           </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-none p-2 text-neutral-500 transition hover:bg-neutral-200/60 hover:text-neutral-800"
+            aria-label="Lukk"
+          >
+            <X className="size-6" />
+          </button>
+        </header>
 
-          {/* Progress bar */}
-          <div className="mt-4">
-            <div className="flex items-center justify-between mb-1.5">
-              <div className="flex gap-1">
-                {def.steps.map((s, i) => (
-                  <button
-                    key={s.id}
-                    type="button"
-                    onClick={() => i < stepIndex && setStepIndex(i)}
-                    className={`h-1.5 rounded-full transition-all ${
-                      i === stepIndex ? `w-6 ${accent.progress}` :
-                      i < stepIndex ? `w-3 ${accent.progress} opacity-60` :
-                      'w-3 bg-neutral-300'
-                    }`}
-                    aria-label={`Steg ${i + 1}`}
-                  />
-                ))}
+        {/* ── Body: form (left) + step rail (right) ───────────────────── */}
+        <div className="grid min-h-0 flex-1 grid-cols-1 lg:grid-cols-[minmax(0,1fr)_240px]">
+          <div className="min-h-0 overflow-y-auto">
+            {visibleFields(step.fields).map((field) => {
+              const isInfo = field.kind === 'info'
+              const isCheckbox = field.kind === 'checkbox'
+              const isStandalone = isInfo // info spenner hele bredden uten venstre-spørsmål
+              const leftPrompt = field.prompt ?? (isCheckbox ? field.label : field.label)
+              const showLabelTag = !!field.prompt && !isCheckbox && !isInfo
+
+              if (isStandalone) {
+                return (
+                  <div
+                    key={field.id}
+                    className="border-b border-neutral-200/80 px-6 py-5 last:border-b-0 sm:px-8"
+                  >
+                    <WizardFieldRenderer
+                      field={field}
+                      value={getField(field.id)}
+                      onChange={(v) => setField(field.id, v)}
+                      accent={accent}
+                    />
+                  </div>
+                )
+              }
+
+              return (
+                <div
+                  key={field.id}
+                  className="grid grid-cols-1 gap-4 border-b border-neutral-200/80 px-6 py-5 last:border-b-0 sm:px-8 md:grid-cols-[minmax(0,40%)_minmax(0,60%)] md:items-start md:gap-10"
+                >
+                  <div>
+                    <p className="text-sm leading-relaxed text-neutral-700">
+                      {leftPrompt}
+                      {field.required ? <span className="ml-1 text-red-500">*</span> : null}
+                    </p>
+                    {field.hint ? (
+                      <p className="mt-1 text-xs text-neutral-500">{field.hint}</p>
+                    ) : null}
+                  </div>
+                  <div>
+                    {showLabelTag ? (
+                      <label
+                        htmlFor={field.id}
+                        className="mb-2 block text-[10px] font-bold uppercase tracking-wider text-neutral-800"
+                      >
+                        {field.label}
+                      </label>
+                    ) : null}
+                    <WizardFieldRenderer
+                      field={field}
+                      value={getField(field.id)}
+                      onChange={(v) => setField(field.id, v)}
+                      accent={accent}
+                    />
+                  </div>
+                </div>
+              )
+            })}
+
+            {error ? (
+              <div className="mx-6 mb-5 mt-2 flex items-start gap-2 border border-red-200 bg-red-50 px-4 py-3 sm:mx-8">
+                <AlertCircle className="mt-0.5 size-4 shrink-0 text-red-600" />
+                <p className="text-sm text-red-700">{error}</p>
               </div>
-              <span className="text-xs font-medium text-neutral-500">
-                {stepIndex + 1} / {totalSteps}
-              </span>
-            </div>
-            <div className="h-1 overflow-hidden rounded-full bg-neutral-200">
-              <div
-                className={`h-full rounded-full transition-all duration-300 ${accent.progress}`}
-                style={{ width: `${progress}%` }}
-              />
-            </div>
+            ) : null}
           </div>
-        </div>
 
-        {/* ── Fields ──────────────────────────────────────────────────── */}
-        <div className="flex-1 overflow-y-auto px-6 py-5 space-y-5">
-          {visibleFields(step.fields).map((field) => (
-            <div key={field.id}>
-              {field.kind !== 'checkbox' && field.kind !== 'info' && (
-                <label className="block text-sm font-medium text-neutral-800">
-                  {field.label}
-                  {field.required && <span className="ml-1 text-red-500">*</span>}
-                </label>
-              )}
-              {field.hint && field.kind !== 'checkbox' && (
-                <p className="mt-0.5 text-xs text-neutral-500">{field.hint}</p>
-              )}
-              <WizardFieldRenderer
-                field={field}
-                value={getField(field.id)}
-                onChange={(v) => setField(field.id, v)}
-                accent={accent}
-              />
-            </div>
-          ))}
-
-          {/* Error */}
-          {error && (
-            <div className="flex items-start gap-2 rounded-xl border border-red-200 bg-red-50 px-4 py-3">
-              <AlertCircle className="mt-0.5 size-4 shrink-0 text-red-600" />
-              <p className="text-sm text-red-700">{error}</p>
-            </div>
-          )}
+          <aside className="hidden border-l border-neutral-200/80 bg-[#f0efe9] px-5 py-6 lg:block">
+            <p className="mb-4 text-[10px] font-bold uppercase tracking-wider text-neutral-500">
+              Trinn
+            </p>
+            <StepRail
+              steps={def.steps.map((s) => ({ id: s.id, title: s.title }))}
+              currentIndex={stepIndex}
+              onJump={(i) => setStepIndex(i)}
+            />
+          </aside>
         </div>
 
         {/* ── Footer ──────────────────────────────────────────────────── */}
-        <div className="shrink-0 flex items-center justify-between gap-3 border-t border-neutral-100 px-6 py-4 bg-neutral-50/80">
+        <footer className="flex shrink-0 items-center justify-between gap-3 border-t border-neutral-200/90 bg-[#f0efe9] px-6 py-4 sm:px-8">
           {stepIndex > 0 ? (
             <button
               type="button"
               onClick={handleBack}
-              className="inline-flex items-center gap-1.5 rounded-full border border-neutral-200 bg-white px-4 py-2 text-sm font-medium text-neutral-700 hover:bg-neutral-50 transition-colors"
+              className="inline-flex items-center gap-1.5 border border-neutral-300 bg-white px-4 py-2 text-sm font-medium text-neutral-700 transition-colors hover:bg-neutral-50"
             >
               <ChevronLeft className="size-4" />
               Tilbake
@@ -504,7 +625,7 @@ export function WizardModal({
             <button
               type="button"
               onClick={onClose}
-              className="text-sm text-neutral-400 hover:text-neutral-600 transition-colors"
+              className="text-sm text-neutral-500 transition-colors hover:text-neutral-800"
             >
               Avbryt
             </button>
@@ -514,7 +635,7 @@ export function WizardModal({
             type="button"
             onClick={handleNext}
             disabled={advancing}
-            className={`inline-flex items-center gap-1.5 rounded-full px-5 py-2 text-sm font-semibold text-white shadow-sm transition-colors disabled:opacity-60 ${accent.btn}`}
+            className={`inline-flex items-center gap-1.5 px-5 py-2 text-sm font-semibold text-white shadow-sm transition-colors disabled:opacity-60 ${accent.btn}`}
           >
             {advancing ? (
               <>
@@ -533,7 +654,7 @@ export function WizardModal({
               </>
             )}
           </button>
-        </div>
+        </footer>
       </div>
     </div>
   )

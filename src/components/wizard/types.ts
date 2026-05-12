@@ -56,6 +56,13 @@ export type WizardField = {
   showWhen?: (values: Record<string, string | boolean>) => boolean
   /** Tom-tilstand-tekst når module_picker ikke har noen kandidater. */
   emptyHint?: string
+  /**
+   * Langform spørsmål til venstre i toradsoppsettet (Vanta/Greenhouse-stil).
+   * Hvis satt: venstre kolonne viser dette, høyre kolonne viser
+   * uppercase `label` over input. Hvis ikke satt: venstre kolonne viser
+   * `label` som spørsmål og høyre kolonne har kun inputet.
+   */
+  prompt?: string
 }
 
 export type WizardStepAdvanceResult = { ok: true } | { ok: false; error: string }

@@ -119,6 +119,7 @@ export function makeHmsGrunnmurWizard(deps: StudioWizardDeps): WizardDef {
           {
             id: 'employeeCount',
             label: 'Antall ansatte',
+            prompt: 'Hvor mange ansatte har dere totalt? Tallet styrer hvilke plikter som er aktuelle.',
             kind: 'number',
             min: 1,
             required: true,
@@ -126,7 +127,8 @@ export function makeHmsGrunnmurWizard(deps: StudioWizardDeps): WizardDef {
           },
           {
             id: 'hasBht',
-            label: 'Vi er tilknyttet bedriftshelsetjeneste (BHT)',
+            label: 'Bedriftshelsetjeneste',
+            prompt: 'Er dere tilknyttet en bedriftshelsetjeneste (BHT)?',
             kind: 'checkbox',
             hint: 'Pliktig for risikoutsatte bransjer (jf. AML § 3-3).',
           },
@@ -167,7 +169,8 @@ export function makeHmsGrunnmurWizard(deps: StudioWizardDeps): WizardDef {
         fields: [
           {
             id: 'ownerName',
-            label: 'Hovedansvarlig (navn)',
+            label: 'Hovedansvarlig',
+            prompt: 'Hvem er hovedansvarlig for HMS-systemet?',
             kind: 'text',
             placeholder: 'F.eks. Daglig leder',
             required: true,
@@ -175,6 +178,7 @@ export function makeHmsGrunnmurWizard(deps: StudioWizardDeps): WizardDef {
           {
             id: 'cadence',
             label: 'Gjennomgangs-kadens',
+            prompt: 'Hvor ofte skal HMS-systemet gjennomgås?',
             kind: 'select',
             required: true,
             options: [
