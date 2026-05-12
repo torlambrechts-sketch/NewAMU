@@ -12,13 +12,18 @@ import {
   XCircle,
 } from 'lucide-react'
 import { List2Shell } from '../../../components/layout/List2Shell'
-import { MODULE_AXES, obligationLabel, type RequirementWithCoverage } from './regelverkCoverageTypes'
+import {
+  CONTENT_AXES,
+  OPERATIONAL_AXES,
+  obligationLabel,
+  type RequirementWithCoverage,
+} from './regelverkCoverageTypes'
 
 const CREAM_DEEP = '#EFE8DC'
 const SERIF = "'Libre Baskerville', Georgia, serif"
 
 type ObligationFilter = 'all' | 'mandatory' | 'recommended' | 'conditional'
-type StatusFilter = 'all' | 'covered' | 'partial' | 'uncovered'
+type StatusFilter = 'all' | 'covered' | 'only_avvik' | 'uncovered'
 
 function StatusPill({ status }: { status: RequirementWithCoverage['status'] }) {
   if (status === 'covered') {
@@ -29,11 +34,14 @@ function StatusPill({ status }: { status: RequirementWithCoverage['status'] }) {
       </span>
     )
   }
-  if (status === 'partial') {
+  if (status === 'only_avvik') {
     return (
-      <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-100 px-2.5 py-1 text-[11px] font-semibold text-amber-950">
+      <span
+        className="inline-flex items-center gap-1.5 rounded-full bg-amber-100 px-2.5 py-1 text-[11px] font-semibold text-amber-950"
+        title="Registrert avvik på denne §, men ingen preventiv rutine"
+      >
         <AlertTriangle className="size-3.5 shrink-0 text-amber-700" aria-hidden />
-        Delvis
+        Kun avvik
       </span>
     )
   }
@@ -62,24 +70,43 @@ function ObligationPill({ o }: { o: RequirementWithCoverage['obligation'] }) {
 }
 
 function ModuleChips({ req }: { req: RequirementWithCoverage }) {
-  const chips = MODULE_AXES.map((axis) => {
-    const count = axis.kinds.reduce((sum, k) => sum + (req.byKind[k] ?? 0), 0)
-    return { id: axis.id, label: axis.label, count }
-  }).filter((c) => c.count > 0)
+  const contentChips = CONTENT_AXES.map((axis) => ({
+    id: axis.id,
+    label: axis.label,
+    count: axis.kinds.reduce((sum, k) => sum + (req.byKind[k] ?? 0), 0),
+  })).filter((c) => c.count > 0)
 
-  if (chips.length === 0) {
+  const operationalChips = OPERATIONAL_AXES.map((axis) => ({
+    id: axis.id,
+    label: axis.label,
+    count: axis.kinds.reduce((sum, k) => sum + (req.byKind[k] ?? 0), 0),
+  })).filter((c) => c.count > 0)
+
+  if (contentChips.length === 0 && operationalChips.length === 0) {
     return <span className="text-xs italic text-neutral-400">Ingen ressurser</span>
   }
 
   return (
     <div className="flex flex-wrap gap-1">
-      {chips.map((c) => (
+      {contentChips.map((c) => (
         <span
           key={c.id}
-          className="inline-flex items-center gap-1 rounded-md bg-neutral-100 px-2 py-0.5 text-[11px] font-medium text-neutral-800"
+          className="inline-flex items-center gap-1 rounded-md bg-emerald-50 px-2 py-0.5 text-[11px] font-medium text-emerald-900 ring-1 ring-inset ring-emerald-100"
         >
           {c.label}
-          <span className="rounded-sm bg-white px-1 text-[10px] font-bold tabular-nums text-neutral-900">
+          <span className="rounded-sm bg-white px-1 text-[10px] font-bold tabular-nums text-emerald-900">
+            {c.count}
+          </span>
+        </span>
+      ))}
+      {operationalChips.map((c) => (
+        <span
+          key={c.id}
+          title="Operasjonelt signal — teller ikke som dekning"
+          className="inline-flex items-center gap-1 rounded-md bg-amber-50 px-2 py-0.5 text-[11px] font-medium text-amber-900 ring-1 ring-inset ring-amber-100"
+        >
+          {c.label}
+          <span className="rounded-sm bg-white px-1 text-[10px] font-bold tabular-nums text-amber-900">
             {c.count}
           </span>
         </span>
@@ -209,7 +236,7 @@ export function RegelverkCoverageTable({
               >
                 <option value="all">Alle</option>
                 <option value="covered">Dekket</option>
-                <option value="partial">Delvis</option>
+                <option value="only_avvik">Kun avvik</option>
                 <option value="uncovered">Udekket</option>
               </select>
             </label>

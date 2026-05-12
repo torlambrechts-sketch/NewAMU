@@ -15,7 +15,11 @@ import { RegelverkKpiHeader } from './RegelverkKpiHeader'
 import { RegelverkCategorySidebar } from './RegelverkCategorySidebar'
 import { RegelverkCoverageTable } from './RegelverkCoverageTable'
 import { RegelverkCoverageSlideOver } from './RegelverkCoverageSlideOver'
-import type { RequirementWithCoverage } from './regelverkCoverageTypes'
+import {
+  isContentKind,
+  isOperationalKind,
+  type RequirementWithCoverage,
+} from './regelverkCoverageTypes'
 
 export function RegelverkCoverageDashboardPage() {
   const [selectedRegelverk, setSelectedRegelverk] = useState<string>('aml')
@@ -36,18 +40,19 @@ export function RegelverkCoverageDashboardPage() {
 
   const requirementsWithCoverage = useMemo<RequirementWithCoverage[]>(() => {
     return requirementsForRegelverk.map((req) => {
+      // Eksakt match på lawRef + alle alternateRefs. BREDT DOMENE-OPPSLAG
+      // (eks. 'AML') tas IKKE med — det festet tidligere én generell ROS
+      // på alle 70 AML-§-er og ga falsk dekning. Domene-relaterte ROS-er
+      // håndteres separat på sidenivå.
       const exact = coverage.get(req.lawRef) ?? []
       const alts: CoverageEntry[] = []
       for (const altRef of req.alternateRefs ?? []) {
         const found = coverage.get(altRef) ?? []
         alts.push(...found)
       }
-      // ROS bruker law_domains (eks: "AML") — bredt fanget
-      const domainKey = req.regelverkId === 'aml' ? 'AML' : req.regelverkId.toUpperCase()
-      const domainMatches = (coverage.get(domainKey) ?? []).filter((c) => c.kind === 'ros')
 
       const dedup = new Map<string, CoverageEntry>()
-      for (const e of [...exact, ...alts, ...domainMatches]) {
+      for (const e of [...exact, ...alts]) {
         dedup.set(`${e.kind}:${e.id}`, e)
       }
       const entries = [...dedup.values()]
@@ -65,24 +70,24 @@ export function RegelverkCoverageDashboardPage() {
       }
       for (const e of entries) byKind[e.kind] += 1
 
-      // Status: dekket hvis ≥1 ressurs; delvis hvis bare ROS/avvik uten innholds-ressurs;
-      // udekket hvis 0.
-      const total = entries.length
-      const hasContent =
-        byKind.course_system +
-          byKind.course_org +
-          byKind.document +
-          byKind.checklist_template +
-          byKind.checklist_item +
-          byKind.survey +
-          byKind.meeting_template >
-        0
+      // Status etter compliance-officer-modell:
+      //  covered    = ≥1 INNHOLDS-ressurs (preventiv kontroll)
+      //  only_avvik = 0 innhold, ≥1 task (registrert brudd uten rutine)
+      //  uncovered  = ingenting
+      const contentCount = entries.filter((e) => isContentKind(e.kind)).length
+      const operationalCount = entries.filter((e) => isOperationalKind(e.kind)).length
       const status: RequirementWithCoverage['status'] =
-        total === 0 ? 'uncovered' : hasContent ? 'covered' : 'partial'
+        contentCount > 0 ? 'covered' : operationalCount > 0 ? 'only_avvik' : 'uncovered'
 
       return { ...req, coverage: entries, byKind, status }
     })
   }, [requirementsForRegelverk, coverage])
+
+  // Domene-relaterte ROS — vises som top-banner, ikke som per-§ dekning.
+  const domainRos = useMemo<CoverageEntry[]>(() => {
+    const domainKey = selectedRegelverk === 'aml' ? 'AML' : selectedRegelverk.toUpperCase()
+    return (coverage.get(domainKey) ?? []).filter((c) => c.kind === 'ros')
+  }, [coverage, selectedRegelverk])
 
   const regelverkOptions: SelectOption[] = useMemo(
     () =>
@@ -136,6 +141,20 @@ export function RegelverkCoverageDashboardPage() {
         requirements={requirementsWithCoverage}
         regelverkLabel={regelverk?.label ?? selectedRegelverk}
       />
+
+      {domainRos.length > 0 ? (
+        <div className="rounded-md border border-amber-200 bg-amber-50/70 px-4 py-3 text-sm text-amber-950">
+          <p className="font-semibold">
+            {domainRos.length} ROS-analyse{domainRos.length === 1 ? '' : 'r'} tagget med
+            domenet «{regelverk?.label ?? selectedRegelverk}»
+          </p>
+          <p className="mt-1 text-xs text-amber-900/80">
+            ROS bruker brede domene-tagger (eks. «AML») og ikke spesifikke §. Disse
+            telles derfor ikke som dekning av enkelt-paragrafer, men vises som
+            kontekst. Lenk ROS-en til konkrete § via avviks-modulen for å få per-§-dekning.
+          </p>
+        </div>
+      ) : null}
 
       <div className="grid gap-4 lg:grid-cols-[260px,1fr]">
         <RegelverkCategorySidebar

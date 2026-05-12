@@ -1,11 +1,16 @@
 // Drill-down for ett krav: full §-tekst, plikt-grunnlag, dekningsmatrise
 // gruppert per modul med direkte lenker. Åpnes fra tabellen.
+//
+// Etter compliance-officer-revisjon skiller vi tydelig mellom:
+//   - INNHOLD: kurs/dokument/sjekkliste/survey/møte — teller som dekning
+//   - OPERASJONELT: avvik (task) — registrert brudd, ikke dekning
 
 import { useEffect } from 'react'
 import { ExternalLink, X } from 'lucide-react'
 import {
+  CONTENT_AXES,
   KIND_LABEL,
-  MODULE_AXES,
+  OPERATIONAL_AXES,
   obligationLabel,
   type RequirementWithCoverage,
 } from './regelverkCoverageTypes'
@@ -15,7 +20,6 @@ const FOREST = '#1a3d32'
 const CREAM = '#F9F7F2'
 const SERIF = "'Libre Baskerville', Georgia, serif"
 
-// Maps en CoverageEntry til intern route der ressursen kan åpnes.
 function entryHref(e: CoverageEntry): string | null {
   switch (e.kind) {
     case 'course_system':
@@ -48,6 +52,64 @@ function StatusBadge({ status }: { status?: string }) {
   )
 }
 
+function EntryRow({ e }: { e: CoverageEntry }) {
+  const href = entryHref(e)
+  const inner = (
+    <>
+      <span className="flex min-w-0 flex-1 items-center gap-2">
+        <span className="truncate text-sm text-neutral-900">{e.title}</span>
+        <span className="shrink-0 rounded-sm bg-neutral-100 px-1.5 text-[10px] font-semibold text-neutral-600">
+          {KIND_LABEL[e.kind]}
+        </span>
+      </span>
+      <span className="flex shrink-0 items-center gap-2">
+        <StatusBadge status={e.status} />
+        {href ? <ExternalLink className="size-3.5 text-neutral-400" aria-hidden /> : null}
+      </span>
+    </>
+  )
+  return (
+    <li className="border-b border-neutral-100 last:border-b-0">
+      {href ? (
+        <a href={href} className="flex items-center gap-3 px-4 py-3 hover:bg-neutral-50">
+          {inner}
+        </a>
+      ) : (
+        <div className="flex items-center gap-3 px-4 py-3">{inner}</div>
+      )}
+    </li>
+  )
+}
+
+type AxisLike = ReadonlyArray<{
+  id: string
+  label: string
+  kinds: ReadonlyArray<CoverageEntry['kind']>
+}>
+
+function AxisGroup({ axes, entries }: { axes: AxisLike; entries: CoverageEntry[] }) {
+  return (
+    <ul className="mt-3 space-y-2">
+      {axes.map((axis) => {
+        const axisEntries = entries.filter((e) => axis.kinds.includes(e.kind))
+        if (axisEntries.length === 0) return null
+        return (
+          <li key={axis.id} className="rounded-md border border-neutral-200 bg-white">
+            <p className="border-b border-neutral-100 px-4 py-2 text-[10px] font-bold uppercase tracking-wide text-neutral-500">
+              {axis.label} · {axisEntries.length}
+            </p>
+            <ul>
+              {axisEntries.map((e) => (
+                <EntryRow key={`${e.kind}:${e.id}`} e={e} />
+              ))}
+            </ul>
+          </li>
+        )
+      })}
+    </ul>
+  )
+}
+
 export function RegelverkCoverageSlideOver({
   open,
   req,
@@ -67,6 +129,13 @@ export function RegelverkCoverageSlideOver({
   }, [open, onClose])
 
   if (!open || !req) return null
+
+  const contentEntries = req.coverage.filter((e) =>
+    CONTENT_AXES.some((a) => a.kinds.includes(e.kind)),
+  )
+  const operationalEntries = req.coverage.filter((e) =>
+    OPERATIONAL_AXES.some((a) => a.kinds.includes(e.kind)),
+  )
 
   return (
     <div className="fixed inset-0 z-[60]" role="dialog" aria-modal="true">
@@ -136,74 +205,39 @@ export function RegelverkCoverageSlideOver({
               <p className="text-[10px] font-bold uppercase tracking-wide text-neutral-500">
                 Lovtekst / oppsummering
               </p>
-              <p className="mt-2 text-sm leading-relaxed text-neutral-800">{req.description}</p>
+              <p className="mt-2 text-sm leading-relaxed text-neutral-800">
+                {req.description}
+              </p>
             </section>
           ) : null}
 
-          <section>
+          <section className="mb-6">
             <p className="text-[10px] font-bold uppercase tracking-wide text-neutral-500">
-              Dekkes av ({req.coverage.length})
+              Preventive kontroller ({contentEntries.length})
             </p>
-            {req.coverage.length === 0 ? (
+            {contentEntries.length === 0 ? (
               <div className="mt-3 rounded-md border border-dashed border-red-300 bg-red-50/60 p-4 text-sm text-red-900">
-                Dette kravet er ikke dekket av noen modul ennå. Vurder å legge til
-                et dokument, en sjekkliste, et kurs eller en undersøkelse som
-                bærer lovreferansen <code className="rounded bg-white px-1">{req.lawRef}</code>.
+                Ingen rutine, kurs, sjekkliste, undersøkelse eller møte-mal dekker
+                kravet. Tagg en eksisterende ressurs med{' '}
+                <code className="rounded bg-white px-1">{req.lawRef}</code> eller seed en ny.
               </div>
             ) : (
-              <ul className="mt-3 space-y-2">
-                {MODULE_AXES.map((axis) => {
-                  const entries = req.coverage.filter((e) => axis.kinds.includes(e.kind))
-                  if (entries.length === 0) return null
-                  return (
-                    <li key={axis.id} className="rounded-md border border-neutral-200 bg-white">
-                      <p className="border-b border-neutral-100 px-4 py-2 text-[10px] font-bold uppercase tracking-wide text-neutral-500">
-                        {axis.label} · {entries.length}
-                      </p>
-                      <ul>
-                        {entries.map((e) => {
-                          const href = entryHref(e)
-                          const Inner = (
-                            <>
-                              <span className="flex min-w-0 flex-1 items-center gap-2">
-                                <span className="truncate text-sm text-neutral-900">{e.title}</span>
-                                <span className="shrink-0 rounded-sm bg-neutral-100 px-1.5 text-[10px] font-semibold text-neutral-600">
-                                  {KIND_LABEL[e.kind]}
-                                </span>
-                              </span>
-                              <span className="flex shrink-0 items-center gap-2">
-                                <StatusBadge status={e.status} />
-                                {href ? (
-                                  <ExternalLink className="size-3.5 text-neutral-400" aria-hidden />
-                                ) : null}
-                              </span>
-                            </>
-                          )
-                          return (
-                            <li
-                              key={`${e.kind}:${e.id}`}
-                              className="border-b border-neutral-100 last:border-b-0"
-                            >
-                              {href ? (
-                                <a
-                                  href={href}
-                                  className="flex items-center gap-3 px-4 py-3 hover:bg-neutral-50"
-                                >
-                                  {Inner}
-                                </a>
-                              ) : (
-                                <div className="flex items-center gap-3 px-4 py-3">{Inner}</div>
-                              )}
-                            </li>
-                          )
-                        })}
-                      </ul>
-                    </li>
-                  )
-                })}
-              </ul>
+              <AxisGroup axes={CONTENT_AXES} entries={contentEntries} />
             )}
           </section>
+
+          {operationalEntries.length > 0 ? (
+            <section className="mb-6">
+              <p className="text-[10px] font-bold uppercase tracking-wide text-neutral-500">
+                Operasjonelle signaler ({operationalEntries.length})
+              </p>
+              <p className="mt-1 text-xs text-neutral-500">
+                Avvik registrert mot denne §. Teller ikke som dekning — viser at det
+                har vært konkrete saker som krever oppfølging.
+              </p>
+              <AxisGroup axes={OPERATIONAL_AXES} entries={operationalEntries} />
+            </section>
+          ) : null}
         </div>
 
         <footer className="border-t border-neutral-200 bg-white px-6 py-3 text-xs text-neutral-600">
