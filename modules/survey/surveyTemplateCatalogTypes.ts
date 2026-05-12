@@ -30,6 +30,11 @@ export const CatalogQuestionTypeSchema = z.enum([
   'signature',
   'photo',
   'respondent_signature',
+  // Compliance-driven additions (specs/aml-survey-content.md §2):
+  'voting',         // For/Mot/Avhold with role-tagged tally (AMU paritetisk)
+  'consent',        // Explicit GDPR Art. 7 consent gate before demographic items
+  'traffic_light',  // Green/yellow/red semantic with dashboard color render
+  'priority_top3',  // Pick + rank top three from option list
 ])
 export type CatalogQuestionType = z.infer<typeof CatalogQuestionTypeSchema>
 
@@ -44,7 +49,9 @@ export const CatalogTemplateQuestionSchema = z.object({
    * @deprecated Use law_ref (free text). Retained for backward compat with
    * existing catalog rows that carry one of the original three enum values.
    */
-  mandatory_law: z.enum(['AML_4_3', 'AML_4_4', 'AML_6_2']).optional(),
+  mandatory_law: z
+    .enum(['AML_4_3', 'AML_4_3_3', 'AML_4_4', 'AML_4_1_3', 'AML_6_2', 'LDL_26'])
+    .optional(),
   /** Free-text legal reference per question — same shape as compliance items. */
   law_ref: z.string().optional(),
   subscale: z.string().optional(),
