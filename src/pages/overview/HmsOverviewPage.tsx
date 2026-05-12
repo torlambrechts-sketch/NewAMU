@@ -242,6 +242,18 @@ export function HmsOverviewPage() {
           <div className="flex flex-wrap items-center gap-2">
             {editChrome.toggleButton}
             <Link
+              to="/overview/compliance-selskap"
+              className="inline-flex items-center justify-center gap-1.5 rounded-md border border-red-300 bg-red-50 px-4 py-2 text-sm font-semibold text-red-900 transition-colors hover:bg-red-100"
+            >
+              Compliance — selskap
+            </Link>
+            <Link
+              to="/overview/compliance-min"
+              className="inline-flex items-center justify-center gap-1.5 rounded-md border border-emerald-300 bg-emerald-50 px-4 py-2 text-sm font-semibold text-emerald-900 transition-colors hover:bg-emerald-100"
+            >
+              Min compliance
+            </Link>
+            <Link
               to="/"
               onClick={(e) => {
                 if (!e.metaKey && !e.ctrlKey) {

@@ -18,6 +18,14 @@ const CATEGORY_LABELS: Record<SpaceCategory, string> = {
   procedure: 'Prosedyre',
   guide: 'Veiledning',
   template_library: 'Malbibliotek',
+  varsling: 'Varsling',
+  personal: 'Personal',
+  personvern: 'Personvern',
+  likestilling: 'Likestilling',
+  protokoll: 'Protokoller',
+  register: 'Registre',
+  beredskap: 'Beredskap',
+  bransje: 'Bransje',
 }
 
 const categoryOptions: SelectOption[] = (Object.keys(CATEGORY_LABELS) as SpaceCategory[]).map((c) => ({

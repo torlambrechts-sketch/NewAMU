@@ -1,14 +1,21 @@
 import { useMemo, useState } from 'react'
 import {
+  AlertTriangle,
+  Archive,
   BookOpen,
   ClipboardList,
   FileSearch,
   FileText,
+  Flame,
+  HardHat,
   Library,
   Loader2,
+  Lock,
   Plus,
+  Scale,
   Shield,
   Trash2,
+  Users,
   X,
 } from 'lucide-react'
 import type { ComponentType } from 'react'
@@ -29,6 +36,14 @@ const CATEGORY_LABELS: Record<SpaceCategory, string> = {
   procedure: 'Prosedyre',
   guide: 'Veiledning',
   template_library: 'Malbibliotek',
+  varsling: 'Varsling',
+  personal: 'Personal',
+  personvern: 'Personvern',
+  likestilling: 'Likestilling',
+  protokoll: 'Protokoller',
+  register: 'Registre',
+  beredskap: 'Beredskap',
+  bransje: 'Bransje',
 }
 
 // Per-category icon — visual parity with TaskKindIcon in Oppgaver.
@@ -38,6 +53,14 @@ const CATEGORY_ICON: Record<SpaceCategory, ComponentType<{ className?: string }>
   procedure: ClipboardList,
   guide: BookOpen,
   template_library: Library,
+  varsling: AlertTriangle,
+  personal: Users,
+  personvern: Lock,
+  likestilling: Scale,
+  protokoll: ClipboardList,
+  register: Archive,
+  beredskap: Flame,
+  bransje: HardHat,
 }
 
 function DocumentCategoryIcon({ category, className = 'h-4 w-4' }: { category: SpaceCategory; className?: string }) {

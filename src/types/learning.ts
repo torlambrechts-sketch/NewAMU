@@ -112,6 +112,8 @@ export type Course = {
   courseVersion?: number
   /** Months until recertification (optional) */
   recertificationMonths?: number | null
+  /** Compliance fase 1: rolle-slugs som SKAL bestå kurset */
+  requiredForRoles?: string[]
   /**
    * Optional sections that group {@link CourseModule modules} inside the course.
    * Maps onto each module's {@link CourseModule.sectionId}.
