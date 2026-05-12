@@ -32,10 +32,14 @@ import {
   PanelRight,
   Boxes,
   Layers,
+  Plug,
+  ScrollText,
   Shield,
   ShieldAlert,
   ShieldCheck,
   Settings,
+  UserCheck,
+  UserSearch,
   Users,
   Workflow,
   CalendarDays,
@@ -1317,7 +1321,11 @@ export function AticsShell() {
         label: 'Brukere & roller',
         path: '/organisation/admin',
         Icon: Users,
-        match: ({ pathname }) => pathname.startsWith('/organisation/admin'),
+        match: ({ pathname, search }) => {
+          if (!pathname.startsWith('/organisation/admin')) return false
+          const tab = new URLSearchParams(search).get('tab')
+          return !tab || tab === 'users' || tab === 'roles' || tab === 'delegation'
+        },
         requirePermAny: ADMIN_NAV_PERMS,
       },
       {
@@ -1335,6 +1343,60 @@ export function AticsShell() {
         path: '/admin/templates',
         Icon: LayoutTemplate,
         match: ({ pathname }) => pathname === '/admin/templates',
+        requirePermAny: ADMIN_NAV_PERMS,
+      },
+      {
+        label: 'Funksjonelle roller',
+        path: '/organisation/admin?tab=functional_roles',
+        Icon: UserCheck,
+        match: ({ pathname, search }) =>
+          pathname.startsWith('/organisation/admin') &&
+          new URLSearchParams(search).get('tab') === 'functional_roles',
+        requirePermAny: ADMIN_NAV_PERMS,
+      },
+      {
+        label: 'Rolle-compliance',
+        path: '/organisation/admin?tab=role_compliance',
+        Icon: BarChart3,
+        match: ({ pathname, search }) =>
+          pathname.startsWith('/organisation/admin') &&
+          new URLSearchParams(search).get('tab') === 'role_compliance',
+        requirePermAny: ADMIN_NAV_PERMS,
+      },
+      {
+        label: 'Regelverk-dekning',
+        path: '/organisation/admin?tab=regelverk_coverage',
+        Icon: ScrollText,
+        match: ({ pathname, search }) =>
+          pathname.startsWith('/organisation/admin') &&
+          new URLSearchParams(search).get('tab') === 'regelverk_coverage',
+        requirePermAny: ADMIN_NAV_PERMS,
+      },
+      {
+        label: 'GDPR brudd',
+        path: '/organisation/admin?tab=gdpr_breach',
+        Icon: ShieldAlert,
+        match: ({ pathname, search }) =>
+          pathname.startsWith('/organisation/admin') &&
+          new URLSearchParams(search).get('tab') === 'gdpr_breach',
+        requirePermAny: ADMIN_NAV_PERMS,
+      },
+      {
+        label: 'GDPR individrettigheter',
+        path: '/organisation/admin?tab=gdpr_subject_requests',
+        Icon: UserSearch,
+        match: ({ pathname, search }) =>
+          pathname.startsWith('/organisation/admin') &&
+          new URLSearchParams(search).get('tab') === 'gdpr_subject_requests',
+        requirePermAny: ADMIN_NAV_PERMS,
+      },
+      {
+        label: 'Integrasjoner',
+        path: '/organisation/admin?tab=integrations',
+        Icon: Plug,
+        match: ({ pathname, search }) =>
+          pathname.startsWith('/organisation/admin') &&
+          new URLSearchParams(search).get('tab') === 'integrations',
         requirePermAny: ADMIN_NAV_PERMS,
       },
       {
