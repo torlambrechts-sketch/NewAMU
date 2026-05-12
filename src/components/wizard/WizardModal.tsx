@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { AlertCircle, CheckCircle2, ChevronLeft, ChevronRight, X } from 'lucide-react'
+import { AlertCircle, CheckCircle2, ChevronLeft, ChevronRight, Loader2, X } from 'lucide-react'
 import type { WizardDef, WizardField } from './types'
 
 // ─── Colour map ───────────────────────────────────────────────────────────────
@@ -141,6 +141,77 @@ function WizardFieldRenderer({
     )
   }
 
+  if (field.kind === 'module_picker') {
+    const selected: string[] =
+      value && typeof value === 'string' ? (JSON.parse(value || '[]') as string[]) : []
+    const opts = field.options ?? []
+    if (opts.length === 0) {
+      return (
+        <div className="mt-2 rounded-xl border border-dashed border-neutral-300 bg-neutral-50 px-4 py-3 text-sm text-neutral-600">
+          {field.emptyHint ?? 'Ingen kandidater funnet for dette kravet ennå.'}
+        </div>
+      )
+    }
+    // Grupper etter `group` (eks: "Kurs", "Dokument") med stabil rekkefølge.
+    const groups = new Map<string, typeof opts>()
+    for (const o of opts) {
+      const g = o.group ?? 'Annet'
+      const list = groups.get(g) ?? []
+      list.push(o)
+      groups.set(g, list)
+    }
+    const toggle = (val: string) => {
+      const next = selected.includes(val)
+        ? selected.filter((v) => v !== val)
+        : [...selected, val]
+      onChange(JSON.stringify(next))
+    }
+    return (
+      <div className="mt-1 space-y-3">
+        {[...groups.entries()].map(([group, items]) => (
+          <div key={group} className="rounded-xl border border-neutral-200 bg-white">
+            <p className="border-b border-neutral-100 px-3 py-1.5 text-[10px] font-bold uppercase tracking-wide text-neutral-500">
+              {group} · {items.length}
+            </p>
+            <ul>
+              {items.map((opt) => {
+                const checked = selected.includes(opt.value)
+                return (
+                  <li key={opt.value} className="border-b border-neutral-100 last:border-b-0">
+                    <label className="flex cursor-pointer items-start gap-3 px-3 py-2.5 hover:bg-neutral-50">
+                      <input
+                        type="checkbox"
+                        checked={checked}
+                        onChange={() => toggle(opt.value)}
+                        className="mt-0.5 size-4 rounded border-neutral-300"
+                        style={{ accentColor: '#1a3d32' }}
+                      />
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2">
+                          <span className="truncate text-sm font-medium text-neutral-900">
+                            {opt.label}
+                          </span>
+                          {opt.badge ? (
+                            <span className="shrink-0 rounded-full bg-neutral-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-neutral-700">
+                              {opt.badge}
+                            </span>
+                          ) : null}
+                        </div>
+                        {opt.description ? (
+                          <p className="text-xs text-neutral-500">{opt.description}</p>
+                        ) : null}
+                      </div>
+                    </label>
+                  </li>
+                )
+              })}
+            </ul>
+          </div>
+        ))}
+      </div>
+    )
+  }
+
   if (field.kind === 'select') {
     return (
       <select value={value as string} onChange={(e) => onChange(e.target.value)} className={baseInput}>
@@ -186,6 +257,7 @@ export function WizardModal({ def, onClose }: { def: WizardDef; onClose: () => v
   const [values, setValues] = useState<Record<string, string | boolean>>({})
   const [error, setError] = useState<string | null>(null)
   const [done, setDone] = useState(false)
+  const [advancing, setAdvancing] = useState(false)
   const overlayRef = useRef<HTMLDivElement>(null)
   const colour = def.colour ?? 'neutral'
   const accent = ACCENT[colour]
@@ -215,7 +287,8 @@ export function WizardModal({ def, onClose }: { def: WizardDef; onClose: () => v
     return fields.filter((f) => !f.showWhen || f.showWhen(values))
   }
 
-  function handleNext() {
+  async function handleNext() {
+    if (advancing) return
     // Validate required fields
     const missing = visibleFields(step.fields)
       .filter((f) => f.required && f.kind !== 'checkbox' && f.kind !== 'info' && !getField(f.id))
@@ -229,6 +302,24 @@ export function WizardModal({ def, onClose }: { def: WizardDef; onClose: () => v
       if (err) { setError(err); return }
     }
     setError(null)
+
+    // Async side-effect (provisjonering, etc.) — blokkerer fremgang ved feil.
+    if (step.onAdvance) {
+      setAdvancing(true)
+      try {
+        const result = await step.onAdvance(values)
+        if (!result.ok) {
+          setError(result.error)
+          return
+        }
+      } catch (e) {
+        setError(e instanceof Error ? e.message : 'Noe gikk galt under bekreftelse.')
+        return
+      } finally {
+        setAdvancing(false)
+      }
+    }
+
     if (isLast) {
       def.onSubmit(values)
       setDone(true)
@@ -389,9 +480,15 @@ export function WizardModal({ def, onClose }: { def: WizardDef; onClose: () => v
           <button
             type="button"
             onClick={handleNext}
-            className={`inline-flex items-center gap-1.5 rounded-full px-5 py-2 text-sm font-semibold text-white shadow-sm transition-colors ${accent.btn}`}
+            disabled={advancing}
+            className={`inline-flex items-center gap-1.5 rounded-full px-5 py-2 text-sm font-semibold text-white shadow-sm transition-colors disabled:opacity-60 ${accent.btn}`}
           >
-            {isLast ? (
+            {advancing ? (
+              <>
+                <Loader2 className="size-4 animate-spin" />
+                {step.advancingLabel ?? 'Lagrer …'}
+              </>
+            ) : isLast ? (
               <>
                 <CheckCircle2 className="size-4" />
                 {def.steps[stepIndex].id === 'confirm' ? 'Bekreft og lagre' : 'Lagre'}
