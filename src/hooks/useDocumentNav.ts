@@ -48,6 +48,14 @@ const CATEGORY_LABEL: Record<SpaceCategory, string> = {
   procedure: 'Prosedyrer',
   guide: 'Guider',
   template_library: 'Malbibliotek',
+  varsling: 'Varsling',
+  personal: 'Personal',
+  personvern: 'Personvern',
+  likestilling: 'Likestilling',
+  protokoll: 'Protokoller',
+  register: 'Registre',
+  beredskap: 'Beredskap',
+  bransje: 'Bransje',
 }
 
 const CATEGORY_ORDER: Record<SpaceCategory, number> = {
@@ -55,7 +63,15 @@ const CATEGORY_ORDER: Record<SpaceCategory, number> = {
   policy: 2,
   procedure: 3,
   guide: 4,
-  template_library: 5,
+  protokoll: 5,
+  varsling: 6,
+  personal: 7,
+  personvern: 8,
+  likestilling: 9,
+  beredskap: 10,
+  register: 11,
+  bransje: 12,
+  template_library: 99,
 }
 
 // Mirrors the deterministic backfill in 20260828120036 — keep aligned.
@@ -65,6 +81,14 @@ const CATEGORY_REGULATION: Record<SpaceCategory, string | null> = {
   policy: null,
   guide: null,
   template_library: null,
+  varsling: 'aml',
+  personal: 'aml',
+  personvern: 'gdpr',
+  likestilling: 'ldl',
+  protokoll: 'aml',
+  register: 'aml',
+  beredskap: 'aml',
+  bransje: null,
 }
 
 export function useDocumentNav(): UseDocumentNavReturn {
