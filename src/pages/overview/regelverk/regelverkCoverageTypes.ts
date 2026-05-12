@@ -22,10 +22,12 @@ export type RequirementWithCoverage = Requirement & {
 }
 
 // Innholds-akser: preventive kontroller. Disse teller som dekning.
+// Vi inkluderer både system-templates og org-instanser i samme akse —
+// dashbordet bruker source-feltet for å skille hvor det trengs.
 export type ContentAxis = 'course' | 'document' | 'checklist' | 'survey' | 'meeting'
 export const CONTENT_AXES: { id: ContentAxis; label: string; kinds: CoverageEntry['kind'][] }[] = [
   { id: 'course', label: 'Kurs', kinds: ['course_system', 'course_org'] },
-  { id: 'document', label: 'Dokument', kinds: ['document'] },
+  { id: 'document', label: 'Dokument', kinds: ['document', 'document_template'] },
   { id: 'checklist', label: 'Sjekkliste', kinds: ['checklist_template', 'checklist_item'] },
   { id: 'survey', label: 'Undersøkelse', kinds: ['survey'] },
   { id: 'meeting', label: 'Møte', kinds: ['meeting_template'] },
@@ -43,6 +45,7 @@ export const KIND_LABEL: Record<CoverageEntry['kind'], string> = {
   course_system: 'Kurs',
   course_org: 'Kurs (org)',
   document: 'Dokument',
+  document_template: 'Dokument-mal',
   survey: 'Undersøkelse',
   checklist_template: 'Sjekkliste',
   checklist_item: 'Sjekkliste-item',

@@ -356,26 +356,33 @@ export function WizardModal({
     setStepIndex((i) => Math.max(0, i - 1))
   }
 
-  // Backdrop click closes
-  function handleBackdrop(e: React.MouseEvent) {
-    if (e.target === overlayRef.current) onClose()
-  }
-
   if (done) {
     return (
-      <div ref={overlayRef} onClick={handleBackdrop}
-        className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm">
-        <div className="w-full max-w-md rounded-2xl bg-white shadow-2xl">
-          <div className="flex flex-col items-center gap-4 p-8 text-center">
+      <div
+        ref={overlayRef}
+        onMouseDown={(e) => {
+          if (e.target === overlayRef.current) onClose()
+        }}
+        className="fixed inset-0 z-50 flex justify-end bg-black/45 backdrop-blur-[2px]"
+      >
+        <div
+          className="flex h-full w-full max-w-[min(100vw,720px)] flex-col bg-[#f7f6f2] shadow-[-12px_0_40px_rgba(0,0,0,0.12)]"
+          role="dialog"
+          aria-modal="true"
+          onMouseDown={(e) => e.stopPropagation()}
+        >
+          <div className="flex flex-1 flex-col items-center justify-center gap-4 p-10 text-center">
             <div className="flex size-16 items-center justify-center rounded-full bg-emerald-100">
               <CheckCircle2 className="size-9 text-emerald-600" />
             </div>
-            <h2 className="text-xl font-semibold text-neutral-900">Fullført!</h2>
-            <p className="text-sm text-neutral-600">{def.description ?? `${def.title} er registrert.`}</p>
+            <h2 className="text-2xl font-semibold text-neutral-900">Fullført!</h2>
+            <p className="max-w-md text-sm text-neutral-600">
+              {def.description ?? `${def.title} er registrert.`}
+            </p>
             <button
               type="button"
               onClick={onClose}
-              className="mt-2 rounded-full bg-[#1a3d32] px-6 py-2.5 text-sm font-medium text-white hover:bg-[#142e26] transition-colors"
+              className="mt-2 rounded-full bg-[#1a3d32] px-6 py-2.5 text-sm font-medium text-white transition-colors hover:bg-[#142e26]"
             >
               Lukk
             </button>
@@ -388,13 +395,16 @@ export function WizardModal({
   return (
     <div
       ref={overlayRef}
-      onClick={handleBackdrop}
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm"
+      onMouseDown={(e) => {
+        if (e.target === overlayRef.current) onClose()
+      }}
+      className="fixed inset-0 z-50 flex justify-end bg-black/45 backdrop-blur-[2px]"
     >
       <div
-        className="relative flex w-full max-w-xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl"
-        style={{ maxHeight: 'calc(100vh - 2rem)' }}
-        onClick={(e) => e.stopPropagation()}
+        className="relative flex h-full w-full max-w-[min(100vw,720px)] flex-col overflow-hidden bg-[#f7f6f2] shadow-[-12px_0_40px_rgba(0,0,0,0.12)]"
+        role="dialog"
+        aria-modal="true"
+        onMouseDown={(e) => e.stopPropagation()}
       >
         {/* ── Header ──────────────────────────────────────────────────── */}
         <div className={`shrink-0 px-6 pb-4 pt-5 ${accent.bg}`}>
