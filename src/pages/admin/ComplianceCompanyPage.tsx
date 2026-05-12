@@ -134,7 +134,7 @@ export function ComplianceCompanyPage() {
     <>
       <ModuleAnalyticsDashboard
         accent={getDashboardScope(COMPLIANCE_COMPANY_SCOPE_ID)?.accent}
-        breadcrumb={[{ label: 'HMS-oversikt', to: '/hms-oversikt' }, { label: 'Compliance — selskap' }]}
+        breadcrumb={[{ label: 'Oversikt', to: '/overview/hms' }, { label: 'Compliance — selskap' }]}
         title="Compliance — selskap"
         description="Alle krav på tvers av moduler, hvem som er ansvarlig, og status. Inkluderer ærlig liste over IKKE-dekkede lovkrav."
         titleChooser={

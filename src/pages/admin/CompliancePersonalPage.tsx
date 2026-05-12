@@ -70,7 +70,7 @@ export function CompliancePersonalPage() {
     <>
       <ModuleAnalyticsDashboard
         accent={getDashboardScope(COMPLIANCE_PERSONAL_SCOPE_ID)?.accent}
-        breadcrumb={[{ label: 'HMS-oversikt', to: '/hms-oversikt' }, { label: 'Min compliance' }]}
+        breadcrumb={[{ label: 'Oversikt', to: '/overview/hms' }, { label: 'Min compliance' }]}
         title="Min compliance"
         description="Dine åpne krav, forfalt, og oppfylt-historikk på tvers av rollene du har."
         titleChooser={

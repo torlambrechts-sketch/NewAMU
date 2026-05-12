@@ -32,10 +32,14 @@ import {
   PanelRight,
   Boxes,
   Layers,
+  Plug,
+  ScrollText,
   Shield,
   ShieldAlert,
   ShieldCheck,
   Settings,
+  UserCheck,
+  UserSearch,
   Users,
   Workflow,
   CalendarDays,
@@ -1317,7 +1321,11 @@ export function AticsShell() {
         label: 'Brukere & roller',
         path: '/organisation/admin',
         Icon: Users,
-        match: ({ pathname }) => pathname.startsWith('/organisation/admin'),
+        match: ({ pathname, search }) => {
+          if (!pathname.startsWith('/organisation/admin')) return false
+          const tab = new URLSearchParams(search).get('tab')
+          return !tab || tab === 'users' || tab === 'roles' || tab === 'delegation'
+        },
         requirePermAny: ADMIN_NAV_PERMS,
       },
       {
@@ -1335,6 +1343,51 @@ export function AticsShell() {
         path: '/admin/templates',
         Icon: LayoutTemplate,
         match: ({ pathname }) => pathname === '/admin/templates',
+        requirePermAny: ADMIN_NAV_PERMS,
+      },
+      {
+        label: 'Funksjonelle roller',
+        path: '/organisation/admin?tab=functional_roles',
+        Icon: UserCheck,
+        match: ({ pathname, search }) =>
+          pathname.startsWith('/organisation/admin') &&
+          new URLSearchParams(search).get('tab') === 'functional_roles',
+        requirePermAny: ADMIN_NAV_PERMS,
+      },
+      {
+        label: 'Rolle-compliance',
+        path: '/organisation/admin?tab=role_compliance',
+        Icon: BarChart3,
+        match: ({ pathname, search }) =>
+          pathname.startsWith('/organisation/admin') &&
+          new URLSearchParams(search).get('tab') === 'role_compliance',
+        requirePermAny: ADMIN_NAV_PERMS,
+      },
+      {
+        label: 'GDPR brudd',
+        path: '/organisation/admin?tab=gdpr_breach',
+        Icon: ShieldAlert,
+        match: ({ pathname, search }) =>
+          pathname.startsWith('/organisation/admin') &&
+          new URLSearchParams(search).get('tab') === 'gdpr_breach',
+        requirePermAny: ADMIN_NAV_PERMS,
+      },
+      {
+        label: 'GDPR individrettigheter',
+        path: '/organisation/admin?tab=gdpr_subject_requests',
+        Icon: UserSearch,
+        match: ({ pathname, search }) =>
+          pathname.startsWith('/organisation/admin') &&
+          new URLSearchParams(search).get('tab') === 'gdpr_subject_requests',
+        requirePermAny: ADMIN_NAV_PERMS,
+      },
+      {
+        label: 'Integrasjoner',
+        path: '/organisation/admin?tab=integrations',
+        Icon: Plug,
+        match: ({ pathname, search }) =>
+          pathname.startsWith('/organisation/admin') &&
+          new URLSearchParams(search).get('tab') === 'integrations',
         requirePermAny: ADMIN_NAV_PERMS,
       },
       {
@@ -1535,26 +1588,58 @@ export function AticsShell() {
       ],
     }
 
-    // Composite "HMS Overview" group — sits at the top of the merged nav
+    // Composite "Oversikt" group — sits at the top of the merged nav
     // since it's the org-wide entry point that pulls in widgets from
     // every other module group below it.
+    const overviewNavPerms: PermissionKey[] = [
+      ...COMPLIANCE_NAV_PERMS,
+      ...SURVEY_NAV_PERMS,
+      ...LEARNING_NAV_PERMS,
+      'module.view.tasks',
+    ]
+    const overviewFixedSubs: SubItem[] = [
+      {
+        label: 'HMS-oversikt',
+        path: '/overview/hms',
+        Icon: Activity,
+        match: ({ pathname }) => pathname === '/overview/hms',
+        requirePermAny: overviewNavPerms,
+      },
+      {
+        label: 'Regelverk-dekning',
+        path: '/overview/regelverk',
+        Icon: ScrollText,
+        match: ({ pathname }) => pathname.startsWith('/overview/regelverk'),
+        requirePermAny: ADMIN_NAV_PERMS,
+      },
+      {
+        label: 'Compliance — selskap',
+        path: '/overview/compliance-selskap',
+        Icon: ShieldCheck,
+        match: ({ pathname }) => pathname === '/overview/compliance-selskap',
+        requirePermAny: ADMIN_NAV_PERMS,
+      },
+      {
+        label: 'Min compliance',
+        path: '/overview/compliance-min',
+        Icon: HeartPulse,
+        match: ({ pathname }) => pathname === '/overview/compliance-min',
+        requirePermAny: overviewNavPerms,
+      },
+    ]
     const hmsOverviewGroup: NavGroup = {
       id: 'hms-oversikt',
-      label: 'HMS-oversikt',
+      label: 'Oversikt',
       icon: Activity,
       modules: [
         {
           to: '/overview/hms',
-          label: 'HMS-oversikt',
-          end: true,
+          label: 'Oversikt',
+          end: false,
           icon: Activity,
-          subs: [],
-          permAny: [
-            ...COMPLIANCE_NAV_PERMS,
-            ...SURVEY_NAV_PERMS,
-            ...LEARNING_NAV_PERMS,
-            'module.view.tasks',
-          ],
+          subs: overviewFixedSubs,
+          permAny: overviewNavPerms,
+          flatSubs: true,
         },
       ],
     }
