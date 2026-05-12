@@ -74,7 +74,7 @@ export const UNMAPPED_REQUIREMENTS = [
   { lovkrav: 'LDL § 28 (universell utforming)', omrade: 'Tilrettelegging', foreslattMal: 'tpl-uu-vurdering', prioritet: 'Middels' },
   { lovkrav: 'GDPR Art. 15–21 (individrettigheter)', omrade: 'Personvern', foreslattMal: 'tpl-personvern-individrettigheter-prosedyre', prioritet: 'Høy' },
   { lovkrav: 'GDPR Art. 28 (databehandler-avtale)', omrade: 'Personvern', foreslattMal: 'tpl-dpa', prioritet: 'Høy' },
-  { lovkrav: 'GDPR Art. 33–34 (brudd-varsling 72 t)', omrade: 'Personvern', foreslattMal: 'tpl-brudd-prosedyre + edge function', prioritet: 'Kritisk' },
+  // GDPR Art. 33–34 ble lukket i fase 3 — se admin/gdpr_breach + gdpr_breach_incidents
   { lovkrav: 'Stoff-kartotek (Forskr. utf. § 1-7)', omrade: 'Kjemikalier', foreslattMal: 'Eco-Online-sync edge function', prioritet: 'Middels' },
   { lovkrav: 'AML § 5-2 yrkesskade-melding', omrade: 'Skade', foreslattMal: 'NAV-skjema-integrasjon', prioritet: 'Middels' },
   { lovkrav: 'Brannvern § 5–11 (forebyggende)', omrade: 'Beredskap', foreslattMal: 'tpl-brannvern-plan (splitt fra beredskap)', prioritet: 'Lav' },
@@ -84,6 +84,14 @@ export function useComplianceCompanyDatasets(filters: DashboardFilter[]): Record
   const { supabase, organization } = useOrgSetupContext()
   const [instances, setInstances] = useState<Instance[]>([])
   const [profiles, setProfiles] = useState<Profile[]>([])
+  const [breachStatus, setBreachStatus] = useState<{
+    detected_count?: number
+    investigating_count?: number
+    reported_count?: number
+    overdue_count?: number
+    due_within_24h_count?: number
+    nearest_deadline_at?: string | null
+  } | null>(null)
   const [loaded, setLoaded] = useState(false)
 
   useEffect(() => {
@@ -98,10 +106,16 @@ export function useComplianceCompanyDatasets(filters: DashboardFilter[]): Record
         .from('profiles')
         .select('id, display_name')
         .eq('organization_id', organization.id),
-    ]).then(([iRes, pRes]) => {
+      supabase
+        .from('gdpr_breach_status_view')
+        .select('*')
+        .eq('organization_id', organization.id)
+        .maybeSingle(),
+    ]).then(([iRes, pRes, bRes]) => {
       if (cancelled) return
       setInstances((iRes.data ?? []) as Instance[])
       setProfiles((pRes.data ?? []) as Profile[])
+      setBreachStatus(bRes.data as typeof breachStatus)
       setLoaded(true)
     })
     return () => { cancelled = true }
@@ -197,6 +211,10 @@ export function useComplianceCompanyDatasets(filters: DashboardFilter[]): Record
       }
     }).filter((r) => r.totalRequirements > 0)
 
+    const breachActive = (breachStatus?.detected_count ?? 0) + (breachStatus?.investigating_count ?? 0)
+    const breachOverdue = breachStatus?.overdue_count ?? 0
+    const breachDueWithin24h = breachStatus?.due_within_24h_count ?? 0
+
     return {
       cc_kpi_summary: {
         total,
@@ -206,6 +224,9 @@ export function useComplianceCompanyDatasets(filters: DashboardFilter[]): Record
         criticalOpen,
         unmappedCount,
         complianceRate,
+        breachActive,
+        breachOverdue,
+        breachDueWithin24h,
       },
       cc_status_distribution: statusDist,
       cc_kind_distribution: kindDist,
@@ -215,7 +236,7 @@ export function useComplianceCompanyDatasets(filters: DashboardFilter[]): Record
       cc_modules_coverage: moduleRows,
       cc_unmapped_requirements: UNMAPPED_REQUIREMENTS,
     }
-  }, [instances, profiles, loaded, filters])
+  }, [instances, profiles, breachStatus, loaded, filters])
 }
 
 export function useCompliancePersonalDatasets(): Record<string, unknown> {

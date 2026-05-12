@@ -3,6 +3,7 @@
 // Brukes både som dedikert side under HMS-oversikt og som admin-tab.
 
 import { useMemo, useState } from 'react'
+import { Download } from 'lucide-react'
 import { ModuleAnalyticsDashboard } from '../../components/module/ModuleAnalyticsDashboard'
 import { DashboardEditLayoutPanel } from '../../components/module/dashboard/DashboardEditLayoutPanel'
 import { DashboardAddWidgetPanel } from '../../components/module/dashboard/DashboardAddWidgetPanel'
@@ -23,10 +24,49 @@ import './dashboards/complianceCompanyDashboardScope'
 import { useComplianceCompanyDatasets } from './dashboards/useComplianceDatasets'
 import type { ReportModule } from '../../types/reportBuilder'
 
+function downloadAuditCsv(rows: Record<string, unknown>[], filename: string) {
+  if (!rows.length) {
+    alert('Ingen data å eksportere ennå.')
+    return
+  }
+  const keys = Object.keys(rows[0])
+  const escape = (v: unknown) =>
+    `"${String(v ?? '').replace(/"/g, '""').replace(/\r?\n/g, ' ')}"`
+  const csv = [keys.join(','), ...rows.map((r) => keys.map((k) => escape(r[k])).join(','))].join('\n')
+  const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8' })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = filename
+  a.click()
+  URL.revokeObjectURL(url)
+}
+
 export function ComplianceCompanyPage() {
-  const { supabase } = useOrgSetupContext()
+  const { supabase, organization } = useOrgSetupContext()
   const dashboard = useDashboardLayout({ supabase, scopeId: COMPLIANCE_COMPANY_SCOPE_ID })
   const datasets = useComplianceCompanyDatasets(dashboard.filters)
+  const [exporting, setExporting] = useState(false)
+
+  async function exportToTilsynet() {
+    if (!supabase || !organization?.id) return
+    setExporting(true)
+    try {
+      const { data, error } = await supabase.rpc('compliance_company_audit_export', {
+        p_org_id: organization.id,
+      })
+      if (error) throw error
+      const stamp = new Date().toISOString().split('T')[0]
+      downloadAuditCsv(
+        (data ?? []) as Record<string, unknown>[],
+        `tilsyns-eksport-${stamp}.csv`,
+      )
+    } catch (e) {
+      alert(`Eksport feilet: ${e instanceof Error ? e.message : 'ukjent'}`)
+    } finally {
+      setExporting(false)
+    }
+  }
 
   const layout = useMemo(
     () =>
@@ -85,7 +125,20 @@ export function ComplianceCompanyPage() {
             onMarkDefault={dashboard.markActiveDefault}
           />
         }
-        headerActions={editChrome.toggleButton}
+        headerActions={
+          <div className="flex flex-wrap items-center gap-2">
+            {editChrome.toggleButton}
+            <button
+              type="button"
+              onClick={exportToTilsynet}
+              disabled={exporting}
+              className="inline-flex items-center gap-1.5 rounded-md border border-red-300 bg-red-50 px-4 py-2 text-sm font-semibold text-red-900 transition-colors hover:bg-red-100 disabled:opacity-50"
+            >
+              <Download className="h-4 w-4" />
+              {exporting ? 'Eksporterer…' : 'Tilsyns-eksport (CSV)'}
+            </button>
+          </div>
+        }
         layout={layout}
         datasets={datasets}
         loading={dashboard.loading}

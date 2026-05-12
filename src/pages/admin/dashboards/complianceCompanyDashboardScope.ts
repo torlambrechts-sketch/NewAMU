@@ -56,6 +56,21 @@ const KPI_COMPLIANCE_PCT: ReportModuleKpi = {
   title: 'Compliance-grad', valuePath: 'complianceRate', subtitle: 'Oppfylt / totalt × 100',
   colSpan: 'sm',
 }
+const KPI_BREACH_ACTIVE: ReportModuleKpi = {
+  id: 'kpi-breach-active', kind: 'kpi', datasetKey: 'cc_kpi_summary',
+  title: 'Aktive GDPR-brudd', valuePath: 'breachActive',
+  subtitle: 'Detected + investigating', colSpan: 'sm',
+}
+const KPI_BREACH_OVERDUE: ReportModuleKpi = {
+  id: 'kpi-breach-overdue', kind: 'kpi', datasetKey: 'cc_kpi_summary',
+  title: 'Brudd over 72t', valuePath: 'breachOverdue',
+  subtitle: 'KRITISK — Art. 33 brutt', colSpan: 'sm',
+}
+const KPI_BREACH_DUE_24H: ReportModuleKpi = {
+  id: 'kpi-breach-due-24h', kind: 'kpi', datasetKey: 'cc_kpi_summary',
+  title: 'Brudd forfaller < 24t', valuePath: 'breachDueWithin24h',
+  subtitle: 'Haster rapportering', colSpan: 'sm',
+}
 
 const DONUT_STATUS: ReportModuleDonut = {
   id: 'donut-status', kind: 'donut', datasetKey: 'cc_status_distribution',
@@ -113,6 +128,7 @@ const TABLE_MODULES: ReportModuleTable = {
 
 const DEFAULT_LAYOUT: ReportModule[] = [
   KPI_TOTAL, KPI_COMPLETED, KPI_OVERDUE, KPI_CRITICAL, KPI_UNMAPPED, KPI_COMPLIANCE_PCT,
+  KPI_BREACH_ACTIVE, KPI_BREACH_OVERDUE, KPI_BREACH_DUE_24H,
   DONUT_STATUS, DONUT_KIND, BAR_SEVERITY,
   HEATMAP_ROLE_STATUS,
   TABLE_OVERDUE, TABLE_MODULES, TABLE_UNMAPPED,
@@ -125,6 +141,9 @@ const WIDGET_CATALOG: WidgetCatalogEntry[] = [
   { catalogId: 'kpi-critical', category: 'Risiko', label: 'Kritiske åpne', template: KPI_CRITICAL },
   { catalogId: 'kpi-unmapped', category: 'Risiko', label: 'Ikke-dekkede lovkrav', template: KPI_UNMAPPED },
   { catalogId: 'kpi-compliance-pct', category: 'Volum', label: 'Compliance-grad', template: KPI_COMPLIANCE_PCT },
+  { catalogId: 'kpi-breach-active', category: 'GDPR', label: 'Aktive GDPR-brudd', template: KPI_BREACH_ACTIVE },
+  { catalogId: 'kpi-breach-overdue', category: 'GDPR', label: 'Brudd over 72t', template: KPI_BREACH_OVERDUE },
+  { catalogId: 'kpi-breach-due-24h', category: 'GDPR', label: 'Brudd forfaller < 24t', template: KPI_BREACH_DUE_24H },
   { catalogId: 'donut-status', category: 'Diagrammer', label: 'Status-fordeling', template: DONUT_STATUS },
   { catalogId: 'donut-kind', category: 'Diagrammer', label: 'Krav etter type', template: DONUT_KIND },
   { catalogId: 'bar-severity', category: 'Diagrammer', label: 'Alvorlighet', template: BAR_SEVERITY },
