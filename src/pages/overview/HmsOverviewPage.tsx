@@ -221,6 +221,7 @@ export function HmsOverviewPage() {
         accent={getDashboardScope(HMS_OVERVIEW_SCOPE_ID)?.accent}
         breadcrumb={[
           { label: 'Arbeidsflate', to: '/' },
+          { label: 'Oversikt', to: '/overview/hms' },
           { label: 'HMS-oversikt' },
         ]}
         title="HMS-oversikt"
