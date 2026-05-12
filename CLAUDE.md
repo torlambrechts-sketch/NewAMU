@@ -92,6 +92,7 @@ Conventions when promoting a module:
 | `learning` | `#0e7490` | Teal |
 | `documents` | `#0f766e` | Deep teal — distinct from learning in the composite |
 | `hms_overview` | `#4338ca` | Indigo — reads as "different layer" from each member |
+| `role_compliance` | `#a21caf` | Magenta — distinct from learning/documents teal so the role-vs-resource axis stands out (`src/pages/admin/dashboards/roleComplianceDashboardScope.ts`) |
 
 Pages resolve the accent via `getDashboardScope(scopeId)?.accent` and pass
 it to `ModuleAnalyticsDashboard`. Compliance overrides with `packAccentFor`

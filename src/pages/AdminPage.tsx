@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useLocation, useSearchParams } from 'react-router-dom'
-import { Download, Loader2, Mail, Plug, Plus, Shield, Upload, UserCheck, UserCog, Users } from 'lucide-react'
+import { BarChart3, Download, Loader2, Mail, Plug, Plus, Shield, Upload, UserCheck, UserCog, Users } from 'lucide-react'
 import { IntegrationsAdminPanel } from './admin/IntegrationsAdminPanel'
 import { FunctionalRolesAdminPanel } from './admin/FunctionalRolesAdminPanel'
+import { RoleComplianceAnalysePage } from './admin/RoleComplianceAnalysePage'
 import { ModulePageShell, ModuleSectionCard } from '../components/module'
 import { Tabs } from '../components/ui/Tabs'
 import { StandardInput } from '../components/ui/Input'
@@ -47,6 +48,7 @@ const ADMIN_TABS = [
   { id: 'users', label: 'Brukere & invitasjoner', icon: Users },
   { id: 'roles', label: 'Roller & rettigheter', icon: Shield },
   { id: 'functional_roles', label: 'Funksjonelle roller', icon: UserCheck },
+  { id: 'role_compliance', label: 'Rolle-compliance', icon: BarChart3 },
   { id: 'delegation', label: 'Delegering', icon: UserCog },
   { id: 'integrations', label: 'Integrasjoner', icon: Plug },
 ] as const
@@ -512,6 +514,10 @@ export function AdminPage() {
 
       {tab === 'functional_roles' && !loading ? (
         <FunctionalRolesAdminPanel />
+      ) : null}
+
+      {tab === 'role_compliance' && !loading ? (
+        <RoleComplianceAnalysePage />
       ) : null}
 
       {tab === 'delegation' && !loading ? (
