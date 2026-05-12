@@ -16,7 +16,7 @@ export function RegelverkKpiHeader({
 }) {
   const total = requirements.length
   const covered = requirements.filter((r) => r.status === 'covered').length
-  const partial = requirements.filter((r) => r.status === 'partial').length
+  const onlyAvvik = requirements.filter((r) => r.status === 'only_avvik').length
   const uncovered = requirements.filter((r) => r.status === 'uncovered').length
   const pct = total === 0 ? 0 : Math.round((covered / total) * 100)
 
@@ -25,6 +25,9 @@ export function RegelverkKpiHeader({
   ).length
   const uncoveredRecommended = requirements.filter(
     (r) => r.status === 'uncovered' && r.obligation === 'recommended',
+  ).length
+  const avvikMandatory = requirements.filter(
+    (r) => r.status === 'only_avvik' && r.obligation === 'mandatory',
   ).length
 
   return (
@@ -60,12 +63,16 @@ export function RegelverkKpiHeader({
             <span className="font-semibold text-emerald-900">{covered}</span> dekket
           </span>
           <span>
-            <span className="font-semibold text-amber-900">{partial}</span> delvis
+            <span className="font-semibold text-amber-900">{onlyAvvik}</span> kun avvik
           </span>
           <span>
             <span className="font-semibold text-red-900">{uncovered}</span> udekket
           </span>
         </div>
+        <p className="mt-2 text-[11px] text-neutral-500">
+          Dekket = minst én rutine, kurs, sjekkliste, undersøkelse eller møte-mal med
+          eksakt §-referanse.
+        </p>
       </div>
 
       <div className="rounded-lg border border-neutral-200/80 bg-white p-5 shadow-sm">
@@ -78,7 +85,7 @@ export function RegelverkKpiHeader({
               className="mt-1 text-4xl font-semibold text-neutral-900"
               style={{ fontFamily: SERIF }}
             >
-              {uncoveredMandatory + uncoveredRecommended}
+              {uncoveredMandatory + uncoveredRecommended + onlyAvvik}
             </p>
           </div>
           <div className="grid size-10 place-items-center rounded-full bg-red-100">
@@ -98,18 +105,20 @@ export function RegelverkKpiHeader({
           <li className="flex items-center justify-between">
             <span className="flex items-center gap-2 text-neutral-700">
               <span className="size-2 rounded-full bg-amber-500" />
-              Udekket anbefalt
+              Kun avvik (pliktig)
             </span>
             <span className="font-semibold tabular-nums text-neutral-900">
-              {uncoveredRecommended}
+              {avvikMandatory}
             </span>
           </li>
           <li className="flex items-center justify-between">
             <span className="flex items-center gap-2 text-neutral-700">
               <span className="size-2 rounded-full bg-neutral-400" />
-              Delvis dekket
+              Udekket anbefalt
             </span>
-            <span className="font-semibold tabular-nums text-neutral-900">{partial}</span>
+            <span className="font-semibold tabular-nums text-neutral-900">
+              {uncoveredRecommended}
+            </span>
           </li>
         </ul>
       </div>

@@ -60,10 +60,11 @@ export function useRegelverkCoverage() {
         .from('wiki_pages')
         .select('id, title, legal_refs, status')
         .eq('organization_id', orgId),
-      // Survey-template-katalog (system)
+      // Survey-template-katalog (system) — leser BÅDE law_refs[] (nytt
+      // standardfelt jf. CLAUDE.md) og law_ref (legacy singular).
       supabase
         .from('survey_template_catalog')
-        .select('id, name, law_ref, body')
+        .select('id, name, law_ref, law_refs, body')
         .eq('is_system', true),
       // Compliance-sjekklister
       supabase
@@ -125,12 +126,28 @@ export function useRegelverkCoverage() {
         }
       }
 
-      // Surveys — top-level + per-question
-      for (const s of (surveysRes.data ?? []) as { id: string; name: string; law_ref: string | null; body: { questions?: Array<{ law_ref?: string }> } | null }[]) {
-        if (s.law_ref) add(s.law_ref, { kind: 'survey', id: s.id, title: s.name })
+      // Surveys — law_refs[] (nytt) + law_ref (legacy) + per-question
+      for (const s of (surveysRes.data ?? []) as {
+        id: string
+        name: string
+        law_ref: string | null
+        law_refs: string[] | null
+        body: { questions?: Array<{ law_ref?: string; law_refs?: string[] }> } | null
+      }[]) {
+        const refs = new Set<string>()
+        for (const r of asArray(s.law_refs)) refs.add(r)
+        if (s.law_ref) refs.add(s.law_ref)
+        for (const ref of refs) {
+          add(ref, { kind: 'survey', id: s.id, title: s.name })
+        }
         const questions = s.body?.questions ?? []
         for (const q of questions) {
-          if (q.law_ref) add(q.law_ref, { kind: 'survey', id: s.id, title: `${s.name} (Q)` })
+          const qRefs = new Set<string>()
+          for (const r of asArray(q.law_refs)) qRefs.add(r)
+          if (q.law_ref) qRefs.add(q.law_ref)
+          for (const ref of qRefs) {
+            add(ref, { kind: 'survey', id: s.id, title: `${s.name} (Q)` })
+          }
         }
       }
 

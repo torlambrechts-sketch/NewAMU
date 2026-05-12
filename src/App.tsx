@@ -87,6 +87,7 @@ import { HmsOverviewPage } from './pages/overview/HmsOverviewPage'
 import { ComplianceCompanyPage } from './pages/admin/ComplianceCompanyPage'
 import { CompliancePersonalPage } from './pages/admin/CompliancePersonalPage'
 import { RegelverkCoverageDashboardPage } from './pages/overview/regelverk/RegelverkCoverageDashboardPage'
+import { ComplianceStudioPage } from './pages/overview/studio/ComplianceStudioPage'
 import { LearningFlowEntry } from './pages/learning/LearningFlowEntry'
 import { LearningCertificatePrintPage } from './pages/learning/LearningCertificatePrintPage'
 import { DocumentsHome } from './pages/documents/DocumentsHome'
@@ -261,6 +262,7 @@ const router = createBrowserRouter(
                       <Route path="overview/compliance-selskap" element={<ComplianceCompanyPage />} />
                       <Route path="overview/compliance-min" element={<CompliancePersonalPage />} />
                       <Route path="overview/regelverk" element={<RegelverkCoverageDashboardPage />} />
+                      <Route path="compliance-studio" element={<ComplianceStudioPage />} />
                       <Route path="workspace/revisjonslogg" element={<WorkspaceAuditLogPage />} />
                       <Route path="organisation" element={<OrganisationPage />} />
                       <Route path="organisation/admin" element={<AdminPage />} />
