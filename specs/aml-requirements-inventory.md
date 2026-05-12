@@ -391,7 +391,13 @@ Lov­tolkning, søksmål, forsikring, fagforeningsavtaler.
 
 ## 12. Konklusjon
 
-NewAMU dekker **~88%** av AML/IK-f/LDL/GDPR-krav i full template-form, og **~92%** når delvis dekkede tas med. De **13 gjenstående gapene** (etter fase 3+4) er primært på *kontrolltiltak* (kap. 9), *rekruttering* (§ 13-4, § 14-1), *åremål/verneplikt* (§ 14-10, § 15-10), *arbeidstid* (kap. 10-5 til 10-12), *virksomhetsoverdragelse* (kap. 16), *UU* (LDL § 28), og *eksterne integrasjoner* (stoff-kartotek, NAV-skjema, brannvern-detalj).
+Etter fase 5 sprint 3: NewAMU dekker **~97%** av AML/IK-f/LDL/GDPR-krav. De **3 gjenstående gapene** krever ekstern­integrasjon eller egen modul:
+
+- AML § 14-1 (ledige stillinger) — egen rekrutterings-modul
+- AML kap. 10-5 til 10-12 (auto-overvåking av arbeidstid) — HR-system-integrasjon (Visma)
+- Stoff-kartotek auto-synk (Forskr. utf. § 1-7) — Eco-Online-integrasjon
+
+Sprint 3 lukket 11 maler: kontrolltiltak (§ 9-1 til 9-4), e-post-innsyn (§ 9-3), rekrutterings-policy (§ 13-4 + LDL § 19), UU-vurdering (LDL § 28), yrkesskade-melding (§ 5-2), arbeidstid-policy (kap. 10), åremål (§ 14-10), verneplikt (§ 15-10), virksomhetsoverdragelse (kap. 16), brannvern-plan, ungdomsarbeid-policy (kap. 11).
 
 ### Lukket i fase 3+4:
 - GDPR Art. 33–34 brudd-varsling (72-timers) — egen modul + automatisk rapportering (skeleton)
