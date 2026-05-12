@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useLocation, useSearchParams } from 'react-router-dom'
-import { BarChart3, Download, Loader2, Mail, Plug, Plus, Shield, ShieldAlert, Upload, UserCheck, UserCog, Users } from 'lucide-react'
+import { BarChart3, Download, Loader2, Mail, Plug, Plus, Shield, ShieldAlert, Upload, UserCheck, UserCog, UserSearch, Users } from 'lucide-react'
 import { IntegrationsAdminPanel } from './admin/IntegrationsAdminPanel'
 import { FunctionalRolesAdminPanel } from './admin/FunctionalRolesAdminPanel'
 import { RoleComplianceAnalysePage } from './admin/RoleComplianceAnalysePage'
 import { GdprBreachAdminPanel } from './admin/GdprBreachAdminPanel'
+import { GdprSubjectRequestsAdminPanel } from './admin/GdprSubjectRequestsAdminPanel'
 import { ModulePageShell, ModuleSectionCard } from '../components/module'
 import { Tabs } from '../components/ui/Tabs'
 import { StandardInput } from '../components/ui/Input'
@@ -51,6 +52,7 @@ const ADMIN_TABS = [
   { id: 'functional_roles', label: 'Funksjonelle roller', icon: UserCheck },
   { id: 'role_compliance', label: 'Rolle-compliance', icon: BarChart3 },
   { id: 'gdpr_breach', label: 'GDPR brudd', icon: ShieldAlert },
+  { id: 'gdpr_subject_requests', label: 'GDPR individrettigheter', icon: UserSearch },
   { id: 'delegation', label: 'Delegering', icon: UserCog },
   { id: 'integrations', label: 'Integrasjoner', icon: Plug },
 ] as const
@@ -524,6 +526,10 @@ export function AdminPage() {
 
       {tab === 'gdpr_breach' && !loading ? (
         <GdprBreachAdminPanel />
+      ) : null}
+
+      {tab === 'gdpr_subject_requests' && !loading ? (
+        <GdprSubjectRequestsAdminPanel />
       ) : null}
 
       {tab === 'delegation' && !loading ? (

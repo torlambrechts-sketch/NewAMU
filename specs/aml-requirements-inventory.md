@@ -391,7 +391,18 @@ Lov­tolkning, søksmål, forsikring, fagforeningsavtaler.
 
 ## 12. Konklusjon
 
-NewAMU dekker **~78%** av AML/IK-f/LDL/GDPR-krav i full template-form, og **~88%** når delvis dekkede tas med. De **17 identifiserte gapene** er primært på *avhending*-siden (kap. 15: opphør) og *personvern-prosess*-siden (GDPR Art. 15–21 individrettigheter, Art. 33 brudd­varsling).
+NewAMU dekker **~88%** av AML/IK-f/LDL/GDPR-krav i full template-form, og **~92%** når delvis dekkede tas med. De **13 gjenstående gapene** (etter fase 3+4) er primært på *kontrolltiltak* (kap. 9), *rekruttering* (§ 13-4, § 14-1), *åremål/verneplikt* (§ 14-10, § 15-10), *arbeidstid* (kap. 10-5 til 10-12), *virksomhetsoverdragelse* (kap. 16), *UU* (LDL § 28), og *eksterne integrasjoner* (stoff-kartotek, NAV-skjema, brannvern-detalj).
+
+### Lukket i fase 3+4:
+- GDPR Art. 33–34 brudd-varsling (72-timers) — egen modul + automatisk rapportering (skeleton)
+- GDPR Art. 15–21 individrettigheter — egen modul + 30-dagers tracking + prosedyre-mal
+- GDPR Art. 28 databehandler-avtale — tpl-databehandleravtale
+- AML § 14-7 endring i arbeidsforhold — tpl-tilleggsavtale
+- AML § 15-2 masseoppsigelser — tpl-masseoppsigelse-info
+- AML § 15-4, § 15-5 oppsigelses-brev — tpl-oppsigelse-brev (med vern + drøftings-referanse)
+- AML § 15-13 suspensjon — tpl-suspensjon-protokoll
+- AML § 15-14 avskjed — tpl-avskjed-brev
+- AML § 15-15 attest — tpl-attest
 
 Disse gapene er ikke trivielle å lukke — flere krever integrasjoner (NAV, Datatilsynet, HR-system) og noen krever workflow-engine (brudd-varsling med 72-timers-frist).
 

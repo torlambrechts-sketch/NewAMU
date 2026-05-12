@@ -54,27 +54,19 @@ const SEVERITY_LABELS: Record<string, string> = {
 }
 
 // Ærlig liste over IKKE-dekkede krav — fra specs/aml-requirements-inventory.md §11
-// Holdes synkronisert manuelt med inventory.
+// Holdes synkronisert manuelt med inventory. Fase 4 lukket: § 14-7, § 15-2,
+// § 15-4/5, § 15-13, § 15-14, § 15-15, GDPR Art. 15-21, Art. 28, Art. 33-34.
 export const UNMAPPED_REQUIREMENTS = [
   { lovkrav: 'AML § 9-1 til § 9-4 (kontrolltiltak)', omrade: 'Overvåking/kontroll', foreslattMal: 'tpl-kontrolltiltak-policy', prioritet: 'Høy' },
   { lovkrav: 'AML § 9-3 (innsyn i e-post)', omrade: 'Personvern', foreslattMal: 'tpl-epost-innsyn-prosedyre', prioritet: 'Middels' },
   { lovkrav: 'AML § 13-4 / LDL § 19 (rekrutterings-opplysninger)', omrade: 'Rekruttering', foreslattMal: 'tpl-rekrutterings-policy', prioritet: 'Middels' },
   { lovkrav: 'AML § 14-1 (info om ledig stilling)', omrade: 'Rekruttering', foreslattMal: 'Rekrutterings-modul', prioritet: 'Lav' },
-  { lovkrav: 'AML § 14-7 (endring i arbeidsforhold)', omrade: 'Personal', foreslattMal: 'tpl-tilleggsavtale', prioritet: 'Middels' },
   { lovkrav: 'AML § 14-10 (åremål)', omrade: 'Personal', foreslattMal: 'tpl-aremaal-avtale', prioritet: 'Lav' },
-  { lovkrav: 'AML § 15-2 (masseoppsigelser)', omrade: 'Personal', foreslattMal: 'tpl-massensuoppsigelse-info', prioritet: 'Middels' },
-  { lovkrav: 'AML § 15-4, § 15-5 (oppsigelses-brev)', omrade: 'Personal', foreslattMal: 'tpl-oppsigelse-brev', prioritet: 'Høy' },
   { lovkrav: 'AML § 15-10 (verneplikt-vern)', omrade: 'Personal', foreslattMal: 'tpl-verneplikt-tilrettelegging', prioritet: 'Lav' },
-  { lovkrav: 'AML § 15-13 (suspensjon)', omrade: 'Personal', foreslattMal: 'tpl-suspensjon-protokoll', prioritet: 'Middels' },
-  { lovkrav: 'AML § 15-14 (avskjed)', omrade: 'Personal', foreslattMal: 'tpl-avskjed-brev', prioritet: 'Middels' },
-  { lovkrav: 'AML § 15-15 (attest)', omrade: 'Personal', foreslattMal: 'tpl-attest', prioritet: 'Middels' },
   { lovkrav: 'AML kap. 10-5 til 10-12 (arbeidstid)', omrade: 'Arbeidstid', foreslattMal: 'Tasks-modul + HR-integrasjon', prioritet: 'Høy' },
   { lovkrav: 'AML kap. 11 (barn og ungdom)', omrade: 'Læring', foreslattMal: 'c-aml-ungdomsarbeid', prioritet: 'Lav' },
   { lovkrav: 'AML kap. 16 (virksomhetsoverdragelse)', omrade: 'Personal', foreslattMal: 'tpl-virksomhetsoverdragelse', prioritet: 'Lav' },
   { lovkrav: 'LDL § 28 (universell utforming)', omrade: 'Tilrettelegging', foreslattMal: 'tpl-uu-vurdering', prioritet: 'Middels' },
-  { lovkrav: 'GDPR Art. 15–21 (individrettigheter)', omrade: 'Personvern', foreslattMal: 'tpl-personvern-individrettigheter-prosedyre', prioritet: 'Høy' },
-  { lovkrav: 'GDPR Art. 28 (databehandler-avtale)', omrade: 'Personvern', foreslattMal: 'tpl-dpa', prioritet: 'Høy' },
-  // GDPR Art. 33–34 ble lukket i fase 3 — se admin/gdpr_breach + gdpr_breach_incidents
   { lovkrav: 'Stoff-kartotek (Forskr. utf. § 1-7)', omrade: 'Kjemikalier', foreslattMal: 'Eco-Online-sync edge function', prioritet: 'Middels' },
   { lovkrav: 'AML § 5-2 yrkesskade-melding', omrade: 'Skade', foreslattMal: 'NAV-skjema-integrasjon', prioritet: 'Middels' },
   { lovkrav: 'Brannvern § 5–11 (forebyggende)', omrade: 'Beredskap', foreslattMal: 'tpl-brannvern-plan (splitt fra beredskap)', prioritet: 'Lav' },
