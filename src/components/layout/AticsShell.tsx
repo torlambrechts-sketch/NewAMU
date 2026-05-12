@@ -283,6 +283,12 @@ const organisationAdminSubs: SubItem[] = [
       pathname === '/organisation/admin' && new URLSearchParams(search).get('tab') === 'role_compliance',
   },
   {
+    label: 'Regelverk-dekning',
+    path: '/organisation/admin?tab=regelverk_coverage',
+    match: ({ pathname, search }) =>
+      pathname === '/organisation/admin' && new URLSearchParams(search).get('tab') === 'regelverk_coverage',
+  },
+  {
     label: 'GDPR brudd',
     path: '/organisation/admin?tab=gdpr_breach',
     match: ({ pathname, search }) =>
