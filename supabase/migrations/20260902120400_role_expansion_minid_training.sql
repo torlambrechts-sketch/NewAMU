@@ -207,7 +207,7 @@ from public.org_functional_role_assignments a
 join public.functional_roles fr on fr.slug = a.role_slug
 join public.profiles p on p.id = a.user_id
 cross join public.learning_courses c
-left join public.learning_progress lp on lp.user_id = a.user_id and lp.course_id = c.id
+left join public.learning_course_progress lp on lp.user_id = a.user_id and lp.course_id = c.id
 where (a.valid_to is null or a.valid_to >= current_date)
   and c.status = 'published';
 
