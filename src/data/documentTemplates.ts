@@ -900,6 +900,87 @@ export const PAGE_TEMPLATES: PageTemplate[] = [
     },
   },
 
+  // ── 22-bis. Lønns­kartlegging — LDL § 26 a (NY — fase 2 restanse) ────────
+
+  {
+    id: 'tpl-lonnskartlegging',
+    label: 'Lønns­kartlegging (LDL § 26 a)',
+    description: 'Lovpålagt kartlegging hvert 2. år for kjønns­kjønns­del. Inngår som vedlegg til ARP-redegjørelse.',
+    legalBasis: ['LDL §26 a', 'LDL §26'],
+    category: 'likestilling',
+    page: {
+      title: 'Lønns­kartlegging',
+      summary: 'Kjønns­basert lønns­kartlegging — pliktig hvert annet år (LDL § 26 a).',
+      status: 'draft',
+      template: 'policy',
+      legalRefs: ['LDL §26 a'],
+      requiresAcknowledgement: false,
+      retentionCategory: 'hms_dokument',
+      revisionIntervalMonths: 24,
+      contentBlocks: [
+        { kind: 'alert', variant: 'info', text: 'Pliktig kartlegging hvert annet år for arbeidsgivere ≥ 50 ansatte. Resultatene inngår i ARP-redegjørelsen (tpl-arp-redegjorelse). Tilsyn: LDO.' },
+        { kind: 'module', moduleName: 'confidentiality_marker', params: { classification: 'fortrolig', accessList: ['Daglig leder', 'HR', 'Tillitsvalgt', 'AMU', 'LDO ved tilsyn'] } },
+        { kind: 'heading', level: 1, text: 'Lønns­kartlegging [år]' },
+        { kind: 'heading', level: 2, text: '1. Metode' },
+        { kind: 'text', body: '<p><strong>Sammenligningsgrunnlag:</strong> Like grupper — definert som ansatte med samme stilling, samme nivå, og sammenlignbar ansvars- og kompetanse­profil.</p><p><strong>Forklarende variabler dokumentert:</strong> Ansiennitet, formell utdanning, prestasjons­vurdering, leder­ansvar, fagansvar. Forklarende variabler skal være saklige og kjønnsnøytrale.</p><p><strong>Lønnselementer inkludert:</strong> Grunnlønn, faste tillegg, bonus, andre godtgjørelser. Naturalytelser registreres separat hvis de varierer mellom grupper.</p>' },
+        { kind: 'heading', level: 2, text: '2. Datagrunnlag' },
+        { kind: 'text', body: '<table><thead><tr><th>Stillings­kategori</th><th>Antall K</th><th>Antall M</th><th>Snittlønn K (kr)</th><th>Snittlønn M (kr)</th><th>Forskjell (%)</th></tr></thead><tbody><tr><td>Toppledelse</td><td>[FYLL INN]</td><td>[FYLL INN]</td><td>[FYLL INN]</td><td>[FYLL INN]</td><td>[FYLL INN]</td></tr><tr><td>Mellom­ledelse</td><td>[FYLL INN]</td><td>[FYLL INN]</td><td>[FYLL INN]</td><td>[FYLL INN]</td><td>[FYLL INN]</td></tr><tr><td>Senior­spesialist</td><td>[FYLL INN]</td><td>[FYLL INN]</td><td>[FYLL INN]</td><td>[FYLL INN]</td><td>[FYLL INN]</td></tr><tr><td>Spesialist</td><td>[FYLL INN]</td><td>[FYLL INN]</td><td>[FYLL INN]</td><td>[FYLL INN]</td><td>[FYLL INN]</td></tr><tr><td>Operativ</td><td>[FYLL INN]</td><td>[FYLL INN]</td><td>[FYLL INN]</td><td>[FYLL INN]</td><td>[FYLL INN]</td></tr></tbody></table><p><em>Grupper med mindre enn 5 personer per kjønn slås sammen eller rapporteres aggregert (Datatilsynets k-anonymitets­anbefaling).</em></p>' },
+        { kind: 'heading', level: 2, text: '3. Analyse' },
+        { kind: 'text', body: '<p><strong>Identifiserte lønnsforskjeller:</strong></p><ul><li>[Beskriv hver forskjell > 5 % per stillings­kategori]</li></ul><p><strong>Forklaringer testet:</strong></p><ul><li>Ansiennitet — [bidrar X %-poeng]</li><li>Formell utdanning — [bidrar X %-poeng]</li><li>Prestasjons­score — [bidrar X %-poeng]</li><li>Annet — [FYLL INN]</li></ul><p><strong>Uforklart kjønns­forskjell:</strong> [Restkomponent etter at saklige variabler er hensyntatt — dette er det som krever tiltak.]</p>' },
+        { kind: 'heading', level: 2, text: '4. Deltids­arbeid' },
+        { kind: 'text', body: '<p><strong>Andel deltid per kjønn:</strong> [X % kvinner / Y % menn]</p><p><strong>Ufrivillig deltid:</strong> [Antall + tiltak]</p><p><strong>Time­lønn for deltid:</strong> [Sammenligning mot heltid samme rolle]</p>' },
+        { kind: 'heading', level: 2, text: '5. Tiltak' },
+        { kind: 'text', body: '<p>Tiltak prioriteres for uforklart kjønns­forskjell > 2 %:</p><ul><li><strong>Tiltak 1:</strong> [Beskrivelse] · Ansvarlig: [Navn] · Frist: [Dato]</li><li><strong>Tiltak 2:</strong> [...] </li></ul>' },
+        { kind: 'heading', level: 2, text: '6. Drøftet med tillitsvalgte' },
+        { kind: 'text', body: '<p>Lønns­kartleggingen er drøftet med tillitsvalgte i møte [dato]. Protokoll: [referanse til drøftings­protokoll]. Tillitsvalgte hadde følgende kommentarer: [FYLL INN]</p>' },
+        { kind: 'law_ref', ref: 'LDL §26 a', description: 'Lønns­kartlegging', url: 'https://lovdata.no/lov/2017-06-16-51/§26a' },
+        { kind: 'law_ref', ref: 'LDL §26', description: 'Aktivitets- og redegjørelses­plikt', url: 'https://lovdata.no/lov/2017-06-16-51/§26' },
+        { kind: 'module', moduleName: 'signature_block', params: { parties: ['HR-leder', 'Daglig leder', 'Tillitsvalgt'], requireDate: true } },
+        { kind: 'module', moduleName: 'revision_log' },
+        { kind: 'module', moduleName: 'retention_marker', params: { category: 'hms_dokument', minYears: 5, legalRef: 'LDL § 26 a' } },
+      ],
+    },
+  },
+
+  // ── 22-tris. Åpenhets­lov-rapport — Åpenhetsloven § 5 (NY) ───────────────
+
+  {
+    id: 'tpl-apenhetsloven-redegjorelse',
+    label: 'Åpenhets­lov-rapport',
+    description: 'Årlig redegjørelse etter åpenhetsloven § 5. Pliktig for virksomheter over visse størrelses­terskler.',
+    legalBasis: ['Åpenhetsloven §4', 'Åpenhetsloven §5'],
+    category: 'likestilling',
+    page: {
+      title: 'Åpenhets­lov-rapport',
+      summary: 'Årlig redegjørelse om aktsomhets­vurderinger for menneskerettigheter og anstendige arbeidsforhold.',
+      status: 'draft',
+      template: 'policy',
+      legalRefs: ['Åpenhetsloven §4', 'Åpenhetsloven §5'],
+      requiresAcknowledgement: false,
+      retentionCategory: 'hms_dokument',
+      revisionIntervalMonths: 12,
+      contentBlocks: [
+        { kind: 'alert', variant: 'info', text: 'Pliktig årlig redegjørelse etter åpenhetsloven § 5 (3) for virksomheter over størrelses­terskler. Publiseres innen 30. juni hvert år.' },
+        { kind: 'heading', level: 1, text: 'Åpenhets­lov-rapport [år]' },
+        { kind: 'heading', level: 2, text: '1. Generell beskrivelse av virksomheten' },
+        { kind: 'text', body: '<p><strong>Organisasjon:</strong> [Virksomhetens navn], org.nr [X]</p><p><strong>Bransje og virksomhet:</strong> [FYLL INN]</p><p><strong>Antall ansatte:</strong> [X totalt, fordelt på Norge/utland]</p><p><strong>Geografisk virke:</strong> [Land/regioner]</p><p><strong>Retningslinjer og rutiner:</strong> [Hvor disse er publisert — typisk vår etiske retnings­linje, leverandør­kodeks, varslings­rutine]</p>' },
+        { kind: 'heading', level: 2, text: '2. Aktsomhets­vurderinger (åpenhetsloven § 4)' },
+        { kind: 'text', body: '<p><strong>Metode:</strong> OECDs retningslinjer for flernasjonale virksomheter + FNs veiledende prinsipper for næringsliv og menneskerettigheter (UNGP).</p><p><strong>Steg 1 — Forankring:</strong> Aktsomhets­vurderinger er integrert i [styre/leder­vedtak/policy nivå].</p><p><strong>Steg 2 — Kartlegging:</strong> Identifiserte risikoer i egen virksomhet, leverandør­kjede, og forretnings­partnere.</p><p><strong>Steg 3 — Tiltak:</strong> [Beskrivelse av tiltak iverksatt for å stanse, forebygge eller begrense skade]</p><p><strong>Steg 4 — Oppfølging:</strong> [Resultater + effektivitet]</p><p><strong>Steg 5 — Kommunikasjon:</strong> Denne rapporten + dialog med rettighets­havere.</p><p><strong>Steg 6 — Gjenoppretting:</strong> [Hvis skade har oppstått: tiltak]</p>' },
+        { kind: 'heading', level: 2, text: '3. Identifiserte faktiske og potensielle negative konsekvenser' },
+        { kind: 'text', body: '<table><thead><tr><th>Type</th><th>Beskrivelse</th><th>Risikonivå</th><th>Tiltak</th></tr></thead><tbody><tr><td>Menneskerettigheter — egne ansatte</td><td>[FYLL INN]</td><td>[Lav/Middels/Høy]</td><td>[FYLL INN]</td></tr><tr><td>Menneskerettigheter — leverandører</td><td>[FYLL INN]</td><td>[Lav/Middels/Høy]</td><td>[FYLL INN]</td></tr><tr><td>Anstendige arbeidsforhold — egne ansatte</td><td>[FYLL INN]</td><td>[Lav/Middels/Høy]</td><td>[FYLL INN]</td></tr><tr><td>Anstendige arbeidsforhold — leverandører</td><td>[FYLL INN]</td><td>[Lav/Middels/Høy]</td><td>[FYLL INN]</td></tr></tbody></table>' },
+        { kind: 'heading', level: 2, text: '4. Henvendelser om informasjon (§ 6)' },
+        { kind: 'text', body: '<p><strong>Antall henvendelser mottatt:</strong> [X]</p><p><strong>Antall besvart innen 3 ukers­fristen:</strong> [X]</p><p><strong>Kontakt for informasjons­krav:</strong> [E-post / postadresse]</p>' },
+        { kind: 'heading', level: 2, text: '5. Tiltak for kommende periode' },
+        { kind: 'text', body: '<p>[Hovedfokus + konkrete forplikt­elser med frister]</p>' },
+        { kind: 'law_ref', ref: 'Åpenhetsloven §4', description: 'Plikt til å utføre aktsomhets­vurderinger', url: 'https://lovdata.no/lov/2021-06-18-99/§4' },
+        { kind: 'law_ref', ref: 'Åpenhetsloven §5', description: 'Plikt til å redegjøre for aktsomhets­vurderinger', url: 'https://lovdata.no/lov/2021-06-18-99/§5' },
+        { kind: 'law_ref', ref: 'Åpenhetsloven §6', description: 'Rett til informasjon', url: 'https://lovdata.no/lov/2021-06-18-99/§6' },
+        { kind: 'module', moduleName: 'signature_block', params: { parties: ['Daglig leder', 'Styre­leder'], requireDate: true } },
+        { kind: 'module', moduleName: 'retention_marker', params: { category: 'hms_dokument', minYears: 5, legalRef: 'Åpenhets­loven § 5' } },
+      ],
+    },
+  },
+
   // ── 22. Vernerunde-rapport — § 6-2, FOLM § 3-7 (NY) ──────────────────────
 
   {
