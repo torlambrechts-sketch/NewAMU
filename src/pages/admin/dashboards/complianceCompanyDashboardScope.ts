@@ -91,38 +91,20 @@ const HEATMAP_ROLE_STATUS: ReportModuleHeatmap = {
 
 const TABLE_OVERDUE: ReportModuleTable = {
   id: 'table-overdue', kind: 'table', datasetKey: 'cc_overdue_table',
-  title: 'Forfalt — detalj', rowsPath: '',
-  columns: [
-    { key: 'user', label: 'Person' },
-    { key: 'role', label: 'Rolle' },
-    { key: 'kind', label: 'Type' },
-    { key: 'resource', label: 'Krav' },
-    { key: 'daysOverdue', label: 'Dager forfalt' },
-    { key: 'hjemmel', label: 'Hjemmel' },
-  ],
+  title: 'Forfalt — detalj',
+  rowKeys: ['user', 'role', 'kind', 'resource', 'daysOverdue', 'hjemmel'],
   colSpan: 'lg',
 }
 const TABLE_UNMAPPED: ReportModuleTable = {
   id: 'table-unmapped', kind: 'table', datasetKey: 'cc_unmapped_requirements',
-  title: 'Ikke-dekkede lovkrav (fra inventory)', rowsPath: '',
-  columns: [
-    { key: 'lovkrav', label: 'Lovkrav' },
-    { key: 'omrade', label: 'Område' },
-    { key: 'foreslattMal', label: 'Foreslått mal' },
-    { key: 'prioritet', label: 'Prioritet' },
-  ],
+  title: 'Ikke-dekkede lovkrav (fra inventory)',
+  rowKeys: ['lovkrav', 'omrade', 'foreslattMal', 'prioritet'],
   colSpan: 'lg',
 }
 const TABLE_MODULES: ReportModuleTable = {
   id: 'table-modules', kind: 'table', datasetKey: 'cc_modules_coverage',
-  title: 'Krav per modul med ansvarlig', rowsPath: '',
-  columns: [
-    { key: 'kind', label: 'Modul' },
-    { key: 'totalRequirements', label: 'Krav' },
-    { key: 'completed', label: 'Oppfylt' },
-    { key: 'overdue', label: 'Forfalt' },
-    { key: 'topOwners', label: 'Topp ansvarlige' },
-  ],
+  title: 'Krav per modul med ansvarlig',
+  rowKeys: ['kind', 'totalRequirements', 'completed', 'overdue', 'topOwners'],
   colSpan: 'md',
 }
 

@@ -47,6 +47,14 @@ const CATEGORY_LABELS: Record<WikiSpace['category'], string> = {
   procedure: 'Prosedyre',
   guide: 'Veiledning',
   template_library: 'Malbibliotek',
+  varsling: 'Varsling',
+  personal: 'Personal',
+  personvern: 'Personvern',
+  likestilling: 'Likestilling',
+  protokoll: 'Protokoller',
+  register: 'Registre',
+  beredskap: 'Beredskap',
+  bransje: 'Bransje',
 }
 
 const CATEGORY_ICONS: Record<WikiSpace['category'], string> = {
@@ -55,6 +63,14 @@ const CATEGORY_ICONS: Record<WikiSpace['category'], string> = {
   procedure: '🔄',
   guide: '📖',
   template_library: '🗂️',
+  varsling: '🚨',
+  personal: '👥',
+  personvern: '🔒',
+  likestilling: '⚖️',
+  protokoll: '📋',
+  register: '📊',
+  beredskap: '🚒',
+  bransje: '🏗️',
 }
 
 const categoryOptions: SelectOption[] = (Object.keys(CATEGORY_LABELS) as WikiSpace['category'][]).map((c) => ({

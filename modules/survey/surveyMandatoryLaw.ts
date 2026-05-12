@@ -1,4 +1,10 @@
-export type MandatoryLawCode = 'AML_4_3' | 'AML_4_4' | 'AML_6_2'
+export type MandatoryLawCode =
+  | 'AML_4_3'
+  | 'AML_4_3_3'
+  | 'AML_4_4'
+  | 'AML_4_1_3'
+  | 'AML_6_2'
+  | 'LDL_26'
 
 /** Minimum felter fra mal (JSON eller `TemplateQuestion`) for lovflagg. */
 export type MandatoryTemplateFields = {

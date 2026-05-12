@@ -611,7 +611,7 @@ export const PAGE_TEMPLATES: PageTemplate[] = [
       acknowledgementAudience: 'all_employees',
       retentionCategory: 'intern_prosedyre',
       revisionIntervalMonths: 24,
-      contentBlocks: [
+      blocks: [
         { kind: 'alert', variant: 'info', text: 'Pliktig rutine etter AML § 2A-2 for virksomheter med minst fem ansatte. Mindre virksomheter har plikten hvis forholdene tilsier det. Drøftet med tillitsvalgte/verneombud før vedtak.' },
         { kind: 'heading', level: 1, text: 'Varslingsrutine' },
         { kind: 'text', body: '<p>Denne rutinen beskriver hvordan du melder fra om kritikkverdige forhold, hvordan varselet behandles, og hvordan du beskyttes mot gjengjeldelse. Rutinen gjelder alle arbeidstakere, innleide, lærlinger og oppdragstakere som kan sammenlignes med arbeidstakere.</p><p>[Virksomhetens navn] oppfordrer aktivt til varsling og forplikter seg til å behandle alle varsler seriøst og uten ulempe for varsler.</p>' },
@@ -658,7 +658,7 @@ export const PAGE_TEMPLATES: PageTemplate[] = [
       acknowledgementAudience: 'all_employees',
       retentionCategory: 'intern_prosedyre',
       revisionIntervalMonths: 24,
-      contentBlocks: [
+      blocks: [
         { kind: 'alert', variant: 'warning', text: 'Trakassering er forbudt etter AML § 4-3 (3) og § 13-1, samt LDL § 13. Denne rutinen styrer hvordan trakasserings­varsler håndteres — supplement til den generelle varslings­rutinen.' },
         { kind: 'heading', level: 1, text: 'Trakasserings­rutine' },
         { kind: 'heading', level: 2, text: 'Hva er trakassering?' },
@@ -703,7 +703,7 @@ export const PAGE_TEMPLATES: PageTemplate[] = [
       requiresAcknowledgement: false,
       retentionCategory: 'personvern',
       revisionIntervalMonths: 12,
-      contentBlocks: [
+      blocks: [
         { kind: 'alert', variant: 'info', text: 'Pliktig vurdering etter GDPR Art. 35 før behandling som sannsynligvis medfører høy risiko for fysiske personers rettigheter og friheter. Gjennomføres FØR behandlingen settes i gang.' },
         { kind: 'module', moduleName: 'confidentiality_marker', params: { classification: 'fortrolig', accessList: ['DPO', 'Daglig leder', 'Datatilsynet ved kontroll'] } },
         { kind: 'heading', level: 1, text: 'DPIA — [Behandlings­navn]' },
@@ -740,12 +740,12 @@ export const PAGE_TEMPLATES: PageTemplate[] = [
       title: 'Oppfølgings­plan — sykefravær',
       summary: 'Plan etter AML § 4-6. Skal være ferdig innen 4 uker etter sykmelding.',
       status: 'draft',
-      template: 'procedure',
+      template: 'standard',
       legalRefs: ['AML §4-6'],
       requiresAcknowledgement: false,
       retentionCategory: 'personaldokument',
       revisionIntervalMonths: 12,
-      contentBlocks: [
+      blocks: [
         { kind: 'alert', variant: 'warning', text: 'Skal være signert innen 4 uker etter sykmelding for arbeidstaker med rest­arbeids­evne. Tilretteleggings­plikten gjelder uavhengig av IA-avtale.' },
         { kind: 'module', moduleName: 'confidentiality_marker', params: { classification: 'strengt_fortrolig', accessList: ['Arbeidstaker', 'Nærmeste leder', 'HR', 'BHT', 'NAV (etter behov)'] } },
         { kind: 'heading', level: 1, text: 'Oppfølgings­plan' },
@@ -780,12 +780,12 @@ export const PAGE_TEMPLATES: PageTemplate[] = [
       title: 'Arbeidsavtale',
       summary: 'Skriftlig avtale ved oppstart — minimums­krav etter § 14-6 (2024-utvidet).',
       status: 'draft',
-      template: 'procedure',
+      template: 'standard',
       legalRefs: ['AML §14-5', 'AML §14-6'],
       requiresAcknowledgement: false,
       retentionCategory: 'personaldokument',
       revisionIntervalMonths: 999,
-      contentBlocks: [
+      blocks: [
         { kind: 'alert', variant: 'info', text: 'Skal foreligge ved oppstart (§ 14-5). Minimums­innhold etter § 14-6 (post-2024-utvidet: 14 punkter, jf. EU-direktiv 2019/1152).' },
         { kind: 'module', moduleName: 'confidentiality_marker', params: { classification: 'fortrolig', accessList: ['Arbeidstaker', 'Nærmeste leder', 'HR'] } },
         { kind: 'heading', level: 1, text: 'Arbeidsavtale' },
@@ -825,12 +825,12 @@ export const PAGE_TEMPLATES: PageTemplate[] = [
       title: 'Drøftings­protokoll',
       summary: 'Protokoll fra drøftings­møte mellom arbeidsgiver og tillitsvalgte/arbeidstaker.',
       status: 'draft',
-      template: 'procedure',
+      template: 'standard',
       legalRefs: ['AML §8-1', 'AML §15-1'],
       requiresAcknowledgement: false,
       retentionCategory: 'personaldokument',
       revisionIntervalMonths: 999,
-      contentBlocks: [
+      blocks: [
         { kind: 'alert', variant: 'info', text: 'Protokollen dokumenterer at drøftings­plikten er oppfylt. Skal lages selv om partene er enige, og særlig hvis uenighet — beskytter begge parter ved senere tvist.' },
         { kind: 'heading', level: 1, text: 'Drøftings­protokoll' },
         { kind: 'text', body: '<table><tbody><tr><td>Dato</td><td>[FYLL INN]</td></tr><tr><td>Sted / møteform</td><td>[FYLL INN]</td></tr><tr><td>Hjemmel</td><td>[§ 8-1 / § 8-2 / § 15-1 / annen]</td></tr></tbody></table>' },
@@ -871,7 +871,7 @@ export const PAGE_TEMPLATES: PageTemplate[] = [
       requiresAcknowledgement: false,
       retentionCategory: 'hms_dokument',
       revisionIntervalMonths: 12,
-      contentBlocks: [
+      blocks: [
         { kind: 'alert', variant: 'info', text: 'Årlig redegjørelse etter LDL § 26 (3). Publiseres som vedlegg til års­beretning eller som eget dokument. Tilsyn: Likestillings- og diskriminerings­ombudet (LDO).' },
         { kind: 'heading', level: 1, text: 'ARP-redegjørelse — [år]' },
         { kind: 'heading', level: 2, text: '1. Sammendrag' },
@@ -917,7 +917,7 @@ export const PAGE_TEMPLATES: PageTemplate[] = [
       requiresAcknowledgement: false,
       retentionCategory: 'hms_dokument',
       revisionIntervalMonths: 24,
-      contentBlocks: [
+      blocks: [
         { kind: 'alert', variant: 'info', text: 'Pliktig kartlegging hvert annet år for arbeidsgivere ≥ 50 ansatte. Resultatene inngår i ARP-redegjørelsen (tpl-arp-redegjorelse). Tilsyn: LDO.' },
         { kind: 'module', moduleName: 'confidentiality_marker', params: { classification: 'fortrolig', accessList: ['Daglig leder', 'HR', 'Tillitsvalgt', 'AMU', 'LDO ved tilsyn'] } },
         { kind: 'heading', level: 1, text: 'Lønns­kartlegging [år]' },
@@ -959,7 +959,7 @@ export const PAGE_TEMPLATES: PageTemplate[] = [
       requiresAcknowledgement: false,
       retentionCategory: 'hms_dokument',
       revisionIntervalMonths: 12,
-      contentBlocks: [
+      blocks: [
         { kind: 'alert', variant: 'info', text: 'Pliktig årlig redegjørelse etter åpenhetsloven § 5 (3) for virksomheter over størrelses­terskler. Publiseres innen 30. juni hvert år.' },
         { kind: 'heading', level: 1, text: 'Åpenhets­lov-rapport [år]' },
         { kind: 'heading', level: 2, text: '1. Generell beskrivelse av virksomheten' },
@@ -993,12 +993,12 @@ export const PAGE_TEMPLATES: PageTemplate[] = [
       title: 'Vernerunde-rapport',
       summary: 'Funn, klassifisering og tiltaks­plan fra gjennomført vernerunde.',
       status: 'draft',
-      template: 'procedure',
+      template: 'standard',
       legalRefs: ['AML §6-2', 'FOLM §3-7'],
       requiresAcknowledgement: false,
       retentionCategory: 'hms_dokument',
       revisionIntervalMonths: 12,
-      contentBlocks: [
+      blocks: [
         { kind: 'alert', variant: 'info', text: 'Vernerunde gjennomføres minst årlig (FOLM § 3-7). Funn legges som avvik for oppfølging.' },
         { kind: 'heading', level: 1, text: 'Vernerunde-rapport' },
         { kind: 'text', body: '<table><tbody><tr><td>Dato</td><td>[FYLL INN]</td></tr><tr><td>Område / avdeling</td><td>[FYLL INN]</td></tr><tr><td>Deltakere</td><td>Leder: [Navn]. Verneombud: [Navn]. BHT: [Navn hvis tilstede]</td></tr><tr><td>Varighet</td><td>[Timer]</td></tr></tbody></table>' },
@@ -1028,12 +1028,12 @@ export const PAGE_TEMPLATES: PageTemplate[] = [
       title: 'Tilleggsavtale',
       summary: 'Skriftlig endring av eksisterende arbeidsavtale (§ 14-7).',
       status: 'draft',
-      template: 'procedure',
+      template: 'standard',
       legalRefs: ['AML §14-7'],
       requiresAcknowledgement: false,
       retentionCategory: 'personaldokument',
       revisionIntervalMonths: 999,
-      contentBlocks: [
+      blocks: [
         { kind: 'alert', variant: 'info', text: 'Endringer i vesentlige vilkår (§ 14-6) skal dokumenteres skriftlig så snart som mulig og senest 1 måned etter at endringen trer i kraft.' },
         { kind: 'module', moduleName: 'confidentiality_marker', params: { classification: 'fortrolig', accessList: ['Arbeidstaker', 'Nærmeste leder', 'HR'] } },
         { kind: 'heading', level: 1, text: 'Tilleggsavtale til arbeidsavtale' },
@@ -1065,12 +1065,12 @@ export const PAGE_TEMPLATES: PageTemplate[] = [
       title: 'Oppsigelse av arbeidsforhold',
       summary: 'Skriftlig oppsigelse fra arbeidsgiver til arbeidstaker (§ 15-4, § 15-5).',
       status: 'draft',
-      template: 'procedure',
+      template: 'standard',
       legalRefs: ['AML §15-1', 'AML §15-4', 'AML §15-5'],
       requiresAcknowledgement: false,
       retentionCategory: 'personaldokument',
       revisionIntervalMonths: 999,
-      contentBlocks: [
+      blocks: [
         { kind: 'alert', variant: 'warning', text: 'Oppsigelse SKAL være skriftlig (§ 15-4). Skal leveres personlig mot signatur, eller sendes rekommandert. Pliktig drøfting (§ 15-1) MÅ være gjennomført før oppsigelsen.' },
         { kind: 'module', moduleName: 'confidentiality_marker', params: { classification: 'strengt_fortrolig', accessList: ['Arbeidstaker', 'Nærmeste leder', 'HR', 'Daglig leder', 'Tillitsvalgt etter samtykke'] } },
         { kind: 'heading', level: 1, text: 'Oppsigelse av arbeidsforhold' },
@@ -1109,12 +1109,12 @@ export const PAGE_TEMPLATES: PageTemplate[] = [
       title: 'Suspensjon fra arbeidsforhold',
       summary: 'Midlertidig fritakelse fra arbeidsplikt med lønn (§ 15-13).',
       status: 'draft',
-      template: 'procedure',
+      template: 'standard',
       legalRefs: ['AML §15-13'],
       requiresAcknowledgement: false,
       retentionCategory: 'personaldokument',
       revisionIntervalMonths: 999,
-      contentBlocks: [
+      blocks: [
         { kind: 'alert', variant: 'warning', text: 'Suspensjon kan kun brukes når det er nødvendig av hensyn til virksomhetens interesser, og kun for så lenge nødvendig — maks 3 mnd uten ny vurdering. Arbeidstaker beholder lønn.' },
         { kind: 'module', moduleName: 'confidentiality_marker', params: { classification: 'strengt_fortrolig', accessList: ['Arbeidstaker', 'Daglig leder', 'HR'] } },
         { kind: 'heading', level: 1, text: 'Suspensjon' },
@@ -1148,12 +1148,12 @@ export const PAGE_TEMPLATES: PageTemplate[] = [
       title: 'Avskjed fra arbeidsforhold',
       summary: 'Umiddelbart opphør pga. grovt pliktbrudd eller annet vesentlig mislighold (§ 15-14).',
       status: 'draft',
-      template: 'procedure',
+      template: 'standard',
       legalRefs: ['AML §15-14'],
       requiresAcknowledgement: false,
       retentionCategory: 'personaldokument',
       revisionIntervalMonths: 999,
-      contentBlocks: [
+      blocks: [
         { kind: 'alert', variant: 'danger', text: 'Avskjed er bare lovlig ved grovt pliktbrudd eller annet vesentlig mislighold. Hyppigste feil hos arbeidsgiver: utilstrekkelig drøfting + utilstrekkelig dokumentasjon. Konsulter advokat før utstedelse.' },
         { kind: 'module', moduleName: 'confidentiality_marker', params: { classification: 'strengt_fortrolig', accessList: ['Arbeidstaker', 'Daglig leder', 'HR', 'Juridisk rådgiver'] } },
         { kind: 'heading', level: 1, text: 'Avskjed' },
@@ -1188,12 +1188,12 @@ export const PAGE_TEMPLATES: PageTemplate[] = [
       title: 'Sluttattest',
       summary: 'Pliktig attest ved opphør av arbeidsforhold (§ 15-15).',
       status: 'draft',
-      template: 'procedure',
+      template: 'standard',
       legalRefs: ['AML §15-15'],
       requiresAcknowledgement: false,
       retentionCategory: 'personaldokument',
       revisionIntervalMonths: 999,
-      contentBlocks: [
+      blocks: [
         { kind: 'alert', variant: 'info', text: 'Pliktig ved alle arbeidsforholds opphør, uavhengig av årsak. Arbeidstaker har krav på attest selv ved oppsigelse fra arbeidsgiver, avskjed eller egen oppsigelse.' },
         { kind: 'heading', level: 1, text: 'Sluttattest' },
         { kind: 'heading', level: 2, text: 'Person' },
@@ -1226,7 +1226,7 @@ export const PAGE_TEMPLATES: PageTemplate[] = [
       requiresAcknowledgement: false,
       retentionCategory: 'personvern',
       revisionIntervalMonths: 24,
-      contentBlocks: [
+      blocks: [
         { kind: 'alert', variant: 'info', text: 'GDPR gir registrerte (ansatte, kandidater, kunder) konkrete rettigheter. Vi har 30 dagers svarfrist etter Art. 12 (3) — kan forlenges med 60 dager ved kompliserte saker hvis varslet innen den første fristen.' },
         { kind: 'heading', level: 1, text: 'Individrettigheter etter GDPR' },
         { kind: 'heading', level: 2, text: 'Rettighetene' },
@@ -1277,12 +1277,12 @@ export const PAGE_TEMPLATES: PageTemplate[] = [
       title: 'Databehandler-avtale (DPA)',
       summary: 'Avtale mellom behandlings­ansvarlig og databehandler etter GDPR Art. 28.',
       status: 'draft',
-      template: 'procedure',
+      template: 'standard',
       legalRefs: ['GDPR Art. 28'],
       requiresAcknowledgement: false,
       retentionCategory: 'personvern',
       revisionIntervalMonths: 24,
-      contentBlocks: [
+      blocks: [
         { kind: 'alert', variant: 'info', text: 'Pliktig per leverandør som behandler personopplysninger på vegne av virksomheten (Art. 28 (3)). Skal være skriftlig og inneholde alle 8 obligatoriske punkter listet under.' },
         { kind: 'heading', level: 1, text: 'Databehandler-avtale' },
         { kind: 'heading', level: 2, text: '1. Parter' },
@@ -1322,13 +1322,13 @@ export const PAGE_TEMPLATES: PageTemplate[] = [
       title: 'Masseoppsigelse — informasjons- og drøftings­dokument',
       summary: 'Pliktig info-skjema for masse­oppsigelser (§ 15-2). Sendes til alle berørte + NAV minst 30 dager før oppsigelser.',
       status: 'draft',
-      template: 'procedure',
+      template: 'standard',
       legalRefs: ['AML §15-2'],
       requiresAcknowledgement: true,
       acknowledgementAudience: 'all_employees',
       retentionCategory: 'personaldokument',
       revisionIntervalMonths: 999,
-      contentBlocks: [
+      blocks: [
         { kind: 'alert', variant: 'warning', text: 'Pliktig ved oppsigelse av minst 10 arbeidstakere innen en periode på 30 dager. SKAL meldes til NAV (Arbeids- og velferdsetaten) før beslutning. Drøftings­plikt overfor tillitsvalgte med formål å unngå/redusere oppsigelser og lindre konsekvenser.' },
         { kind: 'heading', level: 1, text: 'Masseoppsigelse — informasjon og drøfting' },
         { kind: 'heading', level: 2, text: 'Omfang' },

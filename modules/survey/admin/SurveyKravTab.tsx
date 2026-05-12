@@ -11,35 +11,26 @@ import { useSurvey } from '../index'
 
 const MANDATORY_LAW_LABEL: Record<string, string> = {
   AML_4_3: 'AML § 4-3 (psykososialt arbeidsmiljø)',
+  AML_4_3_3: 'AML § 4-3 (3) (vold/trusler, trakassering)',
   AML_4_4: 'AML § 4-4 (fysisk arbeidsmiljø)',
+  AML_4_1_3: 'AML § 4-1 (3) (endring/omstilling)',
   AML_6_2: 'AML § 6-2 (verneombud)',
+  LDL_26: 'LDL § 26 (ARP — likestilling og diskriminering)',
 }
 
 export function SurveyKravTab({ supabase }: { supabase: ReturnType<typeof useOrgSetupContext>['supabase'] }) {
   const survey = useSurvey({ supabase })
 
-  // Collect unique law refs across catalog templates
-  const { systemTemplates, orgTemplates, mandatoryLawEntries } = useMemo(() => {
-    const sys = survey.templateCatalog.filter((t) => t.is_system)
-    const org = survey.templateCatalog.filter((t) => !t.is_system)
-
-    // Map of law_ref → template names that cover it
-    const refMap = new Map<string, string[]>()
+  // Collect unique mandatory_law values from questions inside each template body
+  const mandatoryLawEntries = useMemo(() => {
     const mlSet = new Set<string>()
-
     for (const t of survey.templateCatalog) {
-      if (t.law_ref) {
-        if (!refMap.has(t.law_ref)) refMap.set(t.law_ref, [])
-        refMap.get(t.law_ref)!.push(t.name)
+      const questions = t.body?.questions ?? []
+      for (const q of questions) {
+        if (q.mandatory_law) mlSet.add(q.mandatory_law)
       }
-      if (t.mandatory_law) mlSet.add(t.mandatory_law)
     }
-
-    return {
-      systemTemplates: sys,
-      orgTemplates: org,
-      mandatoryLawEntries: Array.from(mlSet).sort(),
-    }
+    return Array.from(mlSet).sort()
   }, [survey.templateCatalog])
 
   // Build sorted list of law_ref entries

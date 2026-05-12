@@ -134,11 +134,14 @@ export function GdprSubjectRequestsAdminPanel() {
   }
 
   return (
-    <ModuleSectionCard
-      title="GDPR Individrettigheter (Art. 15-21)"
-      description="Forespørsler om innsyn, sletting, retting, portabilitet osv. 30-dagers svarfrist (Art. 12 (3))."
-      icon={UserSearch}
-    >
+    <ModuleSectionCard className="p-5 md:p-6">
+      <div className="mb-3 flex items-center gap-2">
+        <UserSearch className="h-5 w-5 text-emerald-700" aria-hidden />
+        <h2 className="text-lg font-semibold text-neutral-900">GDPR Individrettigheter (Art. 15-21)</h2>
+      </div>
+      <p className="mb-5 text-sm text-neutral-600">
+        Forespørsler om innsyn, sletting, retting, portabilitet osv. 30-dagers svarfrist (Art. 12 (3)).
+      </p>
       {error ? <WarningBox>{error}</WarningBox> : null}
 
       <div className="mb-4">

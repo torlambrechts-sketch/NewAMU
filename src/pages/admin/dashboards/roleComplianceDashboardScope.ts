@@ -133,13 +133,7 @@ const TABLE_TOP_GAPS: ReportModuleTable = {
   kind: 'table',
   datasetKey: 'role_compliance_top_gaps',
   title: 'Største mangler — krav per rolle',
-  rowsPath: '',
-  columns: [
-    { key: 'role', label: 'Rolle' },
-    { key: 'course', label: 'Krav' },
-    { key: 'missingCount', label: 'Mangler' },
-    { key: 'totalCount', label: 'Av' },
-  ],
+  rowKeys: ['role', 'course', 'missingCount', 'totalCount'],
   colSpan: 'md',
 }
 
@@ -148,13 +142,7 @@ const TABLE_OVERDUE: ReportModuleTable = {
   kind: 'table',
   datasetKey: 'role_compliance_overdue_persons',
   title: 'Personer med forfalt opplæring',
-  rowsPath: '',
-  columns: [
-    { key: 'name', label: 'Person' },
-    { key: 'role', label: 'Rolle' },
-    { key: 'course', label: 'Kurs' },
-    { key: 'daysOverdue', label: 'Dager forfalt' },
-  ],
+  rowKeys: ['name', 'role', 'course', 'daysOverdue'],
   colSpan: 'md',
 }
 
@@ -163,13 +151,7 @@ const TABLE_THRESHOLD: ReportModuleTable = {
   kind: 'table',
   datasetKey: 'role_compliance_threshold_violations',
   title: 'Terskel-brudd — mangler rolle-innehavere',
-  rowsPath: '',
-  columns: [
-    { key: 'role', label: 'Rolle' },
-    { key: 'requiredFrom', label: 'Pliktig fra ansatte' },
-    { key: 'currentEmployees', label: 'Vi har' },
-    { key: 'currentHolders', label: 'Innehavere' },
-  ],
+  rowKeys: ['role', 'requiredFrom', 'currentEmployees', 'currentHolders'],
   colSpan: 'md',
 }
 
