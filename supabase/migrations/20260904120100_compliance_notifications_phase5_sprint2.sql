@@ -271,8 +271,10 @@ begin
       -- (system_course bruker fork-mekanismen; vi enroller bare i org-kurs)
       begin
         v_course_uuid := v_req.resource_id::uuid;
-        insert into public.learning_course_progress (user_id, course_id, started_at)
-        select v_assignment.user_id, v_req.resource_id, null
+        -- organization_id er NOT NULL i learning_course_progress;
+        -- started_at har default now() — la kursets schema håndtere det.
+        insert into public.learning_course_progress (user_id, course_id, organization_id)
+        select v_assignment.user_id, v_req.resource_id, v_assignment.organization_id
         where exists (
           select 1 from public.learning_courses
           where id = v_req.resource_id

@@ -17,7 +17,6 @@
 --   protokoll, register, beredskap, bransje.
 --
 --   Kategori-CHECK utvides på tre tabeller:
---     - wiki_pages.category
 --     - wiki_spaces.category
 --     - document_org_templates.category
 --
@@ -150,9 +149,6 @@ end $$;
 
 comment on column public.wiki_spaces.category is
   'Document space category. 13 values total: original 5 (hms_handbook, policy, procedure, guide, template_library) + 8 compliance-driven (varsling, personal, personvern, likestilling, protokoll, register, beredskap, bransje). See specs/aml-documents-content.md §15.';
-
-comment on column public.wiki_pages.category is
-  'Page category — mirrors wiki_spaces.category. Same 13 values.';
 
 comment on column public.document_org_templates.category is
   'Custom template category — mirrors wiki_spaces.category. Same 13 values.';

@@ -26,7 +26,9 @@ create table if not exists public.gdpr_breach_incidents (
   organization_id uuid not null references public.organizations(id) on delete cascade,
   -- Tidslinje
   detected_at timestamptz not null default now(),
-  deadline_at timestamptz generated always as (detected_at + interval '72 hours') stored,
+  -- deadline_at beregnes via trigger (GENERATED-uttrykk med tz-aritmetikk er ikke
+  -- alltid akseptert som immutable; trigger gir samme garanti + er portabelt).
+  deadline_at timestamptz not null,
   reported_to_datatilsynet_at timestamptz,
   reported_to_subjects_at timestamptz,
   resolved_at timestamptz,
@@ -67,6 +69,21 @@ create index if not exists gbi_deadline_idx on public.gdpr_breach_incidents (org
 
 comment on table public.gdpr_breach_incidents is
   'GDPR Art. 33 brudd-register. 72-timers-fristen er stored generated column.';
+
+-- Trigger: set deadline_at = detected_at + 72 hours på insert.
+-- Hard-coded slik at fristen ikke kan endres etter at hendelsen er opprettet.
+create or replace function public.set_gdpr_breach_deadline()
+returns trigger as $$
+begin
+  new.deadline_at := new.detected_at + interval '72 hours';
+  return new;
+end;
+$$ language plpgsql;
+
+drop trigger if exists gbi_set_deadline on public.gdpr_breach_incidents;
+create trigger gbi_set_deadline
+  before insert on public.gdpr_breach_incidents
+  for each row execute function public.set_gdpr_breach_deadline();
 
 drop trigger if exists gbi_set_updated_at on public.gdpr_breach_incidents;
 create trigger gbi_set_updated_at
