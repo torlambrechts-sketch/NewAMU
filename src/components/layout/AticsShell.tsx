@@ -270,6 +270,42 @@ const organisationAdminSubs: SubItem[] = [
     match: ({ pathname, search }) =>
       pathname === '/organisation/admin' && new URLSearchParams(search).get('tab') === 'delegation',
   },
+  {
+    label: 'Funksjonelle roller',
+    path: '/organisation/admin?tab=functional_roles',
+    match: ({ pathname, search }) =>
+      pathname === '/organisation/admin' && new URLSearchParams(search).get('tab') === 'functional_roles',
+  },
+  {
+    label: 'Rolle-compliance',
+    path: '/organisation/admin?tab=role_compliance',
+    match: ({ pathname, search }) =>
+      pathname === '/organisation/admin' && new URLSearchParams(search).get('tab') === 'role_compliance',
+  },
+  {
+    label: 'Regelverk-dekning',
+    path: '/organisation/admin?tab=regelverk_coverage',
+    match: ({ pathname, search }) =>
+      pathname === '/organisation/admin' && new URLSearchParams(search).get('tab') === 'regelverk_coverage',
+  },
+  {
+    label: 'GDPR brudd',
+    path: '/organisation/admin?tab=gdpr_breach',
+    match: ({ pathname, search }) =>
+      pathname === '/organisation/admin' && new URLSearchParams(search).get('tab') === 'gdpr_breach',
+  },
+  {
+    label: 'GDPR individrettigheter',
+    path: '/organisation/admin?tab=gdpr_subject_requests',
+    match: ({ pathname, search }) =>
+      pathname === '/organisation/admin' && new URLSearchParams(search).get('tab') === 'gdpr_subject_requests',
+  },
+  {
+    label: 'Integrasjoner',
+    path: '/organisation/admin?tab=integrations',
+    match: ({ pathname, search }) =>
+      pathname === '/organisation/admin' && new URLSearchParams(search).get('tab') === 'integrations',
+  },
 ]
 
 // ─── Navigation groups ────────────────────────────────────────────────────────
