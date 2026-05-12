@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useLocation, useSearchParams } from 'react-router-dom'
-import { Download, Loader2, Mail, Plug, Plus, Shield, Upload, UserCog, Users } from 'lucide-react'
+import { Download, Loader2, Mail, Plug, Plus, Shield, Upload, UserCheck, UserCog, Users } from 'lucide-react'
 import { IntegrationsAdminPanel } from './admin/IntegrationsAdminPanel'
+import { FunctionalRolesAdminPanel } from './admin/FunctionalRolesAdminPanel'
 import { ModulePageShell, ModuleSectionCard } from '../components/module'
 import { Tabs } from '../components/ui/Tabs'
 import { StandardInput } from '../components/ui/Input'
@@ -45,6 +46,7 @@ type DelegationRow = {
 const ADMIN_TABS = [
   { id: 'users', label: 'Brukere & invitasjoner', icon: Users },
   { id: 'roles', label: 'Roller & rettigheter', icon: Shield },
+  { id: 'functional_roles', label: 'Funksjonelle roller', icon: UserCheck },
   { id: 'delegation', label: 'Delegering', icon: UserCog },
   { id: 'integrations', label: 'Integrasjoner', icon: Plug },
 ] as const
@@ -506,6 +508,10 @@ export function AdminPage() {
 
       {tab === 'integrations' && !loading ? (
         <IntegrationsAdminPanel />
+      ) : null}
+
+      {tab === 'functional_roles' && !loading ? (
+        <FunctionalRolesAdminPanel />
       ) : null}
 
       {tab === 'delegation' && !loading ? (

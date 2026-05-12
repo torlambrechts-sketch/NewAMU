@@ -14,7 +14,7 @@ import { SearchableSelect, type SelectOption } from '../../components/ui/Searcha
 import { WarningBox } from '../../components/ui/AlertBox'
 import { useOrgSetupContext } from '../../hooks/useOrgSetupContext'
 
-type IntegrationKind = 'bankid' | 'eco_online' | 'altinn' | 'lovdata_pro' | 'feide'
+type IntegrationKind = 'bankid' | 'minid' | 'eco_online' | 'altinn' | 'lovdata_pro' | 'feide'
 
 type IntegrationRow = {
   id: string
@@ -57,6 +57,24 @@ const INTEGRATIONS: IntegrationDef[] = [
     ],
     secretNote:
       'Klient-hemmelighet og signatur-sertifikat skal lagres som Supabase Vault-secret med navn BANKID_CLIENT_SECRET og BANKID_PRIVATE_KEY. IKKE lim inn hemmeligheter her.',
+  },
+  {
+    kind: 'minid',
+    title: 'MinID (ID-porten)',
+    description:
+      'ID-porten MinID for sterk pålogging (passord + SMS-kode). Brukes som alternativ til BankID når BankID-nivå ikke er nødvendig — typisk for kvittering på dokument-lesing, ikke for juridisk bindende signering.',
+    fields: [
+      { key: 'environment', label: 'Miljø', type: 'select', options: ENV_OPTIONS },
+      { key: 'client_id', label: 'ID-porten Client ID', placeholder: 'urn:idporten:...' },
+      {
+        key: 'callback_url',
+        label: 'Callback-URL',
+        placeholder: 'https://newamu.no/idporten/callback',
+      },
+      { key: 'acr_values', label: 'Krav til sikkerhets­nivå', placeholder: 'idporten-loa-substantial (standard)' },
+    ],
+    secretNote:
+      'Klient-hemmelighet lagres som Supabase Vault-secret MINID_CLIENT_SECRET. Forhåndsregistrering kreves hos Digdir for å motta produksjons-credentials.',
   },
   {
     kind: 'eco_online',

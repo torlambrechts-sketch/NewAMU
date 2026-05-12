@@ -93,6 +93,8 @@ export type ModuleBlock = ContentBlockInstance & {
     | 'confidentiality_marker'  // Restricted-access banner with access list
     | 'contact_card'            // Structured contact card (varslings­mottak, BHT, etc.)
     | 'retention_marker'        // Retention category + min-years + deletion-date footer
+    // Fase 3 — opplærings-register-kobling:
+    | 'training_matrix'         // Rolle × kurs matrise med opplærings-status
   params?: Record<string, string | number | boolean | string[]>
 }
 

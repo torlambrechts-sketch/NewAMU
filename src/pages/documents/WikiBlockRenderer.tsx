@@ -13,6 +13,7 @@ import { RevisionLog } from './modules/RevisionLog'
 import { ConfidentialityMarker } from './modules/ConfidentialityMarker'
 import { ContactCard } from './modules/ContactCard'
 import { RetentionMarker } from './modules/RetentionMarker'
+import { TrainingMatrix } from './modules/TrainingMatrix'
 
 type Props = {
   blocks: ContentBlock[]
@@ -322,6 +323,15 @@ export function WikiBlockRenderer({ blocks, pageId, pageVersion, lang = 'nb', bl
                     category={typeof p.category === 'string' ? p.category : undefined}
                     minYears={typeof p.minYears === 'number' ? p.minYears : undefined}
                     legalRef={typeof p.legalRef === 'string' ? p.legalRef : undefined}
+                  />
+                )
+                break
+              case 'training_matrix':
+                node = (
+                  <TrainingMatrix
+                    roleSlugs={Array.isArray(p.roleSlugs) ? (p.roleSlugs as string[]) : undefined}
+                    courseIds={Array.isArray(p.courseIds) ? (p.courseIds as string[]) : undefined}
+                    onlyGaps={p.onlyGaps === true}
                   />
                 )
                 break
