@@ -16,6 +16,7 @@ const AXIS_BY_KIND: Record<CoverageEntry['kind'], string> = {
   course_system: 'Kurs',
   course_org: 'Kurs',
   document: 'Dokument',
+  document_template: 'Dokument-mal',
   survey: 'Undersøkelse',
   checklist_template: 'Sjekkliste',
   checklist_item: 'Sjekkliste',
@@ -34,14 +35,17 @@ export type StudioWizardDeps = {
   onCompleted: (values: Record<string, string | boolean>) => void
 }
 
-// Slår sammen alle innholds-treff for et sett lawRefs til SelectOption[]-grupper
-// klare til module_picker.
+// Slår sammen alle TEMPLATE-treff for et sett lawRefs til SelectOption[]-grupper
+// klare til module_picker. Org-instanser er allerede aktiv dekning og
+// hører hjemme i Regelverk-dekning-dashbordet, ikke i wizardens picker —
+// wizardens jobb er å aktivere maler som ennå ikke er instansiert.
 function buildPickerOptions(coverage: CoverageMap, lawRefs: string[]): SelectOption[] {
   const seen = new Set<string>()
   const opts: SelectOption[] = []
   for (const ref of lawRefs) {
     const entries = coverage.get(ref) ?? []
     for (const e of entries) {
+      if (e.source !== 'template') continue
       const key = `${e.kind}:${e.id}`
       if (seen.has(key)) continue
       seen.add(key)

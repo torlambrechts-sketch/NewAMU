@@ -61,6 +61,7 @@ export function RegelverkCoverageDashboardPage() {
         course_system: 0,
         course_org: 0,
         document: 0,
+        document_template: 0,
         survey: 0,
         checklist_template: 0,
         checklist_item: 0,
