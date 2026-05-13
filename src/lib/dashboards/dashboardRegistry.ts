@@ -16,9 +16,30 @@
 // exists" co-located with the data hook (useChecklistModule etc.) while
 // "how to display it" lives in the registry.
 
+import type { SupabaseClient } from '@supabase/supabase-js'
 import type { ReportModule } from '../../types/reportBuilder'
 import type { DashboardFilter, DashboardDimension } from './dashboardFilters'
 import { freshId } from './freshId'
+
+/**
+ * Dependencies passed to a scope's optional `datasetsHook` from the
+ * cross-scope reporting host. Keeps the contract narrow so scope hooks
+ * don't have to know about the broader page context.
+ */
+export type DatasetsHookDeps = {
+  supabase: SupabaseClient | null
+  organizationId: string | null
+  filters: DashboardFilter[]
+}
+
+/**
+ * A scope's optional self-fetching dataset hook signature. When registered,
+ * the reporting module can mount one adapter per selected scope and merge
+ * their dataset maps without the host page knowing each module's data
+ * fetcher up-front. Existing per-module analyse pages keep using their
+ * own bespoke hooks; this signature is for the registry-driven path only.
+ */
+export type DatasetsHook = (deps: DatasetsHookDeps) => Record<string, unknown>
 
 /**
  * One picker entry in the "Add Widget" catalog. Carries everything
@@ -105,6 +126,14 @@ export type DashboardScope = {
    * `dashboard_layouts` exactly like a per-module dashboard.
    */
   compositeMembers?: string[]
+  /**
+   * Optional self-fetching dataset hook, used only by the reporting
+   * module's cross-scope host. Registering this lets a user pick any
+   * subset of scopes for a report without the host page having to
+   * import each module's hook up-front. Existing analyse pages still
+   * call their own dataset hook directly and don't depend on this.
+   */
+  datasetsHook?: DatasetsHook
 }
 
 const registry = new Map<string, DashboardScope>()

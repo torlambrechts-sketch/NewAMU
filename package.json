@@ -29,6 +29,7 @@
     "@vercel/speed-insights": "^2.0.0",
     "diff-match-patch": "^1.0.5",
     "dompurify": "^3.3.3",
+    "fflate": "^0.8.2",
     "lucide-react": "^1.7.0",
     "quill": "^2.0.3",
     "react": "^19.2.4",
