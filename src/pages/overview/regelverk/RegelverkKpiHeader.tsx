@@ -67,7 +67,7 @@ export function RegelverkKpiHeader({
             <span className="font-semibold text-emerald-900">{covered}</span> dekket
           </span>
           <span>
-            <span className="font-semibold text-amber-900">{partial}</span> mangler proof
+            <span className="font-semibold text-amber-900">{partial}</span> mangler bevis
           </span>
           <span>
             <span className="font-semibold text-amber-900">{onlyAvvik}</span> kun avvik
@@ -113,7 +113,7 @@ export function RegelverkKpiHeader({
           <li className="flex items-center justify-between">
             <span className="flex items-center gap-2 text-neutral-700">
               <span className="size-2 rounded-full bg-amber-400" />
-              Mangler proof (pliktig)
+              Mangler bevis (pliktig)
             </span>
             <span className="font-semibold tabular-nums text-neutral-900">
               {partialMandatory}

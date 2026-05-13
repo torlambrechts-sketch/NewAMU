@@ -217,7 +217,7 @@ export function RegelverkCoverageSlideOver({
             </p>
             {req.status === 'partial' ? (
               <div className="mt-3 rounded-md border border-amber-300 bg-amber-50/70 p-4 text-sm text-amber-950">
-                <p className="font-semibold">Mangler reell proof</p>
+                <p className="font-semibold">Mangler reelt bevis</p>
                 <p className="mt-1 text-xs text-amber-900/85">
                   Arbeidstilsynet aksepterer ikke en mal som dokumentasjon. Kravet
                   regnes som dekket først når en publisert ressurs (kurs eller
@@ -227,7 +227,7 @@ export function RegelverkCoverageSlideOver({
                   {req.proof.templatesOnly > 0 ? (
                     <li>
                       <span className="font-semibold">{req.proof.templatesOnly}</span>{' '}
-                      mal tilgjengelig — aktiver i orgen for å skape proof.
+                      mal tilgjengelig — aktiver i orgen for å skape bevis.
                     </li>
                   ) : null}
                   {req.proof.staleInstances > 0 ? (

@@ -72,7 +72,7 @@ export function RegelverkCoverageDashboardPage() {
       }
       for (const e of entries) byKind[e.kind] += 1
 
-      // Status (v2 — krever reell proof):
+      // Status (v2 — krever reelt bevis):
       //  covered    = ≥1 fersk publisert INSTANCE (kurs/dokument) i orgen,
       //               oppdatert siste 12 mnd.
       //  partial    = mal eller utdatert/utkast-instans finnes — orgen
