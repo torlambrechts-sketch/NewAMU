@@ -17,6 +17,7 @@ import {
   type DatasetMeta,
   type WidgetCatalogEntry,
 } from '../../../lib/dashboards/dashboardRegistry'
+import { useDocumentsDatasetsForReports } from './useDocumentsDatasetsForReports'
 
 export const DOCUMENTS_DASHBOARD_SCOPE_ID = 'documents'
 
@@ -181,4 +182,5 @@ registerDashboardScope({
   // Deep teal — distinct from learning's #0e7490 so the two modules don't
   // visually merge in the HMS Overview composite.
   accent: '#0f766e',
+  datasetsHook: useDocumentsDatasetsForReports,
 })

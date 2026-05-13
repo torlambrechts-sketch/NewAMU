@@ -22,6 +22,7 @@ import {
   type DatasetMeta,
   type WidgetCatalogEntry,
 } from '../../../lib/dashboards/dashboardRegistry'
+import { useRegistersDatasetsForReports } from './useRegistersDatasetsForReports'
 
 export const REGISTERS_DASHBOARD_SCOPE_ID = 'registers'
 
@@ -197,4 +198,5 @@ registerDashboardScope({
   // Steel-blue — distinct from the other registered scope accents
   // (forest / purple / amber / teal / deep-teal / indigo).
   accent: '#0369a1',
+  datasetsHook: useRegistersDatasetsForReports,
 })
