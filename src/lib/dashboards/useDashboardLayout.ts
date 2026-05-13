@@ -308,6 +308,51 @@ export function useDashboardLayout({
     [persist],
   )
 
+  /**
+   * Materialize a `dashboard_layouts` row for this scope if none exists yet,
+   * and return the row id. When a row already exists (`state.row`), returns
+   * that id without touching the DB.
+   *
+   * Used by `PublishReportButton` so the "Lag rapport" action works on a
+   * fresh dashboard that's still rendering the registry default (no row
+   * yet) — without forcing the user to first add or edit a widget.
+   */
+  const ensureSavedRow = useCallback(async (): Promise<string | null> => {
+    if (!supabase || !orgId) return null
+    if (state.row?.id) return state.row.id
+    try {
+      const { data, error } = await supabase
+        .from('dashboard_layouts')
+        .insert({
+          scope_id: scopeId,
+          slug,
+          name: 'Standard',
+          layout: state.layout,
+          filters: state.filters,
+          is_default: true,
+        })
+        .select('*')
+        .single()
+      if (error) throw error
+      const parsed = DashboardLayoutRowSchema.safeParse(data)
+      if (!parsed.success) return null
+      setActiveRowId(parsed.data.id)
+      setState((s) => ({
+        ...s,
+        row: parsed.data,
+        layout: parsed.data.layout as ReportModule[],
+        filters: (parsed.data.filters as DashboardFilter[]) ?? [],
+        isDefault: false,
+        available: [...s.available, parsed.data],
+        error: null,
+      }))
+      return parsed.data.id
+    } catch (err) {
+      setState((s) => ({ ...s, error: getSupabaseErrorMessage(err) }))
+      return null
+    }
+  }, [supabase, orgId, scopeId, slug, state.row, state.layout, state.filters])
+
   const saveFilters = useCallback(
     (filters: DashboardFilter[]) => persist({ filters }),
     [persist],
@@ -670,5 +715,6 @@ export function useDashboardLayout({
     republish,
     unpublish,
     regenerateShareToken,
+    ensureSavedRow,
   }
 }

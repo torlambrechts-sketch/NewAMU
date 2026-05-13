@@ -238,6 +238,7 @@ export function TasksAnalysePage() {
               scopeId={TASKS_DASHBOARD_SCOPE_ID}
               scopeLabel="Oppgaver"
               datasets={datasets}
+              ensureSavedRow={dashboard.ensureSavedRow}
             />
           </div>
         }

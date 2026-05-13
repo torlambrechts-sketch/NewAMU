@@ -178,6 +178,7 @@ export function ComplianceCompanyPage() {
               scopeId={COMPLIANCE_COMPANY_SCOPE_ID}
               scopeLabel="Selskaps-compliance"
               datasets={datasets}
+              ensureSavedRow={dashboard.ensureSavedRow}
             />
           </div>
         }

@@ -96,6 +96,7 @@ export function CompliancePersonalPage() {
               scopeId={COMPLIANCE_PERSONAL_SCOPE_ID}
               scopeLabel="Min compliance"
               datasets={datasets}
+              ensureSavedRow={dashboard.ensureSavedRow}
             />
           </div>
         }

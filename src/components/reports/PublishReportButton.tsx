@@ -26,9 +26,9 @@ import {
 import { getSupabaseErrorMessage } from '../../lib/supabaseError'
 
 type Props = {
-  /** The currently-loaded dashboard row id. The publish RPC clones from
-   *  this row; if null the button is disabled (the user has to save the
-   *  dashboard at least once before publishing it). */
+  /** The currently-loaded dashboard row id, or null if no row exists yet
+   *  (fresh dashboard rendering the registry default). When null the
+   *  button auto-materializes a row via `ensureSavedRow` on first publish. */
   sourceDashboardId: string | null
   /** The active dashboard's name — used as the default report name. */
   sourceDashboardName: string | null
@@ -38,6 +38,12 @@ type Props = {
   scopeLabel?: string
   /** Live dataset map — frozen into snapshot_data at publish time. */
   datasets: Record<string, unknown>
+  /**
+   * Callback that materializes a dashboard_layouts row for this scope if
+   * none exists yet, returning the row id. Wired from
+   * `useDashboardLayout().ensureSavedRow`.
+   */
+  ensureSavedRow?: () => Promise<string | null>
 }
 
 type ReportListRow = {
@@ -95,9 +101,11 @@ export function PublishReportButton({
   scopeId,
   scopeLabel,
   datasets,
+  ensureSavedRow,
 }: Props) {
   const { supabase, organization } = useOrgSetupContext()
   const [open, setOpen] = useState(false)
+  const canPublish = Boolean(sourceDashboardId || ensureSavedRow)
 
   return (
     <>
@@ -106,11 +114,11 @@ export function PublishReportButton({
         variant="secondary"
         icon={<FileBarChart className="h-4 w-4" />}
         onClick={() => setOpen(true)}
-        disabled={!sourceDashboardId}
+        disabled={!canPublish}
         title={
-          sourceDashboardId
+          canPublish
             ? undefined
-            : 'Lagre dashbordet først (legg til eller endre en widget) før du kan publisere.'
+            : 'Dashbordet kan ikke publiseres ennå.'
         }
       >
         Lag rapport
@@ -126,6 +134,7 @@ export function PublishReportButton({
           scopeId={scopeId}
           scopeLabel={scopeLabel}
           datasets={datasets}
+          ensureSavedRow={ensureSavedRow}
         />
       ) : null}
     </>
@@ -142,6 +151,7 @@ function PublishReportPanel({
   scopeId,
   scopeLabel,
   datasets,
+  ensureSavedRow,
 }: {
   open: boolean
   onClose: () => void
@@ -152,6 +162,7 @@ function PublishReportPanel({
   scopeId: string
   scopeLabel?: string
   datasets: Record<string, unknown>
+  ensureSavedRow?: () => Promise<string | null>
 }) {
   const [name, setName] = useState(() => defaultReportName(sourceDashboardName, scopeLabel))
   const [description, setDescription] = useState('')
@@ -210,14 +221,30 @@ function PublishReportPanel({
   }, [])
 
   const handlePublish = useCallback(async () => {
-    if (!supabase || !sourceDashboardId) return
+    if (!supabase) return
     setPublishing(true)
     setError(null)
     setSuccess(null)
     try {
+      // On a fresh dashboard the registry default renders without a
+      // dashboard_layouts row. Materialize one so publish_dashboard_as_report
+      // has a source to clone from.
+      let sourceId = sourceDashboardId
+      if (!sourceId) {
+        if (!ensureSavedRow) {
+          setError('Dashbordet kan ikke publiseres ennå.')
+          return
+        }
+        sourceId = await ensureSavedRow()
+        if (!sourceId) {
+          setError('Kunne ikke lagre dashbordet før publisering.')
+          return
+        }
+      }
+
       const snapshot = snapshotForPublish(datasets)
       const { data, error: e } = await supabase.rpc('publish_dashboard_as_report', {
-        p_source_id: sourceDashboardId,
+        p_source_id: sourceId,
         p_name: name,
         p_description: description.trim() || null,
         p_snapshot: snapshot,
@@ -245,7 +272,7 @@ function PublishReportPanel({
     } finally {
       setPublishing(false)
     }
-  }, [supabase, sourceDashboardId, name, description, password, expiresOn, datasets, fetchReports])
+  }, [supabase, sourceDashboardId, ensureSavedRow, name, description, password, expiresOn, datasets, fetchReports])
 
   const handleUnpublish = useCallback(
     async (report: ReportListRow) => {
@@ -272,7 +299,7 @@ function PublishReportPanel({
     [supabase, fetchReports],
   )
 
-  const formDisabled = publishing || !sourceDashboardId
+  const formDisabled = publishing || (!sourceDashboardId && !ensureSavedRow)
 
   const headerLabel = useMemo(
     () => (success ? 'Rapport publisert' : 'Lag rapport fra dashbordet'),

@@ -143,6 +143,7 @@ export function RoleComplianceAnalysePage() {
               scopeId={ROLE_COMPLIANCE_DASHBOARD_SCOPE_ID}
               scopeLabel="Rolle-compliance"
               datasets={datasets}
+              ensureSavedRow={dashboard.ensureSavedRow}
             />
           </div>
         }

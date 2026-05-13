@@ -245,6 +245,7 @@ export function DocumentsAnalysePage() {
               scopeId={DOCUMENTS_DASHBOARD_SCOPE_ID}
               scopeLabel="Dokumenter"
               datasets={datasets}
+              ensureSavedRow={dashboard.ensureSavedRow}
             />
           </div>
         }
