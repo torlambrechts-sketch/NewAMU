@@ -16,6 +16,7 @@ import {
   BookOpen,
   CheckCheck,
   ClipboardList,
+  Landmark,
   ListChecks,
   PlayCircle,
   Plus,
@@ -32,6 +33,7 @@ import { Tabs } from '../../components/ui/Tabs'
 import { Button } from '../../components/ui/Button'
 import '../../lib/workflows/registerScopes'
 import { RulesPanel } from '../../components/workflow/rules/RulesPanel'
+import { SystemRulesPanel } from '../../components/workflow/system/SystemRulesPanel'
 import { LibraryPanel } from '../../components/workflow/library/LibraryPanel'
 import { RunHistoryPanel } from '../../components/workflow/runs/RunHistoryPanel'
 import { DryRunPanel } from '../../components/workflow/dryRun/DryRunPanel'
@@ -42,7 +44,7 @@ import { CanvasPanel } from '../../components/workflow/canvas/CanvasPanel'
 import { useWorkflows } from '../../hooks/useWorkflows'
 import { useWorkflowApprovals } from '../../hooks/useWorkflowApprovals'
 
-type Tab = 'rules' | 'library' | 'canvas' | 'approvals' | 'runs' | 'dry-run' | 'evidence' | 'revisions'
+type Tab = 'rules' | 'system' | 'library' | 'canvas' | 'approvals' | 'runs' | 'dry-run' | 'evidence' | 'revisions'
 
 export function WorkflowBuilderPage() {
   const [tab, setTab] = useState<Tab>('rules')
@@ -74,6 +76,7 @@ export function WorkflowBuilderPage() {
   const tabItems = useMemo(
     () => [
       { id: 'rules' as const, label: 'Mine arbeidsflyter', icon: ListChecks, badgeCount: rules.length },
+      { id: 'system' as const, label: 'System', icon: Landmark },
       { id: 'library' as const, label: 'Mal-bibliotek', icon: BookOpen },
       { id: 'canvas' as const, label: 'Bygg', icon: Workflow },
       {
@@ -151,6 +154,7 @@ export function WorkflowBuilderPage() {
             }}
           />
         )}
+        {tab === 'system' && <SystemRulesPanel />}
         {tab === 'library' && (
           <LibraryPanel
             onInstalled={(ruleId) => {
