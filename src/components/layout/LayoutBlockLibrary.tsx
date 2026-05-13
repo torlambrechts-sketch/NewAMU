@@ -59,7 +59,6 @@ function PageHeading1Block({ textOverride }: RenderBlockProps) {
       >
         {title}
       </h1>
-      {description && <p className="mt-1 max-w-2xl text-sm text-neutral-600">{description}</p>}
     </div>
   )
 }

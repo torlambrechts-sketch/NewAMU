@@ -69,7 +69,6 @@ export function WorkplacePageHeading1({
             >
               {title}
             </h1>
-            {description ? <div className="mt-2 text-sm text-neutral-600">{description}</div> : null}
           </div>
           {headerActions ? (
             <div
