@@ -6,9 +6,10 @@ import { getAtPath, numberAtPath } from '../../lib/reportDatasets'
 // `ui_kits/dashboard/Widgets.jsx` `WidgetCard`). Earlier iterations of
 // this runtime used `rounded-none` for a squared, utilitarian feel; the
 // design kit calls for `rounded-xl` with a subtle `0 1px 2px` shadow
-// and a soft hairline border.
+// and a soft hairline border. V2 bumps the shadow + padding so widgets
+// read as substantive cards rather than hairline tiles.
 const R = 'rounded-xl'
-const WIDGET_SHADOW = '0 1px 2px rgba(0,0,0,0.04)'
+const WIDGET_SHADOW = '0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04)'
 
 // Tailwind-safe lg-col-span classes per ReportModuleColSpan. Mobile and
 // md breakpoints flow as a single column to keep tiles legible on
@@ -97,24 +98,33 @@ function DonutMini({
   const bg = stops.length ? `conic-gradient(${stops.join(', ')})` : '#e5e7eb'
 
   return (
-    <div className="flex items-center gap-4">
+    <div className="flex flex-row-reverse items-center gap-6">
       <div
-        className="relative size-24 shrink-0 rounded-full border border-neutral-200"
+        className="relative size-40 shrink-0 rounded-full border border-neutral-200"
         style={{ background: bg }}
       >
-        <div className="absolute inset-[18%] flex items-center justify-center rounded-full bg-white text-[11px] font-bold text-neutral-800">
-          {Math.round(total)}
+        <div className="absolute inset-[22%] flex flex-col items-center justify-center rounded-full bg-white">
+          <span className="text-[10px] font-semibold uppercase tracking-wider text-neutral-500">
+            Totalt
+          </span>
+          <span className="text-2xl font-bold tabular-nums text-neutral-900">
+            {Math.round(total)}
+          </span>
         </div>
       </div>
-      <ul className="min-w-0 flex-1 space-y-1 text-xs">
+      <ul className="min-w-0 flex-1 space-y-2 text-sm">
         {segments.map((s) => {
+          const pct = (s.value / total) * 100
           const inner = (
             <>
-              <span className="flex items-center gap-1.5 truncate text-neutral-600">
-                <span className="size-2 shrink-0 rounded-full" style={{ backgroundColor: s.color }} />
-                {s.label}
+              <span className="flex min-w-0 items-center gap-2 truncate text-neutral-700">
+                <span className="size-2.5 shrink-0 rounded-full" style={{ backgroundColor: s.color }} />
+                <span className="truncate">{s.label}</span>
               </span>
-              <span className="shrink-0 font-medium tabular-nums text-neutral-900">{s.value}</span>
+              <span className="flex shrink-0 items-baseline gap-2 tabular-nums">
+                <span className="text-base font-semibold text-neutral-900">{s.value}</span>
+                <span className="text-xs text-neutral-500">{pct.toFixed(2)}%</span>
+              </span>
             </>
           )
           if (onSliceClick) {
@@ -123,7 +133,7 @@ function DonutMini({
                 <button
                   type="button"
                   onClick={() => onSliceClick(s.label)}
-                  className="-mx-1 flex w-full justify-between gap-2 rounded-sm px-1 py-0.5 hover:bg-neutral-100"
+                  className="-mx-1 flex w-full justify-between gap-3 rounded-sm px-1 py-0.5 hover:bg-neutral-100"
                   title={`Filtrer på ${s.label}`}
                 >
                   {inner}
@@ -132,7 +142,7 @@ function DonutMini({
             )
           }
           return (
-            <li key={s.label} className="flex justify-between gap-2">
+            <li key={s.label} className="flex justify-between gap-3">
               {inner}
             </li>
           )
@@ -218,11 +228,11 @@ export function ReportModuleWidget({
 
   const titleBlock = (
     <div className="min-w-0">
-      <p className="truncate text-[10px] font-bold uppercase tracking-wider text-neutral-500">
+      <p className="truncate text-xs font-bold uppercase tracking-wider text-neutral-900">
         {m.title}
       </p>
       {m.subtitle ? (
-        <p className="mt-0.5 truncate text-[11px] text-neutral-500">{m.subtitle}</p>
+        <p className="mt-1 truncate text-[13px] text-neutral-500">{m.subtitle}</p>
       ) : null}
     </div>
   )
@@ -289,7 +299,7 @@ export function ReportModuleWidget({
   const wrap = (inner: ReactNode) => (
     <div
       ref={wrapRef}
-      className={`${R} group relative h-full min-h-[120px] border bg-white p-5 ${editMode ? 'border-dashed border-[#1a3d32]/30 ring-1 ring-[#1a3d32]/10' : 'border-neutral-200/70'} ${colSpanClass} ${rowBreakClass}`}
+      className={`${R} group relative h-full min-h-[200px] border bg-white p-6 ${editMode ? 'border-dashed border-[#1a3d32]/30 ring-1 ring-[#1a3d32]/10' : 'border-neutral-200/70'} ${colSpanClass} ${rowBreakClass}`}
       style={
         m.kind === 'kpi'
           ? { boxShadow: `inset 0 3px 0 0 ${accent}, ${WIDGET_SHADOW}` }
@@ -350,8 +360,8 @@ export function ReportModuleWidget({
     return wrap(
       <>
         {titleBlock}
-        <div className="mt-2 flex items-baseline gap-2">
-          <p className="text-3xl font-semibold tabular-nums text-neutral-900">{n ?? '—'}</p>
+        <div className="mt-3 flex items-baseline gap-2">
+          <p className="text-4xl font-semibold tabular-nums text-neutral-900">{n ?? '—'}</p>
           {cmp != null && n != null ? (
             <KpiDeltaChip current={n} previous={cmp} goal={m.comparisonGoal ?? 'increase'} />
           ) : null}
@@ -410,23 +420,23 @@ export function ReportModuleWidget({
     return wrap(
       <>
         {titleBlock}
-        <div className="mt-4 space-y-2">
+        <div className="mt-5 space-y-3.5">
           {keys.map((k, i) => {
             const v = nums[i] ?? 0
             const pct = Math.round((v / max) * 100)
             const inner = (
-              <>
-                <div className="flex justify-between text-xs text-neutral-600">
-                  <span>{k}</span>
-                  <span className="tabular-nums font-medium">{v}</span>
-                </div>
-                <div className="mt-1 h-2 w-full bg-neutral-100">
+              <div className="flex items-center gap-4">
+                <span className="w-32 shrink-0 truncate text-sm text-neutral-700">{k}</span>
+                <span className="w-12 shrink-0 text-lg font-semibold tabular-nums text-neutral-900">
+                  {v}
+                </span>
+                <div className="h-2.5 flex-1 overflow-hidden rounded-full bg-neutral-100">
                   <div
-                    className="h-2 transition-all"
+                    className="h-full rounded-full transition-all"
                     style={{ width: `${pct}%`, backgroundColor: colors[i % colors.length] }}
                   />
                 </div>
-              </>
+              </div>
             )
             if (drillable) {
               return (
@@ -582,8 +592,8 @@ function LineMini({
   yLabel?: string
 }) {
   const W = 600
-  const H = 180
-  const PAD = 28
+  const H = 220
+  const PAD = 32
   const allYs = [...points.map((p) => p.y), ...(comparisonPoints?.map((p) => p.y) ?? [])]
   const minY = Math.min(0, ...allYs)
   const maxY = Math.max(1, ...allYs)
@@ -632,7 +642,7 @@ function LineMini({
       <svg
         viewBox={`0 0 ${W} ${H}`}
         preserveAspectRatio="none"
-        className="h-44 w-full"
+        className="h-56 w-full"
         role="img"
         aria-label={`${yLabel ?? 'Verdi'} over ${xLabel ?? 'tid'}`}
       >
