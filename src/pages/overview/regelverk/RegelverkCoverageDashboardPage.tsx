@@ -127,18 +127,9 @@ export function RegelverkCoverageDashboardPage() {
     return (coverage.get(domainKey) ?? []).filter((c) => c.kind === 'ros')
   }, [coverage, selectedRegelverk])
 
-  const regelverkOptions: SelectOption[] = useMemo(
-    () =>
-      REGELVERK.map((r) => ({
-        value: r.id,
-        label: `${r.label} — ${r.fullName}`,
-      })),
-    [],
-  )
-
-  const categoryOptions: SelectOption[] = useMemo(() => {
+  const categoryOptions = useMemo(() => {
     const seen = new Set<string>()
-    const cats: SelectOption[] = [{ value: '', label: 'Alle kategorier' }]
+    const cats: { value: string; label: string }[] = [{ value: '', label: 'Alle kategorier' }]
     for (const r of requirementsForRegelverk) {
       if (!seen.has(r.category)) {
         seen.add(r.category)
