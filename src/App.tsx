@@ -127,6 +127,7 @@ import { PlatformLayoutTemplatesPage } from './pages/platform/PlatformLayoutTemp
 import { PlatformModuleTemplatesPage } from './pages/platform/PlatformModuleTemplatesPage'
 import { PlatformLayoutHubPage } from './pages/platform/PlatformLayoutHubPage'
 import { PlatformLayoutElementsGalleryPage } from './pages/platform/PlatformLayoutElementsGalleryPage'
+import { VekstPatternGallery } from './pages/platform/VekstPatternGallery'
 import { PublicWhistlePage } from './pages/PublicWhistlePage'
 import { WhistleStatusPage } from './pages/WhistleStatusPage'
 import { LandingPage } from './pages/LandingPage'
@@ -226,6 +227,7 @@ const router = createBrowserRouter(
                 <Route path="module-templates" element={<PlatformModuleTemplatesPage />} />
                 <Route path="layout" element={<PlatformLayoutHubPage />} />
                 <Route path="layout-elements" element={<PlatformLayoutElementsGalleryPage />} />
+                <Route path="vekst-patterns" element={<VekstPatternGallery />} />
                 <Route path="layout-composer" element={<Navigate to="/platform-admin/layout#composer" replace />} />
                 <Route path="layout-standard" element={<Navigate to="/platform-admin/layout#standard" replace />} />
                 <Route path="layout-dashboard" element={<Navigate to="/platform-admin/layout#dashboard" replace />} />
