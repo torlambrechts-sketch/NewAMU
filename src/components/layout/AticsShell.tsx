@@ -1393,9 +1393,16 @@ export function AticsShell() {
       },
       {
         label: 'Automatisering',
-        path: '/workflow',
+        path: '/workflow/v3',
         Icon: Workflow,
         match: ({ pathname }) => pathname.startsWith('/workflow'),
+        requirePermAny: ADMIN_NAV_PERMS,
+      },
+      {
+        label: 'Statlige integrasjoner',
+        path: '/admin/integrasjoner-staten',
+        Icon: ShieldCheck,
+        match: ({ pathname }) => pathname.startsWith('/admin/integrasjoner-staten'),
         requirePermAny: ADMIN_NAV_PERMS,
       },
     ]
