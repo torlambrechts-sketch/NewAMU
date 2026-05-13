@@ -523,7 +523,17 @@ const gamleModulerModules: NavModule[] = [
   // ── Administrasjon ───────────────────────────────────────────────────────
   { to: '/organisation', label: 'Organisasjon', end: false, icon: Building2, subs: [], perm: 'module.view.dashboard' },
   // Automatisering/Arbeidsflyt moved to organisationAdminSubs
-  { to: '/reports', label: 'Rapporter', end: false, icon: BarChart3, subs: [], perm: 'module.view.reports' },
+  {
+    to: '/reports',
+    label: 'Rapporter',
+    end: false,
+    icon: BarChart3,
+    subs: [
+      { label: 'Alle rapporter', path: '/reports', match: ({ pathname }) => pathname === '/reports' },
+      { label: 'Ny rapport', path: '/reports/new', match: ({ pathname }) => pathname.startsWith('/reports/new') },
+    ],
+    perm: 'module.view.reports',
+  },
 
   // ── Eksisterende "Gamle moduler" innhold ─────────────────────────────────
   { to: '/', label: 'Dashboards', end: true, icon: Home, subs: [], perm: 'module.view.dashboard' },
