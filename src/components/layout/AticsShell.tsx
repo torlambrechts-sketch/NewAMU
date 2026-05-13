@@ -34,7 +34,6 @@ import {
   Layers,
   Plug,
   ScrollText,
-  Shield,
   ShieldAlert,
   ShieldCheck,
   Settings,
@@ -255,70 +254,6 @@ const ADMIN_NAV_PERMS: PermissionKey[] = [
   'roles.manage',
 ]
 
-const organisationAdminSubs: SubItem[] = [
-  {
-    label: 'Innstillinger',
-    path: '/admin/settings',
-    Icon: Settings,
-    match: ({ pathname }) => pathname.startsWith('/admin/settings'),
-  },
-  {
-    label: 'Brukere & invitasjoner',
-    path: '/organisation/admin?tab=users',
-    match: ({ pathname, search }) =>
-      pathname === '/organisation/admin' &&
-      (!new URLSearchParams(search).get('tab') || new URLSearchParams(search).get('tab') === 'users'),
-  },
-  {
-    label: 'Roller & rettigheter',
-    path: '/organisation/admin?tab=roles',
-    match: ({ pathname, search }) =>
-      pathname === '/organisation/admin' && new URLSearchParams(search).get('tab') === 'roles',
-  },
-  {
-    label: 'Delegering',
-    path: '/organisation/admin?tab=delegation',
-    match: ({ pathname, search }) =>
-      pathname === '/organisation/admin' && new URLSearchParams(search).get('tab') === 'delegation',
-  },
-  {
-    label: 'Funksjonelle roller',
-    path: '/organisation/admin?tab=functional_roles',
-    match: ({ pathname, search }) =>
-      pathname === '/organisation/admin' && new URLSearchParams(search).get('tab') === 'functional_roles',
-  },
-  {
-    label: 'Rolle-compliance',
-    path: '/organisation/admin?tab=role_compliance',
-    match: ({ pathname, search }) =>
-      pathname === '/organisation/admin' && new URLSearchParams(search).get('tab') === 'role_compliance',
-  },
-  {
-    label: 'Regelverk-dekning',
-    path: '/organisation/admin?tab=regelverk_coverage',
-    match: ({ pathname, search }) =>
-      pathname === '/organisation/admin' && new URLSearchParams(search).get('tab') === 'regelverk_coverage',
-  },
-  {
-    label: 'GDPR brudd',
-    path: '/organisation/admin?tab=gdpr_breach',
-    match: ({ pathname, search }) =>
-      pathname === '/organisation/admin' && new URLSearchParams(search).get('tab') === 'gdpr_breach',
-  },
-  {
-    label: 'GDPR individrettigheter',
-    path: '/organisation/admin?tab=gdpr_subject_requests',
-    match: ({ pathname, search }) =>
-      pathname === '/organisation/admin' && new URLSearchParams(search).get('tab') === 'gdpr_subject_requests',
-  },
-  {
-    label: 'Integrasjoner',
-    path: '/organisation/admin?tab=integrations',
-    match: ({ pathname, search }) =>
-      pathname === '/organisation/admin' && new URLSearchParams(search).get('tab') === 'integrations',
-  },
-]
-
 // ─── Navigation groups ────────────────────────────────────────────────────────
 //
 // The four groups from the spec. Each module carries its icon, route, sub-items,
@@ -512,8 +447,11 @@ const gamleModulerModules: NavModule[] = [
   { to: '/modules/aarskontroll', label: 'Årskontroll', end: true, icon: CalendarCheck, subs: [], perm: 'module.view.internal_control' },
   { to: '/compliance', label: 'Compliance-dashboard', end: true, icon: ShieldCheck, subs: [] },
 
-  // ── Organisasjon & HR ────────────────────────────────────────────────────
-  { to: '/organisation/admin', label: 'Admin', end: true, icon: Shield, subs: organisationAdminSubs, perm: 'module.view.admin' },
+  // ── HR ───────────────────────────────────────────────────────────────────
+  // Admin / Organisasjon entries are rendered by the synthetic `adminGroup`
+  // built inside `mergedNavGroups` (Organisasjon group). The legacy
+  // top-level "Admin" entry that used to live here was removed once the
+  // unified settings hub took over its primary destination.
   {
     to: '/hr',
     label: 'HR & rettssikkerhet',
@@ -527,8 +465,9 @@ const gamleModulerModules: NavModule[] = [
   },
 
   // ── Administrasjon ───────────────────────────────────────────────────────
-  { to: '/organisation', label: 'Organisasjon', end: false, icon: Building2, subs: [], perm: 'module.view.dashboard' },
-  // Automatisering/Arbeidsflyt moved to organisationAdminSubs
+  // The legacy stub `Organisasjon` entry that used to live here was
+  // removed; its destination (`/organisation`) is now reached via the
+  // synthetic `adminGroup` (Organisasjon → Selskap) further down.
   {
     to: '/reports',
     label: 'Rapportarkiv',
@@ -1320,6 +1259,13 @@ export function AticsShell() {
     // (OrganisationPage tabs, AdminPage); only Maler is a new page.
     const adminFixedSubs: SubItem[] = [
       {
+        label: 'Innstillinger',
+        path: '/admin/settings',
+        Icon: Settings,
+        match: ({ pathname }) => pathname.startsWith('/admin/settings'),
+        requirePermAny: ADMIN_NAV_PERMS,
+      },
+      {
         label: 'Selskap',
         path: '/organisation',
         Icon: Building2,
@@ -1430,15 +1376,15 @@ export function AticsShell() {
       },
     ]
     const adminGroup: NavGroup = {
-      id: 'admin',
-      label: 'Admin',
-      icon: Shield,
+      id: 'organisasjon',
+      label: 'Organisasjon',
+      icon: Building2,
       modules: [
         {
           to: '/organisation',
-          label: 'Admin',
+          label: 'Organisasjon',
           end: false,
-          icon: Shield,
+          icon: Building2,
           subs: adminFixedSubs,
           permAny: ADMIN_NAV_PERMS,
           flatSubs: true,
