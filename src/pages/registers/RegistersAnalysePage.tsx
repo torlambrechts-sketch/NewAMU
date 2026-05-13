@@ -4,9 +4,8 @@
 // Per CLAUDE.md: side-effect imports the scope file so the dashboard
 // registry knows about `registers` at module load.
 
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import type { SupabaseClient } from '@supabase/supabase-js'
 import { ArrowLeft, BarChart3 } from 'lucide-react'
 import { ModuleAnalyticsDashboard } from '../../components/module/ModuleAnalyticsDashboard'
 import { DashboardEditLayoutPanel } from '../../components/module/dashboard/DashboardEditLayoutPanel'
@@ -20,6 +19,7 @@ import { downloadCsv, widgetToCsv } from '../../lib/reports/widgetCsv'
 import { useDashboardLayout } from '../../lib/dashboards/useDashboardLayout'
 import { freshId } from '../../lib/dashboards/freshId'
 import { getDashboardScope } from '../../lib/dashboards/dashboardRegistry'
+import { PublishReportButton } from '../../components/reports/PublishReportButton'
 import { useOrgSetupContext } from '../../hooks/useOrgSetupContext'
 import { useRegisters } from '../../hooks/useRegisters'
 import {
@@ -28,9 +28,9 @@ import {
 } from './dashboards/registersDashboardScope'
 import './dashboards/registersDashboardScope'
 import { STATUS_OPTIONS, useRegistersDatasets } from './dashboards/useRegistersDatasets'
+import { useAllRegisterRecords } from './dashboards/useAllRegisterRecords'
 import type { ReportModule } from '../../types/reportBuilder'
 import type { DashboardDimension } from '../../lib/dashboards/dashboardFilters'
-import type { RegisterRecord } from '../../types/registers'
 
 export function RegistersAnalysePage() {
   const orgSetup = useOrgSetupContext()
@@ -163,6 +163,13 @@ export function RegistersAnalysePage() {
               <ArrowLeft className="h-4 w-4" />
               Tilbake
             </Link>
+            <PublishReportButton
+              sourceDashboardId={dashboard.row?.id ?? null}
+              sourceDashboardName={dashboard.row?.name ?? null}
+              scopeId={REGISTERS_DASHBOARD_SCOPE_ID}
+              scopeLabel="Register"
+              datasets={datasets}
+            />
           </div>
         }
         layout={layout}
@@ -232,75 +239,3 @@ export function RegistersAnalysePage() {
   )
 }
 
-// ── Cross-type record fetcher ───────────────────────────────────────────
-// useRegisterRecords is per-type; the analyse page needs every type's
-// records. Inline a small fetcher so we don't multiply hook instances
-// per type.
-
-function useAllRegisterRecords(
-  supabase: SupabaseClient | null,
-  orgId: string | null,
-) {
-  const [records, setRecords] = useState<RegisterRecord[]>([])
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const [fetchedFor, setFetchedFor] = useState<string | null>(null)
-
-  useEffect(() => {
-    if (!supabase || !orgId) return
-    if (fetchedFor === orgId) return
-    let cancelled = false
-    queueMicrotask(() => {
-      setLoading(true)
-      setError(null)
-    })
-    void supabase
-      .from('register_records')
-      .select('*')
-      .eq('organization_id', orgId)
-      .is('deleted_at', null)
-      .then(({ data, error: e }) => {
-        if (cancelled) return
-        if (e) setError(e.message)
-        else {
-          type DbRow = {
-            id: string
-            organization_id: string
-            register_type_id: string
-            values: Record<string, unknown> | null
-            status: string
-            review_due_at: string | null
-            owner_user_id: string | null
-            evidence_doc_refs: string[] | null
-            created_at: string
-            updated_at: string
-          }
-          setRecords(
-            (data ?? []).map((row): RegisterRecord => {
-              const r = row as DbRow
-              return {
-                id: r.id,
-                organizationId: r.organization_id,
-                registerTypeId: r.register_type_id,
-                values: r.values ?? {},
-                status:
-                  r.status === 'draft' || r.status === 'archived' ? r.status : 'active',
-                reviewDueAt: r.review_due_at,
-                ownerUserId: r.owner_user_id,
-                evidenceDocRefs: r.evidence_doc_refs ?? [],
-                createdAt: r.created_at,
-                updatedAt: r.updated_at,
-              }
-            }),
-          )
-        }
-        setFetchedFor(orgId)
-        setLoading(false)
-      })
-    return () => {
-      cancelled = true
-    }
-  }, [supabase, orgId, fetchedFor])
-
-  return { records, loading, error }
-}

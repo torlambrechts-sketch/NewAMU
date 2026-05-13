@@ -115,6 +115,23 @@ export interface ModuleAnalyticsDashboardProps {
   /** Drop-from-library handler — when set + editMode + widgetLibrarySlot,
    *  the grid accepts drag-and-drop from the rail (V3 design pattern). */
   onDropFromLibrary?: OnDropFromLibrary
+  /**
+   * Read-only mode for published reports + the public share view.
+   * Suppresses Edit / Add buttons, drill-down navigation, and any edit
+   * chrome; widgets retain their CSV export menu. Pages that render a
+   * frozen snapshot pass `readOnly snapshotMode` together.
+   */
+  readOnly?: boolean
+  /**
+   * Presentational hint: render a "frozen snapshot" footer with the
+   * snapshot timestamp + watermark text. Implies the page is reading
+   * `datasets` from `snapshot_data` rather than live hooks.
+   */
+  snapshotMode?: boolean
+  /** Snapshot timestamp ISO string for the footer. Only used when snapshotMode. */
+  snapshotAt?: string | null
+  /** Watermark caption rendered alongside the snapshot footer. */
+  snapshotWatermark?: string
 }
 
 export function ModuleAnalyticsDashboard({
@@ -142,18 +159,30 @@ export function ModuleAnalyticsDashboard({
   widgetLibrarySlot,
   onRemoveWidget,
   onDropFromLibrary,
+  readOnly,
+  snapshotMode,
+  snapshotAt,
+  snapshotWatermark,
 }: ModuleAnalyticsDashboardProps) {
+  const effectiveEditMode = editMode && !readOnly
+  const effectiveOnEdit = readOnly ? undefined : onEdit
+  const effectiveOnAddWidget = readOnly ? undefined : onAddWidget
+  const effectiveOnDrillDown = readOnly ? undefined : onDrillDown
+  const effectiveOnResize = readOnly ? undefined : onResize
+  const effectiveOnRemoveWidget = readOnly ? undefined : onRemoveWidget
+  const effectiveOnDropFromLibrary = readOnly ? undefined : onDropFromLibrary
+  const effectiveOnFiltersChange = readOnly ? undefined : onFiltersChange
   const builtInFilterBar =
-    !filterBar && dimensions && dimensions.length > 0 && filters && onFiltersChange ? (
+    !filterBar && dimensions && dimensions.length > 0 && filters && effectiveOnFiltersChange ? (
       <div className="relative">
         <DashboardFilterBar
           filters={filters}
           dimensions={dimensions}
-          onChange={onFiltersChange}
+          onChange={effectiveOnFiltersChange}
         />
       </div>
     ) : null
-  const showActions = Boolean(onEdit || onAddWidget)
+  const showActions = Boolean(effectiveOnEdit || effectiveOnAddWidget)
 
   // When a chooser is provided, render it inline with the title so the
   // page header reads "Læring · analyse  [Standard ▼]" — mirrors the
@@ -193,22 +222,22 @@ export function ModuleAnalyticsDashboard({
           {headerActions}
           {showActions ? (
             <>
-              {onEdit ? (
+              {effectiveOnEdit ? (
                 <Button
                   type="button"
                   variant="secondary"
                   icon={<Edit3 className="h-4 w-4" />}
-                  onClick={onEdit}
+                  onClick={effectiveOnEdit}
                 >
                   Rediger oppsett
                 </Button>
               ) : null}
-              {onAddWidget ? (
+              {effectiveOnAddWidget ? (
                 <Button
                   type="button"
                   variant="primary"
                   icon={<Plus className="h-4 w-4" />}
-                  onClick={onAddWidget}
+                  onClick={effectiveOnAddWidget}
                 >
                   Legg til widget
                 </Button>
@@ -229,7 +258,7 @@ export function ModuleAnalyticsDashboard({
               Ingen widgets i dette oppsettet ennå.
             </div>
           ))
-        ) : editMode && widgetLibrarySlot ? (
+        ) : effectiveEditMode && widgetLibrarySlot ? (
           // V3 edit mode: dock the widget library as a sticky right rail
           // (≥ xl) and let the grid fill the remaining width. Below xl the
           // rail hides itself and falls back to the modal "+Legg til widget".
@@ -242,11 +271,11 @@ export function ModuleAnalyticsDashboard({
                 layoutMode="grid12"
                 emptyLabel="Ingen data."
                 controlSlot={widgetControlSlot}
-                onDrillDown={onDrillDown}
-                onResize={onResize}
+                onDrillDown={effectiveOnDrillDown}
+                onResize={effectiveOnResize}
                 editMode
-                onRemove={onRemoveWidget}
-                onDropFromLibrary={onDropFromLibrary}
+                onRemove={effectiveOnRemoveWidget}
+                onDropFromLibrary={effectiveOnDropFromLibrary}
               />
             </div>
             {widgetLibrarySlot}
@@ -259,10 +288,20 @@ export function ModuleAnalyticsDashboard({
             layoutMode="grid12"
             emptyLabel="Ingen data."
             controlSlot={widgetControlSlot}
-            onDrillDown={onDrillDown}
-            onResize={onResize}
+            onDrillDown={effectiveOnDrillDown}
+            onResize={effectiveOnResize}
           />
         )}
+        {snapshotMode ? (
+          <div className="rounded-md border border-dashed border-neutral-300 bg-neutral-50 px-4 py-3 text-xs text-neutral-600">
+            {snapshotWatermark ? <span className="block font-medium">{snapshotWatermark}</span> : null}
+            {snapshotAt ? (
+              <span className="block">
+                Frosset {new Date(snapshotAt).toLocaleString('nb-NO')}
+              </span>
+            ) : null}
+          </div>
+        ) : null}
       </div>
     </ModulePageShell>
   )

@@ -19,7 +19,9 @@ import { AuthPage } from './pages/AuthPage'
 import { InviteAcceptPage } from './pages/InviteAcceptPage'
 import { AdminPage } from './pages/AdminPage'
 import { ProfilePage } from './pages/ProfilePage'
-import { ReportingEnginePage } from './pages/ReportingEnginePage'
+import { ReportsListPage } from './pages/reports/ReportsListPage'
+import { ReportDetailPage } from './pages/reports/ReportDetailPage'
+import { SharedReportPage } from './pages/public/SharedReportPage'
 import { WorkflowModulePage } from './pages/WorkflowModulePage'
 import { WorkflowPage } from './pages/WorkflowPage'
 import { WorkflowEditorV2 } from './components/workflow/WorkflowEditorV2'
@@ -206,6 +208,7 @@ const router = createBrowserRouter(
             <Route path="/varsle/:slug" element={<PublicWhistlePage />} />
             <Route path="/anonym-aml/:slug" element={<PublicAnonymousAmlPage />} />
             <Route path="/survey-respond/:campaignId" element={<SurveyRespondPage />} />
+            <Route path="/r/:token" element={<SharedReportPage />} />
             {/* Public marketing / landing page — root "/" for all visitors */}
             <Route index element={<LandingPage />} />
             <Route path="/home" element={<Navigate to="/" replace />} />
@@ -267,7 +270,9 @@ const router = createBrowserRouter(
                       <Route path="workspace/revisjonslogg" element={<WorkspaceAuditLogPage />} />
                       <Route path="organisation" element={<OrganisationPage />} />
                       <Route path="organisation/admin" element={<AdminPage />} />
-                      <Route path="reports" element={<ReportingEnginePage />} />
+                      <Route path="reports" element={<ReportsListPage />} />
+                      <Route path="reports/new" element={<Navigate to="/reports" replace />} />
+                      <Route path="reports/:id" element={<ReportDetailPage />} />
                       <Route path="workplace-reporting" element={<WorkplaceReportingPage />} />
                       <Route path="workplace-reporting/dashboard" element={<WorkplaceDashboardPage />} />
                       <Route path="workplace-reporting/incidents" element={<WorkplaceIncidentsPage />} />

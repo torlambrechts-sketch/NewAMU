@@ -47,9 +47,22 @@ const DashboardLayoutRowSchema = z.object({
   created_by: z.string().uuid().nullable(),
   created_at: z.string(),
   updated_at: z.string(),
+  // Reporting-module columns (added by 20260905120000_reports_promote_dashboard_layouts).
+  // All optional + nullable so existing dashboard rows continue to parse.
+  kind: z.enum(['dashboard', 'report', 'report_template']).default('dashboard'),
+  report_scopes: z.array(z.string()).default([]),
+  snapshot_data: z.unknown().nullable().optional(),
+  snapshot_at: z.string().nullable().optional(),
+  share_token: z.string().nullable().optional(),
+  share_password_hash: z.string().nullable().optional(),
+  share_expires_at: z.string().nullable().optional(),
+  published_at: z.string().nullable().optional(),
+  published_by: z.string().uuid().nullable().optional(),
+  cover_meta: z.record(z.string(), z.unknown()).default({}),
 })
 
 export type DashboardLayoutRow = z.infer<typeof DashboardLayoutRowSchema>
+export type DashboardLayoutKind = 'dashboard' | 'report' | 'report_template'
 
 type State = {
   loading: boolean
@@ -80,10 +93,18 @@ export function useDashboardLayout({
   supabase,
   scopeId,
   slug = 'default',
+  kindFilter = 'dashboard',
 }: {
   supabase: SupabaseClient | null
   scopeId: string
   slug?: string
+  /**
+   * Which row kind this hook is responsible for. Defaults to 'dashboard'
+   * so every existing analyse page keeps its prior behaviour. The reports
+   * surface mounts this hook with `'report'` so reports and dashboards
+   * never bleed into each other's choosers.
+   */
+  kindFilter?: DashboardLayoutKind
 }) {
   const { organization, user } = useOrgSetupContext()
   const orgId = organization?.id ?? null
@@ -115,6 +136,7 @@ export function useDashboardLayout({
       .select('*')
       .eq('organization_id', orgId)
       .eq('scope_id', scopeId)
+      .eq('kind', kindFilter)
       .is('deleted_at', null)
       .or(ownerFilter)
       .order('owner_user_id', { ascending: true, nullsFirst: true })
@@ -127,7 +149,7 @@ export function useDashboardLayout({
       if (parsed.success) rows.push(parsed.data)
     }
     return rows
-  }, [supabase, orgId, scopeId, userId])
+  }, [supabase, orgId, scopeId, userId, kindFilter])
 
   const reload = useCallback(async () => {
     if (!supabase || !orgId) return
@@ -516,6 +538,121 @@ export function useDashboardLayout({
     }
   }, [supabase, orgId, state.row, registryDefault, state.available])
 
+  /**
+   * Publish-the-first-time entry point. Calls the publish_report RPC,
+   * which snapshots the dataset map server-side and mints a share token.
+   * Only meaningful when the active row has kind='report'; the RPC
+   * rejects other kinds.
+   */
+  const publish = useCallback(
+    async (opts: {
+      snapshot: Record<string, unknown>
+      sharePassword?: string | null
+      shareExpiresAt?: Date | null
+    }): Promise<{ ok: boolean; shareToken: string | null; error: string | null }> => {
+      if (!supabase || !state.row) {
+        return { ok: false, shareToken: null, error: 'no_active_row' }
+      }
+      try {
+        const { data, error } = await supabase.rpc('publish_report', {
+          p_id: state.row.id,
+          p_expected_version: state.row.version,
+          p_snapshot: opts.snapshot,
+          p_share_password: opts.sharePassword ?? null,
+          p_share_expires_at: opts.shareExpiresAt ? opts.shareExpiresAt.toISOString() : null,
+        })
+        if (error) throw error
+        const row = Array.isArray(data) ? data[0] : data
+        if (!row?.ok) {
+          const err = row?.err ?? 'publish_failed'
+          setState((s) => ({ ...s, error: err }))
+          return { ok: false, shareToken: null, error: err }
+        }
+        await reload()
+        return { ok: true, shareToken: row.share_token ?? null, error: null }
+      } catch (err) {
+        const msg = getSupabaseErrorMessage(err)
+        setState((s) => ({ ...s, error: msg }))
+        return { ok: false, shareToken: null, error: msg }
+      }
+    },
+    [supabase, state.row, reload],
+  )
+
+  /** Re-publish: archives the prior snapshot and replaces it. Share token preserved
+   *  by default; pass `regenerateToken: true` to mint a fresh one. */
+  const republish = useCallback(
+    async (opts: {
+      snapshot: Record<string, unknown>
+      sharePassword?: string | null
+      shareExpiresAt?: Date | null
+      regenerateToken?: boolean
+    }): Promise<{ ok: boolean; shareToken: string | null; error: string | null }> => {
+      if (!supabase || !state.row) {
+        return { ok: false, shareToken: null, error: 'no_active_row' }
+      }
+      try {
+        const { data, error } = await supabase.rpc('republish_report', {
+          p_id: state.row.id,
+          p_expected_version: state.row.version,
+          p_snapshot: opts.snapshot,
+          p_share_password: opts.sharePassword ?? null,
+          p_share_expires_at: opts.shareExpiresAt ? opts.shareExpiresAt.toISOString() : null,
+          p_regenerate_token: opts.regenerateToken ?? false,
+        })
+        if (error) throw error
+        const row = Array.isArray(data) ? data[0] : data
+        if (!row?.ok) {
+          const err = row?.err ?? 'republish_failed'
+          setState((s) => ({ ...s, error: err }))
+          return { ok: false, shareToken: null, error: err }
+        }
+        await reload()
+        return { ok: true, shareToken: row.share_token ?? null, error: null }
+      } catch (err) {
+        const msg = getSupabaseErrorMessage(err)
+        setState((s) => ({ ...s, error: msg }))
+        return { ok: false, shareToken: null, error: msg }
+      }
+    },
+    [supabase, state.row, reload],
+  )
+
+  /** Clears share fields + archives the snapshot. The row stays as a draft. */
+  const unpublish = useCallback(async (): Promise<{ ok: boolean; error: string | null }> => {
+    if (!supabase || !state.row) return { ok: false, error: 'no_active_row' }
+    try {
+      const { data, error } = await supabase.rpc('unpublish_report', {
+        p_id: state.row.id,
+        p_expected_version: state.row.version,
+      })
+      if (error) throw error
+      const row = Array.isArray(data) ? data[0] : data
+      if (!row?.ok) {
+        const err = row?.err ?? 'unpublish_failed'
+        setState((s) => ({ ...s, error: err }))
+        return { ok: false, error: err }
+      }
+      await reload()
+      return { ok: true, error: null }
+    } catch (err) {
+      const msg = getSupabaseErrorMessage(err)
+      setState((s) => ({ ...s, error: msg }))
+      return { ok: false, error: msg }
+    }
+  }, [supabase, state.row, reload])
+
+  /** Convenience: republish with the same snapshot and a freshly-minted token. */
+  const regenerateShareToken = useCallback(async (): Promise<{ ok: boolean; shareToken: string | null; error: string | null }> => {
+    if (!state.row?.snapshot_data) {
+      return { ok: false, shareToken: null, error: 'not_published' }
+    }
+    return republish({
+      snapshot: state.row.snapshot_data as Record<string, unknown>,
+      regenerateToken: true,
+    })
+  }, [state.row, republish])
+
   return {
     ...state,
     /** Identity of the currently signed-in user; needed by chooser UI. */
@@ -529,5 +666,9 @@ export function useDashboardLayout({
     deleteActive,
     markActiveDefault,
     resetToDefault,
+    publish,
+    republish,
+    unpublish,
+    regenerateShareToken,
   }
 }

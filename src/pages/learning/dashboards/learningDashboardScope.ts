@@ -22,6 +22,7 @@ import {
   type DatasetMeta,
   type WidgetCatalogEntry,
 } from '../../../lib/dashboards/dashboardRegistry'
+import { useLearningDatasetsForReports } from './useLearningDatasetsForReports'
 
 export const LEARNING_DASHBOARD_SCOPE_ID = 'learning'
 
@@ -231,4 +232,5 @@ registerDashboardScope({
   widgetCatalog: WIDGET_CATALOG,
   datasets: DATASETS,
   accent: '#0e7490', // teal — visually pairs with the GraduationCap module icon
+  datasetsHook: useLearningDatasetsForReports,
 })

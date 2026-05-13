@@ -16,11 +16,17 @@ import type {
   ReportModuleKpi,
   ReportModuleTable,
 } from '../../../types/reportBuilder'
+import { useRoleComplianceDatasets } from './useRoleComplianceDatasets'
 import {
   registerDashboardScope,
   type DatasetMeta,
+  type DatasetsHookDeps,
   type WidgetCatalogEntry,
 } from '../../../lib/dashboards/dashboardRegistry'
+
+function useRoleComplianceDatasetsForReports(deps: DatasetsHookDeps): Record<string, unknown> {
+  return useRoleComplianceDatasets(deps.filters)
+}
 
 export const ROLE_COMPLIANCE_DASHBOARD_SCOPE_ID = 'role_compliance'
 
@@ -196,4 +202,5 @@ registerDashboardScope({
   // Mørk magenta — distinkt fra både learning (#0e7490 teal) og
   // documents (#0f766e deep teal) så scopen står tydelig i HMS-oversikten.
   accent: '#a21caf',
+  datasetsHook: useRoleComplianceDatasetsForReports,
 })

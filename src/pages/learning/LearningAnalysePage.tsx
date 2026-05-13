@@ -33,6 +33,7 @@ import { STATUS_OPTIONS, useLearningDatasets } from './dashboards/useLearningDat
 import { useDashboardLayout } from '../../lib/dashboards/useDashboardLayout'
 import { freshId } from '../../lib/dashboards/freshId'
 import { getDashboardScope } from '../../lib/dashboards/dashboardRegistry'
+import { PublishReportButton } from '../../components/reports/PublishReportButton'
 import { useRegulationFilter } from '../../context/RegulationFilterContext'
 import type { ReportModule } from '../../types/reportBuilder'
 import type { DashboardDimension } from '../../lib/dashboards/dashboardFilters'
@@ -253,6 +254,13 @@ export function LearningAnalysePage() {
               <ArrowLeft className="h-4 w-4" />
               Tilbake
             </Link>
+            <PublishReportButton
+              sourceDashboardId={dashboard.row?.id ?? null}
+              sourceDashboardName={dashboard.row?.name ?? null}
+              scopeId={LEARNING_DASHBOARD_SCOPE_ID}
+              scopeLabel="Læring"
+              datasets={datasets}
+            />
           </div>
         }
         layout={layout}

@@ -15,6 +15,11 @@ import {
   type DatasetMeta,
   type WidgetCatalogEntry,
 } from '../../../lib/dashboards/dashboardRegistry'
+import { useCompliancePersonalDatasets } from './useComplianceDatasets'
+
+function useCompliancePersonalDatasetsForReports(): Record<string, unknown> {
+  return useCompliancePersonalDatasets()
+}
 
 export const COMPLIANCE_PERSONAL_SCOPE_ID = 'compliance_personal'
 
@@ -96,4 +101,5 @@ registerDashboardScope({
   datasets: DATASETS,
   // Olive — personlig, mindre dramatisk enn rød
   accent: '#65a30d',
+  datasetsHook: useCompliancePersonalDatasetsForReports,
 })

@@ -21,6 +21,7 @@ import { defaultCompatibleKinds } from '../../components/module/dashboard/dashbo
 import { useDashboardLayout } from '../../lib/dashboards/useDashboardLayout'
 import { freshId } from '../../lib/dashboards/freshId'
 import { getDashboardScope } from '../../lib/dashboards/dashboardRegistry'
+import { PublishReportButton } from '../../components/reports/PublishReportButton'
 import { useRegulationFilter } from '../../context/RegulationFilterContext'
 import { useOrgSetupContext } from '../../hooks/useOrgSetupContext'
 import { useDocuments } from '../../hooks/useDocuments'
@@ -238,6 +239,13 @@ export function DocumentsAnalysePage() {
               <ArrowLeft className="h-4 w-4" />
               Tilbake
             </Link>
+            <PublishReportButton
+              sourceDashboardId={dashboard.row?.id ?? null}
+              sourceDashboardName={dashboard.row?.name ?? null}
+              scopeId={DOCUMENTS_DASHBOARD_SCOPE_ID}
+              scopeLabel="Dokumenter"
+              datasets={datasets}
+            />
           </div>
         }
         layout={layout}

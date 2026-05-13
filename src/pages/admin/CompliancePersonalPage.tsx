@@ -16,6 +16,7 @@ import { defaultCompatibleKinds } from '../../components/module/dashboard/dashbo
 import { useDashboardLayout } from '../../lib/dashboards/useDashboardLayout'
 import { freshId } from '../../lib/dashboards/freshId'
 import { getDashboardScope } from '../../lib/dashboards/dashboardRegistry'
+import { PublishReportButton } from '../../components/reports/PublishReportButton'
 import { useOrgSetupContext } from '../../hooks/useOrgSetupContext'
 import {
   COMPLIANCE_PERSONAL_SCOPE_ID,
@@ -86,7 +87,18 @@ export function CompliancePersonalPage() {
             onMarkDefault={dashboard.markActiveDefault}
           />
         }
-        headerActions={editChrome.toggleButton}
+        headerActions={
+          <div className="flex flex-wrap items-center gap-2">
+            {editChrome.toggleButton}
+            <PublishReportButton
+              sourceDashboardId={dashboard.row?.id ?? null}
+              sourceDashboardName={dashboard.row?.name ?? null}
+              scopeId={COMPLIANCE_PERSONAL_SCOPE_ID}
+              scopeLabel="Min compliance"
+              datasets={datasets}
+            />
+          </div>
+        }
         layout={layout}
         datasets={datasets}
         loading={dashboard.loading}

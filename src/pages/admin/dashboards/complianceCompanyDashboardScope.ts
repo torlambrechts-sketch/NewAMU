@@ -17,6 +17,12 @@ import {
   type DatasetMeta,
   type WidgetCatalogEntry,
 } from '../../../lib/dashboards/dashboardRegistry'
+import type { DatasetsHookDeps } from '../../../lib/dashboards/dashboardRegistry'
+import { useComplianceCompanyDatasets } from './useComplianceDatasets'
+
+function useComplianceCompanyDatasetsForReports(deps: DatasetsHookDeps): Record<string, unknown> {
+  return useComplianceCompanyDatasets(deps.filters)
+}
 
 export const COMPLIANCE_COMPANY_SCOPE_ID = 'compliance_company'
 
@@ -207,4 +213,5 @@ registerDashboardScope({
   datasets: DATASETS,
   // Dyp rød — kompromissløs «selskaps-compliance»-signal
   accent: '#991b1b',
+  datasetsHook: useComplianceCompanyDatasetsForReports,
 })

@@ -16,6 +16,7 @@ import { defaultCompatibleKinds } from '../../components/module/dashboard/dashbo
 import { useDashboardLayout } from '../../lib/dashboards/useDashboardLayout'
 import { freshId } from '../../lib/dashboards/freshId'
 import { getDashboardScope } from '../../lib/dashboards/dashboardRegistry'
+import { PublishReportButton } from '../../components/reports/PublishReportButton'
 import { useOrgSetupContext } from '../../hooks/useOrgSetupContext'
 import {
   COMPLIANCE_COMPANY_SCOPE_ID,
@@ -171,6 +172,13 @@ export function ComplianceCompanyPage() {
               <FileText className="h-4 w-4" />
               {exportingPdf ? 'Genererer PDF…' : 'Tilsyns-rapport (PDF)'}
             </button>
+            <PublishReportButton
+              sourceDashboardId={dashboard.row?.id ?? null}
+              sourceDashboardName={dashboard.row?.name ?? null}
+              scopeId={COMPLIANCE_COMPANY_SCOPE_ID}
+              scopeLabel="Selskaps-compliance"
+              datasets={datasets}
+            />
           </div>
         }
         layout={layout}
