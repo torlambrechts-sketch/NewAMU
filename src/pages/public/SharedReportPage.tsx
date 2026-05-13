@@ -17,8 +17,6 @@ import type { ReportModule } from '../../types/reportBuilder'
 // Side-effect: ensure every scope file has registered so getDashboardScope
 // can resolve accents + labels. Public route doesn't go through the auth
 // shell where these would normally be imported.
-import '../admin/dashboards/complianceCompanyDashboardScope'
-import '../admin/dashboards/compliancePersonalDashboardScope'
 import '../admin/dashboards/roleComplianceDashboardScope'
 import '../documents/dashboards/documentsDashboardScope'
 import '../learning/dashboards/learningDashboardScope'

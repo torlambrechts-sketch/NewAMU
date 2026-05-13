@@ -121,12 +121,6 @@ export function RegelverkCoverageDashboardPage() {
     })
   }, [requirementsForRegelverk, coverage])
 
-  // Domene-relaterte ROS — vises som top-banner, ikke som per-§ dekning.
-  const domainRos = useMemo<CoverageEntry[]>(() => {
-    const domainKey = selectedRegelverk === 'aml' ? 'AML' : selectedRegelverk.toUpperCase()
-    return (coverage.get(domainKey) ?? []).filter((c) => c.kind === 'ros')
-  }, [coverage, selectedRegelverk])
-
   const categoryOptions = useMemo(() => {
     const seen = new Set<string>()
     const cats: { value: string; label: string }[] = [{ value: '', label: 'Alle kategorier' }]
@@ -156,6 +150,11 @@ export function RegelverkCoverageDashboardPage() {
       loading={loading}
       loadingLabel="Beregner dekning på tvers av moduler …"
     >
+      <RegelverkKpiHeader
+        requirements={requirementsWithCoverage}
+        regelverkLabel={regelverk?.label ?? selectedRegelverk}
+      />
+
       {/* Søkefelt — over filterbar slik som platform-admin scorecard */}
       <div className="relative">
         <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-neutral-400" />
@@ -264,29 +263,6 @@ export function RegelverkCoverageDashboardPage() {
           </label>
         </div>
       </div>
-
-      {regelverk?.description ? (
-        <p className="text-sm text-neutral-600">{regelverk.description}</p>
-      ) : null}
-
-      <RegelverkKpiHeader
-        requirements={requirementsWithCoverage}
-        regelverkLabel={regelverk?.label ?? selectedRegelverk}
-      />
-
-      {domainRos.length > 0 ? (
-        <div className="rounded-md border border-amber-200 bg-amber-50/70 px-4 py-3 text-sm text-amber-950">
-          <p className="font-semibold">
-            {domainRos.length} ROS-analyse{domainRos.length === 1 ? '' : 'r'} tagget med
-            domenet «{regelverk?.label ?? selectedRegelverk}»
-          </p>
-          <p className="mt-1 text-xs text-amber-900/80">
-            ROS bruker brede domene-tagger (eks. «AML») og ikke spesifikke §. Disse
-            telles derfor ikke som dekning av enkelt-paragrafer, men vises som
-            kontekst. Lenk ROS-en til konkrete § via avviks-modulen for å få per-§-dekning.
-          </p>
-        </div>
-      ) : null}
 
       {viewMode === 'table' ? (
         <RegelverkCoverageTable

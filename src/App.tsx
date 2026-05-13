@@ -87,8 +87,6 @@ import { LearningDeltakerePage } from './pages/learning/LearningDeltakerePage'
 import { LearningKompetansePage } from './pages/learning/LearningKompetansePage'
 import { LearningAnalysePage } from './pages/learning/LearningAnalysePage'
 import { HmsOverviewPage } from './pages/overview/HmsOverviewPage'
-import { ComplianceCompanyPage } from './pages/admin/ComplianceCompanyPage'
-import { CompliancePersonalPage } from './pages/admin/CompliancePersonalPage'
 import { RegelverkCoverageDashboardPage } from './pages/overview/regelverk/RegelverkCoverageDashboardPage'
 import { ComplianceStudioPage } from './pages/overview/studio/ComplianceStudioPage'
 import { LearningFlowEntry } from './pages/learning/LearningFlowEntry'
@@ -293,8 +291,6 @@ const router = createBrowserRouter(
                       <Route path="tasks/management/admin/:tab" element={<LegacyAdminRedirect scope="tasks" />} />
                       <Route path="tasks/management/review" element={<TasksManagementReviewPage />} />
                       <Route path="overview/hms" element={<PackProvider><HmsOverviewPage /></PackProvider>} />
-                      <Route path="overview/compliance-selskap" element={<ComplianceCompanyPage />} />
-                      <Route path="overview/compliance-min" element={<CompliancePersonalPage />} />
                       <Route path="overview/regelverk" element={<RegelverkCoverageDashboardPage />} />
                       <Route path="compliance-studio" element={<ComplianceStudioPage />} />
                       <Route path="workspace/revisjonslogg" element={<WorkspaceAuditLogPage />} />
