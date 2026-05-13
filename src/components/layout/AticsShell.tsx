@@ -257,6 +257,12 @@ const ADMIN_NAV_PERMS: PermissionKey[] = [
 
 const organisationAdminSubs: SubItem[] = [
   {
+    label: 'Innstillinger',
+    path: '/admin/settings',
+    Icon: Settings,
+    match: ({ pathname }) => pathname.startsWith('/admin/settings'),
+  },
+  {
     label: 'Brukere & invitasjoner',
     path: '/organisation/admin?tab=users',
     match: ({ pathname, search }) =>
