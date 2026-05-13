@@ -513,7 +513,7 @@ const gamleModulerModules: NavModule[] = [
   { to: '/compliance', label: 'Compliance-dashboard', end: true, icon: ShieldCheck, subs: [] },
 
   // ── Organisasjon & HR ────────────────────────────────────────────────────
-  { to: '/organisation/admin', label: 'Roller & administrasjon', end: true, icon: Shield, subs: organisationAdminSubs, perm: 'module.view.admin' },
+  { to: '/organisation/admin', label: 'Admin', end: true, icon: Shield, subs: organisationAdminSubs, perm: 'module.view.admin' },
   {
     to: '/hr',
     label: 'HR & rettssikkerhet',
