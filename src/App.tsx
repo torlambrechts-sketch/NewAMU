@@ -22,6 +22,7 @@ import { ProfilePage } from './pages/ProfilePage'
 import { ReportingEnginePage } from './pages/ReportingEnginePage'
 import { WorkflowModulePage } from './pages/WorkflowModulePage'
 import { WorkflowPage } from './pages/WorkflowPage'
+import { WorkflowBuilderPage } from './pages/workflow/WorkflowBuilderPage'
 import { WorkflowEditorV2 } from './components/workflow/WorkflowEditorV2'
 import { WorkplaceReportingPage } from './pages/WorkplaceReportingPage'
 import { WorkplaceDashboardPage } from './pages/WorkplaceDashboardPage'
@@ -446,6 +447,7 @@ const router = createBrowserRouter(
                       </Route>
                       <Route path="prosesser" element={<Navigate to="/workflow" replace />} />
                       <Route path="workflow" element={<WorkflowPage />} />
+                      <Route path="workflow/v3" element={<WorkflowBuilderPage />} />
                       <Route path="workflow/:ruleId" element={<WorkflowEditorRoute />} />
                       <Route path="workflow/admin" element={<WorkflowModulePage />} />
                       <Route path="hr" element={<HrComplianceHub />} />
