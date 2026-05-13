@@ -9,7 +9,14 @@
  */
 export type ReportDatasetKey = string
 
-export type ReportModuleKind = 'kpi' | 'table' | 'bar' | 'donut' | 'line' | 'heatmap'
+export type ReportModuleKind =
+  | 'kpi'
+  | 'table'
+  | 'bar'
+  | 'donut'
+  | 'line'
+  | 'heatmap'
+  | 'scorecard'
 
 /**
  * Widget layout hint, mapped to a 12-column responsive grid by the
@@ -131,6 +138,21 @@ export type ReportModuleHeatmap = ReportModuleBase & {
   valueLabel?: string
 }
 
+/**
+ * Scorecard widget — category-grouped cards with per-row status pills.
+ * Dataset shape consumed: `Array<{ category, total, covered, partial?,
+ * needsAttention?, rows: Array<{ id, label, title?, applies?,
+ * obligation?, status }> }>`. `status` ∈ 'covered'|'partial'|'only_avvik'
+ * |'uncovered'. When `groupsPath` is empty the dataset itself is the array.
+ * Row clicks emit a drill-down event tagged with `drillDimensionId`,
+ * carrying `row.id` as the `segmentLabel`.
+ */
+export type ReportModuleScorecard = ReportModuleBase & {
+  kind: 'scorecard'
+  groupsPath?: string
+  drillDimensionId?: string
+}
+
 export type ReportModule =
   | ReportModuleKpi
   | ReportModuleTable
@@ -138,6 +160,7 @@ export type ReportModule =
   | ReportModuleDonut
   | ReportModuleLine
   | ReportModuleHeatmap
+  | ReportModuleScorecard
 
 export type CustomReportTemplate = {
   id: string

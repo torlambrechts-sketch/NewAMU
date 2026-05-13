@@ -115,6 +115,30 @@ export function widgetToCsv(
       })
       return { filename, csv: rowsToCsv(out) }
     }
+    case 'scorecard': {
+      const raw = module.groupsPath ? getAtPath(ds, module.groupsPath) : ds
+      const groups: Array<Record<string, unknown>> = Array.isArray(raw)
+        ? (raw as Array<Record<string, unknown>>)
+        : []
+      const out: string[][] = [
+        ['Kategori', 'Krav', 'Tittel', 'Plikt', 'Status', '§ / ID'],
+      ]
+      for (const g of groups) {
+        const category = String(g.category ?? '')
+        const rowsRaw = Array.isArray(g.rows) ? (g.rows as Array<Record<string, unknown>>) : []
+        for (const r of rowsRaw) {
+          out.push([
+            category,
+            String(r.label ?? ''),
+            String(r.title ?? ''),
+            String(r.obligation ?? ''),
+            String(r.status ?? ''),
+            String(r.id ?? ''),
+          ])
+        }
+      }
+      return { filename, csv: rowsToCsv(out) }
+    }
   }
 }
 

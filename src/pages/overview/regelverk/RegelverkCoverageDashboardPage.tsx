@@ -1,290 +1,175 @@
-// Regelverk-dekning — dashboard under Oversikt.
+// Regelverk-dekning — drives nå av dashboard-engine.
 //
-// Layout følger platform-admin/layout scorecard-mønsteret:
-//   - Søkefelt over en cream-deep filter-boks med Regelverk + Kategori-select
-//   - «Vis detalj»-toggle bytter mellom kort (scorecard) og tabell
-// Slide-over åpnes per krav via klikk på rad i begge visninger.
+// Bruker ModuleAnalyticsDashboard med scope 'regelverk_coverage'. Filter-
+// chips erstatter den gamle cream-deep filterboksen (regelverk + kategori
+// + rolle). Scorecard-kortene er nå en flyttbar widget; klikk på rad
+// emitterer drill-down og åpner RegelverkCoverageSlideOver.
 
 import { useMemo, useState } from 'react'
-import { Search } from 'lucide-react'
-import { ModulePageShell } from '../../../components/module'
-import { REGELVERK, REQUIREMENTS } from '../../../data/regelverkRequirements'
-import { useRegelverkCoverage, type CoverageEntry } from '../../../hooks/useRegelverkCoverage'
-import { RegelverkKpiHeader } from './RegelverkKpiHeader'
-import { RegelverkCoverageTable } from './RegelverkCoverageTable'
-import { RegelverkScorecardView } from './RegelverkScorecardView'
+import { ModuleAnalyticsDashboard } from '../../../components/module/ModuleAnalyticsDashboard'
+import { DashboardEditLayoutPanel } from '../../../components/module/dashboard/DashboardEditLayoutPanel'
+import { DashboardAddWidgetPanel } from '../../../components/module/dashboard/DashboardAddWidgetPanel'
+import { DashboardEditWidgetPanel } from '../../../components/module/dashboard/DashboardEditWidgetPanel'
+import { useDashboardEditChrome } from '../../../components/module/dashboard/useDashboardEditChrome'
+import { DashboardWidgetMenu } from '../../../components/module/dashboard/DashboardWidgetMenu'
+import { DashboardChooser } from '../../../components/module/dashboard/DashboardChooser'
+import { defaultCompatibleKinds } from '../../../components/module/dashboard/dashboardWidgetKinds'
+import { downloadCsv, widgetToCsv } from '../../../lib/reports/widgetCsv'
+import { useDashboardLayout } from '../../../lib/dashboards/useDashboardLayout'
+import { freshId } from '../../../lib/dashboards/freshId'
+import { getDashboardScope } from '../../../lib/dashboards/dashboardRegistry'
+import { useOrgSetupContext } from '../../../hooks/useOrgSetupContext'
+import { REGELVERK_COVERAGE_DASHBOARD_SCOPE_ID } from './regelverkCoverageDashboardScope'
+import './regelverkCoverageDashboardScope'
+import { buildRegelverkDimensions, useRegelverkDatasets } from './useRegelverkDatasets'
 import { RegelverkCoverageSlideOver } from './RegelverkCoverageSlideOver'
-import { REGELVERK_ROLES, requirementMatchesRole } from './regelverkRoles'
-import {
-  isFreshProof,
-  isOperationalKind,
-  isStaleInstance,
-  type RequirementWithCoverage,
-} from './regelverkCoverageTypes'
-
-// Matcher platformReferenceLayoutBlocks scorecard-filter-bar
-const CREAM_DEEP = '#EFE8DC'
-
-type ViewMode = 'table' | 'scorecard'
+import type { ReportModule } from '../../../types/reportBuilder'
 
 export function RegelverkCoverageDashboardPage() {
-  const [selectedRegelverk, setSelectedRegelverk] = useState<string>('aml')
-  // '' = all categories
-  const [selectedCategory, setSelectedCategory] = useState<string>('')
-  // '' = all roles
-  const [selectedRole, setSelectedRole] = useState<string>('')
-  const [search, setSearch] = useState('')
-  const [openLawRef, setOpenLawRef] = useState<string | null>(null)
-  // «Vis detalj» på = scorecard-kort. Av = kompakt tabell.
-  const [viewMode, setViewMode] = useState<ViewMode>('scorecard')
-  const { coverage, loading } = useRegelverkCoverage()
+  const { supabase } = useOrgSetupContext()
+  const dashboard = useDashboardLayout({
+    supabase,
+    scopeId: REGELVERK_COVERAGE_DASHBOARD_SCOPE_ID,
+  })
 
-  const regelverk = useMemo(
-    () => REGELVERK.find((r) => r.id === selectedRegelverk),
-    [selectedRegelverk],
-  )
+  const { datasets, loading, enriched, categories } = useRegelverkDatasets(dashboard.filters)
 
-  const requirementsForRegelverk = useMemo(
+  const dimensions = useMemo(() => buildRegelverkDimensions(categories), [categories])
+
+  // Auto-fyll seriesKeys for søylediagrammer der seriesKeys er tomt
+  const layout = useMemo(
     () =>
-      REQUIREMENTS.filter(
-        (r) =>
-          r.regelverkId === selectedRegelverk &&
-          requirementMatchesRole(r, selectedRole === '' ? null : selectedRole),
-      ),
-    [selectedRegelverk, selectedRole],
+      dashboard.layout.map((m) => {
+        if (m.kind === 'bar' && m.seriesKeys.length === 0) {
+          const ds = datasets[m.datasetKey] as Record<string, unknown> | undefined
+          const keys = ds && typeof ds === 'object' ? Object.keys(ds) : []
+          return { ...m, seriesKeys: keys }
+        }
+        return m
+      }),
+    [dashboard.layout, datasets],
   )
 
-  const requirementsWithCoverage = useMemo<RequirementWithCoverage[]>(() => {
-    return requirementsForRegelverk.map((req) => {
-      // Eksakt match på lawRef + alle alternateRefs. BREDT DOMENE-OPPSLAG
-      // (eks. 'AML') tas IKKE med — det festet tidligere én generell ROS
-      // på alle 70 AML-§-er og ga falsk dekning. Domene-relaterte ROS-er
-      // håndteres separat på sidenivå.
-      const exact = coverage.get(req.lawRef) ?? []
-      const alts: CoverageEntry[] = []
-      for (const altRef of req.alternateRefs ?? []) {
-        const found = coverage.get(altRef) ?? []
-        alts.push(...found)
-      }
+  const [editOpen, setEditOpen] = useState(false)
+  const [addOpen, setAddOpen] = useState(false)
+  const [editWidget, setEditWidget] = useState<ReportModule | null>(null)
+  const [openLawRef, setOpenLawRef] = useState<string | null>(null)
 
-      const dedup = new Map<string, CoverageEntry>()
-      for (const e of [...exact, ...alts]) {
-        dedup.set(`${e.kind}:${e.id}`, e)
-      }
-      const entries = [...dedup.values()]
+  const editChrome = useDashboardEditChrome({
+    scopeId: REGELVERK_COVERAGE_DASHBOARD_SCOPE_ID,
+    layout: dashboard.layout,
+    saveLayout: dashboard.saveLayout,
+  })
 
-      const byKind: RequirementWithCoverage['byKind'] = {
-        course_system: 0,
-        course_org: 0,
-        document: 0,
-        document_template: 0,
-        survey: 0,
-        checklist_template: 0,
-        checklist_item: 0,
-        ros: 0,
-        task: 0,
-        meeting_template: 0,
-      }
-      for (const e of entries) byKind[e.kind] += 1
-
-      // Status (v2 — krever reelt bevis):
-      //  covered    = ≥1 fersk publisert INSTANCE (kurs/dokument) i orgen,
-      //               oppdatert siste 12 mnd.
-      //  partial    = mal eller utdatert/utkast-instans finnes — orgen
-      //               vet om kravet, men kan ikke vise gjennomført rutine.
-      //  only_avvik = ingen innholds-bevis, ≥1 avvik tagget med §.
-      //  uncovered  = ingenting.
-      const now = new Date()
-      const freshInstances = entries.filter((e) => isFreshProof(e, now)).length
-      const staleInstances = entries.filter((e) => isStaleInstance(e, now)).length
-      const templatesOnly = entries.filter(
-        (e) => e.source === 'template' && !isOperationalKind(e.kind),
-      ).length
-      const operationalCount = entries.filter((e) => isOperationalKind(e.kind)).length
-
-      const status: RequirementWithCoverage['status'] =
-        freshInstances > 0
-          ? 'covered'
-          : staleInstances + templatesOnly > 0
-            ? 'partial'
-            : operationalCount > 0
-              ? 'only_avvik'
-              : 'uncovered'
-
-      return {
-        ...req,
-        coverage: entries,
-        byKind,
-        status,
-        proof: { freshInstances, staleInstances, templatesOnly },
-      }
-    })
-  }, [requirementsForRegelverk, coverage])
-
-  const categoryOptions = useMemo(() => {
-    const seen = new Set<string>()
-    const cats: { value: string; label: string }[] = [{ value: '', label: 'Alle kategorier' }]
-    for (const r of requirementsForRegelverk) {
-      if (!seen.has(r.category)) {
-        seen.add(r.category)
-        cats.push({ value: r.category, label: r.category })
-      }
-    }
-    return cats
-  }, [requirementsForRegelverk])
+  const widgetControlSlot = (m: ReportModule) => (
+    <DashboardWidgetMenu
+      ariaLabel={`Meny for widget ${m.title}`}
+      onEdit={() => setEditWidget(m)}
+      onDuplicate={() => {
+        const dup = { ...m, id: freshId('w'), title: `${m.title} (kopi)` }
+        void dashboard.saveLayout([...dashboard.layout, dup])
+      }}
+      onExportCsv={() => downloadCsv(widgetToCsv(m, datasets))}
+      onRemove={() => {
+        if (!window.confirm(`Fjerne widgeten «${m.title}»?`)) return
+        void dashboard.saveLayout(dashboard.layout.filter((x) => x.id !== m.id))
+      }}
+    />
+  )
 
   const openReq =
-    openLawRef !== null
-      ? requirementsWithCoverage.find((r) => r.lawRef === openLawRef) ?? null
-      : null
+    openLawRef !== null ? enriched.find((r) => r.lawRef === openLawRef) ?? null : null
 
   return (
-    <ModulePageShell
-      breadcrumb={[
-        { label: 'Arbeidsflate', to: '/' },
-        { label: 'Oversikt', to: '/overview/hms' },
-        { label: 'Regelverk-dekning' },
-      ]}
-      title="Regelverk-dekning"
-      description="Velg regelverk for å se hvert krav og hvilke moduler som dekker det."
-      loading={loading}
-      loadingLabel="Beregner dekning på tvers av moduler …"
-    >
-      <RegelverkKpiHeader
-        requirements={requirementsWithCoverage}
-        regelverkLabel={regelverk?.label ?? selectedRegelverk}
+    <>
+      <ModuleAnalyticsDashboard
+        accent={getDashboardScope(REGELVERK_COVERAGE_DASHBOARD_SCOPE_ID)?.accent}
+        breadcrumb={[
+          { label: 'Arbeidsflate', to: '/' },
+          { label: 'Oversikt', to: '/overview/hms' },
+          { label: 'Regelverk-dekning' },
+        ]}
+        title="Regelverk-dekning"
+        description="Velg regelverk, kategori og rolle for å se hvert krav og hvilke moduler som dekker det."
+        titleChooser={
+          <DashboardChooser
+            available={dashboard.available}
+            activeRow={dashboard.row}
+            isDefault={dashboard.isDefault}
+            currentUserId={dashboard.currentUserId}
+            onSelect={dashboard.selectLayout}
+            onSaveAs={dashboard.saveAs}
+            onRename={dashboard.renameActive}
+            onDelete={dashboard.deleteActive}
+            onMarkDefault={dashboard.markActiveDefault}
+          />
+        }
+        headerActions={
+          <div className="flex flex-wrap items-center gap-2">{editChrome.toggleButton}</div>
+        }
+        layout={layout}
+        datasets={datasets}
+        loading={loading || dashboard.loading}
+        error={dashboard.error}
+        onAddWidget={editChrome.editMode ? undefined : () => setAddOpen(true)}
+        widgetControlSlot={widgetControlSlot}
+        onResize={(w, next) =>
+          void dashboard.saveLayout(
+            dashboard.layout.map((x) => (x.id === w.id ? { ...x, colSpan: next } : x)),
+          )
+        }
+        onDrillDown={(e) => {
+          if (e.dimensionId === 'requirement') {
+            setOpenLawRef(e.segmentLabel)
+          }
+        }}
+        {...editChrome.moduleProps}
+        filters={dashboard.filters}
+        dimensions={dimensions}
+        onFiltersChange={(next) => void dashboard.saveFilters(next)}
       />
 
-      {/* Søkefelt — over filterbar slik som platform-admin scorecard */}
-      <div className="relative">
-        <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-neutral-400" />
-        <input
-          type="search"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          placeholder="Søk på § eller tittel …"
-          className="w-full rounded-lg border border-neutral-200 bg-white py-2.5 pl-10 pr-3 text-sm outline-none placeholder:text-neutral-400 focus:ring-2 focus:ring-[#1a3d32]/25"
-        />
-      </div>
+      <DashboardEditLayoutPanel
+        open={editOpen}
+        onClose={() => setEditOpen(false)}
+        layout={dashboard.layout}
+        onSave={(next) => dashboard.saveLayout(next)}
+        onResetToDefault={dashboard.isDefault ? undefined : () => dashboard.resetToDefault()}
+      />
 
-      {/* Filter bar i cream-deep — speiler scorecard-referansen */}
-      <div
-        className="grid gap-4 rounded-lg border border-neutral-200/80 p-4 sm:grid-cols-2 lg:grid-cols-4"
-        style={{ backgroundColor: CREAM_DEEP }}
-      >
-        <label className="text-[10px] font-bold uppercase tracking-wide text-neutral-600">
-          Regelverk
-          <select
-            value={selectedRegelverk}
-            onChange={(e) => {
-              setSelectedRegelverk(e.target.value)
-              setSelectedCategory('')
-            }}
-            className="mt-1.5 w-full rounded-md border border-neutral-200 bg-white px-3 py-2 text-sm"
-          >
-            {REGELVERK.map((r) => (
-              <option key={r.id} value={r.id}>
-                {r.label} — {r.fullName}
-              </option>
-            ))}
-          </select>
-        </label>
+      <DashboardAddWidgetPanel
+        open={addOpen}
+        onClose={() => setAddOpen(false)}
+        scopeId={REGELVERK_COVERAGE_DASHBOARD_SCOPE_ID}
+        onAdd={(widget: ReportModule) => dashboard.saveLayout([...dashboard.layout, widget])}
+      />
 
-        <label className="text-[10px] font-bold uppercase tracking-wide text-neutral-600">
-          Kategori
-          <div className="mt-1.5 flex items-center gap-1">
-            <select
-              value={selectedCategory}
-              onChange={(e) => setSelectedCategory(e.target.value)}
-              className="min-w-0 flex-1 rounded-md border border-neutral-200 bg-white px-3 py-2 text-sm"
-            >
-              <option value="">Alle kategorier</option>
-              {categoryOptions
-                .filter((o) => o.value !== '')
-                .map((o) => (
-                  <option key={o.value} value={o.value}>
-                    {o.label}
-                  </option>
-                ))}
-            </select>
-            {selectedCategory ? (
-              <button
-                type="button"
-                onClick={() => setSelectedCategory('')}
-                className="rounded-md border border-neutral-200 bg-white p-2 text-neutral-500 hover:bg-neutral-50"
-                aria-label="Fjern kategori-filter"
-              >
-                ×
-              </button>
-            ) : null}
-          </div>
-        </label>
-
-        <label className="text-[10px] font-bold uppercase tracking-wide text-neutral-600">
-          Rolle
-          <div className="mt-1.5 flex items-center gap-1">
-            <select
-              value={selectedRole}
-              onChange={(e) => setSelectedRole(e.target.value)}
-              className="min-w-0 flex-1 rounded-md border border-neutral-200 bg-white px-3 py-2 text-sm"
-            >
-              <option value="">Alle roller</option>
-              {REGELVERK_ROLES.map((r) => (
-                <option key={r.slug} value={r.slug}>
-                  {r.label}
-                </option>
-              ))}
-            </select>
-            {selectedRole ? (
-              <button
-                type="button"
-                onClick={() => setSelectedRole('')}
-                className="rounded-md border border-neutral-200 bg-white p-2 text-neutral-500 hover:bg-neutral-50"
-                aria-label="Fjern rolle-filter"
-              >
-                ×
-              </button>
-            ) : null}
-          </div>
-        </label>
-
-        <div className="flex items-end gap-3 pb-0.5">
-          <span className="text-[10px] font-bold uppercase tracking-wide text-neutral-600">
-            Vis detalj
-          </span>
-          <label className="relative inline-flex cursor-pointer items-center">
-            <input
-              type="checkbox"
-              className="peer sr-only"
-              checked={viewMode === 'scorecard'}
-              onChange={(e) => setViewMode(e.target.checked ? 'scorecard' : 'table')}
-            />
-            <span className="h-6 w-11 rounded-full bg-neutral-300 transition peer-checked:bg-[#1a3d32] after:absolute after:left-0.5 after:top-0.5 after:size-5 after:rounded-full after:bg-white after:transition-all peer-checked:after:translate-x-5" />
-          </label>
-        </div>
-      </div>
-
-      {viewMode === 'table' ? (
-        <RegelverkCoverageTable
-          requirements={requirementsWithCoverage}
-          search={search}
-          selectedCategory={selectedCategory === '' ? null : selectedCategory}
-          onOpenRow={setOpenLawRef}
-        />
-      ) : (
-        <RegelverkScorecardView
-          requirements={requirementsWithCoverage}
-          search={search}
-          selectedCategory={selectedCategory === '' ? null : selectedCategory}
-          onOpenRow={setOpenLawRef}
-        />
-      )}
+      <DashboardEditWidgetPanel
+        open={editWidget !== null}
+        widget={editWidget}
+        datasets={datasets}
+        onClose={() => setEditWidget(null)}
+        onDuplicate={(w) => {
+          const dup = { ...w, id: freshId('w'), title: `${w.title} (kopi)` }
+          void dashboard.saveLayout([...dashboard.layout, dup])
+        }}
+        onRemove={(w) => {
+          void dashboard.saveLayout(dashboard.layout.filter((m) => m.id !== w.id))
+        }}
+        onSave={async (next) => {
+          const ok = await dashboard.saveLayout(
+            dashboard.layout.map((m) => (m.id === next.id ? next : m)),
+          )
+          return ok
+        }}
+        compatibleKinds={editWidget ? defaultCompatibleKinds(editWidget.kind) : undefined}
+      />
 
       <RegelverkCoverageSlideOver
         open={openReq !== null}
         req={openReq}
         onClose={() => setOpenLawRef(null)}
       />
-    </ModulePageShell>
+    </>
   )
 }
