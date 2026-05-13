@@ -19,9 +19,11 @@
 
 import type {
   ReportModule,
+  ReportModuleBar,
   ReportModuleKpi,
   ReportModuleLine,
   ReportModuleDonut,
+  ReportModuleTable,
 } from '../../../types/reportBuilder'
 import {
   registerDashboardScope,
@@ -38,6 +40,10 @@ const MEMBERS = [
   'learning',
   'documents',
   'compliance_company',
+  // Phase 4: utfalls-linsen tas inn som medlem så HMS-oversikt
+  // også kan lede med arbeidsmiljø-indeksen — ikke bare per-modul-KPI.
+  'worker_wellbeing',
+  'vernerunder',
 ] as const
 
 // ── Dataset catalogue ─────────────────────────────────────────────────────
@@ -64,6 +70,14 @@ const DATASETS: DatasetMeta[] = [
   { key: 'documents_kpi_summary', label: 'Dokumenter — KPI-sammendrag', shape: 'kpi-record' },
   { key: 'documents_status_distribution', label: 'Dokumenter — status', shape: 'segments' },
   { key: 'documents_published_over_time', label: 'Dokumenter — publisert over tid', shape: 'series' },
+  // Arbeidsmiljøstrategi (utfalls-linsen)
+  { key: 'wellbeing_index_summary', label: 'Arbeidsmiljø-indeks', shape: 'kpi-record' },
+  { key: 'wellbeing_axis_scores', label: 'Akse-skår', shape: 'segments' },
+  { key: 'wellbeing_index_over_time', label: 'Indeks over tid', shape: 'series' },
+  { key: 'wellbeing_action_queue', label: 'Neste steg', shape: 'rows' },
+  // Vernerunder (Trygghet-aksens fundament)
+  { key: 'vernerunde_kpi_summary', label: 'Vernerunder — KPI', shape: 'kpi-record' },
+  { key: 'vernerunde_findings_severity', label: 'Funn etter alvorlighet', shape: 'segments' },
 ]
 
 // ── KPI strip — one per member scope ──────────────────────────────────────
@@ -180,10 +194,66 @@ const DONUT_DOCUMENTS_STATUS: ReportModuleDonut = {
   colSpan: 'md',
 }
 
+// ── Arbeidsmiljøstrategi (utfalls-linsen) ────────────────────────────────
+// Disse widgetene ledes inn øverst slik at HMS-oversikt åpner med
+// "klarer vi det loven vil" før den per-modul-baserte detaljen.
+const KPI_WELLBEING_INDEX: ReportModuleKpi = {
+  id: 'kpi-wellbeing-index',
+  kind: 'kpi',
+  datasetKey: 'wellbeing_index_summary',
+  title: 'Arbeidsmiljø-indeks',
+  valuePath: 'indexLabel',
+  subtitle: 'Vektet snitt av fire utfallsakser',
+  colSpan: 'md',
+}
+const KPI_VERNERUNDE_FINDINGS: ReportModuleKpi = {
+  id: 'kpi-vernerunde-findings-open',
+  kind: 'kpi',
+  datasetKey: 'vernerunde_kpi_summary',
+  title: 'Åpne vernerunde-funn',
+  valuePath: 'findingsOpen',
+  subtitle: 'Trygghet · drives av vernerunder',
+  colSpan: 'sm',
+}
+const BAR_WELLBEING_AXES: ReportModuleBar = {
+  id: 'bar-wellbeing-axes',
+  kind: 'bar',
+  datasetKey: 'wellbeing_axis_scores',
+  title: 'Akse-skår (0–100)',
+  seriesKeys: [],
+  colSpan: 'md',
+}
+const LINE_WELLBEING_INDEX_TREND: ReportModuleLine = {
+  id: 'line-wellbeing-index-trend',
+  kind: 'line',
+  datasetKey: 'wellbeing_index_over_time',
+  title: 'Arbeidsmiljø-indeks over tid',
+  pointsPath: '',
+  xLabel: 'Måned',
+  yLabel: 'Indeks',
+  colSpan: 'lg',
+}
+const TABLE_WELLBEING_ACTIONS: ReportModuleTable = {
+  id: 'table-wellbeing-actions',
+  kind: 'table',
+  datasetKey: 'wellbeing_action_queue',
+  title: 'Hva krever oppmerksomhet nå',
+  rowKeys: ['axis', 'item', 'severity', 'origin'],
+  colSpan: 'full',
+}
+
 const DEFAULT_LAYOUT: ReportModule[] = [
+  // ── Utfalls-strip øverst — leder med arbeidsmiljø-indeksen,
+  // åpne vernerunde-funn (Trygghet) og akse-skårene som rask snapshot.
+  KPI_WELLBEING_INDEX,
+  KPI_VERNERUNDE_FINDINGS,
+  KPI_TASKS_OPEN,
+  BAR_WELLBEING_AXES,
+  LINE_WELLBEING_INDEX_TREND,
+  TABLE_WELLBEING_ACTIONS,
+  // ── Per-modul-puls (uendret fra forrige versjon).
   KPI_COMPLIANCE_YTD,
   KPI_SURVEY_RESPONSES,
-  KPI_TASKS_OPEN,
   KPI_LEARNING_COMPLETED_YTD,
   KPI_DOCUMENTS_PUBLISHED,
   KPI_DOCUMENTS_RETENTION_OVERDUE,
@@ -208,6 +278,12 @@ const WIDGET_CATALOG: WidgetCatalogEntry[] = [
   { catalogId: 'donut-tasks-status', category: 'Diagrammer', label: 'Oppgaver — status', template: DONUT_TASKS_STATUS },
   { catalogId: 'donut-survey-status', category: 'Diagrammer', label: 'Undersøkelser — status', template: DONUT_SURVEY_STATUS },
   { catalogId: 'donut-documents-status', category: 'Diagrammer', label: 'Dokumenter — status', template: DONUT_DOCUMENTS_STATUS },
+  // Arbeidsmiljøstrategi-widgets — tilgjengelige i Add-Widget-menyen.
+  { catalogId: 'kpi-wellbeing-index', category: 'Arbeidsmiljø', label: 'Arbeidsmiljø-indeks', template: KPI_WELLBEING_INDEX },
+  { catalogId: 'kpi-vernerunde-findings-open', category: 'Arbeidsmiljø', label: 'Åpne vernerunde-funn', template: KPI_VERNERUNDE_FINDINGS },
+  { catalogId: 'bar-wellbeing-axes', category: 'Arbeidsmiljø', label: 'Akse-skår', template: BAR_WELLBEING_AXES },
+  { catalogId: 'line-wellbeing-index-trend', category: 'Trender', label: 'Indeks over tid', template: LINE_WELLBEING_INDEX_TREND },
+  { catalogId: 'table-wellbeing-actions', category: 'Tabeller', label: 'Hva krever oppmerksomhet', template: TABLE_WELLBEING_ACTIONS },
 ]
 
 registerDashboardScope({

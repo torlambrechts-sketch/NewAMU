@@ -42,6 +42,10 @@ import { useTaskItemsData } from '../../../modules/tasks/useTaskItemsData'
 import { useTasksDatasets } from '../../../modules/tasks/dashboards/useTasksDatasets'
 import { useDocuments } from '../../hooks/useDocuments'
 import { useDocumentsDatasets } from '../documents/dashboards/useDocumentsDatasets'
+import { useVernerunderDatasets } from '../../../modules/vernerunder/dashboards/useVernerunderDatasets'
+import { useWellbeingStrategy } from '../wellbeing/hooks/useWellbeingStrategy'
+import { useWellbeingSnapshots } from '../wellbeing/hooks/useWellbeingSnapshots'
+import { useWorkerWellbeingDatasets } from '../wellbeing/dashboards/useWorkerWellbeingDatasets'
 import {
   HMS_OVERVIEW_SCOPE_ID,
   // Side-effect import: registers the composite scope on module load.
@@ -55,6 +59,8 @@ import '../../../modules/survey/dashboards/surveyDashboardScope'
 import '../../../modules/tasks/dashboards/tasksDashboardScope'
 import '../learning/dashboards/learningDashboardScope'
 import '../documents/dashboards/documentsDashboardScope'
+import '../../../modules/vernerunder/dashboards/vernerunderDashboardScope'
+import '../wellbeing/dashboards/workerWellbeingDashboardScope'
 import type { ReportModule } from '../../types/reportBuilder'
 import type { DashboardDimension } from '../../lib/dashboards/dashboardFilters'
 
@@ -77,6 +83,8 @@ export function HmsOverviewPage() {
   const cats = useLearningCategories({ supabase })
 
   const docs = useDocuments()
+  const wellbeingStrategy = useWellbeingStrategy()
+  const snapshots = useWellbeingSnapshots()
 
   const dashboard = useDashboardLayout({ supabase, scopeId: HMS_OVERVIEW_SCOPE_ID })
 
@@ -170,11 +178,32 @@ export function HmsOverviewPage() {
     orgCustomTemplates: docs.orgCustomTemplates,
     accessRequestsOpen,
   })
+  const vernerunderDs = useVernerunderDatasets({ filters: dashboard.filters })
 
-  // Merge — keys are scope-namespaced so collisions are impossible.
+  // Bygg medlems-datasets først, så lar vi wellbeing-hooket beregne
+  // utfalls-aksene på toppen. Ekstra dataset-nøkler kolliderer ikke
+  // fordi de er scope-prefiks-named.
+  const memberDatasets = useMemo<Record<string, unknown>>(
+    () => ({
+      ...checklistDs,
+      ...surveyDs,
+      ...tasksDs,
+      ...learningDs,
+      ...documentsDs,
+      ...vernerunderDs,
+    }),
+    [checklistDs, surveyDs, tasksDs, learningDs, documentsDs, vernerunderDs],
+  )
+  const wellbeingDs = useWorkerWellbeingDatasets({
+    memberDatasets,
+    weights: wellbeingStrategy.weights,
+    indexHistory: snapshots.series,
+    snapshotHistory: snapshots.snapshots,
+  })
+
   const datasets = useMemo<Record<string, unknown>>(
-    () => ({ ...checklistDs, ...surveyDs, ...tasksDs, ...learningDs, ...documentsDs }),
-    [checklistDs, surveyDs, tasksDs, learningDs, documentsDs],
+    () => ({ ...memberDatasets, ...wellbeingDs }),
+    [memberDatasets, wellbeingDs],
   )
 
   const layout = useMemo(
@@ -243,6 +272,12 @@ export function HmsOverviewPage() {
           <div className="flex flex-wrap items-center gap-2">
             {editChrome.toggleButton}
             <Link
+              to="/overview/arbeidsmiljostrategi"
+              className="inline-flex items-center justify-center gap-1.5 rounded-md border border-amber-300 bg-amber-50 px-4 py-2 text-sm font-semibold text-amber-900 transition-colors hover:bg-amber-100"
+            >
+              Arbeidsmiljøstrategi
+            </Link>
+            <Link
               to="/overview/compliance-selskap"
               className="inline-flex items-center justify-center gap-1.5 rounded-md border border-red-300 bg-red-50 px-4 py-2 text-sm font-semibold text-red-900 transition-colors hover:bg-red-100"
             >
@@ -276,7 +311,9 @@ export function HmsOverviewPage() {
           survey.loading ||
           learning.learningLoading ||
           docs.loading ||
-          dashboard.loading
+          dashboard.loading ||
+          snapshots.loading ||
+          wellbeingStrategy.loading
         }
         error={
           cl.error ?? survey.error ?? learning.learningError ?? docs.error ?? dashboard.error
