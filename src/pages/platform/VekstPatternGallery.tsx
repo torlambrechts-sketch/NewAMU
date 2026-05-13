@@ -18,6 +18,9 @@ import {
   type DashboardVekstKpi,
   type DashboardVekstTrend,
 } from '../wellbeing/layouts/DashboardVekst'
+import { TimelineVekst, type TimelineVekstEntry } from '../wellbeing/layouts/TimelineVekst'
+import { OnboardingVekst, type OnboardingVekstStep } from '../wellbeing/layouts/OnboardingVekst'
+import { CardStackVekst, type CardStackVekstCard } from '../wellbeing/layouts/CardStackVekst'
 
 const SERIF = "'Libre Baskerville', Georgia, serif"
 
@@ -150,6 +153,200 @@ const ACTIVITY_DEMO: DashboardVekstActivityRow[] = [
   { id: '4', when: '02. mai', what: 'Pulsmåling sendt til alle 360 ansatte — første svar registrert samme ettermiddag.', who: 'HR', motif: 'trivsel', tone: 'forest' },
 ]
 
+// ── Timeline demo ────────────────────────────────────────────────────────
+
+const TIMELINE_DEMO: TimelineVekstEntry[] = [
+  {
+    id: '1',
+    date: 'Mai 2026 · i dag',
+    title: 'AMU Q2-møtet — tre tiltak vedtatt',
+    body: 'Lederne forplikter seg til to ekstra 1:1-er per måned, og psykososial pulsmåling utvides til Bergen-kontoret.',
+    motif: 'medvirkning',
+    tone: 'warm',
+    chips: [
+      { label: 'AMU', tone: 'warm' },
+      { label: 'Psykososial', tone: 'forest' },
+    ],
+    cta: { label: 'Se protokoll', to: '/meetings' },
+  },
+  {
+    id: '2',
+    date: 'April 2026',
+    title: 'Pulsmåling lukket — 64% svarprosent',
+    body: 'NAQ-R+ avdekket et mobbing-flagg i én avdeling. Bedriftshelsetjenesten er involvert; tiltak ligger nå i handlingskøen.',
+    motif: 'trivsel',
+    tone: 'cool',
+    chips: [{ label: '64 % svar', tone: 'forest' }, { label: 'Flagg', tone: 'cool' }],
+  },
+  {
+    id: '3',
+    date: 'Mars 2026',
+    title: 'Verneombud-valg fullført i syv av åtte avdelinger',
+    body: 'Bergen-avdelingen mangler fortsatt valgt verneombud — er reist som fokusområde til Q3.',
+    motif: 'medvirkning',
+    tone: 'warm',
+  },
+  {
+    id: '4',
+    date: 'Februar 2026',
+    title: '40-timers HMS-grunnopplæring oppfrisket',
+    body: 'Ny modul om psykososialt arbeidsmiljø innført. 18 ledere har fullført, 4 i prosess.',
+    motif: 'mestring',
+    tone: 'forest',
+    chips: [{ label: '22 deltakere', tone: 'neutral' }],
+  },
+  {
+    id: '5',
+    date: 'Januar 2026',
+    title: 'Arbeidsmiljøstrategi 2026 formulert',
+    body: 'Styret og AMU vedtok året mål: heve trivsels-skåren fra 58 til 70, holde Trygghet-skåren over 80.',
+    motif: 'trygghet',
+    tone: 'warm',
+  },
+  {
+    id: '6',
+    date: 'November 2025',
+    title: 'Vernerunde-runde 4/4 gjennomført',
+    body: 'Året endte med 23 åpne funn — alle bortsett fra to lukket eller i prosess før jul.',
+    motif: 'trygghet',
+    tone: 'forest',
+  },
+]
+
+// ── Onboarding demo ──────────────────────────────────────────────────────
+
+const ONBOARDING_DEMO: OnboardingVekstStep[] = [
+  {
+    id: 'welcome',
+    eyebrow: 'Velkommen',
+    title: 'La oss bygge arbeidsmiljøstrategien sammen',
+    body: 'Fire korte steg, og dere har et fundament som AMU, ledere og ansatte kan kjenne igjen. Ingen paragrafer her — vi snakker om hva slags arbeidsmiljø dere ønsker å skape.',
+    illustration: 'vekst',
+  },
+  {
+    id: 'vision',
+    eyebrow: 'Steg 1 · Visjon',
+    title: 'Hva slags arbeidsmiljø ønsker dere?',
+    body: 'Skriv det som ville stått øverst i et brev til de ansatte. Ingen overordnet selvfølgelighet — det dere virkelig mener.',
+    illustration: 'trivsel',
+    content: (
+      <textarea
+        rows={4}
+        placeholder="Eks: «Hos oss skal alle bli sett, hørt, og våge å si fra når noe er utrygt.»"
+        className="w-full rounded-2xl border-2 border-[#1a3d32]/15 bg-amber-50/30 px-4 py-3 text-sm text-[#1a3d32] placeholder-[#516760]/60 focus:border-amber-300 focus:bg-white focus:outline-none focus:ring-2 focus:ring-amber-200"
+      />
+    ),
+  },
+  {
+    id: 'focus',
+    eyebrow: 'Steg 2 · Fokus',
+    title: 'Hvilke akser har dere mest å hente på?',
+    body: 'Velg én eller to. Det er bedre å virkelig flytte to akser enn å snuble litt over fire.',
+    illustration: 'medvirkning',
+    content: (
+      <div className="grid gap-2 sm:grid-cols-2">
+        {[
+          { id: 'trygghet', label: 'Trygghet', sub: 'AML § 4-1, § 4-4' },
+          { id: 'trivsel', label: 'Trivsel', sub: 'AML § 4-3' },
+          { id: 'medvirkning', label: 'Medvirkning', sub: 'AML kap. 6, 7' },
+          { id: 'mestring', label: 'Mestring & utvikling', sub: 'AML § 3-2' },
+        ].map((axis) => (
+          <label
+            key={axis.id}
+            className="flex cursor-pointer items-start gap-3 rounded-2xl border-2 border-[#1a3d32]/15 bg-white px-4 py-3 transition-colors hover:border-amber-300 hover:bg-amber-50/40"
+          >
+            <input type="checkbox" className="mt-1 h-4 w-4 accent-amber-600" />
+            <div>
+              <div className="text-sm font-semibold text-[#1a3d32]" style={{ fontFamily: SERIF }}>
+                {axis.label}
+              </div>
+              <div className="text-[11px] text-[#516760]">{axis.sub}</div>
+            </div>
+          </label>
+        ))}
+      </div>
+    ),
+  },
+  {
+    id: 'roles',
+    eyebrow: 'Steg 3 · Roller',
+    title: 'Hvem skal være med å eie dette?',
+    body: 'En strategi som ikke har eiere lever bare på pdf. Velg HMS-leder og AMU-leder først — de andre kan dere koble på senere.',
+    illustration: 'trygghet',
+    content: (
+      <div className="space-y-3">
+        {['HMS-leder', 'AMU-leder', 'Hovedverneombud'].map((role) => (
+          <div
+            key={role}
+            className="flex items-center justify-between rounded-2xl border-2 border-[#1a3d32]/15 bg-white px-4 py-3"
+          >
+            <div>
+              <div className="text-sm font-semibold text-[#1a3d32]" style={{ fontFamily: SERIF }}>
+                {role}
+              </div>
+              <div className="text-[11px] text-[#516760]">Ikke valgt ennå</div>
+            </div>
+            <button
+              type="button"
+              className="rounded-full border border-amber-300 bg-amber-50 px-3 py-1 text-[11px] font-semibold text-amber-900 hover:bg-amber-100"
+            >
+              Velg person
+            </button>
+          </div>
+        ))}
+      </div>
+    ),
+  },
+  {
+    id: 'done',
+    eyebrow: 'Ferdig',
+    title: 'Klar — strategi-rammen er på plass',
+    body: 'Vi har en visjon, et par akser å begynne med, og noen eiere. Neste steg er den første pulsmålingen — den bygger på rammen dere akkurat satte.',
+    illustration: 'mestring',
+  },
+]
+
+// ── Card-stack demo ──────────────────────────────────────────────────────
+
+const STACK_DEMO: CardStackVekstCard[] = [
+  {
+    id: '1',
+    eyebrow: 'Story · Trygghet',
+    title: 'Bergen-truck-saken — en nestenulykke som ble til en politikk',
+    body: 'En nestenulykke i februar ble grunnen til at vi nå har permanent merking på alle lager-soner. Verneombudet Jens fortalte oss hva som faktisk skjedde.',
+    motif: 'trygghet',
+    tone: 'warm',
+    footer: 'Lest 234 · Lagret 18',
+  },
+  {
+    id: '2',
+    eyebrow: 'Story · Trivsel',
+    title: 'Mobbing-flagget vi tok på alvor',
+    body: 'NAQ-R+ Q2 viste et mobbing-flagg i én avdeling. Bedriftshelse, AMU og ledelsen samordnet en respons innen tre dager. Slik gjorde vi det.',
+    motif: 'trivsel',
+    tone: 'cool',
+    footer: 'Lest 412 · Lagret 47',
+  },
+  {
+    id: '3',
+    eyebrow: 'Story · Medvirkning',
+    title: 'Hvordan vi fikk 64 % svarprosent på pulsmålingen',
+    body: 'Det handlet ikke om ny teknologi. Det handlet om at lederne snakket om hvorfor svarene faktisk betyr noe — og hva som har endret seg fordi noen svarte.',
+    motif: 'medvirkning',
+    tone: 'forest',
+    footer: 'Lest 198 · Lagret 32',
+  },
+  {
+    id: '4',
+    eyebrow: 'Story · Mestring',
+    title: 'En 40-timers HMS-modul mange faktisk gleder seg til',
+    body: 'Vi byttet ut compliance-tonen med menneskelige historier fra egen organisasjon. Resultat: kurset fullføres på under tre uker — ikke tre måneder.',
+    motif: 'mestring',
+    tone: 'warm',
+    footer: 'Lest 156 · Lagret 24',
+  },
+]
+
 export function VekstPatternGallery() {
   return (
     <div className="-m-4 md:-m-8 min-h-screen bg-[#F2EBDA] p-0">
@@ -263,6 +460,47 @@ export function VekstPatternGallery() {
                 />
               </div>
             </div>
+          </section>
+
+          {/* ── Section: Timeline ─────────────────────────────────── */}
+          <section className="space-y-4">
+            <SectionLabel
+              eyebrow="Mønster 4 · Tidslinje"
+              title="Når året skal leses som en historie, ikke en logg"
+              body="Vertikal tidslinje med en organisk linje, store amber-prikker og en mindre motif-sirkel under hver milepæl. Hver oppføring kan ha datoetikett, serif-tittel, fritekst, tone-fargede chips og en CTA. Bygd for HMS-årsrapporten, AMU-historikk eller individuelle utviklingsløp."
+            />
+            <TimelineVekst
+              eyebrow="Demo · Vårt arbeidsmiljø-år"
+              title="Slik ser HMS-året vårt ut"
+              description="Et utvalg milepæler fra de siste tolv månedene — med motiv, sjanger-tone og lenker videre."
+              entries={TIMELINE_DEMO}
+              footnote="Tone-farger fortelles sammen med motivet: warm = noe pågående, forest = noe gjort, cool = krever oppmerksomhet, neutral = informativt."
+            />
+          </section>
+
+          {/* ── Section: Onboarding ───────────────────────────────── */}
+          <section className="space-y-4">
+            <SectionLabel
+              eyebrow="Mønster 5 · Onboarding-flyt"
+              title="Når veiviseren skal være en samtale"
+              body="Multi-steg-form med fremdrifts-prikkrekke, stor illustrasjon i en cream-pute på venstre side, og serif-overskrifter + content-slot på høyre. Lyse «Tilbake / Neste / Fullfør»-knapper i serif. Bruk for førstegangs-oppsett av Arbeidsmiljøstrategi, AMU-medlems-onboarding, eller leder-introduksjon."
+            />
+            <OnboardingVekst steps={ONBOARDING_DEMO} doneLabel="Sett strategien i gang" />
+          </section>
+
+          {/* ── Section: Card stack ────────────────────────────────── */}
+          <section className="space-y-4">
+            <SectionLabel
+              eyebrow="Mønster 6 · Kortstokk"
+              title="Når noen få rike historier skal serveres bevisst"
+              body="Tre-fire kort stables vertikalt med subtle rotasjon og skygge — som en håndholdt bunke postkort. Klikk topp-kortet for å sende det bakerst. Pile-knapper og prikkrekke under for tastatur-navigasjon. Bygd for «Stories», «Highlights» eller andre flater hvor flat-grid mister magien."
+            />
+            <CardStackVekst
+              eyebrow="Demo · Stories denne måneden"
+              title="Tre historier vi vil at hele organisasjonen skal lese"
+              description="Klikk topp-kortet for å bla videre. Hver historie er knyttet til en av de fire utfallsaksene."
+              cards={STACK_DEMO}
+            />
           </section>
 
           {/* ── Foot — bruke-anvisning ─────────────────────────────── */}
