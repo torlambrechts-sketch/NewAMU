@@ -13,7 +13,7 @@ export type WorkplaceBreadcrumbItem = { label: string; to?: string }
 export function WorkplacePageHeading1({
   breadcrumb,
   title,
-  description,
+  description: _description,
   menu,
   headerActions,
   headerActionsLayout = 'default',

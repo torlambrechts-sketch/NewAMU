@@ -43,7 +43,6 @@ function t(override: Record<string, string> | undefined, key: string, fallback: 
 
 function PageHeading1Block({ textOverride }: RenderBlockProps) {
   const title = t(textOverride, 'title', 'Sidetittel')
-  const description = t(textOverride, 'description', 'Ingresstekst for siden vises her.')
   const breadcrumb = t(textOverride, 'breadcrumb', 'Hjem › Side')
 
   return (
