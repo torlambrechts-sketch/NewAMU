@@ -1,4 +1,5 @@
 import type { WorkflowAction, WorkflowCondition, WorkflowXorActionsEnvelope } from '../types/workflow'
+import { freshId } from './workflows/freshId'
 
 export const WORKFLOW_FLOW_VERSION = 1 as const
 
@@ -27,11 +28,11 @@ export type WorkflowFlowDocument = {
 }
 
 export function newFlowStepId() {
-  return `st_${crypto.randomUUID().slice(0, 8)}`
+  return freshId('st')
 }
 
 export function newBranchId() {
-  return `br_${crypto.randomUUID().slice(0, 8)}`
+  return freshId('br')
 }
 
 export function defaultWorkflowFlowDocument(): WorkflowFlowDocument {

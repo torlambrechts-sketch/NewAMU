@@ -1421,6 +1421,13 @@ export function AticsShell() {
         match: ({ pathname }) => pathname.startsWith('/workflow'),
         requirePermAny: ADMIN_NAV_PERMS,
       },
+      {
+        label: 'Statlige integrasjoner',
+        path: '/admin/integrasjoner-staten',
+        Icon: ShieldCheck,
+        match: ({ pathname }) => pathname.startsWith('/admin/integrasjoner-staten'),
+        requirePermAny: ADMIN_NAV_PERMS,
+      },
     ]
     const adminGroup: NavGroup = {
       id: 'admin',
