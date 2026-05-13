@@ -3,20 +3,7 @@
 // the unified settings shell can render it via React.lazy.
 
 import { useMemo, useState } from 'react'
-import {
-  Award,
-  Building2,
-  ClipboardList,
-  Edit3,
-  Globe,
-  Layers,
-  Lock,
-  Pin,
-  Plus,
-  Scale,
-  Shield,
-  Users,
-} from 'lucide-react'
+import { ClipboardList, Edit3, Layers, Pin, Plus } from 'lucide-react'
 import { ModuleSectionCard } from '../../components/module/ModuleSectionCard'
 import { Badge } from '../../components/ui/Badge'
 import { Button } from '../../components/ui/Button'
@@ -31,25 +18,8 @@ import {
   frameworkLabel,
 } from '../../../modules/meetings/meetingsLabels'
 import type { MeetingOrgTemplateRow } from '../../../modules/meetings/types'
+import { MeetingFrameworkIcon } from '../../../modules/meetings/MeetingFrameworkIcon'
 import { MeetingsTemplateEditorPanel } from './MeetingsTemplateEditorPanel'
-
-const FRAMEWORK_ICON: Record<string, React.ElementType> = {
-  INTERNAL: Building2,
-  AML: Shield,
-  'IK-f': ClipboardList,
-  Hovedavtalen: Users,
-  Likestillingsloven: Scale,
-  ISO_9001: Award,
-  ISO_14001: Globe,
-  ISO_27001: Lock,
-  ISO_45001: Layers,
-  GDPR: Lock,
-}
-
-function FrameworkIcon({ framework, className = 'h-4 w-4' }: { framework: string; className?: string }) {
-  const Icon = FRAMEWORK_ICON[framework] ?? Shield
-  return <Icon className={className} aria-hidden />
-}
 
 export default function MeetingsScopeMaler() {
   const meetings = useMeetings()
@@ -124,7 +94,7 @@ export default function MeetingsScopeMaler() {
                     className="flex min-w-0 flex-1 items-start gap-3 text-left"
                   >
                     <div className="mt-0.5 shrink-0 rounded-md border border-neutral-200 bg-white p-2">
-                      <FrameworkIcon framework={t.framework} className="h-4 w-4 text-[#1a3d32]" />
+                      <MeetingFrameworkIcon framework={t.framework} className="h-4 w-4 text-[#1a3d32]" />
                     </div>
                     <div className="min-w-0">
                       <div className="flex flex-wrap items-center gap-2">
@@ -195,7 +165,7 @@ export default function MeetingsScopeMaler() {
                   <tr key={t.id} className={MODULE_TABLE_TR_BODY}>
                     <td className="px-5 py-4 align-middle">
                       <div className="flex items-center gap-2">
-                        <FrameworkIcon
+                        <MeetingFrameworkIcon
                           framework={t.framework}
                           className="h-4 w-4 shrink-0 text-[#1a3d32]/60"
                         />

@@ -7,7 +7,7 @@ import { ModuleSectionCard } from '../../../src/components/module/ModuleSectionC
 import { Badge } from '../../../src/components/ui/Badge'
 import { useMeetings } from '../index'
 import { MEETING_FRAMEWORK_LABEL } from '../meetingsLabels'
-import { MeetingFrameworkIcon } from '../../../src/pages/meetings/MeetingsAdminPage'
+import { MeetingFrameworkIcon } from '../MeetingFrameworkIcon'
 
 export function MeetingsKravTab() {
   const meetings = useMeetings()
