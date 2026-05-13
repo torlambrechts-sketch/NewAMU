@@ -9,8 +9,14 @@
 // rounded-3xl, generøs padding og en svak amber-skygge.
 
 import { Link } from 'react-router-dom'
-import { ArrowUpRight, Heart, Leaf, Sprout, Users } from 'lucide-react'
+import { ArrowUpRight, Sprout } from 'lucide-react'
 import { VekstIllustration } from '../components/VekstIllustration'
+import {
+  MotifMedvirkning,
+  MotifMestring,
+  MotifTrivsel,
+  MotifTrygghet,
+} from '../components/AxisMotifs'
 import {
   WELLBEING_AXIS_LABELS,
   WELLBEING_AXIS_LAW,
@@ -20,11 +26,18 @@ import type { ArbeidsmiljostrategiData } from '../hooks/useArbeidsmiljostrategiD
 
 const SERIF = "'Libre Baskerville', Georgia, serif"
 
-const AXIS_COPY: Record<WellbeingAxisKey, { lead: string; verb: string; icon: typeof Heart }> = {
-  trygghet: { lead: 'Folk skal kunne gå hjem hele.', verb: 'vokser fra', icon: Leaf },
-  trivsel: { lead: 'Folk skal kjenne seg sett.', verb: 'næres av', icon: Heart },
-  medvirkning: { lead: 'Folk skal bli hørt.', verb: 'styrkes av', icon: Users },
-  mestring: { lead: 'Folk skal kunne det de gjør.', verb: 'modnes ved', icon: Sprout },
+const AXIS_COPY: Record<WellbeingAxisKey, { lead: string; verb: string }> = {
+  trygghet: { lead: 'Folk skal kunne gå hjem hele.', verb: 'vokser fra' },
+  trivsel: { lead: 'Folk skal kjenne seg sett.', verb: 'næres av' },
+  medvirkning: { lead: 'Folk skal bli hørt.', verb: 'styrkes av' },
+  mestring: { lead: 'Folk skal kunne det de gjør.', verb: 'modnes ved' },
+}
+
+const AXIS_MOTIF: Record<WellbeingAxisKey, React.ComponentType<{ className?: string }>> = {
+  trygghet: MotifTrygghet,
+  trivsel: MotifTrivsel,
+  medvirkning: MotifMedvirkning,
+  mestring: MotifMestring,
 }
 
 export function LayoutVekst({ data }: { data: ArbeidsmiljostrategiData }) {
@@ -103,24 +116,30 @@ export function LayoutVekst({ data }: { data: ArbeidsmiljostrategiData }) {
           <ul className="grid gap-4 sm:grid-cols-2">
             {data.axisOverview.map((row) => {
               const copy = AXIS_COPY[row.axisKey]
-              const Icon = copy.icon
+              const Motif = AXIS_MOTIF[row.axisKey]
               return (
                 <li
                   key={row.axisKey}
-                  className="rounded-3xl border border-[#1a3d32]/15 bg-white p-6 shadow-[0_10px_30px_-18px_rgba(26,61,50,0.25)]"
+                  className="relative overflow-hidden rounded-3xl border border-[#1a3d32]/15 bg-white p-6 shadow-[0_10px_30px_-18px_rgba(26,61,50,0.25)]"
                 >
-                  <div className="flex items-start justify-between gap-3">
-                    <div>
-                      <div className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-[0.18em] text-amber-700">
-                        <Icon className="h-3.5 w-3.5" aria-hidden /> {WELLBEING_AXIS_LABELS[row.axisKey]}
+                  {/* Bakgrunns-motif — stort, lyst, dekorativt */}
+                  <Motif className="pointer-events-none absolute -right-4 -top-4 h-32 w-32 opacity-[0.06]" />
+
+                  <div className="relative flex items-start justify-between gap-3">
+                    <div className="flex flex-1 items-start gap-3">
+                      <Motif className="mt-0.5 h-10 w-10 shrink-0" />
+                      <div>
+                        <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-amber-700">
+                          {WELLBEING_AXIS_LABELS[row.axisKey]}
+                        </div>
+                        <p
+                          className="mt-1 text-xl font-semibold leading-snug text-[#1a3d32]"
+                          style={{ fontFamily: SERIF }}
+                        >
+                          {copy.lead}
+                        </p>
+                        <p className="mt-1 text-[11px] text-[#516760]">{WELLBEING_AXIS_LAW[row.axisKey]}</p>
                       </div>
-                      <p
-                        className="mt-2 text-xl font-semibold text-[#1a3d32]"
-                        style={{ fontFamily: SERIF }}
-                      >
-                        {copy.lead}
-                      </p>
-                      <p className="mt-1 text-[11px] text-[#516760]">{WELLBEING_AXIS_LAW[row.axisKey]}</p>
                     </div>
                     <div
                       className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full border-2 border-amber-300 bg-amber-50 text-xl font-bold text-amber-900"
@@ -129,7 +148,7 @@ export function LayoutVekst({ data }: { data: ArbeidsmiljostrategiData }) {
                       {row.score}
                     </div>
                   </div>
-                  <div className="mt-4 space-y-2 border-t border-amber-100 pt-3">
+                  <div className="relative mt-4 space-y-2 border-t border-amber-100 pt-3">
                     <p className="text-sm text-[#2c3a35]">
                       <span className="font-semibold text-[#1a3d32]">{copy.verb}</span> {row.signal}
                     </p>

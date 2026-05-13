@@ -35,6 +35,20 @@ const LEGAL_REFERENCES: Array<{ label: string; body: string }> = [
 export function LayoutStyringssatser({ data }: { data: ArbeidsmiljostrategiData }) {
   const reportDate = new Date().toLocaleDateString('nb-NO', { dateStyle: 'long' })
 
+  // Forrige måneds snapshot — brukt til å gi indeks-tabellen en
+  // sammenligningskolonne. snapshots[0] er nyeste; vi tar første som
+  // ikke er fra inneværende periode.
+  const previousSnapshot =
+    data.snapshots.find((s) => s.period_key !== data.currentPeriodKey) ?? null
+  const previousLabel = previousSnapshot?.period_key ?? '—'
+  const formatDelta = (current: string, previous: number | null) => {
+    const cur = Number(current)
+    if (!Number.isFinite(cur) || previous == null) return '—'
+    const d = cur - previous
+    if (d === 0) return '±0'
+    return d > 0 ? `+${d}` : `${d}`
+  }
+
   return (
     <WorkplaceDashboardShell
       breadcrumb={[
@@ -174,20 +188,38 @@ export function LayoutStyringssatser({ data }: { data: ArbeidsmiljostrategiData 
                     <thead>
                       <tr className="border-b border-neutral-300 text-left text-[10px] font-bold uppercase tracking-wide text-neutral-500">
                         <th className="py-1 pr-3">Akse</th>
-                        <th className="py-1 pr-3">Skår</th>
+                        <th className="py-1 pr-3 text-right">Inneværende</th>
+                        <th className="py-1 pr-3 text-right">{previousLabel}</th>
+                        <th className="py-1 pr-3 text-right">Δ</th>
                         <th className="py-1">Hjemmel</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {(['trygghet', 'trivsel', 'medvirkning', 'mestring'] as WellbeingAxisKey[]).map((k) => (
-                        <tr key={k} className="border-b border-neutral-100">
-                          <td className="py-1.5 pr-3 font-semibold text-neutral-900">
-                            {WELLBEING_AXIS_LABELS[k]}
-                          </td>
-                          <td className="py-1.5 pr-3 font-mono text-neutral-900">{data.axisScores[k]}</td>
-                          <td className="py-1.5 text-xs text-neutral-600">{WELLBEING_AXIS_LAW[k]}</td>
-                        </tr>
-                      ))}
+                      {(['trygghet', 'trivsel', 'medvirkning', 'mestring'] as WellbeingAxisKey[]).map((k) => {
+                        const previous = previousSnapshot
+                          ? (previousSnapshot[`${k}_score` as keyof typeof previousSnapshot] as number | null) ?? null
+                          : null
+                        const delta = formatDelta(data.axisScores[k], previous)
+                        const deltaTone =
+                          delta === '—' || delta === '±0'
+                            ? 'text-neutral-500'
+                            : delta.startsWith('+')
+                            ? 'text-emerald-700'
+                            : 'text-rose-700'
+                        return (
+                          <tr key={k} className="border-b border-neutral-100">
+                            <td className="py-1.5 pr-3 font-semibold text-neutral-900">
+                              {WELLBEING_AXIS_LABELS[k]}
+                            </td>
+                            <td className="py-1.5 pr-3 text-right font-mono text-neutral-900">{data.axisScores[k]}</td>
+                            <td className="py-1.5 pr-3 text-right font-mono text-neutral-500">
+                              {previous ?? '—'}
+                            </td>
+                            <td className={`py-1.5 pr-3 text-right font-mono font-semibold ${deltaTone}`}>{delta}</td>
+                            <td className="py-1.5 text-xs text-neutral-600">{WELLBEING_AXIS_LAW[k]}</td>
+                          </tr>
+                        )
+                      })}
                     </tbody>
                   </table>
                 </div>
@@ -319,6 +351,22 @@ export function LayoutStyringssatser({ data }: { data: ArbeidsmiljostrategiData 
 
             <section className="border-t border-neutral-200 pt-4">
               <h3 className="text-[10px] font-bold uppercase tracking-[0.22em] text-neutral-500">
+                Vedtak
+              </h3>
+              <p className="mt-2 text-[11px] leading-relaxed text-neutral-600">
+                Strategien er gjennomgått av styret og AMU på dato som angitt under,
+                og bekreftes som et mål-styrt vedtak etter AML § 3-1 (b). Avvik fra
+                strategien skal protokollføres i AMU-møte senest påfølgende kvartal.
+              </p>
+              <div className="mt-4 space-y-3">
+                <VedtakRow label="Vedtatt av styret" />
+                <VedtakRow label="Bekreftet av AMU" />
+                <VedtakRow label="Neste gjennomgang" />
+              </div>
+            </section>
+
+            <section className="border-t border-neutral-200 pt-4">
+              <h3 className="text-[10px] font-bold uppercase tracking-[0.22em] text-neutral-500">
                 Underskrift
               </h3>
               <div className="mt-3 space-y-4 text-xs">
@@ -347,6 +395,15 @@ function SignatureLine({ label }: { label: string }) {
     <div>
       <div className="h-7 border-b border-neutral-400" />
       <div className="mt-1 text-[10px] uppercase tracking-wide text-neutral-500">{label}</div>
+    </div>
+  )
+}
+
+function VedtakRow({ label }: { label: string }) {
+  return (
+    <div className="grid grid-cols-[1fr_auto] items-end gap-2 text-[11px]">
+      <span className="text-neutral-600">{label}</span>
+      <span className="inline-block h-4 w-24 border-b border-neutral-400" />
     </div>
   )
 }

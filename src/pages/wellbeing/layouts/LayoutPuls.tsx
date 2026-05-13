@@ -70,9 +70,39 @@ export function LayoutPuls({ data }: { data: ArbeidsmiljostrategiData }) {
       })
     : '—'
 
+  // Beregn delta vs forrige snapshot. Bruker indeks 1 i den nyeste-først-
+  // sorterte snapshot-listen så vi sammenligner inneværende måned med
+  // den siste lagrede måneden — uavhengig av om dagens snapshot
+  // eksisterer eller ikke.
+  const previousSnapshot = data.snapshots[1] ?? data.snapshots[0] ?? null
+  const previousIsCurrent = previousSnapshot && previousSnapshot.period_key === data.currentPeriodKey
+  const compare = previousSnapshot && !previousIsCurrent ? previousSnapshot : data.snapshots[1] ?? null
+  const sinceLast: Array<{ axisKey: WellbeingAxisKey; current: number | null; previous: number | null; delta: number | null }> = (
+    ['trygghet', 'trivsel', 'medvirkning', 'mestring'] as WellbeingAxisKey[]
+  ).map((k) => {
+    const cur = Number(data.axisScores[k])
+    const current = Number.isFinite(cur) ? cur : null
+    const previous = compare ? (compare[`${k}_score` as keyof typeof compare] as number | null) ?? null : null
+    const delta = current != null && previous != null ? current - previous : null
+    return { axisKey: k, current, previous, delta }
+  })
+  const hasComparison = compare != null && sinceLast.some((r) => r.delta != null)
+  const comparePeriod = compare?.period_key ?? null
+  const indexCurrent = Number(data.indexLabel)
+  const indexPrev = compare?.index_value ?? null
+  const indexDelta = Number.isFinite(indexCurrent) && indexPrev != null ? indexCurrent - indexPrev : null
+
   return (
     <div className="-mx-4 -my-6 min-h-screen bg-slate-50 px-4 py-6 sm:px-6 md:-mx-8 md:px-8 font-sans tabular-nums">
       <div className="mx-auto max-w-7xl space-y-4">
+        {/* ── Siden sist — diff-banner mot forrige snapshot ─────────── */}
+        {hasComparison && (
+          <SinceLastStripe
+            comparePeriod={comparePeriod ?? '—'}
+            indexDelta={indexDelta}
+            axes={sinceLast}
+          />
+        )}
         {/* ── Top strip: live state ─────────────────────────────────── */}
         <header className="grid grid-cols-1 gap-3 lg:grid-cols-[2fr_1fr_1fr_1fr]">
           {/* Big index card */}
@@ -230,6 +260,62 @@ export function LayoutPuls({ data }: { data: ArbeidsmiljostrategiData }) {
           </table>
         </section>
       </div>
+    </div>
+  )
+}
+
+function SinceLastStripe({
+  comparePeriod,
+  indexDelta,
+  axes,
+}: {
+  comparePeriod: string
+  indexDelta: number | null
+  axes: Array<{ axisKey: WellbeingAxisKey; current: number | null; previous: number | null; delta: number | null }>
+}) {
+  return (
+    <div className="rounded-lg border border-slate-200 bg-white px-3 py-2">
+      <div className="flex flex-wrap items-center gap-3">
+        <div className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-[0.18em] text-slate-500">
+          <ArrowRight className="h-3 w-3" aria-hidden /> Siden {comparePeriod}
+        </div>
+        <DeltaPill label="Indeks" delta={indexDelta} highlight />
+        <div className="h-4 w-px bg-slate-200" aria-hidden />
+        {axes.map((row) => (
+          <DeltaPill key={row.axisKey} label={WELLBEING_AXIS_LABELS[row.axisKey]} delta={row.delta} />
+        ))}
+      </div>
+    </div>
+  )
+}
+
+function DeltaPill({
+  label,
+  delta,
+  highlight = false,
+}: {
+  label: string
+  delta: number | null
+  highlight?: boolean
+}) {
+  const value = delta == null ? '—' : delta > 0 ? `+${delta}` : delta < 0 ? `${delta}` : '±0'
+  const tone =
+    delta == null
+      ? 'text-slate-400'
+      : delta > 0
+      ? 'text-emerald-700'
+      : delta < 0
+      ? 'text-rose-700'
+      : 'text-slate-500'
+  const arrow = delta == null ? null : delta > 0 ? '↑' : delta < 0 ? '↓' : '·'
+  return (
+    <div
+      className={`inline-flex items-baseline gap-1.5 ${highlight ? 'rounded px-2 py-0.5 ring-1 ring-inset ring-slate-200 bg-slate-50' : ''}`}
+    >
+      <span className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">{label}</span>
+      <span className={`text-xs font-bold tabular-nums ${tone}`}>
+        {arrow} {value}
+      </span>
     </div>
   )
 }
