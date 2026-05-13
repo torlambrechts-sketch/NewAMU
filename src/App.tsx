@@ -413,17 +413,16 @@ const router = createBrowserRouter(
                       {/* Admin: module overview + RBAC */}
                       <Route path="admin/modules" element={<ModuleAdminPage />} />
                       <Route path="admin/templates" element={<AdminTemplatesPage />} />
-                      {/* Unified settings hub — gated by VITE_SETTINGS_HUB during rollout. */}
-                      {import.meta.env.VITE_SETTINGS_HUB === 'true' ? (
-                        <>
-                          <Route path="admin/settings" element={<AdminSettingsPage />} />
-                          <Route path="admin/settings/:scope" element={<AdminSettingsPage />} />
-                          <Route
-                            path="admin/settings/:scope/:section"
-                            element={<AdminSettingsPage />}
-                          />
-                        </>
-                      ) : null}
+                      {/* Unified settings hub. Legacy `/<module>/admin` URLs
+                          continue to render their existing pages for one
+                          release so bookmarks survive; sidebar entries now
+                          point at `/admin/settings/<scope>`. */}
+                      <Route path="admin/settings" element={<AdminSettingsPage />} />
+                      <Route path="admin/settings/:scope" element={<AdminSettingsPage />} />
+                      <Route
+                        path="admin/settings/:scope/:section"
+                        element={<AdminSettingsPage />}
+                      />
                       {/* Phase 2: dynamic module route — loaded from `modules` table via registry */}
                       <Route path="modules/:module_slug" element={<ModuleSlugPage />} />
                       <Route path="admin" element={<Navigate to="/organisation/admin" replace />} />

@@ -802,9 +802,11 @@ export function AticsShell() {
       },
       {
         label: 'Innstillinger',
-        path: '/compliance/checklists/admin',
+        path: '/admin/settings/compliance',
         Icon: Settings,
-        match: ({ pathname }) => pathname.startsWith('/compliance/checklists/admin'),
+        match: ({ pathname }) =>
+          pathname.startsWith('/admin/settings/compliance') ||
+          pathname.startsWith('/compliance/checklists/admin'),
         requirePermAny: COMPLIANCE_NAV_PERMS,
       },
     ]
@@ -924,9 +926,10 @@ export function AticsShell() {
       },
       {
         label: 'Innstillinger',
-        path: '/survey/admin',
+        path: '/admin/settings/survey',
         Icon: Settings,
-        match: ({ pathname }) => pathname.startsWith('/survey/admin'),
+        match: ({ pathname }) =>
+          pathname.startsWith('/admin/settings/survey') || pathname.startsWith('/survey/admin'),
         requirePermAny: SURVEY_NAV_PERMS,
       },
     ]
@@ -1033,9 +1036,11 @@ export function AticsShell() {
       },
       {
         label: 'Innstillinger',
-        path: '/learning/innstillinger',
+        path: '/admin/settings/learning',
         Icon: Settings,
-        match: ({ pathname }) => pathname.startsWith('/learning/innstillinger'),
+        match: ({ pathname }) =>
+          pathname.startsWith('/admin/settings/learning') ||
+          pathname.startsWith('/learning/innstillinger'),
         requirePermAny: LEARNING_NAV_PERMS,
       },
     ]
@@ -1131,9 +1136,12 @@ export function AticsShell() {
       },
       {
         label: 'Innstillinger',
-        path: '/documents/admin',
+        path: '/admin/settings/documents',
         Icon: Settings,
-        match: ({ pathname }) => pathname.startsWith('/documents/admin'),
+        match: ({ pathname }) =>
+          pathname.startsWith('/admin/settings/documents') ||
+          pathname.startsWith('/documents/admin') ||
+          pathname.startsWith('/documents/templates'),
         requirePerm: 'documents.manage',
       },
     ]
@@ -1214,9 +1222,11 @@ export function AticsShell() {
       },
       {
         label: 'Innstillinger',
-        path: '/registers/admin',
+        path: '/admin/settings/registers',
         Icon: Settings,
-        match: ({ pathname }) => pathname.startsWith('/registers/admin'),
+        match: ({ pathname }) =>
+          pathname.startsWith('/admin/settings/registers') ||
+          pathname.startsWith('/registers/admin'),
         requirePermAny: REGISTERS_NAV_PERMS,
       },
     ]
@@ -1435,9 +1445,11 @@ export function AticsShell() {
       },
       {
         label: 'Innstillinger',
-        path: '/tasks/management/admin',
+        path: '/admin/settings/tasks',
         Icon: Settings,
-        match: ({ pathname }) => pathname.startsWith('/tasks/management/admin'),
+        match: ({ pathname }) =>
+          pathname.startsWith('/admin/settings/tasks') ||
+          pathname.startsWith('/tasks/management/admin'),
         requirePermAny: TASKS_NAV_PERMS,
       },
     ]
@@ -1519,9 +1531,11 @@ export function AticsShell() {
       },
       {
         label: 'Innstillinger',
-        path: '/meetings/admin',
+        path: '/admin/settings/meetings',
         Icon: Settings,
-        match: ({ pathname }) => pathname.startsWith('/meetings/admin'),
+        match: ({ pathname }) =>
+          pathname.startsWith('/admin/settings/meetings') ||
+          pathname.startsWith('/meetings/admin'),
         requirePerm: 'meetings.manage',
       },
     ]
