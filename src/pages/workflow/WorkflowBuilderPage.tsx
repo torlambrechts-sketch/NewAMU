@@ -33,6 +33,7 @@ import { Tabs } from '../../components/ui/Tabs'
 import { Button } from '../../components/ui/Button'
 import '../../lib/workflows/registerScopes'
 import { RulesPanel } from '../../components/workflow/rules/RulesPanel'
+import { NewRulePanel } from '../../components/workflow/rules/NewRulePanel'
 import { SystemRulesPanel } from '../../components/workflow/system/SystemRulesPanel'
 import { LibraryPanel } from '../../components/workflow/library/LibraryPanel'
 import { RunHistoryPanel } from '../../components/workflow/runs/RunHistoryPanel'
@@ -49,6 +50,7 @@ type Tab = 'rules' | 'system' | 'library' | 'canvas' | 'approvals' | 'runs' | 'd
 export function WorkflowBuilderPage() {
   const [tab, setTab] = useState<Tab>('rules')
   const [focusedRuleId, setFocusedRuleId] = useState<string | null>(null)
+  const [newRuleOpen, setNewRuleOpen] = useState(false)
   const navigate = useNavigate()
   const { rules, runs } = useWorkflows()
   const { approvals } = useWorkflowApprovals()
@@ -101,14 +103,23 @@ export function WorkflowBuilderPage() {
       description="Forhåndsdefinert mal-bibliotek, visuell flyt-bygger, godkjenningsinnboks, kjøringshistorikk, dry-run og bevispakke for tilsyn — drevet av den nye arbeidsflyt-substraten."
       tabs={<Tabs items={tabItems} activeId={tab} onChange={(id) => setTab(id as Tab)} overflow="scroll" />}
       headerActions={
-        <Button
-          type="button"
-          variant="secondary"
-          icon={<Plus className="h-4 w-4" />}
-          onClick={() => navigate('/workflow/klassisk')}
-        >
-          Klassisk visning
-        </Button>
+        <div className="flex flex-wrap items-center gap-2">
+          <Button
+            type="button"
+            variant="primary"
+            icon={<Plus className="h-4 w-4" />}
+            onClick={() => setNewRuleOpen(true)}
+          >
+            Ny arbeidsflyt
+          </Button>
+          <Button
+            type="button"
+            variant="secondary"
+            onClick={() => navigate('/workflow/klassisk')}
+          >
+            Klassisk visning
+          </Button>
+        </div>
       }
     >
       <div className="space-y-5">
@@ -170,6 +181,17 @@ export function WorkflowBuilderPage() {
         {tab === 'evidence' && <EvidenceExportPanel />}
         {tab === 'revisions' && <RevisionHistoryPanel initialRuleId={focusedRuleId} />}
       </div>
+      <NewRulePanel
+        open={newRuleOpen}
+        onClose={() => setNewRuleOpen(false)}
+        onCreated={(slugOrId) => {
+          // upsertRule returns ok without id; we re-fetch and find by slug.
+          // For deep-link, store the slug; CanvasPanel resolves to the
+          // freshly-inserted rule (slug match in rules array).
+          setFocusedRuleId(slugOrId)
+          setTab('canvas')
+        }}
+      />
     </ModulePageShell>
   )
 }
