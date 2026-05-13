@@ -42,8 +42,16 @@ export const PERMISSION_KEYS = [
   'module.view.workplace_reporting',
   /** Workflow automation — view rules & run log */
   'module.view.workflow',
-  /** Configure workflow rules and compliance templates */
+  /** Legacy umbrella: configure workflow rules and compliance templates */
   'workflows.manage',
+  /** Author + edit workflow rule definitions (no activation) */
+  'workflows.compose',
+  /** Toggle is_active on internal workflow rules */
+  'workflows.activate',
+  /** Toggle is_active on rules with government-reporting actions (Arbeidstilsynet/Datatilsynet/NAV/LDO/Altinn) */
+  'workflows.activate_external',
+  /** See body of restricted/confidential workflow runs (whistleblower, sick leave, …) */
+  'workflows.view_confidential',
   /** HR compliance hub (AML § 15-1, kap. 8, O-ROS overview) */
   'module.view.hr_compliance',
   'hr.discussion.manage',
@@ -144,7 +152,11 @@ export const PERMISSION_LABELS: Record<PermissionKey, string> = {
   'reports.manage': 'Rapporter — administrasjon',
   'module.view.workplace_reporting': 'Arbeidsplassrapportering',
   'module.view.workflow': 'Arbeidsflyt',
-  'workflows.manage': 'Arbeidsflyt — konfigurasjon',
+  'workflows.manage': 'Arbeidsflyt — konfigurasjon (eldre nøkkel)',
+  'workflows.compose': 'Arbeidsflyt — komponere regler',
+  'workflows.activate': 'Arbeidsflyt — aktivere interne regler',
+  'workflows.activate_external': 'Arbeidsflyt — aktivere statlige meldinger (Altinn/Arbeidstilsynet/Datatilsynet/NAV/LDO)',
+  'workflows.view_confidential': 'Arbeidsflyt — se konfidensielle kjøringer (varsling, sykefravær)',
   'module.view.hr_compliance': 'HR & rettssikkerhet',
   'hr.discussion.manage': 'HR — drøftelsessamtaler (§ 15-1)',
   'hr.consultation.manage': 'HR — informasjon/drøfting (kap. 8)',
