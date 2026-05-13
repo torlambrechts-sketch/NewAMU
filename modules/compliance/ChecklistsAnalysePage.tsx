@@ -295,6 +295,7 @@ export function ChecklistsAnalysePage() {
               scopeId={CHECKLIST_DASHBOARD_SCOPE_ID}
               scopeLabel="Sjekklister"
               datasets={datasets}
+              ensureSavedRow={dashboard.ensureSavedRow}
             />
           </div>
         }

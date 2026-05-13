@@ -274,6 +274,7 @@ export function HmsOverviewPage() {
               scopeId={HMS_OVERVIEW_SCOPE_ID}
               scopeLabel="HMS-oversikt"
               datasets={datasets}
+              ensureSavedRow={dashboard.ensureSavedRow}
             />
           </div>
         }

@@ -169,6 +169,7 @@ export function RegistersAnalysePage() {
               scopeId={REGISTERS_DASHBOARD_SCOPE_ID}
               scopeLabel="Register"
               datasets={datasets}
+              ensureSavedRow={dashboard.ensureSavedRow}
             />
           </div>
         }

@@ -243,6 +243,7 @@ export function MeetingsAnalysePage() {
               scopeId={MEETINGS_DASHBOARD_SCOPE_ID}
               scopeLabel="Møter"
               datasets={datasets}
+              ensureSavedRow={dashboard.ensureSavedRow}
             />
           </div>
         }

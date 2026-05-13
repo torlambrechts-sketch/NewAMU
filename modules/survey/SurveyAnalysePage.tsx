@@ -277,6 +277,7 @@ export function SurveyAnalysePage() {
               scopeId={SURVEY_DASHBOARD_SCOPE_ID}
               scopeLabel="Undersøkelser"
               datasets={datasets}
+              ensureSavedRow={dashboard.ensureSavedRow}
             />
           </div>
         }

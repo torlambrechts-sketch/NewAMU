@@ -260,6 +260,7 @@ export function LearningAnalysePage() {
               scopeId={LEARNING_DASHBOARD_SCOPE_ID}
               scopeLabel="Læring"
               datasets={datasets}
+              ensureSavedRow={dashboard.ensureSavedRow}
             />
           </div>
         }
