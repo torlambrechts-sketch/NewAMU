@@ -33,6 +33,10 @@ export function PermissionGate() {
     const allowedWorkflow =
       can('module.view.workflow') ||
       can('workflows.manage') ||
+      can('workflows.compose') ||
+      can('workflows.activate') ||
+      can('workflows.activate_external') ||
+      can('workflows.view_confidential') ||
       profile?.is_org_admin === true
     if (!allowedWorkflow) {
       return <Navigate to="/home" replace state={{ accessDenied: 'module.view.workflow' }} />
