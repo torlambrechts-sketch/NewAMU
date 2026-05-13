@@ -7,6 +7,7 @@ import {
   CheckCircle2,
   ChevronLeft,
   ChevronRight,
+  Clock,
   Filter,
   Search,
   XCircle,
@@ -23,18 +24,35 @@ const CREAM_DEEP = '#EFE8DC'
 const SERIF = "'Libre Baskerville', Georgia, serif"
 
 type ObligationFilter = 'all' | 'mandatory' | 'recommended' | 'conditional'
-type StatusFilter = 'all' | 'covered' | 'only_avvik' | 'uncovered'
+type StatusFilter = 'all' | 'covered' | 'partial' | 'only_avvik' | 'uncovered'
 
-function StatusPill({ status }: { status: RequirementWithCoverage['status'] }) {
-  if (status === 'covered') {
+function StatusPill({ req }: { req: RequirementWithCoverage }) {
+  if (req.status === 'covered') {
     return (
-      <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-100 px-2.5 py-1 text-[11px] font-semibold text-emerald-900">
+      <span
+        className="inline-flex items-center gap-1.5 rounded-full bg-emerald-100 px-2.5 py-1 text-[11px] font-semibold text-emerald-900"
+        title={`${req.proof.freshInstances} fersk publisert instans innen 12 mnd`}
+      >
         <CheckCircle2 className="size-3.5 shrink-0 text-emerald-700" aria-hidden />
         Dekket
       </span>
     )
   }
-  if (status === 'only_avvik') {
+  if (req.status === 'partial') {
+    const bits: string[] = []
+    if (req.proof.templatesOnly > 0) bits.push(`${req.proof.templatesOnly} mal`)
+    if (req.proof.staleInstances > 0) bits.push(`${req.proof.staleInstances} foreldet`)
+    return (
+      <span
+        className="inline-flex items-center gap-1.5 rounded-full bg-amber-50 px-2.5 py-1 text-[11px] font-semibold text-amber-900 ring-1 ring-inset ring-amber-200"
+        title={`Mangler reell proof — ${bits.join(', ') || 'kun mal tilgjengelig'}`}
+      >
+        <Clock className="size-3.5 shrink-0 text-amber-600" aria-hidden />
+        Mangler proof
+      </span>
+    )
+  }
+  if (req.status === 'only_avvik') {
     return (
       <span
         className="inline-flex items-center gap-1.5 rounded-full bg-amber-100 px-2.5 py-1 text-[11px] font-semibold text-amber-950"
@@ -236,6 +254,7 @@ export function RegelverkCoverageTable({
               >
                 <option value="all">Alle</option>
                 <option value="covered">Dekket</option>
+                <option value="partial">Mangler proof</option>
                 <option value="only_avvik">Kun avvik</option>
                 <option value="uncovered">Udekket</option>
               </select>
@@ -298,7 +317,7 @@ export function RegelverkCoverageTable({
                       <ObligationPill o={r.obligation} />
                     </td>
                     <td className="px-5 py-4">
-                      <StatusPill status={r.status} />
+                      <StatusPill req={r} />
                     </td>
                   </tr>
                 ))
