@@ -57,6 +57,15 @@ import { StrategyVisionEditor } from './components/StrategyVisionEditor'
 import { FocusAreasGrid } from './components/FocusAreasGrid'
 import { useWellbeingStrategy } from './hooks/useWellbeingStrategy'
 import { useWellbeingSnapshots } from './hooks/useWellbeingSnapshots'
+import { LayoutVekst } from './layouts/LayoutVekst'
+import { LayoutPuls } from './layouts/LayoutPuls'
+import { LayoutStyringssatser } from './layouts/LayoutStyringssatser'
+import {
+  WELLBEING_TOOLS,
+  type ArbeidsmiljostrategiData,
+  type AxisOverviewRow,
+  type ActionQueueRow,
+} from './hooks/useArbeidsmiljostrategiData'
 import {
   WORKER_WELLBEING_SCOPE_ID,
 } from './dashboards/workerWellbeingDashboardScope'
@@ -73,6 +82,17 @@ import type { ReportModule } from '../../types/reportBuilder'
 import type { DashboardDimension } from '../../lib/dashboards/dashboardFilters'
 
 type Tab = 'strategi' | 'analyse' | 'verktoy'
+
+type ViewMode = 'klassisk' | 'vekst' | 'puls' | 'styringssatser'
+
+const VIEW_STORAGE_KEY = 'arbeidsmiljostrategi.view'
+
+const VIEW_OPTIONS: Array<{ id: ViewMode; label: string; sub: string }> = [
+  { id: 'klassisk', label: 'Klassisk', sub: 'Redigér + analyse' },
+  { id: 'vekst', label: 'Vekst', sub: 'Varm fortelling' },
+  { id: 'puls', label: 'Puls', sub: 'Live performance' },
+  { id: 'styringssatser', label: 'Styringssatser', sub: 'Styrerom' },
+]
 
 const AXIS_ORDER: WellbeingAxisKey[] = ['trygghet', 'trivsel', 'medvirkning', 'mestring']
 
@@ -114,8 +134,27 @@ const TOOLS: Array<{
 
 export function ArbeidsmiljostrategiPage() {
   const orgSetup = useOrgSetupContext()
-  const { supabase } = orgSetup
+  const { supabase, organization } = orgSetup
   const [tab, setTab] = useState<Tab>('strategi')
+  const [view, setView] = useState<ViewMode>(() => {
+    try {
+      const stored = typeof window !== 'undefined' ? window.localStorage.getItem(VIEW_STORAGE_KEY) : null
+      if (stored === 'vekst' || stored === 'puls' || stored === 'styringssatser' || stored === 'klassisk') {
+        return stored
+      }
+    } catch {
+      // ignore — localStorage can throw in private modes
+    }
+    return 'klassisk'
+  })
+  const handleViewChange = (next: ViewMode) => {
+    setView(next)
+    try {
+      window.localStorage.setItem(VIEW_STORAGE_KEY, next)
+    } catch {
+      // ignore
+    }
+  }
 
   // ── Source data (samme moduler som HMS-oversikt) ─────────────────────────
   const cl = useChecklistModule({ supabase })
@@ -284,7 +323,10 @@ export function ArbeidsmiljostrategiPage() {
   )
 
   const accent = getDashboardScope(WORKER_WELLBEING_SCOPE_ID)?.accent ?? '#d97706'
-  const indexSummary = (datasets['wellbeing_index_summary'] as Record<string, unknown> | undefined) ?? {}
+  const indexSummary = useMemo(
+    () => (datasets['wellbeing_index_summary'] as Record<string, unknown> | undefined) ?? {},
+    [datasets],
+  )
   const indexLabel = typeof indexSummary.indexLabel === 'string' ? indexSummary.indexLabel : '—'
   const indexDelta = typeof indexSummary.indexDelta === 'string' ? indexSummary.indexDelta : ''
 
@@ -345,8 +387,108 @@ export function ArbeidsmiljostrategiPage() {
     await snapshots.captureNow(rawScores, wellbeingStrategy.weights, signals)
   }
 
+  // Adapter — gjør om sidens lokale hook-resultater til den delte
+  // `ArbeidsmiljostrategiData`-formen som alternative layouter (Vekst,
+  // Puls, Styringssatser) bruker. Vi unngår å kalle
+  // `useArbeidsmiljostrategiData` separat for ikke å laste data to ganger.
+  const alternativeData: ArbeidsmiljostrategiData = useMemo(() => {
+    const axisKeys: ('trygghet' | 'trivsel' | 'medvirkning' | 'mestring')[] = [
+      'trygghet',
+      'trivsel',
+      'medvirkning',
+      'mestring',
+    ]
+    const rawOverview = (datasets['wellbeing_axis_overview'] ?? []) as Array<{
+      axis: string
+      score: string
+      signal: string
+      nextMove: string
+    }>
+    const axisOverview: AxisOverviewRow[] = rawOverview.map((row, i) => ({
+      ...row,
+      axisKey: axisKeys[i] ?? 'trygghet',
+    }))
+    const actionQueue = (datasets['wellbeing_action_queue'] as ActionQueueRow[] | undefined) ?? []
+    const trendPoints =
+      (datasets['wellbeing_index_over_time'] as Array<{ x: string; y: number; periodKey?: string; hasData?: boolean }> | undefined) ?? []
+    return {
+      organizationName: organization?.name?.trim() || 'Organisasjon',
+      visionMd: wellbeingStrategy.strategy?.vision_md ?? null,
+      missionMd: wellbeingStrategy.strategy?.mission_md ?? null,
+      focusAreas: wellbeingStrategy.focusAreas,
+      canManageStrategy: wellbeingStrategy.canManage,
+      saveStrategy: wellbeingStrategy.saveStrategy,
+      createFocusArea: wellbeingStrategy.createFocusArea,
+      updateFocusArea: wellbeingStrategy.updateFocusArea,
+      archiveFocusArea: wellbeingStrategy.archiveFocusArea,
+      weights: wellbeingStrategy.weights,
+      rawScores,
+      memberDatasets,
+      indexLabel,
+      indexDelta,
+      axisScores: {
+        trygghet: typeof indexSummary.trygghet === 'string' ? indexSummary.trygghet : '—',
+        trivsel: typeof indexSummary.trivsel === 'string' ? indexSummary.trivsel : '—',
+        medvirkning: typeof indexSummary.medvirkning === 'string' ? indexSummary.medvirkning : '—',
+        mestring: typeof indexSummary.mestring === 'string' ? indexSummary.mestring : '—',
+      },
+      axisOverview,
+      actionQueue,
+      tools: WELLBEING_TOOLS,
+      trendPoints,
+      snapshots: snapshots.snapshots,
+      latestSnapshot: snapshots.latest,
+      captureNow: snapshots.captureNow,
+      maybeAutoCapture: snapshots.maybeAutoCapture,
+      hasCurrentMonth: snapshots.hasCurrentMonth,
+      currentPeriodKey: snapshots.currentPeriodKey,
+      datasets,
+      loading:
+        cl.loading ||
+        survey.loading ||
+        learning.learningLoading ||
+        docs.loading ||
+        wellbeingStrategy.loading ||
+        snapshots.loading,
+      error:
+        cl.error ?? survey.error ?? learning.learningError ?? docs.error ?? wellbeingStrategy.error ?? snapshots.error,
+    }
+  }, [
+    organization?.name,
+    wellbeingStrategy,
+    rawScores,
+    memberDatasets,
+    indexLabel,
+    indexDelta,
+    indexSummary,
+    snapshots,
+    datasets,
+    cl.loading,
+    cl.error,
+    survey.loading,
+    survey.error,
+    learning.learningLoading,
+    learning.learningError,
+    docs.loading,
+    docs.error,
+  ])
+
+  // Branch — non-klassisk views render their own full-bleed layout
+  // (header med visnings-picker rendres uansett over).
+  if (view !== 'klassisk') {
+    return (
+      <div className="space-y-4 p-4 sm:p-6">
+        <ViewPickerHeader view={view} onChange={handleViewChange} />
+        {view === 'vekst' && <LayoutVekst data={alternativeData} />}
+        {view === 'puls' && <LayoutPuls data={alternativeData} />}
+        {view === 'styringssatser' && <LayoutStyringssatser data={alternativeData} />}
+      </div>
+    )
+  }
+
   return (
     <div className="space-y-6 p-4 sm:p-6">
+      <ViewPickerHeader view={view} onChange={handleViewChange} />
       {/* Hero — fortellingen først */}
       <header className="space-y-4">
         <div className="flex flex-wrap items-center justify-between gap-3">
@@ -623,6 +765,45 @@ export function ArbeidsmiljostrategiPage() {
           </ul>
         </section>
       )}
+    </div>
+  )
+}
+
+function ViewPickerHeader({
+  view,
+  onChange,
+}: {
+  view: ViewMode
+  onChange: (next: ViewMode) => void
+}) {
+  return (
+    <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-neutral-200 bg-white/60 px-3 py-2">
+      <div className="flex items-center gap-2 text-xs">
+        <span className="font-semibold uppercase tracking-wide text-neutral-500">Visning</span>
+      </div>
+      <div className="inline-flex flex-wrap gap-1 rounded-md bg-neutral-100 p-1">
+        {VIEW_OPTIONS.map((opt) => {
+          const active = opt.id === view
+          return (
+            <button
+              key={opt.id}
+              type="button"
+              onClick={() => onChange(opt.id)}
+              className={`group relative inline-flex items-center gap-1.5 rounded px-3 py-1.5 text-xs font-semibold transition-colors ${
+                active
+                  ? 'bg-white text-amber-900 shadow-sm'
+                  : 'text-neutral-600 hover:text-neutral-900'
+              }`}
+              aria-pressed={active}
+            >
+              <span>{opt.label}</span>
+              <span className={`text-[10px] font-normal ${active ? 'text-amber-700' : 'text-neutral-400'}`}>
+                {opt.sub}
+              </span>
+            </button>
+          )
+        })}
+      </div>
     </div>
   )
 }
