@@ -21,6 +21,14 @@ import {
 import { TimelineVekst, type TimelineVekstEntry } from '../wellbeing/layouts/TimelineVekst'
 import { OnboardingVekst, type OnboardingVekstStep } from '../wellbeing/layouts/OnboardingVekst'
 import { CardStackVekst, type CardStackVekstCard } from '../wellbeing/layouts/CardStackVekst'
+import {
+  SettingsVekst,
+  SettingsVekstInput,
+  SettingsVekstReadout,
+  SettingsVekstSelect,
+  SettingsVekstToggle,
+  type SettingsVekstSection,
+} from '../wellbeing/layouts/SettingsVekst'
 
 const SERIF = "'Libre Baskerville', Georgia, serif"
 
@@ -306,6 +314,184 @@ const ONBOARDING_DEMO: OnboardingVekstStep[] = [
   },
 ]
 
+// ── Settings demo (hybrid med Organisasjon → Innstillinger) ─────────────
+
+const SETTINGS_DEMO_SECTIONS: SettingsVekstSection[] = [
+  {
+    id: 'identitet',
+    eyebrow: 'Del 1 · Identitet',
+    title: 'Hvem dere er',
+    motif: 'medvirkning',
+    intro: 'Navn, organisasjonsnummer og bransje — det som identifiserer dere i rapporter og mot Brønnøysund.',
+    rows: [
+      {
+        id: 'name',
+        lead: (
+          <>Hvilket navn skal vises for virksomheten i løsningen og i rapporter? Det dukker opp i AMU-protokoller, brev til Arbeidstilsynet og styreromsrapporten.</>
+        ),
+        label: 'Virksomhetsnavn',
+        control: <SettingsVekstInput defaultValue="Vekst Industri AS" autoComplete="organization" />,
+      },
+      {
+        id: 'orgnr',
+        lead: (
+          <>Offisielt organisasjonsnummer fra Brønnøysund. Klikk «Hent fra Brreg» for å synkronisere navn, NACE-kode og ansattall — vi sjekker mot Enhetsregisteret én gang i måneden.</>
+        ),
+        label: 'Organisasjonsnummer',
+        control: (
+          <div className="flex gap-2">
+            <SettingsVekstInput defaultValue="912 345 678" inputMode="numeric" className="flex-1" />
+            <button
+              type="button"
+              className="shrink-0 rounded-xl border-2 border-amber-300 bg-white px-3.5 py-2.5 text-xs font-semibold text-amber-900 hover:bg-amber-50"
+              style={{ fontFamily: SERIF }}
+            >
+              Hent fra Brreg
+            </button>
+          </div>
+        ),
+        helper: 'Sist synkronisert: 02. mai 2026',
+      },
+      {
+        id: 'brreg',
+        lead: <>Data hentet fra Brønnøysundregistrene (Enhetsregisteret). Vi viser disse for at dere skal vite hva som er kilden, men feltene i appen er fortsatt deres egne.</>,
+        label: 'Brreg-snapshot',
+        control: (
+          <div className="grid gap-2 sm:grid-cols-2">
+            <SettingsVekstReadout label="Selskapsform" value="AS" />
+            <SettingsVekstReadout label="Ansatte (Brreg)" value="148" />
+            <SettingsVekstReadout label="NACE-kode" value="C 25.110" />
+            <SettingsVekstReadout label="Bransje" value="Produksjon av metallkonstruksjoner" />
+          </div>
+        ),
+      },
+      {
+        id: 'sector',
+        lead: <>Hvilken bransje eller sektor beskriver virksomheten best? Brukes i oversikter og når vi sammenligner trivsels-skår med tilsvarende bedrifter.</>,
+        label: 'Bransje / sektor',
+        control: (
+          <SettingsVekstSelect defaultValue="produksjon">
+            <option value="produksjon">Industri og produksjon</option>
+            <option value="helse">Helse og omsorg</option>
+            <option value="utdanning">Utdanning</option>
+            <option value="handel">Handel og service</option>
+            <option value="offentlig">Offentlig sektor</option>
+          </SettingsVekstSelect>
+        ),
+      },
+    ],
+  },
+  {
+    id: 'terskler',
+    eyebrow: 'Del 2 · Lovkrav-terskler',
+    title: 'Hva loven krever av dere',
+    motif: 'trygghet',
+    intro: 'Antall ansatte styrer om verneombud og AMU er lovpålagt — § 6-1 og § 7-1. Vanligvis henter vi tallet fra ansattlisten, men dere kan overstyre når situasjonen krever det.',
+    rows: [
+      {
+        id: 'emp-count',
+        lead: <>Vanligvis synkroniseres dette tallet med ansattlisten i appen. Overstyr manuelt hvis dere har innleide som teller med eller midlertidige som ikke skal med.</>,
+        label: 'Antall ansatte',
+        control: <SettingsVekstInput type="number" min={0} defaultValue={148} />,
+        helper: 'Aktive i ansattlisten: 142 · innleide registrert: 6',
+      },
+      {
+        id: 'tariff',
+        lead: <>Gjelder det en tariffavtale? Det kan fravike enkelte AML-regler — særlig § 10 om arbeidstid og § 12 om permisjoner.</>,
+        control: (
+          <div className="space-y-3">
+            <SettingsVekstToggle
+              checked
+              onChange={() => {}}
+              label="Tariffavtale gjelder"
+              description="Når avhuket, vises tariff-bestemte fravik i kompetanse- og arbeidstidsmodulen."
+            />
+            <SettingsVekstInput defaultValue="Hovedavtalen LO–NHO" placeholder="Avtalens navn" />
+          </div>
+        ),
+      },
+    ],
+  },
+  {
+    id: 'signering',
+    eyebrow: 'Del 3 · Signering',
+    title: 'Hvem skriver under',
+    motif: 'mestring',
+    intro: 'Hvem kan velges som digital signatar på oppgaver, sjekklister og protokoller. Tom liste betyr alle aktive med e-post; én eller flere avkrysninger snevrer det inn.',
+    rows: [
+      {
+        id: 'signers',
+        lead: <>Krever at personen har e-post registrert under Ansatte. Når en utfører signerer en oppgave, sender vi automatisk en påminnelse til godkjent leder-signatar.</>,
+        label: 'Godkjente signatarer',
+        control: (
+          <div className="rounded-xl border-2 border-[#1a3d32]/15 bg-amber-50/20 p-4">
+            <ul className="space-y-2.5">
+              {[
+                { name: 'Mona Vestby', role: 'HMS-leder', selected: true },
+                { name: 'Jens Røstad', role: 'Hovedverneombud', selected: true },
+                { name: 'Lina Storhaug', role: 'AMU-leder', selected: true },
+                { name: 'Bjørn Holt', role: 'Daglig leder', selected: false },
+                { name: 'Ingrid Berge', role: 'AMU-medlem', selected: false },
+              ].map((p) => (
+                <li key={p.name} className="flex items-center justify-between gap-3">
+                  <label className="flex flex-1 items-center gap-3 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      defaultChecked={p.selected}
+                      className="h-4 w-4 rounded border-2 border-[#1a3d32]/30 accent-amber-600"
+                    />
+                    <span>
+                      <span className="text-sm font-semibold text-[#1a3d32]" style={{ fontFamily: SERIF }}>
+                        {p.name}
+                      </span>
+                      <span className="ml-2 text-xs text-[#516760]">· {p.role}</span>
+                    </span>
+                  </label>
+                </li>
+              ))}
+            </ul>
+          </div>
+        ),
+        helper: 'Tre av fem valgt — alle øvrige aktive med e-post blir utestengt fra signering.',
+      },
+    ],
+  },
+  {
+    id: 'personvern',
+    eyebrow: 'Del 4 · Personvern',
+    title: 'Hvor lenge vi tar vare på',
+    motif: 'trivsel',
+    intro: 'Lagrings-perioder for HMS-data, ansattregister og auditlogg. Innstillingene styrer når vi automatisk anonymiserer eller sletter.',
+    rows: [
+      {
+        id: 'retention-employee',
+        lead: <>Hvor lenge tar vi vare på data om en ansatt etter at vedkommende har sluttet? Default er 36 måneder — det dekker reklamasjonsfristen og AML kap. 17.</>,
+        label: 'Ansattregister (inaktiv)',
+        control: (
+          <SettingsVekstSelect defaultValue="36">
+            <option value="12">12 måneder</option>
+            <option value="24">24 måneder</option>
+            <option value="36">36 måneder (anbefalt)</option>
+            <option value="60">5 år</option>
+          </SettingsVekstSelect>
+        ),
+      },
+      {
+        id: 'retention-audit',
+        lead: <>Auditlogg holder vi etter Datatilsynets praksis — vanligvis 5 år. Forleng kun hvis dere har konkrete behov knyttet til tilsynssaker.</>,
+        label: 'Auditlogg',
+        control: (
+          <SettingsVekstSelect defaultValue="5">
+            <option value="3">3 år</option>
+            <option value="5">5 år (anbefalt)</option>
+            <option value="7">7 år</option>
+          </SettingsVekstSelect>
+        ),
+      },
+    ],
+  },
+]
+
 // ── Card-stack demo ──────────────────────────────────────────────────────
 
 const STACK_DEMO: CardStackVekstCard[] = [
@@ -486,6 +672,31 @@ export function VekstPatternGallery() {
               body="Multi-steg-form med fremdrifts-prikkrekke, stor illustrasjon i en cream-pute på venstre side, og serif-overskrifter + content-slot på høyre. Lyse «Tilbake / Neste / Fullfør»-knapper i serif. Bruk for førstegangs-oppsett av Arbeidsmiljøstrategi, AMU-medlems-onboarding, eller leder-introduksjon."
             />
             <OnboardingVekst steps={ONBOARDING_DEMO} doneLabel="Sett strategien i gang" />
+          </section>
+
+          {/* ── Section: Settings (hybrid OrganisationPage × Vekst) ─ */}
+          <section className="space-y-4">
+            <SectionLabel
+              eyebrow="Mønster 7 · Innstillinger"
+              title="Når innstillinger skal lese som menneskespråk, ikke skjemarad"
+              body="Hybrid mellom organisasjons-innstillingers to-kolonne-DNA — venstre forklarer hvorfor, høyre eksponerer kontrollen — og Vekst-stilens cream-overflater, serif-overskrifter og varme amber-input. Hver seksjon får et motiv som watermark i hjørnet og en serif-overskrift med eyebrow over."
+            />
+            <SettingsVekst
+              eyebrow="Demo · Virksomhetsinnstillinger"
+              title="Slik fortelles innstillinger som angår mennesker"
+              subtitle="Samme felter som under Organisasjon → Innstillinger, men gjenfortalt i Vekst-tonen — ingen tørre etiketter, hver setting har en grunn."
+              headerActions={
+                <button
+                  type="button"
+                  className="inline-flex items-center gap-1.5 rounded-full border-2 border-amber-300 bg-amber-600 px-4 py-2 text-xs font-semibold text-white shadow-[0_6px_14px_-6px_rgba(217,119,6,0.5)] hover:bg-amber-700"
+                  style={{ fontFamily: SERIF }}
+                >
+                  Lagre endringene
+                </button>
+              }
+              sections={SETTINGS_DEMO_SECTIONS}
+              footnote="Settingene styrer AMU/verneombud-terskler og hva som vises i Council-modulen — samme oppførsel som dagens skjerm, ny stemme."
+            />
           </section>
 
           {/* ── Section: Card stack ────────────────────────────────── */}
