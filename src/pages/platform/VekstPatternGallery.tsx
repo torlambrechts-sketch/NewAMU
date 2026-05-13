@@ -549,12 +549,20 @@ export function VekstPatternGallery() {
               >
                 <ArrowLeft className="h-3.5 w-3.5" aria-hidden /> Platform-admin
               </Link>
-              <Link
-                to="/overview/arbeidsmiljostrategi"
-                className="inline-flex items-center gap-1.5 rounded-md border border-amber-300 bg-white px-3 py-1.5 text-xs font-semibold text-amber-900 hover:bg-amber-50"
-              >
-                <Eye className="h-3.5 w-3.5" aria-hidden /> Se Vekst i bruk
-              </Link>
+              <div className="flex items-center gap-2">
+                <Link
+                  to="/platform-admin/saklig-patterns"
+                  className="inline-flex items-center gap-1.5 rounded-md border border-[#1a3d32]/15 bg-white px-3 py-1.5 text-xs font-semibold text-[#1a3d32] hover:bg-amber-50"
+                >
+                  Sammenlign med Saklig <ChevronRight className="h-3 w-3" aria-hidden />
+                </Link>
+                <Link
+                  to="/overview/arbeidsmiljostrategi"
+                  className="inline-flex items-center gap-1.5 rounded-md border border-amber-300 bg-white px-3 py-1.5 text-xs font-semibold text-amber-900 hover:bg-amber-50"
+                >
+                  <Eye className="h-3.5 w-3.5" aria-hidden /> Se Vekst i bruk
+                </Link>
+              </div>
             </div>
             <span className="inline-block rounded-full bg-amber-100 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-amber-900">
               Mønsterbibliotek · Vekst-stilen

@@ -2,6 +2,7 @@ import { NavLink, Outlet, Link } from 'react-router-dom'
 import type { LucideIcon } from 'lucide-react'
 import {
   Box,
+  FileText,
   Heart,
   LayoutGrid,
   Layers,
@@ -35,6 +36,7 @@ const nav: {
   { to: '/platform-admin/layout', label: 'Layout (arbeidsflate)', icon: LayoutTemplate },
   { to: '/platform-admin/layout-elements', label: 'Layout-elementer', icon: Layers },
   { to: '/platform-admin/vekst-patterns', label: 'Vekst-mønster', icon: Heart },
+  { to: '/platform-admin/saklig-patterns', label: 'Saklig-mønster', icon: FileText },
 ]
 
 export function PlatformAdminLayout() {
