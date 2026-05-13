@@ -1393,7 +1393,7 @@ export function AticsShell() {
       },
       {
         label: 'Automatisering',
-        path: '/workflow/v3',
+        path: '/workflow',
         Icon: Workflow,
         match: ({ pathname }) => pathname.startsWith('/workflow'),
         requirePermAny: ADMIN_NAV_PERMS,

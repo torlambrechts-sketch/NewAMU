@@ -449,10 +449,11 @@ const router = createBrowserRouter(
                         <Route path="insights" element={<Navigate to="/learning" replace />} />
                       </Route>
                       <Route path="prosesser" element={<Navigate to="/workflow" replace />} />
-                      <Route path="workflow" element={<WorkflowPage />} />
-                      <Route path="workflow/v3" element={<WorkflowBuilderPage />} />
-                      <Route path="workflow/:ruleId" element={<WorkflowEditorRoute />} />
+                      <Route path="workflow" element={<WorkflowBuilderPage />} />
+                      <Route path="workflow/v3" element={<Navigate to="/workflow" replace />} />
+                      <Route path="workflow/klassisk" element={<WorkflowPage />} />
                       <Route path="workflow/admin" element={<WorkflowModulePage />} />
+                      <Route path="workflow/:ruleId" element={<WorkflowEditorRoute />} />
                       <Route path="admin/integrasjoner-staten" element={<GovIntegrationsPage />} />
                       <Route path="hr" element={<HrComplianceHub />} />
                       <Route path="hr/discussion" element={<HrDiscussionPage />} />
