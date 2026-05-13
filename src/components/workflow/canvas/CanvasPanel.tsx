@@ -14,15 +14,31 @@
 // a rule with gov actions without workflows.activate_external.
 
 import { useEffect, useMemo, useState } from 'react'
-import { Save, Workflow } from 'lucide-react'
+import { CheckCircle2, FileWarning, Save, ShieldAlert, Workflow, Zap } from 'lucide-react'
 import { useWorkflows } from '../../../hooks/useWorkflows'
 import { WorkflowFlowBuilder } from '../WorkflowFlowBuilder'
+import { getWorkflowScope } from '../../../lib/workflows/workflowRegistry'
+import { Badge } from '../../ui/Badge'
+import { isGovernmentActionType } from '../../../types/workflow'
+import type { WorkflowAction, WorkflowXorActionsEnvelope } from '../../../types/workflow'
 import {
   defaultWorkflowFlowDocument,
   compileWorkflowFlow,
   parseFlowDocument,
   type WorkflowFlowDocument,
 } from '../../../lib/workflowFlowTypes'
+
+function ruleContainsGovAction(actions: WorkflowAction[] | WorkflowXorActionsEnvelope): boolean {
+  if (Array.isArray(actions)) {
+    return actions.some((x) => isGovernmentActionType((x as { type: string }).type))
+  }
+  if (actions && 'mode' in actions && actions.mode === 'xor_branches') {
+    return actions.branches.some((b) =>
+      (b.actions as WorkflowAction[]).some((x) => isGovernmentActionType((x as { type: string }).type)),
+    )
+  }
+  return false
+}
 
 export function CanvasPanel({ initialRuleId }: { initialRuleId?: string | null } = {}) {
   const { rules, upsertRule, canCompose } = useWorkflows()
@@ -136,14 +152,106 @@ export function CanvasPanel({ initialRuleId }: { initialRuleId?: string | null }
           startpakker fra Mal-bibliotek først.
         </div>
       ) : (
-        <div className="rounded-xl border border-neutral-200 bg-white p-4">
-          <WorkflowFlowBuilder
-            value={doc}
-            onChange={setDoc}
-            sourceModule={rule.source_module}
-            compileError={error}
-          />
-        </div>
+        <>
+          {/* Rule-context header card — surfaces the metadata the canvas alone hides */}
+          <div className="rounded-xl border border-neutral-200 bg-white p-4">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div className="min-w-0 flex-1">
+                <div className="flex flex-wrap items-center gap-2">
+                  <h3 className="text-base font-semibold text-neutral-900">{rule.name}</h3>
+                  {rule.is_active ? (
+                    <Badge variant="success">
+                      <CheckCircle2 className="mr-1 inline h-3 w-3" />
+                      Aktiv
+                    </Badge>
+                  ) : (
+                    <Badge variant="neutral">
+                      <FileWarning className="mr-1 inline h-3 w-3" />
+                      Inaktiv
+                    </Badge>
+                  )}
+                  {ruleContainsGovAction(rule.actions_json) && (
+                    <Badge variant="warning">
+                      <ShieldAlert className="mr-1 inline h-3 w-3" />
+                      Statlig melding
+                    </Badge>
+                  )}
+                  {rule.catalog_slug && (
+                    <Badge variant="info">Mal v{rule.catalog_version ?? 1}</Badge>
+                  )}
+                </div>
+                {rule.description && (
+                  <p className="mt-1 text-sm text-neutral-600">{rule.description}</p>
+                )}
+                <div className="mt-2 grid grid-cols-1 gap-x-6 gap-y-1 text-xs sm:grid-cols-2">
+                  <div className="flex items-center gap-2">
+                    <span className="font-semibold uppercase tracking-wide text-neutral-500">Modul</span>
+                    <span
+                      className="inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px]"
+                      style={{
+                        borderColor: getWorkflowScope(rule.source_module)?.accent ?? '#d4d4d4',
+                        color: getWorkflowScope(rule.source_module)?.accent ?? '#525252',
+                      }}
+                    >
+                      {getWorkflowScope(rule.source_module)?.label ?? rule.source_module}
+                    </span>
+                    <code className="text-[10px] text-neutral-500">{rule.source_module}</code>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="font-semibold uppercase tracking-wide text-neutral-500">Trigger</span>
+                    {rule.trigger_event_name ? (
+                      <code className="rounded bg-neutral-100 px-1.5 py-0.5 text-[11px]">
+                        {rule.trigger_event_name}
+                      </code>
+                    ) : rule.schedule_cron ? (
+                      <code className="rounded bg-neutral-100 px-1.5 py-0.5 text-[11px]">
+                        {rule.schedule_cron} (cron)
+                      </code>
+                    ) : (
+                      <span className="text-neutral-500">
+                        Payload-endring ({rule.trigger_on})
+                      </span>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="font-semibold uppercase tracking-wide text-neutral-500">Lov-refs</span>
+                    {(rule.law_refs ?? []).length === 0 ? (
+                      <span className="text-neutral-400">—</span>
+                    ) : (
+                      <span className="flex flex-wrap gap-1">
+                        {(rule.law_refs ?? []).map((l) => (
+                          <code key={l} className="rounded bg-emerald-50 px-1.5 py-0.5 text-[10px] text-emerald-800">
+                            {l}
+                          </code>
+                        ))}
+                      </span>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="font-semibold uppercase tracking-wide text-neutral-500">Fortrolighet</span>
+                    <span className="text-neutral-700">
+                      {rule.confidentiality_level === 'confidential'
+                        ? 'Konfidensielt'
+                        : rule.confidentiality_level === 'restricted'
+                          ? 'Begrenset'
+                          : 'Standard'}
+                    </span>
+                  </div>
+                </div>
+              </div>
+              <Zap className="mt-1 h-5 w-5 shrink-0 text-emerald-700" aria-hidden />
+            </div>
+          </div>
+
+          <div className="rounded-xl border border-neutral-200 bg-white p-4">
+            <WorkflowFlowBuilder
+              value={doc}
+              onChange={setDoc}
+              sourceModule={rule.source_module}
+              compileError={error}
+            />
+          </div>
+        </>
       )}
       <p className="text-xs text-neutral-500">
         Når flyten lagres kompileres den til <code>condition_json</code> +{' '}
