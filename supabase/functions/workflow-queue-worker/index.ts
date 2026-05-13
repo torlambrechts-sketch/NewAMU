@@ -136,10 +136,11 @@ async function dispatchRow(
   }
 
   if (effectiveType === 'varsel_ldo_export') {
-    // LDO has no API — generate a notification carrying the export pointer.
-    const { error } = await supabase.from('compliance_notifications').insert({
+    // LDO has no API — generate an outbox row carrying the export pointer.
+    const { error } = await supabase.from('gov_notifications_outbox').insert({
       organization_id: row.organization_id,
       kind: 'ldo_export_pending',
+      rule_id: row.rule_id,
       payload: { queueId: row.id, ruleId: row.rule_id, body: effectivePayload },
     })
     return error ? { ok: false, error: error.message } : { ok: true }

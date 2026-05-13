@@ -23,6 +23,8 @@ import { ReportingEnginePage } from './pages/ReportingEnginePage'
 import { WorkflowModulePage } from './pages/WorkflowModulePage'
 import { WorkflowPage } from './pages/WorkflowPage'
 import { WorkflowBuilderPage } from './pages/workflow/WorkflowBuilderPage'
+import { AuditorWorkflowsPage } from './pages/auditor/AuditorWorkflowsPage'
+import { GovIntegrationsPage } from './pages/admin/integrations/GovIntegrationsPage'
 import { WorkflowEditorV2 } from './components/workflow/WorkflowEditorV2'
 import { WorkplaceReportingPage } from './pages/WorkplaceReportingPage'
 import { WorkplaceDashboardPage } from './pages/WorkplaceDashboardPage'
@@ -205,6 +207,7 @@ const router = createBrowserRouter(
             <Route path="/varsle/status" element={<WhistleStatusPage />} />
             <Route path="/varsle/:slug" element={<PublicWhistlePage />} />
             <Route path="/anonym-aml/:slug" element={<PublicAnonymousAmlPage />} />
+            <Route path="/auditor/workflows" element={<AuditorWorkflowsPage />} />
             <Route path="/survey-respond/:campaignId" element={<SurveyRespondPage />} />
             {/* Public marketing / landing page — root "/" for all visitors */}
             <Route index element={<LandingPage />} />
@@ -450,6 +453,7 @@ const router = createBrowserRouter(
                       <Route path="workflow/v3" element={<WorkflowBuilderPage />} />
                       <Route path="workflow/:ruleId" element={<WorkflowEditorRoute />} />
                       <Route path="workflow/admin" element={<WorkflowModulePage />} />
+                      <Route path="admin/integrasjoner-staten" element={<GovIntegrationsPage />} />
                       <Route path="hr" element={<HrComplianceHub />} />
                       <Route path="hr/discussion" element={<HrDiscussionPage />} />
                       <Route path="hr/consultation" element={<HrConsultationPage />} />

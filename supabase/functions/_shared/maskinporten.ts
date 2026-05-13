@@ -34,6 +34,60 @@ export type MaskinportenConfig = {
   kid: string
 }
 
+/**
+ * Resolve the virksomhetssertifikat private key for an org's integration.
+ * Reads org_integrations.vault_secret_name; if set, decrypts via the
+ * service-role-only RPC workflow_read_vault_secret. Falls back to the
+ * MASKINPORTEN_TT02_PRIVATE_KEY / _PROD_PRIVATE_KEY env vars when no
+ * per-org Vault entry exists (sandbox / shared-cert mode).
+ *
+ * Returns { privateKeyPem, kid } or throws with a descriptive error.
+ */
+export async function resolveMaskinportenCredentials(
+  // deno-lint-ignore no-explicit-any
+  supabase: any,
+  orgId: string,
+  kind: 'altinn' | 'regint' | 'datatilsynet' | 'nav',
+  environment: MaskinportenEnv,
+): Promise<{ privateKeyPem: string; kid: string }> {
+  const { data: integration, error } = await supabase
+    .from('org_integrations')
+    .select('vault_secret_name, config')
+    .eq('organization_id', orgId)
+    .eq('kind', kind)
+    .maybeSingle()
+  if (error) throw new Error(`org_integrations lookup failed: ${error.message}`)
+  const config = (integration?.config ?? {}) as Record<string, string>
+
+  let privateKeyPem = ''
+  const vaultName = integration?.vault_secret_name as string | null
+  if (vaultName) {
+    const { data: secret, error: sErr } = await supabase.rpc('workflow_read_vault_secret', {
+      p_name: vaultName,
+    })
+    if (sErr) throw new Error(`Vault read failed for ${vaultName}: ${sErr.message}`)
+    privateKeyPem = (secret as string | null) ?? ''
+  }
+  if (!privateKeyPem) {
+    privateKeyPem =
+      environment === 'tt02'
+        ? Deno.env.get('MASKINPORTEN_TT02_PRIVATE_KEY') ?? ''
+        : Deno.env.get('MASKINPORTEN_PROD_PRIVATE_KEY') ?? ''
+  }
+  if (!privateKeyPem) {
+    throw new Error(
+      `No Maskinporten private key for org=${orgId} kind=${kind} env=${environment}. Set org_integrations.vault_secret_name or MASKINPORTEN_${environment.toUpperCase()}_PRIVATE_KEY.`,
+    )
+  }
+
+  const kid =
+    (config.kid as string | undefined) ??
+    (environment === 'tt02' ? Deno.env.get('MASKINPORTEN_TT02_KID') ?? '' : Deno.env.get('MASKINPORTEN_PROD_KID') ?? '')
+  if (!kid) throw new Error(`Missing Maskinporten kid for org=${orgId} kind=${kind}`)
+
+  return { privateKeyPem, kid }
+}
+
 const ENDPOINTS: Record<MaskinportenEnv, { token: string; audience: string }> = {
   tt02: {
     token: 'https://test.maskinporten.no/token',

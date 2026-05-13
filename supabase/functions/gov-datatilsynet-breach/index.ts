@@ -148,13 +148,13 @@ Deno.serve(async (req) => {
       metadata: { manifestHash, submissionEmail },
     })
 
-    // 2) Transport: today, send a structured email. When Datatilsynet
-    //    ships an API, swap this branch out. We use the existing
-    //    compliance-notifications table as the "outbox" so the platform's
-    //    notification worker picks it up — no parallel mailer.
-    await supabase.from('compliance_notifications').insert({
+    // 2) Transport: today, send a structured email via the gov outbox.
+    //    When Datatilsynet ships an API, swap the worker branch out.
+    await supabase.from('gov_notifications_outbox').insert({
       organization_id,
       kind: 'datatilsynet_breach',
+      run_id: run_id,
+      rule_id: rule_id,
       payload: {
         to: submissionEmail,
         subject: `Personvernbrudd-melding — ${organization_id}`,

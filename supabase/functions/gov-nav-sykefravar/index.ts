@@ -111,9 +111,11 @@ Deno.serve(async (req) => {
       metadata: { idempotencyKey, skjema: altinnSkjema },
     })
 
-    await supabase.from('compliance_notifications').insert({
+    await supabase.from('gov_notifications_outbox').insert({
       organization_id,
       kind: 'nav_sykefravar_outbox',
+      run_id: run_id,
+      rule_id: rule_id,
       payload: {
         skjema: altinnSkjema,
         runId: run_id,

@@ -11,7 +11,11 @@
  * MUST verify TT02 works for the requested skjema before flipping
  * environment=prod. We don't sanity-check it here at submission time.
  */
-import { getMaskinportenAccessToken, type MaskinportenEnv } from '../_shared/maskinporten.ts'
+import {
+  getMaskinportenAccessToken,
+  resolveMaskinportenCredentials,
+  type MaskinportenEnv,
+} from '../_shared/maskinporten.ts'
 import {
   buildIdempotencyKey,
   recordRegulatorEvidence,
@@ -82,16 +86,14 @@ Deno.serve(async (req) => {
       ? config.altinn_base_url ?? 'https://platform.tt02.altinn.no'
       : config.altinn_base_url ?? 'https://platform.altinn.no'
 
-  const privateKeyPem =
-    environment === 'tt02'
-      ? Deno.env.get('MASKINPORTEN_TT02_PRIVATE_KEY') ?? ''
-      : Deno.env.get('MASKINPORTEN_PROD_PRIVATE_KEY') ?? ''
-  const kid =
-    environment === 'tt02'
-      ? Deno.env.get('MASKINPORTEN_TT02_KID') ?? ''
-      : Deno.env.get('MASKINPORTEN_PROD_KID') ?? ''
-  if (!privateKeyPem || !kid) {
-    return json({ ok: false, error: 'maskinporten_credentials_missing' }, 500)
+  let privateKeyPem: string
+  let kid: string
+  try {
+    const creds = await resolveMaskinportenCredentials(supabase, organization_id, 'altinn', environment)
+    privateKeyPem = creds.privateKeyPem
+    kid = creds.kid
+  } catch (err) {
+    return json({ ok: false, error: 'maskinporten_credentials_missing', detail: (err as Error).message }, 500)
   }
 
   const idempotencyKey = await buildIdempotencyKey(body)

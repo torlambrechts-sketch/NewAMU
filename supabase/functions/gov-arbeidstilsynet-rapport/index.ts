@@ -29,7 +29,11 @@
  * In Phase E sprint-2 these env vars are replaced by per-org Vault
  * lookups keyed off org_integrations.config.
  */
-import { getMaskinportenAccessToken, type MaskinportenEnv } from '../_shared/maskinporten.ts'
+import {
+  getMaskinportenAccessToken,
+  resolveMaskinportenCredentials,
+  type MaskinportenEnv,
+} from '../_shared/maskinporten.ts'
 import {
   buildIdempotencyKey,
   recordRegulatorEvidence,
@@ -108,16 +112,14 @@ Deno.serve(async (req) => {
   const clientId = config.client_id
   if (!clientId) return json({ ok: false, error: 'missing_client_id_in_config' }, 400)
 
-  const privateKeyPem =
-    environment === 'tt02'
-      ? Deno.env.get('MASKINPORTEN_TT02_PRIVATE_KEY') ?? ''
-      : Deno.env.get('MASKINPORTEN_PROD_PRIVATE_KEY') ?? ''
-  const kid =
-    environment === 'tt02'
-      ? Deno.env.get('MASKINPORTEN_TT02_KID') ?? ''
-      : Deno.env.get('MASKINPORTEN_PROD_KID') ?? ''
-  if (!privateKeyPem || !kid) {
-    return json({ ok: false, error: 'maskinporten_credentials_missing' }, 500)
+  let privateKeyPem: string
+  let kid: string
+  try {
+    const creds = await resolveMaskinportenCredentials(supabase, organization_id, 'regint', environment)
+    privateKeyPem = creds.privateKeyPem
+    kid = creds.kid
+  } catch (err) {
+    return json({ ok: false, error: 'maskinporten_credentials_missing', detail: (err as Error).message }, 500)
   }
 
   const idempotencyKey = await buildIdempotencyKey(body)
