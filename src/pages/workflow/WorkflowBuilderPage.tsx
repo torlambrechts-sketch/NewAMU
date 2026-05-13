@@ -9,7 +9,7 @@
 // together what the Phase A substrate just enabled.
 
 import { useState } from 'react'
-import { BookOpen, CheckCheck, ClipboardList, PlayCircle, ScrollText, ShieldCheck } from 'lucide-react'
+import { BookOpen, CheckCheck, ClipboardList, PlayCircle, ScrollText, ShieldCheck, Workflow } from 'lucide-react'
 import { ModulePageShell } from '../../components/module'
 import '../../lib/workflows/registerScopes'
 import { LibraryPanel } from '../../components/workflow/library/LibraryPanel'
@@ -18,11 +18,13 @@ import { DryRunPanel } from '../../components/workflow/dryRun/DryRunPanel'
 import { RevisionHistoryPanel } from '../../components/workflow/audit/RevisionHistoryPanel'
 import { ApprovalsPanel } from '../../components/workflow/approvals/ApprovalsPanel'
 import { EvidenceExportPanel } from '../../components/workflow/evidence/EvidenceExportPanel'
+import { CanvasPanel } from '../../components/workflow/canvas/CanvasPanel'
 
-type Tab = 'library' | 'runs' | 'dry-run' | 'approvals' | 'evidence' | 'revisions'
+type Tab = 'library' | 'canvas' | 'runs' | 'dry-run' | 'approvals' | 'evidence' | 'revisions'
 
 const TABS: { id: Tab; label: string; Icon: typeof BookOpen }[] = [
   { id: 'library', label: 'Mal-bibliotek', Icon: BookOpen },
+  { id: 'canvas', label: 'Bygg', Icon: Workflow },
   { id: 'approvals', label: 'Godkjenninger', Icon: CheckCheck },
   { id: 'runs', label: 'Kjøringer', Icon: ClipboardList },
   { id: 'dry-run', label: 'Dry-run', Icon: PlayCircle },
@@ -60,6 +62,7 @@ export function WorkflowBuilderPage() {
           ))}
         </nav>
         {tab === 'library' && <LibraryPanel />}
+        {tab === 'canvas' && <CanvasPanel />}
         {tab === 'approvals' && <ApprovalsPanel />}
         {tab === 'runs' && <RunHistoryPanel />}
         {tab === 'dry-run' && <DryRunPanel />}

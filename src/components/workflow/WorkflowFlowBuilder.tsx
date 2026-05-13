@@ -13,11 +13,21 @@ import { presetsForSourceModule, type WorkflowInputPreset } from '../../data/wor
 import { WorkflowActionsEditor } from './WorkflowActionsEditor'
 import { WorkflowConditionForm } from './WorkflowConditionForm'
 import {
-  defaultWebhookAction,
+  defaultAltinnAction,
+  defaultArbeidstilsynetAction,
+  defaultDatatilsynetAction,
+  defaultEscalateAction,
+  defaultLdoExportAction,
   defaultLogOnlyAction,
+  defaultNavSykefravarAction,
   defaultNotificationAction,
+  defaultOnErrorAction,
+  defaultParallelAction,
+  defaultRequestApprovalAction,
   defaultSendEmailAction,
   defaultTaskAction,
+  defaultWaitUntilAction,
+  defaultWebhookAction,
   summarizeAction,
 } from './workflowActionDefaults'
 import { Button } from '../ui/Button'
@@ -30,22 +40,32 @@ const STEP_CARD = 'rounded-lg border border-neutral-200/90 bg-white p-3 text-sm'
 
 type ReorderPayload = { kind: 'reorder'; stepId: string; branchId?: string }
 
-type ActionTemplate = 'task' | 'email' | 'notification' | 'webhook' | 'log'
+type ActionTemplate =
+  // Legacy / immediate actions
+  | 'task' | 'email' | 'notification' | 'webhook' | 'log'
+  // Phase A substrate
+  | 'wait_until' | 'request_approval' | 'escalate' | 'parallel' | 'on_error'
+  // Government actions (worker dispatches to gov-* edge fns)
+  | 'gov_arbeidstilsynet' | 'gov_datatilsynet' | 'gov_ldo' | 'gov_nav' | 'gov_altinn'
 
 function actionsForTemplate(template: ActionTemplate): WorkflowAction[] {
   switch (template) {
-    case 'task':
-      return [defaultTaskAction()]
-    case 'email':
-      return [defaultSendEmailAction()]
-    case 'notification':
-      return [defaultNotificationAction()]
-    case 'webhook':
-      return [defaultWebhookAction()]
-    case 'log':
-      return [defaultLogOnlyAction()]
-    default:
-      return [defaultTaskAction()]
+    case 'task':                  return [defaultTaskAction()]
+    case 'email':                 return [defaultSendEmailAction()]
+    case 'notification':          return [defaultNotificationAction()]
+    case 'webhook':               return [defaultWebhookAction()]
+    case 'log':                   return [defaultLogOnlyAction()]
+    case 'wait_until':            return [defaultWaitUntilAction()]
+    case 'request_approval':      return [defaultRequestApprovalAction()]
+    case 'escalate':              return [defaultEscalateAction()]
+    case 'parallel':              return [defaultParallelAction()]
+    case 'on_error':              return [defaultOnErrorAction()]
+    case 'gov_arbeidstilsynet':   return [defaultArbeidstilsynetAction()]
+    case 'gov_datatilsynet':      return [defaultDatatilsynetAction()]
+    case 'gov_ldo':               return [defaultLdoExportAction()]
+    case 'gov_nav':               return [defaultNavSykefravarAction()]
+    case 'gov_altinn':            return [defaultAltinnAction()]
+    default:                      return [defaultTaskAction()]
   }
 }
 
@@ -56,6 +76,16 @@ function actionBlockLabel(template: ActionTemplate): string {
     notification: 'Varsling',
     webhook: 'Webhook',
     log: 'Logg',
+    wait_until: 'Vent',
+    request_approval: 'Godkjenning',
+    escalate: 'Eskaler',
+    parallel: 'Parallelt',
+    on_error: 'Ved feil',
+    gov_arbeidstilsynet: '⚖️ Arbeidstilsynet (AML § 5-2)',
+    gov_datatilsynet: '⚖️ Datatilsynet (GDPR Art. 33)',
+    gov_ldo: '⚖️ LDO (eksport)',
+    gov_nav: '⚖️ NAV (sykefravær)',
+    gov_altinn: '⚖️ Altinn (generisk)',
   }
   return m[template]
 }
@@ -174,11 +204,24 @@ function StepRow({
 }
 
 const ACTION_OPTIONS: { value: ActionTemplate; label: string }[] = [
+  // Operative actions
   { value: 'task', label: 'Oppgave' },
   { value: 'email', label: 'E-post' },
   { value: 'notification', label: 'Varsling' },
   { value: 'webhook', label: 'Webhook' },
   { value: 'log', label: 'Kun logg' },
+  // Timing & flow control
+  { value: 'wait_until', label: '⏳ Vent (delay/cron)' },
+  { value: 'request_approval', label: '✋ Godkjenning kreves' },
+  { value: 'escalate', label: '↑ Eskaler til rolle' },
+  { value: 'parallel', label: '⇆ Parallelle grener' },
+  { value: 'on_error', label: '⚠ Ved feil (fallback)' },
+  // Statlig rapportering — krever workflows.activate_external
+  { value: 'gov_arbeidstilsynet', label: '⚖️ Arbeidstilsynet (AML § 5-2, 24t)' },
+  { value: 'gov_datatilsynet', label: '⚖️ Datatilsynet (GDPR Art. 33, 72t)' },
+  { value: 'gov_ldo', label: '⚖️ LDO (manuell eksport)' },
+  { value: 'gov_nav', label: '⚖️ NAV (sykefravær via Altinn)' },
+  { value: 'gov_altinn', label: '⚖️ Altinn (generisk)' },
 ]
 
 const ACTION_SELECT_OPTIONS = [{ value: '', label: 'Velg…' }, ...ACTION_OPTIONS]
