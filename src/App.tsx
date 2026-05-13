@@ -5,6 +5,7 @@ import {
   Outlet,
   Route,
   RouterProvider,
+  useLocation,
   useParams,
 } from 'react-router-dom'
 import { OrgSetupProvider } from './context/OrgSetupProvider'
@@ -40,7 +41,6 @@ import { HrmSalary } from './pages/HrmSalary'
 import { NotFound } from './pages/NotFound'
 import { MeetingsHubPage } from './pages/meetings/MeetingsHubPage'
 import { MeetingsDetailView } from './pages/meetings/MeetingsDetailView'
-import { MeetingsAdminPage } from './pages/meetings/MeetingsAdminPage'
 import { MeetingsAnalysePage } from './pages/meetings/MeetingsAnalysePage'
 import { MeetingsExportPage } from './pages/meetings/MeetingsExportPage'
 import { MembersModule } from './pages/MembersModule'
@@ -66,7 +66,6 @@ import { ProjectDashboard } from './pages/ProjectDashboard'
 import { WelcomeDashboardPage } from './pages/WelcomeDashboardPage'
 import { TasksManagementPage, TasksAnalysePage } from '../modules/tasks'
 import { TasksAllePage } from '../modules/tasks/TasksAllePage'
-import { TasksAdminPage } from '../modules/tasks/admin/TasksAdminPage'
 import { TasksManagementReviewPage } from '../modules/tasks/TasksManagementReviewPage'
 import { ChecklistsAllePage } from '../modules/compliance/ChecklistsAllePage'
 import { SurveyAllePage } from '../modules/survey/SurveyAllePage'
@@ -79,12 +78,10 @@ import { LearningCoursesList } from './pages/learning/LearningCoursesList'
 import { LearningCourseBuilder } from './pages/learning/LearningCourseBuilder'
 import { RegistersHubPage } from './pages/registers/RegistersHubPage'
 import { RegistersAnalysePage } from './pages/registers/RegistersAnalysePage'
-import { RegistersAdminPage } from './pages/registers/RegistersAdminPage'
 import { RegisterTypePage } from './pages/registers/RegisterTypePage'
 import { LearningPlayer } from './pages/learning/LearningPlayer'
 import { LearningDeltakerePage } from './pages/learning/LearningDeltakerePage'
 import { LearningKompetansePage } from './pages/learning/LearningKompetansePage'
-import { LearningSettings } from './pages/learning/LearningSettings'
 import { LearningAnalysePage } from './pages/learning/LearningAnalysePage'
 import { HmsOverviewPage } from './pages/overview/HmsOverviewPage'
 import { ComplianceCompanyPage } from './pages/admin/ComplianceCompanyPage'
@@ -103,7 +100,6 @@ import { ComplianceDashboard } from './pages/documents/ComplianceDashboard'
 import { AnnualReviewPage } from './pages/documents/AnnualReviewPage'
 import { InspectionArbeidstilsynetExportPage } from './pages/documents/InspectionArbeidstilsynetExportPage'
 
-import { DocumentsModuleAdminPage } from './pages/DocumentsModuleAdminPage'
 import { DocumentReviewsPage } from './pages/documents/DocumentReviewsPage'
 import { DocumentModerationQueuePage } from './pages/documents/DocumentModerationQueuePage'
 import { DocumentPrivacyPage } from './pages/documents/DocumentPrivacyPage'
@@ -137,7 +133,6 @@ import { InspectionRoundDetailPage } from './pages/InspectionRoundDetailPage'
 import { ChecklistsPage } from '../modules/compliance/ChecklistsPage'
 import { ChecklistsAnalysePage } from '../modules/compliance/ChecklistsAnalysePage'
 import { ChecklistExecutionPage } from '../modules/compliance/ChecklistExecutionPage'
-import { ComplianceChecklistsAdminPage } from './pages/ComplianceChecklistsAdminPage'
 import { PackProvider } from './context/PackContext'
 import { VernerunderPageRoute } from './pages/VernerunderPage'
 import { VernerundeDetailPage } from './pages/VernerundeDetailPage'
@@ -162,7 +157,6 @@ import { RosModulePage }         from './pages/RosModulePage'
 import { RosModuleAdminPage }    from './pages/RosModuleAdminPage'
 import { RosAnalysisDetailPage } from './pages/RosAnalysisDetailPage'
 import { SurveyModulePage } from './pages/SurveyModulePage'
-import { SurveyModuleAdminPage } from './pages/SurveyModuleAdminPage'
 import { SurveyVendorsPage } from './pages/SurveyVendorsPage'
 import { SurveyOrgTemplateEditorPage } from './pages/SurveyOrgTemplateEditorPage'
 import { SurveyDetailPage } from './pages/SurveyDetailPage'
@@ -178,6 +172,38 @@ function WorkflowEditorRoute() {
   const { ruleId } = useParams<{ ruleId: string }>()
   if (!ruleId) return null
   return <WorkflowEditorV2 ruleId={ruleId} />
+}
+
+/**
+ * Legacy module admin URL redirector. The seven per-module admin pages
+ * were merged into the unified hub at `/admin/settings/<scope>/<section>`
+ * (see consolidate-admin-settings refactor). This component translates
+ * the legacy URL into the new path, mapping both the `:tab` path segment
+ * and the `?tab=` query param to the new `:section` segment so external
+ * bookmarks and Intercom deep links keep working.
+ */
+function LegacyAdminRedirect({ scope }: { scope: string }) {
+  const { tab: pathTab } = useParams<{ tab?: string }>()
+  const { search, hash } = useLocation()
+  const params = new URLSearchParams(search)
+  const queryTab = params.get('tab')
+  const tab = pathTab ?? queryTab ?? undefined
+  if (queryTab) params.delete('tab')
+  const remaining = params.toString()
+  const base = `/admin/settings/${scope}${tab ? `/${tab}` : ''}`
+  const target = `${base}${remaining ? `?${remaining}` : ''}${hash}`
+  return <Navigate to={target} replace />
+}
+
+/**
+ * Learning's legacy `/learning/innstillinger?tab=…` URL preserves the
+ * query string verbatim — the existing `LearningSettings` component
+ * (registered as a single section under the `learning` scope) reads
+ * `?tab=` itself, so we hand it through untouched.
+ */
+function LegacyLearningRedirect() {
+  const { search, hash } = useLocation()
+  return <Navigate to={`/admin/settings/learning${search}${hash}`} replace />
 }
 
 function AppRouterLayout() {
@@ -259,8 +285,8 @@ const router = createBrowserRouter(
                       <Route path="tasks/management" element={<TasksManagementPage />} />
                       <Route path="tasks/management/analyse" element={<TasksAnalysePage />} />
                       <Route path="tasks/management/alle" element={<TasksAllePage />} />
-                      <Route path="tasks/management/admin" element={<TasksAdminPage />} />
-                      <Route path="tasks/management/admin/:tab" element={<TasksAdminPage />} />
+                      <Route path="tasks/management/admin" element={<LegacyAdminRedirect scope="tasks" />} />
+                      <Route path="tasks/management/admin/:tab" element={<LegacyAdminRedirect scope="tasks" />} />
                       <Route path="tasks/management/review" element={<TasksManagementReviewPage />} />
                       <Route path="overview/hms" element={<PackProvider><HmsOverviewPage /></PackProvider>} />
                       <Route path="overview/compliance-selskap" element={<ComplianceCompanyPage />} />
@@ -296,14 +322,7 @@ const router = createBrowserRouter(
                           </RouteErrorBoundary>
                         }
                       />
-                      <Route
-                        path="meetings/admin"
-                        element={
-                          <RouteErrorBoundary title="Kunne ikke vise innstillinger">
-                            <MeetingsAdminPage />
-                          </RouteErrorBoundary>
-                        }
-                      />
+                      <Route path="meetings/admin" element={<LegacyAdminRedirect scope="meetings" />} />
                       <Route
                         path="meetings/:meetingId/eksport"
                         element={
@@ -361,14 +380,7 @@ const router = createBrowserRouter(
                           </PackProvider>
                         }
                       />
-                      <Route
-                        path="compliance/checklists/admin"
-                        element={
-                          <PackProvider>
-                            <ComplianceChecklistsAdminPage />
-                          </PackProvider>
-                        }
-                      />
+                      <Route path="compliance/checklists/admin" element={<LegacyAdminRedirect scope="compliance" />} />
                       <Route
                         path="compliance/checklists/analyse"
                         element={
@@ -408,7 +420,7 @@ const router = createBrowserRouter(
                       <Route path="ros/admin"   element={<RosModuleAdminPage />} />
                       <Route path="ros/:rosId"  element={<RosAnalysisDetailPage />} />
                       <Route path="survey" element={<SurveyModulePage />} />
-                      <Route path="survey/admin" element={<SurveyModuleAdminPage />} />
+                      <Route path="survey/admin" element={<LegacyAdminRedirect scope="survey" />} />
                       <Route path="survey/analyse" element={<SurveyAnalysePage />} />
                       <Route path="survey/alle" element={<SurveyAllePage />} />
                       <Route path="survey/leverandorer" element={<SurveyVendorsPage />} />
@@ -439,7 +451,7 @@ const router = createBrowserRouter(
                       <Route path="learning/courses/:courseId" element={<LearningCourseBuilder />} />
                       <Route path="registers" element={<RegistersHubPage />} />
                       <Route path="registers/analyse" element={<RegistersAnalysePage />} />
-                      <Route path="registers/admin" element={<RegistersAdminPage />} />
+                      <Route path="registers/admin" element={<LegacyAdminRedirect scope="registers" />} />
                       <Route path="registers/:typeId" element={<RegisterTypePage />} />
                       <Route path="learning" element={<LearningLayout />}>
                         <Route index element={<LearningDashboard />} />
@@ -449,15 +461,15 @@ const router = createBrowserRouter(
                         <Route path="kompetanse" element={<LearningKompetansePage />} />
                         <Route path="analyse" element={<LearningAnalysePage />} />
                         <Route path="alle" element={<LearningAllePage />} />
-                        <Route path="innstillinger" element={<LearningSettings />} />
+                        <Route path="innstillinger" element={<LegacyLearningRedirect />} />
                         {/* Back-compat redirects — old URLs land on the new IA. */}
                         <Route path="courses" element={<Navigate to="/learning/katalog" replace />} />
                         <Route path="participants" element={<Navigate to="/learning/deltakere" replace />} />
                         <Route path="compliance" element={<Navigate to="/learning/deltakere?view=heatmap" replace />} />
                         <Route path="certifications" element={<Navigate to="/learning/kompetanse" replace />} />
                         <Route path="external" element={<Navigate to="/learning/kompetanse?tab=ekstern" replace />} />
-                        <Route path="settings" element={<Navigate to="/learning/innstillinger" replace />} />
-                        <Route path="paths" element={<Navigate to="/learning/innstillinger?tab=stier" replace />} />
+                        <Route path="settings" element={<Navigate to="/admin/settings/learning" replace />} />
+                        <Route path="paths" element={<Navigate to="/admin/settings/learning?tab=stier" replace />} />
                         <Route path="insights" element={<Navigate to="/learning" replace />} />
                       </Route>
                       <Route path="prosesser" element={<Navigate to="/workflow" replace />} />
@@ -492,7 +504,7 @@ const router = createBrowserRouter(
                             </RouteErrorBoundary>
                           }
                         />
-                        <Route path="documents/admin" element={<Navigate to="/documents/templates" replace />} />
+                        <Route path="documents/admin" element={<LegacyAdminRedirect scope="documents" />} />
                         <Route
                           path="documents/templates/org/:templateId/edit"
                           element={
@@ -501,7 +513,7 @@ const router = createBrowserRouter(
                             </RouteErrorBoundary>
                           }
                         />
-                        <Route path="documents/templates" element={<DocumentsModuleAdminPage />} />
+                        <Route path="documents/templates" element={<LegacyAdminRedirect scope="documents" />} />
                         <Route path="documents/reviews" element={<DocumentReviewsPage />} />
                         <Route path="documents/moderation" element={<DocumentModerationQueuePage />} />
                         <Route path="documents/privacy" element={<DocumentPrivacyPage />} />

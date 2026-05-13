@@ -6,7 +6,7 @@ import { BarChart2 } from 'lucide-react'
 import { ModuleSectionCard } from '../../../src/components/module/ModuleSectionCard'
 import { useMeetings } from '../index'
 import { MEETING_FRAMEWORK_LABEL } from '../meetingsLabels'
-import { MeetingFrameworkIcon } from '../../../src/pages/meetings/MeetingsAdminPage'
+import { MeetingFrameworkIcon } from '../MeetingFrameworkIcon'
 
 export function MeetingsStatistikkTab() {
   const meetings = useMeetings()

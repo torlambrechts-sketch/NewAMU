@@ -10,7 +10,7 @@ import { ModuleSectionCard } from '../../../src/components/module/ModuleSectionC
 import { InfoBox } from '../../../src/components/ui/AlertBox'
 import { useMeetings } from '../index'
 import { MEETING_FRAMEWORK_LABEL } from '../meetingsLabels'
-import { MeetingFrameworkIcon } from '../../../src/pages/meetings/MeetingsAdminPage'
+import { MeetingFrameworkIcon } from '../MeetingFrameworkIcon'
 
 export function MeetingsPakkerTab() {
   const meetings = useMeetings()
