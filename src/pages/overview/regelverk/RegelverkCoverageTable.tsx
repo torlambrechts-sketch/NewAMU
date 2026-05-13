@@ -45,10 +45,10 @@ function StatusPill({ req }: { req: RequirementWithCoverage }) {
     return (
       <span
         className="inline-flex items-center gap-1.5 rounded-full bg-amber-50 px-2.5 py-1 text-[11px] font-semibold text-amber-900 ring-1 ring-inset ring-amber-200"
-        title={`Mangler reell proof — ${bits.join(', ') || 'kun mal tilgjengelig'}`}
+        title={`Mangler reelt bevis — ${bits.join(', ') || 'kun mal tilgjengelig'}`}
       >
         <Clock className="size-3.5 shrink-0 text-amber-600" aria-hidden />
-        Mangler proof
+        Mangler bevis
       </span>
     )
   }
@@ -254,7 +254,7 @@ export function RegelverkCoverageTable({
               >
                 <option value="all">Alle</option>
                 <option value="covered">Dekket</option>
-                <option value="partial">Mangler proof</option>
+                <option value="partial">Mangler bevis</option>
                 <option value="only_avvik">Kun avvik</option>
                 <option value="uncovered">Udekket</option>
               </select>

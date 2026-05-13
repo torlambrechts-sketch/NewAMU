@@ -1,18 +1,20 @@
 // Regelverk-dekning — dashboard under Oversikt.
 //
-// Tre-lags layout: (1) to KPI-kort på toppen, (2) kategori-sidebar
-// til venstre, (3) List2-tabell med modul-chips, status- og plikt-pill.
-// Slide-over åpnes per krav via klikk på rad.
+// To visninger: (1) tabell med modul-chips, status- og plikt-pill,
+// (2) scorecard-mønster med ett kort per kategori og én rad per krav.
+// Slide-over åpnes per krav via klikk på rad i begge visninger.
 //
 // Erstatter den utilitære admin-versjonen i RegelverkCoveragePage.tsx.
 
 import { useMemo, useState } from 'react'
+import { LayoutGrid, List } from 'lucide-react'
 import { ModulePageShell } from '../../../components/module'
 import { SearchableSelect, type SelectOption } from '../../../components/ui/SearchableSelect'
 import { REGELVERK, REQUIREMENTS } from '../../../data/regelverkRequirements'
 import { useRegelverkCoverage, type CoverageEntry } from '../../../hooks/useRegelverkCoverage'
 import { RegelverkKpiHeader } from './RegelverkKpiHeader'
 import { RegelverkCoverageTable } from './RegelverkCoverageTable'
+import { RegelverkScorecardView } from './RegelverkScorecardView'
 import { RegelverkCoverageSlideOver } from './RegelverkCoverageSlideOver'
 import {
   isFreshProof,
@@ -21,12 +23,15 @@ import {
   type RequirementWithCoverage,
 } from './regelverkCoverageTypes'
 
+type ViewMode = 'table' | 'scorecard'
+
 export function RegelverkCoverageDashboardPage() {
   const [selectedRegelverk, setSelectedRegelverk] = useState<string>('aml')
   // '' = all categories
   const [selectedCategory, setSelectedCategory] = useState<string>('')
   const [search, setSearch] = useState('')
   const [openLawRef, setOpenLawRef] = useState<string | null>(null)
+  const [viewMode, setViewMode] = useState<ViewMode>('table')
   const { coverage, loading } = useRegelverkCoverage()
 
   const regelverk = useMemo(
@@ -72,7 +77,7 @@ export function RegelverkCoverageDashboardPage() {
       }
       for (const e of entries) byKind[e.kind] += 1
 
-      // Status (v2 — krever reell proof):
+      // Status (v2 — krever reelt bevis):
       //  covered    = ≥1 fersk publisert INSTANCE (kurs/dokument) i orgen,
       //               oppdatert siste 12 mnd.
       //  partial    = mal eller utdatert/utkast-instans finnes — orgen
@@ -184,6 +189,34 @@ export function RegelverkCoverageDashboardPage() {
         {regelverk ? (
           <p className="max-w-md text-sm text-neutral-600">{regelverk.description}</p>
         ) : null}
+
+        {/* View toggle */}
+        <div className="flex items-center self-end rounded-lg border border-neutral-200 bg-white p-1">
+          <button
+            type="button"
+            onClick={() => setViewMode('table')}
+            aria-label="Tabellvisning"
+            className={`rounded-md p-1.5 transition ${
+              viewMode === 'table'
+                ? 'bg-neutral-900 text-white'
+                : 'text-neutral-500 hover:text-neutral-800'
+            }`}
+          >
+            <List className="size-4" />
+          </button>
+          <button
+            type="button"
+            onClick={() => setViewMode('scorecard')}
+            aria-label="Scorecard-visning"
+            className={`rounded-md p-1.5 transition ${
+              viewMode === 'scorecard'
+                ? 'bg-neutral-900 text-white'
+                : 'text-neutral-500 hover:text-neutral-800'
+            }`}
+          >
+            <LayoutGrid className="size-4" />
+          </button>
+        </div>
       </div>
 
       <RegelverkKpiHeader
@@ -205,13 +238,22 @@ export function RegelverkCoverageDashboardPage() {
         </div>
       ) : null}
 
-      <RegelverkCoverageTable
-        requirements={requirementsWithCoverage}
-        search={search}
-        onSearchChange={setSearch}
-        selectedCategory={selectedCategory === '' ? null : selectedCategory}
-        onOpenRow={setOpenLawRef}
-      />
+      {viewMode === 'table' ? (
+        <RegelverkCoverageTable
+          requirements={requirementsWithCoverage}
+          search={search}
+          onSearchChange={setSearch}
+          selectedCategory={selectedCategory === '' ? null : selectedCategory}
+          onOpenRow={setOpenLawRef}
+        />
+      ) : (
+        <RegelverkScorecardView
+          requirements={requirementsWithCoverage}
+          search={search}
+          selectedCategory={selectedCategory === '' ? null : selectedCategory}
+          onOpenRow={setOpenLawRef}
+        />
+      )}
 
       <RegelverkCoverageSlideOver
         open={openReq !== null}
