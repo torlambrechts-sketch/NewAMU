@@ -112,16 +112,8 @@ function stepAccent(step: WorkflowFlowStep): string {
   return 'bg-emerald-100 text-emerald-900'
 }
 
-function FlowConnector() {
-  return (
-    <div className="flex justify-center py-1" aria-hidden>
-      <div className="flex flex-col items-center gap-0.5 text-[#1a3d32]/70">
-        <div className="h-4 w-px bg-current" />
-        <div className="size-0 border-x-[5px] border-t-[6px] border-x-transparent border-t-current" />
-      </div>
-    </div>
-  )
-}
+// FlowConnector removed — the InsertGap component inside FlowStepsBlock
+// now provides both the visual gap and the inline picker affordance.
 
 function StepRow({
   step,
@@ -247,6 +239,12 @@ function FlowStepsBlock({
 }) {
   const [whenPick, setWhenPick] = useState('')
   const [actPick, setActPick] = useState('')
+  // Per-gap inline picker: which gap (0 = before step 0, 1 = between
+  // step 0 and 1, …, steps.length = after the last step) the user is
+  // currently inserting into. null = no inline picker open.
+  const [insertAt, setInsertAt] = useState<number | null>(null)
+  const [insertWhen, setInsertWhen] = useState('')
+  const [insertAct, setInsertAct] = useState('')
 
   const handleDropOnList = (e: React.DragEvent, dropIndex: number) => {
     e.preventDefault()
@@ -260,75 +258,143 @@ function FlowStepsBlock({
     moveStep(branchId, from, Math.max(0, to))
   }
 
-  function addWhenPreset(presetId: string) {
+  function addWhenPreset(presetId: string, atIndex?: number) {
     if (!presetId) return
     const pr = inputPresets.find((p) => p.id === presetId)
     if (!pr) return
-    insertStep(branchId, steps.length, {
+    insertStep(branchId, atIndex ?? steps.length, {
       id: newFlowStepId(),
       kind: 'condition',
       label: pr.label,
       condition: pr.condition,
     })
     setWhenPick('')
+    setInsertWhen('')
+    setInsertAt(null)
   }
 
-  function addActionTemplate(tmpl: string) {
+  function addActionTemplate(tmpl: string, atIndex?: number) {
     if (!tmpl) return
     const template = tmpl as ActionTemplate
-    insertStep(branchId, steps.length, {
+    insertStep(branchId, atIndex ?? steps.length, {
       id: newFlowStepId(),
       kind: 'actions',
       label: actionBlockLabel(template),
       actions: actionsForTemplate(template),
     })
     setActPick('')
+    setInsertAct('')
+    setInsertAt(null)
   }
 
   const whenPresetOptions = [{ value: '', label: 'Velg…' }, ...inputPresets.map((pr) => ({ value: pr.id, label: pr.label }))]
 
-  return (
-    <div className="space-y-3">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
-        <div className="min-w-0 flex-1">
-          <p className={FIELD_LABEL}>Legg til inndata (når)</p>
-          <SearchableSelect
-            value={whenPick}
-            options={whenPresetOptions}
-            onChange={(v) => {
-              setWhenPick(v)
-              addWhenPreset(v)
-            }}
-          />
+  // Inline insert affordance — between two steps OR after the last step.
+  // Renders an "+ Sett inn her" button; on click, swaps to two compact
+  // pickers (Når / Så) that insert at the given index.
+  const InsertGap = ({ index }: { index: number }) => {
+    if (insertAt !== index) {
+      return (
+        <div className="flex justify-center py-1">
+          <button
+            type="button"
+            onClick={() => setInsertAt(index)}
+            className="rounded-full border border-dashed border-neutral-300 bg-white px-2.5 py-0.5 text-[11px] text-neutral-500 hover:border-[#1a3d32] hover:text-[#1a3d32]"
+          >
+            + Sett inn her
+          </button>
         </div>
-        <div className="min-w-0 flex-1">
-          <p className={FIELD_LABEL}>Legg til handling (så)</p>
-          <SearchableSelect
-            value={actPick}
-            options={ACTION_SELECT_OPTIONS}
-            onChange={(v) => {
-              setActPick(v)
-              addActionTemplate(v)
+      )
+    }
+    return (
+      <div className="my-2 rounded-lg border border-[#1a3d32]/30 bg-emerald-50/40 p-3">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
+          <div className="min-w-0 flex-1">
+            <p className={FIELD_LABEL}>Sett inn inndata (når)</p>
+            <SearchableSelect
+              value={insertWhen}
+              options={whenPresetOptions}
+              onChange={(v) => {
+                setInsertWhen(v)
+                addWhenPreset(v, index)
+              }}
+            />
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className={FIELD_LABEL}>Sett inn handling (så)</p>
+            <SearchableSelect
+              value={insertAct}
+              options={ACTION_SELECT_OPTIONS}
+              onChange={(v) => {
+                setInsertAct(v)
+                addActionTemplate(v, index)
+              }}
+            />
+          </div>
+          <button
+            type="button"
+            onClick={() => {
+              setInsertAt(null)
+              setInsertWhen('')
+              setInsertAct('')
             }}
-          />
+            className="rounded-md border border-neutral-300 bg-white px-2.5 py-1 text-[11px] text-neutral-700 hover:bg-neutral-50"
+          >
+            Avbryt
+          </button>
         </div>
       </div>
+    )
+  }
 
+  return (
+    <div className="space-y-3">
       <div
         className="min-h-[140px] rounded-lg border border-neutral-200/90 bg-white p-3"
         onDragOver={(e) => e.preventDefault()}
         onDrop={(e) => handleDropOnList(e, steps.length)}
       >
         <p className={`${FIELD_LABEL} mb-2 text-neutral-500`}>Rekkefølge</p>
+        <p className={`${WF_LEAD} mb-2 text-xs text-neutral-500`}>
+          Trekk i grepet for å endre rekkefølge. Klikk «Sett inn her» mellom steg for å legge til
+          inndata eller handling.
+        </p>
         <div className="space-y-0">
           {steps.length === 0 ? (
-            <p className={`${WF_LEAD} py-6 text-center text-neutral-500`}>
-              Ingen steg ennå. Velg inndata eller handling over.
-            </p>
+            <>
+              <p className={`${WF_LEAD} py-3 text-center text-neutral-500`}>
+                Ingen steg ennå. Legg til ditt første inndata- eller handling-steg under.
+              </p>
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
+                <div className="min-w-0 flex-1">
+                  <p className={FIELD_LABEL}>Legg til inndata (når)</p>
+                  <SearchableSelect
+                    value={whenPick}
+                    options={whenPresetOptions}
+                    onChange={(v) => {
+                      setWhenPick(v)
+                      addWhenPreset(v)
+                    }}
+                  />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className={FIELD_LABEL}>Legg til handling (så)</p>
+                  <SearchableSelect
+                    value={actPick}
+                    options={ACTION_SELECT_OPTIONS}
+                    onChange={(v) => {
+                      setActPick(v)
+                      addActionTemplate(v)
+                    }}
+                  />
+                </div>
+              </div>
+            </>
           ) : null}
           {steps.map((step, i) => (
             <div key={step.id}>
-              {i > 0 ? <FlowConnector /> : null}
+              {/* Insert gap BEFORE this step */}
+              <InsertGap index={i} />
               <div
                 onDragOver={(e) => e.preventDefault()}
                 onDrop={(e) => {
@@ -353,6 +419,8 @@ function FlowStepsBlock({
               </div>
             </div>
           ))}
+          {/* Insert gap AFTER the last step */}
+          {steps.length > 0 ? <InsertGap index={steps.length} /> : null}
         </div>
       </div>
     </div>
