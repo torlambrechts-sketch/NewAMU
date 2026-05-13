@@ -19,51 +19,29 @@ import { listWorkflowScopes } from './workflowRegistry'
 // scope file here. The order doesn't matter; registerWorkflowScope is
 // idempotent.
 import '../../pages/compliance/workflows/complianceWorkflowScope'
-// TODO Phase B: import scope files for the remaining 11 modules:
-//   - src/pages/survey/workflows/surveyWorkflowScope
-//   - src/pages/tasks/workflows/tasksWorkflowScope
-//   - src/pages/documents/workflows/documentsWorkflowScope
-//   - src/pages/meetings/workflows/meetingsWorkflowScope
-//   - src/pages/learning/workflows/learningWorkflowScope
-//   - src/pages/registers/workflows/registersWorkflowScope
-//   - src/pages/inspection/workflows/inspectionWorkflowScope
-//   - src/pages/ros/workflows/rosWorkflowScope
-//   - src/pages/action-plan/workflows/actionPlanWorkflowScope
-//   - src/pages/vernerunder/workflows/vernerunderWorkflowScope
-//   - src/pages/internal-control/workflows/internalControlWorkflowScope
-//   - src/lib/workflows/gov/govWorkflowScope (cross-cutting)
-//
-// Each new scope file ALSO adds its line above. The startup assertion
-// below flags missing registrations in dev so this list stays honest.
+import '../../pages/survey/workflows/surveyWorkflowScope'
+import '../../pages/tasks/workflows/tasksWorkflowScope'
+import '../../pages/documents/workflows/documentsWorkflowScope'
+import '../../pages/meetings/workflows/meetingsWorkflowScope'
+import '../../pages/learning/workflows/learningWorkflowScope'
+import '../../pages/registers/workflows/registersWorkflowScope'
+import '../../pages/inspection/workflows/inspectionWorkflowScope'
+import '../../pages/ros/workflows/rosWorkflowScope'
+import '../../pages/action-plan/workflows/actionPlanWorkflowScope'
+import '../../pages/vernerunder/workflows/vernerunderWorkflowScope'
+import '../../pages/internal-control/workflows/internalControlWorkflowScope'
+import './gov/govWorkflowScope'
 
 if (import.meta.env?.DEV) {
   // Defer until microtask so module-init side effects have a chance to fire.
   queueMicrotask(() => {
     const registered = new Set(listWorkflowScopes().map((s) => s.scopeId))
     const expected = WORKFLOW_SOURCE_MODULES.map((m) => m.value)
-    const missing = expected.filter(
-      (m) =>
-        !registered.has(m) &&
-        // Excluded from the assertion until their scope files land:
-        ![
-          'survey',
-          'tasks',
-          'documents',
-          'meetings',
-          'learning',
-          'registers',
-          'inspection',
-          'ros',
-          'action_plan',
-          'internal_control',
-          'vernerunder',
-          'workplace_reporting',
-          'org_health',
-          'hse',
-          'wiki_published',
-          'gov',
-        ].includes(m),
-    )
+    // Modules we deliberately don't model as a workflow scope yet:
+    //   - hse: umbrella key, covered by inspection/ros/vernerunder
+    //   - workplace_reporting / org_health / wiki_published: legacy aggregates
+    const excluded = new Set(['hse', 'workplace_reporting', 'org_health', 'wiki_published'])
+    const missing = expected.filter((m) => !registered.has(m) && !excluded.has(m))
     if (missing.length > 0) {
       console.warn(
         '[workflows] Missing scope registrations:',

@@ -417,7 +417,7 @@ export const WORKFLOW_SOURCE_MODULES = [
   { value: 'inspection', label: 'Inspeksjonsmodul — funn (inspection_findings)' },
   { value: 'ros', label: 'ROS — risikoanalyse' },
   { value: 'action_plan', label: 'Handlingsplan — tiltak' },
-  { value: 'internal_control', label: 'Internkontroll (årsgjennomgang)' },
+  { value: 'internkontroll', label: 'Internkontroll (årsgjennomgang)' },
   { value: 'vernerunder', label: 'Vernerunder' },
   { value: 'workplace_reporting', label: 'Arbeidsplassrapportering (saker, anonym AML, …)' },
   { value: 'org_health', label: 'Organisasjonshelse (sykefravær, …)' },
