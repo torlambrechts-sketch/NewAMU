@@ -85,6 +85,7 @@ import { LearningSettings } from './pages/learning/LearningSettings'
 import { LearningAnalysePage } from './pages/learning/LearningAnalysePage'
 import { HmsOverviewPage } from './pages/overview/HmsOverviewPage'
 import { ArbeidsmiljostrategiPage } from './pages/wellbeing/ArbeidsmiljostrategiPage'
+import { ArbeidsmiljostrategiRapportPage } from './pages/wellbeing/ArbeidsmiljostrategiRapportPage'
 import { MinTrivselPage } from './pages/wellbeing/MinTrivselPage'
 import { ComplianceCompanyPage } from './pages/admin/ComplianceCompanyPage'
 import { CompliancePersonalPage } from './pages/admin/CompliancePersonalPage'
@@ -262,6 +263,7 @@ const router = createBrowserRouter(
                       <Route path="tasks/management/review" element={<TasksManagementReviewPage />} />
                       <Route path="overview/hms" element={<PackProvider><HmsOverviewPage /></PackProvider>} />
                       <Route path="overview/arbeidsmiljostrategi" element={<PackProvider><ArbeidsmiljostrategiPage /></PackProvider>} />
+                      <Route path="overview/arbeidsmiljostrategi/rapport" element={<PackProvider><ArbeidsmiljostrategiRapportPage /></PackProvider>} />
                       <Route path="min-trivsel" element={<MinTrivselPage />} />
                       <Route path="overview/compliance-selskap" element={<ComplianceCompanyPage />} />
                       <Route path="overview/compliance-min" element={<CompliancePersonalPage />} />

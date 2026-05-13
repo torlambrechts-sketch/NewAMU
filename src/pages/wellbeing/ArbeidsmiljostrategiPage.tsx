@@ -13,6 +13,7 @@ import {
   BarChart3,
   Camera,
   ExternalLink,
+  Printer,
   ShieldCheck,
   Sparkles,
   Target,
@@ -366,6 +367,14 @@ export function ArbeidsmiljostrategiPage() {
               className="inline-flex items-center gap-1.5 rounded-md border border-neutral-300 bg-white px-3 py-1.5 text-sm font-semibold text-neutral-700 hover:bg-neutral-50"
             >
               <ArrowLeft className="h-4 w-4" aria-hidden /> HMS-oversikt
+            </Link>
+            <Link
+              to="/overview/arbeidsmiljostrategi/rapport?autoprint=1"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1.5 rounded-md border border-amber-300 bg-amber-50 px-3 py-1.5 text-sm font-semibold text-amber-900 hover:bg-amber-100"
+            >
+              <Printer className="h-4 w-4" aria-hidden /> Styreromsrapport
             </Link>
             <Link
               to="/overview/compliance-selskap"
