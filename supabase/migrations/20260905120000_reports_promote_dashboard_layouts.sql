@@ -88,6 +88,7 @@ create index if not exists dashboard_layouts_org_kind_published_idx
 create or replace function public.dashboard_layouts_before_update()
 returns trigger
 language plpgsql
+set search_path = public, pg_catalog
 as $$
 declare
   v_republishing boolean := coalesce(nullif(current_setting('request.republishing', true), ''), 'off') = 'on';
