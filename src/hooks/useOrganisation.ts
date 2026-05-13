@@ -10,7 +10,14 @@ import {
 } from '../lib/orgModulePayload'
 import { useOrgSetupContext } from './useOrgSetupContext'
 import type { OrganizationMemberRow } from '../types/organization'
-import type { OrgEmployee, OrgSettings, OrgUnit, OrgUnitKind, UserGroup } from '../types/organisation'
+import type {
+  DataRetentionPolicy,
+  OrgEmployee,
+  OrgSettings,
+  OrgUnit,
+  OrgUnitKind,
+  UserGroup,
+} from '../types/organisation'
 
 const MODULE_KEY: OrgModulePayloadKey = 'organisation'
 const STORAGE_KEY = 'atics-organisation-v2'
@@ -419,6 +426,89 @@ export function useOrganisation() {
     return withEmail.filter((e) => set.has(e.id))
   }, [activeEmployees, state.settings.approvedTaskSignerEmployeeIds])
 
+  // ─── Data retention policies ────────────────────────────────────────────
+  // Pinpoint-style multi-policy retention. The org keeps a default policy and
+  // optionally extra policies that locations (`OrgUnit.dataRetentionPolicyId`)
+  // opt into. Marking a new policy as default unsets the previous default.
+
+  const createRetentionPolicy = useCallback(
+    (input: { name: string; retentionMonths: number; recentActivityMonths?: number; isDefault?: boolean; description?: string }) => {
+      const n = new Date().toISOString()
+      const policy: DataRetentionPolicy = {
+        id: crypto.randomUUID(),
+        name: input.name.trim() || 'Ny policy',
+        retentionMonths: Math.max(0, Math.floor(input.retentionMonths)),
+        recentActivityMonths:
+          input.recentActivityMonths !== undefined ? Math.max(0, Math.floor(input.recentActivityMonths)) : undefined,
+        isDefault: input.isDefault ?? false,
+        description: input.description?.trim() || undefined,
+        createdAt: n,
+        updatedAt: n,
+      }
+      setState((s) => {
+        const existing = s.settings.dataRetentionPolicies ?? []
+        const next = policy.isDefault
+          ? [...existing.map((p) => ({ ...p, isDefault: false, updatedAt: n })), policy]
+          : [...existing, policy]
+        // If this is the first policy, force-default it.
+        if (next.length === 1) next[0] = { ...next[0], isDefault: true }
+        return { ...s, settings: { ...s.settings, dataRetentionPolicies: next } }
+      })
+      return policy
+    },
+    [setState],
+  )
+
+  const updateRetentionPolicy = useCallback(
+    (id: string, patch: Partial<Omit<DataRetentionPolicy, 'id' | 'createdAt'>>) => {
+      const n = new Date().toISOString()
+      setState((s) => {
+        const cur = s.settings.dataRetentionPolicies ?? []
+        const becomingDefault = patch.isDefault === true
+        const next = cur.map((p) => {
+          if (p.id === id) return { ...p, ...patch, updatedAt: n }
+          if (becomingDefault) return { ...p, isDefault: false, updatedAt: n }
+          return p
+        })
+        return { ...s, settings: { ...s.settings, dataRetentionPolicies: next } }
+      })
+    },
+    [setState],
+  )
+
+  const deleteRetentionPolicy = useCallback(
+    (id: string) => {
+      const n = new Date().toISOString()
+      setState((s) => {
+        const cur = s.settings.dataRetentionPolicies ?? []
+        const target = cur.find((p) => p.id === id)
+        let next = cur.filter((p) => p.id !== id)
+        // Re-anchor the default if we removed it.
+        if (target?.isDefault && next.length > 0) {
+          next = next.map((p, i) => (i === 0 ? { ...p, isDefault: true, updatedAt: n } : p))
+        }
+        // Clear the assignment from any unit pointing at the deleted policy.
+        const units = s.units.map((u) =>
+          u.dataRetentionPolicyId === id ? { ...u, dataRetentionPolicyId: undefined, updatedAt: n } : u,
+        )
+        return { ...s, settings: { ...s.settings, dataRetentionPolicies: next }, units }
+      })
+    },
+    [setState],
+  )
+
+  const setDefaultRetentionPolicy = useCallback(
+    (id: string) => {
+      const n = new Date().toISOString()
+      setState((s) => {
+        const cur = s.settings.dataRetentionPolicies ?? []
+        const next = cur.map((p) => ({ ...p, isDefault: p.id === id, updatedAt: n }))
+        return { ...s, settings: { ...s.settings, dataRetentionPolicies: next } }
+      })
+    },
+    [setState],
+  )
+
   const toggleApprovedTaskSigner = useCallback(
     (employeeId: string, on: boolean) => {
       const cur = new Set(state.settings.approvedTaskSignerEmployeeIds ?? [])
@@ -496,6 +586,10 @@ export function useOrganisation() {
     error: useRemote ? error : null,
     backend: useRemote ? ('supabase' as const) : ('local' as const),
     updateSettings,
+    createRetentionPolicy,
+    updateRetentionPolicy,
+    deleteRetentionPolicy,
+    setDefaultRetentionPolicy,
     createEmployee,
     updateEmployee,
     deactivateEmployee,

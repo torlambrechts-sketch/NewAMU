@@ -48,6 +48,33 @@ export type OrgSettings = {
   privacyOfficerEmail?: string
   /** Reference to data processing agreements (DPA) with processors */
   dpaDocumentRef?: string
+  /**
+   * Named data retention policies the org can assign per-location (Pinpoint pattern).
+   * Exactly one entry should carry `isDefault: true` — that policy applies wherever
+   * a location has not opted into a specific override.
+   */
+  dataRetentionPolicies?: DataRetentionPolicy[]
+}
+
+// ─── Data retention policies ─────────────────────────────────────────────────
+// Multiple named policies can be configured (e.g. per region) and assigned per
+// location via `OrgUnit.dataRetentionPolicyId`. The org keeps one default that
+// is applied wherever no explicit assignment exists.
+
+export type DataRetentionPolicy = {
+  id: string
+  /** Human-readable name, e.g. "EU/EEA standard" or "UK 12 months" */
+  name: string
+  /** Months to retain records after the last relevant activity */
+  retentionMonths: number
+  /** Months that count as "recent activity" — extending the retention window when present */
+  recentActivityMonths?: number
+  /** True for the org-wide default policy */
+  isDefault?: boolean
+  /** Optional notes describing legal basis or scope */
+  description?: string
+  createdAt: string
+  updatedAt: string
 }
 
 export const DEFAULT_ORG_SETTINGS: OrgSettings = {
@@ -180,6 +207,17 @@ export type OrgUnit = {
   memberCount?: number
   /** Hex colour for org chart display */
   color?: string
+  /**
+   * For `kind: 'location'` only — overrides the org-wide default
+   * `DataRetentionPolicy`. References `DataRetentionPolicy.id`.
+   */
+  dataRetentionPolicyId?: string
+  /** For `kind: 'location'`: postal address shown in job-board syncs and reports */
+  address?: string
+  /** ISO country code, e.g. "NO", "GB" */
+  countryCode?: string
+  /** Optional time zone, e.g. "Europe/Oslo" */
+  timezone?: string
   createdAt: string
   updatedAt: string
 }

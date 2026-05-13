@@ -26,6 +26,11 @@ import {
   FileText,
   Calendar,
   ExternalLink,
+  MoreVertical,
+  Star,
+  ArrowRight,
+  MapPin,
+  Layers,
   type LucideIcon,
 } from 'lucide-react'
 import { Badge } from '../components/ui/Badge'
@@ -166,6 +171,146 @@ function initials(name: string) {
   return name.split(' ').map((w) => w[0]).slice(0, 2).join('').toUpperCase()
 }
 
+// ─── Pinpoint-style sub-tab strip (Locations / Departments / Relationships) ──
+// Renders inside the Struktur section. Uses neutral underline tabs with an
+// optional count chip so it reads as a secondary nav, distinct from the page
+// hub above.
+
+type PinpointSubTabItem<T extends string> = { id: T; label: string; count?: number }
+
+function PinpointSubTabs<T extends string>({
+  value,
+  onChange,
+  items,
+}: {
+  value: T
+  onChange: (v: T) => void
+  items: PinpointSubTabItem<T>[]
+}) {
+  return (
+    <div className="border-b border-neutral-200 bg-white px-4 md:px-6">
+      <nav className="-mb-px flex gap-6 overflow-x-auto" aria-label="Struktur — undersider">
+        {items.map((item) => {
+          const selected = item.id === value
+          return (
+            <button
+              key={item.id}
+              type="button"
+              onClick={() => onChange(item.id)}
+              aria-current={selected ? 'page' : undefined}
+              className={`flex shrink-0 items-center gap-2 border-b-2 px-1 py-3 text-sm font-semibold transition ${
+                selected
+                  ? 'border-[#1a3d32] text-[#1a3d32]'
+                  : 'border-transparent text-neutral-500 hover:border-neutral-300 hover:text-neutral-800'
+              }`}
+            >
+              {item.label}
+              {typeof item.count === 'number' ? (
+                <span
+                  className={`inline-flex min-w-[1.5rem] items-center justify-center rounded-full px-1.5 py-0.5 text-[11px] font-semibold tabular-nums ${
+                    selected ? 'bg-[#1a3d32]/10 text-[#1a3d32]' : 'bg-neutral-100 text-neutral-600'
+                  }`}
+                >
+                  {item.count}
+                </span>
+              ) : null}
+            </button>
+          )
+        })}
+      </nav>
+    </div>
+  )
+}
+
+const STRUKTUR_SUB_LABELS = {
+  lokasjoner: 'Lokasjoner',
+  avdelinger: 'Avdelinger',
+  relasjoner: 'Relasjoner',
+} as const
+
+// ─── Relasjoner view ─────────────────────────────────────────────────────────
+// Pinpoint's Relationships tab: shows which departments map to which locations.
+// In NewAMU the link is implicit via the parent chain on `OrgUnit`, so we just
+// render the resolved pair per row and link to the underlying unit edit.
+
+function RelasjonerView({
+  rows,
+  emptyHint,
+  onEditUnit,
+  onAddDepartment,
+}: {
+  rows: { unit: OrgUnit; location?: OrgUnit }[]
+  emptyHint: string
+  onEditUnit: (unit: OrgUnit) => void
+  onAddDepartment: () => void
+}) {
+  if (rows.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center border border-dashed border-neutral-200 py-16 text-center">
+        <p className="text-sm text-neutral-600">Ingen tilknytninger ennå</p>
+        <p className="mt-1 max-w-sm text-xs text-neutral-500">{emptyHint}</p>
+        <Button className="mt-4" onClick={onAddDepartment}>
+          <Plus className="size-4 shrink-0" strokeWidth={2.5} />
+          Ny avdeling
+        </Button>
+      </div>
+    )
+  }
+  return (
+    <div className="overflow-x-auto">
+      <table className="w-full min-w-[640px] border-collapse text-left text-sm">
+        <thead>
+          <tr className="border-b border-neutral-200 bg-neutral-50/70 text-[11px] font-semibold uppercase tracking-wide text-neutral-600">
+            <th className="px-5 py-3">Avdeling</th>
+            <th className="px-5 py-3">Type</th>
+            <th className="px-5 py-3">Lokasjon</th>
+            <th className="w-10 px-2 py-3" />
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map(({ unit, location }) => (
+            <tr
+              key={unit.id}
+              role="button"
+              tabIndex={0}
+              onClick={() => onEditUnit(unit)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault()
+                  onEditUnit(unit)
+                }
+              }}
+              className="cursor-pointer border-b border-neutral-100 align-middle hover:bg-neutral-50/50"
+            >
+              <td className="px-5 py-3 font-medium text-neutral-900">
+                <span className="inline-flex items-center gap-2">
+                  <Layers className="size-4 text-neutral-400" />
+                  {unit.name}
+                </span>
+              </td>
+              <td className="px-5 py-3 text-neutral-600">{KIND_LABELS[unit.kind]}</td>
+              <td className="px-5 py-3 text-neutral-700">
+                {location ? (
+                  <span className="inline-flex items-center gap-2">
+                    <ArrowRight className="size-3.5 text-neutral-400" />
+                    <MapPin className="size-3.5 text-neutral-500" />
+                    {location.name}
+                  </span>
+                ) : (
+                  <span className="italic text-amber-700">Ingen lokasjon</span>
+                )}
+              </td>
+              <td className="px-2 py-3 text-right">
+                <Pencil className="size-3.5 text-neutral-300" aria-hidden />
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  )
+}
+
 // ─── Main page ────────────────────────────────────────────────────────────────
 
 type Tab = 'employees' | 'units' | 'groups' | 'insights' | 'mandates' | 'gdpr' | 'settings'
@@ -263,10 +408,32 @@ export function OrganisationPage() {
   const [unitKindSeg, setUnitKindSeg] = useState<'all' | OrgUnitKind>('all')
   const [expandedUnits, setExpandedUnits] = useState<Set<string>>(() => new Set())
 
-  // Unit form
+  /**
+   * Pinpoint-style sub-tabs inside the Struktur (units) section.
+   * Each sub-tab pre-filters the list and adapts headings + the «Ny» CTA.
+   * Relasjoner shows a derived view of department/team → location parent links.
+   */
+  type StrukturSub = 'lokasjoner' | 'avdelinger' | 'relasjoner'
+  const [strukturSub, setStrukturSub] = useState<StrukturSub>('lokasjoner')
+
+  // Unit form (location fields are conditionally shown when kind === 'location').
   const [unitForm, setUnitForm] = useState({
     name: '', kind: 'department' as OrgUnitKind, parentId: '', headName: '', color: '#0284c7',
+    dataRetentionPolicyId: '' as string,
+    address: '',
+    countryCode: '',
+    timezone: '',
   })
+
+  // Data retention policy form (Selskap → Datavern). null = closed; id present = edit.
+  const [policyDraft, setPolicyDraft] = useState<{
+    id: string | null
+    name: string
+    retentionMonths: string
+    recentActivityMonths: string
+    isDefault: boolean
+    description: string
+  } | null>(null)
 
   // Group form
   const [groupForm, setGroupForm] = useState({
@@ -362,6 +529,7 @@ export function OrganisationPage() {
   function submitUnitPanel(e: React.FormEvent) {
     e.preventDefault()
     if (!unitForm.name.trim()) return
+    const isLocation = unitForm.kind === 'location'
     if (orgSlidePanel?.kind === 'unit' && orgSlidePanel.mode === 'edit' && orgSlidePanel.unit) {
       org.updateUnit(orgSlidePanel.unit.id, {
         name: unitForm.name.trim(),
@@ -369,15 +537,32 @@ export function OrganisationPage() {
         parentId: unitForm.parentId || undefined,
         headName: unitForm.headName || undefined,
         color: unitForm.color,
+        // Location-only fields are cleared when the kind switches away from location.
+        dataRetentionPolicyId: isLocation ? (unitForm.dataRetentionPolicyId || undefined) : undefined,
+        address: isLocation ? (unitForm.address.trim() || undefined) : undefined,
+        countryCode: isLocation ? (unitForm.countryCode.trim() || undefined) : undefined,
+        timezone: isLocation ? (unitForm.timezone.trim() || undefined) : undefined,
       })
     } else {
-      org.createUnit(unitForm.name, unitForm.kind, unitForm.parentId || undefined, {
+      const created = org.createUnit(unitForm.name, unitForm.kind, unitForm.parentId || undefined, {
         headName: unitForm.headName || undefined,
         color: unitForm.color,
       })
+      // Apply location-only fields after creation (createUnit signature only accepts a small subset).
+      if (isLocation) {
+        org.updateUnit(created.id, {
+          dataRetentionPolicyId: unitForm.dataRetentionPolicyId || undefined,
+          address: unitForm.address.trim() || undefined,
+          countryCode: unitForm.countryCode.trim() || undefined,
+          timezone: unitForm.timezone.trim() || undefined,
+        })
+      }
     }
     closeOrgSlidePanel()
-    setUnitForm({ name: '', kind: 'department', parentId: '', headName: '', color: '#0284c7' })
+    setUnitForm({
+      name: '', kind: 'department', parentId: '', headName: '', color: '#0284c7',
+      dataRetentionPolicyId: '', address: '', countryCode: '', timezone: '',
+    })
   }
 
   function submitGroupPanel(e: React.FormEvent) {
@@ -431,9 +616,13 @@ export function OrganisationPage() {
     closeOrgSlidePanel()
   }
 
-  const openUnitPanel = useCallback((mode: 'create' | 'edit', unit?: OrgUnit) => {
+  const openUnitPanel = useCallback((mode: 'create' | 'edit', unit?: OrgUnit, defaultKind?: OrgUnitKind) => {
     if (mode === 'create') {
-      setUnitForm({ name: '', kind: 'department', parentId: '', headName: '', color: '#0284c7' })
+      const kind: OrgUnitKind = defaultKind ?? 'department'
+      setUnitForm({
+        name: '', kind, parentId: '', headName: '', color: KIND_COLORS[kind],
+        dataRetentionPolicyId: '', address: '', countryCode: '', timezone: '',
+      })
       setOrgSlidePanel({ kind: 'unit', mode: 'create' })
     } else if (unit) {
       setUnitForm({
@@ -442,6 +631,10 @@ export function OrganisationPage() {
         parentId: unit.parentId ?? '',
         headName: unit.headName ?? '',
         color: unit.color ?? KIND_COLORS[unit.kind],
+        dataRetentionPolicyId: unit.dataRetentionPolicyId ?? '',
+        address: unit.address ?? '',
+        countryCode: unit.countryCode ?? '',
+        timezone: unit.timezone ?? '',
       })
       setOrgSlidePanel({ kind: 'unit', mode: 'edit', unit })
     }
@@ -505,9 +698,22 @@ export function OrganisationPage() {
     return rows
   }, [org.units, expandedUnits])
 
+  /**
+   * Sub-tab kind filter (Pinpoint Structure tabs):
+   *  - lokasjoner: only physical locations
+   *  - avdelinger: organisational units (department / team / division)
+   *  - relasjoner: rendered separately, but the list reuses the same filter
+   *    against units that have a parent so the count makes sense
+   */
+  const strukturAllowedKinds = useMemo<Set<OrgUnitKind>>(() => {
+    if (strukturSub === 'lokasjoner') return new Set<OrgUnitKind>(['location'])
+    return new Set<OrgUnitKind>(['department', 'team', 'division'])
+  }, [strukturSub])
+
   const filteredUnitRows = useMemo(() => {
     const q = unitSearch.trim().toLowerCase()
     return unitRowsFlat.filter(({ unit }) => {
+      const matchSub = strukturAllowedKinds.has(unit.kind)
       const matchKind = unitKindSeg === 'all' || unit.kind === unitKindSeg
       const matchSearch =
         !q ||
@@ -515,9 +721,46 @@ export function OrganisationPage() {
         (unit.headName ?? '').toLowerCase().includes(q) ||
         (unit.managerName ?? '').toLowerCase().includes(q) ||
         KIND_LABELS[unit.kind].toLowerCase().includes(q)
-      return matchKind && matchSearch
+      return matchSub && matchKind && matchSearch
     })
-  }, [unitRowsFlat, unitSearch, unitKindSeg])
+  }, [unitRowsFlat, unitSearch, unitKindSeg, strukturAllowedKinds])
+
+  /**
+   * Derived department↔location relationships (Pinpoint Relationships tab).
+   * Each row shows a department/team/division and the location it currently
+   * resolves to via parentId chain. A unit with no location ancestor surfaces
+   * as «Ingen lokasjon» so users can spot orphans.
+   */
+  const relationshipRows = useMemo(() => {
+    const byId = new Map(org.units.map((u) => [u.id, u]))
+    const findLocation = (u: OrgUnit): OrgUnit | undefined => {
+      let cur: OrgUnit | undefined = u
+      const seen = new Set<string>()
+      while (cur && !seen.has(cur.id)) {
+        seen.add(cur.id)
+        if (cur.kind === 'location') return cur
+        cur = cur.parentId ? byId.get(cur.parentId) : undefined
+      }
+      return undefined
+    }
+    const q = unitSearch.trim().toLowerCase()
+    return org.units
+      .filter((u) => u.kind === 'department' || u.kind === 'team' || u.kind === 'division')
+      .map((u) => ({ unit: u, location: findLocation(u) }))
+      .filter(({ unit, location }) => {
+        if (!q) return true
+        return (
+          unit.name.toLowerCase().includes(q) ||
+          (location?.name ?? '').toLowerCase().includes(q) ||
+          KIND_LABELS[unit.kind].toLowerCase().includes(q)
+        )
+      })
+      .sort((a, b) => {
+        const la = a.location?.name ?? '￿'
+        const lb = b.location?.name ?? '￿'
+        return la.localeCompare(lb, 'nb') || a.unit.name.localeCompare(b.unit.name, 'nb')
+      })
+  }, [org.units, unitSearch])
 
   const sortedFilteredUnitRows = useMemo(() => {
     const list = [...filteredUnitRows]
@@ -675,11 +918,11 @@ export function OrganisationPage() {
   const TABS: { id: Tab; label: string; icon: LucideIcon }[] = [
     { id: 'insights',   label: 'Oversikt',         icon: PieChart },
     { id: 'employees',  label: 'Ansatte',           icon: Users },
-    { id: 'units',      label: 'Enheter',           icon: Building2 },
+    { id: 'units',      label: 'Struktur',          icon: Building2 },
     { id: 'groups',     label: 'Brukergrupper',     icon: UserCheck },
     { id: 'mandates',   label: 'Roller & verv',     icon: Shield },
     { id: 'gdpr',       label: 'GDPR & personvern', icon: Lock },
-    { id: 'settings',   label: 'Innstillinger',     icon: Settings2 },
+    { id: 'settings',   label: 'Selskap',           icon: Settings2 },
   ]
 
   const orgTabItems = TABS.map((t) => ({
@@ -1071,6 +1314,82 @@ export function OrganisationPage() {
               </div>
             </div>
           </div>
+          {unitForm.kind === 'location' ? (
+            <>
+              <div className="my-8 border-t border-neutral-200/90" />
+              <div className={WPSTD_FORM_ROW_GRID}>
+                <div>
+                  <h3 className="text-base font-semibold text-neutral-900">Lokasjon</h3>
+                  <p className={`${WPSTD_FORM_LEAD} mt-2`}>
+                    Adresse, land og oppbevaringspolicy. Brukes ved synkronisering mot eksterne system og for
+                    GDPR-vurderinger per kontor.
+                  </p>
+                </div>
+                <div className={WPSTD_FORM_INSET}>
+                  <div className="space-y-4">
+                    <div>
+                      <label className={WPSTD_FORM_FIELD_LABEL} htmlFor="org-unit-slide-address">
+                        Adresse
+                      </label>
+                      <StandardInput
+                        id="org-unit-slide-address"
+                        value={unitForm.address}
+                        onChange={(e) => setUnitForm((f) => ({ ...f, address: e.target.value }))}
+                        placeholder="Gateadresse, postnummer, by"
+                      />
+                    </div>
+                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                      <div>
+                        <label className={WPSTD_FORM_FIELD_LABEL} htmlFor="org-unit-slide-country">
+                          Land (ISO)
+                        </label>
+                        <StandardInput
+                          id="org-unit-slide-country"
+                          value={unitForm.countryCode}
+                          onChange={(e) => setUnitForm((f) => ({ ...f, countryCode: e.target.value.toUpperCase().slice(0, 2) }))}
+                          placeholder="NO"
+                          maxLength={2}
+                        />
+                      </div>
+                      <div>
+                        <label className={WPSTD_FORM_FIELD_LABEL} htmlFor="org-unit-slide-tz">
+                          Tidssone
+                        </label>
+                        <StandardInput
+                          id="org-unit-slide-tz"
+                          value={unitForm.timezone}
+                          onChange={(e) => setUnitForm((f) => ({ ...f, timezone: e.target.value }))}
+                          placeholder="Europe/Oslo"
+                        />
+                      </div>
+                    </div>
+                    <div>
+                      <label className={WPSTD_FORM_FIELD_LABEL} htmlFor="org-unit-slide-policy">
+                        Oppbevaringspolicy
+                      </label>
+                      <select
+                        id="org-unit-slide-policy"
+                        value={unitForm.dataRetentionPolicyId}
+                        onChange={(e) => setUnitForm((f) => ({ ...f, dataRetentionPolicyId: e.target.value }))}
+                        className="mt-1.5 w-full rounded-none border border-neutral-300 bg-white px-3 py-2.5 text-sm text-neutral-900 shadow-none focus:border-neutral-900 focus:outline-none focus:ring-1 focus:ring-neutral-900"
+                      >
+                        <option value="">— Bruk standardpolicy —</option>
+                        {(org.settings.dataRetentionPolicies ?? []).map((p) => (
+                          <option key={p.id} value={p.id}>
+                            {p.name}
+                            {p.isDefault ? ' (standard)' : ''} · {p.retentionMonths} mnd
+                          </option>
+                        ))}
+                      </select>
+                      <p className="mt-1 text-xs text-neutral-500">
+                        Ingen policyer? Opprett dem under <span className="font-semibold">Selskap → Datavern</span>.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </>
+          ) : null}
         </form>
       </WorkplaceStandardFormPanel>
     ) : orgSlidePanel?.kind === 'group' ? (
@@ -1782,14 +2101,26 @@ export function OrganisationPage() {
         {tab === 'units' ? (
           <WorkplaceStandardListLayout
               className="!mt-0"
-              breadcrumb={[{ label: 'Workspace', to: '/' }, { label: 'Organisasjon' }, { label: 'Enheter' }]}
-              title="Enheter"
-              description="Trestruktur med utvidbare rader. Klikk på en rad for å redigere; slett fra sidevinduet."
+              breadcrumb={[{ label: 'Workspace', to: '/' }, { label: 'Organisasjon' }, { label: 'Struktur' }, { label: STRUKTUR_SUB_LABELS[strukturSub] }]}
+              title="Struktur"
+              description={
+                strukturSub === 'lokasjoner'
+                  ? 'Fysiske kontorer / arbeidsplasser. Hver lokasjon kan ha sin egen oppbevaringspolicy.'
+                  : strukturSub === 'avdelinger'
+                    ? 'Avdelinger, team og divisjoner. Knytt til en lokasjon ved å sette overordnet enhet.'
+                    : 'Hvilke avdelinger er knyttet til hvilken lokasjon? Endre tilknytning ved å redigere avdelingen.'
+              }
               hubAriaLabel="Organisasjon — faner"
               hubItems={orgHubMenuItems}
               toolbar={{
-                count: org.units.length > 0 ? { value: sortedFilteredUnitRows.length, label: 'i visning' } : undefined,
-                searchPlaceholder: 'Søk navn, type, leder…',
+                count:
+                  strukturSub === 'relasjoner'
+                    ? (relationshipRows.length > 0 ? { value: relationshipRows.length, label: 'tilknytninger' } : undefined)
+                    : (org.units.length > 0 ? { value: sortedFilteredUnitRows.length, label: 'i visning' } : undefined),
+                searchPlaceholder:
+                  strukturSub === 'lokasjoner' ? 'Søk lokasjon…'
+                    : strukturSub === 'avdelinger' ? 'Søk avdeling, team, leder…'
+                    : 'Søk avdeling eller lokasjon…',
                 searchValue: unitSearch,
                 onSearchChange: setUnitSearch,
                 filtersOpen: unitStdFiltersOpen,
@@ -1797,34 +2128,37 @@ export function OrganisationPage() {
                 filterStatusText: unitKindSeg !== 'all' ? 'Filter aktive' : 'Ingen filter',
                 filterPanel: (
                   <div className="flex flex-col gap-4">
-                    <div>
-                      <p className="text-[10px] font-bold uppercase tracking-wide text-neutral-600">Type</p>
-                      <div className="mt-2 flex flex-wrap gap-2">
-                        {(
-                          [
-                            ['all', 'Alle'] as const,
-                            ['department', 'Avdeling'] as const,
-                            ['division', 'Divisjon'] as const,
-                            ['team', 'Team'] as const,
-                            ['location', 'Lokasjon'] as const,
-                          ] as const
-                        ).map(([id, label]) => {
-                          const selected = unitKindSeg === id
-                          return (
-                            <button
-                              key={id}
-                              type="button"
-                              onClick={() => setUnitKindSeg(id)}
-                              className={`rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-wide ${
-                                selected ? 'bg-[#1a3d32] text-white' : 'bg-white text-neutral-600 hover:bg-neutral-100'
-                              }`}
-                            >
-                              {label}
-                            </button>
-                          )
-                        })}
+                    {strukturSub === 'avdelinger' ? (
+                      <div>
+                        <p className="text-[10px] font-bold uppercase tracking-wide text-neutral-600">Type</p>
+                        <div className="mt-2 flex flex-wrap gap-2">
+                          {(
+                            [
+                              ['all', 'Alle'] as const,
+                              ['department', 'Avdeling'] as const,
+                              ['division', 'Divisjon'] as const,
+                              ['team', 'Team'] as const,
+                            ] as const
+                          ).map(([id, label]) => {
+                            const selected = unitKindSeg === id
+                            return (
+                              <button
+                                key={id}
+                                type="button"
+                                onClick={() => setUnitKindSeg(id)}
+                                className={`rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-wide ${
+                                  selected ? 'bg-[#1a3d32] text-white' : 'bg-white text-neutral-600 hover:bg-neutral-100'
+                                }`}
+                              >
+                                {label}
+                              </button>
+                            )
+                          })}
+                        </div>
                       </div>
-                    </div>
+                    ) : (
+                      <p className="text-sm text-neutral-600">Bruk søk for å filtrere listen.</p>
+                    )}
                     <button
                       type="button"
                       onClick={() => {
@@ -1847,12 +2181,40 @@ export function OrganisationPage() {
                 onSortChange: (v) => setUnitStdSort(v as typeof unitStdSort),
                 viewMode: unitStdViewMode,
                 onViewModeChange: setUnitStdViewMode,
-                primaryAction: { label: 'Ny enhet', onClick: () => openUnitPanel('create'), icon: Plus },
+                primaryAction:
+                  strukturSub === 'lokasjoner'
+                    ? { label: 'Ny lokasjon', onClick: () => openUnitPanel('create', undefined, 'location'), icon: Plus }
+                    : strukturSub === 'avdelinger'
+                      ? { label: 'Ny avdeling', onClick: () => openUnitPanel('create', undefined, 'department'), icon: Plus }
+                      : { label: 'Ny avdeling', onClick: () => openUnitPanel('create', undefined, 'department'), icon: Plus },
               }}
               overlay={orgStandardListOverlay}
               contentClassName="!p-0"
             >
-              {org.units.length === 0 ? (
+              <PinpointSubTabs
+                value={strukturSub}
+                onChange={(v) => {
+                  setStrukturSub(v)
+                  setUnitKindSeg('all')
+                }}
+                items={[
+                  { id: 'lokasjoner',  label: 'Lokasjoner',  count: org.units.filter((u) => u.kind === 'location').length },
+                  { id: 'avdelinger',  label: 'Avdelinger',  count: org.units.filter((u) => u.kind === 'department' || u.kind === 'team' || u.kind === 'division').length },
+                  { id: 'relasjoner',  label: 'Relasjoner',  count: relationshipRows.length },
+                ]}
+              />
+              {strukturSub === 'relasjoner' ? (
+                <RelasjonerView
+                  rows={relationshipRows}
+                  emptyHint={
+                    org.units.length === 0
+                      ? 'Opprett først en lokasjon og minst én avdeling.'
+                      : 'Knytt avdelinger til lokasjoner ved å redigere avdelingen og sette overordnet enhet.'
+                  }
+                  onEditUnit={(unit) => openUnitPanel('edit', unit)}
+                  onAddDepartment={() => openUnitPanel('create', undefined, 'department')}
+                />
+              ) : org.units.length === 0 ? (
                 <div className="flex flex-col items-center justify-center border border-dashed border-neutral-200 py-16 text-center">
                   <p className="text-sm text-neutral-500">Ingen enheter ennå</p>
                   <Button className="mt-4" onClick={() => openUnitPanel('create')}>
@@ -3114,9 +3476,10 @@ export function OrganisationPage() {
         <section className="w-full space-y-8">
           <OrgInsightWhiteCard className="overflow-hidden p-0">
             <div className="border-b border-neutral-100 px-5 py-4 md:px-6">
-              <h2 className="text-lg font-semibold text-neutral-900">Virksomhetsinnstillinger</h2>
+              <h2 className="text-lg font-semibold text-neutral-900">Selskapsprofil</h2>
               <p className="mt-2 text-sm text-neutral-600">
-                Disse verdiene driver AMU/verneombud-terskler og vises i Council-modulen.
+                Grunninfo om virksomheten — driver AMU/verneombud-terskler og vises i Council-modulen.
+                Lokasjoner, avdelinger og relasjoner ligger under <span className="font-semibold">Struktur</span>.
               </p>
             </div>
             <div className="p-4 md:p-6">
@@ -3332,6 +3695,299 @@ export function OrganisationPage() {
               </div>
                 </div>
               </div>
+            </div>
+          </OrgInsightWhiteCard>
+
+          {/* Datavern — Pinpoint-style multi-policy retention */}
+          <OrgInsightWhiteCard className="overflow-hidden p-0">
+            <div className="flex flex-wrap items-start justify-between gap-3 border-b border-neutral-100 px-5 py-4 md:px-6">
+              <div>
+                <h2 className="text-lg font-semibold text-neutral-900">Datavern — oppbevaringspolicyer</h2>
+                <p className="mt-2 max-w-2xl text-sm text-neutral-600">
+                  Definer én eller flere policyer for hvor lenge søkere, ansatte og tilknyttede data oppbevares.
+                  Hver lokasjon kan velge sin egen policy under <span className="font-semibold">Struktur → Lokasjoner</span>;
+                  standardpolicyen brukes for lokasjoner uten eget valg.
+                </p>
+              </div>
+              <Button
+                type="button"
+                onClick={() =>
+                  setPolicyDraft({
+                    id: null,
+                    name: '',
+                    retentionMonths: '24',
+                    recentActivityMonths: '6',
+                    isDefault: (org.settings.dataRetentionPolicies ?? []).length === 0,
+                    description: '',
+                  })
+                }
+              >
+                <Plus className="size-4 shrink-0" strokeWidth={2.5} />
+                Ny policy
+              </Button>
+            </div>
+            <div className="p-4 md:p-6">
+              {(org.settings.dataRetentionPolicies ?? []).length === 0 && !policyDraft ? (
+                <div className="flex flex-col items-center justify-center rounded-lg border border-dashed border-neutral-200 bg-neutral-50/40 py-10 text-center">
+                  <p className="text-sm font-medium text-neutral-700">Ingen policyer definert</p>
+                  <p className="mt-1 max-w-sm text-xs text-neutral-500">
+                    Den første policyen blir automatisk standard. Du kan lage flere senere — for eksempel én per land
+                    der dere har kontorer.
+                  </p>
+                  <Button
+                    type="button"
+                    className="mt-4"
+                    onClick={() =>
+                      setPolicyDraft({
+                        id: null,
+                        name: 'EU/EØS standard',
+                        retentionMonths: '24',
+                        recentActivityMonths: '6',
+                        isDefault: true,
+                        description: '',
+                      })
+                    }
+                  >
+                    <Plus className="size-4 shrink-0" strokeWidth={2.5} />
+                    Opprett første policy
+                  </Button>
+                </div>
+              ) : (
+                <div className="overflow-hidden rounded-lg border border-neutral-200/80 bg-white shadow-sm">
+                  <table className="w-full border-collapse text-left text-sm">
+                    <thead>
+                      <tr className="border-b border-neutral-200 bg-neutral-50/70 text-[11px] font-semibold uppercase tracking-wide text-neutral-600">
+                        <th className="px-5 py-3">Policy</th>
+                        <th className="px-5 py-3">Oppbevaring</th>
+                        <th className="px-5 py-3">Nylig aktivitet</th>
+                        <th className="px-5 py-3">Lokasjoner</th>
+                        <th className="w-12 px-2 py-3 text-right" />
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {(org.settings.dataRetentionPolicies ?? []).map((policy) => {
+                        const usedByCount = org.units.filter((u) => u.dataRetentionPolicyId === policy.id).length
+                        return (
+                          <tr key={policy.id} className="border-b border-neutral-100 align-middle last:border-b-0 hover:bg-neutral-50/40">
+                            <td className="px-5 py-3">
+                              <div className="flex items-center gap-2">
+                                <span className="font-medium text-neutral-900">{policy.name}</span>
+                                {policy.isDefault ? (
+                                  <Badge variant="success" className="inline-flex items-center gap-1">
+                                    <Star className="size-3" />
+                                    Standard
+                                  </Badge>
+                                ) : null}
+                              </div>
+                              {policy.description ? (
+                                <p className="mt-0.5 text-xs text-neutral-500">{policy.description}</p>
+                              ) : null}
+                            </td>
+                            <td className="px-5 py-3 tabular-nums text-neutral-700">{policy.retentionMonths} mnd</td>
+                            <td className="px-5 py-3 tabular-nums text-neutral-700">
+                              {policy.recentActivityMonths !== undefined ? `${policy.recentActivityMonths} mnd` : '—'}
+                            </td>
+                            <td className="px-5 py-3 text-neutral-600">
+                              {policy.isDefault
+                                ? `${usedByCount} eksplisitt + standard`
+                                : usedByCount > 0
+                                  ? `${usedByCount} lokasjon${usedByCount === 1 ? '' : 'er'}`
+                                  : 'Ingen tilknytning'}
+                            </td>
+                            <td className="px-2 py-3 text-right">
+                              <div className="inline-flex items-center gap-1">
+                                {!policy.isDefault ? (
+                                  <button
+                                    type="button"
+                                    onClick={() => org.setDefaultRetentionPolicy(policy.id)}
+                                    title="Sett som standard"
+                                    className="rounded-md p-1.5 text-neutral-500 hover:bg-neutral-100 hover:text-neutral-800"
+                                  >
+                                    <Star className="size-4" />
+                                  </button>
+                                ) : null}
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    setPolicyDraft({
+                                      id: policy.id,
+                                      name: policy.name,
+                                      retentionMonths: String(policy.retentionMonths),
+                                      recentActivityMonths:
+                                        policy.recentActivityMonths !== undefined ? String(policy.recentActivityMonths) : '',
+                                      isDefault: !!policy.isDefault,
+                                      description: policy.description ?? '',
+                                    })
+                                  }
+                                  title="Rediger policy"
+                                  className="rounded-md p-1.5 text-neutral-500 hover:bg-neutral-100 hover:text-neutral-800"
+                                >
+                                  <Pencil className="size-4" />
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    if (
+                                      confirm(
+                                        usedByCount > 0
+                                          ? `«${policy.name}» er i bruk på ${usedByCount} lokasjon(er). Slette likevel? Tilknytningene vil falle tilbake til standardpolicyen.`
+                                          : `Slett policy «${policy.name}»?`,
+                                      )
+                                    ) {
+                                      org.deleteRetentionPolicy(policy.id)
+                                    }
+                                  }}
+                                  title="Slett policy"
+                                  className="rounded-md p-1.5 text-neutral-500 hover:bg-red-50 hover:text-red-700"
+                                >
+                                  <Trash2 className="size-4" />
+                                </button>
+                                <button
+                                  type="button"
+                                  className="ml-1 rounded-md p-1.5 text-neutral-400"
+                                  aria-label="Flere valg"
+                                  tabIndex={-1}
+                                >
+                                  <MoreVertical className="size-4" />
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        )
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+
+              {policyDraft ? (
+                <form
+                  onSubmit={(e) => {
+                    e.preventDefault()
+                    if (!policyDraft.name.trim()) return
+                    const retention = Math.max(0, Math.floor(Number(policyDraft.retentionMonths) || 0))
+                    const recent = policyDraft.recentActivityMonths
+                      ? Math.max(0, Math.floor(Number(policyDraft.recentActivityMonths)))
+                      : undefined
+                    if (policyDraft.id) {
+                      org.updateRetentionPolicy(policyDraft.id, {
+                        name: policyDraft.name.trim(),
+                        retentionMonths: retention,
+                        recentActivityMonths: recent,
+                        isDefault: policyDraft.isDefault,
+                        description: policyDraft.description.trim() || undefined,
+                      })
+                    } else {
+                      org.createRetentionPolicy({
+                        name: policyDraft.name.trim(),
+                        retentionMonths: retention,
+                        recentActivityMonths: recent,
+                        isDefault: policyDraft.isDefault,
+                        description: policyDraft.description.trim() || undefined,
+                      })
+                    }
+                    setPolicyDraft(null)
+                  }}
+                  className="mt-4 rounded-lg border border-neutral-200 bg-neutral-50/60 p-4 md:p-5"
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <h3 className="text-base font-semibold text-neutral-900">
+                        {policyDraft.id ? 'Rediger policy' : 'Ny oppbevaringspolicy'}
+                      </h3>
+                      <p className="mt-1 text-xs text-neutral-500">
+                        Antall måneder personrelaterte data oppbevares før de slettes eller anonymiseres.
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setPolicyDraft(null)}
+                      className="rounded-md border border-neutral-300 bg-white px-3 py-1.5 text-xs font-semibold text-neutral-700 hover:bg-neutral-100"
+                    >
+                      Avbryt
+                    </button>
+                  </div>
+                  <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2">
+                    <div className="md:col-span-2">
+                      <label className={SETTINGS_FIELD_LABEL} htmlFor="policy-draft-name">
+                        Navn
+                      </label>
+                      <input
+                        id="policy-draft-name"
+                        value={policyDraft.name}
+                        onChange={(e) => setPolicyDraft((d) => (d ? { ...d, name: e.target.value } : d))}
+                        className={ORG_SETTINGS_INPUT}
+                        placeholder="f.eks. EU/EØS standard"
+                        required
+                      />
+                    </div>
+                    <div>
+                      <label className={SETTINGS_FIELD_LABEL} htmlFor="policy-draft-retention">
+                        Oppbevaring (måneder)
+                      </label>
+                      <input
+                        id="policy-draft-retention"
+                        type="number"
+                        min={0}
+                        max={240}
+                        value={policyDraft.retentionMonths}
+                        onChange={(e) => setPolicyDraft((d) => (d ? { ...d, retentionMonths: e.target.value } : d))}
+                        className={ORG_SETTINGS_INPUT}
+                      />
+                    </div>
+                    <div>
+                      <label className={SETTINGS_FIELD_LABEL} htmlFor="policy-draft-recent">
+                        Nylig aktivitet (måneder)
+                      </label>
+                      <input
+                        id="policy-draft-recent"
+                        type="number"
+                        min={0}
+                        max={120}
+                        value={policyDraft.recentActivityMonths}
+                        onChange={(e) =>
+                          setPolicyDraft((d) => (d ? { ...d, recentActivityMonths: e.target.value } : d))
+                        }
+                        placeholder="Valgfritt"
+                        className={ORG_SETTINGS_INPUT}
+                      />
+                    </div>
+                    <div className="md:col-span-2">
+                      <label className={SETTINGS_FIELD_LABEL} htmlFor="policy-draft-desc">
+                        Beskrivelse / juridisk grunnlag
+                      </label>
+                      <input
+                        id="policy-draft-desc"
+                        value={policyDraft.description}
+                        onChange={(e) => setPolicyDraft((d) => (d ? { ...d, description: e.target.value } : d))}
+                        placeholder="f.eks. GDPR Art. 5(1)(e), tilpasset norske rekrutteringsregler"
+                        className={ORG_SETTINGS_INPUT}
+                      />
+                    </div>
+                    <label className={`${ORG_SETTINGS_CHECK_WRAP} md:col-span-2`}>
+                      <input
+                        type="checkbox"
+                        checked={policyDraft.isDefault}
+                        onChange={(e) =>
+                          setPolicyDraft((d) => (d ? { ...d, isDefault: e.target.checked } : d))
+                        }
+                        className="mt-0.5 size-4 rounded border-neutral-400 text-[#1a3d32] focus:ring-1 focus:ring-[#1a3d32]"
+                      />
+                      <div>
+                        <span className="text-sm font-medium text-neutral-900">Bruk som standard</span>
+                        <p className="text-xs text-neutral-500">
+                          Standardpolicyen brukes for alle lokasjoner uten eget valg.
+                        </p>
+                      </div>
+                    </label>
+                  </div>
+                  <div className="mt-4 flex flex-wrap items-center justify-end gap-2">
+                    <Button type="submit" disabled={!policyDraft.name.trim()}>
+                      {policyDraft.id ? 'Lagre policy' : 'Opprett policy'}
+                    </Button>
+                  </div>
+                </form>
+              ) : null}
             </div>
           </OrgInsightWhiteCard>
 
