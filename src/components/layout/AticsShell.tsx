@@ -16,6 +16,7 @@ import {
   ChevronRight,
   ClipboardList,
   ClipboardCheck,
+  Compass,
   FileText,
   FolderTree,
   GraduationCap,
@@ -1604,6 +1605,13 @@ export function AticsShell() {
         path: '/overview/hms',
         Icon: Activity,
         match: ({ pathname }) => pathname === '/overview/hms',
+        requirePermAny: overviewNavPerms,
+      },
+      {
+        label: 'Arbeidsmiljøstrategi',
+        path: '/overview/arbeidsmiljostrategi',
+        Icon: Compass,
+        match: ({ pathname }) => pathname === '/overview/arbeidsmiljostrategi',
         requirePermAny: overviewNavPerms,
       },
       {

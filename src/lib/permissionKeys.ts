@@ -112,6 +112,10 @@ export const PERMISSION_KEYS = [
   // ─── Organisation ─────────────────────────────────────────────────────────
   /** Eksporter ansatt/org-data (GDPR Art. 20 forespørsler) */
   'org.export',
+
+  // ─── Arbeidsmiljøstrategi ─────────────────────────────────────────────────
+  /** Redigere arbeidsmiljøstrategi (visjon, fokusområder, indeks-vekter) */
+  'wellbeing.strategy.manage',
 ] as const
 
 export type PermissionKey = (typeof PERMISSION_KEYS)[number]
@@ -174,6 +178,7 @@ export const PERMISSION_LABELS: Record<PermissionKey, string> = {
   'meetings.manage': 'Møter — administrere møter, agenda, protokoll og maler',
   'meetings.manage_confidential': 'Møter — innsyn i konfidensielle møter (drøfting, varsling)',
   'org.export': 'Organisasjon — eksportere ansatt- og org-data (GDPR Art. 20)',
+  'wellbeing.strategy.manage': 'Arbeidsmiljøstrategi — redigere visjon, fokusområder og indeks',
 }
 
 /** Route prefix → permission (primary nav). Index route checked separately. */
