@@ -16,6 +16,7 @@ import {
   BookOpen,
   CheckCheck,
   ClipboardList,
+  ListChecks,
   PlayCircle,
   Plus,
   ScrollText,
@@ -30,6 +31,7 @@ import type { LayoutScoreStatItem } from '../../components/layout/platformLayout
 import { Tabs } from '../../components/ui/Tabs'
 import { Button } from '../../components/ui/Button'
 import '../../lib/workflows/registerScopes'
+import { RulesPanel } from '../../components/workflow/rules/RulesPanel'
 import { LibraryPanel } from '../../components/workflow/library/LibraryPanel'
 import { RunHistoryPanel } from '../../components/workflow/runs/RunHistoryPanel'
 import { DryRunPanel } from '../../components/workflow/dryRun/DryRunPanel'
@@ -40,10 +42,11 @@ import { CanvasPanel } from '../../components/workflow/canvas/CanvasPanel'
 import { useWorkflows } from '../../hooks/useWorkflows'
 import { useWorkflowApprovals } from '../../hooks/useWorkflowApprovals'
 
-type Tab = 'library' | 'canvas' | 'approvals' | 'runs' | 'dry-run' | 'evidence' | 'revisions'
+type Tab = 'rules' | 'library' | 'canvas' | 'approvals' | 'runs' | 'dry-run' | 'evidence' | 'revisions'
 
 export function WorkflowBuilderPage() {
-  const [tab, setTab] = useState<Tab>('library')
+  const [tab, setTab] = useState<Tab>('rules')
+  const [focusedRuleId, setFocusedRuleId] = useState<string | null>(null)
   const navigate = useNavigate()
   const { rules, runs } = useWorkflows()
   const { approvals } = useWorkflowApprovals()
@@ -70,6 +73,7 @@ export function WorkflowBuilderPage() {
 
   const tabItems = useMemo(
     () => [
+      { id: 'rules' as const, label: 'Mine arbeidsflyter', icon: ListChecks, badgeCount: rules.length },
       { id: 'library' as const, label: 'Mal-bibliotek', icon: BookOpen },
       { id: 'canvas' as const, label: 'Bygg', icon: Workflow },
       {
@@ -84,7 +88,7 @@ export function WorkflowBuilderPage() {
       { id: 'evidence' as const, label: 'Bevispakke', icon: ShieldCheck },
       { id: 'revisions' as const, label: 'Endringslogg', icon: ScrollText },
     ],
-    [approvals],
+    [approvals, rules.length],
   )
 
   return (
@@ -131,13 +135,29 @@ export function WorkflowBuilderPage() {
 
         <LayoutScoreStatRow items={stats} columns={4} />
 
+        {tab === 'rules' && (
+          <RulesPanel
+            onEdit={(id) => {
+              setFocusedRuleId(id)
+              setTab('canvas')
+            }}
+            onViewRuns={(id) => {
+              setFocusedRuleId(id)
+              setTab('runs')
+            }}
+            onViewRevisions={(id) => {
+              setFocusedRuleId(id)
+              setTab('revisions')
+            }}
+          />
+        )}
         {tab === 'library' && <LibraryPanel />}
-        {tab === 'canvas' && <CanvasPanel />}
+        {tab === 'canvas' && <CanvasPanel initialRuleId={focusedRuleId} />}
         {tab === 'approvals' && <ApprovalsPanel />}
-        {tab === 'runs' && <RunHistoryPanel />}
+        {tab === 'runs' && <RunHistoryPanel ruleId={focusedRuleId ?? undefined} />}
         {tab === 'dry-run' && <DryRunPanel />}
         {tab === 'evidence' && <EvidenceExportPanel />}
-        {tab === 'revisions' && <RevisionHistoryPanel />}
+        {tab === 'revisions' && <RevisionHistoryPanel initialRuleId={focusedRuleId} />}
       </div>
     </ModulePageShell>
   )

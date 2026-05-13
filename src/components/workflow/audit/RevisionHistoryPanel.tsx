@@ -8,9 +8,9 @@ import { ClipboardList, User } from 'lucide-react'
 import { useWorkflows } from '../../../hooks/useWorkflows'
 import { useWorkflowRevisions } from '../../../hooks/useWorkflowRevisions'
 
-export function RevisionHistoryPanel() {
+export function RevisionHistoryPanel({ initialRuleId }: { initialRuleId?: string | null } = {}) {
   const { rules } = useWorkflows()
-  const [selectedRuleId, setSelectedRuleId] = useState<string>('')
+  const [selectedRuleId, setSelectedRuleId] = useState<string>(initialRuleId ?? '')
   const { revisions, loading, error } = useWorkflowRevisions(selectedRuleId || null)
   const rule = rules.find((r) => r.id === selectedRuleId)
 

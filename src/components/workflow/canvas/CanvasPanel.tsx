@@ -13,7 +13,7 @@
 // _20260905120900 prevents accidentally toggling is_active=true on
 // a rule with gov actions without workflows.activate_external.
 
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Save, Workflow } from 'lucide-react'
 import { useWorkflows } from '../../../hooks/useWorkflows'
 import { WorkflowFlowBuilder } from '../WorkflowFlowBuilder'
@@ -24,10 +24,24 @@ import {
   type WorkflowFlowDocument,
 } from '../../../lib/workflowFlowTypes'
 
-export function CanvasPanel() {
+export function CanvasPanel({ initialRuleId }: { initialRuleId?: string | null } = {}) {
   const { rules, upsertRule, canCompose } = useWorkflows()
-  const [selectedRuleId, setSelectedRuleId] = useState<string>('')
+  const [selectedRuleId, setSelectedRuleId] = useState<string>(initialRuleId ?? '')
   const [doc, setDoc] = useState<WorkflowFlowDocument>(defaultWorkflowFlowDocument())
+
+  useEffect(() => {
+    if (initialRuleId && initialRuleId !== selectedRuleId) {
+      setSelectedRuleId(initialRuleId)
+      const found = rules.find((r) => r.id === initialRuleId)
+      if (found?.flow_graph_json) {
+        const parsed = parseFlowDocument(found.flow_graph_json as unknown)
+        setDoc(parsed ?? defaultWorkflowFlowDocument())
+      } else {
+        setDoc(defaultWorkflowFlowDocument())
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialRuleId, rules])
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
   const [error, setError] = useState<string | null>(null)
