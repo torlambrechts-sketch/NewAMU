@@ -23,7 +23,7 @@ import {
   type OnDropFromLibrary,
   type OnWidgetResize,
 } from '../reports/ReportModuleWidget'
-import { DashboardFilterBar } from './dashboard/DashboardFilterBar'
+import { DashboardScorecardFilterBar } from './dashboard/DashboardScorecardFilterBar'
 import type {
   DashboardDimension,
   DashboardFilter,
@@ -174,13 +174,11 @@ export function ModuleAnalyticsDashboard({
   const effectiveOnFiltersChange = readOnly ? undefined : onFiltersChange
   const builtInFilterBar =
     !filterBar && dimensions && dimensions.length > 0 && filters && effectiveOnFiltersChange ? (
-      <div className="relative">
-        <DashboardFilterBar
-          filters={filters}
-          dimensions={dimensions}
-          onChange={effectiveOnFiltersChange}
-        />
-      </div>
+      <DashboardScorecardFilterBar
+        filters={filters}
+        dimensions={dimensions}
+        onChange={effectiveOnFiltersChange}
+      />
     ) : null
   const showActions = Boolean(effectiveOnEdit || effectiveOnAddWidget)
 
