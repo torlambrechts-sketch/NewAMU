@@ -110,6 +110,7 @@ export function useWorkflows() {
         setError('Du har ikke tilgang til å administrere arbeidsflytregler. Kontakt administrator.')
         return { ok: false as const }
       }
+      let newId: string | undefined = input.id
       try {
         if (input.id) {
           const { error: e } = await supabase
@@ -129,7 +130,7 @@ export function useWorkflows() {
             .eq('id', input.id)
           if (e) throw e
         } else {
-          const { error: e } = await supabase.from('workflow_rules').insert({
+          const { data, error: e } = await supabase.from('workflow_rules').insert({
             organization_id: orgId,
             slug: input.slug,
             name: input.name,
@@ -142,11 +143,12 @@ export function useWorkflows() {
             flow_graph_json: input.flow_graph_json ?? null,
             priority: input.priority ?? 0,
             is_template: false,
-          })
+          }).select('id').single()
           if (e) throw e
+          newId = (data as { id?: string } | null)?.id
         }
         await refreshRules()
-        return { ok: true as const }
+        return { ok: true as const, id: newId }
       } catch (err) {
         setError(getSupabaseErrorMessage(err))
         return { ok: false as const }
