@@ -27,6 +27,7 @@ import { defaultCompatibleKinds } from '../../components/module/dashboard/dashbo
 import { useDashboardLayout } from '../../lib/dashboards/useDashboardLayout'
 import { freshId } from '../../lib/dashboards/freshId'
 import { getDashboardScope } from '../../lib/dashboards/dashboardRegistry'
+import { PublishReportButton } from '../../components/reports/PublishReportButton'
 import { useOrgSetupContext } from '../../hooks/useOrgSetupContext'
 import { useLearning } from '../../hooks/useLearning'
 import { useLearningCategories } from '../../hooks/useLearningCategories'
@@ -267,6 +268,13 @@ export function HmsOverviewPage() {
               <ArrowLeft className="h-4 w-4" />
               Tilbake
             </Link>
+            <PublishReportButton
+              sourceDashboardId={dashboard.row?.id ?? null}
+              sourceDashboardName={dashboard.row?.name ?? null}
+              scopeId={HMS_OVERVIEW_SCOPE_ID}
+              scopeLabel="HMS-oversikt"
+              datasets={datasets}
+            />
           </div>
         }
         layout={layout}

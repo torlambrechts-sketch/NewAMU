@@ -19,6 +19,7 @@ import { downloadCsv, widgetToCsv } from '../../lib/reports/widgetCsv'
 import { useDashboardLayout } from '../../lib/dashboards/useDashboardLayout'
 import { freshId } from '../../lib/dashboards/freshId'
 import { getDashboardScope } from '../../lib/dashboards/dashboardRegistry'
+import { PublishReportButton } from '../../components/reports/PublishReportButton'
 import { useOrgSetupContext } from '../../hooks/useOrgSetupContext'
 import { useRegisters } from '../../hooks/useRegisters'
 import {
@@ -162,6 +163,13 @@ export function RegistersAnalysePage() {
               <ArrowLeft className="h-4 w-4" />
               Tilbake
             </Link>
+            <PublishReportButton
+              sourceDashboardId={dashboard.row?.id ?? null}
+              sourceDashboardName={dashboard.row?.name ?? null}
+              scopeId={REGISTERS_DASHBOARD_SCOPE_ID}
+              scopeLabel="Register"
+              datasets={datasets}
+            />
           </div>
         }
         layout={layout}

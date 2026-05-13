@@ -32,6 +32,7 @@ import { STATUS_OPTIONS, useSurveyDatasets } from './dashboards/useSurveyDataset
 import { useDashboardLayout } from '../../src/lib/dashboards/useDashboardLayout'
 import { freshId } from '../../src/lib/dashboards/freshId'
 import { getDashboardScope } from '../../src/lib/dashboards/dashboardRegistry'
+import { PublishReportButton } from '../../src/components/reports/PublishReportButton'
 import { useRegulationFilter } from '../../src/context/RegulationFilterContext'
 import { useSurveyNav } from './useSurveyNav'
 import type { ReportModule } from '../../src/types/reportBuilder'
@@ -270,6 +271,13 @@ export function SurveyAnalysePage() {
               <ArrowLeft className="h-4 w-4" />
               Tilbake
             </Link>
+            <PublishReportButton
+              sourceDashboardId={dashboard.row?.id ?? null}
+              sourceDashboardName={dashboard.row?.name ?? null}
+              scopeId={SURVEY_DASHBOARD_SCOPE_ID}
+              scopeLabel="Undersøkelser"
+              datasets={datasets}
+            />
           </div>
         }
         layout={layout}

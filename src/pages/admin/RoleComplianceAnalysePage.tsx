@@ -19,6 +19,7 @@ import { defaultCompatibleKinds } from '../../components/module/dashboard/dashbo
 import { useDashboardLayout } from '../../lib/dashboards/useDashboardLayout'
 import { freshId } from '../../lib/dashboards/freshId'
 import { getDashboardScope } from '../../lib/dashboards/dashboardRegistry'
+import { PublishReportButton } from '../../components/reports/PublishReportButton'
 import { useOrgSetupContext } from '../../hooks/useOrgSetupContext'
 import {
   ROLE_COMPLIANCE_DASHBOARD_SCOPE_ID,
@@ -133,7 +134,18 @@ export function RoleComplianceAnalysePage() {
             onMarkDefault={dashboard.markActiveDefault}
           />
         }
-        headerActions={editChrome.toggleButton}
+        headerActions={
+          <div className="flex flex-wrap items-center gap-2">
+            {editChrome.toggleButton}
+            <PublishReportButton
+              sourceDashboardId={dashboard.row?.id ?? null}
+              sourceDashboardName={dashboard.row?.name ?? null}
+              scopeId={ROLE_COMPLIANCE_DASHBOARD_SCOPE_ID}
+              scopeLabel="Rolle-compliance"
+              datasets={datasets}
+            />
+          </div>
+        }
         layout={layout}
         datasets={datasets}
         loading={dashboard.loading}

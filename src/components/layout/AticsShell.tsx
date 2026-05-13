@@ -525,13 +525,10 @@ const gamleModulerModules: NavModule[] = [
   // Automatisering/Arbeidsflyt moved to organisationAdminSubs
   {
     to: '/reports',
-    label: 'Rapporter',
+    label: 'Rapportarkiv',
     end: false,
     icon: BarChart3,
-    subs: [
-      { label: 'Alle rapporter', path: '/reports', match: ({ pathname }) => pathname === '/reports' },
-      { label: 'Ny rapport', path: '/reports/new', match: ({ pathname }) => pathname.startsWith('/reports/new') },
-    ],
+    subs: [],
     perm: 'module.view.reports',
   },
 

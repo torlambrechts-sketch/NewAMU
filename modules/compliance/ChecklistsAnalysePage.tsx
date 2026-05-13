@@ -29,6 +29,7 @@ import './dashboards/checklistDashboardScope'
 import { useDashboardLayout } from '../../src/lib/dashboards/useDashboardLayout'
 import { freshId } from '../../src/lib/dashboards/freshId'
 import { getDashboardScope } from '../../src/lib/dashboards/dashboardRegistry'
+import { PublishReportButton } from '../../src/components/reports/PublishReportButton'
 import { useRegulationFilter } from '../../src/context/RegulationFilterContext'
 import { useComplianceNav } from './useComplianceNav'
 import { packAccentFor } from './dashboards/packAccents'
@@ -288,6 +289,13 @@ export function ChecklistsAnalysePage() {
               <ArrowLeft className="h-4 w-4" />
               Tilbake
             </Link>
+            <PublishReportButton
+              sourceDashboardId={dashboard.row?.id ?? null}
+              sourceDashboardName={dashboard.row?.name ?? null}
+              scopeId={CHECKLIST_DASHBOARD_SCOPE_ID}
+              scopeLabel="Sjekklister"
+              datasets={datasets}
+            />
           </div>
         }
         layout={layout}

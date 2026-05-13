@@ -5,10 +5,9 @@
 // 20260905120000_reports_promote_dashboard_layouts migration are live.
 
 import { useEffect, useMemo, useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
-import { Plus, FileText, ExternalLink } from 'lucide-react'
+import { Link } from 'react-router-dom'
+import { FileText, ExternalLink } from 'lucide-react'
 import { ModulePageShell } from '../../components/module/ModulePageShell'
-import { Button } from '../../components/ui/Button'
 import { WarningBox } from '../../components/ui/AlertBox'
 import { useOrgSetupContext } from '../../hooks/useOrgSetupContext'
 import { getDashboardScope, listDashboardScopes } from '../../lib/dashboards/dashboardRegistry'
@@ -26,7 +25,6 @@ type ReportRow = {
 }
 
 export function ReportsListPage() {
-  const navigate = useNavigate()
   const orgSetup = useOrgSetupContext()
   const { supabase, organization } = orgSetup
   const [rows, setRows] = useState<ReportRow[]>([])
@@ -70,18 +68,8 @@ export function ReportsListPage() {
   return (
     <ModulePageShell
       breadcrumb={[{ label: 'Rapporter' }]}
-      title="Rapporter"
-      description="Frosne, signaturklare snapshot av oversiktssidene dine. Del eksternt eller eksporter til PDF/CSV."
-      headerActions={
-        <Button
-          type="button"
-          variant="primary"
-          icon={<Plus className="h-4 w-4" />}
-          onClick={() => navigate('/reports/new')}
-        >
-          Ny rapport
-        </Button>
-      }
+      title="Rapportarkiv"
+      description="Frosne, signaturklare snapshot av oversiktssidene dine. Nye rapporter publiserer du fra «Lag rapport»-knappen på hvert dashboard."
     >
       <div className="space-y-4">
         {error ? <WarningBox>{error}</WarningBox> : null}
@@ -118,7 +106,7 @@ export function ReportsListPage() {
         {loading ? (
           <p className="py-12 text-center text-sm text-neutral-500">Laster …</p>
         ) : filtered.length === 0 ? (
-          <EmptyState onCreate={() => navigate('/reports/new')} />
+          <EmptyState />
         ) : (
           <div className="overflow-hidden rounded-lg border border-neutral-200 bg-white">
             <table className="w-full text-sm">
@@ -184,17 +172,16 @@ export function ReportsListPage() {
   )
 }
 
-function EmptyState({ onCreate }: { onCreate: () => void }) {
+function EmptyState() {
   return (
     <div className="rounded-xl border border-dashed border-neutral-300 bg-white p-10 text-center">
       <FileText className="mx-auto h-10 w-10 text-neutral-400" />
       <h3 className="mt-4 text-base font-semibold text-neutral-900">Ingen rapporter ennå</h3>
       <p className="mx-auto mt-2 max-w-md text-sm text-neutral-600">
-        En rapport fryser en oversikt på et gitt tidspunkt og kan deles utad via lenke, PDF eller e-post.
+        Rapporter publiseres direkte fra et dashboard. Åpne et dashboard (f.eks. HMS-oversikt,
+        Sjekklister, Læring) og klikk <span className="font-medium">«Lag rapport»</span> i
+        toppmenyen — snapshotet havner her.
       </p>
-      <Button type="button" variant="primary" className="mt-4" onClick={onCreate} icon={<Plus className="h-4 w-4" />}>
-        Lag din første rapport
-      </Button>
     </div>
   )
 }

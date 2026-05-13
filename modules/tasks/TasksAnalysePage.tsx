@@ -17,6 +17,7 @@ import { useOrgSetupContext } from '../../src/hooks/useOrgSetupContext'
 import { useDashboardLayout } from '../../src/lib/dashboards/useDashboardLayout'
 import { freshId } from '../../src/lib/dashboards/freshId'
 import { getDashboardScope } from '../../src/lib/dashboards/dashboardRegistry'
+import { PublishReportButton } from '../../src/components/reports/PublishReportButton'
 import {
   TASKS_DASHBOARD_SCOPE_ID,
 } from './dashboards/tasksDashboardScope'
@@ -231,6 +232,13 @@ export function TasksAnalysePage() {
               <ArrowLeft className="h-4 w-4" />
               Tilbake
             </Link>
+            <PublishReportButton
+              sourceDashboardId={dashboard.row?.id ?? null}
+              sourceDashboardName={dashboard.row?.name ?? null}
+              scopeId={TASKS_DASHBOARD_SCOPE_ID}
+              scopeLabel="Oppgaver"
+              datasets={datasets}
+            />
           </div>
         }
         layout={layout}

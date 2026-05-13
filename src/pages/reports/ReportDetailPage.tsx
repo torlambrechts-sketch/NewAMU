@@ -1,11 +1,9 @@
-// /reports/:id — single report. Draft shows a live preview + Publish
-// action; published shows the read-only frozen snapshot + share / export /
-// unpublish actions.
-//
-// Layout editing (add / remove / resize widgets) is intentionally not
-// wired in this PR — the report inherits its primary scope's defaultLayout
-// at create time. Follow-up work hooks the existing
-// DashboardEditLayoutPanel / DashboardAddWidgetPanel chrome in here.
+// /reports/:id — view a published report snapshot. Since reports are
+// now created directly from a dashboard's "Lag rapport" button via the
+// publish_dashboard_as_report RPC, this page only ever sees published
+// rows. If a row exists but is unpublished (someone clicked Avpubliser
+// in the panel), we surface a thin "republish from source dashboard"
+// hint instead of rendering an empty frame.
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
@@ -17,7 +15,6 @@ import {
   FileDown,
   RotateCcw,
   Share2,
-  Upload,
 } from 'lucide-react'
 import { ModulePageShell } from '../../components/module/ModulePageShell'
 import { Button } from '../../components/ui/Button'
@@ -30,28 +27,20 @@ import {
   type DashboardLayoutRow,
 } from '../../lib/dashboards/useDashboardLayout'
 import type { ReportModule } from '../../types/reportBuilder'
-import type { DashboardFilter } from '../../lib/dashboards/dashboardFilters'
+import { buildWidgetZip, downloadWidgetZip } from '../../lib/reports/zipExport'
 
 // Zod's passthrough() gives a loose-typed ReportModule on the row; cast
 // at the boundary into the strict discriminated union the renderer wants.
 function asLayout(rows: DashboardLayoutRow['layout']): ReportModule[] {
   return rows as unknown as ReportModule[]
 }
-import { MultiScopeDatasetsHost } from '../../lib/reports/MultiScopeDatasetsHost'
-import {
-  snapshotForPublish,
-  SnapshotTooLargeError,
-} from '../../lib/reports/snapshotDatasets'
-import { buildWidgetZip, downloadWidgetZip } from '../../lib/reports/zipExport'
 
 export function ReportDetailPage() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const { supabase, organization } = useOrgSetupContext()
 
-  // Load the report by querying for the primary scope first, then
-  // selecting the row by id. The useDashboardLayout hook is scope-bound,
-  // so we look up scope_id with a small probe query before mounting it.
+  // The hook is scope-bound, so probe scope_id first.
   const [probeScope, setProbeScope] = useState<string | null>(null)
   const [probeError, setProbeError] = useState<string | null>(null)
 
@@ -134,122 +123,80 @@ function ReportDetailLoaded({
     )
   }
 
-  if (row.published_at) {
-    return (
-      <PublishedReportView
-        reportRow={row}
-        scopeAccent={scope?.accent}
-        onUnpublish={async () => {
-          await dashboard.unpublish()
-        }}
-        onRegenerateToken={async () => {
-          await dashboard.regenerateShareToken()
-        }}
-      />
-    )
+  if (!row.published_at) {
+    return <UnpublishedReportPlaceholder reportRow={row} scopeId={scopeId} />
   }
 
   return (
-    <DraftReportBuilder
+    <PublishedReportView
       reportRow={row}
       scopeAccent={scope?.accent}
-      reload={dashboard.reload}
-      onPublish={async (snapshot) => dashboard.publish({ snapshot })}
+      onUnpublish={async () => {
+        await dashboard.unpublish()
+      }}
+      onRegenerateToken={async () => {
+        await dashboard.regenerateShareToken()
+      }}
     />
   )
 }
 
-// ── Draft (live preview + publish) ─────────────────────────────────────
+// ── Unpublished placeholder ────────────────────────────────────────────
+//
+// Reports start life as published rows (the publish_dashboard_as_report
+// RPC mints them in one shot). They become unpublished only when an
+// admin clicks Avpubliser, which clears share_token but keeps the
+// snapshot. The placeholder points them back at the source dashboard.
 
-function DraftReportBuilder({
+function UnpublishedReportPlaceholder({
   reportRow,
-  scopeAccent,
-  reload,
-  onPublish,
+  scopeId,
 }: {
   reportRow: DashboardLayoutRow
-  scopeAccent: string | undefined
-  reload: () => Promise<void>
-  onPublish: (snapshot: Record<string, unknown>) => Promise<{ ok: boolean; shareToken: string | null; error: string | null }>
+  scopeId: string
 }) {
-  const { supabase, organization } = useOrgSetupContext()
-  const [publishing, setPublishing] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const [liveDatasets, setLiveDatasets] = useState<Record<string, unknown>>({})
-
-  const scopes = useMemo(
-    () => [reportRow.scope_id, ...reportRow.report_scopes],
-    [reportRow.scope_id, reportRow.report_scopes],
-  )
-
-  const handlePublish = useCallback(async () => {
-    setError(null)
-    setPublishing(true)
-    try {
-      const snap = snapshotForPublish(liveDatasets)
-      const result = await onPublish(snap)
-      if (!result.ok) {
-        setError(result.error ?? 'Publisering feilet.')
-      } else {
-        await reload()
-      }
-    } catch (err) {
-      if (err instanceof SnapshotTooLargeError) {
-        setError(`Snapshotet er for stort (${(err.bytes / 1024 / 1024).toFixed(2)} MB). Reduser antall widgets eller scope.`)
-      } else {
-        setError((err as Error).message)
-      }
-    } finally {
-      setPublishing(false)
-    }
-  }, [liveDatasets, onPublish, reload])
-
+  const sourceDashboardId =
+    (reportRow.cover_meta as Record<string, unknown> | null)?.source_dashboard_id ?? null
+  const sourceDashboardName =
+    (reportRow.cover_meta as Record<string, unknown> | null)?.source_dashboard_name ?? null
+  const scope = useMemo(() => getDashboardScope(scopeId), [scopeId])
   return (
-    <MultiScopeDatasetsHost
-      supabase={supabase}
-      organizationId={organization?.id ?? null}
-      filters={(reportRow.filters as DashboardFilter[]) ?? []}
-      scopes={scopes}
+    <ModulePageShell
+      breadcrumb={[{ label: 'Rapporter', to: '/reports' }, { label: reportRow.name }]}
+      title={reportRow.name}
+      description="Denne rapporten er avpublisert. Snapshotet beholdes som kladd, men dele-lenken er deaktivert."
     >
-      {(merged) => {
-        // Capture the latest merged map for the publish action without
-        // triggering re-renders inside the host.
-        if (merged !== liveDatasets) {
-          // Schedule async setState so we don't update during render.
-          queueMicrotask(() => setLiveDatasets(merged))
-        }
-        return (
-          <ModuleAnalyticsDashboard
-            breadcrumb={[{ label: 'Rapporter', to: '/reports' }, { label: reportRow.name }]}
-            title={reportRow.name}
-            description={reportRow.description ?? 'Kladd — ikke publisert ennå. Forhåndsvisning av live data.'}
-            accent={scopeAccent}
-            layout={asLayout(reportRow.layout)}
-            datasets={merged}
-            headerActions={
-              <div className="flex items-center gap-2">
-                <Link
-                  to="/reports"
-                  className="inline-flex items-center gap-2 rounded border border-neutral-300 bg-white px-3 py-1.5 text-sm hover:bg-neutral-50"
-                >
-                  <ArrowLeft className="h-4 w-4" /> Tilbake
-                </Link>
-                <Button
-                  type="button"
-                  variant="primary"
-                  onClick={handlePublish}
-                  disabled={publishing}
-                  icon={<Upload className="h-4 w-4" />}
-                >
-                  {publishing ? 'Publiserer …' : 'Publiser snapshot'}
-                </Button>
-              </div>
-            }
-            error={error ?? null}
-          />
-        )
-      }}
-    </MultiScopeDatasetsHost>
+      <div className="rounded-md border border-neutral-200 bg-neutral-50 p-6 text-sm">
+        <p>
+          Avpublisert {reportRow.updated_at ? new Date(reportRow.updated_at).toLocaleString('nb-NO') : ''}.
+        </p>
+        {typeof sourceDashboardId === 'string' && typeof sourceDashboardName === 'string' ? (
+          <p className="mt-2 text-neutral-600">
+            Gå tilbake til kildedashbordet{' '}
+            <span className="font-medium">{sourceDashboardName}</span> og publiser et nytt
+            snapshot derfra om du vil dele en oppdatert versjon.
+          </p>
+        ) : (
+          <p className="mt-2 text-neutral-600">
+            Gå tilbake til kildedashbordet og publiser et nytt snapshot derfra om du vil dele en
+            oppdatert versjon.
+          </p>
+        )}
+        <div className="mt-4 flex flex-wrap gap-2">
+          <Link
+            to="/reports"
+            className="inline-flex items-center gap-2 rounded border border-neutral-300 bg-white px-3 py-1.5 text-sm hover:bg-neutral-50"
+          >
+            <ArrowLeft className="h-4 w-4" /> Til rapportarkivet
+          </Link>
+          {scope ? (
+            <span className="text-xs text-neutral-500">
+              Scope: {scope.label}
+            </span>
+          ) : null}
+        </div>
+      </div>
+    </ModulePageShell>
   )
 }
 
@@ -277,7 +224,7 @@ function PublishedReportView({
 
   const snapshotDatasets = (reportRow.snapshot_data as Record<string, unknown>) ?? {}
 
-  async function handleCopy() {
+  const handleCopy = useCallback(async () => {
     if (!shareUrl) return
     try {
       await navigator.clipboard.writeText(shareUrl)
@@ -286,7 +233,7 @@ function PublishedReportView({
     } catch {
       // ignore
     }
-  }
+  }, [shareUrl])
 
   function handleCsvZip() {
     const payload = buildWidgetZip(reportRow.name, asLayout(reportRow.layout), snapshotDatasets)
@@ -358,7 +305,7 @@ function PublishedReportView({
             <Button
               type="button"
               variant="secondary"
-              onClick={handleCopy}
+              onClick={() => void handleCopy()}
               icon={copyState === 'copied' ? <CheckCircle2 className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
             >
               {copyState === 'copied' ? 'Kopiert!' : 'Kopier delelink'}

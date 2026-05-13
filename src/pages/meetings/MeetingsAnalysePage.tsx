@@ -17,6 +17,7 @@ import { downloadCsv, widgetToCsv } from '../../lib/reports/widgetCsv'
 import { useDashboardLayout } from '../../lib/dashboards/useDashboardLayout'
 import { freshId } from '../../lib/dashboards/freshId'
 import { getDashboardScope } from '../../lib/dashboards/dashboardRegistry'
+import { PublishReportButton } from '../../components/reports/PublishReportButton'
 import { useOrgSetupContext } from '../../hooks/useOrgSetupContext'
 import { useMeetings } from '../../../modules/meetings'
 import {
@@ -236,6 +237,13 @@ export function MeetingsAnalysePage() {
               <ArrowLeft className="h-4 w-4" />
               Tilbake
             </Link>
+            <PublishReportButton
+              sourceDashboardId={dashboard.row?.id ?? null}
+              sourceDashboardName={dashboard.row?.name ?? null}
+              scopeId={MEETINGS_DASHBOARD_SCOPE_ID}
+              scopeLabel="Møter"
+              datasets={datasets}
+            />
           </div>
         }
         layout={layout}

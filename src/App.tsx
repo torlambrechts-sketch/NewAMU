@@ -20,7 +20,6 @@ import { InviteAcceptPage } from './pages/InviteAcceptPage'
 import { AdminPage } from './pages/AdminPage'
 import { ProfilePage } from './pages/ProfilePage'
 import { ReportsListPage } from './pages/reports/ReportsListPage'
-import { ReportBuilderPage } from './pages/reports/ReportBuilderPage'
 import { ReportDetailPage } from './pages/reports/ReportDetailPage'
 import { SharedReportPage } from './pages/public/SharedReportPage'
 import { WorkflowModulePage } from './pages/WorkflowModulePage'
@@ -271,7 +270,7 @@ const router = createBrowserRouter(
                       <Route path="organisation" element={<OrganisationPage />} />
                       <Route path="organisation/admin" element={<AdminPage />} />
                       <Route path="reports" element={<ReportsListPage />} />
-                      <Route path="reports/new" element={<ReportBuilderPage />} />
+                      <Route path="reports/new" element={<Navigate to="/reports" replace />} />
                       <Route path="reports/:id" element={<ReportDetailPage />} />
                       <Route path="workplace-reporting" element={<WorkplaceReportingPage />} />
                       <Route path="workplace-reporting/dashboard" element={<WorkplaceDashboardPage />} />
