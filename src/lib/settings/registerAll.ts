@@ -15,6 +15,7 @@ import '../../components/admin/settings/scopes/orgSettingsScope'
 // Module group — added as each module migrates.
 import '../../components/documents/settings/documentsSettingsScope'
 import '../../pages/registers/registersSettingsScope'
+import '../../pages/meetings/meetingsSettingsScope'
 // import '../../pages/meetings/meetingsSettingsScope'
 // import '../../../modules/compliance/settings/complianceSettingsScope'
 // import '../../../modules/tasks/settings/tasksSettingsScope'
