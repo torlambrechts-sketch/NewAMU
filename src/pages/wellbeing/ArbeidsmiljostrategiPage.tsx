@@ -6,11 +6,12 @@
 // neste-steg-køen bygges fra de samme modulene compliance-dashbordet
 // teller — men sett gjennom et arbeidstaker-perspektiv.
 
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import {
   ArrowLeft,
   BarChart3,
+  Camera,
   ExternalLink,
   ShieldCheck,
   Sparkles,
@@ -54,6 +55,7 @@ import {
 import { StrategyVisionEditor } from './components/StrategyVisionEditor'
 import { FocusAreasGrid } from './components/FocusAreasGrid'
 import { useWellbeingStrategy } from './hooks/useWellbeingStrategy'
+import { useWellbeingSnapshots } from './hooks/useWellbeingSnapshots'
 import {
   WORKER_WELLBEING_SCOPE_ID,
 } from './dashboards/workerWellbeingDashboardScope'
@@ -131,6 +133,7 @@ export function ArbeidsmiljostrategiPage() {
 
   // Wellbeing strategy (visjon + fokusområder + vekter)
   const wellbeingStrategy = useWellbeingStrategy()
+  const snapshots = useWellbeingSnapshots()
 
   const dimensions: DashboardDimension[] = useMemo(
     () => [
@@ -232,6 +235,8 @@ export function ArbeidsmiljostrategiPage() {
   const wellbeingDs = useWorkerWellbeingDatasets({
     memberDatasets,
     weights: wellbeingStrategy.weights,
+    indexHistory: snapshots.series,
+    snapshotHistory: snapshots.snapshots,
   })
 
   const datasets = useMemo<Record<string, unknown>>(
@@ -280,6 +285,64 @@ export function ArbeidsmiljostrategiPage() {
   const accent = getDashboardScope(WORKER_WELLBEING_SCOPE_ID)?.accent ?? '#d97706'
   const indexSummary = (datasets['wellbeing_index_summary'] as Record<string, unknown> | undefined) ?? {}
   const indexLabel = typeof indexSummary.indexLabel === 'string' ? indexSummary.indexLabel : '—'
+  const indexDelta = typeof indexSummary.indexDelta === 'string' ? indexSummary.indexDelta : ''
+
+  // Pluk rå akse-skår direkte fra wellbeing_index_summary. Lokal kost
+  // er gratis, og vi unngår at en ny indexSummary-objekt-identitet
+  // hver render forplanter seg som tilbake-fyring av useMemo.
+  const indexRaw = datasets['wellbeing_index_summary'] as
+    | { indexRaw?: number | null; trygghetRaw?: number | null; trivselRaw?: number | null; medvirkningRaw?: number | null; mestringRaw?: number | null }
+    | undefined
+  const rawScores = useMemo(
+    () => ({
+      index: typeof indexRaw?.indexRaw === 'number' ? indexRaw.indexRaw : null,
+      trygghet: typeof indexRaw?.trygghetRaw === 'number' ? indexRaw.trygghetRaw : null,
+      trivsel: typeof indexRaw?.trivselRaw === 'number' ? indexRaw.trivselRaw : null,
+      medvirkning: typeof indexRaw?.medvirkningRaw === 'number' ? indexRaw.medvirkningRaw : null,
+      mestring: typeof indexRaw?.mestringRaw === 'number' ? indexRaw.mestringRaw : null,
+    }),
+    [indexRaw?.indexRaw, indexRaw?.trygghetRaw, indexRaw?.trivselRaw, indexRaw?.medvirkningRaw, indexRaw?.mestringRaw],
+  )
+
+  // Auto-capture: én gang per page-mount, etter at indeksen er beregnet.
+  // RPC-en er idempotent (UPSERT på (org, period_key)) så å havne her
+  // flere ganger samme måned er ufarlig — hooken debouncer i tillegg
+  // basert på captured_at-alder.
+  const autoCaptureFired = useRef(false)
+  useEffect(() => {
+    if (autoCaptureFired.current) return
+    if (snapshots.loading || wellbeingStrategy.loading) return
+    if (rawScores.index == null) return
+    autoCaptureFired.current = true
+    const signals = {
+      vernerunder: memberDatasets['vernerunde_kpi_summary'] ?? null,
+      tasks: memberDatasets['tasks_kpi_summary'] ?? null,
+      survey: memberDatasets['survey_kpi_summary'] ?? null,
+      learning: memberDatasets['learning_kpi_summary'] ?? null,
+    }
+    void snapshots.maybeAutoCapture(rawScores, wellbeingStrategy.weights, signals)
+  }, [
+    snapshots,
+    snapshots.loading,
+    wellbeingStrategy.loading,
+    wellbeingStrategy.weights,
+    rawScores,
+    memberDatasets,
+  ])
+
+  const handleManualSnapshot = async () => {
+    if (rawScores.index == null) {
+      window.alert('Indeksen er ikke målt ennå — det må finnes minst én akse med data.')
+      return
+    }
+    const signals = {
+      vernerunder: memberDatasets['vernerunde_kpi_summary'] ?? null,
+      tasks: memberDatasets['tasks_kpi_summary'] ?? null,
+      survey: memberDatasets['survey_kpi_summary'] ?? null,
+      learning: memberDatasets['learning_kpi_summary'] ?? null,
+    }
+    await snapshots.captureNow(rawScores, wellbeingStrategy.weights, signals)
+  }
 
   return (
     <div className="space-y-6 p-4 sm:p-6">
@@ -325,10 +388,25 @@ export function ArbeidsmiljostrategiPage() {
                 {indexLabel}
               </span>
               <span className="text-sm text-neutral-500">av 100</span>
+              {indexDelta && (
+                <span
+                  className={`rounded-md px-2 py-0.5 text-xs font-semibold ${
+                    indexDelta.startsWith('+')
+                      ? 'bg-emerald-100 text-emerald-900'
+                      : indexDelta.startsWith('-')
+                      ? 'bg-rose-100 text-rose-900'
+                      : 'bg-neutral-100 text-neutral-700'
+                  }`}
+                  title="Endring siden forrige snapshot-måned"
+                >
+                  {indexDelta}
+                </span>
+              )}
             </div>
             <p className="mt-1 max-w-md text-xs text-neutral-600">
               Vektet snitt av trygghet, trivsel, medvirkning og mestring — beregnet fra
-              vernerunder, surveys, AMU-aktivitet og læring. Vekter justerer dere i Innstillinger.
+              vernerunder, surveys, AMU-aktivitet og læring. Snapshot lagres månedlig
+              for historikk.
             </p>
           </div>
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
@@ -378,6 +456,18 @@ export function ArbeidsmiljostrategiPage() {
             onCreate={wellbeingStrategy.createFocusArea}
             onUpdate={wellbeingStrategy.updateFocusArea}
             onArchive={wellbeingStrategy.archiveFocusArea}
+          />
+          <SnapshotPanel
+            accent={accent}
+            currentPeriodKey={snapshots.currentPeriodKey}
+            hasCurrentMonth={snapshots.hasCurrentMonth}
+            latestCapturedAt={snapshots.latest?.captured_at ?? null}
+            indexLabel={indexLabel}
+            indexDelta={indexDelta}
+            historyCount={snapshots.snapshots.length}
+            error={snapshots.error}
+            disabled={rawScores.index == null}
+            onCapture={handleManualSnapshot}
           />
           {wellbeingStrategy.error && (
             <div className="rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-900">
@@ -552,5 +642,96 @@ function TabButton({
       <Icon className="h-4 w-4" aria-hidden />
       {children}
     </button>
+  )
+}
+
+function SnapshotPanel({
+  accent,
+  currentPeriodKey,
+  hasCurrentMonth,
+  latestCapturedAt,
+  indexLabel,
+  indexDelta,
+  historyCount,
+  error,
+  disabled,
+  onCapture,
+}: {
+  accent: string
+  currentPeriodKey: string
+  hasCurrentMonth: boolean
+  latestCapturedAt: string | null
+  indexLabel: string
+  indexDelta: string
+  historyCount: number
+  error: string | null
+  disabled: boolean
+  onCapture: () => void | Promise<void>
+}) {
+  const latestLabel = latestCapturedAt
+    ? new Date(latestCapturedAt).toLocaleString('nb-NO', { dateStyle: 'medium', timeStyle: 'short' })
+    : 'Aldri'
+  return (
+    <section
+      className="rounded-lg border p-5"
+      style={{ borderColor: `${accent}40`, background: `linear-gradient(to right, ${accent}0d, ${accent}03)` }}
+    >
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div className="space-y-1">
+          <div className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide" style={{ color: accent }}>
+            <Camera className="h-3.5 w-3.5" aria-hidden /> Snapshot
+          </div>
+          <h2 className="text-base font-semibold text-neutral-900">
+            {currentPeriodKey} — {hasCurrentMonth ? 'lagret denne måneden' : 'ikke lagret ennå'}
+          </h2>
+          <p className="max-w-xl text-xs text-neutral-600">
+            Et månedlig snapshot låser dagens indeks- og akse-skår sammen med vektene
+            som ble brukt. Snapshotene fyller indeks-linja og lar styrer og AMU spore
+            framgang over tid. Vi tar automatisk ett ved hvert besøk; knappen tvinger
+            en oppdatering om noe har endret seg.
+          </p>
+          <p className="text-[11px] text-neutral-500">
+            Siste capture: <span className="font-medium text-neutral-700">{latestLabel}</span>
+            {historyCount > 0 && <span> · {historyCount} totalt</span>}
+          </p>
+        </div>
+        <div className="flex flex-col items-end gap-2">
+          <div className="text-right">
+            <div className="text-[10px] font-semibold uppercase tracking-wide text-neutral-500">Nåværende indeks</div>
+            <div className="flex items-baseline gap-2">
+              <span className="text-2xl font-bold" style={{ color: accent }}>
+                {indexLabel}
+              </span>
+              {indexDelta && (
+                <span
+                  className={`rounded px-1.5 py-0.5 text-[10px] font-semibold ${
+                    indexDelta.startsWith('+')
+                      ? 'bg-emerald-100 text-emerald-900'
+                      : indexDelta.startsWith('-')
+                      ? 'bg-rose-100 text-rose-900'
+                      : 'bg-neutral-100 text-neutral-700'
+                  }`}
+                >
+                  {indexDelta}
+                </span>
+              )}
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={() => void onCapture()}
+            disabled={disabled}
+            className="inline-flex items-center gap-1.5 rounded-md bg-amber-600 px-3 py-1.5 text-sm font-semibold text-white shadow-sm hover:bg-amber-700 disabled:opacity-50"
+          >
+            <Camera className="h-4 w-4" aria-hidden /> Lagre snapshot nå
+          </button>
+        </div>
+      </div>
+      {error && (
+        <div className="mt-3 rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-900">
+          {error}
+        </div>
+      )}
+    </section>
   )
 }

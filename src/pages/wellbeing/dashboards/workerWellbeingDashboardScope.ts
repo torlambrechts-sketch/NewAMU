@@ -21,6 +21,7 @@ import type {
   ReportModule,
   ReportModuleBar,
   ReportModuleKpi,
+  ReportModuleLine,
   ReportModuleTable,
 } from '../../../types/reportBuilder'
 import {
@@ -37,6 +38,8 @@ const DATASETS: DatasetMeta[] = [
   { key: 'wellbeing_axis_overview', label: 'Akser med signaler', shape: 'rows' },
   { key: 'wellbeing_tool_coverage', label: 'Verktøy per akse', shape: 'rows' },
   { key: 'wellbeing_action_queue', label: 'Neste steg', shape: 'rows' },
+  { key: 'wellbeing_index_over_time', label: 'Indeks over tid', shape: 'series' },
+  { key: 'wellbeing_snapshot_history', label: 'Snapshot-historikk', shape: 'rows' },
 ]
 
 const KPI_INDEX: ReportModuleKpi = {
@@ -91,13 +94,29 @@ const TABLE_ACTION_QUEUE: ReportModuleTable = {
   colSpan: 'full',
 }
 
+const LINE_INDEX_TREND: ReportModuleLine = {
+  id: 'line-wb-index-trend', kind: 'line', datasetKey: 'wellbeing_index_over_time',
+  title: 'Arbeidsmiljø-indeks over tid',
+  pointsPath: '', xLabel: 'Måned', yLabel: 'Indeks (0–100)',
+  colSpan: 'lg',
+}
+
+const TABLE_SNAPSHOT_HISTORY: ReportModuleTable = {
+  id: 'table-wb-snapshot-history', kind: 'table', datasetKey: 'wellbeing_snapshot_history',
+  title: 'Snapshot-historikk',
+  rowKeys: ['period', 'index', 'trygghet', 'trivsel', 'medvirkning', 'mestring', 'capturedAt'],
+  colSpan: 'full',
+}
+
 const DEFAULT_LAYOUT: ReportModule[] = [
   KPI_INDEX,
   KPI_TRYGGHET, KPI_TRIVSEL, KPI_MEDVIRKNING, KPI_MESTRING,
+  LINE_INDEX_TREND,
   BAR_AXIS_SCORES,
   TABLE_AXIS_OVERVIEW,
   TABLE_TOOL_COVERAGE,
   TABLE_ACTION_QUEUE,
+  TABLE_SNAPSHOT_HISTORY,
 ]
 
 const WIDGET_CATALOG: WidgetCatalogEntry[] = [
@@ -110,6 +129,8 @@ const WIDGET_CATALOG: WidgetCatalogEntry[] = [
   { catalogId: 'table-wb-axis-overview', category: 'Tabeller', label: 'Akse-oversikt', template: TABLE_AXIS_OVERVIEW },
   { catalogId: 'table-wb-tool-coverage', category: 'Tabeller', label: 'Verktøy per akse', template: TABLE_TOOL_COVERAGE },
   { catalogId: 'table-wb-action-queue', category: 'Tabeller', label: 'Neste steg', template: TABLE_ACTION_QUEUE },
+  { catalogId: 'line-wb-index-trend', category: 'Trender', label: 'Indeks over tid', template: LINE_INDEX_TREND },
+  { catalogId: 'table-wb-snapshot-history', category: 'Tabeller', label: 'Snapshot-historikk', template: TABLE_SNAPSHOT_HISTORY },
 ]
 
 registerDashboardScope({

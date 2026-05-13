@@ -205,16 +205,36 @@ const STATIC_TOOLS: ToolEntry[] = [
   { axis: 'mestring', tool: 'AMU-grunnopplæring', path: '/learning' },
 ]
 
+/** Et punkt i indeks-tidsserien — formet for line-widget. */
+export type WellbeingTrendPoint = { x: string; y: number; periodKey?: string; hasData?: boolean }
+
+/** Rad i snapshot-historikken — formet for table-widget. */
+export type WellbeingSnapshotHistoryRow = {
+  period_key: string
+  captured_at: string
+  index_value: number | null
+  trygghet_score: number | null
+  trivsel_score: number | null
+  medvirkning_score: number | null
+  mestring_score: number | null
+}
+
 export type UseWorkerWellbeingDatasetsArgs = {
   /** Mergede medlems-datasets — det page-en allerede har bygget. */
   memberDatasets: Record<string, unknown>
   /** Vekter fra org_wellbeing_strategy — defaults til lik vekt. */
   weights?: WellbeingIndexWeights
+  /** Pre-formaterte 12 mnd serie for indeks-trenden (fra useWellbeingSnapshots). */
+  indexHistory?: WellbeingTrendPoint[]
+  /** Rå snapshot-rader sortert nyeste først (fra useWellbeingSnapshots). */
+  snapshotHistory?: WellbeingSnapshotHistoryRow[]
 }
 
 export function useWorkerWellbeingDatasets({
   memberDatasets,
   weights = DEFAULT_WELLBEING_WEIGHTS,
+  indexHistory,
+  snapshotHistory,
 }: UseWorkerWellbeingDatasetsArgs): Record<string, unknown> {
   return useMemo(() => {
     const vr = memberDatasets['vernerunde_kpi_summary'] as KpiBag | undefined
@@ -244,13 +264,41 @@ export function useWorkerWellbeingDatasets({
 
     const fmtScore = (s: number | null): string => (s == null ? '—' : String(s))
 
+    // Delta vs forrige snapshot (én måned tilbake — hopper over de
+    // siste-er-naa-snapshot ettersom de speiler den live indeksen).
+    // Når historikken mangler, eller når nåværende ikke er beregnet,
+    // returnerer vi en tom streng som UI håndterer som «ingen endring».
+    let indexDelta: string = ''
+    if (index != null && snapshotHistory && snapshotHistory.length > 0) {
+      // Finn første historiske snapshot som ikke er fra inneværende måned
+      // (vi sammenligner alltid mot forrige måned, ikke mot dagens lagring).
+      const anchor = new Date()
+      const currentPeriodKey = `${anchor.getFullYear()}-${String(anchor.getMonth() + 1).padStart(2, '0')}`
+      const previous = snapshotHistory.find(
+        (s) => s.period_key !== currentPeriodKey && s.index_value != null,
+      )
+      if (previous && previous.index_value != null) {
+        const delta = index - previous.index_value
+        if (delta === 0) indexDelta = '±0'
+        else indexDelta = delta > 0 ? `+${delta}` : `${delta}`
+      }
+    }
+
     const wellbeing_index_summary: Record<string, unknown> = {
       index: index ?? 0,
       indexLabel: index == null ? 'Ikke målt' : `${index}`,
+      indexDelta,
       trygghet: fmtScore(scores.trygghet),
       trivsel: fmtScore(scores.trivsel),
       medvirkning: fmtScore(scores.medvirkning),
       mestring: fmtScore(scores.mestring),
+      // Rå tall (kan være null) — siden bruker disse for å sende
+      // snapshot-RPC og dirigere knappen «Lagre snapshot».
+      indexRaw: index,
+      trygghetRaw: scores.trygghet,
+      trivselRaw: scores.trivsel,
+      medvirkningRaw: scores.medvirkning,
+      mestringRaw: scores.mestring,
     }
 
     const wellbeing_axis_scores: Record<string, number> = {
@@ -335,12 +383,28 @@ export function useWorkerWellbeingDatasets({
       })
     }
 
+    // Historikk-datasett — bare bygges når sidens snapshot-hook har
+    // levert data. Når historikken mangler returnerer vi tom serie
+    // slik at line-widgeten viser «ingen historikk» fremfor å crashe.
+    const wellbeing_index_over_time = indexHistory ?? []
+    const wellbeing_snapshot_history = (snapshotHistory ?? []).map((row) => ({
+      period: row.period_key,
+      index: row.index_value ?? '—',
+      trygghet: row.trygghet_score ?? '—',
+      trivsel: row.trivsel_score ?? '—',
+      medvirkning: row.medvirkning_score ?? '—',
+      mestring: row.mestring_score ?? '—',
+      capturedAt: new Date(row.captured_at).toLocaleDateString('nb-NO'),
+    }))
+
     return {
       wellbeing_index_summary,
       wellbeing_axis_scores,
       wellbeing_axis_overview,
       wellbeing_tool_coverage,
       wellbeing_action_queue: queue,
+      wellbeing_index_over_time,
+      wellbeing_snapshot_history,
     } as Record<string, unknown>
-  }, [memberDatasets, weights])
+  }, [memberDatasets, weights, indexHistory, snapshotHistory])
 }
