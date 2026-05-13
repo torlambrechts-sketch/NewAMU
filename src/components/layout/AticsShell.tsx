@@ -1615,6 +1615,13 @@ export function AticsShell() {
         requirePermAny: overviewNavPerms,
       },
       {
+        label: 'Min trivsel',
+        path: '/min-trivsel',
+        Icon: HeartPulse,
+        match: ({ pathname }) => pathname === '/min-trivsel',
+        requirePermAny: overviewNavPerms,
+      },
+      {
         label: 'Regelverk-dekning',
         path: '/overview/regelverk',
         Icon: ScrollText,
