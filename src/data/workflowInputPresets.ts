@@ -12,9 +12,14 @@ import {
   Search,
   ShieldAlert,
   Stethoscope,
+  Zap,
   UserCheck,
 } from 'lucide-react'
 import type { WorkflowCondition } from '../types/workflow'
+import { listWorkflowEvents } from '../lib/workflows/workflowRegistry'
+// Side-effect: ensure every scope file is registered before any consumer
+// reads from the registry. Safe to import multiple times; idempotent.
+import '../lib/workflows/registerScopes'
 
 /** Which org module payloads this preset applies to (not wiki_published). */
 export type WorkflowInputPreset = {
@@ -230,7 +235,40 @@ export const WORKFLOW_INPUT_PRESETS: WorkflowInputPreset[] = [
 ]
 
 export function presetsForSourceModule(sourceModule: string): WorkflowInputPreset[] {
-  return WORKFLOW_INPUT_PRESETS.filter(
+  // Legacy hand-curated presets (payload-change style).
+  const legacy = WORKFLOW_INPUT_PRESETS.filter(
     (p) => p.modules[0] === '*' || p.modules.includes(sourceModule),
   )
+
+  // Auto-derived presets from the registry SDK: every event declared by
+  // every scope file shows up here. The condition is `always` (the event
+  // fires; condition narrows behaviour) — users add a field_equals /
+  // array_any preset on top for finer control.
+  const SEVERITY_ICON: Record<string, LucideIcon> = {
+    critical: AlertTriangle,
+    high: FileWarning,
+    medium: ClipboardList,
+    low: ClipboardCheck,
+    info: Zap,
+  }
+  const derived: WorkflowInputPreset[] = listWorkflowEvents(sourceModule || undefined).map(
+    ({ scope, event }) => ({
+      id: `evt:${event.name}`,
+      label: event.label,
+      description:
+        event.description ??
+        `Hendelse fra ${scope.label}. Trigger: ${event.name}${
+          event.lawRefs?.length ? ` · ${event.lawRefs.join(', ')}` : ''
+        }`,
+      icon: event.severity ? SEVERITY_ICON[event.severity] ?? Bell : Bell,
+      modules: [scope.scopeId],
+      condition: { match: 'always' },
+    }),
+  )
+
+  // De-dupe: keep registry events first (canonical, lov-anchored), then
+  // legacy presets that aren't superseded by an event with the same id.
+  const seen = new Set<string>(derived.map((d) => d.id))
+  const legacyKept = legacy.filter((p) => !seen.has(p.id))
+  return [...derived, ...legacyKept]
 }
