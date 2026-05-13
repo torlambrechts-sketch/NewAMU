@@ -9,7 +9,6 @@ import {
   ChevronRight,
   Clock,
   Filter,
-  Search,
   XCircle,
 } from 'lucide-react'
 import { List2Shell } from '../../../components/layout/List2Shell'
@@ -136,13 +135,11 @@ function ModuleChips({ req }: { req: RequirementWithCoverage }) {
 export function RegelverkCoverageTable({
   requirements,
   search,
-  onSearchChange,
   selectedCategory,
   onOpenRow,
 }: {
   requirements: RequirementWithCoverage[]
   search: string
-  onSearchChange: (q: string) => void
   selectedCategory: string | null
   onOpenRow: (lawRef: string) => void
 }) {
@@ -176,49 +173,30 @@ export function RegelverkCoverageTable({
   return (
     <section aria-label="Lovkrav">
       <List2Shell>
-        <div className="flex flex-wrap items-center gap-3 border-b border-neutral-100 px-4 py-3 md:px-5">
-          <div className="relative min-w-[220px] flex-1">
-            <label htmlFor="regelverk-search" className="sr-only">
-              Søk i §, tittel eller kategori
-            </label>
-            <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-neutral-400" />
-            <input
-              id="regelverk-search"
-              type="search"
-              value={search}
-              onChange={(e) => {
-                onSearchChange(e.target.value)
-                setPage(1)
-              }}
-              placeholder="Søk på § eller tittel …"
-              className="w-full rounded-lg border border-neutral-200 bg-white py-2.5 pl-10 pr-3 text-sm text-neutral-900 outline-none placeholder:text-neutral-400 focus:ring-2 focus:ring-[#1a3d32]/25"
-            />
-          </div>
-          <div className="flex flex-wrap items-center gap-2">
-            <button
-              type="button"
-              onClick={() => setFiltersOpen((o) => !o)}
-              className={`inline-flex items-center gap-1.5 rounded-lg border px-3 py-2 text-xs font-semibold uppercase tracking-wide ${
-                filtersOpen || activeFilters
-                  ? 'border-neutral-400 bg-neutral-50 text-neutral-900'
-                  : 'border-neutral-200 bg-white text-neutral-700'
-              }`}
-              aria-expanded={filtersOpen}
-            >
-              <Filter className="size-3.5 text-neutral-500" />
-              Filter
-              {activeFilters ? (
-                <span className="ml-1 rounded-full bg-[#1a3d32] px-1.5 py-0.5 text-[10px] font-bold text-white">
-                  {(obligation !== 'all' ? 1 : 0) +
-                    (status !== 'all' ? 1 : 0) +
-                    (selectedCategory ? 1 : 0)}
-                </span>
-              ) : null}
-            </button>
-            <span className="text-xs text-neutral-500">
-              {total} av {requirements.length} krav
-            </span>
-          </div>
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-neutral-100 px-4 py-3 md:px-5">
+          <button
+            type="button"
+            onClick={() => setFiltersOpen((o) => !o)}
+            className={`inline-flex items-center gap-1.5 rounded-lg border px-3 py-2 text-xs font-semibold uppercase tracking-wide ${
+              filtersOpen || activeFilters
+                ? 'border-neutral-400 bg-neutral-50 text-neutral-900'
+                : 'border-neutral-200 bg-white text-neutral-700'
+            }`}
+            aria-expanded={filtersOpen}
+          >
+            <Filter className="size-3.5 text-neutral-500" />
+            Plikt / status
+            {activeFilters ? (
+              <span className="ml-1 rounded-full bg-[#1a3d32] px-1.5 py-0.5 text-[10px] font-bold text-white">
+                {(obligation !== 'all' ? 1 : 0) +
+                  (status !== 'all' ? 1 : 0) +
+                  (selectedCategory ? 1 : 0)}
+              </span>
+            ) : null}
+          </button>
+          <span className="text-xs text-neutral-500">
+            {total} av {requirements.length} krav
+          </span>
         </div>
 
         {filtersOpen ? (
