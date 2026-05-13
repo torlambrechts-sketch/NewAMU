@@ -12,7 +12,6 @@ import { SearchableSelect, type SelectOption } from '../../../components/ui/Sear
 import { REGELVERK, REQUIREMENTS } from '../../../data/regelverkRequirements'
 import { useRegelverkCoverage, type CoverageEntry } from '../../../hooks/useRegelverkCoverage'
 import { RegelverkKpiHeader } from './RegelverkKpiHeader'
-import { RegelverkCategorySidebar } from './RegelverkCategorySidebar'
 import { RegelverkCoverageTable } from './RegelverkCoverageTable'
 import { RegelverkCoverageSlideOver } from './RegelverkCoverageSlideOver'
 import {
@@ -23,7 +22,8 @@ import {
 
 export function RegelverkCoverageDashboardPage() {
   const [selectedRegelverk, setSelectedRegelverk] = useState<string>('aml')
-  const [selectedCategory, setSelectedCategory] = useState<string | null>(null)
+  // '' = all categories
+  const [selectedCategory, setSelectedCategory] = useState<string>('')
   const [search, setSearch] = useState('')
   const [openLawRef, setOpenLawRef] = useState<string | null>(null)
   const { coverage, loading } = useRegelverkCoverage()
@@ -99,6 +99,18 @@ export function RegelverkCoverageDashboardPage() {
     [],
   )
 
+  const categoryOptions: SelectOption[] = useMemo(() => {
+    const seen = new Set<string>()
+    const cats: SelectOption[] = [{ value: '', label: 'Alle kategorier' }]
+    for (const r of requirementsForRegelverk) {
+      if (!seen.has(r.category)) {
+        seen.add(r.category)
+        cats.push({ value: r.category, label: r.category })
+      }
+    }
+    return cats
+  }, [requirementsForRegelverk])
+
   const openReq =
     openLawRef !== null
       ? requirementsWithCoverage.find((r) => r.lawRef === openLawRef) ?? null
@@ -126,13 +138,27 @@ export function RegelverkCoverageDashboardPage() {
               options={regelverkOptions}
               value={selectedRegelverk}
               onChange={(v) => {
-                setSelectedRegelverk(String(v))
-                setSelectedCategory(null)
+                setSelectedRegelverk(v)
+                setSelectedCategory('')
                 setSearch('')
               }}
             />
           </div>
         </div>
+
+        <div className="min-w-[220px] flex-1">
+          <label className="block text-[10px] font-bold uppercase tracking-wide text-neutral-600">
+            Kategori
+          </label>
+          <div className="mt-1.5">
+            <SearchableSelect
+              options={categoryOptions}
+              value={selectedCategory}
+              onChange={(v) => setSelectedCategory(v)}
+            />
+          </div>
+        </div>
+
         {regelverk ? (
           <p className="max-w-md text-sm text-neutral-600">{regelverk.description}</p>
         ) : null}
@@ -157,21 +183,13 @@ export function RegelverkCoverageDashboardPage() {
         </div>
       ) : null}
 
-      <div className="grid gap-4 lg:grid-cols-[260px,1fr]">
-        <RegelverkCategorySidebar
-          requirements={requirementsWithCoverage}
-          selectedCategory={selectedCategory}
-          onSelectCategory={setSelectedCategory}
-        />
-
-        <RegelverkCoverageTable
-          requirements={requirementsWithCoverage}
-          search={search}
-          onSearchChange={setSearch}
-          selectedCategory={selectedCategory}
-          onOpenRow={setOpenLawRef}
-        />
-      </div>
+      <RegelverkCoverageTable
+        requirements={requirementsWithCoverage}
+        search={search}
+        onSearchChange={setSearch}
+        selectedCategory={selectedCategory === '' ? null : selectedCategory}
+        onOpenRow={setOpenLawRef}
+      />
 
       <RegelverkCoverageSlideOver
         open={openReq !== null}
