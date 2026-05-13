@@ -36,6 +36,9 @@ const OPERATOR_LABEL: Record<DashboardFilterOperator, string> = {
   before: 'før',
 }
 
+export { FilterChip as DashboardFilterChip }
+export { FilterEditPopover as DashboardFilterEditPopover }
+
 export function DashboardFilterBar({ filters, dimensions, onChange }: Props) {
   const [pickerOpen, setPickerOpen] = useState(false)
   const [editing, setEditing] = useState<{ filter: DashboardFilter } | null>(null)
