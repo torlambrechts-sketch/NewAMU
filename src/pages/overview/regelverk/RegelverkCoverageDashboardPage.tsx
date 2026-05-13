@@ -15,8 +15,9 @@ import { RegelverkKpiHeader } from './RegelverkKpiHeader'
 import { RegelverkCoverageTable } from './RegelverkCoverageTable'
 import { RegelverkCoverageSlideOver } from './RegelverkCoverageSlideOver'
 import {
-  isContentKind,
+  isFreshProof,
   isOperationalKind,
+  isStaleInstance,
   type RequirementWithCoverage,
 } from './regelverkCoverageTypes'
 
@@ -71,16 +72,37 @@ export function RegelverkCoverageDashboardPage() {
       }
       for (const e of entries) byKind[e.kind] += 1
 
-      // Status etter compliance-officer-modell:
-      //  covered    = ≥1 INNHOLDS-ressurs (preventiv kontroll)
-      //  only_avvik = 0 innhold, ≥1 task (registrert brudd uten rutine)
-      //  uncovered  = ingenting
-      const contentCount = entries.filter((e) => isContentKind(e.kind)).length
+      // Status (v2 — krever reell proof):
+      //  covered    = ≥1 fersk publisert INSTANCE (kurs/dokument) i orgen,
+      //               oppdatert siste 12 mnd.
+      //  partial    = mal eller utdatert/utkast-instans finnes — orgen
+      //               vet om kravet, men kan ikke vise gjennomført rutine.
+      //  only_avvik = ingen innholds-bevis, ≥1 avvik tagget med §.
+      //  uncovered  = ingenting.
+      const now = new Date()
+      const freshInstances = entries.filter((e) => isFreshProof(e, now)).length
+      const staleInstances = entries.filter((e) => isStaleInstance(e, now)).length
+      const templatesOnly = entries.filter(
+        (e) => e.source === 'template' && !isOperationalKind(e.kind),
+      ).length
       const operationalCount = entries.filter((e) => isOperationalKind(e.kind)).length
-      const status: RequirementWithCoverage['status'] =
-        contentCount > 0 ? 'covered' : operationalCount > 0 ? 'only_avvik' : 'uncovered'
 
-      return { ...req, coverage: entries, byKind, status }
+      const status: RequirementWithCoverage['status'] =
+        freshInstances > 0
+          ? 'covered'
+          : staleInstances + templatesOnly > 0
+            ? 'partial'
+            : operationalCount > 0
+              ? 'only_avvik'
+              : 'uncovered'
+
+      return {
+        ...req,
+        coverage: entries,
+        byKind,
+        status,
+        proof: { freshInstances, staleInstances, templatesOnly },
+      }
     })
   }, [requirementsForRegelverk, coverage])
 

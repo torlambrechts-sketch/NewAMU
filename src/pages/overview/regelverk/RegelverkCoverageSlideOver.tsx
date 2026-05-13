@@ -215,6 +215,30 @@ export function RegelverkCoverageSlideOver({
             <p className="text-[10px] font-bold uppercase tracking-wide text-neutral-500">
               Preventive kontroller ({contentEntries.length})
             </p>
+            {req.status === 'partial' ? (
+              <div className="mt-3 rounded-md border border-amber-300 bg-amber-50/70 p-4 text-sm text-amber-950">
+                <p className="font-semibold">Mangler reell proof</p>
+                <p className="mt-1 text-xs text-amber-900/85">
+                  Arbeidstilsynet aksepterer ikke en mal som dokumentasjon. Kravet
+                  regnes som dekket først når en publisert ressurs (kurs eller
+                  policy-dokument) er oppdatert i orgen siste 12 mnd.
+                </p>
+                <ul className="mt-2 space-y-0.5 text-xs text-amber-900/85">
+                  {req.proof.templatesOnly > 0 ? (
+                    <li>
+                      <span className="font-semibold">{req.proof.templatesOnly}</span>{' '}
+                      mal tilgjengelig — aktiver i orgen for å skape proof.
+                    </li>
+                  ) : null}
+                  {req.proof.staleInstances > 0 ? (
+                    <li>
+                      <span className="font-semibold">{req.proof.staleInstances}</span>{' '}
+                      instans foreldet eller utkast — gjennomgå og republiser.
+                    </li>
+                  ) : null}
+                </ul>
+              </div>
+            ) : null}
             {contentEntries.length === 0 ? (
               <div className="mt-3 rounded-md border border-dashed border-red-300 bg-red-50/60 p-4 text-sm text-red-900">
                 Ingen rutine, kurs, sjekkliste, undersøkelse eller møte-mal dekker

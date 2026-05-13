@@ -16,6 +16,7 @@ export function RegelverkKpiHeader({
 }) {
   const total = requirements.length
   const covered = requirements.filter((r) => r.status === 'covered').length
+  const partial = requirements.filter((r) => r.status === 'partial').length
   const onlyAvvik = requirements.filter((r) => r.status === 'only_avvik').length
   const uncovered = requirements.filter((r) => r.status === 'uncovered').length
   const pct = total === 0 ? 0 : Math.round((covered / total) * 100)
@@ -25,6 +26,9 @@ export function RegelverkKpiHeader({
   ).length
   const uncoveredRecommended = requirements.filter(
     (r) => r.status === 'uncovered' && r.obligation === 'recommended',
+  ).length
+  const partialMandatory = requirements.filter(
+    (r) => r.status === 'partial' && r.obligation === 'mandatory',
   ).length
   const avvikMandatory = requirements.filter(
     (r) => r.status === 'only_avvik' && r.obligation === 'mandatory',
@@ -58,9 +62,12 @@ export function RegelverkKpiHeader({
             style={{ width: `${pct}%`, backgroundColor: FOREST }}
           />
         </div>
-        <div className="mt-3 flex flex-wrap gap-4 text-xs text-neutral-600">
+        <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-xs text-neutral-600">
           <span>
             <span className="font-semibold text-emerald-900">{covered}</span> dekket
+          </span>
+          <span>
+            <span className="font-semibold text-amber-900">{partial}</span> mangler proof
           </span>
           <span>
             <span className="font-semibold text-amber-900">{onlyAvvik}</span> kun avvik
@@ -70,8 +77,9 @@ export function RegelverkKpiHeader({
           </span>
         </div>
         <p className="mt-2 text-[11px] text-neutral-500">
-          Dekket = minst én rutine, kurs, sjekkliste, undersøkelse eller møte-mal med
-          eksakt §-referanse.
+          Dekket = minst ett <em>publisert</em> kurs eller dokument i orgen, oppdatert
+          siste 12 mnd. En tilgjengelig mal teller ikke som etterlevelse — den må være
+          aktivert som faktisk rutine.
         </p>
       </div>
 
@@ -85,7 +93,7 @@ export function RegelverkKpiHeader({
               className="mt-1 text-4xl font-semibold text-neutral-900"
               style={{ fontFamily: SERIF }}
             >
-              {uncoveredMandatory + uncoveredRecommended + onlyAvvik}
+              {uncoveredMandatory + uncoveredRecommended + partialMandatory + onlyAvvik}
             </p>
           </div>
           <div className="grid size-10 place-items-center rounded-full bg-red-100">
@@ -100,6 +108,15 @@ export function RegelverkKpiHeader({
             </span>
             <span className="font-semibold tabular-nums text-neutral-900">
               {uncoveredMandatory}
+            </span>
+          </li>
+          <li className="flex items-center justify-between">
+            <span className="flex items-center gap-2 text-neutral-700">
+              <span className="size-2 rounded-full bg-amber-400" />
+              Mangler proof (pliktig)
+            </span>
+            <span className="font-semibold tabular-nums text-neutral-900">
+              {partialMandatory}
             </span>
           </li>
           <li className="flex items-center justify-between">

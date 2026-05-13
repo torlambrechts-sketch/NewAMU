@@ -28,6 +28,9 @@ export type CoverageEntry = {
   status?: string
   link?: string
   source: 'template' | 'instance'
+  /** ISO timestamp of last meaningful update — used by the regelverk-dashboard
+   *  to decide if an instance is fresh enough to count as proof of compliance. */
+  lastSeenAt?: string
 }
 
 export type CoverageMap = Map<string, CoverageEntry[]>
@@ -68,12 +71,12 @@ export function useRegelverkCoverage() {
       // Læring — org-spesifikke kurs (instance)
       supabase
         .from('learning_courses')
-        .select('id, title, law_refs, status')
+        .select('id, title, law_refs, status, updated_at')
         .eq('organization_id', orgId),
       // Dokumenter — faktiske wiki-sider (instance)
       supabase
         .from('wiki_pages')
-        .select('id, title, legal_refs, status')
+        .select('id, title, legal_refs, status, updated_at')
         .eq('organization_id', orgId),
       // Dokument-maler — system-katalog (template)
       supabase
@@ -138,16 +141,16 @@ export function useRegelverkCoverage() {
       }
 
       // Org-courses (instance)
-      for (const c of (orgCoursesRes.data ?? []) as { id: string; title: string; law_refs: unknown; status: string }[]) {
+      for (const c of (orgCoursesRes.data ?? []) as { id: string; title: string; law_refs: unknown; status: string; updated_at: string }[]) {
         for (const ref of asArray(c.law_refs)) {
-          add(ref, { kind: 'course_org', id: c.id, title: c.title, status: c.status, source: 'instance' })
+          add(ref, { kind: 'course_org', id: c.id, title: c.title, status: c.status, source: 'instance', lastSeenAt: c.updated_at })
         }
       }
 
       // Documents (instance) — faktiske wiki-sider
-      for (const d of (docsRes.data ?? []) as { id: string; title: string; legal_refs: string[] | null; status: string }[]) {
+      for (const d of (docsRes.data ?? []) as { id: string; title: string; legal_refs: string[] | null; status: string; updated_at: string }[]) {
         for (const ref of asArray(d.legal_refs)) {
-          add(ref, { kind: 'document', id: d.id, title: d.title, status: d.status, source: 'instance' })
+          add(ref, { kind: 'document', id: d.id, title: d.title, status: d.status, source: 'instance', lastSeenAt: d.updated_at })
         }
       }
 
