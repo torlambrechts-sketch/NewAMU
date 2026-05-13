@@ -151,7 +151,14 @@ export function WorkflowBuilderPage() {
             }}
           />
         )}
-        {tab === 'library' && <LibraryPanel />}
+        {tab === 'library' && (
+          <LibraryPanel
+            onInstalled={(ruleId) => {
+              setFocusedRuleId(ruleId)
+              setTab('canvas')
+            }}
+          />
+        )}
         {tab === 'canvas' && <CanvasPanel initialRuleId={focusedRuleId} />}
         {tab === 'approvals' && <ApprovalsPanel />}
         {tab === 'runs' && <RunHistoryPanel ruleId={focusedRuleId ?? undefined} />}

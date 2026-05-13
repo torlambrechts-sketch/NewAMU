@@ -7,18 +7,44 @@
 // refs) come from the registry SDK so the user sees what they're getting.
 
 import { useMemo, useState } from 'react'
-import { Download, ExternalLink, Shield, ShieldAlert } from 'lucide-react'
+import { Check, Download, ExternalLink, Plus, Shield, ShieldAlert } from 'lucide-react'
 import { useWorkflowCatalog } from '../../../hooks/useWorkflowCatalog'
 import { useWorkflows } from '../../../hooks/useWorkflows'
 import { getWorkflowScope, listWorkflowScopes } from '../../../lib/workflows/workflowRegistry'
 
-export function LibraryPanel() {
+export function LibraryPanel({ onInstalled }: { onInstalled?: (ruleId: string) => void } = {}) {
   const { catalog, loading, error, refresh } = useWorkflowCatalog()
-  const { seedWorkflowBaseline, canCompose } = useWorkflows()
+  const { rules, seedWorkflowBaseline, seedWorkflowFromCatalog, canCompose } = useWorkflows()
   const [installing, setInstalling] = useState<string | null>(null)
   const [installResult, setInstallResult] = useState<{ pack: string; outcome: string } | null>(null)
+  const [rowResult, setRowResult] = useState<{ slug: string; action: 'inserted' | 'exists' } | null>(null)
   const [scopeFilter, setScopeFilter] = useState<string>('all')
   const [packFilter, setPackFilter] = useState<string>('all')
+
+  // Map catalog_slug → installed rule_id for "Installert" / "Bruk malen" state.
+  const installedBySlug = useMemo(() => {
+    const m = new Map<string, string>()
+    rules.forEach((r) => {
+      if (r.catalog_slug) m.set(r.catalog_slug, r.id)
+      else m.set(r.slug, r.id)
+    })
+    return m
+  }, [rules])
+
+  const installRow = async (slug: string) => {
+    setInstalling(slug)
+    setRowResult(null)
+    const result = await seedWorkflowFromCatalog(slug)
+    setInstalling(null)
+    if (result.ok) {
+      setRowResult({ slug, action: result.action })
+      if (result.action === 'inserted' && onInstalled) {
+        // Defer slightly so the user sees the success row badge before nav.
+        setTimeout(() => onInstalled(result.ruleId), 400)
+      }
+      void refresh()
+    }
+  }
 
   const filtered = useMemo(() => {
     return catalog.filter((row) => {
@@ -113,6 +139,12 @@ export function LibraryPanel() {
           Pakke «{installResult.pack}» installert: {installResult.outcome}
         </div>
       )}
+      {rowResult && (
+        <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-900">
+          {rowResult.action === 'inserted' ? 'Mal installert som inaktiv arbeidsflyt. Åpner Bygg-fanen …' : 'Malen er allerede installert — bytter til Bygg-fanen …'}
+          {' '}<code className="ml-1 text-[10px] text-emerald-700">{rowResult.slug}</code>
+        </div>
+      )}
       <div className="overflow-hidden rounded-xl border border-neutral-200 bg-white">
         <table className="min-w-full text-sm">
           <thead className="bg-neutral-50 text-xs font-medium uppercase tracking-wide text-neutral-500">
@@ -123,11 +155,14 @@ export function LibraryPanel() {
               <th className="px-3 py-2 text-left">Law refs</th>
               <th className="px-3 py-2 text-left">Type</th>
               <th className="px-3 py-2 text-left">Versjon</th>
+              <th className="px-3 py-2 text-right">Handling</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-neutral-100">
             {filtered.map((row) => {
               const scope = getWorkflowScope(row.scope_id)
+              const installedId = installedBySlug.get(row.slug)
+              const isInstalling = installing === row.slug
               return (
                 <tr key={row.id} className="hover:bg-neutral-50">
                   <td className="px-3 py-2">
@@ -164,12 +199,34 @@ export function LibraryPanel() {
                     )}
                   </td>
                   <td className="px-3 py-2 text-xs text-neutral-500">v{row.catalog_version}</td>
+                  <td className="px-3 py-2 text-right">
+                    {installedId ? (
+                      <button
+                        type="button"
+                        onClick={() => onInstalled?.(installedId)}
+                        className="inline-flex items-center gap-1 rounded-md border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-[11px] font-medium text-emerald-800 hover:bg-emerald-100"
+                        title="Allerede installert — gå til rediger"
+                      >
+                        <Check className="h-3 w-3" /> Installert
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        disabled={!canCompose || isInstalling}
+                        onClick={() => installRow(row.slug)}
+                        className="inline-flex items-center gap-1 rounded-md bg-emerald-600 px-2.5 py-1 text-[11px] font-medium text-white hover:bg-emerald-700 disabled:opacity-50"
+                      >
+                        <Plus className="h-3 w-3" />
+                        {isInstalling ? 'Installerer …' : 'Bruk malen'}
+                      </button>
+                    )}
+                  </td>
                 </tr>
               )
             })}
             {filtered.length === 0 && (
               <tr>
-                <td colSpan={6} className="px-3 py-6 text-center text-sm text-neutral-500">
+                <td colSpan={7} className="px-3 py-6 text-center text-sm text-neutral-500">
                   Ingen maler matcher filtrene. Når feltet er tomt og du nettopp har lagt på Phase A
                   migrasjonene betyr det at katalogen ikke er seedet enda — bruk
                   workflow_seed_compliance_templates for den legacy-pakken, eller vent på Phase B-seeden.

@@ -187,6 +187,38 @@ export function useWorkflows() {
   }, [supabase, orgId, canCompose, refreshRules])
 
   /**
+   * Install ONE template from workflow_rule_catalog into this org as an
+   * inactive workflow_rules row. Returns the new rule_id so the UI can
+   * deep-link to the canvas to edit it. If a rule with the same slug
+   * already exists, returns that rule_id with action='exists'.
+   */
+  const seedWorkflowFromCatalog = useCallback(
+    async (slug: string) => {
+      if (!supabase || !orgId || !canCompose) {
+        return { ok: false as const, error: 'Ingen tilgang' }
+      }
+      try {
+        const { data, error: e } = await supabase.rpc('provision_workflow_from_catalog', {
+          p_org_id: orgId,
+          p_slug: slug,
+        })
+        if (e) throw e
+        const row = ((data ?? []) as Array<{ rule_id: string; action: 'inserted' | 'exists' }>)[0]
+        if (!row) {
+          return { ok: false as const, error: 'Tom respons fra provision-RPC' }
+        }
+        await refreshRules()
+        return { ok: true as const, ruleId: row.rule_id, action: row.action }
+      } catch (err) {
+        const msg = getSupabaseErrorMessage(err)
+        setError(msg)
+        return { ok: false as const, error: msg }
+      }
+    },
+    [supabase, orgId, canCompose, refreshRules],
+  )
+
+  /**
    * Provision the workflow_rule_catalog baseline for this org. Optional `pack`
    * narrows down to e.g. 'aml-amu' / 'iso-45001' / 'gdpr'. Set
    * `activateImmediately=true` to flip non-gov-action rules to is_active=true
@@ -239,5 +271,6 @@ export function useWorkflows() {
     deleteRule,
     seedComplianceTemplates,
     seedWorkflowBaseline,
+    seedWorkflowFromCatalog,
   }
 }
