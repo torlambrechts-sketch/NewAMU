@@ -460,6 +460,10 @@ type CatalogLocaleRow = {
   title: string
   description: string
   modules: unknown
+  // JSONB bucket for locale-level extension fields (badges, milestones,
+  // lawRefs catalog, schemaVersion, …) written by
+  // learning_admin_upsert_system_course via JSONB subtraction.
+  meta: Record<string, unknown> | null
 }
 
 type DbModuleRow = {
@@ -551,6 +555,9 @@ function moduleFromCatalogJson(raw: Record<string, unknown>): CourseModule | nul
   const content = raw.content as ModuleContent
   const durationMinutes = typeof raw.durationMinutes === 'number' ? raw.durationMinutes : 5
   if (!content || typeof content !== 'object') return null
+  const refLawIds = Array.isArray(raw.refLawIds)
+    ? (raw.refLawIds.filter((x) => typeof x === 'string') as string[])
+    : undefined
   return {
     id: raw.id,
     title: raw.title,
@@ -558,6 +565,9 @@ function moduleFromCatalogJson(raw: Record<string, unknown>): CourseModule | nul
     kind,
     content,
     durationMinutes,
+    refLawIds,
+    points: typeof raw.points === 'number' ? raw.points : undefined,
+    badgeId: typeof raw.badgeId === 'string' ? raw.badgeId : undefined,
   }
 }
 
@@ -656,12 +666,23 @@ function mergeCatalogIntoCourses(
       .map(moduleFromCatalogJson)
       .filter(Boolean) as CourseModule[]
     modules.sort((a, b) => a.order - b.order)
+    // Locale-level extension fields written via JSON import land in `meta`
+    // (see learning_admin_upsert_system_course). Spread the gamification
+    // primitives onto the Course so GamificationHUD has real data without
+    // an extra round-trip.
+    const meta = row.meta ?? {}
+    const badges = Array.isArray(meta.badges) ? (meta.badges as Course['badges']) : undefined
+    const milestones = Array.isArray(meta.milestones)
+      ? (meta.milestones as Course['milestones'])
+      : undefined
     return {
       ...c,
       title: row.title || c.title,
       description: row.description ?? c.description,
       modules,
       catalogLocale: loc,
+      ...(badges ? { badges } : {}),
+      ...(milestones ? { milestones } : {}),
     }
   })
 }
@@ -800,7 +821,7 @@ export function useLearning() {
       if (systemIds.length) {
         const { data: locData, error: locErr } = await supabase
           .from('learning_system_course_locales')
-          .select('system_course_id, locale, title, description, modules')
+          .select('system_course_id, locale, title, description, modules, meta')
           .in('system_course_id', systemIds)
           .in('locale', ['nb', 'en'])
         if (locErr) throw locErr
