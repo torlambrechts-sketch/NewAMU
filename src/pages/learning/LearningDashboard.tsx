@@ -34,6 +34,7 @@ const KIND_LABELS: Record<string, string> = {
   tips: 'Tips',
   on_job: 'På jobben',
   event: 'Hendelse',
+  scenario: 'Scenario',
   other: 'Annet',
 }
 

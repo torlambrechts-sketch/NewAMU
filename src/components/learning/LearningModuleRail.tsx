@@ -22,6 +22,7 @@ import {
   ClipboardList,
   Copy,
   Download,
+  GitBranch,
   HelpCircle,
   Image as ImageIcon,
   Lightbulb,
@@ -48,6 +49,7 @@ const LEARNING_KIND_META: Record<ModuleKind, KindMeta> = {
   tips: { label: 'Tips', icon: Lightbulb },
   on_job: { label: 'I praksis', icon: Wrench },
   event: { label: 'Arrangement', icon: ClipboardList },
+  scenario: { label: 'Scenario', icon: GitBranch },
   other: { label: 'Annet', icon: LayersIcon },
 }
 
@@ -61,6 +63,7 @@ const KIND_LIST: ModuleKind[] = [
   'tips',
   'on_job',
   'event',
+  'scenario',
 ]
 
 type Props = {

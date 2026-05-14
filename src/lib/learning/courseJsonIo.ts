@@ -23,17 +23,26 @@ const ModuleKindSchema = z.enum([
   'tips',
   'on_job',
   'event',
+  'scenario',
   'other',
 ])
 
-const ModuleJsonSchema = z.object({
-  title: z.string().default(''),
-  kind: ModuleKindSchema,
-  durationMinutes: z.number().int().nonnegative().default(5),
-  order: z.number().optional(),
-  content: z.unknown(),
-  sectionId: z.string().nullable().optional(),
-})
+// Module schema uses passthrough so author-only fields (refLawIds, points,
+// badgeId, etc.) survive the round-trip without needing a typed entry here.
+// Validation only covers the structural fields the importer relies on.
+const ModuleJsonSchema = z
+  .object({
+    title: z.string().default(''),
+    kind: ModuleKindSchema,
+    durationMinutes: z.number().int().nonnegative().default(5),
+    order: z.number().optional(),
+    content: z.unknown(),
+    sectionId: z.string().nullable().optional(),
+    refLawIds: z.array(z.string()).optional(),
+    points: z.number().int().nonnegative().optional(),
+    badgeId: z.string().optional(),
+  })
+  .passthrough()
 
 const CourseSectionJsonSchema = z.object({
   id: z.string(),
@@ -41,18 +50,27 @@ const CourseSectionJsonSchema = z.object({
   order: z.number().optional(),
 })
 
-const CourseJsonSchema = z.object({
-  title: z.string(),
-  description: z.string().optional().default(''),
-  status: z.enum(['draft', 'published', 'archived']).optional(),
-  tags: z.array(z.string()).optional().default([]),
-  recertificationMonths: z.number().int().nullable().optional(),
-  categoryId: z.string().nullable().optional(),
-  lawRefs: z.array(z.string()).optional().default([]),
-  modules: z.array(ModuleJsonSchema).default([]),
-  sections: z.array(CourseSectionJsonSchema).optional(),
-  metadataSchema: z.unknown().optional(),
-})
+// Course-level passthrough lets `badges`, `milestones`, and any other
+// gamification metadata survive a parse → re-export round trip.
+const CourseJsonSchema = z
+  .object({
+    title: z.string(),
+    description: z.string().optional().default(''),
+    status: z.enum(['draft', 'published', 'archived']).optional(),
+    tags: z.array(z.string()).optional().default([]),
+    recertificationMonths: z.number().int().nullable().optional(),
+    categoryId: z.string().nullable().optional(),
+    /** Per-course flat string array (legacy compliance pattern) */
+    lawRefs: z.array(z.string()).optional().default([]),
+    /** Optional gamification badge catalog */
+    badges: z.array(z.unknown()).optional(),
+    /** Optional gamification milestone definitions */
+    milestones: z.array(z.unknown()).optional(),
+    modules: z.array(ModuleJsonSchema).default([]),
+    sections: z.array(CourseSectionJsonSchema).optional(),
+    metadataSchema: z.unknown().optional(),
+  })
+  .passthrough()
 
 export type ModuleJson = z.infer<typeof ModuleJsonSchema>
 export type CourseJson = z.infer<typeof CourseJsonSchema>
@@ -63,36 +81,51 @@ export type CourseJson = z.infer<typeof CourseJsonSchema>
 // here mirrors the JSONB columns 1:1 so a round-trip export → edit → import
 // preserves what the runtime resolver expects (see mergeCatalogIntoCourses
 // in useLearning.ts and the `learning_fork_system_course` plpgsql RPC).
-const SystemCourseModuleJsonSchema = z.object({
-  id: z.string(),
-  title: z.string(),
-  order: z.number().int().optional(),
-  kind: ModuleKindSchema,
-  durationMinutes: z.number().int().nonnegative().default(5),
-  content: z.unknown(),
-})
+const SystemCourseModuleJsonSchema = z
+  .object({
+    id: z.string(),
+    title: z.string(),
+    order: z.number().int().optional(),
+    kind: ModuleKindSchema,
+    durationMinutes: z.number().int().nonnegative().default(5),
+    content: z.unknown(),
+    refLawIds: z.array(z.string()).optional(),
+    points: z.number().int().nonnegative().optional(),
+    badgeId: z.string().optional(),
+  })
+  .passthrough()
 
-const SystemCourseLocaleJsonSchema = z.object({
-  locale: z.string().min(1),
-  title: z.string().default(''),
-  description: z.string().default(''),
-  modules: z.array(SystemCourseModuleJsonSchema).default([]),
-})
+const SystemCourseLocaleJsonSchema = z
+  .object({
+    locale: z.string().min(1),
+    title: z.string().default(''),
+    description: z.string().default(''),
+    modules: z.array(SystemCourseModuleJsonSchema).default([]),
+    lawRefs: z.array(z.unknown()).optional(),
+    badges: z.array(z.unknown()).optional(),
+    milestones: z.array(z.unknown()).optional(),
+  })
+  .passthrough()
 
-const SystemCourseJsonSchema = z.object({
-  id: z.string().min(1),
-  slug: z.string().min(1),
-  defaultLocale: z.string().default('nb'),
-  locales: z.array(SystemCourseLocaleJsonSchema).min(1),
-})
+const SystemCourseJsonSchema = z
+  .object({
+    id: z.string().min(1),
+    slug: z.string().min(1),
+    defaultLocale: z.string().default('nb'),
+    locales: z.array(SystemCourseLocaleJsonSchema).min(1),
+  })
+  .passthrough()
 
-const AllCoursesExportJsonSchema = z.object({
-  version: z.literal(1),
-  kind: z.literal('courses_all_export'),
-  exportedAt: z.string(),
-  orgCourses: z.array(CourseJsonSchema.extend({ id: z.string() })).default([]),
-  systemCourses: z.array(SystemCourseJsonSchema).default([]),
-})
+const AllCoursesExportJsonSchema = z
+  .object({
+    version: z.literal(1),
+    kind: z.literal('courses_all_export'),
+    exportedAt: z.string(),
+    schemaVersion: z.number().int().optional(),
+    orgCourses: z.array(CourseJsonSchema.extend({ id: z.string() })).default([]),
+    systemCourses: z.array(SystemCourseJsonSchema).default([]),
+  })
+  .passthrough()
 
 export type SystemCourseModuleJson = z.infer<typeof SystemCourseModuleJsonSchema>
 export type SystemCourseLocaleJson = z.infer<typeof SystemCourseLocaleJsonSchema>
