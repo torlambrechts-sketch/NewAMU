@@ -1,6 +1,8 @@
-// Alternative 2 — "Cinema Card". Story-driven, fixed 960×640 stage on an
-// ambient backdrop. Inspired by Headspace and Apple Keynote. The card is the
-// single focal element; controls live outside it. XP reward on completion.
+// Alternative 2 — "Cinema Card" (admin theme). Refactored to live inside the
+// platform-admin slate-950 shell with amber accent, 7fr/3fr dashboard split,
+// and the standard `rounded-2xl border border-white/10 bg-white/5` card.
+// The cinematic identity survives in three places: animated card-to-card
+// transitions, a chapter-dot strip, and an XP/badge unlock toast pair.
 
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
@@ -13,7 +15,7 @@ import {
   Compass,
   FileText,
   HelpCircle,
-  List,
+  ListChecks,
   PartyPopper,
   PenLine,
   ShieldCheck,
@@ -28,6 +30,7 @@ import {
   moduleTimeLabel,
   type MockBadge,
   type MockBadgeIcon,
+  type MockCourse,
   type MockModule,
 } from './mockCourse'
 
@@ -44,27 +47,26 @@ const BADGE_ICON: Record<MockBadgeIcon, LucideIcon> = {
   Trophy,
 }
 
-const ACCENT = '#1a3d32'
-const GOLD = '#c9a227'
-
 export function PlatformCoursePlayerCinemaPage() {
   const [idx, setIdx] = useState(0)
   const [completed, setCompleted] = useState<Record<string, boolean>>({})
   const [quizAnswers, setQuizAnswers] = useState<Record<string, number>>({})
-  const [reflections, setReflections] = useState<Record<string, string>>({})
   const [quizSubmitted, setQuizSubmitted] = useState<Record<string, boolean>>({})
+  const [reflections, setReflections] = useState<Record<string, string>>({})
   const [xpToast, setXpToast] = useState<number | null>(null)
+  const [badgeToast, setBadgeToast] = useState<MockBadge | null>(null)
   const [direction, setDirection] = useState<'forward' | 'backward'>('forward')
   const [finished, setFinished] = useState(false)
-  const [tocOpen, setTocOpen] = useState(false)
-  const [badgeToast, setBadgeToast] = useState<MockBadge | null>(null)
 
   const course = MOCK_COURSE
   const mod = course.modules[idx]
   const total = course.modules.length
   const completedCount = Object.values(completed).filter(Boolean).length
   const overall = completedCount / total
-  const earnedPoints = course.modules.reduce((sum, m) => (completed[m.id] ? sum + m.points : sum), 0)
+  const earnedPoints = course.modules.reduce(
+    (sum, m) => (completed[m.id] ? sum + m.points : sum),
+    0,
+  )
   const earnedBadges = course.badges.filter((b) => completed[b.awardedAtModuleId])
   const nextMod = idx < total - 1 ? course.modules[idx + 1] : null
   const sessionXp = course.level.currentXp + earnedPoints
@@ -84,7 +86,7 @@ export function PlatformCoursePlayerCinemaPage() {
   }, [mod, quizAnswers, quizSubmitted, reflections])
 
   const disabledHint = (() => {
-    if (mod.kind === 'quiz' && !quizSubmitted[mod.id]) return 'Sjekk svarene først for å gå videre.'
+    if (mod.kind === 'quiz' && !quizSubmitted[mod.id]) return 'Sjekk svarene først.'
     if (mod.kind === 'quiz' && quizSubmitted[mod.id]) {
       const right = mod.questions.filter((q) => quizAnswers[q.id] === q.correctIndex).length
       if (right / mod.questions.length < 2 / 3) return 'Du må ha minst 2 riktige for å gå videre.'
@@ -104,7 +106,7 @@ export function PlatformCoursePlayerCinemaPage() {
       setTimeout(() => {
         setDirection('forward')
         setIdx(idx + 1)
-      }, 250)
+      }, 200)
     } else {
       setTimeout(() => setFinished(true), 250)
     }
@@ -117,7 +119,6 @@ export function PlatformCoursePlayerCinemaPage() {
     }
   }
 
-  // Keyboard nav — ArrowLeft / ArrowRight
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
       const t = e.target as HTMLElement | null
@@ -142,201 +143,110 @@ export function PlatformCoursePlayerCinemaPage() {
     return () => clearTimeout(t)
   }, [badgeToast])
 
+  function resetAll() {
+    setFinished(false)
+    setIdx(0)
+    setCompleted({})
+    setQuizAnswers({})
+    setQuizSubmitted({})
+    setReflections({})
+  }
+
   return (
-    <div className="-mx-4 -my-8 md:-mx-8">
-      <div
-        className="relative min-h-[calc(100vh-100px)] overflow-hidden"
-        style={{
-          background:
-            'radial-gradient(ellipse at top, #1f3b3a 0%, #0f1e1d 40%, #050b0a 100%)',
+    <div className="space-y-6">
+      {/* Header band */}
+      <header className="flex flex-wrap items-end justify-between gap-4">
+        <div>
+          <Link
+            to="/platform-admin/course-player"
+            className="inline-flex items-center gap-1.5 text-xs font-medium text-neutral-400 hover:text-white"
+          >
+            <ChevronLeft className="size-3.5" /> Tilbake til oversikt
+          </Link>
+          <p className="mt-3 text-xs font-medium uppercase tracking-wide text-amber-500/90">
+            Kursspiller · Alternativ 2 — Cinema Card
+          </p>
+          <h1 className="mt-1 text-2xl font-semibold text-white">{course.title}</h1>
+          <p className="mt-1 text-sm text-neutral-400">{course.audience}</p>
+        </div>
+
+        <div className="flex items-center gap-3">
+          <LevelMeter
+            level={course.level.levelNumber}
+            label={course.level.levelLabel}
+            sessionXp={sessionXp}
+            nextLevelXp={course.level.nextLevelXp}
+            pct={levelPct}
+          />
+          <button
+            type="button"
+            onClick={resetAll}
+            className="inline-flex items-center gap-1.5 rounded-lg border border-white/10 px-3 py-2 text-sm text-neutral-300 hover:bg-white/5"
+          >
+            <X className="size-4" /> Avslutt
+          </button>
+        </div>
+      </header>
+
+      {/* Step strip */}
+      <ChapterDots
+        course={course}
+        currentIdx={idx}
+        completed={completed}
+        onPick={(i) => {
+          setDirection(i > idx ? 'forward' : 'backward')
+          setIdx(i)
         }}
-      >
-        {/* Ambient texture / vignette */}
-        <div
-          className="pointer-events-none absolute inset-0 opacity-30"
-          style={{
-            background:
-              'radial-gradient(circle at 20% 30%, rgba(201,162,39,0.18), transparent 40%), radial-gradient(circle at 80% 70%, rgba(26,61,50,0.4), transparent 50%)',
-          }}
-        />
+      />
 
-        {/* Top chrome */}
-        <div className="relative z-10 mx-auto flex max-w-[1100px] items-center justify-between gap-4 px-6 py-6">
-          <div className="flex items-center gap-3">
-            <Link
-              to="/platform-admin/course-player"
-              className="inline-flex items-center gap-1.5 text-xs font-medium text-white/70 hover:text-white"
-            >
-              <ChevronLeft className="size-3.5" /> Tilbake
-            </Link>
-            <button
-              type="button"
-              onClick={() => setTocOpen(true)}
-              className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/5 px-3 py-1.5 text-xs font-medium text-white/80 hover:bg-white/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
-            >
-              <List className="size-3.5" /> Innhold ({course.modules.length})
-            </button>
-          </div>
-          <div className="flex items-center gap-3 text-xs text-white/70">
-            <div className="hidden items-center gap-3 rounded-full border border-white/15 bg-white/5 px-3 py-1.5 sm:flex">
-              <div className="leading-tight text-right">
-                <p className="text-[10px] uppercase tracking-[1.5px] text-white/50">
-                  Nivå {course.level.levelNumber} · {course.level.levelLabel}
-                </p>
-                <p className="text-[11px] font-semibold text-white">
-                  {sessionXp}
-                  <span className="text-white/55"> / {course.level.nextLevelXp} XP</span>
-                </p>
-              </div>
-              <div
-                className="h-1.5 w-20 overflow-hidden rounded-full bg-white/10"
-                aria-hidden
-                role="presentation"
-              >
-                <div
-                  className="h-full transition-all duration-500"
-                  style={{ width: `${levelPct * 100}%`, backgroundColor: GOLD }}
-                />
-              </div>
-            </div>
-            <button
-              type="button"
-              className="inline-flex items-center gap-1.5 rounded-md border border-white/15 px-2.5 py-1 text-white/80 hover:bg-white/5"
-            >
-              <X className="size-3.5" /> Avslutt
-            </button>
-          </div>
-        </div>
-
-        {/* Step dots */}
-        <div className="relative z-10 mx-auto flex max-w-[1100px] items-center justify-center gap-2 pb-6">
-          {course.modules.map((m, i) => {
-            const done = completed[m.id]
-            const isCurrent = i === idx
-            return (
-              <button
-                key={m.id}
-                type="button"
-                onClick={() => {
-                  setDirection(i > idx ? 'forward' : 'backward')
-                  setIdx(i)
-                }}
-                title={`Modul ${i + 1}: ${m.title}`}
-                aria-label={`Gå til modul ${i + 1}: ${m.title}${done ? ' (fullført)' : ''}`}
-                aria-current={isCurrent ? 'step' : undefined}
-                className={`h-2 rounded-full transition-all focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white ${
-                  isCurrent ? 'w-10' : done ? 'w-2' : 'w-2'
-                }`}
-                style={{
-                  backgroundColor: isCurrent ? GOLD : done ? 'rgba(201,162,39,0.6)' : 'rgba(255,255,255,0.2)',
-                }}
-              />
-            )
-          })}
-        </div>
-
-        {/* Stage card */}
-        <div className="relative z-10 mx-auto px-6 pb-10">
-          {finished ? (
-            <div
-              role="status"
-              className="mx-auto flex w-full max-w-[720px] flex-col items-center gap-6 rounded-3xl border border-white/10 bg-[#fdfcf7] px-10 py-12 text-center shadow-2xl shadow-black/60"
-            >
-              <span
-                className="flex size-14 items-center justify-center rounded-full text-white"
-                style={{ backgroundColor: ACCENT }}
-              >
-                <PartyPopper className="size-6" />
-              </span>
-              <div className="space-y-1">
-                <h2 className="text-2xl font-semibold text-[#0f1311]">Kurset er fullført</h2>
-                <p className="text-sm text-[#1f2421]/70">
-                  Du tjente <strong className="text-[#0f1311]">+{earnedPoints} XP</strong> og er
-                  nå{' '}
-                  <strong className="text-[#0f1311]">
-                    {Math.round(levelPct * 100)}%
-                  </strong>{' '}
-                  på vei mot Nivå {course.level.levelNumber + 1}.
-                </p>
-              </div>
-
-              {earnedBadges.length > 0 ? (
-                <ul className="grid w-full gap-3 sm:grid-cols-3">
-                  {earnedBadges.map((b) => {
-                    const Icon = BADGE_ICON[b.icon]
-                    return (
-                      <li
-                        key={b.id}
-                        className="flex flex-col items-center gap-2 rounded-2xl border border-[#e8e2d2] bg-white px-3 py-4"
-                      >
-                        <span
-                          className="flex size-12 items-center justify-center rounded-full text-white"
-                          style={{ backgroundColor: ACCENT }}
-                        >
-                          <Icon className="size-5" />
-                        </span>
-                        <p className="text-xs font-semibold text-[#0f1311]">{b.label}</p>
-                        <p className="text-[11px] leading-snug text-[#1f2421]/60">
-                          {b.description}
-                        </p>
-                      </li>
-                    )
-                  })}
-                </ul>
-              ) : null}
-
-              <div className="flex flex-wrap items-center justify-center gap-2">
-                <button
-                  type="button"
-                  className="inline-flex items-center gap-2 rounded-full px-5 py-2.5 text-sm font-semibold text-white shadow-md"
-                  style={{ backgroundColor: ACCENT }}
-                >
-                  Last ned kursbevis (PDF)
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setFinished(false)
-                    setIdx(0)
-                    setCompleted({})
-                    setQuizAnswers({})
-                    setQuizSubmitted({})
-                    setReflections({})
-                  }}
-                  className="inline-flex items-center gap-2 rounded-full border border-[#dcd4be] bg-white px-5 py-2.5 text-sm font-medium text-[#1f2421] hover:bg-[#efe9d8]"
-                >
-                  Start på nytt
-                </button>
-              </div>
-            </div>
-          ) : (
-          <div
+      {/* 70 / 30 split */}
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,7fr)_minmax(260px,3fr)] lg:items-start">
+        {/* Left: stage / finished card */}
+        {finished ? (
+          <CinemaFinishedCard
+            course={course}
+            earnedPoints={earnedPoints}
+            earnedBadges={earnedBadges}
+            levelPct={levelPct}
+            onRestart={resetAll}
+          />
+        ) : (
+          <article
             key={mod.id}
-            className={`mx-auto flex w-full max-w-[960px] flex-col overflow-hidden rounded-3xl border border-white/10 bg-[#fdfcf7] shadow-2xl shadow-black/60 ${
+            className={`relative overflow-hidden rounded-2xl border border-white/10 bg-white/5 ${
               direction === 'forward' ? 'animate-cinema-in-right' : 'animate-cinema-in-left'
             }`}
-            style={{ minHeight: '560px' }}
           >
-            <div className="flex items-center justify-between border-b border-[#e8e2d2] px-10 py-5">
-              <p
-                className="text-[11px] font-semibold uppercase tracking-[2.5px]"
-                style={{ color: ACCENT }}
-              >
+            {/* Subtle inner gradient — preserves cinematic feel without breaking admin theme */}
+            <div
+              className="pointer-events-none absolute inset-x-0 top-0 h-28"
+              style={{
+                background:
+                  'linear-gradient(to bottom, rgba(245,158,11,0.10), rgba(245,158,11,0.0))',
+              }}
+              aria-hidden
+            />
+
+            <div className="relative flex flex-wrap items-center justify-between gap-2 border-b border-white/10 px-7 py-4">
+              <p className="text-xs font-medium uppercase tracking-wide text-amber-500/90">
                 {mod.eyebrow}
               </p>
               <div className="flex flex-wrap items-center gap-2">
                 {mod.lawRefs.map((r) => (
                   <span
                     key={r}
-                    className="rounded-full border border-[#e8e2d2] bg-white px-2.5 py-0.5 font-mono text-[10px] text-[#1f2421]/70"
+                    className="rounded-full border border-white/10 bg-white/5 px-2 py-0.5 font-mono text-[11px] text-neutral-300"
                   >
                     {r}
                   </span>
                 ))}
+                <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/15 px-2 py-0.5 text-[11px] font-semibold text-amber-300">
+                  <Sparkles className="size-3" /> +{mod.points} XP
+                </span>
               </div>
             </div>
 
-            <div className="flex flex-1 flex-col gap-6 px-10 py-10">
+            <div className="relative px-7 py-8 md:px-9 md:py-10">
               <CinemaModuleBody
                 mod={mod}
                 quizAnswers={quizAnswers}
@@ -356,23 +266,20 @@ export function PlatformCoursePlayerCinemaPage() {
               />
             </div>
 
-            {/* Stage footer — primary CTA inside the card */}
-            <div className="mt-auto flex flex-wrap items-center justify-between gap-4 border-t border-[#e8e2d2] bg-[#f7f5ee] px-10 py-5">
+            {/* Stage footer */}
+            <div className="relative flex flex-wrap items-center justify-between gap-4 border-t border-white/10 bg-white/[0.03] px-7 py-4">
               <div className="flex flex-col gap-0.5">
-                <span className="text-xs text-[#1f2421]/60">
-                  Modul {idx + 1} av {total} · {moduleTimeLabel(mod.durationMinutes)} · +
-                  {mod.points} poeng
+                <span className="text-xs text-neutral-400">
+                  Modul {idx + 1} av {total} · {moduleTimeLabel(mod.durationMinutes)}
                 </span>
                 {nextMod ? (
-                  <span className="text-[11px] text-[#1f2421]/55">
-                    Neste opp: <strong className="font-semibold text-[#0f1311]">{nextMod.title}</strong>{' '}
-                    · {moduleKindLabel(nextMod.kind)}
+                  <span className="text-[11px] text-neutral-500">
+                    Neste opp:{' '}
+                    <strong className="font-semibold text-neutral-200">{nextMod.title}</strong> ·{' '}
+                    {moduleKindLabel(nextMod.kind)}
                   </span>
                 ) : (
-                  <span
-                    className="text-[11px] font-semibold uppercase tracking-[1px]"
-                    style={{ color: ACCENT }}
-                  >
+                  <span className="text-[11px] font-semibold uppercase tracking-wide text-amber-400">
                     Siste etappe
                   </span>
                 )}
@@ -383,130 +290,104 @@ export function PlatformCoursePlayerCinemaPage() {
                     id="cinema-disabled-hint"
                     role="status"
                     aria-live="polite"
-                    className="hidden text-xs sm:inline"
-                    style={{ color: '#b3382a' }}
+                    className="hidden text-xs text-red-300 sm:inline"
                   >
                     {disabledHint}
                   </span>
                 ) : null}
                 <button
                   type="button"
+                  onClick={goBack}
+                  disabled={idx === 0}
+                  aria-label="Forrige modul (pil venstre)"
+                  className="inline-flex items-center gap-2 rounded-lg border border-white/10 px-3 py-2 text-sm text-neutral-300 hover:bg-white/5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-400 disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  <ArrowLeft className="size-4" /> Forrige
+                </button>
+                <button
+                  type="button"
                   onClick={advance}
                   disabled={!canAdvance}
                   aria-describedby={disabledHint ? 'cinema-disabled-hint' : undefined}
-                  className="inline-flex items-center gap-2 rounded-full px-7 py-3 text-sm font-semibold text-white shadow-md transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white disabled:cursor-not-allowed disabled:opacity-40"
-                  style={{ backgroundColor: ACCENT }}
+                  className="inline-flex items-center gap-2 rounded-lg bg-amber-500 px-4 py-2 text-sm font-semibold text-slate-900 hover:bg-amber-400 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-400 disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   {idx === total - 1 ? 'Avslutt kurset' : 'Fortsett'}
                   <ArrowRight className="size-4" />
                 </button>
               </div>
             </div>
-          </div>
-          )}
-        </div>
+          </article>
+        )}
 
-        {/* Persistent control bar outside the stage */}
-        <div className="relative z-10 mx-auto flex max-w-[1100px] items-center justify-between px-6 pb-10">
-          <button
-            type="button"
-            onClick={goBack}
-            disabled={idx === 0}
-            className="inline-flex items-center gap-2 rounded-full border border-white/15 px-4 py-2 text-xs font-medium text-white/80 hover:bg-white/5 disabled:cursor-not-allowed disabled:opacity-30"
-          >
-            <ArrowLeft className="size-3.5" /> Forrige
-          </button>
-
-          {/* Time ring + percent */}
-          <div
-            className="flex items-center gap-3 text-xs text-white/70"
-            role="group"
-            aria-label="Total fremdrift"
-          >
-            <ProgressRing value={overall} />
-            <div className="flex flex-col leading-tight">
-              <span className="font-semibold text-white">{Math.round(overall * 100)}%</span>
-              <span className="uppercase tracking-wide text-white/50">fullført</span>
-            </div>
-          </div>
-
-          <span className="text-xs text-white/50">
-            {course.audience}
-          </span>
-        </div>
-
-        {/* XP reward toast */}
-        {xpToast !== null ? (
-          <div
-            role="status"
-            aria-live="polite"
-            className="pointer-events-none fixed left-1/2 top-24 z-30 -translate-x-1/2 animate-cinema-xp"
-          >
-            <div
-              className="flex items-center gap-2 rounded-full border border-white/20 bg-black/70 px-5 py-2.5 text-sm font-semibold backdrop-blur"
-              style={{ color: GOLD }}
-            >
-              <Sparkles className="size-4" /> +{xpToast} XP · modul fullført
-            </div>
-          </div>
-        ) : null}
-
-        {/* Badge unlock toast — appears slightly lower so they stack visually */}
-        {badgeToast ? (
-          <div
-            role="status"
-            aria-live="polite"
-            className="pointer-events-none fixed left-1/2 top-40 z-30 -translate-x-1/2 animate-cinema-badge"
-          >
-            <div
-              className="flex items-center gap-3 rounded-2xl border border-white/20 bg-black/80 px-5 py-3 text-sm backdrop-blur"
-            >
-              <span
-                className="flex size-9 shrink-0 items-center justify-center rounded-full text-white"
-                style={{ backgroundColor: ACCENT }}
-              >
-                {(() => {
-                  const Icon = BADGE_ICON[badgeToast.icon]
-                  return <Icon className="size-4" />
-                })()}
-              </span>
-              <div className="text-left">
-                <p className="text-[10px] font-semibold uppercase tracking-[1.5px]" style={{ color: GOLD }}>
-                  Nytt merke
-                </p>
-                <p className="text-sm font-semibold text-white">{badgeToast.label}</p>
-              </div>
-            </div>
-          </div>
-        ) : null}
-
-        {/* Innhold drawer */}
-        {tocOpen ? (
-          <CinemaTocDrawer
+        {/* Right rail */}
+        <aside className="space-y-4 lg:sticky lg:top-6">
+          <ProgressRingCard
+            completedCount={completedCount}
+            total={total}
+            overall={overall}
+            earnedPoints={earnedPoints}
+            totalPoints={course.totalPoints}
+          />
+          <TocCard
             course={course}
             currentIdx={idx}
             completed={completed}
             onPick={(i) => {
               setDirection(i > idx ? 'forward' : 'backward')
               setIdx(i)
-              setTocOpen(false)
             }}
-            onClose={() => setTocOpen(false)}
           />
-        ) : null}
-
-        <CinemaDesignNotes />
+          <BadgeTrayCard course={course} completed={completed} />
+        </aside>
       </div>
 
-      {/* Local CSS for stage transitions — disabled under prefers-reduced-motion */}
+      {/* XP reward toast */}
+      {xpToast !== null ? (
+        <div
+          role="status"
+          aria-live="polite"
+          className="pointer-events-none fixed left-1/2 top-24 z-30 -translate-x-1/2 animate-cinema-xp"
+        >
+          <div className="flex items-center gap-2 rounded-full border border-amber-400/40 bg-slate-900/90 px-5 py-2.5 text-sm font-semibold text-amber-300 backdrop-blur">
+            <Sparkles className="size-4" /> +{xpToast} XP · modul fullført
+          </div>
+        </div>
+      ) : null}
+
+      {/* Badge unlock toast */}
+      {badgeToast ? (
+        <div
+          role="status"
+          aria-live="polite"
+          className="pointer-events-none fixed left-1/2 top-40 z-30 -translate-x-1/2 animate-cinema-badge"
+        >
+          <div className="flex items-center gap-3 rounded-2xl border border-amber-400/40 bg-slate-900/90 px-5 py-3 backdrop-blur">
+            <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-amber-500 text-slate-900">
+              {(() => {
+                const Icon = BADGE_ICON[badgeToast.icon]
+                return <Icon className="size-4" />
+              })()}
+            </span>
+            <div className="text-left">
+              <p className="text-[10px] font-semibold uppercase tracking-wide text-amber-300">
+                Nytt merke
+              </p>
+              <p className="text-sm font-semibold text-white">{badgeToast.label}</p>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      <DesignNotes />
+
       <style>{`
-        @keyframes cinemaInRight { from { opacity: 0; transform: translateX(24px); } to { opacity: 1; transform: translateX(0); } }
-        @keyframes cinemaInLeft { from { opacity: 0; transform: translateX(-24px); } to { opacity: 1; transform: translateX(0); } }
+        @keyframes cinemaInRight { from { opacity: 0; transform: translateX(20px); } to { opacity: 1; transform: translateX(0); } }
+        @keyframes cinemaInLeft { from { opacity: 0; transform: translateX(-20px); } to { opacity: 1; transform: translateX(0); } }
         @keyframes cinemaXp { 0% { opacity: 0; transform: translate(-50%, 12px); } 20% { opacity: 1; transform: translate(-50%, 0); } 80% { opacity: 1; transform: translate(-50%, 0); } 100% { opacity: 0; transform: translate(-50%, -8px); } }
         @keyframes cinemaBadge { 0% { opacity: 0; transform: translate(-50%, 16px) scale(0.94); } 25% { opacity: 1; transform: translate(-50%, 0) scale(1); } 85% { opacity: 1; transform: translate(-50%, 0) scale(1); } 100% { opacity: 0; transform: translate(-50%, -8px) scale(0.98); } }
         @media (prefers-reduced-motion: no-preference) {
-          .animate-cinema-in-right { animation: cinemaInRight 0.45s ease-out; }
-          .animate-cinema-in-left { animation: cinemaInLeft 0.45s ease-out; }
+          .animate-cinema-in-right { animation: cinemaInRight 0.4s ease-out; }
+          .animate-cinema-in-left { animation: cinemaInLeft 0.4s ease-out; }
           .animate-cinema-xp { animation: cinemaXp 1.8s ease-out; }
           .animate-cinema-badge { animation: cinemaBadge 2.6s ease-out; }
         }
@@ -515,28 +396,323 @@ export function PlatformCoursePlayerCinemaPage() {
   )
 }
 
-function ProgressRing({ value }: { value: number }) {
-  const size = 36
-  const r = 14
-  const c = 2 * Math.PI * r
-  const offset = c * (1 - Math.min(1, Math.max(0, value)))
+function LevelMeter({
+  level,
+  label,
+  sessionXp,
+  nextLevelXp,
+  pct,
+}: {
+  level: number
+  label: string
+  sessionXp: number
+  nextLevelXp: number
+  pct: number
+}) {
   return (
-    <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} aria-hidden>
-      <circle cx={size / 2} cy={size / 2} r={r} stroke="rgba(255,255,255,0.15)" strokeWidth={3} fill="none" />
-      <circle
-        cx={size / 2}
-        cy={size / 2}
-        r={r}
-        stroke={GOLD}
-        strokeWidth={3}
-        fill="none"
-        strokeDasharray={c}
-        strokeDashoffset={offset}
-        strokeLinecap="round"
-        transform={`rotate(-90 ${size / 2} ${size / 2})`}
-        style={{ transition: 'stroke-dashoffset 0.4s ease' }}
-      />
-    </svg>
+    <div className="hidden items-center gap-3 rounded-2xl border border-white/10 bg-white/5 px-4 py-2.5 sm:flex">
+      <div className="text-right leading-tight">
+        <p className="text-[10px] font-medium uppercase tracking-wide text-neutral-500">
+          Nivå {level} · {label}
+        </p>
+        <p className="text-xs font-semibold text-white">
+          {sessionXp}
+          <span className="text-neutral-500"> / {nextLevelXp} XP</span>
+        </p>
+      </div>
+      <div className="h-1.5 w-24 overflow-hidden rounded-full bg-white/10" aria-hidden>
+        <div
+          className="h-full bg-amber-400 transition-all duration-500"
+          style={{ width: `${pct * 100}%` }}
+        />
+      </div>
+    </div>
+  )
+}
+
+function ChapterDots({
+  course,
+  currentIdx,
+  completed,
+  onPick,
+}: {
+  course: MockCourse
+  currentIdx: number
+  completed: Record<string, boolean>
+  onPick: (i: number) => void
+}) {
+  return (
+    <div className="flex items-center justify-center gap-2">
+      {course.modules.map((m, i) => {
+        const done = completed[m.id]
+        const isCurrent = i === currentIdx
+        return (
+          <button
+            key={m.id}
+            type="button"
+            onClick={() => onPick(i)}
+            title={`Modul ${i + 1}: ${m.title}`}
+            aria-label={`Gå til modul ${i + 1}: ${m.title}${done ? ' (fullført)' : ''}`}
+            aria-current={isCurrent ? 'step' : undefined}
+            className={`h-1.5 rounded-full transition-all focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-400 ${
+              isCurrent ? 'w-12 bg-amber-400' : done ? 'w-2 bg-amber-400/60' : 'w-2 bg-white/15'
+            }`}
+          />
+        )
+      })}
+    </div>
+  )
+}
+
+function ProgressRingCard({
+  completedCount,
+  total,
+  overall,
+  earnedPoints,
+  totalPoints,
+}: {
+  completedCount: number
+  total: number
+  overall: number
+  earnedPoints: number
+  totalPoints: number
+}) {
+  const r = 28
+  const c = 2 * Math.PI * r
+  const offset = c * (1 - overall)
+  return (
+    <div className="rounded-2xl border border-white/10 bg-white/5 p-5">
+      <div className="flex items-center gap-2 text-xs font-medium uppercase tracking-wide text-neutral-500">
+        <Sparkles className="size-4 text-amber-400" /> Fremdrift
+      </div>
+      <div className="mt-3 flex items-center gap-4">
+        <svg width="72" height="72" viewBox="0 0 72 72" aria-hidden>
+          <circle cx="36" cy="36" r={r} stroke="rgba(255,255,255,0.08)" strokeWidth="6" fill="none" />
+          <circle
+            cx="36"
+            cy="36"
+            r={r}
+            stroke="#fbbf24"
+            strokeWidth="6"
+            fill="none"
+            strokeDasharray={c}
+            strokeDashoffset={offset}
+            strokeLinecap="round"
+            transform="rotate(-90 36 36)"
+            style={{ transition: 'stroke-dashoffset 0.4s ease' }}
+          />
+          <text
+            x="36"
+            y="40"
+            textAnchor="middle"
+            className="fill-white text-[14px] font-semibold"
+          >
+            {Math.round(overall * 100)}%
+          </text>
+        </svg>
+        <dl className="space-y-1 text-xs">
+          <div>
+            <dt className="text-neutral-500">Moduler</dt>
+            <dd className="text-sm font-semibold text-white">
+              {completedCount} <span className="text-neutral-500">/ {total}</span>
+            </dd>
+          </div>
+          <div>
+            <dt className="text-neutral-500">Poeng</dt>
+            <dd className="text-sm font-semibold text-amber-400">
+              {earnedPoints} <span className="text-neutral-500">/ {totalPoints} XP</span>
+            </dd>
+          </div>
+        </dl>
+      </div>
+    </div>
+  )
+}
+
+function TocCard({
+  course,
+  currentIdx,
+  completed,
+  onPick,
+}: {
+  course: MockCourse
+  currentIdx: number
+  completed: Record<string, boolean>
+  onPick: (i: number) => void
+}) {
+  return (
+    <div className="rounded-2xl border border-white/10 bg-white/5 p-5">
+      <div className="flex items-center gap-2 text-xs font-medium uppercase tracking-wide text-neutral-500">
+        <ListChecks className="size-4 text-amber-400" /> Innhold
+      </div>
+      <ol className="mt-3 space-y-1.5">
+        {course.modules.map((m, i) => {
+          const done = completed[m.id]
+          const isCurrent = i === currentIdx
+          const Icon = KIND_ICON[m.kind]
+          return (
+            <li key={m.id}>
+              <button
+                type="button"
+                onClick={() => onPick(i)}
+                aria-current={isCurrent ? 'step' : undefined}
+                className={`flex w-full items-start gap-2.5 rounded-lg px-2 py-2 text-left transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-amber-400 ${
+                  isCurrent
+                    ? 'bg-amber-500/15 ring-1 ring-amber-400/40'
+                    : 'hover:bg-white/5'
+                }`}
+              >
+                <span
+                  className={`flex size-6 shrink-0 items-center justify-center rounded-md ${
+                    done
+                      ? 'bg-amber-500 text-slate-900'
+                      : isCurrent
+                        ? 'bg-amber-500/20 text-amber-300'
+                        : 'bg-white/5 text-neutral-400'
+                  }`}
+                >
+                  {done ? <Check className="size-3.5" /> : <Icon className="size-3.5" />}
+                </span>
+                <span className="flex-1 space-y-0.5">
+                  <span
+                    className={`block text-[13px] ${
+                      isCurrent ? 'font-semibold text-white' : 'text-neutral-200'
+                    }`}
+                  >
+                    {m.title}
+                  </span>
+                  <span className="block text-[11px] text-neutral-500">
+                    {moduleKindLabel(m.kind)} · {moduleTimeLabel(m.durationMinutes)} · +{m.points} XP
+                  </span>
+                </span>
+              </button>
+            </li>
+          )
+        })}
+      </ol>
+    </div>
+  )
+}
+
+function BadgeTrayCard({
+  course,
+  completed,
+}: {
+  course: MockCourse
+  completed: Record<string, boolean>
+}) {
+  return (
+    <div className="rounded-2xl border border-white/10 bg-white/5 p-5">
+      <div className="flex items-center gap-2 text-xs font-medium uppercase tracking-wide text-neutral-500">
+        <Trophy className="size-4 text-amber-400" /> Merker
+      </div>
+      <ul className="mt-3 space-y-2">
+        {course.badges.map((b) => {
+          const earned = !!completed[b.awardedAtModuleId]
+          const Icon = BADGE_ICON[b.icon]
+          return (
+            <li
+              key={b.id}
+              className={`flex items-center gap-3 rounded-lg border px-3 py-2 transition ${
+                earned ? 'border-amber-400/40 bg-amber-500/10' : 'border-white/5 bg-white/[0.02]'
+              }`}
+            >
+              <span
+                className={`flex size-9 shrink-0 items-center justify-center rounded-full ${
+                  earned
+                    ? 'bg-amber-500 text-slate-900'
+                    : 'border border-dashed border-white/15 text-neutral-500'
+                }`}
+              >
+                <Icon className="size-4" />
+              </span>
+              <div className="min-w-0">
+                <p
+                  className={`text-xs font-semibold ${
+                    earned ? 'text-white' : 'text-neutral-500'
+                  }`}
+                >
+                  {b.label}
+                </p>
+                <p className="truncate text-[11px] text-neutral-500">{b.description}</p>
+              </div>
+            </li>
+          )
+        })}
+      </ul>
+    </div>
+  )
+}
+
+function CinemaFinishedCard({
+  course,
+  earnedPoints,
+  earnedBadges,
+  levelPct,
+  onRestart,
+}: {
+  course: MockCourse
+  earnedPoints: number
+  earnedBadges: MockBadge[]
+  levelPct: number
+  onRestart: () => void
+}) {
+  return (
+    <div
+      role="status"
+      className="rounded-2xl border border-amber-400/40 bg-amber-500/5 p-8"
+    >
+      <div className="flex items-start gap-4">
+        <span className="flex size-12 shrink-0 items-center justify-center rounded-full bg-amber-500 text-slate-900">
+          <PartyPopper className="size-5" />
+        </span>
+        <div className="flex-1">
+          <h2 className="text-xl font-semibold text-white">Kurset er fullført</h2>
+          <p className="mt-1 text-sm text-neutral-300">
+            Du tjente{' '}
+            <strong className="text-amber-300">{earnedPoints} av {course.totalPoints} XP</strong>{' '}
+            og er nå <strong className="text-amber-300">{Math.round(levelPct * 100)}%</strong> på
+            vei mot Nivå {course.level.levelNumber + 1}.
+          </p>
+        </div>
+      </div>
+
+      {earnedBadges.length > 0 ? (
+        <ul className="mt-5 grid gap-3 sm:grid-cols-3">
+          {earnedBadges.map((b) => {
+            const Icon = BADGE_ICON[b.icon]
+            return (
+              <li
+                key={b.id}
+                className="flex flex-col items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-3 py-4 text-center"
+              >
+                <span className="flex size-11 items-center justify-center rounded-full bg-amber-500 text-slate-900">
+                  <Icon className="size-5" />
+                </span>
+                <p className="text-xs font-semibold text-white">{b.label}</p>
+                <p className="text-[11px] leading-snug text-neutral-400">{b.description}</p>
+              </li>
+            )
+          })}
+        </ul>
+      ) : null}
+
+      <div className="mt-5 flex flex-wrap gap-2">
+        <button
+          type="button"
+          className="rounded-lg bg-amber-500 px-4 py-2 text-sm font-semibold text-slate-900 hover:bg-amber-400"
+        >
+          Last ned kursbevis (PDF)
+        </button>
+        <button
+          type="button"
+          onClick={onRestart}
+          className="rounded-lg border border-white/10 px-4 py-2 text-sm text-neutral-300 hover:bg-white/5"
+        >
+          Start på nytt
+        </button>
+      </div>
+    </div>
   )
 }
 
@@ -561,34 +737,28 @@ function CinemaModuleBody({
 }) {
   if (mod.kind === 'text') {
     return (
-      <>
-        <h1 className="text-[32px] font-semibold leading-tight text-[#0f1311]">{mod.title}</h1>
-        <p className="text-xl leading-relaxed text-[#1f2421]">{mod.lead}</p>
-        <div className="space-y-4 text-[16px] leading-[1.7] text-[#2a2f2b]">
-          {mod.body.slice(0, 2).map((p, i) => (
+      <div className="space-y-5">
+        <h2 className="text-[26px] font-semibold leading-tight text-white">{mod.title}</h2>
+        <p className="text-lg leading-relaxed text-neutral-200">{mod.lead}</p>
+        <div className="space-y-4 text-[15px] leading-[1.75] text-neutral-300">
+          {mod.body.map((p, i) => (
             <p key={i}>{p}</p>
           ))}
         </div>
-        <div
-          className="mt-2 rounded-2xl p-5"
-          style={{ backgroundColor: `${ACCENT}0d`, border: `1px solid ${ACCENT}22` }}
-        >
-          <div
-            className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[2px]"
-            style={{ color: ACCENT }}
-          >
-            <Award className="size-3.5" /> Du tar med deg
+        <aside className="rounded-xl border border-amber-400/30 bg-amber-500/[0.06] p-5">
+          <div className="flex items-center gap-2 text-xs font-medium uppercase tracking-wide text-amber-300">
+            <Award className="size-3.5" /> Nøkkelpunkter
           </div>
-          <ul className="mt-3 grid gap-2 sm:grid-cols-2">
+          <ul className="mt-3 space-y-2">
             {mod.keyTakeaways.map((t, i) => (
-              <li key={i} className="flex items-start gap-2 text-sm text-[#1f2421]">
-                <Check className="mt-0.5 size-4 shrink-0" style={{ color: ACCENT }} />
+              <li key={i} className="flex items-start gap-2 text-sm text-neutral-200">
+                <Check className="mt-0.5 size-4 shrink-0 text-amber-400" />
                 {t}
               </li>
             ))}
           </ul>
-        </div>
-      </>
+        </aside>
+      </div>
     )
   }
 
@@ -597,15 +767,15 @@ function CinemaModuleBody({
     const passed = right / mod.questions.length >= 2 / 3
     const allAnswered = mod.questions.every((q) => quizAnswers[q.id] !== undefined)
     return (
-      <>
-        <h1 className="text-[28px] font-semibold leading-tight text-[#0f1311]">{mod.title}</h1>
-        <p className="text-[15px] leading-relaxed text-[#1f2421]/80">{mod.intro}</p>
+      <div className="space-y-5">
+        <h2 className="text-[24px] font-semibold leading-tight text-white">{mod.title}</h2>
+        <p className="text-sm leading-relaxed text-neutral-300">{mod.intro}</p>
         <div className="space-y-5">
           {mod.questions.map((q, qi) => {
             const picked = quizAnswers[q.id]
             return (
               <fieldset key={q.id} className="space-y-2.5">
-                <legend className="text-base font-semibold text-[#0f1311]">
+                <legend className="text-base font-semibold text-white">
                   {qi + 1}. {q.question}
                 </legend>
                 <div className="grid gap-2 sm:grid-cols-2">
@@ -621,24 +791,24 @@ function CinemaModuleBody({
                         aria-checked={selected}
                         disabled={quizSubmittedForMod}
                         onClick={() => setQuizAnswers((p) => ({ ...p, [q.id]: oi }))}
-                        className={`rounded-xl border px-4 py-3 text-left text-sm transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#1a3d32] ${
+                        className={`rounded-xl border px-4 py-3 text-left text-sm transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-400 ${
                           showRight
-                            ? 'border-[#1a3d32] bg-[#1a3d32]/10 text-[#0f1311]'
+                            ? 'border-amber-400/60 bg-amber-500/15 text-white'
                             : showWrong
-                              ? 'border-[#b3382a] bg-[#b3382a]/10 text-[#0f1311]'
+                              ? 'border-red-400/50 bg-red-500/10 text-white'
                               : selected
-                                ? 'border-[#1a3d32] bg-[#1a3d32]/5'
-                                : 'border-[#dcd4be] bg-white hover:border-[#1a3d32]/40'
+                                ? 'border-amber-400 bg-amber-500/10 text-white'
+                                : 'border-white/10 bg-white/[0.03] text-neutral-200 hover:bg-white/5'
                         }`}
                       >
                         <span className="flex items-start gap-2">
                           <span
-                            className={`mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full border text-[10px] font-bold ${
+                            className={`mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full text-[10px] font-bold ${
                               showRight
-                                ? 'border-transparent bg-[#1a3d32] text-white'
+                                ? 'bg-amber-500 text-slate-900'
                                 : selected
-                                  ? 'border-[#1a3d32] bg-[#1a3d32]/15 text-[#1a3d32]'
-                                  : 'border-[#dcd4be] text-[#1f2421]/60'
+                                  ? 'bg-amber-500/30 text-amber-200'
+                                  : 'bg-white/10 text-neutral-300'
                             }`}
                           >
                             {String.fromCharCode(65 + oi)}
@@ -651,12 +821,11 @@ function CinemaModuleBody({
                 </div>
                 {quizSubmittedForMod ? (
                   <p
-                    className="rounded-lg px-3 py-2 text-[13px] leading-relaxed"
-                    style={{
-                      backgroundColor:
-                        picked === q.correctIndex ? `${ACCENT}10` : '#b3382a10',
-                      color: '#1f2421',
-                    }}
+                    className={`rounded-lg px-3 py-2 text-[13px] leading-relaxed ${
+                      picked === q.correctIndex
+                        ? 'bg-amber-500/10 text-neutral-200'
+                        : 'bg-red-500/10 text-neutral-200'
+                    }`}
                   >
                     {q.explanation}
                   </p>
@@ -665,23 +834,22 @@ function CinemaModuleBody({
             )
           })}
         </div>
-        <div className="flex items-center justify-between border-t border-[#e8e2d2] pt-4">
+        <div className="flex items-center justify-between border-t border-white/10 pt-4">
           {!quizSubmittedForMod ? (
             <button
               type="button"
               onClick={onSubmitQuiz}
               disabled={!allAnswered}
-              className="inline-flex items-center gap-2 rounded-md border bg-white px-4 py-2 text-sm font-semibold disabled:opacity-40"
-              style={{ color: ACCENT, borderColor: ACCENT }}
+              className="rounded-lg border border-amber-400/50 px-4 py-2 text-sm font-semibold text-amber-300 hover:bg-amber-500/10 disabled:opacity-40"
             >
               Sjekk svarene
             </button>
           ) : (
             <p className="text-sm">
-              <span className="font-semibold text-[#0f1311]">
+              <span className="font-semibold text-white">
                 {right} av {mod.questions.length} riktig
               </span>{' '}
-              <span className="text-[#1f2421]/70">
+              <span className="text-neutral-400">
                 — {passed ? 'bestått, klar for neste modul.' : 'ikke bestått ennå.'}
               </span>
             </p>
@@ -690,26 +858,25 @@ function CinemaModuleBody({
             <button
               type="button"
               onClick={onResetQuiz}
-              className="text-xs font-semibold hover:underline"
-              style={{ color: ACCENT }}
+              className="text-xs font-semibold text-amber-300 hover:underline"
             >
               Prøv på nytt
             </button>
           ) : null}
         </div>
-      </>
+      </div>
     )
   }
 
   return (
-    <>
-      <h1 className="text-[28px] font-semibold leading-tight text-[#0f1311]">{mod.title}</h1>
-      <p className="text-[15px] leading-relaxed text-[#1f2421]/80">{mod.intro}</p>
+    <div className="space-y-5">
+      <h2 className="text-[24px] font-semibold leading-tight text-white">{mod.title}</h2>
+      <p className="text-sm leading-relaxed text-neutral-300">{mod.intro}</p>
       {mod.prompts.map((p) => {
         const v = reflections[p.id] ?? ''
         return (
           <div key={p.id} className="space-y-2">
-            <label htmlFor={p.id} className="block text-sm font-semibold text-[#0f1311]">
+            <label htmlFor={p.id} className="block text-sm font-semibold text-white">
               {p.prompt}
             </label>
             <textarea
@@ -718,166 +885,47 @@ function CinemaModuleBody({
               onChange={(e) => setReflections((prev) => ({ ...prev, [p.id]: e.target.value }))}
               placeholder={p.placeholder}
               rows={3}
-              className="w-full rounded-xl border border-[#dcd4be] bg-white px-4 py-3 text-sm text-[#1f2421] focus:border-[#1a3d32] focus:outline-none focus:ring-2 focus:ring-[#1a3d32]/20"
+              className="w-full rounded-lg border border-white/10 bg-white/[0.03] px-3 py-2.5 text-sm text-white placeholder:text-neutral-500 focus:border-amber-400 focus:outline-none focus:ring-2 focus:ring-amber-400/20"
             />
-            <p className="text-right text-[11px] text-[#1f2421]/50">
+            <p className="text-right text-[11px] text-neutral-500">
               {v.length} tegn · minst 10 for å gå videre
             </p>
           </div>
         )
       })}
-    </>
-  )
-}
-
-function CinemaTocDrawer({
-  course,
-  currentIdx,
-  completed,
-  onPick,
-  onClose,
-}: {
-  course: typeof MOCK_COURSE
-  currentIdx: number
-  completed: Record<string, boolean>
-  onPick: (i: number) => void
-  onClose: () => void
-}) {
-  return (
-    <div
-      className="fixed inset-0 z-40 flex"
-      role="dialog"
-      aria-label="Innhold"
-      aria-modal="true"
-    >
-      <button
-        type="button"
-        aria-label="Lukk innhold"
-        onClick={onClose}
-        className="flex-1 bg-black/60 backdrop-blur-sm"
-      />
-      <aside className="flex h-full w-full max-w-md flex-col gap-5 overflow-y-auto bg-[#0f1e1d] p-6 text-white shadow-2xl">
-        <div className="flex items-start justify-between">
-          <div>
-            <p className="text-[10px] font-semibold uppercase tracking-[2px] text-white/55">
-              Innhold
-            </p>
-            <h2 className="mt-1 text-lg font-semibold">{course.title}</h2>
-            <p className="text-xs text-white/55">{course.audience}</p>
-          </div>
-          <button
-            type="button"
-            onClick={onClose}
-            aria-label="Lukk"
-            className="rounded-full border border-white/15 p-1.5 text-white/70 hover:bg-white/5"
-          >
-            <X className="size-4" />
-          </button>
-        </div>
-
-        <ol className="space-y-2">
-          {course.modules.map((m, i) => {
-            const done = completed[m.id]
-            const isCurrent = i === currentIdx
-            const Icon = KIND_ICON[m.kind]
-            return (
-              <li key={m.id}>
-                <button
-                  type="button"
-                  onClick={() => onPick(i)}
-                  aria-current={isCurrent ? 'step' : undefined}
-                  className={`flex w-full items-start gap-3 rounded-2xl border px-4 py-3 text-left transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#c9a227] ${
-                    isCurrent
-                      ? 'border-[#c9a227]/60 bg-white/5'
-                      : 'border-white/10 bg-white/[0.03] hover:bg-white/[0.06]'
-                  }`}
-                >
-                  <span
-                    className={`flex size-9 shrink-0 items-center justify-center rounded-xl ${
-                      done
-                        ? 'bg-[#1a3d32] text-white'
-                        : isCurrent
-                          ? 'bg-[#c9a227]/20 text-[#c9a227]'
-                          : 'bg-white/5 text-white/60'
-                    }`}
-                  >
-                    {done ? <Check className="size-4" /> : <Icon className="size-4" />}
-                  </span>
-                  <div className="min-w-0 flex-1">
-                    <p className="text-[10px] font-semibold uppercase tracking-[1.5px] text-white/45">
-                      Modul {i + 1} · {moduleKindLabel(m.kind)}
-                    </p>
-                    <p className="text-sm font-semibold text-white">{m.title}</p>
-                    <p className="mt-0.5 text-[11px] text-white/55">
-                      {moduleTimeLabel(m.durationMinutes)} · +{m.points} poeng
-                      {m.badgeOnComplete
-                        ? ` · ${course.badges.find((b) => b.id === m.badgeOnComplete)?.label}`
-                        : ''}
-                    </p>
-                  </div>
-                </button>
-              </li>
-            )
-          })}
-        </ol>
-
-        <div className="mt-auto rounded-2xl border border-white/10 bg-white/[0.03] p-4">
-          <p className="text-[10px] font-semibold uppercase tracking-[1.5px] text-white/55">
-            Merker i dette kurset
-          </p>
-          <ul className="mt-3 flex gap-2">
-            {course.badges.map((b) => {
-              const earned = !!completed[b.awardedAtModuleId]
-              const Icon = BADGE_ICON[b.icon]
-              return (
-                <li
-                  key={b.id}
-                  title={`${b.label} — ${b.description}`}
-                  className={`flex size-9 items-center justify-center rounded-full border ${
-                    earned
-                      ? 'border-transparent bg-[#1a3d32] text-white'
-                      : 'border-dashed border-white/20 text-white/30'
-                  }`}
-                >
-                  <Icon className="size-4" />
-                </li>
-              )
-            })}
-          </ul>
-        </div>
-      </aside>
     </div>
   )
 }
 
-function CinemaDesignNotes() {
+function DesignNotes() {
   const [open, setOpen] = useState(false)
   return (
-    <div className="relative z-10 mx-auto max-w-[1100px] px-6 pb-10">
+    <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-5">
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
-        className="text-xs font-semibold uppercase tracking-[1.5px] text-amber-300/80 hover:text-amber-200"
+        className="text-xs font-semibold uppercase tracking-wide text-amber-400/90 hover:text-amber-300"
       >
         {open ? 'Skjul' : 'Vis'} designnotater
       </button>
       {open ? (
-        <ul className="mt-4 grid gap-3 text-sm leading-relaxed text-white/70 md:grid-cols-2">
+        <ul className="mt-4 grid gap-3 text-sm leading-relaxed text-neutral-300 md:grid-cols-2">
           <li>
-            <strong className="text-white">Scenen er fokus.</strong> Kortet på 960×640 fungerer som en
-            visuell forpliktelse – ingenting utenfor er en handling man kan komme bort i.
+            <strong className="text-white">Same shell, distinct rytme.</strong> Lever nå i samme
+            slate-950/amber-språk som resten av platform-admin, men beholder Cinema-identiteten via
+            kort-overgang, stegprikker og XP/merke-toast.
           </li>
           <li>
-            <strong className="text-white">Stegprikker som progresjon.</strong> Erstatter den lange
-            sidemenyen – øyet kan telle 3-7 prikker, men ikke en lang liste.
+            <strong className="text-white">70 / 30-deling.</strong> Stage til venstre, gamification
+            HUD til høyre. Følger samme proporsjon som <code>WorkplaceSplit7030Layout</code>.
           </li>
           <li>
-            <strong className="text-white">+XP-belønning er ikke konkurranse.</strong> Den feirer
-            individuell innsats én gang, og forsvinner – ingen poengtavle eller streak-press.
+            <strong className="text-white">Toaster, ikke poengtavle.</strong> +XP og merker
+            feirer modulen, men forsvinner. Ingen leaderboards, ingen streak-press.
           </li>
           <li>
-            <strong className="text-white">Tidsring viser «hvor langt», ikke «hvor fort».</strong>
-            Bruker den samme visuelle metaforen som Apple Watch Activity Ring.
+            <strong className="text-white">Tidsring i sidekortet.</strong> Erstatter den frittstående
+            ring i bunn; matchet til Activity-Ring-metaforen.
           </li>
         </ul>
       ) : null}

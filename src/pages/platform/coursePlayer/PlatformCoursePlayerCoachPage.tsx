@@ -1,6 +1,8 @@
-// Alternative 3 — "Coach Sidekick". 60/40 split with a personified coach panel
-// (Anne, HMS-rådgiver). Engagement comes from a real-sounding voice that frames
-// each module, surfaces law refs, and asks reflection questions.
+// Alternative 3 — "Coach Sidekick" (admin theme). Refactored to live inside the
+// platform-admin slate-950/amber shell with a 7fr/3fr dashboard split. Anne
+// (HMS-rådgiver) lives in the right rail as a stack of admin-style cards. Her
+// magenta persona accent is preserved only on her avatar — every other accent
+// switches to amber to stay native to platform-admin.
 
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
@@ -17,6 +19,7 @@ import {
   FileText,
   HelpCircle,
   MessageCircle,
+  PartyPopper,
   PenLine,
   Quote,
   RotateCcw,
@@ -34,6 +37,8 @@ import {
   type MockModule,
 } from './mockCourse'
 
+const COACH_PERSONA = '#d946ef'
+
 const KIND_ICON: Record<MockModule['kind'], LucideIcon> = {
   text: FileText,
   quiz: HelpCircle,
@@ -46,9 +51,6 @@ const BADGE_ICON: Record<MockBadgeIcon, LucideIcon> = {
   Award,
   Trophy,
 }
-
-const ACCENT = '#a21caf'
-const COACH_BG = '#f5e9f7'
 
 export function PlatformCoursePlayerCoachPage() {
   const [idx, setIdx] = useState(0)
@@ -63,7 +65,10 @@ export function PlatformCoursePlayerCoachPage() {
   const mod = course.modules[idx]
   const total = course.modules.length
   const completedCount = Object.values(completed).filter(Boolean).length
-  const earnedPoints = course.modules.reduce((sum, m) => (completed[m.id] ? sum + m.points : sum), 0)
+  const earnedPoints = course.modules.reduce(
+    (sum, m) => (completed[m.id] ? sum + m.points : sum),
+    0,
+  )
   const earnedBadges = course.badges.filter((b) => completed[b.awardedAtModuleId])
   const prevCompleted = idx > 0 && completed[course.modules[idx - 1].id]
   const prevModule = idx > 0 ? course.modules[idx - 1] : null
@@ -119,148 +124,110 @@ export function PlatformCoursePlayerCoachPage() {
     return null
   })()
 
+  function resetAll() {
+    setFinished(false)
+    setIdx(0)
+    setCompleted({})
+    setQuizAnswers({})
+    setQuizSubmitted(false)
+    setReflections({})
+    setCoachReflection({})
+  }
+
   return (
-    <div className="-mx-4 -my-8 md:-mx-8">
-      <div className="min-h-[calc(100vh-100px)] bg-[#faf7f1] text-[#1f2421]">
-        {/* Top utility band */}
-        <div className="border-b border-[#ece5d3] bg-white/70 backdrop-blur">
-          <div className="mx-auto flex max-w-[1100px] items-center justify-between px-6 py-4">
-            <Link
-              to="/platform-admin/course-player"
-              className="inline-flex items-center gap-1.5 text-xs font-medium text-[#1f2421]/70 hover:text-[#1f2421]"
-            >
-              <ChevronLeft className="size-3.5" /> Tilbake til oversikt
-            </Link>
-            <div className="flex items-center gap-3 text-xs text-[#1f2421]/70">
-              <span className="font-medium">{course.title}</span>
-              <span aria-hidden>·</span>
-              <span>
-                <span className="font-semibold text-[#0f1311]">{completedCount}</span> av {total} fullført
-              </span>
-              <span aria-hidden>·</span>
-              <span
-                className="inline-flex items-center gap-1 font-semibold"
-                style={{ color: ACCENT }}
-              >
-                <Sparkles className="size-3" /> {earnedPoints} XP
-              </span>
-            </div>
-          </div>
+    <div className="space-y-6 pb-20">
+      {/* Header band */}
+      <header className="flex flex-wrap items-end justify-between gap-4">
+        <div>
+          <Link
+            to="/platform-admin/course-player"
+            className="inline-flex items-center gap-1.5 text-xs font-medium text-neutral-400 hover:text-white"
+          >
+            <ChevronLeft className="size-3.5" /> Tilbake til oversikt
+          </Link>
+          <p className="mt-3 text-xs font-medium uppercase tracking-wide text-amber-500/90">
+            Kursspiller · Alternativ 3 — Coach Sidekick
+          </p>
+          <h1 className="mt-1 text-2xl font-semibold text-white">{course.title}</h1>
+          <p className="mt-1 text-sm text-neutral-400">{course.audience}</p>
         </div>
-
-        {/* Chapter strip */}
-        <div className="mx-auto max-w-[1100px] px-6 pt-8">
-          <ol className="flex items-center gap-1.5">
-            {course.modules.map((m, i) => {
-              const done = completed[m.id]
-              const isCurrent = i === idx
-              return (
-                <li key={m.id} className="flex-1">
-                  <button
-                    type="button"
-                    onClick={() => setIdx(i)}
-                    aria-label={`Gå til modul ${i + 1}: ${m.title}${done ? ' (fullført)' : ''}`}
-                    aria-current={isCurrent ? 'step' : undefined}
-                    className="group flex w-full flex-col gap-1.5 rounded text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#a21caf]"
-                  >
-                    <span
-                      className="h-1 w-full rounded-full transition-all"
-                      style={{
-                        backgroundColor: done
-                          ? ACCENT
-                          : isCurrent
-                            ? `${ACCENT}55`
-                            : '#e0d7c0',
-                      }}
-                    />
-                    <span
-                      className={`text-[11px] font-medium ${
-                        isCurrent ? 'text-[#0f1311]' : 'text-[#1f2421]/55 group-hover:text-[#1f2421]/80'
-                      }`}
-                    >
-                      Modul {i + 1}
-                    </span>
-                  </button>
-                </li>
-              )
-            })}
-          </ol>
+        <div className="flex items-center gap-2 text-xs text-neutral-300">
+          <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1.5">
+            <span className="font-semibold text-white">{completedCount}</span>
+            <span className="text-neutral-500"> / {total} fullført</span>
+          </span>
+          <span className="inline-flex items-center gap-1 rounded-full border border-white/10 bg-white/5 px-3 py-1.5 font-semibold text-amber-300">
+            <Sparkles className="size-3" /> {earnedPoints} XP
+          </span>
         </div>
+      </header>
 
-        {/* Split layout */}
-        <div className="mx-auto grid max-w-[1100px] grid-cols-1 gap-8 px-6 py-10 lg:grid-cols-[1.6fr_1fr]">
-          {finished ? (
-            <div className="lg:col-span-2">
-              <CoachFinishedBanner
-                course={course}
-                earnedPoints={earnedPoints}
-                earnedBadges={earnedBadges}
-                onRestart={() => {
-                  setFinished(false)
-                  setIdx(0)
-                  setCompleted({})
-                  setQuizAnswers({})
-                  setQuizSubmitted(false)
-                  setReflections({})
-                  setCoachReflection({})
-                }}
-              />
-            </div>
-          ) : null}
-          {!finished ? (
-          <>
-          {/* Lesson card */}
-          <article className="rounded-3xl border border-[#ece5d3] bg-[#fdfcf7] p-8 shadow-sm">
-            <header className="space-y-3">
-              <p
-                className="text-[11px] font-semibold uppercase tracking-[2.5px]"
-                style={{ color: ACCENT }}
-              >
+      {/* Chapter strip */}
+      <ChapterStrip
+        course={course}
+        currentIdx={idx}
+        completed={completed}
+        onPick={(i) => {
+          setIdx(i)
+          setQuizSubmitted(false)
+        }}
+      />
+
+      {/* 70 / 30 split */}
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,7fr)_minmax(260px,3fr)] lg:items-start">
+        {/* Left: lesson */}
+        {finished ? (
+          <CoachFinishedCard
+            course={course}
+            earnedPoints={earnedPoints}
+            earnedBadges={earnedBadges}
+            onRestart={resetAll}
+          />
+        ) : (
+          <article className="overflow-hidden rounded-2xl border border-white/10 bg-white/5">
+            <div className="flex flex-wrap items-center justify-between gap-3 border-b border-white/10 px-7 py-4">
+              <p className="text-xs font-medium uppercase tracking-wide text-amber-500/90">
                 {mod.eyebrow}
               </p>
-              <h1 className="text-[28px] font-semibold leading-tight text-[#0f1311]">{mod.title}</h1>
-              <div className="flex flex-wrap items-center gap-2 text-xs text-[#1f2421]/70">
-                <span>{moduleTimeLabel(mod.durationMinutes)}</span>
-                <span aria-hidden>·</span>
-                <span
-                  className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 font-semibold"
-                  style={{ backgroundColor: `${ACCENT}15`, color: ACCENT }}
-                >
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="rounded-full border border-white/10 bg-white/5 px-2 py-0.5 text-[11px] text-neutral-300">
+                  {moduleTimeLabel(mod.durationMinutes)}
+                </span>
+                <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/15 px-2 py-0.5 text-[11px] font-semibold text-amber-300">
                   <Sparkles className="size-3" /> +{mod.points} XP
                 </span>
-                <div className="flex flex-wrap gap-1.5">
-                  {mod.lawRefs.map((r) => (
-                    <span
-                      key={r}
-                      className="rounded-sm bg-[#efe9d8] px-1.5 py-0.5 font-mono text-[11px]"
-                    >
-                      {r}
-                    </span>
-                  ))}
-                </div>
+                {mod.lawRefs.map((r) => (
+                  <span
+                    key={r}
+                    className="rounded-full border border-white/10 bg-white/5 px-2 py-0.5 font-mono text-[11px] text-neutral-300"
+                  >
+                    {r}
+                  </span>
+                ))}
               </div>
-            </header>
-
-            <hr className="my-6 border-[#ece5d3]" />
-
-            <CoachLessonBody
-              mod={mod}
-              quizAnswers={quizAnswers}
-              setQuizAnswers={setQuizAnswers}
-              quizSubmitted={quizSubmitted}
-              setQuizSubmitted={setQuizSubmitted}
-              quizScore={quizScore}
-              reflections={reflections}
-              setReflections={setReflections}
-            />
+            </div>
+            <div className="px-7 py-8 md:px-9 md:py-10">
+              <h2 className="text-2xl font-semibold leading-tight text-white">{mod.title}</h2>
+              <div className="mt-5">
+                <CoachLessonBody
+                  mod={mod}
+                  quizAnswers={quizAnswers}
+                  setQuizAnswers={setQuizAnswers}
+                  quizSubmitted={quizSubmitted}
+                  setQuizSubmitted={setQuizSubmitted}
+                  quizScore={quizScore}
+                  reflections={reflections}
+                  setReflections={setReflections}
+                />
+              </div>
+            </div>
           </article>
+        )}
 
-          {/* Coach panel */}
-          <aside className="space-y-4 lg:sticky lg:top-6 lg:self-start">
-            <CoachIntroCard
-              mod={mod}
-              prevModule={prevCompleted ? prevModule : null}
-            />
+        {/* Right: Anne's panel */}
+        {!finished ? (
+          <aside className="space-y-4 lg:sticky lg:top-6">
+            <CoachIntroCard mod={mod} prevModule={prevCompleted ? prevModule : null} />
             <CoachAgendaCard
               course={course}
               currentIdx={idx}
@@ -283,53 +250,102 @@ export function PlatformCoursePlayerCoachPage() {
               modId={mod.id}
             />
           </aside>
-          </>
-          ) : null}
-        </div>
+        ) : null}
+      </div>
 
-        {/* Sticky bottom pager */}
-        {!finished ? (
-          <div className="sticky bottom-0 z-10 border-t border-[#ece5d3] bg-white/85 backdrop-blur">
-            <div className="mx-auto flex max-w-[1100px] items-center justify-between gap-4 px-6 py-3">
-              <button
-                type="button"
-                onClick={back}
-                disabled={idx === 0}
-                aria-label="Gå til forrige modul (pil venstre)"
-                className="inline-flex items-center gap-2 rounded-md border border-[#dcd4be] bg-white px-4 py-2 text-sm font-medium text-[#1f2421] hover:bg-[#faf7f1] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#a21caf] disabled:cursor-not-allowed disabled:opacity-40"
-              >
-                <ArrowLeft className="size-4" /> Forrige
-              </button>
-              <p
-                id="coach-disabled-hint"
-                className="hidden flex-1 text-center text-xs sm:block"
-                style={{ color: disabledHint ? '#b3382a' : '#1f2421a0' }}
-                role={disabledHint ? 'status' : undefined}
-                aria-live={disabledHint ? 'polite' : undefined}
-              >
+      {/* Sticky bottom pager */}
+      {!finished ? (
+        <div className="fixed inset-x-0 bottom-0 z-10 border-t border-white/10 bg-slate-950/85 backdrop-blur">
+          <div className="mx-auto flex max-w-[1400px] items-center justify-between gap-3 px-4 py-3 md:px-8">
+            <button
+              type="button"
+              onClick={back}
+              disabled={idx === 0}
+              aria-label="Forrige modul (pil venstre)"
+              className="inline-flex items-center gap-2 rounded-lg border border-white/10 px-3 py-2 text-sm text-neutral-300 hover:bg-white/5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-400 disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              <ArrowLeft className="size-4" /> Forrige
+            </button>
+            <p
+              id="coach-disabled-hint"
+              className="hidden flex-1 text-center text-xs sm:block"
+              style={{ color: disabledHint ? '#fca5a5' : undefined }}
+              role={disabledHint ? 'status' : undefined}
+              aria-live={disabledHint ? 'polite' : undefined}
+            >
+              <span className="text-neutral-500">
                 {disabledHint ??
                   (nextMod
                     ? `Anne sier: «Neste opp er ${nextMod.title}» (${moduleKindLabel(nextMod.kind)}, ${moduleTimeLabel(nextMod.durationMinutes)}).`
-                    : 'Siste etappe – kursbeviset ditt utstedes når du fullfører.')}
-              </p>
-              <button
-                type="button"
-                onClick={advance}
-                disabled={!canAdvance}
-                aria-describedby={disabledHint ? 'coach-disabled-hint' : undefined}
-                className="inline-flex items-center gap-2 rounded-md px-6 py-2.5 text-sm font-semibold text-white shadow-sm transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#a21caf] disabled:cursor-not-allowed disabled:opacity-40"
-                style={{ backgroundColor: ACCENT }}
-              >
-                {idx === total - 1 ? 'Fullfør kurset' : 'Marker fullført og fortsett'}
-                <ArrowRight className="size-4" />
-              </button>
-            </div>
+                    : 'Siste etappe – kursbeviset utstedes når du fullfører.')}
+              </span>
+            </p>
+            <button
+              type="button"
+              onClick={advance}
+              disabled={!canAdvance}
+              aria-describedby={disabledHint ? 'coach-disabled-hint' : undefined}
+              className="inline-flex items-center gap-2 rounded-lg bg-amber-500 px-4 py-2 text-sm font-semibold text-slate-900 hover:bg-amber-400 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-400 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {idx === total - 1 ? 'Fullfør kurset' : 'Marker fullført og fortsett'}
+              <ArrowRight className="size-4" />
+            </button>
           </div>
-        ) : null}
+        </div>
+      ) : null}
 
-        <CoachDesignNotes />
-      </div>
+      <DesignNotes />
     </div>
+  )
+}
+
+function ChapterStrip({
+  course,
+  currentIdx,
+  completed,
+  onPick,
+}: {
+  course: MockCourse
+  currentIdx: number
+  completed: Record<string, boolean>
+  onPick: (i: number) => void
+}) {
+  return (
+    <ol className="flex items-center gap-1.5">
+      {course.modules.map((m, i) => {
+        const done = completed[m.id]
+        const isCurrent = i === currentIdx
+        return (
+          <li key={m.id} className="flex-1">
+            <button
+              type="button"
+              onClick={() => onPick(i)}
+              aria-current={isCurrent ? 'step' : undefined}
+              aria-label={`Modul ${i + 1}: ${m.title}${done ? ' (fullført)' : ''}`}
+              className="group flex w-full flex-col gap-1.5 rounded text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-amber-400"
+            >
+              <span
+                className="h-1 w-full rounded-full transition-all"
+                style={{
+                  backgroundColor: done
+                    ? '#fbbf24'
+                    : isCurrent
+                      ? 'rgba(251,191,36,0.45)'
+                      : 'rgba(255,255,255,0.10)',
+                }}
+              />
+              <span
+                className={`text-[11px] font-medium ${
+                  isCurrent ? 'text-white' : 'text-neutral-500 group-hover:text-neutral-300'
+                }`}
+              >
+                Modul {i + 1}
+              </span>
+            </button>
+          </li>
+        )
+      })}
+    </ol>
   )
 }
 
@@ -341,19 +357,19 @@ function CoachIntroCard({
   prevModule: MockModule | null
 }) {
   return (
-    <div className="rounded-2xl p-5" style={{ backgroundColor: COACH_BG }}>
+    <div className="rounded-2xl border border-white/10 bg-white/5 p-5">
       <div className="flex items-start gap-3">
         <div
-          className="flex size-11 shrink-0 items-center justify-center rounded-full font-semibold text-white"
-          style={{ backgroundColor: ACCENT }}
+          className="flex size-11 shrink-0 items-center justify-center rounded-full font-semibold text-white shadow-md shadow-black/30"
+          style={{ backgroundColor: COACH_PERSONA }}
         >
           A
         </div>
         <div className="flex-1">
-          <p className="text-sm font-semibold text-[#0f1311]">Anne · HMS-rådgiver</p>
-          <p className="text-[11px] text-[#1f2421]/65">Din coach gjennom dette kurset</p>
+          <p className="text-sm font-semibold text-white">Anne · HMS-rådgiver</p>
+          <p className="text-[11px] text-neutral-400">Din coach gjennom dette kurset</p>
         </div>
-        <span className="inline-flex items-center gap-1 rounded-full bg-white/70 px-2 py-0.5 text-[10px] font-medium text-[#1f2421]/70">
+        <span className="inline-flex items-center gap-1 rounded-full border border-white/10 bg-white/5 px-2 py-0.5 text-[10px] font-medium text-neutral-300">
           <MessageCircle className="size-3" /> Snakker nå
         </span>
       </div>
@@ -361,15 +377,13 @@ function CoachIntroCard({
         <div
           role="status"
           aria-live="polite"
-          className="relative mt-4 rounded-xl bg-white/80 p-3 text-[13px] leading-relaxed text-[#1f2421] shadow-sm"
+          className="relative mt-4 rounded-xl border border-white/10 bg-white/[0.04] p-3 text-[13px] leading-relaxed text-neutral-200"
         >
-          <span className="absolute -top-1.5 left-6 size-3 rotate-45 bg-white/80" aria-hidden />
-          Bra jobba med <strong className="font-semibold text-[#0f1311]">«{prevModule.title}»</strong>{' '}
-          — du tjente <strong className="font-semibold" style={{ color: ACCENT }}>+{prevModule.points} XP</strong>.
+          Bra jobba med <strong className="text-white">«{prevModule.title}»</strong> — du tjente{' '}
+          <strong className="font-semibold text-amber-300">+{prevModule.points} XP</strong>.
         </div>
       ) : null}
-      <div className="relative mt-3 rounded-xl bg-white p-4 text-[14px] leading-relaxed text-[#1f2421] shadow-sm">
-        <span className="absolute -top-1.5 left-6 size-3 rotate-45 bg-white" aria-hidden />
+      <div className="relative mt-3 rounded-xl border border-white/10 bg-white/[0.04] p-4 text-[14px] leading-relaxed text-neutral-100">
         {mod.coachIntro}
       </div>
     </div>
@@ -388,12 +402,11 @@ function CoachAgendaCard({
   onPick: (i: number) => void
 }) {
   return (
-    <div className="rounded-2xl border border-[#ece5d3] bg-white p-5">
-      <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[2px] text-[#1f2421]/70">
-        <CalendarDays className="size-3.5" style={{ color: ACCENT }} />
-        Dagens program
+    <div className="rounded-2xl border border-white/10 bg-white/5 p-5">
+      <div className="flex items-center gap-2 text-xs font-medium uppercase tracking-wide text-neutral-500">
+        <CalendarDays className="size-4 text-amber-400" /> Dagens program
       </div>
-      <p className="mt-1 text-[11px] text-[#1f2421]/55">
+      <p className="mt-1 text-[11px] text-neutral-500">
         «Vi har tre stopp i dag. Klikk fritt — jeg holder tråden.»
       </p>
       <ol className="mt-3 space-y-1.5">
@@ -408,21 +421,21 @@ function CoachAgendaCard({
                 type="button"
                 onClick={() => onPick(i)}
                 aria-current={isCurrent ? 'step' : undefined}
-                className={`flex w-full items-start gap-2.5 rounded-lg border px-2.5 py-2 text-left transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[#a21caf] ${
+                className={`flex w-full items-start gap-2.5 rounded-lg border px-2.5 py-2 text-left transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-amber-400 ${
                   isCurrent
-                    ? 'border-[#a21caf]/40 bg-[#faf2fc]'
+                    ? 'border-amber-400/40 bg-amber-500/10'
                     : isNext
-                      ? 'border-dashed border-[#dcd4be] bg-[#fdfcf7]'
-                      : 'border-transparent hover:bg-[#faf7f1]'
+                      ? 'border-dashed border-white/15 bg-white/[0.02]'
+                      : 'border-transparent hover:bg-white/5'
                 }`}
               >
                 <span
-                  className={`mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-lg text-xs font-semibold ${
+                  className={`mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-lg ${
                     done
-                      ? 'bg-[#a21caf] text-white'
+                      ? 'bg-amber-500 text-slate-900'
                       : isCurrent
-                        ? 'bg-[#a21caf]/15 text-[#a21caf]'
-                        : 'bg-[#efe9d8] text-[#1f2421]/55'
+                        ? 'bg-amber-500/20 text-amber-300'
+                        : 'bg-white/5 text-neutral-400'
                   }`}
                 >
                   {done ? <Check className="size-3.5" /> : <Icon className="size-3.5" />}
@@ -430,23 +443,20 @@ function CoachAgendaCard({
                 <span className="flex-1 space-y-0.5">
                   <span className="flex items-center gap-1.5">
                     <span
-                      className={`text-[10px] font-semibold uppercase tracking-[1.5px] ${
-                        isCurrent ? 'text-[#a21caf]' : 'text-[#1f2421]/45'
+                      className={`text-[10px] font-semibold uppercase tracking-wide ${
+                        isCurrent ? 'text-amber-300' : 'text-neutral-500'
                       }`}
                     >
                       Stopp {i + 1} · {moduleKindLabel(m.kind)}
                     </span>
                     {isNext ? (
-                      <span
-                        className="rounded-full px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-white"
-                        style={{ backgroundColor: ACCENT }}
-                      >
+                      <span className="rounded-full bg-amber-500 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-slate-900">
                         Neste
                       </span>
                     ) : null}
                   </span>
-                  <span className="block text-[13px] font-medium text-[#0f1311]">{m.title}</span>
-                  <span className="block text-[10px] text-[#1f2421]/55">
+                  <span className="block text-[13px] font-medium text-neutral-100">{m.title}</span>
+                  <span className="block text-[10px] text-neutral-500">
                     {moduleTimeLabel(m.durationMinutes)} · +{m.points} XP
                   </span>
                 </span>
@@ -455,6 +465,24 @@ function CoachAgendaCard({
           )
         })}
       </ol>
+    </div>
+  )
+}
+
+function CoachOutcomesCard({ outcomes }: { outcomes: string[] }) {
+  return (
+    <div className="rounded-2xl border border-white/10 bg-white/5 p-5">
+      <div className="flex items-center gap-2 text-xs font-medium uppercase tracking-wide text-neutral-500">
+        <BadgeCheck className="size-4 text-amber-400" /> Etter denne modulen kan du
+      </div>
+      <ul className="mt-3 space-y-2">
+        {outcomes.map((o, i) => (
+          <li key={i} className="flex items-start gap-2 text-sm leading-relaxed text-neutral-200">
+            <Check className="mt-0.5 size-4 shrink-0 text-amber-400" />
+            {o}
+          </li>
+        ))}
+      </ul>
     </div>
   )
 }
@@ -470,21 +498,20 @@ function CoachPointsCard({
 }) {
   const pct = (earnedPoints / course.totalPoints) * 100
   return (
-    <div className="rounded-2xl border border-[#ece5d3] bg-[#fdfcf7] p-5">
+    <div className="rounded-2xl border border-white/10 bg-white/5 p-5">
       <div className="flex items-baseline justify-between">
-        <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[2px] text-[#1f2421]/70">
-          <Sparkles className="size-3.5" style={{ color: ACCENT }} />
-          Poeng & merker
+        <div className="flex items-center gap-2 text-xs font-medium uppercase tracking-wide text-neutral-500">
+          <Sparkles className="size-4 text-amber-400" /> Poeng & merker
         </div>
-        <span className="text-sm font-semibold text-[#0f1311]">
-          <span style={{ color: ACCENT }}>{earnedPoints}</span>
-          <span className="text-[#1f2421]/50"> / {course.totalPoints} XP</span>
+        <span className="text-sm font-semibold text-white">
+          <span className="text-amber-300">{earnedPoints}</span>
+          <span className="text-neutral-500"> / {course.totalPoints} XP</span>
         </span>
       </div>
-      <div className="mt-3 h-1.5 w-full overflow-hidden rounded-full bg-[#efe9d8]">
+      <div className="mt-3 h-1.5 w-full overflow-hidden rounded-full bg-white/10">
         <div
-          className="h-full transition-all duration-300"
-          style={{ width: `${pct}%`, backgroundColor: ACCENT }}
+          className="h-full bg-amber-400 transition-all duration-300"
+          style={{ width: `${pct}%` }}
         />
       </div>
       <ul className="mt-4 space-y-2">
@@ -495,27 +522,23 @@ function CoachPointsCard({
             <li
               key={b.id}
               className={`flex items-center gap-2.5 rounded-lg px-2 py-1.5 ${
-                earned ? 'bg-[#faf2fc]' : ''
+                earned ? 'bg-amber-500/10' : ''
               }`}
             >
               <span
                 className={`flex size-8 shrink-0 items-center justify-center rounded-full ${
                   earned
-                    ? 'bg-[#a21caf] text-white'
-                    : 'border border-dashed border-[#dcd4be] text-[#1f2421]/35'
+                    ? 'bg-amber-500 text-slate-900'
+                    : 'border border-dashed border-white/15 text-neutral-500'
                 }`}
               >
                 <Icon className="size-4" />
               </span>
               <div className="min-w-0">
-                <p
-                  className={`text-xs font-semibold ${
-                    earned ? 'text-[#0f1311]' : 'text-[#1f2421]/45'
-                  }`}
-                >
+                <p className={`text-xs font-semibold ${earned ? 'text-white' : 'text-neutral-500'}`}>
                   {b.label}
                 </p>
-                <p className="truncate text-[10px] text-[#1f2421]/55">{b.description}</p>
+                <p className="truncate text-[10px] text-neutral-500">{b.description}</p>
               </div>
             </li>
           )
@@ -525,36 +548,13 @@ function CoachPointsCard({
   )
 }
 
-function CoachOutcomesCard({ outcomes }: { outcomes: string[] }) {
-  return (
-    <div className="rounded-2xl border border-[#ece5d3] bg-white p-5">
-      <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[2px] text-[#1f2421]/70">
-        <BadgeCheck className="size-3.5" style={{ color: ACCENT }} />
-        Etter denne modulen kan du
-      </div>
-      <ul className="mt-3 space-y-2">
-        {outcomes.map((o, i) => (
-          <li key={i} className="flex items-start gap-2 text-sm leading-relaxed text-[#1f2421]">
-            <span
-              className="mt-1.5 size-1.5 shrink-0 rounded-full"
-              style={{ backgroundColor: ACCENT }}
-            />
-            {o}
-          </li>
-        ))}
-      </ul>
-    </div>
-  )
-}
-
 function CoachFactCard({ fact }: { fact: { title: string; body: string } }) {
   return (
-    <div className="rounded-2xl border border-[#ece5d3] bg-[#fdfcf7] p-5">
-      <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[2px] text-[#1f2421]/70">
-        <Quote className="size-3.5" style={{ color: ACCENT }} />
-        {fact.title}
+    <div className="rounded-2xl border border-white/10 bg-white/5 p-5">
+      <div className="flex items-center gap-2 text-xs font-medium uppercase tracking-wide text-neutral-500">
+        <Quote className="size-4 text-amber-400" /> {fact.title}
       </div>
-      <p className="mt-2 text-[13px] leading-relaxed text-[#1f2421]/85">{fact.body}</p>
+      <p className="mt-2 text-[13px] leading-relaxed text-neutral-200">{fact.body}</p>
     </div>
   )
 }
@@ -569,17 +569,20 @@ function CoachReflectCard({
   modId: string
 }) {
   return (
-    <div className="rounded-2xl border border-[#ece5d3] bg-white p-5">
+    <div className="rounded-2xl border border-white/10 bg-white/5 p-5">
       <div className="flex items-center justify-between">
-        <label htmlFor={`coach-reflect-${modId}`} className="block text-[11px] font-semibold uppercase tracking-[2px] text-[#1f2421]/70">
+        <label
+          htmlFor={`coach-reflect-${modId}`}
+          className="text-xs font-medium uppercase tracking-wide text-neutral-500"
+        >
           Privat notat
         </label>
-        <span className="rounded-full bg-[#efe9d8] px-2 py-0.5 text-[10px] font-medium text-[#1f2421]/70">
+        <span className="rounded-full border border-white/10 bg-white/5 px-2 py-0.5 text-[10px] text-neutral-400">
           Valgfritt
         </span>
       </div>
-      <p className="mt-1 text-sm text-[#0f1311]">Hva tar du med deg fra denne modulen?</p>
-      <p className="mt-0.5 text-[11px] text-[#1f2421]/55">
+      <p className="mt-1 text-sm text-white">Hva tar du med deg fra denne modulen?</p>
+      <p className="mt-0.5 text-[11px] text-neutral-500">
         Synes bare for deg. Påvirker ikke kursfullføring.
       </p>
       <textarea
@@ -588,7 +591,7 @@ function CoachReflectCard({
         onChange={(e) => onChange(e.target.value)}
         rows={3}
         placeholder="Én setning er nok."
-        className="mt-3 w-full rounded-lg border border-[#dcd4be] bg-[#fdfcf7] px-3 py-2 text-sm text-[#1f2421] placeholder:text-[#1f2421]/40 focus:border-[#a21caf] focus:outline-none focus:ring-2 focus:ring-[#a21caf]/15"
+        className="mt-3 w-full rounded-lg border border-white/10 bg-white/[0.03] px-3 py-2 text-sm text-white placeholder:text-neutral-500 focus:border-amber-400 focus:outline-none focus:ring-2 focus:ring-amber-400/20"
       />
     </div>
   )
@@ -616,25 +619,25 @@ function CoachLessonBody({
   if (mod.kind === 'text') {
     return (
       <div className="space-y-5">
-        <p className="text-lg leading-relaxed text-[#0f1311]">{mod.lead}</p>
+        <p className="text-lg leading-relaxed text-neutral-100">{mod.lead}</p>
         {mod.body.map((p, i) => (
-          <p key={i} className="text-[16px] leading-[1.7] text-[#2a2f2b]">
+          <p key={i} className="text-[15px] leading-[1.75] text-neutral-300">
             {p}
           </p>
         ))}
-        <div className="mt-2 rounded-xl border border-dashed border-[#dcd4be] bg-[#faf7f1] p-4">
-          <p className="text-[11px] font-semibold uppercase tracking-[2px] text-[#1f2421]/70">
-            Nøkkelpunkter
-          </p>
-          <ul className="mt-2 space-y-1.5 text-sm text-[#1f2421]">
+        <aside className="rounded-xl border border-amber-400/30 bg-amber-500/[0.06] p-5">
+          <div className="flex items-center gap-2 text-xs font-medium uppercase tracking-wide text-amber-300">
+            <Award className="size-3.5" /> Nøkkelpunkter
+          </div>
+          <ul className="mt-3 space-y-2">
             {mod.keyTakeaways.map((t, i) => (
-              <li key={i} className="flex items-start gap-2">
-                <Check className="mt-0.5 size-4 shrink-0" style={{ color: ACCENT }} />
+              <li key={i} className="flex items-start gap-2 text-sm text-neutral-200">
+                <Check className="mt-0.5 size-4 shrink-0 text-amber-400" />
                 {t}
               </li>
             ))}
           </ul>
-        </div>
+        </aside>
       </div>
     )
   }
@@ -642,12 +645,12 @@ function CoachLessonBody({
   if (mod.kind === 'quiz') {
     return (
       <div className="space-y-5">
-        <p className="text-[15px] leading-relaxed text-[#1f2421]">{mod.intro}</p>
+        <p className="text-sm leading-relaxed text-neutral-300">{mod.intro}</p>
         {mod.questions.map((q, qi) => {
           const picked = quizAnswers[q.id]
           return (
             <fieldset key={q.id} className="space-y-2.5">
-              <legend className="text-[15px] font-semibold text-[#0f1311]">
+              <legend className="text-base font-semibold text-white">
                 {qi + 1}. {q.question}
               </legend>
               <div className="space-y-1.5">
@@ -658,14 +661,14 @@ function CoachLessonBody({
                   return (
                     <label
                       key={oi}
-                      className={`flex cursor-pointer items-start gap-2.5 rounded-lg border bg-white px-3 py-2.5 text-sm transition ${
+                      className={`flex cursor-pointer items-start gap-2.5 rounded-lg border px-3 py-2.5 text-sm transition focus-within:outline focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-amber-400 ${
                         right
-                          ? 'border-[#a21caf] bg-[#a21caf]/5'
+                          ? 'border-amber-400/60 bg-amber-500/15 text-white'
                           : wrong
-                            ? 'border-[#b3382a] bg-[#b3382a]/5'
+                            ? 'border-red-400/50 bg-red-500/10 text-white'
                             : selected
-                              ? 'border-[#a21caf]'
-                              : 'border-[#dcd4be] hover:border-[#a21caf]/40'
+                              ? 'border-amber-400 bg-amber-500/10 text-white'
+                              : 'border-white/10 bg-white/[0.03] text-neutral-200 hover:bg-white/5'
                       }`}
                     >
                       <input
@@ -674,7 +677,7 @@ function CoachLessonBody({
                         checked={selected}
                         onChange={() => setQuizAnswers((p) => ({ ...p, [q.id]: oi }))}
                         disabled={quizSubmitted}
-                        className="mt-0.5 size-4 accent-[#a21caf]"
+                        className="mt-0.5 size-4 accent-amber-500"
                       />
                       <span>{opt}</span>
                     </label>
@@ -682,20 +685,19 @@ function CoachLessonBody({
                 })}
               </div>
               {quizSubmitted ? (
-                <p className="rounded-md bg-[#faf2fc] px-3 py-2 text-[13px] leading-relaxed text-[#1f2421]">
-                  <strong className="text-[#0f1311]">Anne:</strong> {q.explanation}
+                <p className="rounded-md border border-white/10 bg-white/[0.04] px-3 py-2 text-[13px] leading-relaxed text-neutral-200">
+                  <strong className="text-white">Anne:</strong> {q.explanation}
                 </p>
               ) : null}
             </fieldset>
           )
         })}
-
         {!quizSubmitted ? (
           <button
             type="button"
             onClick={() => setQuizSubmitted(true)}
             disabled={Object.keys(quizAnswers).length < mod.questions.length}
-            className="inline-flex items-center gap-2 rounded-md border border-[#a21caf] bg-white px-4 py-2 text-sm font-semibold text-[#a21caf] hover:bg-[#a21caf]/5 disabled:opacity-40"
+            className="rounded-lg border border-amber-400/50 px-4 py-2 text-sm font-semibold text-amber-300 hover:bg-amber-500/10 disabled:opacity-40"
           >
             Sjekk svarene
           </button>
@@ -703,19 +705,20 @@ function CoachLessonBody({
           <div
             className={`flex items-start gap-3 rounded-lg border p-4 ${
               quizScore.ratio >= 2 / 3
-                ? 'border-[#a21caf]/30 bg-[#a21caf]/5'
-                : 'border-[#b3382a]/30 bg-[#b3382a]/5'
+                ? 'border-amber-400/30 bg-amber-500/10'
+                : 'border-red-400/40 bg-red-500/10'
             }`}
           >
             <CheckCircle2
-              className="mt-0.5 size-5 shrink-0"
-              style={{ color: quizScore.ratio >= 2 / 3 ? ACCENT : '#b3382a' }}
+              className={`mt-0.5 size-5 shrink-0 ${
+                quizScore.ratio >= 2 / 3 ? 'text-amber-300' : 'text-red-300'
+              }`}
             />
             <div className="text-sm">
-              <p className="font-semibold text-[#0f1311]">
+              <p className="font-semibold text-white">
                 {quizScore.right} av {quizScore.total} riktig
               </p>
-              <p className="mt-1 text-[#1f2421]/80">
+              <p className="mt-1 text-neutral-300">
                 {quizScore.ratio >= 2 / 3
                   ? 'Anne nikker. Du kan gå videre.'
                   : 'Ikke bestått ennå – Anne foreslår å gå tilbake til forrige modul først.'}
@@ -727,7 +730,7 @@ function CoachLessonBody({
                     setQuizAnswers(() => ({}))
                     setQuizSubmitted(false)
                   }}
-                  className="mt-2 inline-flex items-center gap-1.5 text-xs font-semibold text-[#a21caf] hover:underline"
+                  className="mt-2 inline-flex items-center gap-1.5 text-xs font-semibold text-amber-300 hover:underline"
                 >
                   <RotateCcw className="size-3.5" /> Prøv på nytt
                 </button>
@@ -741,12 +744,12 @@ function CoachLessonBody({
 
   return (
     <div className="space-y-5">
-      <p className="text-[15px] leading-relaxed text-[#1f2421]">{mod.intro}</p>
+      <p className="text-sm leading-relaxed text-neutral-300">{mod.intro}</p>
       {mod.prompts.map((p) => {
         const v = reflections[p.id] ?? ''
         return (
           <div key={p.id} className="space-y-2">
-            <label htmlFor={p.id} className="block text-[15px] font-semibold text-[#0f1311]">
+            <label htmlFor={p.id} className="block text-[15px] font-semibold text-white">
               {p.prompt}
             </label>
             <textarea
@@ -755,9 +758,9 @@ function CoachLessonBody({
               onChange={(e) => setReflections((prev) => ({ ...prev, [p.id]: e.target.value }))}
               placeholder={p.placeholder}
               rows={3}
-              className="w-full rounded-lg border border-[#dcd4be] bg-white px-3 py-2.5 text-sm text-[#1f2421] placeholder:text-[#1f2421]/40 focus:border-[#a21caf] focus:outline-none focus:ring-2 focus:ring-[#a21caf]/20"
+              className="w-full rounded-lg border border-white/10 bg-white/[0.03] px-3 py-2.5 text-sm text-white placeholder:text-neutral-500 focus:border-amber-400 focus:outline-none focus:ring-2 focus:ring-amber-400/20"
             />
-            <p className="text-right text-[11px] text-[#1f2421]/50">
+            <p className="text-right text-[11px] text-neutral-500">
               {v.length} tegn · minst 10 for å gå videre
             </p>
           </div>
@@ -767,7 +770,7 @@ function CoachLessonBody({
   )
 }
 
-function CoachFinishedBanner({
+function CoachFinishedCard({
   course,
   earnedPoints,
   earnedBadges,
@@ -781,28 +784,27 @@ function CoachFinishedBanner({
   return (
     <div
       role="status"
-      className="rounded-3xl border bg-white p-8 shadow-sm"
-      style={{ borderColor: `${ACCENT}40` }}
+      className="rounded-2xl border border-amber-400/40 bg-amber-500/5 p-8 lg:col-span-2"
     >
       <div className="flex items-start gap-4">
         <div
-          className="flex size-12 shrink-0 items-center justify-center rounded-full font-semibold text-white"
-          style={{ backgroundColor: ACCENT }}
+          className="flex size-12 shrink-0 items-center justify-center rounded-full font-semibold text-white shadow-md shadow-black/30"
+          style={{ backgroundColor: COACH_PERSONA }}
         >
           A
         </div>
         <div className="flex-1 space-y-2">
-          <p className="text-[11px] font-semibold uppercase tracking-[2px]" style={{ color: ACCENT }}>
-            Anne · HMS-rådgiver
+          <p className="inline-flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-amber-300">
+            <PartyPopper className="size-3.5" /> Anne · HMS-rådgiver
           </p>
-          <h2 className="text-xl font-semibold text-[#0f1311]">Bra jobba — kurset er ferdig.</h2>
-          <p className="text-sm leading-relaxed text-[#1f2421]/80">
+          <h2 className="text-xl font-semibold text-white">Bra jobba — kurset er ferdig.</h2>
+          <p className="text-sm leading-relaxed text-neutral-300">
             Du tjente{' '}
-            <strong className="text-[#0f1311]">
-              {earnedPoints} av {course.totalPoints} kompetansepoeng
+            <strong className="text-amber-300">
+              {earnedPoints} av {course.totalPoints} XP
             </strong>{' '}
             og låste opp{' '}
-            <strong className="text-[#0f1311]">
+            <strong className="text-amber-300">
               {earnedBadges.length} av {course.badges.length} merker
             </strong>
             . Refleksjonene dine er lagret på profilen, og kursbeviset er signert.
@@ -815,15 +817,12 @@ function CoachFinishedBanner({
                 return (
                   <li
                     key={b.id}
-                    className="flex items-center gap-2 rounded-full bg-[#faf2fc] px-3 py-1.5"
+                    className="flex items-center gap-2 rounded-full border border-amber-400/40 bg-amber-500/10 px-3 py-1.5"
                   >
-                    <span
-                      className="flex size-7 shrink-0 items-center justify-center rounded-full text-white"
-                      style={{ backgroundColor: ACCENT }}
-                    >
+                    <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-amber-500 text-slate-900">
                       <Icon className="size-3.5" />
                     </span>
-                    <span className="text-xs font-semibold text-[#0f1311]">{b.label}</span>
+                    <span className="text-xs font-semibold text-white">{b.label}</span>
                   </li>
                 )
               })}
@@ -833,15 +832,14 @@ function CoachFinishedBanner({
           <div className="mt-4 flex flex-wrap gap-2">
             <button
               type="button"
-              className="inline-flex items-center gap-2 rounded-md px-4 py-2 text-sm font-semibold text-white shadow-sm"
-              style={{ backgroundColor: ACCENT }}
+              className="rounded-lg bg-amber-500 px-4 py-2 text-sm font-semibold text-slate-900 hover:bg-amber-400"
             >
               Last ned kursbevis (PDF)
             </button>
             <button
               type="button"
               onClick={onRestart}
-              className="inline-flex items-center gap-2 rounded-md border border-[#dcd4be] bg-white px-4 py-2 text-sm font-medium text-[#1f2421] hover:bg-[#faf7f1]"
+              className="rounded-lg border border-white/10 px-4 py-2 text-sm text-neutral-300 hover:bg-white/5"
             >
               Start på nytt
             </button>
@@ -852,40 +850,41 @@ function CoachFinishedBanner({
   )
 }
 
-function CoachDesignNotes() {
+function DesignNotes() {
   const [open, setOpen] = useState(false)
   return (
-    <div className="border-t border-[#ece5d3] bg-[#fdfcf7]">
-      <div className="mx-auto max-w-[1100px] px-6 py-6">
-        <button
-          type="button"
-          onClick={() => setOpen((v) => !v)}
-          className="text-xs font-semibold uppercase tracking-[1.5px]"
-          style={{ color: ACCENT }}
-        >
-          {open ? 'Skjul' : 'Vis'} designnotater
-        </button>
-        {open ? (
-          <ul className="mt-4 grid gap-3 text-sm leading-relaxed text-[#1f2421]/80 md:grid-cols-2">
-            <li>
-              <strong>Persona reduserer kognitiv last.</strong> En tydelig «kilde» (Anne) gjør at
-              forklaringer leses som veiledning, ikke som regler – øker villigheten til å spørre tilbake.
-            </li>
-            <li>
-              <strong>Sticky bunn-pager.</strong> Refleksjonsfeltet i sidepanelet kan bli langt;
-              hovedhandlingene følger alltid med ned.
-            </li>
-            <li>
-              <strong>Læringsutbytte synliggjøres.</strong> «Etter denne modulen kan du …» gir
-              progressjons-forventning før innholdet starter (forventningsstyring).
-            </li>
-            <li>
-              <strong>Hovedkanal + sidekanal.</strong> 60/40 holder lesetekst innenfor anbefalt
-              tegnbredde, samtidig som coach-panelet får plass uten å trenge modal.
-            </li>
-          </ul>
-        ) : null}
-      </div>
+    <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-5">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className="text-xs font-semibold uppercase tracking-wide text-amber-400/90 hover:text-amber-300"
+      >
+        {open ? 'Skjul' : 'Vis'} designnotater
+      </button>
+      {open ? (
+        <ul className="mt-4 grid gap-3 text-sm leading-relaxed text-neutral-300 md:grid-cols-2">
+          <li>
+            <strong className="text-white">Native i platform-admin.</strong> Samme kort
+            (<code>rounded-2xl border-white/10 bg-white/5</code>), samme amber-aksent og samme
+            7fr/3fr-deling som <code>WorkplaceSplit7030Layout</code>.
+          </li>
+          <li>
+            <strong className="text-white">Anne forblir Anne.</strong> Persona-fargen
+            (magenta-avatar) er beholdt for å skille mennesket fra UI-aksenten — alt annet er
+            amber.
+          </li>
+          <li>
+            <strong className="text-white">Persistent pager.</strong> Fortsett-knappen følger med
+            i bunn — den ligger ikke skjult inne i kortet, slik at den alltid er innenfor
+            tommelrekkevidde.
+          </li>
+          <li>
+            <strong className="text-white">Sosial uten å være sosial-mediafølelse.</strong> Anne
+            kvitterer på forrige modul i sin egen boble, men det er ingen «likes» eller
+            leaderboard.
+          </li>
+        </ul>
+      ) : null}
     </div>
   )
 }

@@ -36,12 +36,12 @@ const variants: Variant[] = [
     eyebrow: 'Alternativ 2',
     title: 'Cinema Card',
     oneLiner:
-      'Modulen ligger på en lukket scene. Ambient bakgrunn, ett spørsmål om gangen, XP-belønning som flyter inn ved fullføring.',
-    mentalModel: 'Headspace / Apple Keynote / Duolingo',
+      'Native platform-admin: 7fr-stage til venstre, gamification-HUD (fremdriftsring, innhold, merker) til høyre. Cinema-identiteten lever videre i kort-overganger og XP-/merke-toaster.',
+    mentalModel: 'Admin-dashboard med kino-rytme',
     engagement:
-      'Steg-prikker, kort-overgang mellom moduler, animert +XP og strektelle ved riktig svar, tidsring i bunn.',
-    widthTarget: '960 × 640 låst scene',
-    accent: '#1a3d32',
+      'Stegprikker, kort-overgang mellom moduler, +XP- og merke-toast ved fullføring, nivåmeter i headeren.',
+    widthTarget: '70 / 30 split (7fr / 3fr · maks 1400 px)',
+    accent: '#fbbf24',
     icon: Film,
   },
   {
@@ -49,12 +49,12 @@ const variants: Variant[] = [
     eyebrow: 'Alternativ 3',
     title: 'Coach Sidekick',
     oneLiner:
-      'Anne, HMS-rådgiveren, sitter ved siden av deg. Forklarer paragrafer, stiller kontrollspørsmål og oppsummerer hva du nettopp lærte.',
-    mentalModel: 'Khan Academy / Copilot Chat / Babbel',
+      'Native platform-admin: 7fr-leksjon til venstre, Anne (HMS-rådgiver) som stabel av admin-kort til høyre — agenda, læringsutbytte, poeng & merker, refleksjon.',
+    mentalModel: 'Admin-dashboard med en menneskelig stemme',
     engagement:
-      'Persona med portrett, «Dagens program»-agenda, «Poeng & merker»-kort i Annes stemme, Anne annonserer neste opp.',
-    widthTarget: '1100 px split 60 / 40',
-    accent: '#a21caf',
+      'Anne kvitterer på forrige modul, agenda-kort med «Neste»-tag, persistent pager med Annes neste-opp-melding.',
+    widthTarget: '70 / 30 split (7fr / 3fr · maks 1400 px)',
+    accent: '#d946ef',
     icon: Sparkles,
   },
   {
