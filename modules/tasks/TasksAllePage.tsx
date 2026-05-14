@@ -196,46 +196,83 @@ const EMPTY_FILTERS: ActiveFilters = { status: null, priority: null, kind: null,
 function KanbanCard({
   item,
   subtaskCounts,
+  expanded,
+  onToggleExpand,
   onClick,
 }: {
   item: TaskItemRow
   subtaskCounts: Map<string, { done: number; total: number }>
+  expanded: boolean
+  onToggleExpand: () => void
   onClick: () => void
 }) {
   const personName = item.ownerName ?? item.assigneeName
   const overdue = isOverdue(item.dueDate, item.status)
+  const sc = subtaskCounts.get(item.id)
+  const hasSubtasks = (sc?.total ?? 0) > 0
 
   return (
     <div
-      onClick={onClick}
-      className="cursor-pointer rounded-lg border border-neutral-200 bg-white p-3 shadow-sm transition hover:border-[#c2410c]/30 hover:shadow-md"
+      className={`rounded-lg border bg-white shadow-sm transition-shadow hover:shadow-md ${
+        expanded ? 'border-[#c2410c]/30' : 'border-neutral-200'
+      }`}
     >
-      <p className="text-sm font-medium leading-snug text-neutral-900">{item.title}</p>
+      {/* Clickable card body → opens detail panel */}
+      <div
+        onClick={onClick}
+        className="cursor-pointer p-3"
+      >
+        <p className="text-sm font-medium leading-snug text-neutral-900">{item.title}</p>
 
-      <div className="mt-2 flex flex-wrap items-center gap-1.5">
-        <TaskStatusBadge status={item.status} />
-        <TaskPriorityBadge priority={item.priority} />
-      </div>
-
-      {/* Progress bar */}
-      <div className="mt-2.5">
-        <ProgressBar taskId={item.id} status={item.status} subtaskCounts={subtaskCounts} />
-      </div>
-
-      {/* Footer: date + avatar */}
-      {(item.dueDate || personName) && (
-        <div className="mt-2 flex items-center justify-between gap-2">
-          {item.dueDate ? (
-            <span
-              className={`text-[11px] ${overdue ? 'font-semibold text-red-600' : 'text-neutral-400'}`}
-            >
-              {fmtDate(item.dueDate)}{overdue ? ' — forfalt' : ''}
-            </span>
-          ) : (
-            <span />
-          )}
-          {personName && <PersonAvatar name={personName} size="sm" />}
+        <div className="mt-2 flex flex-wrap items-center gap-1.5">
+          <TaskStatusBadge status={item.status} />
+          <TaskPriorityBadge priority={item.priority} />
         </div>
+
+        {/* Progress bar */}
+        <div className="mt-2.5">
+          <ProgressBar taskId={item.id} status={item.status} subtaskCounts={subtaskCounts} />
+        </div>
+
+        {/* Footer: date + avatar */}
+        {(item.dueDate || personName) && (
+          <div className="mt-2 flex items-center justify-between gap-2">
+            {item.dueDate ? (
+              <span
+                className={`text-[11px] ${overdue ? 'font-semibold text-red-600' : 'text-neutral-400'}`}
+              >
+                {fmtDate(item.dueDate)}{overdue ? ' — forfalt' : ''}
+              </span>
+            ) : (
+              <span />
+            )}
+            {personName && <PersonAvatar name={personName} size="sm" />}
+          </div>
+        )}
+      </div>
+
+      {/* Expand toggle — only rendered when subtasks exist */}
+      {hasSubtasks && (
+        <>
+          <button
+            type="button"
+            onClick={(e) => { e.stopPropagation(); onToggleExpand() }}
+            className="flex w-full items-center justify-between border-t border-neutral-100 px-3 py-1.5 text-[11px] transition hover:bg-neutral-50"
+          >
+            <span className={expanded ? 'font-medium text-[#c2410c]' : 'text-neutral-400'}>
+              {sc!.done}/{sc!.total} deloppgaver
+            </span>
+            {expanded
+              ? <ChevronDown className="h-3.5 w-3.5 text-[#c2410c]" />
+              : <ChevronRight className="h-3.5 w-3.5 text-neutral-400" />
+            }
+          </button>
+          {expanded && (
+            <div className="border-t border-neutral-100 bg-neutral-50/60 p-3">
+              <TaskSubtaskList taskItemId={item.id} />
+            </div>
+          )}
+        </>
       )}
     </div>
   )
@@ -250,6 +287,14 @@ function KanbanView({
   subtaskCounts: Map<string, { done: number; total: number }>
   onCardClick: (item: TaskItemRow) => void
 }) {
+  const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set())
+  const toggleExpand = (id: string) =>
+    setExpandedIds((prev) => {
+      const next = new Set(prev)
+      next.has(id) ? next.delete(id) : next.add(id)
+      return next
+    })
+
   return (
     <div className="flex min-h-[480px] gap-4 overflow-x-auto pb-4">
       {KANBAN_COLS.map((col) => {
@@ -277,6 +322,8 @@ function KanbanView({
                       key={item.id}
                       item={item}
                       subtaskCounts={subtaskCounts}
+                      expanded={expandedIds.has(item.id)}
+                      onToggleExpand={() => toggleExpand(item.id)}
                       onClick={() => onCardClick(item)}
                     />
                   ))}
@@ -354,29 +401,28 @@ function BoxCard({
         )}
       </div>
 
-      {/* Expand toggle */}
-      <button
-        type="button"
-        onClick={(e) => { e.stopPropagation(); onToggle() }}
-        className="flex w-full items-center justify-between border-t border-neutral-100 px-4 py-2 text-[11px] text-neutral-400 transition hover:bg-neutral-50 hover:text-neutral-600"
-      >
-        <span>
-          {sc && sc.total > 0
-            ? `${sc.done}/${sc.total} deloppgaver`
-            : 'Deloppgaver'}
-        </span>
-        {expanded ? (
-          <ChevronDown className="h-3.5 w-3.5" />
-        ) : (
-          <ChevronRight className="h-3.5 w-3.5" />
-        )}
-      </button>
-
-      {/* Subtask panel */}
-      {expanded && (
-        <div className="border-t border-neutral-100 bg-neutral-50/60 p-4">
-          <TaskSubtaskList taskItemId={item.id} />
-        </div>
+      {/* Expand toggle — only when subtasks exist */}
+      {sc && sc.total > 0 && (
+        <>
+          <button
+            type="button"
+            onClick={(e) => { e.stopPropagation(); onToggle() }}
+            className="flex w-full items-center justify-between border-t border-neutral-100 px-4 py-2 text-[11px] transition hover:bg-neutral-50"
+          >
+            <span className={expanded ? 'font-medium text-[#c2410c]' : 'text-neutral-500'}>
+              {sc.done}/{sc.total} deloppgaver
+            </span>
+            {expanded
+              ? <ChevronDown className="h-3.5 w-3.5 text-[#c2410c]" />
+              : <ChevronRight className="h-3.5 w-3.5 text-neutral-400" />
+            }
+          </button>
+          {expanded && (
+            <div className="border-t border-neutral-100 bg-neutral-50/60 p-4">
+              <TaskSubtaskList taskItemId={item.id} />
+            </div>
+          )}
+        </>
       )}
     </div>
   )
@@ -956,16 +1002,28 @@ export function TasksAllePage() {
                             </td>
 
                             {/* Progress */}
-                            <td className="w-32 px-5 py-3">
+                            <td className="w-36 px-5 py-3">
                               <ProgressBar
                                 taskId={row.id}
                                 status={row.status}
                                 subtaskCounts={subtaskCounts}
                               />
                               {sc && sc.total > 0 && (
-                                <p className="mt-0.5 text-[10px] text-neutral-400">
+                                <button
+                                  type="button"
+                                  onClick={() => toggleRow(row.id)}
+                                  className={`mt-1 flex items-center gap-0.5 text-[10px] transition ${
+                                    isExpanded
+                                      ? 'font-semibold text-[#c2410c]'
+                                      : 'text-neutral-400 hover:text-[#c2410c]'
+                                  }`}
+                                >
+                                  {isExpanded
+                                    ? <ChevronDown className="h-3 w-3" />
+                                    : <ChevronRight className="h-3 w-3" />
+                                  }
                                   {sc.done}/{sc.total} deloppg.
-                                </p>
+                                </button>
                               )}
                             </td>
 
@@ -992,20 +1050,11 @@ export function TasksAllePage() {
                               {fmtDate(row.dueDate)}
                             </td>
 
-                            {/* Expand toggle */}
+                            {/* Expand toggle — only shown when no subtask count pill above */}
                             <td className="w-8 px-3 py-3">
-                              <button
-                                type="button"
-                                onClick={() => toggleRow(row.id)}
-                                className="text-neutral-300 transition hover:text-neutral-600"
-                                aria-label={isExpanded ? 'Skjul deloppgaver' : 'Vis deloppgaver'}
-                              >
-                                {isExpanded ? (
-                                  <ChevronDown className="h-4 w-4" />
-                                ) : (
-                                  <ChevronRight className="h-4 w-4" />
-                                )}
-                              </button>
+                              {(!sc || sc.total === 0) && (
+                                <ChevronRight className="h-4 w-4 text-neutral-200" />
+                              )}
                             </td>
                           </tr>,
 
