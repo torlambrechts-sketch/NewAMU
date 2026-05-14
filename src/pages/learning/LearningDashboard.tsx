@@ -11,6 +11,7 @@ import {
   Search,
 } from 'lucide-react'
 import { useLearning } from '../../hooks/useLearning'
+import { useLearningCategories } from '../../hooks/useLearningCategories'
 import { useOrgSetupContext } from '../../hooks/useOrgSetupContext'
 import { Badge } from '../../components/ui/Badge'
 import { StandardInput } from '../../components/ui/Input'
@@ -18,14 +19,38 @@ import { LayoutScoreStatRow } from '../../components/layout/LayoutScoreStatRow'
 import type { LayoutScoreStatItem } from '../../components/layout/platformLayoutKit'
 import { LayoutTable1PostingsShell } from '../../components/layout/LayoutTable1PostingsShell'
 import { MODULE_TABLE_TH, MODULE_TABLE_TR_BODY, ModuleSectionCard } from '../../components/module'
+import { BEIGE_NAV, WikiFolderNavRow } from '../../components/module/ModuleWikiFolderNavRow'
 import type { Course, CourseProgress } from '../../types/learning'
 
 const PIN_GREEN = '#1a3d32'
 const MINT_BG = '#e7efe9'
 
+// Shared with /learning/katalog so the user's Kort/Liste choice carries between
+// the two course-listing surfaces.
+const VIEW_MODE_KEY = 'atics-learning-courses-view-mode'
+const ALL_KEY = '__all__'
+const UNCATEGORISED_KEY = '__uncat__'
 
 type FilterId = 'alle' | 'mine' | 'publisert' | 'utkast'
 type ViewMode = 'grid' | 'list'
+
+function loadViewMode(): ViewMode {
+  try {
+    const raw = localStorage.getItem(VIEW_MODE_KEY)
+    if (raw === 'liste' || raw === 'list') return 'list'
+    return 'grid'
+  } catch {
+    return 'grid'
+  }
+}
+
+function saveViewMode(v: ViewMode) {
+  try {
+    localStorage.setItem(VIEW_MODE_KEY, v === 'list' ? 'liste' : 'kort')
+  } catch {
+    /* ignore */
+  }
+}
 
 type CourseStat = {
   assigned: number
@@ -80,7 +105,10 @@ function CourseCard({
         >
           <GraduationCap className="h-5 w-5" />
         </div>
-        <Badge variant={status.variant}>{status.label}</Badge>
+        <div className="flex flex-wrap items-center gap-1.5">
+          <Badge variant={status.variant}>{status.label}</Badge>
+          {course.origin === 'system' ? <Badge variant="neutral">System</Badge> : null}
+        </div>
       </div>
 
       <div className="min-w-0">
@@ -116,6 +144,11 @@ function CourseCard({
           <span className="inline-flex items-center gap-1">
             <RefreshCw className="h-3.5 w-3.5 text-neutral-500" />
             hver {course.recertificationMonths} mnd
+          </span>
+        ) : null}
+        {course.localeVersionMajor != null ? (
+          <span className="ml-auto inline-flex items-center gap-1 rounded-full bg-neutral-100 px-2 py-0.5 text-[11px] font-medium text-neutral-700">
+            v{course.localeVersionMajor}.{course.localeVersionMinor ?? 0}
           </span>
         ) : null}
       </div>
@@ -193,7 +226,10 @@ function CatalogTable({
                 </div>
               </td>
               <td className="px-5 py-3">
-                <Badge variant={status.variant}>{status.label}</Badge>
+                <div className="flex flex-wrap items-center gap-1.5">
+                  <Badge variant={status.variant}>{status.label}</Badge>
+                  {c.origin === 'system' ? <Badge variant="neutral">System</Badge> : null}
+                </div>
               </td>
               <td className="px-5 py-3 tabular-nums text-neutral-700">{c.modules.length}</td>
               <td className="px-5 py-3 tabular-nums text-neutral-700">{stats.assigned}</td>
@@ -227,11 +263,13 @@ function CatalogTable({
 
 export function LearningDashboard() {
   const { courses, progress } = useLearning()
-  const { profile } = useOrgSetupContext()
+  const { profile, supabase } = useOrgSetupContext()
+  const { categories } = useLearningCategories({ supabase })
 
-  const [view, setView] = useState<ViewMode>('grid')
+  const [view, setView] = useState<ViewMode>(loadViewMode)
   const [filter, setFilter] = useState<FilterId>('alle')
   const [search, setSearch] = useState('')
+  const [selectedCategoryId, setSelectedCategoryId] = useState<string>(ALL_KEY)
 
   const myProgressById = useMemo<Record<string, CourseProgress>>(() => {
     const out: Record<string, CourseProgress> = {}
@@ -259,7 +297,8 @@ export function LearningDashboard() {
     return out
   }, [courses, progress])
 
-  const visibleCourses = useMemo(() => {
+  // Tab + search → independent of the selected category sidebar.
+  const tabFiltered = useMemo(() => {
     return courses.filter((c) => {
       if (filter === 'mine' && !myProgressById[c.id]) return false
       if (filter === 'utkast' && c.status !== 'draft') return false
@@ -272,6 +311,34 @@ export function LearningDashboard() {
       return true
     })
   }, [courses, filter, search, myProgressById])
+
+  // Counts per sidebar row (Alle / per-kategori / Annet) — react to the
+  // tab + search filter so the rail mirrors what would land in the right pane.
+  const sidebarCategories = useMemo(() => {
+    const activeCats = categories.filter((c) => c.is_active)
+    const byId = new Map<string, number>()
+    let uncategorised = 0
+    for (const c of tabFiltered) {
+      if (c.categoryId && activeCats.some((cat) => cat.id === c.categoryId)) {
+        byId.set(c.categoryId, (byId.get(c.categoryId) ?? 0) + 1)
+      } else {
+        uncategorised += 1
+      }
+    }
+    const rows = activeCats
+      .map((cat) => ({ id: cat.id, name: cat.name, position: cat.position, count: byId.get(cat.id) ?? 0 }))
+      .sort((a, b) => a.position - b.position || a.name.localeCompare(b.name, 'nb'))
+    return { rows, uncategorised, all: tabFiltered.length }
+  }, [tabFiltered, categories])
+
+  const visibleCourses = useMemo(() => {
+    if (selectedCategoryId === ALL_KEY) return tabFiltered
+    if (selectedCategoryId === UNCATEGORISED_KEY) {
+      const activeIds = new Set(categories.filter((c) => c.is_active).map((c) => c.id))
+      return tabFiltered.filter((c) => !c.categoryId || !activeIds.has(c.categoryId))
+    }
+    return tabFiltered.filter((c) => c.categoryId === selectedCategoryId)
+  }, [tabFiltered, selectedCategoryId, categories])
 
   const kpis = useMemo<LayoutScoreStatItem[]>(() => {
     const totalAssigned = Object.values(orgStatsById).reduce((s, x) => s + x.assigned, 0)
@@ -302,7 +369,10 @@ export function LearningDashboard() {
     <div className="inline-flex rounded-md border border-neutral-200 bg-white p-0.5">
       <button
         type="button"
-        onClick={() => setView('grid')}
+        onClick={() => {
+          setView('grid')
+          saveViewMode('grid')
+        }}
         aria-pressed={view === 'grid'}
         className={`inline-flex items-center gap-1 rounded px-2.5 py-1 text-xs font-medium transition-colors ${
           view === 'grid' ? 'bg-neutral-100 text-neutral-900' : 'text-neutral-500 hover:text-neutral-800'
@@ -313,7 +383,10 @@ export function LearningDashboard() {
       </button>
       <button
         type="button"
-        onClick={() => setView('list')}
+        onClick={() => {
+          setView('list')
+          saveViewMode('list')
+        }}
         aria-pressed={view === 'list'}
         className={`inline-flex items-center gap-1 rounded px-2.5 py-1 text-xs font-medium transition-colors ${
           view === 'list' ? 'bg-neutral-100 text-neutral-900' : 'text-neutral-500 hover:text-neutral-800'
@@ -377,29 +450,61 @@ export function LearningDashboard() {
             </span>
           }
         >
-          {view === 'grid' ? (
-            <div className="grid grid-cols-1 gap-4 px-5 py-5 sm:grid-cols-2 xl:grid-cols-3">
-              {visibleCourses.map((c) => (
-                <CourseCard
-                  key={c.id}
-                  course={c}
-                  myProgress={myProgressById[c.id]}
-                  orgStats={orgStatsById[c.id]}
+          <div className="grid grid-cols-1 gap-0 overflow-hidden lg:grid-cols-[minmax(200px,22%)_1fr]">
+            <aside
+              className="border-b border-neutral-200 p-2 lg:border-b-0 lg:border-r lg:border-neutral-200/80"
+              style={{ backgroundColor: BEIGE_NAV }}
+            >
+              <WikiFolderNavRow
+                label="Alle kategorier"
+                sub={`${sidebarCategories.all} kurs`}
+                active={selectedCategoryId === ALL_KEY}
+                onSelect={() => setSelectedCategoryId(ALL_KEY)}
+              />
+              {sidebarCategories.rows.map((cat) => (
+                <WikiFolderNavRow
+                  key={cat.id}
+                  label={cat.name}
+                  sub={`${cat.count} kurs`}
+                  active={selectedCategoryId === cat.id}
+                  onSelect={() => setSelectedCategoryId(cat.id)}
                 />
               ))}
-              {visibleCourses.length === 0 ? (
-                <div className="col-span-full py-12 text-center text-sm text-neutral-500">
+              {sidebarCategories.uncategorised > 0 ? (
+                <WikiFolderNavRow
+                  label="Annet"
+                  sub={`${sidebarCategories.uncategorised} kurs`}
+                  active={selectedCategoryId === UNCATEGORISED_KEY}
+                  onSelect={() => setSelectedCategoryId(UNCATEGORISED_KEY)}
+                />
+              ) : null}
+            </aside>
+            <div className="min-w-0 bg-white">
+              {view === 'grid' ? (
+                <div className="grid grid-cols-1 gap-4 p-4 md:p-6 sm:grid-cols-2 xl:grid-cols-3">
+                  {visibleCourses.map((c) => (
+                    <CourseCard
+                      key={c.id}
+                      course={c}
+                      myProgress={myProgressById[c.id]}
+                      orgStats={orgStatsById[c.id]}
+                    />
+                  ))}
+                  {visibleCourses.length === 0 ? (
+                    <div className="col-span-full py-12 text-center text-sm text-neutral-500">
+                      Ingen kurs samsvarer med filtrene.
+                    </div>
+                  ) : null}
+                </div>
+              ) : visibleCourses.length === 0 ? (
+                <div className="px-5 py-12 text-center text-sm text-neutral-500">
                   Ingen kurs samsvarer med filtrene.
                 </div>
-              ) : null}
+              ) : (
+                <CatalogTable courses={visibleCourses} orgStatsById={orgStatsById} />
+              )}
             </div>
-          ) : visibleCourses.length === 0 ? (
-            <div className="px-5 py-12 text-center text-sm text-neutral-500">
-              Ingen kurs samsvarer med filtrene.
-            </div>
-          ) : (
-            <CatalogTable courses={visibleCourses} orgStatsById={orgStatsById} />
-          )}
+          </div>
         </LayoutTable1PostingsShell>
       </ModuleSectionCard>
 
