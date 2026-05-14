@@ -8,19 +8,23 @@
 //
 // Filter bar mirrors Regelverk-dekning (cream-deep, always visible, × per filter).
 
-import { useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import {
   AlignJustify,
   ArrowLeft,
   CalendarRange,
+  Check,
   ChevronDown,
   ChevronRight,
   LayoutDashboard,
   LayoutGrid,
+  Plus,
   Search,
+  Trash2,
   X,
 } from 'lucide-react'
+import { useOrgSetupContext } from '../../src/hooks/useOrgSetupContext'
 import { ModulePageShell } from '../../src/components/module/ModulePageShell'
 import { LayoutTable1PostingsShell } from '../../src/components/layout/LayoutTable1PostingsShell'
 import {
@@ -37,6 +41,20 @@ import { TaskDetailPanel } from './TaskDetailPanel'
 import { useTaskItemsData, type TaskItemRow } from './useTaskItemsData'
 import { useSubtaskCounts } from './useSubtaskCounts'
 import type { TaskItemStatus, TaskItemPriority, TaskTemplateKind } from '../../src/types/task'
+
+// ── Subtask priority helpers (for aligned table rows) ─────────────────────────
+
+type SubPriority = 'low' | 'medium' | 'high' | 'critical'
+
+const SUB_PRIORITY_LABEL: Record<SubPriority, string> = {
+  low: 'Lav', medium: 'Medium', high: 'Høy', critical: 'Kritisk',
+}
+const SUB_PRIORITY_STYLE: Record<SubPriority, string> = {
+  low:      'bg-blue-50 text-blue-700 border border-blue-100',
+  medium:   'bg-amber-50 text-amber-700 border border-amber-100',
+  high:     'bg-orange-50 text-orange-700 border border-orange-100',
+  critical: 'bg-red-50 text-red-700 border border-red-100',
+}
 
 // ── Constants ────────────────────────────────────────────────────────────────
 
@@ -668,6 +686,236 @@ function WaterfallView({
   )
 }
 
+// ── SubtaskTableRows — subtasks rendered as table rows aligned to the parent ──
+//
+// Each subtask row mirrors the parent table columns:
+//   [indent] [checkbox + title] [—] [done badge] [—] [priority] [owner] [dates] [delete]
+// Priority shows a coloured pill when set, "Ikke satt" in neutral when absent.
+// Owner shows an initials avatar when set, "—" otherwise.
+
+type SubtaskRow = {
+  id: string
+  title: string
+  isDone: boolean
+  position: number
+  ownerName: string | null
+  priority: SubPriority | null
+  startDate: string | null
+  dueDate: string | null
+}
+
+function SubtaskTableRows({ taskItemId }: { taskItemId: string }) {
+  const { supabase } = useOrgSetupContext()
+  const [subtasks, setSubtasks] = useState<SubtaskRow[]>([])
+  const [adding, setAdding] = useState(false)
+  const [newTitle, setNewTitle] = useState('')
+
+  const load = useCallback(async () => {
+    if (!supabase) return
+    const { data } = await supabase
+      .from('task_subtasks')
+      .select('id, title, is_done, position, owner_name, priority, start_date, due_date')
+      .eq('task_item_id', taskItemId)
+      .is('deleted_at', null)
+      .order('position', { ascending: true })
+    if (data) {
+      setSubtasks(
+        data.map((r) => ({
+          id: String(r.id),
+          title: String(r.title ?? ''),
+          isDone: Boolean(r.is_done),
+          position: Number(r.position ?? 0),
+          ownerName: r.owner_name ? String(r.owner_name) : null,
+          priority: r.priority ? (r.priority as SubPriority) : null,
+          startDate: r.start_date ? String(r.start_date) : null,
+          dueDate: r.due_date ? String(r.due_date) : null,
+        })),
+      )
+    }
+  }, [supabase, taskItemId])
+
+  useEffect(() => { void load() }, [load])
+
+  const toggle = async (id: string, current: boolean) => {
+    if (!supabase) return
+    setSubtasks((prev) => prev.map((s) => (s.id === id ? { ...s, isDone: !current } : s)))
+    await supabase
+      .from('task_subtasks')
+      .update({ is_done: !current, done_at: !current ? new Date().toISOString() : null })
+      .eq('id', id)
+  }
+
+  const remove = async (id: string) => {
+    if (!supabase) return
+    setSubtasks((prev) => prev.filter((s) => s.id !== id))
+    await supabase.from('task_subtasks').update({ deleted_at: new Date().toISOString() }).eq('id', id)
+  }
+
+  const addSubtask = async () => {
+    if (!supabase || !newTitle.trim()) return
+    setAdding(true)
+    const maxPos = subtasks.length > 0 ? Math.max(...subtasks.map((s) => s.position)) + 10 : 10
+    const { data } = await supabase
+      .from('task_subtasks')
+      .insert({ task_item_id: taskItemId, title: newTitle.trim(), position: maxPos })
+      .select('id, title, is_done, position, owner_name, priority, start_date, due_date')
+      .single()
+    if (data) {
+      setSubtasks((prev) => [
+        ...prev,
+        {
+          id: String(data.id),
+          title: String(data.title),
+          isDone: false,
+          position: Number(data.position),
+          ownerName: null,
+          priority: null,
+          startDate: null,
+          dueDate: null,
+        },
+      ])
+    }
+    setNewTitle('')
+    setAdding(false)
+  }
+
+  return (
+    <>
+      {subtasks.map((sub) => {
+        const dateRange =
+          sub.startDate && sub.dueDate
+            ? `${fmtDate(sub.startDate)} – ${fmtDate(sub.dueDate)}`
+            : sub.dueDate
+            ? fmtDate(sub.dueDate)
+            : sub.startDate
+            ? `Fra ${fmtDate(sub.startDate)}`
+            : null
+
+        return (
+          <tr key={sub.id} className="group border-b border-neutral-100 bg-neutral-50/60">
+            {/* Col 1: Type — indent only */}
+            <td className="w-10 px-3 py-2" />
+
+            {/* Col 2: Title — checkbox + text, indented under parent */}
+            <td className="px-3 py-2">
+              <div className="flex items-center gap-2 pl-5">
+                <button
+                  type="button"
+                  onClick={() => void toggle(sub.id, sub.isDone)}
+                  className={`flex h-4 w-4 shrink-0 items-center justify-center rounded border transition-colors ${
+                    sub.isDone
+                      ? 'border-[#c2410c] bg-[#c2410c] text-white'
+                      : 'border-neutral-300 bg-white hover:border-[#c2410c]'
+                  }`}
+                >
+                  {sub.isDone && <Check className="h-2.5 w-2.5" />}
+                </button>
+                <span
+                  className={`text-sm ${
+                    sub.isDone ? 'text-neutral-400 line-through' : 'text-neutral-700'
+                  }`}
+                >
+                  {sub.title}
+                </span>
+              </div>
+            </td>
+
+            {/* Col 3: Kategori — blank */}
+            <td className="px-5 py-2" />
+
+            {/* Col 4: Status — done/open indicator */}
+            <td className="px-5 py-2">
+              <span
+                className={`inline-block rounded px-1.5 py-0.5 text-[10px] font-medium ${
+                  sub.isDone
+                    ? 'bg-green-50 text-green-700'
+                    : 'bg-neutral-100 text-neutral-500'
+                }`}
+              >
+                {sub.isDone ? 'Ferdig' : 'Åpen'}
+              </span>
+            </td>
+
+            {/* Col 5: Fremgang — blank */}
+            <td className="w-36 px-5 py-2" />
+
+            {/* Col 6: Prioritet — pill or "Ikke satt" */}
+            <td className="px-5 py-2">
+              {sub.priority ? (
+                <span
+                  className={`inline-block rounded px-1.5 py-0.5 text-[10px] font-medium ${SUB_PRIORITY_STYLE[sub.priority]}`}
+                >
+                  {SUB_PRIORITY_LABEL[sub.priority]}
+                </span>
+              ) : (
+                <span className="text-[10px] italic text-neutral-300">Ikke satt</span>
+              )}
+            </td>
+
+            {/* Col 7: Ansvarlig — avatar or "—" */}
+            <td className="px-5 py-2">
+              {sub.ownerName ? (
+                <PersonAvatar name={sub.ownerName} size="sm" />
+              ) : (
+                <span className="text-xs text-neutral-300">—</span>
+              )}
+            </td>
+
+            {/* Col 8: Frist — date range */}
+            <td className="px-5 py-2 text-xs text-neutral-500">
+              {dateRange ?? <span className="text-neutral-300">—</span>}
+            </td>
+
+            {/* Col 9: Delete */}
+            <td className="w-8 px-3 py-2">
+              <button
+                type="button"
+                onClick={() => void remove(sub.id)}
+                className="text-neutral-200 opacity-0 transition group-hover:opacity-100 hover:text-red-500"
+                aria-label="Slett deloppgave"
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+              </button>
+            </td>
+          </tr>
+        )
+      })}
+
+      {/* Quick-add row */}
+      <tr className="border-b border-neutral-100 bg-neutral-50/40">
+        <td className="w-10 px-3 py-2" />
+        <td className="px-3 py-1.5" colSpan={7}>
+          <div className="flex items-center gap-2 pl-5">
+            <Plus className="h-3.5 w-3.5 shrink-0 text-neutral-300" />
+            <input
+              type="text"
+              value={newTitle}
+              onChange={(e) => setNewTitle(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') void addSubtask()
+              }}
+              placeholder="Legg til deloppgave…"
+              disabled={adding}
+              className="flex-1 rounded border border-transparent bg-transparent py-0.5 text-sm text-neutral-600 placeholder:text-neutral-300 focus:border-neutral-200 focus:bg-white focus:outline-none focus:px-2 transition-all disabled:opacity-50"
+            />
+            {newTitle.trim() && (
+              <button
+                type="button"
+                onClick={() => void addSubtask()}
+                disabled={adding}
+                className="shrink-0 text-[10px] font-medium text-[#c2410c] hover:underline disabled:opacity-40"
+              >
+                Legg til
+              </button>
+            )}
+          </div>
+        </td>
+        <td className="w-8 px-3 py-1.5" />
+      </tr>
+    </>
+  )
+}
+
 // ── Main page ─────────────────────────────────────────────────────────────────
 
 export function TasksAllePage() {
@@ -1058,13 +1306,9 @@ export function TasksAllePage() {
                             </td>
                           </tr>,
 
-                          // Subtask accordion row
+                          // Subtask rows — aligned to parent columns
                           isExpanded && (
-                            <tr key={`${row.id}-sub`} className="bg-neutral-50/80">
-                              <td colSpan={9} className="border-b border-neutral-100 px-10 py-4">
-                                <TaskSubtaskList taskItemId={row.id} />
-                              </td>
-                            </tr>
+                            <SubtaskTableRows key={`${row.id}-sub`} taskItemId={row.id} />
                           ),
                         ].filter(Boolean)
                       })
