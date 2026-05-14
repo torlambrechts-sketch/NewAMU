@@ -93,6 +93,7 @@ import { RegelverkCoverageDashboardPage } from './pages/overview/regelverk/Regel
 import { ComplianceStudioPage } from './pages/overview/studio/ComplianceStudioPage'
 import { LearningFlowEntry } from './pages/learning/LearningFlowEntry'
 import { LearningCertificatePrintPage } from './pages/learning/LearningCertificatePrintPage'
+import { LearningMinHistorikkPage } from './pages/learning/LearningMinHistorikkPage'
 import { DocumentsHome } from './pages/documents/DocumentsHome'
 import { DocumentsAnalysePage } from './pages/documents/DocumentsAnalysePage'
 import { DocumentsMalbibliotekPage } from './pages/documents/DocumentsMalbibliotekPage'
@@ -463,6 +464,7 @@ const router = createBrowserRouter(
                         <Route path="katalog" element={<LearningCoursesList />} />
                         <Route path="deltakere" element={<LearningDeltakerePage />} />
                         <Route path="kompetanse" element={<LearningKompetansePage />} />
+                        <Route path="min-historikk" element={<LearningMinHistorikkPage />} />
                         <Route path="analyse" element={<LearningAnalysePage />} />
                         <Route path="alle" element={<LearningAllePage />} />
                         <Route path="innstillinger" element={<LegacyLearningRedirect />} />

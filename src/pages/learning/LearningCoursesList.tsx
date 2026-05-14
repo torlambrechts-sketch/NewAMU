@@ -392,6 +392,40 @@ export function LearningCoursesList() {
                         hver {c.recertificationMonths} mnd
                       </span>
                     ) : null}
+                    {c.localeVersionMajor != null ? (
+                      <span
+                        className="ml-auto inline-flex items-center gap-1 rounded-full bg-neutral-100 px-2 py-0.5 text-[11px] font-medium text-neutral-700"
+                        title={
+                          c.localeVersionPublishedAt
+                            ? `Publisert ${new Date(c.localeVersionPublishedAt).toLocaleDateString('nb-NO', {
+                                day: 'numeric',
+                                month: 'long',
+                                year: 'numeric',
+                              })}`
+                            : undefined
+                        }
+                      >
+                        v{c.localeVersionMajor}.{c.localeVersionMinor ?? 0}
+                        {c.localeVersionPublishedAt ? (
+                          <span className="text-neutral-500">
+                            · oppd.{' '}
+                            {new Date(c.localeVersionPublishedAt).toLocaleDateString('nb-NO', {
+                              day: 'numeric',
+                              month: 'short',
+                            })}
+                          </span>
+                        ) : null}
+                      </span>
+                    ) : null}
+                    {p?.startedVersionMajor != null &&
+                    c.localeVersionMajor != null &&
+                    (c.localeVersionMajor > p.startedVersionMajor ||
+                      (c.localeVersionMajor === p.startedVersionMajor &&
+                        (c.localeVersionMinor ?? 0) > (p.startedVersionMinor ?? 0))) ? (
+                      <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-medium text-amber-800">
+                        Ny versjon tilgjengelig
+                      </span>
+                    ) : null}
                   </div>
 
                   {total > 0 && p ? (
