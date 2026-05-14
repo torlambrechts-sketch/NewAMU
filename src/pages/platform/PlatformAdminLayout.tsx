@@ -2,6 +2,7 @@ import { NavLink, Outlet, Link } from 'react-router-dom'
 import type { LucideIcon } from 'lucide-react'
 import {
   Box,
+  GraduationCap,
   LayoutGrid,
   Layers,
   LayoutTemplate,
@@ -33,6 +34,7 @@ const nav: {
   { to: '/platform-admin/module-templates', label: 'Modul-maler', icon: Settings },
   { to: '/platform-admin/layout', label: 'Layout (arbeidsflate)', icon: LayoutTemplate },
   { to: '/platform-admin/layout-elements', label: 'Layout-elementer', icon: Layers },
+  { to: '/platform-admin/course-player', label: 'Kursspiller', icon: GraduationCap },
 ]
 
 export function PlatformAdminLayout() {
