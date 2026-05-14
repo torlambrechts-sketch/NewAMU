@@ -2225,6 +2225,7 @@ export function useLearning() {
         const payload: AllCoursesExportJson = {
           version: 1,
           kind: 'courses_all_export',
+          schemaVersion: 4,
           exportedAt: new Date().toISOString(),
           orgCourses: state.courses.map((c) => ({
             ...serialiseCourseForBundle(c),
@@ -2277,6 +2278,7 @@ export function useLearning() {
       const payload: AllCoursesExportJson = {
         version: 1,
         kind: 'courses_all_export',
+        schemaVersion: 4,
         exportedAt: new Date().toISOString(),
         orgCourses,
         systemCourses,

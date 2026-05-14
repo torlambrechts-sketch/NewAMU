@@ -1,0 +1,1592 @@
+-- Replaces c-aml-ledere v3 content with the v4 bundle (gamification badges,
+-- milestones, leadership-insight modules, scenario-driven quizzes, expanded
+-- law-ref catalog). Closes the gap where the courses bundle export emitted
+-- v3-shaped JSON because no `meta` row was ever populated.
+--
+-- The source of truth is supabase/seed-data/aml-system-course-v4.json. We
+-- embed the bundle inline so the migration is self-contained and idempotent
+-- (re-run-safe: ON CONFLICT (id) and ON CONFLICT (system_course_id, locale)).
+--
+-- The v4 JSON authors the course at id='AML' / slug='aml'. This migration
+-- rewrites that to id='c-aml-ledere' / slug='aml-ledere' so existing learner
+-- progress + tenant overrides at the legacy id stay attached. Module IDs in
+-- v4 differ from v3 so per-module progress will appear reset; that is the
+-- intended trade-off for replacing the underlying content.
+--
+-- Direct INSERTs (not learning_admin_upsert_system_course) because the RPC
+-- requires auth.uid() + admin permission, neither of which is available in
+-- a migration session.
+
+do $migration$
+declare
+  v_bundle jsonb := $AML$
+{
+  "version": 1,
+  "kind": "courses_all_export",
+  "exportedAt": "2026-05-14T14:00:00.000Z",
+  "orgCourses": [],
+  "systemCourses": [
+    {
+      "id": "AML",
+      "slug": "aml",
+      "defaultLocale": "nb",
+      "locales": [
+        {
+          "locale": "nb",
+          "title": "Arbeidsmiljøloven for ledere",
+          "description": "Et komplett kurs for ledere og mellomledere om rettigheter, plikter og ansvar etter Arbeidsmiljøloven (AML). Dekker systematisk HMS-arbeid, risikovurdering, verneombud, sykefraværsoppfølging og mer. Gjennomføring gir grunnlag for 40-timers HMS-kurs.",
+          "lawRefs": [
+            {
+              "id": "aml-1-1",
+              "lawName": "Arbeidsmiljøloven",
+              "paragraph": "§1-1",
+              "title": "Lovens formål"
+            },
+            {
+              "id": "aml-2-1",
+              "lawName": "Arbeidsmiljøloven",
+              "paragraph": "§2-1",
+              "title": "Arbeidsgivers plikter"
+            },
+            {
+              "id": "aml-2-2",
+              "lawName": "Arbeidsmiljøloven",
+              "paragraph": "§2-2",
+              "title": "Plikter for andre enn arbeidsgivere"
+            },
+            {
+              "id": "aml-3-1",
+              "lawName": "Arbeidsmiljøloven",
+              "paragraph": "§3-1",
+              "title": "Krav til systematisk HMS-arbeid"
+            },
+            {
+              "id": "aml-4-1",
+              "lawName": "Arbeidsmiljøloven",
+              "paragraph": "§4-1",
+              "title": "Generelle krav til arbeidsmiljøet"
+            },
+            {
+              "id": "aml-4-3",
+              "lawName": "Arbeidsmiljøloven",
+              "paragraph": "§4-3",
+              "title": "Krav til det psykososiale arbeidsmiljøet"
+            },
+            {
+              "id": "aml-4-6",
+              "lawName": "Arbeidsmiljøloven",
+              "paragraph": "§4-6",
+              "title": "Tilrettelegging, medvirkning og utvikling"
+            },
+            {
+              "id": "aml-6-1",
+              "lawName": "Arbeidsmiljøloven",
+              "paragraph": "§6-1",
+              "title": "Plikt til å ha verneombud"
+            },
+            {
+              "id": "aml-6-2",
+              "lawName": "Arbeidsmiljøloven",
+              "paragraph": "§6-2",
+              "title": "Verneombudets oppgaver"
+            },
+            {
+              "id": "aml-6-3",
+              "lawName": "Arbeidsmiljøloven",
+              "paragraph": "§6-3",
+              "title": "Verneombudets stansingsrett"
+            },
+            {
+              "id": "aml-7-1",
+              "lawName": "Arbeidsmiljøloven",
+              "paragraph": "§7-1",
+              "title": "Plikt til å ha arbeidsmiljøutvalg"
+            },
+            {
+              "id": "aml-7-2",
+              "lawName": "Arbeidsmiljøloven",
+              "paragraph": "§7-2",
+              "title": "Arbeidsmiljøutvalgets oppgaver"
+            },
+            {
+              "id": "aml-10-6",
+              "lawName": "Arbeidsmiljøloven",
+              "paragraph": "§10-6",
+              "title": "Overtid"
+            },
+            {
+              "id": "aml-10-8",
+              "lawName": "Arbeidsmiljøloven",
+              "paragraph": "§10-8",
+              "title": "Daglig og ukentlig arbeidsfri"
+            },
+            {
+              "id": "aml-13-1",
+              "lawName": "Arbeidsmiljøloven",
+              "paragraph": "§13-1",
+              "title": "Forbud mot diskriminering"
+            },
+            {
+              "id": "aml-13-8",
+              "lawName": "Arbeidsmiljøloven",
+              "paragraph": "§13-8",
+              "title": "Delt bevisbyrde"
+            },
+            {
+              "id": "aml-15-1",
+              "lawName": "Arbeidsmiljøloven",
+              "paragraph": "§15-1",
+              "title": "Drøfting før beslutning om oppsigelse"
+            },
+            {
+              "id": "aml-15-3",
+              "lawName": "Arbeidsmiljøloven",
+              "paragraph": "§15-3",
+              "title": "Oppsigelsesfrister"
+            },
+            {
+              "id": "aml-15-7",
+              "lawName": "Arbeidsmiljøloven",
+              "paragraph": "§15-7",
+              "title": "Vern mot usaklig oppsigelse"
+            },
+            {
+              "id": "aml-15-8",
+              "lawName": "Arbeidsmiljøloven",
+              "paragraph": "§15-8",
+              "title": "Oppsigelsesvern ved sykdom"
+            },
+            {
+              "id": "aml-19-1",
+              "lawName": "Arbeidsmiljøloven",
+              "paragraph": "§19-1",
+              "title": "Straff"
+            },
+            {
+              "id": "ikf-5",
+              "lawName": "Internkontrollforskriften",
+              "paragraph": "§5",
+              "title": "Krav til dokumentasjon av HMS-systemet"
+            },
+            {
+              "id": "ldl-13",
+              "lawName": "Likestillings- og diskrimineringsloven",
+              "paragraph": "§13",
+              "title": "Forbud mot diskriminering"
+            }
+          ],
+          "modules": [
+            {
+              "id": "aml-m01",
+              "title": "Introduksjon — Lederens HMS-ansvar",
+              "order": 0,
+              "kind": "text",
+              "durationMinutes": 6,
+              "content": {
+                "kind": "text",
+                "bodyFormat": "markdown",
+                "bodyMarkdown": "## Hva er Arbeidsmiljøloven?\n\nArbeidsmiljøloven (AML) av 2005 er Norges viktigste lov for arbeidsliv. Den stiller krav til **fysisk og psykososialt arbeidsmiljø**, regulerer arbeidstid, vern mot diskriminering, verneorganisasjon og mye mer.\n\n### Lovens formål (§1-1)\n\nLoven skal:\n\n- Sikre et arbeidsmiljø som gir grunnlag for en helsefremmende og meningsfylt arbeidssituasjon\n- Gi full trygghet mot fysiske og psykiske skadevirkninger\n- Bidra til et inkluderende arbeidsliv\n\n### Arbeidsgivers ansvar (§2-1)\n\nArbeidsgiver **kan ikke delegere bort det grunnleggende HMS-ansvaret**. Som leder er du bindeleddet mellom eieren av virksomheten og den daglige HMS-etterlevelsen.\n\nLoven opererer med begrepet *virksomheten*, men i praksis er det **du som leder** som svarer for at:\n\n1. Kravene i loven er kjent og etterlevd i din avdeling\n2. Avvik registreres og følges opp\n3. Ansatte har det de trenger for å jobbe trygt og forsvarlig\n\n### Straffeansvar\n\nBrudd på AML kan medføre **bøter eller fengsel inntil 2 år** for arbeidsgiver og ledere som forsettlig eller uaktsomt overtrer loven (§ 19-1). Det er derfor ikke bare en etisk, men en juridisk forpliktelse å kjenne loven.\n\n> Huskeregel: Som leder er du ikke bare «en ressurs» — du er en juridisk ansvarlig aktør. Arbeidstilsynet kan rette tilsyn direkte mot deg personlig.",
+                "deepDive": "## Straffeansvar i praksis — Høyesterettspraksis\n\n### HR-2019-2205-A (Aleris-dommen)\nHøyesterett fant at en arbeidsgiver i helse- og omsorgssektoren hadde brutt\nAML §4-1 og §4-3 ved systematisk å eksponere ansatte for uforsvarlige\narbeidsbelastninger. Retten slo fast at **arbeidsgivers straffeansvar etter\n§19-1 ikke krever subjektiv skyld fra ledelsens side** — det er tilstrekkelig at\nvirksomheten som system har sviktet.\n\nDommen er sentral fordi den:\n1. Klargjør at mellomledere kan holdes personlig ansvarlig selv om toppledelsen\n   ikke var kjent med forholdene.\n2. Slår fast at manglende dokumentasjon (IK-f §5) er et selvstendig bevis for\n   svikt i HMS-systemet.\n3. Bekrefter at **restrisiko-vurderingen** må gjøres eksplisitt og skriftlig.\n\n### Arbeidstilsynets tilsynsmetodikk\nArbeidstilsynet bruker i dag en risikodifferensiert tilsynsmodell:\n- **Risikobasert utvelgelse** — bransjer med kjent høy skadefrekvens prioriteres.\n- **Systemrevisjon** — inspektørene ber om HMS-dokumentasjon og intervjuer\n  ansatte separat for å avdekke avvik mellom papir og praksis.\n- **Reaksjoner**: Pålegg (vedtak om retting), tvangsmulkt (løpende fra frist),\n  stans av virksomhet, anmeldelse til politiet ved gjentatte eller alvorlige\n  brudd.\n\n> **Praktisk konsekvens:** Dersom du ikke kan vise en oppdatert ROS-vurdering\n> og handlingsplan til Arbeidstilsynet under tilsyn, er det presumpsjon for\n> brudd — uavhengig av om ulykken faktisk har skjedd.\n\n### Personlig straffeansvar for ledere\n§19-1 rammer «den som forsettlig eller uaktsomt overtrer» loven. *Uaktsomt*\nbetyr at det er tilstrekkelig at lederen **burde ha visst** om forholdet.\nTypiske scenarier der leder personlig er straffeansvarlig:\n- Manglende oppfølging av avvik registrert i HMS-systemet\n- Fortsatt drift etter at verneombud har stoppet arbeid (§6-3)\n- Systematisk overtidsbruk uten dokumentert avvikstillatelse\n",
+                "keyTakeaways": [
+                  "Som leder er du personlig straffeansvarlig for HMS-brudd etter AML §19-1 — ikke bare virksomheten.",
+                  "Arbeidstilsynet kan rette tilsyn direkte mot deg uten å gå via HR eller toppledelsen.",
+                  "God HMS-dokumentasjon er ditt beste forsvar — manglende dokumentasjon er et selvstendig brudd.",
+                  "Å kjenne §1-1 og §2-1 er ikke nok; du må kunne bevise at du etterlever dem i praksis."
+                ],
+                "leadershipInsight": "**For lederen:** HMS-ansvar kan ikke delegeres bort gjennom organisasjonskart eller stillingsbeskrivelser. Du forsvarer din rolle med:\n\n1. **Synlig HMS-praksis** — du må selv bli sett som en aktør, ikke en passiv observatør.\n2. **Skriftlig delegasjon** — hvis du gir HMS-oppgaver til andre, signer det. Da dokumenterer du at oppgaven er kjent for begge parter.\n3. **Strategisk timing** — bruk månedlige driftsgjennomganger til å vise toppledelsen at HMS-risiko er like reell som driftsrisiko. Da bygger du beskyttelse for deg selv."
+              },
+              "refLawIds": [
+                "aml-1-1",
+                "aml-2-1",
+                "aml-19-1"
+              ],
+              "points": 10
+            },
+            {
+              "id": "aml-m02",
+              "title": "Lederens plass i HMS-systemet",
+              "order": 1,
+              "kind": "image",
+              "durationMinutes": 3,
+              "content": {
+                "kind": "image",
+                "imageUrl": "https://images.unsplash.com/photo-1552664730-d307ca884978?w=900&q=80",
+                "caption": "Ledere er bindeleddet mellom virksomhetens overordnede HMS-mål og den daglige praksisen på arbeidsplassen. Fra venstre: Toppledelse (HMS-policy) → Leder (implementering) → Ansatte (etterlevelse). Verneombudet er arbeidstakernes representant i dette systemet."
+              },
+              "refLawIds": [
+                "aml-2-1",
+                "aml-3-1",
+                "aml-6-1"
+              ],
+              "points": 5
+            },
+            {
+              "id": "aml-m03",
+              "title": "Sentrale AML-begreper",
+              "order": 2,
+              "kind": "flashcard",
+              "durationMinutes": 8,
+              "content": {
+                "kind": "flashcard",
+                "slides": [
+                  {
+                    "id": "fc01",
+                    "front": "Hva er «systematisk HMS-arbeid»?",
+                    "back": "Planlagt, gjennomført, kontrollert og forbedret arbeid for å oppfylle kravene i AML og internkontrollforskriften. Det er et løpende system — ikke enkelthandlinger."
+                  },
+                  {
+                    "id": "fc02",
+                    "front": "Hvem er «arbeidsgiver» i AML §2-1?",
+                    "back": "Enhver som har ansatt arbeidstaker. Styringsretten og HMS-ansvaret følger rollen — ikke nødvendigvis tittel. En avdelingsleder er arbeidsgiver for sine ansatte."
+                  },
+                  {
+                    "id": "fc03",
+                    "front": "Hva betyr «fullt forsvarlig arbeidsmiljø» (§4-1)?",
+                    "back": "Arbeidsmiljøet skal til enhver tid være fullt forsvarlig, vurdert ut fra en enkeltvis og samlet vurdering av faktorer i arbeidsmiljøet som kan innvirke på arbeidstakernes fysiske og psykiske helse og velferd."
+                  },
+                  {
+                    "id": "fc04",
+                    "front": "Hva er et «avvik»?",
+                    "back": "Et avvik er ethvert brudd på krav fastsatt i eller i medhold av HMS-lovgivningen, eller interne rutiner. Inkluderer ulykker, nestenulykker og farlige forhold."
+                  },
+                  {
+                    "id": "fc05",
+                    "front": "Hva er «psykososialt arbeidsmiljø» (§4-3)?",
+                    "back": "Faktorer knyttet til arbeidets innhold og organisering som kan påvirke mental helse: arbeidsmengde, autonomi, sosiale relasjoner, konflikter, trakassering og mer."
+                  },
+                  {
+                    "id": "fc06",
+                    "front": "Hva menes med «internkontroll»?",
+                    "back": "Systematiske tiltak for å sikre at virksomhetens aktiviteter planlegges, organiseres, utføres og vedlikeholdes i samsvar med krav fastsatt i HMS-lovgivningen. Regulert av Internkontrollforskriften §5."
+                  },
+                  {
+                    "id": "fc07",
+                    "front": "Hva er «individuell tilrettelegging» (§4-6)?",
+                    "back": "Arbeidsgiver har plikt til å iverksette nødvendige tiltak for å gjøre det mulig for en arbeidstaker med redusert arbeidsevne å beholde arbeidsplassen. Plikten er sterk, men ikke absolutt."
+                  },
+                  {
+                    "id": "fc08",
+                    "front": "Hva er «Arbeidstilsynet»?",
+                    "back": "Statlig tilsynsorgan som fører kontroll med at AML og HMS-regelverk følges. Kan gi pålegg, stanse virksomhet og ilegge tvangsmulkt. Hjemlet i AML kap. 18."
+                  },
+                  {
+                    "id": "fc09",
+                    "front": "Hva er «verneombud» (§6-1)?",
+                    "back": "Arbeidstakernes representant i HMS-saker. Velges av og blant arbeidstakerne. Skal ivareta arbeidstakernes interesser og se til at arbeidsmiljøkravene overholdes."
+                  },
+                  {
+                    "id": "fc10",
+                    "front": "Hva er «AMU» (§7-1)?",
+                    "back": "Arbeidsmiljøutvalg — partssammensatt organ (50/50 arbeidsgiver/arbeidstaker) i virksomheter med 30+ ansatte. Behandler HMS-spørsmål og har rett til å avgi uttalelser."
+                  }
+                ]
+              },
+              "refLawIds": [
+                "aml-3-1",
+                "aml-4-1",
+                "ikf-5"
+              ],
+              "points": 10
+            },
+            {
+              "id": "aml-m04",
+              "title": "Systematisk HMS-arbeid (§3-1 + IK-forskriften)",
+              "order": 3,
+              "kind": "video",
+              "durationMinutes": 10,
+              "content": {
+                "kind": "video",
+                "media": {
+                  "type": "video",
+                  "url": "https://www.youtube.com/watch?v=s_DZzOR_a4I",
+                  "duration": 360,
+                  "transcript": "Internkontrollforskriften §5 krever at virksomheten dokumenterer HMS-arbeidet skriftlig. AML §3-1 slår fast at systematisk HMS-arbeid skal gjennomføres på alle plan i virksomheten, i samarbeid med arbeidstakerne og deres tillitsvalgte. Arbeidsgiver er ansvarlig for å kartlegge farer, vurdere risiko, iverksette tiltak og kontrollere at tiltakene virker."
+                },
+                "caption": "Arbeidstilsynets introduksjonsvideo om internkontroll og systematisk HMS-arbeid. AML §3-1 krever at arbeidsgiver sørger for HMS-arbeid på alle plan i virksomheten, i samarbeid med arbeidstakerne og deres tillitsvalgte. Internkontrollforskriften §5 presiserer hva som må dokumenteres skriftlig. (Bytt til intern opplæringsvideo i produksjon.)"
+              },
+              "refLawIds": [
+                "aml-3-1",
+                "ikf-5"
+              ],
+              "points": 10
+            },
+            {
+              "id": "aml-m05",
+              "title": "Hva krever §3-1 og IK-forskriften av deg?",
+              "order": 4,
+              "kind": "text",
+              "durationMinutes": 7,
+              "content": {
+                "kind": "text",
+                "bodyFormat": "markdown",
+                "bodyMarkdown": "## AML §3-1 — Krav til systematisk HMS-arbeid\n\nLovteksten slår fast at arbeidsgiver skal sørge for systematisk helse-, miljø- og sikkerhetsarbeid på *alle plan* i virksomheten. Dette gjøres i samarbeid med arbeidstakerne og deres tillitsvalgte.\n\n### De åtte kravene (§3-1 nr. 2 + IK-f §5)\n\n| Krav | Hjemmel |\n|---|---|\n| Fastsette HMS-mål | §3-1 nr. 2a / IK-f §5 nr. 1a |\n| Oversikt over ansvar og myndighet | IK-f §5 nr. 1b |\n| Kunnskap om lover og regler | IK-f §5 nr. 1c |\n| Kartlegge farer og risikovurdere | §3-1 nr. 2c / IK-f §5 nr. 2 |\n| Handlingsplaner | IK-f §5 nr. 3 |\n| Rutiner for avviksbehandling | §3-1 nr. 2e / IK-f §5 nr. 4 |\n| Systematisk oppfølging av sykefravær | §3-1 nr. 2f |\n| Systematisk gjennomgang (årsgjennomgang) | IK-f §5 nr. 5 |\n\n### Dokumentasjonskravet\n\nAlt HMS-arbeid som er nevnt over **skal dokumenteres skriftlig**. Det betyr ikke at du trenger tykke permer — et digitalt system som dette dekker kravet, forutsatt at dataene kan fremvises ved tilsyn.\n\n### Lederens oppgave\n\nSom leder er du ansvarlig for at disse kravene er ivaretatt i din enhet:\n\n- Gjennomfør vernerunder etter plan\n- Registrer og følg opp avvik umiddelbart\n- Gjennomfør ROS-vurdering ved endringer\n- Sørg for at ansatte kjenner sine rettigheter og plikter",
+                "deepDive": "## Internkontrollforskriftens §5 — de åtte kravene i detalj\n\nIK-forskriften §5 er ryggraden i alle HMS-systemer i norsk næringsliv. Her er\nhvert krav med praktiske implikasjoner for en leder:\n\n### 1. Fastsette HMS-mål (§5 nr. 1)\nMålene skal være **målbare og kommunisert** til alle ansatte. Generelle formål\n(\"vi vil ha det trygt\") godkjennes ikke. Eksempel på godkjent mål:\n*\"Nulltoleranse for skader med fravær — max 2 nestenulykker per 100 000 timer.\"*\n\n### 2. Klargjøre ansvar, oppgaver og myndighet (§5 nr. 2)\nOrganisasjonskart alene er ikke tilstrekkelig. Det kreves en skriftlig\n**ansvarsmatrise** som viser hvem som gjør hva i HMS-prosessene.\n\n### 3. Sørge for tilstrekkelig kompetanse (§5 nr. 3)\nInkluderer § 3-2-opplæring og verneombudets 40-timerskurs. Kompetansebehovet\nskal kartlegges og dekkes dokumenterbart.\n\n### 4. Kartlegge farer og vurdere risiko (§5 nr. 4)\nDette er det hyppigst brutte kravet. Risikovurderingen skal:\n- Gjennomføres **systematisk** (ikke bare etter ulykker)\n- Involvere de ansatte (AML §3-1)\n- Dokumenteres med tiltak og frist for gjennomføring\n\n### 5. Iverksette tiltak og lage rutiner (§5 nr. 5)\nTiltak skal følge risikovurderingen. **Hierarki**: Eliminering > Substitusjon\n> Tekniske tiltak > Administrative tiltak > Personlig verneutstyr (PPE).\n\n### 6. Foreta systematisk overvåkning (§5 nr. 6)\nLøpende oppfølging av HMS-tilstand — ikke bare under vernerunden.\n\n### 7. Gjennomgå og forbedre systematisk (§5 nr. 7)\nLedelsens gjennomgang minst én gang per år med revisjon av alle HMS-mål,\navvik og hendelser.\n\n### 8. Dokumentere alt skriftlig (§5 nr. 8)\nGjelder alle de syv øvrige kravene. Muntlig HMS-arbeid er juridisk\nusynlig.\n",
+                "keyTakeaways": [
+                  "IK-forskriften §5 krever 8 konkrete, dokumenterte HMS-aktiviteter — ikke en generell HMS-mentalitet.",
+                  "En ROS-vurdering som ikke er oppdatert etter siste vesentlige endring er like ille som ingen.",
+                  "Tiltak skal følge hierarkiet: eliminer risikoen før du gir ut verneutstyr.",
+                  "Skriftlig dokumentasjon av alle 8 kravene er ikke valgfritt — det er det eneste som holder under tilsyn."
+                ],
+                "leadershipInsight": "**For lederen:** Internkontrollen er din juridiske beskyttelse — ikke en byrde. En leder som har dokumentert ROS, handlingsplan og oppfølging er praktisk talt umulig å straffeforfølge etter §19-1, selv om en ulykke skulle skje. Invester 4 timer i kvartalet i din HMS-dokumentasjon — det er den billigste forsikringen du kan kjøpe."
+              },
+              "refLawIds": [
+                "aml-3-1",
+                "ikf-5"
+              ],
+              "points": 15
+            },
+            {
+              "id": "aml-m06",
+              "title": "Risikovurdering — 5×5-matrisen",
+              "order": 5,
+              "kind": "image",
+              "durationMinutes": 4,
+              "content": {
+                "kind": "image",
+                "imageUrl": "https://images.unsplash.com/photo-1454165804606-c3d57bc86b40?w=900&q=80",
+                "caption": "En 5×5-risikomatrise (alvorlighetsgrad × sannsynlighet) er standard metodikk i Norge. Grønn sone (1–6): akseptabel risiko. Gul sone (8–12): moderat, tiltak vurderes. Rød sone (15–25): uakseptabel, strakstiltak kreves. Kartlegging gjøres i samarbeid med verneombudet og de ansatte (AML §3-1)."
+              },
+              "refLawIds": [
+                "aml-3-1",
+                "aml-4-1",
+                "ikf-5"
+              ],
+              "points": 10
+            },
+            {
+              "id": "aml-m07",
+              "title": "Risikovurdering — nøkkelkort",
+              "order": 6,
+              "kind": "flashcard",
+              "durationMinutes": 6,
+              "content": {
+                "kind": "flashcard",
+                "slides": [
+                  {
+                    "id": "rf01",
+                    "front": "Hva er forskjellen på «fare» og «risiko»?",
+                    "back": "«Fare» er et potensial for skade (f.eks. en glatt trapp). «Risiko» er sannsynligheten for at faren fører til skade multiplisert med konsekvensens alvor. Risiko = fare × eksponering."
+                  },
+                  {
+                    "id": "rf02",
+                    "front": "Hvem skal delta i en risikovurdering?",
+                    "back": "AML §3-1 krever medvirkning fra arbeidstakerne og deres tillitsvalgte. Verneombudet skal alltid involveres. Ekstern bedriftshelsetjeneste kan bidra ved komplekse vurderinger."
+                  },
+                  {
+                    "id": "rf03",
+                    "front": "Hva er «restrisiko»?",
+                    "back": "Gjenværende risiko etter at tiltak er iverksatt. Dokumenteres ved å gjøre en ny vurdering med ny alvorlighetsgrad og ny sannsynlighet. Beviser at tiltaket faktisk virker."
+                  },
+                  {
+                    "id": "rf04",
+                    "front": "Hva utløser krav om ny ROS-vurdering?",
+                    "back": "Vesentlige endringer i virksomheten: ny teknologi, omorganisering, nye arbeidsoppgaver, nye ansatte, hendelser/avvik, eller regelmessig revisjon (typisk hvert 2–3 år)."
+                  },
+                  {
+                    "id": "rf05",
+                    "front": "Hva er SJA (Sikker Jobb Analyse)?",
+                    "back": "En kortfattet risikoanalyse gjennomført umiddelbart FØR en konkret, ikke-rutinepreget arbeidsoperasjon. Alle berørte arbeidstakere deltar. Sikrer at farer er identifisert og tiltak er på plass."
+                  }
+                ]
+              },
+              "refLawIds": [
+                "aml-3-1",
+                "aml-4-1",
+                "ikf-5"
+              ],
+              "points": 10
+            },
+            {
+              "id": "aml-m08",
+              "title": "Kunnsjekk: Systematisk HMS-arbeid (§3-1)",
+              "order": 7,
+              "kind": "quiz",
+              "durationMinutes": 10,
+              "content": {
+                "kind": "quiz",
+                "questions": [
+                  {
+                    "id": "q301",
+                    "question": "Hvem har det overordnede HMS-ansvaret etter AML §2-1?",
+                    "options": [
+                      "Verneombudet",
+                      "Arbeidsgiver",
+                      "Arbeidstakerne i fellesskap",
+                      "HR-avdelingen"
+                    ],
+                    "correctIndex": 1
+                  },
+                  {
+                    "id": "q302",
+                    "question": "Hva er det minste antall ganger en virksomhet med 50+ ansatte MÅ avholde AMU-møter per år?",
+                    "options": [
+                      "1 gang",
+                      "2 ganger",
+                      "4 ganger",
+                      "12 ganger"
+                    ],
+                    "correctIndex": 2
+                  },
+                  {
+                    "id": "q303",
+                    "question": "AML §3-1 krever at HMS-arbeidet gjennomføres «i samarbeid med…»",
+                    "options": [
+                      "Arbeidstilsynet",
+                      "Bedriftshelsetjenesten",
+                      "Arbeidstakerne og deres tillitsvalgte",
+                      "Styret i virksomheten"
+                    ],
+                    "correctIndex": 2
+                  },
+                  {
+                    "id": "q304",
+                    "question": "Hvilke av disse er IKKE en av de åtte kravene i IK-forskriften §5?",
+                    "options": [
+                      "Fastsette HMS-mål",
+                      "Kartlegge farer og risikovurdere",
+                      "Registrere alle ansattes lønn",
+                      "Rutiner for avviksbehandling"
+                    ],
+                    "correctIndex": 2
+                  },
+                  {
+                    "id": "q305",
+                    "question": "Hva er konsekvensen av å forsettlig bryte AML-kravene (§19-1)?",
+                    "options": [
+                      "Kun en advarsel fra Arbeidstilsynet",
+                      "Bøter eller fengsel inntil 2 år",
+                      "Administrativ irettesettelse internt",
+                      "Ingen straffeansvar — kun sivilrettslig ansvar"
+                    ],
+                    "correctIndex": 1
+                  },
+                  {
+                    "id": "q306",
+                    "question": "En leder oppdager en glatt trapp. Hva er den FØRSTE plikten etter AML?",
+                    "options": [
+                      "Vente til neste vernerunde og registrere det der",
+                      "Informere styret skriftlig",
+                      "Iverksette umiddelbare tiltak og registrere avvik",
+                      "Spørre verneombudet om det er nødvendig å gjøre noe"
+                    ],
+                    "correctIndex": 2
+                  },
+                  {
+                    "id": "q307",
+                    "question": "Internkontrollforskriften krever at HMS-arbeidet dokumenteres…",
+                    "options": [
+                      "Kun muntlig i personalmøter",
+                      "Skriftlig",
+                      "Bare dersom Arbeidstilsynet ber om det",
+                      "Én gang per år i årsrapporten"
+                    ],
+                    "correctIndex": 1
+                  },
+                  {
+                    "id": "q308",
+                    "question": "Hva er «psykososialt arbeidsmiljø» etter AML §4-3?",
+                    "options": [
+                      "Ergonomi og fysisk belastning",
+                      "Støy og kjemisk eksponering",
+                      "Faktorer som kan påvirke arbeidstakernes mentale helse",
+                      "Utelukkende mobbing og trakassering"
+                    ],
+                    "correctIndex": 2
+                  },
+                  {
+                    "id": "q309",
+                    "question": "Verneombudets viktigste oppgave er:",
+                    "options": [
+                      "Representere arbeidsgiver i tvister",
+                      "Ivareta arbeidstakernes interesser i HMS-saker",
+                      "Rapportere ansatte som bryter HMS-regler",
+                      "Signere alle ROS-vurderinger"
+                    ],
+                    "correctIndex": 1
+                  },
+                  {
+                    "id": "q310",
+                    "question": "Når skal det gjennomføres ny risikovurdering (ROS)?",
+                    "options": [
+                      "Kun ved nyansettelser",
+                      "Aldri — én ROS holder for hele virksomhetens levetid",
+                      "Ved vesentlige endringer og regelmessig revisjon",
+                      "Bare etter ulykker som medfører sykefravær"
+                    ],
+                    "correctIndex": 2
+                  }
+                ],
+                "validation": {
+                  "requiredScore": 70,
+                  "allowRetry": true
+                }
+              },
+              "refLawIds": [
+                "aml-3-1",
+                "aml-6-2",
+                "aml-7-2",
+                "ikf-5",
+                "aml-19-1"
+              ],
+              "points": 25,
+              "badgeId": "badge-hms-foundation"
+            },
+            {
+              "id": "aml-m09",
+              "title": "Verneombudet og AMU (§6–§7)",
+              "order": 8,
+              "kind": "text",
+              "durationMinutes": 7,
+              "content": {
+                "kind": "text",
+                "bodyFormat": "markdown",
+                "bodyMarkdown": "## Verneombudet (§6-1 – §6-5)\n\nAlle virksomheter med 10 eller flere ansatte **skal ha verneombud**. I virksomheter med særlig risiko kan Arbeidstilsynet kreve verneombud uavhengig av størrelse.\n\n### Verneombudets oppgaver (§6-2)\n\n- Se til at arbeidsmiljøkravene er overholdt\n- Ta opp spørsmål om arbeidsmiljøet med arbeidsgiver\n- Ivareta arbeidstakernes interesser i HMS-saker\n- Delta i vernerunder og kartlegginger\n\n### Verneombudets rettigheter\n\n- **Stansingsrett (§6-3):** Kan stanse farlig arbeid umiddelbart. Arbeidsgiver kan ikke overprøve stansen — kun Arbeidstilsynet kan gjøre dette.\n- **Opplæring (§6-5):** Krav på minst 40 timers HMS-opplæring. Arbeidsgiver betaler kostnader og lønn under opplæringen.\n- **Vern mot gjengjeldelse:** Kan ikke sies opp eller få reduserte betingelser som følge av vervet.\n\n### Lederens plikt overfor verneombudet\n\n> Som leder plikter du å samarbeide med verneombudet, gi dem nødvendig informasjon, gi dem tid til å utføre vervet, og ikke hindre dem i arbeidet.\n\n## Arbeidsmiljøutvalget — AMU (§7-1 – §7-4)\n\nVirksomheter med **30 eller flere ansatte** skal ha AMU. Fra 1. januar 2024 er grensen senket — sjekk gjeldende regler.\n\n### AMUs oppgaver (§7-2)\n\n- Behandle spørsmål om bedriftshelsetjeneste\n- Behandle planer om bygg, utstyr og produksjonsprosesser\n- Behandle spørsmål om opplæring og instruksjon\n- Behandle og evaluere HMS-systemer\n\n### AMU-møter\n\nAMU skal møtes minst **4 ganger per år**. Møtene dokumenteres med referat og gjøres tilgjengelig for alle ansatte.",
+                "deepDive": "## Verneombudets stansingsrett — det kraftigste verktøyet (§6-3)\n\nStansingsretten er den mest kontroversielle bestemmelsen i AML. Den gir\nverneombudet rett til å stanse farlig arbeid umiddelbart **uten å\nkonsultere arbeidsgiver** — og uten at dette kan medføre negative\nkonsekvenser for verneombudet.\n\n### Vilkår for stans\nStansen er lovlig dersom verneombudet «finner at det foreligger umiddelbar fare\nfor arbeidstakernes liv eller helse» (§6-3 første ledd). Terskelen er\n**umiddelbar fare** — ikke enhver HMS-mangel.\n\n### Arbeidsgivers reaksjonsmuligheter\n1. **Protestere** muntlig og be om at spørsmålet bringes inn for AMU.\n2. **Bringe saken inn for Arbeidstilsynet** for avgjørelse.\n3. **Ikke** tvinge arbeidet i gang uten at faren er fjernet og en av\n   disse prosessene er gjennomgått.\n\n> Å true eller sanksjonere verneombudet for bruk av stansingsretten er\n> en alvorlig krenkelse av §6-3 fjerde ledd og kan gi straffeansvar.\n\n### HR-2016-1879-A (Stansingsrett-dommen)\nHøyesterett fastslo at arbeidsgiver ikke lovlig kan si opp eller degradere\nen tillitsvalgt/verneombud som har benyttet stansingsretten, selv der\nstansen i ettertid ble vurdert som unødvendig. Retten la avgjørende vekt\npå at verneombudet hadde handlet i god tro.\n\n### Praktisk håndtering for leder\n| Situasjon | Korrekt respons |\n|---|---|\n| Verneombud stanser et stillas | Rist ikke stige, rop ikke «vi har tidsfrist» — fjern faren, dokumenter |\n| Stansen virker overdreven | Kontakt neste ledernivå + Arbeidstilsynets vakttelefon |\n| Faren er utbedret | Signert protokoll fra verneombud at stansen er opphevet |\n",
+                "keyTakeaways": [
+                  "Verneombudet KAN stanse arbeid umiddelbart — du kan ikke overprøve dette på stedet.",
+                  "Sanksjonering av verneombud for bruk av stansingsretten er straffbart.",
+                  "AMU skal møtes minst 4 ganger per år — og vedtakene MÅ protokollføres.",
+                  "Verneombudet representerer ALLE ansatte, ikke bare den som valgte dem."
+                ],
+                "leadershipInsight": "**For lederen:** Et godt forhold til verneombudet er din viktigste HMS-eiendel. Når du har en sterk verneombudsrelasjon:\n\n- Avvik fanges *før* de blir Arbeidstilsynet-saker\n- Du får tidlig signal når ansatte er misfornøyde\n- AMU-møtene blir konstruktive, ikke konfronterende\n\nInvester i månedlige 1-1-er med verneombudet — det betaler seg flere ganger om når det blir tilsyn eller hendelse."
+              },
+              "refLawIds": [
+                "aml-6-1",
+                "aml-6-2",
+                "aml-6-3",
+                "aml-7-1",
+                "aml-7-2"
+              ],
+              "points": 15
+            },
+            {
+              "id": "aml-m10",
+              "title": "Verneombud og AMU — hurtigtester",
+              "order": 9,
+              "kind": "flashcard",
+              "durationMinutes": 5,
+              "content": {
+                "kind": "flashcard",
+                "slides": [
+                  {
+                    "id": "vf01",
+                    "front": "Kan en leder velge bort verneombud i en liten bedrift?",
+                    "back": "Nei. Virksomheter med 10+ ansatte er lovpålagt å ha verneombud. For virksomheter med færre ansatte kan det avtales mellom partene."
+                  },
+                  {
+                    "id": "vf02",
+                    "front": "Hva skjer hvis leder ignorerer et krav fra verneombudet?",
+                    "back": "Verneombudet kan bringe saken inn for AMU, Arbeidstilsynet eller bruke stansingsretten ved akutt fare. Ignorering kan utgjøre brudd på AML §6-2."
+                  },
+                  {
+                    "id": "vf03",
+                    "front": "Hva er «stansingsretten» (§6-3) i praksis?",
+                    "back": "Verneombudet kan stanse arbeid som medfører umiddelbar fare for liv eller helse. Arbeidsgiver varsles umiddelbart. Kun Arbeidstilsynet kan oppheve stansen mot verneombudets vilje."
+                  },
+                  {
+                    "id": "vf04",
+                    "front": "Hvem betaler for verneombudets 40-timers opplæring?",
+                    "back": "Arbeidsgiver betaler alle kostnader (kurs, reise, tapt arbeidsfortjeneste). Arbeidsgiver kan ikke nekte verneombudet nødvendig opplæring (§6-5)."
+                  },
+                  {
+                    "id": "vf05",
+                    "front": "Hva er «partssammensatt» i AMU-kontekst?",
+                    "back": "AMU skal ha lik representasjon fra arbeidsgiver og arbeidstaker (50/50). Leder og verneombud sitter typisk i AMU, og begge sider har stemmerett."
+                  }
+                ]
+              },
+              "refLawIds": [
+                "aml-6-1",
+                "aml-6-2",
+                "aml-7-1",
+                "aml-7-2"
+              ],
+              "points": 10
+            },
+            {
+              "id": "aml-m11",
+              "title": "Sykefravær og tilrettelegging (§4-6)",
+              "order": 10,
+              "kind": "video",
+              "durationMinutes": 8,
+              "content": {
+                "kind": "video",
+                "media": {
+                  "type": "video",
+                  "url": "https://www.youtube.com/watch?v=Qu8LMbY0HZ4",
+                  "duration": 480,
+                  "transcript": "AML §4-6 pålegger arbeidsgiver å tilrettelegge for ansatte med redusert arbeidsevne. Oppfølgingsplan skal foreligge innen 4 uker, dialogmøte 1 holdes innen 7 uker, og melding til NAV sendes innen 9 uker. Dokumenter alle tiltak og kontakt med ansatt og NAV skriftlig."
+                },
+                "caption": "NAVs opplæringsvideo om oppfølging av sykmeldte. AML §4-6 pålegger arbeidsgiver å iverksette tilrettelegging for ansatte med redusert arbeidsevne. Se også NAVs tidslinje: 4 uker (oppfølgingsplan), 7 uker (dialogmøte 1), 9 uker (melding til NAV). (Bytt til intern video i produksjon.)"
+              },
+              "refLawIds": [
+                "aml-4-6"
+              ],
+              "points": 10
+            },
+            {
+              "id": "aml-m12",
+              "title": "Sjekkliste: Sykefraværsoppfølging (§4-6)",
+              "order": 11,
+              "kind": "checklist",
+              "durationMinutes": 5,
+              "content": {
+                "kind": "checklist",
+                "items": [
+                  {
+                    "id": "sl01",
+                    "label": "Dag 1–3: Ta kontakt med sykmeldt ansatt (telefonsamtale, vis omsorg)"
+                  },
+                  {
+                    "id": "sl02",
+                    "label": "Dag 4: Egenmelding avklart, eventuell sykemelding mottatt"
+                  },
+                  {
+                    "id": "sl03",
+                    "label": "Innen 4 uker: Oppfølgingsplan utarbeidet sammen med ansatt (AML §4-6 nr. 1)"
+                  },
+                  {
+                    "id": "sl04",
+                    "label": "Innen 7 uker: Dialogmøte 1 avholdt — leder og ansatt, ev. bedriftshelsetjeneste (AML §4-6 nr. 2)"
+                  },
+                  {
+                    "id": "sl05",
+                    "label": "Innen 9 uker: Meldt til NAV dersom arbeidsevnen fortsatt er nedsatt (sykmeldingsforskriften)"
+                  },
+                  {
+                    "id": "sl06",
+                    "label": "Innen 26 uker: Dialogmøte 2 med NAV dersom fortsatt sykmeldt"
+                  },
+                  {
+                    "id": "sl07",
+                    "label": "Kontinuerlig: Dokumenter alle tiltak og samtaler i HR-systemet"
+                  },
+                  {
+                    "id": "sl08",
+                    "label": "Husk: Tilretteleggingsplikten er sterk — bare varig umulighet fritar"
+                  },
+                  {
+                    "id": "sl09",
+                    "label": "Taushetsplikt: Medisinsk informasjon behandles konfidensielt (GDPR)"
+                  },
+                  {
+                    "id": "sl10",
+                    "label": "Avklar behov for aktiv sykmelding / gradert sykmelding med lege"
+                  }
+                ]
+              },
+              "refLawIds": [
+                "aml-4-6"
+              ],
+              "points": 10
+            },
+            {
+              "id": "aml-m13",
+              "title": "Praktiske tips for ledere",
+              "order": 12,
+              "kind": "tips",
+              "durationMinutes": 4,
+              "content": {
+                "kind": "tips",
+                "items": [
+                  "Hold alle medarbeidersamtaler dokumentert — de kan bli sentrale i en eventuell tvist om oppfølging.",
+                  "Bruk «nærværssamtaler» proaktivt — ta kontakt FØR sykmelding ved tegn på mistrivsel eller høy belastning.",
+                  "Aldri still spørsmål om diagnose — du har rett til å vite om arbeidstaker kan jobbe og hva som kreves for tilrettelegging, ikke hva personen feiler.",
+                  "Involver verneombudet tidlig — de er en ressurs, ikke en motstander.",
+                  "Dokumenter alt du gjør i sykefraværsoppfølgingen — «det er ikke gjort hvis det ikke er skrevet».",
+                  "Kjenn grensen for tilretteleggingsplikten: den gjelder inntil «det vil medføre uforholdsmessig stor belastning».",
+                  "Vurder gradert sykmelding og aktiv sykmelding — de reduserer kostnader for virksomheten og holder ansatte tilknyttet arbeidsplassen.",
+                  "Sørg for at alle ledere under deg kjenner §4-6-forpliktelsene — du er ansvarlig for at de etterlever loven i sine avdelinger.",
+                  "Bruk bedriftshelsetjenesten — de kan delta i dialogmøter og bistå med tilrettelegging.",
+                  "Husk: Å ignorere sykefravær er dyrere enn å følge opp. NAV refunderer sykepenger for de første 16 dagene, deretter tar NAV over."
+                ]
+              },
+              "refLawIds": [
+                "aml-3-1",
+                "aml-4-3",
+                "aml-4-6"
+              ],
+              "points": 5
+            },
+            {
+              "id": "aml-m14",
+              "title": "Arbeidstid — regler du MUST kjenne (kap. 10)",
+              "order": 13,
+              "kind": "text",
+              "durationMinutes": 6,
+              "content": {
+                "kind": "text",
+                "bodyFormat": "markdown",
+                "bodyMarkdown": "## Arbeidstidsreglene (AML kap. 10)\n\nBrudd på arbeidstidsreglene er en av de vanligste grunnene til pålegg fra Arbeidstilsynet. Som leder er det **din plikt** å planlegge arbeidet slik at reglene overholdes.\n\n### Grensene du må huske\n\n| Regel | Grense | Hjemmel |\n|---|---|---|\n| Alminnelig arbeidstid | 9 timer per dag / 40 timer per uke | §10-4 (1) |\n| Gjennomsnittsberegning | Max 48 timer per uke over 8 uker | §10-5 |\n| Overtid (samlet) | Max 10 timer per uke / 25 timer per 4 uker / 200 timer per år | §10-6 |\n| Daglig hvile | Min 11 sammenhengende timer mellom arbeidsøkter | §10-8 (1) |\n| Ukentlig hvile | Min 35 sammenhengende timer per uke | §10-8 (2) |\n| Nattarbeid | Kun tillatt der arbeidets art gjør det nødvendig | §10-11 |\n\n### Avvik gjennom tariffavtale\n\nMange av reglene kan fravikes gjennom **tariffavtale mellom arbeidsgiver og fagforening**. Individuelle avtaler mellom leder og ansatt er vanligvis ikke tilstrekkelig.\n\n### Lederens ansvar\n\n- Sørg for at timeregistreringssystemet er oppdatert og korrekt\n- Gi pålegg om overtid bare i nødsituasjoner — ikke som fast praksis\n- Gjennomgå arbeidsbelastningen regelmessig med verneombudet\n\n> OBS: «Kultur for å jobbe mye» fritar ikke arbeidsgiver. Arbeidstilsynet aksepterer ikke «det er frivillig» som unnskyldning for systematiske brudd på hviletidsreglene.",
+                "deepDive": "## Arbeidstidsreglene i detalj — hva ledere faktisk bryter\n\n### De absolutte grensene (kan ikke fravikes individuelt)\n| Regel | Grense | Hjemmel |\n|---|---|---|\n| Alminnelig arbeidstid per dag | 9 timer | §10-4 |\n| Alminnelig arbeidstid per uke | 40 timer (35,5 for skiftarbeid) | §10-4 |\n| Overtid per dag | 3 timer | §10-6 (1) |\n| Overtid per uke | 10 timer | §10-6 (1) |\n| Overtid per 4-ukersperiode | 25 timer | §10-6 (1) |\n| Overtid per år | 200 timer | §10-6 (1) |\n| Daglig hviletid | 11 timer | §10-8 |\n| Ukentlig hviletid | 35 timer | §10-8 |\n\n### Hvem kan fravike?\n- **Arbeidsgiver + tillitsvalgte** (tariffavtale): kan utvide til 400 t/år.\n- **Arbeidstilsynet**: kan gi dispensasjon i ekstraordinære tilfeller.\n- **Ingen**: kan fravike §10-8 daglig hviletid (11 timer) gjennom\n  individuell avtale.\n\n### Det vanligste bruddet: «frivillig» overtid\nEt klassisk problem: prosjektleder arbeider 12-timers dager og sier det er\nfrivillig. Etter AML §10-6 (7) er overtidsarbeid kun tillatt når det er\n«nødvendig» — frivillighet er ikke et rettslig grunnlag. Som leder har du\nplikt til å *planlegge* arbeidet slik at reglene overholdes, og til å *stoppe*\novertid som nærmer seg grensene.\n\n### Dokumentasjonsplikt\n§10-7 krever at arbeidsgiver fører liste over overtidsarbeid. Mangel på\nslik liste er et selvstendig brudd uavhengig av om faktisk overtid har\nskjedd.\n",
+                "keyTakeaways": [
+                  "11 timers daglig hvile er absolutt — du kan ikke lage individuell avtale om å fravike den.",
+                  "«Frivillig» overtid er ikke et rettslig grunnlag — du plikter å planlegge innenfor grensene.",
+                  "Maksimal overtid er 200 timer/år (individuelt) og 400 timer/år (med tariffavtale).",
+                  "Manglende overtidsliste er et selvstendig brudd, uavhengig av om overtid faktisk har skjedd."
+                ],
+                "leadershipInsight": "**For lederen:** Det vanligste juridiske bruddet på lederbordet er at man \"godkjenner\" overtid muntlig fordi kunden eller prosjektet \"trenger det\". **Stopp**. Slik gjør du det riktig:\n\n1. Definer maks ukentlig overtidstak i avdelingen (under 10 t/uke per ansatt).\n2. Krev forhåndsgodkjenning skriftlig i Klarert → Tidsregistrering.\n3. Ha en ukentlig sjekk i kalenderen din — \"noen som nærmer seg grensene?\"\n\nResultat: Du har dokumentasjon mot pålegg, og du sender et tydelig kultursignal om at slitasje ikke er karrierefremmende."
+              },
+              "refLawIds": [
+                "aml-10-6",
+                "aml-10-8"
+              ],
+              "points": 15
+            },
+            {
+              "id": "aml-m15",
+              "title": "Arbeidstidsgrenser visuelt",
+              "order": 14,
+              "kind": "image",
+              "durationMinutes": 2,
+              "content": {
+                "kind": "image",
+                "imageUrl": "https://images.unsplash.com/photo-1506784983877-45594efa4cbe?w=900&q=80",
+                "caption": "Husk: 11 timer sammenhengende daglig hvile og 35 timer ukentlig hvile er absolutte minsterettigheter etter AML kap. 10. Overtid over grensene er et lovbrudd — ikke bare et ledelsesmessig spørsmål. Kontroller timeregistreringen regelmessig."
+              },
+              "refLawIds": [
+                "aml-10-6",
+                "aml-10-8"
+              ],
+              "points": 5
+            },
+            {
+              "id": "aml-m16",
+              "title": "Diskriminering og likestilling (kap. 13)",
+              "order": 15,
+              "kind": "text",
+              "durationMinutes": 5,
+              "content": {
+                "kind": "text",
+                "bodyFormat": "markdown",
+                "bodyMarkdown": "## Vern mot diskriminering (AML kap. 13)\n\nAML forbyr diskriminering i arbeidsforhold på en rekke grunnlag. Som leder er du direkte ansvarlig for å sikre at din enhet ikke diskriminerer — verken åpenlyst eller indirekte.\n\n### Diskrimineringsgrunnlag (§13-1)\n\n- Politisk syn\n- Medlemskap i arbeidstakerorganisasjon\n- Alder\n- Etnisitet, nasjonal opprinnelse, hudfarge, språk, religion, livssyn\n- Kjønn, graviditet, permisjon ved fødsel/adopsjon\n- Seksuell orientering, kjønnsidentitet, kjønnsuttrykk\n- Nedsatt funksjonsevne\n\n### Forbud og unntak\n\nForbudet gjelder *alle faser* av arbeidsforholdet: ansettelse, arbeidsoppgaver, lønns- og arbeidsvilkår, opplæring, forfremmelse og oppsigelse.\n\nUnntak finnes for saklige krav til stillingen (f.eks. krav om norsk statsborgerskap for visse offentlige stillinger).\n\n### Lederes særlige ansvar\n\n- Bruk objektive kriterier ved ansettelse — dokumenter prosessen\n- Gripe inn ved uønsket adferd mellom ansatte\n- Nulltoleranse for trakassering (§13-1 nr. 2)\n- Tilrettelegge for ansatte med nedsatt funksjonsevne\n\n> Viktig: Bevisbyrdereglene er snudd i diskrimineringssaker. Dersom arbeidstaker kan sannsynliggjøre at diskriminering har funnet sted, er det du som arbeidsgiver som må bevise at det ikke skjedde (§13-8).",
+                "keyTakeaways": [
+                  "Diskrimineringsforbudet gjelder under hele ansettelsesforholdet — fra utlysning til avslutning.",
+                  "Bevisbyrden er delt: hvis arbeidstaker sannsynliggjør diskriminering, må du bevise at det ikke skjedde.",
+                  "Graviditet, alder og etnisitet er de hyppigste diskrimineringsgrunnlagene i rettspraksis.",
+                  "En dårlig dokumentert ansettelsesprosess taper nesten alltid i retten."
+                ]
+              },
+              "refLawIds": [
+                "aml-13-1",
+                "aml-13-8",
+                "ldl-13"
+              ],
+              "points": 15
+            },
+            {
+              "id": "aml-m17",
+              "title": "Praktiske lederscenarier — oppgaver i hverdagen",
+              "order": 16,
+              "kind": "on_job",
+              "durationMinutes": 15,
+              "content": {
+                "kind": "on_job",
+                "tasks": [
+                  {
+                    "id": "oj01",
+                    "title": "Scenario 1: Ansatt varsler om trakassering",
+                    "description": "En ansatt ber deg om et privat møte og forteller at en kollega gjentatte ganger har kommentert utseendet hennes på en nedverdigende måte.\n\n**Din oppgave:**\n1. Dokumenter varslet i **Klarert → HMS → Avvik** med kategori «Psykososialt arbeidsmiljø».\n2. Opprett en **handlingsplan** med tiltak og frister (AML §4-3 + §13-1).\n3. Gjennomfør møte med begge parter separat og logg referater i avvikssystemet.\n4. Involver HR og verneombud — dokumenter at begge er varslet.\n\nSkriv en kort refleksjon: Hvem involverer du de neste 48 timene, og hvilken §-hjemmel begrunner hvert steg du tar?",
+                    "requiredRole": "Leder",
+                    "evidenceType": "text_response",
+                    "requiresApproval": false
+                  },
+                  {
+                    "id": "oj02",
+                    "title": "Scenario 2: Verneombudet stanser et prosjekt",
+                    "description": "Verneombudet stopper et hasteoppdrag fordi et stillas ikke er risikovurdert. Du er under tidspress fra kunden.\n\n**Din oppgave:**\n1. Les AML §6-3 (stansingsretten) og beskriv de tre handlingsalternativene du faktisk har.\n2. Logg hendelsen som **avvik** i Klarert med kategori «Prosedyrebrudd / Stans».\n3. Opprett en hasteSJA (sikker jobbanalyse) via **Klarert → Risiko → SJA** for stillasmontasjen og hent signatur fra verneombud.\n4. Dokumenter at faren er utbedret før arbeidet gjenopptas.\n\nMerk: Å true eller omgå verneombudets stansingsrett er straffbart.",
+                    "requiredRole": "Leder og Verneombud",
+                    "evidenceType": "file_upload",
+                    "requiresApproval": true
+                  },
+                  {
+                    "id": "oj03",
+                    "title": "Scenario 3: Planlegge og gjennomføre vernerunde",
+                    "description": "Du er ny leder og det er gått 14 måneder siden forrige vernerunde.\n\n**Din oppgave:**\n1. Opprett en ny **vernerunde** i **Klarert → HMS → Sjekklister** og bruk standard sjekkliste for din bransje.\n2. Inviter verneombud og minimum én ansatt som medrullator.\n3. Registrer alle avvik med risikonivå og tildel ansvarlig + frist.\n4. Last opp signert vernerunde-protokoll her som bevis.\n\nFrist: Gjennomfør innen 4 uker fra registreringsdato i systemet.",
+                    "requiredRole": "Leder og Verneombud",
+                    "evidenceType": "file_upload",
+                    "requiresApproval": true
+                  },
+                  {
+                    "id": "oj04",
+                    "title": "Scenario 4: Sykmeldt ansatt uke 5 — oppfølgingsplikt",
+                    "description": "En ansatt er inne i uke 5 av en sykmelding. Du har ikke hatt formell kontakt siden uke 2.\n\n**Din oppgave:**\n1. Åpne **Klarert → HMS → Sykefravær** og sjekk om oppfølgingsplan er opprettet (frist: 4 uker, AML §4-6).\n2. Dersom oppfølgingsplan mangler: opprett den nå og logg årsak til forsinkelse.\n3. Planlegg **dialogmøte 1** innen uke 7 — registrer i Klarert og inviter den ansatte.\n4. Skriv ned hva du gjør NÅ, hvilken frist som gjelder, og konsekvensen av ikke å handle.",
+                    "requiredRole": "Arbeidsgiver",
+                    "evidenceType": "text_response",
+                    "requiresApproval": false
+                  },
+                  {
+                    "id": "oj05",
+                    "title": "Scenario 5: Systematisk overtid",
+                    "description": "En prosjektleder i teamet ditt jobber systematisk 12-timers dager og sier det er frivillig.\n\n**Din oppgave:**\n1. Kontroller i **Klarert → HR → Tidsregistrering** at overtidsloggen er i samsvar med §10-6-grensene (maks 10 t/uke, 200 t/år).\n2. Dersom grensene er brutt: opprett **avvik** og sett frister for retting.\n3. Ha en samtale med prosjektlederen og dokumenter at du har informert om reglene.\n4. Svar skriftlig: Er dette greit i henhold til AML? Hva er din plikt som leder?",
+                    "requiredRole": "Leder",
+                    "evidenceType": "text_response",
+                    "requiresApproval": false
+                  },
+                  {
+                    "id": "oj06",
+                    "title": "Scenario 6: Ansettelsesprosess med diskrimineringsrisiko",
+                    "description": "Du skal ansette en ny avdelingsleder. Tre søkere skiller seg ut: en er gravid, en er over 60 år, og en er den mest kvalifiserte på papir.\n\n**Din oppgave:**\n1. Les AML §13-1 og Likestillings- og diskrimineringsloven §5-6 og list opp hvilke kriterier som er **forbudte** å vektlegge.\n2. Dokumenter vurderingsgrunnlaget i **Klarert → HR → Rekruttering** med objektive kriterier (kompetanse, erfaring, referanser).\n3. Last opp et anonymisert vurderingsskjema som beviser at valget tåler granskning.\n4. Skriv en kort begrunnelse som kan leses av en diskrimineringsnemnd.",
+                    "requiredRole": "Arbeidsgiver",
+                    "evidenceType": "file_upload",
+                    "requiresApproval": true
+                  }
+                ]
+              },
+              "refLawIds": [
+                "aml-4-3",
+                "aml-6-3",
+                "aml-4-6",
+                "aml-15-7",
+                "aml-10-6"
+              ],
+              "points": 40,
+              "badgeId": "badge-on-the-job"
+            },
+            {
+              "id": "aml-m18",
+              "title": "Oppsigelse og stillingsvern (kap. 15)",
+              "order": 17,
+              "kind": "text",
+              "durationMinutes": 8,
+              "content": {
+                "kind": "text",
+                "bodyFormat": "markdown",
+                "bodyMarkdown": "## Stillingsvernet (AML kap. 15)\n\nNorsk arbeidsliv har et sterkt stillingsvern. Som leder er det avgjørende at du kjenner reglene FØR du iverksetter en oppsigelse — prosessfeil kan gjøre en gyldig oppsigelse ulovlig.\n\n### Kravet om saklig grunn (§15-7)\n\nEn oppsigelse er kun gyldig dersom den er **saklig begrunnet** i:\n\n- Virksomhetens forhold (nedbemanning, driftsinnskrenkning), eller\n- Arbeidstakers forhold (utilfredsstillende arbeid, illojalitet, samarbeidsproblemer)\n\n### Prosedyrekravet — drøftingsmøte (§15-1)\n\nFør oppsigelse *besluttes* skal arbeidsgiver avholde et **drøftingsmøte** med arbeidstaker. Dette gjelder selv om utfallet virker åpenbart.\n\n- Kall inn skriftlig i god tid\n- Arbeidstaker har rett til å ha med rådgiver/tillitsvalgt\n- Dokumenter møtet med referat signert av begge parter\n\n### Særlig vern — tider og grupper\n\n| Situasjon | Vern |\n|---|---|\n| Sykdom (§15-8) | Oppsigelsesvern de første 12 månedene av sykefraværet |\n| Graviditet (§15-9) | Ufravikelig oppsigelsesforbud under graviditet |\n| Foreldrepermisjon (§15-9) | Sterkt vern under og etter permisjon |\n| Militærtjeneste (§15-10) | Oppsigelsesvern under tjenesten |\n\n### Konsekvenser av ulovlig oppsigelse\n\nDomstolene kan kjenne oppsigelsen **ugyldig og pålegge gjeninnsettelse**, i tillegg til å tilkjenne arbeidstaker erstatning for lønnstap og ikke-økonomisk skade. Slike saker er svært kostbare for virksomheten — og kan skade omdømmet alvorlig.",
+                "deepDive": "## Stillingsvernet i praksis — prosessfeil og materielle feil\n\n### De to typene oppsigelsesgrunnlag\n**1. Virksomhetens forhold (§15-7 (2))**\nNedbemanning, omstrukturering, innskrenkning. Kravene er:\n- Saklig grunnlag for nedbemanning\n- Saklig utvelgelse blant berørte arbeidstakere (ansiennitet er normalt\n  det sentrale kriteriet, men kompetanse/personlige egenskaper kan vektlegges\n  hvis virksomheten saklig begrunner det)\n- Vurdering av om det finnes **annet passende arbeid** i virksomheten\n\n**2. Arbeidstakers forhold (§15-7 (1))**\nAlvorlig mislighold, manglende arbeidsytelse, samarbeidsproblemer. Kravene er:\n- Klar advarsel gitt i forkant (normalt — unntak for grov uaktsomhet)\n- Forholdsmessighet mellom forholdet og reaksjonen\n- Drøftingsmøte før beslutning\n\n### Drøftingsmøtet (§15-1) — det mest brutte kravet\n**Hva**: Et obligatorisk møte mellom arbeidsgiver og den ansatte FØR oppsigelsesvedtak treffes.\n\n**Hva som MÅ gjennomgås**:\n1. Grunnlaget for den vurderte oppsigelsen\n2. Den ansattes kommentarer / mulige forklaringer\n3. Muligheten for annet arbeid i virksomheten\n\n**Hva som skjer ved brudd**: Oppsigelsen er formelt ugyldig og kan kjennes\nugyldig av tingretten selv om grunnlaget for oppsigelse ellers er saklig.\n\n### HR-2022-2048-A (Drøftingsplikten)\nHøyesterett opprettholdt en ugyldig oppsigelse fordi arbeidsgiver hadde\ngjennomgått den ansattes synspunkter grundig nok skriftlig i forkant.\nDommen viser at skriftlig prosess *kan* kompensere for formell møtesvikt —\nmen det er en risikabel strategi.\n\n### Minimumsoppsigelsesfrister (§15-3)\n| Ansiennitet | Frist |\n|---|---|\n| Under 5 år | 1 måned |\n| 5–10 år | 2 måneder |\n| 10+ år | 3 måneder |\n| 10+ år + over 50 år | 4 måneder |\n| 10+ år + over 55 år | 5 måneder |\n| 10+ år + over 60 år | 6 måneder |\n",
+                "keyTakeaways": [
+                  "Drøftingsmøtet (§15-1) MÅ holdes FØR du beslutter oppsigelse — ikke etter.",
+                  "Prosessfeil alene kan gjøre en ellers saklig begrunnet oppsigelse ugyldig.",
+                  "Ansatte med 10+ år og over 60 år har 6 måneders oppsigelsestid — dette overrasker mange ledere.",
+                  "Du MÅ alltid vurdere om det finnes annet passende arbeid i virksomheten."
+                ],
+                "leadershipInsight": "**For lederen:** Oppsigelser er den mest kostbare HMS-feilen du kan gjøre. En ugyldig oppsigelse koster typisk **350 000 – 1 200 000 kr** i erstatning + omkostninger, pluss omdømmetap internt. Tre regler som redder deg:\n\n1. **Aldri** beslutt oppsigelse uten å ha hatt drøftingsmøte først (§15-1).\n2. **Aldri** beslutt nedbemanning uten å ha vurdert annet passende arbeid skriftlig.\n3. **Aldri** signer oppsigelsesbrev før HR + jurist har kvalitetssikret prosessen.\n\nHvis det haster — vent en uke. Det er nesten alltid billigere enn å gjøre det feil."
+              },
+              "refLawIds": [
+                "aml-15-1",
+                "aml-15-3",
+                "aml-15-7",
+                "aml-15-8"
+              ],
+              "points": 20
+            },
+            {
+              "id": "aml-m19",
+              "title": "Kunnsjekk 2: Tilrettelegging og stillingsvern",
+              "order": 18,
+              "kind": "quiz",
+              "durationMinutes": 8,
+              "content": {
+                "kind": "quiz",
+                "questions": [
+                  {
+                    "id": "q401",
+                    "question": "Når skal oppfølgingsplanen for sykmeldte ansatte senest være utarbeidet?",
+                    "options": [
+                      "Innen 1 uke",
+                      "Innen 4 uker",
+                      "Innen 3 måneder",
+                      "Kun ved 100% sykmelding"
+                    ],
+                    "correctIndex": 1
+                  },
+                  {
+                    "id": "q402",
+                    "question": "Kan en leder spørre en ansatt om diagnosen ved sykefraværsoppfølging?",
+                    "options": [
+                      "Ja, alltid",
+                      "Ja, men kun ved fravær over 14 dager",
+                      "Nei — lederen har ikke rett til å kjenne diagnosen",
+                      "Ja, men kun med skriftlig samtykke"
+                    ],
+                    "correctIndex": 2
+                  },
+                  {
+                    "id": "q403",
+                    "question": "En gravid ansatt søker på en intern lederstilling. Hva er riktig?",
+                    "options": [
+                      "Graviditeten kan vektlegges negativt",
+                      "Graviditeten er et diskrimineringsgrunnlag og kan ikke vektlegges",
+                      "Leder kan kreve at hun venter til etter permisjonen",
+                      "Graviditeten er bare relevant ved tunge jobber"
+                    ],
+                    "correctIndex": 1
+                  },
+                  {
+                    "id": "q404",
+                    "question": "Hva er et «drøftingsmøte» etter AML §15-1?",
+                    "options": [
+                      "Et sosialt møte mellom leder og tillitsvalgt",
+                      "Et obligatorisk møte FØR oppsigelse besluttes, der partene diskuterer grunnlaget",
+                      "Et møte der oppsigelsen overleveres formelt",
+                      "Et møte med Arbeidstilsynet ved tvist"
+                    ],
+                    "correctIndex": 1
+                  },
+                  {
+                    "id": "q405",
+                    "question": "En ansatt sykmeldes fra dag 1 i oppsigelsestiden. Hva gjelder?",
+                    "options": [
+                      "Oppsigelsestiden suspenderes automatisk",
+                      "Oppsigelsestiden løper normalt — sykdommen stopper den ikke",
+                      "Oppsigelsen er automatisk ugyldig",
+                      "Ansatt kan velge selv om oppsigelsestiden skal løpe"
+                    ],
+                    "correctIndex": 1
+                  },
+                  {
+                    "id": "q406",
+                    "question": "Hva er minimumsoppsigelsestid for en ansatt med 5 års ansiennitet (§15-3)?",
+                    "options": [
+                      "2 uker",
+                      "1 måned",
+                      "2 måneder",
+                      "3 måneder"
+                    ],
+                    "correctIndex": 2
+                  },
+                  {
+                    "id": "q407",
+                    "question": "Hvilken §15 gir særlig vern mot oppsigelse for ansatte under sykdom?",
+                    "options": [
+                      "§15-6",
+                      "§15-7",
+                      "§15-8",
+                      "§15-10"
+                    ],
+                    "correctIndex": 2
+                  }
+                ],
+                "validation": {
+                  "requiredScore": 70,
+                  "allowRetry": true
+                }
+              },
+              "refLawIds": [
+                "aml-4-6",
+                "aml-15-7",
+                "aml-15-8",
+                "aml-13-1"
+              ],
+              "points": 25
+            },
+            {
+              "id": "aml-m20",
+              "title": "Oppsummering og lederens huskeliste",
+              "order": 19,
+              "kind": "other",
+              "durationMinutes": 5,
+              "content": {
+                "kind": "other",
+                "title": "Din AML-huskeliste som leder",
+                "body": "<h2>Du har fullført kurset — her er det viktigste å ta med</h2>\n\n<h3>🏛️ Juridisk ansvar</h3>\n<ul>\n  <li>Du kan ikke delegere bort det grunnleggende HMS-ansvaret (§2-1)</li>\n  <li>Brudd på AML kan gi personlig straffeansvar (§19-1)</li>\n  <li>Arbeidstilsynet kan rette tilsyn mot deg som leder</li>\n</ul>\n\n<h3>📋 Systematisk HMS</h3>\n<ul>\n  <li>Gjennomfør vernerunder etter plan — dokumenter funn og tiltak</li>\n  <li>Hold ROS-vurderinger oppdatert, særlig ved endringer</li>\n  <li>Involver verneombudet i alt HMS-arbeid</li>\n  <li>Gjennomfør årsgjennomgang med skriftlig resultat</li>\n</ul>\n\n<h3>🤝 Verneombud og AMU</h3>\n<ul>\n  <li>Samarbeid aktivt — verneombudet er en ressurs, ikke en motstander</li>\n  <li>Gi verneombudet tid, ressurser og informasjon de trenger</li>\n  <li>Respekter stansingsretten — ikke overstyr uten lovhjemmel</li>\n</ul>\n\n<h3>🏥 Sykefravær</h3>\n<ul>\n  <li>Ta kontakt tidlig — ikke vent til formelle frister</li>\n  <li>Oppfølgingsplan innen 4 uker, dialogmøte innen 7 uker</li>\n  <li>Spør aldri om diagnose</li>\n  <li>Tilrettelegg aktivt og dokumenter alt</li>\n</ul>\n\n<h3>⏰ Arbeidstid</h3>\n<ul>\n  <li>Max 9 timer per dag, 40 timer per uke som utgangspunkt</li>\n  <li>11 timers daglig hvile er absolutt minimum</li>\n  <li>Overtid krever saklig grunn og har klare grenser</li>\n</ul>\n\n<h3>⚖️ Oppsigelse</h3>\n<ul>\n  <li>Alltid drøftingsmøte FØR beslutning (§15-1)</li>\n  <li>Saklig grunn er absolutt krav (§15-7)</li>\n  <li>Spesielle verneperioder for gravide, syke og permitterte</li>\n</ul>\n\n<blockquote style=\"border-left:4px solid #1a3d32;padding:1rem 1.25rem;background:#f0f9f5;margin:1.5rem 0;border-radius:0.5rem\">\n  <strong>Gratulerer! 🎓</strong><br>\n  Du har gjennomgått et komplett kurs i Arbeidsmiljøloven for ledere. Husk at loven oppdateres — sjekk lovdata.no jevnlig og delta på oppfriskningskurs. Dette kurset erstatter ikke juridisk rådgivning.\n</blockquote>"
+              },
+              "refLawIds": [
+                "aml-2-1",
+                "aml-3-1",
+                "aml-4-6",
+                "aml-6-2",
+                "aml-15-7"
+              ],
+              "points": 5
+            },
+            {
+              "id": "aml-m22",
+              "title": "Beslutningsscenario: Frist vs. risikovurdering",
+              "order": 21,
+              "kind": "scenario",
+              "durationMinutes": 12,
+              "refLawIds": [
+                "aml-3-1",
+                "aml-6-3",
+                "aml-4-1",
+                "aml-19-1"
+              ],
+              "points": 30,
+              "content": {
+                "kind": "scenario",
+                "intro": "**Situasjonen:** Du er produksjonsleder på en stillas-entreprise. Et hasteoppdrag for en stor kunde er kontrahert til levering kl. 16:00 i dag. Verneombud Per ringer kl. 11:00 og sier at en av montørene ikke har den lovpålagte stillas-sertifiseringen, og at stillaset ikke er fullført risikovurdert.\n\nKunden truer med konvensjonalbot på 200 000 kr dersom frist ikke overholdes.",
+                "passingImpactScore": 10,
+                "steps": [
+                  {
+                    "id": "s22-1",
+                    "prompt": "Det er 5 timer til frist. Hva er ditt første trekk?",
+                    "choices": [
+                      {
+                        "id": "s22-1a",
+                        "label": "Be montøren fullføre og lover du å ordne sertifisering i etterkant",
+                        "impactScore": -8,
+                        "refLawId": "aml-3-1",
+                        "feedback": "Brudd på §3-1 og §3-2. Manglende sertifisering = uforsvarlig arbeid. Du har personlig straffeansvar etter §19-1 hvis det skjer en ulykke. Bot dekkes typisk ikke av forsikring ved bevisst HMS-brudd."
+                      },
+                      {
+                        "id": "s22-1b",
+                        "label": "Stans arbeidet. Ring kunden, forklar HMS-situasjonen, forhandle frem 24-timers utsettelse",
+                        "impactScore": 8,
+                        "refLawId": "aml-6-3",
+                        "feedback": "Riktig. §6-3 gir verneombudet stansingsrett uansett, men du som leder bør gripe inn først. Profesjonelle kunder respekterer HMS-stans — det viser kvalitetssikring."
+                      },
+                      {
+                        "id": "s22-1c",
+                        "label": "Send inn en sertifisert montør fra et annet team og fullfør jobben",
+                        "impactScore": 5,
+                        "feedback": "Riktig retning, men sjekk arbeidstid og overtidsgrenser for vedkommende. Sørg også for at det opprinnelige stillaset risikovurderes før det tas i bruk."
+                      },
+                      {
+                        "id": "s22-1d",
+                        "label": "Overlat avgjørelsen til verneombudet — han har stansingsrett uansett",
+                        "impactScore": -2,
+                        "feedback": "Verneombudet HAR stansingsrett, men du som leder kan ikke skyve ansvaret over på ham. Du har et selvstendig ansvar etter §2-1 å sørge for at arbeidet utføres forsvarlig."
+                      }
+                    ]
+                  },
+                  {
+                    "id": "s22-2",
+                    "prompt": "Kunden insisterer: «Vi finner en annen leverandør neste gang.» Hvordan svarer du?",
+                    "choices": [
+                      {
+                        "id": "s22-2a",
+                        "label": "«Forstår. Vi prøver alt — sender ekstra team», og presser frem leveransen",
+                        "impactScore": -5,
+                        "feedback": "Du har akkurat handlet om kommersielt press til HMS-risiko. Det er nettopp denne dynamikken som leder til alvorlige ulykker i bransjen."
+                      },
+                      {
+                        "id": "s22-2b",
+                        "label": "«Vi leverer trygt, ikke raskt. Her er dokumentasjon på HMS-stansen — den utgjør en bevisbyrde for at avviket ikke var vår skyld»",
+                        "impactScore": 10,
+                        "refLawId": "aml-3-1",
+                        "feedback": "Profesjonelt og juridisk riktig. Dokumentert HMS-stans er et skjold mot konvensjonalbot — kunden kan ikke kreve at du bryter loven."
+                      },
+                      {
+                        "id": "s22-2c",
+                        "label": "Bytter leverandør internt og ber HR refundere kunden kostnader fra annen budget",
+                        "impactScore": 2,
+                        "feedback": "Pragmatisk, men du har ikke dokumentert HMS-grunnlaget. Du risikerer at handlingen tolkes som operasjonell svikt internt, ikke som lovlig stans."
+                      },
+                      {
+                        "id": "s22-2d",
+                        "label": "«Ditt valg, men vi vil aldri kompromittere på HMS — kontrakt §11 om force majeure / lovbrudd gjelder»",
+                        "impactScore": 8,
+                        "feedback": "Solid posisjon hvis kontrakten har en slik klausul. Sjekk kontraktbeskrivelsen før du sender — feilaktig påberopelse svekker din posisjon."
+                      }
+                    ]
+                  },
+                  {
+                    "id": "s22-3",
+                    "prompt": "Etter hendelsen — hva er ditt neste steg for å sikre virksomheten mot gjentakelse?",
+                    "choices": [
+                      {
+                        "id": "s22-3a",
+                        "label": "Saken er løst, gå videre",
+                        "impactScore": -5,
+                        "feedback": "Du har mistet en gylden læringsmulighet og dokumentasjon for fremtidig tilsyn."
+                      },
+                      {
+                        "id": "s22-3b",
+                        "label": "Opprett avvik i Klarert med kategori «Prosedyrebrudd», planlegg rotårsaksanalyse innen 1 uke",
+                        "impactScore": 10,
+                        "refLawId": "aml-3-1",
+                        "feedback": "Riktig. IK-forskriften §5 krever systematisk forbedring — ikke bare reaksjon. Rotårsaksanalysen avdekker om problemet er teknisk (sertifiseringsoversikt) eller kulturelt (presset)."
+                      },
+                      {
+                        "id": "s22-3c",
+                        "label": "Informer toppledelsen om at kunden truet med bot — eskalering oppover",
+                        "impactScore": 5,
+                        "feedback": "Bra at du holder ledelsen orientert, men dokumenter også internt i HMS-systemet, ikke bare e-post."
+                      },
+                      {
+                        "id": "s22-3d",
+                        "label": "Innfør obligatorisk pre-job briefing for alle hasteoppdrag",
+                        "impactScore": 8,
+                        "feedback": "Strukturelt korrekt tiltak. Sørg for at sjekklisten inkluderer sertifiseringskontroll OG risikovurdering — ikke bare driftspunkter."
+                      }
+                    ]
+                  }
+                ]
+              }
+            },
+            {
+              "id": "aml-m23",
+              "title": "Beslutningsscenario: Sykefravær og forretningseffektivitet",
+              "order": 22,
+              "kind": "scenario",
+              "durationMinutes": 10,
+              "refLawIds": [
+                "aml-4-6",
+                "aml-15-7",
+                "aml-15-8",
+                "aml-13-1"
+              ],
+              "points": 30,
+              "content": {
+                "kind": "scenario",
+                "intro": "**Situasjonen:** Maria har vært sykmeldt i 4 måneder med en muskel-skjelett-skade. Bedriftshelsetjenesten anbefaler tilrettelegging med 50 % stilling i 3 måneder. Din avdeling er allerede underbemannet, og Maria har en nøkkelfunksjon. HR-direktøren spør om du «bare kan sette i gang en oppsigelsesprosess» fordi det er enklere økonomisk.",
+                "passingImpactScore": 12,
+                "steps": [
+                  {
+                    "id": "s23-1",
+                    "prompt": "HR-direktøren har akkurat spurt om oppsigelse. Hvordan svarer du?",
+                    "choices": [
+                      {
+                        "id": "s23-1a",
+                        "label": "«Greit — start prosessen, vi får da inn en frisk ressurs»",
+                        "impactScore": -10,
+                        "refLawId": "aml-15-8",
+                        "feedback": "Brudd på §15-8 (oppsigelsesvern ved sykdom de første 12 månedene) og §4-6 (tilretteleggingsplikt). Oppsigelse vil bli kjent ugyldig i tingretten — gjennomsnittlig erstatning: 800 000 kr + omkostninger."
+                      },
+                      {
+                        "id": "s23-1b",
+                        "label": "«§15-8 forbyr dette de første 12 månedene. Vi MÅ tilrettelegge før vi kan vurdere noe annet — det er ikke en mulighet, det er en plikt»",
+                        "impactScore": 10,
+                        "refLawId": "aml-15-8",
+                        "feedback": "Riktig juridisk og strategisk. Du beskytter virksomheten mot ulovlig oppsigelse og signaliserer profesjonell HMS-praksis."
+                      },
+                      {
+                        "id": "s23-1c",
+                        "label": "«La oss vente 8 måneder til, så er 12-månedersvernet over»",
+                        "impactScore": -8,
+                        "feedback": "Du forsøker å omgå §15-8 ved å vente. Dette tolkes i rettspraksis som forsettlig forbigåelse av vernebestemmelsen og kan kvalifisere som usaklig oppsigelse selv etter 12 måneder."
+                      },
+                      {
+                        "id": "s23-1d",
+                        "label": "«Vi gjør først en grundig vurdering av om annet passende arbeid finnes»",
+                        "impactScore": 7,
+                        "feedback": "Riktig vinkling — §15-7 krever vurdering av annet arbeid. Men du må også aktivt tilrettelegge i hennes nåværende stilling (§4-6) før noe annet vurderes."
+                      }
+                    ]
+                  },
+                  {
+                    "id": "s23-2",
+                    "prompt": "Hvordan strukturerer du tilretteleggingen for Maria?",
+                    "choices": [
+                      {
+                        "id": "s23-2a",
+                        "label": "Tilbyr 50 % i nåværende stilling, kjøper inn ekstern konsulent for resten — registrerer i Klarert",
+                        "impactScore": 10,
+                        "refLawId": "aml-4-6",
+                        "feedback": "Solid løsning. Tilretteleggingen er konkret, finansiert og dokumentert. Det er nettopp slike løsninger Arbeidstilsynet og tingretten ser etter."
+                      },
+                      {
+                        "id": "s23-2b",
+                        "label": "Ber Maria signere fraskrivelse av §4-6 og ber henne komme på fulltid uten tilrettelegging",
+                        "impactScore": -10,
+                        "refLawId": "aml-4-6",
+                        "feedback": "§4-6 kan ikke fraskrives. En slik signatur er ugyldig og kan kvalifisere som forsøk på sosial dumping / tvang under §4-3 (psykososialt arbeidsmiljø)."
+                      },
+                      {
+                        "id": "s23-2c",
+                        "label": "«Vi venter til hun er 100 % frisk» — ingen tilrettelegging gis",
+                        "impactScore": -8,
+                        "feedback": "Brudd på §4-6 — tilretteleggingsplikten gjelder PROAKTIVT, ikke som siste utvei. NAV kan kreve refusjon av sykepenger ved svikt i tilrettelegging."
+                      },
+                      {
+                        "id": "s23-2d",
+                        "label": "Avtaler 50 % oppgaver i annen avdeling — Marias eksisterende oppgaver fordeles på team",
+                        "impactScore": 6,
+                        "feedback": "Aksepter, men dokumenter at Maria har samtykket. Endring av arbeidsoppgaver utover det som ligger i arbeidsavtalen krever drøfting og normalt samtykke."
+                      }
+                    ]
+                  },
+                  {
+                    "id": "s23-3",
+                    "prompt": "HR-direktøren returnerer: «Vi har nettopp ansatt 3 nye, og budsjettet er tøyet. Kan du på en eller annen måte få Maria ut?»",
+                    "choices": [
+                      {
+                        "id": "s23-3a",
+                        "label": "Skriv en formell innstilling til HR-direktøren om at oppsigelse vil være lovstridig og presenter alternative kostnadsbesparelser",
+                        "impactScore": 10,
+                        "refLawId": "aml-15-7",
+                        "feedback": "Profesjonelt. Du dokumenterer at du sa fra — det beskytter deg personlig fra medvirkning til ulovlig oppsigelse, og gir HR-direktøren mulighet til å tenke om."
+                      },
+                      {
+                        "id": "s23-3b",
+                        "label": "Anbefal å gi henne en oppgave hun ikke kan utføre, for å bygge sak om uegnethet",
+                        "impactScore": -10,
+                        "feedback": "Klassisk arbeidsrettsforbrytelse. «Konstruert misligehold» er en velkjent praksis som rettssystemet aktivt rammer. Du har nå selv straffeansvar."
+                      },
+                      {
+                        "id": "s23-3c",
+                        "label": "Tilbyr Maria en sluttavtale med 6 måneders lønn",
+                        "impactScore": 4,
+                        "feedback": "Lovlig vei, men under sykmelding er det press. Sørg for at hun har advokatbistand og betenkningstid (anbefalt: 14 dager). Ellers kan avtalen kjennes ugyldig på grunn av tvang."
+                      },
+                      {
+                        "id": "s23-3d",
+                        "label": "Foreslår omorganisering hvor Marias stilling «forsvinner»",
+                        "impactScore": -7,
+                        "refLawId": "aml-15-7",
+                        "feedback": "Saklig omorganisering er lovlig, men en omorganisering rettet mot én person mens hun er sykmeldt blir alltid sett som omgåelse av §15-8. Tingretten kjenner mønsteret."
+                      }
+                    ]
+                  }
+                ]
+              }
+            },
+            {
+              "id": "aml-m21",
+              "title": "Avsluttende kompetansetest — AML for ledere",
+              "order": 23,
+              "kind": "quiz",
+              "durationMinutes": 20,
+              "content": {
+                "kind": "quiz",
+                "questions": [
+                  {
+                    "id": "final01",
+                    "question": "Hva er formålet med Arbeidsmiljøloven (§1-1)?",
+                    "options": [
+                      "Maksimere produktivitet i norsk næringsliv",
+                      "Sikre helsefremmende arbeidsmiljø og trygghet mot skadevirkninger",
+                      "Regulere lønnsnivå og tariffavtaler",
+                      "Beskytte virksomheter mot ulovlig konkurranse"
+                    ],
+                    "correctIndex": 1
+                  },
+                  {
+                    "id": "final02",
+                    "question": "Hvem kan etter AML ha personlig straffeansvar for HMS-brudd?",
+                    "options": [
+                      "Kun daglig leder / administrerende direktør",
+                      "Kun verneombudet",
+                      "Arbeidsgiver og ledere som forsettlig eller uaktsomt bryter loven",
+                      "Ingen — kun virksomheten som juridisk enhet"
+                    ],
+                    "correctIndex": 2
+                  },
+                  {
+                    "id": "final03",
+                    "question": "Hva krever AML §3-1 at systematisk HMS-arbeid skal gjøres I SAMARBEID med?",
+                    "options": [
+                      "Arbeidstilsynet og lokale myndigheter",
+                      "Arbeidstakerne og deres tillitsvalgte",
+                      "Styret og revisor",
+                      "NAV og bedriftshelsetjenesten"
+                    ],
+                    "correctIndex": 1
+                  },
+                  {
+                    "id": "final04",
+                    "question": "Hva er «restrisiko» i en ROS-vurdering?",
+                    "options": [
+                      "Risiko som aldri kan elimineres",
+                      "Risikoen som gjenstår etter at tiltak er iverksatt",
+                      "Risiko som ikke er vurdert ennå",
+                      "Risiko knyttet til restpartier kjemikalier"
+                    ],
+                    "correctIndex": 1
+                  },
+                  {
+                    "id": "final05",
+                    "question": "Hva kan en leder IKKE gjøre mot en ansatt som bruker sin stansingsrett (§6-3)?",
+                    "options": [
+                      "Be om begrunnelse for stansen",
+                      "Varsle overordnet leder",
+                      "Kontakte Arbeidstilsynet",
+                      "Si opp den ansatte fordi de brukte stansingsretten"
+                    ],
+                    "correctIndex": 3
+                  },
+                  {
+                    "id": "final06",
+                    "question": "Innen hvilken frist MÅ oppfølgingsplan for sykmeldt ansatt være utarbeidet?",
+                    "options": [
+                      "2 uker",
+                      "4 uker",
+                      "8 uker",
+                      "3 måneder"
+                    ],
+                    "correctIndex": 1
+                  },
+                  {
+                    "id": "final07",
+                    "question": "En leder nekter en ansatt å bruke fleksitid uten begrunnelse. Hvilken rettighet er potensielt brutt?",
+                    "options": [
+                      "AML §4-3 (psykososialt arbeidsmiljø)",
+                      "Tariffavtalens bestemmelser om fleksitid",
+                      "AML §2-1 (arbeidsgivers ansvar)",
+                      "AML §15-7 (oppsigelse)"
+                    ],
+                    "correctIndex": 1
+                  },
+                  {
+                    "id": "final08",
+                    "question": "Hva er minimumslengde på daglig hvile mellom to arbeidsøkter (§10-8)?",
+                    "options": [
+                      "8 timer",
+                      "9 timer",
+                      "11 timer",
+                      "12 timer"
+                    ],
+                    "correctIndex": 2
+                  },
+                  {
+                    "id": "final09",
+                    "question": "Kan en arbeidsgiver inngå individuell avtale med en ansatt om å fravike overtidsgrensene i §10-6?",
+                    "options": [
+                      "Ja, skriftlig avtale mellom partene er alltid tilstrekkelig",
+                      "Nei — overtidsgrensene kan kun fravikes gjennom tariffavtale",
+                      "Ja, men bare for ledere og nøkkelpersonell",
+                      "Nei — overtidsgrensene er absolutte og kan aldri fravikes"
+                    ],
+                    "correctIndex": 1
+                  },
+                  {
+                    "id": "final10",
+                    "question": "Hva er hovedregelen om bevisbyrd i diskrimineringssaker (§13-8)?",
+                    "options": [
+                      "Arbeidstaker bærer fullt bevisbyrde",
+                      "Bevisbyrden er delt likt mellom partene",
+                      "Dersom arbeidstaker sannsynliggjør diskriminering, går bevisbyrden over på arbeidsgiver",
+                      "Arbeidsgiver har alltid bevisbyrden i alle arbeidssaker"
+                    ],
+                    "correctIndex": 2
+                  },
+                  {
+                    "id": "final11",
+                    "question": "En virksomhet med 50 ansatte har ikke hatt AMU-møte på 8 måneder. Hva er problemet?",
+                    "options": [
+                      "Ingenting — AMU-møte er ikke lovpålagt",
+                      "Brudd på §7-2 — AMU skal møtes minst 4 ganger per år",
+                      "Kun et problem dersom verneombudet klager",
+                      "AMU trenger bare møte dersom det er HMS-saker til behandling"
+                    ],
+                    "correctIndex": 1
+                  },
+                  {
+                    "id": "final12",
+                    "question": "Hva skjer med oppsigelsestiden ved sykmelding ETTER at oppsigelse er gitt (§15-8)?",
+                    "options": [
+                      "Oppsigelsestiden suspenderes automatisk under sykdom",
+                      "Oppsigelsestiden løper normalt — sykdom stopper den ikke",
+                      "Ansatt kan velge om oppsigelsestiden skal suspenderes",
+                      "Oppsigelsen er ugyldig dersom ansatt sykmeldes innen 3 dager"
+                    ],
+                    "correctIndex": 1
+                  },
+                  {
+                    "id": "final13",
+                    "question": "Hva er et «drøftingsmøte» etter §15-1, og NÅR skal det holdes?",
+                    "options": [
+                      "Et møte etter at oppsigelsen er gitt, for å gi ansatt mulighet til å svare",
+                      "Et obligatorisk møte FØR beslutning om oppsigelse tas",
+                      "Et møte med Arbeidstilsynet ved tvist om oppsigelse",
+                      "Et møte mellom tillitsvalgte og arbeidsgiver om tariffspørsmål"
+                    ],
+                    "correctIndex": 1
+                  },
+                  {
+                    "id": "final14",
+                    "question": "Internkontrollforskriften §5 krever at HMS-arbeidet:",
+                    "options": [
+                      "Kun dokumenteres muntlig i møtereferater",
+                      "Dokumenteres skriftlig i en HMS-håndbok eller digitalt system",
+                      "Dokumenteres kun dersom Arbeidstilsynet krever det",
+                      "Dokumenteres hvert tredje år i en årsrapport"
+                    ],
+                    "correctIndex": 1
+                  },
+                  {
+                    "id": "final15",
+                    "question": "Hva er den VIKTIGSTE lærdommen fra dette kurset?",
+                    "options": [
+                      "HMS er HR-avdelingens ansvar, ikke lederens",
+                      "AML-brudd har kun sivilrettslige konsekvenser",
+                      "Som leder er du en juridisk ansvarlig aktør med personlig straffeansvar",
+                      "Verneombudet er ansvarlig for all HMS-dokumentasjon"
+                    ],
+                    "correctIndex": 2
+                  }
+                ],
+                "validation": {
+                  "requiredScore": 80,
+                  "allowRetry": false
+                }
+              },
+              "refLawIds": [
+                "aml-1-1",
+                "aml-2-1",
+                "aml-3-1",
+                "aml-4-3",
+                "aml-4-6",
+                "aml-6-3",
+                "aml-7-2",
+                "aml-10-6",
+                "aml-10-8",
+                "aml-13-1",
+                "aml-13-8",
+                "aml-15-1",
+                "aml-15-3",
+                "aml-15-7",
+                "aml-15-8",
+                "aml-19-1",
+                "ikf-5"
+              ],
+              "points": 50,
+              "badgeId": "badge-compliance-officer"
+            }
+          ],
+          "badges": [
+            {
+              "id": "badge-hms-foundation",
+              "label": "HMS-grunnstein",
+              "description": "Bestått første systematiske HMS-test",
+              "icon": "🛡️",
+              "color": "#1a3d32"
+            },
+            {
+              "id": "badge-on-the-job",
+              "label": "Praktisk leder",
+              "description": "Fullført alle praksis-scenarier med dokumentert bevis",
+              "icon": "🛠️",
+              "color": "#c2410c"
+            },
+            {
+              "id": "badge-arbeidstid-master",
+              "label": "Arbeidstidsmester",
+              "description": "Bestått fordypning om arbeidstid (kap. 10)",
+              "icon": "⏱️",
+              "color": "#0e7490"
+            },
+            {
+              "id": "badge-stillingsvern",
+              "label": "Stillingsvernekspert",
+              "description": "Bestått fordypning om oppsigelser (kap. 15)",
+              "icon": "⚖️",
+              "color": "#7c3aed"
+            },
+            {
+              "id": "badge-decision-maker",
+              "label": "Strategisk beslutningstaker",
+              "description": "Bestått scenarier hvor HMS og effektivitet er i konflikt",
+              "icon": "🧭",
+              "color": "#a21caf"
+            },
+            {
+              "id": "badge-compliance-officer",
+              "label": "Compliance Officer",
+              "description": "Bestått hele kurset — full HMS-leder-sertifisering",
+              "icon": "🏆",
+              "color": "#b45309"
+            }
+          ],
+          "milestones": [
+            {
+              "id": "ms-foundation",
+              "label": "HMS-grunnpilarer",
+              "moduleIds": [
+                "aml-m01",
+                "aml-m02",
+                "aml-m03",
+                "aml-m04",
+                "aml-m05",
+                "aml-m06",
+                "aml-m07",
+                "aml-m08"
+              ],
+              "badgeId": "badge-hms-foundation"
+            },
+            {
+              "id": "ms-on-the-job",
+              "label": "Praktisk lederpraksis",
+              "moduleIds": [
+                "aml-m17"
+              ],
+              "badgeId": "badge-on-the-job"
+            },
+            {
+              "id": "ms-arbeidstid",
+              "label": "Arbeidstid mastered",
+              "moduleIds": [
+                "aml-m14",
+                "aml-m15"
+              ],
+              "badgeId": "badge-arbeidstid-master"
+            },
+            {
+              "id": "ms-stillingsvern",
+              "label": "Stillingsvern mastered",
+              "moduleIds": [
+                "aml-m18",
+                "aml-m19"
+              ],
+              "badgeId": "badge-stillingsvern"
+            },
+            {
+              "id": "ms-decision",
+              "label": "Etisk og juridisk beslutningskraft",
+              "moduleIds": [
+                "aml-m22",
+                "aml-m23"
+              ],
+              "badgeId": "badge-decision-maker"
+            },
+            {
+              "id": "ms-final",
+              "label": "Fullført HMS-opplæring",
+              "moduleIds": [
+                "aml-m21"
+              ],
+              "badgeId": "badge-compliance-officer"
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "schemaVersion": 4
+}$AML$::jsonb;
+  v_course jsonb;
+  loc jsonb;
+  v_locale text;
+  v_title text;
+  v_description text;
+  v_modules jsonb;
+  v_meta jsonb;
+begin
+  v_course := v_bundle->'systemCourses'->0;
+  if v_course is null then
+    raise exception 'v4 bundle has no systemCourses[0]';
+  end if;
+
+  insert into public.learning_system_courses (id, slug, default_locale)
+  values (
+    'c-aml-ledere',
+    'aml-ledere',
+    coalesce(nullif(v_course->>'defaultLocale', ''), 'nb')
+  )
+  on conflict (id) do update set
+    slug = excluded.slug,
+    default_locale = excluded.default_locale;
+
+  for loc in select * from jsonb_array_elements(v_course->'locales')
+  loop
+    v_locale := loc->>'locale';
+    if v_locale is null or v_locale = '' then
+      raise exception 'locale entry missing "locale"';
+    end if;
+    v_title := coalesce(loc->>'title', '');
+    v_description := coalesce(loc->>'description', '');
+    v_modules := coalesce(loc->'modules', '[]'::jsonb);
+    if jsonb_typeof(v_modules) <> 'array' then
+      raise exception 'locale "%": modules must be a JSON array', v_locale;
+    end if;
+
+    -- meta = locale stripped of structural fields, plus an explicit
+    -- schemaVersion marker so consumers (export, planner) can tell at a
+    -- glance that this row is v4-shaped.
+    v_meta := (loc - 'locale' - 'title' - 'description' - 'modules')
+              || jsonb_build_object('schemaVersion', 4);
+
+    insert into public.learning_system_course_locales (
+      system_course_id, locale, title, description, modules, meta
+    ) values (
+      'c-aml-ledere', v_locale, v_title, v_description, v_modules, v_meta
+    )
+    on conflict (system_course_id, locale) do update set
+      title = excluded.title,
+      description = excluded.description,
+      modules = excluded.modules,
+      meta = excluded.meta;
+  end loop;
+end;
+$migration$;
