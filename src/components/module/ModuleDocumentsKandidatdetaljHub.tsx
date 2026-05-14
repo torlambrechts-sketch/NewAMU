@@ -814,7 +814,7 @@ export function ModuleDocumentsKandidatdetaljHub({
               />
             </div>
           </div>
-          <nav className="max-h-[min(70vh,32rem)] overflow-y-auto p-2" aria-label="Dokumentmapper">
+          <nav className="p-2" aria-label="Dokumentmapper">
             <WikiFolderNavRow
               label={centerContent === 'templates' ? 'Alle malmapper' : 'Alle mapper'}
               sub={`${spacesForNavFiltered.length} aktive`}
