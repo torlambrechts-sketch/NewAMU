@@ -36,6 +36,11 @@ export type RegelverkScorecardRow = {
   applies?: string
   obligation: Requirement['obligation']
   status: RequirementWithCoverage['status']
+  // Tilleggsfelt brukt av bowtie-widget — scorecard ignorerer dem. Holder
+  // datasettet enkelt-kilde for begge visningene slik at scope-eier
+  // slipper å regne ut to forskjellige rad-shaper.
+  byKind?: RequirementWithCoverage['byKind']
+  proof?: RequirementWithCoverage['proof']
 }
 
 export type RegelverkScorecardGroup = {
@@ -255,6 +260,8 @@ export function useRegelverkDatasets(filters: DashboardFilter[]): {
         applies: r.applies,
         obligation: r.obligation,
         status: r.status,
+        byKind: r.byKind,
+        proof: r.proof,
       })
     }
     const scorecardGroups: RegelverkScorecardGroup[] = [...groupMap.values()]

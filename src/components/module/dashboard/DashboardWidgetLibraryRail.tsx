@@ -43,6 +43,7 @@ const KIND_LABEL: Record<ReportModuleKind, string> = {
   table: 'Tabell',
   heatmap: 'Heatmap',
   scorecard: 'Scorecard',
+  bowtie: 'Bowtie',
 }
 
 export function DashboardWidgetLibraryRail({ scopeId, onAdd, onClose }: Props) {

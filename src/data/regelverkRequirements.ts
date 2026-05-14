@@ -12,6 +12,16 @@
 //   - description (lovtekst-utdrag / autoritativ oppsummering)
 //
 // Synkronisert manuelt med specs/aml-requirements-inventory.md.
+//
+// Lovdata-revisjon 2026-05-14 (kompetent jurist-gjennomgang av hele
+// arbeidsmiljøloven kap. 1–19): la til kap. 12 (permisjon) i sin helhet
+// pluss gjenværende gap i kap. 2A (§ 2A-7), kap. 3 (§ 3-6),
+// kap. 10 (§ 10-3, 10-10, 10-11, 10-12), kap. 11 (§ 11-3, 11-4, 11-5),
+// kap. 13 (§ 13-3), kap. 14 (§ 14-1, 14-2, 14-3, 14 A-1),
+// kap. 15 (§ 15-5, 15-6, 15-8, 15-9), kap. 16 (§ 16-3, 16-4) og
+// kap. 18 (§ 18-6, 18-8). Inventory-spec listet kap. 12 som «⚠️ ingen
+// permisjons­system» og glemte å føre paragrafene som krav — dashbordet
+// kunne derfor ikke vise dem som udekket. Det er rettet her.
 
 export type Regelverk = {
   id: string
@@ -87,6 +97,11 @@ export const REQUIREMENTS: Requirement[] = [
     obligation: 'mandatory', category: 'Kap. 2A — Varsling',
     description: 'Varslerens identitet skal ikke videreformidles uten varslerens samtykke med mindre dette er nødvendig for å følge opp varselet. Identiteten til den det varsles om skal heller ikke videreformidles unødvendig. Begge parter har krav på å bli informert om at varsling har funnet sted.',
   },
+  {
+    regelverkId: 'aml', lawRef: 'AML § 2A-7', title: 'AMU-orientering om varsling',
+    obligation: 'mandatory', applies: '≥ 30 ansatte (AMU)', category: 'Kap. 2A — Varsling',
+    description: 'Arbeidsgiver skal periodisk og minst årlig orientere arbeidsmiljøutvalget om mottatte varsler i anonymisert form, slik at AMU kan vurdere om varslingsrutinene fungerer i praksis. Orienteringen skal omfatte antall varsler, typer kritikkverdige forhold, behandlingstid og iverksatte tiltak.',
+  },
 
   // ─── AML kap. 3 — Virkemidler ──────────────────────────────────────────
   {
@@ -113,6 +128,11 @@ export const REQUIREMENTS: Requirement[] = [
     regelverkId: 'aml', lawRef: 'AML § 3-5', title: 'Arbeidsgivers HMS-opplæring',
     obligation: 'mandatory', category: 'Kap. 3 — Virkemidler',
     description: 'Arbeidsgiver skal gjennomgå opplæring i helse-, miljø- og sikkerhetsarbeid. Øverste leder og andre i lederrollen med personalansvar plikter å ha tilstrekkelig kunnskap om systematisk HMS-arbeid til å kunne ivareta sine forpliktelser etter loven og internkontrollforskriften.',
+  },
+  {
+    regelverkId: 'aml', lawRef: 'AML § 3-6', title: 'Forebygge varslings­saker',
+    obligation: 'mandatory', applies: 'Alle virksomheter', category: 'Kap. 3 — Virkemidler',
+    description: 'Arbeidsgiver skal utarbeide rutiner for intern varsling eller sette i verk andre tiltak som legger forholdene til rette for intern varsling om kritikkverdige forhold. Plikten gjelder uansett størrelse, men er obligatorisk skriftlig fra fem ansatte (§ 2A-2). Rutinene skal være lett tilgjengelige og kjent for alle ansatte og innleide.',
   },
 
   // ─── AML kap. 4 — Krav til arbeidsmiljø ────────────────────────────────
@@ -259,6 +279,11 @@ export const REQUIREMENTS: Requirement[] = [
     description: 'Arbeidstidsordninger skal være slik at arbeidstakerne ikke utsettes for uheldige fysiske eller psykiske belastninger, og slik at det er mulig å ivareta sikkerhetshensyn. Ordningene skal gi mulighet for tilstrekkelig hvile og fritid, samt hensyn til arbeidstakernes familiesituasjon og behov for tilrettelegging.',
   },
   {
+    regelverkId: 'aml', lawRef: 'AML § 10-3', title: 'Skriftlig arbeidsplan',
+    obligation: 'conditional', applies: 'Skift/turnus eller varierende arbeidstid', category: 'Kap. 10 — Arbeidstid',
+    description: 'Dersom arbeidstakerne arbeider på ulike tider av døgnet, skal det utarbeides en arbeidsplan som viser hvilke uker, dager og tider den enkelte arbeidstaker skal arbeide. Arbeidsplanen skal være skriftlig, drøftet med arbeidstakernes tillitsvalgte og være lett tilgjengelig for arbeidstakerne senest to uker før iverksetting.',
+  },
+  {
     regelverkId: 'aml', lawRef: 'AML § 10-4', title: 'Alminnelig arbeidstid',
     obligation: 'mandatory', category: 'Kap. 10 — Arbeidstid',
     description: 'Den alminnelige arbeidstid må ikke overstige ni timer i løpet av 24 timer og 40 timer i løpet av sju dager. For skiftarbeid og annet turnusarbeid gjelder særskilte regler som gir redusert normal arbeidstid ned til 33,6 timer per uke for særlig belastende arbeid.',
@@ -283,6 +308,21 @@ export const REQUIREMENTS: Requirement[] = [
     obligation: 'mandatory', category: 'Kap. 10 — Arbeidstid',
     description: 'Arbeidstaker skal ha minst én pause dersom den daglige arbeidstid overstiger fem og en halv time. Er arbeidstiden minst åtte timer, skal pausene til sammen utgjøre minst en halv time. Arbeidstaker som ikke kan forlate arbeidsstedet under pausen, skal ha pausetid godtgjort som arbeidstid.',
   },
+  {
+    regelverkId: 'aml', lawRef: 'AML § 10-10', title: 'Søn- og helgedags­arbeid',
+    obligation: 'conditional', category: 'Kap. 10 — Arbeidstid',
+    description: 'Det skal være arbeidsfri fra klokken 18 dagen før en søn- eller helgedag og frem til klokken 22 dagen før neste virkedag. Arbeid på søn- og helgedager er bare tillatt når arbeidets art gjør det nødvendig. Arbeidstaker skal i gjennomsnitt ha annenhver søn- og helgedag fri, og minst hver tredje. Avtale med tillitsvalgte kan gi alternative ordninger.',
+  },
+  {
+    regelverkId: 'aml', lawRef: 'AML § 10-11', title: 'Nattarbeid',
+    obligation: 'conditional', category: 'Kap. 10 — Arbeidstid',
+    description: 'Arbeid mellom klokken 21 og 06 er nattarbeid og er bare tillatt når arbeidets art gjør det nødvendig. Arbeidsgiver skal drøfte nattarbeid med arbeidstakernes tillitsvalgte før det settes i verk. Arbeidstaker som regelmessig utfører mer enn tre timer nattarbeid har rett til helsekontroll før tiltredelse og deretter med jevne mellomrom.',
+  },
+  {
+    regelverkId: 'aml', lawRef: 'AML § 10-12', title: 'Unntak fra arbeidstids­bestemmelsene',
+    obligation: 'conditional', applies: 'Ledende/uavhengig stilling', category: 'Kap. 10 — Arbeidstid',
+    description: 'Arbeidstidsbestemmelsene gjelder ikke fullt ut for arbeidstaker i ledende stilling eller særlig uavhengig stilling. Vurderingen skal være konkret — stillingstittel alene er ikke nok. Unntak skal være skriftlig avtalt, og gjennomsnittsberegning utover lovens grenser krever avtale med tillitsvalgte i tariffbundet virksomhet.',
+  },
 
   // ─── AML kap. 11 — Barn og ungdom ──────────────────────────────────────
   {
@@ -294,6 +334,98 @@ export const REQUIREMENTS: Requirement[] = [
     regelverkId: 'aml', lawRef: 'AML § 11-2', title: 'Samtykke fra foresatte',
     obligation: 'conditional', category: 'Kap. 11 — Barn og ungdom',
     description: 'Barn mellom 13 og 15 år kan utføre lett arbeid som ikke skader helse, utvikling eller skolegang. Slikt arbeid krever skriftlig samtykke fra foreldre eller foresatte. Arbeidsgiver skal kontrollere at samtykke er innhentet, og at arbeidet er av slik art at det er lovlig for aldersgruppen.',
+  },
+  {
+    regelverkId: 'aml', lawRef: 'AML § 11-3', title: 'Arbeidstid for barn og ungdom',
+    obligation: 'conditional', applies: '< 18 år', category: 'Kap. 11 — Barn og ungdom',
+    description: 'Arbeidstaker under 18 år skal ha en arbeidstid som ikke skader helse, utvikling eller skolegang. Barn 13–15 år: maks 2 timer per skoledag og 12 timer per uke. Ungdom 15–18 år: maks 8 timer per dag og 40 timer per uke. Det skal være minst 12 timer sammenhengende hvile per døgn.',
+  },
+  {
+    regelverkId: 'aml', lawRef: 'AML § 11-4', title: 'Helse­kontroll av ungdom',
+    obligation: 'conditional', applies: '< 18 år i risiko­utsatt arbeid', category: 'Kap. 11 — Barn og ungdom',
+    description: 'Ungdom som settes til arbeid som kan medføre særskilte helsefarer, skal gjennomgå helsekontroll før tilsetting og deretter med jevne mellomrom. Arbeidsgiver bekoster undersøkelsen og skal ikke sette ungdom til arbeid som etter en risikovurdering kan være helseskadelig.',
+  },
+  {
+    regelverkId: 'aml', lawRef: 'AML § 11-5', title: 'Forbud mot nattarbeid (ungdom)',
+    obligation: 'mandatory', applies: '< 18 år', category: 'Kap. 11 — Barn og ungdom',
+    description: 'Barn under 15 år og skolepliktige ungdom skal ikke arbeide mellom klokken 20 og 06. Ungdom 15–18 år skal ikke arbeide mellom 23 og 06. Unntak gjelder enkelte bransjer (helse, kultur) med skriftlig samtykke og eventuell tilsynsdispensasjon. Brudd kan medføre straff etter § 19-1.',
+  },
+
+  // ─── AML kap. 12 — Permisjon ───────────────────────────────────────────
+  // Alle paragrafer i kap. 12 er pliktige rettigheter for arbeidstakeren —
+  // arbeidsgiver kan ikke nekte uten lovlig grunn. NewAMU dekker permisjons-
+  // landskapet via dokumentmalen `tpl-permisjonsoversikt` (legal_basis
+  // dekker 12-1..12-7, 12-9..12-13, 12-15). Selve permisjons­håndteringen
+  // (uttak, lønn, varsler) krever HR-system-integrasjon.
+  {
+    regelverkId: 'aml', lawRef: 'AML § 12-1', title: 'Svangerskaps­kontroll',
+    obligation: 'mandatory', applies: 'Gravid arbeidstaker', category: 'Kap. 12 — Permisjon',
+    description: 'Arbeidstaker som er gravid har rett til fri fra arbeidet med lønn i forbindelse med svangerskapskontroll, dersom slik kontroll ikke med rimelighet kan finne sted utenfor arbeidstiden. Plikten gjelder uavhengig av virksomhetens størrelse og er ufravikelig.',
+  },
+  {
+    regelverkId: 'aml', lawRef: 'AML § 12-2', title: 'Svangerskaps­permisjon',
+    obligation: 'mandatory', applies: 'Gravid arbeidstaker', category: 'Kap. 12 — Permisjon',
+    description: 'Arbeidstaker som er gravid har rett til permisjon i inntil tolv uker under svangerskapet. Permisjonen kan tas ut sammenhengende eller fordelt over perioden. Foreldrepenger fra NAV dekker hele eller deler av perioden avhengig av tidligere inntekt.',
+  },
+  {
+    regelverkId: 'aml', lawRef: 'AML § 12-3', title: 'Omsorgs­permisjon',
+    obligation: 'mandatory', applies: 'Far/medmor/adoptiv­forelder', category: 'Kap. 12 — Permisjon',
+    description: 'Far eller annen omsorgsperson har rett til to ukers permisjon i forbindelse med fødsel for å bistå moren. Ved adopsjon eller når foreldre overtar omsorgen for barn under 15 år, har omsorgspersonen tilsvarende rett til to ukers permisjon.',
+  },
+  {
+    regelverkId: 'aml', lawRef: 'AML § 12-4', title: 'Fødsels­permisjon',
+    obligation: 'mandatory', applies: 'Etter fødsel', category: 'Kap. 12 — Permisjon',
+    description: 'Etter fødselen skal mor ha permisjon de første seks ukene, med mindre hun fremlegger legeerklæring om at det er bedre for henne å komme i arbeid. Plikten er ufravikelig og arbeidsgiver har ikke adgang til å sette mor i arbeid i denne perioden uten slik erklæring.',
+  },
+  {
+    regelverkId: 'aml', lawRef: 'AML § 12-5', title: 'Foreldre­permisjon',
+    obligation: 'mandatory', category: 'Kap. 12 — Permisjon',
+    description: 'Foreldre har til sammen rett til permisjon i inntil tolv måneder ved fødsel og inntil tolv måneder for hver av foreldrene i tillegg, dersom permisjonen tas ut umiddelbart etter den første tolv-månedersperioden. Permisjon kan tas ut sammenhengende eller spredt frem til barnet fyller tre år.',
+  },
+  {
+    regelverkId: 'aml', lawRef: 'AML § 12-6', title: 'Delvis permisjon (tidskonto)',
+    obligation: 'mandatory', category: 'Kap. 12 — Permisjon',
+    description: 'Permisjon etter §§ 12-2, 12-4 og 12-5 kan tas ut som delvis permisjon kombinert med arbeid (tidskontoordning) etter avtale mellom arbeidsgiver og arbeidstaker. Arbeidsgiver kan bare nekte dersom delvis uttak medfører vesentlige ulemper for virksomheten. Delvis permisjon må tas ut innenfor en periode på tre år.',
+  },
+  {
+    regelverkId: 'aml', lawRef: 'AML § 12-7', title: 'Varsel om permisjon',
+    obligation: 'mandatory', category: 'Kap. 12 — Permisjon',
+    description: 'Arbeidstaker som vil ta permisjon etter §§ 12-2 til 12-6, skal varsle arbeidsgiver snarest mulig. Varselfristen er minst én uke for fravær inntil to uker, fire uker for fravær over to og inntil tolv uker, og tolv uker for fravær over tolv uker. Brudd på varslingsplikten medfører ikke tap av permisjonsretten.',
+  },
+  {
+    regelverkId: 'aml', lawRef: 'AML § 12-8', title: 'Ammefri',
+    obligation: 'mandatory', applies: 'Ammende mor med barn < 1 år', category: 'Kap. 12 — Permisjon',
+    description: 'Kvinne som ammer sitt barn har rett til den fri hun trenger for å amme. Hun kan blant annet kreve fri i minst en halv time to ganger daglig eller redusert arbeidstid med inntil én time hver arbeidsdag. Det første året har ammende rett til inntil én time med lønn dersom daglig arbeidstid er sju timer eller mer.',
+  },
+  {
+    regelverkId: 'aml', lawRef: 'AML § 12-9', title: 'Barns og barnepassers sykdom',
+    obligation: 'mandatory', applies: 'Foreldre med barn < 12 år', category: 'Kap. 12 — Permisjon',
+    description: 'Arbeidstaker som har omsorg for barn under 12 år, har rett til permisjon for nødvendig tilsyn med barnet når det er sykt, eller når barnepasser er syk. Retten er inntil 10 dager årlig (15 dager ved tre eller flere barn, 20 dager ved kronisk sykt barn). Omsorgspenger utbetales fra NAV.',
+  },
+  {
+    regelverkId: 'aml', lawRef: 'AML § 12-10', title: 'Pleie av nære pårørende',
+    obligation: 'mandatory', category: 'Kap. 12 — Permisjon',
+    description: 'Arbeidstaker som pleier nære pårørende i hjemmet i livets sluttfase, har rett til permisjon i 60 dager for omsorgen. Arbeidstaker har også rett til inntil 10 dager per kalenderår for å gi nødvendig omsorg til pårørende. Pleiepenger eller annen ytelse kan utbetales fra NAV ved kvalifiserende grunner.',
+  },
+  {
+    regelverkId: 'aml', lawRef: 'AML § 12-11', title: 'Utdannings­permisjon',
+    obligation: 'mandatory', applies: '≥ 3 års arbeidserfaring', category: 'Kap. 12 — Permisjon',
+    description: 'Arbeidstaker som har vært i arbeidslivet i minst tre år og har vært ansatt hos arbeidsgiveren de siste to årene, har rett til hel eller delvis permisjon i inntil tre år for å delta i organisert utdanning. Utdanningen må være yrkesrelatert, dersom permisjonen overstiger ett år. Arbeidsgiver kan nekte når permisjonen vil være til hinder for arbeidsgiverens forsvarlige planlegging.',
+  },
+  {
+    regelverkId: 'aml', lawRef: 'AML § 12-12', title: 'Militær­tjeneste og lignende',
+    obligation: 'mandatory', category: 'Kap. 12 — Permisjon',
+    description: 'Arbeidstaker har rett til permisjon ved pliktig eller frivillig militærtjeneste, ved tjeneste i sivilforsvaret, polititjeneste, eller deltakelse i internasjonale fredsoperasjoner. Arbeidstaker skal underrette arbeidsgiver om når tjenesten påbegynnes og når det er sannsynlig at vedkommende vil komme tilbake.',
+  },
+  {
+    regelverkId: 'aml', lawRef: 'AML § 12-13', title: 'Offentlige verv',
+    obligation: 'mandatory', category: 'Kap. 12 — Permisjon',
+    description: 'Arbeidstaker har rett til permisjon fra arbeidet i det omfang det er nødvendig for å oppfylle lovbestemt møteplikt i offentlige organer (kommunestyre, fylkesting, Stortinget, domstol, nemnd m.m.). Permisjonen er som regel ulønnet, men kan kompenseres via det organet vervet utføres for.',
+  },
+  {
+    regelverkId: 'aml', lawRef: 'AML § 12-15', title: 'Religiøse høytider',
+    obligation: 'mandatory', applies: 'Trossamfunn utenfor Den norske kirke', category: 'Kap. 12 — Permisjon',
+    description: 'Arbeidstaker som ikke tilhører Den norske kirke har rett til to dager fri hvert år i forbindelse med religiøse høytider som ikke er offentlige høytidsdager i Norge. Arbeidstaker skal varsle arbeidsgiver minst 14 dager i forveien. Permisjonen er som hovedregel uten lønn.',
   },
 
   // ─── AML kap. 13 — Diskriminering ──────────────────────────────────────
@@ -308,9 +440,24 @@ export const REQUIREMENTS: Requirement[] = [
     description: 'Diskrimineringsforbudet gjelder alle sider ved arbeidsforholdet, herunder utlysning av stilling, ansettelse, omplassering, forfremmelse, opplæring og annen kompetanseutvikling, lønns- og arbeidsvilkår og opphør av arbeidsforhold. Det gjelder også for selvstendig næringsdrivende og innleide arbeidstakere.',
   },
   {
+    regelverkId: 'aml', lawRef: 'AML § 13-3', title: 'Lovlig forskjells­behandling',
+    obligation: 'conditional', category: 'Kap. 13 — Diskriminering',
+    description: 'Forskjellsbehandling som har et saklig formål, er nødvendig for å oppnå formålet, og ikke er uforholdsmessig inngripende, anses ikke som diskriminering. Vurderingen skal være konkret og dokumenterbar. Arbeidsgiver har bevisbyrden for at vilkårene er oppfylt — fravær av skriftlig vurdering svekker forsvaret ved klage til Diskrimineringsnemnda.',
+  },
+  {
     regelverkId: 'aml', lawRef: 'AML § 13-4', title: 'Innhenting av opplysninger',
     obligation: 'mandatory', category: 'Kap. 13 — Diskriminering',
     description: 'Arbeidsgiver må ikke i utlysning etter nye arbeidstakere eller på annen måte be om at søkerne skal gi opplysninger om seksuell orientering, etnisk bakgrunn, religion, livssyn eller nedsatt funksjonsevne. Unntak gjelder dersom slike opplysninger er nødvendige for utøvelse av stillingen.',
+  },
+  {
+    regelverkId: 'aml', lawRef: 'AML § 13-5', title: 'Aldersgrense ved 72 år',
+    obligation: 'mandatory', category: 'Kap. 13 — Diskriminering',
+    description: 'Arbeidsforhold kan bringes til opphør når arbeidstaker fyller 72 år. Bedriftsintern aldersgrense lavere enn 72 år krever saklig grunn, må være drøftet med tillitsvalgte og praktiseres konsekvent. Aldersgrenser under 70 år tillates kun i særlige stillinger (politi, brann, forsvar) med hjemmel i annet regelverk.',
+  },
+  {
+    regelverkId: 'aml', lawRef: 'AML § 13-6', title: 'Positiv særbehandling',
+    obligation: 'conditional', category: 'Kap. 13 — Diskriminering',
+    description: 'Særbehandling som bidrar til å fremme lovens formål om likebehandling, anses ikke som diskriminering. Slik særbehandling skal opphøre når formålet er oppnådd og må være forholdsmessig. Eksempler: kvotering ved like kvalifikasjoner i grupper som er klart underrepresentert i stillingstype.',
   },
   {
     regelverkId: 'aml', lawRef: 'AML § 13-7', title: 'Trakassering',
@@ -319,6 +466,21 @@ export const REQUIREMENTS: Requirement[] = [
   },
 
   // ─── AML kap. 14 — Ansettelse ──────────────────────────────────────────
+  {
+    regelverkId: 'aml', lawRef: 'AML § 14-1', title: 'Informasjon om ledige stillinger',
+    obligation: 'mandatory', category: 'Kap. 14 — Ansettelse',
+    description: 'Arbeidsgiver skal informere arbeidstakerne om ledige stillinger i virksomheten. Plikten gjelder også for innleide arbeidstakere som har vært ansatt i bemanningsforetaket i mer enn seks måneder. Informasjonen skal være tilgjengelig på en måte som gir alle reell mulighet til å søke — typisk via intranett, oppslag eller e-post.',
+  },
+  {
+    regelverkId: 'aml', lawRef: 'AML § 14-2', title: 'Fortrinns­rett til ny ansettelse',
+    obligation: 'mandatory', applies: 'Ved oppsigelse pga drift', category: 'Kap. 14 — Ansettelse',
+    description: 'Arbeidstaker som er sagt opp på grunn av virksomhetens forhold, har fortrinnsrett til ny ansettelse i samme virksomhet i tolv måneder fra oppsigelsestidens utløp. Fortrinnsretten gjelder for stilling vedkommende er kvalifisert for, og betinger at arbeidstaker har vært tilsatt i virksomheten i til sammen minst tolv måneder de siste to årene.',
+  },
+  {
+    regelverkId: 'aml', lawRef: 'AML § 14-3', title: 'Fortrinns­rett for deltidsansatte',
+    obligation: 'mandatory', category: 'Kap. 14 — Ansettelse',
+    description: 'Deltidsansatte har fortrinnsrett til utvidet stilling fremfor at arbeidsgiver foretar ny ansettelse i virksomheten. Fortrinnsretten er betinget av at arbeidstaker er kvalifisert for stillingen og at utøvelse av retten ikke vil innebære vesentlige ulemper for virksomheten. Tvist kan bringes inn for Tvisteløsningsnemnda.',
+  },
   {
     regelverkId: 'aml', lawRef: 'AML § 14-5', title: 'Skriftlig arbeidsavtale',
     obligation: 'mandatory', category: 'Kap. 14 — Ansettelse',
@@ -349,6 +511,12 @@ export const REQUIREMENTS: Requirement[] = [
     obligation: 'mandatory', category: 'Kap. 14 — Ansettelse',
     description: 'Arbeidsgiver som leier inn arbeidstakere fra bemanningsforetak, skal sørge for at disse lønnes og innrømmes arbeidsvilkår på minst like gunstige vilkår som det som ville gjeldt dersom arbeidstaker hadde vært ansatt direkte hos innleier for å utføre det samme arbeidet. Innleier har solidaransvar for utbetaling av lønn.',
   },
+  {
+    regelverkId: 'aml', lawRef: 'AML § 14 A-1', title: 'Konkurranse­klausuler',
+    obligation: 'conditional', applies: 'Ved skriftlig avtale', category: 'Kap. 14 — Ansettelse',
+    alternateRefs: ['AML § 14 A', 'AML § 14A', 'AML § 14A-1', 'AML § 14-A-1'],
+    description: 'En konkurranseklausul er en avtale som begrenser arbeidstakers adgang til å tiltre annen virksomhet etter at arbeidsforholdet har opphørt. Klausulen er kun gyldig dersom den er skriftlig avtalt, begrunnet i særlig behov for vern mot konkurranse, og varigheten er maksimum tolv måneder fra opphør. Arbeidsgiver skal betale kompensasjon tilsvarende 100 % av arbeidsvederlaget opptil 8 G under hele bindingsperioden.',
+  },
 
   // ─── AML kap. 15 — Opphør ──────────────────────────────────────────────
   {
@@ -372,9 +540,29 @@ export const REQUIREMENTS: Requirement[] = [
     description: 'Oppsigelse fra arbeidsgiver skal skje skriftlig og leveres til arbeidstaker personlig eller sendes rekommandert til arbeidstakers oppgitte adresse. Oppsigelsen skal inneholde opplysninger om arbeidstakers rett til å kreve forhandling og reise søksmål, om de frister som gjelder for dette, og om hvem som er arbeidsgiver og rett saksøkt.',
   },
   {
+    regelverkId: 'aml', lawRef: 'AML § 15-5', title: 'Virkning av formfeil',
+    obligation: 'mandatory', category: 'Kap. 15 — Opphør',
+    description: 'Dersom oppsigelse fra arbeidsgiver ikke er gitt skriftlig eller mangler de pliktige opplysningene etter § 15-4 (frister, forhandlingsrett, saksøkt), skal oppsigelsen kjennes ugyldig dersom arbeidstakeren reiser søksmål innen fire måneder. Arbeidstakeren har krav på erstatning fastsatt av retten basert på saklighet og økonomisk tap.',
+  },
+  {
+    regelverkId: 'aml', lawRef: 'AML § 15-6', title: 'Oppsigelses­vern i prøvetid',
+    obligation: 'mandatory', applies: 'Inntil 6 mnd. prøvetid', category: 'Kap. 15 — Opphør',
+    description: 'I prøvetiden kan oppsigelse skje med 14 dagers frist dersom den er begrunnet i arbeidstakers tilpasning til arbeidet, faglige dyktighet eller pålitelighet. Prøvetiden skal være skriftlig avtalt og kan maksimum vare seks måneder. Vernet mot usaklig oppsigelse (§ 15-7) gjelder også i prøvetid — terskelen er bare noe lavere.',
+  },
+  {
     regelverkId: 'aml', lawRef: 'AML § 15-7', title: 'Vern mot usaklig oppsigelse',
     obligation: 'mandatory', category: 'Kap. 15 — Opphør',
     description: 'Arbeidstaker kan ikke sies opp uten at det er saklig begrunnet i virksomhetens, arbeidsgivers eller arbeidstakers forhold. Oppsigelse begrunnet i driftsinnskrenkninger eller rasjonaliseringstiltak er ikke saklig begrunnet dersom arbeidsgiver har et annet passende arbeid å tilby arbeidstaker i virksomheten.',
+  },
+  {
+    regelverkId: 'aml', lawRef: 'AML § 15-8', title: 'Vern ved sykdom',
+    obligation: 'mandatory', applies: 'Inntil 12 mnd. fra sykmelding', category: 'Kap. 15 — Opphør',
+    description: 'Arbeidstaker som helt eller delvis er borte fra arbeidet på grunn av ulykke eller sykdom, kan ikke av denne grunn sies opp de første tolv månedene etter at arbeidsuførheten inntrådte. Oppsigelse som finner sted i verneperioden, antas å ha sin grunn i sykefraværet med mindre noe annet gjøres overveiende sannsynlig.',
+  },
+  {
+    regelverkId: 'aml', lawRef: 'AML § 15-9', title: 'Vern ved svangerskap, fødsel og adopsjon',
+    obligation: 'mandatory', category: 'Kap. 15 — Opphør',
+    description: 'Arbeidstaker som er gravid kan ikke av denne grunn sies opp. Oppsigelse som gis i svangerskaps-, fødsels-, omsorgs-, foreldre- eller adopsjonspermisjon, skal antas å ha sin grunn i permisjonen med mindre noe annet gjøres overveiende sannsynlig. Beskyttelsen gjelder også arbeidstaker som har varslet permisjon eller er i prøvetid.',
   },
   {
     regelverkId: 'aml', lawRef: 'AML § 15-10', title: 'Vern ved verneplikt',
@@ -409,20 +597,40 @@ export const REQUIREMENTS: Requirement[] = [
     description: 'Tidligere arbeidsgivers rettigheter og plikter som følger av arbeidsavtale eller arbeidsforhold som bestod på det tidspunkt overdragelsen finner sted, overføres til den nye arbeidsgiver. Den nye arbeidsgiver er bundet av tariffavtale som den tidligere arbeidsgiver var bundet av, med mindre den nye arbeidsgiver senest innen tre uker etter overdragelsen gir skriftlig varsel om det motsatte.',
   },
   {
+    regelverkId: 'aml', lawRef: 'AML § 16-3', title: 'Reservasjons- og valgrett',
+    obligation: 'mandatory', category: 'Kap. 16 — Overdragelse',
+    description: 'Arbeidstaker kan motsette seg at arbeidsforholdet overføres til ny arbeidsgiver. Arbeidstaker som benytter reservasjonsretten må skriftlig underrette tidligere arbeidsgiver innen den fristen som arbeidsgiver setter (minst 14 dager etter mottatt informasjon). Arbeidstaker med minst 12 måneders ansiennitet kan i særlige tilfeller kreve fortsatt ansettelse hos tidligere arbeidsgiver (valgrett).',
+  },
+  {
+    regelverkId: 'aml', lawRef: 'AML § 16-4', title: 'Vern mot oppsigelse ved overdragelse',
+    obligation: 'mandatory', category: 'Kap. 16 — Overdragelse',
+    description: 'Overdragelsen i seg selv er ikke saklig grunn for oppsigelse fra tidligere eller ny arbeidsgiver. Bestemmelsen er ikke til hinder for oppsigelser begrunnet i økonomiske, tekniske eller organisatoriske årsaker som medfører personellmessige endringer — men bevisbyrden for slik selvstendig grunn ligger på arbeidsgiver.',
+  },
+  {
     regelverkId: 'aml', lawRef: 'AML § 16-5', title: 'Drøftings­plikt ved overdragelse',
     obligation: 'mandatory', category: 'Kap. 16 — Overdragelse',
     description: 'Så tidlig som mulig, og normalt senest tre uker før det fattes endelig vedtak om overdragelse, skal arbeidsgiver gi representanter for de berørte arbeidstakere informasjon om overdragelsen. Partene skal deretter drøfte overdragelsen med sikte på å oppnå en avtale om mulige tiltak for å unngå eller begrense negative konsekvenser for arbeidstakerne.',
   },
 
-  // ─── AML kap. 18-19 — Tilsyn og straff ─────────────────────────────────
+  // ─── AML kap. 18-19 — Tilsyn og sanksjoner ─────────────────────────────
+  {
+    regelverkId: 'aml', lawRef: 'AML § 18-6', title: 'Pålegg fra Arbeidstilsynet',
+    obligation: 'mandatory', category: 'Kap. 18-19 — Tilsyn og sanksjoner',
+    description: 'Arbeidstilsynet gir pålegg om utbedring av mangler ved virksomhetens HMS-arbeid med en frist for gjennomføring. Pålegget skal være skriftlig og kan klages inn for Direktoratet for arbeidstilsynet innen tre uker. Manglende etterlevelse innen fristen kan utløse tvangsmulkt etter § 18-7 og overtredelsesgebyr etter § 18-10.',
+  },
+  {
+    regelverkId: 'aml', lawRef: 'AML § 18-8', title: 'Adgang til opplysninger',
+    obligation: 'mandatory', category: 'Kap. 18-19 — Tilsyn og sanksjoner',
+    description: 'Arbeidstilsynet skal gis fri adgang til ethvert arbeidssted og rett til å innhente de opplysninger som er nødvendige for utøvelse av tilsynet. Arbeidsgiver, arbeidstakere og verneombud plikter å bidra med opplysninger og fremlegge HMS-dokumentasjon ved forespørsel. Forsettlig eller uaktsom hindring kan straffes etter § 19-1.',
+  },
   {
     regelverkId: 'aml', lawRef: 'AML § 18-10', title: 'Overtredelses­gebyr (15 G)',
-    obligation: 'mandatory', category: 'Kap. 18-19 — Sanksjoner',
+    obligation: 'mandatory', category: 'Kap. 18-19 — Tilsyn og sanksjoner',
     description: 'Arbeidstilsynet kan ilegge arbeidsgiver et overtredelsesgebyr ved overtredelse av bestemmelsene i loven eller pålegg gitt med hjemmel i loven. Gebyret kan utgjøre inntil 15 ganger grunnbeløpet i Folketrygden. Ved fastsettelse av gebyrets størrelse skal det særlig legges vekt på overtredelsens art og omfang.',
   },
   {
     regelverkId: 'aml', lawRef: 'AML § 19-1', title: 'Straffeansvar',
-    obligation: 'mandatory', category: 'Kap. 18-19 — Sanksjoner',
+    obligation: 'mandatory', category: 'Kap. 18-19 — Tilsyn og sanksjoner',
     description: 'Den som forsettlig eller uaktsomt overtrer bestemmelser eller pålegg gitt i eller i medhold av denne loven, straffes med bøter eller fengsel inntil tre måneder. Under særlig skjerpende omstendigheter kan fengsel inntil to år anvendes. Foretak kan straffes etter reglene i straffeloven §§ 27 og 28.',
   },
 

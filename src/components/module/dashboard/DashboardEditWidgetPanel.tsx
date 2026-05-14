@@ -57,6 +57,7 @@ const KIND_LABELS: Record<ReportModuleKind, string> = {
   table: 'Tabell',
   heatmap: 'Heatmap',
   scorecard: 'Scorecard',
+  bowtie: 'Bowtie',
 }
 
 // ── Lossless kind-switch helpers ────────────────────────────────────────────
@@ -77,6 +78,9 @@ function snapshotKindSpecifics(m: ReportModule): Record<string, unknown> {
   if (m.kind === 'donut') return { segmentsPath: m.segmentsPath }
   if (m.kind === 'line') return { pointsPath: m.pointsPath, xLabel: m.xLabel, yLabel: m.yLabel }
   if (m.kind === 'table') return { rowKeys: m.rowKeys }
+  if (m.kind === 'scorecard' || m.kind === 'bowtie') {
+    return { groupsPath: m.groupsPath, drillDimensionId: m.drillDimensionId }
+  }
   return {}
 }
 
@@ -140,6 +144,14 @@ function buildSwitched(
       valueMin: restored.valueMin as number | undefined,
       valueMax: restored.valueMax as number | undefined,
       valueLabel: restored.valueLabel as string | undefined,
+    } as ReportModule
+  }
+  if (nextKind === 'scorecard' || nextKind === 'bowtie') {
+    return {
+      ...common,
+      kind: nextKind,
+      groupsPath: (restored.groupsPath as string | undefined) ?? '',
+      drillDimensionId: restored.drillDimensionId as string | undefined,
     } as ReportModule
   }
   return {

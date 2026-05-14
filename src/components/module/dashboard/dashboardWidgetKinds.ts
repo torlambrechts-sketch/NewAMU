@@ -12,6 +12,9 @@ export function defaultCompatibleKinds(kind: ReportModuleKind): ReportModuleKind
   }
   if (kind === 'line') return ['line']
   if (kind === 'heatmap') return ['heatmap']
-  if (kind === 'scorecard') return ['scorecard']
+  // Scorecard og bowtie konsumerer samme dataset-form (rows med
+  // id/label/title/obligation/status, valgfritt byKind+proof for
+  // bowtie-barrierer), så de er gjensidig utskiftbare i edit-panelet.
+  if (kind === 'scorecard' || kind === 'bowtie') return ['scorecard', 'bowtie']
   return ['kpi']
 }
