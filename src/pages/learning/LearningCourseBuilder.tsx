@@ -7,6 +7,7 @@ import {
   Check,
   Download,
   FileText,
+  History,
   Layers,
   PlayCircle,
   Plus,
@@ -41,6 +42,7 @@ import { WarningBox } from '../../components/ui/AlertBox'
 import { Tabs, type TabItem } from '../../components/ui/Tabs'
 import { ModuleLegalBanner, ModulePageShell, ModuleSectionCard } from '../../components/module'
 import { LearningVersionPublishModal } from './LearningVersionPublishModal'
+import { LearningVersionHistoryTab } from './LearningVersionHistoryTab'
 import { WPSTD_FORM_FIELD_LABEL } from '../../components/layout/WorkplaceStandardFormPanel'
 
 // Tab IDs match the editor design (`ui_kits/elearning/editor`): innhold
@@ -49,7 +51,7 @@ import { WPSTD_FORM_FIELD_LABEL } from '../../components/layout/WorkplaceStandar
 // participants/insights kept as informational tabs. The legacy `cert`
 // tab is gone — its content folds into the Detaljer tab as a Sertifikat
 // sub-card.
-type MainTab = 'innhold' | 'detaljer' | 'lovverk' | 'participants' | 'insights'
+type MainTab = 'innhold' | 'detaljer' | 'lovverk' | 'participants' | 'insights' | 'historikk'
 
 export function LearningCourseBuilder() {
   const navigate = useNavigate()
@@ -70,8 +72,10 @@ export function LearningCourseBuilder() {
     learningLoading,
     learningError,
     upsertIltEvent,
-    bumpCourseVersion,
     publishLocaleVersion,
+    publishOrgCourseVersion,
+    fetchLocaleVersionHistory,
+    fetchOrgCourseVersionHistory,
   } = learning
   const otherCourses = courses.filter((c) => c.id !== courseId)
   const course = courses.find((c) => c.id === courseId)
@@ -249,6 +253,7 @@ export function LearningCourseBuilder() {
     },
     { id: 'participants', label: 'Deltakere', icon: Users },
     { id: 'insights', label: 'Innsikt', icon: BarChart3 },
+    { id: 'historikk', label: 'Versjonshistorikk', icon: History },
   ]
 
   const statusBadgeVariant: 'active' | 'draft' | 'neutral' =
@@ -754,6 +759,13 @@ export function LearningCourseBuilder() {
           </p>
         </ModuleSectionCard>
       )}
+      {mainTab === 'historikk' && (
+        <LearningVersionHistoryTab
+          course={course}
+          fetchLocaleVersionHistory={fetchLocaleVersionHistory}
+          fetchOrgCourseVersionHistory={fetchOrgCourseVersionHistory}
+        />
+      )}
       {publishModalOpen ? (
         <LearningVersionPublishModal
           course={course}
@@ -777,7 +789,13 @@ export function LearningCourseBuilder() {
               if (!r.ok) return { ok: false as const, error: r.error }
               return { ok: true as const }
             }
-            const r = await bumpCourseVersion(course.id)
+            const r = await publishOrgCourseVersion({
+              courseId: course.id,
+              versionMajor: input.versionMajor,
+              versionMinor: input.versionMinor,
+              isMajor: input.isMajor,
+              changeNotesMd: input.changeNotesMd,
+            })
             if (!r.ok) return { ok: false as const, error: r.error }
             return { ok: true as const }
           }}

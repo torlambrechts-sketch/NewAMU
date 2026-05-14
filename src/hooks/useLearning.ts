@@ -2132,6 +2132,66 @@ export function useLearning() {
     return { ok: true as const, rows }
   }, [useSupabase, supabase, userId])
 
+  /**
+   * Publish a new version of a per-org course. Mirror of publishLocaleVersion
+   * but writes to learning_org_course_versions. Use for courses without a
+   * source_system_course_id.
+   */
+  const publishOrgCourseVersion = useCallback(
+    async (input: {
+      courseId: string
+      versionMajor: number
+      versionMinor: number
+      isMajor: boolean
+      changeNotesMd: string
+    }) => {
+      if (!useSupabase || !supabase || !canManage) return { ok: false as const, error: 'Krever tilgang.' }
+      const { data, error: e } = await supabase.rpc('learning_publish_org_course_version', {
+        p_course_id: input.courseId,
+        p_version_major: input.versionMajor,
+        p_version_minor: input.versionMinor,
+        p_is_major: input.isMajor,
+        p_change_notes_md: input.changeNotesMd,
+      })
+      if (e) return { ok: false as const, error: getSupabaseErrorMessage(e) }
+      await refreshLearning()
+      return { ok: true as const, row: data as LocaleVersionHistoryRow }
+    },
+    [useSupabase, supabase, canManage, refreshLearning],
+  )
+
+  /** List org-course version history, newest first. */
+  const fetchOrgCourseVersionHistory = useCallback(
+    async (courseId: string) => {
+      if (!useSupabase || !supabase) return { ok: false as const, error: 'Krever Supabase.' }
+      const { data, error: e } = await supabase
+        .from('learning_org_course_versions')
+        .select(
+          'id, course_id, version_major, version_minor, published_at, published_by, change_notes_md, module_ids_snapshot, is_major',
+        )
+        .eq('course_id', courseId)
+        .order('version_major', { ascending: false })
+        .order('version_minor', { ascending: false })
+      if (e) return { ok: false as const, error: getSupabaseErrorMessage(e) }
+      const rows: LocaleVersionHistoryRow[] = (data ?? []).map((r) => ({
+        id: r.id as string,
+        systemCourseId: r.course_id as string,
+        locale: 'org',
+        versionMajor: r.version_major as number,
+        versionMinor: r.version_minor as number,
+        publishedAt: r.published_at as string,
+        publishedBy: (r.published_by as string | null) ?? null,
+        changeNotesMd: (r.change_notes_md as string | null) ?? null,
+        moduleIdsSnapshot: Array.isArray(r.module_ids_snapshot)
+          ? (r.module_ids_snapshot as string[])
+          : [],
+        isMajor: Boolean(r.is_major),
+      }))
+      return { ok: true as const, rows }
+    },
+    [useSupabase, supabase],
+  )
+
   const upsertIltEvent = useCallback(
     async (input: {
       courseId: string
@@ -2624,8 +2684,10 @@ export function useLearning() {
     complianceMatrix: useSupabase && canManage ? complianceMatrix : [],
     bumpCourseVersion,
     publishLocaleVersion,
+    publishOrgCourseVersion,
     computeLearnerDiff,
     fetchLocaleVersionHistory,
+    fetchOrgCourseVersionHistory,
     fetchMyCompletionHistory,
     upsertIltEvent,
     setIltRsvp,

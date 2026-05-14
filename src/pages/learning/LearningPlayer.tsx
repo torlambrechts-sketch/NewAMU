@@ -197,6 +197,10 @@ export function LearningPlayer() {
   }, [idx, current?.id])
 
   const courseProgress = progress.find((p) => p.courseId === course?.id)
+  // Orphan-tolerant: we look up moduleProgress by CURRENT module id. Stale
+  // keys left over from a previous version (see started_version_major on the
+  // progress row) are silently ignored — the version banner + delta player
+  // is the path to reconcile.
   const modulesComplete = Boolean(
     course &&
       course.modules.length > 0 &&
