@@ -41,18 +41,56 @@ export type ChecklistItem = {
   label: string
 }
 
+export type OjtEvidenceType = 'text_response' | 'file_upload' | 'signature' | 'none'
+
 export type OnJobTask = {
   id: string
   title: string
   description: string
+  /** Role that must sign off on this task (e.g. "Verneombud", "Arbeidsgiver") */
+  requiredRole?: string
+  /** How the learner must prove completion */
+  evidenceType?: OjtEvidenceType
+  /** When true the task stays pending until an admin/role approves it */
+  requiresApproval?: boolean
+}
+
+/** Discriminated union for quiz validation rules stored in content.validation */
+export type QuizValidation = {
+  requiredScore: number   // 0–100 percent
+  allowRetry: boolean
 }
 
 export type ModuleContent =
+  | {
+      kind: 'text'
+      /** Legacy HTML body — used when bodyMarkdown is absent */
+      body?: string
+      /** Markdown body — preferred over body when present */
+      bodyMarkdown?: string
+      /** Format hint: "markdown" | "html" */
+      bodyFormat?: 'markdown' | 'html'
+      /** Long-form extended reading (Markdown). Shown in collapsible accordion. */
+      deepDive?: string
+      /** 3-5 bullet takeaways shown at bottom of module */
+      keyTakeaways?: string[]
+    }
   | { kind: 'flashcard'; slides: FlashcardSlide[] }
-  | { kind: 'quiz'; questions: QuizQuestion[] }
-  | { kind: 'text'; body: string }
+  | {
+      kind: 'quiz'
+      questions: QuizQuestion[]
+      /** Scoring + retry rules */
+      validation?: QuizValidation
+    }
   | { kind: 'image'; caption: string; imageUrl: string }
-  | { kind: 'video'; url: string; caption: string }
+  | {
+      kind: 'video'
+      /** Legacy flat URL */
+      url?: string
+      caption?: string
+      /** Structured media object (v2 schema) */
+      media?: { type: 'video'; url: string; duration?: number; transcript?: string }
+    }
   | { kind: 'checklist'; items: ChecklistItem[] }
   | { kind: 'tips'; items: string[] }
   | { kind: 'on_job'; tasks: OnJobTask[] }
@@ -73,6 +111,8 @@ export type CourseModule = {
    * Supabase migration lands; older callers can ignore this field.
    */
   sectionId?: string | null
+  /** IDs referencing entries in the course-level lawRefs catalog */
+  refLawIds?: string[]
 }
 
 /**

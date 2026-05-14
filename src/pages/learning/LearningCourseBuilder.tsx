@@ -1137,7 +1137,7 @@ function ContentFields({
   if (c.kind === 'text') {
     return (
       <RichTextEditor
-        value={c.body}
+        value={c.bodyMarkdown ?? c.body ?? ''}
         onChange={(html) =>
           updateModule(courseId, mod.id, { content: { kind: 'text', body: html } })
         }

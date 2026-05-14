@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useRef, useState, type Dispatch, type SetStateAction } from 'react'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
-import { Award, ArrowLeft, Check, CheckCircle2, ChevronLeft, ChevronRight, ExternalLink, Lock, Play } from 'lucide-react'
+import { Award, ArrowLeft, Check, CheckCircle2, ChevronLeft, ChevronRight, ExternalLink, Lock, Paperclip, PenLine, Play, ShieldCheck } from 'lucide-react'
 import { useLearning, type IltEventRow } from '../../hooks/useLearning'
 import { useOrgSetupContext } from '../../hooks/useOrgSetupContext'
-import type { CourseModule, ModuleCompleteMeta } from '../../types/learning'
+import type { CourseModule, ModuleCompleteMeta, OjtEvidenceType } from '../../types/learning'
 import { Button } from '../../components/ui/Button'
 import { StandardInput } from '../../components/ui/Input'
+import { StandardTextarea } from '../../components/ui/Textarea'
 import { InfoBox, WarningBox } from '../../components/ui/AlertBox'
 import { ToggleSwitch } from '../../components/ui/FormToggles'
 import { ModulePageShell, ModuleSectionCard } from '../../components/module'
@@ -14,6 +15,9 @@ import { sanitizeLearningHtml } from '../../lib/sanitizeHtml'
 import { normalizeModuleHtml } from '../../lib/richTextDisplay'
 import { LearningPrivacyNotice } from '../../components/learning/LearningPrivacyNotice'
 import { LearningCompletionMetadataPanel } from './LearningCompletionMetadataPanel'
+import { ModuleBody, DeepDiveAccordion, KeyTakeaways } from '../../components/learning/MarkdownBody'
+import { ParagrafReferanse } from '../../components/learning/ParagrafReferanse'
+import { AML_LAW_REFS_CATALOG } from '../../lib/learning/amlLawRefsCatalog'
 
 function ProgressBar({ value, label }: { value: number; label?: string }) {
   const pct = Math.round(Math.min(100, Math.max(0, value * 100)))
@@ -692,6 +696,136 @@ function EventModuleSection({
   )
 }
 
+// ── OJT Evidence uploader ────────────────────────────────────────────────────
+function EvidenceField({
+  evidenceType,
+  taskId,
+  value,
+  onChange,
+}: {
+  evidenceType: OjtEvidenceType
+  taskId: string
+  value: string
+  onChange: (v: string) => void
+}) {
+  if (evidenceType === 'none' || !evidenceType) return null
+
+  if (evidenceType === 'text_response') {
+    return (
+      <div className="mt-2">
+        <label className="mb-1 flex items-center gap-1 text-[11px] font-semibold uppercase tracking-wider text-neutral-500">
+          <PenLine className="size-3" /> Ditt svar / notat
+        </label>
+        <StandardTextarea
+          id={`ojt-text-${taskId}`}
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          rows={3}
+          placeholder="Beskriv hva du gjorde, hvem du involverte og resultatet…"
+        />
+      </div>
+    )
+  }
+
+  if (evidenceType === 'file_upload') {
+    return (
+      <div className="mt-2">
+        <label className="mb-1 flex items-center gap-1 text-[11px] font-semibold uppercase tracking-wider text-neutral-500">
+          <Paperclip className="size-3" /> Vedlegg (bevis)
+        </label>
+        <label className="flex cursor-pointer items-center gap-2 rounded-lg border border-dashed border-neutral-300 bg-neutral-50 px-4 py-3 text-sm text-neutral-600 hover:bg-neutral-100">
+          <Paperclip className="size-4 shrink-0 text-neutral-400" />
+          <span>{value ? value : 'Klikk for å laste opp fil (PDF, bilde, dokument)'}</span>
+          <input
+            type="file"
+            className="sr-only"
+            onChange={(e) => onChange(e.target.files?.[0]?.name ?? '')}
+          />
+        </label>
+        <p className="mt-1 text-[11px] text-neutral-400">
+          Filen lagres lokalt — last opp via plattformens dokumentarkiv for varig bevaring.
+        </p>
+      </div>
+    )
+  }
+
+  if (evidenceType === 'signature') {
+    return (
+      <div className="mt-2 flex items-center gap-2 rounded-lg border border-neutral-200 bg-neutral-50 px-4 py-3">
+        <ShieldCheck className="size-4 shrink-0 text-emerald-700" />
+        <span className="text-sm text-neutral-700">
+          Denne oppgaven krever signatur fra <strong>{value || 'ansvarlig rolle'}</strong> — godkjenning
+          sendes automatisk når du bekrefter gjennomføring.
+        </span>
+      </div>
+    )
+  }
+
+  return null
+}
+
+function OjtModulePlayer({
+  tasks,
+  mod,
+  onComplete,
+}: {
+  tasks: NonNullable<Extract<CourseModule['content'], { kind: 'on_job' }>['tasks']>
+  mod: CourseModule
+  onComplete: (extra?: ModuleCompleteMeta) => void
+}) {
+  const [evidenceValues, setEvidenceValues] = useState<Record<string, string>>({})
+  const allRequired = tasks.every((t) => {
+    const et = t.evidenceType ?? 'none'
+    if (et === 'none' || et === 'signature') return true
+    return (evidenceValues[t.id] ?? '').trim().length > 0
+  })
+
+  return (
+    <div className="space-y-4">
+      {tasks.map((t) => (
+        <div key={t.id} className="rounded-xl border border-neutral-200/80 bg-neutral-50/50 p-4">
+          <div className="flex flex-wrap items-start justify-between gap-2">
+            <div className="font-medium text-neutral-900">{t.title}</div>
+            {t.requiredRole && (
+              <span className="shrink-0 rounded-full border border-[#1a3d32]/20 bg-[#e7efe9] px-2 py-0.5 text-[11px] font-semibold text-[#1a3d32]">
+                {t.requiredRole}
+              </span>
+            )}
+          </div>
+          <div className="mt-1 text-sm text-neutral-600">{t.description}</div>
+          <EvidenceField
+            evidenceType={t.evidenceType ?? 'none'}
+            taskId={t.id}
+            value={evidenceValues[t.id] ?? ''}
+            onChange={(v) => setEvidenceValues((s) => ({ ...s, [t.id]: v }))}
+          />
+          {t.requiresApproval && (
+            <p className="mt-2 flex items-center gap-1 text-[11px] text-amber-700">
+              <ShieldCheck className="size-3" />
+              Krever godkjenning av {t.requiredRole ?? 'ansvarlig'}
+            </p>
+          )}
+        </div>
+      ))}
+      {mod.refLawIds?.length ? (
+        <ParagrafReferanse refLawIds={mod.refLawIds} lawRefs={AML_LAW_REFS_CATALOG} />
+      ) : null}
+      <Button
+        type="button"
+        variant="primary"
+        className="w-full rounded-full"
+        disabled={!allRequired}
+        onClick={() => onComplete()}
+      >
+        Bekreft gjennomført
+      </Button>
+      {!allRequired && (
+        <p className="text-center text-xs text-neutral-500">Fyll inn svar på alle obligatoriske oppgaver for å fortsette.</p>
+      )}
+    </div>
+  )
+}
+
 function ModulePlayer({
   mod,
   flashFlipped,
@@ -875,18 +1009,18 @@ function ModulePlayer({
   }
 
   if (c.kind === 'text') {
-    const html = sanitizeLearningHtml(normalizeModuleHtml(c.body))
     return (
       <div>
-        <div
-          className="prose prose-sm w-full max-w-none text-neutral-800 [&_a]:text-emerald-800 [&_a]:underline [&_li]:my-1"
-          dangerouslySetInnerHTML={{ __html: html }}
-        />
+        <ModuleBody body={c.body} bodyMarkdown={c.bodyMarkdown} bodyFormat={c.bodyFormat} />
+        {mod.refLawIds?.length ? (
+          <ParagrafReferanse refLawIds={mod.refLawIds} lawRefs={AML_LAW_REFS_CATALOG} />
+        ) : null}
+        {c.deepDive ? <DeepDiveAccordion markdown={c.deepDive} /> : null}
+        {c.keyTakeaways?.length ? <KeyTakeaways items={c.keyTakeaways} /> : null}
         <Button
           type="button"
           variant="primary"
           className="mt-6 w-full rounded-full"
-  
           onClick={() => onComplete()}
         >
           Fortsett
@@ -914,7 +1048,9 @@ function ModulePlayer({
   }
 
   if (c.kind === 'video') {
-    return <VideoPlayer url={c.url} caption={c.caption} onComplete={onComplete} />
+    const videoUrl = c.media?.url ?? c.url ?? ''
+    const videoCaption = c.caption ?? ''
+    return <VideoPlayer url={videoUrl} caption={videoCaption} onComplete={onComplete} />
   }
 
   if (c.kind === 'checklist') {
@@ -991,25 +1127,7 @@ function ModulePlayer({
   }
 
   if (c.kind === 'on_job') {
-    return (
-      <div className="space-y-3">
-        {c.tasks.map((t) => (
-          <div key={t.id} className="rounded-lg border border-neutral-200/80 bg-neutral-50/50 p-4">
-            <div className="font-medium">{t.title}</div>
-            <div className="mt-1 text-sm text-neutral-600">{t.description}</div>
-          </div>
-        ))}
-        <Button
-          type="button"
-          variant="primary"
-          className="w-full rounded-full"
-  
-          onClick={() => onComplete()}
-        >
-          Bekreft gjennomført
-        </Button>
-      </div>
-    )
+    return <OjtModulePlayer tasks={c.tasks} mod={mod} onComplete={onComplete} />
   }
 
   if (c.kind === 'other') {
