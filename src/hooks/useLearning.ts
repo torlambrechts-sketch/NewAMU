@@ -15,6 +15,11 @@ import type {
   ModuleCompleteMeta,
   TemplateMetadataSchema,
 } from '../types/learning'
+import {
+  parseAllCoursesExportJson,
+  type AllCoursesExportJson,
+  type SystemCourseJson,
+} from '../lib/learning/courseJsonIo'
 
 export const STORAGE_KEY = 'atics-learning-v1'
 
@@ -536,6 +541,78 @@ function moduleFromCatalogJson(raw: Record<string, unknown>): CourseModule | nul
     kind,
     content,
     durationMinutes,
+  }
+}
+
+/** Bundle export shape for a single org course (omits id; caller adds it). */
+type CourseBundleEntry = {
+  title: string
+  description: string
+  status: Course['status']
+  tags: string[]
+  recertificationMonths: number | null
+  lawRefs: string[]
+  metadataSchema: TemplateMetadataSchema | null
+  modules: {
+    title: string
+    kind: ModuleKind
+    durationMinutes: number
+    order: number
+    content: ModuleContent
+  }[]
+}
+
+function serialiseCourseForBundle(course: Course): CourseBundleEntry {
+  return {
+    title: course.title,
+    description: course.description,
+    status: course.status,
+    tags: course.tags ?? [],
+    recertificationMonths: course.recertificationMonths ?? null,
+    lawRefs: course.lawRefs ?? [],
+    metadataSchema: course.metadataSchema ?? null,
+    modules: course.modules.map((m) => ({
+      title: m.title,
+      kind: m.kind,
+      durationMinutes: m.durationMinutes,
+      order: m.order,
+      content: m.content,
+    })),
+  }
+}
+
+function hydrateCourseFromBundle(
+  c: { id: string; title: string; description?: string; status?: Course['status']; tags?: string[];
+       recertificationMonths?: number | null; lawRefs?: string[]; metadataSchema?: unknown;
+       modules: { title: string; kind: ModuleKind; durationMinutes?: number; order?: number; content?: unknown }[] },
+  existing?: Course,
+): Course {
+  const now = new Date().toISOString()
+  return {
+    id: c.id,
+    title: c.title,
+    description: c.description ?? '',
+    status: (c.status ?? 'draft') as Course['status'],
+    tags: c.tags ?? [],
+    modules: c.modules.map((m, i) => ({
+      id: crypto.randomUUID(),
+      title: m.title,
+      kind: m.kind,
+      durationMinutes: m.durationMinutes ?? 5,
+      order: typeof m.order === 'number' ? m.order : i,
+      content: (m.content ?? {}) as ModuleContent,
+    })),
+    prerequisiteCourseIds: existing?.prerequisiteCourseIds ?? [],
+    createdAt: existing?.createdAt ?? now,
+    updatedAt: now,
+    sourceSystemCourseId: existing?.sourceSystemCourseId ?? null,
+    catalogLocale: existing?.catalogLocale ?? null,
+    origin: existing?.origin ?? 'org',
+    forkedFromSystemId: existing?.forkedFromSystemId ?? null,
+    courseVersion: existing?.courseVersion ?? 1,
+    recertificationMonths: c.recertificationMonths ?? null,
+    metadataSchema: (c.metadataSchema as TemplateMetadataSchema | null) ?? { fields: [] },
+    lawRefs: c.lawRefs ?? [],
   }
 }
 
@@ -2099,6 +2176,183 @@ export function useLearning() {
     [useSupabase],
   )
 
+  // ── All-courses bundle (org-owned + system catalog) ────────────────────
+  // Roundtrip surface for external editing: bundle every course an admin can
+  // touch in one JSON file. Org courses are exported as the runtime `Course`
+  // shape; system courses keep their per-locale catalog rows so the round
+  // trip preserves all locales (not just the resolved one).
+  const exportAllCoursesBundle = useCallback(
+    async (): Promise<{ ok: true; json: string } | { ok: false; error: string }> => {
+      if (!useSupabase || !supabase) {
+        const payload: AllCoursesExportJson = {
+          version: 1,
+          kind: 'courses_all_export',
+          exportedAt: new Date().toISOString(),
+          orgCourses: state.courses.map((c) => ({
+            ...serialiseCourseForBundle(c),
+            id: c.id,
+          })),
+          systemCourses: [],
+        }
+        return { ok: true, json: JSON.stringify(payload, null, 2) }
+      }
+      const [{ data: sysRows, error: sysErr }, { data: locRows, error: locErr }] = await Promise.all([
+        supabase.from('learning_system_courses').select('id, slug, default_locale'),
+        supabase
+          .from('learning_system_course_locales')
+          .select('system_course_id, locale, title, description, modules'),
+      ])
+      if (sysErr) return { ok: false, error: getSupabaseErrorMessage(sysErr) }
+      if (locErr) return { ok: false, error: getSupabaseErrorMessage(locErr) }
+      const sysList = (sysRows ?? []) as { id: string; slug: string; default_locale: string }[]
+      const locList = (locRows ?? []) as {
+        system_course_id: string
+        locale: string
+        title: string
+        description: string
+        modules: unknown
+      }[]
+      const localesByCourse = new Map<string, SystemCourseJson['locales']>()
+      for (const row of locList) {
+        const list = localesByCourse.get(row.system_course_id) ?? []
+        list.push({
+          locale: row.locale,
+          title: row.title ?? '',
+          description: row.description ?? '',
+          modules: Array.isArray(row.modules) ? (row.modules as SystemCourseJson['locales'][number]['modules']) : [],
+        })
+        localesByCourse.set(row.system_course_id, list)
+      }
+      const systemCourses: SystemCourseJson[] = sysList.map((s) => ({
+        id: s.id,
+        slug: s.slug,
+        defaultLocale: s.default_locale ?? 'nb',
+        locales: localesByCourse.get(s.id) ?? [],
+      }))
+      const orgCourses = state.courses
+        .filter((c) => c.origin !== 'system')
+        .map((c) => ({ ...serialiseCourseForBundle(c), id: c.id }))
+      const payload: AllCoursesExportJson = {
+        version: 1,
+        kind: 'courses_all_export',
+        exportedAt: new Date().toISOString(),
+        orgCourses,
+        systemCourses,
+      }
+      return { ok: true, json: JSON.stringify(payload, null, 2) }
+    },
+    [useSupabase, supabase, state.courses],
+  )
+
+  const importAllCoursesBundle = useCallback(
+    async (
+      json: string,
+    ): Promise<
+      | { ok: true; orgCount: number; systemCount: number }
+      | { ok: false; error: string }
+    > => {
+      let raw: unknown
+      try {
+        raw = JSON.parse(json)
+      } catch {
+        return { ok: false, error: 'Kunne ikke parse JSON.' }
+      }
+      const parsed = parseAllCoursesExportJson(raw)
+      if (!parsed.ok) return { ok: false, error: parsed.error }
+      const bundle = parsed.value
+
+      if (!useSupabase || !supabase || !orgId) {
+        // Local demo: only org courses can be merged into in-memory state.
+        if (bundle.systemCourses.length > 0) {
+          return {
+            ok: false,
+            error: 'Systemkurs kan ikke importeres uten Supabase. Logg inn for å oppdatere systemkatalogen.',
+          }
+        }
+        setLocalState((s) => {
+          const byId = new Map(s.courses.map((c) => [c.id, c]))
+          for (const c of bundle.orgCourses) {
+            const existing = byId.get(c.id)
+            byId.set(c.id, hydrateCourseFromBundle(c, existing))
+          }
+          return { ...s, courses: [...byId.values()] }
+        })
+        return { ok: true, orgCount: bundle.orgCourses.length, systemCount: 0 }
+      }
+
+      for (const sc of bundle.systemCourses) {
+        const { error: e } = await supabase.rpc('learning_admin_upsert_system_course', {
+          p_id: sc.id,
+          p_slug: sc.slug,
+          p_default_locale: sc.defaultLocale || 'nb',
+          p_locales: sc.locales.map((l) => ({
+            locale: l.locale,
+            title: l.title,
+            description: l.description,
+            modules: l.modules.map((m, j) => ({
+              id: m.id,
+              title: m.title,
+              order: typeof m.order === 'number' ? m.order : j,
+              kind: m.kind,
+              durationMinutes: m.durationMinutes,
+              content: m.content,
+            })),
+          })),
+        })
+        if (e) return { ok: false, error: `Systemkurs «${sc.slug}»: ${getSupabaseErrorMessage(e)}` }
+      }
+
+      for (const c of bundle.orgCourses) {
+        const courseRow = {
+          id: c.id,
+          organization_id: orgId,
+          title: c.title,
+          description: c.description ?? '',
+          status: c.status ?? 'draft',
+          tags: c.tags ?? [],
+          recertification_months: c.recertificationMonths ?? null,
+          metadata_schema: c.metadataSchema ?? { fields: [] },
+          law_refs: c.lawRefs ?? [],
+          updated_at: new Date().toISOString(),
+        }
+        const { error: upErr } = await supabase.from('learning_courses').upsert(courseRow, {
+          onConflict: 'id',
+        })
+        if (upErr) return { ok: false, error: `Kurs «${c.title}»: ${getSupabaseErrorMessage(upErr)}` }
+
+        const { error: delErr } = await supabase
+          .from('learning_modules')
+          .delete()
+          .eq('course_id', c.id)
+          .eq('organization_id', orgId)
+        if (delErr) return { ok: false, error: `Kurs «${c.title}»: ${getSupabaseErrorMessage(delErr)}` }
+
+        if (c.modules.length > 0) {
+          const moduleRows = c.modules.map((m, i) => ({
+            id: crypto.randomUUID(),
+            organization_id: orgId,
+            course_id: c.id,
+            title: m.title,
+            sort_order: typeof m.order === 'number' ? m.order : i,
+            kind: m.kind,
+            content: (m.content ?? {}) as unknown as Record<string, unknown>,
+            duration_minutes: m.durationMinutes,
+          }))
+          const { error: insErr } = await supabase.from('learning_modules').insert(moduleRows)
+          if (insErr) return { ok: false, error: `Kurs «${c.title}»: ${getSupabaseErrorMessage(insErr)}` }
+        }
+      }
+
+      await refreshLearning()
+      return {
+        ok: true,
+        orgCount: bundle.orgCourses.length,
+        systemCount: bundle.systemCourses.length,
+      }
+    },
+    [useSupabase, supabase, orgId, refreshLearning],
+  )
+
   const learningDataReady =
     !useSupabase || (learningSessionKey !== '' && learningSessionHydrated.get(learningSessionKey) === true)
 
@@ -2134,6 +2388,8 @@ export function useLearning() {
     exportProgressSliceJson,
     exportCertificatesSliceJson,
     importPartialJson,
+    exportAllCoursesBundle,
+    importAllCoursesBundle,
     setSystemCourseEnabled,
     forkSystemCourse,
     streakWeeks: useSupabase ? streakWeeks : null,
