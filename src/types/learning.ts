@@ -201,6 +201,16 @@ export type Course = {
   forkedFromSystemId?: string | null
   /** Bumped when content changes; certificates reference this */
   courseVersion?: number
+  /** Semver minor sibling to courseVersion. Defaults to 0. */
+  courseVersionMinor?: number
+  /** Per-locale version of the resolved system-course content (major). */
+  localeVersionMajor?: number
+  /** Per-locale version of the resolved system-course content (minor). */
+  localeVersionMinor?: number
+  /** ISO timestamp the resolved locale was last published. */
+  localeVersionPublishedAt?: string | null
+  /** Most-recent changelog (Markdown) on the resolved locale. */
+  localeChangeNotesMd?: string | null
   /** Months until recertification (optional) */
   recertificationMonths?: number | null
   /** Compliance fase 1: rolle-slugs som SKAL bestå kurset */
@@ -264,6 +274,9 @@ export type CourseProgress = {
   moduleProgress: Record<string, ModuleProgress>
   startedAt: string
   completedAt?: string
+  /** Locale version active when the learner first began the course. */
+  startedVersionMajor?: number | null
+  startedVersionMinor?: number | null
   /** Set when progress is loaded from Supabase (org-wide for managers) */
   userId?: string
   /** Display name from profiles (participants table) */
@@ -286,4 +299,48 @@ export type Certificate = {
   verifyCode: string
   /** Snapshot of course law/content version at issue time */
   courseVersion?: number
+}
+
+/** Single row in learning_system_course_locale_versions — admin Versjonshistorikk. */
+export type LocaleVersionHistoryRow = {
+  id: string
+  systemCourseId: string
+  locale: string
+  versionMajor: number
+  versionMinor: number
+  publishedAt: string
+  publishedBy?: string | null
+  changeNotesMd?: string | null
+  moduleIdsSnapshot: string[]
+  isMajor: boolean
+}
+
+/** Output of learning_compute_learner_diff RPC. */
+export type LearnerVersionDiff =
+  | { hasProgress: false }
+  | {
+      hasProgress: true
+      hasDiff: false
+      fromVersion?: { major: number; minor: number }
+      toVersion?: { major: number; minor: number }
+    }
+  | {
+      hasProgress: true
+      hasDiff: true
+      isMajor: boolean
+      fromVersion: { major: number; minor: number }
+      toVersion: { major: number; minor: number }
+      addedModuleIds: string[]
+      removedModuleIds: string[]
+    }
+
+/** Row in the learner's Min historikk surface. */
+export type MyCompletionRow = {
+  courseId: string
+  courseTitleSnapshot: string
+  courseVersion: number
+  completedAt: string
+  certificateId?: string | null
+  /** Computed compliance status against the current published version. */
+  status: 'compliant' | 'needs_update' | 'expired'
 }

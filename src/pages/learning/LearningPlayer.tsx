@@ -14,6 +14,8 @@ import { SlidePanel } from '../../components/layout/SlidePanel'
 import { sanitizeLearningHtml } from '../../lib/sanitizeHtml'
 import { normalizeModuleHtml } from '../../lib/richTextDisplay'
 import { LearningPrivacyNotice } from '../../components/learning/LearningPrivacyNotice'
+import { LearningVersionDiffModal } from './LearningVersionDiffModal'
+import type { LearnerVersionDiff } from '../../types/learning'
 import { LearningCompletionMetadataPanel } from './LearningCompletionMetadataPanel'
 import { ModuleBody, DeepDiveAccordion, KeyTakeaways } from '../../components/learning/MarkdownBody'
 import { ParagrafReferanse } from '../../components/learning/ParagrafReferanse'
@@ -73,6 +75,7 @@ export function LearningPlayer() {
     iltEvents,
     setIltRsvp,
     setIltAttendance,
+    computeLearnerDiff,
   } = useLearning()
   const course = courses.find((c) => c.id === courseId)
 
@@ -87,10 +90,41 @@ export function LearningPlayer() {
   const [certFeedback, setCertFeedback] = useState<
     null | { kind: 'success'; verifyCode: string } | { kind: 'error'; message: string }
   >(null)
+  const [versionDiff, setVersionDiff] = useState<LearnerVersionDiff | null>(null)
+  const [versionDiffOpen, setVersionDiffOpen] = useState(false)
+  const isDeltaMode = searchParams.get('delta') === '1'
 
   useEffect(() => {
     if (courseId) ensureProgress(courseId)
   }, [courseId, ensureProgress])
+
+  // Resolve "what changed since you started" once the course is loaded.
+  useEffect(() => {
+    if (!courseId || !course) return
+    const locale = course.catalogLocale === 'en' ? 'en' : 'nb'
+    void (async () => {
+      const result = await computeLearnerDiff(courseId, locale)
+      queueMicrotask(() => setVersionDiff(result))
+    })()
+  }, [courseId, course, computeLearnerDiff])
+
+  // Delta mode: when learner clicks "Fullfør bare endringene", auto-mark every
+  // module that was NOT added/changed in this version. Runs once per mount when
+  // both the diff and the course are ready. Affected modules render normally.
+  const [deltaApplied, setDeltaApplied] = useState(false)
+  useEffect(() => {
+    if (!isDeltaMode || deltaApplied) return
+    if (!courseId || !course || !versionDiff || !versionDiff.hasProgress) return
+    if (!('hasDiff' in versionDiff) || !versionDiff.hasDiff) return
+    const affected = new Set(versionDiff.addedModuleIds)
+    for (const m of course.modules) {
+      if (affected.has(m.id)) continue
+      const alreadyDone = !!progress.find((p) => p.courseId === courseId)?.moduleProgress?.[m.id]?.completed
+      if (alreadyDone) continue
+      setModuleCompleted(courseId, m.id)
+    }
+    setDeltaApplied(true)
+  }, [isDeltaMode, deltaApplied, courseId, course, versionDiff, progress, setModuleCompleted])
 
   useEffect(() => {
     if (!canManageLearning || !supabase || !organization?.id) {
@@ -163,6 +197,10 @@ export function LearningPlayer() {
   }, [idx, current?.id])
 
   const courseProgress = progress.find((p) => p.courseId === course?.id)
+  // Orphan-tolerant: we look up moduleProgress by CURRENT module id. Stale
+  // keys left over from a previous version (see started_version_major on the
+  // progress row) are silently ignored — the version banner + delta player
+  // is the path to reconcile.
   const modulesComplete = Boolean(
     course &&
       course.modules.length > 0 &&
@@ -326,6 +364,52 @@ export function LearningPlayer() {
       }
     >
       <LearningPrivacyNotice />
+
+      {versionDiff && versionDiff.hasProgress && 'hasDiff' in versionDiff && versionDiff.hasDiff && versionDiff.isMajor && !isDeltaMode ? (
+        <div className="mb-4 rounded-lg border border-amber-200 bg-amber-50 p-4">
+          <p className="text-[11px] font-bold uppercase tracking-wider text-amber-800">
+            Ny versjon publisert{course?.localeVersionPublishedAt ? ` ${new Date(course.localeVersionPublishedAt).toLocaleDateString('nb-NO', { day: 'numeric', month: 'long', year: 'numeric' })}` : ''}
+          </p>
+          <p className="mt-1 text-sm text-amber-900">
+            Du startet v{versionDiff.fromVersion.major}.{versionDiff.fromVersion.minor}. v
+            {versionDiff.toVersion.major}.{versionDiff.toVersion.minor} har {versionDiff.addedModuleIds.length}{' '}
+            ny{versionDiff.addedModuleIds.length === 1 ? '' : 'e'} modul
+            {versionDiff.addedModuleIds.length === 1 ? '' : 'er'} — som leder må du bekrefte oppdateringene
+            for å forbli compliant.
+          </p>
+          <div className="mt-3 flex flex-wrap gap-2">
+            <Button type="button" size="sm" onClick={() => setVersionDiffOpen(true)}>
+              Se hva som er endret
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              variant="secondary"
+              onClick={() => navigate(`/learning/play/${courseId}?delta=1`)}
+            >
+              Fullfør bare endringene
+            </Button>
+          </div>
+        </div>
+      ) : null}
+
+      {versionDiffOpen && versionDiff && 'hasDiff' in versionDiff && versionDiff.hasDiff ? (
+        <LearningVersionDiffModal
+          diff={versionDiff}
+          modules={course?.modules ?? []}
+          changeNotesMd={course?.localeChangeNotesMd}
+          publishedAt={course?.localeVersionPublishedAt}
+          onClose={() => setVersionDiffOpen(false)}
+          onTakeDelta={() => {
+            setVersionDiffOpen(false)
+            navigate(`/learning/play/${courseId}?delta=1`)
+          }}
+          onRetakeFull={() => {
+            setVersionDiffOpen(false)
+            navigate(`/learning/play/${courseId}`)
+          }}
+        />
+      ) : null}
 
       <div className="grid gap-8 lg:grid-cols-[minmax(220px,280px)_1fr] lg:items-start">
         <aside className="space-y-4 lg:sticky lg:top-6">

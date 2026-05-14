@@ -104,6 +104,11 @@ const SystemCourseLocaleJsonSchema = z
     lawRefs: z.array(z.unknown()).optional(),
     badges: z.array(z.unknown()).optional(),
     milestones: z.array(z.unknown()).optional(),
+    // Per-locale versioning (added in schemaVersion 5).
+    versionMajor: z.number().int().min(1).optional(),
+    versionMinor: z.number().int().min(0).optional(),
+    versionPublishedAt: z.string().nullable().optional(),
+    changeNotesMd: z.string().nullable().optional(),
   })
   .passthrough()
 

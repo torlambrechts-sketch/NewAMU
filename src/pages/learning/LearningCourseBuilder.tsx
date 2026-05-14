@@ -7,6 +7,7 @@ import {
   Check,
   Download,
   FileText,
+  History,
   Layers,
   PlayCircle,
   Plus,
@@ -40,6 +41,8 @@ import { StandardTextarea } from '../../components/ui/Textarea'
 import { WarningBox } from '../../components/ui/AlertBox'
 import { Tabs, type TabItem } from '../../components/ui/Tabs'
 import { ModuleLegalBanner, ModulePageShell, ModuleSectionCard } from '../../components/module'
+import { LearningVersionPublishModal } from './LearningVersionPublishModal'
+import { LearningVersionHistoryTab } from './LearningVersionHistoryTab'
 import { WPSTD_FORM_FIELD_LABEL } from '../../components/layout/WorkplaceStandardFormPanel'
 
 // Tab IDs match the editor design (`ui_kits/elearning/editor`): innhold
@@ -48,7 +51,7 @@ import { WPSTD_FORM_FIELD_LABEL } from '../../components/layout/WorkplaceStandar
 // participants/insights kept as informational tabs. The legacy `cert`
 // tab is gone — its content folds into the Detaljer tab as a Sertifikat
 // sub-card.
-type MainTab = 'innhold' | 'detaljer' | 'lovverk' | 'participants' | 'insights'
+type MainTab = 'innhold' | 'detaljer' | 'lovverk' | 'participants' | 'insights' | 'historikk'
 
 export function LearningCourseBuilder() {
   const navigate = useNavigate()
@@ -69,7 +72,10 @@ export function LearningCourseBuilder() {
     learningLoading,
     learningError,
     upsertIltEvent,
-    bumpCourseVersion,
+    publishLocaleVersion,
+    publishOrgCourseVersion,
+    fetchLocaleVersionHistory,
+    fetchOrgCourseVersionHistory,
   } = learning
   const otherCourses = courses.filter((c) => c.id !== courseId)
   const course = courses.find((c) => c.id === courseId)
@@ -80,6 +86,7 @@ export function LearningCourseBuilder() {
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [tagInput, setTagInput] = useState('')
   const [builderActionError, setBuilderActionError] = useState<string | null>(null)
+  const [publishModalOpen, setPublishModalOpen] = useState(false)
 
   // Local-state mirrors for the course-level inputs. updateCourse fires
   // a Supabase write + refreshLearning() per call, which on every
@@ -246,6 +253,7 @@ export function LearningCourseBuilder() {
     },
     { id: 'participants', label: 'Deltakere', icon: Users },
     { id: 'insights', label: 'Innsikt', icon: BarChart3 },
+    { id: 'historikk', label: 'Versjonshistorikk', icon: History },
   ]
 
   const statusBadgeVariant: 'active' | 'draft' | 'neutral' =
@@ -543,22 +551,26 @@ export function LearningCourseBuilder() {
             ) : null}
             <div className="lg:col-span-2 flex items-center justify-end gap-2 border-t border-neutral-100 pt-4 text-xs text-neutral-500">
               <span>
-                Kursversjon: <strong className="tabular-nums text-neutral-900">{course.courseVersion ?? 1}</strong>
+                Kursversjon:{' '}
+                <strong className="tabular-nums text-neutral-900">
+                  v{course.localeVersionMajor ?? course.courseVersion ?? 1}.{course.localeVersionMinor ?? course.courseVersionMinor ?? 0}
+                </strong>
+                {course.localeVersionPublishedAt ? (
+                  <span className="ml-1 text-neutral-400">
+                    · publisert {new Date(course.localeVersionPublishedAt).toLocaleDateString('nb-NO', { day: 'numeric', month: 'short', year: 'numeric' })}
+                  </span>
+                ) : null}
               </span>
               <Button
                 type="button"
                 variant="secondary"
                 size="sm"
                 onClick={() => {
-                  if (!window.confirm('Øke kursversjon? Nye fullføringer får ny versjon på sertifikatet.')) return
-                  void (async () => {
-                    setBuilderActionError(null)
-                    const r = await bumpCourseVersion(course.id)
-                    if (!r.ok) setBuilderActionError(r.error)
-                  })()
+                  setBuilderActionError(null)
+                  setPublishModalOpen(true)
                 }}
               >
-                Øk versjon
+                Publiser ny versjon
               </Button>
             </div>
           </div>
@@ -747,6 +759,48 @@ export function LearningCourseBuilder() {
           </p>
         </ModuleSectionCard>
       )}
+      {mainTab === 'historikk' && (
+        <LearningVersionHistoryTab
+          course={course}
+          fetchLocaleVersionHistory={fetchLocaleVersionHistory}
+          fetchOrgCourseVersionHistory={fetchOrgCourseVersionHistory}
+        />
+      )}
+      {publishModalOpen ? (
+        <LearningVersionPublishModal
+          course={course}
+          onClose={() => setPublishModalOpen(false)}
+          onPublish={async (input) => {
+            // System-backed course: write to learning_system_course_locale_versions
+            // via the new RPC so the diff/changelog/history surface picks it up.
+            // Org-only course: fall back to the legacy bump RPC (no changelog
+            // surface yet for those).
+            if (course.sourceSystemCourseId) {
+              const locale = course.catalogLocale === 'en' ? 'en' : 'nb'
+              const r = await publishLocaleVersion({
+                systemCourseId: course.sourceSystemCourseId,
+                locale,
+                versionMajor: input.versionMajor,
+                versionMinor: input.versionMinor,
+                isMajor: input.isMajor,
+                changeNotesMd: input.changeNotesMd,
+                modules: course.modules,
+              })
+              if (!r.ok) return { ok: false as const, error: r.error }
+              return { ok: true as const }
+            }
+            const r = await publishOrgCourseVersion({
+              courseId: course.id,
+              versionMajor: input.versionMajor,
+              versionMinor: input.versionMinor,
+              isMajor: input.isMajor,
+              changeNotesMd: input.changeNotesMd,
+            })
+            if (!r.ok) return { ok: false as const, error: r.error }
+            return { ok: true as const }
+          }}
+        />
+      ) : null}
     </ModulePageShell>
   )
 }

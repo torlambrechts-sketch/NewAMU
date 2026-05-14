@@ -14,6 +14,9 @@ import type {
   CourseOrigin,
   ModuleCompleteMeta,
   TemplateMetadataSchema,
+  LearnerVersionDiff,
+  LocaleVersionHistoryRow,
+  MyCompletionRow,
 } from '../types/learning'
 import {
   parseAllCoursesExportJson,
@@ -464,6 +467,10 @@ type CatalogLocaleRow = {
   // lawRefs catalog, schemaVersion, …) written by
   // learning_admin_upsert_system_course via JSONB subtraction.
   meta: Record<string, unknown> | null
+  version_major: number | null
+  version_minor: number | null
+  version_published_at: string | null
+  change_notes_md: string | null
 }
 
 type DbModuleRow = {
@@ -482,6 +489,8 @@ type DbProgressRow = {
   module_progress: Record<string, ModuleProgress>
   started_at: string
   completed_at: string | null
+  started_version_major?: number | null
+  started_version_minor?: number | null
   location_id_at_completion?: string | null
   department_id_at_completion?: string | null
   team_id_at_completion?: string | null
@@ -681,6 +690,10 @@ function mergeCatalogIntoCourses(
       description: row.description ?? c.description,
       modules,
       catalogLocale: loc,
+      localeVersionMajor: row.version_major ?? 1,
+      localeVersionMinor: row.version_minor ?? 0,
+      localeVersionPublishedAt: row.version_published_at ?? null,
+      localeChangeNotesMd: row.change_notes_md ?? null,
       ...(badges ? { badges } : {}),
       ...(milestones ? { milestones } : {}),
     }
@@ -821,7 +834,9 @@ export function useLearning() {
       if (systemIds.length) {
         const { data: locData, error: locErr } = await supabase
           .from('learning_system_course_locales')
-          .select('system_course_id, locale, title, description, modules, meta')
+          .select(
+            'system_course_id, locale, title, description, modules, meta, version_major, version_minor, version_published_at, change_notes_md',
+          )
           .in('system_course_id', systemIds)
           .in('locale', ['nb', 'en'])
         if (locErr) throw locErr
@@ -886,6 +901,8 @@ export function useLearning() {
         moduleProgress: r.module_progress ?? {},
         startedAt: r.started_at,
         completedAt: r.completed_at ?? undefined,
+        startedVersionMajor: r.started_version_major ?? null,
+        startedVersionMinor: r.started_version_minor ?? null,
         locationIdAtCompletion: r.location_id_at_completion ?? null,
         departmentIdAtCompletion: r.department_id_at_completion ?? null,
         teamIdAtCompletion: r.team_id_at_completion ?? null,
@@ -1569,17 +1586,25 @@ export function useLearning() {
         await refreshLearning()
         return
       }
+      // Snapshot the locale's current version onto the progress row so we can
+      // compute "what changed since you started" later. Falls back to (1, 0)
+      // when the course doesn't resolve through a system locale.
+      const startedCourse = state.courses.find((c) => c.id === courseId)
+      const startedMajor = startedCourse?.localeVersionMajor ?? startedCourse?.courseVersion ?? 1
+      const startedMinor = startedCourse?.localeVersionMinor ?? startedCourse?.courseVersionMinor ?? 0
       const { error: e } = await supabase.from('learning_course_progress').insert({
         user_id: userId,
         organization_id: orgId,
         course_id: courseId,
         module_progress: {},
         started_at: new Date().toISOString(),
+        started_version_major: startedMajor,
+        started_version_minor: startedMinor,
       })
       if (e) setError(getSupabaseErrorMessage(e))
       else await refreshLearning()
     },
-    [useSupabase, supabase, orgId, userId, setState, refreshLearning],
+    [useSupabase, supabase, orgId, userId, setState, state.courses, refreshLearning],
   )
 
   const setModuleCompleted = useCallback(
@@ -1977,6 +2002,196 @@ export function useLearning() {
     [useSupabase, supabase, canManage, refreshLearning],
   )
 
+  /**
+   * Publish a new version of a system-course locale. The RPC validates monotonic
+   * increase, writes the new modules array, and inserts an immutable history row.
+   * Returns the inserted version row so the caller can refresh the Versjonshistorikk
+   * tab without a round trip.
+   */
+  const publishLocaleVersion = useCallback(
+    async (input: {
+      systemCourseId: string
+      locale: string
+      versionMajor: number
+      versionMinor: number
+      isMajor: boolean
+      changeNotesMd: string
+      modules: CourseModule[]
+    }) => {
+      if (!useSupabase || !supabase || !canManage) return { ok: false as const, error: 'Krever tilgang.' }
+      const { data, error: e } = await supabase.rpc('learning_publish_locale_version', {
+        p_system_course_id: input.systemCourseId,
+        p_locale: input.locale,
+        p_version_major: input.versionMajor,
+        p_version_minor: input.versionMinor,
+        p_is_major: input.isMajor,
+        p_change_notes_md: input.changeNotesMd,
+        p_modules: input.modules,
+      })
+      if (e) return { ok: false as const, error: getSupabaseErrorMessage(e) }
+      await refreshLearning()
+      return { ok: true as const, row: data as LocaleVersionHistoryRow }
+    },
+    [useSupabase, supabase, canManage, refreshLearning],
+  )
+
+  /**
+   * Compute the diff between the learner's `started_version` and the current
+   * published version for the course's resolved locale. Returns `{ hasProgress:
+   * false }` when there is no progress row.
+   */
+  const computeLearnerDiff = useCallback(
+    async (courseId: string, locale = 'nb'): Promise<LearnerVersionDiff> => {
+      if (!useSupabase || !supabase || !userId) return { hasProgress: false }
+      const { data, error: e } = await supabase.rpc('learning_compute_learner_diff', {
+        p_course_id: courseId,
+        p_locale: locale,
+      })
+      if (e || !data) return { hasProgress: false }
+      const raw = data as {
+        has_progress: boolean
+        has_diff?: boolean
+        is_major?: boolean
+        from_version?: { major: number; minor: number }
+        to_version?: { major: number; minor: number }
+        added_module_ids?: string[]
+        removed_module_ids?: string[]
+      }
+      if (!raw.has_progress) return { hasProgress: false }
+      if (!raw.has_diff) {
+        return {
+          hasProgress: true,
+          hasDiff: false,
+          fromVersion: raw.from_version,
+          toVersion: raw.to_version,
+        }
+      }
+      return {
+        hasProgress: true,
+        hasDiff: true,
+        isMajor: raw.is_major ?? false,
+        fromVersion: raw.from_version ?? { major: 1, minor: 0 },
+        toVersion: raw.to_version ?? { major: 1, minor: 0 },
+        addedModuleIds: raw.added_module_ids ?? [],
+        removedModuleIds: raw.removed_module_ids ?? [],
+      }
+    },
+    [useSupabase, supabase, userId],
+  )
+
+  /** List version-history rows for a system-course locale, newest first. */
+  const fetchLocaleVersionHistory = useCallback(
+    async (systemCourseId: string, locale: string) => {
+      if (!useSupabase || !supabase) return { ok: false as const, error: 'Krever Supabase.' }
+      const { data, error: e } = await supabase
+        .from('learning_system_course_locale_versions')
+        .select(
+          'id, system_course_id, locale, version_major, version_minor, published_at, published_by, change_notes_md, module_ids_snapshot, is_major',
+        )
+        .eq('system_course_id', systemCourseId)
+        .eq('locale', locale)
+        .order('version_major', { ascending: false })
+        .order('version_minor', { ascending: false })
+      if (e) return { ok: false as const, error: getSupabaseErrorMessage(e) }
+      const rows: LocaleVersionHistoryRow[] = (data ?? []).map((r) => ({
+        id: r.id as string,
+        systemCourseId: r.system_course_id as string,
+        locale: r.locale as string,
+        versionMajor: r.version_major as number,
+        versionMinor: r.version_minor as number,
+        publishedAt: r.published_at as string,
+        publishedBy: (r.published_by as string | null) ?? null,
+        changeNotesMd: (r.change_notes_md as string | null) ?? null,
+        moduleIdsSnapshot: Array.isArray(r.module_ids_snapshot)
+          ? (r.module_ids_snapshot as string[])
+          : [],
+        isMajor: Boolean(r.is_major),
+      }))
+      return { ok: true as const, rows }
+    },
+    [useSupabase, supabase],
+  )
+
+  /** Per-user completion history surfaced as "Min historikk". */
+  const fetchMyCompletionHistory = useCallback(async () => {
+    if (!useSupabase || !supabase || !userId) return { ok: false as const, error: 'Ikke innlogget.' }
+    const { data, error: e } = await supabase
+      .from('learning_course_completion_audit')
+      .select('course_id, course_version, course_title_snapshot, completed_at, certificate_id')
+      .eq('user_id', userId)
+      .order('completed_at', { ascending: false })
+    if (e) return { ok: false as const, error: getSupabaseErrorMessage(e) }
+    const rows: MyCompletionRow[] = (data ?? []).map((r) => ({
+      courseId: r.course_id as string,
+      courseTitleSnapshot: r.course_title_snapshot as string,
+      courseVersion: r.course_version as number,
+      completedAt: r.completed_at as string,
+      certificateId: (r.certificate_id as string | null) ?? null,
+      status: 'compliant', // resolved against current published versions on the page
+    }))
+    return { ok: true as const, rows }
+  }, [useSupabase, supabase, userId])
+
+  /**
+   * Publish a new version of a per-org course. Mirror of publishLocaleVersion
+   * but writes to learning_org_course_versions. Use for courses without a
+   * source_system_course_id.
+   */
+  const publishOrgCourseVersion = useCallback(
+    async (input: {
+      courseId: string
+      versionMajor: number
+      versionMinor: number
+      isMajor: boolean
+      changeNotesMd: string
+    }) => {
+      if (!useSupabase || !supabase || !canManage) return { ok: false as const, error: 'Krever tilgang.' }
+      const { data, error: e } = await supabase.rpc('learning_publish_org_course_version', {
+        p_course_id: input.courseId,
+        p_version_major: input.versionMajor,
+        p_version_minor: input.versionMinor,
+        p_is_major: input.isMajor,
+        p_change_notes_md: input.changeNotesMd,
+      })
+      if (e) return { ok: false as const, error: getSupabaseErrorMessage(e) }
+      await refreshLearning()
+      return { ok: true as const, row: data as LocaleVersionHistoryRow }
+    },
+    [useSupabase, supabase, canManage, refreshLearning],
+  )
+
+  /** List org-course version history, newest first. */
+  const fetchOrgCourseVersionHistory = useCallback(
+    async (courseId: string) => {
+      if (!useSupabase || !supabase) return { ok: false as const, error: 'Krever Supabase.' }
+      const { data, error: e } = await supabase
+        .from('learning_org_course_versions')
+        .select(
+          'id, course_id, version_major, version_minor, published_at, published_by, change_notes_md, module_ids_snapshot, is_major',
+        )
+        .eq('course_id', courseId)
+        .order('version_major', { ascending: false })
+        .order('version_minor', { ascending: false })
+      if (e) return { ok: false as const, error: getSupabaseErrorMessage(e) }
+      const rows: LocaleVersionHistoryRow[] = (data ?? []).map((r) => ({
+        id: r.id as string,
+        systemCourseId: r.course_id as string,
+        locale: 'org',
+        versionMajor: r.version_major as number,
+        versionMinor: r.version_minor as number,
+        publishedAt: r.published_at as string,
+        publishedBy: (r.published_by as string | null) ?? null,
+        changeNotesMd: (r.change_notes_md as string | null) ?? null,
+        moduleIdsSnapshot: Array.isArray(r.module_ids_snapshot)
+          ? (r.module_ids_snapshot as string[])
+          : [],
+        isMajor: Boolean(r.is_major),
+      }))
+      return { ok: true as const, rows }
+    },
+    [useSupabase, supabase],
+  )
+
   const upsertIltEvent = useCallback(
     async (input: {
       courseId: string
@@ -2225,7 +2440,7 @@ export function useLearning() {
         const payload: AllCoursesExportJson = {
           version: 1,
           kind: 'courses_all_export',
-          schemaVersion: 4,
+          schemaVersion: 5,
           exportedAt: new Date().toISOString(),
           orgCourses: state.courses.map((c) => ({
             ...serialiseCourseForBundle(c),
@@ -2239,7 +2454,9 @@ export function useLearning() {
         supabase.from('learning_system_courses').select('id, slug, default_locale'),
         supabase
           .from('learning_system_course_locales')
-          .select('system_course_id, locale, title, description, modules, meta'),
+          .select(
+            'system_course_id, locale, title, description, modules, meta, version_major, version_minor, version_published_at, change_notes_md',
+          ),
       ])
       if (sysErr) return { ok: false, error: getSupabaseErrorMessage(sysErr) }
       if (locErr) return { ok: false, error: getSupabaseErrorMessage(locErr) }
@@ -2251,6 +2468,10 @@ export function useLearning() {
         description: string
         modules: unknown
         meta: Record<string, unknown> | null
+        version_major: number | null
+        version_minor: number | null
+        version_published_at: string | null
+        change_notes_md: string | null
       }[]
       const localesByCourse = new Map<string, SystemCourseJson['locales']>()
       for (const row of locList) {
@@ -2263,6 +2484,10 @@ export function useLearning() {
           title: row.title ?? '',
           description: row.description ?? '',
           modules: Array.isArray(row.modules) ? (row.modules as SystemCourseJson['locales'][number]['modules']) : [],
+          versionMajor: row.version_major ?? 1,
+          versionMinor: row.version_minor ?? 0,
+          versionPublishedAt: row.version_published_at ?? null,
+          changeNotesMd: row.change_notes_md ?? null,
         })
         localesByCourse.set(row.system_course_id, list)
       }
@@ -2278,7 +2503,7 @@ export function useLearning() {
       const payload: AllCoursesExportJson = {
         version: 1,
         kind: 'courses_all_export',
-        schemaVersion: 4,
+        schemaVersion: 5,
         exportedAt: new Date().toISOString(),
         orgCourses,
         systemCourses,
@@ -2458,6 +2683,12 @@ export function useLearning() {
     pathEnrollments: useSupabase ? pathEnrollments : [],
     complianceMatrix: useSupabase && canManage ? complianceMatrix : [],
     bumpCourseVersion,
+    publishLocaleVersion,
+    publishOrgCourseVersion,
+    computeLearnerDiff,
+    fetchLocaleVersionHistory,
+    fetchOrgCourseVersionHistory,
+    fetchMyCompletionHistory,
     upsertIltEvent,
     setIltRsvp,
     setIltAttendance,
