@@ -31,7 +31,10 @@ const ReportModuleSchema = z
   .passthrough()
 
 const SystemReportRowSchema = z.object({
-  id: z.string().uuid(),
+  // id is uuid in Postgres; we don't double-check the format here because
+  // Zod's strict uuid validator rejects sentinel ids like
+  // 00000000-0000-0000-0000-000000000001 (version nibble 0).
+  id: z.string(),
   scope_id: z.string(),
   slug: z.string(),
   name: z.string(),
