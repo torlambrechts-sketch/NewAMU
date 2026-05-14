@@ -10,6 +10,7 @@
 import type {
   ReportModule,
   ReportModuleBar,
+  ReportModuleBowtie,
   ReportModuleDonut,
   ReportModuleKpi,
   ReportModuleScorecard,
@@ -102,6 +103,21 @@ const SCORECARD_BY_CATEGORY: ReportModuleScorecard = {
   rowBreak: true,
 }
 
+const BOWTIE_BY_REQUIREMENT: ReportModuleBowtie = {
+  id: 'bowtie-regelverk-requirements',
+  kind: 'bowtie',
+  datasetKey: 'regelverk_scorecard_groups',
+  title: 'Bowtie — risiko per krav',
+  subtitle:
+    'Preventive barrierer (kurs/dokument/sjekkliste/undersøkelse/møte) ' +
+    '→ topphendelse (brudd på §) → mitigerende barrierer (avvik) + ' +
+    'konsekvenser etter AML kap. 18–19',
+  groupsPath: '',
+  drillDimensionId: 'requirement',
+  colSpan: 'full',
+  rowBreak: true,
+}
+
 const TABLE_TOP_GAPS: ReportModuleTable = {
   id: 'table-regelverk-top-gaps',
   kind: 'table',
@@ -119,8 +135,12 @@ const DEFAULT_LAYOUT: ReportModule[] = [
   KPI_NEEDS_ATTENTION,
   DONUT_STATUS,
   BAR_OBLIGATION,
-  SCORECARD_BY_CATEGORY,
+  // Tre rad-visninger på samme dataset — speiler den gamle Liste/Scorecard/
+  // Bowtie-toggle som siden hadde før dashboard-engine-konverteringen.
+  // Brukeren kan fjerne dem hen ikke trenger via widget-menyen.
   TABLE_TOP_GAPS,
+  SCORECARD_BY_CATEGORY,
+  BOWTIE_BY_REQUIREMENT,
 ]
 
 const WIDGET_CATALOG: WidgetCatalogEntry[] = [
@@ -141,6 +161,16 @@ const WIDGET_CATALOG: WidgetCatalogEntry[] = [
     label: 'Krav per kategori — scorecard',
     description: 'Ett kort per kategori med per-§-rader og status-pill.',
     template: SCORECARD_BY_CATEGORY,
+  },
+  {
+    catalogId: 'bowtie-regelverk-requirements',
+    category: 'Scorecard',
+    label: 'Bowtie — risiko per krav',
+    description:
+      'Per-krav bowtie-diagram: preventive barrierer (Kurs · Dokument · Sjekkliste · ' +
+      'Undersøkelse · Møte) → brudd på § → mitigerende barrierer (Avvik · ROS) + ' +
+      'konsekvenser (Pålegg · Gebyr · Straff).',
+    template: BOWTIE_BY_REQUIREMENT,
   },
   {
     catalogId: 'table-regelverk-top-gaps',

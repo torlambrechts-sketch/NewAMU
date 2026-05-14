@@ -719,6 +719,291 @@ export function ReportModuleWidget({
       </>,
     )
   }
+  if (m.kind === 'bowtie') {
+    // Bowtie — risiko-trekant per krav. Forbruker samme dataset-form som
+    // scorecard (groups med rows). Rader kan i tillegg inneholde:
+    //   - byKind: Record<kind, number> per akse (course / document / ...)
+    //   - proof: { freshInstances, staleInstances, templatesOnly }
+    // for fargekoding av preventive barrierer. Når disse felter mangler
+    // faller vi tilbake til binær «har / mangler».
+    type BowtieRow = {
+      id?: string
+      label?: string
+      title?: string
+      applies?: string
+      obligation?: 'mandatory' | 'recommended' | 'conditional'
+      status?: 'covered' | 'partial' | 'only_avvik' | 'uncovered'
+      byKind?: Record<string, number>
+      proof?: { freshInstances?: number; staleInstances?: number; templatesOnly?: number }
+    }
+    type BowtieGroup = {
+      category?: string
+      total?: number
+      covered?: number
+      partial?: number
+      needsAttention?: number
+      rows?: BowtieRow[]
+    }
+    const raw = m.groupsPath ? getAtPath(ds, m.groupsPath) : ds
+    const groups: BowtieGroup[] = Array.isArray(raw) ? (raw as BowtieGroup[]) : []
+    const drillable = !!(m.drillDimensionId && onDrillDown)
+
+    type AxisDef = { id: string; label: string; kinds: string[] }
+    const PREVENTIVE_AXES: AxisDef[] = [
+      { id: 'course', label: 'Kurs', kinds: ['course_system', 'course_org'] },
+      { id: 'document', label: 'Dokument', kinds: ['document', 'document_template'] },
+      { id: 'checklist', label: 'Sjekkliste', kinds: ['checklist_template', 'checklist_item'] },
+      { id: 'survey', label: 'Undersøkelse', kinds: ['survey'] },
+      { id: 'meeting', label: 'Møte', kinds: ['meeting_template'] },
+    ]
+    const THREATS = ['Manglende kunnskap', 'Manglende rutine', 'Manglende kontroll']
+
+    const axisCount = (r: BowtieRow, axis: AxisDef) => {
+      if (!r.byKind) return 0
+      return axis.kinds.reduce((s, k) => s + (r.byKind?.[k] ?? 0), 0)
+    }
+    const axisCls = (r: BowtieRow, axis: AxisDef) => {
+      const n = axisCount(r, axis)
+      if (n === 0) return 'border-dashed border-red-300 bg-red-50/50 text-red-700'
+      // Fresh proof er per-krav (ikke per-akse) — bruk det som signal:
+      // hvis kravet samlet sett har fersk dekning, fargekod aksene grønt.
+      if ((r.proof?.freshInstances ?? 0) > 0)
+        return 'border-emerald-300 bg-emerald-50 text-emerald-900'
+      if (r.status === 'partial' || (r.proof?.staleInstances ?? 0) > 0)
+        return 'border-amber-300 bg-amber-50 text-amber-900'
+      return 'border-sky-200 bg-sky-50 text-sky-900'
+    }
+    const taskCount = (r: BowtieRow) => r.byKind?.task ?? 0
+    const consequencesFor = (
+      o: BowtieRow['obligation'],
+    ): { label: string; sub: string; tone: 'severe' | 'medium' | 'low' }[] => {
+      if (o === 'mandatory') {
+        return [
+          { label: 'Pålegg', sub: 'AML § 18-6', tone: 'medium' },
+          { label: 'Overtredelsesgebyr', sub: 'AML § 18-10 (15 G)', tone: 'severe' },
+          { label: 'Straffeansvar', sub: 'AML § 19-1', tone: 'severe' },
+        ]
+      }
+      if (o === 'conditional') {
+        return [
+          { label: 'Pålegg ved trigger', sub: 'AML § 18-6', tone: 'medium' },
+          { label: 'Tvangsmulkt', sub: 'AML § 18-7', tone: 'medium' },
+        ]
+      }
+      return [{ label: 'Tilsynsmerknad', sub: 'Anbefaling', tone: 'low' }]
+    }
+    const consequenceCls = (tone: 'severe' | 'medium' | 'low') =>
+      tone === 'severe'
+        ? 'bg-red-50 text-red-900 ring-red-200'
+        : tone === 'medium'
+          ? 'bg-amber-50 text-amber-900 ring-amber-200'
+          : 'bg-neutral-50 text-neutral-700 ring-neutral-200'
+
+    return wrap(
+      <>
+        {titleBlock}
+        {groups.length === 0 ? (
+          <EmptyWidget label={emptyLabel ?? 'Ingen krav matcher filteret.'} />
+        ) : (
+          <div className="mt-4 space-y-6">
+            <p className="text-[11px] text-neutral-500">
+              Venstre side: preventive barrierer (kurs · dokument · sjekkliste ·
+              undersøkelse · møte). Sentralt: brudd på §. Høyre side: mitigerende
+              barrierer (avvik · ROS) og konsekvenser etter AML kap. 18–19.
+            </p>
+            {groups.map((g, idx) => {
+              const total = g.total ?? g.rows?.length ?? 0
+              const covered = g.covered ?? 0
+              const pct = total === 0 ? 0 : Math.round((covered / total) * 100)
+              return (
+                <section key={g.category ?? `g-${idx}`} className="space-y-2">
+                  <header className="flex items-baseline justify-between gap-3 border-b border-neutral-200 pb-1.5">
+                    <h4
+                      className="text-sm font-semibold text-neutral-900"
+                      style={{ fontFamily: "'Libre Baskerville', Georgia, serif" }}
+                    >
+                      {g.category ?? 'Ukategorisert'}
+                    </h4>
+                    <p className="text-[11px] text-neutral-500">
+                      <span className="font-bold tabular-nums" style={{ color: accent }}>
+                        {pct}%
+                      </span>{' '}
+                      · {covered} av {total} dekket
+                    </p>
+                  </header>
+                  <ul className="space-y-2">
+                    {(g.rows ?? []).map((r, ridx) => {
+                      const rowKey = r.id ?? r.label ?? `r-${ridx}`
+                      const statusGlyph =
+                        r.status === 'covered'
+                          ? '✓'
+                          : r.status === 'partial'
+                            ? '◷'
+                            : r.status === 'only_avvik'
+                              ? '!'
+                              : '✕'
+                      const statusColor =
+                        r.status === 'covered'
+                          ? 'text-emerald-600'
+                          : r.status === 'partial'
+                            ? 'text-amber-500'
+                            : r.status === 'only_avvik'
+                              ? 'text-amber-600'
+                              : 'text-red-500'
+                      const obligationCls =
+                        r.obligation === 'mandatory'
+                          ? 'bg-red-50 text-red-900 ring-red-200'
+                          : r.obligation === 'recommended'
+                            ? 'bg-amber-50 text-amber-900 ring-amber-200'
+                            : 'bg-neutral-50 text-neutral-700 ring-neutral-200'
+                      const obligationText =
+                        r.obligation === 'mandatory'
+                          ? 'Pliktig'
+                          : r.obligation === 'recommended'
+                            ? 'Anbefalt'
+                            : r.obligation === 'conditional'
+                              ? 'Betinget'
+                              : null
+                      const tasks = taskCount(r)
+                      const cons = consequencesFor(r.obligation)
+                      const titleEl = (
+                        <div className="flex w-full items-center gap-3">
+                          <span className={`shrink-0 text-base font-bold ${statusColor}`} aria-hidden>
+                            {statusGlyph}
+                          </span>
+                          <span
+                            className="shrink-0 rounded-md bg-neutral-50 px-2 py-1 text-[12px] font-semibold text-neutral-900 ring-1 ring-inset ring-neutral-200"
+                            style={{ fontFamily: "'Libre Baskerville', Georgia, serif" }}
+                          >
+                            {r.label ?? ''}
+                          </span>
+                          <span className="min-w-0 flex-1 truncate text-sm text-neutral-800">
+                            {r.title ?? ''}
+                          </span>
+                          {obligationText ? (
+                            <span
+                              className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ring-1 ring-inset ${obligationCls}`}
+                            >
+                              {obligationText}
+                            </span>
+                          ) : null}
+                        </div>
+                      )
+                      return (
+                        <li
+                          key={rowKey}
+                          className="rounded-lg border border-neutral-200/80 bg-white p-3"
+                        >
+                          {drillable && r.id ? (
+                            <button
+                              type="button"
+                              onClick={() =>
+                                onDrillDown?.({
+                                  module: m,
+                                  segmentLabel: r.id!,
+                                  dimensionId: m.drillDimensionId!,
+                                })
+                              }
+                              className="mb-2 w-full text-left transition hover:opacity-80"
+                            >
+                              {titleEl}
+                            </button>
+                          ) : (
+                            <div className="mb-2">{titleEl}</div>
+                          )}
+                          <div className="grid gap-2 lg:grid-cols-[110px_1fr_60px_1fr_140px] lg:items-center">
+                            <div className="space-y-1">
+                              <p className="text-[9px] font-bold uppercase tracking-wide text-neutral-500">
+                                Trusler
+                              </p>
+                              {THREATS.map((t) => (
+                                <div
+                                  key={t}
+                                  className="rounded border border-neutral-200 bg-neutral-50 px-1.5 py-0.5 text-[10px] text-neutral-700"
+                                >
+                                  {t}
+                                </div>
+                              ))}
+                            </div>
+                            <div>
+                              <p className="mb-1 text-[9px] font-bold uppercase tracking-wide text-neutral-500">
+                                Preventive barrierer
+                              </p>
+                              <div className="flex flex-wrap gap-1">
+                                {PREVENTIVE_AXES.map((axis) => {
+                                  const n = axisCount(r, axis)
+                                  return (
+                                    <span
+                                      key={axis.id}
+                                      className={`inline-flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-[10px] ${axisCls(r, axis)}`}
+                                      title={`${axis.label}: ${n} ressurs${n === 1 ? '' : 'er'}`}
+                                    >
+                                      {axis.label}
+                                      <span className="tabular-nums">{n > 0 ? n : '—'}</span>
+                                    </span>
+                                  )
+                                })}
+                              </div>
+                            </div>
+                            <div className="flex items-center justify-center">
+                              <div
+                                className="flex size-14 shrink-0 flex-col items-center justify-center rounded-full text-[9px] font-bold uppercase tracking-wide text-white"
+                                style={{ backgroundColor: accent }}
+                                aria-hidden
+                              >
+                                Topp­hendelse
+                              </div>
+                            </div>
+                            <div>
+                              <p className="mb-1 text-[9px] font-bold uppercase tracking-wide text-neutral-500">
+                                Mitigerende barrierer
+                              </p>
+                              <div className="flex flex-wrap gap-1">
+                                <span
+                                  className={`inline-flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-[10px] ${tasks > 0 ? 'border-amber-300 bg-amber-50 text-amber-900' : 'border-dashed border-neutral-300 bg-neutral-50/50 text-neutral-500'}`}
+                                  title={`Avvik tagget med ${r.label ?? ''}`}
+                                >
+                                  Avvik
+                                  <span className="tabular-nums">{tasks > 0 ? tasks : '—'}</span>
+                                </span>
+                                <span
+                                  className="inline-flex items-center gap-1 rounded-md border border-dashed border-neutral-300 bg-neutral-50/50 px-1.5 py-0.5 text-[10px] text-neutral-500"
+                                  title="ROS-analyser tagges på domene-nivå (eks. AML)."
+                                >
+                                  ROS
+                                  <span>domene</span>
+                                </span>
+                              </div>
+                            </div>
+                            <div className="space-y-1">
+                              <p className="text-[9px] font-bold uppercase tracking-wide text-neutral-500">
+                                {r.obligation === 'mandatory'
+                                  ? 'Konsekvens ved brudd'
+                                  : 'Mulig konsekvens'}
+                              </p>
+                              {cons.map((c) => (
+                                <div
+                                  key={c.label}
+                                  className={`rounded border px-1.5 py-0.5 text-[10px] ring-1 ring-inset ${consequenceCls(c.tone)}`}
+                                >
+                                  <div className="font-semibold">{c.label}</div>
+                                  <div className="text-[9px] opacity-80">{c.sub}</div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        </li>
+                      )
+                    })}
+                  </ul>
+                </section>
+              )
+            })}
+          </div>
+        )}
+      </>,
+    )
+  }
   return null
 }
 

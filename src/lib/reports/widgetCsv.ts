@@ -115,7 +115,10 @@ export function widgetToCsv(
       })
       return { filename, csv: rowsToCsv(out) }
     }
-    case 'scorecard': {
+    case 'scorecard':
+    case 'bowtie': {
+      // Bowtie konsumerer samme dataset-form som scorecard — eksport-CSV
+      // er derfor identisk. Header beholder formuleringen for begge.
       const raw = module.groupsPath ? getAtPath(ds, module.groupsPath) : ds
       const groups: Array<Record<string, unknown>> = Array.isArray(raw)
         ? (raw as Array<Record<string, unknown>>)

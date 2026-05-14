@@ -17,6 +17,7 @@ export type ReportModuleKind =
   | 'line'
   | 'heatmap'
   | 'scorecard'
+  | 'bowtie'
 
 /**
  * Widget layout hint, mapped to a 12-column responsive grid by the
@@ -153,6 +154,21 @@ export type ReportModuleScorecard = ReportModuleBase & {
   drillDimensionId?: string
 }
 
+/**
+ * Bowtie widget — risiko-trekant per krav. Konsumerer samme dataset-form
+ * som scorecard (`Array<{ category, total, covered, rows: [...] }>`), men
+ * rader kan i tillegg inneholde `byKind` (Record<string, number>) og
+ * `proof.freshInstances` slik at preventive barrierer fargekodes etter
+ * reell dekning. Renderer venstre side med kurs/dokument/sjekkliste/
+ * undersøkelse/møte-chips, sentral-node med §, høyre side med avvik +
+ * konsekvenser parameterisert på `obligation`.
+ */
+export type ReportModuleBowtie = ReportModuleBase & {
+  kind: 'bowtie'
+  groupsPath?: string
+  drillDimensionId?: string
+}
+
 export type ReportModule =
   | ReportModuleKpi
   | ReportModuleTable
@@ -161,6 +177,7 @@ export type ReportModule =
   | ReportModuleLine
   | ReportModuleHeatmap
   | ReportModuleScorecard
+  | ReportModuleBowtie
 
 export type CustomReportTemplate = {
   id: string
