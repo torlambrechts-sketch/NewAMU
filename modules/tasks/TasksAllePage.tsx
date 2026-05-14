@@ -704,11 +704,19 @@ type SubtaskRow = {
   dueDate: string | null
 }
 
+type SubEditForm = {
+  title: string; ownerName: string; priority: SubPriority | ''; startDate: string; dueDate: string
+}
+const EMPTY_SUB_EDIT: SubEditForm = { title: '', ownerName: '', priority: '', startDate: '', dueDate: '' }
+
 function SubtaskTableRows({ taskItemId }: { taskItemId: string }) {
   const { supabase } = useOrgSetupContext()
   const [subtasks, setSubtasks] = useState<SubtaskRow[]>([])
   const [adding, setAdding] = useState(false)
   const [newTitle, setNewTitle] = useState('')
+  const [editingId, setEditingId] = useState<string | null>(null)
+  const [editForm, setEditForm] = useState<SubEditForm>(EMPTY_SUB_EDIT)
+  const setEF = (k: keyof SubEditForm, v: string) => setEditForm((f) => ({ ...f, [k]: v }))
 
   const load = useCallback(async () => {
     if (!supabase) return
@@ -751,6 +759,31 @@ function SubtaskTableRows({ taskItemId }: { taskItemId: string }) {
     await supabase.from('task_subtasks').update({ deleted_at: new Date().toISOString() }).eq('id', id)
   }
 
+  const openEdit = (sub: SubtaskRow) => {
+    setEditingId(sub.id)
+    setEditForm({ title: sub.title, ownerName: sub.ownerName ?? '', priority: sub.priority ?? '', startDate: sub.startDate ?? '', dueDate: sub.dueDate ?? '' })
+  }
+
+  const saveEdit = async () => {
+    if (!supabase || !editingId || !editForm.title.trim()) return
+    const id = editingId
+    await supabase.from('task_subtasks').update({
+      title: editForm.title.trim(),
+      owner_name: editForm.ownerName.trim() || null,
+      priority: editForm.priority || null,
+      start_date: editForm.startDate || null,
+      due_date: editForm.dueDate || null,
+    }).eq('id', id)
+    setSubtasks((prev) =>
+      prev.map((s) =>
+        s.id === id
+          ? { ...s, title: editForm.title.trim(), ownerName: editForm.ownerName.trim() || null, priority: (editForm.priority as SubPriority) || null, startDate: editForm.startDate || null, dueDate: editForm.dueDate || null }
+          : s,
+      ),
+    )
+    setEditingId(null)
+  }
+
   const addSubtask = async () => {
     if (!supabase || !newTitle.trim()) return
     setAdding(true)
@@ -791,12 +824,12 @@ function SubtaskTableRows({ taskItemId }: { taskItemId: string }) {
             ? `Fra ${fmtDate(sub.startDate)}`
             : null
 
-        return (
+        return [
           <tr key={sub.id} className="group border-b border-neutral-100 bg-neutral-50/60">
             {/* Col 1: Type — indent only */}
             <td className="w-10 px-3 py-2" />
 
-            {/* Col 2: Title — checkbox + text, indented under parent */}
+            {/* Col 2: Title — checkbox + clickable text */}
             <td className="px-3 py-2">
               <div className="flex items-center gap-2 pl-5">
                 <button
@@ -811,7 +844,11 @@ function SubtaskTableRows({ taskItemId }: { taskItemId: string }) {
                   {sub.isDone && <Check className="h-2.5 w-2.5" />}
                 </button>
                 <span
-                  className={`text-sm ${
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => openEdit(sub)}
+                  onKeyDown={(e) => { if (e.key === 'Enter') openEdit(sub) }}
+                  className={`cursor-pointer text-sm hover:text-[#c2410c] hover:underline ${
                     sub.isDone ? 'text-neutral-400 line-through' : 'text-neutral-700'
                   }`}
                 >
@@ -877,8 +914,57 @@ function SubtaskTableRows({ taskItemId }: { taskItemId: string }) {
                 <Trash2 className="h-3.5 w-3.5" />
               </button>
             </td>
-          </tr>
-        )
+          </tr>,
+
+          /* Inline edit form row */
+          editingId === sub.id ? (
+            <tr key={`${sub.id}-edit`} className="border-b border-[#c2410c]/20 bg-orange-50/40">
+              <td className="w-10 px-3 py-2" />
+              <td colSpan={7} className="px-3 py-2">
+                <div className="space-y-2 pl-5">
+                  <input
+                    autoFocus
+                    type="text"
+                    value={editForm.title}
+                    onChange={(e) => setEF('title', e.target.value)}
+                    onKeyDown={(e) => { if (e.key === 'Enter') void saveEdit(); if (e.key === 'Escape') setEditingId(null) }}
+                    placeholder="Tittel…"
+                    className="w-full rounded border border-neutral-200 bg-white px-2.5 py-1.5 text-sm focus:border-[#c2410c] focus:outline-none"
+                  />
+                  <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                    <div>
+                      <p className="mb-1 text-[9px] font-bold uppercase tracking-wider text-neutral-400">Ansvarlig</p>
+                      <input type="text" value={editForm.ownerName} onChange={(e) => setEF('ownerName', e.target.value)} placeholder="Navn…" className="w-full rounded border border-neutral-200 bg-white px-2 py-1 text-xs focus:border-[#c2410c] focus:outline-none" />
+                    </div>
+                    <div>
+                      <p className="mb-1 text-[9px] font-bold uppercase tracking-wider text-neutral-400">Prioritet</p>
+                      <select value={editForm.priority} onChange={(e) => setEF('priority', e.target.value)} className="w-full rounded border border-neutral-200 bg-white px-2 py-1 text-xs focus:border-[#c2410c] focus:outline-none">
+                        <option value="">—</option>
+                        <option value="low">Lav</option>
+                        <option value="medium">Medium</option>
+                        <option value="high">Høy</option>
+                        <option value="critical">Kritisk</option>
+                      </select>
+                    </div>
+                    <div>
+                      <p className="mb-1 text-[9px] font-bold uppercase tracking-wider text-neutral-400">Start</p>
+                      <input type="date" value={editForm.startDate} onChange={(e) => setEF('startDate', e.target.value)} className="w-full rounded border border-neutral-200 bg-white px-2 py-1 text-xs focus:border-[#c2410c] focus:outline-none" />
+                    </div>
+                    <div>
+                      <p className="mb-1 text-[9px] font-bold uppercase tracking-wider text-neutral-400">Frist</p>
+                      <input type="date" value={editForm.dueDate} onChange={(e) => setEF('dueDate', e.target.value)} className="w-full rounded border border-neutral-200 bg-white px-2 py-1 text-xs focus:border-[#c2410c] focus:outline-none" />
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button type="button" disabled={!editForm.title.trim()} onClick={() => void saveEdit()} className="rounded bg-[#c2410c] px-3 py-1 text-xs font-medium text-white hover:bg-[#a33609] disabled:opacity-40">Lagre</button>
+                    <button type="button" onClick={() => setEditingId(null)} className="text-xs text-neutral-400 hover:text-neutral-700">Avbryt</button>
+                  </div>
+                </div>
+              </td>
+              <td className="w-8 px-3 py-2" />
+            </tr>
+          ) : null,
+        ]
       })}
 
       {/* Quick-add row */}
@@ -1346,6 +1432,10 @@ export function TasksAllePage() {
         onStatusChange={async (id, status) => {
           await allItems.updateStatus(id, status)
           setSelectedItem((prev) => (prev?.id === id ? { ...prev, status } : prev))
+        }}
+        onUpdate={(id, dueDate) => {
+          allItems.reload()
+          setSelectedItem((prev) => (prev?.id === id ? { ...prev, dueDate } : prev))
         }}
       />
     </>

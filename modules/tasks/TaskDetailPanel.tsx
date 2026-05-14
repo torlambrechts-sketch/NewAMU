@@ -23,6 +23,7 @@ type Props = {
   onClose: () => void
   item: TaskItemRow | null
   onStatusChange?: (id: string, status: TaskItemStatus) => Promise<void>
+  onUpdate?: (id: string, dueDate: string | null) => void
 }
 
 const CAPA_FLOW: TaskItemStatus[] = [
@@ -73,11 +74,12 @@ const TABS = [
   { id: 'konsultasjoner', label: 'Konsultasjoner' },
 ]
 
-export function TaskDetailPanel({ open, onClose, item, onStatusChange }: Props) {
+export function TaskDetailPanel({ open, onClose, item, onStatusChange, onUpdate }: Props) {
   const { supabase } = useOrgSetupContext()
   const [detail, setDetail] = useState<DetailRow | null>(null)
   const [tab, setTab] = useState('oppgave')
   const [changingStatus, setChangingStatus] = useState(false)
+  const [editDueDate, setEditDueDate] = useState('')
 
   const loadDetail = useCallback(
     async (id: string) => {
@@ -116,6 +118,19 @@ export function TaskDetailPanel({ open, onClose, item, onStatusChange }: Props) 
     }
     if (!open) setDetail(null)
   }, [open, item, loadDetail])
+
+  useEffect(() => {
+    setEditDueDate(detail?.dueDate ?? item?.dueDate ?? '')
+  }, [detail?.dueDate, item?.dueDate])
+
+  const saveDueDate = async (val: string) => {
+    const id = detail?.id ?? item?.id
+    if (!supabase || !id) return
+    const dateVal = val || null
+    await supabase.from('task_items').update({ due_date: dateVal }).eq('id', id)
+    setDetail((prev) => (prev ? { ...prev, dueDate: dateVal } : prev))
+    onUpdate?.(id, dateVal)
+  }
 
   const handleStatusChange = async (newStatus: TaskItemStatus) => {
     if (!detail || !onStatusChange) return
@@ -290,23 +305,25 @@ export function TaskDetailPanel({ open, onClose, item, onStatusChange }: Props) 
                       </div>
                     </div>
                   )}
-                  {row.dueDate && (
-                    <div className="flex items-start gap-2">
-                      <Calendar className="mt-0.5 h-4 w-4 shrink-0 text-neutral-400" />
-                      <div>
-                        <p className="text-[10px] font-bold uppercase tracking-wider text-neutral-500">
-                          Frist
-                        </p>
-                        <p className={`mt-0.5 text-sm ${
-                          new Date(row.dueDate) < new Date() && row.status !== 'closed'
-                            ? 'font-medium text-red-600'
-                            : 'text-neutral-800'
-                        }`}>
-                          {fmtDate(row.dueDate)}
-                        </p>
-                      </div>
+                  <div className="flex items-start gap-2">
+                    <Calendar className="mt-0.5 h-4 w-4 shrink-0 text-neutral-400" />
+                    <div>
+                      <p className="text-[10px] font-bold uppercase tracking-wider text-neutral-500">
+                        Frist
+                      </p>
+                      <input
+                        type="date"
+                        value={editDueDate}
+                        onChange={(e) => setEditDueDate(e.target.value)}
+                        onBlur={(e) => { void saveDueDate(e.target.value) }}
+                        className={`mt-0.5 rounded border bg-white px-2 py-1 text-sm focus:border-[#c2410c] focus:outline-none ${
+                          editDueDate && new Date(editDueDate) < new Date() && row.status !== 'closed'
+                            ? 'border-red-300 text-red-600'
+                            : 'border-neutral-200 text-neutral-800'
+                        }`}
+                      />
                     </div>
-                  )}
+                  </div>
                   {row.slaDueAt && (
                     <div className="flex items-start gap-2">
                       <Clock className="mt-0.5 h-4 w-4 shrink-0 text-neutral-400" />
