@@ -6,6 +6,8 @@ import {
   CheckCircle2,
   Clock,
   GraduationCap,
+  LayoutGrid,
+  List,
   Pencil,
   RefreshCw,
   Search,
@@ -24,11 +26,34 @@ import { StandardInput } from '../../components/ui/Input'
 import { SearchableSelect, type SelectOption } from '../../components/ui/SearchableSelect'
 import { LayoutTable1PostingsShell } from '../../components/layout/LayoutTable1PostingsShell'
 import { ModuleSectionCard } from '../../components/module'
+import { BEIGE_NAV, WikiFolderNavRow } from '../../components/module/ModuleWikiFolderNavRow'
 
 const PIN_GREEN = '#1a3d32'
 const MINT_BG = '#e7efe9'
 
 const FAV_KEY = 'atics-learning-favourite-course-ids'
+const VIEW_MODE_KEY = 'atics-learning-courses-view-mode'
+const UNCATEGORISED_KEY = '__uncat__'
+const ALL_KEY = '__all__'
+
+type ViewMode = 'kort' | 'liste'
+
+function loadViewMode(): ViewMode {
+  try {
+    const raw = localStorage.getItem(VIEW_MODE_KEY)
+    return raw === 'liste' ? 'liste' : 'kort'
+  } catch {
+    return 'kort'
+  }
+}
+
+function saveViewMode(v: ViewMode) {
+  try {
+    localStorage.setItem(VIEW_MODE_KEY, v)
+  } catch {
+    /* ignore */
+  }
+}
 
 function loadFavouriteIds(): Set<string> {
   try {
@@ -105,6 +130,8 @@ export function LearningCoursesList() {
   const [tab, setTab] = useState<TabId>('all')
   const [favourites, setFavourites] = useState<Set<string>>(loadFavouriteIds)
   const [deleteError, setDeleteError] = useState<string | null>(null)
+  const [selectedCategoryId, setSelectedCategoryId] = useState<string>(ALL_KEY)
+  const [viewMode, setViewMode] = useState<ViewMode>(loadViewMode)
 
   const visibleCourses = useMemo(() => {
     let list = courses
@@ -139,7 +166,8 @@ export function LearningCoursesList() {
     return { all, active, complete, fav }
   }, [visibleCourses, certificates, progress, profile?.id, favourites])
 
-  const filteredCards = useMemo(() => {
+  // Tab + favourites filter — independent of the selected category sidebar.
+  const tabFiltered = useMemo(() => {
     return visibleCourses.filter((c) => {
       if (tab === 'fav') return favourites.has(c.id)
       const cert = certificates.some((x) => x.courseId === c.id)
@@ -153,39 +181,34 @@ export function LearningCoursesList() {
     })
   }, [visibleCourses, tab, favourites, certificates, progress, profile?.id])
 
-  // Bucket the filtered cards by category. Categories with no courses are
-  // skipped; uncategorised courses fall into a synthetic "Annet" bucket.
-  // Single-category mode (only one non-empty bucket) drops the headers
-  // entirely — visual noise otherwise.
-  const groupedCards = useMemo(() => {
-    type Bucket = {
-      key: string
-      name: string
-      position: number
-      cards: typeof filteredCards
+  // Counts per sidebar row (Alle / per-kategori / Annet) — computed off the
+  // tab-filtered set so chips and category counts stay in sync.
+  const sidebarCategories = useMemo(() => {
+    const activeCats = categories.filter((c) => c.is_active)
+    const byId = new Map<string, number>()
+    let uncategorised = 0
+    for (const c of tabFiltered) {
+      if (c.categoryId && activeCats.some((cat) => cat.id === c.categoryId)) {
+        byId.set(c.categoryId, (byId.get(c.categoryId) ?? 0) + 1)
+      } else {
+        uncategorised += 1
+      }
     }
-    const byKey = new Map<string, Bucket>()
-    for (const c of categories.filter((x) => x.is_active)) {
-      byKey.set(c.id, { key: c.id, name: c.name, position: c.position, cards: [] })
-    }
-    const uncategorised: Bucket = {
-      key: '__uncat__',
-      name: 'Annet',
-      position: 9999,
-      cards: [],
-    }
-    for (const card of filteredCards) {
-      const target =
-        (card.categoryId && byKey.get(card.categoryId)) || uncategorised
-      target.cards.push(card)
-    }
-    const ordered = [...byKey.values()].filter((b) => b.cards.length > 0)
-    if (uncategorised.cards.length > 0) ordered.push(uncategorised)
-    ordered.sort((a, b) => a.position - b.position || a.name.localeCompare(b.name, 'nb'))
-    return ordered
-  }, [filteredCards, categories])
+    const rows = activeCats
+      .map((cat) => ({ id: cat.id, name: cat.name, position: cat.position, count: byId.get(cat.id) ?? 0 }))
+      .sort((a, b) => a.position - b.position || a.name.localeCompare(b.name, 'nb'))
+    return { rows, uncategorised, all: tabFiltered.length }
+  }, [tabFiltered, categories])
 
-  const showGroupHeaders = groupedCards.length > 1
+  // Cards visible in the right pane: tab + sidebar category.
+  const filteredCards = useMemo(() => {
+    if (selectedCategoryId === ALL_KEY) return tabFiltered
+    if (selectedCategoryId === UNCATEGORISED_KEY) {
+      const activeIds = new Set(categories.filter((c) => c.is_active).map((c) => c.id))
+      return tabFiltered.filter((c) => !c.categoryId || !activeIds.has(c.categoryId))
+    }
+    return tabFiltered.filter((c) => c.categoryId === selectedCategoryId)
+  }, [tabFiltered, selectedCategoryId, categories])
 
   const toggleFavourite = (courseId: string) => {
     setFavourites((prev) => {
@@ -279,6 +302,44 @@ export function LearningCoursesList() {
                   )
                 })}
               </div>
+              <div
+                role="group"
+                aria-label="Visningstype"
+                className="ml-auto inline-flex overflow-hidden rounded-md border border-neutral-200"
+              >
+                <button
+                  type="button"
+                  onClick={() => {
+                    setViewMode('kort')
+                    saveViewMode('kort')
+                  }}
+                  aria-pressed={viewMode === 'kort'}
+                  className={`inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium transition-colors ${
+                    viewMode === 'kort'
+                      ? 'bg-[#1a3d32] text-white'
+                      : 'bg-white text-neutral-600 hover:bg-neutral-50'
+                  }`}
+                >
+                  <LayoutGrid className="h-3 w-3" />
+                  Kort
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setViewMode('liste')
+                    saveViewMode('liste')
+                  }}
+                  aria-pressed={viewMode === 'liste'}
+                  className={`inline-flex items-center gap-1 border-l border-neutral-200 px-2.5 py-1 text-xs font-medium transition-colors ${
+                    viewMode === 'liste'
+                      ? 'bg-[#1a3d32] text-white'
+                      : 'bg-white text-neutral-600 hover:bg-neutral-50'
+                  }`}
+                >
+                  <List className="h-3 w-3" />
+                  Liste
+                </button>
+              </div>
             </>
           }
           footer={
@@ -287,17 +348,52 @@ export function LearningCoursesList() {
             </span>
           }
         >
-          <div className="space-y-5 px-5 py-5">
-            {groupedCards.map((bucket) => (
-              <div key={bucket.key}>
-                {showGroupHeaders ? (
-                  <div className="mb-2 flex items-baseline gap-2 border-b border-neutral-200/70 pb-1.5">
-                    <h3 className="text-sm font-semibold text-neutral-900">{bucket.name}</h3>
-                    <span className="text-xs text-neutral-500">{bucket.cards.length}</span>
-                  </div>
-                ) : null}
+          <div className="grid grid-cols-1 gap-0 overflow-hidden lg:grid-cols-[minmax(200px,22%)_1fr]">
+            <aside
+              className="border-b border-neutral-200 p-2 lg:border-b-0 lg:border-r lg:border-neutral-200/80"
+              style={{ backgroundColor: BEIGE_NAV }}
+            >
+              <WikiFolderNavRow
+                label="Alle kategorier"
+                sub={`${sidebarCategories.all} kurs`}
+                active={selectedCategoryId === ALL_KEY}
+                onSelect={() => setSelectedCategoryId(ALL_KEY)}
+              />
+              {sidebarCategories.rows.map((cat) => (
+                <WikiFolderNavRow
+                  key={cat.id}
+                  label={cat.name}
+                  sub={`${cat.count} ${cat.count === 1 ? 'kurs' : 'kurs'}`}
+                  active={selectedCategoryId === cat.id}
+                  onSelect={() => setSelectedCategoryId(cat.id)}
+                />
+              ))}
+              {sidebarCategories.uncategorised > 0 ? (
+                <WikiFolderNavRow
+                  label="Annet"
+                  sub={`${sidebarCategories.uncategorised} kurs`}
+                  active={selectedCategoryId === UNCATEGORISED_KEY}
+                  onSelect={() => setSelectedCategoryId(UNCATEGORISED_KEY)}
+                />
+              ) : null}
+            </aside>
+            <div className="min-w-0 bg-white p-4 md:p-6">
+              {viewMode === 'liste' ? (
+                <LearningCoursesListView
+                  courses={filteredCards}
+                  canManage={canManage}
+                  canDelete={canDelete}
+                  isCourseUnlocked={isCourseUnlocked}
+                  progress={progress}
+                  certificates={certificates}
+                  profileId={profile?.id}
+                  favourites={favourites}
+                  toggleFavourite={toggleFavourite}
+                  onDelete={handleDelete}
+                />
+              ) : (
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
-                  {bucket.cards.map((c) => {
+                  {filteredCards.map((c) => {
               const unlocked = isCourseUnlocked(c.id)
               const total = c.modules.length
               const mins = courseTotalMinutes(c)
@@ -335,6 +431,7 @@ export function LearningCoursesList() {
                         <Star className={`h-4 w-4 ${isFav ? 'fill-amber-400 text-amber-500' : ''}`} />
                       </button>
                       <Badge variant={status.variant}>{status.label}</Badge>
+                      {c.origin === 'system' ? <Badge variant="neutral">System</Badge> : null}
                     </div>
                   </div>
 
@@ -497,18 +594,154 @@ export function LearningCoursesList() {
                   </div>
                 </article>
               )
-            })}
+                  })}
                 </div>
-              </div>
-            ))}
-            {filteredCards.length === 0 && !learningLoading ? (
-              <div className="py-12 text-center text-sm text-neutral-500">
-                Ingen kurs i dette filteret. Bruk «Nytt kurs» øverst for å opprette ett.
-              </div>
-            ) : null}
+              )}
+              {filteredCards.length === 0 && !learningLoading ? (
+                <div className="py-12 text-center text-sm text-neutral-500">
+                  Ingen kurs i dette filteret. Bruk «Nytt kurs» øverst for å opprette ett.
+                </div>
+              ) : null}
+            </div>
           </div>
         </LayoutTable1PostingsShell>
       </ModuleSectionCard>
+    </div>
+  )
+}
+
+type ListViewProps = {
+  courses: Course[]
+  canManage: boolean
+  canDelete: boolean
+  isCourseUnlocked: (id: string) => boolean
+  progress: ReturnType<typeof useLearning>['progress']
+  certificates: ReturnType<typeof useLearning>['certificates']
+  profileId: string | undefined
+  favourites: Set<string>
+  toggleFavourite: (id: string) => void
+  onDelete: (c: Course) => void
+}
+
+function LearningCoursesListView({
+  courses,
+  canManage,
+  canDelete,
+  isCourseUnlocked,
+  progress,
+  certificates,
+  profileId,
+  favourites,
+  toggleFavourite,
+  onDelete,
+}: ListViewProps) {
+  return (
+    <div className="overflow-hidden rounded-md border border-neutral-200">
+      <table className="w-full text-sm">
+        <thead className="bg-neutral-50">
+          <tr className="text-left text-[11px] font-bold uppercase tracking-wider text-neutral-600">
+            <th className="px-3 py-2"></th>
+            <th className="px-3 py-2">Kurs</th>
+            <th className="px-3 py-2">Status</th>
+            <th className="px-3 py-2">Versjon</th>
+            <th className="px-3 py-2">Moduler</th>
+            <th className="px-3 py-2">Framgang</th>
+            <th className="px-3 py-2 text-right">Handlinger</th>
+          </tr>
+        </thead>
+        <tbody>
+          {courses.map((c) => {
+            const unlocked = isCourseUnlocked(c.id)
+            const total = c.modules.length
+            const p = progress.find((pr) => pr.courseId === c.id && (!pr.userId || pr.userId === profileId))
+            const done = total ? c.modules.filter((m) => p?.moduleProgress[m.id]?.completed).length : 0
+            const pct = total ? done / total : 0
+            const cert = certificates.some((x) => x.courseId === c.id)
+            const isFav = favourites.has(c.id)
+            const status = statusBadgeFor(c.status)
+            return (
+              <tr key={c.id} className="border-t border-neutral-100">
+                <td className="px-3 py-2">
+                  <button
+                    type="button"
+                    onClick={() => toggleFavourite(c.id)}
+                    aria-label={isFav ? 'Fjern fra favoritter' : 'Legg til favoritter'}
+                    className="rounded p-1 text-neutral-400 hover:bg-neutral-100 hover:text-amber-500"
+                  >
+                    <Star className={`h-4 w-4 ${isFav ? 'fill-amber-400 text-amber-500' : ''}`} />
+                  </button>
+                </td>
+                <td className="px-3 py-2">
+                  {unlocked ? (
+                    <Link to={`/learning/courses/${c.id}`} className="font-medium text-neutral-900 hover:underline">
+                      {c.title}
+                    </Link>
+                  ) : (
+                    <span className="font-medium text-neutral-500">{c.title}</span>
+                  )}
+                </td>
+                <td className="px-3 py-2">
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    <Badge variant={status.variant}>{status.label}</Badge>
+                    {c.origin === 'system' ? <Badge variant="neutral">System</Badge> : null}
+                  </div>
+                </td>
+                <td className="px-3 py-2 tabular-nums text-neutral-700">
+                  {c.localeVersionMajor != null
+                    ? `v${c.localeVersionMajor}.${c.localeVersionMinor ?? 0}`
+                    : `v${c.courseVersion ?? 1}`}
+                </td>
+                <td className="px-3 py-2 text-neutral-700">{total}</td>
+                <td className="px-3 py-2">
+                  {cert || pct >= 1 ? (
+                    <Badge variant="success">Fullført</Badge>
+                  ) : pct > 0 ? (
+                    <span className="text-xs tabular-nums text-neutral-700">{Math.round(pct * 100)}%</span>
+                  ) : (
+                    <span className="text-xs text-neutral-400">—</span>
+                  )}
+                </td>
+                <td className="px-3 py-2 text-right">
+                  <div className="inline-flex items-center justify-end gap-1.5">
+                    {unlocked ? (
+                      <Link
+                        to={`/learning/play/${c.id}`}
+                        className="inline-flex items-center gap-1 rounded-md bg-[#1a3d32] px-3 py-1 text-xs font-semibold text-white hover:bg-[#14312a]"
+                      >
+                        Åpne
+                        <ArrowRight className="h-3 w-3" />
+                      </Link>
+                    ) : (
+                      <span className="rounded-md bg-neutral-200 px-3 py-1 text-xs font-semibold text-neutral-500">
+                        Låst
+                      </span>
+                    )}
+                    {canManage ? (
+                      <Link
+                        to={`/learning/courses/${c.id}`}
+                        className="inline-flex items-center gap-1 rounded-md border border-neutral-300 px-2 py-1 text-xs text-neutral-700 hover:bg-neutral-50"
+                        aria-label={`Rediger ${c.title}`}
+                      >
+                        <Pencil className="h-3 w-3" />
+                      </Link>
+                    ) : null}
+                    {canDelete && c.origin !== 'system' ? (
+                      <button
+                        type="button"
+                        onClick={() => onDelete(c)}
+                        aria-label={`Slett ${c.title}`}
+                        className="inline-flex items-center gap-1 rounded-md border border-neutral-300 px-2 py-1 text-xs text-red-600 hover:bg-red-50"
+                      >
+                        <Trash2 className="h-3 w-3" />
+                      </button>
+                    ) : null}
+                  </div>
+                </td>
+              </tr>
+            )
+          })}
+        </tbody>
+      </table>
     </div>
   )
 }
