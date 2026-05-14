@@ -4,16 +4,18 @@
 // resolves a system row (kind=report_template, is_system=true) and calls
 // this component for any row whose scope_id is 'regelverk_coverage'.
 //
-// Filters baked into the row are passed straight to useRegelverkDatasets
-// and are NOT exposed for editing — system reports are locked by contract.
-// Drill-down still works: clicking a § in scorecard or bowtie opens the
-// existing slide-over so the embedded report stays drop-in usable.
+// Layout is locked — system rows are immutable from the application's
+// perspective. Filters, however, are session-local: the row's baked-in
+// `filters` array seeds the initial state, but the user can refine via
+// the filter bar (regelverk / kategori / rolle …). Refinements never
+// persist back to the system row.
 
 import { useMemo, useState } from 'react'
 import { ModuleAnalyticsDashboard } from '../../../components/module/ModuleAnalyticsDashboard'
 import { getDashboardScope } from '../../../lib/dashboards/dashboardRegistry'
 import type { SystemReportRow } from '../../../lib/dashboards/useSystemReport'
-import { useRegelverkDatasets } from './useRegelverkDatasets'
+import type { DashboardFilter } from '../../../lib/dashboards/dashboardFilters'
+import { buildRegelverkDimensions, useRegelverkDatasets } from './useRegelverkDatasets'
 import { RegelverkCoverageSlideOver } from './RegelverkCoverageSlideOver'
 import './regelverkCoverageDashboardScope'
 
@@ -25,7 +27,12 @@ export function RegelverkCoverageSystemReport({
   /** Optional breadcrumb passed through to the page shell. */
   breadcrumb?: { label: string; to?: string }[]
 }) {
-  const { datasets, loading, enriched } = useRegelverkDatasets(row.filters)
+  // Session-local filter state seeded from the row's baked-in filters.
+  // Edits stay in component state — they don't write back to the
+  // immutable system row.
+  const [sessionFilters, setSessionFilters] = useState<DashboardFilter[]>(row.filters)
+  const { datasets, loading, enriched, categories } = useRegelverkDatasets(sessionFilters)
+  const dimensions = useMemo(() => buildRegelverkDimensions(categories), [categories])
   const [openLawRef, setOpenLawRef] = useState<string | null>(null)
 
   // Fyll inn seriesKeys for søyle-widgets der det er tomt — speiler
@@ -58,15 +65,16 @@ export function RegelverkCoverageSystemReport({
         layout={layout}
         datasets={datasets}
         loading={loading}
-        // Lokket: ingen edit, ingen add, ingen filter-endring,
-        // ingen resize, ingen widget-meny. Drill-down beholdes.
-        readOnly
+        // Layouten er lokket: ingen edit/add/resize/widget-meny. Filtre
+        // er åpne for justering per økt; drill-down fungerer som vanlig.
         onDrillDown={(e) => {
           if (e.dimensionId === 'requirement') {
             setOpenLawRef(e.segmentLabel)
           }
         }}
-        filters={row.filters}
+        filters={sessionFilters}
+        dimensions={dimensions}
+        onFiltersChange={setSessionFilters}
       />
 
       <RegelverkCoverageSlideOver
