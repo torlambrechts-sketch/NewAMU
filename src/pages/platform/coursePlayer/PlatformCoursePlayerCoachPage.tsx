@@ -7,15 +7,45 @@ import { Link } from 'react-router-dom'
 import {
   ArrowLeft,
   ArrowRight,
+  Award,
   BadgeCheck,
+  CalendarDays,
   Check,
   CheckCircle2,
   ChevronLeft,
+  Compass,
+  FileText,
+  HelpCircle,
   MessageCircle,
+  PenLine,
   Quote,
   RotateCcw,
+  ShieldCheck,
+  Sparkles,
+  Trophy,
+  type LucideIcon,
 } from 'lucide-react'
-import { MOCK_COURSE, type MockModule } from './mockCourse'
+import {
+  MOCK_COURSE,
+  moduleKindLabel,
+  moduleTimeLabel,
+  type MockBadgeIcon,
+  type MockCourse,
+  type MockModule,
+} from './mockCourse'
+
+const KIND_ICON: Record<MockModule['kind'], LucideIcon> = {
+  text: FileText,
+  quiz: HelpCircle,
+  reflection: PenLine,
+}
+
+const BADGE_ICON: Record<MockBadgeIcon, LucideIcon> = {
+  Compass,
+  ShieldCheck,
+  Award,
+  Trophy,
+}
 
 const ACCENT = '#a21caf'
 const COACH_BG = '#f5e9f7'
@@ -33,6 +63,11 @@ export function PlatformCoursePlayerCoachPage() {
   const mod = course.modules[idx]
   const total = course.modules.length
   const completedCount = Object.values(completed).filter(Boolean).length
+  const earnedPoints = course.modules.reduce((sum, m) => (completed[m.id] ? sum + m.points : sum), 0)
+  const earnedBadges = course.badges.filter((b) => completed[b.awardedAtModuleId])
+  const prevCompleted = idx > 0 && completed[course.modules[idx - 1].id]
+  const prevModule = idx > 0 ? course.modules[idx - 1] : null
+  const nextMod = idx < total - 1 ? course.modules[idx + 1] : null
 
   const quizScore = useMemo(() => {
     if (mod.kind !== 'quiz') return null
@@ -102,6 +137,13 @@ export function PlatformCoursePlayerCoachPage() {
               <span>
                 <span className="font-semibold text-[#0f1311]">{completedCount}</span> av {total} fullført
               </span>
+              <span aria-hidden>·</span>
+              <span
+                className="inline-flex items-center gap-1 font-semibold"
+                style={{ color: ACCENT }}
+              >
+                <Sparkles className="size-3" /> {earnedPoints} XP
+              </span>
             </div>
           </div>
         </div>
@@ -150,6 +192,9 @@ export function PlatformCoursePlayerCoachPage() {
           {finished ? (
             <div className="lg:col-span-2">
               <CoachFinishedBanner
+                course={course}
+                earnedPoints={earnedPoints}
+                earnedBadges={earnedBadges}
                 onRestart={() => {
                   setFinished(false)
                   setIdx(0)
@@ -175,8 +220,14 @@ export function PlatformCoursePlayerCoachPage() {
               </p>
               <h1 className="text-[28px] font-semibold leading-tight text-[#0f1311]">{mod.title}</h1>
               <div className="flex flex-wrap items-center gap-2 text-xs text-[#1f2421]/70">
-                <span>{mod.durationMinutes} min</span>
+                <span>{moduleTimeLabel(mod.durationMinutes)}</span>
                 <span aria-hidden>·</span>
+                <span
+                  className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 font-semibold"
+                  style={{ backgroundColor: `${ACCENT}15`, color: ACCENT }}
+                >
+                  <Sparkles className="size-3" /> +{mod.points} XP
+                </span>
                 <div className="flex flex-wrap gap-1.5">
                   {mod.lawRefs.map((r) => (
                     <span
@@ -206,8 +257,25 @@ export function PlatformCoursePlayerCoachPage() {
 
           {/* Coach panel */}
           <aside className="space-y-4 lg:sticky lg:top-6 lg:self-start">
-            <CoachIntroCard mod={mod} />
+            <CoachIntroCard
+              mod={mod}
+              prevModule={prevCompleted ? prevModule : null}
+            />
+            <CoachAgendaCard
+              course={course}
+              currentIdx={idx}
+              completed={completed}
+              onPick={(i) => {
+                setIdx(i)
+                setQuizSubmitted(false)
+              }}
+            />
             <CoachOutcomesCard outcomes={mod.learningOutcomes} />
+            <CoachPointsCard
+              course={course}
+              earnedPoints={earnedPoints}
+              completed={completed}
+            />
             <CoachFactCard fact={mod.coachFact} />
             <CoachReflectCard
               value={coachReflection[mod.id] ?? ''}
@@ -239,7 +307,10 @@ export function PlatformCoursePlayerCoachPage() {
                 role={disabledHint ? 'status' : undefined}
                 aria-live={disabledHint ? 'polite' : undefined}
               >
-                {disabledHint ?? 'Anne er klar når du er klar — ingen tidsfrist.'}
+                {disabledHint ??
+                  (nextMod
+                    ? `Anne sier: «Neste opp er ${nextMod.title}» (${moduleKindLabel(nextMod.kind)}, ${moduleTimeLabel(nextMod.durationMinutes)}).`
+                    : 'Siste etappe – kursbeviset ditt utstedes når du fullfører.')}
               </p>
               <button
                 type="button"
@@ -262,7 +333,13 @@ export function PlatformCoursePlayerCoachPage() {
   )
 }
 
-function CoachIntroCard({ mod }: { mod: MockModule }) {
+function CoachIntroCard({
+  mod,
+  prevModule,
+}: {
+  mod: MockModule
+  prevModule: MockModule | null
+}) {
   return (
     <div className="rounded-2xl p-5" style={{ backgroundColor: COACH_BG }}>
       <div className="flex items-start gap-3">
@@ -280,13 +357,170 @@ function CoachIntroCard({ mod }: { mod: MockModule }) {
           <MessageCircle className="size-3" /> Snakker nå
         </span>
       </div>
-      <div className="relative mt-4 rounded-xl bg-white p-4 text-[14px] leading-relaxed text-[#1f2421] shadow-sm">
-        <span
-          className="absolute -top-1.5 left-6 size-3 rotate-45 bg-white"
-          aria-hidden
-        />
+      {prevModule ? (
+        <div
+          role="status"
+          aria-live="polite"
+          className="relative mt-4 rounded-xl bg-white/80 p-3 text-[13px] leading-relaxed text-[#1f2421] shadow-sm"
+        >
+          <span className="absolute -top-1.5 left-6 size-3 rotate-45 bg-white/80" aria-hidden />
+          Bra jobba med <strong className="font-semibold text-[#0f1311]">«{prevModule.title}»</strong>{' '}
+          — du tjente <strong className="font-semibold" style={{ color: ACCENT }}>+{prevModule.points} XP</strong>.
+        </div>
+      ) : null}
+      <div className="relative mt-3 rounded-xl bg-white p-4 text-[14px] leading-relaxed text-[#1f2421] shadow-sm">
+        <span className="absolute -top-1.5 left-6 size-3 rotate-45 bg-white" aria-hidden />
         {mod.coachIntro}
       </div>
+    </div>
+  )
+}
+
+function CoachAgendaCard({
+  course,
+  currentIdx,
+  completed,
+  onPick,
+}: {
+  course: MockCourse
+  currentIdx: number
+  completed: Record<string, boolean>
+  onPick: (i: number) => void
+}) {
+  return (
+    <div className="rounded-2xl border border-[#ece5d3] bg-white p-5">
+      <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[2px] text-[#1f2421]/70">
+        <CalendarDays className="size-3.5" style={{ color: ACCENT }} />
+        Dagens program
+      </div>
+      <p className="mt-1 text-[11px] text-[#1f2421]/55">
+        «Vi har tre stopp i dag. Klikk fritt — jeg holder tråden.»
+      </p>
+      <ol className="mt-3 space-y-1.5">
+        {course.modules.map((m, i) => {
+          const done = completed[m.id]
+          const isCurrent = i === currentIdx
+          const isNext = i === currentIdx + 1
+          const Icon = KIND_ICON[m.kind]
+          return (
+            <li key={m.id}>
+              <button
+                type="button"
+                onClick={() => onPick(i)}
+                aria-current={isCurrent ? 'step' : undefined}
+                className={`flex w-full items-start gap-2.5 rounded-lg border px-2.5 py-2 text-left transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[#a21caf] ${
+                  isCurrent
+                    ? 'border-[#a21caf]/40 bg-[#faf2fc]'
+                    : isNext
+                      ? 'border-dashed border-[#dcd4be] bg-[#fdfcf7]'
+                      : 'border-transparent hover:bg-[#faf7f1]'
+                }`}
+              >
+                <span
+                  className={`mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-lg text-xs font-semibold ${
+                    done
+                      ? 'bg-[#a21caf] text-white'
+                      : isCurrent
+                        ? 'bg-[#a21caf]/15 text-[#a21caf]'
+                        : 'bg-[#efe9d8] text-[#1f2421]/55'
+                  }`}
+                >
+                  {done ? <Check className="size-3.5" /> : <Icon className="size-3.5" />}
+                </span>
+                <span className="flex-1 space-y-0.5">
+                  <span className="flex items-center gap-1.5">
+                    <span
+                      className={`text-[10px] font-semibold uppercase tracking-[1.5px] ${
+                        isCurrent ? 'text-[#a21caf]' : 'text-[#1f2421]/45'
+                      }`}
+                    >
+                      Stopp {i + 1} · {moduleKindLabel(m.kind)}
+                    </span>
+                    {isNext ? (
+                      <span
+                        className="rounded-full px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-white"
+                        style={{ backgroundColor: ACCENT }}
+                      >
+                        Neste
+                      </span>
+                    ) : null}
+                  </span>
+                  <span className="block text-[13px] font-medium text-[#0f1311]">{m.title}</span>
+                  <span className="block text-[10px] text-[#1f2421]/55">
+                    {moduleTimeLabel(m.durationMinutes)} · +{m.points} XP
+                  </span>
+                </span>
+              </button>
+            </li>
+          )
+        })}
+      </ol>
+    </div>
+  )
+}
+
+function CoachPointsCard({
+  course,
+  earnedPoints,
+  completed,
+}: {
+  course: MockCourse
+  earnedPoints: number
+  completed: Record<string, boolean>
+}) {
+  const pct = (earnedPoints / course.totalPoints) * 100
+  return (
+    <div className="rounded-2xl border border-[#ece5d3] bg-[#fdfcf7] p-5">
+      <div className="flex items-baseline justify-between">
+        <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[2px] text-[#1f2421]/70">
+          <Sparkles className="size-3.5" style={{ color: ACCENT }} />
+          Poeng & merker
+        </div>
+        <span className="text-sm font-semibold text-[#0f1311]">
+          <span style={{ color: ACCENT }}>{earnedPoints}</span>
+          <span className="text-[#1f2421]/50"> / {course.totalPoints} XP</span>
+        </span>
+      </div>
+      <div className="mt-3 h-1.5 w-full overflow-hidden rounded-full bg-[#efe9d8]">
+        <div
+          className="h-full transition-all duration-300"
+          style={{ width: `${pct}%`, backgroundColor: ACCENT }}
+        />
+      </div>
+      <ul className="mt-4 space-y-2">
+        {course.badges.map((b) => {
+          const earned = !!completed[b.awardedAtModuleId]
+          const Icon = BADGE_ICON[b.icon]
+          return (
+            <li
+              key={b.id}
+              className={`flex items-center gap-2.5 rounded-lg px-2 py-1.5 ${
+                earned ? 'bg-[#faf2fc]' : ''
+              }`}
+            >
+              <span
+                className={`flex size-8 shrink-0 items-center justify-center rounded-full ${
+                  earned
+                    ? 'bg-[#a21caf] text-white'
+                    : 'border border-dashed border-[#dcd4be] text-[#1f2421]/35'
+                }`}
+              >
+                <Icon className="size-4" />
+              </span>
+              <div className="min-w-0">
+                <p
+                  className={`text-xs font-semibold ${
+                    earned ? 'text-[#0f1311]' : 'text-[#1f2421]/45'
+                  }`}
+                >
+                  {b.label}
+                </p>
+                <p className="truncate text-[10px] text-[#1f2421]/55">{b.description}</p>
+              </div>
+            </li>
+          )
+        })}
+      </ul>
     </div>
   )
 }
@@ -533,7 +767,17 @@ function CoachLessonBody({
   )
 }
 
-function CoachFinishedBanner({ onRestart }: { onRestart: () => void }) {
+function CoachFinishedBanner({
+  course,
+  earnedPoints,
+  earnedBadges,
+  onRestart,
+}: {
+  course: MockCourse
+  earnedPoints: number
+  earnedBadges: MockCourse['badges']
+  onRestart: () => void
+}) {
   return (
     <div
       role="status"
@@ -551,13 +795,41 @@ function CoachFinishedBanner({ onRestart }: { onRestart: () => void }) {
           <p className="text-[11px] font-semibold uppercase tracking-[2px]" style={{ color: ACCENT }}>
             Anne · HMS-rådgiver
           </p>
-          <h2 className="text-xl font-semibold text-[#0f1311]">
-            Bra jobba — kurset er ferdig.
-          </h2>
+          <h2 className="text-xl font-semibold text-[#0f1311]">Bra jobba — kurset er ferdig.</h2>
           <p className="text-sm leading-relaxed text-[#1f2421]/80">
-            Jeg har lest gjennom refleksjonene dine. Det viktigste du tok med deg er allerede
-            lagret på profilen. Kursbeviset ditt er signert og klart.
+            Du tjente{' '}
+            <strong className="text-[#0f1311]">
+              {earnedPoints} av {course.totalPoints} kompetansepoeng
+            </strong>{' '}
+            og låste opp{' '}
+            <strong className="text-[#0f1311]">
+              {earnedBadges.length} av {course.badges.length} merker
+            </strong>
+            . Refleksjonene dine er lagret på profilen, og kursbeviset er signert.
           </p>
+
+          {earnedBadges.length > 0 ? (
+            <ul className="mt-3 flex flex-wrap gap-2">
+              {earnedBadges.map((b) => {
+                const Icon = BADGE_ICON[b.icon]
+                return (
+                  <li
+                    key={b.id}
+                    className="flex items-center gap-2 rounded-full bg-[#faf2fc] px-3 py-1.5"
+                  >
+                    <span
+                      className="flex size-7 shrink-0 items-center justify-center rounded-full text-white"
+                      style={{ backgroundColor: ACCENT }}
+                    >
+                      <Icon className="size-3.5" />
+                    </span>
+                    <span className="text-xs font-semibold text-[#0f1311]">{b.label}</span>
+                  </li>
+                )
+              })}
+            </ul>
+          ) : null}
+
           <div className="mt-4 flex flex-wrap gap-2">
             <button
               type="button"

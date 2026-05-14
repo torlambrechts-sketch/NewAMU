@@ -3,7 +3,7 @@
 // the team can compare them side by side before we adopt one.
 
 import { Link } from 'react-router-dom'
-import { BookOpen, Film, Sparkles, ArrowRight } from 'lucide-react'
+import { BookOpen, Film, GraduationCap, Sparkles, ArrowRight } from 'lucide-react'
 
 type Variant = {
   to: string
@@ -52,10 +52,23 @@ const variants: Variant[] = [
       'Anne, HMS-rådgiveren, sitter ved siden av deg. Forklarer paragrafer, stiller kontrollspørsmål og oppsummerer hva du nettopp lærte.',
     mentalModel: 'Khan Academy / Copilot Chat / Babbel',
     engagement:
-      'Persona med portrett, «Etter denne modulen kan du …»-sjekkliste, refleksjonsboks pinned ved siden av leksjonen.',
+      'Persona med portrett, «Dagens program»-agenda, «Poeng & merker»-kort i Annes stemme, Anne annonserer neste opp.',
     widthTarget: '1100 px split 60 / 40',
     accent: '#a21caf',
     icon: Sparkles,
+  },
+  {
+    to: '/platform-admin/course-player/klasserom',
+    eyebrow: 'Alternativ 4',
+    title: 'Klasserom',
+    oneLiner:
+      'Tre-kolonners LMS-layout: visuell leksjons-rail til venstre, aktiv leksjon i midten, kohort + diskusjon + sertifisering til høyre.',
+    mentalModel: 'Easygenerator / Coassemble / Company-LMS',
+    engagement:
+      'Sosialt lag – påmeldte kolleger, kommentar-tråder med læringsleder-svar, merker synliggjort fra start.',
+    widthTarget: '1340 px tre-kolonner (200 / fluid / 320)',
+    accent: '#6d28d9',
+    icon: GraduationCap,
   },
 ]
 
@@ -66,16 +79,19 @@ export function PlatformCoursePlayerHubPage() {
         <p className="text-xs font-medium uppercase tracking-[2px] text-amber-400/90">
           E-læring · Designforslag
         </p>
-        <h1 className="text-3xl font-semibold text-white">Ny kursspiller – tre alternativer</h1>
+        <h1 className="text-3xl font-semibold text-white">Ny kursspiller – fire alternativer</h1>
         <p className="max-w-3xl text-sm leading-relaxed text-neutral-300">
-          Dagens spiller bruker hele 1400 px, har sidemeny + modulrekkverk + HUD samtidig og leses som
-          en admin-flate. Disse tre alternativene begrenser bredden, hever typografien og bygger
-          engasjement på hver sin måte. Mock-data er en 12-minutters mikrolæring («Internkontroll i
-          praksis») med tekst-, quiz- og refleksjonsmodul slik at alle tre kan vises side om side.
+          Dagens spiller bruker hele 1400 px, har sidemeny + modulrekkverk + HUD samtidig og leses
+          som en admin-flate. De fire alternativene begrenser bredden, hever typografien og bygger
+          engasjement på hver sin måte. Hver variant viser nå <strong className="text-white">innhold</strong>,
+          <strong className="text-white"> neste opp</strong> og{' '}
+          <strong className="text-white">gamifisering</strong> (poeng, nivå, merker) – men oversatt
+          til sitt eget designspråk. Mock-kurset er en 12-minutters mikrolæring «Internkontroll i
+          praksis» med tekst-, quiz- og refleksjonsmodul.
         </p>
       </header>
 
-      <section className="grid gap-6 lg:grid-cols-3">
+      <section className="grid gap-6 md:grid-cols-2 xl:grid-cols-4">
         {variants.map((v) => (
           <Link
             key={v.to}

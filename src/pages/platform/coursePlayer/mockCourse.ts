@@ -16,6 +16,43 @@ export type MockReflectionPrompt = {
   placeholder: string
 }
 
+export type MockPeer = {
+  id: string
+  initials: string
+  name: string
+  role: string
+  /** Average tint used for the avatar background — chosen for visual variety. */
+  tint: string
+}
+
+export type MockDiscussionReply = {
+  id: string
+  authorId: string
+  body: string
+  postedAt: string
+  isLearningManager?: boolean
+}
+
+export type MockDiscussionThread = {
+  id: string
+  authorId: string
+  moduleId: string
+  body: string
+  postedAt: string
+  upvotes: number
+  replies: MockDiscussionReply[]
+}
+
+export type MockBadgeIcon = 'Compass' | 'ShieldCheck' | 'Award' | 'Trophy'
+
+export type MockBadge = {
+  id: string
+  label: string
+  description: string
+  icon: MockBadgeIcon
+  awardedAtModuleId: string
+}
+
 export type MockModule =
   | {
       id: string
@@ -24,6 +61,8 @@ export type MockModule =
       eyebrow: string
       durationMinutes: number
       lawRefs: string[]
+      points: number
+      badgeOnComplete?: string
       lead: string
       body: string[]
       keyTakeaways: string[]
@@ -38,6 +77,8 @@ export type MockModule =
       eyebrow: string
       durationMinutes: number
       lawRefs: string[]
+      points: number
+      badgeOnComplete?: string
       intro: string
       questions: MockQuizQuestion[]
       learningOutcomes: string[]
@@ -51,6 +92,8 @@ export type MockModule =
       eyebrow: string
       durationMinutes: number
       lawRefs: string[]
+      points: number
+      badgeOnComplete?: string
       intro: string
       prompts: MockReflectionPrompt[]
       learningOutcomes: string[]
@@ -64,7 +107,19 @@ export type MockCourse = {
   subtitle: string
   audience: string
   totalMinutes: number
+  totalPoints: number
+  level: {
+    levelNumber: number
+    levelLabel: string
+    currentXp: number
+    nextLevelXp: number
+  }
+  badges: MockBadge[]
   modules: MockModule[]
+  /** Cohort members visible in the Klasserom design (right rail / "registered employees"). */
+  peers: MockPeer[]
+  /** Threaded discussion seeded by peers and the learning manager. */
+  discussion: MockDiscussionThread[]
 }
 
 export const MOCK_COURSE: MockCourse = {
@@ -73,6 +128,103 @@ export const MOCK_COURSE: MockCourse = {
   subtitle: 'En 12-minutters mikrolæring for HMS-ansvarlige',
   audience: 'For ledere, verneombud og HMS-ansvarlige',
   totalMinutes: 12,
+  totalPoints: 45,
+  level: {
+    levelNumber: 2,
+    levelLabel: 'HMS-praktikant',
+    currentXp: 120,
+    nextLevelXp: 200,
+  },
+  badges: [
+    {
+      id: 'grunnsten',
+      label: 'Grunnsten',
+      description: 'Du forstår hva systematisk HMS-arbeid egentlig betyr.',
+      icon: 'Compass',
+      awardedAtModuleId: 'm1-systematisk-hms',
+    },
+    {
+      id: 'paragraf-mester',
+      label: 'Paragraf-mester',
+      description: 'Bestått kunnskapstest om ansvar etter AML § 2-1 og § 2-3.',
+      icon: 'ShieldCheck',
+      awardedAtModuleId: 'm2-pålegg-quiz',
+    },
+    {
+      id: 'endringsagent',
+      label: 'Endringsagent',
+      description: 'Forplikter til konkrete tiltak i egen avdeling.',
+      icon: 'Award',
+      awardedAtModuleId: 'm3-refleksjon',
+    },
+  ],
+  peers: [
+    { id: 'p1', initials: 'LH', name: 'Linn Halvorsen', role: 'Verneombud, Bergen', tint: '#7c3aed' },
+    { id: 'p2', initials: 'PG', name: 'Peder Granli', role: 'Avdelingsleder, Oslo', tint: '#0e7490' },
+    { id: 'p3', initials: 'IM', name: 'Ingrid Moe', role: 'HR-rådgiver', tint: '#c2410c' },
+    { id: 'p4', initials: 'AB', name: 'Anders Bru', role: 'Driftsleder, Stavanger', tint: '#15803d' },
+    { id: 'p5', initials: 'SJ', name: 'Sara Johansen', role: 'Verneombud, Trondheim', tint: '#be185d' },
+    { id: 'p6', initials: 'TR', name: 'Tomi Rønning', role: 'Læringsleder · HMS-fag', tint: '#1a3d32' },
+    { id: 'p7', initials: 'EH', name: 'Erik Haugland', role: 'Avdelingsleder, Tromsø', tint: '#1e40af' },
+    { id: 'p8', initials: 'MK', name: 'Marit Kvam', role: 'Verneombud, Kristiansand', tint: '#a21caf' },
+  ],
+  discussion: [
+    {
+      id: 'd1',
+      authorId: 'p1',
+      moduleId: 'm1-systematisk-hms',
+      body:
+        'Vi har slitt med å få ledelsen til å forstå at sjekklister på papir IKKE er internkontroll. Noen som har lykkes med å snu denne tankegangen?',
+      postedAt: '2 dager siden',
+      upvotes: 4,
+      replies: [
+        {
+          id: 'd1r1',
+          authorId: 'p6',
+          isLearningManager: true,
+          body:
+            'God observasjon, Linn. Vi forbereder en kort lederbrief som kan deles internt. Send meg en melding så låner jeg deg utkastet.',
+          postedAt: '1 dag siden',
+        },
+        {
+          id: 'd1r2',
+          authorId: 'p2',
+          body:
+            'Vi tok det opp på ledermøte og brukte 4-av-10-tallet fra Anne. Det åpnet døra ganske raskt.',
+          postedAt: '22 timer siden',
+        },
+      ],
+    },
+    {
+      id: 'd2',
+      authorId: 'p3',
+      moduleId: 'm2-pålegg-quiz',
+      body:
+        'Lurer på om spørsmål 2 burde nyansere mer — i praksis bidrar jo ansatte ofte i å skrive rutinene. Tanker?',
+      postedAt: '4 dager siden',
+      upvotes: 2,
+      replies: [
+        {
+          id: 'd2r1',
+          authorId: 'p6',
+          isLearningManager: true,
+          body:
+            'Bra poeng, Ingrid. Vi skiller her mellom plikt og praksis. Plikten ligger på arbeidsgiver — praksis er en annen samtale.',
+          postedAt: '3 dager siden',
+        },
+      ],
+    },
+    {
+      id: 'd3',
+      authorId: 'p5',
+      moduleId: 'm3-refleksjon',
+      body:
+        'Tipset om to-personers regel etter kl. 20 har vi allerede testet i 3 uker. Tilbakemeldingene fra de ansatte er svært gode.',
+      postedAt: '1 uke siden',
+      upvotes: 7,
+      replies: [],
+    },
+  ],
   modules: [
     {
       id: 'm1-systematisk-hms',
@@ -81,6 +233,8 @@ export const MOCK_COURSE: MockCourse = {
       eyebrow: 'Modul 1 · Grunnlag',
       durationMinutes: 4,
       lawRefs: ['AML § 3-1', 'IK-f § 5'],
+      points: 15,
+      badgeOnComplete: 'grunnsten',
       lead:
         'Internkontroll handler ikke om perm-systemer eller signaturer på papir. Det handler om at virksomheten faktisk styrer egen risiko – og kan vise hvordan.',
       body: [
@@ -112,6 +266,8 @@ export const MOCK_COURSE: MockCourse = {
       eyebrow: 'Modul 2 · Sjekk forståelsen',
       durationMinutes: 3,
       lawRefs: ['AML § 2-1', 'AML § 2-3'],
+      points: 15,
+      badgeOnComplete: 'paragraf-mester',
       intro:
         'Tre raske spørsmål. Du må ha minst 2 riktige for å gå videre. Du kan prøve på nytt så mange ganger du vil.',
       questions: [
@@ -173,6 +329,8 @@ export const MOCK_COURSE: MockCourse = {
       eyebrow: 'Modul 3 · I praksis',
       durationMinutes: 5,
       lawRefs: ['AML § 4-3', 'IK-f § 5 nr. 6'],
+      points: 15,
+      badgeOnComplete: 'endringsagent',
       intro:
         'Skriv kort. Det du skriver lagres bare på din egen profil og blir en del av kompetansebeviset.',
       prompts: [
@@ -209,4 +367,10 @@ export function totalModuleCount(course: MockCourse): number {
 
 export function moduleTimeLabel(minutes: number): string {
   return `${minutes} min`
+}
+
+export function moduleKindLabel(kind: MockModule['kind']): string {
+  if (kind === 'text') return 'Lese'
+  if (kind === 'quiz') return 'Kunnskapstest'
+  return 'Refleksjon'
 }

@@ -129,6 +129,7 @@ import { PlatformCoursePlayerHubPage } from './pages/platform/coursePlayer/Platf
 import { PlatformCoursePlayerFocusPage } from './pages/platform/coursePlayer/PlatformCoursePlayerFocusPage'
 import { PlatformCoursePlayerCinemaPage } from './pages/platform/coursePlayer/PlatformCoursePlayerCinemaPage'
 import { PlatformCoursePlayerCoachPage } from './pages/platform/coursePlayer/PlatformCoursePlayerCoachPage'
+import { PlatformCoursePlayerKlasseromPage } from './pages/platform/coursePlayer/PlatformCoursePlayerKlasseromPage'
 import { PublicWhistlePage } from './pages/PublicWhistlePage'
 import { WhistleStatusPage } from './pages/WhistleStatusPage'
 import { LandingPage } from './pages/LandingPage'
@@ -264,6 +265,7 @@ const router = createBrowserRouter(
                 <Route path="course-player/focus" element={<PlatformCoursePlayerFocusPage />} />
                 <Route path="course-player/cinema" element={<PlatformCoursePlayerCinemaPage />} />
                 <Route path="course-player/coach" element={<PlatformCoursePlayerCoachPage />} />
+                <Route path="course-player/klasserom" element={<PlatformCoursePlayerKlasseromPage />} />
                 <Route path="layout-composer" element={<Navigate to="/platform-admin/layout#composer" replace />} />
                 <Route path="layout-standard" element={<Navigate to="/platform-admin/layout#standard" replace />} />
                 <Route path="layout-dashboard" element={<Navigate to="/platform-admin/layout#dashboard" replace />} />

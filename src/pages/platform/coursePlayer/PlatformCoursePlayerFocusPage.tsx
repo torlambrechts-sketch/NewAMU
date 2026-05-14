@@ -7,16 +7,44 @@ import { Link } from 'react-router-dom'
 import {
   ArrowLeft,
   ArrowRight,
+  Award,
   Bookmark,
   Check,
   CheckCircle2,
   ChevronLeft,
   Clock,
+  Compass,
+  FileText,
+  HelpCircle,
   Lightbulb,
+  PenLine,
   RotateCcw,
+  ShieldCheck,
   Sparkles,
+  Trophy,
+  type LucideIcon,
 } from 'lucide-react'
-import { MOCK_COURSE, moduleTimeLabel, type MockModule } from './mockCourse'
+import {
+  MOCK_COURSE,
+  moduleKindLabel,
+  moduleTimeLabel,
+  type MockBadge,
+  type MockBadgeIcon,
+  type MockModule,
+} from './mockCourse'
+
+const KIND_ICON: Record<MockModule['kind'], LucideIcon> = {
+  text: FileText,
+  quiz: HelpCircle,
+  reflection: PenLine,
+}
+
+const BADGE_ICON: Record<MockBadgeIcon, LucideIcon> = {
+  Compass,
+  ShieldCheck,
+  Award,
+  Trophy,
+}
 
 const ACCENT = '#0e7490'
 
@@ -32,6 +60,9 @@ export function PlatformCoursePlayerFocusPage() {
   const total = course.modules.length
   const completedCount = Object.values(completed).filter(Boolean).length
   const overall = completedCount / total
+  const earnedPoints = course.modules.reduce((sum, m) => (completed[m.id] ? sum + m.points : sum), 0)
+  const earnedBadges = course.badges.filter((b) => completed[b.awardedAtModuleId])
+  const nextMod = idx < total - 1 ? course.modules[idx + 1] : null
 
   const [finished, setFinished] = useState(false)
 
@@ -117,7 +148,7 @@ export function PlatformCoursePlayerFocusPage() {
             </Link>
             <div className="flex items-center gap-4">
               <span className="text-[11px] font-medium uppercase tracking-[1.5px] text-[#1f2421]/60">
-                {completedCount} av {total} fullført
+                {completedCount} av {total} fullført · {earnedPoints} / {course.totalPoints} poeng
               </span>
               <button
                 type="button"
@@ -133,7 +164,21 @@ export function PlatformCoursePlayerFocusPage() {
         {/* Body — single reading column, optional outline rail on xl+ */}
         <div className="mx-auto grid max-w-[1040px] grid-cols-1 gap-10 px-6 py-12 xl:grid-cols-[1fr_240px]">
           <article className="mx-auto w-full max-w-[760px]">
-            {finished ? <FinishedBanner onRestart={() => { setFinished(false); setIdx(0); setCompleted({}); setQuizAnswers({}); setQuizSubmitted(false); setReflections({}) }} /> : null}
+            {finished ? (
+              <FinishedBanner
+                earnedPoints={earnedPoints}
+                totalPoints={course.totalPoints}
+                badges={earnedBadges}
+                onRestart={() => {
+                  setFinished(false)
+                  setIdx(0)
+                  setCompleted({})
+                  setQuizAnswers({})
+                  setQuizSubmitted(false)
+                  setReflections({})
+                }}
+              />
+            ) : null}
             <header className="space-y-4">
               <p
                 className="text-[11px] font-semibold uppercase tracking-[2.5px]"
@@ -146,6 +191,12 @@ export function PlatformCoursePlayerFocusPage() {
                 <span className="inline-flex items-center gap-1">
                   <Clock className="size-3.5" />
                   {moduleTimeLabel(mod.durationMinutes)}
+                </span>
+                <span
+                  className="inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 font-semibold"
+                  style={{ backgroundColor: `${ACCENT}15`, color: ACCENT }}
+                >
+                  <Sparkles className="size-3" /> +{mod.points} poeng
                 </span>
                 {mod.lawRefs.map((r) => (
                   <span key={r} className="rounded-sm bg-[#efe9d8] px-2 py-0.5 font-mono text-[11px]">
@@ -206,6 +257,16 @@ export function PlatformCoursePlayerFocusPage() {
                       ? 'Siste modul – kursbeviset ditt utstedes når du fullfører.'
                       : `Du har ${total - idx - 1} ${total - idx - 1 === 1 ? 'modul' : 'moduler'} igjen i dag.`)}
                 </p>
+
+                {/* Neste opp — quiet teaser of the next module */}
+                {nextMod ? (
+                  <NextUpTeaser
+                    nextMod={nextMod}
+                    badgeLabel={
+                      course.badges.find((b) => b.awardedAtModuleId === nextMod.id)?.label
+                    }
+                  />
+                ) : null}
               </>
             ) : null}
           </article>
@@ -215,37 +276,87 @@ export function PlatformCoursePlayerFocusPage() {
             <div className="sticky top-12 space-y-6">
               <div>
                 <p className="text-[10px] font-semibold uppercase tracking-[2px] text-[#1f2421]/50">
-                  {course.title}
+                  Innhold · {course.title}
                 </p>
                 <p className="mt-1 text-xs text-[#1f2421]/60">{course.audience}</p>
               </div>
+
+              {/* Points & badges meter — quiet, reading-aligned gamification */}
+              <div className="rounded-lg border border-[#e8e2d2] bg-[#fdfcf7] p-4">
+                <div className="flex items-baseline justify-between">
+                  <span className="text-[10px] font-semibold uppercase tracking-[1.5px] text-[#1f2421]/60">
+                    Poeng tjent
+                  </span>
+                  <span className="text-sm font-semibold text-[#0f1311]">
+                    <span style={{ color: ACCENT }}>{earnedPoints}</span>
+                    <span className="text-[#1f2421]/50"> / {course.totalPoints}</span>
+                  </span>
+                </div>
+                <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-[#efe9d8]">
+                  <div
+                    className="h-full transition-all duration-300"
+                    style={{
+                      width: `${(earnedPoints / course.totalPoints) * 100}%`,
+                      backgroundColor: ACCENT,
+                    }}
+                  />
+                </div>
+                <ul className="mt-3 flex gap-2">
+                  {course.badges.map((b) => {
+                    const earned = !!completed[b.awardedAtModuleId]
+                    const Icon = BADGE_ICON[b.icon]
+                    return (
+                      <li
+                        key={b.id}
+                        title={`${b.label} — ${b.description}`}
+                        className={`flex size-7 items-center justify-center rounded-full border transition ${
+                          earned
+                            ? 'border-transparent text-white'
+                            : 'border-dashed border-[#dcd4be] text-[#1f2421]/35'
+                        }`}
+                        style={earned ? { backgroundColor: ACCENT } : undefined}
+                      >
+                        <Icon className="size-3.5" />
+                      </li>
+                    )
+                  })}
+                </ul>
+              </div>
+
               <ol className="space-y-1">
                 {course.modules.map((m, i) => {
                   const done = completed[m.id]
                   const isCurrent = i === idx
+                  const KIcon = KIND_ICON[m.kind]
                   return (
                     <li key={m.id}>
                       <button
                         type="button"
                         onClick={() => setIdx(i)}
-                        className={`flex w-full items-start gap-2.5 rounded-md px-2 py-2 text-left text-xs transition ${
+                        aria-current={isCurrent ? 'step' : undefined}
+                        className={`flex w-full items-start gap-2.5 rounded-md px-2 py-2 text-left text-xs transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[#0e7490] ${
                           isCurrent
                             ? 'bg-[#0e7490]/10 text-[#0f1311]'
                             : 'text-[#1f2421]/70 hover:bg-[#efe9d8]'
                         }`}
                       >
                         <span
-                          className={`mt-0.5 flex size-4 shrink-0 items-center justify-center rounded-full border ${
+                          className={`mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full border ${
                             done
                               ? 'border-transparent bg-[#0e7490] text-white'
                               : isCurrent
-                                ? 'border-[#0e7490] bg-white'
-                                : 'border-[#dcd4be] bg-[#fdfcf7]'
+                                ? 'border-[#0e7490] bg-white text-[#0e7490]'
+                                : 'border-[#dcd4be] bg-[#fdfcf7] text-[#1f2421]/50'
                           }`}
                         >
-                          {done ? <Check className="size-2.5" /> : null}
+                          {done ? <Check className="size-2.5" /> : <KIcon className="size-2.5" />}
                         </span>
-                        <span className={isCurrent ? 'font-semibold' : ''}>{m.title}</span>
+                        <span className="flex-1 space-y-0.5">
+                          <span className={`block ${isCurrent ? 'font-semibold' : ''}`}>{m.title}</span>
+                          <span className="block text-[10px] text-[#1f2421]/50">
+                            {moduleKindLabel(m.kind)} · {moduleTimeLabel(m.durationMinutes)}
+                          </span>
+                        </span>
                       </button>
                     </li>
                   )
@@ -257,7 +368,7 @@ export function PlatformCoursePlayerFocusPage() {
                   <Sparkles className="size-3" /> Etter kurset
                 </div>
                 <p className="mt-2 text-xs leading-relaxed text-[#1f2421]/80">
-                  Du får et signert kursbevis og 3 nye kompetansepoeng på profilen.
+                  Du får et signert kursbevis, {course.totalPoints} kompetansepoeng og {course.badges.length} nye merker på profilen.
                 </p>
               </div>
             </div>
@@ -270,7 +381,17 @@ export function PlatformCoursePlayerFocusPage() {
   )
 }
 
-function FinishedBanner({ onRestart }: { onRestart: () => void }) {
+function FinishedBanner({
+  earnedPoints,
+  totalPoints,
+  badges,
+  onRestart,
+}: {
+  earnedPoints: number
+  totalPoints: number
+  badges: MockBadge[]
+  onRestart: () => void
+}) {
   return (
     <div
       role="status"
@@ -287,11 +408,38 @@ function FinishedBanner({ onRestart }: { onRestart: () => void }) {
         <div>
           <p className="text-base font-semibold text-[#0f1311]">Kurset er fullført</p>
           <p className="text-xs text-[#1f2421]/70">
-            Kursbeviset er utstedt og lagret på profilen din.
+            Du tjente <strong className="text-[#0f1311]">{earnedPoints} av {totalPoints}</strong>{' '}
+            kompetansepoeng. Kursbeviset er signert og lagret på profilen din.
           </p>
         </div>
       </div>
-      <div className="mt-4 flex flex-wrap gap-2">
+
+      {badges.length > 0 ? (
+        <ul className="mt-5 grid gap-2 sm:grid-cols-3">
+          {badges.map((b) => {
+            const Icon = BADGE_ICON[b.icon]
+            return (
+              <li
+                key={b.id}
+                className="flex items-center gap-2 rounded-lg border border-[#e8e2d2] bg-white px-3 py-2"
+              >
+                <span
+                  className="flex size-8 shrink-0 items-center justify-center rounded-full text-white"
+                  style={{ backgroundColor: ACCENT }}
+                >
+                  <Icon className="size-4" />
+                </span>
+                <div className="min-w-0">
+                  <p className="truncate text-xs font-semibold text-[#0f1311]">{b.label}</p>
+                  <p className="truncate text-[10px] text-[#1f2421]/60">{b.description}</p>
+                </div>
+              </li>
+            )
+          })}
+        </ul>
+      ) : null}
+
+      <div className="mt-5 flex flex-wrap gap-2">
         <button
           type="button"
           className="inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-semibold text-white"
@@ -306,6 +454,42 @@ function FinishedBanner({ onRestart }: { onRestart: () => void }) {
         >
           Start på nytt
         </button>
+      </div>
+    </div>
+  )
+}
+
+function NextUpTeaser({
+  nextMod,
+  badgeLabel,
+}: {
+  nextMod: MockModule
+  badgeLabel?: string
+}) {
+  const Icon = KIND_ICON[nextMod.kind]
+  return (
+    <div className="mt-6 rounded-xl border border-dashed border-[#dcd4be] bg-[#fdfcf7] p-4">
+      <p
+        className="text-[10px] font-semibold uppercase tracking-[1.5px]"
+        style={{ color: ACCENT }}
+      >
+        Neste opp
+      </p>
+      <div className="mt-2 flex items-start gap-3">
+        <span
+          className="flex size-9 shrink-0 items-center justify-center rounded-lg"
+          style={{ backgroundColor: `${ACCENT}10`, color: ACCENT }}
+        >
+          <Icon className="size-4" />
+        </span>
+        <div className="min-w-0 flex-1">
+          <p className="text-sm font-semibold text-[#0f1311]">{nextMod.title}</p>
+          <p className="mt-0.5 text-[11px] text-[#1f2421]/65">
+            {moduleKindLabel(nextMod.kind)} · {moduleTimeLabel(nextMod.durationMinutes)} · +
+            {nextMod.points} poeng
+            {badgeLabel ? <> · låser opp «{badgeLabel}»</> : null}
+          </p>
+        </div>
       </div>
     </div>
   )
