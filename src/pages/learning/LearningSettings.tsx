@@ -642,10 +642,61 @@ function EksportSection() {
     exportProgressSliceJson,
     exportCertificatesSliceJson,
     importPartialJson,
+    exportAllCoursesBundle,
+    importAllCoursesBundle,
   } = useLearning()
   const fileRefFull = useRef<HTMLInputElement>(null)
   const fileRefPartial = useRef<HTMLInputElement>(null)
+  const fileRefBundle = useRef<HTMLInputElement>(null)
   const [importMsg, setImportMsg] = useState<{ type: 'ok' | 'err'; text: string } | null>(null)
+  const [bundleBusy, setBundleBusy] = useState(false)
+
+  async function handleExportBundle() {
+    setImportMsg(null)
+    setBundleBusy(true)
+    try {
+      const r = await exportAllCoursesBundle()
+      if (!r.ok) {
+        setImportMsg({ type: 'err', text: r.error })
+        return
+      }
+      downloadJson(`atics-courses-bundle-${new Date().toISOString().slice(0, 10)}.json`, r.json)
+    } finally {
+      setBundleBusy(false)
+    }
+  }
+
+  function handleFileBundle(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    setImportMsg(null)
+    if (!file) return
+    setBundleBusy(true)
+    const reader = new FileReader()
+    reader.onload = () => {
+      void (async () => {
+        try {
+          const text = typeof reader.result === 'string' ? reader.result : ''
+          const r = await importAllCoursesBundle(text)
+          if (r.ok) {
+            setImportMsg({
+              type: 'ok',
+              text: `Importert: ${r.orgCount} kurs og ${r.systemCount} systemkurs oppdatert.`,
+            })
+          } else {
+            setImportMsg({ type: 'err', text: r.error })
+          }
+        } finally {
+          setBundleBusy(false)
+        }
+      })()
+    }
+    reader.onerror = () => {
+      setImportMsg({ type: 'err', text: 'Kunne ikke lese filen.' })
+      setBundleBusy(false)
+    }
+    reader.readAsText(file)
+    e.target.value = ''
+  }
 
   function handleExportFull() {
     const json = exportJson()
@@ -685,6 +736,45 @@ function EksportSection() {
 
   return (
     <div className="space-y-6">
+      <ModuleSectionCard className="p-5 md:p-6">
+        <SectionHeading
+          icon={<Download className="h-5 w-5" />}
+          title="Alle kurs (inkludert systemkurs)"
+          description="Last ned hele kurskatalogen som JSON – både organisasjonens egne kurs og delte systemkurs (alle språkversjoner). Rediger eksternt og last opp igjen for å oppdatere katalogen."
+        />
+        <div className="mt-5 flex flex-wrap gap-2">
+          <Button
+            type="button"
+            variant="primary"
+            icon={<Download className="h-4 w-4" />}
+            onClick={handleExportBundle}
+            disabled={bundleBusy}
+          >
+            Last ned alle kurs
+          </Button>
+          <Button
+            type="button"
+            variant="secondary"
+            icon={<Upload className="h-4 w-4" />}
+            onClick={() => fileRefBundle.current?.click()}
+            disabled={bundleBusy}
+          >
+            Importer kurs-bundle
+          </Button>
+          <input
+            ref={fileRefBundle}
+            type="file"
+            accept="application/json,.json"
+            className="hidden"
+            onChange={handleFileBundle}
+          />
+        </div>
+        <p className="mt-3 text-xs text-neutral-500">
+          Systemkurs skrives til delt katalog (krever admin / <code className="rounded bg-neutral-100 px-1">learning.manage</code>).
+          Eksisterende kurs-ID-er overskrives; moduler erstattes i sin helhet.
+        </p>
+      </ModuleSectionCard>
+
       <ModuleSectionCard className="p-5 md:p-6">
         <SectionHeading
           icon={<Download className="h-5 w-5" />}

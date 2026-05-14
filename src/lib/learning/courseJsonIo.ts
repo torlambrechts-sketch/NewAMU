@@ -57,6 +57,48 @@ const CourseJsonSchema = z.object({
 export type ModuleJson = z.infer<typeof ModuleJsonSchema>
 export type CourseJson = z.infer<typeof CourseJsonSchema>
 
+// ── System course catalog (per-locale modules) ──────────────────────────
+// System courses are shared across orgs. The catalog stores a flat array of
+// modules per locale in `learning_system_course_locales.modules`. The shape
+// here mirrors the JSONB columns 1:1 so a round-trip export → edit → import
+// preserves what the runtime resolver expects (see mergeCatalogIntoCourses
+// in useLearning.ts and the `learning_fork_system_course` plpgsql RPC).
+const SystemCourseModuleJsonSchema = z.object({
+  id: z.string(),
+  title: z.string(),
+  order: z.number().int().optional(),
+  kind: ModuleKindSchema,
+  durationMinutes: z.number().int().nonnegative().default(5),
+  content: z.unknown(),
+})
+
+const SystemCourseLocaleJsonSchema = z.object({
+  locale: z.string().min(1),
+  title: z.string().default(''),
+  description: z.string().default(''),
+  modules: z.array(SystemCourseModuleJsonSchema).default([]),
+})
+
+const SystemCourseJsonSchema = z.object({
+  id: z.string().min(1),
+  slug: z.string().min(1),
+  defaultLocale: z.string().default('nb'),
+  locales: z.array(SystemCourseLocaleJsonSchema).min(1),
+})
+
+const AllCoursesExportJsonSchema = z.object({
+  version: z.literal(1),
+  kind: z.literal('courses_all_export'),
+  exportedAt: z.string(),
+  orgCourses: z.array(CourseJsonSchema.extend({ id: z.string() })).default([]),
+  systemCourses: z.array(SystemCourseJsonSchema).default([]),
+})
+
+export type SystemCourseModuleJson = z.infer<typeof SystemCourseModuleJsonSchema>
+export type SystemCourseLocaleJson = z.infer<typeof SystemCourseLocaleJsonSchema>
+export type SystemCourseJson = z.infer<typeof SystemCourseJsonSchema>
+export type AllCoursesExportJson = z.infer<typeof AllCoursesExportJsonSchema>
+
 export function serialiseModule(mod: CourseModule): ModuleJson {
   return {
     title: mod.title,
@@ -93,6 +135,12 @@ export function parseModuleJson(json: unknown): ParseResult<ModuleJson> {
 
 export function parseCourseJson(json: unknown): ParseResult<CourseJson> {
   const r = CourseJsonSchema.safeParse(json)
+  if (!r.success) return { ok: false, error: humaniseZodError(r.error) }
+  return { ok: true, value: r.data }
+}
+
+export function parseAllCoursesExportJson(json: unknown): ParseResult<AllCoursesExportJson> {
+  const r = AllCoursesExportJsonSchema.safeParse(json)
   if (!r.success) return { ok: false, error: humaniseZodError(r.error) }
   return { ok: true, value: r.data }
 }
