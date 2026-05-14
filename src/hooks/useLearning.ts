@@ -315,6 +315,23 @@ function emptyModule(kind: ModuleKind, title: string, order: number): CourseModu
         instructions: '<p>Instruksjoner for økt (sted, forberedelser, lenke).</p>',
       }
       break
+    case 'scenario':
+      content = {
+        kind: 'scenario',
+        intro: 'Sett deg inn i situasjonen og velg det handlingsalternativet du mener er riktig.',
+        passingImpactScore: 0,
+        steps: [
+          {
+            id: crypto.randomUUID(),
+            prompt: 'Beskriv situasjonen som lederen står overfor…',
+            choices: [
+              { id: crypto.randomUUID(), label: 'Handlingsvalg A', impactScore: 5, feedback: 'God begrunnelse for hvorfor dette er riktig.' },
+              { id: crypto.randomUUID(), label: 'Handlingsvalg B', impactScore: -3, feedback: 'Forklaring på hvorfor dette ikke er optimalt.' },
+            ],
+          },
+        ],
+      }
+      break
     default:
       content = { kind: 'other', title: 'Custom', body: '<p>Content</p>' }
   }
@@ -2200,7 +2217,7 @@ export function useLearning() {
         supabase.from('learning_system_courses').select('id, slug, default_locale'),
         supabase
           .from('learning_system_course_locales')
-          .select('system_course_id, locale, title, description, modules'),
+          .select('system_course_id, locale, title, description, modules, meta'),
       ])
       if (sysErr) return { ok: false, error: getSupabaseErrorMessage(sysErr) }
       if (locErr) return { ok: false, error: getSupabaseErrorMessage(locErr) }
@@ -2211,11 +2228,15 @@ export function useLearning() {
         title: string
         description: string
         modules: unknown
+        meta: Record<string, unknown> | null
       }[]
       const localesByCourse = new Map<string, SystemCourseJson['locales']>()
       for (const row of locList) {
         const list = localesByCourse.get(row.system_course_id) ?? []
+        // Spread `meta` first so the structural fields override any
+        // accidental collision; the result mirrors what was sent on import.
         list.push({
+          ...(row.meta ?? {}),
           locale: row.locale,
           title: row.title ?? '',
           description: row.description ?? '',
@@ -2281,15 +2302,23 @@ export function useLearning() {
       }
 
       for (const sc of bundle.systemCourses) {
+        // Spread each module/locale verbatim so author-extension fields
+        // (refLawIds, points, badgeId, lawRefs, badges, milestones, …) reach
+        // the JSONB columns intact. The RPC only reads id/title/order/kind/
+        // content/durationMinutes itself, but the JSONB it stores is the full
+        // object — preserving extras is essential for the gamification + law
+        // catalog round trip.
         const { error: e } = await supabase.rpc('learning_admin_upsert_system_course', {
           p_id: sc.id,
           p_slug: sc.slug,
           p_default_locale: sc.defaultLocale || 'nb',
           p_locales: sc.locales.map((l) => ({
+            ...(l as Record<string, unknown>),
             locale: l.locale,
             title: l.title,
             description: l.description,
             modules: l.modules.map((m, j) => ({
+              ...(m as Record<string, unknown>),
               id: m.id,
               title: m.title,
               order: typeof m.order === 'number' ? m.order : j,

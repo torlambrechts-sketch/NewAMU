@@ -18,6 +18,8 @@ import { LearningCompletionMetadataPanel } from './LearningCompletionMetadataPan
 import { ModuleBody, DeepDiveAccordion, KeyTakeaways } from '../../components/learning/MarkdownBody'
 import { ParagrafReferanse } from '../../components/learning/ParagrafReferanse'
 import { AML_LAW_REFS_CATALOG } from '../../lib/learning/amlLawRefsCatalog'
+import { GamificationHUD, LeadershipInsight, ModulePointsPill } from '../../components/learning/LearningGamification'
+import { ScenarioModulePlayer } from '../../components/learning/ScenarioModulePlayer'
 
 function ProgressBar({ value, label }: { value: number; label?: string }) {
   const pct = Math.round(Math.min(100, Math.max(0, value * 100)))
@@ -41,7 +43,7 @@ function ProgressBar({ value, label }: { value: number; label?: string }) {
 const KIND_LABELS: Record<string, string> = {
   flashcard: 'Flashkort', quiz: 'Quiz', text: 'Lese', image: 'Bilde',
   video: 'Video', checklist: 'Sjekkliste', tips: 'Tips',
-  on_job: 'I praksis', event: 'Arrangement', other: 'Annet',
+  on_job: 'I praksis', event: 'Arrangement', scenario: 'Scenario', other: 'Annet',
 }
 
 export function LearningPlayer() {
@@ -334,6 +336,8 @@ export function LearningPlayer() {
             </div>
           </div>
 
+          <GamificationHUD course={activeCourse} progress={courseProgress} />
+
           <nav aria-label="Innhold" className="rounded-lg border border-neutral-200/80 bg-neutral-50/50 p-3">
             <p className="px-2 pb-2 text-xs font-semibold uppercase tracking-wide text-neutral-600">Innhold</p>
             <div className="max-h-[min(60vh,520px)] space-y-4 overflow-y-auto pr-1">
@@ -391,9 +395,12 @@ export function LearningPlayer() {
             <ModuleSectionCard className="p-5 md:p-6">
               <div className="flex flex-wrap items-baseline justify-between gap-2">
                 <h2 className="text-lg font-semibold text-neutral-900 sm:text-xl">{current.title}</h2>
-                <span className="text-xs text-neutral-500">
-                  ~{current.durationMinutes} min · {KIND_LABELS[current.kind] ?? current.kind}
-                </span>
+                <div className="flex items-center gap-2">
+                  <ModulePointsPill points={current.points} />
+                  <span className="text-xs text-neutral-500">
+                    ~{current.durationMinutes} min · {KIND_LABELS[current.kind] ?? current.kind}
+                  </span>
+                </div>
               </div>
               <div className="mt-3">
                 <ProgressBar
@@ -1016,6 +1023,7 @@ function ModulePlayer({
           <ParagrafReferanse refLawIds={mod.refLawIds} lawRefs={AML_LAW_REFS_CATALOG} />
         ) : null}
         {c.deepDive ? <DeepDiveAccordion markdown={c.deepDive} /> : null}
+        {c.leadershipInsight ? <LeadershipInsight markdown={c.leadershipInsight} /> : null}
         {c.keyTakeaways?.length ? <KeyTakeaways items={c.keyTakeaways} /> : null}
         <Button
           type="button"
@@ -1026,6 +1034,17 @@ function ModulePlayer({
           Fortsett
         </Button>
       </div>
+    )
+  }
+
+  if (c.kind === 'scenario') {
+    return (
+      <ScenarioModulePlayer
+        intro={c.intro}
+        steps={c.steps}
+        passingImpactScore={c.passingImpactScore ?? 0}
+        onComplete={onComplete}
+      />
     )
   }
 
