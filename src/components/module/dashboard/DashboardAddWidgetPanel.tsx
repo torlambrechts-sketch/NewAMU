@@ -47,6 +47,7 @@ const KIND_LABEL: Record<ReportModuleKind, string> = {
   line: 'Linjediagram',
   table: 'Tabell',
   heatmap: 'Heatmap',
+  scorecard: 'Scorecard',
 }
 
 export function DashboardAddWidgetPanel({ open, onClose, scopeId, onAdd }: Props) {
