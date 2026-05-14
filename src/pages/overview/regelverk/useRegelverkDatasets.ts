@@ -55,7 +55,16 @@ export type RegelverkScorecardGroup = {
 function pickFilterValue(filters: DashboardFilter[], dimensionId: string): string | null {
   const chip = filters.find((f) => f.dimensionId === dimensionId)
   if (!chip) return null
+  // Single-value chip (operator 'is').
   if (typeof chip.value === 'string' && chip.value !== '') return chip.value
+  // Multi-select chip (operator 'in') — the chip bar always uses this for
+  // enum primaries. Downstream filtering is single-value, so we narrow on
+  // the first selected option. Refining the hook to honour every entry
+  // in a multi-select needs the requirement/category/role filters to
+  // accept arrays; deferred for now.
+  if (Array.isArray(chip.value) && chip.value.length > 0 && typeof chip.value[0] === 'string') {
+    return chip.value[0] as string
+  }
   return null
 }
 
