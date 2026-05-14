@@ -553,6 +553,172 @@ export function ReportModuleWidget({
       </>,
     )
   }
+  if (m.kind === 'scorecard') {
+    const raw = m.groupsPath ? getAtPath(ds, m.groupsPath) : ds
+    type ScorecardRow = {
+      id?: string
+      label?: string
+      title?: string
+      applies?: string
+      obligation?: 'mandatory' | 'recommended' | 'conditional'
+      status?: 'covered' | 'partial' | 'only_avvik' | 'uncovered'
+    }
+    type ScorecardGroup = {
+      category?: string
+      total?: number
+      covered?: number
+      partial?: number
+      needsAttention?: number
+      rows?: ScorecardRow[]
+    }
+    const groups: ScorecardGroup[] = Array.isArray(raw) ? (raw as ScorecardGroup[]) : []
+    const drillable = !!(m.drillDimensionId && onDrillDown)
+    return wrap(
+      <>
+        {titleBlock}
+        {groups.length === 0 ? (
+          <EmptyWidget label={emptyLabel ?? 'Ingen krav matcher filteret.'} />
+        ) : (
+          <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+            {groups.map((g, idx) => {
+              const total = g.total ?? g.rows?.length ?? 0
+              const covered = g.covered ?? 0
+              const partial = g.partial ?? 0
+              const needs = g.needsAttention ?? Math.max(0, total - covered - partial)
+              const pct = total === 0 ? 0 : Math.round((covered / total) * 100)
+              return (
+                <div
+                  key={g.category ?? `g-${idx}`}
+                  className="overflow-hidden rounded-lg border border-neutral-200/80 bg-white"
+                >
+                  <div className="border-b border-neutral-100 px-4 py-3">
+                    <div className="flex items-start justify-between gap-3">
+                      <h4
+                        className="text-sm font-semibold text-neutral-900"
+                        style={{ fontFamily: "'Libre Baskerville', Georgia, serif" }}
+                      >
+                        {g.category ?? 'Ukategorisert'}
+                      </h4>
+                      <p
+                        className="shrink-0 text-lg font-bold tabular-nums"
+                        style={{ color: accent }}
+                      >
+                        {pct}%
+                      </p>
+                    </div>
+                    <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-neutral-100">
+                      <div
+                        className="h-full rounded-full transition-all"
+                        style={{ width: `${pct}%`, backgroundColor: accent }}
+                      />
+                    </div>
+                    <div className="mt-2 flex flex-wrap gap-x-3 gap-y-0.5 text-[11px] text-neutral-500">
+                      <span>
+                        <span className="font-semibold text-emerald-700">{covered}</span> dekket
+                      </span>
+                      {partial > 0 ? (
+                        <span>
+                          <span className="font-semibold text-amber-700">{partial}</span> mangler bevis
+                        </span>
+                      ) : null}
+                      {needs > 0 ? (
+                        <span>
+                          <span className="font-semibold text-red-700">{needs}</span> udekket
+                        </span>
+                      ) : null}
+                      <span className="text-neutral-400">av {total}</span>
+                    </div>
+                  </div>
+                  <ul
+                    className="divide-y divide-neutral-100/80"
+                    style={{ backgroundColor: 'rgba(245, 230, 211, 0.50)' }}
+                  >
+                    {(g.rows ?? []).map((r, ridx) => {
+                      const statusColor =
+                        r.status === 'covered'
+                          ? 'text-emerald-600'
+                          : r.status === 'partial'
+                            ? 'text-amber-500'
+                            : r.status === 'only_avvik'
+                              ? 'text-amber-600'
+                              : 'text-red-500'
+                      const statusGlyph =
+                        r.status === 'covered'
+                          ? '✓'
+                          : r.status === 'partial'
+                            ? '◷'
+                            : r.status === 'only_avvik'
+                              ? '!'
+                              : '✕'
+                      const obligationCls =
+                        r.obligation === 'mandatory'
+                          ? 'bg-red-50 text-red-900 ring-red-200'
+                          : r.obligation === 'recommended'
+                            ? 'bg-amber-50 text-amber-900 ring-amber-200'
+                            : 'bg-neutral-50 text-neutral-700 ring-neutral-200'
+                      const obligationText =
+                        r.obligation === 'mandatory'
+                          ? 'Pliktig'
+                          : r.obligation === 'recommended'
+                            ? 'Anbefalt'
+                            : r.obligation === 'conditional'
+                              ? 'Betinget'
+                              : null
+                      const rowKey = r.id ?? r.label ?? `r-${ridx}`
+                      const inner = (
+                        <>
+                          <span className={`shrink-0 text-base font-bold ${statusColor}`} aria-hidden>
+                            {statusGlyph}
+                          </span>
+                          <span
+                            className="w-28 shrink-0 truncate text-[13px] font-semibold text-neutral-900"
+                            style={{ fontFamily: "'Libre Baskerville', Georgia, serif" }}
+                          >
+                            {r.label ?? ''}
+                          </span>
+                          <span className="min-w-0 flex-1 truncate text-sm text-neutral-700">
+                            {r.title ?? ''}
+                          </span>
+                          {obligationText ? (
+                            <span
+                              className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ring-1 ring-inset ${obligationCls}`}
+                            >
+                              {obligationText}
+                            </span>
+                          ) : null}
+                        </>
+                      )
+                      return (
+                        <li key={rowKey}>
+                          {drillable && r.id ? (
+                            <button
+                              type="button"
+                              onClick={() =>
+                                onDrillDown?.({
+                                  module: m,
+                                  segmentLabel: r.id!,
+                                  dimensionId: m.drillDimensionId!,
+                                })
+                              }
+                              className="flex w-full items-center gap-3 px-4 py-2.5 text-left transition hover:bg-white/60"
+                            >
+                              {inner}
+                            </button>
+                          ) : (
+                            <div className="flex w-full items-center gap-3 px-4 py-2.5">{inner}</div>
+                          )}
+                        </li>
+                      )
+                    })}
+                  </ul>
+                </div>
+              )
+            })}
+          </div>
+        )}
+      </>,
+    )
+  }
   return null
 }
 

@@ -56,6 +56,7 @@ const KIND_LABELS: Record<ReportModuleKind, string> = {
   line: 'Linjediagram',
   table: 'Tabell',
   heatmap: 'Heatmap',
+  scorecard: 'Scorecard',
 }
 
 // ── Lossless kind-switch helpers ────────────────────────────────────────────

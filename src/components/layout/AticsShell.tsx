@@ -1600,20 +1600,6 @@ export function AticsShell() {
         match: ({ pathname }) => pathname.startsWith('/compliance-studio'),
         requirePermAny: ADMIN_NAV_PERMS,
       },
-      {
-        label: 'Compliance — selskap',
-        path: '/overview/compliance-selskap',
-        Icon: ShieldCheck,
-        match: ({ pathname }) => pathname === '/overview/compliance-selskap',
-        requirePermAny: ADMIN_NAV_PERMS,
-      },
-      {
-        label: 'Min compliance',
-        path: '/overview/compliance-min',
-        Icon: HeartPulse,
-        match: ({ pathname }) => pathname === '/overview/compliance-min',
-        requirePermAny: overviewNavPerms,
-      },
     ]
     const hmsOverviewGroup: NavGroup = {
       id: 'hms-oversikt',

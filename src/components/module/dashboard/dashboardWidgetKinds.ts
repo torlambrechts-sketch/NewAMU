@@ -12,5 +12,6 @@ export function defaultCompatibleKinds(kind: ReportModuleKind): ReportModuleKind
   }
   if (kind === 'line') return ['line']
   if (kind === 'heatmap') return ['heatmap']
+  if (kind === 'scorecard') return ['scorecard']
   return ['kpi']
 }
