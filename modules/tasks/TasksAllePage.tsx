@@ -983,12 +983,37 @@ export function TasksAllePage() {
                               )}
                             </td>
 
-                            {/* Title */}
-                            <td
-                              className="max-w-[200px] cursor-pointer truncate px-5 py-3 font-medium text-neutral-900 hover:text-[#c2410c]"
-                              onClick={() => setSelectedItem(row)}
-                            >
-                              {row.title}
+                            {/* Title — expand toggle in front, title click opens detail */}
+                            <td className="px-3 py-3">
+                              <div className="flex items-center gap-1.5">
+                                {/* Expand/collapse button — only for tasks with subtasks */}
+                                {sc && sc.total > 0 ? (
+                                  <button
+                                    type="button"
+                                    onClick={() => toggleRow(row.id)}
+                                    className={`shrink-0 rounded p-0.5 transition ${
+                                      isExpanded
+                                        ? 'text-[#c2410c]'
+                                        : 'text-neutral-300 hover:text-[#c2410c]'
+                                    }`}
+                                    aria-label={isExpanded ? 'Skjul deloppgaver' : 'Vis deloppgaver'}
+                                  >
+                                    {isExpanded
+                                      ? <ChevronDown className="h-4 w-4" />
+                                      : <ChevronRight className="h-4 w-4" />
+                                    }
+                                  </button>
+                                ) : (
+                                  <span className="w-5 shrink-0" />
+                                )}
+                                <span
+                                  className="max-w-[200px] cursor-pointer truncate font-medium text-neutral-900 hover:text-[#c2410c]"
+                                  onClick={() => setSelectedItem(row)}
+                                  title={row.title}
+                                >
+                                  {row.title}
+                                </span>
+                              </div>
                             </td>
 
                             {/* Kategori */}
@@ -1009,21 +1034,9 @@ export function TasksAllePage() {
                                 subtaskCounts={subtaskCounts}
                               />
                               {sc && sc.total > 0 && (
-                                <button
-                                  type="button"
-                                  onClick={() => toggleRow(row.id)}
-                                  className={`mt-1 flex items-center gap-0.5 text-[10px] transition ${
-                                    isExpanded
-                                      ? 'font-semibold text-[#c2410c]'
-                                      : 'text-neutral-400 hover:text-[#c2410c]'
-                                  }`}
-                                >
-                                  {isExpanded
-                                    ? <ChevronDown className="h-3 w-3" />
-                                    : <ChevronRight className="h-3 w-3" />
-                                  }
+                                <p className="mt-0.5 text-[10px] text-neutral-400">
                                   {sc.done}/{sc.total} deloppg.
-                                </button>
+                                </p>
                               )}
                             </td>
 
@@ -1050,11 +1063,16 @@ export function TasksAllePage() {
                               {fmtDate(row.dueDate)}
                             </td>
 
-                            {/* Expand toggle — only shown when no subtask count pill above */}
+                            {/* Open detail panel */}
                             <td className="w-8 px-3 py-3">
-                              {(!sc || sc.total === 0) && (
-                                <ChevronRight className="h-4 w-4 text-neutral-200" />
-                              )}
+                              <button
+                                type="button"
+                                onClick={() => setSelectedItem(row)}
+                                className="text-neutral-300 transition hover:text-neutral-500"
+                                aria-label="Åpne detaljer"
+                              >
+                                <ChevronRight className="h-4 w-4" />
+                              </button>
                             </td>
                           </tr>,
 
