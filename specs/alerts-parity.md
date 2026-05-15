@@ -19,7 +19,7 @@
 - Types/data: `src/types/whistleblowing.ts`, `src/data/amlAnonymousReporting.ts`, `src/data/workplaceCaseCategories.ts`, `src/lib/varslingssakerLayoutFromPreset.ts`.
 - Component: `src/components/workplace/WorkplaceReportingCasesSection.tsx`.
 
-**Spec status:** `🚧 draft (revision 1 — supervisor blockers resolved) → 📋 ready` pending human-owner sign-off in §13.4.
+**Spec status:** `📋 ready to execute` (supervisor + human-owner signed off in §13.4; OQ-A4 overridden by owner).
 **Owner:** human. **Author:** senior architect + compliance officer dual review, supervisor revision pass applied.
 
 ---
@@ -823,7 +823,7 @@ Additional refinements applied:
 | OQ-A1 | hCaptcha vs Cloudflare Turnstile | **Cloudflare Turnstile** (accepted) — note that Turnstile still loads from Cloudflare in user's browser; document this in the `tpl-varslingsrutiner` policy doc and the `preparationGuidance` of public templates. |
 | OQ-A2 | Permanent `/varsle/:slug` redirect | **Yes, permanent** — moved out of `App.tsx` route table into a small `src/redirects/varsleAliases.tsx` module so the legacy aliases are isolated from the live route table. |
 | OQ-A3 | `gdpr_breach` cases in compliance-studio composite | **Yes**, follow-up commit after Phase F4. Composite scope must read `alert_cases` only with anonymity-respecting projections (no `reporter_*` columns). |
-| OQ-A4 | Committee rotation visibility into closed cases | **CHANGED per supervisor disagreement**: default is now **open cases assigned to them + metadata-only (status/kind/date) for closed cases**. Full content of closed cases requires explicit case-grant. Closes the AML § 2A-7 (5) taushetsplikt expansion risk supervisor flagged. RLS clause updated accordingly: closed cases without explicit `alert_case_grants` row return metadata-only projection. |
+| OQ-A4 | Committee rotation visibility into closed cases | **Human owner override (final)**: rotated committee members see **all non-confidential closed cases in their org**. Confidential cases still require explicit `alerts.committee_confidential`. Supervisor flagged this as a potential § 2A-7 (5) taushetsplikt expansion — owner accepts the policy trade-off (continuity of case knowledge across HR rotation > stricter retroactive walling-off). Mitigation: `alert_case_grants` table not needed; standard committee permission read suffices. Confidentiality-level upgrade remains the way to wall off a sensitive case. |
 | OQ-A5 | Severity required-at-insert or required-before-close | **Required before close** (accepted). Template `definition.workflowStages[].requiredFields` declares the severity field as required when transitioning to `closed`. |
 | OQ-A6 | Anonymous-reporter self-edit window | **No** (accepted). |
 | OQ-A7 | Retention: redact vs hard-delete | **Redact (default), plus separate Art. 17 hard-delete path** for identified-tier subject requests via §3.8. Two paths, two legal bases, no conflict. |
@@ -843,6 +843,6 @@ Additional refinements applied:
 ### 13.4 Sign-off
 
 - [x] supervisor (Plan-agent first-pass review applied; all 8 blockers resolved + 7 refinements integrated)
-- [ ] human owner
+- [x] human owner (OQ-A4 overridden; all other OQ defaults accepted; spec ready to execute)
 
-Flip §0 spec status to `📋 ready to execute` when human owner signs off. Open delta to revisit: human owner may want to override OQ-A4 default back to "all non-confidential closed cases visible" if the org-policy floor is lower than the supervisor's stricter interpretation — that's a policy call, not a security defect.
+Spec status: `📋 ready to execute`. Phase A migrations cleared to begin.
