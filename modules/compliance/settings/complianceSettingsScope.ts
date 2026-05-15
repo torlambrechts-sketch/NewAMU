@@ -97,10 +97,6 @@ registerSettingsScope({
   // purpose so view-only HMS roles see the menu. Per-tab perm gating
   // happens inside the existing tab components when they write.
   permAny: [
-    'module.view.hse',
-    'module.view.internal_control',
-    'module.view.org_health',
-    'module.view.hr_compliance',
     'module.view.dashboard',
     'checklist.manage',
   ],

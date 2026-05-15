@@ -2,36 +2,22 @@ import { useCallback, useEffect, useMemo, useState, type ComponentType } from 'r
 import { NavLink, Outlet, useLocation } from 'react-router-dom'
 import {
   Activity,
-  AlertTriangle,
   BarChart3,
-  Briefcase,
-  BookMarked,
   BookOpen,
   Building2,
-  Calendar,
-  CalendarRange,
-  CalendarCheck,
   ChevronDown,
   Database,
   ChevronRight,
   ClipboardList,
-  ClipboardCheck,
   FileText,
   FolderTree,
   GraduationCap,
-  HardHat,
-  History,
-  HeartPulse,
   Home,
   Kanban,
-  LayoutGrid,
   LayoutTemplate,
-  ListTodo,
   Megaphone,
   PanelLeft,
   PanelRight,
-  Boxes,
-  Layers,
   Plug,
   ScrollText,
   ShieldAlert,
@@ -49,7 +35,6 @@ import { SurveyPendingInvitesBanner } from '../../../modules/survey/SurveyPendin
 import { useI18n } from '../../hooks/useI18n'
 import { useOrgSetupContext } from '../../hooks/useOrgSetupContext'
 import type { PermissionKey } from '../../lib/permissionKeys'
-import { WORKPLACE_REPORTING_NAV, workplaceReportingNavMatch } from '../../data/workplaceReportingNav'
 import { KlarertLogo } from '../brand/KlarertLogo'
 import {
   ShellCompanyBlock,
@@ -132,119 +117,6 @@ function visibleSubs(
   return out
 }
 
-// ─── Sub-item lists (all paths/labels unchanged) ──────────────────────────────
-
-
-const internkontrollSubs: SubItem[] = [
-  {
-    label: 'Oversikt',
-    path: '/internkontroll',
-    match: ({ pathname }) => pathname === '/internkontroll',
-  },
-  {
-    label: 'Lovregister',
-    path: '/internkontroll/lovregister',
-    match: ({ pathname }) => pathname === '/internkontroll/lovregister',
-  },
-  {
-    label: 'Kompetanse',
-    path: '/internkontroll/kompetanse',
-    match: ({ pathname }) => pathname === '/internkontroll/kompetanse',
-  },
-  {
-    label: 'Medvirkning & roller',
-    path: '/internkontroll/medvirkning',
-    match: ({ pathname }) => pathname === '/internkontroll/medvirkning',
-  },
-  {
-    label: 'HMS-mål & KPI',
-    path: '/internkontroll/mal',
-    match: ({ pathname }) => pathname === '/internkontroll/mal',
-  },
-  {
-    label: 'Tiltaksplan',
-    path: '/internkontroll/tiltaksplan',
-    match: ({ pathname }) => pathname === '/internkontroll/tiltaksplan',
-  },
-  {
-    label: 'ROS-analyse',
-    path: '/internal-control?tab=ros',
-    match: ({ pathname, search }) => pathname === '/internal-control' && new URLSearchParams(search).get('tab') === 'ros',
-  },
-]
-
-const internalControlSubs: SubItem[] = [
-  {
-    label: 'Samsvar — oversikt',
-    path: '/compliance',
-    match: ({ pathname }) => pathname === '/compliance',
-  },
-  {
-    label: 'Oversikt',
-    path: '/internal-control?tab=overview',
-    match: ({ pathname, search }) =>
-      pathname === '/internal-control' &&
-      (!new URLSearchParams(search).get('tab') || new URLSearchParams(search).get('tab') === 'overview'),
-  },
-  { label: 'ROS', path: '/internal-control?tab=ros', match: ({ pathname, search }) => pathname === '/internal-control' && new URLSearchParams(search).get('tab') === 'ros' },
-  { label: 'Årsgjennomgang', path: '/internal-control?tab=annual', match: ({ pathname, search }) => pathname === '/internal-control' && new URLSearchParams(search).get('tab') === 'annual' },
-]
-
-const hseSubs: SubItem[] = [
-  {
-    label: 'Samsvar — oversikt',
-    path: '/compliance',
-    match: ({ pathname }) => pathname === '/compliance',
-  },
-  {
-    label: 'Oversikt',
-    path: '/hse?tab=overview',
-    match: ({ pathname, search }) =>
-      pathname === '/hse' &&
-      (!new URLSearchParams(search).get('tab') || new URLSearchParams(search).get('tab') === 'overview'),
-  },
-  { label: 'Inspeksjoner', path: '/hse?tab=inspections', match: ({ pathname, search }) => pathname === '/hse' && new URLSearchParams(search).get('tab') === 'inspections' },
-  {
-    label: 'Inspeksjonsmodul',
-    path: '/inspection-module/admin',
-    match: ({ pathname }) =>
-      pathname === '/inspection-module/admin' || pathname === '/hse/inspection-settings',
-  },
-  { label: 'SJA', path: '/hse?tab=sja', match: ({ pathname, search }) => pathname === '/hse' && new URLSearchParams(search).get('tab') === 'sja' },
-  { label: 'Opplæring', path: '/hse?tab=training', match: ({ pathname, search }) => pathname === '/hse' && new URLSearchParams(search).get('tab') === 'training' },
-  { label: 'Sykefravær', path: '/hse?tab=sickness', match: ({ pathname, search }) => pathname === '/hse' && new URLSearchParams(search).get('tab') === 'sickness' },
-]
-
-const orgHealthSubs: SubItem[] = [
-  {
-    label: 'Samsvar — oversikt',
-    path: '/compliance',
-    match: ({ pathname }) => pathname === '/compliance',
-  },
-  {
-    label: 'Oversikt',
-    path: '/org-health?tab=overview',
-    match: ({ pathname, search }) =>
-      pathname === '/org-health' &&
-      (!new URLSearchParams(search).get('tab') || new URLSearchParams(search).get('tab') === 'overview'),
-  },
-  { label: 'Undersøkelser', path: '/org-health?tab=surveys', match: ({ pathname, search }) => pathname === '/org-health' && new URLSearchParams(search).get('tab') === 'surveys' },
-  { label: 'Sykefravær (NAV)', path: '/org-health?tab=nav', match: ({ pathname, search }) => pathname === '/org-health' && new URLSearchParams(search).get('tab') === 'nav' },
-  { label: 'AML-indikatorer', path: '/org-health?tab=metrics', match: ({ pathname, search }) => pathname === '/org-health' && new URLSearchParams(search).get('tab') === 'metrics' },
-  { label: 'Veikart', path: '/org-health/settings', match: ({ pathname }) => pathname === '/org-health/settings' },
-]
-
-const workplaceReportingSubs: SubItem[] = WORKPLACE_REPORTING_NAV.map((item) => {
-  const base: SubItem = {
-    label: item.label,
-    path: item.to,
-    match: ({ pathname, search }) => workplaceReportingNavMatch(item.to, item.end, pathname, search),
-  }
-  if (item.requirePermAny?.length) return { ...base, requirePermAny: item.requirePermAny }
-  if (item.requirePerm) return { ...base, requirePerm: item.requirePerm }
-  return base
-})
-
 // Permission gate for the umbrella Admin menu. Strict — only org
 // administrators / role managers see it. Sub-pages enforce their own
 // page-level perms.
@@ -289,31 +161,15 @@ type NavModule = {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Canonical 7-group information architecture (+ Gamle moduler staging group).
-// Each group maps to a legal basis:
-//
-//   1. Risiko & Sikkerhet         — IK-forskriften § 5 nr. 6
-//   2. Hendelser & Varsling       — AML § 5 og kap. 2A
-//   3. Internkontroll             — IK-forskriften § 5
-//   4. Arbeidsmiljø & AMU         — AML § 4 og § 7
-//   5. Dokumentasjon              — IK-forskriften § 5 nr. 3
-//   6. Opplæring & Kompetanse     — AML § 3-2
-//   7. Organisasjon & HR          — støttefunksjoner
-//
-// Anything that does not cleanly map to one of these seven groups is parked in
-// "Gamle moduler" so it stays reachable but is visibly quarantined. Move items
-// out of Gamle moduler by cutting the object and pasting it into the correct
-// group below.
+// Canonical information architecture. Each top-level group is a kept module
+// (compliance/checklist, survey, documents, meetings, registers, tasks,
+// learning) plus the cross-module HMS-oversikt + Organisasjon admin group.
 // ─────────────────────────────────────────────────────────────────────────────
 
 // Permission gate for the synthetic Sjekklister menu — matches the /compliance
 // route gate in ROUTE_PERMISSION_ANY so anyone who can reach the page also
 // sees the menu entry.
 const COMPLIANCE_NAV_PERMS: PermissionKey[] = [
-  'module.view.hse',
-  'module.view.internal_control',
-  'module.view.org_health',
-  'module.view.hr_compliance',
   'module.view.dashboard',
   'checklist.manage',
 ]
@@ -323,8 +179,6 @@ const COMPLIANCE_NAV_PERMS: PermissionKey[] = [
 // used for Sjekklister so view-only roles aren't excluded.
 const SURVEY_NAV_PERMS: PermissionKey[] = [
   'module.view.survey',
-  'module.view.org_health',
-  'module.view.hse',
   'module.view.dashboard',
   'survey.manage',
   'survey.results.view',
@@ -351,14 +205,10 @@ const DOCUMENTS_NAV_PERMS: PermissionKey[] = [
   'module.view.dashboard',
 ]
 
-// Permission gate for the Register menu — broad pattern: anyone who can
-// view any HMS module surface gets the menu. The page-level RLS ensures
-// per-record reads stay org-scoped.
+// Permission gate for the Register menu — broad pattern. The page-level RLS
+// ensures per-record reads stay org-scoped.
 const REGISTERS_NAV_PERMS: PermissionKey[] = [
   'module.view.dashboard',
-  'module.view.hse',
-  'module.view.org_health',
-  'module.view.internal_control',
   'documents.view',
 ]
 
@@ -371,130 +221,6 @@ const MEETINGS_NAV_PERMS: PermissionKey[] = [
   'module.view.dashboard',
 ]
 
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Menu cleanup pass — preview layout with only Sjekklister + Undersøkelser at
-// the top. Every other module is parked in "Gamle moduler" so it stays
-// reachable while we evaluate the new IA. The two synthetic top-level groups
-// (Sjekklister, Undersøkelser) are injected just before "gamle-moduler" inside
-// `mergedNavGroups` further down. Restoring the previous IA is a single revert
-// of this commit.
-// ─────────────────────────────────────────────────────────────────────────────
-
-// oppgaverManagementSubs removed — tasks nav is now dynamic via useTaskNav
-// (same pattern as complianceNav / surveyNav). Built inside mergedNavGroups below.
-
-// Every module previously surfaced as a top-level entry, now flattened into a
-// single "Gamle moduler" group while we audit the IA. Order preserved from the
-// previous group structure so muscle memory still works.
-const gamleModulerModules: NavModule[] = [
-  // ── Risiko & Sikkerhet ───────────────────────────────────────────────────
-  { to: '/risiko-sikkerhet', label: 'Risiko & Sikkerhet — oversikt', end: true, icon: LayoutGrid, subs: [] },
-  { to: '/sja', label: 'Sikker Jobbanalyse', end: false, icon: ShieldAlert, subs: [] },
-  { to: '/ros', label: 'ROS-analyser', end: false, icon: ShieldAlert, subs: [], perm: 'module.view.hse', moduleSlug: 'ros' },
-  { to: '/vernerunder', label: 'Vernerunder', end: false, icon: ClipboardCheck, perm: 'module.view.hse', moduleSlug: 'vernerunder', subs: [] },
-  { to: '/inspection-module', label: 'Inspeksjonsrunder', end: false, icon: ClipboardList, moduleSlug: 'inspection', subs: [] },
-
-  // ── Hendelser & Varsling ─────────────────────────────────────────────────
-  { to: '/avvik', label: 'Avvik', end: false, icon: AlertTriangle, subs: [] },
-  {
-    to: '/workplace-reporting',
-    label: 'Varsling & hendelser',
-    end: true,
-    icon: Megaphone,
-    subs: workplaceReportingSubs,
-    perm: 'module.view.workplace_reporting',
-    moduleSlug: 'workplace_reporting',
-  },
-
-  // ── Internkontroll ───────────────────────────────────────────────────────
-  { to: '/internkontroll', label: 'IK Hub', end: false, icon: BookMarked, subs: internkontrollSubs, perm: 'module.view.internal_control' },
-  {
-    to: '/internal-control',
-    label: 'Internkontroll (legacy hub)',
-    end: false,
-    icon: ClipboardList,
-    subs: internalControlSubs,
-    perm: 'module.view.internal_control',
-    moduleSlug: 'internal-control',
-  },
-  { to: '/tiltak', label: 'Tiltaksplan', end: false, icon: ListTodo, perm: 'module.view.hse', subs: [] },
-  { to: '/aarshjul', label: 'Årshjul', end: false, icon: CalendarRange, subs: [], perm: 'module.view.dashboard' },
-
-  { to: '/members', label: 'Representanter', end: false, icon: Users, subs: [], perm: 'module.view.members', moduleSlug: 'members' },
-  {
-    to: '/org-health',
-    label: 'Organisasjonshelse',
-    end: false,
-    icon: HeartPulse,
-    subs: orgHealthSubs,
-    perm: 'module.view.org_health',
-    moduleSlug: 'org-health',
-  },
-
-  {
-    to: '/internkontroll/arsgjenomgang',
-    label: 'Årsgjennomgang',
-    end: false,
-    icon: Calendar,
-    subs: [
-      { label: 'Dokument', path: '/internkontroll/arsgjenomgang', match: ({ pathname }) => pathname === '/internkontroll/arsgjenomgang' },
-      { label: 'Innstillinger', path: '/internkontroll/admin', match: ({ pathname }) => pathname === '/internkontroll/admin' },
-    ],
-    perm: 'module.view.internal_control',
-    moduleSlug: 'ik-annual-review',
-  },
-  { to: '/modules/aarskontroll', label: 'Årskontroll', end: true, icon: CalendarCheck, subs: [], perm: 'module.view.internal_control' },
-  { to: '/compliance', label: 'Compliance-dashboard', end: true, icon: ShieldCheck, subs: [] },
-
-  // ── HR ───────────────────────────────────────────────────────────────────
-  // Admin / Organisasjon entries are rendered by the synthetic `adminGroup`
-  // built inside `mergedNavGroups` (Organisasjon group). The legacy
-  // top-level "Admin" entry that used to live here was removed once the
-  // unified settings hub took over its primary destination.
-  {
-    to: '/hr',
-    label: 'HR & rettssikkerhet',
-    end: false,
-    icon: Briefcase,
-    subs: [
-      { label: 'Samsvar — oversikt', path: '/compliance', match: ({ pathname }) => pathname === '/compliance' },
-    ],
-    perm: 'module.view.hr_compliance',
-    moduleSlug: 'hr',
-  },
-
-  // ── Administrasjon ───────────────────────────────────────────────────────
-  // The legacy stub `Organisasjon` entry that used to live here was
-  // removed; its destination (`/organisation`) is now reached via the
-  // synthetic `adminGroup` (Organisasjon → Selskap) further down.
-  {
-    to: '/reports',
-    label: 'Rapportarkiv',
-    end: false,
-    icon: BarChart3,
-    subs: [],
-    perm: 'module.view.reports',
-  },
-
-  // ── Eksisterende "Gamle moduler" innhold ─────────────────────────────────
-  { to: '/', label: 'Dashboards', end: true, icon: Home, subs: [], perm: 'module.view.dashboard' },
-  { to: '/workspace/revisjonslogg', label: 'Revisjonslogg', end: true, icon: History, subs: [], perm: 'module.view.dashboard' },
-  // Tasks + Learning have their own top-level NavGroups (Oppgaver / Læring) —
-  // legacy duplicates removed per category-architecture §T6.
-  { to: '/action-board', label: 'Action Board', end: false, icon: Kanban, subs: [], perm: 'module.view.dashboard' },
-  { to: '/hse', label: 'HSE / HMS (legacy)', end: false, icon: HardHat, subs: hseSubs, perm: 'module.view.hse', moduleSlug: 'hse' },
-  { to: '/admin/modules', label: 'Moduloversikt', end: false, icon: Boxes, subs: [] },
-]
-
-const navGroups: NavGroup[] = [
-  {
-    id: 'gamle-moduler',
-    label: 'Gamle moduler',
-    icon: Layers,
-    modules: gamleModulerModules,
-  },
-]
 
 function filterNavGroups(
   groups: NavGroup[],
@@ -527,21 +253,9 @@ function activeModuleForPath(modules: NavModule[], pathname: string, search: str
   if (modules.length === 0) {
     return { to: '/', label: 'Dashboards', end: true, icon: Home, subs: [] }
   }
-  if (pathname === '/workspace/revisjonslogg') {
-    const w = modules.find((m) => m.to === '/workspace/revisjonslogg')
-    if (w) return w
-  }
   if (pathname === '/compliance') {
     const c = modules.find((m) => m.to === '/compliance')
     if (c) return c
-  }
-  const hub = modules.find((m) => m.to === '/workplace-reporting')
-  if (hub) {
-    const sp = new URLSearchParams(search)
-    if (pathname === '/workplace-reporting/incidents') return hub
-    if (pathname === '/workplace-reporting/dashboard') return hub
-    if (pathname === '/org-health' && sp.get('tab') === 'reporting') return hub
-    if (pathname === '/tasks/management' && sp.get('tab') === 'varsling') return hub
   }
   if (pathname === '/organisation/admin' || pathname.startsWith('/organisation/admin/')) {
     const adminMod = modules.find((m) => m.to === '/organisation/admin')
@@ -571,10 +285,6 @@ function activeModuleForPath(modules: NavModule[], pathname: string, search: str
     const mtg = modules.find((m) => m.to === '/meetings')
     if (mtg) return mtg
   }
-  if (pathname === '/vernerunder' || pathname.startsWith('/vernerunder/')) {
-    const vern = modules.find((m) => m.to === '/vernerunder')
-    if (vern) return vern
-  }
   // Exact-match with query (handles /council?tab=board vs /council)
   for (const mod of modules) {
     if (mod.to.includes('?')) {
@@ -602,59 +312,8 @@ function activeModuleForPath(modules: NavModule[], pathname: string, search: str
   return modules[0]
 }
 
-function workspaceRevisjonsloggSubs(): SubItem[] {
-  const srcMatch =
-    (source: string) =>
-    ({ pathname, search }: { pathname: string; search: string }) =>
-      pathname === '/workspace/revisjonslogg' && new URLSearchParams(search).get('source') === source
-  const allMatch = ({ pathname, search }: { pathname: string; search: string }) =>
-    pathname === '/workspace/revisjonslogg' && !new URLSearchParams(search).get('source')
-  return [
-    { label: 'Alle kilder', path: '/workspace/revisjonslogg', match: allMatch },
-    {
-      label: 'Oppgaver',
-      path: '/workspace/revisjonslogg?source=tasks',
-      match: srcMatch('tasks'),
-      requirePerm: 'module.view.tasks',
-    },
-    {
-      label: 'Internkontroll',
-      path: '/workspace/revisjonslogg?source=internal_control',
-      match: srcMatch('internal_control'),
-      requirePerm: 'module.view.internal_control',
-    },
-    {
-      label: 'HSE / HMS',
-      path: '/workspace/revisjonslogg?source=hse',
-      match: srcMatch('hse'),
-      requirePerm: 'module.view.hse',
-    },
-    {
-      label: 'Org. helse',
-      path: '/workspace/revisjonslogg?source=org_health',
-      match: srcMatch('org_health'),
-      requirePerm: 'module.view.org_health',
-    },
-    {
-      label: 'Møter',
-      path: '/workspace/revisjonslogg?source=meetings',
-      match: srcMatch('meetings'),
-      requirePerm: 'module.view.meetings',
-    },
-    {
-      label: 'Representanter',
-      path: '/workspace/revisjonslogg?source=representatives',
-      match: srcMatch('representatives'),
-      requirePerm: 'module.view.members',
-    },
-  ]
-}
-
 function subNavForPath(modules: NavModule[], pathname: string, search: string): SubItem[] {
   const mod = activeModuleForPath(modules, pathname, search)
-  if (mod.to === '/workspace/revisjonslogg') {
-    return workspaceRevisjonsloggSubs()
-  }
   return mod.subs
 }
 
@@ -1345,15 +1004,6 @@ export function AticsShell() {
         requirePermAny: ADMIN_NAV_PERMS,
       },
       {
-        label: 'Rolle-compliance',
-        path: '/organisation/admin?tab=role_compliance',
-        Icon: BarChart3,
-        match: ({ pathname, search }) =>
-          pathname.startsWith('/organisation/admin') &&
-          new URLSearchParams(search).get('tab') === 'role_compliance',
-        requirePermAny: ADMIN_NAV_PERMS,
-      },
-      {
         label: 'GDPR brudd',
         path: '/organisation/admin?tab=gdpr_breach',
         Icon: ShieldAlert,
@@ -1638,10 +1288,7 @@ export function AticsShell() {
       ],
     }
 
-    const idx = navGroups.findIndex((g) => g.id === 'gamle-moduler')
-    const head = idx === -1 ? navGroups : navGroups.slice(0, idx)
-    const tail = idx === -1 ? [] : navGroups.slice(idx)
-    return [...head, hmsOverviewGroup, complianceGroup, surveyGroup, documentsGroup, meetingsGroup, registersGroup, tasksGroup, learningGroup, adminGroup, ...tail]
+    return [hmsOverviewGroup, complianceGroup, surveyGroup, documentsGroup, meetingsGroup, registersGroup, tasksGroup, learningGroup, adminGroup]
   }, [
     complianceNav.items,
     complianceNav.categories,

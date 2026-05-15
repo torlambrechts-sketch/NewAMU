@@ -25,11 +25,6 @@ import '../../pages/documents/workflows/documentsWorkflowScope'
 import '../../pages/meetings/workflows/meetingsWorkflowScope'
 import '../../pages/learning/workflows/learningWorkflowScope'
 import '../../pages/registers/workflows/registersWorkflowScope'
-import '../../pages/inspection/workflows/inspectionWorkflowScope'
-import '../../pages/ros/workflows/rosWorkflowScope'
-import '../../pages/action-plan/workflows/actionPlanWorkflowScope'
-import '../../pages/vernerunder/workflows/vernerunderWorkflowScope'
-import '../../pages/internal-control/workflows/internalControlWorkflowScope'
 import './gov/govWorkflowScope'
 
 if (import.meta.env?.DEV) {
@@ -38,9 +33,8 @@ if (import.meta.env?.DEV) {
     const registered = new Set(listWorkflowScopes().map((s) => s.scopeId))
     const expected = WORKFLOW_SOURCE_MODULES.map((m) => m.value)
     // Modules we deliberately don't model as a workflow scope yet:
-    //   - hse: umbrella key, covered by inspection/ros/vernerunder
-    //   - workplace_reporting / org_health / wiki_published: legacy aggregates
-    const excluded = new Set(['hse', 'workplace_reporting', 'org_health', 'wiki_published'])
+    //   - wiki_published: aggregated under documents scope
+    const excluded = new Set(['wiki_published'])
     const missing = expected.filter((m) => !registered.has(m) && !excluded.has(m))
     if (missing.length > 0) {
       console.warn(

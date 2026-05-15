@@ -37,7 +37,6 @@ const MEMBERS = [
   'tasks',
   'learning',
   'documents',
-  'compliance_company',
 ] as const
 
 // ── Dataset catalogue ─────────────────────────────────────────────────────

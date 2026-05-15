@@ -50,9 +50,6 @@ registerSettingsScope({
   // the page-level RLS keeps writes scoped. Admin short-circuits.
   permAny: [
     'module.view.dashboard',
-    'module.view.hse',
-    'module.view.org_health',
-    'module.view.internal_control',
     'documents.view',
   ],
   sections,

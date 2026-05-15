@@ -24,15 +24,6 @@ export type {
   ModuleChecklistResponseMap,
   ModuleChecklistSecondaryAction,
 } from './ModuleChecklistCard'
-export {
-  moduleSeverityLabel,
-  moduleSeverityBadgeVariant,
-  moduleSeverityRowClass,
-  moduleSeverityFromScore,
-  moduleRiskScoreBadgeVariant,
-  moduleRiskScoreLabel,
-} from './moduleRiskKit'
-export type { ModuleSeverity } from './moduleRiskKit'
 export { ModuleLegalBanner } from './ModuleLegalBanner'
 export type { ModuleLegalBannerProps, ModuleLegalReference } from './ModuleLegalBanner'
 export { ModuleLegalFrameworkProvider } from './ModuleLegalFrameworkContext'

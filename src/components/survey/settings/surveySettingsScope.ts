@@ -153,8 +153,6 @@ registerSettingsScope({
   // visibility. Sections that write narrow further (e.g. Integrasjoner).
   permAny: [
     'module.view.survey',
-    'module.view.org_health',
-    'module.view.hse',
     'module.view.dashboard',
     'survey.manage',
     'survey.results.view',

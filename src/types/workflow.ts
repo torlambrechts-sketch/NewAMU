@@ -406,7 +406,6 @@ export type WorkflowRuleRevisionRow = {
 }
 
 export const WORKFLOW_SOURCE_MODULES = [
-  { value: 'hse', label: 'HSE (hendelser, SJA, vernerunder, inspeksjoner, …)' },
   { value: 'compliance_checklist', label: 'Sjekklister (compliance)' },
   { value: 'survey', label: 'Undersøkelser' },
   { value: 'documents', label: 'Dokumenter' },
@@ -414,13 +413,6 @@ export const WORKFLOW_SOURCE_MODULES = [
   { value: 'tasks', label: 'Oppgaver' },
   { value: 'learning', label: 'E-læring (kurs, sertifikater)' },
   { value: 'registers', label: 'Registre (kjemikalier, maskiner, lovkrav, …)' },
-  { value: 'inspection', label: 'Inspeksjonsmodul — funn (inspection_findings)' },
-  { value: 'ros', label: 'ROS — risikoanalyse' },
-  { value: 'action_plan', label: 'Handlingsplan — tiltak' },
-  { value: 'internkontroll', label: 'Internkontroll (årsgjennomgang)' },
-  { value: 'vernerunder', label: 'Vernerunder' },
-  { value: 'workplace_reporting', label: 'Arbeidsplassrapportering (saker, anonym AML, …)' },
-  { value: 'org_health', label: 'Organisasjonshelse (sykefravær, …)' },
   { value: 'wiki_published', label: 'Wiki — side publisert' },
   { value: 'gov', label: 'Statlig rapportering (Altinn, Arbeidstilsynet, Datatilsynet, NAV, LDO)' },
 ] as const

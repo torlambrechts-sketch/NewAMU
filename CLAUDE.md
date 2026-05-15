@@ -21,9 +21,9 @@ before changing status to `📋 ready`.
 
 ## Dashboard engine
 
-Reusable runtime any module registers a "scope" with. After nine modules
-adopted it (compliance / survey / tasks / learning / documents / meetings +
-the `hms_overview` composite), the architecture has stabilised.
+Reusable runtime any module registers a "scope" with. Eight scopes today
+(compliance_checklist / survey / tasks / learning / documents / meetings /
+registers + the `hms_overview` composite); the architecture has stabilised.
 
 Layout per scope:
 
@@ -80,7 +80,15 @@ Conventions when promoting a module:
   roles must still see the menu)
 - Group has fixed `Analyse` + `Innstillinger` subs first, then dynamic
   pinned templates from a `useXxxNav` hook (compliance/survey/documents)
-- Remove the legacy entry from `gamleModulerModules` to avoid duplicate links
+
+The legacy "Gamle moduler" staging group and its modules (SJA, ROS,
+vernerunder, inspection, internkontroll, HSE, organisasjonshelse, members,
+HR-compliance, action-plan, avvik-legacy, aarshjul, risiko-sikkerhet,
+workplace-reporting / varsling, action-board, rapportarkiv,
+workspace/revisjonslogg, /modules/aarskontroll, /dashboard/classic,
+/hrm/*) were removed. A new `alerts` (varsling) module is planned
+separately. Migrations and DB tables for the deleted modules remain
+in place; a follow-up PR may drop them once no integration reads them.
 
 ## Accent palette (per-scope, registered)
 
@@ -92,9 +100,7 @@ Conventions when promoting a module:
 | `learning` | `#0e7490` | Teal |
 | `documents` | `#0f766e` | Deep teal — distinct from learning in the composite |
 | `hms_overview` | `#4338ca` | Indigo — reads as "different layer" from each member |
-| `role_compliance` | `#a21caf` | Magenta — distinct from learning/documents teal so the role-vs-resource axis stands out (`src/pages/admin/dashboards/roleComplianceDashboardScope.ts`) |
-| `compliance_company` | `#991b1b` | Dyp rød — selskaps-bred compliance på tvers av moduler. Inkluderer «Ikke-dekkede lovkrav»-widget (`src/pages/admin/dashboards/complianceCompanyDashboardScope.ts`) |
-| `compliance_personal` | `#65a30d` | Olive — personlig krav-oversikt for ansatt (`src/pages/admin/dashboards/compliancePersonalDashboardScope.ts`) |
+| `regelverk_coverage` | n/a | Regelverk-dekning oversiktsside (`src/pages/overview/regelverk/RegelverkCoveragePage.tsx`) |
 
 Pages resolve the accent via `getDashboardScope(scopeId)?.accent` and pass
 it to `ModuleAnalyticsDashboard`. Compliance overrides with `packAccentFor`
