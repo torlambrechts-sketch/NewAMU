@@ -1083,13 +1083,6 @@ export function AticsShell() {
         match: isAdminSettings('users-roles', 'delegation'),
         requirePermAny: ['roles.manage', 'delegation.manage'],
       },
-      {
-        label: 'Rolle-compliance',
-        path: '/admin/settings/users-roles/role-compliance',
-        Icon: BarChart3,
-        match: isAdminSettings('users-roles', 'role-compliance'),
-        requirePermAny: USERS_ROLES_NAV_PERMS,
-      },
     ]
     const integrationsSubs: SubItem[] = [
       {
@@ -1186,13 +1179,6 @@ export function AticsShell() {
         path: '/admin/settings/settings/security',
         Icon: ScrollText,
         match: isAdminSettings('settings', 'security'),
-        requirePermAny: SETTINGS_NAV_PERMS,
-      },
-      {
-        label: 'Revisjonslogg',
-        path: '/workspace/revisjonslogg',
-        Icon: History,
-        match: ({ pathname }) => pathname.startsWith('/workspace/revisjonslogg'),
         requirePermAny: SETTINGS_NAV_PERMS,
       },
       {
