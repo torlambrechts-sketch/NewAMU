@@ -19,6 +19,7 @@ import {
   Compass,
   FileText,
   HelpCircle,
+  ListChecks,
   Maximize2,
   Minimize2,
   PanelLeft,
@@ -190,36 +191,24 @@ export function PlatformCoursePlayerCinemaPage() {
         style={{ backgroundColor: PAPER_BG }}
       >
         <div className="mx-auto max-w-[1400px] space-y-4 px-4 py-4 md:px-8">
-          {/* Optional widget bar — hides under "Utvid" */}
-          {!expanded ? (
-            <>
-              <KpiStrip
-                completedCount={completedCount}
-                total={total}
-                overall={overall}
-                earnedPoints={earnedPoints}
-                totalPoints={course.totalPoints}
-                badgesEarned={earnedBadges.length}
-                badgesTotal={course.badges.length}
-                level={course.level.levelNumber}
-                levelLabel={course.level.levelLabel}
-                sessionXp={sessionXp}
-                nextLevelXp={course.level.nextLevelXp}
-                levelPct={levelPct}
-              />
-              <ChapterDots
-                course={course}
-                currentIdx={idx}
-                completed={completed}
-                onPick={(i) => {
-                  setDirection(i > idx ? 'forward' : 'backward')
-                  setIdx(i)
-                }}
-              />
-            </>
-          ) : null}
+          <ChapterDots
+            course={course}
+            currentIdx={idx}
+            completed={completed}
+            onPick={(i) => {
+              setDirection(i > idx ? 'forward' : 'backward')
+              setIdx(i)
+            }}
+          />
 
-          {/* Lesson card spans full container width — same edge as the KPI strip */}
+          {/* 7fr / 3fr split when collapsed; full-bleed lesson when expanded */}
+          <div
+            className={
+              expanded
+                ? 'block'
+                : 'grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,7fr)_minmax(260px,3fr)] lg:items-start'
+            }
+          >
           {finished ? (
             <CinemaFinishedCard
               course={course}
@@ -358,6 +347,29 @@ export function PlatformCoursePlayerCinemaPage() {
               </div>
             </article>
           )}
+
+          {!expanded && !finished ? (
+            <aside className="space-y-4 lg:sticky lg:top-6">
+              <ProgressRingCard
+                completedCount={completedCount}
+                total={total}
+                overall={overall}
+                earnedPoints={earnedPoints}
+                totalPoints={course.totalPoints}
+              />
+              <TocCard
+                course={course}
+                currentIdx={idx}
+                completed={completed}
+                onPick={(i) => {
+                  setDirection(i > idx ? 'forward' : 'backward')
+                  setIdx(i)
+                }}
+              />
+              <BadgeTrayCard course={course} completed={completed} />
+            </aside>
+          ) : null}
+          </div>
 
           {/* Toasts */}
           {xpToast !== null ? (
@@ -579,93 +591,183 @@ function ToolbarDivider() {
   return <div className="mx-1 h-5 w-px bg-neutral-200" aria-hidden />
 }
 
-function KpiStrip({
+function ProgressRingCard({
   completedCount,
   total,
   overall,
   earnedPoints,
   totalPoints,
-  badgesEarned,
-  badgesTotal,
-  level,
-  levelLabel,
-  sessionXp,
-  nextLevelXp,
-  levelPct,
 }: {
   completedCount: number
   total: number
   overall: number
   earnedPoints: number
   totalPoints: number
-  badgesEarned: number
-  badgesTotal: number
-  level: number
-  levelLabel: string
-  sessionXp: number
-  nextLevelXp: number
-  levelPct: number
 }) {
-  const items: { big: string; title: string; sub: string; meter?: number }[] = [
-    {
-      big: `${completedCount}/${total}`,
-      title: 'Moduler',
-      sub: `${Math.round(overall * 100)}% fullført`,
-      meter: overall,
-    },
-    {
-      big: `${earnedPoints}`,
-      title: 'Poeng',
-      sub: `av ${totalPoints} mulige`,
-      meter: earnedPoints / totalPoints,
-    },
-    {
-      big: `${badgesEarned}/${badgesTotal}`,
-      title: 'Merker',
-      sub: 'Låst opp så langt',
-    },
-    {
-      big: `Nivå ${level}`,
-      title: levelLabel,
-      sub: `${sessionXp} / ${nextLevelXp} XP`,
-      meter: levelPct,
-    },
-  ]
+  const r = 28
+  const c = 2 * Math.PI * r
+  const offset = c * (1 - overall)
   return (
-    <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-      {items.map((it) => (
-        <div
-          key={it.title}
-          className="rounded-xl border border-neutral-200/80 px-4 py-3 md:px-5 md:py-4"
-          style={{ backgroundColor: CREAM_TILE }}
-        >
-          <p
-            className="text-2xl font-semibold tracking-tight text-neutral-900 md:text-3xl"
-            style={{ fontFamily: SERIF }}
+    <div className="overflow-hidden rounded-xl border border-neutral-200/80 bg-white p-5 shadow-sm">
+      <div className="-mx-5 -mt-5 mb-4 h-0.5 w-[calc(100%+2.5rem)]" style={{ backgroundColor: GREEN }} aria-hidden />
+      <p className="text-[10px] font-bold uppercase tracking-wider text-neutral-500">Fremdrift</p>
+      <div className="mt-3 flex items-center gap-4">
+        <svg width="72" height="72" viewBox="0 0 72 72" aria-hidden>
+          <circle cx="36" cy="36" r={r} stroke="#e8e2d2" strokeWidth="6" fill="none" />
+          <circle
+            cx="36"
+            cy="36"
+            r={r}
+            stroke={GREEN}
+            strokeWidth="6"
+            fill="none"
+            strokeDasharray={c}
+            strokeDashoffset={offset}
+            strokeLinecap="round"
+            transform="rotate(-90 36 36)"
+            style={{ transition: 'stroke-dashoffset 0.4s ease' }}
+          />
+          <text
+            x="36"
+            y="40"
+            textAnchor="middle"
+            className="text-[14px] font-semibold"
+            fill="#0f1311"
           >
-            {it.big}
-          </p>
-          <p className="mt-1 text-[11px] font-bold uppercase tracking-wider text-neutral-700">
-            {it.title}
-          </p>
-          <p className="text-[11px] text-neutral-500">{it.sub}</p>
-          {it.meter !== undefined ? (
-            <div
-              className="mt-2 h-1 w-full overflow-hidden rounded-full"
-              style={{ backgroundColor: '#e8e2d2' }}
-              aria-hidden
-            >
-              <div
-                className="h-full transition-all duration-300"
+            {Math.round(overall * 100)}%
+          </text>
+        </svg>
+        <dl className="space-y-1 text-xs">
+          <div>
+            <dt className="text-neutral-500">Moduler</dt>
+            <dd className="text-sm font-semibold text-neutral-900">
+              {completedCount} <span className="text-neutral-500">/ {total}</span>
+            </dd>
+          </div>
+          <div>
+            <dt className="text-neutral-500">Poeng</dt>
+            <dd className="text-sm font-semibold" style={{ color: GREEN }}>
+              {earnedPoints} <span className="text-neutral-500">/ {totalPoints} XP</span>
+            </dd>
+          </div>
+        </dl>
+      </div>
+    </div>
+  )
+}
+
+function TocCard({
+  course,
+  currentIdx,
+  completed,
+  onPick,
+}: {
+  course: MockCourse
+  currentIdx: number
+  completed: Record<string, boolean>
+  onPick: (i: number) => void
+}) {
+  return (
+    <div className="rounded-xl border border-neutral-200/80 bg-white p-5 shadow-sm">
+      <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-wider text-neutral-500">
+        <ListChecks className="size-3.5" style={{ color: GREEN }} /> Innhold
+      </div>
+      <ol className="mt-3 space-y-1.5">
+        {course.modules.map((m, i) => {
+          const done = completed[m.id]
+          const isCurrent = i === currentIdx
+          const Icon = KIND_ICON[m.kind]
+          return (
+            <li key={m.id}>
+              <button
+                type="button"
+                onClick={() => onPick(i)}
+                aria-current={isCurrent ? 'step' : undefined}
+                className="flex w-full items-start gap-2.5 rounded-md px-2 py-2 text-left transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1"
                 style={{
-                  width: `${Math.round(it.meter * 100)}%`,
-                  backgroundColor: GREEN,
+                  backgroundColor: isCurrent ? `${GREEN}10` : 'transparent',
+                  outlineColor: GREEN,
                 }}
-              />
-            </div>
-          ) : null}
-        </div>
-      ))}
+              >
+                <span
+                  className="flex size-6 shrink-0 items-center justify-center rounded-md"
+                  style={{
+                    backgroundColor: done ? GREEN : isCurrent ? `${GREEN}1f` : '#f3eee0',
+                    color: done ? 'white' : isCurrent ? GREEN : '#7a7466',
+                  }}
+                >
+                  {done ? <Check className="size-3.5" /> : <Icon className="size-3.5" />}
+                </span>
+                <span className="flex-1 space-y-0.5">
+                  <span
+                    className={`block text-[13px] ${
+                      isCurrent ? 'font-semibold text-neutral-900' : 'text-neutral-700'
+                    }`}
+                  >
+                    {m.title}
+                  </span>
+                  <span className="block text-[11px] text-neutral-500">
+                    {moduleKindLabel(m.kind)} · {moduleTimeLabel(m.durationMinutes)} · +{m.points} XP
+                  </span>
+                </span>
+              </button>
+            </li>
+          )
+        })}
+      </ol>
+    </div>
+  )
+}
+
+function BadgeTrayCard({
+  course,
+  completed,
+}: {
+  course: MockCourse
+  completed: Record<string, boolean>
+}) {
+  return (
+    <div className="rounded-xl border border-neutral-200/80 bg-white p-5 shadow-sm">
+      <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-wider text-neutral-500">
+        <Trophy className="size-3.5" style={{ color: GOLD }} /> Merker
+      </div>
+      <ul className="mt-3 space-y-2">
+        {course.badges.map((b) => {
+          const earned = !!completed[b.awardedAtModuleId]
+          const Icon = BADGE_ICON[b.icon]
+          return (
+            <li
+              key={b.id}
+              className="flex items-center gap-3 rounded-lg border px-3 py-2 transition"
+              style={{
+                borderColor: earned ? `${GREEN}40` : '#e8e2d2',
+                backgroundColor: earned ? `${GREEN}08` : 'transparent',
+              }}
+            >
+              <span
+                className="flex size-9 shrink-0 items-center justify-center rounded-full"
+                style={{
+                  backgroundColor: earned ? GREEN : 'transparent',
+                  border: earned ? 'none' : '1px dashed #c8c0a8',
+                  color: earned ? 'white' : '#9c9580',
+                }}
+              >
+                <Icon className="size-4" />
+              </span>
+              <div className="min-w-0">
+                <p
+                  className={`text-xs font-semibold ${
+                    earned ? 'text-neutral-900' : 'text-neutral-500'
+                  }`}
+                >
+                  {b.label}
+                </p>
+                <p className="truncate text-[11px] text-neutral-500">{b.description}</p>
+              </div>
+            </li>
+          )
+        })}
+      </ul>
     </div>
   )
 }
