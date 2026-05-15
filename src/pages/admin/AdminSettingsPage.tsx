@@ -81,16 +81,13 @@ export function AdminSettingsPage() {
     else goTo(scopeId)
   }
 
-  const headerTitle = viewAll ? 'Alle innstillinger' : activeScope?.label ?? 'Innstillinger'
-
   return (
     <ModulePageShell
       breadcrumb={[
         { label: 'Hjem', to: '/app' },
-        { label: 'Admin', to: '/admin/settings' },
-        { label: headerTitle },
+        { label: 'Innstillinger' },
       ]}
-      title={headerTitle}
+      title="Innstillinger"
       description="Konfigurer organisasjon, moduler og system fra ett sted."
       headerActions={
         <div className="flex items-center gap-3">

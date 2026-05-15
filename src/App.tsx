@@ -447,11 +447,29 @@ const router = createBrowserRouter(
                           continue to render their existing pages for one
                           release so bookmarks survive; sidebar entries now
                           point at `/admin/settings/<scope>`. */}
-                      <Route path="admin/settings" element={<AdminSettingsPage />} />
-                      <Route path="admin/settings/:scope" element={<AdminSettingsPage />} />
+                      <Route
+                        path="admin/settings"
+                        element={
+                          <PackProvider>
+                            <AdminSettingsPage />
+                          </PackProvider>
+                        }
+                      />
+                      <Route
+                        path="admin/settings/:scope"
+                        element={
+                          <PackProvider>
+                            <AdminSettingsPage />
+                          </PackProvider>
+                        }
+                      />
                       <Route
                         path="admin/settings/:scope/:section"
-                        element={<AdminSettingsPage />}
+                        element={
+                          <PackProvider>
+                            <AdminSettingsPage />
+                          </PackProvider>
+                        }
                       />
                       {/* Phase 2: dynamic module route — loaded from `modules` table via registry */}
                       <Route path="modules/:module_slug" element={<ModuleSlugPage />} />
