@@ -19,7 +19,17 @@ import { AddTaskLink } from '../components/tasks/AddTaskLink'
 import { Mainbox1 } from '../components/layout/Mainbox1'
 import { Table1Shell } from '../components/layout/Table1Shell'
 import { Table1Toolbar } from '../components/layout/Table1Toolbar'
-import { AML_REPORT_KINDS, labelForAmlReportKind } from '../data/amlAnonymousReporting'
+// AML reporting kinds are now system templates in the alerts module.
+// The hardcoded enum below preserves the UI segment palette for back-compat.
+const AML_REPORT_KINDS: { id: string; label: string }[] = [
+  { id: 'aml-varsel-generell', label: 'Varsel — generelt' },
+  { id: 'aml-varsel-trakassering', label: 'Trakassering' },
+  { id: 'aml-varsel-hms-fare', label: 'HMS-fare' },
+  { id: 'aml-varsel-okonomisk-misbruk', label: 'Økonomisk misbruk' },
+  { id: 'aml-varsel-miljo', label: 'Miljø' },
+  { id: 'etisk-bekymring', label: 'Etisk bekymring' },
+]
+const labelForAmlReportKind = (id: string) => AML_REPORT_KINDS.find((k) => k.id === id)?.label ?? id
 import { definitionForKey } from '../data/orgHealthMetrics'
 import {
   TEMPLATE_CATEGORIES,
@@ -27,7 +37,7 @@ import {
 } from '../../modules/survey/surveyTemplateCatalogTypes'
 import { useDocuments } from '../hooks/useDocuments'
 import { useOrgHealth, type SurveyCloseSideEffect } from '../hooks/useOrgHealth'
-import { useWorkplaceReportingCases } from '../hooks/useWorkplaceReportingCases'
+import { useAlerts } from '../../modules/alerts'
 import { useOrganisation } from '../hooks/useOrganisation'
 import { useWorkplaceKpiStripStyle } from '../hooks/useWorkplaceKpiStripStyle'
 import { useOrgSetupContext } from '../hooks/useOrgSetupContext'
@@ -92,7 +102,17 @@ const tabs = [
 
 export function OrgHealthModule() {
   const oh = useOrgHealth()
-  const wr = useWorkplaceReportingCases()
+  const alerts = useAlerts()
+  const wr = useMemo(() => {
+    const byKind: Record<string, number> = {}
+    for (const c of alerts.cases) {
+      const k = c.system_template_id ?? c.kind
+      byKind[k] = (byKind[k] ?? 0) + 1
+    }
+    return {
+      amlReportStats: { total: alerts.cases.length, byKind },
+    }
+  }, [alerts.cases])
   const org = useOrganisation()
   const taskItems = useTaskItemsData()
   const docs = useDocuments()

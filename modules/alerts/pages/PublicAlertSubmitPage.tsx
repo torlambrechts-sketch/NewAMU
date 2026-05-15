@@ -15,7 +15,7 @@ import { Link, useParams } from 'react-router-dom'
 import { AlertTriangle, Lock, Loader2 } from 'lucide-react'
 import { getSupabaseBrowserClient } from '../../../src/lib/supabaseClient'
 import type { AlertSystemTemplateRow, AlertPublicFormField, AlertPiiHint } from '../types'
-import { parseSystemTemplateRow, deriveAnonymityTier } from '../types'
+import { parseSystemTemplateRow } from '../types'
 import { ALERT_KIND_LABEL } from '../alertsLabels'
 
 const R = 'rounded-none'
@@ -321,5 +321,3 @@ export function PublicAlertSubmitPage() {
   )
 }
 
-// Re-export to keep imports flat
-export const __testOnly_deriveAnonymityTier = deriveAnonymityTier

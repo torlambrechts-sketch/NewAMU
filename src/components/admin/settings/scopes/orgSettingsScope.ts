@@ -12,7 +12,7 @@
 // shape. This keeps each panel in its own chunk.
 
 import { lazy } from 'react'
-import { BarChart3, Plug, Shield, ShieldAlert, UserCheck, UserSearch } from 'lucide-react'
+import { BarChart3, Plug, Shield, UserCheck, UserSearch } from 'lucide-react'
 import {
   registerSettingsScope,
   type SettingsSection,
@@ -48,18 +48,8 @@ const sections: SettingsSection[] = [
       })),
     ),
   },
-  {
-    id: 'gdpr-breach',
-    label: 'GDPR brudd',
-    icon: ShieldAlert,
-    capabilities: ['general'],
-    searchKeywords: ['gdpr', 'brudd', 'datatilsynet', 'art 33', 'art 34'],
-    component: lazy(() =>
-      import('../../../../pages/admin/GdprBreachAdminPanel').then((m) => ({
-        default: m.GdprBreachAdminPanel,
-      })),
-    ),
-  },
+  // GDPR brudd-håndtering er nå en del av Varslinger-modulen (alert_cases
+  // with kind='gdpr_breach'). Admin-panelet ligger på /alerts/admin.
   {
     id: 'gdpr-subject-requests',
     label: 'GDPR individrettigheter',

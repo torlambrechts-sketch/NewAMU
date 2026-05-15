@@ -162,8 +162,10 @@ begin
     null;  -- level1_audit_log absent in dev DBs; fall through
   end;
 
-  -- Cascade delete via FK on the children
+  -- Bypass append-only triggers on timeline + notes so cascade delete succeeds.
+  perform set_config('app.alerts_purge_active', 'true', true);
   delete from public.alert_cases where id = p_case_id;
+  perform set_config('app.alerts_purge_active', 'false', true);
 end;
 $$;
 

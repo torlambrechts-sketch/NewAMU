@@ -29,11 +29,6 @@ import { WorkflowBuilderPage } from './pages/workflow/WorkflowBuilderPage'
 import { AuditorWorkflowsPage } from './pages/auditor/AuditorWorkflowsPage'
 import { GovIntegrationsPage } from './pages/admin/integrations/GovIntegrationsPage'
 import { WorkflowEditorV2 } from './components/workflow/WorkflowEditorV2'
-import { WorkplaceReportingPage } from './pages/WorkplaceReportingPage'
-import { WorkplaceDashboardPage } from './pages/WorkplaceDashboardPage'
-import { WorkplaceIncidentsPage } from './pages/WorkplaceIncidentsPage'
-import { WorkplaceAnonymousAmlPage } from './pages/WorkplaceAnonymousAmlPage'
-import { WorkplaceAnonymousAmlSettingsPage } from './pages/WorkplaceAnonymousAmlSettingsPage'
 import { HrComplianceHub } from './pages/hr/HrComplianceHub'
 import { HrDiscussionPage } from './pages/hr/HrDiscussionPage'
 import { HrConsultationPage } from './pages/hr/HrConsultationPage'
@@ -327,11 +322,12 @@ const router = createBrowserRouter(
                       <Route path="reports" element={<ReportsListPage />} />
                       <Route path="reports/new" element={<Navigate to="/reports" replace />} />
                       <Route path="reports/:id" element={<ReportDetailPage />} />
-                      <Route path="workplace-reporting" element={<WorkplaceReportingPage />} />
-                      <Route path="workplace-reporting/dashboard" element={<WorkplaceDashboardPage />} />
-                      <Route path="workplace-reporting/incidents" element={<WorkplaceIncidentsPage />} />
-                      <Route path="workplace-reporting/anonymous-aml/settings" element={<WorkplaceAnonymousAmlSettingsPage />} />
-                      <Route path="workplace-reporting/anonymous-aml" element={<WorkplaceAnonymousAmlPage />} />
+                      {/* Legacy /workplace-reporting/* — redirect to /alerts (Phase F4). */}
+                      <Route path="workplace-reporting" element={<Navigate to="/alerts" replace />} />
+                      <Route path="workplace-reporting/dashboard" element={<Navigate to="/alerts" replace />} />
+                      <Route path="workplace-reporting/incidents" element={<Navigate to="/alerts" replace />} />
+                      <Route path="workplace-reporting/anonymous-aml/settings" element={<Navigate to="/alerts/admin" replace />} />
+                      <Route path="workplace-reporting/anonymous-aml" element={<Navigate to="/alerts" replace />} />
                       <Route path="aarshjul" element={<AarshjulPage />} />
                       <Route path="action-board" element={<ActionBoardPage />} />
                       <Route

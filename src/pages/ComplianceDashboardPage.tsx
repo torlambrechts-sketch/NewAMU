@@ -23,7 +23,7 @@ import { useOrgSetupContext } from '../hooks/useOrgSetupContext'
 import { useInternalControl } from '../hooks/useInternalControl'
 import { useHse } from '../hooks/useHse'
 import { useOrgHealth } from '../hooks/useOrgHealth'
-import { useWorkplaceReportingCases } from '../hooks/useWorkplaceReportingCases'
+import { useAlerts } from '../../modules/alerts'
 import { HubMenu1Bar, type HubMenu1Item } from '../components/layout/HubMenu1Bar'
 import { WorkplacePageHeading1 } from '../components/layout/WorkplacePageHeading1'
 import { buildComplianceHubItems } from '../components/compliance/complianceHubMenu'
@@ -158,7 +158,8 @@ export function ComplianceDashboardPage() {
   const ic = useInternalControl()
   const hse = useHse()
   const oh = useOrgHealth()
-  const wr = useWorkplaceReportingCases()
+  const alerts = useAlerts()
+  const wr = { amlReportStats: { total: alerts.cases.filter((c) => c.kind === 'whistleblowing').length } }
 
   const [moduleSearch, setModuleSearch] = useState('')
   const [moduleLayout, setModuleLayout] = useState<'grid' | 'list'>('grid')
@@ -287,7 +288,7 @@ export function ComplianceDashboardPage() {
     return base
   }, [can])
 
-  const showAmlTile = can('module.view.workplace_reporting') || can('module.view.org_health')
+  const showAmlTile = can('module.view.alerts') || can('module.view.org_health')
 
   return (
     <div className="mx-auto max-w-[1400px] px-4 py-6 font-[Inter,system-ui,sans-serif] text-[#171717] md:px-8">

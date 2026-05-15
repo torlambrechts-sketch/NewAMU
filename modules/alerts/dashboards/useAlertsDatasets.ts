@@ -187,7 +187,9 @@ export function useAlertsDatasets(args: UseAlertsDatasetsArgs): Record<string, u
         return Array.from(counts.entries()).sort((a, b) => b[1] - a[1]).map(([k, v]) => ({ label: k, value: v }))
       })(),
       alerts_retention_upcoming_purges: (() => {
-        const nowT = Date.now()
+        const nowT = new Date(yearStart).getFullYear() === new Date().getFullYear()
+          ? new Date().getTime()
+          : Date.parse(now)
         const day = 86400000
         const closed = rows.filter((r) => r.retention_until && r.redacted_at == null)
         return [

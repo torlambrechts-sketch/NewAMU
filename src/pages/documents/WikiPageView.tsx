@@ -118,7 +118,7 @@ export function WikiPageView() {
         .map((p) => ({ id: p.id, displayName: p.display_name })),
     [orgProfiles],
   )
-  const canSeeConfidential = isAdmin || permissionKeys.has('whistleblowing.committee')
+  const canSeeConfidential = isAdmin || permissionKeys.has('alerts.committee')
   const resolveMemberName = useCallback(
     (uid: string) => orgProfiles.find((p) => p.id === uid)?.display_name ?? uid.slice(0, 8),
     [orgProfiles],

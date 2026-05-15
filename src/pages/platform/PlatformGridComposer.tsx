@@ -33,10 +33,6 @@ import {
   ROS_TAB_LAYOUT_BLOCK_IDS,
   ROS_TAB_LAYOUT_DEFAULT_ORDER,
 } from '../../lib/rosLayoutFromPreset'
-import {
-  VARSLINGSSAKER_TAB_LAYOUT_BLOCK_IDS,
-  VARSLINGSSAKER_TAB_LAYOUT_DEFAULT_ORDER,
-} from '../../lib/varslingssakerLayoutFromPreset'
 import { usePlatformStackComposerTemplates } from '../../hooks/usePlatformComposerTemplates'
 
 function previewShellClass(surface: PlatformLayoutPreviewSurface) {
@@ -77,13 +73,8 @@ const KNOWN_STACK_TEMPLATES: KnownStackTemplate[] = [
     blocks: ROS_TAB_LAYOUT_BLOCK_IDS,
     order: ROS_TAB_LAYOUT_DEFAULT_ORDER,
   },
-  {
-    name: 'Layout_varslingssaker',
-    description: 'Internkontroll → Varslingssaker (overskrift, KPI, liste 2)',
-    page: '/internal-control?tab=whistle',
-    blocks: VARSLINGSSAKER_TAB_LAYOUT_BLOCK_IDS,
-    order: VARSLINGSSAKER_TAB_LAYOUT_DEFAULT_ORDER,
-  },
+  // Layout_varslingssaker removed — varsling is now the top-level Alerts module
+  // with its own admin/analyse pages (not a tab on /internal-control).
 ]
 
 // ─── Template seed panel ──────────────────────────────────────────────────────

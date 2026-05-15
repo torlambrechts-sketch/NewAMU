@@ -5,7 +5,7 @@ import { ArrowRight } from 'lucide-react'
 /**
  * Navigation shortcut card + grid for module / group frontpages.
  *
- * Matches the "open module" card pattern from `WorkplaceReportingPage` — large
+ * Matches the "open module" card pattern from `AlertsHubLanding` — large
  * icon badge, title, short description and an accent CTA. Use on group
  * frontpages (e.g. Risiko & Sikkerhet) to let users jump into each module with
  * one click.

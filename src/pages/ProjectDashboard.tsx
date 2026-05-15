@@ -23,7 +23,7 @@ import {
   Users,
 } from 'lucide-react'
 import { useOrganisation } from '../hooks/useOrganisation'
-import { useWorkplaceReportingCases } from '../hooks/useWorkplaceReportingCases'
+import { useAlerts } from '../../modules/alerts'
 import { useRepresentatives } from '../hooks/useRepresentatives'
 import {
   daysUntil,
@@ -73,7 +73,8 @@ function KpiCard({
 export function ProjectDashboard() {
   const navigate = useNavigate()
   const org = useOrganisation()
-  const wr = useWorkplaceReportingCases()
+  const alerts = useAlerts()
+  const wr = { amlReportStats: { total: alerts.cases.filter((c) => c.kind === 'whistleblowing').length } }
   const rep = useRepresentatives()
   const { payload: layoutPayload } = useUiTheme()
   const layout = mergeLayoutPayload(layoutPayload)

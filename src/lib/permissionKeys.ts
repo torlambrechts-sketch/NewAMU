@@ -30,8 +30,6 @@ export const PERMISSION_KEYS = [
   'action_plan.manage',
   /** Konfigurere/kjøre organisasjonsundersøkelser (ny modul) */
   'survey.manage',
-  /** Varslingsmottak — full innsyn i whistleblowing_cases (AML kap. 2A). Legacy — being migrated to alerts.committee in Phase F2. */
-  'whistleblowing.committee',
   /** Alerts (Varslinger) — top-level module view */
   'module.view.alerts',
   /** Alerts — manage system templates, categories, committee roster, retention overrides */
@@ -50,8 +48,6 @@ export const PERMISSION_KEYS = [
   'module.view.reports',
   /** Edit ARP snapshots and other report-admin surfaces (matches DB `reports.manage`) */
   'reports.manage',
-  /** Arbeidsplassrapportering — hub for workplace / HSE reporting entry points */
-  'module.view.workplace_reporting',
   /** Workflow automation — view rules & run log */
   'module.view.workflow',
   /** Legacy umbrella: configure workflow rules and compliance templates */
@@ -109,12 +105,6 @@ export const PERMISSION_KEYS = [
   /** Se alle møter i organisasjonen (HR-direktør-tilgang) */
   'hr.discussion.admin',
 
-  // ─── Whistleblowing ───────────────────────────────────────────────────────
-  /** Se saksliste (status, ingen detaljer) – komité-lite */
-  'whistleblowing.view',
-  /** Tildele/omfordele saksbehandlere */
-  'whistleblowing.assign',
-
   // ─── Survey ───────────────────────────────────────────────────────────────
   /** Se undersøkelsesresultater (gated av k-anonymitet) */
   'survey.results.view',
@@ -157,7 +147,6 @@ export const PERMISSION_LABELS: Record<PermissionKey, string> = {
   'checklist.manage': 'Compliance-sjekklister — opprette, besvare og signere',
   'action_plan.manage': 'Tiltaksplan — kategorier og arbeidsflyt',
   'survey.manage': 'Undersøkelse — administrasjon',
-  'whistleblowing.committee': 'Varslingsmottak (legacy)',
   'module.view.alerts': 'Varslinger',
   'alerts.manage': 'Varslinger — administrasjon',
   'alerts.committee': 'Varslinger — utvalg (mottak)',
@@ -168,7 +157,6 @@ export const PERMISSION_LABELS: Record<PermissionKey, string> = {
   'module.view.learning': 'E-learning',
   'module.view.reports': 'Rapporter',
   'reports.manage': 'Rapporter — administrasjon',
-  'module.view.workplace_reporting': 'Arbeidsplassrapportering',
   'module.view.workflow': 'Arbeidsflyt',
   'workflows.manage': 'Arbeidsflyt — konfigurasjon (eldre nøkkel)',
   'workflows.compose': 'Arbeidsflyt — komponere regler',
@@ -196,8 +184,6 @@ export const PERMISSION_LABELS: Record<PermissionKey, string> = {
   'incident.manage': 'Hendelser — administrere og lukke saker',
   'hr.discussion.view': 'HR — se egne drøftelsesmøter (§ 15-1)',
   'hr.discussion.admin': 'HR — full innsyn i alle drøftelsesmøter',
-  'whistleblowing.view': 'Varsling — se saksstatus (ingen persondetaljer)',
-  'whistleblowing.assign': 'Varsling — tildele saksbehandlere',
   'survey.results.view': 'Undersøkelse — se resultater (k-anonymitet)',
   'survey.results.export': 'Undersøkelse — eksportere data',
   'module.view.meetings': 'Møter — lese møter, agenda og vedtak',
@@ -236,16 +222,16 @@ export const ROUTE_PERMISSION: { pathPrefix: string; permission: PermissionKey }
 /** Paths that need any one of several permissions (e.g. hub + underlying module). */
 export const ROUTE_PERMISSION_ANY: { pathPrefix: string; permissions: PermissionKey[] }[] = [
   {
-    pathPrefix: '/workplace-reporting/incidents',
-    permissions: ['module.view.workplace_reporting', 'module.view.hse'],
+    pathPrefix: '/alerts/public',
+    permissions: [],  // Public — anonymous access allowed
   },
   {
-    pathPrefix: '/workplace-reporting/anonymous-aml',
-    permissions: ['module.view.workplace_reporting', 'module.view.org_health'],
-  },
-  {
-    pathPrefix: '/workplace-reporting',
-    permissions: ['module.view.workplace_reporting', 'module.view.dashboard'],
+    pathPrefix: '/alerts',
+    permissions: [
+      'module.view.alerts', 'alerts.committee', 'alerts.committee_confidential',
+      'alerts.committee_escalated', 'alerts.dpo', 'alerts.manage',
+      'module.view.dashboard',
+    ],
   },
   {
     pathPrefix: '/compliance',

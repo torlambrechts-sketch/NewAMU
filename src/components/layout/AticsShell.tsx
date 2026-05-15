@@ -49,7 +49,6 @@ import { SurveyPendingInvitesBanner } from '../../../modules/survey/SurveyPendin
 import { useI18n } from '../../hooks/useI18n'
 import { useOrgSetupContext } from '../../hooks/useOrgSetupContext'
 import type { PermissionKey } from '../../lib/permissionKeys'
-import { WORKPLACE_REPORTING_NAV, workplaceReportingNavMatch } from '../../data/workplaceReportingNav'
 import { KlarertLogo } from '../brand/KlarertLogo'
 import {
   ShellCompanyBlock,
@@ -234,17 +233,6 @@ const orgHealthSubs: SubItem[] = [
   { label: 'Veikart', path: '/org-health/settings', match: ({ pathname }) => pathname === '/org-health/settings' },
 ]
 
-const workplaceReportingSubs: SubItem[] = WORKPLACE_REPORTING_NAV.map((item) => {
-  const base: SubItem = {
-    label: item.label,
-    path: item.to,
-    match: ({ pathname, search }) => workplaceReportingNavMatch(item.to, item.end, pathname, search),
-  }
-  if (item.requirePermAny?.length) return { ...base, requirePermAny: item.requirePermAny }
-  if (item.requirePerm) return { ...base, requirePerm: item.requirePerm }
-  return base
-})
-
 // Permission gate for the umbrella Admin menu. Strict — only org
 // administrators / role managers see it. Sub-pages enforce their own
 // page-level perms.
@@ -405,17 +393,10 @@ const gamleModulerModules: NavModule[] = [
   { to: '/vernerunder', label: 'Vernerunder', end: false, icon: ClipboardCheck, perm: 'module.view.hse', moduleSlug: 'vernerunder', subs: [] },
   { to: '/inspection-module', label: 'Inspeksjonsrunder', end: false, icon: ClipboardList, moduleSlug: 'inspection', subs: [] },
 
-  // ── Hendelser & Varsling ─────────────────────────────────────────────────
+  // ── Hendelser ────────────────────────────────────────────────────────────
+  // Varsling is now a top-level module (alertsGroup, see below). Avvik kept
+  // here as a legacy entry that redirects to a task template.
   { to: '/avvik', label: 'Avvik', end: false, icon: AlertTriangle, subs: [] },
-  {
-    to: '/workplace-reporting',
-    label: 'Varsling & hendelser',
-    end: true,
-    icon: Megaphone,
-    subs: workplaceReportingSubs,
-    perm: 'module.view.workplace_reporting',
-    moduleSlug: 'workplace_reporting',
-  },
 
   // ── Internkontroll ───────────────────────────────────────────────────────
   { to: '/internkontroll', label: 'IK Hub', end: false, icon: BookMarked, subs: internkontrollSubs, perm: 'module.view.internal_control' },
