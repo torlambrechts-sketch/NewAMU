@@ -1,8 +1,10 @@
-// Alternative 2 — "Cinema Card" (admin theme). Refactored to live inside the
-// platform-admin slate-950 shell with amber accent, 7fr/3fr dashboard split,
-// and the standard `rounded-2xl border border-white/10 bg-white/5` card.
-// The cinematic identity survives in three places: animated card-to-card
-// transitions, a chapter-dot strip, and an XP/badge unlock toast pair.
+// Alternative 2 — "Cinema Card" (app theme). This preview lives under
+// /platform-admin/course-player/cinema but renders in the primary-app visual
+// language: #F9F7F2 cream, white paper cards (rounded-xl border-neutral-200/80
+// bg-white shadow-sm), #1a3d32 atics-green primary, Libre Baskerville serif
+// titles. The intent is to show how the real /app course player would look —
+// the dark platform-admin chrome is escaped with -mx- so this is a full-bleed
+// app surface.
 
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
@@ -33,6 +35,13 @@ import {
   type MockCourse,
   type MockModule,
 } from './mockCourse'
+
+const SERIF = "'Libre Baskerville', Georgia, serif"
+const GREEN = '#1a3d32'
+const GREEN_HOVER = '#14312a'
+const GOLD = '#c9a227'
+const PAPER_BG = '#F9F7F2'
+const CREAM_TILE = '#f2eee6'
 
 const KIND_ICON: Record<MockModule['kind'], LucideIcon> = {
   text: FileText,
@@ -153,182 +162,65 @@ export function PlatformCoursePlayerCinemaPage() {
   }
 
   return (
-    <div className="space-y-6">
-      {/* Header band */}
-      <header className="flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <Link
-            to="/platform-admin/course-player"
-            className="inline-flex items-center gap-1.5 text-xs font-medium text-neutral-400 hover:text-white"
-          >
-            <ChevronLeft className="size-3.5" /> Tilbake til oversikt
-          </Link>
-          <p className="mt-3 text-xs font-medium uppercase tracking-wide text-amber-500/90">
-            Kursspiller · Alternativ 2 — Cinema Card
-          </p>
-          <h1 className="mt-1 text-2xl font-semibold text-white">{course.title}</h1>
-          <p className="mt-1 text-sm text-neutral-400">{course.audience}</p>
-        </div>
-
-        <div className="flex items-center gap-3">
-          <LevelMeter
-            level={course.level.levelNumber}
-            label={course.level.levelLabel}
-            sessionXp={sessionXp}
-            nextLevelXp={course.level.nextLevelXp}
-            pct={levelPct}
-          />
-          <button
-            type="button"
-            onClick={resetAll}
-            className="inline-flex items-center gap-1.5 rounded-lg border border-white/10 px-3 py-2 text-sm text-neutral-300 hover:bg-white/5"
-          >
-            <X className="size-4" /> Avslutt
-          </button>
-        </div>
-      </header>
-
-      {/* Step strip */}
-      <ChapterDots
-        course={course}
-        currentIdx={idx}
-        completed={completed}
-        onPick={(i) => {
-          setDirection(i > idx ? 'forward' : 'backward')
-          setIdx(i)
-        }}
-      />
-
-      {/* 70 / 30 split */}
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,7fr)_minmax(260px,3fr)] lg:items-start">
-        {/* Left: stage / finished card */}
-        {finished ? (
-          <CinemaFinishedCard
-            course={course}
-            earnedPoints={earnedPoints}
-            earnedBadges={earnedBadges}
-            levelPct={levelPct}
-            onRestart={resetAll}
-          />
-        ) : (
-          <article
-            key={mod.id}
-            className={`relative overflow-hidden rounded-2xl border border-white/10 bg-white/5 ${
-              direction === 'forward' ? 'animate-cinema-in-right' : 'animate-cinema-in-left'
-            }`}
-          >
-            {/* Subtle inner gradient — preserves cinematic feel without breaking admin theme */}
-            <div
-              className="pointer-events-none absolute inset-x-0 top-0 h-28"
-              style={{
-                background:
-                  'linear-gradient(to bottom, rgba(245,158,11,0.10), rgba(245,158,11,0.0))',
-              }}
-              aria-hidden
-            />
-
-            <div className="relative flex flex-wrap items-center justify-between gap-2 border-b border-white/10 px-7 py-4">
-              <p className="text-xs font-medium uppercase tracking-wide text-amber-500/90">
-                {mod.eyebrow}
+    <div className="-mx-4 -my-8 md:-mx-8">
+      <div
+        className="min-h-[calc(100vh-100px)] text-neutral-900"
+        style={{ backgroundColor: PAPER_BG }}
+      >
+        <div className="mx-auto max-w-[1400px] space-y-6 px-4 py-6 md:px-8">
+          {/* Breadcrumb + serif H1 + level pill */}
+          <header className="flex flex-wrap items-end justify-between gap-4">
+            <div>
+              <Link
+                to="/platform-admin/course-player"
+                className="inline-flex items-center gap-1.5 text-xs text-neutral-500 hover:text-neutral-700"
+              >
+                <ChevronLeft className="size-3.5" /> Tilbake til oversikt
+              </Link>
+              <p className="mt-3 text-[10px] font-bold uppercase tracking-wider text-neutral-500">
+                E-læring · Internkontroll
               </p>
-              <div className="flex flex-wrap items-center gap-2">
-                {mod.lawRefs.map((r) => (
-                  <span
-                    key={r}
-                    className="rounded-full border border-white/10 bg-white/5 px-2 py-0.5 font-mono text-[11px] text-neutral-300"
-                  >
-                    {r}
-                  </span>
-                ))}
-                <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/15 px-2 py-0.5 text-[11px] font-semibold text-amber-300">
-                  <Sparkles className="size-3" /> +{mod.points} XP
-                </span>
-              </div>
+              <h1
+                className="mt-1 text-2xl font-semibold tracking-tight text-neutral-900 md:text-3xl"
+                style={{ fontFamily: SERIF }}
+              >
+                {course.title}
+              </h1>
+              <p className="mt-1 text-sm leading-relaxed text-neutral-600">{course.audience}</p>
             </div>
 
-            <div className="relative px-7 py-8 md:px-9 md:py-10">
-              <CinemaModuleBody
-                mod={mod}
-                quizAnswers={quizAnswers}
-                setQuizAnswers={setQuizAnswers}
-                quizSubmittedForMod={!!quizSubmitted[mod.id]}
-                onSubmitQuiz={() => setQuizSubmitted((p) => ({ ...p, [mod.id]: true }))}
-                onResetQuiz={() => {
-                  setQuizAnswers((p) => {
-                    const next = { ...p }
-                    if (mod.kind === 'quiz') for (const q of mod.questions) delete next[q.id]
-                    return next
-                  })
-                  setQuizSubmitted((p) => ({ ...p, [mod.id]: false }))
-                }}
-                reflections={reflections}
-                setReflections={setReflections}
+            <div className="flex items-center gap-3">
+              <LevelMeter
+                level={course.level.levelNumber}
+                label={course.level.levelLabel}
+                sessionXp={sessionXp}
+                nextLevelXp={course.level.nextLevelXp}
+                pct={levelPct}
               />
+              <button
+                type="button"
+                onClick={resetAll}
+                className="inline-flex items-center gap-1.5 rounded-md border border-neutral-300 bg-white px-3 py-2 text-sm font-semibold text-neutral-700 hover:bg-neutral-50"
+              >
+                <X className="size-4" /> Avslutt
+              </button>
             </div>
+          </header>
 
-            {/* Stage footer */}
-            <div className="relative flex flex-wrap items-center justify-between gap-4 border-t border-white/10 bg-white/[0.03] px-7 py-4">
-              <div className="flex flex-col gap-0.5">
-                <span className="text-xs text-neutral-400">
-                  Modul {idx + 1} av {total} · {moduleTimeLabel(mod.durationMinutes)}
-                </span>
-                {nextMod ? (
-                  <span className="text-[11px] text-neutral-500">
-                    Neste opp:{' '}
-                    <strong className="font-semibold text-neutral-200">{nextMod.title}</strong> ·{' '}
-                    {moduleKindLabel(nextMod.kind)}
-                  </span>
-                ) : (
-                  <span className="text-[11px] font-semibold uppercase tracking-wide text-amber-400">
-                    Siste etappe
-                  </span>
-                )}
-              </div>
-              <div className="flex items-center gap-3">
-                {disabledHint ? (
-                  <span
-                    id="cinema-disabled-hint"
-                    role="status"
-                    aria-live="polite"
-                    className="hidden text-xs text-red-300 sm:inline"
-                  >
-                    {disabledHint}
-                  </span>
-                ) : null}
-                <button
-                  type="button"
-                  onClick={goBack}
-                  disabled={idx === 0}
-                  aria-label="Forrige modul (pil venstre)"
-                  className="inline-flex items-center gap-2 rounded-lg border border-white/10 px-3 py-2 text-sm text-neutral-300 hover:bg-white/5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-400 disabled:cursor-not-allowed disabled:opacity-40"
-                >
-                  <ArrowLeft className="size-4" /> Forrige
-                </button>
-                <button
-                  type="button"
-                  onClick={advance}
-                  disabled={!canAdvance}
-                  aria-describedby={disabledHint ? 'cinema-disabled-hint' : undefined}
-                  className="inline-flex items-center gap-2 rounded-lg bg-amber-500 px-4 py-2 text-sm font-semibold text-slate-900 hover:bg-amber-400 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-400 disabled:cursor-not-allowed disabled:opacity-50"
-                >
-                  {idx === total - 1 ? 'Avslutt kurset' : 'Fortsett'}
-                  <ArrowRight className="size-4" />
-                </button>
-              </div>
-            </div>
-          </article>
-        )}
-
-        {/* Right rail */}
-        <aside className="space-y-4 lg:sticky lg:top-6">
-          <ProgressRingCard
+          {/* KPI tile strip (mirrors LayoutScoreStatRow used on risiko-sikkerhet) */}
+          <KpiStrip
             completedCount={completedCount}
             total={total}
-            overall={overall}
             earnedPoints={earnedPoints}
             totalPoints={course.totalPoints}
+            sessionXp={sessionXp}
+            levelLabel={course.level.levelLabel}
+            badgesEarned={earnedBadges.length}
+            badgesTotal={course.badges.length}
           />
-          <TocCard
+
+          {/* Step strip */}
+          <ChapterDots
             course={course}
             currentIdx={idx}
             completed={completed}
@@ -337,61 +229,217 @@ export function PlatformCoursePlayerCinemaPage() {
               setIdx(i)
             }}
           />
-          <BadgeTrayCard course={course} completed={completed} />
-        </aside>
-      </div>
 
-      {/* XP reward toast */}
-      {xpToast !== null ? (
-        <div
-          role="status"
-          aria-live="polite"
-          className="pointer-events-none fixed left-1/2 top-24 z-30 -translate-x-1/2 animate-cinema-xp"
-        >
-          <div className="flex items-center gap-2 rounded-full border border-amber-400/40 bg-slate-900/90 px-5 py-2.5 text-sm font-semibold text-amber-300 backdrop-blur">
-            <Sparkles className="size-4" /> +{xpToast} XP · modul fullført
+          {/* 70 / 30 split */}
+          <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,7fr)_minmax(260px,3fr)] lg:items-start">
+            {finished ? (
+              <CinemaFinishedCard
+                course={course}
+                earnedPoints={earnedPoints}
+                earnedBadges={earnedBadges}
+                levelPct={levelPct}
+                onRestart={resetAll}
+              />
+            ) : (
+              <article
+                key={mod.id}
+                className={`relative overflow-hidden rounded-xl border border-neutral-200/80 bg-white shadow-sm ${
+                  direction === 'forward' ? 'animate-cinema-in-right' : 'animate-cinema-in-left'
+                }`}
+              >
+                {/* Subtle atics-green top stripe — cinematic anchor without breaking paper feel */}
+                <div className="h-0.5 w-full" style={{ backgroundColor: GREEN }} aria-hidden />
+
+                <div className="flex flex-wrap items-center justify-between gap-2 border-b border-neutral-100 px-7 py-4">
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-neutral-500">
+                    {mod.eyebrow}
+                  </p>
+                  <div className="flex flex-wrap items-center gap-2">
+                    {mod.lawRefs.map((r) => (
+                      <span
+                        key={r}
+                        className="rounded-md border border-neutral-200 bg-[#f7f5ee] px-2 py-0.5 font-mono text-[11px] text-neutral-700"
+                      >
+                        {r}
+                      </span>
+                    ))}
+                    <span
+                      className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold"
+                      style={{ backgroundColor: `${GREEN}15`, color: GREEN }}
+                    >
+                      <Sparkles className="size-3" /> +{mod.points} XP
+                    </span>
+                  </div>
+                </div>
+
+                <div className="px-7 py-8 md:px-9 md:py-10">
+                  <CinemaModuleBody
+                    mod={mod}
+                    quizAnswers={quizAnswers}
+                    setQuizAnswers={setQuizAnswers}
+                    quizSubmittedForMod={!!quizSubmitted[mod.id]}
+                    onSubmitQuiz={() => setQuizSubmitted((p) => ({ ...p, [mod.id]: true }))}
+                    onResetQuiz={() => {
+                      setQuizAnswers((p) => {
+                        const next = { ...p }
+                        if (mod.kind === 'quiz') for (const q of mod.questions) delete next[q.id]
+                        return next
+                      })
+                      setQuizSubmitted((p) => ({ ...p, [mod.id]: false }))
+                    }}
+                    reflections={reflections}
+                    setReflections={setReflections}
+                  />
+                </div>
+
+                {/* Stage footer */}
+                <div className="flex flex-wrap items-center justify-between gap-4 border-t border-neutral-100 bg-[#fbf9f3] px-7 py-4">
+                  <div className="flex flex-col gap-0.5">
+                    <span className="text-xs text-neutral-600">
+                      Modul {idx + 1} av {total} · {moduleTimeLabel(mod.durationMinutes)}
+                    </span>
+                    {nextMod ? (
+                      <span className="text-[11px] text-neutral-500">
+                        Neste opp:{' '}
+                        <strong className="font-semibold text-neutral-800">{nextMod.title}</strong>{' '}
+                        · {moduleKindLabel(nextMod.kind)}
+                      </span>
+                    ) : (
+                      <span
+                        className="text-[11px] font-semibold uppercase tracking-wide"
+                        style={{ color: GREEN }}
+                      >
+                        Siste etappe
+                      </span>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-3">
+                    {disabledHint ? (
+                      <span
+                        id="cinema-disabled-hint"
+                        role="status"
+                        aria-live="polite"
+                        className="hidden text-xs sm:inline"
+                        style={{ color: '#b3382a' }}
+                      >
+                        {disabledHint}
+                      </span>
+                    ) : null}
+                    <button
+                      type="button"
+                      onClick={goBack}
+                      disabled={idx === 0}
+                      aria-label="Forrige modul (pil venstre)"
+                      className="inline-flex items-center gap-2 rounded-md border border-neutral-300 bg-white px-3 py-2 text-sm font-semibold text-neutral-700 hover:bg-neutral-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 disabled:cursor-not-allowed disabled:opacity-40"
+                      style={{ outlineColor: GREEN }}
+                    >
+                      <ArrowLeft className="size-4" /> Forrige
+                    </button>
+                    <button
+                      type="button"
+                      onClick={advance}
+                      disabled={!canAdvance}
+                      aria-describedby={disabledHint ? 'cinema-disabled-hint' : undefined}
+                      className="inline-flex items-center gap-2 rounded-md px-4 py-2 text-sm font-semibold text-white shadow-sm transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 disabled:cursor-not-allowed disabled:opacity-40"
+                      style={{
+                        backgroundColor: GREEN,
+                        outlineColor: GREEN,
+                      }}
+                      onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = GREEN_HOVER)}
+                      onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = GREEN)}
+                    >
+                      {idx === total - 1 ? 'Avslutt kurset' : 'Fortsett'}
+                      <ArrowRight className="size-4" />
+                    </button>
+                  </div>
+                </div>
+              </article>
+            )}
+
+            {/* Right rail */}
+            <aside className="space-y-4 lg:sticky lg:top-6">
+              <ProgressRingCard
+                completedCount={completedCount}
+                total={total}
+                overall={overall}
+                earnedPoints={earnedPoints}
+                totalPoints={course.totalPoints}
+              />
+              <TocCard
+                course={course}
+                currentIdx={idx}
+                completed={completed}
+                onPick={(i) => {
+                  setDirection(i > idx ? 'forward' : 'backward')
+                  setIdx(i)
+                }}
+              />
+              <BadgeTrayCard course={course} completed={completed} />
+            </aside>
           </div>
-        </div>
-      ) : null}
 
-      {/* Badge unlock toast */}
-      {badgeToast ? (
-        <div
-          role="status"
-          aria-live="polite"
-          className="pointer-events-none fixed left-1/2 top-40 z-30 -translate-x-1/2 animate-cinema-badge"
-        >
-          <div className="flex items-center gap-3 rounded-2xl border border-amber-400/40 bg-slate-900/90 px-5 py-3 backdrop-blur">
-            <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-amber-500 text-slate-900">
-              {(() => {
-                const Icon = BADGE_ICON[badgeToast.icon]
-                return <Icon className="size-4" />
-              })()}
-            </span>
-            <div className="text-left">
-              <p className="text-[10px] font-semibold uppercase tracking-wide text-amber-300">
-                Nytt merke
-              </p>
-              <p className="text-sm font-semibold text-white">{badgeToast.label}</p>
+          {/* XP reward toast */}
+          {xpToast !== null ? (
+            <div
+              role="status"
+              aria-live="polite"
+              className="pointer-events-none fixed left-1/2 top-24 z-30 -translate-x-1/2 animate-cinema-xp"
+            >
+              <div
+                className="flex items-center gap-2 rounded-full border bg-white px-5 py-2.5 text-sm font-semibold shadow-md"
+                style={{ borderColor: GOLD, color: GREEN }}
+              >
+                <Sparkles className="size-4" style={{ color: GOLD }} /> +{xpToast} XP · modul fullført
+              </div>
             </div>
-          </div>
+          ) : null}
+
+          {/* Badge unlock toast */}
+          {badgeToast ? (
+            <div
+              role="status"
+              aria-live="polite"
+              className="pointer-events-none fixed left-1/2 top-40 z-30 -translate-x-1/2 animate-cinema-badge"
+            >
+              <div className="flex items-center gap-3 rounded-2xl border border-neutral-200 bg-white px-5 py-3 shadow-md">
+                <span
+                  className="flex size-9 shrink-0 items-center justify-center rounded-full text-white"
+                  style={{ backgroundColor: GREEN }}
+                >
+                  {(() => {
+                    const Icon = BADGE_ICON[badgeToast.icon]
+                    return <Icon className="size-4" />
+                  })()}
+                </span>
+                <div className="text-left">
+                  <p
+                    className="text-[10px] font-bold uppercase tracking-wider"
+                    style={{ color: GOLD }}
+                  >
+                    Nytt merke
+                  </p>
+                  <p className="text-sm font-semibold text-neutral-900">{badgeToast.label}</p>
+                </div>
+              </div>
+            </div>
+          ) : null}
+
+          <DesignNotes />
         </div>
-      ) : null}
 
-      <DesignNotes />
-
-      <style>{`
-        @keyframes cinemaInRight { from { opacity: 0; transform: translateX(20px); } to { opacity: 1; transform: translateX(0); } }
-        @keyframes cinemaInLeft { from { opacity: 0; transform: translateX(-20px); } to { opacity: 1; transform: translateX(0); } }
-        @keyframes cinemaXp { 0% { opacity: 0; transform: translate(-50%, 12px); } 20% { opacity: 1; transform: translate(-50%, 0); } 80% { opacity: 1; transform: translate(-50%, 0); } 100% { opacity: 0; transform: translate(-50%, -8px); } }
-        @keyframes cinemaBadge { 0% { opacity: 0; transform: translate(-50%, 16px) scale(0.94); } 25% { opacity: 1; transform: translate(-50%, 0) scale(1); } 85% { opacity: 1; transform: translate(-50%, 0) scale(1); } 100% { opacity: 0; transform: translate(-50%, -8px) scale(0.98); } }
-        @media (prefers-reduced-motion: no-preference) {
-          .animate-cinema-in-right { animation: cinemaInRight 0.4s ease-out; }
-          .animate-cinema-in-left { animation: cinemaInLeft 0.4s ease-out; }
-          .animate-cinema-xp { animation: cinemaXp 1.8s ease-out; }
-          .animate-cinema-badge { animation: cinemaBadge 2.6s ease-out; }
-        }
-      `}</style>
+        <style>{`
+          @keyframes cinemaInRight { from { opacity: 0; transform: translateX(20px); } to { opacity: 1; transform: translateX(0); } }
+          @keyframes cinemaInLeft { from { opacity: 0; transform: translateX(-20px); } to { opacity: 1; transform: translateX(0); } }
+          @keyframes cinemaXp { 0% { opacity: 0; transform: translate(-50%, 12px); } 20% { opacity: 1; transform: translate(-50%, 0); } 80% { opacity: 1; transform: translate(-50%, 0); } 100% { opacity: 0; transform: translate(-50%, -8px); } }
+          @keyframes cinemaBadge { 0% { opacity: 0; transform: translate(-50%, 16px) scale(0.94); } 25% { opacity: 1; transform: translate(-50%, 0) scale(1); } 85% { opacity: 1; transform: translate(-50%, 0) scale(1); } 100% { opacity: 0; transform: translate(-50%, -8px) scale(0.98); } }
+          @media (prefers-reduced-motion: no-preference) {
+            .animate-cinema-in-right { animation: cinemaInRight 0.4s ease-out; }
+            .animate-cinema-in-left { animation: cinemaInLeft 0.4s ease-out; }
+            .animate-cinema-xp { animation: cinemaXp 1.8s ease-out; }
+            .animate-cinema-badge { animation: cinemaBadge 2.6s ease-out; }
+          }
+        `}</style>
+      </div>
     </div>
   )
 }
@@ -410,22 +458,78 @@ function LevelMeter({
   pct: number
 }) {
   return (
-    <div className="hidden items-center gap-3 rounded-2xl border border-white/10 bg-white/5 px-4 py-2.5 sm:flex">
+    <div className="hidden items-center gap-3 rounded-xl border border-neutral-200/80 bg-white px-4 py-2.5 shadow-sm sm:flex">
       <div className="text-right leading-tight">
-        <p className="text-[10px] font-medium uppercase tracking-wide text-neutral-500">
+        <p className="text-[10px] font-bold uppercase tracking-wider text-neutral-500">
           Nivå {level} · {label}
         </p>
-        <p className="text-xs font-semibold text-white">
+        <p className="text-xs font-semibold text-neutral-900">
           {sessionXp}
           <span className="text-neutral-500"> / {nextLevelXp} XP</span>
         </p>
       </div>
-      <div className="h-1.5 w-24 overflow-hidden rounded-full bg-white/10" aria-hidden>
+      <div
+        className="h-1.5 w-24 overflow-hidden rounded-full bg-neutral-200"
+        aria-hidden
+      >
         <div
-          className="h-full bg-amber-400 transition-all duration-500"
-          style={{ width: `${pct * 100}%` }}
+          className="h-full transition-all duration-500"
+          style={{ width: `${pct * 100}%`, backgroundColor: GREEN }}
         />
       </div>
+    </div>
+  )
+}
+
+function KpiStrip({
+  completedCount,
+  total,
+  earnedPoints,
+  totalPoints,
+  sessionXp,
+  levelLabel,
+  badgesEarned,
+  badgesTotal,
+}: {
+  completedCount: number
+  total: number
+  earnedPoints: number
+  totalPoints: number
+  sessionXp: number
+  levelLabel: string
+  badgesEarned: number
+  badgesTotal: number
+}) {
+  const items: { big: string; title: string; sub: string }[] = [
+    { big: `${completedCount}/${total}`, title: 'Moduler', sub: 'Fullført i denne økten' },
+    {
+      big: `${earnedPoints}`,
+      title: 'Poeng tjent',
+      sub: `av ${totalPoints} mulige`,
+    },
+    { big: `${badgesEarned}/${badgesTotal}`, title: 'Merker', sub: 'Låst opp så langt' },
+    { big: `${sessionXp} XP`, title: 'Total balanse', sub: levelLabel },
+  ]
+  return (
+    <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+      {items.map((it) => (
+        <div
+          key={it.title}
+          className="rounded-xl border border-neutral-200/80 px-4 py-3 md:px-5 md:py-4"
+          style={{ backgroundColor: CREAM_TILE }}
+        >
+          <p className="text-[10px] font-bold uppercase tracking-wider text-neutral-500">
+            {it.title}
+          </p>
+          <p
+            className="mt-1 text-xl font-semibold text-neutral-900 md:text-2xl"
+            style={{ fontFamily: SERIF }}
+          >
+            {it.big}
+          </p>
+          <p className="mt-0.5 text-[11px] text-neutral-500">{it.sub}</p>
+        </div>
+      ))}
     </div>
   )
 }
@@ -454,9 +558,12 @@ function ChapterDots({
             title={`Modul ${i + 1}: ${m.title}`}
             aria-label={`Gå til modul ${i + 1}: ${m.title}${done ? ' (fullført)' : ''}`}
             aria-current={isCurrent ? 'step' : undefined}
-            className={`h-1.5 rounded-full transition-all focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-400 ${
-              isCurrent ? 'w-12 bg-amber-400' : done ? 'w-2 bg-amber-400/60' : 'w-2 bg-white/15'
-            }`}
+            className="h-1.5 rounded-full transition-all focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2"
+            style={{
+              width: isCurrent ? 48 : 8,
+              backgroundColor: isCurrent ? GREEN : done ? `${GREEN}66` : '#d6cfbe',
+              outlineColor: GREEN,
+            }}
           />
         )
       })}
@@ -481,18 +588,17 @@ function ProgressRingCard({
   const c = 2 * Math.PI * r
   const offset = c * (1 - overall)
   return (
-    <div className="rounded-2xl border border-white/10 bg-white/5 p-5">
-      <div className="flex items-center gap-2 text-xs font-medium uppercase tracking-wide text-neutral-500">
-        <Sparkles className="size-4 text-amber-400" /> Fremdrift
-      </div>
+    <div className="rounded-xl border border-neutral-200/80 bg-white p-5 shadow-sm">
+      <div className="h-0.5 -mx-5 -mt-5 mb-4 w-[calc(100%+2.5rem)]" style={{ backgroundColor: GREEN }} aria-hidden />
+      <p className="text-[10px] font-bold uppercase tracking-wider text-neutral-500">Fremdrift</p>
       <div className="mt-3 flex items-center gap-4">
         <svg width="72" height="72" viewBox="0 0 72 72" aria-hidden>
-          <circle cx="36" cy="36" r={r} stroke="rgba(255,255,255,0.08)" strokeWidth="6" fill="none" />
+          <circle cx="36" cy="36" r={r} stroke="#e8e2d2" strokeWidth="6" fill="none" />
           <circle
             cx="36"
             cy="36"
             r={r}
-            stroke="#fbbf24"
+            stroke={GREEN}
             strokeWidth="6"
             fill="none"
             strokeDasharray={c}
@@ -505,7 +611,8 @@ function ProgressRingCard({
             x="36"
             y="40"
             textAnchor="middle"
-            className="fill-white text-[14px] font-semibold"
+            className="text-[14px] font-semibold"
+            fill="#0f1311"
           >
             {Math.round(overall * 100)}%
           </text>
@@ -513,13 +620,13 @@ function ProgressRingCard({
         <dl className="space-y-1 text-xs">
           <div>
             <dt className="text-neutral-500">Moduler</dt>
-            <dd className="text-sm font-semibold text-white">
+            <dd className="text-sm font-semibold text-neutral-900">
               {completedCount} <span className="text-neutral-500">/ {total}</span>
             </dd>
           </div>
           <div>
             <dt className="text-neutral-500">Poeng</dt>
-            <dd className="text-sm font-semibold text-amber-400">
+            <dd className="text-sm font-semibold" style={{ color: GREEN }}>
               {earnedPoints} <span className="text-neutral-500">/ {totalPoints} XP</span>
             </dd>
           </div>
@@ -541,9 +648,9 @@ function TocCard({
   onPick: (i: number) => void
 }) {
   return (
-    <div className="rounded-2xl border border-white/10 bg-white/5 p-5">
-      <div className="flex items-center gap-2 text-xs font-medium uppercase tracking-wide text-neutral-500">
-        <ListChecks className="size-4 text-amber-400" /> Innhold
+    <div className="rounded-xl border border-neutral-200/80 bg-white p-5 shadow-sm">
+      <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-wider text-neutral-500">
+        <ListChecks className="size-3.5" style={{ color: GREEN }} /> Innhold
       </div>
       <ol className="mt-3 space-y-1.5">
         {course.modules.map((m, i) => {
@@ -556,27 +663,25 @@ function TocCard({
                 type="button"
                 onClick={() => onPick(i)}
                 aria-current={isCurrent ? 'step' : undefined}
-                className={`flex w-full items-start gap-2.5 rounded-lg px-2 py-2 text-left transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-amber-400 ${
-                  isCurrent
-                    ? 'bg-amber-500/15 ring-1 ring-amber-400/40'
-                    : 'hover:bg-white/5'
-                }`}
+                className="flex w-full items-start gap-2.5 rounded-md px-2 py-2 text-left transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1"
+                style={{
+                  backgroundColor: isCurrent ? `${GREEN}10` : 'transparent',
+                  outlineColor: GREEN,
+                }}
               >
                 <span
-                  className={`flex size-6 shrink-0 items-center justify-center rounded-md ${
-                    done
-                      ? 'bg-amber-500 text-slate-900'
-                      : isCurrent
-                        ? 'bg-amber-500/20 text-amber-300'
-                        : 'bg-white/5 text-neutral-400'
-                  }`}
+                  className="flex size-6 shrink-0 items-center justify-center rounded-md"
+                  style={{
+                    backgroundColor: done ? GREEN : isCurrent ? `${GREEN}1f` : '#f3eee0',
+                    color: done ? 'white' : isCurrent ? GREEN : '#7a7466',
+                  }}
                 >
                   {done ? <Check className="size-3.5" /> : <Icon className="size-3.5" />}
                 </span>
                 <span className="flex-1 space-y-0.5">
                   <span
                     className={`block text-[13px] ${
-                      isCurrent ? 'font-semibold text-white' : 'text-neutral-200'
+                      isCurrent ? 'font-semibold text-neutral-900' : 'text-neutral-700'
                     }`}
                   >
                     {m.title}
@@ -602,9 +707,9 @@ function BadgeTrayCard({
   completed: Record<string, boolean>
 }) {
   return (
-    <div className="rounded-2xl border border-white/10 bg-white/5 p-5">
-      <div className="flex items-center gap-2 text-xs font-medium uppercase tracking-wide text-neutral-500">
-        <Trophy className="size-4 text-amber-400" /> Merker
+    <div className="rounded-xl border border-neutral-200/80 bg-white p-5 shadow-sm">
+      <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-wider text-neutral-500">
+        <Trophy className="size-3.5" style={{ color: GOLD }} /> Merker
       </div>
       <ul className="mt-3 space-y-2">
         {course.badges.map((b) => {
@@ -613,23 +718,26 @@ function BadgeTrayCard({
           return (
             <li
               key={b.id}
-              className={`flex items-center gap-3 rounded-lg border px-3 py-2 transition ${
-                earned ? 'border-amber-400/40 bg-amber-500/10' : 'border-white/5 bg-white/[0.02]'
-              }`}
+              className="flex items-center gap-3 rounded-lg border px-3 py-2 transition"
+              style={{
+                borderColor: earned ? `${GREEN}40` : '#e8e2d2',
+                backgroundColor: earned ? `${GREEN}08` : 'transparent',
+              }}
             >
               <span
-                className={`flex size-9 shrink-0 items-center justify-center rounded-full ${
-                  earned
-                    ? 'bg-amber-500 text-slate-900'
-                    : 'border border-dashed border-white/15 text-neutral-500'
-                }`}
+                className="flex size-9 shrink-0 items-center justify-center rounded-full"
+                style={{
+                  backgroundColor: earned ? GREEN : 'transparent',
+                  border: earned ? 'none' : '1px dashed #c8c0a8',
+                  color: earned ? 'white' : '#9c9580',
+                }}
               >
                 <Icon className="size-4" />
               </span>
               <div className="min-w-0">
                 <p
                   className={`text-xs font-semibold ${
-                    earned ? 'text-white' : 'text-neutral-500'
+                    earned ? 'text-neutral-900' : 'text-neutral-500'
                   }`}
                 >
                   {b.label}
@@ -660,19 +768,30 @@ function CinemaFinishedCard({
   return (
     <div
       role="status"
-      className="rounded-2xl border border-amber-400/40 bg-amber-500/5 p-8"
+      className="rounded-xl border bg-white p-8 shadow-sm"
+      style={{ borderColor: `${GREEN}40` }}
     >
       <div className="flex items-start gap-4">
-        <span className="flex size-12 shrink-0 items-center justify-center rounded-full bg-amber-500 text-slate-900">
+        <span
+          className="flex size-12 shrink-0 items-center justify-center rounded-full text-white"
+          style={{ backgroundColor: GREEN }}
+        >
           <PartyPopper className="size-5" />
         </span>
         <div className="flex-1">
-          <h2 className="text-xl font-semibold text-white">Kurset er fullført</h2>
-          <p className="mt-1 text-sm text-neutral-300">
+          <h2
+            className="text-xl font-semibold tracking-tight text-neutral-900"
+            style={{ fontFamily: SERIF }}
+          >
+            Kurset er fullført
+          </h2>
+          <p className="mt-1 text-sm leading-relaxed text-neutral-600">
             Du tjente{' '}
-            <strong className="text-amber-300">{earnedPoints} av {course.totalPoints} XP</strong>{' '}
-            og er nå <strong className="text-amber-300">{Math.round(levelPct * 100)}%</strong> på
-            vei mot Nivå {course.level.levelNumber + 1}.
+            <strong style={{ color: GREEN }}>
+              {earnedPoints} av {course.totalPoints} XP
+            </strong>{' '}
+            og er nå <strong style={{ color: GREEN }}>{Math.round(levelPct * 100)}%</strong> på vei
+            mot Nivå {course.level.levelNumber + 1}.
           </p>
         </div>
       </div>
@@ -684,13 +803,17 @@ function CinemaFinishedCard({
             return (
               <li
                 key={b.id}
-                className="flex flex-col items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-3 py-4 text-center"
+                className="flex flex-col items-center gap-2 rounded-xl border border-neutral-200/80 px-3 py-4 text-center"
+                style={{ backgroundColor: CREAM_TILE }}
               >
-                <span className="flex size-11 items-center justify-center rounded-full bg-amber-500 text-slate-900">
+                <span
+                  className="flex size-11 items-center justify-center rounded-full text-white"
+                  style={{ backgroundColor: GREEN }}
+                >
                   <Icon className="size-5" />
                 </span>
-                <p className="text-xs font-semibold text-white">{b.label}</p>
-                <p className="text-[11px] leading-snug text-neutral-400">{b.description}</p>
+                <p className="text-xs font-semibold text-neutral-900">{b.label}</p>
+                <p className="text-[11px] leading-snug text-neutral-600">{b.description}</p>
               </li>
             )
           })}
@@ -700,14 +823,17 @@ function CinemaFinishedCard({
       <div className="mt-5 flex flex-wrap gap-2">
         <button
           type="button"
-          className="rounded-lg bg-amber-500 px-4 py-2 text-sm font-semibold text-slate-900 hover:bg-amber-400"
+          className="rounded-md px-4 py-2 text-sm font-semibold text-white"
+          style={{ backgroundColor: GREEN }}
+          onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = GREEN_HOVER)}
+          onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = GREEN)}
         >
           Last ned kursbevis (PDF)
         </button>
         <button
           type="button"
           onClick={onRestart}
-          className="rounded-lg border border-white/10 px-4 py-2 text-sm text-neutral-300 hover:bg-white/5"
+          className="rounded-md border border-neutral-300 bg-white px-4 py-2 text-sm font-semibold text-neutral-700 hover:bg-neutral-50"
         >
           Start på nytt
         </button>
@@ -738,21 +864,35 @@ function CinemaModuleBody({
   if (mod.kind === 'text') {
     return (
       <div className="space-y-5">
-        <h2 className="text-[26px] font-semibold leading-tight text-white">{mod.title}</h2>
-        <p className="text-lg leading-relaxed text-neutral-200">{mod.lead}</p>
-        <div className="space-y-4 text-[15px] leading-[1.75] text-neutral-300">
+        <h2
+          className="text-2xl font-semibold tracking-tight text-neutral-900 md:text-3xl"
+          style={{ fontFamily: SERIF }}
+        >
+          {mod.title}
+        </h2>
+        <p className="text-lg leading-relaxed text-neutral-800">{mod.lead}</p>
+        <div className="space-y-4 text-[15px] leading-[1.75] text-neutral-700">
           {mod.body.map((p, i) => (
             <p key={i}>{p}</p>
           ))}
         </div>
-        <aside className="rounded-xl border border-amber-400/30 bg-amber-500/[0.06] p-5">
-          <div className="flex items-center gap-2 text-xs font-medium uppercase tracking-wide text-amber-300">
+        <aside
+          className="rounded-xl border p-5"
+          style={{
+            backgroundColor: `${GREEN}06`,
+            borderColor: `${GREEN}26`,
+          }}
+        >
+          <div
+            className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-wider"
+            style={{ color: GREEN }}
+          >
             <Award className="size-3.5" /> Nøkkelpunkter
           </div>
           <ul className="mt-3 space-y-2">
             {mod.keyTakeaways.map((t, i) => (
-              <li key={i} className="flex items-start gap-2 text-sm text-neutral-200">
-                <Check className="mt-0.5 size-4 shrink-0 text-amber-400" />
+              <li key={i} className="flex items-start gap-2 text-sm text-neutral-800">
+                <Check className="mt-0.5 size-4 shrink-0" style={{ color: GREEN }} />
                 {t}
               </li>
             ))}
@@ -768,14 +908,19 @@ function CinemaModuleBody({
     const allAnswered = mod.questions.every((q) => quizAnswers[q.id] !== undefined)
     return (
       <div className="space-y-5">
-        <h2 className="text-[24px] font-semibold leading-tight text-white">{mod.title}</h2>
-        <p className="text-sm leading-relaxed text-neutral-300">{mod.intro}</p>
+        <h2
+          className="text-2xl font-semibold tracking-tight text-neutral-900"
+          style={{ fontFamily: SERIF }}
+        >
+          {mod.title}
+        </h2>
+        <p className="text-sm leading-relaxed text-neutral-700">{mod.intro}</p>
         <div className="space-y-5">
           {mod.questions.map((q, qi) => {
             const picked = quizAnswers[q.id]
             return (
               <fieldset key={q.id} className="space-y-2.5">
-                <legend className="text-base font-semibold text-white">
+                <legend className="text-base font-semibold text-neutral-900">
                   {qi + 1}. {q.question}
                 </legend>
                 <div className="grid gap-2 sm:grid-cols-2">
@@ -791,25 +936,37 @@ function CinemaModuleBody({
                         aria-checked={selected}
                         disabled={quizSubmittedForMod}
                         onClick={() => setQuizAnswers((p) => ({ ...p, [q.id]: oi }))}
-                        className={`rounded-xl border px-4 py-3 text-left text-sm transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-400 ${
-                          showRight
-                            ? 'border-amber-400/60 bg-amber-500/15 text-white'
+                        className="rounded-xl border px-4 py-3 text-left text-sm transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2"
+                        style={{
+                          borderColor: showRight
+                            ? GREEN
                             : showWrong
-                              ? 'border-red-400/50 bg-red-500/10 text-white'
+                              ? '#b3382a'
                               : selected
-                                ? 'border-amber-400 bg-amber-500/10 text-white'
-                                : 'border-white/10 bg-white/[0.03] text-neutral-200 hover:bg-white/5'
-                        }`}
+                                ? GREEN
+                                : '#e8e2d2',
+                          backgroundColor: showRight
+                            ? `${GREEN}10`
+                            : showWrong
+                              ? '#b3382a10'
+                              : selected
+                                ? `${GREEN}08`
+                                : 'white',
+                          color: '#0f1311',
+                          outlineColor: GREEN,
+                        }}
                       >
                         <span className="flex items-start gap-2">
                           <span
-                            className={`mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full text-[10px] font-bold ${
-                              showRight
-                                ? 'bg-amber-500 text-slate-900'
+                            className="mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full text-[10px] font-bold"
+                            style={{
+                              backgroundColor: showRight
+                                ? GREEN
                                 : selected
-                                  ? 'bg-amber-500/30 text-amber-200'
-                                  : 'bg-white/10 text-neutral-300'
-                            }`}
+                                  ? `${GREEN}26`
+                                  : '#f3eee0',
+                              color: showRight ? 'white' : selected ? GREEN : '#7a7466',
+                            }}
                           >
                             {String.fromCharCode(65 + oi)}
                           </span>
@@ -821,11 +978,10 @@ function CinemaModuleBody({
                 </div>
                 {quizSubmittedForMod ? (
                   <p
-                    className={`rounded-lg px-3 py-2 text-[13px] leading-relaxed ${
-                      picked === q.correctIndex
-                        ? 'bg-amber-500/10 text-neutral-200'
-                        : 'bg-red-500/10 text-neutral-200'
-                    }`}
+                    className="rounded-lg px-3 py-2 text-[13px] leading-relaxed text-neutral-800"
+                    style={{
+                      backgroundColor: picked === q.correctIndex ? `${GREEN}0a` : '#b3382a08',
+                    }}
                   >
                     {q.explanation}
                   </p>
@@ -834,22 +990,23 @@ function CinemaModuleBody({
             )
           })}
         </div>
-        <div className="flex items-center justify-between border-t border-white/10 pt-4">
+        <div className="flex items-center justify-between border-t border-neutral-100 pt-4">
           {!quizSubmittedForMod ? (
             <button
               type="button"
               onClick={onSubmitQuiz}
               disabled={!allAnswered}
-              className="rounded-lg border border-amber-400/50 px-4 py-2 text-sm font-semibold text-amber-300 hover:bg-amber-500/10 disabled:opacity-40"
+              className="rounded-md border bg-white px-4 py-2 text-sm font-semibold disabled:opacity-40"
+              style={{ borderColor: GREEN, color: GREEN }}
             >
               Sjekk svarene
             </button>
           ) : (
             <p className="text-sm">
-              <span className="font-semibold text-white">
+              <span className="font-semibold text-neutral-900">
                 {right} av {mod.questions.length} riktig
               </span>{' '}
-              <span className="text-neutral-400">
+              <span className="text-neutral-600">
                 — {passed ? 'bestått, klar for neste modul.' : 'ikke bestått ennå.'}
               </span>
             </p>
@@ -858,7 +1015,8 @@ function CinemaModuleBody({
             <button
               type="button"
               onClick={onResetQuiz}
-              className="text-xs font-semibold text-amber-300 hover:underline"
+              className="text-xs font-semibold hover:underline"
+              style={{ color: GREEN }}
             >
               Prøv på nytt
             </button>
@@ -870,13 +1028,18 @@ function CinemaModuleBody({
 
   return (
     <div className="space-y-5">
-      <h2 className="text-[24px] font-semibold leading-tight text-white">{mod.title}</h2>
-      <p className="text-sm leading-relaxed text-neutral-300">{mod.intro}</p>
+      <h2
+        className="text-2xl font-semibold tracking-tight text-neutral-900"
+        style={{ fontFamily: SERIF }}
+      >
+        {mod.title}
+      </h2>
+      <p className="text-sm leading-relaxed text-neutral-700">{mod.intro}</p>
       {mod.prompts.map((p) => {
         const v = reflections[p.id] ?? ''
         return (
           <div key={p.id} className="space-y-2">
-            <label htmlFor={p.id} className="block text-sm font-semibold text-white">
+            <label htmlFor={p.id} className="block text-[15px] font-semibold text-neutral-900">
               {p.prompt}
             </label>
             <textarea
@@ -885,7 +1048,8 @@ function CinemaModuleBody({
               onChange={(e) => setReflections((prev) => ({ ...prev, [p.id]: e.target.value }))}
               placeholder={p.placeholder}
               rows={3}
-              className="w-full rounded-lg border border-white/10 bg-white/[0.03] px-3 py-2.5 text-sm text-white placeholder:text-neutral-500 focus:border-amber-400 focus:outline-none focus:ring-2 focus:ring-amber-400/20"
+              className="w-full rounded-md border border-neutral-300 bg-white px-3 py-2.5 text-sm text-neutral-900 placeholder:text-neutral-400 focus:outline-none focus:ring-2"
+              style={{ outlineColor: GREEN }}
             />
             <p className="text-right text-[11px] text-neutral-500">
               {v.length} tegn · minst 10 for å gå videre
@@ -900,32 +1064,33 @@ function CinemaModuleBody({
 function DesignNotes() {
   const [open, setOpen] = useState(false)
   return (
-    <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-5">
+    <div className="rounded-xl border border-neutral-200/80 bg-white p-5 shadow-sm">
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
-        className="text-xs font-semibold uppercase tracking-wide text-amber-400/90 hover:text-amber-300"
+        className="text-[10px] font-bold uppercase tracking-wider hover:underline"
+        style={{ color: GREEN }}
       >
         {open ? 'Skjul' : 'Vis'} designnotater
       </button>
       {open ? (
-        <ul className="mt-4 grid gap-3 text-sm leading-relaxed text-neutral-300 md:grid-cols-2">
+        <ul className="mt-4 grid gap-3 text-sm leading-relaxed text-neutral-700 md:grid-cols-2">
           <li>
-            <strong className="text-white">Same shell, distinct rytme.</strong> Lever nå i samme
-            slate-950/amber-språk som resten av platform-admin, men beholder Cinema-identiteten via
-            kort-overgang, stegprikker og XP/merke-toast.
+            <strong className="text-neutral-900">Native i hovedappen.</strong> Samme krempapir
+            (#F9F7F2), samme paperkort (rounded-xl border-neutral-200/80 bg-white shadow-sm) og
+            samme atics-green CTA som /app frontpage og risiko-sikkerhet.
           </li>
           <li>
-            <strong className="text-white">70 / 30-deling.</strong> Stage til venstre, gamification
-            HUD til høyre. Følger samme proporsjon som <code>WorkplaceSplit7030Layout</code>.
+            <strong className="text-neutral-900">KPI-strip på toppen.</strong> Speiler
+            LayoutScoreStatRow fra risiko-sikkerhet — moduler / poeng / merker / total balanse.
           </li>
           <li>
-            <strong className="text-white">Toaster, ikke poengtavle.</strong> +XP og merker
-            feirer modulen, men forsvinner. Ingen leaderboards, ingen streak-press.
+            <strong className="text-neutral-900">70 / 30-deling.</strong> Stage til venstre,
+            gamification-HUD til høyre. Samme proporsjon som ModuleMainAside på frontpages.
           </li>
           <li>
-            <strong className="text-white">Tidsring i sidekortet.</strong> Erstatter den frittstående
-            ring i bunn; matchet til Activity-Ring-metaforen.
+            <strong className="text-neutral-900">Toaster, ikke poengtavle.</strong> +XP er
+            gull-aksentert, merke-toast er green/paper. Begge feirer momentet, ingen leaderboards.
           </li>
         </ul>
       ) : null}

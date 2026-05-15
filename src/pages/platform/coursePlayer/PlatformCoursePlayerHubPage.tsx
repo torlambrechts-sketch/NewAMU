@@ -36,12 +36,12 @@ const variants: Variant[] = [
     eyebrow: 'Alternativ 2',
     title: 'Cinema Card',
     oneLiner:
-      'Native platform-admin: 7fr-stage til venstre, gamification-HUD (fremdriftsring, innhold, merker) til høyre. Cinema-identiteten lever videre i kort-overganger og XP-/merke-toaster.',
-    mentalModel: 'Admin-dashboard med kino-rytme',
+      'Native /app-stil: krempapir #F9F7F2, Libre Baskerville-titler, hvite paperkort med atics-green topp-stripe, KPI-tiles à la risiko-sikkerhet, 7fr/3fr-deling.',
+    mentalModel: 'Pinpoint editorial + dashboard',
     engagement:
-      'Stegprikker, kort-overgang mellom moduler, +XP- og merke-toast ved fullføring, nivåmeter i headeren.',
-    widthTarget: '70 / 30 split (7fr / 3fr · maks 1400 px)',
-    accent: '#fbbf24',
+      'KPI-strip, stegprikker, kort-overgang mellom moduler, +XP og merke-toast (gull/grønn), nivåmeter i headeren.',
+    widthTarget: 'Krempapir-fullbleed, 7fr / 3fr · maks 1400 px',
+    accent: '#1a3d32',
     icon: Film,
   },
   {
@@ -49,12 +49,12 @@ const variants: Variant[] = [
     eyebrow: 'Alternativ 3',
     title: 'Coach Sidekick',
     oneLiner:
-      'Native platform-admin: 7fr-leksjon til venstre, Anne (HMS-rådgiver) som stabel av admin-kort til høyre — agenda, læringsutbytte, poeng & merker, refleksjon.',
-    mentalModel: 'Admin-dashboard med en menneskelig stemme',
+      'Native /app-stil: samme krempapir og Libre Baskerville-tittel som Pinpoint. Anne (HMS-rådgiver) sitter i 3fr-sidefeltet som stabel av hvite paperkort.',
+    mentalModel: 'Pinpoint editorial + persona',
     engagement:
-      'Anne kvitterer på forrige modul, agenda-kort med «Neste»-tag, persistent pager med Annes neste-opp-melding.',
-    widthTarget: '70 / 30 split (7fr / 3fr · maks 1400 px)',
-    accent: '#d946ef',
+      'Anne kvitterer på forrige modul i salmon-bobler, agenda med mint «Neste»-pille, persistent pager på krempapir med Annes neste-opp-melding.',
+    widthTarget: 'Krempapir-fullbleed, 7fr / 3fr · maks 1400 px',
+    accent: '#a21caf',
     icon: Sparkles,
   },
   {
