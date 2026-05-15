@@ -508,12 +508,23 @@ type DbCertRow = {
 }
 
 function moduleFromRow(m: DbModuleRow): CourseModule {
+  // Mirror the catalog-parser behaviour: ensure content.kind is populated so
+  // discriminated-union switches downstream work even when the row's content
+  // JSONB was authored without an internal kind field.
+  const kind = m.kind as ModuleKind
+  const rawContent = m.content as unknown
+  const content =
+    rawContent && typeof rawContent === 'object'
+      ? typeof (rawContent as { kind?: unknown }).kind === 'string'
+        ? (rawContent as ModuleContent)
+        : ({ ...(rawContent as Record<string, unknown>), kind } as unknown as ModuleContent)
+      : (m.content as ModuleContent)
   return {
     id: m.id,
     title: m.title,
     order: m.sort_order,
-    kind: m.kind as ModuleKind,
-    content: m.content,
+    kind,
+    content,
     durationMinutes: m.duration_minutes,
   }
 }
@@ -561,9 +572,20 @@ function moduleFromCatalogJson(raw: Record<string, unknown>): CourseModule | nul
   if (typeof raw.id !== 'string' || typeof raw.title !== 'string') return null
   const order = typeof raw.order === 'number' ? raw.order : 0
   const kind = raw.kind as ModuleKind
-  const content = raw.content as ModuleContent
+  // Course-export JSON puts the discriminator on the module (raw.kind) but
+  // not inside content. The runtime needs `content.kind` for the
+  // discriminated union to switch correctly. Inject it here when missing so
+  // every downstream renderer (Hjem + classic) can rely on it.
+  const rawContent = raw.content
+  const content = (() => {
+    if (!rawContent || typeof rawContent !== 'object') return null
+    const c = rawContent as Record<string, unknown>
+    if (typeof c.kind === 'string') return c as unknown as ModuleContent
+    if (kind) return { ...c, kind } as unknown as ModuleContent
+    return c as unknown as ModuleContent
+  })()
+  if (!content) return null
   const durationMinutes = typeof raw.durationMinutes === 'number' ? raw.durationMinutes : 5
-  if (!content || typeof content !== 'object') return null
   const refLawIds = Array.isArray(raw.refLawIds)
     ? (raw.refLawIds.filter((x) => typeof x === 'string') as string[])
     : Array.isArray((raw.content as { refLawIds?: unknown }).refLawIds)

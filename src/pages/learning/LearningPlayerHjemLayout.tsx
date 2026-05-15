@@ -884,13 +884,9 @@ function LessonBody({
   return (
     <div className="space-y-3">
       <InfoBox>
-        Denne modultypen ({kindLabel(mod.kind)}) støttes ikke fullt ut i Hjem-visningen ennå.
-        Bytt til <Link
-          to={`/learning/play/${''}?layout=classic`}
-          className="font-medium underline"
-          style={{ color: GREEN }}
-        >klassisk visning</Link>{' '}
-        for å gjennomføre den, eller marker modulen som lest under.
+        Denne modultypen ({kindLabel(mod.kind)}) støttes ikke fullt ut i
+        Hjem-visningen ennå. Du kan bytte til klassisk visning ved å legge til{' '}
+        <code>?layout=classic</code> i URL-en, eller markere modulen som lest under.
       </InfoBox>
     </div>
   )
