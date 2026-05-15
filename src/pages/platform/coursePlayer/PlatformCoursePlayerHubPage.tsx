@@ -3,7 +3,7 @@
 // the team can compare them side by side before we adopt one.
 
 import { Link } from 'react-router-dom'
-import { BookOpen, Film, GraduationCap, Sparkles, ArrowRight } from 'lucide-react'
+import { BookOpen, Film, GraduationCap, Home, Sparkles, ArrowRight } from 'lucide-react'
 
 type Variant = {
   to: string
@@ -70,6 +70,19 @@ const variants: Variant[] = [
     accent: '#6d28d9',
     icon: GraduationCap,
   },
+  {
+    to: '/platform-admin/course-player/hjem',
+    eyebrow: 'Alternativ 5',
+    title: 'Hjem',
+    oneLiner:
+      'Kurset bor på /app-hjemmesiden: «Velkommen tilbake»-headline, Hjem/Klassisk-faner, leksjon i «Neste på listen»-posisjonen, Denne uken + Varsler + Snarveier på høyre.',
+    mentalModel: 'WelcomeDashboardPage med læring som hovedoppgave',
+    engagement:
+      'Læringsmål-uke i kalender, varsler om nye merker og refleksjoner, snarveier-inline-TOC.',
+    widthTarget: 'Krempapir-fullbleed, 7fr / 3fr · maks 1400 px',
+    accent: '#1a3d32',
+    icon: Home,
+  },
 ]
 
 export function PlatformCoursePlayerHubPage() {
@@ -79,7 +92,7 @@ export function PlatformCoursePlayerHubPage() {
         <p className="text-xs font-medium uppercase tracking-[2px] text-amber-400/90">
           E-læring · Designforslag
         </p>
-        <h1 className="text-3xl font-semibold text-white">Ny kursspiller – fire alternativer</h1>
+        <h1 className="text-3xl font-semibold text-white">Ny kursspiller – fem alternativer</h1>
         <p className="max-w-3xl text-sm leading-relaxed text-neutral-300">
           Dagens spiller bruker hele 1400 px, har sidemeny + modulrekkverk + HUD samtidig og leses
           som en admin-flate. De fire alternativene begrenser bredden, hever typografien og bygger
