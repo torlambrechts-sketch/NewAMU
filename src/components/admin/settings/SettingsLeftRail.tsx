@@ -1,87 +1,105 @@
-// Left rail for the unified settings hub.
+// Beige folder-style sidebar for the unified settings hub.
 //
-// Renders three groups (Organisasjon / Moduler / System) and lists the
-// visible scopes inside each. Highlights the active scope and emits
-// `onSelectScope(scopeId)` so the parent can re-route via
-// `useScopeNavigation().goTo`. Empty groups are hidden entirely.
+// Mirrors the documents Bibliotek-layout (`ModuleDocumentsKandidatdetaljHub`):
+// a search input + a "Alle innstillinger" entry on top, then one
+// `WikiFolderNavRow` per scope. Each row's sub-label is the scope's
+// group label (Organisasjon / Modul / System) followed by section count
+// — the same shape documents uses for "Policy · 2 sider".
 
-import { twMerge } from 'tailwind-merge'
-import type { LucideIcon } from 'lucide-react'
-import type { SettingsScope, SettingsScopeGroup } from '../../../lib/settings/settingsRegistry'
+import { useMemo, useState } from 'react'
+import { Search } from 'lucide-react'
+import { StandardInput } from '../../ui/Input'
+import {
+  BEIGE_NAV,
+  WikiFolderNavRow,
+} from '../../module/ModuleWikiFolderNavRow'
+import type {
+  SettingsScope,
+  SettingsScopeGroup,
+} from '../../../lib/settings/settingsRegistry'
 
-type GroupMeta = { id: SettingsScopeGroup; label: string }
-
-const GROUPS: GroupMeta[] = [
-  { id: 'org', label: 'Organisasjon' },
-  { id: 'module', label: 'Moduler' },
-  { id: 'system', label: 'System' },
-]
+const GROUP_LABELS: Record<SettingsScopeGroup, string> = {
+  org: 'Organisasjon',
+  module: 'Modul',
+  system: 'System',
+}
 
 interface SettingsLeftRailProps {
   scopes: SettingsScope[]
+  /** `null` selects the "Alle innstillinger" flat view. */
   activeScopeId: string | null
-  onSelectScope: (scopeId: string) => void
+  /** Pass `null` to select the "Alle innstillinger" entry. */
+  onSelectScope: (scopeId: string | null) => void
+  /** Number of visible sections per scope (for the sub-label and the total). */
+  sectionCountByScope: Record<string, number>
 }
 
-export function SettingsLeftRail({ scopes, activeScopeId, onSelectScope }: SettingsLeftRailProps) {
-  return (
-    <nav aria-label="Innstillinger" className="flex w-64 shrink-0 flex-col gap-6 pr-4">
-      {GROUPS.map((group) => {
-        const groupScopes = scopes.filter((s) => s.group === group.id)
-        if (groupScopes.length === 0) return null
-        return (
-          <div key={group.id} className="flex flex-col gap-1">
-            <div className="px-2 pb-1 text-xs font-semibold uppercase tracking-wide text-neutral-500">
-              {group.label}
-            </div>
-            <ul className="flex flex-col gap-0.5">
-              {groupScopes.map((scope) => (
-                <li key={scope.scopeId}>
-                  <ScopeButton
-                    label={scope.label}
-                    icon={scope.icon}
-                    accent={scope.accent}
-                    active={scope.scopeId === activeScopeId}
-                    onClick={() => onSelectScope(scope.scopeId)}
-                  />
-                </li>
-              ))}
-            </ul>
-          </div>
-        )
-      })}
-    </nav>
+export function SettingsLeftRail({
+  scopes,
+  activeScopeId,
+  onSelectScope,
+  sectionCountByScope,
+}: SettingsLeftRailProps) {
+  const [query, setQuery] = useState('')
+
+  const filteredScopes = useMemo(() => {
+    const q = query.trim().toLowerCase()
+    if (!q) return scopes
+    return scopes.filter(
+      (s) =>
+        s.label.toLowerCase().includes(q) ||
+        GROUP_LABELS[s.group].toLowerCase().includes(q),
+    )
+  }, [scopes, query])
+
+  const totalSections = useMemo(
+    () => scopes.reduce((sum, s) => sum + (sectionCountByScope[s.scopeId] ?? 0), 0),
+    [scopes, sectionCountByScope],
   )
-}
 
-function ScopeButton({
-  label,
-  icon: Icon,
-  accent,
-  active,
-  onClick,
-}: {
-  label: string
-  icon?: LucideIcon
-  accent?: string
-  active: boolean
-  onClick: () => void
-}) {
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      aria-current={active ? 'page' : undefined}
-      className={twMerge(
-        'flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm transition-colors',
-        active
-          ? 'bg-neutral-900 text-white'
-          : 'text-neutral-700 hover:bg-neutral-100 hover:text-neutral-900',
-      )}
-      style={active && accent ? { backgroundColor: accent } : undefined}
+    <aside
+      className="border-b border-neutral-200 lg:border-b-0 lg:border-r lg:border-neutral-200/80"
+      style={{ backgroundColor: BEIGE_NAV }}
     >
-      {Icon ? <Icon className="h-4 w-4 shrink-0" aria-hidden="true" /> : null}
-      <span className="truncate">{label}</span>
-    </button>
+      <div className="border-b border-neutral-200/60 p-2.5">
+        <div className="relative">
+          <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-neutral-400" />
+          <StandardInput
+            type="search"
+            className="w-full py-2 pl-8 text-xs"
+            placeholder="Søk i innstillinger…"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            aria-label="Søk i innstillinger"
+          />
+        </div>
+      </div>
+      <nav className="p-2" aria-label="Innstillinger">
+        <WikiFolderNavRow
+          label="Alle innstillinger"
+          sub={`${totalSections} seksjoner`}
+          active={activeScopeId == null}
+          onSelect={() => onSelectScope(null)}
+        />
+        {filteredScopes.map((scope) => {
+          const count = sectionCountByScope[scope.scopeId] ?? 0
+          return (
+            <WikiFolderNavRow
+              key={scope.scopeId}
+              label={scope.label}
+              sub={`${GROUP_LABELS[scope.group]} · ${count} seksjoner`}
+              active={scope.scopeId === activeScopeId}
+              onSelect={() => onSelectScope(scope.scopeId)}
+            />
+          )
+        })}
+        {filteredScopes.length === 0 ? (
+          <p className="px-3 py-4 text-center text-xs text-neutral-500">
+            Ingen områder matcher søket.
+          </p>
+        ) : null}
+      </nav>
+    </aside>
   )
 }

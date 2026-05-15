@@ -12,7 +12,7 @@
 // shape. This keeps each panel in its own chunk.
 
 import { lazy } from 'react'
-import { BarChart3, Plug, Shield, ShieldAlert, UserCheck, UserSearch } from 'lucide-react'
+import { Plug, Shield, ShieldAlert, UserCheck, UserSearch } from 'lucide-react'
 import {
   registerSettingsScope,
   type SettingsSection,
@@ -33,18 +33,6 @@ const sections: SettingsSection[] = [
     component: lazy(() =>
       import('../../../../pages/admin/FunctionalRolesAdminPanel').then((m) => ({
         default: m.FunctionalRolesAdminPanel,
-      })),
-    ),
-  },
-  {
-    id: 'role-compliance',
-    label: 'Rolle-compliance',
-    icon: BarChart3,
-    capabilities: ['statistics'],
-    searchKeywords: ['rolle', 'compliance', 'dekning', 'gap'],
-    component: lazy(() =>
-      import('../../../../pages/admin/RoleComplianceAnalysePage').then((m) => ({
-        default: m.RoleComplianceAnalysePage,
       })),
     ),
   },
