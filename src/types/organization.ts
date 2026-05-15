@@ -4,7 +4,10 @@ export type OrganizationRow = {
   name: string
   /** Varslingsmottaker e-post (valgfritt) */
   varsling_contact_email?: string | null
-  /** Public URL segment for anonymous whistleblowing form */
+  /** Public URL segment for the anonymous alerts form. Replaces legacy
+   *  whistle_public_slug (kept as alias column until Phase F4 drops it). */
+  alerts_public_slug?: string | null
+  /** @deprecated use alerts_public_slug. Kept for one release as a column alias. */
   whistle_public_slug?: string | null
   brreg_snapshot: Record<string, unknown> | null
   onboarding_completed_at: string | null

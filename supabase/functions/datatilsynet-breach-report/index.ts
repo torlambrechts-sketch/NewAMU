@@ -2,9 +2,9 @@
  * Datatilsynet brudd-rapportering — fase 4 skeleton.
  *
  * Sender brudd-melding til Datatilsynet via Altinn/Maskinporten innen
- * GDPR Art. 33 72-timers-fristen. Tar gdpr_breach_incidents.id som input
- * og rapporterer skjema 8081 «Innmelding av brudd på personopplysnings-
- * sikkerheten» til Datatilsynet via Altinn 3 REST API.
+ * GDPR Art. 33 72-timers-fristen. Tar alert_cases.id som input (kind=
+ * 'gdpr_breach') og rapporterer skjema 8081 «Innmelding av brudd på
+ * personopplysningssikkerheten» til Datatilsynet via Altinn 3 REST API.
  *
  * Krav for produksjons-bruk:
  *   - Maskinporten klient-konfigurasjon (registrert hos Digdir)
@@ -52,9 +52,10 @@ Deno.serve(async (req) => {
   if (!body.incident_id) return json({ ok: false, error: 'missing_incident_id' }, 400)
 
   const { data: incident, error } = await supabase
-    .from('gdpr_breach_incidents')
+    .from('alert_cases')
     .select('*')
     .eq('id', body.incident_id)
+    .eq('kind', 'gdpr_breach')
     .single()
   if (error) return json({ ok: false, error: error.message }, 500)
   if (!incident) return json({ ok: false, error: 'incident_not_found' }, 404)

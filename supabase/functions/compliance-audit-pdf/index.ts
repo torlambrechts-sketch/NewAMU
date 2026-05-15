@@ -187,9 +187,9 @@ Deno.serve(async (req) => {
   const [auditRes, orgRes, breachRes, subjectRes] = await Promise.all([
     supabase.rpc('compliance_company_audit_export', { p_org_id: body.org_id }),
     supabase.from('organizations').select('name').eq('id', body.org_id).maybeSingle(),
-    supabase.from('gdpr_breach_incidents')
-      .select('detected_at, deadline_at, reported_to_datatilsynet_at, title, severity, status, affected_subjects_estimate')
-      .eq('organization_id', body.org_id).order('detected_at', { ascending: false }).limit(50),
+    supabase.from('alert_cases')
+      .select('received_at as detected_at, investigation_due_at as deadline_at, datatilsynet_reported_at as reported_to_datatilsynet_at, title, severity, status, affected_subjects_estimate')
+      .eq('organization_id', body.org_id).eq('kind', 'gdpr_breach').order('received_at', { ascending: false }).limit(50),
     supabase.from('gdpr_subject_requests')
       .select('received_at, deadline_at, response_at, request_type, status')
       .eq('organization_id', body.org_id).order('received_at', { ascending: false }).limit(50),

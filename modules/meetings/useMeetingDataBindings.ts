@@ -360,9 +360,10 @@ function useCrossModuleCounts(
             .eq('status', 'signed')
             .gte('completed_at', new Date(`${new Date().getFullYear()}-01-01`).toISOString()),
           supabase
-            .from('whistleblowing_cases')
+            .from('alert_cases')
             .select('id, status', { count: 'exact' })
             .eq('organization_id', orgId)
+            .eq('kind', 'whistleblowing')
             .gte('received_at', startIso)
             .lte('received_at', endIso),
         ])
