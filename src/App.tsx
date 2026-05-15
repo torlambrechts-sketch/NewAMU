@@ -204,6 +204,62 @@ function LegacyAdminRedirect({ scope }: { scope: string }) {
 }
 
 /**
+ * Translates the legacy `/organisation/admin?tab=…` URLs into the new
+ * per-scope paths under Administrasjon. The old page used one route with
+ * eight tabs; the new IA puts each tab inside the scope that owns it
+ * (users-roles / integrations / settings).
+ */
+const ORG_ADMIN_TAB_REDIRECTS: Record<string, string> = {
+  users: '/admin/settings/users-roles/internal',
+  roles: '/admin/settings/users-roles/roles',
+  delegation: '/admin/settings/users-roles/delegation',
+  functional_roles: '/admin/settings/users-roles/functional-roles',
+  role_compliance: '/admin/settings/users-roles/role-compliance',
+  integrations: '/admin/settings/integrations/providers',
+  gdpr_breach: '/admin/settings/settings/privacy?gdpr=breach',
+  gdpr_subject_requests: '/admin/settings/settings/privacy?gdpr=subject',
+}
+
+function LegacyOrgAdminRedirect() {
+  const { search, hash } = useLocation()
+  const params = new URLSearchParams(search)
+  const tab = params.get('tab')
+  const mapped = tab ? ORG_ADMIN_TAB_REDIRECTS[tab] : undefined
+  const target = mapped ?? '/admin/settings/users-roles/internal'
+  const [base, query] = target.split('?')
+  const merged = new URLSearchParams(query ?? '')
+  params.delete('tab')
+  for (const [k, v] of params) merged.set(k, v)
+  const merged_str = merged.toString()
+  return <Navigate to={`${base}${merged_str ? `?${merged_str}` : ''}${hash}`} replace />
+}
+
+/**
+ * Redirects the old `/admin/settings/org/<section>` URLs into the new
+ * scoped paths after the org scope was split into 4 (organisation /
+ * users-roles / integrations / settings).
+ */
+const LEGACY_ORG_SECTION_REDIRECTS: Record<string, string> = {
+  'functional-roles': '/admin/settings/users-roles/functional-roles',
+  'gdpr-breach': '/admin/settings/settings/privacy?gdpr=breach',
+  'gdpr-subject-requests': '/admin/settings/settings/privacy?gdpr=subject',
+  integrations: '/admin/settings/integrations/providers',
+}
+
+function LegacyOrgScopeRedirect() {
+  const { section } = useParams<{ section?: string }>()
+  const { search, hash } = useLocation()
+  const mapped = section ? LEGACY_ORG_SECTION_REDIRECTS[section] : undefined
+  const target = mapped ?? '/admin/settings/users-roles/internal'
+  const [base, query] = target.split('?')
+  const merged = new URLSearchParams(query ?? '')
+  const incoming = new URLSearchParams(search)
+  for (const [k, v] of incoming) merged.set(k, v)
+  const merged_str = merged.toString()
+  return <Navigate to={`${base}${merged_str ? `?${merged_str}` : ''}${hash}`} replace />
+}
+
+/**
  * Learning's legacy `/learning/innstillinger?tab=…` URL preserves the
  * query string verbatim — the existing `LearningSettings` component
  * (registered as a single section under the `learning` scope) reads
@@ -308,7 +364,13 @@ const router = createBrowserRouter(
                       <Route path="compliance-studio" element={<ComplianceStudioPage />} />
                       <Route path="workspace/revisjonslogg" element={<WorkspaceAuditLogPage />} />
                       <Route path="organisation" element={<OrganisationPage />} />
-                      <Route path="organisation/admin" element={<AdminPage />} />
+                      {/* Legacy admin tab URLs — redirect into the new
+                          scoped paths under /admin/settings. The
+                          underlying AdminPage component is kept for one
+                          release behind ?legacy=1 so an emergency
+                          fallback is possible. */}
+                      <Route path="organisation/admin" element={<LegacyOrgAdminRedirect />} />
+                      <Route path="organisation/admin/legacy" element={<AdminPage />} />
                       <Route path="reports" element={<ReportsListPage />} />
                       <Route path="reports/new" element={<Navigate to="/reports" replace />} />
                       <Route path="reports/:id" element={<ReportDetailPage />} />
@@ -473,7 +535,11 @@ const router = createBrowserRouter(
                       />
                       {/* Phase 2: dynamic module route — loaded from `modules` table via registry */}
                       <Route path="modules/:module_slug" element={<ModuleSlugPage />} />
-                      <Route path="admin" element={<Navigate to="/organisation/admin" replace />} />
+                      {/* Legacy `/admin/settings/org/<section>` URLs from
+                          before the org scope was split. */}
+                      <Route path="admin/settings/org" element={<Navigate to="/admin/settings/users-roles/internal" replace />} />
+                      <Route path="admin/settings/org/:section" element={<LegacyOrgScopeRedirect />} />
+                      <Route path="admin" element={<Navigate to="/admin/settings/organisation/company" replace />} />
                       <Route path="profile" element={<ProfilePage />} />
                       <Route path="learning/play/:courseId" element={<LearningPlayer />} />
                       <Route path="learning/certificates/:certId/print" element={<LearningCertificatePrintPage />} />
