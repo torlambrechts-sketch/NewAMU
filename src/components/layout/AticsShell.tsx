@@ -171,22 +171,8 @@ const internkontrollSubs: SubItem[] = [
   },
 ]
 
-const internalControlSubs: SubItem[] = [
-  {
-    label: 'Samsvar — oversikt',
-    path: '/compliance',
-    match: ({ pathname }) => pathname === '/compliance',
-  },
-  {
-    label: 'Oversikt',
-    path: '/internal-control?tab=overview',
-    match: ({ pathname, search }) =>
-      pathname === '/internal-control' &&
-      (!new URLSearchParams(search).get('tab') || new URLSearchParams(search).get('tab') === 'overview'),
-  },
-  { label: 'ROS', path: '/internal-control?tab=ros', match: ({ pathname, search }) => pathname === '/internal-control' && new URLSearchParams(search).get('tab') === 'ros' },
-  { label: 'Årsgjennomgang', path: '/internal-control?tab=annual', match: ({ pathname, search }) => pathname === '/internal-control' && new URLSearchParams(search).get('tab') === 'annual' },
-]
+// internalControlSubs removed alongside the "Internkontroll (legacy hub)"
+// sidebar entry. The /internal-control route remains for old bookmarks.
 
 // hseSubs removed alongside the "HSE / HMS (legacy)" sidebar entry.
 // The /hse route still exists for old bookmarks, but its sub-menu is
@@ -418,16 +404,11 @@ const gamleModulerModules: NavModule[] = [
   },
 
   // ── Internkontroll ───────────────────────────────────────────────────────
+  // The legacy /internal-control hub was dropped from the menu — its
+  // route still answers for old bookmarks but every reachable destination
+  // (ROS, Årsgjennomgang, Oversikt) is also surfaced under the new
+  // /internkontroll hub or the dedicated module groups above.
   { to: '/internkontroll', label: 'IK Hub', end: false, icon: BookMarked, subs: internkontrollSubs, perm: 'module.view.internal_control' },
-  {
-    to: '/internal-control',
-    label: 'Internkontroll (legacy hub)',
-    end: false,
-    icon: ClipboardList,
-    subs: internalControlSubs,
-    perm: 'module.view.internal_control',
-    moduleSlug: 'internal-control',
-  },
   { to: '/tiltak', label: 'Tiltaksplan', end: false, icon: ListTodo, perm: 'module.view.hse', subs: [] },
   { to: '/aarshjul', label: 'Årshjul', end: false, icon: CalendarRange, subs: [], perm: 'module.view.dashboard' },
 
@@ -455,7 +436,7 @@ const gamleModulerModules: NavModule[] = [
     moduleSlug: 'ik-annual-review',
   },
   { to: '/modules/aarskontroll', label: 'Årskontroll', end: true, icon: CalendarCheck, subs: [], perm: 'module.view.internal_control' },
-  { to: '/compliance', label: 'Compliance-dashboard', end: true, icon: ShieldCheck, subs: [] },
+  { to: '/compliance', label: 'Etterlevelsesdashboard', end: true, icon: ShieldCheck, subs: [] },
 
   // ── HR ───────────────────────────────────────────────────────────────────
   // Admin / Organisasjon entries are rendered by the synthetic `adminGroup`
@@ -489,7 +470,8 @@ const gamleModulerModules: NavModule[] = [
 
   // ── Eksisterende "Gamle moduler" innhold ─────────────────────────────────
   { to: '/', label: 'Dashboards', end: true, icon: Home, subs: [], perm: 'module.view.dashboard' },
-  { to: '/workspace/revisjonslogg', label: 'Revisjonslogg', end: true, icon: History, subs: [], perm: 'module.view.dashboard' },
+  // Revisjonslogg promoted into Administrasjon → Innstillinger → Revisjonslogg
+  // (sibling to Sikkerhet). Route unchanged at /workspace/revisjonslogg.
   // Tasks + Learning have their own top-level NavGroups (Oppgaver / Læring) —
   // legacy duplicates removed per category-architecture §T6.
   { to: '/action-board', label: 'Action Board', end: false, icon: Kanban, subs: [], perm: 'module.view.dashboard' },
@@ -1457,6 +1439,13 @@ export function AticsShell() {
         path: '/admin/settings/settings/security',
         Icon: ScrollText,
         match: isAdminSettings('settings', 'security'),
+        requirePermAny: SETTINGS_NAV_PERMS,
+      },
+      {
+        label: 'Revisjonslogg',
+        path: '/workspace/revisjonslogg',
+        Icon: History,
+        match: ({ pathname }) => pathname.startsWith('/workspace/revisjonslogg'),
         requirePermAny: SETTINGS_NAV_PERMS,
       },
       {
