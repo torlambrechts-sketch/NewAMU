@@ -97,3 +97,28 @@ export function KeyTakeaways({ items }: { items: string[] }) {
     </div>
   )
 }
+
+// ── Common Pitfalls ──────────────────────────────────────────────────────────
+// Rose alert callout for content.commonPitfalls — high-attention warnings that
+// surface common mistakes the reader should specifically avoid. Visually
+// distinct from KeyTakeaways (which celebrates wins) so the reader scans
+// them differently.
+export function CommonPitfalls({ items }: { items: string[] }) {
+  if (!items.length) return null
+  return (
+    <div className="mt-6 rounded-xl border-l-4 border-rose-500 bg-rose-50 px-4 py-4 shadow-sm">
+      <div className="mb-2 flex items-center gap-2 text-sm font-semibold text-rose-900">
+        <span aria-hidden className="text-base leading-none">🚨</span>
+        Vanlige fallgruver
+      </div>
+      <ul className="space-y-1.5">
+        {items.map((item, i) => (
+          <li key={i} className="flex items-start gap-2 text-sm leading-relaxed text-rose-900">
+            <span aria-hidden className="mt-0.5 text-rose-500">▸</span>
+            {item}
+          </li>
+        ))}
+      </ul>
+    </div>
+  )
+}

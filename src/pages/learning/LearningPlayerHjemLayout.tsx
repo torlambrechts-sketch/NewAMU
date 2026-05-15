@@ -44,7 +44,13 @@ import { SlidePanel } from '../../components/layout/SlidePanel'
 import { InfoBox, WarningBox } from '../../components/ui/AlertBox'
 import { Button } from '../../components/ui/Button'
 import { StandardInput } from '../../components/ui/Input'
-import { ModuleBody, KeyTakeaways } from '../../components/learning/MarkdownBody'
+import {
+  CommonPitfalls,
+  DeepDiveAccordion,
+  KeyTakeaways,
+  ModuleBody,
+} from '../../components/learning/MarkdownBody'
+import { LeadershipInsight, ModuleGamificationPill } from '../../components/learning/LearningGamification'
 
 const SERIF = "'Libre Baskerville', Georgia, serif"
 const GREEN = '#1a3d32'
@@ -405,12 +411,11 @@ export function LearningPlayerHjemLayout({ course }: LearningPlayerHjemLayoutPro
                     <span className="rounded-md border border-neutral-200 bg-[#f7f5ee] px-2 py-0.5 text-[11px] text-neutral-700">
                       {timeLabel(mod.durationMinutes)}
                     </span>
-                    <span
-                      className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold"
-                      style={{ backgroundColor: `${GREEN}15`, color: GREEN }}
-                    >
-                      <Sparkles className="size-3" /> +{getModulePoints(mod)} XP
-                    </span>
+                    <ModuleGamificationPill
+                      points={getModulePoints(mod)}
+                      badgeId={mod.badgeId}
+                      badgeLabel={course.badges?.find((b) => b.id === mod.badgeId)?.label}
+                    />
                   </div>
                 </div>
 
@@ -709,10 +714,15 @@ function LessonBody({
   const c = mod.content
 
   if (c.kind === 'text') {
+    // Reading order: body → leadership insight → common pitfalls → key
+    // takeaways → deep dive (collapsed by default so the page stays scannable).
     return (
       <div className="space-y-5">
         <ModuleBody body={c.body} bodyMarkdown={c.bodyMarkdown} bodyFormat={c.bodyFormat} />
+        {c.leadershipInsight ? <LeadershipInsight markdown={c.leadershipInsight} /> : null}
+        {c.commonPitfalls?.length ? <CommonPitfalls items={c.commonPitfalls} /> : null}
         {c.keyTakeaways?.length ? <KeyTakeaways items={c.keyTakeaways} /> : null}
+        {c.deepDive ? <DeepDiveAccordion markdown={c.deepDive} /> : null}
       </div>
     )
   }
