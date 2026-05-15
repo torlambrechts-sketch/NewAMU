@@ -36,11 +36,11 @@ const variants: Variant[] = [
     eyebrow: 'Alternativ 2',
     title: 'Cinema Card',
     oneLiner:
-      'Native /app-stil: krempapir #F9F7F2, Libre Baskerville-titler, hvite paperkort med atics-green topp-stripe, KPI-tiles à la risiko-sikkerhet, 7fr/3fr-deling.',
-    mentalModel: 'Pinpoint editorial + dashboard',
+      'Default-spilleren. Wrappet inni dokument-leser-chrome: sticky verktøystripe (Easy lesing, Innhold, A-/A/A+, Utvid), full-bredde leksjonskort som matcher widget-baren, KPI-strip + stegprikker som kan skjules.',
+    mentalModel: 'Pinpoint editorial + WikiPageView',
     engagement:
-      'KPI-strip, stegprikker, kort-overgang mellom moduler, +XP og merke-toast (gull/grønn), nivåmeter i headeren.',
-    widthTarget: 'Krempapir-fullbleed, 7fr / 3fr · maks 1400 px',
+      'Sticky reader-toolbar, kort-overgang mellom moduler, +XP og merke-toaster, KPI-bar med fremdriftsmetere.',
+    widthTarget: 'Krempapir-fullbleed, full bredde · maks 1400 px',
     accent: '#1a3d32',
     icon: Film,
   },
