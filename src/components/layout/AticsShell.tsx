@@ -371,6 +371,16 @@ const MEETINGS_NAV_PERMS: PermissionKey[] = [
   'module.view.dashboard',
 ]
 
+const ALERTS_NAV_PERMS: PermissionKey[] = [
+  'module.view.alerts',
+  'alerts.committee',
+  'alerts.committee_confidential',
+  'alerts.committee_escalated',
+  'alerts.dpo',
+  'alerts.manage',
+  'module.view.dashboard',
+]
+
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Menu cleanup pass — preview layout with only Sjekklister + Undersøkelser at
@@ -1569,6 +1579,48 @@ export function AticsShell() {
       ],
     }
 
+    // Varslinger — top-level module. Same shape as meetings/documents/survey.
+    const alertsFixedSubs: SubItem[] = [
+      {
+        label: 'Analyse',
+        path: '/alerts/analyse',
+        Icon: BarChart3,
+        match: ({ pathname }) => pathname === '/alerts/analyse',
+        requirePermAny: ALERTS_NAV_PERMS,
+      },
+      {
+        label: 'Alle saker',
+        path: '/alerts/alle',
+        Icon: AlertTriangle,
+        match: ({ pathname }) => pathname === '/alerts/alle',
+        requirePermAny: ALERTS_NAV_PERMS,
+      },
+      {
+        label: 'Innstillinger',
+        path: '/alerts/admin',
+        Icon: Settings,
+        match: ({ pathname }) => pathname.startsWith('/alerts/admin'),
+        requirePerm: 'alerts.manage',
+      },
+    ]
+    const alertsGroup: NavGroup = {
+      id: 'varslinger',
+      label: 'Varslinger',
+      icon: AlertTriangle,
+      modules: [
+        {
+          to: '/alerts',
+          label: 'Varslinger',
+          end: false,
+          icon: AlertTriangle,
+          subs: alertsFixedSubs,
+          permAny: ALERTS_NAV_PERMS,
+          moduleSlug: 'alerts',
+          flatSubs: true,
+        },
+      ],
+    }
+
     // Composite "Oversikt" group — sits at the top of the merged nav
     // since it's the org-wide entry point that pulls in widgets from
     // every other module group below it.
@@ -1621,7 +1673,7 @@ export function AticsShell() {
     const idx = navGroups.findIndex((g) => g.id === 'gamle-moduler')
     const head = idx === -1 ? navGroups : navGroups.slice(0, idx)
     const tail = idx === -1 ? [] : navGroups.slice(idx)
-    return [...head, hmsOverviewGroup, complianceGroup, surveyGroup, documentsGroup, meetingsGroup, registersGroup, tasksGroup, learningGroup, adminGroup, ...tail]
+    return [...head, hmsOverviewGroup, complianceGroup, surveyGroup, documentsGroup, meetingsGroup, alertsGroup, registersGroup, tasksGroup, learningGroup, adminGroup, ...tail]
   }, [
     complianceNav.items,
     complianceNav.categories,

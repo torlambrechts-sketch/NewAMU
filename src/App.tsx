@@ -34,7 +34,6 @@ import { WorkplaceDashboardPage } from './pages/WorkplaceDashboardPage'
 import { WorkplaceIncidentsPage } from './pages/WorkplaceIncidentsPage'
 import { WorkplaceAnonymousAmlPage } from './pages/WorkplaceAnonymousAmlPage'
 import { WorkplaceAnonymousAmlSettingsPage } from './pages/WorkplaceAnonymousAmlSettingsPage'
-import { PublicAnonymousAmlPage } from './pages/PublicAnonymousAmlPage'
 import { HrComplianceHub } from './pages/hr/HrComplianceHub'
 import { HrDiscussionPage } from './pages/hr/HrDiscussionPage'
 import { HrConsultationPage } from './pages/hr/HrConsultationPage'
@@ -131,8 +130,21 @@ import { PlatformCoursePlayerCinemaPage } from './pages/platform/coursePlayer/Pl
 import { PlatformCoursePlayerCoachPage } from './pages/platform/coursePlayer/PlatformCoursePlayerCoachPage'
 import { PlatformCoursePlayerKlasseromPage } from './pages/platform/coursePlayer/PlatformCoursePlayerKlasseromPage'
 import { PlatformCoursePlayerHjemPage } from './pages/platform/coursePlayer/PlatformCoursePlayerHjemPage'
-import { PublicWhistlePage } from './pages/PublicWhistlePage'
-import { WhistleStatusPage } from './pages/WhistleStatusPage'
+import { PublicAlertSubmitPage } from '../modules/alerts/pages/PublicAlertSubmitPage'
+import { PublicAlertStatusPage } from '../modules/alerts/pages/PublicAlertStatusPage'
+import { AlertsPage } from '../modules/alerts/pages/AlertsPage'
+import { AlertsAdminPage } from '../modules/alerts/pages/AlertsAdminPage'
+import { AlertsAnalysePage } from '../modules/alerts/pages/AlertsAnalysePage'
+import { AlertsAllePage } from '../modules/alerts/pages/AlertsAllePage'
+import { AlertsDetailView } from '../modules/alerts/pages/AlertsDetailView'
+
+// Legacy /varsle/:slug and /anonym-aml/:slug redirect to /alerts/public/:slug.
+// Kept permanently (printed materials in worker break rooms point here).
+function LegacyVarsleRedirect() {
+  const params = new URLSearchParams(window.location.search)
+  const slug = window.location.pathname.split('/').pop() ?? ''
+  return <Navigate to={`/alerts/public/${encodeURIComponent(slug)}${params.toString() ? `?${params.toString()}` : ''}`} replace />
+}
 import { LandingPage } from './pages/LandingPage'
 import { ModuleSlugPage } from './pages/ModuleSlugPage'
 import { InspectionModulePage } from './pages/InspectionModulePage'
@@ -238,9 +250,12 @@ const router = createBrowserRouter(
             <Route path="/signup" element={<AuthPage mode="signup" />} />
             <Route path="/platform-admin/login" element={<PlatformAdminLoginPage />} />
             <Route path="/invite/:token" element={<InviteAcceptPage />} />
-            <Route path="/varsle/status" element={<WhistleStatusPage />} />
-            <Route path="/varsle/:slug" element={<PublicWhistlePage />} />
-            <Route path="/anonym-aml/:slug" element={<PublicAnonymousAmlPage />} />
+            <Route path="/alerts/public/status" element={<PublicAlertStatusPage />} />
+            <Route path="/alerts/public/:slug" element={<PublicAlertSubmitPage />} />
+            {/* Legacy URL aliases — kept permanently per OQ-A2; printed materials use these. */}
+            <Route path="/varsle/status" element={<Navigate to="/alerts/public/status" replace />} />
+            <Route path="/varsle/:slug" element={<LegacyVarsleRedirect />} />
+            <Route path="/anonym-aml/:slug" element={<LegacyVarsleRedirect />} />
             <Route path="/auditor/workflows" element={<AuditorWorkflowsPage />} />
             <Route path="/survey-respond/:campaignId" element={<SurveyRespondPage />} />
             <Route path="/r/:token" element={<SharedReportPage />} />
@@ -349,6 +364,32 @@ const router = createBrowserRouter(
                         element={
                           <RouteErrorBoundary title="Kunne ikke vise møte">
                             <MeetingsDetailView />
+                          </RouteErrorBoundary>
+                        }
+                      />
+                      <Route
+                        path="alerts"
+                        element={
+                          <RouteErrorBoundary title="Kunne ikke vise varslinger">
+                            <AlertsPage />
+                          </RouteErrorBoundary>
+                        }
+                      />
+                      <Route path="alerts/admin" element={<AlertsAdminPage />} />
+                      <Route
+                        path="alerts/analyse"
+                        element={
+                          <RouteErrorBoundary title="Kunne ikke vise analyse">
+                            <AlertsAnalysePage />
+                          </RouteErrorBoundary>
+                        }
+                      />
+                      <Route path="alerts/alle" element={<AlertsAllePage />} />
+                      <Route
+                        path="alerts/:caseId"
+                        element={
+                          <RouteErrorBoundary title="Kunne ikke vise sak">
+                            <AlertsDetailView />
                           </RouteErrorBoundary>
                         }
                       />
