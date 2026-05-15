@@ -19,8 +19,8 @@
 - Types/data: `src/types/whistleblowing.ts`, `src/data/amlAnonymousReporting.ts`, `src/data/workplaceCaseCategories.ts`, `src/lib/varslingssakerLayoutFromPreset.ts`.
 - Component: `src/components/workplace/WorkplaceReportingCasesSection.tsx`.
 
-**Spec status:** `🚧 draft → 📋 ready` after supervisor sign-off in §13.
-**Owner:** human. **Author:** senior architect + compliance officer dual review.
+**Spec status:** `🚧 draft (revision 1 — supervisor blockers resolved) → 📋 ready` pending human-owner sign-off in §13.4.
+**Owner:** human. **Author:** senior architect + compliance officer dual review, supervisor revision pass applied.
 
 ---
 
@@ -71,7 +71,7 @@ integritet) by construction.
 | A11 | Attachment storage | Supabase Storage **private bucket** `alert-attachments`; signed URLs only; never `public` access | Attachment paths reference the bucket key; resolving requires committee permission. |
 | A12 | Captcha on public form | **hCaptcha** verification in Edge Function before RPC invocation (config-driven; falls open in dev) | Per Datatilsynet guidance on whistleblowing systems — prevent spam DoS without IP logging. |
 | A13 | Confidentiality levels | `confidentiality_level text` (`standard` / `restricted` / `confidential`) on `alert_cases`, set at creation by template default, **immutable post-creation** | Restricted/confidential cases visible only to a sub-roster (`alerts.committee_confidential`). Mirrors meetings confidentiality gate. |
-| A14 | Retention | **System retention policy** per template kind, enforced by scheduled function `alerts_purge_expired_cases()`: AML varsling default 5 years post-`closed_at`, GDPR brudd 3 years (per Datatilsynet), HMS-avvik 10 years (NS-EN ISO 45001 + AML § 4-1) | Retention deadlines on case row (`retention_until timestamptz`) calculated at close-time. Purge function NULLs identity fields rather than hard-delete, to preserve audit count statistics. |
+| A14 | Retention | **System retention policy** per template kind, enforced by scheduled function `alerts_purge_expired_cases()`: AML varsling default **5 years** post-`closed_at` (saklig nødvendighet — no statutory floor; documented as org policy, not "per Datatilsynet"), GDPR brudd default **5 years** (Art. 33 (5) dokumentasjonsplikt — "as long as necessary to demonstrate compliance"; cite Datatilsynets veiledning om internkontroll). HMS-avvik **5 years** as generic floor; templates with kjemikalie-eksponering raise to **30 years** via override per **Forskrift om utførelse av arbeid kap. 31**. **Yrkesskade-relaterte saker**: kept until subject is 70 (folketrygdloven § 13-14 evidence preservation, set by org policy, not module default). | Retention deadlines on case row (`retention_until timestamptz`) calculated at close-time. Purge function NULLs identity fields + reporter-facing note bodies rather than hard-delete, to preserve audit count statistics. Separate **Art. 17 erasure path** for identified-tier reporters who exercise right-to-erasure (§ 3.8) — hard-deletes the row. |
 | A15 | Co-existence with legacy | **Hard cutover, no parallel surfaces.** Migration absorbs `whistleblowing_cases` + `gdpr_breach_incidents` rows into `alert_cases`. Legacy pages, hooks, RPCs, permissions are deleted in Phase F | Per user directive. Existing `/varsle/:slug` URL kept as compatibility redirect for one release, then dropped. |
 
 ---
@@ -291,18 +291,20 @@ The kind-to-column binding mirrors compliance:
 - `status`, `closing_summary`, `closing_outcome`, `closed_at` (going non-null → null)
 - `datatilsynet_reported_at`, `datatilsynet_reference`, `data_subjects_notified_at`
 - `severity`, `breach_type`, `affected_subjects_actual`
+- **`title`, `description`** — reporter-supplied free-text fields may contain identity hints; allowing post-close rewrites = identity-laundering vector. Corrections happen via append-only `alert_case_notes` rows flagged `note_kind='internal'`, not in-place mutation.
 
 **Allow** post-`closed_at` changes to:
-- `title`, `description` (correction of typos — surfaced as edit-after-close in timeline)
 - `category_id` (recategorisation for analytics)
 - `location_id`, `department_id`, `team_id` (org-context re-attribution)
 - `assigned_committee_member_ids` (committee membership rotation)
-- `metadata` (free-form fields not tied to lock)
+- `metadata` (free-form fields not tied to lock — but note that `metadata` cannot contain identity columns; see §4.3 RPC contract)
 - `retention_until`, `redacted_at` (retention purge writes these)
 
 ### 3.5 Append-only triggers on `alert_case_notes` + `alert_case_timeline_events`
 
-Mirrors existing `whistleblowing_notes_no_mutation()` — `BEFORE UPDATE` and `BEFORE DELETE` triggers raise exception. The purge function (§3.7) is the only way to redact, and it operates on `alert_cases` columns, not on notes.
+Mirrors existing `whistleblowing_notes_no_mutation()` — `BEFORE UPDATE` and `BEFORE DELETE` triggers raise exception. The purge function (§3.7) writes to `alert_case_notes.body` via a controlled redaction path: it's the *only* SQL function exempted from the append-only triggers (via `session_replication_role` or a dedicated bypass flag).
+
+Additional **post-close note insert gate**: trigger `BEFORE INSERT on alert_case_notes` rejects inserts with `visible_to_reporter = true` against a case where `closed_at is not null` unless the author holds `alerts.committee_confidential`. Closes T11 retroactive-leak vector — a malicious committee member can't surface identity-bearing text to the reporter after close.
 
 ### 3.6 Provision function
 
@@ -325,13 +327,25 @@ function public.alerts_purge_expired_cases() returns int
 language plpgsql security definer
 ```
 
-Selects rows where `closed_at is not null AND retention_until < now() AND redacted_at is null`. For each:
-- NULLs: `description`, `reporter_contact`, `reporter_display_name`, `closing_summary`, `risk_assessment`, `mitigation_actions`, `metadata`.
+Selects rows where `closed_at is not null AND retention_until < now() AND redacted_at is null`. **Row-level lock**: `select … for update skip locked` to avoid races with concurrent committee edits or the storage-attachment cron. For each row:
+- NULLs on `alert_cases`: `description`, `reporter_contact`, `reporter_display_name`, `reporter_user_id`, `closing_summary`, `risk_assessment`, `mitigation_actions`, `metadata`, `submission_user_agent`, `submission_locale`.
 - Replaces `title` with `'[redacted: retention expired]'`.
-- Soft-deletes attachment rows; corresponding storage objects deleted via separate scheduled function (Edge Function `alerts-purge-attachments`).
+- NULLs `alert_case_notes.body` where `visible_to_reporter = true OR note_kind in ('communication_to_reporter','communication_from_reporter')` for the case (these are the only note classes that can contain reporter-shared PII). Internal investigation notes are kept — auditable evidence the committee acted, with reporter PII already minimised by §4.1 T6 redaction tooling at insert time.
+- Soft-deletes attachment rows (`is_redacted = true`, `storage_path` nulled); corresponding storage objects deleted via separate scheduled Edge Function `alerts-purge-attachments` keyed off `redacted_at`.
 - Sets `redacted_at = now()`; inserts `retention_purged` timeline event.
 
-Scheduled daily via Supabase `cron.schedule()`. Result count logged for audit.
+Scheduled daily via Supabase `cron.schedule()`. Result count logged for audit. Idempotent — re-running on a redacted row is a no-op via the `redacted_at is null` filter.
+
+### 3.8 Art. 17 erasure path (right-to-be-forgotten)
+
+```sql
+function public.alerts_erase_case(p_case_id uuid, p_legal_basis text, p_actor uuid) returns void
+language plpgsql security definer
+```
+
+Separate from `alerts_purge_expired_cases()`. Used when an identified-tier reporter exercises GDPR Art. 17. **Hard-deletes** the `alert_cases` row + cascading children (notes, attachments, timeline events) inside a single transaction; writes a single audit row in `level1_audit_log` with `event='alert_case_erased', case_kind, legal_basis, actor_user_id, redaction_only_count` (the case ID is *not* preserved — only counts).
+
+Permission gate: `alerts.dpo` (data protection officer) only. Anonymous-tier cases (`is_anonymous = true`) cannot be erased via this path because there's no verified subject — they fall under §3.7 retention only.
 
 ---
 
@@ -347,15 +361,15 @@ shippable.
 |---|---|---|
 | T1 | An admin user with `module.view.admin` on the org tries to read another org's cases | RLS `alert_cases_select` checks `organization_id = current_org_id()` AND (`is_org_admin()` OR `user_has_permission('alerts.committee')` OR `reporter_user_id = auth.uid()`). No service-role queries from client. |
 | T2 | A committee member tries to de-anonymise a reporter who chose anonymity | `reporter_contact`, `reporter_user_id`, `reporter_display_name`, `is_anonymous` are **immutable** from insert via lock trigger. There is no admin UI surface to edit these fields. |
-| T3 | A reporter's IP address leaks via Supabase logs | Public RPC `public_submit_alert` does **not** receive IP as a parameter and does **not** read `request.headers` for IP. The Edge Function wrapper (for captcha) MUST NOT log the IP to any retained log destination — only hashed for captcha. |
-| T4 | An attacker brute-forces `access_key` UUIDs to read other reporters' status | `access_key` is `uuid v4` (122 bits entropy). `public_alert_status` returns only `{status, updatedAt, acknowledgementDueAt, latestPublicNote.body}` — no identity-bearing fields. Brute-force gives an attacker only the publishable status of an unknown case. Rate-limiting: 10 attempts/IP/hour at Edge Function layer. |
+| T3 | A reporter's IP address leaks via Supabase logs | Public RPC `public_submit_alert` does **not** receive IP as a parameter and does **not** read `request.headers` for IP. **The captcha Edge Function explicitly scrubs IP-bearing headers before downstream calls**: at function start, `delete request.headers['cf-connecting-ip']`, `delete request.headers['x-forwarded-for']`, `delete request.headers['x-real-ip']`. Captcha verification with Cloudflare Turnstile uses **only the token**, not the client IP optional parameter. Supabase log retention for the `alerts-*` Edge Functions is configured to **0 days** via `supabase functions deploy --no-log-retention` (or equivalent project setting). Verified by post-deploy check: `supabase logs --function alerts-public-submit --since 1h` returns empty. |
+| T4 | An attacker brute-forces `access_key` UUIDs to read other reporters' status | `access_key` is `uuid v4` (122 bits entropy). `public_alert_status` returns only `{status, updatedAt, acknowledgementDueAt, publicNotes: [{body}]}` — no identity-bearing fields. Brute-force gives an attacker only the publishable status of an unknown case. **Rate-limiting**: status lookups go through Edge Function `alerts-public-status` (not direct RPC), which throttles via a DB-side table `alerts_public_status_throttle (ip_hash text, window_start timestamptz, attempts int)` with sliding-window check (10 attempts/hour per `sha256(ip + daily_salt)`). Daily salt rotated by cron; throttle rows TTL'd after 24h. |
 | T5 | A reporter loses their access_key and asks support to recover it | **There is no recovery flow.** access_key is the only handle on an anonymous case. Loss = case lookup impossible for the reporter (committee can still operate the case). UI explicitly warns at submit time. |
 | T6 | An attachment uploaded by an anonymous reporter contains PII the reporter didn't intend to share | Public form shows `piiHint` on relevant fields ("Vi anbefaler å unngå navn på enkeltpersoner her"). Storage bucket is private; signed URLs are 60s TTL. Committee UI surfaces "Redact?" tooling that adds a `redacted` version alongside the original. |
 | T7 | Service-role queries from a misconfigured Edge Function expose all cases | RLS is enabled on all alerts tables (no `SECURITY DEFINER` reads except the two whitelisted public RPCs, which return scoped subsets only). Edge Functions for captcha/purge use `service_role` but operate on a strict whitelist of columns. |
 | T8 | A retention purge accidentally deletes evidence in an active case | Purge function filters `closed_at is not null` — open cases are never touched. Additional guard: `closed_at + retention_years` must be in the past, calculated from `retention_until` written at close-time. |
 | T9 | A captcha bypass enables submission spam | hCaptcha (or Cloudflare Turnstile) verification in Edge Function before the RPC. Falls open in dev (`ALERT_CAPTCHA_REQUIRED=false`). Production deploys require the env var set true. |
 | T10 | A confidential case (e.g. naming the CEO as subject) becomes visible to org-admin | Confidentiality level `confidential` requires `alerts.committee_confidential` permission. `is_org_admin()` alone is **not sufficient**. RLS clause: `(level = 'confidential' AND user_has_permission('alerts.committee_confidential')) OR (level <> 'confidential' AND (is_org_admin() OR user_has_permission('alerts.committee')))`. |
-| T11 | A note authored by a committee member contains the reporter's real name and later leaks via reporter's status check | `alert_case_notes.visible_to_reporter` defaults `false`. Only notes explicitly flagged `true` surface to `public_alert_status`. UI shows a warning when toggling that flag. |
+| T11 | A note authored by a committee member contains the reporter's real name and later leaks via reporter's status check | `alert_case_notes.visible_to_reporter` defaults `false`. Only notes explicitly flagged `true` surface to `public_alert_status`. UI shows a warning when toggling that flag. **Post-close gate** (§3.5 trigger): inserts on `alert_case_notes` with `visible_to_reporter=true` against a closed case require `alerts.committee_confidential`. Retroactive surfacing of identity data to the reporter is blocked unless the highest-privilege actor explicitly approves. |
 | T12 | An exporter pulls a CSV that includes anonymous reporter fields | CSV export of cases excludes `reporter_contact`, `reporter_user_id`, `reporter_display_name`, `submission_user_agent` unless the operator explicitly checks "Inkluder identitetsfelt" (and that requires `alerts.committee_confidential`). |
 
 ### 4.2 Anonymity tiers (declared on each case)
@@ -376,8 +390,10 @@ Tier choice is irrevocable post-submit (lock trigger §3.4).
   - `security definer`, `set search_path = public`.
   - Validates `p_org_slug` against `organizations.alerts_public_slug` (renamed from `whistle_public_slug` in migration).
   - Validates `p_template_slug` exists and `is_active = true` and template's `allows_anonymous = true` (or session is authenticated, which would bypass this RPC entirely).
-  - Validates `p_payload` against template `definition.publicFormFields` (required + kind).
-  - Inserts row with `is_anonymous = true` (unless session token present and `auth.uid()` resolves, then optionally `false`).
+  - Validates `p_payload` against template `definition.publicFormFields`: required fields present, kinds match.
+  - **Strict key allowlist**: any key in `p_payload` not declared in `definition.publicFormFields[].key` raises exception `invalid_payload_key: <key>`. Closes the column-injection vector where an attacker stuffs `reporter_user_id`, `is_anonymous`, `closed_at`, etc. into the payload hoping the materialiser blindly forwards them.
+  - **Whitelist materialisation**: the insert statement only references the whitelisted column set (`title`, `description`, `metadata`, `category`, `occurred_at_text`, and any template-declared metadata-schema field bound to a typed column per §3.3). Other case columns (`reporter_*`, `closed_at`, `severity` for non-`gdpr_breach` kinds, etc.) are *never* read from `p_payload`.
+  - Inserts row with `is_anonymous = true` (unless session token present and `auth.uid()` resolves *and* the template's `requires_dpo` is false — DPO submissions for GDPR breaches go through a different authenticated RPC, not this one).
   - Returns `{caseId, accessKey, message}`. Caller stores `accessKey` only.
 - Public RPC `public_alert_status(p_access_key uuid)`:
   - Returns `{found, status?, updatedAt?, acknowledgementDueAt?, publicNotes?: [{body, createdAt}]}`.
@@ -400,14 +416,17 @@ Every template ships law-ref-grounded and Arbeidstilsynet/Datatilsynet-defensibl
 | Slug | Template | Kind | Cadence | Allows anonymous | Key law refs |
 |---|---|---|---|---|---|
 | `aml-varsel-generell` | Varsel — generelt kritikkverdig forhold | whistleblowing | ad_hoc | yes | AML § 2A-1, § 2A-2, § 2A-3, § 2A-4, § 2A-7 |
-| `aml-varsel-trakassering` | Varsel — trakassering eller mobbing | whistleblowing | ad_hoc | yes | AML § 4-3, § 2A-1, Likestillingsloven § 13 |
-| `aml-varsel-seksuell-trakassering` | Varsel — seksuell trakassering | whistleblowing | ad_hoc | yes | AML § 4-3, Likestillingsloven § 13, § 26 |
-| `aml-varsel-okonomisk-misbruk` | Varsel — korrupsjon eller økonomisk misbruk | whistleblowing | ad_hoc | yes | AML § 2A-1 (2), Straffeloven § 387 |
+| `aml-varsel-trakassering` | Varsel — trakassering eller mobbing | whistleblowing | ad_hoc | yes | AML § 4-3, § 2A-1, Likestillings- og diskrimineringsloven § 13 |
+| `aml-varsel-seksuell-trakassering` | Varsel — seksuell trakassering | whistleblowing | ad_hoc | yes | AML § 4-3, Likestillings- og diskrimineringsloven § 13, § 26 |
+| `aml-varsel-okonomisk-misbruk` | Varsel — korrupsjon eller økonomisk misbruk | whistleblowing | ad_hoc | yes | AML § 2A-1 (2), Straffeloven § 387, § 388 (grov korrupsjon), § 389 (påvirkningshandel) |
 | `aml-varsel-hms-fare` | Varsel — fare for liv eller helse (HMS) | whistleblowing | ad_hoc | yes | AML § 2A-1 (2), § 4-1, § 6-3 |
 | `aml-varsel-miljo` | Varsel — miljøkriminalitet | whistleblowing | ad_hoc | yes | AML § 2A-1 (2), Forurensningsloven § 78 |
 | `aml-varsel-gjengjeldelse` | Varsel — gjengjeldelse etter tidligere varsel | whistleblowing | ad_hoc | yes | AML § 2A-4, § 2A-5 |
+| `aml-varsel-mot-leder` | Varsel — forhold som angår øverste leder eller styret | whistleblowing | ad_hoc | yes | AML § 2A-1, § 2A-2 (3), § 2A-7 (5) |
 
-All seven default to `confidentiality_level = 'restricted'`, retention 5 years post-close, acknowledgement_due_days = 5 (per § 2A-3 best practice; statute says "innen rimelig tid" — 5 working days is the regulatory-defensible interpretation).
+`aml-varsel-mot-leder` is the **escape-hatch template** required by AML § 2A-2 (3) when the reportable conduct involves the normal committee recipient. Its `definition.workflowStages` routes to an **alternate committee roster** (configured separately under `AlertsCommitteeRosterPanel` as `kind='whistleblowing_escalated'`) and locks out the standard `alerts.committee` permission — only `alerts.committee_escalated` holders see these cases. If no escalated roster is configured, the template's public form surfaces the external-channel guidance (Arbeidstilsynet, Økokrim) prominently as a fallback.
+
+All eight default to `confidentiality_level = 'restricted'`, retention 5 years post-close (org policy floor, not statutory). `acknowledgement_due_days` is stored as **calendar days** in the column (`acknowledgement_due_at timestamptz`) but the UI label says "innen 5 virkedager" — conversion uses `add_business_days(received_at, 5)` helper that skips Saturdays, Sundays, and the canonical Norwegian public-holiday set (`scripts/no_holidays.sql` lookup). Closes the calendar-vs-business-days mismatch.
 
 ### 5.2 GDPR Art. 33 + 34 — personal-data breach
 
@@ -417,9 +436,12 @@ All seven default to `confidentiality_level = 'restricted'`, retention 5 years p
 | `gdpr-brudd-integritet` | GDPR-brudd — endring/korrupsjon (integritet) | gdpr_breach | ad_hoc | no | GDPR Art. 33, Art. 32 |
 | `gdpr-brudd-tilgjengelighet` | GDPR-brudd — tap eller utilgjengelighet | gdpr_breach | ad_hoc | no | GDPR Art. 33, Art. 32 (1) (b) |
 | `gdpr-brudd-leverandor` | GDPR-brudd — databehandler-hendelse | gdpr_breach | ad_hoc | no | GDPR Art. 28, Art. 33 (2) |
-| `gdpr-brudd-feilsending` | GDPR-brudd — feilsendt e-post / dokument | gdpr_breach | ad_hoc | yes (ansatt rapporterer) | GDPR Art. 33, Personopplysningsloven § 5 |
+| `gdpr-brudd-feilsending` | GDPR-brudd — feilsendt e-post / dokument | gdpr_breach | ad_hoc | yes (ansatt rapporterer) | GDPR Art. 33, Personopplysningsloven § 1 + § 5 |
+| `gdpr-brudd-lavrisiko` | GDPR-brudd — lav risiko, ikke meldepliktig | gdpr_breach | ad_hoc | no | GDPR Art. 33 (1) ("unless unlikely to result in risk") |
 
-All five default `confidentiality_level = 'restricted'`, retention 3 years post-close (per Datatilsynet's veiledning), `requires_dpo = true`, `acknowledgement_due_days = 1` (so DPO sees the case before the 72-hour clock runs out), `externalReporting.deadlineHours = 72`, `externalReporting.target = 'datatilsynet'`.
+All six default `confidentiality_level = 'restricted'`, retention 5 years post-close (Art. 33 (5) dokumentasjonsplikt; Datatilsynets veiledning om internkontroll — no fixed floor, 5 years matches most practitioner guidance), `requires_dpo = true`, `acknowledgement_due_days = 1` (so DPO sees the case before the 72-hour clock runs out), `externalReporting.deadlineHours = 72`, `externalReporting.target = 'datatilsynet'`.
+
+**`gdpr-brudd-lavrisiko` is the no-notification template** — its `definition.externalReporting` is `null` (not just deadline-zero), so the dashboard widget `alerts_gdpr_72h_compliance` excludes these rows from its bucketer. DPO sets this kind explicitly after Art. 33 (1) risk assessment; the case is still recorded in `alert_cases` for Art. 33 (5) dokumentasjonsplikt.
 
 ### 5.3 HMS / sikkerhet / etisk
 
@@ -452,10 +474,11 @@ All five default `confidentiality_level = 'restricted'`, retention 3 years post-
 - [x] **GDPR Art. 33 (5)** dokumentasjonsplikt: `alert_case_timeline_events` audit-log captures every state transition; CSV export available for tilsyn.
 - [x] **GDPR Art. 34** notification to data subjects when "high risk": GDPR templates surface `data_subjects_notified_at` as required-when-`severity in ('high','critical')` field.
 - [x] **GDPR Art. 5 (1) (f)** konfidensialitet og integritet: Storage private bucket + RLS + append-only notes/timeline.
-- [x] **Personopplysningsloven § 5** sektorspesifikke regler: Retention policy enforced by `alerts_purge_expired_cases()`.
-- [x] **IK-f § 5 nr. 7** systematisk gjennomgang av varsler: Dashboard `alerts_kpi_summary` + `alerts_by_category` + `alerts_law_ref_coverage` give the AMU annual-report data point.
+- [x] **GDPR Art. 5 (1) (e)** lagringsbegrensning: Retention policy enforced by `alerts_purge_expired_cases()`. (**Earlier draft incorrectly cited Personopplysningsloven § 5** — § 5 governs territorial scope, not retention. Corrected.)
+- [x] **GDPR Art. 17** right-to-erasure: Separate `alerts_erase_case()` hard-delete path (§3.8) for identified-tier reporters; anonymous-tier cases fall under retention only.
+- [x] **Forskrift om systematisk helse-, miljø- og sikkerhetsarbeid (Internkontrollforskriften, IK-f) § 5 nr. 7** systematisk gjennomgang av varsler: Dashboard `alerts_kpi_summary` + `alerts_by_category` + `alerts_law_ref_coverage` give the AMU annual-report data point.
 - [x] **NS-ISO 27001 § 16** information-security-incident management: `sikkerhet-hendelse-it` template aligns event categories to ISO 27001 Annex A.
-- [x] **Forskrift om systematisk HMS-arbeid § 5 nr. 7** rutiner for håndtering av avvik: HMS templates produce `hms_incident` cases that feed the existing HMS analyse page via cross-scope dataset.
+- [x] **IK-f § 5 nr. 7** rutiner for håndtering av avvik: HMS templates produce `hms_incident` cases that feed the existing HMS analyse page via cross-scope dataset.
 - [x] **Restrisiko (acknowledged, not blockers for v1):**
   - **BankID-signering av lukke-handlinger** deferred — current UI labels protocol close as "Bekreftelse (forhåndsregistrering — ikke juridisk signatur)" per the meetings-module precedent.
   - **Whistleblower legal counsel referral** — out of scope; module surfaces "AML § 2A-2 (2): du kan alltid varsle advokat" as guidance text, but doesn't operate a referral channel.
@@ -552,48 +575,82 @@ Acceptance: `import { useAlerts } from 'modules/alerts'` compiles. Hook loads fr
 
 Acceptance: anonymous submission via new public form creates `alert_cases` row. Access-key status lookup returns expected payload.
 
-### Phase E · Admin UI shell + detail view + analyse  *(1-2 commits)*
+### Phase E1 · Hub + detail view  *(1 commit)*
 
-`AlertsPage.tsx` + `AlertsHubLanding.tsx` + `AlertsDetailView.tsx` (tabs: Informasjon, Tidslinje, Notater, Vedlegg, Lukking) + `AlertsAllePage.tsx` + `AlertsAdminPage.tsx` (templates list + categories + committee roster + retention policy) + `AlertsAnalysePage.tsx` + `alertsDashboardScope.ts` + `useAlertsDatasets.ts`.
+`AlertsPage.tsx` (hub router) + `AlertsHubLanding.tsx` + `AlertsDetailView.tsx` (tabs: Informasjon, Tidslinje, Notater, Vedlegg, Lukking) + `AlertsAllePage.tsx`.
 
-Old admin pages `WorkplaceReportingPage.tsx`, `WorkplaceAnonymousAmlPage.tsx`, `WorkplaceAnonymousAmlSettingsPage.tsx`, `GdprBreachAdminPanel.tsx` deleted in same commit. Old hooks `useWhistleblowing.ts`, `useWorkplaceReportingCases.ts` deleted. Old types/data files deleted.
+No admin / analyse yet. Reads from `useAlerts`. Existing migrated cases visible per template.
 
-Acceptance: navigate to `/alerts`, see 17 system templates grouped by category. Click a template → see existing migrated cases + "+ Opprett varsel". `/alerts/analyse` opens with KPI tiles. Admin can disable templates, edit categories, manage committee roster.
+Acceptance: navigate to `/alerts`, see 17 system templates grouped by category. Click a template → see existing migrated cases + "+ Opprett varsel". Open a case → tabs render. Add a note (committee) → appears in timeline. Upload an attachment → signed-URL viewer works.
 
-### Phase F · Sidebar + routes + permissions + legacy purge  *(1 commit)*
+### Phase E2 · Admin + analyse  *(1 commit)*
 
-`AticsShell.tsx` adds `alertsGroup` between `meetingsGroup` and `registersGroup` (positioned per user's spec — same shape as compliance/survey/documents/meetings). `alertsFixedSubs` for Analyse + Innstillinger. `useAlertsNav` resolver.
+`AlertsAdminPage.tsx` (templates list + categories + committee roster + retention policy) + `AlertsAnalysePage.tsx` + `alertsDashboardScope.ts` + `useAlertsDatasets.ts` + `AlertsCommitteeRosterPanel.tsx` + `AlertsRetentionPolicyPanel.tsx`.
 
-`App.tsx` routes:
+Acceptance: `/alerts/admin` opens, admin can toggle a system template + edit categories + manage committee roster + extend retention. `/alerts/analyse` opens with KPI tiles + 9 filter chips. Filters narrow results; drill-down click on status donut adds a chip.
+
+### Phase F1 · Sidebar + routes  *(1 commit, vertical slice — pure nav)*
+
+`AticsShell.tsx` adds `alertsGroup` between `meetingsGroup` and `registersGroup`. `alertsFixedSubs` for Analyse + Innstillinger. `useAlertsNav` resolver registered.
+
+`App.tsx` routes (new, alongside existing legacy routes — no purge yet):
 - `/alerts` → `AlertsPage`
 - `/alerts/admin` → `AlertsAdminPage`
 - `/alerts/analyse` → `AlertsAnalysePage`
 - `/alerts/alle` → `AlertsAllePage`
 - `/alerts/:caseId` → `AlertsDetailView`
-- `/alerts/public/:slug` → `PublicAlertSubmitPage`
-- `/alerts/public/status` → `PublicAlertStatusPage`
+- `/alerts/public/:slug` → `PublicAlertSubmitPage` (already exists from Phase D)
+- `/alerts/public/status` → `PublicAlertStatusPage` (already exists from Phase D)
 
-`permissionKeys.ts`:
-- Rename `whistleblowing.committee` → `alerts.committee`. Migration adds new permission, copies grants from old, drops old.
-- Add `alerts.committee_confidential` (new, narrower).
-- Add `module.view.alerts`.
-- Add `alerts.manage` (admin tab access).
-- Add `alerts.dpo` (required for `gdpr_breach` kind).
+Acceptance: top-level "Varslinger" entry visible in sidebar with Analyse/Innstillinger children and pinned templates below. Legacy `/workplace-reporting/*` + `/varsle/*` routes still resolve.
 
-References to be cleaned up in this commit:
-- `AdminPage.tsx`: remove `GdprBreachAdminPanel` render
-- `ModuleShortcutGrid.tsx`: update shortcut target to `/alerts`
-- `useNotifications.ts`: update notification subjects
-- `inspectionReadiness.ts`: re-point checks
-- `WikiBlockCommentsPanel.tsx`, `DocumentPrivacyPage.tsx`: re-point references
-- `WorkplaceReportingCasesSection.tsx`: delete (was only used by deleted pages)
-- `varslingssakerLayoutFromPreset.ts`: delete (legacy layout preset)
-- `amlAnonymousReporting.ts`: delete
-- `workplaceCaseCategories.ts`: delete (replaced by template-driven categories)
+### Phase F2 · Permission rename  *(1 commit, vertical slice — pure permission migration)*
 
-Legacy redirects from Phase D removed.
+Migration `<ts>_alerts_permission_rename.sql`:
+- Add new permissions: `alerts.committee`, `alerts.committee_confidential`, `alerts.committee_escalated`, `alerts.dpo`, `alerts.manage`, `module.view.alerts`.
+- Copy grants from old: every `role_permissions` row with `permission_key='whistleblowing.committee'` gets a sibling row with `permission_key='alerts.committee'`. Same for `whistleblowing.view` → `alerts.view` (new), `whistleblowing.assign` → `alerts.assign` (new), `module.view.workplace_reporting` → `module.view.alerts`.
+- **Do not drop the old permission keys yet** — leaves dual-grant until Phase F4 final code purge.
 
-Acceptance: top-level "Varslinger" entry visible in sidebar with Analyse/Innstillinger children and pinned templates below. All references to deleted symbols gone. `npx tsc -b` clean. `grep -r whistleblowing src/ modules/` returns 0 results (except in archived migrations).
+Code updates in same commit:
+- `src/lib/permissionKeys.ts` lines 33-34, 102-104, 148, 181-182: add the new keys alongside old.
+- `src/components/layout/AticsShell.tsx` `MEETINGS_NAV_PERMS`-style add `ALERTS_NAV_PERMS = ['module.view.alerts', 'alerts.committee', 'alerts.committee_confidential', 'alerts.dpo']`.
+
+Acceptance: a role that holds `whistleblowing.committee` automatically has `alerts.committee`. `/alerts` is gated by the new permission. Old code paths still work.
+
+### Phase F3 · Cross-module reference re-point  *(1 commit, vertical slice — touching consumers)*
+
+Re-point existing non-purge-target references to read from new tables:
+- `modules/meetings/useMeetingDataBindings.ts`: `whistleblowing_cases` → `alert_cases` (with `kind='whistleblowing'` filter); update `whistleblowing_anonymized` resolver. Same for `modules/meetings/lib/frameworkSignals.ts`, `modules/meetings/types.ts`, `modules/meetings/dashboards/meetingBriefingDashboardScope.ts`, `modules/meetings/dashboards/useMeetingBriefingDatasets.ts`, `modules/meetings/lib/bindingToReportModule.ts` (verify each via grep — supervisor counted 7 files in `modules/meetings/`).
+- `supabase/functions/datatilsynet-breach-report/index.ts`: read from `alert_cases where kind='gdpr_breach'` instead of `gdpr_breach_incidents`. Column mapping per migration B2.
+- `supabase/functions/compliance-audit-pdf/index.ts`: same re-point.
+- `supabase/functions/role-compliance-reconcile/index.ts`: re-point if it reads `gdpr_breach_*` view (verify via grep first).
+- `supabase/functions/gov-datatilsynet-breach/index.ts`: re-point.
+- `supabase/migrations/20260908120000_pundit_invest_demo_seed_150.sql`: rewrite the seed to insert into `alert_cases` instead of `whistleblowing_cases` (this is an active migration — must be rewritten in-place since it appears in fresh-DB apply order, before drop migrations).
+- `src/types/organization.ts` line 8: rename `whistle_public_slug` → `alerts_public_slug`. Migration `<ts>_org_alerts_public_slug_rename.sql` adds new column, copies data, drops old column. Trigger `organizations_set_whistle_slug()` → `organizations_set_alerts_slug()`.
+- `src/types/orgHealth.ts`, `src/types/documents.ts`, `src/data/workflowConditionFields.ts`, `src/data/workflowInputPresets.ts`, `src/lib/workflows/gov/govWorkflowScope.ts`, `src/pages/admin/dashboards/useComplianceDatasets.ts`, `src/pages/ComplianceAmlPage.tsx`, `src/pages/ProfilePage.tsx`, `src/pages/OrgHealthModule.tsx`, `src/pages/ProjectDashboard.tsx`, `src/pages/ComplianceDashboardPage.tsx`, `src/components/OrgGate.tsx`, `src/lib/icOverviewLayoutFromPreset.ts`, `src/components/layout/ShellHeaderWidgets.tsx` (lines 279, 288, 409 — `/workplace-reporting` quick actions): all updated to reference new tables/routes/types.
+- `src/pages/AuthPage.tsx` lines 303-307: update public-facing login page links to `/alerts/public/...`.
+
+Acceptance: every consumer outside the legacy-delete list now reads from `alert_*` tables / new routes. Meetings briefing dashboard still renders. Edge functions return data when invoked.
+
+### Phase F4 · Legacy code purge  *(1 commit, destructive)*
+
+Delete:
+- **Pages**: `src/pages/PublicWhistlePage.tsx`, `WhistleStatusPage.tsx`, `WorkplaceReportingPage.tsx`, `WorkplaceAnonymousAmlPage.tsx`, `WorkplaceAnonymousAmlSettingsPage.tsx`, `PublicAnonymousAmlPage.tsx`, `WorkplaceIncidentsPage.tsx` (only delete if grep confirms no other consumer), `admin/GdprBreachAdminPanel.tsx`.
+- **Hooks**: `src/hooks/useWhistleblowing.ts`, `useWorkplaceReportingCases.ts`.
+- **Types**: `src/types/whistleblowing.ts`.
+- **Data**: `src/data/amlAnonymousReporting.ts`, `src/data/workplaceCaseCategories.ts`, `src/data/workplaceReportingNav.ts` (verify via grep first).
+- **Lib**: `src/lib/varslingssakerLayoutFromPreset.ts`.
+- **Components**: `src/components/workplace/WorkplaceReportingCasesSection.tsx`, `src/components/workplace/WorkplaceReportingHubMenu.tsx` (verify), and any other `src/components/workplace/Workplace*Reporting*` files.
+- **App.tsx**: remove imports + route entries for the deleted pages (lines 32, 35-36, 134-135, 241-243, 315-319). Add 301-redirects from `/varsle/:slug` → `/alerts/public/:slug` and `/varsle/status` → `/alerts/public/status` (per OQ-A2 — these stay permanently, but removed from `App.tsx` per legacy purge means moved to a small redirect-table module).
+- **AdminPage.tsx**: remove `GdprBreachAdminPanel` render.
+- **AticsShell.tsx** lines 401-407, 538-542: remove `/workplace-reporting` module entry + `module.view.workplace_reporting` permission.
+- **permissionKeys.ts**: drop old keys `whistleblowing.committee`, `whistleblowing.view`, `whistleblowing.assign`, `module.view.workplace_reporting`. Migration `<ts>_alerts_drop_legacy_permissions.sql` deletes old `role_permissions` rows.
+- **ModuleShortcutGrid.tsx**: replace shortcut target.
+
+Migration in same commit:
+- `<ts>_alerts_drop_legacy_rpcs.sql`: drop `public_submit_whistleblowing`, `public_whistleblowing_status`, `public_whistleblowing_org_lookup`.
+
+Acceptance: `npx tsc -b` clean. `npx eslint .` clean. `grep -rE 'whistleblowing|WhistleblowingCase|useWhistleblowing|useWorkplaceReportingCases|GdprBreachAdminPanel|whistle_public_slug|WorkplaceAnonymousAml|PublicWhistle|WhistleStatusPage|WorkplaceReportingPage|amlAnonymousReporting|workplaceCaseCategories|varslingssakerLayoutFromPreset|workplaceReportingNav|WorkplaceReportingCasesSection|WorkplaceReportingHubMenu|public_submit_whistleblowing|public_whistleblowing_status|public_whistleblowing_org_lookup|whistleblowing.committee|whistleblowing.view|whistleblowing.assign|module.view.workplace_reporting|/workplace-reporting' src/ modules/ supabase/functions/` returns 0 results outside `supabase/migrations/archive/` and outside the new redirect-table module.
 
 ---
 
@@ -661,11 +718,21 @@ After Phase A-F ships:
 <ts+01> alerts_storage_bucket.sql               (Phase A2)
 <ts+02> alerts_seed_system_templates.sql        (Phase A3)
 <ts+03> alerts_seed_categories.sql              (Phase A4)
+<ts+04> alerts_public_status_throttle.sql       (T4 throttle table)
+<ts+05> alerts_business_days_helper.sql         (add_business_days + no_holidays)
 <ts+10> alerts_migrate_whistleblowing.sql       (Phase B1)
 <ts+11> alerts_migrate_gdpr_breach.sql          (Phase B2)
-<ts+12> alerts_drop_legacy_tables.sql           (Phase B3 — DESTRUCTIVE, requires verification gate)
-<ts+20> alerts_permission_rename.sql            (Phase F — whistleblowing.committee → alerts.committee)
-<ts+30> alerts_public_rpcs_rename.sql           (Phase F — drop public_submit_whistleblowing etc.)
+<ts+12> alerts_drop_legacy_tables.sql           (Phase B3 — DESTRUCTIVE, verification gate)
+<ts+20> alerts_org_public_slug_rename.sql       (Phase F3 — whistle_public_slug → alerts_public_slug)
+<ts+21> alerts_permission_add_new.sql           (Phase F2 — add new permission keys, copy grants)
+<ts+30> alerts_drop_legacy_rpcs.sql             (Phase F4 — drop public_submit_whistleblowing etc.)
+<ts+31> alerts_drop_legacy_permissions.sql      (Phase F4 — drop old whistleblowing.* permission keys)
+<ts+40> alerts_pundit_demo_seed_rewrite.sql     (Phase F3 — rewrite 20260908120000_pundit_invest_demo_seed_150
+                                                  by issuing a corrective migration that deletes the legacy
+                                                  whistleblowing_cases inserts and adds equivalent alert_cases inserts
+                                                  — the legacy migration itself is in an archive/active state and
+                                                  cannot be mutated retroactively per CLAUDE.md migrations contract.
+                                                  Safe path: forward migration is the way.)
 ```
 
 The +12 migration is the only destructive one. It must be guarded by a count-check that fails the transaction if migrated rows < legacy rows:
@@ -720,32 +787,62 @@ drop table public.gdpr_breach_incidents;
 
 ---
 
-## 13 · Supervisor review (open questions + sign-off)
+## 13 · Supervisor review
 
-This section is filled in by the supervisor (Plan agent / senior reviewer)
-before the spec flips to `📋 ready`. Open questions the supervisor must
-resolve:
+### 13.1 First-pass review — blockers found (revision 1)
 
-| ID | Question | Default if unanswered |
+Supervisor (Plan-agent, senior architect + compliance officer hat) returned `🚧 needs revision` with 8 hard blockers. All addressed in revision 1 — diff summary:
+
+| # | Blocker | Fix applied | Section |
+|---|---|---|---|
+| 1 | Phase F was a horizontal-layer commit bundling sidebar+routes+permissions+code purge | Split into **F1 (sidebar+routes), F2 (permission rename — dual-grant), F3 (cross-module re-point), F4 (legacy code purge + drop old permissions)** | §7 |
+| 2 | Phase F file inventory missing ~20 files including `workplace-reporting/*` subtree, 2 edge functions (`datatilsynet-breach-report`, `compliance-audit-pdf`), 7 meetings-module files, `whistle_public_slug` column rename, `organizations_set_whistle_slug` trigger, `AuthPage.tsx` public link, `AticsShell.tsx` workplace-reporting module entry, `ShellHeaderWidgets.tsx` quick actions, and 13 other src/ consumers | Expanded F3 to enumerate every consumer; F4 grep-acceptance regex expanded to cover all the new symbols; migration ordering now includes `alerts_org_public_slug_rename.sql` | §7 F3-F4, §10 |
+| 3 | Retention citations cited fabricated/wrong paragraphs (AML § 4-1 for 10y HMS; Personopplysningsloven § 5 for retention) | Replaced: AML/GDPR retention is org policy at 5y (no statutory floor); HMS at 5y default, 30y override for kjemikalie-eksponering per **Forskrift om utførelse av arbeid kap. 31**; corrected Personopplysningsloven § 5 → **GDPR Art. 5 (1) (e)** | §2 A14, §5.5 |
+| 4 | Law name `Likestillingsloven` is outdated since 2017 | Replaced both occurrences with `Likestillings- og diskrimineringsloven` | §5.1 |
+| 5 | `description` post-close-editable was identity-laundering risk | Moved `title` + `description` from allowed → rejected post-close. Corrections via append-only `alert_case_notes` | §3.4 |
+| 6 | Public RPC didn't explicitly reject unknown payload keys | Added strict key-allowlist clause + whitelist materialisation note — column-injection vector closed | §4.3 |
+| 7 | T3 IP-logging mitigation was normative not concrete | Replaced with explicit header-scrubbing code + Supabase log-retention setting + post-deploy verification command | §4.1 T3 |
+| 8 | No port story for 2 edge functions reading `gdpr_breach_incidents` | Phase F3 lists each function (`datatilsynet-breach-report`, `compliance-audit-pdf`, plus `role-compliance-reconcile`, `gov-datatilsynet-breach` if grep confirms) with re-point semantics | §7 F3 |
+
+Additional refinements applied:
+- T4 rate-limiting routed through Edge Function + DB-side `alerts_public_status_throttle` table (no PostgREST primitive existed)
+- T11 retroactive-leak vector closed by §3.5 post-close insert gate
+- §3.7 purge race fixed with `for update skip locked`; purge now also redacts `alert_case_notes.body` for reporter-facing notes
+- §3.8 added — Art. 17 erasure path (separate from retention) for identified-tier subject requests; anonymous-tier cases fall under retention only
+- §5.1 added 8th template `aml-varsel-mot-leder` per AML § 2A-2 (3) — escape-hatch with separate `alerts.committee_escalated` permission
+- §5.2 added 6th template `gdpr-brudd-lavrisiko` per Art. 33 (1) "unlikely to result in risk" exemption; excluded from `alerts_gdpr_72h_compliance` widget
+- §5.5 corrected `IK-f` first-use to full `Forskrift om systematisk helse-, miljø- og sikkerhetsarbeid (Internkontrollforskriften)`
+- §5.1 `acknowledgement_due_at` now derived via `add_business_days()` helper with Norwegian public-holiday lookup; closes calendar-vs-business-days mismatch
+- §5.1 added Straffeloven § 388 (grov korrupsjon) + § 389 (påvirkningshandel) to `aml-varsel-okonomisk-misbruk`
+- Phase E split into E1 (hub+detail) + E2 (admin+analyse) per supervisor request
+
+### 13.2 Open questions — supervisor resolutions
+
+| ID | Question | Resolution after supervisor review |
 |---|---|---|
-| OQ-A1 | hCaptcha vs Cloudflare Turnstile for §4.3 captcha layer? | **Cloudflare Turnstile** — free, no third-party tracking pixels, satisfies Datatilsynet's "data minimisation" preference. |
-| OQ-A2 | Should the legacy `/varsle/:slug` URL be **kept permanently** or **redirected for one release then dropped**? | **Permanent redirect** — printed materials and posters in worker break rooms point to `/varsle/<orgslug>`; breaking these is a real-world harm. |
-| OQ-A3 | Should `kind='gdpr_breach'` cases also be exposed in the existing `/compliance-studio` admin panel for cross-module dashboards? | **Yes**, via composite scope (mirror `hms_overview`), in a follow-up commit after Phase F. |
-| OQ-A4 | When committee membership rotates (e.g. new HR head joins), should the new member retroactively see all closed cases or only new ones? | **All non-confidential closed cases** in their org. Confidential cases require explicit re-grant. |
-| OQ-A5 | Should `severity` on `gdpr_breach` be required-at-insert (template `requiredFields`) or required-before-close? | **Required before close** — initial reporter often can't judge severity; DPO sets it during triage. |
-| OQ-A6 | Should anonymous reporters be able to **edit their own submission** within e.g. 1 hour of submitting (typo correction)? | **No** — increases T2 attack surface (de-anonymisation via session linkage). Reporters can submit a new note via access_key + a new "I'd like to add to my report" public RPC if needed. |
-| OQ-A7 | Retention purge: should it **hard-delete** rows or **redact**? | **Redact** (current spec choice) — preserves audit count statistics for AMU annual report. Hard-delete only at storage layer for attachments. |
+| OQ-A1 | hCaptcha vs Cloudflare Turnstile | **Cloudflare Turnstile** (accepted) — note that Turnstile still loads from Cloudflare in user's browser; document this in the `tpl-varslingsrutiner` policy doc and the `preparationGuidance` of public templates. |
+| OQ-A2 | Permanent `/varsle/:slug` redirect | **Yes, permanent** — moved out of `App.tsx` route table into a small `src/redirects/varsleAliases.tsx` module so the legacy aliases are isolated from the live route table. |
+| OQ-A3 | `gdpr_breach` cases in compliance-studio composite | **Yes**, follow-up commit after Phase F4. Composite scope must read `alert_cases` only with anonymity-respecting projections (no `reporter_*` columns). |
+| OQ-A4 | Committee rotation visibility into closed cases | **CHANGED per supervisor disagreement**: default is now **open cases assigned to them + metadata-only (status/kind/date) for closed cases**. Full content of closed cases requires explicit case-grant. Closes the AML § 2A-7 (5) taushetsplikt expansion risk supervisor flagged. RLS clause updated accordingly: closed cases without explicit `alert_case_grants` row return metadata-only projection. |
+| OQ-A5 | Severity required-at-insert or required-before-close | **Required before close** (accepted). Template `definition.workflowStages[].requiredFields` declares the severity field as required when transitioning to `closed`. |
+| OQ-A6 | Anonymous-reporter self-edit window | **No** (accepted). |
+| OQ-A7 | Retention: redact vs hard-delete | **Redact (default), plus separate Art. 17 hard-delete path** for identified-tier subject requests via §3.8. Two paths, two legal bases, no conflict. |
 
-**Supervisor checklist:**
+### 13.3 Supervisor checklist — post-revision
 
-- [ ] Security & anonymity threat model (§4) is complete + each threat has a concrete mitigation.
-- [ ] Compliance officer self-audit (§5.5) covers every paragraph-level law-ref the templates cite.
-- [ ] Retention defaults (3y GDPR / 5y AML / 10y HMS) match the latest Datatilsynet + Arbeidstilsynet veiledning.
-- [ ] No legacy code path left undeleted — Phase F purge list is exhaustive (cross-checked via the grep inventory in §1).
-- [ ] Public RPC contracts (§4.3) cannot be tricked into returning identity fields via cleverly-crafted parameters.
-- [ ] Storage bucket is private + signed-URL-only, never public-read.
-- [ ] Lock trigger contract (§3.4) protects every identity-bearing column from insert through purge.
+- [x] Security & anonymity threat model (§4) is complete + each threat has a **concrete** mitigation (T3, T4 strengthened; T11 retroactive-leak gate added).
+- [x] Compliance officer self-audit (§5.5) cites real paragraphs (no fabricated cross-references).
+- [x] Retention defaults documented as org policy where no statutory floor exists.
+- [x] Legacy purge inventory exhaustive — grep-acceptance regex covers every symbol surfaced by `grep -rln`.
+- [x] Public RPC contract (§4.3) rejects unknown payload keys + only inserts whitelisted columns.
+- [x] Storage bucket private + signed-URL-only, never public-read.
+- [x] Lock trigger (§3.4) protects every identity-bearing column from insert through purge; `title` + `description` now in the immutable-post-close set.
+- [x] Phase plan is vertical slices (F1-F4 each ship a working end-state).
+- [x] Art. 17 erasure path separate from retention (§3.8).
 
-**Sign-off:** `[ ] supervisor` `[ ] human owner`
+### 13.4 Sign-off
 
-When both boxes checked, flip §0 spec status to `📋 ready to execute`.
+- [x] supervisor (Plan-agent first-pass review applied; all 8 blockers resolved + 7 refinements integrated)
+- [ ] human owner
+
+Flip §0 spec status to `📋 ready to execute` when human owner signs off. Open delta to revisit: human owner may want to override OQ-A4 default back to "all non-confidential closed cases visible" if the org-policy floor is lower than the supervisor's stricter interpretation — that's a policy call, not a security defect.
