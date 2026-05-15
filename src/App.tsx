@@ -31,6 +31,21 @@ import { MeetingsHubPage } from './pages/meetings/MeetingsHubPage'
 import { MeetingsDetailView } from './pages/meetings/MeetingsDetailView'
 import { MeetingsAnalysePage } from './pages/meetings/MeetingsAnalysePage'
 import { MeetingsExportPage } from './pages/meetings/MeetingsExportPage'
+import { AlertsPage } from '../modules/alerts/pages/AlertsPage'
+import { AlertsAdminPage } from '../modules/alerts/pages/AlertsAdminPage'
+import { AlertsAnalysePage } from '../modules/alerts/pages/AlertsAnalysePage'
+import { AlertsAllePage } from '../modules/alerts/pages/AlertsAllePage'
+import { AlertsDetailView } from '../modules/alerts/pages/AlertsDetailView'
+import { PublicAlertSubmitPage } from '../modules/alerts/pages/PublicAlertSubmitPage'
+import { PublicAlertStatusPage } from '../modules/alerts/pages/PublicAlertStatusPage'
+
+// Legacy /varsle/:slug and /anonym-aml/:slug redirect to /alerts/public/:slug.
+// Kept permanently (printed materials in worker break rooms point here).
+function LegacyVarsleRedirect() {
+  const params = new URLSearchParams(window.location.search)
+  const slug = window.location.pathname.split('/').pop() ?? ''
+  return <Navigate to={`/alerts/public/${encodeURIComponent(slug)}${params.toString() ? `?${params.toString()}` : ''}`} replace />
+}
 import { AdminTemplatesPage } from './pages/admin/AdminTemplatesPage'
 import { AdminSettingsPage } from './pages/admin/AdminSettingsPage'
 import { OrganisationPage } from './pages/OrganisationPage'
@@ -233,6 +248,13 @@ const router = createBrowserRouter(
             <Route path="/signup" element={<AuthPage mode="signup" />} />
             <Route path="/platform-admin/login" element={<PlatformAdminLoginPage />} />
             <Route path="/invite/:token" element={<InviteAcceptPage />} />
+            {/* Varslinger — anonymous submission + status check */}
+            <Route path="/alerts/public/status" element={<PublicAlertStatusPage />} />
+            <Route path="/alerts/public/:slug" element={<PublicAlertSubmitPage />} />
+            {/* Legacy /varsle aliases — permanent redirect per OQ-A2 */}
+            <Route path="/varsle/status" element={<Navigate to="/alerts/public/status" replace />} />
+            <Route path="/varsle/:slug" element={<LegacyVarsleRedirect />} />
+            <Route path="/anonym-aml/:slug" element={<LegacyVarsleRedirect />} />
             <Route path="/auditor/workflows" element={<AuditorWorkflowsPage />} />
             <Route path="/survey-respond/:campaignId" element={<SurveyRespondPage />} />
             <Route path="/r/:token" element={<SharedReportPage />} />
@@ -335,6 +357,33 @@ const router = createBrowserRouter(
                       <Route path="compliance" element={<Navigate to="/compliance/checklists" replace />} />
                       {/* Avvik — now a task template in the new tasks module */}
                       <Route path="avvik" element={<Navigate to="/tasks/management?template=avvik" replace />} />
+                      {/* Varslinger module — AML kap. 2A + GDPR Art. 33 + HMS/sikkerhet/etisk */}
+                      <Route
+                        path="alerts"
+                        element={
+                          <RouteErrorBoundary title="Kunne ikke vise varslinger">
+                            <AlertsPage />
+                          </RouteErrorBoundary>
+                        }
+                      />
+                      <Route path="alerts/admin" element={<AlertsAdminPage />} />
+                      <Route
+                        path="alerts/analyse"
+                        element={
+                          <RouteErrorBoundary title="Kunne ikke vise analyse">
+                            <AlertsAnalysePage />
+                          </RouteErrorBoundary>
+                        }
+                      />
+                      <Route path="alerts/alle" element={<AlertsAllePage />} />
+                      <Route
+                        path="alerts/:caseId"
+                        element={
+                          <RouteErrorBoundary title="Kunne ikke vise sak">
+                            <AlertsDetailView />
+                          </RouteErrorBoundary>
+                        }
+                      />
                       {/* Compliance Checklist primitive — pack-aware (AML / ISO 45001) */}
                       <Route
                         path="compliance/checklists"

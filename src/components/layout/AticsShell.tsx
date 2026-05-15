@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState, type ComponentType } from 'r
 import { NavLink, Outlet, useLocation } from 'react-router-dom'
 import {
   Activity,
+  AlertTriangle,
   BarChart3,
   BookOpen,
   Boxes,
@@ -53,6 +54,7 @@ import { useDocumentNav } from '../../hooks/useDocumentNav'
 import { useRegistersNav } from '../../hooks/useRegistersNav'
 import { useTaskNav } from '../../../modules/tasks/useTaskNav'
 import { useMeetingsNav } from '../../../modules/meetings/useMeetingsNav'
+import { useAlertsNav } from '../../../modules/alerts/useAlertsNav'
 import type { NavMode } from './aticsNavMode'
 
 // ─── Sub-item type ────────────────────────────────────────────────────────────
@@ -254,6 +256,16 @@ const MEETINGS_NAV_PERMS: PermissionKey[] = [
   'module.view.dashboard',
 ]
 
+const ALERTS_NAV_PERMS: PermissionKey[] = [
+  'module.view.alerts',
+  'alerts.committee',
+  'alerts.committee_confidential',
+  'alerts.committee_escalated',
+  'alerts.dpo',
+  'alerts.manage',
+  'module.view.dashboard',
+]
+
 
 function filterNavGroups(
   groups: NavGroup[],
@@ -444,6 +456,7 @@ export function AticsShell() {
   const registersNav = useRegistersNav()
   const tasksNav = useTaskNav()
   const meetingsNav = useMeetingsNav()
+  const alertsNav = useAlertsNav()
   const { isActive: isRegulationActive, activeRegulationIds } = useRegulationFilter()
   const mergedNavGroups = useMemo<NavGroup[]>(() => {
     // Fixed sub-entries that always sit under "Sjekklister" — Analyse and
@@ -1441,6 +1454,93 @@ export function AticsShell() {
       ],
     }
 
+    // Varslinger — top-level module, same shape as Sjekklister: fixed
+    // Analyse / Alle / Innstillinger + pinned templates grouped by category.
+    const alertsFixedSubs: SubItem[] = [
+      {
+        label: 'Analyse',
+        path: '/alerts/analyse',
+        Icon: BarChart3,
+        match: ({ pathname }) => pathname === '/alerts/analyse',
+        requirePermAny: ALERTS_NAV_PERMS,
+      },
+      {
+        label: 'Alle saker',
+        path: '/alerts/alle',
+        match: ({ pathname }) => pathname === '/alerts/alle',
+        requirePermAny: ALERTS_NAV_PERMS,
+      },
+      {
+        label: 'Innstillinger',
+        path: '/alerts/admin',
+        Icon: Settings,
+        match: ({ pathname }) => pathname.startsWith('/alerts/admin'),
+        requirePerm: 'alerts.manage',
+      },
+    ]
+    const alertsPinnedSubs: SubItem[] = (() => {
+      const pinned = alertsNav.items.filter((it) => it.navPinned)
+      if (pinned.length === 0) return []
+      const buckets = new Map<string, typeof pinned>()
+      for (const it of pinned) {
+        const list = buckets.get(it.headerKey) ?? []
+        list.push(it)
+        buckets.set(it.headerKey, list)
+      }
+      const orderedCats = alertsNav.categories
+        .filter((c) => buckets.has(c.id))
+        .sort((a, b) => a.position - b.position || a.name.localeCompare(b.name, 'nb'))
+      const uncategorised = buckets.has('__uncat__') ? [{ id: '__uncat__', name: 'Uten kategori' }] : []
+      const orderedKeys = [...orderedCats.map((c) => ({ id: c.id, name: c.name })), ...uncategorised]
+      const showHeaders = orderedKeys.length > 1
+      const subs: SubItem[] = []
+      for (const cat of orderedKeys) {
+        const list = buckets.get(cat.id) ?? []
+        if (list.length === 0) continue
+        if (showHeaders) {
+          subs.push({
+            kind: 'header',
+            label: cat.name,
+            path: `__cat:${cat.id}`,
+            match: () => false,
+            headerKey: cat.id,
+            Icon: FolderTree,
+            requirePermAny: ALERTS_NAV_PERMS,
+          })
+        }
+        for (const item of list) {
+          subs.push({
+            label: item.templateName,
+            path: item.to,
+            match: ({ pathname, search }) => {
+              if (pathname !== '/alerts') return false
+              return new URLSearchParams(search).get('template') === item.templateId
+            },
+            headerKey: showHeaders ? cat.id : undefined,
+            requirePermAny: ALERTS_NAV_PERMS,
+          })
+        }
+      }
+      return subs
+    })()
+    const alertsGroup: NavGroup = {
+      id: 'varslinger',
+      label: 'Varslinger',
+      icon: AlertTriangle,
+      modules: [
+        {
+          to: '/alerts',
+          label: 'Varslinger',
+          end: false,
+          icon: AlertTriangle,
+          subs: [...alertsFixedSubs, ...alertsPinnedSubs],
+          permAny: ALERTS_NAV_PERMS,
+          moduleSlug: 'alerts',
+          flatSubs: true,
+        },
+      ],
+    }
+
     // Composite "Oversikt" group — sits at the top of the merged nav
     // since it's the org-wide entry point that pulls in widgets from
     // every other module group below it.
@@ -1490,7 +1590,7 @@ export function AticsShell() {
       ],
     }
 
-    return [hmsOverviewGroup, complianceGroup, surveyGroup, documentsGroup, meetingsGroup, registersGroup, tasksGroup, learningGroup, adminGroup]
+    return [hmsOverviewGroup, complianceGroup, surveyGroup, documentsGroup, meetingsGroup, alertsGroup, registersGroup, tasksGroup, learningGroup, adminGroup]
   }, [
     complianceNav.items,
     complianceNav.categories,
