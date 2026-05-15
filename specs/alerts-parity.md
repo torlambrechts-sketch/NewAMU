@@ -644,6 +644,7 @@ Delete:
 - **App.tsx**: remove imports + route entries for the deleted pages (lines 32, 35-36, 134-135, 241-243, 315-319). Add 301-redirects from `/varsle/:slug` → `/alerts/public/:slug` and `/varsle/status` → `/alerts/public/status` (per OQ-A2 — these stay permanently, but removed from `App.tsx` per legacy purge means moved to a small redirect-table module).
 - **AdminPage.tsx**: remove `GdprBreachAdminPanel` render.
 - **AticsShell.tsx** lines 401-407, 538-542: remove `/workplace-reporting` module entry + `module.view.workplace_reporting` permission.
+- **Compliance checklist template `varsling-handtering-logg`** (Varslingssak – håndteringslogg) — its purpose (per-case handling log) is now fully covered by `alert_cases` + `alert_case_timeline_events` + per-template `committeeChecklistItems`. Drop via migration that removes the row from every org's `compliance_checklist_templates`. **Cross-module dedup review (audit in this session)**: confirmed no other compliance/survey/meetings/documents templates duplicate the alerts module — they're complementary (compliance reviews routines annually, documents holds the policy, meetings convene the committee, surveys measure culture, alerts records the incidents).
 - **permissionKeys.ts**: drop old keys `whistleblowing.committee`, `whistleblowing.view`, `whistleblowing.assign`, `module.view.workplace_reporting`. Migration `<ts>_alerts_drop_legacy_permissions.sql` deletes old `role_permissions` rows.
 - **ModuleShortcutGrid.tsx**: replace shortcut target.
 
