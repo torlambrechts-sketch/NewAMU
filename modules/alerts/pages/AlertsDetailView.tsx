@@ -6,6 +6,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { ArrowLeft, Lock, AlertTriangle } from 'lucide-react'
 import { ModulePageShell } from '../../../src/components/module/ModulePageShell'
+import { ModuleSectionCard } from '../../../src/components/module/ModuleSectionCard'
 import { Badge } from '../../../src/components/ui/Badge'
 import { Button } from '../../../src/components/ui/Button'
 import { StandardTextarea } from '../../../src/components/ui/Textarea'
@@ -112,7 +113,7 @@ export function AlertsDetailView() {
       </div>
 
       {isClosed ? (
-        <div className="flex items-center gap-2 rounded-none border border-amber-200 bg-amber-50 px-4 py-2 text-xs text-amber-900">
+        <div className="flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-4 py-2 text-xs text-amber-900">
           <AlertTriangle className="size-3" />
           Saken er lukket {new Date(c.closed_at!).toLocaleDateString('no-NO')}. Identitetsfelt og lukkenotater er låst.
         </div>
@@ -133,14 +134,14 @@ export function AlertsDetailView() {
 
       {tab === 'info' ? (
         <section className="space-y-4">
-          <div className="rounded-none border border-neutral-200 bg-white p-6">
+          <ModuleSectionCard className="p-6">
             <h3 className="text-sm font-semibold">Beskrivelse</h3>
             <p className="mt-2 whitespace-pre-wrap text-sm text-neutral-800">{c.description || '—'}</p>
             {c.occurred_at_text ? <p className="mt-3 text-xs text-neutral-500">Tidspunkt (fritekst): {c.occurred_at_text}</p> : null}
-          </div>
+          </ModuleSectionCard>
 
           {!isClosed && alerts.canManage ? (
-            <div className="rounded-none border border-neutral-200 bg-white p-6">
+            <ModuleSectionCard className="p-6">
               <h3 className="text-sm font-semibold">Saksbehandling</h3>
               <div className="mt-3 grid gap-3 sm:grid-cols-2">
                 <div>
@@ -164,11 +165,11 @@ export function AlertsDetailView() {
                 Bekreftelse forventes innen: <strong>{new Date(c.acknowledgement_due_at).toLocaleString('no-NO')}</strong>
                 {c.investigation_due_at ? <> · Etterforskning-frist: <strong>{new Date(c.investigation_due_at).toLocaleString('no-NO')}</strong></> : null}
               </p>
-            </div>
+            </ModuleSectionCard>
           ) : null}
 
           {c.kind === 'gdpr_breach' ? (
-            <div className="rounded-none border border-neutral-200 bg-white p-6">
+            <ModuleSectionCard className="p-6">
               <h3 className="text-sm font-semibold">GDPR-detaljer</h3>
               <dl className="mt-2 grid gap-2 text-xs sm:grid-cols-2">
                 <div><dt className="text-neutral-500">Brudd-type</dt><dd>{c.breach_type ?? '—'}</dd></div>
@@ -178,13 +179,13 @@ export function AlertsDetailView() {
                 <div><dt className="text-neutral-500">Berørte varslet</dt><dd>{c.data_subjects_notified_at ? new Date(c.data_subjects_notified_at).toLocaleString('no-NO') : '—'}</dd></div>
                 <div><dt className="text-neutral-500">Referanse hos DT</dt><dd>{c.datatilsynet_reference ?? '—'}</dd></div>
               </dl>
-            </div>
+            </ModuleSectionCard>
           ) : null}
         </section>
       ) : null}
 
       {tab === 'timeline' ? (
-        <section className="rounded-none border border-neutral-200 bg-white">
+        <ModuleSectionCard>
           {alerts.detail.timeline.length === 0 ? (
             <p className="px-6 py-8 text-center text-sm text-neutral-500">Ingen hendelser.</p>
           ) : (
@@ -197,12 +198,12 @@ export function AlertsDetailView() {
               ))}
             </ul>
           )}
-        </section>
+        </ModuleSectionCard>
       ) : null}
 
       {tab === 'notes' ? (
         <section className="space-y-3">
-          <div className="rounded-none border border-neutral-200 bg-white">
+          <ModuleSectionCard>
             {alerts.detail.notes.length === 0 ? (
               <p className="px-6 py-8 text-center text-sm text-neutral-500">Ingen notater.</p>
             ) : (
@@ -219,10 +220,10 @@ export function AlertsDetailView() {
                 ))}
               </ul>
             )}
-          </div>
+          </ModuleSectionCard>
 
           {alerts.canManage ? (
-            <div className="rounded-none border border-neutral-200 bg-white p-4">
+            <ModuleSectionCard className="p-4">
               <StandardTextarea
                 rows={3}
                 value={newNote}
@@ -239,13 +240,13 @@ export function AlertsDetailView() {
                 </Button>
               </div>
               <p className="mt-2 text-[10px] text-neutral-500">Notater er uforanderlige etter publisering (AML § 2A-7 (5) revisjonsspor).</p>
-            </div>
+            </ModuleSectionCard>
           ) : null}
         </section>
       ) : null}
 
       {tab === 'attachments' ? (
-        <section className="rounded-none border border-neutral-200 bg-white">
+        <ModuleSectionCard>
           {alerts.detail.attachments.length === 0 ? (
             <p className="px-6 py-8 text-center text-sm text-neutral-500">Ingen vedlegg.</p>
           ) : (
@@ -261,11 +262,11 @@ export function AlertsDetailView() {
               ))}
             </ul>
           )}
-        </section>
+        </ModuleSectionCard>
       ) : null}
 
       {tab === 'close' && !isClosed && alerts.canManage ? (
-        <section className="rounded-none border border-neutral-200 bg-white p-6">
+        <ModuleSectionCard className="p-6">
           <h3 className="text-sm font-semibold">Lukk saken</h3>
           <p className="mt-1 text-xs text-neutral-500">Etter lukking er identitet og lukke-felt låst. Korreksjoner skjer som nye notater.</p>
           <div className="mt-4 space-y-3">
@@ -289,14 +290,14 @@ export function AlertsDetailView() {
               Lukk sak
             </Button>
           </div>
-        </section>
+        </ModuleSectionCard>
       ) : tab === 'close' && isClosed ? (
-        <section className="rounded-none border border-neutral-200 bg-white p-6">
+        <ModuleSectionCard className="p-6">
           <p className="text-sm">Saken er lukket {new Date(c.closed_at!).toLocaleString('no-NO')}.</p>
           {c.closing_outcome ? <p className="mt-1 text-sm text-neutral-700">Utfall: {c.closing_outcome}</p> : null}
           {c.closing_summary ? <p className="mt-2 whitespace-pre-wrap text-sm text-neutral-800">{c.closing_summary}</p> : null}
           {c.retention_until ? <p className="mt-3 text-xs text-neutral-500">Oppbevaringsfrist: {new Date(c.retention_until).toLocaleDateString('no-NO')}</p> : null}
-        </section>
+        </ModuleSectionCard>
       ) : null}
     </ModulePageShell>
   )

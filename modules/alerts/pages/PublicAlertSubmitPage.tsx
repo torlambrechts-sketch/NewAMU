@@ -18,7 +18,7 @@ import type { AlertSystemTemplateRow, AlertPublicFormField, AlertPiiHint } from 
 import { parseSystemTemplateRow } from '../types'
 import { ALERT_KIND_LABEL } from '../alertsLabels'
 
-const R = 'rounded-none'
+const R = 'rounded-lg'
 
 function piiHintLabel(hint: AlertPiiHint | undefined): string | null {
   if (!hint || hint === 'low') return null

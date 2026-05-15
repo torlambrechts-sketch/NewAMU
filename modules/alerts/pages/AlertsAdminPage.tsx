@@ -5,6 +5,7 @@ import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { ArrowLeft, Plus, Trash2 } from 'lucide-react'
 import { ModulePageShell } from '../../../src/components/module/ModulePageShell'
+import { ModuleSectionCard } from '../../../src/components/module/ModuleSectionCard'
 import { Badge } from '../../../src/components/ui/Badge'
 import { Button } from '../../../src/components/ui/Button'
 import { StandardInput } from '../../../src/components/ui/Input'
@@ -23,7 +24,7 @@ export function AlertsAdminPage() {
   if (!alerts.canManage) {
     return (
       <ModulePageShell breadcrumb={[{ label: 'Varslinger', to: '/alerts' }, { label: 'Innstillinger' }]} title="Innstillinger">
-        <div className="rounded-none border border-red-200 bg-red-50 p-6 text-sm text-red-700">
+        <div className="rounded-lg border border-red-200 bg-red-50 p-6 text-sm text-red-700">
           Du har ikke tilgang til å redigere varslings-innstillinger.
         </div>
       </ModulePageShell>
@@ -60,7 +61,7 @@ export function AlertsAdminPage() {
 
 function TemplatesTab({ alerts }: { alerts: ReturnType<typeof useAlerts> }) {
   return (
-    <section className="rounded-none border border-neutral-200 bg-white">
+    <ModuleSectionCard>
       <div className="border-b border-neutral-100 px-6 py-3"><h2 className="text-sm font-semibold">Aktive maler</h2></div>
       <table className="w-full text-sm">
         <thead className="border-b border-neutral-200 bg-neutral-50 text-xs uppercase text-neutral-600">
@@ -104,7 +105,7 @@ function TemplatesTab({ alerts }: { alerts: ReturnType<typeof useAlerts> }) {
           })}
         </tbody>
       </table>
-    </section>
+    </ModuleSectionCard>
   )
 }
 
@@ -124,7 +125,7 @@ function CategoriesTab({ alerts, sortedCats }: { alerts: ReturnType<typeof useAl
 
   return (
     <div className="space-y-4">
-      <section className="rounded-none border border-neutral-200 bg-white">
+      <ModuleSectionCard>
         <div className="border-b border-neutral-100 px-6 py-3"><h2 className="text-sm font-semibold">Kategorier</h2></div>
         <table className="w-full text-sm">
           <thead className="border-b border-neutral-200 bg-neutral-50 text-xs uppercase text-neutral-600">
@@ -158,9 +159,9 @@ function CategoriesTab({ alerts, sortedCats }: { alerts: ReturnType<typeof useAl
             ))}
           </tbody>
         </table>
-      </section>
+      </ModuleSectionCard>
 
-      <section className="rounded-none border border-neutral-200 bg-white p-6">
+      <ModuleSectionCard className="p-6">
         <h2 className="text-sm font-semibold">Ny kategori</h2>
         <div className="mt-3 grid gap-3 sm:grid-cols-3">
           <div>
@@ -181,7 +182,7 @@ function CategoriesTab({ alerts, sortedCats }: { alerts: ReturnType<typeof useAl
             Legg til
           </Button>
         </div>
-      </section>
+      </ModuleSectionCard>
     </div>
   )
 }
@@ -198,7 +199,7 @@ function RetentionTab({ alerts }: { alerts: ReturnType<typeof useAlerts> }) {
   }
 
   return (
-    <section className="rounded-none border border-neutral-200 bg-white">
+    <ModuleSectionCard>
       <div className="border-b border-neutral-100 px-6 py-3">
         <h2 className="text-sm font-semibold">Oppbevaring per mal</h2>
         <p className="mt-1 text-xs text-neutral-500">Du kan utvide oppbevaringsfristen (aldri kortere enn standardverdien). Eksempel: HMS-avvik knyttet til kjemikalie-eksponering → 30 år (Forskrift om utførelse av arbeid kap. 31).</p>
@@ -238,6 +239,6 @@ function RetentionTab({ alerts }: { alerts: ReturnType<typeof useAlerts> }) {
           })}
         </tbody>
       </table>
-    </section>
+    </ModuleSectionCard>
   )
 }

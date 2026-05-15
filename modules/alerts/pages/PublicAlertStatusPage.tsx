@@ -10,7 +10,7 @@ import { getSupabaseBrowserClient } from '../../../src/lib/supabaseClient'
 import { ALERT_STATUS_LABEL } from '../alertsLabels'
 import type { AlertStatus } from '../types'
 
-const R = 'rounded-none'
+const R = 'rounded-lg'
 
 type StatusResult =
   | { found: false }
