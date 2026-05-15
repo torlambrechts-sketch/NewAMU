@@ -113,6 +113,8 @@ export type ModuleContent =
       keyTakeaways?: string[]
       /** Strategic advice block for managers — rendered as a callout */
       leadershipInsight?: string
+      /** Common mistakes / pitfalls to avoid — rendered as a 🚨 alert callout */
+      commonPitfalls?: string[]
     }
   | { kind: 'flashcard'; slides: FlashcardSlide[] }
   | {

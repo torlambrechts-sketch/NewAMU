@@ -4,6 +4,7 @@ import {
   Activity,
   BarChart3,
   BookOpen,
+  Boxes,
   Building2,
   ChevronDown,
   Database,
@@ -12,6 +13,7 @@ import {
   FileText,
   FolderTree,
   GraduationCap,
+  History,
   Home,
   Kanban,
   LayoutTemplate,
@@ -117,12 +119,43 @@ function visibleSubs(
   return out
 }
 
-// Permission gate for the umbrella Admin menu. Strict — only org
-// administrators / role managers see it. Sub-pages enforce their own
-// page-level perms.
-const ADMIN_NAV_PERMS: PermissionKey[] = [
+// Permission gates for the umbrella Administrasjon menu and its 5
+// modules. The umbrella gate (`ADMINISTRASJON_NAV_PERMS`) hides the
+// whole group from non-admins; the per-module gates filter which of
+// the 5 modules a specialist role (DPO, integrasjonsansvarlig,
+// workflow-eier) sees. Sub-pages enforce their own page-level perms.
+const ADMINISTRASJON_NAV_PERMS: PermissionKey[] = [
   'module.view.admin',
   'users.manage',
+  'users.invite',
+  'roles.manage',
+  'employee.manage',
+  'workflows.manage',
+  'module.view.workflow',
+]
+const ORG_NAV_PERMS: PermissionKey[] = [
+  'module.view.admin',
+  'users.manage',
+  'employee.manage',
+]
+const USERS_ROLES_NAV_PERMS: PermissionKey[] = [
+  'users.manage',
+  'users.invite',
+  'roles.manage',
+  'delegation.manage',
+]
+const INTEGRATIONS_NAV_PERMS: PermissionKey[] = [
+  'module.view.admin',
+  'workflows.manage',
+]
+const WORKFLOWS_NAV_PERMS: PermissionKey[] = [
+  'workflows.manage',
+  'workflows.compose',
+  'module.view.workflow',
+  'module.view.admin',
+]
+const SETTINGS_NAV_PERMS: PermissionKey[] = [
+  'module.view.admin',
   'roles.manage',
 ]
 
@@ -932,131 +965,264 @@ export function AticsShell() {
       ],
     }
 
-    // Admin group — umbrella for company configuration, user
-    // management, access rights, and the cross-module template
-    // browser. Most sub-entries deep-link to existing surfaces
-    // (OrganisationPage tabs, AdminPage); only Maler is a new page.
-    const adminFixedSubs: SubItem[] = [
+    // Administrasjon group — single top-level umbrella for company
+    // configuration, user / access management, integrations, workflow
+    // automation, and system settings. Each of the five modules below
+    // is a registered scope in `settingsRegistry`; the subs deep-link
+    // to `/admin/settings/<scope>/<section>` so external bookmarks and
+    // email links resolve to the same shell.
+    //
+    // Per-module nav perm constants (declared near the top of this
+    // file) make sure a specialist role — e.g. integrasjons­ansvarlig
+    // with only `workflows.manage` — sees the Integrasjoner/Arbeidsflyt
+    // modules but not the rest.
+    const isAdminSettings = (scope: string, section?: string) =>
+      ({ pathname }: { pathname: string; search: string }) => {
+        if (!pathname.startsWith(`/admin/settings/${scope}`)) return false
+        if (!section) return true
+        return pathname === `/admin/settings/${scope}/${section}` ||
+          pathname.startsWith(`/admin/settings/${scope}/${section}/`)
+      }
+    const organisationSubs: SubItem[] = [
       {
-        label: 'Innstillinger',
-        path: '/admin/settings',
-        Icon: Settings,
-        match: ({ pathname }) => pathname.startsWith('/admin/settings'),
-        requirePermAny: ADMIN_NAV_PERMS,
+        label: 'Analyse',
+        path: '/admin/settings/organisation/analyse',
+        Icon: BarChart3,
+        match: isAdminSettings('organisation', 'analyse'),
+        requirePermAny: ORG_NAV_PERMS,
       },
       {
         label: 'Selskap',
-        path: '/organisation',
+        path: '/admin/settings/organisation/company',
         Icon: Building2,
-        match: ({ pathname, search }) =>
-          pathname === '/organisation' &&
-          (() => {
-            const tab = new URLSearchParams(search).get('tab')
-            return !tab || tab === 'insights' || tab === 'settings'
-          })(),
-        requirePermAny: ADMIN_NAV_PERMS,
+        match: isAdminSettings('organisation', 'company'),
+        requirePermAny: ORG_NAV_PERMS,
       },
       {
-        label: 'Ansatte & enheter',
-        path: '/organisation?tab=employees',
-        match: ({ pathname, search }) => {
-          if (pathname !== '/organisation') return false
-          const tab = new URLSearchParams(search).get('tab')
-          return tab === 'employees' || tab === 'units'
-        },
-        requirePermAny: ADMIN_NAV_PERMS,
+        label: 'Avdelinger & enheter',
+        path: '/admin/settings/organisation/units',
+        Icon: FolderTree,
+        match: isAdminSettings('organisation', 'units'),
+        requirePermAny: ORG_NAV_PERMS,
       },
       {
-        label: 'Brukere & roller',
-        path: '/organisation/admin',
+        label: 'Ansatte',
+        path: '/admin/settings/organisation/employees',
         Icon: Users,
-        match: ({ pathname, search }) => {
-          if (!pathname.startsWith('/organisation/admin')) return false
-          const tab = new URLSearchParams(search).get('tab')
-          return !tab || tab === 'users' || tab === 'roles' || tab === 'delegation'
-        },
-        requirePermAny: ADMIN_NAV_PERMS,
+        match: isAdminSettings('organisation', 'employees'),
+        requirePermAny: ORG_NAV_PERMS,
       },
       {
-        label: 'Tilgang & verv',
-        path: '/organisation?tab=mandates',
-        match: ({ pathname, search }) => {
-          if (pathname !== '/organisation') return false
-          const tab = new URLSearchParams(search).get('tab')
-          return tab === 'mandates' || tab === 'groups'
-        },
-        requirePermAny: ADMIN_NAV_PERMS,
+        label: 'Mandater & verv',
+        path: '/admin/settings/organisation/mandates',
+        Icon: UserCheck,
+        match: isAdminSettings('organisation', 'mandates'),
+        requirePermAny: ORG_NAV_PERMS,
+      },
+    ]
+    const usersRolesSubs: SubItem[] = [
+      {
+        label: 'Interne brukere',
+        path: '/admin/settings/users-roles/internal',
+        Icon: Users,
+        match: isAdminSettings('users-roles', 'internal'),
+        requirePermAny: ['users.manage', 'users.invite'],
+      },
+      {
+        label: 'Eksterne brukere',
+        path: '/admin/settings/users-roles/external',
+        Icon: UserSearch,
+        match: isAdminSettings('users-roles', 'external'),
+        requirePermAny: ['users.manage'],
+      },
+      {
+        label: 'Roller & tilganger',
+        path: '/admin/settings/users-roles/roles',
+        Icon: ShieldCheck,
+        match: isAdminSettings('users-roles', 'roles'),
+        requirePerm: 'roles.manage',
+      },
+      {
+        label: 'Funksjonelle roller',
+        path: '/admin/settings/users-roles/functional-roles',
+        Icon: UserCheck,
+        match: isAdminSettings('users-roles', 'functional-roles'),
+        requirePermAny: USERS_ROLES_NAV_PERMS,
+      },
+      {
+        label: 'Delegering',
+        path: '/admin/settings/users-roles/delegation',
+        Icon: Users,
+        match: isAdminSettings('users-roles', 'delegation'),
+        requirePermAny: ['roles.manage', 'delegation.manage'],
+      },
+      {
+        label: 'Rolle-compliance',
+        path: '/admin/settings/users-roles/role-compliance',
+        Icon: BarChart3,
+        match: isAdminSettings('users-roles', 'role-compliance'),
+        requirePermAny: USERS_ROLES_NAV_PERMS,
+      },
+    ]
+    const integrationsSubs: SubItem[] = [
+      {
+        label: 'Tilkoblede tjenester',
+        path: '/admin/settings/integrations/providers',
+        Icon: Plug,
+        match: isAdminSettings('integrations', 'providers'),
+        requirePermAny: INTEGRATIONS_NAV_PERMS,
+      },
+      {
+        label: 'Statlige integrasjoner',
+        path: '/admin/settings/integrations/gov',
+        Icon: ShieldCheck,
+        match: isAdminSettings('integrations', 'gov'),
+        requirePermAny: INTEGRATIONS_NAV_PERMS,
+      },
+      {
+        label: 'Webhooks & API',
+        path: '/admin/settings/integrations/webhooks',
+        Icon: Plug,
+        match: isAdminSettings('integrations', 'webhooks'),
+        requirePermAny: ['roles.manage', 'workflows.manage'],
+      },
+    ]
+    const workflowsSubs: SubItem[] = [
+      {
+        label: 'Analyse',
+        path: '/admin/settings/workflows/analyse',
+        Icon: BarChart3,
+        match: isAdminSettings('workflows', 'analyse'),
+        requirePermAny: WORKFLOWS_NAV_PERMS,
+      },
+      {
+        label: 'Regler',
+        path: '/admin/settings/workflows/rules',
+        Icon: Workflow,
+        match: isAdminSettings('workflows', 'rules'),
+        requirePermAny: ['workflows.manage', 'workflows.compose'],
+      },
+      {
+        label: 'Kjøringer',
+        path: '/admin/settings/workflows/runs',
+        Icon: History,
+        match: isAdminSettings('workflows', 'runs'),
+        requirePermAny: ['workflows.manage', 'module.view.workflow'],
+      },
+      {
+        label: 'Maler',
+        path: '/admin/settings/workflows/templates',
+        Icon: LayoutTemplate,
+        match: isAdminSettings('workflows', 'templates'),
+        requirePerm: 'workflows.manage',
+      },
+      {
+        label: 'Auditor-tilganger',
+        path: '/admin/settings/workflows/auditors',
+        Icon: UserSearch,
+        match: isAdminSettings('workflows', 'auditors'),
+        requirePerm: 'workflows.manage',
+      },
+    ]
+    const settingsSubs: SubItem[] = [
+      {
+        label: 'Generelt',
+        path: '/admin/settings/settings/general',
+        Icon: Settings,
+        match: isAdminSettings('settings', 'general'),
+        requirePermAny: SETTINGS_NAV_PERMS,
+      },
+      {
+        label: 'Sikkerhet',
+        path: '/admin/settings/settings/security',
+        Icon: ScrollText,
+        match: isAdminSettings('settings', 'security'),
+        requirePermAny: SETTINGS_NAV_PERMS,
+      },
+      {
+        label: 'Revisjonslogg',
+        path: '/workspace/revisjonslogg',
+        Icon: History,
+        match: ({ pathname }) => pathname.startsWith('/workspace/revisjonslogg'),
+        requirePermAny: SETTINGS_NAV_PERMS,
+      },
+      {
+        label: 'Personvern & GDPR',
+        path: '/admin/settings/settings/privacy',
+        Icon: ShieldAlert,
+        match: isAdminSettings('settings', 'privacy'),
+        requirePermAny: SETTINGS_NAV_PERMS,
       },
       {
         label: 'Maler',
         path: '/admin/templates',
         Icon: LayoutTemplate,
         match: ({ pathname }) => pathname === '/admin/templates',
-        requirePermAny: ADMIN_NAV_PERMS,
+        requirePermAny: SETTINGS_NAV_PERMS,
       },
       {
-        label: 'Funksjonelle roller',
-        path: '/organisation/admin?tab=functional_roles',
-        Icon: UserCheck,
-        match: ({ pathname, search }) =>
-          pathname.startsWith('/organisation/admin') &&
-          new URLSearchParams(search).get('tab') === 'functional_roles',
-        requirePermAny: ADMIN_NAV_PERMS,
+        label: 'Modul-konfigurasjon',
+        path: '/admin/modules',
+        Icon: Boxes,
+        match: ({ pathname }) => pathname.startsWith('/admin/modules'),
+        requirePermAny: SETTINGS_NAV_PERMS,
       },
       {
-        label: 'GDPR brudd',
-        path: '/organisation/admin?tab=gdpr_breach',
-        Icon: ShieldAlert,
-        match: ({ pathname, search }) =>
-          pathname.startsWith('/organisation/admin') &&
-          new URLSearchParams(search).get('tab') === 'gdpr_breach',
-        requirePermAny: ADMIN_NAV_PERMS,
-      },
-      {
-        label: 'GDPR individrettigheter',
-        path: '/organisation/admin?tab=gdpr_subject_requests',
-        Icon: UserSearch,
-        match: ({ pathname, search }) =>
-          pathname.startsWith('/organisation/admin') &&
-          new URLSearchParams(search).get('tab') === 'gdpr_subject_requests',
-        requirePermAny: ADMIN_NAV_PERMS,
-      },
-      {
-        label: 'Integrasjoner',
-        path: '/organisation/admin?tab=integrations',
-        Icon: Plug,
-        match: ({ pathname, search }) =>
-          pathname.startsWith('/organisation/admin') &&
-          new URLSearchParams(search).get('tab') === 'integrations',
-        requirePermAny: ADMIN_NAV_PERMS,
-      },
-      {
-        label: 'Automatisering',
-        path: '/workflow',
-        Icon: Workflow,
-        match: ({ pathname }) => pathname.startsWith('/workflow'),
-        requirePermAny: ADMIN_NAV_PERMS,
-      },
-      {
-        label: 'Statlige integrasjoner',
-        path: '/admin/integrasjoner-staten',
-        Icon: ShieldCheck,
-        match: ({ pathname }) => pathname.startsWith('/admin/integrasjoner-staten'),
-        requirePermAny: ADMIN_NAV_PERMS,
+        label: 'Plan & abonnement',
+        path: '/admin/settings/settings/plan',
+        Icon: BookOpen,
+        match: isAdminSettings('settings', 'plan'),
+        requirePermAny: SETTINGS_NAV_PERMS,
       },
     ]
     const adminGroup: NavGroup = {
-      id: 'organisasjon',
-      label: 'Organisasjon',
-      icon: Building2,
+      id: 'administrasjon',
+      label: 'Administrasjon',
+      icon: Settings,
       modules: [
         {
-          to: '/organisation',
+          to: '/admin/settings/organisation',
           label: 'Organisasjon',
           end: false,
           icon: Building2,
-          subs: adminFixedSubs,
-          permAny: ADMIN_NAV_PERMS,
+          subs: organisationSubs,
+          permAny: ORG_NAV_PERMS,
+          flatSubs: true,
+        },
+        {
+          to: '/admin/settings/users-roles',
+          label: 'Brukere & roller',
+          end: false,
+          icon: Users,
+          subs: usersRolesSubs,
+          permAny: USERS_ROLES_NAV_PERMS,
+          flatSubs: true,
+        },
+        {
+          to: '/admin/settings/integrations',
+          label: 'Integrasjoner',
+          end: false,
+          icon: Plug,
+          subs: integrationsSubs,
+          permAny: INTEGRATIONS_NAV_PERMS,
+          flatSubs: true,
+        },
+        {
+          to: '/admin/settings/workflows',
+          label: 'Arbeidsflyt',
+          end: false,
+          icon: Workflow,
+          subs: workflowsSubs,
+          permAny: WORKFLOWS_NAV_PERMS,
+          flatSubs: true,
+        },
+        {
+          to: '/admin/settings/settings',
+          label: 'Innstillinger',
+          end: false,
+          icon: Settings,
+          subs: settingsSubs,
+          permAny: SETTINGS_NAV_PERMS,
           flatSubs: true,
         },
       ],
@@ -1261,14 +1427,14 @@ export function AticsShell() {
         path: '/overview/regelverk',
         Icon: ScrollText,
         match: ({ pathname }) => pathname.startsWith('/overview/regelverk'),
-        requirePermAny: ADMIN_NAV_PERMS,
+        requirePermAny: ADMINISTRASJON_NAV_PERMS,
       },
       {
         label: 'Compliance Studio',
         path: '/compliance-studio',
         Icon: Wand2,
         match: ({ pathname }) => pathname.startsWith('/compliance-studio'),
-        requirePermAny: ADMIN_NAV_PERMS,
+        requirePermAny: ADMINISTRASJON_NAV_PERMS,
       },
     ]
     const hmsOverviewGroup: NavGroup = {

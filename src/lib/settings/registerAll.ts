@@ -9,8 +9,12 @@
 // Order doesn't matter at runtime (scopes are sorted by group + order in
 // `listSettingsScopes`), but keep it human-readable by group.
 
-// Organisasjon group
-import '../../components/admin/settings/scopes/orgSettingsScope'
+// Administrasjon group — the five top-level admin areas.
+import '../../components/admin/settings/scopes/organisationSettingsScope'
+import '../../components/admin/settings/scopes/usersRolesSettingsScope'
+import '../../components/admin/settings/scopes/integrationsSettingsScope'
+import '../../components/admin/settings/scopes/workflowsSettingsScope'
+import '../../components/admin/settings/scopes/systemSettingsScope'
 
 // Module group — added as each module migrates.
 import '../../../modules/compliance/settings/complianceSettingsScope'
@@ -20,11 +24,3 @@ import '../../components/survey/settings/surveySettingsScope'
 import '../../pages/learning/learningSettingsScope'
 import '../../pages/registers/registersSettingsScope'
 import '../../pages/meetings/meetingsSettingsScope'
-// import '../../pages/meetings/meetingsSettingsScope'
-// import '../../../modules/compliance/settings/complianceSettingsScope'
-// import '../../../modules/tasks/settings/tasksSettingsScope'
-// import '../../../modules/survey/settings/surveySettingsScope'
-// import '../../pages/learning/learningSettingsScope'
-
-// System group
-// import '../../components/admin/settings/scopes/systemSettingsScope'

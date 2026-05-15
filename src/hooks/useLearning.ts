@@ -566,7 +566,26 @@ function moduleFromCatalogJson(raw: Record<string, unknown>): CourseModule | nul
   if (!content || typeof content !== 'object') return null
   const refLawIds = Array.isArray(raw.refLawIds)
     ? (raw.refLawIds.filter((x) => typeof x === 'string') as string[])
-    : undefined
+    : Array.isArray((raw.content as { refLawIds?: unknown }).refLawIds)
+      ? (((raw.content as { refLawIds?: unknown }).refLawIds as unknown[]).filter(
+          (x) => typeof x === 'string',
+        ) as string[])
+      : undefined
+  // Course exports nest `points` / `badgeId` under `config: {…}`; fall back to
+  // top-level keys for hand-authored modules. Either shape works at runtime.
+  const config = (raw.config as Record<string, unknown> | undefined) ?? {}
+  const points =
+    typeof raw.points === 'number'
+      ? raw.points
+      : typeof config.points === 'number'
+        ? config.points
+        : undefined
+  const badgeId =
+    typeof raw.badgeId === 'string'
+      ? raw.badgeId
+      : typeof config.badgeId === 'string'
+        ? config.badgeId
+        : undefined
   return {
     id: raw.id,
     title: raw.title,
@@ -575,8 +594,8 @@ function moduleFromCatalogJson(raw: Record<string, unknown>): CourseModule | nul
     content,
     durationMinutes,
     refLawIds,
-    points: typeof raw.points === 'number' ? raw.points : undefined,
-    badgeId: typeof raw.badgeId === 'string' ? raw.badgeId : undefined,
+    points,
+    badgeId,
   }
 }
 

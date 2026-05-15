@@ -154,16 +154,56 @@ export function ModulePointsPill({ points }: { points?: number }) {
 }
 
 // ── Leadership insight callout (inside text modules) ─────────────────────────
+// 💡-style "advice for the manager reading this" callout. Distinct from the
+// brand-green key-takeaways block so it reads as guidance, not summary.
 export function LeadershipInsight({ markdown }: { markdown: string }) {
   return (
-    <div className="mt-6 overflow-hidden rounded-xl border border-[#1a3d32]/30 bg-[#f0f9f5]">
-      <div className="flex items-center gap-2 border-b border-[#1a3d32]/20 bg-[#1a3d32]/10 px-4 py-2">
-        <Crown className="size-4 shrink-0 text-[#1a3d32]" />
-        <span className="text-xs font-semibold uppercase tracking-wider text-[#1a3d32]">Lederinnsikt</span>
+    <div className="mt-6 rounded-xl border-l-4 border-blue-500 bg-blue-50 px-4 py-4 shadow-sm">
+      <div className="mb-2 flex items-center gap-2 text-sm font-semibold text-blue-900">
+        <span aria-hidden className="text-base leading-none">💡</span>
+        Lederinnsikt
       </div>
-      <div className="px-4 py-3">
+      <div className="text-blue-950">
         <MarkdownBody markdown={markdown} />
       </div>
+    </div>
+  )
+}
+
+// ── Module gamification pill (top-right corner of a lesson card) ────────────
+// Combines points + (optional) badge unlock into a single golden pill.
+// Renders nothing if both are missing.
+export function ModuleGamificationPill({
+  points,
+  badgeId,
+  badgeLabel,
+}: {
+  points?: number
+  badgeId?: string
+  badgeLabel?: string
+}) {
+  if (!points && !badgeId) return null
+  const displayBadge = badgeLabel ?? badgeId
+  return (
+    <div className="inline-flex items-center gap-2 rounded-full border border-amber-300 bg-gradient-to-r from-amber-50 to-amber-100 px-3 py-1 text-xs font-semibold text-amber-900 shadow-sm">
+      {points ? (
+        <span className="inline-flex items-center gap-1">
+          <span aria-hidden className="leading-none">⭐</span>
+          {points} XP
+        </span>
+      ) : null}
+      {displayBadge ? (
+        <>
+          {points ? <span aria-hidden className="text-amber-300">·</span> : null}
+          <span
+            className="inline-flex items-center gap-1"
+            title={`Låser opp merke: ${displayBadge}`}
+          >
+            <span aria-hidden className="leading-none">🏅</span>
+            <span className="max-w-[140px] truncate">{displayBadge}</span>
+          </span>
+        </>
+      ) : null}
     </div>
   )
 }
