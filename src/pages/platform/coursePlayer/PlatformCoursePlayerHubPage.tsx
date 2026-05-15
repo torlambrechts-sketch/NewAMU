@@ -75,10 +75,10 @@ const variants: Variant[] = [
     eyebrow: 'Alternativ 5',
     title: 'Hjem',
     oneLiner:
-      'Kurset bor på /app-hjemmesiden: «Velkommen tilbake»-headline, Hjem/Klassisk-faner, leksjon i «Neste på listen»-posisjonen, Denne uken + Varsler + Snarveier på høyre.',
+      'Kandidat for produksjon. Kurset bor på /app-hjemmesiden: «Velkommen tilbake»-headline, leksjon i «Neste på listen»-posisjonen. Lesekontroller (A-/A+ · Utvid) i kortets header; Denne uken er en accordion per kategori.',
     mentalModel: 'WelcomeDashboardPage med læring som hovedoppgave',
     engagement:
-      'Læringsmål-uke i kalender, varsler om nye merker og refleksjoner, snarveier-inline-TOC.',
+      'Denne uken med accordion-kategorier (E-læring · Refleksjoner · Møter · Frister), varsler om nye merker, snarveier-inline-TOC, Utvid skjuler hele sidefeltet.',
     widthTarget: 'Krempapir-fullbleed, 7fr / 3fr · maks 1400 px',
     accent: '#1a3d32',
     icon: Home,

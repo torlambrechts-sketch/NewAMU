@@ -16,6 +16,8 @@ import {
   Bookmark,
   Check,
   CheckCircle2,
+  ChevronDown,
+  Clock,
   Compass,
   ExternalLink,
   FileText,
@@ -23,12 +25,15 @@ import {
   Home,
   LayoutDashboard,
   ListChecks,
+  Maximize2,
+  Minimize2,
   PenLine,
   Settings,
   ShieldCheck,
   Sparkles,
   Trophy,
   Users,
+  Users2,
   type LucideIcon,
 } from 'lucide-react'
 import {
@@ -46,8 +51,20 @@ const GREEN_HOVER = '#14312a'
 const PAPER_BG = '#F9F7F2'
 const CREAM_TILE = '#f2eee6'
 const AMBER_TODAY = '#ea7c3a'
-const BANNER_BG = '#fbf3d6'
-const BANNER_BORDER = '#e9d99a'
+
+type FontSize = 'sm' | 'base' | 'lg'
+
+const FONT_SIZE_PX: Record<FontSize, string> = {
+  sm: '0.9375rem',
+  base: '1.0625rem',
+  lg: '1.1875rem',
+}
+
+const FONT_SIZE_LABEL: Record<FontSize, string> = {
+  sm: 'Liten tekst',
+  base: 'Normal tekst',
+  lg: 'Stor tekst',
+}
 
 const KIND_ICON: Record<MockModule['kind'], LucideIcon> = {
   text: FileText,
@@ -69,6 +86,8 @@ export function PlatformCoursePlayerHjemPage() {
   const [quizSubmitted, setQuizSubmitted] = useState(false)
   const [reflections, setReflections] = useState<Record<string, string>>({})
   const [finished, setFinished] = useState(false)
+  const [fontSize, setFontSize] = useState<FontSize>('base')
+  const [expanded, setExpanded] = useState(false)
 
   const course = MOCK_COURSE
   const mod = course.modules[idx]
@@ -201,8 +220,14 @@ export function PlatformCoursePlayerHjemPage() {
             <hr className="border-neutral-200" />
           </header>
 
-          {/* 7fr / 3fr split, mirrors WelcomeDashboardPage */}
-          <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,7fr)_minmax(280px,3fr)] lg:items-start">
+          {/* 7fr / 3fr split (drops to single column when Utvid is active) */}
+          <div
+            className={
+              expanded
+                ? 'grid grid-cols-1 gap-6'
+                : 'grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,7fr)_minmax(280px,3fr)] lg:items-start'
+            }
+          >
             {/* Main column — "Neste på listen" position becomes the lesson reading pane */}
             <main className="space-y-4">
               {finished ? (
@@ -227,17 +252,28 @@ export function PlatformCoursePlayerHjemPage() {
                         {course.title}
                       </p>
                     </div>
-                    <Link
-                      to="/platform-admin/course-player"
-                      className="text-[11px] font-bold uppercase tracking-wider hover:underline"
-                      style={{ color: GREEN }}
-                    >
-                      Alle moduler →
-                    </Link>
+                    <div className="flex items-center gap-3">
+                      <ReadingControls
+                        fontSize={fontSize}
+                        setFontSize={setFontSize}
+                        expanded={expanded}
+                        setExpanded={setExpanded}
+                      />
+                      <Link
+                        to="/platform-admin/course-player"
+                        className="text-[11px] font-bold uppercase tracking-wider hover:underline"
+                        style={{ color: GREEN }}
+                      >
+                        Alle moduler →
+                      </Link>
+                    </div>
                   </header>
 
-                  {/* Lesson body */}
-                  <div className="px-6 py-6 md:px-8 md:py-8">
+                  {/* Lesson body — font size scales the entire body */}
+                  <div
+                    className="px-6 py-6 md:px-8 md:py-8"
+                    style={{ fontSize: FONT_SIZE_PX[fontSize] }}
+                  >
                     {/* Module meta strip */}
                     <div className="mb-5 flex flex-wrap items-center justify-between gap-2">
                       <p className="text-[10px] font-bold uppercase tracking-wider text-neutral-500">
@@ -340,32 +376,34 @@ export function PlatformCoursePlayerHjemPage() {
               ) : null}
             </main>
 
-            {/* Right rail */}
-            <aside className="space-y-4 lg:sticky lg:top-6">
-              <HeroBanner
-                course={course}
-                completedCount={completedCount}
-                total={total}
-                onJump={() => {}}
-              />
-              <DenneUkenCard
-                completedCount={completedCount}
-                total={total}
-                earnedPoints={earnedPoints}
-                totalPoints={course.totalPoints}
-                nextMod={nextMod}
-              />
-              <VarslerCard earnedBadges={earnedBadges} course={course} />
-              <SnarveierCard
-                course={course}
-                currentIdx={idx}
-                completed={completed}
-                onPickModule={(i) => {
-                  setIdx(i)
-                  setQuizSubmitted(false)
-                }}
-              />
-            </aside>
+            {/* Right rail — hidden under Utvid */}
+            {!expanded ? (
+              <aside className="space-y-4 lg:sticky lg:top-6">
+                <DenneUkenCard
+                  course={course}
+                  completedCount={completedCount}
+                  total={total}
+                  earnedPoints={earnedPoints}
+                  totalPoints={course.totalPoints}
+                  nextMod={nextMod}
+                  completed={completed}
+                  onPickModule={(i) => {
+                    setIdx(i)
+                    setQuizSubmitted(false)
+                  }}
+                />
+                <VarslerCard earnedBadges={earnedBadges} course={course} />
+                <SnarveierCard
+                  course={course}
+                  currentIdx={idx}
+                  completed={completed}
+                  onPickModule={(i) => {
+                    setIdx(i)
+                    setQuizSubmitted(false)
+                  }}
+                />
+              </aside>
+            ) : null}
           </div>
 
           <DesignNotes />
@@ -375,57 +413,191 @@ export function PlatformCoursePlayerHjemPage() {
   )
 }
 
-function HeroBanner({
-  course,
-  completedCount,
-  total,
-  onJump,
+function ReadingControls({
+  fontSize,
+  setFontSize,
+  expanded,
+  setExpanded,
 }: {
-  course: MockCourse
-  completedCount: number
-  total: number
-  onJump: () => void
+  fontSize: FontSize
+  setFontSize: (s: FontSize) => void
+  expanded: boolean
+  setExpanded: (v: boolean) => void
 }) {
-  const pct = Math.round((completedCount / total) * 100)
-  const headline = completedCount === 0
-    ? `Klar til å starte ${course.title}?`
-    : `Du er ${pct}% gjennom kurset — neste etappe venter.`
   return (
-    <div
-      className="rounded-xl border px-4 py-3"
-      style={{ backgroundColor: BANNER_BG, borderColor: BANNER_BORDER }}
-    >
-      <p className="text-sm font-medium text-neutral-900">
-        {headline}{' '}
-        <button
-          type="button"
-          onClick={onJump}
-          className="font-semibold underline-offset-2 hover:underline"
-          style={{ color: GREEN }}
-        >
-          Åpne
-        </button>
-      </p>
+    <div className="flex items-center gap-1 rounded-md border border-neutral-200 bg-white p-0.5">
+      <div role="group" aria-label="Tekststørrelse" className="flex items-center">
+        {(['sm', 'base', 'lg'] as const).map((s, i) => {
+          const active = fontSize === s
+          return (
+            <button
+              key={s}
+              type="button"
+              onClick={() => setFontSize(s)}
+              title={FONT_SIZE_LABEL[s]}
+              aria-label={FONT_SIZE_LABEL[s]}
+              aria-pressed={active}
+              className="flex h-6 w-6 items-center justify-center rounded font-semibold transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1"
+              style={{
+                backgroundColor: active ? `${GREEN}1a` : 'transparent',
+                color: active ? GREEN : '#737373',
+                outlineColor: GREEN,
+                fontSize: i === 0 ? '0.65rem' : i === 1 ? '0.8rem' : '0.95rem',
+              }}
+            >
+              A
+            </button>
+          )
+        })}
+      </div>
+      <div className="mx-0.5 h-4 w-px bg-neutral-200" aria-hidden />
+      <button
+        type="button"
+        onClick={() => setExpanded(!expanded)}
+        title={expanded ? 'Komprimer (vis sidefelt)' : 'Utvid (skjul sidefelt)'}
+        aria-label={expanded ? 'Komprimer leseflate' : 'Utvid leseflate'}
+        aria-pressed={expanded}
+        className="flex h-6 items-center gap-1 rounded px-2 text-[11px] font-semibold transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1"
+        style={{
+          backgroundColor: expanded ? `${GREEN}1a` : 'transparent',
+          color: expanded ? GREEN : '#525252',
+          outlineColor: GREEN,
+        }}
+      >
+        {expanded ? <Minimize2 className="size-3.5" /> : <Maximize2 className="size-3.5" />}
+        <span className="hidden md:inline">{expanded ? 'Komprimer' : 'Utvid'}</span>
+      </button>
     </div>
   )
 }
 
+type WeekItem = {
+  id: string
+  title: string
+  meta: string
+  status?: 'today' | 'pending' | 'done'
+  /** When set, clicking the item jumps to that module index */
+  jumpToModuleIdx?: number
+}
+
+type WeekCategory = {
+  id: string
+  label: string
+  Icon: LucideIcon
+  iconColor: string
+  defaultOpen?: boolean
+  items: WeekItem[]
+}
+
 function DenneUkenCard({
+  course,
   completedCount,
   total,
   earnedPoints,
   totalPoints,
   nextMod,
+  completed,
+  onPickModule,
 }: {
+  course: MockCourse
   completedCount: number
   total: number
   earnedPoints: number
   totalPoints: number
   nextMod: MockModule | null
+  completed: Record<string, boolean>
+  onPickModule: (i: number) => void
 }) {
   const dayLabels = ['man.', 'tir.', 'ons.', 'tor.', 'fre.', 'lør.', 'søn.']
   const dayNumbers = [11, 12, 13, 14, 15, 16, 17]
-  const todayIdx = 4 // Friday 15. mai 2026 — matches the project's currentDate
+  const todayIdx = 4 // Friday 15. mai 2026 — matches CLAUDE.md currentDate
+
+  // Build categorised week content from mock course data.
+  const moduleItems: WeekItem[] = course.modules.map((m, i) => {
+    const done = !!completed[m.id]
+    const isNext = nextMod?.id === m.id
+    return {
+      id: m.id,
+      title: m.title,
+      meta: `${moduleKindLabel(m.kind)} · ${moduleTimeLabel(m.durationMinutes)} · +${m.points} XP`,
+      status: done ? 'done' : isNext ? 'today' : 'pending',
+      jumpToModuleIdx: i,
+    }
+  })
+
+  const reflectionItems: WeekItem[] = course.modules
+    .filter((m) => m.kind === 'reflection')
+    .map((m) => ({
+      id: `refl-${m.id}`,
+      title: m.title,
+      meta: `Refleksjon · ${moduleTimeLabel(m.durationMinutes)}${
+        completed[m.id] ? ' · lagret' : ' · venter'
+      }`,
+      status: completed[m.id] ? ('done' as const) : ('pending' as const),
+      jumpToModuleIdx: course.modules.indexOf(m),
+    }))
+
+  const meetingItems: WeekItem[] = [
+    {
+      id: 'mtg-1',
+      title: 'Verneombudsmøte mai',
+      meta: 'fre. 15. mai · 15:00 · Teams',
+      status: 'today',
+    },
+    {
+      id: 'mtg-2',
+      title: 'Q&A med Anne om internkontroll',
+      meta: 'tor. 21. mai · 09:00',
+      status: 'pending',
+    },
+  ]
+
+  const deadlineItems: WeekItem[] = [
+    {
+      id: 'dl-1',
+      title: 'Resertifisering Helse',
+      meta: '30. mai 2026 · resertifisering',
+      status: 'pending',
+    },
+    {
+      id: 'dl-2',
+      title: 'Kursbevis: Internkontroll',
+      meta: 'Utstedes ved fullføring',
+      status: 'pending',
+    },
+  ]
+
+  const categories: WeekCategory[] = [
+    {
+      id: 'e-laering',
+      label: 'E-læring',
+      Icon: BookOpen,
+      iconColor: GREEN,
+      defaultOpen: true,
+      items: moduleItems,
+    },
+    {
+      id: 'refleksjon',
+      label: 'Refleksjoner',
+      Icon: PenLine,
+      iconColor: '#c2410c',
+      items: reflectionItems,
+    },
+    {
+      id: 'moter',
+      label: 'Møter',
+      Icon: Users2,
+      iconColor: '#7c3aed',
+      items: meetingItems,
+    },
+    {
+      id: 'frister',
+      label: 'Frister',
+      Icon: Clock,
+      iconColor: '#a16207',
+      items: deadlineItems,
+    },
+  ]
 
   return (
     <section className="rounded-xl border border-neutral-200/80 bg-white shadow-sm">
@@ -434,6 +606,8 @@ function DenneUkenCard({
           Denne uken
         </p>
       </header>
+
+      {/* Calendar grid header */}
       <div className="px-4 py-4">
         <p className="text-center text-xs text-neutral-500">Uke 20 · mai 2026</p>
         <div className="mt-3 grid grid-cols-7 gap-1 text-center">
@@ -464,31 +638,98 @@ function DenneUkenCard({
             )
           })}
         </div>
+      </div>
 
-        <hr className="my-4 border-neutral-100" />
+      {/* Expandable categories */}
+      <ul className="divide-y divide-neutral-100 border-t border-neutral-100">
+        {categories.map((cat) => (
+          <li key={cat.id}>
+            <details open={cat.defaultOpen} className="group">
+              <summary
+                className="flex cursor-pointer list-none items-center gap-3 px-4 py-3 transition hover:bg-[#fbf9f3] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1"
+                style={{ outlineColor: GREEN }}
+              >
+                <span
+                  className="flex size-7 shrink-0 items-center justify-center rounded-md"
+                  style={{
+                    backgroundColor: `${cat.iconColor}14`,
+                    color: cat.iconColor,
+                  }}
+                >
+                  <cat.Icon className="size-3.5" />
+                </span>
+                <span className="flex-1 text-[13px] font-semibold text-neutral-900">
+                  {cat.label}
+                </span>
+                <span className="rounded-full bg-[#f3eee0] px-2 py-0.5 text-[10px] font-bold text-neutral-700">
+                  {cat.items.length}
+                </span>
+                <ChevronDown className="size-3.5 text-neutral-400 transition-transform group-open:rotate-180" />
+              </summary>
+              {cat.items.length === 0 ? (
+                <p className="px-4 pb-3 text-[11px] text-neutral-500">Ingenting denne uken.</p>
+              ) : (
+                <ul className="space-y-1 px-4 pb-3 pt-1">
+                  {cat.items.map((it) => {
+                    const clickable = it.jumpToModuleIdx !== undefined
+                    const Inner = (
+                      <>
+                        <span
+                          className="mt-0.5 flex size-4 shrink-0 items-center justify-center rounded-full"
+                          style={{
+                            backgroundColor:
+                              it.status === 'done'
+                                ? GREEN
+                                : it.status === 'today'
+                                  ? AMBER_TODAY
+                                  : '#e5e1d4',
+                            color:
+                              it.status === 'done' || it.status === 'today'
+                                ? 'white'
+                                : '#a3a3a3',
+                          }}
+                        >
+                          {it.status === 'done' ? (
+                            <Check className="size-2.5" />
+                          ) : (
+                            <span className="size-1.5 rounded-full bg-current opacity-80" />
+                          )}
+                        </span>
+                        <span className="flex-1">
+                          <span className="block text-[12px] font-medium text-neutral-900">
+                            {it.title}
+                          </span>
+                          <span className="block text-[10px] text-neutral-500">{it.meta}</span>
+                        </span>
+                      </>
+                    )
+                    return (
+                      <li key={it.id}>
+                        {clickable ? (
+                          <button
+                            type="button"
+                            onClick={() => onPickModule(it.jumpToModuleIdx as number)}
+                            className="flex w-full items-start gap-2 rounded-md px-2 py-1.5 text-left transition hover:bg-[#fbf9f3]"
+                          >
+                            {Inner}
+                          </button>
+                        ) : (
+                          <div className="flex items-start gap-2 rounded-md px-2 py-1.5">
+                            {Inner}
+                          </div>
+                        )}
+                      </li>
+                    )
+                  })}
+                </ul>
+              )}
+            </details>
+          </li>
+        ))}
+      </ul>
 
-        {nextMod ? (
-          <>
-            <p
-              className="text-sm font-semibold text-neutral-900"
-              style={{ fontFamily: SERIF }}
-            >
-              {nextMod.title}
-            </p>
-            <p className="mt-0.5 text-[11px] text-neutral-500">
-              {moduleKindLabel(nextMod.kind)} · {moduleTimeLabel(nextMod.durationMinutes)} · +
-              {nextMod.points} XP
-            </p>
-            <p className="mt-3 text-[11px] font-semibold" style={{ color: AMBER_TODAY }}>
-              Anbefales i dag →
-            </p>
-          </>
-        ) : (
-          <p className="text-sm text-neutral-700">Du har fullført alle modulene denne uken.</p>
-        )}
-
-        <hr className="my-4 border-neutral-100" />
-
+      {/* Footer learning-goal meter */}
+      <footer className="border-t border-neutral-100 px-4 py-3">
         <p className="text-[10px] font-bold uppercase tracking-wider text-neutral-500">
           Læringsmål uka
         </p>
@@ -509,7 +750,7 @@ function DenneUkenCard({
             }}
           />
         </div>
-      </div>
+      </footer>
     </section>
   )
 }
