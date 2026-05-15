@@ -30,8 +30,20 @@ export const PERMISSION_KEYS = [
   'action_plan.manage',
   /** Konfigurere/kjøre organisasjonsundersøkelser (ny modul) */
   'survey.manage',
-  /** Varslingsmottak — full innsyn i whistleblowing_cases (AML kap. 2A) */
+  /** Varslingsmottak — full innsyn i whistleblowing_cases (AML kap. 2A). Legacy — being migrated to alerts.committee in Phase F2. */
   'whistleblowing.committee',
+  /** Alerts (Varslinger) — top-level module view */
+  'module.view.alerts',
+  /** Alerts — manage system templates, categories, committee roster, retention overrides */
+  'alerts.manage',
+  /** Alerts — committee membership: read + write non-confidential cases */
+  'alerts.committee',
+  /** Alerts — confidential cases (e.g. seksuell trakassering, gjengjeldelse). Strict subset of committee. */
+  'alerts.committee_confidential',
+  /** Alerts — escalated cases (aml-varsel-mot-leder). Separate roster so the normal committee can't see leader-targeted varslinger. */
+  'alerts.committee_escalated',
+  /** Alerts — DPO role for GDPR-brudd handling + Art. 17 erasure path */
+  'alerts.dpo',
   'module.view.tasks',
   'module.view.learning',
   /** Cross-module reporting & compliance exports */
@@ -145,7 +157,13 @@ export const PERMISSION_LABELS: Record<PermissionKey, string> = {
   'checklist.manage': 'Compliance-sjekklister — opprette, besvare og signere',
   'action_plan.manage': 'Tiltaksplan — kategorier og arbeidsflyt',
   'survey.manage': 'Undersøkelse — administrasjon',
-  'whistleblowing.committee': 'Varslingsmottak',
+  'whistleblowing.committee': 'Varslingsmottak (legacy)',
+  'module.view.alerts': 'Varslinger',
+  'alerts.manage': 'Varslinger — administrasjon',
+  'alerts.committee': 'Varslinger — utvalg (mottak)',
+  'alerts.committee_confidential': 'Varslinger — konfidensielle saker',
+  'alerts.committee_escalated': 'Varslinger — eskalert utvalg (mot leder)',
+  'alerts.dpo': 'Varslinger — personvernombud (GDPR + Art. 17)',
   'module.view.tasks': 'Tasks',
   'module.view.learning': 'E-learning',
   'module.view.reports': 'Rapporter',
