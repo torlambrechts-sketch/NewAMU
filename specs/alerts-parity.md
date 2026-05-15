@@ -548,7 +548,7 @@ modules/alerts/
 
 **A1** Migration `20260910120000_alerts_module_core.sql` — every table + RLS + triggers + provision fn + retention purge fn.
 **A2** Migration `20260910120001_alerts_storage_bucket.sql` — create private `alert-attachments` bucket + policies.
-**A3** Migration `20260910120002_alerts_seed_system_templates.sql` — 17 system templates listed in §5.1-5.3.
+**A3** Migration `20260910120002_alerts_seed_system_templates.sql` — 19 system templates listed in §5.1-5.3.
 **A4** Migration `20260910120003_alerts_seed_categories.sql` — default categories seed via `provision_alerts_baseline_for_org` backfill loop.
 
 Acceptance: `select count(*) from alert_system_templates` returns ≥ 17. Provision backfill creates settings rows for every (org × template).
@@ -581,7 +581,7 @@ Acceptance: anonymous submission via new public form creates `alert_cases` row. 
 
 No admin / analyse yet. Reads from `useAlerts`. Existing migrated cases visible per template.
 
-Acceptance: navigate to `/alerts`, see 17 system templates grouped by category. Click a template → see existing migrated cases + "+ Opprett varsel". Open a case → tabs render. Add a note (committee) → appears in timeline. Upload an attachment → signed-URL viewer works.
+Acceptance: navigate to `/alerts`, see 19 system templates grouped by category. Click a template → see existing migrated cases + "+ Opprett varsel". Open a case → tabs render. Add a note (committee) → appears in timeline. Upload an attachment → signed-URL viewer works.
 
 ### Phase E2 · Admin + analyse  *(1 commit)*
 
@@ -693,7 +693,7 @@ Default layout (8 widgets):
 
 After Phase A-F ships:
 
-- [ ] `/alerts` opens, lists 17 system templates grouped by 5 categories.
+- [ ] `/alerts` opens, lists 19 system templates grouped by 5 categories.
 - [ ] Anonymous submission via `/alerts/public/:slug` creates a row, returns access key, status lookup at `/alerts/public/status?key=…` returns published status.
 - [ ] Authenticated employee submission attributes to `reporter_user_id`.
 - [ ] Committee member opens case → sees timeline, can add notes, attach files, change status, close case.
