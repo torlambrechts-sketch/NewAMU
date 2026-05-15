@@ -983,40 +983,54 @@ export function AticsShell() {
         return pathname === `/admin/settings/${scope}/${section}` ||
           pathname.startsWith(`/admin/settings/${scope}/${section}/`)
       }
+    // Organisasjon subs deep-link to the existing OrganisationPage tabs
+    // (insights / settings / units / employees / mandates). The earlier
+    // /admin/settings/organisation/* registry scope was just a row of
+    // placeholder cards pointing here — collapsed it into direct links
+    // so admins land on the real surface in one click.
+    const matchOrgTab = (tab: string) =>
+      ({ pathname, search }: { pathname: string; search: string }) => {
+        if (pathname !== '/organisation') return false
+        return new URLSearchParams(search).get('tab') === tab
+      }
     const organisationSubs: SubItem[] = [
       {
         label: 'Analyse',
-        path: '/admin/settings/organisation/analyse',
+        path: '/organisation?tab=insights',
         Icon: BarChart3,
-        match: isAdminSettings('organisation', 'analyse'),
+        match: ({ pathname, search }) => {
+          if (pathname !== '/organisation') return false
+          const t = new URLSearchParams(search).get('tab')
+          return !t || t === 'insights' || t === 'orgchart'
+        },
         requirePermAny: ORG_NAV_PERMS,
       },
       {
         label: 'Selskap',
-        path: '/admin/settings/organisation/company',
+        path: '/organisation?tab=settings',
         Icon: Building2,
-        match: isAdminSettings('organisation', 'company'),
+        match: matchOrgTab('settings'),
         requirePermAny: ORG_NAV_PERMS,
       },
       {
         label: 'Avdelinger & enheter',
-        path: '/admin/settings/organisation/units',
+        path: '/organisation?tab=units',
         Icon: FolderTree,
-        match: isAdminSettings('organisation', 'units'),
+        match: matchOrgTab('units'),
         requirePermAny: ORG_NAV_PERMS,
       },
       {
         label: 'Ansatte',
-        path: '/admin/settings/organisation/employees',
+        path: '/organisation?tab=employees',
         Icon: Users,
-        match: isAdminSettings('organisation', 'employees'),
+        match: matchOrgTab('employees'),
         requirePermAny: ORG_NAV_PERMS,
       },
       {
         label: 'Mandater & verv',
-        path: '/admin/settings/organisation/mandates',
+        path: '/organisation?tab=mandates',
         Icon: UserCheck,
-        match: isAdminSettings('organisation', 'mandates'),
+        match: matchOrgTab('mandates'),
         requirePermAny: ORG_NAV_PERMS,
       },
     ]
@@ -1181,7 +1195,7 @@ export function AticsShell() {
       icon: Settings,
       modules: [
         {
-          to: '/admin/settings/organisation',
+          to: '/organisation',
           label: 'Organisasjon',
           end: false,
           icon: Building2,

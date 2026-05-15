@@ -412,7 +412,17 @@ const router = createBrowserRouter(
                           before the org scope was split. */}
                       <Route path="admin/settings/org" element={<Navigate to="/admin/settings/users-roles/internal" replace />} />
                       <Route path="admin/settings/org/:section" element={<LegacyOrgScopeRedirect />} />
-                      <Route path="admin" element={<Navigate to="/admin/settings/organisation/company" replace />} />
+                      {/* Organisasjon scope was retired in favour of
+                          deep-linking to the existing OrganisationPage
+                          tabs. Map the old placeholder URLs to the
+                          real surface so bookmarks survive. */}
+                      <Route path="admin/settings/organisation" element={<Navigate to="/organisation" replace />} />
+                      <Route path="admin/settings/organisation/analyse" element={<Navigate to="/organisation?tab=insights" replace />} />
+                      <Route path="admin/settings/organisation/company" element={<Navigate to="/organisation?tab=settings" replace />} />
+                      <Route path="admin/settings/organisation/units" element={<Navigate to="/organisation?tab=units" replace />} />
+                      <Route path="admin/settings/organisation/employees" element={<Navigate to="/organisation?tab=employees" replace />} />
+                      <Route path="admin/settings/organisation/mandates" element={<Navigate to="/organisation?tab=mandates" replace />} />
+                      <Route path="admin" element={<Navigate to="/organisation" replace />} />
                       <Route path="profile" element={<ProfilePage />} />
                       <Route path="learning/play/:courseId" element={<LearningPlayer />} />
                       <Route path="learning/certificates/:certId/print" element={<LearningCertificatePrintPage />} />

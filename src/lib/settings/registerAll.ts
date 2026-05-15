@@ -9,8 +9,11 @@
 // Order doesn't matter at runtime (scopes are sorted by group + order in
 // `listSettingsScopes`), but keep it human-readable by group.
 
-// Administrasjon group — the five top-level admin areas.
-import '../../components/admin/settings/scopes/organisationSettingsScope'
+// Administrasjon group — the admin scopes.
+// "Organisasjon" is intentionally NOT a registered scope: its sidebar
+// subs deep-link to the existing OrganisationPage tabs (real surface,
+// no placeholder hop). The other four scopes register real or planned
+// admin sections that live in the unified hub.
 import '../../components/admin/settings/scopes/usersRolesSettingsScope'
 import '../../components/admin/settings/scopes/integrationsSettingsScope'
 import '../../components/admin/settings/scopes/workflowsSettingsScope'
