@@ -2,8 +2,10 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { AppNotification, NotificationPreferences } from '../types/notifications'
 import {
   loadReadNotificationIds,
+  loadToastDismissedIds,
   parseNotificationPreferences,
   saveReadNotificationIds,
+  saveToastDismissedIds,
 } from '../lib/notificationPreferences'
 import { useOrgSetupContext } from './useOrgSetupContext'
 import { useWhistleblowing } from './useWhistleblowing'
@@ -118,6 +120,11 @@ export function useNotifications() {
   const [readIds, setReadIds] = useState<Set<string>>(() =>
     userId ? loadReadNotificationIds(userId) : new Set(),
   )
+  // Notifications the user explicitly dismissed from the toast — these stay
+  // in the bell dropdown but never re-appear as a popup. Distinct from read.
+  const [toastDismissedIds, setToastDismissedIds] = useState<Set<string>>(() =>
+    userId ? loadToastDismissedIds(userId) : new Set(),
+  )
   const prevUnreadRef = useRef<number>(0)
   const toastHydratedRef = useRef(false)
   const [toast, setToast] = useState<AppNotification | null>(null)
@@ -129,9 +136,11 @@ export function useNotifications() {
     queueMicrotask(() => {
       if (!userId) {
         setReadIds(new Set())
+        setToastDismissedIds(new Set())
         return
       }
       setReadIds(loadReadNotificationIds(userId))
+      setToastDismissedIds(loadToastDismissedIds(userId))
     })
   }, [userId])
 
@@ -229,18 +238,23 @@ export function useNotifications() {
       return
     }
     if (unreadCount > prevUnreadRef.current && unreadList.length > 0) {
-      const newest = unreadList[0]
-      queueMicrotask(() => {
-        setToast(newest)
-        if (toastTimer.current) clearTimeout(toastTimer.current)
-        toastTimer.current = setTimeout(() => setToast(null), 7000)
-      })
+      // Pick the newest unread that the user hasn't explicitly dismissed from
+      // the toast before. If they hit "Lukk" once, we don't pop it again on
+      // every page navigation — they can still find it in the bell dropdown.
+      const newest = unreadList.find((n) => !toastDismissedIds.has(n.id))
+      if (newest) {
+        queueMicrotask(() => {
+          setToast(newest)
+          if (toastTimer.current) clearTimeout(toastTimer.current)
+          toastTimer.current = setTimeout(() => setToast(null), 7000)
+        })
+      }
     }
     prevUnreadRef.current = unreadCount
     return () => {
       if (toastTimer.current) clearTimeout(toastTimer.current)
     }
-  }, [unreadCount, unreadList, prefs.toastEnabled, prefs.channels.inApp])
+  }, [unreadCount, unreadList, prefs.toastEnabled, prefs.channels.inApp, toastDismissedIds])
 
   const markRead = useCallback(
     (id: string) => {
@@ -264,9 +278,22 @@ export function useNotifications() {
   }, [userId, readIds, deduped])
 
   const dismissToast = useCallback(() => {
-    setToast(null)
+    setToast((current) => {
+      if (current && userId) {
+        // Persist that this notification has been dismissed as a toast — it
+        // stays in the bell dropdown but won't pop again across page loads.
+        setToastDismissedIds((prev) => {
+          if (prev.has(current.id)) return prev
+          const next = new Set(prev)
+          next.add(current.id)
+          saveToastDismissedIds(userId, next)
+          return next
+        })
+      }
+      return null
+    })
     if (toastTimer.current) clearTimeout(toastTimer.current)
-  }, [])
+  }, [userId])
 
   return {
     prefs,

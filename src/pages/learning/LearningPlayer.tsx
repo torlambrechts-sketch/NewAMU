@@ -236,12 +236,13 @@ export function LearningPlayer() {
     { label: 'Katalog', to: '/learning/katalog' },
   ]
 
-  // Hjem-layout opt-in via ?layout=hjem. Renders the workspace-frontpage-style
+  // Hjem layout is now the default. Renders the workspace-frontpage-style
   // course player (LearningPlayerHjemLayout) using the same useLearning data
-  // as the classic player. Falls through to the classic layout otherwise.
-  const hjemLayout = searchParams.get('layout') === 'hjem'
+  // as the classic player. Pass ?layout=classic to fall through to the legacy
+  // ModulePageShell-based player.
+  const useHjemLayout = searchParams.get('layout') !== 'classic'
   if (
-    hjemLayout &&
+    useHjemLayout &&
     course &&
     (course.status === 'published' || searchParams.get('preview') === '1' || canManageLearning)
   ) {

@@ -65,6 +65,7 @@ export function mergeNotificationPreferences(
 }
 
 const READ_KEY = 'atics-notification-read-ids'
+const TOAST_DISMISSED_KEY = 'atics-notification-toast-dismissed-ids'
 
 export function loadReadNotificationIds(userId: string): Set<string> {
   try {
@@ -81,6 +82,26 @@ export function loadReadNotificationIds(userId: string): Set<string> {
 export function saveReadNotificationIds(userId: string, ids: Set<string>) {
   try {
     localStorage.setItem(`${READ_KEY}:${userId}`, JSON.stringify([...ids]))
+  } catch {
+    /* ignore */
+  }
+}
+
+export function loadToastDismissedIds(userId: string): Set<string> {
+  try {
+    const raw = localStorage.getItem(`${TOAST_DISMISSED_KEY}:${userId}`)
+    if (!raw) return new Set()
+    const arr = JSON.parse(raw) as unknown
+    if (!Array.isArray(arr)) return new Set()
+    return new Set(arr.filter((x): x is string => typeof x === 'string'))
+  } catch {
+    return new Set()
+  }
+}
+
+export function saveToastDismissedIds(userId: string, ids: Set<string>) {
+  try {
+    localStorage.setItem(`${TOAST_DISMISSED_KEY}:${userId}`, JSON.stringify([...ids]))
   } catch {
     /* ignore */
   }

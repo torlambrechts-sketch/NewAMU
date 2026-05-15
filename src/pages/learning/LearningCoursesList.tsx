@@ -438,7 +438,7 @@ export function LearningCoursesList() {
                   <div className="min-w-0">
                     {unlocked ? (
                       <Link
-                        to={`/learning/courses/${c.id}`}
+                        to={`/learning/play/${c.id}`}
                         className="line-clamp-2 text-base font-semibold leading-snug text-neutral-900 hover:underline"
                       >
                         {c.title}
@@ -673,7 +673,7 @@ function LearningCoursesListView({
                 </td>
                 <td className="px-3 py-2">
                   {unlocked ? (
-                    <Link to={`/learning/courses/${c.id}`} className="font-medium text-neutral-900 hover:underline">
+                    <Link to={`/learning/play/${c.id}`} className="font-medium text-neutral-900 hover:underline">
                       {c.title}
                     </Link>
                   ) : (

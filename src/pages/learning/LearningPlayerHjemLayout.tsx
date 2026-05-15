@@ -290,7 +290,7 @@ export function LearningPlayerHjemLayout({ course }: LearningPlayerHjemLayoutPro
 
   function classicLayoutHref(): string {
     const next = new URLSearchParams(searchParams)
-    next.delete('layout')
+    next.set('layout', 'classic')
     const q = next.toString()
     return `/learning/play/${course.id}${q ? `?${q}` : ''}`
   }
