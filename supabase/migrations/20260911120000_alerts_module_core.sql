@@ -661,7 +661,8 @@ begin
     end if;
   end if;
 
-  -- Auto-compute retention_until on first close (open → closed transition)
+  -- Auto-compute retention_until on first close (open → closed transition).
+  -- Looks up override → system template default → org template default → 5y fallback.
   if old.closed_at is null and new.closed_at is not null and new.retention_until is null then
     new.retention_until := new.closed_at
       + ((coalesce(
@@ -671,6 +672,7 @@ begin
                  on s.organization_id = new.organization_id
                 and s.system_template_id = t.id
                where t.id = new.system_template_id),
+            (select default_retention_years from public.alert_org_templates where id = new.org_template_id),
             5))::text || ' years')::interval;
   end if;
 

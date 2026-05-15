@@ -42,6 +42,10 @@ function nonNull<T>(rows: Array<T | null>): T[] {
 export type CreateAlertCaseInput = {
   templateId: string
   templateKind: 'system' | 'org'
+  /** Optional kind hint. The before-insert DB trigger derives the
+   *  authoritative value from the template, so this is purely for
+   *  optimistic client state. Falls back to 'whistleblowing'. */
+  kind?: import('./types').AlertKind
   title: string
   description: string
   isAnonymous?: boolean
@@ -254,7 +258,9 @@ export function useAlerts(): UseAlertsState {
         category_id: input.categoryId ?? null,
         metadata: input.metadata ?? {},
         source_kind: input.templateKind,
-        kind: 'whistleblowing',
+        // Authoritative value comes from the before-insert trigger which reads
+        // template.kind; this is just a placeholder to satisfy NOT NULL.
+        kind: input.kind ?? 'whistleblowing',
       }
       if (input.templateKind === 'system') payload.system_template_id = input.templateId
       else payload.org_template_id = input.templateId

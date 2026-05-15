@@ -40,9 +40,10 @@ export function AlertsDetailView() {
   const [closingOutcome, setClosingOutcome] = useState<AlertClosingOutcome>('substantiated')
   const [busy, setBusy] = useState(false)
 
+  const loadDetail = alerts.loadDetail
   useEffect(() => {
-    if (caseId) void alerts.loadDetail(caseId)
-  }, [caseId, alerts])
+    if (caseId) void loadDetail(caseId)
+  }, [caseId, loadDetail])
 
   const c = alerts.detail.caseRow
   const anonymity = useMemo(() => (c ? deriveAnonymityTier(c) : null), [c])

@@ -300,11 +300,11 @@ export function AuthPage({ mode }: { mode: Mode }) {
               <span className="mt-2 block leading-relaxed">
                 Varsle om kritikkverdige forhold <strong>uten å logge inn</strong> via lenken du har fått fra arbeidsgiver.
               </span>
-              <Link to="/varsle/0000000000004000a000000000000001" className="mt-2 inline-block font-medium underline" style={{ color: FOREST }}>
+              <Link to="/alerts/public/0000000000004000a000000000000001" className="mt-2 inline-block font-medium underline" style={{ color: FOREST }}>
                 Varsle anonymt (demo)
               </Link>
               <span className="mx-2 text-neutral-300">·</span>
-              <Link to="/varsle/status" className="font-medium underline" style={{ color: FOREST }}>Sjekk status</Link>
+              <Link to="/alerts/public/status" className="font-medium underline" style={{ color: FOREST }}>Sjekk status</Link>
             </p>
           )}
 

@@ -36,10 +36,30 @@ export function PublicAlertStatusPage() {
     if (!supabase || !key.trim()) return
     setBusy(true)
     setResult(null)
-    const { data, error } = await supabase.rpc('public_alert_status', { p_access_key: key.trim() })
+    // Route through the alerts-public-status Edge Function so the IP-based
+    // throttle (§4.1 T4) fires. The function calls public_alert_status
+    // internally with service_role after the rate-limit check.
+    const { data, error } = await supabase.functions.invoke('alerts-public-status', {
+      body: { accessKey: key.trim() },
+    })
     setBusy(false)
-    if (error) setResult({ error: error.message })
-    else setResult(data as StatusResult)
+    if (error) {
+      // Fallback: if the function isn't deployed, surface a friendlier message
+      // than the raw connection error. The DB RPC is intentionally NOT called
+      // directly so the throttle is never bypassed.
+      setResult({ error: 'Tjenesten er midlertidig utilgjengelig. Prøv igjen om litt.' })
+      return
+    }
+    if (data && typeof data === 'object' && 'error' in data) {
+      const errBody = data as { error: string; retryAfterSec?: number }
+      setResult({
+        error: errBody.error === 'too_many_attempts'
+          ? 'For mange forsøk. Vent en time og prøv igjen.'
+          : errBody.error,
+      })
+      return
+    }
+    setResult(data as StatusResult)
   }
 
   return (
