@@ -1,19 +1,15 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import {
-  AlertTriangle,
   Building2,
   ChevronDown,
   ClipboardList,
-  FileWarning,
   Megaphone,
   Plus,
   ShieldAlert,
   User,
 } from 'lucide-react'
 import { LanguageSwitcher } from '../LanguageSwitcher'
-import { useHse } from '../../hooks/useHse'
-import { useInternalControl } from '../../hooks/useInternalControl'
 import { useTaskItemsData } from '../../../modules/tasks/useTaskItemsData'
 import type { NavMode } from './aticsNavMode'
 
@@ -272,24 +268,6 @@ export function ShellQuickCreateMenu({ variant }: { variant: 'sidebar' | 'topbar
             <Megaphone className="size-4 shrink-0 opacity-80" />
             Ny varslingssak
           </button>
-          <button
-            type="button"
-            role="menuitem"
-            className={itemClass}
-            onClick={() => go('/workplace-reporting?newCase=1')}
-          >
-            <FileWarning className="size-4 shrink-0 opacity-80" />
-            Ny arbeidsplass-sak
-          </button>
-          <button
-            type="button"
-            role="menuitem"
-            className={itemClass}
-            onClick={() => go('/workplace-reporting/incidents?new=1')}
-          >
-            <AlertTriangle className="size-4 shrink-0 opacity-80" />
-            Ny hendelse (HSE)
-          </button>
         </div>
       ) : null}
     </div>
@@ -303,86 +281,14 @@ type GapSection = {
 }
 
 export function ShellComplianceIndicator({ variant }: { variant: 'sidebar' | 'topbar' }) {
-  const hse = useHse()
-  const ic = useInternalControl()
   const ts = useTaskItemsData()
   const [open, setOpen] = useState(false)
   const ref = useCloseOnOutsideClick(open, () => setOpen(false))
 
   const today = useMemo(() => new Date().toISOString().slice(0, 10), [])
-  const year = useMemo(() => new Date().getFullYear(), [])
 
   const { level, sections } = useMemo(() => {
     const sectionsAcc: GapSection[] = []
-
-    // Compliance gaps for Møter now flow through the meetings module's
-    // mandatory-topics gap detector inside <MeetingsDetailView>. The
-    // shell-header indicator doesn't surface them — the user sees them
-    // contextually when opening a meeting.
-
-    const rosRed = ic.rosAssessments.flatMap((r) =>
-      r.rows
-        .filter((row) => {
-          const st = row.status ?? 'draft'
-          if (row.done || st === 'finished' || st === 'closed' || st === 'cancelled') return false
-          const rs = row.residualScore ?? row.riskScore
-          return rs >= 12
-        })
-        .map((row) => ({
-          label: `${r.title}: ${row.activity}`,
-          to: '/internal-control?tab=ros',
-        })),
-    )
-    if (rosRed.length) {
-      sectionsAcc.push({
-        id: 'ros',
-        title: 'ROS (høy / rød restrisiko)',
-        items: rosRed.slice(0, 8),
-      })
-    }
-
-    const annualDraft = ic.annualReviews.filter(
-      (a) => a.year === year && a.status !== 'locked' && !a.locked,
-    )
-    if (annualDraft.length) {
-      sectionsAcc.push({
-        id: 'annual',
-        title: 'Årsgjennomgang',
-        items: annualDraft.map((a) => ({
-          label: `År ${a.year} — ikke låst / ferdig`,
-          to: '/internal-control?tab=annual',
-        })),
-      })
-    }
-
-    const hseItems: { label: string; to?: string }[] = []
-    if (hse.stats.expiredTraining > 0) {
-      hseItems.push({
-        label: `${hse.stats.expiredTraining} opplæringsregistrering(er) utløpt`,
-        to: '/hse?tab=training',
-      })
-    }
-    if (hse.stats.overdueMilestones > 0) {
-      hseItems.push({
-        label: `${hse.stats.overdueMilestones} NAV-milepæl(er) forfalt`,
-        to: '/hse?tab=sickness',
-      })
-    }
-    if (hse.stats.openInspections > 0) {
-      hseItems.push({
-        label: `${hse.stats.openInspections} åpne inspeksjon(er)`,
-        to: '/hse?tab=inspections',
-      })
-    }
-    if (hse.stats.openSja > 0) {
-      hseItems.push({
-        label: `${hse.stats.openSja} SJA i utkast / avventer`,
-        to: '/hse?tab=sja',
-      })
-    }
-    if (hseItems.length) {
-      sectionsAcc.push({ id: 'hse', title: 'HMS', items: hseItems })
-    }
 
     const overdueTasks = ts.items.filter((x) => x.status !== 'closed' && x.status !== 'cancelled' && x.dueDate && x.dueDate < today)
     if (overdueTasks.length) {
@@ -398,26 +304,11 @@ export function ShellComplianceIndicator({ variant }: { variant: 'sidebar' | 'to
       })
     }
 
-    const criticalIncident = hse.incidents.filter((i) => i.status !== 'closed' && i.severity === 'critical').length
-    if (criticalIncident > 0) {
-      sectionsAcc.push({
-        id: 'incidents',
-        title: 'Hendelser',
-        items: [
-          {
-            label: `${criticalIncident} kritisk(e) hendelse(r) ikke lukket`,
-            to: '/workplace-reporting/incidents',
-          },
-        ],
-      })
-    }
-
     let level: 'green' | 'yellow' | 'red' = 'green'
-    if (sectionsAcc.some((s) => s.id === 'ros' || s.id === 'incidents')) level = 'red'
-    else if (sectionsAcc.length > 0) level = 'yellow'
+    if (sectionsAcc.length > 0) level = 'yellow'
 
     return { level, sections: sectionsAcc }
-  }, [hse.stats, hse.incidents, ic.rosAssessments, ic.annualReviews, ts.items, today, year])
+  }, [ts.items, today])
 
   const dotClass =
     level === 'green'
@@ -458,9 +349,9 @@ export function ShellComplianceIndicator({ variant }: { variant: 'sidebar' | 'to
         <div className={panelClass} role="dialog" aria-label="Samsvar">
           <h3 className={`text-sm font-semibold ${heading}`}>Samsvar</h3>
           <p className={`mt-1 text-xs ${sub}`}>
-            {level === 'green' && 'Ingen åpen avvik registrert i disse sporene.'}
-            {level === 'yellow' && 'Det finnes punkter som bør følges opp (se under).'}
-            {level === 'red' && 'Kritiske HMS-/ROS- eller hendelsesavvik krever oppfølging.'}
+            {level === 'green'
+              ? 'Ingen åpne oppgaver krever oppfølging.'
+              : 'Det finnes punkter som bør følges opp (se under).'}
           </p>
           {sections.length === 0 ? (
             <p className={`mt-4 text-sm ${variant === 'topbar' ? 'text-white/70' : 'text-neutral-600'}`}>

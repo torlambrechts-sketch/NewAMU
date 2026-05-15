@@ -36,13 +36,11 @@ export function WelcomeDashboardPage() {
   const {
     today,
     todayStr,
-    hse,
     openTasks,
     overdueTasks,
     upcomingMeetings,
     nextMeeting,
     weekDays,
-    openIncidents,
   } = useWorkspaceDashboardData()
 
   const { unreadList, unreadCount } = useNotifications()
@@ -165,17 +163,17 @@ export function WelcomeDashboardPage() {
                 style={{ backgroundColor: CREAM_DEEP }}
               >
                 <div>
-                  <p className="text-3xl font-bold tabular-nums text-neutral-900">{openIncidents}</p>
-                  <p className="mt-1 text-sm font-medium text-neutral-800">HMS-hendelser åpne</p>
+                  <p className="text-3xl font-bold tabular-nums text-neutral-900">{overdueTasks.length}</p>
+                  <p className="mt-1 text-sm font-medium text-neutral-800">Forfalte oppgaver</p>
                   <p className="text-xs text-neutral-600">
-                    {hse.stats.violence > 0 ? `${hse.stats.violence} vold/trusler` : 'Ingen vold/trusler'}
+                    {overdueTasks.length === 0 ? 'Ingen forfalte oppgaver' : 'Krever oppfølging'}
                   </p>
                 </div>
                 <Link
-                  to="/hse?tab=incidents"
+                  to="/tasks/management"
                   className="inline-flex items-center gap-1 text-xs font-semibold uppercase tracking-wide text-neutral-700 hover:text-neutral-900"
                 >
-                  HMS <ChevronRight className="size-3.5" />
+                  Oppgaver <ChevronRight className="size-3.5" />
                 </Link>
               </div>
             </div>
@@ -241,8 +239,8 @@ export function WelcomeDashboardPage() {
             <div className="overflow-hidden rounded-lg border border-neutral-200/80 bg-white shadow-sm">
               <div className="flex flex-wrap items-center justify-between gap-2 border-b border-neutral-100 px-4 py-3">
                 <p className="text-sm font-semibold text-neutral-900">Oppgaver etter status</p>
-                <Link to="/action-board" className="inline-flex items-center gap-1 text-xs font-semibold text-neutral-600 hover:text-neutral-900">
-                  <LayoutGrid className="size-3.5" /> Board
+                <Link to="/tasks/management" className="inline-flex items-center gap-1 text-xs font-semibold text-neutral-600 hover:text-neutral-900">
+                  <LayoutGrid className="size-3.5" /> Alle oppgaver
                 </Link>
               </div>
               <div className="p-5">
@@ -375,11 +373,11 @@ export function WelcomeDashboardPage() {
                   Organisasjon
                 </Link>
                 <Link
-                  to="/hse?tab=incidents"
+                  to="/tasks/management"
                   className="flex items-center gap-3 px-4 py-3 text-sm text-neutral-800 hover:bg-neutral-50"
                 >
                   <ShieldAlert className="size-4 text-red-500" />
-                  Hendelser
+                  Oppgaver
                 </Link>
                 <Link
                   to="/meetings"

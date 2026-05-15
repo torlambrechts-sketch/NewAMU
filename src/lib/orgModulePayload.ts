@@ -1,18 +1,19 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 
 export type OrgModulePayloadKey =
+  // Data-layer keys still in use by hooks the meetings module reads
+  // (HSE / IC / OrgHealth stats power AMU compliance reporting even
+  // though the standalone module UIs are gone).
   | 'internal_control'
   | 'hse'
   | 'org_health'
+  | 'workplace_dashboard'
   | 'representatives'
   | 'tasks'
   | 'organisation'
   | 'cost_settings'
   | 'workspace'
   | 'report_builder'
-  | 'workplace_reporting'
-  | 'workplace_dashboard'
-  | 'internkontroll_settings'
   | 'survey_settings'
   | 'documents_settings'
 

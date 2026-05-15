@@ -352,14 +352,8 @@ export function AnnualReviewPage() {
         <ModuleSectionCard className="p-5 md:col-span-3">
           <h2 className="text-sm font-semibold text-neutral-900">Hendelser og ulykker</h2>
           <p className="mt-1 text-sm text-neutral-600">
-            Se hendelsesregisteret for siste 12 måneder (arbeidsplassrapportering).
+            Hendelses-håndtering håndteres via varsler-modulen (planlagt).
           </p>
-          <Link
-            to="/workplace-reporting/incidents"
-            className="mt-3 inline-flex items-center gap-1.5 text-sm font-medium text-[#1a3d32] hover:underline"
-          >
-            <ExternalLink className="h-3.5 w-3.5" /> Hendelser
-          </Link>
         </ModuleSectionCard>
       </div>
 

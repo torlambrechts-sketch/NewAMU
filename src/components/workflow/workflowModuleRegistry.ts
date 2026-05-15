@@ -12,33 +12,33 @@ export type WfModuleMeta = {
 }
 
 export const WF_MODULE_META: Record<string, WfModuleMeta> = {
-  hse: {
-    label: 'Avvik / HMS',
-    accent: '#dc2626',
-    tint: '#fef2f2',
-    border: '#fecaca',
-    icon: 'HardHat',
-  },
-  inspection: {
-    label: 'Vernerunder',
-    accent: '#2f7757',
+  compliance_checklist: {
+    label: 'Sjekklister',
+    accent: '#1a3d32',
     tint: '#f0fdf4',
     border: '#bbf7d0',
-    icon: 'ClipboardCheck',
+    icon: 'ClipboardList',
   },
-  internal_control: {
-    label: 'ROS-analyser',
-    accent: '#c98a2b',
-    tint: '#fefce8',
-    border: '#fde68a',
-    icon: 'ShieldAlert',
+  survey: {
+    label: 'Undersøkelser',
+    accent: '#7c3aed',
+    tint: '#f5f3ff',
+    border: '#ddd6fe',
+    icon: 'Megaphone',
   },
-  org_health: {
-    label: 'Undersøkelser / IA',
-    accent: '#be185d',
-    tint: '#fdf2f8',
-    border: '#fbcfe8',
-    icon: 'HeartPulse',
+  documents: {
+    label: 'Dokumenter',
+    accent: '#0f766e',
+    tint: '#ecfdf5',
+    border: '#a7f3d0',
+    icon: 'FileText',
+  },
+  meetings: {
+    label: 'Møter',
+    accent: '#4338ca',
+    tint: '#eef2ff',
+    border: '#c7d2fe',
+    icon: 'CalendarDays',
   },
   tasks: {
     label: 'Oppgaver',
@@ -61,26 +61,19 @@ export const WF_MODULE_META: Record<string, WfModuleMeta> = {
     border: '#e5e5e5',
     icon: 'Database',
   },
-  amu: {
-    label: 'AMU',
-    accent: '#7c3aed',
-    tint: '#f5f3ff',
-    border: '#ddd6fe',
-    icon: 'Users',
-  },
-  workplace_reporting: {
-    label: 'Arbeidsplassrapportering',
-    accent: '#1a3d32',
-    tint: '#f0fdf4',
-    border: '#bbf7d0',
-    icon: 'FileWarning',
-  },
   wiki_published: {
     label: 'Wiki',
     accent: '#2563eb',
     tint: '#eff6ff',
     border: '#bfdbfe',
     icon: 'BookOpen',
+  },
+  gov: {
+    label: 'Statlig rapportering',
+    accent: '#991b1b',
+    tint: '#fef2f2',
+    border: '#fecaca',
+    icon: 'ShieldCheck',
   },
 }
 

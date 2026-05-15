@@ -1,19 +1,15 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
   Boxes,
-  Briefcase,
   ClipboardList,
+  Database,
   FileText,
   GraduationCap,
-  HardHat,
-  HeartPulse,
   LayoutGrid,
   Megaphone,
   Search,
-  ShieldCheck,
   Users,
   UsersRound,
-  ShieldAlert,
   Workflow,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
@@ -37,19 +33,15 @@ type KnownModule = {
 }
 
 const KNOWN_MODULES: KnownModule[] = [
-  { slug: 'hse', label: 'HMS & Vernerunder', description: 'Helse, miljø og sikkerhet etter AML og IK-forskriften', icon: HardHat },
-  { slug: 'ros', label: 'ROS-analyser', description: 'Risikovurdering og oppfølging (IK-forskriften § 5 nr. 6)', icon: ShieldAlert },
-  { slug: 'inspection', label: 'Inspeksjonsrunder', description: 'Systematiske vernerunder med digitale sjekklister', icon: ClipboardList },
-  { slug: 'internal-control', label: 'Internkontroll', description: 'Risikostyring og IK-dokumentasjon', icon: ShieldCheck },
-  { slug: 'council', label: 'AMU / Arbeidsmiljøutvalg', description: 'Møtereferat, vedtak og representanter', icon: UsersRound },
-  { slug: 'members', label: 'Medlemmer', description: 'Ansatte og organisasjonsmedlemmer', icon: Users },
-  { slug: 'org-health', label: 'Org Health', description: 'Medarbeidertilfredshet og pulsundersøkelser', icon: HeartPulse },
-  { slug: 'tasks', label: 'Oppgaver', description: 'Oppgavebehandling og avvikshåndtering', icon: LayoutGrid },
-  { slug: 'workflow', label: 'Arbeidsflyt', description: 'Automatiserte prosessflyter og godkjenninger', icon: Workflow },
-  { slug: 'learning', label: 'E-læring', description: 'Kurs, opplæring og sertifikater', icon: GraduationCap },
+  { slug: 'compliance_checklist', label: 'Sjekklister', description: 'Compliance-sjekklister (AML / ISO 45001 / GDPR)', icon: ClipboardList },
+  { slug: 'survey', label: 'Undersøkelser', description: 'AMU-valg, QPSNordic/ARK og tiltaksoppfølging', icon: Megaphone },
   { slug: 'documents', label: 'Dokumenter', description: 'Dokumentbibliotek og wiki', icon: FileText },
-  { slug: 'hr', label: 'HR & Jus', description: 'HR-compliance og rettslig dokumentasjon', icon: Briefcase },
-  { slug: 'workplace_reporting', label: 'Varsling', description: 'Varsler og intern rapportering', icon: Megaphone },
+  { slug: 'meetings', label: 'Møter', description: 'AMU, vernerunder, MUS — agenda og protokoll', icon: UsersRound },
+  { slug: 'tasks', label: 'Oppgaver', description: 'Oppgavebehandling og avvikshåndtering', icon: LayoutGrid },
+  { slug: 'learning', label: 'E-læring', description: 'Kurs, opplæring og sertifikater', icon: GraduationCap },
+  { slug: 'registers', label: 'Registre', description: 'Strukturerte registre (kjemikalier, leverandører, GDPR)', icon: Database },
+  { slug: 'workflow', label: 'Arbeidsflyt', description: 'Automatiserte prosessflyter og godkjenninger', icon: Workflow },
+  { slug: 'users', label: 'Brukere & roller', description: 'Brukeradministrasjon og tilgangsstyring', icon: Users },
 ]
 
 // ── Types ────────────────────────────────────────────────────────────────────
