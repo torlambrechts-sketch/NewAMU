@@ -37,7 +37,7 @@ export default function PrivacyComposedPanel() {
     const next = id === 'subject' ? 'subject' : 'breach'
     const params = new URLSearchParams(location.search)
     params.set('gdpr', next)
-    navigate({ pathname: location.pathname, search: `?${params.toString()}` }, { replace: false })
+    navigate({ pathname: location.pathname, search: `?${params.toString()}` }, { replace: true })
   }
 
   return (

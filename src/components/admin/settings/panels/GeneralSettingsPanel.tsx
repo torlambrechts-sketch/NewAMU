@@ -14,6 +14,7 @@ import { Link } from 'react-router-dom'
 import { ModuleSectionCard } from '../../../module'
 import { Button } from '../../../ui/Button'
 import { useOrgSetupContext } from '../../../../hooks/useOrgSetupContext'
+import type { BrregEnhet } from '../../../../types/brreg'
 
 type OrgRow = {
   id: string
@@ -22,7 +23,7 @@ type OrgRow = {
   onboarding_completed_at: string | null
   created_at: string
   updated_at: string
-  brreg_snapshot: { name?: string; lastSyncedAt?: string } | null
+  brreg_snapshot: BrregEnhet | null
 }
 
 export default function GeneralSettingsPanel() {
@@ -91,11 +92,12 @@ export default function GeneralSettingsPanel() {
               {new Date(row.updated_at).toLocaleDateString('nb-NO')}
             </dd>
           </div>
-          {row.brreg_snapshot?.lastSyncedAt ? (
+          {row.brreg_snapshot?.naeringskode1?.beskrivelse ? (
             <div className="sm:col-span-2">
-              <dt className="text-xs font-medium uppercase tracking-wide text-neutral-500">BRREG-synk</dt>
+              <dt className="text-xs font-medium uppercase tracking-wide text-neutral-500">Næring (NACE)</dt>
               <dd className="mt-0.5 text-neutral-900">
-                Sist hentet {new Date(row.brreg_snapshot.lastSyncedAt).toLocaleDateString('nb-NO')}
+                {row.brreg_snapshot.naeringskode1.kode ? `${row.brreg_snapshot.naeringskode1.kode} — ` : ''}
+                {row.brreg_snapshot.naeringskode1.beskrivelse}
               </dd>
             </div>
           ) : null}

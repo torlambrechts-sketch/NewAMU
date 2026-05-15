@@ -99,7 +99,7 @@ export function ExternalUsersAdminPanel() {
         } else if (chip === 'external_functional_role') {
           const { data, error: err } = await sb
             .from('org_active_role_holders')
-            .select('organization_id, role_slug, role_label, user_id, user_name, user_email, valid_from, valid_to, role_category')
+            .select('organization_id, role_slug, role_label, user_id, user_name, user_email, valid_from, valid_to')
             .eq('organization_id', organization.id)
             .eq('role_category', 'eksternt')
             .order('role_label')
@@ -188,7 +188,7 @@ export function ExternalUsersAdminPanel() {
 
 function computeAuditorStatus(r: AuditorRow): string {
   if (r.revoked_at) return 'Trukket tilbake'
-  if (r.expires_at && Date.parse(r.expires_at) < Date.parse(new Date().toISOString())) return 'Utløpt'
+  if (r.expires_at && new Date(r.expires_at) < new Date()) return 'Utløpt'
   return 'Aktiv'
 }
 
@@ -202,7 +202,7 @@ function AuditorList({ rows }: { rows: AuditorRow[] }) {
     )
   }
   return (
-    <table className="w-full min-w-[480px] text-left text-sm">
+    <div className="overflow-x-auto"><table className="w-full min-w-[480px] text-left text-sm">
       <thead>
         <tr className="border-b border-neutral-200 text-neutral-500">
           <th className="py-2 pr-4">Etikett</th>
@@ -230,7 +230,7 @@ function AuditorList({ rows }: { rows: AuditorRow[] }) {
           )
         })}
       </tbody>
-    </table>
+    </table></div>
   )
 }
 
@@ -244,7 +244,7 @@ function FunctionalList({ rows }: { rows: FunctionalRow[] }) {
     )
   }
   return (
-    <table className="w-full min-w-[480px] text-left text-sm">
+    <div className="overflow-x-auto"><table className="w-full min-w-[480px] text-left text-sm">
       <thead>
         <tr className="border-b border-neutral-200 text-neutral-500">
           <th className="py-2 pr-4">Navn</th>
@@ -265,7 +265,7 @@ function FunctionalList({ rows }: { rows: FunctionalRow[] }) {
           </tr>
         ))}
       </tbody>
-    </table>
+    </table></div>
   )
 }
 
@@ -279,7 +279,7 @@ function VendorList({ rows }: { rows: VendorRow[] }) {
     )
   }
   return (
-    <table className="w-full min-w-[480px] text-left text-sm">
+    <div className="overflow-x-auto"><table className="w-full min-w-[480px] text-left text-sm">
       <thead>
         <tr className="border-b border-neutral-200 text-neutral-500">
           <th className="py-2 pr-4">Navn</th>
@@ -300,7 +300,7 @@ function VendorList({ rows }: { rows: VendorRow[] }) {
           </tr>
         ))}
       </tbody>
-    </table>
+    </table></div>
   )
 }
 
@@ -314,7 +314,7 @@ function CourseParticipantList({ rows }: { rows: LearningCertRow[] }) {
     )
   }
   return (
-    <table className="w-full min-w-[480px] text-left text-sm">
+    <div className="overflow-x-auto"><table className="w-full min-w-[480px] text-left text-sm">
       <thead>
         <tr className="border-b border-neutral-200 text-neutral-500">
           <th className="py-2 pr-4">Tittel</th>
@@ -339,7 +339,7 @@ function CourseParticipantList({ rows }: { rows: LearningCertRow[] }) {
           </tr>
         ))}
       </tbody>
-    </table>
+    </table></div>
   )
 }
 
