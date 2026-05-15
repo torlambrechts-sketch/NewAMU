@@ -22,11 +22,7 @@ const sections: SettingsSection[] = [
     icon: Sliders,
     capabilities: ['general'],
     searchKeywords: ['generelt', 'språk', 'tidssone', 'lokalitet', 'merkevare'],
-    component: placeholderSection(
-      'Generelle innstillinger',
-      'Språk, tidssone, lokalitet og merkevare for organisasjonen.',
-      'Konfigurasjonssiden bygges i fase 3.',
-    ),
+    component: lazy(() => import('../panels/GeneralSettingsPanel')),
   },
   {
     id: 'security',
@@ -34,11 +30,7 @@ const sections: SettingsSection[] = [
     icon: ScrollText,
     capabilities: ['general'],
     searchKeywords: ['sikkerhet', 'passord', '2fa', 'revisjonslogg', 'audit'],
-    component: placeholderSection(
-      'Sikkerhet',
-      'Passord­policy, to-faktor, sesjonslengde og revisjonslogg.',
-      'Revisjonslogg finnes allerede på /workspace/revisjonslogg. Resterende kontroller leveres i fase 3.',
-    ),
+    component: lazy(() => import('../panels/SecurityAdminPanel')),
   },
   {
     id: 'privacy',
@@ -78,11 +70,7 @@ const sections: SettingsSection[] = [
     icon: Wallet,
     capabilities: ['general'],
     searchKeywords: ['plan', 'abonnement', 'lisens', 'billing'],
-    component: placeholderSection(
-      'Plan og abonnement',
-      'Aktiv plan, lisensutløp og kontaktinformasjon for fakturering.',
-      'Egen side leveres i fase 3.',
-    ),
+    component: lazy(() => import('../panels/PlanAdminPanel')),
   },
 ]
 

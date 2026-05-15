@@ -18,7 +18,6 @@ import { PermissionGate } from './components/PermissionGate'
 import { OnboardingWizard } from './pages/OnboardingWizard'
 import { AuthPage } from './pages/AuthPage'
 import { InviteAcceptPage } from './pages/InviteAcceptPage'
-import { AdminPage } from './pages/AdminPage'
 import { ProfilePage } from './pages/ProfilePage'
 import { ReportsListPage } from './pages/reports/ReportsListPage'
 import { ReportDetailPage } from './pages/reports/ReportDetailPage'
@@ -365,12 +364,8 @@ const router = createBrowserRouter(
                       <Route path="workspace/revisjonslogg" element={<WorkspaceAuditLogPage />} />
                       <Route path="organisation" element={<OrganisationPage />} />
                       {/* Legacy admin tab URLs — redirect into the new
-                          scoped paths under /admin/settings. The
-                          underlying AdminPage component is kept for one
-                          release behind ?legacy=1 so an emergency
-                          fallback is possible. */}
+                          scoped paths under /admin/settings. */}
                       <Route path="organisation/admin" element={<LegacyOrgAdminRedirect />} />
-                      <Route path="organisation/admin/legacy" element={<AdminPage />} />
                       <Route path="reports" element={<ReportsListPage />} />
                       <Route path="reports/new" element={<Navigate to="/reports" replace />} />
                       <Route path="reports/:id" element={<ReportDetailPage />} />

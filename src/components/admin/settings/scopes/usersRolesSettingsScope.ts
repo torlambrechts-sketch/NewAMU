@@ -22,7 +22,6 @@ import {
   registerSettingsScope,
   type SettingsSection,
 } from '../../../../lib/settings/settingsRegistry'
-import { placeholderSection } from '../placeholderSection'
 
 const sections: SettingsSection[] = [
   {
@@ -45,10 +44,10 @@ const sections: SettingsSection[] = [
     capabilities: ['general'],
     searchKeywords: ['ekstern', 'auditor', 'revisor', 'kontraktor', 'leverandør', 'kursdeltaker'],
     permAny: ['users.manage'],
-    component: placeholderSection(
-      'Eksterne brukere',
-      'Samlet liste over revisorer (signerte lenker), kontraktører, eksterne kursdeltakere og eksterne funksjonsroller.',
-      'Type-fane for revisor leses fra workflow_auditor_tokens; øvrige typer kobles på i fase 3.',
+    component: lazy(() =>
+      import('../../users/ExternalUsersAdminPanel').then((m) => ({
+        default: m.ExternalUsersAdminPanel,
+      })),
     ),
   },
   {

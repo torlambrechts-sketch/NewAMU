@@ -13,7 +13,6 @@ import {
   registerSettingsScope,
   type SettingsSection,
 } from '../../../../lib/settings/settingsRegistry'
-import { placeholderSection } from '../placeholderSection'
 
 const sections: SettingsSection[] = [
   {
@@ -47,11 +46,7 @@ const sections: SettingsSection[] = [
     capabilities: ['integrations'],
     searchKeywords: ['webhook', 'api', 'token', 'callback'],
     permAny: ['roles.manage', 'workflows.manage'],
-    component: placeholderSection(
-      'Webhooks og API-tokens',
-      'Organisasjonsomfattende webhooks og API-tilganger til eksterne systemer.',
-      'Egen tabell og innstillingsside leveres i fase 3. Modulinterne webhooks (Survey, Workflow) ligger fortsatt under sin modul.',
-    ),
+    component: lazy(() => import('../panels/WebhooksAdminPanel')),
   },
 ]
 
