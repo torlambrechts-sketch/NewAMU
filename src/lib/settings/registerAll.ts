@@ -10,13 +10,13 @@
 // `listSettingsScopes`), but keep it human-readable by group.
 
 // Administrasjon group — the admin scopes.
-// "Organisasjon" is intentionally NOT a registered scope: its sidebar
-// subs deep-link to the existing OrganisationPage tabs (real surface,
-// no placeholder hop). The other four scopes register real or planned
+// "Organisasjon" and "Arbeidsflyt" are intentionally NOT registered
+// scopes: their sidebar subs deep-link straight to the existing real
+// surfaces (OrganisationPage tabs / WorkflowBuilderPage tabs), no
+// placeholder hop. The other three scopes register real or planned
 // admin sections that live in the unified hub.
 import '../../components/admin/settings/scopes/usersRolesSettingsScope'
 import '../../components/admin/settings/scopes/integrationsSettingsScope'
-import '../../components/admin/settings/scopes/workflowsSettingsScope'
 import '../../components/admin/settings/scopes/systemSettingsScope'
 
 // Module group — added as each module migrates.

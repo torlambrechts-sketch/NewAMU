@@ -1101,40 +1101,62 @@ export function AticsShell() {
         requirePermAny: ['roles.manage', 'workflows.manage'],
       },
     ]
+    // Arbeidsflyt subs deep-link to the real WorkflowBuilderPage tabs at
+    // /workflow?tab=… and /workflow/admin. The earlier
+    // /admin/settings/workflows/* registry scope was 5 placeholder cards
+    // sitting in front of the working builder — same anti-pattern we
+    // removed for Organisasjon. Match the builder's own tab IDs:
+    // rules / library / runs / approvals / evidence + the admin route.
+    const matchWorkflowTab = (tab: string) =>
+      ({ pathname, search }: { pathname: string; search: string }) => {
+        if (pathname !== '/workflow') return false
+        return new URLSearchParams(search).get('tab') === tab
+      }
     const workflowsSubs: SubItem[] = [
       {
-        label: 'Analyse',
-        path: '/admin/settings/workflows/analyse',
-        Icon: BarChart3,
-        match: isAdminSettings('workflows', 'analyse'),
+        label: 'Mine arbeidsflyter',
+        path: '/workflow?tab=rules',
+        Icon: Workflow,
+        match: ({ pathname, search }) => {
+          if (pathname !== '/workflow') return false
+          const t = new URLSearchParams(search).get('tab')
+          return !t || t === 'rules'
+        },
         requirePermAny: WORKFLOWS_NAV_PERMS,
       },
       {
-        label: 'Regler',
-        path: '/admin/settings/workflows/rules',
-        Icon: Workflow,
-        match: isAdminSettings('workflows', 'rules'),
-        requirePermAny: ['workflows.manage', 'workflows.compose'],
+        label: 'Mal-bibliotek',
+        path: '/workflow?tab=library',
+        Icon: LayoutTemplate,
+        match: matchWorkflowTab('library'),
+        requirePermAny: WORKFLOWS_NAV_PERMS,
       },
       {
         label: 'Kjøringer',
-        path: '/admin/settings/workflows/runs',
+        path: '/workflow?tab=runs',
         Icon: History,
-        match: isAdminSettings('workflows', 'runs'),
+        match: matchWorkflowTab('runs'),
         requirePermAny: ['workflows.manage', 'module.view.workflow'],
       },
       {
-        label: 'Maler',
-        path: '/admin/settings/workflows/templates',
-        Icon: LayoutTemplate,
-        match: isAdminSettings('workflows', 'templates'),
-        requirePerm: 'workflows.manage',
+        label: 'Godkjenninger',
+        path: '/workflow?tab=approvals',
+        Icon: UserCheck,
+        match: matchWorkflowTab('approvals'),
+        requirePermAny: ['workflows.manage', 'workflows.compose'],
       },
       {
-        label: 'Auditor-tilganger',
-        path: '/admin/settings/workflows/auditors',
-        Icon: UserSearch,
-        match: isAdminSettings('workflows', 'auditors'),
+        label: 'Bevispakke',
+        path: '/workflow?tab=evidence',
+        Icon: ShieldCheck,
+        match: matchWorkflowTab('evidence'),
+        requirePermAny: WORKFLOWS_NAV_PERMS,
+      },
+      {
+        label: 'Innstillinger',
+        path: '/workflow/admin',
+        Icon: Settings,
+        match: ({ pathname }) => pathname.startsWith('/workflow/admin'),
         requirePerm: 'workflows.manage',
       },
     ]
@@ -1222,7 +1244,7 @@ export function AticsShell() {
           flatSubs: true,
         },
         {
-          to: '/admin/settings/workflows',
+          to: '/workflow',
           label: 'Arbeidsflyt',
           end: false,
           icon: Workflow,

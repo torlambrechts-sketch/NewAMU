@@ -422,6 +422,16 @@ const router = createBrowserRouter(
                       <Route path="admin/settings/organisation/units" element={<Navigate to="/organisation?tab=units" replace />} />
                       <Route path="admin/settings/organisation/employees" element={<Navigate to="/organisation?tab=employees" replace />} />
                       <Route path="admin/settings/organisation/mandates" element={<Navigate to="/organisation?tab=mandates" replace />} />
+                      {/* Arbeidsflyt scope was retired in favour of
+                          deep-linking to the existing WorkflowBuilderPage
+                          tabs. Map old placeholder URLs to the real
+                          surface. */}
+                      <Route path="admin/settings/workflows" element={<Navigate to="/workflow" replace />} />
+                      <Route path="admin/settings/workflows/analyse" element={<Navigate to="/workflow" replace />} />
+                      <Route path="admin/settings/workflows/rules" element={<Navigate to="/workflow?tab=rules" replace />} />
+                      <Route path="admin/settings/workflows/runs" element={<Navigate to="/workflow?tab=runs" replace />} />
+                      <Route path="admin/settings/workflows/templates" element={<Navigate to="/workflow?tab=library" replace />} />
+                      <Route path="admin/settings/workflows/auditors" element={<Navigate to="/admin/settings/users-roles/external" replace />} />
                       <Route path="admin" element={<Navigate to="/organisation" replace />} />
                       <Route path="profile" element={<ProfilePage />} />
                       <Route path="learning/play/:courseId" element={<LearningPlayer />} />
