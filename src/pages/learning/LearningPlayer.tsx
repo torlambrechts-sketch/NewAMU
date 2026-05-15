@@ -22,6 +22,7 @@ import { ParagrafReferanse } from '../../components/learning/ParagrafReferanse'
 import { AML_LAW_REFS_CATALOG } from '../../lib/learning/amlLawRefsCatalog'
 import { GamificationHUD, LeadershipInsight, ModulePointsPill } from '../../components/learning/LearningGamification'
 import { ScenarioModulePlayer } from '../../components/learning/ScenarioModulePlayer'
+import { LearningPlayerHjemLayout } from './LearningPlayerHjemLayout'
 
 function ProgressBar({ value, label }: { value: number; label?: string }) {
   const pct = Math.round(Math.min(100, Math.max(0, value * 100)))
@@ -234,6 +235,18 @@ export function LearningPlayer() {
     { label: 'E-læring', to: '/learning' },
     { label: 'Katalog', to: '/learning/katalog' },
   ]
+
+  // Hjem-layout opt-in via ?layout=hjem. Renders the workspace-frontpage-style
+  // course player (LearningPlayerHjemLayout) using the same useLearning data
+  // as the classic player. Falls through to the classic layout otherwise.
+  const hjemLayout = searchParams.get('layout') === 'hjem'
+  if (
+    hjemLayout &&
+    course &&
+    (course.status === 'published' || searchParams.get('preview') === '1' || canManageLearning)
+  ) {
+    return <LearningPlayerHjemLayout course={course} />
+  }
 
   // Admins (or anyone arriving via the builder's "Forhåndsvisning" link
   // with `?preview=1`) can render an unpublished course in the player —

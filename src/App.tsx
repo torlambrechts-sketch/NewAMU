@@ -125,6 +125,12 @@ import { PlatformLayoutTemplatesPage } from './pages/platform/PlatformLayoutTemp
 import { PlatformModuleTemplatesPage } from './pages/platform/PlatformModuleTemplatesPage'
 import { PlatformLayoutHubPage } from './pages/platform/PlatformLayoutHubPage'
 import { PlatformLayoutElementsGalleryPage } from './pages/platform/PlatformLayoutElementsGalleryPage'
+import { PlatformCoursePlayerHubPage } from './pages/platform/coursePlayer/PlatformCoursePlayerHubPage'
+import { PlatformCoursePlayerFocusPage } from './pages/platform/coursePlayer/PlatformCoursePlayerFocusPage'
+import { PlatformCoursePlayerCinemaPage } from './pages/platform/coursePlayer/PlatformCoursePlayerCinemaPage'
+import { PlatformCoursePlayerCoachPage } from './pages/platform/coursePlayer/PlatformCoursePlayerCoachPage'
+import { PlatformCoursePlayerKlasseromPage } from './pages/platform/coursePlayer/PlatformCoursePlayerKlasseromPage'
+import { PlatformCoursePlayerHjemPage } from './pages/platform/coursePlayer/PlatformCoursePlayerHjemPage'
 import { PublicWhistlePage } from './pages/PublicWhistlePage'
 import { WhistleStatusPage } from './pages/WhistleStatusPage'
 import { LandingPage } from './pages/LandingPage'
@@ -256,6 +262,12 @@ const router = createBrowserRouter(
                 <Route path="module-templates" element={<PlatformModuleTemplatesPage />} />
                 <Route path="layout" element={<PlatformLayoutHubPage />} />
                 <Route path="layout-elements" element={<PlatformLayoutElementsGalleryPage />} />
+                <Route path="course-player" element={<PlatformCoursePlayerHubPage />} />
+                <Route path="course-player/focus" element={<PlatformCoursePlayerFocusPage />} />
+                <Route path="course-player/cinema" element={<PlatformCoursePlayerCinemaPage />} />
+                <Route path="course-player/coach" element={<PlatformCoursePlayerCoachPage />} />
+                <Route path="course-player/klasserom" element={<PlatformCoursePlayerKlasseromPage />} />
+                <Route path="course-player/hjem" element={<PlatformCoursePlayerHjemPage />} />
                 <Route path="layout-composer" element={<Navigate to="/platform-admin/layout#composer" replace />} />
                 <Route path="layout-standard" element={<Navigate to="/platform-admin/layout#standard" replace />} />
                 <Route path="layout-dashboard" element={<Navigate to="/platform-admin/layout#dashboard" replace />} />
