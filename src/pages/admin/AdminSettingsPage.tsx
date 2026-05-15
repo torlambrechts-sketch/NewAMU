@@ -43,7 +43,12 @@ export function AdminSettingsPage() {
   const { visibleScopes, activeScope, visibleSections, activeSection, goTo } =
     useScopeNavigation()
 
-  const viewAll = scopeParam === ALL_VIEW_SCOPE_PARAM
+  // Bare `/admin/settings` and the reserved `all` scope both render the
+  // flat cross-scope view. The sidebar entry "Admin → Innstillinger"
+  // points at `/admin/settings` and should land on this overview
+  // instead of silently redirecting to whichever scope happens to come
+  // first in the registry.
+  const viewAll = scopeParam == null || scopeParam === ALL_VIEW_SCOPE_PARAM
 
   const sectionCountByScope = useMemo(() => {
     const counts: Record<string, number> = {}
@@ -85,6 +90,7 @@ export function AdminSettingsPage() {
     <ModulePageShell
       breadcrumb={[
         { label: 'Hjem', to: '/app' },
+        { label: 'Admin' },
         { label: 'Innstillinger' },
       ]}
       title="Innstillinger"

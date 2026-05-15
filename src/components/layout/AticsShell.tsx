@@ -547,6 +547,26 @@ function activeModuleForPath(modules: NavModule[], pathname: string, search: str
     const adminMod = modules.find((m) => m.to === '/organisation/admin')
     if (adminMod) return adminMod
   }
+  // Admin-group sub-paths whose URL prefix doesn't line up with the
+  // synthetic Admin module's `.to`. Without this, the prefix loop below
+  // falls through to `modules[0]` (Oversikt) and the wrong group lights
+  // up in the sidebar when the user is on `/admin/settings/*`,
+  // `/workflow/*`, etc.
+  if (
+    pathname === '/admin/settings' ||
+    pathname.startsWith('/admin/settings/') ||
+    pathname === '/admin/templates' ||
+    pathname.startsWith('/admin/templates/') ||
+    pathname === '/admin/integrasjoner-staten' ||
+    pathname.startsWith('/admin/integrasjoner-staten/') ||
+    pathname === '/workflow' ||
+    pathname.startsWith('/workflow/')
+  ) {
+    const adminMod =
+      modules.find((m) => m.to === '/organisation') ??
+      modules.find((m) => m.to === '/organisation/admin')
+    if (adminMod) return adminMod
+  }
   if (pathname === '/meetings' || pathname.startsWith('/meetings/')) {
     const mtg = modules.find((m) => m.to === '/meetings')
     if (mtg) return mtg
