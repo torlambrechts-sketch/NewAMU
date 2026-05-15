@@ -3,10 +3,10 @@
 // Hosts everything related to who can do what in the org: internal users,
 // external users (auditors / contractors / course participants / external
 // functional-role holders), permission roles, HMS functional roles, role
-// delegation, and the role-compliance dashboard. The functional-roles
-// section reuses the existing `FunctionalRolesAdminPanel`; the others are
-// placeholders until phase 2 extracts the users/roles/delegation tabs
-// from `src/pages/AdminPage.tsx` and phase 3 ships the missing pages.
+// delegation, and the role-compliance dashboard. The internal-users,
+// roles, and delegation panels were extracted from the legacy
+// `src/pages/AdminPage.tsx` in phase 2. External users and role-compliance
+// remain placeholders until phase 3.
 
 import { lazy } from 'react'
 import {
@@ -32,10 +32,10 @@ const sections: SettingsSection[] = [
     capabilities: ['general'],
     searchKeywords: ['bruker', 'invitasjon', 'invite', 'user', 'interne'],
     permAny: ['users.manage', 'users.invite'],
-    component: placeholderSection(
-      'Interne brukere',
-      'Listevisning, invitasjoner og rollebinding for ansatte. Erstatter «Brukere»-fanen fra den gamle admin-siden.',
-      'Hentes inn fra /organisation/admin?tab=users i fase 2.',
+    component: lazy(() =>
+      import('../../users/UsersInternalAdminPanel').then((m) => ({
+        default: m.UsersInternalAdminPanel,
+      })),
     ),
   },
   {
@@ -58,10 +58,10 @@ const sections: SettingsSection[] = [
     capabilities: ['general'],
     searchKeywords: ['rolle', 'role', 'tilgang', 'permission', 'rbac'],
     permAny: ['roles.manage'],
-    component: placeholderSection(
-      'Roller og tilganger',
-      'Definer rolledefinisjoner og hvilke tillatelser de gir. Tabellen viser role_definitions × role_permissions.',
-      'Hentes inn fra /organisation/admin?tab=roles i fase 2.',
+    component: lazy(() =>
+      import('../../roles/RolesAdminPanel').then((m) => ({
+        default: m.RolesAdminPanel,
+      })),
     ),
   },
   {
@@ -83,10 +83,10 @@ const sections: SettingsSection[] = [
     capabilities: ['general'],
     searchKeywords: ['delegering', 'delegation', 'stedfortreder', 'vikar'],
     permAny: ['roles.manage', 'delegation.manage'],
-    component: placeholderSection(
-      'Delegering av roller',
-      'Tidsavgrenset overføring av rolletilganger ved fravær.',
-      'Hentes inn fra /organisation/admin?tab=delegation i fase 2.',
+    component: lazy(() =>
+      import('../../roles/DelegationAdminPanel').then((m) => ({
+        default: m.DelegationAdminPanel,
+      })),
     ),
   },
   {
@@ -95,10 +95,10 @@ const sections: SettingsSection[] = [
     icon: BarChart3,
     capabilities: ['statistics'],
     searchKeywords: ['rolle-compliance', 'kompetanse', 'dekning', 'role compliance'],
-    component: placeholderSection(
-      'Rolle-compliance',
-      'Dashboard som viser dekning av rollekrav på tvers av enheter.',
-      'Eksisterende side på /organisation/admin?tab=role_compliance pekes inn her i en senere fase.',
+    component: lazy(() =>
+      import('../../../../pages/admin/RoleComplianceAnalysePage').then((m) => ({
+        default: m.RoleComplianceAnalysePage,
+      })),
     ),
   },
 ]
