@@ -546,7 +546,14 @@ export function ReportModuleWidget({
       not_applicable: 'Ikke aktuelt',
       not_assessed: 'Ikke vurdert',
     }
-    const raw = m.paragraphsPath ? getAtPath(ds, m.paragraphsPath) : (ds as { paragraphs?: unknown } | null | undefined)?.paragraphs
+    // Accept either { paragraphs: [...] } or a bare array as the dataset
+    // shape. The latter shows up when a scope registers the paragraphs
+    // array directly as the dataset value (legitimate per the registry).
+    const raw = m.paragraphsPath
+      ? getAtPath(ds, m.paragraphsPath)
+      : Array.isArray(ds)
+        ? ds
+        : (ds as { paragraphs?: unknown } | null | undefined)?.paragraphs
     const paragraphs: ParagraphCell[] = Array.isArray(raw)
       ? (raw as unknown[]).flatMap((p) => {
           if (!p || typeof p !== 'object') return []

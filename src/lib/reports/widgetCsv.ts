@@ -145,7 +145,9 @@ export function widgetToCsv(
     case 'compliance_paragraph_grid': {
       const raw = module.paragraphsPath
         ? getAtPath(ds, module.paragraphsPath)
-        : (ds as { paragraphs?: unknown } | null | undefined)?.paragraphs
+        : Array.isArray(ds)
+          ? ds
+          : (ds as { paragraphs?: unknown } | null | undefined)?.paragraphs
       const items: Array<Record<string, unknown>> = Array.isArray(raw)
         ? (raw as Array<Record<string, unknown>>)
         : []

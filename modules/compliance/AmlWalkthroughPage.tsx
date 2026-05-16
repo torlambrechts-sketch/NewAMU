@@ -153,6 +153,7 @@ export function AmlWalkthroughPage() {
   const cl = useChecklistModule({ supabase })
   const {
     load,
+    loading,
     loadDetail,
     templates,
     executions,
@@ -169,6 +170,12 @@ export function AmlWalkthroughPage() {
     assignableUsers,
     updateExecutionMetadata,
   } = cl
+
+  // Tracks whether the first `load()` cycle has completed. Without this,
+  // the auto-create-execution effect can fire against an empty
+  // `executions` array (before the first fetch returns) and create a
+  // duplicate draft alongside one already in the DB.
+  const [initialLoadComplete, setInitialLoadComplete] = useState(false)
 
   const [executionId, setExecutionId] = useState<string | null>(null)
   const [creatingExecution, setCreatingExecution] = useState(false)
@@ -200,7 +207,7 @@ export function AmlWalkthroughPage() {
   const brandAccent = useMemo(() => packAccentFor(pack.slug) ?? '#1a3d32', [pack.slug])
 
   useEffect(() => {
-    void load()
+    void load().then(() => setInitialLoadComplete(true))
   }, [load])
 
   const template = useMemo(
@@ -208,8 +215,12 @@ export function AmlWalkthroughPage() {
     [templates, slug],
   )
 
-  // Pick or create draft execution for this user × template
+  // Pick or create draft execution for this user × template. The
+  // `initialLoadComplete` guard prevents a race where the effect fires
+  // against an empty `executions` array (before load() returns) and
+  // creates a duplicate draft alongside one that already exists in DB.
   useEffect(() => {
+    if (!initialLoadComplete || loading) return
     if (!template || executionId || creatingExecution) return
     const existing = executions.find(
       (e) => e.template_id === template.id && e.status === 'draft' && e.deleted_at === null,
@@ -226,7 +237,7 @@ export function AmlWalkthroughPage() {
       setCreatingExecution(false)
       if (id) setExecutionId(id)
     })
-  }, [template, executions, executionId, creatingExecution, createExecution])
+  }, [initialLoadComplete, loading, template, executions, executionId, creatingExecution, createExecution])
 
   useEffect(() => {
     if (executionId) void loadDetail(executionId)
