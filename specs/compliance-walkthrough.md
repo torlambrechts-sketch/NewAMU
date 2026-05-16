@@ -313,22 +313,22 @@ These all work without per-pack changes:
 
 ---
 
-## 5 · Pack-locked code (still AML-only, deferred refactors)
+## 5 · Pack-locked code (still AML-only)
 
-These are hardcoded for AML for now. Each one becomes an extension
-point when the next walkthrough ships.
+Two pack-locked corners remain — both behind clean extension points
+that don't require shape changes:
 
-1. **`ChecklistWalkthroughPage.applicabilityFor()`** — encodes AML
-   thresholds (§ 2A-7 ≥5 ansatte, § 7-1 ≥50, § 14-12 only when
-   innleide). Item keys (`k2a_7_rutiner`, `k6_1_valgt`, etc.) are
-   hardcoded. To extend for ISO: add a new `case` per ISO item key,
-   or refactor to a per-template applicability rule schema.
+1. **Legacy `applicabilityFor()` fallback map** in
+   `ChecklistWalkthroughPage.tsx`. New templates declare per-item
+   `applicability` rules (§2 above) and the legacy map is never
+   consulted. AML's seeded items still use the legacy map because
+   they haven't been retrofitted with explicit rules — purely
+   cosmetic debt, no functional gap.
 2. **AML wrappers** — `_provision_compliance_aml_fullgjennomgang`,
    `_aml_fullgjennomgang_check_due_orgs`. Kept so the existing
-   dispatcher + pg_cron continue to work, but no new wrappers should
-   be added — new walkthroughs call the generic helpers directly.
-3. **Paragraph-grid catalog entry** — single hardcoded AML entry.
-   New walkthroughs need their own catalog entry (3.4 above).
+   dispatcher + pg_cron schedule continue to work. **New
+   walkthroughs should call the generic helpers directly**, not add
+   per-slug wrappers.
 
 ---
 
@@ -357,23 +357,34 @@ point when the next walkthrough ships.
 
 ## 7 · Open questions / deferred work
 
-1. **Per-template applicability rules** — extension point in #5. Schema
-   sketch: `metadata_schema.fields[].applicability_rule = { field, op,
-   value, reason }` evaluated by a shared helper.
-2. **Paragraph-grid catalog auto-discovery** — DatasetMeta registration
-   is static at scope-load. To go fully dynamic, the dashboard registry
-   would need a runtime hook that walks `compliance_checklist_templates`
-   at component mount.
-3. **i18n** — every user-facing string in the seed is Norwegian. To
-   support en-US / sv-SE, the seed migration would write to a flat
-   translation table keyed by `(slug, item.key, locale)` and the page
-   would look up at render time. Deferred until first non-NO customer.
+1. ✅ ~~**Per-template applicability rules**~~ — shipped Phase 16.
+   Items can declare `applicability: [{ hideWhen: [{field, op, value}],
+   reason }]` arrays. The wizard's `applicabilityFor()` consults
+   these first, falling back to the legacy AML map only when no
+   rules are declared. New walkthroughs ship rules in seed jsonb;
+   AML retrofit is cosmetic-only.
+2. ✅ ~~**Paragraph-grid catalog auto-discovery**~~ — partially
+   addressed Phase 17. New `paragraphGridCatalogEntry({slug, label,
+   …})` factory builds a fully-formed `WidgetCatalogEntry` so other
+   walkthroughs add their catalog entry in one line. Fully dynamic
+   registration (per-template, no factory call) still requires a
+   runtime hook into the dashboard registry — defer.
+3. ✅ ~~**i18n (infrastructure)**~~ — shipped Phase 18. New
+   `pickLocaleString(bag, locale, fallback)` helper + optional
+   `*_i18n: Record<string, string>` fields on `ChecklistItem` and
+   `ChecklistSection` (`prompt_i18n`, `help_i18n`, `status_hint_i18n`,
+   `title_i18n`, `intro_i18n`). Wizard threads `useI18n().locale`
+   through render. Seed-data translations themselves are still
+   deferred (a future seed pass per new locale).
 4. **Per-section sign-off** — currently whole-template only. If a long
    walkthrough wants chapter-by-chapter audit signing, the existing
    sign trigger needs to extend its check.
 5. **PDF audit binder polish** — currently relies on browser
    print-to-PDF. Server-side puppeteer rendering would give pixel-
    perfect output but adds infra dependencies.
+6. **Page-chrome i18n** — hardcoded Norwegian strings in the wizard
+   itself ("Lagret", "Forslag fra X", "Marker som ikke aktuelt", …)
+   should go through `t()` once the i18n bundle adds compliance keys.
 
 ---
 
@@ -400,3 +411,7 @@ point when the next walkthrough ships.
 | 13.6 | `79560be` | Reminder law_refs derived from template |
 | 14 | `9863da6` | Versions admin UI + diff modal |
 | 14.5 | `9c2ad26` | Refresh template list after publish |
+| 15 | `59d4641` | This spec doc |
+| 15.5 | `5e5a6c4` | Final AML-leak polish |
+| 16+17 | `0d74fd4` | Applicability rules + catalog factory |
+| 18 | `93c5f15` | i18n infrastructure for walkthrough strings |
