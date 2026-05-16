@@ -264,6 +264,49 @@ export function AdminTemplatesPage() {
           if (err) throw err
           if (!data) throw new Error('Fant ikke registertypen.')
           payload.template = data as Record<string, unknown>
+        } else if (row.source === 'tasks') {
+          // Tasks override row → catalog. Export both so import can
+          // recreate the catalog or wire to an existing one.
+          const { data: ovr, error: e0 } = await supabase
+            .from('task_org_templates')
+            .select('catalog_id, nav_pinned, is_active')
+            .eq('id', row.id)
+            .maybeSingle()
+          if (e0) throw e0
+          if (!ovr) throw new Error('Fant ikke malen.')
+          const { data: cat } = await supabase
+            .from('task_template_catalog')
+            .select('slug, pack, source_category, name, description, law_refs, default_pdca_phase, definition, cadence_hint, is_active, is_system')
+            .eq('id', (ovr as { catalog_id: string }).catalog_id)
+            .maybeSingle()
+          payload.template = { catalog: cat ?? null, override: ovr }
+        } else if (row.source === 'meetings') {
+          const { data, error: err } = await supabase
+            .from('meeting_org_templates')
+            .select('slug, name, description, framework, frameworks, law_refs, cadence_hint, default_duration_minutes, definition, metadata_schema, nav_pinned, is_active')
+            .eq('id', row.id)
+            .maybeSingle()
+          if (err) throw err
+          if (!data) throw new Error('Fant ikke møte-malen.')
+          payload.template = data as Record<string, unknown>
+        } else if (row.source === 'alerts') {
+          const { data, error: err } = await supabase
+            .from('alert_org_templates')
+            .select('slug, name, description, kind, frameworks, law_refs, default_confidentiality_level, default_retention_years, acknowledgement_due_days, investigation_due_days, requires_dpo, allows_anonymous, definition, is_active')
+            .eq('id', row.id)
+            .maybeSingle()
+          if (err) throw err
+          if (!data) throw new Error('Fant ikke varslings-malen.')
+          payload.template = data as Record<string, unknown>
+        } else if (row.source === 'workflow') {
+          const { data, error: err } = await supabase
+            .from('workflow_template_catalog')
+            .select('slug, name, description, source_module, trigger_event_name, condition_json, actions_json, law_refs, category')
+            .eq('id', row.id)
+            .maybeSingle()
+          if (err) throw err
+          if (!data) throw new Error('Fant ikke arbeidsflyt-malen.')
+          payload.template = data as Record<string, unknown>
         }
         const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' })
         const a = document.createElement('a')
@@ -382,6 +425,82 @@ export function AdminTemplatesPage() {
           })
           if (err) throw err
           await refresh()
+        } else if (parsed.source === 'tasks') {
+          const cat = (t.catalog as Record<string, unknown>) ?? null
+          if (!cat) throw new Error('Tasks-import mangler katalog­data.')
+          // Always create a fresh org-owned catalog row + override so
+          // the import is independent of any system catalog. Slug gets
+          // an -import suffix to avoid unique collisions.
+          const { data: newCat, error: e1 } = await supabase
+            .from('task_template_catalog')
+            .insert({
+              organization_id: orgId,
+              slug: `${String(cat.slug ?? 'imported')}-import-${Date.now().toString(36)}`,
+              pack: cat.pack ?? 'aml-amu',
+              source_category: cat.source_category ?? 'task',
+              name: `Import: ${String(cat.name ?? 'oppgave-mal')}`,
+              description: (cat.description as string | null) ?? '',
+              law_refs: (cat.law_refs as string[] | null) ?? [],
+              default_pdca_phase: cat.default_pdca_phase ?? 'do',
+              definition: cat.definition ?? { fields: [], checklist_items: [] },
+              cadence_hint: (cat.cadence_hint as string | null) ?? null,
+              is_active: true,
+              is_system: false,
+            })
+            .select('id')
+            .single()
+          if (e1) throw e1
+          const { error: e2 } = await supabase.from('task_org_templates').insert({
+            organization_id: orgId,
+            catalog_id: (newCat as { id: string }).id,
+            nav_pinned: false,
+            is_active: false,
+          })
+          if (e2) throw e2
+          await refresh()
+        } else if (parsed.source === 'meetings') {
+          const { error: err } = await supabase.from('meeting_org_templates').insert({
+            organization_id: orgId,
+            slug: `${String(t.slug ?? 'imported')}-import-${Date.now().toString(36)}`,
+            name: `Import: ${String(t.name ?? 'møte-mal')}`,
+            description: (t.description as string | null) ?? null,
+            framework: t.framework ?? 'INTERNAL',
+            frameworks: (t.frameworks as string[] | null) ?? [],
+            law_refs: (t.law_refs as string[] | null) ?? [],
+            cadence_hint: (t.cadence_hint as string | null) ?? null,
+            default_duration_minutes: t.default_duration_minutes ?? null,
+            definition: t.definition ?? {},
+            metadata_schema: t.metadata_schema ?? { fields: [] },
+            nav_pinned: false,
+            is_active: false,
+          })
+          if (err) throw err
+          await refresh()
+        } else if (parsed.source === 'alerts') {
+          const { error: err } = await supabase.from('alert_org_templates').insert({
+            organization_id: orgId,
+            slug: `${String(t.slug ?? 'imported')}-import-${Date.now().toString(36)}`,
+            name: `Import: ${String(t.name ?? 'varslings-mal')}`,
+            description: (t.description as string | null) ?? null,
+            kind: t.kind ?? 'hms_incident',
+            frameworks: (t.frameworks as string[] | null) ?? [],
+            law_refs: (t.law_refs as string[] | null) ?? [],
+            default_confidentiality_level: t.default_confidentiality_level ?? 'restricted',
+            default_retention_years: t.default_retention_years ?? 5,
+            acknowledgement_due_days: t.acknowledgement_due_days ?? 7,
+            investigation_due_days: (t.investigation_due_days as number | null) ?? null,
+            requires_dpo: (t.requires_dpo as boolean | null) ?? false,
+            allows_anonymous: (t.allows_anonymous as boolean | null) ?? true,
+            definition: t.definition ?? {},
+            is_active: false,
+          })
+          if (err) throw err
+          await refresh()
+        } else if (parsed.source === 'workflow') {
+          // Workflow templates are catalog-only / system-defined. Import
+          // would require plattform-admin to register the new catalog
+          // row; org admins can't insert here.
+          throw new Error('Arbeidsflyt-maler er systemdefinerte og kan ikke importeres fra org-admin. Kontakt plattform-admin.')
         }
       } catch (e) {
         setActionError(e instanceof Error ? e.message : 'Kunne ikke importere malen.')
