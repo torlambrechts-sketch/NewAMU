@@ -115,6 +115,8 @@ declare
   v_org_id uuid;
   v_template_id uuid;
   v_template_name text;
+  v_template_law_refs text[];
+  v_task_law_refs text[];
   v_latest_signed_at timestamptz;
   v_already_open boolean;
   v_assignee uuid;
@@ -129,7 +131,8 @@ begin
     from public.compliance_packs
     where slug = p_pack_slug and deleted_at is null and is_active = true
   loop
-    select id, name into v_template_id, v_template_name
+    select id, name, law_refs
+      into v_template_id, v_template_name, v_template_law_refs
     from public.compliance_checklist_templates
     where organization_id = v_org_id
       and slug = p_slug
@@ -137,6 +140,14 @@ begin
     limit 1;
 
     if v_template_id is null then continue; end if;
+
+    -- Derive task law_refs from the template's own array (first 3 to
+    -- keep the tag short but representative). Falls back to the AML
+    -- IK-baseline only when the template has no law_refs at all.
+    v_task_law_refs := coalesce(
+      v_template_law_refs[1:3],
+      array['AML § 3-1', 'IK-f § 5 nr. 7']::text[]
+    );
 
     select max(signed_at) into v_latest_signed_at
     from public.compliance_checklist_executions
@@ -195,7 +206,7 @@ begin
         )
       end,
       'high', 'todo',
-      array['AML § 3-1', 'IK-f § 5 nr. 7']::text[],
+      v_task_law_refs,
       'compliance_checklist_item', 'compliance_checklist_item',
       v_template_id,
       v_reminder_key,
