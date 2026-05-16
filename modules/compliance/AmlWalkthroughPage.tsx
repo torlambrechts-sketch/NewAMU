@@ -166,6 +166,17 @@ type AutoMarkHit = {
 // Stays in sync with compliance_walkthrough_fresh_artefacts() branches.
 const AUTO_MARK_KINDS = new Set(['checklist_template', 'document', 'learning', 'meeting', 'register'])
 
+/** Verb the auto-mark chip uses per artefact kind — keeps the wording
+ *  honest. Registers aren't "signed", they're "updated"; courses
+ *  aren't "signed", they're "completed". */
+const AUTO_MARK_VERB: Record<AutoMarkHit['artefactType'], string> = {
+  checklist_template: 'signert',
+  document: 'bekreftet',
+  learning: 'fullført',
+  meeting: 'signert protokoll',
+  register: 'oppdatert',
+}
+
 function findFreshArtefact(
   item: ChecklistItem,
   freshArtefacts: FreshArtefactMap,
@@ -499,7 +510,8 @@ export function AmlWalkthroughPage() {
   async function acceptAutoMark(item: ChecklistItem, hit: AutoMarkHit) {
     if (!executionId || execution?.status === 'signed') return
     const existing = responses.find((r) => r.item_key === item.key)
-    const provenance = `[${new Date().toLocaleDateString('nb-NO')}] Autodekket fra signert ${hit.artefactLabel} (${new Date(hit.signedAt).toLocaleDateString('nb-NO')})`
+    const verb = AUTO_MARK_VERB[hit.artefactType] ?? 'oppdatert'
+    const provenance = `[${new Date().toLocaleDateString('nb-NO')}] Autodekket fra ${verb} ${hit.artefactLabel} (${new Date(hit.signedAt).toLocaleDateString('nb-NO')})`
     const nextComment = existing?.comment ? `${existing.comment}\n${provenance}` : provenance
     await saveResponse({
       executionId,
@@ -811,7 +823,7 @@ export function AmlWalkthroughPage() {
                         <div className="mt-2 flex flex-wrap items-center justify-between gap-2 rounded-md border border-emerald-200 bg-emerald-50/60 px-2 py-1.5 text-xs">
                           <span className="inline-flex items-center gap-1.5 text-emerald-900">
                             <Sparkles className="h-3.5 w-3.5" aria-hidden />
-                            Forslag fra signert {autoMarkHit.artefactLabel} ({new Date(autoMarkHit.signedAt).toLocaleDateString('nb-NO')})
+                            Forslag fra {AUTO_MARK_VERB[autoMarkHit.artefactType] ?? 'oppdatert'} {autoMarkHit.artefactLabel} ({new Date(autoMarkHit.signedAt).toLocaleDateString('nb-NO')})
                           </span>
                           <Button
                             variant="primary"
