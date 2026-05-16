@@ -18,6 +18,7 @@ export type ReportModuleKind =
   | 'heatmap'
   | 'scorecard'
   | 'bowtie'
+  | 'compliance_paragraph_grid'
 
 /**
  * Widget layout hint, mapped to a 12-column responsive grid by the
@@ -169,6 +170,37 @@ export type ReportModuleBowtie = ReportModuleBase & {
   drillDimensionId?: string
 }
 
+/**
+ * Compliance paragraph grid — categorical heat-map specialised for legal /
+ * standard paragraphs (AML §, ISO clauses, GDPR Art., …). Each cell is one
+ * paragraph, coloured by its current status. The widget is pack-agnostic:
+ * the dataset declares the paragraphs + their status, the widget renders
+ * the grid grouped by `chapter`.
+ *
+ * Dataset shape consumed (when paths are empty, the dataset itself is
+ * treated as `{ paragraphs }`):
+ *   { paragraphs: Array<{
+ *       id: string             // 'AML § 4-3'
+ *       label?: string         // full title e.g. 'Psykososialt arbeidsmiljø'
+ *       chapter: string        // 'AML kap. 4' — drives row grouping
+ *       status: 'covered' | 'partial' | 'missing' | 'not_applicable' | 'not_assessed'
+ *       artefactCount?: number // optional badge count
+ *       route?: string         // optional deep-link
+ *     }>
+ *   }
+ *
+ * Click semantics: emits a drill-down event tagged with `drillDimensionId`,
+ * carrying paragraph `id` as `segmentLabel`. Pages translate that into a
+ * filter chip (e.g. `law_ref=AML § 4-3` on the analyse page).
+ */
+export type ReportModuleComplianceParagraphGrid = ReportModuleBase & {
+  kind: 'compliance_paragraph_grid'
+  paragraphsPath?: string
+  /** Hide chapters with zero paragraphs in the current set. Defaults true. */
+  hideEmptyChapters?: boolean
+  drillDimensionId?: string
+}
+
 export type ReportModule =
   | ReportModuleKpi
   | ReportModuleTable
@@ -178,6 +210,7 @@ export type ReportModule =
   | ReportModuleHeatmap
   | ReportModuleScorecard
   | ReportModuleBowtie
+  | ReportModuleComplianceParagraphGrid
 
 export type CustomReportTemplate = {
   id: string

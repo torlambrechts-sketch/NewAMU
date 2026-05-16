@@ -15,11 +15,87 @@ import type {
 } from '../../../src/types/organization'
 import type { CompliancePack } from '../../../src/lib/compliance/packs'
 import type {
+  ChecklistSection,
   ComplianceExecutionRow,
   ComplianceResponseRow,
   ComplianceSeverity,
   ComplianceTemplateRow,
 } from '../types'
+import { parseChecklistDefinition } from '../schema'
+
+/** Status used by the compliance_paragraph_grid widget. */
+export type ParagraphStatus =
+  | 'covered'
+  | 'partial'
+  | 'missing'
+  | 'not_applicable'
+  | 'not_assessed'
+
+/** Map a single response (yes/no/na + optional severity) to a paragraph status. */
+function statusFromResponse(value: unknown, severity: ComplianceSeverity | null): ParagraphStatus {
+  const v = value && typeof value === 'object' ? (value as { ok?: boolean | null }) : null
+  if (!v) return 'not_assessed'
+  if (v.ok === true) return 'covered'
+  if (v.ok === null) return 'not_applicable'
+  if (v.ok === false) {
+    if (severity === 'critical' || severity === 'high') return 'missing'
+    return 'partial'
+  }
+  return 'not_assessed'
+}
+
+/** Build the paragraph-grid dataset from the latest signed walkthrough.
+ *  Falls back to the latest *draft* execution if no signed exists; falls
+ *  back to "all not_assessed" if no executions yet. Source of truth for
+ *  AML coverage on dashboards and the hms_overview composite. */
+function buildParagraphGrid(
+  template: ComplianceTemplateRow | undefined,
+  rawExecutions: ComplianceExecutionRow[],
+  responsesByExecutionId: Record<string, ComplianceResponseRow[]>,
+): { paragraphs: Array<{ id: string; label?: string; chapter: string; status: ParagraphStatus }> } {
+  if (!template) return { paragraphs: [] }
+  // Prefer the snapshot off the latest signed execution; if none, use the
+  // live template definition. Snapshot is immutable post-sign, so the
+  // chart stays stable even if admins edit the template later.
+  const candidates = rawExecutions
+    .filter((e) => e.template_id === template.id && e.deleted_at === null)
+    .sort((a, b) => (b.signed_at ?? b.updated_at).localeCompare(a.signed_at ?? a.updated_at))
+  const latestSigned = candidates.find((e) => e.status === 'signed')
+  const latest = latestSigned ?? candidates[0]
+  const def = parseChecklistDefinition(
+    latestSigned?.definition_snapshot ?? template.definition,
+  )
+  const sections: ChecklistSection[] = def.sections ?? []
+  const responses = latest ? responsesByExecutionId[latest.id] ?? [] : []
+  const byKey = new Map<string, ComplianceResponseRow>()
+  for (const r of responses) byKey.set(r.item_key, r)
+  const out: Array<{ id: string; label?: string; chapter: string; status: ParagraphStatus }> = []
+  for (const s of sections) {
+    const chapter = s.chapter ?? s.title
+    for (const it of s.items) {
+      if (!it.law_ref) continue
+      // An item may carry "AML §4-1, §4-4" — split into separate cells so
+      // each paragraph gets its own status. All share the same response.
+      const refs = it.law_ref.split(',').map((r) => r.trim()).filter(Boolean)
+      const resp = byKey.get(it.key)
+      const status = resp ? statusFromResponse(resp.value, resp.severity) : 'not_assessed'
+      for (const ref of refs) {
+        out.push({ id: ref, label: it.prompt, chapter, status })
+      }
+    }
+  }
+  // De-duplicate paragraph ids (same § may appear under multiple items —
+  // keep the worst status so the dashboard signals where there's any gap).
+  const order: ParagraphStatus[] = ['not_assessed', 'missing', 'partial', 'not_applicable', 'covered']
+  const rank = new Map(order.map((s, i) => [s, i]))
+  const merged = new Map<string, { id: string; label?: string; chapter: string; status: ParagraphStatus }>()
+  for (const p of out) {
+    const existing = merged.get(p.id)
+    if (!existing) merged.set(p.id, p)
+    else if ((rank.get(p.status) ?? 99) < (rank.get(existing.status) ?? 99)) merged.set(p.id, p)
+  }
+  return { paragraphs: [...merged.values()] }
+}
 
 export const STATUS_OPTIONS = [
   { id: 'draft', label: 'Kladd' },
@@ -324,6 +400,15 @@ export function useChecklistDatasets({
         x: m.label,
         y: findByMonthPrev.get(m.key) ?? 0,
       })),
+      // Compliance paragraph grid — derived from the latest signed
+      // aml-fullgjennomgang. Ignores filter chips intentionally (this is
+      // an org-wide status snapshot, not a sliced view). The widget
+      // `compliance_paragraph_grid` consumes this directly.
+      compliance_paragraph_grid_aml: buildParagraphGrid(
+        templates.find((t) => t.slug === 'aml-fullgjennomgang' && t.pack === 'aml-amu'),
+        rawExecutions,
+        responsesByExecutionId,
+      ),
     } as Record<string, unknown>
   }, [filters, rawExecutions, responsesByExecutionId, templates, packs, locations, departments])
 }

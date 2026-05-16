@@ -142,6 +142,27 @@ export function widgetToCsv(
       }
       return { filename, csv: rowsToCsv(out) }
     }
+    case 'compliance_paragraph_grid': {
+      const raw = module.paragraphsPath
+        ? getAtPath(ds, module.paragraphsPath)
+        : (ds as { paragraphs?: unknown } | null | undefined)?.paragraphs
+      const items: Array<Record<string, unknown>> = Array.isArray(raw)
+        ? (raw as Array<Record<string, unknown>>)
+        : []
+      const out: string[][] = [
+        ['Paragraf', 'Tittel', 'Kapittel', 'Status', 'Antall artefakter'],
+      ]
+      for (const p of items) {
+        out.push([
+          String(p.id ?? ''),
+          String(p.label ?? ''),
+          String(p.chapter ?? ''),
+          String(p.status ?? ''),
+          stringifyCell(p.artefactCount ?? ''),
+        ])
+      }
+      return { filename, csv: rowsToCsv(out) }
+    }
   }
 }
 

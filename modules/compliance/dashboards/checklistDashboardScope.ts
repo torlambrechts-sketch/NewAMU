@@ -13,6 +13,7 @@
 import type {
   ReportModule,
   ReportModuleBar,
+  ReportModuleComplianceParagraphGrid,
   ReportModuleDonut,
   ReportModuleKpi,
   ReportModuleLine,
@@ -80,6 +81,17 @@ const DATASETS: DatasetMeta[] = [
     key: 'checklist_findings_over_time_prev',
     label: 'Funn over tid (forrige periode)',
     shape: 'series',
+  },
+  {
+    // Compliance heat-map dataset: paragraph-level status grid derived
+    // from the latest signed aml-fullgjennomgang execution (or aggregated
+    // across all executions when no walkthrough exists). Shape:
+    //   { paragraphs: Array<{ id, label?, chapter, status, artefactCount?, route? }> }
+    // Consumed by `compliance_paragraph_grid` widget kind. Reused by the
+    // hms_overview composite scope (scope-namespaced merge — no collisions).
+    key: 'compliance_paragraph_grid_aml',
+    label: 'AML — paragrafdekning (rutenett)',
+    shape: 'rows',
   },
 ]
 
@@ -262,6 +274,16 @@ const TABLE_TEMPLATE: ReportModuleTable = {
   rowKeys: [],
   colSpan: 'full',
 }
+const PARAGRAPH_GRID_AML: ReportModuleComplianceParagraphGrid = {
+  id: 'paragraph-grid-aml',
+  kind: 'compliance_paragraph_grid',
+  datasetKey: 'compliance_paragraph_grid_aml',
+  title: 'AML — paragrafdekning',
+  subtitle: 'Hver paragraf farget etter status i siste signerte gjennomgang',
+  colSpan: 'full',
+  hideEmptyChapters: true,
+  drillDimensionId: 'law_ref',
+}
 
 // Best-practice default layout: dense KPI strip, then a wide trend line,
 // then split donut + bar breakdowns, then a final wide chart.
@@ -386,6 +408,14 @@ const WIDGET_CATALOG: WidgetCatalogEntry[] = [
     category: 'Org-kontekst',
     label: 'Avdeling — søylediagram',
     template: BAR_DEPARTMENT,
+  },
+  {
+    catalogId: 'paragraph-grid-aml',
+    category: 'Compliance',
+    label: 'AML — paragrafdekning (rutenett)',
+    description:
+      'Heat-map med alle AML-paragrafer farget etter status i siste signerte fullgjennomgang. Klikk en celle for å filtrere analysen til den paragrafen.',
+    template: PARAGRAPH_GRID_AML,
   },
 ]
 

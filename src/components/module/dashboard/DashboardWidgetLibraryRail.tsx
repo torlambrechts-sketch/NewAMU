@@ -44,6 +44,7 @@ const KIND_LABEL: Record<ReportModuleKind, string> = {
   heatmap: 'Heatmap',
   scorecard: 'Scorecard',
   bowtie: 'Bowtie',
+  compliance_paragraph_grid: 'Paragraf-rutenett',
 }
 
 export function DashboardWidgetLibraryRail({ scopeId, onAdd, onClose }: Props) {

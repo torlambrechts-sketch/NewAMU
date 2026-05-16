@@ -16,5 +16,8 @@ export function defaultCompatibleKinds(kind: ReportModuleKind): ReportModuleKind
   // id/label/title/obligation/status, valgfritt byKind+proof for
   // bowtie-barrierer), så de er gjensidig utskiftbare i edit-panelet.
   if (kind === 'scorecard' || kind === 'bowtie') return ['scorecard', 'bowtie']
+  // Paragraf-rutenett konsumerer en spesifikk { paragraphs: [...] }-form
+  // og har ingen rimelig alternativ-visualisering — låst til seg selv.
+  if (kind === 'compliance_paragraph_grid') return ['compliance_paragraph_grid']
   return ['kpi']
 }

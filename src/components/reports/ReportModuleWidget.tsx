@@ -516,6 +516,141 @@ export function ReportModuleWidget({
       </>,
     )
   }
+  if (m.kind === 'compliance_paragraph_grid') {
+    type ParagraphCell = {
+      id: string
+      label?: string
+      chapter: string
+      status: 'covered' | 'partial' | 'missing' | 'not_applicable' | 'not_assessed'
+      artefactCount?: number
+      route?: string
+    }
+    const STATUS_FILL: Record<ParagraphCell['status'], string> = {
+      covered: '#1a3d32',          // brand green
+      partial: '#d97706',          // amber-600
+      missing: '#b91c1c',          // red-700
+      not_applicable: '#e5e7eb',   // neutral-200
+      not_assessed: '#ffffff',     // white (border only)
+    }
+    const STATUS_TEXT: Record<ParagraphCell['status'], string> = {
+      covered: '#ffffff',
+      partial: '#ffffff',
+      missing: '#ffffff',
+      not_applicable: '#374151',   // neutral-700
+      not_assessed: '#374151',
+    }
+    const STATUS_LABEL: Record<ParagraphCell['status'], string> = {
+      covered: 'Dekket',
+      partial: 'Delvis',
+      missing: 'Mangler',
+      not_applicable: 'Ikke aktuelt',
+      not_assessed: 'Ikke vurdert',
+    }
+    const raw = m.paragraphsPath ? getAtPath(ds, m.paragraphsPath) : (ds as { paragraphs?: unknown } | null | undefined)?.paragraphs
+    const paragraphs: ParagraphCell[] = Array.isArray(raw)
+      ? (raw as unknown[]).flatMap((p) => {
+          if (!p || typeof p !== 'object') return []
+          const obj = p as Record<string, unknown>
+          const id = typeof obj.id === 'string' ? obj.id : null
+          const chapter = typeof obj.chapter === 'string' ? obj.chapter : null
+          const status = typeof obj.status === 'string' ? (obj.status as ParagraphCell['status']) : null
+          if (!id || !chapter || !status) return []
+          if (!(status in STATUS_FILL)) return []
+          return [{
+            id,
+            label: typeof obj.label === 'string' ? obj.label : undefined,
+            chapter,
+            status,
+            artefactCount: typeof obj.artefactCount === 'number' ? obj.artefactCount : undefined,
+            route: typeof obj.route === 'string' ? obj.route : undefined,
+          }]
+        })
+      : []
+    // Group by chapter, preserving first-seen order.
+    const chapterOrder: string[] = []
+    const grouped = new Map<string, ParagraphCell[]>()
+    for (const p of paragraphs) {
+      if (!grouped.has(p.chapter)) {
+        chapterOrder.push(p.chapter)
+        grouped.set(p.chapter, [])
+      }
+      grouped.get(p.chapter)!.push(p)
+    }
+    const handleClick = (id: string) => {
+      if (m.drillDimensionId && onDrillDown) {
+        onDrillDown({ module: m, segmentLabel: id, dimensionId: m.drillDimensionId })
+      }
+    }
+    // Status counts for the legend.
+    const counts: Record<ParagraphCell['status'], number> = {
+      covered: 0, partial: 0, missing: 0, not_applicable: 0, not_assessed: 0,
+    }
+    for (const p of paragraphs) counts[p.status] += 1
+    return wrap(
+      <>
+        {titleBlock}
+        {paragraphs.length === 0 ? (
+          <EmptyWidget label={emptyLabel ?? 'Ingen paragrafer i datasettet.'} />
+        ) : (
+          <div className="space-y-3">
+            {/* Legend */}
+            <div className="flex flex-wrap gap-2 text-xs">
+              {(['covered', 'partial', 'missing', 'not_applicable', 'not_assessed'] as const).map(
+                (s) =>
+                  counts[s] > 0 ? (
+                    <span key={s} className="inline-flex items-center gap-1.5">
+                      <span
+                        className="inline-block h-3 w-3 rounded-sm ring-1 ring-neutral-300"
+                        style={{ backgroundColor: STATUS_FILL[s] }}
+                      />
+                      <span className="text-neutral-700">{STATUS_LABEL[s]}</span>
+                      <span className="text-neutral-500">{counts[s]}</span>
+                    </span>
+                  ) : null,
+              )}
+            </div>
+            {/* Chapter rows */}
+            <div className="space-y-2">
+              {chapterOrder.map((chapter) => {
+                const cells = grouped.get(chapter) ?? []
+                if ((m.hideEmptyChapters ?? true) && cells.length === 0) return null
+                return (
+                  <div key={chapter}>
+                    <div className="mb-1 text-xs font-medium uppercase tracking-wide text-neutral-500">
+                      {chapter}
+                    </div>
+                    <div className="flex flex-wrap gap-1">
+                      {cells.map((c) => (
+                        <button
+                          key={c.id}
+                          type="button"
+                          onClick={() => handleClick(c.id)}
+                          disabled={!m.drillDimensionId || !onDrillDown}
+                          title={`${c.id}${c.label ? ' — ' + c.label : ''} · ${STATUS_LABEL[c.status]}${c.artefactCount != null ? ` · ${c.artefactCount} artefakt(er)` : ''}`}
+                          aria-label={`${c.id} — ${STATUS_LABEL[c.status]}`}
+                          className={[
+                            'inline-flex h-7 min-w-[3.25rem] items-center justify-center rounded-md border px-1.5 text-[11px] font-medium transition-transform',
+                            m.drillDimensionId && onDrillDown ? 'hover:scale-105 hover:ring-2 hover:ring-offset-1 hover:ring-neutral-400 cursor-pointer' : 'cursor-default',
+                            c.status === 'not_assessed' ? 'border-neutral-300 border-dashed' : 'border-transparent',
+                          ].join(' ')}
+                          style={{
+                            backgroundColor: STATUS_FILL[c.status],
+                            color: STATUS_TEXT[c.status],
+                          }}
+                        >
+                          {c.id.replace(/^AML §\s*/i, '§ ')}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        )}
+      </>,
+    )
+  }
   if (m.kind === 'line') {
     type Point = { x: string | number; y: number }
     const parsePoints = (raw: unknown): Point[] =>

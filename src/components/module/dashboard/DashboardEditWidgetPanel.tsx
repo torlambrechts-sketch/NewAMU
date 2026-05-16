@@ -58,6 +58,7 @@ const KIND_LABELS: Record<ReportModuleKind, string> = {
   heatmap: 'Heatmap',
   scorecard: 'Scorecard',
   bowtie: 'Bowtie',
+  compliance_paragraph_grid: 'Paragraf-rutenett',
 }
 
 // ── Lossless kind-switch helpers ────────────────────────────────────────────

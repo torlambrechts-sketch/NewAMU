@@ -75,6 +75,16 @@ export function createDefaultModule(kind: ReportModuleKind): ReportModule {
         datasetKey: 'tasks_by_status',
         segmentsPath: '',
       }
+    case 'compliance_paragraph_grid':
+      return {
+        id,
+        kind: 'compliance_paragraph_grid',
+        title: 'Paragraf-rutenett',
+        // Default to the AML grid the compliance scope registers; other
+        // scopes (ISO, GDPR, …) can swap the dataset key from the picker.
+        datasetKey: 'compliance_paragraph_grid_aml',
+        hideEmptyChapters: true,
+      }
     default:
       return {
         id,
