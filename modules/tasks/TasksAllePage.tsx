@@ -1251,7 +1251,7 @@ export function TasksAllePage() {
               <div className="w-full overflow-x-auto">
                 <table className="w-full min-w-[900px] border-collapse text-left text-sm">
                   <thead>
-                    <tr className={LAYOUT_TABLE1_POSTINGS_HEADER_ROW}>
+                    <tr className={`${LAYOUT_TABLE1_POSTINGS_HEADER_ROW} bg-neutral-50/90`}>
                       <th className={LAYOUT_TABLE1_POSTINGS_TH}>Type</th>
                       <th className={LAYOUT_TABLE1_POSTINGS_TH}>Tittel</th>
                       <th className={LAYOUT_TABLE1_POSTINGS_TH}>Kategori</th>
@@ -1306,7 +1306,7 @@ export function TasksAllePage() {
                             }`}
                           >
                             {/* Type icon */}
-                            <td className="px-5 py-3">
+                            <td className="px-5 py-4">
                               {row.templateKind ? (
                                 <TaskKindIcon
                                   kind={row.templateKind}
@@ -1318,7 +1318,7 @@ export function TasksAllePage() {
                             </td>
 
                             {/* Title — expand toggle in front, title click opens detail */}
-                            <td className="px-3 py-3">
+                            <td className="px-3 py-4">
                               <div className="flex items-center gap-1.5">
                                 {/* Expand/collapse button — only for tasks with subtasks */}
                                 {sc && sc.total > 0 ? (
@@ -1351,17 +1351,17 @@ export function TasksAllePage() {
                             </td>
 
                             {/* Kategori */}
-                            <td className="px-5 py-3 text-xs text-neutral-500">
+                            <td className="px-5 py-4 text-xs text-neutral-500">
                               {row.templateKind ? (KIND_LABEL[row.templateKind] ?? row.templateKind) : '—'}
                             </td>
 
                             {/* Status */}
-                            <td className="px-5 py-3">
+                            <td className="px-5 py-4">
                               <TaskStatusBadge status={row.status} />
                             </td>
 
                             {/* Progress */}
-                            <td className="w-36 px-5 py-3">
+                            <td className="w-36 px-5 py-4">
                               <ProgressBar
                                 taskId={row.id}
                                 status={row.status}
@@ -1375,12 +1375,12 @@ export function TasksAllePage() {
                             </td>
 
                             {/* Prioritet */}
-                            <td className="px-5 py-3">
+                            <td className="px-5 py-4">
                               <TaskPriorityBadge priority={row.priority} />
                             </td>
 
                             {/* Ansvarlig avatar */}
-                            <td className="px-5 py-3">
+                            <td className="px-5 py-4">
                               {personName ? (
                                 <PersonAvatar name={personName} size="sm" />
                               ) : (
@@ -1390,7 +1390,7 @@ export function TasksAllePage() {
 
                             {/* Frist */}
                             <td
-                              className={`px-5 py-3 text-sm ${
+                              className={`px-5 py-4 text-sm ${
                                 overdue ? 'font-medium text-red-600' : 'text-neutral-600'
                               }`}
                             >
@@ -1398,7 +1398,7 @@ export function TasksAllePage() {
                             </td>
 
                             {/* Open detail panel */}
-                            <td className="w-8 px-3 py-3">
+                            <td className="w-8 px-3 py-4">
                               <button
                                 type="button"
                                 onClick={() => setSelectedItem(row)}
