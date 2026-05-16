@@ -400,15 +400,36 @@ export function useChecklistDatasets({
         x: m.label,
         y: findByMonthPrev.get(m.key) ?? 0,
       })),
-      // Compliance paragraph grid — derived from the latest signed
-      // aml-fullgjennomgang. Ignores filter chips intentionally (this is
-      // an org-wide status snapshot, not a sliced view). The widget
-      // `compliance_paragraph_grid` consumes this directly.
-      compliance_paragraph_grid_aml: buildParagraphGrid(
-        templates.find((t) => t.slug === 'aml-fullgjennomgang' && t.pack === 'aml-amu'),
-        rawExecutions,
-        responsesByExecutionId,
-      ),
+      // Paragraph grid datasets — one per walkthrough template (any
+      // template whose definition carries definition.sections[]). The
+      // widget `compliance_paragraph_grid` consumes one of these keys
+      // by name. AML key remains for backward-compat with the
+      // ChecklistsAnalysePage layout shipped before generalisation.
+      ...buildAllParagraphGrids(templates, rawExecutions, responsesByExecutionId),
     } as Record<string, unknown>
   }, [filters, rawExecutions, responsesByExecutionId, templates, packs, locations, departments])
+}
+
+/** Build one paragraph-grid dataset per template that has sections[].
+ *  Emits two keys per template:
+ *    · canonical: `compliance_paragraph_grid_<slug>` — preferred
+ *    · alias for backward compat: `compliance_paragraph_grid_aml` →
+ *      same payload as `compliance_paragraph_grid_aml-fullgjennomgang`. */
+function buildAllParagraphGrids(
+  templates: ComplianceTemplateRow[],
+  executions: ComplianceExecutionRow[],
+  responsesByExecutionId: Record<string, ComplianceResponseRow[]>,
+): Record<string, unknown> {
+  const out: Record<string, unknown> = {}
+  for (const t of templates) {
+    if (!t.is_active) continue
+    const def = parseChecklistDefinition(t.definition)
+    if (!def.sections || def.sections.length === 0) continue
+    out[`compliance_paragraph_grid_${t.slug}`] = buildParagraphGrid(t, executions, responsesByExecutionId)
+  }
+  // Back-compat alias the old catalog entry uses; safe even when AML
+  // template is absent (alias is undefined → widget renders empty).
+  const amlPayload = out['compliance_paragraph_grid_aml-fullgjennomgang']
+  if (amlPayload !== undefined) out.compliance_paragraph_grid_aml = amlPayload
+  return out
 }

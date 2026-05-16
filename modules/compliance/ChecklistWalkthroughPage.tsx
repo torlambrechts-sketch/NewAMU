@@ -1,12 +1,16 @@
-// AmlWalkthroughPage — seksjonsbasert veiviser for `aml-fullgjennomgang`.
+// ChecklistWalkthroughPage — generic sectioned wizard for any compliance
+// checklist template that uses definition.sections[]. Today's AML
+// fullgjennomgang is the first consumer; ISO 45001 fullgjennomgang and
+// GDPR-walkthroughs will plug in by adding a template with sections[]
+// and a matching pack slug. No code changes per template required.
 //
 // Hvorfor: Eksisterende ChecklistExecutionPage gjengir items[] som én lang
-// liste — funksjonelt OK for små maler, men ubrukelig for 109-element AML-
-// gjennomgangen. Denne siden leser definition.sections[] og navigerer én
+// liste — funksjonelt OK for små maler, men ubrukelig for 100+ posters
+// gjennomganger. Denne siden leser definition.sections[] og navigerer én
 // seksjon om gangen, med framdriftsindikator per kapittel og resume-state
 // via compliance_wizard_runs (delt med Compliance Studio).
 //
-// Wizard-key-mønster: `compliance.aml-fullgjennomgang.<execution_id>`.
+// Wizard-key-mønster: `compliance.{template.slug}.<execution_id>`.
 // Sesjonstilstand (current_step + payload) er kun navigasjons-state;
 // de faktiske svarene ligger som vanlig i compliance_checklist_responses.
 
@@ -196,9 +200,11 @@ function findFreshArtefact(
   return null
 }
 
-export function AmlWalkthroughPage() {
+export function ChecklistWalkthroughPage() {
   const params = useParams<{ slug: string }>()
-  const slug = params.slug ?? 'aml-fullgjennomgang'
+  // No default — slug must come from the URL. The hub routes templates
+  // with definition.sections[] here; direct hits without a slug 404.
+  const slug = params.slug ?? ''
   const navigate = useNavigate()
   const pack = useActivePack()
   const orgSetup = useOrgSetupContext()
@@ -590,16 +596,24 @@ export function AmlWalkthroughPage() {
 
   const signed = execution.status === 'signed'
 
+  // Banner text is template-driven so this page works for any pack
+  // (AML, ISO 45001, GDPR, …). Falls back to a neutral pack label when
+  // the template doesn't ship a description of its own.
+  const bannerTitle = pack.shortName
+    ? `Forankret i ${pack.pluralLabel ?? pack.shortName}`
+    : 'Forankret i regelverket'
+  const bannerBody =
+    template.description ??
+    'Seksjonsbasert veiviser som kryssreferer sjekklister, dokumenter, registre, kurs og møter i pakken. Signert gjennomgang fryser svarene og gir et revisorklart spor.'
+
   return (
     <ModulePageShell
       title={template.name}
-      description="Seksjonsbasert veiviser gjennom arbeidsmiljøloven. Roller og terskler fylles inn først; videre seksjoner viser bare krav som er pålagt for din organisasjon. Sesjonen lagres automatisk og kan fortsettes senere."
+      description="Seksjonsbasert veiviser. Roller og terskler fylles inn først; videre seksjoner viser bare krav som er pålagt for din organisasjon. Sesjonen lagres automatisk og kan fortsettes senere."
       breadcrumb={breadcrumb}
     >
-      <ComplianceBanner title="Forankret i arbeidsmiljøloven" className="mb-4 rounded-xl">
-        Veiviseren dekker kap. 1–19 i arbeidsmiljøloven (LOV-2005-06-17-62) og kryssreferer
-        eksisterende sjekklister, dokumenter, registre, kurs og møter i pakken. Signert
-        gjennomgang fryser svarene og gir et revisorklart spor.
+      <ComplianceBanner title={bannerTitle} className="mb-4 rounded-xl">
+        {bannerBody}
       </ComplianceBanner>
       {/* Overall progress strip — sticky so the user always sees position +
           completion while scrolling a long section. Background is the same

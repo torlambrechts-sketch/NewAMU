@@ -31,7 +31,7 @@ type Props = {
 const UNCATEGORISED_KEY = '__uncategorised__'
 
 /** True when the template's definition jsonb declares sections[] — drives
- *  routing into AmlWalkthroughPage instead of the flat execution list. */
+ *  routing into ChecklistWalkthroughPage instead of the flat execution list. */
 function isWalkthroughTemplate(definition: unknown): boolean {
   if (!definition || typeof definition !== 'object') return false
   const sections = (definition as { sections?: unknown }).sections
