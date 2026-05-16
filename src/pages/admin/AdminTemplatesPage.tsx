@@ -61,6 +61,7 @@ import {
   type AdminTemplateStatus,
 } from '../../hooks/useAdminTemplates'
 import { ComplianceTemplateEditorBridge } from './ComplianceTemplateEditorBridge'
+import { SurveyTemplateEditorBridge } from './SurveyTemplateEditorBridge'
 
 const SOURCE_KEYS: AdminTemplateSource[] = [
   'compliance',
@@ -117,6 +118,10 @@ type DrawerState =
   | { kind: 'new' }
   | { kind: 'view'; row: AdminTemplateRow }
   | { kind: 'compliance-edit'; templateId: string | null }
+  | { kind: 'survey-edit'; templateId: string | null }
+
+/** Sources that have an inline slide-over editor wired today. */
+const INLINE_EDITABLE_SOURCES: ReadonlySet<AdminTemplateSource> = new Set(['compliance', 'survey'])
 
 export function AdminTemplatesPage() {
   const { rows, loading, error, refresh } = useAdminTemplates()
@@ -186,6 +191,85 @@ export function AdminTemplatesPage() {
       }
     },
     [cl, refresh],
+  )
+
+  // Soft-delete for non-compliance sources. Each module has its own
+  // hide / archive idiom — kept narrow on purpose so we don't surprise
+  // admins with destructive behaviour the underlying RPCs don't yet
+  // formally support.
+  const deleteRow = useCallback(
+    async (row: AdminTemplateRow) => {
+      if (row.isSystem) return
+      if (row.source === 'compliance') return await deleteCompliance(row)
+      if (!supabase) return
+      if (!window.confirm(`Slett «${row.name}»?\n\nMalen blir markert som slettet og forsvinner fra listen. Eksisterende data påvirkes ikke.`)) return
+      setBusyRowId(row.rowId)
+      setActionError(null)
+      try {
+        if (row.source === 'survey') {
+          const { error: err } = await supabase
+            .from('survey_org_templates')
+            .update({ deleted_at: new Date().toISOString() })
+            .eq('id', row.id)
+          if (err) throw err
+        } else if (row.source === 'learning') {
+          const { error: err } = await supabase
+            .from('learning_courses')
+            .update({ status: 'archived' })
+            .eq('id', row.id)
+          if (err) throw err
+        } else {
+          // documents + registers don't have a documented soft-delete
+          // contract today — fall back to the deactivate toggle instead.
+          throw new Error('Sletting støttes ikke for denne maltypen. Bruk «Inaktiv» i stedet.')
+        }
+        await refresh()
+      } catch (e) {
+        setActionError(e instanceof Error ? e.message : 'Kunne ikke slette malen.')
+      } finally {
+        setBusyRowId(null)
+      }
+    },
+    [supabase, refresh, deleteCompliance],
+  )
+
+  // Inline active-toggle for documents / learning / registers. The
+  // sources don't have slide-over editors yet, so admins get this
+  // small bit of inline control plus a deep-link for the rest.
+  const toggleActive = useCallback(
+    async (row: AdminTemplateRow, next: boolean) => {
+      if (!supabase) return
+      if (row.isSystem) return
+      setBusyRowId(row.rowId)
+      setActionError(null)
+      try {
+        if (row.source === 'documents') {
+          const { error: err } = await supabase
+            .from('document_org_templates')
+            .update({ is_active: next })
+            .eq('id', row.id)
+          if (err) throw err
+        } else if (row.source === 'learning') {
+          const { error: err } = await supabase
+            .from('learning_courses')
+            .update({ status: next ? 'published' : 'draft' })
+            .eq('id', row.id)
+          if (err) throw err
+        } else if (row.source === 'registers') {
+          const { error: err } = await supabase
+            .from('register_types')
+            .update({ is_active: next })
+            .eq('id', row.id)
+          if (err) throw err
+        }
+        await refresh()
+      } catch (e) {
+        setActionError(e instanceof Error ? e.message : 'Kunne ikke endre status.')
+      } finally {
+        setBusyRowId(null)
+      }
+    },
+    [supabase, refresh],
   )
 
   const totals = useMemo(() => {
@@ -340,18 +424,26 @@ export function AdminTemplatesPage() {
                     key={r.rowId}
                     row={r}
                     busy={busyRowId === r.rowId}
-                    onOpen={() =>
-                      r.source === 'compliance'
-                        ? setDrawer({ kind: 'compliance-edit', templateId: r.id })
-                        : setDrawer({ kind: 'view', row: r })
-                    }
+                    onOpen={() => {
+                      if (r.source === 'compliance') {
+                        setDrawer({ kind: 'compliance-edit', templateId: r.id })
+                      } else if (r.source === 'survey') {
+                        setDrawer({ kind: 'survey-edit', templateId: r.id })
+                      } else {
+                        setDrawer({ kind: 'view', row: r })
+                      }
+                    }}
                     onDuplicate={
                       r.source === 'compliance' ? () => void duplicateCompliance(r) : undefined
                     }
                     onDelete={
-                      r.source === 'compliance' && !r.isSystem
-                        ? () => void deleteCompliance(r)
-                        : undefined
+                      r.isSystem
+                        ? undefined
+                        : r.source === 'compliance' ||
+                            r.source === 'survey' ||
+                            r.source === 'learning'
+                          ? () => void deleteRow(r)
+                          : undefined
                     }
                   />
                 ))}
@@ -413,14 +505,29 @@ export function AdminTemplatesPage() {
         onPickSource={(source) => {
           if (source === 'compliance') {
             setDrawer({ kind: 'compliance-edit', templateId: null })
+          } else if (source === 'survey') {
+            // Survey doesn't support create-from-blank — the bridge
+            // renders an explainer modal pointing at the catalog.
+            setDrawer({ kind: 'survey-edit', templateId: null })
           } else {
             setDrawer({ kind: 'closed' })
           }
         }}
+        onToggleActive={toggleActive}
       />
 
       {drawer.kind === 'compliance-edit' ? (
         <ComplianceTemplateEditorBridge
+          templateId={drawer.templateId}
+          onClose={() => setDrawer({ kind: 'closed' })}
+          onSaved={() => {
+            void refresh()
+            setDrawer({ kind: 'closed' })
+          }}
+        />
+      ) : null}
+      {drawer.kind === 'survey-edit' ? (
+        <SurveyTemplateEditorBridge
           templateId={drawer.templateId}
           onClose={() => setDrawer({ kind: 'closed' })}
           onSaved={() => {
@@ -657,7 +764,7 @@ function RowActionsMenu({
   const deleteHint = row.isSystem
     ? 'Systemmaler kan ikke slettes — bruk «Inaktiv» for å skjule.'
     : !onDelete
-    ? `Slett er foreløpig bare tilgjengelig for sjekkliste-maler. Åpne i ${row.sourceLabel}-modulen for å slette.`
+    ? `Sletting er ikke konfigurert for ${row.sourceLabel} ennå. Deaktiver malen i stedet.`
     : undefined
 
   return (
@@ -754,14 +861,16 @@ function TemplateDrawer({
   state,
   onClose,
   onPickSource,
+  onToggleActive,
 }: {
   state: DrawerState
   onClose: () => void
   onPickSource: (source: AdminTemplateSource) => void
+  onToggleActive: (row: AdminTemplateRow, next: boolean) => void | Promise<void>
 }) {
   // Close on Esc, body-scroll lock while open. Don't render this
-  // drawer when 'compliance-edit' is active — TemplateEditorPanel
-  // (via ComplianceTemplateEditorBridge) renders its own slide-over.
+  // drawer when an inline editor bridge is active — those bridges
+  // render their own slide-over and we'd double-stack overlays.
   const shouldRender = state.kind === 'new' || state.kind === 'view'
 
   useEffect(() => {
@@ -817,7 +926,7 @@ function TemplateDrawer({
           {state.kind === 'new' ? (
             <NewTemplatePicker onPickSource={onPickSource} />
           ) : (
-            <TemplateDetails row={state.row} />
+            <TemplateDetails row={state.row} onToggleActive={onToggleActive} />
           )}
         </div>
       </aside>
@@ -832,11 +941,11 @@ function NewTemplatePicker({
 }) {
   const navigate = useNavigate()
   const onPick = (source: AdminTemplateSource) => {
-    if (source === 'compliance') {
-      // compliance has a slide-over editor we can mount inline
+    if (INLINE_EDITABLE_SOURCES.has(source)) {
+      // Inline-supported source — bridge renders its own slide-over.
       onPickSource(source)
     } else {
-      // other sources still use full-page editors — navigate
+      // Full-page editor — navigate.
       onPickSource(source)
       navigate(SOURCE_NEW_PATH[source])
     }
@@ -844,11 +953,12 @@ function NewTemplatePicker({
   return (
     <div className="space-y-2">
       <p className="mb-3 text-xs text-neutral-600">
-        Velg type mal du vil opprette. Sjekkliste-maler åpnes direkte i et redigeringspanel; andre typer åpnes i sin modul.
+        Velg type mal du vil opprette. Maltyper merket med «Inline» åpnes direkte i et
+        redigeringspanel; andre åpnes i sin modul.
       </p>
       {SOURCE_KEYS.map((s) => {
         const Icon = SOURCE_ICON[s]
-        const inlineSupported = s === 'compliance'
+        const inlineSupported = INLINE_EDITABLE_SOURCES.has(s)
         return (
           <button
             key={s}
@@ -878,8 +988,18 @@ function NewTemplatePicker({
   )
 }
 
-function TemplateDetails({ row }: { row: AdminTemplateRow }) {
+function TemplateDetails({
+  row,
+  onToggleActive,
+}: {
+  row: AdminTemplateRow
+  onToggleActive: (row: AdminTemplateRow, next: boolean) => void | Promise<void>
+}) {
   const Icon = SOURCE_ICON[row.source]
+  const canToggle =
+    !row.isSystem &&
+    (row.source === 'documents' || row.source === 'learning' || row.source === 'registers')
+  const isActive = row.status === 'active'
   return (
     <div className="flex h-full flex-col">
       <div className="space-y-4">
@@ -899,6 +1019,33 @@ function TemplateDetails({ row }: { row: AdminTemplateRow }) {
             </span>
           ) : null}
         </div>
+
+        {canToggle ? (
+          <div className="flex items-center justify-between rounded-md border border-neutral-200 bg-neutral-50 px-4 py-3">
+            <div>
+              <p className="text-sm font-medium text-neutral-900">Aktiv</p>
+              <p className="text-xs text-neutral-600">
+                Inaktive maler skjules for vanlige brukere men kan reaktiveres når som helst.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => void onToggleActive(row, !isActive)}
+              role="switch"
+              aria-checked={isActive}
+              className={`relative inline-flex h-6 w-11 shrink-0 rounded-full border-2 border-transparent transition-colors ${
+                isActive ? 'bg-[#1a3d32]' : 'bg-neutral-300'
+              }`}
+            >
+              <span
+                aria-hidden
+                className={`inline-block size-5 transform rounded-full bg-white shadow ring-0 transition-transform ${
+                  isActive ? 'translate-x-5' : 'translate-x-0'
+                }`}
+              />
+            </button>
+          </div>
+        ) : null}
 
         <dl className="grid grid-cols-1 gap-3 text-sm">
           {row.category ? (
