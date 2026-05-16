@@ -5,6 +5,7 @@ import { useState } from 'react'
 import { SlidePanel } from '../../src/components/layout/SlidePanel'
 import { Button } from '../../src/components/ui/Button'
 import { StandardInput } from '../../src/components/ui/Input'
+import { StandardTextarea } from '../../src/components/ui/Textarea'
 import {
   WPSTD_FORM_FIELD_LABEL,
   WPSTD_FORM_LEAD,
@@ -143,27 +144,34 @@ export function TaskProjectCreateForm({ open, onClose, onCreate }: Props) {
           </div>
           <div className="space-y-2">
             {METHODOLOGY_OPTIONS.map((opt) => (
-              <label
+              <Button
                 key={opt.value}
-                className={`flex cursor-pointer items-start gap-3 rounded-lg border p-3 transition ${
+                variant="secondary"
+                onClick={() => set('methodology', opt.value)}
+                aria-pressed={form.methodology === opt.value}
+                className={`flex w-full items-start justify-start gap-3 rounded-lg border p-3 text-left font-normal transition ${
                   form.methodology === opt.value
-                    ? 'border-[#c2410c] bg-orange-50/40'
-                    : 'border-neutral-200 bg-white hover:border-neutral-300'
+                    ? 'border-[#c2410c] bg-orange-50/40 hover:bg-orange-50/40'
+                    : 'border-neutral-200 hover:border-neutral-300'
                 }`}
               >
-                <input
-                  type="radio"
-                  name="methodology"
-                  value={opt.value}
-                  checked={form.methodology === opt.value}
-                  onChange={() => set('methodology', opt.value)}
-                  className="mt-0.5 h-4 w-4 shrink-0 border-neutral-300 text-[#c2410c] focus:ring-[#c2410c]/20"
-                />
-                <div>
-                  <p className="text-sm font-medium text-neutral-900">{opt.label}</p>
-                  <p className="mt-0.5 text-xs text-neutral-500">{opt.description}</p>
-                </div>
-              </label>
+                <span
+                  aria-hidden
+                  className={`mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full border ${
+                    form.methodology === opt.value
+                      ? 'border-[#c2410c] bg-[#c2410c]'
+                      : 'border-neutral-300 bg-white'
+                  }`}
+                >
+                  {form.methodology === opt.value && (
+                    <span className="h-1.5 w-1.5 rounded-full bg-white" />
+                  )}
+                </span>
+                <span>
+                  <span className="block text-sm font-medium text-neutral-900">{opt.label}</span>
+                  <span className="mt-0.5 block text-xs font-normal text-neutral-500">{opt.description}</span>
+                </span>
+              </Button>
             ))}
           </div>
         </div>
@@ -175,12 +183,12 @@ export function TaskProjectCreateForm({ open, onClose, onCreate }: Props) {
             <p className={`${WPSTD_FORM_LEAD} mt-1`}>Mål og omfang</p>
           </div>
           <div>
-            <textarea
+            <StandardTextarea
               value={form.description ?? ''}
               onChange={(e) => set('description', e.target.value)}
               rows={3}
               placeholder="Beskriv formålet med prosjektet…"
-              className="w-full rounded border border-neutral-300 bg-white px-3 py-2.5 text-sm text-neutral-900 placeholder:text-neutral-400 focus:border-[#c2410c] focus:outline-none focus:ring-1 focus:ring-[#c2410c]/20"
+              className="focus:border-[#c2410c] focus:ring-[#c2410c]/20"
             />
           </div>
         </div>

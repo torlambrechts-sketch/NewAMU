@@ -133,12 +133,12 @@ export function TasksHubLanding({
           <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {bucket.templates.map((t) => (
               <li key={t.id}>
-                <button
-                  type="button"
+                <Button
+                  variant="ghost"
                   onClick={() =>
                     navigate(`/tasks/management?template=${encodeURIComponent(t.slug)}`)
                   }
-                  className="group flex h-full w-full flex-col gap-2.5 rounded-lg border border-neutral-200/80 bg-white p-4 text-left transition-all hover:border-[#c2410c]/30 hover:bg-orange-50/30 hover:shadow-sm"
+                  className="group flex h-full w-full flex-col items-start gap-2.5 rounded-lg border border-neutral-200/80 bg-white p-4 text-left font-normal transition-all hover:border-[#c2410c]/30 hover:bg-orange-50/30 hover:shadow-sm"
                 >
                   <div className="flex items-start gap-2.5">
                     <span className="mt-0.5 shrink-0 text-[#c2410c]/60 transition group-hover:text-[#c2410c]">
@@ -176,7 +176,7 @@ export function TasksHubLanding({
                       ))}
                     </div>
                   )}
-                </button>
+                </Button>
               </li>
             ))}
           </ul>
@@ -192,25 +192,27 @@ export function TasksHubLanding({
           </div>
           <div className="flex items-center gap-2">
             {projects.some((p) => p.status !== 'active') && (
-              <button
-                type="button"
+              <Button
+                variant="ghost"
+                size="sm"
                 onClick={() => setShowAllProjects((v) => !v)}
-                className="text-xs text-neutral-400 underline-offset-2 hover:text-neutral-600 hover:underline"
+                className="px-0 text-xs text-neutral-400 underline-offset-2 hover:bg-transparent hover:text-neutral-600 hover:underline"
               >
                 {showAllProjects
                   ? 'Skjul avsluttede'
                   : `Vis avsluttede (${projects.filter((p) => p.status !== 'active').length})`}
-              </button>
+              </Button>
             )}
             {onCreateProject && (
-              <button
-                type="button"
+              <Button
+                variant="secondary"
+                size="sm"
                 onClick={onCreateProject}
-                className="inline-flex items-center gap-1.5 rounded border border-neutral-200 bg-white px-2.5 py-1 text-xs font-medium text-neutral-700 transition hover:border-[#c2410c]/30 hover:text-[#c2410c]"
+                icon={<Plus className="h-3.5 w-3.5" />}
+                className="border-neutral-200 hover:border-[#c2410c]/30 hover:text-[#c2410c]"
               >
-                <Plus className="h-3.5 w-3.5" />
                 Nytt prosjekt
-              </button>
+              </Button>
             )}
           </div>
         </div>
@@ -219,23 +221,24 @@ export function TasksHubLanding({
           <p className="py-4 text-center text-sm text-neutral-500">
             Ingen aktive prosjekttavler.{' '}
             {onCreateProject && (
-              <button
-                type="button"
+              <Button
+                variant="ghost"
+                size="sm"
                 onClick={onCreateProject}
-                className="text-[#c2410c] underline-offset-2 hover:underline"
+                className="px-0 text-[#c2410c] underline-offset-2 hover:bg-transparent hover:underline"
               >
                 Opprett det første
-              </button>
+              </Button>
             )}
           </p>
         ) : (
           <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {projects.filter((p) => showAllProjects || p.status === 'active').map((proj) => (
               <li key={proj.id}>
-                <button
-                  type="button"
+                <Button
+                  variant="ghost"
                   onClick={() => (onOpenProject ? onOpenProject(proj.id) : undefined)}
-                  className={`group flex h-full w-full flex-col gap-2 rounded-lg border p-4 text-left transition-all ${
+                  className={`group flex h-full w-full flex-col items-start gap-2 rounded-lg border p-4 text-left font-normal transition-all ${
                     proj.status === 'active'
                       ? 'border-neutral-200/80 bg-white hover:border-[#c2410c]/30 hover:bg-orange-50/30 hover:shadow-sm'
                       : 'border-neutral-200/50 bg-neutral-50/60 opacity-60 hover:opacity-80'
@@ -268,7 +271,7 @@ export function TasksHubLanding({
                     {proj.startDate && <span>Fra {fmtDate(proj.startDate)}</span>}
                     {proj.endDate && <span>Til {fmtDate(proj.endDate)}</span>}
                   </div>
-                </button>
+                </Button>
               </li>
             ))}
           </ul>
@@ -277,14 +280,15 @@ export function TasksHubLanding({
 
       {canManage && (
         <div className="flex justify-end">
-          <button
-            type="button"
+          <Button
+            variant="ghost"
+            size="sm"
             onClick={() => navigate('/tasks/management/admin')}
-            className="inline-flex items-center gap-1.5 text-xs text-neutral-400 transition hover:text-neutral-600"
+            icon={<Settings className="h-3.5 w-3.5" />}
+            className="px-0 text-xs text-neutral-400 hover:bg-transparent hover:text-neutral-600"
           >
-            <Settings className="h-3.5 w-3.5" />
             Administrer maler
-          </button>
+          </Button>
         </div>
       )}
     </div>

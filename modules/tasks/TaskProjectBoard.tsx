@@ -11,6 +11,8 @@
 
 import { useRef, useState } from 'react'
 import { Plus, X } from 'lucide-react'
+import { Button } from '../../src/components/ui/Button'
+import { StandardTextarea } from '../../src/components/ui/Textarea'
 import { TaskProjectCard } from './components/TaskProjectCard'
 import type { TaskItemRow } from './useTaskItemsData'
 import type { TaskPdcaPhase, TaskItemStatus, TaskProject } from '../../src/types/task'
@@ -101,7 +103,7 @@ function QuickAddForm({
 
   return (
     <div className="mt-2 rounded-lg border border-[#c2410c]/30 bg-white p-2 shadow-sm">
-      <textarea
+      <StandardTextarea
         autoFocus
         value={title}
         onChange={(e) => setTitle(e.target.value)}
@@ -115,26 +117,28 @@ function QuickAddForm({
         placeholder="Tittel på oppgave… (Enter for å legge til)"
         rows={2}
         disabled={submitting}
-        className="w-full resize-none rounded border border-neutral-200 bg-white px-2 py-1.5 text-sm text-neutral-900 placeholder:text-neutral-400 focus:border-[#c2410c] focus:outline-none focus:ring-1 focus:ring-[#c2410c]/20 disabled:opacity-60"
+        className="resize-none focus:border-[#c2410c] focus:ring-[#c2410c]/20 disabled:opacity-60"
       />
       {error && <p className="mt-1 text-xs text-red-600">{error}</p>}
       <div className="mt-1.5 flex items-center gap-1.5">
-        <button
-          type="button"
+        <Button
+          size="sm"
+          variant="primary"
           disabled={!canAdd}
           onClick={() => void handleAdd()}
-          className="rounded bg-[#c2410c] px-3 py-1 text-xs font-medium text-white transition hover:bg-[#a33609] disabled:opacity-40"
+          className="bg-[#c2410c] hover:bg-[#a33609]"
         >
           {submitting ? 'Legger til…' : 'Legg til'}
-        </button>
-        <button
-          type="button"
+        </Button>
+        <Button
+          variant="ghost"
+          size="icon"
           onClick={onCancel}
-          className="rounded p-1 text-neutral-400 transition hover:text-neutral-600"
+          className="h-6 w-6 text-neutral-400 hover:bg-transparent hover:text-neutral-600"
           aria-label="Avbryt"
         >
           <X className="h-3.5 w-3.5" />
-        </button>
+        </Button>
       </div>
     </div>
   )
@@ -233,14 +237,15 @@ function BoardColumn({
               onCancel={() => setAddingIn(null)}
             />
           ) : (
-            <button
-              type="button"
+            <Button
+              variant="ghost"
+              size="sm"
               onClick={() => setAddingIn(colKey)}
-              className="mt-2 flex w-full items-center gap-1.5 rounded px-2 py-1.5 text-xs text-neutral-400 transition hover:bg-white/60 hover:text-neutral-600"
+              icon={<Plus className="h-3.5 w-3.5" />}
+              className="mt-2 flex w-full justify-start rounded px-2 py-1.5 text-xs font-normal text-neutral-400 hover:bg-white/60 hover:text-neutral-600"
             >
-              <Plus className="h-3.5 w-3.5" />
               Ny oppgave
-            </button>
+            </Button>
           )
         )}
       </div>

@@ -33,6 +33,10 @@ import {
   LAYOUT_TABLE1_POSTINGS_TH,
 } from '../../src/components/layout/layoutTable1PostingsKit'
 import { WarningBox } from '../../src/components/ui/AlertBox'
+import { Button } from '../../src/components/ui/Button'
+import { StandardInput } from '../../src/components/ui/Input'
+import { SearchableSelect } from '../../src/components/ui/SearchableSelect'
+import { ToggleSwitch } from '../../src/components/ui/FormToggles'
 import { TaskStatusBadge, TASK_STATUS_LABEL } from './components/TaskStatusBadge'
 import { TaskPriorityBadge, TASK_PRIORITY_LABEL } from './components/TaskPriorityBadge'
 import { TaskKindIcon } from './components/TaskKindIcon'
@@ -272,10 +276,10 @@ function KanbanCard({
       {/* Expand toggle — only rendered when subtasks exist */}
       {hasSubtasks && (
         <>
-          <button
-            type="button"
+          <Button
+            variant="ghost"
             onClick={(e) => { e.stopPropagation(); onToggleExpand() }}
-            className="flex w-full items-center justify-between border-t border-neutral-100 px-3 py-1.5 text-[11px] transition hover:bg-neutral-50"
+            className="flex w-full justify-between rounded-none border-t border-neutral-100 px-3 py-1.5 text-[11px] font-normal hover:bg-neutral-50"
           >
             <span className={expanded ? 'font-medium text-[#c2410c]' : 'text-neutral-400'}>
               {sc!.done}/{sc!.total} deloppgaver
@@ -284,7 +288,7 @@ function KanbanCard({
               ? <ChevronDown className="h-3.5 w-3.5 text-[#c2410c]" />
               : <ChevronRight className="h-3.5 w-3.5 text-neutral-400" />
             }
-          </button>
+          </Button>
           {expanded && (
             <div className="border-t border-neutral-100 bg-neutral-50/60 p-3">
               <TaskSubtaskList taskItemId={item.id} />
@@ -422,10 +426,10 @@ function BoxCard({
       {/* Expand toggle — only when subtasks exist */}
       {sc && sc.total > 0 && (
         <>
-          <button
-            type="button"
+          <Button
+            variant="ghost"
             onClick={(e) => { e.stopPropagation(); onToggle() }}
-            className="flex w-full items-center justify-between border-t border-neutral-100 px-4 py-2 text-[11px] transition hover:bg-neutral-50"
+            className="flex w-full justify-between rounded-none border-t border-neutral-100 px-4 py-2 text-[11px] font-normal hover:bg-neutral-50"
           >
             <span className={expanded ? 'font-medium text-[#c2410c]' : 'text-neutral-500'}>
               {sc.done}/{sc.total} deloppgaver
@@ -434,7 +438,7 @@ function BoxCard({
               ? <ChevronDown className="h-3.5 w-3.5 text-[#c2410c]" />
               : <ChevronRight className="h-3.5 w-3.5 text-neutral-400" />
             }
-          </button>
+          </Button>
           {expanded && (
             <div className="border-t border-neutral-100 bg-neutral-50/60 p-4">
               <TaskSubtaskList taskItemId={item.id} />
@@ -832,17 +836,20 @@ function SubtaskTableRows({ taskItemId }: { taskItemId: string }) {
             {/* Col 2: Title — checkbox + clickable text */}
             <td className="px-3 py-2">
               <div className="flex items-center gap-2 pl-5">
-                <button
-                  type="button"
+                <Button
+                  variant="ghost"
+                  size="icon"
                   onClick={() => void toggle(sub.id, sub.isDone)}
+                  aria-label={sub.isDone ? 'Marker som ikke ferdig' : 'Marker som ferdig'}
+                  aria-pressed={sub.isDone}
                   className={`flex h-4 w-4 shrink-0 items-center justify-center rounded border transition-colors ${
                     sub.isDone
-                      ? 'border-[#c2410c] bg-[#c2410c] text-white'
+                      ? 'border-[#c2410c] bg-[#c2410c] text-white hover:bg-[#c2410c]'
                       : 'border-neutral-300 bg-white hover:border-[#c2410c]'
                   }`}
                 >
                   {sub.isDone && <Check className="h-2.5 w-2.5" />}
-                </button>
+                </Button>
                 <span
                   role="button"
                   tabIndex={0}
@@ -905,14 +912,15 @@ function SubtaskTableRows({ taskItemId }: { taskItemId: string }) {
 
             {/* Col 9: Delete */}
             <td className="w-8 px-3 py-2">
-              <button
-                type="button"
+              <Button
+                variant="ghost"
+                size="icon"
                 onClick={() => void remove(sub.id)}
-                className="text-neutral-200 opacity-0 transition group-hover:opacity-100 hover:text-red-500"
+                className="h-6 w-6 text-neutral-200 opacity-0 transition hover:bg-transparent hover:text-red-500 group-hover:opacity-100"
                 aria-label="Slett deloppgave"
               >
                 <Trash2 className="h-3.5 w-3.5" />
-              </button>
+              </Button>
             </td>
           </tr>,
 
@@ -922,42 +930,44 @@ function SubtaskTableRows({ taskItemId }: { taskItemId: string }) {
               <td className="w-10 px-3 py-2" />
               <td colSpan={7} className="px-3 py-2">
                 <div className="space-y-2 pl-5">
-                  <input
+                  <StandardInput
                     autoFocus
-                    type="text"
                     value={editForm.title}
                     onChange={(e) => setEF('title', e.target.value)}
                     onKeyDown={(e) => { if (e.key === 'Enter') void saveEdit(); if (e.key === 'Escape') setEditingId(null) }}
                     placeholder="Tittel…"
-                    className="w-full rounded border border-neutral-200 bg-white px-2.5 py-1.5 text-sm focus:border-[#c2410c] focus:outline-none"
                   />
                   <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
                     <div>
                       <p className="mb-1 text-[9px] font-bold uppercase tracking-wider text-neutral-400">Ansvarlig</p>
-                      <input type="text" value={editForm.ownerName} onChange={(e) => setEF('ownerName', e.target.value)} placeholder="Navn…" className="w-full rounded border border-neutral-200 bg-white px-2 py-1 text-xs focus:border-[#c2410c] focus:outline-none" />
+                      <StandardInput value={editForm.ownerName} onChange={(e) => setEF('ownerName', e.target.value)} placeholder="Navn…" />
                     </div>
                     <div>
                       <p className="mb-1 text-[9px] font-bold uppercase tracking-wider text-neutral-400">Prioritet</p>
-                      <select value={editForm.priority} onChange={(e) => setEF('priority', e.target.value)} className="w-full rounded border border-neutral-200 bg-white px-2 py-1 text-xs focus:border-[#c2410c] focus:outline-none">
-                        <option value="">—</option>
-                        <option value="low">Lav</option>
-                        <option value="medium">Medium</option>
-                        <option value="high">Høy</option>
-                        <option value="critical">Kritisk</option>
-                      </select>
+                      <SearchableSelect
+                        value={editForm.priority}
+                        options={[
+                          { value: '', label: '—' },
+                          { value: 'low', label: 'Lav' },
+                          { value: 'medium', label: 'Medium' },
+                          { value: 'high', label: 'Høy' },
+                          { value: 'critical', label: 'Kritisk' },
+                        ]}
+                        onChange={(v) => setEF('priority', v)}
+                      />
                     </div>
                     <div>
                       <p className="mb-1 text-[9px] font-bold uppercase tracking-wider text-neutral-400">Start</p>
-                      <input type="date" value={editForm.startDate} onChange={(e) => setEF('startDate', e.target.value)} className="w-full rounded border border-neutral-200 bg-white px-2 py-1 text-xs focus:border-[#c2410c] focus:outline-none" />
+                      <StandardInput type="date" value={editForm.startDate} onChange={(e) => setEF('startDate', e.target.value)} />
                     </div>
                     <div>
                       <p className="mb-1 text-[9px] font-bold uppercase tracking-wider text-neutral-400">Frist</p>
-                      <input type="date" value={editForm.dueDate} onChange={(e) => setEF('dueDate', e.target.value)} className="w-full rounded border border-neutral-200 bg-white px-2 py-1 text-xs focus:border-[#c2410c] focus:outline-none" />
+                      <StandardInput type="date" value={editForm.dueDate} onChange={(e) => setEF('dueDate', e.target.value)} />
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
-                    <button type="button" disabled={!editForm.title.trim()} onClick={() => void saveEdit()} className="rounded bg-[#c2410c] px-3 py-1 text-xs font-medium text-white hover:bg-[#a33609] disabled:opacity-40">Lagre</button>
-                    <button type="button" onClick={() => setEditingId(null)} className="text-xs text-neutral-400 hover:text-neutral-700">Avbryt</button>
+                    <Button size="sm" variant="primary" disabled={!editForm.title.trim()} onClick={() => void saveEdit()} className="bg-[#c2410c] hover:bg-[#a33609]">Lagre</Button>
+                    <Button size="sm" variant="ghost" onClick={() => setEditingId(null)} className="text-neutral-400 hover:bg-transparent hover:text-neutral-700">Avbryt</Button>
                   </div>
                 </div>
               </td>
@@ -973,8 +983,7 @@ function SubtaskTableRows({ taskItemId }: { taskItemId: string }) {
         <td className="px-3 py-1.5" colSpan={7}>
           <div className="flex items-center gap-2 pl-5">
             <Plus className="h-3.5 w-3.5 shrink-0 text-neutral-300" />
-            <input
-              type="text"
+            <StandardInput
               value={newTitle}
               onChange={(e) => setNewTitle(e.target.value)}
               onKeyDown={(e) => {
@@ -982,17 +991,18 @@ function SubtaskTableRows({ taskItemId }: { taskItemId: string }) {
               }}
               placeholder="Legg til deloppgave…"
               disabled={adding}
-              className="flex-1 rounded border border-transparent bg-transparent py-0.5 text-sm text-neutral-600 placeholder:text-neutral-300 focus:border-neutral-200 focus:bg-white focus:outline-none focus:px-2 transition-all disabled:opacity-50"
+              className="flex-1 rounded border-transparent bg-transparent px-0 py-0.5 text-neutral-600 placeholder:text-neutral-300 focus:border-neutral-200 focus:bg-white focus:px-2"
             />
             {newTitle.trim() && (
-              <button
-                type="button"
+              <Button
+                variant="ghost"
+                size="sm"
                 onClick={() => void addSubtask()}
                 disabled={adding}
-                className="shrink-0 text-[10px] font-medium text-[#c2410c] hover:underline disabled:opacity-40"
+                className="shrink-0 px-0 text-[10px] font-medium text-[#c2410c] hover:bg-transparent hover:underline"
               >
                 Legg til
-              </button>
+              </Button>
             )}
           </div>
         </td>
@@ -1076,12 +1086,12 @@ export function TasksAllePage() {
           {/* Search */}
           <div className="relative">
             <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-neutral-400" />
-            <input
+            <StandardInput
               type="search"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Søk på tittel …"
-              className="w-full rounded-lg border border-neutral-200 bg-white py-2.5 pl-10 pr-3 text-sm outline-none placeholder:text-neutral-400 focus:ring-2 focus:ring-[#c2410c]/25"
+              className="rounded-lg pl-10 focus:ring-2 focus:ring-[#c2410c]/25"
             />
           </div>
 
@@ -1094,23 +1104,24 @@ export function TasksAllePage() {
             <label className="text-[10px] font-bold uppercase tracking-wide text-neutral-600">
               Status
               <div className="mt-1.5 flex items-center gap-1">
-                <select
-                  value={filters.status ?? ''}
-                  onChange={(e) => set('status', (e.target.value as TaskItemStatus) || null)}
-                  className="min-w-0 flex-1 rounded-md border border-neutral-200 bg-white px-3 py-2 text-sm"
-                >
-                  <option value="">Alle statuser</option>
-                  {ALL_STATUSES.map((s) => (
-                    <option key={s} value={s}>{TASK_STATUS_LABEL[s]}</option>
-                  ))}
-                </select>
+                <div className="min-w-0 flex-1">
+                  <SearchableSelect
+                    value={filters.status ?? ''}
+                    options={[
+                      { value: '', label: 'Alle statuser' },
+                      ...ALL_STATUSES.map((s) => ({ value: s, label: TASK_STATUS_LABEL[s] })),
+                    ]}
+                    onChange={(v) => set('status', (v as TaskItemStatus) || null)}
+                  />
+                </div>
                 {filters.status && (
-                  <button
-                    type="button"
+                  <Button
+                    variant="secondary"
+                    size="icon"
                     onClick={() => set('status', null)}
-                    className="rounded-md border border-neutral-200 bg-white p-2 text-neutral-500 hover:bg-neutral-50"
+                    className="h-9 w-9 rounded-md border-neutral-200 text-neutral-500"
                     aria-label="Fjern status-filter"
-                  >×</button>
+                  >×</Button>
                 )}
               </div>
             </label>
@@ -1119,23 +1130,24 @@ export function TasksAllePage() {
             <label className="text-[10px] font-bold uppercase tracking-wide text-neutral-600">
               Prioritet
               <div className="mt-1.5 flex items-center gap-1">
-                <select
-                  value={filters.priority ?? ''}
-                  onChange={(e) => set('priority', (e.target.value as TaskItemPriority) || null)}
-                  className="min-w-0 flex-1 rounded-md border border-neutral-200 bg-white px-3 py-2 text-sm"
-                >
-                  <option value="">Alle prioriteter</option>
-                  {ALL_PRIORITIES.map((p) => (
-                    <option key={p} value={p}>{TASK_PRIORITY_LABEL[p]}</option>
-                  ))}
-                </select>
+                <div className="min-w-0 flex-1">
+                  <SearchableSelect
+                    value={filters.priority ?? ''}
+                    options={[
+                      { value: '', label: 'Alle prioriteter' },
+                      ...ALL_PRIORITIES.map((p) => ({ value: p, label: TASK_PRIORITY_LABEL[p] })),
+                    ]}
+                    onChange={(v) => set('priority', (v as TaskItemPriority) || null)}
+                  />
+                </div>
                 {filters.priority && (
-                  <button
-                    type="button"
+                  <Button
+                    variant="secondary"
+                    size="icon"
                     onClick={() => set('priority', null)}
-                    className="rounded-md border border-neutral-200 bg-white p-2 text-neutral-500 hover:bg-neutral-50"
+                    className="h-9 w-9 rounded-md border-neutral-200 text-neutral-500"
                     aria-label="Fjern prioritet-filter"
-                  >×</button>
+                  >×</Button>
                 )}
               </div>
             </label>
@@ -1144,64 +1156,66 @@ export function TasksAllePage() {
             <label className="text-[10px] font-bold uppercase tracking-wide text-neutral-600">
               Maltype
               <div className="mt-1.5 flex items-center gap-1">
-                <select
-                  value={filters.kind ?? ''}
-                  onChange={(e) => set('kind', (e.target.value as TaskTemplateKind) || null)}
-                  className="min-w-0 flex-1 rounded-md border border-neutral-200 bg-white px-3 py-2 text-sm"
-                >
-                  <option value="">Alle typer</option>
-                  {ALL_KINDS.map((k) => (
-                    <option key={k} value={k}>{KIND_LABEL[k] ?? k}</option>
-                  ))}
-                </select>
+                <div className="min-w-0 flex-1">
+                  <SearchableSelect
+                    value={filters.kind ?? ''}
+                    options={[
+                      { value: '', label: 'Alle typer' },
+                      ...ALL_KINDS.map((k) => ({ value: k, label: KIND_LABEL[k] ?? k })),
+                    ]}
+                    onChange={(v) => set('kind', (v as TaskTemplateKind) || null)}
+                  />
+                </div>
                 {filters.kind && (
-                  <button
-                    type="button"
+                  <Button
+                    variant="secondary"
+                    size="icon"
                     onClick={() => set('kind', null)}
-                    className="rounded-md border border-neutral-200 bg-white p-2 text-neutral-500 hover:bg-neutral-50"
+                    className="h-9 w-9 rounded-md border-neutral-200 text-neutral-500"
                     aria-label="Fjern type-filter"
-                  >×</button>
+                  >×</Button>
                 )}
               </div>
             </label>
 
             {/* Kun forfalt + view switcher */}
             <div className="flex flex-col justify-between gap-3">
-              <label className="flex cursor-pointer items-center gap-2 text-[10px] font-bold uppercase tracking-wide text-neutral-600">
-                <input
-                  type="checkbox"
+              <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-wide text-neutral-600">
+                <ToggleSwitch
                   checked={filters.overdueOnly}
-                  onChange={(e) => set('overdueOnly', e.target.checked)}
-                  className="h-4 w-4 rounded border-neutral-300 text-[#c2410c] focus:ring-[#c2410c]/20"
+                  onChange={(v) => set('overdueOnly', v)}
+                  label="Kun forfalt"
                 />
-                Kun forfalt
-              </label>
+                <span>Kun forfalt</span>
+              </div>
               <div className="flex items-center gap-1">
                 {VIEW_BTNS.map(({ mode, Icon, title }) => (
-                  <button
+                  <Button
                     key={mode}
-                    type="button"
+                    variant={viewMode === mode ? 'primary' : 'secondary'}
+                    size="icon"
                     onClick={() => setViewMode(mode)}
                     title={title}
-                    className={`rounded p-1.5 transition ${
+                    className={
                       viewMode === mode
-                        ? 'bg-[#c2410c] text-white'
-                        : 'border border-neutral-200 bg-white text-neutral-500 hover:bg-neutral-100'
-                    }`}
+                        ? 'h-8 w-8 rounded bg-[#c2410c] hover:bg-[#a33609]'
+                        : 'h-8 w-8 rounded border-neutral-200 text-neutral-500 hover:bg-neutral-100'
+                    }
                   >
                     <Icon className="h-4 w-4" />
-                  </button>
+                  </Button>
                 ))}
                 {activeCount > 0 && (
-                  <button
-                    type="button"
+                  <Button
+                    variant="ghost"
+                    size="sm"
                     onClick={clear}
                     title="Nullstill alle filter"
-                    className="ml-1 flex items-center gap-0.5 text-[10px] text-neutral-500 transition hover:text-neutral-800"
+                    icon={<X className="h-3 w-3" />}
+                    className="ml-1 px-0 text-[10px] text-neutral-500 hover:bg-transparent hover:text-neutral-800"
                   >
-                    <X className="h-3 w-3" />
                     Nullstill
-                  </button>
+                  </Button>
                 )}
               </div>
             </div>
@@ -1280,13 +1294,14 @@ export function TasksAllePage() {
                                 : 'Ingen oppgaver ennå.'}
                             </p>
                             {activeCount > 0 && (
-                              <button
-                                type="button"
+                              <Button
+                                variant="ghost"
+                                size="sm"
                                 onClick={clear}
-                                className="mt-2 text-xs text-neutral-500 underline hover:text-neutral-700"
+                                className="mt-2 px-0 text-xs text-neutral-500 underline hover:bg-transparent hover:text-neutral-700"
                               >
                                 Nullstill filter
-                              </button>
+                              </Button>
                             )}
                           </div>
                         </td>
@@ -1322,13 +1337,14 @@ export function TasksAllePage() {
                               <div className="flex items-center gap-1.5">
                                 {/* Expand/collapse button — only for tasks with subtasks */}
                                 {sc && sc.total > 0 ? (
-                                  <button
-                                    type="button"
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
                                     onClick={() => toggleRow(row.id)}
-                                    className={`shrink-0 rounded p-0.5 transition ${
+                                    className={`h-5 w-5 shrink-0 ${
                                       isExpanded
-                                        ? 'text-[#c2410c]'
-                                        : 'text-neutral-300 hover:text-[#c2410c]'
+                                        ? 'text-[#c2410c] hover:bg-transparent'
+                                        : 'text-neutral-300 hover:bg-transparent hover:text-[#c2410c]'
                                     }`}
                                     aria-label={isExpanded ? 'Skjul deloppgaver' : 'Vis deloppgaver'}
                                   >
@@ -1336,7 +1352,7 @@ export function TasksAllePage() {
                                       ? <ChevronDown className="h-4 w-4" />
                                       : <ChevronRight className="h-4 w-4" />
                                     }
-                                  </button>
+                                  </Button>
                                 ) : (
                                   <span className="w-5 shrink-0" />
                                 )}
@@ -1399,14 +1415,15 @@ export function TasksAllePage() {
 
                             {/* Open detail panel */}
                             <td className="w-8 px-3 py-3">
-                              <button
-                                type="button"
+                              <Button
+                                variant="ghost"
+                                size="icon"
                                 onClick={() => setSelectedItem(row)}
-                                className="text-neutral-300 transition hover:text-neutral-500"
+                                className="h-6 w-6 text-neutral-300 hover:bg-transparent hover:text-neutral-500"
                                 aria-label="Åpne detaljer"
                               >
                                 <ChevronRight className="h-4 w-4" />
-                              </button>
+                              </Button>
                             </td>
                           </tr>,
 
