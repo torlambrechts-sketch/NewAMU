@@ -127,6 +127,12 @@ const KPI_DOCUMENTS_RETENTION_OVERDUE: ReportModuleKpi = {
 // risk scope publishes the full `risk_kpi_summary` record; we pull two
 // fields. `comparisonGoal: 'decrease'` flips the delta colouring so
 // growth reads as a warning, not a win.
+//
+// In P1 we surface `redBand` and `staleOver12m` — both measurable from
+// existing sources without ambiguity. The `residualUnjustified` field
+// becomes meaningful in P2 when ROS hazards land (red rows then carry a
+// real `residual_justification` text column); the widget catalog still
+// exposes it so customers can opt in.
 const KPI_RISK_RED_BAND: ReportModuleKpi = {
   id: 'kpi-risk-red-band',
   kind: 'kpi',
@@ -137,13 +143,13 @@ const KPI_RISK_RED_BAND: ReportModuleKpi = {
   comparisonGoal: 'decrease',
   colSpan: 'sm',
 }
-const KPI_RISK_RESIDUAL_UNJUSTIFIED: ReportModuleKpi = {
-  id: 'kpi-risk-residual-unjustified',
+const KPI_RISK_AGEING_STALE: ReportModuleKpi = {
+  id: 'kpi-risk-ageing-stale',
   kind: 'kpi',
   datasetKey: 'risk_kpi_summary',
-  title: 'Uvurdert restrisiko',
-  valuePath: 'residualUnjustified',
-  subtitle: 'Risiko · Arbeidstilsynet-flagg',
+  title: 'Ikke vurdert siste 12 mnd',
+  valuePath: 'staleOver12m',
+  subtitle: 'Risiko · statisk register-varsel',
   comparisonGoal: 'decrease',
   colSpan: 'sm',
 }
@@ -211,7 +217,7 @@ const DEFAULT_LAYOUT: ReportModule[] = [
   KPI_SURVEY_RESPONSES,
   KPI_TASKS_OPEN,
   KPI_RISK_RED_BAND,
-  KPI_RISK_RESIDUAL_UNJUSTIFIED,
+  KPI_RISK_AGEING_STALE,
   KPI_LEARNING_COMPLETED_YTD,
   KPI_DOCUMENTS_PUBLISHED,
   KPI_DOCUMENTS_RETENTION_OVERDUE,
@@ -231,7 +237,7 @@ const WIDGET_CATALOG: WidgetCatalogEntry[] = [
   { catalogId: 'kpi-documents-published', category: 'Dokumenter', label: 'Publiserte sider', template: KPI_DOCUMENTS_PUBLISHED },
   { catalogId: 'kpi-documents-retention-overdue', category: 'Dokumenter', label: 'Forfalt revisjon', template: KPI_DOCUMENTS_RETENTION_OVERDUE },
   { catalogId: 'kpi-risk-red-band', category: 'Risiko', label: 'Røde risikoer (13–25)', description: 'Antall aktive risikoer i uakseptabelt bånd.', template: KPI_RISK_RED_BAND },
-  { catalogId: 'kpi-risk-residual-unjustified', category: 'Risiko', label: 'Uvurdert restrisiko', description: 'Røde rader uten begrunnelse — Arbeidstilsynet-flagg.', template: KPI_RISK_RESIDUAL_UNJUSTIFIED },
+  { catalogId: 'kpi-risk-ageing-stale', category: 'Risiko', label: 'Ikke vurdert siste 12 mnd', description: 'Statisk register-varsel — risikoer som ikke er vurdert på et år.', template: KPI_RISK_AGEING_STALE },
   { catalogId: 'line-compliance-execs', category: 'Trender', label: 'Sjekklister over tid', template: LINE_CHECKLIST_OVER_TIME },
   { catalogId: 'line-learning-completions', category: 'Trender', label: 'Læring over tid', template: LINE_LEARNING_OVER_TIME },
   { catalogId: 'line-documents-published', category: 'Trender', label: 'Dokumenter over tid', template: LINE_DOCUMENTS_OVER_TIME },

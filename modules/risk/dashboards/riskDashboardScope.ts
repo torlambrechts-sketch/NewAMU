@@ -99,7 +99,7 @@ const HEATMAP_5X5: ReportModuleHeatmap = {
   id: 'heatmap-5x5', kind: 'heatmap',
   datasetKey: 'risk_matrix_cells',
   title: 'Risikomatrise — sannsynlighet × konsekvens',
-  subtitle: 'Klikk en celle for å filtrere',
+  subtitle: 'Antall risikoer per celle · grønn ≤6 · gul ≤12 · rød 13–25',
   rowsPath: 'rows', columnsPath: 'columns', cellsPath: 'cells',
   valueLabel: 'Antall risikoer',
   valueMin: 0,

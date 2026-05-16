@@ -11,7 +11,7 @@
 // `riskId` for the future register list page.
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useLocation } from 'react-router-dom'
 import { ArrowLeft, BarChart3 } from 'lucide-react'
 import { ModuleAnalyticsDashboard } from '../../src/components/module/ModuleAnalyticsDashboard'
 import { DashboardEditLayoutPanel } from '../../src/components/module/dashboard/DashboardEditLayoutPanel'
@@ -30,9 +30,10 @@ import { RISK_DASHBOARD_SCOPE_ID } from './dashboards/riskDashboardScope'
 import './dashboards/riskDashboardScope'
 import { useRiskDatasets } from './dashboards/useRiskDatasets'
 import { useRiskSourceData } from './dashboards/useRiskSourceData'
-import { HAZARD_CATEGORY_OPTIONS, type HazardCategoryId } from './dashboards/hazardCategories'
+import { HAZARD_CATEGORIES, HAZARD_CATEGORY_OPTIONS, type HazardCategoryId } from './dashboards/hazardCategories'
 import type { ReportModule } from '../../src/types/reportBuilder'
-import type { DashboardDimension, DashboardFilter } from '../../src/lib/dashboards/dashboardFilters'
+import { makeFilter, type DashboardDimension } from '../../src/lib/dashboards/dashboardFilters'
+import type { DrillDownEvent } from '../../src/components/reports/ReportModuleWidget'
 
 const SEVERITY_OPTIONS = [
   { id: 'critical', label: 'Kritisk' },
@@ -147,49 +148,94 @@ export function RiskAnalysePage() {
     />
   )
 
-  // Drill-down — the heatmap renderer emits two adjacent events (one per
-  // axis) when a cell is clicked, but the simpler shape is `segmentLabel`
-  // = the row label (likelihood) and we expand it to both axes by also
-  // appending the consequence chip when the segmentLabel encodes both.
+  // Drill-down — resolve the clicked segment's display label back to the
+  // chip value the filter selectors compare against (id, not label).
+  // Toggle: clicking the same segment twice removes the chip. Mirrors
+  // the resolver in ChecklistsAnalysePage / LearningAnalysePage so the
+  // behaviour is identical across modules.
+  //
+  // Heatmap cell clicks are NOT supported by the engine yet (the
+  // renderer doesn't wire onDrillDown for heatmap kinds). When that
+  // lands, this handler will receive `dimensionId='likelihoodTier'` (or
+  // similar) and the resolver below already handles the numeric ids.
   const handleDrill = useCallback(
-    (e: { dimensionId: string; segmentLabel: string }) => {
-      const next: DashboardFilter[] = [...dashboard.filters]
-      const addChip = (id: string, raw: string) => {
-        if (next.some((f) => f.dimensionId === id)) return
-        next.push({ id: freshId('chip'), dimensionId: id, operator: 'in', value: [raw] })
+    (e: DrillDownEvent) => {
+      let resolvedId: string | null = null
+      const label = e.segmentLabel
+      switch (e.dimensionId) {
+        case 'hazardCategory': {
+          const cat = HAZARD_CATEGORIES.find((c) => c.labelNb === label || c.id === label)
+          resolvedId = cat?.id ?? null
+          break
+        }
+        case 'severityTier': {
+          const sev = SEVERITY_OPTIONS.find((s) => s.label === label || s.id === label)
+          resolvedId = sev?.id ?? null
+          break
+        }
+        case 'residualBand': {
+          const band = RESIDUAL_BAND_OPTIONS.find((b) => b.label === label || b.id === label)
+          resolvedId = band?.id ?? null
+          break
+        }
+        case 'source': {
+          const s = SOURCE_OPTIONS.find((o) => o.label === label || o.id === label)
+          resolvedId = s?.id ?? null
+          break
+        }
+        case 'status': {
+          const s = STATUS_OPTIONS.find((o) => o.label === label || o.id === label)
+          resolvedId = s?.id ?? null
+          break
+        }
+        case 'department': {
+          const dep = departments.find((d) => d.name === label || d.id === label)
+          resolvedId = dep?.id ?? null
+          break
+        }
+        case 'likelihoodTier':
+        case 'consequenceTier': {
+          const trimmed = label.trim()
+          resolvedId = /^[1-5]$/.test(trimmed) ? trimmed : null
+          break
+        }
+        case 'riskId':
+          // Scorecard row drill — the future RiskRegisterPage will read
+          // this from the URL state. No chip mutation in P1.
+          return
+        default:
+          return
       }
-      const parts = e.segmentLabel.split(/\s*[×x/]\s*/i)
-      if (e.dimensionId === 'likelihoodTier' && parts.length === 2) {
-        addChip('likelihoodTier', parts[0]!.trim())
-        addChip('consequenceTier', parts[1]!.trim())
-      } else {
-        addChip(e.dimensionId, e.segmentLabel)
-      }
+      if (!resolvedId) return
+      const existing = dashboard.filters.find(
+        (f) => f.dimensionId === e.dimensionId && f.value === resolvedId,
+      )
+      const next = existing
+        ? dashboard.filters.filter((f) => f.id !== existing.id)
+        : [...dashboard.filters, makeFilter(e.dimensionId, 'is', resolvedId)]
       void dashboard.saveFilters(next)
     },
-    [dashboard],
+    [dashboard, departments],
   )
 
-  const titleHash = (() => {
-    if (typeof window === 'undefined') return ''
-    return window.location.hash
-  })()
-
-  // Surface preset URL hint (when user lands with ?hazardCategory=psychosocial
-  // from a pinned sidebar item) — translate query param into a chip on first
-  // mount if not already present.
+  // Surface preset URL hint — when the user lands with
+  // ?hazardCategory=psychosocial from a pinned sidebar item, translate
+  // the param into a filter chip. Replaces any existing hazardCategory
+  // chip so clicking different presets actually switches.
+  const location = useLocation()
   useEffect(() => {
-    if (typeof window === 'undefined') return
-    const p = new URLSearchParams(window.location.search)
-    const cat = p.get('hazardCategory')
+    const cat = new URLSearchParams(location.search).get('hazardCategory')
     if (!cat) return
-    if (dashboard.filters.some((f) => f.dimensionId === 'hazardCategory')) return
-    void dashboard.saveFilters([
-      ...dashboard.filters,
-      { id: freshId('chip'), dimensionId: 'hazardCategory', operator: 'in', value: [cat] },
-    ])
+    const valid = HAZARD_CATEGORIES.some((c) => c.id === cat)
+    if (!valid) return
+    const current = dashboard.filters.find((f) => f.dimensionId === 'hazardCategory')
+    if (current && current.value === cat) return
+    const others = dashboard.filters.filter((f) => f.dimensionId !== 'hazardCategory')
+    void dashboard.saveFilters([...others, makeFilter('hazardCategory', 'is', cat)])
+    // dashboard.filters omitted to avoid loops — the next render reflects
+    // the saved chips, and we only want to react to URL changes.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [titleHash])
+  }, [location.search])
 
   return (
     <>
@@ -243,6 +289,9 @@ export function RiskAnalysePage() {
         filters={dashboard.filters}
         onFiltersChange={(f) => { void dashboard.saveFilters(f) }}
         onDrillDown={handleDrill}
+        // ^ heatmap cells are NOT clickable yet (engine gap — the heatmap
+        //   renderer doesn't pass onDrillDown to HeatmapMini). Bar / donut
+        //   / scorecard drills work via this same handler.
         widgetControlSlot={widgetControlSlot}
         editMode={editChrome.editMode}
         onEdit={() => setEditOpen(true)}
