@@ -1,23 +1,26 @@
 // /admin/templates — cross-module template browser.
 //
 // Renders every template in the org so admins can browse, filter, view
-// details and jump into the per-module editor for CRUD. Visual reference
-// is the Pinpoint Background Checks layout block at
-// /platform-admin/layout-reference → "Background checks (Certn)":
-// status tabs across the top, a white card wrapping the toolbar +
-// table + pagination footer, neutral-50 row hover, pill badges.
+// details and edit. Visual reference is the Pinpoint Background Checks
+// layout block at /platform-admin/layout-reference → "Background checks
+// (Certn)": status tabs across the top, a white card wrapping the
+// toolbar + table + pagination footer, neutral-50 row hover, pill
+// badges.
 //
 // Three interactions open the right-side drawer instead of navigating
 // away:
 //   - Ny mal button       → drawer mode 'new' (type picker)
-//   - Row name click      → drawer mode 'view' (template details)
-//   - Rediger row button  → drawer mode 'view' with edit affordance
+//   - Row name click      → drawer mode 'view' (compliance: inline
+//                            editor; other sources: details + CTA)
+//   - Rediger row button  → same as row name click
 //
-// The drawer is a stepping stone, not an editor. From 'new' the admin
-// picks a type and is sent to that module's templates admin; from
-// 'view' the admin clicks "Åpne i full editor" and lands on the
-// module's per-template editor. Actual CRUD stays in each module —
-// this page is read + redirect.
+// Compliance has a slide-over template editor already
+// (TemplateEditorPanel). We reuse it inline via ComplianceTemplate-
+// EditorBridge so admins skip the /admin/settings/compliance/maler
+// hop entirely. Survey, documents, learning and registers still use
+// dedicated editor pages today — we deep-link there from the view
+// drawer; each module's editor needs its own slide-over refactor
+// before it can be embedded here.
 
 import { useMemo, useState, useRef, useEffect, type ReactNode } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
@@ -51,6 +54,7 @@ import {
   type AdminTemplateSource,
   type AdminTemplateStatus,
 } from '../../hooks/useAdminTemplates'
+import { ComplianceTemplateEditorBridge } from './ComplianceTemplateEditorBridge'
 
 const SOURCE_KEYS: AdminTemplateSource[] = [
   'compliance',
@@ -106,6 +110,7 @@ type DrawerState =
   | { kind: 'closed' }
   | { kind: 'new' }
   | { kind: 'view'; row: AdminTemplateRow }
+  | { kind: 'compliance-edit'; templateId: string | null }
 
 export function AdminTemplatesPage() {
   const { rows, loading, error, refresh } = useAdminTemplates()
@@ -278,7 +283,11 @@ export function AdminTemplatesPage() {
                   <TemplateRow
                     key={r.rowId}
                     row={r}
-                    onOpen={() => setDrawer({ kind: 'view', row: r })}
+                    onOpen={() =>
+                      r.source === 'compliance'
+                        ? setDrawer({ kind: 'compliance-edit', templateId: r.id })
+                        : setDrawer({ kind: 'view', row: r })
+                    }
                   />
                 ))}
               </tbody>
@@ -333,7 +342,28 @@ export function AdminTemplatesPage() {
         </div>
       </div>
 
-      <TemplateDrawer state={drawer} onClose={() => setDrawer({ kind: 'closed' })} />
+      <TemplateDrawer
+        state={drawer}
+        onClose={() => setDrawer({ kind: 'closed' })}
+        onPickSource={(source) => {
+          if (source === 'compliance') {
+            setDrawer({ kind: 'compliance-edit', templateId: null })
+          } else {
+            setDrawer({ kind: 'closed' })
+          }
+        }}
+      />
+
+      {drawer.kind === 'compliance-edit' ? (
+        <ComplianceTemplateEditorBridge
+          templateId={drawer.templateId}
+          onClose={() => setDrawer({ kind: 'closed' })}
+          onSaved={() => {
+            void refresh()
+            setDrawer({ kind: 'closed' })
+          }}
+        />
+      ) : null}
     </ModulePageShell>
   )
 }
@@ -520,13 +550,19 @@ function TemplateRow({
 function TemplateDrawer({
   state,
   onClose,
+  onPickSource,
 }: {
   state: DrawerState
   onClose: () => void
+  onPickSource: (source: AdminTemplateSource) => void
 }) {
-  // Close on Esc, body-scroll lock while open
+  // Close on Esc, body-scroll lock while open. Don't render this
+  // drawer when 'compliance-edit' is active — TemplateEditorPanel
+  // (via ComplianceTemplateEditorBridge) renders its own slide-over.
+  const shouldRender = state.kind === 'new' || state.kind === 'view'
+
   useEffect(() => {
-    if (state.kind === 'closed') return
+    if (!shouldRender) return
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onClose()
     }
@@ -537,9 +573,9 @@ function TemplateDrawer({
       document.removeEventListener('keydown', onKey)
       document.body.style.overflow = prev
     }
-  }, [state.kind, onClose])
+  }, [shouldRender, onClose])
 
-  if (state.kind === 'closed') return null
+  if (!shouldRender) return null
 
   const title = state.kind === 'new' ? 'Ny mal' : state.row.name
 
@@ -576,7 +612,7 @@ function TemplateDrawer({
 
         <div className="flex-1 overflow-y-auto px-5 py-5">
           {state.kind === 'new' ? (
-            <NewTemplatePicker onClose={onClose} />
+            <NewTemplatePicker onPickSource={onPickSource} />
           ) : (
             <TemplateDetails row={state.row} />
           )}
@@ -586,19 +622,30 @@ function TemplateDrawer({
   )
 }
 
-function NewTemplatePicker({ onClose }: { onClose: () => void }) {
+function NewTemplatePicker({
+  onPickSource,
+}: {
+  onPickSource: (source: AdminTemplateSource) => void
+}) {
   const navigate = useNavigate()
   const onPick = (source: AdminTemplateSource) => {
-    onClose()
-    navigate(SOURCE_NEW_PATH[source])
+    if (source === 'compliance') {
+      // compliance has a slide-over editor we can mount inline
+      onPickSource(source)
+    } else {
+      // other sources still use full-page editors — navigate
+      onPickSource(source)
+      navigate(SOURCE_NEW_PATH[source])
+    }
   }
   return (
     <div className="space-y-2">
       <p className="mb-3 text-xs text-neutral-600">
-        Velg type mal du vil opprette. Du sendes til riktig modul der du fyller ut innholdet.
+        Velg type mal du vil opprette. Sjekkliste-maler åpnes direkte i et redigeringspanel; andre typer åpnes i sin modul.
       </p>
       {SOURCE_KEYS.map((s) => {
         const Icon = SOURCE_ICON[s]
+        const inlineSupported = s === 'compliance'
         return (
           <button
             key={s}
@@ -610,8 +657,13 @@ function NewTemplatePicker({ onClose }: { onClose: () => void }) {
               <Icon className="size-4" />
             </div>
             <div className="min-w-0 flex-1">
-              <p className="text-sm font-semibold text-neutral-900">
+              <p className="flex items-center gap-2 text-sm font-semibold text-neutral-900">
                 {ADMIN_TEMPLATE_SOURCE_LABELS[s]}
+                {inlineSupported ? (
+                  <span className="rounded-full bg-emerald-100 px-1.5 py-0.5 text-[9px] font-bold uppercase text-emerald-950">
+                    Inline
+                  </span>
+                ) : null}
               </p>
               <p className="mt-0.5 text-xs text-neutral-600">{SOURCE_DESCRIPTION[s]}</p>
             </div>
