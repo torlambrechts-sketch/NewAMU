@@ -536,14 +536,15 @@ function SvarTab({
                     </td>
                     <td className="py-3.5 pr-5 text-right">
                       {canViewIndividual && r.user_id != null ? (
-                        <button
-                          type="button"
+                        <Button
+                          variant="secondary"
+                          size="sm"
                           onClick={() => onOpenResponse(r)}
-                          className="inline-flex items-center gap-1.5 rounded-md border border-neutral-200 bg-white px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-neutral-700 shadow-sm hover:bg-neutral-50"
+                          icon={<Eye className="h-3.5 w-3.5" aria-hidden />}
+                          className="uppercase tracking-wide"
                         >
-                          <Eye className="h-3.5 w-3.5" aria-hidden />
                           Se svar
-                        </button>
+                        </Button>
                       ) : (
                         <span className="text-xs text-neutral-400">—</span>
                       )}

@@ -4,7 +4,7 @@ import {
   WPSTD_FORM_FIELD_LABEL,
   WPSTD_FORM_ROW_GRID,
 } from '../../src/components/layout/WorkplaceStandardFormPanel'
-import { YesNoToggle } from '../../src/components/ui/FormToggles'
+import { ToggleSwitch, YesNoToggle } from '../../src/components/ui/FormToggles'
 import { StandardInput } from '../../src/components/ui/Input'
 import { SearchableSelect, type SelectOption } from '../../src/components/ui/SearchableSelect'
 import { StandardTextarea } from '../../src/components/ui/Textarea'
@@ -199,13 +199,13 @@ export function SurveyQuestionFormFields({
       </div>
 
       <div className="rounded-xl border border-neutral-200/90 bg-white p-4 shadow-sm">
-        <button
-          type="button"
-          className="flex w-full items-center justify-between gap-2 text-left"
+        <Button
+          variant="ghost"
+          className="flex w-full justify-between gap-2 rounded-md px-0 py-0 text-left font-normal hover:bg-transparent"
           onClick={() => setPickerOpen((o) => !o)}
           aria-expanded={pickerOpen}
         >
-          <div>
+          <div className="min-w-0 flex-1">
             <p className={WPSTD_FORM_FIELD_LABEL}>Spørsmålstype</p>
             <p className="mt-0.5 text-sm font-semibold text-neutral-900">{questionTypeLabel(qType)}</p>
             <p className="mt-1 text-xs text-neutral-600">{typeExplainer(qType)}</p>
@@ -215,7 +215,7 @@ export function SurveyQuestionFormFields({
           ) : (
             <ChevronRight className="h-5 w-5 shrink-0 text-neutral-500" aria-hidden />
           )}
-        </button>
+        </Button>
 
         {pickerOpen ? (
           <div className="mt-4 space-y-5 border-t border-neutral-100 pt-4">
@@ -227,22 +227,23 @@ export function SurveyQuestionFormFields({
                 <p className="mb-2 text-[11px] font-bold uppercase tracking-wide text-neutral-500">{g.title}</p>
                 <div className="flex flex-wrap gap-2">
                   {g.types.map((t) => (
-                    <button
+                    <Button
                       key={t}
-                      type="button"
+                      size="sm"
+                      variant="secondary"
                       onClick={() => {
                         pickType(t)
                         setPickerOpen(false)
                       }}
                       className={[
-                        'rounded-lg border px-3 py-2 text-left text-xs transition',
+                        'rounded-lg px-3 py-2 text-left text-xs font-normal transition',
                         t === qType
                           ? 'border-[#1a3d32] bg-[#f7faf8] font-semibold text-neutral-900'
-                          : 'border-neutral-200 bg-white hover:border-[#1a3d32]/35',
+                          : 'hover:border-[#1a3d32]/35',
                       ].join(' ')}
                     >
                       {questionTypeLabel(t)}
-                    </button>
+                    </Button>
                   ))}
                 </div>
               </div>
@@ -374,15 +375,14 @@ export function SurveyQuestionFormFields({
             />
           </div>
           <div className="flex items-end pb-2">
-            <label className="flex cursor-pointer items-center gap-2 text-sm text-neutral-800">
-              <input
-                type="checkbox"
-                className="rounded border-neutral-300"
+            <div className="flex items-center gap-2 text-sm text-neutral-800">
+              <ToggleSwitch
                 checked={cfg.integerOnly === true}
-                onChange={(e) => setCfg({ integerOnly: e.target.checked })}
+                onChange={(v) => setCfg({ integerOnly: v })}
+                label="Kun heltall"
               />
-              Kun heltall
-            </label>
+              <span>Kun heltall</span>
+            </div>
           </div>
         </div>
       ) : null}
@@ -483,24 +483,22 @@ export function SurveyQuestionFormFields({
         <div>
           <span className={WPSTD_FORM_FIELD_LABEL}>Innstillinger</span>
           <div className="mt-2 space-y-2">
-            <label className="flex cursor-pointer items-center gap-2 text-sm text-neutral-800">
-              <input
-                type="checkbox"
-                className="rounded border-neutral-300"
+            <div className="flex items-center gap-2 text-sm text-neutral-800">
+              <ToggleSwitch
                 checked={cfg.searchable === true}
-                onChange={(e) => setCfg({ searchable: e.target.checked })}
+                onChange={(v) => setCfg({ searchable: v })}
+                label="Søkbar liste"
               />
-              Søkbar liste (mange alternativer)
-            </label>
-            <label className="flex cursor-pointer items-center gap-2 text-sm text-neutral-800">
-              <input
-                type="checkbox"
-                className="rounded border-neutral-300"
+              <span>Søkbar liste (mange alternativer)</span>
+            </div>
+            <div className="flex items-center gap-2 text-sm text-neutral-800">
+              <ToggleSwitch
                 checked={cfg.allowOther === true}
-                onChange={(e) => setCfg({ allowOther: e.target.checked })}
+                onChange={(v) => setCfg({ allowOther: v })}
+                label="Tillat «Annet»"
               />
-              Tillat «Annet»
-            </label>
+              <span>Tillat «Annet»</span>
+            </div>
           </div>
         </div>
       ) : null}
@@ -532,15 +530,14 @@ export function SurveyQuestionFormFields({
             }}
             placeholder="Design A | https://…"
           />
-          <label className="mt-2 flex cursor-pointer items-center gap-2 text-sm text-neutral-800">
-            <input
-              type="checkbox"
-              className="rounded border-neutral-300"
+          <div className="mt-2 flex items-center gap-2 text-sm text-neutral-800">
+            <ToggleSwitch
               checked={cfg.allowOther === true}
-              onChange={(e) => setCfg({ allowOther: e.target.checked })}
+              onChange={(v) => setCfg({ allowOther: v })}
+              label="Tillat «Annet»"
             />
-            Tillat «Annet»
-          </label>
+            <span>Tillat «Annet»</span>
+          </div>
         </div>
       ) : null}
 
@@ -651,15 +648,14 @@ export function SurveyQuestionFormFields({
               }
             />
           </div>
-          <label className="flex cursor-pointer items-center gap-2 text-sm text-neutral-800">
-            <input
-              type="checkbox"
-              className="rounded border-neutral-300"
+          <div className="flex items-center gap-2 text-sm text-neutral-800">
+            <ToggleSwitch
               checked={cfg.fixedOrder === true}
-              onChange={(e) => setCfg({ fixedOrder: e.target.checked })}
+              onChange={(v) => setCfg({ fixedOrder: v })}
+              label="Fast rekkefølge"
             />
-            Fast rekkefølge (ikke tilfeldig rekkefølge på elementene)
-          </label>
+            <span>Fast rekkefølge (ikke tilfeldig rekkefølge på elementene)</span>
+          </div>
         </div>
       ) : null}
 
@@ -756,14 +752,14 @@ export function SurveyQuestionFormFields({
       />
 
       <div className="rounded-lg border border-dashed border-neutral-300 bg-neutral-50/80">
-        <button
-          type="button"
-          className="flex w-full items-center justify-between px-4 py-3 text-left text-sm font-medium text-neutral-800"
+        <Button
+          variant="ghost"
+          className="flex w-full justify-between rounded-md px-4 py-3 text-left text-sm font-medium text-neutral-800 hover:bg-transparent"
           onClick={() => setAdvOpen((v) => !v)}
         >
           Avansert: rekkefølgenummer
           {advOpen ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
-        </button>
+        </Button>
         {advOpen ? (
           <div className="border-t border-neutral-200 px-4 pb-4 pt-2">
             <label className={WPSTD_FORM_FIELD_LABEL} htmlFor="q-ord">
@@ -786,14 +782,14 @@ export function SurveyQuestionFormFields({
 
       {showAdvancedJson ? (
         <div className="rounded-lg border border-amber-200/80 bg-amber-50/40">
-          <button
-            type="button"
-            className="flex w-full items-center justify-between px-4 py-3 text-left text-sm font-medium text-amber-950"
+          <Button
+            variant="ghost"
+            className="flex w-full justify-between rounded-md px-4 py-3 text-left text-sm font-medium text-amber-950 hover:bg-transparent"
             onClick={() => setJsonOpen((v) => !v)}
           >
             Teknisk JSON (kun avanserte integrasjoner)
             {jsonOpen ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
-          </button>
+          </Button>
           {jsonOpen ? (
             <div className="border-t border-amber-200/60 px-4 pb-4 pt-2">
               <InfoBox>

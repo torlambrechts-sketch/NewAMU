@@ -10,6 +10,7 @@ import { Badge } from '../../../src/components/ui/Badge'
 import { InfoBox, WarningBox } from '../../../src/components/ui/AlertBox'
 import { StandardInput } from '../../../src/components/ui/Input'
 import { SearchableSelect, type SelectOption } from '../../../src/components/ui/SearchableSelect'
+import { ToggleSwitch } from '../../../src/components/ui/FormToggles'
 import { useOrgSetupContext } from '../../../src/hooks/useOrgSetupContext'
 import type { UseSurveyState } from '../useSurvey'
 import type { SurveyDistributionRow, SurveyInvitationRow, SurveyRow } from '../types'
@@ -218,20 +219,20 @@ export function SurveyDistribusjonTab({ survey, s }: { survey: UseSurveyState; s
                       {teams.map((t) => {
                         const checked = teamSelection.includes(t.id)
                         return (
-                          <li key={t.id}>
-                            <label className="flex cursor-pointer items-center gap-2 text-sm text-neutral-800">
-                              <input
-                                type="checkbox"
-                                className="rounded border-neutral-300"
-                                checked={checked}
-                                onChange={() => {
-                                  setTeamSelection((prev) =>
-                                    checked ? prev.filter((id) => id !== t.id) : [...prev, t.id],
-                                  )
-                                }}
-                              />
-                              {t.name}
-                            </label>
+                          <li
+                            key={t.id}
+                            className="flex items-center justify-between gap-3 rounded-md px-3 py-2 hover:bg-neutral-50"
+                          >
+                            <span className="min-w-0 flex-1 truncate text-sm text-neutral-800">{t.name}</span>
+                            <ToggleSwitch
+                              checked={checked}
+                              onChange={() => {
+                                setTeamSelection((prev) =>
+                                  checked ? prev.filter((id) => id !== t.id) : [...prev, t.id],
+                                )
+                              }}
+                              label={t.name}
+                            />
                           </li>
                         )
                       })}
@@ -252,20 +253,20 @@ export function SurveyDistribusjonTab({ survey, s }: { survey: UseSurveyState; s
                       {locations.map((loc) => {
                         const checked = locationSelection.includes(loc.id)
                         return (
-                          <li key={loc.id}>
-                            <label className="flex cursor-pointer items-center gap-2 text-sm text-neutral-800">
-                              <input
-                                type="checkbox"
-                                className="rounded border-neutral-300"
-                                checked={checked}
-                                onChange={() => {
-                                  setLocationSelection((prev) =>
-                                    checked ? prev.filter((id) => id !== loc.id) : [...prev, loc.id],
-                                  )
-                                }}
-                              />
-                              {loc.name}
-                            </label>
+                          <li
+                            key={loc.id}
+                            className="flex items-center justify-between gap-3 rounded-md px-3 py-2 hover:bg-neutral-50"
+                          >
+                            <span className="min-w-0 flex-1 truncate text-sm text-neutral-800">{loc.name}</span>
+                            <ToggleSwitch
+                              checked={checked}
+                              onChange={() => {
+                                setLocationSelection((prev) =>
+                                  checked ? prev.filter((id) => id !== loc.id) : [...prev, loc.id],
+                                )
+                              }}
+                              label={loc.name}
+                            />
                           </li>
                         )
                       })}
@@ -286,20 +287,20 @@ export function SurveyDistribusjonTab({ survey, s }: { survey: UseSurveyState; s
                       {departments.map((d) => {
                         const checked = deptSelection.includes(d.id)
                         return (
-                          <li key={d.id}>
-                            <label className="flex cursor-pointer items-center gap-2 text-sm text-neutral-800">
-                              <input
-                                type="checkbox"
-                                className="rounded border-neutral-300"
-                                checked={checked}
-                                onChange={() => {
-                                  setDeptSelection((prev) =>
-                                    checked ? prev.filter((id) => id !== d.id) : [...prev, d.id],
-                                  )
-                                }}
-                              />
-                              {d.name}
-                            </label>
+                          <li
+                            key={d.id}
+                            className="flex items-center justify-between gap-3 rounded-md px-3 py-2 hover:bg-neutral-50"
+                          >
+                            <span className="min-w-0 flex-1 truncate text-sm text-neutral-800">{d.name}</span>
+                            <ToggleSwitch
+                              checked={checked}
+                              onChange={() => {
+                                setDeptSelection((prev) =>
+                                  checked ? prev.filter((id) => id !== d.id) : [...prev, d.id],
+                                )
+                              }}
+                              label={d.name}
+                            />
                           </li>
                         )
                       })}
@@ -403,20 +404,20 @@ export function SurveyDistribusjonTab({ survey, s }: { survey: UseSurveyState; s
                   const checked = manualProfileIds.includes(p.id)
                   const label = `${p.display_name || p.email || p.id}${p.email ? ` · ${p.email}` : ''}`
                   return (
-                    <li key={p.id}>
-                      <label className="flex cursor-pointer items-center gap-2 text-sm text-neutral-800">
-                        <input
-                          type="checkbox"
-                          className="rounded border-neutral-300"
-                          checked={checked}
-                          onChange={() => {
-                            setManualProfileIds((prev) =>
-                              checked ? prev.filter((id) => id !== p.id) : [...prev, p.id],
-                            )
-                          }}
-                        />
-                        {label}
-                      </label>
+                    <li
+                      key={p.id}
+                      className="flex items-center justify-between gap-3 rounded-md px-3 py-2 hover:bg-neutral-50"
+                    >
+                      <span className="min-w-0 flex-1 truncate text-sm text-neutral-800">{label}</span>
+                      <ToggleSwitch
+                        checked={checked}
+                        onChange={() => {
+                          setManualProfileIds((prev) =>
+                            checked ? prev.filter((id) => id !== p.id) : [...prev, p.id],
+                          )
+                        }}
+                        label={label}
+                      />
                     </li>
                   )
                 })}

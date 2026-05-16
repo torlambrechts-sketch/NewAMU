@@ -18,6 +18,8 @@ import { Badge } from '../../../src/components/ui/Badge'
 import { StandardInput } from '../../../src/components/ui/Input'
 import { StandardTextarea } from '../../../src/components/ui/Textarea'
 import { SearchableSelect } from '../../../src/components/ui/SearchableSelect'
+import { Button } from '../../../src/components/ui/Button'
+import { ToggleSwitch } from '../../../src/components/ui/FormToggles'
 import { WPSTD_FORM_FIELD_LABEL } from '../../../src/components/layout/WorkplaceStandardFormPanel'
 import type {
   DepartmentRow,
@@ -321,14 +323,15 @@ export function SurveyMetadataPanel({
                           className="inline-flex items-center gap-1 rounded-full border border-[#1a3d32]/20 bg-[#1a3d32]/5 px-2.5 py-1 text-xs font-medium text-[#1a3d32]"
                         >
                           <span>{m?.display_name ?? '(ukjent)'}</span>
-                          <button
-                            type="button"
+                          <Button
+                            variant="ghost"
+                            size="icon"
                             onClick={() => toggleParticipant(mid, false)}
                             aria-label={`Fjern ${m?.display_name ?? mid}`}
-                            className="text-[#1a3d32]/70 hover:text-[#1a3d32]"
+                            className="h-5 w-5 text-[#1a3d32]/70 hover:bg-transparent hover:text-[#1a3d32]"
                           >
                             <X className="h-3.5 w-3.5" aria-hidden />
-                          </button>
+                          </Button>
                         </li>
                       )
                     })}
@@ -347,18 +350,21 @@ export function SurveyMetadataPanel({
                       sorted.map((m) => {
                         const checked = participantIds.includes(m.id)
                         return (
-                          <li key={m.id}>
-                            <label className="flex cursor-pointer items-center gap-2 rounded px-2 py-1 text-sm hover:bg-neutral-50">
-                              <input
-                                type="checkbox"
-                                checked={checked}
-                                onChange={(e) => toggleParticipant(m.id, e.target.checked)}
-                              />
-                              <span>{m.display_name}</span>
+                          <li
+                            key={m.id}
+                            className="flex items-center justify-between gap-3 rounded-md px-3 py-2 hover:bg-neutral-50"
+                          >
+                            <span className="min-w-0 flex-1 truncate text-sm text-neutral-800">
+                              {m.display_name}
                               {m.email ? (
-                                <span className="text-xs text-neutral-500">· {m.email}</span>
+                                <span className="text-xs text-neutral-500"> · {m.email}</span>
                               ) : null}
-                            </label>
+                            </span>
+                            <ToggleSwitch
+                              checked={checked}
+                              onChange={(v) => toggleParticipant(m.id, v)}
+                              label={m.display_name}
+                            />
                           </li>
                         )
                       })
