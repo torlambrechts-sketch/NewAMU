@@ -52,23 +52,20 @@ function PaletteItem({
     disabled,
   })
   return (
-    // dnd-kit useDraggable requires a native ref. Button is not forwardRef yet
-    // (planned in PR6); keep raw <button> here to wire setNodeRef directly.
-    // eslint-disable-next-line no-restricted-syntax
-    <button
+    <Button
       ref={setNodeRef}
-      type="button"
+      variant="secondary"
       {...listeners}
       {...attributes}
       className={[
-        'flex w-full flex-col items-start gap-0.5 rounded-lg border border-neutral-200/80 bg-white px-3 py-2.5 text-left shadow-sm transition',
+        'flex w-full flex-col items-start gap-0.5 rounded-lg border-neutral-200/80 px-3 py-2.5 text-left font-normal shadow-sm',
         disabled ? 'cursor-not-allowed opacity-50' : 'hover:border-[#1a3d32]/35 hover:bg-[#f7faf8]',
         isDragging ? 'opacity-60' : '',
       ].join(' ')}
     >
       <span className="text-xs font-semibold text-neutral-900">{label}</span>
       <span className="text-[10px] text-neutral-500">{hint}</span>
-    </button>
+    </Button>
   )
 }
 
@@ -116,19 +113,16 @@ function SortableQuestionRow({
       ].join(' ')}
     >
       {!isLocked ? (
-        // dnd-kit sortable handle requires native button to receive drag
-        // listeners via prop spread; Button component is planned to gain
-        // forwardRef in PR6.
-        // eslint-disable-next-line no-restricted-syntax
-        <button
-          type="button"
-          className="mt-0.5 cursor-grab touch-none rounded p-1 text-neutral-400 hover:bg-neutral-50 hover:text-neutral-700"
+        <Button
+          variant="ghost"
+          size="icon"
+          className="mt-0.5 h-6 w-6 cursor-grab touch-none text-neutral-400 hover:bg-neutral-50 hover:text-neutral-700"
           aria-label="Flytt"
           {...attributes}
           {...listeners}
         >
           <GripVertical className="h-4 w-4" />
-        </button>
+        </Button>
       ) : (
         <span className="w-6" aria-hidden />
       )}

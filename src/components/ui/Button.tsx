@@ -1,4 +1,4 @@
-import type { ButtonHTMLAttributes, ReactNode } from 'react'
+import { forwardRef, type ButtonHTMLAttributes, type ReactNode } from 'react'
 import { twMerge } from 'tailwind-merge'
 
 const baseClassName =
@@ -23,17 +23,13 @@ export type ButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
   icon?: ReactNode
 }
 
-export function Button({
-  variant = 'primary',
-  size = 'default',
-  icon,
-  className,
-  children,
-  type = 'button',
-  ...props
-}: ButtonProps) {
+export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button(
+  { variant = 'primary', size = 'default', icon, className, children, type = 'button', ...props },
+  ref,
+) {
   return (
     <button
+      ref={ref}
       type={type}
       className={twMerge(baseClassName, variantClassName[variant], sizeClassName[size], className)}
       {...props}
@@ -42,4 +38,4 @@ export function Button({
       {children}
     </button>
   )
-}
+})

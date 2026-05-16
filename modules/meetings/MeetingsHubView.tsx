@@ -455,7 +455,10 @@ function TemplateDrilldown({
                         {MEETING_STATUS_LABEL[m.status]}
                       </Badge>
                       {m.confidentiality_level !== 'standard' ? (
-                        <Badge variant="warning" className="ml-1.5">
+                        <Badge
+                          variant={m.confidentiality_level === 'confidential' ? 'confidential' : 'restricted'}
+                          className="ml-1.5"
+                        >
                           {MEETING_CONFIDENTIALITY_LABEL[m.confidentiality_level]}
                         </Badge>
                       ) : null}

@@ -14,7 +14,9 @@ const variantClassName: Record<
   | 'medium'
   | 'high'
   | 'critical'
-  | 'danger',
+  | 'danger'
+  | 'restricted'
+  | 'confidential',
   string
 > = {
   draft: 'border-neutral-200 bg-neutral-100 text-neutral-700',
@@ -28,6 +30,9 @@ const variantClassName: Record<
   high: 'border-orange-200 bg-orange-100 text-orange-800',
   critical: 'border-red-200 bg-red-100 text-red-800',
   danger: 'border-red-200 bg-red-100 text-red-800',
+  // Confidentiality tiers (AML § 2A, § 8-3, § 15-1)
+  restricted: 'border-amber-200 bg-amber-50 text-amber-900',
+  confidential: 'border-red-300 bg-red-50 text-red-900',
 }
 
 export type BadgeVariant = keyof typeof variantClassName
