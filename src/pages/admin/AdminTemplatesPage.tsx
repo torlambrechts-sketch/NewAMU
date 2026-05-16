@@ -33,9 +33,12 @@ import {
   ClipboardList,
   Copy,
   Database,
+  Download,
+  Eye,
   ExternalLink,
   FileText,
   GraduationCap,
+  History as HistoryIcon,
   Lock,
   Megaphone,
   MoreHorizontal,
@@ -43,7 +46,9 @@ import {
   Plus,
   RefreshCw,
   Search,
+  Sparkles,
   Trash2,
+  Upload,
   X,
 } from 'lucide-react'
 import { ModulePageShell } from '../../components/module'
@@ -60,8 +65,12 @@ import {
   type AdminTemplateSource,
   type AdminTemplateStatus,
 } from '../../hooks/useAdminTemplates'
+import { useAdminTemplateUsage } from '../../hooks/useAdminTemplateUsage'
 import { ComplianceTemplateEditorBridge } from './ComplianceTemplateEditorBridge'
 import { SurveyTemplateEditorBridge } from './SurveyTemplateEditorBridge'
+import { TemplateHistoryModal } from './TemplateHistoryModal'
+import { TemplatePreviewModal } from './TemplatePreviewModal'
+import { AiTemplateGenModal } from './AiTemplateGenModal'
 
 const SOURCE_KEYS: AdminTemplateSource[] = [
   'compliance',
@@ -127,6 +136,7 @@ export function AdminTemplatesPage() {
   const { rows, loading, error, refresh } = useAdminTemplates()
   const { supabase } = useOrgSetupContext()
   const cl = useChecklistModule({ supabase })
+  const usageByTemplateId = useAdminTemplateUsage()
   const [searchParams] = useSearchParams()
   const initialSource = searchParams.get('source') as AdminTemplateSource | null
   const [activeSource, setActiveSource] = useState<AdminTemplateSource | null>(
@@ -139,6 +149,87 @@ export function AdminTemplatesPage() {
   const [drawer, setDrawer] = useState<DrawerState>({ kind: 'closed' })
   const [busyRowId, setBusyRowId] = useState<string | null>(null)
   const [actionError, setActionError] = useState<string | null>(null)
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
+  const [bulkBusy, setBulkBusy] = useState(false)
+  const [historyFor, setHistoryFor] = useState<AdminTemplateRow | null>(null)
+  const [previewFor, setPreviewFor] = useState<AdminTemplateRow | null>(null)
+  const [aiOpen, setAiOpen] = useState(false)
+
+  // Per-row JSON export (compliance only). Writes the canonical
+  // template shape so it can be re-imported into the same or another
+  // org. Omits org-specific ids; importer regenerates them.
+  const exportCompliance = useCallback(
+    async (row: AdminTemplateRow) => {
+      if (row.source !== 'compliance') return
+      try {
+        if (!cl.templates.some((t) => t.id === row.id)) {
+          await cl.load({})
+        }
+        const original = cl.templates.find((t) => t.id === row.id)
+        if (!original) throw new Error('Fant ikke malen.')
+        const payload = {
+          schemaVersion: 1,
+          exportedAt: new Date().toISOString(),
+          source: 'compliance',
+          template: {
+            pack: original.pack,
+            slug: original.slug,
+            name: original.name,
+            description: original.description,
+            definition: parseChecklistDefinition(original.definition),
+          },
+        }
+        const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' })
+        const a = document.createElement('a')
+        a.href = URL.createObjectURL(blob)
+        a.download = `mal-${original.slug}.json`
+        a.click()
+        URL.revokeObjectURL(a.href)
+      } catch (e) {
+        setActionError(e instanceof Error ? e.message : 'Kunne ikke eksportere malen.')
+      }
+    },
+    [cl],
+  )
+
+  // Import a compliance template from a JSON file written by
+  // exportCompliance. Validates the schemaVersion + source, then
+  // creates a new template via cl.createTemplate. Slug is suffixed
+  // with -import-<ts> to avoid unique-constraint collisions.
+  const importCompliance = useCallback(
+    async (file: File) => {
+      try {
+        const text = await file.text()
+        const parsed = JSON.parse(text) as unknown
+        const obj = parsed as {
+          schemaVersion?: number
+          source?: string
+          template?: { pack?: string; slug?: string; name?: string; description?: string | null; definition?: unknown }
+        }
+        if (obj.schemaVersion !== 1 || obj.source !== 'compliance' || !obj.template) {
+          throw new Error('Ikke en gyldig sjekkliste-mal-eksport.')
+        }
+        const t = obj.template
+        if (!t.pack || !t.slug || !t.name) {
+          throw new Error('Manglende felt i import-filen (pack / slug / name).')
+        }
+        const newId = await cl.createTemplate({
+          pack: t.pack as Parameters<typeof cl.createTemplate>[0]['pack'],
+          slug: `${t.slug}-import-${Date.now().toString(36)}`,
+          name: t.name,
+          description: t.description ?? undefined,
+          definition: parseChecklistDefinition(t.definition),
+        })
+        if (newId) {
+          await refresh()
+          setDrawer({ kind: 'compliance-edit', templateId: newId })
+        }
+      } catch (e) {
+        setActionError(e instanceof Error ? e.message : 'Kunne ikke importere malen.')
+      }
+    },
+    [cl, refresh],
+  )
 
   const duplicateCompliance = useCallback(
     async (row: AdminTemplateRow) => {
@@ -233,6 +324,45 @@ export function AdminTemplatesPage() {
     [supabase, refresh, deleteCompliance],
   )
 
+  // Bulk activate/deactivate. Compliance rows go through cl.update-
+  // Template (proper hook); other sources fall back to direct
+  // supabase update mirroring toggleActive. Survey is skipped — it
+  // has its own override model (deleted_at / is_active) but mixing
+  // with the others gets complex; keeps the bulk action predictable.
+  const bulkSetActive = useCallback(
+    async (next: boolean) => {
+      const selectedRows = rows.filter((r) => selectedIds.has(r.rowId) && !r.isSystem)
+      if (selectedRows.length === 0) return
+      setBulkBusy(true)
+      setActionError(null)
+      try {
+        for (const r of selectedRows) {
+          if (r.source === 'compliance') {
+            await cl.updateTemplate({ templateId: r.id, is_active: next })
+          } else if (r.source === 'documents' && supabase) {
+            await supabase.from('document_org_templates').update({ is_active: next }).eq('id', r.id)
+          } else if (r.source === 'learning' && supabase) {
+            await supabase
+              .from('learning_courses')
+              .update({ status: next ? 'published' : 'draft' })
+              .eq('id', r.id)
+          } else if (r.source === 'registers' && supabase) {
+            await supabase.from('register_types').update({ is_active: next }).eq('id', r.id)
+          } else if (r.source === 'survey' && supabase) {
+            await supabase.from('survey_org_templates').update({ is_active: next }).eq('id', r.id)
+          }
+        }
+        setSelectedIds(new Set())
+        await refresh()
+      } catch (e) {
+        setActionError(e instanceof Error ? e.message : 'Kunne ikke oppdatere markerte maler.')
+      } finally {
+        setBulkBusy(false)
+      }
+    },
+    [rows, selectedIds, cl, supabase, refresh],
+  )
+
   // Inline active-toggle for documents / learning / registers. The
   // sources don't have slide-over editors yet, so admins get this
   // small bit of inline control plus a deep-link for the rest.
@@ -321,6 +451,20 @@ export function AdminTemplatesPage() {
           >
             {loading ? 'Laster …' : 'Oppdater'}
           </Button>
+          <label className="inline-flex cursor-pointer items-center justify-center gap-1.5 rounded-md border border-neutral-300 bg-white px-3 py-2 text-sm font-semibold text-neutral-700 transition-colors hover:bg-neutral-50">
+            <Upload className="h-4 w-4" />
+            Importer
+            <input
+              type="file"
+              accept="application/json,.json"
+              className="hidden"
+              onChange={(e) => {
+                const f = e.target.files?.[0]
+                if (f) void importCompliance(f)
+                e.target.value = ''
+              }}
+            />
+          </label>
           <Link
             to="/organisation"
             className="inline-flex items-center justify-center gap-1.5 rounded-md border border-neutral-300 bg-white px-4 py-2 text-sm font-semibold text-neutral-700 transition-colors hover:bg-neutral-50"
@@ -328,6 +472,15 @@ export function AdminTemplatesPage() {
             <ArrowLeft className="h-4 w-4" />
             Til selskap
           </Link>
+          <button
+            type="button"
+            onClick={() => setAiOpen(true)}
+            className="inline-flex items-center justify-center gap-1.5 rounded-md border border-purple-300 bg-white px-3 py-2 text-sm font-semibold text-purple-700 hover:bg-purple-50"
+            title="AI-assistert mal-generering (eksperimentell)"
+          >
+            <Sparkles className="h-4 w-4" />
+            AI
+          </button>
           <button
             type="button"
             onClick={() => setDrawer({ kind: 'new' })}
@@ -341,6 +494,40 @@ export function AdminTemplatesPage() {
     >
       {error ? <WarningBox>{error}</WarningBox> : null}
       {actionError ? <WarningBox>{actionError}</WarningBox> : null}
+
+      {selectedIds.size > 0 ? (
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-[#1a3d32]/30 bg-[#1a3d32]/5 px-4 py-2 text-sm">
+          <span className="font-medium text-[#1a3d32]">
+            {selectedIds.size} {selectedIds.size === 1 ? 'mal' : 'maler'} valgt
+          </span>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => void bulkSetActive(true)}
+              disabled={bulkBusy}
+              className="rounded-md border border-[#1a3d32] bg-white px-3 py-1.5 text-xs font-semibold text-[#1a3d32] hover:bg-[#1a3d32]/5 disabled:opacity-50"
+            >
+              Aktiver
+            </button>
+            <button
+              type="button"
+              onClick={() => void bulkSetActive(false)}
+              disabled={bulkBusy}
+              className="rounded-md border border-neutral-300 bg-white px-3 py-1.5 text-xs font-semibold text-neutral-700 hover:bg-neutral-50 disabled:opacity-50"
+            >
+              Deaktiver
+            </button>
+            <button
+              type="button"
+              onClick={() => setSelectedIds(new Set())}
+              disabled={bulkBusy}
+              className="rounded-md px-2 py-1.5 text-xs text-neutral-500 hover:text-neutral-800"
+            >
+              Avbryt
+            </button>
+          </div>
+        </div>
+      ) : null}
 
       <div className="flex flex-wrap items-end gap-x-1 gap-y-2 border-b border-neutral-200 pb-0">
         <SourceTab
@@ -411,9 +598,29 @@ export function AdminTemplatesPage() {
             <table className="w-full min-w-[860px] text-left text-sm">
               <thead>
                 <tr className="border-b border-neutral-200 text-[10px] font-bold uppercase tracking-wide text-neutral-500">
+                  <th className="w-10 px-4 py-3 sm:px-5">
+                    <input
+                      type="checkbox"
+                      aria-label="Velg alle synlige rader"
+                      checked={visible.length > 0 && visible.every((r) => selectedIds.has(r.rowId))}
+                      onChange={(e) => {
+                        setSelectedIds((prev) => {
+                          const next = new Set(prev)
+                          if (e.target.checked) {
+                            for (const r of visible) next.add(r.rowId)
+                          } else {
+                            for (const r of visible) next.delete(r.rowId)
+                          }
+                          return next
+                        })
+                      }}
+                      className="size-3.5 cursor-pointer accent-[#1a3d32]"
+                    />
+                  </th>
                   <th className="px-4 py-3 sm:px-5">Navn</th>
                   <th className="px-4 py-3 sm:px-5">Modul</th>
                   <th className="px-4 py-3 sm:px-5">Status</th>
+                  <th className="px-4 py-3 sm:px-5">Bruk</th>
                   <th className="px-4 py-3 sm:px-5">Sist oppdatert</th>
                   <th className="w-12 px-4 py-3 sm:px-5" />
                 </tr>
@@ -423,6 +630,16 @@ export function AdminTemplatesPage() {
                   <TemplateRow
                     key={r.rowId}
                     row={r}
+                    usage={usageByTemplateId.get(r.id) ?? null}
+                    selected={selectedIds.has(r.rowId)}
+                    onSelectChange={(checked) =>
+                      setSelectedIds((prev) => {
+                        const next = new Set(prev)
+                        if (checked) next.add(r.rowId)
+                        else next.delete(r.rowId)
+                        return next
+                      })
+                    }
                     busy={busyRowId === r.rowId}
                     onOpen={() => {
                       if (r.source === 'compliance') {
@@ -435,6 +652,15 @@ export function AdminTemplatesPage() {
                     }}
                     onDuplicate={
                       r.source === 'compliance' ? () => void duplicateCompliance(r) : undefined
+                    }
+                    onShowHistory={
+                      r.source === 'compliance' ? () => setHistoryFor(r) : undefined
+                    }
+                    onExport={
+                      r.source === 'compliance' ? () => void exportCompliance(r) : undefined
+                    }
+                    onPreview={
+                      r.source === 'compliance' ? () => setPreviewFor(r) : undefined
                     }
                     onDelete={
                       r.isSystem
@@ -533,6 +759,43 @@ export function AdminTemplatesPage() {
           onSaved={() => {
             void refresh()
             setDrawer({ kind: 'closed' })
+          }}
+        />
+      ) : null}
+      {historyFor ? (
+        <TemplateHistoryModal
+          templateId={historyFor.id}
+          templateName={historyFor.name}
+          onClose={() => setHistoryFor(null)}
+        />
+      ) : null}
+      {previewFor ? (
+        <TemplatePreviewModal
+          templateId={previewFor.id}
+          templateName={previewFor.name}
+          onClose={() => setPreviewFor(null)}
+        />
+      ) : null}
+      {aiOpen ? (
+        <AiTemplateGenModal
+          onClose={() => setAiOpen(false)}
+          onAccept={async (gen) => {
+            try {
+              const newId = await cl.createTemplate({
+                pack: 'aml-amu',
+                slug: `ai-${Date.now().toString(36)}`,
+                name: gen.name,
+                description: gen.description,
+                definition: { items: gen.items as never[] },
+              })
+              setAiOpen(false)
+              if (newId) {
+                await refresh()
+                setDrawer({ kind: 'compliance-edit', templateId: newId })
+              }
+            } catch (e) {
+              setActionError(e instanceof Error ? e.message : 'Kunne ikke opprette malen.')
+            }
           }}
         />
       ) : null}
@@ -662,21 +925,46 @@ function MenuItem({
 
 function TemplateRow({
   row,
+  usage,
+  selected,
+  onSelectChange,
   busy,
   onOpen,
   onDuplicate,
+  onShowHistory,
+  onExport,
+  onPreview,
   onDelete,
 }: {
   row: AdminTemplateRow
+  usage: { count: number; lastUsedAt: string | null } | null
+  selected: boolean
+  onSelectChange: (checked: boolean) => void
   busy: boolean
   onOpen: () => void
   /** Compliance only today; undefined disables the menu item with a tooltip. */
   onDuplicate?: () => void
+  /** Compliance only today — reads compliance_template_versions. */
+  onShowHistory?: () => void
+  /** Compliance only today — writes a JSON file. */
+  onExport?: () => void
+  /** Compliance only today — read-only render of items. */
+  onPreview?: () => void
   /** Disabled for system templates and for non-compliance sources. */
   onDelete?: () => void
 }) {
   return (
-    <tr className={`hover:bg-neutral-50/80 ${busy ? 'opacity-60' : ''}`}>
+    <tr className={`hover:bg-neutral-50/80 ${busy ? 'opacity-60' : ''} ${selected ? 'bg-[#1a3d32]/5' : ''}`}>
+      <td className="px-4 py-4 sm:px-5">
+        <input
+          type="checkbox"
+          aria-label={`Velg ${row.name}`}
+          checked={selected}
+          onChange={(e) => onSelectChange(e.target.checked)}
+          disabled={row.isSystem}
+          className="size-3.5 cursor-pointer accent-[#1a3d32] disabled:cursor-not-allowed disabled:opacity-40"
+        />
+      </td>
       <td className="px-4 py-4 sm:px-5">
         <button
           type="button"
@@ -711,6 +999,24 @@ function TemplateRow({
         </span>
       </td>
       <td className="px-4 py-4 text-neutral-600 sm:px-5">
+        {row.source === 'compliance' ? (
+          usage && usage.count > 0 ? (
+            <div className="flex flex-col">
+              <span className="font-medium text-neutral-900">{usage.count} bruk</span>
+              {usage.lastUsedAt ? (
+                <span className="text-[10px] text-neutral-500">
+                  Sist: {new Date(usage.lastUsedAt).toLocaleDateString('nb-NO')}
+                </span>
+              ) : null}
+            </div>
+          ) : (
+            <span className="text-neutral-400">0 bruk</span>
+          )
+        ) : (
+          <span className="text-neutral-300" title="Brukstall er per nå bare hentet for sjekkliste-maler.">—</span>
+        )}
+      </td>
+      <td className="px-4 py-4 text-neutral-600 sm:px-5">
         {row.updatedAt ? new Date(row.updatedAt).toLocaleDateString('nb-NO') : '—'}
       </td>
       <td className="px-4 py-4 text-right sm:px-5">
@@ -718,7 +1024,10 @@ function TemplateRow({
           row={row}
           busy={busy}
           onEdit={onOpen}
+          onPreview={onPreview}
           onDuplicate={onDuplicate}
+          onShowHistory={onShowHistory}
+          onExport={onExport}
           onDelete={onDelete}
         />
       </td>
@@ -730,13 +1039,19 @@ function RowActionsMenu({
   row,
   busy,
   onEdit,
+  onPreview,
   onDuplicate,
+  onShowHistory,
+  onExport,
   onDelete,
 }: {
   row: AdminTemplateRow
   busy: boolean
   onEdit: () => void
+  onPreview?: () => void
   onDuplicate?: () => void
+  onShowHistory?: () => void
+  onExport?: () => void
   onDelete?: () => void
 }) {
   const [open, setOpen] = useState(false)
@@ -794,6 +1109,16 @@ function RowActionsMenu({
             }}
           />
           <MenuRow
+            icon={Eye}
+            label="Forhåndsvis"
+            disabled={!onPreview}
+            hint={onPreview ? undefined : 'Forhåndsvisning er foreløpig bare aktivert for sjekkliste-maler.'}
+            onClick={() => {
+              setOpen(false)
+              onPreview?.()
+            }}
+          />
+          <MenuRow
             icon={Copy}
             label="Dupliser"
             disabled={!onDuplicate}
@@ -801,6 +1126,26 @@ function RowActionsMenu({
             onClick={() => {
               setOpen(false)
               onDuplicate?.()
+            }}
+          />
+          <MenuRow
+            icon={HistoryIcon}
+            label="Vis historikk"
+            disabled={!onShowHistory}
+            hint={onShowHistory ? undefined : 'Historikk er foreløpig bare sporet for sjekkliste-maler.'}
+            onClick={() => {
+              setOpen(false)
+              onShowHistory?.()
+            }}
+          />
+          <MenuRow
+            icon={Download}
+            label="Eksporter JSON"
+            disabled={!onExport}
+            hint={onExport ? undefined : 'Eksport er foreløpig bare aktivert for sjekkliste-maler.'}
+            onClick={() => {
+              setOpen(false)
+              onExport?.()
             }}
           />
           <div className="my-1 border-t border-neutral-100" />
