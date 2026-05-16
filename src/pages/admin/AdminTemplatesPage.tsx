@@ -71,6 +71,7 @@ import { SurveyTemplateEditorBridge } from './SurveyTemplateEditorBridge'
 import { TemplateHistoryModal } from './TemplateHistoryModal'
 import { TemplatePreviewModal } from './TemplatePreviewModal'
 import { LightweightTemplateEditor } from './LightweightTemplateEditor'
+import { ConfirmDialog } from './ConfirmDialog'
 import { AiTemplateGenModal } from './AiTemplateGenModal'
 
 const SOURCE_KEYS: AdminTemplateSource[] = [
@@ -90,9 +91,9 @@ const STATUS_KEYS: AdminTemplateStatus[] = [
 
 const STATUS_PILL: Record<AdminTemplateStatus, string> = {
   active: 'bg-emerald-100 text-emerald-950',
-  inactive: 'bg-neutral-100 text-neutral-700',
+  inactive: 'bg-neutral-200 text-neutral-700',
   draft: 'bg-amber-100 text-amber-950',
-  archived: 'bg-neutral-100 text-neutral-500',
+  archived: 'bg-neutral-100 text-neutral-400 line-through',
   system: 'bg-sky-100 text-sky-950',
 }
 
@@ -172,6 +173,8 @@ export function AdminTemplatesPage() {
   const [historyFor, setHistoryFor] = useState<AdminTemplateRow | null>(null)
   const [previewFor, setPreviewFor] = useState<AdminTemplateRow | null>(null)
   const [aiOpen, setAiOpen] = useState(false)
+  const [confirmRow, setConfirmRow] = useState<AdminTemplateRow | null>(null)
+  const [confirmBulk, setConfirmBulk] = useState<boolean>(false)
 
   // Per-row JSON export. Source-aware payload — each shape captures
   // the canonical template state for that source so the file is
@@ -518,7 +521,6 @@ export function AdminTemplatesPage() {
   const deleteCompliance = useCallback(
     async (row: AdminTemplateRow) => {
       if (row.isSystem) return
-      if (!window.confirm(`Slett «${row.name}»?\n\nMalen blir markert som slettet og forsvinner fra listen. Eksisterende utførelser påvirkes ikke.`)) return
       setBusyRowId(row.rowId)
       setActionError(null)
       try {
@@ -542,7 +544,6 @@ export function AdminTemplatesPage() {
       if (row.isSystem) return
       if (row.source === 'compliance') return await deleteCompliance(row)
       if (!supabase) return
-      if (!window.confirm(`Slett «${row.name}»?\n\nMalen blir markert som slettet og forsvinner fra listen. Eksisterende data påvirkes ikke.`)) return
       setBusyRowId(row.rowId)
       setActionError(null)
       try {
@@ -621,6 +622,23 @@ export function AdminTemplatesPage() {
     },
     [rows, selectedIds, cl, supabase, refresh],
   )
+
+  const bulkDelete = useCallback(async () => {
+    const selectedRows = rows.filter((r) => selectedIds.has(r.rowId) && !r.isSystem)
+    if (selectedRows.length === 0) return
+    setBulkBusy(true)
+    setActionError(null)
+    try {
+      for (const r of selectedRows) {
+        await deleteRow(r)
+      }
+      setSelectedIds(new Set())
+    } catch (e) {
+      setActionError(e instanceof Error ? e.message : 'Kunne ikke slette alle markerte maler.')
+    } finally {
+      setBulkBusy(false)
+    }
+  }, [rows, selectedIds, deleteRow])
 
   // Inline active-toggle for documents / learning / registers. The
   // sources don't have slide-over editors yet, so admins get this
@@ -778,6 +796,14 @@ export function AdminTemplatesPage() {
             </button>
             <button
               type="button"
+              onClick={() => setConfirmBulk(true)}
+              disabled={bulkBusy}
+              className="rounded-md border border-rose-300 bg-white px-3 py-1.5 text-xs font-semibold text-rose-700 hover:bg-rose-50 disabled:opacity-50"
+            >
+              Slett
+            </button>
+            <button
+              type="button"
               onClick={() => setSelectedIds(new Set())}
               disabled={bulkBusy}
               className="rounded-md px-2 py-1.5 text-xs text-neutral-500 hover:text-neutral-800"
@@ -826,8 +852,21 @@ export function AdminTemplatesPage() {
               }}
               placeholder="Søk etter navn, kategori, modul eller hint …"
               aria-label="Søk maler"
-              className="w-full rounded-lg border border-neutral-200 bg-white py-2 pl-10 pr-3 text-sm outline-none focus:ring-2 focus:ring-[#1a3d32]/25"
+              className="w-full rounded-lg border border-neutral-200 bg-white py-2 pl-10 pr-9 text-sm outline-none focus:ring-2 focus:ring-[#1a3d32]/25"
             />
+            {search ? (
+              <button
+                type="button"
+                onClick={() => {
+                  setSearch('')
+                  setPage(0)
+                }}
+                aria-label="Tøm søk"
+                className="absolute right-2 top-1/2 -translate-y-1/2 rounded-full p-1 text-neutral-400 hover:bg-neutral-100 hover:text-neutral-700"
+              >
+                <X className="size-3.5" />
+              </button>
+            ) : null}
           </div>
           <StatusFilter
             active={activeStatus}
@@ -845,7 +884,21 @@ export function AdminTemplatesPage() {
         </div>
 
         {loading && rows.length === 0 ? (
-          <p className="py-12 text-center text-sm text-neutral-500">Laster maler …</p>
+          <div className="divide-y divide-neutral-100" aria-busy="true" aria-label="Laster maler">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <div key={i} className="flex items-center gap-4 px-5 py-4">
+                <div className="size-3.5 rounded bg-neutral-100" />
+                <div className="flex-1 space-y-1.5">
+                  <div className="h-3 w-1/2 rounded bg-neutral-100" />
+                  <div className="h-2 w-1/4 rounded bg-neutral-100" />
+                </div>
+                <div className="h-5 w-20 rounded-full bg-neutral-100" />
+                <div className="h-5 w-16 rounded-full bg-neutral-100" />
+                <div className="h-3 w-16 rounded bg-neutral-100" />
+                <div className="size-4 rounded bg-neutral-100" />
+              </div>
+            ))}
+          </div>
         ) : visible.length === 0 ? (
           <p className="py-12 text-center text-sm text-neutral-500">
             {filtered.length === 0 && rows.length > 0
@@ -916,7 +969,7 @@ export function AdminTemplatesPage() {
                     onShowHistory={() => setHistoryFor(r)}
                     onExport={() => void exportRow(r)}
                     onPreview={() => setPreviewFor(r)}
-                    onDelete={r.isSystem ? undefined : () => void deleteRow(r)}
+                    onDelete={r.isSystem ? undefined : () => setConfirmRow(r)}
                   />
                 ))}
               </tbody>
@@ -1032,6 +1085,33 @@ export function AdminTemplatesPage() {
           templateId={previewFor.id}
           templateName={previewFor.name}
           onClose={() => setPreviewFor(null)}
+        />
+      ) : null}
+      {confirmRow ? (
+        <ConfirmDialog
+          title={`Slett «${confirmRow.name}»?`}
+          body={`Malen blir markert som slettet og forsvinner fra listen. Eksisterende ${
+            confirmRow.source === 'compliance' ? 'utførelser' : 'instanser'
+          } påvirkes ikke.`}
+          confirmLabel="Slett"
+          onConfirm={() => {
+            const r = confirmRow
+            setConfirmRow(null)
+            void deleteRow(r)
+          }}
+          onCancel={() => setConfirmRow(null)}
+        />
+      ) : null}
+      {confirmBulk ? (
+        <ConfirmDialog
+          title={`Slett ${selectedIds.size} ${selectedIds.size === 1 ? 'mal' : 'maler'}?`}
+          body={`De markerte malene blir markert som slettet og forsvinner fra listen. Eksisterende instanser (utførelser, kampanjer, oppføringer) påvirkes ikke. Systemmaler hoppes over.`}
+          confirmLabel={`Slett ${selectedIds.size}`}
+          onConfirm={() => {
+            setConfirmBulk(false)
+            void bulkDelete()
+          }}
+          onCancel={() => setConfirmBulk(false)}
         />
       ) : null}
       {aiOpen ? (
