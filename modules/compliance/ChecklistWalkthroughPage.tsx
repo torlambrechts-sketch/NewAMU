@@ -27,6 +27,8 @@ import { InfoBox, WarningBox } from '../../src/components/ui/AlertBox'
 import { useActivePack } from '../../src/context/packContextValue'
 import { useOrgSetupContext } from '../../src/hooks/useOrgSetupContext'
 import { useWizardRun } from '../../src/hooks/useWizardRun'
+import { useI18n } from '../../src/hooks/useI18n'
+import { pickLocaleString } from '../../src/i18n/localeString'
 import { useChecklistModule } from './useChecklistModule'
 import { useFreshArtefacts, lookupFresh, type FreshArtefactMap } from './useFreshArtefacts'
 import { parseChecklistDefinition } from './schema'
@@ -254,6 +256,7 @@ export function ChecklistWalkthroughPage() {
   const slug = params.slug ?? ''
   const navigate = useNavigate()
   const pack = useActivePack()
+  const { locale } = useI18n()
   const orgSetup = useOrgSetupContext()
   const { supabase } = orgSetup
   const cl = useChecklistModule({ supabase })
@@ -727,13 +730,14 @@ export function ChecklistWalkthroughPage() {
             const { answered, required } = sectionProgress(s, responses, execution.metadata)
             const complete = required > 0 && answered >= required
             const current = i === safeStep
+            const sectionTitle = pickLocaleString(s.title_i18n, locale, s.title)
             return (
               <button
                 key={s.key}
                 onClick={() => jumpTo(i)}
                 disabled={signed}
-                title={`${s.title} (${answered}/${required})`}
-                aria-label={`Gå til seksjon ${i + 1}: ${s.title}. ${answered} av ${required} besvart.`}
+                title={`${sectionTitle} (${answered}/${required})`}
+                aria-label={`Gå til seksjon ${i + 1}: ${sectionTitle}. ${answered} av ${required} besvart.`}
                 aria-current={current ? 'step' : undefined}
                 role="tab"
                 className={[
@@ -799,7 +803,9 @@ export function ChecklistWalkthroughPage() {
       {section && (
         <ModuleSectionCard className="p-5 md:p-6">
           <div className="flex flex-wrap items-baseline justify-between gap-2">
-            <h2 className="text-lg font-semibold text-neutral-900">{section.title}</h2>
+            <h2 className="text-lg font-semibold text-neutral-900">
+              {pickLocaleString(section.title_i18n, locale, section.title)}
+            </h2>
             <div className="flex items-center gap-3 text-xs text-neutral-500">
               {section.chapter && <span>{section.chapter}</span>}
               <span>{section.items.length} krav</span>
@@ -831,7 +837,7 @@ export function ChecklistWalkthroughPage() {
           )}
           {section.intro && (
             <div className="mt-3">
-              <InfoBox>{section.intro}</InfoBox>
+              <InfoBox>{pickLocaleString(section.intro_i18n, locale, section.intro)}</InfoBox>
             </div>
           )}
 
@@ -888,13 +894,19 @@ export function ChecklistWalkthroughPage() {
                             Ikke aktuelt · {applic.reason ?? 'under terskel'}
                           </Badge>
                         )}
-                        <span className="text-sm font-medium text-neutral-900">{item.prompt}</span>
+                        <span className="text-sm font-medium text-neutral-900">
+                          {pickLocaleString(item.prompt_i18n, locale, item.prompt)}
+                        </span>
                       </div>
                       {item.help && (
-                        <p className="mt-1 text-xs text-neutral-600">{item.help}</p>
+                        <p className="mt-1 text-xs text-neutral-600">
+                          {pickLocaleString(item.help_i18n, locale, item.help)}
+                        </p>
                       )}
                       {item.status_hint && !notApplicable && (
-                        <p className="mt-1 text-xs italic text-neutral-500">{item.status_hint}</p>
+                        <p className="mt-1 text-xs italic text-neutral-500">
+                          {pickLocaleString(item.status_hint_i18n, locale, item.status_hint)}
+                        </p>
                       )}
                       {item.resolutions && item.resolutions.length > 0 && (
                         <div className="mt-2 flex flex-wrap gap-1.5">
@@ -1141,7 +1153,9 @@ export function ChecklistWalkthroughPage() {
                     <span className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-neutral-100 text-xs font-semibold text-neutral-700">
                       {i + 1}
                     </span>
-                    <span className="font-medium text-neutral-900">{s.title}</span>
+                    <span className="font-medium text-neutral-900">
+                      {pickLocaleString(s.title_i18n, locale, s.title)}
+                    </span>
                     {s.chapter && (
                       <span className="text-xs text-neutral-500">· {s.chapter}</span>
                     )}

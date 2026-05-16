@@ -66,6 +66,9 @@ const ChecklistItemSchema: z.ZodType<ChecklistItem> = z.object({
     .optional(),
   status_hint: z.string().optional(),
   applicability: z.array(ChecklistItemApplicabilityRuleSchema).optional(),
+  prompt_i18n: z.record(z.string(), z.string()).optional(),
+  help_i18n: z.record(z.string(), z.string()).optional(),
+  status_hint_i18n: z.record(z.string(), z.string()).optional(),
 })
 
 const ChecklistSectionSchema = z.object({
@@ -75,6 +78,8 @@ const ChecklistSectionSchema = z.object({
   chapter: z.string().optional(),
   estimatedMinutes: z.number().int().nonnegative().optional(),
   items: z.array(ChecklistItemSchema).default([]),
+  title_i18n: z.record(z.string(), z.string()).optional(),
+  intro_i18n: z.record(z.string(), z.string()).optional(),
 })
 
 const ChecklistDefinitionSchema: z.ZodType<ChecklistDefinition> = z.object({

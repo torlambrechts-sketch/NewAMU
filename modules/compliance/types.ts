@@ -72,6 +72,12 @@ export type ChecklistItem = {
   }
   /** Wording shown above the yes/no/na input — eg. "Hvordan står dere på dette i dag?". */
   status_hint?: string
+  /** Optional i18n bags — `{ en: '…', sv: '…' }`. When present and the
+   *  user's active locale matches, the wizard renders this translation
+   *  instead of the canonical Norwegian field. See `pickLocaleString`. */
+  prompt_i18n?: Record<string, string>
+  help_i18n?: Record<string, string>
+  status_hint_i18n?: Record<string, string>
   /**
    * Pack-agnostic applicability rules — when set, drives the wizard's
    * "Ikke aktuelt" greying without any hardcoded item-key logic in the
@@ -134,6 +140,10 @@ export type ChecklistSection = {
   /** Used by the progress-bar tooltip for "est. tid igjen". */
   estimatedMinutes?: number
   items: ChecklistItem[]
+  /** Optional locale-keyed translations of the user-facing fields. See
+   *  `pickLocaleString` for resolution. */
+  title_i18n?: Record<string, string>
+  intro_i18n?: Record<string, string>
 }
 
 /**
