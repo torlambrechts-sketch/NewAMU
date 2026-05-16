@@ -173,80 +173,198 @@ export function AdminTemplatesPage() {
   const [previewFor, setPreviewFor] = useState<AdminTemplateRow | null>(null)
   const [aiOpen, setAiOpen] = useState(false)
 
-  // Per-row JSON export (compliance only). Writes the canonical
-  // template shape so it can be re-imported into the same or another
-  // org. Omits org-specific ids; importer regenerates them.
-  const exportCompliance = useCallback(
+  // Per-row JSON export. Source-aware payload — each shape captures
+  // the canonical template state for that source so the file is
+  // round-trippable via importTemplate. Schema v2 supports all 5
+  // sources; v1 was compliance-only and is no longer written.
+  const exportRow = useCallback(
     async (row: AdminTemplateRow) => {
-      if (row.source !== 'compliance') return
+      if (!supabase) return
       try {
-        if (!cl.templates.some((t) => t.id === row.id)) {
-          await cl.load({})
-        }
-        const original = cl.templates.find((t) => t.id === row.id)
-        if (!original) throw new Error('Fant ikke malen.')
-        const payload = {
-          schemaVersion: 1,
+        const payload: { schemaVersion: 2; exportedAt: string; source: AdminTemplateSource; template: Record<string, unknown> } = {
+          schemaVersion: 2,
           exportedAt: new Date().toISOString(),
-          source: 'compliance',
-          template: {
+          source: row.source,
+          template: {},
+        }
+        let slug = row.id
+        if (row.source === 'compliance') {
+          if (!cl.templates.some((t) => t.id === row.id)) await cl.load({})
+          const original = cl.templates.find((t) => t.id === row.id)
+          if (!original) throw new Error('Fant ikke malen.')
+          payload.template = {
             pack: original.pack,
             slug: original.slug,
             name: original.name,
             description: original.description,
             definition: parseChecklistDefinition(original.definition),
-          },
+          }
+          slug = original.slug
+        } else if (row.source === 'survey') {
+          const { data: ovr, error: e0 } = await supabase
+            .from('survey_org_templates')
+            .select('catalog_id, name_override, description_override, body_override, pack, nav_pinned, is_active, cadence_hint, review_status')
+            .eq('id', row.id)
+            .maybeSingle()
+          if (e0) throw e0
+          if (!ovr) throw new Error('Fant ikke malen.')
+          const { data: cat } = await supabase
+            .from('survey_template_catalog')
+            .select('name, short_name, description, source, use_case, category, audience, estimated_minutes, recommend_anonymous, scoring_note, law_ref, body, pack')
+            .eq('id', (ovr as { catalog_id: string }).catalog_id)
+            .maybeSingle()
+          payload.template = { catalog: cat ?? null, override: ovr }
+        } else if (row.source === 'documents') {
+          const { data, error: err } = await supabase
+            .from('document_org_templates')
+            .select('label, description, category, legal_basis, page_payload, metadata_schema, nav_pinned')
+            .eq('id', row.id)
+            .maybeSingle()
+          if (err) throw err
+          if (!data) throw new Error('Fant ikke malen.')
+          payload.template = data as Record<string, unknown>
+        } else if (row.source === 'learning') {
+          const { data, error: err } = await supabase
+            .from('learning_courses')
+            .select('title, description, status, category_id, content')
+            .eq('id', row.id)
+            .maybeSingle()
+          if (err) throw err
+          if (!data) throw new Error('Fant ikke kurset.')
+          payload.template = data as Record<string, unknown>
+        } else if (row.source === 'registers') {
+          const { data, error: err } = await supabase
+            .from('register_types')
+            .select('name, description, metadata_schema, regulation_ids, pack_slugs, default_review_cadence_months, position')
+            .eq('id', row.id)
+            .maybeSingle()
+          if (err) throw err
+          if (!data) throw new Error('Fant ikke registertypen.')
+          payload.template = data as Record<string, unknown>
         }
         const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' })
         const a = document.createElement('a')
         a.href = URL.createObjectURL(blob)
-        a.download = `mal-${original.slug}.json`
+        a.download = `mal-${row.source}-${slug}.json`
         a.click()
         URL.revokeObjectURL(a.href)
       } catch (e) {
         setActionError(e instanceof Error ? e.message : 'Kunne ikke eksportere malen.')
       }
     },
-    [cl],
+    [supabase, cl],
   )
 
-  // Import a compliance template from a JSON file written by
-  // exportCompliance. Validates the schemaVersion + source, then
-  // creates a new template via cl.createTemplate. Slug is suffixed
-  // with -import-<ts> to avoid unique-constraint collisions.
-  const importCompliance = useCallback(
+  // Import a template from a JSON file written by exportRow. Validates
+  // schemaVersion + source and routes to the appropriate create logic.
+  const importTemplate = useCallback(
     async (file: File) => {
+      if (!supabase) return
       try {
         const text = await file.text()
-        const parsed = JSON.parse(text) as unknown
-        const obj = parsed as {
+        const parsed = JSON.parse(text) as {
           schemaVersion?: number
-          source?: string
-          template?: { pack?: string; slug?: string; name?: string; description?: string | null; definition?: unknown }
+          source?: AdminTemplateSource
+          template?: Record<string, unknown>
         }
-        if (obj.schemaVersion !== 1 || obj.source !== 'compliance' || !obj.template) {
-          throw new Error('Ikke en gyldig sjekkliste-mal-eksport.')
+        if (parsed.schemaVersion !== 2 || !parsed.source || !parsed.template) {
+          throw new Error('Ikke en gyldig mal-eksport (mangler schemaVersion 2 / source / template).')
         }
-        const t = obj.template
-        if (!t.pack || !t.slug || !t.name) {
-          throw new Error('Manglende felt i import-filen (pack / slug / name).')
-        }
-        const newId = await cl.createTemplate({
-          pack: t.pack as Parameters<typeof cl.createTemplate>[0]['pack'],
-          slug: `${t.slug}-import-${Date.now().toString(36)}`,
-          name: t.name,
-          description: t.description ?? undefined,
-          definition: parseChecklistDefinition(t.definition),
-        })
-        if (newId) {
+        const t = parsed.template
+        if (parsed.source === 'compliance') {
+          const pack = t.pack as Parameters<typeof cl.createTemplate>[0]['pack']
+          const slug = String(t.slug ?? 'imported')
+          const name = String(t.name ?? '(ny mal)')
+          const newId = await cl.createTemplate({
+            pack,
+            slug: `${slug}-import-${Date.now().toString(36)}`,
+            name,
+            description: (t.description as string | null) ?? undefined,
+            definition: parseChecklistDefinition(t.definition),
+          })
+          if (newId) {
+            await refresh()
+            setDrawer({ kind: 'compliance-edit', templateId: newId })
+          }
+        } else if (parsed.source === 'survey') {
+          const cat = (t.catalog as Record<string, unknown>) ?? null
+          const ovr = (t.override as Record<string, unknown>) ?? {}
+          if (!cat) throw new Error('Survey-import mangler katalog­data.')
+          const newCatalogId = `${String(cat.id ?? 'imported')}-import-${Date.now().toString(36)}`
+          const newCatalog: Record<string, unknown> = {
+            ...cat,
+            id: newCatalogId,
+            organization_id: orgId,
+            is_system: false,
+            name: `Import: ${String(cat.name ?? 'mal')}`,
+          }
+          delete newCatalog.created_at
+          delete newCatalog.updated_at
+          const { error: e1 } = await supabase.from('survey_template_catalog').insert(newCatalog)
+          if (e1) throw e1
+          const { error: e2 } = await supabase.from('survey_org_templates').insert({
+            organization_id: orgId,
+            catalog_id: newCatalogId,
+            pack: ovr.pack ?? cat.pack ?? cat.category,
+            name_override: ovr.name_override ?? null,
+            description_override: ovr.description_override ?? null,
+            body_override: ovr.body_override ?? null,
+            nav_pinned: ovr.nav_pinned ?? false,
+            is_active: false,
+            cadence_hint: ovr.cadence_hint ?? null,
+            review_status: 'draft',
+          })
+          if (e2) throw e2
           await refresh()
-          setDrawer({ kind: 'compliance-edit', templateId: newId })
+        } else if (parsed.source === 'documents') {
+          const newId = `imported-${Date.now().toString(36)}`
+          const { error: err } = await supabase.from('document_org_templates').insert({
+            id: newId,
+            organization_id: orgId,
+            label: `Import: ${String(t.label ?? 'mal')}`,
+            description: (t.description as string) ?? '',
+            category: t.category ?? 'guide',
+            legal_basis: (t.legal_basis as string[] | null) ?? [],
+            page_payload: t.page_payload ?? {},
+            metadata_schema: t.metadata_schema ?? { fields: [] },
+            nav_pinned: false,
+          })
+          if (err) throw err
+          await refresh()
+        } else if (parsed.source === 'learning') {
+          const { error: err } = await supabase.from('learning_courses').insert({
+            organization_id: orgId,
+            title: `Import: ${String(t.title ?? 'kurs')}`,
+            description: (t.description as string | null) ?? null,
+            status: 'draft',
+            category_id: (t.category_id as string | null) ?? null,
+            content: t.content ?? null,
+          })
+          if (err) throw err
+          await refresh()
+        } else if (parsed.source === 'registers') {
+          const newId = `imported-${Date.now().toString(36)}`
+          const { error: err } = await supabase.from('register_types').insert({
+            id: newId,
+            organization_id: orgId,
+            name: `Import: ${String(t.name ?? 'registertype')}`,
+            description: (t.description as string | null) ?? null,
+            metadata_schema: t.metadata_schema ?? { fields: [] },
+            regulation_ids: (t.regulation_ids as string[] | null) ?? [],
+            pack_slugs: (t.pack_slugs as string[] | null) ?? [],
+            default_review_cadence_months: t.default_review_cadence_months ?? null,
+            position: t.position ?? 0,
+            is_active: false,
+            is_system: false,
+          })
+          if (err) throw err
+          await refresh()
         }
       } catch (e) {
         setActionError(e instanceof Error ? e.message : 'Kunne ikke importere malen.')
       }
     },
-    [cl, refresh],
+    [supabase, cl, refresh, orgId],
   )
 
   const duplicateCompliance = useCallback(
@@ -601,7 +719,7 @@ export function AdminTemplatesPage() {
               className="hidden"
               onChange={(e) => {
                 const f = e.target.files?.[0]
-                if (f) void importCompliance(f)
+                if (f) void importTemplate(f)
                 e.target.value = ''
               }}
             />
@@ -761,7 +879,7 @@ export function AdminTemplatesPage() {
                   <th className="px-4 py-3 sm:px-5">Navn</th>
                   <th className="px-4 py-3 sm:px-5">Modul</th>
                   <th className="px-4 py-3 sm:px-5">Status</th>
-                  <th className="px-4 py-3 sm:px-5">Bruk</th>
+                  <th className="px-4 py-3 sm:px-5" title="Antall instanser opprettet fra denne malen (kjøringer / kampanjer / dokumenter / kurs / oppføringer)">Instanser</th>
                   <th className="px-4 py-3 sm:px-5">Sist oppdatert</th>
                   <th className="w-12 px-4 py-3 sm:px-5" />
                 </tr>
@@ -795,15 +913,9 @@ export function AdminTemplatesPage() {
                       }
                     }}
                     onDuplicate={r.isSystem ? undefined : () => void duplicateRow(r)}
-                    onShowHistory={
-                      r.source === 'compliance' ? () => setHistoryFor(r) : undefined
-                    }
-                    onExport={
-                      r.source === 'compliance' ? () => void exportCompliance(r) : undefined
-                    }
-                    onPreview={
-                      r.source === 'compliance' ? () => setPreviewFor(r) : undefined
-                    }
+                    onShowHistory={() => setHistoryFor(r)}
+                    onExport={() => void exportRow(r)}
+                    onPreview={() => setPreviewFor(r)}
                     onDelete={r.isSystem ? undefined : () => void deleteRow(r)}
                   />
                 ))}
@@ -916,6 +1028,7 @@ export function AdminTemplatesPage() {
       ) : null}
       {previewFor ? (
         <TemplatePreviewModal
+          source={previewFor.source}
           templateId={previewFor.id}
           templateName={previewFor.name}
           onClose={() => setPreviewFor(null)}
@@ -1147,7 +1260,7 @@ function TemplateRow({
         {row.source === 'compliance' ? (
           usage && usage.count > 0 ? (
             <div className="flex flex-col">
-              <span className="font-medium text-neutral-900">{usage.count} bruk</span>
+              <span className="font-medium text-neutral-900">{usage.count}</span>
               {usage.lastUsedAt ? (
                 <span className="text-[10px] text-neutral-500">
                   Sist: {new Date(usage.lastUsedAt).toLocaleDateString('nb-NO')}
@@ -1155,10 +1268,15 @@ function TemplateRow({
               ) : null}
             </div>
           ) : (
-            <span className="text-neutral-400">0 bruk</span>
+            <span className="text-neutral-400">0</span>
           )
         ) : (
-          <span className="text-neutral-300" title="Brukstall er per nå bare hentet for sjekkliste-maler.">—</span>
+          <span
+            className="text-neutral-300"
+            title="Instans-telling er foreløpig bare aggregert for sjekkliste-maler. Per-modul aggregater kommer i en senere fase."
+          >
+            —
+          </span>
         )}
       </td>
       <td className="px-4 py-4 text-neutral-600 sm:px-5">
@@ -1259,7 +1377,6 @@ function RowActionsMenu({
             icon={Eye}
             label="Forhåndsvis"
             disabled={!onPreview}
-            hint={onPreview ? undefined : 'Forhåndsvisning er foreløpig bare aktivert for sjekkliste-maler.'}
             onClick={() => {
               setOpen(false)
               onPreview?.()
@@ -1279,7 +1396,6 @@ function RowActionsMenu({
             icon={HistoryIcon}
             label="Vis historikk"
             disabled={!onShowHistory}
-            hint={onShowHistory ? undefined : 'Historikk er foreløpig bare sporet for sjekkliste-maler.'}
             onClick={() => {
               setOpen(false)
               onShowHistory?.()
@@ -1289,7 +1405,6 @@ function RowActionsMenu({
             icon={Download}
             label="Eksporter JSON"
             disabled={!onExport}
-            hint={onExport ? undefined : 'Eksport er foreløpig bare aktivert for sjekkliste-maler.'}
             onClick={() => {
               setOpen(false)
               onExport?.()
