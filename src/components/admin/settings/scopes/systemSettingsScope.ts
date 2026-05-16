@@ -1,19 +1,21 @@
 // Innstillinger (system) settings scope.
 //
 // Org-wide system settings: company identity (read-only summary +
-// deep-link to OrganisationPage), security roadmap, GDPR ops, and a
-// plan/billing card. The privacy section composes the two existing
-// panels (GdprBreachAdminPanel + GdprSubjectRequestsAdminPanel) under
-// one tab so admins find every personvern-relatert ops surface in one
-// place.
+// deep-link to OrganisationPage), security roadmap, GDPR ops, a
+// cross-module template summary, and a plan/billing card. The privacy
+// section composes the two existing panels (GdprBreachAdminPanel +
+// GdprSubjectRequestsAdminPanel) under one tab so admins find every
+// personvern-relatert ops surface in one place.
 //
-// Maler (/admin/templates) and Modul-konfigurasjon (/admin/modules) are
-// reached from the sidebar directly, not via the registry — they have
-// their own top-level routes and rendering a placeholder hop would be
-// the anti-pattern we already removed for Organisasjon and Arbeidsflyt.
+// Maler is registered here as a summary section with a CTA to the
+// full /admin/templates browser — keeps templates discoverable when
+// admins navigate inside the settings hub. The sidebar also has a
+// direct Maler link for one-click access. Modul-konfigurasjon
+// (/admin/modules) is reached from the sidebar only — it's a thin
+// enable/disable matrix with no useful summary surface to put here.
 
 import { lazy } from 'react'
-import { ScrollText, Settings, ShieldAlert, Sliders, Wallet } from 'lucide-react'
+import { LayoutTemplate, ScrollText, Settings, ShieldAlert, Sliders, Wallet } from 'lucide-react'
 import {
   registerSettingsScope,
   type SettingsSection,
@@ -43,6 +45,14 @@ const sections: SettingsSection[] = [
     capabilities: ['general'],
     searchKeywords: ['gdpr', 'brudd', 'datatilsynet', 'art 33', 'art 34', 'innsyn', 'sletting', 'sar'],
     component: lazy(() => import('../panels/PrivacyComposedPanel')),
+  },
+  {
+    id: 'templates',
+    label: 'Maler',
+    icon: LayoutTemplate,
+    capabilities: ['templates'],
+    searchKeywords: ['mal', 'template', 'malbibliotek', 'sjekkliste', 'dokumentmal', 'kursmal'],
+    component: lazy(() => import('../panels/MalerSettingsPanel')),
   },
   {
     id: 'plan',
