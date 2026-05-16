@@ -1,11 +1,15 @@
 // Versjonshistorikk modal — source-aware. Reads from the per-source
 // `<source>_template_versions` table written by the snapshot trigger.
-// Restore is still a follow-up RPC; the modal is read-only.
+// Each row carries a «Gjenopprett» button that calls the matching
+// `restore_<source>_template_version` RPC. The restore itself fires
+// the snapshot trigger again, so the restore event is captured in
+// the history as a new row attributed to the restoring user.
 
 import { useEffect, useState } from 'react'
-import { Clock, Loader2, X } from 'lucide-react'
+import { Clock, Loader2, RotateCcw, X } from 'lucide-react'
 import { useOrgSetupContext } from '../../hooks/useOrgSetupContext'
 import type { AdminTemplateSource } from '../../hooks/useAdminTemplates'
+import { ConfirmDialog } from './ConfirmDialog'
 
 type VersionRow = {
   id: string
@@ -22,7 +26,14 @@ const VERSIONS_TABLE: Record<AdminTemplateSource, string> = {
   registers: 'register_template_versions',
 }
 
-/** Per-source snapshot field that holds the human-visible name. */
+const RESTORE_RPC: Record<AdminTemplateSource, string> = {
+  compliance: 'restore_compliance_template_version',
+  survey: 'restore_survey_template_version',
+  documents: 'restore_document_template_version',
+  learning: 'restore_learning_template_version',
+  registers: 'restore_register_template_version',
+}
+
 const NAME_FIELD: Record<AdminTemplateSource, string> = {
   compliance: 'name',
   survey: 'name_override',
@@ -31,7 +42,6 @@ const NAME_FIELD: Record<AdminTemplateSource, string> = {
   registers: 'name',
 }
 
-/** Per-source snapshot field that holds a description-ish blurb. */
 const DESC_FIELD: Record<AdminTemplateSource, string> = {
   compliance: 'description',
   survey: 'description_override',
@@ -45,40 +55,44 @@ export function TemplateHistoryModal({
   templateId,
   templateName,
   onClose,
+  onRestored,
 }: {
   source: AdminTemplateSource
   templateId: string
   templateName: string
   onClose: () => void
+  onRestored?: () => void
 }) {
   const { supabase } = useOrgSetupContext()
   const [versions, setVersions] = useState<VersionRow[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [restoring, setRestoring] = useState<string | null>(null)
+  const [confirmVersion, setConfirmVersion] = useState<VersionRow | null>(null)
+
+  const loadVersions = async () => {
+    if (!supabase) return
+    setLoading(true)
+    try {
+      const { data, error: err } = await supabase
+        .from(VERSIONS_TABLE[source])
+        .select('id, snapshot, changed_by, created_at')
+        .eq('template_id', templateId)
+        .order('created_at', { ascending: false })
+        .limit(50)
+      if (err) throw err
+      setVersions((data ?? []) as VersionRow[])
+      setError(null)
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Kunne ikke laste historikk.')
+    } finally {
+      setLoading(false)
+    }
+  }
 
   useEffect(() => {
-    if (!supabase) return
-    let cancelled = false
-    void (async () => {
-      try {
-        const { data, error: err } = await supabase
-          .from(VERSIONS_TABLE[source])
-          .select('id, snapshot, changed_by, created_at')
-          .eq('template_id', templateId)
-          .order('created_at', { ascending: false })
-          .limit(50)
-        if (cancelled) return
-        if (err) throw err
-        setVersions((data ?? []) as VersionRow[])
-      } catch (e) {
-        if (!cancelled) setError(e instanceof Error ? e.message : 'Kunne ikke laste historikk.')
-      } finally {
-        if (!cancelled) setLoading(false)
-      }
-    })()
-    return () => {
-      cancelled = true
-    }
+    void loadVersions()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [supabase, source, templateId])
 
   useEffect(() => {
@@ -88,6 +102,21 @@ export function TemplateHistoryModal({
     document.addEventListener('keydown', onKey)
     return () => document.removeEventListener('keydown', onKey)
   }, [onClose])
+
+  const handleRestore = async (v: VersionRow) => {
+    if (!supabase) return
+    setRestoring(v.id)
+    try {
+      const { error: err } = await supabase.rpc(RESTORE_RPC[source], { p_version_id: v.id })
+      if (err) throw err
+      await loadVersions()
+      onRestored?.()
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Kunne ikke gjenopprette versjonen.')
+    } finally {
+      setRestoring(null)
+    }
+  }
 
   const nameField = NAME_FIELD[source]
   const descField = DESC_FIELD[source]
@@ -125,10 +154,12 @@ export function TemplateHistoryModal({
             </div>
           ) : (
             <ol className="space-y-2">
-              {versions.map((v) => {
+              {versions.map((v, idx) => {
                 const snap = v.snapshot ?? {}
                 const nameVal = snap[nameField] as string | undefined
                 const descVal = snap[descField] as string | undefined | null
+                const isMostRecent = idx === 0
+                const isRestoring = restoring === v.id
                 return (
                   <li
                     key={v.id}
@@ -138,6 +169,11 @@ export function TemplateHistoryModal({
                     <div className="min-w-0 flex-1">
                       <p className="text-sm font-medium text-neutral-900">
                         {new Date(v.created_at).toLocaleString('nb-NO')}
+                        {isMostRecent ? (
+                          <span className="ml-2 rounded-full bg-emerald-100 px-1.5 py-0.5 text-[9px] font-bold uppercase text-emerald-950">
+                            Aktiv
+                          </span>
+                        ) : null}
                       </p>
                       {nameVal ? (
                         <p className="text-xs text-neutral-600">Navn: {nameVal}</p>
@@ -146,6 +182,21 @@ export function TemplateHistoryModal({
                         <p className="line-clamp-2 text-xs text-neutral-500">{descVal}</p>
                       ) : null}
                     </div>
+                    {!isMostRecent ? (
+                      <button
+                        type="button"
+                        onClick={() => setConfirmVersion(v)}
+                        disabled={isRestoring || restoring !== null}
+                        className="inline-flex shrink-0 items-center gap-1 rounded-md border border-neutral-300 bg-white px-2.5 py-1 text-xs font-semibold text-neutral-700 transition-colors hover:bg-neutral-50 disabled:cursor-not-allowed disabled:opacity-50"
+                      >
+                        {isRestoring ? (
+                          <Loader2 className="size-3 animate-spin" />
+                        ) : (
+                          <RotateCcw className="size-3" />
+                        )}
+                        Gjenopprett
+                      </button>
+                    ) : null}
                   </li>
                 )
               })}
@@ -153,10 +204,25 @@ export function TemplateHistoryModal({
           )}
         </div>
         <footer className="border-t border-neutral-100 px-5 py-3 text-[11px] text-neutral-500">
-          Gjenopprett-knapp kommer i en senere fase. Inntil videre vises siste 50 endringer som
-          revisjons­spor.
+          Siste 50 endringer vises. Gjenoppretting blir også loggført som en ny versjon.
         </footer>
       </div>
+      {confirmVersion ? (
+        <ConfirmDialog
+          title="Gjenopprett versjon?"
+          body={`Malen blir tilbakestilt til tilstanden fra ${new Date(
+            confirmVersion.created_at,
+          ).toLocaleString('nb-NO')}. Gjenopprettingen lagres som en ny versjon i historikken.`}
+          confirmLabel="Gjenopprett"
+          tone="primary"
+          onConfirm={() => {
+            const v = confirmVersion
+            setConfirmVersion(null)
+            void handleRestore(v)
+          }}
+          onCancel={() => setConfirmVersion(null)}
+        />
+      ) : null}
     </div>
   )
 }

@@ -1077,6 +1077,7 @@ export function AdminTemplatesPage() {
           templateId={historyFor.id}
           templateName={historyFor.name}
           onClose={() => setHistoryFor(null)}
+          onRestored={() => void refresh()}
         />
       ) : null}
       {previewFor ? (
