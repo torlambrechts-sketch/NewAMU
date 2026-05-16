@@ -5,7 +5,7 @@
 // authoring UX.
 
 import { useMemo, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import { ArrowLeft, ArrowRight, RefreshCw, Search } from 'lucide-react'
 import { ModulePageShell, ModuleSectionCard } from '../../components/module'
 import { Badge } from '../../components/ui/Badge'
@@ -46,8 +46,14 @@ const STATUS_VARIANT: Record<AdminTemplateStatus, 'active' | 'draft' | 'neutral'
 
 export function AdminTemplatesPage() {
   const { rows, loading, error, refresh } = useAdminTemplates()
+  const [searchParams] = useSearchParams()
+  // URL-driven initial source filter — lets sidebar entries
+  // (e.g. Administrasjon → Maler → Sjekklister) pre-filter the table.
+  const initialSource = searchParams.get('source') as AdminTemplateSource | null
   const [search, setSearch] = useState('')
-  const [activeSources, setActiveSources] = useState<Set<AdminTemplateSource>>(new Set())
+  const [activeSources, setActiveSources] = useState<Set<AdminTemplateSource>>(
+    () => (initialSource && SOURCE_KEYS.includes(initialSource) ? new Set([initialSource]) : new Set()),
+  )
   const [activeStatuses, setActiveStatuses] = useState<Set<AdminTemplateStatus>>(new Set())
 
   const totals = useMemo(() => {

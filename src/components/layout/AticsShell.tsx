@@ -1118,6 +1118,60 @@ export function AticsShell() {
         if (pathname !== '/workflow') return false
         return new URLSearchParams(search).get('tab') === tab
       }
+    // Maler module — cross-module template browser. Subs deep-link to
+    // /admin/templates with a source-filter query so admins land on
+    // pre-filtered views (Sjekklister, Undersøkelser, Dokumenter,
+    // Kurs, Register). AdminTemplatesPage reads ?source= on mount.
+    const matchTemplateSource = (source: string | null) =>
+      ({ pathname, search }: { pathname: string; search: string }) => {
+        if (pathname !== '/admin/templates') return false
+        const s = new URLSearchParams(search).get('source')
+        return source === null ? !s : s === source
+      }
+    const malerSubs: SubItem[] = [
+      {
+        label: 'Alle maler',
+        path: '/admin/templates',
+        Icon: LayoutTemplate,
+        match: matchTemplateSource(null),
+        requirePermAny: SETTINGS_NAV_PERMS,
+      },
+      {
+        label: 'Sjekklister',
+        path: '/admin/templates?source=compliance',
+        Icon: ClipboardList,
+        match: matchTemplateSource('compliance'),
+        requirePermAny: SETTINGS_NAV_PERMS,
+      },
+      {
+        label: 'Undersøkelser',
+        path: '/admin/templates?source=survey',
+        Icon: Megaphone,
+        match: matchTemplateSource('survey'),
+        requirePermAny: SETTINGS_NAV_PERMS,
+      },
+      {
+        label: 'Dokumenter',
+        path: '/admin/templates?source=documents',
+        Icon: FileText,
+        match: matchTemplateSource('documents'),
+        requirePermAny: SETTINGS_NAV_PERMS,
+      },
+      {
+        label: 'Kurs',
+        path: '/admin/templates?source=learning',
+        Icon: GraduationCap,
+        match: matchTemplateSource('learning'),
+        requirePermAny: SETTINGS_NAV_PERMS,
+      },
+      {
+        label: 'Register',
+        path: '/admin/templates?source=registers',
+        Icon: Database,
+        match: matchTemplateSource('registers'),
+        requirePermAny: SETTINGS_NAV_PERMS,
+      },
+    ]
     const workflowsSubs: SubItem[] = [
       {
         label: 'Mine arbeidsflyter',
@@ -1189,13 +1243,6 @@ export function AticsShell() {
         requirePermAny: SETTINGS_NAV_PERMS,
       },
       {
-        label: 'Maler',
-        path: '/admin/templates',
-        Icon: LayoutTemplate,
-        match: ({ pathname }) => pathname === '/admin/templates',
-        requirePermAny: SETTINGS_NAV_PERMS,
-      },
-      {
         label: 'Modul-konfigurasjon',
         path: '/admin/modules',
         Icon: Boxes,
@@ -1240,6 +1287,15 @@ export function AticsShell() {
           icon: Plug,
           subs: integrationsSubs,
           permAny: INTEGRATIONS_NAV_PERMS,
+          flatSubs: true,
+        },
+        {
+          to: '/admin/templates',
+          label: 'Maler',
+          end: false,
+          icon: LayoutTemplate,
+          subs: malerSubs,
+          permAny: SETTINGS_NAV_PERMS,
           flatSubs: true,
         },
         {
