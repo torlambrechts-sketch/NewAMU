@@ -10,7 +10,7 @@ import { StandardInput } from '../../../src/components/ui/Input'
 import { StandardTextarea } from '../../../src/components/ui/Textarea'
 import { SearchableSelect, type SelectOption } from '../../../src/components/ui/SearchableSelect'
 import { useOrgSetupContext } from '../../../src/hooks/useOrgSetupContext'
-import type { ChecklistItem, ComplianceAssignableUser } from '../types'
+import type { ChecklistItem, CompliancePackSlug, ComplianceAssignableUser } from '../types'
 
 type Priority = 'low' | 'medium' | 'high' | 'critical'
 
@@ -46,7 +46,7 @@ export function CreateTaskFromItemPanel({
 }: {
   item: ChecklistItem
   executionId: string
-  pack: 'aml-amu' | 'iso-45001'
+  pack: CompliancePackSlug
   assignableUsers: ComplianceAssignableUser[]
   suggestedAssigneeId?: string
   onClose: () => void

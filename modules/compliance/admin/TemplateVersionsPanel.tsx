@@ -146,7 +146,7 @@ export function TemplateVersionsPanel({
                   <StandardTextarea
                     value={publishChangelog}
                     onChange={(e) => setPublishChangelog(e.target.value)}
-                    placeholder="Hva er endret? Eks: «AML § 14-12 oppdatert per Prop. 14 L (2022-23)»"
+                    placeholder="Hva er endret? Eks: «Punktet om kontrolltiltak oppdatert per lovendring 2024»"
                     rows={2}
                     className="mt-1"
                   />
