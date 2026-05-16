@@ -113,6 +113,7 @@ export function MalerTab() {
           currentVersionMajor={versionsTarget.current_version_major ?? 1}
           currentVersionMinor={versionsTarget.current_version_minor ?? 0}
           onClose={() => setVersionsTarget(null)}
+          onPublished={() => load({ pack: pack.slug })}
         />
       ) : null}
     </div>

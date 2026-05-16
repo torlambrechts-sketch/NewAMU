@@ -31,6 +31,7 @@ export function TemplateVersionsPanel({
   currentVersionMajor,
   currentVersionMinor,
   onClose,
+  onPublished,
 }: {
   slug: string
   pack: CompliancePackSlug
@@ -38,6 +39,9 @@ export function TemplateVersionsPanel({
   currentVersionMajor: number
   currentVersionMinor: number
   onClose: () => void
+  /** Called after a successful publish so the parent can refetch
+   *  compliance_checklist_templates and re-render current_version. */
+  onPublished?: () => void | Promise<void>
 }) {
   const { isAdmin } = useOrgSetupContext()
   const { versions, loading, error, publish, diff } = useTemplateVersions(slug, pack)
@@ -85,6 +89,9 @@ export function TemplateVersionsPanel({
       setShowPublishForm(false)
       setPublishVersion('')
       setPublishChangelog('')
+      // Tell the parent so it can refetch templates → version badge
+      // on the MalerTab row updates without a page reload.
+      if (onPublished) await onPublished()
     } else {
       // useTemplateVersions stores the RPC error; surface the local copy too
       // so the user sees a clear message even if the hook hasn't re-rendered.
