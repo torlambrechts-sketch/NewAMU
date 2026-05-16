@@ -8,7 +8,7 @@
 // not deleted; the trash icon is hidden for them.
 
 import { useEffect, useMemo, useState } from 'react'
-import { ClipboardList, Pin, Plus, Settings, Trash2 } from 'lucide-react'
+import { ClipboardList, GitBranch, Pin, Plus, Settings, Trash2 } from 'lucide-react'
 import { useOrgSetupContext } from '../../../src/hooks/useOrgSetupContext'
 import { useActivePack } from '../../../src/context/packContextValue'
 import { Badge } from '../../../src/components/ui/Badge'
@@ -19,6 +19,7 @@ import { ToggleSwitch } from '../../../src/components/ui/FormToggles'
 import { useChecklistModule } from '../useChecklistModule'
 import { parseChecklistDefinition } from '../schema'
 import { TemplateEditorPanel } from './TemplateEditorPanel'
+import { TemplateVersionsPanel } from './TemplateVersionsPanel'
 import type { ComplianceTemplateRow } from '../types'
 
 export function MalerTab() {
@@ -32,6 +33,7 @@ export function MalerTab() {
     | { mode: 'edit'; template: ComplianceTemplateRow }
     | null
   >(null)
+  const [versionsTarget, setVersionsTarget] = useState<ComplianceTemplateRow | null>(null)
 
   useEffect(() => {
     void load({ pack: pack.slug })
@@ -80,6 +82,7 @@ export function MalerTab() {
                 key={t.id}
                 template={t}
                 onEdit={() => setEditorTarget({ mode: 'edit', template: t })}
+                onVersions={() => setVersionsTarget(t)}
                 onTogglePinned={(value) =>
                   cl.updateTemplate({ templateId: t.id, nav_pinned: value })
                 }
@@ -101,6 +104,17 @@ export function MalerTab() {
           onSaved={() => setEditorTarget(null)}
         />
       ) : null}
+
+      {versionsTarget ? (
+        <TemplateVersionsPanel
+          slug={versionsTarget.slug}
+          pack={versionsTarget.pack}
+          templateName={versionsTarget.name}
+          currentVersionMajor={versionsTarget.current_version_major ?? 1}
+          currentVersionMinor={versionsTarget.current_version_minor ?? 0}
+          onClose={() => setVersionsTarget(null)}
+        />
+      ) : null}
     </div>
   )
 }
@@ -110,6 +124,7 @@ export function MalerTab() {
 type RowProps = {
   template: ComplianceTemplateRow
   onEdit: () => void
+  onVersions: () => void
   onTogglePinned: (value: boolean) => void | Promise<void>
   onToggleActive: (value: boolean) => void | Promise<void>
   onDelete: () => void | Promise<void>
@@ -118,6 +133,7 @@ type RowProps = {
 function TemplateRow({
   template,
   onEdit,
+  onVersions,
   onTogglePinned,
   onToggleActive,
   onDelete,
@@ -190,6 +206,15 @@ function TemplateRow({
             onClick={onEdit}
           >
             Rediger
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            icon={<GitBranch className="h-3.5 w-3.5" />}
+            onClick={onVersions}
+            title={`v${template.current_version_major ?? 1}.${template.current_version_minor ?? 0}`}
+          >
+            v{template.current_version_major ?? 1}.{template.current_version_minor ?? 0}
           </Button>
           {!template.is_system ? (
             <Button

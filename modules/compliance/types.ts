@@ -127,6 +127,12 @@ export type ComplianceTemplateRow = {
   category_id: string | null
   /** Field declarations that drive the execution metadata editor — see TemplateMetadataSchema. */
   metadata_schema: TemplateMetadataSchema
+  /** Currently-active version of the template definition. Bumped via
+   *  compliance_template_publish_version when admins publish a new
+   *  revision. Defaults to 1.0 for templates created before the
+   *  versioning track (Phase 13) shipped. */
+  current_version_major: number
+  current_version_minor: number
   deleted_at: string | null
   created_by: string | null
   created_at: string

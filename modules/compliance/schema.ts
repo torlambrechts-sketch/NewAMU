@@ -153,6 +153,10 @@ export const ComplianceTemplateRowSchema: z.ZodType<ComplianceTemplateRow> = z.o
     .unknown()
     .transform((u) => parseMetadataSchema(u))
     .default({ fields: [] }),
+  // Versioning columns (Phase 13). Default to 1.0 so older DBs that
+  // pre-date the columns still parse cleanly.
+  current_version_major: z.number().int().nonnegative().default(1),
+  current_version_minor: z.number().int().nonnegative().default(0),
   deleted_at: z.string().nullable(),
   created_by: z.string().uuid().nullable(),
   created_at: TimestampSchema,
