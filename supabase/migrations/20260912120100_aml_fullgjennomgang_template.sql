@@ -32,7 +32,7 @@
 --   17 Kap. 15 Opphør av arbeidsforhold
 --   18 Kap. 16 Virksomhetsoverdragelse
 --   19 Kap. 17 Tvister                  (nytt)
---   20 Kap. 18 Tilsyn og tvangsmidler   — cross-link 'aml_18_tilsynssaker'-register
+--   20 Kap. 18 Tilsyn og tvangsmidler   — cross-link 'Tilsyns- og påleggsregister'-register
 --   21 Kap. 19 Straffeansvar            (info-items)
 --
 -- Self-audit (Arbeidstilsynet POV):
@@ -225,7 +225,7 @@ v_def := jsonb_build_object(
       'items', jsonb_build_array(
         jsonb_build_object('key','k4_1_forsvarlig','prompt','Er arbeidsmiljøet fullt forsvarlig (§ 4-1) — fysisk, psykisk, velferdsmessig?','type','yes_no_na','required',true,'law_ref','AML § 4-1','severity_default','critical','resolutions', jsonb_build_array(jsonb_build_object('kind','checklist_template','ref','vernerunde-standard','label','Vernerunde – standard'))),
         jsonb_build_object('key','k4_2_omstilling','prompt','Får arbeidstakere medvirke ved omstillinger og organisasjonsendringer?','type','yes_no_na','required',true,'law_ref','AML § 4-2','severity_default','high','help','Omfatter også informasjon om planlagte endringer i god tid.'),
-        jsonb_build_object('key','k4_3_psyko','prompt','Er det psykososiale arbeidsmiljøet ivaretatt (integritet, verdighet, ikke trakassering)?','type','yes_no_na','required',true,'law_ref','AML § 4-3','severity_default','critical','resolutions', jsonb_build_array(jsonb_build_object('kind','checklist_template','ref','psykososial-puls','label','Psykososial pulsmåling'))),
+        jsonb_build_object('key','k4_3_psyko','prompt','Er det psykososiale arbeidsmiljøet ivaretatt (integritet, verdighet, ikke trakassering)?','type','yes_no_na','required',true,'law_ref','AML § 4-3','severity_default','critical','resolutions', jsonb_build_array(jsonb_build_object('kind','checklist_template','ref','psykososial-pulsmaling','label','Psykososial pulsmåling'))),
         jsonb_build_object('key','k4_4_fysisk','prompt','Er det fysiske arbeidsmiljøet i orden (klima, lys, støy, stråling, ergonomi)?','type','yes_no_na','required',true,'law_ref','AML § 4-4','severity_default','high','help','Krever målinger ved støy >85 dB, indekljus <300 lux på arbeidsflater, m.fl. Se § 4-4 (4).','resolutions', jsonb_build_array(jsonb_build_object('kind','checklist_template','ref','ergonomi-runde','label','Ergonomi-runde'))),
         jsonb_build_object('key','k4_5_kjemisk','prompt','Er kjemisk og biologisk eksponering kartlagt og minimert?','type','yes_no_na','required',false,'law_ref','AML § 4-5','severity_default','high','resolutions', jsonb_build_array(jsonb_build_object('kind','checklist_template','ref','stoffkartotek-runde','label','Stoffkartotek-runde'))),
         jsonb_build_object('key','k4_6_tilrettelegging','prompt','Foretas individuell tilrettelegging for ansatte med redusert arbeidsevne?','type','yes_no_na','required',true,'law_ref','AML § 4-6','severity_default','high','help','Tilretteleggings­plikten gjelder uavhengig av om sykefraværet er yrkesrelatert.')
@@ -261,7 +261,7 @@ v_def := jsonb_build_object(
       'estimatedMinutes',6,
       'items', jsonb_build_array(
         jsonb_build_object('key','k7_1_etablert','prompt','Er AMU opprettet med rett sammensetning og leder?','type','yes_no_na','required',true,'law_ref','AML § 7-1','severity_default','critical','help','Likt antall arbeidsgiver- og arbeidstakerrepresentanter; leder veksler mellom partene årlig.','task_template', jsonb_build_object('title','Konstituer AMU','priority','high')),
-        jsonb_build_object('key','k7_2_oppgaver','prompt','Behandler AMU saker etter § 7-2 (planer, kartlegginger, ulykker, oppfølging)?','type','yes_no_na','required',true,'law_ref','AML § 7-2','severity_default','high','resolutions', jsonb_build_array(jsonb_build_object('kind','meeting','ref','amu-arsmote','label','AMU – årsmøte'))),
+        jsonb_build_object('key','k7_2_oppgaver','prompt','Behandler AMU saker etter § 7-2 (planer, kartlegginger, ulykker, oppfølging)?','type','yes_no_na','required',true,'law_ref','AML § 7-2','severity_default','high','resolutions', jsonb_build_array(jsonb_build_object('kind','meeting','ref','amu-mote','label','AMU – årsmøte'))),
         jsonb_build_object('key','k7_3_lokalt','prompt','Er lokale arbeidsmiljøutvalg vurdert ved flere virksomhetssteder?','type','yes_no_na','required',false,'law_ref','AML § 7-3','severity_default','medium'),
         jsonb_build_object('key','k7_4_arsrapport','prompt','Lager AMU årsrapport om sin virksomhet?','type','yes_no_na','required',true,'law_ref','AML § 7-4','severity_default','medium')
       )),
@@ -346,7 +346,7 @@ v_def := jsonb_build_object(
       'intro','Cross-link til Likestillings- og diskrimineringsloven (ARP).',
       'estimatedMinutes',6,
       'items', jsonb_build_array(
-        jsonb_build_object('key','k13_1_forbud','prompt','Er forbud mot direkte og indirekte diskriminering kommunisert + dokumentert?','type','yes_no_na','required',true,'law_ref','AML § 13-1','severity_default','critical','resolutions', jsonb_build_array(jsonb_build_object('kind','document','ref','tpl-arp-redegjorelse','label','ARP-redegjørelse'))),
+        jsonb_build_object('key','k13_1_forbud','prompt','Er forbud mot direkte og indirekte diskriminering kommunisert + dokumentert?','type','yes_no_na','required',true,'law_ref','AML § 13-1','severity_default','critical','resolutions', jsonb_build_array(jsonb_build_object('kind','document','ref','tpl-likestilling-mangfold','label','ARP-redegjørelse'))),
         jsonb_build_object('key','k13_2_omfang','prompt','Er forbudet anvendt på ansettelse, lønn, oppsigelse, opprykk + opplæring?','type','yes_no_na','required',true,'law_ref','AML § 13-2','severity_default','critical'),
         jsonb_build_object('key','k13_7_aktivitet','prompt','Drives aktivt arbeid for likestilling iht. ARP-redegjørelsen?','type','yes_no_na','required',true,'law_ref','AML § 13-7','severity_default','high','help','ARP = Aktivitets- og redegjørelsesplikt etter Likestillings- og diskrimineringsloven § 26. Årlig.')
       )),
@@ -416,7 +416,7 @@ v_def := jsonb_build_object(
       'key','kap18','title','20. Tilsyn og tvangsmidler','chapter','AML kap. 18',
       'estimatedMinutes',5,
       'items', jsonb_build_array(
-        jsonb_build_object('key','k18_1_arbeidstilsyn','prompt','Er det forberedt mottak av tilsyn fra Arbeidstilsynet (samlemappe, kontaktperson)?','type','yes_no_na','required',true,'law_ref','AML § 18-1','severity_default','high','resolutions', jsonb_build_array(jsonb_build_object('kind','register','ref','aml_18_tilsynssaker','label','Register over tilsynssaker'))),
+        jsonb_build_object('key','k18_1_arbeidstilsyn','prompt','Er det forberedt mottak av tilsyn fra Arbeidstilsynet (samlemappe, kontaktperson)?','type','yes_no_na','required',true,'law_ref','AML § 18-1','severity_default','high','resolutions', jsonb_build_array(jsonb_build_object('kind','register','ref','Tilsyns- og påleggsregister','label','Register over tilsynssaker'))),
         jsonb_build_object('key','k18_6_palegg','prompt','Er eventuelle pålegg fra Arbeidstilsynet etterlevd innen frist?','type','yes_no_na','required',true,'law_ref','AML § 18-6','severity_default','critical','help','Manglende etterlevelse → tvangsmulkt / stansing.','task_template', jsonb_build_object('title','Audit av åpne tilsynspålegg','priority','critical')),
         jsonb_build_object('key','k18_7_tvangsmulkt','prompt','Er det dokumentert behandling av tvangsmulkt-vedtak?','type','yes_no_na','required',false,'law_ref','AML § 18-7','severity_default','high'),
         jsonb_build_object('key','k18_8_stansing','prompt','Er det rutiner for å håndtere stansing av arbeid ved fare?','type','yes_no_na','required',false,'law_ref','AML § 18-8','severity_default','critical'),

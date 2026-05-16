@@ -157,12 +157,14 @@ function sectionProgress(
  */
 type AutoMarkHit = {
   artefactLabel: string
-  artefactType: 'checklist_template' | 'document' | 'learning'
+  artefactType: 'checklist_template' | 'document' | 'learning' | 'meeting' | 'register'
   artefactId: string
   signedAt: string
 }
 
-const AUTO_MARK_KINDS = new Set(['checklist_template', 'document', 'learning'])
+// Resolution kinds the server-side fresh-artefacts RPC supports.
+// Stays in sync with compliance_walkthrough_fresh_artefacts() branches.
+const AUTO_MARK_KINDS = new Set(['checklist_template', 'document', 'learning', 'meeting', 'register'])
 
 function findFreshArtefact(
   item: ChecklistItem,
