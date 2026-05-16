@@ -3,6 +3,7 @@
 
 import { useCallback, useEffect, useState } from 'react'
 import { Activity } from 'lucide-react'
+import { Button } from '../../../src/components/ui/Button'
 import { useOrgSetupContext } from '../../../src/hooks/useOrgSetupContext'
 
 type ActivityEntry = {
@@ -128,13 +129,14 @@ export function TaskActivityFeed({ taskItemId }: Props) {
       )}
 
       {entries.length > 8 && (
-        <button
-          type="button"
+        <Button
+          variant="ghost"
+          size="sm"
           onClick={() => setShowAll((v) => !v)}
-          className="text-xs text-neutral-500 underline-offset-2 hover:text-neutral-700 hover:underline"
+          className="px-0 text-xs text-neutral-500 underline-offset-2 hover:bg-transparent hover:text-neutral-700 hover:underline"
         >
           {showAll ? 'Vis færre' : `Vis alle ${entries.length} hendelser`}
-        </button>
+        </Button>
       )}
     </div>
   )

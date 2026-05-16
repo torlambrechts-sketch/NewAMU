@@ -6,6 +6,10 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { CheckSquare, Pin, PinOff, Plus, Pencil, Trash2, GripVertical, X } from 'lucide-react'
 import { useOrgSetupContext } from '../../../src/hooks/useOrgSetupContext'
 import { Badge } from '../../../src/components/ui/Badge'
+import { Button } from '../../../src/components/ui/Button'
+import { StandardInput } from '../../../src/components/ui/Input'
+import { StandardTextarea } from '../../../src/components/ui/Textarea'
+import { SearchableSelect } from '../../../src/components/ui/SearchableSelect'
 import { ToggleSwitch } from '../../../src/components/ui/FormToggles'
 import { WarningBox } from '../../../src/components/ui/AlertBox'
 import { ModuleSectionCard } from '../../../src/components/module/ModuleSectionCard'
@@ -14,7 +18,6 @@ import {
   WPSTD_FORM_ROW_GRID,
   WPSTD_FORM_INSET,
   WPSTD_FORM_FIELD_LABEL,
-  WPSTD_FORM_INPUT,
 } from '../../../src/components/layout/WorkplaceStandardFormPanel'
 import { TaskKindIcon } from '../components/TaskKindIcon'
 import type { TaskTemplateKind, TaskMetadataSchema } from '../../../src/types/task'
@@ -363,14 +366,15 @@ export function TasksMalerTab() {
           <span className="ml-1 text-sm text-neutral-500">
             {templates.filter((t) => t.isActive).length} aktive
           </span>
-          <button
-            type="button"
+          <Button
+            size="sm"
+            variant="primary"
             onClick={openNew}
-            className="ml-auto inline-flex items-center gap-1.5 rounded border border-[#c2410c] bg-[#c2410c] px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-orange-700"
+            icon={<Plus className="h-3.5 w-3.5" />}
+            className="ml-auto bg-[#c2410c] hover:bg-orange-700"
           >
-            <Plus className="h-3.5 w-3.5" />
             Ny mal
-          </button>
+          </Button>
         </div>
 
         <div className="overflow-x-auto -mx-5 md:-mx-6">
@@ -410,16 +414,16 @@ export function TasksMalerTab() {
                     </div>
                   </td>
                   <td className="px-3 py-3">
-                    <select
-                      value={t.categoryId ?? ''}
-                      onChange={(e) => void updateCategory(t.id, e.target.value || null)}
-                      className="w-40 rounded border border-neutral-200 bg-white px-2 py-1.5 text-xs text-neutral-700 focus:border-[#c2410c] focus:outline-none"
-                    >
-                      <option value="">Uten kategori</option>
-                      {categories.map((c) => (
-                        <option key={c.id} value={c.id}>{c.name}</option>
-                      ))}
-                    </select>
+                    <div className="w-40">
+                      <SearchableSelect
+                        value={t.categoryId ?? ''}
+                        options={[
+                          { value: '', label: 'Uten kategori' },
+                          ...categories.map((c) => ({ value: c.id, label: c.name })),
+                        ]}
+                        onChange={(v) => void updateCategory(t.id, v || null)}
+                      />
+                    </div>
                   </td>
                   <td className="px-3 py-3 text-center">
                     <div className="flex justify-center">
@@ -430,42 +434,45 @@ export function TasksMalerTab() {
                     </div>
                   </td>
                   <td className="px-3 py-3 text-center">
-                    <button
-                      type="button"
+                    <Button
+                      size="sm"
+                      variant="secondary"
                       onClick={() => void toggle(t.id, 'nav_pinned', t.navPinned)}
                       disabled={!t.isActive}
-                      className={`inline-flex items-center gap-1 rounded border px-2.5 py-1 text-xs font-medium transition disabled:cursor-not-allowed disabled:opacity-40 ${
-                        t.navPinned
-                          ? 'border-[#c2410c]/30 bg-orange-50 text-[#c2410c]'
-                          : 'border-neutral-200 bg-white text-neutral-400 hover:border-neutral-300'
-                      }`}
                       aria-label={t.navPinned ? 'Skjul fra meny' : 'Vis i meny'}
+                      className={
+                        t.navPinned
+                          ? 'border-[#c2410c]/30 bg-orange-50 text-[#c2410c] hover:bg-orange-100'
+                          : 'border-neutral-200 text-neutral-400 hover:border-neutral-300'
+                      }
                     >
                       {t.navPinned
                         ? <><Pin className="h-3.5 w-3.5" /> Vises</>
                         : <><PinOff className="h-3.5 w-3.5" /> Skjult</>
                       }
-                    </button>
+                    </Button>
                   </td>
                   <td className="px-3 py-3 text-right">
                     {!t.isSystem && (
                       <div className="flex items-center justify-end gap-1">
-                        <button
-                          type="button"
+                        <Button
+                          variant="ghost"
+                          size="icon"
                           onClick={() => openEdit(t)}
-                          className="rounded p-1.5 text-neutral-400 hover:bg-neutral-100 hover:text-neutral-700"
+                          className="h-7 w-7 text-neutral-400 hover:bg-neutral-100 hover:text-neutral-700"
                           aria-label={`Rediger ${t.name}`}
                         >
                           <Pencil className="h-3.5 w-3.5" />
-                        </button>
-                        <button
-                          type="button"
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
                           onClick={() => void handleDelete(t)}
-                          className="rounded p-1.5 text-neutral-400 hover:bg-red-50 hover:text-red-600"
+                          className="h-7 w-7 text-neutral-400 hover:bg-red-50 hover:text-red-600"
                           aria-label={`Slett ${t.name}`}
                         >
                           <Trash2 className="h-3.5 w-3.5" />
-                        </button>
+                        </Button>
                       </div>
                     )}
                   </td>
@@ -484,21 +491,17 @@ export function TasksMalerTab() {
         title={editingId ? 'Rediger mal' : 'Ny oppgavemal'}
         footer={
           <div className="flex items-center justify-end gap-3 px-5 py-4">
-            <button
-              type="button"
-              onClick={closePanel}
-              className="rounded border border-neutral-200 bg-white px-4 py-2 text-sm font-semibold text-neutral-700 hover:bg-neutral-50"
-            >
+            <Button variant="secondary" onClick={closePanel}>
               Avbryt
-            </button>
-            <button
-              type="button"
+            </Button>
+            <Button
+              variant="primary"
               onClick={() => void handleSave()}
               disabled={saving}
-              className="rounded bg-[#c2410c] px-4 py-2 text-sm font-semibold text-white hover:bg-orange-700 disabled:opacity-50"
+              className="bg-[#c2410c] hover:bg-orange-700"
             >
               {saving ? 'Lagrer…' : 'Lagre mal'}
-            </button>
+            </Button>
           </div>
         }
       >
@@ -511,12 +514,10 @@ export function TasksMalerTab() {
             <p className="mt-1 text-xs text-neutral-500">Vises i meny og oppgaveliste.</p>
           </div>
           <div className={WPSTD_FORM_INSET}>
-            <input
-              type="text"
+            <StandardInput
               value={draft.name}
               onChange={(e) => setDraft((d) => ({ ...d, name: e.target.value }))}
               placeholder="F.eks. Internkontroll – HMS"
-              className={WPSTD_FORM_INPUT}
             />
           </div>
         </div>
@@ -528,11 +529,10 @@ export function TasksMalerTab() {
             <p className="mt-1 text-xs text-neutral-500">Kort forklaring til brukeren.</p>
           </div>
           <div className={WPSTD_FORM_INSET}>
-            <textarea
+            <StandardTextarea
               value={draft.description}
               onChange={(e) => setDraft((d) => ({ ...d, description: e.target.value }))}
               rows={3}
-              className={WPSTD_FORM_INPUT}
             />
           </div>
         </div>
@@ -544,15 +544,13 @@ export function TasksMalerTab() {
             <p className="mt-1 text-xs text-neutral-500">Bestemmer livssyklus og ikoner.</p>
           </div>
           <div className={WPSTD_FORM_INSET}>
-            <select
+            <SearchableSelect
               value={draft.templateKind}
-              onChange={(e) => setDraft((d) => ({ ...d, templateKind: e.target.value as TaskTemplateKind }))}
-              className={WPSTD_FORM_INPUT}
-            >
-              {(Object.entries(KIND_LABELS) as [TaskTemplateKind, string][]).map(([k, label]) => (
-                <option key={k} value={k}>{label}</option>
-              ))}
-            </select>
+              options={(Object.entries(KIND_LABELS) as [TaskTemplateKind, string][]).map(
+                ([k, label]) => ({ value: k, label }),
+              )}
+              onChange={(v) => setDraft((d) => ({ ...d, templateKind: v as TaskTemplateKind }))}
+            />
           </div>
         </div>
 
@@ -563,12 +561,10 @@ export function TasksMalerTab() {
             <p className="mt-1 text-xs text-neutral-500">Kommaseparert, f.eks. «AML § 4-1, IK-f § 5 nr. 7»</p>
           </div>
           <div className={WPSTD_FORM_INSET}>
-            <input
-              type="text"
+            <StandardInput
               value={draft.lawRefs}
               onChange={(e) => setDraft((d) => ({ ...d, lawRefs: e.target.value }))}
               placeholder="AML § 4-1, IK-f § 5 nr. 7"
-              className={WPSTD_FORM_INPUT}
             />
           </div>
         </div>
@@ -580,14 +576,14 @@ export function TasksMalerTab() {
               <p className={WPSTD_FORM_FIELD_LABEL}>Egendefinerte felter</p>
               <p className="mt-0.5 text-xs text-neutral-500">Legg til felter som fylles ut ved opprettelse av oppgaven.</p>
             </div>
-            <button
-              type="button"
+            <Button
+              size="sm"
+              variant="secondary"
               onClick={addField}
-              className="inline-flex items-center gap-1 rounded border border-neutral-300 bg-white px-2.5 py-1.5 text-xs font-medium text-neutral-700 hover:bg-neutral-50"
+              icon={<Plus className="h-3.5 w-3.5" />}
             >
-              <Plus className="h-3.5 w-3.5" />
               Legg til felt
-            </button>
+            </Button>
           </div>
 
           {draft.fields.length === 0 && (
@@ -599,60 +595,57 @@ export function TasksMalerTab() {
               <div key={f._key} className="rounded border border-neutral-200 bg-neutral-50 p-3">
                 <div className="flex items-start gap-2">
                   <div className="flex flex-col gap-0.5 pt-1 shrink-0">
-                    <button
-                      type="button"
+                    <Button
+                      variant="ghost"
+                      size="icon"
                       onClick={() => moveField(f._key, -1)}
                       disabled={idx === 0}
-                      className="text-neutral-400 hover:text-neutral-600 disabled:opacity-30"
+                      className="h-5 w-5 text-neutral-400 hover:bg-transparent hover:text-neutral-600 disabled:opacity-30"
                       aria-label="Flytt opp"
                     >
                       <GripVertical className="h-3 w-3" />
-                    </button>
+                    </Button>
                   </div>
                   <div className="flex-1 grid grid-cols-1 gap-2 sm:grid-cols-[1fr_auto_auto_auto]">
-                    <input
-                      type="text"
+                    <StandardInput
                       value={f.label}
                       onChange={(e) => updateField(f._key, { label: e.target.value })}
                       placeholder="Feltnavn…"
-                      className="rounded border border-neutral-200 bg-white px-2.5 py-1.5 text-xs text-neutral-900 focus:border-neutral-500 focus:outline-none"
+                      className="px-2.5 py-1.5 text-xs"
                     />
-                    <select
+                    <SearchableSelect
                       value={f.kind}
-                      onChange={(e) => updateField(f._key, { kind: e.target.value as FieldKind })}
-                      className="rounded border border-neutral-200 bg-white px-2 py-1.5 text-xs text-neutral-700 focus:outline-none"
-                    >
-                      {(Object.entries(FIELD_KIND_LABELS) as [FieldKind, string][]).map(([k, label]) => (
-                        <option key={k} value={k}>{label}</option>
-                      ))}
-                    </select>
-                    <label className="flex items-center gap-1.5 text-xs text-neutral-600 whitespace-nowrap">
-                      <input
-                        type="checkbox"
+                      options={(Object.entries(FIELD_KIND_LABELS) as [FieldKind, string][]).map(
+                        ([k, label]) => ({ value: k, label }),
+                      )}
+                      onChange={(v) => updateField(f._key, { kind: v as FieldKind })}
+                    />
+                    <div className="flex items-center gap-1.5 text-xs text-neutral-600 whitespace-nowrap">
+                      <ToggleSwitch
                         checked={f.required}
-                        onChange={(e) => updateField(f._key, { required: e.target.checked })}
-                        className="h-3.5 w-3.5 rounded border-neutral-300 accent-[#c2410c]"
+                        onChange={(v) => updateField(f._key, { required: v })}
+                        label="Påkrevd"
                       />
-                      Påkrevd
-                    </label>
-                    <button
-                      type="button"
+                      <span>Påkrevd</span>
+                    </div>
+                    <Button
+                      variant="ghost"
+                      size="icon"
                       onClick={() => removeField(f._key)}
-                      className="rounded p-1 text-neutral-400 hover:bg-red-50 hover:text-red-500"
+                      className="h-7 w-7 text-neutral-400 hover:bg-red-50 hover:text-red-500"
                       aria-label="Fjern felt"
                     >
                       <X className="h-3.5 w-3.5" />
-                    </button>
+                    </Button>
                   </div>
                 </div>
                 {f.kind === 'select' && (
                   <div className="mt-2 pl-6">
-                    <input
-                      type="text"
+                    <StandardInput
                       value={f.options}
                       onChange={(e) => updateField(f._key, { options: e.target.value })}
                       placeholder="Alternativ 1, Alternativ 2, Alternativ 3"
-                      className="w-full rounded border border-neutral-200 bg-white px-2.5 py-1.5 text-xs text-neutral-900 focus:border-neutral-500 focus:outline-none"
+                      className="px-2.5 py-1.5 text-xs"
                     />
                     <p className="mt-0.5 text-[10px] text-neutral-400">Kommaseparerte valg</p>
                   </div>

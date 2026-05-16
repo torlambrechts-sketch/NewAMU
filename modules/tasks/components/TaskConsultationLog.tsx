@@ -6,6 +6,9 @@ import { useCallback, useEffect, useState } from 'react'
 import { Plus, Users } from 'lucide-react'
 import { useOrgSetupContext } from '../../../src/hooks/useOrgSetupContext'
 import { StandardInput } from '../../../src/components/ui/Input'
+import { StandardTextarea } from '../../../src/components/ui/Textarea'
+import { SearchableSelect } from '../../../src/components/ui/SearchableSelect'
+import { Button } from '../../../src/components/ui/Button'
 import {
   WPSTD_FORM_FIELD_LABEL,
 } from '../../../src/components/layout/WorkplaceStandardFormPanel'
@@ -131,14 +134,15 @@ export function TaskConsultationLog({ taskItemId }: Props) {
             Konsultasjonslogg {rows.length > 0 ? `· ${rows.length}` : ''}
           </span>
         </div>
-        <button
-          type="button"
+        <Button
+          variant="ghost"
+          size="sm"
           onClick={() => setAddOpen((v) => !v)}
-          className="flex items-center gap-1 text-xs text-neutral-500 transition hover:text-[#c2410c]"
+          icon={<Plus className="h-3.5 w-3.5" />}
+          className="px-0 text-xs text-neutral-500 hover:bg-transparent hover:text-[#c2410c]"
         >
-          <Plus className="h-3.5 w-3.5" />
           Loggfør
-        </button>
+        </Button>
       </div>
 
       {addOpen && (
@@ -154,15 +158,11 @@ export function TaskConsultationLog({ taskItemId }: Props) {
             </div>
             <div>
               <p className={`${WPSTD_FORM_FIELD_LABEL} mb-1`}>Rolle</p>
-              <select
+              <SearchableSelect
                 value={form.role}
-                onChange={(e) => set('role', e.target.value)}
-                className="w-full rounded border border-neutral-300 bg-white px-3 py-2.5 text-sm text-neutral-900 focus:border-[#c2410c] focus:outline-none"
-              >
-                {Object.entries(ROLE_LABEL).map(([v, l]) => (
-                  <option key={v} value={v}>{l}</option>
-                ))}
-              </select>
+                options={Object.entries(ROLE_LABEL).map(([v, l]) => ({ value: v, label: l }))}
+                onChange={(v) => set('role', v)}
+              />
             </div>
             <div>
               <p className={`${WPSTD_FORM_FIELD_LABEL} mb-1`}>Dato</p>
@@ -174,40 +174,33 @@ export function TaskConsultationLog({ taskItemId }: Props) {
             </div>
             <div>
               <p className={`${WPSTD_FORM_FIELD_LABEL} mb-1`}>Metode</p>
-              <select
+              <SearchableSelect
                 value={form.method}
-                onChange={(e) => set('method', e.target.value)}
-                className="w-full rounded border border-neutral-300 bg-white px-3 py-2.5 text-sm text-neutral-900 focus:border-[#c2410c] focus:outline-none"
-              >
-                {Object.entries(METHOD_LABEL).map(([v, l]) => (
-                  <option key={v} value={v}>{l}</option>
-                ))}
-              </select>
+                options={Object.entries(METHOD_LABEL).map(([v, l]) => ({ value: v, label: l }))}
+                onChange={(v) => set('method', v)}
+              />
             </div>
           </div>
-          <textarea
+          <StandardTextarea
             value={form.notes}
             onChange={(e) => set('notes', e.target.value)}
             rows={2}
             placeholder="Notat (valgfritt)…"
-            className="w-full resize-none rounded border border-neutral-200 bg-neutral-50 px-3 py-2 text-sm focus:border-[#c2410c] focus:outline-none focus:ring-1 focus:ring-[#c2410c]/20"
+            className="resize-none bg-neutral-50 focus:border-[#c2410c] focus:ring-[#c2410c]/20"
           />
           <div className="flex justify-end gap-2">
-            <button
-              type="button"
-              onClick={() => setAddOpen(false)}
-              className="rounded border border-neutral-200 px-3 py-1.5 text-xs text-neutral-600 hover:bg-neutral-50"
-            >
+            <Button size="sm" variant="secondary" onClick={() => setAddOpen(false)}>
               Avbryt
-            </button>
-            <button
-              type="button"
+            </Button>
+            <Button
+              size="sm"
+              variant="primary"
               onClick={() => void save()}
               disabled={saving || !form.consultedName.trim()}
-              className="rounded bg-[#c2410c] px-3 py-1.5 text-xs font-medium text-white transition hover:bg-[#b83b0a] disabled:opacity-40"
+              className="bg-[#c2410c] hover:bg-[#b83b0a]"
             >
               {saving ? 'Lagrer…' : 'Lagre'}
-            </button>
+            </Button>
           </div>
         </div>
       )}

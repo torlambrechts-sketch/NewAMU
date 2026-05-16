@@ -5,6 +5,9 @@
 
 import { useCallback, useEffect, useState } from 'react'
 import { Check, ChevronDown, ChevronRight, Plus, Trash2 } from 'lucide-react'
+import { Button } from '../../../src/components/ui/Button'
+import { StandardInput } from '../../../src/components/ui/Input'
+import { SearchableSelect } from '../../../src/components/ui/SearchableSelect'
 import { useOrgSetupContext } from '../../../src/hooks/useOrgSetupContext'
 
 type SubtaskPriority = 'low' | 'medium' | 'high' | 'critical'
@@ -100,9 +103,8 @@ function SubtaskForm({
 
   return (
     <div className="space-y-2 rounded-lg border border-[#c2410c]/20 bg-white p-4 shadow-sm">
-      <input
+      <StandardInput
         autoFocus
-        type="text"
         value={v.title}
         onChange={(e) => set('title', e.target.value)}
         onKeyDown={(e) => {
@@ -110,68 +112,69 @@ function SubtaskForm({
           if (e.key === 'Escape') onCancel()
         }}
         placeholder="Tittel på deloppgave…"
-        className="w-full rounded border border-neutral-200 bg-white px-2.5 py-1.5 text-sm text-neutral-900 placeholder:text-neutral-400 focus:border-[#c2410c] focus:outline-none"
+        className="px-2.5 py-1.5 focus:border-[#c2410c]"
       />
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
         <div>
           <p className="mb-1 text-[9px] font-bold uppercase tracking-wider text-neutral-400">Ansvarlig</p>
-          <input
-            type="text"
+          <StandardInput
             value={v.ownerName}
             onChange={(e) => set('ownerName', e.target.value)}
             placeholder="Navn…"
-            className="w-full rounded border border-neutral-200 bg-white px-2 py-1.5 text-xs focus:border-[#c2410c] focus:outline-none"
+            className="px-2 py-1.5 text-xs focus:border-[#c2410c]"
           />
         </div>
         <div>
           <p className="mb-1 text-[9px] font-bold uppercase tracking-wider text-neutral-400">Prioritet</p>
-          <select
+          <SearchableSelect
             value={v.priority}
-            onChange={(e) => set('priority', e.target.value)}
-            className="w-full rounded border border-neutral-200 bg-white px-2 py-1.5 text-xs focus:border-[#c2410c] focus:outline-none"
-          >
-            <option value="">—</option>
-            <option value="low">Lav</option>
-            <option value="medium">Medium</option>
-            <option value="high">Høy</option>
-            <option value="critical">Kritisk</option>
-          </select>
+            options={[
+              { value: '', label: '—' },
+              { value: 'low', label: 'Lav' },
+              { value: 'medium', label: 'Medium' },
+              { value: 'high', label: 'Høy' },
+              { value: 'critical', label: 'Kritisk' },
+            ]}
+            onChange={(val) => set('priority', val)}
+          />
         </div>
         <div>
           <p className="mb-1 text-[9px] font-bold uppercase tracking-wider text-neutral-400">Start</p>
-          <input
+          <StandardInput
             type="date"
             value={v.startDate}
             onChange={(e) => set('startDate', e.target.value)}
-            className="w-full rounded border border-neutral-200 bg-white px-2 py-1.5 text-xs focus:border-[#c2410c] focus:outline-none"
+            className="px-2 py-1.5 text-xs focus:border-[#c2410c]"
           />
         </div>
         <div>
           <p className="mb-1 text-[9px] font-bold uppercase tracking-wider text-neutral-400">Frist</p>
-          <input
+          <StandardInput
             type="date"
             value={v.dueDate}
             onChange={(e) => set('dueDate', e.target.value)}
-            className="w-full rounded border border-neutral-200 bg-white px-2 py-1.5 text-xs focus:border-[#c2410c] focus:outline-none"
+            className="px-2 py-1.5 text-xs focus:border-[#c2410c]"
           />
         </div>
       </div>
       <div className="flex items-center gap-2">
-        <button
-          type="button"
+        <Button
+          size="sm"
+          variant="primary"
           disabled={saving || !v.title.trim()}
           onClick={() => void handleSave()}
-          className="rounded bg-[#c2410c] px-3 py-1 text-xs font-medium text-white transition hover:bg-[#a33609] disabled:opacity-40"
+          className="bg-[#c2410c] hover:bg-[#a33609]"
         >
           {saving ? 'Lagrer…' : submitLabel}
-        </button>
-        <button
-          type="button"
+        </Button>
+        <Button
+          variant="ghost"
+          size="sm"
           onClick={onCancel}
-          className="text-xs text-neutral-400 transition hover:text-neutral-700"
+          className="text-xs text-neutral-400 hover:bg-transparent hover:text-neutral-700"
         >
           Avbryt
-        </button>
+        </Button>
       </div>
     </div>
   )
@@ -333,18 +336,20 @@ export function TaskSubtaskList({ taskItemId }: Props) {
                 ) : (
                   <div className="group flex items-start gap-2">
                     {/* Checkbox */}
-                    <button
-                      type="button"
+                    <Button
+                      variant="ghost"
+                      size="icon"
                       onClick={() => void toggle(sub.id, sub.isDone)}
+                      aria-label={sub.isDone ? 'Merk som ikke ferdig' : 'Merk som ferdig'}
+                      aria-pressed={sub.isDone}
                       className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded border transition-colors ${
                         sub.isDone
-                          ? 'border-[#c2410c] bg-[#c2410c] text-white'
+                          ? 'border-[#c2410c] bg-[#c2410c] text-white hover:bg-[#c2410c]'
                           : 'border-neutral-300 bg-white hover:border-[#c2410c]'
                       }`}
-                      aria-label={sub.isDone ? 'Merk som ikke ferdig' : 'Merk som ferdig'}
                     >
                       {sub.isDone && <Check className="h-3 w-3" />}
-                    </button>
+                    </Button>
 
                     {/* Content */}
                     <div
@@ -383,10 +388,11 @@ export function TaskSubtaskList({ taskItemId }: Props) {
 
                     {/* Expand / delete — visible on hover */}
                     <div className="flex shrink-0 items-center gap-1 opacity-0 transition group-hover:opacity-100">
-                      <button
-                        type="button"
+                      <Button
+                        variant="ghost"
+                        size="icon"
                         onClick={() => setEditingId(sub.id)}
-                        className="rounded p-1 text-neutral-300 hover:text-neutral-500"
+                        className="h-6 w-6 text-neutral-300 hover:bg-transparent hover:text-neutral-500"
                         aria-label="Rediger deloppgave"
                       >
                         {isEditing ? (
@@ -394,15 +400,16 @@ export function TaskSubtaskList({ taskItemId }: Props) {
                         ) : (
                           <ChevronRight className="h-3.5 w-3.5" />
                         )}
-                      </button>
-                      <button
-                        type="button"
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
                         onClick={() => void removeSubtask(sub.id)}
-                        className="rounded p-1 text-neutral-300 hover:text-red-500"
+                        className="h-6 w-6 text-neutral-300 hover:bg-transparent hover:text-red-500"
                         aria-label="Slett deloppgave"
                       >
                         <Trash2 className="h-3.5 w-3.5" />
-                      </button>
+                      </Button>
                     </div>
                   </div>
                 )}
@@ -420,14 +427,15 @@ export function TaskSubtaskList({ taskItemId }: Props) {
           submitLabel="Legg til"
         />
       ) : (
-        <button
-          type="button"
+        <Button
+          variant="ghost"
+          size="sm"
           onClick={() => setShowAdd(true)}
-          className="flex items-center gap-1.5 text-xs text-neutral-400 transition hover:text-[#c2410c]"
+          icon={<Plus className="h-3.5 w-3.5" />}
+          className="px-0 text-xs text-neutral-400 hover:bg-transparent hover:text-[#c2410c]"
         >
-          <Plus className="h-3.5 w-3.5" />
           Legg til deloppgave
-        </button>
+        </Button>
       )}
     </div>
   )

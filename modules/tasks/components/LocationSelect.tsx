@@ -1,6 +1,9 @@
 // LocationSelect — select from org locations + "Annet" free-text fallback.
 
 import { useEffect, useRef, useState } from 'react'
+import { Button } from '../../../src/components/ui/Button'
+import { StandardInput } from '../../../src/components/ui/Input'
+import { SearchableSelect } from '../../../src/components/ui/SearchableSelect'
 
 type Props = {
   value: string
@@ -19,8 +22,7 @@ export function LocationSelect({ value, onChange, locationNames, placeholder = '
     if (showingFree) freeRef.current?.focus()
   }, [showingFree])
 
-  const handleSelect = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const v = e.target.value
+  const handleSelect = (v: string) => {
     if (v === '__other__') {
       setShowingFree(true)
       onChange(freeText)
@@ -33,36 +35,33 @@ export function LocationSelect({ value, onChange, locationNames, placeholder = '
   if (showingFree) {
     return (
       <div className="flex gap-1.5">
-        <input
+        <StandardInput
           ref={freeRef}
-          type="text"
           value={freeText}
           onChange={(e) => { setFreeText(e.target.value); onChange(e.target.value) }}
           placeholder="Beskriv stedet…"
-          className="flex-1 rounded border border-neutral-300 bg-white px-3 py-2.5 text-sm text-neutral-900 placeholder:text-neutral-400 focus:border-[#c2410c] focus:outline-none focus:ring-1 focus:ring-[#c2410c]/20"
+          className="flex-1 focus:border-[#c2410c] focus:ring-[#c2410c]/20"
         />
-        <button
-          type="button"
+        <Button
+          size="sm"
+          variant="secondary"
           onClick={() => { setShowingFree(false); onChange(''); setFreeText('') }}
-          className="rounded border border-neutral-200 px-2.5 py-1 text-xs text-neutral-500 hover:bg-neutral-50"
         >
           Tilbake
-        </button>
+        </Button>
       </div>
     )
   }
 
   return (
-    <select
+    <SearchableSelect
       value={value}
+      options={[
+        { value: '', label: placeholder },
+        ...locationNames.map((loc) => ({ value: loc, label: loc })),
+        { value: '__other__', label: 'Annet sted / skriv inn…' },
+      ]}
       onChange={handleSelect}
-      className="w-full rounded border border-neutral-300 bg-white px-3 py-2.5 text-sm text-neutral-900 focus:border-[#c2410c] focus:outline-none focus:ring-1 focus:ring-[#c2410c]/20"
-    >
-      <option value="">{placeholder}</option>
-      {locationNames.map((loc) => (
-        <option key={loc} value={loc}>{loc}</option>
-      ))}
-      <option value="__other__">Annet sted / skriv inn…</option>
-    </select>
+    />
   )
 }
