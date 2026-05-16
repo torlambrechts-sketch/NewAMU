@@ -24,6 +24,7 @@ import { useActivePack } from '../../src/context/packContextValue'
 import { useOrgSetupContext } from '../../src/hooks/useOrgSetupContext'
 import { useWizardRun } from '../../src/hooks/useWizardRun'
 import { useChecklistModule } from './useChecklistModule'
+import { useFreshArtefacts, lookupFresh, type FreshArtefactMap } from './useFreshArtefacts'
 import { parseChecklistDefinition } from './schema'
 import { SeverityBadge } from './components/SeverityBadge'
 import { ExecutionMetadataPanel } from './components/ExecutionMetadataPanel'
@@ -144,48 +145,39 @@ function sectionProgress(
   return { answered, required: required.length }
 }
 
-const ONE_YEAR_MS = 365 * 24 * 60 * 60 * 1000
-
 /**
  * Auto-mark — find a fresh signed artefact that resolves this item.
  *
- * Today only checks `kind: 'checklist_template'` resolutions: when the
- * org has a *signed* execution of the referenced template signed within
- * the last 12 months, the item can be auto-marked "I orden" with a
- * provenance chip. Other resolution kinds (document acknowledgements,
- * register records, course completions) follow the same pattern but
- * need additional data sources — phased in later.
+ * Walks the item's resolutions[] in declaration order, returning the
+ * first one for which the server-supplied freshArtefacts map has a
+ * matching (kind, ref) entry. Server has already filtered by 12-month
+ * cutoff so any hit is "fresh enough" by definition. Today's covered
+ * kinds: checklist_template, document, learning. Register / meeting /
+ * workflow / manual are intentionally skipped (no signed-at equivalent).
  */
 type AutoMarkHit = {
   artefactLabel: string
-  artefactType: 'checklist_template'
+  artefactType: 'checklist_template' | 'document' | 'learning'
   artefactId: string
   signedAt: string
 }
 
+const AUTO_MARK_KINDS = new Set(['checklist_template', 'document', 'learning'])
+
 function findFreshArtefact(
   item: ChecklistItem,
-  templates: { id: string; slug: string; name: string }[],
-  executions: { id: string; template_id: string; status: string; signed_at: string | null }[],
+  freshArtefacts: FreshArtefactMap,
 ): AutoMarkHit | null {
   if (!item.resolutions) return null
-  const now = Date.now()
   for (const res of item.resolutions) {
-    if (res.kind !== 'checklist_template' || !res.ref) continue
-    const tpl = templates.find((t) => t.slug === res.ref)
-    if (!tpl) continue
-    const fresh = executions
-      .filter((e) => e.template_id === tpl.id && e.status === 'signed' && e.signed_at)
-      .map((e) => ({ id: e.id, signedAt: e.signed_at as string }))
-      .sort((a, b) => b.signedAt.localeCompare(a.signedAt))
-      .find((e) => now - new Date(e.signedAt).getTime() < ONE_YEAR_MS)
-    if (fresh) {
-      return {
-        artefactLabel: res.label ?? tpl.name,
-        artefactType: 'checklist_template',
-        artefactId: fresh.id,
-        signedAt: fresh.signedAt,
-      }
+    if (!res.ref || !AUTO_MARK_KINDS.has(res.kind)) continue
+    const hit = lookupFresh(freshArtefacts, res.kind, res.ref)
+    if (!hit) continue
+    return {
+      artefactLabel: res.label ?? hit.label,
+      artefactType: res.kind as AutoMarkHit['artefactType'],
+      artefactId: hit.source_id,
+      signedAt: hit.signed_at,
     }
   }
   return null
@@ -218,6 +210,12 @@ export function AmlWalkthroughPage() {
     assignableUsers,
     updateExecutionMetadata,
   } = cl
+
+  // Org-wide map of fresh signed artefacts (checklist + document +
+  // learning). Loaded once per page mount; refreshed when the wizard
+  // signs the execution so the next walkthrough can pick up the new
+  // signature.
+  const freshArtefacts = useFreshArtefacts(12)
 
   // Tracks whether the first `load()` cycle has completed. Without this,
   // the auto-create-execution effect can fire against an empty
@@ -533,6 +531,9 @@ export function AmlWalkthroughPage() {
     if (!executionId) return
     await signExecution(executionId)
     await wizardRun.complete()
+    // Refresh the fresh-artefacts map so the next walkthrough in this
+    // org picks up the new signature without a page reload.
+    void freshArtefacts.reload()
     navigate(`/compliance/checklists/${executionId}`)
   }
 
@@ -755,7 +756,7 @@ export function AmlWalkthroughPage() {
               // unanswered AND applicable AND we have a fresh signed source.
               const autoMarkHit =
                 !notApplicable && !response
-                  ? findFreshArtefact(item, templates, executions)
+                  ? findFreshArtefact(item, freshArtefacts.map)
                   : null
 
               return (
