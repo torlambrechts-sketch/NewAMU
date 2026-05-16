@@ -108,7 +108,7 @@ function SortableQuestionRow({
       ref={setNodeRef}
       style={style}
       className={[
-        'flex items-start gap-3 rounded-lg border border-neutral-200 bg-white p-3 shadow-sm',
+        'flex items-start gap-3 rounded-lg border border-neutral-200/80 bg-white p-4 shadow-sm',
         isDragging ? 'z-10 opacity-90 ring-2 ring-[#1a3d32]/20' : '',
       ].join(' ')}
     >

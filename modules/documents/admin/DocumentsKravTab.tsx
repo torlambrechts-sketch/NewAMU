@@ -61,7 +61,7 @@ export function DocumentsKravTab() {
             {refEntries.map(({ ref, categories }) => (
               <div
                 key={ref}
-                className="flex flex-wrap items-start justify-between gap-3 rounded-lg border border-neutral-200/80 bg-neutral-50/40 px-4 py-3"
+                className="flex flex-wrap items-start justify-between gap-3 rounded-lg border border-neutral-200/80 bg-neutral-50/50 px-4 py-3"
               >
                 <Badge variant="info">{ref}</Badge>
                 <div className="flex flex-wrap gap-1">

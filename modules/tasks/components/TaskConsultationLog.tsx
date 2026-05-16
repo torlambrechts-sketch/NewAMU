@@ -142,7 +142,7 @@ export function TaskConsultationLog({ taskItemId }: Props) {
       </div>
 
       {addOpen && (
-        <div className="rounded-lg border border-neutral-200 bg-white p-3 space-y-3">
+        <div className="rounded-lg border border-neutral-200/80 bg-white p-4 space-y-3">
           <div className="grid grid-cols-2 gap-3">
             <div>
               <p className={`${WPSTD_FORM_FIELD_LABEL} mb-1`}>Navn *</p>
@@ -215,7 +215,7 @@ export function TaskConsultationLog({ taskItemId }: Props) {
       {rows.length > 0 && (
         <ul className="space-y-2">
           {rows.map((r) => (
-            <li key={r.id} className="flex items-start gap-3 rounded-lg border border-neutral-200 bg-white p-3">
+            <li key={r.id} className="flex items-start gap-3 rounded-lg border border-neutral-200/80 bg-white p-4">
               <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-blue-100 text-xs font-semibold text-blue-700">
                 {r.consultedName.charAt(0).toUpperCase()}
               </div>

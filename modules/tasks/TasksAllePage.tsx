@@ -968,7 +968,7 @@ function SubtaskTableRows({ taskItemId }: { taskItemId: string }) {
       })}
 
       {/* Quick-add row */}
-      <tr className="border-b border-neutral-100 bg-neutral-50/40">
+      <tr className="border-b border-neutral-100 bg-neutral-50/50">
         <td className="w-10 px-3 py-2" />
         <td className="px-3 py-1.5" colSpan={7}>
           <div className="flex items-center gap-2 pl-5">

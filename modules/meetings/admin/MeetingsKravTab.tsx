@@ -65,7 +65,7 @@ export function MeetingsKravTab() {
             {groups.map((g) => (
               <div
                 key={g.framework}
-                className="rounded-lg border border-neutral-200/80 bg-neutral-50/40 p-4"
+                className="rounded-lg border border-neutral-200/80 bg-neutral-50/50 p-4"
               >
                 <div className="flex items-center gap-3 mb-3">
                   <div className="shrink-0 rounded border border-neutral-200 bg-white p-1.5">

@@ -127,7 +127,7 @@ export function TaskEvidenceSection({ taskItemId }: Props) {
       </div>
 
       {addOpen && (
-        <div className="rounded-lg border border-neutral-200 bg-white p-3 space-y-3">
+        <div className="rounded-lg border border-neutral-200/80 bg-white p-4 space-y-3">
           <div className="flex gap-2">
             {(['note', 'external_link'] as TaskItemEvidenceKind[]).map((k) => (
               <button
@@ -188,7 +188,7 @@ export function TaskEvidenceSection({ taskItemId }: Props) {
             return (
               <li
                 key={e.id}
-                className="group flex items-start gap-2.5 rounded-lg border border-neutral-200 bg-white p-3"
+                className="group flex items-start gap-2.5 rounded-lg border border-neutral-200/80 bg-white p-4"
               >
                 <Icon className="mt-0.5 h-4 w-4 shrink-0 text-[#c2410c]/60" />
                 <div className="min-w-0 flex-1">

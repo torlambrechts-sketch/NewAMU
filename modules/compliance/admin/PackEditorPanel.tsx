@@ -285,7 +285,7 @@ export function PackEditorPanel({ pack, onClose, onSaved }: Props) {
             {refs.map((r, idx) => (
               <li
                 key={idx}
-                className="flex items-start gap-2 rounded-md border border-neutral-200/80 bg-white p-3"
+                className="flex items-start gap-2 rounded-md border border-neutral-200/80 bg-white p-4"
               >
                 <div className="grid flex-1 gap-2 sm:grid-cols-[180px_1fr]">
                   <StandardInput

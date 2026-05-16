@@ -99,7 +99,7 @@ function SubtaskForm({
   }
 
   return (
-    <div className="space-y-2 rounded-lg border border-[#c2410c]/20 bg-white p-3 shadow-sm">
+    <div className="space-y-2 rounded-lg border border-[#c2410c]/20 bg-white p-4 shadow-sm">
       <input
         autoFocus
         type="text"
