@@ -11,7 +11,12 @@
 export type TaskPack = 'aml-amu' | 'iso-45001'
 
 /** Maps to task_source_category DB enum (retained for backward-compat) */
-export type TaskSourceCategory = 'avvik' | 'risikovurdering' | 'tiltak' | 'general'
+export type TaskSourceCategory =
+  | 'avvik'
+  | 'risikovurdering'
+  | 'tiltak'
+  | 'general'
+  | 'compliance_checklist_item'
 
 /** PDCA phase — maps to task_pdca_phase DB enum */
 export type TaskPdcaPhase = 'plan' | 'do' | 'check' | 'act'

@@ -30,6 +30,14 @@ type Props = {
 
 const UNCATEGORISED_KEY = '__uncategorised__'
 
+/** True when the template's definition jsonb declares sections[] — drives
+ *  routing into AmlWalkthroughPage instead of the flat execution list. */
+function isWalkthroughTemplate(definition: unknown): boolean {
+  if (!definition || typeof definition !== 'object') return false
+  const sections = (definition as { sections?: unknown }).sections
+  return Array.isArray(sections) && sections.length > 0
+}
+
 export function ChecklistsHubLanding({
   packs,
   templates,
@@ -177,11 +185,12 @@ export function ChecklistsHubLanding({
                         <li key={t.id}>
                           <button
                             type="button"
-                            onClick={() =>
-                              navigate(
-                                `/compliance/checklists?template=${encodeURIComponent(t.slug)}&pack=${encodeURIComponent(pack.slug)}`,
-                              )
-                            }
+                            onClick={() => {
+                              const href = isWalkthroughTemplate(t.definition)
+                                ? `/compliance/checklists/walkthrough/${encodeURIComponent(t.slug)}`
+                                : `/compliance/checklists?template=${encodeURIComponent(t.slug)}&pack=${encodeURIComponent(pack.slug)}`
+                              navigate(href)
+                            }}
                             className="group flex h-full w-full flex-col gap-2 rounded-lg border border-neutral-200/80 bg-white p-4 text-left transition-colors hover:border-[#1a3d32]/30 hover:bg-neutral-50"
                           >
                             <div className="flex items-start gap-2">
@@ -196,7 +205,12 @@ export function ChecklistsHubLanding({
                                   </span>
                                 ) : null}
                               </span>
-                              {t.nav_pinned ? (
+                              {isWalkthroughTemplate(t.definition) ? (
+                                <Badge variant="info">
+                                  <Sparkles className="mr-1 inline h-3 w-3" aria-hidden />
+                                  Veiviser
+                                </Badge>
+                              ) : t.nav_pinned ? (
                                 <Badge variant="success">
                                   <Sparkles className="mr-1 inline h-3 w-3" aria-hidden />
                                   Festet
