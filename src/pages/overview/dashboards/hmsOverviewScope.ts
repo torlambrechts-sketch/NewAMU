@@ -37,6 +37,7 @@ const MEMBERS = [
   'tasks',
   'learning',
   'documents',
+  'risk',
 ] as const
 
 // ── Dataset catalogue ─────────────────────────────────────────────────────
@@ -63,6 +64,8 @@ const DATASETS: DatasetMeta[] = [
   { key: 'documents_kpi_summary', label: 'Dokumenter — KPI-sammendrag', shape: 'kpi-record' },
   { key: 'documents_status_distribution', label: 'Dokumenter — status', shape: 'segments' },
   { key: 'documents_published_over_time', label: 'Dokumenter — publisert over tid', shape: 'series' },
+  // Risk — exec leak: red band + unjustified residual
+  { key: 'risk_kpi_summary', label: 'Risiko — KPI-sammendrag', shape: 'kpi-record' },
 ]
 
 // ── KPI strip — one per member scope ──────────────────────────────────────
@@ -118,6 +121,30 @@ const KPI_DOCUMENTS_RETENTION_OVERDUE: ReportModuleKpi = {
   title: 'Forfalt revisjon',
   valuePath: 'retentionOverdue',
   subtitle: 'Dokumenter · krever oppfølging',
+  colSpan: 'sm',
+}
+// Risk leak — two KPIs that surface in the executive overview. The
+// risk scope publishes the full `risk_kpi_summary` record; we pull two
+// fields. `comparisonGoal: 'decrease'` flips the delta colouring so
+// growth reads as a warning, not a win.
+const KPI_RISK_RED_BAND: ReportModuleKpi = {
+  id: 'kpi-risk-red-band',
+  kind: 'kpi',
+  datasetKey: 'risk_kpi_summary',
+  title: 'Røde risikoer',
+  valuePath: 'redBand',
+  subtitle: 'Risiko · 13–25 (uakseptabel)',
+  comparisonGoal: 'decrease',
+  colSpan: 'sm',
+}
+const KPI_RISK_RESIDUAL_UNJUSTIFIED: ReportModuleKpi = {
+  id: 'kpi-risk-residual-unjustified',
+  kind: 'kpi',
+  datasetKey: 'risk_kpi_summary',
+  title: 'Uvurdert restrisiko',
+  valuePath: 'residualUnjustified',
+  subtitle: 'Risiko · Arbeidstilsynet-flagg',
+  comparisonGoal: 'decrease',
   colSpan: 'sm',
 }
 
@@ -183,6 +210,8 @@ const DEFAULT_LAYOUT: ReportModule[] = [
   KPI_COMPLIANCE_YTD,
   KPI_SURVEY_RESPONSES,
   KPI_TASKS_OPEN,
+  KPI_RISK_RED_BAND,
+  KPI_RISK_RESIDUAL_UNJUSTIFIED,
   KPI_LEARNING_COMPLETED_YTD,
   KPI_DOCUMENTS_PUBLISHED,
   KPI_DOCUMENTS_RETENTION_OVERDUE,
@@ -201,6 +230,8 @@ const WIDGET_CATALOG: WidgetCatalogEntry[] = [
   { catalogId: 'kpi-learning-completed-ytd', category: 'Læring', label: 'Fullførte kurs i år', template: KPI_LEARNING_COMPLETED_YTD },
   { catalogId: 'kpi-documents-published', category: 'Dokumenter', label: 'Publiserte sider', template: KPI_DOCUMENTS_PUBLISHED },
   { catalogId: 'kpi-documents-retention-overdue', category: 'Dokumenter', label: 'Forfalt revisjon', template: KPI_DOCUMENTS_RETENTION_OVERDUE },
+  { catalogId: 'kpi-risk-red-band', category: 'Risiko', label: 'Røde risikoer (13–25)', description: 'Antall aktive risikoer i uakseptabelt bånd.', template: KPI_RISK_RED_BAND },
+  { catalogId: 'kpi-risk-residual-unjustified', category: 'Risiko', label: 'Uvurdert restrisiko', description: 'Røde rader uten begrunnelse — Arbeidstilsynet-flagg.', template: KPI_RISK_RESIDUAL_UNJUSTIFIED },
   { catalogId: 'line-compliance-execs', category: 'Trender', label: 'Sjekklister over tid', template: LINE_CHECKLIST_OVER_TIME },
   { catalogId: 'line-learning-completions', category: 'Trender', label: 'Læring over tid', template: LINE_LEARNING_OVER_TIME },
   { catalogId: 'line-documents-published', category: 'Trender', label: 'Dokumenter over tid', template: LINE_DOCUMENTS_OVER_TIME },

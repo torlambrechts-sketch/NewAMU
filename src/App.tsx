@@ -55,6 +55,7 @@ import { WorkplacePublishedComposerProvider } from './context/WorkplacePublished
 import { WelcomeDashboardPage } from './pages/WelcomeDashboardPage'
 import { TasksManagementPage, TasksAnalysePage } from '../modules/tasks'
 import { TasksAllePage } from '../modules/tasks/TasksAllePage'
+import { RiskAnalysePage, RiskRegisterPage } from '../modules/risk'
 import { TasksManagementReviewPage } from '../modules/tasks/TasksManagementReviewPage'
 import { ChecklistsAllePage } from '../modules/compliance/ChecklistsAllePage'
 import { SurveyAllePage } from '../modules/survey/SurveyAllePage'
@@ -318,6 +319,9 @@ const router = createBrowserRouter(
                       <Route path="tasks/management/review" element={<TasksManagementReviewPage />} />
                       <Route path="overview/hms" element={<PackProvider><HmsOverviewPage /></PackProvider>} />
                       <Route path="overview/regelverk" element={<RegelverkCoveragePage />} />
+                      <Route path="risk" element={<Navigate to="/risk/analyse" replace />} />
+                      <Route path="risk/analyse" element={<RiskAnalysePage />} />
+                      <Route path="risk/register" element={<RiskRegisterPage />} />
                       <Route path="compliance-studio" element={<ComplianceStudioPage />} />
                       <Route path="organisation" element={<OrganisationPage />} />
                       <Route path="organisation/admin" element={<LegacyOrgAdminRedirect />} />

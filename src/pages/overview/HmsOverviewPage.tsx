@@ -43,6 +43,9 @@ import { useTaskItemsData } from '../../../modules/tasks/useTaskItemsData'
 import { useTasksDatasets } from '../../../modules/tasks/dashboards/useTasksDatasets'
 import { useDocuments } from '../../hooks/useDocuments'
 import { useDocumentsDatasets } from '../documents/dashboards/useDocumentsDatasets'
+import { useRiskDatasets } from '../../../modules/risk/dashboards/useRiskDatasets'
+import { useRiskSourceData } from '../../../modules/risk/dashboards/useRiskSourceData'
+import '../../../modules/risk/dashboards/riskDashboardScope'
 import {
   HMS_OVERVIEW_SCOPE_ID,
   // Side-effect import: registers the composite scope on module load.
@@ -172,10 +175,23 @@ export function HmsOverviewPage() {
     accessRequestsOpen,
   })
 
+  // Risk member — aggregate-only, loads the five source tables and
+  // computes the same dataset map RiskAnalysePage uses. Filter chips
+  // cascade because the hook ignores chips it doesn't understand.
+  const riskSource = useRiskSourceData()
+  const riskDs = useRiskDatasets({
+    filters: dashboard.filters,
+    findings: riskSource.findings,
+    tasks: riskSource.tasks,
+    deviations: riskSource.deviations,
+    inspectionFindings: riskSource.inspectionFindings,
+    alerts: riskSource.alerts,
+  })
+
   // Merge — keys are scope-namespaced so collisions are impossible.
   const datasets = useMemo<Record<string, unknown>>(
-    () => ({ ...checklistDs, ...surveyDs, ...tasksDs, ...learningDs, ...documentsDs }),
-    [checklistDs, surveyDs, tasksDs, learningDs, documentsDs],
+    () => ({ ...checklistDs, ...surveyDs, ...tasksDs, ...learningDs, ...documentsDs, ...riskDs }),
+    [checklistDs, surveyDs, tasksDs, learningDs, documentsDs, riskDs],
   )
 
   const layout = useMemo(
@@ -273,10 +289,11 @@ export function HmsOverviewPage() {
           survey.loading ||
           learning.learningLoading ||
           docs.loading ||
+          riskSource.loading ||
           dashboard.loading
         }
         error={
-          cl.error ?? survey.error ?? learning.learningError ?? docs.error ?? dashboard.error
+          cl.error ?? survey.error ?? learning.learningError ?? docs.error ?? riskSource.error ?? dashboard.error
         }
         emptyState={
           <div className="rounded-md border border-dashed border-neutral-300 bg-white p-8 text-center">

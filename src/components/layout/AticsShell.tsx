@@ -266,6 +266,18 @@ const ALERTS_NAV_PERMS: PermissionKey[] = [
   'module.view.dashboard',
 ]
 
+// Permission gate for the Risiko menu — aggregate dashboard reads from
+// compliance findings, tasks (avvik/nestenulykke/risiko/tiltak),
+// deviations and alerts. Any role that can already see those modules
+// gets the risk view; admins use module-level `is_active` to disable.
+const RISK_NAV_PERMS: PermissionKey[] = [
+  'module.view.dashboard',
+  'checklist.manage',
+  'incident.view',
+  'incident.manage',
+  'module.view.tasks',
+]
+
 
 function filterNavGroups(
   groups: NavGroup[],
@@ -1583,6 +1595,63 @@ export function AticsShell() {
       ],
     }
 
+    // Risiko — synthetic group. Aggregate visibility dashboard reading
+    // from compliance findings, tasks (avvik/nestenulykke/risiko/tiltak),
+    // deviations and alerts. No write surface in P1; the register sub-
+    // page is a stub until P2 introduces `risk_register_unified_v`.
+    const RISK_HAZARD_PRESETS: { id: string; label: string }[] = [
+      { id: 'psychosocial', label: 'Psykososial (AML § 4-3)' },
+      { id: 'physical', label: 'Fysisk' },
+      { id: 'chemical', label: 'Kjemisk' },
+      { id: 'ergonomic', label: 'Ergonomisk' },
+      { id: 'fire', label: 'Brann/eksplosjon' },
+      { id: 'electrical', label: 'Elektrisk' },
+      { id: 'environmental', label: 'Ytre miljø' },
+    ]
+    const riskFixedSubs: SubItem[] = [
+      {
+        label: 'Analyse',
+        path: '/risk/analyse',
+        Icon: BarChart3,
+        match: ({ pathname, search }) =>
+          pathname === '/risk/analyse' && !new URLSearchParams(search).get('hazardCategory'),
+        requirePermAny: RISK_NAV_PERMS,
+      },
+      {
+        label: 'Risikoregister',
+        path: '/risk/register',
+        Icon: ClipboardList,
+        match: ({ pathname }) => pathname.startsWith('/risk/register'),
+        requirePermAny: RISK_NAV_PERMS,
+      },
+    ]
+    const riskPinnedSubs: SubItem[] = RISK_HAZARD_PRESETS.map((c) => ({
+      label: c.label,
+      path: `/risk/analyse?hazardCategory=${c.id}`,
+      match: ({ pathname, search }) => {
+        if (pathname !== '/risk/analyse') return false
+        return new URLSearchParams(search).get('hazardCategory') === c.id
+      },
+      requirePermAny: RISK_NAV_PERMS,
+    }))
+    const riskGroup: NavGroup = {
+      id: 'risiko',
+      label: 'Risiko',
+      icon: ShieldAlert,
+      modules: [
+        {
+          to: '/risk/analyse',
+          label: 'Risiko',
+          end: false,
+          icon: ShieldAlert,
+          subs: [...riskFixedSubs, ...riskPinnedSubs],
+          permAny: RISK_NAV_PERMS,
+          moduleSlug: 'risk',
+          flatSubs: true,
+        },
+      ],
+    }
+
     // Composite "Oversikt" group — sits at the top of the merged nav
     // since it's the org-wide entry point that pulls in widgets from
     // every other module group below it.
@@ -1632,7 +1701,7 @@ export function AticsShell() {
       ],
     }
 
-    return [hmsOverviewGroup, complianceGroup, surveyGroup, documentsGroup, meetingsGroup, alertsGroup, registersGroup, tasksGroup, learningGroup, adminGroup]
+    return [hmsOverviewGroup, complianceGroup, surveyGroup, documentsGroup, meetingsGroup, alertsGroup, registersGroup, tasksGroup, riskGroup, learningGroup, adminGroup]
   }, [
     complianceNav.items,
     complianceNav.categories,
