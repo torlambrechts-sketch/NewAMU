@@ -35,6 +35,17 @@ const ChecklistItemResolutionSchema = z.object({
   route: z.string().optional(),
 })
 
+const ChecklistItemApplicabilityConditionSchema = z.object({
+  field: z.string().min(1),
+  op: z.enum(['eq', 'neq', 'gt', 'gte', 'lt', 'lte']),
+  value: z.union([z.number(), z.string(), z.boolean()]),
+})
+
+const ChecklistItemApplicabilityRuleSchema = z.object({
+  hideWhen: z.array(ChecklistItemApplicabilityConditionSchema).min(1),
+  reason: z.string().min(1),
+})
+
 const ChecklistItemSchema: z.ZodType<ChecklistItem> = z.object({
   key: z.string().min(1),
   prompt: z.string().min(1),
@@ -54,6 +65,7 @@ const ChecklistItemSchema: z.ZodType<ChecklistItem> = z.object({
     })
     .optional(),
   status_hint: z.string().optional(),
+  applicability: z.array(ChecklistItemApplicabilityRuleSchema).optional(),
 })
 
 const ChecklistSectionSchema = z.object({

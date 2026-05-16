@@ -274,6 +274,39 @@ const TABLE_TEMPLATE: ReportModuleTable = {
   rowKeys: [],
   colSpan: 'full',
 }
+/** Factory for paragraph-grid widget catalog entries. Other walkthroughs
+ *  (ISO 45001 / GDPR / Åpenhetsloven) plug in by calling this with their
+ *  slug + display label and pushing the result into WIDGET_CATALOG below.
+ *  Backward-compat aliases (e.g. `compliance_paragraph_grid_aml`) work
+ *  transparently — the dataset emitter (useChecklistDatasets) keeps both
+ *  the canonical `_<slug>` key and the legacy AML alias populated. */
+export function paragraphGridCatalogEntry(opts: {
+  slug: string
+  label: string
+  subtitle?: string
+  description?: string
+  drillDimensionId?: string
+}): WidgetCatalogEntry {
+  const template: Omit<ReportModuleComplianceParagraphGrid, 'id'> = {
+    kind: 'compliance_paragraph_grid',
+    datasetKey: `compliance_paragraph_grid_${opts.slug}`,
+    title: opts.label,
+    subtitle: opts.subtitle ?? 'Hver paragraf farget etter status i siste signerte gjennomgang',
+    colSpan: 'full',
+    hideEmptyChapters: true,
+    drillDimensionId: opts.drillDimensionId ?? 'law_ref',
+  }
+  return {
+    catalogId: `paragraph-grid-${opts.slug}`,
+    category: 'Compliance',
+    label: opts.label,
+    description:
+      opts.description ??
+      'Heat-map med alle paragrafer farget etter status i siste signerte gjennomgang. Klikk en celle for å filtrere analysen til den paragrafen.',
+    template,
+  }
+}
+
 const PARAGRAPH_GRID_AML: ReportModuleComplianceParagraphGrid = {
   id: 'paragraph-grid-aml',
   kind: 'compliance_paragraph_grid',

@@ -59,11 +59,47 @@ const ANSWER_LABEL: Record<YesNoNa, string> = {
 const draftStorageKey = (execId: string, itemKey: string) =>
   `aml-walkthrough.draft.${execId}.${itemKey}`
 
+/** Evaluate one condition against the execution metadata bag. */
+function evalCondition(
+  cond: { field: string; op: 'eq' | 'neq' | 'gt' | 'gte' | 'lt' | 'lte'; value: number | string | boolean },
+  metadata: Record<string, unknown>,
+): boolean {
+  const raw = metadata[cond.field]
+  // Numeric coercion is generous — '5' from a number-input field still
+  // compares correctly against 5. Boolean and string fall through to
+  // strict equality.
+  const left =
+    typeof cond.value === 'number'
+      ? Number(raw)
+      : typeof cond.value === 'boolean'
+        ? Boolean(raw)
+        : String(raw ?? '')
+  const right = cond.value
+  switch (cond.op) {
+    case 'eq': return left === right
+    case 'neq': return left !== right
+    case 'gt': return typeof left === 'number' && typeof right === 'number' && left > right
+    case 'gte': return typeof left === 'number' && typeof right === 'number' && left >= right
+    case 'lt': return typeof left === 'number' && typeof right === 'number' && left < right
+    case 'lte': return typeof left === 'number' && typeof right === 'number' && left <= right
+    default: return false
+  }
+}
+
 /**
  * Terskelgating — leser organisations-metadata fra Section 0 og avgjør
  * om et item er pålagt for denne organisasjonen. Greys ut spørsmål som
  * lover under terskel — viser dem fortsatt (transparens) men i deaktivert
  * form med en chip som forklarer hvorfor.
+ *
+ * To kilder, i rekkefølge:
+ *   1. Per-item `applicability` rules (deklarativt, pack-agnostisk).
+ *      Hvis et rule's `hideWhen[]` alle er sanne, → not_applicable
+ *      med rule.reason som chip-tekst. Rules-array er OR-joinet.
+ *   2. Legacy hardkodet kart for de første AML-itemene som ble
+ *      seedet før applicability-feltet ble lagt til. Holdes for
+ *      backward-compat; bør tømmes når AML-seeden retrofittes med
+ *      eksplisitte rules.
  *
  * Reglene baseres på terskler i AML:
  *  - § 2A-7: skriftlige varslingsrutiner pålagt fra 5 ansatte
@@ -78,6 +114,18 @@ function applicabilityFor(
   metadata: Record<string, unknown> | null | undefined,
 ): { state: Applicability; reason?: string } {
   const m = metadata ?? {}
+
+  // 1. Item-declared rules win when present.
+  if (item.applicability && item.applicability.length > 0) {
+    for (const rule of item.applicability) {
+      if (rule.hideWhen.every((c) => evalCondition(c, m))) {
+        return { state: 'not_applicable', reason: rule.reason }
+      }
+    }
+    return { state: 'applicable' }
+  }
+
+  // 2. Legacy hardcoded AML map.
   const antall = Number(m.antall_ansatte ?? 0)
   const tariff = m.tariffavtale === 'ja'
   const innleide = Number(m.antall_innleide ?? 0)
@@ -91,7 +139,6 @@ function applicabilityFor(
         ? { state: 'applicable' }
         : { state: 'not_applicable', reason: 'Påkrevd kun fra 5 ansatte' }
     case 'k6_1_valgt':
-      // <5 ansatte + tariffenighet = lovlig unntak; alle andre tilfeller pålagt.
       return antall >= 5 || !tariff
         ? { state: 'applicable' }
         : { state: 'not_applicable', reason: 'Lovlig unntak (≤5 ansatte + tariffavtale)' }

@@ -72,6 +72,50 @@ export type ChecklistItem = {
   }
   /** Wording shown above the yes/no/na input — eg. "Hvordan står dere på dette i dag?". */
   status_hint?: string
+  /**
+   * Pack-agnostic applicability rules — when set, drives the wizard's
+   * "Ikke aktuelt" greying without any hardcoded item-key logic in the
+   * page. Each rule's `hideWhen[]` is AND-joined; the rules array
+   * itself is OR-joined ("if any rule matches → item is N/A").
+   *
+   * Field names map to keys in `execution.metadata` (collected by the
+   * template's metadata_schema in Section 0). Reason is shown to the
+   * user as a chip next to the greyed item.
+   */
+  applicability?: ChecklistItemApplicabilityRule[]
+}
+
+/**
+ * Pack-agnostic applicability rule. Templates declare these per-item
+ * to gate behaviour on Section-0 metadata answers. Example for AML
+ * § 2A-7 ("only required ≥5 ansatte"):
+ *
+ *   applicability: [{
+ *     hideWhen: [{ field: 'antall_ansatte', op: 'lt', value: 5 }],
+ *     reason: 'Påkrevd kun fra 5 ansatte'
+ *   }]
+ *
+ * For § 6-1 ("waived when <5 ansatte AND tariff exists"):
+ *
+ *   applicability: [{
+ *     hideWhen: [
+ *       { field: 'antall_ansatte', op: 'lt', value: 5 },
+ *       { field: 'tariffavtale',   op: 'eq', value: 'ja' }
+ *     ],
+ *     reason: 'Lovlig unntak (≤5 ansatte + tariffavtale)'
+ *   }]
+ */
+export type ChecklistItemApplicabilityRule = {
+  hideWhen: ChecklistItemApplicabilityCondition[]
+  reason: string
+}
+
+export type ChecklistItemApplicabilityOp = 'eq' | 'neq' | 'gt' | 'gte' | 'lt' | 'lte'
+
+export type ChecklistItemApplicabilityCondition = {
+  field: string
+  op: ChecklistItemApplicabilityOp
+  value: number | string | boolean
 }
 
 /**
