@@ -1,16 +1,23 @@
 // /admin/templates — cross-module template browser.
 //
-// Renders every template in the org so admins can browse, filter, and
-// jump into the per-module editor for CRUD. Visual reference is the
-// Pinpoint Background Checks layout block at
+// Renders every template in the org so admins can browse, filter, view
+// details and jump into the per-module editor for CRUD. Visual reference
+// is the Pinpoint Background Checks layout block at
 // /platform-admin/layout-reference → "Background checks (Certn)":
 // status tabs across the top, a white card wrapping the toolbar +
 // table + pagination footer, neutral-50 row hover, pill badges.
 //
-// This page is read + redirect, not a new authoring UX. Each row's
-// "Rediger" link routes back to the source module's editor; the new
-// "Ny mal" dropdown in the header sends admins to the source module's
-// template admin where new templates are authored.
+// Three interactions open the right-side drawer instead of navigating
+// away:
+//   - Ny mal button       → drawer mode 'new' (type picker)
+//   - Row name click      → drawer mode 'view' (template details)
+//   - Rediger row button  → drawer mode 'view' with edit affordance
+//
+// The drawer is a stepping stone, not an editor. From 'new' the admin
+// picks a type and is sent to that module's templates admin; from
+// 'view' the admin clicks "Åpne i full editor" and lands on the
+// module's per-template editor. Actual CRUD stays in each module —
+// this page is read + redirect.
 
 import { useMemo, useState, useRef, useEffect, type ReactNode } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
@@ -22,14 +29,16 @@ import {
   ChevronRight,
   ClipboardList,
   Database,
+  ExternalLink,
   FileText,
   GraduationCap,
   Megaphone,
-  MoreHorizontal,
+  Pencil,
   Plus,
   RefreshCw,
   Search,
   Settings,
+  X,
 } from 'lucide-react'
 import { ModulePageShell } from '../../components/module'
 import { Button } from '../../components/ui/Button'
@@ -74,6 +83,14 @@ const SOURCE_NEW_PATH: Record<AdminTemplateSource, string> = {
   registers: '/admin/settings/registers',
 }
 
+const SOURCE_DESCRIPTION: Record<AdminTemplateSource, string> = {
+  compliance: 'Sjekkliste-maler — gjenbrukbare punktlister, pack-bundlede krav, skjema-felter.',
+  survey: 'Undersøkelses-maler — QPSNordic/ARK, AMU, tiltak, pulse-spørringer.',
+  documents: 'Dokument- og wiki-maler — prosedyrer, rutiner, retningslinjer.',
+  learning: 'Kurs-maler — opplæringsmoduler, kvitteringer, kompetansebevis.',
+  registers: 'Register-maler — utstyrs-, kjemikalie-, leverandørlister.',
+}
+
 const SOURCE_ICON: Record<AdminTemplateSource, typeof ClipboardList> = {
   compliance: ClipboardList,
   survey: Megaphone,
@@ -84,6 +101,11 @@ const SOURCE_ICON: Record<AdminTemplateSource, typeof ClipboardList> = {
 
 const PAGE_SIZE_OPTIONS = [10, 25, 50, 100] as const
 type PageSize = (typeof PAGE_SIZE_OPTIONS)[number]
+
+type DrawerState =
+  | { kind: 'closed' }
+  | { kind: 'new' }
+  | { kind: 'view'; row: AdminTemplateRow }
 
 export function AdminTemplatesPage() {
   const { rows, loading, error, refresh } = useAdminTemplates()
@@ -96,6 +118,7 @@ export function AdminTemplatesPage() {
   const [activeStatus, setActiveStatus] = useState<AdminTemplateStatus | null>(null)
   const [pageSize, setPageSize] = useState<PageSize>(25)
   const [page, setPage] = useState(0)
+  const [drawer, setDrawer] = useState<DrawerState>({ kind: 'closed' })
 
   const totals = useMemo(() => {
     const bySource = new Map<AdminTemplateSource, number>()
@@ -134,7 +157,7 @@ export function AdminTemplatesPage() {
         { label: 'Maler' },
       ]}
       title="Maler"
-      description="Alle maler i organisasjonen — sjekklister, undersøkelser, dokumenter, kurs, registertyper. Klikk en rad for å redigere i modulen som eier malen."
+      description="Alle maler i organisasjonen — sjekklister, undersøkelser, dokumenter, kurs, registertyper. Klikk en rad for å åpne et detaljpanel."
       headerActions={
         <div className="flex items-center gap-2">
           <Button
@@ -153,13 +176,19 @@ export function AdminTemplatesPage() {
             <ArrowLeft className="h-4 w-4" />
             Til Selskap
           </Link>
-          <NyMalDropdown />
+          <button
+            type="button"
+            onClick={() => setDrawer({ kind: 'new' })}
+            className="inline-flex items-center justify-center gap-1.5 rounded-md bg-[#1a3d32] px-4 py-2 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-[#16382e]"
+          >
+            <Plus className="h-4 w-4" />
+            Ny mal
+          </button>
         </div>
       }
     >
       {error ? <WarningBox>{error}</WarningBox> : null}
 
-      {/* Source tabs — same shape as the BackgroundChecks reference tab row */}
       <div className="flex flex-wrap items-end gap-x-1 gap-y-2 border-b border-neutral-200 pb-0">
         <SourceTab
           label="Alle"
@@ -186,7 +215,6 @@ export function AdminTemplatesPage() {
       </div>
 
       <div className="mt-4 overflow-hidden rounded-lg border border-neutral-200 bg-white shadow-sm">
-        {/* Toolbar */}
         <div className="flex flex-wrap items-center gap-3 border-b border-neutral-100 px-4 py-3 sm:px-5">
           <div className="relative min-w-[220px] flex-1">
             <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-neutral-400" />
@@ -225,7 +253,6 @@ export function AdminTemplatesPage() {
           </button>
         </div>
 
-        {/* Table */}
         {loading && rows.length === 0 ? (
           <p className="py-12 text-center text-sm text-neutral-500">Laster maler …</p>
         ) : visible.length === 0 ? (
@@ -248,14 +275,17 @@ export function AdminTemplatesPage() {
               </thead>
               <tbody className="divide-y divide-neutral-100">
                 {visible.map((r) => (
-                  <TemplateRow key={r.rowId} row={r} />
+                  <TemplateRow
+                    key={r.rowId}
+                    row={r}
+                    onOpen={() => setDrawer({ kind: 'view', row: r })}
+                  />
                 ))}
               </tbody>
             </table>
           </div>
         )}
 
-        {/* Footer */}
         <div className="flex flex-wrap items-center justify-between gap-3 border-t border-neutral-100 px-4 py-3 text-xs text-neutral-600 sm:px-5">
           <div className="flex flex-wrap items-center gap-3">
             <label className="flex items-center gap-2">
@@ -302,6 +332,8 @@ export function AdminTemplatesPage() {
           </div>
         </div>
       </div>
+
+      <TemplateDrawer state={drawer} onClose={() => setDrawer({ kind: 'closed' })} />
     </ModulePageShell>
   )
 }
@@ -402,72 +434,6 @@ function StatusFilter({
   )
 }
 
-function NyMalDropdown() {
-  const [open, setOpen] = useState(false)
-  const navigate = useNavigate()
-  const rootRef = useRef<HTMLDivElement | null>(null)
-
-  useEffect(() => {
-    if (!open) return
-    const handler = (e: MouseEvent) => {
-      if (!rootRef.current?.contains(e.target as Node)) setOpen(false)
-    }
-    document.addEventListener('mousedown', handler)
-    return () => document.removeEventListener('mousedown', handler)
-  }, [open])
-
-  const onPick = (source: AdminTemplateSource) => {
-    setOpen(false)
-    navigate(SOURCE_NEW_PATH[source])
-  }
-
-  return (
-    <div ref={rootRef} className="relative">
-      <button
-        type="button"
-        onClick={() => setOpen((o) => !o)}
-        aria-haspopup="menu"
-        aria-expanded={open}
-        className="inline-flex items-center justify-center gap-1.5 rounded-md bg-[#1a3d32] px-4 py-2 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-[#16382e]"
-      >
-        <Plus className="h-4 w-4" />
-        Ny mal
-        <ChevronDown className="h-3.5 w-3.5 opacity-80" />
-      </button>
-      {open ? (
-        <div
-          role="menu"
-          className="absolute right-0 z-20 mt-1 w-64 overflow-hidden rounded-md border border-neutral-200 bg-white shadow-lg"
-        >
-          <div className="border-b border-neutral-100 px-3 py-2 text-[10px] font-bold uppercase tracking-wider text-neutral-500">
-            Velg malttype
-          </div>
-          {SOURCE_KEYS.map((s) => {
-            const Icon = SOURCE_ICON[s]
-            return (
-              <button
-                key={s}
-                type="button"
-                onClick={() => onPick(s)}
-                role="menuitem"
-                className="flex w-full items-center gap-3 px-3 py-2.5 text-left text-sm text-neutral-800 hover:bg-neutral-50"
-              >
-                <Icon className="size-4 shrink-0 text-neutral-500" />
-                <div className="flex flex-col">
-                  <span className="font-medium">{ADMIN_TEMPLATE_SOURCE_LABELS[s]}</span>
-                  <span className="text-[11px] text-neutral-500">
-                    Opprett i {ADMIN_TEMPLATE_SOURCE_LABELS[s].toLowerCase()}-modulen
-                  </span>
-                </div>
-              </button>
-            )
-          })}
-        </div>
-      ) : null}
-    </div>
-  )
-}
-
 function MenuItem({
   label,
   onClick,
@@ -492,11 +458,23 @@ function MenuItem({
   )
 }
 
-function TemplateRow({ row }: { row: AdminTemplateRow }) {
+function TemplateRow({
+  row,
+  onOpen,
+}: {
+  row: AdminTemplateRow
+  onOpen: () => void
+}) {
   return (
     <tr className="hover:bg-neutral-50/80">
       <td className="px-4 py-4 sm:px-5">
-        <p className="font-semibold text-neutral-900">{row.name}</p>
+        <button
+          type="button"
+          onClick={onOpen}
+          className="text-left font-semibold text-neutral-900 hover:text-[#1a3d32] hover:underline"
+        >
+          {row.name}
+        </button>
         {row.category ? (
           <p className="text-xs text-neutral-500">{row.category}</p>
         ) : null}
@@ -525,22 +503,194 @@ function TemplateRow({ row }: { row: AdminTemplateRow }) {
         {row.updatedAt ? new Date(row.updatedAt).toLocaleDateString('nb-NO') : '—'}
       </td>
       <td className="px-4 py-4 text-right sm:px-5">
-        <Link
-          to={row.editUrl}
-          className="inline-flex items-center gap-1 text-xs font-semibold text-[#1a3d32] hover:underline"
-          aria-label={`Rediger ${row.name}`}
-        >
-          Rediger <ArrowRight className="h-3 w-3" />
-        </Link>
         <button
           type="button"
-          className="ml-2 text-neutral-400 hover:text-neutral-700"
-          aria-label="Meny"
-          disabled
+          onClick={onOpen}
+          className="inline-flex items-center gap-1 rounded-md border border-neutral-200 bg-white px-2.5 py-1 text-xs font-semibold text-neutral-700 transition-colors hover:bg-neutral-50"
+          aria-label={`Åpne ${row.name}`}
         >
-          <MoreHorizontal className="size-4" />
+          <Pencil className="h-3 w-3" />
+          Rediger
         </button>
       </td>
     </tr>
+  )
+}
+
+function TemplateDrawer({
+  state,
+  onClose,
+}: {
+  state: DrawerState
+  onClose: () => void
+}) {
+  // Close on Esc, body-scroll lock while open
+  useEffect(() => {
+    if (state.kind === 'closed') return
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose()
+    }
+    document.addEventListener('keydown', onKey)
+    const prev = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    return () => {
+      document.removeEventListener('keydown', onKey)
+      document.body.style.overflow = prev
+    }
+  }, [state.kind, onClose])
+
+  if (state.kind === 'closed') return null
+
+  const title = state.kind === 'new' ? 'Ny mal' : state.row.name
+
+  return (
+    <div className="fixed inset-0 z-40">
+      <button
+        type="button"
+        aria-label="Lukk panel"
+        onClick={onClose}
+        className="absolute inset-0 bg-neutral-900/40 backdrop-blur-[1px]"
+      />
+      <aside
+        role="dialog"
+        aria-modal="true"
+        aria-label={title}
+        className="absolute right-0 top-0 flex h-full w-full max-w-md flex-col border-l border-neutral-200 bg-white shadow-2xl"
+      >
+        <header className="flex items-start justify-between gap-3 border-b border-neutral-100 px-5 py-4">
+          <div className="min-w-0">
+            <p className="text-[10px] font-bold uppercase tracking-wider text-neutral-500">
+              {state.kind === 'new' ? 'Velg malttype' : 'Mal-detaljer'}
+            </p>
+            <h2 className="truncate text-lg font-semibold text-neutral-900">{title}</h2>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Lukk"
+            className="rounded-md p-1 text-neutral-500 hover:bg-neutral-100"
+          >
+            <X className="size-5" />
+          </button>
+        </header>
+
+        <div className="flex-1 overflow-y-auto px-5 py-5">
+          {state.kind === 'new' ? (
+            <NewTemplatePicker onClose={onClose} />
+          ) : (
+            <TemplateDetails row={state.row} />
+          )}
+        </div>
+      </aside>
+    </div>
+  )
+}
+
+function NewTemplatePicker({ onClose }: { onClose: () => void }) {
+  const navigate = useNavigate()
+  const onPick = (source: AdminTemplateSource) => {
+    onClose()
+    navigate(SOURCE_NEW_PATH[source])
+  }
+  return (
+    <div className="space-y-2">
+      <p className="mb-3 text-xs text-neutral-600">
+        Velg type mal du vil opprette. Du sendes til riktig modul der du fyller ut innholdet.
+      </p>
+      {SOURCE_KEYS.map((s) => {
+        const Icon = SOURCE_ICON[s]
+        return (
+          <button
+            key={s}
+            type="button"
+            onClick={() => onPick(s)}
+            className="flex w-full items-start gap-3 rounded-lg border border-neutral-200 bg-white p-3 text-left transition-colors hover:border-[#1a3d32]/40 hover:bg-neutral-50"
+          >
+            <div className="rounded-md bg-[#1a3d32]/10 p-2 text-[#1a3d32]">
+              <Icon className="size-4" />
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-semibold text-neutral-900">
+                {ADMIN_TEMPLATE_SOURCE_LABELS[s]}
+              </p>
+              <p className="mt-0.5 text-xs text-neutral-600">{SOURCE_DESCRIPTION[s]}</p>
+            </div>
+            <ArrowRight className="mt-0.5 size-4 shrink-0 text-neutral-400" />
+          </button>
+        )
+      })}
+    </div>
+  )
+}
+
+function TemplateDetails({ row }: { row: AdminTemplateRow }) {
+  const Icon = SOURCE_ICON[row.source]
+  return (
+    <div className="flex h-full flex-col">
+      <div className="space-y-4">
+        <div className="flex items-center gap-2">
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-neutral-100 px-2.5 py-1 text-[11px] font-medium text-neutral-700">
+            <Icon className="size-3.5" />
+            {row.sourceLabel}
+          </span>
+          <span
+            className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-semibold ${STATUS_PILL[row.status]}`}
+          >
+            {ADMIN_TEMPLATE_STATUS_LABELS[row.status]}
+          </span>
+          {row.isSystem ? (
+            <span className="inline-block rounded-full border border-neutral-200 bg-neutral-100 px-1.5 py-0.5 text-[10px] text-neutral-600">
+              system
+            </span>
+          ) : null}
+        </div>
+
+        <dl className="grid grid-cols-1 gap-3 text-sm">
+          {row.category ? (
+            <div>
+              <dt className="text-xs font-medium uppercase tracking-wide text-neutral-500">
+                Kategori
+              </dt>
+              <dd className="mt-0.5 text-neutral-900">{row.category}</dd>
+            </div>
+          ) : null}
+          {row.hint ? (
+            <div>
+              <dt className="text-xs font-medium uppercase tracking-wide text-neutral-500">Hint</dt>
+              <dd className="mt-0.5 font-mono text-xs text-neutral-700">{row.hint}</dd>
+            </div>
+          ) : null}
+          <div>
+            <dt className="text-xs font-medium uppercase tracking-wide text-neutral-500">
+              Sist oppdatert
+            </dt>
+            <dd className="mt-0.5 text-neutral-900">
+              {row.updatedAt ? new Date(row.updatedAt).toLocaleString('nb-NO') : '—'}
+            </dd>
+          </div>
+          <div>
+            <dt className="text-xs font-medium uppercase tracking-wide text-neutral-500">
+              Id (intern)
+            </dt>
+            <dd className="mt-0.5 font-mono text-xs text-neutral-700 break-all">{row.id}</dd>
+          </div>
+        </dl>
+
+        <div className="rounded-md bg-neutral-50 p-3 text-xs text-neutral-600">
+          Selve innholdet i malen redigeres i {row.sourceLabel}-modulen. Klikk under for å åpne
+          mal-editoren med riktige felter og forhåndsvisning.
+        </div>
+      </div>
+
+      <div className="mt-auto flex flex-col gap-2 pt-5">
+        <Link
+          to={row.editUrl}
+          className="inline-flex items-center justify-center gap-2 rounded-md bg-[#1a3d32] px-4 py-2 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-[#16382e]"
+        >
+          <ExternalLink className="size-4" />
+          Åpne i full editor
+        </Link>
+      </div>
+    </div>
   )
 }
