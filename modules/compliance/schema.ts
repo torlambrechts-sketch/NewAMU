@@ -19,6 +19,22 @@ import type {
 
 // ── Definition (jsonb) ──────────────────────────────────────────────────────
 
+const ChecklistItemResolutionSchema = z.object({
+  kind: z.enum([
+    'checklist_template',
+    'document',
+    'register',
+    'survey',
+    'learning',
+    'meeting',
+    'workflow',
+    'manual',
+  ]),
+  ref: z.string().optional(),
+  label: z.string().optional(),
+  route: z.string().optional(),
+})
+
 const ChecklistItemSchema: z.ZodType<ChecklistItem> = z.object({
   key: z.string().min(1),
   prompt: z.string().min(1),
@@ -29,10 +45,29 @@ const ChecklistItemSchema: z.ZodType<ChecklistItem> = z.object({
   severity_default: z.enum(['low', 'medium', 'high', 'critical']).optional(),
   help: z.string().optional(),
   requirement_slugs: z.array(z.string()).optional(),
+  resolutions: z.array(ChecklistItemResolutionSchema).optional(),
+  task_template: z
+    .object({
+      title: z.string().min(1),
+      description: z.string().optional(),
+      priority: z.enum(['low', 'medium', 'high', 'critical']).optional(),
+    })
+    .optional(),
+  status_hint: z.string().optional(),
+})
+
+const ChecklistSectionSchema = z.object({
+  key: z.string().min(1),
+  title: z.string().min(1),
+  intro: z.string().optional(),
+  chapter: z.string().optional(),
+  estimatedMinutes: z.number().int().nonnegative().optional(),
+  items: z.array(ChecklistItemSchema).default([]),
 })
 
 const ChecklistDefinitionSchema: z.ZodType<ChecklistDefinition> = z.object({
   items: z.array(ChecklistItemSchema).default([]),
+  sections: z.array(ChecklistSectionSchema).optional(),
 })
 
 export function parseChecklistDefinition(input: unknown): ChecklistDefinition {

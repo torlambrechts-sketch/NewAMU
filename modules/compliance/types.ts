@@ -17,6 +17,31 @@ export type ChecklistItemType =
   | 'signature'
   | 'date'
 
+/**
+ * Resolution pointer — where this requirement is or should be solved
+ * today. Surfaced in the wizard as a chip with a deep-link, and used
+ * by the "auto-mark from existing artefacts" path.
+ */
+export type ChecklistItemResolutionKind =
+  | 'checklist_template'
+  | 'document'
+  | 'register'
+  | 'survey'
+  | 'learning'
+  | 'meeting'
+  | 'workflow'
+  | 'manual'
+
+export type ChecklistItemResolution = {
+  kind: ChecklistItemResolutionKind
+  /** Slug or id of the linked artefact. */
+  ref?: string
+  /** Display label override. */
+  label?: string
+  /** In-app route that opens the artefact. */
+  route?: string
+}
+
 export type ChecklistItem = {
   key: string
   prompt: string
@@ -37,10 +62,46 @@ export type ChecklistItem = {
    * compliance_template_requirements.
    */
   requirement_slugs?: string[]
+  /** Where this requirement is or should be solved. Up to ~3 pointers per item. */
+  resolutions?: ChecklistItemResolution[]
+  /** Suggested task title + body prefilled when the user clicks "Opprett oppgave". */
+  task_template?: {
+    title: string
+    description?: string
+    priority?: 'low' | 'medium' | 'high' | 'critical'
+  }
+  /** Wording shown above the yes/no/na input — eg. "Hvordan står dere på dette i dag?". */
+  status_hint?: string
 }
 
+/**
+ * Sectioned grouping of items. The AML "fullgjennomgang" template uses
+ * sections to drive the wizard's per-chapter navigation; smaller
+ * single-topic templates keep using flat `items` and leave `sections`
+ * undefined.
+ */
+export type ChecklistSection = {
+  key: string
+  title: string
+  /** Short markdown rendered above the items. */
+  intro?: string
+  /** Drives the progress-bar chapter grouping, eg "AML kap. 4". */
+  chapter?: string
+  /** Used by the progress-bar tooltip for "est. tid igjen". */
+  estimatedMinutes?: number
+  items: ChecklistItem[]
+}
+
+/**
+ * A template's definition either lists flat `items` (single-topic
+ * checklists) or `sections` (multi-chapter walkthroughs). When
+ * `sections` is set, `items` is the deduped flat denormalisation so
+ * the existing flat-items render path + the DB-level
+ * `jsonb_typeof(definition->'items')='array'` check both still pass.
+ */
 export type ChecklistDefinition = {
   items: ChecklistItem[]
+  sections?: ChecklistSection[]
 }
 
 export type ComplianceTemplateRow = {
