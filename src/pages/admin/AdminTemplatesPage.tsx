@@ -22,7 +22,7 @@
 // drawer; each module's editor needs its own slide-over refactor
 // before it can be embedded here.
 
-import { useMemo, useState, useRef, useEffect, type ReactNode } from 'react'
+import { useMemo, useState, useRef, useEffect, useCallback, type ReactNode } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import {
   ArrowLeft,
@@ -31,21 +31,28 @@ import {
   ChevronLeft,
   ChevronRight,
   ClipboardList,
+  Copy,
   Database,
   ExternalLink,
   FileText,
   GraduationCap,
+  Lock,
   Megaphone,
+  MoreHorizontal,
   Pencil,
   Plus,
   RefreshCw,
   Search,
   Settings,
+  Trash2,
   X,
 } from 'lucide-react'
 import { ModulePageShell } from '../../components/module'
 import { Button } from '../../components/ui/Button'
 import { WarningBox } from '../../components/ui/AlertBox'
+import { useOrgSetupContext } from '../../hooks/useOrgSetupContext'
+import { useChecklistModule } from '../../../modules/compliance/useChecklistModule'
+import { parseChecklistDefinition } from '../../../modules/compliance/schema'
 import {
   ADMIN_TEMPLATE_SOURCE_LABELS,
   ADMIN_TEMPLATE_STATUS_LABELS,
@@ -114,6 +121,8 @@ type DrawerState =
 
 export function AdminTemplatesPage() {
   const { rows, loading, error, refresh } = useAdminTemplates()
+  const { supabase } = useOrgSetupContext()
+  const cl = useChecklistModule({ supabase })
   const [searchParams] = useSearchParams()
   const initialSource = searchParams.get('source') as AdminTemplateSource | null
   const [activeSource, setActiveSource] = useState<AdminTemplateSource | null>(
@@ -124,6 +133,61 @@ export function AdminTemplatesPage() {
   const [pageSize, setPageSize] = useState<PageSize>(25)
   const [page, setPage] = useState(0)
   const [drawer, setDrawer] = useState<DrawerState>({ kind: 'closed' })
+  const [busyRowId, setBusyRowId] = useState<string | null>(null)
+  const [actionError, setActionError] = useState<string | null>(null)
+
+  const duplicateCompliance = useCallback(
+    async (row: AdminTemplateRow) => {
+      setBusyRowId(row.rowId)
+      setActionError(null)
+      try {
+        // Ensure cl.templates contains the source row before copying.
+        if (!cl.templates.some((t) => t.id === row.id)) {
+          await cl.load({})
+        }
+        const original = cl.templates.find((t) => t.id === row.id)
+        if (!original) {
+          throw new Error('Fant ikke originalmalen.')
+        }
+        const definition = parseChecklistDefinition(original.definition)
+        const newId = await cl.createTemplate({
+          pack: original.pack,
+          slug: `${original.slug}-kopi-${Date.now().toString(36)}`,
+          name: `Kopi av ${original.name}`,
+          description: original.description ?? undefined,
+          definition,
+        })
+        if (newId) {
+          await refresh()
+          // Open the new template in the editor right away.
+          setDrawer({ kind: 'compliance-edit', templateId: newId })
+        }
+      } catch (e) {
+        setActionError(e instanceof Error ? e.message : 'Kunne ikke duplisere malen.')
+      } finally {
+        setBusyRowId(null)
+      }
+    },
+    [cl, refresh],
+  )
+
+  const deleteCompliance = useCallback(
+    async (row: AdminTemplateRow) => {
+      if (row.isSystem) return
+      if (!window.confirm(`Slett «${row.name}»?\n\nMalen blir markert som slettet og forsvinner fra listen. Eksisterende utførelser påvirkes ikke.`)) return
+      setBusyRowId(row.rowId)
+      setActionError(null)
+      try {
+        await cl.softDeleteTemplate(row.id)
+        await refresh()
+      } catch (e) {
+        setActionError(e instanceof Error ? e.message : 'Kunne ikke slette malen.')
+      } finally {
+        setBusyRowId(null)
+      }
+    },
+    [cl, refresh],
+  )
 
   const totals = useMemo(() => {
     const bySource = new Map<AdminTemplateSource, number>()
@@ -193,6 +257,7 @@ export function AdminTemplatesPage() {
       }
     >
       {error ? <WarningBox>{error}</WarningBox> : null}
+      {actionError ? <WarningBox>{actionError}</WarningBox> : null}
 
       <div className="flex flex-wrap items-end gap-x-1 gap-y-2 border-b border-neutral-200 pb-0">
         <SourceTab
@@ -283,10 +348,19 @@ export function AdminTemplatesPage() {
                   <TemplateRow
                     key={r.rowId}
                     row={r}
+                    busy={busyRowId === r.rowId}
                     onOpen={() =>
                       r.source === 'compliance'
                         ? setDrawer({ kind: 'compliance-edit', templateId: r.id })
                         : setDrawer({ kind: 'view', row: r })
+                    }
+                    onDuplicate={
+                      r.source === 'compliance' ? () => void duplicateCompliance(r) : undefined
+                    }
+                    onDelete={
+                      r.source === 'compliance' && !r.isSystem
+                        ? () => void deleteCompliance(r)
+                        : undefined
                     }
                   />
                 ))}
@@ -490,13 +564,21 @@ function MenuItem({
 
 function TemplateRow({
   row,
+  busy,
   onOpen,
+  onDuplicate,
+  onDelete,
 }: {
   row: AdminTemplateRow
+  busy: boolean
   onOpen: () => void
+  /** Compliance only today; undefined disables the menu item with a tooltip. */
+  onDuplicate?: () => void
+  /** Disabled for system templates and for non-compliance sources. */
+  onDelete?: () => void
 }) {
   return (
-    <tr className="hover:bg-neutral-50/80">
+    <tr className={`hover:bg-neutral-50/80 ${busy ? 'opacity-60' : ''}`}>
       <td className="px-4 py-4 sm:px-5">
         <button
           type="button"
@@ -505,6 +587,12 @@ function TemplateRow({
         >
           {row.name}
         </button>
+        {row.isSystem ? (
+          <span className="ml-2 inline-flex items-center gap-1 rounded-full bg-sky-100 px-1.5 py-0.5 align-middle text-[9px] font-bold uppercase tracking-wide text-sky-950">
+            <Lock className="size-2.5" aria-hidden />
+            System
+          </span>
+        ) : null}
         {row.category ? (
           <p className="text-xs text-neutral-500">{row.category}</p>
         ) : null}
@@ -523,27 +611,151 @@ function TemplateRow({
         >
           {ADMIN_TEMPLATE_STATUS_LABELS[row.status]}
         </span>
-        {row.isSystem ? (
-          <span className="ml-1.5 inline-block rounded-full border border-neutral-200 bg-neutral-100 px-1.5 py-0.5 text-[10px] text-neutral-600">
-            system
-          </span>
-        ) : null}
       </td>
       <td className="px-4 py-4 text-neutral-600 sm:px-5">
         {row.updatedAt ? new Date(row.updatedAt).toLocaleDateString('nb-NO') : '—'}
       </td>
       <td className="px-4 py-4 text-right sm:px-5">
-        <button
-          type="button"
-          onClick={onOpen}
-          className="inline-flex items-center gap-1 rounded-md border border-neutral-200 bg-white px-2.5 py-1 text-xs font-semibold text-neutral-700 transition-colors hover:bg-neutral-50"
-          aria-label={`Åpne ${row.name}`}
-        >
-          <Pencil className="h-3 w-3" />
-          Rediger
-        </button>
+        <RowActionsMenu
+          row={row}
+          busy={busy}
+          onEdit={onOpen}
+          onDuplicate={onDuplicate}
+          onDelete={onDelete}
+        />
       </td>
     </tr>
+  )
+}
+
+function RowActionsMenu({
+  row,
+  busy,
+  onEdit,
+  onDuplicate,
+  onDelete,
+}: {
+  row: AdminTemplateRow
+  busy: boolean
+  onEdit: () => void
+  onDuplicate?: () => void
+  onDelete?: () => void
+}) {
+  const [open, setOpen] = useState(false)
+  const rootRef = useRef<HTMLDivElement | null>(null)
+
+  useEffect(() => {
+    if (!open) return
+    const onDocClick = (e: MouseEvent) => {
+      if (!rootRef.current?.contains(e.target as Node)) setOpen(false)
+    }
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setOpen(false)
+    }
+    document.addEventListener('mousedown', onDocClick)
+    document.addEventListener('keydown', onKey)
+    return () => {
+      document.removeEventListener('mousedown', onDocClick)
+      document.removeEventListener('keydown', onKey)
+    }
+  }, [open])
+
+  const duplicateHint = onDuplicate
+    ? undefined
+    : `Dupliser er foreløpig bare tilgjengelig for sjekkliste-maler. Åpne i ${row.sourceLabel}-modulen for å kopiere.`
+  const deleteHint = row.isSystem
+    ? 'Systemmaler kan ikke slettes — bruk «Inaktiv» for å skjule.'
+    : !onDelete
+    ? `Slett er foreløpig bare tilgjengelig for sjekkliste-maler. Åpne i ${row.sourceLabel}-modulen for å slette.`
+    : undefined
+
+  return (
+    <div ref={rootRef} className="relative inline-block">
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        disabled={busy}
+        aria-haspopup="menu"
+        aria-expanded={open}
+        aria-label={`Handlinger for ${row.name}`}
+        className="rounded-md p-1.5 text-neutral-500 transition-colors hover:bg-neutral-100 hover:text-neutral-800 disabled:cursor-not-allowed disabled:opacity-50"
+      >
+        <MoreHorizontal className="size-4" />
+      </button>
+      {open ? (
+        <div
+          role="menu"
+          className="absolute right-0 z-30 mt-1 w-56 overflow-hidden rounded-md border border-neutral-200 bg-white shadow-lg"
+        >
+          <MenuRow
+            icon={Pencil}
+            label="Rediger"
+            onClick={() => {
+              setOpen(false)
+              onEdit()
+            }}
+          />
+          <MenuRow
+            icon={Copy}
+            label="Dupliser"
+            disabled={!onDuplicate}
+            hint={duplicateHint}
+            onClick={() => {
+              setOpen(false)
+              onDuplicate?.()
+            }}
+          />
+          <div className="my-1 border-t border-neutral-100" />
+          <MenuRow
+            icon={Trash2}
+            label="Slett"
+            tone="danger"
+            disabled={!onDelete}
+            hint={deleteHint}
+            onClick={() => {
+              setOpen(false)
+              onDelete?.()
+            }}
+          />
+        </div>
+      ) : null}
+    </div>
+  )
+}
+
+function MenuRow({
+  icon: Icon,
+  label,
+  tone,
+  disabled,
+  hint,
+  onClick,
+}: {
+  icon: typeof Pencil
+  label: string
+  tone?: 'danger'
+  disabled?: boolean
+  hint?: string
+  onClick: () => void
+}) {
+  const base = 'flex w-full items-center gap-2 px-3 py-2 text-left text-sm transition-colors'
+  const enabled = tone === 'danger'
+    ? 'text-rose-700 hover:bg-rose-50'
+    : 'text-neutral-800 hover:bg-neutral-50'
+  const disabledCls = 'cursor-not-allowed text-neutral-400'
+  return (
+    <button
+      type="button"
+      role="menuitem"
+      onClick={disabled ? undefined : onClick}
+      disabled={disabled}
+      title={hint}
+      className={`${base} ${disabled ? disabledCls : enabled}`}
+    >
+      <Icon className="size-3.5 shrink-0" aria-hidden />
+      <span className="flex-1">{label}</span>
+      {disabled ? <Lock className="size-3 shrink-0 text-neutral-300" aria-hidden /> : null}
+    </button>
   )
 }
 
