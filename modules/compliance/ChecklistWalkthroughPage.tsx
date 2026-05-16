@@ -562,9 +562,32 @@ export function ChecklistWalkthroughPage() {
     { label: template?.name ?? slug },
   ]
 
+  // Empty slug — user landed on /walkthrough/ without a template id.
+  // (Generic page; no AML default fallback anymore.)
+  if (!slug) {
+    return (
+      <ModulePageShell title="Veiviser" breadcrumb={breadcrumb}>
+        <WarningBox>
+          Mangler mal-ID i URL-en. Naviger via «Sjekklister»-hub og klikk en mal merket «Veiviser».
+        </WarningBox>
+      </ModulePageShell>
+    )
+  }
+
+  // Not-found: load completed but no matching active template.
+  if (initialLoadComplete && !loading && !template) {
+    return (
+      <ModulePageShell title="Veiviser" breadcrumb={breadcrumb}>
+        <WarningBox>
+          Sjekklistemal «{slug}» finnes ikke for denne organisasjonen, eller er ikke aktiv.
+        </WarningBox>
+      </ModulePageShell>
+    )
+  }
+
   if (!template) {
     return (
-      <ModulePageShell title="AML-fullgjennomgang" breadcrumb={breadcrumb}>
+      <ModulePageShell title="Veiviser" breadcrumb={breadcrumb}>
         <ModuleSectionCard className="p-5 md:p-6">
           <h2 className="text-lg font-semibold text-neutral-900">Laster mal…</h2>
           <p className="mt-1 text-sm text-neutral-600">Henter sjekklistemal «{slug}».</p>

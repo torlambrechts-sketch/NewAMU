@@ -137,6 +137,14 @@ declare
   v_src compliance_checklist_templates%rowtype;
   v_version_id uuid;
 begin
+  -- Security gate: publishing bumps current_version on EVERY per-org
+  -- row for (slug, pack). Restricted to platform admins so an org
+  -- user can't overwrite another org's compliance state.
+  if not public.platform_is_admin() then
+    raise exception 'Only platform admins can publish template versions'
+      using errcode = 'insufficient_privilege';
+  end if;
+
   select * into v_src
   from public.compliance_checklist_templates
   where slug = p_slug
