@@ -3,11 +3,12 @@
 // to the checklist via source_category='compliance_checklist_item' +
 // source_id=<execution_id> + source_item_key=<item.key>.
 
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { ListPlus, X } from 'lucide-react'
 import { Button } from '../../../src/components/ui/Button'
 import { StandardInput } from '../../../src/components/ui/Input'
 import { StandardTextarea } from '../../../src/components/ui/Textarea'
+import { SearchableSelect, type SelectOption } from '../../../src/components/ui/SearchableSelect'
 import { useOrgSetupContext } from '../../../src/hooks/useOrgSetupContext'
 import type { ChecklistItem, ComplianceAssignableUser } from '../types'
 
@@ -69,6 +70,22 @@ export function CreateTaskFromItemPanel({
   const [assigneeId, setAssigneeId] = useState(suggestedAssigneeId ?? '')
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
+  const priorityOptions = useMemo<readonly SelectOption[]>(
+    () =>
+      (['low', 'medium', 'high', 'critical'] as Priority[]).map((p) => ({
+        value: p,
+        label: PRIORITY_LABEL[p],
+      })),
+    [],
+  )
+  const assigneeOptions = useMemo<readonly SelectOption[]>(
+    () => [
+      { value: '', label: '— Ingen valgt —' },
+      ...assignableUsers.map((u) => ({ value: u.id, label: u.displayName })),
+    ],
+    [assignableUsers],
+  )
 
   async function submit() {
     if (!supabase || !organization?.id) {
@@ -150,42 +167,38 @@ export function CreateTaskFromItemPanel({
         </label>
 
         <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
-          <label className="block text-xs font-medium text-amber-900">
-            Prioritet
-            <select
-              value={priority}
-              onChange={(e) => setPriority(e.target.value as Priority)}
-              className="mt-1 w-full rounded-md border border-amber-200 bg-white px-2 py-1.5 text-sm"
-            >
-              {(['low', 'medium', 'high', 'critical'] as Priority[]).map((p) => (
-                <option key={p} value={p}>{PRIORITY_LABEL[p]}</option>
-              ))}
-            </select>
-          </label>
+          <div>
+            <span className="block text-xs font-medium text-amber-900">Prioritet</span>
+            <div className="mt-1">
+              <SearchableSelect
+                value={priority}
+                options={priorityOptions}
+                onChange={(v) => setPriority(v as Priority)}
+              />
+            </div>
+          </div>
 
           <label className="block text-xs font-medium text-amber-900">
             Frist
-            <input
+            <StandardInput
               type="date"
               value={dueDate}
               onChange={(e) => setDueDate(e.target.value)}
-              className="mt-1 w-full rounded-md border border-amber-200 bg-white px-2 py-1.5 text-sm"
+              className="mt-1"
             />
           </label>
 
-          <label className="block text-xs font-medium text-amber-900">
-            Ansvarlig
-            <select
-              value={assigneeId}
-              onChange={(e) => setAssigneeId(e.target.value)}
-              className="mt-1 w-full rounded-md border border-amber-200 bg-white px-2 py-1.5 text-sm"
-            >
-              <option value="">— Ingen valgt —</option>
-              {assignableUsers.map((u) => (
-                <option key={u.id} value={u.id}>{u.displayName}</option>
-              ))}
-            </select>
-          </label>
+          <div>
+            <span className="block text-xs font-medium text-amber-900">Ansvarlig</span>
+            <div className="mt-1">
+              <SearchableSelect
+                value={assigneeId}
+                options={assigneeOptions}
+                placeholder="— Ingen valgt —"
+                onChange={(v) => setAssigneeId(v)}
+              />
+            </div>
+          </div>
         </div>
 
         {error && (
