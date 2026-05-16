@@ -10,9 +10,9 @@
 // Sesjonstilstand (current_step + payload) er kun navigasjons-state;
 // de faktiske svarene ligger som vanlig i compliance_checklist_responses.
 
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { ArrowLeft, ArrowRight, CheckCircle2, Circle, ListPlus, Lock, MessageCircle, ShieldCheck } from 'lucide-react'
+import { AlertTriangle, ArrowLeft, ArrowRight, CheckCircle2, Circle, Clock, ListPlus, Lock, MessageCircle, ShieldCheck } from 'lucide-react'
 import { ModulePageShell } from '../../src/components/module/ModulePageShell'
 import { ModuleSectionCard } from '../../src/components/module/ModuleSectionCard'
 import { Button } from '../../src/components/ui/Button'
@@ -176,6 +176,25 @@ export function AmlWalkthroughPage() {
   const [expandedThreadKey, setExpandedThreadKey] = useState<string | null>(null)
   const [commentDrafts, setCommentDrafts] = useState<Record<string, string>>({})
   const [draftsHydrated, setDraftsHydrated] = useState(false)
+  /** Toast text shown briefly after a server save — purely visual feedback
+   *  so the user trusts the auto-save (no spinner during the upsert). */
+  const [savedToast, setSavedToast] = useState<string | null>(null)
+  const savedToastTimer = useRef<number | null>(null)
+  /** Container for the focusable items in the current section — used to
+   *  move keyboard focus after navigation. */
+  const sectionFirstFocusable = useRef<HTMLButtonElement | null>(null)
+
+  const flashSaved = useCallback((label = 'Lagret') => {
+    setSavedToast(label)
+    if (savedToastTimer.current) window.clearTimeout(savedToastTimer.current)
+    savedToastTimer.current = window.setTimeout(() => setSavedToast(null), 1800)
+  }, [])
+
+  useEffect(() => {
+    return () => {
+      if (savedToastTimer.current) window.clearTimeout(savedToastTimer.current)
+    }
+  }, [])
 
   /** Brand-fargen til pakken — overstyr emerald-fallback for primær-CTA og progress-bar. */
   const brandAccent = useMemo(() => packAccentFor(pack.slug) ?? '#1a3d32', [pack.slug])
@@ -265,10 +284,17 @@ export function AmlWalkthroughPage() {
   const sections = definition.sections ?? []
   const responses = (executionId && responsesByExecutionId[executionId]) || []
 
+  // Total step count = real sections + one virtual "Oppsummering" step
+  // appended after the last section. The summary surfaces a section-by-
+  // section status table, finding count and the sign button — gives the
+  // user a deliberate review checkpoint before locking the execution.
+  const totalSteps = sections.length + 1
+  const summaryStep = sections.length
   const currentStep = wizardRun.run?.current_step ?? 0
-  const safeStep = Math.min(Math.max(0, currentStep), Math.max(0, sections.length - 1))
-  const section = sections[safeStep] ?? null
-  const isLast = safeStep === sections.length - 1
+  const safeStep = Math.min(Math.max(0, currentStep), Math.max(0, totalSteps - 1))
+  const onSummary = safeStep === summaryStep
+  const section = onSummary ? null : sections[safeStep] ?? null
+  const isLastSection = safeStep === sections.length - 1
 
   // Overall progress (across all required + applicable items in all sections).
   // Items the org isn't subject to (e.g. § 7-1 AMU when <50 ansatte) are
@@ -294,6 +320,15 @@ export function AmlWalkthroughPage() {
     void wizardRun.save({ currentStep: step })
   }
 
+  // Move keyboard focus into the new section's body when the step changes.
+  // Helps screen-reader + power-user keyboard navigation feel intentional.
+  useEffect(() => {
+    const t = window.setTimeout(() => {
+      sectionFirstFocusable.current?.focus({ preventScroll: false })
+    }, 50)
+    return () => window.clearTimeout(t)
+  }, [safeStep])
+
   async function setAnswer(item: ChecklistItem, answer: YesNoNa) {
     if (!executionId) return
     const existing = responses.find((r) => r.item_key === item.key)
@@ -307,6 +342,7 @@ export function AmlWalkthroughPage() {
           ? (item.severity_default ?? undefined)
           : existing?.severity ?? undefined,
     })
+    flashSaved()
   }
 
   async function setSeverity(item: ChecklistItem, severity: ComplianceSeverity | null) {
@@ -319,6 +355,7 @@ export function AmlWalkthroughPage() {
       comment: existing?.comment ?? commentDrafts[item.key] ?? undefined,
       severity: severity ?? undefined,
     })
+    flashSaved()
   }
 
   async function commitComment(item: ChecklistItem) {
@@ -333,11 +370,10 @@ export function AmlWalkthroughPage() {
       comment: draft,
       severity: existing?.severity ?? undefined,
     })
-    // Once the server has accepted the value, drop the local draft — the
-    // next load will re-hydrate `comment` from the server.
     if (typeof window !== 'undefined') {
       window.localStorage.removeItem(draftStorageKey(executionId, item.key))
     }
+    flashSaved('Kommentar lagret')
   }
 
   /** Append an audit line to the response's comment when a task is spawned
@@ -410,15 +446,28 @@ export function AmlWalkthroughPage() {
       description="Seksjonsbasert veiviser gjennom arbeidsmiljøloven. Roller og terskler fylles inn først; videre seksjoner viser bare krav som er pålagt for din organisasjon. Sesjonen lagres automatisk og kan fortsettes senere."
       breadcrumb={breadcrumb}
     >
-      {/* Overall progress strip */}
-      <div className="mb-4 rounded-xl border border-neutral-200 bg-white p-4">
+      {/* Overall progress strip — sticky so the user always sees position +
+          completion while scrolling a long section. Background is the same
+          cream as ModulePageShell so it visually merges with the page band. */}
+      <div className="sticky top-0 z-20 -mx-4 mb-4 border-y border-neutral-200 bg-[#F9F7F2]/95 px-4 py-3 backdrop-blur md:-mx-8 md:px-8">
         <div className="mb-2 flex items-center justify-between gap-3 text-sm">
           <div className="flex items-center gap-2 font-medium text-neutral-800">
             Framdrift: {overall.ans} / {overall.req} obligatoriske svar
           </div>
-          <Badge variant={signed ? 'signed' : overall.percent >= 100 ? 'active' : 'draft'}>
-            {signed ? 'Signert' : `${overall.percent}%`}
-          </Badge>
+          <div className="flex items-center gap-2">
+            {savedToast && (
+              <span
+                className="rounded-full bg-emerald-50 px-2 py-0.5 text-xs font-medium text-emerald-800 ring-1 ring-emerald-200"
+                role="status"
+                aria-live="polite"
+              >
+                {savedToast}
+              </span>
+            )}
+            <Badge variant={signed ? 'signed' : overall.percent >= 100 ? 'active' : 'draft'}>
+              {signed ? 'Signert' : `${overall.percent}%`}
+            </Badge>
+          </div>
         </div>
         <div className="h-2 w-full overflow-hidden rounded-full bg-neutral-200">
           <div
@@ -427,8 +476,14 @@ export function AmlWalkthroughPage() {
           />
         </div>
 
-        {/* Section dots */}
-        <div className="mt-3 flex flex-wrap gap-1.5">
+        {/* Section dots — horizontal scroll on small screens so 22 dots
+            never wrap to 4 rows on a phone. scroll-snap keeps each chip
+            cleanly aligned when swiping. */}
+        <div
+          className="mt-3 flex gap-1.5 overflow-x-auto pb-1 [scrollbar-width:thin] md:flex-wrap md:overflow-visible"
+          role="tablist"
+          aria-label="Seksjoner"
+        >
           {sections.map((s, i) => {
             const { answered, required } = sectionProgress(s, responses, execution.metadata)
             const complete = required > 0 && answered >= required
@@ -441,8 +496,9 @@ export function AmlWalkthroughPage() {
                 title={`${s.title} (${answered}/${required})`}
                 aria-label={`Gå til seksjon ${i + 1}: ${s.title}. ${answered} av ${required} besvart.`}
                 aria-current={current ? 'step' : undefined}
+                role="tab"
                 className={[
-                  'inline-flex h-7 items-center gap-1 rounded-full px-2 text-xs transition-colors',
+                  'inline-flex h-7 shrink-0 snap-start items-center gap-1 rounded-full px-2 text-xs transition-colors',
                   current
                     ? 'text-white'
                     : complete
@@ -456,6 +512,24 @@ export function AmlWalkthroughPage() {
               </button>
             )
           })}
+          {/* Summary step dot — always last, no completion math. */}
+          <button
+            onClick={() => jumpTo(summaryStep)}
+            disabled={signed}
+            aria-label="Gå til oppsummering og signering"
+            aria-current={onSummary ? 'step' : undefined}
+            role="tab"
+            className={[
+              'inline-flex h-7 shrink-0 snap-start items-center gap-1 rounded-full px-2 text-xs transition-colors',
+              onSummary
+                ? 'text-white'
+                : 'border border-neutral-300 bg-white text-neutral-700 hover:bg-neutral-50',
+            ].join(' ')}
+            style={onSummary ? { backgroundColor: brandAccent } : undefined}
+          >
+            <ShieldCheck className="h-3 w-3" />
+            <span>Signer</span>
+          </button>
         </div>
       </div>
 
@@ -485,10 +559,19 @@ export function AmlWalkthroughPage() {
       {/* Current section */}
       {section && (
         <ModuleSectionCard className="p-5 md:p-6">
-          <h2 className="text-lg font-semibold text-neutral-900">{section.title}</h2>
-          {section.chapter && (
-            <p className="mt-1 text-sm text-neutral-600">{section.chapter} · {section.items.length} krav</p>
-          )}
+          <div className="flex flex-wrap items-baseline justify-between gap-2">
+            <h2 className="text-lg font-semibold text-neutral-900">{section.title}</h2>
+            <div className="flex items-center gap-3 text-xs text-neutral-500">
+              {section.chapter && <span>{section.chapter}</span>}
+              <span>{section.items.length} krav</span>
+              {section.estimatedMinutes ? (
+                <span className="inline-flex items-center gap-1">
+                  <Clock className="h-3 w-3" aria-hidden />
+                  ~{section.estimatedMinutes} min
+                </span>
+              ) : null}
+            </div>
+          </div>
           {section.intro && (
             <div className="mt-3">
               <InfoBox>{section.intro}</InfoBox>
@@ -496,7 +579,7 @@ export function AmlWalkthroughPage() {
           )}
 
           <div className="space-y-3">
-            {section.items.map((item) => {
+            {section.items.map((item, itemIdx) => {
               const response = responses.find((r) => r.item_key === item.key)
               const answer = readAnswer(response)
               const commentDraft = commentDrafts[item.key] ?? response?.comment ?? ''
@@ -507,6 +590,9 @@ export function AmlWalkthroughPage() {
               const itemComments = (commentsByExecutionId[executionId] ?? []).filter(
                 (c) => c.item_key === item.key,
               )
+              // First answer button in the section gets the focus ref so the
+              // section-change effect can move keyboard focus there.
+              const isFirstFocusable = itemIdx === 0 && item.type === 'yes_no_na' && !notApplicable
 
               return (
                 <div
@@ -560,9 +646,10 @@ export function AmlWalkthroughPage() {
                         use other types fall through to a placeholder below). */}
                     {item.type === 'yes_no_na' && !notApplicable && (
                       <div className="flex shrink-0 gap-1">
-                        {(['yes', 'no', 'na'] as YesNoNa[]).map((a) => (
+                        {(['yes', 'no', 'na'] as YesNoNa[]).map((a, ai) => (
                           <button
                             key={a}
+                            ref={isFirstFocusable && ai === 0 ? sectionFirstFocusable : undefined}
                             disabled={signed}
                             onClick={() => void setAnswer(item, a)}
                             aria-label={`Marker som ${ANSWER_LABEL[a]}`}
@@ -716,26 +803,109 @@ export function AmlWalkthroughPage() {
               Seksjon {safeStep + 1} av {sections.length}
             </div>
 
-            {isLast ? (
-              <Button
-                variant="primary"
-                onClick={() => void handleSign()}
-                disabled={signed || overall.ans < overall.req}
-                title={
-                  overall.ans < overall.req
-                    ? `Svar på ${overall.req - overall.ans} obligatoriske krav igjen før signering`
-                    : undefined
-                }
-              >
-                <ShieldCheck className="mr-1 h-4 w-4" />
-                {signed ? 'Signert' : 'Signer gjennomgangen'}
-              </Button>
-            ) : (
-              <Button onClick={() => jumpTo(Math.min(sections.length - 1, safeStep + 1))}>
-                Neste
-                <ArrowRight className="ml-1 h-4 w-4" />
-              </Button>
-            )}
+            <Button
+              onClick={() =>
+                jumpTo(isLastSection ? summaryStep : Math.min(summaryStep, safeStep + 1))
+              }
+            >
+              {isLastSection ? 'Til oppsummering' : 'Neste'}
+              <ArrowRight className="ml-1 h-4 w-4" />
+            </Button>
+          </div>
+        </ModuleSectionCard>
+      )}
+
+      {/* Summary + sign step (virtual section after the last real one) */}
+      {onSummary && (
+        <ModuleSectionCard className="p-5 md:p-6">
+          <div className="flex flex-wrap items-baseline justify-between gap-2">
+            <h2 className="text-lg font-semibold text-neutral-900">Oppsummering og signering</h2>
+            <Badge variant={signed ? 'signed' : overall.percent >= 100 ? 'active' : 'draft'}>
+              {signed ? 'Signert' : `${overall.ans} / ${overall.req} besvart`}
+            </Badge>
+          </div>
+          <p className="mt-1 text-sm text-neutral-600">
+            Gå gjennom statusen per kapittel før signering. Etter signering
+            låses alle svar og kan ikke endres — opprett gjerne oppfølgings­oppgaver
+            fra seksjonene først.
+          </p>
+
+          {/* Critical finding callout (any 'critical' severity response). */}
+          {(() => {
+            const crit = responses.filter((r) => r.severity === 'critical').length
+            return crit > 0 ? (
+              <div className="mt-4 flex items-start gap-2 rounded-md border border-red-200 bg-red-50/60 p-3 text-sm text-red-900">
+                <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+                <span>
+                  <strong>{crit} kritisk{crit === 1 ? 't' : 'e'} funn</strong> er
+                  registrert. Vurder å opprette oppgaver før du signerer.
+                </span>
+              </div>
+            ) : null
+          })()}
+
+          <ul className="mt-4 divide-y divide-neutral-200 rounded-lg border border-neutral-200 bg-white">
+            {sections.map((s, i) => {
+              const { answered, required } = sectionProgress(s, responses, execution.metadata)
+              const complete = required > 0 && answered >= required
+              const noneRequired = required === 0
+              return (
+                <li
+                  key={s.key}
+                  className="flex flex-wrap items-center justify-between gap-2 px-3 py-2 text-sm"
+                >
+                  <button
+                    type="button"
+                    onClick={() => jumpTo(i)}
+                    className="flex flex-1 items-center gap-2 text-left hover:underline"
+                  >
+                    <span className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-neutral-100 text-xs font-semibold text-neutral-700">
+                      {i + 1}
+                    </span>
+                    <span className="font-medium text-neutral-900">{s.title}</span>
+                    {s.chapter && (
+                      <span className="text-xs text-neutral-500">· {s.chapter}</span>
+                    )}
+                  </button>
+                  <div className="flex items-center gap-2 text-xs">
+                    <span className="text-neutral-500">
+                      {answered} / {required}
+                    </span>
+                    {noneRequired ? (
+                      <Badge variant="neutral">Ingen pålagte</Badge>
+                    ) : complete ? (
+                      <Badge variant="success">Ferdig gjennomgått</Badge>
+                    ) : (
+                      <Badge variant="warning">Uferdig</Badge>
+                    )}
+                  </div>
+                </li>
+              )
+            })}
+          </ul>
+
+          <div className="mt-5 flex items-center justify-between border-t border-neutral-200 pt-4">
+            <Button
+              variant="ghost"
+              onClick={() => jumpTo(Math.max(0, summaryStep - 1))}
+            >
+              <ArrowLeft className="mr-1 h-4 w-4" />
+              Tilbake til siste seksjon
+            </Button>
+
+            <Button
+              variant="primary"
+              onClick={() => void handleSign()}
+              disabled={signed || overall.ans < overall.req}
+              title={
+                overall.ans < overall.req
+                  ? `Svar på ${overall.req - overall.ans} obligatoriske krav igjen før signering`
+                  : undefined
+              }
+            >
+              <ShieldCheck className="mr-1 h-4 w-4" />
+              {signed ? 'Signert' : 'Signer gjennomgangen'}
+            </Button>
           </div>
         </ModuleSectionCard>
       )}
