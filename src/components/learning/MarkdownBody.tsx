@@ -98,6 +98,42 @@ export function KeyTakeaways({ items }: { items: string[] }) {
   )
 }
 
+// ── HR Example ───────────────────────────────────────────────────────────────
+// Narrative "fra praksis" anecdote — a short story from an HR-director or
+// senior leader's perspective. Slate accent + 👤 icon makes it scan as a
+// personal voice rather than the brand-coloured Leadership Insight callout.
+export function HrExample({ markdown }: { markdown: string }) {
+  return (
+    <div className="mt-6 rounded-xl border-l-4 border-slate-400 bg-slate-50 px-4 py-4 shadow-sm">
+      <div className="mb-2 flex items-center gap-2 text-sm font-semibold text-slate-900">
+        <span aria-hidden className="text-base leading-none">👤</span>
+        Fra praksis
+      </div>
+      <div className="text-slate-900">
+        <MarkdownBody markdown={markdown} />
+      </div>
+    </div>
+  )
+}
+
+// ── HR Tips ──────────────────────────────────────────────────────────────────
+// Actionable HR-director playbook — concrete advice to apply tomorrow.
+// Violet accent + 💼 icon gives it a distinct "do this" energy without
+// competing with the blue Leadership Insight callout.
+export function HrTips({ markdown }: { markdown: string }) {
+  return (
+    <div className="mt-6 rounded-xl border-l-4 border-violet-500 bg-violet-50 px-4 py-4 shadow-sm">
+      <div className="mb-2 flex items-center gap-2 text-sm font-semibold text-violet-900">
+        <span aria-hidden className="text-base leading-none">💼</span>
+        HR-tips
+      </div>
+      <div className="text-violet-950">
+        <MarkdownBody markdown={markdown} />
+      </div>
+    </div>
+  )
+}
+
 // ── Common Pitfalls ──────────────────────────────────────────────────────────
 // Rose alert callout for content.commonPitfalls — high-attention warnings that
 // surface common mistakes the reader should specifically avoid. Visually

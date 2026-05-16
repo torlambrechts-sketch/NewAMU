@@ -47,6 +47,8 @@ import { StandardInput } from '../../components/ui/Input'
 import {
   CommonPitfalls,
   DeepDiveAccordion,
+  HrExample,
+  HrTips,
   KeyTakeaways,
   ModuleBody,
 } from '../../components/learning/MarkdownBody'
@@ -714,13 +716,16 @@ function LessonBody({
   const c = mod.content
 
   if (c.kind === 'text') {
-    // Reading order: body → leadership insight → common pitfalls → key
-    // takeaways → deep dive (collapsed by default so the page stays scannable).
+    // Reading order: body → leadership insight → common pitfalls →
+    // fra-praksis anecdote → hr-tips → key takeaways → deep dive
+    // (collapsed by default so the page stays scannable).
     return (
       <div className="space-y-5">
         <ModuleBody body={c.body} bodyMarkdown={c.bodyMarkdown} bodyFormat={c.bodyFormat} />
         {c.leadershipInsight ? <LeadershipInsight markdown={c.leadershipInsight} /> : null}
         {c.commonPitfalls?.length ? <CommonPitfalls items={c.commonPitfalls} /> : null}
+        {c.hrExample ? <HrExample markdown={c.hrExample} /> : null}
+        {c.hrTips ? <HrTips markdown={c.hrTips} /> : null}
         {c.keyTakeaways?.length ? <KeyTakeaways items={c.keyTakeaways} /> : null}
         {c.deepDive ? <DeepDiveAccordion markdown={c.deepDive} /> : null}
       </div>
@@ -837,6 +842,7 @@ function LessonBody({
         <p className="text-sm leading-relaxed text-neutral-700">
           Praktiske oppgaver du gjør på arbeidsplassen. Kryss av når hver oppgave er gjort.
         </p>
+        {c.hrTips ? <HrTips markdown={c.hrTips} /> : null}
         <ul className="space-y-2">
           {c.tasks.map((t) => {
             const done = !!ojtChecks[t.id]

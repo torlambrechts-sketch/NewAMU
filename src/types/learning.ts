@@ -115,6 +115,10 @@ export type ModuleContent =
       leadershipInsight?: string
       /** Common mistakes / pitfalls to avoid — rendered as a 🚨 alert callout */
       commonPitfalls?: string[]
+      /** Narrative «fra praksis»-anecdote (Markdown) — rendered as a 👤 callout */
+      hrExample?: string
+      /** Practical HR-director tips (Markdown) — rendered as a 💼 callout */
+      hrTips?: string
     }
   | { kind: 'flashcard'; slides: FlashcardSlide[] }
   | {
@@ -134,7 +138,12 @@ export type ModuleContent =
     }
   | { kind: 'checklist'; items: ChecklistItem[] }
   | { kind: 'tips'; items: string[] }
-  | { kind: 'on_job'; tasks: OnJobTask[] }
+  | {
+      kind: 'on_job'
+      tasks: OnJobTask[]
+      /** Practical HR-director tips for the task (Markdown) — 💼 callout */
+      hrTips?: string
+    }
   | { kind: 'event'; instructions: string }
   | {
       kind: 'scenario'
