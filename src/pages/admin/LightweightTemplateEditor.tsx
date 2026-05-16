@@ -34,6 +34,10 @@ const TABLE_BY_SOURCE: Record<AdminTemplateSource, string> = {
   documents: 'document_org_templates',
   learning: 'learning_courses',
   registers: 'register_types',
+  tasks: 'task_org_templates',
+  meetings: 'meeting_org_templates',
+  alerts: 'alert_org_templates',
+  workflow: 'workflow_template_catalog', // read-only — gated as system
 }
 
 type FieldDef = {
@@ -73,7 +77,21 @@ const LEARNING_STATUS_OPTIONS = [
   { value: 'archived', label: 'Arkivert' },
 ]
 
-const FIELDS_BY_SOURCE: Record<Exclude<AdminTemplateSource, 'compliance'>, FieldDef[]> = {
+const ALERT_KIND_OPTIONS = [
+  { value: 'whistleblowing', label: 'Varsling (whistleblowing)' },
+  { value: 'gdpr_breach', label: 'GDPR-brudd' },
+  { value: 'hms_incident', label: 'HMS-hendelse' },
+  { value: 'security_incident', label: 'Sikkerhetshendelse' },
+  { value: 'ethical_concern', label: 'Etisk bekymring' },
+]
+
+const ALERT_CONF_OPTIONS = [
+  { value: 'standard', label: 'Standard' },
+  { value: 'restricted', label: 'Begrenset' },
+  { value: 'confidential', label: 'Konfidensiell' },
+]
+
+const FIELDS_BY_SOURCE: Record<Exclude<AdminTemplateSource, 'compliance' | 'workflow'>, FieldDef[]> = {
   survey: [
     { key: 'name_override', label: 'Navn (overstyring)', kind: 'text', help: 'Tomt = bruk katalog-navnet.' },
     { key: 'description_override', label: 'Beskrivelse (overstyring)', kind: 'textarea' },
@@ -102,6 +120,33 @@ const FIELDS_BY_SOURCE: Record<Exclude<AdminTemplateSource, 'compliance'>, Field
     { key: 'position', label: 'Sortering', kind: 'number' },
     { key: 'is_active', label: 'Aktiv', kind: 'toggle' },
   ],
+  tasks: [
+    { key: 'is_active', label: 'Aktiv', kind: 'toggle' },
+    { key: 'nav_pinned', label: 'Festet i sidemeny', kind: 'toggle' },
+  ],
+  meetings: [
+    { key: 'name', label: 'Navn', kind: 'text', required: true },
+    { key: 'description', label: 'Beskrivelse', kind: 'textarea' },
+    { key: 'frameworks', label: 'Rammeverk (tagger)', kind: 'multi-text', help: 'Eks: AML, IK-f.' },
+    { key: 'law_refs', label: 'Lov­referanser (tagger)', kind: 'multi-text', help: 'Eks: AML § 4-1, IK-f § 5.' },
+    { key: 'cadence_hint', label: 'Anbefalt kadens', kind: 'text' },
+    { key: 'default_duration_minutes', label: 'Standard varighet (min)', kind: 'number' },
+    { key: 'is_active', label: 'Aktiv', kind: 'toggle' },
+    { key: 'nav_pinned', label: 'Festet i sidemeny', kind: 'toggle' },
+  ],
+  alerts: [
+    { key: 'name', label: 'Navn', kind: 'text', required: true },
+    { key: 'description', label: 'Beskrivelse', kind: 'textarea' },
+    { key: 'kind', label: 'Type', kind: 'select', required: true, options: ALERT_KIND_OPTIONS },
+    { key: 'default_confidentiality_level', label: 'Standard konfidensialitet', kind: 'select', options: ALERT_CONF_OPTIONS },
+    { key: 'default_retention_years', label: 'Standard oppbevaringstid (år)', kind: 'number' },
+    { key: 'acknowledgement_due_days', label: 'Frist for bekreftelse (dager)', kind: 'number' },
+    { key: 'investigation_due_days', label: 'Frist for utredning (dager)', kind: 'number' },
+    { key: 'requires_dpo', label: 'Krever DPO', kind: 'toggle' },
+    { key: 'allows_anonymous', label: 'Tillater anonym varsling', kind: 'toggle' },
+    { key: 'frameworks', label: 'Rammeverk (tagger)', kind: 'multi-text' },
+    { key: 'law_refs', label: 'Lov­referanser (tagger)', kind: 'multi-text' },
+  ],
 }
 
 export function LightweightTemplateEditor({ row, onClose, onSaved }: Props) {
@@ -114,17 +159,19 @@ export function LightweightTemplateEditor({ row, onClose, onSaved }: Props) {
 
   const source = row.source
   const isCompliance = source === 'compliance'
+  const isWorkflow = source === 'workflow'
   const fields = useMemo<FieldDef[]>(
-    () => (isCompliance ? [] : FIELDS_BY_SOURCE[source]),
-    [isCompliance, source],
+    () =>
+      isCompliance || isWorkflow ? [] : FIELDS_BY_SOURCE[source as keyof typeof FIELDS_BY_SOURCE],
+    [isCompliance, isWorkflow, source],
   )
   const table = TABLE_BY_SOURCE[source]
-  const isSystemLocked = row.isSystem // Registers + survey-catalog rows
+  const isSystemLocked = row.isSystem || isWorkflow // workflow catalog rows are always system
 
   // Load fresh row + record updated_at for concurrency check on save.
   // Skipped for compliance (handled by the dedicated bridge).
   useEffect(() => {
-    if (isCompliance || !supabase) return
+    if (isCompliance || isWorkflow || !supabase) return
     let cancelled = false
     void (async () => {
       try {
@@ -151,7 +198,7 @@ export function LightweightTemplateEditor({ row, onClose, onSaved }: Props) {
     return () => {
       cancelled = true
     }
-  }, [isCompliance, supabase, table, row.id, fields])
+  }, [isCompliance, isWorkflow, supabase, table, row.id, fields])
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -173,6 +220,20 @@ export function LightweightTemplateEditor({ row, onClose, onSaved }: Props) {
       <Wrapper title={row.name} subtitle="Sjekkliste-mal" onClose={onClose}>
         <p className="text-sm text-neutral-600">
           Sjekkliste-maler bruker den fulle redigereren — åpne den fra «Rediger» i listen.
+        </p>
+      </Wrapper>
+    )
+  }
+
+  // Workflow templates are system-only catalog rows; not editable
+  // from /admin/templates. Show a read-only summary + link to the
+  // workflow library.
+  if (isWorkflow) {
+    return (
+      <Wrapper title={row.name} subtitle="Arbeidsflyt-mal" onClose={onClose}>
+        <p className="text-sm text-neutral-600">
+          Arbeidsflyt-maler er systemdefinerte regler. Bla i biblioteket og aktiver dem fra
+          arbeidsflyt-modulen.
         </p>
       </Wrapper>
     )

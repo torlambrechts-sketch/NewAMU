@@ -25,8 +25,10 @@
 import { useMemo, useState, useRef, useEffect, useCallback, type ReactNode } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import {
+  AlertTriangle,
   ArrowLeft,
   ArrowRight,
+  CalendarDays,
   ChevronDown,
   ChevronLeft,
   ChevronRight,
@@ -39,6 +41,7 @@ import {
   FileText,
   GraduationCap,
   History as HistoryIcon,
+  Kanban,
   Lock,
   Megaphone,
   MoreHorizontal,
@@ -49,6 +52,7 @@ import {
   Sparkles,
   Trash2,
   Upload,
+  Workflow,
   X,
 } from 'lucide-react'
 import { ModulePageShell } from '../../components/module'
@@ -80,6 +84,10 @@ const SOURCE_KEYS: AdminTemplateSource[] = [
   'documents',
   'learning',
   'registers',
+  'tasks',
+  'meetings',
+  'alerts',
+  'workflow',
 ]
 const STATUS_KEYS: AdminTemplateStatus[] = [
   'active',
@@ -103,6 +111,10 @@ const SOURCE_NEW_PATH: Record<AdminTemplateSource, string> = {
   documents: '/admin/settings/documents/maler',
   learning: '/learning/courses',
   registers: '/admin/settings/registers',
+  tasks: '/admin/settings/tasks/maler',
+  meetings: '/admin/settings/meetings/maler',
+  alerts: '/alerts/admin',
+  workflow: '/workflow?tab=library',
 }
 
 const SOURCE_DESCRIPTION: Record<AdminTemplateSource, string> = {
@@ -111,6 +123,10 @@ const SOURCE_DESCRIPTION: Record<AdminTemplateSource, string> = {
   documents: 'Dokument- og wiki-maler — prosedyrer, rutiner, retningslinjer.',
   learning: 'Kurs-maler — opplæringsmoduler, kvitteringer, kompetansebevis.',
   registers: 'Register-maler — utstyrs-, kjemikalie-, leverandørlister.',
+  tasks: 'Oppgave-maler — risikovurdering, avvik, vernerunde, forbedring.',
+  meetings: 'Møte-maler — AMU, ledelsens gjennomgang, vernerunde-møter.',
+  alerts: 'Varslings-maler — whistleblowing, GDPR-brudd, HMS-hendelser.',
+  workflow: 'Arbeidsflyt-maler — systemregler for automatisering (kun lesning).',
 }
 
 const SOURCE_ICON: Record<AdminTemplateSource, typeof ClipboardList> = {
@@ -119,6 +135,10 @@ const SOURCE_ICON: Record<AdminTemplateSource, typeof ClipboardList> = {
   documents: FileText,
   learning: GraduationCap,
   registers: Database,
+  tasks: Kanban,
+  meetings: CalendarDays,
+  alerts: AlertTriangle,
+  workflow: Workflow,
 }
 
 const PAGE_SIZE_OPTIONS = [10, 25, 50, 100] as const
@@ -507,6 +527,68 @@ export function AdminTemplatesPage() {
           delete copy.deleted_at
           const { error: e1 } = await supabase.from('register_types').insert(copy)
           if (e1) throw e1
+        } else if (row.source === 'tasks') {
+          // Task override is thin — just create a new override row pointing
+          // at the same catalog. The catalog stays shared.
+          const { data: orig, error: e0 } = await supabase
+            .from('task_org_templates')
+            .select('catalog_id, nav_pinned')
+            .eq('id', row.id)
+            .maybeSingle()
+          if (e0) throw e0
+          if (!orig) throw new Error('Fant ikke malen.')
+          const { error: e1 } = await supabase.from('task_org_templates').insert({
+            organization_id: orgId,
+            catalog_id: (orig as { catalog_id: string }).catalog_id,
+            nav_pinned: false,
+            is_active: false,
+          })
+          // Tasks have (org, catalog) unique constraint — duplicate would
+          // normally fail. Catch and surface a clear message.
+          if (e1) {
+            if (e1.code === '23505') {
+              throw new Error('Denne oppgave-malen er allerede aktivert for organisasjonen. Tasks bruker katalog-baserte maler — ingen ekte duplikat-rad trengs.')
+            }
+            throw e1
+          }
+        } else if (row.source === 'meetings') {
+          const { data: orig, error: e0 } = await supabase
+            .from('meeting_org_templates')
+            .select('*')
+            .eq('id', row.id)
+            .maybeSingle()
+          if (e0) throw e0
+          if (!orig) throw new Error('Fant ikke møte-malen.')
+          const copy: Record<string, unknown> = { ...(orig as Record<string, unknown>) }
+          delete copy.id
+          delete copy.created_at
+          delete copy.updated_at
+          delete copy.deleted_at
+          copy.slug = `${(orig as { slug: string }).slug}-kopi-${Date.now().toString(36)}`
+          copy.name = `Kopi av ${(orig as { name: string }).name}`
+          copy.is_active = false
+          const { error: e1 } = await supabase.from('meeting_org_templates').insert(copy)
+          if (e1) throw e1
+        } else if (row.source === 'alerts') {
+          const { data: orig, error: e0 } = await supabase
+            .from('alert_org_templates')
+            .select('*')
+            .eq('id', row.id)
+            .maybeSingle()
+          if (e0) throw e0
+          if (!orig) throw new Error('Fant ikke varslings-malen.')
+          const copy: Record<string, unknown> = { ...(orig as Record<string, unknown>) }
+          delete copy.id
+          delete copy.created_at
+          delete copy.updated_at
+          delete copy.deleted_at
+          copy.slug = `${(orig as { slug: string }).slug}-kopi-${Date.now().toString(36)}`
+          copy.name = `Kopi av ${(orig as { name: string }).name}`
+          copy.is_active = false
+          const { error: e1 } = await supabase.from('alert_org_templates').insert(copy)
+          if (e1) throw e1
+        } else if (row.source === 'workflow') {
+          throw new Error('Arbeidsflyt-maler er systemdefinerte — kan ikke dupliseres herfra.')
         }
         await refresh()
       } catch (e) {
@@ -547,33 +629,26 @@ export function AdminTemplatesPage() {
       setBusyRowId(row.rowId)
       setActionError(null)
       try {
-        if (row.source === 'survey') {
-          const { error: err } = await supabase
-            .from('survey_org_templates')
-            .update({ deleted_at: new Date().toISOString() })
-            .eq('id', row.id)
-          if (err) throw err
-        } else if (row.source === 'learning') {
-          const { error: err } = await supabase
-            .from('learning_courses')
-            .update({ status: 'archived' })
-            .eq('id', row.id)
-          if (err) throw err
-        } else if (row.source === 'documents') {
-          const { error: err } = await supabase
-            .from('document_org_templates')
-            .update({ deleted_at: new Date().toISOString() })
-            .eq('id', row.id)
-          if (err) throw err
-        } else if (row.source === 'registers') {
-          const { error: err } = await supabase
-            .from('register_types')
-            .update({ deleted_at: new Date().toISOString() })
-            .eq('id', row.id)
-          if (err) throw err
-        } else {
+        // Per-source soft-delete pattern. All listed sources have a
+        // deleted_at column (or equivalent archive flag for learning).
+        const SOFT_DELETE_TABLE: Record<string, { table: string; col: 'deleted_at' | 'status'; value: string }> = {
+          survey: { table: 'survey_org_templates', col: 'deleted_at', value: new Date().toISOString() },
+          learning: { table: 'learning_courses', col: 'status', value: 'archived' },
+          documents: { table: 'document_org_templates', col: 'deleted_at', value: new Date().toISOString() },
+          registers: { table: 'register_types', col: 'deleted_at', value: new Date().toISOString() },
+          tasks: { table: 'task_org_templates', col: 'deleted_at', value: new Date().toISOString() },
+          meetings: { table: 'meeting_org_templates', col: 'deleted_at', value: new Date().toISOString() },
+          alerts: { table: 'alert_org_templates', col: 'deleted_at', value: new Date().toISOString() },
+        }
+        const cfg = SOFT_DELETE_TABLE[row.source]
+        if (!cfg) {
           throw new Error('Ukjent kilde — sletting støttes ikke.')
         }
+        const { error: err } = await supabase
+          .from(cfg.table)
+          .update({ [cfg.col]: cfg.value })
+          .eq('id', row.id)
+        if (err) throw err
         await refresh()
       } catch (e) {
         setActionError(e instanceof Error ? e.message : 'Kunne ikke slette malen.')
@@ -610,7 +685,16 @@ export function AdminTemplatesPage() {
             await supabase.from('register_types').update({ is_active: next }).eq('id', r.id)
           } else if (r.source === 'survey' && supabase) {
             await supabase.from('survey_org_templates').update({ is_active: next }).eq('id', r.id)
+          } else if (r.source === 'tasks' && supabase) {
+            await supabase.from('task_org_templates').update({ is_active: next }).eq('id', r.id)
+          } else if (r.source === 'meetings' && supabase) {
+            await supabase.from('meeting_org_templates').update({ is_active: next }).eq('id', r.id)
+          } else if (r.source === 'alerts' && supabase) {
+            await supabase.from('alert_org_templates').update({ is_active: next }).eq('id', r.id)
           }
+          // documents + workflow + compliance skipped — no straightforward
+          // is_active toggle (documents have no column; workflow rows are
+          // system; compliance uses cl.updateTemplate above).
         }
         setSelectedIds(new Set())
         await refresh()
@@ -651,11 +735,10 @@ export function AdminTemplatesPage() {
       setActionError(null)
       try {
         if (row.source === 'documents') {
-          const { error: err } = await supabase
-            .from('document_org_templates')
-            .update({ is_active: next })
-            .eq('id', row.id)
-          if (err) throw err
+          // Documents have no is_active column today; nav_pinned is
+          // closest to "user-visible". Toggle skipped here — admins
+          // use the full editor or soft-delete.
+          throw new Error('Aktiv-bryter ikke tilgjengelig for dokument-maler.')
         } else if (row.source === 'learning') {
           const { error: err } = await supabase
             .from('learning_courses')
@@ -665,6 +748,24 @@ export function AdminTemplatesPage() {
         } else if (row.source === 'registers') {
           const { error: err } = await supabase
             .from('register_types')
+            .update({ is_active: next })
+            .eq('id', row.id)
+          if (err) throw err
+        } else if (row.source === 'tasks') {
+          const { error: err } = await supabase
+            .from('task_org_templates')
+            .update({ is_active: next })
+            .eq('id', row.id)
+          if (err) throw err
+        } else if (row.source === 'meetings') {
+          const { error: err } = await supabase
+            .from('meeting_org_templates')
+            .update({ is_active: next })
+            .eq('id', row.id)
+          if (err) throw err
+        } else if (row.source === 'alerts') {
+          const { error: err } = await supabase
+            .from('alert_org_templates')
             .update({ is_active: next })
             .eq('id', row.id)
           if (err) throw err

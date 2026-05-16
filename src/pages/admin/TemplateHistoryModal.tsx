@@ -18,20 +18,28 @@ type VersionRow = {
   created_at: string
 }
 
-const VERSIONS_TABLE: Record<AdminTemplateSource, string> = {
+const VERSIONS_TABLE: Record<AdminTemplateSource, string | null> = {
   compliance: 'compliance_template_versions',
   survey: 'survey_template_versions',
   documents: 'document_template_versions',
   learning: 'learning_template_versions',
   registers: 'register_template_versions',
+  tasks: 'task_template_versions',
+  meetings: 'meeting_template_versions',
+  alerts: 'alert_template_versions',
+  workflow: null, // catalog-only; no per-org versioning
 }
 
-const RESTORE_RPC: Record<AdminTemplateSource, string> = {
+const RESTORE_RPC: Record<AdminTemplateSource, string | null> = {
   compliance: 'restore_compliance_template_version',
   survey: 'restore_survey_template_version',
   documents: 'restore_document_template_version',
   learning: 'restore_learning_template_version',
   registers: 'restore_register_template_version',
+  tasks: 'restore_task_template_version',
+  meetings: 'restore_meeting_template_version',
+  alerts: 'restore_alert_template_version',
+  workflow: null,
 }
 
 const NAME_FIELD: Record<AdminTemplateSource, string> = {
@@ -40,6 +48,10 @@ const NAME_FIELD: Record<AdminTemplateSource, string> = {
   documents: 'label',
   learning: 'title',
   registers: 'name',
+  tasks: 'catalog_id', // tasks override has no name; catalog provides it
+  meetings: 'name',
+  alerts: 'name',
+  workflow: 'name',
 }
 
 const DESC_FIELD: Record<AdminTemplateSource, string> = {
@@ -48,6 +60,10 @@ const DESC_FIELD: Record<AdminTemplateSource, string> = {
   documents: 'description',
   learning: 'description',
   registers: 'description',
+  tasks: 'description',
+  meetings: 'description',
+  alerts: 'description',
+  workflow: 'description',
 }
 
 export function TemplateHistoryModal({
@@ -72,10 +88,16 @@ export function TemplateHistoryModal({
 
   const loadVersions = async () => {
     if (!supabase) return
+    const table = VERSIONS_TABLE[source]
+    if (!table) {
+      setVersions([])
+      setLoading(false)
+      return
+    }
     setLoading(true)
     try {
       const { data, error: err } = await supabase
-        .from(VERSIONS_TABLE[source])
+        .from(table)
         .select('id, snapshot, changed_by, created_at')
         .eq('template_id', templateId)
         .order('created_at', { ascending: false })
@@ -105,9 +127,14 @@ export function TemplateHistoryModal({
 
   const handleRestore = async (v: VersionRow) => {
     if (!supabase) return
+    const rpc = RESTORE_RPC[source]
+    if (!rpc) {
+      setError('Gjenoppretting er ikke tilgjengelig for denne maltypen.')
+      return
+    }
     setRestoring(v.id)
     try {
-      const { error: err } = await supabase.rpc(RESTORE_RPC[source], { p_version_id: v.id })
+      const { error: err } = await supabase.rpc(rpc, { p_version_id: v.id })
       if (err) throw err
       await loadVersions()
       onRestored?.()

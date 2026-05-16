@@ -154,6 +154,56 @@ export function TemplatePreviewModal({
             ),
           )
           setEmptyHint('Denne registertypen har ingen felter ennå.')
+        } else if (source === 'tasks') {
+          // Task override row points to a catalog with the actual content.
+          const { data: ovr } = await supabase
+            .from('task_org_templates')
+            .select('catalog_id')
+            .eq('id', templateId)
+            .maybeSingle()
+          if (!ovr) {
+            if (cancelled) return
+            setEmptyHint('Fant ikke malen.')
+            return
+          }
+          const { data: cat } = await supabase
+            .from('task_template_catalog')
+            .select('definition')
+            .eq('id', (ovr as { catalog_id: string }).catalog_id)
+            .maybeSingle()
+          if (cancelled) return
+          setItems(extractTaskFields((cat as { definition?: unknown } | null)?.definition))
+          setEmptyHint('Denne oppgave-malen har ingen felter eller punkter ennå.')
+        } else if (source === 'meetings') {
+          const { data, error: err } = await supabase
+            .from('meeting_org_templates')
+            .select('definition')
+            .eq('id', templateId)
+            .maybeSingle()
+          if (err) throw err
+          if (cancelled) return
+          setItems(extractMeetingAgenda((data as { definition?: unknown } | null)?.definition))
+          setEmptyHint('Denne møte-malen har ingen agenda-punkter ennå.')
+        } else if (source === 'alerts') {
+          const { data, error: err } = await supabase
+            .from('alert_org_templates')
+            .select('definition')
+            .eq('id', templateId)
+            .maybeSingle()
+          if (err) throw err
+          if (cancelled) return
+          setItems(extractAlertFlow((data as { definition?: unknown } | null)?.definition))
+          setEmptyHint('Denne varslings-malen har ingen steg definert ennå.')
+        } else if (source === 'workflow') {
+          const { data, error: err } = await supabase
+            .from('workflow_template_catalog')
+            .select('actions_json, condition_json, trigger_event_name')
+            .eq('id', templateId)
+            .maybeSingle()
+          if (err) throw err
+          if (cancelled) return
+          setItems(extractWorkflowActions(data))
+          setEmptyHint('Denne arbeidsflyt-malen har ingen handlinger.')
         }
       } catch (e) {
         if (!cancelled) setError(e instanceof Error ? e.message : 'Kunne ikke laste forhåndsvisning.')
@@ -336,6 +386,98 @@ function extractLearningModules(content: unknown): PreviewItem[] {
       body: obj.estimatedMinutes != null ? `~${obj.estimatedMinutes} min` : null,
     }
   })
+}
+
+function extractTaskFields(definition: unknown): PreviewItem[] {
+  if (!definition || typeof definition !== 'object') return []
+  const def = definition as { fields?: unknown[]; checklist_items?: unknown[] }
+  const items: PreviewItem[] = []
+  if (Array.isArray(def.fields)) {
+    def.fields.forEach((f, i) => {
+      const obj = f as { id?: string; label?: string; kind?: string; required?: boolean }
+      items.push({
+        key: `f-${obj.id ?? i}`,
+        title: obj.label ?? '(uten navn)',
+        typeLabel: obj.kind ?? 'felt',
+        required: obj.required,
+      })
+    })
+  }
+  if (Array.isArray(def.checklist_items)) {
+    def.checklist_items.forEach((c, i) => {
+      const obj = c as { id?: string; text?: string }
+      items.push({
+        key: `c-${obj.id ?? i}`,
+        title: obj.text ?? '(uten tekst)',
+        typeLabel: 'sjekkpunkt',
+      })
+    })
+  }
+  return items
+}
+
+function extractMeetingAgenda(definition: unknown): PreviewItem[] {
+  if (!definition || typeof definition !== 'object') return []
+  const def = definition as { agenda?: unknown[]; items?: unknown[]; sections?: unknown[] }
+  const arr = def.agenda ?? def.items ?? def.sections ?? []
+  if (!Array.isArray(arr)) return []
+  return arr.map((it, i) => {
+    const obj = it as { id?: string; title?: string; name?: string; duration_minutes?: number; type?: string }
+    return {
+      key: obj.id ?? String(i),
+      title: obj.title ?? obj.name ?? '(uten tittel)',
+      typeLabel: obj.type ?? undefined,
+      body: obj.duration_minutes != null ? `~${obj.duration_minutes} min` : null,
+    } as PreviewItem
+  })
+}
+
+function extractAlertFlow(definition: unknown): PreviewItem[] {
+  if (!definition || typeof definition !== 'object') return []
+  const def = definition as { steps?: unknown[]; questions?: unknown[]; fields?: unknown[] }
+  const arr = def.steps ?? def.questions ?? def.fields ?? []
+  if (!Array.isArray(arr)) return []
+  return arr.map((it, i) => {
+    const obj = it as { id?: string; title?: string; label?: string; type?: string; required?: boolean }
+    return {
+      key: obj.id ?? String(i),
+      title: obj.title ?? obj.label ?? '(uten tittel)',
+      typeLabel: obj.type ?? undefined,
+      required: obj.required,
+    }
+  })
+}
+
+function extractWorkflowActions(row: unknown): PreviewItem[] {
+  if (!row || typeof row !== 'object') return []
+  const r = row as { actions_json?: unknown; condition_json?: unknown; trigger_event_name?: string }
+  const out: PreviewItem[] = []
+  if (r.trigger_event_name) {
+    out.push({
+      key: 'trigger',
+      title: `Trigger: ${r.trigger_event_name}`,
+      typeLabel: 'trigger',
+    })
+  }
+  if (r.condition_json && typeof r.condition_json === 'object') {
+    const cond = r.condition_json as { match?: string }
+    out.push({
+      key: 'condition',
+      title: `Betingelse: ${cond.match ?? 'tilpasset'}`,
+      typeLabel: 'condition',
+    })
+  }
+  if (Array.isArray(r.actions_json)) {
+    r.actions_json.forEach((a, i) => {
+      const obj = a as { type?: string; kind?: string; target?: string; label?: string }
+      out.push({
+        key: `a-${i}`,
+        title: obj.label ?? obj.target ?? obj.type ?? obj.kind ?? 'handling',
+        typeLabel: obj.type ?? obj.kind ?? 'action',
+      })
+    })
+  }
+  return out
 }
 
 function extractRegisterFields(schema: unknown): PreviewItem[] {

@@ -1,13 +1,21 @@
 // useAdminTemplates — cross-module aggregator that lists every template
 // in the org so admins can browse compliance / survey / documents /
-// learning / register templates from one page (`/admin/templates`).
+// learning / register / tasks / meetings / alerts / workflow templates
+// from one page (`/admin/templates`).
 //
-// Each source has its own shape; this hook normalises to the common
-// AdminTemplateRow used by the page's table. The hook is read-only —
-// CRUD lives on each per-module surface (the row's `editUrl` deep-
-// links to the right editor when the user clicks "Rediger").
+// Source of truth: the SQL view `v_admin_templates` (see migration
+// 20260912120900). The view does the row-shape normalisation across
+// 9 source tables; this hook just reads it and maps to the
+// `AdminTemplateRow` type the page expects. Adding a new template-
+// bearing module = appending a `union all` block to the view, then
+// adding the source key + UI metadata here.
+//
+// The hook is read-only — CRUD lives on each per-module surface (the
+// row's `editUrl` deep-links to the right editor; lightweight edits
+// happen in /admin/templates inline via LightweightTemplateEditor +
+// per-source bridges).
 
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useOrgSetupContext } from './useOrgSetupContext'
 
 export type AdminTemplateSource =
@@ -16,6 +24,10 @@ export type AdminTemplateSource =
   | 'documents'
   | 'learning'
   | 'registers'
+  | 'tasks'
+  | 'meetings'
+  | 'alerts'
+  | 'workflow'
 
 export type AdminTemplateStatus =
   | 'active'
@@ -30,6 +42,10 @@ export const ADMIN_TEMPLATE_SOURCE_LABELS: Record<AdminTemplateSource, string> =
   documents: 'Dokumenter',
   learning: 'Læring',
   registers: 'Register',
+  tasks: 'Oppgaver',
+  meetings: 'Møter',
+  alerts: 'Varslinger',
+  workflow: 'Arbeidsflyt',
 }
 
 export const ADMIN_TEMPLATE_STATUS_LABELS: Record<AdminTemplateStatus, string> = {
@@ -41,21 +57,21 @@ export const ADMIN_TEMPLATE_STATUS_LABELS: Record<AdminTemplateStatus, string> =
 }
 
 export type AdminTemplateRow = {
-  /** Source-prefixed for uniqueness across modules. */
+  /** Source-prefixed id, stable across reloads. */
   rowId: string
   source: AdminTemplateSource
   sourceLabel: string
-  /** The original DB id (per-source). Use with editUrl. */
+  /** The original DB id (per-source). Use with editUrl + bridges. */
   id: string
   name: string
-  /** Resolved category name; null when uncategorised. */
+  /** Resolved category name when the source has one; null otherwise. */
   category: string | null
   status: AdminTemplateStatus
-  /** When the catalogue ships the row vs. an admin authored it. */
+  /** Catalog-shipped / platform-defined row. */
   isSystem: boolean
-  /** Optional ISO timestamp; sorts the table by recency by default. */
+  /** Most-recent edit timestamp; sorts the table by recency by default. */
   updatedAt: string | null
-  /** Deep link into the source module's editor. */
+  /** Deep link into the source module's full editor. */
   editUrl: string
   /** Optional extra context shown beside the name (e.g. pack slug). */
   hint?: string | null
@@ -68,262 +84,102 @@ export type UseAdminTemplatesReturn = {
   refresh: () => Promise<void>
 }
 
+/** Per-source mapping from `pack`/category text to the editor deep-link. */
+function buildEditUrl(source: AdminTemplateSource, id: string): string {
+  const enc = encodeURIComponent(id)
+  switch (source) {
+    case 'compliance':
+      return `/compliance/checklists/admin?tab=maler&template=${enc}`
+    case 'survey':
+      return `/survey/admin?tab=maler&template=${enc}`
+    case 'documents':
+      return `/documents/admin?tab=maler&template=${enc}`
+    case 'learning':
+      return `/learning/courses/${enc}`
+    case 'registers':
+      return `/registers/${enc}`
+    case 'tasks':
+      return `/tasks/management/admin?template=${enc}`
+    case 'meetings':
+      return `/meetings/admin?template=${enc}`
+    case 'alerts':
+      return `/alerts/admin?template=${enc}`
+    case 'workflow':
+      return `/workflow?tab=library&template=${enc}`
+  }
+}
+
+type ViewRow = {
+  row_id: string
+  source: AdminTemplateSource
+  source_id: string
+  name: string
+  category_name: string | null
+  status: AdminTemplateStatus
+  is_system: boolean
+  updated_at: string | null
+  organization_id: string | null
+  pack: string | null
+  hint: string | null
+}
+
 export function useAdminTemplates(): UseAdminTemplatesReturn {
   const { supabase, organization } = useOrgSetupContext()
   const orgId = organization?.id ?? null
+
   const [rows, setRows] = useState<AdminTemplateRow[]>([])
-  const [loading, setLoading] = useState(false)
+  const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [fetchedFor, setFetchedFor] = useState<string | null>(null)
 
-  const refresh = useMemo(
-    () =>
-      async () => {
-        if (!supabase || !orgId) return
-        setLoading(true)
-        setError(null)
-        try {
-          const [
-            complianceTpls,
-            complianceCats,
-            surveyOrgTpls,
-            surveyCatalog,
-            surveyCats,
-            docs,
-            learningCourses,
-            learningCats,
-            registerTypes,
-            registerCats,
-          ] = await Promise.all([
-            supabase
-              .from('compliance_checklist_templates')
-              .select('id, name, pack, category_id, is_active, updated_at, deleted_at')
-              .eq('organization_id', orgId)
-              .is('deleted_at', null),
-            supabase
-              .from('compliance_checklist_categories')
-              .select('id, name')
-              .eq('organization_id', orgId)
-              .is('deleted_at', null),
-            supabase
-              .from('survey_org_templates')
-              .select(
-                'id, catalog_id, pack, name_override, category_id, is_active, nav_pinned, updated_at, deleted_at',
-              )
-              .eq('organization_id', orgId)
-              .is('deleted_at', null),
-            supabase
-              .from('survey_template_catalog')
-              .select('id, name, pack, is_system, is_active, updated_at')
-              .eq('is_active', true),
-            supabase
-              .from('survey_template_categories')
-              .select('id, name')
-              .eq('organization_id', orgId)
-              .is('deleted_at', null),
-            supabase
-              .from('document_org_templates')
-              .select('id, label, category, updated_at, deleted_at')
-              .eq('organization_id', orgId)
-              .is('deleted_at', null),
-            supabase
-              .from('learning_courses')
-              .select('id, title, status, category_id, updated_at')
-              .eq('organization_id', orgId),
-            supabase
-              .from('learning_categories')
-              .select('id, name')
-              .eq('organization_id', orgId)
-              .eq('is_active', true)
-              .is('deleted_at', null),
-            supabase
-              .from('register_types')
-              .select('id, organization_id, name, is_active, is_system, updated_at, deleted_at')
-              .is('deleted_at', null),
-            supabase
-              .from('register_categories')
-              .select('id, name')
-              .eq('organization_id', orgId)
-              .eq('is_active', true)
-              .is('deleted_at', null),
-          ])
-
-          const out: AdminTemplateRow[] = []
-
-          // Compliance
-          const complianceCatById = mapBy(complianceCats.data, 'id', 'name')
-          for (const r of complianceTpls.data ?? []) {
-            const row = r as {
-              id: string
-              name: string
-              pack: string | null
-              category_id: string | null
-              is_active: boolean
-              updated_at: string | null
-            }
-            out.push({
-              rowId: `compliance:${row.id}`,
-              source: 'compliance',
-              sourceLabel: ADMIN_TEMPLATE_SOURCE_LABELS.compliance,
-              id: row.id,
-              name: row.name,
-              category: row.category_id ? complianceCatById.get(row.category_id) ?? null : null,
-              status: row.is_active ? 'active' : 'inactive',
-              isSystem: false,
-              updatedAt: row.updated_at,
-              editUrl: `/compliance/checklists/admin?tab=maler&template=${encodeURIComponent(row.id)}`,
-              hint: row.pack ? `pakke: ${row.pack}` : null,
-            })
-          }
-
-          // Survey — overlay catalog name on org_templates rows
-          const catalogById = new Map<string, { name: string; pack: string | null; isSystem: boolean }>()
-          for (const c of surveyCatalog.data ?? []) {
-            const row = c as { id: string; name: string; pack: string | null; is_system: boolean }
-            catalogById.set(row.id, { name: row.name, pack: row.pack, isSystem: row.is_system })
-          }
-          const surveyCatById = mapBy(surveyCats.data, 'id', 'name')
-          for (const r of surveyOrgTpls.data ?? []) {
-            const row = r as {
-              id: string
-              catalog_id: string
-              pack: string | null
-              name_override: string | null
-              category_id: string | null
-              is_active: boolean
-              updated_at: string | null
-            }
-            const cat = catalogById.get(row.catalog_id)
-            out.push({
-              rowId: `survey:${row.id}`,
-              source: 'survey',
-              sourceLabel: ADMIN_TEMPLATE_SOURCE_LABELS.survey,
-              id: row.id,
-              name: row.name_override ?? cat?.name ?? '(uten navn)',
-              category: row.category_id ? surveyCatById.get(row.category_id) ?? null : null,
-              status: row.is_active ? 'active' : 'inactive',
-              isSystem: cat?.isSystem ?? false,
-              updatedAt: row.updated_at,
-              editUrl: `/survey/admin?tab=maler&template=${encodeURIComponent(row.id)}`,
-              hint: row.pack ? `pakke: ${row.pack}` : null,
-            })
-          }
-
-          // Documents — schema has `label` (not `title`), no
-          // is_active boolean. A row that isn't soft-deleted is
-          // active; the deleted_at filter on the query above is the
-          // only state machine.
-          for (const r of docs.data ?? []) {
-            const row = r as {
-              id: string
-              label: string
-              category: string | null
-              updated_at: string | null
-            }
-            out.push({
-              rowId: `documents:${row.id}`,
-              source: 'documents',
-              sourceLabel: ADMIN_TEMPLATE_SOURCE_LABELS.documents,
-              id: row.id,
-              name: row.label,
-              category: row.category,
-              status: 'active',
-              isSystem: false,
-              updatedAt: row.updated_at,
-              editUrl: `/documents/admin?tab=maler&template=${encodeURIComponent(row.id)}`,
-            })
-          }
-
-          // Learning
-          const learningCatById = mapBy(learningCats.data, 'id', 'name')
-          for (const r of learningCourses.data ?? []) {
-            const row = r as {
-              id: string
-              title: string
-              status: string
-              category_id: string | null
-              updated_at: string | null
-            }
-            const status: AdminTemplateStatus =
-              row.status === 'published'
-                ? 'active'
-                : row.status === 'draft'
-                  ? 'draft'
-                  : row.status === 'archived'
-                    ? 'archived'
-                    : 'inactive'
-            out.push({
-              rowId: `learning:${row.id}`,
-              source: 'learning',
-              sourceLabel: ADMIN_TEMPLATE_SOURCE_LABELS.learning,
-              id: row.id,
-              name: row.title,
-              category: row.category_id ? learningCatById.get(row.category_id) ?? null : null,
-              status,
-              isSystem: false,
-              updatedAt: row.updated_at,
-              editUrl: `/learning/courses/${encodeURIComponent(row.id)}`,
-            })
-          }
-
-          // Registers — types are templates for records
-          const registerCatById = mapBy(registerCats.data, 'id', 'name')
-          for (const r of registerTypes.data ?? []) {
-            const row = r as {
-              id: string
-              organization_id: string | null
-              name: string
-              is_active: boolean
-              is_system: boolean
-              updated_at: string | null
-            }
-            // System types from other orgs are already RLS-filtered;
-            // org types must match this org. Belt-and-braces.
-            if (row.organization_id !== null && row.organization_id !== orgId) continue
-            out.push({
-              rowId: `registers:${row.id}`,
-              source: 'registers',
-              sourceLabel: ADMIN_TEMPLATE_SOURCE_LABELS.registers,
-              id: row.id,
-              name: row.name,
-              category: registerCatById.get(row.id) ?? null,
-              status: !row.is_active ? 'inactive' : row.is_system ? 'system' : 'active',
-              isSystem: row.is_system,
-              updatedAt: row.updated_at,
-              editUrl: `/registers/${encodeURIComponent(row.id)}`,
-            })
-          }
-
-          out.sort((a, b) => (b.updatedAt ?? '').localeCompare(a.updatedAt ?? ''))
-          setRows(out)
-          setFetchedFor(orgId)
-        } catch (e) {
-          setError(e instanceof Error ? e.message : 'Klarte ikke å laste maler')
-        } finally {
-          setLoading(false)
+  const load = useCallback(async () => {
+    if (!supabase || !orgId) return
+    setLoading(true)
+    setError(null)
+    try {
+      const { data, error: respErr } = await supabase
+        .from('v_admin_templates')
+        .select('row_id, source, source_id, name, category_name, status, is_system, updated_at, organization_id, pack, hint')
+        .order('updated_at', { ascending: false })
+      if (respErr) throw respErr
+      const out: AdminTemplateRow[] = (data ?? []).map((raw) => {
+        const v = raw as unknown as ViewRow
+        return {
+          rowId: v.row_id,
+          source: v.source,
+          sourceLabel: ADMIN_TEMPLATE_SOURCE_LABELS[v.source],
+          id: v.source_id,
+          name: v.name,
+          category: v.category_name,
+          status: v.status,
+          isSystem: v.is_system,
+          updatedAt: v.updated_at,
+          editUrl: buildEditUrl(v.source, v.source_id),
+          hint: v.pack ? `pakke: ${v.pack}` : v.hint,
         }
-      },
-    [supabase, orgId],
-  )
+      })
+      setRows(out)
+      setFetchedFor(orgId)
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Klarte ikke å laste maler')
+    } finally {
+      setLoading(false)
+    }
+  }, [supabase, orgId])
 
   useEffect(() => {
-    if (orgId && fetchedFor !== orgId) void refresh()
-  }, [orgId, fetchedFor, refresh])
+    if (!orgId) {
+      setRows([])
+      setLoading(false)
+      return
+    }
+    if (fetchedFor !== orgId) {
+      void load()
+    }
+  }, [load, orgId, fetchedFor])
 
-  return { loading, error, rows, refresh }
-}
-
-function mapBy(
-  data: unknown[] | null | undefined,
-  keyField: string,
-  valueField: string,
-): Map<string, string> {
-  const out = new Map<string, string>()
-  for (const r of data ?? []) {
-    const row = r as Record<string, unknown>
-    const k = row[keyField]
-    const v = row[valueField]
-    if (typeof k === 'string' && typeof v === 'string') out.set(k, v)
-  }
-  return out
+  return useMemo(
+    () => ({ loading, error, rows, refresh: load }),
+    [loading, error, rows, load],
+  )
 }
