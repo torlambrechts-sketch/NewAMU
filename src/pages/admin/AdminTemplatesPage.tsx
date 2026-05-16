@@ -43,7 +43,6 @@ import {
   Plus,
   RefreshCw,
   Search,
-  Settings,
   Trash2,
   X,
 } from 'lucide-react'
@@ -243,7 +242,7 @@ export function AdminTemplatesPage() {
             className="inline-flex items-center justify-center gap-1.5 rounded-md border border-neutral-300 bg-white px-4 py-2 text-sm font-semibold text-neutral-700 transition-colors hover:bg-neutral-50"
           >
             <ArrowLeft className="h-4 w-4" />
-            Til Selskap
+            Til selskap
           </Link>
           <button
             type="button"
@@ -313,14 +312,6 @@ export function AdminTemplatesPage() {
               ? `Status: ${ADMIN_TEMPLATE_STATUS_LABELS[activeStatus]}`
               : 'Ingen filter aktivert'}
           </span>
-          <button
-            type="button"
-            className="rounded-md p-2 text-neutral-500 hover:bg-neutral-100"
-            aria-label="Innstillinger"
-            disabled
-          >
-            <Settings className="size-4" />
-          </button>
         </div>
 
         {loading && rows.length === 0 ? (
@@ -808,7 +799,7 @@ function TemplateDrawer({
         <header className="flex items-start justify-between gap-3 border-b border-neutral-100 px-5 py-4">
           <div className="min-w-0">
             <p className="text-[10px] font-bold uppercase tracking-wider text-neutral-500">
-              {state.kind === 'new' ? 'Velg malttype' : 'Mal-detaljer'}
+              {state.kind === 'new' ? 'Velg maltype' : 'Mal-detaljer'}
             </p>
             <h2 className="truncate text-lg font-semibold text-neutral-900">{title}</h2>
           </div>
