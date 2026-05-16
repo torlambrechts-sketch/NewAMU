@@ -70,6 +70,7 @@ import { ComplianceTemplateEditorBridge } from './ComplianceTemplateEditorBridge
 import { SurveyTemplateEditorBridge } from './SurveyTemplateEditorBridge'
 import { TemplateHistoryModal } from './TemplateHistoryModal'
 import { TemplatePreviewModal } from './TemplatePreviewModal'
+import { LightweightTemplateEditor } from './LightweightTemplateEditor'
 import { AiTemplateGenModal } from './AiTemplateGenModal'
 
 const SOURCE_KEYS: AdminTemplateSource[] = [
@@ -128,6 +129,7 @@ type DrawerState =
   | { kind: 'view'; row: AdminTemplateRow }
   | { kind: 'compliance-edit'; templateId: string | null }
   | { kind: 'survey-edit'; templateId: string | null }
+  | { kind: 'lightweight-edit'; row: AdminTemplateRow }
 
 /** Sources that have an inline slide-over editor wired today. */
 const INLINE_EDITABLE_SOURCES: ReadonlySet<AdminTemplateSource> = new Set(['compliance', 'survey'])
@@ -644,10 +646,13 @@ export function AdminTemplatesPage() {
                     onOpen={() => {
                       if (r.source === 'compliance') {
                         setDrawer({ kind: 'compliance-edit', templateId: r.id })
-                      } else if (r.source === 'survey') {
-                        setDrawer({ kind: 'survey-edit', templateId: r.id })
                       } else {
-                        setDrawer({ kind: 'view', row: r })
+                        // Survey / documents / learning / registers
+                        // → unified lightweight editor for the
+                        // template's core fields. Rich content edits
+                        // still navigate to the module's full editor
+                        // via the CTA inside the panel.
+                        setDrawer({ kind: 'lightweight-edit', row: r })
                       }
                     }}
                     onDuplicate={
@@ -762,8 +767,19 @@ export function AdminTemplatesPage() {
           }}
         />
       ) : null}
+      {drawer.kind === 'lightweight-edit' ? (
+        <LightweightTemplateEditor
+          row={drawer.row}
+          onClose={() => setDrawer({ kind: 'closed' })}
+          onSaved={() => {
+            void refresh()
+            setDrawer({ kind: 'closed' })
+          }}
+        />
+      ) : null}
       {historyFor ? (
         <TemplateHistoryModal
+          source={historyFor.source}
           templateId={historyFor.id}
           templateName={historyFor.name}
           onClose={() => setHistoryFor(null)}

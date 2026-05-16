@@ -1,24 +1,52 @@
-// Versjonshistorikk modal for a single compliance template. Reads from
-// `compliance_template_versions` (append-only snapshot log written by
-// the snapshot trigger). Today the modal is read-only — restoring a
-// version is a follow-up RPC that needs careful RLS design.
+// Versjonshistorikk modal — source-aware. Reads from the per-source
+// `<source>_template_versions` table written by the snapshot trigger.
+// Restore is still a follow-up RPC; the modal is read-only.
 
 import { useEffect, useState } from 'react'
 import { Clock, Loader2, X } from 'lucide-react'
 import { useOrgSetupContext } from '../../hooks/useOrgSetupContext'
+import type { AdminTemplateSource } from '../../hooks/useAdminTemplates'
 
 type VersionRow = {
   id: string
-  snapshot: { name?: string; description?: string | null; is_active?: boolean } | null
+  snapshot: Record<string, unknown> | null
   changed_by: string | null
   created_at: string
 }
 
+const VERSIONS_TABLE: Record<AdminTemplateSource, string> = {
+  compliance: 'compliance_template_versions',
+  survey: 'survey_template_versions',
+  documents: 'document_template_versions',
+  learning: 'learning_template_versions',
+  registers: 'register_template_versions',
+}
+
+/** Per-source snapshot field that holds the human-visible name. */
+const NAME_FIELD: Record<AdminTemplateSource, string> = {
+  compliance: 'name',
+  survey: 'name_override',
+  documents: 'label',
+  learning: 'title',
+  registers: 'name',
+}
+
+/** Per-source snapshot field that holds a description-ish blurb. */
+const DESC_FIELD: Record<AdminTemplateSource, string> = {
+  compliance: 'description',
+  survey: 'description_override',
+  documents: 'description',
+  learning: 'description',
+  registers: 'description',
+}
+
 export function TemplateHistoryModal({
+  source,
   templateId,
   templateName,
   onClose,
 }: {
+  source: AdminTemplateSource
   templateId: string
   templateName: string
   onClose: () => void
@@ -34,7 +62,7 @@ export function TemplateHistoryModal({
     void (async () => {
       try {
         const { data, error: err } = await supabase
-          .from('compliance_template_versions')
+          .from(VERSIONS_TABLE[source])
           .select('id, snapshot, changed_by, created_at')
           .eq('template_id', templateId)
           .order('created_at', { ascending: false })
@@ -51,7 +79,7 @@ export function TemplateHistoryModal({
     return () => {
       cancelled = true
     }
-  }, [supabase, templateId])
+  }, [supabase, source, templateId])
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -60,6 +88,9 @@ export function TemplateHistoryModal({
     document.addEventListener('keydown', onKey)
     return () => document.removeEventListener('keydown', onKey)
   }, [onClose])
+
+  const nameField = NAME_FIELD[source]
+  const descField = DESC_FIELD[source]
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 p-4 backdrop-blur-[2px]">
@@ -94,27 +125,30 @@ export function TemplateHistoryModal({
             </div>
           ) : (
             <ol className="space-y-2">
-              {versions.map((v) => (
-                <li
-                  key={v.id}
-                  className="flex items-start gap-3 rounded-md border border-neutral-200 bg-white p-3"
-                >
-                  <Clock className="mt-0.5 size-4 shrink-0 text-neutral-400" />
-                  <div className="min-w-0 flex-1">
-                    <p className="text-sm font-medium text-neutral-900">
-                      {new Date(v.created_at).toLocaleString('nb-NO')}
-                    </p>
-                    {v.snapshot?.name ? (
-                      <p className="text-xs text-neutral-600">Navn: {v.snapshot.name}</p>
-                    ) : null}
-                    {v.snapshot?.description ? (
-                      <p className="line-clamp-2 text-xs text-neutral-500">
-                        {v.snapshot.description}
+              {versions.map((v) => {
+                const snap = v.snapshot ?? {}
+                const nameVal = snap[nameField] as string | undefined
+                const descVal = snap[descField] as string | undefined | null
+                return (
+                  <li
+                    key={v.id}
+                    className="flex items-start gap-3 rounded-md border border-neutral-200 bg-white p-3"
+                  >
+                    <Clock className="mt-0.5 size-4 shrink-0 text-neutral-400" />
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-medium text-neutral-900">
+                        {new Date(v.created_at).toLocaleString('nb-NO')}
                       </p>
-                    ) : null}
-                  </div>
-                </li>
-              ))}
+                      {nameVal ? (
+                        <p className="text-xs text-neutral-600">Navn: {nameVal}</p>
+                      ) : null}
+                      {descVal ? (
+                        <p className="line-clamp-2 text-xs text-neutral-500">{descVal}</p>
+                      ) : null}
+                    </div>
+                  </li>
+                )
+              })}
             </ol>
           )}
         </div>
