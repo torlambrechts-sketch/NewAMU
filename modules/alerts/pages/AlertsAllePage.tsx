@@ -1,19 +1,31 @@
 // Flat list of all cases — searchable + status-filterable. Mirrors the
-// "Alle X" pattern used across other modules (compliance/survey/meetings).
+// "Alle X" pattern: LayoutTable1PostingsShell + LayoutTable1Postings tokens.
 
 import { useMemo, useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
-import { ArrowLeft } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
+import { ChevronRight } from 'lucide-react'
 import { ModulePageShell } from '../../../src/components/module/ModulePageShell'
 import { ModuleSectionCard } from '../../../src/components/module/ModuleSectionCard'
+import { LayoutTable1PostingsShell } from '../../../src/components/layout/LayoutTable1PostingsShell'
+import {
+  LAYOUT_TABLE1_POSTINGS_BODY_ROW,
+  LAYOUT_TABLE1_POSTINGS_HEADER_ROW,
+  LAYOUT_TABLE1_POSTINGS_TH,
+} from '../../../src/components/layout/layoutTable1PostingsKit'
 import { Badge } from '../../../src/components/ui/Badge'
-import { Button } from '../../../src/components/ui/Button'
 import { StandardInput } from '../../../src/components/ui/Input'
 import { useAlerts } from '../useAlerts'
 import { ALERT_KIND_SHORT_LABEL, ALERT_STATUS_LABEL } from '../alertsLabels'
 import type { AlertStatus } from '../types'
 
 const STATUSES: Array<AlertStatus | 'open' | 'all'> = ['all', 'open', 'received', 'triage', 'investigation', 'internal_review', 'closed', 'dismissed']
+
+function statusBadgeVariant(s: AlertStatus): 'neutral' | 'warning' | 'info' | 'success' {
+  if (s === 'closed') return 'success'
+  if (s === 'dismissed') return 'neutral'
+  if (s === 'received' || s === 'triage') return 'warning'
+  return 'info'
+}
 
 export function AlertsAllePage() {
   const alerts = useAlerts()
@@ -38,11 +50,7 @@ export function AlertsAllePage() {
     <ModulePageShell
       breadcrumb={[{ label: 'Varslinger', to: '/alerts' }, { label: 'Alle' }]}
       title="Alle saker"
-      headerActions={
-        <Link to="/alerts">
-          <Button variant="ghost" size="sm" icon={<ArrowLeft className="size-4" />}>Tilbake</Button>
-        </Link>
-      }
+      description="Alle saker — sortert etter siste aktivitet."
       loading={alerts.loading}
     >
       <ModuleSectionCard className="p-4">
@@ -72,36 +80,59 @@ export function AlertsAllePage() {
         </div>
       </ModuleSectionCard>
 
-      <ModuleSectionCard>
-        {filtered.length === 0 ? (
-          <p className="px-6 py-8 text-center text-sm text-neutral-500">Ingen saker matcher filteret.</p>
-        ) : (
-          <ul className="divide-y divide-neutral-100">
-            {filtered.map((c) => (
-              <li key={c.id}>
-                <button
-                  type="button"
-                  onClick={() => navigate(`/alerts/${c.id}`)}
-                  className="flex w-full items-center justify-between gap-3 px-6 py-3 text-left transition-colors hover:bg-neutral-50"
-                >
-                  <div className="min-w-0">
-                    <p className="truncate text-sm font-medium text-neutral-900">{c.title}</p>
-                    <p className="mt-0.5 text-xs text-neutral-500">
-                      {ALERT_KIND_SHORT_LABEL[c.kind]} · {new Date(c.received_at).toLocaleDateString('no-NO')}
-                    </p>
-                  </div>
-                  <div className="flex shrink-0 items-center gap-2">
-                    <Badge variant={c.status === 'closed' || c.status === 'dismissed' ? 'neutral' : c.status === 'received' || c.status === 'triage' ? 'warning' : 'info'}>
-                      {ALERT_STATUS_LABEL[c.status]}
-                    </Badge>
-                    {c.confidentiality_level === 'confidential' ? <Badge variant="critical">Konfidensielt</Badge> : null}
-                  </div>
-                </button>
-              </li>
-            ))}
-          </ul>
-        )}
-      </ModuleSectionCard>
+      <LayoutTable1PostingsShell
+        wrap
+        title="Alle saker"
+        description="Sortert etter mottakstidspunkt."
+        toolbar={null}
+        footer={<span className="text-neutral-500">{filtered.length} poster</span>}
+      >
+        <div className="w-full overflow-x-auto">
+          <table className="w-full min-w-[640px] border-collapse text-left text-sm">
+            <thead>
+              <tr className={LAYOUT_TABLE1_POSTINGS_HEADER_ROW}>
+                <th className={LAYOUT_TABLE1_POSTINGS_TH}>Tittel</th>
+                <th className={LAYOUT_TABLE1_POSTINGS_TH}>Type</th>
+                <th className={LAYOUT_TABLE1_POSTINGS_TH}>Status</th>
+                <th className={LAYOUT_TABLE1_POSTINGS_TH}>Mottatt</th>
+                <th className={`w-8 ${LAYOUT_TABLE1_POSTINGS_TH}`} />
+              </tr>
+            </thead>
+            <tbody>
+              {filtered.length === 0 ? (
+                <tr>
+                  <td colSpan={5}>
+                    <div className="py-12 text-center text-sm text-neutral-500">
+                      Ingen saker matcher filteret.
+                    </div>
+                  </td>
+                </tr>
+              ) : (
+                filtered.map((c) => (
+                  <tr
+                    key={c.id}
+                    className={`${LAYOUT_TABLE1_POSTINGS_BODY_ROW} cursor-pointer hover:bg-neutral-50`}
+                    onClick={() => navigate(`/alerts/${c.id}`)}
+                  >
+                    <td className="px-5 py-3 font-medium text-neutral-900">{c.title}</td>
+                    <td className="px-5 py-3 text-neutral-600">{ALERT_KIND_SHORT_LABEL[c.kind]}</td>
+                    <td className="px-5 py-3">
+                      <Badge variant={statusBadgeVariant(c.status)}>{ALERT_STATUS_LABEL[c.status]}</Badge>
+                      {c.confidentiality_level === 'confidential' ? (
+                        <Badge variant="critical" className="ml-1">Konfidensielt</Badge>
+                      ) : null}
+                    </td>
+                    <td className="px-5 py-3 text-neutral-600">{new Date(c.received_at).toLocaleDateString('no-NO')}</td>
+                    <td className="w-8 px-3 py-3 text-neutral-300">
+                      <ChevronRight className="h-4 w-4" />
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      </LayoutTable1PostingsShell>
     </ModulePageShell>
   )
 }
