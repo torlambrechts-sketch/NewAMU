@@ -123,7 +123,7 @@ export function useAdminTemplates(): UseAdminTemplatesReturn {
               .is('deleted_at', null),
             supabase
               .from('document_org_templates')
-              .select('id, title, space_id, is_active, updated_at, deleted_at')
+              .select('id, label, category, updated_at, deleted_at')
               .eq('organization_id', orgId)
               .is('deleted_at', null),
             supabase
@@ -138,7 +138,8 @@ export function useAdminTemplates(): UseAdminTemplatesReturn {
               .is('deleted_at', null),
             supabase
               .from('register_types')
-              .select('id, organization_id, name, is_active, is_system, updated_at'),
+              .select('id, organization_id, name, is_active, is_system, updated_at, deleted_at')
+              .is('deleted_at', null),
             supabase
               .from('register_categories')
               .select('id, name')
@@ -208,13 +209,15 @@ export function useAdminTemplates(): UseAdminTemplatesReturn {
             })
           }
 
-          // Documents
+          // Documents — schema has `label` (not `title`), no
+          // is_active boolean. A row that isn't soft-deleted is
+          // active; the deleted_at filter on the query above is the
+          // only state machine.
           for (const r of docs.data ?? []) {
             const row = r as {
               id: string
-              title: string
-              space_id: string | null
-              is_active: boolean
+              label: string
+              category: string | null
               updated_at: string | null
             }
             out.push({
@@ -222,9 +225,9 @@ export function useAdminTemplates(): UseAdminTemplatesReturn {
               source: 'documents',
               sourceLabel: ADMIN_TEMPLATE_SOURCE_LABELS.documents,
               id: row.id,
-              name: row.title,
-              category: null, // Documents categorise via wiki_spaces — would need a join
-              status: row.is_active ? 'active' : 'inactive',
+              name: row.label,
+              category: row.category,
+              status: 'active',
               isSystem: false,
               updatedAt: row.updated_at,
               editUrl: `/documents/admin?tab=maler&template=${encodeURIComponent(row.id)}`,

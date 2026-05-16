@@ -123,6 +123,21 @@ const SOURCE_ICON: Record<AdminTemplateSource, typeof ClipboardList> = {
 const PAGE_SIZE_OPTIONS = [10, 25, 50, 100] as const
 type PageSize = (typeof PAGE_SIZE_OPTIONS)[number]
 
+/** Look up the catalog_id that an override row points to. Survey
+ *  duplicate needs to fork the catalog, not the override. */
+async function getOverrideCatalogId(
+  sb: NonNullable<ReturnType<typeof useOrgSetupContext>['supabase']>,
+  overrideId: string,
+): Promise<string | null> {
+  const { data, error } = await sb
+    .from('survey_org_templates')
+    .select('catalog_id')
+    .eq('id', overrideId)
+    .maybeSingle()
+  if (error || !data) return null
+  return (data as { catalog_id: string }).catalog_id
+}
+
 type DrawerState =
   | { kind: 'closed' }
   | { kind: 'new' }
@@ -136,7 +151,8 @@ const INLINE_EDITABLE_SOURCES: ReadonlySet<AdminTemplateSource> = new Set(['comp
 
 export function AdminTemplatesPage() {
   const { rows, loading, error, refresh } = useAdminTemplates()
-  const { supabase } = useOrgSetupContext()
+  const { supabase, organization } = useOrgSetupContext()
+  const orgId = organization?.id ?? null
   const cl = useChecklistModule({ supabase })
   const usageByTemplateId = useAdminTemplateUsage()
   const [searchParams] = useSearchParams()
@@ -268,6 +284,119 @@ export function AdminTemplatesPage() {
     [cl, refresh],
   )
 
+  // Duplicate for non-compliance sources. Each source has its own
+  // shape so the copy logic branches; all branches preserve the
+  // template's pack / content blob and stamp a new id + «Kopi av »
+  // prefix so the new row is visually distinct in the list.
+  const duplicateRow = useCallback(
+    async (row: AdminTemplateRow) => {
+      if (row.source === 'compliance') return duplicateCompliance(row)
+      if (!supabase) return
+      if (row.isSystem) {
+        setActionError('Systemmaler kan ikke dupliseres direkte. Plattform-admin må håndtere endringer.')
+        return
+      }
+      setBusyRowId(row.rowId)
+      setActionError(null)
+      try {
+        if (row.source === 'survey') {
+          // Survey overrides reference a catalog row. To "duplicate"
+          // we fork the catalog + create a new override pointing at
+          // the new catalog id. This sidesteps the (org_id,catalog_id)
+          // unique constraint and gives the user a fully independent
+          // template they can edit.
+          const { data: catalogRow, error: e0 } = await supabase
+            .from('survey_template_catalog')
+            .select('*')
+            .eq('id', (await getOverrideCatalogId(supabase, row.id)) ?? '')
+            .maybeSingle()
+          if (e0) throw e0
+          if (!catalogRow) throw new Error('Fant ikke kilde­katalogen.')
+          const newCatalogId = `${(catalogRow as { id: string }).id}-kopi-${Date.now().toString(36)}`
+          const newCatalog = {
+            ...(catalogRow as Record<string, unknown>),
+            id: newCatalogId,
+            organization_id: orgId,
+            is_system: false,
+            name: `Kopi av ${(catalogRow as { name: string }).name}`,
+            created_at: undefined,
+            updated_at: undefined,
+          }
+          delete (newCatalog as Record<string, unknown>).created_at
+          delete (newCatalog as Record<string, unknown>).updated_at
+          const { error: e1 } = await supabase.from('survey_template_catalog').insert(newCatalog)
+          if (e1) throw e1
+          const { error: e2 } = await supabase.from('survey_org_templates').insert({
+            organization_id: orgId,
+            catalog_id: newCatalogId,
+            pack: (catalogRow as { pack?: string }).pack ?? (catalogRow as { category?: string }).category,
+            is_active: false,
+            nav_pinned: false,
+            review_status: 'draft',
+          })
+          if (e2) throw e2
+        } else if (row.source === 'documents') {
+          const { data: orig, error: e0 } = await supabase
+            .from('document_org_templates')
+            .select('*')
+            .eq('id', row.id)
+            .maybeSingle()
+          if (e0) throw e0
+          if (!orig) throw new Error('Fant ikke malen.')
+          const copy: Record<string, unknown> = { ...(orig as Record<string, unknown>) }
+          copy.id = `${(orig as { id: string }).id}-kopi-${Date.now().toString(36)}`
+          copy.label = `Kopi av ${(orig as { label: string }).label}`
+          delete copy.created_at
+          delete copy.updated_at
+          delete copy.deleted_at
+          const { error: e1 } = await supabase.from('document_org_templates').insert(copy)
+          if (e1) throw e1
+        } else if (row.source === 'learning') {
+          const { data: orig, error: e0 } = await supabase
+            .from('learning_courses')
+            .select('*')
+            .eq('id', row.id)
+            .maybeSingle()
+          if (e0) throw e0
+          if (!orig) throw new Error('Fant ikke kurset.')
+          const copy: Record<string, unknown> = { ...(orig as Record<string, unknown>) }
+          delete copy.id
+          delete copy.created_at
+          delete copy.updated_at
+          copy.title = `Kopi av ${(orig as { title: string }).title}`
+          copy.status = 'draft'
+          const { error: e1 } = await supabase.from('learning_courses').insert(copy)
+          if (e1) throw e1
+        } else if (row.source === 'registers') {
+          const { data: orig, error: e0 } = await supabase
+            .from('register_types')
+            .select('*')
+            .eq('id', row.id)
+            .maybeSingle()
+          if (e0) throw e0
+          if (!orig) throw new Error('Fant ikke registertypen.')
+          const copy: Record<string, unknown> = { ...(orig as Record<string, unknown>) }
+          copy.id = `${(orig as { id: string }).id}-kopi-${Date.now().toString(36)}`
+          copy.organization_id = orgId
+          copy.is_system = false
+          copy.name = `Kopi av ${(orig as { name: string }).name}`
+          copy.is_active = false
+          delete copy.created_at
+          delete copy.updated_at
+          delete copy.deleted_at
+          const { error: e1 } = await supabase.from('register_types').insert(copy)
+          if (e1) throw e1
+        }
+        await refresh()
+      } catch (e) {
+        setActionError(e instanceof Error ? e.message : 'Kunne ikke duplisere malen.')
+      } finally {
+        setBusyRowId(null)
+      }
+    },
+    [duplicateCompliance, supabase, refresh, orgId],
+  )
+
   const deleteCompliance = useCallback(
     async (row: AdminTemplateRow) => {
       if (row.isSystem) return
@@ -311,10 +440,20 @@ export function AdminTemplatesPage() {
             .update({ status: 'archived' })
             .eq('id', row.id)
           if (err) throw err
+        } else if (row.source === 'documents') {
+          const { error: err } = await supabase
+            .from('document_org_templates')
+            .update({ deleted_at: new Date().toISOString() })
+            .eq('id', row.id)
+          if (err) throw err
+        } else if (row.source === 'registers') {
+          const { error: err } = await supabase
+            .from('register_types')
+            .update({ deleted_at: new Date().toISOString() })
+            .eq('id', row.id)
+          if (err) throw err
         } else {
-          // documents + registers don't have a documented soft-delete
-          // contract today — fall back to the deactivate toggle instead.
-          throw new Error('Sletting støttes ikke for denne maltypen. Bruk «Inaktiv» i stedet.')
+          throw new Error('Ukjent kilde — sletting støttes ikke.')
         }
         await refresh()
       } catch (e) {
@@ -655,9 +794,7 @@ export function AdminTemplatesPage() {
                         setDrawer({ kind: 'lightweight-edit', row: r })
                       }
                     }}
-                    onDuplicate={
-                      r.source === 'compliance' ? () => void duplicateCompliance(r) : undefined
-                    }
+                    onDuplicate={r.isSystem ? undefined : () => void duplicateRow(r)}
                     onShowHistory={
                       r.source === 'compliance' ? () => setHistoryFor(r) : undefined
                     }
@@ -667,15 +804,7 @@ export function AdminTemplatesPage() {
                     onPreview={
                       r.source === 'compliance' ? () => setPreviewFor(r) : undefined
                     }
-                    onDelete={
-                      r.isSystem
-                        ? undefined
-                        : r.source === 'compliance' ||
-                            r.source === 'survey' ||
-                            r.source === 'learning'
-                          ? () => void deleteRow(r)
-                          : undefined
-                    }
+                    onDelete={r.isSystem ? undefined : () => void deleteRow(r)}
                   />
                 ))}
               </tbody>
@@ -1091,12 +1220,14 @@ function RowActionsMenu({
 
   const duplicateHint = onDuplicate
     ? undefined
-    : `Dupliser er foreløpig bare tilgjengelig for sjekkliste-maler. Åpne i ${row.sourceLabel}-modulen for å kopiere.`
+    : row.isSystem
+      ? 'Systemmaler kan ikke dupliseres direkte. Plattform-admin må håndtere endringer.'
+      : 'Dupliser er ikke tilgjengelig for denne maltypen.'
   const deleteHint = row.isSystem
     ? 'Systemmaler kan ikke slettes — bruk «Inaktiv» for å skjule.'
     : !onDelete
-    ? `Sletting er ikke konfigurert for ${row.sourceLabel} ennå. Deaktiver malen i stedet.`
-    : undefined
+      ? 'Sletting er ikke konfigurert for denne maltypen.'
+      : undefined
 
   return (
     <div ref={rootRef} className="relative inline-block">
