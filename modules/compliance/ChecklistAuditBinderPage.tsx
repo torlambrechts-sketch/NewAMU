@@ -60,13 +60,14 @@ export function ChecklistAuditBinderPage() {
   const orgSetup = useOrgSetupContext()
   const { supabase, organization } = orgSetup
   const cl = useChecklistModule({ supabase })
-  const { load, loadDetail, executions, responsesByExecutionId, templates, assignableUsers } = cl
+  const { load, loading, loadDetail, executions, responsesByExecutionId, templates, assignableUsers } = cl
 
   const [tasks, setTasks] = useState<BoundTask[]>([])
   const [tasksLoading, setTasksLoading] = useState(false)
+  const [initialLoadDone, setInitialLoadDone] = useState(false)
 
   useEffect(() => {
-    void load()
+    void load().then(() => setInitialLoadDone(true))
   }, [load])
 
   useEffect(() => {
@@ -97,9 +98,12 @@ export function ChecklistAuditBinderPage() {
     return m
   }, [responses])
 
-  // Load tasks spawned from this execution.
+  // Load tasks spawned from this execution. Cancellation guard so a
+  // mid-fetch unmount or re-keyed effect doesn't setState on a stale
+  // render (React 18 would warn).
   useEffect(() => {
     if (!supabase || !executionId || !organization?.id) return
+    let cancelled = false
     setTasksLoading(true)
     void supabase
       .from('task_items')
@@ -110,10 +114,27 @@ export function ChecklistAuditBinderPage() {
       .is('deleted_at', null)
       .order('created_at', { ascending: true })
       .then(({ data }) => {
+        if (cancelled) return
         setTasks((data ?? []) as BoundTask[])
         setTasksLoading(false)
       })
+    return () => {
+      cancelled = true
+    }
   }, [supabase, executionId, organization?.id])
+
+  // Not-found state: load completed but no execution matches the URL.
+  if (initialLoadDone && !loading && (!execution || !template)) {
+    return (
+      <div className="mx-auto max-w-[900px] p-8 text-neutral-700">
+        <h1 className="text-xl font-semibold text-neutral-900">Fant ikke sjekklisten</h1>
+        <p className="mt-2 text-sm">
+          Sesjon-ID <code className="font-mono">{executionId}</code> finnes ikke for denne
+          organisasjonen, eller er slettet. Sjekk URL-en eller naviger tilbake via menyen.
+        </p>
+      </div>
+    )
+  }
 
   if (!execution || !template) {
     return (
