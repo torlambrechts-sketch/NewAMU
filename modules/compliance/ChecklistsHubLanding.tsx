@@ -175,14 +175,14 @@ export function ChecklistsHubLanding({
                     <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                       {bucket.templates.map((t) => (
                         <li key={t.id}>
-                          <button
-                            type="button"
+                          <Button
+                            variant="ghost"
                             onClick={() =>
                               navigate(
                                 `/compliance/checklists?template=${encodeURIComponent(t.slug)}&pack=${encodeURIComponent(pack.slug)}`,
                               )
                             }
-                            className="group flex h-full w-full flex-col gap-2 rounded-lg border border-neutral-200/80 bg-white p-4 text-left transition-colors hover:border-[#1a3d32]/30 hover:bg-neutral-50"
+                            className="group flex h-full w-full flex-col items-start gap-2 rounded-lg border border-neutral-200/80 bg-white p-4 text-left font-normal transition-colors hover:border-[#1a3d32]/30 hover:bg-neutral-50"
                           >
                             <div className="flex items-start gap-2">
                               <ClipboardList className="mt-0.5 h-4 w-4 shrink-0 text-[#1a3d32]" aria-hidden />
@@ -208,7 +208,7 @@ export function ChecklistsHubLanding({
                             {t.description ? (
                               <p className="line-clamp-2 text-xs text-neutral-600">{t.description}</p>
                             ) : null}
-                          </button>
+                          </Button>
                         </li>
                       ))}
                     </ul>
