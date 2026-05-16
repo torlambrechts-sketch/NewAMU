@@ -12,9 +12,10 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { AlertTriangle, ArrowLeft, ArrowRight, CheckCircle2, Circle, Clock, ListPlus, Lock, MessageCircle, ShieldCheck } from 'lucide-react'
+import { AlertTriangle, ArrowLeft, ArrowRight, CheckCircle2, Circle, Clock, Keyboard, ListPlus, Lock, MessageCircle, ShieldCheck, Sparkles, X } from 'lucide-react'
 import { ModulePageShell } from '../../src/components/module/ModulePageShell'
 import { ModuleSectionCard } from '../../src/components/module/ModuleSectionCard'
+import { ComplianceBanner } from '../../src/components/ui/ComplianceBanner'
 import { Button } from '../../src/components/ui/Button'
 import { Badge } from '../../src/components/ui/Badge'
 import { StandardTextarea } from '../../src/components/ui/Textarea'
@@ -141,6 +142,53 @@ function sectionProgress(
   const answeredKeys = new Set(responses.map((r) => r.item_key))
   const answered = required.filter((i) => answeredKeys.has(i.key)).length
   return { answered, required: required.length }
+}
+
+const ONE_YEAR_MS = 365 * 24 * 60 * 60 * 1000
+
+/**
+ * Auto-mark — find a fresh signed artefact that resolves this item.
+ *
+ * Today only checks `kind: 'checklist_template'` resolutions: when the
+ * org has a *signed* execution of the referenced template signed within
+ * the last 12 months, the item can be auto-marked "I orden" with a
+ * provenance chip. Other resolution kinds (document acknowledgements,
+ * register records, course completions) follow the same pattern but
+ * need additional data sources — phased in later.
+ */
+type AutoMarkHit = {
+  artefactLabel: string
+  artefactType: 'checklist_template'
+  artefactId: string
+  signedAt: string
+}
+
+function findFreshArtefact(
+  item: ChecklistItem,
+  templates: { id: string; slug: string; name: string }[],
+  executions: { id: string; template_id: string; status: string; signed_at: string | null }[],
+): AutoMarkHit | null {
+  if (!item.resolutions) return null
+  const now = Date.now()
+  for (const res of item.resolutions) {
+    if (res.kind !== 'checklist_template' || !res.ref) continue
+    const tpl = templates.find((t) => t.slug === res.ref)
+    if (!tpl) continue
+    const fresh = executions
+      .filter((e) => e.template_id === tpl.id && e.status === 'signed' && e.signed_at)
+      .map((e) => ({ id: e.id, signedAt: e.signed_at as string }))
+      .sort((a, b) => b.signedAt.localeCompare(a.signedAt))
+      .find((e) => now - new Date(e.signedAt).getTime() < ONE_YEAR_MS)
+    if (fresh) {
+      return {
+        artefactLabel: res.label ?? tpl.name,
+        artefactType: 'checklist_template',
+        artefactId: fresh.id,
+        signedAt: fresh.signedAt,
+      }
+    }
+  }
+  return null
 }
 
 export function AmlWalkthroughPage() {
@@ -340,6 +388,40 @@ export function AmlWalkthroughPage() {
     return () => window.clearTimeout(t)
   }, [safeStep])
 
+  // Y/N/A keyboard shortcuts. When a focused element has data-item-key,
+  // pressing 'y'/'n'/'a' triggers the matching answer on that item.
+  // Skipped if the user is typing in a form field (textareas, inputs).
+  useEffect(() => {
+    const isSigned = execution?.status === 'signed'
+    if (isSigned || !section) return
+    function isEditableTarget(t: EventTarget | null) {
+      if (!(t instanceof HTMLElement)) return false
+      if (t.isContentEditable) return true
+      const tag = t.tagName.toLowerCase()
+      return tag === 'textarea' || tag === 'input' || tag === 'select'
+    }
+    function onKey(e: KeyboardEvent) {
+      if (e.metaKey || e.ctrlKey || e.altKey) return
+      if (isEditableTarget(document.activeElement)) return
+      const k = e.key.toLowerCase()
+      const map: Record<string, YesNoNa> = { y: 'yes', j: 'yes', n: 'no', a: 'na', i: 'na' }
+      const answer = map[k]
+      if (!answer) return
+      const focused = document.activeElement as HTMLElement | null
+      const itemKey = focused?.closest<HTMLElement>('[data-item-key]')?.dataset.itemKey
+      if (!itemKey) return
+      const item = section?.items.find((it) => it.key === itemKey)
+      if (!item || item.type !== 'yes_no_na') return
+      const applic = applicabilityFor(item, execution?.metadata)
+      if (applic.state === 'not_applicable') return
+      e.preventDefault()
+      void setAnswer(item, answer)
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [execution?.status, section, execution?.metadata])
+
   async function setAnswer(item: ChecklistItem, answer: YesNoNa) {
     if (!executionId) return
     const existing = responses.find((r) => r.item_key === item.key)
@@ -385,6 +467,48 @@ export function AmlWalkthroughPage() {
       window.localStorage.removeItem(draftStorageKey(executionId, item.key))
     }
     flashSaved('Kommentar lagret')
+  }
+
+  /** Bulk-mark every still-unanswered (and applicable) item in the
+   *  current section as Ikke aktuelt. Used when an org confirms a whole
+   *  chapter doesn't apply (e.g. no innleie → all of kap. 14A is N/A). */
+  async function markSectionNotApplicable(section: ChecklistSection) {
+    if (!executionId || execution?.status === 'signed') return
+    const ok = window.confirm(
+      `Marker alle ubesvarte krav i «${section.title}» som Ikke aktuelt? Du kan endre svar enkeltvis etterpå.`,
+    )
+    if (!ok) return
+    const meta = execution?.metadata ?? null
+    const answeredKeys = new Set(responses.map((r) => r.item_key))
+    for (const item of section.items) {
+      if (answeredKeys.has(item.key)) continue
+      if (applicabilityFor(item, meta).state === 'not_applicable') continue
+      if (item.type !== 'yes_no_na') continue
+      await saveResponse({
+        executionId,
+        itemKey: item.key,
+        value: { ok: null },
+        comment: `[${new Date().toLocaleDateString('nb-NO')}] Bulk-markert som ikke aktuelt for seksjon`,
+      })
+    }
+    flashSaved(`Seksjon markert (${section.items.length} krav)`)
+  }
+
+  /** Accept an auto-mark suggestion — sets answer to "yes" and writes a
+   *  provenance comment with the source artefact's id + sign timestamp. */
+  async function acceptAutoMark(item: ChecklistItem, hit: AutoMarkHit) {
+    if (!executionId || execution?.status === 'signed') return
+    const existing = responses.find((r) => r.item_key === item.key)
+    const provenance = `[${new Date().toLocaleDateString('nb-NO')}] Autodekket fra signert ${hit.artefactLabel} (${new Date(hit.signedAt).toLocaleDateString('nb-NO')})`
+    const nextComment = existing?.comment ? `${existing.comment}\n${provenance}` : provenance
+    await saveResponse({
+      executionId,
+      itemKey: item.key,
+      value: { ok: true },
+      comment: nextComment,
+      severity: existing?.severity ?? undefined,
+    })
+    flashSaved('Autodekket')
   }
 
   /** Append an audit line to the response's comment when a task is spawned
@@ -457,6 +581,11 @@ export function AmlWalkthroughPage() {
       description="Seksjonsbasert veiviser gjennom arbeidsmiljøloven. Roller og terskler fylles inn først; videre seksjoner viser bare krav som er pålagt for din organisasjon. Sesjonen lagres automatisk og kan fortsettes senere."
       breadcrumb={breadcrumb}
     >
+      <ComplianceBanner title="Forankret i arbeidsmiljøloven" className="mb-4 rounded-xl">
+        Veiviseren dekker kap. 1–19 i arbeidsmiljøloven (LOV-2005-06-17-62) og kryssreferer
+        eksisterende sjekklister, dokumenter, registre, kurs og møter i pakken. Signert
+        gjennomgang fryser svarene og gir et revisorklart spor.
+      </ComplianceBanner>
       {/* Overall progress strip — sticky so the user always sees position +
           completion while scrolling a long section. Background is the same
           cream as ModulePageShell so it visually merges with the page band. */}
@@ -583,6 +712,24 @@ export function AmlWalkthroughPage() {
               ) : null}
             </div>
           </div>
+          {!signed && section.items.some((i) => i.type === 'yes_no_na') && (
+            <div className="mt-2 flex flex-wrap items-center justify-between gap-2 text-xs text-neutral-500">
+              <span className="inline-flex items-center gap-1">
+                <Keyboard className="h-3 w-3" aria-hidden />
+                Tastatur: <kbd className="rounded border border-neutral-300 bg-neutral-50 px-1">Y</kbd> i orden ·
+                <kbd className="ml-1 rounded border border-neutral-300 bg-neutral-50 px-1">N</kbd> mangler ·
+                <kbd className="ml-1 rounded border border-neutral-300 bg-neutral-50 px-1">A</kbd> ikke aktuelt
+              </span>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => void markSectionNotApplicable(section)}
+              >
+                <X className="mr-1 h-3.5 w-3.5" />
+                Marker hele seksjonen som ikke aktuelt
+              </Button>
+            </div>
+          )}
           {section.intro && (
             <div className="mt-3">
               <InfoBox>{section.intro}</InfoBox>
@@ -604,10 +751,17 @@ export function AmlWalkthroughPage() {
               // First answer button in the section gets the focus ref so the
               // section-change effect can move keyboard focus there.
               const isFirstFocusable = itemIdx === 0 && item.type === 'yes_no_na' && !notApplicable
+              // Auto-mark: only show suggestion when the item is still
+              // unanswered AND applicable AND we have a fresh signed source.
+              const autoMarkHit =
+                !notApplicable && !response
+                  ? findFreshArtefact(item, templates, executions)
+                  : null
 
               return (
                 <div
                   key={item.key}
+                  data-item-key={item.key}
                   className={[
                     'rounded-lg border p-3 transition-colors',
                     notApplicable
@@ -648,6 +802,21 @@ export function AmlWalkthroughPage() {
                           {item.resolutions.map((res, i) => (
                             <ResolutionPointerChip key={`${item.key}-r-${i}`} resolution={res} />
                           ))}
+                        </div>
+                      )}
+                      {autoMarkHit && (
+                        <div className="mt-2 flex flex-wrap items-center justify-between gap-2 rounded-md border border-emerald-200 bg-emerald-50/60 px-2 py-1.5 text-xs">
+                          <span className="inline-flex items-center gap-1.5 text-emerald-900">
+                            <Sparkles className="h-3.5 w-3.5" aria-hidden />
+                            Forslag fra signert {autoMarkHit.artefactLabel} ({new Date(autoMarkHit.signedAt).toLocaleDateString('nb-NO')})
+                          </span>
+                          <Button
+                            variant="primary"
+                            size="sm"
+                            onClick={() => void acceptAutoMark(item, autoMarkHit)}
+                          >
+                            Bekreft som dekket
+                          </Button>
                         </div>
                       )}
                     </div>
