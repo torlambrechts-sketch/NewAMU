@@ -120,6 +120,7 @@ import { ChecklistsPage } from '../modules/compliance/ChecklistsPage'
 import { ChecklistsAnalysePage } from '../modules/compliance/ChecklistsAnalysePage'
 import { ChecklistExecutionPage } from '../modules/compliance/ChecklistExecutionPage'
 import { AmlWalkthroughPage } from '../modules/compliance/AmlWalkthroughPage'
+import { ChecklistAuditBinderPage } from '../modules/compliance/ChecklistAuditBinderPage'
 import { PackProvider } from './context/PackContext'
 import { ModuleAdminPage } from './pages/ModuleAdminPage'
 import { SurveyModulePage } from './pages/SurveyModulePage'
@@ -416,6 +417,14 @@ const router = createBrowserRouter(
                         element={
                           <PackProvider>
                             <AmlWalkthroughPage />
+                          </PackProvider>
+                        }
+                      />
+                      <Route
+                        path="compliance/checklists/:executionId/binder"
+                        element={
+                          <PackProvider>
+                            <ChecklistAuditBinderPage />
                           </PackProvider>
                         }
                       />

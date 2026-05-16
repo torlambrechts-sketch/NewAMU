@@ -217,8 +217,18 @@ export function ChecklistExecutionPage() {
 
         {readOnly ? (
           <InfoBox>
-            Sjekklisten er signert {execution.signed_at ? `(${new Date(execution.signed_at).toLocaleString('nb-NO')})` : ''}.
-            {' '}Svar og spørsmål er låst, men tittel, sammendrag og deltakere kan fortsatt redigeres som etterregistrering.
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <span>
+                Sjekklisten er signert {execution.signed_at ? `(${new Date(execution.signed_at).toLocaleString('nb-NO')})` : ''}.
+                {' '}Svar og spørsmål er låst, men tittel, sammendrag og deltakere kan fortsatt redigeres som etterregistrering.
+              </span>
+              <Link
+                to={`/compliance/checklists/${execution.id}/binder`}
+                className="inline-flex shrink-0 items-center gap-1.5 rounded-md bg-[#1a3d32] px-3 py-1.5 text-xs font-medium text-white hover:opacity-90"
+              >
+                Generer revisorperm
+              </Link>
+            </div>
           </InfoBox>
         ) : null}
 
