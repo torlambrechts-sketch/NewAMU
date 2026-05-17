@@ -28,8 +28,8 @@ import { getDashboardScope } from '../../src/lib/dashboards/dashboardRegistry'
 import { PublishReportButton } from '../../src/components/reports/PublishReportButton'
 import { RISK_DASHBOARD_SCOPE_ID } from './dashboards/riskDashboardScope'
 import './dashboards/riskDashboardScope'
-import { useRiskDatasets } from './dashboards/useRiskDatasets'
-import { useRiskSourceData } from './dashboards/useRiskSourceData'
+import { buildRiskDatasets } from './dashboards/useRiskDatasets'
+import { useRiskDashboardRows } from './dashboards/useRiskDashboardRows'
 import { HAZARD_CATEGORIES, HAZARD_CATEGORY_OPTIONS, type HazardCategoryId } from './dashboards/hazardCategories'
 import type { ReportModule } from '../../src/types/reportBuilder'
 import { makeFilter, type DashboardDimension } from '../../src/lib/dashboards/dashboardFilters'
@@ -54,27 +54,23 @@ const STATUS_OPTIONS = [
   { id: 'mitigated', label: 'Tiltak verifisert' },
   { id: 'closed', label: 'Lukket' },
 ]
+// Mirrors the RiskSource union in useRiskDatasets. Kept inline so the
+// chip-options array doesn't drag the whole module dep into the
+// dimensions block.
 const SOURCE_OPTIONS = [
   { id: 'checklist', label: 'Sjekkliste' },
-  { id: 'avvik', label: 'Avvik' },
-  { id: 'risiko', label: 'Risikovurdering' },
+  { id: 'task', label: 'Avvik / risiko' },
   { id: 'deviation', label: 'Avvikssak' },
   { id: 'inspection', label: 'Vernerunde' },
   { id: 'alert', label: 'Varsling' },
+  { id: 'ros', label: 'ROS' },
+  { id: 'sja', label: 'SJA' },
 ]
 
 export function RiskAnalysePage() {
   const { supabase, departments } = useOrgSetupContext()
 
-  const {
-    loading: dataLoading,
-    error: dataError,
-    findings,
-    tasks,
-    deviations,
-    inspectionFindings,
-    alerts,
-  } = useRiskSourceData()
+  const { loading: dataLoading, error: dataError, rows, path } = useRiskDashboardRows()
 
   const dashboard = useDashboardLayout({ supabase, scopeId: RISK_DASHBOARD_SCOPE_ID })
 
@@ -93,10 +89,10 @@ export function RiskAnalysePage() {
     [departments],
   )
 
-  const datasets = useRiskDatasets({
-    filters: dashboard.filters,
-    findings, tasks, deviations, inspectionFindings, alerts,
-  })
+  const datasets = useMemo(
+    () => buildRiskDatasets(rows, dashboard.filters),
+    [rows, dashboard.filters],
+  )
 
   const layout = useMemo(
     () =>
@@ -112,13 +108,18 @@ export function RiskAnalysePage() {
   )
 
   const empty =
-    findings.length === 0 && tasks.length === 0 && deviations.length === 0 &&
-    inspectionFindings.length === 0 && alerts.length === 0 && !dataLoading ? (
+    rows.length === 0 && !dataLoading ? (
       <div className="rounded-md border border-dashed border-neutral-300 bg-white p-8 text-center">
         <BarChart3 className="mx-auto h-8 w-8 text-neutral-300" aria-hidden />
         <p className="mt-3 text-sm text-neutral-600">
           Ingen risikodata ennå. Sjekkliste-funn, avvik og vernerunder vil dukke opp her etter hvert som de registreres.
         </p>
+        {path === 'source' && (
+          <p className="mt-2 text-xs text-neutral-400">
+            Tips: Kjør migrasjon 20260913100000 for å lese fra et samlet
+            risikoregister-view istedenfor klientside-aggregering.
+          </p>
+        )}
       </div>
     ) : null
 

@@ -18,6 +18,7 @@
 import type {
   ReportModule,
   ReportModuleBar,
+  ReportModuleBowtie,
   ReportModuleDonut,
   ReportModuleHeatmap,
   ReportModuleKpi,
@@ -110,6 +111,15 @@ const SCORECARD_TOP10: ReportModuleScorecard = {
   datasetKey: 'risk_top10_scorecard',
   title: 'Topp 10 risikoer — etter restrisiko',
   subtitle: 'Klikk en rad for å åpne risikoen',
+  groupsPath: '',
+  drillDimensionId: 'riskId',
+  colSpan: 'full',
+}
+const BOWTIE_TOP: ReportModuleBowtie = {
+  id: 'bowtie-top-hazards', kind: 'bowtie',
+  datasetKey: 'risk_bowtie_top',
+  title: 'Bowtie — topp 5 røde farekilder',
+  subtitle: 'Preventive barrierer (sjekklister) · sentral § · reaktive (CAPA)',
   groupsPath: '',
   drillDimensionId: 'riskId',
   colSpan: 'full',
@@ -224,6 +234,7 @@ const WIDGET_CATALOG: WidgetCatalogEntry[] = [
   { catalogId: 'kpi-critical-avvik-linked', category: 'CAPA', label: 'Røde med åpent avvik', template: KPI_CRITICAL_AVVIK_LINKED },
   { catalogId: 'heatmap-5x5', category: 'Risikomatrise', label: '5×5 sannsynlighet × konsekvens', description: 'Klikk en celle for å filtrere alle widgets.', template: HEATMAP_5X5 },
   { catalogId: 'scorecard-top10', category: 'Risikomatrise', label: 'Topp 10 risikoer', template: SCORECARD_TOP10 },
+  { catalogId: 'bowtie-top-hazards', category: 'Risikomatrise', label: 'Bowtie — topp 5 røde', description: 'Preventive + reaktive barrierer per topp-rød risiko.', template: BOWTIE_TOP },
   { catalogId: 'bar-by-category', category: 'Fordeling', label: 'Per fareklasse', template: BAR_BY_CATEGORY },
   { catalogId: 'donut-psychosocial', category: 'Psykososial', label: 'Psykososial andel', template: DONUT_PSYCHOSOCIAL },
   { catalogId: 'bar-by-department', category: 'Fordeling', label: 'Per avdeling', template: BAR_BY_DEPARTMENT },

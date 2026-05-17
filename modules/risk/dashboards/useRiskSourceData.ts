@@ -31,7 +31,17 @@ export type RiskSourceData = {
   reload: () => Promise<void>
 }
 
-export function useRiskSourceData(): RiskSourceData {
+export type UseRiskSourceDataOptions = {
+  /**
+   * When false, the hook is a no-op — returns empty arrays and never
+   * issues queries. Use this from `useRiskDashboardRows` to skip the
+   * P1 fallback when the P2 view is serving the data.
+   */
+  enabled?: boolean
+}
+
+export function useRiskSourceData(options: UseRiskSourceDataOptions = {}): RiskSourceData {
+  const enabled = options.enabled ?? true
   const { supabase, organization, departments } = useOrgSetupContext()
   const orgId = organization?.id ?? null
 
@@ -50,7 +60,7 @@ export function useRiskSourceData(): RiskSourceData {
   }, [departments])
 
   const reload = useCallback(async () => {
-    if (!supabase || !orgId) return
+    if (!supabase || !orgId || !enabled) return
     setLoading(true)
     setError(null)
     try {
@@ -183,7 +193,7 @@ export function useRiskSourceData(): RiskSourceData {
     } finally {
       setLoading(false)
     }
-  }, [supabase, orgId, deptLabelById])
+  }, [supabase, orgId, deptLabelById, enabled])
 
   useEffect(() => { void reload() }, [reload])
 

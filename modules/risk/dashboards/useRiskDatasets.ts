@@ -113,10 +113,27 @@ export type RiskDatasetsInput = {
 }
 
 // ── Unified row — the shape every source folds into ─────────────────────
+//
+// Exported so the P2 view-backed hook (`useRiskUnifiedRows`) can build
+// the same shape directly from `risk_register_summary_v` without
+// re-implementing the row→dataset stage below.
 
-type RiskSource = 'checklist' | 'avvik' | 'risiko' | 'deviation' | 'inspection' | 'alert'
+export type RiskSource = 'checklist' | 'task' | 'deviation' | 'inspection' | 'alert' | 'ros' | 'sja'
 
-type UnifiedRiskRow = {
+// Backward-compat: the original P1 row type used `avvik | risiko` as
+// task subtypes. The view emits `task` for both. Keep both decoded for
+// the source filter chip.
+export const RISK_SOURCE_LABELS: Record<RiskSource, string> = {
+  checklist: 'Sjekkliste',
+  task: 'Avvik / risiko',
+  deviation: 'Avvikssak',
+  inspection: 'Vernerunde',
+  alert: 'Varsling',
+  ros: 'ROS',
+  sja: 'SJA',
+}
+
+export type UnifiedRiskRow = {
   id: string
   source: RiskSource
   sourceId: string
@@ -309,12 +326,9 @@ function taskToRow(t: RiskTaskSnapshot): UnifiedRiskRow | null {
   const score = explicitResidual ?? likelihood * consequence
   const status = normaliseStatus(t.status)
   const hazard = deriveHazardCategory(t.hazardCategory, t.lawRefs, t.templateSlug)
-  const source: RiskSource =
-    t.templateKind === 'risiko' ? 'risiko' :
-    t.templateKind === 'tiltak' ? 'risiko' : 'avvik'
   return {
     id: `task:${t.id}`,
-    source,
+    source: 'task',
     sourceId: t.id,
     title: t.title,
     hazardCategory: hazard,
@@ -463,15 +477,6 @@ function buildTop10(rows: UnifiedRiskRow[]) {
     .slice(0, 10)
   if (top.length === 0) return []
 
-  const SOURCE_LABEL: Record<RiskSource, string> = {
-    checklist: 'Sjekkliste-funn',
-    avvik: 'Avvik',
-    risiko: 'Risikovurdering',
-    deviation: 'Avvikssak',
-    inspection: 'Vernerunde',
-    alert: 'Varsling',
-  }
-
   const rowsOut = top.map((r) => {
     let status: 'covered' | 'partial' | 'only_avvik' | 'uncovered'
     if (r.band === 'red' && !r.hasResidualJustification) status = 'uncovered'
@@ -481,7 +486,7 @@ function buildTop10(rows: UnifiedRiskRow[]) {
     return {
       id: r.id,
       label: r.title,
-      title: `${SOURCE_LABEL[r.source]} · S=${r.likelihood} K=${r.consequence} · Score ${r.riskScore}`,
+      title: `${RISK_SOURCE_LABELS[r.source]} · S=${r.likelihood} K=${r.consequence} · Score ${r.riskScore}`,
       applies: r.isOpen,
       obligation: r.lawRefs[0] ?? '',
       status,
@@ -516,36 +521,44 @@ function buildAgeingDistribution(rows: UnifiedRiskRow[]) {
   return buckets.map((b) => ({ id: b.id, label: b.label, value: counts.get(b.id) ?? 0 }))
 }
 
-// ── The hook ────────────────────────────────────────────────────────────
+// ── Row construction (P1 source-fold path) ──────────────────────────────
+//
+// Exported as a pure function so tests can hit it without the hook
+// machinery, and so the P2 view-backed hook can choose to use either:
+// fold its own source arrays (fallback), or build UnifiedRiskRow[]
+// directly from the view payload and skip this stage entirely.
 
-export function useRiskDatasets(input: RiskDatasetsInput): Record<string, unknown> {
-  const { filters, findings, tasks, deviations, inspectionFindings, alerts } = input
+export function foldSourcesToRows(input: Omit<RiskDatasetsInput, 'filters'>): UnifiedRiskRow[] {
+  const { findings, tasks, deviations, inspectionFindings, alerts } = input
+  const recurrenceByTemplate = new Map<string, number>()
+  for (const f of findings) {
+    if (!f.templateSlug || !f.isFinding) continue
+    recurrenceByTemplate.set(f.templateSlug, (recurrenceByTemplate.get(f.templateSlug) ?? 0) + 1)
+  }
+  const rowsRaw: UnifiedRiskRow[] = []
+  for (const f of findings) {
+    const r = findingToRow(f, recurrenceByTemplate)
+    if (r) rowsRaw.push(r)
+  }
+  for (const t of tasks) {
+    const r = taskToRow(t)
+    if (r) rowsRaw.push(r)
+  }
+  for (const d of deviations) rowsRaw.push(deviationToRow(d))
+  for (const f of inspectionFindings) rowsRaw.push(inspectionToRow(f))
+  for (const a of alerts) {
+    const r = alertToRow(a)
+    if (r) rowsRaw.push(r)
+  }
+  return rowsRaw
+}
 
-  return useMemo(() => {
-    // Recurrence by template_slug — drives the likelihood axis for findings.
-    const recurrenceByTemplate = new Map<string, number>()
-    for (const f of findings) {
-      if (!f.templateSlug || !f.isFinding) continue
-      recurrenceByTemplate.set(f.templateSlug, (recurrenceByTemplate.get(f.templateSlug) ?? 0) + 1)
-    }
+// ── Row → dataset map (shared by both P1 and P2 paths) ──────────────────
 
-    // Build unified rows.
-    const rowsRaw: UnifiedRiskRow[] = []
-    for (const f of findings) {
-      const r = findingToRow(f, recurrenceByTemplate)
-      if (r) rowsRaw.push(r)
-    }
-    for (const t of tasks) {
-      const r = taskToRow(t)
-      if (r) rowsRaw.push(r)
-    }
-    for (const d of deviations) rowsRaw.push(deviationToRow(d))
-    for (const f of inspectionFindings) rowsRaw.push(inspectionToRow(f))
-    for (const a of alerts) {
-      const r = alertToRow(a)
-      if (r) rowsRaw.push(r)
-    }
-
+export function buildRiskDatasets(
+  rowsRaw: UnifiedRiskRow[],
+  filters: DashboardFilter[],
+): Record<string, unknown> {
     const sel = buildSelectors(filters)
     const rows = applyFilters(rowsRaw, sel)
 
@@ -585,18 +598,10 @@ export function useRiskDatasets(input: RiskDatasetsInput): Record<string, unknow
       .map(([label, value]) => ({ id: label, label, value }))
       .sort((a, b) => b.value - a.value)
 
-    const SOURCE_LABEL: Record<RiskSource, string> = {
-      checklist: 'Sjekkliste',
-      avvik: 'Avvik',
-      risiko: 'Risikovurdering',
-      deviation: 'Avvikssak',
-      inspection: 'Vernerunde',
-      alert: 'Varsling',
-    }
     const sourceCounts = new Map<RiskSource, number>()
     for (const r of openRows) sourceCounts.set(r.source, (sourceCounts.get(r.source) ?? 0) + 1)
     const bySource = [...sourceCounts.entries()]
-      .map(([s, value]) => ({ id: s, label: SOURCE_LABEL[s], value }))
+      .map(([s, value]) => ({ id: s, label: RISK_SOURCE_LABELS[s], value }))
       .sort((a, b) => b.value - a.value)
 
     const SEVERITY_LABEL: Record<SourceSeverity, string> = {
@@ -644,7 +649,7 @@ export function useRiskDatasets(input: RiskDatasetsInput): Record<string, unknow
     const months = last12Months()
     const closedDaysByMonth = new Map<string, number[]>(months.map((m) => [m, []]))
     for (const r of rows) {
-      if (r.source !== 'avvik' || !r.closedAt) continue
+      if (r.source !== 'task' || !r.closedAt) continue
       const m = monthKey(r.closedAt)
       const list = closedDaysByMonth.get(m)
       if (!list) continue
@@ -665,10 +670,53 @@ export function useRiskDatasets(input: RiskDatasetsInput): Record<string, unknow
     // ── Top-10 scorecard ──
     const top10 = buildTop10(rows)
 
+    // ── Bowtie top hazards (P2) ──
+    // The bowtie renderer consumes the same scorecard shape but adds a
+    // `byKind` per row to drive barrier-coverage colouring. P2 ships a
+    // basic version: for each top-5 red row, count preventive barriers
+    // (sjekkliste/læring law-refs that match) and reactive barriers
+    // (tasks that link back as `hasOpenAction`). Sveitserost-style
+    // layering follows in a future PR.
+    const top5Red = [...rows]
+      .filter((r) => r.isOpen && r.band === 'red')
+      .sort((a, b) => b.riskScore - a.riskScore)
+      .slice(0, 5)
+    const bowtieRows = top5Red.map((r) => {
+      const preventive = rowsRaw.filter(
+        (x) => x.source === 'checklist' && x.hazardCategory === r.hazardCategory,
+      ).length
+      const reactive = rowsRaw.filter(
+        (x) => x.source === 'task' && x.hazardCategory === r.hazardCategory && x.isOpen,
+      ).length
+      const status: 'covered' | 'partial' | 'only_avvik' | 'uncovered' =
+        r.hasOpenAction ? 'partial' : reactive > 0 ? 'only_avvik' : 'uncovered'
+      return {
+        id: r.id,
+        label: r.title,
+        title: `${RISK_SOURCE_LABELS[r.source]} · Score ${r.riskScore}`,
+        applies: true,
+        obligation: r.lawRefs[0] ?? '',
+        status,
+        byKind: { preventive, reactive },
+      }
+    })
+    const bowtieTop = bowtieRows.length === 0 ? [] : [{
+      category: 'Topp 5 røde risikoer (bowtie)',
+      total: bowtieRows.length,
+      // None of the top-5 red rows can be in the 'covered' bucket
+      // (covered implies green band), so this stays 0 — kept for the
+      // scorecard shape contract.
+      covered: 0,
+      partial: bowtieRows.filter((r) => r.status === 'partial').length,
+      needsAttention: bowtieRows.filter((r) => r.status === 'uncovered').length,
+      rows: bowtieRows,
+    }]
+
     return {
       risk_kpi_summary: kpiSummary,
       risk_matrix_cells: buildMatrixCells(openRows),
       risk_top10_scorecard: top10,
+      risk_bowtie_top: bowtieTop,
       risk_by_hazard_category: byCategory,
       risk_psychosocial_share: psychosocialShare,
       risk_by_department: byDepartment,
@@ -680,5 +728,22 @@ export function useRiskDatasets(input: RiskDatasetsInput): Record<string, unknow
       risk_action_plan_coverage: actionPlanCoverage,
       risk_ageing_distribution: ageingDist,
     }
-  }, [filters, findings, tasks, deviations, inspectionFindings, alerts])
+}
+
+// ── The hook (P1 source-fold path) ──────────────────────────────────────
+//
+// Memoises the row-fold + dataset compute. Both stages are pure
+// functions exported above, so a P2 caller that already has rows from
+// the unified view can call `buildRiskDatasets(rows, filters)` directly
+// without re-folding source snapshots.
+
+export function useRiskDatasets(input: RiskDatasetsInput): Record<string, unknown> {
+  const { filters, findings, tasks, deviations, inspectionFindings, alerts } = input
+  return useMemo(
+    () => buildRiskDatasets(
+      foldSourcesToRows({ findings, tasks, deviations, inspectionFindings, alerts }),
+      filters,
+    ),
+    [filters, findings, tasks, deviations, inspectionFindings, alerts],
+  )
 }

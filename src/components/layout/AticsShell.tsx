@@ -1595,10 +1595,9 @@ export function AticsShell() {
       ],
     }
 
-    // Risiko — synthetic group. Aggregate visibility dashboard reading
-    // from compliance findings, tasks (avvik/nestenulykke/risiko/tiltak),
-    // deviations and alerts. No write surface in P1; the register sub-
-    // page is a stub until P2 introduces `risk_register_unified_v`.
+    // Risiko hazard-category pinned presets — exposed as quick filters
+    // under Oversikt → Risikoanalyse so any analyse session opens
+    // pre-narrowed to the relevant fareklasse.
     const RISK_HAZARD_PRESETS: { id: string; label: string }[] = [
       { id: 'psychosocial', label: 'Psykososial (AML § 4-3)' },
       { id: 'physical', label: 'Fysisk' },
@@ -1607,23 +1606,6 @@ export function AticsShell() {
       { id: 'fire', label: 'Brann/eksplosjon' },
       { id: 'electrical', label: 'Elektrisk' },
       { id: 'environmental', label: 'Ytre miljø' },
-    ]
-    const riskFixedSubs: SubItem[] = [
-      {
-        label: 'Analyse',
-        path: '/risk/analyse',
-        Icon: BarChart3,
-        match: ({ pathname, search }) =>
-          pathname === '/risk/analyse' && !new URLSearchParams(search).get('hazardCategory'),
-        requirePermAny: RISK_NAV_PERMS,
-      },
-      {
-        label: 'Risikoregister',
-        path: '/risk/register',
-        Icon: ClipboardList,
-        match: ({ pathname }) => pathname.startsWith('/risk/register'),
-        requirePermAny: RISK_NAV_PERMS,
-      },
     ]
     const riskPinnedSubs: SubItem[] = RISK_HAZARD_PRESETS.map((c) => ({
       label: c.label,
@@ -1634,27 +1616,12 @@ export function AticsShell() {
       },
       requirePermAny: RISK_NAV_PERMS,
     }))
-    const riskGroup: NavGroup = {
-      id: 'risiko',
-      label: 'Risiko',
-      icon: ShieldAlert,
-      modules: [
-        {
-          to: '/risk/analyse',
-          label: 'Risiko',
-          end: false,
-          icon: ShieldAlert,
-          subs: [...riskFixedSubs, ...riskPinnedSubs],
-          permAny: RISK_NAV_PERMS,
-          moduleSlug: 'risk',
-          flatSubs: true,
-        },
-      ],
-    }
 
     // Composite "Oversikt" group — sits at the top of the merged nav
     // since it's the org-wide entry point that pulls in widgets from
-    // every other module group below it.
+    // every other module group below it. Risiko-modulen lives here as
+    // sub-items rather than a separate top-level group so Oversikt
+    // becomes the single "tverrgående bilde"-destinasjon.
     const overviewNavPerms: PermissionKey[] = [
       ...COMPLIANCE_NAV_PERMS,
       ...SURVEY_NAV_PERMS,
@@ -1668,6 +1635,21 @@ export function AticsShell() {
         Icon: Activity,
         match: ({ pathname }) => pathname === '/overview/hms',
         requirePermAny: overviewNavPerms,
+      },
+      {
+        label: 'Risikoanalyse',
+        path: '/risk/analyse',
+        Icon: ShieldAlert,
+        match: ({ pathname, search }) =>
+          pathname === '/risk/analyse' && !new URLSearchParams(search).get('hazardCategory'),
+        requirePermAny: RISK_NAV_PERMS,
+      },
+      {
+        label: 'Risikoregister',
+        path: '/risk/register',
+        Icon: ClipboardList,
+        match: ({ pathname }) => pathname.startsWith('/risk/register'),
+        requirePermAny: RISK_NAV_PERMS,
       },
       {
         label: 'Regelverk-dekning',
@@ -1684,6 +1666,10 @@ export function AticsShell() {
         requirePermAny: ADMINISTRASJON_NAV_PERMS,
       },
     ]
+    // Hazard-pinned subs are added under the same "Risikoanalyse" entry
+    // — they share the /risk/analyse route and only differ in query
+    // string. Rendered after the fixed subs so the layout reads as
+    // "destinations" → "snarveier".
     const hmsOverviewGroup: NavGroup = {
       id: 'hms-oversikt',
       label: 'Oversikt',
@@ -1694,14 +1680,14 @@ export function AticsShell() {
           label: 'Oversikt',
           end: false,
           icon: Activity,
-          subs: overviewFixedSubs,
+          subs: [...overviewFixedSubs, ...riskPinnedSubs],
           permAny: overviewNavPerms,
           flatSubs: true,
         },
       ],
     }
 
-    return [hmsOverviewGroup, complianceGroup, surveyGroup, documentsGroup, meetingsGroup, alertsGroup, registersGroup, tasksGroup, riskGroup, learningGroup, adminGroup]
+    return [hmsOverviewGroup, complianceGroup, surveyGroup, documentsGroup, meetingsGroup, alertsGroup, registersGroup, tasksGroup, learningGroup, adminGroup]
   }, [
     complianceNav.items,
     complianceNav.categories,

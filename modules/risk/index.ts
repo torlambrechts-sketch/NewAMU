@@ -1,7 +1,8 @@
-// Risk module — Phase 1.
-// Aggregate-only risk visibility dashboard. No new write surface yet —
-// reads from compliance findings, tasks (avvik/nestenulykke/risiko/tiltak),
-// deviations, inspection_findings, and alert_cases.
+// Risk module — Phase 2.
+// Aggregate-only risk visibility dashboard, reading from the
+// `risk_register_summary_v` view (P2 migration 20260913100000) with a
+// client-side fold over compliance findings + tasks + deviations +
+// inspection_findings + alert_cases as the fallback path.
 
 export { RiskAnalysePage } from './RiskAnalysePage'
 export { RiskRegisterPage } from './RiskRegisterPage'
@@ -11,7 +12,9 @@ export {
   VERNEOMBUD_PRESET_LAYOUT,
   HMS_LEDER_PRESET_LAYOUT,
 } from './dashboards/riskDashboardScope'
-export { useRiskDatasets } from './dashboards/useRiskDatasets'
+export { useRiskDatasets, buildRiskDatasets, foldSourcesToRows } from './dashboards/useRiskDatasets'
+export type { UnifiedRiskRow, RiskSource } from './dashboards/useRiskDatasets'
+export { useRiskDashboardRows } from './dashboards/useRiskDashboardRows'
 export { HAZARD_CATEGORIES, HAZARD_CATEGORY_OPTIONS } from './dashboards/hazardCategories'
 export type { HazardCategoryId, HazardCategory } from './dashboards/hazardCategories'
 

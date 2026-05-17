@@ -43,8 +43,8 @@ import { useTaskItemsData } from '../../../modules/tasks/useTaskItemsData'
 import { useTasksDatasets } from '../../../modules/tasks/dashboards/useTasksDatasets'
 import { useDocuments } from '../../hooks/useDocuments'
 import { useDocumentsDatasets } from '../documents/dashboards/useDocumentsDatasets'
-import { useRiskDatasets } from '../../../modules/risk/dashboards/useRiskDatasets'
-import { useRiskSourceData } from '../../../modules/risk/dashboards/useRiskSourceData'
+import { buildRiskDatasets } from '../../../modules/risk/dashboards/useRiskDatasets'
+import { useRiskDashboardRows } from '../../../modules/risk/dashboards/useRiskDashboardRows'
 import '../../../modules/risk/dashboards/riskDashboardScope'
 import {
   HMS_OVERVIEW_SCOPE_ID,
@@ -175,18 +175,15 @@ export function HmsOverviewPage() {
     accessRequestsOpen,
   })
 
-  // Risk member — aggregate-only, loads the five source tables and
-  // computes the same dataset map RiskAnalysePage uses. Filter chips
-  // cascade because the hook ignores chips it doesn't understand.
-  const riskSource = useRiskSourceData()
-  const riskDs = useRiskDatasets({
-    filters: dashboard.filters,
-    findings: riskSource.findings,
-    tasks: riskSource.tasks,
-    deviations: riskSource.deviations,
-    inspectionFindings: riskSource.inspectionFindings,
-    alerts: riskSource.alerts,
-  })
+  // Risk member — reads from `risk_register_summary_v` when available
+  // (P2 migration applied), falls back to the P1 client-side source
+  // fold otherwise. Filter chips cascade because `buildRiskDatasets`
+  // ignores chips it doesn't understand.
+  const riskRows = useRiskDashboardRows()
+  const riskDs = useMemo(
+    () => buildRiskDatasets(riskRows.rows, dashboard.filters),
+    [riskRows.rows, dashboard.filters],
+  )
 
   // Merge — keys are scope-namespaced so collisions are impossible.
   const datasets = useMemo<Record<string, unknown>>(
@@ -289,11 +286,11 @@ export function HmsOverviewPage() {
           survey.loading ||
           learning.learningLoading ||
           docs.loading ||
-          riskSource.loading ||
+          riskRows.loading ||
           dashboard.loading
         }
         error={
-          cl.error ?? survey.error ?? learning.learningError ?? docs.error ?? riskSource.error ?? dashboard.error
+          cl.error ?? survey.error ?? learning.learningError ?? docs.error ?? riskRows.error ?? dashboard.error
         }
         emptyState={
           <div className="rounded-md border border-dashed border-neutral-300 bg-white p-8 text-center">
