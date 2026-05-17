@@ -48,6 +48,11 @@ import {
 } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { ModulePageShell, ModuleSectionCard } from '../module'
+import { Button } from '../ui/Button'
+import { StandardInput } from '../ui/Input'
+import { StandardTextarea } from '../ui/Textarea'
+import { SearchableSelect } from '../ui/SearchableSelect'
+import { ToggleSwitch } from '../ui/FormToggles'
 import { useWorkflows } from '../../hooks/useWorkflows'
 import { getWorkflowTriggerEventsForModule } from './workflowTriggerRegistry'
 import { WORKFLOW_SOURCE_MODULES } from '../../types/workflow'
@@ -200,38 +205,39 @@ function StepRailMenu({
   }, [open])
   return (
     <div ref={ref} className="relative">
-      <button
-        type="button"
+      <Button
+        variant="ghost"
+        size="icon"
         onClick={() => setOpen((o) => !o)}
-        className="rounded p-1 text-neutral-400 hover:bg-white hover:text-neutral-700"
+        className="h-6 w-6 text-neutral-400 hover:bg-white hover:text-neutral-700"
         aria-label="Mer"
       >
         <MoreVertical className="h-3.5 w-3.5" />
-      </button>
+      </Button>
       {open && (
         <div className="absolute right-0 z-30 mt-1 w-44 overflow-hidden rounded-md border border-neutral-200 bg-white shadow-lg">
-          <button
-            type="button"
+          <Button
+            variant="ghost"
             onClick={() => { setOpen(false); onToggle() }}
-            className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-xs text-neutral-700 hover:bg-neutral-50"
+            className="flex w-full justify-start gap-2 rounded-none px-3 py-1.5 text-left text-xs font-normal text-neutral-700 hover:bg-neutral-50"
           >
             {enabled ? <PauseCircle className="h-3 w-3" /> : <PlayCircle className="h-3 w-3" />}
             {enabled ? 'Deaktiver steg' : 'Aktiver steg'}
-          </button>
-          <button
-            type="button"
+          </Button>
+          <Button
+            variant="ghost"
             onClick={() => { setOpen(false); onDup() }}
-            className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-xs text-neutral-700 hover:bg-neutral-50"
+            className="flex w-full justify-start gap-2 rounded-none px-3 py-1.5 text-left text-xs font-normal text-neutral-700 hover:bg-neutral-50"
           >
             <Copy className="h-3 w-3" />Dupliser
-          </button>
-          <button
-            type="button"
+          </Button>
+          <Button
+            variant="ghost"
             onClick={() => { setOpen(false); onDel() }}
-            className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-xs text-red-600 hover:bg-red-50"
+            className="flex w-full justify-start gap-2 rounded-none px-3 py-1.5 text-left text-xs font-normal text-red-600 hover:bg-red-50"
           >
             <Trash2 className="h-3 w-3" />Slett
-          </button>
+          </Button>
         </div>
       )}
     </div>
@@ -263,14 +269,14 @@ function AddStepMenu({ onAdd }: { onAdd: (kind: StepKind) => void }) {
 
   return (
     <div ref={ref} className="relative">
-      <button
-        type="button"
+      <Button
+        variant="secondary"
         onClick={() => setOpen((o) => !o)}
-        className="flex w-full items-center justify-center gap-1.5 rounded-md border border-dashed border-neutral-300 bg-white px-3 py-2.5 text-sm font-medium text-neutral-700 transition-colors hover:border-[#1a3d32] hover:bg-[#e7efe9] hover:text-[#1a3d32]"
+        icon={<Plus className="h-4 w-4" />}
+        className="flex w-full justify-center border-dashed hover:border-[#1a3d32] hover:bg-[#e7efe9] hover:text-[#1a3d32]"
       >
-        <Plus className="h-4 w-4" />
         Nytt steg
-      </button>
+      </Button>
       {open && (
         <div className="absolute bottom-full left-0 right-0 z-30 mb-2 max-h-[420px] overflow-y-auto rounded-md border border-neutral-200 bg-white p-2 shadow-lg">
           {Object.entries(byGroup).map(([group, kinds]) => (
@@ -283,11 +289,11 @@ function AddStepMenu({ onAdd }: { onAdd: (kind: StepKind) => void }) {
                   const m = STEP_META[k]
                   const Icon = m.icon
                   return (
-                    <button
+                    <Button
                       key={k}
-                      type="button"
+                      variant="ghost"
                       onClick={() => { setOpen(false); onAdd(k) }}
-                      className="flex items-center gap-2 rounded-md px-2.5 py-2 text-left text-xs text-neutral-700 transition-colors hover:bg-[#e7efe9] hover:text-[#1a3d32]"
+                      className="flex items-center justify-start gap-2 rounded-md px-2.5 py-2 text-left text-xs font-normal text-neutral-700 hover:bg-[#e7efe9] hover:text-[#1a3d32]"
                     >
                       <span
                         className="flex h-5 w-5 shrink-0 items-center justify-center rounded"
@@ -296,7 +302,7 @@ function AddStepMenu({ onAdd }: { onAdd: (kind: StepKind) => void }) {
                         <Icon className="h-3 w-3" />
                       </span>
                       <span className="font-medium">{m.label}</span>
-                    </button>
+                    </Button>
                   )
                 })}
               </div>
@@ -344,13 +350,14 @@ function StepRail({
             {steps.length} steg · {totalActions} handling{totalActions === 1 ? '' : 'er'}
           </p>
         </div>
-        <button
-          type="button"
-          className="rounded p-1 text-neutral-400 hover:bg-neutral-50 hover:text-neutral-700"
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-6 w-6 text-neutral-400 hover:bg-neutral-50 hover:text-neutral-700"
           title="Vis som diagram"
         >
           <Workflow className="h-3.5 w-3.5" />
-        </button>
+        </Button>
       </div>
 
       <ol className="relative flex-1 space-y-1 overflow-y-auto p-2">
@@ -378,10 +385,10 @@ function StepRail({
                 }`}
                 style={dimmed && !active ? { opacity: 0.55 } : undefined}
               >
-                <button
-                  type="button"
+                <Button
+                  variant="ghost"
                   onClick={() => onSelect(s.id)}
-                  className="flex min-w-0 flex-1 items-center gap-2.5 text-left"
+                  className="flex min-w-0 flex-1 items-center gap-2.5 rounded-none px-0 py-0 text-left font-normal hover:bg-transparent"
                 >
                   <span className="relative z-10 shrink-0">
                     <span
@@ -424,29 +431,31 @@ function StepRail({
                       )}
                     </div>
                   </div>
-                </button>
+                </Button>
 
                 <div className="invisible flex items-center group-hover:visible">
                   {s.kind !== 'trigger' ? (
                     <>
-                      <button
-                        type="button"
+                      <Button
+                        variant="ghost"
+                        size="icon"
                         onClick={() => onMove(i, -1)}
                         disabled={i <= 1}
-                        className="rounded p-1 text-neutral-400 hover:bg-white hover:text-neutral-700 disabled:opacity-30"
+                        className="h-6 w-6 text-neutral-400 hover:bg-white hover:text-neutral-700"
                         aria-label="Opp"
                       >
                         <ChevronUp className="h-3.5 w-3.5" />
-                      </button>
-                      <button
-                        type="button"
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
                         onClick={() => onMove(i, 1)}
                         disabled={i === steps.length - 1}
-                        className="rounded p-1 text-neutral-400 hover:bg-white hover:text-neutral-700 disabled:opacity-30"
+                        className="h-6 w-6 text-neutral-400 hover:bg-white hover:text-neutral-700"
                         aria-label="Ned"
                       >
                         <ChevronDown className="h-3.5 w-3.5" />
-                      </button>
+                      </Button>
                       <StepRailMenu
                         enabled={s.enabled}
                         onDup={() => onDup(s.id)}
@@ -507,14 +516,11 @@ function TextInput({
   mono?: boolean
 }) {
   return (
-    <input
-      type="text"
+    <StandardInput
       value={value}
       onChange={(e) => onChange(e.target.value)}
       placeholder={placeholder}
-      className={`w-full rounded-md border border-neutral-300 bg-white px-3 py-2 text-sm text-neutral-900 outline-none transition-colors focus:border-[#1a3d32] focus:ring-1 focus:ring-[#1a3d32]/25 ${
-        mono ? 'font-mono text-xs' : ''
-      }`}
+      className={mono ? 'font-mono text-xs' : ''}
     />
   )
 }
@@ -531,12 +537,12 @@ function TextArea({
   rows?: number
 }) {
   return (
-    <textarea
+    <StandardTextarea
       rows={rows}
       value={value}
       onChange={(e) => onChange(e.target.value)}
       placeholder={placeholder}
-      className="w-full resize-y rounded-md border border-neutral-300 bg-white px-3 py-2 text-sm text-neutral-900 outline-none transition-colors focus:border-[#1a3d32] focus:ring-1 focus:ring-[#1a3d32]/25"
+      className="resize-y"
     />
   )
 }
@@ -557,16 +563,14 @@ function TriggerEditor({
     <div className="space-y-5">
       <div>
         <FieldLabel>Hendelse</FieldLabel>
-        <select
+        <SearchableSelect
           value={(content.triggerId as string) ?? ''}
-          onChange={(e) => onChange({ ...content, triggerId: e.target.value })}
-          className="w-full rounded-md border border-neutral-300 bg-white px-3 py-2 text-sm text-neutral-900 outline-none focus:border-[#1a3d32] focus:ring-1 focus:ring-[#1a3d32]/25"
-        >
-          <option value="">Velg hendelse…</option>
-          {events.map((ev) => (
-            <option key={ev.value} value={ev.value}>{ev.label}</option>
-          ))}
-        </select>
+          options={[
+            { value: '', label: 'Velg hendelse…' },
+            ...events.map((ev) => ({ value: ev.value, label: ev.label })),
+          ]}
+          onChange={(v) => onChange({ ...content, triggerId: v })}
+        />
         {events.length === 0 && (
           <p className="mt-1.5 text-xs text-amber-600">
             Ingen hendelser registrert for denne modulen ennå.
@@ -577,23 +581,24 @@ function TriggerEditor({
       <div>
         <div className="mb-2 flex items-center justify-between">
           <FieldLabel hint="Kjør kun når alle filtre passer">Filtre på utløseren</FieldLabel>
-          <button
-            type="button"
+          <Button
+            variant="ghost"
+            size="sm"
             onClick={() =>
               onChange({
                 ...content,
                 filters: [...filters, { field: '', op: 'equals', value: '' }],
               })
             }
-            className="text-[11px] font-semibold text-[#1a3d32] hover:underline"
+            className="px-0 text-[11px] font-semibold text-[#1a3d32] hover:bg-transparent hover:underline"
           >
             + Legg til filter
-          </button>
+          </Button>
         </div>
         <div className="space-y-1.5">
           {filters.map((f, i) => (
             <div key={i} className="grid grid-cols-[1fr_110px_1fr_28px] items-center gap-1.5">
-              <input
+              <StandardInput
                 value={f.field}
                 onChange={(e) => {
                   const next = [...filters]
@@ -601,25 +606,25 @@ function TriggerEditor({
                   onChange({ ...content, filters: next })
                 }}
                 placeholder="felt"
-                className="rounded-md border border-neutral-300 bg-white px-2.5 py-1.5 text-xs outline-none focus:border-[#1a3d32]"
+                className="px-2.5 py-1.5 text-xs"
               />
-              <select
+              <SearchableSelect
                 value={f.op}
-                onChange={(e) => {
+                options={[
+                  { value: 'equals', label: '=' },
+                  { value: 'not_equals', label: '≠' },
+                  { value: 'in', label: 'i' },
+                  { value: 'contains', label: 'inneholder' },
+                  { value: 'gt', label: '>' },
+                  { value: 'lt', label: '<' },
+                ]}
+                onChange={(v) => {
                   const next = [...filters]
-                  next[i] = { ...f, op: e.target.value }
+                  next[i] = { ...f, op: v }
                   onChange({ ...content, filters: next })
                 }}
-                className="rounded-md border border-neutral-300 bg-white px-2 py-1.5 text-xs outline-none focus:border-[#1a3d32]"
-              >
-                <option value="equals">=</option>
-                <option value="not_equals">≠</option>
-                <option value="in">i</option>
-                <option value="contains">inneholder</option>
-                <option value="gt">&gt;</option>
-                <option value="lt">&lt;</option>
-              </select>
-              <input
+              />
+              <StandardInput
                 value={f.value}
                 onChange={(e) => {
                   const next = [...filters]
@@ -627,17 +632,18 @@ function TriggerEditor({
                   onChange({ ...content, filters: next })
                 }}
                 placeholder="verdi"
-                className="rounded-md border border-neutral-300 bg-white px-2.5 py-1.5 text-xs outline-none focus:border-[#1a3d32]"
+                className="px-2.5 py-1.5 text-xs"
               />
-              <button
-                type="button"
+              <Button
+                variant="ghost"
+                size="icon"
                 onClick={() =>
                   onChange({ ...content, filters: filters.filter((_, j) => j !== i) })
                 }
-                className="rounded p-1 text-neutral-400 hover:bg-neutral-100 hover:text-red-600"
+                className="h-7 w-7 text-neutral-400 hover:bg-neutral-100 hover:text-red-600"
               >
                 <X className="h-3.5 w-3.5" />
-              </button>
+              </Button>
             </div>
           ))}
           {filters.length === 0 && (
@@ -667,34 +673,34 @@ function ConditionEditor({
         <FieldLabel>Logikk mellom regler</FieldLabel>
         <div className="inline-flex items-center gap-1 rounded-md border border-neutral-200 bg-white p-0.5">
           {(['AND', 'OR'] as const).map((op) => (
-            <button
+            <Button
               key={op}
-              type="button"
+              size="sm"
+              variant={logic === op ? 'primary' : 'ghost'}
               onClick={() => onChange({ ...content, logic: op })}
-              className={`rounded px-3 py-1 text-xs font-semibold ${
-                logic === op ? 'bg-[#1a3d32] text-white' : 'text-neutral-600 hover:bg-neutral-50'
-              }`}
+              className={logic === op ? '' : 'text-neutral-600 hover:bg-neutral-50'}
             >
               {op === 'AND' ? 'OG · alle må gjelde' : 'ELLER · minst én'}
-            </button>
+            </Button>
           ))}
         </div>
       </div>
       <div>
         <div className="mb-2 flex items-center justify-between">
           <FieldLabel>Regler</FieldLabel>
-          <button
-            type="button"
+          <Button
+            variant="ghost"
+            size="sm"
             onClick={() =>
               onChange({
                 ...content,
                 clauses: [...clauses, { field: '', op: 'equals', value: '' }],
               })
             }
-            className="text-[11px] font-semibold text-[#1a3d32] hover:underline"
+            className="px-0 text-[11px] font-semibold text-[#1a3d32] hover:bg-transparent hover:underline"
           >
             + Legg til regel
-          </button>
+          </Button>
         </div>
         <div className="space-y-1.5">
           {clauses.map((c, i) => (
@@ -705,7 +711,7 @@ function ConditionEditor({
                 </p>
               )}
               <div className="grid grid-cols-[1fr_110px_1fr_28px] items-center gap-1.5">
-                <input
+                <StandardInput
                   value={c.field}
                   onChange={(e) => {
                     const n = [...clauses]
@@ -713,25 +719,25 @@ function ConditionEditor({
                     onChange({ ...content, clauses: n })
                   }}
                   placeholder="felt (f.eks. severity)"
-                  className="rounded-md border border-neutral-300 bg-white px-2.5 py-1.5 text-xs outline-none focus:border-[#1a3d32]"
+                  className="px-2.5 py-1.5 text-xs"
                 />
-                <select
+                <SearchableSelect
                   value={c.op}
-                  onChange={(e) => {
+                  options={[
+                    { value: 'equals', label: '=' },
+                    { value: 'not_equals', label: '≠' },
+                    { value: 'in', label: 'i' },
+                    { value: 'contains', label: 'inneholder' },
+                    { value: 'gt', label: '>' },
+                    { value: 'lt', label: '<' },
+                  ]}
+                  onChange={(v) => {
                     const n = [...clauses]
-                    n[i] = { ...c, op: e.target.value }
+                    n[i] = { ...c, op: v }
                     onChange({ ...content, clauses: n })
                   }}
-                  className="rounded-md border border-neutral-300 bg-white px-2 py-1.5 text-xs outline-none focus:border-[#1a3d32]"
-                >
-                  <option value="equals">=</option>
-                  <option value="not_equals">≠</option>
-                  <option value="in">i</option>
-                  <option value="contains">inneholder</option>
-                  <option value="gt">&gt;</option>
-                  <option value="lt">&lt;</option>
-                </select>
-                <input
+                />
+                <StandardInput
                   value={c.value}
                   onChange={(e) => {
                     const n = [...clauses]
@@ -739,17 +745,18 @@ function ConditionEditor({
                     onChange({ ...content, clauses: n })
                   }}
                   placeholder="verdi"
-                  className="rounded-md border border-neutral-300 bg-white px-2.5 py-1.5 text-xs outline-none focus:border-[#1a3d32]"
+                  className="px-2.5 py-1.5 text-xs"
                 />
-                <button
-                  type="button"
+                <Button
+                  variant="ghost"
+                  size="icon"
                   onClick={() =>
                     onChange({ ...content, clauses: clauses.filter((_, j) => j !== i) })
                   }
-                  className="rounded p-1 text-neutral-400 hover:bg-neutral-100 hover:text-red-600"
+                  className="h-7 w-7 text-neutral-400 hover:bg-neutral-100 hover:text-red-600"
                 >
                   <X className="h-3.5 w-3.5" />
-                </button>
+                </Button>
               </div>
             </div>
           ))}
@@ -788,22 +795,20 @@ function WaitEditor({
       <div>
         <FieldLabel>Ventetid</FieldLabel>
         <div className="flex gap-2">
-          <input
+          <StandardInput
             type="number"
             min={1}
             value={amount}
             onChange={(e) => onChange({ ...content, amount: parseInt(e.target.value, 10) || 1 })}
-            className="w-24 rounded-md border border-neutral-300 bg-white px-3 py-2 text-sm text-neutral-900 outline-none focus:border-[#1a3d32]"
+            className="w-24"
           />
-          <select
-            value={unit}
-            onChange={(e) => onChange({ ...content, unit: e.target.value })}
-            className="flex-1 rounded-md border border-neutral-300 bg-white px-3 py-2 text-sm text-neutral-900 outline-none focus:border-[#1a3d32]"
-          >
-            {Object.entries(unitLabels).map(([v, l]) => (
-              <option key={v} value={v}>{l}</option>
-            ))}
-          </select>
+          <div className="flex-1">
+            <SearchableSelect
+              value={unit}
+              options={Object.entries(unitLabels).map(([v, l]) => ({ value: v, label: l }))}
+              onChange={(v) => onChange({ ...content, unit: v })}
+            />
+          </div>
         </div>
       </div>
       <div className="flex items-center gap-2 rounded-md bg-neutral-50 px-3 py-2.5 text-xs text-neutral-600">
@@ -854,7 +859,9 @@ function EmailEditor({
           <span className="flex-1 text-neutral-700">
             {(content.template as string) || 'standard.eml'}
           </span>
-          <button className="text-xs font-semibold text-[#1a3d32] hover:underline">Endre mal</button>
+          <Button variant="ghost" size="sm" className="px-0 text-xs font-semibold text-[#1a3d32] hover:bg-transparent hover:underline">
+            Endre mal
+          </Button>
         </div>
       </div>
     </div>
@@ -880,28 +887,28 @@ function TaskEditor({
       </div>
       <div>
         <FieldLabel>Frist (dager fra hendelse)</FieldLabel>
-        <input
+        <StandardInput
           type="number"
           min={1}
           value={(content.dueDays as number) ?? 7}
           onChange={(e) =>
             onChange({ ...content, dueDays: parseInt(e.target.value, 10) || 7 })
           }
-          className="w-28 rounded-md border border-neutral-300 bg-white px-3 py-2 text-sm outline-none focus:border-[#1a3d32]"
+          className="w-28"
         />
       </div>
       <div>
         <FieldLabel>Tildel til</FieldLabel>
-        <select
+        <SearchableSelect
           value={(content.assignee as string) ?? 'auto'}
-          onChange={(e) => onChange({ ...content, assignee: e.target.value })}
-          className="w-full rounded-md border border-neutral-300 bg-white px-3 py-2 text-sm outline-none focus:border-[#1a3d32]"
-        >
-          <option value="auto">Auto (fra hendelse)</option>
-          <option value="verneombud">Verneombud</option>
-          <option value="linjeleder">Linjeleder</option>
-          <option value="hms">HMS-ansvarlig</option>
-        </select>
+          options={[
+            { value: 'auto', label: 'Auto (fra hendelse)' },
+            { value: 'verneombud', label: 'Verneombud' },
+            { value: 'linjeleder', label: 'Linjeleder' },
+            { value: 'hms', label: 'HMS-ansvarlig' },
+          ]}
+          onChange={(v) => onChange({ ...content, assignee: v })}
+        />
       </div>
     </div>
   )
@@ -918,36 +925,45 @@ function AssignEditor({
     <div className="space-y-4">
       <div>
         <FieldLabel>Rolle</FieldLabel>
-        <select
+        <SearchableSelect
           value={(content.role as string) ?? 'verneombud'}
-          onChange={(e) => onChange({ ...content, role: e.target.value })}
-          className="w-full rounded-md border border-neutral-300 bg-white px-3 py-2 text-sm outline-none focus:border-[#1a3d32]"
-        >
-          <option value="verneombud">Verneombud</option>
-          <option value="linjeleder">Linjeleder</option>
-          <option value="hms">HMS-ansvarlig</option>
-          <option value="amu-leder">AMU-leder</option>
-        </select>
+          options={[
+            { value: 'verneombud', label: 'Verneombud' },
+            { value: 'linjeleder', label: 'Linjeleder' },
+            { value: 'hms', label: 'HMS-ansvarlig' },
+            { value: 'amu-leder', label: 'AMU-leder' },
+          ]}
+          onChange={(v) => onChange({ ...content, role: v })}
+        />
       </div>
       <div>
         <FieldLabel>Kilde</FieldLabel>
-        {(['lokasjon', 'avdeling', 'auto-fra-hendelse'] as const).map((s) => (
-          <label key={s} className="mt-2 flex cursor-pointer items-center gap-2 text-sm text-neutral-700">
-            <input
-              type="radio"
-              name="assign-source"
-              value={s}
-              checked={(content.source as string) === s}
-              onChange={() => onChange({ ...content, source: s })}
-              className="accent-[#1a3d32]"
-            />
-            {s === 'lokasjon'
-              ? 'Slå opp fra lokasjon'
-              : s === 'avdeling'
-              ? 'Slå opp fra avdeling'
-              : 'Auto fra hendelse'}
-          </label>
-        ))}
+        <div role="radiogroup" aria-label="Kilde" className="mt-2 space-y-2">
+          {(['lokasjon', 'avdeling', 'auto-fra-hendelse'] as const).map((s) => {
+            const selected = (content.source as string) === s
+            const label = s === 'lokasjon' ? 'Slå opp fra lokasjon' : s === 'avdeling' ? 'Slå opp fra avdeling' : 'Auto fra hendelse'
+            return (
+              <Button
+                key={s}
+                variant="ghost"
+                role="radio"
+                aria-checked={selected}
+                onClick={() => onChange({ ...content, source: s })}
+                className="flex w-full items-center justify-start gap-2 rounded-md px-2 py-1 text-left text-sm font-normal text-neutral-700 hover:bg-neutral-50"
+              >
+                <span
+                  aria-hidden
+                  className={`flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded-full border ${
+                    selected ? 'border-[#1a3d32] bg-[#1a3d32]' : 'border-neutral-300 bg-white'
+                  }`}
+                >
+                  {selected && <span className="h-1.5 w-1.5 rounded-full bg-white" />}
+                </span>
+                {label}
+              </Button>
+            )
+          })}
+        </div>
       </div>
     </div>
   )
@@ -964,26 +980,25 @@ function RosEditor({
     <div className="space-y-4">
       <div>
         <FieldLabel>Mal</FieldLabel>
-        <select
+        <SearchableSelect
           value={(content.template as string) ?? 'standard 5×5'}
-          onChange={(e) => onChange({ ...content, template: e.target.value })}
-          className="w-full rounded-md border border-neutral-300 bg-white px-3 py-2 text-sm outline-none focus:border-[#1a3d32]"
-        >
-          <option value="standard 5×5">Standard 5×5</option>
-          <option value="kjemikalie 4×4">Kjemikalie 4×4</option>
-          <option value="fall fra høyde">Fall fra høyde</option>
-          <option value="kontorergonomi">Kontorergonomi</option>
-        </select>
+          options={[
+            { value: 'standard 5×5', label: 'Standard 5×5' },
+            { value: 'kjemikalie 4×4', label: 'Kjemikalie 4×4' },
+            { value: 'fall fra høyde', label: 'Fall fra høyde' },
+            { value: 'kontorergonomi', label: 'Kontorergonomi' },
+          ]}
+          onChange={(v) => onChange({ ...content, template: v })}
+        />
       </div>
-      <label className="flex cursor-pointer items-center gap-2 text-sm text-neutral-700">
-        <input
-          type="checkbox"
+      <div className="flex items-center gap-2 text-sm text-neutral-700">
+        <ToggleSwitch
           checked={(content.linkSource as boolean) ?? true}
-          onChange={(e) => onChange({ ...content, linkSource: e.target.checked })}
-          className="rounded accent-[#1a3d32]"
+          onChange={(v) => onChange({ ...content, linkSource: v })}
+          label="Koble til kildehendelseens ID"
         />
         Koble til kildehendelseens ID automatisk
-      </label>
+      </div>
     </div>
   )
 }
@@ -1012,16 +1027,15 @@ function AmuEditor({
         <FieldLabel>Prioritet</FieldLabel>
         <div className="inline-flex items-center gap-1 rounded-md border border-neutral-200 bg-white p-0.5">
           {priorities.map((p) => (
-            <button
+            <Button
               key={p}
-              type="button"
+              size="sm"
+              variant={priority === p ? 'primary' : 'ghost'}
               onClick={() => onChange({ ...content, priority: p })}
-              className={`rounded px-3 py-1 text-xs font-semibold capitalize ${
-                priority === p ? 'bg-[#1a3d32] text-white' : 'text-neutral-600 hover:bg-neutral-50'
-              }`}
+              className={`capitalize ${priority === p ? '' : 'text-neutral-600 hover:bg-neutral-50'}`}
             >
               {p}
-            </button>
+            </Button>
           ))}
         </div>
       </div>
@@ -1043,21 +1057,20 @@ function GenericEditor({
         <div key={k}>
           <FieldLabel>{k}</FieldLabel>
           {typeof v === 'boolean' ? (
-            <label className="flex cursor-pointer items-center gap-2 text-sm text-neutral-700">
-              <input
-                type="checkbox"
+            <div className="flex items-center gap-2 text-sm text-neutral-700">
+              <ToggleSwitch
                 checked={v}
-                onChange={(e) => onChange({ ...content, [k]: e.target.checked })}
-                className="rounded accent-[#1a3d32]"
+                onChange={(nv) => onChange({ ...content, [k]: nv })}
+                label={k}
               />
               {k}
-            </label>
+            </div>
           ) : typeof v === 'number' ? (
-            <input
+            <StandardInput
               type="number"
               value={v}
               onChange={(e) => onChange({ ...content, [k]: parseInt(e.target.value, 10) })}
-              className="w-28 rounded-md border border-neutral-300 bg-white px-3 py-2 text-sm outline-none focus:border-[#1a3d32]"
+              className="w-28"
             />
           ) : (
             <TextInput
@@ -1176,16 +1189,17 @@ function KindPickerWf({
 
   return (
     <div ref={ref} className="relative">
-      <button
-        type="button"
+      <Button
+        size="sm"
+        variant="ghost"
         onClick={() => setOpen((o) => !o)}
-        className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium transition-colors"
+        className="rounded-full"
         style={{ background: meta.tint, color: meta.accent, border: `1px solid ${meta.border}` }}
       >
         <Icon className="h-3 w-3" />
         {meta.label}
         <ChevronDown className="h-3 w-3 opacity-60" />
-      </button>
+      </Button>
       {open && (
         <div className="absolute left-0 top-full z-30 mt-1 max-h-[420px] w-80 overflow-y-auto rounded-md border border-neutral-200 bg-white p-2 shadow-lg">
           {Object.entries(byGroup).map(([group, kinds]) => (
@@ -1198,19 +1212,17 @@ function KindPickerWf({
                   const m = STEP_META[k]
                   const KIcon = m.icon
                   return (
-                    <button
+                    <Button
                       key={k}
-                      type="button"
+                      variant={k === kind ? 'primary' : 'ghost'}
                       onClick={() => { setOpen(false); onChange(k) }}
-                      className={`flex items-center gap-2 rounded-md px-2.5 py-2 text-left text-xs ${
-                        k === kind
-                          ? 'bg-[#1a3d32] text-white'
-                          : 'text-neutral-700 hover:bg-[#e7efe9] hover:text-[#1a3d32]'
+                      className={`flex items-center justify-start gap-2 rounded-md px-2.5 py-2 text-left text-xs font-normal ${
+                        k === kind ? '' : 'text-neutral-700 hover:bg-[#e7efe9] hover:text-[#1a3d32]'
                       }`}
                     >
                       <KIcon className="h-3.5 w-3.5" />
                       <span className="font-medium">{m.label}</span>
-                    </button>
+                    </Button>
                   )
                 })}
               </div>
@@ -1275,12 +1287,11 @@ function StepEditorPane({
             </span>
           </div>
           <div className="min-w-0 flex-1">
-            <input
-              type="text"
+            <StandardInput
               value={step.title}
               onChange={(e) => onChange({ ...step, title: e.target.value })}
               placeholder="Steg-tittel"
-              className="-mx-1 block w-full rounded-md border border-transparent bg-transparent px-1 py-0.5 text-xl font-semibold text-neutral-900 outline-none transition-colors hover:bg-neutral-50 focus:border-neutral-300 focus:bg-white md:text-2xl"
+              className="-mx-1 border-transparent bg-transparent px-1 py-0.5 text-xl font-semibold hover:bg-neutral-50 focus:border-neutral-300 focus:bg-white md:text-2xl"
             />
             <div className="mt-2 flex flex-wrap items-center gap-2">
               <KindPickerWf
@@ -1288,22 +1299,15 @@ function StepEditorPane({
                 onChange={(k) => onChangeKind(step.id, k)}
                 disabled={isTrigger}
               />
-              <button
-                type="button"
+              <Button
+                size="sm"
+                variant={step.enabled ? 'primary' : 'secondary'}
                 onClick={() => onChange({ ...step, enabled: !step.enabled })}
-                className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium transition-colors ${
-                  step.enabled
-                    ? 'bg-[#1a3d32] text-white hover:bg-[#15302a]'
-                    : 'border border-neutral-200 bg-white text-neutral-600 hover:bg-neutral-50'
-                }`}
+                icon={step.enabled ? <CircleDot className="h-3 w-3" /> : <Circle className="h-3 w-3" />}
+                className="rounded-full"
               >
-                {step.enabled ? (
-                  <CircleDot className="h-3 w-3" />
-                ) : (
-                  <Circle className="h-3 w-3" />
-                )}
                 {step.enabled ? 'Aktiv' : 'Deaktivert'}
-              </button>
+              </Button>
               {isTrigger && (
                 <span className="inline-flex items-center gap-1 rounded-full border border-neutral-200 bg-neutral-50 px-2.5 py-1 text-xs font-medium text-neutral-600">
                   <Lock className="h-3 w-3" />
@@ -1311,39 +1315,36 @@ function StepEditorPane({
                 </span>
               )}
             </div>
-            <textarea
+            <StandardTextarea
               rows={2}
               value={step.summary}
               placeholder="Kort beskrivelse — vises i kjørehistorikken og revisjonsloggen."
               onChange={(e) => onChange({ ...step, summary: e.target.value })}
-              className="mt-3 w-full resize-none rounded-md border border-neutral-200 bg-neutral-50/60 px-3 py-2 text-sm text-neutral-800 outline-none transition-colors focus:border-[#1a3d32] focus:bg-white focus:ring-1 focus:ring-[#1a3d32]/25 placeholder:text-neutral-400"
+              className="mt-3 resize-none bg-neutral-50/60 focus:bg-white"
             />
           </div>
         </div>
 
         <div className="mt-4 flex items-center justify-between border-t border-neutral-100 pt-4">
           {!isTrigger ? (
-            <button
-              type="button"
+            <Button
+              variant="ghost"
+              size="sm"
               onClick={() => onDelete(step.id)}
-              className="text-xs font-semibold text-red-600 hover:underline"
+              className="px-0 text-xs font-semibold text-red-600 hover:bg-transparent hover:underline"
             >
               Slett steg
-            </button>
+            </Button>
           ) : (
             <span />
           )}
-          <button
-            type="button"
+          <Button
+            variant={isDirty ? 'primary' : 'secondary'}
             onClick={onSave}
-            className={`inline-flex items-center gap-1.5 rounded-lg px-4 py-2 text-sm font-semibold transition-colors ${
-              isDirty
-                ? 'bg-[#1a3d32] text-white hover:bg-[#15302a]'
-                : 'bg-neutral-100 text-neutral-500'
-            }`}
+            className={`rounded-lg ${isDirty ? '' : 'bg-neutral-100 text-neutral-500'}`}
           >
             {isDirty ? 'Lagre' : 'Lagret'}
-          </button>
+          </Button>
         </div>
       </div>
 
@@ -1390,15 +1391,11 @@ function WfDetaljerTab({
               </div>
               <div>
                 <FieldLabel>Kilde-modul</FieldLabel>
-                <select
+                <SearchableSelect
                   value={rule.source_module}
-                  onChange={(e) => onChange({ source_module: e.target.value })}
-                  className="w-full rounded-md border border-neutral-300 bg-white px-3 py-2 text-sm outline-none focus:border-[#1a3d32]"
-                >
-                  {WORKFLOW_SOURCE_MODULES.map((m) => (
-                    <option key={m.value} value={m.value}>{m.label}</option>
-                  ))}
-                </select>
+                  options={WORKFLOW_SOURCE_MODULES.map((m) => ({ value: m.value, label: m.label }))}
+                  onChange={(v) => onChange({ source_module: v })}
+                />
               </div>
             </div>
           </ModuleSectionCard>
@@ -1413,10 +1410,10 @@ function WfDetaljerTab({
                 { key: 'notify_owner', label: 'Varsle eier om feil' },
                 { key: 'allow_parallel', label: 'Tillat parallelle kjøringer' },
               ].map(({ key, label }) => (
-                <label key={key} className="flex cursor-pointer items-center gap-2 text-sm text-neutral-700">
-                  <input type="checkbox" className="rounded accent-[#1a3d32]" />
+                <div key={key} className="flex items-center gap-2 text-sm text-neutral-700">
+                  <ToggleSwitch checked={false} onChange={() => undefined} label={label} />
                   {label}
-                </label>
+                </div>
               ))}
             </div>
           </ModuleSectionCard>
@@ -1449,19 +1446,18 @@ function WfLovverkTab() {
         <h3 className="mb-4 text-sm font-semibold text-neutral-900">Lovverk denne arbeidsflyten håndhever</h3>
         <div className="grid gap-3 sm:grid-cols-2">
           {laws.map((l) => (
-            <label
+            <div
               key={l.id}
-              className={`flex cursor-pointer items-start gap-3 rounded-md border p-3 transition-colors ${
+              className={`flex items-start gap-3 rounded-md border p-3 transition-colors ${
                 checked.has(l.id)
                   ? 'border-[#1a3d32] bg-[#e7efe9]'
                   : 'border-neutral-200 bg-white hover:border-neutral-300'
               }`}
             >
-              <input
-                type="checkbox"
+              <ToggleSwitch
                 checked={checked.has(l.id)}
                 onChange={() => toggle(l.id)}
-                className="mt-0.5 rounded accent-[#1a3d32]"
+                label={`${l.law} ${l.section}`}
               />
               <div>
                 <div className="flex items-center gap-1.5">
@@ -1470,7 +1466,7 @@ function WfLovverkTab() {
                 </div>
                 <p className="mt-1 text-[11px] text-neutral-600">{l.desc}</p>
               </div>
-            </label>
+            </div>
           ))}
         </div>
       </ModuleSectionCard>
@@ -1491,13 +1487,9 @@ function WfTestTab({ steps }: { steps: WfStep[] }) {
       <ModuleSectionCard className="p-5">
         <div className="mb-4 flex items-center justify-between">
           <h3 className="text-sm font-semibold text-neutral-900">Simulering</h3>
-          <button
-            type="button"
-            onClick={() => setRan(true)}
-            className="inline-flex items-center gap-1.5 rounded-lg bg-[#1a3d32] px-4 py-2 text-sm font-semibold text-white hover:bg-[#15302a]"
-          >
+          <Button variant="primary" onClick={() => setRan(true)} className="rounded-lg">
             Kjør simulering
-          </button>
+          </Button>
         </div>
         {ran && (
           <ol className="space-y-2">
@@ -1724,37 +1716,37 @@ export function WorkflowEditorV2({ ruleId }: { ruleId: string }) {
               Lagret {fmtAgo(lastSaved)}
             </span>
           )}
-          <button
+          <Button
+            variant="secondary"
             onClick={() => navigate('/workflow')}
-            className="rounded-lg border border-neutral-300 bg-white px-3 py-2 text-sm font-semibold text-neutral-700 hover:bg-neutral-50"
+            className="rounded-lg"
           >
             Lukk
-          </button>
-          <button className="rounded-lg border border-neutral-300 bg-white px-3 py-2 text-sm font-semibold text-neutral-700 hover:bg-neutral-50">
+          </Button>
+          <Button variant="secondary" className="rounded-lg">
             Test-kjør
-          </button>
-          <button
-            onClick={() => triggerSave()}
-            className="rounded-lg bg-[#1a3d32] px-4 py-2 text-sm font-semibold text-white hover:bg-[#15302a]"
-          >
+          </Button>
+          <Button variant="primary" onClick={() => triggerSave()} className="rounded-lg">
             Publiser
-          </button>
+          </Button>
         </div>
       }
       tabs={
         <div className="flex items-center gap-1 border-b border-neutral-200">
           {tabDefs.map((t) => (
-            <button
+            <Button
               key={t.id}
+              variant="ghost"
               onClick={() => setTab(t.id)}
-              className={`-mb-px border-b-2 px-4 py-2 text-sm font-semibold transition-colors ${
+              aria-pressed={tab === t.id}
+              className={`-mb-px rounded-none border-b-2 px-4 py-2 text-sm font-semibold ${
                 tab === t.id
-                  ? 'border-[#1a3d32] text-[#1a3d32]'
-                  : 'border-transparent text-neutral-500 hover:text-neutral-800'
+                  ? 'border-[#1a3d32] text-[#1a3d32] hover:bg-transparent'
+                  : 'border-transparent text-neutral-500 hover:bg-transparent hover:text-neutral-800'
               }`}
             >
               {t.label}
-            </button>
+            </Button>
           ))}
         </div>
       }
