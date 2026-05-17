@@ -11,6 +11,7 @@ import { useOrgSetupContext } from '../../../hooks/useOrgSetupContext'
 import { useWorkflows } from '../../../hooks/useWorkflows'
 import { Button } from '../../ui/Button'
 import { StandardInput } from '../../ui/Input'
+import { AnchorStatusCard } from './AnchorStatusCard'
 
 const LAW_REF_PRESETS = [
   { label: 'AML § 5-2 (alvorlig skade)', value: 'AML § 5-2' },
@@ -80,6 +81,7 @@ export function EvidenceExportPanel() {
         <h2 className="text-sm font-semibold text-neutral-900">Bevispakke</h2>
         <span className="text-xs text-neutral-500">Signert manifest for tilsyn og revisorer</span>
       </div>
+      <AnchorStatusCard />
       <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
         <div className="space-y-3 rounded-xl border border-neutral-200 bg-white p-4">
           <div className="grid grid-cols-2 gap-2">

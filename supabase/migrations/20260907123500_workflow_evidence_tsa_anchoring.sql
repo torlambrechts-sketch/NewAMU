@@ -628,7 +628,7 @@ begin
     for v_admin in
       select id as user_id from public.profiles
        where organization_id = v_anchor.organization_id
-         and (role = 'org_admin' or role = 'admin' or role = 'owner')
+         and is_org_admin = true
     loop
       v_key := 'wf:anchor-mismatch:' || p_anchor_id::text || ':' || v_admin.user_id::text;
       insert into public.compliance_notifications (
