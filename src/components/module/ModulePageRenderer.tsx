@@ -12,6 +12,7 @@
 
 import { useMemo, useState, type ReactNode } from 'react'
 import { Plus } from 'lucide-react'
+import { Button } from '../ui/Button'
 import { WorkplaceStandardListLayout } from '../layout/WorkplaceStandardListLayout'
 import { LayoutScoreStatRow } from '../layout/LayoutScoreStatRow'
 import type { HubMenu1Item } from '../layout/HubMenu1Bar'
@@ -159,27 +160,31 @@ export function ModulePageRenderer<T extends Record<string, unknown>>({
 
   // Filter panel: status chips
   const filterPanel = useMemo(() => (
-    <div className="flex flex-wrap gap-2">
-      <button
-        type="button"
+    <div className="flex flex-wrap gap-2" role="radiogroup" aria-label="Status-filter">
+      <Button
+        variant="ghost"
         onClick={() => onStatusFilterChange?.(undefined)}
+        role="radio"
+        aria-checked={!activeStatusFilter}
         className={`rounded-full px-3 py-1 text-xs font-semibold transition ${
-          !activeStatusFilter ? 'bg-[#1a3d32] text-white' : 'border border-neutral-200 bg-white text-neutral-600 hover:bg-neutral-50'
+          !activeStatusFilter ? 'bg-[#1a3d32] text-white hover:bg-[#1a3d32]' : 'border border-neutral-200 bg-white text-neutral-600 hover:bg-neutral-50'
         }`}
       >
         Alle
-      </button>
+      </Button>
       {statuses.map((s) => (
-        <button
+        <Button
           key={s.key}
-          type="button"
+          variant="ghost"
           onClick={() => onStatusFilterChange?.(activeStatusFilter === s.key ? undefined : s.key)}
+          role="radio"
+          aria-checked={activeStatusFilter === s.key}
           className={`rounded-full px-3 py-1 text-xs font-semibold transition ${
-            activeStatusFilter === s.key ? 'bg-[#1a3d32] text-white' : 'border border-neutral-200 bg-white text-neutral-600 hover:bg-neutral-50'
+            activeStatusFilter === s.key ? 'bg-[#1a3d32] text-white hover:bg-[#1a3d32]' : 'border border-neutral-200 bg-white text-neutral-600 hover:bg-neutral-50'
           }`}
         >
           {s.label}
-        </button>
+        </Button>
       ))}
     </div>
   ), [statuses, activeStatusFilter, onStatusFilterChange])

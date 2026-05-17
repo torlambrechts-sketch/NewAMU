@@ -12,6 +12,8 @@
 
 import { useState } from 'react'
 import { Loader2, Sparkles, X } from 'lucide-react'
+import { Button } from '../../components/ui/Button'
+import { StandardTextarea } from '../../components/ui/Textarea'
 import { useOrgSetupContext } from '../../hooks/useOrgSetupContext'
 
 type GeneratedItem = {
@@ -78,14 +80,15 @@ export function AiTemplateGenModal({
             </p>
             <h2 className="text-base font-semibold text-neutral-900">Beskriv malen</h2>
           </div>
-          <button
-            type="button"
+          <Button
+            variant="ghost"
+            size="icon"
             onClick={onClose}
             aria-label="Lukk"
-            className="rounded-md p-1 text-neutral-500 hover:bg-neutral-100"
+            className="h-7 w-7 text-neutral-500 hover:bg-neutral-100"
           >
             <X className="size-5" />
-          </button>
+          </Button>
         </header>
         <div className="flex-1 overflow-y-auto px-5 py-4">
           {result ? (
@@ -111,13 +114,13 @@ export function AiTemplateGenModal({
               <label className="text-xs font-semibold uppercase tracking-wide text-neutral-600">
                 Hva skal malen dekke?
               </label>
-              <textarea
+              <StandardTextarea
                 value={prompt}
                 onChange={(e) => setPrompt(e.target.value)}
                 disabled={busy}
                 rows={6}
                 placeholder="Eksempel: «Månedlig sjekkliste for verneombud — gjennomgang av varslingskanaler, branninstruks, evakueringsveier, førstehjelps­utstyr. Ref AML § 4-1 og IK-f § 5.»"
-                className="mt-2 w-full rounded-md border border-neutral-200 bg-white p-3 text-sm outline-none focus:ring-2 focus:ring-[#1a3d32]/25"
+                className="mt-2 focus:ring-2 focus:ring-[#1a3d32]/25"
               />
               {error ? (
                 <p className="mt-3 rounded-md border border-rose-200 bg-rose-50 p-3 text-xs text-rose-800">
@@ -130,31 +133,22 @@ export function AiTemplateGenModal({
         <footer className="flex items-center justify-end gap-2 border-t border-neutral-100 px-5 py-3">
           {result ? (
             <>
-              <button
-                type="button"
-                onClick={() => setResult(null)}
-                className="rounded-md border border-neutral-300 bg-white px-3 py-1.5 text-xs font-semibold text-neutral-700 hover:bg-neutral-50"
-              >
+              <Button size="sm" variant="secondary" onClick={() => setResult(null)}>
                 Generer på nytt
-              </button>
-              <button
-                type="button"
-                onClick={() => void onAccept(result)}
-                className="rounded-md bg-[#1a3d32] px-4 py-2 text-sm font-semibold text-white hover:bg-[#16382e]"
-              >
+              </Button>
+              <Button variant="primary" onClick={() => void onAccept(result)}>
                 Bruk som mal
-              </button>
+              </Button>
             </>
           ) : (
-            <button
-              type="button"
+            <Button
+              variant="primary"
               onClick={() => void generate()}
               disabled={busy || !prompt.trim()}
-              className="inline-flex items-center gap-2 rounded-md bg-[#1a3d32] px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-[#16382e] disabled:cursor-not-allowed disabled:opacity-50"
+              icon={busy ? <Loader2 className="size-4 animate-spin" /> : <Sparkles className="size-4" />}
             >
-              {busy ? <Loader2 className="size-4 animate-spin" /> : <Sparkles className="size-4" />}
               {busy ? 'Genererer …' : 'Generer utkast'}
-            </button>
+            </Button>
           )}
         </footer>
       </div>

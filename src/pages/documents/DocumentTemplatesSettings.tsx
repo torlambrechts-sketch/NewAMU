@@ -390,6 +390,7 @@ export function DocumentTemplatesSettings() {
                   disabled={spaceOptions.length === 0 || jsonBusy}
                 />
               </div>
+              {/* eslint-disable-next-line no-restricted-syntax -- hidden native file picker; no primitive exists */}
               <input
                 ref={pageImportRef}
                 type="file"
@@ -431,6 +432,7 @@ export function DocumentTemplatesSettings() {
               >
                 Last ned mal-JSON
               </Button>
+              {/* eslint-disable-next-line no-restricted-syntax -- hidden native file picker; no primitive exists */}
               <input
                 ref={templateImportRef}
                 type="file"

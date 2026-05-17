@@ -19,6 +19,7 @@ import { AlertTriangle, Info, MoreHorizontal } from 'lucide-react'
 import { WorkplaceNoticePanel } from './WorkplaceNoticePanel'
 import { WorkplaceEditableNoticeList, type AgendaListItem } from './WorkplaceEditableNoticeList'
 import { LayoutScoreStatRow } from './LayoutScoreStatRow'
+import { Button } from '../ui/Button'
 import type { LayoutScoreStatItem } from './platformLayoutKit'
 import type { RenderBlockProps } from './PageLayoutRenderer'
 import type { PageLayoutBlockDef } from '../../types/pageLayout'
@@ -75,18 +76,19 @@ function HubMenu1BarBlock({ textOverride }: RenderBlockProps) {
       className="flex min-w-0 gap-1 overflow-x-auto border-b border-neutral-200 pb-0"
     >
       {tabs.map((label, i) => (
-        <button
+        <Button
           key={label}
-          type="button"
+          variant="ghost"
           onClick={() => setActive(i)}
-          className={`shrink-0 whitespace-nowrap border-b-2 px-4 py-2.5 text-sm font-medium transition-colors ${
+          aria-current={active === i ? 'page' : undefined}
+          className={`shrink-0 whitespace-nowrap rounded-none border-b-2 px-4 py-2.5 text-sm font-medium transition-colors hover:bg-transparent ${
             active === i
               ? 'border-[#1a3d32] text-[#1a3d32]'
               : 'border-transparent text-neutral-500 hover:border-neutral-300 hover:text-neutral-700'
           }`}
         >
           {label}
-        </button>
+        </Button>
       ))}
     </nav>
   )
@@ -196,9 +198,9 @@ function DonutOneRowBlock({ textOverride, blockProps }: RenderBlockProps) {
           <p className="text-[11px] font-bold uppercase tracking-wide text-neutral-800">{title}</p>
           <p className="mt-0.5 text-xs text-neutral-500">{subtitle}</p>
         </div>
-        <button type="button" className="rounded-lg p-1.5 text-neutral-400 hover:bg-neutral-100" aria-label="Valg">
+        <Button variant="ghost" size="icon" className="h-auto w-auto rounded-lg p-1.5 text-neutral-400 hover:bg-neutral-100" aria-label="Valg">
           <MoreHorizontal className="size-4" />
-        </button>
+        </Button>
       </div>
       <div className="grid gap-5 p-4 sm:grid-cols-2" style={{ backgroundColor: CREAM_DEEP }}>
         <ul className="min-w-0 divide-y divide-neutral-200/60">
@@ -278,9 +280,9 @@ function BarLineChartBlock({ textOverride, blockProps }: RenderBlockProps) {
       <div className={`${CARD} flex flex-col`} style={CARD_SHADOW}>
         <div className="flex items-start justify-between gap-3 border-b border-neutral-100 px-4 py-3">
           <p className="text-[11px] font-bold uppercase tracking-wide text-neutral-800">{leftTitle}</p>
-          <button type="button" className="rounded-lg p-1 text-neutral-400 hover:bg-neutral-100" aria-label="Valg">
+          <Button variant="ghost" size="icon" className="h-auto w-auto rounded-lg p-1 text-neutral-400 hover:bg-neutral-100" aria-label="Valg">
             <MoreHorizontal className="size-4" />
-          </button>
+          </Button>
         </div>
         <ul className="flex-1 divide-y divide-neutral-100 p-4" style={{ backgroundColor: CREAM_DEEP }}>
           {stages.map((s) => (
@@ -302,9 +304,9 @@ function BarLineChartBlock({ textOverride, blockProps }: RenderBlockProps) {
       <div className={`${CARD} flex flex-col`} style={CARD_SHADOW}>
         <div className="flex items-start justify-between gap-3 border-b border-neutral-100 px-4 py-3">
           <p className="text-[11px] font-bold uppercase tracking-wide text-neutral-800">{rightTitle}</p>
-          <button type="button" className="rounded-lg p-1 text-neutral-400 hover:bg-neutral-100" aria-label="Valg">
+          <Button variant="ghost" size="icon" className="h-auto w-auto rounded-lg p-1 text-neutral-400 hover:bg-neutral-100" aria-label="Valg">
             <MoreHorizontal className="size-4" />
-          </button>
+          </Button>
         </div>
         <div className="flex flex-1 flex-col p-4" style={{ backgroundColor: CREAM_DEEP }}>
           <div className="flex min-h-[120px] flex-1 flex-col justify-end">

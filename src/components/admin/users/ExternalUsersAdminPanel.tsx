@@ -15,6 +15,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Loader2 } from 'lucide-react'
 import { ModuleSectionCard } from '../../module'
+import { Button } from '../../ui/Button'
 import { WarningBox } from '../../ui/AlertBox'
 import { useOrgSetupContext } from '../../../hooks/useOrgSetupContext'
 
@@ -148,18 +149,15 @@ export function ExternalUsersAdminPanel() {
     <div className="space-y-4">
       <div className="flex flex-wrap gap-2">
         {CHIPS.map((c) => (
-          <button
+          <Button
             key={c.id}
-            type="button"
+            size="sm"
+            variant={active === c.id ? 'primary' : 'secondary'}
             onClick={() => setActive(c.id)}
-            className={`rounded-full border px-3 py-1.5 text-xs font-medium transition ${
-              active === c.id
-                ? 'border-[#1a3d32] bg-[#1a3d32] text-white'
-                : 'border-neutral-200 bg-white text-neutral-700 hover:border-neutral-300'
-            }`}
+            className="rounded-full"
           >
             {c.label}
-          </button>
+          </Button>
         ))}
       </div>
 

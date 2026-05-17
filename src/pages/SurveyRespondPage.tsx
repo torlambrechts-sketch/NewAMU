@@ -56,11 +56,11 @@ function RatingScaleRange({
   return (
     <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
       <span className="text-xs text-neutral-400">{lowLabel}</span>
-      <div className="flex flex-wrap gap-1.5">
+      <div className="flex flex-wrap gap-1.5" role="radiogroup" aria-label="Vurdering">
         {nums.map((n) => (
-          <button
+          <Button
             key={n}
-            type="button"
+            variant="ghost"
             onClick={() => onChange(n)}
             className={`min-h-10 min-w-10 rounded-full border-2 text-sm font-semibold transition-colors
               ${
@@ -69,10 +69,11 @@ function RatingScaleRange({
                   : 'border-neutral-200 bg-white text-neutral-700 hover:border-[#1a3d32]/50'
               }`}
             aria-label={`Verdi ${n}`}
-            aria-pressed={value === n}
+            role="radio"
+            aria-checked={value === n}
           >
             {n}
-          </button>
+          </Button>
         ))}
       </div>
       <span className="text-xs text-neutral-400">{highLabel}</span>
@@ -385,7 +386,7 @@ function QuestionCard({
 
       {q.question_type === 'slider' && (
         <div className="mt-4 space-y-2">
-          <input
+          <StandardInput
             type="range"
             className="w-full accent-[#1a3d32]"
             min={typeof cfgObj.rangeStart === 'number' ? cfgObj.rangeStart : 0}
@@ -415,14 +416,16 @@ function QuestionCard({
       )}
 
       {q.question_type === 'image_choice' && (
-        <div className="mt-3 flex flex-wrap gap-3">
+        <div className="mt-3 flex flex-wrap gap-3" role="radiogroup" aria-label="Bildevalg">
           {Array.isArray(cfgObj.choices)
             ? (cfgObj.choices as { label?: string; image_url?: string }[]).map((c, i) => (
-                <button
+                <Button
                   key={i}
-                  type="button"
+                  variant="ghost"
                   onClick={() => onChange({ value: null, text: c.label ?? String(i) })}
-                  className={`flex max-w-[140px] flex-col gap-1 rounded-lg border-2 p-2 text-left text-xs transition ${
+                  role="radio"
+                  aria-checked={answer?.text === (c.label ?? String(i))}
+                  className={`flex max-w-[140px] flex-col items-start gap-1 rounded-lg border-2 p-2 text-left text-xs font-normal transition hover:bg-transparent ${
                     answer?.text === (c.label ?? String(i))
                       ? 'border-[#1a3d32] bg-[#f7faf8]'
                       : 'border-neutral-200 hover:border-neutral-300'
@@ -434,7 +437,7 @@ function QuestionCard({
                     <div className="flex h-20 items-center justify-center bg-neutral-100 text-neutral-400">Bilde</div>
                   )}
                   <span className="font-medium">{c.label ?? `Valg ${i + 1}`}</span>
-                </button>
+                </Button>
               ))
             : null}
         </div>
@@ -459,7 +462,7 @@ function QuestionCard({
                   <td className="border-b border-neutral-100 py-2 pr-2 align-middle">{row}</td>
                   {(cfgObj.columns as string[]).map((col) => (
                     <td key={`${row}-${col}`} className="border-b border-neutral-100 px-2 py-2 text-center">
-                      <input
+                      <StandardInput
                         type="radio"
                         name={`matrix-${q.id}-${row}`}
                         className="size-4 border-neutral-300 text-[#1a3d32]"
@@ -513,6 +516,7 @@ function QuestionCard({
 
       {q.question_type === 'file_upload' && (
         <div className="mt-3">
+          {/* eslint-disable-next-line no-restricted-syntax -- native file picker; no primitive exists */}
           <input
             type="file"
             className="text-sm text-neutral-700"
@@ -577,7 +581,7 @@ function QuestionCard({
         <div className="mt-3 flex flex-col gap-2">
           {opts.map((opt) => (
             <label key={opt} className="flex cursor-pointer items-center gap-2 text-sm text-neutral-800">
-              <input
+              <StandardInput
                 type="radio"
                 name={`q-${q.id}`}
                 className="size-4 border-neutral-300 text-[#1a3d32] focus:ring-[#1a3d32]"
@@ -595,7 +599,7 @@ function QuestionCard({
           <p className="text-xs text-neutral-500">Kryss av alle som gjelder.</p>
           {opts.map((opt) => (
             <label key={opt} className="flex cursor-pointer items-center gap-2 text-sm text-neutral-800">
-              <input
+              <StandardInput
                 type="checkbox"
                 className="size-4 rounded border-neutral-300 text-[#1a3d32] focus:ring-[#1a3d32]"
                 checked={multiSelected.has(opt)}

@@ -12,6 +12,8 @@ import { Filter, X } from 'lucide-react'
 import { Badge } from '../../ui/Badge'
 import { Button } from '../../ui/Button'
 import { StandardInput } from '../../ui/Input'
+import { SearchableSelect } from '../../ui/SearchableSelect'
+import { ToggleSwitch } from '../../ui/FormToggles'
 import {
   filtersEqual,
   makeFilter,
@@ -69,14 +71,15 @@ export function DashboardFilterBar({ filters, dimensions, onChange }: Props) {
       style={{ boxShadow: '0 1px 2px rgba(0,0,0,0.03)' }}
     >
       <div className="flex flex-wrap items-center gap-2">
-        <button
-          type="button"
+        <Button
+          variant="ghost"
+          size="sm"
           onClick={() => setPickerOpen(true)}
           className="inline-flex items-center gap-1.5 rounded-md border border-dashed border-neutral-300 px-2 py-1 text-xs font-medium text-neutral-600 transition-colors hover:border-neutral-400 hover:text-neutral-800"
         >
           <Filter className="h-3.5 w-3.5" aria-hidden />
           + Filter
-        </button>
+        </Button>
 
         {filters.length === 0 ? (
           <span className="text-xs text-neutral-500">Ingen filtre — viser alle data.</span>
@@ -95,13 +98,14 @@ export function DashboardFilterBar({ filters, dimensions, onChange }: Props) {
                 />
               )
             })}
-            <button
-              type="button"
+            <Button
+              variant="ghost"
+              size="sm"
               onClick={() => onChange([])}
-              className="ml-auto text-xs font-medium text-neutral-500 underline-offset-2 hover:text-neutral-800 hover:underline"
+              className="ml-auto rounded-none px-0 text-xs font-medium text-neutral-500 underline-offset-2 hover:bg-transparent hover:text-neutral-800 hover:underline"
             >
               Fjern alle
-            </button>
+            </Button>
           </>
         )}
       </div>
@@ -159,23 +163,24 @@ function FilterChip({
   const summary = describeFilterValue(filter, dimension)
   return (
     <span className="inline-flex items-center overflow-hidden rounded-full border border-[#1a3d32]/20 bg-[#1a3d32]/5 text-xs font-medium text-[#1a3d32]">
-      <button
-        type="button"
+      <Button
+        variant="ghost"
         onClick={onClick}
-        className="flex items-center gap-1 px-2.5 py-1 transition-colors hover:bg-[#1a3d32]/10"
+        className="flex items-center gap-1 rounded-none px-2.5 py-1 font-medium text-[#1a3d32] transition-colors hover:bg-[#1a3d32]/10"
       >
         <span className="font-semibold">{dimension.label}</span>
         <span className="text-[#1a3d32]/70">{OPERATOR_LABEL[filter.operator]}</span>
         <span className="font-semibold">{summary || '—'}</span>
-      </button>
-      <button
-        type="button"
+      </Button>
+      <Button
+        variant="ghost"
+        size="icon"
         onClick={onRemove}
         aria-label={`Fjern filter ${dimension.label}`}
-        className="border-l border-[#1a3d32]/15 px-1.5 py-1 text-[#1a3d32]/60 hover:bg-[#1a3d32]/10 hover:text-[#1a3d32]"
+        className="h-auto w-auto rounded-none border-l border-[#1a3d32]/15 px-1.5 py-1 text-[#1a3d32]/60 hover:bg-[#1a3d32]/10 hover:text-[#1a3d32]"
       >
         <X className="h-3 w-3" aria-hidden />
-      </button>
+      </Button>
     </span>
   )
 }
@@ -261,10 +266,10 @@ function DimensionPickerPopover({
             const used = existing.filter((f) => f.dimensionId === d.id).length
             return (
               <li key={d.id}>
-                <button
-                  type="button"
+                <Button
+                  variant="ghost"
                   onClick={() => onPick(d)}
-                  className="flex w-full items-start gap-2 px-3 py-2 text-left text-sm hover:bg-neutral-50"
+                  className="flex w-full items-start gap-2 rounded-none px-3 py-2 text-left text-sm font-normal hover:bg-neutral-50"
                 >
                   <span className="min-w-0 flex-1">
                     <span className="block font-medium text-neutral-900">{d.label}</span>
@@ -273,7 +278,7 @@ function DimensionPickerPopover({
                     ) : null}
                   </span>
                   {used > 0 ? <Badge variant="neutral">{used}</Badge> : null}
-                </button>
+                </Button>
               </li>
             )
           })
@@ -391,17 +396,11 @@ function FilterEditPopover({
           <label className="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-neutral-500">
             Operator
           </label>
-          <select
+          <SearchableSelect
             value={operator}
-            onChange={(e) => setOperator(e.target.value as DashboardFilterOperator)}
-            className="w-full rounded-md border border-neutral-300 bg-white px-2 py-1.5 text-sm"
-          >
-            {operators.map((op) => (
-              <option key={op} value={op}>
-                {OPERATOR_LABEL[op]}
-              </option>
-            ))}
-          </select>
+            onChange={(v) => setOperator(v as DashboardFilterOperator)}
+            options={operators.map((op) => ({ value: op, label: OPERATOR_LABEL[op] }))}
+          />
         </div>
 
         {dimension.kind === 'enum' ? (
@@ -417,18 +416,15 @@ function FilterEditPopover({
                   {options.map((o) => {
                     const checked = arrayValue.includes(o.id)
                     return (
-                      <li key={o.id}>
-                        <label className="flex cursor-pointer items-center gap-2 rounded px-1.5 py-1 text-sm hover:bg-white">
-                          <input
-                            type="checkbox"
-                            checked={checked}
-                            onChange={(e) => {
-                              if (e.target.checked) setArrayValue([...arrayValue, o.id])
-                              else setArrayValue(arrayValue.filter((x) => x !== o.id))
-                            }}
-                          />
-                          <span>{o.label}</span>
-                        </label>
+                      <li key={o.id} className="flex items-center gap-2 rounded px-1.5 py-1 text-sm hover:bg-white">
+                        <ToggleSwitch
+                          checked={checked}
+                          onChange={(next) => {
+                            if (next) setArrayValue([...arrayValue, o.id])
+                            else setArrayValue(arrayValue.filter((x) => x !== o.id))
+                          }}
+                          label={o.label}
+                        />
                       </li>
                     )
                   })}
@@ -443,18 +439,14 @@ function FilterEditPopover({
               {optionsLoading ? (
                 <p className="text-xs text-neutral-500">Laster …</p>
               ) : (
-                <select
+                <SearchableSelect
                   value={stringValue}
-                  onChange={(e) => setStringValue(e.target.value)}
-                  className="w-full rounded-md border border-neutral-300 bg-white px-2 py-1.5 text-sm"
-                >
-                  <option value="">— velg —</option>
-                  {options.map((o) => (
-                    <option key={o.id} value={o.id}>
-                      {o.label}
-                    </option>
-                  ))}
-                </select>
+                  onChange={(v) => setStringValue(v)}
+                  options={[
+                    { value: '', label: '— velg —' },
+                    ...options.map((o) => ({ value: o.id, label: o.label })),
+                  ]}
+                />
               )}
             </div>
           )

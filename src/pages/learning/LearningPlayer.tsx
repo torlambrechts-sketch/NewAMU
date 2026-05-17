@@ -458,6 +458,7 @@ export function LearningPlayer() {
                             type="button"
                             variant="ghost"
                             onClick={() => setIdx(i)}
+                            aria-current={isActive ? 'step' : undefined}
                             className={`flex h-auto w-full flex-col gap-1 rounded-lg px-2 py-2 text-left text-sm font-normal transition-colors ${
                               isActive ? 'bg-emerald-50 text-[#1a3d32]' : 'text-neutral-700 hover:bg-neutral-50'
                             }`}
@@ -841,6 +842,7 @@ function EvidenceField({
         <label className="flex cursor-pointer items-center gap-2 rounded-lg border border-dashed border-neutral-300 bg-neutral-50 px-4 py-3 text-sm text-neutral-600 hover:bg-neutral-100">
           <Paperclip className="size-4 shrink-0 text-neutral-400" />
           <span>{value ? value : 'Klikk for å laste opp fil (PDF, bilde, dokument)'}</span>
+          {/* eslint-disable-next-line no-restricted-syntax -- hidden native file picker; no primitive exists */}
           <input
             type="file"
             className="sr-only"
@@ -983,6 +985,8 @@ function ModulePlayer({
           type="button"
           variant="ghost"
           onClick={() => setFlashFlipped(!flashFlipped)}
+          aria-label={flashFlipped ? 'Vis spørsmål' : 'Vis svar'}
+          aria-pressed={flashFlipped}
           className="relative mx-auto block aspect-[5/3] w-full max-w-md overflow-hidden rounded-lg border border-[#e3ddcc] p-0"
           style={{
             background: flashFlipped
@@ -1059,13 +1063,15 @@ function ModulePlayer({
           const ok = sel === q.correctIndex
           return (
             <div key={q.id} className="rounded-lg border border-neutral-200/80 bg-neutral-50/50 p-4">
-              <p className="font-medium text-neutral-900">{q.question}</p>
-              <ul className="mt-3 space-y-2">
+              <p id={`q-${q.id}`} className="font-medium text-neutral-900">{q.question}</p>
+              <ul role="radiogroup" aria-labelledby={`q-${q.id}`} className="mt-3 space-y-2">
                 {q.options.map((o, i) => (
                   <li key={i}>
                     <Button
                       type="button"
                       variant="secondary"
+                      role="radio"
+                      aria-checked={sel === i}
                       onClick={() => setQuizAnswers((s) => ({ ...s, [q.id]: i }))}
                       className={`h-auto w-full justify-start whitespace-normal py-2 text-left text-sm font-normal ${
                         sel === i

@@ -4,6 +4,7 @@
 import { ArrowRight, CheckCircle2, Clock, PlayCircle, RotateCcw } from 'lucide-react'
 import type { StudioWizardEntry } from './studioWizardCatalog'
 import type { WizardRunRow } from '../../../hooks/useWizardRun'
+import { Button } from '../../../components/ui/Button'
 
 const FOREST = '#1a3d32'
 const SERIF = "'Libre Baskerville', Georgia, serif"
@@ -98,25 +99,26 @@ export function StudioWizardCard({
         <p className="text-[11px] text-neutral-500">~ {entry.estimateMinutes} min</p>
         <div className="flex items-center gap-2">
           {status.kind !== 'not_started' ? (
-            <button
-              type="button"
+            <Button
+              variant="ghost"
+              size="sm"
               onClick={onReset}
               className="inline-flex items-center gap-1 rounded-md border border-neutral-200 bg-white px-2.5 py-1.5 text-xs font-medium text-neutral-700 hover:bg-neutral-50"
               aria-label="Start på nytt"
             >
               <RotateCcw className="size-3.5" />
               Nullstill
-            </button>
+            </Button>
           ) : null}
-          <button
-            type="button"
+          <Button
+            variant="primary"
             onClick={onOpen}
             className="inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-semibold text-white"
             style={{ backgroundColor: FOREST }}
           >
             {ctaLabel}
             <ArrowRight className="size-3.5" />
-          </button>
+          </Button>
         </div>
       </footer>
     </article>

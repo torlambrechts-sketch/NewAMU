@@ -1,6 +1,7 @@
 import { NavLink, useLocation } from 'react-router-dom'
 import type { LucideIcon } from 'lucide-react'
 import { WORKPLACE_FOREST } from './WorkplaceChrome'
+import { Button } from '../ui/Button'
 
 /**
  * NavLink's isActive only compares pathname by default, so every
@@ -159,13 +160,14 @@ export function HubMenu1Bar({ ariaLabel, items }: Props) {
             ) : null
 
           return (
-            <button
+            <Button
               key={item.key}
-              type="button"
+              variant="ghost"
               disabled={item.disabled === true}
               onClick={item.disabled === true ? undefined : item.onClick}
               title={compact ? item.label : undefined}
               aria-label={compact ? item.label : undefined}
+              aria-pressed={on}
               className={`${tabClass} ${on ? TAB_ACTIVE : TAB_INACTIVE} ${
                 item.disabled === true ? 'cursor-not-allowed opacity-45' : ''
               }`}
@@ -175,7 +177,7 @@ export function HubMenu1Bar({ ariaLabel, items }: Props) {
               {compact ? <span className="sr-only">{item.label}</span> : <span className="whitespace-nowrap">{item.label}</span>}
               {badge}
               {dot}
-            </button>
+            </Button>
           )
         })}
       </div>

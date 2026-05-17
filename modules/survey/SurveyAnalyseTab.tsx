@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { BarChart3, Download, EyeOff, Filter } from 'lucide-react'
 import { InfoBox } from '../../src/components/ui/AlertBox'
+import { Button } from '../../src/components/ui/Button'
 import { SURVEY_K_ANONYMITY_MIN } from '../../src/lib/orgSurveyKAnonymity'
 import type { UseSurveyState } from './useSurvey'
 import { WORKPLACE_MODULE_CARD_SHADOW } from '../../src/components/layout/workplaceModuleSurface'
@@ -248,13 +249,14 @@ export function SurveyAnalyseTab({ survey, s, supabase }: Props) {
           </div>
         </div>
         <div className="flex flex-wrap gap-2">
-          <button
-            type="button"
-            className="inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-neutral-600 hover:text-neutral-900"
+          <Button
+            variant="ghost"
+            size="sm"
+            icon={<Filter className="h-3.5 w-3.5" aria-hidden />}
+            className="px-0 text-xs font-semibold uppercase tracking-wide text-neutral-600 hover:bg-transparent hover:text-neutral-900"
           >
-            <Filter className="h-3.5 w-3.5" aria-hidden />
             Vis filtre
-          </button>
+          </Button>
           {csvBlobUrl ? (
             <a
               href={csvBlobUrl}

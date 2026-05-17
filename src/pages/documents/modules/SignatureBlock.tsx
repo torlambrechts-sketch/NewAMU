@@ -11,6 +11,7 @@
 import { useEffect, useState } from 'react'
 import { FileSignature, Loader2, ShieldCheck } from 'lucide-react'
 import { useOrgSetupContext } from '../../../hooks/useOrgSetupContext'
+import { Button } from '../../../components/ui/Button'
 
 type Props = {
   pageId: string
@@ -162,8 +163,9 @@ export function SignatureBlock({
                 <div className="mt-2 space-y-2">
                   <div className="text-xs text-neutral-500">Ikke signert</div>
                   {bankidEnabled ? (
-                    <button
-                      type="button"
+                    <Button
+                      variant="primary"
+                      size="sm"
                       onClick={() => signWithBankID(party)}
                       disabled={submittingThis}
                       className="inline-flex items-center gap-1.5 rounded-full bg-[#1a3d32] px-3 py-1 text-xs font-medium text-white hover:bg-[#142e26] disabled:opacity-50"
@@ -174,17 +176,18 @@ export function SignatureBlock({
                         <ShieldCheck className="h-3 w-3" />
                       )}
                       Signer med BankID
-                    </button>
+                    </Button>
                   ) : (
-                    <button
-                      type="button"
+                    <Button
+                      variant="ghost"
+                      size="sm"
                       onClick={() => recordManualSignature(party)}
                       disabled={submittingThis}
                       className="inline-flex items-center gap-1.5 rounded-full border border-neutral-300 bg-white px-3 py-1 text-xs font-medium text-neutral-700 hover:bg-neutral-50 disabled:opacity-50"
                     >
                       {submittingThis ? <Loader2 className="h-3 w-3 animate-spin" /> : null}
                       Bekreft signering
-                    </button>
+                    </Button>
                   )}
                 </div>
               )}

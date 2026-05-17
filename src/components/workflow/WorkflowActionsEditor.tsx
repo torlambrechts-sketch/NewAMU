@@ -62,7 +62,7 @@ function DeviationFields({
         />
       </div>
       <label className={`flex items-center gap-2 ${WF_LEAD}`}>
-        <input
+        <StandardInput
           type="checkbox"
           checked={a.assignFromRound !== false}
           onChange={(e) => onPatch({ assignFromRound: e.target.checked })}
@@ -115,7 +115,7 @@ function TaskFields({
         />
       </div>
       <label className={`flex items-center gap-2 ${WF_LEAD}`}>
-        <input
+        <StandardInput
           type="checkbox"
           checked={Boolean(t.requiresManagementSignOff)}
           onChange={(e) => onPatch({ requiresManagementSignOff: e.target.checked })}
@@ -324,10 +324,10 @@ export function WorkflowActionsEditor({
 
       {dialog ? (
         <>
-          <button
-            type="button"
+          <Button
+            variant="ghost"
             aria-label="Lukk"
-            className="fixed inset-0 z-[80] bg-black/40"
+            className="fixed inset-0 z-[80] rounded-none bg-black/40 p-0 hover:bg-black/40"
             onClick={closeDialog}
           />
           <div className="fixed left-1/2 top-1/2 z-[90] w-[min(100%,28rem)] -translate-x-1/2 -translate-y-1/2 rounded-xl border border-neutral-200/90 bg-white p-5 shadow-xl">

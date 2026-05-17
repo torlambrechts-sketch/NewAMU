@@ -7,6 +7,7 @@
 
 import { useEffect, useState } from 'react'
 import { Clock, Loader2, RotateCcw, X } from 'lucide-react'
+import { Button } from '../../components/ui/Button'
 import { useOrgSetupContext } from '../../hooks/useOrgSetupContext'
 import type { AdminTemplateSource } from '../../hooks/useAdminTemplates'
 import { ConfirmDialog } from './ConfirmDialog'
@@ -158,14 +159,15 @@ export function TemplateHistoryModal({
             </p>
             <h2 className="truncate text-base font-semibold text-neutral-900">{templateName}</h2>
           </div>
-          <button
-            type="button"
+          <Button
+            variant="ghost"
+            size="icon"
             onClick={onClose}
             aria-label="Lukk"
-            className="rounded-md p-1 text-neutral-500 hover:bg-neutral-100"
+            className="h-7 w-7 text-neutral-500 hover:bg-neutral-100"
           >
             <X className="size-5" />
-          </button>
+          </Button>
         </header>
         <div className="flex-1 overflow-y-auto px-5 py-4">
           {loading ? (
@@ -210,8 +212,9 @@ export function TemplateHistoryModal({
                       ) : null}
                     </div>
                     {!isMostRecent ? (
-                      <button
-                        type="button"
+                      <Button
+                        variant="secondary"
+                        size="sm"
                         onClick={() => setConfirmVersion(v)}
                         disabled={isRestoring || restoring !== null}
                         className="inline-flex shrink-0 items-center gap-1 rounded-md border border-neutral-300 bg-white px-2.5 py-1 text-xs font-semibold text-neutral-700 transition-colors hover:bg-neutral-50 disabled:cursor-not-allowed disabled:opacity-50"
@@ -222,7 +225,7 @@ export function TemplateHistoryModal({
                           <RotateCcw className="size-3" />
                         )}
                         Gjenopprett
-                      </button>
+                      </Button>
                     ) : null}
                   </li>
                 )

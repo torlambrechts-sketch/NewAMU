@@ -7,6 +7,7 @@ import { useState } from 'react'
 import { MapPin, Package, HelpCircle } from 'lucide-react'
 import { SearchableSelect } from '../../../src/components/ui/SearchableSelect'
 import { StandardInput } from '../../../src/components/ui/Input'
+import { Button } from '../../../src/components/ui/Button'
 import { WPSTD_FORM_FIELD_LABEL } from '../../../src/components/layout/WorkplaceStandardFormPanel'
 import type { LocationRow } from '../../../src/types/organization'
 import type { ChecklistScopeType } from '../types'
@@ -74,38 +75,35 @@ export function ChecklistScopeSelector({
         </p>
         <div className="flex flex-wrap gap-2">
           {/* "Ikke satt" pill */}
-          <button
-            type="button"
+          <Button
+            size="sm"
+            variant={scopeType === null ? 'primary' : 'secondary'}
             disabled={readOnly}
             onClick={() => selectType(null)}
             className={[
-              'inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium transition-colors',
-              scopeType === null
-                ? 'border-neutral-600 bg-neutral-800 text-white'
-                : 'border-neutral-300 bg-white text-neutral-600 hover:bg-neutral-50',
+              'rounded-full',
+              scopeType === null ? 'bg-neutral-800 hover:bg-neutral-700' : '',
               readOnly ? 'cursor-not-allowed opacity-60' : '',
             ].join(' ')}
           >
             Ikke satt
-          </button>
+          </Button>
 
           {SCOPE_OPTIONS.map((opt) => (
-            <button
+            <Button
               key={opt.id}
-              type="button"
+              size="sm"
+              variant={scopeType === opt.id ? 'primary' : 'secondary'}
               disabled={readOnly}
               onClick={() => selectType(opt.id)}
+              icon={opt.icon}
               className={[
-                'inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium transition-colors',
-                scopeType === opt.id
-                  ? 'border-[#1a3d32] bg-[#1a3d32] text-white'
-                  : 'border-neutral-300 bg-white text-neutral-600 hover:bg-neutral-50',
+                'rounded-full',
                 readOnly ? 'cursor-not-allowed opacity-60' : '',
               ].join(' ')}
             >
-              {opt.icon}
               {opt.label}
-            </button>
+            </Button>
           ))}
         </div>
       </div>

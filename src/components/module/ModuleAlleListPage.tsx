@@ -7,6 +7,7 @@ import { Fragment, useMemo, useState, type ReactNode } from 'react'
 import { ChevronLeft, ChevronRight, Filter, Search, X } from 'lucide-react'
 import { ModulePageShell } from './ModulePageShell'
 import { List2Shell } from '../layout/List2Shell'
+import { Button } from '../ui/Button'
 import { SearchableSelect } from '../ui/SearchableSelect'
 import { StandardInput } from '../ui/Input'
 import { useRegulationFilter } from '../../context/RegulationFilterContext'
@@ -274,14 +275,15 @@ export function ModuleAlleListPage<RowT>({
                         />
                       </div>
                       {value ? (
-                        <button
-                          type="button"
+                        <Button
+                          variant="ghost"
+                          size="icon"
                           onClick={() => clearChip(chip.id)}
                           aria-label={`Fjern ${chip.label}-filter`}
-                          className="rounded-md border border-neutral-200 bg-white p-1.5 text-neutral-500 transition-colors hover:bg-neutral-100"
+                          className="h-auto w-auto rounded-md border border-neutral-200 bg-white p-1.5 text-neutral-500 transition-colors hover:bg-neutral-100"
                         >
                           <X className="size-3.5" aria-hidden />
-                        </button>
+                        </Button>
                       ) : null}
                     </div>
                   </div>
@@ -312,14 +314,15 @@ export function ModuleAlleListPage<RowT>({
                       className="w-[148px]"
                     />
                     {from || to ? (
-                      <button
-                        type="button"
+                      <Button
+                        variant="ghost"
+                        size="icon"
                         onClick={() => clearChip(chip.id)}
                         aria-label={`Fjern ${chip.label}-filter`}
-                        className="rounded-md border border-neutral-200 bg-white p-1.5 text-neutral-500 transition-colors hover:bg-neutral-100"
+                        className="h-auto w-auto rounded-md border border-neutral-200 bg-white p-1.5 text-neutral-500 transition-colors hover:bg-neutral-100"
                       >
                         <X className="size-3.5" aria-hidden />
-                      </button>
+                      </Button>
                     ) : null}
                   </div>
                 </div>

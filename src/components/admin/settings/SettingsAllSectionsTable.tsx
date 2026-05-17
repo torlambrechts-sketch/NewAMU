@@ -139,17 +139,17 @@ export function SettingsAllSectionsTable({
                   </span>
                 </td>
                 <td className={`${MODULE_TABLE_TD} text-sm text-neutral-900`}>
-                  <button
-                    type="button"
-                    className="inline-flex min-w-0 items-center gap-2 text-left hover:underline"
+                  <Button
+                    variant="ghost"
                     onClick={() => {
                       onOpenSection(scope.scopeId, section.id)
                       navigate(`/admin/settings/${scope.scopeId}/${section.id}`)
                     }}
+                    className="min-w-0 px-0 py-0 text-left font-normal hover:bg-transparent hover:underline"
                   >
                     {Icon ? <Icon className="h-4 w-4 text-neutral-500" aria-hidden /> : null}
                     <span className="truncate font-medium">{section.label}</span>
-                  </button>
+                  </Button>
                 </td>
                 <td className={`${MODULE_TABLE_TD}`}>
                   <Badge variant="neutral" className="scale-95">

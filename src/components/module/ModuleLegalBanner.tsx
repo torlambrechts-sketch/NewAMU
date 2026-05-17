@@ -1,6 +1,7 @@
 import { useEffect, type ReactNode } from 'react'
 import { X } from 'lucide-react'
 import { useModuleLegalFramework } from './ModuleLegalFrameworkContext'
+import { Button } from '../ui/Button'
 
 /** Pastel header stripes for inner cards (Rooms-style). */
 const CARD_HEADER_COLORS = ['#e9d5ff', '#fed7aa', '#fef3c7', '#bae6fd'] as const
@@ -59,14 +60,15 @@ export function ModuleLegalBanner({
 
   return (
     <section className={shell} aria-labelledby="module-legal-framework-title">
-      <button
-        type="button"
+      <Button
+        variant="ghost"
+        size="icon"
         onClick={() => setDismissed(true)}
-        className="absolute right-3 top-3 inline-flex size-8 items-center justify-center rounded-full border border-neutral-300/80 bg-white/90 text-neutral-600 shadow-sm transition hover:bg-white hover:text-neutral-900"
+        className="absolute right-3 top-3 inline-flex h-8 w-8 items-center justify-center rounded-full border border-neutral-300/80 bg-white/90 text-neutral-600 shadow-sm transition hover:bg-white hover:text-neutral-900"
         aria-label="Lukk regelverkspanel"
       >
         <X className="size-4" aria-hidden />
-      </button>
+      </Button>
 
       <div className="pr-10">
         {eyebrow ? (

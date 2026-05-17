@@ -74,18 +74,20 @@ export function DocumentModerationQueuePage() {
         {FILTER_OPTIONS.map((opt) => {
           const count = opt.value === 'all' ? flags.length : counts[opt.value as ModerationAction] ?? 0
           return (
-            <button
+            <Button
               key={opt.value}
-              type="button"
+              variant="ghost"
+              size="sm"
               onClick={() => setFilter(opt.value)}
+              aria-pressed={filter === opt.value}
               className={`rounded-full px-2 py-0.5 ${
                 filter === opt.value
-                  ? 'bg-[#0f766e] text-white'
+                  ? 'bg-[#0f766e] text-white hover:bg-[#0f766e]'
                   : 'border border-neutral-300 bg-white text-neutral-600 hover:border-neutral-400'
               }`}
             >
               {opt.label} ({count})
-            </button>
+            </Button>
           )
         })}
       </div>

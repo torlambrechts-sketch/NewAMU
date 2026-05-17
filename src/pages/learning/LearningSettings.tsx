@@ -761,6 +761,7 @@ function EksportSection() {
           >
             Importer kurs-bundle
           </Button>
+          {/* eslint-disable-next-line no-restricted-syntax -- hidden native file picker; no primitive exists */}
           <input
             ref={fileRefBundle}
             type="file"
@@ -798,6 +799,7 @@ function EksportSection() {
           >
             Importer alt
           </Button>
+          {/* eslint-disable-next-line no-restricted-syntax -- hidden native file picker; no primitive exists */}
           <input
             ref={fileRefFull}
             type="file"
@@ -912,6 +914,7 @@ function EksportSection() {
               </div>
             </div>
           </div>
+          {/* eslint-disable-next-line no-restricted-syntax -- hidden native file picker; no primitive exists */}
           <input
             ref={fileRefPartial}
             type="file"

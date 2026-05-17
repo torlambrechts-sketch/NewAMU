@@ -100,6 +100,7 @@ in place; a follow-up PR may drop them once no integration reads them.
 | `learning` | `#0e7490` | Teal |
 | `documents` | `#0f766e` | Deep teal — distinct from learning in the composite |
 | `hms_overview` | `#4338ca` | Indigo — reads as "different layer" from each member |
+| `meetings` | `#0891b2` | Cyan — distinct from learning teal (`#0e7490`) and documents deep teal (`#0f766e`) |
 | `regelverk_coverage` | n/a | Regelverk-dekning oversiktsside (`src/pages/overview/regelverk/RegelverkCoveragePage.tsx`) |
 
 Pages resolve the accent via `getDashboardScope(scopeId)?.accent` and pass

@@ -11,6 +11,7 @@ import { ChevronDown, Check, Filter } from 'lucide-react'
 import { useOrgSetupContext } from '../../hooks/useOrgSetupContext'
 import { useRegulations } from '../../hooks/useRegulations'
 import { useRegulationFilter } from '../../context/RegulationFilterContext'
+import { Button } from '../ui/Button'
 
 type Variant = 'topbar' | 'sidebar'
 
@@ -62,12 +63,12 @@ export function RegulationFilterMenu({ variant = 'topbar' }: Props) {
 
   return (
     <div ref={wrapRef} className="relative">
-      <button
-        type="button"
+      <Button
+        variant="ghost"
         onClick={() => setOpen((prev) => !prev)}
         aria-haspopup="listbox"
         aria-expanded={open}
-        className={triggerClass}
+        className={`${triggerClass} rounded-none`}
         aria-label="Filter på regelverk"
       >
         <Filter className="h-3.5 w-3.5" aria-hidden />
@@ -76,7 +77,7 @@ export function RegulationFilterMenu({ variant = 'topbar' }: Props) {
           className={`h-3 w-3 transition-transform ${open ? 'rotate-180' : ''}`}
           aria-hidden
         />
-      </button>
+      </Button>
 
       {open ? (
         <div
@@ -87,23 +88,23 @@ export function RegulationFilterMenu({ variant = 'topbar' }: Props) {
         >
           {/* Shortcut row (OQ-A3) */}
           <div className="flex border-b border-neutral-100 bg-neutral-50/70 text-xs">
-            <button
-              type="button"
+            <Button
+              variant="ghost"
               onClick={() => setAll(regulations.map((r) => r.id))}
               disabled={allActive}
-              className="flex-1 px-3 py-1.5 text-left text-neutral-700 transition-colors hover:bg-neutral-100 disabled:cursor-default disabled:opacity-40 disabled:hover:bg-transparent"
+              className="flex-1 justify-start rounded-none px-3 py-1.5 text-left font-normal text-neutral-700 transition-colors hover:bg-neutral-100 disabled:cursor-default disabled:opacity-40 disabled:hover:bg-transparent"
             >
               Vis alle
-            </button>
+            </Button>
             <span aria-hidden className="w-px bg-neutral-200" />
-            <button
-              type="button"
+            <Button
+              variant="ghost"
               onClick={() => clear()}
               disabled={activeRegulationIds.size === 0}
-              className="flex-1 px-3 py-1.5 text-right text-neutral-700 transition-colors hover:bg-neutral-100 disabled:cursor-default disabled:opacity-40 disabled:hover:bg-transparent"
+              className="flex-1 justify-end rounded-none px-3 py-1.5 text-right font-normal text-neutral-700 transition-colors hover:bg-neutral-100 disabled:cursor-default disabled:opacity-40 disabled:hover:bg-transparent"
             >
               Skjul alle
-            </button>
+            </Button>
           </div>
 
           <ul className="max-h-[60vh] overflow-y-auto py-1">
@@ -111,12 +112,12 @@ export function RegulationFilterMenu({ variant = 'topbar' }: Props) {
               const checked = activeRegulationIds.has(r.id)
               return (
                 <li key={r.id}>
-                  <button
-                    type="button"
+                  <Button
+                    variant="ghost"
                     role="option"
                     aria-selected={checked}
                     onClick={() => toggle(r.id)}
-                    className="flex w-full items-start gap-3 px-3 py-2 text-left text-sm text-neutral-800 transition-colors hover:bg-neutral-50"
+                    className="flex w-full items-start justify-start gap-3 rounded-none px-3 py-2 text-left text-sm font-normal text-neutral-800 transition-colors hover:bg-neutral-50"
                   >
                     <span
                       aria-hidden
@@ -136,7 +137,7 @@ export function RegulationFilterMenu({ variant = 'topbar' }: Props) {
                         {r.name}
                       </span>
                     </span>
-                  </button>
+                  </Button>
                 </li>
               )
             })}

@@ -16,6 +16,7 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Plus } from 'lucide-react'
+import { Button } from '../../ui/Button'
 import { ScorecardFilterBar, type ScorecardField } from '../../ui/ScorecardFilterBar'
 import {
   DashboardFilterChip,
@@ -172,8 +173,9 @@ export function DashboardScorecardFilterBar({
                 onRemove={() => removeFilter(f.id)}
               />
             ))}
-            <button
-              type="button"
+            <Button
+              variant="primary"
+              size="sm"
               onClick={() => startAddExtra(dim)}
               className="inline-flex items-center gap-1 rounded-md bg-[#1a3d32] px-2.5 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-[#14312a]"
               aria-label={`Legg til filter på ${dim.label}`}
@@ -181,7 +183,7 @@ export function DashboardScorecardFilterBar({
             >
               <Plus className="h-3.5 w-3.5" aria-hidden />
               Filter
-            </button>
+            </Button>
           </>
         ) : null
 

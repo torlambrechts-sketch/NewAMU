@@ -233,9 +233,10 @@ function TemplateCard({
           )}
         </div>
         {canManage ? (
-          <button
-            type="button"
-            className="shrink-0 rounded-lg p-2 text-neutral-500 transition hover:bg-neutral-100 hover:text-[#1a3d32]"
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8 shrink-0 text-neutral-500 hover:bg-neutral-100 hover:text-[#1a3d32]"
             aria-label={t.is_system ? 'Ny mal fra denne' : 'Rediger mal'}
             title={t.is_system ? 'Ny mal fra denne' : 'Rediger mal'}
             onClick={(e) => {
@@ -244,7 +245,7 @@ function TemplateCard({
             }}
           >
             <Pencil className="h-4 w-4" aria-hidden />
-          </button>
+          </Button>
         ) : null}
       </div>
 

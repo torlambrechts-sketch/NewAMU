@@ -2,6 +2,7 @@ import { X } from 'lucide-react'
 import type { ReactNode } from 'react'
 import { WORKPLACE_PAGE_SERIF } from './WorkplacePageHeading1'
 import { WORKPLACE_STANDARD_LIST_OVERLAY_Z_INDEX } from './WorkplaceStandardListLayout'
+import { Button } from '../ui/Button'
 
 /** Same grid as Tasks slide-over: lead 40% / inset 60% from md. */
 export const WPSTD_FORM_ROW_GRID =
@@ -67,14 +68,15 @@ export function WorkplaceStandardFormPanel({
           >
             {title}
           </h2>
-          <button
-            type="button"
+          <Button
+            variant="ghost"
+            size="icon"
             onClick={onClose}
-            className="rounded-none p-2 text-neutral-500 transition hover:bg-neutral-200/60 hover:text-neutral-800"
+            className="h-auto w-auto rounded-none p-2 text-neutral-500 transition hover:bg-neutral-200/60 hover:text-neutral-800"
             aria-label="Lukk"
           >
             <X className="size-6" />
-          </button>
+          </Button>
         </header>
         <div className="flex min-h-0 flex-1 flex-col">
           <div className="min-h-0 flex-1 overflow-y-auto px-6 py-8 sm:px-8">{children}</div>

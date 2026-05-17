@@ -2,6 +2,7 @@ import { useRef, useState, type DragEvent as ReactDragEvent, type PointerEvent a
 import type { ReportModule, ReportModuleColSpan, ReportModuleKind } from '../../types/reportBuilder'
 import { getAtPath, numberAtPath } from '../../lib/reportDatasets'
 import { BenchmarkWidget, type BenchmarkPoint } from '../dashboards/BenchmarkWidget'
+import { Button } from '../ui/Button'
 
 // Polished widget surface (Klarert dashboard kit V1 — see
 // `ui_kits/dashboard/Widgets.jsx` `WidgetCard`). Earlier iterations of
@@ -131,14 +132,14 @@ function DonutMini({
           if (onSliceClick) {
             return (
               <li key={s.label}>
-                <button
-                  type="button"
+                <Button
+                  variant="ghost"
                   onClick={() => onSliceClick(s.label)}
-                  className="-mx-1 flex w-full justify-between gap-3 rounded-sm px-1 py-0.5 hover:bg-neutral-100"
+                  className="-mx-1 flex w-full justify-between gap-3 rounded-sm px-1 py-0.5 font-normal hover:bg-neutral-100"
                   title={`Filtrer på ${s.label}`}
                 >
                   {inner}
-                </button>
+                </Button>
               </li>
             )
           }
@@ -311,24 +312,26 @@ export function ReportModuleWidget({
         <div className="absolute right-3 top-3 z-10 flex items-center gap-1">
           {controlSlot ? controlSlot(m) : null}
           {editMode && onRemove ? (
-            <button
-              type="button"
+            <Button
+              variant="ghost"
+              size="icon"
               onClick={() => onRemove(m)}
               aria-label={`Fjern widgeten ${m.title}`}
               title="Fjern widget"
-              className="rounded-md p-1 text-neutral-400 transition-colors hover:bg-red-50 hover:text-red-600"
+              className="h-6 w-6 rounded-md p-1 text-neutral-400 transition-colors hover:bg-red-50 hover:text-red-600"
             >
               <svg viewBox="0 0 16 16" aria-hidden className="h-4 w-4">
                 <path d="M3 3 L13 13 M13 3 L3 13" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
               </svg>
-            </button>
+            </Button>
           ) : null}
         </div>
       ) : null}
       {inner}
       {onResize && layoutMode === 'grid12' ? (
-        <button
-          type="button"
+        <Button
+          variant="ghost"
+          size="icon"
           onPointerDown={startResize}
           aria-label={`Endre størrelse på ${m.title}`}
           title="Dra for å endre bredde · klikk for å bla gjennom størrelser"
@@ -338,7 +341,7 @@ export function ReportModuleWidget({
             <path d="M7 1 L7 7 L1 7" fill="none" stroke="currentColor" strokeWidth="1.2" />
             <path d="M7 4 L4 7" stroke="currentColor" strokeWidth="1.2" />
           </svg>
-        </button>
+        </Button>
       ) : null}
     </div>
   )
@@ -441,17 +444,17 @@ export function ReportModuleWidget({
             )
             if (drillable) {
               return (
-                <button
+                <Button
                   key={k}
-                  type="button"
+                  variant="ghost"
                   onClick={() =>
                     onDrillDown?.({ module: m, segmentLabel: k, dimensionId: m.drillDimensionId! })
                   }
                   title={`Filtrer på ${k}`}
-                  className="block w-full rounded-sm px-1 py-0.5 text-left hover:bg-neutral-50"
+                  className="block w-full rounded-sm px-1 py-0.5 text-left font-normal hover:bg-neutral-50"
                 >
                   {inner}
-                </button>
+                </Button>
               )
             }
             return <div key={k}>{inner}</div>
@@ -692,8 +695,8 @@ export function ReportModuleWidget({
                       return (
                         <li key={rowKey}>
                           {drillable && r.id ? (
-                            <button
-                              type="button"
+                            <Button
+                              variant="ghost"
                               onClick={() =>
                                 onDrillDown?.({
                                   module: m,
@@ -701,10 +704,10 @@ export function ReportModuleWidget({
                                   dimensionId: m.drillDimensionId!,
                                 })
                               }
-                              className="flex w-full items-center gap-3 px-4 py-2.5 text-left transition hover:bg-white/60"
+                              className="flex w-full items-center justify-start gap-3 rounded-none px-4 py-2.5 text-left font-normal transition hover:bg-white/60"
                             >
                               {inner}
-                            </button>
+                            </Button>
                           ) : (
                             <div className="flex w-full items-center gap-3 px-4 py-2.5">{inner}</div>
                           )}
@@ -896,8 +899,8 @@ export function ReportModuleWidget({
                           className="rounded-lg border border-neutral-200/80 bg-white p-3"
                         >
                           {drillable && r.id ? (
-                            <button
-                              type="button"
+                            <Button
+                              variant="ghost"
                               onClick={() =>
                                 onDrillDown?.({
                                   module: m,
@@ -905,10 +908,10 @@ export function ReportModuleWidget({
                                   dimensionId: m.drillDimensionId!,
                                 })
                               }
-                              className="mb-2 w-full text-left transition hover:opacity-80"
+                              className="mb-2 w-full justify-start rounded-none p-0 text-left font-normal transition hover:bg-transparent hover:opacity-80"
                             >
                               {titleEl}
-                            </button>
+                            </Button>
                           ) : (
                             <div className="mb-2">{titleEl}</div>
                           )}

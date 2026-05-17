@@ -8,6 +8,8 @@ import { useOrgSetupContext } from '../../src/hooks/useOrgSetupContext'
 import { WORKPLACE_PAGE_SERIF } from '../../src/components/layout/WorkplacePageHeading1'
 import { WORKPLACE_STANDARD_LIST_OVERLAY_Z_INDEX } from '../../src/components/layout/WorkplaceStandardListLayout'
 import { Tabs } from '../../src/components/ui/Tabs'
+import { Button } from '../../src/components/ui/Button'
+import { StandardInput } from '../../src/components/ui/Input'
 import { TaskStatusBadge, TASK_STATUS_LABEL } from './components/TaskStatusBadge'
 import { TaskPriorityBadge } from './components/TaskPriorityBadge'
 import { TaskSubtaskList } from './components/TaskSubtaskList'
@@ -182,14 +184,15 @@ export function TaskDetailPanel({ open, onClose, item, onStatusChange, onUpdate 
               )}
             </div>
           </div>
-          <button
-            type="button"
+          <Button
+            variant="ghost"
+            size="icon"
             onClick={onClose}
-            className="shrink-0 rounded p-2 text-neutral-500 transition hover:bg-neutral-200/60 hover:text-neutral-800"
+            className="h-9 w-9 shrink-0 text-neutral-500 hover:bg-neutral-200/60 hover:text-neutral-800"
             aria-label="Lukk"
           >
             <X className="size-5" />
-          </button>
+          </Button>
         </header>
 
         {/* Tab strip */}
@@ -219,9 +222,10 @@ export function TaskDetailPanel({ open, onClose, item, onStatusChange, onUpdate 
                         const isCapaClose =
                           s === 'closed' && isCapaKind(row.templateKind) && row.status !== 'effectiveness_verified'
                         return (
-                          <button
+                          <Button
                             key={s}
-                            type="button"
+                            size="sm"
+                            variant={isActive ? 'primary' : 'secondary'}
                             disabled={changingStatus || isActive || isCapaClose}
                             title={
                               isCapaClose
@@ -229,31 +233,32 @@ export function TaskDetailPanel({ open, onClose, item, onStatusChange, onUpdate 
                                 : undefined
                             }
                             onClick={() => void handleStatusChange(s)}
-                            className={`rounded-full border px-3 py-1 text-xs font-medium transition ${
+                            className={`rounded-full ${
                               isActive
-                                ? 'border-[#c2410c] bg-[#c2410c] text-white'
+                                ? 'bg-[#c2410c] hover:bg-[#c2410c]'
                                 : isDone
-                                ? 'border-green-200 bg-green-50 text-green-700'
+                                ? 'border-green-200 bg-green-50 text-green-700 hover:bg-green-100'
                                 : isCapaClose
                                 ? 'cursor-not-allowed border-neutral-100 bg-neutral-50 text-neutral-300'
                                 : isNext
                                 ? 'border-[#c2410c]/30 bg-orange-50 text-[#c2410c] hover:border-[#c2410c] hover:bg-[#c2410c] hover:text-white'
-                                : 'border-neutral-200 bg-white text-neutral-400 hover:border-neutral-300 hover:text-neutral-600'
-                            } disabled:cursor-not-allowed`}
+                                : 'text-neutral-400 hover:border-neutral-300 hover:text-neutral-600'
+                            }`}
                           >
                             {TASK_STATUS_LABEL[s]}
-                          </button>
+                          </Button>
                         )
                       })}
                       {row.status !== 'cancelled' && row.status !== 'closed' && (
-                        <button
-                          type="button"
+                        <Button
+                          size="sm"
+                          variant="secondary"
                           disabled={changingStatus}
                           onClick={() => void handleStatusChange('cancelled')}
-                          className="rounded-full border border-neutral-200 bg-white px-3 py-1 text-xs font-medium text-neutral-400 transition hover:border-red-200 hover:bg-red-50 hover:text-red-600"
+                          className="rounded-full text-neutral-400 hover:border-red-200 hover:bg-red-50 hover:text-red-600"
                         >
                           Kanseller
-                        </button>
+                        </Button>
                       )}
                     </div>
                     {/* Soft gate hint for avvik not yet at effectiveness_verified */}
@@ -311,15 +316,15 @@ export function TaskDetailPanel({ open, onClose, item, onStatusChange, onUpdate 
                       <p className="text-[10px] font-bold uppercase tracking-wider text-neutral-500">
                         Frist
                       </p>
-                      <input
+                      <StandardInput
                         type="date"
                         value={editDueDate}
                         onChange={(e) => setEditDueDate(e.target.value)}
                         onBlur={(e) => { void saveDueDate(e.target.value) }}
-                        className={`mt-0.5 rounded border bg-white px-2 py-1 text-sm focus:border-[#c2410c] focus:outline-none ${
+                        className={`mt-0.5 px-2 py-1 text-sm focus:border-[#c2410c] ${
                           editDueDate && new Date(editDueDate) < new Date() && row.status !== 'closed'
                             ? 'border-red-300 text-red-600'
-                            : 'border-neutral-200 text-neutral-800'
+                            : 'text-neutral-800'
                         }`}
                       />
                     </div>

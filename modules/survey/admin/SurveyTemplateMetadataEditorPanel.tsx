@@ -261,7 +261,7 @@ function FieldRow({
   disableDown: boolean
 }) {
   return (
-    <li className="rounded-md border border-neutral-200 bg-white p-3">
+    <li className="rounded-md border border-neutral-200/80 bg-white p-4">
       <div className="flex flex-wrap items-start gap-2">
         <div className="grid min-w-0 flex-1 grid-cols-1 gap-2 sm:grid-cols-2">
           <div>

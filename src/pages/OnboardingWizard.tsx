@@ -2,6 +2,9 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Building2, ChevronLeft, ChevronRight, Loader2, Search } from 'lucide-react'
 import { ModulePageIcon } from '../components/ModulePageIcon'
+import { Button } from '../components/ui/Button'
+import { StandardInput } from '../components/ui/Input'
+import { SearchableSelect } from '../components/ui/SearchableSelect'
 import { getSupabaseErrorMessage } from '../lib/supabaseError'
 import { useOrgSetupContext } from '../hooks/useOrgSetupContext'
 import { formatBrregAddress } from '../lib/brreg'
@@ -167,20 +170,18 @@ export function OnboardingWizard() {
       <ol className="mb-8 flex flex-wrap gap-2">
         {steps.map((label, i) => (
           <li key={label}>
-            <button
-              type="button"
+            <Button
+              size="sm"
+              variant={i === step ? 'primary' : 'secondary'}
               onClick={() => (i <= step ? setStep(i) : undefined)}
               disabled={i > step}
-              className={`rounded-full px-3 py-1 text-xs font-medium ${
-                i === step
-                  ? 'bg-[#1a3d32] text-white'
-                  : i < step
-                    ? 'bg-emerald-100 text-emerald-900'
-                    : 'bg-neutral-200 text-neutral-500'
+              aria-current={i === step ? 'step' : undefined}
+              className={`rounded-full ${
+                i < step ? 'border-emerald-200 bg-emerald-100 text-emerald-900 hover:bg-emerald-200' : ''
               }`}
             >
               {i + 1}. {label}
-            </button>
+            </Button>
           </li>
         ))}
       </ol>
@@ -190,24 +191,23 @@ export function OnboardingWizard() {
           <div className="space-y-4">
             <label className="block text-sm font-medium text-neutral-800">Organisasjonsnummer (9 siffer)</label>
             <div className="flex flex-wrap gap-2">
-              <input
-                type="text"
+              <StandardInput
                 inputMode="numeric"
                 autoComplete="off"
                 value={orgnrInput}
                 onChange={(e) => setOrgnrInput(normalizeOrgNumber(e.target.value))}
                 placeholder="123456789"
-                className="min-w-[12rem] flex-1 rounded-lg border border-neutral-200 px-3 py-2 text-sm"
+                className="min-w-[12rem] flex-1 rounded-lg"
               />
-              <button
-                type="button"
+              <Button
+                variant="primary"
                 onClick={() => void lookupBrreg()}
                 disabled={busy || normalizeOrgNumber(orgnrInput).length !== 9}
-                className="inline-flex items-center gap-2 rounded-lg bg-[#1a3d32] px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
+                icon={busy ? <Loader2 className="size-4 animate-spin" /> : <Search className="size-4" />}
+                className="rounded-lg"
               >
-                {busy ? <Loader2 className="size-4 animate-spin" /> : <Search className="size-4" />}
                 Hent fra Brønnøysund
-              </button>
+              </Button>
             </div>
             {brregErr ? <p className="text-sm text-red-600">{brregErr}</p> : null}
             {brregPreview ? (
@@ -222,15 +222,15 @@ export function OnboardingWizard() {
                 </p>
               </div>
             ) : null}
-            <button
-              type="button"
+            <Button
+              variant="primary"
               onClick={() => void saveOrg()}
               disabled={busy || !brregPreview}
-              className="inline-flex items-center gap-2 rounded-lg bg-[#c9a227] px-4 py-2 text-sm font-semibold text-neutral-900 disabled:opacity-50"
+              icon={busy ? <Loader2 className="size-4 animate-spin" /> : undefined}
+              className="rounded-lg bg-[#c9a227] text-neutral-900 hover:bg-[#b88f1f]"
             >
-              {busy ? <Loader2 className="size-4 animate-spin" /> : null}
               Opprett og lagre i database
-            </button>
+            </Button>
           </div>
         )}
 
@@ -244,27 +244,30 @@ export function OnboardingWizard() {
               ) : null}
             </p>
             <label className="block text-sm font-medium text-neutral-800">Ditt visningsnavn</label>
-            <input
-              type="text"
+            <StandardInput
               value={displayName}
               onChange={(e) => setDisplayName(e.target.value)}
               placeholder={profile?.display_name || 'Fornavn Etternavn'}
-              className="w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm"
+              className="rounded-lg"
             />
             <div className="flex gap-2">
-              <button type="button" onClick={back} className="rounded-lg border border-neutral-200 px-4 py-2 text-sm">
-                <ChevronLeft className="mr-1 inline size-4" />
+              <Button
+                variant="secondary"
+                onClick={back}
+                icon={<ChevronLeft className="size-4" />}
+                className="rounded-lg"
+              >
                 Tilbake
-              </button>
-              <button
-                type="button"
+              </Button>
+              <Button
+                variant="primary"
                 onClick={() => void saveDisplayName()}
                 disabled={busy}
-                className="rounded-lg bg-[#1a3d32] px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
+                className="rounded-lg"
               >
                 Neste
-                <ChevronRight className="ml-1 inline size-4" />
-              </button>
+                <ChevronRight className="size-4" />
+              </Button>
             </div>
           </div>
         )}
@@ -282,14 +285,14 @@ export function OnboardingWizard() {
               ))}
             </ul>
             <div className="flex flex-wrap gap-2">
-              <input
+              <StandardInput
                 value={deptName}
                 onChange={(e) => setDeptName(e.target.value)}
                 placeholder="Avdelingsnavn"
-                className="min-w-0 flex-1 rounded-lg border border-neutral-200 px-3 py-2 text-sm"
+                className="min-w-0 flex-1 rounded-lg"
               />
-              <button
-                type="button"
+              <Button
+                variant="primary"
                 onClick={() => {
                   void (async () => {
                     if (!deptName.trim()) return
@@ -306,25 +309,25 @@ export function OnboardingWizard() {
                   })()
                 }}
                 disabled={busy}
-                className="shrink-0 rounded-lg bg-neutral-800 px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
+                className="shrink-0 rounded-lg bg-neutral-800 hover:bg-neutral-700"
               >
                 Legg til
-              </button>
+              </Button>
             </div>
             <div className="flex gap-2">
-              <button type="button" onClick={back} className="rounded-lg border border-neutral-200 px-4 py-2 text-sm">
+              <Button variant="secondary" onClick={back} className="rounded-lg">
                 Tilbake
-              </button>
-              <button
-                type="button"
+              </Button>
+              <Button
+                variant="primary"
                 onClick={() => {
                   setFormErr(null)
                   next()
                 }}
-                className="rounded-lg bg-[#1a3d32] px-4 py-2 text-sm text-white"
+                className="rounded-lg"
               >
                 Neste
-              </button>
+              </Button>
             </div>
             {formErr && step === 2 ? <p className="text-sm text-red-600">{formErr}</p> : null}
           </div>
@@ -346,27 +349,23 @@ export function OnboardingWizard() {
               ))}
             </ul>
             <div className="grid gap-2 sm:grid-cols-2">
-              <input
+              <StandardInput
                 value={teamName}
                 onChange={(e) => setTeamName(e.target.value)}
                 placeholder="Teamnavn"
-                className="rounded-lg border border-neutral-200 px-3 py-2 text-sm"
+                className="rounded-lg"
               />
-              <select
+              <SearchableSelect
                 value={teamDeptId}
-                onChange={(e) => setTeamDeptId(e.target.value)}
-                className="rounded-lg border border-neutral-200 px-3 py-2 text-sm"
-              >
-                <option value="">Avdeling (valgfritt)</option>
-                {departments.map((d) => (
-                  <option key={d.id} value={d.id}>
-                    {d.name}
-                  </option>
-                ))}
-              </select>
+                options={[
+                  { value: '', label: 'Avdeling (valgfritt)' },
+                  ...departments.map((d) => ({ value: d.id, label: d.name })),
+                ]}
+                onChange={setTeamDeptId}
+              />
             </div>
-            <button
-              type="button"
+            <Button
+              variant="primary"
               onClick={() => {
                 void (async () => {
                   if (!teamName.trim()) return
@@ -384,24 +383,24 @@ export function OnboardingWizard() {
                 })()
               }}
               disabled={busy}
-              className="rounded-lg bg-neutral-800 px-3 py-2 text-sm text-white disabled:opacity-50"
+              className="rounded-lg bg-neutral-800 hover:bg-neutral-700"
             >
               Legg til team
-            </button>
+            </Button>
             <div className="flex gap-2">
-              <button type="button" onClick={back} className="rounded-lg border border-neutral-200 px-4 py-2 text-sm">
+              <Button variant="secondary" onClick={back} className="rounded-lg">
                 Tilbake
-              </button>
-              <button
-                type="button"
+              </Button>
+              <Button
+                variant="primary"
                 onClick={() => {
                   setFormErr(null)
                   next()
                 }}
-                className="rounded-lg bg-[#1a3d32] px-4 py-2 text-sm text-white"
+                className="rounded-lg"
               >
                 Neste
-              </button>
+              </Button>
             </div>
             {formErr && step === 3 ? <p className="text-sm text-red-600">{formErr}</p> : null}
           </div>
@@ -421,21 +420,21 @@ export function OnboardingWizard() {
               ))}
             </ul>
             <div className="grid gap-2 sm:grid-cols-2">
-              <input
+              <StandardInput
                 value={locName}
                 onChange={(e) => setLocName(e.target.value)}
                 placeholder="Lokasjonsnavn"
-                className="rounded-lg border border-neutral-200 px-3 py-2 text-sm"
+                className="rounded-lg"
               />
-              <input
+              <StandardInput
                 value={locAddr}
                 onChange={(e) => setLocAddr(e.target.value)}
                 placeholder="Adresse (valgfritt)"
-                className="rounded-lg border border-neutral-200 px-3 py-2 text-sm"
+                className="rounded-lg"
               />
             </div>
-            <button
-              type="button"
+            <Button
+              variant="primary"
               onClick={() => {
                 void (async () => {
                   if (!locName.trim()) return
@@ -453,24 +452,24 @@ export function OnboardingWizard() {
                 })()
               }}
               disabled={busy}
-              className="rounded-lg bg-neutral-800 px-3 py-2 text-sm text-white disabled:opacity-50"
+              className="rounded-lg bg-neutral-800 hover:bg-neutral-700"
             >
               Legg til lokasjon
-            </button>
+            </Button>
             <div className="flex gap-2">
-              <button type="button" onClick={back} className="rounded-lg border border-neutral-200 px-4 py-2 text-sm">
+              <Button variant="secondary" onClick={back} className="rounded-lg">
                 Tilbake
-              </button>
-              <button
-                type="button"
+              </Button>
+              <Button
+                variant="primary"
                 onClick={() => {
                   setFormErr(null)
                   next()
                 }}
-                className="rounded-lg bg-[#1a3d32] px-4 py-2 text-sm text-white"
+                className="rounded-lg"
               >
                 Neste
-              </button>
+              </Button>
             </div>
             {formErr && step === 4 ? <p className="text-sm text-red-600">{formErr}</p> : null}
           </div>
@@ -490,57 +489,47 @@ export function OnboardingWizard() {
               ))}
             </ul>
             <div className="grid gap-2 sm:grid-cols-2">
-              <input
+              <StandardInput
                 value={memName}
                 onChange={(e) => setMemName(e.target.value)}
                 placeholder="Navn"
-                className="rounded-lg border border-neutral-200 px-3 py-2 text-sm"
+                className="rounded-lg"
               />
-              <input
+              <StandardInput
                 value={memEmail}
                 onChange={(e) => setMemEmail(e.target.value)}
                 placeholder="E-post (valgfritt)"
-                className="rounded-lg border border-neutral-200 px-3 py-2 text-sm"
+                className="rounded-lg"
               />
-              <select
+              <SearchableSelect
                 value={memDept}
-                onChange={(e) => setMemDept(e.target.value)}
-                className="rounded-lg border border-neutral-200 px-3 py-2 text-sm"
-              >
-                <option value="">Avdeling</option>
-                {departments.map((d) => (
-                  <option key={d.id} value={d.id}>
-                    {d.name}
-                  </option>
-                ))}
-              </select>
-              <select
+                options={[
+                  { value: '', label: 'Avdeling' },
+                  ...departments.map((d) => ({ value: d.id, label: d.name })),
+                ]}
+                onChange={setMemDept}
+              />
+              <SearchableSelect
                 value={memTeam}
-                onChange={(e) => setMemTeam(e.target.value)}
-                className="rounded-lg border border-neutral-200 px-3 py-2 text-sm"
-              >
-                <option value="">Team</option>
-                {teams.map((t) => (
-                  <option key={t.id} value={t.id}>
-                    {t.name}
-                  </option>
-                ))}
-              </select>
-              <select
-                value={memLoc}
-                onChange={(e) => setMemLoc(e.target.value)}
-                className="sm:col-span-2 rounded-lg border border-neutral-200 px-3 py-2 text-sm"
-              >
-                <option value="">Lokasjon</option>
-                {locations.map((l) => (
-                  <option key={l.id} value={l.id}>
-                    {l.name}
-                  </option>
-                ))}
-              </select>
+                options={[
+                  { value: '', label: 'Team' },
+                  ...teams.map((t) => ({ value: t.id, label: t.name })),
+                ]}
+                onChange={setMemTeam}
+              />
+              <div className="sm:col-span-2">
+                <SearchableSelect
+                  value={memLoc}
+                  options={[
+                    { value: '', label: 'Lokasjon' },
+                    ...locations.map((l) => ({ value: l.id, label: l.name })),
+                  ]}
+                  onChange={setMemLoc}
+                />
+              </div>
             </div>
-            <button
-              type="button"
+            <Button
+              variant="primary"
               onClick={() => {
                 void (async () => {
                   if (!memName.trim()) return
@@ -567,24 +556,24 @@ export function OnboardingWizard() {
                 })()
               }}
               disabled={busy}
-              className="rounded-lg bg-neutral-800 px-3 py-2 text-sm text-white disabled:opacity-50"
+              className="rounded-lg bg-neutral-800 hover:bg-neutral-700"
             >
               Legg til person
-            </button>
+            </Button>
             <div className="flex gap-2">
-              <button type="button" onClick={back} className="rounded-lg border border-neutral-200 px-4 py-2 text-sm">
+              <Button variant="secondary" onClick={back} className="rounded-lg">
                 Tilbake
-              </button>
-              <button
-                type="button"
+              </Button>
+              <Button
+                variant="primary"
                 onClick={() => {
                   setFormErr(null)
                   next()
                 }}
-                className="rounded-lg bg-[#1a3d32] px-4 py-2 text-sm text-white"
+                className="rounded-lg"
               >
                 Neste
-              </button>
+              </Button>
             </div>
             {formErr && step === 5 ? <p className="text-sm text-red-600">{formErr}</p> : null}
           </div>
@@ -600,17 +589,18 @@ export function OnboardingWizard() {
               Du kan endre strukturen senere i en dedikert organisasjonsinnstilling (kommer).
             </p>
             <div className="flex justify-center gap-2">
-              <button type="button" onClick={back} className="rounded-lg border border-neutral-200 px-4 py-2 text-sm">
+              <Button variant="secondary" onClick={back} className="rounded-lg">
                 Tilbake
-              </button>
-              <button
-                type="button"
+              </Button>
+              <Button
+                variant="primary"
                 onClick={() => void finish()}
                 disabled={busy}
-                className="rounded-lg bg-[#c9a227] px-6 py-2 text-sm font-semibold text-neutral-900 disabled:opacity-50"
+                icon={busy ? <Loader2 className="size-4 animate-spin" /> : undefined}
+                className="rounded-lg bg-[#c9a227] text-neutral-900 hover:bg-[#b88f1f]"
               >
-                {busy ? <Loader2 className="inline size-4 animate-spin" /> : null} Gå til appen
-              </button>
+                Gå til appen
+              </Button>
             </div>
           </div>
         )}

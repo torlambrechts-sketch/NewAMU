@@ -493,14 +493,15 @@ export function LearningCourseBuilder() {
                     className="inline-flex items-center gap-1 rounded-full border border-neutral-200 bg-neutral-50 px-2 py-0.5 text-xs font-medium text-neutral-700"
                   >
                     {t}
-                    <button
-                      type="button"
-                      className="ml-0.5 text-neutral-400 hover:text-red-600"
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="ml-0.5 h-auto w-auto p-0 text-neutral-400 hover:bg-transparent hover:text-red-600"
                       onClick={() => updateCourse(course.id, { tags: course.tags.filter((x) => x !== t) })}
                       aria-label={`Fjern etikett ${t}`}
                     >
                       ×
-                    </button>
+                    </Button>
                   </span>
                 ))}
                 <StandardInput
@@ -695,18 +696,19 @@ export function LearningCourseBuilder() {
               {LEARNING_MODULE_LEGAL_REFERENCES.map((ref) => {
                 const on = (course.lawRefs ?? []).includes(ref.code)
                 return (
-                  <button
+                  <Button
                     key={ref.code}
-                    type="button"
+                    variant="ghost"
                     onClick={() => {
                       const cur = course.lawRefs ?? []
                       const next = on ? cur.filter((c) => c !== ref.code) : [...cur, ref.code]
                       updateCourse(course.id, { lawRefs: next })
                     }}
+                    aria-pressed={on}
                     className={
-                      'flex items-start gap-3 rounded-md border px-3 py-2.5 text-left transition-colors ' +
+                      'flex h-auto items-start justify-start gap-3 rounded-md border px-3 py-2.5 text-left font-normal transition-colors ' +
                       (on
-                        ? 'border-[#1a3d32] bg-[#e7efe9]'
+                        ? 'border-[#1a3d32] bg-[#e7efe9] hover:bg-[#e7efe9]'
                         : 'border-neutral-200 bg-white hover:border-neutral-300 hover:bg-neutral-50')
                     }
                   >
@@ -724,7 +726,7 @@ export function LearningCourseBuilder() {
                       <Badge variant="info">{ref.code}</Badge>
                       <p className="mt-1.5 text-sm text-neutral-700">{ref.text}</p>
                     </div>
-                  </button>
+                  </Button>
                 )
               })}
             </div>

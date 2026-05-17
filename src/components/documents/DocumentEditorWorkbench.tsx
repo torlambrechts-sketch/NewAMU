@@ -12,6 +12,7 @@ import {
   History,
   LayoutTemplate,
   Megaphone,
+  MoreHorizontal,
   Pencil,
   PenLine,
   Plus,
@@ -601,7 +602,7 @@ export function DocumentEditorWorkbench({
                 <Plus className="h-4 w-4" />
               </Button>
               <Button type="button" variant="ghost" size="icon" aria-label="Flere handlinger">
-                <span className="text-lg leading-none text-neutral-500">⋯</span>
+                <MoreHorizontal className="h-4 w-4 text-neutral-500" />
               </Button>
             </div>
           </div>

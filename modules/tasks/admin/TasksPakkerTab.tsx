@@ -78,7 +78,7 @@ export function TasksPakkerTab() {
               {templates.map((t) => (
                 <li
                   key={t.id}
-                  className="flex items-center justify-between gap-3 rounded-lg border border-neutral-200/80 bg-neutral-50/40 px-4 py-2.5"
+                  className="flex items-center justify-between gap-3 rounded-lg border border-neutral-200/80 bg-neutral-50/50 px-4 py-2.5"
                 >
                   <span className="text-sm font-medium text-neutral-900">{t.name}</span>
                   <div className="flex items-center gap-1.5">

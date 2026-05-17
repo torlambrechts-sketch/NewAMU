@@ -54,13 +54,14 @@ export function ReportingPeriodPicker({
           <p className="text-sm font-semibold text-neutral-900">Rapporteringsperiode</p>
         </div>
         {value.start || value.end || value.label ? (
-          <button
-            type="button"
-            className="text-[11px] text-neutral-500 underline hover:text-neutral-700"
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-auto rounded-none p-0 text-[11px] text-neutral-500 hover:bg-transparent hover:text-neutral-700 hover:underline"
             onClick={() => onChange({ start: null, end: null, label: null })}
           >
             Nullstill
-          </button>
+          </Button>
         ) : null}
       </div>
       {hint ? <p className="text-xs text-neutral-600">{hint}</p> : null}

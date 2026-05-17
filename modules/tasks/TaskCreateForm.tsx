@@ -8,6 +8,9 @@ import type { TaskMetadataField } from '../../src/types/task'
 import { SlidePanel } from '../../src/components/layout/SlidePanel'
 import { Button } from '../../src/components/ui/Button'
 import { StandardInput } from '../../src/components/ui/Input'
+import { StandardTextarea } from '../../src/components/ui/Textarea'
+import { SearchableSelect } from '../../src/components/ui/SearchableSelect'
+import { ToggleSwitch } from '../../src/components/ui/FormToggles'
 import {
   WPSTD_FORM_FIELD_LABEL,
   WPSTD_FORM_LEAD,
@@ -49,17 +52,17 @@ function CollapsibleSection({ label, children, defaultOpen = true }: {
   const [open, setOpen] = useState(defaultOpen)
   return (
     <div>
-      <button
-        type="button"
+      <Button
+        variant="ghost"
         onClick={() => setOpen((o) => !o)}
-        className="flex w-full items-center gap-2 border-b border-neutral-200 bg-neutral-50/80 px-4 py-2.5 text-left transition hover:bg-neutral-100/60 md:px-5"
+        className="flex w-full justify-start gap-2 rounded-none border-b border-neutral-200 bg-neutral-50/80 px-4 py-2.5 text-left font-normal hover:bg-neutral-100/60 md:px-5"
       >
         <ChevronDown
           className={`h-4 w-4 shrink-0 text-[#c2410c]/60 transition-transform duration-150 ${open ? '' : '-rotate-90'}`}
           aria-hidden
         />
         <span className="text-[10px] font-bold uppercase tracking-wider text-neutral-600">{label}</span>
-      </button>
+      </Button>
       {open && <div>{children}</div>}
     </div>
   )
@@ -191,18 +194,15 @@ export function TaskCreateForm({ open, onClose, template, onCreate }: Props) {
           </div>
           <div className="flex flex-wrap gap-2">
             {(['low', 'medium', 'high', 'critical'] as TaskItemPriority[]).map((p) => (
-              <button
+              <Button
                 key={p}
-                type="button"
+                size="sm"
+                variant={form.priority === p ? 'primary' : 'secondary'}
                 onClick={() => set('priority', p)}
-                className={`rounded border px-3 py-1.5 text-sm transition ${
-                  form.priority === p
-                    ? 'border-[#c2410c] bg-[#c2410c] text-white'
-                    : 'border-neutral-200 bg-white text-neutral-700 hover:border-[#c2410c]/40'
-                }`}
+                className={form.priority === p ? 'bg-[#c2410c] hover:bg-[#a33609]' : 'hover:border-[#c2410c]/40'}
               >
                 {TASK_PRIORITY_LABEL[p]}
-              </button>
+              </Button>
             ))}
           </div>
         </div>
@@ -259,12 +259,12 @@ export function TaskCreateForm({ open, onClose, template, onCreate }: Props) {
             <p className={`${WPSTD_FORM_LEAD} mt-1`}>Utfyllende detaljer</p>
           </div>
           <div>
-            <textarea
+            <StandardTextarea
               value={form.description}
               onChange={(e) => set('description', e.target.value)}
               rows={4}
               placeholder="Legg til beskrivelse…"
-              className="w-full rounded border border-neutral-300 bg-white px-3 py-2.5 text-sm text-neutral-900 placeholder:text-neutral-400 focus:border-[#c2410c] focus:outline-none focus:ring-1 focus:ring-[#c2410c]/20"
+              className="focus:border-[#c2410c] focus:ring-[#c2410c]/20"
             />
           </div>
         </div>
@@ -319,39 +319,36 @@ export function TaskCreateForm({ open, onClose, template, onCreate }: Props) {
                           onChange={(v) => setMetaValues((prev) => ({ ...prev, [field.id]: v }))}
                         />
                       ) : field.kind === 'textarea' ? (
-                        <textarea
+                        <StandardTextarea
                           value={metaValues[field.id] ?? ''}
                           onChange={(e) => setMetaValues((prev) => ({ ...prev, [field.id]: e.target.value }))}
                           rows={3}
                           placeholder={field.label}
-                          className="w-full rounded border border-neutral-300 bg-white px-3 py-2.5 text-sm text-neutral-900 placeholder:text-neutral-400 focus:border-[#c2410c] focus:outline-none focus:ring-1 focus:ring-[#c2410c]/20"
+                          className="focus:border-[#c2410c] focus:ring-[#c2410c]/20"
                         />
                       ) : field.kind === 'select' ? (
-                        <select
+                        <SearchableSelect
                           value={metaValues[field.id] ?? ''}
-                          onChange={(e) => setMetaValues((prev) => ({ ...prev, [field.id]: e.target.value }))}
-                          className="w-full rounded border border-neutral-300 bg-white px-3 py-2.5 text-sm text-neutral-900 focus:border-[#c2410c] focus:outline-none focus:ring-1 focus:ring-[#c2410c]/20"
-                        >
-                          <option value="">Velg…</option>
-                          {(field.options ?? []).map((opt) => (
-                            <option key={opt} value={opt}>{opt}</option>
-                          ))}
-                        </select>
+                          options={[
+                            { value: '', label: 'Velg…' },
+                            ...((field.options ?? []).map((opt) => ({ value: opt, label: opt }))),
+                          ]}
+                          onChange={(v) => setMetaValues((prev) => ({ ...prev, [field.id]: v }))}
+                        />
                       ) : field.kind === 'boolean' ? (
-                        <label className="flex items-center gap-2">
-                          <input
-                            type="checkbox"
+                        <div className="flex items-center gap-2">
+                          <ToggleSwitch
                             checked={metaValues[field.id] === 'true'}
-                            onChange={(e) =>
+                            onChange={(v) =>
                               setMetaValues((prev) => ({
                                 ...prev,
-                                [field.id]: e.target.checked ? 'true' : 'false',
+                                [field.id]: v ? 'true' : 'false',
                               }))
                             }
-                            className="h-4 w-4 rounded border-neutral-300 text-[#c2410c] focus:ring-[#c2410c]/20"
+                            label={field.label}
                           />
                           <span className="text-sm text-neutral-700">{field.label}</span>
-                        </label>
+                        </div>
                       ) : (
                         <StandardInput
                           type={field.kind === 'date' ? 'date' : field.kind === 'number' ? 'number' : 'text'}

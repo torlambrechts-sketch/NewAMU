@@ -4,6 +4,7 @@ import {
   WORKPLACE_TASKS_PRIMARY_BUTTON_CLASS,
   workplaceTasksPrimaryButtonStyle,
 } from './workplaceTasksActionButtonKit'
+import { Button } from '../ui/Button'
 
 export type WorkplaceTasksSplitOption = {
   id: string
@@ -26,15 +27,15 @@ export function WorkplaceTasksPrimaryButton({
   className = '',
 }: WorkplaceTasksPrimaryButtonProps) {
   return (
-    <button
-      type="button"
+    <Button
+      variant="primary"
       onClick={onClick}
       className={`${WORKPLACE_TASKS_PRIMARY_BUTTON_CLASS} ${className}`.trim()}
       style={workplaceTasksPrimaryButtonStyle()}
     >
       <Icon className="size-4 shrink-0" strokeWidth={2.5} />
       {label}
-    </button>
+    </Button>
   )
 }
 
@@ -88,17 +89,18 @@ export function WorkplaceTasksSplitButton({
         className="inline-flex overflow-hidden rounded-lg shadow-sm"
         style={workplaceTasksPrimaryButtonStyle()}
       >
-        <button
-          type="button"
+        <Button
+          variant="primary"
           onClick={onMainClick}
           className={`${WORKPLACE_TASKS_PRIMARY_BUTTON_CLASS} rounded-none shadow-none !px-4`}
         >
           <Icon className="size-4 shrink-0" strokeWidth={2.5} />
           {label}
-        </button>
-        <button
-          type="button"
-          className="inline-flex w-10 shrink-0 items-center justify-center border-l border-white/25 text-white"
+        </Button>
+        <Button
+          variant="primary"
+          size="icon"
+          className="inline-flex h-auto w-10 shrink-0 items-center justify-center rounded-none border-l border-white/25 bg-transparent text-white"
           aria-expanded={open}
           aria-haspopup="menu"
           aria-controls={menuId}
@@ -106,7 +108,7 @@ export function WorkplaceTasksSplitButton({
           aria-label="Flere valg"
         >
           <ChevronDown className={`size-4 transition-transform ${open ? 'rotate-180' : ''}`} aria-hidden />
-        </button>
+        </Button>
       </div>
       {open ? (
         <ul
@@ -118,17 +120,17 @@ export function WorkplaceTasksSplitButton({
         >
           {options.map((opt) => (
             <li key={opt.id} role="none">
-              <button
-                type="button"
+              <Button
+                variant="ghost"
                 role="menuitem"
-                className="w-full px-3 py-2 text-left text-sm text-neutral-800 hover:bg-neutral-50"
+                className="w-full justify-start rounded-none px-3 py-2 text-left text-sm font-normal text-neutral-800 hover:bg-neutral-50"
                 onClick={() => {
                   opt.onSelect?.()
                   close()
                 }}
               >
                 {opt.label}
-              </button>
+              </Button>
             </li>
           ))}
         </ul>

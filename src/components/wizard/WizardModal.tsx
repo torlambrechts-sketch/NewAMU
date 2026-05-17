@@ -1,5 +1,10 @@
 import { useEffect, useRef, useState } from 'react'
 import { AlertCircle, CheckCircle2, ChevronLeft, ChevronRight, Loader2, X } from 'lucide-react'
+import { Button } from '../ui/Button'
+import { StandardInput } from '../ui/Input'
+import { StandardTextarea } from '../ui/Textarea'
+import { SearchableSelect } from '../ui/SearchableSelect'
+import { ToggleSwitch } from '../ui/FormToggles'
 import type { WizardDef, WizardField } from './types'
 
 // ─── Colour map ───────────────────────────────────────────────────────────────
@@ -46,12 +51,14 @@ function WizardFieldRenderer({
     return (
       <div className="grid grid-cols-2 gap-2 mt-1">
         {opts.map((opt) => (
-          <button
+          <Button
             key={opt.value}
-            type="button"
+            variant="ghost"
+            role="radio"
+            aria-checked={value === opt.value}
             onClick={() => onChange(opt.value)}
-            className={`flex items-start gap-3 rounded-xl border-2 p-3 text-left transition-all ${
-              value === opt.value ? `${opt.colour} ring-2 ring-offset-1 ring-current shadow-sm` : 'border-neutral-200 bg-white hover:border-neutral-300'
+            className={`flex items-start gap-3 rounded-xl border-2 p-3 text-left font-normal ${
+              value === opt.value ? `${opt.colour} ring-2 ring-offset-1 ring-current shadow-sm` : 'border-neutral-200 bg-white hover:border-neutral-300 hover:bg-white'
             }`}
           >
             <span className={`mt-0.5 size-3 shrink-0 rounded-full ${value === opt.value ? opt.dot : 'bg-neutral-300'}`} />
@@ -59,7 +66,7 @@ function WizardFieldRenderer({
               <div className="text-sm font-semibold">{opt.label}</div>
               <div className={`text-xs mt-0.5 ${value === opt.value ? 'opacity-80' : 'text-neutral-500'}`}>{opt.desc}</div>
             </div>
-          </button>
+          </Button>
         ))}
       </div>
     )
@@ -67,15 +74,17 @@ function WizardFieldRenderer({
 
   if (field.kind === 'radio-cards') {
     return (
-      <div className="mt-1 grid gap-2">
+      <div className="mt-1 grid gap-2" role="radiogroup" aria-label={field.label ?? 'Velg'}>
         {(field.options ?? []).map((opt) => (
-          <button
+          <Button
             key={opt.value}
-            type="button"
+            variant="ghost"
+            role="radio"
+            aria-checked={value === opt.value}
             onClick={() => onChange(opt.value)}
-            className={`flex items-start gap-3 rounded-xl border-2 p-3.5 text-left transition-all ${
+            className={`flex items-start gap-3 rounded-xl border-2 p-3.5 text-left font-normal ${
               value === opt.value
-                ? `border-[#1a3d32] bg-[#1a3d32]/5 ring-1 ring-[#1a3d32] shadow-sm`
+                ? 'border-[#1a3d32] bg-[#1a3d32]/5 ring-1 ring-[#1a3d32] shadow-sm hover:bg-[#1a3d32]/5'
                 : 'border-neutral-200 bg-white hover:border-neutral-300 hover:bg-neutral-50'
             }`}
           >
@@ -89,7 +98,7 @@ function WizardFieldRenderer({
             }`}>
               {value === opt.value && <span className="size-1.5 rounded-full bg-white" />}
             </span>
-          </button>
+          </Button>
         ))}
       </div>
     )
@@ -97,19 +106,17 @@ function WizardFieldRenderer({
 
   if (field.kind === 'checkbox') {
     return (
-      <label className="mt-2 flex cursor-pointer items-start gap-3 rounded-xl border border-neutral-200 bg-white p-3.5 hover:bg-neutral-50 transition-colors">
-        <input
-          type="checkbox"
+      <div className="mt-2 flex items-start gap-3 rounded-xl border border-neutral-200 bg-white p-3.5 hover:bg-neutral-50 transition-colors">
+        <ToggleSwitch
           checked={value === true || value === 'true'}
-          onChange={(e) => onChange(e.target.checked)}
-          className={`mt-0.5 size-4 rounded border-neutral-300 focus:ring-1 ${accent.ring}`}
-          style={{ accentColor: '#1a3d32' }}
+          onChange={(v) => onChange(v)}
+          label={field.label}
         />
         <div>
           <span className="text-sm font-medium text-neutral-900">{field.label}</span>
           {field.hint && <p className="text-xs text-neutral-500 mt-0.5">{field.hint}</p>}
         </div>
-      </label>
+      </div>
     )
   }
 
@@ -117,26 +124,27 @@ function WizardFieldRenderer({
     const selected: string[] = value && typeof value === 'string' ? JSON.parse(value || '[]') : []
     return (
       <div className="mt-1 space-y-2">
-        {(field.options ?? []).map((opt) => (
-          <label key={opt.value} className="flex cursor-pointer items-center gap-3 rounded-lg border border-neutral-200 px-3 py-2.5 hover:bg-neutral-50 transition-colors">
-            <input
-              type="checkbox"
-              checked={selected.includes(opt.value)}
-              onChange={(e) => {
-                const next = e.target.checked
-                  ? [...selected, opt.value]
-                  : selected.filter((v) => v !== opt.value)
-                onChange(JSON.stringify(next))
-              }}
-              className="size-4 rounded border-neutral-300"
-              style={{ accentColor: '#1a3d32' }}
-            />
-            <div>
-              <span className="text-sm font-medium text-neutral-900">{opt.label}</span>
-              {opt.description && <p className="text-xs text-neutral-500">{opt.description}</p>}
+        {(field.options ?? []).map((opt) => {
+          const checked = selected.includes(opt.value)
+          return (
+            <div key={opt.value} className="flex items-center gap-3 rounded-lg border border-neutral-200 px-3 py-2.5 hover:bg-neutral-50 transition-colors">
+              <ToggleSwitch
+                checked={checked}
+                onChange={(v) => {
+                  const next = v
+                    ? [...selected, opt.value]
+                    : selected.filter((x) => x !== opt.value)
+                  onChange(JSON.stringify(next))
+                }}
+                label={opt.label}
+              />
+              <div>
+                <span className="text-sm font-medium text-neutral-900">{opt.label}</span>
+                {opt.description && <p className="text-xs text-neutral-500">{opt.description}</p>}
+              </div>
             </div>
-          </label>
-        ))}
+          )
+        })}
       </div>
     )
   }
@@ -177,31 +185,27 @@ function WizardFieldRenderer({
               {items.map((opt) => {
                 const checked = selected.includes(opt.value)
                 return (
-                  <li key={opt.value} className="border-b border-neutral-100 last:border-b-0">
-                    <label className="flex cursor-pointer items-start gap-3 px-3 py-2.5 hover:bg-neutral-50">
-                      <input
-                        type="checkbox"
-                        checked={checked}
-                        onChange={() => toggle(opt.value)}
-                        className="mt-0.5 size-4 rounded border-neutral-300"
-                        style={{ accentColor: '#1a3d32' }}
-                      />
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-center gap-2">
-                          <span className="truncate text-sm font-medium text-neutral-900">
-                            {opt.label}
+                  <li key={opt.value} className="flex items-start gap-3 border-b border-neutral-100 px-3 py-2.5 last:border-b-0 hover:bg-neutral-50">
+                    <ToggleSwitch
+                      checked={checked}
+                      onChange={() => toggle(opt.value)}
+                      label={opt.label}
+                    />
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2">
+                        <span className="truncate text-sm font-medium text-neutral-900">
+                          {opt.label}
+                        </span>
+                        {opt.badge ? (
+                          <span className="shrink-0 rounded-full bg-neutral-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-neutral-700">
+                            {opt.badge}
                           </span>
-                          {opt.badge ? (
-                            <span className="shrink-0 rounded-full bg-neutral-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-neutral-700">
-                              {opt.badge}
-                            </span>
-                          ) : null}
-                        </div>
-                        {opt.description ? (
-                          <p className="text-xs text-neutral-500">{opt.description}</p>
                         ) : null}
                       </div>
-                    </label>
+                      {opt.description ? (
+                        <p className="text-xs text-neutral-500">{opt.description}</p>
+                      ) : null}
+                    </div>
                   </li>
                 )
               })}
@@ -214,18 +218,20 @@ function WizardFieldRenderer({
 
   if (field.kind === 'select') {
     return (
-      <select value={value as string} onChange={(e) => onChange(e.target.value)} className={baseInput}>
-        {!field.required && <option value="">— Velg —</option>}
-        {(field.options ?? []).map((opt) => (
-          <option key={opt.value} value={opt.value}>{opt.label}</option>
-        ))}
-      </select>
+      <SearchableSelect
+        value={value as string}
+        options={[
+          ...(!field.required ? [{ value: '', label: '— Velg —' }] : []),
+          ...(field.options ?? []).map((opt) => ({ value: opt.value, label: opt.label })),
+        ]}
+        onChange={(v) => onChange(v)}
+      />
     )
   }
 
   if (field.kind === 'textarea') {
     return (
-      <textarea
+      <StandardTextarea
         value={value as string}
         onChange={(e) => onChange(e.target.value)}
         placeholder={field.placeholder}
@@ -237,7 +243,7 @@ function WizardFieldRenderer({
   }
 
   return (
-    <input
+    <StandardInput
       type={field.kind === 'text' ? 'text' : field.kind}
       value={value as string}
       onChange={(e) => onChange(e.target.value)}
@@ -379,13 +385,9 @@ export function WizardModal({
             <p className="max-w-md text-sm text-neutral-600">
               {def.description ?? `${def.title} er registrert.`}
             </p>
-            <button
-              type="button"
-              onClick={onClose}
-              className="mt-2 rounded-full bg-[#1a3d32] px-6 py-2.5 text-sm font-medium text-white transition-colors hover:bg-[#142e26]"
-            >
+            <Button variant="primary" onClick={onClose} className="mt-2 rounded-full px-6 py-2.5">
               Lukk
-            </button>
+            </Button>
           </div>
         </div>
       </div>
@@ -417,14 +419,15 @@ export function WizardModal({
               <p className={`mt-0.5 text-sm font-medium ${accent.text}`}>{step.title}</p>
               {step.subtitle && <p className="mt-0.5 text-xs text-neutral-500">{step.subtitle}</p>}
             </div>
-            <button
-              type="button"
+            <Button
+              variant="ghost"
+              size="icon"
               onClick={onClose}
-              className="rounded-lg p-1.5 text-neutral-400 hover:bg-black/8 hover:text-neutral-700 transition-colors shrink-0"
+              className="h-7 w-7 shrink-0 rounded-lg text-neutral-400 hover:bg-black/8 hover:text-neutral-700"
               aria-label="Lukk"
             >
               <X className="size-4" />
-            </button>
+            </Button>
           </div>
 
           {/* Progress bar */}
@@ -432,16 +435,18 @@ export function WizardModal({
             <div className="flex items-center justify-between mb-1.5">
               <div className="flex gap-1">
                 {def.steps.map((s, i) => (
-                  <button
+                  <Button
                     key={s.id}
-                    type="button"
+                    variant="ghost"
+                    size="icon"
                     onClick={() => i < stepIndex && setStepIndex(i)}
-                    className={`h-1.5 rounded-full transition-all ${
+                    className={`h-1.5 rounded-full p-0 hover:bg-transparent ${
                       i === stepIndex ? `w-6 ${accent.progress}` :
                       i < stepIndex ? `w-3 ${accent.progress} opacity-60` :
                       'w-3 bg-neutral-300'
                     }`}
                     aria-label={`Steg ${i + 1}`}
+                    aria-current={i === stepIndex ? 'step' : undefined}
                   />
                 ))}
               </div>
@@ -492,29 +497,30 @@ export function WizardModal({
         {/* ── Footer ──────────────────────────────────────────────────── */}
         <div className="shrink-0 flex items-center justify-between gap-3 border-t border-neutral-100 px-6 py-4 bg-neutral-50/80">
           {stepIndex > 0 ? (
-            <button
-              type="button"
+            <Button
+              variant="secondary"
               onClick={handleBack}
-              className="inline-flex items-center gap-1.5 rounded-full border border-neutral-200 bg-white px-4 py-2 text-sm font-medium text-neutral-700 hover:bg-neutral-50 transition-colors"
+              icon={<ChevronLeft className="size-4" />}
+              className="rounded-full"
             >
-              <ChevronLeft className="size-4" />
               Tilbake
-            </button>
+            </Button>
           ) : (
-            <button
-              type="button"
+            <Button
+              variant="ghost"
+              size="sm"
               onClick={onClose}
-              className="text-sm text-neutral-400 hover:text-neutral-600 transition-colors"
+              className="px-0 text-neutral-400 hover:bg-transparent hover:text-neutral-600"
             >
               Avbryt
-            </button>
+            </Button>
           )}
 
-          <button
-            type="button"
+          <Button
+            variant="primary"
             onClick={handleNext}
             disabled={advancing}
-            className={`inline-flex items-center gap-1.5 rounded-full px-5 py-2 text-sm font-semibold text-white shadow-sm transition-colors disabled:opacity-60 ${accent.btn}`}
+            className={`rounded-full px-5 py-2 ${accent.btn}`}
           >
             {advancing ? (
               <>
@@ -532,7 +538,7 @@ export function WizardModal({
                 <ChevronRight className="size-4" />
               </>
             )}
-          </button>
+          </Button>
         </div>
       </div>
     </div>

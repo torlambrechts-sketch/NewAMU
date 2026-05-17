@@ -1,4 +1,6 @@
 import { useState } from 'react'
+import { Button } from '../ui/Button'
+import { StandardInput } from '../ui/Input'
 
 const R = 'rounded-none'
 
@@ -42,7 +44,7 @@ export function ShareSensitiveDataModal({ open, title, actionLabel, onCancel, on
           Ved e-post: ingen kryptering er garantert. Vurder sikre kanaler for konfidensielt innhold.
         </p>
         <label className={`${R} mt-4 flex cursor-pointer items-start gap-3 border border-neutral-200 bg-neutral-50 p-3 text-sm`}>
-          <input
+          <StandardInput
             type="checkbox"
             checked={ack}
             onChange={(e) => setAck(e.target.checked)}
@@ -53,11 +55,11 @@ export function ShareSensitiveDataModal({ open, title, actionLabel, onCancel, on
           </span>
         </label>
         <div className="mt-6 flex flex-wrap justify-end gap-2">
-          <button type="button" onClick={onCancel} className={`${R} border border-neutral-300 px-4 py-2 text-sm font-medium`}>
+          <Button variant="ghost" onClick={onCancel} className={`${R} border border-neutral-300 px-4 py-2 text-sm font-medium`}>
             Avbryt
-          </button>
-          <button
-            type="button"
+          </Button>
+          <Button
+            variant="primary"
             disabled={!ack}
             onClick={() => {
               onConfirm()
@@ -66,7 +68,7 @@ export function ShareSensitiveDataModal({ open, title, actionLabel, onCancel, on
             className={`${R} bg-[#1a3d32] px-4 py-2 text-sm font-medium text-white disabled:opacity-40`}
           >
             {actionLabel}
-          </button>
+          </Button>
         </div>
       </div>
     </div>

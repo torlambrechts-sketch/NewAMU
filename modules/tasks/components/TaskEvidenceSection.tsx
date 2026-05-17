@@ -4,6 +4,9 @@
 
 import { useCallback, useEffect, useState } from 'react'
 import { ExternalLink, FileText, Link2, Paperclip, Plus, Trash2 } from 'lucide-react'
+import { Button } from '../../../src/components/ui/Button'
+import { StandardInput } from '../../../src/components/ui/Input'
+import { StandardTextarea } from '../../../src/components/ui/Textarea'
 import { useOrgSetupContext } from '../../../src/hooks/useOrgSetupContext'
 import type { TaskItemEvidenceKind } from '../../../src/types/task'
 
@@ -116,67 +119,61 @@ export function TaskEvidenceSection({ taskItemId }: Props) {
             Bevis {items.length > 0 ? `· ${items.length}` : ''}
           </span>
         </div>
-        <button
-          type="button"
+        <Button
+          variant="ghost"
+          size="sm"
           onClick={() => setAddOpen((v) => !v)}
-          className="flex items-center gap-1 text-xs text-neutral-500 transition hover:text-[#c2410c]"
+          icon={<Plus className="h-3.5 w-3.5" />}
+          className="px-0 text-xs text-neutral-500 hover:bg-transparent hover:text-[#c2410c]"
         >
-          <Plus className="h-3.5 w-3.5" />
           Legg til
-        </button>
+        </Button>
       </div>
 
       {addOpen && (
-        <div className="rounded-lg border border-neutral-200 bg-white p-3 space-y-3">
+        <div className="rounded-lg border border-neutral-200/80 bg-white p-4 space-y-3">
           <div className="flex gap-2">
             {(['note', 'external_link'] as TaskItemEvidenceKind[]).map((k) => (
-              <button
+              <Button
                 key={k}
-                type="button"
+                size="sm"
+                variant={form.kind === k ? 'primary' : 'secondary'}
                 onClick={() => setForm((f) => ({ ...f, kind: k }))}
-                className={`rounded border px-2.5 py-1 text-xs font-medium transition ${
-                  form.kind === k
-                    ? 'border-[#c2410c] bg-[#c2410c] text-white'
-                    : 'border-neutral-200 bg-white text-neutral-600 hover:border-neutral-300'
-                }`}
+                className={form.kind === k ? 'bg-[#c2410c] hover:bg-[#a33609]' : 'hover:border-neutral-300'}
               >
                 {KIND_LABEL[k]}
-              </button>
+              </Button>
             ))}
             <span className="ml-2 self-center text-[11px] text-neutral-400">
               Fil-opplasting kommer i fase 5
             </span>
           </div>
-          <input
-            type="text"
+          <StandardInput
             value={form.label}
             onChange={(e) => setForm((f) => ({ ...f, label: e.target.value }))}
             placeholder={form.kind === 'external_link' ? 'URL eller referanse…' : 'Tittel på notat…'}
-            className="w-full rounded border border-neutral-200 bg-neutral-50 px-3 py-2 text-sm focus:border-[#c2410c] focus:outline-none focus:ring-1 focus:ring-[#c2410c]/20"
+            className="bg-neutral-50 focus:border-[#c2410c] focus:ring-[#c2410c]/20"
           />
-          <textarea
+          <StandardTextarea
             value={form.description}
             onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
             rows={3}
             placeholder="Beskrivelse (valgfritt)…"
-            className="w-full resize-none rounded border border-neutral-200 bg-neutral-50 px-3 py-2 text-sm focus:border-[#c2410c] focus:outline-none focus:ring-1 focus:ring-[#c2410c]/20"
+            className="resize-none bg-neutral-50 focus:border-[#c2410c] focus:ring-[#c2410c]/20"
           />
           <div className="flex justify-end gap-2">
-            <button
-              type="button"
-              onClick={() => setAddOpen(false)}
-              className="rounded border border-neutral-200 px-3 py-1.5 text-xs text-neutral-600 hover:bg-neutral-50"
-            >
+            <Button size="sm" variant="secondary" onClick={() => setAddOpen(false)}>
               Avbryt
-            </button>
-            <button
-              type="button"
+            </Button>
+            <Button
+              size="sm"
+              variant="primary"
               onClick={() => void save()}
               disabled={saving || !form.label.trim()}
-              className="rounded bg-[#c2410c] px-3 py-1.5 text-xs font-medium text-white transition hover:bg-[#b83b0a] disabled:opacity-40"
+              className="bg-[#c2410c] hover:bg-[#b83b0a]"
             >
               {saving ? 'Lagrer…' : 'Lagre'}
-            </button>
+            </Button>
           </div>
         </div>
       )}
@@ -188,7 +185,7 @@ export function TaskEvidenceSection({ taskItemId }: Props) {
             return (
               <li
                 key={e.id}
-                className="group flex items-start gap-2.5 rounded-lg border border-neutral-200 bg-white p-3"
+                className="group flex items-start gap-2.5 rounded-lg border border-neutral-200/80 bg-white p-4"
               >
                 <Icon className="mt-0.5 h-4 w-4 shrink-0 text-[#c2410c]/60" />
                 <div className="min-w-0 flex-1">
@@ -212,14 +209,15 @@ export function TaskEvidenceSection({ taskItemId }: Props) {
                     <p className="mt-0.5 text-xs text-neutral-500">{e.description}</p>
                   )}
                 </div>
-                <button
-                  type="button"
+                <Button
+                  variant="ghost"
+                  size="icon"
                   onClick={() => void remove(e.id)}
-                  className="hidden shrink-0 text-neutral-400 transition hover:text-red-500 group-hover:block"
+                  className="hidden h-7 w-7 shrink-0 text-neutral-400 hover:bg-transparent hover:text-red-500 group-hover:flex"
                   aria-label="Slett bevis"
                 >
                   <Trash2 className="h-3.5 w-3.5" />
-                </button>
+                </Button>
               </li>
             )
           })}

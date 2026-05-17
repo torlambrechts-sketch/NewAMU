@@ -4,6 +4,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { Copy, Download, Edit3, MoreHorizontal, Trash2 } from 'lucide-react'
+import { Button } from '../../ui/Button'
 
 type Props = {
   onEdit: () => void
@@ -38,74 +39,75 @@ export function DashboardWidgetMenu({ onEdit, onDuplicate, onRemove, onExportCsv
 
   return (
     <div ref={popRef} className="relative">
-      <button
-        type="button"
+      <Button
+        variant="ghost"
+        size="icon"
         onClick={() => setOpen((v) => !v)}
         aria-label={ariaLabel ?? 'Widget-meny'}
         aria-haspopup="menu"
         aria-expanded={open}
-        className="rounded-md p-1 text-neutral-400 transition-colors hover:bg-neutral-100 hover:text-neutral-700"
+        className="h-6 w-6 rounded-md p-1 text-neutral-400 transition-colors hover:bg-neutral-100 hover:text-neutral-700"
       >
         <MoreHorizontal className="h-4 w-4" aria-hidden />
-      </button>
+      </Button>
       {open ? (
         <div
           role="menu"
           className="absolute right-0 top-full z-30 mt-1 w-40 overflow-hidden rounded-md border border-neutral-200 bg-white shadow-lg"
         >
-          <button
-            type="button"
+          <Button
+            variant="ghost"
             role="menuitem"
             onClick={() => {
               setOpen(false)
               onEdit()
             }}
-            className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-neutral-800 hover:bg-neutral-50"
+            className="flex w-full items-center justify-start gap-2 rounded-none px-3 py-2 text-left text-sm font-normal text-neutral-800 hover:bg-neutral-50"
           >
             <Edit3 className="h-4 w-4 text-neutral-500" aria-hidden />
             Rediger
-          </button>
+          </Button>
           {onDuplicate ? (
-            <button
-              type="button"
+            <Button
+              variant="ghost"
               role="menuitem"
               onClick={() => {
                 setOpen(false)
                 onDuplicate()
               }}
-              className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-neutral-800 hover:bg-neutral-50"
+              className="flex w-full items-center justify-start gap-2 rounded-none px-3 py-2 text-left text-sm font-normal text-neutral-800 hover:bg-neutral-50"
             >
               <Copy className="h-4 w-4 text-neutral-500" aria-hidden />
               Dupliser
-            </button>
+            </Button>
           ) : null}
           {onExportCsv ? (
-            <button
-              type="button"
+            <Button
+              variant="ghost"
               role="menuitem"
               onClick={() => {
                 setOpen(false)
                 onExportCsv()
               }}
-              className="flex w-full items-center gap-2 border-t border-neutral-100 px-3 py-2 text-left text-sm text-neutral-800 hover:bg-neutral-50"
+              className="flex w-full items-center justify-start gap-2 rounded-none border-t border-neutral-100 px-3 py-2 text-left text-sm font-normal text-neutral-800 hover:bg-neutral-50"
             >
               <Download className="h-4 w-4 text-neutral-500" aria-hidden />
               Eksporter CSV
-            </button>
+            </Button>
           ) : null}
           {onRemove ? (
-            <button
-              type="button"
+            <Button
+              variant="ghost"
               role="menuitem"
               onClick={() => {
                 setOpen(false)
                 onRemove()
               }}
-              className="flex w-full items-center gap-2 border-t border-neutral-100 px-3 py-2 text-left text-sm text-red-600 hover:bg-red-50"
+              className="flex w-full items-center justify-start gap-2 rounded-none border-t border-neutral-100 px-3 py-2 text-left text-sm font-normal text-red-600 hover:bg-red-50"
             >
               <Trash2 className="h-4 w-4" aria-hidden />
               Fjern
-            </button>
+            </Button>
           ) : null}
         </div>
       ) : null}

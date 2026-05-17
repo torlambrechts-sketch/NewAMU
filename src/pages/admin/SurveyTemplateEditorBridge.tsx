@@ -7,6 +7,7 @@
 
 import { useEffect } from 'react'
 import { Loader2 } from 'lucide-react'
+import { Button } from '../../components/ui/Button'
 import { useOrgSetupContext } from '../../hooks/useOrgSetupContext'
 import { useSurveyOrgTemplates } from '../../../modules/survey/useSurveyOrgTemplates'
 import { useSurveyCategories } from '../../../modules/survey/useSurveyCategories'
@@ -91,13 +92,9 @@ function NoCreateModal({ onClose }: { onClose: () => void }) {
           en override du kan redigere.
         </p>
         <div className="mt-5 flex justify-end">
-          <button
-            type="button"
-            onClick={onClose}
-            className="rounded-md border border-neutral-300 bg-white px-4 py-2 text-sm font-semibold text-neutral-700 hover:bg-neutral-50"
-          >
+          <Button variant="secondary" onClick={onClose}>
             OK
-          </button>
+          </Button>
         </div>
       </div>
     </div>

@@ -505,6 +505,7 @@ export function WikiSpaceView() {
                     Last opp filer eller legg til eksterne referanser i denne mappen.
                   </p>
                   <div>
+                    {/* eslint-disable-next-line no-restricted-syntax -- hidden native file picker; no primitive exists */}
                     <input id="wiki-space-upload" type="file" className="sr-only" onChange={(e) => void handleUpload(e)} disabled={busy} />
                     <Button type="button" variant="secondary" icon={<Upload className="h-4 w-4" />} disabled={busy} onClick={() => document.getElementById('wiki-space-upload')?.click()}>
                       Last opp fil

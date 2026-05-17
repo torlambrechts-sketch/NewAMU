@@ -16,6 +16,7 @@ import {
   Upload,
 } from 'lucide-react'
 import type { AuditLedgerEntry } from '../../types/documents'
+import { Button } from '../ui/Button'
 
 type Props = {
   pageId: string
@@ -117,13 +118,14 @@ export function DocumentActivityTimeline({
               (entry.action === 'published' || entry.action === 'approved') &&
               entry.fromVersion &&
               entry.fromVersion !== entry.toVersion ? (
-                <button
-                  type="button"
-                  className="mt-1 inline-flex items-center text-[11px] text-[#0f766e] underline"
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="mt-1 inline-flex h-auto items-center rounded-none p-0 text-[11px] font-normal text-[#0f766e] underline hover:bg-transparent"
                   onClick={() => onCompareVersion(entry.fromVersion!)}
                 >
                   Sammenlign v{entry.fromVersion} → v{entry.toVersion}
-                </button>
+                </Button>
               ) : null}
             </div>
           </li>

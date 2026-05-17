@@ -270,17 +270,19 @@ export function LearningCoursesList() {
                   aria-label="Søk i kurs"
                 />
               </div>
-              <div className="flex flex-wrap items-center gap-1">
+              <div className="flex flex-wrap items-center gap-1" role="radiogroup" aria-label="Kursfilter">
                 {filterChips.map((f) => {
                   const active = tab === f.id
                   return (
-                    <button
+                    <Button
                       key={f.id}
-                      type="button"
+                      variant="ghost"
                       onClick={() => setTab(f.id)}
+                      role="radio"
+                      aria-checked={active}
                       className={`inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-medium transition-colors ${
                         active
-                          ? 'bg-[#1a3d32] text-white'
+                          ? 'bg-[#1a3d32] text-white hover:bg-[#1a3d32]'
                           : 'text-neutral-600 hover:bg-neutral-100 hover:text-neutral-900'
                       }`}
                     >
@@ -298,47 +300,49 @@ export function LearningCoursesList() {
                           {f.count}
                         </span>
                       ) : null}
-                    </button>
+                    </Button>
                   )
                 })}
               </div>
               <div
-                role="group"
+                role="radiogroup"
                 aria-label="Visningstype"
                 className="ml-auto inline-flex overflow-hidden rounded-md border border-neutral-200"
               >
-                <button
-                  type="button"
+                <Button
+                  variant="ghost"
                   onClick={() => {
                     setViewMode('kort')
                     saveViewMode('kort')
                   }}
-                  aria-pressed={viewMode === 'kort'}
-                  className={`inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium transition-colors ${
+                  role="radio"
+                  aria-checked={viewMode === 'kort'}
+                  className={`inline-flex items-center gap-1 rounded-none px-2.5 py-1 text-xs font-medium transition-colors ${
                     viewMode === 'kort'
-                      ? 'bg-[#1a3d32] text-white'
+                      ? 'bg-[#1a3d32] text-white hover:bg-[#1a3d32]'
                       : 'bg-white text-neutral-600 hover:bg-neutral-50'
                   }`}
                 >
                   <LayoutGrid className="h-3 w-3" />
                   Kort
-                </button>
-                <button
-                  type="button"
+                </Button>
+                <Button
+                  variant="ghost"
                   onClick={() => {
                     setViewMode('liste')
                     saveViewMode('liste')
                   }}
-                  aria-pressed={viewMode === 'liste'}
-                  className={`inline-flex items-center gap-1 border-l border-neutral-200 px-2.5 py-1 text-xs font-medium transition-colors ${
+                  role="radio"
+                  aria-checked={viewMode === 'liste'}
+                  className={`inline-flex items-center gap-1 rounded-none border-l border-neutral-200 px-2.5 py-1 text-xs font-medium transition-colors ${
                     viewMode === 'liste'
-                      ? 'bg-[#1a3d32] text-white'
+                      ? 'bg-[#1a3d32] text-white hover:bg-[#1a3d32]'
                       : 'bg-white text-neutral-600 hover:bg-neutral-50'
                   }`}
                 >
                   <List className="h-3 w-3" />
                   Liste
-                </button>
+                </Button>
               </div>
             </>
           }
@@ -422,14 +426,16 @@ export function LearningCoursesList() {
                       <GraduationCap className="h-5 w-5" />
                     </div>
                     <div className="flex items-center gap-1.5">
-                      <button
-                        type="button"
+                      <Button
+                        variant="ghost"
+                        size="icon"
                         onClick={() => toggleFavourite(c.id)}
                         aria-label={isFav ? 'Fjern fra favoritter' : 'Legg til favoritter'}
-                        className="rounded p-1 text-neutral-400 transition-colors hover:bg-neutral-100 hover:text-amber-500"
+                        aria-pressed={isFav}
+                        className="h-6 w-6 rounded p-1 text-neutral-400 transition-colors hover:bg-neutral-100 hover:text-amber-500"
                       >
                         <Star className={`h-4 w-4 ${isFav ? 'fill-amber-400 text-amber-500' : ''}`} />
-                      </button>
+                      </Button>
                       <Badge variant={status.variant}>{status.label}</Badge>
                       {c.origin === 'system' ? <Badge variant="neutral">System</Badge> : null}
                     </div>
@@ -662,14 +668,16 @@ function LearningCoursesListView({
             return (
               <tr key={c.id} className="border-t border-neutral-100">
                 <td className="px-3 py-2">
-                  <button
-                    type="button"
+                  <Button
+                    variant="ghost"
+                    size="icon"
                     onClick={() => toggleFavourite(c.id)}
                     aria-label={isFav ? 'Fjern fra favoritter' : 'Legg til favoritter'}
-                    className="rounded p-1 text-neutral-400 hover:bg-neutral-100 hover:text-amber-500"
+                    aria-pressed={isFav}
+                    className="h-6 w-6 rounded p-1 text-neutral-400 hover:bg-neutral-100 hover:text-amber-500"
                   >
                     <Star className={`h-4 w-4 ${isFav ? 'fill-amber-400 text-amber-500' : ''}`} />
-                  </button>
+                  </Button>
                 </td>
                 <td className="px-3 py-2">
                   {unlocked ? (
@@ -726,14 +734,15 @@ function LearningCoursesListView({
                       </Link>
                     ) : null}
                     {canDelete && c.origin !== 'system' ? (
-                      <button
-                        type="button"
+                      <Button
+                        variant="ghost"
+                        size="icon"
                         onClick={() => onDelete(c)}
                         aria-label={`Slett ${c.title}`}
-                        className="inline-flex items-center gap-1 rounded-md border border-neutral-300 px-2 py-1 text-xs text-red-600 hover:bg-red-50"
+                        className="inline-flex h-auto w-auto items-center gap-1 rounded-md border border-neutral-300 px-2 py-1 text-xs text-red-600 hover:bg-red-50"
                       >
                         <Trash2 className="h-3 w-3" />
-                      </button>
+                      </Button>
                     ) : null}
                   </div>
                 </td>
