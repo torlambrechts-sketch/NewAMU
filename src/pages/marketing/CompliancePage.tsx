@@ -1,4 +1,4 @@
-// /compliance — comprehensive coverage of the 9 frameworks, 2 packs, audit story, FAQ.
+// /etterlevelse — comprehensive coverage of the 9 frameworks, 2 packs, audit story, FAQ.
 
 import { Link } from 'react-router-dom'
 import { FRAMEWORKS, PACKS, FAQ } from './content/compliance'
@@ -29,7 +29,7 @@ export function CompliancePage() {
         '@type': 'BreadcrumbList',
         itemListElement: [
           { '@type': 'ListItem', position: 1, name: 'Klarert', item: 'https://app.klarert.com/' },
-          { '@type': 'ListItem', position: 2, name: 'Compliance', item: 'https://app.klarert.com/compliance' },
+          { '@type': 'ListItem', position: 2, name: 'Etterlevelse', item: 'https://app.klarert.com/etterlevelse' },
         ],
       },
     ],
@@ -38,16 +38,16 @@ export function CompliancePage() {
   return (
     <>
       <SeoHead
-        title="Compliance — Klarert | Arbeidsmiljøloven, IK-f, GDPR, ISO 45001, Åpenhetsloven"
-        description={`${FRAMEWORKS.length} rammeverk, ${totalParagraphs}+ paragrafer kartlagt til konkrete moduler. Se hvordan Klarert dekker norsk arbeidsmiljølov, internkontrollforskriften, GDPR og ISO 45001.`}
-        canonical="https://app.klarert.com/compliance"
+        title="Etterlevelse — Klarert | Arbeidsmiljøloven, IK-f, GDPR, ISO 45001, Åpenhetsloven"
+        description={`${FRAMEWORKS.length} rammeverk og ${totalParagraphs}+ paragrafer er kartlagt mot konkrete moduler. Se hvordan Klarert dekker arbeidsmiljøloven, internkontrollforskriften, GDPR og ISO 45001 — ferdig kodet, ikke tilpasset i etterkant.`}
+        canonical="https://app.klarert.com/etterlevelse"
         jsonLd={jsonLd}
       />
 
       <section style={{ background: FOREST }} className="pt-20 pb-16 md:pt-28 md:pb-20">
         <div className="mx-auto max-w-4xl px-4 text-center md:px-8">
           <p className="mb-4 text-xs font-bold uppercase tracking-[0.22em]" style={{ color: TEAL }}>
-            Compliance
+            Etterlevelse
           </p>
           <h1
             className="text-4xl font-bold leading-[1.1] tracking-tight text-white md:text-5xl"
@@ -56,14 +56,14 @@ export function CompliancePage() {
             Bygget på norsk lov, ikke tilpasset etterpå
           </h1>
           <p className="mx-auto mt-6 max-w-2xl text-base leading-relaxed text-white/75 md:text-lg">
-            Hver mal og hvert workflow-skritt i Klarert har en lovreferanse som peker tilbake til kilden.
-            Compliance er ikke en sjekkliste — det er arkitekturen. Her er hva som faktisk dekkes.
+            Hver mal og hvert trinn i arbeidsflyten har en lovreferanse som peker tilbake til kilden.
+            Etterlevelse er ikke en sjekkliste — det er arkitekturen. Her er hva som faktisk dekkes.
           </p>
           <dl className="mx-auto mt-10 grid max-w-2xl grid-cols-3 gap-4">
             {[
               { v: String(FRAMEWORKS.length), l: 'Rammeverk' },
               { v: `${totalParagraphs}+`, l: 'Paragrafer' },
-              { v: '2', l: 'Compliance-pakker' },
+              { v: '2', l: 'Pakker for etterlevelse' },
             ].map((s) => (
               <div key={s.l} className="border-l-2 pl-3 text-left" style={{ borderColor: TEAL }}>
                 <dt className="text-3xl font-bold text-white">{s.v}</dt>
@@ -138,8 +138,8 @@ export function CompliancePage() {
         <div className="mx-auto max-w-6xl px-4 md:px-8">
           <SectionHeader
             eyebrow="Pakker"
-            title="To compliance-pakker, alle modulene"
-            lede="Pakkene oversetter kjente kravsett til konkrete maler og arbeidsflyttrinn. Du kan kjøre én eller begge samtidig."
+            title="To pakker for etterlevelse, alle modulene"
+            lede="Pakkene oversetter kjente kravsett til konkrete maler og trinn i arbeidsflyten. Du kan kjøre én eller begge samtidig."
           />
           <div className="mt-12 grid gap-5 md:grid-cols-2">
             {PACKS.map((p) => (
@@ -178,7 +178,7 @@ export function CompliancePage() {
           <ul className="mt-12 space-y-6">
             {[
               {
-                title: 'Signaturer og audit-spor er førsteklasses',
+                title: 'Signaturer og revisjonsspor er førsteklasses',
                 body: 'Hver statusendring loggføres med tidsstempel og bruker. Sjekklister, sertifikater og dokumenter har full revisjonshistorikk. BankID-signering er på vei (Q1 2026); enkel digital signering er aktiv i dag.',
               },
               {
@@ -211,7 +211,7 @@ export function CompliancePage() {
         <div className="mx-auto max-w-3xl px-4 md:px-8">
           <SectionHeader
             eyebrow="Vanlige spørsmål"
-            title="Spørsmål vi får om compliance"
+            title="Spørsmål vi får om etterlevelse"
           />
           <dl className="mt-12 space-y-5">
             {FAQ.map((entry) => (

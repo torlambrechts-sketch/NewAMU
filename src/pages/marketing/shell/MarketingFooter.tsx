@@ -35,8 +35,8 @@ export function MarketingFooter() {
           <div className="md:col-span-2">
             <KlarertLogo size={22} variant="onLight" />
             <p className="mt-3 max-w-xs text-xs leading-relaxed text-neutral-500">
-              Norsk HMS- og compliance-plattform for virksomheter med 5–500 ansatte.
-              Bygget på arbeidsmiljøloven, internkontrollforskriften og GDPR — ikke tilpasset etterpå.
+              Norsk plattform for HMS, internkontroll og etterlevelse — for virksomheter med
+              5–500 ansatte. Bygget på arbeidsmiljøloven, internkontrollforskriften og GDPR.
             </p>
             <p className="mt-4 text-xs text-neutral-400">
               <span className="font-semibold" style={{ color: TEAL }}>EU-hosting</span> · Supabase Frankfurt + Stockholm
@@ -48,8 +48,8 @@ export function MarketingFooter() {
               <FooterLink key={l.label} {...l} />
             ))}
           </nav>
-          <nav aria-label="Compliance" className="space-y-2">
-            <p className="text-xs font-bold uppercase tracking-wide text-neutral-400">Compliance</p>
+          <nav aria-label="Etterlevelse" className="space-y-2">
+            <p className="text-xs font-bold uppercase tracking-wide text-neutral-400">Etterlevelse</p>
             {FOOTER_COMPLIANCE.map((l) => (
               <FooterLink key={l.label} {...l} />
             ))}

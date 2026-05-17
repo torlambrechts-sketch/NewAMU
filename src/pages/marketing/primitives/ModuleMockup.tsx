@@ -173,7 +173,7 @@ function DokumenterMockup() {
     { title: 'HMS-håndbok', rev: 'Rev. 14', space: 'HMS-prosedyrer', due: 'OK', tone: '#22c55e' },
     { title: 'Brann- og evakueringsplan', rev: 'Rev. 7', space: 'Sikkerhet', due: '30d', tone: '#fbbf24' },
     { title: 'Personvernerklæring ansatte', rev: 'Rev. 4', space: 'GDPR', due: 'OK', tone: '#22c55e' },
-    { title: 'Onboarding ny ansatt', rev: 'Rev. 22', space: 'HR', due: 'Forsinket', tone: '#ef4444' },
+    { title: 'Innføring av nyansatte', rev: 'Rev. 22', space: 'HR', due: 'Forsinket', tone: '#ef4444' },
     { title: 'Innkjøpsrutiner — kjemi', rev: 'Rev. 3', space: 'Internkontroll', due: '60d', tone: '#fbbf24' },
   ]
   return (
@@ -212,7 +212,7 @@ function LaeringMockup() {
     { title: 'HMS-grunnopplæring (40 t)', mandatory: 'Lovpålagt', progress: 100, status: 'Sertifisert — utløp 2027', tone: '#22c55e' },
     { title: 'Brann og evakuering', mandatory: 'Årlig', progress: 100, status: 'Sertifisert — utløp 87 dager', tone: '#fbbf24' },
     { title: 'Førstehjelp', mandatory: 'Hvert 3. år', progress: 64, status: 'Pågående', tone: '#3b82f6' },
-    { title: 'GDPR-bevissthet', mandatory: 'Onboarding', progress: 0, status: 'Ikke startet', tone: '#9ca3af' },
+    { title: 'GDPR-bevissthet', mandatory: 'Ved innføring', progress: 0, status: 'Ikke startet', tone: '#9ca3af' },
   ]
   return (
     <div className="p-4" style={{ background: CREAM }}>

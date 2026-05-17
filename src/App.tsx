@@ -279,16 +279,18 @@ const router = createBrowserRouter(
             <Route path="/auditor/workflows" element={<AuditorWorkflowsPage />} />
             <Route path="/survey-respond/:campaignId" element={<SurveyRespondPage />} />
             <Route path="/r/:token" element={<SharedReportPage />} />
-            {/* Public marketing — landing + per-module feature pages + compliance + integrations + about + endringer + demo. */}
+            {/* Public marketing — landing + per-module feature pages + etterlevelse + integrations + about + endringer + demo. */}
             <Route element={<MarketingShell />}>
               <Route index element={<LandingPage />} />
               <Route path="/features/:slug" element={<FeaturePage />} />
-              <Route path="/compliance" element={<CompliancePage />} />
+              <Route path="/etterlevelse" element={<CompliancePage />} />
               <Route path="/integrasjoner" element={<IntegrationsPage />} />
               <Route path="/om-oss" element={<AboutPage />} />
               <Route path="/endringer" element={<EndringerPage />} />
               <Route path="/demo" element={<DemoPage />} />
             </Route>
+            {/* Legacy /compliance — redirect to /etterlevelse (kept for printed and external links). */}
+            <Route path="/compliance" element={<Navigate to="/etterlevelse" replace />} />
             <Route path="/home" element={<Navigate to="/" replace />} />
             <Route path="/landing" element={<Navigate to="/" replace />} />
 

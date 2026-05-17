@@ -120,14 +120,14 @@ const ROUTES = [
     ),
   },
   {
-    path: '/compliance',
-    title: 'Compliance — Klarert | Arbeidsmiljøloven, IK-f, GDPR, ISO 45001, Åpenhetsloven',
+    path: '/etterlevelse',
+    title: 'Etterlevelse — Klarert | Arbeidsmiljøloven, IK-f, GDPR, ISO 45001, Åpenhetsloven',
     description:
-      '9 rammeverk, 80+ paragrafer kartlagt til konkrete moduler. Se hvordan Klarert dekker norsk arbeidsmiljølov, internkontrollforskriften, GDPR og ISO 45001.',
+      '9 rammeverk og 80+ paragrafer kartlagt mot konkrete moduler. Se hvordan Klarert dekker arbeidsmiljøloven, internkontrollforskriften, GDPR og ISO 45001 — ferdig kodet, ikke tilpasset etterpå.',
     jsonLd: ld([
       breadcrumb([
         { name: 'Klarert', item: `${SITE}/` },
-        { name: 'Compliance', item: `${SITE}/compliance` },
+        { name: 'Etterlevelse', item: `${SITE}/etterlevelse` },
       ]),
     ]),
   },
@@ -145,16 +145,16 @@ const ROUTES = [
   },
   {
     path: '/om-oss',
-    title: 'Om Klarert | Norsk compliance-plattform for HMS og arbeidsmiljø',
+    title: 'Om Klarert | Norsk plattform for HMS, internkontroll og etterlevelse',
     description:
-      'Klarert er bygget for norske virksomheter — av folk som har sittet i AMU-møter. Norsk-først, lovverket innebygd, EU-data. Les hele historien.',
+      'Klarert er bygget for norske virksomheter — av folk som har sittet i AMU-møter. Norsk-først, lovverket innebygd, data i EU. Les hele historien.',
     jsonLd: ld([
       {
         '@type': 'Organization',
         name: 'Klarert',
         url: 'https://klarert.com',
         description:
-          'Norsk HMS- og compliance-plattform bygget på arbeidsmiljøloven og internkontrollforskriften.',
+          'Norsk plattform for HMS, internkontroll og etterlevelse — bygget på arbeidsmiljøloven og internkontrollforskriften.',
         address: { '@type': 'PostalAddress', addressCountry: 'NO' },
         email: 'hei@klarert.com',
       },

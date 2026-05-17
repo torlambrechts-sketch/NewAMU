@@ -1,4 +1,7 @@
 {
+  "redirects": [
+    { "source": "/compliance", "destination": "/etterlevelse", "permanent": true }
+  ],
   "rewrites": [
     {
       "source": "/brreg-api/:path*",

@@ -30,7 +30,7 @@ export function HeroSection() {
             className="text-4xl font-bold leading-[1.1] tracking-tight text-white md:text-5xl lg:text-[4rem]"
             style={{ fontFamily: "'Libre Baskerville', Georgia, serif" }}
           >
-            Norsk compliance,{' '}
+            Norsk etterlevelse,{' '}
             <br className="hidden sm:block" />
             <span style={{ borderBottom: `4px solid ${TEAL}`, paddingBottom: '4px' }}>ferdig kodet</span>
             .
@@ -71,7 +71,7 @@ export function HeroSection() {
         </div>
 
         <div className="mx-auto mt-14 max-w-5xl px-4 md:px-8">
-          <figure aria-label="Skjermbilde av Klarert-dashboardet">
+          <figure aria-label="Skjermbilde av Klarert-dashbordet">
             <BrowserMockup>
               <div className="grid grid-cols-5">
               <div className="col-span-1 space-y-1 border-r p-3" style={{ borderColor: 'rgba(255,255,255,0.08)', background: '#0d2a1c' }}>
@@ -117,7 +117,7 @@ export function HeroSection() {
             </div>
           </BrowserMockup>
             <figcaption className="sr-only">
-              Klarert-dashboardet viser åpne tiltak, varsler og AMU-svarrate på tvers av modulene.
+              Klarert-dashbordet viser åpne tiltak, varsler og AMU-svarrate på tvers av modulene.
             </figcaption>
           </figure>
         </div>

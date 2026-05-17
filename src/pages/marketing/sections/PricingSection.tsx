@@ -30,7 +30,7 @@ const TIERS = [
     name: 'Større virksomhet',
     price: 'Kontakt oss',
     period: '',
-    features: ['Ubegrenset ansatte', 'SSO og tilgangsstyring', 'Onboarding og opplæring', 'Dedikert support'],
+    features: ['Ubegrenset antall ansatte', 'SSO og tilgangsstyring', 'Innføring og opplæring', 'Dedikert kundestøtte'],
     cta: 'Ta kontakt',
     href: 'mailto:hei@klarert.com?subject=Enterprise%20Klarert',
     highlight: false,

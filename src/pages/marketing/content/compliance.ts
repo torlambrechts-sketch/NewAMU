@@ -1,4 +1,4 @@
-// Compliance content — single source of truth for /compliance and the landing teaser.
+// Etterlevelse content — single source of truth for /etterlevelse and the landing teaser.
 // Verified against /supabase/migrations/ and /specs/compliance-planner.md.
 
 import type { FeatureModuleSlug, LawFamily } from './features'
@@ -145,9 +145,9 @@ export type CompliancePack = {
 export const PACKS: CompliancePack[] = [
   {
     id: 'aml-amu',
-    name: 'AML- og internkontroll-pakken',
+    name: 'AML- og internkontrollpakken',
     description:
-      'Standardpakken for norske virksomheter. Inkluderer vernerunder, ROS-maler, AMU-prosesser, sykefraværsoppfølging og dokumentmaler bygget direkte på Arbeidsmiljøloven og Internkontrollforskriften.',
+      'Standardpakken for norske virksomheter. Inkluderer vernerunder, ROS-maler, AMU-prosesser, sykefraværsoppfølging og dokumentmaler bygget direkte på arbeidsmiljøloven og internkontrollforskriften.',
     frameworks: ['Arbeidsmiljøloven', 'Internkontrollforskriften', 'GDPR'],
   },
   {
@@ -165,7 +165,7 @@ export const FAQ: FaqEntry[] = [
   {
     question: 'Hvor mange arbeidsmiljølov-paragrafer dekkes faktisk?',
     answer:
-      'Vi har kartlagt 80+ paragrafer mot konkrete moduler — fra §2-1 (arbeidsgivers plikter) til §18-10 (overtredelsesgebyr). Hver mal og hvert workflow-skritt har en lovreferanse som peker tilbake til kilden.',
+      'Vi har kartlagt over 80 paragrafer mot konkrete moduler — fra §2-1 (arbeidsgivers plikter) til §18-10 (overtredelsesgebyr). Hver mal og hvert trinn i arbeidsflyten har en lovreferanse som peker tilbake til kilden.',
   },
   {
     question: 'Tilfredsstiller Klarert kravene i Internkontrollforskriften §5?',
@@ -185,7 +185,7 @@ export const FAQ: FaqEntry[] = [
   {
     question: 'Hvor lagres dataene?',
     answer:
-      'Klarert kjører på Supabase i EU-region (Frankfurt og Stockholm). All persondata blir værende i EU. Vi bruker Row Level Security som primær tilgangskontroll — applikasjonen kan ikke ved et uhell gi tilgang som den ikke skulle hatt.',
+      'Klarert kjører på Supabase i EU-region (Frankfurt og Stockholm). All persondata blir værende i EU. Vi bruker Row Level Security som primær tilgangskontroll — programvaren kan ikke ved et uhell gi tilgang som den ikke skulle hatt.',
   },
   {
     question: 'Hva skjer hvis loven endres?',

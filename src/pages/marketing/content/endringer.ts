@@ -1,6 +1,6 @@
 // Changelog entries — public-facing "what's new and what changed in the law".
-// Compliance buyers want to see that the system is actively maintained as
-// laws and best practice evolve.
+// Buyers looking for etterlevelse want to see that the system is actively
+// maintained as laws and best practice evolve.
 
 export type ChangeCategory = 'lovendring' | 'ny-funksjon' | 'mal-oppdatering' | 'sikkerhet'
 
@@ -26,7 +26,7 @@ export const CHANGELOG: ChangeEntry[] = [
     category: 'ny-funksjon',
     title: 'Ny landingsside med dedikert dybde per modul',
     summary:
-      'Komplett gjennomgang av offentlig nettside: seks dedikerte funksjonssider, en compliance-oversikt med alle ni rammeverk, veikart for integrasjoner og en endringslogg du leser akkurat nå. Per-rute meta og JSON-LD bakt inn ved bygg.',
+      'Komplett gjennomgang av offentlig nettside: seks dedikerte funksjonssider, en oversikt over etterlevelse med alle ni rammeverk, veikart for integrasjoner og en endringslogg du leser akkurat nå. Per-rute meta og JSON-LD bakt inn ved bygg.',
     modules: ['Plattform'],
   },
   {
@@ -41,9 +41,9 @@ export const CHANGELOG: ChangeEntry[] = [
   {
     date: '2026-03-19',
     category: 'ny-funksjon',
-    title: 'Varsling og GDPR-brudd i samme pipeline',
+    title: 'Varsling og GDPR-brudd i samme flyt',
     summary:
-      'Et samlet system for AML kap. 2A-varsling, GDPR Art. 33-brudd, HMS-hendelser og etiske bekymringer. Anonymitet håndhevet på databasenivå via Row Level Security — koden tillater ikke ved et uhell å logge varsleren.',
+      'Et samlet system for AML kap. 2A-varsling, GDPR Art. 33-brudd, HMS-hendelser og etiske bekymringer. Anonymitet håndhevet på databasenivå via Row Level Security — koden tillater ikke ved et uhell å registrere varsleren.',
     modules: ['Varslinger'],
     lawRef: 'AML §§2A-1 til 2A-7, GDPR Art. 33',
   },
@@ -59,9 +59,9 @@ export const CHANGELOG: ChangeEntry[] = [
   {
     date: '2026-02-04',
     category: 'sikkerhet',
-    title: 'Audit-spor for alle signaturer og statusendringer',
+    title: 'Revisjonsspor for alle signaturer og statusendringer',
     summary:
-      'Hver statusendring på sjekklister, oppgaver og varslingssaker loggføres med tidsstempel og bruker. Audit-loggen kan eksporteres ved tilsyn og kan ikke endres etter at den er skrevet.',
+      'Hver statusendring på sjekklister, oppgaver og varslingssaker loggføres med tidsstempel og bruker. Revisjonsloggen kan eksporteres ved tilsyn og kan ikke endres etter at den er skrevet.',
     modules: ['Plattform', 'Sjekklister', 'Oppgaver'],
   },
   {
@@ -69,7 +69,7 @@ export const CHANGELOG: ChangeEntry[] = [
     category: 'ny-funksjon',
     title: 'Brønnøysund-oppslag under signup',
     summary:
-      'Klarert henter organisasjonsnavn, adresse, NACE-kode, daglig leder og styresammensetning direkte fra Enhetsregisteret under onboarding. Du fyller inn én ting (org.nr.), vi resten.',
+      'Klarert henter organisasjonsnavn, adresse, NACE-kode, daglig leder og styresammensetning direkte fra Enhetsregisteret ved registrering. Du fyller inn én ting (org.nr.), vi resten.',
     modules: ['Plattform'],
   },
   {
@@ -86,7 +86,7 @@ export const CHANGELOG: ChangeEntry[] = [
     category: 'mal-oppdatering',
     title: 'Komplett dekning av Internkontrollforskriften §5',
     summary:
-      'Alle åtte krav i §5 — fra målfastsetting til avviksbehandling og dokumentasjon — har nå et tilsvarende sted i systemet. Dekningsmatrisen på /compliance viser hver paragraf koblet til en modul.',
+      'Alle åtte krav i §5 — fra målfastsetting til avviksbehandling og dokumentasjon — har nå et tilsvarende sted i systemet. Dekningsmatrisen på /etterlevelse viser hver paragraf koblet til en modul.',
     modules: ['Sjekklister', 'Dokumenter', 'Undersøkelser'],
     lawRef: 'IK-f §5',
   },

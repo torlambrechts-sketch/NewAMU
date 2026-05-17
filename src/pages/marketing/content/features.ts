@@ -72,7 +72,7 @@ export const FEATURES: ModuleFeature[] = [
       {
         title: 'Digital signering',
         description:
-          'Tildelt person signerer fullføring; leder signerer kontroll. Audit-spor følger lovkravet om sporbarhet i internkontrollarbeidet.',
+          'Tildelt person signerer fullføring; leder signerer kontroll. Revisjonssporet følger lovkravet om sporbarhet i internkontrollarbeidet.',
       },
       {
         title: 'Tverrgående analyse',
@@ -121,7 +121,7 @@ export const FEATURES: ModuleFeature[] = [
       {
         title: 'Sted og deltakelse',
         description:
-          'Knytt sjekklisten til lokasjon, avdeling og deltakere etter at den er låst. Audit-sporet beholdes; metadata holdes oppdatert.',
+          'Knytt sjekklisten til lokasjon, avdeling og deltakere etter at den er låst. Revisjonssporet beholdes; metadata holdes oppdatert.',
       },
     ],
     standoutTitle: 'Risiko som tall, ikke følelse',
@@ -146,7 +146,7 @@ export const FEATURES: ModuleFeature[] = [
     icon: 'alert',
     eyebrow: 'Modul 3 av 6',
     headline: 'Ett varslingssystem for AML kap. 2A og GDPR Art. 33',
-    lede: 'Anonyme meldinger, personvernbrudd, HMS-hendelser og etiske bekymringer — én pipeline, to lovverk dekket.',
+    lede: 'Anonyme meldinger, personvernbrudd, HMS-hendelser og etiske bekymringer — én flyt, to lovverk dekket.',
     longDescription:
       'Klarerts varslingsmodul forener det som vanligvis er fire separate systemer: AML-varsling (kap. 2A), GDPR-brudd (Art. 33), HMS-hendelser og etiske bekymringer. Anonymitet og taushetsplikt er kodet i databasen — ikke lagt på i etterkant. Identitetsfelt blir uredigerbare etter at saken er lukket, og konfidensielle saker vises bare for autoriserte roller.',
     capabilities: [
@@ -171,9 +171,9 @@ export const FEATURES: ModuleFeature[] = [
           '5 år for AML-saker, minst 5 år for yrkesskade (folketrygdloven), 30 år for kjemikalieeksponering. Sletting håndheves på databasenivå.',
       },
     ],
-    standoutTitle: 'Compliance i arkitekturen, ikke i prosedyren',
+    standoutTitle: 'Etterlevelse i arkitekturen, ikke i prosedyren',
     standoutBody:
-      'Anonymitet i de fleste systemer er en avkrysningsboks i et skjema. I Klarert er det en RLS-policy på tabellen som gjør identitetsfelt ulesbare etter at saken er lukket. Du kan ikke ved et uhell logge varsleren — koden tillater det ikke.',
+      'Anonymitet i de fleste systemer er en avkrysningsboks i et skjema. I Klarert er det en RLS-policy på tabellen som gjør identitetsfelt ulesbare etter at saken er lukket. Du kan ikke ved et uhell registrere varsleren — koden tillater det ikke.',
     lawRefs: [
       { short: 'AML §§2A-1 til 2A-7', full: 'Varsling om kritikkverdige forhold', family: 'AML' },
       { short: 'GDPR Art. 33', full: 'Melding av brudd til tilsynsmyndigheten', family: 'GDPR' },
@@ -193,12 +193,12 @@ export const FEATURES: ModuleFeature[] = [
     headline: 'Wiki, prosedyrer og maler — med revisjonshistorikk',
     lede: 'HMS-håndbok, internkontrolldokumentasjon og prosedyrer som lever videre — versjonert, gjennomgangsdrevet, søkbart.',
     longDescription:
-      'Dokumenter er Klarerts varige kunnskapslag. Hver side hører til et rom (HMS-prosedyrer, Internkontroll, Onboarding) og kan ha juridisk grunnlag, neste gjennomgangsdato og målgruppe som strukturerte felter. Maler styrer hva som må fylles ut, men sidene forblir redigerbare — hver endring blir en ny revisjon, ikke et nytt dokument.',
+      'Dokumenter er Klarerts varige kunnskapslag. Hver side hører til et rom (HMS-prosedyrer, Internkontroll, Innføring) og kan ha juridisk grunnlag, neste gjennomgangsdato og målgruppe som strukturerte felter. Maler styrer hva som må fylles ut, men sidene forblir redigerbare — hver endring blir en ny revisjon, ikke et nytt dokument.',
     capabilities: [
       {
-        title: 'Skjema-drevet forfatting',
+        title: 'Skjemadrevet forfatting',
         description:
-          'Maler kan kreve felter som "neste gjennomgang" eller "juridisk grunnlag". Compliance blir en del av strukturen, ikke en sjekkliste etter at det er skrevet.',
+          'Maler kan kreve felter som «neste gjennomgang» eller «juridisk grunnlag». Etterlevelsen blir en del av strukturen, ikke en sjekkliste i etterkant.',
       },
       {
         title: 'Revisjonshistorikk',
@@ -208,12 +208,12 @@ export const FEATURES: ModuleFeature[] = [
       {
         title: 'Romsbasert tilgang',
         description:
-          'Tilgang per dokumentrom, ikke per side. Verneombudet ser HMS-prosedyrer; leder ser også Internkontroll; HR ser også Onboarding.',
+          'Tilgang per dokumentrom, ikke per side. Verneombudet ser HMS-prosedyrer; leder ser også Internkontroll; HR ser også Innføring.',
       },
       {
         title: 'Frister på gjennomgang',
         description:
-          'Sider får varsel når neste gjennomgang nærmer seg. Forsinket / 30d / 60d / 90d / fremtidig — synlig i dashboardet.',
+          'Sider får varsel når neste gjennomgang nærmer seg. Forsinket / 30d / 60d / 90d / fremtidig — synlig i dashbordet.',
       },
     ],
     standoutTitle: 'Levende dokumenter, varige revisjoner',
@@ -286,7 +286,7 @@ export const FEATURES: ModuleFeature[] = [
       {
         title: 'Malpakker',
         description:
-          'AMU-puls, egenerklæringer fra leverandører (Åpenhetsloven §5), exit-intervjuer, egenkontroller for compliance og kundefokuserte engasjementsmålinger.',
+          'AMU-puls, egenerklæringer fra leverandører (Åpenhetsloven §5), exit-intervjuer, egenkontroller for etterlevelse og kundefokuserte engasjementsmålinger.',
       },
       {
         title: 'Anonym eller identifisert',

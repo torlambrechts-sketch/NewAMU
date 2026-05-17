@@ -6,7 +6,7 @@ import { FRAMEWORKS, frameworkSlug } from './compliance'
 
 export const NAV_LINKS: Array<{ label: string; to: string }> = [
   { label: 'Produkt', to: '/#moduler' },
-  { label: 'Compliance', to: '/compliance' },
+  { label: 'Etterlevelse', to: '/etterlevelse' },
   { label: 'Integrasjoner', to: '/integrasjoner' },
   { label: 'Pris', to: '/#pricing' },
   { label: 'Om oss', to: '/om-oss' },
@@ -18,9 +18,9 @@ export const FOOTER_PRODUCT = FEATURES.map((f) => ({
 }))
 
 export const FOOTER_COMPLIANCE: Array<{ label: string; to: string }> = [
-  { label: 'Full lov-dekning', to: '/compliance' },
+  { label: 'Full lovdekning', to: '/etterlevelse' },
   ...FRAMEWORKS.filter((f) => ['Arbeidsmiljøloven', 'Internkontrollforskriften', 'GDPR', 'ISO 45001', 'Åpenhetsloven'].includes(f.short)).map(
-    (f) => ({ label: f.short, to: `/compliance#${frameworkSlug(f.short)}` }),
+    (f) => ({ label: f.short, to: `/etterlevelse#${frameworkSlug(f.short)}` }),
   ),
 ]
 

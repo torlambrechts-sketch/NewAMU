@@ -1,4 +1,4 @@
-// Compliance teaser on the landing page — links to /compliance for full coverage.
+// Etterlevelse teaser on the landing page — links to /etterlevelse for full coverage.
 
 import { Link } from 'react-router-dom'
 import { FRAMEWORKS } from '../content/compliance'
@@ -11,10 +11,10 @@ export function ComplianceTeaserSection() {
   const totalParagraphs = FRAMEWORKS.reduce((sum, f) => sum + f.paragraphs.length, 0)
 
   return (
-    <section id="compliance-teaser" className="py-20 md:py-28" style={{ background: FOREST }}>
+    <section id="etterlevelse-teaser" className="py-20 md:py-28" style={{ background: FOREST }}>
       <div className="mx-auto max-w-6xl px-4 md:px-8">
         <SectionHeader
-          eyebrow="Compliance"
+          eyebrow="Etterlevelse"
           title="Bygget på norsk lov, ikke tilpasset etterpå"
           lede={`${FRAMEWORKS.length} rammeverk og ${totalParagraphs}+ paragrafer er kartlagt mot konkrete moduler. Hver mal har en lovreferanse som peker tilbake til kilden — så tilsynet får svaret det leter etter.`}
           tone="dark"
@@ -38,7 +38,7 @@ export function ComplianceTeaserSection() {
         </div>
         <div className="mt-10 text-center">
           <Link
-            to="/compliance"
+            to="/etterlevelse"
             className="inline-flex items-center gap-2 rounded-md px-6 py-3 text-sm font-semibold transition hover:opacity-90"
             style={{ background: TEAL, color: FOREST }}
           >

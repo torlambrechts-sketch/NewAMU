@@ -17,7 +17,7 @@ const JSON_LD = {
   name: 'Klarert',
   url: 'https://app.klarert.com',
   description:
-    'Norsk HMS- og compliance-plattform med 6 moduler — oppgaver, sjekklister, varslinger, dokumenter, e-læring og undersøkelser. Bygget på arbeidsmiljøloven og internkontrollforskriften.',
+    'Norsk plattform for HMS, internkontroll og etterlevelse med seks moduler — oppgaver, sjekklister, varslinger, dokumenter, e-læring og undersøkelser. Bygget på arbeidsmiljøloven og internkontrollforskriften.',
   applicationCategory: 'BusinessApplication',
   operatingSystem: 'Web',
   inLanguage: 'nb-NO',
@@ -41,8 +41,8 @@ export function LandingPage() {
   return (
     <>
       <SeoHead
-        title="Klarert — Norsk HMS, compliance og arbeidsmiljø, ferdig kodet"
-        description="HMS-system bygget på arbeidsmiljøloven og internkontrollforskriften. 6 moduler, 9 rammeverk, EU-hosting. Prøv gratis 30 dager."
+        title="Klarert — Norsk HMS- og internkontrollsystem, ferdig kodet"
+        description="HMS-system bygget på arbeidsmiljøloven og internkontrollforskriften. Seks moduler, ni rammeverk dekket, data i EU. Prøv gratis i 30 dager."
         canonical="https://app.klarert.com/"
         jsonLd={JSON_LD}
       />

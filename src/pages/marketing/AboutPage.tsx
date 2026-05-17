@@ -15,11 +15,11 @@ const PRINCIPLES = [
   },
   {
     title: 'Lovverket innebygd',
-    body: 'Hver mal har en lovreferanse. Hver workflow har en hjemmel. Compliance skal være en del av hvordan systemet fungerer — ikke et spørreskjema vi sender deg etterpå.',
+    body: 'Hver mal har en lovreferanse. Hver arbeidsflyt har en hjemmel. Etterlevelse skal være en del av hvordan systemet fungerer — ikke et spørreskjema vi sender deg etterpå.',
   },
   {
     title: 'Ingen mørke mønstre',
-    body: 'Data kan eksporteres når som helst. Avbestillinger gjelder umiddelbart. Vi spør ikke om kortinformasjon for en prøvetest. Tillit er den eneste varige posisjonen i compliance-bransjen.',
+    body: 'Data kan eksporteres når som helst. Oppsigelser gjelder umiddelbart. Vi spør ikke om kortinformasjon for en prøvetest. Tillit er den eneste varige posisjonen for et selskap som lever av etterlevelse.',
   },
   {
     title: 'EU-data, ingen unntak',
@@ -36,7 +36,7 @@ export function AboutPage() {
         name: 'Klarert',
         url: 'https://klarert.com',
         description:
-          'Norsk HMS- og compliance-plattform bygget på arbeidsmiljøloven og internkontrollforskriften.',
+          'Norsk plattform for HMS, internkontroll og etterlevelse — bygget på arbeidsmiljøloven og internkontrollforskriften.',
         address: { '@type': 'PostalAddress', addressCountry: 'NO' },
         email: 'hei@klarert.com',
       },
@@ -53,8 +53,8 @@ export function AboutPage() {
   return (
     <>
       <SeoHead
-        title="Om Klarert | Norsk compliance-plattform for HMS og arbeidsmiljø"
-        description="Klarert er bygget for norske virksomheter — av folk som har sittet i AMU-møter. Norsk-først, lovverket innebygd, EU-data. Les hele historien."
+        title="Om Klarert | Norsk plattform for HMS, internkontroll og etterlevelse"
+        description="Klarert er bygget for norske virksomheter — av folk som har sittet i AMU-møter. Norsk-først, lovverket innebygd, data i EU. Les hele historien."
         canonical="https://app.klarert.com/om-oss"
         jsonLd={jsonLd}
       />
@@ -68,10 +68,10 @@ export function AboutPage() {
             className="text-4xl font-bold leading-[1.1] tracking-tight text-white md:text-5xl"
             style={{ fontFamily: "'Libre Baskerville', Georgia, serif" }}
           >
-            Compliance vi selv ville stolt på
+            Etterlevelse vi selv ville stolt på
           </h1>
           <p className="mx-auto mt-6 max-w-2xl text-base leading-relaxed text-white/75 md:text-lg">
-            Klarert ble til fordi vi var lei av compliance-systemer som har lest om norsk
+            Klarert ble til fordi vi var lei av systemer som hadde lest om norsk
             arbeidsmiljølov, men ikke forstått den. Vi har bygget plattformen vi selv hadde
             ønsket oss tilbake da vi satt på den andre siden av AMU-bordet.
           </p>

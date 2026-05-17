@@ -16,13 +16,13 @@ export function AboutTeaserSection() {
           className="text-center text-3xl font-bold leading-tight tracking-tight md:text-4xl"
           style={{ fontFamily: "'Libre Baskerville', Georgia, serif", color: FOREST }}
         >
-          Vi bygger compliance vi selv ville stolt på
+          Vi bygger etterlevelse vi selv ville stolt på
         </h2>
         <div className="mx-auto mt-8 max-w-2xl space-y-4 text-base leading-relaxed text-neutral-700">
           <p>
             Klarert er bygget for norske virksomheter — av folk som har sittet i AMU-møter,
-            skrevet vernerunde-rapporter for hånd og forklart Arbeidstilsynet hva som mangler.
-            Vi tror compliance ikke skal være en mappestruktur du oppdaterer kvartalsvis.
+            skrevet vernerunderapporter for hånd og forklart Arbeidstilsynet hva som mangler.
+            Vi tror etterlevelse ikke skal være en mappestruktur du oppdaterer kvartalsvis.
             Det skal være en del av hvordan systemet fungerer.
           </p>
           <p>

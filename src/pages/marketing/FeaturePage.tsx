@@ -176,7 +176,7 @@ function FeatureLawCoverage({ feature }: { feature: ModuleFeature }) {
         <SectionHeader
           eyebrow="Hjemmel"
           title="Hvilke lover dette dekker"
-          lede="Hver mal og hvert workflow-skritt i Klarert har en konkret lovreferanse. Når tilsynet spør, har du svaret."
+          lede="Hver mal og hvert trinn i arbeidsflyten har en konkret lovreferanse. Når tilsynet spør, har du svaret."
         />
         <div className="mt-10 flex flex-wrap justify-center gap-3">
           {feature.lawRefs.map((r) => (
@@ -185,7 +185,7 @@ function FeatureLawCoverage({ feature }: { feature: ModuleFeature }) {
         </div>
         <div className="mt-10 text-center">
           <Link
-            to="/compliance"
+            to="/etterlevelse"
             className="inline-flex items-center gap-2 text-sm font-semibold transition-colors hover:opacity-80"
             style={{ color: FOREST }}
           >
