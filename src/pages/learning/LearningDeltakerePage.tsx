@@ -231,22 +231,24 @@ export function LearningDeltakerePage() {
 
   // Liste/Heatmap toggle pill — same shape as catalog Kort/Liste toggle.
   const viewToggle = (
-    <div className="inline-flex rounded-md border border-neutral-200 bg-white p-0.5">
-      <button
-        type="button"
+    <div className="inline-flex rounded-md border border-neutral-200 bg-white p-0.5" role="radiogroup" aria-label="Visningstype">
+      <Button
+        variant="ghost"
         onClick={() => setViewParam('liste')}
-        aria-pressed={view === 'liste'}
+        role="radio"
+        aria-checked={view === 'liste'}
         className={`inline-flex items-center gap-1 rounded px-2.5 py-1 text-xs font-medium transition-colors ${
           view === 'liste' ? 'bg-neutral-100 text-neutral-900' : 'text-neutral-500 hover:text-neutral-800'
         }`}
       >
         <ListIcon className="h-3.5 w-3.5" />
         Liste
-      </button>
-      <button
-        type="button"
+      </Button>
+      <Button
+        variant="ghost"
         onClick={() => heatmapAvailable && setViewParam('heatmap')}
-        aria-pressed={view === 'heatmap'}
+        role="radio"
+        aria-checked={view === 'heatmap'}
         disabled={!heatmapAvailable}
         title={heatmapAvailable ? 'Vis kurs × medarbeidere som heatmap' : 'Heatmap krever lederrolle'}
         className={`inline-flex items-center gap-1 rounded px-2.5 py-1 text-xs font-medium transition-colors ${
@@ -259,7 +261,7 @@ export function LearningDeltakerePage() {
       >
         <LayoutGrid className="h-3.5 w-3.5" />
         Heatmap
-      </button>
+      </Button>
     </div>
   )
 

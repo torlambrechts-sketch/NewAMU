@@ -7,6 +7,7 @@ import { ClipboardList, Edit3, Layers, Pin, Plus } from 'lucide-react'
 import { ModuleSectionCard } from '../../components/module/ModuleSectionCard'
 import { Badge } from '../../components/ui/Badge'
 import { Button } from '../../components/ui/Button'
+import { StandardInput } from '../../components/ui/Input'
 import { SearchableSelect } from '../../components/ui/SearchableSelect'
 import {
   MODULE_TABLE_TH,
@@ -88,10 +89,10 @@ export default function MeetingsScopeMaler() {
             {meetings.orgTemplates.map((t) => (
               <li key={t.id} className="px-5 py-4">
                 <div className="flex flex-wrap items-start justify-between gap-3">
-                  <button
-                    type="button"
+                  <Button
+                    variant="ghost"
                     onClick={() => openEdit(t)}
-                    className="flex min-w-0 flex-1 items-start gap-3 text-left"
+                    className="flex h-auto min-w-0 flex-1 items-start justify-start gap-3 rounded-none p-0 text-left font-normal hover:bg-transparent"
                   >
                     <div className="mt-0.5 shrink-0 rounded-md border border-neutral-200 bg-white p-2">
                       <MeetingFrameworkIcon framework={t.framework} className="h-4 w-4 text-[#1a3d32]" />
@@ -112,7 +113,7 @@ export default function MeetingsScopeMaler() {
                         <p className="mt-1 line-clamp-2 text-xs text-neutral-600">{t.description}</p>
                       ) : null}
                     </div>
-                  </button>
+                  </Button>
                   <Button
                     variant="ghost"
                     type="button"
@@ -194,7 +195,7 @@ export default function MeetingsScopeMaler() {
                       />
                     </td>
                     <td className="px-5 py-4 align-middle text-center">
-                      <input
+                      <StandardInput
                         type="checkbox"
                         checked={enabled}
                         onChange={(e) => void meetings.setTemplateEnabled(t.id, e.target.checked)}
