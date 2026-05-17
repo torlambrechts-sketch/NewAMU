@@ -17,10 +17,12 @@ import { ToggleSwitch } from '../../ui/FormToggles'
 import {
   filtersEqual,
   makeFilter,
+  type DashboardComparisonMode,
   type DashboardDimension,
   type DashboardDimensionOption,
   type DashboardFilter,
   type DashboardFilterOperator,
+  type DashboardFilterPreset,
 } from '../../../lib/dashboards/dashboardFilters'
 
 // Resolve an option id to its display label using the per-dimension
@@ -41,7 +43,25 @@ type Props = {
   filters: DashboardFilter[]
   dimensions: DashboardDimension[]
   onChange: (next: DashboardFilter[]) => void
+  /**
+   * Scope-shipped quick-applies. Each renders as a chip next to the
+   * filter set; clicking replaces the filters atomically.
+   */
+  presets?: DashboardFilterPreset[]
+  onApplyPreset?: (preset: DashboardFilterPreset) => void
+  /**
+   * Comparison mode for the scope. When `onComparisonChange` is set,
+   * a "Sammenlign" dropdown appears on the right side of the bar.
+   */
+  comparison?: DashboardComparisonMode
+  onComparisonChange?: (mode: DashboardComparisonMode) => void
 }
+
+const COMPARISON_OPTIONS: { value: DashboardComparisonMode; label: string }[] = [
+  { value: 'none', label: 'Ingen' },
+  { value: 'previous_period', label: 'Forrige periode' },
+  { value: 'previous_year', label: 'Forrige år' },
+]
 
 const OPERATOR_LABEL: Record<DashboardFilterOperator, string> = {
   is: 'er',
@@ -55,7 +75,15 @@ const OPERATOR_LABEL: Record<DashboardFilterOperator, string> = {
 export { FilterChip as DashboardFilterChip }
 export { FilterEditPopover as DashboardFilterEditPopover }
 
-export function DashboardFilterBar({ filters, dimensions, onChange }: Props) {
+export function DashboardFilterBar({
+  filters,
+  dimensions,
+  onChange,
+  presets,
+  onApplyPreset,
+  comparison,
+  onComparisonChange,
+}: Props) {
   const [pickerOpen, setPickerOpen] = useState(false)
   const [editing, setEditing] = useState<{ filter: DashboardFilter } | null>(null)
   // Per-dimension option cache so chips can render labels instead of
@@ -115,11 +143,42 @@ export function DashboardFilterBar({ filters, dimensions, onChange }: Props) {
           variant="ghost"
           size="sm"
           onClick={() => setPickerOpen(true)}
-          className="inline-flex items-center gap-1.5 rounded-md border border-dashed border-neutral-300 px-2 py-1 text-xs font-medium text-neutral-600 transition-colors hover:border-neutral-400 hover:text-neutral-800"
+          className="inline-flex items-center gap-1.5 rounded-md border border-dashed border-neutral-300 px-2 py-1 text-xs font-medium text-neutral-700 transition-colors hover:border-neutral-400 hover:text-neutral-900"
         >
           <Filter className="h-3.5 w-3.5" aria-hidden />
           + Filter
         </Button>
+
+        {/* Preset chips — scope-shipped quick-applies (e.g. "Psykososial",
+            "Røde risikoer"). Render after +Filter so they read as a
+            secondary affordance, not a third filter style. */}
+        {presets && presets.length > 0 && onApplyPreset ? (
+          <>
+            <span className="text-xs text-neutral-400" aria-hidden>·</span>
+            {presets.map((p) => {
+              const active =
+                comparison === (p.comparison ?? 'none') &&
+                filtersEqual(p.filters, filters)
+              return (
+                <Button
+                  key={p.id}
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => onApplyPreset(p)}
+                  title={p.description}
+                  className={
+                    'inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium transition-colors ' +
+                    (active
+                      ? 'border-[#1a3d32] bg-[#1a3d32] text-white hover:bg-[#1a3d32]'
+                      : 'border-neutral-300 bg-white text-neutral-900 hover:bg-neutral-50')
+                  }
+                >
+                  {p.label}
+                </Button>
+              )
+            })}
+          </>
+        ) : null}
 
         {filters.length === 0 ? (
           <span className="text-xs text-neutral-500">Ingen filtre — viser alle data.</span>
@@ -139,16 +198,36 @@ export function DashboardFilterBar({ filters, dimensions, onChange }: Props) {
                 />
               )
             })}
+          </>
+        )}
+
+        {/* Right-side controls — Sammenlign + Fjern alle. `ml-auto`
+            anchors the cluster to the right edge of the wrapping flex
+            row, just like the dashboard mockup. */}
+        <div className="ml-auto flex flex-wrap items-center gap-3">
+          {onComparisonChange ? (
+            <div className="inline-flex items-center gap-1.5 text-xs text-neutral-700">
+              <span className="font-medium text-neutral-600">Sammenlign:</span>
+              <div className="min-w-[10rem]">
+                <SearchableSelect
+                  value={comparison ?? 'none'}
+                  onChange={(v) => onComparisonChange(v as DashboardComparisonMode)}
+                  options={COMPARISON_OPTIONS.map((o) => ({ value: o.value, label: o.label }))}
+                />
+              </div>
+            </div>
+          ) : null}
+          {filters.length > 0 ? (
             <Button
               variant="ghost"
               size="sm"
               onClick={() => onChange([])}
-              className="ml-auto rounded-none px-0 text-xs font-medium text-neutral-500 underline-offset-2 hover:bg-transparent hover:text-neutral-800 hover:underline"
+              className="rounded-none px-0 text-xs font-medium text-neutral-600 underline-offset-2 hover:bg-transparent hover:text-neutral-900 hover:underline"
             >
               Fjern alle
             </Button>
-          </>
-        )}
+          ) : null}
+        </div>
       </div>
 
       {pickerOpen ? (

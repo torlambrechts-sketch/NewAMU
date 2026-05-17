@@ -190,8 +190,8 @@ export function HmsOverviewPage() {
   // ignores chips it doesn't understand.
   const riskRows = useRiskDashboardRows()
   const riskDs = useMemo(
-    () => buildRiskDatasets(riskRows.rows, dashboard.filters),
-    [riskRows.rows, dashboard.filters],
+    () => buildRiskDatasets(riskRows.rows, dashboard.filters, dashboard.comparison),
+    [riskRows.rows, dashboard.filters, dashboard.comparison],
   )
 
   // Merge — keys are scope-namespaced so collisions are impossible.

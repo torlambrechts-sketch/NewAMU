@@ -30,6 +30,7 @@ import {
   type DatasetMeta,
   type WidgetCatalogEntry,
 } from '../../../src/lib/dashboards/dashboardRegistry'
+import { makeFilter, type DashboardFilterPreset } from '../../../src/lib/dashboards/dashboardFilters'
 
 export const RISK_DASHBOARD_SCOPE_ID = 'risk'
 
@@ -55,17 +56,27 @@ const DATASETS: DatasetMeta[] = [
 ]
 
 // ── KPI widgets ──────────────────────────────────────────────────────────
+//
+// Each risk KPI declares the comparison dataset key + path so the
+// widget renderer can show a delta when the user picks "Sammenlign:
+// Forrige periode" (or "Forrige år"). When comparison is off,
+// useRiskDatasets emits an empty `risk_kpi_summary_prev` object and
+// the delta chip simply doesn't render.
 
 const KPI_OPEN: ReportModuleKpi = {
   id: 'kpi-risks-open', kind: 'kpi',
   datasetKey: 'risk_kpi_summary', title: 'Aktive risikoer',
   valuePath: 'openRisks', subtitle: 'Identifiserte, ikke lukket', colSpan: 'sm',
+  comparisonDatasetKey: 'risk_kpi_summary_prev', comparisonValuePath: 'openRisks',
+  comparisonLabel: 'vs. forrige periode',
 }
 const KPI_RED: ReportModuleKpi = {
   id: 'kpi-risks-red', kind: 'kpi',
   datasetKey: 'risk_kpi_summary', title: 'Røde risikoer (13–25)',
   valuePath: 'redBand', subtitle: 'Uakseptabel restrisiko',
   comparisonGoal: 'decrease', colSpan: 'sm',
+  comparisonDatasetKey: 'risk_kpi_summary_prev', comparisonValuePath: 'redBand',
+  comparisonLabel: 'vs. forrige periode',
 }
 const KPI_RESIDUAL_UNJUSTIFIED: ReportModuleKpi = {
   id: 'kpi-residual-unjustified', kind: 'kpi',
@@ -73,6 +84,8 @@ const KPI_RESIDUAL_UNJUSTIFIED: ReportModuleKpi = {
   valuePath: 'residualUnjustified',
   subtitle: 'Arbeidstilsynet-flagg — IK-f § 5 nr. 6',
   comparisonGoal: 'decrease', colSpan: 'sm',
+  comparisonDatasetKey: 'risk_kpi_summary_prev', comparisonValuePath: 'residualUnjustified',
+  comparisonLabel: 'vs. forrige periode',
 }
 const KPI_STALE: ReportModuleKpi = {
   id: 'kpi-ageing-stale', kind: 'kpi',
@@ -80,18 +93,24 @@ const KPI_STALE: ReportModuleKpi = {
   valuePath: 'staleOver12m',
   subtitle: 'ISO 45001 2026 — unngå statisk register',
   comparisonGoal: 'decrease', colSpan: 'sm',
+  comparisonDatasetKey: 'risk_kpi_summary_prev', comparisonValuePath: 'staleOver12m',
+  comparisonLabel: 'vs. forrige periode',
 }
 const KPI_PSYCHOSOCIAL: ReportModuleKpi = {
   id: 'kpi-psychosocial-open', kind: 'kpi',
   datasetKey: 'risk_kpi_summary', title: 'Psykososial — åpne',
   valuePath: 'psychosocialOpen',
   subtitle: 'AML § 4-3', colSpan: 'sm',
+  comparisonDatasetKey: 'risk_kpi_summary_prev', comparisonValuePath: 'psychosocialOpen',
+  comparisonLabel: 'vs. forrige periode',
 }
 const KPI_CRITICAL_AVVIK_LINKED: ReportModuleKpi = {
   id: 'kpi-critical-avvik-linked', kind: 'kpi',
   datasetKey: 'risk_kpi_summary', title: 'Røde med åpent avvik',
   valuePath: 'criticalAvvikLinked',
   subtitle: 'Risiko → handlingsplan', colSpan: 'sm',
+  comparisonDatasetKey: 'risk_kpi_summary_prev', comparisonValuePath: 'criticalAvvikLinked',
+  comparisonLabel: 'vs. forrige periode',
 }
 
 // ── Heatmap / scorecard widgets ──────────────────────────────────────────
@@ -252,6 +271,47 @@ const WIDGET_CATALOG: WidgetCatalogEntry[] = [
   { catalogId: 'line-time-to-mitigation', category: 'Trender', label: 'Tid til tiltak (median)', template: LINE_TIME_TO_MITIGATION },
 ]
 
+// ── Scope-shipped presets (quick-filter chips) ──────────────────────────
+//
+// Each preset replaces the active filter set atomically. Hooked into the
+// engine via the `presets` field on the registered scope; the filter bar
+// renders them as small chips next to "+ Filter".
+//
+// `freshId()`-suffixed chip ids are not stable across renders, but
+// `filtersEqual` compares on dimensionId + operator + value, not id —
+// so the "active" state of the preset chip resolves correctly even
+// when the filters were applied earlier and re-loaded from the DB.
+export const RISK_PRESETS: DashboardFilterPreset[] = [
+  {
+    id: 'preset-red-risks',
+    label: 'Røde risikoer',
+    description: 'Bare risikoer i uakseptabelt bånd (13–25).',
+    filters: [makeFilter('residualBand', 'is', 'red')],
+  },
+  {
+    id: 'preset-psykososial',
+    label: 'Psykososial',
+    description: 'Psykososialt arbeidsmiljø (AML § 4-3).',
+    filters: [makeFilter('hazardCategory', 'is', 'psychosocial')],
+  },
+  {
+    id: 'preset-verneombud',
+    label: 'Verneombud',
+    description: 'Bilde for verneombud — psykososial + åpne risikoer.',
+    filters: [
+      makeFilter('hazardCategory', 'in', ['psychosocial', 'ergonomic', 'physical']),
+      makeFilter('status', 'in', ['open', 'in_progress']),
+    ],
+  },
+  {
+    id: 'preset-styret',
+    label: 'Styret',
+    description: 'Topp-presentert bilde for styret — kun røde.',
+    filters: [makeFilter('residualBand', 'is', 'red')],
+    comparison: 'previous_period',
+  },
+]
+
 registerDashboardScope({
   scopeId: RISK_DASHBOARD_SCOPE_ID,
   label: 'Risiko',
@@ -259,4 +319,9 @@ registerDashboardScope({
   widgetCatalog: WIDGET_CATALOG,
   datasets: DATASETS,
   accent: '#b91c1c',
+  presets: RISK_PRESETS,
+  // Risiko-modulen er først ute med tverrgående sammenligning.
+  // useRiskDatasets bygger `risk_kpi_summary_prev` når dashboard.comparison
+  // != 'none', og risiko-KPI-widgetene refererer den via comparisonDatasetKey.
+  supportsComparison: true,
 })

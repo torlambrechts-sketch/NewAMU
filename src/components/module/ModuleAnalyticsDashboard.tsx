@@ -25,8 +25,10 @@ import {
 } from '../reports/ReportModuleWidget'
 import { DashboardFilterBar } from './dashboard/DashboardFilterBar'
 import type {
+  DashboardComparisonMode,
   DashboardDimension,
   DashboardFilter,
+  DashboardFilterPreset,
 } from '../../lib/dashboards/dashboardFilters'
 import { summariseFilters } from '../../lib/dashboards/summariseFilters'
 import type { ReportModule } from '../../types/reportBuilder'
@@ -79,6 +81,21 @@ export interface ModuleAnalyticsDashboardProps {
   filters?: DashboardFilter[]
   dimensions?: DashboardDimension[]
   onFiltersChange?: (next: DashboardFilter[]) => void
+  /**
+   * Scope-shipped preset chips rendered next to the filter chips.
+   * When `onApplyPreset` is set the preset's filters (and comparison
+   * mode) replace the active state.
+   */
+  presets?: DashboardFilterPreset[]
+  onApplyPreset?: (preset: DashboardFilterPreset) => void
+  /**
+   * Comparison mode + change handler. The built-in filter bar
+   * renders the "Sammenlign" dropdown only when `onComparisonChange`
+   * is set, so scopes that haven't wired comparison in their dataset
+   * hook simply omit the prop and the affordance disappears.
+   */
+  comparison?: DashboardComparisonMode
+  onComparisonChange?: (next: DashboardComparisonMode) => void
   /** Per-widget control slot (rendered top-right of each widget shell). */
   widgetControlSlot?: WidgetControlSlot
   /**
@@ -151,6 +168,10 @@ export function ModuleAnalyticsDashboard({
   filters,
   dimensions,
   onFiltersChange,
+  presets,
+  onApplyPreset,
+  comparison,
+  onComparisonChange,
   widgetControlSlot,
   titleChooser,
   onDrillDown,
@@ -176,12 +197,18 @@ export function ModuleAnalyticsDashboard({
   // active filters as removable chips, "Fjern alle" affordance). Pages
   // that need the legacy wall-of-dropdowns layout can pass a custom
   // `filterBar` slot using `DashboardScorecardFilterBar` directly.
+  const effectiveOnApplyPreset = readOnly ? undefined : onApplyPreset
+  const effectiveOnComparisonChange = readOnly ? undefined : onComparisonChange
   const builtInFilterBar =
     !filterBar && dimensions && dimensions.length > 0 && filters && effectiveOnFiltersChange ? (
       <DashboardFilterBar
         filters={filters}
         dimensions={dimensions}
         onChange={effectiveOnFiltersChange}
+        presets={presets}
+        onApplyPreset={effectiveOnApplyPreset}
+        comparison={comparison}
+        onComparisonChange={effectiveOnComparisonChange}
       />
     ) : null
   const showActions = Boolean(effectiveOnEdit || effectiveOnAddWidget)

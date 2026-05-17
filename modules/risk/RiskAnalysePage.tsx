@@ -91,8 +91,8 @@ export function RiskAnalysePage() {
   )
 
   const datasets = useMemo(
-    () => buildRiskDatasets(rows, dashboard.filters),
-    [rows, dashboard.filters],
+    () => buildRiskDatasets(rows, dashboard.filters, dashboard.comparison),
+    [rows, dashboard.filters, dashboard.comparison],
   )
 
   const layout = useMemo(
@@ -303,6 +303,10 @@ export function RiskAnalysePage() {
         dimensions={dimensions}
         filters={dashboard.filters}
         onFiltersChange={(f) => { void dashboard.saveFilters(f) }}
+        presets={getDashboardScope(RISK_DASHBOARD_SCOPE_ID)?.presets}
+        onApplyPreset={(p) => { void dashboard.applyPreset(p) }}
+        comparison={dashboard.comparison}
+        onComparisonChange={(m) => { void dashboard.saveComparison(m) }}
         onDrillDown={handleDrill}
         // ^ heatmap cells are NOT clickable yet (engine gap — the heatmap
         //   renderer doesn't pass onDrillDown to HeatmapMini). Bar / donut

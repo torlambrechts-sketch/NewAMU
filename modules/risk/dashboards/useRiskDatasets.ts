@@ -555,9 +555,69 @@ export function foldSourcesToRows(input: Omit<RiskDatasetsInput, 'filters'>): Un
 
 // ── Row → dataset map (shared by both P1 and P2 paths) ──────────────────
 
+// ── Comparison support ──────────────────────────────────────────────────
+//
+// When `comparison` is 'previous_period' / 'previous_year', we compute
+// a parallel KPI summary on rows as they were at the previous time
+// boundary, and emit it under `risk_kpi_summary_prev`. Risk KPI widgets
+// reference this via `comparisonDatasetKey`. Other widget kinds aren't
+// wired for comparison yet — adding them is per-widget opt-in.
+
+type ComparisonMode = 'none' | 'previous_period' | 'previous_year'
+
+function shiftDate(d: Date, mode: ComparisonMode): Date {
+  const out = new Date(d.getTime())
+  if (mode === 'previous_period') out.setMonth(out.getMonth() - 1)
+  else if (mode === 'previous_year') out.setFullYear(out.getFullYear() - 1)
+  return out
+}
+
+/**
+ * Re-evaluate the row set as if "now" were a comparison-period ago.
+ * A row was "open" at time T if it was created before T and not
+ * closed before T. Approximate — sources without a closed_at history
+ * just compare on createdAt.
+ */
+function rowsAtPriorTime(rows: UnifiedRiskRow[], priorTimeMs: number): UnifiedRiskRow[] {
+  return rows
+    .filter((r) => new Date(r.createdAt).getTime() <= priorTimeMs)
+    .map((r) => {
+      const closedMs = r.closedAt ? new Date(r.closedAt).getTime() : null
+      const wasOpen = closedMs == null || closedMs > priorTimeMs
+      if (wasOpen === r.isOpen) return r
+      return { ...r, isOpen: wasOpen, status: wasOpen ? ('open' as const) : r.status }
+    })
+}
+
+function summariseKpis(rows: UnifiedRiskRow[]): Record<string, number> {
+  const nowMs = new Date().getTime()
+  const STALE_MS = 365 * 86400_000
+  const openRows = rows.filter((r) => r.isOpen)
+  const redRows = rows.filter((r) => r.band === 'red')
+  const residualUnjustified = redRows.filter((r) => !r.hasResidualJustification && r.isOpen).length
+  const staleOver12m = openRows.filter((r) => nowMs - new Date(r.lastReviewedAt).getTime() > STALE_MS).length
+  const psychosocialOpen = openRows.filter((r) => r.isPsychosocial).length
+  const criticalAvvikLinked = redRows.filter((r) => r.hasOpenAction && r.isOpen).length
+  return {
+    openRisks: openRows.length,
+    redBand: redRows.filter((r) => r.isOpen).length,
+    yellowBand: openRows.filter((r) => r.band === 'yellow').length,
+    greenBand: openRows.filter((r) => r.band === 'green').length,
+    residualUnjustified,
+    staleOver12m,
+    avgScore:
+      openRows.length === 0
+        ? 0
+        : Math.round((openRows.reduce((s, r) => s + r.riskScore, 0) / openRows.length) * 10) / 10,
+    psychosocialOpen,
+    criticalAvvikLinked,
+  }
+}
+
 export function buildRiskDatasets(
   rowsRaw: UnifiedRiskRow[],
   filters: DashboardFilter[],
+  comparison: ComparisonMode = 'none',
 ): Record<string, unknown> {
     const sel = buildSelectors(filters)
     const rows = applyFilters(rowsRaw, sel)
@@ -755,8 +815,20 @@ export function buildRiskDatasets(
       rows: bowtieRows,
     }]
 
+    // Comparison series (P3) — re-run the KPI summariser on rows
+    // rewound to the previous period. Empty record when comparison
+    // is off, so widgets reading `risk_kpi_summary_prev.*` simply
+    // get no comparison number and render without the delta.
+    let kpiSummaryPrev: Record<string, number> = {}
+    if (comparison !== 'none') {
+      const priorMs = shiftDate(new Date(), comparison).getTime()
+      const priorRows = rowsAtPriorTime(rows, priorMs)
+      kpiSummaryPrev = summariseKpis(priorRows)
+    }
+
     return {
       risk_kpi_summary: kpiSummary,
+      risk_kpi_summary_prev: kpiSummaryPrev,
       risk_matrix_cells: buildMatrixCells(openRows),
       risk_top10_scorecard: top10,
       risk_bowtie_top: bowtieTop,
