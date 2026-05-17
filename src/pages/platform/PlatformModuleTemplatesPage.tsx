@@ -440,7 +440,7 @@ export function PlatformModuleTemplatesPage() {
                     Antall regler i utkastet: <strong>{draft.workflowRules.length}</strong>
                   </p>
                   <Link
-                    to={`/workflow?source_module=${encodeURIComponent(draft.id)}`}
+                    to={`/workflow?source_module=${encodeURIComponent(draft.moduleKey)}`}
                     className={BTN_PRIMARY}
                   >
                     <Zap className="size-3.5" />

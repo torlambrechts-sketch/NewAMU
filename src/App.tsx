@@ -20,8 +20,6 @@ import { AuthPage } from './pages/AuthPage'
 import { InviteAcceptPage } from './pages/InviteAcceptPage'
 import { ProfilePage } from './pages/ProfilePage'
 import { SharedReportPage } from './pages/public/SharedReportPage'
-import { WorkflowModulePage } from './pages/WorkflowModulePage'
-import { WorkflowPage } from './pages/WorkflowPage'
 import { WorkflowBuilderPage } from './pages/workflow/WorkflowBuilderPage'
 import { AuditorWorkflowsPage } from './pages/auditor/AuditorWorkflowsPage'
 import { GovIntegrationsPage } from './pages/admin/integrations/GovIntegrationsPage'
@@ -514,8 +512,8 @@ const router = createBrowserRouter(
                       <Route path="prosesser" element={<Navigate to="/workflow" replace />} />
                       <Route path="workflow" element={<WorkflowBuilderPage />} />
                       <Route path="workflow/v3" element={<Navigate to="/workflow" replace />} />
-                      <Route path="workflow/klassisk" element={<WorkflowPage />} />
-                      <Route path="workflow/admin" element={<WorkflowModulePage />} />
+                      <Route path="workflow/klassisk" element={<Navigate to="/workflow" replace />} />
+                      <Route path="workflow/admin" element={<Navigate to="/workflow" replace />} />
                       <Route path="workflow/:ruleId" element={<WorkflowEditorRoute />} />
                       <Route path="admin/integrasjoner-staten" element={<GovIntegrationsPage />} />
                       <Route element={<DocumentsModuleShellLayout />}>

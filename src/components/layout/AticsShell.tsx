@@ -1108,11 +1108,12 @@ export function AticsShell() {
       },
     ]
     // Arbeidsflyt subs deep-link to the real WorkflowBuilderPage tabs at
-    // /workflow?tab=… and /workflow/admin. The earlier
-    // /admin/settings/workflows/* registry scope was 5 placeholder cards
-    // sitting in front of the working builder — same anti-pattern we
-    // removed for Organisasjon. Match the builder's own tab IDs:
-    // rules / library / runs / approvals / evidence + the admin route.
+    // /workflow?tab=… . The earlier /admin/settings/workflows/* registry
+    // scope was 5 placeholder cards sitting in front of the working
+    // builder — same anti-pattern we removed for Organisasjon. The old
+    // /workflow/admin sub was retired together with WorkflowModulePage.
+    // Match the builder's own tab IDs: rules / library / runs /
+    // approvals / evidence.
     const matchWorkflowTab = (tab: string) =>
       ({ pathname, search }: { pathname: string; search: string }) => {
         if (pathname !== '/workflow') return false
@@ -1211,13 +1212,6 @@ export function AticsShell() {
         Icon: ShieldCheck,
         match: matchWorkflowTab('evidence'),
         requirePermAny: WORKFLOWS_NAV_PERMS,
-      },
-      {
-        label: 'Innstillinger',
-        path: '/workflow/admin',
-        Icon: Settings,
-        match: ({ pathname }) => pathname.startsWith('/workflow/admin'),
-        requirePerm: 'workflows.manage',
       },
     ]
     const settingsSubs: SubItem[] = [

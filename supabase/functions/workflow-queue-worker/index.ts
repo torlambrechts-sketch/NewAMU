@@ -60,7 +60,12 @@ type QueueRow = {
   config_json: Record<string, unknown> | null
   context_json: Record<string, unknown> | null
   attempt_count: number
+  depth: number | null
+  on_error_actions: unknown
+  parent_queue_id: string | null
 }
+
+const DEPTH_CAP = 5
 
 const GOV_TO_FN: Record<string, string> = {
   rapporter_alvorlig_skade_arbeidstilsynet: 'gov-arbeidstilsynet-rapport',
@@ -169,9 +174,18 @@ async function dispatchRow(
     ({ ...(row.config_json ?? {}), ...(row.context_json ?? {}) } as Record<string, unknown>)
 
   // wait_until: nothing to do — the delay already elapsed when we picked
-  // this row (execute_after <= now). Just mark done.
-  if (effectiveType === 'wait_until' || effectiveType === 'on_error' || effectiveType === 'log_only') {
+  // this row (execute_after <= now). Just mark done. Same for log_only.
+  if (effectiveType === 'wait_until' || effectiveType === 'log_only') {
     return { ok: true }
+  }
+
+  // on_error is a *child* of another action — it should be hoisted onto
+  // the parent row's on_error_actions column by workflow_execute_actions
+  // and only ever re-enqueued by workflow_enqueue_on_error_actions when
+  // the parent fails. Seeing one queued directly means somebody routed
+  // around the dispatcher; fail loudly so the bug surfaces.
+  if (effectiveType === 'on_error') {
+    return { ok: false, error: 'on_error_should_not_be_queued_directly' }
   }
 
   // Notifications (email + in-app) land in compliance_notifications so
@@ -277,6 +291,25 @@ Deno.serve(async (req) => {
   const results: Array<{ id: string; ok: boolean; error?: string; recipients?: number }> = []
 
   for (const row of queue) {
+    // Depth cap: reject rows that reached the cap *before* dispatching.
+    // The RPC writes a workflow_runs row (status=skipped,
+    // reason=WORKFLOW_DEPTH_EXCEEDED) and marks the queue row failed.
+    // No descendants get enqueued — on_error siblings are also skipped.
+    const rowDepth = typeof row.depth === 'number' ? row.depth : 0
+    if (rowDepth >= DEPTH_CAP) {
+      const { error: depthErr } = await supabase.rpc('workflow_record_depth_exceeded', {
+        p_queue_id: row.id,
+      })
+      results.push({
+        id: row.id,
+        ok: false,
+        error: depthErr
+          ? `depth_record_failed:${depthErr.message}`
+          : `WORKFLOW_DEPTH_EXCEEDED:depth=${rowDepth}`,
+      })
+      continue
+    }
+
     let result: { ok: boolean; error?: string; recipients?: number }
     try {
       result = await dispatchRow(supabase, row, SUPABASE_URL, SERVICE_ROLE)
@@ -301,6 +334,29 @@ Deno.serve(async (req) => {
           execute_after: giveUp ? null : new Date(Date.now() + backoffSeconds * 1000).toISOString(),
         })
         .eq('id', row.id)
+
+      // Terminal failure: enqueue the row's on_error siblings transactionally.
+      // The RPC inherits org/rule/depth+1 from the parent and dedupes by
+      // sha256(parent_id|index|type|on_error) so a worker double-tick can't
+      // double-enqueue. We log the result count but never block on it —
+      // a missing onError list is the common case.
+      if (giveUp && Array.isArray(row.on_error_actions) && row.on_error_actions.length > 0) {
+        const { error: onErrErr } = await supabase.rpc('workflow_enqueue_on_error_actions', {
+          p_parent_id: row.id,
+          p_on_error: row.on_error_actions,
+        })
+        if (onErrErr) {
+          // Stash the on_error failure on the parent so ops can correlate.
+          await supabase
+            .from('workflow_action_queue')
+            .update({
+              last_error:
+                (result.error?.slice(0, 800) ?? 'failed') +
+                ` | on_error_enqueue_failed:${onErrErr.message.slice(0, 200)}`,
+            })
+            .eq('id', row.id)
+        }
+      }
     }
     results.push({ id: row.id, ...result })
   }

@@ -9,7 +9,7 @@
 // tab shows the actual installed workflow_rules — the rows that
 // actually run when their triggers fire.
 
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import {
   CheckCircle2,
   FileWarning,
@@ -20,6 +20,7 @@ import {
   ShieldAlert,
   Trash2,
 } from 'lucide-react'
+import { useSearchParams } from 'react-router-dom'
 import { useWorkflows } from '../../../hooks/useWorkflows'
 import { isGovernmentActionType } from '../../../types/workflow'
 import type { WorkflowAction, WorkflowRuleRow, WorkflowXorActionsEnvelope } from '../../../types/workflow'
@@ -51,9 +52,20 @@ export function RulesPanel({
 }) {
   const { rules, loading, error, setRuleActive, deleteRule, canCompose, canActivate, canActivateExternal } =
     useWorkflows()
-  const [scopeFilter, setScopeFilter] = useState<string>('all')
+  const [searchParams] = useSearchParams()
+  const initialScope = searchParams.get('source_module') ?? 'all'
+  const [scopeFilter, setScopeFilter] = useState<string>(initialScope)
   const [search, setSearch] = useState('')
   const [showOnlyActive, setShowOnlyActive] = useState(false)
+
+  // Mirror the source_module query param if it changes (e.g. another
+  // deep-link arrives without a fresh mount).
+  useEffect(() => {
+    const next = searchParams.get('source_module')
+    if (next && next !== scopeFilter) setScopeFilter(next)
+    // intentionally exhaustive-deps-disabled: only react to the URL param
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams])
 
   const scopes = listWorkflowScopes()
 

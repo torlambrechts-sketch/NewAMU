@@ -24,7 +24,7 @@ import {
   ShieldCheck,
   Workflow,
 } from 'lucide-react'
-import { useNavigate, useSearchParams } from 'react-router-dom'
+import { useSearchParams } from 'react-router-dom'
 import { ModulePageShell } from '../../components/module/ModulePageShell'
 import { ModuleLegalBanner } from '../../components/module/ModuleLegalBanner'
 import { LayoutScoreStatRow } from '../../components/layout/LayoutScoreStatRow'
@@ -94,7 +94,6 @@ export function WorkflowBuilderPage() {
     [setSearchParams],
   )
   const [newRuleOpen, setNewRuleOpen] = useState(false)
-  const navigate = useNavigate()
   const { rules, runs } = useWorkflows()
   const { approvals } = useWorkflowApprovals()
 
@@ -120,9 +119,11 @@ export function WorkflowBuilderPage() {
 
   const tabItems = useMemo(
     () => [
+      // Bibliotek is the default landing tab — listed first so the
+      // visible Tabs ordering matches the URL-default behaviour.
+      { id: 'library' as const, label: 'Bibliotek', icon: BookOpen },
       { id: 'rules' as const, label: 'Mine arbeidsflyter', icon: ListChecks, badgeCount: rules.length },
       { id: 'system' as const, label: 'System', icon: Landmark },
-      { id: 'library' as const, label: 'Mal-bibliotek', icon: BookOpen },
       { id: 'canvas' as const, label: 'Bygg', icon: Workflow },
       {
         id: 'approvals' as const,
@@ -154,13 +155,6 @@ export function WorkflowBuilderPage() {
             onClick={() => setNewRuleOpen(true)}
           >
             Ny arbeidsflyt
-          </Button>
-          <Button
-            type="button"
-            variant="secondary"
-            onClick={() => navigate('/workflow/klassisk')}
-          >
-            Klassisk visning
           </Button>
         </div>
       }
