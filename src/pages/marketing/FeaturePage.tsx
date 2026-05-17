@@ -2,6 +2,7 @@
 // Unknown slug renders NotFound; valid slug pulls from features content table.
 
 import { Link, useParams } from 'react-router-dom'
+import { useMemo } from 'react'
 import { FEATURES, featureBySlug, type ModuleFeature } from './content/features'
 import { SeoHead } from './primitives/SeoHead'
 import { BrowserMockup } from './primitives/BrowserMockup'
@@ -19,16 +20,31 @@ export function FeaturePage() {
   const { slug } = useParams<{ slug: string }>()
   const feature = slug ? featureBySlug(slug) : undefined
 
-  if (!feature) return <NotFound />
+  const jsonLd = useMemo(() => {
+    if (!feature) return undefined
+    return {
+      '@context': 'https://schema.org',
+      '@graph': [
+        {
+          '@type': 'Product',
+          name: `Klarert ${feature.name}`,
+          description: feature.metaDescription,
+          brand: { '@type': 'Brand', name: 'Klarert' },
+          category: 'BusinessApplication',
+        },
+        {
+          '@type': 'BreadcrumbList',
+          itemListElement: [
+            { '@type': 'ListItem', position: 1, name: 'Klarert', item: 'https://app.klarert.com/' },
+            { '@type': 'ListItem', position: 2, name: 'Funksjoner' },
+            { '@type': 'ListItem', position: 3, name: feature.name, item: `https://app.klarert.com/features/${feature.slug}` },
+          ],
+        },
+      ],
+    }
+  }, [feature])
 
-  const jsonLd = {
-    '@context': 'https://schema.org',
-    '@type': 'Product',
-    name: `Klarert ${feature.name}`,
-    description: feature.metaDescription,
-    brand: { '@type': 'Brand', name: 'Klarert' },
-    category: 'BusinessApplication',
-  }
+  if (!feature) return <NotFound />
 
   return (
     <>
@@ -89,9 +105,12 @@ function FeatureMockupSection({ feature }: { feature: ModuleFeature }) {
   return (
     <section className="-mt-6 pb-16 md:-mt-10 md:pb-20" style={{ background: FOREST }}>
       <div className="mx-auto max-w-5xl px-4 md:px-8">
-        <BrowserMockup url={`app.klarert.com/${feature.slug}`}>
-          <ModuleMockup slug={feature.slug} />
-        </BrowserMockup>
+        <figure aria-label={`Skjermbilde av ${feature.name}-modulen i Klarert`}>
+          <BrowserMockup url={`app.klarert.com/${feature.slug}`}>
+            <ModuleMockup slug={feature.slug} />
+          </BrowserMockup>
+          <figcaption className="sr-only">{feature.lede}</figcaption>
+        </figure>
       </div>
     </section>
   )

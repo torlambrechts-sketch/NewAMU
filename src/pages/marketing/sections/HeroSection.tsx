@@ -71,8 +71,9 @@ export function HeroSection() {
         </div>
 
         <div className="mx-auto mt-14 max-w-5xl px-4 md:px-8">
-          <BrowserMockup>
-            <div className="grid grid-cols-5">
+          <figure aria-label="Skjermbilde av Klarert-dashboardet">
+            <BrowserMockup>
+              <div className="grid grid-cols-5">
               <div className="col-span-1 space-y-1 border-r p-3" style={{ borderColor: 'rgba(255,255,255,0.08)', background: '#0d2a1c' }}>
                 <div className="mb-3 px-1"><KlarertLogo size={14} variant="onDark" /></div>
                 {['Dashbord', 'Oppgaver', 'Sjekklister', 'Varslinger', 'Dokumenter', 'E-læring', 'Undersøkelser'].map((l, i) => (
@@ -115,6 +116,10 @@ export function HeroSection() {
               </div>
             </div>
           </BrowserMockup>
+            <figcaption className="sr-only">
+              Klarert-dashboardet viser åpne tiltak, varsler og AMU-svarrate på tvers av modulene.
+            </figcaption>
+          </figure>
         </div>
       </div>
     </section>

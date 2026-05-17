@@ -73,9 +73,12 @@ export function ModuleFeatureSection({ feature, index }: Props) {
 
   const mockup = (
     <div className="flex-1">
-      <BrowserMockup url={`app.klarert.com/${feature.slug}`} tone="dark">
-        <ModuleMockup slug={feature.slug} />
-      </BrowserMockup>
+      <figure aria-label={`Skjermbilde av ${feature.name}-modulen`}>
+        <BrowserMockup url={`app.klarert.com/${feature.slug}`} tone="dark">
+          <ModuleMockup slug={feature.slug} />
+        </BrowserMockup>
+        <figcaption className="sr-only">{feature.lede}</figcaption>
+      </figure>
     </div>
   )
 
