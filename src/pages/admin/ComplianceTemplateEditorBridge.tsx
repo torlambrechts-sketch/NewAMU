@@ -13,6 +13,7 @@
 
 import { useEffect } from 'react'
 import { Loader2, X } from 'lucide-react'
+import { Button } from '../../components/ui/Button'
 import { PackProvider } from '../../context/PackContext'
 import { useLicensedPacks, useSetActivePack } from '../../context/packContextValue'
 import { useOrgSetupContext } from '../../hooks/useOrgSetupContext'
@@ -113,27 +114,24 @@ function NoLicenseModal({ onClose }: { onClose: () => void }) {
       <div className="w-full max-w-md rounded-lg bg-white p-6 shadow-2xl">
         <div className="flex items-start justify-between gap-3">
           <h3 className="text-lg font-semibold text-neutral-900">Ingen sjekkliste-pakker</h3>
-          <button
-            type="button"
+          <Button
+            variant="ghost"
+            size="icon"
             onClick={onClose}
             aria-label="Lukk"
-            className="rounded-md p-1 text-neutral-500 hover:bg-neutral-100"
+            className="h-7 w-7 text-neutral-500 hover:bg-neutral-100"
           >
             <X className="size-5" />
-          </button>
+          </Button>
         </div>
         <p className="mt-3 text-sm text-neutral-700">
           Organisasjonen har ikke aktivert noen compliance-pakker (AML eller ISO 45001). Pakker
           aktiveres av en plattform-administrator før sjekkliste-maler kan opprettes.
         </p>
         <div className="mt-5 flex justify-end">
-          <button
-            type="button"
-            onClick={onClose}
-            className="rounded-md border border-neutral-300 bg-white px-4 py-2 text-sm font-semibold text-neutral-700 hover:bg-neutral-50"
-          >
+          <Button variant="secondary" onClick={onClose}>
             OK
-          </button>
+          </Button>
         </div>
       </div>
     </div>

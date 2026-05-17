@@ -18,6 +18,10 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { Link } from 'react-router-dom'
 import { ExternalLink, Loader2, Lock, X } from 'lucide-react'
+import { Button } from '../../components/ui/Button'
+import { StandardInput } from '../../components/ui/Input'
+import { StandardTextarea } from '../../components/ui/Textarea'
+import { SearchableSelect } from '../../components/ui/SearchableSelect'
 import { ToggleSwitch } from '../../components/ui/FormToggles'
 import { useOrgSetupContext } from '../../hooks/useOrgSetupContext'
 import type { AdminTemplateRow, AdminTemplateSource } from '../../hooks/useAdminTemplates'
@@ -265,23 +269,17 @@ export function LightweightTemplateEditor({ row, onClose, onSaved }: Props) {
       </div>
 
       <div className="mt-6 flex justify-end gap-2 border-t border-neutral-100 pt-4">
-        <button
-          type="button"
-          onClick={onClose}
-          disabled={saving}
-          className="rounded-md border border-neutral-300 bg-white px-4 py-2 text-sm font-semibold text-neutral-700 hover:bg-neutral-50 disabled:opacity-50"
-        >
+        <Button variant="secondary" onClick={onClose} disabled={saving}>
           Avbryt
-        </button>
-        <button
-          type="button"
+        </Button>
+        <Button
+          variant="primary"
           onClick={() => void handleSave()}
           disabled={loading || saving || isSystemLocked}
-          className="inline-flex items-center gap-2 rounded-md bg-[#1a3d32] px-4 py-2 text-sm font-semibold text-white hover:bg-[#16382e] disabled:cursor-not-allowed disabled:opacity-50"
+          icon={saving ? <Loader2 className="size-4 animate-spin" /> : undefined}
         >
-          {saving ? <Loader2 className="size-4 animate-spin" /> : null}
           {saving ? 'Lagrer …' : 'Lagre'}
-        </button>
+        </Button>
       </div>
     </Wrapper>
   )
@@ -300,11 +298,11 @@ function Wrapper({
 }) {
   return (
     <div className="fixed inset-0 z-40">
-      <button
-        type="button"
+      <Button
+        variant="ghost"
         aria-label="Lukk panel"
         onClick={onClose}
-        className="absolute inset-0 bg-neutral-900/40 backdrop-blur-[1px]"
+        className="absolute inset-0 rounded-none bg-neutral-900/40 backdrop-blur-[1px] hover:bg-neutral-900/40"
       />
       <aside
         role="dialog"
@@ -319,14 +317,15 @@ function Wrapper({
             </p>
             <h2 className="truncate text-lg font-semibold text-neutral-900">{title}</h2>
           </div>
-          <button
-            type="button"
+          <Button
+            variant="ghost"
+            size="icon"
             onClick={onClose}
             aria-label="Lukk"
-            className="rounded-md p-1 text-neutral-500 hover:bg-neutral-100"
+            className="h-7 w-7 text-neutral-500 hover:bg-neutral-100"
           >
             <X className="size-5" />
-          </button>
+          </Button>
         </header>
         <div className="flex-1 overflow-y-auto px-5 py-5">{children}</div>
       </aside>
@@ -356,12 +355,11 @@ function FieldRow({
     return (
       <div>
         {labelEl}
-        <input
-          type="text"
+        <StandardInput
           value={(value as string) ?? ''}
           disabled={disabled}
           onChange={(e) => onChange(e.target.value)}
-          className="mt-1 w-full rounded-md border border-neutral-200 bg-white px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-[#1a3d32]/25 disabled:bg-neutral-50"
+          className="mt-1"
         />
         {field.help ? <p className="mt-1 text-[11px] text-neutral-500">{field.help}</p> : null}
       </div>
@@ -372,12 +370,12 @@ function FieldRow({
     return (
       <div>
         {labelEl}
-        <textarea
+        <StandardTextarea
           value={(value as string) ?? ''}
           disabled={disabled}
           rows={3}
           onChange={(e) => onChange(e.target.value)}
-          className="mt-1 w-full rounded-md border border-neutral-200 bg-white px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-[#1a3d32]/25 disabled:bg-neutral-50"
+          className="mt-1"
         />
         {field.help ? <p className="mt-1 text-[11px] text-neutral-500">{field.help}</p> : null}
       </div>
@@ -388,18 +386,14 @@ function FieldRow({
     return (
       <div>
         {labelEl}
-        <select
-          value={(value as string) ?? ''}
-          disabled={disabled}
-          onChange={(e) => onChange(e.target.value || null)}
-          className="mt-1 w-full rounded-md border border-neutral-200 bg-white px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-[#1a3d32]/25 disabled:bg-neutral-50"
-        >
-          {field.options?.map((o) => (
-            <option key={o.value} value={o.value}>
-              {o.label}
-            </option>
-          ))}
-        </select>
+        <div className="mt-1">
+          <SearchableSelect
+            value={(value as string) ?? ''}
+            disabled={disabled}
+            options={field.options ?? []}
+            onChange={(v) => onChange(v || null)}
+          />
+        </div>
         {field.help ? <p className="mt-1 text-[11px] text-neutral-500">{field.help}</p> : null}
       </div>
     )
@@ -411,8 +405,7 @@ function FieldRow({
     return (
       <div>
         {labelEl}
-        <input
-          type="text"
+        <StandardInput
           value={display}
           disabled={disabled}
           onChange={(e) =>
@@ -423,7 +416,7 @@ function FieldRow({
                 .filter(Boolean),
             )
           }
-          className="mt-1 w-full rounded-md border border-neutral-200 bg-white px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-[#1a3d32]/25 disabled:bg-neutral-50"
+          className="mt-1"
         />
         {field.help ? <p className="mt-1 text-[11px] text-neutral-500">{field.help}</p> : null}
       </div>
@@ -434,12 +427,12 @@ function FieldRow({
     return (
       <div>
         {labelEl}
-        <input
+        <StandardInput
           type="number"
           value={(value as number | null) ?? ''}
           disabled={disabled}
           onChange={(e) => onChange(e.target.value === '' ? null : Number(e.target.value))}
-          className="mt-1 w-full rounded-md border border-neutral-200 bg-white px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-[#1a3d32]/25 disabled:bg-neutral-50"
+          className="mt-1"
         />
         {field.help ? <p className="mt-1 text-[11px] text-neutral-500">{field.help}</p> : null}
       </div>

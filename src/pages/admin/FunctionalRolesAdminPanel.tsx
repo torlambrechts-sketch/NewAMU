@@ -259,15 +259,16 @@ export function FunctionalRolesAdminPanel() {
                                   fra {new Date(a.valid_from).toLocaleDateString('nb-NO')}
                                 </span>
                               </div>
-                              <button
-                                type="button"
+                              <Button
+                                size="sm"
+                                variant="ghost"
                                 onClick={() => removeAssignment(a.id)}
                                 disabled={savingSlug === a.id}
-                                className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs text-red-700 hover:bg-red-50"
+                                icon={<Trash2 className="h-3 w-3" />}
+                                className="text-red-700 hover:bg-red-50"
                               >
-                                <Trash2 className="h-3 w-3" />
                                 Fjern
-                              </button>
+                              </Button>
                             </div>
                           ))}
                         </div>

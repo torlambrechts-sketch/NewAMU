@@ -15,6 +15,11 @@
 import { useEffect, useState } from 'react'
 import { CheckCircle2, FileWarning, Lock, RefreshCw, Save } from 'lucide-react'
 import { ModulePageShell } from '../../../components/module'
+import { Button } from '../../../components/ui/Button'
+import { StandardInput } from '../../../components/ui/Input'
+import { StandardTextarea } from '../../../components/ui/Textarea'
+import { SearchableSelect } from '../../../components/ui/SearchableSelect'
+import { ToggleSwitch } from '../../../components/ui/FormToggles'
 import { useOrgSetupContext } from '../../../hooks/useOrgSetupContext'
 import { getSupabaseErrorMessage } from '../../../lib/supabaseError'
 
@@ -249,66 +254,68 @@ function IntegrationCard({
         <div className="grid grid-cols-2 gap-3">
           <label className="block text-xs font-medium text-neutral-700">
             Miljø
-            <select
-              value={environment}
-              onChange={(e) => setEnvironment(e.target.value as 'tt02' | 'prod')}
-              className="mt-1 w-full rounded-md border border-neutral-300 px-2 py-1 text-sm"
-            >
-              <option value="tt02">TT02 (sandbox)</option>
-              <option value="prod">Produksjon</option>
-            </select>
+            <div className="mt-1">
+              <SearchableSelect
+                value={environment}
+                options={[
+                  { value: 'tt02', label: 'TT02 (sandbox)' },
+                  { value: 'prod', label: 'Produksjon' },
+                ]}
+                onChange={(v) => setEnvironment(v as 'tt02' | 'prod')}
+              />
+            </div>
           </label>
-          <label className="flex items-center gap-2 text-xs font-medium text-neutral-700">
-            <input type="checkbox" checked={enabled} onChange={(e) => setEnabled(e.target.checked)} />
-            Aktivert
-          </label>
+          <div className="flex items-center gap-2 text-xs font-medium text-neutral-700">
+            <ToggleSwitch checked={enabled} onChange={setEnabled} label="Aktivert" />
+            <span>Aktivert</span>
+          </div>
         </div>
         <label className="block text-xs font-medium text-neutral-700">
           Klient-ID (Maskinporten)
-          <input
+          <StandardInput
             value={clientId}
             onChange={(e) => setClientId(e.target.value)}
             placeholder="f.eks. 0a4b3e2d-1234-…"
-            className="mt-1 w-full rounded-md border border-neutral-300 px-2 py-1 text-sm font-mono"
+            className="mt-1 font-mono"
           />
         </label>
         <label className="block text-xs font-medium text-neutral-700">
           kid (JWK key id)
-          <input
+          <StandardInput
             value={kid}
             onChange={(e) => setKid(e.target.value)}
             placeholder="signing-key-2026-01"
-            className="mt-1 w-full rounded-md border border-neutral-300 px-2 py-1 text-sm font-mono"
+            className="mt-1 font-mono"
           />
         </label>
         <label className="block text-xs font-medium text-neutral-700">
           Maskinporten-scope
-          <input
+          <StandardInput
             value={scope}
             onChange={(e) => setScope(e.target.value)}
             placeholder={meta.defaultScope}
-            className="mt-1 w-full rounded-md border border-neutral-300 px-2 py-1 text-sm font-mono"
+            className="mt-1 font-mono"
           />
         </label>
         {kind === 'datatilsynet' && (
           <label className="block text-xs font-medium text-neutral-700">
             Innsendings-epost (Datatilsynet)
-            <input
+            <StandardInput
               value={submissionEmail}
               onChange={(e) => setSubmissionEmail(e.target.value)}
               placeholder="postkasse@datatilsynet.no"
-              className="mt-1 w-full rounded-md border border-neutral-300 px-2 py-1 text-sm"
+              className="mt-1"
             />
           </label>
         )}
         <label className="block text-xs font-medium text-neutral-700">
           <Lock className="mr-1 inline h-3 w-3" /> Privatnøkkel (PEM PKCS#8) — lagres kryptert i Vault
-          <textarea
+          <StandardTextarea
             value={privateKeyPem}
             onChange={(e) => setPrivateKeyPem(e.target.value)}
             placeholder={row?.vault_secret_name ? '(lagret — fyll inn for å overskrive)' : '-----BEGIN PRIVATE KEY-----\n…'}
             rows={5}
-            className="mt-1 w-full rounded-md border border-neutral-300 px-2 py-1 font-mono text-xs"
+            className="mt-1 font-mono text-xs"
           />
           {row?.vault_secret_name && (
             <p className="mt-1 text-[11px] text-neutral-500">
@@ -317,21 +324,24 @@ function IntegrationCard({
           )}
         </label>
         <div className="flex items-center gap-2">
-          <button
-            type="button"
+          <Button
+            size="sm"
+            variant="primary"
             onClick={save}
             disabled={saving}
-            className="inline-flex items-center gap-1 rounded-md bg-emerald-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-emerald-700 disabled:opacity-50"
+            icon={<Save className="h-4 w-4" />}
+            className="bg-emerald-600 hover:bg-emerald-700"
           >
-            <Save className="h-4 w-4" /> {saving ? 'Lagrer …' : 'Lagre'}
-          </button>
-          <button
-            type="button"
+            {saving ? 'Lagrer …' : 'Lagre'}
+          </Button>
+          <Button
+            size="sm"
+            variant="secondary"
             onClick={onChanged}
-            className="inline-flex items-center gap-1 rounded-md border border-neutral-300 bg-white px-3 py-1.5 text-sm font-medium text-neutral-700 hover:bg-neutral-50"
+            icon={<RefreshCw className="h-4 w-4" />}
           >
-            <RefreshCw className="h-4 w-4" /> Oppdater
-          </button>
+            Oppdater
+          </Button>
           {saved && <span className="text-xs text-emerald-700">Lagret.</span>}
         </div>
       </div>

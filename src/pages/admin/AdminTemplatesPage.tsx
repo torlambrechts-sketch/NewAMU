@@ -27,6 +27,7 @@ import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import {
   ArrowLeft,
   ArrowRight,
+  Check,
   ChevronDown,
   ChevronLeft,
   ChevronRight,
@@ -53,6 +54,9 @@ import {
 } from 'lucide-react'
 import { ModulePageShell } from '../../components/module'
 import { Button } from '../../components/ui/Button'
+import { StandardInput } from '../../components/ui/Input'
+import { SearchableSelect } from '../../components/ui/SearchableSelect'
+import { ToggleSwitch } from '../../components/ui/FormToggles'
 import { WarningBox } from '../../components/ui/AlertBox'
 import { useOrgSetupContext } from '../../hooks/useOrgSetupContext'
 import { useChecklistModule } from '../../../modules/compliance/useChecklistModule'
@@ -595,6 +599,9 @@ export function AdminTemplatesPage() {
           <label className="inline-flex cursor-pointer items-center justify-center gap-1.5 rounded-md border border-neutral-300 bg-white px-3 py-2 text-sm font-semibold text-neutral-700 transition-colors hover:bg-neutral-50">
             <Upload className="h-4 w-4" />
             Importer
+            {/* Hidden native file picker; visible UI is the wrapping label.
+                No primitive for file input. */}
+            {/* eslint-disable-next-line no-restricted-syntax */}
             <input
               type="file"
               accept="application/json,.json"
@@ -613,23 +620,22 @@ export function AdminTemplatesPage() {
             <ArrowLeft className="h-4 w-4" />
             Til selskap
           </Link>
-          <button
-            type="button"
+          <Button
+            variant="secondary"
             onClick={() => setAiOpen(true)}
-            className="inline-flex items-center justify-center gap-1.5 rounded-md border border-purple-300 bg-white px-3 py-2 text-sm font-semibold text-purple-700 hover:bg-purple-50"
+            icon={<Sparkles className="h-4 w-4" />}
             title="AI-assistert mal-generering (eksperimentell)"
+            className="border-purple-300 text-purple-700 hover:bg-purple-50"
           >
-            <Sparkles className="h-4 w-4" />
             AI
-          </button>
-          <button
-            type="button"
+          </Button>
+          <Button
+            variant="primary"
             onClick={() => setDrawer({ kind: 'new' })}
-            className="inline-flex items-center justify-center gap-1.5 rounded-md bg-[#1a3d32] px-4 py-2 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-[#16382e]"
+            icon={<Plus className="h-4 w-4" />}
           >
-            <Plus className="h-4 w-4" />
             Ny mal
-          </button>
+          </Button>
         </div>
       }
     >
@@ -642,30 +648,32 @@ export function AdminTemplatesPage() {
             {selectedIds.size} {selectedIds.size === 1 ? 'mal' : 'maler'} valgt
           </span>
           <div className="flex items-center gap-2">
-            <button
-              type="button"
+            <Button
+              size="sm"
+              variant="secondary"
               onClick={() => void bulkSetActive(true)}
               disabled={bulkBusy}
-              className="rounded-md border border-[#1a3d32] bg-white px-3 py-1.5 text-xs font-semibold text-[#1a3d32] hover:bg-[#1a3d32]/5 disabled:opacity-50"
+              className="border-[#1a3d32] text-[#1a3d32] hover:bg-[#1a3d32]/5"
             >
               Aktiver
-            </button>
-            <button
-              type="button"
+            </Button>
+            <Button
+              size="sm"
+              variant="secondary"
               onClick={() => void bulkSetActive(false)}
               disabled={bulkBusy}
-              className="rounded-md border border-neutral-300 bg-white px-3 py-1.5 text-xs font-semibold text-neutral-700 hover:bg-neutral-50 disabled:opacity-50"
             >
               Deaktiver
-            </button>
-            <button
-              type="button"
+            </Button>
+            <Button
+              size="sm"
+              variant="ghost"
               onClick={() => setSelectedIds(new Set())}
               disabled={bulkBusy}
-              className="rounded-md px-2 py-1.5 text-xs text-neutral-500 hover:text-neutral-800"
+              className="text-neutral-500 hover:bg-transparent hover:text-neutral-800"
             >
               Avbryt
-            </button>
+            </Button>
           </div>
         </div>
       ) : null}
@@ -699,7 +707,7 @@ export function AdminTemplatesPage() {
         <div className="flex flex-wrap items-center gap-3 border-b border-neutral-100 px-4 py-3 sm:px-5">
           <div className="relative min-w-[220px] flex-1">
             <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-neutral-400" />
-            <input
+            <StandardInput
               type="search"
               value={search}
               onChange={(e) => {
@@ -708,7 +716,7 @@ export function AdminTemplatesPage() {
               }}
               placeholder="Søk etter navn, kategori, modul eller hint …"
               aria-label="Søk maler"
-              className="w-full rounded-lg border border-neutral-200 bg-white py-2 pl-10 pr-3 text-sm outline-none focus:ring-2 focus:ring-[#1a3d32]/25"
+              className="rounded-lg py-2 pl-10 pr-3 focus:ring-2 focus:ring-[#1a3d32]/25"
             />
           </div>
           <StatusFilter
@@ -740,23 +748,35 @@ export function AdminTemplatesPage() {
               <thead>
                 <tr className="border-b border-neutral-200 text-[10px] font-bold uppercase tracking-wide text-neutral-500">
                   <th className="w-10 px-4 py-3 sm:px-5">
-                    <input
-                      type="checkbox"
-                      aria-label="Velg alle synlige rader"
-                      checked={visible.length > 0 && visible.every((r) => selectedIds.has(r.rowId))}
-                      onChange={(e) => {
-                        setSelectedIds((prev) => {
-                          const next = new Set(prev)
-                          if (e.target.checked) {
-                            for (const r of visible) next.add(r.rowId)
-                          } else {
-                            for (const r of visible) next.delete(r.rowId)
-                          }
-                          return next
-                        })
-                      }}
-                      className="size-3.5 cursor-pointer accent-[#1a3d32]"
-                    />
+                    {(() => {
+                      const allChecked = visible.length > 0 && visible.every((r) => selectedIds.has(r.rowId))
+                      return (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          aria-label="Velg alle synlige rader"
+                          aria-pressed={allChecked}
+                          onClick={() => {
+                            setSelectedIds((prev) => {
+                              const next = new Set(prev)
+                              if (allChecked) {
+                                for (const r of visible) next.delete(r.rowId)
+                              } else {
+                                for (const r of visible) next.add(r.rowId)
+                              }
+                              return next
+                            })
+                          }}
+                          className={`flex size-3.5 items-center justify-center rounded-sm border ${
+                            allChecked
+                              ? 'border-[#1a3d32] bg-[#1a3d32] text-white hover:bg-[#1a3d32]'
+                              : 'border-neutral-300 bg-white hover:border-[#1a3d32]'
+                          }`}
+                        >
+                          {allChecked && <Check className="h-2 w-2" />}
+                        </Button>
+                      )
+                    })()}
                   </th>
                   <th className="px-4 py-3 sm:px-5">Navn</th>
                   <th className="px-4 py-3 sm:px-5">Modul</th>
@@ -816,45 +836,45 @@ export function AdminTemplatesPage() {
           <div className="flex flex-wrap items-center gap-3">
             <label className="flex items-center gap-2">
               <span className="text-neutral-500">Rader per side</span>
-              <select
-                value={pageSize}
-                onChange={(e) => {
-                  setPageSize(Number(e.target.value) as PageSize)
-                  setPage(0)
-                }}
-                className="rounded-md border border-neutral-200 bg-white px-2 py-1"
-              >
-                {PAGE_SIZE_OPTIONS.map((n) => (
-                  <option key={n}>{n}</option>
-                ))}
-              </select>
+              <div className="w-20">
+                <SearchableSelect
+                  value={String(pageSize)}
+                  options={PAGE_SIZE_OPTIONS.map((n) => ({ value: String(n), label: String(n) }))}
+                  onChange={(v) => {
+                    setPageSize(Number(v) as PageSize)
+                    setPage(0)
+                  }}
+                />
+              </div>
             </label>
             <span className="text-neutral-500">
               Viser {firstIndex} – {lastIndex} av {filtered.length}
             </span>
           </div>
           <div className="flex items-center gap-1">
-            <button
-              type="button"
+            <Button
+              variant="ghost"
+              size="icon"
               onClick={() => setPage((p) => Math.max(0, p - 1))}
               disabled={safePage === 0}
-              className="rounded p-1 text-neutral-400 hover:bg-neutral-100 disabled:cursor-not-allowed disabled:opacity-40"
+              className="h-7 w-7 text-neutral-400 hover:bg-neutral-100"
               aria-label="Forrige"
             >
               <ChevronLeft className="size-4" />
-            </button>
+            </Button>
             <span className="px-1 text-neutral-500">
               {safePage + 1} / {totalPages}
             </span>
-            <button
-              type="button"
+            <Button
+              variant="ghost"
+              size="icon"
               onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))}
               disabled={safePage >= totalPages - 1}
-              className="rounded p-1 text-neutral-400 hover:bg-neutral-100 disabled:cursor-not-allowed disabled:opacity-40"
+              className="h-7 w-7 text-neutral-400 hover:bg-neutral-100"
               aria-label="Neste"
             >
               <ChevronRight className="size-4" />
-            </button>
+            </Button>
           </div>
         </div>
       </div>
@@ -962,10 +982,11 @@ function SourceTab({
   onClick: () => void
 }) {
   return (
-    <button
-      type="button"
+    <Button
+      variant="ghost"
       onClick={onClick}
-      className={`flex min-w-0 items-center gap-1.5 px-3 py-2 text-left transition ${
+      aria-pressed={active}
+      className={`flex min-w-0 items-center gap-1.5 rounded-none px-3 py-2 text-left font-normal hover:bg-transparent ${
         active ? 'text-neutral-900' : 'text-neutral-500 hover:text-neutral-800'
       }`}
       style={
@@ -977,7 +998,7 @@ function SourceTab({
       {Icon ? <Icon className="size-4 shrink-0 text-neutral-400" /> : null}
       <span className="whitespace-nowrap text-xs font-semibold sm:text-sm">{label}</span>
       <span className="tabular-nums text-sm font-bold text-neutral-900">{count}</span>
-    </button>
+    </Button>
   )
 }
 
@@ -1004,16 +1025,17 @@ function StatusFilter({
 
   return (
     <div ref={rootRef} className="relative">
-      <button
-        type="button"
+      <Button
+        size="sm"
+        variant="secondary"
         onClick={() => setOpen((o) => !o)}
         aria-haspopup="menu"
         aria-expanded={open}
-        className="inline-flex shrink-0 items-center gap-2 rounded-md border border-neutral-200 bg-white px-3 py-2 text-xs font-semibold uppercase text-neutral-700 hover:bg-neutral-50"
+        className="shrink-0 uppercase"
       >
         Status filter
         <ChevronDown className="size-3.5" />
-      </button>
+      </Button>
       {open ? (
         <div
           role="menu"
@@ -1054,17 +1076,17 @@ function MenuItem({
   selected: boolean
 }): ReactNode {
   return (
-    <button
-      type="button"
+    <Button
+      variant="ghost"
       role="menuitem"
       onClick={onClick}
-      className={`flex w-full items-center justify-between px-3 py-2 text-left text-sm transition-colors ${
+      className={`flex w-full items-center justify-between rounded-none px-3 py-2 text-left text-sm font-normal ${
         selected ? 'bg-neutral-100 font-medium text-neutral-900' : 'text-neutral-700 hover:bg-neutral-50'
       }`}
     >
       {label}
       {selected ? <span className="text-[#1a3d32]">●</span> : null}
-    </button>
+    </Button>
   )
 }
 
@@ -1101,23 +1123,30 @@ function TemplateRow({
   return (
     <tr className={`hover:bg-neutral-50/80 ${busy ? 'opacity-60' : ''} ${selected ? 'bg-[#1a3d32]/5' : ''}`}>
       <td className="px-4 py-4 sm:px-5">
-        <input
-          type="checkbox"
+        <Button
+          variant="ghost"
+          size="icon"
           aria-label={`Velg ${row.name}`}
-          checked={selected}
-          onChange={(e) => onSelectChange(e.target.checked)}
+          aria-pressed={selected}
+          onClick={() => onSelectChange(!selected)}
           disabled={row.isSystem}
-          className="size-3.5 cursor-pointer accent-[#1a3d32] disabled:cursor-not-allowed disabled:opacity-40"
-        />
+          className={`flex size-3.5 items-center justify-center rounded-sm border ${
+            selected
+              ? 'border-[#1a3d32] bg-[#1a3d32] text-white hover:bg-[#1a3d32]'
+              : 'border-neutral-300 bg-white hover:border-[#1a3d32]'
+          }`}
+        >
+          {selected && <Check className="h-2 w-2" />}
+        </Button>
       </td>
       <td className="px-4 py-4 sm:px-5">
-        <button
-          type="button"
+        <Button
+          variant="ghost"
           onClick={onOpen}
-          className="text-left font-semibold text-neutral-900 hover:text-[#1a3d32] hover:underline"
+          className="px-0 py-0 text-left font-semibold text-neutral-900 hover:bg-transparent hover:text-[#1a3d32] hover:underline"
         >
           {row.name}
-        </button>
+        </Button>
         {row.isSystem ? (
           <span className="ml-2 inline-flex items-center gap-1 rounded-full bg-sky-100 px-1.5 py-0.5 align-middle text-[9px] font-bold uppercase tracking-wide text-sky-950">
             <Lock className="size-2.5" aria-hidden />
@@ -1231,17 +1260,18 @@ function RowActionsMenu({
 
   return (
     <div ref={rootRef} className="relative inline-block">
-      <button
-        type="button"
+      <Button
+        variant="ghost"
+        size="icon"
         onClick={() => setOpen((o) => !o)}
         disabled={busy}
         aria-haspopup="menu"
         aria-expanded={open}
         aria-label={`Handlinger for ${row.name}`}
-        className="rounded-md p-1.5 text-neutral-500 transition-colors hover:bg-neutral-100 hover:text-neutral-800 disabled:cursor-not-allowed disabled:opacity-50"
+        className="h-7 w-7 text-neutral-500 hover:bg-neutral-100 hover:text-neutral-800"
       >
         <MoreHorizontal className="size-4" />
-      </button>
+      </Button>
       {open ? (
         <div
           role="menu"
@@ -1334,18 +1364,18 @@ function MenuRow({
     : 'text-neutral-800 hover:bg-neutral-50'
   const disabledCls = 'cursor-not-allowed text-neutral-400'
   return (
-    <button
-      type="button"
+    <Button
+      variant="ghost"
       role="menuitem"
       onClick={disabled ? undefined : onClick}
       disabled={disabled}
       title={hint}
-      className={`${base} ${disabled ? disabledCls : enabled}`}
+      className={`${base} font-normal ${disabled ? disabledCls : enabled}`}
     >
       <Icon className="size-3.5 shrink-0" aria-hidden />
       <span className="flex-1">{label}</span>
       {disabled ? <Lock className="size-3 shrink-0 text-neutral-300" aria-hidden /> : null}
-    </button>
+    </Button>
   )
 }
 
@@ -1385,11 +1415,11 @@ function TemplateDrawer({
 
   return (
     <div className="fixed inset-0 z-40">
-      <button
-        type="button"
+      <Button
+        variant="ghost"
         aria-label="Lukk panel"
         onClick={onClose}
-        className="absolute inset-0 bg-neutral-900/40 backdrop-blur-[1px]"
+        className="absolute inset-0 rounded-none bg-neutral-900/40 backdrop-blur-[1px] hover:bg-neutral-900/40"
       />
       <aside
         role="dialog"
@@ -1404,14 +1434,15 @@ function TemplateDrawer({
             </p>
             <h2 className="truncate text-lg font-semibold text-neutral-900">{title}</h2>
           </div>
-          <button
-            type="button"
+          <Button
+            variant="ghost"
+            size="icon"
             onClick={onClose}
             aria-label="Lukk"
-            className="rounded-md p-1 text-neutral-500 hover:bg-neutral-100"
+            className="h-7 w-7 text-neutral-500 hover:bg-neutral-100"
           >
             <X className="size-5" />
-          </button>
+          </Button>
         </header>
 
         <div className="flex-1 overflow-y-auto px-5 py-5">
@@ -1452,11 +1483,11 @@ function NewTemplatePicker({
         const Icon = SOURCE_ICON[s]
         const inlineSupported = INLINE_EDITABLE_SOURCES.has(s)
         return (
-          <button
+          <Button
             key={s}
-            type="button"
+            variant="ghost"
             onClick={() => onPick(s)}
-            className="flex w-full items-start gap-3 rounded-lg border border-neutral-200 bg-white p-3 text-left transition-colors hover:border-[#1a3d32]/40 hover:bg-neutral-50"
+            className="flex w-full items-start gap-3 rounded-lg border border-neutral-200/80 bg-white p-3 text-left font-normal hover:border-[#1a3d32]/40 hover:bg-neutral-50"
           >
             <div className="rounded-md bg-[#1a3d32]/10 p-2 text-[#1a3d32]">
               <Icon className="size-4" />
@@ -1473,7 +1504,7 @@ function NewTemplatePicker({
               <p className="mt-0.5 text-xs text-neutral-600">{SOURCE_DESCRIPTION[s]}</p>
             </div>
             <ArrowRight className="mt-0.5 size-4 shrink-0 text-neutral-400" />
-          </button>
+          </Button>
         )
       })}
     </div>
@@ -1520,22 +1551,11 @@ function TemplateDetails({
                 Inaktive maler skjules for vanlige brukere men kan reaktiveres når som helst.
               </p>
             </div>
-            <button
-              type="button"
-              onClick={() => void onToggleActive(row, !isActive)}
-              role="switch"
-              aria-checked={isActive}
-              className={`relative inline-flex h-6 w-11 shrink-0 rounded-full border-2 border-transparent transition-colors ${
-                isActive ? 'bg-[#1a3d32]' : 'bg-neutral-300'
-              }`}
-            >
-              <span
-                aria-hidden
-                className={`inline-block size-5 transform rounded-full bg-white shadow ring-0 transition-transform ${
-                  isActive ? 'translate-x-5' : 'translate-x-0'
-                }`}
-              />
-            </button>
+            <ToggleSwitch
+              checked={isActive}
+              onChange={() => void onToggleActive(row, !isActive)}
+              label="Aktiv"
+            />
           </div>
         ) : null}
 
