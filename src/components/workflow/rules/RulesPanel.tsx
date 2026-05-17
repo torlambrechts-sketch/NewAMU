@@ -26,6 +26,8 @@ import { isGovernmentActionType } from '../../../types/workflow'
 import type { WorkflowAction, WorkflowRuleRow, WorkflowXorActionsEnvelope } from '../../../types/workflow'
 import { getWorkflowScope, listWorkflowScopes } from '../../../lib/workflows/workflowRegistry'
 import { Badge } from '../../ui/Badge'
+import { StandardInput } from '../../ui/Input'
+import { SearchableSelect } from '../../ui/SearchableSelect'
 
 function ruleContainsGovAction(rule: WorkflowRuleRow): boolean {
   const a = rule.actions_json
@@ -81,25 +83,28 @@ export function RulesPanel({
     })
   }, [rules, scopeFilter, showOnlyActive, search])
 
+  const [toggleError, setToggleError] = useState<string | null>(null)
+
   const handleToggleActive = async (rule: WorkflowRuleRow) => {
     const isGov = ruleContainsGovAction(rule)
     const willActivate = !rule.is_active
     if (willActivate) {
       if (isGov && !canActivateExternal) {
-        alert('Du må ha workflows.activate_external for å aktivere regler med statlig melding.')
+        setToggleError('Du må ha workflows.activate_external for å aktivere regler med statlig melding.')
         return
       }
       if (!isGov && !canActivate) {
-        alert('Du må ha workflows.activate for å aktivere regler.')
+        setToggleError('Du må ha workflows.activate for å aktivere regler.')
         return
       }
     }
+    setToggleError(null)
     await setRuleActive(rule.id, willActivate)
   }
 
   const handleDelete = async (rule: WorkflowRuleRow) => {
     if (!canCompose) return
-    if (!confirm(`Slette regelen "${rule.name}"? Kan ikke angres.`)) return
+    if (!window.confirm(`Slette regelen «${rule.name}»? Kan ikke angres.`)) return
     await deleteRule(rule.id)
   }
 
@@ -118,24 +123,24 @@ export function RulesPanel({
           {rules.length} totalt · {filtered.length} viser nå · {rules.filter((r) => r.is_active).length} aktive
         </span>
         <span className="flex-1" />
-        <input
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          placeholder="Søk navn / slug / law ref …"
-          className="rounded-md border border-neutral-300 bg-white px-2 py-1 text-xs"
-        />
-        <select
-          value={scopeFilter}
-          onChange={(e) => setScopeFilter(e.target.value)}
-          className="rounded-md border border-neutral-300 bg-white px-2 py-1 text-xs"
-        >
-          <option value="all">Alle moduler</option>
-          {scopes.map((s) => (
-            <option key={s.scopeId} value={s.scopeId}>
-              {s.label}
-            </option>
-          ))}
-        </select>
+        <div className="w-56">
+          <StandardInput
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Søk navn / slug / lov-referanse …"
+            aria-label="Søk i arbeidsflyt-regler"
+          />
+        </div>
+        <div className="w-56">
+          <SearchableSelect
+            value={scopeFilter}
+            onChange={setScopeFilter}
+            options={[
+              { value: 'all', label: 'Alle moduler' },
+              ...scopes.map((s) => ({ value: s.scopeId, label: s.label })),
+            ]}
+          />
+        </div>
         <label className="inline-flex items-center gap-1 text-xs text-neutral-700">
           <input
             type="checkbox"
@@ -145,6 +150,15 @@ export function RulesPanel({
           Kun aktive
         </label>
       </div>
+
+      {toggleError && (
+        <div
+          className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-900"
+          role="alert"
+        >
+          {toggleError}
+        </div>
+      )}
 
       {filtered.length === 0 ? (
         <p className="rounded-xl border border-dashed border-neutral-300 bg-white p-6 text-center text-sm text-neutral-500">
@@ -159,8 +173,8 @@ export function RulesPanel({
               <tr>
                 <th className="px-3 py-2 text-left">Navn</th>
                 <th className="px-3 py-2 text-left">Modul</th>
-                <th className="px-3 py-2 text-left">Trigger</th>
-                <th className="px-3 py-2 text-left">Law refs</th>
+                <th className="px-3 py-2 text-left">Utløser</th>
+                <th className="px-3 py-2 text-left">Lov-referanser</th>
                 <th className="px-3 py-2 text-left">Status</th>
                 <th className="px-3 py-2 text-right">Handlinger</th>
               </tr>

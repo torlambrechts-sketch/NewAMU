@@ -9,7 +9,11 @@
  *   * send_notification → workflow_dispatch_notification(category=workflow_in_app).
  *   * call_webhook      → fetch the configured URL with the payload.
  *   * escalate          → workflow_dispatch_notification(category=workflow_escalation).
- *   * on_error          → no-op (handled implicitly by the failure path).
+ *   * on_error          → MUST NOT appear as a top-level row (it lives as
+ *                         a sibling on the parent's on_error_actions column
+ *                         and is re-enqueued by workflow_enqueue_on_error_actions
+ *                         when the parent terminally fails). A direct queue
+ *                         row fails fast with on_error_should_not_be_queued_directly.
  *   * Government types  → invoke the matching gov-* edge function:
  *       rapporter_alvorlig_skade_arbeidstilsynet  → gov-arbeidstilsynet-rapport
  *       meld_personvernbrudd_datatilsynet         → gov-datatilsynet-breach
@@ -28,7 +32,16 @@
  *
  * Rows are picked with `for update skip locked` so multiple worker
  * invocations can run in parallel safely. On failure we increment
- * attempt_count and re-queue with backoff up to 5 attempts.
+ * attempt_count and re-queue with backoff up to 5 attempts. On terminal
+ * failure (attempts == MAX_ATTEMPTS) we call workflow_enqueue_on_error_actions
+ * to push the row's declared on_error siblings as new pending rows.
+ *
+ * Recursion is capped at DEPTH_CAP (5). Each row carries `depth` (0 for
+ * trigger-enqueued rows, N for rows enqueued by a row at depth N-1). When
+ * a leased row has depth >= 5 we route it through workflow_record_depth_exceeded
+ * which writes a workflow_runs(status='skipped', reason='WORKFLOW_DEPTH_EXCEEDED')
+ * row and marks the queue row failed — no action executes, no descendants
+ * (incl. on_error siblings) get enqueued.
  *
  * Triggered every minute by a pg_cron job that POSTs to this endpoint
  * with a service-role token. The migration that registers the cron is

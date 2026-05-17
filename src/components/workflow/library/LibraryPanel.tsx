@@ -36,7 +36,6 @@ import { useSearchParams } from 'react-router-dom'
 import { useWorkflowCatalog } from '../../../hooks/useWorkflowCatalog'
 import { useWorkflows } from '../../../hooks/useWorkflows'
 import { getWorkflowScope, listWorkflowScopes } from '../../../lib/workflows/workflowRegistry'
-import { isGovernmentActionType } from '../../../types/workflow'
 import type {
   WorkflowAction,
   WorkflowRuleCatalogRow,

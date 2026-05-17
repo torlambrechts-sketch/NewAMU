@@ -38,7 +38,11 @@ comment on column public.workflow_action_queue.on_error_actions is
 --      via create-or-replace). All callers either pass 4 args (default
 --      depth=null → child rows land at depth=1) or the new 5-arg form. ─────
 
+-- Drop both historical signatures (4-arg from _905121300 and the legacy
+-- 5-arg `p_xor_branch_index` from archive/_511120000) before re-issuing
+-- the new 5-arg form with `p_parent_depth`.
 drop function if exists public.workflow_execute_actions(uuid, uuid, jsonb, jsonb);
+drop function if exists public.workflow_execute_actions(uuid, uuid, jsonb, jsonb, int);
 
 create or replace function public.workflow_execute_actions(
   p_org_id  uuid,
@@ -62,7 +66,14 @@ declare
   v_queue_id uuid;
   v_approval_role text;
   v_on_error jsonb;
-  v_child_depth int := coalesce(p_parent_depth, 0) + 1;
+  -- Child rows are 1 deeper than the parent. Capped at 5 so the CHECK
+  -- constraint in _121900 never trips when a caller forgot to gate at
+  -- the cap — the row still inserts, but the worker will refuse to run
+  -- it (workflow_record_depth_exceeded).
+  v_child_depth int := least(coalesce(p_parent_depth, 0) + 1, 5);
+  -- Reminder-scheduling locals (preserved from _907120600).
+  v_anchor timestamptz;
+  v_role_or_user text;
   -- Government action types that always queue for the edge worker.
   v_gov_types text[] := array[
     'rapporter_alvorlig_skade_arbeidstilsynet',
@@ -204,6 +215,8 @@ begin
          v_on_error, v_child_depth);
 
     -- ── Government action types (worker dispatches via edge fn) ────────
+    -- Preserves the reminder scheduling added in _907120600 so T-N
+    -- deadline-before notifications still fire.
     elsif v_type = any(v_gov_types) then
       insert into public.workflow_action_queue
         (organization_id, rule_id, action_type, payload, status, execute_after,
@@ -213,6 +226,26 @@ begin
          a || coalesce(p_context, '{}'::jsonb) || jsonb_build_object('run_id', v_run_id),
          'pending', now(),
          v_on_error, v_child_depth);
+
+      if (a ? 'reminderHoursBeforeDeadline') and (a ? 'deadlineHours') then
+        -- Anchor preference: awareAt (GDPR Art. 33), then eventAt
+        -- (AML § 5-2), then context-supplied, finally now().
+        v_anchor := coalesce(
+          nullif(a->>'awareAt','')::timestamptz,
+          nullif(a->>'eventAt','')::timestamptz,
+          nullif(p_context->>'awareAt','')::timestamptz,
+          nullif(p_context->>'eventAt','')::timestamptz,
+          now()
+        );
+        v_role_or_user := coalesce(
+          a->>'toRole',
+          a->>'melderRolle',
+          'hms_leder'
+        );
+        perform public.workflow_schedule_reminders(
+          p_org_id, v_run_id, p_rule_id, a, v_anchor, v_role_or_user
+        );
+      end if;
 
     -- ── External-dispatch types (email/notification/webhook) ───────────
     elsif v_type = any(v_external_types) then
@@ -288,7 +321,7 @@ begin
     return 0;
   end if;
 
-  v_child_depth := coalesce(v_parent.depth, 0) + 1;
+  v_child_depth := least(coalesce(v_parent.depth, 0) + 1, 5);
 
   for v_action in select * from jsonb_array_elements(v_on_error)
   loop

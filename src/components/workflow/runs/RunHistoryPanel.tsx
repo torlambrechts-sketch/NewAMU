@@ -11,12 +11,27 @@ import { ChevronRight, Clock, Eye, EyeOff, Lock } from 'lucide-react'
 import { useWorkflows } from '../../../hooks/useWorkflows'
 import { useWorkflowRunDetail } from '../../../hooks/useWorkflowRunDetail'
 import type { WorkflowRunRow } from '../../../types/workflow'
+import { StandardInput } from '../../ui/Input'
+import { SearchableSelect } from '../../ui/SearchableSelect'
 
 const statusTint: Record<string, { bg: string; fg: string }> = {
   completed: { bg: '#ecfdf5', fg: '#047857' },
   skipped: { bg: '#f5f5f4', fg: '#525252' },
   failed: { bg: '#fef2f2', fg: '#b91c1c' },
 }
+
+const STATUS_LABEL: Record<string, string> = {
+  completed: 'fullført',
+  skipped: 'hoppet over',
+  failed: 'feilet',
+}
+
+const STATUS_OPTIONS = [
+  { value: 'all', label: 'Alle statuser' },
+  { value: 'completed', label: 'Fullført' },
+  { value: 'skipped', label: 'Hoppet over' },
+  { value: 'failed', label: 'Feilet' },
+]
 
 export function RunHistoryPanel({ ruleId }: { ruleId?: string }) {
   const { runs, loading, error, canViewConfidential } = useWorkflows()
@@ -50,22 +65,21 @@ export function RunHistoryPanel({ ruleId }: { ruleId?: string }) {
           <h2 className="text-sm font-semibold text-neutral-900">Kjøringer</h2>
           <span className="text-xs text-neutral-500">{filtered.length} treff</span>
           <span className="flex-1" />
-          <input
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Søk i hendelse / detalj …"
-            className="rounded-md border border-neutral-300 bg-white px-2 py-1 text-xs"
-          />
-          <select
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
-            className="rounded-md border border-neutral-300 bg-white px-2 py-1 text-xs"
-          >
-            <option value="all">Alle statuser</option>
-            <option value="completed">Fullført</option>
-            <option value="skipped">Hoppet over</option>
-            <option value="failed">Feilet</option>
-          </select>
+          <div className="w-56">
+            <StandardInput
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Søk i hendelse / detalj …"
+              aria-label="Søk i kjøringer"
+            />
+          </div>
+          <div className="w-48">
+            <SearchableSelect
+              value={statusFilter}
+              onChange={setStatusFilter}
+              options={STATUS_OPTIONS}
+            />
+          </div>
         </div>
         <div className="overflow-hidden rounded-xl border border-neutral-200 bg-white">
           <table className="min-w-full text-sm">
@@ -74,7 +88,7 @@ export function RunHistoryPanel({ ruleId }: { ruleId?: string }) {
                 <th className="px-3 py-2 text-left">Tidspunkt</th>
                 <th className="px-3 py-2 text-left">Modul · hendelse</th>
                 <th className="px-3 py-2 text-left">Status</th>
-                <th className="px-3 py-2 text-left">Fortrolighet</th>
+                <th className="px-3 py-2 text-left">Konfidensialitet</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-neutral-100">
@@ -101,11 +115,11 @@ export function RunHistoryPanel({ ruleId }: { ruleId?: string }) {
                         className="inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-medium"
                         style={{ background: tint.bg, color: tint.fg }}
                       >
-                        {r.status}
+                        {STATUS_LABEL[r.status] ?? r.status}
                       </span>
                       {r.dry_run && (
                         <span className="ml-1 inline-flex items-center rounded-full bg-blue-50 px-2 py-0.5 text-[11px] text-blue-700">
-                          dry-run
+                          tørrløp
                         </span>
                       )}
                     </td>
@@ -175,7 +189,7 @@ function RunDetailCard({
         <span className="text-neutral-500">Hendelse</span>
         <span>{run.event}</span>
         <span className="text-neutral-500">Status</span>
-        <span>{run.status}</span>
+        <span>{STATUS_LABEL[run.status] ?? run.status}</span>
         <span className="text-neutral-500">Sjekksum</span>
         <code className="break-all text-[10px] text-neutral-600">{run.input_checksum ?? '—'}</code>
       </div>
@@ -187,25 +201,32 @@ function RunDetailCard({
         </div>
       )}
       {canReadBody && (
-        <>
-          <details className="rounded-lg border border-neutral-200 bg-neutral-50 p-2 text-xs">
-            <summary className="cursor-pointer font-medium text-neutral-700">Input snapshot</summary>
-            <pre className="mt-2 overflow-x-auto text-[11px] text-neutral-700">
-              {JSON.stringify(run.input_snapshot ?? run.detail, null, 2)}
-            </pre>
-          </details>
-          {run.output_snapshot && (
-            <details className="rounded-lg border border-neutral-200 bg-neutral-50 p-2 text-xs">
-              <summary className="cursor-pointer font-medium text-neutral-700">Output snapshot</summary>
-              <pre className="mt-2 overflow-x-auto text-[11px] text-neutral-700">
-                {JSON.stringify(run.output_snapshot, null, 2)}
+        <details className="rounded-lg border border-neutral-200 bg-neutral-50 p-2 text-xs">
+          <summary className="cursor-pointer font-medium text-neutral-700">Vis tekniske detaljer</summary>
+          <div className="mt-2 space-y-2">
+            <div>
+              <p className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-neutral-500">
+                Inn-data (snapshot)
+              </p>
+              <pre className="overflow-x-auto rounded bg-white p-2 text-[11px] text-neutral-700">
+                {JSON.stringify(run.input_snapshot ?? run.detail, null, 2)}
               </pre>
-            </details>
-          )}
-        </>
+            </div>
+            {run.output_snapshot && (
+              <div>
+                <p className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-neutral-500">
+                  Ut-data (snapshot)
+                </p>
+                <pre className="overflow-x-auto rounded bg-white p-2 text-[11px] text-neutral-700">
+                  {JSON.stringify(run.output_snapshot, null, 2)}
+                </pre>
+              </div>
+            )}
+          </div>
+        </details>
       )}
       <div>
-        <h4 className="mb-1 text-xs font-medium text-neutral-700">Evidence artefakter</h4>
+        <h4 className="mb-1 text-xs font-medium text-neutral-700">Bevis-artefakter</h4>
         {loading ? (
           <div className="text-xs text-neutral-500">Laster …</div>
         ) : evidence.length === 0 ? (
