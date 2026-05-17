@@ -23,6 +23,10 @@ import { SharedReportPage } from './pages/public/SharedReportPage'
 import { WorkflowBuilderPage } from './pages/workflow/WorkflowBuilderPage'
 import { AuditorWorkflowsPage } from './pages/auditor/AuditorWorkflowsPage'
 import { GovIntegrationsPage } from './pages/admin/integrations/GovIntegrationsPage'
+import { AltinnSetup } from './pages/admin/integrations/AltinnSetup'
+import { ArbeidstilsynetSetup } from './pages/admin/integrations/ArbeidstilsynetSetup'
+import { DatatilsynetSetup } from './pages/admin/integrations/DatatilsynetSetup'
+import { NavSetup } from './pages/admin/integrations/NavSetup'
 import { NotFound } from './pages/NotFound'
 import { MeetingsHubPage } from './pages/meetings/MeetingsHubPage'
 import { MeetingsDetailView } from './pages/meetings/MeetingsDetailView'
@@ -515,7 +519,15 @@ const router = createBrowserRouter(
                       <Route path="workflow/klassisk" element={<Navigate to="/workflow" replace />} />
                       <Route path="workflow/admin" element={<Navigate to="/workflow" replace />} />
                       <Route path="workflow/:ruleId" element={<WorkflowEditorRoute />} />
-                      <Route path="admin/integrasjoner-staten" element={<GovIntegrationsPage />} />
+                      {/* Legacy combined route — kept as a deprecation hub that
+                          lists the four per-provider wizards. Old bookmarks
+                          still land somewhere useful. */}
+                      <Route path="admin/integrasjoner-staten" element={<Navigate to="/admin/integrations" replace />} />
+                      <Route path="admin/integrations" element={<GovIntegrationsPage />} />
+                      <Route path="admin/integrations/altinn" element={<AltinnSetup />} />
+                      <Route path="admin/integrations/arbeidstilsynet" element={<ArbeidstilsynetSetup />} />
+                      <Route path="admin/integrations/datatilsynet" element={<DatatilsynetSetup />} />
+                      <Route path="admin/integrations/nav" element={<NavSetup />} />
                       <Route element={<DocumentsModuleShellLayout />}>
                         <Route path="documents/editor-test" element={<DocumentEditorTestPage />} />
                         <Route

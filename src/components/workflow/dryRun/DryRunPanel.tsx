@@ -13,6 +13,9 @@ import { PlayCircle } from 'lucide-react'
 import { useWorkflows } from '../../../hooks/useWorkflows'
 import type { WorkflowAction, WorkflowCondition, WorkflowRuleRow, WorkflowXorActionsEnvelope } from '../../../types/workflow'
 import { isGovernmentActionType } from '../../../types/workflow'
+import { Button } from '../../ui/Button'
+import { SearchableSelect } from '../../ui/SearchableSelect'
+import { StandardTextarea } from '../../ui/Textarea'
 
 function matches(cond: WorkflowCondition, payload: Record<string, unknown>): boolean {
   if (!cond) return true
@@ -95,12 +98,12 @@ export function DryRunPanel({ rules }: { rules?: WorkflowRuleRow[] }) {
     try {
       parsed = JSON.parse(payload)
     } catch {
-      setOutput({ matched: false, actions: [], governmentActions: 0, reason: 'Ugyldig JSON i payload.' })
+      setOutput({ matched: false, actions: [], governmentActions: 0, reason: 'Ugyldig JSON i data-pakken.' })
       return
     }
     const matched = matches(rule.condition_json, parsed)
     if (!matched) {
-      setOutput({ matched: false, actions: [], governmentActions: 0, reason: 'Betingelsen matchet ikke payload.' })
+      setOutput({ matched: false, actions: [], governmentActions: 0, reason: 'Betingelsen matchet ikke data-pakken.' })
       return
     }
     const actions = flattenActions(rule.actions_json)
@@ -111,39 +114,44 @@ export function DryRunPanel({ rules }: { rules?: WorkflowRuleRow[] }) {
   return (
     <div className="space-y-3">
       <div className="flex flex-wrap items-center gap-2 rounded-xl border border-neutral-200 bg-white px-4 py-3">
-        <h2 className="text-sm font-semibold text-neutral-900">Dry-run simulator</h2>
-        <span className="text-xs text-neutral-500">Tester regel mot payload uten å kjøre handlingene</span>
+        <h2 className="text-sm font-semibold text-neutral-900">Tørrløp-simulator</h2>
+        <span className="text-xs text-neutral-500">
+          Tester regel mot data-pakke uten å kjøre handlingene
+        </span>
       </div>
       <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
         <div className="space-y-2 rounded-xl border border-neutral-200 bg-white p-4">
           <label className="text-xs font-medium text-neutral-700">Regel</label>
-          <select
+          <SearchableSelect
             value={selectedRuleId}
-            onChange={(e) => setSelectedRuleId(e.target.value)}
-            className="w-full rounded-md border border-neutral-300 bg-white px-2 py-1.5 text-sm"
-          >
-            <option value="">— velg en regel —</option>
-            {candidateRules.map((r) => (
-              <option key={r.id} value={r.id}>
-                {r.name} ({r.source_module})
-              </option>
-            ))}
-          </select>
-          <label className="mt-3 block text-xs font-medium text-neutral-700">Payload (JSON)</label>
-          <textarea
+            onChange={setSelectedRuleId}
+            options={[
+              { value: '', label: '— velg en regel —' },
+              ...candidateRules.map((r) => ({
+                value: r.id,
+                label: `${r.name} (${r.source_module})`,
+              })),
+            ]}
+          />
+          <label className="mt-3 block text-xs font-medium text-neutral-700" htmlFor="dry-run-payload">
+            Data-pakke (JSON)
+          </label>
+          <StandardTextarea
+            id="dry-run-payload"
             value={payload}
             onChange={(e) => setPayload(e.target.value)}
             rows={10}
-            className="w-full rounded-md border border-neutral-300 bg-neutral-50 px-2 py-1.5 font-mono text-xs"
+            className="bg-neutral-50 font-mono text-xs"
           />
-          <button
+          <Button
             type="button"
+            size="sm"
+            variant="primary"
+            icon={<PlayCircle className="h-3.5 w-3.5" />}
             onClick={simulate}
-            className="inline-flex items-center gap-1 rounded-md bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-700"
           >
-            <PlayCircle className="h-3.5 w-3.5" />
             Simuler
-          </button>
+          </Button>
         </div>
         <div className="rounded-xl border border-neutral-200 bg-white p-4">
           <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-neutral-500">Resultat</h3>

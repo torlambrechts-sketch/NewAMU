@@ -11,6 +11,16 @@ import { useMemo, useState } from 'react'
 import { AlertTriangle, Check, Clock, FileWarning, X } from 'lucide-react'
 import { useWorkflowApprovals } from '../../../hooks/useWorkflowApprovals'
 import { useWorkflows } from '../../../hooks/useWorkflows'
+import { Button } from '../../ui/Button'
+import { StandardTextarea } from '../../ui/Textarea'
+
+const APPROVAL_STATUS_LABEL: Record<string, string> = {
+  pending: 'venter',
+  approved: 'godkjent',
+  rejected: 'avvist',
+  expired: 'utløpt',
+  cancelled: 'avbrutt',
+}
 
 export function ApprovalsPanel() {
   const { approvals, loading, error, decide } = useWorkflowApprovals()
@@ -130,7 +140,7 @@ export function ApprovalsPanel() {
                             : 'bg-neutral-100 text-neutral-700'
                       }`}
                     >
-                      {a.status}
+                      {APPROVAL_STATUS_LABEL[a.status] ?? a.status}
                     </span>
                   </div>
                 </button>
@@ -175,28 +185,33 @@ export function ApprovalsPanel() {
                             Forsikre deg om at innholdet er korrekt før godkjenning.
                           </div>
                         )}
-                        <textarea
+                        <StandardTextarea
                           value={note}
                           onChange={(e) => setNote(e.target.value)}
                           placeholder="Begrunnelse (valgfritt, men anbefalt for revisjonsspor)"
                           rows={2}
-                          className="w-full rounded-md border border-neutral-300 px-2 py-1.5 text-xs"
+                          className="text-xs"
+                          aria-label="Begrunnelse for beslutning"
                         />
                         <div className="flex gap-2">
-                          <button
+                          <Button
                             type="button"
+                            size="sm"
+                            variant="primary"
+                            icon={<Check className="h-3.5 w-3.5" />}
                             onClick={() => handleDecide(a.id, 'approved')}
-                            className="inline-flex items-center gap-1 rounded-md bg-emerald-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-emerald-700"
                           >
-                            <Check className="h-3.5 w-3.5" /> Godkjenn
-                          </button>
-                          <button
+                            Godkjenn
+                          </Button>
+                          <Button
                             type="button"
+                            size="sm"
+                            variant="danger"
+                            icon={<X className="h-3.5 w-3.5" />}
                             onClick={() => handleDecide(a.id, 'rejected')}
-                            className="inline-flex items-center gap-1 rounded-md border border-rose-300 bg-white px-3 py-1.5 text-xs font-medium text-rose-700 hover:bg-rose-50"
                           >
-                            <X className="h-3.5 w-3.5" /> Avvis
-                          </button>
+                            Avvis
+                          </Button>
                         </div>
                       </div>
                     )}

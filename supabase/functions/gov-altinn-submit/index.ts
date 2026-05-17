@@ -48,11 +48,16 @@ Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
   if (req.method !== 'POST') return json({ ok: false, error: 'method_not_allowed' }, 405)
 
-  let body: CommonRequestBody
+  let body: CommonRequestBody & { dryRun?: boolean }
   try {
-    body = (await req.json()) as CommonRequestBody
+    body = (await req.json()) as CommonRequestBody & { dryRun?: boolean }
   } catch {
     return json({ ok: false, error: 'invalid_body' }, 400)
+  }
+  // Short-circuit for setup-wizard "Test forbindelsen". No regulator call,
+  // no evidence write — we just confirm the function is wired up.
+  if (body.dryRun === true) {
+    return json({ ok: true, mode: 'dry-run', detail: 'altinn-submit reachable' })
   }
   const { organization_id, rule_id, run_id, payload } = body
   if (!organization_id || !rule_id || !run_id || !payload) {

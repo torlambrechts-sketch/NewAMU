@@ -318,6 +318,8 @@ function activeModuleForPath(modules: NavModule[], pathname: string, search: str
     pathname.startsWith('/admin/templates/') ||
     pathname === '/admin/integrasjoner-staten' ||
     pathname.startsWith('/admin/integrasjoner-staten/') ||
+    pathname === '/admin/integrations' ||
+    pathname.startsWith('/admin/integrations/') ||
     pathname === '/workflow' ||
     pathname.startsWith('/workflow/')
   ) {
@@ -1084,6 +1086,13 @@ export function AticsShell() {
         requirePermAny: ['roles.manage', 'delegation.manage'],
       },
     ]
+    // Per-provider gov-integration wizards live under
+    // `/admin/integrations/<provider>`. The old combined
+    // `/admin/settings/integrations/gov` route is kept here as a
+    // deprecation-marked entry that opens the hub at `/admin/integrations`.
+    const matchAdminIntegrations = (suffix: string) =>
+      ({ pathname }: { pathname: string }) =>
+        pathname === `/admin/integrations${suffix ? `/${suffix}` : ''}`
     const integrationsSubs: SubItem[] = [
       {
         label: 'Tilkoblede tjenester',
@@ -1093,10 +1102,38 @@ export function AticsShell() {
         requirePermAny: INTEGRATIONS_NAV_PERMS,
       },
       {
-        label: 'Statlige integrasjoner',
-        path: '/admin/settings/integrations/gov',
+        label: 'Statlige integrasjoner (oversikt)',
+        path: '/admin/integrations',
         Icon: ShieldCheck,
-        match: isAdminSettings('integrations', 'gov'),
+        match: matchAdminIntegrations(''),
+        requirePermAny: INTEGRATIONS_NAV_PERMS,
+      },
+      {
+        label: 'Altinn / Maskinporten',
+        path: '/admin/integrations/altinn',
+        Icon: ShieldCheck,
+        match: matchAdminIntegrations('altinn'),
+        requirePermAny: INTEGRATIONS_NAV_PERMS,
+      },
+      {
+        label: 'Arbeidstilsynet (RegInc)',
+        path: '/admin/integrations/arbeidstilsynet',
+        Icon: ShieldCheck,
+        match: matchAdminIntegrations('arbeidstilsynet'),
+        requirePermAny: INTEGRATIONS_NAV_PERMS,
+      },
+      {
+        label: 'Datatilsynet',
+        path: '/admin/integrations/datatilsynet',
+        Icon: ShieldCheck,
+        match: matchAdminIntegrations('datatilsynet'),
+        requirePermAny: INTEGRATIONS_NAV_PERMS,
+      },
+      {
+        label: 'NAV (DSOP)',
+        path: '/admin/integrations/nav',
+        Icon: ShieldCheck,
+        match: matchAdminIntegrations('nav'),
         requirePermAny: INTEGRATIONS_NAV_PERMS,
       },
       {
