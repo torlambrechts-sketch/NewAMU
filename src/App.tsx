@@ -80,6 +80,7 @@ import { LearningKompetansePage } from './pages/learning/LearningKompetansePage'
 import { LearningAnalysePage } from './pages/learning/LearningAnalysePage'
 import { HmsOverviewPage } from './pages/overview/HmsOverviewPage'
 import { RegelverkCoveragePage } from './pages/overview/regelverk/RegelverkCoveragePage'
+import { BenchmarkPage } from './pages/dashboards/BenchmarkPage'
 import { ComplianceStudioPage } from './pages/overview/studio/ComplianceStudioPage'
 import { LearningFlowEntry } from './pages/learning/LearningFlowEntry'
 import { LearningCertificatePrintPage } from './pages/learning/LearningCertificatePrintPage'
@@ -135,6 +136,7 @@ import { SurveyDetailPage } from './pages/SurveyDetailPage'
 import { SurveyRespondPage } from './pages/SurveyRespondPage'
 import { SurveyAnalysePage } from '../modules/survey/SurveyAnalysePage'
 import { PartnerConsolePage } from './pages/partner/PartnerConsolePage'
+import { PartnerBrandingPage } from './pages/partner/PartnerBrandingPage'
 
 /**
  * Providers that depend on react-router (e.g. useOrgSetup → useLocation) must live *inside*
@@ -327,8 +329,10 @@ const router = createBrowserRouter(
                       <Route path="overview/hms" element={<PackProvider><HmsOverviewPage /></PackProvider>} />
                       {/* Partner-konsoll — HMS-konsulent multi-org surface (v0). */}
                       <Route path="partner" element={<PartnerConsolePage />} />
+                      <Route path="partner/branding" element={<PartnerBrandingPage />} />
                       <Route path="partner/invoice/:id" element={<PartnerConsolePage />} />
                       <Route path="overview/regelverk" element={<RegelverkCoveragePage />} />
+                      <Route path="benchmarking" element={<BenchmarkPage />} />
                       <Route path="compliance-studio" element={<ComplianceStudioPage />} />
                       <Route path="organisation" element={<OrganisationPage />} />
                       <Route path="organisation/admin" element={<LegacyOrgAdminRedirect />} />

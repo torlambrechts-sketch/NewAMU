@@ -26,7 +26,7 @@
 // for 100+ line invoices).
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.1'
-import { PDFDocument, StandardFonts, rgb, type PDFFont, type PDFPage } from 'https://esm.sh/pdf-lib@1.17.1'
+import { PDFDocument, StandardFonts, rgb, type PDFFont, type PDFImage, type PDFPage } from 'https://esm.sh/pdf-lib@1.17.1'
 
 const corsHeaders: Record<string, string> = {
   'Access-Control-Allow-Origin': '*',
@@ -78,6 +78,13 @@ type PartnerOrgRow = {
   vat_rate: number | null
   bank_account_number: string | null
   payment_terms_days: number | null
+  brand_logo_url: string | null
+  brand_primary_color: string | null
+  brand_secondary_color: string | null
+  brand_text_on_primary: string | null
+  invoice_sender_name: string | null
+  invoice_sender_orgnr: string | null
+  invoice_footer_text: string | null
 }
 
 type InvoiceRow = {
@@ -95,12 +102,28 @@ type InvoiceRow = {
 }
 
 const COLOR = {
-  brand: rgb(0.76, 0.25, 0.05),    // partner accent #c2410c
+  brand: rgb(0.76, 0.25, 0.05),    // partner accent #c2410c (default — overridden by partner.brand_primary_color)
   dark: rgb(0.13, 0.13, 0.13),
   muted: rgb(0.42, 0.42, 0.42),
   light: rgb(0.88, 0.88, 0.88),
   bg: rgb(0.97, 0.96, 0.94),
   white: rgb(1, 1, 1),
+}
+
+/**
+ * Parse a `#rrggbb` hex string into a pdf-lib `rgb()` color. Falls back
+ * to `fallback` when the input is null/invalid. The DB column has a
+ * regex check constraint so a malformed value should never reach here,
+ * but we still guard against null + legacy rows.
+ */
+function hexToRgb(hex: string | null | undefined, fallback: ReturnType<typeof rgb>) {
+  if (!hex) return fallback
+  const m = /^#([0-9a-fA-F]{6})$/.exec(hex)
+  if (!m) return fallback
+  const r = parseInt(m[1].slice(0, 2), 16) / 255
+  const g = parseInt(m[1].slice(2, 4), 16) / 255
+  const b = parseInt(m[1].slice(4, 6), 16) / 255
+  return rgb(r, g, b)
 }
 
 const A4_WIDTH = 595.28
@@ -276,7 +299,9 @@ Deno.serve(async (req) => {
   const [pRes, oRes, entRes] = await Promise.all([
     supabase
       .from('partner_organizations')
-      .select('id, name, billing_email, vat_rate, bank_account_number, payment_terms_days')
+      .select(
+        'id, name, billing_email, vat_rate, bank_account_number, payment_terms_days, brand_logo_url, brand_primary_color, brand_secondary_color, brand_text_on_primary, invoice_sender_name, invoice_sender_orgnr, invoice_footer_text',
+      )
       .eq('id', body.partner_id)
       .maybeSingle(),
     supabase
@@ -328,37 +353,73 @@ Deno.serve(async (req) => {
   const bold = await pdf.embedFont(StandardFonts.HelveticaBold)
   const page = pdf.addPage([A4_WIDTH, A4_HEIGHT])
 
+  // White-label branding (P3-#9): per-partner colors + logo + sender name.
+  const brandPrimary = hexToRgb(partner.brand_primary_color, COLOR.brand)
+  const brandTextOnPrimary = hexToRgb(partner.brand_text_on_primary, COLOR.white)
+  const brandSecondary = hexToRgb(partner.brand_secondary_color, COLOR.brand)
+  const senderName = partner.invoice_sender_name?.trim() || partner.name
+
+  // Try to fetch + embed the partner's logo (PNG embeds cleanly via
+  // pdf-lib.embedPng; SVG would need a rasterisation pass we skip for v0).
+  let logoImage: PDFImage | null = null
+  if (partner.brand_logo_url && partner.brand_logo_url.toLowerCase().endsWith('.png')) {
+    try {
+      const { data: logoBlob, error: logoErr } = await supabase.storage
+        .from('partner-branding')
+        .download(partner.brand_logo_url)
+      if (!logoErr && logoBlob) {
+        const bytes = new Uint8Array(await logoBlob.arrayBuffer())
+        logoImage = await pdf.embedPng(bytes)
+      }
+    } catch {
+      // Silent fallback to the LOGO placeholder; never block PDF render.
+    }
+  }
+
   // ── Header brand-bar ────────────────────────────────────────────────
   page.drawRectangle({
     x: 0,
     y: A4_HEIGHT - 60,
     width: A4_WIDTH,
     height: 60,
-    color: COLOR.brand,
+    color: brandPrimary,
   })
-  page.drawText(partner.name, {
+  page.drawText(senderName, {
     x: PAGE_MARGIN,
     y: A4_HEIGHT - 32,
     size: 18,
     font: bold,
-    color: COLOR.white,
+    color: brandTextOnPrimary,
   })
   page.drawText('Faktura', {
     x: PAGE_MARGIN,
     y: A4_HEIGHT - 50,
     size: 10,
     font,
-    color: COLOR.white,
+    color: brandTextOnPrimary,
   })
-  // Logo placeholder (v0): a filled square; v1 swaps to embedded PNG.
-  page.drawRectangle({
-    x: A4_WIDTH - PAGE_MARGIN - 40,
-    y: A4_HEIGHT - 50,
-    width: 30,
-    height: 30,
-    borderColor: COLOR.white,
-    borderWidth: 1,
-  })
+  // Logo embed (if available) — otherwise a thin placeholder rect.
+  if (logoImage) {
+    const maxH = 36
+    const scale = maxH / logoImage.height
+    const w = Math.min(120, logoImage.width * scale)
+    const h = logoImage.height * (w / logoImage.width)
+    page.drawImage(logoImage, {
+      x: A4_WIDTH - PAGE_MARGIN - w,
+      y: A4_HEIGHT - 12 - h,
+      width: w,
+      height: h,
+    })
+  } else {
+    page.drawRectangle({
+      x: A4_WIDTH - PAGE_MARGIN - 40,
+      y: A4_HEIGHT - 50,
+      width: 30,
+      height: 30,
+      borderColor: brandTextOnPrimary,
+      borderWidth: 1,
+    })
+  }
 
   // ── Right-side meta block (invoice number, dates, KID) ──────────────
   let metaY = A4_HEIGHT - 100
@@ -407,6 +468,45 @@ Deno.serve(async (req) => {
   const billingEmail = customer.email ?? partner.billing_email ?? ''
   if (billingEmail) {
     page.drawText(billingEmail, {
+      x: PAGE_MARGIN,
+      y: custY,
+      size: 9,
+      font,
+      color: COLOR.muted,
+    })
+    custY -= 12
+  }
+
+  // ── Sender block (selger) — required by regnskapsloven § 10 ─────────
+  custY -= 8
+  page.drawText('Fra (selger)', {
+    x: PAGE_MARGIN,
+    y: custY,
+    size: 8,
+    font,
+    color: COLOR.muted,
+  })
+  custY -= 14
+  page.drawText(senderName, {
+    x: PAGE_MARGIN,
+    y: custY,
+    size: 11,
+    font: bold,
+    color: brandSecondary,
+  })
+  custY -= 12
+  if (partner.invoice_sender_orgnr) {
+    page.drawText(`Orgnr. ${partner.invoice_sender_orgnr}`, {
+      x: PAGE_MARGIN,
+      y: custY,
+      size: 9,
+      font,
+      color: COLOR.dark,
+    })
+    custY -= 12
+  }
+  if (partner.billing_email) {
+    page.drawText(partner.billing_email, {
       x: PAGE_MARGIN,
       y: custY,
       size: 9,
@@ -541,7 +641,7 @@ Deno.serve(async (req) => {
     y: payY,
     size: 10,
     font: bold,
-    color: COLOR.brand,
+    color: brandPrimary,
   })
   payY -= 14
   const terms =
@@ -554,6 +654,17 @@ Deno.serve(async (req) => {
   for (const line of termsLines) {
     page.drawText(line, { x: PAGE_MARGIN, y: payY, size: 9, font, color: COLOR.dark })
     payY -= 11
+  }
+
+  // ── White-label invoice_footer_text (above the system-footer line) ──
+  const customFooter = partner.invoice_footer_text?.trim()
+  if (customFooter) {
+    payY -= 6
+    const footerLines = wrapText(customFooter, font, 9, A4_WIDTH - 2 * PAGE_MARGIN)
+    for (const line of footerLines) {
+      page.drawText(line, { x: PAGE_MARGIN, y: payY, size: 9, font, color: COLOR.muted })
+      payY -= 11
+    }
   }
 
   drawFooter(page, font, new Date().toLocaleString('nb-NO'))

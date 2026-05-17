@@ -10,7 +10,7 @@
 // Avansert flyt.
 
 import { useMemo, useState } from 'react'
-import { Plus } from 'lucide-react'
+import { ArrowRight, Plus } from 'lucide-react'
 import type {
   WorkflowAction,
   WorkflowActionDatatilsynetBreach,
@@ -32,6 +32,7 @@ import {
 } from '../../workflowActionDefaults'
 import { Chip } from './Chip'
 import { ChipPopover } from './ChipPopover'
+import { Button } from '../../../ui/Button'
 import { StandardInput } from '../../../ui/Input'
 import { StandardTextarea } from '../../../ui/Textarea'
 import { SearchableSelect } from '../../../ui/SearchableSelect'
@@ -60,9 +61,11 @@ const CROSS_ACTIONS: { type: string; label: string; defaults: () => WorkflowActi
 function ActionFields({
   action,
   onPatch,
+  onSwitchToAdvanced,
 }: {
   action: WorkflowAction
   onPatch: (a: WorkflowAction) => void
+  onSwitchToAdvanced?: () => void
 }) {
   if (action.type === 'create_task') {
     const t = action as WorkflowActionCreateTask
@@ -212,10 +215,27 @@ function ActionFields({
       </div>
     )
   }
+  // Catastrophe path — an action type slipped past the SENTENCE_EDITABLE_ACTIONS
+  // allowlist (e.g. an old persisted graph with a brand-new action type the
+  // reverse compiler hasn't taught itself yet). Surface a working "switch to
+  // advanced" link so the user isn't stuck. P0 #3.
   return (
-    <p className="text-xs text-neutral-500">
-      Denne handlingstypen har ikke en innebygd hurtigredigerer i Setning-modus. Bruk «Avansert flyt» for å redigere alle felt.
-    </p>
+    <div className="space-y-2 text-xs text-neutral-600">
+      <p>Denne handlingen kan ikke redigeres i setnings-visning.</p>
+      {onSwitchToAdvanced ? (
+        <Button
+          type="button"
+          size="sm"
+          variant="secondary"
+          icon={<ArrowRight className="size-3.5" aria-hidden />}
+          onClick={onSwitchToAdvanced}
+        >
+          Bytt til Avansert flyt
+        </Button>
+      ) : (
+        <p>Bruk «Avansert flyt» for å redigere alle felt.</p>
+      )}
+    </div>
   )
 }
 
@@ -227,6 +247,7 @@ export function ActionChip({
   onRemove,
   placeholder = 'velg handling',
   accent = '#1a3d32',
+  onSwitchToAdvanced,
 }: {
   action: WorkflowAction | null
   sourceModule: WorkflowSourceModule
@@ -235,6 +256,7 @@ export function ActionChip({
   onRemove?: () => void
   placeholder?: string
   accent?: string
+  onSwitchToAdvanced?: () => void
 }) {
   const [open, setOpen] = useState(false)
 
@@ -296,29 +318,38 @@ export function ActionChip({
               onChange={pickType}
             />
           </div>
-          {action ? <ActionFields action={action} onPatch={onChange} /> : null}
+          {action ? (
+            <ActionFields
+              action={action}
+              onPatch={onChange}
+              onSwitchToAdvanced={onSwitchToAdvanced}
+            />
+          ) : null}
           <div className="flex justify-between gap-2 pt-1">
             {onRemove ? (
-              <button
+              <Button
                 type="button"
+                size="sm"
+                variant="ghost"
                 onClick={() => {
                   onRemove()
                   setOpen(false)
                 }}
-                className="text-xs font-medium text-red-700 hover:underline"
+                className="text-red-700 hover:bg-red-50 hover:text-red-800"
               >
                 Fjern handling
-              </button>
+              </Button>
             ) : (
               <span />
             )}
-            <button
+            <Button
               type="button"
+              size="sm"
+              variant="secondary"
               onClick={() => setOpen(false)}
-              className="rounded-md border border-neutral-300 bg-white px-2.5 py-1 text-xs text-neutral-700 hover:bg-neutral-50"
             >
               Ferdig
-            </button>
+            </Button>
           </div>
         </div>
       </ChipPopover>

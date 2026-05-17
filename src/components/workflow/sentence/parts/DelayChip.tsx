@@ -1,4 +1,4 @@
-// DelayChip — duration picker for "inom X tid".
+// DelayChip — duration picker for "innen X tid".
 //
 // Presets cover the common cases (umiddelbart / 1t / 4t / 1d / 1u) plus
 // a custom row. v0 stores delays as `wait_delay` actions sitting just
@@ -76,16 +76,18 @@ export function DelayChip({
           <ul className="space-y-1">
             {PRESETS.map((p) => (
               <li key={p.label}>
-                <button
+                <Button
                   type="button"
+                  variant="ghost"
+                  size="sm"
                   onClick={() => {
                     onChange(p.value)
                     setOpen(false)
                   }}
-                  className="w-full rounded-md px-2 py-1.5 text-left text-sm hover:bg-neutral-100"
+                  className="w-full justify-start rounded-md px-2 py-1.5 text-left font-normal hover:bg-neutral-100"
                 >
                   {p.label}
-                </button>
+                </Button>
               </li>
             ))}
           </ul>

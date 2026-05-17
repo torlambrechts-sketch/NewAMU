@@ -18,13 +18,14 @@
 // constructs the sentence model can't losslessly express default to
 // advanced mode and show a small badge.
 
-import { useEffect, useMemo, useState } from 'react'
-import { CheckCircle2, FileWarning, Save, ShieldAlert, Workflow, Zap } from 'lucide-react'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { AlertTriangle, CheckCircle2, FileWarning, Save, ShieldAlert, Workflow, Zap } from 'lucide-react'
 import { useWorkflows } from '../../../hooks/useWorkflows'
 import { WorkflowFlowBuilder } from '../WorkflowFlowBuilder'
 import { SentenceBuilder } from '../sentence/SentenceBuilder'
 import { SentenceEmptyState } from '../sentence/SentenceEmptyState'
 import {
+  actionsJsonToFallbackSentence,
   emptySentence,
   flowGraphToSentence,
   sentenceToFlowGraph,
@@ -95,9 +96,16 @@ export function CanvasPanel({ initialRuleId }: { initialRuleId?: string | null }
   const [sentenceLocked, setSentenceLocked] = useState(false)
   /** TRUE when the rule has no flow yet — show empty-state tiles. */
   const [isEmpty, setIsEmpty] = useState(false)
+  /** TRUE when the rule has legacy actions_json but no flow_graph_json yet — banner before save overwrites. */
+  const [legacyFallback, setLegacyFallback] = useState(false)
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  /**
+   * Tracks which rule id is currently hydrated into local state so the
+   * post-save `useWorkflows` refetch doesn't stomp pending edits. P1 #5.
+   */
+  const hydratedRuleIdRef = useRef<string | null>(null)
 
   // ─── Hydration ─────────────────────────────────────────────────────────
   const hydrate = (id: string) => {
@@ -109,6 +117,8 @@ export function CanvasPanel({ initialRuleId }: { initialRuleId?: string | null }
       setDoc(defaultWorkflowFlowDocument())
       setSentence(null)
       setIsEmpty(false)
+      setLegacyFallback(false)
+      hydratedRuleIdRef.current = id
       return
     }
 
@@ -119,18 +129,58 @@ export function CanvasPanel({ initialRuleId }: { initialRuleId?: string | null }
     const eventName = found.trigger_event_name ?? ''
 
     if (!parsed) {
-      // Rule has no flow yet — empty state + clean sentence skeleton.
+      // No flow_graph_json. Try to recover from legacy actions_json before
+      // showing the empty state — otherwise users on legacy rules would
+      // lose all their actions the moment they save from sentence mode.
+      // P0 #2.
+      const legacy = actionsJsonToFallbackSentence({
+        source_module: found.source_module,
+        trigger_event_name: found.trigger_event_name,
+        condition_json: found.condition_json,
+        actions_json: found.actions_json,
+      })
+      if (legacy) {
+        setDoc(defaultWorkflowFlowDocument())
+        setSentence(legacy)
+        setIsEmpty(false)
+        setLegacyFallback(true)
+        const persisted = readPersistedMode(id)
+        setMode(persisted ?? 'sentence')
+        setSentenceLocked(false)
+        hydratedRuleIdRef.current = id
+        return
+      }
+      const legacyActionsArr = Array.isArray(found.actions_json)
+        ? (found.actions_json as unknown[])
+        : []
+      const hasLegacyActions = legacyActionsArr.length > 0
+      // Legacy actions exist but can't be expressed in sentence mode →
+      // force advanced and warn before overwriting.
+      if (hasLegacyActions) {
+        setDoc(defaultWorkflowFlowDocument())
+        setSentence(emptySentence(sourceModule, eventName))
+        setIsEmpty(false)
+        setLegacyFallback(true)
+        setSentenceLocked(true)
+        setMode('advanced')
+        hydratedRuleIdRef.current = id
+        return
+      }
+      // Rule truly has no flow yet — empty state + clean sentence skeleton.
       setDoc(defaultWorkflowFlowDocument())
       setSentence(emptySentence(sourceModule, eventName))
       setIsEmpty(true)
+      setLegacyFallback(false)
       const persisted = readPersistedMode(id)
       setMode(persisted ?? 'sentence')
       setSentenceLocked(false)
+      hydratedRuleIdRef.current = id
       return
     }
 
     setDoc(parsed)
     setIsEmpty(false)
+    setLegacyFallback(false)
 
     const reverse = flowGraphToSentence(parsed, sourceModule, eventName)
     if (reverse.ok) {
@@ -145,15 +195,15 @@ export function CanvasPanel({ initialRuleId }: { initialRuleId?: string | null }
       setSentenceLocked(true)
       setMode('advanced')
     }
+    hydratedRuleIdRef.current = id
   }
 
   useEffect(() => {
-    if (initialRuleId && initialRuleId !== selectedRuleId) {
-      // Pre-existing pattern from the legacy CanvasPanel — hydrating
-      // module state from the rule row when the URL specifies an
-      // initialRuleId. The lint warning is baseline; rewriting the
-      // hydration as a derived useMemo is out of scope for the
-      // sentence-builder MVP.
+    if (initialRuleId && initialRuleId !== hydratedRuleIdRef.current) {
+      // Only re-hydrate when the rule identity actually changes — the
+      // `rules` array reference flips after every `upsertRule` because
+      // `useWorkflows` refetches, and we mustn't stomp local edits each
+      // time. P1 #5.
       // eslint-disable-next-line react-hooks/set-state-in-effect
       hydrate(initialRuleId)
     }
@@ -179,9 +229,12 @@ export function CanvasPanel({ initialRuleId }: { initialRuleId?: string | null }
 
   // Keep `doc` in sync with `sentence` while the user edits in sentence mode,
   // so flipping to advanced mode shows the same flow rather than a stale one.
+  // Pass the current `doc` as `previousGraph` so step IDs are reused
+  // position-by-position — keystroke-level edits don't churn the audit log
+  // with fresh UUIDs. P1 #8.
   function applySentence(next: SentenceModel) {
     setSentence(next)
-    const compiled = sentenceToFlowGraph(next)
+    const compiled = sentenceToFlowGraph(next, doc)
     setDoc(compiled)
   }
 
@@ -193,7 +246,7 @@ export function CanvasPanel({ initialRuleId }: { initialRuleId?: string | null }
     // Lower the active editor's state into a WorkflowFlowDocument first.
     let nextDoc: WorkflowFlowDocument
     if (mode === 'sentence' && sentence) {
-      nextDoc = sentenceToFlowGraph(sentence)
+      nextDoc = sentenceToFlowGraph(sentence, doc)
     } else {
       nextDoc = doc
     }
@@ -203,12 +256,22 @@ export function CanvasPanel({ initialRuleId }: { initialRuleId?: string | null }
       setSaving(false)
       return
     }
+    // When the active editor is the SentenceBuilder, the trigger may have
+    // been edited via EventChip — surface sourceModule + eventName to the
+    // upsert payload so the engine actually fires on the new event. P0 #1.
+    const triggerEventName =
+      mode === 'sentence' && sentence
+        ? sentence.trigger.eventName || null
+        : (rule.trigger_event_name ?? null)
+    const sourceModule =
+      mode === 'sentence' && sentence ? sentence.trigger.sourceModule : rule.source_module
     const result = await upsertRule({
       id: rule.id,
       slug: rule.slug,
       name: rule.name,
       description: rule.description,
-      source_module: rule.source_module,
+      source_module: sourceModule,
+      trigger_event_name: triggerEventName,
       trigger_on: rule.trigger_on,
       is_active: rule.is_active,
       condition_json: compiled.condition_json,
@@ -220,7 +283,12 @@ export function CanvasPanel({ initialRuleId }: { initialRuleId?: string | null }
     if (result?.ok) {
       setSaved(true)
       setIsEmpty(false)
+      setLegacyFallback(false)
       setDoc(nextDoc)
+      // The post-save refetch will set `rules` to a fresh array with the
+      // new flow_graph_json. Mark this rule as already hydrated so the
+      // useEffect doesn't re-run hydrate() and stomp the canonical state.
+      hydratedRuleIdRef.current = rule.id
     }
   }
 
@@ -373,6 +441,24 @@ export function CanvasPanel({ initialRuleId }: { initialRuleId?: string | null }
             ) : null}
           </div>
 
+          {/* Legacy actions_json without flow_graph_json — about to be overwritten on save. P0 #2. */}
+          {legacyFallback && mode === 'sentence' ? (
+            <div className="flex items-start gap-2 rounded-xl border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+              <AlertTriangle className="mt-0.5 size-4 shrink-0" aria-hidden />
+              <p>
+                Denne regelen har eksisterende handlinger lagret i gammelt format. Lagring fra
+                setnings-redigereren vil erstatte dem. Bytt til{' '}
+                <button
+                  type="button"
+                  className="font-semibold underline underline-offset-2 hover:no-underline"
+                  onClick={() => switchMode('advanced')}
+                >
+                  Avansert flyt
+                </button>{' '}
+                hvis du vil bevare dem.
+              </p>
+            </div>
+          ) : null}
           {mode === 'sentence' && sentence ? (
             isEmpty ? (
               <SentenceEmptyState
@@ -401,6 +487,7 @@ export function CanvasPanel({ initialRuleId }: { initialRuleId?: string | null }
                 value={sentence}
                 onChange={applySentence}
                 readOnly={!canCompose}
+                onSwitchToAdvanced={() => switchMode('advanced')}
               />
             )
           ) : (

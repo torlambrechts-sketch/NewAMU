@@ -54,15 +54,22 @@ export function usePartnerBranding(partnerId: string | null): UsePartnerBranding
   const refresh = useCallback(() => setVersion((v) => v + 1), [])
 
   useEffect(() => {
-    if (!supabase || !partnerId) {
-      setBranding(null)
-      setLoading(false)
-      return
-    }
     let cancelled = false
-    setLoading(true)
-    setError(null)
+    if (!supabase || !partnerId) {
+      // Defer state resets to a microtask so the effect body has no
+      // synchronous setState (react-hooks/set-state-in-effect).
+      void Promise.resolve().then(() => {
+        if (cancelled) return
+        setBranding(null)
+        setLoading(false)
+      })
+      return () => {
+        cancelled = true
+      }
+    }
     void (async () => {
+      setLoading(true)
+      setError(null)
       const { data, error: selErr } = await supabase
         .from('partner_organizations')
         .select(

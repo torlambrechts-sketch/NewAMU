@@ -12,11 +12,13 @@ export function EscalationChip({
   sourceModule,
   disabled,
   onChange,
+  onSwitchToAdvanced,
 }: {
   actions: WorkflowAction[] | null
   sourceModule: WorkflowSourceModule
   disabled?: boolean
   onChange: (next: WorkflowAction[] | null) => void
+  onSwitchToAdvanced?: () => void
 }) {
   const head = actions && actions.length > 0 ? actions[0] : null
 
@@ -29,6 +31,7 @@ export function EscalationChip({
       accent="#b91c1c"
       onChange={(a) => onChange([a])}
       onRemove={head ? () => onChange(null) : undefined}
+      onSwitchToAdvanced={onSwitchToAdvanced}
     />
   )
 }

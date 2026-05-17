@@ -1768,6 +1768,13 @@ export function AticsShell() {
         requirePermAny: ADMINISTRASJON_NAV_PERMS,
       },
       {
+        label: 'Benchmarking',
+        path: '/benchmarking',
+        Icon: BarChart3,
+        match: ({ pathname }) => pathname.startsWith('/benchmarking'),
+        requirePermAny: overviewNavPerms,
+      },
+      {
         label: 'Compliance Studio',
         path: '/compliance-studio',
         Icon: Wand2,
@@ -1806,8 +1813,16 @@ export function AticsShell() {
             {
               to: '/partner',
               label: 'Partner-konsoll',
-              end: false,
+              end: true,
               icon: Briefcase,
+              subs: [],
+              flatSubs: true,
+            },
+            {
+              to: '/partner/branding',
+              label: 'Branding',
+              end: false,
+              icon: Wand2,
               subs: [],
               flatSubs: true,
             },

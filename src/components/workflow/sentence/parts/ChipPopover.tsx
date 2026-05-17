@@ -9,6 +9,7 @@
 import type { ReactNode } from 'react'
 import { useEffect, useRef } from 'react'
 import { X } from 'lucide-react'
+import { Button } from '../../../ui/Button'
 
 export function ChipPopover({
   open,
@@ -52,14 +53,16 @@ export function ChipPopover({
     >
       <div className="mb-3 flex items-center justify-between">
         <h4 className="text-xs font-bold uppercase tracking-wider text-neutral-500">{title}</h4>
-        <button
+        <Button
           type="button"
+          size="icon"
+          variant="ghost"
           onClick={onClose}
           aria-label="Lukk"
-          className="rounded p-1 text-neutral-400 hover:bg-neutral-100 hover:text-neutral-700"
+          className="rounded text-neutral-400 hover:bg-neutral-100 hover:text-neutral-700"
         >
           <X className="size-4" />
-        </button>
+        </Button>
       </div>
       {children}
     </div>

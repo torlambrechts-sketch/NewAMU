@@ -58,6 +58,7 @@ const KIND_LABELS: Record<ReportModuleKind, string> = {
   heatmap: 'Heatmap',
   scorecard: 'Scorecard',
   bowtie: 'Bowtie',
+  benchmark: 'Benchmark (anonymisert)',
 }
 
 // ── Lossless kind-switch helpers ────────────────────────────────────────────
@@ -80,6 +81,9 @@ function snapshotKindSpecifics(m: ReportModule): Record<string, unknown> {
   if (m.kind === 'table') return { rowKeys: m.rowKeys }
   if (m.kind === 'scorecard' || m.kind === 'bowtie') {
     return { groupsPath: m.groupsPath, drillDimensionId: m.drillDimensionId }
+  }
+  if (m.kind === 'benchmark') {
+    return { metric: m.metric, valueLabel: m.valueLabel, goalDirection: m.goalDirection }
   }
   return {}
 }
@@ -154,12 +158,28 @@ function buildSwitched(
       drillDimensionId: restored.drillDimensionId as string | undefined,
     } as ReportModule
   }
+  if (nextKind === 'benchmark') {
+    return {
+      ...common,
+      kind: 'benchmark',
+      metric: (restored.metric as ReportModuleBenchmarkMetric | undefined) ?? 'findings_critical_per_org',
+      valueLabel: restored.valueLabel as string | undefined,
+      goalDirection: (restored.goalDirection as 'increase' | 'decrease' | undefined) ?? 'decrease',
+    } as ReportModule
+  }
   return {
     ...common,
     kind: 'table',
     rowKeys: (restored.rowKeys as string[]) ?? [],
   } as ReportModule
 }
+
+type ReportModuleBenchmarkMetric =
+  | 'findings_critical_per_org'
+  | 'vernerunder_per_quarter'
+  | 'overdue_actions_pct'
+  | 'course_certificates_per_employee'
+  | 'sjekkliste_completion_pct'
 
 // ── Component ──────────────────────────────────────────────────────────────
 

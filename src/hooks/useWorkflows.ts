@@ -99,6 +99,12 @@ export function useWorkflows() {
       description?: string
       source_module: string
       trigger_on: 'insert' | 'update' | 'both'
+      /**
+       * Persisted into the `trigger_event_name` column. CRITICAL: the engine
+       * fires on this column, so callers editing the sentence trigger must
+       * include it here — otherwise edits are silent no-ops. P0 #1.
+       */
+      trigger_event_name?: string | null
       is_active: boolean
       condition_json: WorkflowCondition
       actions_json: WorkflowAction[] | WorkflowXorActionsEnvelope
@@ -113,24 +119,28 @@ export function useWorkflows() {
       let newId: string | undefined = input.id
       try {
         if (input.id) {
+          const updatePayload: Record<string, unknown> = {
+            slug: input.slug,
+            name: input.name,
+            description: input.description ?? '',
+            source_module: input.source_module,
+            trigger_on: input.trigger_on,
+            is_active: input.is_active,
+            condition_json: input.condition_json as unknown as Record<string, unknown>,
+            actions_json: input.actions_json as unknown as Record<string, unknown>,
+            flow_graph_json: input.flow_graph_json ?? null,
+            priority: input.priority ?? 0,
+          }
+          if (input.trigger_event_name !== undefined) {
+            updatePayload.trigger_event_name = input.trigger_event_name
+          }
           const { error: e } = await supabase
             .from('workflow_rules')
-            .update({
-              slug: input.slug,
-              name: input.name,
-              description: input.description ?? '',
-              source_module: input.source_module,
-              trigger_on: input.trigger_on,
-              is_active: input.is_active,
-              condition_json: input.condition_json as unknown as Record<string, unknown>,
-              actions_json: input.actions_json as unknown as Record<string, unknown>,
-              flow_graph_json: input.flow_graph_json ?? null,
-              priority: input.priority ?? 0,
-            })
+            .update(updatePayload)
             .eq('id', input.id)
           if (e) throw e
         } else {
-          const { data, error: e } = await supabase.from('workflow_rules').insert({
+          const insertPayload: Record<string, unknown> = {
             organization_id: orgId,
             slug: input.slug,
             name: input.name,
@@ -143,7 +153,15 @@ export function useWorkflows() {
             flow_graph_json: input.flow_graph_json ?? null,
             priority: input.priority ?? 0,
             is_template: false,
-          }).select('id').single()
+          }
+          if (input.trigger_event_name !== undefined) {
+            insertPayload.trigger_event_name = input.trigger_event_name
+          }
+          const { data, error: e } = await supabase
+            .from('workflow_rules')
+            .insert(insertPayload)
+            .select('id')
+            .single()
           if (e) throw e
           newId = (data as { id?: string } | null)?.id
         }

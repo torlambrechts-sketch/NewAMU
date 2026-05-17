@@ -36,10 +36,17 @@ export function SentenceBuilder({
   value,
   onChange,
   readOnly = false,
+  onSwitchToAdvanced,
 }: {
   value: SentenceModel
   onChange: (next: SentenceModel) => void
   readOnly?: boolean
+  /**
+   * Flip the host CanvasPanel to advanced mode. Forwarded to ActionChip
+   * so its "ikke en innebygd hurtigredigerer" fallback is a working link
+   * rather than a dead-end. P0 #3.
+   */
+  onSwitchToAdvanced?: () => void
 }) {
   const sourceModule = value.trigger.sourceModule
 
@@ -128,22 +135,25 @@ export function SentenceBuilder({
                     sourceModule={sourceModule}
                     disabled={readOnly}
                     onChange={(a) => setStepAction(step.id, a)}
+                    onSwitchToAdvanced={onSwitchToAdvanced}
                   />
-                  <span className="text-neutral-500">inom</span>
+                  <span className="text-neutral-500">innen</span>
                   <DelayChip
                     value={step.delay}
                     disabled={readOnly}
                     onChange={(d) => setStepDelay(step.id, d)}
                   />
                   {!readOnly ? (
-                    <button
+                    <Button
                       type="button"
+                      size="icon"
+                      variant="ghost"
                       onClick={() => removeStep(step.id)}
                       aria-label={`Slett steg ${idx + 1}`}
-                      className="rounded-md p-1 text-neutral-400 hover:bg-red-50 hover:text-red-700"
+                      className="rounded-md text-neutral-400 hover:bg-red-50 hover:text-red-700"
                     >
                       <Trash2 className="size-4" />
-                    </button>
+                    </Button>
                   ) : null}
                 </li>
               ))
@@ -166,6 +176,7 @@ export function SentenceBuilder({
             sourceModule={sourceModule}
             disabled={readOnly}
             onChange={setOnError}
+            onSwitchToAdvanced={onSwitchToAdvanced}
           />
         </div>
       </div>

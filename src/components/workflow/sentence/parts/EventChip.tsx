@@ -10,6 +10,7 @@ import type { WorkflowSourceModule } from '../../../../types/workflow'
 import { listWorkflowEvents } from '../../../../lib/workflows/workflowRegistry'
 import { Chip } from './Chip'
 import { ChipPopover } from './ChipPopover'
+import { Button } from '../../../ui/Button'
 import { StandardInput } from '../../../ui/Input'
 
 export function EventChip({
@@ -102,8 +103,10 @@ export function EventChip({
                         sourceModule === g.scopeId && eventName === event.name
                       return (
                         <li key={event.name}>
-                          <button
+                          <Button
                             type="button"
+                            variant="ghost"
+                            size="sm"
                             onClick={() => {
                               onChange({
                                 sourceModule: g.scopeId as WorkflowSourceModule,
@@ -111,13 +114,14 @@ export function EventChip({
                               })
                               setOpen(false)
                             }}
-                            className={`flex w-full flex-col items-start rounded-md px-2 py-1.5 text-left text-sm hover:bg-neutral-100 ${selected ? 'bg-emerald-50 text-emerald-900' : 'text-neutral-800'}`}
+                            // P1 #7: brand green pill replaces Tailwind emerald.
+                            className={`flex w-full flex-col items-start rounded-md px-2 py-1.5 text-left font-normal hover:bg-neutral-100 ${selected ? 'bg-[#1a3d32]/10 text-[#1a3d32] hover:bg-[#1a3d32]/15' : 'text-neutral-800'}`}
                           >
                             <span className="font-medium">{event.label}</span>
                             {event.description ? (
                               <span className="text-xs text-neutral-500">{event.description}</span>
                             ) : null}
-                          </button>
+                          </Button>
                         </li>
                       )
                     })}

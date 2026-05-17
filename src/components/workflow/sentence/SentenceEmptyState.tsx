@@ -5,7 +5,35 @@
 // wired as "navigate the user to the right tab" — they don't try to
 // jump in-context, which keeps the MVP shippable.
 
+import type { ReactNode } from 'react'
 import { BookOpen, FilePlus, Sparkles } from 'lucide-react'
+import { Button } from '../../ui/Button'
+
+function StartTile({
+  icon,
+  title,
+  description,
+  onClick,
+}: {
+  icon: ReactNode
+  title: string
+  description: string
+  onClick: () => void
+}) {
+  return (
+    <Button
+      type="button"
+      variant="secondary"
+      size="default"
+      onClick={onClick}
+      className="flex h-full w-full flex-col items-start gap-1 rounded-xl border-neutral-200 bg-white p-4 text-left font-normal hover:border-[#1a3d32] hover:bg-white hover:shadow-sm"
+    >
+      {icon}
+      <p className="mt-2 text-sm font-semibold text-neutral-900">{title}</p>
+      <p className="mt-1 text-xs text-neutral-600">{description}</p>
+    </Button>
+  )
+}
 
 export function SentenceEmptyState({
   onStartBlank,
@@ -23,39 +51,24 @@ export function SentenceEmptyState({
         Velg en mal, en faktisk hendelse fra historikken, eller bygg fra bunnen.
       </p>
       <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
-        <button
-          type="button"
+        <StartTile
+          icon={<BookOpen className="size-5 text-[#1a3d32]" aria-hidden />}
+          title="Start fra mal (anbefalt)"
+          description="Velg en revidert AML/IK-f/GDPR-mal fra biblioteket."
           onClick={onOpenLibrary}
-          className="rounded-xl border border-neutral-200 bg-white p-4 text-left hover:border-[#1a3d32] hover:shadow-sm"
-        >
-          <BookOpen className="size-5 text-[#1a3d32]" aria-hidden />
-          <p className="mt-2 text-sm font-semibold text-neutral-900">Start fra mal (anbefalt)</p>
-          <p className="mt-1 text-xs text-neutral-600">
-            Velg en revidert AML/IK-f/GDPR-mal fra biblioteket.
-          </p>
-        </button>
-        <button
-          type="button"
+        />
+        <StartTile
+          icon={<Sparkles className="size-5 text-[#1a3d32]" aria-hidden />}
+          title="Start fra siste hendelse"
+          description="Velg en faktisk hendelse fra historikken og bygg regelen rundt den."
           onClick={onOpenDryRun}
-          className="rounded-xl border border-neutral-200 bg-white p-4 text-left hover:border-[#1a3d32] hover:shadow-sm"
-        >
-          <Sparkles className="size-5 text-[#1a3d32]" aria-hidden />
-          <p className="mt-2 text-sm font-semibold text-neutral-900">Start fra siste hendelse</p>
-          <p className="mt-1 text-xs text-neutral-600">
-            Velg en faktisk hendelse fra historikken og bygg regelen rundt den.
-          </p>
-        </button>
-        <button
-          type="button"
+        />
+        <StartTile
+          icon={<FilePlus className="size-5 text-[#1a3d32]" aria-hidden />}
+          title="Start blankt"
+          description="Tomt skjelett — sett inn hendelse, betingelse og handlinger selv."
           onClick={onStartBlank}
-          className="rounded-xl border border-neutral-200 bg-white p-4 text-left hover:border-[#1a3d32] hover:shadow-sm"
-        >
-          <FilePlus className="size-5 text-[#1a3d32]" aria-hidden />
-          <p className="mt-2 text-sm font-semibold text-neutral-900">Start blankt</p>
-          <p className="mt-1 text-xs text-neutral-600">
-            Tomt skjelett — sett inn hendelse, betingelse og handlinger selv.
-          </p>
-        </button>
+        />
       </div>
     </div>
   )

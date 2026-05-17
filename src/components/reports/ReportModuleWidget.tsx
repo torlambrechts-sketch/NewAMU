@@ -1,6 +1,7 @@
 import { useRef, useState, type DragEvent as ReactDragEvent, type PointerEvent as ReactPointerEvent, type ReactNode } from 'react'
 import type { ReportModule, ReportModuleColSpan, ReportModuleKind } from '../../types/reportBuilder'
 import { getAtPath, numberAtPath } from '../../lib/reportDatasets'
+import { BenchmarkWidget, type BenchmarkPoint } from '../dashboards/BenchmarkWidget'
 
 // Polished widget surface (Klarert dashboard kit V1 — see
 // `ui_kits/dashboard/Widgets.jsx` `WidgetCard`). Earlier iterations of
@@ -1002,6 +1003,28 @@ export function ReportModuleWidget({
           </div>
         )}
       </>,
+    )
+  }
+  if (m.kind === 'benchmark') {
+    // Anonymisert benchmark — leser en serie av BenchmarkPoint fra
+    // datasettet. Host-siden er ansvarlig for å hente serien via
+    // `get_my_org_benchmark`-RPC og publisere den under widgetens
+    // datasetKey. Renderes via den selvstendige BenchmarkWidget-
+    // komponenten, som tegner sitt eget kort — derfor pakkes ikke
+    // resultatet i `wrap()` (vi ville fått card-in-card).
+    const series = Array.isArray(ds) ? (ds as BenchmarkPoint[]) : []
+    return (
+      <div ref={wrapRef} className={`${colSpanClass} ${rowBreakClass}`}>
+        <BenchmarkWidget
+          orgId={null}
+          metric={m.metric}
+          label={m.title}
+          valueLabel={m.valueLabel ?? m.subtitle}
+          goalDirection={m.goalDirection ?? 'decrease'}
+          series={series}
+          accent={accent}
+        />
+      </div>
     )
   }
   return null

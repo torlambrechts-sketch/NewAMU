@@ -32,6 +32,23 @@ import type {
   SentenceStep,
 } from './sentenceModel'
 
+/**
+ * Action types the SentenceModel can losslessly express and edit inline.
+ * `wait_delay` and `on_error` are structural — not editable as their own
+ * chip but supported as part of a step's delay / escalation tail. Anything
+ * outside this set forces advanced-mode in reverse-compile so the user
+ * never sees a dead chip with "ikke en innebygd hurtigredigerer".
+ */
+export const SENTENCE_EDITABLE_ACTIONS = new Set<WorkflowAction['type']>([
+  'create_task',
+  'send_notification',
+  'request_approval',
+  'meld_personvernbrudd_datatilsynet',
+  'rapporter_alvorlig_skade_arbeidstilsynet',
+  'wait_delay',
+  'on_error',
+])
+
 // ─── helpers ────────────────────────────────────────────────────────────────
 
 function scopeFilterToCondition(sf: SentenceScopeFilter): WorkflowCondition | null {
@@ -121,12 +138,26 @@ function reverseFlatToSteps(actions: WorkflowAction[]): SentenceStep[] | null {
 
 // ─── sentence → flow_graph_json (always succeeds) ───────────────────────────
 
-export function sentenceToFlowGraph(sentence: SentenceModel): WorkflowFlowDocument {
+/**
+ * Lower a SentenceModel into a WorkflowFlowDocument.
+ *
+ * When `previousGraph` is supplied the compiler reuses step IDs from the
+ * previous graph by position (first step keeps prev's first id, etc.) so
+ * keystroke-level edits don't churn the audit log with re-minted IDs.
+ * New steps still get fresh IDs. P1 #8.
+ */
+export function sentenceToFlowGraph(
+  sentence: SentenceModel,
+  previousGraph?: WorkflowFlowDocument | null,
+): WorkflowFlowDocument {
   const scopeCond = scopeFilterToCondition(sentence.scopeFilter)
   const condition = combineScopeAndCondition(scopeCond, sentence.condition)
 
+  const prevSteps = previousGraph?.linearSteps ?? []
+  const reuseId = (idx: number): string => prevSteps[idx]?.id ?? newFlowStepId()
+
   const conditionStep: WorkflowFlowStep = {
-    id: newFlowStepId(),
+    id: reuseId(0),
     kind: 'condition',
     label: condition.match === 'always' ? 'Alltid' : 'Filter',
     condition,
@@ -139,7 +170,7 @@ export function sentenceToFlowGraph(sentence: SentenceModel): WorkflowFlowDocume
   }
 
   const actionsStep: WorkflowFlowStep = {
-    id: newFlowStepId(),
+    id: reuseId(1),
     kind: 'actions',
     label: 'Handlinger',
     actions: actions.length > 0 ? actions : [],
@@ -162,6 +193,7 @@ export type ReverseCompileBailReason =
   | 'composite-condition'
   | 'multi-on-error'
   | 'reverse-failed'
+  | 'unsupported-action'
 
 export type ReverseCompileResult =
   | { ok: true; sentence: SentenceModel }
@@ -242,6 +274,14 @@ export function flowGraphToSentence(
     return { ok: false, reason: 'parallel-actions' }
   }
 
+  // Bail when any action falls outside the sentence-editable allowlist —
+  // otherwise the user would get a dead ActionChip with "ikke en innebygd
+  // hurtigredigerer" and no way to edit. The on_error tail is checked
+  // separately: its actions must each be editable too. (P0 #3)
+  if (rawActions.some((a) => !SENTENCE_EDITABLE_ACTIONS.has(a.type))) {
+    return { ok: false, reason: 'unsupported-action' }
+  }
+
   // Multiple on_error or non-tail on_error → DAG.
   const onErrorIndices = rawActions
     .map((a, i) => (a.type === 'on_error' ? i : -1))
@@ -256,6 +296,10 @@ export function flowGraphToSentence(
   if (onErrorIndices.length === 1) {
     const last = actionsWithoutOnError.pop() as WorkflowActionOnError
     onError = last.actions
+    // on_error tail children must also be sentence-editable.
+    if (onError.some((a) => !SENTENCE_EDITABLE_ACTIONS.has(a.type))) {
+      return { ok: false, reason: 'unsupported-action' }
+    }
   }
 
   const steps = reverseFlatToSteps(actionsWithoutOnError)
@@ -282,5 +326,71 @@ export function emptySentence(sourceModule: WorkflowSourceModule, eventName = ''
     condition: null,
     steps: [],
     onError: null,
+  }
+}
+
+// ─── legacy actions_json fallback hydration ─────────────────────────────────
+
+/**
+ * Hydrate a SentenceModel from a legacy rule that has `actions_json` but no
+ * `flow_graph_json` yet. Returns null when the legacy actions array contains
+ * anything the sentence model can't losslessly express (XOR envelope,
+ * parallel, unsupported types, …) — in which case CanvasPanel forces
+ * advanced mode and shows a warning. (P0 #2)
+ */
+export function actionsJsonToFallbackSentence(rule: {
+  source_module: string
+  trigger_event_name?: string | null
+  condition_json?: WorkflowCondition | null
+  actions_json: unknown
+}): SentenceModel | null {
+  const raw = rule.actions_json
+  if (!Array.isArray(raw)) return null
+  const actions = raw as WorkflowAction[]
+  if (actions.length === 0) return null
+  if (actions.some((a) => !SENTENCE_EDITABLE_ACTIONS.has(a.type))) return null
+  // No `parallel` is enforced by the allowlist above (`parallel` isn't in it).
+
+  // Same on_error rules as the reverse compiler: at most one, must be the tail.
+  const onErrorIndices = actions
+    .map((a, i) => (a.type === 'on_error' ? i : -1))
+    .filter((i) => i >= 0)
+  if (onErrorIndices.length > 1) return null
+  if (onErrorIndices.length === 1 && onErrorIndices[0] !== actions.length - 1) return null
+
+  const tail = [...actions]
+  let onError: WorkflowAction[] | null = null
+  if (onErrorIndices.length === 1) {
+    const last = tail.pop() as WorkflowActionOnError
+    if (last.actions.some((a) => !SENTENCE_EDITABLE_ACTIONS.has(a.type))) return null
+    onError = last.actions
+  }
+
+  const steps = reverseFlatToSteps(tail)
+  if (steps === null) return null
+
+  // Split existing condition into scope + condition like the reverse compiler.
+  let scopeFilter: SentenceScopeFilter = null
+  let condition: WorkflowCondition | null = null
+  const c = rule.condition_json
+  if (c) {
+    if (c.match === 'field_equals') {
+      const maybe = conditionToScopeFilter(c)
+      if (maybe !== 'condition') scopeFilter = maybe
+      else condition = c
+    } else if (c.match !== 'always') {
+      condition = c
+    }
+  }
+
+  return {
+    trigger: {
+      sourceModule: rule.source_module as WorkflowSourceModule,
+      eventName: rule.trigger_event_name ?? '',
+    },
+    scopeFilter,
+    condition,
+    steps,
+    onError,
   }
 }
