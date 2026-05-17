@@ -128,6 +128,7 @@ import { SurveyOrgTemplateEditorPage } from './pages/SurveyOrgTemplateEditorPage
 import { SurveyDetailPage } from './pages/SurveyDetailPage'
 import { SurveyRespondPage } from './pages/SurveyRespondPage'
 import { SurveyAnalysePage } from '../modules/survey/SurveyAnalysePage'
+import { PartnerConsolePage } from './pages/partner/PartnerConsolePage'
 
 /**
  * Providers that depend on react-router (e.g. useOrgSetup → useLocation) must live *inside*
@@ -318,6 +319,9 @@ const router = createBrowserRouter(
                       <Route path="tasks/management/admin/:tab" element={<LegacyAdminRedirect scope="tasks" />} />
                       <Route path="tasks/management/review" element={<TasksManagementReviewPage />} />
                       <Route path="overview/hms" element={<PackProvider><HmsOverviewPage /></PackProvider>} />
+                      {/* Partner-konsoll — HMS-konsulent multi-org surface (v0). */}
+                      <Route path="partner" element={<PartnerConsolePage />} />
+                      <Route path="partner/invoice/:id" element={<PartnerConsolePage />} />
                       <Route path="overview/regelverk" element={<RegelverkCoveragePage />} />
                       <Route path="compliance-studio" element={<ComplianceStudioPage />} />
                       <Route path="organisation" element={<OrganisationPage />} />

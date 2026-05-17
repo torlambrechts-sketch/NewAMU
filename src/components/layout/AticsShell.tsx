@@ -6,6 +6,7 @@ import {
   BarChart3,
   BookOpen,
   Boxes,
+  Briefcase,
   Building2,
   ChevronDown,
   Database,
@@ -55,6 +56,9 @@ import { useRegistersNav } from '../../hooks/useRegistersNav'
 import { useTaskNav } from '../../../modules/tasks/useTaskNav'
 import { useMeetingsNav } from '../../../modules/meetings/useMeetingsNav'
 import { useAlertsNav } from '../../../modules/alerts/useAlertsNav'
+import { usePartnerMembership } from '../../hooks/usePartnerMembership'
+import { useConsultantClock } from '../../hooks/useConsultantClock'
+import { OrgSwitcher } from './OrgSwitcher'
 import type { NavMode } from './aticsNavMode'
 
 // ─── Sub-item type ────────────────────────────────────────────────────────────
@@ -459,6 +463,10 @@ export function AticsShell() {
   const tasksNav = useTaskNav()
   const meetingsNav = useMeetingsNav()
   const alertsNav = useAlertsNav()
+  // Partner-konsoll: only the membership flag is needed for nav visibility;
+  // the consultant clock side effect runs unconditionally and self-gates.
+  const { isPartnerMember } = usePartnerMembership()
+  useConsultantClock()
   const { isActive: isRegulationActive, activeRegulationIds } = useRegulationFilter()
   const mergedNavGroups = useMemo<NavGroup[]>(() => {
     // Fixed sub-entries that always sit under "Sjekklister" — Analyse and
@@ -1663,7 +1671,31 @@ export function AticsShell() {
       ],
     }
 
-    return [hmsOverviewGroup, complianceGroup, surveyGroup, documentsGroup, meetingsGroup, alertsGroup, registersGroup, tasksGroup, learningGroup, adminGroup]
+    // Partner-konsoll — only shown when the user has at least one
+    // active partner_memberships row. The group sits at the very
+    // beginning of the merged list so consultants land on it first
+    // when they sign in (partner consoles are their primary
+    // workspace, not HMS-oversikt for any single customer).
+    const partnerGroup: NavGroup | null = isPartnerMember
+      ? {
+          id: 'partner-konsoll',
+          label: 'Partner-konsoll',
+          icon: Briefcase,
+          modules: [
+            {
+              to: '/partner',
+              label: 'Partner-konsoll',
+              end: false,
+              icon: Briefcase,
+              subs: [],
+              flatSubs: true,
+            },
+          ],
+        }
+      : null
+
+    const base: NavGroup[] = [hmsOverviewGroup, complianceGroup, surveyGroup, documentsGroup, meetingsGroup, alertsGroup, registersGroup, tasksGroup, learningGroup, adminGroup]
+    return partnerGroup ? [partnerGroup, ...base] : base
   }, [
     complianceNav.items,
     complianceNav.categories,
@@ -1683,6 +1715,7 @@ export function AticsShell() {
     meetingsNav.categories,
     isRegulationActive,
     activeRegulationIds,
+    isPartnerMember,
   ])
 
   const visibleGroups = useMemo(
@@ -1957,6 +1990,7 @@ export function AticsShell() {
             <div className="ml-auto flex min-w-0 flex-wrap items-center justify-end gap-2 sm:gap-3">
               {supabaseConfigured ? (
                 <>
+                  <OrgSwitcher variant="sidebar" />
                   <ShellCompanyBlock name={orgDisplayName} variant="sidebar" />
                   <ShellQuickCreateMenu variant="sidebar" />
                   <ShellComplianceIndicator variant="sidebar" />
@@ -2031,6 +2065,7 @@ export function AticsShell() {
     <div className="flex shrink-0 flex-nowrap items-center justify-end gap-1.5 sm:gap-2 md:gap-3">
       {supabaseConfigured ? (
         <>
+          <OrgSwitcher variant="topbar" />
           <ShellCompanyBlock name={orgDisplayName} variant="topbar" />
           <ShellQuickCreateMenu variant="topbar" />
           <ShellComplianceIndicator variant="topbar" />
