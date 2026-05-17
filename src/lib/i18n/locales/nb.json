@@ -1,0 +1,45 @@
+{
+  "workflow": {
+    "title": "Automatisering",
+    "description": "Forhåndsdefinert mal-bibliotek, visuell flyt-bygger, godkjenningsinnboks, kjøringshistorikk, dry-run og bevispakke for tilsyn — drevet av den nye arbeidsflyt-substraten.",
+    "breadcrumbAdmin": "Admin",
+    "tabs": {
+      "library": "Bibliotek",
+      "rules": "Mine arbeidsflyter",
+      "system": "System",
+      "canvas": "Bygg",
+      "approvals": "Godkjenninger",
+      "runs": "Kjøringer",
+      "dryRun": "Tørrløp",
+      "evidence": "Bevispakke",
+      "revisions": "Endringslogg"
+    },
+    "stats": {
+      "activeRules": "Aktive regler",
+      "activeRulesSub": "{{count}} totalt i organisasjonen",
+      "pendingApprovals": "Venter på godkjenning",
+      "pendingApprovalsNone": "Ingen utestående",
+      "pendingApprovalsSome": "Krever beslutning",
+      "govSubmissions": "Statlige meldinger",
+      "govSubmissionsSub": "Regler som rapporterer til myndighet",
+      "runs7d": "Kjøringer siste 7 dager",
+      "runs7dNone": "Ingen kjøringer ennå",
+      "runs7dSome": "Tellig av workflow_runs"
+    },
+    "newRule": "Ny arbeidsflyt"
+  },
+  "common": {
+    "save": "Lagre",
+    "cancel": "Avbryt",
+    "delete": "Slett",
+    "edit": "Rediger",
+    "loading": "Laster …",
+    "error": "Feil"
+  },
+  "shell": {
+    "locale": {
+      "switchToNb": "Bytt til norsk",
+      "switchToEn": "Bytt til engelsk"
+    }
+  }
+}

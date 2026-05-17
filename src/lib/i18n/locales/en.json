@@ -1,0 +1,45 @@
+{
+  "workflow": {
+    "title": "Automation",
+    "description": "Pre-built template library, visual flow builder, approvals inbox, run history, dry-run and audit evidence bundle — powered by the new workflow substrate.",
+    "breadcrumbAdmin": "Admin",
+    "tabs": {
+      "library": "Library",
+      "rules": "My workflows",
+      "system": "System",
+      "canvas": "Builder",
+      "approvals": "Approvals",
+      "runs": "Runs",
+      "dryRun": "Dry-run",
+      "evidence": "Evidence bundle",
+      "revisions": "Change log"
+    },
+    "stats": {
+      "activeRules": "Active rules",
+      "activeRulesSub": "{{count}} total in organisation",
+      "pendingApprovals": "Pending approvals",
+      "pendingApprovalsNone": "None outstanding",
+      "pendingApprovalsSome": "Requires a decision",
+      "govSubmissions": "Government submissions",
+      "govSubmissionsSub": "Rules that report to authorities",
+      "runs7d": "Runs in last 7 days",
+      "runs7dNone": "No runs yet",
+      "runs7dSome": "Count of workflow_runs"
+    },
+    "newRule": "New workflow"
+  },
+  "common": {
+    "save": "Save",
+    "cancel": "Cancel",
+    "delete": "Delete",
+    "edit": "Edit",
+    "loading": "Loading …",
+    "error": "Error"
+  },
+  "shell": {
+    "locale": {
+      "switchToNb": "Switch to Norwegian",
+      "switchToEn": "Switch to English"
+    }
+  }
+}
