@@ -168,13 +168,13 @@ export function TasksSLATab() {
         </div>
         <div className={WPSTD_FORM_ROW_GRID}>
           <div>
-            <p className={WPSTD_FORM_FIELD_LABEL}>Krav for å lukke avvik</p>
+            <p id="sla-closure-label" className={WPSTD_FORM_FIELD_LABEL}>Krav for å lukke avvik</p>
             <p className={`${WPSTD_FORM_LEAD} mt-1`}>
               Hard-sperre blokkerer lukking inntil tiltak er implementert og verifisert.
               Myk-advarsel lar saksbehandler overstyre med begrunnelse.
             </p>
           </div>
-          <div className="flex flex-col gap-2">
+          <div className="flex flex-col gap-2" role="radiogroup" aria-labelledby="sla-closure-label">
             {(
               [
                 { v: 'hard', label: 'Hard sperre', desc: 'Kan ikke lukkes uten verifisert tiltak (anbefalt)' },
@@ -185,8 +185,9 @@ export function TasksSLATab() {
               <Button
                 key={v}
                 variant="secondary"
+                role="radio"
+                aria-checked={settings.avvikClosureGate === v}
                 onClick={() => set('avvikClosureGate', v)}
-                aria-pressed={settings.avvikClosureGate === v}
                 className={`flex w-full items-start justify-start gap-3 rounded-lg border p-3 text-left font-normal transition ${
                   settings.avvikClosureGate === v
                     ? 'border-[#c2410c]/30 bg-orange-50 hover:bg-orange-50'

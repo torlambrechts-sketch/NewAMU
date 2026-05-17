@@ -139,16 +139,17 @@ export function TaskProjectCreateForm({ open, onClose, onCreate }: Props) {
         {/* Methodology */}
         <div className={WPSTD_FORM_ROW_GRID}>
           <div>
-            <p className={WPSTD_FORM_FIELD_LABEL}>Tavletype</p>
+            <p id="proj-method-label" className={WPSTD_FORM_FIELD_LABEL}>Tavletype</p>
             <p className={`${WPSTD_FORM_LEAD} mt-1`}>Bestemmer kolonnestrukturen</p>
           </div>
-          <div className="space-y-2">
+          <div className="space-y-2" role="radiogroup" aria-labelledby="proj-method-label">
             {METHODOLOGY_OPTIONS.map((opt) => (
               <Button
                 key={opt.value}
                 variant="secondary"
+                role="radio"
+                aria-checked={form.methodology === opt.value}
                 onClick={() => set('methodology', opt.value)}
-                aria-pressed={form.methodology === opt.value}
                 className={`flex w-full items-start justify-start gap-3 rounded-lg border p-3 text-left font-normal transition ${
                   form.methodology === opt.value
                     ? 'border-[#c2410c] bg-orange-50/40 hover:bg-orange-50/40'
