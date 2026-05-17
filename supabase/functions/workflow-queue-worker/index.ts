@@ -201,6 +201,47 @@ async function dispatchRow(
     return { ok: false, error: 'on_error_should_not_be_queued_directly' }
   }
 
+  // request_approval rows are inserted with status='awaiting_approval'
+  // by workflow_execute_actions. workflow_decide_approval (`_120700`)
+  // flips them back to status='pending' on approve so the post-approval
+  // continuation resumes here. Reject/cancel flips to status='cancelled'
+  // — those never reach this dispatcher because the lease only picks
+  // status='pending'. If we DO see one here it means either:
+  //   (a) the approver approved and we need to mark done so any chained
+  //       follow-up actions can run (currently approval is a terminator —
+  //       no follow-up actions exist in catalog today), OR
+  //   (b) someone re-queued an awaiting-approval row manually; we then
+  //       cross-check the workflow_approvals state and act accordingly.
+  if (effectiveType === 'request_approval') {
+    const { data: approval, error } = await supabase
+      .from('workflow_approvals')
+      .select('status, decision_note, decided_at')
+      .eq('rule_id', row.rule_id)
+      .eq('organization_id', row.organization_id)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+    if (error || !approval) return { ok: false, error: 'approval_row_missing' }
+    if (approval.status === 'approved') return { ok: true }
+    if (approval.status === 'rejected' || approval.status === 'cancelled' || approval.status === 'expired') {
+      return {
+        ok: false,
+        error: `approval_${approval.status}:${approval.decision_note ?? ''}`.slice(0, 240),
+      }
+    }
+    // Still pending — bump execute_after 15 min into the future so we
+    // don't busy-loop. Returning ok:true short-circuits the normal mark-
+    // done path; we update the row inline so the next batch skips it.
+    await supabase
+      .from('workflow_action_queue')
+      .update({
+        status: 'awaiting_approval',
+        execute_after: new Date(Date.now() + 15 * 60_000).toISOString(),
+      })
+      .eq('id', row.id)
+    return { ok: true }
+  }
+
   // Notifications (email + in-app) land in compliance_notifications so
   // there's a single inbox per CLAUDE.md reuse rule. We route through the
   // workflow_dispatch_notification RPC which resolves recipients and

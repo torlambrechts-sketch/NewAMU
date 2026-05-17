@@ -30,6 +30,15 @@ type ProviderMeta = {
   dependency?: 'altinn'
 }
 
+// C-5: translate last_submission_status raw values to Norwegian for
+// display. Keep the fallback so unknown values render verbatim instead
+// of disappearing.
+const STATUS_LABEL: Record<string, string> = {
+  ok: 'Vellykket',
+  failed: 'Feilet',
+  pending: 'Venter',
+}
+
 const PROVIDERS: ProviderMeta[] = [
   {
     kind: 'altinn',
@@ -140,7 +149,9 @@ export function GovIntegrationsPage() {
                   {row?.last_submission_at && (
                     <span className="self-center text-[11px] text-neutral-500">
                       Sist innsending: {new Date(row.last_submission_at).toLocaleString('nb-NO')} ·{' '}
-                      {row.last_submission_status ?? '—'}
+                      {row.last_submission_status
+                        ? (STATUS_LABEL[row.last_submission_status] ?? row.last_submission_status)
+                        : '—'}
                     </span>
                   )}
                 </div>

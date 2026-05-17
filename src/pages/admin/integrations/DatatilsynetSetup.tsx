@@ -337,7 +337,7 @@ export function DatatilsynetSetup() {
           <ModuleSectionCard className="space-y-4 p-6">
             <h2 className="text-base font-semibold text-neutral-900">Test forbindelsen</h2>
             <p className="text-sm text-neutral-700">
-              Vi sender en tom dry-run-melding til <code>gov-datatilsynet-breach</code>. Ingen
+              Vi sender en tom testforbindelse-melding til <code>gov-datatilsynet-breach</code>. Ingen
               transport (Altinn eller outbox) effektueres.
             </p>
             <div className="flex flex-wrap items-center gap-2">
@@ -347,7 +347,7 @@ export function DatatilsynetSetup() {
                 disabled={testing}
                 icon={testing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
               >
-                {testing ? 'Tester …' : 'Kjør dry-run'}
+                {testing ? 'Tester …' : 'Test forbindelsen'}
               </Button>
               {environment === 'tt02' && (
                 <span className="rounded-full bg-violet-100 px-2 py-0.5 text-xs text-violet-900">
@@ -366,7 +366,9 @@ export function DatatilsynetSetup() {
                 <div>
                   <p className="font-medium">Test bestått — integrasjonen er aktivert.</p>
                   <p className="text-xs">
-                    Modus: <code>{dryRun.mode}</code>. Status:{' '}
+                    Modus:{' '}
+                    <code>{dryRun.mode === 'dry-run' ? 'testforbindelse' : dryRun.mode}</code>.
+                    Status:{' '}
                     <strong>{environment === 'tt02' ? 'test' : 'aktiv'}</strong>.
                   </p>
                 </div>

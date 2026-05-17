@@ -305,7 +305,7 @@ export function NavSetup() {
           <ModuleSectionCard className="space-y-4 p-6">
             <h2 className="text-base font-semibold text-neutral-900">Test forbindelsen</h2>
             <p className="text-sm text-neutral-700">
-              Vi sender en tom dry-run-melding til <code>gov-nav-sykefravar</code> for å
+              Vi sender en tom testforbindelse-melding til <code>gov-nav-sykefravar</code> for å
               verifisere koblingen. Ingen DSOP-skjema når NAV.
             </p>
             <div className="flex flex-wrap items-center gap-2">
@@ -315,7 +315,7 @@ export function NavSetup() {
                 disabled={testing || !altinnReady}
                 icon={testing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
               >
-                {testing ? 'Tester …' : 'Kjør dry-run'}
+                {testing ? 'Tester …' : 'Test forbindelsen'}
               </Button>
               {!altinnReady && (
                 <span className="text-xs text-amber-700">Krever aktiv Altinn-integrasjon.</span>
@@ -332,7 +332,8 @@ export function NavSetup() {
                 <div>
                   <p className="font-medium">Test bestått — integrasjonen er aktivert.</p>
                   <p className="text-xs">
-                    Modus: <code>{dryRun.mode}</code>. Status:{' '}
+                    Modus: <code>{dryRun.mode === 'dry-run' ? 'testforbindelse' : dryRun.mode}</code>.
+                    Status:{' '}
                     <strong>{environment === 'tt02' ? 'test' : 'aktiv'}</strong>.
                   </p>
                 </div>

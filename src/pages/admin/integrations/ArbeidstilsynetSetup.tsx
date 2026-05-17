@@ -197,12 +197,12 @@ export function ArbeidstilsynetSetup() {
           <ModuleSectionCard className="space-y-4 p-6">
             <h2 className="text-base font-semibold text-neutral-900">Sandbox vs Produksjon</h2>
             <p className="text-sm text-neutral-700">
-              Vi anbefaler å teste mot RegInc-sandboxen først (TT02). Når dry-run i steg 5 er
+              Vi anbefaler å teste mot RegInc-sandboxen først (TT02). Når testforbindelsen i steg 5 er
               grønn, kan du bytte til produksjon.
             </p>
             <WarningBox>
               <strong>Per-skjema sandbox-tilgjengelighet:</strong> Arbeidstilsynet eksponerer ikke
-              alle innsendings-skjemaer i TT02. Hvis dry-run feiler med{' '}
+              alle innsendings-skjemaer i TT02. Hvis testforbindelsen feiler med{' '}
               <code>arbeidstilsynet_unreachable</code> i sandbox, betyr det vanligvis at det
               aktuelle skjemaet kun finnes i produksjon. Konsulter{' '}
               <a
@@ -298,7 +298,7 @@ export function ArbeidstilsynetSetup() {
           <ModuleSectionCard className="space-y-4 p-6">
             <h2 className="text-base font-semibold text-neutral-900">Test forbindelsen</h2>
             <p className="text-sm text-neutral-700">
-              Vi sender en tom dry-run-melding til <code>gov-arbeidstilsynet-rapport</code> for å
+              Vi sender en tom testforbindelse-melding til <code>gov-arbeidstilsynet-rapport</code> for å
               verifisere at Maskinporten-flyten henger sammen. Ingen melding når
               Arbeidstilsynet.
             </p>
@@ -309,7 +309,7 @@ export function ArbeidstilsynetSetup() {
                 disabled={testing || !altinnReady}
                 icon={testing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
               >
-                {testing ? 'Tester …' : 'Kjør dry-run'}
+                {testing ? 'Tester …' : 'Test forbindelsen'}
               </Button>
               {!altinnReady && (
                 <span className="text-xs text-amber-700">Krever aktiv Altinn-integrasjon.</span>
@@ -326,7 +326,9 @@ export function ArbeidstilsynetSetup() {
                 <div>
                   <p className="font-medium">Test bestått — integrasjonen er aktivert.</p>
                   <p className="text-xs">
-                    Modus: <code>{dryRun.mode}</code>. Status:{' '}
+                    Modus:{' '}
+                    <code>{dryRun.mode === 'dry-run' ? 'testforbindelse' : dryRun.mode}</code>.
+                    Status:{' '}
                     <strong>{environment === 'tt02' ? 'test' : 'aktiv'}</strong>.
                   </p>
                 </div>

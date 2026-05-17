@@ -313,7 +313,7 @@ export function AltinnSetup() {
           <ModuleSectionCard className="space-y-4 p-6">
             <h2 className="text-base font-semibold text-neutral-900">Sandbox vs Produksjon</h2>
             <p className="text-sm text-neutral-700">
-              Vi anbefaler at du tester mot <strong>TT02 sandbox</strong> først. Når dry-run i
+              Vi anbefaler at du tester mot <strong>TT02 sandbox</strong> først. Når testforbindelsen i
               steg 5 er grønn, kan du bytte til produksjon. Du kan alltid bytte tilbake.
             </p>
             <div className="space-y-2">
@@ -408,8 +408,8 @@ export function AltinnSetup() {
           <ModuleSectionCard className="space-y-4 p-6">
             <h2 className="text-base font-semibold text-neutral-900">Test forbindelsen</h2>
             <p className="text-sm text-neutral-700">
-              Vi sender en tom dry-run-melding til <code>gov-altinn-submit</code> for å verifisere
-              at Maskinporten-flyten henger sammen. Ingen melding når Altinn — kun
+              Vi sender en tom testforbindelse-melding til <code>gov-altinn-submit</code> for å
+              verifisere at Maskinporten-flyten henger sammen. Ingen melding når Altinn — kun
               token-utvekslingen valideres.
             </p>
             <div className="flex flex-wrap items-center gap-2">
@@ -419,7 +419,7 @@ export function AltinnSetup() {
                 disabled={testing || !certState || certState.phase === 'idle'}
                 icon={testing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
               >
-                {testing ? 'Tester …' : 'Kjør dry-run'}
+                {testing ? 'Tester …' : 'Test forbindelsen'}
               </Button>
               {environment === 'tt02' && (
                 <span className="rounded-full bg-violet-100 px-2 py-0.5 text-xs text-violet-900">
@@ -433,7 +433,9 @@ export function AltinnSetup() {
                 <div>
                   <p className="font-medium">Test bestått — integrasjonen er aktivert.</p>
                   <p className="text-xs">
-                    Modus: <code>{dryRun.mode}</code>. Status er satt til{' '}
+                    Modus:{' '}
+                    <code>{dryRun.mode === 'dry-run' ? 'testforbindelse' : dryRun.mode}</code>.
+                    Status er satt til{' '}
                     <strong>{environment === 'tt02' ? 'test' : 'aktiv'}</strong>.
                   </p>
                 </div>

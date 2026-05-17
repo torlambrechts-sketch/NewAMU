@@ -40,7 +40,20 @@ function matches(cond: WorkflowCondition, payload: Record<string, unknown>): boo
       else return false
     }
     if (!Array.isArray(cur)) return false
+    // C-1 patch: scalar array elements (string/number/boolean) match when
+    // `where` is an object with only a `value` key and the element equals
+    // that value. Keeps the existing array-of-objects field-match path
+    // working for arrays of objects.
+    const whereKeys = Object.keys(c.where ?? {})
+    const isScalarValueMatch =
+      whereKeys.length === 1 && whereKeys[0] === 'value'
     return cur.some((el) => {
+      if (
+        isScalarValueMatch &&
+        (typeof el === 'string' || typeof el === 'number' || typeof el === 'boolean')
+      ) {
+        return el === (c.where as { value: unknown }).value
+      }
       if (el && typeof el === 'object') {
         return Object.entries(c.where).every(
           ([k, v]) => (el as Record<string, unknown>)[k] === v,
