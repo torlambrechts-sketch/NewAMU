@@ -6,23 +6,41 @@
 // document (or empty), and edits.  Save commits the compiled
 // condition_json + actions_json + flow_graph_json back to workflow_rules.
 //
-// The WorkflowFlowBuilder template picker now includes the new action
-// types (wait_until, request_approval, escalate, parallel, on_error,
-// gov actions) — added in this commit. Government actions render with
-// a regulator badge and the activation guard from migration
-// _20260905120900 prevents accidentally toggling is_active=true on
-// a rule with gov actions without workflows.activate_external.
+// As of the sentence-builder MVP the panel mounts one of two editors:
+//   - "Setning"  → <SentenceBuilder>: Norwegian-prose row of chips
+//                  (NÅR / HVOR / HVIS / DA / HVIS feiler). Reads/writes
+//                  the same flow_graph_json via compile.ts.
+//   - "Avansert flyt" → the existing WorkflowFlowBuilder for XOR /
+//                       parallel / multi-trigger / sub-flow editing.
+//
+// The mode preference is persisted to localStorage per rule so the user
+// doesn't bounce between modes on every open. Rules whose graph contains
+// constructs the sentence model can't losslessly express default to
+// advanced mode and show a small badge.
 
 import { useEffect, useMemo, useState } from 'react'
 import { CheckCircle2, FileWarning, Save, ShieldAlert, Workflow, Zap } from 'lucide-react'
 import { useWorkflows } from '../../../hooks/useWorkflows'
 import { WorkflowFlowBuilder } from '../WorkflowFlowBuilder'
+import { SentenceBuilder } from '../sentence/SentenceBuilder'
+import { SentenceEmptyState } from '../sentence/SentenceEmptyState'
+import {
+  emptySentence,
+  flowGraphToSentence,
+  sentenceToFlowGraph,
+} from '../sentence/compile'
+import type { SentenceModel } from '../sentence/sentenceModel'
 import { getWorkflowScope } from '../../../lib/workflows/workflowRegistry'
 import { Badge } from '../../ui/Badge'
 import { Button } from '../../ui/Button'
 import { SearchableSelect } from '../../ui/SearchableSelect'
+import { Tabs } from '../../ui/Tabs'
 import { isGovernmentActionType } from '../../../types/workflow'
-import type { WorkflowAction, WorkflowXorActionsEnvelope } from '../../../types/workflow'
+import type {
+  WorkflowAction,
+  WorkflowSourceModule,
+  WorkflowXorActionsEnvelope,
+} from '../../../types/workflow'
 import {
   defaultWorkflowFlowDocument,
   compileWorkflowFlow,
@@ -42,27 +60,105 @@ function ruleContainsGovAction(actions: WorkflowAction[] | WorkflowXorActionsEnv
   return false
 }
 
+type EditorMode = 'sentence' | 'advanced'
+
+function modeStorageKey(ruleId: string): string {
+  return `workflow_editor_mode_${ruleId}`
+}
+
+function readPersistedMode(ruleId: string): EditorMode | null {
+  if (typeof window === 'undefined') return null
+  try {
+    const v = window.localStorage.getItem(modeStorageKey(ruleId))
+    return v === 'sentence' || v === 'advanced' ? v : null
+  } catch {
+    return null
+  }
+}
+
+function persistMode(ruleId: string, mode: EditorMode): void {
+  if (typeof window === 'undefined') return
+  try {
+    window.localStorage.setItem(modeStorageKey(ruleId), mode)
+  } catch {
+    // ignore quota / privacy errors
+  }
+}
+
 export function CanvasPanel({ initialRuleId }: { initialRuleId?: string | null } = {}) {
   const { rules, upsertRule, canCompose } = useWorkflows()
   const [selectedRuleId, setSelectedRuleId] = useState<string>(initialRuleId ?? '')
   const [doc, setDoc] = useState<WorkflowFlowDocument>(defaultWorkflowFlowDocument())
-
-  useEffect(() => {
-    if (initialRuleId && initialRuleId !== selectedRuleId) {
-      setSelectedRuleId(initialRuleId)
-      const found = rules.find((r) => r.id === initialRuleId)
-      if (found?.flow_graph_json) {
-        const parsed = parseFlowDocument(found.flow_graph_json as unknown)
-        setDoc(parsed ?? defaultWorkflowFlowDocument())
-      } else {
-        setDoc(defaultWorkflowFlowDocument())
-      }
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [initialRuleId, rules])
+  const [sentence, setSentence] = useState<SentenceModel | null>(null)
+  const [mode, setMode] = useState<EditorMode>('sentence')
+  /** TRUE when the persisted graph couldn't reverse-compile to a sentence. */
+  const [sentenceLocked, setSentenceLocked] = useState(false)
+  /** TRUE when the rule has no flow yet — show empty-state tiles. */
+  const [isEmpty, setIsEmpty] = useState(false)
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
+  // ─── Hydration ─────────────────────────────────────────────────────────
+  const hydrate = (id: string) => {
+    setSelectedRuleId(id)
+    setSaved(false)
+    setError(null)
+    const found = rules.find((r) => r.id === id)
+    if (!found) {
+      setDoc(defaultWorkflowFlowDocument())
+      setSentence(null)
+      setIsEmpty(false)
+      return
+    }
+
+    const parsed = found.flow_graph_json
+      ? parseFlowDocument(found.flow_graph_json as unknown)
+      : null
+    const sourceModule = found.source_module as WorkflowSourceModule
+    const eventName = found.trigger_event_name ?? ''
+
+    if (!parsed) {
+      // Rule has no flow yet — empty state + clean sentence skeleton.
+      setDoc(defaultWorkflowFlowDocument())
+      setSentence(emptySentence(sourceModule, eventName))
+      setIsEmpty(true)
+      const persisted = readPersistedMode(id)
+      setMode(persisted ?? 'sentence')
+      setSentenceLocked(false)
+      return
+    }
+
+    setDoc(parsed)
+    setIsEmpty(false)
+
+    const reverse = flowGraphToSentence(parsed, sourceModule, eventName)
+    if (reverse.ok) {
+      setSentence(reverse.sentence)
+      setSentenceLocked(false)
+      const persisted = readPersistedMode(id)
+      setMode(persisted ?? 'sentence')
+    } else {
+      // Couldn't roundtrip — keep a skeleton sentence for display but
+      // default to advanced.
+      setSentence(emptySentence(sourceModule, eventName))
+      setSentenceLocked(true)
+      setMode('advanced')
+    }
+  }
+
+  useEffect(() => {
+    if (initialRuleId && initialRuleId !== selectedRuleId) {
+      // Pre-existing pattern from the legacy CanvasPanel — hydrating
+      // module state from the rule row when the URL specifies an
+      // initialRuleId. The lint warning is baseline; rewriting the
+      // hydration as a derived useMemo is out of scope for the
+      // sentence-builder MVP.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      hydrate(initialRuleId)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialRuleId, rules])
 
   const rule = useMemo(
     () => rules.find((r) => r.id === selectedRuleId) ?? null,
@@ -72,16 +168,21 @@ export function CanvasPanel({ initialRuleId }: { initialRuleId?: string | null }
   // When the picker changes, hydrate the flow document from the rule's
   // flow_graph_json if present; otherwise start from the default.
   const selectRule = (id: string) => {
-    setSelectedRuleId(id)
-    setSaved(false)
-    setError(null)
-    const found = rules.find((r) => r.id === id)
-    if (found?.flow_graph_json) {
-      const parsed = parseFlowDocument(found.flow_graph_json as unknown)
-      setDoc(parsed ?? defaultWorkflowFlowDocument())
-    } else {
-      setDoc(defaultWorkflowFlowDocument())
-    }
+    hydrate(id)
+  }
+
+  function switchMode(next: EditorMode) {
+    if (next === 'sentence' && sentenceLocked) return
+    setMode(next)
+    if (rule) persistMode(rule.id, next)
+  }
+
+  // Keep `doc` in sync with `sentence` while the user edits in sentence mode,
+  // so flipping to advanced mode shows the same flow rather than a stale one.
+  function applySentence(next: SentenceModel) {
+    setSentence(next)
+    const compiled = sentenceToFlowGraph(next)
+    setDoc(compiled)
   }
 
   const save = async () => {
@@ -89,7 +190,14 @@ export function CanvasPanel({ initialRuleId }: { initialRuleId?: string | null }
     setSaving(true)
     setError(null)
     setSaved(false)
-    const compiled = compileWorkflowFlow(doc)
+    // Lower the active editor's state into a WorkflowFlowDocument first.
+    let nextDoc: WorkflowFlowDocument
+    if (mode === 'sentence' && sentence) {
+      nextDoc = sentenceToFlowGraph(sentence)
+    } else {
+      nextDoc = doc
+    }
+    const compiled = compileWorkflowFlow(nextDoc)
     if ('error' in compiled) {
       setError(compiled.error)
       setSaving(false)
@@ -105,11 +213,15 @@ export function CanvasPanel({ initialRuleId }: { initialRuleId?: string | null }
       is_active: rule.is_active,
       condition_json: compiled.condition_json,
       actions_json: compiled.actions_json,
-      flow_graph_json: doc as unknown as Record<string, unknown>,
+      flow_graph_json: nextDoc as unknown as Record<string, unknown>,
       priority: rule.priority,
     })
     setSaving(false)
-    if (result?.ok) setSaved(true)
+    if (result?.ok) {
+      setSaved(true)
+      setIsEmpty(false)
+      setDoc(nextDoc)
+    }
   }
 
   return (
@@ -244,14 +356,63 @@ export function CanvasPanel({ initialRuleId }: { initialRuleId?: string | null }
             </div>
           </div>
 
-          <div className="rounded-xl border border-neutral-200 bg-white p-4">
-            <WorkflowFlowBuilder
-              value={doc}
-              onChange={setDoc}
-              sourceModule={rule.source_module}
-              compileError={error}
+          {/* Mode toggle */}
+          <div className="flex flex-wrap items-center gap-3 rounded-xl border border-neutral-200 bg-white px-4 py-2">
+            <Tabs
+              items={[
+                { id: 'sentence', label: 'Setning', disabled: sentenceLocked },
+                { id: 'advanced', label: 'Avansert flyt' },
+              ]}
+              activeId={mode}
+              onChange={(id) => switchMode(id as EditorMode)}
             />
+            {sentenceLocked ? (
+              <Badge variant="warning">
+                Denne flyten har avanserte konstruksjoner og kan kun redigeres i avansert visning
+              </Badge>
+            ) : null}
           </div>
+
+          {mode === 'sentence' && sentence ? (
+            isEmpty ? (
+              <SentenceEmptyState
+                onStartBlank={() => {
+                  setIsEmpty(false)
+                }}
+                onOpenLibrary={() => {
+                  // Library lives on a sibling tab — the page-level
+                  // shell handles tab navigation.
+                  if (typeof window !== 'undefined') {
+                    const url = new URL(window.location.href)
+                    url.searchParams.set('tab', 'library')
+                    window.location.href = url.toString()
+                  }
+                }}
+                onOpenDryRun={() => {
+                  if (typeof window !== 'undefined') {
+                    const url = new URL(window.location.href)
+                    url.searchParams.set('tab', 'dry-run')
+                    window.location.href = url.toString()
+                  }
+                }}
+              />
+            ) : (
+              <SentenceBuilder
+                value={sentence}
+                onChange={applySentence}
+                readOnly={!canCompose}
+              />
+            )
+          ) : (
+            <div className="rounded-xl border border-neutral-200 bg-white p-4">
+              <WorkflowFlowBuilder
+                value={doc}
+                onChange={setDoc}
+                sourceModule={rule.source_module}
+                compileError={error}
+              />
+            </div>
+          )}
         </>
       )}
       <p className="text-xs text-neutral-500">
