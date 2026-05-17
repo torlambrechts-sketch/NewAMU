@@ -5,6 +5,7 @@
     "breadcrumbAdmin": "Admin",
     "tabs": {
       "library": "Bibliotek",
+      "health": "Helsesjekk",
       "rules": "Mine arbeidsflyter",
       "system": "System",
       "canvas": "Bygg",
@@ -26,7 +27,69 @@
       "runs7dNone": "Ingen kjøringer ennå",
       "runs7dSome": "Tellig av workflow_runs"
     },
-    "newRule": "Ny arbeidsflyt"
+    "newRule": "Ny arbeidsflyt",
+    "health": {
+      "title": "Helsesjekk",
+      "subtitle": "Operativ status for arbeidsflyt-motoren — oppdateres hvert 30. sekund.",
+      "refresh": "Oppdater nå",
+      "loading": "Laster …",
+      "error": "Kunne ikke laste helsesjekk: {{detail}}",
+      "kpi": {
+        "activeRules": "Aktive regler",
+        "activeRulesSub": "is_active = true",
+        "silentRules": "Tause regler",
+        "silentRulesSub": "Ingen kjøringer på {{days}} dager",
+        "failedRuns": "Feilet siste 7 dager",
+        "failedRunsSub": "workflow_runs.status = failed",
+        "pendingApprovals": "Venter på godkjenning",
+        "pendingApprovalsSub": "workflow_approvals.status = pending"
+      },
+      "silent": {
+        "title": "Stille rutiner",
+        "subtitle": "Aktive regler uten kjøring siste {{days}} dager",
+        "empty": "Ingen tause rutiner — engine'en er ved liv.",
+        "triggerLine": "Trigger: {{event}}",
+        "triggerLineGeneric": "Trigger: {{mode}}",
+        "lastFiredNever": "Aldri (innen {{days}} dager)",
+        "testButton": "Test mot siste hendelse",
+        "deactivateButton": "Deaktiver midlertidig",
+        "deactivateTitle": "Setter is_active = false. Krever workflows.activate."
+      },
+      "queue": {
+        "title": "Kø-dybde og alder",
+        "subtitle": "{{count}} rader totalt i workflow_action_queue",
+        "empty": "Køen er tom.",
+        "noPending": "Ingen ventende rader",
+        "oldestLabel": "Eldste ventende:",
+        "ageJustNow": "akkurat nå",
+        "ageMinutes": "{{count}} min",
+        "ageHours": "{{count}} t",
+        "ageDays": "{{count}} d",
+        "forceTick": "Force-process kø nå",
+        "status": {
+          "pending": "Ventende",
+          "processing": "Behandles",
+          "awaiting_approval": "Venter godkjenning",
+          "awaiting_schedule": "Venter på tidspunkt",
+          "done": "Fullført",
+          "failed": "Feilet",
+          "cancelled": "Avbrutt"
+        }
+      },
+      "deadlines": {
+        "title": "Frister i fare",
+        "subtitle": "Statlige meldinger nær frist (innen 4 timer)",
+        "empty": "Ingen statlige frister i fare.",
+        "noDeadline": "Ingen frist",
+        "regulatorLine": "Til: {{regulator}}",
+        "regulatorUnknown": "Regulator ikke spesifisert",
+        "assigneeLine": "Tildelt rolle: {{role}}",
+        "inMinutes": "om {{count}} min",
+        "inHours": "om {{count}} t",
+        "overdueMinutes": "{{count}} min over frist",
+        "overdueHours": "{{count}} t over frist"
+      }
+    }
   },
   "common": {
     "save": "Lagre",

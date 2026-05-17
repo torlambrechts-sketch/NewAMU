@@ -15,6 +15,10 @@
  *   * 8   — NAV dialogmøte 2 prep (oppfølgingsplan obligatorisk)
  *   * 12  — Sykmeldt > 12 uker — videre tiltak
  *   * 26  — Maksgrense for sykepenger
+ *
+ * _127600: respects per-rule runtime_environment. 'test' tags the outbox
+ * row so the Altinn-aware worker (sprint-2) routes to TT02 DSOP regardless
+ * of the org-level integration status.
  */
 import {
   buildIdempotencyKey,
@@ -76,6 +80,15 @@ Deno.serve(async (req) => {
     return json({ ok: false, error: 'integration_not_enabled' }, 400)
   }
 
+  // _127600: per-rule runtime_environment. 'test' forces TT02 routing
+  // through gov-altinn-submit (which has its own _127600 override).
+  // Default 'test' if missing for safety.
+  const ruleRuntimeEnv: 'test' | 'prod' =
+    (payload as Record<string, unknown>).runtime_environment === 'prod' ? 'prod' : 'test'
+  const orgEnv: 'tt02' | 'prod' =
+    (integration.environment as 'tt02' | 'prod' | null) ?? 'tt02'
+  const environment: 'tt02' | 'prod' = ruleRuntimeEnv === 'test' ? 'tt02' : orgEnv
+
   const idempotencyKey = await buildIdempotencyKey(body)
   const altinnSkjema =
     p.triggerWeek === 4
@@ -112,7 +125,7 @@ Deno.serve(async (req) => {
       fileNameSuffix: `nav-sykefravar-w${p.triggerWeek}.json`,
       lawRefs: ['Folketrygdloven § 25-2', 'AML § 4-6'],
       frameworks: ['aml-amu'],
-      metadata: { idempotencyKey, skjema: altinnSkjema },
+      metadata: { idempotencyKey, skjema: altinnSkjema, environment, ruleRuntimeEnv, orgEnv },
     })
 
     await supabase.from('gov_notifications_outbox').insert({
@@ -126,6 +139,7 @@ Deno.serve(async (req) => {
         ruleId: rule_id,
         submissionEvidenceId: bodyEv.evidenceId,
         idempotencyKey,
+        runtime_environment: ruleRuntimeEnv,
       },
     })
 

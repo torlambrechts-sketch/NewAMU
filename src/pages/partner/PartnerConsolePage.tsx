@@ -22,7 +22,9 @@ import {
   Receipt,
   RefreshCw,
   Users,
+  XCircle,
 } from 'lucide-react'
+import { ConfirmDialog } from '../admin/ConfirmDialog'
 import { ModulePageShell, ModuleSectionCard } from '../../components/module'
 import { LayoutScoreStatRow } from '../../components/layout/LayoutScoreStatRow'
 import type { LayoutScoreStatItem } from '../../components/layout/platformLayoutKit'
@@ -87,6 +89,10 @@ export function PartnerConsolePage() {
   const [manualOpen, setManualOpen] = useState(false)
   const [invoiceOpen, setInvoiceOpen] = useState(false)
   const [busy, setBusy] = useState<string | null>(null)
+  // Invoice cancellation needs a type-the-invoice-number guard because the
+  // op is irreversible once the customer has the PDF in their inbox. UX
+  // Run 2 surfaced this as the highest-risk partner-console gesture.
+  const [pendingCancelInvoice, setPendingCancelInvoice] = useState<PartnerInvoiceRow | null>(null)
 
   const partnerId = currentPartner?.id ?? null
 
@@ -215,6 +221,25 @@ export function PartnerConsolePage() {
           : { status: 'paid', paid_at: new Date().toISOString() }
       const { error } = await supabase.from('partner_invoices').update(patch).eq('id', invoiceId)
       if (error) console.warn('mark invoice', error.message)
+      await loadData()
+      setBusy(null)
+    },
+    [supabase, loadData],
+  )
+
+  // Hard-cancel an invoice — gated by ConfirmDialog's type-the-phrase
+  // (invoice_number). The status flips to 'cancelled'; we keep the PDF
+  // and CSV artefacts in storage so an auditor can still reconstruct the
+  // sequence (regnskapsloven § 13). Reverse via SQL only.
+  const handleCancelInvoice = useCallback(
+    async (invoice: PartnerInvoiceRow) => {
+      if (!supabase) return
+      setBusy(invoice.id)
+      const { error } = await supabase
+        .from('partner_invoices')
+        .update({ status: 'cancelled' })
+        .eq('id', invoice.id)
+      if (error) console.warn('cancel invoice', error.message)
       await loadData()
       setBusy(null)
     },
@@ -624,6 +649,18 @@ export function PartnerConsolePage() {
                                 Marker som betalt
                               </button>
                             ) : null}
+                            {inv.status !== 'cancelled' && inv.status !== 'paid' && inv.invoice_number ? (
+                              <button
+                                type="button"
+                                onClick={() => setPendingCancelInvoice(inv)}
+                                disabled={busy === inv.id}
+                                title="Annuller faktura"
+                                aria-label="Annuller faktura"
+                                className="rounded-md border border-rose-200 bg-white p-1.5 text-rose-700 hover:bg-rose-50 disabled:opacity-50"
+                              >
+                                <XCircle className="size-3.5" aria-hidden />
+                              </button>
+                            ) : null}
                           </div>
                         </td>
                       </tr>
@@ -635,6 +672,23 @@ export function PartnerConsolePage() {
           </div>
         </ModuleSectionCard>
       ) : null}
+
+      {pendingCancelInvoice && (
+        <ConfirmDialog
+          title="Annuller faktura?"
+          body={`Faktura ${pendingCancelInvoice.invoice_number ?? '(uten nummer)'} settes til status «cancelled». Handlingen kan ikke angres fra UI — regnskapssporet bevares (PDF + CSV ligger igjen i Storage). Skriv fakturanummeret for å bekrefte.`}
+          confirmLabel="Annuller faktura"
+          tone="danger"
+          confirmPhrase={pendingCancelInvoice.invoice_number ?? ''}
+          confirmPhraseLabel={'Skriv fakturanummeret "{phrase}" for å bekrefte:'}
+          onConfirm={() => {
+            const inv = pendingCancelInvoice
+            setPendingCancelInvoice(null)
+            void handleCancelInvoice(inv)
+          }}
+          onCancel={() => setPendingCancelInvoice(null)}
+        />
+      )}
 
       <ManualTimeEntryPanel
         open={manualOpen}

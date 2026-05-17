@@ -13,6 +13,7 @@
 
 import { useCallback, useMemo, useState } from 'react'
 import {
+  Activity,
   BookOpen,
   CheckCheck,
   ClipboardList,
@@ -42,14 +43,39 @@ import { RevisionHistoryPanel } from '../../components/workflow/audit/RevisionHi
 import { ApprovalsPanel } from '../../components/workflow/approvals/ApprovalsPanel'
 import { EvidenceExportPanel } from '../../components/workflow/evidence/EvidenceExportPanel'
 import { CanvasPanel } from '../../components/workflow/canvas/CanvasPanel'
+import { HealthPanel } from '../../components/workflow/health/HealthPanel'
 import { useWorkflows } from '../../hooks/useWorkflows'
 import { useWorkflowApprovals } from '../../hooks/useWorkflowApprovals'
 import { useT } from '../../hooks/useT'
 
-type Tab = 'rules' | 'system' | 'library' | 'canvas' | 'approvals' | 'runs' | 'dry-run' | 'evidence' | 'revisions'
+type Tab =
+  | 'rules'
+  | 'system'
+  | 'library'
+  | 'health'
+  | 'canvas'
+  | 'approvals'
+  | 'runs'
+  | 'dry-run'
+  | 'evidence'
+  | 'revisions'
 
 // First element doubles as default landing tab when ?tab= is absent.
-const VALID_TABS: Tab[] = ['library', 'rules', 'system', 'canvas', 'approvals', 'runs', 'dry-run', 'evidence', 'revisions']
+// Helsesjekk slots between `library` (default landing) and `rules` so
+// users always have the operational view one click away from where they
+// land. Library remains the default — Helsesjekk is opt-in via the tab.
+const VALID_TABS: Tab[] = [
+  'library',
+  'health',
+  'rules',
+  'system',
+  'canvas',
+  'approvals',
+  'runs',
+  'dry-run',
+  'evidence',
+  'revisions',
+]
 
 export function WorkflowBuilderPage() {
   const [searchParams, setSearchParams] = useSearchParams()
@@ -146,6 +172,7 @@ export function WorkflowBuilderPage() {
       // Bibliotek is the default landing tab — listed first so the
       // visible Tabs ordering matches the URL-default behaviour.
       { id: 'library' as const, label: t('workflow.tabs.library'), icon: BookOpen },
+      { id: 'health' as const, label: t('workflow.tabs.health'), icon: Activity },
       { id: 'rules' as const, label: t('workflow.tabs.rules'), icon: ListChecks, badgeCount: rules.length },
       { id: 'system' as const, label: t('workflow.tabs.system'), icon: Landmark },
       { id: 'canvas' as const, label: t('workflow.tabs.canvas'), icon: Workflow },
@@ -223,6 +250,7 @@ export function WorkflowBuilderPage() {
             onInstalled={(ruleId) => focusRuleAndTab(ruleId, 'canvas')}
           />
         )}
+        {tab === 'health' && <HealthPanel />}
         {tab === 'canvas' && <CanvasPanel initialRuleId={focusedRuleId} />}
         {tab === 'approvals' && <ApprovalsPanel />}
         {tab === 'runs' && <RunHistoryPanel ruleId={focusedRuleId ?? undefined} />}

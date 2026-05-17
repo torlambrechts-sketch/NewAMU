@@ -110,6 +110,13 @@ export function useWorkflows() {
       actions_json: WorkflowAction[] | WorkflowXorActionsEnvelope
       flow_graph_json?: Record<string, unknown> | null
       priority?: number
+      /**
+       * Per-rule TEST/PROD runtime toggle (migration _127600). When 'test'
+       * gov-action edge fns force TT02 sandbox endpoints regardless of the
+       * org_integrations.status. Omit to leave the column unchanged on
+       * update; defaults to 'test' on insert via the column default.
+       */
+      runtime_environment?: 'test' | 'prod'
     }) => {
       if (!supabase || !orgId) return { ok: false as const }
       if (!canManage) {
@@ -134,6 +141,9 @@ export function useWorkflows() {
           if (input.trigger_event_name !== undefined) {
             updatePayload.trigger_event_name = input.trigger_event_name
           }
+          if (input.runtime_environment !== undefined) {
+            updatePayload.runtime_environment = input.runtime_environment
+          }
           const { error: e } = await supabase
             .from('workflow_rules')
             .update(updatePayload)
@@ -156,6 +166,9 @@ export function useWorkflows() {
           }
           if (input.trigger_event_name !== undefined) {
             insertPayload.trigger_event_name = input.trigger_event_name
+          }
+          if (input.runtime_environment !== undefined) {
+            insertPayload.runtime_environment = input.runtime_environment
           }
           const { data, error: e } = await supabase
             .from('workflow_rules')

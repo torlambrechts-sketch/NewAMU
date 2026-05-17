@@ -8,6 +8,7 @@
 import type { WorkflowAction, WorkflowCondition } from '../../../types/workflow'
 import { findActionDescriptor } from '../../../lib/workflows/workflowRegistry'
 import { listWorkflowEvents } from '../../../lib/workflows/workflowRegistry'
+import type { WorkflowFlowDocument } from '../../../lib/workflowFlowTypes'
 import { summarizeAction } from '../workflowActionDefaults'
 import type { SentenceDelay, SentenceModel, SentenceScopeFilter } from './sentenceModel'
 
@@ -69,6 +70,44 @@ function actionPhrase(a: WorkflowAction): string {
     return desc.label.toLowerCase()
   }
   return summarizeAction(a).toLowerCase()
+}
+
+/**
+ * Best-effort plain-Norwegian rendering for a `flow_graph_json` document
+ * that the SentenceModel can't losslessly express (XOR branches, parallel,
+ * unsupported actions, …). Emits one section per branch with the action
+ * labels in run order — no NÅR/HVOR/HVIS framing because the structure
+ * doesn't fit the sentence cadence. Used by the Plain-Norsk inspector tab
+ * when `flowGraphToSentence()` bails.
+ */
+export function flowGraphToPlainNorwegianSections(doc: WorkflowFlowDocument): {
+  heading: string
+  lines: string[]
+}[] {
+  const sections: { heading: string; lines: string[] }[] = []
+  if (doc.mode === 'linear') {
+    const actSteps = doc.linearSteps.filter(
+      (s): s is Extract<typeof doc.linearSteps[number], { kind: 'actions' }> =>
+        s.kind === 'actions',
+    )
+    const lines: string[] = []
+    for (const step of actSteps) {
+      for (const a of step.actions) lines.push(actionPhrase(a))
+    }
+    sections.push({ heading: 'Handlinger i rekkefølge', lines })
+  } else {
+    // XOR — one section per branch
+    for (const branch of doc.xorBranches) {
+      const lines: string[] = []
+      for (const step of branch.steps) {
+        if (step.kind === 'actions') {
+          for (const a of step.actions) lines.push(actionPhrase(a))
+        }
+      }
+      sections.push({ heading: branch.label || 'Gren', lines })
+    }
+  }
+  return sections
 }
 
 export function sentenceToPlainNorwegian(s: SentenceModel): string {

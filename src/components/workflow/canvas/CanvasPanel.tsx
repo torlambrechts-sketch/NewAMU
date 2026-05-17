@@ -17,19 +17,35 @@
 // doesn't bounce between modes on every open. Rules whose graph contains
 // constructs the sentence model can't losslessly express default to
 // advanced mode and show a small badge.
+//
+// UX Run 2 surface (orphans #1 + #6): when the active rule contains a
+// gov-action, this panel renders <ConsequenceCard> above the canvas
+// (audit story — what the rule will actually send, plus prerequisite
+// checklist) and a TEST/PROD runtime toggle (migration _127600) so the
+// author can keep the rule pinned to TT02 sandbox even when the org's
+// integrations are wired to prod. Promotion to PRODUKSJON requires
+// typing the phrase verbatim via the shared ConfirmDialog.
 
-import { useEffect, useMemo, useRef, useState } from 'react'
-import { AlertTriangle, CheckCircle2, FileWarning, Save, ShieldAlert, Workflow, Zap } from 'lucide-react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { AlertTriangle, CheckCircle2, FileWarning, PowerOff, Save, ShieldAlert, Workflow, Zap } from 'lucide-react'
 import { useWorkflows } from '../../../hooks/useWorkflows'
+import { ConfirmDialog } from '../../../pages/admin/ConfirmDialog'
+import { useOrgIntegrations } from '../../../hooks/useOrgIntegrations'
+import { useOrgSetupContext } from '../../../hooks/useOrgSetupContext'
 import { WorkflowFlowBuilder } from '../WorkflowFlowBuilder'
 import { SentenceBuilder } from '../sentence/SentenceBuilder'
 import { SentenceEmptyState } from '../sentence/SentenceEmptyState'
+import { ConsequenceCard } from './ConsequenceCard'
 import {
   actionsJsonToFallbackSentence,
   emptySentence,
   flowGraphToSentence,
   sentenceToFlowGraph,
 } from '../sentence/compile'
+import {
+  flowGraphToPlainNorwegianSections,
+  sentenceToPlainNorwegian,
+} from '../sentence/plainNorwegian'
 import type { SentenceModel } from '../sentence/sentenceModel'
 import { getWorkflowScope } from '../../../lib/workflows/workflowRegistry'
 import { Badge } from '../../ui/Badge'
@@ -61,7 +77,42 @@ function ruleContainsGovAction(actions: WorkflowAction[] | WorkflowXorActionsEnv
   return false
 }
 
-type EditorMode = 'sentence' | 'advanced'
+/**
+ * Returns the (unique) gov-action-type strings inside the rule's actions_json
+ * envelope. The `isGovernmentActionType` predicate covers the canonical 5
+ * types; helsetilsynet adds two more (`meld_helsetilsynet`, `meld_ukom`)
+ * that the ConsequenceCard knows about so we widen the union here to keep
+ * the audit text accurate.
+ */
+const GOV_ACTION_TYPE_KEYS = new Set<string>([
+  'rapporter_alvorlig_skade_arbeidstilsynet',
+  'meld_personvernbrudd_datatilsynet',
+  'varsel_ldo_export',
+  'nav_sykefravar_oppfolging',
+  'altinn_send_melding',
+  'meld_helsetilsynet',
+  'meld_ukom',
+])
+
+function collectGovActionTypes(
+  actions: WorkflowAction[] | WorkflowXorActionsEnvelope,
+): string[] {
+  const out = new Set<string>()
+  const visit = (xs: WorkflowAction[]) => {
+    for (const x of xs) {
+      const t = (x as { type?: string }).type
+      if (t && GOV_ACTION_TYPE_KEYS.has(t)) out.add(t)
+    }
+  }
+  if (Array.isArray(actions)) {
+    visit(actions)
+  } else if (actions && 'mode' in actions && actions.mode === 'xor_branches') {
+    for (const b of actions.branches) visit(b.actions as WorkflowAction[])
+  }
+  return Array.from(out)
+}
+
+type EditorMode = 'plain' | 'sentence' | 'advanced'
 
 function modeStorageKey(ruleId: string): string {
   return `workflow_editor_mode_${ruleId}`
@@ -71,7 +122,7 @@ function readPersistedMode(ruleId: string): EditorMode | null {
   if (typeof window === 'undefined') return null
   try {
     const v = window.localStorage.getItem(modeStorageKey(ruleId))
-    return v === 'sentence' || v === 'advanced' ? v : null
+    return v === 'sentence' || v === 'advanced' || v === 'plain' ? v : null
   } catch {
     return null
   }
@@ -87,7 +138,9 @@ function persistMode(ruleId: string, mode: EditorMode): void {
 }
 
 export function CanvasPanel({ initialRuleId }: { initialRuleId?: string | null } = {}) {
-  const { rules, upsertRule, canCompose } = useWorkflows()
+  const { rules, upsertRule, setRuleActive, canCompose } = useWorkflows()
+  const { supabase, organization } = useOrgSetupContext()
+  const { rows: integrationRows } = useOrgIntegrations()
   const [selectedRuleId, setSelectedRuleId] = useState<string>(initialRuleId ?? '')
   const [doc, setDoc] = useState<WorkflowFlowDocument>(defaultWorkflowFlowDocument())
   const [sentence, setSentence] = useState<SentenceModel | null>(null)
@@ -101,6 +154,13 @@ export function CanvasPanel({ initialRuleId }: { initialRuleId?: string | null }
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  /** Per-rule TEST/PROD toggle (migration _127600). Always starts as 'test'. */
+  const [runtimeEnv, setRuntimeEnv] = useState<'test' | 'prod'>('test')
+  /** PROD-promotion typed-confirmation modal state. */
+  const [promoteOpen, setPromoteOpen] = useState(false)
+  /** Activation-guard mirrors: filled from supabase after rule hydration. */
+  const [hasSecondApprover, setHasSecondApprover] = useState(false)
+  const [dryRunSuccessful, setDryRunSuccessful] = useState(false)
   /**
    * Tracks which rule id is currently hydrated into local state so the
    * post-save `useWorkflows` refetch doesn't stomp pending edits. P1 #5.
@@ -118,9 +178,13 @@ export function CanvasPanel({ initialRuleId }: { initialRuleId?: string | null }
       setSentence(null)
       setIsEmpty(false)
       setLegacyFallback(false)
+      setRuntimeEnv('test')
       hydratedRuleIdRef.current = id
       return
     }
+    // _127600: pin to the rule's persisted runtime_environment. Fallback
+    // to 'test' for rows pre-dating the column.
+    setRuntimeEnv(found.runtime_environment === 'prod' ? 'prod' : 'test')
 
     const parsed = found.flow_graph_json
       ? parseFlowDocument(found.flow_graph_json as unknown)
@@ -210,16 +274,126 @@ export function CanvasPanel({ initialRuleId }: { initialRuleId?: string | null }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initialRuleId, rules])
 
+  // _127600 / UX Run 2 — mirror the activation prerequisites the DB guard
+  // gates on, so the ConsequenceCard can render them as a read-only
+  // checklist. We don't enforce here (the trigger does); we surface.
+  useEffect(() => {
+    if (!supabase || !selectedRuleId) {
+      setHasSecondApprover(false)
+      setDryRunSuccessful(false)
+      return
+    }
+    let cancelled = false
+    void (async () => {
+      try {
+        // workflow_rule_activations: any non-revoked, approved-by-someone-
+        // -other-than-requester row in the last 7 days satisfies the guard.
+        const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()
+        const { data: actData } = await supabase
+          .from('workflow_rule_activations')
+          .select('approver_user_id, requested_by, approved_at, revoked_at')
+          .eq('rule_id', selectedRuleId)
+          .not('approved_at', 'is', null)
+          .is('revoked_at', null)
+          .gte('approved_at', sevenDaysAgo)
+          .order('approved_at', { ascending: false })
+          .limit(1)
+        if (cancelled) return
+        const top = (actData ?? [])[0] as
+          | { approver_user_id?: string; requested_by?: string }
+          | undefined
+        setHasSecondApprover(
+          !!top &&
+            !!top.approver_user_id &&
+            top.approver_user_id !== top.requested_by,
+        )
+
+        const { data: runData } = await supabase
+          .from('workflow_runs')
+          .select('id, status, dry_run')
+          .eq('rule_id', selectedRuleId)
+          .eq('dry_run', true)
+          .order('created_at', { ascending: false })
+          .limit(1)
+        if (cancelled) return
+        const lastDry = (runData ?? [])[0] as { status?: string } | undefined
+        setDryRunSuccessful(!!lastDry && (lastDry.status === 'ok' || lastDry.status === 'success'))
+      } catch {
+        // Tolerate — schema may not be present in dev DBs; the card just
+        // shows "Ikke gjennomført" / "NEI" which is the safe default.
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [supabase, selectedRuleId])
+
   const rule = useMemo(
     () => rules.find((r) => r.id === selectedRuleId) ?? null,
     [rules, selectedRuleId],
   )
+
+  // UX Run 2 — gov-action surface for the ConsequenceCard + TEST/PROD
+  // toggle. Computed once per rule mutation; cheap walk.
+  const govActionTypes = useMemo(
+    () => (rule ? collectGovActionTypes(rule.actions_json) : []),
+    [rule],
+  )
+  const containsGov = govActionTypes.length > 0
+
+  // Map org_integrations rows (`enabled + environment`) → ConsequenceCard's
+  // {active|test|missing} tri-state.
+  const integrationStatus = useMemo(() => {
+    const map = (
+      row: { enabled?: boolean; environment?: 'tt02' | 'prod' } | null | undefined,
+    ): 'active' | 'test' | 'missing' => {
+      if (!row || !row.enabled) return 'missing'
+      return row.environment === 'prod' ? 'active' : 'test'
+    }
+    return {
+      altinn: map(integrationRows.altinn),
+      datatilsynet: map(integrationRows.datatilsynet),
+      regint: map(integrationRows.regint),
+      nav: map(integrationRows.nav),
+      helsetilsynet: map(integrationRows.helsetilsynet),
+    }
+  }, [integrationRows])
+
+  // PROD-promotion confirmation. Switching TEST → PROD requires typing
+  // "PRODUKSJON" verbatim — surfaced via the shared ConfirmDialog.
+  const requestPromote = useCallback(() => {
+    setPromoteOpen(true)
+  }, [])
+  const confirmPromote = useCallback(() => {
+    setRuntimeEnv('prod')
+    setPromoteOpen(false)
+  }, [])
+  const cancelPromote = useCallback(() => {
+    setPromoteOpen(false)
+  }, [])
 
   // When the picker changes, hydrate the flow document from the rule's
   // flow_graph_json if present; otherwise start from the default.
   const selectRule = (id: string) => {
     hydrate(id)
   }
+
+  // ─── Deactivate prod gov-rule (P0 UX Run 2) ───────────────────────────
+  // Deactivating a rule that runs against PROD endpoints AND contains a
+  // gov-action is one of the few destructive ops we want to brake-pedal.
+  // Type "DEAKTIVER" to confirm. See ConfirmDialog `confirmPhrase`.
+  const [pendingDeactivate, setPendingDeactivate] = useState(false)
+  const ruleIsProdGov =
+    !!rule &&
+    rule.is_active &&
+    (rule.runtime_environment ?? 'test') === 'prod' &&
+    ruleContainsGovAction(rule.actions_json)
+
+  const confirmDeactivate = useCallback(async () => {
+    if (!rule) return
+    setPendingDeactivate(false)
+    await setRuleActive(rule.id, false)
+  }, [rule, setRuleActive])
 
   function switchMode(next: EditorMode) {
     if (next === 'sentence' && sentenceLocked) return
@@ -278,6 +452,7 @@ export function CanvasPanel({ initialRuleId }: { initialRuleId?: string | null }
       actions_json: compiled.actions_json,
       flow_graph_json: nextDoc as unknown as Record<string, unknown>,
       priority: rule.priority,
+      runtime_environment: runtimeEnv,
     })
     setSaving(false)
     if (result?.ok) {
@@ -308,6 +483,18 @@ export function CanvasPanel({ initialRuleId }: { initialRuleId?: string | null }
             ]}
           />
         </div>
+        {rule && canCompose && ruleIsProdGov && (
+          <Button
+            type="button"
+            size="sm"
+            variant="danger"
+            icon={<PowerOff className="h-3.5 w-3.5" />}
+            onClick={() => setPendingDeactivate(true)}
+            disabled={saving}
+          >
+            Deaktiver
+          </Button>
+        )}
         {rule && canCompose && (
           <Button
             type="button"
@@ -321,6 +508,18 @@ export function CanvasPanel({ initialRuleId }: { initialRuleId?: string | null }
           </Button>
         )}
       </div>
+      {pendingDeactivate && rule && (
+        <ConfirmDialog
+          title="Deaktivere produksjons-regel med statlig melding?"
+          body={`Regelen «${rule.name}» kjører i PROD og inneholder en statlig melding (⚖️). Deaktivering stopper alle videre utløsere — pågående kjøringer fullføres, men nye triggere ignoreres. Skriv DEAKTIVER for å bekrefte.`}
+          confirmLabel="Deaktiver"
+          tone="danger"
+          confirmPhrase="DEAKTIVER"
+          confirmPhraseLabel='Skriv "{phrase}" for å bekrefte:'
+          onConfirm={() => void confirmDeactivate()}
+          onCancel={() => setPendingDeactivate(false)}
+        />
+      )}
       {error && <p className="rounded-md bg-rose-50 px-3 py-2 text-sm text-rose-800">{error}</p>}
       {saved && (
         <p className="rounded-md bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
@@ -424,10 +623,95 @@ export function CanvasPanel({ initialRuleId }: { initialRuleId?: string | null }
             </div>
           </div>
 
-          {/* Mode toggle */}
+          {/* ConsequenceCard — UX Run 2 #1. Renders only when the rule
+              contains a gov-action; otherwise nothing above the canvas. */}
+          {containsGov && (
+            <ConsequenceCard
+              rule={rule}
+              containsGovAction={containsGov}
+              govActionTypes={govActionTypes}
+              integrationStatus={integrationStatus}
+              hasSecondApprover={hasSecondApprover}
+              dryRunSuccessful={dryRunSuccessful}
+              orgName={organization?.name}
+            />
+          )}
+
+          {/* TEST / PROD runtime toggle — UX Run 2 #6 + migration _127600.
+              Only meaningful for gov-rules so we hide it on non-gov rules
+              to reduce clutter for non-regulatory authors. */}
+          {containsGov && (
+            <div className="flex flex-wrap items-center gap-2 rounded-xl border border-neutral-200 bg-white px-4 py-2">
+              <span className="text-sm font-medium text-neutral-800">Kjøremiljø:</span>
+              <button
+                type="button"
+                onClick={() => setRuntimeEnv('test')}
+                disabled={!canCompose}
+                className={
+                  runtimeEnv === 'test'
+                    ? 'rounded-full border border-amber-400 bg-amber-100 px-3 py-1 text-xs font-semibold text-amber-900 shadow-sm disabled:opacity-50'
+                    : 'rounded-full border border-neutral-300 bg-white px-3 py-1 text-xs font-medium text-neutral-600 hover:bg-neutral-50 disabled:opacity-50'
+                }
+                aria-pressed={runtimeEnv === 'test'}
+              >
+                TEST (sandbox)
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  if (runtimeEnv === 'prod') return
+                  requestPromote()
+                }}
+                disabled={!canCompose || runtimeEnv === 'prod'}
+                className={
+                  runtimeEnv === 'prod'
+                    ? 'rounded-full border border-rose-500 bg-rose-100 px-3 py-1 text-xs font-bold text-rose-900 shadow-sm disabled:opacity-80'
+                    : 'rounded-full border border-neutral-300 bg-white px-3 py-1 text-xs font-medium text-neutral-600 hover:bg-rose-50 hover:text-rose-700 disabled:opacity-50'
+                }
+                aria-pressed={runtimeEnv === 'prod'}
+              >
+                PRODUKSJON
+              </button>
+              {runtimeEnv === 'prod' && canCompose && (
+                <button
+                  type="button"
+                  onClick={() => setRuntimeEnv('test')}
+                  className="text-[11px] font-medium text-neutral-500 underline underline-offset-2 hover:text-neutral-700"
+                >
+                  Tilbake til TEST
+                </button>
+              )}
+              <span className="ml-2 text-[11px] text-neutral-500">
+                {runtimeEnv === 'test'
+                  ? 'Tørrløp mot TT02-endepunkter — ingen melding sendes til forvaltningen.'
+                  : 'Lagring sender meldinger til ekte forvaltnings-endepunkter. Krav i ConsequenceCard må være oppfylt.'}
+              </span>
+            </div>
+          )}
+
+          {promoteOpen && (
+            <ConfirmDialog
+              title="Promotér regelen til PRODUKSJON?"
+              body={
+                'Du flytter denne regelen fra TT02-sandbox til ekte forvaltnings-endepunkter.\n\n' +
+                'Ved neste lagring vil edge-funksjonene sende statlige meldinger til Datatilsynet / Arbeidstilsynet / NAV / Altinn / Helsetilsynet på vegne av virksomheten — disse meldingene kan ikke trekkes tilbake.\n\n' +
+                'Sjekk at ConsequenceCard-kravene er oppfylt og at to-personer-godkjenningen er gyldig. Skriv PRODUKSJON for å bekrefte.'
+              }
+              confirmLabel="Promotér til PRODUKSJON"
+              tone="danger"
+              confirmPhrase="PRODUKSJON"
+              confirmPhraseLabel='Skriv "{phrase}" for å bekrefte:'
+              onConfirm={confirmPromote}
+              onCancel={cancelPromote}
+            />
+          )}
+
+          {/* Mode toggle — Plain-Norsk first reinforces "this is what the rule
+              says, plain language" before the user dives into structural editing. */}
           <div className="flex flex-wrap items-center gap-3 rounded-xl border border-neutral-200 bg-white px-4 py-2">
             <Tabs
               items={[
+                { id: 'plain', label: 'Plain-norsk' },
                 { id: 'sentence', label: 'Setning', disabled: sentenceLocked },
                 { id: 'advanced', label: 'Avansert flyt' },
               ]}
@@ -459,7 +743,14 @@ export function CanvasPanel({ initialRuleId }: { initialRuleId?: string | null }
               </p>
             </div>
           ) : null}
-          {mode === 'sentence' && sentence ? (
+          {mode === 'plain' ? (
+            <PlainNorwegianInspector
+              sentence={sentence}
+              doc={doc}
+              sentenceLocked={sentenceLocked}
+              onSwitchToAdvanced={() => switchMode('advanced')}
+            />
+          ) : mode === 'sentence' && sentence ? (
             isEmpty ? (
               <SentenceEmptyState
                 onStartBlank={() => {
@@ -509,6 +800,94 @@ export function CanvasPanel({ initialRuleId }: { initialRuleId?: string | null }
         <code>workflows.activate_external</code> og er beskyttet av activation-guard-trigger fra
         migrasjon <code>_20260905120900</code>.
       </p>
+    </div>
+  )
+}
+
+/**
+ * PlainNorwegianInspector — read-only "this is what the rule says" tab.
+ *
+ * For sentence-expressible flows we delegate to `sentenceToPlainNorwegian`
+ * (the same prose the SentenceBuilder used to show in its accordion). For
+ * advanced flows that can't roundtrip to a SentenceModel we fall back to
+ * `flowGraphToPlainNorwegianSections` — a sequential list of action labels
+ * in plain Norwegian, grouped by branch when the doc is in XOR mode. That
+ * keeps the tab useful even when the rule is too complex for the chip-row.
+ */
+function PlainNorwegianInspector({
+  sentence,
+  doc,
+  sentenceLocked,
+  onSwitchToAdvanced,
+}: {
+  sentence: SentenceModel | null
+  doc: WorkflowFlowDocument
+  sentenceLocked: boolean
+  onSwitchToAdvanced: () => void
+}) {
+  // Prefer the sentence path when available — it produces a single Norwegian
+  // sentence ("Når X i Y, vil systemet …") rather than a list of step labels.
+  if (!sentenceLocked && sentence) {
+    const prose = sentenceToPlainNorwegian(sentence)
+    return (
+      <div className="rounded-xl border border-neutral-200 bg-white p-5">
+        <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-neutral-500">
+          Hva regelen sier (vanlig norsk)
+        </h3>
+        <p className="text-base leading-relaxed text-neutral-800">{prose}</p>
+        <p className="mt-4 text-xs text-neutral-500">
+          Denne fanen er kun for lesing. Bytt til <strong>Setning</strong> eller{' '}
+          <button
+            type="button"
+            className="font-semibold underline underline-offset-2 hover:no-underline"
+            onClick={onSwitchToAdvanced}
+          >
+            Avansert flyt
+          </button>{' '}
+          for å endre.
+        </p>
+      </div>
+    )
+  }
+
+  // Advanced-only flow: emit a sectioned list, one section per branch.
+  const sections = flowGraphToPlainNorwegianSections(doc)
+  return (
+    <div className="rounded-xl border border-neutral-200 bg-white p-5">
+      <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-neutral-500">
+        Hva regelen sier (vanlig norsk)
+      </h3>
+      <p className="mb-4 rounded-md bg-amber-50 px-3 py-2 text-sm text-amber-900">
+        Denne flyten er for kompleks til naturlig norsk-oversettelse — bruk{' '}
+        <button
+          type="button"
+          className="font-semibold underline underline-offset-2 hover:no-underline"
+          onClick={onSwitchToAdvanced}
+        >
+          Avansert flyt
+        </button>{' '}
+        visning for full oversikt. Under er handlingene listet på vanlig norsk uten struktur.
+      </p>
+      {sections.length === 0 ? (
+        <p className="text-sm text-neutral-500">Ingen handlinger registrert.</p>
+      ) : (
+        <div className="space-y-4">
+          {sections.map((sec, idx) => (
+            <div key={idx}>
+              <h4 className="mb-1 text-sm font-semibold text-neutral-700">{sec.heading}</h4>
+              {sec.lines.length === 0 ? (
+                <p className="text-sm italic text-neutral-500">Ingen handlinger.</p>
+              ) : (
+                <ol className="ml-5 list-decimal space-y-1 text-sm text-neutral-800">
+                  {sec.lines.map((line, i) => (
+                    <li key={i}>{line}</li>
+                  ))}
+                </ol>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   )
 }

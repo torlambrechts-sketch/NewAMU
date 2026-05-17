@@ -590,10 +590,16 @@ function CancelDialog({
   pending: boolean
 }) {
   const [reason, setReason] = useState('')
+  // UX Run 2 — type-the-phrase guard. The 10-char reason already protects
+  // against accidental clicks, but a typed phrase ("AVBRYT") catches the
+  // scarier copy-paste-the-old-reason mistake when the admin meant to
+  // cancel a different row.
+  const [phrase, setPhrase] = useState('')
   const [error, setError] = useState<string | null>(null)
   const trimmedReason = reason.trim()
   const reasonTooShort = trimmedReason.length > 0 && trimmedReason.length < 10
-  const canSubmit = trimmedReason.length >= 10 && !pending
+  const phraseOk = phrase === 'AVBRYT'
+  const canSubmit = trimmedReason.length >= 10 && phraseOk && !pending
 
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/45 p-4 backdrop-blur-[2px]">
@@ -638,6 +644,25 @@ function CancelDialog({
         {reasonTooShort ? (
           <p className="mt-2 text-xs text-rose-700">Begrunnelse må være minst 10 tegn.</p>
         ) : null}
+        <label className="mt-4 block text-sm">
+          <span className="text-[11px] font-semibold uppercase tracking-wider text-neutral-600">
+            Skriv "AVBRYT" for å bekrefte:
+          </span>
+          <StandardInput
+            value={phrase}
+            onChange={(e) => setPhrase(e.target.value)}
+            placeholder="AVBRYT"
+            autoComplete="off"
+            spellCheck={false}
+            className="mt-1.5 font-mono"
+            aria-invalid={phrase.length > 0 && !phraseOk}
+          />
+          {phrase.length > 0 && !phraseOk ? (
+            <span className="mt-1 block text-[11px] text-rose-700">
+              Frasen må stemme nøyaktig (skiller mellom store og små bokstaver).
+            </span>
+          ) : null}
+        </label>
         {error ? <p className="mt-2 text-xs text-rose-700">{error}</p> : null}
         <div className="mt-5 flex justify-end gap-2">
           <Button variant="secondary" size="sm" onClick={onClose} disabled={pending}>

@@ -22,6 +22,11 @@
  * datatilsynet-breach-report function already exists and was a stub —
  * this is the gov-edition replacement that integrates with the workflow
  * substrate (run_id, rule_id, evidence chain, idempotency).
+ *
+ * _127600: respects per-rule runtime_environment. 'test' forwards into
+ * gov-altinn-submit (which forces TT02) and stamps manual outbox rows
+ * with a [TEST] banner so triage doesn't accidentally file a sandbox
+ * report to the real Datatilsynet web form.
  */
 import {
   buildIdempotencyKey,
@@ -95,6 +100,13 @@ Deno.serve(async (req) => {
     return json({ ok: false, error: 'integration_not_enabled' }, 400)
   }
 
+  // _127600: per-rule runtime_environment. 'test' forces sandbox routing
+  // (via gov-altinn-submit which has its own _127600 override) and
+  // pre-pends a [TEST] tag to the manual outbox row so triage doesn't
+  // mistake it for a real submission. Default 'test' if missing.
+  const ruleRuntimeEnv: 'test' | 'prod' =
+    (payload as Record<string, unknown>).runtime_environment === 'prod' ? 'prod' : 'test'
+
   const idempotencyKey = await buildIdempotencyKey(body)
 
   // 1) Build signed manifest (JSON with sha256 over the canonical body).
@@ -134,7 +146,7 @@ Deno.serve(async (req) => {
       fileNameSuffix: 'datatilsynet-breach-body.json',
       lawRefs: ['GDPR Art. 33', 'Personopplysningsloven § 26'],
       frameworks: ['gdpr'],
-      metadata: { lateSubmission, idempotencyKey },
+      metadata: { lateSubmission, idempotencyKey, ruleRuntimeEnv },
     })
     const manifestEv = await recordRegulatorEvidence(supabase, {
       runId: run_id,
@@ -146,7 +158,7 @@ Deno.serve(async (req) => {
       fileNameSuffix: 'datatilsynet-breach-manifest.json',
       lawRefs: ['GDPR Art. 33', 'Personopplysningsloven § 26'],
       frameworks: ['gdpr'],
-      metadata: { manifestHash },
+      metadata: { manifestHash, ruleRuntimeEnv },
     })
 
     // 2) Transport selection — Altinn 3 if configured, otherwise human-
@@ -188,6 +200,9 @@ Deno.serve(async (req) => {
             tjeneste: 'datatilsynet',
             skjema: 'personvernbrudd_melding',
             bodyJson: signedManifest,
+            // _127600: forward the rule's runtime_environment so the Altinn
+            // edge fn forces TT02 when the rule is pinned to 'test'.
+            runtime_environment: ruleRuntimeEnv,
           },
         }),
       })
@@ -233,7 +248,11 @@ Deno.serve(async (req) => {
             lateSubmission,
           },
           idempotencyKey,
+          ruleRuntimeEnv,
           submitterInstructions: [
+            ...(ruleRuntimeEnv === 'test'
+              ? ['[TEST] Regelen er pinnet til TT02 — IKKE send denne meldingen til Datatilsynet i produksjon.']
+              : []),
             'Personvernbrudd-melding er klar for innsending, men din organisasjon har ikke aktivert Altinn-integrasjon.',
             'Gå til https://www.datatilsynet.no/kontakt-oss/melding-om-brudd-pa-personopplysningssikkerheten/',
             'Lim inn feltene fra "structuredFields" i web-skjemaet og last opp den signerte manifest-filen (sha256 vises under) som vedlegg.',

@@ -24,6 +24,7 @@ import { WorkflowBuilderPage } from './pages/workflow/WorkflowBuilderPage'
 import { AuditorWorkflowsPage } from './pages/auditor/AuditorWorkflowsPage'
 import { GovIntegrationsPage } from './pages/admin/integrations/GovIntegrationsPage'
 import { GovOutboxPage } from './pages/admin/GovOutboxPage'
+import { AlertDedupGroupsPage } from './pages/admin/AlertDedupGroupsPage'
 import { AltinnSetup } from './pages/admin/integrations/AltinnSetup'
 import { ArbeidstilsynetSetup } from './pages/admin/integrations/ArbeidstilsynetSetup'
 import { DatatilsynetSetup } from './pages/admin/integrations/DatatilsynetSetup'
@@ -559,6 +560,7 @@ const router = createBrowserRouter(
                       <Route path="admin/integrations/helsetilsynet" element={<HelsetilsynetSetup />} />
                       <Route path="admin/integrations/sertifikat-rotasjon" element={<CertRotationPage />} />
                       <Route path="admin/integrations/utboks" element={<GovOutboxPage />} />
+                      <Route path="admin/varsling/dedup-grupper" element={<AlertDedupGroupsPage />} />
                       <Route element={<DocumentsModuleShellLayout />}>
                         <Route path="documents/editor-test" element={<DocumentEditorTestPage />} />
                         <Route

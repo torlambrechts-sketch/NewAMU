@@ -9,7 +9,6 @@
 // Read-only mode (no workflows.compose permission): chips are disabled
 // and a banner explains the missing permission.
 
-import { useMemo } from 'react'
 import { Plus, Trash2 } from 'lucide-react'
 import type {
   WorkflowAction,
@@ -26,7 +25,6 @@ import { ConditionChip } from './parts/ConditionChip'
 import { ActionChip } from './parts/ActionChip'
 import { DelayChip } from './parts/DelayChip'
 import { EscalationChip } from './parts/EscalationChip'
-import { sentenceToPlainNorwegian } from './plainNorwegian'
 import type { SentenceDelay, SentenceModel, SentenceScopeFilter, SentenceStep } from './sentenceModel'
 
 const SENT_LABEL = 'text-[11px] font-bold uppercase tracking-wider text-neutral-500'
@@ -77,7 +75,9 @@ export function SentenceBuilder({
   const setStepDelay = (id: string, delay: SentenceDelay) => updateStep(id, { delay })
   const setStepAction = (id: string, action: WorkflowAction) => updateStep(id, { action })
 
-  const preview = useMemo(() => sentenceToPlainNorwegian(value), [value])
+  // The Plain-Norwegian preview moved to its own canvas tab
+  // (PlainNorwegianInspector). The legacy accordion below was removed so
+  // there's a single source of truth for the prose rendering.
 
   return (
     <ModuleSectionCard className="p-5">
@@ -181,13 +181,8 @@ export function SentenceBuilder({
         </div>
       </div>
 
-      {/* TASK 6: Plain-Norwegian preview */}
-      <details className="mt-6 rounded-lg border border-neutral-200 bg-neutral-50 px-4 py-3 text-sm">
-        <summary className="cursor-pointer font-semibold text-neutral-700">
-          Forhåndsvis på vanlig norsk
-        </summary>
-        <p className="mt-3 leading-relaxed text-neutral-700">{preview}</p>
-      </details>
+      {/* TASK 6 Plain-Norwegian preview accordion lifted to the
+          Plain-Norsk inspector tab in CanvasPanel. */}
     </ModuleSectionCard>
   )
 }

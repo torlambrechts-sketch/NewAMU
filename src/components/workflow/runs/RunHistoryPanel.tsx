@@ -7,12 +7,15 @@
 // reflects it gracefully).
 
 import { useMemo, useState } from 'react'
-import { ChevronRight, Clock, Eye, EyeOff, Lock } from 'lucide-react'
+import { useSearchParams } from 'react-router-dom'
+import { ChevronRight, Clock, Eye, EyeOff, Lock, PlayCircle } from 'lucide-react'
 import { useWorkflows } from '../../../hooks/useWorkflows'
 import { useWorkflowRunDetail } from '../../../hooks/useWorkflowRunDetail'
 import type { WorkflowRunRow } from '../../../types/workflow'
+import { Button } from '../../ui/Button'
 import { StandardInput } from '../../ui/Input'
 import { SearchableSelect } from '../../ui/SearchableSelect'
+import { MissedFireWidget } from './MissedFireWidget'
 
 const statusTint: Record<string, { bg: string; fg: string }> = {
   completed: { bg: '#ecfdf5', fg: '#047857' },
@@ -35,9 +38,29 @@ const STATUS_OPTIONS = [
 
 export function RunHistoryPanel({ ruleId }: { ruleId?: string }) {
   const { runs, loading, error, canViewConfidential } = useWorkflows()
+  const [, setSearchParams] = useSearchParams()
   const [selected, setSelected] = useState<string | null>(null)
   const [statusFilter, setStatusFilter] = useState<string>('all')
   const [search, setSearch] = useState('')
+
+  /**
+   * Replay-from-real: navigate to the Dry-Run tab with `?fromRun=<id>` so
+   * DryRunPanel hydrates the form from the recorded `input_snapshot` (with
+   * fallbacks). Preserves the `rule` deep-link so the rule picker is still
+   * scoped if the user came in via a per-rule deep link.
+   */
+  const replayAsDryRun = (run: WorkflowRunRow) => {
+    setSearchParams(
+      (prev) => {
+        const params = new URLSearchParams(prev)
+        params.set('tab', 'dry-run')
+        params.set('fromRun', run.id)
+        if (run.rule_id) params.set('rule', run.rule_id)
+        return params
+      },
+      { replace: false },
+    )
+  }
 
   const filtered = useMemo(() => {
     return runs.filter((r) => {
@@ -59,7 +82,9 @@ export function RunHistoryPanel({ ruleId }: { ruleId?: string }) {
   }
 
   return (
-    <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1fr_400px]">
+    <div className="space-y-4">
+      <MissedFireWidget />
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1fr_400px]">
       <div className="space-y-3">
         <div className="flex flex-wrap items-center gap-2 rounded-xl border border-neutral-200 bg-white px-4 py-3">
           <h2 className="text-sm font-semibold text-neutral-900">Kjøringer</h2>
@@ -89,6 +114,7 @@ export function RunHistoryPanel({ ruleId }: { ruleId?: string }) {
                 <th className="px-3 py-2 text-left">Modul · hendelse</th>
                 <th className="px-3 py-2 text-left">Status</th>
                 <th className="px-3 py-2 text-left">Konfidensialitet</th>
+                <th className="px-3 py-2 text-right">Handlinger</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-neutral-100">
@@ -134,12 +160,31 @@ export function RunHistoryPanel({ ruleId }: { ruleId?: string }) {
                         <span className="text-neutral-400">—</span>
                       )}
                     </td>
+                    <td className="px-3 py-2 text-right">
+                      {r.rule_id && canReadBody ? (
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="ghost"
+                          icon={<PlayCircle className="h-3.5 w-3.5" />}
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            replayAsDryRun(r)
+                          }}
+                          aria-label="Kjør på nytt som tørrløp"
+                        >
+                          Kjør på nytt som tørrløp
+                        </Button>
+                      ) : (
+                        <span className="text-xs text-neutral-400">—</span>
+                      )}
+                    </td>
                   </tr>
                 )
               })}
               {filtered.length === 0 && (
                 <tr>
-                  <td colSpan={4} className="px-3 py-6 text-center text-sm text-neutral-500">
+                  <td colSpan={5} className="px-3 py-6 text-center text-sm text-neutral-500">
                     Ingen kjøringer matcher filtrene.
                   </td>
                 </tr>
@@ -149,6 +194,7 @@ export function RunHistoryPanel({ ruleId }: { ruleId?: string }) {
         </div>
       </div>
       <RunDetailCard runId={selected} runs={runs} canViewConfidential={canViewConfidential} />
+      </div>
     </div>
   )
 }

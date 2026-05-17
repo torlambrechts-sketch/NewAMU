@@ -319,6 +319,8 @@ export function RulesPanel({
           body={`Du er i ferd med å slette regelen «${pendingDelete.name}». Kan ikke angres.`}
           confirmLabel="Slett regel"
           tone="danger"
+          confirmPhrase={pendingDelete.name}
+          confirmPhraseLabel={'Skriv regelnavnet "{phrase}" for å bekrefte:'}
           onConfirm={() => void confirmDelete()}
           onCancel={() => setPendingDelete(null)}
         />

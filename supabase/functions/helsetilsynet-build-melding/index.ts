@@ -292,6 +292,15 @@ Deno.serve(async (req) => {
   const outboxKind =
     target === 'ukom' ? 'manual_ukom_submission' : 'manual_helsetilsynet_submission'
 
+  // _127600: per-rule runtime_environment. Helsetilsynet/UKOM have no API
+  // (manual outbox-only flow), so 'test' here stamps a [TEST] banner on
+  // the outbox row so triage doesn't accidentally file the sandbox PDF
+  // with the real regulator. Reads from body.payload.runtime_environment
+  // first (canonical, set by workflow_execute_actions) then falls back to
+  // 'test' for safety.
+  const ruleRuntimeEnv: 'test' | 'prod' =
+    (body.payload as Record<string, unknown>).runtime_environment === 'prod' ? 'prod' : 'test'
+
   const template =
     (typeof intConfig.melding_template === 'string' ? intConfig.melding_template : '') ||
     'Standard melding-mal mangler — fyll inn melding manuelt.'
@@ -361,6 +370,7 @@ Deno.serve(async (req) => {
   const outboxPayload: Record<string, unknown> = {
     status: 'awaiting_human',
     target,
+    runtime_environment: ruleRuntimeEnv,
     recipient: configRecipient,
     recipientLabel,
     structuredFields: {
@@ -376,6 +386,9 @@ Deno.serve(async (req) => {
     eventName: body.event_name ?? body.payload.event_name ?? null,
     confidentialityLevel: confidentiality,
     submitterInstructions: [
+      ...(ruleRuntimeEnv === 'test'
+        ? ['[TEST] Regelen er pinnet til TT02 — IKKE send denne meldingen til Helsetilsynet/UKOM i produksjon.']
+        : []),
       target === 'ukom'
         ? 'UKOM-varsling skal sendes via https://varsling.ukom.no (parallell-leg til Helsetilsynet, IKKE alternativ).'
         : 'Helsetilsynet-melding sendes via https://melde.no eller på e-post (avhengig av sak).',
@@ -389,6 +402,7 @@ Deno.serve(async (req) => {
     bucket: EVIDENCE_BUCKET,
     generated_at: generatedAt.toISOString(),
     target,
+    ruleRuntimeEnv,
   }
 
   const insertRow: Record<string, unknown> = {

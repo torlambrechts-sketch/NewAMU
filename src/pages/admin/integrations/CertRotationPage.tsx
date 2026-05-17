@@ -374,6 +374,12 @@ export function CertRotationPage() {
     // The org doesn't carry an email_domain field — derive a slug from the
     // org name so the admin types something memorable instead of a random
     // 6-digit code. Either value is accepted.
+    //
+    // Aligns with the ConfirmDialog `confirmPhrase` type-to-confirm pattern
+    // (P0 UX Run 2). The domain phrase is matched case-sensitive to mirror
+    // ConfirmDialog; the 6-digit code is a strict equality compare. This is
+    // an inline wizard step rather than a modal dialog so we don't import
+    // ConfirmDialog here — the comparison contract is the same either way.
     const domain = organization?.name
       ? organization.name.toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 32)
       : ''
@@ -384,7 +390,7 @@ export function CertRotationPage() {
     const v = confirmationInput.trim()
     if (!v) return false
     return v === expectedConfirmation.code
-      || (expectedConfirmation.domain && v.toLowerCase() === expectedConfirmation.domain.toLowerCase())
+      || (!!expectedConfirmation.domain && v === expectedConfirmation.domain)
   }, [confirmationInput, expectedConfirmation])
 
   // ── Submit the rotation ─────────────────────────────────────────────────
