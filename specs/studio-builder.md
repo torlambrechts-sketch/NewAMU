@@ -12,8 +12,8 @@ that validation. §12 lists upstream specs and current substrate state;
 phases that depend on unshipped work declare that dependency in their
 task entries.
 
-**Spec status:** `🚧 draft — second pass after senior dev + senior PL review`.
-**Last reviewed:** 2026-05-17.
+**Spec status:** `📋 ready — pending stakeholder review on PR`.
+**Last reviewed:** 2026-05-17 (senior dev + senior PL second pass; §13 checklist signed off).
 **Reference modules:** dashboards (`src/lib/dashboards/dashboardRegistry.ts`),
 workflows (`src/lib/workflows/workflowRegistry.ts` + 12 module scopes),
 compliance studio (`src/pages/overview/studio/ComplianceStudioPage.tsx`),
@@ -1284,30 +1284,58 @@ scope and adds it as a follow-up task once workflow Phase A+B land.
 
 ## 13. Senior-architect checklist (PLAYBOOK §7)
 
-- [ ] Reference precedent linked for every task (dashboardRegistry,
-      workflowRegistry, ComplianceStudioPage, compliance-planner,
-      partner_console_v0).
-- [ ] Vertical slices verified — each task touches DB → types →
-      registry → UI → telemetry where applicable.
-- [ ] Dependency graph is a DAG — Phase 0 (tasks 0.1–0.10) → 1 → 2a → 2b → 3,
-      with 4 conditional on §11 milestones. Phase 0 customer-signal gate
-      is the only inter-phase block.
-- [ ] Acceptance criteria are observable, not implementation-coloured.
-- [ ] Open questions enumerated at the top of §10, not buried in tasks.
-- [ ] Migrations idempotent (`add column if not exists`,
-      `on conflict do update`, `drop constraint if exists`).
-- [ ] Spec runs without re-reading the PLAYBOOK at execution time
-      (task shape duplicated where needed).
-- [ ] PLAYBOOK stays generic — module-specific decisions live here.
-- [ ] **Substrate audit performed** — three reuse claims (`dashboard_layouts.kind`,
-      `compliance_notifications.category`, `partner_memberships`) verified
-      against schema before locking in §3 decisions.
-- [ ] Phase costs re-validated against senior-dev review (Phase 0 = 4–5 sprints,
-      Phase 2 split into 2a + 2b, Phase 3 = 2–3 sprints).
-- [ ] Business framing (§11) labelled as hypothesis with explicit
-      validation gate (Task 0.9).
+- [x] **Reference precedent linked for every task** — §2 anchors
+      (dashboardRegistry, workflowRegistry, ComplianceStudioPage,
+      compliance-planner, partner_console_v0); each Phase 0–3 task
+      cites the file path of the pattern it follows.
+- [x] **Vertical slices verified** — each task that has a UI surface
+      touches DB → types → registry → UI → telemetry. Pure-substrate
+      tasks (0.1, 0.5, 0.6) are honest about being infra-only and
+      pair with Task 0.10 as the visible-win counterweight (per PL
+      review's "Phase 0 unsellable" mitigation).
+- [x] **Dependency graph is a DAG** — Phase 0 (tasks 0.1–0.10) → 1 →
+      2a → 2b → 3, with 4 conditional on §11 milestones. Phase 0
+      Task 0.9 customer-signal gate is the only inter-phase block.
+- [x] **Acceptance criteria are observable**, not implementation-
+      coloured (e.g. Task 0.3 "all 9 widget kinds render identically
+      — pixel-diff <0.5%" instead of "calls registry.get correctly").
+- [x] **Open questions enumerated at the top of §10**, not buried in
+      tasks. §10 distinguishes resolved (✅ 1–4) from deferred (5–12).
+- [x] **Migrations idempotent** — every migration in §5 uses `add
+      column if not exists`, `on conflict do update set`, or `drop
+      constraint if exists` + recreate. No destructive ops.
+- [x] **Spec runs without re-reading the PLAYBOOK at execution time**
+      — task shape duplicated in §5; cross-references to
+      `PLAYBOOK.md §3` are explicit, not implicit.
+- [x] **PLAYBOOK stays generic** — module-specific decisions
+      (StudioKindMap, Embedder adapter contract, partner GUC reuse)
+      live in this spec, not in PLAYBOOK.
+- [x] **Substrate audit performed** — three reuse claims verified
+      against schema before locking in §3 decisions:
+      `dashboard_layouts.kind` CHECK constraint
+      (`_20260905120000_reports_promote_dashboard_layouts.sql:22-24`)
+      → extended in Task 0.5;
+      `compliance_notifications.category` CHECK + missing `payload
+      jsonb` (`archive/_20260904120100…sql:26-35`) → extended in
+      Task 0.6;
+      `partner_organizations` + `partner_memberships` + helpers +
+      `app.active_partner_id` GUC
+      (`_20260907123300_partner_console_v0.sql`) → reused in Phase 3
+      Task 3.2 instead of a parallel `partner_org_links` table.
+- [x] **Phase costs re-validated** against senior-dev review:
+      Phase 0 = 4–5 sprints (was 3), Phase 2 split into 2a plumbing
+      (2 sprints) + 2b ISO 27001 content seed (2 sprints),
+      Phase 3 = 2–3 sprints (was 1). Phase 0 Task 0.3 (the
+      `ReportModuleWidget.tsx` 1,452-line refactor) is its own
+      sprint, not "part of Phase 0 plus four other things".
+- [x] **Business framing (§11) labelled as hypothesis** with
+      explicit validation gate (Task 0.9): 5–8 customer interviews
+      + 1–2 partner interviews + pricing test. Numeric thresholds
+      (≥50% Simple-mode interest, ≥25% willingness to pay 2×, ≥1
+      partner LOI). Halt Phase 2+ if missed.
 
-Status changes to `📋 ready` only when all eleven check.
+Status changed to `📋 ready` on 2026-05-17. Next gate is stakeholder
+sign-off on the PR before Phase 0 engineering starts.
 
 ---
 
