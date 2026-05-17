@@ -19,10 +19,14 @@ function eventLabel(sourceModule: string, eventName: string): string {
 }
 
 function scopeFilterPhrase(sf: SentenceScopeFilter): string {
+  // P1 #9 (path 1): drop raw UUIDs from preview prose. Users only see this
+  // when expanding the "Forhåndsvis på vanlig norsk" details, and a 36-char
+  // hex string mid-sentence is useless to them. TODO(v1): resolve to a
+  // friendly name via a React Context provided by CanvasPanel.
   if (!sf) return 'i hele organisasjonen'
-  if (sf.kind === 'location') return `på lokasjon ${sf.locationId}`
-  if (sf.kind === 'enhet') return `i enhet ${sf.enhetId}`
-  if (sf.kind === 'avdeling') return `i avdeling ${sf.avdelingId}`
+  if (sf.kind === 'location') return 'på valgt lokasjon'
+  if (sf.kind === 'enhet') return 'i valgt enhet'
+  if (sf.kind === 'avdeling') return 'i valgt avdeling'
   return 'i hele organisasjonen'
 }
 

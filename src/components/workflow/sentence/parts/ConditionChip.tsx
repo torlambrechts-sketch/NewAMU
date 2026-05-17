@@ -42,16 +42,23 @@ export function ConditionChip({
   const [draft, setDraft] = useState<WorkflowCondition>(value ?? { match: 'always' })
 
   function openPanel() {
+    // P1 #10 (defense in depth): the chip is `disabled` in readOnly mode and
+    // the click handler shouldn't fire anyway, but bail at the function
+    // boundary too in case a future wrapper bypasses the Chip's disabled
+    // attribute (e.g. opening via keyboard shortcut).
+    if (disabled) return
     setDraft(value ?? { match: 'always' })
     setOpen(true)
   }
 
   function commit() {
+    if (disabled) return
     onChange(draft.match === 'always' ? null : draft)
     setOpen(false)
   }
 
   function clear() {
+    if (disabled) return
     onChange(null)
     setOpen(false)
   }
@@ -74,20 +81,29 @@ export function ConditionChip({
         width="w-[min(34rem,92vw)]"
       >
         <div className="space-y-3">
+          {/*
+           * TODO(P1 #10, follow-up): WorkflowConditionForm does not yet
+           * accept a `readOnly` prop. The chip itself is disabled in
+           * read-only mode so this popover never opens today, but if a
+           * future code path opens it programmatically the form inputs
+           * would still be editable. Extend WorkflowConditionForm to take
+           * `readOnly?: boolean` and forward to all StandardInput /
+           * SearchableSelect children.
+           */}
           <WorkflowConditionForm
             value={draft}
             onChange={setDraft}
             sourceModule={sourceModule}
           />
           <div className="flex justify-between gap-2 pt-1">
-            <Button size="sm" variant="ghost" onClick={clear}>
+            <Button size="sm" variant="ghost" onClick={clear} disabled={disabled}>
               Fjern betingelse
             </Button>
             <div className="flex gap-2">
               <Button size="sm" variant="secondary" onClick={() => setOpen(false)}>
                 Avbryt
               </Button>
-              <Button size="sm" variant="primary" onClick={commit}>
+              <Button size="sm" variant="primary" onClick={commit} disabled={disabled}>
                 Bruk
               </Button>
             </div>

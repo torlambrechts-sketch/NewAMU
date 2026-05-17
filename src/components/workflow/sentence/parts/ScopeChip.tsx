@@ -22,10 +22,14 @@ const KIND_OPTIONS = [
 ]
 
 function labelFor(sf: SentenceScopeFilter): string {
+  // P1 #9 (path 1): drop raw UUIDs from the chip label — designers don't read
+  // them and they expose ids users wouldn't otherwise see. TODO(v1): swap for
+  // a friendly-name resolver (passed via React Context from CanvasPanel) that
+  // looks up the location/enhet/avdeling name from the org tree.
   if (!sf) return 'hele organisasjonen'
-  if (sf.kind === 'location') return `lokasjon ${sf.locationId.slice(0, 8)}…`
-  if (sf.kind === 'enhet') return `enhet ${sf.enhetId.slice(0, 8)}…`
-  return `avdeling ${sf.avdelingId.slice(0, 8)}…`
+  if (sf.kind === 'location') return 'valgt lokasjon'
+  if (sf.kind === 'enhet') return 'valgt enhet'
+  return 'valgt avdeling'
 }
 
 function currentId(sf: SentenceScopeFilter): string {
