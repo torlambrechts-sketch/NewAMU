@@ -93,9 +93,8 @@ export function useAlertsNav(): UseAlertsNavReturn {
         .order('position', { ascending: true })
         .order('name', { ascending: true }),
     ])
-      .catch((e) => {
+      .catch(() => {
         if (cancelled) return null
-        console.warn('useAlertsNav fetch failed', e)
         setFetchedFor(orgId)
         return null
       })

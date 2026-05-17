@@ -44,19 +44,25 @@ export function AlertsPage() {
   const templateId = searchParams.get('template')
   const [createOpen, setCreateOpen] = useState(false)
 
+  // All hooks must run on every render — no early returns above this line.
+  // React's "Rendered more hooks than during the previous render" error
+  // fires the moment you navigate between /alerts and /alerts?template=…
+  // if any hook lives below a conditional return.
   const template = useMemo(
     () => alerts.resolvedTemplates.find((t) => t.id === templateId) ?? null,
     [alerts.resolvedTemplates, templateId],
   )
 
-  if (!templateId) return <AlertsHubLanding />
-
   const cases = useMemo(
-    () => alerts.cases
-      .filter((c) => c.system_template_id === templateId || c.org_template_id === templateId)
-      .sort((a, b) => b.received_at.localeCompare(a.received_at)),
+    () => (templateId
+      ? alerts.cases
+          .filter((c) => c.system_template_id === templateId || c.org_template_id === templateId)
+          .sort((a, b) => b.received_at.localeCompare(a.received_at))
+      : []),
     [alerts.cases, templateId],
   )
+
+  if (!templateId) return <AlertsHubLanding />
 
   const openCount = cases.filter((c) => !['closed', 'dismissed'].includes(c.status)).length
   const criticalCount = cases.filter((c) => c.severity === 'critical').length

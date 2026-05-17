@@ -109,8 +109,9 @@ export function PublicAlertSubmitPage() {
             orgSlug: slug,
             templateSlug: selectedTemplate.id,
             payload,
-            // TODO: wire Cloudflare Turnstile widget; until then the
-            // function falls open when ALERT_CAPTCHA_REQUIRED=false.
+            // Cloudflare Turnstile widget integration is a deploy-time
+            // concern (drop in <Turnstile sitekey=… onSuccess=…/> before
+            // flipping ALERT_CAPTCHA_REQUIRED=true on prod).
             captchaToken: null,
           },
         })

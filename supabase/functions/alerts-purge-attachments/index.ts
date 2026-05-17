@@ -23,8 +23,16 @@ Deno.serve(async (req) => {
   const SERVICE_ROLE = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
   if (!SUPABASE_URL || !SERVICE_ROLE) return json({ ok: false, error: 'misconfigured' }, 500)
 
+  // Fail-closed: production deploys MUST set ALERT_PURGE_CRON_SECRET. Without
+  // it the endpoint would be anonymously callable and could mass-delete
+  // attachment bytes. Dev only sets ALERT_PURGE_REQUIRE_SECRET=false to opt
+  // out (e.g. running the function locally from supabase-cli).
   const cronSecret = Deno.env.get('ALERT_PURGE_CRON_SECRET') ?? ''
-  if (cronSecret) {
+  const requireSecret =
+    (Deno.env.get('ALERT_PURGE_REQUIRE_SECRET') ?? 'true').toLowerCase() !== 'false'
+  if (!cronSecret) {
+    if (requireSecret) return json({ ok: false, error: 'misconfigured_no_secret' }, 500)
+  } else {
     const provided = req.headers.get('x-cron-secret') ?? ''
     if (provided !== cronSecret) return json({ ok: false, error: 'unauthorized' }, 401)
   }

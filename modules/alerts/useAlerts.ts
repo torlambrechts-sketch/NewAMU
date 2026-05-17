@@ -96,7 +96,10 @@ export type UseAlertsState = {
   setCategory: (caseId: string, categoryId: string | null) => Promise<boolean>
   setOrgContext: (caseId: string, ctx: { locationId?: string | null; departmentId?: string | null; teamId?: string | null }) => Promise<boolean>
   closeCase: (caseId: string, args: { closingSummary: string; closingOutcome: AlertClosingOutcome }) => Promise<boolean>
-  reopenCase: (caseId: string) => Promise<boolean>
+  // reopenCase intentionally not exposed — the lock trigger rejects
+  // closed_at→null transitions (correctly), and the UI should clone the
+  // case at a higher confidentiality instead of reopening. When a real
+  // reopen path is needed, build a dedicated DB function with audit.
   upsertOrgTemplateSetting: (input: { systemTemplateId: string; enabled?: boolean; navPinned?: boolean; categoryId?: string | null; overrideName?: string | null; overrideRetentionYears?: number | null }) => Promise<boolean>
   upsertCategory: (input: { id?: string; slug: string; name: string; description?: string | null; position?: number; isActive?: boolean }) => Promise<AlertCategoryRow | null>
   softDeleteCategory: (id: string) => Promise<boolean>
@@ -404,21 +407,6 @@ export function useAlerts(): UseAlertsState {
     [updateCase, supabase, orgId]
   )
 
-  const reopenCase = useCallback(
-    async (caseId: string) => {
-      // Lock trigger forbids closed_at→null on closed rows. To genuinely
-      // reopen, the trigger would need a bypass — for now treat as no-op +
-      // emit a 'reopened' timeline event noting the operator's intent.
-      if (!supabase || !orgId) return false
-      await supabase.from('alert_case_timeline_events').insert({
-        case_id: caseId, organization_id: orgId, event_kind: 'reopened', actor_kind: 'committee',
-        payload: { note: 'Reopen not yet supported — clone case instead' },
-      })
-      return true
-    },
-    [supabase, orgId]
-  )
-
   const upsertOrgTemplateSetting = useCallback<UseAlertsState['upsertOrgTemplateSetting']>(
     async (input) => {
       if (!supabase || !orgId) return false
@@ -609,7 +597,6 @@ export function useAlerts(): UseAlertsState {
     setCategory,
     setOrgContext,
     closeCase,
-    reopenCase,
     upsertOrgTemplateSetting,
     upsertCategory,
     softDeleteCategory,
