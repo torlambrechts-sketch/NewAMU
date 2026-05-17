@@ -59,6 +59,7 @@ import {
 import { Button } from '../components/ui/Button'
 import { StandardInput } from '../components/ui/Input'
 import { SearchableSelect } from '../components/ui/SearchableSelect'
+import { ToggleSwitch } from '../components/ui/FormToggles'
 import { Tabs } from '../components/ui/Tabs'
 import type { EmploymentType, OrgEmployee, OrgEmployeeMandate, OrgUnit, OrgUnitKind, UserGroup } from '../types/organisation'
 import { MANDATE_TYPE_LABELS, MANDATE_TYPE_LAW_REFS } from '../types/organisation'
@@ -727,13 +728,13 @@ export function OrganisationPage() {
             >
               {orgSlidePanel.mode === 'edit' ? 'Lagre ansatt' : 'Opprett ansatt'}
             </Button>
-            <button
-              type="button"
+            <Button
+              variant="secondary"
               onClick={closeOrgSlidePanel}
-              className="w-full rounded-none border border-neutral-300 bg-transparent px-4 py-2.5 text-sm font-medium text-neutral-700 hover:bg-neutral-200/40 sm:w-auto"
+              className="w-full rounded-none border-neutral-300 bg-transparent hover:bg-neutral-200/40 sm:w-auto"
             >
               Avbryt
-            </button>
+            </Button>
           </div>
         }
       >
@@ -799,58 +800,48 @@ export function OrganisationPage() {
                   <label className={WPSTD_FORM_FIELD_LABEL} htmlFor="org-emp-role">
                     Rollekategori
                   </label>
-                  <select
-                    id="org-emp-role"
-                    value={empFormPanel.role}
-                    onChange={(e) => setEmpFormPanel((f) => ({ ...f, role: e.target.value }))}
-                    className="mt-1.5 w-full rounded-none border border-neutral-300 bg-white px-3 py-2.5 text-sm text-neutral-900 shadow-none placeholder:text-neutral-400 focus:border-neutral-900 focus:outline-none focus:ring-1 focus:ring-neutral-900"
-                  >
-                    <option value="">— Velg —</option>
-                    {ROLE_OPTIONS.map((r) => (
-                      <option key={r} value={r}>
-                        {r}
-                      </option>
-                    ))}
-                  </select>
+                  <div className="mt-1.5">
+                    <SearchableSelect
+                      value={empFormPanel.role}
+                      options={[
+                        { value: '', label: '— Velg —' },
+                        ...ROLE_OPTIONS.map((r) => ({ value: r, label: r })),
+                      ]}
+                      onChange={(v) => setEmpFormPanel((f) => ({ ...f, role: v }))}
+                    />
+                  </div>
                 </div>
                 <div>
                   <label className={WPSTD_FORM_FIELD_LABEL} htmlFor="org-emp-unit">
                     Avdeling / team
                   </label>
-                  <select
-                    id="org-emp-unit"
-                    value={empFormPanel.unitId}
-                    onChange={(e) => setEmpFormPanel((f) => ({ ...f, unitId: e.target.value }))}
-                    className="mt-1.5 w-full rounded-none border border-neutral-300 bg-white px-3 py-2.5 text-sm text-neutral-900 shadow-none placeholder:text-neutral-400 focus:border-neutral-900 focus:outline-none focus:ring-1 focus:ring-neutral-900"
-                  >
-                    <option value="">— Ingen —</option>
-                    {org.units.map((u) => (
-                      <option key={u.id} value={u.id}>
-                        {u.name} ({KIND_LABELS[u.kind]})
-                      </option>
-                    ))}
-                  </select>
+                  <div className="mt-1.5">
+                    <SearchableSelect
+                      value={empFormPanel.unitId}
+                      options={[
+                        { value: '', label: '— Ingen —' },
+                        ...org.units.map((u) => ({ value: u.id, label: `${u.name} (${KIND_LABELS[u.kind]})` })),
+                      ]}
+                      onChange={(v) => setEmpFormPanel((f) => ({ ...f, unitId: v }))}
+                    />
+                  </div>
                 </div>
                 <div>
                   <label className={WPSTD_FORM_FIELD_LABEL} htmlFor="org-emp-reports">
                     Rapporterer til
                   </label>
-                  <select
-                    id="org-emp-reports"
-                    value={empFormPanel.reportsToId}
-                    onChange={(e) => setEmpFormPanel((f) => ({ ...f, reportsToId: e.target.value }))}
-                    className="mt-1.5 w-full rounded-none border border-neutral-300 bg-white px-3 py-2.5 text-sm text-neutral-900 shadow-none placeholder:text-neutral-400 focus:border-neutral-900 focus:outline-none focus:ring-1 focus:ring-neutral-900"
-                  >
-                    <option value="">— Ingen —</option>
-                    {org.employees
-                      .filter((e) => e.id !== editingEmpId && e.active)
-                      .map((e) => (
-                        <option key={e.id} value={e.id}>
-                          {e.name}
-                          {e.jobTitle ? ` — ${e.jobTitle}` : ''}
-                        </option>
-                      ))}
-                  </select>
+                  <div className="mt-1.5">
+                    <SearchableSelect
+                      value={empFormPanel.reportsToId}
+                      options={[
+                        { value: '', label: '— Ingen —' },
+                        ...org.employees
+                          .filter((e) => e.id !== editingEmpId && e.active)
+                          .map((e) => ({ value: e.id, label: `${e.name}${e.jobTitle ? ` — ${e.jobTitle}` : ''}` })),
+                      ]}
+                      onChange={(v) => setEmpFormPanel((f) => ({ ...f, reportsToId: v }))}
+                    />
+                  </div>
                 </div>
               </div>
             </div>
@@ -877,20 +868,17 @@ export function OrganisationPage() {
                   <label className={WPSTD_FORM_FIELD_LABEL} htmlFor="org-emp-etype">
                     Ansettelsestype
                   </label>
-                  <select
-                    id="org-emp-etype"
-                    value={empFormPanel.employmentType}
-                    onChange={(e) =>
-                      setEmpFormPanel((f) => ({ ...f, employmentType: e.target.value as EmploymentType }))
-                    }
-                    className="mt-1.5 w-full rounded-none border border-neutral-300 bg-white px-3 py-2.5 text-sm text-neutral-900 shadow-none placeholder:text-neutral-400 focus:border-neutral-900 focus:outline-none focus:ring-1 focus:ring-neutral-900"
-                  >
-                    {Object.entries(EMPLOYMENT_LABELS)
-                      .filter(([k]) => k !== 'contractor')
-                      .map(([k, v]) => (
-                        <option key={k} value={k}>{v}</option>
-                      ))}
-                  </select>
+                  <div className="mt-1.5">
+                    <SearchableSelect
+                      value={empFormPanel.employmentType}
+                      options={Object.entries(EMPLOYMENT_LABELS)
+                        .filter(([k]) => k !== 'contractor')
+                        .map(([k, v]) => ({ value: k, label: v }))}
+                      onChange={(v) =>
+                        setEmpFormPanel((f) => ({ ...f, employmentType: v as EmploymentType }))
+                      }
+                    />
+                  </div>
                   {AML_COUNTING_TYPES.has(empFormPanel.employmentType) ? (
                     <p className="mt-1 text-[11px] text-emerald-700">Teller i AML-terskler (verneombud/AMU)</p>
                   ) : (
@@ -921,16 +909,13 @@ export function OrganisationPage() {
                     onChange={(e) => setEmpFormPanel((f) => ({ ...f, startDate: e.target.value }))}
                   />
                 </div>
-                <div className="flex items-end pb-1">
-                  <label className="flex cursor-pointer items-center gap-2 text-sm text-neutral-800">
-                    <input
-                      type="checkbox"
-                      checked={empFormPanel.active}
-                      onChange={(e) => setEmpFormPanel((f) => ({ ...f, active: e.target.checked }))}
-                      className="size-4 rounded border-neutral-300 text-[#1a3d32] focus:ring-1 focus:ring-[#1a3d32]"
-                    />
-                    Aktiv ansatt
-                  </label>
+                <div className="flex items-end gap-2 pb-1 text-sm text-neutral-800">
+                  <ToggleSwitch
+                    checked={empFormPanel.active}
+                    onChange={(v) => setEmpFormPanel((f) => ({ ...f, active: v }))}
+                    label="Aktiv ansatt"
+                  />
+                  <span>Aktiv ansatt</span>
                 </div>
               </div>
             </div>
@@ -954,26 +939,26 @@ export function OrganisationPage() {
               {orgSlidePanel.mode === 'edit' ? 'Lagre enhet' : 'Opprett enhet'}
             </Button>
             {orgSlidePanel.mode === 'edit' ? (
-              <button
-                type="button"
+              <Button
+                variant="secondary"
                 onClick={() => {
                   if (orgSlidePanel.unit && confirm(`Slett «${orgSlidePanel.unit.name}»?`)) {
                     org.deleteUnit(orgSlidePanel.unit.id)
                     closeOrgSlidePanel()
                   }
                 }}
-                className="w-full rounded-none border border-red-200 bg-red-50 px-4 py-2.5 text-sm font-medium text-red-800 hover:bg-red-100 sm:w-auto"
+                className="w-full rounded-none border-red-200 bg-red-50 text-red-800 hover:bg-red-100 sm:w-auto"
               >
                 Slett enhet
-              </button>
+              </Button>
             ) : null}
-            <button
-              type="button"
+            <Button
+              variant="secondary"
               onClick={closeOrgSlidePanel}
-              className="w-full rounded-none border border-neutral-300 bg-transparent px-4 py-2.5 text-sm font-medium text-neutral-700 hover:bg-neutral-200/40 sm:w-auto"
+              className="w-full rounded-none border-neutral-300 bg-transparent hover:bg-neutral-200/40 sm:w-auto"
             >
               Avbryt
-            </button>
+            </Button>
           </div>
         }
       >
@@ -1051,6 +1036,8 @@ export function OrganisationPage() {
                     Farge (org.kart)
                   </label>
                   <div className="mt-1.5 flex items-center gap-2">
+                    {/* Native color picker — no primitive equivalent. */}
+                    {/* eslint-disable-next-line no-restricted-syntax */}
                     <input
                       id="org-unit-slide-color"
                       type="color"
@@ -1082,26 +1069,26 @@ export function OrganisationPage() {
               {orgSlidePanel.mode === 'edit' ? 'Lagre gruppe' : 'Opprett gruppe'}
             </Button>
             {orgSlidePanel.mode === 'edit' ? (
-              <button
-                type="button"
+              <Button
+                variant="secondary"
                 onClick={() => {
                   if (orgSlidePanel.group && confirm(`Slett «${orgSlidePanel.group.name}»?`)) {
                     org.deleteGroup(orgSlidePanel.group.id)
                     closeOrgSlidePanel()
                   }
                 }}
-                className="w-full rounded-none border border-red-200 bg-red-50 px-4 py-2.5 text-sm font-medium text-red-800 hover:bg-red-100 sm:w-auto"
+                className="w-full rounded-none border-red-200 bg-red-50 text-red-800 hover:bg-red-100 sm:w-auto"
               >
                 Slett gruppe
-              </button>
+              </Button>
             ) : null}
-            <button
-              type="button"
+            <Button
+              variant="secondary"
               onClick={closeOrgSlidePanel}
-              className="w-full rounded-none border border-neutral-300 bg-transparent px-4 py-2.5 text-sm font-medium text-neutral-700 hover:bg-neutral-200/40 sm:w-auto"
+              className="w-full rounded-none border-neutral-300 bg-transparent hover:bg-neutral-200/40 sm:w-auto"
             >
               Avbryt
-            </button>
+            </Button>
           </div>
         }
       >
@@ -1150,24 +1137,25 @@ export function OrganisationPage() {
                   <label className={WPSTD_FORM_FIELD_LABEL} htmlFor="org-group-slide-scope">
                     Omfang
                   </label>
-                  <select
-                    id="org-group-slide-scope"
-                    value={groupForm.scopeKind}
-                    onChange={(e) =>
-                      setGroupForm((f) => ({
-                        ...f,
-                        scopeKind: e.target.value as typeof groupForm.scopeKind,
-                        unitIds: e.target.value === 'employees' ? [] : f.unitIds,
-                        employeeIds: e.target.value === 'units' ? [] : f.employeeIds,
-                      }))
-                    }
-                    className="mt-1.5 w-full rounded-none border border-neutral-300 bg-white px-3 py-2.5 text-sm text-neutral-900 shadow-none placeholder:text-neutral-400 focus:border-neutral-900 focus:outline-none focus:ring-1 focus:ring-neutral-900"
-                  >
-                    <option value="all">Alle ansatte</option>
-                    <option value="units">Bestemte enheter</option>
-                    <option value="employees">Bestemte ansatte</option>
-                    <option value="mixed">Enheter + ansatte</option>
-                  </select>
+                  <div className="mt-1.5">
+                    <SearchableSelect
+                      value={groupForm.scopeKind}
+                      options={[
+                        { value: 'all', label: 'Alle ansatte' },
+                        { value: 'units', label: 'Bestemte enheter' },
+                        { value: 'employees', label: 'Bestemte ansatte' },
+                        { value: 'mixed', label: 'Enheter + ansatte' },
+                      ]}
+                      onChange={(v) =>
+                        setGroupForm((f) => ({
+                          ...f,
+                          scopeKind: v as typeof groupForm.scopeKind,
+                          unitIds: v === 'employees' ? [] : f.unitIds,
+                          employeeIds: v === 'units' ? [] : f.employeeIds,
+                        }))
+                      }
+                    />
+                  </div>
                 </div>
                 {(groupForm.scopeKind === 'units' || groupForm.scopeKind === 'mixed') && (
                   <div>
@@ -1177,22 +1165,21 @@ export function OrganisationPage() {
                         <p className="text-xs text-neutral-500">Ingen enheter.</p>
                       ) : (
                         org.units.map((u) => (
-                          <label key={u.id} className="flex cursor-pointer items-center gap-2 text-sm">
-                            <input
-                              type="checkbox"
+                          <div key={u.id} className="flex items-center justify-between gap-3 rounded-md px-2 py-1 text-sm hover:bg-neutral-50">
+                            <span className="min-w-0 flex-1 truncate text-neutral-800">{u.name}</span>
+                            <ToggleSwitch
                               checked={groupForm.unitIds.includes(u.id)}
-                              onChange={(e) =>
+                              onChange={(v) =>
                                 setGroupForm((f) => ({
                                   ...f,
-                                  unitIds: e.target.checked
+                                  unitIds: v
                                     ? [...f.unitIds, u.id]
                                     : f.unitIds.filter((id) => id !== u.id),
                                 }))
                               }
-                              className="size-4 rounded border-neutral-300 text-[#1a3d32]"
+                              label={u.name}
                             />
-                            {u.name}
-                          </label>
+                          </div>
                         ))
                       )}
                     </div>
@@ -1206,27 +1193,26 @@ export function OrganisationPage() {
                         <p className="text-xs text-neutral-500">Ingen aktive ansatte.</p>
                       ) : (
                         org.activeEmployees.map((emp) => (
-                          <label key={emp.id} className="flex cursor-pointer items-center gap-2 text-sm">
-                            <input
-                              type="checkbox"
-                              checked={groupForm.employeeIds.includes(emp.id)}
-                              onChange={(e) =>
-                                setGroupForm((f) => ({
-                                  ...f,
-                                  employeeIds: e.target.checked
-                                    ? [...f.employeeIds, emp.id]
-                                    : f.employeeIds.filter((id) => id !== emp.id),
-                                }))
-                              }
-                              className="size-4 rounded border-neutral-300 text-[#1a3d32]"
-                            />
-                            <span>
+                          <div key={emp.id} className="flex items-center justify-between gap-3 rounded-md px-2 py-1 text-sm hover:bg-neutral-50">
+                            <span className="min-w-0 flex-1 truncate">
                               {emp.name}
                               {emp.jobTitle ? (
                                 <span className="ml-1 text-xs text-neutral-500">{emp.jobTitle}</span>
                               ) : null}
                             </span>
-                          </label>
+                            <ToggleSwitch
+                              checked={groupForm.employeeIds.includes(emp.id)}
+                              onChange={(v) =>
+                                setGroupForm((f) => ({
+                                  ...f,
+                                  employeeIds: v
+                                    ? [...f.employeeIds, emp.id]
+                                    : f.employeeIds.filter((id) => id !== emp.id),
+                                }))
+                              }
+                              label={emp.name}
+                            />
+                          </div>
                         ))
                       )}
                     </div>
@@ -1314,14 +1300,14 @@ export function OrganisationPage() {
                     ) : (
                       <span className={`${HERO_ACTION_CLASS} bg-neutral-100 text-neutral-600`}>AMU: &lt;10</span>
                     )}
-                    <button
-                      type="button"
+                    <Button
+                      variant="primary"
                       onClick={() => setOrgSlidePanel({ kind: 'employee', mode: 'create' })}
-                      className={`${HERO_ACTION_CLASS} text-white shadow-sm hover:opacity-95`}
-                      style={{ backgroundColor: '#1a3d32' }}
+                      icon={<Plus className="size-4 shrink-0" />}
+                      className={HERO_ACTION_CLASS}
                     >
-                      <Plus className="size-4 shrink-0" /> Ny ansatt
-                    </button>
+                      Ny ansatt
+                    </Button>
                   </div>
                 </>
               )
@@ -1495,18 +1481,16 @@ export function OrganisationPage() {
                 <div className="flex flex-col gap-4">
                   <div>
                     <p className="text-[10px] font-bold uppercase tracking-wide text-neutral-600">Enhet</p>
-                    <select
-                      value={filterUnit}
-                      onChange={(e) => setFilterUnit(e.target.value)}
-                      className="mt-2 w-full max-w-md rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm"
-                    >
-                      <option value="">Alle enheter</option>
-                      {org.units.map((u) => (
-                        <option key={u.id} value={u.id}>
-                          {u.name}
-                        </option>
-                      ))}
-                    </select>
+                    <div className="mt-2 w-full max-w-md">
+                      <SearchableSelect
+                        value={filterUnit}
+                        options={[
+                          { value: '', label: 'Alle enheter' },
+                          ...org.units.map((u) => ({ value: u.id, label: u.name })),
+                        ]}
+                        onChange={setFilterUnit}
+                      />
+                    </div>
                   </div>
                   <div>
                     <p className="text-[10px] font-bold uppercase tracking-wide text-neutral-600">Status</p>
@@ -1515,31 +1499,31 @@ export function OrganisationPage() {
                         const label = id === 'all' ? 'Alle' : id === 'active' ? 'Aktive' : 'Inaktive'
                         const selected = empSegment === id
                         return (
-                          <button
+                          <Button
                             key={id}
-                            type="button"
+                            size="sm"
+                            variant={selected ? 'primary' : 'secondary'}
                             onClick={() => setEmpSegment(id)}
-                            className={`rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-wide ${
-                              selected ? 'bg-[#1a3d32] text-white' : 'bg-white text-neutral-600 hover:bg-neutral-100'
-                            }`}
+                            className="rounded-full uppercase tracking-wide"
                           >
                             {label}
-                          </button>
+                          </Button>
                         )
                       })}
                     </div>
                   </div>
-                  <button
-                    type="button"
+                  <Button
+                    size="sm"
+                    variant="secondary"
                     onClick={() => {
                       setSearchEmp('')
                       setFilterUnit('')
                       setEmpSegment('all')
                     }}
-                    className="self-start rounded-md border border-neutral-300 bg-white px-3 py-2 text-xs font-semibold text-neutral-700 hover:bg-neutral-50"
+                    className="self-start"
                   >
                     Nullstill filter
-                  </button>
+                  </Button>
                 </div>
               ),
               sortOptions: [
@@ -1572,13 +1556,14 @@ export function OrganisationPage() {
                     <strong>{myRecord.name}</strong>
                     {myRecord.jobTitle ? ` — ${myRecord.jobTitle}` : ''}
                     {myRecord.unitName ? ` · ${myRecord.unitName}` : ''}.{' '}
-                    <button
-                      type="button"
+                    <Button
+                      variant="ghost"
+                      size="sm"
                       onClick={() => setOrgSlidePanel({ kind: 'employee', mode: 'edit', emp: myRecord })}
-                      className="font-medium underline underline-offset-2 hover:no-underline"
+                      className="px-0 font-medium underline underline-offset-2 hover:bg-transparent hover:no-underline"
                     >
                       Se dine opplysninger
-                    </button>
+                    </Button>
                     {' '}— du kan be om retting ved å kontakte din administrator.
                   </InfoBox>
                 </div>
@@ -1704,11 +1689,11 @@ export function OrganisationPage() {
                   const mandateDef = emp.role ? MANDATE_ROLES[emp.role] : undefined
                   const roleLine = emp.jobTitle || (!mandateDef && emp.role) ? [emp.jobTitle, !mandateDef ? emp.role : undefined].filter(Boolean).join(' · ') : emp.jobTitle ?? '—'
                   return (
-                    <button
+                    <Button
                       key={emp.id}
-                      type="button"
+                      variant="ghost"
                       onClick={() => setOrgSlidePanel({ kind: 'employee', mode: 'edit', emp })}
-                      className="flex flex-col overflow-hidden rounded-lg border border-neutral-200/80 bg-white p-4 text-left shadow-sm transition hover:border-neutral-300"
+                      className="flex flex-col overflow-hidden rounded-lg border border-neutral-200/80 bg-white p-4 text-left font-normal shadow-sm hover:border-neutral-300 hover:bg-white"
                       style={{ boxShadow: '0 1px 2px rgba(0,0,0,0.04)' }}
                     >
                       <div className="flex items-start gap-3">
@@ -1736,7 +1721,7 @@ export function OrganisationPage() {
                           </div>
                         </div>
                       </div>
-                    </button>
+                    </Button>
                   )
                 })}
               </div>
@@ -1745,10 +1730,10 @@ export function OrganisationPage() {
                 {sortedFilteredEmployees.map((emp) => {
                   return (
                     <li key={emp.id}>
-                      <button
-                        type="button"
+                      <Button
+                        variant="ghost"
                         onClick={() => setOrgSlidePanel({ kind: 'employee', mode: 'edit', emp })}
-                        className="flex w-full flex-wrap items-start justify-between gap-3 py-4 text-left first:pt-2"
+                        className="flex w-full flex-wrap items-start justify-between gap-3 rounded-none px-0 py-4 text-left font-normal hover:bg-transparent first:pt-2"
                       >
                         <div className="min-w-0 flex-1">
                           <p className="font-medium text-neutral-900">{emp.name}</p>
@@ -1763,7 +1748,7 @@ export function OrganisationPage() {
                         >
                           {emp.active ? 'Aktiv' : 'Inaktiv'}
                         </span>
-                      </button>
+                      </Button>
                     </li>
                   )
                 })}
@@ -1804,30 +1789,30 @@ export function OrganisationPage() {
                         ).map(([id, label]) => {
                           const selected = unitKindSeg === id
                           return (
-                            <button
+                            <Button
                               key={id}
-                              type="button"
+                              size="sm"
+                              variant={selected ? 'primary' : 'secondary'}
                               onClick={() => setUnitKindSeg(id)}
-                              className={`rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-wide ${
-                                selected ? 'bg-[#1a3d32] text-white' : 'bg-white text-neutral-600 hover:bg-neutral-100'
-                              }`}
+                              className="rounded-full uppercase tracking-wide"
                             >
                               {label}
-                            </button>
+                            </Button>
                           )
                         })}
                       </div>
                     </div>
-                    <button
-                      type="button"
+                    <Button
+                      size="sm"
+                      variant="secondary"
                       onClick={() => {
                         setUnitSearch('')
                         setUnitKindSeg('all')
                       }}
-                      className="self-start rounded-md border border-neutral-300 bg-white px-3 py-2 text-xs font-semibold text-neutral-700 hover:bg-neutral-50"
+                      className="self-start"
                     >
                       Nullstill filter
-                    </button>
+                    </Button>
                   </div>
                 ),
                 sortOptions: [
@@ -1904,13 +1889,14 @@ export function OrganisationPage() {
                             <td className={tableCell}>
                               <div className="flex items-center gap-2" style={{ paddingLeft: pad }}>
                                 {hasChildren ? (
-                                  <button
-                                    type="button"
+                                  <Button
+                                    variant="secondary"
+                                    size="icon"
                                     onClick={(e) => {
                                       e.stopPropagation()
                                       toggleUnitExpanded(unit.id)
                                     }}
-                                    className="flex size-8 shrink-0 items-center justify-center rounded-none border border-neutral-200 bg-white text-neutral-600 hover:bg-neutral-50"
+                                    className="size-8 shrink-0 rounded-none border-neutral-200 text-neutral-600"
                                     aria-expanded={expandedUnits.has(unit.id)}
                                     title={expandedUnits.has(unit.id) ? 'Skjul underenheter' : 'Vis underenheter'}
                                   >
@@ -1919,7 +1905,7 @@ export function OrganisationPage() {
                                     ) : (
                                       <ChevronRight className="size-4" />
                                     )}
-                                  </button>
+                                  </Button>
                                 ) : (
                                   <span className="inline-block w-8 shrink-0" aria-hidden />
                                 )}
@@ -1948,11 +1934,11 @@ export function OrganisationPage() {
                     const color = unit.color ?? KIND_COLORS[unit.kind]
                     const empHere = org.displayEmployees.filter((e) => e.unitId === unit.id && e.active).length
                     return (
-                      <button
+                      <Button
                         key={unit.id}
-                        type="button"
+                        variant="ghost"
                         onClick={() => openUnitPanel('edit', unit)}
-                        className="flex flex-col rounded-lg border border-neutral-200/80 bg-white p-4 text-left shadow-sm transition hover:border-neutral-300"
+                        className="flex flex-col rounded-lg border border-neutral-200/80 bg-white p-4 text-left font-normal shadow-sm hover:border-neutral-300 hover:bg-white"
                         style={{ boxShadow: '0 1px 2px rgba(0,0,0,0.04)', marginLeft: depth * 8 }}
                       >
                         <div className="flex items-center gap-2">
@@ -1963,7 +1949,7 @@ export function OrganisationPage() {
                         <p className="mt-1 text-xs text-neutral-500">
                           {unit.headName ?? unit.managerName ?? '—'} · {empHere} ansatte
                         </p>
-                      </button>
+                      </Button>
                     )
                   })}
                 </div>
@@ -1973,10 +1959,10 @@ export function OrganisationPage() {
                     const empHere = org.displayEmployees.filter((e) => e.unitId === unit.id && e.active).length
                     return (
                       <li key={unit.id} className="first:pt-2" style={{ paddingLeft: depth * 12 }}>
-                        <button
-                          type="button"
+                        <Button
+                          variant="ghost"
                           onClick={() => openUnitPanel('edit', unit)}
-                          className="flex w-full flex-wrap items-start justify-between gap-2 py-4 text-left"
+                          className="flex w-full flex-wrap items-start justify-between gap-2 rounded-none px-0 py-4 text-left font-normal hover:bg-transparent"
                         >
                           <div>
                             <p className="font-medium text-neutral-900">{unit.name}</p>
@@ -1984,7 +1970,7 @@ export function OrganisationPage() {
                               {KIND_LABELS[unit.kind]} · {empHere} ansatte
                             </p>
                           </div>
-                        </button>
+                        </Button>
                       </li>
                     )
                   })}
@@ -2071,33 +2057,33 @@ export function OrganisationPage() {
               ) : groupStdViewMode === 'box' ? (
                 <div className="grid gap-4 p-4 sm:grid-cols-2 lg:grid-cols-3 md:p-6">
                   {groupsStdFiltered.map((g) => (
-                    <button
+                    <Button
                       key={g.id}
-                      type="button"
+                      variant="ghost"
                       onClick={() => openGroupPanel('edit', g)}
-                      className="flex flex-col rounded-lg border border-neutral-200/80 bg-white p-4 text-left shadow-sm transition hover:border-neutral-300"
+                      className="flex flex-col rounded-lg border border-neutral-200/80 bg-white p-4 text-left font-normal shadow-sm hover:border-neutral-300 hover:bg-white"
                       style={{ boxShadow: '0 1px 2px rgba(0,0,0,0.04)' }}
                     >
                       <p className="font-semibold text-neutral-900">{g.name}</p>
                       <p className="mt-2 text-sm text-neutral-600">{org.getGroupLabel(g)}</p>
                       {g.description ? <p className="mt-2 text-xs text-neutral-500">{g.description}</p> : null}
-                    </button>
+                    </Button>
                   ))}
                 </div>
               ) : (
                 <ul className="divide-y divide-neutral-100 px-4 py-2 md:px-6">
                   {groupsStdFiltered.map((g) => (
                     <li key={g.id}>
-                      <button
-                        type="button"
+                      <Button
+                        variant="ghost"
                         onClick={() => openGroupPanel('edit', g)}
-                        className="flex w-full flex-wrap items-start justify-between gap-3 py-4 text-left first:pt-2"
+                        className="flex w-full flex-wrap items-start justify-between gap-3 rounded-none px-0 py-4 text-left font-normal hover:bg-transparent first:pt-2"
                       >
                         <div className="min-w-0 flex-1">
                           <p className="font-medium text-neutral-900">{g.name}</p>
                           <p className="mt-0.5 text-xs text-neutral-500">{org.getGroupLabel(g)}</p>
                         </div>
-                      </button>
+                      </Button>
                     </li>
                   ))}
                 </ul>
@@ -2323,18 +2309,17 @@ export function OrganisationPage() {
                 { key: 'profiling' as const, label: 'Profilering eller automatiserte beslutninger', lawRef: 'GDPR Art. 35(3)(a)' },
                 { key: 'sensitiveCategories' as const, label: 'Behandling av særlige kategorier (fagforeningsmedlemskap, helse)', lawRef: 'GDPR Art. 35(3)(b)' },
               ].map((item) => (
-                <label key={item.key} className="flex cursor-pointer items-start gap-3 px-5 py-4">
-                  <input
-                    type="checkbox"
+                <div key={item.key} className="flex items-start gap-3 px-5 py-4">
+                  <ToggleSwitch
                     checked={dpiaAnswers[item.key]}
-                    onChange={(e) => setDpiaAnswers((prev) => ({ ...prev, [item.key]: e.target.checked }))}
-                    className="mt-0.5 size-4 rounded border-neutral-300 text-[#1a3d32] focus:ring-[#1a3d32]"
+                    onChange={(v) => setDpiaAnswers((prev) => ({ ...prev, [item.key]: v }))}
+                    label={item.label}
                   />
                   <div>
                     <p className="text-sm font-medium text-neutral-900">{item.label}</p>
                     <p className="text-xs text-neutral-500">{item.lawRef}</p>
                   </div>
-                </label>
+                </div>
               ))}
             </div>
             {Object.values(dpiaAnswers).filter(Boolean).length >= 2 ? (
@@ -2452,24 +2437,22 @@ export function OrganisationPage() {
           </div>
           {!layout.table_1.toolbar.search && (
             <div className="flex flex-wrap gap-3">
-              <input
+              <StandardInput
                 value={searchEmp}
                 onChange={(e) => setSearchEmp(e.target.value)}
                 placeholder="Søk navn, tittel, e-post…"
                 className={`min-w-[240px] flex-1 ${FILTER_INPUT_CLASS}`}
               />
-              <select
-                value={filterUnit}
-                onChange={(e) => setFilterUnit(e.target.value)}
-                className={`min-w-[180px] ${FILTER_INPUT_CLASS}`}
-              >
-                <option value="">Alle enheter</option>
-                {org.units.map((u) => (
-                  <option key={u.id} value={u.id}>
-                    {u.name}
-                  </option>
-                ))}
-              </select>
+              <div className="min-w-[180px]">
+                <SearchableSelect
+                  value={filterUnit}
+                  options={[
+                    { value: '', label: 'Alle enheter' },
+                    ...org.units.map((u) => ({ value: u.id, label: u.name })),
+                  ]}
+                  onChange={setFilterUnit}
+                />
+              </div>
             </div>
           )}
 
@@ -2477,14 +2460,14 @@ export function OrganisationPage() {
             <div className="flex flex-col items-center justify-center rounded-none border border-dashed border-neutral-300 bg-white py-16 text-center shadow-sm">
               <Users className="mb-3 size-10 text-neutral-300" />
               <p className="text-sm text-neutral-500">Ingen ansatte ennå</p>
-              <button
-                type="button"
+              <Button
+                variant="primary"
                 onClick={() => setOrgSlidePanel({ kind: 'employee', mode: 'create' })}
-                className="mt-4 rounded-none bg-[#1a3d32] px-5 py-2.5 text-sm font-medium text-white shadow-sm hover:bg-[#142e26]"
+                icon={<Plus className="size-4" />}
+                className="mt-4 rounded-none"
               >
-                <Plus className="mr-1 inline size-4" />
                 Legg til første ansatt
-              </button>
+              </Button>
             </div>
           ) : (
             <Table1Shell
@@ -2499,25 +2482,23 @@ export function OrganisationPage() {
                         style={{ ['--layout-accent' as string]: layout.accent }}
                       >
                         <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-neutral-400" />
-                        <input
+                        <StandardInput
                           value={searchEmp}
                           onChange={(e) => setSearchEmp(e.target.value)}
                           placeholder="Søk navn, tittel, e-post…"
-                          className={`w-full border border-neutral-200 bg-white py-2 pl-10 pr-3 text-sm outline-none focus:ring-2 focus:ring-[color:var(--layout-accent)] ${rSeg}`}
+                          className={`py-2 pl-10 pr-3 focus:ring-2 focus:ring-[color:var(--layout-accent)] ${rSeg}`}
                         />
                       </div>
-                      <select
-                        value={filterUnit}
-                        onChange={(e) => setFilterUnit(e.target.value)}
-                        className={`min-w-[180px] border border-neutral-200 bg-white px-3 py-2 text-sm ${rSeg}`}
-                      >
-                        <option value="">Alle enheter</option>
-                        {org.units.map((u) => (
-                          <option key={u.id} value={u.id}>
-                            {u.name}
-                          </option>
-                        ))}
-                      </select>
+                      <div className="min-w-[180px]">
+                        <SearchableSelect
+                          value={filterUnit}
+                          options={[
+                            { value: '', label: 'Alle enheter' },
+                            ...org.units.map((u) => ({ value: u.id, label: u.name })),
+                          ]}
+                          onChange={setFilterUnit}
+                        />
+                      </div>
                     </div>
                   }
                   segmentSlot={
@@ -2526,13 +2507,11 @@ export function OrganisationPage() {
                         const label = id === 'all' ? 'Alle' : id === 'active' ? 'Aktive' : 'Inaktive'
                         const selected = empSegment === id
                         return (
-                          <button
+                          <Button
                             key={id}
-                            type="button"
+                            variant={selected ? 'primary' : 'ghost'}
                             onClick={() => setEmpSegment(id)}
-                            className={`inline-flex items-center gap-2 px-3 py-2 text-sm font-medium transition ${rSeg} ${
-                              selected ? 'text-white shadow-sm' : 'text-neutral-600 hover:bg-white'
-                            }`}
+                            className={`px-3 py-2 ${rSeg} ${selected ? 'shadow-sm' : 'text-neutral-600 hover:bg-white'}`}
                             style={selected ? { backgroundColor: layout.accent, color: '#fff' } : undefined}
                           >
                             {selected ? (
@@ -2543,39 +2522,33 @@ export function OrganisationPage() {
                               <span className="size-4 rounded-none border-2 border-neutral-300" />
                             )}
                             {label}
-                          </button>
+                          </Button>
                         )
                       })}
                     </div>
                   }
                   endSlot={
                     <>
-                      <button
-                        type="button"
+                      <Button
+                        size="sm"
+                        variant={empLayout === 'list' ? 'primary' : 'secondary'}
                         onClick={() => setEmpLayout('list')}
                         title="Liste"
-                        className={`inline-flex items-center gap-1.5 rounded-none border px-2.5 py-2 text-xs font-semibold uppercase tracking-wide transition ${
-                          empLayout === 'list'
-                            ? 'border-[#1a3d32] bg-[#1a3d32] text-white'
-                            : 'border-neutral-200 bg-white text-neutral-600 hover:bg-neutral-50'
-                        }`}
+                        icon={<List className="size-3.5 shrink-0" aria-hidden />}
+                        className={`rounded-none uppercase tracking-wide ${rSeg}`}
                       >
-                        <List className="size-3.5 shrink-0" aria-hidden />
                         Liste
-                      </button>
-                      <button
-                        type="button"
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant={empLayout === 'box' ? 'primary' : 'secondary'}
                         onClick={() => setEmpLayout('box')}
                         title="Bokser"
-                        className={`inline-flex items-center gap-1.5 rounded-none border px-2.5 py-2 text-xs font-semibold uppercase tracking-wide transition ${
-                          empLayout === 'box'
-                            ? 'border-[#1a3d32] bg-[#1a3d32] text-white'
-                            : 'border-neutral-200 bg-white text-neutral-600 hover:bg-neutral-50'
-                        }`}
+                        icon={<LayoutGrid className="size-3.5 shrink-0" aria-hidden />}
+                        className={`rounded-none uppercase tracking-wide ${rSeg}`}
                       >
-                        <LayoutGrid className="size-3.5 shrink-0" aria-hidden />
                         Bokser
-                      </button>
+                      </Button>
                     </>
                   }
                 />
@@ -2589,24 +2562,20 @@ export function OrganisationPage() {
                     Det finnes ansatte, men ingen samsvarer med segment, søk eller enhetsfilter. Juster filtre eller vis alle.
                   </p>
                   <div className="mt-5 flex flex-wrap items-center justify-center gap-2">
-                    <button
-                      type="button"
+                    <Button
+                      variant="primary"
                       onClick={() => {
                         setEmpSegment('all')
                         setSearchEmp('')
                         setFilterUnit('')
                       }}
-                      className="rounded-none bg-[#1a3d32] px-4 py-2.5 text-sm font-medium text-white hover:bg-[#142e26]"
+                      className="rounded-none"
                     >
                       Vis alle ansatte
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setEmpSegment('all')}
-                      className="rounded-none border border-neutral-300 bg-white px-4 py-2.5 text-sm font-medium text-neutral-700 hover:bg-neutral-50"
-                    >
+                    </Button>
+                    <Button variant="secondary" onClick={() => setEmpSegment('all')} className="rounded-none">
                       Nullstill segment
-                    </button>
+                    </Button>
                   </div>
                 </div>
               ) : empLayout === 'list' ? (
@@ -2671,17 +2640,19 @@ export function OrganisationPage() {
                             <div className="mt-1 text-xs text-neutral-500">{EMPLOYMENT_LABELS[emp.employmentType]}</div>
                           </td>
                           <td className={`${tableCell} text-right`}>
-                            <button
-                              type="button"
+                            <Button
+                              variant="ghost"
+                              size="icon"
                               onClick={() => setOrgSlidePanel({ kind: 'employee', mode: 'edit', emp })}
-                              className="rounded-none p-2 text-neutral-400 hover:bg-neutral-100 hover:text-neutral-700"
+                              className="h-8 w-8 rounded-none text-neutral-400 hover:bg-neutral-100 hover:text-neutral-700"
                               title="Rediger"
                             >
                               <Pencil className="size-4" />
-                            </button>
+                            </Button>
                             {emp.active && (
-                              <button
-                                type="button"
+                              <Button
+                                variant="ghost"
+                                size="icon"
                                 onClick={() => {
                                   if (target.id.startsWith('m-')) {
                                     window.alert(
@@ -2691,11 +2662,11 @@ export function OrganisationPage() {
                                   }
                                   if (confirm(`Deaktiver ${emp.name}?`)) org.deactivateEmployee(target.id)
                                 }}
-                                className="rounded-none p-2 text-neutral-400 hover:bg-amber-50 hover:text-amber-600"
+                                className="h-8 w-8 rounded-none text-neutral-400 hover:bg-amber-50 hover:text-amber-600"
                                 title="Deaktiver"
                               >
                                 <UserMinus className="size-4" />
-                              </button>
+                              </Button>
                             )}
                           </td>
                         </tr>
@@ -2741,17 +2712,17 @@ export function OrganisationPage() {
                             </div>
                           </div>
                           <div className="mt-4 flex flex-wrap gap-2 border-t border-neutral-100 pt-4">
-                            <button
-                              type="button"
+                            <Button
+                              variant="secondary"
                               onClick={() => setOrgSlidePanel({ kind: 'employee', mode: 'edit', emp })}
-                              className={`${R_ORG_FLAT} inline-flex flex-1 items-center justify-center gap-1.5 border border-neutral-300 bg-white px-3 py-2 text-sm font-medium text-neutral-800 hover:bg-neutral-50 sm:flex-none`}
+                              icon={<Pencil className="size-4 shrink-0" />}
+                              className={`${R_ORG_FLAT} flex-1 sm:flex-none`}
                             >
-                              <Pencil className="size-4 shrink-0" />
                               Rediger
-                            </button>
+                            </Button>
                             {emp.active ? (
-                              <button
-                                type="button"
+                              <Button
+                                variant="secondary"
                                 onClick={() => {
                                   if (target.id.startsWith('m-')) {
                                     window.alert(
@@ -2761,11 +2732,11 @@ export function OrganisationPage() {
                                   }
                                   if (confirm(`Deaktiver ${emp.name}?`)) org.deactivateEmployee(target.id)
                                 }}
-                                className={`${R_ORG_FLAT} inline-flex flex-1 items-center justify-center gap-1.5 border border-red-200 bg-white px-3 py-2 text-sm font-medium text-red-700 hover:bg-red-50 sm:flex-none`}
+                                icon={<UserMinus className="size-4 shrink-0" />}
+                                className={`${R_ORG_FLAT} flex-1 border-red-200 text-red-700 hover:bg-red-50 sm:flex-none`}
                               >
-                                <UserMinus className="size-4 shrink-0" />
                                 Deaktiver
-                              </button>
+                              </Button>
                             ) : null}
                           </div>
                         </div>
@@ -2796,7 +2767,7 @@ export function OrganisationPage() {
                     <label className={SETTINGS_FIELD_LABEL_ON_DARK} htmlFor="org-unit-name">
                       Navn
                     </label>
-                    <input
+                    <StandardInput
                       id="org-unit-name"
                       value={unitForm.name}
                       onChange={(e) => setUnitForm((f) => ({ ...f, name: e.target.value }))}
@@ -2808,36 +2779,24 @@ export function OrganisationPage() {
                     <label className={SETTINGS_FIELD_LABEL_ON_DARK} htmlFor="org-unit-kind">
                       Type
                     </label>
-                    <select
-                      id="org-unit-kind"
+                    <SearchableSelect
                       value={unitForm.kind}
-                      onChange={(e) => setUnitForm((f) => ({ ...f, kind: e.target.value as OrgUnitKind }))}
-                      className={SETTINGS_INPUT_ON_DARK}
-                    >
-                      {Object.entries(KIND_LABELS).map(([k, v]) => (
-                        <option key={k} value={k}>
-                          {v}
-                        </option>
-                      ))}
-                    </select>
+                      options={Object.entries(KIND_LABELS).map(([k, v]) => ({ value: k, label: v }))}
+                      onChange={(v) => setUnitForm((f) => ({ ...f, kind: v as OrgUnitKind }))}
+                    />
                   </div>
                   <div>
                     <label className={SETTINGS_FIELD_LABEL_ON_DARK} htmlFor="org-unit-parent">
                       Overordnet enhet
                     </label>
-                    <select
-                      id="org-unit-parent"
+                    <SearchableSelect
                       value={unitForm.parentId}
-                      onChange={(e) => setUnitForm((f) => ({ ...f, parentId: e.target.value }))}
-                      className={SETTINGS_INPUT_ON_DARK}
-                    >
-                      <option value="">— Ingen (toppnivå) —</option>
-                      {org.units.map((u) => (
-                        <option key={u.id} value={u.id}>
-                          {u.name}
-                        </option>
-                      ))}
-                    </select>
+                      options={[
+                        { value: '', label: '— Ingen (toppnivå) —' },
+                        ...org.units.map((u) => ({ value: u.id, label: u.name })),
+                      ]}
+                      onChange={(v) => setUnitForm((f) => ({ ...f, parentId: v }))}
+                    />
                   </div>
                 </div>
               </div>
@@ -2848,7 +2807,7 @@ export function OrganisationPage() {
                     <label className={SETTINGS_FIELD_LABEL_ON_DARK} htmlFor="org-unit-head">
                       Leder / enhetshode
                     </label>
-                    <input
+                    <StandardInput
                       id="org-unit-head"
                       value={unitForm.headName}
                       onChange={(e) => setUnitForm((f) => ({ ...f, headName: e.target.value }))}
@@ -2860,6 +2819,8 @@ export function OrganisationPage() {
                       Farge (org.kart)
                     </label>
                     <div className="mt-1.5 flex items-center gap-2">
+                      {/* Native color picker — no primitive equivalent. */}
+                      {/* eslint-disable-next-line no-restricted-syntax */}
                       <input
                         id="org-unit-color"
                         type="color"
@@ -2873,14 +2834,15 @@ export function OrganisationPage() {
                 </div>
               </div>
               <div className={ORG_MERGED_ACTION_COL}>
-                <button
+                <Button
                   type="submit"
-                  className="inline-flex w-full min-w-[10rem] items-center justify-center gap-2 rounded-none border border-white/35 bg-white px-5 py-3 text-sm font-semibold shadow-none transition hover:bg-white/95"
+                  variant="secondary"
+                  icon={<Plus className="size-4 shrink-0" />}
+                  className="w-full min-w-[10rem] rounded-none border-white/35 bg-white px-5 py-3 shadow-none hover:bg-white/95"
                   style={{ color: layout.accent }}
                 >
-                  <Plus className="size-4 shrink-0" />
                   Opprett enhet
-                </button>
+                </Button>
               </div>
             </div>
           </form>
@@ -2914,11 +2876,11 @@ export function OrganisationPage() {
                           style={{ ['--layout-accent' as string]: layout.accent }}
                         >
                           <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-neutral-400" />
-                          <input
+                          <StandardInput
                             value={unitSearch}
                             onChange={(e) => setUnitSearch(e.target.value)}
                             placeholder="Søk navn, type, leder…"
-                            className={`w-full border border-neutral-200 bg-white py-2 pl-10 pr-3 text-sm outline-none focus:ring-2 focus:ring-[color:var(--layout-accent)] ${rSeg}`}
+                            className={`py-2 pl-10 pr-3 focus:ring-2 focus:ring-[color:var(--layout-accent)] ${rSeg}`}
                           />
                         </div>
                       </div>
@@ -2936,13 +2898,11 @@ export function OrganisationPage() {
                         ).map(([id, label]) => {
                           const selected = unitKindSeg === id
                           return (
-                            <button
+                            <Button
                               key={id}
-                              type="button"
+                              variant={selected ? 'primary' : 'ghost'}
                               onClick={() => setUnitKindSeg(id)}
-                              className={`inline-flex items-center gap-2 px-3 py-2 text-sm font-medium transition ${rSeg} ${
-                                selected ? 'text-white shadow-sm' : 'text-neutral-600 hover:bg-white'
-                              }`}
+                              className={`px-3 py-2 ${rSeg} ${selected ? 'shadow-sm' : 'text-neutral-600 hover:bg-white'}`}
                               style={selected ? { backgroundColor: layout.accent, color: '#fff' } : undefined}
                             >
                               {selected ? (
@@ -2953,7 +2913,7 @@ export function OrganisationPage() {
                                 <span className="size-4 rounded-none border-2 border-neutral-300" />
                               )}
                               {label}
-                            </button>
+                            </Button>
                           )
                         })}
                       </div>
@@ -2968,16 +2928,16 @@ export function OrganisationPage() {
                     <p className="mt-1 max-w-sm text-xs text-neutral-500">
                       Juster søk eller typefilter, eller vis alle enheter.
                     </p>
-                    <button
-                      type="button"
+                    <Button
+                      variant="primary"
                       onClick={() => {
                         setUnitSearch('')
                         setUnitKindSeg('all')
                       }}
-                      className="mt-4 rounded-none bg-[#1a3d32] px-4 py-2.5 text-sm font-medium text-white hover:bg-[#142e26]"
+                      className="mt-4 rounded-none"
                     >
                       Nullstill filtre
-                    </button>
+                    </Button>
                   </div>
                 ) : (
                   <table className="w-full min-w-[720px] border-collapse text-left text-sm">
@@ -3000,13 +2960,14 @@ export function OrganisationPage() {
                             <td className={tableCell}>
                               <div className="flex items-center gap-2" style={{ paddingLeft: pad }}>
                                 {hasChildren ? (
-                                  <button
-                                    type="button"
+                                  <Button
+                                    variant="secondary"
+                                    size="icon"
                                     onClick={(e) => {
                                       e.stopPropagation()
                                       toggleUnitExpanded(unit.id)
                                     }}
-                                    className="flex size-8 shrink-0 items-center justify-center rounded-none border border-neutral-200 bg-white text-neutral-600 hover:bg-neutral-50"
+                                    className="size-8 shrink-0 rounded-none border-neutral-200 text-neutral-600"
                                     aria-expanded={expandedUnits.has(unit.id)}
                                     title={expandedUnits.has(unit.id) ? 'Skjul underenheter' : 'Vis underenheter'}
                                   >
@@ -3015,7 +2976,7 @@ export function OrganisationPage() {
                                     ) : (
                                       <ChevronRight className="size-4" />
                                     )}
-                                  </button>
+                                  </Button>
                                 ) : (
                                   <span className="inline-block w-8 shrink-0" aria-hidden />
                                 )}
@@ -3031,16 +2992,17 @@ export function OrganisationPage() {
                             <td className={`${tableCell} text-neutral-600`}>{unit.headName ?? unit.managerName ?? '—'}</td>
                             <td className={`${tableCell} tabular-nums text-neutral-700`}>{empHere}</td>
                             <td className={`${tableCell} text-right`}>
-                              <button
-                                type="button"
+                              <Button
+                                variant="ghost"
+                                size="icon"
                                 onClick={() => {
                                   if (confirm(`Slett «${unit.name}»?`)) org.deleteUnit(unit.id)
                                 }}
-                                className="rounded-none p-2 text-neutral-400 hover:bg-red-50 hover:text-red-600"
+                                className="h-8 w-8 rounded-none text-neutral-400 hover:bg-red-50 hover:text-red-600"
                                 title="Slett"
                               >
                                 <Trash2 className="size-4" />
-                              </button>
+                              </Button>
                             </td>
                           </tr>
                         )
@@ -3081,16 +3043,16 @@ export function OrganisationPage() {
                       <div className="min-w-0 sm:text-right">
                         <span className={SETTINGS_FIELD_LABEL}>Handling</span>
                         <div className="mt-1.5">
-                          <button
-                            type="button"
+                          <Button
+                            variant="secondary"
                             onClick={() => {
                               if (confirm(`Slett «${g.name}»?`)) org.deleteGroup(g.id)
                             }}
-                            className="inline-flex w-full items-center justify-center gap-1.5 rounded-none border border-neutral-300 bg-white px-3 py-2 text-sm font-medium text-red-600 hover:bg-red-50 sm:w-auto"
+                            icon={<Trash2 className="size-4" />}
+                            className="w-full rounded-none text-red-600 hover:bg-red-50 sm:w-auto"
                           >
-                            <Trash2 className="size-4" />
                             Slett
-                          </button>
+                          </Button>
                         </div>
                       </div>
                     </div>
@@ -3121,7 +3083,7 @@ export function OrganisationPage() {
                   <label className={SETTINGS_FIELD_LABEL} htmlFor="org-settings-name">
                     Virksomhetsnavn
                   </label>
-                  <input
+                  <StandardInput
                     id="org-settings-name"
                     value={org.settings.orgName}
                     onChange={(e) => org.updateSettings({ orgName: e.target.value })}
@@ -3141,7 +3103,7 @@ export function OrganisationPage() {
                     Organisasjonsnummer
                   </label>
                   <div className="flex gap-2">
-                    <input
+                    <StandardInput
                       id="org-settings-orgnr"
                       value={org.settings.orgNumber ?? ''}
                       onChange={(e) => org.updateSettings({ orgNumber: e.target.value || undefined })}
@@ -3149,15 +3111,15 @@ export function OrganisationPage() {
                       className={`${ORG_SETTINGS_INPUT} flex-1`}
                       inputMode="numeric"
                     />
-                    <button
-                      type="button"
+                    <Button
+                      variant="secondary"
                       onClick={handleBrregSync}
                       disabled={brregSyncing || !org.settings.orgNumber}
-                      className="mt-1.5 flex shrink-0 items-center gap-1.5 rounded-md border border-neutral-300 bg-white px-3 py-2.5 text-sm font-medium text-neutral-700 hover:bg-neutral-50 disabled:cursor-not-allowed disabled:opacity-50"
+                      icon={<RefreshCw className={`size-3.5 ${brregSyncing ? 'animate-spin' : ''}`} />}
+                      className="mt-1.5 shrink-0"
                     >
-                      <RefreshCw className={`size-3.5 ${brregSyncing ? 'animate-spin' : ''}`} />
                       Hent fra Brreg
-                    </button>
+                    </Button>
                   </div>
                   {brregError && <p className="mt-1.5 text-xs text-red-600">{brregError}</p>}
                   {brregSuccess && <p className="mt-1.5 text-xs text-emerald-700">Synkronisert fra Brønnøysundregistrene.</p>}
@@ -3209,7 +3171,7 @@ export function OrganisationPage() {
                   <label className={SETTINGS_FIELD_LABEL} htmlFor="org-settings-emp-count">
                     Antall ansatte (manuelt)
                   </label>
-                  <input
+                  <StandardInput
                     id="org-settings-emp-count"
                     type="number"
                     min={0}
@@ -3227,7 +3189,7 @@ export function OrganisationPage() {
                   <label className={SETTINGS_FIELD_LABEL} htmlFor="org-settings-sector">
                     Bransje / sektor
                   </label>
-                  <input
+                  <StandardInput
                     id="org-settings-sector"
                     value={org.settings.industrySector ?? ''}
                     onChange={(e) => org.updateSettings({ industrySector: e.target.value || undefined })}
@@ -3243,24 +3205,23 @@ export function OrganisationPage() {
                 </p>
                 <div>
                   <span className={SETTINGS_FIELD_LABEL}>Tariffavtale</span>
-                  <label className={ORG_SETTINGS_CHECK_WRAP}>
-                    <input
-                      type="checkbox"
+                  <div className={ORG_SETTINGS_CHECK_WRAP}>
+                    <ToggleSwitch
                       checked={org.settings.hasCollectiveAgreement}
-                      onChange={(e) => org.updateSettings({ hasCollectiveAgreement: e.target.checked })}
-                      className="mt-0.5 size-4 rounded border-neutral-400 text-[#1a3d32] focus:ring-1 focus:ring-[#1a3d32]"
+                      onChange={(v) => org.updateSettings({ hasCollectiveAgreement: v })}
+                      label="Tariffavtale gjelder"
                     />
                     <div>
                       <span className="text-sm font-medium text-neutral-900">Tariffavtale gjelder</span>
                       <p className="text-xs text-neutral-500">Kan fravike noen AML-regler.</p>
                     </div>
-                  </label>
+                  </div>
                   {org.settings.hasCollectiveAgreement && (
                     <div className="mt-4">
                       <label className={SETTINGS_FIELD_LABEL} htmlFor="org-settings-tariff-name">
                         Avtalens navn
                       </label>
-                      <input
+                      <StandardInput
                         id="org-settings-tariff-name"
                         value={org.settings.collectiveAgreementName ?? ''}
                         onChange={(e) => org.updateSettings({ collectiveAgreementName: e.target.value || undefined })}
@@ -3295,31 +3256,30 @@ export function OrganisationPage() {
                           const restricted = approved.length > 0
                           const checked = restricted ? approved.includes(e.id) : false
                           return (
-                            <li key={e.id} className="flex items-start gap-3 text-sm">
-                              <input
-                                type="checkbox"
-                                checked={checked}
-                                onChange={(ev) => org.toggleApprovedTaskSigner(e.id, ev.target.checked)}
-                                className="mt-0.5 size-4 rounded border-neutral-400 text-[#1a3d32] focus:ring-1 focus:ring-[#1a3d32]"
-                                aria-label={`Godkjenn ${e.name} som signatar`}
-                              />
-                              <span className="min-w-0">
+                            <li key={e.id} className="flex items-center justify-between gap-3 rounded-md px-2 py-1 text-sm hover:bg-neutral-50">
+                              <span className="min-w-0 flex-1">
                                 <span className="font-medium text-neutral-900">{e.name}</span>
                                 <span className="mt-0.5 block text-xs text-neutral-500">{e.email}</span>
                               </span>
+                              <ToggleSwitch
+                                checked={checked}
+                                onChange={(v) => org.toggleApprovedTaskSigner(e.id, v)}
+                                label={`Godkjenn ${e.name} som signatar`}
+                              />
                             </li>
                           )
                         })
                     )}
                   </ul>
                   {(org.settings.approvedTaskSignerEmployeeIds?.length ?? 0) > 0 ? (
-                    <button
-                      type="button"
+                    <Button
+                      variant="ghost"
+                      size="sm"
                       onClick={() => org.updateSettings({ approvedTaskSignerEmployeeIds: [] })}
-                      className="mt-3 text-xs font-medium text-[#1a3d32] underline hover:text-[#142e26]"
+                      className="mt-3 px-0 text-xs font-medium text-[#1a3d32] underline hover:bg-transparent hover:text-[#142e26]"
                     >
                       Nullstill (alle med e-post kan signere igjen)
-                    </button>
+                    </Button>
                   ) : null}
                 </div>
               </div>
@@ -3356,7 +3316,7 @@ export function OrganisationPage() {
                       <label className={SETTINGS_FIELD_LABEL} htmlFor="org-aordning-count">
                         A-ordning ansattall
                       </label>
-                      <input
+                      <StandardInput
                         id="org-aordning-count"
                         type="number"
                         min={0}
@@ -3380,7 +3340,7 @@ export function OrganisationPage() {
                       <label className={SETTINGS_FIELD_LABEL} htmlFor="org-dpo-email">
                         Personvernombud (e-post)
                       </label>
-                      <input
+                      <StandardInput
                         id="org-dpo-email"
                         type="email"
                         value={org.settings.privacyOfficerEmail ?? ''}
@@ -3397,7 +3357,7 @@ export function OrganisationPage() {
                       <label className={SETTINGS_FIELD_LABEL} htmlFor="org-retention-inactive">
                         Oppbevaringstid inaktive ansatte (måneder)
                       </label>
-                      <input
+                      <StandardInput
                         id="org-retention-inactive"
                         type="number"
                         min={0}
@@ -3416,7 +3376,7 @@ export function OrganisationPage() {
                       <label className={SETTINGS_FIELD_LABEL} htmlFor="org-dpa-ref">
                         DPA-referanse
                       </label>
-                      <input
+                      <StandardInput
                         id="org-dpa-ref"
                         value={org.settings.dpaDocumentRef ?? ''}
                         onChange={(e) => org.updateSettings({ dpaDocumentRef: e.target.value || undefined })}
