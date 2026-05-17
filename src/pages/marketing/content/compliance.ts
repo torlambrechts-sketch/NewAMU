@@ -163,6 +163,11 @@ export type FaqEntry = { question: string; answer: string }
 
 export const FAQ: FaqEntry[] = [
   {
+    question: 'Bruker dere ordet etterlevelse eller compliance?',
+    answer:
+      'Begge betyr det samme. Etterlevelse er det offisielle norske begrepet — Arbeidstilsynet, Datatilsynet og Lovdata bruker det. Compliance er den engelske parallellen som mange bransjer fortsatt bruker. Vi har valgt etterlevelse fordi vi er norske og vil snakke norsk, men søker du på compliance finner du oss likevel.',
+  },
+  {
     question: 'Hvor mange arbeidsmiljølov-paragrafer dekkes faktisk?',
     answer:
       'Vi har kartlagt over 80 paragrafer mot konkrete moduler — fra §2-1 (arbeidsgivers plikter) til §18-10 (overtredelsesgebyr). Hver mal og hvert trinn i arbeidsflyten har en lovreferanse som peker tilbake til kilden.',

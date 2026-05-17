@@ -38,8 +38,8 @@ export function CompliancePage() {
   return (
     <>
       <SeoHead
-        title="Etterlevelse — Klarert | Arbeidsmiljøloven, IK-f, GDPR, ISO 45001, Åpenhetsloven"
-        description={`${FRAMEWORKS.length} rammeverk og ${totalParagraphs}+ paragrafer er kartlagt mot konkrete moduler. Se hvordan Klarert dekker arbeidsmiljøloven, internkontrollforskriften, GDPR og ISO 45001 — ferdig kodet, ikke tilpasset i etterkant.`}
+        title="Etterlevelse (compliance) — Klarert | Arbeidsmiljøloven, IK-f, GDPR, ISO 45001, Åpenhetsloven"
+        description={`${FRAMEWORKS.length} rammeverk og ${totalParagraphs}+ paragrafer kartlagt mot konkrete moduler. Se hvordan Klarert dekker etterlevelse — på engelsk: compliance — av arbeidsmiljøloven, internkontrollforskriften, GDPR og ISO 45001.`}
         canonical="https://app.klarert.com/etterlevelse"
         jsonLd={jsonLd}
       />
@@ -57,7 +57,8 @@ export function CompliancePage() {
           </h1>
           <p className="mx-auto mt-6 max-w-2xl text-base leading-relaxed text-white/75 md:text-lg">
             Hver mal og hvert trinn i arbeidsflyten har en lovreferanse som peker tilbake til kilden.
-            Etterlevelse er ikke en sjekkliste — det er arkitekturen. Her er hva som faktisk dekkes.
+            Etterlevelse — eller compliance, som mange bransjer kaller det — er ikke en sjekkliste.
+            Det er arkitekturen. Her er hva som faktisk dekkes.
           </p>
           <dl className="mx-auto mt-10 grid max-w-2xl grid-cols-3 gap-4">
             {[

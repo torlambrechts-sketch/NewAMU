@@ -121,9 +121,9 @@ const ROUTES = [
   },
   {
     path: '/etterlevelse',
-    title: 'Etterlevelse — Klarert | Arbeidsmiljøloven, IK-f, GDPR, ISO 45001, Åpenhetsloven',
+    title: 'Etterlevelse (compliance) — Klarert | Arbeidsmiljøloven, IK-f, GDPR, ISO 45001, Åpenhetsloven',
     description:
-      '9 rammeverk og 80+ paragrafer kartlagt mot konkrete moduler. Se hvordan Klarert dekker arbeidsmiljøloven, internkontrollforskriften, GDPR og ISO 45001 — ferdig kodet, ikke tilpasset etterpå.',
+      '9 rammeverk og 80+ paragrafer kartlagt mot konkrete moduler. Se hvordan Klarert dekker etterlevelse — på engelsk: compliance — av arbeidsmiljøloven, internkontrollforskriften, GDPR og ISO 45001.',
     jsonLd: ld([
       breadcrumb([
         { name: 'Klarert', item: `${SITE}/` },

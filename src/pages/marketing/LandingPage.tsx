@@ -15,9 +15,10 @@ const JSON_LD = {
   '@context': 'https://schema.org',
   '@type': 'SoftwareApplication',
   name: 'Klarert',
+  alternateName: ['Klarert compliance', 'Klarert etterlevelse'],
   url: 'https://app.klarert.com',
   description:
-    'Norsk plattform for HMS, internkontroll og etterlevelse med seks moduler — oppgaver, sjekklister, varslinger, dokumenter, e-læring og undersøkelser. Bygget på arbeidsmiljøloven og internkontrollforskriften.',
+    'Norsk plattform for etterlevelse (compliance) — HMS, internkontroll, AMU og varsling i seks moduler. Bygget på arbeidsmiljøloven og internkontrollforskriften.',
   applicationCategory: 'BusinessApplication',
   operatingSystem: 'Web',
   inLanguage: 'nb-NO',
@@ -42,7 +43,7 @@ export function LandingPage() {
     <>
       <SeoHead
         title="Klarert — Norsk HMS- og internkontrollsystem, ferdig kodet"
-        description="HMS-system bygget på arbeidsmiljøloven og internkontrollforskriften. Seks moduler, ni rammeverk dekket, data i EU. Prøv gratis i 30 dager."
+        description="Norsk plattform for etterlevelse (compliance) av arbeidsmiljøloven, internkontrollforskriften og GDPR. Seks moduler — oppgaver, sjekklister, varslinger, dokumenter, e-læring og undersøkelser. Data i EU. Prøv gratis i 30 dager."
         canonical="https://app.klarert.com/"
         jsonLd={JSON_LD}
       />
