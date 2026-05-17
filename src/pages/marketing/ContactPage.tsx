@@ -134,7 +134,13 @@ export function ContactPage() {
       }
       throw new Error(payload?.error ?? `Status ${res.status}`)
     } catch (err) {
-      setErrorMessage(err instanceof Error ? err.message : 'Ukjent feil')
+      const reason = err instanceof Error ? err.message : 'Ukjent feil'
+      // Surface the actual reason so admins debugging in browser dev tools
+      // don't need to dig through the Network tab to see why the endpoint
+      // failed (missing RESEND_API_KEY, unverified RESEND_FROM domain, etc.).
+      // eslint-disable-next-line no-console
+      console.error('[Klarert /kontakt] sending failed, falling back to mailto:', reason)
+      setErrorMessage(reason)
       // Mailto fallback so the user doesn't lose what they typed.
       const subject = `${TYPE_SUBJECT[type]}: ${data.org || data.email}`
       const bodyLines = [
