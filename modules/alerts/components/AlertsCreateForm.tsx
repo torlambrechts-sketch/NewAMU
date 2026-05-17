@@ -193,7 +193,7 @@ export function AlertsCreateForm({ open, onClose, templates, defaultTemplateId, 
               <p className={WPSTD_FORM_FIELD_LABEL}>Anonymitet</p>
               <div className="mt-1.5 space-y-2 text-sm">
                 <label className="flex items-center gap-2">
-                  <input
+                  <StandardInput
                     type="radio"
                     checked={form.isAnonymous}
                     onChange={() => setForm({ ...form, isAnonymous: true, reporterContact: '' })}
@@ -201,7 +201,7 @@ export function AlertsCreateForm({ open, onClose, templates, defaultTemplateId, 
                   Anonym
                 </label>
                 <label className="flex items-center gap-2">
-                  <input
+                  <StandardInput
                     type="radio"
                     checked={!form.isAnonymous}
                     onChange={() => setForm({ ...form, isAnonymous: false })}

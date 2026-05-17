@@ -266,6 +266,7 @@ export function PartnerBrandingPage() {
           </div>
           <div className="space-y-2">
             <label className="inline-flex">
+              {/* eslint-disable-next-line no-restricted-syntax -- hidden native file picker; no primitive exists */}
               <input
                 type="file"
                 accept="image/png,image/svg+xml"
@@ -426,7 +427,7 @@ function ColorField({
     <div className="space-y-1.5">
       <span className="text-xs font-bold uppercase tracking-wider text-neutral-800">{label}</span>
       <div className="flex items-center gap-2 rounded-md border border-neutral-300 bg-white px-2 py-1.5">
-        <input
+        <StandardInput
           type="color"
           value={safeValue}
           onChange={(e) => onChange(e.target.value)}
@@ -434,7 +435,7 @@ function ColorField({
           className="h-8 w-10 cursor-pointer rounded-sm border border-neutral-200 bg-transparent p-0 disabled:cursor-not-allowed disabled:opacity-50"
           aria-label={`${label} fargevelger`}
         />
-        <input
+        <StandardInput
           type="text"
           value={value}
           onChange={(e) => onChange(e.target.value)}

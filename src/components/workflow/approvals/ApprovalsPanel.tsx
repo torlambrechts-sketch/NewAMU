@@ -56,25 +56,33 @@ export function ApprovalsPanel() {
       <div className="flex flex-wrap items-center gap-2 rounded-xl border border-neutral-200 bg-white px-4 py-3">
         <h2 className="text-sm font-semibold text-neutral-900">Godkjenninger</h2>
         <span className="flex-1" />
-        <div className="flex rounded-md bg-neutral-100 p-0.5">
-          <button
-            type="button"
+        <div role="tablist" className="flex rounded-md bg-neutral-100 p-0.5">
+          <Button
+            variant="ghost"
+            role="tab"
+            aria-selected={statusTab === 'pending'}
             onClick={() => setStatusTab('pending')}
             className={`rounded px-3 py-1 text-xs font-medium ${
-              statusTab === 'pending' ? 'bg-white text-neutral-900 shadow-sm' : 'text-neutral-600'
+              statusTab === 'pending'
+                ? 'bg-white text-neutral-900 shadow-sm hover:bg-white hover:text-neutral-900'
+                : 'text-neutral-600 hover:bg-transparent'
             }`}
           >
             Venter ({approvals.filter((a) => a.status === 'pending').length})
-          </button>
-          <button
-            type="button"
+          </Button>
+          <Button
+            variant="ghost"
+            role="tab"
+            aria-selected={statusTab === 'decided'}
             onClick={() => setStatusTab('decided')}
             className={`rounded px-3 py-1 text-xs font-medium ${
-              statusTab === 'decided' ? 'bg-white text-neutral-900 shadow-sm' : 'text-neutral-600'
+              statusTab === 'decided'
+                ? 'bg-white text-neutral-900 shadow-sm hover:bg-white hover:text-neutral-900'
+                : 'text-neutral-600 hover:bg-transparent'
             }`}
           >
             Besluttet ({approvals.filter((a) => a.status !== 'pending').length})
-          </button>
+          </Button>
         </div>
       </div>
 
@@ -105,13 +113,14 @@ export function ApprovalsPanel() {
                     : 'border-neutral-100 opacity-90'
                 }`}
               >
-                <button
-                  type="button"
+                <Button
+                  variant="ghost"
+                  aria-expanded={isExpanded}
                   onClick={() => {
                     setActiveId(isExpanded ? null : a.id)
                     setNote('')
                   }}
-                  className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left"
+                  className="flex w-full items-center justify-between gap-3 rounded-none px-4 py-3 text-left font-normal hover:bg-transparent"
                 >
                   <div className="min-w-0">
                     <div className="flex items-center gap-2">
@@ -143,7 +152,7 @@ export function ApprovalsPanel() {
                       {APPROVAL_STATUS_LABEL[a.status] ?? a.status}
                     </span>
                   </div>
-                </button>
+                </Button>
                 {isExpanded && (
                   <div className="border-t border-neutral-100 px-4 py-3">
                     <div className="grid grid-cols-2 gap-2 text-xs">

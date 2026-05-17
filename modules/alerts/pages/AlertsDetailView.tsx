@@ -357,14 +357,16 @@ function AttachmentsTab({ caseId, canManage }: { caseId: string; canManage: bool
                     </Button>
                   ) : null}
                   {canManage && !a.is_redacted ? (
-                    <button
-                      type="button"
+                    <Button
+                      variant="ghost"
+                      size="icon"
                       onClick={() => void handleDelete(a.id, a.filename)}
-                      className="rounded-md p-1.5 text-neutral-400 transition-colors hover:bg-red-50 hover:text-red-700"
+                      className="h-auto w-auto rounded-md p-1.5 text-neutral-400 transition-colors hover:bg-red-50 hover:text-red-700"
                       title="Slett vedlegg"
+                      aria-label="Slett vedlegg"
                     >
                       <Trash2 className="size-4" />
-                    </button>
+                    </Button>
                   ) : null}
                 </div>
               </li>
@@ -383,6 +385,7 @@ function AttachmentsTab({ caseId, canManage }: { caseId: string; canManage: bool
             <span className="text-xs text-neutral-500">
               Maks 20 MB. PDF / Office / bilde / video. Privat lagring; nedlasting krever signert URL (60 s).
             </span>
+            {/* eslint-disable-next-line no-restricted-syntax -- hidden native file picker; no primitive exists */}
             <input
               type="file"
               className="hidden"

@@ -36,6 +36,8 @@ import {
 import { ModulePageShell, ModuleSectionCard } from '../../../components/module'
 import { Button } from '../../../components/ui/Button'
 import { StandardInput } from '../../../components/ui/Input'
+import { StandardTextarea } from '../../../components/ui/Textarea'
+import { SearchableSelect } from '../../../components/ui/SearchableSelect'
 import { InfoBox, WarningBox } from '../../../components/ui/AlertBox'
 import { useOrgSetupContext } from '../../../hooks/useOrgSetupContext'
 import { useOrgIntegrations } from '../../../hooks/useOrgIntegrations'
@@ -456,17 +458,13 @@ export function HelsetilsynetSetup() {
               </label>
               <label className="block text-xs font-medium text-neutral-700">
                 Mottakers fagavdeling
-                <select
+                <SearchableSelect
                   value={config.recipient}
-                  onChange={(e) => setConfig((c) => ({ ...c, recipient: e.target.value }))}
-                  className="mt-1.5 block w-full rounded-md border border-neutral-300 bg-white px-3 py-2 text-sm shadow-sm focus:border-[#1a3d32] focus:outline-none focus:ring-1 focus:ring-[#1a3d32]"
-                >
-                  {RECIPIENT_OPTIONS.map((o) => (
-                    <option key={o.value} value={o.value}>
-                      {o.label}
-                    </option>
-                  ))}
-                </select>
+                  onChange={(v) => setConfig((c) => ({ ...c, recipient: v }))}
+                  options={RECIPIENT_OPTIONS.map((o) => ({ value: o.value, label: o.label }))}
+                  className="mt-1.5"
+                  triggerClassName="rounded-md py-2"
+                />
               </label>
             </div>
 
@@ -486,7 +484,7 @@ export function HelsetilsynetSetup() {
                     key={lvl}
                     className="flex cursor-pointer items-start gap-3 rounded-md border border-neutral-200 bg-white p-3 hover:border-neutral-300"
                   >
-                    <input
+                    <StandardInput
                       type="radio"
                       name="confidentiality"
                       value={lvl}
@@ -521,13 +519,13 @@ export function HelsetilsynetSetup() {
             </InfoBox>
             <label className="block text-xs font-medium text-neutral-700">
               Melding-mal
-              <textarea
+              <StandardTextarea
                 value={config.melding_template}
                 onChange={(e) =>
                   setConfig((c) => ({ ...c, melding_template: e.target.value }))
                 }
                 rows={20}
-                className="mt-1.5 block w-full rounded-md border border-neutral-300 bg-white px-3 py-2 font-mono text-xs leading-relaxed shadow-sm focus:border-[#1a3d32] focus:outline-none focus:ring-1 focus:ring-[#1a3d32]"
+                className="mt-1.5 block w-full rounded-md font-mono text-xs leading-relaxed shadow-sm"
               />
             </label>
             <div className="flex justify-end">

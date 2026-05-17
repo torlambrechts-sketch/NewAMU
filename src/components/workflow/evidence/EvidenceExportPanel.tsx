@@ -108,18 +108,19 @@ export function EvidenceExportPanel() {
             <span className="block text-xs font-medium text-neutral-700">Lov-referanser</span>
             <div className="mt-1 flex flex-wrap gap-1">
               {LAW_REF_PRESETS.map((p) => (
-                <button
+                <Button
                   key={p.value}
-                  type="button"
+                  variant="ghost"
+                  aria-pressed={lawRefs.includes(p.value)}
                   onClick={() => toggle(lawRefs, setLawRefs, p.value)}
-                  className={`rounded-full px-2.5 py-1 text-[11px] ${
+                  className={`rounded-full px-2.5 py-1 text-[11px] font-normal ${
                     lawRefs.includes(p.value)
-                      ? 'bg-[#1a3d32] text-white'
-                      : 'border border-neutral-300 bg-white text-neutral-700'
+                      ? 'bg-[#1a3d32] text-white hover:bg-[#14312a] hover:text-white'
+                      : 'border border-neutral-300 bg-white text-neutral-700 hover:bg-neutral-50'
                   }`}
                 >
                   {p.label}
-                </button>
+                </Button>
               ))}
             </div>
           </div>
@@ -127,24 +128,25 @@ export function EvidenceExportPanel() {
             <span className="block text-xs font-medium text-neutral-700">Rammeverk</span>
             <div className="mt-1 flex flex-wrap gap-1">
               {FRAMEWORK_PRESETS.map((f) => (
-                <button
+                <Button
                   key={f}
-                  type="button"
+                  variant="ghost"
+                  aria-pressed={frameworks.includes(f)}
                   onClick={() => toggle(frameworks, setFrameworks, f)}
-                  className={`rounded-full px-2.5 py-1 text-[11px] ${
+                  className={`rounded-full px-2.5 py-1 text-[11px] font-normal ${
                     frameworks.includes(f)
-                      ? 'bg-[#1a3d32] text-white'
-                      : 'border border-neutral-300 bg-white text-neutral-700'
+                      ? 'bg-[#1a3d32] text-white hover:bg-[#14312a] hover:text-white'
+                      : 'border border-neutral-300 bg-white text-neutral-700 hover:bg-neutral-50'
                   }`}
                 >
                   {f}
-                </button>
+                </Button>
               ))}
             </div>
           </div>
           {canViewConfidential && (
             <label className="flex items-center gap-2 text-xs text-neutral-700">
-              <input
+              <StandardInput
                 type="checkbox"
                 checked={includeConfidential}
                 onChange={(e) => setIncludeConfidential(e.target.checked)}

@@ -328,17 +328,18 @@ export function AlertDedupGroupsPage() {
                                   className="inline-flex items-center gap-1 rounded-full border border-neutral-200 bg-neutral-50 px-2 py-0.5 text-[11px] text-neutral-700"
                                 >
                                   {org?.name ?? m.organization_id}
-                                  <button
-                                    type="button"
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
                                     onClick={() =>
                                       setRemoveOrg({ group: g, orgId: m.organization_id })
                                     }
-                                    className="text-rose-600 hover:text-rose-800"
+                                    className="p-0 text-rose-600 hover:bg-transparent hover:text-rose-800"
                                     title="Fjern fra gruppe"
                                     aria-label={`Fjern ${org?.name ?? m.organization_id} fra gruppen`}
                                   >
                                     <UserMinus className="h-3 w-3" aria-hidden />
-                                  </button>
+                                  </Button>
                                 </span>
                               )
                             })}
@@ -434,14 +435,15 @@ export function AlertDedupGroupsPage() {
                     className="inline-flex items-center gap-1 rounded-full bg-white px-2 py-0.5 text-[11px] text-neutral-700 shadow-sm"
                   >
                     {org?.name ?? id}
-                    <button
-                      type="button"
+                    <Button
+                      variant="ghost"
+                      size="icon"
                       onClick={() => handleRemoveOrgFromNew(id)}
-                      className="text-rose-600 hover:text-rose-800"
+                      className="p-0 text-rose-600 hover:bg-transparent hover:text-rose-800"
                       aria-label={`Fjern ${org?.name ?? id}`}
                     >
                       <UserMinus className="h-3 w-3" aria-hidden />
-                    </button>
+                    </Button>
                   </span>
                 )
               })}
@@ -479,10 +481,10 @@ export function AlertDedupGroupsPage() {
           aria-labelledby="add-org-title"
           className="fixed inset-0 z-[60] flex items-center justify-center bg-black/45 p-4 backdrop-blur-[2px]"
         >
-          <button
-            type="button"
+          <Button
+            variant="ghost"
             aria-label="Lukk"
-            className="absolute inset-0"
+            className="absolute inset-0 rounded-none p-0 hover:bg-transparent"
             onClick={() => {
               setAddOrgFor(null)
               setAddOrgPick('')

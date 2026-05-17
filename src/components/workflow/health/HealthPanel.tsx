@@ -449,10 +449,10 @@ function DeadlineRiskWidget({
           </div>
         )}
         {risks.map((risk) => (
-          <button
+          <Button
             key={risk.approvalId}
-            type="button"
-            className="flex w-full flex-wrap items-start gap-3 px-4 py-3 text-left hover:bg-neutral-50"
+            variant="ghost"
+            className="flex h-auto w-full flex-wrap items-start justify-start gap-3 rounded-none px-4 py-3 text-left font-normal hover:bg-neutral-50"
             onClick={() => onOpen(risk)}
           >
             <div className="min-w-0 flex-1">
@@ -471,7 +471,7 @@ function DeadlineRiskWidget({
             <div className="text-right text-xs font-semibold text-red-700">
               {formatDeadlineCountdown(t, risk.deadlineAt)}
             </div>
-          </button>
+          </Button>
         ))}
       </div>
     </section>

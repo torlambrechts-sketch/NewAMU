@@ -8,6 +8,7 @@
 
 import type { ReactNode } from 'react'
 import { twMerge } from 'tailwind-merge'
+import { Button } from '../../../ui/Button'
 
 export interface ChipProps {
   label: ReactNode
@@ -36,16 +37,17 @@ export function Chip({
     ? { backgroundColor: accent, color: '#fff', borderColor: accent }
     : undefined
   return (
-    <button
-      type="button"
+    <Button
+      variant="ghost"
       onClick={onClick}
       disabled={disabled}
       aria-label={ariaLabel}
+      aria-pressed={filled}
       className={twMerge(
         'inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-sm font-medium transition-colors',
         filled
           ? 'shadow-sm'
-          : 'border-dashed border-neutral-400 bg-white text-neutral-600 hover:border-[#1a3d32] hover:text-[#1a3d32]',
+          : 'border-dashed border-neutral-400 bg-white text-neutral-600 hover:border-[#1a3d32] hover:bg-white hover:text-[#1a3d32]',
         disabled && 'cursor-not-allowed opacity-60 hover:border-neutral-400 hover:text-neutral-600',
         className,
       )}
@@ -53,6 +55,6 @@ export function Chip({
     >
       {icon}
       <span>{label}</span>
-    </button>
+    </Button>
   )
 }

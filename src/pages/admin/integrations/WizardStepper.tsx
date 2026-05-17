@@ -7,6 +7,7 @@
 import type { ReactNode } from 'react'
 import { Check } from 'lucide-react'
 import { twMerge } from 'tailwind-merge'
+import { Button } from '../../../components/ui/Button'
 
 export type WizardStep = {
   id: string
@@ -30,18 +31,19 @@ export function WizardStepper({ steps, activeIndex, onSelect, className }: Wizar
         const clickable = onSelect && i <= activeIndex
         return (
           <li key={step.id} className="flex items-center gap-2">
-            <button
-              type="button"
+            <Button
+              variant="ghost"
+              size="sm"
               disabled={!clickable}
               onClick={() => clickable && onSelect?.(i)}
               aria-current={isActive ? 'step' : undefined}
               className={twMerge(
                 'inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-medium transition-colors',
                 isActive
-                  ? 'border-[#1a3d32] bg-[#1a3d32] text-white'
+                  ? 'border-[#1a3d32] bg-[#1a3d32] text-white hover:bg-[#1a3d32] hover:text-white'
                   : isDone
                     ? 'border-[#1a3d32]/30 bg-emerald-50 text-emerald-900 hover:bg-emerald-100'
-                    : 'border-neutral-200 bg-white text-neutral-500',
+                    : 'border-neutral-200 bg-white text-neutral-500 hover:bg-white',
                 clickable ? 'cursor-pointer' : 'cursor-default',
               )}
             >
@@ -58,7 +60,7 @@ export function WizardStepper({ steps, activeIndex, onSelect, className }: Wizar
                 {isDone ? <Check className="h-3 w-3" /> : i + 1}
               </span>
               <span>{step.label}</span>
-            </button>
+            </Button>
             {i < steps.length - 1 && <span className="h-px w-4 bg-neutral-300" aria-hidden />}
           </li>
         )

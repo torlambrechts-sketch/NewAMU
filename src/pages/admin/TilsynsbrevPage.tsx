@@ -21,6 +21,7 @@ import { WarningBox } from '../../components/ui/AlertBox'
 import { Badge } from '../../components/ui/Badge'
 import { SlidePanel } from '../../components/layout/SlidePanel'
 import { StandardInput } from '../../components/ui/Input'
+import { SearchableSelect } from '../../components/ui/SearchableSelect'
 import { WPSTD_FORM_FIELD_LABEL } from '../../components/layout/WorkplaceStandardFormPanel'
 import { useOrgSetupContext } from '../../hooks/useOrgSetupContext'
 
@@ -272,24 +273,25 @@ export function TilsynsbrevPage() {
           <span className="text-[11px] font-bold uppercase tracking-wider text-neutral-500">
             Konfidensialitet
           </span>
-          <div role="group" aria-label="Filter konfidensialitet" className="flex gap-1">
+          <div role="radiogroup" aria-label="Filter konfidensialitet" className="flex gap-1">
             {(Object.keys(CONFIDENTIALITY_FILTER_LABELS) as ConfidentialityFilter[]).map((key) => {
               const active = confidentialityFilter === key
               return (
-                <button
+                <Button
                   key={key}
-                  type="button"
+                  variant="ghost"
+                  role="radio"
+                  aria-checked={active}
                   onClick={() => setConfidentialityFilter(key)}
-                  aria-pressed={active}
                   className={
                     'rounded-full border px-3 py-1 text-xs font-semibold transition-colors ' +
                     (active
-                      ? 'border-[#1a3d32] bg-[#1a3d32] text-white'
+                      ? 'border-[#1a3d32] bg-[#1a3d32] text-white hover:bg-[#1a3d32] hover:text-white'
                       : 'border-neutral-300 bg-white text-neutral-700 hover:bg-neutral-50')
                   }
                 >
                   {CONFIDENTIALITY_FILTER_LABELS[key]}
-                </button>
+                </Button>
               )
             })}
           </div>
@@ -310,24 +312,25 @@ export function TilsynsbrevPage() {
           <span className="text-[11px] font-bold uppercase tracking-wider text-neutral-500">
             Parser
           </span>
-          <div role="group" aria-label="Filter parser" className="flex gap-1">
+          <div role="radiogroup" aria-label="Filter parser" className="flex gap-1">
             {(Object.keys(PARSER_FILTER_LABELS) as ParserFilter[]).map((key) => {
               const active = parserFilter === key
               return (
-                <button
+                <Button
                   key={key}
-                  type="button"
+                  variant="ghost"
+                  role="radio"
+                  aria-checked={active}
                   onClick={() => setParserFilter(key)}
-                  aria-pressed={active}
                   className={
                     'rounded-full border px-3 py-1 text-xs font-semibold transition-colors ' +
                     (active
-                      ? 'border-[#1a3d32] bg-[#1a3d32] text-white'
+                      ? 'border-[#1a3d32] bg-[#1a3d32] text-white hover:bg-[#1a3d32] hover:text-white'
                       : 'border-neutral-300 bg-white text-neutral-700 hover:bg-neutral-50')
                   }
                 >
                   {PARSER_FILTER_LABELS[key]}
-                </button>
+                </Button>
               )
             })}
           </div>
@@ -542,31 +545,23 @@ function UploadPanel({
         </p>
         <div>
           <label className={WPSTD_FORM_FIELD_LABEL}>Tilsynsmyndighet</label>
-          <select
-            className="mt-2 w-full rounded-md border border-neutral-300 bg-white px-3 py-2 text-sm"
+          <SearchableSelect
             value={sourceType}
-            onChange={(e) => setSourceType(e.target.value as SourceType)}
-          >
-            {Object.entries(SOURCE_LABELS).map(([v, l]) => (
-              <option key={v} value={v}>
-                {l}
-              </option>
-            ))}
-          </select>
+            onChange={(v) => setSourceType(v as SourceType)}
+            options={Object.entries(SOURCE_LABELS).map(([v, l]) => ({ value: v, label: l }))}
+            className="mt-2"
+            triggerClassName="rounded-md py-2"
+          />
         </div>
         <div>
           <label className={WPSTD_FORM_FIELD_LABEL}>Kategori</label>
-          <select
-            className="mt-2 w-full rounded-md border border-neutral-300 bg-white px-3 py-2 text-sm"
+          <SearchableSelect
             value={category}
-            onChange={(e) => setCategory(e.target.value as UploadCategory)}
-          >
-            {Object.entries(CATEGORY_LABELS).map(([v, l]) => (
-              <option key={v} value={v}>
-                {l}
-              </option>
-            ))}
-          </select>
+            onChange={(v) => setCategory(v as UploadCategory)}
+            options={Object.entries(CATEGORY_LABELS).map(([v, l]) => ({ value: v, label: l }))}
+            className="mt-2"
+            triggerClassName="rounded-md py-2"
+          />
           <p className="mt-1 text-xs text-neutral-500">
             Velg <em>Barnehage — Statsforvalter</em> ved § 30-tilsyn for å utløse
             den konfidensielle § 30-regelen.
@@ -574,7 +569,7 @@ function UploadPanel({
         </div>
         <div>
           <label className={WPSTD_FORM_FIELD_LABEL}>PDF-fil</label>
-          <input
+          <StandardInput
             type="file"
             accept="application/pdf"
             onChange={(e) => setFile(e.target.files?.[0] ?? null)}

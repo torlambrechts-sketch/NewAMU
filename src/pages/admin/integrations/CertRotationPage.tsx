@@ -837,13 +837,14 @@ export function CertRotationPage() {
                 dispatchet.
               </p>
             </div>
-            <button
-              type="button"
+            <Button
+              variant="ghost"
+              size="sm"
               onClick={() => setBannerMessage(null)}
-              className="text-xs text-emerald-800 hover:text-emerald-900"
+              className="px-0 py-0 text-xs font-normal text-emerald-800 hover:bg-transparent hover:text-emerald-900"
             >
               Lukk
-            </button>
+            </Button>
           </div>
         )}
 

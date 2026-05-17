@@ -34,6 +34,7 @@ import { ModulePageShell, ModuleSectionCard } from '../../components/module'
 import { Button } from '../../components/ui/Button'
 import { Badge } from '../../components/ui/Badge'
 import { WarningBox } from '../../components/ui/AlertBox'
+import { StandardInput } from '../../components/ui/Input'
 import { useOrgSetupContext } from '../../hooks/useOrgSetupContext'
 
 type SourceType = 'arbeidstilsynet' | 'datatilsynet' | 'helsetilsynet' | 'ukom' | 'ldo' | 'other'
@@ -810,7 +811,7 @@ function ConfirmCreateTaskDialog({
           brukere med <code className="rounded bg-neutral-100 px-1">tasks.view_confidential</code>-tillatelse.
         </p>
         <label className="mt-4 flex items-start gap-2 text-sm text-neutral-800">
-          <input
+          <StandardInput
             type="checkbox"
             className="mt-0.5 size-4 rounded border-neutral-300"
             checked={confirmed}

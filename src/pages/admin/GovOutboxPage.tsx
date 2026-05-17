@@ -284,18 +284,19 @@ function FilterRail({
           {KIND_OPTIONS.map((k) => {
             const active = filters.kinds.has(k)
             return (
-              <button
+              <Button
                 key={k}
-                type="button"
+                variant="ghost"
+                aria-pressed={active}
                 onClick={() => toggleKind(k)}
                 className={`rounded-full border px-2.5 py-1 text-xs font-medium transition-colors ${
                   active
-                    ? 'border-[#1a3d32] bg-[#1a3d32] text-white'
+                    ? 'border-[#1a3d32] bg-[#1a3d32] text-white hover:bg-[#14312a] hover:text-white'
                     : 'border-neutral-300 bg-white text-neutral-700 hover:bg-neutral-50'
                 }`}
               >
                 {KIND_LABELS[k]}
-              </button>
+              </Button>
             )
           })}
         </div>
@@ -307,18 +308,19 @@ function FilterRail({
           {STATUS_OPTIONS.map((s) => {
             const active = filters.statuses.has(s)
             return (
-              <button
+              <Button
                 key={s}
-                type="button"
+                variant="ghost"
+                aria-pressed={active}
                 onClick={() => toggleStatus(s)}
                 className={`rounded-full border px-2.5 py-1 text-xs font-medium transition-colors ${
                   active
-                    ? 'border-[#1a3d32] bg-[#1a3d32] text-white'
+                    ? 'border-[#1a3d32] bg-[#1a3d32] text-white hover:bg-[#14312a] hover:text-white'
                     : 'border-neutral-300 bg-white text-neutral-700 hover:bg-neutral-50'
                 }`}
               >
                 {STATUS_LABELS[s]}
-              </button>
+              </Button>
             )
           })}
         </div>
@@ -329,16 +331,16 @@ function FilterRail({
           <p className="text-[11px] font-semibold uppercase tracking-wider text-neutral-500">
             Maks alder
           </p>
-          <button
-            type="button"
+          <Button
+            variant="ghost"
             onClick={onResetAge}
-            className="text-[11px] text-neutral-500 underline hover:text-neutral-800"
+            className="rounded-none p-0 text-[11px] font-normal text-neutral-500 underline hover:bg-transparent hover:text-neutral-800"
           >
             Nullstill
-          </button>
+          </Button>
         </div>
         <div className="mt-2 flex items-center gap-3">
-          <input
+          <StandardInput
             type="range"
             min={0}
             max={30}
@@ -421,10 +423,11 @@ function TriageCard({
 
       {hash ? (
         <div className="rounded-md bg-neutral-50 px-3 py-2 text-xs text-neutral-600">
-          <button
-            type="button"
+          <Button
+            variant="ghost"
+            aria-expanded={expanded}
             onClick={() => setExpanded((v) => !v)}
-            className="flex items-center gap-1.5 font-mono text-[11px] text-neutral-700 hover:text-neutral-900"
+            className="flex items-center gap-1.5 rounded-none p-0 font-mono text-[11px] font-normal text-neutral-700 hover:bg-transparent hover:text-neutral-900"
           >
             {expanded ? (
               <ChevronDown className="size-3.5" aria-hidden />
@@ -433,7 +436,7 @@ function TriageCard({
             )}
             <Hash className="size-3.5" aria-hidden />
             <span>{expanded ? hash : truncMid(hash, 10, 8)}</span>
-          </button>
+          </Button>
         </div>
       ) : null}
 
@@ -493,10 +496,10 @@ function MarkSentDialog({
 
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/45 p-4 backdrop-blur-[2px]">
-      <button
-        type="button"
+      <Button
+        variant="ghost"
         aria-label="Lukk"
-        className="absolute inset-0"
+        className="absolute inset-0 rounded-none p-0 hover:bg-transparent"
         onClick={onClose}
       />
       <div
@@ -603,10 +606,10 @@ function CancelDialog({
 
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/45 p-4 backdrop-blur-[2px]">
-      <button
-        type="button"
+      <Button
+        variant="ghost"
         aria-label="Lukk"
-        className="absolute inset-0"
+        className="absolute inset-0 rounded-none p-0 hover:bg-transparent"
         onClick={onClose}
       />
       <div

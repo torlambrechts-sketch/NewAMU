@@ -30,6 +30,9 @@ import { LayoutScoreStatRow } from '../../components/layout/LayoutScoreStatRow'
 import type { LayoutScoreStatItem } from '../../components/layout/platformLayoutKit'
 import { SlidePanel } from '../../components/layout/SlidePanel'
 import { Button } from '../../components/ui/Button'
+import { SearchableSelect } from '../../components/ui/SearchableSelect'
+import { StandardInput } from '../../components/ui/Input'
+import { StandardTextarea } from '../../components/ui/Textarea'
 import { useOrgSetupContext } from '../../hooks/useOrgSetupContext'
 import { usePartnerMembership } from '../../hooks/usePartnerMembership'
 import type {
@@ -330,39 +333,42 @@ export function PartnerConsolePage() {
 
   // ── Tab navigation ───────────────────────────────────────────────
   const tabs = (
-    <div className="flex items-center gap-2">
+    <div className="flex items-center gap-2" role="tablist">
       {(
         [
           { id: 'kunder', label: 'Kunder', icon: Users },
           { id: 'tidslinje', label: 'Tidslinje', icon: Clock },
           { id: 'faktura', label: 'Faktura', icon: Receipt },
         ] as const
-      ).map(({ id, label, icon: Icon }) => (
-        <button
-          key={id}
-          type="button"
-          onClick={() => setTab(id)}
-          className={`inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
-            tab === id
-              ? 'bg-neutral-900 text-white'
-              : 'border border-neutral-300 bg-white text-neutral-700 hover:bg-neutral-50'
-          }`}
-        >
-          <Icon className="size-4" aria-hidden />
-          {label}
-        </button>
-      ))}
+      ).map(({ id, label, icon: Icon }) => {
+        const active = tab === id
+        return (
+          <Button
+            key={id}
+            variant="ghost"
+            size="sm"
+            role="tab"
+            aria-selected={active}
+            onClick={() => setTab(id)}
+            className={
+              active
+                ? 'bg-neutral-900 text-white hover:bg-neutral-900 hover:text-white border-transparent'
+                : 'border border-neutral-300 bg-white text-neutral-700 hover:bg-neutral-50'
+            }
+          >
+            <Icon className="size-4" aria-hidden />
+            {label}
+          </Button>
+        )
+      })}
       {partners.length > 1 ? (
-        <select
+        <SearchableSelect
           value={currentPartner?.id ?? ''}
-          onChange={(e) => setCurrentPartnerId(e.target.value || null)}
-          className="ml-2 rounded-md border border-neutral-300 bg-white px-3 py-1.5 text-sm"
-          aria-label="Bytt partnerfirma"
-        >
-          {partners.map((p) => (
-            <option key={p.id} value={p.id}>{p.name}</option>
-          ))}
-        </select>
+          onChange={(v) => setCurrentPartnerId(v || null)}
+          options={partners.map((p) => ({ value: p.id, label: p.name }))}
+          className="ml-2 mt-0 w-auto min-w-[160px]"
+          triggerClassName="rounded-md py-1.5 text-sm"
+        />
       ) : null}
     </div>
   )
@@ -599,17 +605,19 @@ export function PartnerConsolePage() {
                         </td>
                         <td className="px-4 py-2 text-right">
                           <div className="flex justify-end gap-1">
-                            <button
-                              type="button"
+                            <Button
+                              variant="secondary"
+                              size="icon"
                               onClick={() => handleDownloadCsv(inv)}
                               disabled={busy === inv.id}
                               title="Last ned CSV"
                               className="rounded-md border border-neutral-300 bg-white p-1.5 text-neutral-700 hover:bg-neutral-50 disabled:opacity-50"
                             >
                               <Download className="size-3.5" aria-hidden />
-                            </button>
-                            <button
-                              type="button"
+                            </Button>
+                            <Button
+                              variant="secondary"
+                              size="sm"
                               onClick={() => handleDownloadPdf(inv)}
                               disabled={busy === inv.id}
                               title={pdfLabel}
@@ -618,9 +626,10 @@ export function PartnerConsolePage() {
                             >
                               <FileDown className="size-3.5" aria-hidden />
                               {inv.pdf_storage_path ? 'PDF (siste)' : 'PDF'}
-                            </button>
-                            <button
-                              type="button"
+                            </Button>
+                            <Button
+                              variant="secondary"
+                              size="icon"
                               onClick={() => handleRegeneratePdf(inv)}
                               disabled={busy === inv.id}
                               title="Generer på nytt — ignorerer cachet PDF"
@@ -628,30 +637,33 @@ export function PartnerConsolePage() {
                               className="rounded-md border border-neutral-300 bg-white p-1.5 text-neutral-700 hover:bg-neutral-50 disabled:opacity-50"
                             >
                               <RefreshCw className="size-3.5" aria-hidden />
-                            </button>
+                            </Button>
                             {inv.status === 'draft' ? (
-                              <button
-                                type="button"
+                              <Button
+                                variant="secondary"
+                                size="sm"
                                 onClick={() => handleMarkInvoice(inv.id, 'sent')}
                                 disabled={busy === inv.id}
                                 className="rounded-md border border-neutral-300 bg-white px-2 py-1 text-xs font-semibold text-neutral-700 hover:bg-neutral-50 disabled:opacity-50"
                               >
                                 Marker som sendt
-                              </button>
+                              </Button>
                             ) : null}
                             {inv.status === 'sent' ? (
-                              <button
-                                type="button"
+                              <Button
+                                variant="secondary"
+                                size="sm"
                                 onClick={() => handleMarkInvoice(inv.id, 'paid')}
                                 disabled={busy === inv.id}
                                 className="rounded-md border border-neutral-300 bg-white px-2 py-1 text-xs font-semibold text-neutral-700 hover:bg-neutral-50 disabled:opacity-50"
                               >
                                 Marker som betalt
-                              </button>
+                              </Button>
                             ) : null}
                             {inv.status !== 'cancelled' && inv.status !== 'paid' && inv.invoice_number ? (
-                              <button
-                                type="button"
+                              <Button
+                                variant="secondary"
+                                size="icon"
                                 onClick={() => setPendingCancelInvoice(inv)}
                                 disabled={busy === inv.id}
                                 title="Annuller faktura"
@@ -659,7 +671,7 @@ export function PartnerConsolePage() {
                                 className="rounded-md border border-rose-200 bg-white p-1.5 text-rose-700 hover:bg-rose-50 disabled:opacity-50"
                               >
                                 <XCircle className="size-3.5" aria-hidden />
-                              </button>
+                              </Button>
                             ) : null}
                           </div>
                         </td>
@@ -791,37 +803,32 @@ function ManualTimeEntryPanel({
       <div className="space-y-4">
         <label className="block">
           <span className="text-xs font-bold uppercase tracking-wider text-neutral-800">Kunde</span>
-          <select
+          <SearchableSelect
             value={orgId}
-            onChange={(e) => setOrgId(e.target.value)}
-            className="mt-1.5 w-full rounded-none border border-neutral-300 bg-white px-3 py-2.5 text-sm"
-          >
-            {customers.map((c) => (
-              <option key={c.organization_id} value={c.organization_id}>
-                {c.organization_name}
-              </option>
-            ))}
-          </select>
+            onChange={(v) => setOrgId(v)}
+            options={customers.map((c) => ({ value: c.organization_id, label: c.organization_name }))}
+            triggerClassName="rounded-none"
+          />
         </label>
         <label className="block">
           <span className="text-xs font-bold uppercase tracking-wider text-neutral-800">Beskrivelse</span>
-          <textarea
+          <StandardTextarea
             value={desc}
             onChange={(e) => setDesc(e.target.value)}
             placeholder="Hva jobbet du med?"
             rows={3}
-            className="mt-1.5 w-full rounded-none border border-neutral-300 bg-white px-3 py-2.5 text-sm"
+            className="mt-1.5 rounded-none"
           />
         </label>
         <label className="block">
           <span className="text-xs font-bold uppercase tracking-wider text-neutral-800">Varighet (min)</span>
-          <input
+          <StandardInput
             type="number"
             min={1}
             max={1440}
             value={minutes}
             onChange={(e) => setMinutes(e.target.value)}
-            className="mt-1.5 w-full rounded-none border border-neutral-300 bg-white px-3 py-2.5 text-sm"
+            className="mt-1.5 rounded-none"
           />
         </label>
       </div>
@@ -914,35 +921,30 @@ function GenerateInvoicePanel({
       <div className="space-y-4">
         <label className="block">
           <span className="text-xs font-bold uppercase tracking-wider text-neutral-800">Kunde</span>
-          <select
+          <SearchableSelect
             value={orgId}
-            onChange={(e) => setOrgId(e.target.value)}
-            className="mt-1.5 w-full rounded-none border border-neutral-300 bg-white px-3 py-2.5 text-sm"
-          >
-            {customers.map((c) => (
-              <option key={c.organization_id} value={c.organization_id}>
-                {c.organization_name}
-              </option>
-            ))}
-          </select>
+            onChange={(v) => setOrgId(v)}
+            options={customers.map((c) => ({ value: c.organization_id, label: c.organization_name }))}
+            triggerClassName="rounded-none"
+          />
         </label>
         <div className="grid grid-cols-2 gap-3">
           <label className="block">
             <span className="text-xs font-bold uppercase tracking-wider text-neutral-800">Fra</span>
-            <input
+            <StandardInput
               type="date"
               value={periodStart}
               onChange={(e) => setPeriodStart(e.target.value)}
-              className="mt-1.5 w-full rounded-none border border-neutral-300 bg-white px-3 py-2.5 text-sm"
+              className="mt-1.5 rounded-none"
             />
           </label>
           <label className="block">
             <span className="text-xs font-bold uppercase tracking-wider text-neutral-800">Til</span>
-            <input
+            <StandardInput
               type="date"
               value={periodEnd}
               onChange={(e) => setPeriodEnd(e.target.value)}
-              className="mt-1.5 w-full rounded-none border border-neutral-300 bg-white px-3 py-2.5 text-sm"
+              className="mt-1.5 rounded-none"
             />
           </label>
         </div>

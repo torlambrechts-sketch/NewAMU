@@ -16,6 +16,8 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import { ArrowLeft, Filter, Search, ExternalLink, AlertTriangle } from 'lucide-react'
+import { Button } from '../../src/components/ui/Button'
+import { StandardInput } from '../../src/components/ui/Input'
 import { useRiskDashboardRows } from './dashboards/useRiskDashboardRows'
 import {
   HAZARD_CATEGORIES,
@@ -135,7 +137,7 @@ export function RiskRegisterPage() {
         <div className="flex flex-wrap items-center gap-3">
           <div className="relative flex-1 min-w-[12rem]">
             <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-neutral-400" aria-hidden />
-            <input
+            <StandardInput
               type="search"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
@@ -145,7 +147,7 @@ export function RiskRegisterPage() {
           </div>
 
           <label className="flex items-center gap-1.5 text-sm text-neutral-700">
-            <input type="checkbox" checked={openOnly} onChange={(e) => setOpenOnly(e.target.checked)} className="rounded border-neutral-300" />
+            <StandardInput type="checkbox" checked={openOnly} onChange={(e) => setOpenOnly(e.target.checked)} className="rounded border-neutral-300" />
             Kun åpne
           </label>
 
@@ -306,14 +308,15 @@ function FilterPill({ label, active, onClear, children }: FilterPillProps) {
       </span>
       <div className="flex flex-wrap items-center gap-1">{children}</div>
       {active && (
-        <button
-          type="button"
+        <Button
+          variant="ghost"
+          size="sm"
           onClick={onClear}
-          className="ml-0.5 text-xs text-neutral-500 hover:text-neutral-900"
+          className="ml-0.5 h-auto rounded-none p-0 text-xs font-normal text-neutral-500 hover:bg-transparent hover:text-neutral-900"
           aria-label={`Fjern ${label}-filter`}
         >
           ×
-        </button>
+        </Button>
       )}
     </div>
   )
@@ -323,15 +326,17 @@ function PillOption({
   active, onClick, children,
 }: { active: boolean; onClick: () => void; children: React.ReactNode }) {
   return (
-    <button
-      type="button"
+    <Button
+      variant="ghost"
+      size="sm"
       onClick={onClick}
-      className={`rounded-full px-2 py-0.5 text-xs ring-1 ring-inset ${
-        active ? 'bg-rose-700 text-white ring-rose-700' : 'bg-white text-neutral-700 ring-neutral-300 hover:ring-neutral-500'
+      aria-pressed={active}
+      className={`h-auto rounded-full px-2 py-0.5 text-xs font-normal ring-1 ring-inset ${
+        active ? 'bg-rose-700 text-white ring-rose-700 hover:bg-rose-700' : 'bg-white text-neutral-700 ring-neutral-300 hover:ring-neutral-500'
       }`}
     >
       {children}
-    </button>
+    </Button>
   )
 }
 

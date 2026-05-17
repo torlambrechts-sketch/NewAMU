@@ -113,20 +113,22 @@ export function AlertsAllePage() {
             style={{ backgroundColor: CREAM_DEEP }}
           >
             <p className="mb-2 text-[10px] font-bold uppercase tracking-wide text-neutral-600">Status</p>
-            <div className="flex flex-wrap gap-1.5">
+            <div className="flex flex-wrap gap-1.5" role="radiogroup" aria-label="Status-filter">
               {STATUSES.map((s) => (
-                <button
+                <Button
                   key={s}
-                  type="button"
+                  variant="ghost"
                   onClick={() => { setStatusFilter(s); setPage(1) }}
+                  role="radio"
+                  aria-checked={statusFilter === s}
                   className={`rounded-md border px-3 py-1.5 text-xs font-medium transition-colors ${
                     statusFilter === s
-                      ? 'border-[#b91c1c] bg-[#b91c1c] text-white'
+                      ? 'border-[#b91c1c] bg-[#b91c1c] text-white hover:bg-[#b91c1c]'
                       : 'border-neutral-200 bg-white text-neutral-700 hover:border-neutral-300 hover:bg-neutral-50'
                   }`}
                 >
                   {s === 'all' ? 'Alle' : s === 'open' ? 'Åpne' : ALERT_STATUS_LABEL[s as AlertStatus]}
-                </button>
+                </Button>
               ))}
             </div>
           </div>

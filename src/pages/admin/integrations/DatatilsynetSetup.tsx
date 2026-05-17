@@ -211,7 +211,7 @@ export function DatatilsynetSetup() {
             </p>
             <div className="space-y-2">
               <label className="flex cursor-pointer items-start gap-3 rounded-md border border-neutral-200 bg-white p-3 hover:border-neutral-300">
-                <input
+                <StandardInput
                   type="radio"
                   name="env"
                   value="tt02"
@@ -227,7 +227,7 @@ export function DatatilsynetSetup() {
                 </div>
               </label>
               <label className="flex cursor-pointer items-start gap-3 rounded-md border border-neutral-200 bg-white p-3 hover:border-neutral-300">
-                <input
+                <StandardInput
                   type="radio"
                   name="env"
                   value="prod"
@@ -299,7 +299,7 @@ export function DatatilsynetSetup() {
               <fieldset className="sm:col-span-2 rounded-md border border-neutral-200 p-3">
                 <legend className="px-1 text-xs font-medium text-neutral-700">Signerings-modus</legend>
                 <label className="mt-2 flex cursor-pointer items-start gap-2 text-sm">
-                  <input
+                  <StandardInput
                     type="radio"
                     name="signing"
                     value="sha256-canonical"
@@ -313,7 +313,7 @@ export function DatatilsynetSetup() {
                   </span>
                 </label>
                 <label className="mt-2 flex cursor-pointer items-start gap-2 text-sm">
-                  <input
+                  <StandardInput
                     type="radio"
                     name="signing"
                     value="manifest-only"

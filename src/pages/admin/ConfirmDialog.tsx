@@ -10,6 +10,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { AlertTriangle, X } from 'lucide-react'
+import { Button } from '../../components/ui/Button'
 import { StandardInput } from '../../components/ui/Input'
 
 type Props = {
@@ -93,10 +94,10 @@ export function ConfirmDialog({
 
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/45 p-4 backdrop-blur-[2px]">
-      <button
-        type="button"
+      <Button
+        variant="ghost"
         aria-label="Lukk"
-        className="absolute inset-0"
+        className="absolute inset-0 rounded-none p-0 hover:bg-transparent"
         onClick={onCancel}
       />
       <div
@@ -118,14 +119,15 @@ export function ConfirmDialog({
               {body}
             </p>
           </div>
-          <button
-            type="button"
+          <Button
+            variant="ghost"
+            size="icon"
             onClick={onCancel}
             aria-label="Avbryt"
-            className="rounded-md p-1 text-neutral-400 hover:bg-neutral-100 hover:text-neutral-700"
+            className="h-auto w-auto rounded-md p-1 text-neutral-400 hover:bg-neutral-100 hover:text-neutral-700"
           >
             <X className="size-4" />
-          </button>
+          </Button>
         </div>
         {confirmPhrase ? (
           <label className="mt-4 block text-sm">
@@ -156,22 +158,22 @@ export function ConfirmDialog({
           </label>
         ) : null}
         <div className="mt-5 flex justify-end gap-2">
-          <button
-            type="button"
+          <Button
+            variant="secondary"
             onClick={onCancel}
             className="rounded-md border border-neutral-300 bg-white px-4 py-2 text-sm font-semibold text-neutral-700 hover:bg-neutral-50"
           >
             {cancelLabel}
-          </button>
-          <button
+          </Button>
+          <Button
             ref={confirmRef}
-            type="button"
+            variant="primary"
             onClick={handleConfirm}
             disabled={confirmDisabled}
             className={`rounded-md px-4 py-2 text-sm font-semibold shadow-sm disabled:cursor-not-allowed disabled:opacity-40 ${confirmCls}`}
           >
             {confirmLabel}
-          </button>
+          </Button>
         </div>
       </div>
     </div>

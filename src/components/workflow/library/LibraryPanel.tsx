@@ -42,6 +42,7 @@ import type {
   WorkflowXorActionsEnvelope,
 } from '../../../types/workflow'
 import { Button } from '../../ui/Button'
+import { StandardInput } from '../../ui/Input'
 import { ModuleSectionCard } from '../../module/ModuleSectionCard'
 import { LibraryPreviewPanel } from './LibraryPreviewPanel'
 import { LibraryPackInstallModal } from './LibraryPackInstallModal'
@@ -401,14 +402,15 @@ export function LibraryPanel({ onInstalled }: { onInstalled?: (ruleId: string) =
         <div className="flex items-start gap-2.5 rounded-md border border-emerald-200 bg-emerald-50 px-3 py-3 text-sm text-emerald-900">
           <Check className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" />
           <div className="flex-1">{installBanner}</div>
-          <button
-            type="button"
+          <Button
+            variant="ghost"
+            size="icon"
             onClick={() => setInstallBanner(null)}
             aria-label="Skjul melding"
-            className="rounded-md p-1 text-emerald-700 hover:bg-emerald-100"
+            className="text-emerald-700 hover:bg-emerald-100 hover:text-emerald-900"
           >
             <X className="h-3.5 w-3.5" />
-          </button>
+          </Button>
         </div>
       )}
       {packBanner && (
@@ -421,14 +423,15 @@ export function LibraryPanel({ onInstalled }: { onInstalled?: (ruleId: string) =
             </span>{' '}
             installert: {packBanner.outcome}
           </div>
-          <button
-            type="button"
+          <Button
+            variant="ghost"
+            size="icon"
             onClick={() => setPackBanner(null)}
             aria-label="Skjul melding"
-            className="rounded-md p-1 text-emerald-700 hover:bg-emerald-100"
+            className="text-emerald-700 hover:bg-emerald-100 hover:text-emerald-900"
           >
             <X className="h-3.5 w-3.5" />
-          </button>
+          </Button>
         </div>
       )}
 
@@ -506,13 +509,13 @@ export function LibraryPanel({ onInstalled }: { onInstalled?: (ruleId: string) =
             </span>
             <span>av {catalog.length} totalt i biblioteket</span>
             {activeFilterCount > 0 && (
-              <button
-                type="button"
+              <Button
+                variant="ghost"
                 onClick={clearFilters}
-                className="ml-auto inline-flex items-center gap-1 text-xs font-medium text-emerald-800 underline-offset-2 hover:underline"
+                className="ml-auto inline-flex items-center gap-1 rounded-none p-0 text-xs font-medium text-emerald-800 underline-offset-2 hover:bg-transparent hover:text-emerald-900 hover:underline"
               >
                 <X className="h-3 w-3" /> Nullstill filtrene
-              </button>
+              </Button>
             )}
           </div>
 
@@ -520,13 +523,13 @@ export function LibraryPanel({ onInstalled }: { onInstalled?: (ruleId: string) =
             <ModuleSectionCard className="p-8 text-center">
               <p className="text-sm text-neutral-600">
                 Ingen maler matcher filtrene. Justér filtrene til venstre, eller{' '}
-                <button
-                  type="button"
+                <Button
+                  variant="ghost"
                   onClick={clearFilters}
-                  className="font-medium text-emerald-800 underline"
+                  className="inline rounded-none p-0 font-medium text-emerald-800 underline hover:bg-transparent hover:text-emerald-900"
                 >
                   nullstill alle
-                </button>
+                </Button>
                 .
               </p>
             </ModuleSectionCard>
@@ -646,13 +649,13 @@ function FilterRail({
             <FilterIcon className="h-4 w-4 text-neutral-500" /> Filtrer maler
           </h3>
           {activeFilterCount > 0 && (
-            <button
-              type="button"
+            <Button
+              variant="ghost"
               onClick={onClear}
-              className="text-xs font-medium text-emerald-800 hover:underline"
+              className="rounded-none p-0 text-xs font-medium text-emerald-800 hover:bg-transparent hover:text-emerald-900 hover:underline"
             >
               Nullstill ({activeFilterCount})
-            </button>
+            </Button>
           )}
         </div>
 
@@ -662,11 +665,11 @@ function FilterRail({
           </label>
           <div className="relative">
             <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-neutral-400" />
-            <input
+            <StandardInput
               value={search}
               onChange={(e) => onSetSearch(e.target.value)}
               placeholder="Navn, slug, hendelse …"
-              className="w-full rounded-md border border-neutral-300 bg-white py-1.5 pl-8 pr-3 text-xs outline-none focus:border-[#1a3d32] focus:ring-1 focus:ring-[#1a3d32]/25"
+              className="py-1.5 pl-8 pr-3 text-xs"
             />
           </div>
         </div>
@@ -683,7 +686,7 @@ function FilterRail({
                   key={scope.scopeId}
                   className="flex cursor-pointer items-center gap-2 rounded-md px-1.5 py-1 text-xs text-neutral-800 hover:bg-neutral-50"
                 >
-                  <input
+                  <StandardInput
                     type="checkbox"
                     checked={checked}
                     onChange={() => onToggleArray('modules', moduleFilters, scope.scopeId)}
@@ -705,24 +708,24 @@ function FilterRail({
           <label className="mb-1.5 flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider text-neutral-700">
             <Scale className="h-3 w-3" /> Lov-referanse
           </label>
-          <input
+          <StandardInput
             value={lawQuery}
             onChange={(e) => setLawQuery(e.target.value)}
             placeholder="f.eks. AML § 5-2"
-            className="mb-1.5 w-full rounded-md border border-neutral-300 bg-white px-2 py-1.5 text-xs outline-none focus:border-[#1a3d32] focus:ring-1 focus:ring-[#1a3d32]/25"
+            className="mb-1.5 px-2 py-1.5 text-xs"
           />
           {lawFilters.length > 0 && (
             <div className="mb-1.5 flex flex-wrap gap-1">
               {lawFilters.map((law) => (
-                <button
+                <Button
                   key={law}
-                  type="button"
+                  variant="ghost"
                   onClick={() => onToggleArray('laws', lawFilters, law)}
-                  className="inline-flex items-center gap-1 rounded-full bg-[#1a3d32] px-2 py-0.5 text-[10px] font-semibold text-white"
+                  className="inline-flex items-center gap-1 rounded-full bg-[#1a3d32] px-2 py-0.5 text-[10px] font-semibold text-white hover:bg-[#14312a] hover:text-white"
                 >
                   {law}
                   <X className="h-2.5 w-2.5" />
-                </button>
+                </Button>
               ))}
             </div>
           )}
@@ -733,18 +736,19 @@ function FilterRail({
               lawSuggestions.map((law) => {
                 const active = lawFilters.includes(law)
                 return (
-                  <button
+                  <Button
                     key={law}
-                    type="button"
+                    variant="ghost"
+                    aria-pressed={active}
                     onClick={() => onToggleArray('laws', lawFilters, law)}
                     className={`block w-full truncate rounded px-1.5 py-1 text-left text-[11px] ${
                       active
-                        ? 'bg-[#1a3d32] text-white'
+                        ? 'bg-[#1a3d32] text-white hover:bg-[#14312a] hover:text-white'
                         : 'text-neutral-700 hover:bg-white hover:text-neutral-900'
                     }`}
                   >
                     {law}
-                  </button>
+                  </Button>
                 )
               })
             )}
@@ -759,18 +763,19 @@ function FilterRail({
             {REGULATOR_OPTIONS.map((reg) => {
               const active = regulatorFilters.includes(reg)
               return (
-                <button
+                <Button
                   key={reg}
-                  type="button"
+                  variant="ghost"
+                  aria-pressed={active}
                   onClick={() => onToggleArray('regulators', regulatorFilters, reg)}
                   className={`rounded-full border px-2 py-0.5 text-[10px] font-medium transition-colors ${
                     active
-                      ? 'border-[#1a3d32] bg-[#1a3d32] text-white'
-                      : 'border-neutral-300 bg-white text-neutral-700 hover:border-neutral-400'
+                      ? 'border-[#1a3d32] bg-[#1a3d32] text-white hover:bg-[#14312a] hover:text-white'
+                      : 'border-neutral-300 bg-white text-neutral-700 hover:border-neutral-400 hover:bg-neutral-50'
                   }`}
                 >
                   {REGULATOR_LABEL[reg]}
-                </button>
+                </Button>
               )
             })}
           </div>
@@ -780,22 +785,24 @@ function FilterRail({
           <label className="mb-1.5 flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider text-neutral-700">
             <FilterIcon className="h-3 w-3" /> Kompleksitet
           </label>
-          <div className="flex flex-wrap gap-1">
+          <div role="radiogroup" aria-label="Kompleksitet" className="flex flex-wrap gap-1">
             {COMPLEXITY_OPTIONS.map((opt) => {
               const active = complexityFilter === opt.value
               return (
-                <button
+                <Button
                   key={opt.value}
-                  type="button"
+                  variant="ghost"
+                  role="radio"
+                  aria-checked={active}
                   onClick={() => onSetComplexity(active ? '' : opt.value)}
                   className={`rounded-full border px-2 py-0.5 text-[10px] font-medium transition-colors ${
                     active
-                      ? 'border-[#1a3d32] bg-[#1a3d32] text-white'
-                      : 'border-neutral-300 bg-white text-neutral-700 hover:border-neutral-400'
+                      ? 'border-[#1a3d32] bg-[#1a3d32] text-white hover:bg-[#14312a] hover:text-white'
+                      : 'border-neutral-300 bg-white text-neutral-700 hover:border-neutral-400 hover:bg-neutral-50'
                   }`}
                 >
                   {opt.label}
-                </button>
+                </Button>
               )
             })}
           </div>
@@ -815,7 +822,7 @@ function FilterRail({
                     key={p}
                     className="flex cursor-pointer items-center gap-2 rounded-md px-1.5 py-1 text-xs text-neutral-800 hover:bg-neutral-50"
                   >
-                    <input
+                    <StandardInput
                       type="checkbox"
                       checked={checked}
                       onChange={() => onToggleArray('packs', packFilters, p)}

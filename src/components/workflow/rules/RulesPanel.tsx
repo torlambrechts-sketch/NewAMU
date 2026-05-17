@@ -26,6 +26,7 @@ import { isGovernmentActionType } from '../../../types/workflow'
 import type { WorkflowAction, WorkflowRuleRow, WorkflowXorActionsEnvelope } from '../../../types/workflow'
 import { getWorkflowScope, listWorkflowScopes } from '../../../lib/workflows/workflowRegistry'
 import { Badge } from '../../ui/Badge'
+import { Button } from '../../ui/Button'
 import { StandardInput } from '../../ui/Input'
 import { SearchableSelect } from '../../ui/SearchableSelect'
 import { ConfirmDialog } from '../../../pages/admin/ConfirmDialog'
@@ -150,7 +151,7 @@ export function RulesPanel({
           />
         </div>
         <label className="inline-flex items-center gap-1 text-xs text-neutral-700">
-          <input
+          <StandardInput
             type="checkbox"
             checked={showOnlyActive}
             onChange={(e) => setShowOnlyActive(e.target.checked)}
@@ -239,14 +240,15 @@ export function RulesPanel({
                       )}
                     </td>
                     <td className="px-3 py-2">
-                      <button
-                        type="button"
+                      <Button
+                        variant="ghost"
+                        aria-pressed={rule.is_active}
                         onClick={() => handleToggleActive(rule)}
                         disabled={!canCompose}
                         className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium ${
                           rule.is_active
-                            ? 'bg-emerald-100 text-emerald-800 hover:bg-emerald-200'
-                            : 'bg-neutral-100 text-neutral-700 hover:bg-neutral-200'
+                            ? 'bg-emerald-100 text-emerald-800 hover:bg-emerald-200 hover:text-emerald-900'
+                            : 'bg-neutral-100 text-neutral-700 hover:bg-neutral-200 hover:text-neutral-900'
                         } disabled:opacity-50`}
                         title={rule.is_active ? 'Klikk for å deaktivere' : 'Klikk for å aktivere'}
                       >
@@ -259,43 +261,51 @@ export function RulesPanel({
                             <FileWarning className="h-3 w-3" /> Inaktiv
                           </>
                         )}
-                      </button>
+                      </Button>
                     </td>
                     <td className="px-3 py-2 text-right">
                       <div className="inline-flex items-center gap-1">
-                        <button
-                          type="button"
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          aria-label="Rediger flyt"
                           onClick={() => onEdit(rule.id)}
-                          className="rounded p-1 text-neutral-600 hover:bg-neutral-100"
+                          className="rounded text-neutral-600 hover:bg-neutral-100 hover:text-neutral-900"
                           title="Rediger flyt"
                         >
                           <Pencil className="h-4 w-4" />
-                        </button>
-                        <button
-                          type="button"
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          aria-label="Kjøringer"
                           onClick={() => onViewRuns(rule.id)}
-                          className="rounded p-1 text-neutral-600 hover:bg-neutral-100"
+                          className="rounded text-neutral-600 hover:bg-neutral-100 hover:text-neutral-900"
                           title="Kjøringer"
                         >
                           <PlayCircle className="h-4 w-4" />
-                        </button>
-                        <button
-                          type="button"
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          aria-label="Endringslogg"
                           onClick={() => onViewRevisions(rule.id)}
-                          className="rounded p-1 text-neutral-600 hover:bg-neutral-100"
+                          className="rounded text-neutral-600 hover:bg-neutral-100 hover:text-neutral-900"
                           title="Endringslogg"
                         >
                           <ScrollText className="h-4 w-4" />
-                        </button>
-                        <button
-                          type="button"
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          aria-label="Slett"
                           onClick={() => handleDelete(rule)}
                           disabled={!canCompose}
-                          className="rounded p-1 text-rose-600 hover:bg-rose-50 disabled:opacity-30"
+                          className="rounded text-rose-600 hover:bg-rose-50 hover:text-rose-700 disabled:opacity-30"
                           title="Slett"
                         >
                           <Trash2 className="h-4 w-4" />
-                        </button>
+                        </Button>
                       </div>
                     </td>
                   </tr>

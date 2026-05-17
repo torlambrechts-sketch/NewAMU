@@ -49,14 +49,15 @@ export function AlertsAdminPage() {
     >
       <div className="flex gap-2 border-b border-neutral-200">
         {(['maler', 'kategorier', 'roster', 'retention'] as Tab[]).map((t) => (
-          <button
+          <Button
             key={t}
-            type="button"
+            variant="ghost"
             onClick={() => setTab(t)}
-            className={`border-b-2 px-3 py-2 text-sm font-medium ${tab === t ? 'border-[#b91c1c] text-neutral-900' : 'border-transparent text-neutral-500 hover:text-neutral-700'}`}
+            aria-pressed={tab === t}
+            className={`rounded-none border-b-2 px-3 py-2 text-sm font-medium hover:bg-transparent ${tab === t ? 'border-[#b91c1c] text-neutral-900' : 'border-transparent text-neutral-500 hover:text-neutral-700'}`}
           >
             {t === 'maler' ? 'Maler' : t === 'kategorier' ? 'Kategorier' : t === 'roster' ? 'Utvalg' : 'Oppbevaring'}
-          </button>
+          </Button>
         ))}
       </div>
 
@@ -155,13 +156,15 @@ function CategoriesTab({ alerts, sortedCats }: { alerts: ReturnType<typeof useAl
                 <td className="px-6 py-3">{c.is_system ? <Badge variant="info">System</Badge> : null}</td>
                 <td className="px-6 py-3 text-right">
                   {!c.is_system ? (
-                    <button
-                      type="button"
+                    <Button
+                      variant="ghost"
+                      size="icon"
                       onClick={() => { if (window.confirm(`Slette kategorien «${c.name}»?`)) void alerts.softDeleteCategory(c.id) }}
-                      className="text-red-700 hover:text-red-900"
+                      className="h-auto w-auto p-0 text-red-700 hover:bg-transparent hover:text-red-900"
+                      aria-label={`Slett ${c.name}`}
                     >
                       <Trash2 className="inline size-4" />
-                    </button>
+                    </Button>
                   ) : null}
                 </td>
               </tr>

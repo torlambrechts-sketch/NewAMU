@@ -23,6 +23,7 @@ import {
 import { AticsModalFrame } from '../../components/ui/aticsPrimitives'
 import { Button } from '../../components/ui/Button'
 import { StandardInput } from '../../components/ui/Input'
+import { StandardTextarea } from '../../components/ui/Textarea'
 import { ModuleSectionCard } from '../../components/module/ModuleSectionCard'
 import { useOrgSetupContext } from '../../hooks/useOrgSetupContext'
 import { useMeetings } from '../../../modules/meetings'
@@ -450,14 +451,15 @@ export function AMUAgendaBacklogPage() {
       {error ? (
         <div className="flex items-start justify-between gap-3 rounded-md border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-800">
           <span>{error}</span>
-          <button
-            type="button"
+          <Button
+            variant="ghost"
+            size="icon"
             onClick={() => setError(null)}
-            className="rounded p-0.5 text-red-700 hover:bg-red-100"
+            className="text-red-700 hover:bg-red-100 hover:text-red-900"
             aria-label="Lukk feilmelding"
           >
             <X className="h-4 w-4" aria-hidden />
-          </button>
+          </Button>
         </div>
       ) : null}
 
@@ -491,7 +493,7 @@ export function AMUAgendaBacklogPage() {
               </span>
               <span className="font-normal text-neutral-500">{maxAgeDays} dager</span>
             </span>
-            <input
+            <StandardInput
               type="range"
               min={1}
               max={365}
@@ -510,19 +512,19 @@ export function AMUAgendaBacklogPage() {
                 sourceModuleOptions.map((key) => {
                   const active = selectedSourceModules.has(key)
                   return (
-                    <button
+                    <Button
                       key={key}
-                      type="button"
+                      variant="ghost"
                       onClick={() => toggleSourceModule(key)}
-                      className={`rounded-full border px-2.5 py-1 text-xs transition-colors ${
+                      className={`rounded-full border px-2.5 py-1 text-xs font-normal transition-colors ${
                         active
-                          ? 'border-indigo-300 bg-indigo-50 text-indigo-800'
+                          ? 'border-indigo-300 bg-indigo-50 text-indigo-800 hover:bg-indigo-100 hover:text-indigo-900'
                           : 'border-neutral-300 bg-white text-neutral-600 hover:bg-neutral-50'
                       }`}
                       aria-pressed={active}
                     >
                       {key}
-                    </button>
+                    </Button>
                   )
                 })
               )}
@@ -626,28 +628,29 @@ export function AMUAgendaBacklogPage() {
                       <td className="border-b border-neutral-100 px-3 py-3 text-right text-xs">
                         <div className="relative inline-flex flex-col items-end gap-1">
                           <div className="flex items-center gap-1.5">
-                            <button
-                              type="button"
+                            <Button
+                              variant="secondary"
+                              size="sm"
                               disabled={!canManage || candidates.length === 0}
                               onClick={() => setAssignOpenFor(open ? null : row.id)}
-                              className="inline-flex items-center gap-1 rounded-md border border-neutral-300 bg-white px-2.5 py-1 text-xs font-semibold text-neutral-700 transition-colors hover:bg-neutral-50 disabled:opacity-40"
                               aria-expanded={open}
                               aria-haspopup="menu"
                             >
                               Knytt til møte
                               <ChevronDown className="h-3 w-3" aria-hidden />
-                            </button>
-                            <button
-                              type="button"
+                            </Button>
+                            <Button
+                              variant="secondary"
+                              size="sm"
                               disabled={!canManage}
                               onClick={() => {
                                 setDismissTarget(row)
                                 setDismissReason('')
                               }}
-                              className="inline-flex items-center gap-1 rounded-md border border-red-200 bg-white px-2.5 py-1 text-xs font-semibold text-red-700 transition-colors hover:bg-red-50 disabled:opacity-40"
+                              className="border-red-200 text-red-700 hover:bg-red-50"
                             >
                               Avvis
-                            </button>
+                            </Button>
                           </div>
                           {open ? (
                             <div
@@ -660,12 +663,12 @@ export function AMUAgendaBacklogPage() {
                                 </p>
                               ) : (
                                 candidates.map((m) => (
-                                  <button
+                                  <Button
                                     key={m.id}
-                                    type="button"
+                                    variant="ghost"
                                     disabled={busyRowId === row.id}
                                     onClick={() => void handleAssign(row.id, m.id)}
-                                    className="block w-full rounded px-2 py-1.5 text-left text-xs text-neutral-700 hover:bg-neutral-100 disabled:opacity-50"
+                                    className="block w-full rounded px-2 py-1.5 text-left text-xs font-normal text-neutral-700 hover:bg-neutral-100 disabled:opacity-50"
                                     role="menuitem"
                                   >
                                     <div className="font-medium">{m.title}</div>
@@ -673,17 +676,17 @@ export function AMUAgendaBacklogPage() {
                                       {formatDate(m.scheduled_at)} ·{' '}
                                       {m.system_template_id ?? 'fri agenda'}
                                     </div>
-                                  </button>
+                                  </Button>
                                 ))
                               )}
                               <div className="mt-1 border-t border-neutral-100 pt-1">
-                                <button
-                                  type="button"
+                                <Button
+                                  variant="ghost"
                                   onClick={() => setAssignOpenFor(null)}
-                                  className="block w-full rounded px-2 py-1.5 text-left text-[11px] text-neutral-500 hover:bg-neutral-50"
+                                  className="block w-full rounded px-2 py-1.5 text-left text-[11px] font-normal text-neutral-500 hover:bg-neutral-50"
                                 >
                                   Avbryt
-                                </button>
+                                </Button>
                               </div>
                             </div>
                           ) : null}
@@ -700,10 +703,10 @@ export function AMUAgendaBacklogPage() {
 
       {/* Section C — Recently drained */}
       <ModuleSectionCard className="p-5 md:p-6">
-        <button
-          type="button"
+        <Button
+          variant="ghost"
           onClick={() => setRecentOpen((v) => !v)}
-          className="flex w-full items-center justify-between gap-2 text-left"
+          className="flex w-full items-center justify-between gap-2 rounded-none p-0 text-left font-normal hover:bg-transparent"
           aria-expanded={recentOpen}
         >
           <span className="flex items-center gap-2">
@@ -718,7 +721,7 @@ export function AMUAgendaBacklogPage() {
           ) : (
             <ChevronRight className="h-4 w-4 text-neutral-400" aria-hidden />
           )}
-        </button>
+        </Button>
         {recentOpen ? (
           drained.length === 0 ? (
             <p className="mt-4 text-sm text-neutral-500">
@@ -774,12 +777,11 @@ export function AMUAgendaBacklogPage() {
                 Begrunnelse <span className="text-red-600">*</span>{' '}
                 <span className="text-xs font-normal text-neutral-500">(minst 10 tegn)</span>
               </span>
-              <textarea
+              <StandardTextarea
                 value={dismissReason}
                 onChange={(e) => setDismissReason(e.target.value)}
                 rows={4}
                 minLength={10}
-                className="w-full rounded-md border border-neutral-300 px-3 py-2 text-sm outline-none focus:border-[#1a3d32] focus:ring-1 focus:ring-[#1a3d32]/25"
                 placeholder="Hvorfor avvises denne saken? (synlig i loggen)"
               />
               {dismissReason.trim().length > 0 && dismissReason.trim().length < 10 ? (

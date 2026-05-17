@@ -318,7 +318,7 @@ export function AltinnSetup() {
             </p>
             <div className="space-y-2">
               <label className="flex cursor-pointer items-start gap-3 rounded-md border border-neutral-200 bg-white p-3 hover:border-neutral-300">
-                <input
+                <StandardInput
                   type="radio"
                   name="env"
                   value="tt02"
@@ -334,7 +334,7 @@ export function AltinnSetup() {
                 </div>
               </label>
               <label className="flex cursor-pointer items-start gap-3 rounded-md border border-neutral-200 bg-white p-3 hover:border-neutral-300">
-                <input
+                <StandardInput
                   type="radio"
                   name="env"
                   value="prod"

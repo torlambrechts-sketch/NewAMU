@@ -19,6 +19,8 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Building2, Check, ChevronDown, Search, Briefcase } from 'lucide-react'
+import { Button } from '../ui/Button'
+import { StandardInput } from '../ui/Input'
 import { useOrgSetupContext } from '../../hooks/useOrgSetupContext'
 import { usePartnerMembership } from '../../hooks/usePartnerMembership'
 
@@ -189,9 +191,9 @@ export function OrgSwitcher({ variant = 'topbar' }: { variant?: 'topbar' | 'side
 
   return (
     <div className="relative" data-variant={variant}>
-      <button
+      <Button
         ref={triggerRef}
-        type="button"
+        variant="ghost"
         onClick={() => setOpen((v) => !v)}
         aria-haspopup="listbox"
         aria-expanded={open}
@@ -218,7 +220,7 @@ export function OrgSwitcher({ variant = 'topbar' }: { variant?: 'topbar' | 'side
           </span>
         ) : null}
         <ChevronDown className="size-3.5 shrink-0 opacity-70" aria-hidden />
-      </button>
+      </Button>
 
       {open ? (
         <div
@@ -229,13 +231,13 @@ export function OrgSwitcher({ variant = 'topbar' }: { variant?: 'topbar' | 'side
         >
           <div className="flex items-center gap-2 border-b border-neutral-200 px-3 py-2">
             <Search className="size-4 text-neutral-500" aria-hidden />
-            <input
+            <StandardInput
               ref={inputRef}
               type="text"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder="Søk organisasjon…"
-              className="w-full bg-transparent text-sm outline-none placeholder:text-neutral-400"
+              className="w-full border-0 bg-transparent p-0 text-sm outline-none placeholder:text-neutral-400 focus:ring-0"
             />
             <kbd className="rounded border border-neutral-300 bg-neutral-50 px-1.5 py-0.5 text-[10px] font-mono text-neutral-500">
               {navigator.platform.toLowerCase().includes('mac') ? '⌘K' : 'Ctrl+K'}
@@ -251,14 +253,14 @@ export function OrgSwitcher({ variant = 'topbar' }: { variant?: 'topbar' | 'side
                 const isCurrent = organization?.id === t.org_id
                 const isSwitching = switching === t.org_id
                 return (
-                  <button
+                  <Button
                     key={t.org_id}
-                    type="button"
+                    variant="ghost"
                     onClick={() => handleSwitch(t)}
                     disabled={isSwitching}
-                    className={`flex w-full items-center gap-2 px-3 py-2 text-left text-sm transition-colors ${
+                    className={`flex h-auto w-full items-center justify-start gap-2 rounded-none px-3 py-2 text-left text-sm font-normal transition-colors ${
                       isCurrent
-                        ? 'bg-neutral-100 text-neutral-900'
+                        ? 'bg-neutral-100 text-neutral-900 hover:bg-neutral-100'
                         : 'hover:bg-neutral-50'
                     } disabled:opacity-60`}
                     role="option"
@@ -285,7 +287,7 @@ export function OrgSwitcher({ variant = 'topbar' }: { variant?: 'topbar' | 'side
                     {isCurrent ? (
                       <Check className="size-4 shrink-0 text-[#1a3d32]" aria-hidden />
                     ) : null}
-                  </button>
+                  </Button>
                 )
               })
             )}

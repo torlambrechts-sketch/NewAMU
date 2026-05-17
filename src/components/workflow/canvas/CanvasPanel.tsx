@@ -643,43 +643,47 @@ export function CanvasPanel({ initialRuleId }: { initialRuleId?: string | null }
           {containsGov && (
             <div className="flex flex-wrap items-center gap-2 rounded-xl border border-neutral-200 bg-white px-4 py-2">
               <span className="text-sm font-medium text-neutral-800">Kjøremiljø:</span>
-              <button
-                type="button"
-                onClick={() => setRuntimeEnv('test')}
-                disabled={!canCompose}
-                className={
-                  runtimeEnv === 'test'
-                    ? 'rounded-full border border-amber-400 bg-amber-100 px-3 py-1 text-xs font-semibold text-amber-900 shadow-sm disabled:opacity-50'
-                    : 'rounded-full border border-neutral-300 bg-white px-3 py-1 text-xs font-medium text-neutral-600 hover:bg-neutral-50 disabled:opacity-50'
-                }
-                aria-pressed={runtimeEnv === 'test'}
-              >
-                TEST (sandbox)
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  if (runtimeEnv === 'prod') return
-                  requestPromote()
-                }}
-                disabled={!canCompose || runtimeEnv === 'prod'}
-                className={
-                  runtimeEnv === 'prod'
-                    ? 'rounded-full border border-rose-500 bg-rose-100 px-3 py-1 text-xs font-bold text-rose-900 shadow-sm disabled:opacity-80'
-                    : 'rounded-full border border-neutral-300 bg-white px-3 py-1 text-xs font-medium text-neutral-600 hover:bg-rose-50 hover:text-rose-700 disabled:opacity-50'
-                }
-                aria-pressed={runtimeEnv === 'prod'}
-              >
-                PRODUKSJON
-              </button>
-              {runtimeEnv === 'prod' && canCompose && (
-                <button
-                  type="button"
+              <div role="radiogroup" aria-label="Kjøremiljø" className="flex flex-wrap items-center gap-2">
+                <Button
+                  variant="ghost"
+                  role="radio"
+                  aria-checked={runtimeEnv === 'test'}
                   onClick={() => setRuntimeEnv('test')}
-                  className="text-[11px] font-medium text-neutral-500 underline underline-offset-2 hover:text-neutral-700"
+                  disabled={!canCompose}
+                  className={
+                    runtimeEnv === 'test'
+                      ? 'rounded-full border border-amber-400 bg-amber-100 px-3 py-1 text-xs font-semibold text-amber-900 shadow-sm hover:bg-amber-100 hover:text-amber-900 disabled:opacity-50'
+                      : 'rounded-full border border-neutral-300 bg-white px-3 py-1 text-xs font-medium text-neutral-600 hover:bg-neutral-50 disabled:opacity-50'
+                  }
+                >
+                  TEST (sandbox)
+                </Button>
+                <Button
+                  variant="ghost"
+                  role="radio"
+                  aria-checked={runtimeEnv === 'prod'}
+                  onClick={() => {
+                    if (runtimeEnv === 'prod') return
+                    requestPromote()
+                  }}
+                  disabled={!canCompose || runtimeEnv === 'prod'}
+                  className={
+                    runtimeEnv === 'prod'
+                      ? 'rounded-full border border-rose-500 bg-rose-100 px-3 py-1 text-xs font-bold text-rose-900 shadow-sm hover:bg-rose-100 hover:text-rose-900 disabled:opacity-80'
+                      : 'rounded-full border border-neutral-300 bg-white px-3 py-1 text-xs font-medium text-neutral-600 hover:bg-rose-50 hover:text-rose-700 disabled:opacity-50'
+                  }
+                >
+                  PRODUKSJON
+                </Button>
+              </div>
+              {runtimeEnv === 'prod' && canCompose && (
+                <Button
+                  variant="ghost"
+                  onClick={() => setRuntimeEnv('test')}
+                  className="rounded-none p-0 text-[11px] font-medium text-neutral-500 underline underline-offset-2 hover:bg-transparent hover:text-neutral-700"
                 >
                   Tilbake til TEST
-                </button>
+                </Button>
               )}
               <span className="ml-2 text-[11px] text-neutral-500">
                 {runtimeEnv === 'test'
@@ -732,13 +736,13 @@ export function CanvasPanel({ initialRuleId }: { initialRuleId?: string | null }
               <p>
                 Denne regelen har eksisterende handlinger lagret i gammelt format. Lagring fra
                 setnings-redigereren vil erstatte dem. Bytt til{' '}
-                <button
-                  type="button"
-                  className="font-semibold underline underline-offset-2 hover:no-underline"
+                <Button
+                  variant="ghost"
+                  className="inline rounded-none p-0 font-semibold underline underline-offset-2 hover:bg-transparent hover:no-underline"
                   onClick={() => switchMode('advanced')}
                 >
                   Avansert flyt
-                </button>{' '}
+                </Button>{' '}
                 hvis du vil bevare dem.
               </p>
             </div>
@@ -837,13 +841,13 @@ function PlainNorwegianInspector({
         <p className="text-base leading-relaxed text-neutral-800">{prose}</p>
         <p className="mt-4 text-xs text-neutral-500">
           Denne fanen er kun for lesing. Bytt til <strong>Setning</strong> eller{' '}
-          <button
-            type="button"
-            className="font-semibold underline underline-offset-2 hover:no-underline"
+          <Button
+            variant="ghost"
+            className="inline rounded-none p-0 font-semibold underline underline-offset-2 hover:bg-transparent hover:no-underline"
             onClick={onSwitchToAdvanced}
           >
             Avansert flyt
-          </button>{' '}
+          </Button>{' '}
           for å endre.
         </p>
       </div>
@@ -859,13 +863,13 @@ function PlainNorwegianInspector({
       </h3>
       <p className="mb-4 rounded-md bg-amber-50 px-3 py-2 text-sm text-amber-900">
         Denne flyten er for kompleks til naturlig norsk-oversettelse — bruk{' '}
-        <button
-          type="button"
-          className="font-semibold underline underline-offset-2 hover:no-underline"
+        <Button
+          variant="ghost"
+          className="inline rounded-none p-0 font-semibold underline underline-offset-2 hover:bg-transparent hover:no-underline"
           onClick={onSwitchToAdvanced}
         >
           Avansert flyt
-        </button>{' '}
+        </Button>{' '}
         visning for full oversikt. Under er handlingene listet på vanlig norsk uten struktur.
       </p>
       {sections.length === 0 ? (

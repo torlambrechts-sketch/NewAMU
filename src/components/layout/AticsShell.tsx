@@ -443,27 +443,29 @@ function LocaleSwitcher() {
   const active = 'bg-white/20 text-white ring-1 ring-[#c9a227]/60'
   const inactive = 'text-white/65 hover:bg-white/10 hover:text-white'
   return (
-    <div className="flex shrink-0 items-center gap-1" role="group" aria-label="Locale">
-      <button
-        type="button"
+    <div className="flex shrink-0 items-center gap-1" role="radiogroup" aria-label="Locale">
+      <Button
+        variant="ghost"
         onClick={() => void setLocale('nb')}
         className={`${baseBtn} ${locale === 'nb' ? active : inactive}`}
-        aria-pressed={locale === 'nb'}
+        role="radio"
+        aria-checked={locale === 'nb'}
         title={t('shell.locale.switchToNb')}
       >
         <span aria-hidden>{'🇳🇴'}</span>
         <span>NB</span>
-      </button>
-      <button
-        type="button"
+      </Button>
+      <Button
+        variant="ghost"
         onClick={() => void setLocale('en')}
         className={`${baseBtn} ${locale === 'en' ? active : inactive}`}
-        aria-pressed={locale === 'en'}
+        role="radio"
+        aria-checked={locale === 'en'}
         title={t('shell.locale.switchToEn')}
       >
         <span aria-hidden>{'🇬🇧'}</span>
         <span>EN</span>
-      </button>
+      </Button>
     </div>
   )
 }
