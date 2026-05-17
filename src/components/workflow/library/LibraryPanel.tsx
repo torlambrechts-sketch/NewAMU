@@ -118,6 +118,22 @@ const PACK_DEFINITIONS: Record<string, { label: string; description: string }> =
     label: 'Åpenhetsloven',
     description: 'Aktsomhetsvurderinger og rapportering etter åpenhetsloven.',
   },
+  helse: {
+    label: 'Helsesektor (Helsetilsynet, UKOM, smittevern)',
+    description: 'Tilsyns- og varslingsplikter for helse- og omsorgsvirksomheter.',
+  },
+  undervisning: {
+    label: 'Undervisning (opplæringsloven §9A)',
+    description: 'Elevenes skolemiljø og varslingsplikter etter opplæringsloven kapittel 9A.',
+  },
+  bygg: {
+    label: 'Bygg & anlegg (SHA-plan, SJA, fallrisiko)',
+    description: 'Byggherreforskriften, SHA-plan og sikker jobbanalyse for bygg- og anleggsarbeid.',
+  },
+  barnehage: {
+    label: 'Barnehage (barnehageloven §7/§9/§30)',
+    description: 'Internkontroll, varslingsplikter og barnets beste etter barnehageloven.',
+  },
 }
 
 const ROW_PARAM_KEYS = ['modules', 'laws', 'regulators', 'complexity', 'packs', 'q'] as const

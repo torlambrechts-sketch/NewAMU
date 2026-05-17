@@ -8,8 +8,9 @@
 // is low-volume and we don't want to keep an open channel from every
 // admin browser. A 60s poll is cheap (RLS-scoped count, head:true).
 
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useState } from 'react'
 import { useOrgSetupContext } from './useOrgSetupContext'
+import { useIntervalWhenVisible } from './useIntervalWhenVisible'
 
 const POLL_INTERVAL_MS = 60_000
 
@@ -40,13 +41,9 @@ export function useGovOutboxPendingCount() {
     }
   }, [supabase, organization?.id])
 
-  useEffect(() => {
+  useIntervalWhenVisible(() => {
     void refresh()
-    const id = window.setInterval(() => {
-      void refresh()
-    }, POLL_INTERVAL_MS)
-    return () => window.clearInterval(id)
-  }, [refresh])
+  }, POLL_INTERVAL_MS)
 
   return { count, loading, refresh }
 }

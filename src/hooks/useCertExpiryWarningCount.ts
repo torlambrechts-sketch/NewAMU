@@ -8,8 +8,9 @@
 // asynchronously, so a slow poll keeps the badge accurate without a
 // realtime channel.
 
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useState } from 'react'
 import { useOrgSetupContext } from './useOrgSetupContext'
+import { useIntervalWhenVisible } from './useIntervalWhenVisible'
 
 const POLL_INTERVAL_MS = 5 * 60_000
 const WARN_WINDOW_DAYS = 30
@@ -43,13 +44,9 @@ export function useCertExpiryWarningCount() {
     }
   }, [supabase, organization?.id])
 
-  useEffect(() => {
+  useIntervalWhenVisible(() => {
     void refresh()
-    const id = window.setInterval(() => {
-      void refresh()
-    }, POLL_INTERVAL_MS)
-    return () => window.clearInterval(id)
-  }, [refresh])
+  }, POLL_INTERVAL_MS)
 
   return { count, loading, refresh }
 }

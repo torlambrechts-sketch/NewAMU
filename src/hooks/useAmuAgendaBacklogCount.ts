@@ -6,8 +6,9 @@
 // fresh without holding open a realtime channel from every admin
 // browser. RLS already scopes the count to the active org.
 
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useState } from 'react'
 import { useOrgSetupContext } from './useOrgSetupContext'
+import { useIntervalWhenVisible } from './useIntervalWhenVisible'
 
 const POLL_INTERVAL_MS = 60_000
 
@@ -37,13 +38,9 @@ export function useAmuAgendaBacklogCount() {
     }
   }, [supabase, organization?.id])
 
-  useEffect(() => {
+  useIntervalWhenVisible(() => {
     void refresh()
-    const id = window.setInterval(() => {
-      void refresh()
-    }, POLL_INTERVAL_MS)
-    return () => window.clearInterval(id)
-  }, [refresh])
+  }, POLL_INTERVAL_MS)
 
   return { count, loading, refresh }
 }
