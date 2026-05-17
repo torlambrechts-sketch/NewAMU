@@ -66,7 +66,13 @@ export function useRiskSourceData(options: UseRiskSourceDataOptions = {}): RiskS
     try {
       const respPromise = supabase
         .from('compliance_checklist_responses')
-        .select('id, execution_id, item_key, severity, is_finding, created_at, updated_at, compliance_checklist_executions!inner(template_slug, location_id, department_id)')
+        .select(
+          'id, execution_id, item_key, severity, is_finding, created_at, updated_at,' +
+          ' compliance_checklist_executions!inner(' +
+          '   location_id, department_id, template_id,' +
+          '   template:compliance_checklist_templates(slug)' +
+          ' )'
+        )
         .eq('organization_id', orgId)
         .eq('is_finding', true)
         .limit(2000)
@@ -105,14 +111,21 @@ export function useRiskSourceData(options: UseRiskSourceDataOptions = {}): RiskS
         .map((r) => r.error?.message)
         .filter(Boolean) as string[]
 
+      // supabase-js can't type-infer the doubly-nested select; cast to
+      // a plain row shape and read fields defensively.
+      const respRows = (respRes.data ?? []) as unknown as Record<string, unknown>[]
       setFindings(
-        (respRes.data ?? []).map((r: Record<string, unknown>) => {
+        respRows.map((r: Record<string, unknown>) => {
           const exec = (r.compliance_checklist_executions as Record<string, unknown> | null) ?? null
           const deptId = (exec?.department_id as string | null) ?? null
+          // template_slug lives on compliance_checklist_templates; we
+          // reach it via the nested `template:` alias in the select.
+          const tpl = (exec?.template as Record<string, unknown> | null) ?? null
+          const templateSlug = (tpl?.slug as string | null) ?? null
           return {
             id: String(r.id),
             executionId: String(r.execution_id),
-            templateSlug: (exec?.template_slug as string | null) ?? null,
+            templateSlug,
             severity: (r.severity as SourceSeverity | null) ?? null,
             isFinding: Boolean(r.is_finding),
             itemKey: String(r.item_key ?? ''),

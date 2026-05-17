@@ -14,8 +14,24 @@
 --      task_items (kind=avvik/nestenulykke/risiko/tiltak), deviations,
 --      inspection_findings, alert_cases, ros_hazards, sja_hazards.
 --   2. `risk_register_summary_v` — convenience view with banding,
---      `is_red`, `is_psychosocial`, and the derived ageing flag.
---   3. Indices on the underlying tables that the view JOINs through.
+--      `is_red`, `is_psychosocial`, `is_stale`, and
+--      `is_red_without_action` flags.
+--   3. Helper functions `risk_severity_to_consequence` and
+--      `risk_hazard_slug` mirroring the client-side mappers, plus
+--      `risk_finding_law_refs` which extracts law_refs[] for a
+--      compliance finding from the parent template's jsonb definition.
+--   4. Indices on the underlying tables that the view JOINs through.
+--
+-- The view also computes recurrence-based likelihood for compliance
+-- findings via a SQL window function partitioned on (org, template_id)
+-- — a chronic weekly checklist item reads as likelihood=5; a one-off
+-- stays at 1. This mirrors mapRecurrenceToLikelihood in
+-- modules/risk/dashboards/hazardCategories.ts.
+--
+-- Note on the join: compliance_checklist_executions stores `template_id`
+-- (uuid FK to compliance_checklist_templates), not `template_slug`. The
+-- view left-joins the templates table to surface the slug for hazard-
+-- category derivation and for `origin_slug`.
 --
 -- Self-audit (Arbeidstilsynet POV):
 --   Pålegg-grunner addressed:
@@ -33,12 +49,8 @@
 --     (only conceptually on RosRiskRow.redResidualJustification at the
 --     app level). The view exposes the field as NULL for those sources;
 --     a future migration can promote it to a real column where useful.
---   - Recurrence-based likelihood enrichment for findings is left to
---     the application (client computes it from the view rows because
---     it needs the full population per template_slug).
 --
--- Idempotency:
---   `create or replace view` makes this safe to re-run.
+-- Idempotency: `create or replace view`/`function` everywhere.
 
 set local search_path = public, pg_catalog;
 
@@ -57,9 +69,7 @@ language sql immutable as $$
   end
 $$;
 
--- ── Helper: hazard category slug from free text ───────────────────────────
--- Used to coerce ros_hazards.category (free text) and template_slug hints
--- into the canonical HAZARD_CATEGORIES.id set. Defaults to 'other'.
+-- ── Helper: hazard category slug from free text ──────────────────────────
 create or replace function public.risk_hazard_slug(input text)
 returns text
 language sql immutable as $$
@@ -82,9 +92,43 @@ language sql immutable as $$
   end
 $$;
 
--- ── Indices the view leans on ────────────────────────────────────────────
--- Most are already there from the source modules; create-if-not-exists is
--- a no-op when they exist.
+-- ── Helper: extract law_refs[] for a finding from its template ──────────
+-- Plural `law_refs[]` array form preferred; falls back to legacy singular
+-- `law_ref` scalar (comma-split). Returns [] when no match.
+create or replace function public.risk_finding_law_refs(p_template_id uuid, p_item_key text)
+returns text[]
+language sql stable as $$
+  with hit as (
+    select t.definition
+    from public.compliance_checklist_templates t
+    where t.id = p_template_id and t.deleted_at is null
+    limit 1
+  ),
+  item as (
+    select value as item
+    from hit, jsonb_array_elements(hit.definition->'items') as value
+    where value->>'key' = p_item_key
+    limit 1
+  )
+  select coalesce(
+    (select array_agg(x::text)
+     from item, jsonb_array_elements_text(item.item->'law_refs') as x
+     where item.item ? 'law_refs'),
+    (select array(
+       select trim(unnest(string_to_array(item.item->>'law_ref', ',')))
+     )
+     from item
+     where item.item ? 'law_ref'),
+    array[]::text[]
+  )
+$$;
+
+comment on function public.risk_finding_law_refs(uuid, text) is
+  'Resolve law_refs[] for a checklist response by looking up the item '
+  'in the parent template definition. Supports both plural law_refs[] '
+  'and legacy singular law_ref scalar (comma-split).';
+
+-- ── Indices ─────────────────────────────────────────────────────────────
 create index if not exists action_plan_items_source_status_idx
   on public.action_plan_items (source_table, source_id, status)
   where status in ('open','in_progress');
@@ -93,7 +137,7 @@ create index if not exists compliance_checklist_responses_finding_org_idx
   on public.compliance_checklist_responses (organization_id, is_finding, severity)
   where is_finding = true;
 
--- ── The view ─────────────────────────────────────────────────────────────
+-- ── The unified view ─────────────────────────────────────────────────────
 create or replace view public.risk_register_unified_v as
 -- 1. Compliance checklist findings
 select
@@ -101,8 +145,16 @@ select
   r.id                                               as source_id,
   r.organization_id,
   coalesce(nullif(r.item_key, ''), '(uten tittel)') as title,
-  public.risk_hazard_slug(e.template_slug)           as hazard_category,
-  3                                                  as likelihood,
+  public.risk_hazard_slug(t.slug)                    as hazard_category,
+  -- Recurrence-based likelihood: count this template's findings org-
+  -- wide, bucket into 1..5.
+  case
+    when count(*) over (partition by r.organization_id, e.template_id) >= 13 then 5
+    when count(*) over (partition by r.organization_id, e.template_id) >= 7  then 4
+    when count(*) over (partition by r.organization_id, e.template_id) >= 4  then 3
+    when count(*) over (partition by r.organization_id, e.template_id) >= 2  then 2
+    else 1
+  end                                                as likelihood,
   public.risk_severity_to_consequence(r.severity::text) as consequence,
   null::int                                          as residual_likelihood,
   null::int                                          as residual_consequence,
@@ -116,16 +168,18 @@ select
       and a.source_id    = r.id
       and a.status in ('open','in_progress')
   )                                                  as has_open_action,
-  array[]::text[]                                    as law_refs,
+  -- Law-refs from the parent template definition.
+  public.risk_finding_law_refs(e.template_id, r.item_key) as law_refs,
   e.department_id,
   e.location_id,
   null::uuid                                         as owner_user_id,
   r.created_at,
   coalesce(r.updated_at, r.created_at)               as last_reviewed_at,
   null::timestamptz                                  as closed_at,
-  e.template_slug                                    as origin_slug
+  t.slug                                             as origin_slug
 from public.compliance_checklist_responses r
 inner join public.compliance_checklist_executions e on e.id = r.execution_id
+left  join public.compliance_checklist_templates t on t.id = e.template_id
 where r.is_finding = true and r.severity is not null
 
 union all
@@ -176,7 +230,7 @@ where t.template_kind in ('avvik','nestenulykke','risiko','tiltak')
 
 union all
 
--- 3. Deviations (avvikssaker — generic deviation tracker)
+-- 3. Deviations
 select
   'deviation'::text                                  as source,
   d.id                                               as source_id,
@@ -207,13 +261,13 @@ select
   null::uuid                                         as owner_user_id,
   d.created_at,
   coalesce(d.updated_at, d.created_at)               as last_reviewed_at,
-  null::timestamptz                                  as closed_at,
+  d.closed_at,
   d.source                                           as origin_slug
 from public.deviations d
 
 union all
 
--- 4. Inspection findings (vernerunder)
+-- 4. Inspection findings
 select
   'inspection'::text                                 as source,
   f.id                                               as source_id,
@@ -242,12 +296,6 @@ from public.inspection_findings f
 union all
 
 -- 5. Alert cases (varslinger with explicit severity)
---    `kind` is one of whistleblowing/gdpr_breach/hms_incident/
---    security_incident/ethical_concern — none of which map cleanly to
---    a hazard category. We keep 'other' and let the user filter via
---    the `source=alert` chip. Specific psychosocial detection happens
---    on the trakassering/psyk keyword in the legacy `category` text
---    via risk_hazard_slug.
 select
   'alert'::text                                      as source,
   c.id                                               as source_id,
@@ -281,9 +329,7 @@ where c.severity is not null
 
 union all
 
--- 6. Legacy ROS hazards (kept queryable per CLAUDE.md — module UI was
---    removed, table preserved). Use initial probability/consequence as
---    the base axes; residual columns flow through unchanged.
+-- 6. Legacy ROS hazards
 select
   'ros'::text                                        as source,
   h.id                                               as source_id,
@@ -295,8 +341,6 @@ select
   h.residual_probability                             as residual_likelihood,
   h.residual_consequence                             as residual_consequence,
   null::text                                         as residual_justification,
-  -- Derive a severity_tier label from initial consequence so the
-  -- severityTier filter chip behaves consistently across sources.
   case coalesce(h.initial_consequence, 3)
     when 1 then 'low'
     when 2 then 'medium'
@@ -324,11 +368,10 @@ from public.ros_hazards h
 
 union all
 
--- 7. Legacy SJA hazards (per-job risk assessment, same shape as ROS)
+-- 7. Legacy SJA hazards (joined via sja_analyses for organization_id)
 select
   'sja'::text                                        as source,
   h.id                                               as source_id,
-  -- sja_hazards has no direct organization_id column; join up.
   a.organization_id,
   coalesce(nullif(h.description, ''), '(uten beskrivelse)') as title,
   public.risk_hazard_slug(h.category)                as hazard_category,
@@ -359,10 +402,7 @@ select
 from public.sja_hazards h
 inner join public.sja_analyses a on a.id = h.sja_id;
 
--- ── Summary view with banding + ageing flags ─────────────────────────────
--- Cheap derived columns most callers want. Kept as a separate view so
--- callers can pick the lean unified shape when those fields aren't
--- needed (and so reading the unified view's RLS picks up cleanly).
+-- ── Summary view ─────────────────────────────────────────────────────────
 create or replace view public.risk_register_summary_v as
 select
   v.*,
@@ -385,8 +425,6 @@ select
   )                                                              as is_red_without_action
 from public.risk_register_unified_v v;
 
--- Selectable to authenticated users; RLS is enforced on the underlying
--- tables, so a user only sees rows they could see in the source module.
 grant select on public.risk_register_unified_v to authenticated;
 grant select on public.risk_register_summary_v to authenticated;
 
