@@ -11,7 +11,7 @@
 // MeetingsHubPage / MeetingsHubView pattern so the chrome stays
 // consistent across modules.
 
-import { useMemo, useState } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 import {
   BookOpen,
   CheckCheck,
@@ -24,7 +24,7 @@ import {
   ShieldCheck,
   Workflow,
 } from 'lucide-react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { ModulePageShell } from '../../components/module/ModulePageShell'
 import { ModuleLegalBanner } from '../../components/module/ModuleLegalBanner'
 import { LayoutScoreStatRow } from '../../components/layout/LayoutScoreStatRow'
@@ -47,9 +47,46 @@ import { useWorkflowApprovals } from '../../hooks/useWorkflowApprovals'
 
 type Tab = 'rules' | 'system' | 'library' | 'canvas' | 'approvals' | 'runs' | 'dry-run' | 'evidence' | 'revisions'
 
+const VALID_TABS: Tab[] = ['rules', 'system', 'library', 'canvas', 'approvals', 'runs', 'dry-run', 'evidence', 'revisions']
+
 export function WorkflowBuilderPage() {
-  const [tab, setTab] = useState<Tab>('rules')
-  const [focusedRuleId, setFocusedRuleId] = useState<string | null>(null)
+  const [searchParams, setSearchParams] = useSearchParams()
+  const tabParam = searchParams.get('tab') as Tab | null
+  const tab: Tab = tabParam && VALID_TABS.includes(tabParam) ? tabParam : 'rules'
+  const setTab = useCallback(
+    (next: Tab) => {
+      setSearchParams(
+        (prev) => {
+          const params = new URLSearchParams(prev)
+          if (next === 'rules') params.delete('tab')
+          else params.set('tab', next)
+          return params
+        },
+        { replace: true },
+      )
+    },
+    [setSearchParams],
+  )
+  const focusedRuleId = searchParams.get('rule')
+  // Combined updater so deep-link handlers don't race two setSearchParams
+  // calls in the same handler (each navigate() reads from the same render
+  // closure, so the second one would clobber the first).
+  const focusRuleAndTab = useCallback(
+    (ruleId: string | null, nextTab: Tab) => {
+      setSearchParams(
+        (prev) => {
+          const params = new URLSearchParams(prev)
+          if (ruleId) params.set('rule', ruleId)
+          else params.delete('rule')
+          if (nextTab === 'rules') params.delete('tab')
+          else params.set('tab', nextTab)
+          return params
+        },
+        { replace: true },
+      )
+    },
+    [setSearchParams],
+  )
   const [newRuleOpen, setNewRuleOpen] = useState(false)
   const navigate = useNavigate()
   const { rules, runs } = useWorkflows()
@@ -151,27 +188,15 @@ export function WorkflowBuilderPage() {
 
         {tab === 'rules' && (
           <RulesPanel
-            onEdit={(id) => {
-              setFocusedRuleId(id)
-              setTab('canvas')
-            }}
-            onViewRuns={(id) => {
-              setFocusedRuleId(id)
-              setTab('runs')
-            }}
-            onViewRevisions={(id) => {
-              setFocusedRuleId(id)
-              setTab('revisions')
-            }}
+            onEdit={(id) => focusRuleAndTab(id, 'canvas')}
+            onViewRuns={(id) => focusRuleAndTab(id, 'runs')}
+            onViewRevisions={(id) => focusRuleAndTab(id, 'revisions')}
           />
         )}
         {tab === 'system' && <SystemRulesPanel />}
         {tab === 'library' && (
           <LibraryPanel
-            onInstalled={(ruleId) => {
-              setFocusedRuleId(ruleId)
-              setTab('canvas')
-            }}
+            onInstalled={(ruleId) => focusRuleAndTab(ruleId, 'canvas')}
           />
         )}
         {tab === 'canvas' && <CanvasPanel initialRuleId={focusedRuleId} />}
@@ -188,8 +213,7 @@ export function WorkflowBuilderPage() {
           // upsertRule returns ok without id; we re-fetch and find by slug.
           // For deep-link, store the slug; CanvasPanel resolves to the
           // freshly-inserted rule (slug match in rules array).
-          setFocusedRuleId(slugOrId)
-          setTab('canvas')
+          focusRuleAndTab(slugOrId, 'canvas')
         }}
       />
     </ModulePageShell>
