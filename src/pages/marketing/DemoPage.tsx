@@ -8,7 +8,7 @@ import { SeoHead } from './primitives/SeoHead'
 import { SectionHeader } from './primitives/SectionHeader'
 import { FOREST, TEAL, CREAM } from './theme'
 
-type Status = 'idle' | 'submitting' | 'ok' | 'err'
+type Status = 'idle' | 'submitting' | 'ok' | 'mailto' | 'err'
 
 const SIZE_OPTIONS = [
   '5–25 ansatte',
@@ -52,43 +52,50 @@ export function DemoPage() {
     if (data.honey) return // honeypot tripped — silently drop
 
     setStatus('submitting')
-    const endpoint = import.meta.env.VITE_DEMO_FORM_ENDPOINT as string | undefined
+    const endpoint =
+      (import.meta.env.VITE_DEMO_FORM_ENDPOINT as string | undefined) ?? '/api/demo'
 
-    if (endpoint) {
-      try {
-        const res = await fetch(endpoint, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ source: 'klarert.com/demo', ...data }),
-        })
-        if (!res.ok) throw new Error(`Status ${res.status}`)
+    try {
+      const res = await fetch(endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        body: JSON.stringify({ source: 'klarert.com/demo', ...data }),
+      })
+      const ct = res.headers.get('content-type') ?? ''
+      const payload: { ok?: boolean; error?: string } | null = ct.includes('application/json')
+        ? await res.json().catch(() => null)
+        : null
+      if (res.ok && payload?.ok === true) {
         setStatus('ok')
         return
-      } catch (err) {
-        setErrorMessage(err instanceof Error ? err.message : 'Ukjent feil')
-        setStatus('err')
-        return
       }
+      // Endpoint reachable but didn't confirm — fall through to mailto so the
+      // user doesn't lose what they typed. Covers dev-mode SPA fallback (200
+      // HTML), 4xx/5xx, and ambiguous responses without { ok: true }.
+      throw new Error(payload?.error ?? `Status ${res.status}`)
+    } catch (err) {
+      setErrorMessage(err instanceof Error ? err.message : 'Ukjent feil')
+      // Mailto fallback — preserves the data, lets the user complete by hand.
+      const body = [
+        `Navn: ${data.name}`,
+        `Organisasjon: ${data.org}`,
+        `E-post: ${data.email}`,
+        `Størrelse: ${data.size}`,
+        `Hovedfokus: ${data.focus}`,
+        data.message ? `\nMer info:\n${data.message}` : '',
+      ]
+        .filter(Boolean)
+        .join('\n')
+      const subject = `Demo-forespørsel: ${data.org}`
+      window.location.href = `mailto:hei@klarert.com?subject=${encodeURIComponent(
+        subject,
+      )}&body=${encodeURIComponent(body)}`
+      setStatus('mailto')
     }
-
-    // Fallback: build a prefilled mailto:. Works without backend.
-    const body = [
-      `Navn: ${data.name}`,
-      `Organisasjon: ${data.org}`,
-      `Størrelse: ${data.size}`,
-      `Hovedfokus: ${data.focus}`,
-      data.message ? `\nMer info:\n${data.message}` : '',
-    ]
-      .filter(Boolean)
-      .join('\n')
-    const subject = `Demo-forespørsel: ${data.org}`
-    window.location.href = `mailto:hei@klarert.com?subject=${encodeURIComponent(
-      subject,
-    )}&body=${encodeURIComponent(body)}`
-    setStatus('ok')
   }
 
   if (status === 'ok') return <SuccessState />
+  if (status === 'mailto') return <MailtoFallbackState />
 
   return (
     <>
@@ -301,6 +308,50 @@ function SuccessState() {
               className="inline-flex items-center justify-center rounded-md border border-white/25 px-7 py-3 text-sm font-semibold text-white transition hover:bg-white/10"
             >
               Les endringsloggen
+            </Link>
+          </div>
+        </div>
+      </section>
+    </>
+  )
+}
+
+function MailtoFallbackState() {
+  return (
+    <>
+      <SeoHead
+        title="Send e-posten — Klarert"
+        description="Vi åpnet e-postklienten din. Send meldingen så svarer vi innen 1 virkedag."
+        canonical="https://app.klarert.com/demo"
+      />
+      <section style={{ background: FOREST }} className="py-24 md:py-32">
+        <div className="mx-auto max-w-2xl px-4 text-center md:px-8">
+          <div className="mx-auto mb-6 flex size-16 items-center justify-center rounded-full" style={{ background: TEAL }}>
+            <svg viewBox="0 0 24 24" fill="none" stroke={FOREST} strokeWidth="3" className="size-8" aria-hidden>
+              <path d="M4 7l8 6 8-6M4 7v10h16V7M4 7l8 6 8-6" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          </div>
+          <h1
+            className="text-3xl font-bold tracking-tight text-white md:text-4xl"
+            style={{ fontFamily: "'Libre Baskerville', Georgia, serif" }}
+          >
+            Send e-posten for å fullføre
+          </h1>
+          <p className="mx-auto mt-5 max-w-xl text-base leading-relaxed text-white/75">
+            Vi åpnet e-postklienten din med detaljene forhåndsutfylt. Klikk «Send» der,
+            så svarer vi innen 1 virkedag. Hvis ingenting åpnet seg, send heller direkte
+            til{' '}
+            <a className="font-semibold underline-offset-4 hover:underline" style={{ color: TEAL }} href="mailto:hei@klarert.com">
+              hei@klarert.com
+            </a>.
+          </p>
+          <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
+            <Link
+              to="/"
+              className="inline-flex items-center justify-center rounded-md px-7 py-3 text-sm font-semibold transition hover:opacity-90"
+              style={{ background: TEAL, color: FOREST }}
+            >
+              Tilbake til forsiden
             </Link>
           </div>
         </div>

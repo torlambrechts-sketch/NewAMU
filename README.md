@@ -20,10 +20,30 @@ React (Vite) + TypeScript + Tailwind CSS. Run `npm install`, then `npm run dev`.
 
 This app uses client-side routes. The host must serve `index.html` for all paths (refresh/deep links), or you get **404 NOT_FOUND**.
 
-- **Vercel:** `vercel.json` includes rewrites to `index.html`.
+- **Vercel:** `vercel.json` includes rewrites to `index.html` (excluding `/api/*` so Edge Functions are served first).
 - **Netlify:** `public/_redirects` sends `/*` to `/index.html` with 200.
 
 For **Cloudflare Pages**, add a `_redirects` file in the **build output** root (same rule as Netlify) or use **Pages → Settings → Functions → SPA fallback** / a `_routes.json` or **Workers** rewrite as in their docs.
+
+## `/demo` form (Vercel Edge Function + Resend)
+
+The public `/demo` route posts to **`POST /api/demo`**, a Vercel Edge Function at `api/demo.ts` that forwards the form to **Resend**. No Supabase JWT required — it's a public submission endpoint with a honeypot.
+
+**Setup (Vercel project → Settings → Environment Variables):**
+
+| Variable | Required | Example | Notes |
+|---|---|---|---|
+| `RESEND_API_KEY` | yes | `re_...` | From [Resend dashboard](https://resend.com/api-keys). |
+| `RESEND_FROM` | recommended | `Klarert <hei@klarert.com>` | Must be a sender on a **verified domain** in Resend. Defaults to `Klarert <onboarding@resend.dev>` (Resend test domain, for dev only). |
+| `DEMO_TO` | recommended | `hei@klarert.com` | Where demo requests land. Defaults to `hei@klarert.com`. |
+
+**Domain verification (Resend):** add the SPF/DKIM/DMARC DNS records Resend gives you under **Resend → Domains → Add**. Verification takes minutes once DNS propagates. The same `RESEND_API_KEY` can be reused for the Supabase `send-survey-invites` function if you want one key for all transactional mail.
+
+**Override:** set `VITE_DEMO_FORM_ENDPOINT` in Vercel (build-time, browser-facing) if the form should POST somewhere other than `/api/demo` (e.g. a Supabase Edge Function or external webhook).
+
+**Local dev:** copy `.env.example` to `.env.local` and fill in. `vercel dev` runs the Edge function locally; `vite dev` alone only serves the frontend (form will fall back to mailto).
+
+**Fallback behaviour:** if the endpoint returns non-2xx or is unreachable, the form opens a prefilled `mailto:hei@klarert.com` so the user can complete by hand instead of losing what they typed.
 
 ## Supabase (valgfritt)
 
