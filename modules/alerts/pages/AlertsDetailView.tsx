@@ -4,7 +4,7 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
-import { ArrowLeft, Lock, AlertTriangle } from 'lucide-react'
+import { ArrowLeft, Lock, AlertTriangle, Download, Trash2, Upload } from 'lucide-react'
 import { ModulePageShell } from '../../../src/components/module/ModulePageShell'
 import { ModuleSectionCard } from '../../../src/components/module/ModuleSectionCard'
 import { Badge } from '../../../src/components/ui/Badge'
@@ -13,6 +13,7 @@ import { StandardTextarea } from '../../../src/components/ui/Textarea'
 import { SearchableSelect } from '../../../src/components/ui/SearchableSelect'
 import { YesNoToggle } from '../../../src/components/ui/FormToggles'
 import { useAlerts } from '../useAlerts'
+import { AlertAcknowledgementBadge, AlertGdprDeadlineBadge } from '../components/AlertDeadlineBadges'
 import {
   ALERT_KIND_LABEL,
   ALERT_STATUS_LABEL,
@@ -107,6 +108,8 @@ export function AlertsDetailView() {
         </Badge>
         {c.severity ? <Badge variant={c.severity === 'critical' || c.severity === 'high' ? 'high' : 'info'}>{ALERT_SEVERITY_LABEL[c.severity]}</Badge> : null}
         <Badge variant="neutral">{ALERT_KIND_LABEL[c.kind]}</Badge>
+        {!isClosed ? <AlertAcknowledgementBadge case_={c} /> : null}
+        {!isClosed ? <AlertGdprDeadlineBadge case_={c} /> : null}
         <span className="ml-2 flex items-center gap-1 text-xs text-neutral-500">
           <Lock className="size-3" /> {anonymity === 'full_anonymous' ? 'Anonym' : anonymity === 'pseudonymous' ? 'Pseudonymt' : 'Identifisert'}
         </span>
@@ -246,23 +249,7 @@ export function AlertsDetailView() {
       ) : null}
 
       {tab === 'attachments' ? (
-        <ModuleSectionCard>
-          {alerts.detail.attachments.length === 0 ? (
-            <p className="px-6 py-8 text-center text-sm text-neutral-500">Ingen vedlegg.</p>
-          ) : (
-            <ul className="divide-y divide-neutral-100">
-              {alerts.detail.attachments.map((a) => (
-                <li key={a.id} className="flex items-center justify-between px-6 py-3 text-sm">
-                  <div>
-                    <p className="font-medium">{a.filename}</p>
-                    <p className="text-xs text-neutral-500">{a.is_redacted ? 'Slettet ved oppbevaringsfrist' : a.storage_path ?? 'Mangler lagringssti'}</p>
-                  </div>
-                  <span className="text-xs text-neutral-400">{a.size_bytes ? `${Math.round(a.size_bytes / 1024)} kB` : ''}</span>
-                </li>
-              ))}
-            </ul>
-          )}
-        </ModuleSectionCard>
+        <AttachmentsTab caseId={c.id} canManage={alerts.canManage && !isClosed} />
       ) : null}
 
       {tab === 'close' && !isClosed && alerts.canManage ? (
@@ -300,5 +287,117 @@ export function AlertsDetailView() {
         </ModuleSectionCard>
       ) : null}
     </ModulePageShell>
+  )
+}
+
+// ── Attachments sub-component ─────────────────────────────────────────────
+// Owns its own busy state so the parent doesn't re-render the whole
+// detail view on every file pick.
+
+function AttachmentsTab({ caseId, canManage }: { caseId: string; canManage: boolean }) {
+  const alerts = useAlerts()
+  const [busy, setBusy] = useState(false)
+  const [openingId, setOpeningId] = useState<string | null>(null)
+
+  async function handleFile(file: File | null) {
+    if (!file) return
+    if (file.size > 20 * 1024 * 1024) {
+      window.alert('Filen er større enn 20 MB. Bruk en mindre fil eller komprimer den først.')
+      return
+    }
+    setBusy(true)
+    await alerts.uploadAttachment(caseId, file)
+    setBusy(false)
+  }
+
+  async function openSignedUrl(attachmentId: string, storagePath: string | null) {
+    if (!storagePath) return
+    setOpeningId(attachmentId)
+    const url = await alerts.getAttachmentSignedUrl(storagePath, 60)
+    setOpeningId(null)
+    if (url) window.open(url, '_blank', 'noopener,noreferrer')
+  }
+
+  async function handleDelete(attachmentId: string, filename: string) {
+    if (!window.confirm(`Slette vedlegget «${filename}»? Filen fjernes fra lagring og kan ikke gjenopprettes.`)) return
+    setBusy(true)
+    await alerts.deleteAttachment(attachmentId)
+    setBusy(false)
+  }
+
+  return (
+    <div className="space-y-3">
+      <ModuleSectionCard>
+        {alerts.detail.attachments.length === 0 ? (
+          <p className="px-6 py-8 text-center text-sm text-neutral-500">Ingen vedlegg.</p>
+        ) : (
+          <ul className="divide-y divide-neutral-100">
+            {alerts.detail.attachments.map((a) => (
+              <li key={a.id} className="flex items-center justify-between gap-3 px-6 py-3 text-sm">
+                <div className="min-w-0">
+                  <p className="truncate font-medium text-neutral-900">{a.filename}</p>
+                  <p className="text-xs text-neutral-500">
+                    {a.is_redacted
+                      ? 'Slettet ved oppbevaringsfrist'
+                      : a.content_type ?? 'Ukjent type'}
+                    {a.size_bytes ? ` · ${Math.round(a.size_bytes / 1024)} kB` : ''}
+                  </p>
+                </div>
+                <div className="flex shrink-0 items-center gap-2">
+                  {!a.is_redacted && a.storage_path ? (
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      icon={<Download className="size-3.5" />}
+                      onClick={() => void openSignedUrl(a.id, a.storage_path)}
+                      disabled={openingId === a.id}
+                    >
+                      {openingId === a.id ? 'Åpner…' : 'Åpne'}
+                    </Button>
+                  ) : null}
+                  {canManage && !a.is_redacted ? (
+                    <button
+                      type="button"
+                      onClick={() => void handleDelete(a.id, a.filename)}
+                      className="rounded-md p-1.5 text-neutral-400 transition-colors hover:bg-red-50 hover:text-red-700"
+                      title="Slett vedlegg"
+                    >
+                      <Trash2 className="size-4" />
+                    </button>
+                  ) : null}
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
+      </ModuleSectionCard>
+
+      {canManage ? (
+        <ModuleSectionCard className="p-4">
+          <label className="flex cursor-pointer flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed border-neutral-300 bg-neutral-50/50 px-4 py-8 text-center transition-colors hover:border-[#b91c1c]/40 hover:bg-neutral-50">
+            <Upload className="size-5 text-neutral-400" />
+            <span className="text-sm font-medium text-neutral-900">
+              {busy ? 'Laster opp …' : 'Last opp vedlegg'}
+            </span>
+            <span className="text-xs text-neutral-500">
+              Maks 20 MB. PDF / Office / bilde / video. Privat lagring; nedlasting krever signert URL (60 s).
+            </span>
+            <input
+              type="file"
+              className="hidden"
+              disabled={busy}
+              onChange={(e) => {
+                const file = e.target.files?.[0] ?? null
+                e.target.value = ''
+                void handleFile(file)
+              }}
+            />
+          </label>
+          <p className="mt-2 text-[10px] text-neutral-500">
+            Vedlegg lagres i privat bucket (alert-attachments) under {`${'{org_id}/{case_id}/'}`}. RLS gjelder — kun varslingsutvalget kan åpne filen.
+          </p>
+        </ModuleSectionCard>
+      ) : null}
+    </div>
   )
 }

@@ -100,6 +100,9 @@ export type UseAlertsState = {
   upsertOrgTemplateSetting: (input: { systemTemplateId: string; enabled?: boolean; navPinned?: boolean; categoryId?: string | null; overrideName?: string | null; overrideRetentionYears?: number | null }) => Promise<boolean>
   upsertCategory: (input: { id?: string; slug: string; name: string; description?: string | null; position?: number; isActive?: boolean }) => Promise<AlertCategoryRow | null>
   softDeleteCategory: (id: string) => Promise<boolean>
+  uploadAttachment: (caseId: string, file: File) => Promise<AlertCaseAttachmentRow | null>
+  getAttachmentSignedUrl: (path: string, ttlSeconds?: number) => Promise<string | null>
+  deleteAttachment: (attachmentId: string) => Promise<boolean>
 }
 
 function resolveTemplates(
@@ -483,6 +486,97 @@ export function useAlerts(): UseAlertsState {
     [supabase, orgId, reload]
   )
 
+  // ── Attachments ─────────────────────────────────────────────────────────
+  // Path convention enforced by storage policy: <org_id>/<case_id>/<uuid>-<filename>.
+  const uploadAttachment = useCallback<UseAlertsState['uploadAttachment']>(
+    async (caseId, file) => {
+      if (!supabase || !orgId) return null
+      const ext = file.name.match(/\.[A-Za-z0-9]+$/)?.[0] ?? ''
+      const stem = file.name
+        .replace(ext, '')
+        .replace(/[^A-Za-z0-9._-]+/g, '_')
+        .slice(0, 60) || 'fil'
+      const uuid = crypto.randomUUID()
+      const path = `${orgId}/${caseId}/${uuid}-${stem}${ext}`
+      try {
+        const up = await supabase.storage
+          .from('alert-attachments')
+          .upload(path, file, {
+            cacheControl: '3600',
+            contentType: file.type || undefined,
+            upsert: false,
+          })
+        if (up.error) throw up.error
+        const ins = await supabase
+          .from('alert_case_attachments')
+          .insert({
+            case_id: caseId,
+            organization_id: orgId,
+            storage_bucket: 'alert-attachments',
+            storage_path: path,
+            filename: file.name,
+            content_type: file.type || null,
+            size_bytes: file.size || null,
+          })
+          .select('*')
+          .maybeSingle()
+        if (ins.error) throw ins.error
+        await supabase.from('alert_case_timeline_events').insert({
+          case_id: caseId,
+          organization_id: orgId,
+          event_kind: 'attachment_added',
+          actor_kind: 'committee',
+          payload: { filename: file.name, size: file.size },
+        })
+        if (detailCaseId === caseId) await loadDetail(caseId)
+        return ins.data ? parseAttachmentRow(ins.data) : null
+      } catch (e) {
+        setError(getSupabaseErrorMessage(e))
+        return null
+      }
+    },
+    [supabase, orgId, detailCaseId, loadDetail]
+  )
+
+  const getAttachmentSignedUrl = useCallback<UseAlertsState['getAttachmentSignedUrl']>(
+    async (path, ttlSeconds = 60) => {
+      if (!supabase || !path) return null
+      const res = await supabase.storage.from('alert-attachments').createSignedUrl(path, ttlSeconds)
+      if (res.error || !res.data) {
+        setError(getSupabaseErrorMessage(res.error))
+        return null
+      }
+      return res.data.signedUrl
+    },
+    [supabase]
+  )
+
+  const deleteAttachment = useCallback<UseAlertsState['deleteAttachment']>(
+    async (attachmentId) => {
+      if (!supabase || !orgId) return false
+      const row = await supabase
+        .from('alert_case_attachments')
+        .select('case_id, storage_path')
+        .eq('id', attachmentId)
+        .maybeSingle()
+      if (row.error || !row.data) {
+        setError(getSupabaseErrorMessage(row.error))
+        return false
+      }
+      if (row.data.storage_path) {
+        await supabase.storage.from('alert-attachments').remove([row.data.storage_path])
+      }
+      const del = await supabase.from('alert_case_attachments').delete().eq('id', attachmentId)
+      if (del.error) {
+        setError(getSupabaseErrorMessage(del.error))
+        return false
+      }
+      if (detailCaseId === row.data.case_id) await loadDetail(row.data.case_id)
+      return true
+    },
+    [supabase, orgId, detailCaseId, loadDetail]
+  )
+
   const resolvedTemplates = useMemo(
     () => resolveTemplates(systemTemplates, orgSettings, orgTemplates, categories),
     [systemTemplates, orgSettings, orgTemplates, categories]
@@ -519,5 +613,8 @@ export function useAlerts(): UseAlertsState {
     upsertOrgTemplateSetting,
     upsertCategory,
     softDeleteCategory,
+    uploadAttachment,
+    getAttachmentSignedUrl,
+    deleteAttachment,
   }
 }

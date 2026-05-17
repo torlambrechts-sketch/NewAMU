@@ -21,6 +21,7 @@ import { useAlerts } from '../useAlerts'
 import { ALERT_STATUS_LABEL } from '../alertsLabels'
 import { AlertsHubLanding } from './AlertsHubLanding'
 import { AlertsCreateForm } from '../components/AlertsCreateForm'
+import { AlertAcknowledgementBadge, AlertGdprDeadlineBadge } from '../components/AlertDeadlineBadges'
 import type { AlertStatus } from '../types'
 
 function statusBadgeVariant(s: AlertStatus): 'neutral' | 'warning' | 'info' | 'success' {
@@ -156,12 +157,16 @@ export function AlertsPage() {
                       >
                         <td className="px-5 py-3 font-medium text-neutral-900">{row.title}</td>
                         <td className="px-5 py-3">
-                          <Badge variant={statusBadgeVariant(row.status)}>
-                            {ALERT_STATUS_LABEL[row.status]}
-                          </Badge>
-                          {row.confidentiality_level === 'confidential' ? (
-                            <Badge variant="critical" className="ml-1">Konfidensielt</Badge>
-                          ) : null}
+                          <div className="flex flex-wrap items-center gap-1">
+                            <Badge variant={statusBadgeVariant(row.status)}>
+                              {ALERT_STATUS_LABEL[row.status]}
+                            </Badge>
+                            {row.confidentiality_level === 'confidential' ? (
+                              <Badge variant="critical">Konfidensielt</Badge>
+                            ) : null}
+                            {!row.closed_at ? <AlertAcknowledgementBadge case_={row} /> : null}
+                            {!row.closed_at ? <AlertGdprDeadlineBadge case_={row} /> : null}
+                          </div>
                         </td>
                         <td className="px-5 py-3 text-neutral-600">{formatDate(row.received_at)}</td>
                         <td className="w-8 px-3 py-3 text-neutral-300">

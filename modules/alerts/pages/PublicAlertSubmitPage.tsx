@@ -101,16 +101,29 @@ export function PublicAlertSubmitPage() {
         if (!isAnonymous && reporterContact.trim()) {
           payload.reporter_contact = reporterContact.trim()
         }
-        const res = await supabase.rpc('public_submit_alert', {
-          p_org_slug: slug,
-          p_template_slug: selectedTemplate.id,
-          p_payload: payload,
-          p_captcha_token: null,
+        // Route through the alerts-public-submit Edge Function so the
+        // captcha (§4.1 T9) is verified server-side. The function calls
+        // public_submit_alert with service_role after the check.
+        const { data, error } = await supabase.functions.invoke('alerts-public-submit', {
+          body: {
+            orgSlug: slug,
+            templateSlug: selectedTemplate.id,
+            payload,
+            // TODO: wire Cloudflare Turnstile widget; until then the
+            // function falls open when ALERT_CAPTCHA_REQUIRED=false.
+            captchaToken: null,
+          },
         })
-        if (res.error) throw new Error(res.error.message)
-        const data = res.data as { caseId?: string; accessKey?: string }
-        if (!data?.accessKey || !data?.caseId) throw new Error('Uventet svar fra server.')
-        setDone({ accessKey: data.accessKey, caseId: data.caseId })
+        if (error) throw new Error(error.message)
+        if (data && typeof data === 'object' && 'error' in data) {
+          const e = data as { error: string }
+          if (e.error === 'captcha_required') throw new Error('Captcha mangler. Last siden på nytt.')
+          if (e.error === 'captcha_failed') throw new Error('Captcha-verifisering feilet.')
+          throw new Error(e.error)
+        }
+        const ok = data as { caseId?: string; accessKey?: string }
+        if (!ok?.accessKey || !ok?.caseId) throw new Error('Uventet svar fra server.')
+        setDone({ accessKey: ok.accessKey, caseId: ok.caseId })
       } catch (e) {
         setSubmitError(e instanceof Error ? e.message : 'Innsending feilet.')
       } finally {
