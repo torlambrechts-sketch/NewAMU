@@ -23,7 +23,7 @@ import {
   type OnDropFromLibrary,
   type OnWidgetResize,
 } from '../reports/ReportModuleWidget'
-import { DashboardScorecardFilterBar } from './dashboard/DashboardScorecardFilterBar'
+import { DashboardFilterBar } from './dashboard/DashboardFilterBar'
 import type {
   DashboardDimension,
   DashboardFilter,
@@ -172,9 +172,13 @@ export function ModuleAnalyticsDashboard({
   const effectiveOnRemoveWidget = readOnly ? undefined : onRemoveWidget
   const effectiveOnDropFromLibrary = readOnly ? undefined : onDropFromLibrary
   const effectiveOnFiltersChange = readOnly ? undefined : onFiltersChange
+  // Filter chrome — chip-style by default (single "+ Filter" entry,
+  // active filters as removable chips, "Fjern alle" affordance). Pages
+  // that need the legacy wall-of-dropdowns layout can pass a custom
+  // `filterBar` slot using `DashboardScorecardFilterBar` directly.
   const builtInFilterBar =
     !filterBar && dimensions && dimensions.length > 0 && filters && effectiveOnFiltersChange ? (
-      <DashboardScorecardFilterBar
+      <DashboardFilterBar
         filters={filters}
         dimensions={dimensions}
         onChange={effectiveOnFiltersChange}
