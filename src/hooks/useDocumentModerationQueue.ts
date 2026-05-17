@@ -58,7 +58,7 @@ export function useDocumentModerationQueue(filter: ModerationAction | 'all' = 'p
   const { supabase, organization, user, isAdmin, permissionKeys } = useOrgSetupContext()
   const orgId = organization?.id ?? null
   const canModerate =
-    isAdmin || permissionKeys.has('documents.manage') || permissionKeys.has('whistleblowing.committee')
+    isAdmin || permissionKeys.has('documents.manage') || permissionKeys.has('alerts.committee')
 
   const [flags, setFlags] = useState<ModerationFlag[]>([])
   const [loading, setLoading] = useState(false)

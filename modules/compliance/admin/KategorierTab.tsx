@@ -184,7 +184,11 @@ function CategoryRow({
   return (
     <>
       <div className="flex flex-wrap items-start justify-between gap-3">
-        <button type="button" onClick={onEdit} className="min-w-0 flex-1 text-left">
+        <Button
+          variant="ghost"
+          onClick={onEdit}
+          className="min-w-0 flex-1 flex-col items-start gap-0 rounded-md px-0 py-0 text-left font-normal hover:bg-transparent"
+        >
           <div className="flex flex-wrap items-center gap-2">
             <span className="text-sm font-medium text-neutral-900">{category.name}</span>
             {category.is_system ? <Badge variant="info">System</Badge> : null}
@@ -204,7 +208,7 @@ function CategoryRow({
               </>
             ) : null}
           </p>
-        </button>
+        </Button>
 
         <div className="flex shrink-0 items-center gap-1">
           <Button

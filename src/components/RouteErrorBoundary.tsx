@@ -1,5 +1,6 @@
 import { Component, type ErrorInfo, type ReactNode } from 'react'
 import { Link } from 'react-router-dom'
+import { Button } from './ui/Button'
 
 type Props = { children: ReactNode; title?: string }
 
@@ -65,8 +66,8 @@ export class RouteErrorBoundary extends Component<Props, State> {
               ? 'En ny versjon av appen er tilgjengelig. Last siden på nytt for å fortsette.'
               : 'Siden kunne ikke vises. Prøv å laste på nytt.'}
           </p>
-          <button
-            type="button"
+          <Button
+            variant="primary"
             onClick={() => {
               try { sessionStorage.removeItem(CHUNK_RELOAD_KEY) } catch { /* ignore */ }
               window.location.reload()
@@ -74,7 +75,7 @@ export class RouteErrorBoundary extends Component<Props, State> {
             className="mt-6 inline-flex items-center rounded-md bg-[#1a3d32] px-4 py-2 text-sm font-medium text-white hover:opacity-90"
           >
             Last siden på nytt
-          </button>
+          </Button>
           {!isChunk && (
             <Link to="/" className="mt-4 block text-sm text-neutral-500 underline">
               ← Til forsiden

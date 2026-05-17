@@ -14,6 +14,7 @@ import { useLearning } from '../../hooks/useLearning'
 import { useLearningCategories } from '../../hooks/useLearningCategories'
 import { useOrgSetupContext } from '../../hooks/useOrgSetupContext'
 import { Badge } from '../../components/ui/Badge'
+import { Button } from '../../components/ui/Button'
 import { StandardInput } from '../../components/ui/Input'
 import { LayoutScoreStatRow } from '../../components/layout/LayoutScoreStatRow'
 import type { LayoutScoreStatItem } from '../../components/layout/platformLayoutKit'
@@ -366,35 +367,37 @@ export function LearningDashboard() {
   ]
 
   const headerActions = (
-    <div className="inline-flex rounded-md border border-neutral-200 bg-white p-0.5">
-      <button
-        type="button"
+    <div className="inline-flex rounded-md border border-neutral-200 bg-white p-0.5" role="radiogroup" aria-label="Visningstype">
+      <Button
+        variant="ghost"
         onClick={() => {
           setView('grid')
           saveViewMode('grid')
         }}
-        aria-pressed={view === 'grid'}
+        role="radio"
+        aria-checked={view === 'grid'}
         className={`inline-flex items-center gap-1 rounded px-2.5 py-1 text-xs font-medium transition-colors ${
           view === 'grid' ? 'bg-neutral-100 text-neutral-900' : 'text-neutral-500 hover:text-neutral-800'
         }`}
       >
         <LayoutGrid className="h-3.5 w-3.5" />
         Kort
-      </button>
-      <button
-        type="button"
+      </Button>
+      <Button
+        variant="ghost"
         onClick={() => {
           setView('list')
           saveViewMode('list')
         }}
-        aria-pressed={view === 'list'}
+        role="radio"
+        aria-checked={view === 'list'}
         className={`inline-flex items-center gap-1 rounded px-2.5 py-1 text-xs font-medium transition-colors ${
           view === 'list' ? 'bg-neutral-100 text-neutral-900' : 'text-neutral-500 hover:text-neutral-800'
         }`}
       >
         <ListIcon className="h-3.5 w-3.5" />
         Liste
-      </button>
+      </Button>
     </div>
   )
 
@@ -410,22 +413,24 @@ export function LearningDashboard() {
           aria-label="Søk i kurs"
         />
       </div>
-      <div className="flex flex-wrap items-center gap-1">
+      <div className="flex flex-wrap items-center gap-1" role="radiogroup" aria-label="Kursfilter">
         {filterChips.map((f) => {
           const active = filter === f.id
           return (
-            <button
+            <Button
               key={f.id}
-              type="button"
+              variant="ghost"
               onClick={() => setFilter(f.id)}
+              role="radio"
+              aria-checked={active}
               className={`rounded-md px-2.5 py-1 text-xs font-medium transition-colors ${
                 active
-                  ? 'bg-[#1a3d32] text-white'
+                  ? 'bg-[#1a3d32] text-white hover:bg-[#1a3d32]'
                   : 'text-neutral-600 hover:bg-neutral-100 hover:text-neutral-900'
               }`}
             >
               {f.label}
-            </button>
+            </Button>
           )
         })}
       </div>

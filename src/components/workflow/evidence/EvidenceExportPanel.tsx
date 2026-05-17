@@ -9,6 +9,9 @@ import { useState } from 'react'
 import { Download, FileCheck, ShieldCheck } from 'lucide-react'
 import { useOrgSetupContext } from '../../../hooks/useOrgSetupContext'
 import { useWorkflows } from '../../../hooks/useWorkflows'
+import { Button } from '../../ui/Button'
+import { StandardInput } from '../../ui/Input'
+import { AnchorStatusCard } from './AnchorStatusCard'
 
 const LAW_REF_PRESETS = [
   { label: 'AML § 5-2 (alvorlig skade)', value: 'AML § 5-2' },
@@ -74,48 +77,50 @@ export function EvidenceExportPanel() {
   return (
     <div className="space-y-3">
       <div className="flex flex-wrap items-center gap-2 rounded-xl border border-neutral-200 bg-white px-4 py-3">
-        <ShieldCheck className="h-4 w-4 text-emerald-700" />
-        <h2 className="text-sm font-semibold text-neutral-900">Bevispakke (Evidence pack)</h2>
-        <span className="text-xs text-neutral-500">Signert manifest for tilsyn og auditorer</span>
+        <ShieldCheck className="h-4 w-4 text-[#1a3d32]" />
+        <h2 className="text-sm font-semibold text-neutral-900">Bevispakke</h2>
+        <span className="text-xs text-neutral-500">Signert manifest for tilsyn og revisorer</span>
       </div>
+      <AnchorStatusCard />
       <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
         <div className="space-y-3 rounded-xl border border-neutral-200 bg-white p-4">
           <div className="grid grid-cols-2 gap-2">
             <label className="text-xs font-medium text-neutral-700">
               Fra dato
-              <input
+              <StandardInput
                 type="date"
                 value={dateFrom}
                 onChange={(e) => setDateFrom(e.target.value)}
-                className="mt-1 w-full rounded-md border border-neutral-300 bg-white px-2 py-1 text-sm"
+                className="mt-1"
               />
             </label>
             <label className="text-xs font-medium text-neutral-700">
               Til dato
-              <input
+              <StandardInput
                 type="date"
                 value={dateTo}
                 onChange={(e) => setDateTo(e.target.value)}
-                className="mt-1 w-full rounded-md border border-neutral-300 bg-white px-2 py-1 text-sm"
+                className="mt-1"
               />
             </label>
           </div>
           <div>
-            <span className="block text-xs font-medium text-neutral-700">Law refs</span>
+            <span className="block text-xs font-medium text-neutral-700">Lov-referanser</span>
             <div className="mt-1 flex flex-wrap gap-1">
               {LAW_REF_PRESETS.map((p) => (
-                <button
+                <Button
                   key={p.value}
-                  type="button"
+                  variant="ghost"
+                  aria-pressed={lawRefs.includes(p.value)}
                   onClick={() => toggle(lawRefs, setLawRefs, p.value)}
-                  className={`rounded-full px-2.5 py-1 text-[11px] ${
+                  className={`rounded-full px-2.5 py-1 text-[11px] font-normal ${
                     lawRefs.includes(p.value)
-                      ? 'bg-emerald-600 text-white'
-                      : 'border border-neutral-300 bg-white text-neutral-700'
+                      ? 'bg-[#1a3d32] text-white hover:bg-[#14312a] hover:text-white'
+                      : 'border border-neutral-300 bg-white text-neutral-700 hover:bg-neutral-50'
                   }`}
                 >
                   {p.label}
-                </button>
+                </Button>
               ))}
             </div>
           </div>
@@ -123,24 +128,25 @@ export function EvidenceExportPanel() {
             <span className="block text-xs font-medium text-neutral-700">Rammeverk</span>
             <div className="mt-1 flex flex-wrap gap-1">
               {FRAMEWORK_PRESETS.map((f) => (
-                <button
+                <Button
                   key={f}
-                  type="button"
+                  variant="ghost"
+                  aria-pressed={frameworks.includes(f)}
                   onClick={() => toggle(frameworks, setFrameworks, f)}
-                  className={`rounded-full px-2.5 py-1 text-[11px] ${
+                  className={`rounded-full px-2.5 py-1 text-[11px] font-normal ${
                     frameworks.includes(f)
-                      ? 'bg-emerald-600 text-white'
-                      : 'border border-neutral-300 bg-white text-neutral-700'
+                      ? 'bg-[#1a3d32] text-white hover:bg-[#14312a] hover:text-white'
+                      : 'border border-neutral-300 bg-white text-neutral-700 hover:bg-neutral-50'
                   }`}
                 >
                   {f}
-                </button>
+                </Button>
               ))}
             </div>
           </div>
           {canViewConfidential && (
             <label className="flex items-center gap-2 text-xs text-neutral-700">
-              <input
+              <StandardInput
                 type="checkbox"
                 checked={includeConfidential}
                 onChange={(e) => setIncludeConfidential(e.target.checked)}
@@ -148,15 +154,15 @@ export function EvidenceExportPanel() {
               Inkluder konfidensielle kjøringer (varsling, sykefravær)
             </label>
           )}
-          <button
+          <Button
             type="button"
+            variant="primary"
+            icon={<Download className="h-4 w-4" />}
             onClick={generate}
             disabled={generating}
-            className="inline-flex items-center gap-1 rounded-md bg-emerald-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-emerald-700 disabled:opacity-50"
           >
-            <Download className="h-4 w-4" />
             {generating ? 'Genererer …' : 'Generer pakke'}
-          </button>
+          </Button>
         </div>
         <div className="rounded-xl border border-neutral-200 bg-white p-4">
           <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-neutral-500">Resultat</h3>
@@ -173,19 +179,25 @@ export function EvidenceExportPanel() {
                 <FileCheck className="h-4 w-4" />
                 Pakke opprettet ({result.counts.runs} kjøringer, {result.counts.evidence} bevis).
               </p>
-              <div className="grid grid-cols-2 gap-2 text-xs">
-                <span className="text-neutral-500">manifest_sha256</span>
-                <code className="break-all text-[10px]">{result.manifest_sha256}</code>
-                <span className="text-neutral-500">merkle_root</span>
-                <code className="break-all text-[10px]">{result.merkle_root}</code>
-                <span className="text-neutral-500">URL gyldig</span>
-                <span>{Math.round(result.expires_in_seconds / 3600)} timer</span>
-              </div>
+              <p className="text-xs text-neutral-600">
+                Last ned-lenken er gyldig i {Math.round(result.expires_in_seconds / 3600)} timer.
+              </p>
+              <details className="rounded-lg border border-neutral-200 bg-neutral-50 p-2 text-xs">
+                <summary className="cursor-pointer font-medium text-neutral-700">
+                  Vis tekniske detaljer
+                </summary>
+                <div className="mt-2 grid grid-cols-2 gap-2">
+                  <span className="text-neutral-500">manifest_sha256</span>
+                  <code className="break-all text-[10px]">{result.manifest_sha256}</code>
+                  <span className="text-neutral-500">merkle_root</span>
+                  <code className="break-all text-[10px]">{result.merkle_root}</code>
+                </div>
+              </details>
               <a
                 href={result.signed_url}
                 target="_blank"
                 rel="noreferrer"
-                className="inline-flex items-center gap-1 rounded-md border border-emerald-600 px-3 py-1.5 text-sm font-medium text-emerald-700 hover:bg-emerald-50"
+                className="inline-flex items-center gap-1.5 rounded-md border border-[#1a3d32] bg-white px-3 py-1.5 text-sm font-medium text-[#1a3d32] hover:bg-[#1a3d32]/5"
               >
                 <Download className="h-4 w-4" /> Last ned signert manifest
               </a>

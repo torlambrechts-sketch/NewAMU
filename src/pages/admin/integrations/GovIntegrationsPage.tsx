@@ -1,341 +1,166 @@
-// GovIntegrationsPage — admin wizard for the four government providers.
+// GovIntegrationsPage — "Velg integrasjon" hub.
 //
-// One page covers altinn / regint / datatilsynet / nav. Each card lets
-// the admin:
-//   * Set environment (tt02 sandbox / prod)
-//   * Register client_id + kid + scope
-//   * Paste a PEM-encoded virksomhetssertifikat private key → stored
-//     in Vault via workflow_set_vault_secret RPC
-//   * Toggle enabled
-//   * See last_submission_at / last_submission_status
+// The original combined page lived here and let an admin configure all
+// four regulators (Altinn / Arbeidstilsynet RegInc / Datatilsynet / NAV)
+// from one screen. Spec §6 wants one focused wizard per provider, so the
+// real configuration UI now lives at
+// `/admin/integrations/<altinn|arbeidstilsynet|datatilsynet|nav>`.
 //
-// Activating any integration also surfaces a banner:
-// "Regler som bruker denne integrasjonen krever workflows.activate_external."
+// This page is a thin index that:
+//   * lists the four providers with current status (loaded via
+//     useOrgIntegrations)
+//   * deep-links into the matching wizard
+//   * carries a deprecation note for users who bookmarked the old combined
+//     route `/admin/integrasjoner-staten` — they still land here, then pick
+//     the regulator they want.
 
-import { useEffect, useState } from 'react'
-import { CheckCircle2, FileWarning, Lock, RefreshCw, Save } from 'lucide-react'
-import { ModulePageShell } from '../../../components/module'
-import { useOrgSetupContext } from '../../../hooks/useOrgSetupContext'
-import { getSupabaseErrorMessage } from '../../../lib/supabaseError'
+import { Link } from 'react-router-dom'
+import { CheckCircle2, FileWarning, ShieldCheck } from 'lucide-react'
+import { ModulePageShell, ModuleSectionCard } from '../../../components/module'
+import { Button } from '../../../components/ui/Button'
+import { InfoBox } from '../../../components/ui/AlertBox'
+import { useOrgIntegrations, type GovIntegrationKind, type OrgIntegrationRow } from '../../../hooks/useOrgIntegrations'
 
-type IntegrationKind = 'altinn' | 'regint' | 'datatilsynet' | 'nav'
-
-type IntegrationRow = {
-  id: string
-  organization_id: string
-  kind: IntegrationKind
-  enabled: boolean
-  environment: 'tt02' | 'prod'
-  config: Record<string, string>
-  vault_secret_name: string | null
-  last_health_status: 'ok' | 'degraded' | 'down' | null
-  last_submission_at: string | null
-  last_submission_status: 'ok' | 'failed' | null
+type ProviderMeta = {
+  kind: GovIntegrationKind
+  title: string
+  description: string
+  path: string
+  lawRef: string
+  dependency?: 'altinn'
 }
 
-const KIND_META: Record<
-  IntegrationKind,
-  { title: string; description: string; defaultScope: string; lawRef: string }
-> = {
-  altinn: {
-    title: 'Altinn',
-    description: 'Generisk Altinn 3-envelope for melding-innsending.',
-    defaultScope: 'altinn:instances.write',
-    lawRef: '',
+// C-5: translate last_submission_status raw values to Norwegian for
+// display. Keep the fallback so unknown values render verbatim instead
+// of disappearing.
+const STATUS_LABEL: Record<string, string> = {
+  ok: 'Vellykket',
+  failed: 'Feilet',
+  pending: 'Venter',
+}
+
+const PROVIDERS: ProviderMeta[] = [
+  {
+    kind: 'altinn',
+    title: 'Altinn 3 / Maskinporten',
+    description:
+      'Generisk Altinn-envelope for melding-innsending. Forutsetning for NAV, Datatilsynet og Arbeidstilsynet.',
+    path: '/admin/integrations/altinn',
+    lawRef: 'eForvaltningsforskriften § 8',
   },
-  regint: {
+  {
+    kind: 'regint',
     title: 'Arbeidstilsynet (RegInc)',
-    description: 'Alvorlig skade-melding etter AML § 5-2 — 24-timers frist.',
-    defaultScope: 'arbeidstilsynet:reginc/melding.write',
+    description: 'Alvorlig skade-melding — 24-timers frist fra hendelsen.',
+    path: '/admin/integrations/arbeidstilsynet',
     lawRef: 'AML § 5-2',
+    dependency: 'altinn',
   },
-  datatilsynet: {
+  {
+    kind: 'datatilsynet',
     title: 'Datatilsynet',
-    description: 'Personvernbrudd-skjema etter GDPR Art. 33 — 72-timers frist.',
-    defaultScope: '',
+    description: 'Personvernbrudd-melding — 72-timers frist fra du ble kjent.',
+    path: '/admin/integrations/datatilsynet',
     lawRef: 'GDPR Art. 33',
+    dependency: 'altinn',
   },
-  nav: {
+  {
+    kind: 'nav',
     title: 'NAV (DSOP)',
-    description: 'Sykefraværsoppfølging via Altinn DSOP.',
-    defaultScope: '',
-    lawRef: 'AML § 4-6, Folketrygdloven § 25-2',
+    description: 'Sykefraværsoppfølging via Altinn DSOP. Bruker samme cert som Altinn.',
+    path: '/admin/integrations/nav',
+    lawRef: 'AML § 4-6, Folketrygdloven § 8-7',
+    dependency: 'altinn',
   },
+]
+
+function StatusBadge({ row }: { row: OrgIntegrationRow | null }) {
+  if (row?.enabled) {
+    return (
+      <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2 py-0.5 text-xs text-emerald-900">
+        <CheckCircle2 className="h-3 w-3" /> Konfigurert ✓ {row.environment.toUpperCase()}
+      </span>
+    )
+  }
+  if (row) {
+    return (
+      <span className="inline-flex items-center gap-1 rounded-full bg-neutral-100 px-2 py-0.5 text-xs text-neutral-700">
+        Lagret, ikke aktivert
+      </span>
+    )
+  }
+  return (
+    <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-xs text-amber-900">
+      <FileWarning className="h-3 w-3" /> Ikke konfigurert
+    </span>
+  )
 }
 
 export function GovIntegrationsPage() {
-  const { supabase, organization } = useOrgSetupContext()
-  const [rows, setRows] = useState<Record<IntegrationKind, IntegrationRow | null>>({
-    altinn: null,
-    regint: null,
-    datatilsynet: null,
-    nav: null,
-  })
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
-
-  const refresh = async () => {
-    if (!supabase || !organization) return
-    setLoading(true)
-    setError(null)
-    try {
-      const { data, error: e } = await supabase
-        .from('org_integrations')
-        .select('*')
-        .eq('organization_id', organization.id)
-        .in('kind', ['altinn', 'regint', 'datatilsynet', 'nav'])
-      if (e) throw e
-      const next: Record<IntegrationKind, IntegrationRow | null> = {
-        altinn: null,
-        regint: null,
-        datatilsynet: null,
-        nav: null,
-      }
-      ;(data ?? []).forEach((r: unknown) => {
-        const row = r as IntegrationRow
-        next[row.kind] = row
-      })
-      setRows(next)
-    } catch (err) {
-      setError(getSupabaseErrorMessage(err))
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  useEffect(() => {
-    void refresh()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [supabase, organization?.id])
-
-  if (loading) {
-    return (
-      <ModulePageShell
-        breadcrumb={[
-          { label: 'Admin', to: '/admin' },
-          { label: 'Statlige integrasjoner' },
-        ]}
-        title="Statlige integrasjoner"
-      >
-        <p className="text-sm text-neutral-500">Laster …</p>
-      </ModulePageShell>
-    )
-  }
+  const { rows, loading } = useOrgIntegrations()
 
   return (
     <ModulePageShell
       breadcrumb={[
         { label: 'Admin', to: '/admin' },
-        { label: 'Statlige integrasjoner' },
+        { label: 'Integrasjoner' },
       ]}
-      title="Statlige integrasjoner"
-      description="Konfigurer Altinn, Arbeidstilsynet RegInc, Datatilsynet og NAV. Aktivering av en regel som bruker disse krever workflows.activate_external og dobbel godkjenning."
+      title="Velg integrasjon"
+      description="Per-leverandør-veivisere har erstattet det gamle samlede skjermbildet. Velg en regulator under for å starte oppsettet."
+      loading={loading}
     >
-      <div className="space-y-3">
-        {error && <p className="rounded-md bg-rose-50 px-3 py-2 text-sm text-rose-800">{error}</p>}
-        <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900">
-          <FileWarning className="mr-1 inline h-3 w-3" />
-          Privatnøkler (virksomhetssertifikat PEM PKCS#8) lagres i Supabase Vault og kan ikke
-          leses tilbake — kun overskrives. Inntil organisasjonen har registrert egen nøkkel
-          brukes plattformens sandbox-nøkkel (MASKINPORTEN_TT02_PRIVATE_KEY) i TT02-miljøet.
+      <div className="space-y-4">
+        <InfoBox>
+          Dette skjermbildet har erstattet den gamle kombinerte siden
+          (<code>/admin/integrasjoner-staten</code>). Hver leverandør har nå sin egen veiviser
+          for å unngå at en feil i én integrasjon påvirker oppsett av en annen.
+        </InfoBox>
+
+        <div className="grid gap-3">
+          {PROVIDERS.map((p) => {
+            const row = rows[p.kind]
+            const altinnActive = Boolean(rows.altinn?.enabled)
+            const blockedByAltinn = Boolean(p.dependency === 'altinn' && !altinnActive)
+            return (
+              <ModuleSectionCard key={p.kind} className="space-y-3 p-5">
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <h2 className="flex items-center gap-2 text-base font-semibold text-neutral-900">
+                      <ShieldCheck className="h-4 w-4 text-[#1a3d32]" /> {p.title}
+                    </h2>
+                    <p className="mt-0.5 text-sm text-neutral-700">{p.description}</p>
+                    <p className="mt-0.5 text-[11px] text-neutral-500">Hjemmel: {p.lawRef}</p>
+                  </div>
+                  <div className="text-right">
+                    <StatusBadge row={row} />
+                  </div>
+                </div>
+                {blockedByAltinn && (
+                  <p className="text-xs text-amber-800">
+                    Krever aktiv Altinn-integrasjon — wizarden veileder deg dit hvis nødvendig.
+                  </p>
+                )}
+                <div className="flex flex-wrap gap-2">
+                  <Link to={p.path}>
+                    <Button variant="primary" size="sm">
+                      {row?.enabled ? 'Endre oppsett' : 'Start oppsett'}
+                    </Button>
+                  </Link>
+                  {row?.last_submission_at && (
+                    <span className="self-center text-[11px] text-neutral-500">
+                      Sist innsending: {new Date(row.last_submission_at).toLocaleString('nb-NO')} ·{' '}
+                      {row.last_submission_status
+                        ? (STATUS_LABEL[row.last_submission_status] ?? row.last_submission_status)
+                        : '—'}
+                    </span>
+                  )}
+                </div>
+              </ModuleSectionCard>
+            )
+          })}
         </div>
-        {(Object.keys(KIND_META) as IntegrationKind[]).map((kind) => (
-          <IntegrationCard
-            key={kind}
-            kind={kind}
-            row={rows[kind]}
-            onChanged={refresh}
-          />
-        ))}
       </div>
     </ModulePageShell>
-  )
-}
-
-function IntegrationCard({
-  kind,
-  row,
-  onChanged,
-}: {
-  kind: IntegrationKind
-  row: IntegrationRow | null
-  onChanged: () => void
-}) {
-  const { supabase, organization } = useOrgSetupContext()
-  const meta = KIND_META[kind]
-  const [environment, setEnvironment] = useState(row?.environment ?? 'tt02')
-  const [enabled, setEnabled] = useState(row?.enabled ?? false)
-  const [clientId, setClientId] = useState(row?.config?.client_id ?? '')
-  const [kid, setKid] = useState(row?.config?.kid ?? '')
-  const [scope, setScope] = useState(row?.config?.scope ?? meta.defaultScope)
-  const [privateKeyPem, setPrivateKeyPem] = useState('')
-  const [submissionEmail, setSubmissionEmail] = useState(row?.config?.submission_email ?? '')
-  const [saving, setSaving] = useState(false)
-  const [saved, setSaved] = useState(false)
-
-  const save = async () => {
-    if (!supabase || !organization) return
-    setSaving(true)
-    setSaved(false)
-    try {
-      const config: Record<string, string> = {
-        client_id: clientId,
-        kid,
-        scope: scope || meta.defaultScope,
-      }
-      if (kind === 'datatilsynet' && submissionEmail) config.submission_email = submissionEmail
-      const { error: upErr } = await supabase
-        .from('org_integrations')
-        .upsert(
-          {
-            organization_id: organization.id,
-            kind,
-            environment,
-            enabled,
-            config,
-            requires_external_activation: true,
-          },
-          { onConflict: 'organization_id,kind' },
-        )
-      if (upErr) throw upErr
-
-      if (privateKeyPem.trim()) {
-        const { error: vErr } = await supabase.rpc('workflow_set_vault_secret', {
-          p_organization_id: organization.id,
-          p_kind: kind,
-          p_secret_value: privateKeyPem.trim(),
-        })
-        if (vErr) throw vErr
-        setPrivateKeyPem('')
-      }
-      setSaved(true)
-      onChanged()
-    } catch (err) {
-      console.error(err)
-    } finally {
-      setSaving(false)
-    }
-  }
-
-  return (
-    <details className="rounded-xl border border-neutral-200 bg-white" open={enabled || !!row}>
-      <summary className="flex cursor-pointer items-center justify-between px-4 py-3">
-        <div>
-          <div className="flex items-center gap-2 font-medium text-neutral-900">
-            {meta.title}
-            {row?.enabled ? (
-              <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2 py-0.5 text-[11px] text-emerald-800">
-                <CheckCircle2 className="h-3 w-3" /> {row.environment.toUpperCase()}
-              </span>
-            ) : (
-              <span className="rounded-full bg-neutral-100 px-2 py-0.5 text-[11px] text-neutral-600">
-                Ikke aktivert
-              </span>
-            )}
-          </div>
-          <p className="text-xs text-neutral-500">{meta.description}</p>
-          {meta.lawRef && <p className="mt-0.5 text-[11px] text-neutral-500">{meta.lawRef}</p>}
-        </div>
-        <div className="text-right text-xs text-neutral-500">
-          {row?.last_submission_at && (
-            <span>
-              Sist: {new Date(row.last_submission_at).toLocaleString('nb-NO')} ·{' '}
-              {row.last_submission_status ?? '—'}
-            </span>
-          )}
-        </div>
-      </summary>
-      <div className="space-y-3 border-t border-neutral-100 p-4">
-        <div className="grid grid-cols-2 gap-3">
-          <label className="block text-xs font-medium text-neutral-700">
-            Miljø
-            <select
-              value={environment}
-              onChange={(e) => setEnvironment(e.target.value as 'tt02' | 'prod')}
-              className="mt-1 w-full rounded-md border border-neutral-300 px-2 py-1 text-sm"
-            >
-              <option value="tt02">TT02 (sandbox)</option>
-              <option value="prod">Produksjon</option>
-            </select>
-          </label>
-          <label className="flex items-center gap-2 text-xs font-medium text-neutral-700">
-            <input type="checkbox" checked={enabled} onChange={(e) => setEnabled(e.target.checked)} />
-            Aktivert
-          </label>
-        </div>
-        <label className="block text-xs font-medium text-neutral-700">
-          Klient-ID (Maskinporten)
-          <input
-            value={clientId}
-            onChange={(e) => setClientId(e.target.value)}
-            placeholder="f.eks. 0a4b3e2d-1234-…"
-            className="mt-1 w-full rounded-md border border-neutral-300 px-2 py-1 text-sm font-mono"
-          />
-        </label>
-        <label className="block text-xs font-medium text-neutral-700">
-          kid (JWK key id)
-          <input
-            value={kid}
-            onChange={(e) => setKid(e.target.value)}
-            placeholder="signing-key-2026-01"
-            className="mt-1 w-full rounded-md border border-neutral-300 px-2 py-1 text-sm font-mono"
-          />
-        </label>
-        <label className="block text-xs font-medium text-neutral-700">
-          Maskinporten-scope
-          <input
-            value={scope}
-            onChange={(e) => setScope(e.target.value)}
-            placeholder={meta.defaultScope}
-            className="mt-1 w-full rounded-md border border-neutral-300 px-2 py-1 text-sm font-mono"
-          />
-        </label>
-        {kind === 'datatilsynet' && (
-          <label className="block text-xs font-medium text-neutral-700">
-            Innsendings-epost (Datatilsynet)
-            <input
-              value={submissionEmail}
-              onChange={(e) => setSubmissionEmail(e.target.value)}
-              placeholder="postkasse@datatilsynet.no"
-              className="mt-1 w-full rounded-md border border-neutral-300 px-2 py-1 text-sm"
-            />
-          </label>
-        )}
-        <label className="block text-xs font-medium text-neutral-700">
-          <Lock className="mr-1 inline h-3 w-3" /> Privatnøkkel (PEM PKCS#8) — lagres kryptert i Vault
-          <textarea
-            value={privateKeyPem}
-            onChange={(e) => setPrivateKeyPem(e.target.value)}
-            placeholder={row?.vault_secret_name ? '(lagret — fyll inn for å overskrive)' : '-----BEGIN PRIVATE KEY-----\n…'}
-            rows={5}
-            className="mt-1 w-full rounded-md border border-neutral-300 px-2 py-1 font-mono text-xs"
-          />
-          {row?.vault_secret_name && (
-            <p className="mt-1 text-[11px] text-neutral-500">
-              Vault: <code>{row.vault_secret_name}</code>
-            </p>
-          )}
-        </label>
-        <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={save}
-            disabled={saving}
-            className="inline-flex items-center gap-1 rounded-md bg-emerald-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-emerald-700 disabled:opacity-50"
-          >
-            <Save className="h-4 w-4" /> {saving ? 'Lagrer …' : 'Lagre'}
-          </button>
-          <button
-            type="button"
-            onClick={onChanged}
-            className="inline-flex items-center gap-1 rounded-md border border-neutral-300 bg-white px-3 py-1.5 text-sm font-medium text-neutral-700 hover:bg-neutral-50"
-          >
-            <RefreshCw className="h-4 w-4" /> Oppdater
-          </button>
-          {saved && <span className="text-xs text-emerald-700">Lagret.</span>}
-        </div>
-      </div>
-    </details>
   )
 }
 

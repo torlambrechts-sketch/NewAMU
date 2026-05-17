@@ -13,6 +13,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Check, ChevronDown, Lock, Pencil, Pin, Plus, Trash2, Users } from 'lucide-react'
 import type { DashboardLayoutRow } from '../../../lib/dashboards/useDashboardLayout'
+import { Button } from '../../ui/Button'
+import { StandardInput } from '../../ui/Input'
 
 type SaveAsOptions = {
   name: string
@@ -158,11 +160,11 @@ export function DashboardChooser({
     // children via inline style. Without this reset the dropdown reads
     // in serif while every other UI dropdown is Inter sans.
     <div ref={containerRef} className="relative inline-block font-sans">
-      <button
-        type="button"
+      <Button
+        variant="ghost"
         onClick={() => setOpen((o) => !o)}
         className={
-          'inline-flex items-center gap-2 border bg-white px-3 py-2.5 text-sm text-neutral-900 outline-none transition-colors ' +
+          'inline-flex items-center gap-2 rounded-none border bg-white px-3 py-2.5 text-sm font-normal text-neutral-900 outline-none transition-colors hover:bg-neutral-50 ' +
           (open
             ? 'border-[#1a3d32] ring-1 ring-[#1a3d32]/25'
             : 'border-neutral-300 hover:border-neutral-400')
@@ -180,7 +182,7 @@ export function DashboardChooser({
           }
           aria-hidden
         />
-      </button>
+      </Button>
 
       {open ? (
         <div
@@ -269,7 +271,7 @@ export function DashboardChooser({
                     : 'Lagre som ny delt visning'
                   : 'Gi nytt navn'}
               </p>
-              <input
+              <StandardInput
                 autoFocus
                 type="text"
                 value={draftName}
@@ -284,23 +286,25 @@ export function DashboardChooser({
                 placeholder="Navn på visningen"
               />
               <div className="flex justify-end gap-2 pt-1">
-                <button
-                  type="button"
+                <Button
+                  variant="ghost"
+                  size="sm"
                   onClick={cancelSubmode}
                   disabled={submitting}
                   className="rounded-md px-2 py-1 text-xs text-neutral-600 hover:bg-neutral-100"
                 >
                   Avbryt
-                </button>
-                <button
-                  type="button"
+                </Button>
+                <Button
+                  variant="primary"
+                  size="sm"
                   onClick={() => void submitSubmode()}
                   disabled={submitting || draftName.trim().length === 0}
                   className="inline-flex items-center gap-1 rounded-md bg-[#1a3d32] px-2 py-1 text-xs font-medium text-white disabled:opacity-50"
                 >
                   <Check className="h-3.5 w-3.5" aria-hidden />
                   {submitting ? 'Lagrer …' : 'Lagre'}
-                </button>
+                </Button>
               </div>
             </div>
           )}
@@ -336,13 +340,13 @@ function RowGroup({
           const isActive = r.id === activeId
           return (
             <li key={r.id}>
-              <button
-                type="button"
+              <Button
+                variant="ghost"
                 role="option"
                 aria-selected={isActive}
                 onClick={() => onSelect(r.id)}
                 className={
-                  'flex w-full items-center justify-between gap-2 border-l-2 px-3 py-2.5 text-left text-sm transition-colors hover:bg-neutral-50 ' +
+                  'flex w-full items-center justify-between gap-2 rounded-none border-l-2 px-3 py-2.5 text-left text-sm font-normal transition-colors hover:bg-neutral-50 ' +
                   (isActive
                     ? 'border-[#1a3d32] bg-neutral-100 font-medium text-neutral-900'
                     : 'border-transparent text-neutral-800')
@@ -353,7 +357,7 @@ function RowGroup({
                   {r.is_default ? <Pin className="h-3 w-3" aria-label="Standard" /> : null}
                   {isActive ? <Check className="h-3.5 w-3.5 text-[#1a3d32]" /> : null}
                 </span>
-              </button>
+              </Button>
             </li>
           )
         })}
@@ -374,11 +378,11 @@ function ActionRow({
   destructive?: boolean
 }) {
   return (
-    <button
-      type="button"
+    <Button
+      variant="ghost"
       onClick={onClick}
       className={
-        'flex w-full items-center gap-2 border-l-2 border-transparent px-3 py-2.5 text-left text-sm transition-colors hover:bg-neutral-50 ' +
+        'flex w-full items-center gap-2 rounded-none border-l-2 border-transparent px-3 py-2.5 text-left text-sm font-normal transition-colors hover:bg-neutral-50 ' +
         (destructive ? 'text-red-700 hover:bg-red-50' : 'text-neutral-700')
       }
     >
@@ -386,6 +390,6 @@ function ActionRow({
         {icon}
       </span>
       {label}
-    </button>
+    </Button>
   )
 }

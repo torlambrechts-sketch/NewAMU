@@ -166,6 +166,7 @@ export function DocumentsSettingsImportEksport() {
               <span className="mb-1 block text-xs font-medium text-neutral-500">Målmappe for import</span>
               <SearchableSelect value={importPageSpaceId} options={spaceOptions} onChange={setImportPageSpaceId} disabled={spaceOptions.length === 0 || jsonBusy} />
             </div>
+            {/* eslint-disable-next-line no-restricted-syntax -- hidden native file picker; no primitive exists */}
             <input ref={pageImportRef} type="file" accept="application/json,.json" className="sr-only" onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ''; if (f) void handleImportPage(f) }} />
             <Button type="button" variant="primary" icon={<Upload className="h-4 w-4" aria-hidden />} disabled={jsonBusy || spaceOptions.length === 0} onClick={() => pageImportRef.current?.click()}>
               Last opp dokument-JSON
@@ -182,6 +183,7 @@ export function DocumentsSettingsImportEksport() {
             <Button type="button" variant="secondary" icon={<Download className="h-4 w-4" aria-hidden />} disabled={jsonBusy || templateExportOptions.length === 0} onClick={() => handleExportTemplate()}>
               Last ned mal-JSON
             </Button>
+            {/* eslint-disable-next-line no-restricted-syntax -- hidden native file picker; no primitive exists */}
             <input ref={templateImportRef} type="file" accept="application/json,.json" className="sr-only" onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ''; if (f) void handleImportTemplate(f) }} />
             <Button type="button" variant="primary" icon={<Upload className="h-4 w-4" aria-hidden />} disabled={jsonBusy} onClick={() => templateImportRef.current?.click()}>
               {jsonBusy ? <><Loader2 className="h-4 w-4 animate-spin" aria-hidden />Importerer…</> : <>Last opp mal-JSON</>}

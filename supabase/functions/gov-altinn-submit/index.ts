@@ -10,6 +10,11 @@
  * Per-skjema TT02 sandbox availability varies — the activation wizard
  * MUST verify TT02 works for the requested skjema before flipping
  * environment=prod. We don't sanity-check it here at submission time.
+ *
+ * _127600: respects per-rule runtime_environment. When payload.runtime
+ * _environment === 'test' we force TT02 regardless of the org-level
+ * integration status (defence-in-depth — the canvas UI promotion guard
+ * is the primary control, but the edge fn must not trust it alone).
  */
 import {
   getMaskinportenAccessToken,
@@ -48,11 +53,16 @@ Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
   if (req.method !== 'POST') return json({ ok: false, error: 'method_not_allowed' }, 405)
 
-  let body: CommonRequestBody
+  let body: CommonRequestBody & { dryRun?: boolean }
   try {
-    body = (await req.json()) as CommonRequestBody
+    body = (await req.json()) as CommonRequestBody & { dryRun?: boolean }
   } catch {
     return json({ ok: false, error: 'invalid_body' }, 400)
+  }
+  // Short-circuit for setup-wizard "Test forbindelsen". No regulator call,
+  // no evidence write — we just confirm the function is wired up.
+  if (body.dryRun === true) {
+    return json({ ok: true, mode: 'dry-run', detail: 'altinn-submit reachable' })
   }
   const { organization_id, rule_id, run_id, payload } = body
   if (!organization_id || !rule_id || !run_id || !payload) {
@@ -77,7 +87,14 @@ Deno.serve(async (req) => {
     return json({ ok: false, error: 'integration_not_enabled' }, 400)
   }
 
-  const environment = (integration.environment as MaskinportenEnv) ?? 'tt02'
+  // _127600: per-rule runtime_environment overrides org_integrations.status.
+  // When the rule is 'test' we force TT02 endpoints regardless of how the
+  // integration row is configured. Default 'test' if missing (defence-in-
+  // depth — a missing field must never accidentally hit production).
+  const ruleRuntimeEnv: 'test' | 'prod' =
+    (payload as Record<string, unknown>).runtime_environment === 'prod' ? 'prod' : 'test'
+  const orgEnv = (integration.environment as MaskinportenEnv) ?? 'tt02'
+  const environment: MaskinportenEnv = ruleRuntimeEnv === 'test' ? 'tt02' : orgEnv
   const config = (integration.config as Record<string, string> | null) ?? {}
   const clientId = config.client_id
   if (!clientId) return json({ ok: false, error: 'missing_client_id_in_config' }, 400)
@@ -158,7 +175,14 @@ Deno.serve(async (req) => {
       fileNameSuffix: `altinn-${p.skjema}-submission.json`,
       lawRefs: [],
       frameworks: [],
-      metadata: { environment, idempotencyKey, tjeneste: p.tjeneste, skjema: p.skjema },
+      metadata: {
+        environment,
+        ruleRuntimeEnv,
+        orgEnv,
+        idempotencyKey,
+        tjeneste: p.tjeneste,
+        skjema: p.skjema,
+      },
     })
     const receiptEv = await recordRegulatorEvidence(supabase, {
       runId: run_id,
@@ -170,7 +194,15 @@ Deno.serve(async (req) => {
       fileNameSuffix: `altinn-${p.skjema}-receipt.json`,
       lawRefs: [],
       frameworks: [],
-      metadata: { environment, status, regulator: 'altinn', tjeneste: p.tjeneste, skjema: p.skjema },
+      metadata: {
+        environment,
+        ruleRuntimeEnv,
+        orgEnv,
+        status,
+        regulator: 'altinn',
+        tjeneste: p.tjeneste,
+        skjema: p.skjema,
+      },
     })
 
     await supabase

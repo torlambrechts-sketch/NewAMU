@@ -1,16 +1,11 @@
-/**
- * Edge wrapper for public.public_alert_status — implements §4.1 T4
- * brute-force rate limit. Hashes the client IP with a daily salt and
- * calls alerts_record_status_attempt(hash); rejects with 429 if attempts
- * in the current hour-window exceed the cap.
- *
- * Daily salt rotates at UTC midnight. The hash is irreversible without
- * knowing the salt; only the daily salt is in the function memory.
- *
- * IP header scrubbing per §4.1 T3: we read cf-connecting-ip ONCE for the
- * hash and never forward it downstream. Supabase log retention for this
- * function should be 0 days (operational concern, deploy-time config).
- */
+// Edge wrapper for public.public_alert_status — implements §4.1 T4
+// brute-force rate limit.
+//
+// Salt is deterministic per-day: sha256(ALERT_THROTTLE_SECRET + YYYY-MM-DD).
+// This avoids the per-instance-memory cold-start problem (the prior
+// implementation generated a UUID per Deno instance, which an attacker
+// could defeat by triggering cold starts until each got their own salt).
+// The secret stays in env; only the hash reaches the throttle table.
 
 const corsHeaders: Record<string, string> = {
   'Access-Control-Allow-Origin': '*',
@@ -18,29 +13,28 @@ const corsHeaders: Record<string, string> = {
 }
 
 const HOURLY_CAP = 10
-let cachedSalt: { day: string; value: string } | null = null
-
-function dailySalt(): string {
-  const day = new Date().toISOString().slice(0, 10)
-  if (cachedSalt && cachedSalt.day === day) return cachedSalt.value
-  const value = crypto.randomUUID()
-  cachedSalt = { day, value }
-  return value
-}
-
-async function hashIp(ip: string): Promise<string> {
-  const data = new TextEncoder().encode(ip + ':' + dailySalt())
-  const digest = await crypto.subtle.digest('SHA-256', data)
-  return Array.from(new Uint8Array(digest))
-    .map((b) => b.toString(16).padStart(2, '0'))
-    .join('')
-}
 
 function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
     status,
     headers: { ...corsHeaders, 'Content-Type': 'application/json' },
   })
+}
+
+async function sha256Hex(input: string): Promise<string> {
+  const data = new TextEncoder().encode(input)
+  const digest = await crypto.subtle.digest('SHA-256', data)
+  return Array.from(new Uint8Array(digest))
+    .map((b) => b.toString(16).padStart(2, '0'))
+    .join('')
+}
+
+async function hashIp(ip: string): Promise<string> {
+  const day = new Date().toISOString().slice(0, 10)
+  const secret =
+    Deno.env.get('ALERT_THROTTLE_SECRET') ?? Deno.env.get('SUPABASE_URL') ?? 'unconfigured'
+  const saltHash = await sha256Hex(`${secret}|${day}`)
+  return sha256Hex(`${ip}::${saltHash}`)
 }
 
 Deno.serve(async (req) => {
@@ -62,31 +56,18 @@ Deno.serve(async (req) => {
   const SERVICE_ROLE = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
   if (!SUPABASE_URL || !SERVICE_ROLE) return json({ ok: false, error: 'misconfigured' }, 500)
 
-  // Throttle check via service_role
   const throttleRes = await fetch(`${SUPABASE_URL}/rest/v1/rpc/alerts_record_status_attempt`, {
     method: 'POST',
-    headers: {
-      apikey: SERVICE_ROLE,
-      authorization: `Bearer ${SERVICE_ROLE}`,
-      'content-type': 'application/json',
-    },
+    headers: { apikey: SERVICE_ROLE, authorization: `Bearer ${SERVICE_ROLE}`, 'content-type': 'application/json' },
     body: JSON.stringify({ p_ip_hash: ipHash }),
   })
   if (!throttleRes.ok) return json({ ok: false, error: 'throttle_error' }, 500)
   const attempts = (await throttleRes.json()) as number
-  if (attempts > HOURLY_CAP) {
-    return json({ ok: false, error: 'too_many_attempts', retryAfterSec: 3600 }, 429)
-  }
+  if (attempts > HOURLY_CAP) return json({ ok: false, error: 'too_many_attempts', retryAfterSec: 3600 }, 429)
 
-  // Forward to public_alert_status. Use service_role so we don't expose
-  // the caller's auth (anonymous lookup).
   const statusRes = await fetch(`${SUPABASE_URL}/rest/v1/rpc/public_alert_status`, {
     method: 'POST',
-    headers: {
-      apikey: SERVICE_ROLE,
-      authorization: `Bearer ${SERVICE_ROLE}`,
-      'content-type': 'application/json',
-    },
+    headers: { apikey: SERVICE_ROLE, authorization: `Bearer ${SERVICE_ROLE}`, 'content-type': 'application/json' },
     body: JSON.stringify({ p_access_key: body.accessKey }),
   })
   const data = await statusRes.json()

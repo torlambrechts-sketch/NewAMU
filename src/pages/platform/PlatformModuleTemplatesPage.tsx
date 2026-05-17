@@ -17,8 +17,6 @@ import {
   Database, GripVertical, LayoutList,
   ListTodo, Plus, Save, Settings, Trash2, Zap,
 } from 'lucide-react'
-import { ModuleTemplateWorkflowRulesEditor } from '../../components/workflow/ModuleTemplateWorkflowRulesEditor'
-import { createNewWorkflowRule } from '../../components/workflow/workflowRuleFactory'
 import { useModuleTemplate } from '../../hooks/useModuleTemplate'
 import { defaultInspeksjonsrunderTemplate } from '../../types/moduleTemplate'
 import type {
@@ -431,29 +429,24 @@ export function PlatformModuleTemplatesPage() {
             {/* ── Workflow rules ────────────────────────────────────────── */}
             {activeTab === 'workflow' && (
               <div className="space-y-4">
-                <SectionH
-                  action={
-                    <button
-                      type="button"
-                      className={BTN_GHOST}
-                      onClick={() => {
-                        patch({
-                          workflowRules: [...draft.workflowRules, createNewWorkflowRule(draft.workflowRules.length)],
-                        })
-                      }}
-                    >
-                      <Plus className="size-3.5" /> Legg til regel
-                    </button>
-                  }
-                >
-                  Automatiseringsregler
-                </SectionH>
-                <ModuleTemplateWorkflowRulesEditor
-                  rules={draft.workflowRules}
-                  onChange={(next) => patch({ workflowRules: next })}
-                  variant="platformAdmin"
-                  hideToolbar
-                />
+                <SectionH>Automatiseringsregler</SectionH>
+                <div className="rounded-xl border border-white/10 bg-slate-800/60 p-5 text-sm text-neutral-200">
+                  <p className="mb-3 leading-relaxed">
+                    Arbeidsflyt-regler administreres nå sentralt under{' '}
+                    <strong>Automatisering</strong>. Klikk for å åpne den pre-filtrerte
+                    visningen for denne modulen.
+                  </p>
+                  <p className="mb-4 text-xs text-neutral-400">
+                    Antall regler i utkastet: <strong>{draft.workflowRules.length}</strong>
+                  </p>
+                  <Link
+                    to={`/workflow?source_module=${encodeURIComponent(draft.moduleKey)}`}
+                    className={BTN_PRIMARY}
+                  >
+                    <Zap className="size-3.5" />
+                    Åpne arbeidsflyt-bygger
+                  </Link>
+                </div>
               </div>
             )}
 

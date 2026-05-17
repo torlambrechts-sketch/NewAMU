@@ -2,6 +2,9 @@
 // Used for metadata fields of kind='person' (involvert, melder, verifikator, etc.)
 
 import { useEffect, useRef, useState } from 'react'
+import { Button } from '../../../src/components/ui/Button'
+import { StandardInput } from '../../../src/components/ui/Input'
+import { SearchableSelect } from '../../../src/components/ui/SearchableSelect'
 import type { AssignableUser } from '../../../src/hooks/useAssignableUsers'
 
 type Props = {
@@ -21,8 +24,7 @@ export function PersonSelect({ value, onChange, users, placeholder = 'Velg perso
     if (showingFree) freeRef.current?.focus()
   }, [showingFree])
 
-  const handleSelect = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const v = e.target.value
+  const handleSelect = (v: string) => {
     if (v === '__other__') {
       setShowingFree(true)
       onChange(freeText)
@@ -35,36 +37,33 @@ export function PersonSelect({ value, onChange, users, placeholder = 'Velg perso
   if (showingFree) {
     return (
       <div className="flex gap-1.5">
-        <input
+        <StandardInput
           ref={freeRef}
-          type="text"
           value={freeText}
           onChange={(e) => { setFreeText(e.target.value); onChange(e.target.value) }}
           placeholder="Skriv navn…"
-          className="flex-1 rounded border border-neutral-300 bg-white px-3 py-2.5 text-sm text-neutral-900 placeholder:text-neutral-400 focus:border-[#c2410c] focus:outline-none focus:ring-1 focus:ring-[#c2410c]/20"
+          className="flex-1 focus:border-[#c2410c] focus:ring-[#c2410c]/20"
         />
-        <button
-          type="button"
+        <Button
+          size="sm"
+          variant="secondary"
           onClick={() => { setShowingFree(false); onChange(''); setFreeText('') }}
-          className="rounded border border-neutral-200 px-2.5 py-1 text-xs text-neutral-500 hover:bg-neutral-50"
         >
           Tilbake
-        </button>
+        </Button>
       </div>
     )
   }
 
   return (
-    <select
+    <SearchableSelect
       value={value}
+      options={[
+        { value: '', label: placeholder },
+        ...users.map((u) => ({ value: u.displayName, label: u.displayName })),
+        { value: '__other__', label: 'Annet / skriv inn navn…' },
+      ]}
       onChange={handleSelect}
-      className="w-full rounded border border-neutral-300 bg-white px-3 py-2.5 text-sm text-neutral-900 focus:border-[#c2410c] focus:outline-none focus:ring-1 focus:ring-[#c2410c]/20"
-    >
-      <option value="">{placeholder}</option>
-      {users.map((u) => (
-        <option key={u.id} value={u.displayName}>{u.displayName}</option>
-      ))}
-      <option value="__other__">Annet / skriv inn navn…</option>
-    </select>
+    />
   )
 }

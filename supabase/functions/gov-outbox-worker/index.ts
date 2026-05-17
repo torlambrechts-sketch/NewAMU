@@ -1,8 +1,15 @@
 /**
  * gov-outbox-worker — drains gov_notifications_outbox rows of kinds
  * that need external delivery:
- *   * datatilsynet_breach  — emails the signed manifest to the org's
- *                            configured submission_email.
+ *   * datatilsynet_breach  — LEGACY kind from the SendGrid era. Now
+ *                            treated identically to
+ *                            manual_datatilsynet_submission: flagged
+ *                            awaiting_human so an admin can file the
+ *                            report manually via the Datatilsynet web
+ *                            form. SendGrid was removed (GDPR Art. 44
+ *                            / Schrems-II — no US relay for regulator
+ *                            notifications).
+ *   * manual_datatilsynet_submission — same handling: awaiting_human.
  *   * nav_sykefravar_outbox — POSTs the queued NAV payload to Altinn
  *                            via gov-altinn-submit (the worker IS the
  *                            DSOP transport).
@@ -13,12 +20,6 @@
  * supabase/migrations/_20260905121800_gov_outbox_cron.sql). Marks the
  * gov_notifications_outbox row resolved_at=now on success; on failure
  * increments a retry counter in the payload.
- *
- * Email transport: we use Supabase's hosted SMTP relay via the
- * built-in send_email RPC when present; otherwise pass the message to
- * Postmark / SendGrid via the same env vars an admin would set for
- * other notifications. For TT02 testing we accept a debug env var
- * GOV_OUTBOX_TEST_RELAY which short-circuits to logging only.
  */
 import { createClient, SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2.49.1'
 
@@ -38,64 +39,46 @@ const BATCH_SIZE = 25
 type OutboxRow = {
   id: string
   organization_id: string
-  kind: 'datatilsynet_breach' | 'nav_sykefravar_outbox' | 'ldo_export_pending'
+  kind:
+    | 'datatilsynet_breach'
+    | 'manual_datatilsynet_submission'
+    | 'manual_arbeidstilsynet_submission'
+    | 'manual_ldo_export'
+    | 'nav_sykefravar_outbox'
+    | 'ldo_export_pending'
   payload: Record<string, unknown>
   resolved_at: string | null
   retry_count?: number
 }
 
-async function sendDatatilsynetEmail(supabase: SupabaseClient, row: OutboxRow): Promise<{ ok: boolean; error?: string }> {
-  const payload = row.payload as { to?: string; subject?: string; body?: string }
-  if (!payload.to || !payload.body) return { ok: false, error: 'missing_email_payload' }
-
-  // If a SENDGRID_API_KEY is configured, use it. Otherwise fall back
-  // to logging into the existing notifications row so a human can pick
-  // it up via the admin inbox — this avoids silent drops.
-  const sendgridKey = Deno.env.get('SENDGRID_API_KEY')
-  const testRelay = Deno.env.get('GOV_OUTBOX_TEST_RELAY')
-
-  if (testRelay) {
-    console.log('[gov-outbox-worker] TEST_RELAY active — would send to', payload.to)
+async function flagAwaitingHuman(
+  supabase: SupabaseClient,
+  row: OutboxRow,
+): Promise<{ ok: boolean; error?: string }> {
+  // Datatilsynet rows never auto-send. Mark them awaiting_human in the
+  // payload so the admin UI (out of scope for this PR) can surface
+  // them. We deliberately do NOT set resolved_at — a human must close
+  // the row once they have a Datatilsynet reference number.
+  const existingPayload = (row.payload ?? {}) as Record<string, unknown>
+  if (existingPayload.status === 'awaiting_human') {
     return { ok: true }
   }
-
-  if (sendgridKey) {
-    try {
-      const res = await fetch('https://api.sendgrid.com/v3/mail/send', {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${sendgridKey}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          personalizations: [{ to: [{ email: payload.to }] }],
-          from: { email: Deno.env.get('SENDGRID_FROM') ?? 'noreply@newamu.app' },
-          subject: payload.subject ?? 'Personvernbrudd-melding',
-          content: [{ type: 'application/json', value: payload.body }],
-        }),
-      })
-      if (!res.ok) {
-        const detail = await res.text().catch(() => '')
-        return { ok: false, error: `sendgrid_${res.status}:${detail.slice(0, 200)}` }
-      }
-      return { ok: true }
-    } catch (err) {
-      return { ok: false, error: `sendgrid_unreachable:${(err as Error).message}` }
-    }
-  }
-
-  // No transport configured — flag as manual_send_required so an admin
-  // can act. Insert a follow-up gov_notifications_outbox row.
-  await supabase.from('gov_notifications_outbox').insert({
-    organization_id: row.organization_id,
-    kind: 'datatilsynet_manual_send_required',
-    payload: row.payload,
-  })
-  return { ok: false, error: 'no_email_transport_configured' }
+  const { error } = await supabase
+    .from('gov_notifications_outbox')
+    .update({
+      payload: {
+        ...existingPayload,
+        status: 'awaiting_human',
+        awaiting_human_since: new Date().toISOString(),
+      },
+    })
+    .eq('id', row.id)
+  if (error) return { ok: false, error: `flag_failed:${error.message}` }
+  return { ok: true }
 }
 
 async function sendNavViaAltinn(
-  supabase: SupabaseClient,
+  _supabase: SupabaseClient,
   row: OutboxRow,
   supabaseUrl: string,
   serviceKey: string,
@@ -184,31 +167,51 @@ Deno.serve(async (req) => {
   const { data: rows, error: selErr } = await supabase
     .from('gov_notifications_outbox')
     .select('id, organization_id, kind, payload, resolved_at')
-    .in('kind', ['datatilsynet_breach', 'nav_sykefravar_outbox', 'ldo_export_pending'])
+    .in('kind', [
+      'datatilsynet_breach',
+      'manual_datatilsynet_submission',
+      'manual_arbeidstilsynet_submission',
+      'manual_ldo_export',
+      'nav_sykefravar_outbox',
+      'ldo_export_pending',
+    ])
     .is('resolved_at', null)
     .order('created_at', { ascending: true })
     .limit(BATCH_SIZE)
   if (selErr) return json({ ok: false, error: 'lease_failed', detail: selErr.message }, 500)
 
   const queue = (rows ?? []) as OutboxRow[]
-  const results: Array<{ id: string; kind: string; ok: boolean; error?: string }> = []
+  const results: Array<{ id: string; kind: string; ok: boolean; error?: string; status?: string }> = []
 
   for (const row of queue) {
     let result: { ok: boolean; error?: string }
-    if (row.kind === 'datatilsynet_breach') {
-      result = await sendDatatilsynetEmail(supabase, row)
+    let status: string | undefined
+    if (
+      row.kind === 'datatilsynet_breach' ||
+      row.kind === 'manual_datatilsynet_submission' ||
+      row.kind === 'manual_arbeidstilsynet_submission' ||
+      row.kind === 'manual_ldo_export'
+    ) {
+      // No auto-send: flag awaiting_human. SendGrid is gone, and the
+      // LDO-export-pointer flow (generateLdoExportPointer below) still
+      // requires a separate review pass — for the new manual_* kinds we
+      // therefore leave them parked in the admin inbox rather than
+      // auto-generating an evidence pack that nobody has signed off.
+      result = await flagAwaitingHuman(supabase, row)
+      status = 'awaiting_human'
     } else if (row.kind === 'nav_sykefravar_outbox') {
       result = await sendNavViaAltinn(supabase, row, SUPABASE_URL, SERVICE_ROLE)
     } else {
+      // ldo_export_pending — the legacy pre-review LDO export path.
       result = await generateLdoExportPointer(supabase, row, SUPABASE_URL, SERVICE_ROLE)
     }
-    if (result.ok) {
+    if (result.ok && status !== 'awaiting_human') {
       await supabase
         .from('gov_notifications_outbox')
         .update({ resolved_at: new Date().toISOString() })
         .eq('id', row.id)
     }
-    results.push({ id: row.id, kind: row.kind, ok: result.ok, error: result.error })
+    results.push({ id: row.id, kind: row.kind, ok: result.ok, error: result.error, status })
   }
 
   return json({ ok: true, processed: results.length, results })

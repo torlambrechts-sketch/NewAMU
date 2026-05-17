@@ -35,7 +35,7 @@ export function TaskProjectCard({ item, onClick, onDragStart }: Props) {
   return (
     <div
       onClick={onClick}
-      className="group relative cursor-pointer rounded-lg border border-neutral-200 bg-white p-3 pl-7 shadow-sm transition hover:border-[#c2410c]/30 hover:shadow-md select-none"
+      className="group relative cursor-pointer rounded-lg border border-neutral-200/80 bg-white p-4 pl-7 shadow-sm transition hover:border-[#c2410c]/30 hover:shadow-md select-none"
     >
       {/* Drag handle — draggable region only */}
       <div

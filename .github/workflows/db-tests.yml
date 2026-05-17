@@ -1,0 +1,30 @@
+# Run pgTAP database tests against a fresh Supabase local stack.
+#
+# The suite asserts function-level + RLS invariants that the application
+# code relies on (workflow_record_evidence org guard, workflow_cron_tick
+# soft-delete filter, dual-approver activation, confidentiality strict
+# gate, workflow_action_queue depth cap). Companion to edge-functions.yml
+# — that one covers pure Deno helpers, this one covers the DB layer.
+
+name: db-tests
+
+on: [push, pull_request]
+
+jobs:
+  pgtap:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Supabase CLI
+        uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      - name: Start local Supabase stack
+        run: supabase start
+
+      - name: Run pgTAP suite
+        run: bash supabase/tests/run.sh
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:54322/postgres

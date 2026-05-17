@@ -1,5 +1,8 @@
 import { useCallback, useMemo, useState } from 'react'
 import { GripVertical, Search, Trash2 } from 'lucide-react'
+import { Button } from '../ui/Button'
+import { StandardInput } from '../ui/Input'
+import { SearchableSelect } from '../ui/SearchableSelect'
 import type { ReportModule, ReportModuleKind } from '../../types/reportBuilder'
 import {
   BAR_SERIES_PRESETS,
@@ -79,7 +82,7 @@ export function ReportModuleDesigner({ modules, onModulesChange }: Props) {
         </p>
         <div className="relative mt-3">
           <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-neutral-400" />
-          <input
+          <StandardInput
             value={moduleSearch}
             onChange={(e) => setModuleSearch(e.target.value)}
             placeholder="Søk i moduler…"
@@ -93,14 +96,15 @@ export function ReportModuleDesigner({ modules, onModulesChange }: Props) {
         ) : null}
         <div className="mt-3 flex flex-wrap gap-2">
           {(['kpi', 'table', 'bar', 'donut'] as const).map((k) => (
-            <button
+            <Button
               key={k}
-              type="button"
+              size="sm"
+              variant="secondary"
               onClick={() => addModuleKind(k)}
-              className={`${R_FLAT} border border-neutral-300 bg-white px-2 py-1 text-[10px] font-bold uppercase tracking-wide text-neutral-700 hover:bg-neutral-50`}
+              className={`${R_FLAT} px-2 py-1 text-[10px] uppercase tracking-wide`}
             >
               + {k}
-            </button>
+            </Button>
           ))}
         </div>
       </div>
@@ -161,19 +165,20 @@ export function ReportModuleDesigner({ modules, onModulesChange }: Props) {
                   <GripVertical className="size-4" aria-hidden />
                 </div>
                 <div className="min-w-0 flex-1 space-y-2">
-                  <input
+                  <StandardInput
                     value={m.title}
                     onChange={(e) => updateModule(m.id, { title: e.target.value })}
-                    className="w-full rounded-none border border-neutral-200 px-2 py-1 text-sm font-medium"
+                    className="rounded-none px-2 py-1 text-sm font-medium"
                   />
                   <div className="flex flex-wrap gap-1">
                     <span className="text-[10px] font-bold uppercase text-neutral-500">{m.kind}</span>
                   </div>
                   <label className={SETTINGS_FIELD_LABEL}>Datasett</label>
-                  <select
+                  <SearchableSelect
                     value={m.datasetKey}
-                    onChange={(e) => {
-                      const dk = e.target.value as ReportModule['datasetKey']
+                    options={DATASET_OPTIONS.map((o) => ({ value: o.value, label: o.label }))}
+                    onChange={(v) => {
+                      const dk = v as ReportModule['datasetKey']
                       if (m.kind === 'kpi') {
                         const opts = KPI_PATHS[dk]
                         updateModule(m.id, {
@@ -197,30 +202,17 @@ export function ReportModuleDesigner({ modules, onModulesChange }: Props) {
                         updateModule(m.id, { datasetKey: dk })
                       }
                     }}
-                    className={`${SETTINGS_INPUT} bg-white text-xs`}
-                  >
-                    {DATASET_OPTIONS.map((o) => (
-                      <option key={o.value} value={o.value}>
-                        {o.label}
-                      </option>
-                    ))}
-                  </select>
+                  />
                   {m.kind === 'kpi' ? (
                     <>
                       <label className={SETTINGS_FIELD_LABEL}>Verdifelt</label>
-                      <select
+                      <SearchableSelect
                         value={m.valuePath}
-                        onChange={(e) => updateModule(m.id, { valuePath: e.target.value })}
-                        className={`${SETTINGS_INPUT} bg-white text-xs`}
-                      >
-                        {(KPI_PATHS[m.datasetKey] ?? [{ path: m.valuePath, label: m.valuePath }]).map((o) => (
-                          <option key={o.path} value={o.path}>
-                            {o.label}
-                          </option>
-                        ))}
-                      </select>
+                        options={(KPI_PATHS[m.datasetKey] ?? [{ path: m.valuePath, label: m.valuePath }]).map((o) => ({ value: o.path, label: o.label }))}
+                        onChange={(v) => updateModule(m.id, { valuePath: v })}
+                      />
                       <label className={SETTINGS_FIELD_LABEL}>Undertittel</label>
-                      <input
+                      <StandardInput
                         value={m.subtitle ?? ''}
                         onChange={(e) => updateModule(m.id, { subtitle: e.target.value })}
                         className={`${SETTINGS_INPUT} bg-white text-xs`}
@@ -230,7 +222,7 @@ export function ReportModuleDesigner({ modules, onModulesChange }: Props) {
                   {m.kind === 'table' ? (
                     <>
                       <label className={SETTINGS_FIELD_LABEL}>Kolonner (kommaseparert)</label>
-                      <input
+                      <StandardInput
                         value={m.rowKeys.join(', ')}
                         onChange={(e) =>
                           updateModule(m.id, {
@@ -247,7 +239,7 @@ export function ReportModuleDesigner({ modules, onModulesChange }: Props) {
                   {m.kind === 'bar' ? (
                     <>
                       <label className={SETTINGS_FIELD_LABEL}>Serienøkler (kommaseparert)</label>
-                      <input
+                      <StandardInput
                         value={m.seriesKeys.join(', ')}
                         onChange={(e) =>
                           updateModule(m.id, {
@@ -264,7 +256,7 @@ export function ReportModuleDesigner({ modules, onModulesChange }: Props) {
                   {m.kind === 'donut' ? (
                     <>
                       <label className={SETTINGS_FIELD_LABEL}>Sti til segmenter (valgfri)</label>
-                      <input
+                      <StandardInput
                         value={m.segmentsPath}
                         onChange={(e) => updateModule(m.id, { segmentsPath: e.target.value })}
                         className={`${SETTINGS_INPUT} bg-white font-mono text-xs`}
@@ -274,28 +266,33 @@ export function ReportModuleDesigner({ modules, onModulesChange }: Props) {
                   ) : null}
                 </div>
                 <div className="flex shrink-0 flex-col gap-1">
-                  <button
-                    type="button"
+                  <Button
+                    variant="ghost"
+                    size="icon"
                     onClick={() => moveModule(m.id, -1)}
-                    className="rounded-none px-1 text-xs text-neutral-500 hover:bg-neutral-100"
+                    className="h-6 w-6 rounded-none text-xs text-neutral-500 hover:bg-neutral-100"
+                    aria-label="Flytt opp"
                   >
                     ↑
-                  </button>
-                  <button
-                    type="button"
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
                     onClick={() => moveModule(m.id, 1)}
-                    className="rounded-none px-1 text-xs text-neutral-500 hover:bg-neutral-100"
+                    className="h-6 w-6 rounded-none text-xs text-neutral-500 hover:bg-neutral-100"
+                    aria-label="Flytt ned"
                   >
                     ↓
-                  </button>
-                  <button
-                    type="button"
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
                     onClick={() => removeModule(m.id)}
-                    className="rounded-none p-1 text-red-600 hover:bg-red-50"
+                    className="h-6 w-6 rounded-none text-red-600 hover:bg-red-50"
                     aria-label="Fjern"
                   >
                     <Trash2 className="size-4" />
-                  </button>
+                  </Button>
                 </div>
               </div>
             </li>

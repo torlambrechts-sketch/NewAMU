@@ -93,27 +93,27 @@ export function ScenarioModulePlayer({ intro, steps, passingImpactScore = 0, onC
               const isPicked = picked?.id === c.id
               return (
                 <li key={c.id}>
-                  <button
-                    type="button"
+                  <Button
+                    variant="ghost"
                     role="radio"
                     aria-checked={isPicked}
                     disabled={!!picked}
                     onClick={() => setPicks((s) => ({ ...s, [step.id]: c }))}
-                    className={`w-full rounded-lg border px-3 py-2 text-left text-sm transition-colors ${
+                    className={`h-auto w-full rounded-lg border px-3 py-2 text-left text-sm font-normal transition-colors ${
                       isPicked
                         ? c.impactScore >= 0
-                          ? 'border-emerald-300 bg-emerald-50 text-emerald-900'
-                          : 'border-rose-300 bg-rose-50 text-rose-900'
+                          ? 'border-emerald-300 bg-emerald-50 text-emerald-900 hover:bg-emerald-50'
+                          : 'border-rose-300 bg-rose-50 text-rose-900 hover:bg-rose-50'
                         : 'border-neutral-200 bg-white hover:bg-neutral-50'
                     } ${picked && !isPicked ? 'opacity-50' : ''}`}
                   >
-                    <div className="flex items-start gap-2">
+                    <div className="flex w-full items-start gap-2">
                       <span className="mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full border border-current text-[10px] font-bold">
                         {String.fromCharCode(65 + idx)}
                       </span>
                       <span className="flex-1">{c.label}</span>
                     </div>
-                  </button>
+                  </Button>
                 </li>
               )
             })}

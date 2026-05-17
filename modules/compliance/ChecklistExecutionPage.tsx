@@ -313,31 +313,35 @@ export function ChecklistExecutionPage() {
 
                   {!readOnly ? (
                     <div className="mt-3 border-t border-neutral-200/80 pt-3">
-                      <button
-                        type="button"
+                      <Button
+                        variant="ghost"
+                        size="sm"
                         onClick={() =>
                           setActiveFinding((prev) => ({
                             ...prev,
                             [item.key]: !isFindingExpanded,
                           }))
                         }
-                        className="inline-flex items-center gap-1.5 text-xs font-medium text-neutral-600 hover:text-neutral-900"
+                        icon={
+                          isFindingExpanded ? (
+                            <CheckCircle2 className="h-4 w-4" />
+                          ) : (
+                            <Circle className="h-4 w-4" />
+                          )
+                        }
+                        className="px-0 font-medium text-neutral-600 hover:bg-transparent hover:text-neutral-900"
                       >
-                        {isFindingExpanded ? (
-                          <CheckCircle2 className="h-4 w-4" />
-                        ) : (
-                          <Circle className="h-4 w-4" />
-                        )}
                         Marker som funn
-                      </button>
+                      </Button>
 
                       {isFindingExpanded ? (
                         <div className="mt-3 space-y-3">
                           <div className="flex flex-wrap gap-2">
                             {SEVERITIES.map((s) => (
-                              <button
+                              <Button
                                 key={s}
-                                type="button"
+                                size="sm"
+                                variant={response?.severity === s ? 'primary' : 'secondary'}
                                 onClick={() =>
                                   saveResponse({
                                     executionId,
@@ -347,15 +351,9 @@ export function ChecklistExecutionPage() {
                                     severity: s,
                                   })
                                 }
-                                className={[
-                                  'inline-flex items-center gap-1.5 border px-2.5 py-1 text-xs font-semibold transition-colors',
-                                  response?.severity === s
-                                    ? 'border-[#1a3d32] bg-[#1a3d32] text-white'
-                                    : 'border-neutral-300 bg-white text-neutral-700 hover:bg-neutral-50',
-                                ].join(' ')}
                               >
                                 {pack.severityLabels[s]}
-                              </button>
+                              </Button>
                             ))}
                           </div>
                           <StandardTextarea
@@ -424,21 +422,16 @@ function ItemControl({
             (o.id === 'no' && current === false) ||
             (o.id === 'na' && current === null && response !== undefined)
           return (
-            <button
+            <Button
               key={o.id}
-              type="button"
+              size="sm"
+              variant={active ? 'primary' : 'secondary'}
               disabled={readOnly}
               onClick={() => onCommit({ ok: o.ok })}
-              className={[
-                'border px-3 py-1.5 text-sm font-medium transition-colors',
-                active
-                  ? 'border-[#1a3d32] bg-[#1a3d32] text-white'
-                  : 'border-neutral-300 bg-white text-neutral-700 hover:bg-neutral-50',
-                readOnly ? 'cursor-not-allowed opacity-60' : '',
-              ].join(' ')}
+              className={readOnly ? 'cursor-not-allowed opacity-60' : undefined}
             >
               {o.label}
-            </button>
+            </Button>
           )
         })}
       </div>

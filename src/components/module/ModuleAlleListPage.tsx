@@ -7,6 +7,7 @@ import { Fragment, useMemo, useState, type ReactNode } from 'react'
 import { ChevronLeft, ChevronRight, Filter, Search, X } from 'lucide-react'
 import { ModulePageShell } from './ModulePageShell'
 import { List2Shell } from '../layout/List2Shell'
+import { Button } from '../ui/Button'
 import { SearchableSelect } from '../ui/SearchableSelect'
 import { StandardInput } from '../ui/Input'
 import { useRegulationFilter } from '../../context/RegulationFilterContext'
@@ -206,7 +207,7 @@ export function ModuleAlleListPage<RowT>({
               className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-neutral-400"
               aria-hidden
             />
-            <input
+            <StandardInput
               type="search"
               value={query}
               onChange={(e) => { setQuery(e.target.value); setPage(1) }}
@@ -217,28 +218,30 @@ export function ModuleAlleListPage<RowT>({
           </div>
           {hasFilters ? (
             <div className="flex flex-wrap items-center gap-2">
-              <button
-                type="button"
+              <Button
+                variant="ghost"
                 onClick={() => setFiltersOpen((o) => !o)}
+                aria-expanded={filtersOpen}
+                aria-pressed={filtersOpen}
                 className={`inline-flex items-center gap-1.5 rounded-lg border px-3 py-2 text-xs font-semibold uppercase tracking-wide transition-colors ${
                   filtersOpen || activeFilterCount > 0
                     ? 'border-neutral-400 bg-neutral-50 text-neutral-900'
                     : 'border-neutral-200 bg-white text-neutral-700 hover:bg-neutral-50'
                 }`}
-                aria-expanded={filtersOpen}
               >
                 <Filter className="size-3.5 text-neutral-500" aria-hidden />
                 Filter
-              </button>
+              </Button>
               {activeFilterCount > 0 ? (
-                <button
-                  type="button"
+                <Button
+                  variant="ghost"
+                  size="sm"
                   onClick={clearAllChips}
-                  className="inline-flex items-center gap-1 text-xs text-neutral-500 hover:text-neutral-800"
+                  className="inline-flex h-auto items-center gap-1 rounded-none p-0 text-xs font-normal text-neutral-500 hover:bg-transparent hover:text-neutral-800"
                 >
                   <X className="size-3.5" aria-hidden />
                   Nullstill
-                </button>
+                </Button>
               ) : (
                 <span className="text-xs text-neutral-400">Ingen filter aktive</span>
               )}
@@ -274,14 +277,15 @@ export function ModuleAlleListPage<RowT>({
                         />
                       </div>
                       {value ? (
-                        <button
-                          type="button"
+                        <Button
+                          variant="ghost"
+                          size="icon"
                           onClick={() => clearChip(chip.id)}
                           aria-label={`Fjern ${chip.label}-filter`}
-                          className="rounded-md border border-neutral-200 bg-white p-1.5 text-neutral-500 transition-colors hover:bg-neutral-100"
+                          className="h-auto w-auto rounded-md border border-neutral-200 bg-white p-1.5 text-neutral-500 transition-colors hover:bg-neutral-100"
                         >
                           <X className="size-3.5" aria-hidden />
-                        </button>
+                        </Button>
                       ) : null}
                     </div>
                   </div>
@@ -312,14 +316,15 @@ export function ModuleAlleListPage<RowT>({
                       className="w-[148px]"
                     />
                     {from || to ? (
-                      <button
-                        type="button"
+                      <Button
+                        variant="ghost"
+                        size="icon"
                         onClick={() => clearChip(chip.id)}
                         aria-label={`Fjern ${chip.label}-filter`}
-                        className="rounded-md border border-neutral-200 bg-white p-1.5 text-neutral-500 transition-colors hover:bg-neutral-100"
+                        className="h-auto w-auto rounded-md border border-neutral-200 bg-white p-1.5 text-neutral-500 transition-colors hover:bg-neutral-100"
                       >
                         <X className="size-3.5" aria-hidden />
-                      </button>
+                      </Button>
                     ) : null}
                   </div>
                 </div>
@@ -398,18 +403,20 @@ export function ModuleAlleListPage<RowT>({
         {/* Footer: items-per-page + pagination */}
         <div className="flex flex-wrap items-center justify-between gap-3 border-t border-neutral-100 px-5 py-3 text-xs text-neutral-600">
           <div className="flex flex-wrap items-center gap-3">
-            <label className="flex items-center gap-2">
+            <div className="flex items-center gap-2">
               <span className="text-neutral-500">Rader per side</span>
-              <select
-                value={perPage}
-                onChange={(e) => { setPerPage(Number(e.target.value)); setPage(1) }}
-                className="rounded-md border border-neutral-200 bg-white px-2 py-1 text-sm"
-              >
-                <option value={10}>10</option>
-                <option value={25}>25</option>
-                <option value={50}>50</option>
-              </select>
-            </label>
+              <div className="w-20">
+                <SearchableSelect
+                  value={String(perPage)}
+                  onChange={(v) => { setPerPage(Number(v)); setPage(1) }}
+                  options={[
+                    { value: '10', label: '10' },
+                    { value: '25', label: '25' },
+                    { value: '50', label: '50' },
+                  ]}
+                />
+              </div>
+            </div>
             <span className="text-neutral-500">
               {total === 0
                 ? 'Ingen treff'
@@ -417,24 +424,26 @@ export function ModuleAlleListPage<RowT>({
             </span>
           </div>
           <div className="flex items-center gap-1">
-            <button
-              type="button"
+            <Button
+              variant="ghost"
+              size="icon"
               disabled={pageSafe <= 1}
               onClick={() => setPage((p) => Math.max(1, p - 1))}
-              className="rounded p-1 text-neutral-400 hover:bg-neutral-100 disabled:opacity-40"
+              className="h-auto w-auto rounded p-1 text-neutral-400 hover:bg-neutral-100 disabled:opacity-40"
               aria-label="Forrige side"
             >
               <ChevronLeft className="size-4" />
-            </button>
-            <button
-              type="button"
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
               disabled={pageSafe >= totalPages}
               onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-              className="rounded p-1 text-neutral-400 hover:bg-neutral-100 disabled:opacity-40"
+              className="h-auto w-auto rounded p-1 text-neutral-400 hover:bg-neutral-100 disabled:opacity-40"
               aria-label="Neste side"
             >
               <ChevronRight className="size-4" />
-            </button>
+            </Button>
           </div>
         </div>
       </List2Shell>

@@ -46,6 +46,8 @@ import { useDocumentsDatasets } from '../documents/dashboards/useDocumentsDatase
 import { buildRiskDatasets } from '../../../modules/risk/dashboards/useRiskDatasets'
 import { useRiskDashboardRows } from '../../../modules/risk/dashboards/useRiskDashboardRows'
 import '../../../modules/risk/dashboards/riskDashboardScope'
+import { useAlerts } from '../../../modules/alerts'
+import { useAlertsDatasets } from '../../../modules/alerts/dashboards/useAlertsDatasets'
 import {
   HMS_OVERVIEW_SCOPE_ID,
   // Side-effect import: registers the composite scope on module load.
@@ -174,6 +176,13 @@ export function HmsOverviewPage() {
     orgCustomTemplates: docs.orgCustomTemplates,
     accessRequestsOpen,
   })
+  const alerts = useAlerts()
+  const alertsDs = useAlertsDatasets({
+    filters: dashboard.filters,
+    cases: alerts.cases,
+    templates: alerts.systemTemplates,
+    categories: alerts.categories,
+  })
 
   // Risk member — reads from `risk_register_summary_v` when available
   // (P2 migration applied), falls back to the P1 client-side source
@@ -187,8 +196,8 @@ export function HmsOverviewPage() {
 
   // Merge — keys are scope-namespaced so collisions are impossible.
   const datasets = useMemo<Record<string, unknown>>(
-    () => ({ ...checklistDs, ...surveyDs, ...tasksDs, ...learningDs, ...documentsDs, ...riskDs }),
-    [checklistDs, surveyDs, tasksDs, learningDs, documentsDs, riskDs],
+    () => ({ ...checklistDs, ...surveyDs, ...tasksDs, ...learningDs, ...documentsDs, ...riskDs, ...alertsDs }),
+    [checklistDs, surveyDs, tasksDs, learningDs, documentsDs, riskDs, alertsDs],
   )
 
   const layout = useMemo(

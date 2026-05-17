@@ -41,7 +41,7 @@ function WhereValueInput({
   if (field.valueKind === 'bool') {
     return (
       <label className="flex items-center gap-2 text-sm">
-        <input
+        <StandardInput
           type="checkbox"
           className="size-4"
           checked={current === true}

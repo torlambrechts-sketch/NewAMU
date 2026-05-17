@@ -8,6 +8,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Search } from 'lucide-react'
 import { useSearchParams } from 'react-router-dom'
+import { Button } from '../../ui/Button'
 import { StandardInput } from '../../ui/Input'
 import {
   canSeePermAny,
@@ -90,15 +91,15 @@ export function SettingsSearchBox({ scopes, onMatch }: SettingsSearchBoxProps) {
       {value && matches.length > 0 ? (
         <div className="absolute z-20 mt-1 max-h-72 w-full overflow-y-auto rounded-md border border-neutral-200 bg-white py-1 shadow-lg">
           {matches.slice(0, 8).map((m) => (
-            <button
+            <Button
               key={`${m.scope.scopeId}/${m.section.id}`}
-              type="button"
+              variant="ghost"
               onClick={() => onMatch(m.scope.scopeId, m.section.id)}
-              className="flex w-full flex-col items-start px-3 py-2 text-left text-sm hover:bg-neutral-50"
+              className="flex w-full flex-col items-start gap-0 rounded-none px-3 py-2 text-left text-sm font-normal hover:bg-neutral-50"
             >
               <span className="text-neutral-900">{m.section.label}</span>
               <span className="text-xs text-neutral-500">{m.scope.label}</span>
-            </button>
+            </Button>
           ))}
         </div>
       ) : null}

@@ -21,6 +21,7 @@ import { useAlerts } from '../useAlerts'
 import { ALERT_STATUS_LABEL } from '../alertsLabels'
 import { AlertsHubLanding } from './AlertsHubLanding'
 import { AlertsCreateForm } from '../components/AlertsCreateForm'
+import { AlertAcknowledgementBadge, AlertGdprDeadlineBadge } from '../components/AlertDeadlineBadges'
 import type { AlertStatus } from '../types'
 
 function statusBadgeVariant(s: AlertStatus): 'neutral' | 'warning' | 'info' | 'success' {
@@ -43,19 +44,25 @@ export function AlertsPage() {
   const templateId = searchParams.get('template')
   const [createOpen, setCreateOpen] = useState(false)
 
+  // All hooks must run on every render — no early returns above this line.
+  // React's "Rendered more hooks than during the previous render" error
+  // fires the moment you navigate between /alerts and /alerts?template=…
+  // if any hook lives below a conditional return.
   const template = useMemo(
     () => alerts.resolvedTemplates.find((t) => t.id === templateId) ?? null,
     [alerts.resolvedTemplates, templateId],
   )
 
-  if (!templateId) return <AlertsHubLanding />
-
   const cases = useMemo(
-    () => alerts.cases
-      .filter((c) => c.system_template_id === templateId || c.org_template_id === templateId)
-      .sort((a, b) => b.received_at.localeCompare(a.received_at)),
+    () => (templateId
+      ? alerts.cases
+          .filter((c) => c.system_template_id === templateId || c.org_template_id === templateId)
+          .sort((a, b) => b.received_at.localeCompare(a.received_at))
+      : []),
     [alerts.cases, templateId],
   )
+
+  if (!templateId) return <AlertsHubLanding />
 
   const openCount = cases.filter((c) => !['closed', 'dismissed'].includes(c.status)).length
   const criticalCount = cases.filter((c) => c.severity === 'critical').length
@@ -156,12 +163,16 @@ export function AlertsPage() {
                       >
                         <td className="px-5 py-3 font-medium text-neutral-900">{row.title}</td>
                         <td className="px-5 py-3">
-                          <Badge variant={statusBadgeVariant(row.status)}>
-                            {ALERT_STATUS_LABEL[row.status]}
-                          </Badge>
-                          {row.confidentiality_level === 'confidential' ? (
-                            <Badge variant="critical" className="ml-1">Konfidensielt</Badge>
-                          ) : null}
+                          <div className="flex flex-wrap items-center gap-1">
+                            <Badge variant={statusBadgeVariant(row.status)}>
+                              {ALERT_STATUS_LABEL[row.status]}
+                            </Badge>
+                            {row.confidentiality_level === 'confidential' ? (
+                              <Badge variant="critical">Konfidensielt</Badge>
+                            ) : null}
+                            {!row.closed_at ? <AlertAcknowledgementBadge case_={row} /> : null}
+                            {!row.closed_at ? <AlertGdprDeadlineBadge case_={row} /> : null}
+                          </div>
                         </td>
                         <td className="px-5 py-3 text-neutral-600">{formatDate(row.received_at)}</td>
                         <td className="w-8 px-3 py-3 text-neutral-300">

@@ -206,18 +206,19 @@ export function TasksVarslerTab() {
           </div>
           <div className="flex flex-wrap gap-2">
             {(['daily', 'weekly', 'none'] as const).map((v) => (
-              <button
+              <Button
                 key={v}
-                type="button"
+                size="sm"
+                variant={settings.emailDigest === v ? 'primary' : 'secondary'}
                 onClick={() => set('emailDigest', v)}
-                className={`rounded border px-3 py-1.5 text-sm transition ${
+                className={
                   settings.emailDigest === v
-                    ? 'border-[#c2410c] bg-[#c2410c] text-white'
-                    : 'border-neutral-200 bg-white text-neutral-700 hover:border-[#c2410c]/40'
-                }`}
+                    ? 'bg-[#c2410c] hover:bg-[#a33609]'
+                    : 'hover:border-[#c2410c]/40'
+                }
               >
                 {v === 'daily' ? 'Daglig' : v === 'weekly' ? 'Ukentlig' : 'Av'}
-              </button>
+              </Button>
             ))}
           </div>
         </div>

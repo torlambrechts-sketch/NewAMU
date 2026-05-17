@@ -181,22 +181,19 @@ export function UsersInternalAdminPanel() {
             <label className={WPSTD_FORM_FIELD_LABEL}>Roller (velg én eller flere)</label>
             <div className="mt-2 flex flex-wrap gap-2">
               {roles.map((r) => (
-                <button
+                <Button
                   key={r.id}
-                  type="button"
+                  size="sm"
+                  variant={inviteRoleIds.includes(r.id) ? 'primary' : 'secondary'}
                   onClick={() =>
                     setInviteRoleIds((prev) =>
                       prev.includes(r.id) ? prev.filter((x) => x !== r.id) : [...prev, r.id],
                     )
                   }
-                  className={`rounded-lg border px-3 py-1.5 text-xs font-medium transition ${
-                    inviteRoleIds.includes(r.id)
-                      ? 'border-[#1a3d32] bg-[#1a3d32] text-white'
-                      : 'border-neutral-200 bg-white text-neutral-700 hover:border-neutral-300'
-                  }`}
+                  aria-pressed={inviteRoleIds.includes(r.id)}
                 >
                   {r.name}
-                </button>
+                </Button>
               ))}
             </div>
           </div>
@@ -246,6 +243,8 @@ export function UsersInternalAdminPanel() {
             <label className="inline-flex cursor-pointer items-center gap-1 rounded-md border border-neutral-300 bg-white px-3 py-1.5 text-xs font-semibold text-neutral-700 transition-colors hover:bg-neutral-50">
               <Upload className="size-4" />
               Import JSON
+              {/* Hidden file picker triggered by wrapping label; no primitive for file input. */}
+              {/* eslint-disable-next-line no-restricted-syntax */}
               <input
                 type="file"
                 accept="application/json"
@@ -320,9 +319,10 @@ function UserRoleTable({
                   {roles.map((r) => {
                     const active = (map[p.id] ?? []).includes(r.id)
                     return (
-                      <button
+                      <Button
                         key={r.id}
-                        type="button"
+                        size="sm"
+                        variant={active ? 'primary' : 'secondary'}
                         onClick={() =>
                           setMap((prev) => {
                             const cur = prev[p.id] ?? []
@@ -332,14 +332,10 @@ function UserRoleTable({
                             }
                           })
                         }
-                        className={`rounded border px-2 py-0.5 text-xs font-medium transition ${
-                          active
-                            ? 'border-[#1a3d32] bg-[#1a3d32] text-white'
-                            : 'border-neutral-200 bg-white text-neutral-600 hover:border-neutral-300'
-                        }`}
+                        aria-pressed={active}
                       >
                         {r.name}
-                      </button>
+                      </Button>
                     )
                   })}
                 </div>

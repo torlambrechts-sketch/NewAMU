@@ -2,6 +2,7 @@ import { ListTodo, Plus } from 'lucide-react'
 import type { ReactNode } from 'react'
 import { Link } from 'react-router-dom'
 import { WORKPLACE_LAYOUT_BOX_CARD, WORKPLACE_LAYOUT_BOX_SHADOW } from './workplaceLayoutKit'
+import { Button } from '../ui/Button'
 
 export type WorkplaceTodoItem = {
   id: string
@@ -95,9 +96,9 @@ export function WorkplaceTodosCard({
             if (it.onClick) {
               return (
                 <li key={it.id}>
-                  <button type="button" className="block w-full text-left transition hover:bg-neutral-50/80" onClick={it.onClick}>
+                  <Button variant="ghost" className="block h-auto w-full rounded-none p-0 text-left font-normal transition hover:bg-neutral-50/80" onClick={it.onClick}>
                     {row}
-                  </button>
+                  </Button>
                 </li>
               )
             }

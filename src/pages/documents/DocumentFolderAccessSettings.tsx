@@ -7,6 +7,7 @@ import type { WikiSpaceGrantType } from '../../lib/wikiSpaceAccessGrants'
 import { ModuleSectionCard } from '../../components/module/ModuleSectionCard'
 import { MODULE_TABLE_TH, MODULE_TABLE_TR_BODY } from '../../components/module/moduleTableKit'
 import { Button } from '../../components/ui/Button'
+import { StandardInput } from '../../components/ui/Input'
 import { SearchableSelect, type SelectOption } from '../../components/ui/SearchableSelect'
 import { WarningBox } from '../../components/ui/AlertBox'
 
@@ -197,7 +198,7 @@ export function DocumentFolderAccessSettings({ canManage }: Props) {
           <fieldset className="mt-4 space-y-2 rounded-lg border border-neutral-200 bg-neutral-50/80 p-3">
             <legend className="px-1 text-xs font-semibold text-neutral-700">Rettigheter for denne regelen</legend>
             <label className="flex cursor-pointer items-center gap-2 text-sm text-neutral-800">
-              <input
+              <StandardInput
                 type="checkbox"
                 className="size-4 rounded border-neutral-300 text-[#1a3d32] focus:ring-[#1a3d32]"
                 checked={canRead}
@@ -206,7 +207,7 @@ export function DocumentFolderAccessSettings({ canManage }: Props) {
               Les (se dokumenter og mapper)
             </label>
             <label className="flex cursor-pointer items-center gap-2 text-sm text-neutral-800">
-              <input
+              <StandardInput
                 type="checkbox"
                 className="size-4 rounded border-neutral-300 text-[#1a3d32] focus:ring-[#1a3d32]"
                 checked={canWrite}
@@ -219,7 +220,7 @@ export function DocumentFolderAccessSettings({ canManage }: Props) {
               Skriv (redigere dokumenter og opprette nye i mappen)
             </label>
             <label className="flex cursor-pointer items-center gap-2 text-sm text-neutral-800">
-              <input
+              <StandardInput
                 type="checkbox"
                 className="size-4 rounded border-neutral-300 text-[#1a3d32] focus:ring-[#1a3d32]"
                 checked={canArchive}

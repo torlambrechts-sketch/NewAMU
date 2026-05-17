@@ -8,7 +8,7 @@ import {
   saveToastDismissedIds,
 } from '../lib/notificationPreferences'
 import { useOrgSetupContext } from './useOrgSetupContext'
-import { useWhistleblowing } from './useWhistleblowing'
+import { useAlerts } from '../../modules/alerts'
 
 type DocumentsNotificationFeed = {
   mentions: {
@@ -39,7 +39,7 @@ function normEmail(s: string | null | undefined) {
 
 export function useNotifications() {
   const { user, profile, permissionKeys, isAdmin, supabase, organization } = useOrgSetupContext()
-  const wb = useWhistleblowing()
+  const wb = useAlerts()
   const userId = user?.id ?? null
   const userEmail = normEmail(profile?.email ?? user?.email ?? undefined)
   const orgId = organization?.id ?? null
@@ -54,7 +54,7 @@ export function useNotifications() {
     void (async () => {
       try {
         const canModerate =
-          isAdmin || permissionKeys.has('documents.manage') || permissionKeys.has('whistleblowing.committee')
+          isAdmin || permissionKeys.has('documents.manage') || permissionKeys.has('alerts.committee')
         const [mentionsRes, reviewsRes, moderationRes] = await Promise.all([
           supabase
             .from('wiki_mention_notifications')
@@ -144,7 +144,7 @@ export function useNotifications() {
     })
   }, [userId])
 
-  const canWhistle = isAdmin || permissionKeys.has('whistleblowing.committee')
+  const canWhistle = isAdmin || permissionKeys.has('alerts.committee')
 
   const generated = useMemo((): AppNotification[] => {
     const out: AppNotification[] = []
@@ -159,7 +159,7 @@ export function useNotifications() {
             title: 'Varslingssak trenger oppfølging',
             body: c.title ?? 'Uten tittel',
             createdAt: c.received_at ?? new Date().toISOString(),
-            href: `/tasks/management?tab=varsling`,
+            href: `/alerts/${c.id}`,
             severity: 'warning',
           })
         }

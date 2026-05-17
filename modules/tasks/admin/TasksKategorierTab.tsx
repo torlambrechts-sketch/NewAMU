@@ -6,6 +6,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { FolderOpen, Pencil, Plus, Trash2 } from 'lucide-react'
 import { useOrgSetupContext } from '../../../src/hooks/useOrgSetupContext'
 import { Button } from '../../../src/components/ui/Button'
+import { StandardTextarea } from '../../../src/components/ui/Textarea'
 import { StandardInput } from '../../../src/components/ui/Input'
 import { WarningBox } from '../../../src/components/ui/AlertBox'
 import { ModuleSectionCard } from '../../../src/components/module/ModuleSectionCard'
@@ -187,22 +188,24 @@ export function TasksKategorierTab() {
                     )}
                   </div>
                   <div className="flex items-center gap-1">
-                    <button
-                      type="button"
+                    <Button
+                      variant="ghost"
+                      size="icon"
                       onClick={() => openEdit(cat)}
-                      className="rounded p-1.5 text-neutral-400 transition hover:bg-neutral-100 hover:text-neutral-700"
+                      className="h-7 w-7 text-neutral-400 hover:bg-neutral-100 hover:text-neutral-700"
                       aria-label="Rediger"
                     >
                       <Pencil className="h-3.5 w-3.5" />
-                    </button>
-                    <button
-                      type="button"
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
                       onClick={() => void remove(cat.id)}
-                      className="rounded p-1.5 text-neutral-400 transition hover:bg-red-50 hover:text-red-600"
+                      className="h-7 w-7 text-neutral-400 hover:bg-red-50 hover:text-red-600"
                       aria-label="Slett"
                     >
                       <Trash2 className="h-3.5 w-3.5" />
-                    </button>
+                    </Button>
                   </div>
                 </div>
               )}
@@ -254,12 +257,12 @@ export function TasksKategorierTab() {
               <p className={`${WPSTD_FORM_LEAD} mt-1`}>Kort forklaring av hva kategorien dekker</p>
             </div>
             <div>
-              <textarea
+              <StandardTextarea
                 value={form.description}
                 onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
                 rows={3}
                 placeholder="Valgfri beskrivelse…"
-                className="w-full rounded border border-neutral-300 bg-white px-3 py-2.5 text-sm text-neutral-900 placeholder:text-neutral-400 focus:border-[#c2410c] focus:outline-none focus:ring-1 focus:ring-[#c2410c]/20"
+                className="focus:border-[#c2410c] focus:ring-[#c2410c]/20"
               />
             </div>
           </div>

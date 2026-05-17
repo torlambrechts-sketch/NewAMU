@@ -10,6 +10,7 @@ import { Loader2 } from 'lucide-react'
 import { ModuleSectionCard } from '../../module'
 import { StandardInput } from '../../ui/Input'
 import { Button } from '../../ui/Button'
+import { ToggleSwitch } from '../../ui/FormToggles'
 import { WarningBox } from '../../ui/AlertBox'
 import { useOrgSetupContext } from '../../../hooks/useOrgSetupContext'
 import { PERMISSION_KEYS, PERMISSION_LABELS } from '../../../lib/permissionKeys'
@@ -156,20 +157,19 @@ export function RolesAdminPanel() {
             <h3 className="text-lg font-semibold text-neutral-900">{editingRole.name}</h3>
             <div className="mt-4 grid max-h-64 gap-2 overflow-y-auto">
               {PERMISSION_KEYS.map((k) => (
-                <label key={k} className="flex items-center gap-2 text-sm">
-                  <input
-                    type="checkbox"
+                <div key={k} className="flex items-center gap-2 text-sm">
+                  <ToggleSwitch
                     checked={rolePerms.has(k)}
-                    onChange={(e) => {
+                    onChange={(v) => {
                       const next = new Set(rolePerms)
-                      if (e.target.checked) next.add(k)
+                      if (v) next.add(k)
                       else next.delete(k)
                       setRolePerms(next)
                     }}
+                    label={PERMISSION_LABELS[k]}
                   />
-                  {PERMISSION_LABELS[k]}
                   <span className="text-xs text-neutral-400">{k}</span>
-                </label>
+                </div>
               ))}
             </div>
             <div className="mt-6 flex justify-end gap-2">

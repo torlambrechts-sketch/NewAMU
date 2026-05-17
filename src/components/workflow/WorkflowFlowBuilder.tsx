@@ -151,10 +151,10 @@ function StepRow({
       >
         <GripVertical className="size-5" />
       </span>
-      <button
-        type="button"
+      <Button
+        variant="ghost"
         onClick={onSelect}
-        className="flex min-w-0 flex-1 items-start gap-3 rounded-lg py-0.5 text-left"
+        className="flex h-auto min-w-0 flex-1 items-start justify-start gap-3 rounded-lg px-1 py-0.5 text-left font-normal hover:bg-neutral-50"
       >
         <span className={`flex size-10 shrink-0 items-center justify-center rounded-lg ${stepAccent(step)}`}>
           {IconBox}
@@ -166,30 +166,32 @@ function StepRow({
           </span>
           <span className="mt-1 line-clamp-2 block text-xs text-neutral-600">{stepSummaryLine(step)}</span>
         </span>
-      </button>
+      </Button>
       <div className="flex shrink-0 flex-col gap-0.5">
-        <button
-          type="button"
+        <Button
+          variant="ghost"
+          size="icon"
           onClick={(e) => {
             e.stopPropagation()
             onSelect()
           }}
-          className="rounded-lg p-2 text-neutral-500 hover:bg-neutral-100 hover:text-[#1a3d32]"
+          className="h-auto w-auto rounded-lg p-2 text-neutral-500 hover:bg-neutral-100 hover:text-[#1a3d32]"
           aria-label="Rediger"
         >
           <Pencil className="size-4" />
-        </button>
-        <button
-          type="button"
+        </Button>
+        <Button
+          variant="ghost"
+          size="icon"
           onClick={(e) => {
             e.stopPropagation()
             onDelete()
           }}
-          className="rounded-lg p-2 text-neutral-400 hover:bg-red-50 hover:text-red-700"
+          className="h-auto w-auto rounded-lg p-2 text-neutral-400 hover:bg-red-50 hover:text-red-700"
           aria-label="Slett"
         >
           <Trash2 className="size-4" />
-        </button>
+        </Button>
       </div>
     </div>
   )
@@ -296,13 +298,14 @@ function FlowStepsBlock({
     if (insertAt !== index) {
       return (
         <div className="flex justify-center py-1">
-          <button
-            type="button"
+          <Button
+            variant="ghost"
+            size="sm"
             onClick={() => setInsertAt(index)}
-            className="rounded-full border border-dashed border-neutral-300 bg-white px-2.5 py-0.5 text-[11px] text-neutral-500 hover:border-[#1a3d32] hover:text-[#1a3d32]"
+            className="h-auto rounded-full border border-dashed border-neutral-300 bg-white px-2.5 py-0.5 text-[11px] font-normal text-neutral-500 hover:border-[#1a3d32] hover:bg-white hover:text-[#1a3d32]"
           >
             + Sett inn her
-          </button>
+          </Button>
         </div>
       )
     }
@@ -331,17 +334,18 @@ function FlowStepsBlock({
               }}
             />
           </div>
-          <button
-            type="button"
+          <Button
+            variant="ghost"
+            size="sm"
             onClick={() => {
               setInsertAt(null)
               setInsertWhen('')
               setInsertAct('')
             }}
-            className="rounded-md border border-neutral-300 bg-white px-2.5 py-1 text-[11px] text-neutral-700 hover:bg-neutral-50"
+            className="rounded-md border border-neutral-300 bg-white px-2.5 py-1 text-[11px] font-normal text-neutral-700 hover:bg-neutral-50"
           >
             Avbryt
-          </button>
+          </Button>
         </div>
       </div>
     )
@@ -621,18 +625,19 @@ export function WorkflowFlowBuilder({ value, onChange, sourceModule, compileErro
                       className="mt-1.5 font-semibold"
                     />
                     {value.xorBranches.length > 2 ? (
-                      <button
-                        type="button"
+                      <Button
+                        variant="ghost"
+                        size="sm"
                         onClick={() =>
                           updateDoc({
                             ...value,
                             xorBranches: value.xorBranches.filter((b) => b.id !== branch.id),
                           })
                         }
-                        className="mt-2 text-xs font-medium text-red-700 hover:underline"
+                        className="mt-2 h-auto rounded-none p-0 text-xs font-medium text-red-700 hover:bg-transparent hover:underline"
                       >
                         Slett gren
-                      </button>
+                      </Button>
                     ) : null}
                     <div className="mt-4">
                       <FlowStepsBlock

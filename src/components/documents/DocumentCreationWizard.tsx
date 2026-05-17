@@ -16,7 +16,10 @@ import type { BrregEnhet } from '../../types/brreg'
 import type { ContentBlock, PageTemplate, WikiSpace } from '../../types/documents'
 import { naceToSectorPreset } from '../../lib/documents/naceToSectorPreset'
 import { resolveTemplateTokens, type TemplateContext } from '../../lib/documents/templateTokens'
+import { Button } from '../ui/Button'
+import { StandardInput } from '../ui/Input'
 import { SearchableSelect, type SelectOption } from '../ui/SearchableSelect'
+import { ToggleSwitch } from '../ui/FormToggles'
 
 // ─── WizardShell ──────────────────────────────────────────────────────────────
 // Generic reusable wizard modal — handles layout, progress, navigation, and
@@ -103,14 +106,15 @@ export function WizardShell({
               </div>
               <p className={`mt-0.5 text-sm font-medium ${a.text}`}>{step?.label}</p>
             </div>
-            <button
-              type="button"
+            <Button
+              variant="ghost"
+              size="icon"
               onClick={onClose}
-              className="shrink-0 rounded-lg p-1.5 text-neutral-400 hover:bg-black/5 hover:text-neutral-700 transition-colors"
+              className="h-7 w-7 shrink-0 rounded-lg text-neutral-400 hover:bg-black/5 hover:text-neutral-700"
               aria-label="Lukk"
             >
               <X className="size-4" />
-            </button>
+            </Button>
           </div>
 
           {/* Progress */}
@@ -155,29 +159,30 @@ export function WizardShell({
         {/* ── Footer ── */}
         <div className="shrink-0 flex items-center justify-between gap-3 border-t border-neutral-100 px-6 py-4 bg-neutral-50/80">
           {currentStep > 0 ? (
-            <button
-              type="button"
+            <Button
+              variant="secondary"
               onClick={onBack}
               disabled={busy}
-              className="inline-flex items-center gap-1.5 rounded-full border border-neutral-200 bg-white px-4 py-2 text-sm font-medium text-neutral-700 hover:bg-neutral-50 transition-colors disabled:opacity-50"
+              icon={<ChevronLeft className="size-4" />}
+              className="rounded-full"
             >
-              <ChevronLeft className="size-4" />
               Tilbake
-            </button>
+            </Button>
           ) : (
-            <button
-              type="button"
+            <Button
+              variant="ghost"
+              size="sm"
               onClick={onClose}
-              className="text-sm text-neutral-400 hover:text-neutral-600 transition-colors"
+              className="px-0 text-neutral-400 hover:bg-transparent hover:text-neutral-600"
             >
               Avbryt
-            </button>
+            </Button>
           )}
-          <button
-            type="button"
+          <Button
+            variant="primary"
             onClick={onNext}
             disabled={busy || !canAdvance}
-            className={`inline-flex items-center gap-1.5 rounded-full px-5 py-2 text-sm font-semibold text-white shadow-sm transition-colors disabled:opacity-50 ${a.btn}`}
+            className={`rounded-full ${a.btn}`}
           >
             {busy ? (
               <span className="flex items-center gap-2">
@@ -195,7 +200,7 @@ export function WizardShell({
                 <ChevronRight className="size-4" />
               </>
             )}
-          </button>
+          </Button>
         </div>
       </div>
     </div>
@@ -294,8 +299,7 @@ function StepOrgInfo({
         Vi har forhåndsutfylt feltene fra din virksomhetsprofil. Korriger ved behov — verdiene brukes i HMS-policyen.
       </div>
       <FieldRow label="Virksomhetens navn" hint="Vil erstatte {{orgName}} gjennom hele dokumentet">
-        <input
-          type="text"
+        <StandardInput
           className={INPUT_CLS}
           value={values.orgName}
           onChange={(e) => onChange({ orgName: e.target.value })}
@@ -303,7 +307,7 @@ function StepOrgInfo({
         />
       </FieldRow>
       <FieldRow label="Antall ansatte" hint="Avgjør om AMU-tekst inkluderes (påkrevd ved ≥ 30)">
-        <input
+        <StandardInput
           type="number"
           className={INPUT_CLS}
           value={values.employeeCount}
@@ -329,36 +333,31 @@ function StepOrgInfo({
           </p>
         </div>
       ) : null}
-      <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-neutral-200 bg-white p-3.5 hover:bg-neutral-50 transition-colors">
-        <input
-          type="checkbox"
+      <div className="flex items-start gap-3 rounded-xl border border-neutral-200 bg-white p-3.5 hover:bg-neutral-50 transition-colors">
+        <ToggleSwitch
           checked={values.hasBht}
-          onChange={(e) => onChange({ hasBht: e.target.checked })}
-          className="mt-0.5 size-4 rounded border-neutral-300"
-          style={{ accentColor: '#0f766e' }}
+          onChange={(v) => onChange({ hasBht: v })}
+          label="Tilknyttet BHT"
         />
         <div>
           <span className="text-sm font-medium text-neutral-900">Tilknyttet bedriftshelsetjeneste (BHT)</span>
           <p className="text-xs text-neutral-500 mt-0.5">AML §3-3 — kreves i en rekke bransjer. Legger til BHT-avsnitt i policyen.</p>
         </div>
-      </label>
-      <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-neutral-200 bg-white p-3.5 hover:bg-neutral-50 transition-colors">
-        <input
-          type="checkbox"
+      </div>
+      <div className="flex items-start gap-3 rounded-xl border border-neutral-200 bg-white p-3.5 hover:bg-neutral-50 transition-colors">
+        <ToggleSwitch
           checked={values.hasCollectiveAgreement}
-          onChange={(e) => onChange({ hasCollectiveAgreement: e.target.checked })}
-          className="mt-0.5 size-4 rounded border-neutral-300"
-          style={{ accentColor: '#0f766e' }}
+          onChange={(v) => onChange({ hasCollectiveAgreement: v })}
+          label="Tariffbundet"
         />
         <div>
           <span className="text-sm font-medium text-neutral-900">Tariffbundet virksomhet</span>
           <p className="text-xs text-neutral-500 mt-0.5">Legger til avsnitt om tillitsvalgte og tariffavtalens rolle i HMS-arbeidet.</p>
         </div>
-      </label>
+      </div>
       {values.hasCollectiveAgreement && (
         <FieldRow label="Tariffavtale (navn)" hint="Valgfritt — f.eks. «LO/NHO Fellesoverenskomsten»">
-          <input
-            type="text"
+          <StandardInput
             className={INPUT_CLS}
             value={values.collectiveAgreementName}
             onChange={(e) => onChange({ collectiveAgreementName: e.target.value })}
@@ -366,27 +365,24 @@ function StepOrgInfo({
           />
         </FieldRow>
       )}
-      <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-neutral-200 bg-white p-3.5 hover:bg-neutral-50 transition-colors">
-        <input
-          type="checkbox"
+      <div className="flex items-start gap-3 rounded-xl border border-neutral-200 bg-white p-3.5 hover:bg-neutral-50 transition-colors">
+        <ToggleSwitch
           checked={values.hasIaAgreement}
-          onChange={(e) => onChange({ hasIaAgreement: e.target.checked })}
-          className="mt-0.5 size-4 rounded border-neutral-300"
-          style={{ accentColor: '#0f766e' }}
+          onChange={(v) => onChange({ hasIaAgreement: v })}
+          label="IA-bedrift"
         />
         <div>
           <span className="text-sm font-medium text-neutral-900">IA-bedrift (inkluderende arbeidsliv)</span>
           <p className="text-xs text-neutral-500 mt-0.5">Virksomheten har IA-avtale med NAV. Legger til avsnitt om IA-forpliktelser i policyen.</p>
         </div>
-      </label>
+      </div>
       {isBeredskap ? (
         <>
           <div className="rounded-xl border border-blue-100 bg-blue-50 px-4 py-3 text-sm text-blue-900">
             Fyll inn beredskapsinformasjon — erstatter [Fyll inn]-plassholdere i planen automatisk.
           </div>
           <FieldRow label="Samlingsplass" hint="Synlig adresse/sted fra alle utganger — erstatter {{assemblyPoint}}">
-            <input
-              type="text"
+            <StandardInput
               className={INPUT_CLS}
               value={values.assemblyPoint}
               onChange={(e) => onChange({ assemblyPoint: e.target.value })}
@@ -394,8 +390,7 @@ function StepOrgInfo({
             />
           </FieldRow>
           <FieldRow label="AED-plassering" hint="Hjertestarterens plassering i bygget — erstatter {{aedLocation}}">
-            <input
-              type="text"
+            <StandardInput
               className={INPUT_CLS}
               value={values.aedLocation}
               onChange={(e) => onChange({ aedLocation: e.target.value })}
@@ -404,7 +399,7 @@ function StepOrgInfo({
           </FieldRow>
           {values.hasBht ? (
             <FieldRow label="BHT-telefon" hint="BHT-kontakttelefon for beredskap — erstatter {{bhtPhone}}">
-              <input
+              <StandardInput
                 type="tel"
                 className={INPUT_CLS}
                 value={values.bhtPhone}
@@ -444,22 +439,20 @@ function StepRisks({
       </p>
       <div className="space-y-2">
         {preset.risks.map((risk) => (
-          <label
+          <div
             key={risk.id}
-            className="flex cursor-pointer items-start gap-3 rounded-xl border border-neutral-200 px-3.5 py-3 hover:bg-neutral-50 transition-colors"
+            className="flex items-start gap-3 rounded-xl border border-neutral-200 px-3.5 py-3 hover:bg-neutral-50 transition-colors"
           >
-            <input
-              type="checkbox"
+            <ToggleSwitch
               checked={values.selectedRisks.includes(risk.id)}
-              onChange={(e) => toggle(risk.id, e.target.checked)}
-              className="mt-0.5 size-4 shrink-0 rounded border-neutral-300"
-              style={{ accentColor: '#0f766e' }}
+              onChange={(v) => toggle(risk.id, v)}
+              label={risk.label}
             />
             <div className="min-w-0">
               <span className="text-sm font-medium text-neutral-900">{risk.label}</span>
               <p className="text-xs text-neutral-500 mt-0.5">{risk.description}</p>
             </div>
-          </label>
+          </div>
         ))}
       </div>
       {values.selectedRisks.length === 0 && (
@@ -499,7 +492,7 @@ function StepGoals({
         label="Sykefraværsmål (%)"
         hint="Mål for maksimalt sykefravær — typisk 3–7 % avhengig av bransje"
       >
-        <input
+        <StandardInput
           type="number"
           className={INPUT_CLS}
           value={values.sykefraværMål}
@@ -514,7 +507,7 @@ function StepGoals({
         label="Frist for avviksbehandling (dager)"
         hint="Mål for lukking av avvik — typisk 7–21 dager"
       >
-        <input
+        <StandardInput
           type="number"
           className={INPUT_CLS}
           value={values.avvikFrist}
@@ -536,8 +529,7 @@ function StepGoals({
             placeholder="Velg person…"
           />
         ) : (
-          <input
-            type="text"
+          <StandardInput
             className={INPUT_CLS}
             value={values.approverName}
             onChange={(e) => onChange({ approverName: e.target.value })}
@@ -546,7 +538,7 @@ function StepGoals({
         )}
       </FieldRow>
       <FieldRow label="Dato vedtatt">
-        <input
+        <StandardInput
           type="date"
           className={INPUT_CLS}
           value={values.policyDate}
@@ -560,7 +552,7 @@ function StepGoals({
         />
       </FieldRow>
       <FieldRow label="Neste revisjon">
-        <input
+        <StandardInput
           type="date"
           className={INPUT_CLS}
           value={values.nextRevisionDate}
@@ -572,7 +564,7 @@ function StepGoals({
           label="Behandlet i AMU — dato"
           hint="AML §7-2: HMS-policy skal behandles i AMU for virksomheter med ≥ 30 ansatte"
         >
-          <input
+          <StandardInput
             type="date"
             className={INPUT_CLS}
             value={values.amuDate}

@@ -21,6 +21,10 @@ import {
 import { useReporting } from '../hooks/useReporting'
 import { useOrgSetupContext } from '../hooks/useOrgSetupContext'
 import { HubMenu1Bar, type HubMenu1Item } from '../components/layout/HubMenu1Bar'
+import { Button } from '../components/ui/Button'
+import { StandardInput } from '../components/ui/Input'
+import { SearchableSelect } from '../components/ui/SearchableSelect'
+import { ToggleSwitch } from '../components/ui/FormToggles'
 import { WorkplacePageHeading1 } from '../components/layout/WorkplacePageHeading1'
 import { useWorkplaceKpiStripStyle } from '../hooks/useWorkplaceKpiStripStyle'
 import { useUiTheme } from '../hooks/useUiTheme'
@@ -88,8 +92,9 @@ function JsonBlock({ data }: { data: unknown }) {
   return (
     <div className="relative">
       <div className="sticky top-0 z-[1] flex justify-end border-b border-neutral-200 bg-neutral-50/95 px-2 py-1.5">
-        <button
-          type="button"
+        <Button
+          size="sm"
+          variant="secondary"
           onClick={() => {
             void navigator.clipboard.writeText(text).then(
               () => {
@@ -101,11 +106,11 @@ function JsonBlock({ data }: { data: unknown }) {
               },
             )
           }}
-          className={`${R_FLAT} inline-flex items-center gap-1.5 border border-neutral-300 bg-white px-2 py-1 text-[11px] font-semibold uppercase tracking-wide text-neutral-700 hover:bg-neutral-50`}
+          icon={copied ? <Check className="size-3.5 text-emerald-700" aria-hidden /> : <Copy className="size-3.5" aria-hidden />}
+          className={`${R_FLAT} px-2 py-1 text-[11px] uppercase tracking-wide`}
         >
-          {copied ? <Check className="size-3.5 text-emerald-700" aria-hidden /> : <Copy className="size-3.5" aria-hidden />}
           {copied ? 'Kopiert' : 'Kopier'}
-        </button>
+        </Button>
       </div>
       <pre className="max-h-[420px] overflow-auto px-4 pb-4 pt-2 text-xs leading-relaxed text-neutral-800">
         {text}
@@ -130,14 +135,15 @@ function ScopedError({
       role="alert"
     >
       <p className="min-w-0 flex-1 leading-snug">{message}</p>
-      <button
-        type="button"
+      <Button
+        variant="ghost"
+        size="icon"
         onClick={onDismiss}
-        className="shrink-0 rounded-none p-1 text-red-700 hover:bg-red-100"
+        className="h-7 w-7 shrink-0 rounded-none text-red-700 hover:bg-red-100"
         aria-label="Lukk melding"
       >
         <X className="size-4" />
-      </button>
+      </Button>
     </div>
   )
 }
@@ -733,23 +739,23 @@ export function ReportingEnginePage() {
             ) : null}
             <label className={`${HERO_ACTION_CLASS} cursor-pointer bg-white text-neutral-800 ring-1 ring-neutral-200`}>
               År{' '}
-              <input
+              <StandardInput
                 type="number"
                 value={y}
                 min={2000}
                 max={2100}
                 onChange={(e) => setY(Number(e.target.value))}
-                className="ml-2 w-[5.25rem] min-w-[5.25rem] rounded-none border border-neutral-200 bg-white px-2 py-1 text-center text-sm tabular-nums"
+                className="ml-2 w-[5.25rem] min-w-[5.25rem] rounded-none px-2 py-1 text-center tabular-nums"
               />
             </label>
-            <button
-              type="button"
+            <Button
+              variant="primary"
               onClick={openNewReport}
-              className={`${HERO_ACTION_CLASS} gap-2 bg-[#1a3d32] text-white hover:bg-[#142e26]`}
+              icon={<Plus className="size-4 shrink-0" />}
+              className={HERO_ACTION_CLASS}
             >
-              <Plus className="size-4 shrink-0" />
               Ny rapport
-            </button>
+            </Button>
           </>
         }
         menu={<HubMenu1Bar ariaLabel="Rapporter — faner" items={reportHubItems} />}
@@ -785,29 +791,29 @@ export function ReportingEnginePage() {
               const open = catOpen[cat.id] ?? true
               return (
                 <div key={cat.id} className="mb-10">
-                  <button
-                    type="button"
+                  <Button
+                    variant="secondary"
                     onClick={() => setCatOpen((s) => ({ ...s, [cat.id]: !open }))}
-                    className="mb-4 flex w-full items-center justify-between rounded-none border border-neutral-200 bg-white px-4 py-3 text-left text-sm font-semibold text-neutral-900 hover:bg-neutral-50"
+                    className="mb-4 flex w-full justify-between rounded-none px-4 py-3 text-left text-sm font-semibold text-neutral-900"
                   >
                     {cat.title}
                     <ChevronDown className={`size-4 shrink-0 transition ${open ? 'rotate-180' : ''}`} />
-                  </button>
+                  </Button>
                   {open ? (
                     <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
                       {cat.reports.map((r) => (
-                        <button
+                        <Button
                           key={r.id}
-                          type="button"
+                          variant="ghost"
                           onClick={() => void runStandard(r.id)}
-                          className={`${R_FLAT} flex flex-col border border-neutral-200/90 bg-white p-5 text-left shadow-sm transition hover:border-neutral-300 hover:shadow`}
+                          className={`${R_FLAT} flex flex-col items-start border border-neutral-200/90 bg-white p-5 text-left font-normal shadow-sm hover:border-neutral-300 hover:bg-white hover:shadow`}
                         >
                           <span className="font-semibold text-neutral-900">{r.title}</span>
                           <span className="mt-2 text-sm leading-relaxed text-neutral-600">{r.description}</span>
                           <span className="mt-4 text-[10px] font-bold uppercase tracking-wider text-[#1a3d32]">
                             Kjør rapport →
                           </span>
-                        </button>
+                        </Button>
                       ))}
                     </div>
                   ) : null}
@@ -831,23 +837,24 @@ export function ReportingEnginePage() {
                 </p>
               ) : standardPayload != null && activeStandardId ? (
                 <div className="flex flex-wrap gap-2">
-                  <button
-                    type="button"
+                  <Button
+                    variant="secondary"
                     onClick={() => {
                       setShowJsonInViewer(false)
                       setViewerOpen(true)
                     }}
-                    className={`${R_FLAT} inline-flex items-center gap-2 border border-neutral-300 bg-white px-4 py-2 text-sm font-medium text-neutral-800 hover:bg-neutral-50`}
+                    className={R_FLAT}
                   >
                     Åpne rapportvisning
-                  </button>
-                  <button
-                    type="button"
+                  </Button>
+                  <Button
+                    variant="primary"
                     onClick={() => void downloadJson(`report-${activeStandardId}-${y}.json`, standardPayload)}
-                    className={`${R_FLAT} inline-flex items-center gap-2 bg-[#1a3d32] px-4 py-2 text-sm font-medium text-white`}
+                    icon={<Download className="size-4" />}
+                    className={R_FLAT}
                   >
-                    <Download className="size-4" /> Last ned JSON
-                  </button>
+                    Last ned JSON
+                  </Button>
                 </div>
               ) : (
                 <p className="text-sm text-neutral-500">Ingen rapport i økten ennå.</p>
@@ -865,15 +872,15 @@ export function ReportingEnginePage() {
                 </p>
               </div>
               {rb.definitionsAvailable ? (
-                <button
-                  type="button"
+                <Button
+                  variant="secondary"
                   disabled={rb.loading}
                   onClick={() => void rb.refresh()}
-                  className={`${R_FLAT} inline-flex items-center gap-2 border border-neutral-300 bg-white px-3 py-2 text-sm font-medium text-neutral-800 hover:bg-neutral-50 disabled:opacity-50`}
+                  icon={rb.loading ? <Loader2 className="size-4 animate-spin" aria-hidden /> : <RefreshCw className="size-4" aria-hidden />}
+                  className={R_FLAT}
                 >
-                  {rb.loading ? <Loader2 className="size-4 animate-spin" aria-hidden /> : <RefreshCw className="size-4" aria-hidden />}
                   Oppdater liste
-                </button>
+                </Button>
               ) : null}
             </div>
             <ScopedError message={rb.error} onDismiss={rb.clearError} />
@@ -908,49 +915,53 @@ export function ReportingEnginePage() {
                       </p>
                     </div>
                     <div className="flex flex-wrap gap-2">
-                      <button
-                        type="button"
+                      <Button
+                        size="sm"
+                        variant="secondary"
                         onClick={() => quickRunTemplate(t)}
                         disabled={runCustomLoading}
-                        className={`${R_FLAT} border border-neutral-300 px-3 py-1.5 text-sm font-medium text-neutral-800 hover:bg-neutral-50 disabled:opacity-50`}
+                        className={R_FLAT}
                       >
                         Kjør
-                      </button>
-                      <button
-                        type="button"
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="secondary"
                         onClick={() => openEditTemplate(t)}
-                        className={`${R_FLAT} border border-neutral-300 px-3 py-1.5 text-sm font-medium text-neutral-800 hover:bg-neutral-50`}
+                        className={R_FLAT}
                       >
                         Rediger
-                      </button>
-                      <button
-                        type="button"
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="secondary"
                         onClick={() =>
                           void rb.duplicateTemplate(t).then((copy) => {
                             if (copy) void schedules.refresh()
                           })
                         }
-                        className={`${R_FLAT} border border-neutral-300 px-3 py-1.5 text-sm font-medium text-neutral-800 hover:bg-neutral-50`}
+                        className={R_FLAT}
                       >
                         Dupliser
-                      </button>
+                      </Button>
                       <Link
                         to={`/reports?tab=schedules&def=${encodeURIComponent(t.id)}`}
                         className={`${R_FLAT} inline-flex items-center border border-neutral-300 px-3 py-1.5 text-sm font-medium text-neutral-800 hover:bg-neutral-50`}
                       >
                         Planlegg
                       </Link>
-                      <button
-                        type="button"
+                      <Button
+                        size="sm"
+                        variant="secondary"
                         onClick={() =>
                           void rb.deleteTemplate(t.id).then((ok) => {
                             if (ok) void schedules.refresh()
                           })
                         }
-                        className={`${R_FLAT} border border-red-200 px-3 py-1.5 text-sm font-medium text-red-700 hover:bg-red-50`}
+                        className={`${R_FLAT} border-red-200 text-red-700 hover:bg-red-50`}
                       >
                         Slett
-                      </button>
+                      </Button>
                     </div>
                   </li>
                 ))}
@@ -1043,11 +1054,13 @@ export function ReportingEnginePage() {
                       <label className={SETTINGS_FIELD_LABEL} htmlFor="sched-def">
                         Rapportmal
                       </label>
-                      <select
-                        id="sched-def"
+                      <SearchableSelect
                         value={newScheduleDefId}
-                        onChange={(e) => {
-                          const v = e.target.value
+                        options={[
+                          { value: '', label: 'Velg mal…' },
+                          ...rb.templates.map((t) => ({ value: t.id, label: t.name })),
+                        ]}
+                        onChange={(v) => {
                           setNewScheduleDefId(v)
                           setSearchParams(
                             (prev) => {
@@ -1060,21 +1073,13 @@ export function ReportingEnginePage() {
                             { replace: true },
                           )
                         }}
-                        className={`${SETTINGS_INPUT} bg-white`}
-                      >
-                        <option value="">Velg mal…</option>
-                        {rb.templates.map((t) => (
-                          <option key={t.id} value={t.id}>
-                            {t.name}
-                          </option>
-                        ))}
-                      </select>
+                      />
                     </div>
                     <div>
                       <label className={SETTINGS_FIELD_LABEL} htmlFor="sched-title">
                         Tittel (valgfri)
                       </label>
-                      <input
+                      <StandardInput
                         id="sched-title"
                         value={newScheduleTitle}
                         onChange={(e) => setNewScheduleTitle(e.target.value)}
@@ -1086,36 +1091,36 @@ export function ReportingEnginePage() {
                       <p className={SETTINGS_FIELD_LABEL}>Frekvens</p>
                       <div className="mt-2 flex flex-wrap gap-2">
                         {SCHEDULE_PRESETS.map((p) => (
-                          <button
+                          <Button
                             key={p.id}
-                            type="button"
+                            size="sm"
+                            variant="secondary"
                             onClick={() => {
                               setNewScheduleCron(p.cron)
                               setNewScheduleTimezone(p.tz)
                               setScheduleCronAdvanced(false)
                             }}
-                            className={`${R_FLAT} border border-neutral-300 bg-white px-2.5 py-1.5 text-left text-[11px] font-medium leading-snug text-neutral-800 hover:bg-neutral-50 sm:text-xs`}
+                            className={`${R_FLAT} px-2.5 py-1.5 text-left text-[11px] font-medium leading-snug sm:text-xs`}
                           >
                             {p.label}
-                          </button>
+                          </Button>
                         ))}
                       </div>
-                      <label className="mt-3 flex cursor-pointer items-center gap-2 text-xs text-neutral-600">
-                        <input
-                          type="checkbox"
+                      <div className="mt-3 flex items-center gap-2 text-xs text-neutral-600">
+                        <ToggleSwitch
                           checked={scheduleCronAdvanced}
-                          onChange={(e) => setScheduleCronAdvanced(e.target.checked)}
-                          className="size-4 rounded-none border-neutral-300"
+                          onChange={setScheduleCronAdvanced}
+                          label="Avansert"
                         />
                         Avansert: rediger cron og tidssone selv
-                      </label>
+                      </div>
                       {scheduleCronAdvanced ? (
                         <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
                           <div>
                             <label className={SETTINGS_FIELD_LABEL} htmlFor="sched-cron">
                               Cron-uttrykk
                             </label>
-                            <input
+                            <StandardInput
                               id="sched-cron"
                               value={newScheduleCron}
                               onChange={(e) => setNewScheduleCron(e.target.value)}
@@ -1126,7 +1131,7 @@ export function ReportingEnginePage() {
                             <label className={SETTINGS_FIELD_LABEL} htmlFor="sched-tz">
                               Tidssone
                             </label>
-                            <input
+                            <StandardInput
                               id="sched-tz"
                               value={newScheduleTimezone}
                               onChange={(e) => setNewScheduleTimezone(e.target.value)}
@@ -1141,8 +1146,8 @@ export function ReportingEnginePage() {
                       )}
                     </div>
                   </div>
-                  <button
-                    type="button"
+                  <Button
+                    variant="secondary"
                     disabled={!newScheduleDefId || schedules.loading}
                     onClick={async () => {
                       if (!newScheduleDefId) return
@@ -1161,11 +1166,11 @@ export function ReportingEnginePage() {
                         setScheduleCronAdvanced(false)
                       }
                     }}
-                    className={`${R_FLAT} mt-4 inline-flex items-center gap-2 border border-neutral-300 bg-white px-4 py-2 text-sm font-medium text-neutral-800 hover:bg-neutral-50 disabled:opacity-50`}
+                    icon={schedules.loading ? <Loader2 className="size-4 animate-spin" aria-hidden /> : undefined}
+                    className={`${R_FLAT} mt-4`}
                   >
-                    {schedules.loading ? <Loader2 className="size-4 animate-spin" aria-hidden /> : null}
                     Legg til plan
-                  </button>
+                  </Button>
                 </div>
 
                 {schedules.loading && schedules.schedules.length === 0 ? (
@@ -1201,22 +1206,22 @@ export function ReportingEnginePage() {
                             </p>
                           </div>
                           <div className="flex flex-wrap items-center gap-2">
-                            <label className="flex cursor-pointer items-center gap-2 text-xs text-neutral-600">
-                              <input
-                                type="checkbox"
+                            <div className="flex items-center gap-2 text-xs text-neutral-600">
+                              <ToggleSwitch
                                 checked={s.enabled}
-                                onChange={(e) => void schedules.updateSchedule(s.id, { enabled: e.target.checked })}
-                                className="size-4 rounded-none border-neutral-300"
+                                onChange={(v) => void schedules.updateSchedule(s.id, { enabled: v })}
+                                label="Aktiv"
                               />
                               Aktiv (når motor er på plass)
-                            </label>
-                            <button
-                              type="button"
+                            </div>
+                            <Button
+                              size="sm"
+                              variant="secondary"
                               onClick={() => void schedules.deleteSchedule(s.id)}
-                              className={`${R_FLAT} border border-red-200 px-2 py-1 text-xs font-medium text-red-700 hover:bg-red-50`}
+                              className={`${R_FLAT} border-red-200 text-red-700 hover:bg-red-50`}
                             >
                               Slett
-                            </button>
+                            </Button>
                           </div>
                         </li>
                       )
@@ -1236,17 +1241,15 @@ export function ReportingEnginePage() {
             {toolsTabs.map((t) => {
               const sel = toolsTab === t.id
               return (
-                <button
+                <Button
                   key={t.id}
-                  type="button"
+                  variant={sel ? 'primary' : 'ghost'}
                   onClick={() => setToolsTab(t.id)}
-                  className={`${R_FLAT} px-3 py-2 text-xs font-medium sm:text-sm ${
-                    sel ? 'text-white' : 'text-neutral-600 hover:bg-white'
-                  }`}
+                  className={`${R_FLAT} px-3 py-2 ${sel ? '' : 'text-neutral-600 hover:bg-white'} sm:text-sm`}
                   style={sel ? { backgroundColor: accent, color: '#fff' } : undefined}
                 >
                   {t.label}
-                </button>
+                </Button>
               )
             })}
           </div>
@@ -1292,22 +1295,24 @@ export function ReportingEnginePage() {
                 bare avdelinger med tilstrekkelig antall ansatte.
               </p>
               <div className="mt-4 flex flex-wrap gap-2">
-                <button
-                  type="button"
+                <Button
+                  variant="secondary"
                   disabled={rep.loading}
                   onClick={async () => setSick(await rep.fetchSickByDept(y, 5))}
-                  className={`${R_FLAT} inline-flex min-w-[10rem] items-center justify-center gap-2 border border-neutral-200 bg-white px-3 py-2 text-sm font-medium disabled:opacity-50`}
+                  icon={rep.loading ? <Loader2 className="size-4 animate-spin" /> : undefined}
+                  className={`${R_FLAT} min-w-[10rem]`}
                 >
-                  {rep.loading ? <Loader2 className="size-4 animate-spin" /> : null} Test sykefravær per avdeling
-                </button>
+                  Test sykefravær per avdeling
+                </Button>
                 {sick != null && (
-                  <button
-                    type="button"
+                  <Button
+                    variant="primary"
                     onClick={() => void downloadJson(`sick-by-dept-${y}.json`, sick)}
-                    className={`${R_FLAT} inline-flex items-center gap-2 bg-[#1a3d32] px-3 py-2 text-sm font-medium text-white`}
+                    icon={<Download className="size-4" />}
+                    className={R_FLAT}
                   >
-                    <Download className="size-4" /> JSON
-                  </button>
+                    JSON
+                  </Button>
                 )}
               </div>
               {sick ? <div className="mt-4"><JsonBlock data={sick} /></div> : null}
@@ -1335,18 +1340,18 @@ export function ReportingEnginePage() {
             <div className={`${R_FLAT} border border-neutral-200/90 bg-white p-6 shadow-sm`}>
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <h2 className="text-lg font-semibold text-neutral-900">Materialisert compliance-score</h2>
-                <button
-                  type="button"
+                <Button
+                  variant="secondary"
                   disabled={rep.loading}
                   onClick={async () => {
                     await rep.refreshComplianceMv()
                     await loadCompliance()
                   }}
-                  className={`${R_FLAT} inline-flex items-center gap-2 border border-neutral-200 px-3 py-2 text-sm disabled:opacity-50`}
+                  icon={rep.loading ? <Loader2 className="size-4 animate-spin" /> : <RefreshCw className="size-4" />}
+                  className={R_FLAT}
                 >
-                  {rep.loading ? <Loader2 className="size-4 animate-spin" /> : <RefreshCw className="size-4" />}
                   Oppdater MV
-                </button>
+                </Button>
               </div>
               {score ? <div className="mt-4"><JsonBlock data={score} /></div> : (
                 <p className="mt-4 text-sm text-neutral-500">Laster…</p>
@@ -1424,45 +1429,50 @@ export function ReportingEnginePage() {
                 </p>
               </div>
               <div className="flex flex-wrap items-center gap-2">
-                <button
-                  type="button"
+                <Button
+                  size="sm"
+                  variant="secondary"
                   onClick={() => setShowJsonInViewer((v) => !v)}
-                  className={`${R_FLAT} border border-neutral-300 bg-white px-3 py-2 text-xs font-semibold uppercase tracking-wide text-neutral-700 hover:bg-neutral-50`}
+                  className={`${R_FLAT} px-3 py-2 uppercase tracking-wide`}
                 >
                   {showJsonInViewer ? 'Skjul JSON' : 'Vis JSON'}
-                </button>
-                <button
-                  type="button"
+                </Button>
+                <Button
+                  size="sm"
+                  variant="secondary"
                   onClick={() => void downloadJson(`report-${activeStandardId}-${y}.json`, standardPayload)}
-                  className={`${R_FLAT} border border-neutral-300 bg-white px-3 py-2 text-xs font-semibold uppercase tracking-wide text-neutral-700 hover:bg-neutral-50`}
+                  icon={<Download className="size-3.5" />}
+                  className={`${R_FLAT} px-3 py-2 uppercase tracking-wide`}
                 >
-                  <Download className="mr-1 inline size-3.5 align-middle" />
                   JSON
-                </button>
-                <button
-                  type="button"
+                </Button>
+                <Button
+                  size="sm"
+                  variant="secondary"
                   onClick={() => setShareModal('pdf')}
-                  className={`${R_FLAT} border border-neutral-300 bg-white px-3 py-2 text-xs font-semibold uppercase tracking-wide text-neutral-700 hover:bg-neutral-50`}
+                  icon={<FileDown className="size-3.5" />}
+                  className={`${R_FLAT} px-3 py-2 uppercase tracking-wide`}
                 >
-                  <FileDown className="mr-1 inline size-3.5 align-middle" />
                   PDF
-                </button>
-                <button
-                  type="button"
+                </Button>
+                <Button
+                  size="sm"
+                  variant="secondary"
                   onClick={() => setShareModal('email')}
-                  className={`${R_FLAT} border border-neutral-300 bg-white px-3 py-2 text-xs font-semibold uppercase tracking-wide text-neutral-700 hover:bg-neutral-50`}
+                  icon={<Mail className="size-3.5" />}
+                  className={`${R_FLAT} px-3 py-2 uppercase tracking-wide`}
                 >
-                  <Mail className="mr-1 inline size-3.5 align-middle" />
                   E-post
-                </button>
-                <button
-                  type="button"
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon"
                   onClick={closeViewer}
-                  className="rounded-none p-2 text-neutral-500 hover:bg-neutral-200/60"
+                  className="h-9 w-9 rounded-none text-neutral-500 hover:bg-neutral-200/60"
                   aria-label="Lukk"
                 >
                   <X className="size-5" />
-                </button>
+                </Button>
               </div>
             </header>
             <div className="min-h-0 flex-1 overflow-y-auto">
@@ -1524,39 +1534,43 @@ export function ReportingEnginePage() {
                   </p>
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
-                  <button
-                    type="button"
+                  <Button
+                    size="sm"
+                    variant="ghost"
                     onClick={requestCloseBuilder}
-                    className={`${R_FLAT} px-3 py-2 text-xs font-semibold uppercase tracking-wide text-neutral-600 hover:bg-neutral-200/50`}
+                    className={`${R_FLAT} px-3 py-2 uppercase tracking-wide text-neutral-600 hover:bg-neutral-200/50`}
                   >
                     Tilbake
-                  </button>
-                  <button
-                    type="button"
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="secondary"
                     onClick={() => void saveDraft()}
                     disabled={saveDraftLoading || !draft?.name.trim()}
-                    className={`${R_FLAT} inline-flex items-center gap-1.5 border border-neutral-300 bg-white px-3 py-2 text-xs font-semibold uppercase tracking-wide text-neutral-800 hover:bg-neutral-50 disabled:opacity-50`}
+                    icon={saveDraftLoading ? <Loader2 className="size-3.5 animate-spin" aria-hidden /> : undefined}
+                    className={`${R_FLAT} px-3 py-2 uppercase tracking-wide`}
                   >
-                    {saveDraftLoading ? <Loader2 className="size-3.5 animate-spin" aria-hidden /> : null}
                     Lagre mal
-                  </button>
-                  <button
-                    type="button"
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="primary"
                     onClick={() => void runCustomReport()}
                     disabled={runCustomLoading || previewLoading}
-                    className={`${R_FLAT} px-4 py-2 text-xs font-semibold uppercase tracking-wide text-white disabled:opacity-50`}
+                    className={`${R_FLAT} px-4 py-2 uppercase tracking-wide`}
                     style={{ backgroundColor: accent }}
                   >
                     {runCustomLoading || previewLoading ? 'Oppdaterer…' : 'Kjør rapport'}
-                  </button>
-                  <button
-                    type="button"
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
                     onClick={requestCloseBuilder}
-                    className="rounded-none p-2 text-neutral-500 hover:bg-neutral-200/60"
+                    className="h-9 w-9 rounded-none text-neutral-500 hover:bg-neutral-200/60"
                     aria-label="Lukk"
                   >
                     <X className="size-5" />
-                  </button>
+                  </Button>
                 </div>
               </div>
               <div className="flex min-h-[1.25rem] flex-wrap items-center gap-3 text-xs">
@@ -1567,13 +1581,14 @@ export function ReportingEnginePage() {
                   <span className="font-medium text-emerald-800">Rapport kjørt og logget.</span>
                 ) : null}
                 {rb.error?.includes('noen andre') ? (
-                  <button
-                    type="button"
+                  <Button
+                    variant="ghost"
+                    size="sm"
                     onClick={() => void reloadTemplateFromServer()}
-                    className="font-semibold text-[#1a3d32] underline decoration-neutral-400 underline-offset-2 hover:decoration-[#1a3d32]"
+                    className="px-0 font-semibold text-[#1a3d32] underline decoration-neutral-400 underline-offset-2 hover:bg-transparent hover:decoration-[#1a3d32]"
                   >
                     Last mal på nytt fra server
-                  </button>
+                  </Button>
                 ) : null}
               </div>
               {rb.error ? (
@@ -1594,7 +1609,7 @@ export function ReportingEnginePage() {
                   <label className={SETTINGS_FIELD_LABEL} htmlFor="rb-name">
                     Rapportnavn
                   </label>
-                  <input
+                  <StandardInput
                     id="rb-name"
                     value={draft.name}
                     onChange={(e) => setDraft((d) => (d ? { ...d, name: e.target.value } : null))}
@@ -1616,13 +1631,14 @@ export function ReportingEnginePage() {
                     <p className="text-[10px] font-bold uppercase tracking-wider text-neutral-600">
                       Filtre (0) — kommer
                     </p>
-                    <button
-                      type="button"
+                    <Button
+                      size="sm"
+                      variant="secondary"
                       disabled
-                      className={`${R_FLAT} border border-neutral-200 px-2 py-1 text-[10px] font-bold uppercase text-neutral-400`}
+                      className={`${R_FLAT} px-2 py-1 text-[10px] uppercase text-neutral-400`}
                     >
                       + Legg til filter
-                    </button>
+                    </Button>
                   </div>
                   <div className="min-h-0 flex-1 overflow-y-auto rounded-none border border-neutral-200 bg-white p-4">
                     <div className="mb-3 flex items-center gap-2 text-neutral-500">
@@ -1669,22 +1685,24 @@ function ToolsRpcSection({
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h2 className="text-lg font-semibold text-neutral-900">{title}</h2>
         <div className="flex flex-wrap gap-2">
-          <button
-            type="button"
+          <Button
+            variant="secondary"
             disabled={loading}
             onClick={() => void onRun()}
-            className="inline-flex min-w-[7.5rem] items-center justify-center gap-2 rounded-none border border-neutral-200 bg-white px-3 py-2 text-sm font-medium disabled:opacity-50"
+            icon={loading ? <Loader2 className="size-4 animate-spin" /> : undefined}
+            className="min-w-[7.5rem] rounded-none"
           >
-            {loading ? <Loader2 className="size-4 animate-spin" /> : null} Kjør
-          </button>
+            Kjør
+          </Button>
           {data != null && (
-            <button
-              type="button"
+            <Button
+              variant="primary"
               onClick={onDownload}
-              className="inline-flex items-center gap-2 rounded-none bg-[#1a3d32] px-3 py-2 text-sm font-medium text-white"
+              icon={<Download className="size-4" />}
+              className="rounded-none"
             >
-              <Download className="size-4" /> JSON
-            </button>
+              JSON
+            </Button>
           )}
         </div>
       </div>

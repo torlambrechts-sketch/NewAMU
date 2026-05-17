@@ -9,6 +9,7 @@ import { useMemo, useState } from 'react'
 import { SlidePanel } from '../../layout/SlidePanel'
 import { Button } from '../../ui/Button'
 import { StandardInput } from '../../ui/Input'
+import { StandardTextarea } from '../../ui/Textarea'
 import { SearchableSelect } from '../../ui/SearchableSelect'
 import { useWorkflows } from '../../../hooks/useWorkflows'
 import { listWorkflowScopes, listWorkflowEvents } from '../../../lib/workflows/workflowRegistry'
@@ -142,7 +143,7 @@ export function NewRulePanel({
 
         <label className="block">
           <span className={WPSTD_FORM_FIELD_LABEL}>Beskrivelse (valgfritt)</span>
-          <textarea
+          <StandardTextarea
             value={description}
             onChange={(e) => setDescription(e.target.value)}
             rows={3}

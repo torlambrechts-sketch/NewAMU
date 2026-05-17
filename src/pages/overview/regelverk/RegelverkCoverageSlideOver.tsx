@@ -7,6 +7,7 @@
 
 import { useEffect } from 'react'
 import { ExternalLink, X } from 'lucide-react'
+import { Button } from '../../../components/ui/Button'
 import {
   CONTENT_AXES,
   KIND_LABEL,
@@ -139,11 +140,11 @@ export function RegelverkCoverageSlideOver({
 
   return (
     <div className="fixed inset-0 z-[60]" role="dialog" aria-modal="true">
-      <button
-        type="button"
+      <Button
+        variant="ghost"
         aria-label="Lukk"
         onClick={onClose}
-        className="absolute inset-0 bg-neutral-900/30"
+        className="absolute inset-0 rounded-none bg-neutral-900/30 p-0 hover:bg-neutral-900/30"
       />
       <div
         className="absolute right-0 top-0 flex h-full w-full max-w-2xl flex-col overflow-hidden border-l border-neutral-200 shadow-2xl"
@@ -162,14 +163,15 @@ export function RegelverkCoverageSlideOver({
             </h2>
             <p className="mt-1 text-sm text-neutral-700">{req.title}</p>
           </div>
-          <button
-            type="button"
+          <Button
+            variant="ghost"
+            size="icon"
             onClick={onClose}
             aria-label="Lukk"
-            className="shrink-0 rounded-md p-2 text-neutral-500 hover:bg-neutral-100"
+            className="h-auto w-auto shrink-0 rounded-md p-2 text-neutral-500 hover:bg-neutral-100"
           >
             <X className="size-5" />
-          </button>
+          </Button>
         </header>
 
         <div className="flex-1 overflow-y-auto px-6 py-5">

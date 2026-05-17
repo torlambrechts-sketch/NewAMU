@@ -79,7 +79,7 @@ export function TasksKravTab() {
             {groups.map((g) => (
               <div
                 key={g.kind}
-                className="rounded-lg border border-neutral-200/80 bg-neutral-50/40 p-4"
+                className="rounded-lg border border-neutral-200/80 bg-neutral-50/50 p-4"
               >
                 <div className="flex items-center gap-2 mb-2">
                   <span className="text-sm font-medium text-neutral-900 capitalize">{g.kind}</span>

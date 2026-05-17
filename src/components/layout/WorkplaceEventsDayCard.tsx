@@ -2,6 +2,7 @@ import { CalendarDays, ChevronDown, ChevronLeft, ChevronRight, Clock } from 'luc
 import { useState, type ReactNode } from 'react'
 import { Link } from 'react-router-dom'
 import { WORKPLACE_LAYOUT_BOX_CARD, WORKPLACE_LAYOUT_BOX_SHADOW } from './workplaceLayoutKit'
+import { Button } from '../ui/Button'
 
 const FOREST = '#1a3d32'
 
@@ -123,47 +124,51 @@ export function WorkplaceEventsDayCard({
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div className="flex min-w-0 flex-wrap items-center gap-2">
             {datePickerSlot ?? (
-              <button
-                type="button"
+              <Button
+                variant="ghost"
                 className="inline-flex max-w-full items-center gap-1.5 rounded-md text-left text-xs font-semibold text-neutral-800 hover:bg-white/80"
               >
                 <CalendarDays className="size-3.5 shrink-0 text-neutral-500" aria-hidden />
                 <span className="truncate">{dateLabel}</span>
                 <ChevronDown className="size-3.5 shrink-0 text-neutral-400" aria-hidden />
-              </button>
+              </Button>
             )}
           </div>
           <div className="flex items-center gap-0.5">
-            <button
-              type="button"
+            <Button
+              variant="ghost"
+              size="icon"
               onClick={onPrevDay}
-              className="rounded-md p-1.5 text-neutral-500 hover:bg-white hover:text-neutral-800"
+              className="h-auto w-auto rounded-md p-1.5 text-neutral-500 hover:bg-white hover:text-neutral-800"
               aria-label="Forrige dag"
             >
               <ChevronLeft className="size-4" />
-            </button>
-            <button
-              type="button"
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
               onClick={onNextDay}
-              className="rounded-md p-1.5 text-neutral-500 hover:bg-white hover:text-neutral-800"
+              className="h-auto w-auto rounded-md p-1.5 text-neutral-500 hover:bg-white hover:text-neutral-800"
               aria-label="Neste dag"
             >
               <ChevronRight className="size-4" />
-            </button>
+            </Button>
           </div>
         </div>
       </div>
 
       {tabs.length > 1 ? (
-        <div className="flex flex-wrap gap-x-4 gap-y-1 border-b border-neutral-100 bg-neutral-50/60 px-4 pb-2 pt-0">
+        <div className="flex flex-wrap gap-x-4 gap-y-1 border-b border-neutral-100 bg-neutral-50/60 px-4 pb-2 pt-0" role="tablist">
           {tabs.map((t) => {
             const active = t.id === activeId
             return (
-              <button
+              <Button
                 key={t.id}
-                type="button"
+                variant="ghost"
                 onClick={() => setTab(t.id)}
-                className={tabButtonClass(active)}
+                role="tab"
+                aria-selected={active}
+                className={`${tabButtonClass(active)} rounded-none hover:bg-transparent`}
                 style={
                   active
                     ? {
@@ -174,7 +179,7 @@ export function WorkplaceEventsDayCard({
               >
                 {t.label}
                 {t.count != null ? <span className="ml-1 tabular-nums text-neutral-500">({t.count})</span> : null}
-              </button>
+              </Button>
             )
           })}
         </div>
@@ -194,10 +199,10 @@ export function WorkplaceEventsDayCard({
             return (
               <li key={ev.id}>
                 {interactive ? (
-                  <button
-                    type="button"
+                  <Button
+                    variant="ghost"
                     onClick={ev.onClick}
-                    className="flex w-full gap-2 px-3 py-2.5 text-left transition hover:bg-neutral-50/90 sm:gap-3 sm:px-4 sm:py-3"
+                    className="flex w-full justify-start gap-2 rounded-none px-3 py-2.5 text-left font-normal transition hover:bg-neutral-50/90 sm:gap-3 sm:px-4 sm:py-3"
                   >
                     <div className="flex size-9 shrink-0 items-center justify-center rounded-full bg-neutral-100 text-neutral-600">
                       <Clock className="size-4 shrink-0" aria-hidden />
@@ -206,7 +211,7 @@ export function WorkplaceEventsDayCard({
                       <p className="text-sm text-neutral-800">{ev.title}</p>
                       {subtitle ? <p className="mt-1 text-xs text-neutral-400">{subtitle}</p> : null}
                     </div>
-                  </button>
+                  </Button>
                 ) : (
                   <div className="flex gap-2 px-3 py-2.5 sm:gap-3 sm:px-4 sm:py-3">
                     <div className="flex size-9 shrink-0 items-center justify-center rounded-full bg-neutral-100 text-neutral-600">
@@ -241,13 +246,13 @@ export function WorkplaceEventsDayCard({
               <FooterInner footer={footer} />
             </a>
           ) : (
-            <button
-              type="button"
+            <Button
+              variant="ghost"
               onClick={footer.onMoreClick}
-              className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left text-sm text-neutral-800 transition hover:bg-neutral-50"
+              className="flex w-full items-center justify-between gap-3 rounded-none px-4 py-3 text-left text-sm font-normal text-neutral-800 transition hover:bg-neutral-50"
             >
               <FooterInner footer={footer} />
-            </button>
+            </Button>
           )}
         </div>
       ) : null}

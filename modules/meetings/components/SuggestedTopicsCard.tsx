@@ -127,8 +127,9 @@ export function SuggestedTopicsCard({
                 >
                   Legg til
                 </Button>
-                <button
-                  type="button"
+                <Button
+                  variant="ghost"
+                  size="sm"
                   onClick={() =>
                     setDismissed((prev) => {
                       const next = new Set(prev)
@@ -140,7 +141,7 @@ export function SuggestedTopicsCard({
                   title="Avvis forslaget for denne økten"
                 >
                   Avvis
-                </button>
+                </Button>
               </div>
             </li>
           )

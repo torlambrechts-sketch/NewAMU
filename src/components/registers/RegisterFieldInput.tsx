@@ -117,7 +117,7 @@ function FieldByKind({ field, value, onChange, disabled }: Props) {
                   key={o.value}
                   className="flex cursor-pointer items-start gap-2 rounded-sm px-1.5 py-1 text-sm text-neutral-800 hover:bg-neutral-50"
                 >
-                  <input
+                  <StandardInput
                     type="checkbox"
                     checked={on}
                     disabled={disabled}

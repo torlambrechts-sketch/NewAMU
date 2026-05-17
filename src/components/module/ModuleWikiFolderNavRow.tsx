@@ -1,5 +1,6 @@
 import type { DragEvent, ReactNode } from 'react'
 import { Folder } from 'lucide-react'
+import { Button } from '../ui/Button'
 
 /** Beige folder nav — matches wiki dokument-hub (`ModuleDocumentsKandidatdetaljHub`). */
 export const BEIGE_NAV = '#EDE4D3'
@@ -47,20 +48,20 @@ export function WikiFolderNavRow({
       onDragOver={onDragOver}
       onDrop={onDrop}
     >
-      <button
-        type="button"
+      <Button
+        variant="ghost"
         onClick={onSelect}
-        className="min-w-0 flex-1 rounded-md px-3 py-2.5 text-left"
+        className="h-auto min-w-0 flex-1 justify-start rounded-md px-3 py-2.5 text-left font-normal hover:bg-transparent"
         aria-current={active ? 'true' : undefined}
       >
-        <span className="flex items-start gap-2">
+        <span className="flex w-full items-start gap-2">
           <Folder className={`${WIKI_FOLDER_ICON_CLASS} mt-0.5`} aria-hidden />
           <span className="min-w-0 flex-1">
             <span className="block truncate text-sm font-medium">{label}</span>
             <span className="mt-0.5 block truncate text-[11px] text-neutral-500">{sub}</span>
           </span>
         </span>
-      </button>
+      </Button>
       {actions ? (
         <div className="flex shrink-0 flex-col justify-center gap-0.5 border-l border-neutral-200/50 py-1 pr-1">{actions}</div>
       ) : null}

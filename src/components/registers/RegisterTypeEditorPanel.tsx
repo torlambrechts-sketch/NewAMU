@@ -332,14 +332,15 @@ export function RegisterTypeEditorPanel({ open, onClose, onSubmit }: Props) {
                         </div>
                       ) : null}
                     </div>
-                    <button
-                      type="button"
+                    <Button
+                      variant="ghost"
+                      size="icon"
                       onClick={() => removeField(i)}
                       aria-label="Fjern felt"
-                      className="rounded-md p-1.5 text-neutral-400 hover:bg-red-50 hover:text-red-600"
+                      className="h-auto w-auto rounded-md p-1.5 text-neutral-400 hover:bg-red-50 hover:text-red-600"
                     >
                       <Trash2 className="h-4 w-4" />
-                    </button>
+                    </Button>
                   </div>
                 </li>
               ))}

@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom'
 import { useNavigate } from 'react-router-dom'
 import { Loader2, Search } from 'lucide-react'
 import { StandardInput } from '../ui/Input'
+import { Button } from '../ui/Button'
 import { Badge } from '../ui/Badge'
 import { useDocumentSearch } from '../../hooks/useDocumentSearch'
 import { useDocuments } from '../../hooks/useDocuments'
@@ -119,10 +120,10 @@ export function DocumentSearchModal({ open, onClose }: DocumentSearchModalProps)
             <ul className="mt-4 max-h-[50vh] space-y-1 overflow-y-auto">
               {results.map((r) => (
                 <li key={r.id}>
-                  <button
-                    type="button"
+                  <Button
+                    variant="ghost"
                     onClick={() => handlePick(r)}
-                    className="flex w-full flex-col gap-1 rounded-lg border border-transparent px-3 py-2.5 text-left hover:border-neutral-200 hover:bg-neutral-50"
+                    className="flex h-auto w-full flex-col items-start gap-1 rounded-lg border border-transparent px-3 py-2.5 text-left font-normal hover:border-neutral-200 hover:bg-neutral-50"
                   >
                     <div className="flex flex-wrap items-center gap-2">
                       <span className="min-w-0 flex-1 truncate text-sm font-medium text-neutral-900">{r.title}</span>
@@ -139,7 +140,7 @@ export function DocumentSearchModal({ open, onClose }: DocumentSearchModalProps)
                       })}
                     </div>
                     {r.summary ? <p className="line-clamp-2 text-xs text-neutral-600">{r.summary}</p> : null}
-                  </button>
+                  </Button>
                 </li>
               ))}
             </ul>

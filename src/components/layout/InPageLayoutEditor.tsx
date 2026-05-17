@@ -9,6 +9,10 @@ import type {
 } from '../../types/pageLayout'
 import { COLUMN_PRESET_COUNT, COLUMN_PRESET_LABELS } from '../../types/pageLayout'
 import { LIBRARY_BLOCK_DEFS } from './LayoutBlockLibrary'
+import { Button } from '../ui/Button'
+import { StandardInput } from '../ui/Input'
+import { StandardTextarea } from '../ui/Textarea'
+import { SearchableSelect } from '../ui/SearchableSelect'
 
 /* ── Helpers ──────────────────────────────────────────────────────────────── */
 
@@ -95,11 +99,11 @@ function BlockPicker({ blockDefs, onPick, onClose }: BlockPickerProps) {
     <div className="flex flex-col gap-2">
       <div className="flex items-center justify-between">
         <p className="text-xs font-semibold text-neutral-900">Legg til blokk</p>
-        <button type="button" className={BTN_GHOST} onClick={onClose}>
+        <Button variant="ghost" size="icon" className={BTN_GHOST} onClick={onClose} aria-label="Lukk">
           <Icon d={ICONS.x} />
-        </button>
+        </Button>
       </div>
-      <input
+      <StandardInput
         autoFocus
         type="search"
         placeholder="Søk blokker…"
@@ -109,17 +113,17 @@ function BlockPicker({ blockDefs, onPick, onClose }: BlockPickerProps) {
       />
       <div className="max-h-52 space-y-1 overflow-y-auto">
         {filtered.map((d) => (
-          <button
+          <Button
             key={d.id}
-            type="button"
-            className="flex w-full flex-col gap-0.5 rounded border border-neutral-200 bg-white px-3 py-2 text-left hover:border-[#1a3d32]/40 hover:bg-[#1a3d32]/5"
+            variant="ghost"
+            className="flex w-full flex-col items-start gap-0.5 rounded border border-neutral-200 bg-white px-3 py-2 text-left font-normal hover:border-[#1a3d32]/40 hover:bg-[#1a3d32]/5"
             onClick={() => onPick(d)}
           >
             <span className="text-xs font-semibold text-neutral-900">{d.label}</span>
             {d.description && (
               <span className="text-[11px] text-neutral-500">{d.description}</span>
             )}
-          </button>
+          </Button>
         ))}
         {filtered.length === 0 && (
           <p className="py-4 text-center text-xs text-neutral-400">Ingen blokker matcher søket</p>
@@ -152,7 +156,7 @@ function TextEditor({ keys, values, onChange }: TextEditorProps) {
           <label className="text-[11px] font-semibold uppercase tracking-wider text-neutral-500">
             {key}
           </label>
-          <textarea
+          <StandardTextarea
             rows={2}
             value={values[key] ?? ''}
             onChange={(e) => onChange(key, e.target.value)}
@@ -492,28 +496,28 @@ export function InPageLayoutEditor({
         <div className="flex items-center gap-2">
           {hasDb && (
             isPublished ? (
-              <button type="button" className={BTN_SECONDARY} onClick={onUnpublish}>
+              <Button variant="secondary" className={BTN_SECONDARY} onClick={onUnpublish}>
                 Avpubliser
-              </button>
+              </Button>
             ) : (
-              <button type="button" className={BTN_SECONDARY} onClick={onPublish} disabled={dirty}>
+              <Button variant="secondary" className={BTN_SECONDARY} onClick={onPublish} disabled={dirty}>
                 <Icon d={ICONS.publish} />
                 {dirty ? 'Lagre først' : 'Publiser'}
-              </button>
+              </Button>
             )
           )}
-          <button
-            type="button"
+          <Button
+            variant="primary"
             disabled={!dirty || saving}
             className={BTN_PRIMARY + ' disabled:opacity-50'}
             onClick={() => onSave(sections)}
           >
             <Icon d={ICONS.save} />
             {saving ? 'Lagrer…' : 'Lagre'}
-          </button>
-          <button type="button" className={BTN_GHOST} onClick={onClose} aria-label="Lukk">
+          </Button>
+          <Button variant="ghost" size="icon" className={BTN_GHOST} onClick={onClose} aria-label="Lukk">
             <Icon d={ICONS.x} />
-          </button>
+          </Button>
         </div>
       </header>
 
@@ -538,22 +542,24 @@ export function InPageLayoutEditor({
               >
                 <span className="min-w-0 truncate">{section.label || `S${sectionIdx + 1}`}</span>
                 <div className="flex shrink-0 items-center gap-0.5">
-                  <button
-                    type="button"
-                    className="rounded p-0.5 hover:bg-black/10"
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-5 w-5 rounded p-0.5 hover:bg-black/10"
                     onClick={(e) => { e.stopPropagation(); moveSectionUp(sectionIdx) }}
-                    title="Flytt opp"
+                    aria-label="Flytt opp"
                   >
                     <Icon d={ICONS.chevUp} size={3} />
-                  </button>
-                  <button
-                    type="button"
-                    className="rounded p-0.5 hover:bg-black/10"
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-5 w-5 rounded p-0.5 hover:bg-black/10"
                     onClick={(e) => { e.stopPropagation(); moveSectionDown(sectionIdx, sections.length) }}
-                    title="Flytt ned"
+                    aria-label="Flytt ned"
                   >
                     <Icon d={ICONS.chevDown} size={3} />
-                  </button>
+                  </Button>
                 </div>
               </div>
 
@@ -595,10 +601,10 @@ export function InPageLayoutEditor({
 
               {/* Add block buttons per column */}
               {section.cols.map((col) => (
-                <button
+                <Button
                   key={`add-${col.id}`}
-                  type="button"
-                  className="flex w-full items-center gap-1 rounded px-2 py-1 pl-5 text-[11px] text-neutral-400 hover:bg-neutral-200/40 hover:text-[#1a3d32]"
+                  variant="ghost"
+                  className="flex w-full items-center justify-start gap-1 rounded px-2 py-1 pl-5 text-[11px] font-normal text-neutral-400 hover:bg-neutral-200/40 hover:text-[#1a3d32]"
                   onClick={() => {
                     setShowBlockPicker({ sectionId: section.id, colId: col.id })
                     setSelection(null)
@@ -606,7 +612,7 @@ export function InPageLayoutEditor({
                 >
                   <Icon d={ICONS.plus} size={3} />
                   Legg til blokk
-                </button>
+                </Button>
               ))}
             </div>
           ))}
@@ -617,15 +623,15 @@ export function InPageLayoutEditor({
               Ny seksjon
             </p>
             {(Object.keys(COLUMN_PRESET_LABELS) as ColumnPreset[]).map((preset) => (
-              <button
+              <Button
                 key={preset}
-                type="button"
+                variant="ghost"
                 className={BTN_GHOST + ' w-full justify-start text-[11px]'}
                 onClick={() => addSection(preset)}
               >
                 <Icon d={ICONS.layout} size={3} />
                 {COLUMN_PRESET_LABELS[preset]}
-              </button>
+              </Button>
             ))}
           </div>
         </div>
@@ -658,21 +664,21 @@ export function InPageLayoutEditor({
             <div className="space-y-5">
               <div className="flex items-center justify-between">
                 <p className="text-sm font-semibold text-neutral-900">Seksjon</p>
-                <button
-                  type="button"
+                <Button
+                  variant="ghost"
                   className={BTN_DANGER}
                   onClick={() => removeSection(sel.section!.id)}
                 >
                   <Icon d={ICONS.trash} />
                   Slett seksjon
-                </button>
+                </Button>
               </div>
 
               <div className="space-y-1">
                 <label className="text-[11px] font-semibold uppercase tracking-wider text-neutral-500">
                   Navn (intern label)
                 </label>
-                <input
+                <StandardInput
                   type="text"
                   value={sel.section.label ?? ''}
                   onChange={(e) => updateSectionLabel(sel.section!.id, e.target.value)}
@@ -684,15 +690,14 @@ export function InPageLayoutEditor({
                 <p className="text-[11px] font-semibold uppercase tracking-wider text-neutral-500">
                   Kolonner
                 </p>
-                <select
+                <SearchableSelect
                   value={sel.section.preset ?? 'full'}
-                  onChange={(e) => updatePreset(sel.section!.id, e.target.value as ColumnPreset)}
-                  className={INPUT}
-                >
-                  {(Object.keys(COLUMN_PRESET_LABELS) as ColumnPreset[]).map((p) => (
-                    <option key={p} value={p}>{COLUMN_PRESET_LABELS[p]}</option>
-                  ))}
-                </select>
+                  onChange={(v) => updatePreset(sel.section!.id, v as ColumnPreset)}
+                  options={(Object.keys(COLUMN_PRESET_LABELS) as ColumnPreset[]).map((p) => ({
+                    value: p,
+                    label: COLUMN_PRESET_LABELS[p],
+                  }))}
+                />
                 <p className="text-[10px] text-neutral-400">
                   Innholdet i eksisterende kolonner beholdes. Ekstra kolonner legges til tomme.
                 </p>
@@ -708,8 +713,8 @@ export function InPageLayoutEditor({
                   {sel.def?.label ?? sel.block.blockId}
                 </p>
                 <div className="flex items-center gap-2">
-                  <button
-                    type="button"
+                  <Button
+                    variant="ghost"
                     className={BTN_GHOST}
                     title={sel.block.visible === false ? 'Vis' : 'Skjul'}
                     onClick={() =>
@@ -718,9 +723,9 @@ export function InPageLayoutEditor({
                   >
                     <Icon d={sel.block.visible === false ? ICONS.eye : ICONS.eyeOff} />
                     {sel.block.visible === false ? 'Vis' : 'Skjul'}
-                  </button>
-                  <button
-                    type="button"
+                  </Button>
+                  <Button
+                    variant="ghost"
                     className={BTN_DANGER}
                     onClick={() =>
                       removeBlock(selection.sectionId, selection.colId, selection.blockId)
@@ -728,7 +733,7 @@ export function InPageLayoutEditor({
                   >
                     <Icon d={ICONS.trash} />
                     Slett
-                  </button>
+                  </Button>
                 </div>
               </div>
 
@@ -740,35 +745,34 @@ export function InPageLayoutEditor({
               {sel.block.blockId === 'kpiInfoBoxes' && (
                 <div className="space-y-1">
                   <p className="text-[11px] font-semibold uppercase tracking-wider text-neutral-500">Antall bokser</p>
-                  <select
-                    value={Number(sel.block.blockProps?.boxCount ?? 3)}
-                    onChange={(e) =>
-                      updateBlockProp(selection.sectionId, selection.colId, selection.blockId, 'boxCount', Number(e.target.value))
+                  <SearchableSelect
+                    value={String(sel.block.blockProps?.boxCount ?? 3)}
+                    onChange={(v) =>
+                      updateBlockProp(selection.sectionId, selection.colId, selection.blockId, 'boxCount', Number(v))
                     }
-                    className="w-full rounded border border-neutral-200 bg-white px-2 py-1.5 text-sm text-neutral-900 outline-none focus:ring-2 focus:ring-[#1a3d32]/25"
-                  >
-                    {[1, 2, 3, 4, 5, 6].map((n) => (
-                      <option key={n} value={n}>{n} {n === 1 ? 'boks' : 'bokser'}</option>
-                    ))}
-                  </select>
+                    options={[1, 2, 3, 4, 5, 6].map((n) => ({
+                      value: String(n),
+                      label: `${n} ${n === 1 ? 'boks' : 'bokser'}`,
+                    }))}
+                  />
                 </div>
               )}
 
               {sel.block.blockId === 'infoCard' && (
                 <div className="space-y-1">
                   <p className="text-[11px] font-semibold uppercase tracking-wider text-neutral-500">Variant</p>
-                  <select
+                  <SearchableSelect
                     value={String(sel.block.blockProps?.variant ?? 'neutral')}
-                    onChange={(e) =>
-                      updateBlockProp(selection.sectionId, selection.colId, selection.blockId, 'variant', e.target.value)
+                    onChange={(v) =>
+                      updateBlockProp(selection.sectionId, selection.colId, selection.blockId, 'variant', v)
                     }
-                    className="w-full rounded border border-neutral-200 bg-white px-2 py-1.5 text-sm text-neutral-900 outline-none focus:ring-2 focus:ring-[#1a3d32]/25"
-                  >
-                    <option value="neutral">Nøytral (hvit)</option>
-                    <option value="info">Info (blå)</option>
-                    <option value="warning">Advarsel (gul)</option>
-                    <option value="success">Suksess (grønn)</option>
-                  </select>
+                    options={[
+                      { value: 'neutral', label: 'Nøytral (hvit)' },
+                      { value: 'info', label: 'Info (blå)' },
+                      { value: 'warning', label: 'Advarsel (gul)' },
+                      { value: 'success', label: 'Suksess (grønn)' },
+                    ]}
+                  />
                 </div>
               )}
 

@@ -6,6 +6,7 @@ import {
   BarChart3,
   BookOpen,
   Boxes,
+  Briefcase,
   Building2,
   ChevronDown,
   Database,
@@ -16,7 +17,9 @@ import {
   GraduationCap,
   History,
   Home,
+  Inbox,
   Kanban,
+  KeyRound,
   LayoutTemplate,
   Megaphone,
   PanelLeft,
@@ -36,8 +39,10 @@ import {
 import { NotificationTray } from '../notifications/NotificationTray'
 import { SurveyPendingInvitesBanner } from '../../../modules/survey/SurveyPendingInvitesBanner'
 import { useI18n } from '../../hooks/useI18n'
+import { useT } from '../../hooks/useT'
 import { useOrgSetupContext } from '../../hooks/useOrgSetupContext'
 import type { PermissionKey } from '../../lib/permissionKeys'
+import { Button } from '../ui/Button'
 import { KlarertLogo } from '../brand/KlarertLogo'
 import {
   ShellCompanyBlock,
@@ -55,6 +60,13 @@ import { useRegistersNav } from '../../hooks/useRegistersNav'
 import { useTaskNav } from '../../../modules/tasks/useTaskNav'
 import { useMeetingsNav } from '../../../modules/meetings/useMeetingsNav'
 import { useAlertsNav } from '../../../modules/alerts/useAlertsNav'
+import { useGovOutboxPendingCount } from '../../hooks/useGovOutboxPendingCount'
+import { useAmuAgendaBacklogCount } from '../../hooks/useAmuAgendaBacklogCount'
+import { useCertExpiryWarningCount } from '../../hooks/useCertExpiryWarningCount'
+import { usePartnerMembership } from '../../hooks/usePartnerMembership'
+import { useConsultantClock } from '../../hooks/useConsultantClock'
+import { usePlatformAdmin } from '../../hooks/usePlatformAdmin'
+import { OrgSwitcher } from './OrgSwitcher'
 import type { NavMode } from './aticsNavMode'
 
 // ─── Sub-item type ────────────────────────────────────────────────────────────
@@ -85,6 +97,18 @@ type SubItem = {
    * render only when the parent header is expanded.
    */
   headerKey?: string
+  /**
+   * Render a numeric counter pill on the row when > 0. Used by the
+   * gov-outbox manual-triage sub-link so admins see at a glance how
+   * many rows are awaiting human action.
+   */
+  badgeCount?: number
+  /**
+   * Optional colour override for `badgeCount`. Defaults to amber
+   * (`#c9a227`) for queue-style badges; cert-rotation uses `'danger'`
+   * to signal time-critical action (NSM Grunnprinsipp 2.4).
+   */
+  badgeTone?: 'amber' | 'danger'
 }
 
 function visibleSubs(
@@ -330,6 +354,8 @@ function activeModuleForPath(modules: NavModule[], pathname: string, search: str
     pathname.startsWith('/admin/templates/') ||
     pathname === '/admin/integrasjoner-staten' ||
     pathname.startsWith('/admin/integrasjoner-staten/') ||
+    pathname === '/admin/integrations' ||
+    pathname.startsWith('/admin/integrations/') ||
     pathname === '/workflow' ||
     pathname.startsWith('/workflow/')
   ) {
@@ -406,6 +432,44 @@ function saveSubNavCollapsed(collapsed: boolean) {
   }
 }
 
+// ─── Locale switcher (i18n scaffold P3-#20) ──────────────────────────────────
+// Small flag-pair button placed next to the profile menu. Persistence is
+// handled by the i18next localStorage detector (key `newamu_locale`), so
+// we don't write to localStorage manually here.
+function LocaleSwitcher() {
+  const { locale, setLocale, t } = useT()
+  const baseBtn =
+    'inline-flex h-7 items-center gap-1 rounded-md px-1.5 text-[11px] font-medium transition-colors'
+  const active = 'bg-white/20 text-white ring-1 ring-[#c9a227]/60'
+  const inactive = 'text-white/65 hover:bg-white/10 hover:text-white'
+  return (
+    <div className="flex shrink-0 items-center gap-1" role="radiogroup" aria-label="Locale">
+      <Button
+        variant="ghost"
+        onClick={() => void setLocale('nb')}
+        className={`${baseBtn} ${locale === 'nb' ? active : inactive}`}
+        role="radio"
+        aria-checked={locale === 'nb'}
+        title={t('shell.locale.switchToNb')}
+      >
+        <span aria-hidden>{'🇳🇴'}</span>
+        <span>NB</span>
+      </Button>
+      <Button
+        variant="ghost"
+        onClick={() => void setLocale('en')}
+        className={`${baseBtn} ${locale === 'en' ? active : inactive}`}
+        role="radio"
+        aria-checked={locale === 'en'}
+        title={t('shell.locale.switchToEn')}
+      >
+        <span aria-hidden>{'🇬🇧'}</span>
+        <span>EN</span>
+      </Button>
+    </div>
+  )
+}
+
 // ─── Shell ────────────────────────────────────────────────────────────────────
 
 export function AticsShell() {
@@ -469,6 +533,23 @@ export function AticsShell() {
   const tasksNav = useTaskNav()
   const meetingsNav = useMeetingsNav()
   const alertsNav = useAlertsNav()
+  // Platform-admin scope — gates the cross-org dedup-grupper sub-link
+  // under Varslinger. The RPC itself enforces platform_is_admin so the
+  // gate is purely UX (hide a link the user can't act on).
+  const { isAdmin: isPlatformAdmin } = usePlatformAdmin()
+  // Partner-konsoll: only the membership flag is needed for nav visibility;
+  // the consultant clock side effect runs unconditionally and self-gates.
+  const { isPartnerMember } = usePartnerMembership()
+  useConsultantClock()
+  // Manual-triage queue counter used by the Integrasjoner submenu badge.
+  // 60s polling, cheap RLS-scoped count, see hook for rationale.
+  const { count: govOutboxPendingCount } = useGovOutboxPendingCount()
+  // AMU agenda-backlog counter — drives the badge on "Agenda-restanser"
+  // under Møter. Same 60s poll cadence as gov-outbox.
+  const { count: amuBacklogPendingCount } = useAmuAgendaBacklogCount()
+  // Cert-expiry counter — drives the red pip on the Sertifikat-rotasjon
+  // sub-link when ≥1 cert is within 30 days of expiry. 5-min polling.
+  const { count: certExpiryWarningCount } = useCertExpiryWarningCount()
   const { isActive: isRegulationActive, activeRegulationIds } = useRegulationFilter()
   const mergedNavGroups = useMemo<NavGroup[]>(() => {
     // Fixed sub-entries that always sit under "Sjekklister" — Analyse and
@@ -1096,6 +1177,13 @@ export function AticsShell() {
         requirePermAny: ['roles.manage', 'delegation.manage'],
       },
     ]
+    // Per-provider gov-integration wizards live under
+    // `/admin/integrations/<provider>`. The old combined
+    // `/admin/settings/integrations/gov` route is kept here as a
+    // deprecation-marked entry that opens the hub at `/admin/integrations`.
+    const matchAdminIntegrations = (suffix: string) =>
+      ({ pathname }: { pathname: string }) =>
+        pathname === `/admin/integrations${suffix ? `/${suffix}` : ''}`
     const integrationsSubs: SubItem[] = [
       {
         label: 'Tilkoblede tjenester',
@@ -1105,11 +1193,70 @@ export function AticsShell() {
         requirePermAny: INTEGRATIONS_NAV_PERMS,
       },
       {
-        label: 'Statlige integrasjoner',
-        path: '/admin/settings/integrations/gov',
+        label: 'Statlige integrasjoner (oversikt)',
+        path: '/admin/integrations',
         Icon: ShieldCheck,
-        match: isAdminSettings('integrations', 'gov'),
+        match: matchAdminIntegrations(''),
         requirePermAny: INTEGRATIONS_NAV_PERMS,
+      },
+      {
+        label: 'Altinn / Maskinporten',
+        path: '/admin/integrations/altinn',
+        Icon: ShieldCheck,
+        match: matchAdminIntegrations('altinn'),
+        requirePermAny: INTEGRATIONS_NAV_PERMS,
+      },
+      {
+        label: 'Arbeidstilsynet (RegInc)',
+        path: '/admin/integrations/arbeidstilsynet',
+        Icon: ShieldCheck,
+        match: matchAdminIntegrations('arbeidstilsynet'),
+        requirePermAny: INTEGRATIONS_NAV_PERMS,
+      },
+      {
+        label: 'Datatilsynet',
+        path: '/admin/integrations/datatilsynet',
+        Icon: ShieldCheck,
+        match: matchAdminIntegrations('datatilsynet'),
+        requirePermAny: INTEGRATIONS_NAV_PERMS,
+      },
+      {
+        label: 'NAV (DSOP)',
+        path: '/admin/integrations/nav',
+        Icon: ShieldCheck,
+        match: matchAdminIntegrations('nav'),
+        requirePermAny: INTEGRATIONS_NAV_PERMS,
+      },
+      {
+        // Helsesektor: spes.helsetjl. § 3-3 + hol. § 12-3 a. Ingen regulator-
+        // API — wizard'en lagrer kontakt-info + melding-mal i org_integrations
+        // og helsetilsynet-build-melding edge-fn dispatcher som manuell
+        // outbox-rad. Triage skjer i `/admin/integrations/utboks`.
+        label: 'Helsetilsynet (helsesektor)',
+        path: '/admin/integrations/helsetilsynet',
+        Icon: ShieldCheck,
+        match: matchAdminIntegrations('helsetilsynet'),
+        requirePermAny: INTEGRATIONS_NAV_PERMS,
+      },
+      {
+        // NSM Grunnprinsipp 2.4 — planlagt rotasjon av virksomhetssertifikat.
+        // Red pip when ≥1 cert is within 30 days of expiry, driven by
+        // useCertExpiryWarningCount (signing_cert_expires_at column from _123700).
+        label: 'Sertifikat-rotasjon',
+        path: '/admin/integrations/sertifikat-rotasjon',
+        Icon: KeyRound,
+        match: matchAdminIntegrations('sertifikat-rotasjon'),
+        requirePermAny: ['integrations.cert_rotate', ...INTEGRATIONS_NAV_PERMS],
+        badgeCount: certExpiryWarningCount,
+        badgeTone: 'danger',
+      },
+      {
+        label: 'Manuell utboks (statlige meldinger)',
+        path: '/admin/integrations/utboks',
+        Icon: ScrollText,
+        match: matchAdminIntegrations('utboks'),
+        requirePermAny: ['gov.outbox_triage', ...INTEGRATIONS_NAV_PERMS],
+        badgeCount: govOutboxPendingCount,
       },
       {
         label: 'Webhooks & API',
@@ -1120,11 +1267,12 @@ export function AticsShell() {
       },
     ]
     // Arbeidsflyt subs deep-link to the real WorkflowBuilderPage tabs at
-    // /workflow?tab=… and /workflow/admin. The earlier
-    // /admin/settings/workflows/* registry scope was 5 placeholder cards
-    // sitting in front of the working builder — same anti-pattern we
-    // removed for Organisasjon. Match the builder's own tab IDs:
-    // rules / library / runs / approvals / evidence + the admin route.
+    // /workflow?tab=… . The earlier /admin/settings/workflows/* registry
+    // scope was 5 placeholder cards sitting in front of the working
+    // builder — same anti-pattern we removed for Organisasjon. The old
+    // /workflow/admin sub was retired together with WorkflowModulePage.
+    // Match the builder's own tab IDs: rules / library / runs /
+    // approvals / evidence.
     const matchWorkflowTab = (tab: string) =>
       ({ pathname, search }: { pathname: string; search: string }) => {
         if (pathname !== '/workflow') return false
@@ -1140,6 +1288,16 @@ export function AticsShell() {
         const s = new URLSearchParams(search).get('source')
         return source === null ? !s : s === source
       }
+    const tilsynsbrevSubs: SubItem[] = [
+      {
+        label: 'Tilsynsbrev',
+        path: '/admin/tilsynsbrev',
+        Icon: ScrollText,
+        match: ({ pathname }) =>
+          pathname === '/admin/tilsynsbrev' || pathname.startsWith('/admin/tilsynsbrev/'),
+        requirePermAny: ['tilsynsbrev.upload', 'tilsynsbrev.view_confidential', 'module.view.admin'],
+      },
+    ]
     const malerSubs: SubItem[] = [
       {
         label: 'Alle maler',
@@ -1224,13 +1382,6 @@ export function AticsShell() {
         match: matchWorkflowTab('evidence'),
         requirePermAny: WORKFLOWS_NAV_PERMS,
       },
-      {
-        label: 'Innstillinger',
-        path: '/workflow/admin',
-        Icon: Settings,
-        match: ({ pathname }) => pathname.startsWith('/workflow/admin'),
-        requirePerm: 'workflows.manage',
-      },
     ]
     const settingsSubs: SubItem[] = [
       {
@@ -1308,6 +1459,15 @@ export function AticsShell() {
           icon: LayoutTemplate,
           subs: malerSubs,
           permAny: SETTINGS_NAV_PERMS,
+          flatSubs: true,
+        },
+        {
+          to: '/admin/tilsynsbrev',
+          label: 'Tilsynssaker',
+          end: false,
+          icon: ScrollText,
+          subs: tilsynsbrevSubs,
+          permAny: ['tilsynsbrev.upload', 'tilsynsbrev.view_confidential', 'module.view.admin'],
           flatSubs: true,
         },
         {
@@ -1435,6 +1595,14 @@ export function AticsShell() {
         requirePermAny: MEETINGS_NAV_PERMS,
       },
       {
+        label: 'Agenda-restanser',
+        path: '/meetings/agenda-backlog',
+        Icon: Inbox,
+        match: ({ pathname }) => pathname === '/meetings/agenda-backlog',
+        requirePermAny: MEETINGS_NAV_PERMS,
+        badgeCount: amuBacklogPendingCount,
+      },
+      {
         label: 'Innstillinger',
         path: '/admin/settings/meetings',
         Icon: Settings,
@@ -1531,6 +1699,22 @@ export function AticsShell() {
         match: ({ pathname }) => pathname.startsWith('/alerts/admin'),
         requirePerm: 'alerts.manage',
       },
+      // Platform-admin-only: cross-org dedup-grupper. The substrate
+      // (org_alert_dedup_groups, _126400/_126700) and the admin RPCs
+      // (_127800) only accept calls from platform admins; hiding the
+      // link here keeps non-admins from seeing a dead-end. AML § 2A-7 (5).
+      ...(isPlatformAdmin
+        ? [
+            {
+              label: 'Cross-org dedup-grupper',
+              path: '/admin/varsling/dedup-grupper',
+              Icon: ShieldCheck,
+              match: ({ pathname }: { pathname: string }) =>
+                pathname.startsWith('/admin/varsling/dedup-grupper'),
+              requirePermAny: ALERTS_NAV_PERMS,
+            } satisfies SubItem,
+          ]
+        : []),
     ]
     const alertsPinnedSubs: SubItem[] = (() => {
       const pinned = alertsNav.items.filter((it) => it.navPinned)
@@ -1659,6 +1843,13 @@ export function AticsShell() {
         requirePermAny: ADMINISTRASJON_NAV_PERMS,
       },
       {
+        label: 'Benchmarking',
+        path: '/benchmarking',
+        Icon: BarChart3,
+        match: ({ pathname }) => pathname.startsWith('/benchmarking'),
+        requirePermAny: overviewNavPerms,
+      },
+      {
         label: 'Compliance Studio',
         path: '/compliance-studio',
         Icon: Wand2,
@@ -1687,7 +1878,39 @@ export function AticsShell() {
       ],
     }
 
-    return [hmsOverviewGroup, complianceGroup, surveyGroup, documentsGroup, meetingsGroup, alertsGroup, registersGroup, tasksGroup, learningGroup, adminGroup]
+    // Partner-konsoll — only shown when the user has at least one
+    // active partner_memberships row. The group sits at the very
+    // beginning of the merged list so consultants land on it first
+    // when they sign in (partner consoles are their primary
+    // workspace, not HMS-oversikt for any single customer).
+    const partnerGroup: NavGroup | null = isPartnerMember
+      ? {
+          id: 'partner-konsoll',
+          label: 'Partner-konsoll',
+          icon: Briefcase,
+          modules: [
+            {
+              to: '/partner',
+              label: 'Partner-konsoll',
+              end: true,
+              icon: Briefcase,
+              subs: [],
+              flatSubs: true,
+            },
+            {
+              to: '/partner/branding',
+              label: 'Branding',
+              end: false,
+              icon: Wand2,
+              subs: [],
+              flatSubs: true,
+            },
+          ],
+        }
+      : null
+
+    const base: NavGroup[] = [hmsOverviewGroup, complianceGroup, surveyGroup, documentsGroup, meetingsGroup, alertsGroup, registersGroup, tasksGroup, learningGroup, adminGroup]
+    return partnerGroup ? [partnerGroup, ...base] : base
   }, [
     complianceNav.items,
     complianceNav.categories,
@@ -1705,8 +1928,15 @@ export function AticsShell() {
     tasksNav.categories,
     meetingsNav.items,
     meetingsNav.categories,
+    alertsNav.items,
+    alertsNav.categories,
     isRegulationActive,
     activeRegulationIds,
+    isPartnerMember,
+    isPlatformAdmin,
+    govOutboxPendingCount,
+    amuBacklogPendingCount,
+    certExpiryWarningCount,
   ])
 
   const visibleGroups = useMemo(
@@ -1795,8 +2025,8 @@ export function AticsShell() {
 
           {/* Section rail toggle — always on this column (mid rail can be absent before activeGroup resolves) */}
           <div className="border-t border-white/10 px-2 py-2">
-            <button
-              type="button"
+            <Button
+              variant="ghost"
               onClick={toggleSubNavCollapsed}
               className={`flex w-full items-center justify-center rounded-lg p-3 transition-colors ${
                 subNavCollapsed ? 'bg-white/15 text-white' : 'text-white/70 hover:bg-white/10 hover:text-white'
@@ -1810,7 +2040,7 @@ export function AticsShell() {
               ) : (
                 <PanelLeft className="size-[1.125rem] shrink-0" aria-hidden />
               )}
-            </button>
+            </Button>
           </div>
 
         </aside>
@@ -1894,12 +2124,12 @@ export function AticsShell() {
                                 ? expandedHeaders.get(key)!
                                 : auto
                               return (
-                                <button
+                                <Button
                                   key={`hdr:${key}`}
-                                  type="button"
+                                  variant="ghost"
                                   onClick={() => toggleHeader(key, auto)}
                                   aria-expanded={expanded}
-                                  className="mt-3 flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-[11px] font-semibold uppercase tracking-wider text-white/55 transition-colors hover:bg-white/5 hover:text-white/80 first:mt-0"
+                                  className="mt-3 flex w-full items-center justify-start gap-2 rounded-lg px-2.5 py-1.5 text-left text-[11px] font-semibold uppercase tracking-wider text-white/55 transition-colors hover:bg-white/5 hover:text-white/80 first:mt-0"
                                 >
                                   <HeaderIcon className="size-3.5 shrink-0 opacity-80" aria-hidden />
                                   <span className="min-w-0 flex-1 truncate">{item.label}</span>
@@ -1908,7 +2138,7 @@ export function AticsShell() {
                                   ) : (
                                     <ChevronRight className="size-3.5 shrink-0 opacity-70" aria-hidden />
                                   )}
-                                </button>
+                                </Button>
                               )
                             }
                             // Items belonging to a header: render only if
@@ -1958,7 +2188,21 @@ export function AticsShell() {
                                 {iconOnly ? (
                                   <SubIcon className="size-4 shrink-0 opacity-90" aria-hidden />
                                 ) : (
-                                  item.label
+                                  <>
+                                    <span className="flex-1">{item.label}</span>
+                                    {typeof item.badgeCount === 'number' && item.badgeCount > 0 ? (
+                                      <span
+                                        className={`ml-2 inline-flex h-5 min-w-[20px] shrink-0 items-center justify-center rounded-full px-1.5 text-[10px] font-bold ${
+                                          item.badgeTone === 'danger'
+                                            ? 'bg-rose-600 text-white'
+                                            : 'bg-[#c9a227] text-[#1a1a1a]'
+                                        }`}
+                                        aria-label={`${item.badgeCount} ${item.badgeTone === 'danger' ? 'krever oppmerksomhet' : 'venter på behandling'}`}
+                                      >
+                                        {item.badgeCount > 99 ? '99+' : item.badgeCount}
+                                      </span>
+                                    ) : null}
+                                  </>
                                 )}
                               </NavLink>
                             )
@@ -1981,6 +2225,7 @@ export function AticsShell() {
             <div className="ml-auto flex min-w-0 flex-wrap items-center justify-end gap-2 sm:gap-3">
               {supabaseConfigured ? (
                 <>
+                  <OrgSwitcher variant="sidebar" />
                   <ShellCompanyBlock name={orgDisplayName} variant="sidebar" />
                   <ShellQuickCreateMenu variant="sidebar" />
                   <ShellComplianceIndicator variant="sidebar" />
@@ -1991,6 +2236,7 @@ export function AticsShell() {
                       (e.g. compliance accent flip). */}
                   <RegulationFilterMenu variant="sidebar" />
                   <NotificationTray variant="sidebar" />
+                  <LocaleSwitcher />
                   <ShellProfileMenuButton
                     variant="sidebar"
                     displayName={profileDisplay}
@@ -2055,6 +2301,7 @@ export function AticsShell() {
     <div className="flex shrink-0 flex-nowrap items-center justify-end gap-1.5 sm:gap-2 md:gap-3">
       {supabaseConfigured ? (
         <>
+          <OrgSwitcher variant="topbar" />
           <ShellCompanyBlock name={orgDisplayName} variant="topbar" />
           <ShellQuickCreateMenu variant="topbar" />
           <ShellComplianceIndicator variant="topbar" />
@@ -2068,6 +2315,7 @@ export function AticsShell() {
               when the param is absent. */}
           <RegulationFilterMenu variant="topbar" />
           <NotificationTray variant="topbar" />
+          <LocaleSwitcher />
           <ShellProfileMenuButton
             variant="topbar"
             displayName={profileDisplay}
@@ -2098,10 +2346,11 @@ export function AticsShell() {
               <NavLink to="/app" className="flex shrink-0 items-center gap-2" aria-label={t('shell.homeAria')}>
                 <KlarertLogo size={28} variant="onDark" />
               </NavLink>
-              <button
-                type="button"
+              <Button
+                variant="ghost"
+                size="icon"
                 onClick={toggleSubNavCollapsed}
-                className={`flex size-9 shrink-0 items-center justify-center rounded-lg transition-colors ${
+                className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg transition-colors ${
                   subNavCollapsed ? 'bg-white/15 text-white ring-1 ring-[#c9a227]/50' : 'text-white/70 hover:bg-white/10 hover:text-white'
                 }`}
                 aria-expanded={!subNavCollapsed}
@@ -2113,7 +2362,7 @@ export function AticsShell() {
                 ) : (
                   <PanelLeft className="size-[1.125rem] shrink-0" aria-hidden />
                 )}
-              </button>
+              </Button>
             </div>
             {topBarUtilities}
           </div>
@@ -2124,10 +2373,11 @@ export function AticsShell() {
               <NavLink to="/app" className="flex items-center gap-2" aria-label={t('shell.homeAria')}>
                 <KlarertLogo size={28} variant="onDark" />
               </NavLink>
-              <button
-                type="button"
+              <Button
+                variant="ghost"
+                size="icon"
                 onClick={toggleSubNavCollapsed}
-                className={`flex size-9 shrink-0 items-center justify-center rounded-lg transition-colors ${
+                className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg transition-colors ${
                   subNavCollapsed ? 'bg-white/15 text-white ring-1 ring-[#c9a227]/50' : 'text-white/70 hover:bg-white/10 hover:text-white'
                 }`}
                 aria-expanded={!subNavCollapsed}
@@ -2139,7 +2389,7 @@ export function AticsShell() {
                 ) : (
                   <PanelLeft className="size-[1.125rem] shrink-0" aria-hidden />
                 )}
-              </button>
+              </Button>
             </div>
             {topBarGroupNav}
             {topBarUtilities}
@@ -2206,7 +2456,21 @@ export function AticsShell() {
                       {iconOnly ? (
                         <SubIcon className="size-[1.125rem] shrink-0 opacity-90" aria-hidden />
                       ) : (
-                        item.label
+                        <span className="inline-flex items-center gap-1.5">
+                          <span>{item.label}</span>
+                          {typeof item.badgeCount === 'number' && item.badgeCount > 0 ? (
+                            <span
+                              className={`inline-flex h-5 min-w-[20px] items-center justify-center rounded-full px-1.5 text-[10px] font-bold ${
+                                item.badgeTone === 'danger'
+                                  ? 'bg-rose-600 text-white'
+                                  : 'bg-[#c9a227] text-[#1a1a1a]'
+                              }`}
+                              aria-label={`${item.badgeCount} ${item.badgeTone === 'danger' ? 'krever oppmerksomhet' : 'venter på behandling'}`}
+                            >
+                              {item.badgeCount > 99 ? '99+' : item.badgeCount}
+                            </span>
+                          ) : null}
+                        </span>
                       )}
                     </NavLink>
                   )

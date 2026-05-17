@@ -121,20 +121,20 @@ function PaletteDragItem({
     disabled,
   })
   return (
-    <button
+    <Button
       ref={setNodeRef}
-      type="button"
+      variant="secondary"
       {...listeners}
       {...attributes}
       className={[
-        'flex flex-col items-start rounded-lg border border-neutral-200 bg-[#f7faf8] px-2 py-2 text-left text-xs shadow-sm',
+        'flex flex-col items-start rounded-lg border-neutral-200/80 bg-[#f7faf8] px-2 py-2 text-left text-xs font-normal shadow-sm',
         disabled ? 'cursor-not-allowed opacity-50' : 'hover:border-[#1a3d32]/35',
         isDragging ? 'opacity-60' : '',
       ].join(' ')}
     >
       <span className="font-semibold text-neutral-900">{label}</span>
       <span className="text-[10px] text-neutral-500">{hint}</span>
-    </button>
+    </Button>
   )
 }
 
@@ -232,15 +232,16 @@ function SortableQuestionTableRow({
     >
       <td className="w-10 px-2 py-3" onClick={(e) => e.stopPropagation()}>
         {!isLocked ? (
-          <button
-            type="button"
-            className="cursor-grab rounded p-1 text-neutral-400 hover:bg-neutral-50"
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-7 w-7 cursor-grab text-neutral-400 hover:bg-neutral-50"
             aria-label="Flytt"
             {...attributes}
             {...listeners}
           >
             <GripVertical className="h-4 w-4" />
-          </button>
+          </Button>
         ) : null}
       </td>
       <td className="px-5 py-3 font-medium text-neutral-900">{q.question_text}</td>

@@ -16,6 +16,9 @@ import type { LucideIcon } from 'lucide-react'
 import { WorkplacePageHeading1 } from '../components/layout/WorkplacePageHeading1'
 import { HubMenu1Bar } from '../components/layout/HubMenu1Bar'
 import { LayoutTable1PostingsShell } from '../components/layout/LayoutTable1PostingsShell'
+import { Button } from '../components/ui/Button'
+import { StandardInput } from '../components/ui/Input'
+import { SearchableSelect } from '../components/ui/SearchableSelect'
 import {
   LAYOUT_TABLE1_POSTINGS_BODY_ROW,
   LAYOUT_TABLE1_POSTINGS_HEADER_ROW,
@@ -332,10 +335,12 @@ export function ModuleAdminPage() {
                       )}
                     </td>
                     <td className="px-5 py-3">
-                      <button
-                        type="button"
+                      <Button
+                        variant="ghost"
+                        size="sm"
                         disabled={busy || loading}
                         onClick={() => void toggleModule(mod)}
+                        aria-pressed={active}
                         className={`rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors disabled:opacity-50 ${
                           active
                             ? 'border-neutral-200 bg-white text-neutral-700 hover:bg-neutral-50'
@@ -344,7 +349,7 @@ export function ModuleAdminPage() {
                         style={active ? {} : { backgroundColor: '#1a3d32' }}
                       >
                         {busy ? 'Lagrer…' : active ? 'Deaktiver' : 'Aktiver'}
-                      </button>
+                      </Button>
                     </td>
                   </tr>
                 )
@@ -364,7 +369,7 @@ export function ModuleAdminPage() {
             <div className="relative min-w-[220px] flex-1">
               <label className="sr-only" htmlFor="user-search">Søk bruker</label>
               <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-neutral-400" />
-              <input
+              <StandardInput
                 id="user-search"
                 type="search"
                 value={userSearch}
@@ -423,15 +428,16 @@ export function ModuleAdminPage() {
                         )}
                       </td>
                       <td className="px-5 py-3">
-                        <button
-                          type="button"
+                        <Button
+                          variant="ghost"
+                          size="sm"
                           onClick={() =>
                             setExpandedUser(isExpanded ? null : user.id)
                           }
                           className="rounded-lg border border-neutral-200 bg-white px-3 py-1.5 text-xs font-medium text-neutral-700 hover:bg-neutral-50"
                         >
                           {isExpanded ? 'Lukk' : 'Rediger'}
-                        </button>
+                        </Button>
                       </td>
                     </tr>
 
@@ -448,7 +454,7 @@ export function ModuleAdminPage() {
                               const level = accessFor(user.id, mod.slug)
                               const busy = saving === `${user.id}:${mod.slug}`
                               return (
-                                <label
+                                <div
                                   key={mod.slug}
                                   className="flex items-center gap-3 rounded-lg border border-neutral-200 bg-white px-3 py-2.5"
                                 >
@@ -457,31 +463,27 @@ export function ModuleAdminPage() {
                                     <p className="text-xs font-medium text-neutral-700 truncate">
                                       {mod.label}
                                     </p>
-                                    <select
-                                      value={level}
-                                      disabled={busy}
-                                      onChange={(e) =>
-                                        void setAccess(
-                                          user.id,
-                                          mod.slug,
-                                          e.target.value as AccessLevel,
-                                        )
-                                      }
-                                      className="mt-0.5 w-full rounded border border-neutral-200 bg-transparent py-0.5 text-xs text-neutral-600 focus:outline-none"
-                                    >
-                                      {(Object.keys(ACCESS_LABEL) as AccessLevel[]).map(
-                                        (lvl) => (
-                                          <option key={lvl} value={lvl}>
-                                            {ACCESS_LABEL[lvl]}
-                                          </option>
-                                        ),
-                                      )}
-                                    </select>
+                                    <div className="mt-0.5">
+                                      <SearchableSelect
+                                        value={level}
+                                        disabled={busy}
+                                        onChange={(v) =>
+                                          void setAccess(
+                                            user.id,
+                                            mod.slug,
+                                            v as AccessLevel,
+                                          )
+                                        }
+                                        options={(Object.keys(ACCESS_LABEL) as AccessLevel[]).map(
+                                          (lvl) => ({ value: lvl, label: ACCESS_LABEL[lvl] }),
+                                        )}
+                                      />
+                                    </div>
                                   </div>
                                   {busy && (
                                     <span className="text-xs text-neutral-400">…</span>
                                   )}
-                                </label>
+                                </div>
                               )
                             })}
                           </div>

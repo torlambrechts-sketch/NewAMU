@@ -1,5 +1,6 @@
 import { useNavigate } from 'react-router-dom'
 import { ArrowRight } from 'lucide-react'
+import { Button } from '../../../components/ui/Button'
 
 type Props = {
   label?: string
@@ -17,14 +18,14 @@ export function ActionButton({ label = 'Gå til handling', route = '/', variant 
   const navigate = useNavigate()
   return (
     <div className="not-prose my-4">
-      <button
-        type="button"
+      <Button
+        variant={variant === 'danger' ? 'primary' : variant}
         onClick={() => navigate(route)}
         className={`inline-flex items-center gap-2 rounded-full px-5 py-2.5 text-sm font-medium transition-colors ${variantClass[variant]}`}
       >
         {label}
         <ArrowRight className="size-4" />
-      </button>
+      </Button>
     </div>
   )
 }

@@ -190,24 +190,26 @@ export function DashboardEditLayoutPanel({
                     <GripVertical className="h-5 w-5" />
                   </span>
                   <div className="flex shrink-0 flex-col gap-0.5 sm:hidden">
-                    <button
-                      type="button"
+                    <Button
+                      variant="ghost"
+                      size="icon"
                       onClick={() => reorder(idx, idx - 1)}
                       disabled={idx === 0}
                       aria-label={`Flytt ${m.title} opp`}
-                      className="rounded-sm p-1 text-neutral-400 hover:bg-neutral-100 hover:text-neutral-700 disabled:opacity-30"
+                      className="h-6 w-6 rounded-sm p-1 text-neutral-400 hover:bg-neutral-100 hover:text-neutral-700 disabled:opacity-30"
                     >
                       <ChevronUp className="h-4 w-4" aria-hidden />
-                    </button>
-                    <button
-                      type="button"
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
                       onClick={() => reorder(idx, idx + 1)}
                       disabled={idx === draft.length - 1}
                       aria-label={`Flytt ${m.title} ned`}
-                      className="rounded-sm p-1 text-neutral-400 hover:bg-neutral-100 hover:text-neutral-700 disabled:opacity-30"
+                      className="h-6 w-6 rounded-sm p-1 text-neutral-400 hover:bg-neutral-100 hover:text-neutral-700 disabled:opacity-30"
                     >
                       <ChevronDown className="h-4 w-4" aria-hidden />
-                    </button>
+                    </Button>
                   </div>
                   <ToggleSwitch
                     checked={on}

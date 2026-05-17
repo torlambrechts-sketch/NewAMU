@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import { Bell, BellRing, X } from 'lucide-react'
 import { useNotifications } from '../../hooks/useNotifications'
 import { useOrgSetupContext } from '../../hooks/useOrgSetupContext'
+import { Button } from '../ui/Button'
 
 type Variant = 'sidebar' | 'topbar'
 
@@ -53,18 +54,19 @@ export function NotificationTray({ variant }: { variant: Variant }) {
               <p className="text-sm font-semibold text-amber-950">{toast.title}</p>
               <p className="mt-0.5 line-clamp-2 text-xs text-amber-900/90">{toast.body}</p>
             </div>
-            <button
-              type="button"
+            <Button
+              variant="ghost"
+              size="icon"
               onClick={dismissToast}
-              className="shrink-0 rounded-none p-1 text-amber-800 hover:bg-amber-100"
+              className="h-auto w-auto shrink-0 rounded-none p-1 text-amber-800 hover:bg-amber-100"
               aria-label="Lukk"
             >
               <X className="size-4" />
-            </button>
+            </Button>
           </div>
           <div className="flex flex-wrap gap-2">
-            <button
-              type="button"
+            <Button
+              variant="primary"
               className="rounded-none bg-[#1a3d32] px-3 py-1.5 text-xs font-medium text-white hover:bg-[#142e26]"
               onClick={() => {
                 markRead(toast.id)
@@ -73,23 +75,24 @@ export function NotificationTray({ variant }: { variant: Variant }) {
               }}
             >
               Åpne
-            </button>
-            <button
-              type="button"
+            </Button>
+            <Button
+              variant="secondary"
               className="rounded-none border border-amber-300/80 bg-white px-3 py-1.5 text-xs font-medium text-amber-950 hover:bg-amber-100/80"
               onClick={dismissToast}
             >
               Lukk
-            </button>
+            </Button>
           </div>
         </div>
       ) : null}
 
       <div className="relative" ref={panelRef}>
-        <button
-          type="button"
+        <Button
+          variant="ghost"
+          size="icon"
           onClick={() => setOpen((o) => !o)}
-          className={`relative ${btnBase} ${open ? (variant === 'topbar' ? 'bg-white/15' : 'bg-black/5 ring-1 ring-[#c9a227]/40') : ''}`}
+          className={`relative h-auto w-auto ${btnBase} ${open ? (variant === 'topbar' ? 'bg-white/15' : 'bg-black/5 ring-1 ring-[#c9a227]/40') : ''}`}
           aria-label={`Varsler${unreadCount ? `, ${unreadCount} uleste` : ''}`}
           aria-expanded={open}
         >
@@ -103,7 +106,7 @@ export function NotificationTray({ variant }: { variant: Variant }) {
               {unreadCount > 9 ? '9+' : unreadCount}
             </span>
           ) : null}
-        </button>
+        </Button>
 
         {open && (
           <div
@@ -114,13 +117,14 @@ export function NotificationTray({ variant }: { variant: Variant }) {
             <div className="flex items-center justify-between border-b border-neutral-200 px-3 py-2">
               <span className="text-sm font-semibold text-neutral-900">Varsler</span>
               {items.length > 0 ? (
-                <button
-                  type="button"
-                  className="text-xs font-medium text-[#1a3d32] hover:underline"
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-auto rounded-none px-0 text-xs font-medium text-[#1a3d32] hover:bg-transparent hover:underline"
                   onClick={() => markAllRead()}
                 >
                   Marker alle lest
-                </button>
+                </Button>
               ) : null}
             </div>
             <ul className="max-h-80 overflow-y-auto">

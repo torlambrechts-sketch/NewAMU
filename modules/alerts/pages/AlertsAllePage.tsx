@@ -7,6 +7,9 @@ import { ChevronLeft, ChevronRight, Filter, Search, X } from 'lucide-react'
 import { ModulePageShell } from '../../../src/components/module/ModulePageShell'
 import { List2Shell } from '../../../src/components/layout/List2Shell'
 import { Badge } from '../../../src/components/ui/Badge'
+import { Button } from '../../../src/components/ui/Button'
+import { StandardInput } from '../../../src/components/ui/Input'
+import { SearchableSelect } from '../../../src/components/ui/SearchableSelect'
 import { useAlerts } from '../useAlerts'
 import { ALERT_KIND_SHORT_LABEL, ALERT_STATUS_LABEL } from '../alertsLabels'
 import type { AlertStatus } from '../types'
@@ -67,38 +70,36 @@ export function AlertsAllePage() {
               className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-neutral-400"
               aria-hidden
             />
-            <input
+            <StandardInput
               type="search"
               value={q}
               onChange={(e) => { setQ(e.target.value); setPage(1) }}
               placeholder="Søk i tittel…"
               aria-label="Søk"
-              className="w-full rounded-lg border border-neutral-200 bg-white py-2.5 pl-10 pr-3 text-sm text-neutral-900 outline-none placeholder:text-neutral-400 focus:ring-2 focus:ring-[#b91c1c]/20"
+              className="pl-10"
             />
           </div>
           <div className="flex flex-wrap items-center gap-2">
-            <button
+            <Button
               type="button"
+              size="sm"
+              variant={filtersOpen || activeFilterCount > 0 ? 'secondary' : 'ghost'}
+              icon={<Filter className="size-3.5" />}
               onClick={() => setFiltersOpen((o) => !o)}
-              className={`inline-flex items-center gap-1.5 rounded-lg border px-3 py-2 text-xs font-semibold uppercase tracking-wide transition-colors ${
-                filtersOpen || activeFilterCount > 0
-                  ? 'border-neutral-400 bg-neutral-50 text-neutral-900'
-                  : 'border-neutral-200 bg-white text-neutral-700 hover:bg-neutral-50'
-              }`}
               aria-expanded={filtersOpen}
             >
-              <Filter className="size-3.5 text-neutral-500" aria-hidden />
               Filter
-            </button>
+            </Button>
             {activeFilterCount > 0 ? (
-              <button
+              <Button
                 type="button"
+                size="sm"
+                variant="ghost"
+                icon={<X className="size-3.5" />}
                 onClick={() => { setQ(''); setStatusFilter('all'); setPage(1) }}
-                className="inline-flex items-center gap-1 text-xs text-neutral-500 hover:text-neutral-800"
               >
-                <X className="size-3.5" aria-hidden />
                 Nullstill
-              </button>
+              </Button>
             ) : (
               <span className="text-xs text-neutral-400">Ingen filter aktive</span>
             )}
@@ -112,20 +113,22 @@ export function AlertsAllePage() {
             style={{ backgroundColor: CREAM_DEEP }}
           >
             <p className="mb-2 text-[10px] font-bold uppercase tracking-wide text-neutral-600">Status</p>
-            <div className="flex flex-wrap gap-1.5">
+            <div className="flex flex-wrap gap-1.5" role="radiogroup" aria-label="Status-filter">
               {STATUSES.map((s) => (
-                <button
+                <Button
                   key={s}
-                  type="button"
+                  variant="ghost"
                   onClick={() => { setStatusFilter(s); setPage(1) }}
+                  role="radio"
+                  aria-checked={statusFilter === s}
                   className={`rounded-md border px-3 py-1.5 text-xs font-medium transition-colors ${
                     statusFilter === s
-                      ? 'border-[#b91c1c] bg-[#b91c1c] text-white'
+                      ? 'border-[#b91c1c] bg-[#b91c1c] text-white hover:bg-[#b91c1c]'
                       : 'border-neutral-200 bg-white text-neutral-700 hover:border-neutral-300 hover:bg-neutral-50'
                   }`}
                 >
                   {s === 'all' ? 'Alle' : s === 'open' ? 'Åpne' : ALERT_STATUS_LABEL[s as AlertStatus]}
-                </button>
+                </Button>
               ))}
             </div>
           </div>
@@ -183,18 +186,16 @@ export function AlertsAllePage() {
         {/* Footer: items-per-page + pagination */}
         <div className="flex flex-wrap items-center justify-between gap-3 border-t border-neutral-100 px-5 py-3 text-xs text-neutral-600">
           <div className="flex flex-wrap items-center gap-3">
-            <label className="flex items-center gap-2">
+            <div className="flex items-center gap-2">
               <span className="text-neutral-500">Rader per side</span>
-              <select
-                value={perPage}
-                onChange={(e) => { setPerPage(Number(e.target.value)); setPage(1) }}
-                className="rounded-md border border-neutral-200 bg-white px-2 py-1 text-sm"
-              >
-                <option value={10}>10</option>
-                <option value={25}>25</option>
-                <option value={50}>50</option>
-              </select>
-            </label>
+              <div className="w-20">
+                <SearchableSelect
+                  value={String(perPage)}
+                  onChange={(v) => { setPerPage(Number(v)); setPage(1) }}
+                  options={[{ value: '10', label: '10' }, { value: '25', label: '25' }, { value: '50', label: '50' }]}
+                />
+              </div>
+            </div>
             <span className="text-neutral-500">
               {total === 0
                 ? 'Ingen treff'
@@ -202,24 +203,26 @@ export function AlertsAllePage() {
             </span>
           </div>
           <div className="flex items-center gap-1">
-            <button
+            <Button
               type="button"
+              size="icon"
+              variant="ghost"
               disabled={pageSafe <= 1}
               onClick={() => setPage((p) => Math.max(1, p - 1))}
-              className="rounded p-1 text-neutral-400 hover:bg-neutral-100 disabled:opacity-40"
               aria-label="Forrige side"
             >
               <ChevronLeft className="size-4" />
-            </button>
-            <button
+            </Button>
+            <Button
               type="button"
+              size="icon"
+              variant="ghost"
               disabled={pageSafe >= totalPages}
               onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-              className="rounded p-1 text-neutral-400 hover:bg-neutral-100 disabled:opacity-40"
               aria-label="Neste side"
             >
               <ChevronRight className="size-4" />
-            </button>
+            </Button>
           </div>
         </div>
       </List2Shell>

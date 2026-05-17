@@ -254,18 +254,15 @@ export function WikiBlockCommentsPanel({
                   : `${kindChip(k).label} (${counts[k]})`
               if (k === 'varsling' && !canSeeConfidential) return null
               return (
-                <button
+                <Button
                   key={k}
-                  type="button"
+                  size="sm"
+                  variant={filter === k ? 'primary' : 'secondary'}
                   onClick={() => setFilter(k)}
-                  className={`rounded-full px-2 py-0.5 ${
-                    filter === k
-                      ? 'bg-[#0f766e] text-white'
-                      : 'border border-neutral-300 bg-white text-neutral-600 hover:border-neutral-400'
-                  }`}
+                  className={`rounded-full ${filter === k ? 'bg-[#0f766e] hover:bg-[#0f766e]/90' : ''}`}
                 >
                   {label}
-                </button>
+                </Button>
               )
             })}
           </div>
@@ -350,13 +347,14 @@ export function WikiBlockCommentsPanel({
                 <p className="mb-2 flex items-center gap-2 text-[11px] text-neutral-600">
                   <Reply className="size-3" aria-hidden />
                   Svarer på kommentar
-                  <button
-                    type="button"
-                    className="ml-auto text-[11px] text-neutral-500 underline"
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="ml-auto px-0 text-[11px] text-neutral-500 underline hover:bg-transparent"
                     onClick={() => setReplyParent(null)}
                   >
                     Avbryt
-                  </button>
+                  </Button>
                 </p>
               ) : (
                 <div className="mb-2 flex flex-wrap gap-1">
@@ -364,21 +362,23 @@ export function WikiBlockCommentsPanel({
                     const active = draftKind === opt.value
                     const chip = kindChip(opt.value)
                     return (
-                      <button
+                      <Button
                         key={opt.value}
-                        type="button"
+                        variant="ghost"
+                        size="sm"
                         onClick={() => {
                           setDraftKind(opt.value)
                           if (opt.value === 'varsling') setDraftConfidential(true)
                         }}
-                        className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] ${
+                        aria-pressed={active}
+                        className={`rounded-full px-2 py-0.5 text-[11px] font-normal ${
                           active ? chip.className + ' ring-2 ring-offset-1 ring-emerald-300' : chip.className + ' opacity-70'
                         }`}
                         title={opt.description}
                       >
                         {chip.icon}
                         {opt.label}
-                      </button>
+                      </Button>
                     )
                   })}
                 </div>
@@ -402,18 +402,15 @@ export function WikiBlockCommentsPanel({
                 <div className="mt-2 flex flex-wrap items-center gap-2 text-[11px] text-neutral-700">
                   <span>Alvorlighet:</span>
                   {SEVERITY_OPTIONS.map((s) => (
-                    <button
+                    <Button
                       key={s.value}
-                      type="button"
+                      size="sm"
+                      variant={draftSeverity === s.value ? 'primary' : 'secondary'}
                       onClick={() => setDraftSeverity(s.value)}
-                      className={`rounded-full px-2 py-0.5 ${
-                        draftSeverity === s.value
-                          ? 'bg-[#0f766e] text-white'
-                          : 'border border-neutral-300 bg-white text-neutral-600 hover:border-neutral-400'
-                      }`}
+                      className={`rounded-full ${draftSeverity === s.value ? 'bg-[#0f766e] hover:bg-[#0f766e]/90' : ''}`}
                     >
                       {s.label}
-                    </button>
+                    </Button>
                   ))}
                 </div>
               ) : null}
@@ -551,51 +548,58 @@ function CommentRow({
       <p className="mt-1 whitespace-pre-wrap text-neutral-700">{comment.body}</p>
       <div className="mt-1 flex flex-wrap items-center gap-2">
         {onStartReply ? (
-          <button
-            type="button"
-            className="inline-flex items-center gap-1 text-[11px] text-[#0f766e] underline"
+          <Button
+            variant="ghost"
+            size="sm"
+            className="px-0 text-[11px] text-[#0f766e] underline hover:bg-transparent"
             onClick={onStartReply}
+            icon={<Reply className="size-3" aria-hidden />}
           >
-            <Reply className="size-3" aria-hidden /> Svar
-          </button>
+            Svar
+          </Button>
         ) : null}
         {canEdit ? (
-          <button
-            type="button"
-            className="inline-flex items-center gap-1 text-[11px] text-neutral-700 underline"
+          <Button
+            variant="ghost"
+            size="sm"
+            className="px-0 text-[11px] text-neutral-700 underline hover:bg-transparent"
             onClick={onStartEdit}
+            icon={<Pencil className="size-3" aria-hidden />}
           >
-            <Pencil className="size-3" aria-hidden /> Rediger
-          </button>
+            Rediger
+          </Button>
         ) : null}
         {!comment.isConfidential ? (
-          <button
-            type="button"
-            className="text-[11px] text-[#1a3d32] underline"
+          <Button
+            variant="ghost"
+            size="sm"
+            className="px-0 text-[11px] text-[#1a3d32] underline hover:bg-transparent"
             onClick={() => onResolve(!comment.resolved)}
           >
             {comment.resolved ? 'Gjenåpne' : comment.kind === 'suggestion' ? 'Marker som tatt i bruk' : 'Løs ut'}
-          </button>
+          </Button>
         ) : null}
         {canPromote ? (
           <div className="relative inline-flex">
-            <button
-              type="button"
-              className="inline-flex items-center gap-1 text-[11px] text-orange-700 underline"
+            <Button
+              variant="ghost"
+              size="sm"
+              className="px-0 text-[11px] text-orange-700 underline hover:bg-transparent"
               onClick={() => setPromoteOpen((o) => !o)}
+              icon={<ShieldAlert className="size-3" aria-hidden />}
             >
-              <ShieldAlert className="size-3" aria-hidden /> Meld som avvik
-            </button>
+              Meld som avvik
+            </Button>
             {promoteOpen ? (
               <div className="absolute left-0 top-5 z-20 w-48 rounded-md border border-neutral-200 bg-white p-2 text-[11px] shadow-lg">
                 <p className="mb-1 font-medium text-neutral-700">Velg alvorlighet:</p>
                 <ul className="space-y-0.5">
                   {(['low', 'medium', 'high', 'critical'] as WikiPageCommentSeverity[]).map((s) => (
                     <li key={s}>
-                      <button
-                        type="button"
+                      <Button
+                        variant="ghost"
                         disabled={promoting}
-                        className="w-full rounded px-2 py-1 text-left hover:bg-neutral-50 disabled:opacity-50"
+                        className="w-full justify-start rounded px-2 py-1 text-left font-normal hover:bg-neutral-50"
                         onClick={async () => {
                           if (!onPromoteToAvvik) return
                           setPromoting(true)
@@ -612,7 +616,7 @@ function CommentRow({
                         }}
                       >
                         {severityLabel(s)}
-                      </button>
+                      </Button>
                     </li>
                   ))}
                 </ul>
@@ -626,13 +630,15 @@ function CommentRow({
           </span>
         ) : null}
         {isOwn && !comment.isConfidential ? (
-          <button
-            type="button"
-            className="inline-flex items-center gap-1 text-[11px] text-red-600 underline"
+          <Button
+            variant="ghost"
+            size="sm"
+            className="px-0 text-[11px] text-red-600 underline hover:bg-transparent"
             onClick={onDelete}
+            icon={<Trash2 className="size-3" aria-hidden />}
           >
-            <Trash2 className="size-3" aria-hidden /> Slett
-          </button>
+            Slett
+          </Button>
         ) : null}
       </div>
     </div>

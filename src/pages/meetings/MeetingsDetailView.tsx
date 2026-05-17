@@ -310,7 +310,7 @@ export function MeetingsDetailView() {
       {mandatoryGaps.length > 0 && tab !== 'agenda' ? (
         <InfoBox>
           <strong>{mandatoryGaps.length}</strong> obligatorisk{mandatoryGaps.length === 1 ? '' : 'e'} sak{mandatoryGaps.length === 1 ? '' : 'er'} mangler protokollført innhold.
-          Gå til <button type="button" className="underline" onClick={() => setTab('agenda')}>Agenda</button>{' '}
+          Gå til <Button variant="ghost" size="sm" className="h-auto rounded-none p-0 font-normal underline hover:bg-transparent" onClick={() => setTab('agenda')}>Agenda</Button>{' '}
           for å fullføre før signering.
         </InfoBox>
       ) : null}
@@ -781,48 +781,52 @@ function AgendaItemEditor({
           {(onMoveUp || onMoveDown || onEdit || onRemove) && !locked ? (
             <div className="flex items-center gap-0.5 pt-1">
               {onMoveUp ? (
-                <button
-                  type="button"
+                <Button
+                  variant="ghost"
+                  size="icon"
                   onClick={onMoveUp}
-                  className="rounded p-1.5 text-neutral-500 hover:bg-neutral-100 hover:text-neutral-900"
+                  className="h-7 w-7 rounded p-1.5 text-neutral-500 hover:bg-neutral-100 hover:text-neutral-900"
                   aria-label="Flytt opp"
                   title="Flytt opp"
                 >
                   <ArrowUp className="h-3.5 w-3.5" />
-                </button>
+                </Button>
               ) : null}
               {onMoveDown ? (
-                <button
-                  type="button"
+                <Button
+                  variant="ghost"
+                  size="icon"
                   onClick={onMoveDown}
-                  className="rounded p-1.5 text-neutral-500 hover:bg-neutral-100 hover:text-neutral-900"
+                  className="h-7 w-7 rounded p-1.5 text-neutral-500 hover:bg-neutral-100 hover:text-neutral-900"
                   aria-label="Flytt ned"
                   title="Flytt ned"
                 >
                   <ArrowDown className="h-3.5 w-3.5" />
-                </button>
+                </Button>
               ) : null}
               {onEdit ? (
-                <button
-                  type="button"
+                <Button
+                  variant="ghost"
+                  size="icon"
                   onClick={onEdit}
-                  className="rounded p-1.5 text-neutral-500 hover:bg-neutral-100 hover:text-neutral-900"
+                  className="h-7 w-7 rounded p-1.5 text-neutral-500 hover:bg-neutral-100 hover:text-neutral-900"
                   aria-label="Rediger sak"
                   title="Rediger sak"
                 >
                   <Edit3 className="h-3.5 w-3.5" />
-                </button>
+                </Button>
               ) : null}
               {onRemove ? (
-                <button
-                  type="button"
+                <Button
+                  variant="ghost"
+                  size="icon"
                   onClick={onRemove}
-                  className="rounded p-1.5 text-red-500 hover:bg-red-50 hover:text-red-700"
+                  className="h-7 w-7 rounded p-1.5 text-red-500 hover:bg-red-50 hover:text-red-700"
                   aria-label="Slett sak"
                   title="Slett sak"
                 >
                   <Trash2 className="h-3.5 w-3.5" />
-                </button>
+                </Button>
               ) : null}
             </div>
           ) : null}

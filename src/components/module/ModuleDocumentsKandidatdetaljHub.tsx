@@ -741,6 +741,7 @@ export function ModuleDocumentsKandidatdetaljHub({
         </div>
       ) : null}
 
+      {/* eslint-disable-next-line no-restricted-syntax -- hidden native file picker; no primitive exists */}
       <input
         ref={uploadInputRef}
         type="file"
@@ -952,15 +953,15 @@ export function ModuleDocumentsKandidatdetaljHub({
                           </td>
                         ) : null}
                         <td className={`${MODULE_TABLE_TD} text-sm text-neutral-900`}>
-                          <button
-                            type="button"
-                            className="inline-flex min-w-0 items-center gap-2 text-left hover:underline"
+                          <Button
+                            variant="ghost"
+                            className="inline-flex min-w-0 items-center justify-start gap-2 rounded-none p-0 text-left font-normal hover:bg-transparent hover:underline"
                             onClick={() => navigate(viewPath(page.id))}
                             disabled={busy}
                           >
                             <Folder className={WIKI_FOLDER_ICON_CLASS} aria-hidden />
                             <span className="truncate font-medium">{page.title}</span>
-                          </button>
+                          </Button>
                         </td>
                         <td className={`${MODULE_TABLE_TD}`}>
                           <Badge variant={variantBadge} className="scale-95">
@@ -1211,8 +1212,9 @@ function HubFolderTreeRows({
           <div key={node.id}>
             <div className="flex items-stretch" style={{ marginLeft: depth * 14 }}>
               {hasChildren ? (
-                <button
-                  type="button"
+                <Button
+                  variant="ghost"
+                  size="icon"
                   className="mt-0.5 flex h-9 w-8 shrink-0 items-center justify-center rounded text-neutral-500 hover:bg-white/50 hover:text-neutral-800"
                   aria-expanded={expanded}
                   aria-label={expanded ? 'Skjul undermapper' : 'Vis undermapper'}
@@ -1222,7 +1224,7 @@ function HubFolderTreeRows({
                   }}
                 >
                   {expanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
-                </button>
+                </Button>
               ) : (
                 <span className="w-8 shrink-0" aria-hidden />
               )}

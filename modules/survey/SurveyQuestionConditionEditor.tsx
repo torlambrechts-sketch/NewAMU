@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { SearchableSelect, type SelectOption } from '../../src/components/ui/SearchableSelect'
 import { StandardInput } from '../../src/components/ui/Input'
 import { StandardTextarea } from '../../src/components/ui/Textarea'
+import { ToggleSwitch } from '../../src/components/ui/FormToggles'
 import { WPSTD_FORM_FIELD_LABEL } from '../../src/components/layout/WorkplaceStandardFormPanel'
 import { InfoBox } from '../../src/components/ui/AlertBox'
 import type { ShowIfRule } from './surveyRespondValidation'
@@ -182,20 +183,16 @@ export function SurveyQuestionConditionEditor({
         kode eller JSON.
       </p>
 
-      <div className="mt-3">
-        <label className="flex cursor-pointer items-center gap-2 text-sm text-neutral-800">
-          <input
-            type="checkbox"
-            className="rounded border-neutral-300"
-            checked={enabled}
-            onChange={(e) => {
-              const v = e.target.checked
-              setEnabled(v)
-              apply({ enabled: v })
-            }}
-          />
-          Vis dette spørsmålet bare når betingelsen nedenfor er oppfylt
-        </label>
+      <div className="mt-3 flex items-center gap-2 text-sm text-neutral-800">
+        <ToggleSwitch
+          checked={enabled}
+          onChange={(v) => {
+            setEnabled(v)
+            apply({ enabled: v })
+          }}
+          label="Vis bare når betingelsen er oppfylt"
+        />
+        <span>Vis dette spørsmålet bare når betingelsen nedenfor er oppfylt</span>
       </div>
 
       {enabled ? (

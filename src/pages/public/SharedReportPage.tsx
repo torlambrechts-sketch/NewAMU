@@ -10,6 +10,8 @@ import { useEffect, useState, type FormEvent } from 'react'
 import { useParams } from 'react-router-dom'
 import { Lock, ShieldAlert } from 'lucide-react'
 import { ModuleAnalyticsDashboard } from '../../components/module/ModuleAnalyticsDashboard'
+import { Button } from '../../components/ui/Button'
+import { StandardInput } from '../../components/ui/Input'
 import { getSupabaseBrowserClient } from '../../lib/supabaseClient'
 import { getDashboardScope } from '../../lib/dashboards/dashboardRegistry'
 import type { ReportModule } from '../../types/reportBuilder'
@@ -145,7 +147,7 @@ export function SharedReportPage() {
         body="Avsenderen har beskyttet denne rapporten med passord."
       >
         <form className="mt-4 flex flex-col gap-2" onSubmit={onSubmitPassword}>
-          <input
+          <StandardInput
             type="password"
             className="rounded border border-neutral-300 px-3 py-2 text-sm"
             value={password}
@@ -156,12 +158,13 @@ export function SharedReportPage() {
           {state.tried ? (
             <p className="text-xs text-red-600">Feil passord. Prøv igjen.</p>
           ) : null}
-          <button
+          <Button
             type="submit"
+            variant="primary"
             className="rounded bg-neutral-900 px-3 py-2 text-sm font-medium text-white hover:bg-neutral-800"
           >
             Åpne rapport
-          </button>
+          </Button>
         </form>
       </CenteredCard>
     )

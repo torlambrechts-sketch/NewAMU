@@ -2,6 +2,7 @@
 // Klikkbar — setter kategori-filter i tabellen.
 
 import type { RequirementWithCoverage } from './regelverkCoverageTypes'
+import { Button } from '../../../components/ui/Button'
 
 export function RegelverkCategorySidebar({
   requirements,
@@ -36,10 +37,11 @@ export function RegelverkCategorySidebar({
     active: boolean
     onClick: () => void
   }) => (
-    <button
-      type="button"
+    <Button
+      variant="ghost"
       onClick={onClick}
-      className={`flex w-full items-center justify-between rounded-md px-3 py-2 text-left text-sm transition ${
+      aria-current={active ? 'page' : undefined}
+      className={`flex w-full items-center justify-between rounded-md px-3 py-2 text-left text-sm font-normal transition ${
         active
           ? 'bg-neutral-100 font-semibold text-neutral-900'
           : 'text-neutral-700 hover:bg-neutral-50'
@@ -54,7 +56,7 @@ export function RegelverkCategorySidebar({
         ) : null}
         <span className="text-xs text-neutral-500">{total}</span>
       </span>
-    </button>
+    </Button>
   )
 
   return (

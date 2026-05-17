@@ -251,9 +251,9 @@ export function DocumentFolderJobsStrip({
           return (
             <ModuleSectionCard key={f.id} className="overflow-hidden p-0">
               <div className="flex flex-wrap items-start justify-between gap-2 border-b border-neutral-100 px-2.5 py-2 sm:px-3 sm:py-2.5">
-                <button
-                  type="button"
-                  className="min-w-0 flex-1 rounded-md text-left outline-none ring-[#1a3d32] focus-visible:ring-2"
+                <Button
+                  variant="ghost"
+                  className="group/title min-w-0 flex-1 flex-col items-start justify-start rounded-md p-0 text-left font-normal outline-none ring-[#1a3d32] hover:bg-transparent focus-visible:ring-2 [&_p]:transition-colors [&:hover_p]:text-[#1a3d32]"
                   onClick={() => onFolderOpen?.(f.id)}
                   disabled={!onFolderOpen}
                 >
@@ -262,7 +262,7 @@ export function DocumentFolderJobsStrip({
                   <span className="mt-1 inline-block rounded-md bg-neutral-100 px-1.5 py-0.5 text-[10px] font-medium text-neutral-700">
                     {f.code}
                   </span>
-                </button>
+                </Button>
                 <div className="flex shrink-0 items-center gap-1">
                   <Button type="button" size="icon" variant="ghost" className="text-neutral-400 hover:text-neutral-700" aria-label="Mer">
                     <MoreHorizontal className="h-4 w-4" />
@@ -297,13 +297,14 @@ export function DocumentFolderJobsStrip({
                         <li key={key} className="flex min-w-0 items-start gap-1.5 text-[10px] text-neutral-700 sm:text-[11px]">
                           <FileText className="mt-0.5 h-3 w-3 shrink-0 text-neutral-400" aria-hidden />
                           {openRecent ? (
-                            <button
-                              type="button"
-                              className="min-w-0 flex-1 truncate rounded text-left font-medium text-neutral-800 underline-offset-2 hover:underline"
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-auto min-w-0 flex-1 truncate justify-start rounded p-0 text-left font-medium text-neutral-800 underline-offset-2 hover:bg-transparent hover:text-[#1a3d32] hover:underline"
                               onClick={() => onRecentDocumentClick(d)}
                             >
                               {d.name}
-                            </button>
+                            </Button>
                           ) : (
                             <span className="min-w-0 flex-1 truncate font-medium text-neutral-800">{d.name}</span>
                           )}

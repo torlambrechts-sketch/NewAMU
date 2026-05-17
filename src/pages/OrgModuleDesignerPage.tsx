@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Loader2, ToggleLeft, ToggleRight } from 'lucide-react'
 import { useOrgSetupContext } from '../hooks/useOrgSetupContext'
+import { Button } from '../components/ui/Button'
+import { StandardTextarea } from '../components/ui/Textarea'
 
 type ModuleRow = {
   id: string
@@ -137,19 +139,22 @@ export function OrgModuleDesignerPage() {
                 </div>
 
                 <div className="flex shrink-0 items-center gap-2">
-                  <button
-                    type="button"
+                  <Button
+                    variant="ghost"
+                    size="sm"
                     onClick={() => openConfigEditor(mod)}
-                    className="rounded border border-neutral-200 px-2.5 py-1 text-xs text-neutral-600 hover:bg-neutral-50"
+                    className="rounded border border-neutral-200 px-2.5 py-1 text-xs font-normal text-neutral-600 hover:bg-neutral-50"
                   >
                     Config…
-                  </button>
-                  <button
-                    type="button"
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
                     onClick={() => void toggleActive(mod)}
                     disabled={saving === mod.id}
                     aria-label={mod.is_active ? 'Deaktiver modul' : 'Aktiver modul'}
-                    className="flex items-center gap-1 rounded border border-neutral-200 px-2.5 py-1 text-xs text-neutral-700 hover:bg-neutral-50 disabled:opacity-50"
+                    aria-pressed={mod.is_active}
+                    className="flex items-center gap-1 rounded border border-neutral-200 px-2.5 py-1 text-xs font-normal text-neutral-700 hover:bg-neutral-50 disabled:opacity-50"
                   >
                     {saving === mod.id ? (
                       <Loader2 className="size-3.5 animate-spin" />
@@ -159,7 +164,7 @@ export function OrgModuleDesignerPage() {
                       <ToggleLeft className="size-4 text-neutral-400" />
                     )}
                     {mod.is_active ? 'Deaktiver' : 'Aktiver'}
-                  </button>
+                  </Button>
                 </div>
               </div>
 
@@ -169,28 +174,30 @@ export function OrgModuleDesignerPage() {
                   {configError && (
                     <p className="mb-2 text-xs text-red-700">{configError}</p>
                   )}
-                  <textarea
+                  <StandardTextarea
                     value={configDraft}
                     onChange={(e) => { setConfigDraft(e.target.value); setConfigError(null) }}
                     rows={8}
                     className="w-full rounded border border-neutral-300 px-3 py-2 font-mono text-xs focus:border-[#1a3d32] focus:outline-none"
                   />
                   <div className="mt-2 flex justify-end gap-2">
-                    <button
-                      type="button"
+                    <Button
+                      variant="ghost"
+                      size="sm"
                       onClick={() => { setEditingConfig(null); setConfigError(null) }}
-                      className="rounded border border-neutral-200 px-3 py-1.5 text-xs"
+                      className="rounded border border-neutral-200 px-3 py-1.5 text-xs font-normal"
                     >
                       Avbryt
-                    </button>
-                    <button
-                      type="button"
+                    </Button>
+                    <Button
+                      variant="primary"
+                      size="sm"
                       onClick={() => void saveConfig(mod.id)}
                       disabled={saving === mod.id}
                       className="rounded bg-[#1a3d32] px-3 py-1.5 text-xs text-white disabled:opacity-50"
                     >
                       {saving === mod.id ? 'Lagrer…' : 'Lagre config'}
-                    </button>
+                    </Button>
                   </div>
                 </div>
               )}

@@ -107,7 +107,7 @@ export function DocumentPrivacyPage() {
   const navigate = useNavigate()
   const { supabase, orgProfiles, isAdmin, permissionKeys } = useOrgSetupContext()
   const canRun =
-    isAdmin || permissionKeys.has('documents.manage') || permissionKeys.has('whistleblowing.committee')
+    isAdmin || permissionKeys.has('documents.manage') || permissionKeys.has('alerts.committee')
 
   const [subjectId, setSubjectId] = useState<string>('')
   const [rows, setRows] = useState<ExportRow[] | null>(null)

@@ -5,6 +5,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { AlertTriangle, Clock, Shield } from 'lucide-react'
 import { useOrgSetupContext } from '../../../src/hooks/useOrgSetupContext'
 import { Button } from '../../../src/components/ui/Button'
+import { SearchableSelect } from '../../../src/components/ui/SearchableSelect'
 import { StandardInput } from '../../../src/components/ui/Input'
 import { ToggleSwitch } from '../../../src/components/ui/FormToggles'
 import { WarningBox } from '../../../src/components/ui/AlertBox'
@@ -167,13 +168,13 @@ export function TasksSLATab() {
         </div>
         <div className={WPSTD_FORM_ROW_GRID}>
           <div>
-            <p className={WPSTD_FORM_FIELD_LABEL}>Krav for å lukke avvik</p>
+            <p id="sla-closure-label" className={WPSTD_FORM_FIELD_LABEL}>Krav for å lukke avvik</p>
             <p className={`${WPSTD_FORM_LEAD} mt-1`}>
               Hard-sperre blokkerer lukking inntil tiltak er implementert og verifisert.
               Myk-advarsel lar saksbehandler overstyre med begrunnelse.
             </p>
           </div>
-          <div className="flex flex-col gap-2">
+          <div className="flex flex-col gap-2" role="radiogroup" aria-labelledby="sla-closure-label">
             {(
               [
                 { v: 'hard', label: 'Hard sperre', desc: 'Kan ikke lukkes uten verifisert tiltak (anbefalt)' },
@@ -181,27 +182,35 @@ export function TasksSLATab() {
                 { v: 'none', label: 'Ingen sperre', desc: 'Fri lukking til enhver tid' },
               ] as const
             ).map(({ v, label, desc }) => (
-              <label
+              <Button
                 key={v}
-                className={`flex cursor-pointer items-start gap-3 rounded-lg border p-3 transition ${
+                variant="secondary"
+                role="radio"
+                aria-checked={settings.avvikClosureGate === v}
+                onClick={() => set('avvikClosureGate', v)}
+                className={`flex w-full items-start justify-start gap-3 rounded-lg border p-3 text-left font-normal transition ${
                   settings.avvikClosureGate === v
-                    ? 'border-[#c2410c]/30 bg-orange-50'
-                    : 'border-neutral-200 bg-white hover:border-neutral-300'
+                    ? 'border-[#c2410c]/30 bg-orange-50 hover:bg-orange-50'
+                    : 'border-neutral-200 hover:border-neutral-300'
                 }`}
               >
-                <input
-                  type="radio"
-                  name="avvik_closure_gate"
-                  value={v}
-                  checked={settings.avvikClosureGate === v}
-                  onChange={() => set('avvikClosureGate', v)}
-                  className="mt-0.5 text-[#c2410c]"
-                />
-                <div>
-                  <p className="text-sm font-medium text-neutral-900">{label}</p>
-                  <p className="text-xs text-neutral-500">{desc}</p>
-                </div>
-              </label>
+                <span
+                  aria-hidden
+                  className={`mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full border ${
+                    settings.avvikClosureGate === v
+                      ? 'border-[#c2410c] bg-[#c2410c]'
+                      : 'border-neutral-300 bg-white'
+                  }`}
+                >
+                  {settings.avvikClosureGate === v && (
+                    <span className="h-1.5 w-1.5 rounded-full bg-white" />
+                  )}
+                </span>
+                <span>
+                  <span className="block text-sm font-medium text-neutral-900">{label}</span>
+                  <span className="block text-xs font-normal text-neutral-500">{desc}</span>
+                </span>
+              </Button>
             ))}
           </div>
         </div>
@@ -285,15 +294,15 @@ export function TasksSLATab() {
               </p>
             </div>
             <div>
-              <select
+              <SearchableSelect
                 value={settings.emailDigest}
-                onChange={(e) => set('emailDigest', e.target.value as Settings['emailDigest'])}
-                className="rounded border border-neutral-300 bg-white px-3 py-2 text-sm text-neutral-900 focus:border-[#c2410c] focus:outline-none"
-              >
-                <option value="daily">Daglig</option>
-                <option value="weekly">Ukentlig</option>
-                <option value="none">Deaktivert</option>
-              </select>
+                options={[
+                  { value: 'daily', label: 'Daglig' },
+                  { value: 'weekly', label: 'Ukentlig' },
+                  { value: 'none', label: 'Deaktivert' },
+                ]}
+                onChange={(v) => set('emailDigest', v as Settings['emailDigest'])}
+              />
             </div>
           </div>
         </div>

@@ -16,5 +16,8 @@ export function defaultCompatibleKinds(kind: ReportModuleKind): ReportModuleKind
   // id/label/title/obligation/status, valgfritt byKind+proof for
   // bowtie-barrierer), så de er gjensidig utskiftbare i edit-panelet.
   if (kind === 'scorecard' || kind === 'bowtie') return ['scorecard', 'bowtie']
+  // Benchmark har sin egen datasett-form (org-egen + bench-bøtte per
+  // måned) og kan derfor bare instansieres som benchmark.
+  if (kind === 'benchmark') return ['benchmark']
   return ['kpi']
 }

@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useOrgSetupContext } from '../../hooks/useOrgSetupContext'
+import { StandardInput } from '../ui/Input'
+import { SearchableSelect } from '../ui/SearchableSelect'
 
 type FontKey = 'normal' | 'large' | 'xlarge'
 
@@ -38,24 +40,25 @@ export function DocumentsReadingPrefs() {
           <label htmlFor="doc-font-size" className="text-xs font-medium text-neutral-500">
             Tekststørrelse i dokumenter
           </label>
-          <select
-            id="doc-font-size"
-            className="mt-1 w-full rounded-none border border-neutral-200 px-2 py-1.5 text-sm"
-            value={font}
-            disabled={saving}
-            onChange={(e) => {
-              const v = e.target.value as FontKey
-              setFont(v)
-              void persist(v, highContrast)
-            }}
-          >
-            <option value="normal">Normal</option>
-            <option value="large">Stor</option>
-            <option value="xlarge">Ekstra stor</option>
-          </select>
+          <div className="mt-1">
+            <SearchableSelect
+              value={font}
+              disabled={saving}
+              onChange={(v) => {
+                const next = v as FontKey
+                setFont(next)
+                void persist(next, highContrast)
+              }}
+              options={[
+                { value: 'normal', label: 'Normal' },
+                { value: 'large', label: 'Stor' },
+                { value: 'xlarge', label: 'Ekstra stor' },
+              ]}
+            />
+          </div>
         </div>
         <label className="flex cursor-pointer items-center gap-2">
-          <input
+          <StandardInput
             type="checkbox"
             checked={highContrast}
             disabled={saving}

@@ -1,7 +1,9 @@
 import { useMemo } from 'react'
 import { WPSTD_FORM_FIELD_LABEL } from '../../src/components/layout/WorkplaceStandardFormPanel'
 import { StandardInput } from '../../src/components/ui/Input'
+import { StandardTextarea } from '../../src/components/ui/Textarea'
 import { InfoBox } from '../../src/components/ui/AlertBox'
+import { Button } from '../../src/components/ui/Button'
 import type { ConditionQuestionOpt } from './SurveyQuestionConditionEditor'
 
 function parseBranchHide(json: string): { equals: string; hideIds: string } {
@@ -101,9 +103,9 @@ export function SurveyBranchingEditor({ configJson, onConfigJsonChange, otherQue
           <label className={WPSTD_FORM_FIELD_LABEL} htmlFor="branch-hide">
             Skjul disse spørsmålene (ID, én per linje)
           </label>
-          <textarea
+          <StandardTextarea
             id="branch-hide"
-            className="mt-1 min-h-[88px] w-full rounded-lg border border-neutral-200 bg-white px-3 py-2 font-mono text-xs text-neutral-800"
+            className="mt-1 min-h-[88px] font-mono text-xs"
             value={hideLines}
             onChange={(e) => {
               const v = e.target.value
@@ -115,17 +117,18 @@ export function SurveyBranchingEditor({ configJson, onConfigJsonChange, otherQue
             <p className="mt-1 text-[11px] text-neutral-500">
               Eksempler på ID-er i denne undersøkelsen:{' '}
               {idHints.map((q) => (
-                <button
+                <Button
                   key={q.id}
-                  type="button"
-                  className="mr-1 font-mono text-[#1a3d32] underline"
+                  variant="ghost"
+                  size="sm"
+                  className="mr-1 px-0 py-0 font-mono text-[#1a3d32] underline hover:bg-transparent"
                   onClick={() => {
                     const next = hideLines.trim() ? `${hideLines.trim()}\n${q.id}` : q.id
                     onConfigJsonChange(mergeBranchHide(configJson, equals, next))
                   }}
                 >
                   {q.id.slice(0, 8)}…
-                </button>
+                </Button>
               ))}
             </p>
           ) : null}

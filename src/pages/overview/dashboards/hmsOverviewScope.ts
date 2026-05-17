@@ -38,6 +38,7 @@ const MEMBERS = [
   'learning',
   'documents',
   'risk',
+  'alerts',
 ] as const
 
 // ── Dataset catalogue ─────────────────────────────────────────────────────
@@ -66,6 +67,10 @@ const DATASETS: DatasetMeta[] = [
   { key: 'documents_published_over_time', label: 'Dokumenter — publisert over tid', shape: 'series' },
   // Risk — exec leak: red band + unjustified residual
   { key: 'risk_kpi_summary', label: 'Risiko — KPI-sammendrag', shape: 'kpi-record' },
+  // Alerts (Varslinger)
+  { key: 'alerts_kpi_summary', label: 'Varslinger — KPI-sammendrag', shape: 'kpi-record' },
+  { key: 'alerts_received_over_time', label: 'Varslinger — mottatt over tid', shape: 'series' },
+  { key: 'alerts_kind_distribution', label: 'Varslinger — type', shape: 'segments' },
 ]
 
 // ── KPI strip — one per member scope ──────────────────────────────────────
@@ -153,6 +158,24 @@ const KPI_RISK_AGEING_STALE: ReportModuleKpi = {
   comparisonGoal: 'decrease',
   colSpan: 'sm',
 }
+const KPI_ALERTS_OPEN: ReportModuleKpi = {
+  id: 'kpi-alerts-open',
+  kind: 'kpi',
+  datasetKey: 'alerts_kpi_summary',
+  title: 'Åpne varslinger',
+  valuePath: 'openCases',
+  subtitle: 'Varslinger · ikke lukket',
+  colSpan: 'sm',
+}
+const KPI_ALERTS_OVERDUE_ACK: ReportModuleKpi = {
+  id: 'kpi-alerts-overdue-ack',
+  kind: 'kpi',
+  datasetKey: 'alerts_kpi_summary',
+  title: 'Forsinket kvittering',
+  valuePath: 'overdueAcknowledgement',
+  subtitle: 'Varslinger · AML § 2A-3 frist',
+  colSpan: 'sm',
+}
 
 // ── Trends ────────────────────────────────────────────────────────────────
 const LINE_CHECKLIST_OVER_TIME: ReportModuleLine = {
@@ -183,6 +206,24 @@ const LINE_DOCUMENTS_OVER_TIME: ReportModuleLine = {
   pointsPath: '',
   xLabel: 'Måned',
   yLabel: 'Antall',
+  colSpan: 'md',
+}
+const LINE_ALERTS_OVER_TIME: ReportModuleLine = {
+  id: 'line-alerts-received',
+  kind: 'line',
+  datasetKey: 'alerts_received_over_time',
+  title: 'Varslinger — mottatt over tid',
+  pointsPath: '',
+  xLabel: 'Måned',
+  yLabel: 'Antall',
+  colSpan: 'md',
+}
+const DONUT_ALERTS_KIND: ReportModuleDonut = {
+  id: 'donut-alerts-kind',
+  kind: 'donut',
+  datasetKey: 'alerts_kind_distribution',
+  title: 'Varslinger — type',
+  segmentsPath: '',
   colSpan: 'md',
 }
 
@@ -219,14 +260,14 @@ const DEFAULT_LAYOUT: ReportModule[] = [
   KPI_RISK_RED_BAND,
   KPI_RISK_AGEING_STALE,
   KPI_LEARNING_COMPLETED_YTD,
-  KPI_DOCUMENTS_PUBLISHED,
-  KPI_DOCUMENTS_RETENTION_OVERDUE,
+  KPI_ALERTS_OPEN,
+  KPI_ALERTS_OVERDUE_ACK,
   LINE_CHECKLIST_OVER_TIME,
   LINE_LEARNING_OVER_TIME,
-  LINE_DOCUMENTS_OVER_TIME,
+  LINE_ALERTS_OVER_TIME,
   DONUT_TASKS_STATUS,
   DONUT_SURVEY_STATUS,
-  DONUT_DOCUMENTS_STATUS,
+  DONUT_ALERTS_KIND,
 ]
 
 const WIDGET_CATALOG: WidgetCatalogEntry[] = [
@@ -244,6 +285,10 @@ const WIDGET_CATALOG: WidgetCatalogEntry[] = [
   { catalogId: 'donut-tasks-status', category: 'Diagrammer', label: 'Oppgaver — status', template: DONUT_TASKS_STATUS },
   { catalogId: 'donut-survey-status', category: 'Diagrammer', label: 'Undersøkelser — status', template: DONUT_SURVEY_STATUS },
   { catalogId: 'donut-documents-status', category: 'Diagrammer', label: 'Dokumenter — status', template: DONUT_DOCUMENTS_STATUS },
+  { catalogId: 'kpi-alerts-open', category: 'Varslinger', label: 'Åpne varslinger', template: KPI_ALERTS_OPEN },
+  { catalogId: 'kpi-alerts-overdue-ack', category: 'Varslinger', label: 'Forsinket kvittering (AML § 2A-3)', template: KPI_ALERTS_OVERDUE_ACK },
+  { catalogId: 'line-alerts-received', category: 'Trender', label: 'Varslinger over tid', template: LINE_ALERTS_OVER_TIME },
+  { catalogId: 'donut-alerts-kind', category: 'Diagrammer', label: 'Varslinger — type', template: DONUT_ALERTS_KIND },
 ]
 
 registerDashboardScope({

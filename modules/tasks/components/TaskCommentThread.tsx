@@ -5,6 +5,8 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { MessageSquare, Send, Trash2 } from 'lucide-react'
+import { Button } from '../../../src/components/ui/Button'
+import { StandardTextarea } from '../../../src/components/ui/Textarea'
 import { useOrgSetupContext } from '../../../src/hooks/useOrgSetupContext'
 
 type Comment = {
@@ -124,14 +126,15 @@ export function TaskCommentThread({ taskItemId }: Props) {
                     <span className="text-[11px] text-neutral-400">(redigert)</span>
                   )}
                   {user?.id && c.authorUserId === user.id && (
-                    <button
-                      type="button"
+                    <Button
+                      variant="ghost"
+                      size="icon"
                       onClick={() => void remove(c.id)}
-                      className="ml-auto hidden text-neutral-400 transition hover:text-red-500 group-hover:block"
+                      className="ml-auto hidden h-7 w-7 text-neutral-400 hover:bg-transparent hover:text-red-500 group-hover:flex"
                       aria-label="Slett kommentar"
                     >
                       <Trash2 className="h-3.5 w-3.5" />
-                    </button>
+                    </Button>
                   )}
                 </div>
                 <p className="mt-1 whitespace-pre-wrap text-sm text-neutral-700">{c.body}</p>
@@ -142,7 +145,7 @@ export function TaskCommentThread({ taskItemId }: Props) {
       )}
 
       <div className="flex gap-2">
-        <textarea
+        <StandardTextarea
           ref={textRef}
           value={body}
           onChange={(e) => setBody(e.target.value)}
@@ -151,17 +154,17 @@ export function TaskCommentThread({ taskItemId }: Props) {
           }}
           rows={2}
           placeholder="Skriv en kommentar… (Ctrl+Enter for å sende)"
-          className="flex-1 resize-none rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm text-neutral-900 placeholder:text-neutral-400 focus:border-[#c2410c] focus:outline-none focus:ring-1 focus:ring-[#c2410c]/20"
+          className="flex-1 resize-none focus:border-[#c2410c] focus:ring-[#c2410c]/20"
         />
-        <button
-          type="button"
+        <Button
+          variant="secondary"
           onClick={() => void submit()}
           disabled={submitting || !body.trim()}
-          className="flex shrink-0 items-center gap-1 self-end rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm text-neutral-600 transition hover:bg-neutral-50 disabled:opacity-40"
+          className="self-end"
           aria-label="Send kommentar"
         >
           <Send className="h-4 w-4" />
-        </button>
+        </Button>
       </div>
     </div>
   )

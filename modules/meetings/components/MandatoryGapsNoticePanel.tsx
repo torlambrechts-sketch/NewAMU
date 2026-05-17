@@ -6,6 +6,7 @@
 
 import { useState } from 'react'
 import { AlertTriangle, ChevronDown } from 'lucide-react'
+import { Button } from '../../../src/components/ui/Button'
 import {
   WORKPLACE_LAYOUT_BOX_CARD,
   WORKPLACE_LAYOUT_BOX_SHADOW,
@@ -29,12 +30,12 @@ export function MandatoryGapsNoticePanel({
 
   return (
     <div className={WORKPLACE_LAYOUT_BOX_CARD} style={WORKPLACE_LAYOUT_BOX_SHADOW}>
-      <button
-        type="button"
+      <Button
+        variant="ghost"
         onClick={() => setOpen((v) => !v)}
         aria-expanded={open}
         aria-controls="mandatory-gaps-list"
-        className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left transition-colors hover:bg-amber-50/40"
+        className="flex h-auto w-full items-center justify-between gap-3 rounded-none px-4 py-3 text-left font-normal transition-colors hover:bg-amber-50/40"
       >
         <span className="flex min-w-0 items-center gap-3">
           <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-amber-100 text-amber-800">
@@ -58,7 +59,7 @@ export function MandatoryGapsNoticePanel({
             aria-hidden
           />
         </span>
-      </button>
+      </Button>
 
       {open ? (
         <ul id="mandatory-gaps-list" className="divide-y divide-neutral-100 border-t border-neutral-100">

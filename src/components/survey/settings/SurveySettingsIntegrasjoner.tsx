@@ -68,7 +68,7 @@ export function SurveySettingsIntegrasjoner({ settings, setSettings, saving, onS
                   <div className="space-y-2">
                     {WEBHOOK_EVENTS.map((ev) => (
                       <label key={ev.value} className="flex cursor-pointer items-center gap-2.5 text-sm text-neutral-700">
-                        <input
+                        <StandardInput
                           type="checkbox"
                           className="rounded border-neutral-300 text-[#1a3d32] focus:ring-[#1a3d32]/30"
                           checked={(settings.webhook_events ?? []).includes(ev.value)}
@@ -118,7 +118,7 @@ export function SurveySettingsIntegrasjoner({ settings, setSettings, saving, onS
                       { key: 'slack_notify_on_closed' as const,     label: 'Undersøkelse lukket' },
                     ]).map(({ key, label }) => (
                       <label key={key} className="flex cursor-pointer items-center gap-2.5 text-sm text-neutral-700">
-                        <input type="checkbox" className="rounded border-neutral-300 text-[#1a3d32] focus:ring-[#1a3d32]/30" checked={settings[key] ?? false} onChange={(e) => setSettings((p) => ({ ...p, [key]: e.target.checked }))} />
+                        <StandardInput type="checkbox" className="rounded border-neutral-300 text-[#1a3d32] focus:ring-[#1a3d32]/30" checked={settings[key] ?? false} onChange={(e) => setSettings((p) => ({ ...p, [key]: e.target.checked }))} />
                         {label}
                       </label>
                     ))}

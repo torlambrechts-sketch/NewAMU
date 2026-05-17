@@ -21,12 +21,14 @@ import { mergeNotificationPreferences, parseNotificationPreferences } from '../l
 import { getSupabaseErrorMessage } from '../lib/supabaseError'
 import type { NotificationPreferences } from '../types/notifications'
 import { HubMenu1Bar, type HubMenu1Item } from '../components/layout/HubMenu1Bar'
+import { Button } from '../components/ui/Button'
+import { StandardInput } from '../components/ui/Input'
+import { SearchableSelect } from '../components/ui/SearchableSelect'
+import { ToggleSwitch } from '../components/ui/FormToggles'
 import { WorkplacePageHeading1 } from '../components/layout/WorkplacePageHeading1'
 
 const PAGE_WRAP = 'mx-auto max-w-[1400px] px-4 py-6 md:px-8'
 const CARD = 'rounded-2xl border border-neutral-200/90 bg-white p-6 shadow-sm'
-const INPUT =
-  'mt-1 w-full rounded-lg border border-neutral-200 px-3 py-2.5 text-sm focus:border-[#1a3d32] focus:outline-none focus:ring-1 focus:ring-[#1a3d32]'
 const AVATAR_BUCKET = 'profile_avatars'
 
 function initialsFromName(name: string) {
@@ -359,27 +361,29 @@ export function ProfilePage() {
             <h2 className="mb-3 text-lg font-semibold text-neutral-900">{t('profile.sectionPhoto')}</h2>
             <div className={CARD}>
               <p className="text-sm text-neutral-600">{t('profile.sectionPhotoHint')}</p>
+              {/* Hidden file picker; visible UI is the Button below. */}
+              {/* eslint-disable-next-line no-restricted-syntax */}
               <input ref={fileRef} type="file" accept="image/jpeg,image/png,image/webp,image/gif" className="hidden" onChange={(e) => void onPickFile(e)} />
               <div className="mt-4 flex flex-wrap gap-3">
-                <button
-                  type="button"
+                <Button
+                  variant="secondary"
                   disabled={busyAvatar}
                   onClick={() => fileRef.current?.click()}
-                  className="inline-flex items-center gap-2 rounded-full border border-neutral-200 bg-white px-4 py-2 text-sm font-medium text-neutral-800 shadow-sm hover:bg-neutral-50 disabled:opacity-50"
+                  icon={<Camera className="size-4" />}
+                  className="rounded-full"
                 >
-                  <Camera className="size-4" />
                   {t('profile.upload')}
-                </button>
+                </Button>
                 {displayAvatarUrl ? (
-                  <button
-                    type="button"
+                  <Button
+                    variant="secondary"
                     disabled={busyAvatar}
                     onClick={() => void removeAvatar()}
-                    className="inline-flex items-center gap-2 rounded-full border border-red-200 bg-red-50 px-4 py-2 text-sm font-medium text-red-800 hover:bg-red-100 disabled:opacity-50"
+                    icon={<Trash2 className="size-4" />}
+                    className="rounded-full border-red-200 bg-red-50 text-red-800 hover:bg-red-100"
                   >
-                    <Trash2 className="size-4" />
                     {t('profile.removePhoto')}
-                  </button>
+                  </Button>
                 ) : null}
               </div>
             </div>
@@ -391,20 +395,20 @@ export function ProfilePage() {
             <div className={`${CARD} space-y-4`}>
               <div>
                 <label className="text-sm font-medium text-neutral-800">{t('profile.displayName')}</label>
-                <input value={name} onChange={(e) => setName(e.target.value)} className={INPUT} autoComplete="name" />
+                <StandardInput value={name} onChange={(e) => setName(e.target.value)} className="mt-1 rounded-lg" autoComplete="name" />
               </div>
               <div>
                 <label className="text-sm font-medium text-neutral-800">{t('profile.email')}</label>
-                <input value={email} readOnly className={`${INPUT} bg-neutral-50 text-neutral-600`} />
+                <StandardInput value={email} readOnly className="mt-1 rounded-lg bg-neutral-50 text-neutral-600" />
                 <p className="mt-1 text-xs text-neutral-500">{t('profile.emailReadonly')}</p>
               </div>
               <div className="grid gap-4 sm:grid-cols-2">
                 <div>
                   <label className="text-sm font-medium text-neutral-800">{t('profile.phone')}</label>
-                  <input
+                  <StandardInput
                     value={phone}
                     onChange={(e) => setPhone(e.target.value)}
-                    className={INPUT}
+                    className="mt-1 rounded-lg"
                     autoComplete="tel"
                     inputMode="tel"
                     placeholder="+47 …"
@@ -412,7 +416,7 @@ export function ProfilePage() {
                 </div>
                 <div>
                   <label className="text-sm font-medium text-neutral-800">{t('profile.jobTitle')}</label>
-                  <input value={jobTitle} onChange={(e) => setJobTitle(e.target.value)} className={INPUT} placeholder="f.eks. HMS-koordinator" />
+                  <StandardInput value={jobTitle} onChange={(e) => setJobTitle(e.target.value)} className="mt-1 rounded-lg" placeholder="f.eks. HMS-koordinator" />
                 </div>
               </div>
 
@@ -421,36 +425,37 @@ export function ProfilePage() {
                 <div className="mt-3 space-y-4">
                   <div>
                     <label className="text-sm font-medium text-neutral-800">{t('profile.locale')}</label>
-                    <select value={loc} onChange={(e) => setLoc(e.target.value as AppLocale)} className={INPUT}>
-                      {APP_LOCALES.map((code) => (
-                        <option key={code} value={code}>
-                          {LOCALE_LABELS[code]}
-                        </option>
-                      ))}
-                    </select>
+                    <div className="mt-1">
+                      <SearchableSelect
+                        value={loc}
+                        options={APP_LOCALES.map((code) => ({ value: code, label: LOCALE_LABELS[code] }))}
+                        onChange={(v) => setLoc(v as AppLocale)}
+                      />
+                    </div>
                   </div>
                   {departments.length > 0 ? (
                     <div>
                       <label className="text-sm font-medium text-neutral-800">Avdeling (e-læring / statistikk)</label>
-                      <select value={deptId} onChange={(e) => setDeptId(e.target.value)} className={INPUT}>
-                        <option value="">— Ikke valgt —</option>
-                        {departments.map((d) => (
-                          <option key={d.id} value={d.id}>
-                            {d.name}
-                          </option>
-                        ))}
-                      </select>
+                      <div className="mt-1">
+                        <SearchableSelect
+                          value={deptId}
+                          options={[
+                            { value: '', label: '— Ikke valgt —' },
+                            ...departments.map((d) => ({ value: d.id, label: d.name })),
+                          ]}
+                          onChange={setDeptId}
+                        />
+                      </div>
                       <p className="mt-1 text-xs text-neutral-500">
                         Brukes til avdelingsbasert tavle i E-læring (ingen individuell rangering).
                       </p>
                     </div>
                   ) : null}
-                  <label className="flex cursor-pointer items-start gap-3 text-sm font-medium text-neutral-800">
-                    <input
-                      type="checkbox"
+                  <div className="flex items-start gap-3 text-sm font-medium text-neutral-800">
+                    <ToggleSwitch
                       checked={safetyRep}
-                      onChange={(e) => setSafetyRep(e.target.checked)}
-                      className="mt-1 rounded border-neutral-300"
+                      onChange={setSafetyRep}
+                      label="HMS-representant / sikkerhetsrolle"
                     />
                     <span>
                       HMS-representant / sikkerhetsrolle
@@ -458,21 +463,21 @@ export function ProfilePage() {
                         Brukes til læringsløp og tilganger når organisasjonen har satt opp regler.
                       </span>
                     </span>
-                  </label>
+                  </div>
                 </div>
               </div>
 
               {err ? <p className="text-sm text-red-700">{err}</p> : null}
               {msg ? <p className="text-sm text-emerald-800">{msg}</p> : null}
-              <button
-                type="button"
+              <Button
+                variant="primary"
                 onClick={() => void saveProfile()}
                 disabled={busyProfile}
-                className="inline-flex items-center gap-2 rounded-full bg-[#1a3d32] px-5 py-2.5 text-sm font-medium text-white shadow-sm hover:bg-[#142e26] disabled:opacity-50"
+                icon={busyProfile ? <Loader2 className="size-4 animate-spin" /> : undefined}
+                className="rounded-full"
               >
-                {busyProfile ? <Loader2 className="size-4 animate-spin" /> : null}
                 {busyProfile ? t('profile.savingPersonalia') : t('profile.savePersonalia')}
-              </button>
+              </Button>
             </div>
           </section>
 
@@ -492,18 +497,17 @@ export function ProfilePage() {
               <div>
                 <h3 className="text-sm font-semibold text-neutral-900">Kanaler</h3>
                 <div className="mt-2 space-y-2">
-                  <label className="flex cursor-pointer items-start gap-3 text-sm text-neutral-800">
-                    <input
-                      type="checkbox"
+                  <div className="flex items-start gap-3 text-sm text-neutral-800">
+                    <ToggleSwitch
                       checked={notifPrefs.channels.inApp}
-                      onChange={(e) =>
+                      onChange={(v) =>
                         setNotifPrefs((p) =>
                           mergeNotificationPreferences(p, {
-                            channels: { ...p.channels, inApp: e.target.checked },
+                            channels: { ...p.channels, inApp: v },
                           }),
                         )
                       }
-                      className="mt-1 rounded border-neutral-300"
+                      label="I appen"
                     />
                     <span>
                       I appen (ikon + liste)
@@ -511,19 +515,18 @@ export function ProfilePage() {
                         Anbefalt — varsler genereres fra oppgaver og varslingssaker du har tilgang til.
                       </span>
                     </span>
-                  </label>
-                  <label className="flex cursor-pointer items-start gap-3 text-sm text-neutral-800">
-                    <input
-                      type="checkbox"
+                  </div>
+                  <div className="flex items-start gap-3 text-sm text-neutral-800">
+                    <ToggleSwitch
                       checked={notifPrefs.channels.email}
-                      onChange={(e) =>
+                      onChange={(v) =>
                         setNotifPrefs((p) =>
                           mergeNotificationPreferences(p, {
-                            channels: { ...p.channels, email: e.target.checked },
+                            channels: { ...p.channels, email: v },
                           }),
                         )
                       }
-                      className="mt-1 rounded border-neutral-300"
+                      label="E-post"
                     />
                     <span>
                       E-post
@@ -531,19 +534,18 @@ export function ProfilePage() {
                         Sendes til {email || 'din profil-e-post'} når utsending er aktivert i drift.
                       </span>
                     </span>
-                  </label>
-                  <label className="flex cursor-pointer items-start gap-3 text-sm text-neutral-800">
-                    <input
-                      type="checkbox"
+                  </div>
+                  <div className="flex items-start gap-3 text-sm text-neutral-800">
+                    <ToggleSwitch
                       checked={notifPrefs.channels.webhook}
-                      onChange={(e) =>
+                      onChange={(v) =>
                         setNotifPrefs((p) =>
                           mergeNotificationPreferences(p, {
-                            channels: { ...p.channels, webhook: e.target.checked },
+                            channels: { ...p.channels, webhook: v },
                           }),
                         )
                       }
-                      className="mt-1 rounded border-neutral-300"
+                      label="Webhook"
                     />
                     <span>
                       Webhook (HTTPS)
@@ -551,7 +553,7 @@ export function ProfilePage() {
                         POST med JSON til din URL (f.eks. Zapier, n8n, Microsoft Power Automate).
                       </span>
                     </span>
-                  </label>
+                  </div>
                 </div>
               </div>
 
@@ -559,25 +561,25 @@ export function ProfilePage() {
                 <div className="grid gap-3 sm:grid-cols-1">
                   <div>
                     <label className="text-sm font-medium text-neutral-800">Webhook-URL</label>
-                    <input
+                    <StandardInput
                       value={notifPrefs.webhookUrl ?? ''}
                       onChange={(e) =>
                         setNotifPrefs((p) => mergeNotificationPreferences(p, { webhookUrl: e.target.value }))
                       }
-                      className={INPUT}
+                      className="mt-1 rounded-lg"
                       placeholder="https://…"
                       autoComplete="off"
                     />
                   </div>
                   <div>
                     <label className="text-sm font-medium text-neutral-800">Delt hemmelighet (valgfritt)</label>
-                    <input
+                    <StandardInput
                       type="password"
                       value={notifPrefs.webhookSecret ?? ''}
                       onChange={(e) =>
                         setNotifPrefs((p) => mergeNotificationPreferences(p, { webhookSecret: e.target.value }))
                       }
-                      className={INPUT}
+                      className="mt-1 rounded-lg"
                       placeholder="Sendes som X-Notification-Secret"
                       autoComplete="off"
                     />
@@ -596,33 +598,31 @@ export function ProfilePage() {
                       ['compliance', 'Samsvar / revisjon (kommer)'],
                     ] as const
                   ).map(([key, label]) => (
-                    <label key={key} className="flex cursor-pointer items-start gap-3 text-sm text-neutral-800">
-                      <input
-                        type="checkbox"
+                    <div key={key} className="flex items-start gap-3 text-sm text-neutral-800">
+                      <ToggleSwitch
                         checked={notifPrefs.categories[key]}
-                        onChange={(e) =>
+                        onChange={(v) =>
                           setNotifPrefs((p) =>
                             mergeNotificationPreferences(p, {
-                              categories: { ...p.categories, [key]: e.target.checked },
+                              categories: { ...p.categories, [key]: v },
                             }),
                           )
                         }
-                        className="mt-1 rounded border-neutral-300"
+                        label={label}
                       />
                       <span>{label}</span>
-                    </label>
+                    </div>
                   ))}
                 </div>
               </div>
 
-              <label className="flex cursor-pointer items-start gap-3 text-sm text-neutral-800">
-                <input
-                  type="checkbox"
+              <div className="flex items-start gap-3 text-sm text-neutral-800">
+                <ToggleSwitch
                   checked={notifPrefs.toastEnabled}
-                  onChange={(e) =>
-                    setNotifPrefs((p) => mergeNotificationPreferences(p, { toastEnabled: e.target.checked }))
+                  onChange={(v) =>
+                    setNotifPrefs((p) => mergeNotificationPreferences(p, { toastEnabled: v }))
                   }
-                  className="mt-1 rounded border-neutral-300"
+                  label="Popup øverst"
                 />
                 <span>
                   Popup øverst på skjermen ved nye uleste varsler
@@ -630,19 +630,19 @@ export function ProfilePage() {
                     Kort banner med lenke til innholdet. Slå av hvis du foretrekker kun ikonet.
                   </span>
                 </span>
-              </label>
+              </div>
 
               {notifErr ? <p className="text-sm text-red-700">{notifErr}</p> : null}
               {notifMsg ? <p className="text-sm text-emerald-800">{notifMsg}</p> : null}
-              <button
-                type="button"
+              <Button
+                variant="primary"
                 onClick={() => void saveNotificationPrefs()}
                 disabled={busyNotif}
-                className="inline-flex items-center gap-2 rounded-full bg-[#1a3d32] px-5 py-2.5 text-sm font-medium text-white shadow-sm hover:bg-[#142e26] disabled:opacity-50"
+                icon={busyNotif ? <Loader2 className="size-4 animate-spin" /> : undefined}
+                className="rounded-full"
               >
-                {busyNotif ? <Loader2 className="size-4 animate-spin" /> : null}
                 {busyNotif ? 'Lagrer…' : 'Lagre varslingsinnstillinger'}
-              </button>
+              </Button>
             </div>
           </section>
 
@@ -657,36 +657,36 @@ export function ProfilePage() {
               <div className="mt-4 grid gap-4 sm:grid-cols-2">
                 <div>
                   <label className="text-sm font-medium text-neutral-800">{t('profile.passwordNew')}</label>
-                  <input
+                  <StandardInput
                     type="password"
                     value={pw1}
                     onChange={(e) => setPw1(e.target.value)}
-                    className={INPUT}
+                    className="mt-1 rounded-lg"
                     autoComplete="new-password"
                   />
                 </div>
                 <div>
                   <label className="text-sm font-medium text-neutral-800">{t('profile.passwordConfirm')}</label>
-                  <input
+                  <StandardInput
                     type="password"
                     value={pw2}
                     onChange={(e) => setPw2(e.target.value)}
-                    className={INPUT}
+                    className="mt-1 rounded-lg"
                     autoComplete="new-password"
                   />
                 </div>
               </div>
               {pwErr ? <p className="mt-2 text-sm text-red-700">{pwErr}</p> : null}
               {pwMsg ? <p className="mt-2 text-sm text-emerald-800">{pwMsg}</p> : null}
-              <button
-                type="button"
+              <Button
+                variant="secondary"
                 onClick={() => void savePassword()}
                 disabled={busyPw || !pw1}
-                className="mt-4 inline-flex items-center gap-2 rounded-full border border-neutral-200 bg-white px-5 py-2.5 text-sm font-medium text-neutral-900 shadow-sm hover:bg-neutral-50 disabled:opacity-50"
+                icon={busyPw ? <Loader2 className="size-4 animate-spin" /> : undefined}
+                className="mt-4 rounded-full"
               >
-                {busyPw ? <Loader2 className="size-4 animate-spin" /> : null}
                 {t('profile.passwordSave')}
-              </button>
+              </Button>
             </div>
           </section>
         </div>

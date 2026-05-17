@@ -69,6 +69,9 @@ export function PhotoItemControl({
 
       {!readOnly ? (
         <div className="flex flex-wrap items-center gap-2">
+          {/* Hidden native file picker; triggered by the visible Button below.
+              No primitive exists for file input — keeping raw <input> is correct here. */}
+          {/* eslint-disable-next-line no-restricted-syntax */}
           <input
             ref={inputRef}
             type="file"
@@ -147,19 +150,20 @@ function PhotoThumb({ path, readOnly, signUrl, onRemove }: PhotoThumbProps) {
         </div>
       )}
       {!readOnly ? (
-        <button
-          type="button"
+        <Button
+          variant="ghost"
+          size="icon"
           onClick={handleRemove}
           disabled={removing}
           aria-label="Slett bilde"
-          className="absolute right-1 top-1 inline-flex h-6 w-6 items-center justify-center bg-white/90 text-neutral-700 opacity-0 transition-opacity hover:bg-red-50 hover:text-red-600 group-hover:opacity-100"
+          className="absolute right-1 top-1 h-6 w-6 rounded-none bg-white/90 text-neutral-700 opacity-0 transition-opacity hover:bg-red-50 hover:text-red-600 group-hover:opacity-100"
         >
           {removing ? (
             <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />
           ) : (
             <Trash2 className="h-3.5 w-3.5" aria-hidden />
           )}
-        </button>
+        </Button>
       ) : null}
     </div>
   )

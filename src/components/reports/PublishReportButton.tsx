@@ -17,6 +17,8 @@ import {
 } from 'lucide-react'
 import { SlidePanel } from '../layout/SlidePanel'
 import { Button } from '../ui/Button'
+import { StandardInput } from '../ui/Input'
+import { StandardTextarea } from '../ui/Textarea'
 import { WarningBox } from '../ui/AlertBox'
 import { useOrgSetupContext } from '../../hooks/useOrgSetupContext'
 import {
@@ -343,7 +345,7 @@ function PublishReportPanel({
             </p>
 
             <Field label="Navn" required>
-              <input
+              <StandardInput
                 type="text"
                 className="w-full rounded-md border border-neutral-300 px-3 py-2 text-sm"
                 value={name}
@@ -353,7 +355,7 @@ function PublishReportPanel({
             </Field>
 
             <Field label="Beskrivelse">
-              <textarea
+              <StandardTextarea
                 className="w-full rounded-md border border-neutral-300 px-3 py-2 text-sm"
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
@@ -364,7 +366,7 @@ function PublishReportPanel({
 
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <Field label="Passord" hint="Tomt = ingen passordbeskyttelse.">
-                <input
+                <StandardInput
                   type="text"
                   className="w-full rounded-md border border-neutral-300 px-3 py-2 text-sm"
                   value={password}
@@ -374,7 +376,7 @@ function PublishReportPanel({
                 />
               </Field>
               <Field label="Utløpsdato" hint="Tomt = lenken utløper ikke.">
-                <input
+                <StandardInput
                   type="date"
                   className="w-full rounded-md border border-neutral-300 px-3 py-2 text-sm"
                   value={expiresOn}
