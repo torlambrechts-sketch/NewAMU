@@ -24,17 +24,17 @@ export const CHANGELOG: ChangeEntry[] = [
   {
     date: '2026-05-17',
     category: 'ny-funksjon',
-    title: 'Ny landingsside med per-modul-dybde',
+    title: 'Ny landingsside med dedikert dybde per modul',
     summary:
-      'Komplett gjennomgang av offentlig nettside: seks dedikerte funksjonssider, en compliance-oversikt med alle ni rammeverk, integrasjons-roadmap og en endringslogg du leser akkurat nå. Per-rute meta og JSON-LD bakt inn ved bygg.',
+      'Komplett gjennomgang av offentlig nettside: seks dedikerte funksjonssider, en compliance-oversikt med alle ni rammeverk, veikart for integrasjoner og en endringslogg du leser akkurat nå. Per-rute meta og JSON-LD bakt inn ved bygg.',
     modules: ['Plattform'],
   },
   {
     date: '2026-04-08',
     category: 'mal-oppdatering',
-    title: 'Risikomatrise innebygd i alle vernerunde-maler',
+    title: 'Risikomatrise innebygd i alle vernerundemaler',
     summary:
-      'Hvert funn får sannsynlighet × konsekvens-score (1–25). Kritiske og høye funn oppretter automatisk avvik med foreslåtte tiltak. Trender på risiko-type kan filtreres på tvers av lokasjoner.',
+      'Hvert funn får en sannsynlighet × konsekvens-skår (1–25). Kritiske og høye funn oppretter automatisk avvik med foreslåtte tiltak. Trender per risikotype kan filtreres på tvers av steder.',
     modules: ['Sjekklister', 'Oppgaver'],
     lawRef: 'IK-f §5 nr. 2',
   },
@@ -52,7 +52,7 @@ export const CHANGELOG: ChangeEntry[] = [
     category: 'ny-funksjon',
     title: 'Sertifikatutløp som førsteklasses filter i E-læring',
     summary:
-      'Dashboardet i E-læring lar deg filtrere på "utløper innen 30 dager". Eksterne sertifikater (truckfører, varme arbeider) kan også registreres og spores. Ansatt-overføringer endrer ikke historisk org-kontekst på sertifikatet.',
+      'Dashbordet i E-læring lar deg filtrere på «utløper innen 30 dager». Eksterne sertifikater (truckfører, varme arbeider) kan også registreres og spores. Ansattoverføringer endrer ikke historisk organisasjonskontekst på sertifikatet.',
     modules: ['E-læring'],
     lawRef: 'AML §3-5, §6-5',
   },
@@ -77,7 +77,7 @@ export const CHANGELOG: ChangeEntry[] = [
     category: 'lovendring',
     title: 'Oppdaterte AML §4-2-maler for psykososialt arbeidsmiljø',
     summary:
-      'Arbeidstilsynet tydeliggjorde forventninger til systematisk kartlegging av psykososiale forhold gjennom året. Alle pulsundersøkelser i mal-pakken er nå justert til å speile dette — eldre malversjoner er beholdt for org-er som bygger på dem.',
+      'Arbeidstilsynet tydeliggjorde forventninger til systematisk kartlegging av psykososiale forhold gjennom året. Alle pulsundersøkelser i malpakken er nå justert til å speile dette — eldre malversjoner er beholdt for organisasjoner som bygger på dem.',
     modules: ['Undersøkelser'],
     lawRef: 'AML §4-2',
   },

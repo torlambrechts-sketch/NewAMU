@@ -110,13 +110,13 @@ const ROUTES = [
   },
   {
     path: '/features/undersokelser',
-    title: 'Undersøkelser — Klarert | AMU-puls og leverandøregenerklæring',
+    title: 'Undersøkelser — Klarert | AMU-puls og egenerklæringer fra leverandører',
     description:
-      'Pulsundersøkelser, AML §4-2-kartlegging, exit-intervjuer og Åpenhetsloven-egenerklæringer. Anonyme svar, aggregerbar innsikt.',
+      'Pulsundersøkelser, AML §4-2-kartlegging, exit-intervjuer og egenerklæringer etter Åpenhetsloven. Anonyme svar, aggregerbar innsikt.',
     jsonLd: featureLd(
       'undersokelser',
       'Undersøkelser',
-      'Pulsundersøkelser, AML §4-2-kartlegging, exit-intervjuer og Åpenhetsloven-egenerklæringer.',
+      'Pulsundersøkelser, AML §4-2-kartlegging, exit-intervjuer og egenerklæringer etter Åpenhetsloven.',
     ),
   },
   {

@@ -154,7 +154,7 @@ export function DemoPage() {
 
             {status === 'err' && (
               <p role="alert" className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
-                Klarte ikke sende forespørsel ({errorMessage}). Send heller en e-post til{' '}
+                Klarte ikke å sende forespørselen ({errorMessage}). Send heller en e-post til{' '}
                 <a href="mailto:hei@klarert.com" className="underline">hei@klarert.com</a>.
               </p>
             )}
@@ -191,7 +191,7 @@ export function DemoPage() {
             {[
               { n: '1', title: 'Du sender skjemaet', body: 'Vi leser det og svarer innen 1 virkedag med to-tre foreslåtte tidspunkter.' },
               { n: '2', title: '20-minutters delt skjerm', body: 'Vi tar oss tid til å forstå konteksten, så viser vi de modulene som faktisk er relevante.' },
-              { n: '3', title: 'Du bestemmer', body: 'Vil du prøve gratis er det én klikk unna. Vil du ikke, slutter vi å maile deg.' },
+              { n: '3', title: 'Du bestemmer', body: 'Vil du prøve gratis, er det ett klikk unna. Vil du ikke, slutter vi å sende deg e-post.' },
             ].map((s) => (
               <li key={s.n} className="space-y-2">
                 <div className="flex size-9 items-center justify-center rounded-full text-sm font-bold" style={{ background: FOREST, color: 'white' }}>
@@ -293,7 +293,7 @@ function SuccessState() {
           </h1>
           <p className="mx-auto mt-5 max-w-xl text-base leading-relaxed text-white/75">
             Vi leser den i løpet av dagen og svarer innen 1 virkedag med to-tre foreslåtte
-            tidspunkter. Sjekk inboksen (og søppelposten, for sikkerhets skyld).
+            tidspunkter. Sjekk innboksen (og søppelposten, for sikkerhets skyld).
           </p>
           <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
             <Link

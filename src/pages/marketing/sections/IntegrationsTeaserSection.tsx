@@ -25,7 +25,7 @@ export function IntegrationsTeaserSection() {
         <SectionHeader
           eyebrow="Integrasjoner"
           title="Kobles til der det betyr noe"
-          lede="Brønnøysund er live. BankID-signering kommer Q1 2026. Eco-Online, Altinn, Lovdata Pro og Feide SSO er planlagt. Vi forteller deg hva som er ekte og hva som er roadmap — fordi det er forskjellen mellom et tilsyn og en demo."
+          lede="Brønnøysund er i produksjon. BankID-signering kommer Q1 2026. Eco-Online, Altinn, Lovdata Pro og Feide SSO er planlagt. Vi forteller deg hva som er ekte og hva som er på veikartet — fordi det er forskjellen mellom et tilsyn og en demo."
         />
         <div className="mt-12 grid gap-5 md:grid-cols-3">
           {[

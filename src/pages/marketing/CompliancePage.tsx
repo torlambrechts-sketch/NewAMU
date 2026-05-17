@@ -139,7 +139,7 @@ export function CompliancePage() {
           <SectionHeader
             eyebrow="Pakker"
             title="To compliance-pakker, alle modulene"
-            lede="Pakkene speiler kjente kravsett til konkrete maler og workflow-skritt. Du kan kjøre én eller begge samtidig."
+            lede="Pakkene oversetter kjente kravsett til konkrete maler og arbeidsflyttrinn. Du kan kjøre én eller begge samtidig."
           />
           <div className="mt-12 grid gap-5 md:grid-cols-2">
             {PACKS.map((p) => (
@@ -172,7 +172,7 @@ export function CompliancePage() {
         <div className="mx-auto max-w-3xl px-4 md:px-8">
           <SectionHeader
             eyebrow="Hvordan vi tenker"
-            title="Tilsyn-klar arkitektur fra dag én"
+            title="Tilsynsklar arkitektur fra dag én"
             lede="Tre prinsipper styrer hvordan vi har bygget systemet."
           />
           <ul className="mt-12 space-y-6">
@@ -183,7 +183,7 @@ export function CompliancePage() {
               },
               {
                 title: 'Lovkrav er kodet, ikke beskrevet',
-                body: 'SLA-er for varsling (5-dagers bekreftelse, 6-ukers undersøkelse) er en del av workflow-en, ikke en setning i en prosedyre. Oppbevaringsregler (5 år for varsling, 30 år for kjemikalie-eksponering) håndheves på databasenivå.',
+                body: 'Tidsfrister for varsling (5 dager til bekreftelse, 6 uker til undersøkelse) er en del av arbeidsflyten, ikke en setning i en prosedyre. Oppbevaringsregler (5 år for varsling, 30 år for kjemikalieeksponering) håndheves på databasenivå.',
               },
               {
                 title: 'Anonymitet ved arkitektur',
@@ -234,7 +234,7 @@ export function CompliancePage() {
         heading="Vil du se hvordan ditt rammeverk dekkes?"
         body="Be om en 20-minutters demo der vi går gjennom din pakke — AML, IK-f, ISO 45001 eller noe annet."
         primaryLabel="Be om demo"
-        primaryTo="/signup"
+        primaryTo="/demo"
       />
     </>
   )

@@ -29,7 +29,7 @@ const FRAMEWORKS_INPUT: FrameworkInput[] = [
     full: 'Lov om arbeidsmiljø, arbeidstid og stillingsvern m.v.',
     family: 'AML',
     summary:
-      'Den løftet er stor: alle norske virksomheter med ansatte må følge AML. Vi har kartlagt 80+ paragrafer mot konkrete moduler — fra §3-1 (HMS-ansvar) til §2A-7 (taushetsplikt for varsling).',
+      'Omfanget er stort: alle norske virksomheter med ansatte må følge AML. Vi har kartlagt over 80 paragrafer mot konkrete moduler — fra §3-1 (HMS-ansvar) til §2A-7 (taushetsplikt ved varsling).',
     paragraphs: [
       '§2-1 — Arbeidsgivers plikter',
       '§2A-1 til §2A-7 — Varsling',
@@ -154,7 +154,7 @@ export const PACKS: CompliancePack[] = [
     id: 'iso-45001',
     name: 'ISO 45001-pakken',
     description:
-      'Tillegg for virksomheter som er — eller skal bli — sertifisert etter ISO 45001:2018. Speilrevisjonskrav §§9.2, 9.3 og 10.2 til konkrete sjekklister og avviksflyt.',
+      'Tillegg for virksomheter som er — eller skal bli — sertifisert etter ISO 45001:2018. Speiler revisjonskravene §§9.2, 9.3 og 10.2 til konkrete sjekklister og avviksflyt.',
     frameworks: ['ISO 45001', 'Arbeidsmiljøloven'],
   },
 ]
@@ -185,7 +185,7 @@ export const FAQ: FaqEntry[] = [
   {
     question: 'Hvor lagres dataene?',
     answer:
-      'Klarert kjører på Supabase i EU-region (Frankfurt og Stockholm). All persondata bli i EU. Vi bruker Row Level Security som primær tilgangskontroll — applikasjonen kan ikke ved et uhell gi tilgang den ikke skulle hatt.',
+      'Klarert kjører på Supabase i EU-region (Frankfurt og Stockholm). All persondata blir værende i EU. Vi bruker Row Level Security som primær tilgangskontroll — applikasjonen kan ikke ved et uhell gi tilgang som den ikke skulle hatt.',
   },
   {
     question: 'Hva skjer hvis loven endres?',

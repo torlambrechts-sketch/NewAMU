@@ -27,7 +27,7 @@ export function AboutTeaserSection() {
           </p>
           <p>
             Plattformen er bygget i Norge, kjører på Supabase i EU og styres av Row Level Security
-            på databasenivå — ikke av "vær så snill ikke gjør dette"-regler i koden. Tre prinsipper
+            på databasenivå — ikke av «vær så snill, ikke gjør dette»-regler i koden. Tre prinsipper
             følger gjennom hele systemet: <span className="font-semibold" style={{ color: FOREST }}>norsk-først</span>,{' '}
             <span className="font-semibold" style={{ color: FOREST }}>lovverket innebygd</span> og{' '}
             <span className="font-semibold" style={{ color: FOREST }}>ingen mørke mønstre</span>.

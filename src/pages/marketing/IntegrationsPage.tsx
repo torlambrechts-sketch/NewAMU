@@ -61,9 +61,9 @@ export function IntegrationsPage() {
             Kobles til der det betyr noe
           </h1>
           <p className="mx-auto mt-6 max-w-2xl text-base leading-relaxed text-white/75 md:text-lg">
-            Brønnøysund er live. BankID-signering kommer Q1 2026. Eco-Online, Altinn, Lovdata Pro
-            og Feide SSO er planlagt. Vi forteller deg hva som faktisk er i produksjon —
-            ikke bare hva som ligger på roadmap-en.
+            Brønnøysund er i produksjon. BankID-signering kommer Q1 2026. Eco-Online, Altinn,
+            Lovdata Pro og Feide SSO er planlagt. Vi forteller deg hva som faktisk er i
+            produksjon — ikke bare hva som ligger på veikartet.
           </p>
         </div>
       </section>
@@ -127,7 +127,7 @@ export function IntegrationsPage() {
               },
               {
                 title: 'CSV-eksport',
-                body: 'Alle moduler har innebygd CSV-eksport av dashbordsdata. Brukes til revisjon, månedsrapport og dataflytting.',
+                body: 'Alle moduler har innebygd CSV-eksport av data fra dashbordet. Brukes til revisjon, månedsrapport og dataflytting.',
               },
             ].map((c) => (
               <div key={c.title} className="rounded-2xl border border-neutral-200 bg-white p-6">
@@ -141,9 +141,9 @@ export function IntegrationsPage() {
 
       <CtaBannerSection
         heading="Mangler en integrasjon du trenger?"
-        body="Vi prioriterer integrasjoner basert på hva kundene faktisk trenger. Si fra hva som mangler, så har det en reell sjanse til å havne på roadmap-en."
+        body="Vi prioriterer integrasjoner basert på hva kundene faktisk trenger. Si fra hva som mangler, så har det en reell sjanse til å havne på veikartet."
         primaryLabel="Be om en integrasjon"
-        primaryTo="/om-oss"
+        primaryTo="/demo"
       />
     </>
   )

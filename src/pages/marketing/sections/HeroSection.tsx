@@ -88,11 +88,11 @@ export function HeroSection() {
                 ))}
               </div>
               <div className="col-span-4 p-5">
-                <p className="mb-4 text-xs font-semibold uppercase tracking-widest" style={{ color: TEAL }}>God morgen, Leder</p>
+                <p className="mb-4 text-xs font-semibold uppercase tracking-widest" style={{ color: TEAL }}>God morgen, leder</p>
                 <div className="mb-4 grid grid-cols-3 gap-3">
                   {[
                     { v: '24', l: 'Åpne tiltak', c: '#fbbf24' },
-                    { v: '3', l: 'Saker krever varsel', c: '#ef4444' },
+                    { v: '3', l: 'Saker krever oppmerksomhet', c: '#ef4444' },
                     { v: '87 %', l: 'AMU-svarrate', c: TEAL },
                   ].map(({ v, l, c }) => (
                     <div key={l} className="rounded-lg border p-3" style={{ borderColor: 'rgba(255,255,255,0.08)', background: 'rgba(255,255,255,0.04)' }}>
