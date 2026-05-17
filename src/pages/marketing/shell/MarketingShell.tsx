@@ -11,8 +11,14 @@ import { TEAL, SANS } from '../theme'
 function LazyLoadingBar() {
   return (
     <div role="progressbar" aria-busy="true" aria-label="Laster inn side" className="h-1 w-full overflow-hidden bg-neutral-100">
-      <div className="h-full w-1/3 animate-[shimmer_1.2s_linear_infinite] rounded-full" style={{ background: TEAL }} />
-      <style>{`@keyframes shimmer { 0% { transform: translateX(-100%); } 100% { transform: translateX(400%); } }`}</style>
+      <div className="marketing-shimmer h-full w-1/3 rounded-full" style={{ background: TEAL }} />
+      <style>{`
+        @keyframes shimmer { 0% { transform: translateX(-100%); } 100% { transform: translateX(400%); } }
+        .marketing-shimmer { animation: shimmer 1.2s linear infinite; }
+        @media (prefers-reduced-motion: reduce) {
+          .marketing-shimmer { animation: none; opacity: 0.6; width: 100%; }
+        }
+      `}</style>
     </div>
   )
 }
@@ -27,14 +33,15 @@ export function MarketingShell() {
     }
     let cancelled = false
     let attempts = 0
+    const reduceMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
     const tick = () => {
       if (cancelled) return
       const el = document.getElementById(hash.slice(1))
       if (el) {
-        el.scrollIntoView({ behavior: 'smooth', block: 'start' })
+        el.scrollIntoView({ behavior: reduceMotion ? 'auto' : 'smooth', block: 'start' })
         return
       }
-      if (attempts++ < 20) requestAnimationFrame(tick)
+      if (attempts++ < 60) requestAnimationFrame(tick)
     }
     requestAnimationFrame(tick)
     return () => {
@@ -46,8 +53,8 @@ export function MarketingShell() {
     <div data-marketing-shell style={{ fontFamily: SANS }}>
       <a
         href="#hovedinnhold"
-        className="sr-only z-[60] rounded-md bg-white px-4 py-2 text-sm font-semibold shadow-lg ring-2 focus:not-sr-only focus:fixed focus:left-4 focus:top-4"
-        style={{ color: '#1a3d32', borderColor: TEAL }}
+        className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[60] focus:rounded-md focus:bg-white focus:px-4 focus:py-2 focus:text-sm focus:font-semibold focus:shadow-lg"
+        style={{ color: '#1a3d32' }}
       >
         Hopp til hovedinnhold
       </a>

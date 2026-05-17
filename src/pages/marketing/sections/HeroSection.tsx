@@ -56,7 +56,7 @@ export function HeroSection() {
               Be om demo
             </a>
           </div>
-          <p className="mt-3 text-xs text-white/40">
+          <p className="mt-3 text-xs text-white/60">
             Ingen kredittkort. Ingen installasjon. Data i EU.
           </p>
 
