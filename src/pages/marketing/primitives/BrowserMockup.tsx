@@ -2,8 +2,7 @@
 // Extracted from the original LandingPage.tsx hero (lines 198-248).
 
 import type { ReactNode } from 'react'
-
-const FOREST_DEEP = '#0a2218'
+import { FOREST_DEEP } from '../theme'
 
 type Props = {
   url?: string

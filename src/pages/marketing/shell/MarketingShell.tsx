@@ -6,8 +6,7 @@ import { Suspense, useEffect } from 'react'
 import { Outlet, useLocation } from 'react-router-dom'
 import { MarketingNav } from './MarketingNav'
 import { MarketingFooter } from './MarketingFooter'
-
-const TEAL = '#2dd4bf'
+import { TEAL, SANS } from '../theme'
 
 function LazyLoadingBar() {
   return (
@@ -44,7 +43,7 @@ export function MarketingShell() {
   }, [pathname, hash])
 
   return (
-    <div data-marketing-shell style={{ fontFamily: 'Inter, system-ui, sans-serif' }}>
+    <div data-marketing-shell style={{ fontFamily: SANS }}>
       <a
         href="#hovedinnhold"
         className="sr-only z-[60] rounded-md bg-white px-4 py-2 text-sm font-semibold shadow-lg ring-2 focus:not-sr-only focus:fixed focus:left-4 focus:top-4"
