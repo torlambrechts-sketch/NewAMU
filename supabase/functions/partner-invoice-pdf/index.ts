@@ -43,6 +43,12 @@ function json(body: unknown, status = 200) {
 type Body = {
   partner_id: string
   invoice_id: string
+  // When true the PDF is re-rendered even if pdf_storage_path is already
+  // set. Used by the PartnerConsolePage "Generer på nytt" secondary
+  // action so a stale cached PDF can be refreshed on demand. Default
+  // false: callers using the bare body shape continue to hit the cached
+  // PDF path via PartnerConsolePage's Storage signing fast-path.
+  force?: boolean
 }
 
 type EntryRow = {
@@ -591,5 +597,11 @@ Deno.serve(async (req) => {
     signed_url: signed?.signedUrl,
     expires_in_seconds: 60 * 60,
     rows: entries.length,
+    // Echo the force flag so callers can confirm the cache was bypassed.
+    // The function always re-renders (Storage upload uses upsert:true), so
+    // force=true is currently structural insurance — when a future
+    // fast-path is added that returns an existing signed URL without
+    // re-rendering, this flag will gate it.
+    regenerated: body.force === true,
   })
 })

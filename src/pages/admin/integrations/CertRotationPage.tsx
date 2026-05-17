@@ -37,7 +37,12 @@ import { useOrgSetupContext } from '../../../hooks/useOrgSetupContext'
 import { useOrgIntegrations, type GovIntegrationKind } from '../../../hooks/useOrgIntegrations'
 import { WizardStepper, type WizardStep } from './WizardStepper'
 
-const KIND_LABELS: Record<GovIntegrationKind, string> = {
+// Only Maskinporten-cert-bearing integrations rotate. Helsetilsynet
+// and UKOM are contact-info only (no API today), so they're excluded
+// from this page entirely.
+type CertBearingKind = Extract<GovIntegrationKind, 'altinn' | 'regint' | 'datatilsynet' | 'nav'>
+
+const KIND_LABELS: Record<CertBearingKind, string> = {
   altinn: 'Altinn / Maskinporten',
   regint: 'Arbeidstilsynet (RegInt)',
   datatilsynet: 'Datatilsynet',
@@ -61,7 +66,7 @@ type CertExtract = {
 }
 
 type RotationRow = {
-  kind: GovIntegrationKind
+  kind: CertBearingKind
   enabled: boolean
   vaultSecretName: string | null
   signingAdapter: string | null
@@ -72,7 +77,7 @@ type RotationRow = {
 }
 
 type AuditRow = {
-  kind: GovIntegrationKind
+  kind: CertBearingKind
   rotated_at: string
   new_kid: string | null
 }
@@ -147,11 +152,11 @@ export function CertRotationPage() {
     'altinn', 'regint', 'datatilsynet', 'nav',
   ])
 
-  const [auditMap, setAuditMap] = useState<Record<GovIntegrationKind, string | null>>({
+  const [auditMap, setAuditMap] = useState<Record<CertBearingKind, string | null>>({
     altinn: null, regint: null, datatilsynet: null, nav: null,
   })
   const [loadingAudit, setLoadingAudit] = useState(false)
-  const [activeRotation, setActiveRotation] = useState<GovIntegrationKind | null>(null)
+  const [activeRotation, setActiveRotation] = useState<CertBearingKind | null>(null)
   const [stepIndex, setStepIndex] = useState(0)
   const [bannerMessage, setBannerMessage] = useState<string | null>(null)
 
@@ -183,7 +188,7 @@ export function CertRotationPage() {
         .order('rotated_at', { ascending: false })
         .limit(64)
       if (error) throw error
-      const next: Record<GovIntegrationKind, string | null> = {
+      const next: Record<CertBearingKind, string | null> = {
         altinn: null, regint: null, datatilsynet: null, nav: null,
       }
       for (const r of (data ?? []) as AuditRow[]) {
@@ -201,7 +206,7 @@ export function CertRotationPage() {
 
   // ── Resolve rotation rows from org_integrations ─────────────────────────
   const rotationRows: RotationRow[] = useMemo(() => {
-    const kinds: GovIntegrationKind[] = ['altinn', 'regint', 'datatilsynet', 'nav']
+    const kinds: CertBearingKind[] = ['altinn', 'regint', 'datatilsynet', 'nav']
     return kinds.map((k) => {
       const row = integrationRows[k]
       // useOrgIntegrations does not select the signing_* columns; reach for
@@ -227,7 +232,7 @@ export function CertRotationPage() {
 
   // Re-fetch raw signing_* columns once on mount because useOrgIntegrations
   // doesn't pull them.
-  const [signingPatched, setSigningPatched] = useState<Record<GovIntegrationKind, {
+  const [signingPatched, setSigningPatched] = useState<Record<CertBearingKind, {
     adapter: string | null
     kid: string | null
     serial: string | null
@@ -255,7 +260,7 @@ export function CertRotationPage() {
         nav: { adapter: null, kid: null, serial: null, expiresAt: null },
       } as typeof signingPatched
       for (const row of (data ?? []) as Array<{
-        kind: GovIntegrationKind
+        kind: CertBearingKind
         signing_adapter: string | null
         signing_kid: string | null
         signing_cert_serial: string | null
@@ -310,7 +315,7 @@ export function CertRotationPage() {
     setSubmitting(false)
   }, [])
 
-  const openWizard = useCallback((kind: GovIntegrationKind) => {
+  const openWizard = useCallback((kind: CertBearingKind) => {
     setActiveRotation(kind)
     resetWizard()
     // Generate a 6-digit code as the typed-confirmation challenge. The
@@ -388,15 +393,13 @@ export function CertRotationPage() {
     setSubmitError(null)
     setSubmitting(true)
     try {
-      // Step 1 — push the new PEM into Vault.
-      const { error: vaultErr } = await supabase.rpc('workflow_set_vault_secret', {
-        p_organization_id: organization.id,
-        p_kind: activeRow.kind,
-        p_secret_value: pemText,
-      })
-      if (vaultErr) throw new Error(`Vault skriving feilet: ${vaultErr.message}`)
-
-      // Step 2 — record the rotation atomically.
+      // ORDER MATTERS — workflow_record_cert_rotation runs FIRST. It is the
+      // strictest gate (integrations.cert_rotate permission) and updates
+      // org_integrations.signing_kid. Only on success do we push the new
+      // PEM into Vault. If we reversed the order (Vault first), a caller
+      // who fails the permission check would leave Vault desynced from
+      // signing_kid and break all Maskinporten signing. See P1 #4 in the
+      // tier-B/C review + the gate alignment in _126800.
       const { error: rpcErr } = await supabase.rpc('workflow_record_cert_rotation', {
         p_org_id: organization.id,
         p_kind: activeRow.kind,
@@ -407,6 +410,13 @@ export function CertRotationPage() {
         p_reason: reason.trim() || null,
       })
       if (rpcErr) throw new Error(`Rotasjon avvist: ${rpcErr.message}`)
+
+      const { error: vaultErr } = await supabase.rpc('workflow_set_vault_secret', {
+        p_organization_id: organization.id,
+        p_kind: activeRow.kind,
+        p_secret_value: pemText,
+      })
+      if (vaultErr) throw new Error(`Vault skriving feilet: ${vaultErr.message}`)
 
       await Promise.all([refresh(), loadAudit(), loadSigning()])
       setBannerMessage(`Sertifikat rotert ✓ — ${KIND_LABELS[activeRow.kind]}`)
@@ -554,6 +564,11 @@ export function CertRotationPage() {
         return (
           <ModuleSectionCard className="space-y-4 p-6">
             <h3 className="text-base font-semibold text-neutral-900">Last opp nytt sertifikat</h3>
+            <WarningBox>
+              Verdiene under er brukerangitt og verifiseres ikke mot sertifikatet.
+              Kontroller dem mot Digdir-portalen før du fortsetter — en typo i KID
+              vil bryte all Maskinporten-signering.
+            </WarningBox>
             <div className="grid gap-3 sm:grid-cols-2">
               <label className="block text-xs font-medium text-neutral-700">
                 Sertifikat (PEM / .p12 / .key)

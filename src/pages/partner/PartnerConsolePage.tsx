@@ -20,6 +20,7 @@ import {
   FileText,
   Plus,
   Receipt,
+  RefreshCw,
   Users,
 } from 'lucide-react'
 import { ModulePageShell, ModuleSectionCard } from '../../components/module'
@@ -264,6 +265,31 @@ export function PartnerConsolePage() {
       })
       if (error) {
         console.warn('partner-invoice-pdf', error.message)
+        setBusy(null)
+        return
+      }
+      const url = (data as { signed_url?: string })?.signed_url
+      if (url) {
+        window.open(url, '_blank', 'noopener')
+      }
+      await loadData()
+      setBusy(null)
+    },
+    [supabase, partnerId, loadData],
+  )
+
+  // Secondary action — always regenerates the PDF (passes force=true to
+  // the edge fn) so a stale cached PDF can be refreshed when the
+  // underlying time entries / VAT rate / billing details have changed.
+  const handleRegeneratePdf = useCallback(
+    async (invoice: PartnerInvoiceRow) => {
+      if (!supabase || !partnerId) return
+      setBusy(invoice.id)
+      const { data, error } = await supabase.functions.invoke('partner-invoice-pdf', {
+        body: { partner_id: partnerId, invoice_id: invoice.id, force: true },
+      })
+      if (error) {
+        console.warn('partner-invoice-pdf (force)', error.message)
         setBusy(null)
         return
       }
@@ -567,6 +593,16 @@ export function PartnerConsolePage() {
                             >
                               <FileDown className="size-3.5" aria-hidden />
                               {inv.pdf_storage_path ? 'PDF (siste)' : 'PDF'}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleRegeneratePdf(inv)}
+                              disabled={busy === inv.id}
+                              title="Generer på nytt — ignorerer cachet PDF"
+                              aria-label="Generer PDF på nytt"
+                              className="rounded-md border border-neutral-300 bg-white p-1.5 text-neutral-700 hover:bg-neutral-50 disabled:opacity-50"
+                            >
+                              <RefreshCw className="size-3.5" aria-hidden />
                             </button>
                             {inv.status === 'draft' ? (
                               <button

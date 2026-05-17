@@ -11,7 +11,16 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useOrgSetupContext } from './useOrgSetupContext'
 
-export type GovIntegrationKind = 'altinn' | 'regint' | 'datatilsynet' | 'nav'
+// Widened 2026-09-07 with helsetilsynet + ukom so HelsetilsynetSetup can
+// use the shared hook (instead of bypass-upserting). The DB enum extension
+// shipped in _126100 (org_integrations.kind CHECK).
+export type GovIntegrationKind =
+  | 'altinn'
+  | 'regint'
+  | 'datatilsynet'
+  | 'nav'
+  | 'helsetilsynet'
+  | 'ukom'
 
 export type OrgIntegrationRow = {
   id: string
@@ -33,14 +42,29 @@ export type UpsertInput = {
   config?: Record<string, unknown>
 }
 
+const EMPTY_ROW_MAP: Record<GovIntegrationKind, OrgIntegrationRow | null> = {
+  altinn: null,
+  regint: null,
+  datatilsynet: null,
+  nav: null,
+  helsetilsynet: null,
+  ukom: null,
+}
+
+const DEFAULT_KINDS: GovIntegrationKind[] = [
+  'altinn',
+  'regint',
+  'datatilsynet',
+  'nav',
+  'helsetilsynet',
+  'ukom',
+]
+
 export function useOrgIntegrations(kinds?: GovIntegrationKind[]) {
   const { supabase, organization } = useOrgSetupContext()
-  const [rows, setRows] = useState<Record<GovIntegrationKind, OrgIntegrationRow | null>>({
-    altinn: null,
-    regint: null,
-    datatilsynet: null,
-    nav: null,
-  })
+  const [rows, setRows] = useState<Record<GovIntegrationKind, OrgIntegrationRow | null>>(
+    () => ({ ...EMPTY_ROW_MAP }),
+  )
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
@@ -49,7 +73,7 @@ export function useOrgIntegrations(kinds?: GovIntegrationKind[]) {
     setLoading(true)
     setError(null)
     try {
-      const filter = (kinds ?? ['altinn', 'regint', 'datatilsynet', 'nav']) as GovIntegrationKind[]
+      const filter = (kinds ?? DEFAULT_KINDS) as GovIntegrationKind[]
       const { data, error: e } = await supabase
         .from('org_integrations')
         .select(
@@ -58,12 +82,7 @@ export function useOrgIntegrations(kinds?: GovIntegrationKind[]) {
         .eq('organization_id', organization.id)
         .in('kind', filter)
       if (e) throw e
-      const next: Record<GovIntegrationKind, OrgIntegrationRow | null> = {
-        altinn: null,
-        regint: null,
-        datatilsynet: null,
-        nav: null,
-      }
+      const next: Record<GovIntegrationKind, OrgIntegrationRow | null> = { ...EMPTY_ROW_MAP }
       for (const r of (data ?? []) as OrgIntegrationRow[]) {
         next[r.kind] = r
       }

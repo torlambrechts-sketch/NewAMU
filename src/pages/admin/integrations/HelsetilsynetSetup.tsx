@@ -38,6 +38,7 @@ import { Button } from '../../../components/ui/Button'
 import { StandardInput } from '../../../components/ui/Input'
 import { InfoBox, WarningBox } from '../../../components/ui/AlertBox'
 import { useOrgSetupContext } from '../../../hooks/useOrgSetupContext'
+import { useOrgIntegrations } from '../../../hooks/useOrgIntegrations'
 import { WizardStepper, type WizardStep } from './WizardStepper'
 
 const STEPS: WizardStep[] = [
@@ -182,6 +183,7 @@ function buildStubMeldingPdf(args: {
 export function HelsetilsynetSetup() {
   const navigate = useNavigate()
   const { supabase, organization } = useOrgSetupContext()
+  const { upsert: integrationsUpsert } = useOrgIntegrations(['helsetilsynet'])
 
   const [row, setRow] = useState<OrgIntegrationConfigRow | null>(null)
   const [loading, setLoading] = useState(true)
@@ -239,18 +241,16 @@ export function HelsetilsynetSetup() {
       setSaving(true)
       setSaveError(null)
       try {
-        const payload: Record<string, unknown> = {
-          organization_id: organization.id,
+        // Route via the shared hook so the org_integrations upsert shape
+        // (requires_external_activation, onConflict key, refresh chain) is
+        // identical to AltinnSetup / ArbeidstilsynetSetup / NavSetup. Avoids
+        // drift between setup paths.
+        await integrationsUpsert({
           kind: 'helsetilsynet',
           environment: 'prod', // no sandbox for melde.no
-          requires_external_activation: true,
+          enabled: overrides?.enabled,
           config: { ...config },
-        }
-        if (overrides?.enabled !== undefined) payload.enabled = overrides.enabled
-        const { error } = await supabase
-          .from('org_integrations')
-          .upsert(payload, { onConflict: 'organization_id,kind' })
-        if (error) throw error
+        })
         await refresh()
       } catch (err) {
         setSaveError(err instanceof Error ? err.message : 'Kunne ikke lagre konfigurasjon')
@@ -259,7 +259,7 @@ export function HelsetilsynetSetup() {
         setSaving(false)
       }
     },
-    [supabase, organization, config, refresh],
+    [supabase, organization, config, refresh, integrationsUpsert],
   )
 
   const runTest = useCallback(async () => {

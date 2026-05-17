@@ -325,8 +325,8 @@ export function AMUAgendaBacklogPage() {
   async function handleDismiss() {
     if (!supabase || !dismissTarget) return
     const reason = dismissReason.trim()
-    if (!reason) {
-      setError('Begrunnelse er påkrevd.')
+    if (reason.length < 10) {
+      setError('Begrunnelse må være minst 10 tegn.')
       return
     }
     setBusyRowId(dismissTarget.id)
@@ -771,15 +771,20 @@ export function AMUAgendaBacklogPage() {
             </p>
             <label className="block text-sm">
               <span className="mb-1 block font-medium text-neutral-700">
-                Begrunnelse <span className="text-red-600">*</span>
+                Begrunnelse <span className="text-red-600">*</span>{' '}
+                <span className="text-xs font-normal text-neutral-500">(minst 10 tegn)</span>
               </span>
               <textarea
                 value={dismissReason}
                 onChange={(e) => setDismissReason(e.target.value)}
                 rows={4}
+                minLength={10}
                 className="w-full rounded-md border border-neutral-300 px-3 py-2 text-sm outline-none focus:border-[#1a3d32] focus:ring-1 focus:ring-[#1a3d32]/25"
                 placeholder="Hvorfor avvises denne saken? (synlig i loggen)"
               />
+              {dismissReason.trim().length > 0 && dismissReason.trim().length < 10 ? (
+                <p className="mt-1 text-xs text-red-700">Begrunnelse må være minst 10 tegn.</p>
+              ) : null}
             </label>
             <div className="flex items-center justify-end gap-2">
               <Button
@@ -795,7 +800,7 @@ export function AMUAgendaBacklogPage() {
               <Button
                 type="button"
                 variant="danger"
-                disabled={busyRowId === dismissTarget.id || dismissReason.trim().length === 0}
+                disabled={busyRowId === dismissTarget.id || dismissReason.trim().length < 10}
                 onClick={() => void handleDismiss()}
               >
                 Avvis saken

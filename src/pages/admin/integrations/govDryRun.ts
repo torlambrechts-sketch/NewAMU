@@ -12,6 +12,8 @@ const FUNCTION_NAME: Record<GovIntegrationKind, string> = {
   regint: 'gov-arbeidstilsynet-rapport',
   datatilsynet: 'gov-datatilsynet-breach',
   nav: 'gov-nav-sykefravar',
+  helsetilsynet: 'helsetilsynet-build-melding',
+  ukom: 'helsetilsynet-build-melding',
 }
 
 export type DryRunResult =

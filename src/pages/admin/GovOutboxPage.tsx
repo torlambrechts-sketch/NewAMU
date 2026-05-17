@@ -591,7 +591,9 @@ function CancelDialog({
 }) {
   const [reason, setReason] = useState('')
   const [error, setError] = useState<string | null>(null)
-  const canSubmit = reason.trim().length >= 3 && !pending
+  const trimmedReason = reason.trim()
+  const reasonTooShort = trimmedReason.length > 0 && trimmedReason.length < 10
+  const canSubmit = trimmedReason.length >= 10 && !pending
 
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/45 p-4 backdrop-blur-[2px]">
@@ -621,7 +623,7 @@ function CancelDialog({
         </div>
         <label className="mt-4 block text-sm">
           <span className="text-[11px] font-semibold uppercase tracking-wider text-neutral-600">
-            Begrunnelse (kreves)
+            Begrunnelse (kreves — minst 10 tegn)
           </span>
           <StandardTextarea
             value={reason}
@@ -630,8 +632,12 @@ function CancelDialog({
             className="mt-1.5"
             rows={3}
             required
+            minLength={10}
           />
         </label>
+        {reasonTooShort ? (
+          <p className="mt-2 text-xs text-rose-700">Begrunnelse må være minst 10 tegn.</p>
+        ) : null}
         {error ? <p className="mt-2 text-xs text-rose-700">{error}</p> : null}
         <div className="mt-5 flex justify-end gap-2">
           <Button variant="secondary" size="sm" onClick={onClose} disabled={pending}>

@@ -25,6 +25,12 @@ import { WPSTD_FORM_FIELD_LABEL } from '../../components/layout/WorkplaceStandar
 import { useOrgSetupContext } from '../../hooks/useOrgSetupContext'
 
 type SourceType = 'arbeidstilsynet' | 'datatilsynet' | 'helsetilsynet' | 'ukom' | 'ldo' | 'other'
+type UploadCategory =
+  | 'arbeidstilsynet_pålegg'
+  | 'datatilsynet_kontroll'
+  | 'barnehage_statsforvalter'
+  | 'helsetilsynet_tilsyn'
+  | 'annet'
 type ParsedStatus = 'pending' | 'parsing' | 'parsed' | 'failed'
 type ReviewStatus = 'not_reviewed' | 'accepted' | 'edited' | 'rejected'
 type ConfidentialityLevel = 'standard' | 'restricted' | 'confidential'
@@ -50,6 +56,17 @@ const SOURCE_LABELS: Record<SourceType, string> = {
   ukom: 'UKOM',
   ldo: 'LDO',
   other: 'Annen',
+}
+
+// Sub-categorization orthogonal to source_type — drives sector-pack
+// workflow rules (see barnehage-30-tilsynsbrev in _126500 which keys
+// on category=barnehage_statsforvalter).
+const CATEGORY_LABELS: Record<UploadCategory, string> = {
+  arbeidstilsynet_pålegg: 'Arbeidstilsynet — pålegg',
+  datatilsynet_kontroll: 'Datatilsynet — kontroll',
+  barnehage_statsforvalter: 'Barnehage — Statsforvalter (§ 30)',
+  helsetilsynet_tilsyn: 'Helsetilsynet — tilsyn',
+  annet: 'Annet / ukategorisert',
 }
 
 const STATUS_LABELS: Record<ParsedStatus, string> = {
@@ -421,6 +438,7 @@ function UploadPanel({
 }) {
   const { supabase, organization } = useOrgSetupContext()
   const [sourceType, setSourceType] = useState<SourceType>('arbeidstilsynet')
+  const [category, setCategory] = useState<UploadCategory>('annet')
   const [file, setFile] = useState<File | null>(null)
   const [notes, setNotes] = useState('')
   const [submitting, setSubmitting] = useState(false)
@@ -429,6 +447,7 @@ function UploadPanel({
   useEffect(() => {
     if (!open) {
       setSourceType('arbeidstilsynet')
+      setCategory('annet')
       setFile(null)
       setNotes('')
       setErr(null)
@@ -466,6 +485,7 @@ function UploadPanel({
         .insert({
           organization_id: orgId,
           source_type: sourceType,
+          category,
           storage_path: storagePath,
           sha256_checksum: checksum,
           notes: notes.trim() || null,
@@ -495,7 +515,7 @@ function UploadPanel({
     } finally {
       setSubmitting(false)
     }
-  }, [supabase, orgId, file, sourceType, notes, onUploaded])
+  }, [supabase, orgId, file, sourceType, category, notes, onUploaded])
 
   return (
     <SlidePanel
@@ -533,6 +553,24 @@ function UploadPanel({
               </option>
             ))}
           </select>
+        </div>
+        <div>
+          <label className={WPSTD_FORM_FIELD_LABEL}>Kategori</label>
+          <select
+            className="mt-2 w-full rounded-md border border-neutral-300 bg-white px-3 py-2 text-sm"
+            value={category}
+            onChange={(e) => setCategory(e.target.value as UploadCategory)}
+          >
+            {Object.entries(CATEGORY_LABELS).map(([v, l]) => (
+              <option key={v} value={v}>
+                {l}
+              </option>
+            ))}
+          </select>
+          <p className="mt-1 text-xs text-neutral-500">
+            Velg <em>Barnehage — Statsforvalter</em> ved § 30-tilsyn for å utløse
+            den konfidensielle § 30-regelen.
+          </p>
         </div>
         <div>
           <label className={WPSTD_FORM_FIELD_LABEL}>PDF-fil</label>
