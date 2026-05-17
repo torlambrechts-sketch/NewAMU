@@ -39,6 +39,7 @@ import {
 import { NotificationTray } from '../notifications/NotificationTray'
 import { SurveyPendingInvitesBanner } from '../../../modules/survey/SurveyPendingInvitesBanner'
 import { useI18n } from '../../hooks/useI18n'
+import { useT } from '../../hooks/useT'
 import { useOrgSetupContext } from '../../hooks/useOrgSetupContext'
 import type { PermissionKey } from '../../lib/permissionKeys'
 import { KlarertLogo } from '../brand/KlarertLogo'
@@ -415,6 +416,42 @@ function saveSubNavCollapsed(collapsed: boolean) {
   } catch {
     /* ignore */
   }
+}
+
+// ─── Locale switcher (i18n scaffold P3-#20) ──────────────────────────────────
+// Small flag-pair button placed next to the profile menu. Persistence is
+// handled by the i18next localStorage detector (key `newamu_locale`), so
+// we don't write to localStorage manually here.
+function LocaleSwitcher() {
+  const { locale, setLocale, t } = useT()
+  const baseBtn =
+    'inline-flex h-7 items-center gap-1 rounded-md px-1.5 text-[11px] font-medium transition-colors'
+  const active = 'bg-white/20 text-white ring-1 ring-[#c9a227]/60'
+  const inactive = 'text-white/65 hover:bg-white/10 hover:text-white'
+  return (
+    <div className="flex shrink-0 items-center gap-1" role="group" aria-label="Locale">
+      <button
+        type="button"
+        onClick={() => void setLocale('nb')}
+        className={`${baseBtn} ${locale === 'nb' ? active : inactive}`}
+        aria-pressed={locale === 'nb'}
+        title={t('shell.locale.switchToNb')}
+      >
+        <span aria-hidden>{'🇳🇴'}</span>
+        <span>NB</span>
+      </button>
+      <button
+        type="button"
+        onClick={() => void setLocale('en')}
+        className={`${baseBtn} ${locale === 'en' ? active : inactive}`}
+        aria-pressed={locale === 'en'}
+        title={t('shell.locale.switchToEn')}
+      >
+        <span aria-hidden>{'🇬🇧'}</span>
+        <span>EN</span>
+      </button>
+    </div>
+  )
 }
 
 // ─── Shell ────────────────────────────────────────────────────────────────────
@@ -2102,6 +2139,7 @@ export function AticsShell() {
                       (e.g. compliance accent flip). */}
                   <RegulationFilterMenu variant="sidebar" />
                   <NotificationTray variant="sidebar" />
+                  <LocaleSwitcher />
                   <ShellProfileMenuButton
                     variant="sidebar"
                     displayName={profileDisplay}
@@ -2180,6 +2218,7 @@ export function AticsShell() {
               when the param is absent. */}
           <RegulationFilterMenu variant="topbar" />
           <NotificationTray variant="topbar" />
+          <LocaleSwitcher />
           <ShellProfileMenuButton
             variant="topbar"
             displayName={profileDisplay}

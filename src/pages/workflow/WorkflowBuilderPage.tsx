@@ -44,6 +44,7 @@ import { EvidenceExportPanel } from '../../components/workflow/evidence/Evidence
 import { CanvasPanel } from '../../components/workflow/canvas/CanvasPanel'
 import { useWorkflows } from '../../hooks/useWorkflows'
 import { useWorkflowApprovals } from '../../hooks/useWorkflowApprovals'
+import { useT } from '../../hooks/useT'
 
 type Tab = 'rules' | 'system' | 'library' | 'canvas' | 'approvals' | 'runs' | 'dry-run' | 'evidence' | 'revisions'
 
@@ -96,6 +97,7 @@ export function WorkflowBuilderPage() {
   const [newRuleOpen, setNewRuleOpen] = useState(false)
   const { rules, runs } = useWorkflows()
   const { approvals } = useWorkflowApprovals()
+  const { t } = useT()
 
   const stats = useMemo<LayoutScoreStatItem[]>(() => {
     const active = rules.filter((r) => r.is_active).length
@@ -110,41 +112,63 @@ export function WorkflowBuilderPage() {
       (r) => new Date(r.created_at).getTime() > Date.now() - 7 * 86400_000,
     ).length
     return [
-      { big: String(active), title: 'Aktive regler', sub: `${rules.length} totalt i organisasjonen` },
-      { big: String(pendingApprovals), title: 'Venter på godkjenning', sub: pendingApprovals === 0 ? 'Ingen utestående' : 'Krever beslutning' },
-      { big: String(govRules), title: 'Statlige meldinger', sub: 'Regler som rapporterer til myndighet' },
-      { big: String(last7d), title: 'Kjøringer siste 7 dager', sub: runs.length === 0 ? 'Ingen kjøringer ennå' : 'Tellig av workflow_runs' },
+      {
+        big: String(active),
+        title: t('workflow.stats.activeRules'),
+        sub: t('workflow.stats.activeRulesSub', { count: rules.length }),
+      },
+      {
+        big: String(pendingApprovals),
+        title: t('workflow.stats.pendingApprovals'),
+        sub:
+          pendingApprovals === 0
+            ? t('workflow.stats.pendingApprovalsNone')
+            : t('workflow.stats.pendingApprovalsSome'),
+      },
+      {
+        big: String(govRules),
+        title: t('workflow.stats.govSubmissions'),
+        sub: t('workflow.stats.govSubmissionsSub'),
+      },
+      {
+        big: String(last7d),
+        title: t('workflow.stats.runs7d'),
+        sub:
+          runs.length === 0
+            ? t('workflow.stats.runs7dNone')
+            : t('workflow.stats.runs7dSome'),
+      },
     ]
-  }, [rules, runs, approvals])
+  }, [rules, runs, approvals, t])
 
   const tabItems = useMemo(
     () => [
       // Bibliotek is the default landing tab — listed first so the
       // visible Tabs ordering matches the URL-default behaviour.
-      { id: 'library' as const, label: 'Bibliotek', icon: BookOpen },
-      { id: 'rules' as const, label: 'Mine arbeidsflyter', icon: ListChecks, badgeCount: rules.length },
-      { id: 'system' as const, label: 'System', icon: Landmark },
-      { id: 'canvas' as const, label: 'Bygg', icon: Workflow },
+      { id: 'library' as const, label: t('workflow.tabs.library'), icon: BookOpen },
+      { id: 'rules' as const, label: t('workflow.tabs.rules'), icon: ListChecks, badgeCount: rules.length },
+      { id: 'system' as const, label: t('workflow.tabs.system'), icon: Landmark },
+      { id: 'canvas' as const, label: t('workflow.tabs.canvas'), icon: Workflow },
       {
         id: 'approvals' as const,
-        label: 'Godkjenninger',
+        label: t('workflow.tabs.approvals'),
         icon: CheckCheck,
         badgeCount: approvals.filter((a) => a.status === 'pending').length,
         badgeVariant: 'danger' as const,
       },
-      { id: 'runs' as const, label: 'Kjøringer', icon: ClipboardList },
-      { id: 'dry-run' as const, label: 'Dry-run', icon: PlayCircle },
-      { id: 'evidence' as const, label: 'Bevispakke', icon: ShieldCheck },
-      { id: 'revisions' as const, label: 'Endringslogg', icon: ScrollText },
+      { id: 'runs' as const, label: t('workflow.tabs.runs'), icon: ClipboardList },
+      { id: 'dry-run' as const, label: t('workflow.tabs.dryRun'), icon: PlayCircle },
+      { id: 'evidence' as const, label: t('workflow.tabs.evidence'), icon: ShieldCheck },
+      { id: 'revisions' as const, label: t('workflow.tabs.revisions'), icon: ScrollText },
     ],
-    [approvals, rules.length],
+    [approvals, rules.length, t],
   )
 
   return (
     <ModulePageShell
-      breadcrumb={[{ label: 'Admin' }, { label: 'Automatisering' }]}
-      title="Automatisering"
-      description="Forhåndsdefinert mal-bibliotek, visuell flyt-bygger, godkjenningsinnboks, kjøringshistorikk, dry-run og bevispakke for tilsyn — drevet av den nye arbeidsflyt-substraten."
+      breadcrumb={[{ label: t('workflow.breadcrumbAdmin') }, { label: t('workflow.title') }]}
+      title={t('workflow.title')}
+      description={t('workflow.description')}
       tabs={<Tabs items={tabItems} activeId={tab} onChange={(id) => setTab(id as Tab)} overflow="scroll" />}
       headerActions={
         <div className="flex flex-wrap items-center gap-2">
@@ -154,7 +178,7 @@ export function WorkflowBuilderPage() {
             icon={<Plus className="h-4 w-4" />}
             onClick={() => setNewRuleOpen(true)}
           >
-            Ny arbeidsflyt
+            {t('workflow.newRule')}
           </Button>
         </div>
       }
