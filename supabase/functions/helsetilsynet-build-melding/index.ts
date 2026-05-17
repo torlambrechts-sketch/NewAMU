@@ -30,6 +30,12 @@
  * gov.outbox_triage-sjekk siden rollen «er» systemet). Triage-UI'et
  * (GovOutboxPage) plukker rad'en opp via gov_outbox_pending_idx — kind
  * er allerede tillatt etter migrasjon _126100.
+ *
+ * _127600: leser body.payload.runtime_environment. Når 'test' merker vi
+ * outbox-raden med [TEST]-banner i submitterInstructions slik at triage
+ * ikke utilsiktet sender en sandbox-PDF til den virkelige regulatoren
+ * (Helsetilsynet/UKOM har ingen API — alt er manuelt, og banneren er
+ * den eneste sperren mellom sandbox-test og produksjons-melding).
  */
 
 import { createClient, type SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2.49.1'

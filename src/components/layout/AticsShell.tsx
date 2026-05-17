@@ -64,6 +64,7 @@ import { useAmuAgendaBacklogCount } from '../../hooks/useAmuAgendaBacklogCount'
 import { useCertExpiryWarningCount } from '../../hooks/useCertExpiryWarningCount'
 import { usePartnerMembership } from '../../hooks/usePartnerMembership'
 import { useConsultantClock } from '../../hooks/useConsultantClock'
+import { usePlatformAdmin } from '../../hooks/usePlatformAdmin'
 import { OrgSwitcher } from './OrgSwitcher'
 import type { NavMode } from './aticsNavMode'
 
@@ -517,6 +518,10 @@ export function AticsShell() {
   const tasksNav = useTaskNav()
   const meetingsNav = useMeetingsNav()
   const alertsNav = useAlertsNav()
+  // Platform-admin scope — gates the cross-org dedup-grupper sub-link
+  // under Varslinger. The RPC itself enforces platform_is_admin so the
+  // gate is purely UX (hide a link the user can't act on).
+  const { isAdmin: isPlatformAdmin } = usePlatformAdmin()
   // Partner-konsoll: only the membership flag is needed for nav visibility;
   // the consultant clock side effect runs unconditionally and self-gates.
   const { isPartnerMember } = usePartnerMembership()
@@ -1679,6 +1684,22 @@ export function AticsShell() {
         match: ({ pathname }) => pathname.startsWith('/alerts/admin'),
         requirePerm: 'alerts.manage',
       },
+      // Platform-admin-only: cross-org dedup-grupper. The substrate
+      // (org_alert_dedup_groups, _126400/_126700) and the admin RPCs
+      // (_127800) only accept calls from platform admins; hiding the
+      // link here keeps non-admins from seeing a dead-end. AML § 2A-7 (5).
+      ...(isPlatformAdmin
+        ? [
+            {
+              label: 'Cross-org dedup-grupper',
+              path: '/admin/varsling/dedup-grupper',
+              Icon: ShieldCheck,
+              match: ({ pathname }: { pathname: string }) =>
+                pathname.startsWith('/admin/varsling/dedup-grupper'),
+              requirePermAny: ALERTS_NAV_PERMS,
+            } satisfies SubItem,
+          ]
+        : []),
     ]
     const alertsPinnedSubs: SubItem[] = (() => {
       const pinned = alertsNav.items.filter((it) => it.navPinned)
@@ -1854,6 +1875,7 @@ export function AticsShell() {
     isRegulationActive,
     activeRegulationIds,
     isPartnerMember,
+    isPlatformAdmin,
     govOutboxPendingCount,
     amuBacklogPendingCount,
     certExpiryWarningCount,
