@@ -25,9 +25,9 @@ This app uses client-side routes. The host must serve `index.html` for all paths
 
 For **Cloudflare Pages**, add a `_redirects` file in the **build output** root (same rule as Netlify) or use **Pages → Settings → Functions → SPA fallback** / a `_routes.json` or **Workers** rewrite as in their docs.
 
-## `/demo` form (Vercel Edge Function + Resend)
+## `/kontakt` + `/demo` form (Vercel Edge Function + Resend)
 
-The public `/demo` route posts to **`POST /api/demo`**, a Vercel Edge Function at `api/demo.ts` that forwards the form to **Resend**. No Supabase JWT required — it's a public submission endpoint with a honeypot.
+Both public routes — `/kontakt` (questions, partnerships, anything) and `/demo` (demo requests with extra fields) — post to **`POST /api/contact`**, a Vercel Edge Function at `api/contact.ts` that forwards to **Resend** with a type-aware subject line ("Demo-forespørsel: …", "Spørsmål: …", "Partnerskap: …", "Henvendelse: …"). No Supabase JWT required — public submission endpoint with a honeypot.
 
 **Setup (Vercel project → Settings → Environment Variables):**
 
@@ -35,11 +35,12 @@ The public `/demo` route posts to **`POST /api/demo`**, a Vercel Edge Function a
 |---|---|---|---|
 | `RESEND_API_KEY` | yes | `re_...` | From [Resend dashboard](https://resend.com/api-keys). |
 | `RESEND_FROM` | recommended | `Klarert <hei@klarert.com>` | Must be a sender on a **verified domain** in Resend. Defaults to `Klarert <onboarding@resend.dev>` (Resend test domain, for dev only). |
-| `DEMO_TO` | recommended | `hei@klarert.com` | Where demo requests land. Defaults to `hei@klarert.com`. |
+| `CONTACT_TO` | recommended | `hei@klarert.com` | Where all inquiries land. Defaults to `hei@klarert.com`. |
+| `DEMO_TO` | optional (legacy) | `hei@klarert.com` | Accepted as fallback alias for `CONTACT_TO` so older deploys keep working. |
 
 **Domain verification (Resend):** add the SPF/DKIM/DMARC DNS records Resend gives you under **Resend → Domains → Add**. Verification takes minutes once DNS propagates. The same `RESEND_API_KEY` can be reused for the Supabase `send-survey-invites` function if you want one key for all transactional mail.
 
-**Override:** set `VITE_DEMO_FORM_ENDPOINT` in Vercel (build-time, browser-facing) if the form should POST somewhere other than `/api/demo` (e.g. a Supabase Edge Function or external webhook).
+**Override:** set `VITE_CONTACT_FORM_ENDPOINT` (or legacy `VITE_DEMO_FORM_ENDPOINT`) in Vercel (build-time, browser-facing) if the form should POST somewhere other than `/api/contact`.
 
 **Local dev:** copy `.env.example` to `.env.local` and fill in. `vercel dev` runs the Edge function locally; `vite dev` alone only serves the frontend (form will fall back to mailto).
 

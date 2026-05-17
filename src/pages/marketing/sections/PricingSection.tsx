@@ -32,7 +32,7 @@ const TIERS = [
     period: '',
     features: ['Ubegrenset antall ansatte', 'SSO og tilgangsstyring', 'Innføring og opplæring', 'Dedikert kundestøtte'],
     cta: 'Ta kontakt',
-    href: 'mailto:hei@klarert.com?subject=Enterprise%20Klarert',
+    href: '/kontakt',
     highlight: false,
   },
 ]
