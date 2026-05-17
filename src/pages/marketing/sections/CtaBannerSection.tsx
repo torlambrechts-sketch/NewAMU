@@ -36,12 +36,12 @@ export function CtaBannerSection({
           >
             {primaryLabel}
           </Link>
-          <a
-            href="mailto:hei@klarert.com?subject=Demo%20av%20Klarert"
+          <Link
+            to="/demo"
             className="inline-flex items-center justify-center rounded-md border border-white/25 px-8 py-3.5 text-base font-semibold text-white transition hover:bg-white/10"
           >
             Be om demo
-          </a>
+          </Link>
         </div>
       </div>
     </section>

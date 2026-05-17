@@ -49,12 +49,12 @@ export function HeroSection() {
             >
               Prøv gratis 30 dager
             </Link>
-            <a
-              href="mailto:hei@klarert.com?subject=Demo%20av%20Klarert"
+            <Link
+              to="/demo"
               className="inline-flex w-full items-center justify-center gap-2 rounded-md border border-white/25 px-8 py-3.5 text-base font-semibold text-white transition hover:bg-white/10 sm:w-auto"
             >
               Be om demo
-            </a>
+            </Link>
           </div>
           <p className="mt-3 text-xs text-white/60">
             Ingen kredittkort. Ingen installasjon. Data i EU.

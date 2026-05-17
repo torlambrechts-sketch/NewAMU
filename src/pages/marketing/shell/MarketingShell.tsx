@@ -7,6 +7,7 @@ import { Outlet, useLocation } from 'react-router-dom'
 import { MarketingNav } from './MarketingNav'
 import { MarketingFooter } from './MarketingFooter'
 import { TEAL, SANS } from '../theme'
+import { RouteErrorBoundary } from '../../../components/RouteErrorBoundary'
 
 function LazyLoadingBar() {
   return (
@@ -60,9 +61,11 @@ export function MarketingShell() {
       </a>
       <MarketingNav />
       <main id="hovedinnhold" tabIndex={-1}>
-        <Suspense fallback={<LazyLoadingBar />}>
-          <Outlet />
-        </Suspense>
+        <RouteErrorBoundary title="Kunne ikke vise siden">
+          <Suspense fallback={<LazyLoadingBar />}>
+            <Outlet />
+          </Suspense>
+        </RouteErrorBoundary>
       </main>
       <MarketingFooter />
       <style>{`

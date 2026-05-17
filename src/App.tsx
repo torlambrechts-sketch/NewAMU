@@ -15,6 +15,8 @@ const FeaturePage = lazy(() => import('./pages/marketing/FeaturePage').then((m) 
 const CompliancePage = lazy(() => import('./pages/marketing/CompliancePage').then((m) => ({ default: m.CompliancePage })))
 const IntegrationsPage = lazy(() => import('./pages/marketing/IntegrationsPage').then((m) => ({ default: m.IntegrationsPage })))
 const AboutPage = lazy(() => import('./pages/marketing/AboutPage').then((m) => ({ default: m.AboutPage })))
+const EndringerPage = lazy(() => import('./pages/marketing/EndringerPage').then((m) => ({ default: m.EndringerPage })))
+const DemoPage = lazy(() => import('./pages/marketing/DemoPage').then((m) => ({ default: m.DemoPage })))
 import { OrgSetupProvider } from './context/OrgSetupProvider'
 import { UiThemeProvider } from './context/UiThemeProvider'
 import { I18nProvider } from './context/I18nProvider'
@@ -266,13 +268,15 @@ const router = createBrowserRouter(
             <Route path="/auditor/workflows" element={<AuditorWorkflowsPage />} />
             <Route path="/survey-respond/:campaignId" element={<SurveyRespondPage />} />
             <Route path="/r/:token" element={<SharedReportPage />} />
-            {/* Public marketing — landing + per-module feature pages + compliance + integrations + about. */}
+            {/* Public marketing — landing + per-module feature pages + compliance + integrations + about + endringer + demo. */}
             <Route element={<MarketingShell />}>
               <Route index element={<LandingPage />} />
               <Route path="/features/:slug" element={<FeaturePage />} />
               <Route path="/compliance" element={<CompliancePage />} />
               <Route path="/integrasjoner" element={<IntegrationsPage />} />
               <Route path="/om-oss" element={<AboutPage />} />
+              <Route path="/endringer" element={<EndringerPage />} />
+              <Route path="/demo" element={<DemoPage />} />
             </Route>
             <Route path="/home" element={<Navigate to="/" replace />} />
             <Route path="/landing" element={<Navigate to="/" replace />} />

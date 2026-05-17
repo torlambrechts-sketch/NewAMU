@@ -89,12 +89,12 @@ function FeatureHero({ feature }: { feature: ModuleFeature }) {
           >
             Prøv gratis 30 dager
           </Link>
-          <a
-            href="mailto:hei@klarert.com?subject=Demo%20av%20Klarert"
+          <Link
+            to="/demo"
             className="inline-flex items-center justify-center rounded-md border border-white/25 px-7 py-3 text-sm font-semibold text-white transition hover:bg-white/10"
           >
             Be om demo
-          </a>
+          </Link>
         </div>
       </div>
     </section>

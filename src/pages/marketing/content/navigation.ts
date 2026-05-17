@@ -26,7 +26,9 @@ export const FOOTER_COMPLIANCE: Array<{ label: string; to: string }> = [
 
 export const FOOTER_COMPANY: Array<{ label: string; to: string; external?: boolean }> = [
   { label: 'Om oss', to: '/om-oss' },
+  { label: 'Endringer', to: '/endringer' },
   { label: 'Integrasjoner', to: '/integrasjoner' },
+  { label: 'Be om demo', to: '/demo' },
   { label: 'Logg inn', to: '/login' },
   { label: 'Opprett konto', to: '/signup' },
   { label: 'Kontakt', to: 'mailto:hei@klarert.com', external: true },

@@ -8,6 +8,30 @@ const FOREST = '#1a3d32'
 const TEAL = '#2dd4bf'
 const CREAM = '#f5f0e8'
 
+const TEAM = [
+  {
+    initials: 'TL',
+    bg: '#a78bfa',
+    name: 'Tor Lambrechts',
+    role: 'Daglig leder · grunnlegger',
+    bio: 'Tidligere HMS-leder i industri. Bygger Klarert fordi han var lei av å lete etter dokumenter klokka 23 før tilsynet kom.',
+  },
+  {
+    initials: 'NK',
+    bg: '#34d399',
+    name: 'Navn etterfølger',
+    role: 'Teknisk leder',
+    bio: 'Hovedansvar for plattformarkitektur, sikkerhet og at databasenivå-RLS faktisk fanger det den skal fange.',
+  },
+  {
+    initials: 'AR',
+    bg: '#fbbf24',
+    name: 'Navn etterfølger',
+    role: 'Compliance-rådgiver',
+    bio: 'Verneombud og AML-spesialist. Sørger for at malene speiler faktisk norsk praksis — ikke bare lovteksten.',
+  },
+]
+
 const PRINCIPLES = [
   {
     title: 'Norsk-først',
@@ -106,6 +130,35 @@ export function AboutPage() {
               på mange.
             </p>
           </div>
+        </div>
+      </section>
+
+      <section className="py-20 md:py-28 bg-white" aria-labelledby="team-heading">
+        <div className="mx-auto max-w-5xl px-4 md:px-8">
+          <SectionHeader
+            eyebrow="Teamet"
+            title="Folk du faktisk får snakke med"
+            lede="Klarert er bygget av en liten gruppe i Norge. Du får tilgang til oss — ikke et anonymt support-team."
+          />
+          <div className="mt-12 grid gap-6 md:grid-cols-3">
+            {TEAM.map((member) => (
+              <article key={member.role} className="rounded-2xl border border-neutral-200 p-6 text-center">
+                <div
+                  className="mx-auto mb-4 flex size-20 items-center justify-center rounded-full text-lg font-bold text-white"
+                  style={{ background: member.bg }}
+                  aria-hidden
+                >
+                  {member.initials}
+                </div>
+                <h3 className="text-base font-semibold" style={{ color: FOREST }}>{member.name}</h3>
+                <p className="text-xs uppercase tracking-widest text-neutral-500">{member.role}</p>
+                <p className="mt-3 text-sm leading-relaxed text-neutral-600">{member.bio}</p>
+              </article>
+            ))}
+          </div>
+          <p className="mt-8 text-center text-xs text-neutral-400">
+            Faktiske bilder erstatter initialene når kalenderen tillater det.
+          </p>
         </div>
       </section>
 
