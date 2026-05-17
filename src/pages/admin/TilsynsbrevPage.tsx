@@ -29,6 +29,7 @@ type ParsedStatus = 'pending' | 'parsing' | 'parsed' | 'failed'
 type ReviewStatus = 'not_reviewed' | 'accepted' | 'edited' | 'rejected'
 type ConfidentialityLevel = 'standard' | 'restricted' | 'confidential'
 type ConfidentialityFilter = 'standard' | 'include_restricted' | 'all'
+type ParserFilter = 'all' | 'llm_only' | 'regex_only'
 
 type UploadRow = {
   id: string
@@ -69,6 +70,42 @@ const CONFIDENTIALITY_FILTER_LABELS: Record<ConfidentialityFilter, string> = {
   standard: 'Bare standard',
   include_restricted: 'Inkluder begrensede',
   all: 'Alle (inkl. konfidensielle)',
+}
+
+const PARSER_FILTER_LABELS: Record<ParserFilter, string> = {
+  all: 'Alle parsere',
+  llm_only: 'Bare LLM',
+  regex_only: 'Bare regex',
+}
+
+// List-view parser chip — compact variant of the detail-page badge.
+function parserKindListBadge(kind: string | null): null | {
+  variant: 'success' | 'warning' | 'danger' | 'neutral'
+  label: string
+  tooltip: string
+} {
+  if (!kind) return null
+  if (kind === 'llm:claude') {
+    return { variant: 'success', label: 'LLM', tooltip: 'Claude — strukturert ekstraksjon' }
+  }
+  if (kind === 'regex:fallback') {
+    return { variant: 'warning', label: 'Regex', tooltip: 'Regex-fallback (ingen LLM-nøkkel)' }
+  }
+  if (kind === 'regex:llm_fallback') {
+    return {
+      variant: 'danger',
+      label: 'Regex (LLM feilet)',
+      tooltip: 'LLM-kall feilet — falt tilbake til regex. Vurder å kjøre på nytt.',
+    }
+  }
+  if (kind === 'regex:rate_limited') {
+    return {
+      variant: 'warning',
+      label: 'Regex (kvote)',
+      tooltip: 'Månedlig LLM-kvote nådd — falt tilbake til regex.',
+    }
+  }
+  return { variant: 'neutral', label: kind, tooltip: kind }
 }
 
 function badgeForStatus(status: ParsedStatus, review: ReviewStatus): {
@@ -119,6 +156,7 @@ export function TilsynsbrevPage() {
   const [uploadOpen, setUploadOpen] = useState(false)
   const [confidentialityFilter, setConfidentialityFilter] =
     useState<ConfidentialityFilter>('include_restricted')
+  const [parserFilter, setParserFilter] = useState<ParserFilter>('all')
 
   const canViewConfidential = can('tilsynsbrev.view_confidential')
 
@@ -169,16 +207,26 @@ export function TilsynsbrevPage() {
   }, [refresh])
 
   const filteredRows = useMemo(() => {
+    let out = rows
     if (confidentialityFilter === 'standard') {
-      return rows.filter((r) => r.confidentiality_level === 'standard')
-    }
-    if (confidentialityFilter === 'include_restricted') {
-      return rows.filter(
+      out = out.filter((r) => r.confidentiality_level === 'standard')
+    } else if (confidentialityFilter === 'include_restricted') {
+      out = out.filter(
         (r) => r.confidentiality_level === 'standard' || r.confidentiality_level === 'restricted',
       )
     }
-    return rows
-  }, [rows, confidentialityFilter])
+    if (parserFilter === 'llm_only') {
+      out = out.filter((r) => r.parser_kind === 'llm:claude')
+    } else if (parserFilter === 'regex_only') {
+      out = out.filter(
+        (r) =>
+          r.parser_kind === 'regex:fallback' ||
+          r.parser_kind === 'regex:llm_fallback' ||
+          r.parser_kind === 'regex:rate_limited',
+      )
+    }
+    return out
+  }, [rows, confidentialityFilter, parserFilter])
 
   return (
     <ModulePageShell
@@ -241,6 +289,32 @@ export function TilsynsbrevPage() {
             </>
           )}
         </p>
+        <div className="mt-3 flex flex-wrap items-center gap-2">
+          <span className="text-[11px] font-bold uppercase tracking-wider text-neutral-500">
+            Parser
+          </span>
+          <div role="group" aria-label="Filter parser" className="flex gap-1">
+            {(Object.keys(PARSER_FILTER_LABELS) as ParserFilter[]).map((key) => {
+              const active = parserFilter === key
+              return (
+                <button
+                  key={key}
+                  type="button"
+                  onClick={() => setParserFilter(key)}
+                  aria-pressed={active}
+                  className={
+                    'rounded-full border px-3 py-1 text-xs font-semibold transition-colors ' +
+                    (active
+                      ? 'border-[#1a3d32] bg-[#1a3d32] text-white'
+                      : 'border-neutral-300 bg-white text-neutral-700 hover:bg-neutral-50')
+                  }
+                >
+                  {PARSER_FILTER_LABELS[key]}
+                </button>
+              )
+            })}
+          </div>
+        </div>
       </ModuleSectionCard>
 
       <ModuleSectionCard className="p-0 overflow-hidden">
@@ -271,6 +345,7 @@ export function TilsynsbrevPage() {
               {filteredRows.map((r) => {
                 const badge = badgeForStatus(r.parsed_status, r.manual_review_status)
                 const confBadge = confidentialityBadge(r.confidentiality_level)
+                const parserBadge = parserKindListBadge(r.parser_kind)
                 const cited =
                   Array.isArray(r.parsed_payload?.citedParagraphs)
                     ? (r.parsed_payload!.citedParagraphs!.length as number)
@@ -296,8 +371,14 @@ export function TilsynsbrevPage() {
                     <td className="px-4 py-3">
                       <Badge variant={badge.variant}>{badge.label}</Badge>
                     </td>
-                    <td className="px-4 py-3 text-neutral-500">
-                      {r.parser_kind ?? '—'}
+                    <td className="px-4 py-3">
+                      {parserBadge ? (
+                        <Badge variant={parserBadge.variant} title={parserBadge.tooltip}>
+                          {parserBadge.label}
+                        </Badge>
+                      ) : (
+                        <span className="text-neutral-400">—</span>
+                      )}
                     </td>
                     <td className="px-4 py-3 text-right">
                       <Link

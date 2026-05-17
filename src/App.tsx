@@ -28,6 +28,7 @@ import { AltinnSetup } from './pages/admin/integrations/AltinnSetup'
 import { ArbeidstilsynetSetup } from './pages/admin/integrations/ArbeidstilsynetSetup'
 import { DatatilsynetSetup } from './pages/admin/integrations/DatatilsynetSetup'
 import { NavSetup } from './pages/admin/integrations/NavSetup'
+import { HelsetilsynetSetup } from './pages/admin/integrations/HelsetilsynetSetup'
 import { CertRotationPage } from './pages/admin/integrations/CertRotationPage'
 import { NotFound } from './pages/NotFound'
 import { MeetingsHubPage } from './pages/meetings/MeetingsHubPage'
@@ -551,6 +552,7 @@ const router = createBrowserRouter(
                       <Route path="admin/integrations/arbeidstilsynet" element={<ArbeidstilsynetSetup />} />
                       <Route path="admin/integrations/datatilsynet" element={<DatatilsynetSetup />} />
                       <Route path="admin/integrations/nav" element={<NavSetup />} />
+                      <Route path="admin/integrations/helsetilsynet" element={<HelsetilsynetSetup />} />
                       <Route path="admin/integrations/sertifikat-rotasjon" element={<CertRotationPage />} />
                       <Route path="admin/integrations/utboks" element={<GovOutboxPage />} />
                       <Route element={<DocumentsModuleShellLayout />}>

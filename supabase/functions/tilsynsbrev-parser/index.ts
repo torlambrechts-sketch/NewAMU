@@ -1,28 +1,35 @@
-// tilsynsbrev-parser — MVP edge function that ekstraherer struktur fra
-// opplastet PDF-tilsynsbrev (Arbeidstilsynet / Datatilsynet / Helsetilsynet
-// / UKOM / LDO). Skriver tilbake til tilsynsbrev_uploads.parsed_payload
+// tilsynsbrev-parser — edge fn that ekstraherer struktur fra opplastet
+// PDF-tilsynsbrev (Arbeidstilsynet / Datatilsynet / Helsetilsynet /
+// UKOM / LDO). Skriver tilbake til tilsynsbrev_uploads.parsed_payload
 // + per-paragraf rader i tilsynsbrev_extracted_paragraphs.
 //
 // Auth: caller må være pålogget org-medlem med permission
 // `tilsynsbrev.upload` og rad.organization_id må matche caller.current_org_id().
 //
-// Ekstraksjonsstrategi (lazy fallback):
-//   1) Hvis ANTHROPIC_API_KEY er satt → kall Claude med structured-output
-//      tool_use. Bruker claude-sonnet-4-6 (oppgitt i spec). Bytes sendes
-//      som base64 i en `document`-content-block.
-//   2) Ellers → regex over bytewise dekodet tekst. Mønstrene treffer
-//      vanligste paragraf-formater (AML § 4-1, GDPR Art. 33, IK-f § 5)
-//      og norske datoformat for «frist innen DD. MMMM ÅÅÅÅ».
+// Parser-mode-resolution (per opplasting):
+//   1) Hent upload.parser_mode + org-default (org_tilsynsbrev_settings).
+//      Caller-pref vinner over org-default, unntatt når caller-pref er
+//      'auto' — da arver vi org-default.
+//   2) Effektiv modus:
+//        auto       + key present → LLM (default — Claude er bedre på paragraph-refs)
+//        auto       + key missing → regex (logger warning)
+//        llm_only   + key present → LLM
+//        llm_only   + key missing → upload markeres failed, parsed_payload.error
+//                                    = 'llm_required_but_no_api_key', UI viser
+//                                    prominent advarsel
+//        regex_only + (any)       → regex (sjekker ikke key)
+//   3) Hvis LLM-svaret er malformed (mangler tool_use / input) fall ned
+//      til regex og merk parser_kind = 'regex:llm_fallback'.
+//   4) Hard cap: hvis org allerede er over monthly_llm_call_cap (default
+//      100) for inneværende måned, faller vi til regex og merker
+//      parser_kind = 'regex:rate_limited'. (regex_only respekteres alltid.)
 //
-// PDF-tekstuttrekk i Deno-runtime er åpent problem: pdfjs-dist trekker
-// inn DOMMatrix og browser-globaler som ikke finnes i Deno deploy.
-// pdf-parse er Node-spesifikk. For MVP gjør vi en best-effort
-// "binary-strings" pass — vi henter alle ASCII/Latin-1 sub-strenger fra
-// rå bytes som er minst 6 tegn lange. Dette gir ca. 30-70 % av synlig
-// tekst på de fleste tilsynsbrev (skrivere produserer ikke fonts-as-
-// glyphs). Når ANTHROPIC_API_KEY er satt sendes hele filen som
-// base64-document og tekst-ekstraksjonen gjøres på Claude-siden hvor
-// PDF-parseren er innebygd.
+// LLM-call hardening:
+//   - Retry én gang på 5xx eller nettverksfeil.
+//   - Bruker claude-sonnet-4-6 (siste sonnet per January 2026-cutoff).
+//   - max_tokens: 2048, tool_choice forced på record_tilsynsbrev.
+//   - Cost-accounting: tilsynsbrev_llm_usage_record() etter hver kall —
+//     tokens fra Anthropic-respons.usage.
 
 import { createClient, SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2.49.1'
 
@@ -30,9 +37,18 @@ const corsHeaders: Record<string, string> = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
-const PARSER_VERSION = '2026-09-07.v0'
+const PARSER_VERSION = '2026-09-07.v1-llm-default'
 const ANTHROPIC_MODEL = 'claude-sonnet-4-6'
+const ANTHROPIC_MAX_TOKENS = 2048
 const STORAGE_BUCKET = 'tilsynsbrev'
+const DEFAULT_MONTHLY_LLM_CAP = 100
+
+type ParserMode = 'auto' | 'llm_only' | 'regex_only'
+type ParserKind =
+  | 'llm:claude'
+  | 'regex:fallback'
+  | 'regex:llm_fallback'
+  | 'regex:rate_limited'
 
 function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
@@ -210,55 +226,61 @@ function regexFallback(text: string, sourceType: string): ParsedPayload {
 
 // ─── Claude extractor ──────────────────────────────────────────────────
 
-async function claudeExtract(
-  pdfBytes: Uint8Array,
-  sourceType: string,
-  apiKey: string,
-): Promise<ParsedPayload> {
-  const base64 = bytesToBase64(pdfBytes)
+type AnthropicUsage = { input_tokens?: number; output_tokens?: number }
+type ClaudeExtractResult = {
+  payload: ParsedPayload
+  usage: AnthropicUsage
+}
 
-  // We use tool_use with a strict input_schema so Claude returns a typed
-  // payload rather than free-form JSON-in-text.
-  const toolSchema = {
-    name: 'record_tilsynsbrev',
-    description:
-      'Record the structured contents of a Norwegian regulatory inspection letter (tilsynsbrev).',
-    input_schema: {
-      type: 'object',
-      properties: {
-        summary: { type: 'string', description: 'Kort sammendrag på norsk (max 80 ord)' },
-        regulator: { type: 'string', description: 'Tilsynsmyndighet (Arbeidstilsynet, Datatilsynet, Helsetilsynet, UKOM, LDO)' },
-        letterDate: { type: 'string', description: 'Dato brevet er datert (ISO 8601), tom hvis ukjent' },
-        citedParagraphs: {
-          type: 'array',
-          items: {
-            type: 'object',
-            properties: {
-              ref: { type: 'string', description: 'Eksempel: "AML § 4-1" eller "GDPR Art. 33"' },
-              excerpt: { type: 'string', description: 'Kort sitat eller setning rundt referansen' },
-              severity: { type: 'string', enum: ['info', 'observasjon', 'pålegg', 'tvangsmulkt'] },
-              deadline: { type: 'string', description: 'Frist for tiltak (ISO 8601), tom hvis ingen' },
-            },
-            required: ['ref'],
+const TOOL_SCHEMA = {
+  name: 'record_tilsynsbrev',
+  description:
+    'Record the structured contents of a Norwegian regulatory inspection letter (tilsynsbrev).',
+  input_schema: {
+    type: 'object',
+    properties: {
+      summary: { type: 'string', description: 'Kort sammendrag på norsk (max 80 ord)' },
+      regulator: { type: 'string', description: 'Tilsynsmyndighet (Arbeidstilsynet, Datatilsynet, Helsetilsynet, UKOM, LDO)' },
+      letterDate: { type: 'string', description: 'Dato brevet er datert (ISO 8601), tom hvis ukjent' },
+      citedParagraphs: {
+        type: 'array',
+        items: {
+          type: 'object',
+          properties: {
+            paragraph_ref: { type: 'string', description: 'Eksempel: "AML § 4-1" eller "GDPR Art. 33"' },
+            excerpt: { type: 'string', description: 'Kort sitat eller setning rundt referansen' },
+            severity: { type: 'string', enum: ['info', 'observasjon', 'pålegg', 'tvangsmulkt'] },
+            deadline_at: { type: 'string', description: 'Frist for tiltak (ISO 8601), tom hvis ingen' },
           },
-        },
-        findings: {
-          type: 'array',
-          items: {
-            type: 'object',
-            properties: {
-              description: { type: 'string' },
-              severity: { type: 'string' },
-              suggestedActions: { type: 'array', items: { type: 'string' } },
-            },
-            required: ['description'],
-          },
+          required: ['paragraph_ref'],
         },
       },
-      required: ['summary', 'citedParagraphs', 'findings'],
+      findings: {
+        type: 'array',
+        items: {
+          type: 'object',
+          properties: {
+            description: { type: 'string' },
+            severity: { type: 'string' },
+            suggestedActions: { type: 'array', items: { type: 'string' } },
+          },
+          required: ['description'],
+        },
+      },
     },
-  }
+    required: ['summary', 'citedParagraphs', 'findings'],
+  },
+}
 
+function sleep(ms: number) {
+  return new Promise<void>((res) => setTimeout(res, ms))
+}
+
+async function claudeCallOnce(
+  base64: string,
+  sourceType: string,
+  apiKey: string,
+): Promise<Response> {
   const system =
     'Du parser norske tilsynsbrev (inspeksjons- og kontrollbrev) fra Arbeidstilsynet, Datatilsynet, Statens helsetilsyn, UKOM og LDO. ' +
     'Bruk verktøyet record_tilsynsbrev og returner KUN tool_use-respons — ingen fritekst.'
@@ -266,9 +288,10 @@ async function claudeExtract(
   const userText =
     `Tilsynsbrev fra tilsynsmyndighet (source_type=${sourceType}). ` +
     'Identifiser hvilke paragrafer/artikler som er sitert (AML §, GDPR Art., IK-forskriften § …), ' +
-    'hvilke pålegg eller observasjoner som gjøres, frister, og lag et kort sammendrag.'
+    'hvilke pålegg eller observasjoner som gjøres, frister, og lag et kort sammendrag. ' +
+    'Kall record_tilsynsbrev.'
 
-  const resp = await fetch('https://api.anthropic.com/v1/messages', {
+  return fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -277,9 +300,9 @@ async function claudeExtract(
     },
     body: JSON.stringify({
       model: ANTHROPIC_MODEL,
-      max_tokens: 4096,
+      max_tokens: ANTHROPIC_MAX_TOKENS,
       system,
-      tools: [toolSchema],
+      tools: [TOOL_SCHEMA],
       tool_choice: { type: 'tool', name: 'record_tilsynsbrev' },
       messages: [
         {
@@ -295,23 +318,216 @@ async function claudeExtract(
       ],
     }),
   })
+}
+
+/**
+ * Wraps the raw Anthropic call with a single retry on 5xx or network
+ * error. 4xx is fail-fast (auth/config issues should not be retried).
+ */
+async function claudeExtract(
+  pdfBytes: Uint8Array,
+  sourceType: string,
+  apiKey: string,
+): Promise<ClaudeExtractResult> {
+  const base64 = bytesToBase64(pdfBytes)
+  let resp: Response | null = null
+  let lastErr: unknown = null
+
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      resp = await claudeCallOnce(base64, sourceType, apiKey)
+      // Retry only on 5xx; 4xx is fail-fast.
+      if (resp.status >= 500) {
+        const txt = await resp.text().catch(() => '')
+        lastErr = new Error(`anthropic_http_${resp.status}: ${txt.slice(0, 500)}`)
+        if (attempt === 0) {
+          await sleep(750)
+          continue
+        }
+        throw lastErr
+      }
+      break
+    } catch (e) {
+      lastErr = e
+      if (attempt === 0) {
+        await sleep(750)
+        continue
+      }
+      throw e
+    }
+  }
+  if (!resp) throw lastErr ?? new Error('anthropic_no_response')
   if (!resp.ok) {
     const txt = await resp.text().catch(() => '')
     throw new Error(`anthropic_http_${resp.status}: ${txt.slice(0, 500)}`)
   }
+
   const body = await resp.json()
+  const usage: AnthropicUsage = (body.usage ?? {}) as AnthropicUsage
   const toolUse = Array.isArray(body.content)
     ? body.content.find((c: { type?: string }) => c.type === 'tool_use')
     : null
-  if (!toolUse || !toolUse.input) {
+  if (!toolUse || !toolUse.input || typeof toolUse.input !== 'object') {
     throw new Error('anthropic_no_tool_use')
   }
-  const out = toolUse.input as ParsedPayload
-  // Defensive: ensure arrays exist so downstream inserts don't crash.
-  out.citedParagraphs = Array.isArray(out.citedParagraphs) ? out.citedParagraphs : []
-  out.findings = Array.isArray(out.findings) ? out.findings : []
-  if (typeof out.summary !== 'string') out.summary = ''
-  return out
+  const input = toolUse.input as Record<string, unknown>
+
+  // Map the tool schema field names to our internal payload shape.
+  // We use paragraph_ref + deadline_at in the schema to make it
+  // unambiguous for Claude; map back to ref + deadline here.
+  const rawParagraphs = Array.isArray(input.citedParagraphs) ? input.citedParagraphs : []
+  const citedParagraphs: CitedParagraph[] = rawParagraphs
+    .map((p) => p as Record<string, unknown>)
+    .filter((p) => typeof p.paragraph_ref === 'string' && (p.paragraph_ref as string).length > 0)
+    .map((p) => ({
+      ref: String(p.paragraph_ref),
+      excerpt: typeof p.excerpt === 'string' ? p.excerpt : undefined,
+      severity: (typeof p.severity === 'string' ? p.severity : undefined) as
+        | CitedParagraph['severity']
+        | undefined,
+      deadline: typeof p.deadline_at === 'string' && p.deadline_at.length > 0
+        ? p.deadline_at
+        : null,
+    }))
+
+  const rawFindings = Array.isArray(input.findings) ? input.findings : []
+  const findings: Finding[] = rawFindings
+    .map((f) => f as Record<string, unknown>)
+    .filter((f) => typeof f.description === 'string' && (f.description as string).length > 0)
+    .map((f) => ({
+      description: String(f.description),
+      severity: typeof f.severity === 'string' ? f.severity : undefined,
+      suggestedActions: Array.isArray(f.suggestedActions)
+        ? (f.suggestedActions as unknown[]).filter((x): x is string => typeof x === 'string')
+        : undefined,
+    }))
+
+  const payload: ParsedPayload = {
+    summary: typeof input.summary === 'string' ? input.summary : '',
+    regulator: typeof input.regulator === 'string' ? input.regulator : undefined,
+    letterDate: typeof input.letterDate === 'string' && input.letterDate.length > 0
+      ? input.letterDate
+      : null,
+    citedParagraphs,
+    findings,
+  }
+
+  // A response with NO paragraphs AND NO findings AND no summary is
+  // treated as malformed — caller falls back to regex.
+  if (
+    payload.citedParagraphs.length === 0 &&
+    payload.findings.length === 0 &&
+    payload.summary.length === 0
+  ) {
+    throw new Error('anthropic_empty_payload')
+  }
+
+  return { payload, usage }
+}
+
+// ─── Settings / usage helpers ──────────────────────────────────────────
+
+type OrgSettings = {
+  default_parser_mode: ParserMode
+  monthly_llm_call_cap: number | null
+}
+
+async function loadOrgSettings(sb: SupabaseClient, orgId: string): Promise<OrgSettings> {
+  const { data } = await sb
+    .from('org_tilsynsbrev_settings')
+    .select('default_parser_mode, monthly_llm_call_cap')
+    .eq('organization_id', orgId)
+    .maybeSingle()
+  if (!data) {
+    return { default_parser_mode: 'auto', monthly_llm_call_cap: null }
+  }
+  const mode = (data.default_parser_mode as ParserMode) ?? 'auto'
+  const cap = typeof data.monthly_llm_call_cap === 'number'
+    ? (data.monthly_llm_call_cap as number)
+    : null
+  return { default_parser_mode: mode, monthly_llm_call_cap: cap }
+}
+
+async function loadMonthlyCalls(sb: SupabaseClient, orgId: string): Promise<number> {
+  // First-of-month, UTC, formatted as YYYY-MM-DD (the date column type
+  // stored in the table).
+  const now = new Date()
+  const monthStart = `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, '0')}-01`
+  const { data } = await sb
+    .from('tilsynsbrev_llm_usage')
+    .select('total_calls')
+    .eq('organization_id', orgId)
+    .eq('month', monthStart)
+    .maybeSingle()
+  if (!data) return 0
+  const n = (data.total_calls as number | string | null) ?? 0
+  return typeof n === 'string' ? Number(n) : Number(n) || 0
+}
+
+async function recordLlmUsage(
+  sb: SupabaseClient,
+  orgId: string,
+  usage: AnthropicUsage,
+): Promise<void> {
+  const { error } = await sb.rpc('tilsynsbrev_llm_usage_record', {
+    p_org_id: orgId,
+    p_input_tokens: Number(usage.input_tokens ?? 0),
+    p_output_tokens: Number(usage.output_tokens ?? 0),
+  })
+  if (error) {
+    // Non-fatal — surface to logs but don't fail the parse.
+    console.warn('tilsynsbrev_llm_usage_record failed', error.message)
+  }
+}
+
+// ─── Mode resolution ───────────────────────────────────────────────────
+
+type ResolvedMode = {
+  kind: 'llm' | 'regex'
+  reason:
+    | 'auto_with_key'
+    | 'auto_no_key'
+    | 'llm_only'
+    | 'regex_only'
+    | 'rate_limited'
+  failHard: false
+} | {
+  kind: 'fail'
+  reason: 'llm_required_but_no_api_key'
+  failHard: true
+}
+
+function resolveMode(
+  uploadMode: ParserMode,
+  orgDefault: ParserMode,
+  hasApiKey: boolean,
+  overCap: boolean,
+): ResolvedMode {
+  // upload pref wins, EXCEPT when upload pref is 'auto' (the default) —
+  // then we use the org default so admins can lock the module.
+  const effective: ParserMode = uploadMode === 'auto' ? orgDefault : uploadMode
+
+  if (effective === 'regex_only') {
+    return { kind: 'regex', reason: 'regex_only', failHard: false }
+  }
+  if (effective === 'llm_only') {
+    if (!hasApiKey) {
+      return { kind: 'fail', reason: 'llm_required_but_no_api_key', failHard: true }
+    }
+    // llm_only does NOT respect the rate-limit cap — admin explicitly
+    // asked for LLM. We still record the call.
+    return { kind: 'llm', reason: 'llm_only', failHard: false }
+  }
+  // effective === 'auto'
+  if (!hasApiKey) {
+    console.warn('tilsynsbrev-parser: ANTHROPIC_API_KEY not set, falling back to regex')
+    return { kind: 'regex', reason: 'auto_no_key', failHard: false }
+  }
+  if (overCap) {
+    console.warn('tilsynsbrev-parser: monthly LLM cap reached, falling back to regex')
+    return { kind: 'regex', reason: 'rate_limited', failHard: false }
+  }
+  return { kind: 'llm', reason: 'auto_with_key', failHard: false }
 }
 
 // ─── Main handler ───────────────────────────────────────────────────────
@@ -372,7 +588,42 @@ Deno.serve(async (req) => {
     .update({ parsed_status: 'parsing' })
     .eq('id', row.id)
 
-  // Fetch PDF bytes from storage.
+  // ── Mode resolution ──────────────────────────────────────────────────
+  const apiKey = Deno.env.get('ANTHROPIC_API_KEY')
+  const hasApiKey = typeof apiKey === 'string' && apiKey.length > 0
+  const orgSettings = await loadOrgSettings(sb, callerOrgId)
+  const uploadMode = ((row.parser_mode as ParserMode | undefined) ?? 'auto')
+  const cap = orgSettings.monthly_llm_call_cap ?? DEFAULT_MONTHLY_LLM_CAP
+
+  // Only compute current usage when we might actually need to throttle.
+  let overCap = false
+  if (uploadMode !== 'regex_only' && orgSettings.default_parser_mode !== 'regex_only') {
+    const used = await loadMonthlyCalls(sb, callerOrgId)
+    overCap = used >= cap
+  }
+
+  const resolved = resolveMode(uploadMode, orgSettings.default_parser_mode, hasApiKey, overCap)
+
+  if (resolved.failHard) {
+    await sb
+      .from('tilsynsbrev_uploads')
+      .update({
+        parsed_status: 'failed',
+        parsed_at: new Date().toISOString(),
+        parser_kind: null,
+        parser_version: PARSER_VERSION,
+        parsed_payload: {
+          error: 'llm_required_but_no_api_key',
+          message:
+            'Org-innstilling krever LLM-modus, men ANTHROPIC_API_KEY er ikke satt på edge-funksjonen.',
+          resolved_mode: resolved.reason,
+        },
+      })
+      .eq('id', row.id)
+    return json({ ok: false, error: 'llm_required_but_no_api_key' }, 412)
+  }
+
+  // ── Fetch PDF bytes ─────────────────────────────────────────────────
   const { data: blob, error: dlErr } = await sb.storage
     .from(STORAGE_BUCKET)
     .download(row.storage_path)
@@ -389,40 +640,49 @@ Deno.serve(async (req) => {
   }
   const bytes = new Uint8Array(await blob.arrayBuffer())
 
-  // Parse: Claude if API key present, otherwise regex fallback.
-  const apiKey = Deno.env.get('ANTHROPIC_API_KEY')
-  let parserKind: 'llm:claude' | 'regex:fallback' = 'regex:fallback'
+  // ── Parse ────────────────────────────────────────────────────────────
+  let parserKind: ParserKind
   let payload: ParsedPayload
   try {
-    if (apiKey) {
-      parserKind = 'llm:claude'
-      payload = await claudeExtract(bytes, row.source_type, apiKey)
+    if (resolved.kind === 'llm') {
+      try {
+        const result = await claudeExtract(bytes, row.source_type, apiKey as string)
+        payload = result.payload
+        parserKind = 'llm:claude'
+        // Cost-accounting AFTER a successful call (we don't bill for
+        // calls that failed before returning content).
+        await recordLlmUsage(sb, callerOrgId, result.usage)
+      } catch (llmErr) {
+        // Malformed tool input or LLM failure → degrade to regex but
+        // mark the parser_kind so the UI can flag it red.
+        console.warn('tilsynsbrev-parser: LLM failed, regex fallback', llmErr)
+        const text = naiveBinaryStrings(bytes)
+        payload = regexFallback(text, row.source_type)
+        parserKind = 'regex:llm_fallback'
+      }
     } else {
+      // regex path — distinguish "rate limited" from generic fallback
       const text = naiveBinaryStrings(bytes)
       payload = regexFallback(text, row.source_type)
+      parserKind = resolved.reason === 'rate_limited'
+        ? 'regex:rate_limited'
+        : 'regex:fallback'
     }
   } catch (e) {
-    // LLM failed — degrade to regex rather than mark the whole row failed.
-    try {
-      const text = naiveBinaryStrings(bytes)
-      payload = regexFallback(text, row.source_type)
-      parserKind = 'regex:fallback'
-    } catch (e2) {
-      await sb
-        .from('tilsynsbrev_uploads')
-        .update({
-          parsed_status: 'failed',
-          parsed_at: new Date().toISOString(),
-          parser_kind: parserKind,
-          parser_version: PARSER_VERSION,
-          parsed_payload: { error: String(e), fallback_error: String(e2) },
-        })
-        .eq('id', row.id)
-      return json({ ok: false, error: 'parse_failed', detail: String(e) }, 500)
-    }
+    await sb
+      .from('tilsynsbrev_uploads')
+      .update({
+        parsed_status: 'failed',
+        parsed_at: new Date().toISOString(),
+        parser_kind: null,
+        parser_version: PARSER_VERSION,
+        parsed_payload: { error: String(e), stage: 'parse' },
+      })
+      .eq('id', row.id)
+    return json({ ok: false, error: 'parse_failed', detail: String(e) }, 500)
   }
 
-  // Write the parsed_payload + transition status.
+  // ── Write parsed_payload + transition status ────────────────────────
   const { error: updErr } = await sb
     .from('tilsynsbrev_uploads')
     .update({
@@ -467,6 +727,7 @@ Deno.serve(async (req) => {
     upload_id: row.id,
     parser_kind: parserKind,
     parser_version: PARSER_VERSION,
+    resolved_reason: resolved.kind === 'llm' || resolved.kind === 'regex' ? resolved.reason : 'fail',
     cited: payload.citedParagraphs.length,
     summary_len: payload.summary.length,
   })

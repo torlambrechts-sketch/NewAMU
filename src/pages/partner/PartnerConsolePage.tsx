@@ -39,9 +39,7 @@ const PARTNER_ACCENT = '#c2410c' // share the tasks/kanban amber accent
 
 type TabId = 'kunder' | 'tidslinje' | 'faktura'
 
-type WorkflowRuleSummary = { organization_id: string; active_count: number }
-
-type OpenAvvikSummary = { organization_id: string; open_critical: number }
+type WorkflowRuleSummary = { organization_id: string; is_active: boolean }
 
 function minutesBetween(startedAt: string, endedAt: string | null): number {
   const start = new Date(startedAt).getTime()

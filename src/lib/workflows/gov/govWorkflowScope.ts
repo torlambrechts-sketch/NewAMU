@@ -46,7 +46,7 @@ registerWorkflowScope({
       name: 'ON_EVIDENCE_TAMPER_DETECTED',
       label: 'Bevis-anker tukling oppdaget',
       description:
-        'Kvartalsvis re-verifisering av en TSA-signert Merkle-rot feilet — kjeden er tuklet med eller anker-ID er korrupt. Emit fra workflow_verify_all_anchors_tick (engine meta-event, source_module=''workflow'').',
+        "Kvartalsvis re-verifisering av en TSA-signert Merkle-rot feilet — kjeden er tuklet med eller anker-ID er korrupt. Emit fra workflow_verify_all_anchors_tick (engine meta-event, source_module='workflow').",
       lawRefs: ['GDPR Art. 32', 'Arkivforskriften § 7', 'AML § 3-1'],
       severity: 'critical',
       samplePayload: {

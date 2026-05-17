@@ -58,12 +58,57 @@ type UploadRow = {
     letterDate?: string | null
     findings?: { description: string; severity?: string; suggestedActions?: string[] }[]
     citedParagraphs?: unknown[]
+    error?: string
+    message?: string
   } | null
   parser_kind: string | null
   parser_version: string | null
+  parser_mode?: 'auto' | 'llm_only' | 'regex_only' | null
   manual_review_status: 'not_reviewed' | 'accepted' | 'edited' | 'rejected'
   confidentiality_level: ConfidentialityLevel
   notes: string | null
+}
+
+// Color-code the parser kind so reviewers see at a glance whether the
+// extraction is high-fidelity (LLM) or a degraded fallback. The chip
+// sits below the title in the metadata card.
+function parserKindBadge(kind: string | null): {
+  variant: 'success' | 'warning' | 'danger' | 'neutral'
+  label: string
+  tooltip: string
+} {
+  if (!kind) return { variant: 'neutral', label: 'Ikke kjørt', tooltip: 'Parser har ikke kjørt enda' }
+  if (kind === 'llm:claude') {
+    return {
+      variant: 'success',
+      label: 'LLM (Claude)',
+      tooltip: 'Strukturert ekstraksjon via Claude — høyest presisjon',
+    }
+  }
+  if (kind === 'regex:fallback') {
+    return {
+      variant: 'warning',
+      label: 'Regex',
+      tooltip: 'Regex-fallback brukt — ingen ANTHROPIC_API_KEY konfigurert',
+    }
+  }
+  if (kind === 'regex:llm_fallback') {
+    return {
+      variant: 'danger',
+      label: 'Regex (LLM feilet)',
+      tooltip:
+        'LLM-kallet feilet eller returnerte tomt resultat — falt tilbake til regex. Vurder å kjøre på nytt.',
+    }
+  }
+  if (kind === 'regex:rate_limited') {
+    return {
+      variant: 'warning',
+      label: 'Regex (kvote)',
+      tooltip:
+        'Månedlig LLM-kvote er nådd for organisasjonen — falt tilbake til regex. Kontakt admin for å heve grensen.',
+    }
+  }
+  return { variant: 'neutral', label: kind, tooltip: kind }
 }
 
 type ParagraphRow = {
@@ -261,6 +306,13 @@ export function TilsynsbrevDetailPage() {
   const confBadge = upload ? confidentialityBadge(upload.confidentiality_level) : null
   const isConfidential = upload?.confidentiality_level === 'confidential'
   const downloadBlocked = isConfidential && !canViewConfidential
+  const parserBadge = useMemo(
+    () => parserKindBadge(upload?.parser_kind ?? null),
+    [upload?.parser_kind],
+  )
+  const llmRequiredButMissing =
+    upload?.parsed_status === 'failed' &&
+    upload?.parsed_payload?.error === 'llm_required_but_no_api_key'
 
   const onReparse = useCallback(async () => {
     if (!supabase || !upload) return
@@ -451,6 +503,29 @@ export function TilsynsbrevDetailPage() {
         </div>
       )}
 
+      {/* Parser chip — colour-coded fidelity signal. */}
+      <div className="flex flex-wrap items-center gap-2 text-xs text-neutral-600">
+        <span className="font-semibold uppercase tracking-wider text-[10px] text-neutral-500">
+          Parser:
+        </span>
+        <Badge variant={parserBadge.variant} title={parserBadge.tooltip}>
+          {parserBadge.label}
+        </Badge>
+        {upload.parser_version && (
+          <span className="font-mono text-[10px] text-neutral-500">{upload.parser_version}</span>
+        )}
+      </div>
+
+      {/* Prominent failure box when org requires LLM but the platform
+          key is missing — admin must either set the key or relax the
+          org-setting to 'auto'. */}
+      {llmRequiredButMissing && (
+        <WarningBox>
+          Org-innstilling krever LLM-modus, men ANTHROPIC_API_KEY er ikke satt. Kontakt admin
+          eller endre org-innstilling til {'«'}auto{'»'}.
+        </WarningBox>
+      )}
+
       {error && <WarningBox>{error}</WarningBox>}
 
       <ModuleSectionCard className="p-6">
@@ -597,7 +672,7 @@ export function TilsynsbrevDetailPage() {
 
       <AccessLogCard available={accessLogAvailable} rows={accessLog} />
 
-      {pendingCreateParagraph && upload && (
+      {pendingCreateParagraph && upload && upload.confidentiality_level !== 'standard' && (
         <ConfirmCreateTaskDialog
           paragraph={pendingCreateParagraph}
           level={upload.confidentiality_level}

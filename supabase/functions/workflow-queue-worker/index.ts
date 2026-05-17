@@ -19,6 +19,7 @@
  *       meld_personvernbrudd_datatilsynet         → gov-datatilsynet-breach
  *       altinn_send_melding                       → gov-altinn-submit
  *       nav_sykefravar_oppfolging                 → gov-nav-sykefravar
+ *       meld_helsetilsynet                        → helsetilsynet-build-melding (helsesektor, no regulator API)
  *       varsel_ldo_export                         → handled inline (no API)
  *
  * Notification side-effects flow through workflow_dispatch_notification
@@ -85,6 +86,10 @@ const GOV_TO_FN: Record<string, string> = {
   meld_personvernbrudd_datatilsynet: 'gov-datatilsynet-breach',
   altinn_send_melding: 'gov-altinn-submit',
   nav_sykefravar_oppfolging: 'gov-nav-sykefravar',
+  // Helsesektor (spes.helsetjl. § 3-3 + hol. § 12-3 a). No regulator API
+  // — the edge function builds a PDF + outbox row that GovOutboxPage
+  // triage UI picks up. See _126200 + _126100.
+  meld_helsetilsynet: 'helsetilsynet-build-melding',
 }
 
 async function invokeGovFunction(

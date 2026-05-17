@@ -1171,6 +1171,17 @@ export function AticsShell() {
         requirePermAny: INTEGRATIONS_NAV_PERMS,
       },
       {
+        // Helsesektor: spes.helsetjl. § 3-3 + hol. § 12-3 a. Ingen regulator-
+        // API — wizard'en lagrer kontakt-info + melding-mal i org_integrations
+        // og helsetilsynet-build-melding edge-fn dispatcher som manuell
+        // outbox-rad. Triage skjer i `/admin/integrations/utboks`.
+        label: 'Helsetilsynet (helsesektor)',
+        path: '/admin/integrations/helsetilsynet',
+        Icon: ShieldCheck,
+        match: matchAdminIntegrations('helsetilsynet'),
+        requirePermAny: INTEGRATIONS_NAV_PERMS,
+      },
+      {
         // NSM Grunnprinsipp 2.4 — planlagt rotasjon av virksomhetssertifikat.
         // Red pip when ≥1 cert is within 30 days of expiry, driven by
         // useCertExpiryWarningCount (signing_cert_expires_at column from _123700).
