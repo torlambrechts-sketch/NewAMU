@@ -121,6 +121,24 @@ export const PERMISSION_KEYS = [
    *  Datatilsynet / NAV). Gir tilgang til /admin/integrations/sertifikat-rotasjon
    *  + workflow_record_cert_rotation RPC. Seedet til admin-rollen kun. */
   'integrations.cert_rotate',
+
+  // ─── Studio Builder ────────────────────────────────────────────────────
+  // See specs/studio-builder.md §3 + §11. Five-key ladder mirrors the tier
+  // ladder (Standard → Pro → Enterprise → Partner → Marketplace).
+  /** Studio — Simple-mode authoring of own-org content. Pro tier+. */
+  'studio.simple',
+  /** Studio — Advanced-mode canvas + property panel. Phase 0–2: platform
+   *  admins only (via isAdmin bypass). Phase 3+: Enterprise/Partner tier. */
+  'studio.advanced',
+  /** Studio — author org-specific compliance packs (ISO 27001 / NIS2 / …).
+   *  Enterprise tier. */
+  'studio.packs',
+  /** Studio — partner-tier multi-tenant admin: switch into N client orgs via
+   *  partner_memberships + app.active_partner_id GUC. Partner tier. */
+  'studio.partner_admin',
+  /** Studio — publish packs to the marketplace catalog. Phase 4
+   *  (gated on §11 milestones; reserved key only in Phase 0–3). */
+  'studio.marketplace_publish',
 ] as const
 
 export type PermissionKey = (typeof PERMISSION_KEYS)[number]
@@ -177,6 +195,12 @@ export const PERMISSION_LABELS: Record<PermissionKey, string> = {
   'tasks.view_confidential': 'Se konfidensielle oppgaver',
   'gov.outbox_triage': 'Triagér utgående statlige meldinger',
   'integrations.cert_rotate': 'Integrasjoner — rotere virksomhetssertifikat',
+  // Studio Builder
+  'studio.simple': 'Studio — Enkel modus (rediger egen-org innhold)',
+  'studio.advanced': 'Studio — Avansert modus (lerret + egenskapspanel + pakke-redaktør)',
+  'studio.packs': 'Studio — forfatte compliance-pakker (ISO 27001 / NIS2 / …)',
+  'studio.partner_admin': 'Studio — partner-multi-tenant (bytte mellom klient-orgs)',
+  'studio.marketplace_publish': 'Studio — publisere pakker til markedsplassen',
 }
 
 /** Route prefix → permission (primary nav). Index route checked separately. */
@@ -187,6 +211,7 @@ export const ROUTE_PERMISSION: { pathPrefix: string; permission: PermissionKey }
   { pathPrefix: '/learning', permission: 'module.view.learning' },
   { pathPrefix: '/workflow', permission: 'module.view.workflow' },
   { pathPrefix: '/organisation/admin', permission: 'module.view.admin' },
+  { pathPrefix: '/studio', permission: 'studio.simple' },
 ]
 
 /** Paths that need any one of several permissions (e.g. hub + underlying module). */
