@@ -227,7 +227,7 @@ export function HelsetilsynetSetup() {
     } finally {
       setLoading(false)
     }
-  }, [supabase, organization?.id])
+  }, [supabase, organization])
 
   useEffect(() => {
     void refresh()
@@ -259,7 +259,7 @@ export function HelsetilsynetSetup() {
         setSaving(false)
       }
     },
-    [supabase, organization?.id, config, refresh],
+    [supabase, organization, config, refresh],
   )
 
   const runTest = useCallback(async () => {
@@ -312,7 +312,7 @@ export function HelsetilsynetSetup() {
     } finally {
       setTesting(false)
     }
-  }, [supabase, organization?.id, organization?.name, config, persistConfig])
+  }, [supabase, organization, config, persistConfig])
 
   const finish = () => navigate('/admin/integrations')
 
