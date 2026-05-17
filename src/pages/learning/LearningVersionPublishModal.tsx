@@ -8,6 +8,8 @@
 import { useEffect, useRef, useState } from 'react'
 import { X } from 'lucide-react'
 import { Button } from '../../components/ui/Button'
+import { StandardInput } from '../../components/ui/Input'
+import { StandardTextarea } from '../../components/ui/Textarea'
 import type { Course } from '../../types/learning'
 
 export type LearningVersionPublishModalProps = {
@@ -80,14 +82,15 @@ export function LearningVersionPublishModal({ course, onClose, onPublish }: Lear
               Gjeldende: v{currentMajor}.{currentMinor} → <strong>v{nextMajor}.{nextMinor}</strong>
             </p>
           </div>
-          <button
-            type="button"
+          <Button
+            variant="ghost"
+            size="icon"
             onClick={onClose}
-            className="rounded-md p-1.5 text-neutral-500 hover:bg-neutral-100"
+            className="h-7 w-7 rounded-md p-1.5 text-neutral-500 hover:bg-neutral-100"
             aria-label="Lukk"
           >
             <X className="h-4 w-4" />
-          </button>
+          </Button>
         </header>
 
         <div className="space-y-4 px-6 py-5">
@@ -97,7 +100,7 @@ export function LearningVersionPublishModal({ course, onClose, onPublish }: Lear
             </legend>
             <div className="mt-2 space-y-2">
               <label className="flex cursor-pointer items-start gap-2 rounded-md border border-neutral-200 px-3 py-2 hover:bg-neutral-50">
-                <input
+                <StandardInput
                   type="radio"
                   name="is_major"
                   checked={!isMajor}
@@ -112,7 +115,7 @@ export function LearningVersionPublishModal({ course, onClose, onPublish }: Lear
                 </span>
               </label>
               <label className="flex cursor-pointer items-start gap-2 rounded-md border border-neutral-200 px-3 py-2 hover:bg-neutral-50">
-                <input
+                <StandardInput
                   type="radio"
                   name="is_major"
                   checked={isMajor}
@@ -134,7 +137,7 @@ export function LearningVersionPublishModal({ course, onClose, onPublish }: Lear
             <label htmlFor="change-notes" className="text-xs font-semibold uppercase tracking-wide text-neutral-600">
               Endringsnotater (Markdown)
             </label>
-            <textarea
+            <StandardTextarea
               id="change-notes"
               value={notes}
               onChange={(e) => setNotes(e.target.value)}

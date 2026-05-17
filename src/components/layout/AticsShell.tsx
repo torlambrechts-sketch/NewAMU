@@ -38,6 +38,7 @@ import { SurveyPendingInvitesBanner } from '../../../modules/survey/SurveyPendin
 import { useI18n } from '../../hooks/useI18n'
 import { useOrgSetupContext } from '../../hooks/useOrgSetupContext'
 import type { PermissionKey } from '../../lib/permissionKeys'
+import { Button } from '../ui/Button'
 import { KlarertLogo } from '../brand/KlarertLogo'
 import {
   ShellCompanyBlock,
@@ -1740,8 +1741,8 @@ export function AticsShell() {
 
           {/* Section rail toggle — always on this column (mid rail can be absent before activeGroup resolves) */}
           <div className="border-t border-white/10 px-2 py-2">
-            <button
-              type="button"
+            <Button
+              variant="ghost"
               onClick={toggleSubNavCollapsed}
               className={`flex w-full items-center justify-center rounded-lg p-3 transition-colors ${
                 subNavCollapsed ? 'bg-white/15 text-white' : 'text-white/70 hover:bg-white/10 hover:text-white'
@@ -1755,7 +1756,7 @@ export function AticsShell() {
               ) : (
                 <PanelLeft className="size-[1.125rem] shrink-0" aria-hidden />
               )}
-            </button>
+            </Button>
           </div>
 
         </aside>
@@ -1839,12 +1840,12 @@ export function AticsShell() {
                                 ? expandedHeaders.get(key)!
                                 : auto
                               return (
-                                <button
+                                <Button
                                   key={`hdr:${key}`}
-                                  type="button"
+                                  variant="ghost"
                                   onClick={() => toggleHeader(key, auto)}
                                   aria-expanded={expanded}
-                                  className="mt-3 flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-[11px] font-semibold uppercase tracking-wider text-white/55 transition-colors hover:bg-white/5 hover:text-white/80 first:mt-0"
+                                  className="mt-3 flex w-full items-center justify-start gap-2 rounded-lg px-2.5 py-1.5 text-left text-[11px] font-semibold uppercase tracking-wider text-white/55 transition-colors hover:bg-white/5 hover:text-white/80 first:mt-0"
                                 >
                                   <HeaderIcon className="size-3.5 shrink-0 opacity-80" aria-hidden />
                                   <span className="min-w-0 flex-1 truncate">{item.label}</span>
@@ -1853,7 +1854,7 @@ export function AticsShell() {
                                   ) : (
                                     <ChevronRight className="size-3.5 shrink-0 opacity-70" aria-hidden />
                                   )}
-                                </button>
+                                </Button>
                               )
                             }
                             // Items belonging to a header: render only if
@@ -2043,10 +2044,11 @@ export function AticsShell() {
               <NavLink to="/app" className="flex shrink-0 items-center gap-2" aria-label={t('shell.homeAria')}>
                 <KlarertLogo size={28} variant="onDark" />
               </NavLink>
-              <button
-                type="button"
+              <Button
+                variant="ghost"
+                size="icon"
                 onClick={toggleSubNavCollapsed}
-                className={`flex size-9 shrink-0 items-center justify-center rounded-lg transition-colors ${
+                className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg transition-colors ${
                   subNavCollapsed ? 'bg-white/15 text-white ring-1 ring-[#c9a227]/50' : 'text-white/70 hover:bg-white/10 hover:text-white'
                 }`}
                 aria-expanded={!subNavCollapsed}
@@ -2058,7 +2060,7 @@ export function AticsShell() {
                 ) : (
                   <PanelLeft className="size-[1.125rem] shrink-0" aria-hidden />
                 )}
-              </button>
+              </Button>
             </div>
             {topBarUtilities}
           </div>
@@ -2069,10 +2071,11 @@ export function AticsShell() {
               <NavLink to="/app" className="flex items-center gap-2" aria-label={t('shell.homeAria')}>
                 <KlarertLogo size={28} variant="onDark" />
               </NavLink>
-              <button
-                type="button"
+              <Button
+                variant="ghost"
+                size="icon"
                 onClick={toggleSubNavCollapsed}
-                className={`flex size-9 shrink-0 items-center justify-center rounded-lg transition-colors ${
+                className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg transition-colors ${
                   subNavCollapsed ? 'bg-white/15 text-white ring-1 ring-[#c9a227]/50' : 'text-white/70 hover:bg-white/10 hover:text-white'
                 }`}
                 aria-expanded={!subNavCollapsed}
@@ -2084,7 +2087,7 @@ export function AticsShell() {
                 ) : (
                   <PanelLeft className="size-[1.125rem] shrink-0" aria-hidden />
                 )}
-              </button>
+              </Button>
             </div>
             {topBarGroupNav}
             {topBarUtilities}
