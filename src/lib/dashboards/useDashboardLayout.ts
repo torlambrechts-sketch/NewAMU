@@ -17,7 +17,17 @@ import { z } from 'zod'
 import { useOrgSetupContext } from '../../hooks/useOrgSetupContext'
 import { getSupabaseErrorMessage } from '../supabaseError'
 import { getDashboardScope } from './dashboardRegistry'
-import type { DashboardFilter } from './dashboardFilters'
+import type { DashboardComparisonMode, DashboardFilter } from './dashboardFilters'
+
+const COMPARISON_MODES: ReadonlySet<DashboardComparisonMode> = new Set([
+  'none', 'previous_period', 'previous_year',
+])
+function parseComparison(cover: Record<string, unknown> | null | undefined): DashboardComparisonMode {
+  const v = cover?.comparison
+  return typeof v === 'string' && COMPARISON_MODES.has(v as DashboardComparisonMode)
+    ? (v as DashboardComparisonMode)
+    : 'none'
+}
 import type { ReportModule } from '../../types/reportBuilder'
 
 // Loose widget shape — `passthrough()` keeps kind-specific fields
@@ -73,6 +83,11 @@ type State = {
   layout: ReportModule[]
   /** Effective filter chips. */
   filters: DashboardFilter[]
+  /**
+   * Effective comparison mode — persisted in `cover_meta.comparison`
+   * on the active row. Defaults to 'none'.
+   */
+  comparison: DashboardComparisonMode
   /** True iff `layout` came from the registry default (no DB row yet). */
   isDefault: boolean
   /** All rows visible to the current user, used by the chooser dropdown. */
@@ -121,6 +136,7 @@ export function useDashboardLayout({
     row: null,
     layout: registryDefault,
     filters: [],
+    comparison: 'none',
     isDefault: true,
     available: [],
   })
@@ -188,6 +204,7 @@ export function useDashboardLayout({
           row: null,
           layout: registryDefault,
           filters: [],
+          comparison: 'none',
           isDefault: true,
           available,
         })
@@ -199,6 +216,7 @@ export function useDashboardLayout({
         row: rowData,
         layout: rowData.layout as ReportModule[],
         filters: (rowData.filters as DashboardFilter[]) ?? [],
+        comparison: parseComparison(rowData.cover_meta as Record<string, unknown> | null),
         isDefault: false,
         available,
       })
@@ -228,6 +246,7 @@ export function useDashboardLayout({
           row: next,
           layout: next.layout as ReportModule[],
           filters: (next.filters as DashboardFilter[]) ?? [],
+          comparison: parseComparison(next.cover_meta as Record<string, unknown> | null),
           isDefault: false,
         }
       })
@@ -236,16 +255,27 @@ export function useDashboardLayout({
   )
 
   const persist = useCallback(
-    async (patch: { layout?: ReportModule[]; filters?: DashboardFilter[] }): Promise<boolean> => {
+    async (patch: {
+      layout?: ReportModule[]
+      filters?: DashboardFilter[]
+      comparison?: DashboardComparisonMode
+    }): Promise<boolean> => {
       if (!supabase || !orgId) return false
       setState((s) => ({ ...s, error: null }))
       const nextLayout = patch.layout ?? state.layout
       const nextFilters = patch.filters ?? state.filters
+      const nextComparison = patch.comparison ?? state.comparison
       try {
+        // Merge into existing cover_meta so we don't stomp other keys
+        // (cover image, palette, etc.).
+        const nextCoverMeta = {
+          ...(state.row?.cover_meta ?? {}),
+          comparison: nextComparison,
+        }
         if (state.row) {
           const { data, error } = await supabase
             .from('dashboard_layouts')
-            .update({ layout: nextLayout, filters: nextFilters })
+            .update({ layout: nextLayout, filters: nextFilters, cover_meta: nextCoverMeta })
             .eq('id', state.row.id)
             .eq('version', state.row.version)
             .select('*')
@@ -260,6 +290,7 @@ export function useDashboardLayout({
               row: parsed.data,
               layout: parsed.data.layout as ReportModule[],
               filters: (parsed.data.filters as DashboardFilter[]) ?? [],
+              comparison: parseComparison(parsed.data.cover_meta as Record<string, unknown> | null),
               isDefault: false,
               available: s.available.map((r) => (r.id === parsed.data.id ? parsed.data : r)),
             }))
@@ -275,6 +306,7 @@ export function useDashboardLayout({
             name: 'Standard',
             layout: nextLayout,
             filters: nextFilters,
+            cover_meta: nextCoverMeta,
             is_default: true,
           })
           .select('*')
@@ -290,6 +322,7 @@ export function useDashboardLayout({
             row: parsed.data,
             layout: parsed.data.layout as ReportModule[],
             filters: (parsed.data.filters as DashboardFilter[]) ?? [],
+            comparison: parseComparison(parsed.data.cover_meta as Record<string, unknown> | null),
             isDefault: false,
             available: [...s.available, parsed.data],
           }))
@@ -300,7 +333,7 @@ export function useDashboardLayout({
         return false
       }
     },
-    [supabase, orgId, scopeId, slug, state.row, state.layout, state.filters],
+    [supabase, orgId, scopeId, slug, state.row, state.layout, state.filters, state.comparison],
   )
 
   const saveLayout = useCallback(
@@ -355,6 +388,21 @@ export function useDashboardLayout({
 
   const saveFilters = useCallback(
     (filters: DashboardFilter[]) => persist({ filters }),
+    [persist],
+  )
+  const saveComparison = useCallback(
+    (comparison: DashboardComparisonMode) => persist({ comparison }),
+    [persist],
+  )
+  /**
+   * Apply a scope-shipped preset: atomically replaces the filter set
+   * (and optionally the comparison mode). Cheaper than calling
+   * saveFilters + saveComparison separately — both land in one row
+   * update so optimistic version checks don't fight each other.
+   */
+  const applyPreset = useCallback(
+    (preset: { filters: DashboardFilter[]; comparison?: DashboardComparisonMode }) =>
+      persist({ filters: preset.filters, comparison: preset.comparison ?? 'none' }),
     [persist],
   )
 
@@ -553,6 +601,7 @@ export function useDashboardLayout({
         row: null,
         layout: registryDefault,
         filters: [],
+        comparison: 'none',
         isDefault: true,
         available: state.available,
       })
@@ -706,6 +755,8 @@ export function useDashboardLayout({
     selectLayout,
     saveLayout,
     saveFilters,
+    saveComparison,
+    applyPreset,
     saveAs,
     renameActive,
     deleteActive,

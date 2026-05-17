@@ -164,7 +164,7 @@ export function DashboardChooser({
         variant="ghost"
         onClick={() => setOpen((o) => !o)}
         className={
-          'inline-flex items-center gap-2 rounded-none border bg-white px-3 py-2.5 text-sm font-normal text-neutral-900 outline-none transition-colors hover:bg-neutral-50 ' +
+          'inline-flex items-center gap-2 rounded-md border bg-white px-3 py-2 text-sm font-medium text-neutral-900 outline-none transition-colors hover:bg-neutral-50 ' +
           (open
             ? 'border-[#1a3d32] ring-1 ring-[#1a3d32]/25'
             : 'border-neutral-300 hover:border-neutral-400')
@@ -188,7 +188,7 @@ export function DashboardChooser({
         <div
           role="listbox"
           aria-label="Velg visning"
-          className="absolute left-0 z-30 mt-1 w-[300px] border border-neutral-300 bg-white shadow-lg"
+          className="absolute left-0 z-30 mt-1 w-[300px] rounded-md border border-neutral-300 bg-white shadow-lg"
         >
           {submode === null ? (
             <div className="py-1">

@@ -169,6 +169,7 @@ export function DashboardScorecardFilterBar({
                 key={f.id}
                 filter={f}
                 dimension={dim}
+                optionsByDim={optionsByDim}
                 onClick={() => setEditing({ filter: f })}
                 onRemove={() => removeFilter(f.id)}
               />

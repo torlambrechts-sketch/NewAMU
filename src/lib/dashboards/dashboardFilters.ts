@@ -83,3 +83,31 @@ export function makeFilter(
 ): DashboardFilter {
   return { id: freshId('f'), dimensionId, operator, value }
 }
+
+/**
+ * Comparison mode for a dashboard — when set, scopes that opt in
+ * (`DashboardScope.supportsComparison`) compute parallel "previous
+ * period" dataset variants. Widgets reference these via
+ * `comparisonDatasetKey` on the KPI/line widget config.
+ *
+ *   'none'              — no comparison
+ *   'previous_period'   — same length as the current page filter
+ *                         (e.g. last 30d → previous 30d)
+ *   'previous_year'     — same calendar slice one year earlier
+ */
+export type DashboardComparisonMode = 'none' | 'previous_period' | 'previous_year'
+
+/**
+ * Saved filter-set preset that ships with a scope. Renders as a
+ * one-click chip in the filter bar. Clicking a preset replaces the
+ * active filter set (and optionally the comparison mode) with the
+ * preset's values. Useful for opinionated workflows like
+ * "Psykososial (AML § 4-3)" or "Røde risikoer".
+ */
+export type DashboardFilterPreset = {
+  id: string
+  label: string
+  description?: string
+  filters: DashboardFilter[]
+  comparison?: DashboardComparisonMode
+}

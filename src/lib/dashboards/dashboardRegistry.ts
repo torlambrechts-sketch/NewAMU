@@ -18,7 +18,12 @@
 
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { ReportModule } from '../../types/reportBuilder'
-import type { DashboardFilter, DashboardDimension } from './dashboardFilters'
+import type {
+  DashboardComparisonMode,
+  DashboardDimension,
+  DashboardFilter,
+  DashboardFilterPreset,
+} from './dashboardFilters'
 import { freshId } from './freshId'
 
 /**
@@ -134,6 +139,23 @@ export type DashboardScope = {
    * call their own dataset hook directly and don't depend on this.
    */
   datasetsHook?: DatasetsHook
+  /**
+   * Saved filter-set quick-applies rendered in the filter bar. When
+   * the user clicks a preset, the active filters (and optionally the
+   * comparison mode) are replaced atomically. Useful for opinionated
+   * workflows like "Psykososial (AML § 4-3)" or "Røde risikoer".
+   */
+  presets?: DashboardFilterPreset[]
+  /**
+   * Set true to render the "Sammenlign" dropdown in the filter bar
+   * for this scope. The scope's dataset hook must read the
+   * comparison value (received in DatasetsHookDeps or as a hook
+   * parameter for non-registry-driven pages) and emit parallel
+   * dataset keys for KPI/line widgets to reference via
+   * `comparisonDatasetKey`. Scopes that haven't wired comparison
+   * leave this off (default).
+   */
+  supportsComparison?: boolean
 }
 
 const registry = new Map<string, DashboardScope>()
@@ -166,5 +188,10 @@ export function instantiateWidget(entry: WidgetCatalogEntry): ReportModule {
 }
 
 /** Re-export so consumers don't have to import from two places. */
-export type { DashboardFilter, DashboardDimension }
+export type {
+  DashboardComparisonMode,
+  DashboardDimension,
+  DashboardFilter,
+  DashboardFilterPreset,
+}
 export { freshId } from './freshId'
