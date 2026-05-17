@@ -58,6 +58,7 @@ import {
 } from '../components/layout/WorkplaceStandardListLayout'
 import { Button } from '../components/ui/Button'
 import { StandardInput } from '../components/ui/Input'
+import { SearchableSelect } from '../components/ui/SearchableSelect'
 import { Tabs } from '../components/ui/Tabs'
 import type { EmploymentType, OrgEmployee, OrgEmployeeMandate, OrgUnit, OrgUnitKind, UserGroup } from '../types/organisation'
 import { MANDATE_TYPE_LABELS, MANDATE_TYPE_LAW_REFS } from '../types/organisation'
@@ -999,38 +1000,30 @@ export function OrganisationPage() {
                   <label className={WPSTD_FORM_FIELD_LABEL} htmlFor="org-unit-slide-kind">
                     Type
                   </label>
-                  <select
-                    id="org-unit-slide-kind"
-                    value={unitForm.kind}
-                    onChange={(e) => setUnitForm((f) => ({ ...f, kind: e.target.value as OrgUnitKind }))}
-                    className="mt-1.5 w-full rounded-none border border-neutral-300 bg-white px-3 py-2.5 text-sm text-neutral-900 shadow-none placeholder:text-neutral-400 focus:border-neutral-900 focus:outline-none focus:ring-1 focus:ring-neutral-900"
-                  >
-                    {Object.entries(KIND_LABELS).map(([k, v]) => (
-                      <option key={k} value={k}>
-                        {v}
-                      </option>
-                    ))}
-                  </select>
+                  <div className="mt-1.5">
+                    <SearchableSelect
+                      value={unitForm.kind}
+                      options={Object.entries(KIND_LABELS).map(([k, v]) => ({ value: k, label: v }))}
+                      onChange={(v) => setUnitForm((f) => ({ ...f, kind: v as OrgUnitKind }))}
+                    />
+                  </div>
                 </div>
                 <div>
                   <label className={WPSTD_FORM_FIELD_LABEL} htmlFor="org-unit-slide-parent">
                     Overordnet enhet
                   </label>
-                  <select
-                    id="org-unit-slide-parent"
-                    value={unitForm.parentId}
-                    onChange={(e) => setUnitForm((f) => ({ ...f, parentId: e.target.value }))}
-                    className="mt-1.5 w-full rounded-none border border-neutral-300 bg-white px-3 py-2.5 text-sm text-neutral-900 shadow-none placeholder:text-neutral-400 focus:border-neutral-900 focus:outline-none focus:ring-1 focus:ring-neutral-900"
-                  >
-                    <option value="">— Ingen (toppnivå) —</option>
-                    {org.units
-                      .filter((u) => u.id !== orgSlidePanel.unit?.id)
-                      .map((u) => (
-                        <option key={u.id} value={u.id}>
-                          {u.name}
-                        </option>
-                      ))}
-                  </select>
+                  <div className="mt-1.5">
+                    <SearchableSelect
+                      value={unitForm.parentId}
+                      options={[
+                        { value: '', label: '— Ingen (toppnivå) —' },
+                        ...org.units
+                          .filter((u) => u.id !== orgSlidePanel.unit?.id)
+                          .map((u) => ({ value: u.id, label: u.name })),
+                      ]}
+                      onChange={(v) => setUnitForm((f) => ({ ...f, parentId: v }))}
+                    />
+                  </div>
                 </div>
               </div>
             </div>
