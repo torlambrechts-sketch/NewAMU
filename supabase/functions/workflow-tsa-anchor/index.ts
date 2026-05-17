@@ -157,7 +157,9 @@ Deno.serve(async (req) => {
 
   const { error: rpcErr } = await supabase.rpc('workflow_record_anchor_signed', {
     p_anchor_id: anchorId,
-    p_provider: provider,
+    // Use the effective provider — 'stub' when STUB MODE is active so
+    // workflow_evidence_anchors.tsa_provider reflects fact-of-stubbing.
+    p_provider: tsaResult.effectiveProvider,
     p_serial: tsaResult.serial,
     p_token_path: tokenPath,
     // bytea via supabase-js: PostgREST accepts \\x-prefixed hex strings.

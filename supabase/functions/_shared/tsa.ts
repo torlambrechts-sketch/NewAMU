@@ -30,11 +30,22 @@
 
 export type TsaProvider = 'buypass' | 'digicert' | 'difi'
 
+/**
+ * Effective provider written into workflow_evidence_anchors.tsa_provider.
+ * In STUB mode this is the literal 'stub' so anchor rows reflect the
+ * fact-of-stubbing even though the caller requested e.g. 'buypass'.
+ * (The DB check constraint was extended to accept 'stub' in
+ * migration _125000_tsa_provider_stub_value.)
+ */
+export type TsaEffectiveProvider = TsaProvider | 'stub'
+
 export type TsaResponse = {
   serial: string
   token: Uint8Array
   signedAt: string
   stub: boolean
+  /** What the caller should write to workflow_evidence_anchors.tsa_provider. */
+  effectiveProvider: TsaEffectiveProvider
 }
 
 /**
@@ -53,9 +64,11 @@ export async function submitToTsa(
   const basicAuth = Deno.env.get(authKey)
 
   if (!url) {
-    // STUB MODE — no vendor URL configured.
-    console.log(
-      `[tsa] STUB MODE — ${envKey} is unset. Returning synthetic timestamp ` +
+    // STUB MODE — no vendor URL configured. Promote the log line to
+    // error-level so production log filters surface the warning; a real
+    // production deployment must set TSA_<PROVIDER>_URL.
+    console.error(
+      `[TSA STUB MODE] ${envKey} is unset. Returning synthetic timestamp ` +
         'for development. Set the env var to a real RFC 3161 endpoint in production.',
     )
     return buildStubResponse(merkleRoot, provider)
@@ -99,6 +112,7 @@ export async function submitToTsa(
     token: parsed.token,
     signedAt: parsed.signedAt ?? new Date().toISOString(),
     stub: false,
+    effectiveProvider: provider,
   }
 }
 
@@ -119,6 +133,10 @@ function buildStubResponse(merkleRoot: string, provider: TsaProvider): TsaRespon
     token: new TextEncoder().encode(tokenPayload),
     signedAt: new Date().toISOString(),
     stub: true,
+    // 'stub' propagates into workflow_evidence_anchors.tsa_provider so
+    // ops can monitor stub-vs-real anchor counts (see view
+    // workflow_evidence_anchors_stub_count in migration _125000).
+    effectiveProvider: 'stub',
   }
 }
 

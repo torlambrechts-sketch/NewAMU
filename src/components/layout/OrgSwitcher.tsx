@@ -133,15 +133,29 @@ export function OrgSwitcher({ variant = 'topbar' }: { variant?: 'topbar' | 'side
 
       // Best-effort: close any open auto_session for the *current* org
       // (the consultant-clock unmount in OrgSetupProvider also runs on
-      // hard reload). Done first so the audit trail is clean.
+      // hard reload). Done first so the audit trail is clean. Look up
+      // the real open entry first — the previous all-zero UUID fallback
+      // was a no-op masquerading as a close.
       try {
         if (organization?.id) {
-          await supabase.rpc('partner_end_time_entry', {
-            p_entry_id: '00000000-0000-0000-0000-000000000000', // no-op fallback
-          })
+          const { data: openEntry } = await supabase
+            .from('partner_time_entries')
+            .select('id')
+            .eq('user_id', user.id)
+            .eq('organization_id', organization.id)
+            .eq('source', 'auto_session')
+            .is('ended_at', null)
+            .order('started_at', { ascending: false })
+            .limit(1)
+            .maybeSingle()
+          if (openEntry?.id) {
+            await supabase.rpc('partner_end_time_entry', {
+              p_entry_id: openEntry.id,
+            })
+          }
         }
       } catch {
-        /* ignore — endpoint may not match without a real id */
+        /* best-effort — server-side sweeper will eventually close it */
       }
 
       const { error } = await supabase

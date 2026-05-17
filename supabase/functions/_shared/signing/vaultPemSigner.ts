@@ -36,6 +36,33 @@ async function sha256HexLocal(input: string): Promise<string> {
 }
 
 /**
+ * Insert into workflow_signing_audit_log with one retry. Returns
+ * { ok: true } on success, { ok: false, error } on terminal failure.
+ * Exported here as a module-local helper rather than _shared/util so
+ * the hsmStubSigner can re-use it (same module, same import path).
+ */
+// deno-lint-ignore no-explicit-any
+export async function insertAuditLogWithRetry(supabase: any, row: Record<string, unknown>): Promise<{ ok: true } | { ok: false; error: string }> {
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      const { error } = await supabase.from('workflow_signing_audit_log').insert(row)
+      if (!error) return { ok: true }
+      if (attempt === 1) {
+        return { ok: false, error: error.message ?? String(error) }
+      }
+      // Brief backoff before retry (50ms).
+      await new Promise((resolve) => setTimeout(resolve, 50))
+    } catch (e) {
+      if (attempt === 1) {
+        return { ok: false, error: (e as Error).message }
+      }
+      await new Promise((resolve) => setTimeout(resolve, 50))
+    }
+  }
+  return { ok: false, error: 'retries exhausted' }
+}
+
+/**
  * Convert a PEM-encoded PKCS#8 RSA private key into a CryptoKey usable by
  * Deno's WebCrypto for RS256 signing. Strips PEM headers + decodes base64.
  */
@@ -87,34 +114,48 @@ class VaultPemSigner implements Signer {
     )
     const signatureB64 = base64UrlEncodeBytes(new Uint8Array(sigBuf))
 
-    // Append-only audit-log row. Errors here are non-fatal for the sign
-    // itself (the regulator call still proceeds), but we log loudly so the
-    // operator can see drift between actual signs and recorded signs.
-    try {
-      if (this.supabase) {
-        const sha = await sha256HexLocal(signingInput)
-        const { error } = await this.supabase
-          .from('workflow_signing_audit_log')
-          .insert({
-            organization_id: this.config.organizationId,
-            kind: this.config.kind,
-            adapter: this.kind,
-            public_key_kid: this.metadata.kid,
-            cert_serial: this.metadata.certificateSerial ?? null,
-            cert_expires_at: this.metadata.certificateExpiresAt ?? null,
-            intent: 'maskinporten_jwt_bearer_grant',
-            sha256_of_signed_input: sha,
-          })
-        if (error) {
-          console.warn(
-            `workflow_signing_audit_log insert failed (non-fatal): ${error.message}`,
+    // Append-only audit-log row. The regulator call MUST proceed even
+    // if the audit row can't be persisted right now (otherwise a flaky
+    // DB stops gov reporting), but we retry once on the primary insert
+    // and fall back to workflow_signing_audit_failures so a daily
+    // drainer can re-promote the row. See migration _124900.
+    if (this.supabase) {
+      const sha = await sha256HexLocal(signingInput)
+      const row = {
+        organization_id: this.config.organizationId,
+        kind: this.config.kind,
+        adapter: this.kind,
+        public_key_kid: this.metadata.kid,
+        cert_serial: this.metadata.certificateSerial ?? null,
+        cert_expires_at: this.metadata.certificateExpiresAt ?? null,
+        intent: 'maskinporten_jwt_bearer_grant',
+        sha256_of_signed_input: sha,
+      }
+      const inserted = await insertAuditLogWithRetry(this.supabase, row)
+      if (!inserted.ok) {
+        try {
+          const { error: failErr } = await this.supabase
+            .from('workflow_signing_audit_failures')
+            .insert({
+              ...row,
+              attempt_count: 1,
+              last_error: inserted.error ?? 'unknown',
+            })
+          if (failErr) {
+            console.error(
+              `[signing-audit] failure-table insert also failed: ${failErr.message}`,
+            )
+          } else {
+            console.error(
+              `[signing-audit] persisted to failures (drainer will retry): ${inserted.error}`,
+            )
+          }
+        } catch (failThrow) {
+          console.error(
+            `[signing-audit] failure-table insert threw: ${(failThrow as Error).message}`,
           )
         }
       }
-    } catch (logErr) {
-      console.warn(
-        `workflow_signing_audit_log insert threw (non-fatal): ${(logErr as Error).message}`,
-      )
     }
 
     return signatureB64

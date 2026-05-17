@@ -106,6 +106,10 @@ export const PERMISSION_KEYS = [
   'tilsynsbrev.upload',
   /** Se konfidensielle tilsynsbrev (default-confidentiality = restricted). */
   'tilsynsbrev.view_confidential',
+
+  // ─── Tasks confidentiality (tilsynsbrev spawns restricted/confidential tasks) ─
+  /** Se konfidensielle oppgaver — speiles på workflow.view_confidential-mønsteret. */
+  'tasks.view_confidential',
 ] as const
 
 export type PermissionKey = (typeof PERMISSION_KEYS)[number]
@@ -159,6 +163,7 @@ export const PERMISSION_LABELS: Record<PermissionKey, string> = {
   'org.export': 'Organisasjon — eksportere ansatt- og org-data (GDPR Art. 20)',
   'tilsynsbrev.upload': 'Tilsynsbrev — laste opp og parse inspeksjonsbrev',
   'tilsynsbrev.view_confidential': 'Tilsynsbrev — se konfidensielle saker',
+  'tasks.view_confidential': 'Se konfidensielle oppgaver',
 }
 
 /** Route prefix → permission (primary nav). Index route checked separately. */

@@ -143,24 +143,26 @@ export function PartnerConsolePage() {
         }
         setWorkflowsByOrg(map)
       }
-      // Open critical avvik (>7d) — task module table. Best-effort: try
-      // the canonical tasks table; if the schema differs in this org,
-      // we silently skip (the card will just show "—").
+      // Open high-priority tasks (>7d) — task module table. The tasks
+      // schema (archive/_20260615120000:232) has `priority` enum
+      // ('low','normal','high') — no `severity` column. We treat
+      // priority='high' as the critical surface. Best-effort: if the
+      // schema differs in this org, we silently skip (card shows "—").
       const sevenDaysAgo = new Date()
       sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7)
       const tRes = await supabase
         .from('tasks')
-        .select('organization_id, severity, status, created_at')
+        .select('organization_id, priority, status, created_at')
         .in('organization_id', orgIds)
         .lte('created_at', sevenDaysAgo.toISOString())
       if (!cancelled && !tRes.error) {
         const map = new Map<string, number>()
         for (const row of (tRes.data ?? []) as Array<{
           organization_id: string
-          severity: string | null
+          priority: string | null
           status: string | null
         }>) {
-          if (row.severity === 'critical' && row.status !== 'done' && row.status !== 'closed') {
+          if (row.priority === 'high' && row.status !== 'done' && row.status !== 'cancelled') {
             map.set(row.organization_id, (map.get(row.organization_id) ?? 0) + 1)
           }
         }

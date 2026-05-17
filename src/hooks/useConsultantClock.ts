@@ -16,7 +16,7 @@ import { useOrgSetupContext } from './useOrgSetupContext'
 import { usePartnerMembership } from './usePartnerMembership'
 
 export function useConsultantClock() {
-  const { supabase, organization } = useOrgSetupContext()
+  const { supabase, organization, profile } = useOrgSetupContext()
   const { memberships, isPartnerMember, currentPartner } = usePartnerMembership()
   const currentEntryRef = useRef<string | null>(null)
   const currentOrgRef = useRef<string | null>(null)
@@ -31,6 +31,11 @@ export function useConsultantClock() {
       (m) => m.organization_id === orgId && m.active,
     )
     if (!isCustomerOrg) return
+    // Employee-as-consultant guard: even if a partner_membership row
+    // exists, refuse to clock when the caller's profile.organization_id
+    // matches the org we'd be billing against (the server-side RPC also
+    // rejects this — see partner_start_time_entry C-8 hardening).
+    if (profile?.organization_id && profile.organization_id === orgId) return
 
     // Same org as last render — nothing to do.
     if (currentOrgRef.current === orgId && currentEntryRef.current) return
@@ -87,7 +92,7 @@ export function useConsultantClock() {
         currentOrgRef.current = null
       })
     }
-  }, [supabase, isPartnerMember, orgId, memberships, currentPartner?.id])
+  }, [supabase, isPartnerMember, orgId, memberships, currentPartner?.id, profile?.organization_id])
 
   // Browser tab close → mark the entry closed. This is best-effort
   // because the unload tick rarely lets us complete a network call,

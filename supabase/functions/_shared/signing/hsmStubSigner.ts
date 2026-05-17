@@ -18,6 +18,7 @@ import type {
   SignerFactoryConfig,
   SignerPublicKeyMetadata,
 } from './types.ts'
+import { insertAuditLogWithRetry } from './vaultPemSigner.ts'
 
 let cachedKeyPair: CryptoKeyPair | null = null
 let cachedImportedKey: CryptoKey | null = null
@@ -27,6 +28,13 @@ function base64UrlEncodeBytes(bytes: Uint8Array): string {
     .replace(/\+/g, '-')
     .replace(/\//g, '_')
     .replace(/=+$/, '')
+}
+
+async function sha256HexLocal(input: string): Promise<string> {
+  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(input))
+  return [...new Uint8Array(buf)]
+    .map((b) => b.toString(16).padStart(2, '0'))
+    .join('')
 }
 
 async function importPemPrivateKey(pem: string): Promise<CryptoKey> {
@@ -68,9 +76,19 @@ async function getOrCreatePrivateKey(): Promise<CryptoKey> {
 class HsmStubSigner implements Signer {
   readonly kind = 'stub' as const
   private readonly metadata: SignerPublicKeyMetadata
+  // deno-lint-ignore no-explicit-any
+  private readonly supabase: any
+  private readonly config: SignerFactoryConfig
 
-  constructor(metadata: SignerPublicKeyMetadata) {
+  constructor(
+    metadata: SignerPublicKeyMetadata,
+    // deno-lint-ignore no-explicit-any
+    supabase: any,
+    config: SignerFactoryConfig,
+  ) {
     this.metadata = metadata
+    this.supabase = supabase
+    this.config = config
   }
 
   async sign(headerB64u: string, payloadB64u: string): Promise<string> {
@@ -84,6 +102,49 @@ class HsmStubSigner implements Signer {
       key,
       new TextEncoder().encode(signingInput),
     )
+
+    // Mirror the vaultPemSigner audit-log behaviour: writes a row tagged
+    // adapter='stub' so future readers can identify which signs were
+    // stub-produced. Same retry-once + failure-table fallback path.
+    if (this.supabase) {
+      try {
+        const sha = await sha256HexLocal(signingInput)
+        const row = {
+          organization_id: this.config.organizationId,
+          kind: this.config.kind,
+          adapter: this.kind, // 'stub'
+          public_key_kid: this.metadata.kid,
+          cert_serial: this.metadata.certificateSerial ?? null,
+          cert_expires_at: this.metadata.certificateExpiresAt ?? null,
+          intent: 'maskinporten_jwt_bearer_grant',
+          sha256_of_signed_input: sha,
+        }
+        const inserted = await insertAuditLogWithRetry(this.supabase, row)
+        if (!inserted.ok) {
+          const { error: failErr } = await this.supabase
+            .from('workflow_signing_audit_failures')
+            .insert({
+              ...row,
+              attempt_count: 1,
+              last_error: inserted.error ?? 'unknown',
+            })
+          if (failErr) {
+            console.error(
+              `[signing-audit:stub] failure-table insert also failed: ${failErr.message}`,
+            )
+          } else {
+            console.error(
+              `[signing-audit:stub] persisted to failures: ${inserted.error}`,
+            )
+          }
+        }
+      } catch (logErr) {
+        console.error(
+          `[signing-audit:stub] audit-log threw: ${(logErr as Error).message}`,
+        )
+      }
+    }
+
     return base64UrlEncodeBytes(new Uint8Array(sigBuf))
   }
 
@@ -96,10 +157,14 @@ export const hsmStubSignerFactory: SignerFactory = {
   build(cfg: SignerFactoryConfig): Promise<Signer> {
     const kid = cfg.kid ?? Deno.env.get('HSM_STUB_KID') ?? 'hsm-stub-kid'
     return Promise.resolve(
-      new HsmStubSigner({
-        kid,
-        algorithm: 'RS256',
-      }),
+      new HsmStubSigner(
+        {
+          kid,
+          algorithm: 'RS256',
+        },
+        cfg.supabase,
+        cfg,
+      ),
     )
   },
 }
