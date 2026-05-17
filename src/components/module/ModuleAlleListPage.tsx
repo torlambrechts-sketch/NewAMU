@@ -1,27 +1,23 @@
 // ModuleAlleListPage — generic "Alle X" table view for every capability
-// module (category-architecture §T7). Renders a search + filter chip strip
-// + table with category-grouped rows. Drops below the per-module Analyse
-// page in the sidebar so users have one canonical place to scan + filter
-// every instance the module knows about.
-//
-// Generic over `RowT` so per-module pages stay thin: each one declares
-// its row source, columns, search adapter, category resolver, and
-// (optionally) a chip-filter list. The active regulation filter from
-// RegulationFilterContext is applied automatically.
+// module (category-architecture §T7). Uses the List 2 – kandidat/ordre
+// tabell pattern: search + collapsible filter panel inside a List2Shell card,
+// paginated flat table with category group rows.
 
 import { Fragment, useMemo, useState, type ReactNode } from 'react'
-import { Search, X } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Filter, Search, X } from 'lucide-react'
 import { ModulePageShell } from './ModulePageShell'
-import { StandardInput } from '../ui/Input'
+import { List2Shell } from '../layout/List2Shell'
 import { SearchableSelect } from '../ui/SearchableSelect'
+import { StandardInput } from '../ui/Input'
 import { useRegulationFilter } from '../../context/RegulationFilterContext'
+
+const CREAM_DEEP = '#EFE8DC'
 
 export type ModuleAlleColumn<RowT> = {
   key: string
   label: string
   /** Cell renderer. Falls back to `String(row[key as keyof RowT])` when omitted. */
   render?: (row: RowT) => ReactNode
-  /** Sort affinity — `'category'` is the default group order; otherwise pure string compare. */
   align?: 'left' | 'right'
   /** Approximate fixed width in tailwind units; useful for status badges. */
   width?: string
@@ -69,11 +65,11 @@ export interface ModuleAlleListPageProps<RowT> {
   getRegulationId: (row: RowT) => string | null
   /** Free-text search adapter — joined string is matched case-insensitively. */
   searchableText: (row: RowT) => string
-  /** Optional filter chips rendered in a strip below the search box. */
+  /** Optional filter chips rendered in a collapsible panel. */
   chipFilters?: ModuleAlleChipFilter<RowT>[]
   /** Empty-state node when zero rows survive filtering. */
   emptyState?: ReactNode
-  /** Optional accent for the search-bar focus + table chrome. */
+  /** Optional accent — currently reserved for future use. */
   accent?: string
 }
 
@@ -94,8 +90,12 @@ export function ModuleAlleListPage<RowT>({
   const { isActive: isRegulationActive } = useRegulationFilter()
   const [query, setQuery] = useState('')
   const [chipState, setChipState] = useState<Record<string, ChipState>>({})
+  const [filtersOpen, setFiltersOpen] = useState(false)
+  const [perPage, setPerPage] = useState(25)
+  const [page, setPage] = useState(1)
 
   const setEnumChip = (id: string, value: string) => {
+    setPage(1)
     setChipState((prev) => {
       const next = { ...prev }
       if (!value) delete next[id]
@@ -104,6 +104,7 @@ export function ModuleAlleListPage<RowT>({
     })
   }
   const setDateChip = (id: string, patch: { from?: string; to?: string }) => {
+    setPage(1)
     setChipState((prev) => {
       const cur = (prev[id] as { kind: 'date_range'; from: string; to: string } | undefined) ?? {
         kind: 'date_range' as const,
@@ -122,19 +123,27 @@ export function ModuleAlleListPage<RowT>({
     })
   }
   const clearChip = (id: string) => {
+    setPage(1)
     setChipState((prev) => {
       const next = { ...prev }
       delete next[id]
       return next
     })
   }
+  const clearAllChips = () => {
+    setPage(1)
+    setChipState({})
+    setQuery('')
+  }
+
+  const activeFilterCount =
+    (query.trim() ? 1 : 0) + Object.keys(chipState).length
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase()
     return rows.filter((r) => {
       if (!isRegulationActive(getRegulationId(r))) return false
       if (q.length > 0 && !searchableText(r).toLowerCase().includes(q)) return false
-      // Chip filters
       for (const chip of chipFilters ?? []) {
         const state = chipState[chip.id]
         if (!state) continue
@@ -145,40 +154,33 @@ export function ModuleAlleListPage<RowT>({
           if (!raw) return false
           const at = new Date(raw).getTime()
           if (state.from) {
-            const from = new Date(state.from).getTime()
-            if (at < from) return false
+            if (at < new Date(state.from).getTime()) return false
           }
           if (state.to) {
-            // Inclusive end-of-day
-            const to = new Date(`${state.to}T23:59:59`).getTime()
-            if (at > to) return false
+            if (at > new Date(`${state.to}T23:59:59`).getTime()) return false
           }
         }
       }
       return true
     })
-  }, [
-    rows,
-    query,
-    isRegulationActive,
-    getRegulationId,
-    searchableText,
-    chipFilters,
-    chipState,
-  ])
+  }, [rows, query, isRegulationActive, getRegulationId, searchableText, chipFilters, chipState])
 
-  // Group by category id for the default sort. When no categoryNameById
-  // is supplied we still group, just without rendered headers.
-  const grouped = useMemo(() => {
+  const total = filtered.length
+  const totalPages = Math.max(1, Math.ceil(total / perPage))
+  const pageSafe = Math.min(page, totalPages)
+  const start = (pageSafe - 1) * perPage
+  const pageSlice = filtered.slice(start, start + perPage)
+
+  // Re-group the current page's rows so category headers are scoped to the page.
+  const pagedGroups = useMemo(() => {
     const buckets = new Map<string, RowT[]>()
-    for (const r of filtered) {
+    for (const r of pageSlice) {
       const key = getCategoryId(r) ?? '__uncat__'
       const list = buckets.get(key) ?? []
       list.push(r)
       buckets.set(key, list)
     }
     const orderedKeys = [...buckets.keys()].sort((a, b) => {
-      // Uncategorised rows fall to the bottom.
       if (a === '__uncat__') return 1
       if (b === '__uncat__') return -1
       const aLabel = categoryNameById?.get(a) ?? a
@@ -190,37 +192,73 @@ export function ModuleAlleListPage<RowT>({
       label: k === '__uncat__' ? 'Uten kategori' : (categoryNameById?.get(k) ?? k),
       rows: buckets.get(k) ?? [],
     }))
-  }, [filtered, getCategoryId, categoryNameById])
+  }, [pageSlice, getCategoryId, categoryNameById])
+
+  const hasFilters = Boolean(chipFilters && chipFilters.length > 0)
 
   return (
     <ModulePageShell breadcrumb={breadcrumb} title={title} description={description} headerActions={headerActions}>
-      <div className="space-y-4">
-        {/* Search row — mirrors the action-board filter strip pattern */}
-        <div className="relative max-w-md">
-          <Search
-            className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-neutral-400"
-            aria-hidden
-          />
-          <StandardInput
-            type="search"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="Søk i alle…"
-            aria-label="Søk"
-            className="pl-9"
-          />
+      <List2Shell>
+        {/* Toolbar: search + filter toggle */}
+        <div className="flex flex-wrap items-center gap-3 border-b border-neutral-100 px-4 py-3 md:px-5">
+          <div className="relative min-w-[200px] flex-1">
+            <Search
+              className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-neutral-400"
+              aria-hidden
+            />
+            <input
+              type="search"
+              value={query}
+              onChange={(e) => { setQuery(e.target.value); setPage(1) }}
+              placeholder="Søk i alle…"
+              aria-label="Søk"
+              className="w-full rounded-lg border border-neutral-200 bg-white py-2.5 pl-10 pr-3 text-sm text-neutral-900 outline-none placeholder:text-neutral-400 focus:ring-2 focus:ring-[#1a3d32]/20"
+            />
+          </div>
+          {hasFilters ? (
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setFiltersOpen((o) => !o)}
+                className={`inline-flex items-center gap-1.5 rounded-lg border px-3 py-2 text-xs font-semibold uppercase tracking-wide transition-colors ${
+                  filtersOpen || activeFilterCount > 0
+                    ? 'border-neutral-400 bg-neutral-50 text-neutral-900'
+                    : 'border-neutral-200 bg-white text-neutral-700 hover:bg-neutral-50'
+                }`}
+                aria-expanded={filtersOpen}
+              >
+                <Filter className="size-3.5 text-neutral-500" aria-hidden />
+                Filter
+              </button>
+              {activeFilterCount > 0 ? (
+                <button
+                  type="button"
+                  onClick={clearAllChips}
+                  className="inline-flex items-center gap-1 text-xs text-neutral-500 hover:text-neutral-800"
+                >
+                  <X className="size-3.5" aria-hidden />
+                  Nullstill
+                </button>
+              ) : (
+                <span className="text-xs text-neutral-400">Ingen filter aktive</span>
+              )}
+            </div>
+          ) : null}
         </div>
 
-        {/* Chip filter strip (action-board pattern). */}
-        {chipFilters && chipFilters.length > 0 ? (
-          <div className="flex flex-wrap items-end gap-3">
-            {chipFilters.map((chip) => {
+        {/* Collapsible filter panel */}
+        {filtersOpen && hasFilters ? (
+          <div
+            className="flex flex-wrap items-end gap-4 border-b border-neutral-100 px-4 py-4 md:px-5"
+            style={{ backgroundColor: CREAM_DEEP }}
+          >
+            {chipFilters!.map((chip) => {
               if (chip.kind === 'enum') {
                 const state = chipState[chip.id]
                 const value = state?.kind === 'enum' ? state.value : ''
                 return (
                   <div key={chip.id} className="flex flex-col gap-1">
-                    <label className="text-[11px] font-semibold uppercase tracking-wide text-neutral-500">
+                    <label className="text-[10px] font-bold uppercase tracking-wide text-neutral-600">
                       {chip.label}
                     </label>
                     <div className="flex items-center gap-1.5">
@@ -242,7 +280,7 @@ export function ModuleAlleListPage<RowT>({
                           aria-label={`Fjern ${chip.label}-filter`}
                           className="rounded-md border border-neutral-200 bg-white p-1.5 text-neutral-500 transition-colors hover:bg-neutral-100"
                         >
-                          <X className="h-3.5 w-3.5" aria-hidden />
+                          <X className="size-3.5" aria-hidden />
                         </button>
                       ) : null}
                     </div>
@@ -254,7 +292,7 @@ export function ModuleAlleListPage<RowT>({
               const to = state?.kind === 'date_range' ? state.to : ''
               return (
                 <div key={chip.id} className="flex flex-col gap-1">
-                  <label className="text-[11px] font-semibold uppercase tracking-wide text-neutral-500">
+                  <label className="text-[10px] font-bold uppercase tracking-wide text-neutral-600">
                     {chip.label}
                   </label>
                   <div className="flex items-center gap-1.5">
@@ -263,7 +301,7 @@ export function ModuleAlleListPage<RowT>({
                       value={from}
                       onChange={(e) => setDateChip(chip.id, { from: e.target.value })}
                       aria-label={`${chip.label} fra`}
-                      className="w-[150px]"
+                      className="w-[148px]"
                     />
                     <span className="text-xs text-neutral-400">–</span>
                     <StandardInput
@@ -271,7 +309,7 @@ export function ModuleAlleListPage<RowT>({
                       value={to}
                       onChange={(e) => setDateChip(chip.id, { to: e.target.value })}
                       aria-label={`${chip.label} til`}
-                      className="w-[150px]"
+                      className="w-[148px]"
                     />
                     {from || to ? (
                       <button
@@ -280,7 +318,7 @@ export function ModuleAlleListPage<RowT>({
                         aria-label={`Fjern ${chip.label}-filter`}
                         className="rounded-md border border-neutral-200 bg-white p-1.5 text-neutral-500 transition-colors hover:bg-neutral-100"
                       >
-                        <X className="h-3.5 w-3.5" aria-hidden />
+                        <X className="size-3.5" aria-hidden />
                       </button>
                     ) : null}
                   </div>
@@ -290,48 +328,48 @@ export function ModuleAlleListPage<RowT>({
           </div>
         ) : null}
 
-        {/* Table — category headers separate row groups */}
-        {filtered.length === 0 ? (
-          (emptyState ?? (
-            <div className="rounded-md border border-dashed border-neutral-300 bg-white p-8 text-center text-sm text-neutral-600">
-              Ingen rader matcher de aktive filtrene.
-            </div>
-          ))
-        ) : (
-          <div className="overflow-hidden rounded-md border border-neutral-200 bg-white">
-            <table className="w-full text-left text-sm">
-              <thead className="bg-neutral-50">
-                <tr className="border-b border-neutral-200">
-                  {columns.map((c) => (
-                    <th
-                      key={c.key}
-                      className={`px-4 py-2 text-[11px] font-semibold uppercase tracking-wide text-neutral-600 ${
-                        c.align === 'right' ? 'text-right' : 'text-left'
-                      }`}
-                    >
-                      {c.label}
-                    </th>
-                  ))}
+        {/* Table */}
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[640px] text-left text-sm">
+            <thead>
+              <tr className="border-b border-neutral-200 bg-neutral-50/90 text-[10px] font-bold uppercase tracking-wide text-neutral-500">
+                {columns.map((c) => (
+                  <th
+                    key={c.key}
+                    className={`px-5 py-3 ${c.align === 'right' ? 'text-right' : 'text-left'}`}
+                  >
+                    {c.label}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {total === 0 ? (
+                <tr>
+                  <td colSpan={columns.length}>
+                    {emptyState ?? (
+                      <div className="px-5 py-10 text-center text-sm text-neutral-500">
+                        Ingen rader matcher de aktive filtrene.
+                      </div>
+                    )}
+                  </td>
                 </tr>
-              </thead>
-              <tbody>
-                {grouped.map((group) => (
+              ) : (
+                pagedGroups.map((group) => (
                   <Fragment key={group.key}>
                     <tr className="bg-neutral-50/60">
                       <td
                         colSpan={columns.length}
-                        className="px-4 py-2 text-xs font-semibold uppercase tracking-wide text-neutral-500"
+                        className="px-5 py-2 text-[10px] font-bold uppercase tracking-wide text-neutral-400"
                       >
                         {group.label}
-                        <span className="ml-2 font-normal text-neutral-400">
-                          ({group.rows.length})
-                        </span>
+                        <span className="ml-2 font-normal">({group.rows.length})</span>
                       </td>
                     </tr>
                     {group.rows.map((row, ri) => (
                       <tr
                         key={`${group.key}:${ri}`}
-                        className="border-t border-neutral-100 hover:bg-neutral-50/40"
+                        className="border-b border-neutral-100 hover:bg-neutral-50/80"
                       >
                         {columns.map((c) => {
                           const content = c.render
@@ -340,8 +378,8 @@ export function ModuleAlleListPage<RowT>({
                           return (
                             <td
                               key={c.key}
-                              className={`px-4 py-2 text-neutral-800 ${
-                                c.align === 'right' ? 'text-right' : 'text-left'
+                              className={`px-5 py-4 text-neutral-800 ${
+                                c.align === 'right' ? 'text-right' : ''
                               }`}
                             >
                               {content}
@@ -351,13 +389,55 @@ export function ModuleAlleListPage<RowT>({
                       </tr>
                     ))}
                   </Fragment>
-                ))}
-              </tbody>
-            </table>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+
+        {/* Footer: items-per-page + pagination */}
+        <div className="flex flex-wrap items-center justify-between gap-3 border-t border-neutral-100 px-5 py-3 text-xs text-neutral-600">
+          <div className="flex flex-wrap items-center gap-3">
+            <label className="flex items-center gap-2">
+              <span className="text-neutral-500">Rader per side</span>
+              <select
+                value={perPage}
+                onChange={(e) => { setPerPage(Number(e.target.value)); setPage(1) }}
+                className="rounded-md border border-neutral-200 bg-white px-2 py-1 text-sm"
+              >
+                <option value={10}>10</option>
+                <option value={25}>25</option>
+                <option value={50}>50</option>
+              </select>
+            </label>
+            <span className="text-neutral-500">
+              {total === 0
+                ? 'Ingen treff'
+                : `Viser ${start + 1}–${Math.min(start + perPage, total)} av ${total}`}
+            </span>
           </div>
-        )}
-      </div>
+          <div className="flex items-center gap-1">
+            <button
+              type="button"
+              disabled={pageSafe <= 1}
+              onClick={() => setPage((p) => Math.max(1, p - 1))}
+              className="rounded p-1 text-neutral-400 hover:bg-neutral-100 disabled:opacity-40"
+              aria-label="Forrige side"
+            >
+              <ChevronLeft className="size-4" />
+            </button>
+            <button
+              type="button"
+              disabled={pageSafe >= totalPages}
+              onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+              className="rounded p-1 text-neutral-400 hover:bg-neutral-100 disabled:opacity-40"
+              aria-label="Neste side"
+            >
+              <ChevronRight className="size-4" />
+            </button>
+          </div>
+        </div>
+      </List2Shell>
     </ModulePageShell>
   )
 }
-

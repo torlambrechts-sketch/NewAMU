@@ -1,15 +1,17 @@
 // Hub landing for /alerts — lists template tiles grouped by category,
 // plus the open-cases pile. Mirrors ChecklistsHubLanding layout.
 
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { AlertTriangle, ArrowRight, ChevronRight } from 'lucide-react'
+import { AlertTriangle, ArrowRight, ChevronRight, Plus } from 'lucide-react'
 import { ModulePageShell } from '../../../src/components/module/ModulePageShell'
 import { ModuleSectionCard } from '../../../src/components/module/ModuleSectionCard'
+import { LayoutScoreStatRow } from '../../../src/components/layout/LayoutScoreStatRow'
 import { Badge } from '../../../src/components/ui/Badge'
 import { Button } from '../../../src/components/ui/Button'
 import { useAlerts } from '../useAlerts'
 import { ALERT_KIND_SHORT_LABEL, ALERT_STATUS_LABEL, ALERTS_ACCENT } from '../alertsLabels'
+import { AlertsCreateForm } from '../components/AlertsCreateForm'
 import type { ResolvedAlertTemplate, AlertCaseRow } from '../types'
 
 function CountsForTemplate(props: { templateId: string; cases: AlertCaseRow[] }) {
@@ -33,6 +35,7 @@ function CountsForTemplate(props: { templateId: string; cases: AlertCaseRow[] })
 export function AlertsHubLanding() {
   const alerts = useAlerts()
   const navigate = useNavigate()
+  const [createOpen, setCreateOpen] = useState(false)
 
   const grouped = useMemo(() => {
     const out = new Map<string, { name: string; templates: ResolvedAlertTemplate[] }>()
@@ -63,8 +66,16 @@ export function AlertsHubLanding() {
       description="Varsler etter AML kap. 2A, GDPR-brudd (Art. 33), HMS-avvik, sikkerhetshendelser og etiske bekymringer."
       headerActions={
         <div className="flex items-center gap-2">
-          <Link to="/alerts/analyse"><Button variant="ghost" size="sm">Analyse</Button></Link>
-          {alerts.canManage ? <Link to="/alerts/admin"><Button variant="secondary" size="sm">Innstillinger</Button></Link> : null}
+          {alerts.canManage ? (
+            <Button
+              variant="primary"
+              icon={<Plus className="h-4 w-4" />}
+              onClick={() => setCreateOpen(true)}
+              disabled={alerts.resolvedTemplates.length === 0}
+            >
+              Ny sak
+            </Button>
+          ) : null}
         </div>
       }
       loading={alerts.loading}
@@ -74,22 +85,13 @@ export function AlertsHubLanding() {
         <ModuleSectionCard className="border-red-200 bg-red-50 p-4 text-sm text-red-700">{alerts.error}</ModuleSectionCard>
       ) : null}
 
-      <ModuleSectionCard className="p-6">
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-          <div>
-            <p className="text-[10px] font-bold uppercase tracking-wide text-neutral-500">Åpne saker</p>
-            <p className="mt-1 text-3xl font-semibold" style={{ color: ALERTS_ACCENT }}>{openCount}</p>
-          </div>
-          <div>
-            <p className="text-[10px] font-bold uppercase tracking-wide text-neutral-500">Forsinket kvittering</p>
-            <p className={`mt-1 text-3xl font-semibold ${overdueCount > 0 ? 'text-red-700' : 'text-neutral-400'}`}>{overdueCount}</p>
-          </div>
-          <div>
-            <p className="text-[10px] font-bold uppercase tracking-wide text-neutral-500">Totalt</p>
-            <p className="mt-1 text-3xl font-semibold text-neutral-900">{alerts.cases.length}</p>
-          </div>
-        </div>
-      </ModuleSectionCard>
+      <LayoutScoreStatRow
+        items={[
+          { big: String(openCount), title: 'Åpne saker', sub: 'Krever oppfølging' },
+          { big: String(overdueCount), title: 'Forsinket kvittering', sub: 'AML § 2A-3 frist passert' },
+          { big: String(alerts.cases.length), title: 'Totalt', sub: 'Alle saker i systemet' },
+        ]}
+      />
 
       {grouped.length === 0 ? (
         <ModuleSectionCard className="p-6">
@@ -176,6 +178,28 @@ export function AlertsHubLanding() {
       <p className="flex items-center gap-2 text-xs text-neutral-500">
         <AlertTriangle className="size-3" /> Anonymitet og taushetsplikt er førsteprioritet. AML § 2A-7 (5).
       </p>
+
+      <AlertsCreateForm
+        open={createOpen}
+        onClose={() => setCreateOpen(false)}
+        templates={alerts.resolvedTemplates}
+        onCreate={async (payload) => {
+          const result = await alerts.createCase({
+            templateId: payload.templateId,
+            templateKind: payload.templateKind,
+            kind: payload.kind,
+            title: payload.title,
+            description: payload.description,
+            isAnonymous: payload.isAnonymous,
+            reporterContact: payload.reporterContact ?? null,
+            occurredAtText: payload.occurredAtText ?? null,
+          })
+          if (result) {
+            setCreateOpen(false)
+            navigate(`/alerts/${result.id}`)
+          }
+        }}
+      />
     </ModulePageShell>
   )
 }
