@@ -10,9 +10,20 @@ export type Framework = {
   summary: string
   paragraphs: string[]
   modulesCovering: FeatureModuleSlug[]
+  slug: string
 }
 
-export const FRAMEWORKS: Framework[] = [
+export function frameworkSlug(short: string): string {
+  return short
+    .toLowerCase()
+    .replace(/[øæå]/g, (c) => ({ ø: 'o', æ: 'ae', å: 'a' }[c] ?? c))
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-|-$/g, '')
+}
+
+type FrameworkInput = Omit<Framework, 'slug'>
+
+const FRAMEWORKS_INPUT: FrameworkInput[] = [
   {
     short: 'Arbeidsmiljøloven',
     full: 'Lov om arbeidsmiljø, arbeidstid og stillingsvern m.v.',
@@ -118,6 +129,11 @@ export const FRAMEWORKS: Framework[] = [
     modulesCovering: ['varslinger', 'dokumenter'],
   },
 ]
+
+export const FRAMEWORKS: Framework[] = FRAMEWORKS_INPUT.map((f) => ({
+  ...f,
+  slug: frameworkSlug(f.short),
+}))
 
 export type CompliancePack = {
   id: 'aml-amu' | 'iso-45001'

@@ -11,25 +11,28 @@ const FOREST = '#1a3d32'
 const TEAL = '#2dd4bf'
 const CREAM = '#f5f0e8'
 
-function slugify(s: string) {
-  return s
-    .toLowerCase()
-    .replace(/[øæå]/g, (c) => ({ ø: 'o', æ: 'ae', å: 'a' }[c] ?? c))
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-|-$/g, '')
-}
-
 export function CompliancePage() {
   const totalParagraphs = FRAMEWORKS.reduce((sum, f) => sum + f.paragraphs.length, 0)
 
   const jsonLd = {
     '@context': 'https://schema.org',
-    '@type': 'FAQPage',
-    mainEntity: FAQ.map(({ question, answer }) => ({
-      '@type': 'Question',
-      name: question,
-      acceptedAnswer: { '@type': 'Answer', text: answer },
-    })),
+    '@graph': [
+      {
+        '@type': 'FAQPage',
+        mainEntity: FAQ.map(({ question, answer }) => ({
+          '@type': 'Question',
+          name: question,
+          acceptedAnswer: { '@type': 'Answer', text: answer },
+        })),
+      },
+      {
+        '@type': 'BreadcrumbList',
+        itemListElement: [
+          { '@type': 'ListItem', position: 1, name: 'Klarert', item: 'https://app.klarert.com/' },
+          { '@type': 'ListItem', position: 2, name: 'Compliance', item: 'https://app.klarert.com/compliance' },
+        ],
+      },
+    ],
   }
 
   return (
@@ -82,7 +85,7 @@ export function CompliancePage() {
             {FRAMEWORKS.map((f) => (
               <article
                 key={f.short}
-                id={slugify(f.short)}
+                id={f.slug}
                 className="rounded-2xl border border-neutral-200 p-6 md:p-8"
                 style={{ background: '#fbf9f3' }}
               >

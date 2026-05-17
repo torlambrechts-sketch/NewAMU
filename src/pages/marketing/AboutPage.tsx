@@ -30,13 +30,24 @@ const PRINCIPLES = [
 export function AboutPage() {
   const jsonLd = {
     '@context': 'https://schema.org',
-    '@type': 'Organization',
-    name: 'Klarert',
-    url: 'https://klarert.com',
-    description:
-      'Norsk HMS- og compliance-plattform bygget på arbeidsmiljøloven og internkontrollforskriften.',
-    address: { '@type': 'PostalAddress', addressCountry: 'NO' },
-    email: 'hei@klarert.com',
+    '@graph': [
+      {
+        '@type': 'Organization',
+        name: 'Klarert',
+        url: 'https://klarert.com',
+        description:
+          'Norsk HMS- og compliance-plattform bygget på arbeidsmiljøloven og internkontrollforskriften.',
+        address: { '@type': 'PostalAddress', addressCountry: 'NO' },
+        email: 'hei@klarert.com',
+      },
+      {
+        '@type': 'BreadcrumbList',
+        itemListElement: [
+          { '@type': 'ListItem', position: 1, name: 'Klarert', item: 'https://app.klarert.com/' },
+          { '@type': 'ListItem', position: 2, name: 'Om oss', item: 'https://app.klarert.com/om-oss' },
+        ],
+      },
+    ],
   }
 
   return (
@@ -153,7 +164,7 @@ export function AboutPage() {
           <div className="mt-8 space-y-4 text-sm leading-relaxed text-neutral-700">
             <p>
               <strong>Behandlingsansvarlig:</strong> kundens organisasjon. Klarert er
-              databehandler. DPA er tilgjengelig på forespørsel.
+              databehandler. Full databehandlingsavtale (DPA) sendes på forespørsel.
             </p>
             <p>
               <strong>Datasenter:</strong> Supabase EU-region (Frankfurt + Stockholm). Persondata
@@ -170,6 +181,12 @@ export function AboutPage() {
             <p>
               <strong>Sletting:</strong> du kan eksportere all data når som helst og be om
               sletting ved oppsigelse.
+            </p>
+            <p className="rounded-xl border border-neutral-200 bg-white p-4 text-xs text-neutral-500">
+              Dette er en oppsummering. Full personvernerklæring sendes på forespørsel til{' '}
+              <a className="font-semibold underline-offset-4 hover:underline" style={{ color: FOREST }} href="mailto:personvern@klarert.com">
+                personvern@klarert.com
+              </a>{' '}— og publiseres her når kunden ber om det første gang.
             </p>
           </div>
         </div>

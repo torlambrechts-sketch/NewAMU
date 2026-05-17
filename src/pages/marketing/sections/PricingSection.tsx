@@ -20,8 +20,8 @@ const TIERS = [
   {
     name: 'Liten virksomhet',
     price: 'fra 690',
-    period: 'kr/mnd',
-    features: ['Opp til 50 ansatte', 'Alle moduler', 'EU-hosting (Supabase)', 'E-post support'],
+    period: 'kr/mnd · per organisasjon',
+    features: ['Opp til 50 ansatte', 'Alle moduler inkludert', 'EU-hosting (Supabase)', 'E-post support innen 1 virkedag'],
     cta: 'Opprett konto',
     href: '/signup',
     highlight: true,
@@ -44,7 +44,7 @@ export function PricingSection() {
         <SectionHeader
           eyebrow="Pris"
           title="Enkle priser. Alle moduler inkludert."
-          lede="Én pris dekker alle seks moduler. Ingen overraskelser, ingen tilleggsmoduler å kjøpe når et behov dukker opp."
+          lede="Pris per organisasjon — ikke per modul, ikke per bruker. Alle seks modulene er med fra start."
         />
         <div className="mx-auto mt-14 grid max-w-4xl gap-4 md:grid-cols-3">
           {TIERS.map(({ name, price, period, features, cta, href, highlight }) => (

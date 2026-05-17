@@ -61,14 +61,27 @@ export function MarketingFooter() {
             ))}
           </nav>
         </div>
-        <div className="mt-12 flex flex-wrap items-center justify-between gap-4 border-t border-neutral-100 pt-6 text-xs text-neutral-400">
-          <p>© {new Date().getFullYear()} Klarert.com. Alle rettigheter forbeholdt.</p>
-          <div className="flex gap-6">
-            {FOOTER_LEGAL.map((l) => (
-              <Link key={l.label} to={l.to} className="transition-colors hover:text-neutral-600">
-                {l.label}
-              </Link>
-            ))}
+        <div className="mt-12 border-t border-neutral-100 pt-6 text-xs text-neutral-500">
+          <div className="flex flex-wrap items-center gap-x-6 gap-y-2">
+            <span className="inline-flex items-center gap-1.5">
+              <span className="size-1.5 rounded-full" style={{ background: '#22c55e' }} />
+              Datasenter: EU (Frankfurt + Stockholm)
+            </span>
+            <span>Org.nr.: TBD</span>
+            <span>Oslo, Norge</span>
+            <a href="mailto:hei@klarert.com" className="transition-colors hover:text-neutral-700">
+              hei@klarert.com
+            </a>
+          </div>
+          <div className="mt-4 flex flex-wrap items-center justify-between gap-4 text-neutral-400">
+            <p>© {new Date().getFullYear()} Klarert.com. Alle rettigheter forbeholdt.</p>
+            <div className="flex gap-6">
+              {FOOTER_LEGAL.map((l) => (
+                <Link key={l.label} to={l.to} className="transition-colors hover:text-neutral-600">
+                  {l.label}
+                </Link>
+              ))}
+            </div>
           </div>
         </div>
       </div>

@@ -19,14 +19,25 @@ const TONE_COLOR: Record<IntegrationStatus, string> = {
 export function IntegrationsPage() {
   const jsonLd = {
     '@context': 'https://schema.org',
-    '@type': 'ItemList',
-    name: 'Klarert integrasjoner',
-    itemListElement: INTEGRATIONS.map((it, i) => ({
-      '@type': 'ListItem',
-      position: i + 1,
-      name: it.name,
-      description: it.description,
-    })),
+    '@graph': [
+      {
+        '@type': 'ItemList',
+        name: 'Klarert integrasjoner',
+        itemListElement: INTEGRATIONS.map((it, i) => ({
+          '@type': 'ListItem',
+          position: i + 1,
+          name: it.name,
+          description: it.description,
+        })),
+      },
+      {
+        '@type': 'BreadcrumbList',
+        itemListElement: [
+          { '@type': 'ListItem', position: 1, name: 'Klarert', item: 'https://app.klarert.com/' },
+          { '@type': 'ListItem', position: 2, name: 'Integrasjoner', item: 'https://app.klarert.com/integrasjoner' },
+        ],
+      },
+    ],
   }
 
   return (

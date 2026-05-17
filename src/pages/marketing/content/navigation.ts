@@ -2,6 +2,7 @@
 // Every link points to a real route — no href="#" placeholders.
 
 import { FEATURES } from './features'
+import { FRAMEWORKS, frameworkSlug } from './compliance'
 
 export const NAV_LINKS: Array<{ label: string; to: string }> = [
   { label: 'Produkt', to: '/#moduler' },
@@ -18,11 +19,9 @@ export const FOOTER_PRODUCT = FEATURES.map((f) => ({
 
 export const FOOTER_COMPLIANCE: Array<{ label: string; to: string }> = [
   { label: 'Full lov-dekning', to: '/compliance' },
-  { label: 'Arbeidsmiljøloven', to: '/compliance#arbeidsmiljoloven' },
-  { label: 'Internkontrollforskriften', to: '/compliance#internkontrollforskriften' },
-  { label: 'GDPR', to: '/compliance#gdpr' },
-  { label: 'ISO 45001', to: '/compliance#iso-45001' },
-  { label: 'Åpenhetsloven', to: '/compliance#apenhetsloven' },
+  ...FRAMEWORKS.filter((f) => ['Arbeidsmiljøloven', 'Internkontrollforskriften', 'GDPR', 'ISO 45001', 'Åpenhetsloven'].includes(f.short)).map(
+    (f) => ({ label: f.short, to: `/compliance#${frameworkSlug(f.short)}` }),
+  ),
 ]
 
 export const FOOTER_COMPANY: Array<{ label: string; to: string; external?: boolean }> = [

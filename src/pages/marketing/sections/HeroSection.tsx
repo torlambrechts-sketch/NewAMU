@@ -11,7 +11,7 @@ const HERO_STATS = [
   { value: '6', label: 'integrerte moduler' },
   { value: '9', label: 'rammeverk dekket' },
   { value: '80+', label: 'AML-paragrafer' },
-  { value: 'EU', label: 'datasenter' },
+  { value: 'EU-region', label: 'data og hosting' },
 ]
 
 export function HeroSection() {
