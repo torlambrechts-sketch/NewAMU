@@ -73,8 +73,8 @@ create policy cert_rotation_audit_log_org_select
     organization_id = public.current_org_id()
     and (
       public.user_has_permission('integrations.cert_rotate')
+      or public.user_has_permission('gov.outbox_triage')
       or public.user_has_permission('module.view.admin')
-      or public.user_has_permission('workflows.view_confidential')
     )
   );
 

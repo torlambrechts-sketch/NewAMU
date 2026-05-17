@@ -120,7 +120,9 @@ export function usePartnerMembership(): UsePartnerMembershipReturn {
         partnerIds.length
           ? supabase
               .from('partner_organizations')
-              .select('id, name, default_hourly_rate, billing_email, brand_accent, created_at, updated_at')
+              .select(
+                'id, name, default_hourly_rate, billing_email, brand_accent, vat_rate, bank_account_number, payment_terms_days, created_at, updated_at',
+              )
               .in('id', partnerIds)
           : Promise.resolve({ data: [], error: null }),
         orgIds.length

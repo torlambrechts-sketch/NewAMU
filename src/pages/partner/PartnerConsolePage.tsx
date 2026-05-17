@@ -16,6 +16,7 @@ import {
   Briefcase,
   Clock,
   Download,
+  FileDown,
   FileText,
   Plus,
   Receipt,
@@ -109,7 +110,7 @@ export function PartnerConsolePage() {
       supabase
         .from('partner_invoices')
         .select(
-          'id, partner_id, organization_id, period_start, period_end, status, total_minutes, total_amount_nok, csv_storage_path, generated_at, sent_at, paid_at, metadata',
+          'id, partner_id, organization_id, period_start, period_end, status, total_minutes, total_amount_nok, csv_storage_path, pdf_storage_path, pdf_generated_at, invoice_number, generated_at, sent_at, paid_at, metadata',
         )
         .eq('partner_id', partnerId)
         .order('generated_at', { ascending: false })
@@ -230,6 +231,41 @@ export function PartnerConsolePage() {
       })
       if (error) {
         console.warn('partner-invoice-csv', error.message)
+        setBusy(null)
+        return
+      }
+      const url = (data as { signed_url?: string })?.signed_url
+      if (url) {
+        window.open(url, '_blank', 'noopener')
+      }
+      await loadData()
+      setBusy(null)
+    },
+    [supabase, partnerId, loadData],
+  )
+
+  const handleDownloadPdf = useCallback(
+    async (invoice: PartnerInvoiceRow) => {
+      if (!supabase || !partnerId) return
+      setBusy(invoice.id)
+      // Fast path: if a PDF already exists in Storage, sign a fresh URL
+      // directly without re-rendering. Re-render only when missing.
+      if (invoice.pdf_storage_path) {
+        const { data: signed, error: signErr } = await supabase.storage
+          .from('partner-invoices')
+          .createSignedUrl(invoice.pdf_storage_path, 60 * 60)
+        if (!signErr && signed?.signedUrl) {
+          window.open(signed.signedUrl, '_blank', 'noopener')
+          setBusy(null)
+          return
+        }
+        // Fall through and regenerate if the signed-URL request failed.
+      }
+      const { data, error } = await supabase.functions.invoke('partner-invoice-pdf', {
+        body: { partner_id: partnerId, invoice_id: invoice.id },
+      })
+      if (error) {
+        console.warn('partner-invoice-pdf', error.message)
         setBusy(null)
         return
       }
@@ -478,6 +514,7 @@ export function PartnerConsolePage() {
             <table className="w-full text-sm">
               <thead className="bg-neutral-50">
                 <tr>
+                  <th className="px-4 py-2 text-left font-semibold text-neutral-700">Nr.</th>
                   <th className="px-4 py-2 text-left font-semibold text-neutral-700">Kunde</th>
                   <th className="px-4 py-2 text-left font-semibold text-neutral-700">Periode</th>
                   <th className="px-4 py-2 text-left font-semibold text-neutral-700">Status</th>
@@ -489,15 +526,19 @@ export function PartnerConsolePage() {
               <tbody>
                 {invoices.length === 0 ? (
                   <tr>
-                    <td colSpan={6} className="px-4 py-8 text-center text-neutral-500">
+                    <td colSpan={7} className="px-4 py-8 text-center text-neutral-500">
                       Ingen faktura generert.
                     </td>
                   </tr>
                 ) : (
                   invoices.map((inv) => {
                     const customer = customers.find((c) => c.organization_id === inv.organization_id)
+                    const pdfLabel = inv.pdf_storage_path ? 'Last ned PDF (siste)' : 'Last ned PDF'
                     return (
                       <tr key={inv.id} className="border-t border-neutral-100">
+                        <td className="px-4 py-2 font-mono text-xs text-neutral-700">
+                          {inv.invoice_number ?? '—'}
+                        </td>
                         <td className="px-4 py-2 text-neutral-900">{customer?.organization_name ?? '—'}</td>
                         <td className="px-4 py-2 text-neutral-700">
                           {inv.period_start} → {inv.period_end}
@@ -517,6 +558,17 @@ export function PartnerConsolePage() {
                               className="rounded-md border border-neutral-300 bg-white p-1.5 text-neutral-700 hover:bg-neutral-50 disabled:opacity-50"
                             >
                               <Download className="size-3.5" aria-hidden />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleDownloadPdf(inv)}
+                              disabled={busy === inv.id}
+                              title={pdfLabel}
+                              aria-label={pdfLabel}
+                              className="inline-flex items-center gap-1 rounded-md border border-neutral-300 bg-white px-2 py-1 text-xs font-semibold text-neutral-700 hover:bg-neutral-50 disabled:opacity-50"
+                            >
+                              <FileDown className="size-3.5" aria-hidden />
+                              {inv.pdf_storage_path ? 'PDF (siste)' : 'PDF'}
                             </button>
                             {inv.status === 'draft' ? (
                               <button
