@@ -12,6 +12,7 @@ import { ChevronDown, Globe2, Shield } from 'lucide-react'
 import { useLocation, useSearchParams } from 'react-router-dom'
 import { useOrgSetupContext } from '../../hooks/useOrgSetupContext'
 import { usePacks } from '../../../modules/compliance/usePacks'
+import { Button } from '../ui/Button'
 import type { CompliancePackSlug } from '../../../modules/compliance/types'
 
 const ICON: Record<CompliancePackSlug, typeof Shield> = {
@@ -92,21 +93,21 @@ export function ShellCompliancePackSwitcher({ variant = 'topbar' }: Props) {
 
   return (
     <div ref={wrapRef} className="relative">
-      <button
-        type="button"
+      <Button
+        variant="ghost"
         onClick={() => setOpen((prev) => !prev)}
         aria-haspopup="listbox"
         aria-expanded={open}
-        className={
+        className={`rounded-none ${
           variant === 'topbar'
             ? 'inline-flex items-center gap-1.5 border border-white/20 bg-white/10 px-2.5 py-1.5 text-xs font-medium text-white transition-colors hover:bg-white/15'
             : 'inline-flex items-center gap-1.5 border border-neutral-300 bg-white px-2.5 py-1.5 text-xs font-medium text-neutral-800 transition-colors hover:bg-neutral-50'
-        }
+        }`}
       >
         <ActiveIcon className="h-3.5 w-3.5" aria-hidden />
         <span>{activePack.shortName}</span>
         <ChevronDown className={`h-3 w-3 transition-transform ${open ? 'rotate-180' : ''}`} aria-hidden />
-      </button>
+      </Button>
 
       {open ? (
         <div
@@ -118,14 +119,14 @@ export function ShellCompliancePackSwitcher({ variant = 'topbar' }: Props) {
             const Icon = ICON[pack.slug] ?? Shield
             const active = pack.slug === activePack.slug
             return (
-              <button
+              <Button
                 key={pack.slug}
-                type="button"
+                variant="ghost"
                 role="option"
                 aria-selected={active}
                 onClick={() => setPack(pack.slug)}
                 className={[
-                  'flex w-full items-start gap-2 px-3 py-2 text-left text-sm transition-colors',
+                  'flex w-full items-start justify-start gap-2 rounded-none px-3 py-2 text-left text-sm font-normal transition-colors',
                   active
                     ? 'bg-neutral-100 font-medium text-neutral-900'
                     : 'text-neutral-700 hover:bg-neutral-50',
@@ -138,7 +139,7 @@ export function ShellCompliancePackSwitcher({ variant = 'topbar' }: Props) {
                     {pack.pluralLabel}
                   </span>
                 </span>
-              </button>
+              </Button>
             )
           })}
         </div>

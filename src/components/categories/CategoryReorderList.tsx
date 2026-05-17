@@ -15,6 +15,7 @@
 
 import { useState, type ReactNode } from 'react'
 import { ChevronDown, ChevronUp, GripVertical } from 'lucide-react'
+import { Button } from '../ui/Button'
 
 export type CategoryReorderItem = { id: string; position: number }
 
@@ -97,24 +98,26 @@ export function CategoryReorderList<T extends CategoryReorderItem>({
               <GripVertical className="h-5 w-5" />
             </span>
             <div className="flex shrink-0 flex-col items-center justify-center gap-0.5 px-1 sm:hidden">
-              <button
-                type="button"
+              <Button
+                variant="ghost"
+                size="icon"
                 onClick={() => reorder(idx, idx - 1)}
                 disabled={idx === 0}
                 aria-label="Flytt opp"
-                className="rounded-sm p-1 text-neutral-400 hover:bg-white hover:text-neutral-700 disabled:opacity-30"
+                className="h-6 w-6 rounded-sm p-1 text-neutral-400 hover:bg-white hover:text-neutral-700 disabled:opacity-30"
               >
                 <ChevronUp className="h-4 w-4" aria-hidden />
-              </button>
-              <button
-                type="button"
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
                 onClick={() => reorder(idx, idx + 1)}
                 disabled={idx === items.length - 1}
                 aria-label="Flytt ned"
-                className="rounded-sm p-1 text-neutral-400 hover:bg-white hover:text-neutral-700 disabled:opacity-30"
+                className="h-6 w-6 rounded-sm p-1 text-neutral-400 hover:bg-white hover:text-neutral-700 disabled:opacity-30"
               >
                 <ChevronDown className="h-4 w-4" aria-hidden />
-              </button>
+              </Button>
             </div>
             <div className="min-w-0 flex-1 p-4 pl-0">{renderItem(item)}</div>
           </li>

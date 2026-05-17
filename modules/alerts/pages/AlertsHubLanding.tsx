@@ -110,12 +110,12 @@ export function AlertsHubLanding() {
               <ul className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                 {group.templates.map((t) => (
                   <li key={`${t.kind}:${t.id}`}>
-                    <button
-                      type="button"
+                    <Button
+                      variant="ghost"
                       onClick={() => navigate(`/alerts?template=${encodeURIComponent(t.id)}`)}
-                      className="group flex h-full w-full flex-col gap-2 rounded-lg border border-neutral-200/80 bg-white p-4 text-left transition-colors hover:border-[#b91c1c]/40 hover:bg-neutral-50"
+                      className="group flex h-full w-full flex-col items-start gap-2 rounded-lg border border-neutral-200/80 bg-white p-4 text-left font-normal transition-colors hover:border-[#b91c1c]/40 hover:bg-neutral-50"
                     >
-                      <div className="flex items-start gap-2">
+                      <div className="flex w-full items-start gap-2">
                         <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" style={{ color: ALERTS_ACCENT }} aria-hidden />
                         <span className="min-w-0 flex-1">
                           <span className="block truncate text-sm font-medium text-neutral-900 group-hover:text-[#b91c1c]">{t.name}</span>
@@ -125,7 +125,7 @@ export function AlertsHubLanding() {
                       </div>
                       {t.description ? <p className="line-clamp-2 text-xs text-neutral-600">{t.description}</p> : null}
                       <CountsForTemplate templateId={t.id} cases={alerts.cases} />
-                    </button>
+                    </Button>
                   </li>
                 ))}
               </ul>
@@ -142,10 +142,10 @@ export function AlertsHubLanding() {
           <ul className="divide-y divide-neutral-100">
             {recentCases.map((c) => (
               <li key={c.id}>
-                <button
-                  type="button"
+                <Button
+                  variant="ghost"
                   onClick={() => navigate(`/alerts/${c.id}`)}
-                  className="flex w-full items-center justify-between gap-3 px-6 py-3 text-left transition-colors hover:bg-neutral-50"
+                  className="flex w-full items-center justify-between gap-3 rounded-none px-6 py-3 text-left font-normal transition-colors hover:bg-neutral-50"
                 >
                   <div className="min-w-0">
                     <p className="truncate text-sm font-medium text-neutral-900">{c.title}</p>
@@ -158,7 +158,7 @@ export function AlertsHubLanding() {
                     {c.confidentiality_level === 'confidential' ? <Badge variant="critical">Konfidensielt</Badge> : null}
                     {c.severity ? <Badge variant={c.severity === 'critical' || c.severity === 'high' ? 'high' : 'info'}>{c.severity}</Badge> : null}
                   </div>
-                </button>
+                </Button>
               </li>
             ))}
           </ul>

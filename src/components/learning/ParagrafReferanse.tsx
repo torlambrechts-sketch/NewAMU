@@ -5,6 +5,7 @@
 
 import { useState } from 'react'
 import { Scale, ChevronDown, ChevronUp, X } from 'lucide-react'
+import { Button } from '../ui/Button'
 
 export type LawRefEntry = {
   id: string
@@ -30,10 +31,10 @@ export function ParagrafReferanse({ refLawIds, lawRefs }: Props) {
   return (
     <div className="mt-4">
       {/* Pill bar */}
-      <button
-        type="button"
+      <Button
+        variant="ghost"
         onClick={() => setOpen((v) => !v)}
-        className="flex flex-wrap items-center gap-1.5 rounded-xl border border-neutral-200/80 bg-neutral-50 px-3 py-2 text-left transition-colors hover:bg-neutral-100"
+        className="flex h-auto w-full flex-wrap items-center justify-start gap-1.5 rounded-xl border border-neutral-200/80 bg-neutral-50 px-3 py-2 text-left font-normal transition-colors hover:bg-neutral-100"
         aria-expanded={open}
         aria-label="Vis lovreferanser"
       >
@@ -57,21 +58,22 @@ export function ParagrafReferanse({ refLawIds, lawRefs }: Props) {
         ) : (
           <ChevronDown className="ml-auto size-3.5 shrink-0 text-neutral-400" />
         )}
-      </button>
+      </Button>
 
       {/* Expanded drawer */}
       {open && (
         <div className="mt-1 overflow-hidden rounded-xl border border-neutral-200 bg-white shadow-sm">
           <div className="flex items-center justify-between border-b border-neutral-100 px-4 py-2">
             <span className="text-xs font-semibold text-neutral-700">Lovhenvisninger for dette modulet</span>
-            <button
-              type="button"
+            <Button
+              variant="ghost"
+              size="icon"
               onClick={() => setOpen(false)}
-              className="rounded p-0.5 text-neutral-400 hover:text-neutral-700"
+              className="h-auto w-auto rounded p-0.5 text-neutral-400 hover:text-neutral-700"
               aria-label="Lukk"
             >
               <X className="size-3.5" />
-            </button>
+            </Button>
           </div>
           <ul className="divide-y divide-neutral-100">
             {linked.map((r) => (

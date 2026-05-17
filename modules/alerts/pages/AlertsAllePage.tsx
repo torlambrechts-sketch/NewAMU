@@ -53,20 +53,22 @@ export function AlertsAllePage() {
             placeholder="Søk i tittel …"
             className="min-w-[200px] flex-1"
           />
-          <div className="flex flex-wrap gap-1">
+          <div className="flex flex-wrap gap-1" role="radiogroup" aria-label="Status-filter">
             {STATUSES.map((s) => (
-              <button
+              <Button
                 key={s}
-                type="button"
+                variant="ghost"
                 onClick={() => setStatusFilter(s)}
+                role="radio"
+                aria-checked={statusFilter === s}
                 className={`rounded-md border px-3 py-1.5 text-xs font-medium transition-colors ${
                   statusFilter === s
-                    ? 'border-[#b91c1c] bg-[#b91c1c] text-white'
+                    ? 'border-[#b91c1c] bg-[#b91c1c] text-white hover:bg-[#b91c1c]'
                     : 'border-neutral-200 bg-white text-neutral-700 hover:border-neutral-300 hover:bg-neutral-50'
                 }`}
               >
                 {s === 'all' ? 'Alle' : s === 'open' ? 'Åpne' : ALERT_STATUS_LABEL[s as AlertStatus]}
-              </button>
+              </Button>
             ))}
           </div>
         </div>
@@ -79,10 +81,10 @@ export function AlertsAllePage() {
           <ul className="divide-y divide-neutral-100">
             {filtered.map((c) => (
               <li key={c.id}>
-                <button
-                  type="button"
+                <Button
+                  variant="ghost"
                   onClick={() => navigate(`/alerts/${c.id}`)}
-                  className="flex w-full items-center justify-between gap-3 px-6 py-3 text-left transition-colors hover:bg-neutral-50"
+                  className="flex w-full items-center justify-between gap-3 rounded-none px-6 py-3 text-left font-normal transition-colors hover:bg-neutral-50"
                 >
                   <div className="min-w-0">
                     <p className="truncate text-sm font-medium text-neutral-900">{c.title}</p>
@@ -96,7 +98,7 @@ export function AlertsAllePage() {
                     </Badge>
                     {c.confidentiality_level === 'confidential' ? <Badge variant="critical">Konfidensielt</Badge> : null}
                   </div>
-                </button>
+                </Button>
               </li>
             ))}
           </ul>
