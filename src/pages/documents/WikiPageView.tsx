@@ -576,15 +576,15 @@ export function WikiPageView() {
       description={<p className="max-w-3xl text-sm text-neutral-600">{descriptionText}</p>}
       headerActions={
         <div className="no-print flex shrink-0 flex-wrap items-center justify-end gap-2 lg:justify-end">
-          <button
-            type="button"
+          <Button
+            variant="secondary"
             data-print-hide
             className="no-print inline-flex items-center gap-1.5 rounded-lg border border-neutral-200 bg-white px-3 py-1.5 text-sm text-neutral-800 hover:bg-neutral-50"
             onClick={() => window.print()}
           >
             <Printer className="size-4" aria-hidden />
             Last ned PDF
-          </button>
+          </Button>
           <Badge variant={statusBadgeVariant(page.status)}>
             {STATUS_LABEL[page.status]}
           </Badge>
@@ -736,13 +736,13 @@ export function WikiPageView() {
                         {daysToDue != null && daysToDue < 0 ? ' (forfalt)' : daysToDue != null && daysToDue <= 60 ? ` (${daysToDue} dager)` : ''}
                       </span>
                       {revisionSoon && canEditDocs ? (
-                        <button
-                          type="button"
+                        <Button
+                          variant="ghost"
                           onClick={() => navigate(`/documents/page/${page.id}/reference-edit`)}
                           className="rounded-md border border-amber-300 bg-amber-50 px-2.5 py-1 text-xs font-medium text-amber-900 hover:bg-amber-100"
                         >
                           Start revisjon →
-                        </button>
+                        </Button>
                       ) : null}
                     </div>
                   ) : (
@@ -808,17 +808,18 @@ export function WikiPageView() {
           >
             {/* TOC toggle */}
             {headingToc.length > 0 && (
-              <button
-                type="button"
+              <Button
+                variant="ghost"
                 onClick={() => setTocOpen((o) => !o)}
                 title={tocOpen ? 'Skjul innholdsliste' : 'Vis innholdsliste'}
+                aria-pressed={tocOpen}
                 className={`inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-medium transition-colors ${
                   tocOpen ? 'bg-[#1a3d32]/10 text-[#1a3d32]' : 'text-neutral-500 hover:bg-neutral-100'
                 }`}
               >
                 <PanelLeft className="size-3.5" aria-hidden />
                 <span className="hidden sm:inline">Innholdsliste</span>
-              </button>
+              </Button>
             )}
 
             <div className="mx-1.5 h-4 w-px shrink-0 bg-neutral-200" aria-hidden />
@@ -827,31 +828,37 @@ export function WikiPageView() {
             <span className="hidden select-none text-[10px] font-semibold uppercase tracking-widest text-neutral-400 sm:inline">
               Størrelse
             </span>
-            {(['sm', 'base', 'lg'] as const).map((s, i) => (
-              <button
-                key={s}
-                type="button"
-                onClick={() => setFontSize(s)}
-                title={s === 'sm' ? 'Liten tekst' : s === 'base' ? 'Normal tekst' : 'Stor tekst'}
-                className={`inline-flex size-7 items-center justify-center rounded-md transition-colors ${
-                  fontSize === s
-                    ? 'bg-[#1a3d32]/10 font-semibold text-[#1a3d32]'
-                    : 'text-neutral-400 hover:bg-neutral-100 hover:text-neutral-700'
-                }`}
-              >
-                <span aria-hidden style={{ fontSize: ['11px', '13px', '15px'][i], lineHeight: 1 }}>
-                  A
-                </span>
-              </button>
-            ))}
+            <div className="contents" role="radiogroup" aria-label="Tekststørrelse">
+              {(['sm', 'base', 'lg'] as const).map((s, i) => (
+                <Button
+                  key={s}
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => setFontSize(s)}
+                  title={s === 'sm' ? 'Liten tekst' : s === 'base' ? 'Normal tekst' : 'Stor tekst'}
+                  role="radio"
+                  aria-checked={fontSize === s}
+                  className={`inline-flex size-7 items-center justify-center rounded-md transition-colors ${
+                    fontSize === s
+                      ? 'bg-[#1a3d32]/10 font-semibold text-[#1a3d32]'
+                      : 'text-neutral-400 hover:bg-neutral-100 hover:text-neutral-700'
+                  }`}
+                >
+                  <span aria-hidden style={{ fontSize: ['11px', '13px', '15px'][i], lineHeight: 1 }}>
+                    A
+                  </span>
+                </Button>
+              ))}
+            </div>
 
             <div className="mx-1.5 h-4 w-px shrink-0 bg-neutral-200" aria-hidden />
 
             {/* Width toggle */}
-            <button
-              type="button"
+            <Button
+              variant="ghost"
               onClick={() => setWidthFull((w) => !w)}
               title={widthFull ? 'Lesemodus (smalere bredde)' : 'Full bredde'}
+              aria-pressed={!widthFull}
               className={`inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-medium transition-colors ${
                 widthFull ? 'text-neutral-500 hover:bg-neutral-100' : 'bg-[#1a3d32]/10 text-[#1a3d32]'
               }`}
@@ -860,7 +867,7 @@ export function WikiPageView() {
                 ? <Minimize2 className="size-3.5" aria-hidden />
                 : <Maximize2 className="size-3.5" aria-hidden />}
               <span className="hidden sm:inline">{widthFull ? 'Lesemodus' : 'Full bredde'}</span>
-            </button>
+            </Button>
 
             <div className="flex-1" />
 
@@ -877,20 +884,20 @@ export function WikiPageView() {
             <div className="mx-1 h-4 w-px shrink-0 bg-neutral-200" aria-hidden />
 
             {/* Print */}
-            <button
-              type="button"
+            <Button
+              variant="ghost"
               onClick={() => window.print()}
               title="Skriv ut / Last ned PDF"
-              className="inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs text-neutral-500 hover:bg-neutral-100"
+              className="inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-normal text-neutral-500 hover:bg-neutral-100"
             >
               <Printer className="size-3.5" aria-hidden />
               <span className="hidden sm:inline">Skriv ut</span>
-            </button>
+            </Button>
 
             {/* Edit */}
             {canEditDocs && (
-              <button
-                type="button"
+              <Button
+                variant="ghost"
                 title={canEditThisDoc ? 'Rediger dokument' : folderRestricted ? 'Be om redigeringstilgang' : 'Ingen skrivetilgang'}
                 onClick={() => {
                   if (canEditThisDoc) {
@@ -901,11 +908,11 @@ export function WikiPageView() {
                     setEditAccessOpen(true)
                   }
                 }}
-                className="inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs text-neutral-500 hover:bg-neutral-100"
+                className="inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-normal text-neutral-500 hover:bg-neutral-100"
               >
                 <Pencil className="size-3.5" aria-hidden />
                 <span className="hidden sm:inline">Rediger</span>
-              </button>
+              </Button>
             )}
           </div>
 
