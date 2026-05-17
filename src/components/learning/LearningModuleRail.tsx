@@ -36,6 +36,7 @@ import {
 } from 'lucide-react'
 import type { ComponentType } from 'react'
 import type { CourseModule, ModuleKind } from '../../types/learning'
+import { Button } from '../ui/Button'
 
 type KindMeta = { label: string; icon: ComponentType<{ className?: string }> }
 
@@ -127,10 +128,11 @@ export function LearningModuleRail({
                     : 'border-transparent hover:border-neutral-200 hover:bg-neutral-50')
                 }
               >
-                <button
-                  type="button"
+                <Button
+                  variant="ghost"
                   onClick={() => onSelect(m.id)}
-                  className="flex min-w-0 flex-1 items-center gap-2.5 text-left"
+                  aria-current={active ? 'step' : undefined}
+                  className="flex min-w-0 flex-1 items-center justify-start gap-2.5 rounded-none p-0 text-left font-normal hover:bg-transparent"
                 >
                   <span
                     className={
@@ -157,27 +159,29 @@ export function LearningModuleRail({
                       <span className="tabular-nums">{m.durationMinutes || 0} min</span>
                     </div>
                   </div>
-                </button>
+                </Button>
                 {isLocked ? null : (
                   <div className="invisible flex items-center group-hover:visible">
-                    <button
-                      type="button"
+                    <Button
+                      variant="ghost"
+                      size="icon"
                       onClick={() => onMove(i, -1)}
                       disabled={i === 0}
-                      className="rounded p-1 text-neutral-400 hover:bg-white hover:text-neutral-700 disabled:opacity-30"
+                      className="h-6 w-6 rounded p-1 text-neutral-400 hover:bg-white hover:text-neutral-700 disabled:opacity-30"
                       aria-label="Flytt opp"
                     >
                       <ChevronUp className="h-3.5 w-3.5" />
-                    </button>
-                    <button
-                      type="button"
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
                       onClick={() => onMove(i, 1)}
                       disabled={i === modules.length - 1}
-                      className="rounded p-1 text-neutral-400 hover:bg-white hover:text-neutral-700 disabled:opacity-30"
+                      className="h-6 w-6 rounded p-1 text-neutral-400 hover:bg-white hover:text-neutral-700 disabled:opacity-30"
                       aria-label="Flytt ned"
                     >
                       <ChevronDown className="h-3.5 w-3.5" />
-                    </button>
+                    </Button>
                     <RailMenu
                       onDuplicate={() => onDuplicate(m.id)}
                       onDelete={() => onDelete(m.id)}
@@ -221,48 +225,49 @@ function RailMenu({
   }, [open])
   return (
     <div ref={ref} className="relative">
-      <button
-        type="button"
+      <Button
+        variant="ghost"
+        size="icon"
         onClick={() => setOpen((o) => !o)}
-        className="rounded p-1 text-neutral-400 hover:bg-white hover:text-neutral-700"
+        className="h-6 w-6 rounded p-1 text-neutral-400 hover:bg-white hover:text-neutral-700"
         aria-label="Mer"
       >
         <MoreVertical className="h-3.5 w-3.5" />
-      </button>
+      </Button>
       {open ? (
         <div className="absolute right-0 z-20 mt-1 w-40 overflow-hidden rounded-md border border-neutral-200 bg-white shadow-lg">
-          <button
-            type="button"
+          <Button
+            variant="ghost"
             onClick={() => {
               setOpen(false)
               onDuplicate()
             }}
-            className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-xs text-neutral-700 hover:bg-neutral-50"
+            className="flex w-full items-center justify-start gap-2 rounded-none px-3 py-1.5 text-left text-xs font-normal text-neutral-700 hover:bg-neutral-50"
           >
             <Copy className="h-3 w-3" /> Dupliser
-          </button>
+          </Button>
           {onExport ? (
-            <button
-              type="button"
+            <Button
+              variant="ghost"
               onClick={() => {
                 setOpen(false)
                 onExport()
               }}
-              className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-xs text-neutral-700 hover:bg-neutral-50"
+              className="flex w-full items-center justify-start gap-2 rounded-none px-3 py-1.5 text-left text-xs font-normal text-neutral-700 hover:bg-neutral-50"
             >
               <Download className="h-3 w-3" /> Eksporter JSON
-            </button>
+            </Button>
           ) : null}
-          <button
-            type="button"
+          <Button
+            variant="ghost"
             onClick={() => {
               setOpen(false)
               onDelete()
             }}
-            className="flex w-full items-center gap-2 border-t border-neutral-100 px-3 py-1.5 text-left text-xs text-red-600 hover:bg-red-50"
+            className="flex w-full items-center justify-start gap-2 rounded-none border-t border-neutral-100 px-3 py-1.5 text-left text-xs font-normal text-red-600 hover:bg-red-50"
           >
             <Trash2 className="h-3 w-3" /> Slett
-          </button>
+          </Button>
         </div>
       ) : null}
     </div>
@@ -273,14 +278,14 @@ function AddModuleMenu({ onAdd }: { onAdd: (kind: ModuleKind) => void }) {
   const [open, setOpen] = useState(false)
   return (
     <div className="relative">
-      <button
-        type="button"
+      <Button
+        variant="ghost"
         onClick={() => setOpen((o) => !o)}
         className="flex w-full items-center justify-center gap-1.5 rounded-md border border-dashed border-neutral-300 bg-white px-3 py-2.5 text-sm font-semibold text-neutral-700 transition-colors hover:border-[#1a3d32] hover:bg-[#e7efe9] hover:text-[#1a3d32]"
       >
         <Plus className="h-4 w-4" />
         Ny modul
-      </button>
+      </Button>
       {open ? (
         <div
           className="absolute bottom-full left-0 right-0 z-20 mb-2 grid grid-cols-2 gap-1 rounded-md border border-neutral-200 bg-white p-1.5 shadow-lg"
@@ -290,18 +295,18 @@ function AddModuleMenu({ onAdd }: { onAdd: (kind: ModuleKind) => void }) {
             const meta = LEARNING_KIND_META[k]
             const KindIcon = meta.icon
             return (
-              <button
+              <Button
                 key={k}
-                type="button"
+                variant="ghost"
                 onClick={() => {
                   setOpen(false)
                   onAdd(k)
                 }}
-                className="flex items-center gap-2 rounded-md px-2.5 py-2 text-left text-xs text-neutral-700 transition-colors hover:bg-[#e7efe9] hover:text-[#1a3d32]"
+                className="flex items-center justify-start gap-2 rounded-md px-2.5 py-2 text-left text-xs font-normal text-neutral-700 transition-colors hover:bg-[#e7efe9] hover:text-[#1a3d32]"
               >
                 <KindIcon className="h-3.5 w-3.5" />
                 <span className="font-medium">{meta.label}</span>
-              </button>
+              </Button>
             )
           })}
         </div>

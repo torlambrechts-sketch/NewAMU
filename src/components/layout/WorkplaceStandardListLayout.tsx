@@ -5,6 +5,9 @@ import type { HubMenu1Item } from './HubMenu1Bar'
 import { HubMenu1Bar } from './HubMenu1Bar'
 import type { WorkplaceBreadcrumbItem } from './WorkplacePageHeading1'
 import { WorkplacePageHeading1 } from './WorkplacePageHeading1'
+import { Button } from '../ui/Button'
+import { StandardInput } from '../ui/Input'
+import { SearchableSelect } from '../ui/SearchableSelect'
 
 /** Primary action green — matches layout-reference CTA */
 export const WORKPLACE_LIST_LAYOUT_CTA = '#2D403A'
@@ -92,15 +95,15 @@ export function WorkplaceListToolbar({
           md+: count → search → secondary controls → CTA (order reset).
         */}
         <div className="flex flex-col gap-3 border-b border-neutral-100 px-4 py-3 md:flex-row md:flex-wrap md:items-center md:gap-3 md:px-5 lg:gap-4">
-          <button
-            type="button"
+          <Button
+            variant="primary"
             onClick={primaryAction.onClick}
             className="order-1 flex w-full shrink-0 items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-xs font-bold uppercase tracking-wide text-white shadow-sm md:order-5 md:w-auto"
             style={{ backgroundColor: WORKPLACE_LIST_LAYOUT_CTA }}
           >
             <PrimaryIcon className="size-4 shrink-0" strokeWidth={2.5} />
             {primaryAction.label}
-          </button>
+          </Button>
           {count ? (
             <p className="order-2 shrink-0 text-sm text-neutral-900 md:order-1">
               <span className="text-2xl font-bold tabular-nums text-neutral-900">{count.value}</span>{' '}
@@ -112,7 +115,7 @@ export function WorkplaceListToolbar({
               Søk
             </label>
             <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-neutral-400" />
-            <input
+            <StandardInput
               id="workplace-list-toolbar-search"
               type="search"
               value={searchValue}
@@ -122,8 +125,8 @@ export function WorkplaceListToolbar({
             />
           </div>
           <div className="order-4 flex min-w-0 flex-1 flex-wrap items-center gap-2 md:order-3 md:flex-none md:shrink-0">
-            <button
-              type="button"
+            <Button
+              variant="ghost"
               onClick={() => onFiltersOpenChange(!filtersOpen)}
               className={`inline-flex shrink-0 items-center gap-1.5 rounded-lg border px-3 py-2 text-xs font-semibold uppercase tracking-wide ${
                 filtersOpen
@@ -134,69 +137,72 @@ export function WorkplaceListToolbar({
             >
               <Filter className="size-3.5 text-neutral-500" />
               Filters
-            </button>
+            </Button>
             {filterStatusText ? (
               <span className="min-w-0 max-w-[10rem] truncate text-xs text-neutral-500 sm:max-w-none sm:whitespace-normal">
                 {filterStatusText}
               </span>
             ) : null}
-            <div className="flex shrink-0 rounded-lg border border-neutral-200 bg-white p-0.5" role="group" aria-label="Visning">
-              <button
-                type="button"
+            <div className="flex shrink-0 rounded-lg border border-neutral-200 bg-white p-0.5" role="radiogroup" aria-label="Visning">
+              <Button
+                variant="ghost"
+                size="icon"
                 onClick={() => onViewModeChange('table')}
-                className={`rounded-md p-2 ${viewMode === 'table' ? 'bg-[#EFE8DC] text-neutral-900' : 'text-neutral-500 hover:text-neutral-700'}`}
-                aria-pressed={viewMode === 'table'}
+                className={`h-auto w-auto rounded-md p-2 ${viewMode === 'table' ? 'bg-[#EFE8DC] text-neutral-900' : 'text-neutral-500 hover:text-neutral-700'}`}
+                role="radio"
+                aria-checked={viewMode === 'table'}
                 aria-label="Tabell"
                 title="Tabell"
               >
                 <Table2 className="size-4" />
-              </button>
-              <button
-                type="button"
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
                 onClick={() => onViewModeChange('box')}
-                className={`rounded-md p-2 ${viewMode === 'box' ? 'bg-[#EFE8DC] text-neutral-900' : 'text-neutral-500 hover:text-neutral-700'}`}
-                aria-pressed={viewMode === 'box'}
+                className={`h-auto w-auto rounded-md p-2 ${viewMode === 'box' ? 'bg-[#EFE8DC] text-neutral-900' : 'text-neutral-500 hover:text-neutral-700'}`}
+                role="radio"
+                aria-checked={viewMode === 'box'}
                 aria-label="Boks (rutenett)"
                 title="Boks"
               >
                 <LayoutGrid className="size-4" />
-              </button>
-              <button
-                type="button"
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
                 onClick={() => onViewModeChange('list')}
-                className={`rounded-md p-2 ${viewMode === 'list' ? 'bg-[#EFE8DC] text-neutral-900' : 'text-neutral-500 hover:text-neutral-700'}`}
-                aria-pressed={viewMode === 'list'}
+                className={`h-auto w-auto rounded-md p-2 ${viewMode === 'list' ? 'bg-[#EFE8DC] text-neutral-900' : 'text-neutral-500 hover:text-neutral-700'}`}
+                role="radio"
+                aria-checked={viewMode === 'list'}
                 aria-label="Liste"
                 title="Liste"
               >
                 <List className="size-4" />
-              </button>
+              </Button>
             </div>
             {sortOptions && sortOptions.length > 0 && onSortChange ? (
-              <label className="flex min-w-0 flex-1 items-center gap-2 text-xs text-neutral-600 sm:flex-initial">
+              <div className="flex min-w-0 flex-1 items-center gap-2 text-xs text-neutral-600 sm:flex-initial">
                 <span className="hidden sm:inline">Sorter</span>
-                <select
-                  value={sortValue ?? sortOptions[0]?.value}
-                  onChange={(e) => onSortChange(e.target.value)}
-                  className="min-w-0 flex-1 rounded-lg border border-neutral-200 bg-white px-2 py-2 text-sm text-neutral-900 sm:min-w-[8rem] sm:flex-none"
-                >
-                  {sortOptions.map((o) => (
-                    <option key={o.value} value={o.value}>
-                      {o.label}
-                    </option>
-                  ))}
-                </select>
-              </label>
+                <div className="min-w-0 flex-1 sm:min-w-[8rem] sm:flex-none">
+                  <SearchableSelect
+                    value={sortValue ?? sortOptions[0]?.value ?? ''}
+                    onChange={(v) => onSortChange(v)}
+                    options={sortOptions.map((o) => ({ value: o.value, label: o.label }))}
+                  />
+                </div>
+              </div>
             ) : null}
             {showSettingsButton ? (
-              <button
-                type="button"
+              <Button
+                variant="ghost"
+                size="icon"
                 onClick={onSettingsClick}
-                className="ml-auto shrink-0 rounded-lg p-2 text-neutral-500 hover:bg-neutral-100 md:ml-0"
+                className="ml-auto h-auto w-auto shrink-0 rounded-lg p-2 text-neutral-500 hover:bg-neutral-100 md:ml-0"
                 aria-label={settingsAriaLabel}
               >
                 <Settings className="size-5" />
-              </button>
+              </Button>
             ) : null}
           </div>
         </div>

@@ -1,6 +1,9 @@
 import { Check, GripVertical, ListOrdered, Pencil, Plus, Trash2 } from 'lucide-react'
 import { useCallback, useMemo, useState, type ReactNode } from 'react'
 import { WORKPLACE_LAYOUT_BOX_CARD, WORKPLACE_LAYOUT_BOX_SHADOW } from './workplaceLayoutKit'
+import { Button } from '../ui/Button'
+import { StandardInput } from '../ui/Input'
+import { SearchableSelect } from '../ui/SearchableSelect'
 
 const MIME_AGENDA_ROW = 'application/x-klarert-agenda-row'
 
@@ -145,38 +148,37 @@ export function WorkplaceEditableNoticeList({
               <label className="sr-only" htmlFor="agenda-template-pick">
                 Mal
               </label>
-              <select
-                id="agenda-template-pick"
-                value={templatePick}
-                onChange={(e) => setTemplatePick(e.target.value)}
-                className="min-w-[140px] max-w-full flex-1 rounded-md border border-neutral-200 bg-white px-2 py-1.5 text-xs text-neutral-800 outline-none focus:ring-2 focus:ring-[#1a3d32]/25"
-              >
-                <option value="">Velg mal…</option>
-                {templates.map((t) => (
-                  <option key={t.id} value={t.id}>
-                    {t.label}
-                  </option>
-                ))}
-              </select>
-              <button
-                type="button"
+              <div className="min-w-[140px] max-w-full flex-1">
+                <SearchableSelect
+                  value={templatePick}
+                  onChange={(v) => setTemplatePick(v)}
+                  options={[
+                    { value: '', label: 'Velg mal…' },
+                    ...templates.map((t) => ({ value: t.id, label: t.label })),
+                  ]}
+                />
+              </div>
+              <Button
+                variant="secondary"
+                size="sm"
                 disabled={!templatePick}
                 onClick={addFromTemplate}
                 className="inline-flex items-center gap-1 rounded-md border border-neutral-200 bg-white px-2.5 py-1.5 text-xs font-semibold text-neutral-800 shadow-sm hover:bg-neutral-50 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 <Plus className="size-3.5" aria-hidden />
                 {addFromTemplateLabel}
-              </button>
+              </Button>
             </>
           ) : null}
-          <button
-            type="button"
+          <Button
+            variant="secondary"
+            size="sm"
             onClick={addEmpty}
             className="inline-flex items-center gap-1 rounded-md border border-neutral-200 bg-white px-2.5 py-1.5 text-xs font-semibold text-neutral-800 shadow-sm hover:bg-neutral-50"
           >
             <Plus className="size-3.5" aria-hidden />
             {addEmptyLabel}
-          </button>
+          </Button>
         </div>
       ) : null}
 
@@ -224,8 +226,9 @@ export function WorkplaceEditableNoticeList({
                 }
               >
                 {!readOnly ? (
-                  <button
-                    type="button"
+                  <Button
+                    variant="ghost"
+                    size="icon"
                     draggable
                     onDragStart={(e) => {
                       e.dataTransfer.setData(MIME_AGENDA_ROW, it.id)
@@ -236,17 +239,17 @@ export function WorkplaceEditableNoticeList({
                       setDragId(null)
                       setOverIndex(null)
                     }}
-                    className="mt-1 flex shrink-0 cursor-grab touch-none text-neutral-400 hover:text-neutral-600 active:cursor-grabbing"
+                    className="mt-1 flex h-auto w-auto shrink-0 cursor-grab touch-none p-0 text-neutral-400 hover:bg-transparent hover:text-neutral-600 active:cursor-grabbing"
                     aria-label="Dra for å sortere"
                   >
                     <GripVertical className="size-4" aria-hidden />
-                  </button>
+                  </Button>
                 ) : null}
                 {rowIcon ?? defaultIcon}
                 <div className="min-w-0 flex-1">
                   {editing && !readOnly ? (
                     <div className="space-y-2">
-                      <input
+                      <StandardInput
                         value={draftTitle}
                         onChange={(e) => setDraftTitle(e.target.value)}
                         onKeyDown={(e) => {
@@ -260,7 +263,7 @@ export function WorkplaceEditableNoticeList({
                         autoFocus
                         aria-label="Tittel"
                       />
-                      <input
+                      <StandardInput
                         value={draftSubtitle}
                         onChange={(e) => setDraftSubtitle(e.target.value)}
                         onKeyDown={(e) => {
@@ -281,32 +284,35 @@ export function WorkplaceEditableNoticeList({
                 {!readOnly ? (
                   <div className="flex shrink-0 items-start gap-0.5 pt-0.5">
                     {editing ? (
-                      <button
-                        type="button"
+                      <Button
+                        variant="ghost"
+                        size="icon"
                         onClick={commitEdit}
-                        className="rounded-md p-1.5 text-emerald-600 hover:bg-emerald-50"
+                        className="h-7 w-7 rounded-md p-1.5 text-emerald-600 hover:bg-emerald-50"
                         aria-label="Lagre"
                       >
                         <Check className="size-4" />
-                      </button>
+                      </Button>
                     ) : (
-                      <button
-                        type="button"
+                      <Button
+                        variant="ghost"
+                        size="icon"
                         onClick={() => beginEdit(it)}
-                        className="rounded-md p-1.5 text-neutral-400 hover:bg-neutral-100 hover:text-neutral-700"
+                        className="h-7 w-7 rounded-md p-1.5 text-neutral-400 hover:bg-neutral-100 hover:text-neutral-700"
                         aria-label="Rediger"
                       >
                         <Pencil className="size-4" />
-                      </button>
+                      </Button>
                     )}
-                    <button
-                      type="button"
+                    <Button
+                      variant="ghost"
+                      size="icon"
                       onClick={() => remove(it.id)}
-                      className="rounded-md p-1.5 text-neutral-400 hover:bg-red-50 hover:text-red-600"
+                      className="h-7 w-7 rounded-md p-1.5 text-neutral-400 hover:bg-red-50 hover:text-red-600"
                       aria-label="Slett"
                     >
                       <Trash2 className="size-4" />
-                    </button>
+                    </Button>
                   </div>
                 ) : null}
               </li>

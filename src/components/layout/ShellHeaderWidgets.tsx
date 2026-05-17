@@ -12,6 +12,7 @@ import {
 import { LanguageSwitcher } from '../LanguageSwitcher'
 import { useTaskItemsData } from '../../../modules/tasks/useTaskItemsData'
 import type { NavMode } from './aticsNavMode'
+import { Button } from '../ui/Button'
 
 type ProfileMenuProps = {
   variant: 'sidebar' | 'topbar'
@@ -64,11 +65,13 @@ function LayoutModeInline({
       >
         Navigasjonslayout
       </p>
-      <div className="flex gap-2">
-        <button
-          type="button"
+      <div className="flex gap-2" role="radiogroup" aria-label="Navigasjonslayout">
+        <Button
+          variant="ghost"
           onClick={() => onChange('topbar')}
-          className={`flex flex-1 flex-col items-center gap-1.5 rounded-lg border px-2 py-2.5 text-xs font-medium transition-colors ${
+          role="radio"
+          aria-checked={navMode === 'topbar'}
+          className={`flex flex-1 flex-col items-center gap-1.5 rounded-lg border px-2 py-2.5 text-xs font-medium transition-colors hover:bg-transparent ${
             navMode === 'topbar' ? active : inactive
           }`}
         >
@@ -78,11 +81,13 @@ function LayoutModeInline({
             <span className="block h-6 w-8 rounded-sm border border-current opacity-30" />
           </span>
           Toppmeny
-        </button>
-        <button
-          type="button"
+        </Button>
+        <Button
+          variant="ghost"
           onClick={() => onChange('sidebar')}
-          className={`flex flex-1 flex-col items-center gap-1.5 rounded-lg border px-2 py-2.5 text-xs font-medium transition-colors ${
+          role="radio"
+          aria-checked={navMode === 'sidebar'}
+          className={`flex flex-1 flex-col items-center gap-1.5 rounded-lg border px-2 py-2.5 text-xs font-medium transition-colors hover:bg-transparent ${
             navMode === 'sidebar' ? active : inactive
           }`}
         >
@@ -91,7 +96,7 @@ function LayoutModeInline({
             <span className="block h-8 w-6 rounded-sm border border-current opacity-30" />
           </span>
           Sidemeny
-        </button>
+        </Button>
       </div>
     </div>
   )
@@ -127,17 +132,18 @@ export function ShellProfileMenuButton({
 
   return (
     <div className="relative" ref={ref}>
-      <button
-        type="button"
+      <Button
+        variant="ghost"
+        size="icon"
         onClick={() => setOpen((o) => !o)}
-        className={btnClass}
+        className={`h-auto w-auto ${btnClass}`}
         aria-expanded={open}
         aria-haspopup="dialog"
         title={displayName || email || settingsAria}
         aria-label={settingsAria}
       >
         <User className={variant === 'topbar' ? 'size-5' : 'size-4'} />
-      </button>
+      </Button>
       {open && (
         <div className={panelClass} role="dialog" aria-label="Bruker og innstillinger">
           {isLoggedIn ? (
@@ -175,8 +181,8 @@ export function ShellProfileMenuButton({
             </Link>
             {showAuth ? (
               isLoggedIn ? (
-                <button
-                  type="button"
+                <Button
+                  variant="ghost"
                   onClick={() => {
                     setOpen(false)
                     void onSignOut()
@@ -186,7 +192,7 @@ export function ShellProfileMenuButton({
                   }`}
                 >
                   {logOutLabel}
-                </button>
+                </Button>
               ) : (
                 <a
                   href={logInHref}
@@ -253,21 +259,21 @@ export function ShellQuickCreateMenu({ variant }: { variant: 'sidebar' | 'topbar
 
   return (
     <div className="relative" ref={ref}>
-      <button type="button" className={btnBase} onClick={() => setOpen((o) => !o)} aria-expanded={open}>
+      <Button variant="ghost" className={btnBase} onClick={() => setOpen((o) => !o)} aria-expanded={open}>
         <Plus className="size-4" />
         Nytt
         <ChevronDown className="size-3.5 opacity-70" />
-      </button>
+      </Button>
       {open ? (
         <div className={panelClass} role="menu">
-          <button type="button" role="menuitem" className={itemClass} onClick={() => go('/tasks/management?quickNew=task')}>
+          <Button variant="ghost" role="menuitem" className={`${itemClass} justify-start font-normal`} onClick={() => go('/tasks/management?quickNew=task')}>
             <ClipboardList className="size-4 shrink-0 opacity-80" />
             Ny oppgave
-          </button>
-          <button type="button" role="menuitem" className={itemClass} onClick={() => go('/tasks/management?tab=varsling')}>
+          </Button>
+          <Button variant="ghost" role="menuitem" className={`${itemClass} justify-start font-normal`} onClick={() => go('/tasks/management?tab=varsling')}>
             <Megaphone className="size-4 shrink-0 opacity-80" />
             Ny varslingssak
-          </button>
+          </Button>
         </div>
       ) : null}
     </div>
@@ -334,9 +340,10 @@ export function ShellComplianceIndicator({ variant }: { variant: 'sidebar' | 'to
 
   return (
     <div className="relative" ref={ref}>
-      <button
-        type="button"
-        className={btnClass}
+      <Button
+        variant="ghost"
+        size="icon"
+        className={`h-auto w-auto ${btnClass}`}
         onClick={() => setOpen((o) => !o)}
         aria-expanded={open}
         title="Samsvar — åpne detaljer"
@@ -344,7 +351,7 @@ export function ShellComplianceIndicator({ variant }: { variant: 'sidebar' | 'to
       >
         <ShieldAlert className={variant === 'topbar' ? 'size-5' : 'size-4'} />
         <span className={`absolute right-1 top-1 size-2 rounded-full ${dotClass}`} aria-hidden />
-      </button>
+      </Button>
       {open ? (
         <div className={panelClass} role="dialog" aria-label="Samsvar">
           <h3 className={`text-sm font-semibold ${heading}`}>Samsvar</h3>
