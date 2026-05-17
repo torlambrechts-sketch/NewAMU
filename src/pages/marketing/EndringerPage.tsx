@@ -96,7 +96,7 @@ export function EndringerPage() {
           </h1>
           <p className="mx-auto mt-6 max-w-2xl text-base leading-relaxed text-white/75 md:text-lg">
             Vi overvåker arbeidsmiljøloven, internkontrollforskriften, GDPR og Likestillingsloven.
-            Når noe endres oppdaterer vi systemmalene og forklarer hva som har skjedd —
+            Når noe endres, oppdaterer vi systemmalene og forklarer hva som har skjedd —
             slik at du slipper å lese Lovdata for å holde tritt.
           </p>
         </div>
@@ -127,7 +127,7 @@ export function EndringerPage() {
           </h2>
           <p className="mt-4 text-base leading-relaxed text-neutral-700">
             Kunder får en kort månedsoppsummering på e-post av hva som har endret seg —
-            både i produktet og i lovverket. Ingen "Did you know"-marketing, bare det
+            både i produktet og i lovverket. Ingen «visste du at»-markedsføring, bare det
             som faktisk angår deg.
           </p>
           <Link

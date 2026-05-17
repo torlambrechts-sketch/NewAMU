@@ -16,7 +16,7 @@ export function ComplianceTeaserSection() {
         <SectionHeader
           eyebrow="Compliance"
           title="Bygget på norsk lov, ikke tilpasset etterpå"
-          lede={`${FRAMEWORKS.length} rammeverk, ${totalParagraphs}+ paragrafer kartlagt mot konkrete moduler. Hver mal har en lovreferanse som peker tilbake til kilden — så tilsynet får svaret det leter etter.`}
+          lede={`${FRAMEWORKS.length} rammeverk og ${totalParagraphs}+ paragrafer er kartlagt mot konkrete moduler. Hver mal har en lovreferanse som peker tilbake til kilden — så tilsynet får svaret det leter etter.`}
           tone="dark"
         />
         <div className="mt-12 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">

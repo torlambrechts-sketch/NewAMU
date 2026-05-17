@@ -13,12 +13,12 @@ export type Integration = {
 
 export const INTEGRATIONS: Integration[] = [
   {
-    name: 'Brønnøysund-registrene',
+    name: 'Brønnøysundregistrene',
     category: 'Offentlige registre',
     status: 'live',
-    description: 'Oppslag av organisasjonsdata under signup og senere oppdatering.',
+    description: 'Oppslag av organisasjonsdata ved registrering og senere oppdatering.',
     detail:
-      'Klarert henter organisasjonsnavn, adresse, NACE-kode, daglig leder og styresammensetning direkte fra Brønnøysund Enhetsregisteret. Brukes ved opprettelse og kan oppdateres ad-hoc. Ingen sensitive personopplysninger lagres som ikke allerede er offentlige.',
+      'Klarert henter organisasjonsnavn, adresse, NACE-kode, daglig leder og styresammensetning direkte fra Enhetsregisteret i Brønnøysund. Brukes ved opprettelse og kan oppdateres ved behov. Ingen sensitive personopplysninger lagres som ikke allerede er offentlige.',
   },
   {
     name: 'BankID-signering',
@@ -50,7 +50,7 @@ export const INTEGRATIONS: Integration[] = [
     status: 'planned',
     description: 'Direkte lenke til lovteksten.',
     detail:
-      'Når lovreferanser er klikkbare i Klarert (f.eks. "AML §3-1") vil de åpne paragrafen i Lovdata Pro for organisasjoner som har abonnement. Ingen abonnement nødvendig fra vår side.',
+      'Når lovreferanser er klikkbare i Klarert (f.eks. «AML §3-1») vil de åpne paragrafen i Lovdata Pro for organisasjoner som har abonnement. Ingen abonnement er nødvendig fra vår side.',
   },
   {
     name: 'Feide SSO',
@@ -72,9 +72,9 @@ export const INTEGRATIONS: Integration[] = [
     name: 'Slack',
     category: 'Kommunikasjon',
     status: 'placeholder',
-    description: 'Channel-varsler ved hendelser.',
+    description: 'Kanalvarsler ved hendelser.',
     detail:
-      'Skjema for innkommende webhook-URL er på plass. Aktivering kommer sammen med webhooks-utsending. For team som lever i Slack i dag, vil dette dekke 80 % av notifikasjonsbehovet.',
+      'Skjema for innkommende webhook-URL er på plass. Aktivering kommer sammen med webhooks-utsending. For team som bruker Slack til daglig, vil dette dekke 80 % av varslingsbehovet.',
   },
 ]
 

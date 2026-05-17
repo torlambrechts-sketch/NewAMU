@@ -67,7 +67,7 @@ export function MarketingFooter() {
               <span className="size-1.5 rounded-full" style={{ background: '#22c55e' }} />
               Datasenter: EU (Frankfurt + Stockholm)
             </span>
-            <span>Org.nr.: TBD</span>
+            <span>Org.nr.: oppdateres ved registrering</span>
             <span>Oslo, Norge</span>
             <a href="mailto:hei@klarert.com" className="transition-colors hover:text-neutral-700">
               hei@klarert.com

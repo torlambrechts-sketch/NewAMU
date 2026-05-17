@@ -60,9 +60,9 @@ export const FEATURES: ModuleFeature[] = [
       'Oppgaver er den eneste innboksen i Klarert som ser alt. Funn fra sjekklister, tiltak fra varslingssaker, vedtak fra AMU-møter, anbefalinger fra risikovurderinger og krav fra sykefraværsoppfølging havner samme sted. Du ser hva som er forsinket, hvem som eier det, og hva som hindrer fremdrift — uten å lete i fem moduler.',
     capabilities: [
       {
-        title: 'Kilde-drevet samling',
+        title: 'Kildedrevet samling',
         description:
-          'Hvert tiltak bærer med seg hvor det kom fra (sjekkliste, varsling, AMU-vedtak, ROS-analyse, sykefraværsplan). Filtrer på kilde og se hva som er trigget hva.',
+          'Hvert tiltak bærer med seg hvor det kom fra (sjekkliste, varsling, AMU-vedtak, ROS-analyse, sykefraværsplan). Filtrer på kilde og se hva som har utløst hva.',
       },
       {
         title: 'Lovpålagt arbeidsflyt',
@@ -77,12 +77,12 @@ export const FEATURES: ModuleFeature[] = [
       {
         title: 'Tverrgående analyse',
         description:
-          'Dashboard viser åpne tiltak per avdeling, kilde og prioritet — og hvor de hoper seg opp før noe gjør et avvik om til en sak.',
+          'Dashbordet viser åpne tiltak per avdeling, kilde og prioritet — og hvor de hoper seg opp før et avvik blir en sak.',
       },
     ],
     standoutTitle: 'Den eneste innboksen som ser alt',
     standoutBody:
-      'De fleste HMS-systemer har én oppgaveliste per modul. Klarert har én oppgaveliste — punktum. Det er den ene plassen verneombudet sjekker mandag morgen for å vite hva som faktisk henger igjen i hele virksomheten.',
+      'De fleste HMS-systemer har én oppgaveliste per modul. Klarert har én oppgaveliste — punktum. Det er det ene stedet verneombudet sjekker mandag morgen for å se hva som faktisk henger igjen i hele virksomheten.',
     lawRefs: [
       { short: 'AML §3-1', full: 'Systematisk HMS-arbeid', family: 'AML' },
       { short: 'IK-f §5 nr. 7', full: 'Systematisk overvåking og gjennomgang', family: 'IK-f' },
@@ -126,7 +126,7 @@ export const FEATURES: ModuleFeature[] = [
     ],
     standoutTitle: 'Risiko som tall, ikke følelse',
     standoutBody:
-      'Risikoscore på hvert funn betyr at HMS-leder kan trende risiko-typer over tid på tvers av lokasjoner. Det er forskjellen på "vi har det under kontroll" og "vi kan dokumentere at vi har det under kontroll".',
+      'Risikoscore på hvert funn betyr at HMS-leder kan følge utviklingen av risikotyper over tid og på tvers av steder. Det er forskjellen på «vi har det under kontroll» og «vi kan dokumentere at vi har det under kontroll».',
     lawRefs: [
       { short: 'AML §3-1', full: 'HMS-ansvar', family: 'AML' },
       { short: 'AML §4-1', full: 'Generelle krav til arbeidsmiljø', family: 'AML' },
@@ -148,7 +148,7 @@ export const FEATURES: ModuleFeature[] = [
     headline: 'Ett varslingssystem for AML kap. 2A og GDPR Art. 33',
     lede: 'Anonyme meldinger, personvernbrudd, HMS-hendelser og etiske bekymringer — én pipeline, to lovverk dekket.',
     longDescription:
-      'Klarerts varslingsmodul forener det som vanligvis er fire separate systemer: AML-varsling (kap. 2A), GDPR-brudd (Art. 33), HMS-hendelser og etiske bekymringer. Anonymitet og taushetsplikt er kodet i databasen — ikke bygget på toppen. Reporterfelt er udelelige etter lukking, og konfidensielle saker vises bare for autorisert rolle-roster.',
+      'Klarerts varslingsmodul forener det som vanligvis er fire separate systemer: AML-varsling (kap. 2A), GDPR-brudd (Art. 33), HMS-hendelser og etiske bekymringer. Anonymitet og taushetsplikt er kodet i databasen — ikke lagt på i etterkant. Identitetsfelt blir uredigerbare etter at saken er lukket, og konfidensielle saker vises bare for autoriserte roller.',
     capabilities: [
       {
         title: 'Anonym innsending',
@@ -156,24 +156,24 @@ export const FEATURES: ModuleFeature[] = [
           'Offentlig URL per org. Bruker får tilgangsnøkkel og kan følge sak uten å gi fra seg identitet. Vi vet ikke hvem du er — av design.',
       },
       {
-        title: 'Lovpålagte SLA-er',
+        title: 'Lovpålagte tidsfrister',
         description:
-          '5 dager bekreftelse, 6 uker undersøkelse — kodet i workflow, ikke skrevet i en prosedyre noen leser én gang.',
+          'Bekreftelse innen 5 dager, undersøkelse innen 6 uker — kodet inn i arbeidsflyten, ikke skrevet i en prosedyre som noen leser én gang.',
       },
       {
         title: 'Konfidensialitetsnivåer',
         description:
-          'Standard / begrenset / konfidensiell. Per-sak roster styrer hvem som kan lese, basert på AML §2A-7 (5) og Datatilsynets veiledning.',
+          'Standard / begrenset / konfidensiell. En tilgangsliste per sak styrer hvem som kan lese, basert på AML §2A-7 (5) og Datatilsynets veiledning.',
       },
       {
         title: 'Oppbevaring etter loven',
         description:
-          '5 år for AML-saker, 5+ for yrkesskade (folketrygdloven), 30 år for kjemikalie-eksponering. Sletting håndhevet på databasenivå.',
+          '5 år for AML-saker, minst 5 år for yrkesskade (folketrygdloven), 30 år for kjemikalieeksponering. Sletting håndheves på databasenivå.',
       },
     ],
     standoutTitle: 'Compliance i arkitekturen, ikke i prosedyren',
     standoutBody:
-      'Anonymitet i de fleste systemer er en avkrysningsboks i en form. I Klarert er det en RLS-policy på tabellen som gjør identitetsfelt ulesbare etter lukking. Du kan ikke ved et uhell logge varsleren — koden tillater det ikke.',
+      'Anonymitet i de fleste systemer er en avkrysningsboks i et skjema. I Klarert er det en RLS-policy på tabellen som gjør identitetsfelt ulesbare etter at saken er lukket. Du kan ikke ved et uhell logge varsleren — koden tillater det ikke.',
     lawRefs: [
       { short: 'AML §§2A-1 til 2A-7', full: 'Varsling om kritikkverdige forhold', family: 'AML' },
       { short: 'GDPR Art. 33', full: 'Melding av brudd til tilsynsmyndigheten', family: 'GDPR' },
@@ -242,27 +242,27 @@ export const FEATURES: ModuleFeature[] = [
       {
         title: 'Lovpålagt 40-timers kurs',
         description:
-          'Forhåndsbygget HMS-grunnopplæring for verneombud og medlemmer av arbeidsmiljøutvalg, modulisert og sertifikatsporet.',
+          'Forhåndsbygget HMS-grunnopplæring for verneombud og medlemmer av arbeidsmiljøutvalg, modulbasert og med sertifikatsporing.',
       },
       {
-        title: 'Sertifikatutløp som førsteklasses begrep',
+        title: 'Sertifikatutløp som førsteklasses filter',
         description:
-          'Filtrer på "utløper innen 30 dager" på dashboardet. Eksterne sertifikater (truckfører, varme arbeider) kan også registreres.',
+          'Filtrer på «utløper innen 30 dager» på dashbordet. Eksterne sertifikater (truckfører, varme arbeider) kan også registreres.',
       },
       {
-        title: 'Bevart org-kontekst',
+        title: 'Bevart organisasjonskontekst',
         description:
-          'Avdeling og lokasjon på fullføringstidspunktet låses i sertifikatet. Ansatt-overføringer endrer ikke historiske attester — viktig for revisjon.',
+          'Avdeling og lokasjon på fullføringstidspunktet låses i sertifikatet. Ansattoverføringer endrer ikke historiske attester — viktig for revisjon.',
       },
       {
         title: 'Kursbygger med versjonering',
         description:
-          'Publisering oppretter et fast øyeblikksbilde for nye deltakere. Du kan endre kurset uten å invalidere allerede utstedte sertifikater.',
+          'Publisering oppretter et fast øyeblikksbilde for nye deltakere. Du kan endre kurset uten å ugyldiggjøre allerede utstedte sertifikater.',
       },
     ],
     standoutTitle: 'Sertifikater som husker hvor du var',
     standoutBody:
-      'Når Frida fullførte førstehjelpskurset jobbet hun i avdelingen for Drift. Tre år senere er hun i HR. Klarerts sertifikat husker fortsatt at det ble utstedt for Drift — fordi det er det tilsynet vil se.',
+      'Da Frida fullførte førstehjelpskurset, jobbet hun i avdeling Drift. Tre år senere er hun i HR. Klarerts sertifikat husker fortsatt at det ble utstedt mens hun var i Drift — fordi det er det tilsynet vil se.',
     lawRefs: [
       { short: 'AML §3-5', full: 'Plikt for arbeidsgiver til opplæring', family: 'AML' },
       { short: 'AML §6-5', full: 'Opplæring av verneombud', family: 'AML' },
@@ -278,25 +278,25 @@ export const FEATURES: ModuleFeature[] = [
     number: 6,
     icon: 'survey',
     eyebrow: 'Modul 6 av 6',
-    headline: 'Pulsundersøkelser, leverandøregenerklæringer og exit',
+    headline: 'Pulsundersøkelser, egenerklæringer og exit-intervjuer',
     lede: 'AMU-puls, egenerklæringer fra leverandører, exit-undersøkelser og kartlegginger — anonyme eller identifiserte.',
     longDescription:
-      'Undersøkelser dekker både den jevnlige AMU-pulsen (kartlegging av psykososialt og fysisk arbeidsmiljø etter AML §4-2) og leverandøregenerklæringer under Åpenhetsloven. Anonyme undersøkelser kan fortsatt aggregeres på avdeling — vi løser respondentens avdeling fra e-postmatch uten å lagre individuelle svar mot identitet.',
+      'Undersøkelser dekker både den jevnlige AMU-pulsen (kartlegging av psykososialt og fysisk arbeidsmiljø etter AML §4-2) og egenerklæringer fra leverandører under Åpenhetsloven. Anonyme undersøkelser kan fortsatt aggregeres på avdeling — vi henter respondentens avdeling fra invitasjonen uten å lagre individuelle svar mot identitet.',
     capabilities: [
       {
-        title: 'Mal-pakker',
+        title: 'Malpakker',
         description:
-          'AMU-puls, vendor-egenerklæringer (Åpenhetsloven §5), exit-intervjuer, compliance-egenkontroller og kundefokuserte engasjementsmålinger.',
+          'AMU-puls, egenerklæringer fra leverandører (Åpenhetsloven §5), exit-intervjuer, egenkontroller for compliance og kundefokuserte engasjementsmålinger.',
       },
       {
         title: 'Anonym eller identifisert',
         description:
-          'Bytt mellom modusene per kampanje. Anonym skjuler både identitet og deltakerteller; identifisert sporer respondent for oppfølging.',
+          'Bytt mellom modusene per kampanje. Anonym skjuler både identitet og deltakerteller; identifisert sporer respondenten for oppfølging.',
       },
       {
         title: 'Anonym-vennlig aggregering',
         description:
-          'Selv anonyme undersøkelser kan filtreres på avdeling — avdelingstilhørighet utledes fra invitasjon, ikke fra svaret.',
+          'Selv anonyme undersøkelser kan filtreres på avdeling — avdelingstilhørighet utledes fra invitasjonen, ikke fra svaret.',
       },
       {
         title: 'E-postutsending med påminnelser',
@@ -306,7 +306,7 @@ export const FEATURES: ModuleFeature[] = [
     ],
     standoutTitle: 'Anonymitet uten å miste innsikt',
     standoutBody:
-      'Vi løser respondentens avdeling fra invitasjonen, ikke fra svaret. Du kan fortsatt si "Drift skårer 6,2 på psykososialt arbeidsmiljø denne måneden" uten å vite hvem som svarte hva.',
+      'Vi henter respondentens avdeling fra invitasjonen, ikke fra svaret. Du kan fortsatt si «Drift skårer 6,2 på psykososialt arbeidsmiljø denne måneden» uten å vite hvem som svarte hva.',
     lawRefs: [
       { short: 'AML §4-2', full: 'Krav til tilrettelegging og medvirkning', family: 'AML' },
       { short: 'IK-f §5 nr. 6', full: 'Systematisk overvåking', family: 'IK-f' },
@@ -314,9 +314,9 @@ export const FEATURES: ModuleFeature[] = [
       { short: 'Åpenhetsloven §5', full: 'Aktsomhetsvurdering hos leverandører', family: 'Åpenhetsloven' },
     ],
     related: ['varslinger', 'oppgaver', 'dokumenter'],
-    metaTitle: 'Undersøkelser — Klarert | AMU-puls og leverandøregenerklæring',
+    metaTitle: 'Undersøkelser — Klarert | AMU-puls og egenerklæringer fra leverandører',
     metaDescription:
-      'Pulsundersøkelser, AML §4-2-kartlegging, exit-intervjuer og Åpenhetsloven-egenerklæringer. Anonyme svar, aggregerbar innsikt.',
+      'Pulsundersøkelser, AML §4-2-kartlegging, exit-intervjuer og egenerklæringer etter Åpenhetsloven. Anonyme svar, aggregerbar innsikt.',
   },
 ]
 

@@ -8,30 +8,6 @@ const FOREST = '#1a3d32'
 const TEAL = '#2dd4bf'
 const CREAM = '#f5f0e8'
 
-const TEAM = [
-  {
-    initials: 'TL',
-    bg: '#a78bfa',
-    name: 'Tor Lambrechts',
-    role: 'Daglig leder · grunnlegger',
-    bio: 'Tidligere HMS-leder i industri. Bygger Klarert fordi han var lei av å lete etter dokumenter klokka 23 før tilsynet kom.',
-  },
-  {
-    initials: 'NK',
-    bg: '#34d399',
-    name: 'Navn etterfølger',
-    role: 'Teknisk leder',
-    bio: 'Hovedansvar for plattformarkitektur, sikkerhet og at databasenivå-RLS faktisk fanger det den skal fange.',
-  },
-  {
-    initials: 'AR',
-    bg: '#fbbf24',
-    name: 'Navn etterfølger',
-    role: 'Compliance-rådgiver',
-    bio: 'Verneombud og AML-spesialist. Sørger for at malene speiler faktisk norsk praksis — ikke bare lovteksten.',
-  },
-]
-
 const PRINCIPLES = [
   {
     title: 'Norsk-først',
@@ -112,9 +88,9 @@ export function AboutPage() {
           <div className="mt-10 space-y-5 text-base leading-relaxed text-neutral-700">
             <p>
               Verneombud, HMS-ledere og daglige ledere bruker fortsatt for mye tid på å lete
-              etter dokumenter, huske frister og forklare sammenheng mellom moduler. Det
+              etter dokumenter, huske frister og forklare sammenhengen mellom moduler. Det
               meste handler ikke om at folk ikke vil — det handler om at verktøyene er bygget
-              for å samle inn data, ikke for å hjelpe deg løse problemet.
+              for å samle inn data, ikke for å hjelpe deg med å løse problemet.
             </p>
             <p>
               Klarert tar et annet utgangspunkt: hva slags system ville en god HMS-leder ha
@@ -124,41 +100,12 @@ export function AboutPage() {
               — og likevel beholder den opprinnelige konteksten for tilsynet.
             </p>
             <p>
-              Vi er en liten norsk gruppe basert i Norge. Vi tar én betalingsmetode (faktura
-              eller kort i NOK), én valuta og én juridisk konfigurasjon — den norske. Det er
-              en bevisst begrensning: vi vil heller være best på ett marked enn middelmådig
-              på mange.
+              Vi er en liten gruppe basert i Norge. Vi tar én betalingsmetode (faktura eller
+              kort i NOK), én valuta og én juridisk konfigurasjon — den norske. Det er en
+              bevisst begrensning: vi vil heller være best på ett marked enn middelmådige på
+              mange.
             </p>
           </div>
-        </div>
-      </section>
-
-      <section className="py-20 md:py-28 bg-white" aria-labelledby="team-heading">
-        <div className="mx-auto max-w-5xl px-4 md:px-8">
-          <SectionHeader
-            eyebrow="Teamet"
-            title="Folk du faktisk får snakke med"
-            lede="Klarert er bygget av en liten gruppe i Norge. Du får tilgang til oss — ikke et anonymt support-team."
-          />
-          <div className="mt-12 grid gap-6 md:grid-cols-3">
-            {TEAM.map((member) => (
-              <article key={member.role} className="rounded-2xl border border-neutral-200 p-6 text-center">
-                <div
-                  className="mx-auto mb-4 flex size-20 items-center justify-center rounded-full text-lg font-bold text-white"
-                  style={{ background: member.bg }}
-                  aria-hidden
-                >
-                  {member.initials}
-                </div>
-                <h3 className="text-base font-semibold" style={{ color: FOREST }}>{member.name}</h3>
-                <p className="text-xs uppercase tracking-widest text-neutral-500">{member.role}</p>
-                <p className="mt-3 text-sm leading-relaxed text-neutral-600">{member.bio}</p>
-              </article>
-            ))}
-          </div>
-          <p className="mt-8 text-center text-xs text-neutral-400">
-            Faktiske bilder erstatter initialene når kalenderen tillater det.
-          </p>
         </div>
       </section>
 
@@ -225,11 +172,11 @@ export function AboutPage() {
             </p>
             <p>
               <strong>Tilgangskontroll:</strong> Row Level Security som primær mekanisme.
-              Applikasjonen kan ikke ved et uhell gi tilgang den ikke skulle hatt.
+              Applikasjonen kan ikke ved et uhell gi tilgang som den ikke skulle hatt.
             </p>
             <p>
               <strong>Oppbevaring:</strong> håndhevet per modul — 5 år for varslingssaker
-              (AML), 5+ år for yrkesskade (folketrygdloven), 30 år for kjemikalie-eksponering.
+              (AML), minst 5 år for yrkesskade (folketrygdloven), 30 år for kjemikalieeksponering.
             </p>
             <p>
               <strong>Sletting:</strong> du kan eksportere all data når som helst og be om
@@ -239,7 +186,7 @@ export function AboutPage() {
               Dette er en oppsummering. Full personvernerklæring sendes på forespørsel til{' '}
               <a className="font-semibold underline-offset-4 hover:underline" style={{ color: FOREST }} href="mailto:personvern@klarert.com">
                 personvern@klarert.com
-              </a>{' '}— og publiseres her når kunden ber om det første gang.
+              </a>{' '}— og publiseres her første gang en kunde ber om det.
             </p>
           </div>
         </div>
@@ -266,7 +213,7 @@ export function AboutPage() {
 
       <section id="cookies" className="py-16 md:py-20" style={{ background: CREAM }}>
         <div className="mx-auto max-w-3xl px-4 md:px-8">
-          <SectionHeader eyebrow="Cookies" title="Vi bruker så få vi klarer" align="left" />
+          <SectionHeader eyebrow="Cookies" title="Vi bruker så få som mulig" align="left" />
           <div className="mt-8 space-y-4 text-sm leading-relaxed text-neutral-700">
             <p>
               Nødvendige cookies for innlogging og økt-håndtering. Ingen tredjeparts
@@ -281,8 +228,8 @@ export function AboutPage() {
       </section>
 
       <CtaBannerSection
-        heading="Snakke direkte?"
-        body="Vi tar gjerne en uforpliktende prat — uten salgsdeck og uten å spørre om budsjettet ditt først."
+        heading="Vil du snakke direkte?"
+        body="Vi tar gjerne en uforpliktende prat — uten salgspresentasjoner, og uten å spørre om budsjettet ditt først."
         primaryLabel="Send e-post"
         primaryTo="/signup"
       />
