@@ -9,7 +9,7 @@ export const NAV_LINKS: Array<{ label: string; to: string }> = [
   { label: 'Etterlevelse', to: '/etterlevelse' },
   { label: 'Integrasjoner', to: '/integrasjoner' },
   { label: 'Pris', to: '/#pricing' },
-  { label: 'Om oss', to: '/om-oss' },
+  { label: 'Kontakt', to: '/kontakt' },
 ]
 
 export const FOOTER_PRODUCT = FEATURES.map((f) => ({
@@ -29,9 +29,9 @@ export const FOOTER_COMPANY: Array<{ label: string; to: string; external?: boole
   { label: 'Endringer', to: '/endringer' },
   { label: 'Integrasjoner', to: '/integrasjoner' },
   { label: 'Be om demo', to: '/demo' },
+  { label: 'Kontakt oss', to: '/kontakt' },
   { label: 'Logg inn', to: '/login' },
   { label: 'Opprett konto', to: '/signup' },
-  { label: 'Kontakt', to: 'mailto:hei@klarert.com', external: true },
 ]
 
 export const FOOTER_LEGAL: Array<{ label: string; to: string }> = [

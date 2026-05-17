@@ -178,13 +178,25 @@ const ROUTES = [
   },
   {
     path: '/demo',
-    title: 'Be om demo — Klarert | 20 minutter, ingen salgsdeck',
+    title: 'Be om demo — Klarert | 20 minutter, ingen salgspresentasjon',
     description:
-      'Vi viser deg hvordan Klarert dekker akkurat ditt rammeverk. 20 minutter, ingen salgsdeck, ingen budsjettspørsmål.',
+      'Vi viser deg hvordan Klarert dekker akkurat ditt rammeverk. 20 minutter, ingen salgspresentasjon, ingen budsjettspørsmål.',
     jsonLd: ld([
       breadcrumb([
         { name: 'Klarert', item: `${SITE}/` },
         { name: 'Be om demo', item: `${SITE}/demo` },
+      ]),
+    ]),
+  },
+  {
+    path: '/kontakt',
+    title: 'Kontakt oss — Klarert | Spørsmål, demo og partnerskap',
+    description:
+      'Spør oss om hva som helst — etterlevelse (compliance), integrasjoner, demo, prising. Vi svarer innen 1 virkedag. Ingen oppfølging hvis du ikke vil ha det.',
+    jsonLd: ld([
+      breadcrumb([
+        { name: 'Klarert', item: `${SITE}/` },
+        { name: 'Kontakt oss', item: `${SITE}/kontakt` },
       ]),
     ]),
   },

@@ -1,5 +1,6 @@
 // /om-oss — mission, principles, contact, basic privacy/terms anchors.
 
+import { Link } from 'react-router-dom'
 import { SeoHead } from './primitives/SeoHead'
 import { SectionHeader } from './primitives/SectionHeader'
 import { CtaBannerSection } from './sections/CtaBannerSection'
@@ -138,6 +139,9 @@ export function AboutPage() {
           <div className="mt-8 space-y-4 text-base leading-relaxed text-neutral-700">
             <p>
               Generelle spørsmål, demo-forespørsler og partnerskap:{' '}
+              <Link className="font-semibold underline-offset-4 hover:underline" style={{ color: FOREST }} to="/kontakt">
+                kontaktskjema
+              </Link>{' '}eller{' '}
               <a className="font-semibold underline-offset-4 hover:underline" style={{ color: FOREST }} href="mailto:hei@klarert.com">
                 hei@klarert.com
               </a>
@@ -230,8 +234,8 @@ export function AboutPage() {
       <CtaBannerSection
         heading="Vil du snakke direkte?"
         body="Vi tar gjerne en uforpliktende prat — uten salgspresentasjoner, og uten å spørre om budsjettet ditt først."
-        primaryLabel="Send e-post"
-        primaryTo="/signup"
+        primaryLabel="Send oss en melding"
+        primaryTo="/kontakt"
       />
     </>
   )

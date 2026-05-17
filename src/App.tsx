@@ -16,7 +16,7 @@ const CompliancePage = lazy(() => import('./pages/marketing/CompliancePage').the
 const IntegrationsPage = lazy(() => import('./pages/marketing/IntegrationsPage').then((m) => ({ default: m.IntegrationsPage })))
 const AboutPage = lazy(() => import('./pages/marketing/AboutPage').then((m) => ({ default: m.AboutPage })))
 const EndringerPage = lazy(() => import('./pages/marketing/EndringerPage').then((m) => ({ default: m.EndringerPage })))
-const DemoPage = lazy(() => import('./pages/marketing/DemoPage').then((m) => ({ default: m.DemoPage })))
+const ContactPage = lazy(() => import('./pages/marketing/ContactPage').then((m) => ({ default: m.ContactPage })))
 import { OrgSetupProvider } from './context/OrgSetupProvider'
 import { UiThemeProvider } from './context/UiThemeProvider'
 import { I18nProvider } from './context/I18nProvider'
@@ -287,7 +287,8 @@ const router = createBrowserRouter(
               <Route path="/integrasjoner" element={<IntegrationsPage />} />
               <Route path="/om-oss" element={<AboutPage />} />
               <Route path="/endringer" element={<EndringerPage />} />
-              <Route path="/demo" element={<DemoPage />} />
+              <Route path="/demo" element={<ContactPage />} />
+              <Route path="/kontakt" element={<ContactPage />} />
             </Route>
             {/* Legacy /compliance — redirect to /etterlevelse (kept for printed and external links). */}
             <Route path="/compliance" element={<Navigate to="/etterlevelse" replace />} />
