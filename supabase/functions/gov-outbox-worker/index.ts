@@ -42,6 +42,8 @@ type OutboxRow = {
   kind:
     | 'datatilsynet_breach'
     | 'manual_datatilsynet_submission'
+    | 'manual_arbeidstilsynet_submission'
+    | 'manual_ldo_export'
     | 'nav_sykefravar_outbox'
     | 'ldo_export_pending'
   payload: Record<string, unknown>
@@ -168,6 +170,8 @@ Deno.serve(async (req) => {
     .in('kind', [
       'datatilsynet_breach',
       'manual_datatilsynet_submission',
+      'manual_arbeidstilsynet_submission',
+      'manual_ldo_export',
       'nav_sykefravar_outbox',
       'ldo_export_pending',
     ])
@@ -182,13 +186,23 @@ Deno.serve(async (req) => {
   for (const row of queue) {
     let result: { ok: boolean; error?: string }
     let status: string | undefined
-    if (row.kind === 'datatilsynet_breach' || row.kind === 'manual_datatilsynet_submission') {
-      // No auto-send: just flag awaiting_human. SendGrid is gone.
+    if (
+      row.kind === 'datatilsynet_breach' ||
+      row.kind === 'manual_datatilsynet_submission' ||
+      row.kind === 'manual_arbeidstilsynet_submission' ||
+      row.kind === 'manual_ldo_export'
+    ) {
+      // No auto-send: flag awaiting_human. SendGrid is gone, and the
+      // LDO-export-pointer flow (generateLdoExportPointer below) still
+      // requires a separate review pass — for the new manual_* kinds we
+      // therefore leave them parked in the admin inbox rather than
+      // auto-generating an evidence pack that nobody has signed off.
       result = await flagAwaitingHuman(supabase, row)
       status = 'awaiting_human'
     } else if (row.kind === 'nav_sykefravar_outbox') {
       result = await sendNavViaAltinn(supabase, row, SUPABASE_URL, SERVICE_ROLE)
     } else {
+      // ldo_export_pending — the legacy pre-review LDO export path.
       result = await generateLdoExportPointer(supabase, row, SUPABASE_URL, SERVICE_ROLE)
     }
     if (result.ok && status !== 'awaiting_human') {
