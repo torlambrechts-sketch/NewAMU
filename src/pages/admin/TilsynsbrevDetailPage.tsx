@@ -2,17 +2,34 @@
 //
 // Viser:
 //   * upload-metadata (regulator, opplasting, parser-kjøretid)
+//   * sticky konfidensialitets-banner når confidentiality_level != standard
 //   * sammendrag (parsed_payload.summary)
 //   * tabell over ekstraherte paragrafer m/ severity, frist, status,
 //     lenke til opprettet task hvis noen
 //   * per-paragraf «Opprett oppgave for dette pålegget» (kaller RPC
-//     tilsynsbrev_create_task_for_paragraph)
+//     tilsynsbrev_create_task_for_paragraph) — med ekstra bekreft-
+//     dialog som arver konfidensialitet til den nye oppgaven
 //   * «Marker som gjennomgått» (manual_review_status='accepted')
 //   * «Kjør på nytt» (re-invoke parser edge function)
+//   * «Last ned PDF» (signed URL) — disabled på confidential når
+//     brukeren mangler tilsynsbrev.view_confidential
+//   * Tilgangslogg (tilsynsbrev_access_log) — append-only forensisk
+//     spor som loggføres via RPC tilsynsbrev_log_access().
 
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
-import { ArrowLeft, CheckCircle2, FileText, ListChecks, Plus, RefreshCw } from 'lucide-react'
+import {
+  AlertCircle,
+  ArrowLeft,
+  CheckCircle2,
+  Download,
+  FileText,
+  History,
+  ListChecks,
+  Plus,
+  RefreshCw,
+  ShieldAlert,
+} from 'lucide-react'
 import { ModulePageShell, ModuleSectionCard } from '../../components/module'
 import { Button } from '../../components/ui/Button'
 import { Badge } from '../../components/ui/Badge'
@@ -23,6 +40,8 @@ type SourceType = 'arbeidstilsynet' | 'datatilsynet' | 'helsetilsynet' | 'ukom' 
 type ParsedStatus = 'pending' | 'parsing' | 'parsed' | 'failed'
 type Severity = 'info' | 'observasjon' | 'pålegg' | 'tvangsmulkt'
 type ParagraphStatus = 'open' | 'addressed' | 'contested' | 'closed'
+type ConfidentialityLevel = 'standard' | 'restricted' | 'confidential'
+type AccessAction = 'view' | 'create_task' | 'mark_reviewed' | 're_parse' | 'download'
 
 type UploadRow = {
   id: string
@@ -43,7 +62,7 @@ type UploadRow = {
   parser_kind: string | null
   parser_version: string | null
   manual_review_status: 'not_reviewed' | 'accepted' | 'edited' | 'rejected'
-  confidentiality_level: string
+  confidentiality_level: ConfidentialityLevel
   notes: string | null
 }
 
@@ -57,6 +76,14 @@ type ParagraphRow = {
   linked_task_id: string | null
 }
 
+type AccessLogRow = {
+  id: string
+  accessed_at: string
+  accessed_by: string
+  action: AccessAction
+  user_label?: string | null
+}
+
 const SOURCE_LABELS: Record<SourceType, string> = {
   arbeidstilsynet: 'Arbeidstilsynet',
   datatilsynet: 'Datatilsynet',
@@ -64,6 +91,14 @@ const SOURCE_LABELS: Record<SourceType, string> = {
   ukom: 'UKOM',
   ldo: 'LDO',
   other: 'Annen',
+}
+
+const ACTION_LABELS: Record<AccessAction, string> = {
+  view: 'Visning',
+  create_task: 'Opprettet oppgave',
+  mark_reviewed: 'Markert som gjennomgått',
+  re_parse: 'Re-parser kjørt',
+  download: 'Lastet ned PDF',
 }
 
 function severityBadge(s: Severity | null): {
@@ -91,9 +126,18 @@ function paragraphStatusBadge(s: ParagraphStatus): {
   }
 }
 
+function confidentialityBadge(level: ConfidentialityLevel): null | {
+  label: string
+  variant: 'warning' | 'danger'
+} {
+  if (level === 'restricted') return { label: 'Begrenset', variant: 'warning' }
+  if (level === 'confidential') return { label: 'Konfidensielt', variant: 'danger' }
+  return null
+}
+
 export function TilsynsbrevDetailPage() {
   const { id } = useParams<{ id: string }>()
-  const { supabase, organization } = useOrgSetupContext()
+  const { supabase, organization, can } = useOrgSetupContext()
   const [upload, setUpload] = useState<UploadRow | null>(null)
   const [paragraphs, setParagraphs] = useState<ParagraphRow[]>([])
   const [loading, setLoading] = useState(true)
@@ -101,8 +145,75 @@ export function TilsynsbrevDetailPage() {
   const [reparsing, setReparsing] = useState(false)
   const [reviewing, setReviewing] = useState(false)
   const [creatingFor, setCreatingFor] = useState<string | null>(null)
+  const [downloading, setDownloading] = useState(false)
+  const [accessLog, setAccessLog] = useState<AccessLogRow[]>([])
+  const [accessLogAvailable, setAccessLogAvailable] = useState<boolean | null>(null)
+  const [pendingCreateParagraph, setPendingCreateParagraph] = useState<ParagraphRow | null>(null)
+
+  const canViewConfidential = can('tilsynsbrev.view_confidential')
+  const loggedViewRef = useRef<string | null>(null)
 
   const orgId = organization?.id ?? null
+
+  const logAccess = useCallback(
+    async (action: AccessAction) => {
+      if (!supabase || !id) return
+      try {
+        await supabase.rpc('tilsynsbrev_log_access', {
+          p_upload_id: id,
+          p_action: action,
+          p_ip: null,
+          p_user_agent:
+            typeof navigator !== 'undefined' ? navigator.userAgent.slice(0, 250) : null,
+        })
+      } catch (e) {
+        // Logging is best-effort. The application must not block the
+        // user action when the RPC is missing (e.g. migration not yet
+        // applied) or temporarily fails.
+        console.warn('tilsynsbrev_log_access failed', e)
+      }
+    },
+    [supabase, id],
+  )
+
+  const loadAccessLog = useCallback(async () => {
+    if (!supabase || !id) return
+    const { data, error: e } = await supabase
+      .from('tilsynsbrev_access_log')
+      .select('id, accessed_at, accessed_by, action')
+      .eq('upload_id', id)
+      .order('accessed_at', { ascending: false })
+      .limit(50)
+    if (e) {
+      // 42P01 = undefined_table → migration not applied yet. Render the
+      // placeholder card instead of an error.
+      if (/relation .* does not exist/i.test(e.message) || (e as { code?: string }).code === '42P01') {
+        setAccessLogAvailable(false)
+        return
+      }
+      // Any other error is shown; not a crash.
+      console.warn('access log load failed', e.message)
+      setAccessLogAvailable(false)
+      return
+    }
+    setAccessLogAvailable(true)
+    const rows = (data ?? []) as AccessLogRow[]
+
+    // Resolve display names for accessed_by → profile.display_name.
+    const uniqueIds = Array.from(new Set(rows.map((r) => r.accessed_by))).filter(Boolean)
+    if (uniqueIds.length > 0) {
+      const { data: profs } = await supabase
+        .from('profiles')
+        .select('id, display_name')
+        .in('id', uniqueIds)
+      const labelMap = new Map<string, string>(
+        (profs ?? []).map((p) => [p.id as string, (p as { display_name?: string }).display_name ?? '']),
+      )
+      setAccessLog(rows.map((r) => ({ ...r, user_label: labelMap.get(r.accessed_by) ?? null })))
+    } else {
+      setAccessLog(rows)
+    }
+  }, [supabase, id])
 
   const refresh = useCallback(async () => {
     if (!supabase || !id || !orgId) return
@@ -132,21 +243,36 @@ export function TilsynsbrevDetailPage() {
     void refresh()
   }, [refresh])
 
+  // Log page-load exactly once per upload-id. Strict-mode double-mount
+  // is guarded via the ref.
+  useEffect(() => {
+    if (!upload || !id) return
+    if (loggedViewRef.current === id) return
+    loggedViewRef.current = id
+    void logAccess('view')
+    void loadAccessLog()
+  }, [upload, id, logAccess, loadAccessLog])
+
   const summary = useMemo(() => upload?.parsed_payload?.summary ?? '', [upload])
   const findings = useMemo(() => upload?.parsed_payload?.findings ?? [], [upload])
+  const confBadge = upload ? confidentialityBadge(upload.confidentiality_level) : null
+  const isConfidential = upload?.confidentiality_level === 'confidential'
+  const downloadBlocked = isConfidential && !canViewConfidential
 
   const onReparse = useCallback(async () => {
     if (!supabase || !upload) return
     setReparsing(true)
     try {
       await supabase.functions.invoke('tilsynsbrev-parser', { body: { upload_id: upload.id } })
+      await logAccess('re_parse')
       await refresh()
+      await loadAccessLog()
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e))
     } finally {
       setReparsing(false)
     }
-  }, [supabase, upload, refresh])
+  }, [supabase, upload, refresh, logAccess, loadAccessLog])
 
   const onAccept = useCallback(async () => {
     if (!supabase || !upload) return
@@ -158,12 +284,17 @@ export function TilsynsbrevDetailPage() {
         reviewed_at: new Date().toISOString(),
       })
       .eq('id', upload.id)
-    if (e) setError(e.message)
-    else await refresh()
+    if (e) {
+      setError(e.message)
+    } else {
+      await logAccess('mark_reviewed')
+      await refresh()
+      await loadAccessLog()
+    }
     setReviewing(false)
-  }, [supabase, upload, refresh])
+  }, [supabase, upload, refresh, logAccess, loadAccessLog])
 
-  const onCreateTask = useCallback(
+  const onCreateTaskConfirmed = useCallback(
     async (paragraphId: string) => {
       if (!supabase) return
       setCreatingFor(paragraphId)
@@ -173,14 +304,55 @@ export function TilsynsbrevDetailPage() {
           p_assignee_user_id: null,
           p_due_at: null,
         })
-        if (e) setError(e.message)
-        else await refresh()
+        if (e) {
+          setError(e.message)
+        } else {
+          await logAccess('create_task')
+          await refresh()
+          await loadAccessLog()
+        }
       } finally {
         setCreatingFor(null)
+        setPendingCreateParagraph(null)
       }
     },
-    [supabase, refresh],
+    [supabase, refresh, logAccess, loadAccessLog],
   )
+
+  const onCreateTaskClick = useCallback(
+    (paragraph: ParagraphRow) => {
+      if (!upload) return
+      if (upload.confidentiality_level !== 'standard') {
+        setPendingCreateParagraph(paragraph)
+      } else {
+        void onCreateTaskConfirmed(paragraph.id)
+      }
+    },
+    [upload, onCreateTaskConfirmed],
+  )
+
+  const onDownload = useCallback(async () => {
+    if (!supabase || !upload || downloadBlocked) return
+    setDownloading(true)
+    try {
+      const { data, error: e } = await supabase.storage
+        .from('tilsynsbrev')
+        .createSignedUrl(upload.storage_path, 60)
+      if (e) {
+        setError(e.message)
+        return
+      }
+      if (data?.signedUrl) {
+        window.open(data.signedUrl, '_blank', 'noopener,noreferrer')
+        await logAccess('download')
+        await loadAccessLog()
+      }
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e))
+    } finally {
+      setDownloading(false)
+    }
+  }, [supabase, upload, downloadBlocked, logAccess, loadAccessLog])
 
   if (loading && !upload) {
     return (
@@ -243,6 +415,18 @@ export function TilsynsbrevDetailPage() {
           >
             <ArrowLeft className="size-4" /> Tilbake
           </Link>
+          <Button
+            variant="ghost"
+            onClick={() => void onDownload()}
+            disabled={downloading || downloadBlocked}
+            title={
+              downloadBlocked
+                ? 'Krever tilsynsbrev.view_confidential — kontakt HMS-leder'
+                : undefined
+            }
+          >
+            <Download className="size-4" /> {downloading ? 'Henter …' : 'Last ned PDF'}
+          </Button>
           <Button variant="ghost" onClick={() => void onReparse()} disabled={reparsing}>
             <RefreshCw className="size-4" /> {reparsing ? 'Kjører …' : 'Kjør på nytt'}
           </Button>
@@ -256,6 +440,14 @@ export function TilsynsbrevDetailPage() {
         </div>
       }
     >
+      {/* Sticky confidentiality banner — sits above the error/content
+          so reviewers always see the gate first. */}
+      {upload.confidentiality_level !== 'standard' && (
+        <div className="sticky top-2 z-20">
+          <ConfidentialityBanner level={upload.confidentiality_level} />
+        </div>
+      )}
+
       {error && <WarningBox>{error}</WarningBox>}
 
       <ModuleSectionCard className="p-6">
@@ -274,7 +466,19 @@ export function TilsynsbrevDetailPage() {
             value={upload.parsed_at ? new Date(upload.parsed_at).toLocaleString('nb') : '—'}
           />
           <Field label="Status" value={upload.parsed_status} />
-          <Field label="Konfidensialitet" value={upload.confidentiality_level} />
+          <div>
+            <dt className="text-[10px] font-bold uppercase tracking-wider text-neutral-500">
+              Konfidensialitet
+            </dt>
+            <dd className="mt-1 flex items-center gap-2 text-sm text-neutral-800">
+              {confBadge ? (
+                <Badge variant={confBadge.variant}>{confBadge.label}</Badge>
+              ) : (
+                <span>Standard</span>
+              )}
+              <span className="text-neutral-500">({upload.confidentiality_level})</span>
+            </dd>
+          </div>
           {upload.notes && <Field label="Notater" value={upload.notes} />}
         </dl>
       </ModuleSectionCard>
@@ -350,7 +554,7 @@ export function TilsynsbrevDetailPage() {
                         <Button
                           variant="secondary"
                           size="sm"
-                          onClick={() => void onCreateTask(p.id)}
+                          onClick={() => onCreateTaskClick(p)}
                           disabled={creatingFor === p.id}
                         >
                           <Plus className="size-3.5" />
@@ -388,6 +592,18 @@ export function TilsynsbrevDetailPage() {
           </ul>
         </ModuleSectionCard>
       )}
+
+      <AccessLogCard available={accessLogAvailable} rows={accessLog} />
+
+      {pendingCreateParagraph && upload && (
+        <ConfirmCreateTaskDialog
+          paragraph={pendingCreateParagraph}
+          level={upload.confidentiality_level}
+          busy={creatingFor === pendingCreateParagraph.id}
+          onCancel={() => setPendingCreateParagraph(null)}
+          onConfirm={() => void onCreateTaskConfirmed(pendingCreateParagraph.id)}
+        />
+      )}
     </ModulePageShell>
   )
 }
@@ -397,6 +613,143 @@ function Field({ label, value }: { label: string; value: string }) {
     <div>
       <dt className="text-[10px] font-bold uppercase tracking-wider text-neutral-500">{label}</dt>
       <dd className="mt-1 text-sm text-neutral-800">{value}</dd>
+    </div>
+  )
+}
+
+function ConfidentialityBanner({ level }: { level: Exclude<ConfidentialityLevel, 'standard'> }) {
+  if (level === 'restricted') {
+    return (
+      <div className="flex items-start gap-2.5 rounded-md border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900 shadow-sm">
+        <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" />
+        <span>
+          <strong>Begrenset tilgang</strong> — denne tilsynssaken er klassifisert som begrenset.
+          {' '}All visning og kopiering blir loggført iht. AML § 2A-7.
+        </span>
+      </div>
+    )
+  }
+  return (
+    <div className="flex items-start gap-2.5 rounded-md border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-900 shadow-sm">
+      <ShieldAlert className="mt-0.5 h-4 w-4 shrink-0 text-red-600" />
+      <span>
+        <strong>KONFIDENSIELT</strong> — denne tilsynssaken er klassifisert som konfidensiell
+        {' '}(varslingssak / personskade-følsom). All visning loggføres. Ikke videresend uten
+        {' '}samtykke fra HMS-leder.
+      </span>
+    </div>
+  )
+}
+
+function AccessLogCard({
+  available,
+  rows,
+}: {
+  available: boolean | null
+  rows: AccessLogRow[]
+}) {
+  return (
+    <ModuleSectionCard className="p-0 overflow-hidden">
+      <div className="flex items-center justify-between border-b border-neutral-200 px-6 py-4">
+        <h2 className="flex items-center gap-2 text-lg font-semibold text-neutral-900">
+          <History className="size-5 text-[#1a3d32]" aria-hidden />
+          Tilgangslogg
+        </h2>
+        {available && rows.length > 0 && (
+          <span className="text-xs text-neutral-500">Siste 50 hendelser</span>
+        )}
+      </div>
+      {available === null ? (
+        <p className="px-6 py-10 text-center text-sm text-neutral-500">Laster tilgangslogg …</p>
+      ) : available === false ? (
+        <p className="px-6 py-10 text-center text-sm text-neutral-500">
+          Tilgangslogg kommer i neste sprint.
+        </p>
+      ) : rows.length === 0 ? (
+        <p className="px-6 py-10 text-center text-sm text-neutral-500">
+          Ingen tilgangshendelser loggført ennå.
+        </p>
+      ) : (
+        <table className="w-full text-sm">
+          <thead className="bg-neutral-50 text-left text-[11px] uppercase tracking-wide text-neutral-500">
+            <tr>
+              <th className="px-4 py-3 font-semibold">Tidspunkt</th>
+              <th className="px-4 py-3 font-semibold">Bruker</th>
+              <th className="px-4 py-3 font-semibold">Handling</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-neutral-100">
+            {rows.map((r) => (
+              <tr key={r.id} className="hover:bg-neutral-50/60">
+                <td className="px-4 py-3 text-neutral-700">
+                  {new Date(r.accessed_at).toLocaleString('nb')}
+                </td>
+                <td className="px-4 py-3 text-neutral-700">
+                  {r.user_label || <span className="font-mono text-xs">{r.accessed_by.slice(0, 8)}…</span>}
+                </td>
+                <td className="px-4 py-3 text-neutral-700">
+                  {ACTION_LABELS[r.action] ?? r.action}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+    </ModuleSectionCard>
+  )
+}
+
+function ConfirmCreateTaskDialog({
+  paragraph,
+  level,
+  busy,
+  onCancel,
+  onConfirm,
+}: {
+  paragraph: ParagraphRow
+  level: Exclude<ConfidentialityLevel, 'standard'>
+  busy: boolean
+  onCancel: () => void
+  onConfirm: () => void
+}) {
+  const [confirmed, setConfirmed] = useState(false)
+  const levelLabel = level === 'confidential' ? 'konfidensielt' : 'begrenset'
+
+  return (
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="confirm-create-task-title"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+    >
+      <div className="w-full max-w-md rounded-lg bg-white p-6 shadow-xl">
+        <h3 id="confirm-create-task-title" className="text-base font-semibold text-neutral-900">
+          Bekreft konfidensialitet
+        </h3>
+        <p className="mt-3 text-sm leading-relaxed text-neutral-700">
+          Den opprettede oppgaven for paragraf{' '}
+          <span className="font-mono text-xs font-semibold">{paragraph.paragraph_ref}</span>{' '}
+          arver konfidensialitetsnivå <strong>{levelLabel}</strong> og blir kun synlig for
+          brukere med <code className="rounded bg-neutral-100 px-1">tasks.view_confidential</code>-tillatelse.
+        </p>
+        <label className="mt-4 flex items-start gap-2 text-sm text-neutral-800">
+          <input
+            type="checkbox"
+            className="mt-0.5 size-4 rounded border-neutral-300"
+            checked={confirmed}
+            onChange={(e) => setConfirmed(e.target.checked)}
+          />
+          <span>Jeg bekrefter dette er korrekt</span>
+        </label>
+        <div className="mt-6 flex items-center justify-end gap-2">
+          <Button variant="ghost" onClick={onCancel} disabled={busy}>
+            Avbryt
+          </Button>
+          <Button onClick={onConfirm} disabled={!confirmed || busy}>
+            {busy ? 'Oppretter …' : 'Opprett oppgave'}
+          </Button>
+        </div>
+      </div>
     </div>
   )
 }

@@ -5,8 +5,14 @@
 // Filen er v0-MVP for tilsynsbrev-parser-wedgen (top-2 wedge ifølge
 // entrepreneur-review). Selve LLM-ekstraksjonen + regex-fallback
 // kjøres på serveren — denne siden er kun upload-form + listevisning.
+//
+// Confidentiality gate (P2 add-on): hver rad viser et badge for
+// confidentiality_level + en filter-chip på toppen. Når brukeren
+// mangler tilsynsbrev.view_confidential, viser vi *antall* skjulte
+// konfidensielle saker (RLS skjuler innholdet) så admin ser at det
+// finnes saker uten å se selve dataene.
 
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { FileText, Plus, RefreshCw, Upload } from 'lucide-react'
 import { ModulePageShell, ModuleSectionCard } from '../../components/module'
@@ -21,6 +27,8 @@ import { useOrgSetupContext } from '../../hooks/useOrgSetupContext'
 type SourceType = 'arbeidstilsynet' | 'datatilsynet' | 'helsetilsynet' | 'ukom' | 'ldo' | 'other'
 type ParsedStatus = 'pending' | 'parsing' | 'parsed' | 'failed'
 type ReviewStatus = 'not_reviewed' | 'accepted' | 'edited' | 'rejected'
+type ConfidentialityLevel = 'standard' | 'restricted' | 'confidential'
+type ConfidentialityFilter = 'standard' | 'include_restricted' | 'all'
 
 type UploadRow = {
   id: string
@@ -31,6 +39,7 @@ type UploadRow = {
   parser_kind: string | null
   parsed_payload: { citedParagraphs?: unknown[]; summary?: string } | null
   notes: string | null
+  confidentiality_level: ConfidentialityLevel
 }
 
 const SOURCE_LABELS: Record<SourceType, string> = {
@@ -56,6 +65,12 @@ const REVIEW_LABELS: Record<ReviewStatus, string> = {
   rejected: 'Avvist',
 }
 
+const CONFIDENTIALITY_FILTER_LABELS: Record<ConfidentialityFilter, string> = {
+  standard: 'Bare standard',
+  include_restricted: 'Inkluder begrensede',
+  all: 'Alle (inkl. konfidensielle)',
+}
+
 function badgeForStatus(status: ParsedStatus, review: ReviewStatus): {
   label: string
   variant: 'neutral' | 'info' | 'success' | 'warning' | 'danger'
@@ -68,17 +83,44 @@ function badgeForStatus(status: ParsedStatus, review: ReviewStatus): {
   return { label: STATUS_LABELS.pending, variant: 'neutral' }
 }
 
+function confidentialityBadge(level: ConfidentialityLevel): null | {
+  label: string
+  variant: 'warning' | 'danger'
+  tooltip: string
+} {
+  if (level === 'restricted') {
+    return {
+      label: 'Begrenset',
+      variant: 'warning',
+      tooltip: 'Krever utvidet tilgang',
+    }
+  }
+  if (level === 'confidential') {
+    return {
+      label: 'Konfidensielt',
+      variant: 'danger',
+      tooltip: 'Krever workflows.view_confidential',
+    }
+  }
+  return null
+}
+
 async function sha256Hex(bytes: ArrayBuffer): Promise<string> {
   const digest = await crypto.subtle.digest('SHA-256', bytes)
   return [...new Uint8Array(digest)].map((b) => b.toString(16).padStart(2, '0')).join('')
 }
 
 export function TilsynsbrevPage() {
-  const { supabase, organization } = useOrgSetupContext()
+  const { supabase, organization, can } = useOrgSetupContext()
   const [rows, setRows] = useState<UploadRow[]>([])
+  const [hiddenConfidentialCount, setHiddenConfidentialCount] = useState(0)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [uploadOpen, setUploadOpen] = useState(false)
+  const [confidentialityFilter, setConfidentialityFilter] =
+    useState<ConfidentialityFilter>('include_restricted')
+
+  const canViewConfidential = can('tilsynsbrev.view_confidential')
 
   const orgId = organization?.id ?? null
 
@@ -88,7 +130,9 @@ export function TilsynsbrevPage() {
     setError(null)
     const { data, error: e } = await supabase
       .from('tilsynsbrev_uploads')
-      .select('id, uploaded_at, source_type, parsed_status, manual_review_status, parser_kind, parsed_payload, notes')
+      .select(
+        'id, uploaded_at, source_type, parsed_status, manual_review_status, parser_kind, parsed_payload, notes, confidentiality_level',
+      )
       .eq('organization_id', orgId)
       .order('uploaded_at', { ascending: false })
       .limit(100)
@@ -97,12 +141,44 @@ export function TilsynsbrevPage() {
     } else {
       setRows((data ?? []) as UploadRow[])
     }
+
+    // Even without the view-confidential permission, give the admin a
+    // count of how many confidential rows exist. RLS hides their
+    // payload — but `select count(*)` over a head-only request returns
+    // the unfiltered total via the response's `count` header.
+    if (!canViewConfidential) {
+      const head = await supabase
+        .from('tilsynsbrev_uploads')
+        .select('id', { count: 'exact', head: true })
+        .eq('organization_id', orgId)
+        .eq('confidentiality_level', 'confidential')
+      if (!head.error && typeof head.count === 'number') {
+        setHiddenConfidentialCount(head.count)
+      } else {
+        setHiddenConfidentialCount(0)
+      }
+    } else {
+      setHiddenConfidentialCount(0)
+    }
+
     setLoading(false)
-  }, [supabase, orgId])
+  }, [supabase, orgId, canViewConfidential])
 
   useEffect(() => {
     void refresh()
   }, [refresh])
+
+  const filteredRows = useMemo(() => {
+    if (confidentialityFilter === 'standard') {
+      return rows.filter((r) => r.confidentiality_level === 'standard')
+    }
+    if (confidentialityFilter === 'include_restricted') {
+      return rows.filter(
+        (r) => r.confidentiality_level === 'standard' || r.confidentiality_level === 'restricted',
+      )
+    }
+    return rows
+  }, [rows, confidentialityFilter])
 
   return (
     <ModulePageShell
@@ -126,14 +202,57 @@ export function TilsynsbrevPage() {
     >
       {error && <WarningBox>Kunne ikke hente tilsynsbrev: {error}</WarningBox>}
 
+      <ModuleSectionCard className="p-4">
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="text-[11px] font-bold uppercase tracking-wider text-neutral-500">
+            Konfidensialitet
+          </span>
+          <div role="group" aria-label="Filter konfidensialitet" className="flex gap-1">
+            {(Object.keys(CONFIDENTIALITY_FILTER_LABELS) as ConfidentialityFilter[]).map((key) => {
+              const active = confidentialityFilter === key
+              return (
+                <button
+                  key={key}
+                  type="button"
+                  onClick={() => setConfidentialityFilter(key)}
+                  aria-pressed={active}
+                  className={
+                    'rounded-full border px-3 py-1 text-xs font-semibold transition-colors ' +
+                    (active
+                      ? 'border-[#1a3d32] bg-[#1a3d32] text-white'
+                      : 'border-neutral-300 bg-white text-neutral-700 hover:bg-neutral-50')
+                  }
+                >
+                  {CONFIDENTIALITY_FILTER_LABELS[key]}
+                </button>
+              )
+            })}
+          </div>
+        </div>
+        <p className="mt-2 text-xs text-neutral-500">
+          Viser {filteredRows.length} {filteredRows.length === 1 ? 'sak' : 'saker'}
+          {' '}av {rows.length} synlige.
+          {!canViewConfidential && hiddenConfidentialCount > 0 && (
+            <>
+              {' · '}
+              <span className="font-semibold text-amber-700">
+                {hiddenConfidentialCount} konfidensielle skjult (kreve gjennomgang)
+              </span>
+            </>
+          )}
+        </p>
+      </ModuleSectionCard>
+
       <ModuleSectionCard className="p-0 overflow-hidden">
         {loading ? (
           <p className="px-6 py-10 text-center text-sm text-neutral-500">Laster tilsynsbrev …</p>
-        ) : rows.length === 0 ? (
+        ) : filteredRows.length === 0 ? (
           <div className="px-6 py-12 text-center">
             <FileText className="mx-auto size-10 text-neutral-300" aria-hidden />
             <p className="mt-3 text-sm text-neutral-600">
-              Ingen tilsynsbrev lastet opp ennå. Klikk «Last opp brev» øverst for å starte.
+              {rows.length === 0
+                ? 'Ingen tilsynsbrev lastet opp ennå. Klikk «Last opp brev» øverst for å starte.'
+                : 'Ingen tilsynsbrev matcher gjeldende konfidensialitetsfilter.'}
             </p>
           </div>
         ) : (
@@ -149,8 +268,9 @@ export function TilsynsbrevPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-neutral-100">
-              {rows.map((r) => {
+              {filteredRows.map((r) => {
                 const badge = badgeForStatus(r.parsed_status, r.manual_review_status)
+                const confBadge = confidentialityBadge(r.confidentiality_level)
                 const cited =
                   Array.isArray(r.parsed_payload?.citedParagraphs)
                     ? (r.parsed_payload!.citedParagraphs!.length as number)
@@ -161,7 +281,14 @@ export function TilsynsbrevPage() {
                       {new Date(r.uploaded_at).toLocaleString('nb')}
                     </td>
                     <td className="px-4 py-3 font-medium text-neutral-900">
-                      {SOURCE_LABELS[r.source_type] ?? r.source_type}
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span>{SOURCE_LABELS[r.source_type] ?? r.source_type}</span>
+                        {confBadge && (
+                          <Badge variant={confBadge.variant} title={confBadge.tooltip}>
+                            {confBadge.label}
+                          </Badge>
+                        )}
+                      </div>
                     </td>
                     <td className="px-4 py-3 text-neutral-700">
                       {cited > 0 ? `${cited} sitat${cited === 1 ? '' : 'er'}` : '—'}

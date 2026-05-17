@@ -45,17 +45,16 @@ begin
 end$$;
 
 -- (1) Active org: tick produces a workflow_runs row tagged with this slug.
+select public.workflow_cron_tick();
 select isnt(
   (
     select count(*)::int from public.workflow_runs r
      where r.organization_id = current_setting('pgtap.org')::uuid
        and r.detail->>'system_rule_slug' = 'pgtap.cron-soft-delete'
-       and r.created_at > now() - interval '5 seconds'
   ),
   0,
   'active org: cron tick fires the system rule'
-)
-from (select public.workflow_cron_tick()) _;
+);
 
 -- (2) Soft-delete + reset the rule's schedule → next tick must skip.
 update public.organizations
@@ -65,17 +64,26 @@ update public.workflow_system_rules
    set next_run_at = null, last_run_at = null
  where id = current_setting('pgtap.sys')::uuid;
 
+-- Snapshot the count of fired runs BEFORE the tick, then run the tick,
+-- then confirm the count is unchanged.
+select set_config('pgtap.before',
+  (
+    select count(*)::text from public.workflow_runs r
+     where r.organization_id = current_setting('pgtap.org')::uuid
+       and r.detail->>'system_rule_slug' = 'pgtap.cron-soft-delete'
+  ),
+  true
+);
+select public.workflow_cron_tick();
 select is(
   (
     select count(*)::int from public.workflow_runs r
      where r.organization_id = current_setting('pgtap.org')::uuid
        and r.detail->>'system_rule_slug' = 'pgtap.cron-soft-delete'
-       and r.created_at > now() - interval '1 second'
   ),
-  0,
-  'soft-deleted org: cron tick skips (no new dispatch in last second)'
-)
-from (select public.workflow_cron_tick()) _;
+  current_setting('pgtap.before')::int,
+  'soft-deleted org: cron tick produces no new dispatch'
+);
 
 -- (3) Re-activate → fan-out resumes.
 update public.organizations
@@ -85,17 +93,25 @@ update public.workflow_system_rules
    set next_run_at = null, last_run_at = null
  where id = current_setting('pgtap.sys')::uuid;
 
-select isnt(
+select set_config('pgtap.before',
+  (
+    select count(*)::text from public.workflow_runs r
+     where r.organization_id = current_setting('pgtap.org')::uuid
+       and r.detail->>'system_rule_slug' = 'pgtap.cron-soft-delete'
+  ),
+  true
+);
+select public.workflow_cron_tick();
+select cmp_ok(
   (
     select count(*)::int from public.workflow_runs r
      where r.organization_id = current_setting('pgtap.org')::uuid
        and r.detail->>'system_rule_slug' = 'pgtap.cron-soft-delete'
-       and r.created_at > now() - interval '5 seconds'
   ),
-  0,
+  '>',
+  current_setting('pgtap.before')::int,
   'reactivated org: cron tick fires again'
-)
-from (select public.workflow_cron_tick()) _;
+);
 
 select * from finish();
 rollback;

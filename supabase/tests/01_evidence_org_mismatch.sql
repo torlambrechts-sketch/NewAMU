@@ -33,9 +33,9 @@ declare
   v_run_a  uuid;
   v_run_b  uuid;
 begin
-  insert into public.workflow_rules (organization_id, slug, source_module, trigger_event)
-  values (v_org_a, 'pgtap-evidence-rule', 'pgtap', 'payload_change')
-  on conflict do nothing;
+  insert into public.workflow_rules (organization_id, slug, name, source_module)
+  values (v_org_a, 'pgtap-evidence-rule', 'pgtap evidence rule', 'pgtap')
+  on conflict (organization_id, slug) do nothing;
   select id into v_rule_a from public.workflow_rules
     where organization_id = v_org_a and slug = 'pgtap-evidence-rule';
 
@@ -61,7 +61,7 @@ select lives_ok(
       current_setting('pgtap.run_a')::uuid,
       current_setting('pgtap.rule_a')::uuid,
       current_setting('pgtap.org_a')::uuid,
-      'pdf', 'pgtap/ok-1.pdf',
+      'generated_pdf', 'pgtap/ok-1.pdf',
       'workflow-evidence', null, null,
       'deadbeef',
       '{}'::text[], '{}'::text[], '{}'::jsonb
@@ -77,7 +77,7 @@ select throws_ok(
       current_setting('pgtap.run_a')::uuid,
       current_setting('pgtap.rule_a')::uuid,
       current_setting('pgtap.org_b')::uuid,
-      'pdf', 'pgtap/mismatch.pdf',
+      'generated_pdf', 'pgtap/mismatch.pdf',
       'workflow-evidence', null, null,
       'deadbeef',
       '{}'::text[], '{}'::text[], '{}'::jsonb
@@ -95,7 +95,7 @@ select lives_ok(
       null,
       current_setting('pgtap.rule_a')::uuid,
       current_setting('pgtap.org_a')::uuid,
-      'pdf', 'pgtap/null-run.pdf',
+      'generated_pdf', 'pgtap/null-run.pdf',
       'workflow-evidence', null, null,
       'cafebabe',
       '{}'::text[], '{}'::text[], '{}'::jsonb
@@ -109,9 +109,9 @@ do $$
 declare
   v_rule_b uuid;
 begin
-  insert into public.workflow_rules (organization_id, slug, source_module, trigger_event)
-  values (current_setting('pgtap.org_b')::uuid, 'pgtap-evidence-rule-b', 'pgtap', 'payload_change')
-  on conflict do nothing;
+  insert into public.workflow_rules (organization_id, slug, name, source_module)
+  values (current_setting('pgtap.org_b')::uuid, 'pgtap-evidence-rule-b', 'pgtap evidence rule b', 'pgtap')
+  on conflict (organization_id, slug) do nothing;
   select id into v_rule_b from public.workflow_rules
     where organization_id = current_setting('pgtap.org_b')::uuid
       and slug = 'pgtap-evidence-rule-b';
@@ -124,7 +124,7 @@ select throws_ok(
       null,
       current_setting('pgtap.rule_b')::uuid,
       current_setting('pgtap.org_a')::uuid,
-      'pdf', 'pgtap/rule-mismatch.pdf',
+      'generated_pdf', 'pgtap/rule-mismatch.pdf',
       'workflow-evidence', null, null,
       'beadface',
       '{}'::text[], '{}'::text[], '{}'::jsonb
@@ -144,7 +144,7 @@ select lives_ok(
       current_setting('pgtap.run_b')::uuid,
       null,
       current_setting('pgtap.org_b')::uuid,
-      'pdf', 'pgtap/system-rule.pdf',
+      'generated_pdf', 'pgtap/system-rule.pdf',
       'workflow-evidence', null, null,
       'feedface',
       '{}'::text[], '{}'::text[],
