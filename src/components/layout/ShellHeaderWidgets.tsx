@@ -9,7 +9,6 @@ import {
   ShieldAlert,
   User,
 } from 'lucide-react'
-import { LanguageSwitcher } from '../LanguageSwitcher'
 import { useTaskItemsData } from '../../../modules/tasks/useTaskItemsData'
 import type { NavMode } from './aticsNavMode'
 
@@ -152,15 +151,11 @@ export function ShellProfileMenuButton({
           ) : null}
 
           <div className="space-y-4">
-            <div>
-              <LanguageSwitcher
-                className={
-                  dark
-                    ? '[&_span]:text-white/70 [&_select]:border-white/25 [&_select]:bg-white/10 [&_select]:text-white'
-                    : '[&_span]:text-neutral-600 [&_select]:max-w-[12rem] [&_select]:border-neutral-300 [&_select]:bg-white [&_select]:text-neutral-900'
-                }
-              />
-            </div>
+            {/* Locale switcher lives in AticsShell's <LocaleSwitcher> (i18next-backed).
+                The legacy <LanguageSwitcher /> mount was removed 2026-09 to end the
+                split-brain between `newamu_locale` (i18next) and `atics-locale`
+                (legacy I18nProvider). The I18nProvider now bridges into i18next on
+                every locale change, so a single switcher suffices. */}
             <LayoutModeInline navMode={navMode} onChange={onNavModeChange} darkSurface={dark} />
             <Link
               to={profileTo}

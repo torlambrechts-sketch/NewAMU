@@ -1849,6 +1849,8 @@ export function AticsShell() {
     tasksNav.categories,
     meetingsNav.items,
     meetingsNav.categories,
+    alertsNav.items,
+    alertsNav.categories,
     isRegulationActive,
     activeRegulationIds,
     isPartnerMember,
