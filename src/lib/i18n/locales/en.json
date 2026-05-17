@@ -1,0 +1,108 @@
+{
+  "workflow": {
+    "title": "Automation",
+    "description": "Pre-built template library, visual flow builder, approvals inbox, run history, dry-run and audit evidence bundle — powered by the new workflow substrate.",
+    "breadcrumbAdmin": "Admin",
+    "tabs": {
+      "library": "Library",
+      "health": "Engine health",
+      "rules": "My workflows",
+      "system": "System",
+      "canvas": "Builder",
+      "approvals": "Approvals",
+      "runs": "Runs",
+      "dryRun": "Dry-run",
+      "evidence": "Evidence bundle",
+      "revisions": "Change log"
+    },
+    "stats": {
+      "activeRules": "Active rules",
+      "activeRulesSub": "{{count}} total in organisation",
+      "pendingApprovals": "Pending approvals",
+      "pendingApprovalsNone": "None outstanding",
+      "pendingApprovalsSome": "Requires a decision",
+      "govSubmissions": "Government submissions",
+      "govSubmissionsSub": "Rules that report to authorities",
+      "runs7d": "Runs in last 7 days",
+      "runs7dNone": "No runs yet",
+      "runs7dSome": "Count of workflow_runs"
+    },
+    "newRule": "New workflow",
+    "health": {
+      "title": "Engine health",
+      "subtitle": "Operational status for the workflow engine — refreshes every 30 seconds.",
+      "refresh": "Refresh now",
+      "loading": "Loading …",
+      "error": "Could not load engine health: {{detail}}",
+      "kpi": {
+        "activeRules": "Active rules",
+        "activeRulesSub": "is_active = true",
+        "silentRules": "Silent rules",
+        "silentRulesSub": "No runs in {{days}} days",
+        "failedRuns": "Failed in last 7 days",
+        "failedRunsSub": "workflow_runs.status = failed",
+        "pendingApprovals": "Pending approvals",
+        "pendingApprovalsSub": "workflow_approvals.status = pending"
+      },
+      "silent": {
+        "title": "Silent rules",
+        "subtitle": "Active rules with no runs in the last {{days}} days",
+        "empty": "No silent rules — the engine is alive.",
+        "triggerLine": "Trigger: {{event}}",
+        "triggerLineGeneric": "Trigger: {{mode}}",
+        "lastFiredNever": "Never (within {{days}} days)",
+        "testButton": "Test against latest event",
+        "deactivateButton": "Deactivate temporarily",
+        "deactivateTitle": "Sets is_active = false. Requires workflows.activate."
+      },
+      "queue": {
+        "title": "Queue depth & age",
+        "subtitle": "{{count}} rows total in workflow_action_queue",
+        "empty": "Queue is empty.",
+        "noPending": "No pending rows",
+        "oldestLabel": "Oldest pending:",
+        "ageJustNow": "just now",
+        "ageMinutes": "{{count}} min",
+        "ageHours": "{{count}} h",
+        "ageDays": "{{count}} d",
+        "forceTick": "Force-process queue now",
+        "status": {
+          "pending": "Pending",
+          "processing": "Processing",
+          "awaiting_approval": "Awaiting approval",
+          "awaiting_schedule": "Awaiting schedule",
+          "done": "Done",
+          "failed": "Failed",
+          "cancelled": "Cancelled"
+        }
+      },
+      "deadlines": {
+        "title": "Deadlines at risk",
+        "subtitle": "Government submissions near deadline (within 4 hours)",
+        "empty": "No government deadlines at risk.",
+        "noDeadline": "No deadline",
+        "regulatorLine": "To: {{regulator}}",
+        "regulatorUnknown": "Regulator not specified",
+        "assigneeLine": "Assigned role: {{role}}",
+        "inMinutes": "in {{count}} min",
+        "inHours": "in {{count}} h",
+        "overdueMinutes": "{{count}} min overdue",
+        "overdueHours": "{{count}} h overdue"
+      }
+    }
+  },
+  "common": {
+    "save": "Save",
+    "cancel": "Cancel",
+    "delete": "Delete",
+    "edit": "Edit",
+    "loading": "Loading …",
+    "error": "Error"
+  },
+  "shell": {
+    "locale": {
+      "switchToNb": "Switch to Norwegian",
+      "switchToEn": "Switch to English"
+    }
+  }
+}

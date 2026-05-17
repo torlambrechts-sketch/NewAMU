@@ -9,7 +9,7 @@
 // tab shows the actual installed workflow_rules — the rows that
 // actually run when their triggers fire.
 
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import {
   CheckCircle2,
   FileWarning,
@@ -20,11 +20,15 @@ import {
   ShieldAlert,
   Trash2,
 } from 'lucide-react'
+import { useSearchParams } from 'react-router-dom'
 import { useWorkflows } from '../../../hooks/useWorkflows'
 import { isGovernmentActionType } from '../../../types/workflow'
 import type { WorkflowAction, WorkflowRuleRow, WorkflowXorActionsEnvelope } from '../../../types/workflow'
 import { getWorkflowScope, listWorkflowScopes } from '../../../lib/workflows/workflowRegistry'
 import { Badge } from '../../ui/Badge'
+import { StandardInput } from '../../ui/Input'
+import { SearchableSelect } from '../../ui/SearchableSelect'
+import { ConfirmDialog } from '../../../pages/admin/ConfirmDialog'
 
 function ruleContainsGovAction(rule: WorkflowRuleRow): boolean {
   const a = rule.actions_json
@@ -51,9 +55,20 @@ export function RulesPanel({
 }) {
   const { rules, loading, error, setRuleActive, deleteRule, canCompose, canActivate, canActivateExternal } =
     useWorkflows()
-  const [scopeFilter, setScopeFilter] = useState<string>('all')
+  const [searchParams] = useSearchParams()
+  const initialScope = searchParams.get('source_module') ?? 'all'
+  const [scopeFilter, setScopeFilter] = useState<string>(initialScope)
   const [search, setSearch] = useState('')
   const [showOnlyActive, setShowOnlyActive] = useState(false)
+
+  // Mirror the source_module query param if it changes (e.g. another
+  // deep-link arrives without a fresh mount).
+  useEffect(() => {
+    const next = searchParams.get('source_module')
+    if (next && next !== scopeFilter) setScopeFilter(next)
+    // intentionally exhaustive-deps-disabled: only react to the URL param
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams])
 
   const scopes = listWorkflowScopes()
 
@@ -69,25 +84,35 @@ export function RulesPanel({
     })
   }, [rules, scopeFilter, showOnlyActive, search])
 
+  const [toggleError, setToggleError] = useState<string | null>(null)
+  const [pendingDelete, setPendingDelete] = useState<WorkflowRuleRow | null>(null)
+
   const handleToggleActive = async (rule: WorkflowRuleRow) => {
     const isGov = ruleContainsGovAction(rule)
     const willActivate = !rule.is_active
     if (willActivate) {
       if (isGov && !canActivateExternal) {
-        alert('Du må ha workflows.activate_external for å aktivere regler med statlig melding.')
+        setToggleError('Du må ha workflows.activate_external for å aktivere regler med statlig melding.')
         return
       }
       if (!isGov && !canActivate) {
-        alert('Du må ha workflows.activate for å aktivere regler.')
+        setToggleError('Du må ha workflows.activate for å aktivere regler.')
         return
       }
     }
+    setToggleError(null)
     await setRuleActive(rule.id, willActivate)
   }
 
-  const handleDelete = async (rule: WorkflowRuleRow) => {
+  const handleDelete = (rule: WorkflowRuleRow) => {
     if (!canCompose) return
-    if (!confirm(`Slette regelen "${rule.name}"? Kan ikke angres.`)) return
+    setPendingDelete(rule)
+  }
+
+  const confirmDelete = async () => {
+    const rule = pendingDelete
+    if (!rule) return
+    setPendingDelete(null)
     await deleteRule(rule.id)
   }
 
@@ -106,24 +131,24 @@ export function RulesPanel({
           {rules.length} totalt · {filtered.length} viser nå · {rules.filter((r) => r.is_active).length} aktive
         </span>
         <span className="flex-1" />
-        <input
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          placeholder="Søk navn / slug / law ref …"
-          className="rounded-md border border-neutral-300 bg-white px-2 py-1 text-xs"
-        />
-        <select
-          value={scopeFilter}
-          onChange={(e) => setScopeFilter(e.target.value)}
-          className="rounded-md border border-neutral-300 bg-white px-2 py-1 text-xs"
-        >
-          <option value="all">Alle moduler</option>
-          {scopes.map((s) => (
-            <option key={s.scopeId} value={s.scopeId}>
-              {s.label}
-            </option>
-          ))}
-        </select>
+        <div className="w-56">
+          <StandardInput
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Søk navn / slug / lov-referanse …"
+            aria-label="Søk i arbeidsflyt-regler"
+          />
+        </div>
+        <div className="w-56">
+          <SearchableSelect
+            value={scopeFilter}
+            onChange={setScopeFilter}
+            options={[
+              { value: 'all', label: 'Alle moduler' },
+              ...scopes.map((s) => ({ value: s.scopeId, label: s.label })),
+            ]}
+          />
+        </div>
         <label className="inline-flex items-center gap-1 text-xs text-neutral-700">
           <input
             type="checkbox"
@@ -133,6 +158,15 @@ export function RulesPanel({
           Kun aktive
         </label>
       </div>
+
+      {toggleError && (
+        <div
+          className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-900"
+          role="alert"
+        >
+          {toggleError}
+        </div>
+      )}
 
       {filtered.length === 0 ? (
         <p className="rounded-xl border border-dashed border-neutral-300 bg-white p-6 text-center text-sm text-neutral-500">
@@ -147,8 +181,8 @@ export function RulesPanel({
               <tr>
                 <th className="px-3 py-2 text-left">Navn</th>
                 <th className="px-3 py-2 text-left">Modul</th>
-                <th className="px-3 py-2 text-left">Trigger</th>
-                <th className="px-3 py-2 text-left">Law refs</th>
+                <th className="px-3 py-2 text-left">Utløser</th>
+                <th className="px-3 py-2 text-left">Lov-referanser</th>
                 <th className="px-3 py-2 text-left">Status</th>
                 <th className="px-3 py-2 text-right">Handlinger</th>
               </tr>
@@ -278,6 +312,19 @@ export function RulesPanel({
         redigerbar). Statlige regler kan kun aktiveres av brukere med{' '}
         <code>workflows.activate_external</code> + dobbel godkjenning før innsending.
       </p>
+
+      {pendingDelete && (
+        <ConfirmDialog
+          title="Slette arbeidsflyt-regel?"
+          body={`Du er i ferd med å slette regelen «${pendingDelete.name}». Kan ikke angres.`}
+          confirmLabel="Slett regel"
+          tone="danger"
+          confirmPhrase={pendingDelete.name}
+          confirmPhraseLabel={'Skriv regelnavnet "{phrase}" for å bekrefte:'}
+          onConfirm={() => void confirmDelete()}
+          onCancel={() => setPendingDelete(null)}
+        />
+      )}
     </div>
   )
 }

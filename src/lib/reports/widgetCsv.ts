@@ -115,6 +115,37 @@ export function widgetToCsv(
       })
       return { filename, csv: rowsToCsv(out) }
     }
+    case 'benchmark': {
+      // Anonymisert benchmark-serie: én rad per måned med org-egen +
+      // bench-bøttas median/p25/p75. Tomme verdier eksporteres som blank
+      // (ikke 0) så k-anon-brudd er synlig i CSV-en.
+      const rows = Array.isArray(ds) ? (ds as Array<Record<string, unknown>>) : []
+      const out: string[][] = [[
+        'Periode',
+        'Egen verdi',
+        'Bench median',
+        'Bench p25',
+        'Bench p75',
+        'Antall virksomheter i bøtte',
+        'NACE2',
+        'Størrelse',
+        'k-anon OK',
+      ]]
+      for (const r of rows) {
+        out.push([
+          String(r.periodMonth ?? ''),
+          stringifyCell(r.orgValue),
+          stringifyCell(r.benchMedian),
+          stringifyCell(r.benchP25),
+          stringifyCell(r.benchP75),
+          stringifyCell(r.benchOrgCount),
+          String(r.naceCode2digit ?? ''),
+          String(r.sizeBand ?? ''),
+          r.kAnonOk ? 'ja' : 'nei',
+        ])
+      }
+      return { filename, csv: rowsToCsv(out) }
+    }
     case 'scorecard':
     case 'bowtie': {
       // Bowtie konsumerer samme dataset-form som scorecard — eksport-CSV

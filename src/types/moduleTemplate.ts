@@ -102,35 +102,46 @@ export type CaseType = {
   active: boolean
 }
 
-/* ── Workflow rules ───────────────────────────────────────────────────────── */
+/* ── Workflow rules (module-template legacy shape) ────────────────────────
+ *
+ * NOTE: This is NOT the same as `WorkflowRuleRow` in `types/workflow.ts`.
+ * That type models a row in `workflow_rules` (the workflow-substrate
+ * engine, with `condition_json` / `actions_json` / `flow_graph_json`).
+ *
+ * The shapes below are the legacy, denormalised structure embedded inside
+ * each `ModuleTemplate.workflowRules` — kept for backwards-compatibility
+ * with templates seeded before the substrate landed. New code should
+ * lean on `WorkflowRuleRow` and the central `/workflow` administration
+ * surface instead of editing rules inline on a module template.
+ */
 
-export type WorkflowTrigger =
+type ModuleTemplateWorkflowTrigger =
   | { type: 'on_create' }
   | { type: 'on_status_change'; toStatus: string }
   | { type: 'on_field_value'; field: string; operator: 'eq' | 'gte' | 'lte' | 'contains'; value: string | number }
   | { type: 'on_finding_added'; severity?: string }
   | { type: 'on_overdue'; daysOverdue: number }
 
-export type WorkflowAction =
+type ModuleTemplateWorkflowAction =
   | { type: 'create_task'; titleTemplate: string; assigneeRole: string; dueDays: number; priority: 'low' | 'medium' | 'high' }
   | { type: 'send_email'; toRole: string; subjectTemplate: string; bodyTemplate: string }
   | { type: 'notify_role'; role: string; messageTemplate: string }
   | { type: 'set_status'; status: string }
   | { type: 'set_field'; field: string; value: string }
 
-export type WorkflowRule = {
+type ModuleTemplateWorkflowRule = {
   id: string
   name: string
   description?: string
   active: boolean
-  trigger: WorkflowTrigger
+  trigger: ModuleTemplateWorkflowTrigger
   /** All conditions must match for the rule to fire */
   conditions?: Array<{
     field: string
     operator: 'eq' | 'neq' | 'gte' | 'lte' | 'contains' | 'in'
     value: string | number | string[]
   }>
-  actions: WorkflowAction[]
+  actions: ModuleTemplateWorkflowAction[]
   /** Rules with higher priority run first */
   priority: number
 }
@@ -242,7 +253,7 @@ export type ModuleTemplate = {
   statuses: StatusDef[]
   caseTypes: CaseType[]
   fieldSchema: FieldSchema[]
-  workflowRules: WorkflowRule[]
+  workflowRules: ModuleTemplateWorkflowRule[]
   schedules: ScheduleRule[]
   kpis: KpiDef[]
   rolePermissions: RolePermission[]

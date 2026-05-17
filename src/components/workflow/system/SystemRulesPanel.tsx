@@ -14,6 +14,7 @@ import { useMemo, useState } from 'react'
 import { AlertCircle, ChevronDown, ChevronRight, Lock, Scale, ShieldCheck } from 'lucide-react'
 import { useWorkflowSystemRules, type WorkflowSystemRuleRow } from '../../../hooks/useWorkflowSystemRules'
 import { Badge } from '../../ui/Badge'
+import { StandardInput } from '../../ui/Input'
 
 const FRAMEWORK_LABEL: Record<string, string> = {
   AML: 'Arbeidsmiljøloven',
@@ -84,12 +85,14 @@ export function SystemRulesPanel() {
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <input
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Søk § / regel / lovgrunnlag …"
-            className="rounded-md border border-emerald-300 bg-white px-2 py-1 text-xs"
-          />
+          <div className="w-64">
+            <StandardInput
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Søk § / regel / lov-referanse …"
+              aria-label="Søk system-regler"
+            />
+          </div>
           <Badge variant="info">{rules.length} regler</Badge>
         </div>
       </div>
@@ -177,7 +180,9 @@ export function SystemRulesPanel() {
                                 </p>
                                 <p className="mt-1 text-neutral-700">{rule.rationale}</p>
                                 <details className="mt-3">
-                                  <summary className="cursor-pointer text-neutral-600">Handlinger (read-only)</summary>
+                                  <summary className="cursor-pointer text-neutral-600">
+                                    Vis tekniske detaljer (handlinger)
+                                  </summary>
                                   <pre className="mt-2 overflow-x-auto rounded bg-neutral-50 p-2 text-[10px] text-neutral-700">
                                     {JSON.stringify(rule.actions_json, null, 2)}
                                   </pre>

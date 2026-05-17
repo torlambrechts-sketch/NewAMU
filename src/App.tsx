@@ -29,17 +29,23 @@ import { AuthPage } from './pages/AuthPage'
 import { InviteAcceptPage } from './pages/InviteAcceptPage'
 import { ProfilePage } from './pages/ProfilePage'
 import { SharedReportPage } from './pages/public/SharedReportPage'
-import { WorkflowModulePage } from './pages/WorkflowModulePage'
-import { WorkflowPage } from './pages/WorkflowPage'
 import { WorkflowBuilderPage } from './pages/workflow/WorkflowBuilderPage'
 import { AuditorWorkflowsPage } from './pages/auditor/AuditorWorkflowsPage'
 import { GovIntegrationsPage } from './pages/admin/integrations/GovIntegrationsPage'
-import { WorkflowEditorV2 } from './components/workflow/WorkflowEditorV2'
+import { GovOutboxPage } from './pages/admin/GovOutboxPage'
+import { AlertDedupGroupsPage } from './pages/admin/AlertDedupGroupsPage'
+import { AltinnSetup } from './pages/admin/integrations/AltinnSetup'
+import { ArbeidstilsynetSetup } from './pages/admin/integrations/ArbeidstilsynetSetup'
+import { DatatilsynetSetup } from './pages/admin/integrations/DatatilsynetSetup'
+import { NavSetup } from './pages/admin/integrations/NavSetup'
+import { HelsetilsynetSetup } from './pages/admin/integrations/HelsetilsynetSetup'
+import { CertRotationPage } from './pages/admin/integrations/CertRotationPage'
 import { NotFound } from './pages/NotFound'
 import { MeetingsHubPage } from './pages/meetings/MeetingsHubPage'
 import { MeetingsDetailView } from './pages/meetings/MeetingsDetailView'
 import { MeetingsAnalysePage } from './pages/meetings/MeetingsAnalysePage'
 import { MeetingsExportPage } from './pages/meetings/MeetingsExportPage'
+import { AMUAgendaBacklogPage } from './pages/meetings/AMUAgendaBacklogPage'
 import { AlertsPage } from '../modules/alerts/pages/AlertsPage'
 import { AlertsAdminPage } from '../modules/alerts/pages/AlertsAdminPage'
 import { AlertsAnalysePage } from '../modules/alerts/pages/AlertsAnalysePage'
@@ -57,6 +63,8 @@ function LegacyVarsleRedirect() {
 }
 import { AdminTemplatesPage } from './pages/admin/AdminTemplatesPage'
 import { AdminSettingsPage } from './pages/admin/AdminSettingsPage'
+import { TilsynsbrevPage } from './pages/admin/TilsynsbrevPage'
+import { TilsynsbrevDetailPage } from './pages/admin/TilsynsbrevDetailPage'
 import { OrganisationPage } from './pages/OrganisationPage'
 import { WorkplaceChrome } from './components/layout/WorkplaceChrome'
 import { ModuleLegalFrameworkProvider } from './components/module'
@@ -83,6 +91,7 @@ import { LearningKompetansePage } from './pages/learning/LearningKompetansePage'
 import { LearningAnalysePage } from './pages/learning/LearningAnalysePage'
 import { HmsOverviewPage } from './pages/overview/HmsOverviewPage'
 import { RegelverkCoveragePage } from './pages/overview/regelverk/RegelverkCoveragePage'
+import { BenchmarkPage } from './pages/dashboards/BenchmarkPage'
 import { ComplianceStudioPage } from './pages/overview/studio/ComplianceStudioPage'
 import { LearningFlowEntry } from './pages/learning/LearningFlowEntry'
 import { LearningCertificatePrintPage } from './pages/learning/LearningCertificatePrintPage'
@@ -137,6 +146,8 @@ import { SurveyOrgTemplateEditorPage } from './pages/SurveyOrgTemplateEditorPage
 import { SurveyDetailPage } from './pages/SurveyDetailPage'
 import { SurveyRespondPage } from './pages/SurveyRespondPage'
 import { SurveyAnalysePage } from '../modules/survey/SurveyAnalysePage'
+import { PartnerConsolePage } from './pages/partner/PartnerConsolePage'
+import { PartnerBrandingPage } from './pages/partner/PartnerBrandingPage'
 
 /**
  * Providers that depend on react-router (e.g. useOrgSetup → useLocation) must live *inside*
@@ -145,8 +156,8 @@ import { SurveyAnalysePage } from '../modules/survey/SurveyAnalysePage'
 
 function WorkflowEditorRoute() {
   const { ruleId } = useParams<{ ruleId: string }>()
-  if (!ruleId) return null
-  return <WorkflowEditorV2 ruleId={ruleId} />
+  if (!ruleId) return <Navigate to="/workflow" replace />
+  return <Navigate to={`/workflow?tab=canvas&rule=${encodeURIComponent(ruleId)}`} replace />
 }
 
 /**
@@ -335,10 +346,15 @@ const router = createBrowserRouter(
                       <Route path="tasks/management/admin/:tab" element={<LegacyAdminRedirect scope="tasks" />} />
                       <Route path="tasks/management/review" element={<TasksManagementReviewPage />} />
                       <Route path="overview/hms" element={<PackProvider><HmsOverviewPage /></PackProvider>} />
+                      {/* Partner-konsoll — HMS-konsulent multi-org surface (v0). */}
+                      <Route path="partner" element={<PartnerConsolePage />} />
+                      <Route path="partner/branding" element={<PartnerBrandingPage />} />
+                      <Route path="partner/invoice/:id" element={<PartnerConsolePage />} />
                       <Route path="overview/regelverk" element={<RegelverkCoveragePage />} />
                       <Route path="risk" element={<Navigate to="/risk/analyse" replace />} />
                       <Route path="risk/analyse" element={<RiskAnalysePage />} />
                       <Route path="risk/register" element={<RiskRegisterPage />} />
+                      <Route path="benchmarking" element={<BenchmarkPage />} />
                       <Route path="compliance-studio" element={<ComplianceStudioPage />} />
                       <Route path="organisation" element={<OrganisationPage />} />
                       <Route path="organisation/admin" element={<LegacyOrgAdminRedirect />} />
@@ -359,6 +375,14 @@ const router = createBrowserRouter(
                         }
                       />
                       <Route path="meetings/admin" element={<LegacyAdminRedirect scope="meetings" />} />
+                      <Route
+                        path="meetings/agenda-backlog"
+                        element={
+                          <RouteErrorBoundary title="Kunne ikke vise agenda-restanser">
+                            <AMUAgendaBacklogPage />
+                          </RouteErrorBoundary>
+                        }
+                      />
                       <Route
                         path="meetings/:meetingId/eksport"
                         element={
@@ -450,6 +474,12 @@ const router = createBrowserRouter(
                       {/* Admin: module overview + RBAC */}
                       <Route path="admin/modules" element={<ModuleAdminPage />} />
                       <Route path="admin/templates" element={<AdminTemplatesPage />} />
+                      {/* Tilsynsbrev — uploaded inspeksjonsbrev fra Arbeidstilsynet,
+                          Datatilsynet etc. Parses asynkront via edge-funksjonen
+                          tilsynsbrev-parser; detalj-siden lar admin opprette
+                          oppgaver per pålegg. */}
+                      <Route path="admin/tilsynsbrev" element={<TilsynsbrevPage />} />
+                      <Route path="admin/tilsynsbrev/:id" element={<TilsynsbrevDetailPage />} />
                       {/* Unified settings hub. Legacy `/<module>/admin` URLs
                           continue to render their existing pages for one
                           release so bookmarks survive; sidebar entries now
@@ -536,10 +566,22 @@ const router = createBrowserRouter(
                       <Route path="prosesser" element={<Navigate to="/workflow" replace />} />
                       <Route path="workflow" element={<WorkflowBuilderPage />} />
                       <Route path="workflow/v3" element={<Navigate to="/workflow" replace />} />
-                      <Route path="workflow/klassisk" element={<WorkflowPage />} />
-                      <Route path="workflow/admin" element={<WorkflowModulePage />} />
+                      <Route path="workflow/klassisk" element={<Navigate to="/workflow" replace />} />
+                      <Route path="workflow/admin" element={<Navigate to="/workflow" replace />} />
                       <Route path="workflow/:ruleId" element={<WorkflowEditorRoute />} />
-                      <Route path="admin/integrasjoner-staten" element={<GovIntegrationsPage />} />
+                      {/* Legacy combined route — kept as a deprecation hub that
+                          lists the four per-provider wizards. Old bookmarks
+                          still land somewhere useful. */}
+                      <Route path="admin/integrasjoner-staten" element={<Navigate to="/admin/integrations" replace />} />
+                      <Route path="admin/integrations" element={<GovIntegrationsPage />} />
+                      <Route path="admin/integrations/altinn" element={<AltinnSetup />} />
+                      <Route path="admin/integrations/arbeidstilsynet" element={<ArbeidstilsynetSetup />} />
+                      <Route path="admin/integrations/datatilsynet" element={<DatatilsynetSetup />} />
+                      <Route path="admin/integrations/nav" element={<NavSetup />} />
+                      <Route path="admin/integrations/helsetilsynet" element={<HelsetilsynetSetup />} />
+                      <Route path="admin/integrations/sertifikat-rotasjon" element={<CertRotationPage />} />
+                      <Route path="admin/integrations/utboks" element={<GovOutboxPage />} />
+                      <Route path="admin/varsling/dedup-grupper" element={<AlertDedupGroupsPage />} />
                       <Route element={<DocumentsModuleShellLayout />}>
                         <Route path="documents/editor-test" element={<DocumentEditorTestPage />} />
                         <Route

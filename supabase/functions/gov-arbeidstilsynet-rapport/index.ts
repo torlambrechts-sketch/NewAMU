@@ -28,6 +28,10 @@
  *
  * In Phase E sprint-2 these env vars are replaced by per-org Vault
  * lookups keyed off org_integrations.config.
+ *
+ * _127600: respects per-rule runtime_environment. When payload.runtime
+ * _environment === 'test' we force TT02 endpoints regardless of the
+ * org-level integration status.
  */
 import {
   getMaskinportenAccessToken,
@@ -67,11 +71,15 @@ Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
   if (req.method !== 'POST') return json({ ok: false, error: 'method_not_allowed' }, 405)
 
-  let body: CommonRequestBody
+  let body: CommonRequestBody & { dryRun?: boolean }
   try {
-    body = (await req.json()) as CommonRequestBody
+    body = (await req.json()) as CommonRequestBody & { dryRun?: boolean }
   } catch {
     return json({ ok: false, error: 'invalid_body' }, 400)
+  }
+  // Setup-wizard dry-run — no regulator call, no evidence write.
+  if (body.dryRun === true) {
+    return json({ ok: true, mode: 'dry-run', detail: 'arbeidstilsynet-rapport reachable' })
   }
   const { organization_id, rule_id, run_id, event_name, payload } = body
   if (!organization_id || !rule_id || !run_id || !payload) {
@@ -107,7 +115,13 @@ Deno.serve(async (req) => {
     return json({ ok: false, error: 'integration_not_enabled' }, 400)
   }
 
-  const environment = (integration.environment as MaskinportenEnv) ?? 'tt02'
+  // _127600: per-rule runtime_environment overrides org_integrations.status.
+  // 'test' forces TT02 endpoints regardless of how the integration row is
+  // configured. Default 'test' if missing for safety.
+  const ruleRuntimeEnv: 'test' | 'prod' =
+    (payload as Record<string, unknown>).runtime_environment === 'prod' ? 'prod' : 'test'
+  const orgEnv = (integration.environment as MaskinportenEnv) ?? 'tt02'
+  const environment: MaskinportenEnv = ruleRuntimeEnv === 'test' ? 'tt02' : orgEnv
   const config = (integration.config as Record<string, string> | null) ?? {}
   const clientId = config.client_id
   if (!clientId) return json({ ok: false, error: 'missing_client_id_in_config' }, 400)
@@ -190,7 +204,14 @@ Deno.serve(async (req) => {
       fileNameSuffix: 'reginc-submission.json',
       lawRefs: ['AML § 5-2'],
       frameworks: ['aml-amu'],
-      metadata: { environment, idempotencyKey, lateSubmission, hendelseDato: p.hendelseDato },
+      metadata: {
+        environment,
+        ruleRuntimeEnv,
+        orgEnv,
+        idempotencyKey,
+        lateSubmission,
+        hendelseDato: p.hendelseDato,
+      },
     })
     const receiptEv = await recordRegulatorEvidence(supabase, {
       runId: run_id,
@@ -202,7 +223,7 @@ Deno.serve(async (req) => {
       fileNameSuffix: 'reginc-receipt.json',
       lawRefs: ['AML § 5-2'],
       frameworks: ['aml-amu'],
-      metadata: { environment, status, regulator: 'arbeidstilsynet' },
+      metadata: { environment, ruleRuntimeEnv, orgEnv, status, regulator: 'arbeidstilsynet' },
     })
 
     // Mark the rule's integration health.

@@ -281,6 +281,13 @@ export type WorkflowRuleRow = {
   last_reviewed_by?: string | null
   next_review_due?: string | null
   // ──────────────────────────────────────────────────────────────────────
+  /**
+   * UX Run 2 — per-rule sandbox/prod toggle (migration _127600). Even when
+   * the org has a production-active integration, a rule pinned to 'test'
+   * dispatches to TT02 sandbox endpoints. Promotion to 'prod' requires an
+   * explicit typed-confirmation in the canvas UI.
+   */
+  runtime_environment?: 'test' | 'prod'
   created_at: string
   updated_at: string
 }
@@ -364,6 +371,42 @@ export type WorkflowRunEvidenceRow = {
   created_at: string
 }
 
+export type WorkflowMissedFireTriageStatus =
+  | 'open'
+  | 'investigating'
+  | 'resolved'
+  | 'accepted_as_correct'
+
+export type WorkflowMissedFireSeverity = 'low' | 'medium' | 'high' | 'critical'
+
+export type WorkflowMissedFireLogRow = {
+  id: string
+  organization_id: string
+  rule_id: string | null
+  system_rule_slug: string | null
+  event_id: string | null
+  source_module: string | null
+  event_name: string | null
+  detected_at: string
+  expected_fire_at: string | null
+  reason: string
+  severity: WorkflowMissedFireSeverity
+  triage_status: WorkflowMissedFireTriageStatus
+  triaged_by: string | null
+  triaged_at: string | null
+  triage_note: string | null
+}
+
+export type WorkflowDispatchEventRow = {
+  id: string
+  organization_id: string
+  source_module: string
+  event_name: string
+  payload: Record<string, unknown>
+  dispatched_at: string
+  matched_count: number
+}
+
 export type WorkflowApprovalRow = {
   id: string
   organization_id: string
@@ -413,8 +456,14 @@ export const WORKFLOW_SOURCE_MODULES = [
   { value: 'tasks', label: 'Oppgaver' },
   { value: 'learning', label: 'E-læring (kurs, sertifikater)' },
   { value: 'registers', label: 'Registre (kjemikalier, maskiner, lovkrav, …)' },
+  { value: 'inspection', label: 'Inspeksjon (legacy — DB-trigger)' },
+  { value: 'ros', label: 'Risikovurdering (ROS)' },
+  { value: 'action_plan', label: 'Handlingsplan / tiltak' },
+  { value: 'vernerunder', label: 'Vernerunder' },
+  { value: 'internkontroll', label: 'Internkontroll — årlig gjennomgang' },
   { value: 'wiki_published', label: 'Wiki — side publisert' },
   { value: 'gov', label: 'Statlig rapportering (Altinn, Arbeidstilsynet, Datatilsynet, NAV, LDO)' },
+  { value: 'workflow', label: 'Workflow-motor (meta-events: ON_EVIDENCE_TAMPER_DETECTED, …)' },
 ] as const
 
 export type WorkflowSourceModule = (typeof WORKFLOW_SOURCE_MODULES)[number]['value']

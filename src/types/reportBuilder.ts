@@ -18,6 +18,7 @@ export type ReportModuleKind =
   | 'heatmap'
   | 'scorecard'
   | 'bowtie'
+  | 'benchmark'
 
 /**
  * Widget layout hint, mapped to a 12-column responsive grid by the
@@ -169,6 +170,35 @@ export type ReportModuleBowtie = ReportModuleBase & {
   drillDimensionId?: string
 }
 
+/**
+ * Benchmark widget — anonymisert tverr-virksomhet sammenligning per metric.
+ * Konsumerer datasettet fra `public.get_my_org_benchmark()` (én rad per
+ * måned, nyeste først). Renderer org-egen verdi som stor numerisk, og
+ * benchmark-bøttas median + p25/p75 som kontekst. Når k-anonymitet er
+ * brutt (org_count < 5) vises «For lite data» i stedet for tallet.
+ *
+ * Dataset-form: `Array<{
+ *   periodMonth: string; orgValue: number;
+ *   benchMedian: number|null; benchP25: number|null; benchP75: number|null;
+ *   benchOrgCount: number|null; naceCode2digit: string|null;
+ *   sizeBand: string|null; kAnonOk: boolean;
+ * }>` — øverste rad brukes for hovedtall, hele serien for sparkline.
+ */
+export type ReportModuleBenchmark = ReportModuleBase & {
+  kind: 'benchmark'
+  /** Metric-nøkkel som matches mot `benchmark_metric_snapshots.metric`. */
+  metric:
+    | 'findings_critical_per_org'
+    | 'vernerunder_per_quarter'
+    | 'overdue_actions_pct'
+    | 'course_certificates_per_employee'
+    | 'sjekkliste_completion_pct'
+  /** Forklarende tekst under verdien (f.eks. «Kritiske funn siste 90 dager»). */
+  valueLabel?: string
+  /** 'increase' = høyere er bedre (default), 'decrease' = lavere er bedre. */
+  goalDirection?: 'increase' | 'decrease'
+}
+
 export type ReportModule =
   | ReportModuleKpi
   | ReportModuleTable
@@ -178,6 +208,7 @@ export type ReportModule =
   | ReportModuleHeatmap
   | ReportModuleScorecard
   | ReportModuleBowtie
+  | ReportModuleBenchmark
 
 export type CustomReportTemplate = {
   id: string

@@ -11,8 +11,9 @@
 // MeetingsHubPage / MeetingsHubView pattern so the chrome stays
 // consistent across modules.
 
-import { useMemo, useState } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 import {
+  Activity,
   BookOpen,
   CheckCheck,
   ClipboardList,
@@ -24,7 +25,7 @@ import {
   ShieldCheck,
   Workflow,
 } from 'lucide-react'
-import { useNavigate } from 'react-router-dom'
+import { useSearchParams } from 'react-router-dom'
 import { ModulePageShell } from '../../components/module/ModulePageShell'
 import { ModuleLegalBanner } from '../../components/module/ModuleLegalBanner'
 import { LayoutScoreStatRow } from '../../components/layout/LayoutScoreStatRow'
@@ -42,18 +43,87 @@ import { RevisionHistoryPanel } from '../../components/workflow/audit/RevisionHi
 import { ApprovalsPanel } from '../../components/workflow/approvals/ApprovalsPanel'
 import { EvidenceExportPanel } from '../../components/workflow/evidence/EvidenceExportPanel'
 import { CanvasPanel } from '../../components/workflow/canvas/CanvasPanel'
+import { HealthPanel } from '../../components/workflow/health/HealthPanel'
 import { useWorkflows } from '../../hooks/useWorkflows'
 import { useWorkflowApprovals } from '../../hooks/useWorkflowApprovals'
+import { useT } from '../../hooks/useT'
 
-type Tab = 'rules' | 'system' | 'library' | 'canvas' | 'approvals' | 'runs' | 'dry-run' | 'evidence' | 'revisions'
+type Tab =
+  | 'rules'
+  | 'system'
+  | 'library'
+  | 'health'
+  | 'canvas'
+  | 'approvals'
+  | 'runs'
+  | 'dry-run'
+  | 'evidence'
+  | 'revisions'
+
+// First element doubles as default landing tab when ?tab= is absent.
+// Helsesjekk slots between `library` (default landing) and `rules` so
+// users always have the operational view one click away from where they
+// land. Library remains the default — Helsesjekk is opt-in via the tab.
+const VALID_TABS: Tab[] = [
+  'library',
+  'health',
+  'rules',
+  'system',
+  'canvas',
+  'approvals',
+  'runs',
+  'dry-run',
+  'evidence',
+  'revisions',
+]
 
 export function WorkflowBuilderPage() {
-  const [tab, setTab] = useState<Tab>('rules')
-  const [focusedRuleId, setFocusedRuleId] = useState<string | null>(null)
+  const [searchParams, setSearchParams] = useSearchParams()
+  const tabParam = searchParams.get('tab') as Tab | null
+  // Library is the default landing tab. We honor ?tab= when present and
+  // valid; the empty-state nudge for orgs with no rules is handled below
+  // via an effect that only fires while ?tab= is still absent.
+  const tab: Tab = tabParam && VALID_TABS.includes(tabParam) ? tabParam : 'library'
+  const setTab = useCallback(
+    (next: Tab) => {
+      setSearchParams(
+        (prev) => {
+          const params = new URLSearchParams(prev)
+          // Keep the canonical URL clean: omit the param when it matches
+          // the default landing tab.
+          if (next === 'library') params.delete('tab')
+          else params.set('tab', next)
+          return params
+        },
+        { replace: true },
+      )
+    },
+    [setSearchParams],
+  )
+  const focusedRuleId = searchParams.get('rule')
+  // Combined updater so deep-link handlers don't race two setSearchParams
+  // calls in the same handler (each navigate() reads from the same render
+  // closure, so the second one would clobber the first).
+  const focusRuleAndTab = useCallback(
+    (ruleId: string | null, nextTab: Tab) => {
+      setSearchParams(
+        (prev) => {
+          const params = new URLSearchParams(prev)
+          if (ruleId) params.set('rule', ruleId)
+          else params.delete('rule')
+          if (nextTab === 'library') params.delete('tab')
+          else params.set('tab', nextTab)
+          return params
+        },
+        { replace: true },
+      )
+    },
+    [setSearchParams],
+  )
   const [newRuleOpen, setNewRuleOpen] = useState(false)
-  const navigate = useNavigate()
   const { rules, runs } = useWorkflows()
   const { approvals } = useWorkflowApprovals()
+  const { t } = useT()
 
   const stats = useMemo<LayoutScoreStatItem[]>(() => {
     const active = rules.filter((r) => r.is_active).length
@@ -68,39 +138,64 @@ export function WorkflowBuilderPage() {
       (r) => new Date(r.created_at).getTime() > Date.now() - 7 * 86400_000,
     ).length
     return [
-      { big: String(active), title: 'Aktive regler', sub: `${rules.length} totalt i organisasjonen` },
-      { big: String(pendingApprovals), title: 'Venter på godkjenning', sub: pendingApprovals === 0 ? 'Ingen utestående' : 'Krever beslutning' },
-      { big: String(govRules), title: 'Statlige meldinger', sub: 'Regler som rapporterer til myndighet' },
-      { big: String(last7d), title: 'Kjøringer siste 7 dager', sub: runs.length === 0 ? 'Ingen kjøringer ennå' : 'Tellig av workflow_runs' },
+      {
+        big: String(active),
+        title: t('workflow.stats.activeRules'),
+        sub: t('workflow.stats.activeRulesSub', { count: rules.length }),
+      },
+      {
+        big: String(pendingApprovals),
+        title: t('workflow.stats.pendingApprovals'),
+        sub:
+          pendingApprovals === 0
+            ? t('workflow.stats.pendingApprovalsNone')
+            : t('workflow.stats.pendingApprovalsSome'),
+      },
+      {
+        big: String(govRules),
+        title: t('workflow.stats.govSubmissions'),
+        sub: t('workflow.stats.govSubmissionsSub'),
+      },
+      {
+        big: String(last7d),
+        title: t('workflow.stats.runs7d'),
+        sub:
+          runs.length === 0
+            ? t('workflow.stats.runs7dNone')
+            : t('workflow.stats.runs7dSome'),
+      },
     ]
-  }, [rules, runs, approvals])
+  }, [rules, runs, approvals, t])
 
   const tabItems = useMemo(
     () => [
-      { id: 'rules' as const, label: 'Mine arbeidsflyter', icon: ListChecks, badgeCount: rules.length },
-      { id: 'system' as const, label: 'System', icon: Landmark },
-      { id: 'library' as const, label: 'Mal-bibliotek', icon: BookOpen },
-      { id: 'canvas' as const, label: 'Bygg', icon: Workflow },
+      // Bibliotek is the default landing tab — listed first so the
+      // visible Tabs ordering matches the URL-default behaviour.
+      { id: 'library' as const, label: t('workflow.tabs.library'), icon: BookOpen },
+      { id: 'health' as const, label: t('workflow.tabs.health'), icon: Activity },
+      { id: 'rules' as const, label: t('workflow.tabs.rules'), icon: ListChecks, badgeCount: rules.length },
+      { id: 'system' as const, label: t('workflow.tabs.system'), icon: Landmark },
+      { id: 'canvas' as const, label: t('workflow.tabs.canvas'), icon: Workflow },
       {
         id: 'approvals' as const,
-        label: 'Godkjenninger',
+        label: t('workflow.tabs.approvals'),
         icon: CheckCheck,
         badgeCount: approvals.filter((a) => a.status === 'pending').length,
         badgeVariant: 'danger' as const,
       },
-      { id: 'runs' as const, label: 'Kjøringer', icon: ClipboardList },
-      { id: 'dry-run' as const, label: 'Dry-run', icon: PlayCircle },
-      { id: 'evidence' as const, label: 'Bevispakke', icon: ShieldCheck },
-      { id: 'revisions' as const, label: 'Endringslogg', icon: ScrollText },
+      { id: 'runs' as const, label: t('workflow.tabs.runs'), icon: ClipboardList },
+      { id: 'dry-run' as const, label: t('workflow.tabs.dryRun'), icon: PlayCircle },
+      { id: 'evidence' as const, label: t('workflow.tabs.evidence'), icon: ShieldCheck },
+      { id: 'revisions' as const, label: t('workflow.tabs.revisions'), icon: ScrollText },
     ],
-    [approvals, rules.length],
+    [approvals, rules.length, t],
   )
 
   return (
     <ModulePageShell
-      breadcrumb={[{ label: 'Admin' }, { label: 'Automatisering' }]}
-      title="Automatisering"
-      description="Forhåndsdefinert mal-bibliotek, visuell flyt-bygger, godkjenningsinnboks, kjøringshistorikk, dry-run og bevispakke for tilsyn — drevet av den nye arbeidsflyt-substraten."
+      breadcrumb={[{ label: t('workflow.breadcrumbAdmin') }, { label: t('workflow.title') }]}
+      title={t('workflow.title')}
+      description={t('workflow.description')}
       tabs={<Tabs items={tabItems} activeId={tab} onChange={(id) => setTab(id as Tab)} overflow="scroll" />}
       headerActions={
         <div className="flex flex-wrap items-center gap-2">
@@ -110,14 +205,7 @@ export function WorkflowBuilderPage() {
             icon={<Plus className="h-4 w-4" />}
             onClick={() => setNewRuleOpen(true)}
           >
-            Ny arbeidsflyt
-          </Button>
-          <Button
-            type="button"
-            variant="secondary"
-            onClick={() => navigate('/workflow/klassisk')}
-          >
-            Klassisk visning
+            {t('workflow.newRule')}
           </Button>
         </div>
       }
@@ -151,29 +239,18 @@ export function WorkflowBuilderPage() {
 
         {tab === 'rules' && (
           <RulesPanel
-            onEdit={(id) => {
-              setFocusedRuleId(id)
-              setTab('canvas')
-            }}
-            onViewRuns={(id) => {
-              setFocusedRuleId(id)
-              setTab('runs')
-            }}
-            onViewRevisions={(id) => {
-              setFocusedRuleId(id)
-              setTab('revisions')
-            }}
+            onEdit={(id) => focusRuleAndTab(id, 'canvas')}
+            onViewRuns={(id) => focusRuleAndTab(id, 'runs')}
+            onViewRevisions={(id) => focusRuleAndTab(id, 'revisions')}
           />
         )}
         {tab === 'system' && <SystemRulesPanel />}
         {tab === 'library' && (
           <LibraryPanel
-            onInstalled={(ruleId) => {
-              setFocusedRuleId(ruleId)
-              setTab('canvas')
-            }}
+            onInstalled={(ruleId) => focusRuleAndTab(ruleId, 'canvas')}
           />
         )}
+        {tab === 'health' && <HealthPanel />}
         {tab === 'canvas' && <CanvasPanel initialRuleId={focusedRuleId} />}
         {tab === 'approvals' && <ApprovalsPanel />}
         {tab === 'runs' && <RunHistoryPanel ruleId={focusedRuleId ?? undefined} />}
@@ -188,8 +265,7 @@ export function WorkflowBuilderPage() {
           // upsertRule returns ok without id; we re-fetch and find by slug.
           // For deep-link, store the slug; CanvasPanel resolves to the
           // freshly-inserted rule (slug match in rules array).
-          setFocusedRuleId(slugOrId)
-          setTab('canvas')
+          focusRuleAndTab(slugOrId, 'canvas')
         }}
       />
     </ModulePageShell>

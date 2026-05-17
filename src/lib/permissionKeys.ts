@@ -100,6 +100,27 @@ export const PERMISSION_KEYS = [
   // ─── Organisation ─────────────────────────────────────────────────────────
   /** Eksporter ansatt/org-data (GDPR Art. 20 forespørsler) */
   'org.export',
+
+  // ─── Tilsynsbrev (Arbeidstilsynet/Datatilsynet inspeksjonsbrev) ──────────
+  /** Last opp et tilsynsbrev (PDF) og kjør parser. */
+  'tilsynsbrev.upload',
+  /** Se konfidensielle tilsynsbrev (default-confidentiality = restricted). */
+  'tilsynsbrev.view_confidential',
+
+  // ─── Tasks confidentiality (tilsynsbrev spawns restricted/confidential tasks) ─
+  /** Se konfidensielle oppgaver — speiles på workflow.view_confidential-mønsteret. */
+  'tasks.view_confidential',
+
+  // ─── Gov-outbox triage (manual_* rader i gov_notifications_outbox) ─────
+  /** Triagér rader i gov_notifications_outbox som krever menneskelig behandling
+   *  (manuelle innsendinger til Datatilsynet/Arbeidstilsynet/LDO). */
+  'gov.outbox_triage',
+
+  // ─── Integrations — cert rotation (NSM Grunnprinsipper 2.4) ─────────────
+  /** Rotere virksomhetssertifikat for gov-integrasjoner (Altinn / RegInt /
+   *  Datatilsynet / NAV). Gir tilgang til /admin/integrations/sertifikat-rotasjon
+   *  + workflow_record_cert_rotation RPC. Seedet til admin-rollen kun. */
+  'integrations.cert_rotate',
 ] as const
 
 export type PermissionKey = (typeof PERMISSION_KEYS)[number]
@@ -151,6 +172,11 @@ export const PERMISSION_LABELS: Record<PermissionKey, string> = {
   'meetings.manage': 'Møter — administrere møter, agenda, protokoll og maler',
   'meetings.manage_confidential': 'Møter — innsyn i konfidensielle møter (drøfting, varsling)',
   'org.export': 'Organisasjon — eksportere ansatt- og org-data (GDPR Art. 20)',
+  'tilsynsbrev.upload': 'Tilsynsbrev — laste opp og parse inspeksjonsbrev',
+  'tilsynsbrev.view_confidential': 'Tilsynsbrev — se konfidensielle saker',
+  'tasks.view_confidential': 'Se konfidensielle oppgaver',
+  'gov.outbox_triage': 'Triagér utgående statlige meldinger',
+  'integrations.cert_rotate': 'Integrasjoner — rotere virksomhetssertifikat',
 }
 
 /** Route prefix → permission (primary nav). Index route checked separately. */
