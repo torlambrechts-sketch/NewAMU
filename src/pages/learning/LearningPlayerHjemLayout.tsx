@@ -44,6 +44,7 @@ import { SlidePanel } from '../../components/layout/SlidePanel'
 import { InfoBox, WarningBox } from '../../components/ui/AlertBox'
 import { Button } from '../../components/ui/Button'
 import { StandardInput } from '../../components/ui/Input'
+import { ToggleSwitch } from '../../components/ui/FormToggles'
 import {
   CommonPitfalls,
   DeepDiveAccordion,
@@ -339,22 +340,24 @@ export function LearningPlayerHjemLayout({ course }: LearningPlayerHjemLayoutPro
           </p>
 
           <div className="flex items-center gap-2">
-            <button
-              type="button"
-              className="inline-flex items-center gap-2 rounded-md px-4 py-2 text-sm font-semibold text-white"
+            <Button
+              variant="primary"
+              icon={<BookOpen className="size-4" />}
               style={{ backgroundColor: GREEN }}
               onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = GREEN_HOVER)}
               onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = GREEN)}
+              aria-current="page"
             >
-              <BookOpen className="size-4" /> Hjem
-            </button>
-            <button
-              type="button"
+              Hjem
+            </Button>
+            <Button
+              variant="ghost"
               onClick={() => navigate(classicLayoutHref())}
-              className="inline-flex items-center gap-2 rounded-md px-4 py-2 text-sm font-medium text-neutral-600 hover:bg-white"
+              icon={<Bookmark className="size-4" />}
+              className="text-neutral-600 hover:bg-white"
             >
-              <Bookmark className="size-4" /> Klassisk visning
-            </button>
+              Klassisk visning
+            </Button>
           </div>
 
           <hr className="border-neutral-200" />
@@ -467,40 +470,41 @@ export function LearningPlayerHjemLayout({ course }: LearningPlayerHjemLayoutPro
                   )}
                 </div>
                 <div className="flex items-center gap-2">
-                  <button
-                    type="button"
+                  <Button
+                    size="sm"
+                    variant="secondary"
                     onClick={back}
                     disabled={idx === 0}
                     aria-label="Forrige modul"
-                    className="inline-flex items-center gap-1.5 rounded-md border border-neutral-300 bg-white px-3 py-1.5 text-xs font-semibold text-neutral-700 hover:bg-neutral-50 disabled:cursor-not-allowed disabled:opacity-40"
+                    icon={<ArrowLeft className="size-3.5" />}
                   >
-                    <ArrowLeft className="size-3.5" /> Forrige
-                  </button>
-                  <button
-                    type="button"
+                    Forrige
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="primary"
                     onClick={advance}
                     disabled={!canAdvance}
-                    className="inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-semibold text-white shadow-sm transition disabled:cursor-not-allowed disabled:opacity-40"
                     style={{ backgroundColor: GREEN }}
                     onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = GREEN_HOVER)}
                     onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = GREEN)}
                   >
                     {idx === total - 1 ? 'Fullfør kurset' : 'Fortsett'}
                     <ArrowRight className="size-3.5" />
-                  </button>
+                  </Button>
                 </div>
               </footer>
             </article>
 
             {allComplete && !hasCert ? (
-              <button
-                type="button"
+              <Button
+                variant="ghost"
                 onClick={() => setKursbevisOpen(true)}
-                className="block w-full rounded-xl border border-dashed px-4 py-3 text-center text-xs font-bold uppercase tracking-wider transition hover:bg-white"
+                className="block w-full rounded-xl border border-dashed bg-transparent px-4 py-3 text-center text-xs font-bold uppercase tracking-wider hover:bg-white"
                 style={{ borderColor: `${GREEN}40`, color: GREEN }}
               >
                 Hent kursbevis →
-              </button>
+              </Button>
             ) : !allComplete ? (
               <p className="text-center text-xs text-neutral-500">
                 {total - completedCount} {total - completedCount === 1 ? 'modul' : 'moduler'} igjen i kurset
@@ -644,14 +648,15 @@ function ReadingControls({
         {(['sm', 'base', 'lg'] as const).map((s, i) => {
           const active = fontSize === s
           return (
-            <button
+            <Button
               key={s}
-              type="button"
+              variant="ghost"
+              size="icon"
               onClick={() => setFontSize(s)}
               title={FONT_SIZE_LABEL[s]}
               aria-label={FONT_SIZE_LABEL[s]}
               aria-pressed={active}
-              className="flex h-6 w-6 items-center justify-center rounded font-semibold transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1"
+              className="flex h-6 w-6 items-center justify-center rounded font-semibold focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 hover:bg-transparent"
               style={{
                 backgroundColor: active ? `${GREEN}1a` : 'transparent',
                 color: active ? GREEN : '#737373',
@@ -660,18 +665,19 @@ function ReadingControls({
               }}
             >
               A
-            </button>
+            </Button>
           )
         })}
       </div>
       <div className="mx-0.5 h-4 w-px bg-neutral-200" aria-hidden />
-      <button
-        type="button"
+      <Button
+        variant="ghost"
+        size="sm"
         onClick={() => setExpanded(!expanded)}
         title={expanded ? 'Komprimer (vis sidefelt)' : 'Utvid (skjul sidefelt)'}
         aria-label={expanded ? 'Komprimer leseflate' : 'Utvid leseflate'}
         aria-pressed={expanded}
-        className="flex h-6 items-center gap-1 rounded px-2 text-[11px] font-semibold transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1"
+        className="h-6 rounded px-2 text-[11px] font-semibold hover:bg-transparent focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1"
         style={{
           backgroundColor: expanded ? `${GREEN}1a` : 'transparent',
           color: expanded ? GREEN : '#525252',
@@ -680,7 +686,7 @@ function ReadingControls({
       >
         {expanded ? <Minimize2 className="size-3.5" /> : <Maximize2 className="size-3.5" />}
         <span className="hidden md:inline">{expanded ? 'Komprimer' : 'Utvid'}</span>
-      </button>
+      </Button>
     </div>
   )
 }
@@ -742,15 +748,20 @@ function LessonBody({
               <legend className="text-base font-semibold text-neutral-900">
                 {qi + 1}. {q.question}
               </legend>
-              <div className="space-y-1.5">
+              <div role="radiogroup" aria-labelledby={`q-${q.id}-legend`} className="space-y-1.5">
                 {q.options.map((opt, oi) => {
                   const selected = picked === oi
                   const right = quizSubmitted && oi === q.correctIndex
                   const wrong = quizSubmitted && selected && oi !== q.correctIndex
                   return (
-                    <label
+                    <Button
                       key={oi}
-                      className="flex cursor-pointer items-start gap-2.5 rounded-lg border px-3 py-2.5 text-sm text-neutral-900 transition"
+                      variant="ghost"
+                      role="radio"
+                      aria-checked={selected}
+                      onClick={() => !quizSubmitted && setQuizAnswers((p) => ({ ...p, [q.id]: oi }))}
+                      disabled={quizSubmitted}
+                      className="flex w-full items-start justify-start gap-2.5 rounded-lg border px-3 py-2.5 text-sm font-normal text-neutral-900"
                       style={{
                         borderColor: right
                           ? GREEN
@@ -768,17 +779,16 @@ function LessonBody({
                               : 'white',
                       }}
                     >
-                      <input
-                        type="radio"
-                        name={q.id}
-                        checked={selected}
-                        onChange={() => setQuizAnswers((p) => ({ ...p, [q.id]: oi }))}
-                        disabled={quizSubmitted}
-                        className="mt-0.5 size-4"
-                        style={{ accentColor: GREEN }}
-                      />
+                      <span
+                        aria-hidden
+                        className={`mt-0.5 flex size-4 shrink-0 items-center justify-center rounded-full border ${
+                          selected ? 'border-current' : 'border-neutral-300'
+                        }`}
+                      >
+                        {selected && <span className="size-1.5 rounded-full bg-current" />}
+                      </span>
                       <span>{opt}</span>
-                    </label>
+                    </Button>
                   )
                 })}
               </div>
@@ -786,15 +796,15 @@ function LessonBody({
           )
         })}
         {!quizSubmitted ? (
-          <button
-            type="button"
+          <Button
+            variant="secondary"
             onClick={() => setQuizSubmitted(true)}
             disabled={!quizContext.allAnswered}
-            className="rounded-md border bg-white px-4 py-2 text-sm font-semibold disabled:opacity-40"
+            className="rounded-md"
             style={{ borderColor: GREEN, color: GREEN }}
           >
             Sjekk svarene
-          </button>
+          </Button>
         ) : (
           <div
             className="flex items-start gap-3 rounded-lg border p-4"
@@ -817,17 +827,18 @@ function LessonBody({
                   : `Du må ha minst ${quizContext.required}% for å gå videre. Prøv på nytt.`}
               </p>
               {!quizContext.passed ? (
-                <button
-                  type="button"
+                <Button
+                  variant="ghost"
+                  size="sm"
                   onClick={() => {
                     setQuizAnswers(() => ({}))
                     setQuizSubmitted(false)
                   }}
-                  className="mt-2 text-xs font-semibold hover:underline"
+                  className="mt-2 px-0 text-xs font-semibold hover:bg-transparent hover:underline"
                   style={{ color: GREEN }}
                 >
                   Prøv på nytt →
-                </button>
+                </Button>
               ) : null}
             </div>
           </div>
@@ -847,35 +858,30 @@ function LessonBody({
           {c.tasks.map((t) => {
             const done = !!ojtChecks[t.id]
             return (
-              <li key={t.id}>
-                <label
-                  className="flex cursor-pointer items-start gap-3 rounded-lg border px-4 py-3 transition"
-                  style={{
-                    borderColor: done ? GREEN : '#e8e2d2',
-                    backgroundColor: done ? `${GREEN}08` : 'white',
-                  }}
-                >
-                  <input
-                    type="checkbox"
-                    checked={done}
-                    onChange={(e) =>
-                      setOjtChecks((p) => ({ ...p, [t.id]: e.target.checked }))
-                    }
-                    className="mt-0.5 size-4"
-                    style={{ accentColor: GREEN }}
-                  />
-                  <span className="flex-1">
-                    <span className="block text-sm font-semibold text-neutral-900">{t.title}</span>
-                    {t.description ? (
-                      <span className="mt-0.5 block text-sm text-neutral-700">{t.description}</span>
-                    ) : null}
-                    {t.requiredRole ? (
-                      <span className="mt-1 inline-block rounded-full bg-[#f3eee0] px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-neutral-600">
-                        Krever: {t.requiredRole}
-                      </span>
-                    ) : null}
-                  </span>
-                </label>
+              <li
+                key={t.id}
+                className="flex items-start gap-3 rounded-lg border px-4 py-3 transition"
+                style={{
+                  borderColor: done ? GREEN : '#e8e2d2',
+                  backgroundColor: done ? `${GREEN}08` : 'white',
+                }}
+              >
+                <ToggleSwitch
+                  checked={done}
+                  onChange={(v) => setOjtChecks((p) => ({ ...p, [t.id]: v }))}
+                  label={t.title}
+                />
+                <span className="flex-1">
+                  <span className="block text-sm font-semibold text-neutral-900">{t.title}</span>
+                  {t.description ? (
+                    <span className="mt-0.5 block text-sm text-neutral-700">{t.description}</span>
+                  ) : null}
+                  {t.requiredRole ? (
+                    <span className="mt-1 inline-block rounded-full bg-[#f3eee0] px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-neutral-600">
+                      Krever: {t.requiredRole}
+                    </span>
+                  ) : null}
+                </span>
               </li>
             )
           })}
@@ -1128,13 +1134,13 @@ function DenneUkenCard({
                     return (
                       <li key={it.id}>
                         {clickable ? (
-                          <button
-                            type="button"
+                          <Button
+                            variant="ghost"
                             onClick={() => onJumpToModule(it.jumpToModuleIdx as number)}
-                            className="flex w-full items-start gap-2 rounded-md px-2 py-1.5 text-left transition hover:bg-[#fbf9f3]"
+                            className="flex w-full items-start justify-start gap-2 rounded-md px-2 py-1.5 text-left font-normal hover:bg-[#fbf9f3]"
                           >
                             {Inner}
-                          </button>
+                          </Button>
                         ) : (
                           <div className="flex items-start gap-2 rounded-md px-2 py-1.5">{Inner}</div>
                         )}
@@ -1328,10 +1334,10 @@ function SnarveierCard({
                 <ExternalLink className="size-3 text-neutral-400" />
               </Link>
             ) : (
-              <button
-                type="button"
+              <Button
+                variant="ghost"
                 onClick={s.onClick}
-                className="flex w-full items-center gap-3 px-4 py-3 text-left text-sm font-medium text-neutral-800 transition hover:bg-[#fbf9f3]"
+                className="flex w-full items-center justify-start gap-3 rounded-none px-4 py-3 text-left text-sm font-medium text-neutral-800 hover:bg-[#fbf9f3]"
               >
                 <s.Icon className="size-4 shrink-0" style={{ color: s.color }} />
                 <span className="flex-1">{s.label}</span>
@@ -1340,7 +1346,7 @@ function SnarveierCard({
                     s.label === 'Innhold' && innholdOpen ? 'rotate-180' : ''
                   }`}
                 />
-              </button>
+              </Button>
             )}
           </li>
         ))}
@@ -1355,14 +1361,14 @@ function SnarveierCard({
               const Icon = KIND_ICON[m.kind]
               return (
                 <li key={m.id}>
-                  <button
-                    type="button"
+                  <Button
+                    variant="ghost"
                     onClick={() => {
                       onPickModule(i)
                       setInnholdOpen(false)
                     }}
                     aria-current={isCurrent ? 'step' : undefined}
-                    className="flex w-full items-start gap-2 rounded-md px-2 py-1.5 text-left transition hover:bg-white"
+                    className="flex w-full items-start justify-start gap-2 rounded-md px-2 py-1.5 text-left font-normal hover:bg-white"
                     style={{
                       backgroundColor: isCurrent ? `${GREEN}10` : undefined,
                     }}
@@ -1383,7 +1389,7 @@ function SnarveierCard({
                     >
                       {i + 1}. {m.title}
                     </span>
-                  </button>
+                  </Button>
                 </li>
               )
             })}

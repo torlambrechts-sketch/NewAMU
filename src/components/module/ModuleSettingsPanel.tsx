@@ -9,6 +9,11 @@
 
 import { useState, type ReactNode } from 'react'
 import { X, Plus, Trash2, AlertCircle, CheckCircle2, Mail, ListTodo } from 'lucide-react'
+import { Button } from '../ui/Button'
+import { StandardInput } from '../ui/Input'
+import { StandardTextarea } from '../ui/Textarea'
+import { SearchableSelect } from '../ui/SearchableSelect'
+import { ToggleSwitch } from '../ui/FormToggles'
 import type {
   CaseType,
   ModuleTemplate,
@@ -84,7 +89,7 @@ export function ModuleSettingsPanel({
   const [title, setTitle] = useState(template.heading.title)
   const [description, setDescription] = useState(template.heading.description)
   const [caseTypes, setCaseTypes] = useState<CaseType[]>(template.caseTypes)
-  const [statuses, _setStatuses] = useState<StatusDef[]>(template.statuses)
+  const [statuses] = useState<StatusDef[]>(template.statuses)
   const [workflowRules, setWorkflowRules] = useState<WorkflowRule[]>(template.workflowRules)
 
   function markDirty() { setDirty(true) }
@@ -117,22 +122,28 @@ export function ModuleSettingsPanel({
         <div className="flex shrink-0 items-center gap-2">
           {hasDb && (
             template.published
-              ? <button type="button" className={BTN_GHOST} onClick={onUnpublish}>Avpubliser</button>
-              : <button type="button" className={BTN_GHOST} onClick={onPublish} disabled={dirty}>
+              ? <Button variant="ghost" onClick={onUnpublish} className={BTN_GHOST}>Avpubliser</Button>
+              : <Button variant="ghost" onClick={onPublish} disabled={dirty} className={BTN_GHOST}>
                   {dirty ? 'Lagre først' : 'Publiser'}
-                </button>
+                </Button>
           )}
-          <button
-            type="button"
+          <Button
+            variant="primary"
             disabled={!dirty || saving}
-            className={`${BTN_PRIMARY} disabled:opacity-50`}
+            className={BTN_PRIMARY}
             onClick={handleSave}
           >
             {saving ? 'Lagrer…' : 'Lagre'}
-          </button>
-          <button type="button" className="rounded-lg p-1.5 text-neutral-400 hover:bg-neutral-100" onClick={onClose} aria-label="Lukk">
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-7 w-7 rounded-lg text-neutral-400 hover:bg-neutral-100"
+            onClick={onClose}
+            aria-label="Lukk"
+          >
             <X className="size-4" />
-          </button>
+          </Button>
         </div>
       </header>
 
@@ -152,18 +163,19 @@ export function ModuleSettingsPanel({
       {/* Tabs */}
       <div className="flex shrink-0 gap-1 border-b border-neutral-200 px-4">
         {TABS.map((t) => (
-          <button
+          <Button
             key={t.id}
-            type="button"
+            variant="ghost"
             onClick={() => setTab(t.id)}
-            className={`border-b-2 px-3 py-2.5 text-xs font-semibold transition-colors ${
+            aria-pressed={tab === t.id}
+            className={`rounded-none border-b-2 px-3 py-2.5 text-xs font-semibold ${
               tab === t.id
-                ? 'border-[#1a3d32] text-[#1a3d32]'
-                : 'border-transparent text-neutral-500 hover:text-neutral-700'
+                ? 'border-[#1a3d32] text-[#1a3d32] hover:bg-transparent'
+                : 'border-transparent text-neutral-500 hover:bg-transparent hover:text-neutral-700'
             }`}
           >
             {t.label}
-          </button>
+          </Button>
         ))}
       </div>
 
@@ -178,8 +190,7 @@ export function ModuleSettingsPanel({
               <div className="space-y-3">
                 <div>
                   <label className="mb-1 block text-xs font-medium text-neutral-700">Tittel (H1)</label>
-                  <input
-                    type="text"
+                  <StandardInput
                     value={title}
                     onChange={(e) => { setTitle(e.target.value); markDirty() }}
                     className={INPUT}
@@ -187,7 +198,7 @@ export function ModuleSettingsPanel({
                 </div>
                 <div>
                   <label className="mb-1 block text-xs font-medium text-neutral-700">Beskrivelse</label>
-                  <textarea
+                  <StandardTextarea
                     rows={3}
                     value={description}
                     onChange={(e) => { setDescription(e.target.value); markDirty() }}
@@ -233,8 +244,8 @@ export function ModuleSettingsPanel({
             <div>
               <div className="mb-3 flex items-center justify-between">
                 <SectionLabel>Inspeksjonstyper</SectionLabel>
-                <button
-                  type="button"
+                <Button
+                  variant="ghost"
                   className={BTN_GHOST}
                   onClick={() => {
                     const newType: CaseType = {
@@ -246,59 +257,54 @@ export function ModuleSettingsPanel({
                     setCaseTypes((prev) => [...prev, newType])
                     markDirty()
                   }}
+                  icon={<Plus className="size-3.5" />}
                 >
-                  <Plus className="size-3.5" />
                   Legg til
-                </button>
+                </Button>
               </div>
               <div className="space-y-2">
                 {caseTypes.map((ct, i) => (
                   <div key={ct.id} className="flex items-center gap-2 rounded-lg border border-neutral-200 bg-white p-2.5">
                     <div className="min-w-0 flex-1 space-y-1">
-                      <input
-                        type="text"
+                      <StandardInput
                         value={ct.label}
                         onChange={(e) => {
                           const next = caseTypes.map((c, j) => j === i ? { ...c, label: e.target.value } : c)
                           setCaseTypes(next); markDirty()
                         }}
-                        className="w-full rounded border border-neutral-200 px-2 py-1 text-sm text-neutral-900 focus:outline-none focus:ring-1 focus:ring-[#1a3d32]/25"
+                        className="px-2 py-1 text-sm"
                       />
                       <div className="flex items-center gap-2">
-                        <select
+                        <SearchableSelect
                           value={ct.color ?? 'neutral'}
-                          onChange={(e) => {
-                            const next = caseTypes.map((c, j) => j === i ? { ...c, color: e.target.value as StatusColor } : c)
+                          options={STATUS_COLOR_OPTIONS.map((o) => ({ value: o.value, label: o.label }))}
+                          onChange={(v) => {
+                            const next = caseTypes.map((c, j) => j === i ? { ...c, color: v as StatusColor } : c)
                             setCaseTypes(next); markDirty()
                           }}
-                          className="rounded border border-neutral-200 px-1.5 py-0.5 text-xs"
-                        >
-                          {STATUS_COLOR_OPTIONS.map((o) => (
-                            <option key={o.value} value={o.value}>{o.label}</option>
-                          ))}
-                        </select>
-                        <label className="flex items-center gap-1 text-xs text-neutral-500">
-                          <input
-                            type="checkbox"
+                        />
+                        <div className="flex items-center gap-1 text-xs text-neutral-500">
+                          <ToggleSwitch
                             checked={ct.active}
-                            onChange={(e) => {
-                              const next = caseTypes.map((c, j) => j === i ? { ...c, active: e.target.checked } : c)
+                            onChange={(v) => {
+                              const next = caseTypes.map((c, j) => j === i ? { ...c, active: v } : c)
                               setCaseTypes(next); markDirty()
                             }}
-                            className="rounded"
+                            label="Aktiv"
                           />
                           Aktiv
-                        </label>
+                        </div>
                       </div>
                     </div>
-                    <button
-                      type="button"
+                    <Button
+                      variant="ghost"
+                      size="icon"
                       className={BTN_DANGER}
                       onClick={() => { setCaseTypes((prev) => prev.filter((_, j) => j !== i)); markDirty() }}
                       title="Slett"
                     >
                       <Trash2 className="size-3.5" />
-                    </button>
+                    </Button>
                   </div>
                 ))}
               </div>
@@ -355,18 +361,17 @@ export function ModuleSettingsPanel({
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-2">
                           <p className="text-sm font-semibold text-neutral-900">{rule.name}</p>
-                          <label className="flex items-center gap-1 text-xs text-neutral-500">
-                            <input
-                              type="checkbox"
+                          <div className="flex items-center gap-1 text-xs text-neutral-500">
+                            <ToggleSwitch
                               checked={rule.active}
-                              onChange={(e) => {
-                                setWorkflowRules(prev => prev.map(r => r.id === rule.id ? { ...r, active: e.target.checked } : r))
+                              onChange={(v) => {
+                                setWorkflowRules(prev => prev.map(r => r.id === rule.id ? { ...r, active: v } : r))
                                 markDirty()
                               }}
-                              className="rounded"
+                              label="Aktiv"
                             />
                             Aktiv
-                          </label>
+                          </div>
                         </div>
                         {rule.description && (
                           <p className="mt-0.5 text-xs text-neutral-500">{rule.description}</p>
