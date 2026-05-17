@@ -4,7 +4,7 @@
 // Append-only avvisnings­log skrives av amu_backlog_dismiss(); auto-drenert
 // historikk leses fra amu_agenda_backlog der drained_at IS NOT NULL.
 
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react'
 import { Link } from 'react-router-dom'
 import {
   AlertTriangle,
@@ -48,6 +48,7 @@ type BacklogRow = {
 type DrainedAgendaTitle = {
   id: string
   title: string
+  meetingId: string | null
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────
@@ -220,13 +221,17 @@ export function AMUAgendaBacklogPage() {
       if (drainedIds.length > 0) {
         const aiRes = await supabase
           .from('meeting_agenda_items')
-          .select('id, title')
+          .select('id, title, meeting_id')
           .in('id', drainedIds)
         const next = new Map<string, DrainedAgendaTitle>()
         for (const r of aiRes.data ?? []) {
-          const obj = r as { id?: unknown; title?: unknown }
+          const obj = r as { id?: unknown; title?: unknown; meeting_id?: unknown }
           if (typeof obj.id === 'string' && typeof obj.title === 'string') {
-            next.set(obj.id, { id: obj.id, title: obj.title })
+            next.set(obj.id, {
+              id: obj.id,
+              title: obj.title,
+              meetingId: typeof obj.meeting_id === 'string' ? obj.meeting_id : null,
+            })
           }
         }
         setDrainedAgendaTitles(next)
@@ -724,19 +729,8 @@ export function AMUAgendaBacklogPage() {
             <ul className="mt-4 divide-y divide-neutral-100">
               {drained.map((row) => {
                 const agenda = row.drained_into ? drainedAgendaTitles.get(row.drained_into) : null
-                const meetingTitle = (() => {
-                  if (!row.drained_into) return null
-                  // meeting_agenda_items doesn't carry meeting_id in our minimal
-                  // fetch — fall back to the freshly loaded list to find it by
-                  // matching the agenda item we already resolved. If the row
-                  // isn't in the active meetings cache (e.g. archived) we omit.
-                  for (const m of meetings.meetings) {
-                    if (m.id && meetingById.has(m.id)) {
-                      // best-effort: not all agenda items link back to meeting list
-                    }
-                  }
-                  return null
-                })()
+                const meeting = agenda?.meetingId ? meetingById.get(agenda.meetingId) ?? null : null
+                const meetingTitle = meeting?.title ?? null
                 return (
                   <li key={row.id} className="flex items-start justify-between gap-4 py-3">
                     <div className="min-w-0">
@@ -824,7 +818,7 @@ function KpiCard({
 }: {
   label: string
   value: number
-  icon: React.ReactNode
+  icon: ReactNode
   tone: 'default' | 'warn' | 'ok'
 }) {
   const toneClass =

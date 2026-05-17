@@ -17,7 +17,9 @@ import {
   GraduationCap,
   History,
   Home,
+  Inbox,
   Kanban,
+  KeyRound,
   LayoutTemplate,
   Megaphone,
   PanelLeft,
@@ -57,6 +59,8 @@ import { useTaskNav } from '../../../modules/tasks/useTaskNav'
 import { useMeetingsNav } from '../../../modules/meetings/useMeetingsNav'
 import { useAlertsNav } from '../../../modules/alerts/useAlertsNav'
 import { useGovOutboxPendingCount } from '../../hooks/useGovOutboxPendingCount'
+import { useAmuAgendaBacklogCount } from '../../hooks/useAmuAgendaBacklogCount'
+import { useCertExpiryWarningCount } from '../../hooks/useCertExpiryWarningCount'
 import { usePartnerMembership } from '../../hooks/usePartnerMembership'
 import { useConsultantClock } from '../../hooks/useConsultantClock'
 import { OrgSwitcher } from './OrgSwitcher'
@@ -96,6 +100,12 @@ type SubItem = {
    * many rows are awaiting human action.
    */
   badgeCount?: number
+  /**
+   * Optional colour override for `badgeCount`. Defaults to amber
+   * (`#c9a227`) for queue-style badges; cert-rotation uses `'danger'`
+   * to signal time-critical action (NSM Grunnprinsipp 2.4).
+   */
+  badgeTone?: 'amber' | 'danger'
 }
 
 function visibleSubs(
@@ -477,6 +487,12 @@ export function AticsShell() {
   // Manual-triage queue counter used by the Integrasjoner submenu badge.
   // 60s polling, cheap RLS-scoped count, see hook for rationale.
   const { count: govOutboxPendingCount } = useGovOutboxPendingCount()
+  // AMU agenda-backlog counter — drives the badge on "Agenda-restanser"
+  // under Møter. Same 60s poll cadence as gov-outbox.
+  const { count: amuBacklogPendingCount } = useAmuAgendaBacklogCount()
+  // Cert-expiry counter — drives the red pip on the Sertifikat-rotasjon
+  // sub-link when ≥1 cert is within 30 days of expiry. 5-min polling.
+  const { count: certExpiryWarningCount } = useCertExpiryWarningCount()
   const { isActive: isRegulationActive, activeRegulationIds } = useRegulationFilter()
   const mergedNavGroups = useMemo<NavGroup[]>(() => {
     // Fixed sub-entries that always sit under "Sjekklister" — Analyse and
@@ -1155,6 +1171,18 @@ export function AticsShell() {
         requirePermAny: INTEGRATIONS_NAV_PERMS,
       },
       {
+        // NSM Grunnprinsipp 2.4 — planlagt rotasjon av virksomhetssertifikat.
+        // Red pip when ≥1 cert is within 30 days of expiry, driven by
+        // useCertExpiryWarningCount (signing_cert_expires_at column from _123700).
+        label: 'Sertifikat-rotasjon',
+        path: '/admin/integrations/sertifikat-rotasjon',
+        Icon: KeyRound,
+        match: matchAdminIntegrations('sertifikat-rotasjon'),
+        requirePermAny: ['integrations.cert_rotate', ...INTEGRATIONS_NAV_PERMS],
+        badgeCount: certExpiryWarningCount,
+        badgeTone: 'danger',
+      },
+      {
         label: 'Manuell utboks (statlige meldinger)',
         path: '/admin/integrations/utboks',
         Icon: ScrollText,
@@ -1499,6 +1527,14 @@ export function AticsShell() {
         requirePermAny: MEETINGS_NAV_PERMS,
       },
       {
+        label: 'Agenda-restanser',
+        path: '/meetings/agenda-backlog',
+        Icon: Inbox,
+        match: ({ pathname }) => pathname === '/meetings/agenda-backlog',
+        requirePermAny: MEETINGS_NAV_PERMS,
+        badgeCount: amuBacklogPendingCount,
+      },
+      {
         label: 'Innstillinger',
         path: '/admin/settings/meetings',
         Icon: Settings,
@@ -1754,6 +1790,8 @@ export function AticsShell() {
     activeRegulationIds,
     isPartnerMember,
     govOutboxPendingCount,
+    amuBacklogPendingCount,
+    certExpiryWarningCount,
   ])
 
   const visibleGroups = useMemo(
@@ -2009,8 +2047,12 @@ export function AticsShell() {
                                     <span className="flex-1">{item.label}</span>
                                     {typeof item.badgeCount === 'number' && item.badgeCount > 0 ? (
                                       <span
-                                        className="ml-2 inline-flex h-5 min-w-[20px] shrink-0 items-center justify-center rounded-full bg-[#c9a227] px-1.5 text-[10px] font-bold text-[#1a1a1a]"
-                                        aria-label={`${item.badgeCount} venter på behandling`}
+                                        className={`ml-2 inline-flex h-5 min-w-[20px] shrink-0 items-center justify-center rounded-full px-1.5 text-[10px] font-bold ${
+                                          item.badgeTone === 'danger'
+                                            ? 'bg-rose-600 text-white'
+                                            : 'bg-[#c9a227] text-[#1a1a1a]'
+                                        }`}
+                                        aria-label={`${item.badgeCount} ${item.badgeTone === 'danger' ? 'krever oppmerksomhet' : 'venter på behandling'}`}
                                       >
                                         {item.badgeCount > 99 ? '99+' : item.badgeCount}
                                       </span>
@@ -2269,8 +2311,12 @@ export function AticsShell() {
                           <span>{item.label}</span>
                           {typeof item.badgeCount === 'number' && item.badgeCount > 0 ? (
                             <span
-                              className="inline-flex h-5 min-w-[20px] items-center justify-center rounded-full bg-[#c9a227] px-1.5 text-[10px] font-bold text-[#1a1a1a]"
-                              aria-label={`${item.badgeCount} venter på behandling`}
+                              className={`inline-flex h-5 min-w-[20px] items-center justify-center rounded-full px-1.5 text-[10px] font-bold ${
+                                item.badgeTone === 'danger'
+                                  ? 'bg-rose-600 text-white'
+                                  : 'bg-[#c9a227] text-[#1a1a1a]'
+                              }`}
+                              aria-label={`${item.badgeCount} ${item.badgeTone === 'danger' ? 'krever oppmerksomhet' : 'venter på behandling'}`}
                             >
                               {item.badgeCount > 99 ? '99+' : item.badgeCount}
                             </span>
