@@ -1,3 +1,4 @@
+import { lazy } from 'react'
 import {
   createBrowserRouter,
   createRoutesFromElements,
@@ -8,6 +9,12 @@ import {
   useLocation,
   useParams,
 } from 'react-router-dom'
+import { MarketingShell } from './pages/marketing/shell/MarketingShell'
+
+const FeaturePage = lazy(() => import('./pages/marketing/FeaturePage').then((m) => ({ default: m.FeaturePage })))
+const CompliancePage = lazy(() => import('./pages/marketing/CompliancePage').then((m) => ({ default: m.CompliancePage })))
+const IntegrationsPage = lazy(() => import('./pages/marketing/IntegrationsPage').then((m) => ({ default: m.IntegrationsPage })))
+const AboutPage = lazy(() => import('./pages/marketing/AboutPage').then((m) => ({ default: m.AboutPage })))
 import { OrgSetupProvider } from './context/OrgSetupProvider'
 import { UiThemeProvider } from './context/UiThemeProvider'
 import { I18nProvider } from './context/I18nProvider'
@@ -259,8 +266,14 @@ const router = createBrowserRouter(
             <Route path="/auditor/workflows" element={<AuditorWorkflowsPage />} />
             <Route path="/survey-respond/:campaignId" element={<SurveyRespondPage />} />
             <Route path="/r/:token" element={<SharedReportPage />} />
-            {/* Public marketing / landing page — root "/" for all visitors */}
-            <Route index element={<LandingPage />} />
+            {/* Public marketing — landing + per-module feature pages + compliance + integrations + about. */}
+            <Route element={<MarketingShell />}>
+              <Route index element={<LandingPage />} />
+              <Route path="/features/:slug" element={<FeaturePage />} />
+              <Route path="/compliance" element={<CompliancePage />} />
+              <Route path="/integrasjoner" element={<IntegrationsPage />} />
+              <Route path="/om-oss" element={<AboutPage />} />
+            </Route>
             <Route path="/home" element={<Navigate to="/" replace />} />
             <Route path="/landing" element={<Navigate to="/" replace />} />
 
