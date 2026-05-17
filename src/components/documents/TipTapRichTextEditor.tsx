@@ -88,17 +88,17 @@ function MentionListInner(
   return (
     <div className="max-h-48 min-w-[200px] overflow-y-auto rounded border border-neutral-200 bg-white py-1 shadow-lg">
       {items.map((item, idx) => (
-        <button
+        <Button
           key={item.id}
-          type="button"
-          className={`flex w-full px-3 py-1.5 text-left text-xs ${
+          variant="ghost"
+          className={`flex w-full justify-start rounded-none px-3 py-1.5 text-left text-xs font-normal ${
             idx === selected ? 'bg-[#1a3d32]/10 font-medium text-[#1a3d32]' : 'text-neutral-800 hover:bg-neutral-50'
           }`}
           onMouseDown={(e) => e.preventDefault()}
           onClick={() => props.command(item)}
         >
           {item.label}
-        </button>
+        </Button>
       ))}
     </div>
   )
@@ -587,9 +587,9 @@ export function TipTapRichTextEditor({
           <ul className="max-h-48 overflow-y-auto text-xs">
             {filteredWikiPages.map((p) => (
               <li key={p.id}>
-                <button
-                  type="button"
-                  className="w-full truncate rounded px-2 py-1.5 text-left hover:bg-neutral-50"
+                <Button
+                  variant="ghost"
+                  className="w-full truncate justify-start rounded px-2 py-1.5 text-left font-normal hover:bg-neutral-50"
                   onMouseDown={(e) => e.preventDefault()}
                   onClick={() => {
                     const to = editor.state.selection.from
@@ -607,13 +607,14 @@ export function TipTapRichTextEditor({
                   }}
                 >
                   {p.title}
-                </button>
+                </Button>
               </li>
             ))}
           </ul>
-          <button
-            type="button"
-            className="mt-2 w-full text-xs text-neutral-500 underline"
+          <Button
+            variant="ghost"
+            size="sm"
+            className="mt-2 w-full rounded-none text-xs text-neutral-500 hover:bg-transparent hover:underline"
             onMouseDown={(e) => e.preventDefault()}
             onClick={() => {
               setWikiLinkPickAnchor(null)
@@ -621,7 +622,7 @@ export function TipTapRichTextEditor({
             }}
           >
             Avbryt
-          </button>
+          </Button>
         </div>
       ) : null}
     </div>

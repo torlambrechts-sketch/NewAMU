@@ -11,6 +11,7 @@ import { useMemo, useState } from 'react'
 import { Plus, Search, X } from 'lucide-react'
 import { StandardInput } from '../../ui/Input'
 import { SearchableSelect } from '../../ui/SearchableSelect'
+import { Button } from '../../ui/Button'
 import {
   getDashboardScope,
   instantiateWidget,
@@ -122,14 +123,15 @@ export function DashboardWidgetLibraryRail({ scopeId, onAdd, onClose }: Props) {
           <p className="mt-0.5 text-xs text-neutral-500">Klikk for å legge til</p>
         </div>
         {onClose ? (
-          <button
-            type="button"
+          <Button
+            variant="ghost"
+            size="icon"
             onClick={onClose}
-            className="rounded p-1 text-neutral-400 hover:bg-neutral-100 hover:text-neutral-700"
+            className="h-6 w-6 rounded p-1 text-neutral-400 hover:bg-neutral-100 hover:text-neutral-700"
             aria-label="Lukk widget-bibliotek"
           >
             <X className="h-4 w-4" />
-          </button>
+          </Button>
         ) : null}
       </header>
 
@@ -213,36 +215,39 @@ export function DashboardWidgetLibraryRail({ scopeId, onAdd, onClose }: Props) {
                             </p>
                           ) : null}
                         </div>
-                        <button
-                          type="button"
+                        <Button
+                          variant="ghost"
+                          size="icon"
                           onClick={() => void handleAdd(entry)}
                           disabled={submitting === entry.catalogId}
                           aria-label={`Legg til ${entry.label}`}
-                          className="shrink-0 rounded-md p-1 text-neutral-400 transition-colors hover:bg-[#1a3d32] hover:text-white disabled:opacity-50"
+                          className="h-6 w-6 shrink-0 rounded-md p-1 text-neutral-400 transition-colors hover:bg-[#1a3d32] hover:text-white disabled:opacity-50"
                         >
                           <Plus className="h-4 w-4" />
-                        </button>
+                        </Button>
                       </div>
                       {compatible.length > 1 ? (
-                        <div className="mt-2 flex flex-wrap gap-1">
+                        <div className="mt-2 flex flex-wrap gap-1" role="radiogroup" aria-label="Widget-type">
                           {compatible.map((k) => {
                             const on = k === activeKind
                             return (
-                              <button
+                              <Button
                                 key={k}
-                                type="button"
+                                variant="ghost"
                                 onClick={() =>
                                   setKindOverride((s) => ({ ...s, [entry.catalogId]: k }))
                                 }
+                                role="radio"
+                                aria-checked={on}
                                 className={
                                   'rounded-full border px-2 py-0.5 text-[10px] font-medium transition-colors ' +
                                   (on
-                                    ? 'border-[#1a3d32] bg-[#1a3d32] text-white'
+                                    ? 'border-[#1a3d32] bg-[#1a3d32] text-white hover:bg-[#1a3d32]'
                                     : 'border-neutral-200 bg-white text-neutral-600 hover:bg-neutral-50')
                                 }
                               >
                                 {KIND_LABEL[k]}
-                              </button>
+                              </Button>
                             )
                           })}
                         </div>

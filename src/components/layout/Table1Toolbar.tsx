@@ -5,6 +5,7 @@ import { DEFAULT_TABLE_1_TOOLBAR } from '../../types/layoutLab'
 import { mergeLayoutPayload } from '../../lib/layoutLabTokens'
 import { useUiThemeOptional } from '../../hooks/useUiTheme'
 import { DEFAULT_LAYOUT_LAB } from '../../types/layoutLab'
+import { Button } from '../ui/Button'
 
 type Props = {
   payloadOverride?: LayoutLabPayload
@@ -41,20 +42,20 @@ export function Table1Toolbar({ payloadOverride, searchSlot, segmentSlot, endSlo
         <div className="flex flex-wrap items-center gap-3 p-4">
           {tb.search ? searchSlot : null}
           {tb.advanced && (
-            <button
-              type="button"
+            <Button
+              variant="ghost"
               className={`inline-flex shrink-0 items-center gap-1.5 border border-neutral-200 bg-white px-3 py-2 text-xs font-semibold uppercase tracking-wide text-neutral-700 hover:bg-neutral-50 ${rMd}`}
             >
               <Search className="size-3.5" /> Avansert
-            </button>
+            </Button>
           )}
           {tb.filters && (
-            <button
-              type="button"
+            <Button
+              variant="ghost"
               className={`inline-flex shrink-0 items-center gap-1.5 border border-neutral-200 bg-white px-3 py-2 text-xs font-semibold uppercase tracking-wide text-neutral-700 hover:bg-neutral-50 ${rMd}`}
             >
               <Filter className="size-3.5" /> Filtre
-            </button>
+            </Button>
           )}
         </div>
       )}
@@ -69,7 +70,7 @@ export function Table1Toolbar({ payloadOverride, searchSlot, segmentSlot, endSlo
             {segmentSlot
               ? segmentSlot
               : tb.segments && (
-                  <div className={`inline-flex border border-neutral-200 bg-neutral-50/80 p-1 ${rMd}`}>
+                  <div className={`inline-flex border border-neutral-200 bg-neutral-50/80 p-1 ${rMd}`} role="radiogroup" aria-label="Segment">
                     {(
                       [
                         ['all', 'Alle'],
@@ -77,10 +78,12 @@ export function Table1Toolbar({ payloadOverride, searchSlot, segmentSlot, endSlo
                         ['c', 'Gruppe C'],
                       ] as const
                     ).map(([id, label]) => (
-                      <button
+                      <Button
                         key={id}
-                        type="button"
+                        variant="ghost"
                         onClick={() => setDemoSegment(id)}
+                        role="radio"
+                        aria-checked={demoSegment === id}
                         className={`inline-flex items-center gap-2 px-3 py-2 text-sm font-medium transition ${rMd} ${
                           demoSegment === id ? 'text-white shadow-sm' : 'text-neutral-600 hover:bg-white'
                         }`}
@@ -94,7 +97,7 @@ export function Table1Toolbar({ payloadOverride, searchSlot, segmentSlot, endSlo
                           <span className="size-4 rounded-full border-2 border-neutral-300" />
                         )}
                         {label}
-                      </button>
+                      </Button>
                     ))}
                   </div>
                 )}
