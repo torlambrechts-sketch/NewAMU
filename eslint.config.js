@@ -70,4 +70,15 @@ export default defineConfig([
     ],
     rules: { 'no-restricted-syntax': 'off' },
   },
+  // Whitelist: platform dev-tooling surfaces (layout-lab, composer, demo,
+  // gallery, reference blocks, UI-core previews). Internal tooling for
+  // design-system work, not end-user UI; primitives are intentionally
+  // bypassed so engineers can prototype freely.
+  {
+    files: [
+      'src/pages/platform/**/*.{ts,tsx}',
+      'src/components/platform/**/*.{ts,tsx}',
+    ],
+    rules: { 'no-restricted-syntax': 'off' },
+  },
 ])
