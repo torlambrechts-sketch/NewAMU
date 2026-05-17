@@ -1,0 +1,1757 @@
+<!doctype html>
+<html lang="nb">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Klarert · Studio (mockup)</title>
+
+<!-- Fonts: matches DESIGN_SYSTEM.md — serif Libre Baskerville for page h1 (WorkplacePageHeading1 parity), sans Inter for body, mono JetBrains Mono for IDs. -->
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Libre+Baskerville:wght@400;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+
+<!-- Tailwind CDN — mockup only. Production uses the React primitives from src/components/. -->
+<script src="https://cdn.tailwindcss.com"></script>
+
+<!-- Lucide icons. -->
+<script src="https://unpkg.com/lucide@0.469.0/dist/umd/lucide.min.js"></script>
+
+<style>
+/* ─── Design tokens (mirror src/components/module/* + DESIGN_SYSTEM.md §4) ─── */
+:root {
+  --studio-bg: #F9F7F2;        /* canonical module cream */
+  --studio-paper: #fbf9f3;     /* paper-on-cream */
+  --studio-ink: #1d1f1c;
+  --forest: #1a3d32;           /* brand */
+  --forest-deep: #14312a;
+  --forest-soft: #e7efe9;      /* mint accent */
+  --forest-line: #c5d3c8;
+  --beige-nav: #EDE4D3;
+  --gold: #c9a227;
+  --kpi-cream: #F1ECDF;
+  --serif: 'Libre Baskerville', Georgia, serif;
+  --sans: 'Inter', system-ui, -apple-system, sans-serif;
+  --mono: 'JetBrains Mono', ui-monospace, monospace;
+  --shadow-card: 0 1px 2px rgba(0,0,0,0.04);
+}
+html, body { background: var(--studio-bg); font-family: var(--sans); color: var(--studio-ink); -webkit-font-smoothing: antialiased; }
+.font-serif { font-family: var(--serif); }
+.font-mono, code, pre { font-family: var(--mono); }
+::-webkit-scrollbar { width: 9px; height: 9px; }
+::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.10); border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background: rgba(0,0,0,0.20); }
+
+/* ─── Studio chrome ─── */
+.studio-root { min-height: 100vh; display: flex; flex-direction: column; }
+.studio-top {
+  height: 56px;
+  background: var(--studio-bg);
+  border-bottom: 1px solid rgba(0,0,0,0.06);
+  display: flex; align-items: center;
+  padding: 0 20px;
+  gap: 16px;
+  position: sticky; top: 0; z-index: 30;
+}
+.k-title-input {
+  font-family: var(--serif);
+  font-weight: 600;
+  font-size: 15px;
+  letter-spacing: -0.01em;
+  background: transparent;
+  border: 1px solid transparent;
+  padding: 4px 8px;
+  border-radius: 6px;
+  outline: none;
+  color: var(--studio-ink);
+  min-width: 120px;
+  max-width: 360px;
+  transition: border-color .12s, background-color .12s;
+}
+.k-title-input:hover { border-color: rgba(0,0,0,0.08); background: #fff; }
+.k-title-input:focus { border-color: rgba(26,61,50,0.4); background: #fff; }
+
+/* Mode pill */
+.k-mode-pill {
+  display: inline-flex; padding: 3px;
+  background: #fff; border-radius: 999px;
+  border: 1px solid rgba(0,0,0,0.08); gap: 0;
+}
+.k-mode-pill button {
+  position: relative;
+  padding: 5px 12px 5px 24px;
+  font-size: 11.5px; font-weight: 600;
+  border-radius: 999px;
+  color: rgba(0,0,0,0.55);
+  transition: background-color .15s, color .15s;
+  display: inline-flex; align-items: center; gap: 6px;
+}
+.k-mode-pill button:hover { color: rgba(0,0,0,0.85); background: rgba(0,0,0,0.03); }
+.k-mode-pill button.is-active { background: var(--forest); color: #fff; }
+.k-mode-pill button.is-active:hover { background: var(--forest); }
+.k-mode-pill .k-mode-dot {
+  position: absolute; left: 10px; top: 50%; transform: translateY(-50%);
+  width: 7px; height: 7px; border-radius: 50%;
+  background: rgba(0,0,0,0.20); transition: background-color .15s;
+}
+.k-mode-pill button.is-active .k-mode-dot { background: #fff; }
+
+/* Scene navigator (mockup only — not part of production UI) */
+.scene-tabs {
+  display: flex; gap: 4px;
+  padding: 10px 20px;
+  background: var(--studio-bg);
+  border-bottom: 1px solid rgba(0,0,0,0.06);
+  overflow-x: auto;
+  position: sticky; top: 56px; z-index: 25;
+}
+.scene-tab {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  background: #fff;
+  border: 1px solid rgba(0,0,0,0.08);
+  font-size: 12px; font-weight: 600;
+  color: rgba(0,0,0,0.65);
+  cursor: pointer; white-space: nowrap;
+  transition: border-color .12s, color .12s, background-color .12s;
+}
+.scene-tab:hover { color: var(--forest); border-color: var(--forest-line); }
+.scene-tab.is-active { background: var(--forest); color: #fff; border-color: var(--forest); }
+.scene-tab .scene-num {
+  font-family: var(--mono); font-size: 10px; opacity: 0.7;
+}
+
+.scene { display: none; }
+.scene.is-active { display: block; }
+.scene-body { background: var(--studio-bg); min-height: calc(100vh - 56px - 53px); }
+
+/* ─── Notion-style block ─── */
+.k-block {
+  position: relative;
+  padding: 14px 18px 14px 52px;
+  border-radius: 12px;
+  border: 1px solid transparent;
+  background: #fff;
+  transition: border-color .12s, box-shadow .12s;
+}
+.k-block:hover { border-color: rgba(0,0,0,0.06); }
+.k-block.is-selected {
+  border-color: rgba(26,61,50,0.45);
+  box-shadow: 0 0 0 3px rgba(26,61,50,0.10), var(--shadow-card);
+}
+.k-block.is-disabled { opacity: 0.55; }
+.k-block-handles {
+  position: absolute; left: 12px; top: 14px;
+  display: flex; align-items: center; gap: 2px;
+  opacity: 0; transition: opacity .12s;
+}
+.k-block:hover .k-block-handles,
+.k-block.is-selected .k-block-handles { opacity: 1; }
+.k-block-handle {
+  width: 18px; height: 22px;
+  display: inline-flex; align-items: center; justify-content: center;
+  border-radius: 4px;
+  color: rgba(0,0,0,0.32);
+  cursor: grab; background: transparent; border: 0;
+  transition: background-color .12s, color .12s;
+}
+.k-block-handle:hover { background: rgba(0,0,0,0.05); color: rgba(0,0,0,0.7); }
+
+.k-insert-row {
+  position: relative; height: 14px;
+  display: flex; align-items: center; justify-content: center;
+}
+.k-insert-line { width: 100%; height: 1px; background: transparent; border-radius: 1px; }
+.k-insert-btn {
+  position: absolute;
+  width: 20px; height: 20px; border-radius: 10px;
+  background: #fff; border: 1px solid rgba(0,0,0,0.10);
+  color: rgba(0,0,0,0.55); font-size: 13px;
+  display: flex; align-items: center; justify-content: center;
+  opacity: 0; cursor: pointer;
+  transition: opacity .12s, border-color .12s, color .12s, background-color .12s;
+}
+.k-insert-row:hover .k-insert-btn { opacity: 1; }
+.k-insert-btn:hover { border-color: var(--forest); color: var(--forest); background: var(--forest-soft); }
+
+.k-step-number {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 28px; height: 28px; border-radius: 14px;
+  background: var(--kpi-cream); color: var(--forest);
+  font-size: 12px; font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.k-step-number.is-active { background: var(--forest); color: #fff; }
+
+/* Type cards on home */
+.k-type-card {
+  position: relative;
+  display: flex; flex-direction: column;
+  background: #fff;
+  border: 1px solid rgba(0,0,0,0.08);
+  border-radius: 12px;
+  padding: 0; overflow: hidden;
+  box-shadow: var(--shadow-card);
+  transition: border-color .15s, box-shadow .15s;
+  cursor: pointer; text-align: left;
+}
+.k-type-card:hover {
+  border-color: rgba(26,61,50,0.35);
+  box-shadow: 0 1px 2px rgba(0,0,0,0.04), 0 0 0 1px rgba(26,61,50,0.10) inset;
+}
+.k-type-visual {
+  height: 130px;
+  border-bottom: 1px solid #ede7d4;
+  position: relative; overflow: hidden;
+}
+.k-type-body { padding: 16px 18px 18px; }
+
+/* Inspector */
+.studio-inspector {
+  width: 340px; background: #fff;
+  border-left: 1px solid rgba(0,0,0,0.06);
+  display: flex; flex-direction: column;
+}
+.studio-palette {
+  width: 240px; background: var(--studio-bg);
+  border-right: 1px solid rgba(0,0,0,0.06);
+  display: flex; flex-direction: column;
+}
+.studio-canvas {
+  flex: 1; min-width: 0; overflow-y: auto;
+  background: var(--studio-bg);
+}
+
+/* Inspector tabs */
+.k-itabs {
+  display: flex; border-bottom: 1px solid rgba(0,0,0,0.06);
+  padding: 0 6px; gap: 2px;
+}
+.k-itab {
+  padding: 10px 10px 8px;
+  font-size: 11.5px; font-weight: 600;
+  color: rgba(0,0,0,0.5);
+  border-bottom: 2px solid transparent;
+  transition: color .12s, border-color .12s;
+  display: inline-flex; align-items: center; gap: 5px;
+  cursor: pointer;
+}
+.k-itab:hover { color: rgba(0,0,0,0.85); }
+.k-itab.is-active { color: var(--forest); border-bottom-color: var(--forest); }
+.k-itab.is-locked { color: rgba(0,0,0,0.30); cursor: not-allowed; }
+
+/* Eyebrow */
+.k-eyebrow {
+  font-size: 10px; font-weight: 700;
+  letter-spacing: 0.05em; text-transform: uppercase;
+  color: #525252;
+}
+.k-req { color: #525252; margin-left: 2px; font-weight: 700; }
+
+/* Saved-status pulse */
+@keyframes pulse-dot { 0%,100% { opacity: 0.45; } 50% { opacity: 1; } }
+.k-pulse { animation: pulse-dot 1.4s ease-in-out infinite; }
+
+/* Wizard progress dots */
+.k-wiz-step {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 24px; height: 24px; border-radius: 12px;
+  border: 1.5px solid #d4d4d4;
+  background: #fff; color: #737373;
+  font-size: 11px; font-weight: 700;
+}
+.k-wiz-step.is-current { border-color: var(--forest); color: var(--forest); }
+.k-wiz-step.is-done { background: var(--forest); border-color: var(--forest); color: #fff; }
+.k-wiz-bar { flex: 1; height: 2px; background: #e5e5e5; border-radius: 1px; }
+.k-wiz-bar.is-done { background: var(--forest); }
+
+/* Toggle switch (parity with src/components/ui/FormToggles.tsx ToggleSwitch) */
+.k-toggle {
+  position: relative; display: inline-block;
+  width: 36px; height: 20px;
+  background: #d4d4d4; border-radius: 999px;
+  transition: background-color .15s; cursor: pointer; flex-shrink: 0;
+}
+.k-toggle.is-on { background: var(--forest); }
+.k-toggle::after {
+  content: ''; position: absolute; left: 2px; top: 2px;
+  width: 16px; height: 16px; border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.15);
+  transition: transform .15s;
+}
+.k-toggle.is-on::after { transform: translateX(16px); }
+
+/* Form label parity with WPSTD_FORM_FIELD_LABEL */
+.wpstd-label {
+  display: block;
+  font-size: 11px; font-weight: 700;
+  letter-spacing: 0.06em; text-transform: uppercase;
+  color: #525252;
+}
+
+/* StandardInput parity */
+.k-input {
+  width: 100%; height: 36px;
+  border-radius: 8px; border: 1px solid #d4d4d4;
+  background: #fff;
+  padding: 0 10px;
+  font-size: 13px; color: var(--studio-ink);
+  transition: border-color .12s, box-shadow .12s;
+  outline: none;
+}
+.k-input:focus { border-color: var(--forest); box-shadow: 0 0 0 3px rgba(26,61,50,0.12); }
+textarea.k-input { height: auto; min-height: 72px; padding: 8px 10px; resize: vertical; }
+select.k-input { background-image: none; padding-right: 28px; }
+
+/* Button parity with src/components/ui/Button.tsx */
+.k-btn {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 6px 12px;
+  border-radius: 8px;
+  font-size: 12.5px; font-weight: 600;
+  transition: background-color .12s, border-color .12s, color .12s;
+  cursor: pointer; border: 1px solid transparent;
+}
+.k-btn--primary { background: var(--forest); color: #fff; border-color: var(--forest); }
+.k-btn--primary:hover { background: var(--forest-deep); border-color: var(--forest-deep); }
+.k-btn--secondary { background: #fff; color: #404040; border-color: #d4d4d4; }
+.k-btn--secondary:hover { background: #fafafa; }
+.k-btn--ghost { background: transparent; color: #525252; }
+.k-btn--ghost:hover { background: rgba(0,0,0,0.04); color: var(--studio-ink); }
+.k-btn--danger-ghost { background: transparent; color: #525252; }
+.k-btn--danger-ghost:hover { background: #fef2f2; color: #b91c1c; }
+
+/* Module section card parity with ModuleSectionCard */
+.module-card {
+  background: #fff;
+  border: 1px solid rgba(0,0,0,0.08);  /* ≈ neutral-200/80 */
+  border-radius: 12px;
+  box-shadow: var(--shadow-card);
+}
+
+/* Notes pinned at the bottom of each scene — handoff context for engineers */
+.scene-note {
+  margin: 24px auto 32px;
+  max-width: 1280px;
+  padding: 14px 18px;
+  border-radius: 10px;
+  background: var(--forest-soft);
+  border: 1px solid var(--forest-line);
+  color: var(--forest-deep);
+  font-size: 12.5px;
+}
+.scene-note .scene-note-label {
+  font-size: 10px; font-weight: 700; letter-spacing: 0.06em;
+  text-transform: uppercase; color: var(--forest);
+  display: inline-block; margin-right: 6px;
+}
+</style>
+</head>
+<body>
+
+<div class="studio-root">
+
+  <!-- ════════════════════════════════════════════════════════════════
+       Studio chrome — present in all scenes
+       ════════════════════════════════════════════════════════════════ -->
+  <header class="studio-top">
+    <!-- Wordmark — K mark + "Klarert Studio" in serif -->
+    <a href="#" class="flex items-center gap-2">
+      <span class="flex items-center justify-center rounded-md font-serif font-bold"
+            style="width:28px;height:28px;background:var(--forest);color:#fff;font-size:17px;letter-spacing:-0.04em;line-height:1">K</span>
+      <span class="hidden md:inline-flex items-baseline gap-1 leading-none">
+        <span style="font-family:var(--serif);font-size:15px;font-weight:600">Klarert</span>
+        <span style="font-family:var(--serif);font-size:15px;font-weight:400;color:#737373">Studio</span>
+      </span>
+    </a>
+    <span class="hidden sm:inline-block h-5 w-px bg-neutral-300/70"></span>
+
+    <!-- Breadcrumb — content varies per scene -->
+    <nav class="flex items-center gap-1.5 text-[12.5px] min-w-0 flex-1">
+      <span class="text-neutral-500 shrink-0 hidden md:inline">Studio-hjem</span>
+      <span class="text-neutral-300 hidden md:inline">›</span>
+      <span class="text-neutral-500 shrink-0 hidden lg:inline" id="chrome-section">Arbeidsflyter</span>
+      <span class="text-neutral-300 hidden lg:inline">›</span>
+      <input class="k-title-input" value="Kritisk avvik → AMU + ROS-utkast" spellcheck="false" />
+    </nav>
+
+    <!-- Mode pill — Enkel ↔ Avansert -->
+    <div class="k-mode-pill" role="tablist" aria-label="Studio modus">
+      <button id="mode-simple" class="" onclick="setMode('simple')"><span class="k-mode-dot"></span>Enkel</button>
+      <button id="mode-advanced" class="is-active" onclick="setMode('advanced')"><span class="k-mode-dot"></span>Avansert</button>
+    </div>
+
+    <div class="flex-1 hidden md:block"></div>
+
+    <!-- Right-side chrome -->
+    <span class="inline-flex items-center gap-1.5 text-[11px] text-neutral-500">
+      <span class="h-1.5 w-1.5 rounded-full k-pulse" style="background:#2f7757"></span>
+      Auto-lagret
+    </span>
+    <span class="hidden md:inline-block h-5 w-px bg-neutral-300/70"></span>
+
+    <button class="rounded-md p-1.5 transition-colors text-[#1a3d32] bg-[#e7efe9]" title="Skjul inspektør">
+      <i data-lucide="panel-right" class="h-4 w-4"></i>
+    </button>
+    <button class="rounded-md p-1.5 text-neutral-500 hover:bg-neutral-100" title="Forhåndsvis">
+      <i data-lucide="eye" class="h-4 w-4"></i>
+    </button>
+    <button class="hidden md:inline-flex items-center gap-1.5 rounded-md border border-neutral-300 bg-white px-2.5 py-1.5 text-xs font-semibold text-neutral-700 hover:bg-neutral-50">
+      <i data-lucide="play" class="h-3.5 w-3.5"></i>
+      Test-kjør
+    </button>
+    <button class="inline-flex items-center gap-1.5 rounded-md bg-[#1a3d32] px-3 py-1.5 text-xs font-semibold text-white hover:bg-[#14312a]">
+      <i data-lucide="check" class="h-3.5 w-3.5"></i>
+      Publiser
+    </button>
+  </header>
+
+  <!-- ════════════════════════════════════════════════════════════════
+       Scene navigator (mockup-only — not part of production UI)
+       ════════════════════════════════════════════════════════════════ -->
+  <nav class="scene-tabs" aria-label="Mockup scenes">
+    <button class="scene-tab is-active" data-scene="home"><span class="scene-num">1</span> Studio-hjem</button>
+    <button class="scene-tab" data-scene="wizard"><span class="scene-num">2</span> Enkel veiviser</button>
+    <button class="scene-tab" data-scene="builder"><span class="scene-num">3</span> Avansert bygger</button>
+    <button class="scene-tab" data-scene="pack"><span class="scene-num">4</span> Pakke-redaktør</button>
+    <button class="scene-tab" data-scene="partner"><span class="scene-num">5</span> Partner-omstilling</button>
+  </nav>
+
+  <!-- ════════════════════════════════════════════════════════════════
+       SCENE 1 — Studio home / Simple-mode landing
+       Mirrors specs/studio-builder.md §5 Phase 1 Task 1.2 (Simple mode cards).
+       Per scope ≥3 outcome-named cards. 7 content scopes + 1 workflow.
+       ════════════════════════════════════════════════════════════════ -->
+  <section class="scene scene-body is-active" data-scene="home">
+    <div class="mx-auto max-w-[1280px] px-6 md:px-10 py-10">
+
+      <!-- Hero -->
+      <div class="mb-10 flex items-end justify-between gap-6 flex-wrap">
+        <div class="min-w-0">
+          <p class="k-eyebrow">Klarert · Studio</p>
+          <h1 class="mt-2 text-2xl md:text-3xl leading-[1.15] font-semibold tracking-tight text-neutral-900 font-serif">
+            Hva vil du bygge i dag?
+          </h1>
+          <p class="mt-2 max-w-3xl text-sm text-neutral-600">
+            Lag og rediger maler, arbeidsflyter, dokumenter, e-læringskurs, undersøkelser, registre og dashboarder — på ett sted.
+            Dra-og-slipp i <strong>Enkel</strong> modus, full kontroll i <strong>Avansert</strong>.
+          </p>
+        </div>
+        <div class="flex items-center gap-2 shrink-0">
+          <button class="k-btn k-btn--secondary"><i data-lucide="upload" class="h-3.5 w-3.5"></i>Importer</button>
+          <button class="k-btn k-btn--secondary"><i data-lucide="folder" class="h-3.5 w-3.5"></i>Alle filer</button>
+        </div>
+      </div>
+
+      <!-- Type picker -->
+      <section>
+        <div class="mb-3 flex items-center justify-between">
+          <h2 class="text-[12px] font-bold uppercase tracking-[0.08em] text-neutral-500">Start fra blank</h2>
+          <button class="text-[11.5px] font-semibold text-[#1a3d32] hover:underline">Se alle typer →</button>
+        </div>
+        <div class="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+
+          <!-- Card: Arbeidsflyt (workflow) — recommended -->
+          <button class="k-type-card group">
+            <div class="k-type-visual" style="background:#f5f3ff">
+              <svg viewBox="0 0 240 130" style="position:absolute;inset:0;width:100%;height:100%">
+                <defs>
+                  <marker id="ar-wf" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+                    <path d="M 0 0 L 10 5 L 0 10 z" fill="#9ca3af"/>
+                  </marker>
+                </defs>
+                <path d="M 60 40 C 90 40, 90 80, 120 80" stroke="#c7c5be" stroke-width="1.5" fill="none" marker-end="url(#ar-wf)"/>
+                <path d="M 60 40 C 90 40, 90 30, 120 30" stroke="#c7c5be" stroke-width="1.5" fill="none" marker-end="url(#ar-wf)"/>
+                <path d="M 168 80 C 198 80, 198 30, 218 30" stroke="#c7c5be" stroke-width="1.5" fill="none" marker-end="url(#ar-wf)"/>
+                <rect x="16" y="28" width="50" height="26" rx="6" fill="#fff" stroke="#6d28d9" stroke-width="1.5"/>
+                <circle cx="24" cy="41" r="3" fill="#6d28d9"/>
+                <rect x="32" y="36" width="26" height="3" rx="1.5" fill="#d4d4d4"/>
+                <rect x="32" y="43" width="18" height="3" rx="1.5" fill="#e5e5e5"/>
+                <rect x="122" y="18" width="50" height="26" rx="6" fill="#fff" stroke="#d4d4d4"/>
+                <rect x="122" y="68" width="50" height="26" rx="6" fill="#fff" stroke="#d4d4d4"/>
+                <rect x="216" y="18" width="14" height="26" rx="6" fill="#6d28d9" opacity="0.85"/>
+              </svg>
+            </div>
+            <div class="k-type-body">
+              <div class="flex items-center gap-2">
+                <span class="flex h-6 w-6 items-center justify-center rounded-md" style="background:#f5f3ff;color:#6d28d9;border:1px solid #6d28d933">
+                  <i data-lucide="git-branch" class="h-3.5 w-3.5"></i>
+                </span>
+                <span class="text-[15px] font-semibold text-neutral-900 font-serif">Arbeidsflyt</span>
+                <span class="ml-auto inline-flex items-center gap-1 rounded-full bg-[#e7efe9] px-1.5 py-0.5 text-[9.5px] font-bold tracking-wider text-[#1a3d32] uppercase">Anbefalt</span>
+              </div>
+              <p class="mt-2 text-[12.5px] text-neutral-600 line-clamp-2">Kobler hendelser i Klarert til automatiske handlinger — varsler, oppgaver, ROS-utkast.</p>
+              <div class="mt-3 flex items-center justify-between">
+                <span class="font-mono text-[10px] text-neutral-400">Kritisk avvik → AMU + ROS</span>
+                <span class="inline-flex items-center gap-1 text-[11.5px] font-semibold text-[#1a3d32]">Bygg ny <i data-lucide="arrow-right" class="h-3 w-3"></i></span>
+              </div>
+            </div>
+          </button>
+
+          <!-- Card: Mal (template) -->
+          <button class="k-type-card group">
+            <div class="k-type-visual" style="background:#e7efe9">
+              <svg viewBox="0 0 240 130" style="position:absolute;inset:0;width:100%;height:100%">
+                <rect x="50" y="22" width="120" height="92" rx="8" fill="#fff" stroke="#e5e5e5" transform="rotate(-3 110 68)"/>
+                <rect x="60" y="18" width="120" height="92" rx="8" fill="#fff" stroke="#e5e5e5"/>
+                <rect x="60" y="18" width="120" height="14" rx="8" fill="#1a3d32"/>
+                <rect x="70" y="40" width="80" height="4" rx="2" fill="#d4d4d4"/>
+                <rect x="70" y="50" width="100" height="3" rx="1.5" fill="#e5e5e5"/>
+                <rect x="70" y="58" width="90" height="3" rx="1.5" fill="#e5e5e5"/>
+                <rect x="70" y="66" width="60" height="3" rx="1.5" fill="#e5e5e5"/>
+                <rect x="70" y="82" width="40" height="14" rx="3" fill="none" stroke="#d4d4d4" stroke-dasharray="2,2"/>
+                <rect x="116" y="82" width="40" height="14" rx="3" fill="none" stroke="#d4d4d4" stroke-dasharray="2,2"/>
+              </svg>
+            </div>
+            <div class="k-type-body">
+              <div class="flex items-center gap-2">
+                <span class="flex h-6 w-6 items-center justify-center rounded-md" style="background:#e7efe9;color:#1a3d32;border:1px solid #1a3d3233">
+                  <i data-lucide="layout-template" class="h-3.5 w-3.5"></i>
+                </span>
+                <span class="text-[15px] font-semibold text-neutral-900 font-serif">Mal</span>
+              </div>
+              <p class="mt-2 text-[12.5px] text-neutral-600 line-clamp-2">Forhåndsdefinerte skjemaer og dokumenter — vernerunde, SJA, ROS-mal, signaturflyter.</p>
+              <div class="mt-3 flex items-center justify-between">
+                <span class="font-mono text-[10px] text-neutral-400">Vernerunde · standard</span>
+                <span class="inline-flex items-center gap-1 text-[11.5px] font-semibold text-[#1a3d32]">Bygg ny <i data-lucide="arrow-right" class="h-3 w-3"></i></span>
+              </div>
+            </div>
+          </button>
+
+          <!-- Card: Dokument -->
+          <button class="k-type-card group">
+            <div class="k-type-visual" style="background:#fafafa">
+              <svg viewBox="0 0 240 130" style="position:absolute;inset:0;width:100%;height:100%">
+                <rect x="60" y="14" width="120" height="110" rx="4" fill="#fff" stroke="#e5e5e5"/>
+                <text x="70" y="32" font-family="Libre Baskerville" font-size="11" fill="#171717" font-weight="600">Prosedyre</text>
+                <rect x="70" y="42" width="100" height="2.5" rx="1" fill="#e5e5e5"/>
+                <rect x="70" y="48" width="80" height="2.5" rx="1" fill="#e5e5e5"/>
+                <rect x="70" y="54" width="90" height="2.5" rx="1" fill="#e5e5e5"/>
+                <rect x="70" y="64" width="40" height="2.5" rx="1" fill="#525252"/>
+                <rect x="70" y="92" width="100" height="20" rx="3" fill="#fafafa" stroke="#e5e5e5"/>
+              </svg>
+            </div>
+            <div class="k-type-body">
+              <div class="flex items-center gap-2">
+                <span class="flex h-6 w-6 items-center justify-center rounded-md" style="background:#fafafa;color:#525252;border:1px solid #52525233">
+                  <i data-lucide="file-text" class="h-3.5 w-3.5"></i>
+                </span>
+                <span class="text-[15px] font-semibold text-neutral-900 font-serif">Dokument</span>
+              </div>
+              <p class="mt-2 text-[12.5px] text-neutral-600 line-clamp-2">HMS-håndbok, prosedyrer, instrukser. Rik tekst med blokker, tabeller og lovverk-anker.</p>
+              <div class="mt-3 flex items-center justify-between">
+                <span class="font-mono text-[10px] text-neutral-400">HMS-håndbok 2026</span>
+                <span class="inline-flex items-center gap-1 text-[11.5px] font-semibold text-[#1a3d32]">Bygg ny <i data-lucide="arrow-right" class="h-3 w-3"></i></span>
+              </div>
+            </div>
+          </button>
+
+          <!-- Card: E-læringskurs -->
+          <button class="k-type-card group">
+            <div class="k-type-visual" style="background:#eff6ff">
+              <svg viewBox="0 0 240 130" style="position:absolute;inset:0;width:100%;height:100%">
+                <rect x="40" y="20" width="120" height="74" rx="6" fill="#0c1929" stroke="#d4d4d4"/>
+                <polygon points="92,46 92,68 112,57" fill="#1d4ed8"/>
+                <rect x="40" y="100" width="120" height="6" rx="3" fill="#fff" stroke="#e5e5e5"/>
+                <rect x="40" y="100" width="60" height="6" rx="3" fill="#1d4ed8"/>
+                <circle cx="186" cy="40" r="14" fill="#fff" stroke="#e5e5e5"/>
+                <path d="M 178 40 L 186 36 L 194 40 L 186 44 Z" fill="#1d4ed8"/>
+                <circle cx="186" cy="78" r="14" fill="#fff" stroke="#e5e5e5"/>
+                <path d="M 181 78 L 184 81 L 191 74" stroke="#1d4ed8" stroke-width="2" fill="none"/>
+              </svg>
+            </div>
+            <div class="k-type-body">
+              <div class="flex items-center gap-2">
+                <span class="flex h-6 w-6 items-center justify-center rounded-md" style="background:#eff6ff;color:#1d4ed8;border:1px solid #1d4ed833">
+                  <i data-lucide="graduation-cap" class="h-3.5 w-3.5"></i>
+                </span>
+                <span class="text-[15px] font-semibold text-neutral-900 font-serif">E-læringskurs</span>
+              </div>
+              <p class="mt-2 text-[12.5px] text-neutral-600 line-clamp-2">Moduler med video, tekst, quiz og sertifikat. AML-systemkurs og egne kurs.</p>
+              <div class="mt-3 flex items-center justify-between">
+                <span class="font-mono text-[10px] text-neutral-400">Førstegangsopplæring HMS</span>
+                <span class="inline-flex items-center gap-1 text-[11.5px] font-semibold text-[#1a3d32]">Bygg ny <i data-lucide="arrow-right" class="h-3 w-3"></i></span>
+              </div>
+            </div>
+          </button>
+        </div>
+
+        <!-- Second row -->
+        <div class="mt-4 grid gap-4 grid-cols-2 lg:grid-cols-3">
+          <button class="k-type-card group">
+            <div class="k-type-visual" style="background:#f0fdf4">
+              <svg viewBox="0 0 240 130" style="position:absolute;inset:0;width:100%;height:100%">
+                <rect x="30" y="20" width="180" height="90" rx="8" fill="#fff" stroke="#e5e5e5"/>
+                <rect x="44" y="36" width="100" height="4" rx="2" fill="#171717"/>
+                <circle cx="50" cy="56" r="5" fill="#fff" stroke="#a3a3a3" stroke-width="1.5"/>
+                <rect x="62" y="53" width="60" height="3" rx="1.5" fill="#a3a3a3"/>
+                <circle cx="50" cy="72" r="5" fill="#166534"/>
+                <circle cx="50" cy="72" r="2" fill="#fff"/>
+                <rect x="62" y="69" width="80" height="3" rx="1.5" fill="#171717"/>
+                <circle cx="50" cy="88" r="5" fill="#fff" stroke="#a3a3a3" stroke-width="1.5"/>
+                <path d="M 150 60 C 170 60, 170 80, 190 80" stroke="#166534" stroke-width="1.5" fill="none" stroke-dasharray="3,2"/>
+              </svg>
+            </div>
+            <div class="k-type-body">
+              <div class="flex items-center gap-2">
+                <span class="flex h-6 w-6 items-center justify-center rounded-md" style="background:#f0fdf4;color:#166534;border:1px solid #16653433">
+                  <i data-lucide="list-checks" class="h-3.5 w-3.5"></i>
+                </span>
+                <span class="text-[15px] font-semibold text-neutral-900 font-serif">Spørreundersøkelse</span>
+              </div>
+              <p class="mt-2 text-[12.5px] text-neutral-600 line-clamp-2">Spørsmål med forgrening, distribusjon og analyse. Integrert mot AMU.</p>
+              <div class="mt-3 flex items-center justify-between">
+                <span class="font-mono text-[10px] text-neutral-400">Arbeidsmiljø Q2 2026</span>
+                <span class="inline-flex items-center gap-1 text-[11.5px] font-semibold text-[#1a3d32]">Bygg ny <i data-lucide="arrow-right" class="h-3 w-3"></i></span>
+              </div>
+            </div>
+          </button>
+
+          <button class="k-type-card group">
+            <div class="k-type-visual" style="background:#fefce8">
+              <svg viewBox="0 0 240 130" style="position:absolute;inset:0;width:100%;height:100%">
+                <rect x="30" y="22" width="180" height="92" rx="6" fill="#fff" stroke="#e5e5e5"/>
+                <rect x="30" y="22" width="180" height="16" rx="6" fill="#a16207" opacity="0.10"/>
+                <line x1="30" y1="38" x2="210" y2="38" stroke="#e5e5e5"/>
+                <rect x="40" y="28" width="30" height="4" rx="2" fill="#a16207"/>
+                <rect x="84" y="28" width="30" height="4" rx="2" fill="#a16207"/>
+                <rect x="128" y="28" width="30" height="4" rx="2" fill="#a16207"/>
+                <rect x="172" y="28" width="30" height="4" rx="2" fill="#a16207"/>
+              </svg>
+            </div>
+            <div class="k-type-body">
+              <div class="flex items-center gap-2">
+                <span class="flex h-6 w-6 items-center justify-center rounded-md" style="background:#fefce8;color:#a16207;border:1px solid #a1620733">
+                  <i data-lucide="table-2" class="h-3.5 w-3.5"></i>
+                </span>
+                <span class="text-[15px] font-semibold text-neutral-900 font-serif">Register</span>
+              </div>
+              <p class="mt-2 text-[12.5px] text-neutral-600 line-clamp-2">Egendefinerte tabeller — kjemikalier, utstyr, leverandører. Felter, validering, eksport.</p>
+              <div class="mt-3 flex items-center justify-between">
+                <span class="font-mono text-[10px] text-neutral-400">Kjemikalieregister</span>
+                <span class="inline-flex items-center gap-1 text-[11.5px] font-semibold text-[#1a3d32]">Bygg ny <i data-lucide="arrow-right" class="h-3 w-3"></i></span>
+              </div>
+            </div>
+          </button>
+
+          <button class="k-type-card group">
+            <div class="k-type-visual" style="background:#fef2f2">
+              <svg viewBox="0 0 240 130" style="position:absolute;inset:0;width:100%;height:100%">
+                <rect x="22" y="20" width="60" height="38" rx="6" fill="#fff" stroke="#e5e5e5"/>
+                <text x="30" y="42" font-size="18" font-weight="700" fill="#171717">94%</text>
+                <rect x="92" y="20" width="60" height="38" rx="6" fill="#fff" stroke="#e5e5e5"/>
+                <text x="100" y="42" font-size="18" font-weight="700" fill="#171717">128</text>
+                <rect x="162" y="20" width="58" height="38" rx="6" fill="#b91c1c" opacity="0.10" stroke="#b91c1c" stroke-opacity="0.3"/>
+                <text x="170" y="42" font-size="18" font-weight="700" fill="#b91c1c">4</text>
+                <rect x="22" y="66" width="138" height="48" rx="6" fill="#fff" stroke="#e5e5e5"/>
+                <polyline points="32,104 50,92 70,98 90,82 110,86 130,72 150,76" fill="none" stroke="#b91c1c" stroke-width="2"/>
+                <rect x="170" y="66" width="50" height="48" rx="6" fill="#fff" stroke="#e5e5e5"/>
+              </svg>
+            </div>
+            <div class="k-type-body">
+              <div class="flex items-center gap-2">
+                <span class="flex h-6 w-6 items-center justify-center rounded-md" style="background:#fef2f2;color:#b91c1c;border:1px solid #b91c1c33">
+                  <i data-lucide="layout-grid" class="h-3.5 w-3.5"></i>
+                </span>
+                <span class="text-[15px] font-semibold text-neutral-900 font-serif">Dashboard</span>
+              </div>
+              <p class="mt-2 text-[12.5px] text-neutral-600 line-clamp-2">Widget-baserte oversikter med KPI-er, trender og lister på tvers av modulene.</p>
+              <div class="mt-3 flex items-center justify-between">
+                <span class="font-mono text-[10px] text-neutral-400">AMU månedsoversikt</span>
+                <span class="inline-flex items-center gap-1 text-[11.5px] font-semibold text-[#1a3d32]">Bygg ny <i data-lucide="arrow-right" class="h-3 w-3"></i></span>
+              </div>
+            </div>
+          </button>
+        </div>
+      </section>
+
+      <!-- Recent + Starters -->
+      <section class="mt-10 grid gap-6 lg:grid-cols-[1fr_360px]">
+        <div>
+          <div class="mb-3 flex items-center justify-between">
+            <h2 class="text-[12px] font-bold uppercase tracking-[0.08em] text-neutral-500">Sist endret</h2>
+            <div class="inline-flex items-center gap-1.5 rounded-md border border-neutral-300 bg-white px-2 py-1 text-[11px] text-neutral-500">
+              <i data-lucide="filter" class="h-3 w-3"></i>Alle typer
+            </div>
+          </div>
+          <div class="module-card overflow-hidden">
+            <ul class="divide-y divide-neutral-100">
+              <li><button class="w-full px-4 py-3 flex items-center gap-3 text-left hover:bg-neutral-50/60 transition-colors">
+                <span class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg" style="background:#f5f3ff;color:#6d28d9;border:1px solid #6d28d922">
+                  <i data-lucide="git-branch" class="h-4 w-4"></i>
+                </span>
+                <div class="min-w-0 flex-1">
+                  <div class="flex items-center gap-2">
+                    <span class="truncate text-sm font-semibold text-neutral-900">Kritisk avvik → AMU + ROS-utkast</span>
+                    <span class="h-1.5 w-1.5 rounded-full" style="background:#c98a2b" title="Ulagrede endringer"></span>
+                  </div>
+                  <div class="mt-0.5 flex items-center gap-2 text-[11.5px] text-neutral-500">
+                    <span class="font-mono text-[10px] text-neutral-400">WF-014</span><span>·</span><span>Arbeidsflyt</span><span>·</span><span>Marit Solberg</span>
+                  </div>
+                </div>
+                <div class="hidden sm:flex flex-col items-end gap-1 shrink-0">
+                  <span class="inline-flex rounded-full px-2 py-0.5 text-[10px] font-semibold border" style="background:#fafafa;border-color:#e5e5e5;color:#404040">Kladd</span>
+                  <span class="text-[11px] text-neutral-500 tabular-nums">i dag · 09:14</span>
+                </div>
+              </button></li>
+
+              <li><button class="w-full px-4 py-3 flex items-center gap-3 text-left hover:bg-neutral-50/60 transition-colors">
+                <span class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg" style="background:#fafafa;color:#525252;border:1px solid #52525222">
+                  <i data-lucide="file-text" class="h-4 w-4"></i>
+                </span>
+                <div class="min-w-0 flex-1">
+                  <span class="truncate text-sm font-semibold text-neutral-900">HMS-håndbok 2026 — kap. 4 Risikohåndtering</span>
+                  <div class="mt-0.5 flex items-center gap-2 text-[11.5px] text-neutral-500">
+                    <span class="font-mono text-[10px] text-neutral-400">DOC-22</span><span>·</span><span>Dokument</span><span>·</span><span>Tor Aas</span>
+                  </div>
+                </div>
+                <div class="hidden sm:flex flex-col items-end gap-1 shrink-0">
+                  <span class="inline-flex rounded-full px-2 py-0.5 text-[10px] font-semibold border" style="background:#fef9c3;border-color:#fef08a;color:#854d0e">Til gjennomgang</span>
+                  <span class="text-[11px] text-neutral-500 tabular-nums">i går · 16:02</span>
+                </div>
+              </button></li>
+
+              <li><button class="w-full px-4 py-3 flex items-center gap-3 text-left hover:bg-neutral-50/60 transition-colors">
+                <span class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg" style="background:#eff6ff;color:#1d4ed8;border:1px solid #1d4ed822">
+                  <i data-lucide="graduation-cap" class="h-4 w-4"></i>
+                </span>
+                <div class="min-w-0 flex-1">
+                  <span class="truncate text-sm font-semibold text-neutral-900">Førstegangsopplæring HMS — versjon 2</span>
+                  <div class="mt-0.5 flex items-center gap-2 text-[11.5px] text-neutral-500">
+                    <span class="font-mono text-[10px] text-neutral-400">CRS-07</span><span>·</span><span>E-læringskurs</span><span>·</span><span>Marit Solberg</span>
+                  </div>
+                </div>
+                <div class="hidden sm:flex flex-col items-end gap-1 shrink-0">
+                  <span class="inline-flex rounded-full px-2 py-0.5 text-[10px] font-semibold border" style="background:#dbeafe;border-color:#bfdbfe;color:#1e40af">Aktiv</span>
+                  <span class="text-[11px] text-neutral-500 tabular-nums">07. mai</span>
+                </div>
+              </button></li>
+
+              <li><button class="w-full px-4 py-3 flex items-center gap-3 text-left hover:bg-neutral-50/60 transition-colors">
+                <span class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg" style="background:#e7efe9;color:#1a3d32;border:1px solid #1a3d3222">
+                  <i data-lucide="layout-template" class="h-4 w-4"></i>
+                </span>
+                <div class="min-w-0 flex-1">
+                  <span class="truncate text-sm font-semibold text-neutral-900">Vernerunde · kontorlokaler</span>
+                  <div class="mt-0.5 flex items-center gap-2 text-[11.5px] text-neutral-500">
+                    <span class="font-mono text-[10px] text-neutral-400">TPL-09</span><span>·</span><span>Mal</span><span>·</span><span>Tor Aas</span>
+                  </div>
+                </div>
+                <div class="hidden sm:flex flex-col items-end gap-1 shrink-0">
+                  <span class="inline-flex rounded-full px-2 py-0.5 text-[10px] font-semibold border" style="background:#dbeafe;border-color:#bfdbfe;color:#1e40af">Aktiv</span>
+                  <span class="text-[11px] text-neutral-500 tabular-nums">02. mai</span>
+                </div>
+              </button></li>
+            </ul>
+          </div>
+        </div>
+
+        <!-- Starter-maler aside -->
+        <aside>
+          <div class="mb-3"><h2 class="text-[12px] font-bold uppercase tracking-[0.08em] text-neutral-500">Starter-maler</h2></div>
+          <div class="module-card overflow-hidden">
+            <div class="flex items-center gap-0.5 border-b border-neutral-100 px-2 py-1.5 overflow-x-auto">
+              <button class="shrink-0 inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-[11.5px] font-semibold bg-[#1a3d32] text-white"><i data-lucide="git-branch" class="h-3 w-3"></i>Arbeidsflyt</button>
+              <button class="shrink-0 inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-[11.5px] font-semibold text-neutral-500 hover:bg-neutral-100"><i data-lucide="layout-template" class="h-3 w-3"></i>Mal</button>
+              <button class="shrink-0 inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-[11.5px] font-semibold text-neutral-500 hover:bg-neutral-100"><i data-lucide="file-text" class="h-3 w-3"></i>Dokument</button>
+              <button class="shrink-0 inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-[11.5px] font-semibold text-neutral-500 hover:bg-neutral-100"><i data-lucide="graduation-cap" class="h-3 w-3"></i>Kurs</button>
+            </div>
+            <ul class="p-2 space-y-1">
+              <li><button class="w-full rounded-md px-3 py-2.5 flex items-start gap-3 text-left hover:bg-neutral-50">
+                <span class="mt-0.5 flex h-7 w-7 items-center justify-center rounded-md" style="background:#f5f3ff;color:#6d28d9;border:1px solid #6d28d922"><i data-lucide="file-plus" class="h-3.5 w-3.5"></i></span>
+                <div class="min-w-0 flex-1">
+                  <span class="text-sm font-semibold text-neutral-900">Tom arbeidsflyt</span>
+                  <p class="mt-0.5 text-[11.5px] text-neutral-500">Start fra blank — én utløser, ingen handlinger.</p>
+                </div>
+              </button></li>
+              <li><button class="w-full rounded-md px-3 py-2.5 flex items-start gap-3 text-left hover:bg-neutral-50">
+                <span class="mt-0.5 flex h-7 w-7 items-center justify-center rounded-md" style="background:#f5f3ff;color:#6d28d9;border:1px solid #6d28d922"><i data-lucide="git-branch" class="h-3.5 w-3.5"></i></span>
+                <div class="min-w-0 flex-1">
+                  <div class="flex items-center gap-1.5">
+                    <span class="text-sm font-semibold text-neutral-900">Avvik → tildel verneombud</span>
+                    <span class="inline-flex rounded-full bg-amber-50 border border-amber-200 px-1.5 py-0 text-[9.5px] font-bold text-amber-800 uppercase tracking-wider">Mest brukt</span>
+                  </div>
+                  <p class="mt-0.5 text-[11.5px] text-neutral-500">Når et avvik registreres, tildel ansvarlig automatisk.</p>
+                </div>
+                <i data-lucide="arrow-up-right" class="h-3.5 w-3.5 text-neutral-400 mt-1"></i>
+              </button></li>
+              <li><button class="w-full rounded-md px-3 py-2.5 flex items-start gap-3 text-left hover:bg-neutral-50">
+                <span class="mt-0.5 flex h-7 w-7 items-center justify-center rounded-md" style="background:#f5f3ff;color:#6d28d9;border:1px solid #6d28d922"><i data-lucide="git-branch" class="h-3.5 w-3.5"></i></span>
+                <div class="min-w-0 flex-1">
+                  <span class="text-sm font-semibold text-neutral-900">Sykefravær → tilrettelegging</span>
+                  <p class="mt-0.5 text-[11.5px] text-neutral-500">AML § 4-6-flyt med oppfølgingsmøter og dokumenter.</p>
+                </div>
+              </button></li>
+            </ul>
+            <div class="border-t border-neutral-100 px-3 py-2.5 text-[11px] text-neutral-500">
+              Maler er forhåndsdefinerte starter — du kan tilpasse alt etterpå.
+            </div>
+          </div>
+
+          <!-- Tip card -->
+          <div class="mt-4 rounded-xl border border-[#c5d3c8] bg-[#e7efe9] px-4 py-3.5">
+            <div class="flex items-start gap-2.5">
+              <i data-lucide="sparkles" class="h-4 w-4 mt-0.5 text-[#1a3d32]"></i>
+              <div>
+                <p class="text-[12.5px] font-semibold text-neutral-900">Tips: dra-og-slipp er nøkkelen</p>
+                <p class="mt-1 text-[11.5px] text-neutral-700">Alle Studio-editorer er blokk-basert. Hover for å se grep-håndtak, klikk «+» for å sette inn, dra for å reordne.</p>
+              </div>
+            </div>
+          </div>
+        </aside>
+      </section>
+
+      <div class="scene-note">
+        <span class="scene-note-label">Spec ref</span>
+        Scene 1 mapper specs/studio-builder.md §5 Phase 1 (Task 1.1 + 1.2). Outcome-cards og presets registreres via <code>registerStudioKind({ simplePresets })</code> per scope. Anbefalt-badge = Phase 0 telemetri-prompted.
+      </div>
+    </div>
+  </section>
+
+  <!-- ════════════════════════════════════════════════════════════════
+       SCENE 2 — Simple-mode wizard mid-flight
+       Mirrors WizardModal flow over a preset (specs/studio-builder.md §3 — WizardModal field-kind reuse).
+       ════════════════════════════════════════════════════════════════ -->
+  <section class="scene scene-body" data-scene="wizard">
+    <div class="mx-auto max-w-[760px] px-6 py-10">
+
+      <!-- Backdrop hint that mode is Simple -->
+      <p class="k-eyebrow text-center">Enkel modus · veiviser</p>
+      <h1 class="mt-2 text-center text-2xl md:text-3xl leading-[1.15] font-semibold tracking-tight text-neutral-900 font-serif">
+        Avvik → tildel verneombud
+      </h1>
+      <p class="mt-2 text-center text-sm text-neutral-600 max-w-xl mx-auto">
+        Når et avvik registreres i Klarert, tildel automatisk verneombud for lokasjonen og send varsel.
+        Veiviseren spør om det som er strengt nødvendig — resten settes til fornuftige standarder.
+      </p>
+
+      <!-- Progress -->
+      <div class="mt-8 flex items-center gap-3 px-2">
+        <div class="k-wiz-step is-done"><i data-lucide="check" class="h-3 w-3"></i></div>
+        <div class="k-wiz-bar is-done"></div>
+        <div class="k-wiz-step is-current">2</div>
+        <div class="k-wiz-bar"></div>
+        <div class="k-wiz-step">3</div>
+      </div>
+      <div class="mt-2 flex justify-between px-2 text-[11px] text-neutral-500">
+        <span>Avgrens hendelsen</span>
+        <span class="text-[#1a3d32] font-semibold">Velg ansvarlig</span>
+        <span>Bekreft og publiser</span>
+      </div>
+
+      <!-- Step 2: Velg ansvarlig -->
+      <div class="mt-8 module-card p-6 md:p-8">
+        <div class="flex items-center gap-2">
+          <span class="flex h-7 w-7 items-center justify-center rounded-md" style="background:#f0fdf4;color:#166534;border:1px solid #16653433">
+            <i data-lucide="user-check" class="h-4 w-4"></i>
+          </span>
+          <h2 class="text-lg font-semibold text-neutral-900">Hvem skal håndtere avviket?</h2>
+        </div>
+        <p class="mt-1.5 text-sm text-neutral-600">Verneombud foreslås automatisk basert på lokasjonen. Du kan endre det her.</p>
+
+        <!-- Radio-cards (PropertyField kind: radio-cards) -->
+        <div class="mt-6 space-y-3">
+
+          <label class="flex items-start gap-3 p-4 rounded-xl border border-[#1a3d32] bg-[#e7efe9]/40 cursor-pointer">
+            <input type="radio" name="ansvarlig" checked class="mt-1 accent-[#1a3d32]" />
+            <div class="min-w-0 flex-1">
+              <div class="flex items-center gap-2">
+                <span class="text-sm font-semibold text-neutral-900">Verneombud for lokasjonen</span>
+                <span class="inline-flex items-center gap-1 rounded-full bg-[#e7efe9] px-1.5 py-0.5 text-[9.5px] font-bold tracking-wider text-[#1a3d32] uppercase">Anbefalt</span>
+              </div>
+              <p class="mt-1 text-[12.5px] text-neutral-600">Slår opp verneombud automatisk via organisasjonsmodulen. Faller tilbake til HMS-leder hvis ingen er registrert.</p>
+              <p class="mt-2 text-[11.5px] text-neutral-500"><span class="font-mono text-[10px]">role=verneombud</span> · <span class="font-mono text-[10px]">source=lokasjon</span></p>
+            </div>
+          </label>
+
+          <label class="flex items-start gap-3 p-4 rounded-xl border border-neutral-200/80 bg-white cursor-pointer hover:border-[#1a3d32]/40">
+            <input type="radio" name="ansvarlig" class="mt-1" />
+            <div class="min-w-0 flex-1">
+              <span class="text-sm font-semibold text-neutral-900">HMS-leder</span>
+              <p class="mt-1 text-[12.5px] text-neutral-600">All avvik går direkte til organisasjonens HMS-leder, uansett lokasjon.</p>
+            </div>
+          </label>
+
+          <label class="flex items-start gap-3 p-4 rounded-xl border border-neutral-200/80 bg-white cursor-pointer hover:border-[#1a3d32]/40">
+            <input type="radio" name="ansvarlig" class="mt-1" />
+            <div class="min-w-0 flex-1">
+              <span class="text-sm font-semibold text-neutral-900">Spesifikk person</span>
+              <p class="mt-1 text-[12.5px] text-neutral-600">Velg én bruker som mottar alle slike avvik.</p>
+            </div>
+          </label>
+        </div>
+
+        <!-- Inline secondary field -->
+        <div class="mt-6 grid gap-4 sm:grid-cols-2">
+          <div>
+            <label class="wpstd-label">Send også varsel til</label>
+            <select class="k-input mt-1.5">
+              <option>Lokasjons-leder</option>
+              <option>HMS-leder</option>
+              <option>Ingen</option>
+            </select>
+          </div>
+          <div>
+            <label class="wpstd-label">Frist for tilbakemelding</label>
+            <select class="k-input mt-1.5">
+              <option>Innen 24 timer</option>
+              <option>Innen 3 dager</option>
+              <option>Innen 7 dager</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- "Open in Advanced" escape hatch (specs/studio-builder.md §4 mode UX rule 4) -->
+        <button class="mt-6 inline-flex items-center gap-1.5 text-[11.5px] font-semibold text-[#1a3d32] hover:underline">
+          <i data-lucide="sliders-horizontal" class="h-3 w-3"></i>
+          Åpne i Avansert for flere alternativer (filtre, forgreninger, varsel-kanaler)
+        </button>
+
+        <!-- Footer — secondary first, primary last -->
+        <div class="mt-8 flex items-center justify-end gap-2 border-t border-neutral-100 pt-4">
+          <button class="k-btn k-btn--ghost">Avbryt</button>
+          <button class="k-btn k-btn--secondary"><i data-lucide="arrow-left" class="h-3.5 w-3.5"></i>Tilbake</button>
+          <button class="k-btn k-btn--primary">Fortsett<i data-lucide="arrow-right" class="h-3.5 w-3.5"></i></button>
+        </div>
+      </div>
+
+      <p class="mt-4 text-center text-[11.5px] text-neutral-500">
+        Når veiviseren er ferdig, vises et utkast med <code>review_status='draft'</code> i ditt eget biblioteket.
+      </p>
+
+      <div class="scene-note">
+        <span class="scene-note-label">Spec ref</span>
+        Scene 2 mapper specs/studio-builder.md §3 — Simple-mode via WizardModal + radio-cards PropertyField. «Åpne i Avansert»-lenken er Telemetri-event <code>studio.open_in_advanced_clicked</code> (Task 1.3).
+      </div>
+    </div>
+  </section>
+
+  <!-- ════════════════════════════════════════════════════════════════
+       SCENE 3 — Advanced canvas: workflow builder + palette + inspector
+       Mirrors WorkflowBuilder.jsx + Inspector.jsx — the deepest editor in the spec.
+       ════════════════════════════════════════════════════════════════ -->
+  <section class="scene scene-body" data-scene="builder" style="display:flex">
+
+    <!-- ─── Left palette ─── -->
+    <aside class="studio-palette">
+      <div class="px-4 py-3.5 border-b border-neutral-200/70">
+        <p class="k-eyebrow">Blokker</p>
+        <p class="mt-1 text-[11.5px] text-neutral-500">Dra inn på flyten, eller klikk for å legge til nederst.</p>
+      </div>
+      <div class="flex-1 overflow-y-auto p-3 space-y-4">
+        <div>
+          <p class="px-1 pb-1.5 text-[10px] font-bold uppercase tracking-wider text-neutral-500">Logikk</p>
+          <div class="space-y-1">
+            <div class="group flex items-center gap-2 rounded-md border border-neutral-200/70 bg-white px-2 py-1.5 text-[12px] text-neutral-700 hover:border-[#1a3d32]/40 cursor-grab">
+              <span class="flex h-6 w-6 shrink-0 items-center justify-center rounded" style="background:#fefce8;color:#a16207;border:1px solid #fde68a"><i data-lucide="git-fork" class="h-3 w-3"></i></span>
+              <span class="font-medium text-neutral-900 truncate">Betingelse</span>
+              <i data-lucide="grip-vertical" class="ml-auto h-3 w-3 text-neutral-300"></i>
+            </div>
+            <div class="group flex items-center gap-2 rounded-md border border-neutral-200/70 bg-white px-2 py-1.5 text-[12px] text-neutral-700 hover:border-[#1a3d32]/40 cursor-grab">
+              <span class="flex h-6 w-6 shrink-0 items-center justify-center rounded" style="background:#fefce8;color:#a16207;border:1px solid #fde68a"><i data-lucide="split" class="h-3 w-3"></i></span>
+              <span class="font-medium text-neutral-900 truncate">Forgren (Hvis/Da)</span>
+              <i data-lucide="grip-vertical" class="ml-auto h-3 w-3 text-neutral-300"></i>
+            </div>
+            <div class="group flex items-center gap-2 rounded-md border border-neutral-200/70 bg-white px-2 py-1.5 text-[12px] text-neutral-700 hover:border-[#1a3d32]/40 cursor-grab">
+              <span class="flex h-6 w-6 shrink-0 items-center justify-center rounded" style="background:#fefce8;color:#a16207;border:1px solid #fde68a"><i data-lucide="hourglass" class="h-3 w-3"></i></span>
+              <span class="font-medium text-neutral-900 truncate">Vent</span>
+              <i data-lucide="grip-vertical" class="ml-auto h-3 w-3 text-neutral-300"></i>
+            </div>
+          </div>
+        </div>
+        <div>
+          <p class="px-1 pb-1.5 text-[10px] font-bold uppercase tracking-wider text-neutral-500">Varsling</p>
+          <div class="space-y-1">
+            <div class="group flex items-center gap-2 rounded-md border border-neutral-200/70 bg-white px-2 py-1.5 text-[12px] text-neutral-700 hover:border-[#1a3d32]/40 cursor-grab">
+              <span class="flex h-6 w-6 shrink-0 items-center justify-center rounded" style="background:#eff6ff;color:#1d4ed8;border:1px solid #bfdbfe"><i data-lucide="mail" class="h-3 w-3"></i></span>
+              <span class="font-medium text-neutral-900 truncate">Send e-post</span>
+              <i data-lucide="grip-vertical" class="ml-auto h-3 w-3 text-neutral-300"></i>
+            </div>
+            <div class="group flex items-center gap-2 rounded-md border border-neutral-200/70 bg-white px-2 py-1.5 text-[12px] text-neutral-700 hover:border-[#1a3d32]/40 cursor-grab">
+              <span class="flex h-6 w-6 shrink-0 items-center justify-center rounded" style="background:#eff6ff;color:#1d4ed8;border:1px solid #bfdbfe"><i data-lucide="message-square" class="h-3 w-3"></i></span>
+              <span class="font-medium text-neutral-900 truncate">Teams-melding</span>
+              <i data-lucide="grip-vertical" class="ml-auto h-3 w-3 text-neutral-300"></i>
+            </div>
+            <div class="group flex items-center gap-2 rounded-md border border-neutral-200/70 bg-white px-2 py-1.5 text-[12px] text-neutral-700 hover:border-[#1a3d32]/40 cursor-grab">
+              <span class="flex h-6 w-6 shrink-0 items-center justify-center rounded" style="background:#eff6ff;color:#1d4ed8;border:1px solid #bfdbfe"><i data-lucide="bell" class="h-3 w-3"></i></span>
+              <span class="font-medium text-neutral-900 truncate">Push-varsel</span>
+              <i data-lucide="grip-vertical" class="ml-auto h-3 w-3 text-neutral-300"></i>
+            </div>
+          </div>
+        </div>
+        <div>
+          <p class="px-1 pb-1.5 text-[10px] font-bold uppercase tracking-wider text-neutral-500">Tiltak</p>
+          <div class="space-y-1">
+            <div class="group flex items-center gap-2 rounded-md border border-neutral-200/70 bg-white px-2 py-1.5 text-[12px] text-neutral-700 hover:border-[#1a3d32]/40 cursor-grab">
+              <span class="flex h-6 w-6 shrink-0 items-center justify-center rounded" style="background:#f0fdf4;color:#166534;border:1px solid #bbf7d0"><i data-lucide="check-square" class="h-3 w-3"></i></span>
+              <span class="font-medium text-neutral-900 truncate">Opprett oppgave</span>
+              <i data-lucide="grip-vertical" class="ml-auto h-3 w-3 text-neutral-300"></i>
+            </div>
+            <div class="group flex items-center gap-2 rounded-md border border-neutral-200/70 bg-white px-2 py-1.5 text-[12px] text-neutral-700 hover:border-[#1a3d32]/40 cursor-grab">
+              <span class="flex h-6 w-6 shrink-0 items-center justify-center rounded" style="background:#f0fdf4;color:#166534;border:1px solid #bbf7d0"><i data-lucide="user-check" class="h-3 w-3"></i></span>
+              <span class="font-medium text-neutral-900 truncate">Tildel ansvarlig</span>
+              <i data-lucide="grip-vertical" class="ml-auto h-3 w-3 text-neutral-300"></i>
+            </div>
+          </div>
+        </div>
+        <div>
+          <p class="px-1 pb-1.5 text-[10px] font-bold uppercase tracking-wider text-neutral-500">HMS</p>
+          <div class="space-y-1">
+            <div class="group flex items-center gap-2 rounded-md border border-neutral-200/70 bg-white px-2 py-1.5 text-[12px] text-neutral-700 hover:border-[#1a3d32]/40 cursor-grab">
+              <span class="flex h-6 w-6 shrink-0 items-center justify-center rounded" style="background:#fefce8;color:#854d0e;border:1px solid #fde68a"><i data-lucide="shield-alert" class="h-3 w-3"></i></span>
+              <span class="font-medium text-neutral-900 truncate">ROS-utkast</span>
+              <i data-lucide="grip-vertical" class="ml-auto h-3 w-3 text-neutral-300"></i>
+            </div>
+            <div class="group flex items-center gap-2 rounded-md border border-neutral-200/70 bg-white px-2 py-1.5 text-[12px] text-neutral-700 hover:border-[#1a3d32]/40 cursor-grab">
+              <span class="flex h-6 w-6 shrink-0 items-center justify-center rounded" style="background:#f5f3ff;color:#5b21b6;border:1px solid #ddd6fe"><i data-lucide="users" class="h-3 w-3"></i></span>
+              <span class="font-medium text-neutral-900 truncate">AMU-saksliste</span>
+              <i data-lucide="grip-vertical" class="ml-auto h-3 w-3 text-neutral-300"></i>
+            </div>
+          </div>
+        </div>
+      </div>
+    </aside>
+
+    <!-- ─── Center canvas ─── -->
+    <main class="studio-canvas">
+      <div class="mx-auto max-w-[680px] px-6 py-8">
+
+        <!-- Metadata chips -->
+        <div class="flex flex-wrap items-center gap-2">
+          <span class="inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11.5px] font-semibold" style="background:#f5f3ff;color:#6d28d9;border:1px solid #ddd6fe">
+            <i data-lucide="git-branch" class="h-3 w-3"></i>Arbeidsflyt · WF-014
+          </span>
+          <span class="inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11.5px] font-semibold" style="background:#fef9c3;color:#854d0e;border:1px solid #fef08a">
+            <i data-lucide="circle-dot" class="h-3 w-3"></i>Kladd · v13 (ulagret)
+          </span>
+          <span class="inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11.5px] font-semibold" style="background:#fafafa;color:#404040;border:1px solid #e5e5e5">
+            <i data-lucide="folder" class="h-3 w-3"></i>Modul: Avvik
+          </span>
+          <span class="inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11.5px] font-semibold" style="background:#fafafa;color:#525252;border:1px solid #e5e5e5">
+            <i data-lucide="clock" class="h-3 w-3"></i>Sist endret · 09:14 av MS
+          </span>
+        </div>
+
+        <p class="mt-4 text-[13.5px] text-neutral-700 leading-relaxed">
+          Klassifiseres et avvik som kritisk i Klarert, varsler vi AMU-leder via e-post, oppretter ROS-utkast og tildeler verneombud som ansvarlig.
+        </p>
+
+        <!-- Block stack -->
+        <div class="mt-6 space-y-0">
+
+          <!-- Block 1: Trigger (locked, selected) -->
+          <div class="k-block is-selected">
+            <div class="k-block-handles">
+              <button class="k-block-handle is-add"><i data-lucide="plus" class="h-3.5 w-3.5"></i></button>
+              <button class="k-block-handle"><i data-lucide="grip-vertical" class="h-3.5 w-3.5"></i></button>
+            </div>
+            <div class="flex items-start gap-3">
+              <span class="k-step-number is-active">1</span>
+              <div class="min-w-0 flex-1">
+                <div class="flex items-center gap-2 flex-wrap">
+                  <span class="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold" style="background:#f5f3ff;color:#6d28d9;border:1px solid #ddd6fe">
+                    <i data-lucide="zap" class="h-3 w-3"></i>Utløser
+                  </span>
+                  <span class="inline-flex items-center gap-1 text-[10.5px] font-semibold text-neutral-500 uppercase tracking-wider">
+                    <i data-lucide="lock" class="h-2.5 w-2.5"></i>Steg 1 · låst
+                  </span>
+                  <div class="ml-auto flex items-center gap-0.5">
+                    <button class="rounded p-1 text-neutral-400 hover:bg-neutral-100"><i data-lucide="copy" class="h-3.5 w-3.5"></i></button>
+                  </div>
+                </div>
+                <div class="mt-2 text-[16px] font-semibold text-neutral-900 leading-snug">Nytt kritisk avvik registrert</div>
+                <p class="mt-1 text-[12.5px] text-neutral-600">Lytter på avvik-modulen. Kjører bare når alvorlighet = kritisk.</p>
+                <div class="mt-3 flex items-center gap-2 flex-wrap text-[11.5px]">
+                  <span class="inline-flex items-center gap-1 rounded-full bg-[#f5f3ff] border border-[#ddd6fe] px-2 py-0.5 text-[#6d28d9]">
+                    <i data-lucide="zap" class="h-3 w-3"></i>Avvik · kritisk-flagg
+                  </span>
+                  <span class="text-neutral-500">når</span>
+                  <span class="font-mono text-[11px] bg-neutral-100 rounded px-1.5 py-0.5">severity = "kritisk"</span>
+                  <span class="text-neutral-500">+ 2 filter</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Insert affordance -->
+          <div class="k-insert-row"><div class="k-insert-line"></div><button class="k-insert-btn"><i data-lucide="plus" class="h-3 w-3"></i></button></div>
+
+          <!-- Block 2: Condition -->
+          <div class="k-block">
+            <div class="k-block-handles">
+              <button class="k-block-handle is-add"><i data-lucide="plus" class="h-3.5 w-3.5"></i></button>
+              <button class="k-block-handle"><i data-lucide="grip-vertical" class="h-3.5 w-3.5"></i></button>
+            </div>
+            <div class="flex items-start gap-3">
+              <span class="k-step-number">2</span>
+              <div class="min-w-0 flex-1">
+                <div class="flex items-center gap-2 flex-wrap">
+                  <span class="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold" style="background:#fefce8;color:#a16207;border:1px solid #fde68a">
+                    <i data-lucide="git-fork" class="h-3 w-3"></i>Betingelse
+                  </span>
+                  <div class="ml-auto flex items-center gap-0.5">
+                    <button class="rounded p-1 text-neutral-400 hover:bg-neutral-100"><i data-lucide="circle-dot" class="h-3.5 w-3.5"></i></button>
+                    <button class="rounded p-1 text-neutral-400 hover:bg-neutral-100"><i data-lucide="copy" class="h-3.5 w-3.5"></i></button>
+                    <button class="rounded p-1 text-neutral-400 hover:bg-neutral-100"><i data-lucide="trash-2" class="h-3.5 w-3.5"></i></button>
+                  </div>
+                </div>
+                <div class="mt-2 text-[16px] font-semibold text-neutral-900 leading-snug">Krever AMU-varsling?</div>
+                <p class="mt-1 text-[12.5px] text-neutral-600">Sjekker tag og lokasjon før eskalering.</p>
+                <div class="mt-3 flex items-center gap-2 flex-wrap text-[11.5px] text-neutral-600">
+                  <span class="font-mono text-[11px] bg-neutral-100 rounded px-1.5 py-0.5">AND</span>
+                  <span>tag <span class="font-mono">in</span> "fall, klem, kjemikalie"</span>
+                  <br/>
+                </div>
+                <div class="mt-1 flex items-center gap-2 flex-wrap text-[11.5px] text-neutral-600">
+                  <span class="font-mono text-[11px] bg-neutral-100 rounded px-1.5 py-0.5">AND</span>
+                  <span>antall <span class="font-mono">&gt;</span> "0 personer skadet"</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="k-insert-row"><div class="k-insert-line"></div><button class="k-insert-btn"><i data-lucide="plus" class="h-3 w-3"></i></button></div>
+
+          <!-- Block 3: Email -->
+          <div class="k-block">
+            <div class="k-block-handles">
+              <button class="k-block-handle is-add"><i data-lucide="plus" class="h-3.5 w-3.5"></i></button>
+              <button class="k-block-handle"><i data-lucide="grip-vertical" class="h-3.5 w-3.5"></i></button>
+            </div>
+            <div class="flex items-start gap-3">
+              <span class="k-step-number">3</span>
+              <div class="min-w-0 flex-1">
+                <div class="flex items-center gap-2 flex-wrap">
+                  <span class="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold" style="background:#eff6ff;color:#1d4ed8;border:1px solid #bfdbfe">
+                    <i data-lucide="mail" class="h-3 w-3"></i>Send e-post
+                  </span>
+                </div>
+                <div class="mt-2 text-[16px] font-semibold text-neutral-900 leading-snug">E-post til AMU-leder</div>
+                <p class="mt-1 text-[12.5px] text-neutral-600">Standard mal <span class="font-mono text-[11px]">kritisk-avvik.eml</span> — pulles fra dokumentbiblioteket.</p>
+                <div class="mt-3 rounded-md bg-neutral-50 border border-neutral-200/80 px-3 py-2.5 text-[12px] text-neutral-700">
+                  <div><span class="text-neutral-500">Til:</span> <span class="font-mono">amu-leder@firma.no</span></div>
+                  <div class="mt-0.5"><span class="text-neutral-500">Emne:</span> Kritisk avvik — {avvik.id} ({avvik.lokasjon})</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="k-insert-row"><div class="k-insert-line"></div><button class="k-insert-btn"><i data-lucide="plus" class="h-3 w-3"></i></button></div>
+
+          <!-- Block 4: ROS -->
+          <div class="k-block">
+            <div class="k-block-handles">
+              <button class="k-block-handle is-add"><i data-lucide="plus" class="h-3.5 w-3.5"></i></button>
+              <button class="k-block-handle"><i data-lucide="grip-vertical" class="h-3.5 w-3.5"></i></button>
+            </div>
+            <div class="flex items-start gap-3">
+              <span class="k-step-number">4</span>
+              <div class="min-w-0 flex-1">
+                <span class="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold" style="background:#fefce8;color:#854d0e;border:1px solid #fde68a">
+                  <i data-lucide="shield-alert" class="h-3 w-3"></i>ROS-utkast
+                </span>
+                <div class="mt-2 text-[16px] font-semibold text-neutral-900 leading-snug">Opprett ROS-utkast tilkoblet avviket</div>
+                <p class="mt-1 text-[12.5px] text-neutral-600">Bruker mal «standard 5×5» og kobler til AVV-id.</p>
+              </div>
+            </div>
+          </div>
+
+          <div class="k-insert-row"><div class="k-insert-line"></div><button class="k-insert-btn"><i data-lucide="plus" class="h-3 w-3"></i></button></div>
+
+          <!-- Block 5: Assign -->
+          <div class="k-block">
+            <div class="k-block-handles">
+              <button class="k-block-handle is-add"><i data-lucide="plus" class="h-3.5 w-3.5"></i></button>
+              <button class="k-block-handle"><i data-lucide="grip-vertical" class="h-3.5 w-3.5"></i></button>
+            </div>
+            <div class="flex items-start gap-3">
+              <span class="k-step-number">5</span>
+              <div class="min-w-0 flex-1">
+                <span class="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold" style="background:#f0fdf4;color:#166534;border:1px solid #bbf7d0">
+                  <i data-lucide="user-check" class="h-3 w-3"></i>Tildel ansvarlig
+                </span>
+                <div class="mt-2 text-[16px] font-semibold text-neutral-900 leading-snug">Tildel verneombud for lokasjonen</div>
+                <p class="mt-1 text-[12.5px] text-neutral-600">Slår opp verneombud automatisk fra organisasjonsmodulen.</p>
+              </div>
+            </div>
+          </div>
+
+          <!-- Add at end -->
+          <div class="k-insert-row" style="height:28px"><div class="k-insert-line"></div><button class="k-insert-btn" style="opacity:1"><i data-lucide="plus" class="h-3 w-3"></i></button></div>
+        </div>
+      </div>
+    </main>
+
+    <!-- ─── Right inspector ─── -->
+    <aside class="studio-inspector">
+      <div class="px-4 py-3 border-b border-neutral-200/70">
+        <div class="flex items-center justify-between">
+          <p class="k-eyebrow">Blokk · Steg 1</p>
+          <span class="inline-flex items-center gap-1 text-[10.5px] font-semibold text-[#166534]">
+            <i data-lucide="circle-dot" class="h-2.5 w-2.5"></i>Aktiv
+          </span>
+        </div>
+        <div class="mt-2 flex items-center gap-2">
+          <span class="flex h-7 w-7 items-center justify-center rounded-md" style="background:#f5f3ff;color:#6d28d9;border:1px solid #ddd6fe">
+            <i data-lucide="zap" class="h-4 w-4"></i>
+          </span>
+          <div class="min-w-0">
+            <div class="text-[13.5px] font-semibold text-neutral-900 truncate">Nytt kritisk avvik registrert</div>
+            <div class="text-[11px] text-neutral-500">Utløser</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tabs -->
+      <div class="k-itabs">
+        <button class="k-itab is-active"><i data-lucide="sliders-horizontal" class="h-3 w-3"></i>Egenskaper</button>
+        <button class="k-itab"><i data-lucide="palette" class="h-3 w-3"></i>Stil</button>
+        <button class="k-itab"><i data-lucide="scale" class="h-3 w-3"></i>Lovverk</button>
+        <button class="k-itab"><i data-lucide="history" class="h-3 w-3"></i>Historikk</button>
+      </div>
+
+      <!-- Body — Egenskaper -->
+      <div class="flex-1 overflow-y-auto p-4 space-y-4">
+        <div>
+          <label class="wpstd-label">Tittel<span class="k-req">*</span></label>
+          <input class="k-input mt-1.5" value="Nytt kritisk avvik registrert" />
+        </div>
+        <div>
+          <div class="flex items-center justify-between">
+            <label class="wpstd-label">Kort beskrivelse</label>
+            <span class="text-[10px] text-neutral-400">vises i loggen</span>
+          </div>
+          <textarea class="k-input mt-1.5">Lytter på avvik-modulen. Kjører bare når alvorlighet = kritisk.</textarea>
+        </div>
+
+        <div>
+          <label class="wpstd-label">Hendelse</label>
+          <select class="k-input mt-1.5">
+            <option>Avvik · nytt registrert</option>
+            <option>Avvik · status endret</option>
+            <option>Avvik · signert</option>
+          </select>
+        </div>
+
+        <!-- Filters -->
+        <div>
+          <div class="flex items-center justify-between">
+            <label class="wpstd-label">Filtre</label>
+            <span class="text-[10px] text-neutral-400">2 regler</span>
+          </div>
+          <div class="mt-1.5 space-y-2">
+            <div class="grid grid-cols-[1fr_auto_1fr_auto] gap-1.5 items-center">
+              <select class="k-input" style="height:32px"><option>severity</option></select>
+              <select class="k-input" style="height:32px;width:48px"><option>=</option></select>
+              <select class="k-input" style="height:32px"><option>kritisk</option></select>
+              <button class="text-neutral-400 hover:text-red-600 p-1"><i data-lucide="x" class="h-3.5 w-3.5"></i></button>
+            </div>
+            <div class="grid grid-cols-[1fr_auto_1fr_auto] gap-1.5 items-center">
+              <select class="k-input" style="height:32px"><option>lokasjon</option></select>
+              <select class="k-input" style="height:32px;width:48px"><option>in</option></select>
+              <select class="k-input" style="height:32px"><option>alle (Oslo · Be...</option></select>
+              <button class="text-neutral-400 hover:text-red-600 p-1"><i data-lucide="x" class="h-3.5 w-3.5"></i></button>
+            </div>
+            <button class="text-[11.5px] font-semibold text-[#1a3d32] hover:underline">+ Legg til filter</button>
+          </div>
+        </div>
+
+        <div class="border-t border-neutral-100 pt-4">
+          <label class="wpstd-label">Obligatorisk</label>
+          <div class="mt-2 flex items-center justify-between">
+            <span class="text-[12.5px] text-neutral-700">Påkrev svar</span>
+            <span class="k-toggle is-on"></span>
+          </div>
+        </div>
+      </div>
+    </aside>
+
+    <div class="scene-note" style="margin-left:auto;margin-right:auto">
+      <span class="scene-note-label">Spec ref</span>
+      Scene 3 mapper specs/studio-builder.md §5 Phase 2a (Advanced mode + 7 scope embedders). Steg 1 låst illustrerer at <code>trigger</code>-blokken alltid er steg 1 (per workflow-engine-review.md §3).
+    </div>
+  </section>
+
+  <!-- ════════════════════════════════════════════════════════════════
+       SCENE 4 — Pack editor (specs/studio-builder.md §5 Phase 2a Task 2a.2)
+       Semver, KPI labels, severity labels, legal references, immutable on publish
+       ════════════════════════════════════════════════════════════════ -->
+  <section class="scene scene-body" data-scene="pack">
+    <div class="flex" style="min-height:calc(100vh - 56px - 53px)">
+
+      <!-- Left: pack summary / templates included -->
+      <aside style="width:300px;background:var(--studio-bg);border-right:1px solid rgba(0,0,0,0.06)" class="flex flex-col">
+        <div class="px-4 py-3.5 border-b border-neutral-200/70">
+          <p class="k-eyebrow">Pakke · utkast</p>
+          <div class="mt-2 flex items-center gap-2">
+            <span class="flex h-8 w-8 items-center justify-center rounded-md" style="background:#dbeafe;color:#1e40af;border:1px solid #93c5fd">
+              <i data-lucide="package" class="h-4 w-4"></i>
+            </span>
+            <div class="min-w-0">
+              <div class="text-[14px] font-semibold text-neutral-900 truncate">ISO 27001</div>
+              <div class="text-[11px] text-neutral-500 font-mono">iso-27001 · v1.0.0</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="flex-1 overflow-y-auto p-3 space-y-4">
+          <div>
+            <p class="px-1 pb-1.5 text-[10px] font-bold uppercase tracking-wider text-neutral-500">Innhold (28)</p>
+            <ul class="space-y-1">
+              <li class="flex items-center gap-2 rounded-md border border-neutral-200/70 bg-white px-2 py-1.5 text-[12px]">
+                <span class="flex h-5 w-5 items-center justify-center rounded" style="background:#e7efe9;color:#1a3d32"><i data-lucide="clipboard-list" class="h-2.5 w-2.5"></i></span>
+                <span class="truncate text-neutral-700">Sjekklister</span>
+                <span class="ml-auto font-mono text-[10px] text-neutral-500">12</span>
+              </li>
+              <li class="flex items-center gap-2 rounded-md border border-neutral-200/70 bg-white px-2 py-1.5 text-[12px]">
+                <span class="flex h-5 w-5 items-center justify-center rounded" style="background:#fafafa;color:#525252"><i data-lucide="file-text" class="h-2.5 w-2.5"></i></span>
+                <span class="truncate text-neutral-700">Dokumenter</span>
+                <span class="ml-auto font-mono text-[10px] text-neutral-500">8</span>
+              </li>
+              <li class="flex items-center gap-2 rounded-md border border-neutral-200/70 bg-white px-2 py-1.5 text-[12px]">
+                <span class="flex h-5 w-5 items-center justify-center rounded" style="background:#eff6ff;color:#1d4ed8"><i data-lucide="graduation-cap" class="h-2.5 w-2.5"></i></span>
+                <span class="truncate text-neutral-700">Kurs</span>
+                <span class="ml-auto font-mono text-[10px] text-neutral-500">3</span>
+              </li>
+              <li class="flex items-center gap-2 rounded-md border border-neutral-200/70 bg-white px-2 py-1.5 text-[12px]">
+                <span class="flex h-5 w-5 items-center justify-center rounded" style="background:#f0fdf4;color:#166534"><i data-lucide="list-checks" class="h-2.5 w-2.5"></i></span>
+                <span class="truncate text-neutral-700">Undersøkelser</span>
+                <span class="ml-auto font-mono text-[10px] text-neutral-500">2</span>
+              </li>
+              <li class="flex items-center gap-2 rounded-md border border-neutral-200/70 bg-white px-2 py-1.5 text-[12px]">
+                <span class="flex h-5 w-5 items-center justify-center rounded" style="background:#fefce8;color:#a16207"><i data-lucide="table-2" class="h-2.5 w-2.5"></i></span>
+                <span class="truncate text-neutral-700">Registre</span>
+                <span class="ml-auto font-mono text-[10px] text-neutral-500">1</span>
+              </li>
+              <li class="flex items-center gap-2 rounded-md border border-neutral-200/70 bg-white px-2 py-1.5 text-[12px]">
+                <span class="flex h-5 w-5 items-center justify-center rounded" style="background:#f5f3ff;color:#6d28d9"><i data-lucide="git-branch" class="h-2.5 w-2.5"></i></span>
+                <span class="truncate text-neutral-700">Arbeidsflyter</span>
+                <span class="ml-auto font-mono text-[10px] text-neutral-500">2</span>
+              </li>
+            </ul>
+          </div>
+
+          <div class="rounded-md border border-amber-200 bg-amber-50 p-2.5 text-[11px] text-amber-800">
+            <div class="flex items-start gap-1.5">
+              <i data-lucide="info" class="h-3 w-3 mt-0.5 shrink-0"></i>
+              <span>Når du publiserer v1.0.0 låses innholdet. Senere endringer krever ny versjon.</span>
+            </div>
+          </div>
+        </div>
+      </aside>
+
+      <!-- Middle: properties form -->
+      <main class="studio-canvas">
+        <div class="mx-auto max-w-[720px] px-6 py-8">
+
+          <p class="k-eyebrow">Pakke-redaktør</p>
+          <h1 class="mt-2 text-2xl md:text-3xl leading-[1.15] font-semibold tracking-tight text-neutral-900 font-serif">
+            ISO 27001 · norsk informasjonssikkerhet
+          </h1>
+          <p class="mt-2 text-sm text-neutral-600">
+            Definer pakkens navn, lovverksgrunnlag, KPI-etiketter og fargeaksent. Innholdet (sjekklister, dokumenter, kurs) legges til via Studio og kobles automatisk via <code>law_refs[]</code>.
+          </p>
+
+          <div class="mt-8 space-y-6">
+
+            <!-- Grunninfo -->
+            <div class="module-card p-5 md:p-6">
+              <div class="flex items-center gap-2">
+                <i data-lucide="package" class="h-5 w-5 text-[#1a3d32]"></i>
+                <h2 class="text-lg font-semibold text-neutral-900">Grunninformasjon</h2>
+              </div>
+
+              <div class="mt-5 grid gap-5 sm:grid-cols-2">
+                <div>
+                  <label class="wpstd-label">Navn (nb)<span class="k-req">*</span></label>
+                  <input class="k-input mt-1.5" value="ISO 27001" />
+                </div>
+                <div>
+                  <label class="wpstd-label">Navn (en)</label>
+                  <input class="k-input mt-1.5" value="ISO 27001" />
+                </div>
+                <div>
+                  <label class="wpstd-label">Slug<span class="k-req">*</span></label>
+                  <input class="k-input mt-1.5 font-mono text-[12px]" value="iso-27001" />
+                  <p class="mt-1 text-xs text-neutral-500">URL: <span class="font-mono">?pack=iso-27001</span></p>
+                </div>
+                <div>
+                  <label class="wpstd-label">Versjon (semver)<span class="k-req">*</span></label>
+                  <input class="k-input mt-1.5 font-mono text-[12px]" value="1.0.0" />
+                  <p class="mt-1 text-xs text-neutral-500">Låses ved publisering.</p>
+                </div>
+                <div class="sm:col-span-2">
+                  <label class="wpstd-label">Kort beskrivelse</label>
+                  <textarea class="k-input mt-1.5">Informasjonssikkerhetsstyringssystem (ISMS) tilpasset norsk SMB. Dekker Annex A 5.x–18.x med tilhørende sjekklister, prosedyrer og opplæring.</textarea>
+                </div>
+              </div>
+            </div>
+
+            <!-- Aksent + KPI-etiketter -->
+            <div class="module-card p-5 md:p-6">
+              <div class="flex items-center gap-2">
+                <i data-lucide="palette" class="h-5 w-5 text-[#1a3d32]"></i>
+                <h2 class="text-lg font-semibold text-neutral-900">Aksent og etiketter</h2>
+              </div>
+
+              <div class="mt-5">
+                <label class="wpstd-label">Fargeaksent</label>
+                <div class="mt-1.5 flex gap-2">
+                  <button class="h-8 w-8 rounded-full border-2 border-white shadow-sm ring-2 ring-[#1e40af]" style="background:#1e40af" title="Indigo"></button>
+                  <button class="h-8 w-8 rounded-full border border-neutral-200" style="background:#1a3d32" title="Forest"></button>
+                  <button class="h-8 w-8 rounded-full border border-neutral-200" style="background:#854d0e" title="Brown"></button>
+                  <button class="h-8 w-8 rounded-full border border-neutral-200" style="background:#b91c1c" title="Red"></button>
+                  <button class="h-8 w-8 rounded-full border border-neutral-200" style="background:#0e7490" title="Teal"></button>
+                </div>
+                <p class="mt-2 text-xs text-neutral-500">Brukes i sidefelt, dashboards og pack-banner. Per scope-aksent fra <code>registerStudioKind</code> kan overstyre.</p>
+              </div>
+
+              <div class="mt-6 grid gap-5 sm:grid-cols-2">
+                <div>
+                  <label class="wpstd-label">KPI-etiketter</label>
+                  <div class="mt-1.5 space-y-1.5">
+                    <div class="grid grid-cols-[80px_1fr] gap-2 items-center">
+                      <span class="font-mono text-[11px] text-neutral-500">primary</span>
+                      <input class="k-input" value="Overensstemmelse" />
+                    </div>
+                    <div class="grid grid-cols-[80px_1fr] gap-2 items-center">
+                      <span class="font-mono text-[11px] text-neutral-500">secondary</span>
+                      <input class="k-input" value="Annex A-kontroller" />
+                    </div>
+                    <div class="grid grid-cols-[80px_1fr] gap-2 items-center">
+                      <span class="font-mono text-[11px] text-neutral-500">tertiary</span>
+                      <input class="k-input" value="Ledelsens gjennomgang" />
+                    </div>
+                  </div>
+                </div>
+                <div>
+                  <label class="wpstd-label">Alvorlighetsetiketter</label>
+                  <div class="mt-1.5 space-y-1.5">
+                    <div class="grid grid-cols-[80px_1fr] gap-2 items-center">
+                      <span class="inline-flex items-center gap-1.5 font-mono text-[11px] text-neutral-500">
+                        <span class="h-2 w-2 rounded-full" style="background:#b91c1c"></span>critical
+                      </span>
+                      <input class="k-input" value="Kritisk avvik" />
+                    </div>
+                    <div class="grid grid-cols-[80px_1fr] gap-2 items-center">
+                      <span class="inline-flex items-center gap-1.5 font-mono text-[11px] text-neutral-500">
+                        <span class="h-2 w-2 rounded-full" style="background:#ea580c"></span>high
+                      </span>
+                      <input class="k-input" value="Alvorlig" />
+                    </div>
+                    <div class="grid grid-cols-[80px_1fr] gap-2 items-center">
+                      <span class="inline-flex items-center gap-1.5 font-mono text-[11px] text-neutral-500">
+                        <span class="h-2 w-2 rounded-full" style="background:#eab308"></span>medium
+                      </span>
+                      <input class="k-input" value="Moderat" />
+                    </div>
+                    <div class="grid grid-cols-[80px_1fr] gap-2 items-center">
+                      <span class="inline-flex items-center gap-1.5 font-mono text-[11px] text-neutral-500">
+                        <span class="h-2 w-2 rounded-full" style="background:#3b82f6"></span>low
+                      </span>
+                      <input class="k-input" value="Mindre" />
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Lovverksreferanser -->
+            <div class="module-card p-5 md:p-6">
+              <div class="flex items-center gap-2">
+                <i data-lucide="scale" class="h-5 w-5 text-[#1a3d32]"></i>
+                <h2 class="text-lg font-semibold text-neutral-900">Lovverksreferanser</h2>
+                <span class="ml-auto text-[11px] text-neutral-500">5 av forventet 80+</span>
+              </div>
+              <p class="mt-1.5 text-sm text-neutral-600">Eksakte strenger. Studio kobler innholdet via <code>law_refs[]</code> — planner-modulen og gap-matrisen leser de samme strengene.</p>
+
+              <ul class="mt-5 space-y-2">
+                <li class="flex items-center gap-3 rounded-lg border border-neutral-200/80 bg-neutral-50/50 p-3">
+                  <i data-lucide="scale" class="h-3.5 w-3.5 text-neutral-500"></i>
+                  <span class="font-mono text-[12px] text-neutral-800 flex-1">ISO 27001 A.5.1</span>
+                  <span class="text-[12px] text-neutral-600 truncate">Policies for information security</span>
+                  <button class="text-neutral-400 hover:text-red-600 p-1"><i data-lucide="x" class="h-3.5 w-3.5"></i></button>
+                </li>
+                <li class="flex items-center gap-3 rounded-lg border border-neutral-200/80 bg-neutral-50/50 p-3">
+                  <i data-lucide="scale" class="h-3.5 w-3.5 text-neutral-500"></i>
+                  <span class="font-mono text-[12px] text-neutral-800 flex-1">ISO 27001 A.5.9</span>
+                  <span class="text-[12px] text-neutral-600 truncate">Inventory of information and other assets</span>
+                  <button class="text-neutral-400 hover:text-red-600 p-1"><i data-lucide="x" class="h-3.5 w-3.5"></i></button>
+                </li>
+                <li class="flex items-center gap-3 rounded-lg border border-neutral-200/80 bg-neutral-50/50 p-3">
+                  <i data-lucide="scale" class="h-3.5 w-3.5 text-neutral-500"></i>
+                  <span class="font-mono text-[12px] text-neutral-800 flex-1">ISO 27001 A.6.3</span>
+                  <span class="text-[12px] text-neutral-600 truncate">Information security awareness, education and training</span>
+                  <button class="text-neutral-400 hover:text-red-600 p-1"><i data-lucide="x" class="h-3.5 w-3.5"></i></button>
+                </li>
+                <li class="flex items-center gap-3 rounded-lg border border-neutral-200/80 bg-neutral-50/50 p-3">
+                  <i data-lucide="scale" class="h-3.5 w-3.5 text-neutral-500"></i>
+                  <span class="font-mono text-[12px] text-neutral-800 flex-1">ISO 27001 A.8.16</span>
+                  <span class="text-[12px] text-neutral-600 truncate">Monitoring activities</span>
+                  <button class="text-neutral-400 hover:text-red-600 p-1"><i data-lucide="x" class="h-3.5 w-3.5"></i></button>
+                </li>
+                <li class="flex items-center gap-3 rounded-lg border border-neutral-200/80 bg-neutral-50/50 p-3">
+                  <i data-lucide="scale" class="h-3.5 w-3.5 text-neutral-500"></i>
+                  <span class="font-mono text-[12px] text-neutral-800 flex-1">GDPR Art. 32</span>
+                  <span class="text-[12px] text-neutral-600 truncate">Security of processing (kryssreferanse)</span>
+                  <button class="text-neutral-400 hover:text-red-600 p-1"><i data-lucide="x" class="h-3.5 w-3.5"></i></button>
+                </li>
+              </ul>
+              <button class="mt-3 text-[11.5px] font-semibold text-[#1a3d32] hover:underline">+ Legg til lovverksreferanse</button>
+            </div>
+
+            <!-- Publish footer -->
+            <div class="module-card p-5 md:p-6 flex items-center justify-between gap-4 flex-wrap">
+              <div>
+                <p class="text-sm font-semibold text-neutral-900">Klar for publisering?</p>
+                <p class="mt-1 text-[12.5px] text-neutral-600">Publisering låser v1.0.0. Endringer krever ny semver-versjon (1.0.1 / 1.1.0 / 2.0.0).</p>
+              </div>
+              <div class="flex items-center gap-2">
+                <button class="k-btn k-btn--secondary"><i data-lucide="download" class="h-3.5 w-3.5"></i>Eksporter</button>
+                <button class="k-btn k-btn--secondary"><i data-lucide="eye" class="h-3.5 w-3.5"></i>Forhåndsvis</button>
+                <button class="k-btn k-btn--primary"><i data-lucide="lock" class="h-3.5 w-3.5"></i>Publiser 1.0.0</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="scene-note">
+            <span class="scene-note-label">Spec ref</span>
+            Scene 4 mapper specs/studio-builder.md §5 Phase 2a Task 2a.2. Immutable-på-publisering håndheves via BEFORE UPDATE-trigger på <code>studio_packs</code> (per Decisions-tabell §3). Loop-closes-bevis i Phase 2b.
+          </div>
+        </div>
+      </main>
+    </div>
+  </section>
+
+  <!-- ════════════════════════════════════════════════════════════════
+       SCENE 5 — Partner switcher
+       Built on existing partner_organizations + partner_memberships
+       + app.active_partner_id GUC (per substrate audit, §5 Phase 3 Task 3.2)
+       ════════════════════════════════════════════════════════════════ -->
+  <section class="scene scene-body" data-scene="partner">
+    <div class="mx-auto max-w-[1280px] px-6 md:px-10 py-10">
+
+      <p class="k-eyebrow">Partner-omstilling</p>
+      <h1 class="mt-2 text-2xl md:text-3xl leading-[1.15] font-semibold tracking-tight text-neutral-900 font-serif">
+        Du arbeider for <span class="text-[#1a3d32]">HMS Konsulent AS</span>
+      </h1>
+      <p class="mt-2 max-w-3xl text-sm text-neutral-600">
+        Konsulenter med aktive medlemskap i flere klient-organisasjoner kan bytte aktiv kontekst.
+        Studio-skriv går mot den aktive klienten — RLS via <code>app.active_partner_id</code> GUC + <code>is_partner_member_of()</code>.
+      </p>
+
+      <!-- Current context banner -->
+      <div class="mt-6 module-card p-4 flex items-center gap-3">
+        <span class="flex h-9 w-9 items-center justify-center rounded-lg" style="background:#e7efe9;color:#1a3d32;border:1px solid #c5d3c8">
+          <i data-lucide="briefcase" class="h-4 w-4"></i>
+        </span>
+        <div class="min-w-0 flex-1">
+          <div class="flex items-center gap-2">
+            <span class="text-sm font-semibold text-neutral-900">Aktiv klient: Barnehage Nord AS</span>
+            <span class="inline-flex items-center gap-1 rounded-full bg-emerald-50 border border-emerald-200 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-700">
+              <i data-lucide="circle-dot" class="h-2.5 w-2.5"></i>aktiv
+            </span>
+          </div>
+          <div class="mt-0.5 flex items-center gap-2 text-[11.5px] text-neutral-500">
+            <span class="font-mono text-[10px]">org_id: b9f3...e21a</span>
+            <span>·</span>
+            <span>rolle: <span class="font-mono text-[10px]">partner_admin</span></span>
+            <span>·</span>
+            <span>siden 12. mars 2026</span>
+          </div>
+        </div>
+        <button class="k-btn k-btn--secondary"><i data-lucide="external-link" class="h-3.5 w-3.5"></i>Åpne klient</button>
+      </div>
+
+      <!-- Org switcher dropdown (rendered open) -->
+      <div class="mt-8 grid gap-6 lg:grid-cols-[1fr_360px]">
+        <div>
+          <div class="mb-3 flex items-center justify-between">
+            <h2 class="text-[12px] font-bold uppercase tracking-[0.08em] text-neutral-500">Bytt aktiv klient</h2>
+            <div class="text-[11px] text-neutral-500">12 aktive medlemskap</div>
+          </div>
+          <div class="module-card overflow-hidden">
+            <div class="border-b border-neutral-100 px-3 py-2">
+              <div class="relative">
+                <i data-lucide="search" class="h-3.5 w-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-neutral-400"></i>
+                <input class="k-input pl-8" placeholder="Søk blant klienter..." style="height:32px" />
+              </div>
+            </div>
+            <ul class="divide-y divide-neutral-100">
+
+              <li><button class="w-full px-4 py-3 flex items-center gap-3 text-left bg-[#e7efe9]/40">
+                <span class="flex h-9 w-9 items-center justify-center rounded-lg" style="background:#e7efe9;color:#1a3d32;border:1px solid #c5d3c8">
+                  <i data-lucide="check" class="h-4 w-4"></i>
+                </span>
+                <div class="min-w-0 flex-1">
+                  <div class="flex items-center gap-2">
+                    <span class="text-sm font-semibold text-neutral-900">Barnehage Nord AS</span>
+                    <span class="inline-flex items-center gap-1 rounded-full bg-emerald-50 border border-emerald-200 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-700">aktiv nå</span>
+                  </div>
+                  <div class="mt-0.5 text-[11.5px] text-neutral-500">orgnr 998 234 561 · partner_admin · 47 maler</div>
+                </div>
+                <span class="text-[10px] font-mono text-neutral-400">app.active_partner_id</span>
+              </button></li>
+
+              <li><button class="w-full px-4 py-3 flex items-center gap-3 text-left hover:bg-neutral-50/60">
+                <span class="flex h-9 w-9 items-center justify-center rounded-lg" style="background:#fafafa;color:#525252;border:1px solid #d4d4d4">
+                  <i data-lucide="briefcase" class="h-4 w-4"></i>
+                </span>
+                <div class="min-w-0 flex-1">
+                  <span class="text-sm font-semibold text-neutral-900">Bygg Vest Entreprenør AS</span>
+                  <div class="mt-0.5 text-[11.5px] text-neutral-500">orgnr 990 887 112 · partner_admin · 31 maler</div>
+                </div>
+                <span class="inline-flex items-center gap-1 rounded-full bg-amber-50 border border-amber-200 px-1.5 py-0.5 text-[10px] font-semibold text-amber-800">
+                  <span class="h-1.5 w-1.5 rounded-full bg-amber-600"></span>3 ulagrede
+                </span>
+              </button></li>
+
+              <li><button class="w-full px-4 py-3 flex items-center gap-3 text-left hover:bg-neutral-50/60">
+                <span class="flex h-9 w-9 items-center justify-center rounded-lg" style="background:#fafafa;color:#525252;border:1px solid #d4d4d4">
+                  <i data-lucide="briefcase" class="h-4 w-4"></i>
+                </span>
+                <div class="min-w-0 flex-1">
+                  <span class="text-sm font-semibold text-neutral-900">Sykehjem Sentrum AS</span>
+                  <div class="mt-0.5 text-[11.5px] text-neutral-500">orgnr 987 451 003 · partner_admin · 22 maler</div>
+                </div>
+              </button></li>
+
+              <li><button class="w-full px-4 py-3 flex items-center gap-3 text-left hover:bg-neutral-50/60">
+                <span class="flex h-9 w-9 items-center justify-center rounded-lg" style="background:#fafafa;color:#525252;border:1px solid #d4d4d4">
+                  <i data-lucide="briefcase" class="h-4 w-4"></i>
+                </span>
+                <div class="min-w-0 flex-1">
+                  <div class="flex items-center gap-2">
+                    <span class="text-sm font-semibold text-neutral-900">Logistikk &amp; Lager AS</span>
+                    <span class="inline-flex items-center gap-1 rounded-full bg-neutral-100 border border-neutral-200 px-1.5 py-0.5 text-[10px] font-semibold text-neutral-600">visning</span>
+                  </div>
+                  <div class="mt-0.5 text-[11.5px] text-neutral-500">orgnr 982 003 117 · consultant · 8 maler</div>
+                </div>
+              </button></li>
+
+              <li><button class="w-full px-4 py-3 flex items-center gap-3 text-left hover:bg-neutral-50/60 opacity-60">
+                <span class="flex h-9 w-9 items-center justify-center rounded-lg" style="background:#fafafa;color:#a3a3a3;border:1px solid #e5e5e5">
+                  <i data-lucide="briefcase" class="h-4 w-4"></i>
+                </span>
+                <div class="min-w-0 flex-1">
+                  <div class="flex items-center gap-2">
+                    <span class="text-sm font-semibold text-neutral-700 line-through">Tannlege Holmestrand AS</span>
+                    <span class="inline-flex items-center gap-1 rounded-full bg-neutral-100 border border-neutral-200 px-1.5 py-0.5 text-[10px] font-semibold text-neutral-500">opphørt</span>
+                  </div>
+                  <div class="mt-0.5 text-[11.5px] text-neutral-500">revokert 02. mai · drafts purges 01. juni</div>
+                </div>
+              </button></li>
+            </ul>
+            <div class="border-t border-neutral-100 px-4 py-2.5 flex items-center justify-between text-[11px] text-neutral-500">
+              <span>Klienter er lest fra <code>partner_memberships where active = true</code></span>
+              <button class="k-btn k-btn--ghost" style="font-size:11px"><i data-lucide="user-plus" class="h-3 w-3"></i>Inviter ny klient</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Permission preview -->
+        <aside>
+          <div class="mb-3"><h2 class="text-[12px] font-bold uppercase tracking-[0.08em] text-neutral-500">Tillatelser i aktiv kontekst</h2></div>
+          <div class="module-card p-4 space-y-2.5">
+            <div class="flex items-center justify-between">
+              <div class="flex items-center gap-2">
+                <i data-lucide="check-circle-2" class="h-3.5 w-3.5 text-emerald-600"></i>
+                <span class="text-[12.5px]"><span class="font-mono text-[11px]">studio.simple</span></span>
+              </div>
+              <span class="text-[10px] text-neutral-500">via rolle</span>
+            </div>
+            <div class="flex items-center justify-between">
+              <div class="flex items-center gap-2">
+                <i data-lucide="check-circle-2" class="h-3.5 w-3.5 text-emerald-600"></i>
+                <span class="text-[12.5px]"><span class="font-mono text-[11px]">studio.advanced</span></span>
+              </div>
+              <span class="text-[10px] text-neutral-500">via partner_admin</span>
+            </div>
+            <div class="flex items-center justify-between">
+              <div class="flex items-center gap-2">
+                <i data-lucide="check-circle-2" class="h-3.5 w-3.5 text-emerald-600"></i>
+                <span class="text-[12.5px]"><span class="font-mono text-[11px]">studio.partner_admin</span></span>
+              </div>
+              <span class="text-[10px] text-neutral-500">via partner_admin</span>
+            </div>
+            <div class="flex items-center justify-between">
+              <div class="flex items-center gap-2">
+                <i data-lucide="x-circle" class="h-3.5 w-3.5 text-neutral-300"></i>
+                <span class="text-[12.5px] text-neutral-400"><span class="font-mono text-[11px]">studio.packs</span></span>
+              </div>
+              <span class="text-[10px] text-neutral-400">krever Enterprise</span>
+            </div>
+            <div class="flex items-center justify-between">
+              <div class="flex items-center gap-2">
+                <i data-lucide="x-circle" class="h-3.5 w-3.5 text-neutral-300"></i>
+                <span class="text-[12.5px] text-neutral-400"><span class="font-mono text-[11px]">studio.marketplace_publish</span></span>
+              </div>
+              <span class="text-[10px] text-neutral-400">Phase 4</span>
+            </div>
+            <div class="border-t border-neutral-100 mt-3 pt-3 text-[11px] text-neutral-500">
+              RLS sjekker både permission key og <code>is_partner_member_of()</code>. Endringer logges i <code>studio_revisions</code> med <code>changed_by</code> = konsulent + <code>partner_id</code>.
+            </div>
+          </div>
+
+          <!-- Time-tracking hint (reuses partner_time_entries from substrate) -->
+          <div class="mt-4 rounded-xl border border-[#c5d3c8] bg-[#e7efe9] px-4 py-3.5">
+            <div class="flex items-start gap-2.5">
+              <i data-lucide="clock" class="h-4 w-4 mt-0.5 text-[#1a3d32]"></i>
+              <div>
+                <p class="text-[12.5px] font-semibold text-neutral-900">Auto-tidsregistrering aktiv</p>
+                <p class="mt-1 text-[11.5px] text-neutral-700">
+                  Tiden du arbeider i Studio for denne klienten skrives til <code>partner_time_entries</code> (source=<code>auto_session</code>, 1350 kr/t).
+                </p>
+              </div>
+            </div>
+          </div>
+        </aside>
+      </div>
+
+      <div class="scene-note">
+        <span class="scene-note-label">Spec ref</span>
+        Scene 5 mapper specs/studio-builder.md §5 Phase 3 (Tasks 3.2, 3.3, 3.4). Bygger oppå eksisterende <code>partner_organizations</code> + <code>partner_memberships</code> + <code>app.active_partner_id</code> GUC fra <code>_20260907123300_partner_console_v0.sql</code> — ingen ny <code>partner_org_links</code>-tabell. Auto-tidsregistrering kobles til <code>partner_time_entries</code> som allerede finnes.
+      </div>
+    </div>
+  </section>
+
+</div>
+
+<script>
+// ─── Scene switcher (mockup-only) ─────────────────────────────────
+document.querySelectorAll('.scene-tab').forEach(tab => {
+  tab.addEventListener('click', () => {
+    const target = tab.dataset.scene;
+    document.querySelectorAll('.scene-tab').forEach(t => t.classList.toggle('is-active', t === tab));
+    document.querySelectorAll('.scene').forEach(s => {
+      const on = s.dataset.scene === target;
+      s.classList.toggle('is-active', on);
+      // Builder scene uses display:flex; others use block
+      if (on) s.style.display = (target === 'builder') ? 'flex' : 'block';
+      else s.style.display = 'none';
+    });
+    // Update chrome breadcrumb to scene context
+    const map = {
+      home:    'Studio-hjem',
+      wizard:  'Veiviser · Avvik',
+      builder: 'Arbeidsflyter',
+      pack:    'Pakker · ISO 27001',
+      partner: 'Partner-konsoll',
+    };
+    document.getElementById('chrome-section').textContent = map[target] || '';
+  });
+});
+
+// ─── Mode pill (mockup-only) ──────────────────────────────────────
+function setMode(m) {
+  document.getElementById('mode-simple').classList.toggle('is-active', m === 'simple');
+  document.getElementById('mode-advanced').classList.toggle('is-active', m === 'advanced');
+}
+
+// ─── Lucide ───────────────────────────────────────────────────────
+if (window.lucide) lucide.createIcons();
+</script>
+
+</body>
+</html>
