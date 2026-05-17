@@ -11,6 +11,8 @@ import { Check, Download, ExternalLink, Plus, Shield, ShieldAlert } from 'lucide
 import { useWorkflowCatalog } from '../../../hooks/useWorkflowCatalog'
 import { useWorkflows } from '../../../hooks/useWorkflows'
 import { getWorkflowScope, listWorkflowScopes } from '../../../lib/workflows/workflowRegistry'
+import { Button } from '../../ui/Button'
+import { SearchableSelect } from '../../ui/SearchableSelect'
 
 export function LibraryPanel({ onInstalled }: { onInstalled?: (ruleId: string) => void } = {}) {
   const { catalog, loading, error, refresh } = useWorkflowCatalog()
@@ -98,40 +100,39 @@ export function LibraryPanel({ onInstalled }: { onInstalled?: (ruleId: string) =
           {catalog.length} systemmaler · {filtered.length} viser nå
         </span>
         <span className="flex-1" />
-        <select
-          value={scopeFilter}
-          onChange={(e) => setScopeFilter(e.target.value)}
-          className="rounded-md border border-neutral-300 bg-white px-2 py-1 text-xs"
-        >
-          <option value="all">Alle scopes</option>
-          {scopes.map((s) => (
-            <option key={s.scopeId} value={s.scopeId}>
-              {s.label}
-            </option>
-          ))}
-        </select>
-        <select
-          value={packFilter}
-          onChange={(e) => setPackFilter(e.target.value)}
-          className="rounded-md border border-neutral-300 bg-white px-2 py-1 text-xs"
-        >
-          <option value="all">Alle pakker</option>
-          {packs.map((p) => (
-            <option key={p} value={p}>
-              {p}
-            </option>
-          ))}
-        </select>
+        <div className="min-w-[9rem]">
+          <SearchableSelect
+            value={scopeFilter}
+            onChange={(v) => setScopeFilter(v)}
+            triggerClassName="rounded-md border border-neutral-300 bg-white px-2 py-1 text-xs"
+            options={[
+              { value: 'all', label: 'Alle scopes' },
+              ...scopes.map((s) => ({ value: s.scopeId, label: s.label })),
+            ]}
+          />
+        </div>
+        <div className="min-w-[9rem]">
+          <SearchableSelect
+            value={packFilter}
+            onChange={(v) => setPackFilter(v)}
+            triggerClassName="rounded-md border border-neutral-300 bg-white px-2 py-1 text-xs"
+            options={[
+              { value: 'all', label: 'Alle pakker' },
+              ...packs.map((p) => ({ value: p, label: p })),
+            ]}
+          />
+        </div>
         {canCompose && (
-          <button
-            type="button"
+          <Button
+            variant="primary"
+            size="sm"
             disabled={installing !== null}
             onClick={() => installPack(packFilter === 'all' ? null : packFilter)}
             className="inline-flex items-center gap-1 rounded-md bg-emerald-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-emerald-700 disabled:opacity-50"
           >
             <Download className="h-3.5 w-3.5" />
             {installing ? 'Installerer …' : `Installer ${packFilter === 'all' ? 'alle' : packFilter}`}
-          </button>
+          </Button>
         )}
       </div>
       {installResult && (
@@ -201,24 +202,26 @@ export function LibraryPanel({ onInstalled }: { onInstalled?: (ruleId: string) =
                   <td className="px-3 py-2 text-xs text-neutral-500">v{row.catalog_version}</td>
                   <td className="px-3 py-2 text-right">
                     {installedId ? (
-                      <button
-                        type="button"
+                      <Button
+                        variant="ghost"
+                        size="sm"
                         onClick={() => onInstalled?.(installedId)}
-                        className="inline-flex items-center gap-1 rounded-md border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-[11px] font-medium text-emerald-800 hover:bg-emerald-100"
+                        className="inline-flex h-auto items-center gap-1 rounded-md border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-[11px] font-medium text-emerald-800 hover:bg-emerald-100"
                         title="Allerede installert — gå til rediger"
                       >
                         <Check className="h-3 w-3" /> Installert
-                      </button>
+                      </Button>
                     ) : (
-                      <button
-                        type="button"
+                      <Button
+                        variant="primary"
+                        size="sm"
                         disabled={!canCompose || isInstalling}
                         onClick={() => installRow(row.slug)}
-                        className="inline-flex items-center gap-1 rounded-md bg-emerald-600 px-2.5 py-1 text-[11px] font-medium text-white hover:bg-emerald-700 disabled:opacity-50"
+                        className="inline-flex h-auto items-center gap-1 rounded-md bg-emerald-600 px-2.5 py-1 text-[11px] font-medium text-white hover:bg-emerald-700 disabled:opacity-50"
                       >
                         <Plus className="h-3 w-3" />
                         {isInstalling ? 'Installerer …' : 'Bruk malen'}
-                      </button>
+                      </Button>
                     )}
                   </td>
                 </tr>

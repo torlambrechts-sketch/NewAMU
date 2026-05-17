@@ -7,6 +7,9 @@ import { Plus, Trash2 } from 'lucide-react'
 import type { WorkflowAction, WorkflowRule, WorkflowTrigger } from '../../types/moduleTemplate'
 import { createNewWorkflowRule } from './workflowRuleFactory'
 import { Button } from '../ui/Button'
+import { StandardInput } from '../ui/Input'
+import { StandardTextarea } from '../ui/Textarea'
+import { SearchableSelect } from '../ui/SearchableSelect'
 
 export type ModuleTemplateWorkflowRulesEditorVariant = 'workplace' | 'platformAdmin'
 
@@ -108,29 +111,30 @@ function ActionEditor({
       <div className="flex flex-wrap items-end gap-2">
         <div className="min-w-[140px] flex-1">
           <p className={labelUpper}>Type</p>
-          <select
+          <SearchableSelect
             value={type}
             disabled={disabled}
-            onChange={(e) => onChange(defaultActionForType(e.target.value as WorkflowAction['type']))}
-            className={INPUT}
-          >
-            <option value="notify_role">Varsle rolle</option>
-            <option value="create_task">Opprett oppgave</option>
-            <option value="send_email">Send e-post</option>
-            <option value="set_status">Sett status</option>
-            <option value="set_field">Sett felt</option>
-          </select>
+            onChange={(v) => onChange(defaultActionForType(v as WorkflowAction['type']))}
+            triggerClassName={INPUT}
+            options={[
+              { value: 'notify_role', label: 'Varsle rolle' },
+              { value: 'create_task', label: 'Opprett oppgave' },
+              { value: 'send_email', label: 'Send e-post' },
+              { value: 'set_status', label: 'Sett status' },
+              { value: 'set_field', label: 'Sett felt' },
+            ]}
+          />
         </div>
-        <button type="button" disabled={disabled} className={BTN_DANGER} onClick={onRemove} aria-label="Fjern handling">
+        <Button variant="ghost" size="icon" disabled={disabled} className={BTN_DANGER} onClick={onRemove} aria-label="Fjern handling">
           <Trash2 className="size-3.5" />
-        </button>
+        </Button>
       </div>
       <div className="mt-3 grid gap-2 sm:grid-cols-2">
         {action.type === 'notify_role' && (
           <>
             <div>
               <p className={labelUpper}>Rolle</p>
-              <input
+              <StandardInput
                 type="text"
                 disabled={disabled}
                 value={action.role}
@@ -141,7 +145,7 @@ function ActionEditor({
             </div>
             <div className="sm:col-span-2">
               <p className={labelUpper}>Melding</p>
-              <textarea
+              <StandardTextarea
                 rows={2}
                 disabled={disabled}
                 value={action.messageTemplate}
@@ -155,7 +159,7 @@ function ActionEditor({
           <>
             <div className="sm:col-span-2">
               <p className={labelUpper}>Tittel (mal)</p>
-              <input
+              <StandardInput
                 type="text"
                 disabled={disabled}
                 value={action.titleTemplate}
@@ -165,7 +169,7 @@ function ActionEditor({
             </div>
             <div>
               <p className={labelUpper}>Ansvarlig rolle</p>
-              <input
+              <StandardInput
                 type="text"
                 disabled={disabled}
                 value={action.assigneeRole}
@@ -175,7 +179,7 @@ function ActionEditor({
             </div>
             <div>
               <p className={labelUpper}>Frist (dager)</p>
-              <input
+              <StandardInput
                 type="number"
                 min={1}
                 disabled={disabled}
@@ -186,18 +190,19 @@ function ActionEditor({
             </div>
             <div>
               <p className={labelUpper}>Prioritet</p>
-              <select
+              <SearchableSelect
                 disabled={disabled}
                 value={action.priority}
-                onChange={(e) =>
-                  onChange({ ...action, priority: e.target.value as 'low' | 'medium' | 'high' })
+                onChange={(v) =>
+                  onChange({ ...action, priority: v as 'low' | 'medium' | 'high' })
                 }
-                className={INPUT}
-              >
-                <option value="low">Lav</option>
-                <option value="medium">Middels</option>
-                <option value="high">Høy</option>
-              </select>
+                triggerClassName={INPUT}
+                options={[
+                  { value: 'low', label: 'Lav' },
+                  { value: 'medium', label: 'Middels' },
+                  { value: 'high', label: 'Høy' },
+                ]}
+              />
             </div>
           </>
         )}
@@ -205,7 +210,7 @@ function ActionEditor({
           <>
             <div>
               <p className={labelUpper}>Til rolle</p>
-              <input
+              <StandardInput
                 type="text"
                 disabled={disabled}
                 value={action.toRole}
@@ -215,7 +220,7 @@ function ActionEditor({
             </div>
             <div className="sm:col-span-2">
               <p className={labelUpper}>Emne</p>
-              <input
+              <StandardInput
                 type="text"
                 disabled={disabled}
                 value={action.subjectTemplate}
@@ -225,7 +230,7 @@ function ActionEditor({
             </div>
             <div className="sm:col-span-2">
               <p className={labelUpper}>Brødtekst</p>
-              <textarea
+              <StandardTextarea
                 rows={3}
                 disabled={disabled}
                 value={action.bodyTemplate}
@@ -238,7 +243,7 @@ function ActionEditor({
         {action.type === 'set_status' && (
           <div className="sm:col-span-2">
             <p className={labelUpper}>Status (nøkkel)</p>
-            <input
+            <StandardInput
               type="text"
               disabled={disabled}
               value={action.status}
@@ -251,7 +256,7 @@ function ActionEditor({
           <>
             <div>
               <p className={labelUpper}>Felt</p>
-              <input
+              <StandardInput
                 type="text"
                 disabled={disabled}
                 value={action.field}
@@ -261,7 +266,7 @@ function ActionEditor({
             </div>
             <div>
               <p className={labelUpper}>Verdi</p>
-              <input
+              <StandardInput
                 type="text"
                 disabled={disabled}
                 value={action.value}
@@ -329,15 +334,15 @@ export function ModuleTemplateWorkflowRulesEditor({
               Legg til regel
             </Button>
           ) : (
-            <button
-              type="button"
+            <Button
+              variant="ghost"
               disabled={disabled}
               className={`${BTN_GHOST} disabled:opacity-50`}
               onClick={() => onChange([...rules, createNewWorkflowRule(rules.length)])}
             >
               <Plus className="size-3.5" strokeWidth={2} />
               Legg til regel
-            </button>
+            </Button>
           )}
         </div>
       )}
@@ -347,7 +352,7 @@ export function ModuleTemplateWorkflowRulesEditor({
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div className="min-w-0 flex-1 space-y-3">
               <div className="flex flex-wrap items-center gap-2">
-                <input
+                <StandardInput
                   type="text"
                   disabled={disabled}
                   value={rule.name}
@@ -355,7 +360,7 @@ export function ModuleTemplateWorkflowRulesEditor({
                   className={`${INPUT} min-w-[12rem] flex-1 font-semibold`}
                 />
                 <label className={checkboxLabel}>
-                  <input
+                  <StandardInput
                     type="checkbox"
                     disabled={disabled}
                     checked={rule.active}
@@ -368,11 +373,11 @@ export function ModuleTemplateWorkflowRulesEditor({
 
               <div>
                 <p className={labelUpper}>Utløser</p>
-                <select
+                <SearchableSelect
                   disabled={disabled}
                   value={rule.trigger.type}
-                  onChange={(e) => {
-                    const t = e.target.value as WorkflowTrigger['type']
+                  onChange={(v) => {
+                    const t = v as WorkflowTrigger['type']
                     const base: WorkflowTrigger =
                       t === 'on_create'
                         ? { type: 'on_create' }
@@ -385,16 +390,17 @@ export function ModuleTemplateWorkflowRulesEditor({
                               : { type: 'on_field_value', field: '', operator: 'eq', value: '' }
                     patchTrigger(i, base)
                   }}
-                  className={INPUT}
-                >
-                  <option value="on_create">Ved opprettelse</option>
-                  <option value="on_status_change">Ved statusendring</option>
-                  <option value="on_finding_added">Ved avvik registrert</option>
-                  <option value="on_overdue">Ved forfall</option>
-                  <option value="on_field_value">Feltverdi-sjekk</option>
-                </select>
+                  triggerClassName={INPUT}
+                  options={[
+                    { value: 'on_create', label: 'Ved opprettelse' },
+                    { value: 'on_status_change', label: 'Ved statusendring' },
+                    { value: 'on_finding_added', label: 'Ved avvik registrert' },
+                    { value: 'on_overdue', label: 'Ved forfall' },
+                    { value: 'on_field_value', label: 'Feltverdi-sjekk' },
+                  ]}
+                />
                 {'toStatus' in rule.trigger && (
-                  <input
+                  <StandardInput
                     type="text"
                     disabled={disabled}
                     value={rule.trigger.toStatus}
@@ -408,7 +414,7 @@ export function ModuleTemplateWorkflowRulesEditor({
                 {'daysOverdue' in rule.trigger && (
                   <div className="mt-1">
                     <p className={labelUpperSm}>Dager over frist</p>
-                    <input
+                    <StandardInput
                       type="number"
                       min={1}
                       disabled={disabled}
@@ -424,7 +430,7 @@ export function ModuleTemplateWorkflowRulesEditor({
                   </div>
                 )}
                 {'severity' in rule.trigger && (
-                  <input
+                  <StandardInput
                     type="text"
                     disabled={disabled}
                     value={rule.trigger.severity ?? ''}
@@ -440,7 +446,7 @@ export function ModuleTemplateWorkflowRulesEditor({
                 )}
                 {rule.trigger.type === 'on_field_value' && (
                   <div className="mt-2 grid gap-2 sm:grid-cols-3">
-                    <input
+                    <StandardInput
                       type="text"
                       disabled={disabled}
                       value={rule.trigger.field}
@@ -453,23 +459,24 @@ export function ModuleTemplateWorkflowRulesEditor({
                       }
                       className={`${INPUT} font-mono text-xs`}
                     />
-                    <select
+                    <SearchableSelect
                       disabled={disabled}
                       value={rule.trigger.operator}
-                      onChange={(e) =>
+                      onChange={(v) =>
                         patchTrigger(i, {
                           ...rule.trigger,
-                          operator: e.target.value as 'eq' | 'gte' | 'lte' | 'contains',
+                          operator: v as 'eq' | 'gte' | 'lte' | 'contains',
                         } as WorkflowTrigger)
                       }
-                      className={INPUT}
-                    >
-                      <option value="eq">=</option>
-                      <option value="gte">≥</option>
-                      <option value="lte">≤</option>
-                      <option value="contains">inneholder</option>
-                    </select>
-                    <input
+                      triggerClassName={INPUT}
+                      options={[
+                        { value: 'eq', label: '=' },
+                        { value: 'gte', label: '≥' },
+                        { value: 'lte', label: '≤' },
+                        { value: 'contains', label: 'inneholder' },
+                      ]}
+                    />
+                    <StandardInput
                       type="text"
                       disabled={disabled}
                       value={String(rule.trigger.value)}
@@ -488,15 +495,16 @@ export function ModuleTemplateWorkflowRulesEditor({
               <div>
                 <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
                   <p className={labelUpperSm}>Handlinger</p>
-                  <button
-                    type="button"
+                  <Button
+                    variant="ghost"
+                    size="sm"
                     disabled={disabled}
                     className={`${BTN_GHOST} py-1 text-[11px]`}
                     onClick={() => patchActions(i, [...rule.actions, defaultActionForType('notify_role')])}
                   >
                     <Plus className="size-3" />
                     Legg til handling
-                  </button>
+                  </Button>
                 </div>
                 <div className="space-y-2">
                   {rule.actions.map((a, ai) => (
@@ -518,15 +526,16 @@ export function ModuleTemplateWorkflowRulesEditor({
                 </div>
               </div>
             </div>
-            <button
-              type="button"
+            <Button
+              variant="ghost"
+              size="icon"
               disabled={disabled}
               className={`${BTN_DANGER} shrink-0 disabled:opacity-50`}
               onClick={() => onChange(rules.filter((r) => r.id !== rule.id))}
               aria-label="Slett regel"
             >
               <Trash2 className="size-4" />
-            </button>
+            </Button>
           </div>
         </div>
       ))}

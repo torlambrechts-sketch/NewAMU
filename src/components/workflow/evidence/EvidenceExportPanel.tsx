@@ -9,6 +9,8 @@ import { useState } from 'react'
 import { Download, FileCheck, ShieldCheck } from 'lucide-react'
 import { useOrgSetupContext } from '../../../hooks/useOrgSetupContext'
 import { useWorkflows } from '../../../hooks/useWorkflows'
+import { Button } from '../../ui/Button'
+import { StandardInput } from '../../ui/Input'
 
 const LAW_REF_PRESETS = [
   { label: 'AML § 5-2 (alvorlig skade)', value: 'AML § 5-2' },
@@ -83,7 +85,7 @@ export function EvidenceExportPanel() {
           <div className="grid grid-cols-2 gap-2">
             <label className="text-xs font-medium text-neutral-700">
               Fra dato
-              <input
+              <StandardInput
                 type="date"
                 value={dateFrom}
                 onChange={(e) => setDateFrom(e.target.value)}
@@ -92,7 +94,7 @@ export function EvidenceExportPanel() {
             </label>
             <label className="text-xs font-medium text-neutral-700">
               Til dato
-              <input
+              <StandardInput
                 type="date"
                 value={dateTo}
                 onChange={(e) => setDateTo(e.target.value)}
@@ -104,18 +106,20 @@ export function EvidenceExportPanel() {
             <span className="block text-xs font-medium text-neutral-700">Law refs</span>
             <div className="mt-1 flex flex-wrap gap-1">
               {LAW_REF_PRESETS.map((p) => (
-                <button
+                <Button
                   key={p.value}
-                  type="button"
+                  variant="ghost"
+                  size="sm"
                   onClick={() => toggle(lawRefs, setLawRefs, p.value)}
-                  className={`rounded-full px-2.5 py-1 text-[11px] ${
+                  aria-pressed={lawRefs.includes(p.value)}
+                  className={`h-auto rounded-full px-2.5 py-1 text-[11px] font-normal ${
                     lawRefs.includes(p.value)
-                      ? 'bg-emerald-600 text-white'
+                      ? 'bg-emerald-600 text-white hover:bg-emerald-600'
                       : 'border border-neutral-300 bg-white text-neutral-700'
                   }`}
                 >
                   {p.label}
-                </button>
+                </Button>
               ))}
             </div>
           </div>
@@ -123,24 +127,26 @@ export function EvidenceExportPanel() {
             <span className="block text-xs font-medium text-neutral-700">Rammeverk</span>
             <div className="mt-1 flex flex-wrap gap-1">
               {FRAMEWORK_PRESETS.map((f) => (
-                <button
+                <Button
                   key={f}
-                  type="button"
+                  variant="ghost"
+                  size="sm"
                   onClick={() => toggle(frameworks, setFrameworks, f)}
-                  className={`rounded-full px-2.5 py-1 text-[11px] ${
+                  aria-pressed={frameworks.includes(f)}
+                  className={`h-auto rounded-full px-2.5 py-1 text-[11px] font-normal ${
                     frameworks.includes(f)
-                      ? 'bg-emerald-600 text-white'
+                      ? 'bg-emerald-600 text-white hover:bg-emerald-600'
                       : 'border border-neutral-300 bg-white text-neutral-700'
                   }`}
                 >
                   {f}
-                </button>
+                </Button>
               ))}
             </div>
           </div>
           {canViewConfidential && (
             <label className="flex items-center gap-2 text-xs text-neutral-700">
-              <input
+              <StandardInput
                 type="checkbox"
                 checked={includeConfidential}
                 onChange={(e) => setIncludeConfidential(e.target.checked)}
@@ -148,15 +154,15 @@ export function EvidenceExportPanel() {
               Inkluder konfidensielle kjøringer (varsling, sykefravær)
             </label>
           )}
-          <button
-            type="button"
+          <Button
+            variant="primary"
             onClick={generate}
             disabled={generating}
             className="inline-flex items-center gap-1 rounded-md bg-emerald-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-emerald-700 disabled:opacity-50"
           >
             <Download className="h-4 w-4" />
             {generating ? 'Genererer …' : 'Generer pakke'}
-          </button>
+          </Button>
         </div>
         <div className="rounded-xl border border-neutral-200 bg-white p-4">
           <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-neutral-500">Resultat</h3>

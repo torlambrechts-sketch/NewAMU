@@ -7,6 +7,7 @@ import { useState } from 'react'
 import { ClipboardList, User } from 'lucide-react'
 import { useWorkflows } from '../../../hooks/useWorkflows'
 import { useWorkflowRevisions } from '../../../hooks/useWorkflowRevisions'
+import { SearchableSelect } from '../../ui/SearchableSelect'
 
 export function RevisionHistoryPanel({ initialRuleId }: { initialRuleId?: string | null } = {}) {
   const { rules } = useWorkflows()
@@ -20,18 +21,17 @@ export function RevisionHistoryPanel({ initialRuleId }: { initialRuleId?: string
         <ClipboardList className="h-4 w-4 text-neutral-600" />
         <h2 className="text-sm font-semibold text-neutral-900">Endringslogg</h2>
         <span className="flex-1" />
-        <select
-          value={selectedRuleId}
-          onChange={(e) => setSelectedRuleId(e.target.value)}
-          className="rounded-md border border-neutral-300 bg-white px-2 py-1 text-xs"
-        >
-          <option value="">— velg en regel —</option>
-          {rules.map((r) => (
-            <option key={r.id} value={r.id}>
-              {r.name}
-            </option>
-          ))}
-        </select>
+        <div className="min-w-[14rem]">
+          <SearchableSelect
+            value={selectedRuleId}
+            onChange={(v) => setSelectedRuleId(v)}
+            triggerClassName="rounded-md border border-neutral-300 bg-white px-2 py-1 text-xs"
+            options={[
+              { value: '', label: '— velg en regel —' },
+              ...rules.map((r) => ({ value: r.id, label: r.name })),
+            ]}
+          />
+        </div>
       </div>
       {!selectedRuleId ? (
         <p className="rounded-xl border border-dashed border-neutral-300 bg-white p-6 text-center text-sm text-neutral-500">

@@ -14,6 +14,8 @@ import { useMemo, useState } from 'react'
 import { AlertCircle, ChevronDown, ChevronRight, Lock, Scale, ShieldCheck } from 'lucide-react'
 import { useWorkflowSystemRules, type WorkflowSystemRuleRow } from '../../../hooks/useWorkflowSystemRules'
 import { Badge } from '../../ui/Badge'
+import { Button } from '../../ui/Button'
+import { StandardInput } from '../../ui/Input'
 
 const FRAMEWORK_LABEL: Record<string, string> = {
   AML: 'Arbeidsmiljøloven',
@@ -84,7 +86,7 @@ export function SystemRulesPanel() {
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <input
+          <StandardInput
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Søk § / regel / lovgrunnlag …"
@@ -122,25 +124,27 @@ export function SystemRulesPanel() {
                 const open = openCategories[key] !== false // default-expanded
                 return (
                   <div key={key}>
-                    <button
-                      type="button"
+                    <Button
+                      variant="ghost"
                       onClick={() => setOpenCategories((p) => ({ ...p, [key]: !open }))}
-                      className="flex w-full items-center justify-between gap-2 px-4 py-2.5 text-left hover:bg-neutral-50"
+                      aria-expanded={open}
+                      className="flex h-auto w-full items-center justify-between gap-2 rounded-none px-4 py-2.5 text-left font-normal hover:bg-neutral-50"
                     >
                       <span className="flex items-center gap-2 text-sm font-medium text-neutral-800">
                         {open ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
                         {catName}
                       </span>
                       <span className="text-xs text-neutral-500">{catRules.length}</span>
-                    </button>
+                    </Button>
                     {open && (
                       <ul className="divide-y divide-neutral-100 border-t border-neutral-100 bg-neutral-50/40">
                         {catRules.map((rule) => (
                           <li key={rule.id} className="px-4 py-3">
-                            <button
-                              type="button"
+                            <Button
+                              variant="ghost"
                               onClick={() => setActiveRule(activeRule === rule.id ? null : rule.id)}
-                              className="flex w-full items-start justify-between gap-3 text-left"
+                              aria-expanded={activeRule === rule.id}
+                              className="flex h-auto w-full items-start justify-between gap-3 rounded-none p-0 text-left font-normal hover:bg-transparent"
                             >
                               <div className="min-w-0 flex-1">
                                 <div className="flex items-center gap-2">
@@ -169,7 +173,7 @@ export function SystemRulesPanel() {
                               <ChevronRight
                                 className={`mt-1 h-4 w-4 shrink-0 text-neutral-400 transition ${activeRule === rule.id ? 'rotate-90' : ''}`}
                               />
-                            </button>
+                            </Button>
                             {activeRule === rule.id && (
                               <div className="mt-3 rounded-md border border-neutral-200 bg-white p-3 text-xs">
                                 <p className="font-semibold uppercase text-neutral-500 text-[10px] tracking-wide">

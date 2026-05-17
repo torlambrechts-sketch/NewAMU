@@ -447,7 +447,7 @@ function RuleEditor({
           </Field>
         </div>
         <label className="mt-3 flex items-center gap-2 text-sm">
-          <input
+          <StandardInput
             type="checkbox"
             checked={draft.is_active}
             onChange={(e) => patch({ is_active: e.target.checked })}
@@ -709,27 +709,31 @@ export function WorkflowRulesTab({ supabase, triggerModule, module, triggerEvent
               '—'
             return (
               <li key={rule.id}>
-                <button
-                  type="button"
+                <Button
+                  variant="ghost"
                   onClick={() => setSelectedId(rule.id)}
-                  className={`w-full rounded-xl border px-3 py-2.5 text-left transition-colors ${
+                  aria-current={active ? 'true' : undefined}
+                  className={`flex h-auto w-full flex-col items-start rounded-xl border px-3 py-2.5 text-left font-normal transition-colors hover:bg-transparent ${
                     active ? 'border-[#1a3d32] bg-[#1a3d32]/5' : 'border-neutral-200 bg-white hover:border-neutral-300'
                   }`}
                   style={active ? undefined : CARD_SHADOW}
                 >
-                  <div className="flex items-start justify-between gap-1">
+                  <div className="flex w-full items-start justify-between gap-1">
                     <p className="truncate text-sm font-semibold text-neutral-900">{rule.name}</p>
-                    <button
-                      type="button"
+                    <Button
+                      variant="ghost"
+                      size="sm"
                       onClick={(e) => { e.stopPropagation(); void toggleActive(rule) }}
-                      className={`mt-0.5 shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-semibold ${
+                      role="switch"
+                      aria-checked={rule.is_active}
+                      className={`mt-0.5 h-auto shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-semibold ${
                         rule.is_active
-                          ? 'bg-green-100 text-green-700'
-                          : 'bg-neutral-100 text-neutral-500'
+                          ? 'bg-green-100 text-green-700 hover:bg-green-100'
+                          : 'bg-neutral-100 text-neutral-500 hover:bg-neutral-100'
                       }`}
                     >
                       {rule.is_active ? 'Aktiv' : 'Av'}
-                    </button>
+                    </Button>
                   </div>
                   <p className="mt-0.5 truncate text-[11px] text-neutral-500">{eventLabel}</p>
                   <div className="mt-1.5 flex flex-wrap gap-1">
@@ -748,7 +752,7 @@ export function WorkflowRulesTab({ supabase, triggerModule, module, triggerEvent
                       </span>
                     )}
                   </div>
-                </button>
+                </Button>
               </li>
             )
           })}

@@ -13,6 +13,9 @@ import { PlayCircle } from 'lucide-react'
 import { useWorkflows } from '../../../hooks/useWorkflows'
 import type { WorkflowAction, WorkflowCondition, WorkflowRuleRow, WorkflowXorActionsEnvelope } from '../../../types/workflow'
 import { isGovernmentActionType } from '../../../types/workflow'
+import { Button } from '../../ui/Button'
+import { StandardTextarea } from '../../ui/Textarea'
+import { SearchableSelect } from '../../ui/SearchableSelect'
 
 function matches(cond: WorkflowCondition, payload: Record<string, unknown>): boolean {
   if (!cond) return true
@@ -117,33 +120,31 @@ export function DryRunPanel({ rules }: { rules?: WorkflowRuleRow[] }) {
       <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
         <div className="space-y-2 rounded-xl border border-neutral-200 bg-white p-4">
           <label className="text-xs font-medium text-neutral-700">Regel</label>
-          <select
+          <SearchableSelect
             value={selectedRuleId}
-            onChange={(e) => setSelectedRuleId(e.target.value)}
-            className="w-full rounded-md border border-neutral-300 bg-white px-2 py-1.5 text-sm"
-          >
-            <option value="">— velg en regel —</option>
-            {candidateRules.map((r) => (
-              <option key={r.id} value={r.id}>
-                {r.name} ({r.source_module})
-              </option>
-            ))}
-          </select>
+            onChange={(v) => setSelectedRuleId(v)}
+            triggerClassName="w-full rounded-md border border-neutral-300 bg-white px-2 py-1.5 text-sm"
+            options={[
+              { value: '', label: '— velg en regel —' },
+              ...candidateRules.map((r) => ({ value: r.id, label: `${r.name} (${r.source_module})` })),
+            ]}
+          />
           <label className="mt-3 block text-xs font-medium text-neutral-700">Payload (JSON)</label>
-          <textarea
+          <StandardTextarea
             value={payload}
             onChange={(e) => setPayload(e.target.value)}
             rows={10}
             className="w-full rounded-md border border-neutral-300 bg-neutral-50 px-2 py-1.5 font-mono text-xs"
           />
-          <button
-            type="button"
+          <Button
+            variant="primary"
+            size="sm"
             onClick={simulate}
             className="inline-flex items-center gap-1 rounded-md bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-700"
           >
             <PlayCircle className="h-3.5 w-3.5" />
             Simuler
-          </button>
+          </Button>
         </div>
         <div className="rounded-xl border border-neutral-200 bg-white p-4">
           <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-neutral-500">Resultat</h3>

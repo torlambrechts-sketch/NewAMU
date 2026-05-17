@@ -12,6 +12,7 @@ import {
   Zap,
 } from 'lucide-react'
 import { WorkflowFlowBuilder } from '../components/workflow/WorkflowFlowBuilder'
+import { Button } from '../components/ui/Button'
 import { flowDocumentFromLegacy } from '../lib/workflowFlowFromLegacy'
 import {
   compileWorkflowFlow,
@@ -228,9 +229,10 @@ export function WorkflowModulePage() {
       aria-label="Arbeidsflyt-seksjoner"
     >
       {/* Overview */}
-      <button
-        type="button"
+      <Button
+        variant="ghost"
         onClick={() => setSection('overview')}
+        aria-current={section === 'overview' ? 'page' : undefined}
         className={`${SIDEBAR_ITEM_BASE} ${section === 'overview' ? SIDEBAR_ITEM_ACTIVE : SIDEBAR_ITEM_INACTIVE}`}
       >
         <BarChart2 className="size-4 shrink-0" />
@@ -238,7 +240,7 @@ export function WorkflowModulePage() {
         <span className={`ml-auto rounded-full px-1.5 py-0.5 text-[10px] font-semibold ${section === 'overview' ? 'bg-white/20 text-white' : 'bg-emerald-100 text-emerald-700'}`}>
           {wf.rules.filter((r) => r.is_active).length}/{wf.rules.length}
         </span>
-      </button>
+      </Button>
 
       {/* Per-module sections */}
       <p className={SIDEBAR_DIVIDER_LABEL}>Moduler</p>
@@ -248,10 +250,11 @@ export function WorkflowModulePage() {
         const active = activeByModule.get(mod.value) ?? 0
         const total = totalByModule.get(mod.value) ?? 0
         return (
-          <button
+          <Button
             key={mod.value}
-            type="button"
+            variant="ghost"
             onClick={() => setSection(s)}
+            aria-current={isActive ? 'page' : undefined}
             className={`${SIDEBAR_ITEM_BASE} ${isActive ? SIDEBAR_ITEM_ACTIVE : SIDEBAR_ITEM_INACTIVE}`}
           >
             <GitBranch className="size-4 shrink-0" />
@@ -261,31 +264,34 @@ export function WorkflowModulePage() {
                 {active}/{total}
               </span>
             )}
-          </button>
+          </Button>
         )
       })}
 
       {/* System sections */}
       <p className={SIDEBAR_DIVIDER_LABEL}>System</p>
-      <button
-        type="button"
+      <Button
+        variant="ghost"
         onClick={() => setSection('module-rules')}
+        aria-current={section === 'module-rules' ? 'page' : undefined}
         className={`${SIDEBAR_ITEM_BASE} ${section === 'module-rules' ? SIDEBAR_ITEM_ACTIVE : SIDEBAR_ITEM_INACTIVE}`}
       >
         <LayoutTemplate className="size-4 shrink-0" />
         <span>Modul-maler</span>
-      </button>
-      <button
-        type="button"
+      </Button>
+      <Button
+        variant="ghost"
         onClick={() => setSection('runs')}
+        aria-current={section === 'runs' ? 'page' : undefined}
         className={`${SIDEBAR_ITEM_BASE} ${section === 'runs' ? SIDEBAR_ITEM_ACTIVE : SIDEBAR_ITEM_INACTIVE}`}
       >
         <History className="size-4 shrink-0" />
         <span>Historikk</span>
-      </button>
-      <button
-        type="button"
+      </Button>
+      <Button
+        variant="ghost"
         onClick={() => setSection('settings')}
+        aria-current={section === 'settings' ? 'page' : undefined}
         className={`${SIDEBAR_ITEM_BASE} ${section === 'settings' ? SIDEBAR_ITEM_ACTIVE : SIDEBAR_ITEM_INACTIVE}`}
       >
         <Settings className="size-4 shrink-0" />
@@ -295,17 +301,17 @@ export function WorkflowModulePage() {
             {templatesCount}
           </span>
         )}
-      </button>
+      </Button>
     </nav>
   )
 
   // ── Rule editor drawer ─────────────────────────────────────────────────────
   const editorDrawer = editorOpen && wf.canManage ? (
     <>
-      <button
-        type="button"
+      <Button
+        variant="ghost"
         aria-label="Lukk"
-        className="fixed inset-0 z-[60] bg-black/40"
+        className="fixed inset-0 z-[60] rounded-none bg-black/40 p-0 hover:bg-black/40"
         onClick={closeEditor}
       />
       <aside className="fixed inset-y-0 right-0 z-[70] flex w-full max-w-[min(100vw,1200px)] flex-col border-l border-neutral-200/90 bg-[#f7f6f2] shadow-2xl">
@@ -318,14 +324,15 @@ export function WorkflowModulePage() {
               Bygg flyten med menyene. <strong>XOR</strong> gir parallelle grener der nøyaktig én matcher.
             </p>
           </div>
-          <button
-            type="button"
+          <Button
+            variant="ghost"
+            size="icon"
             onClick={closeEditor}
-            className="rounded-lg border border-transparent p-2 text-neutral-500 hover:bg-white/80 hover:text-neutral-800"
+            className="h-auto w-auto rounded-lg border border-transparent p-2 text-neutral-500 hover:bg-white/80 hover:text-neutral-800"
             aria-label="Lukk"
           >
             <X className="size-5" />
-          </button>
+          </Button>
         </div>
 
         <div className="min-h-0 flex-1 overflow-y-auto bg-[#f7f6f2] px-4 py-4 sm:px-5">
@@ -373,22 +380,23 @@ export function WorkflowModulePage() {
 
           <div className="mt-6 border-t border-neutral-200/80 pt-4">
             <div className="rounded-none border border-neutral-200/90 bg-[#f4f1ea] p-5 sm:p-6">
-              <button
-                type="button"
+              <Button
+                variant="ghost"
                 onClick={() => setDevJsonOpen((o) => !o)}
-                className="flex w-full items-center justify-between gap-2 rounded-lg border border-neutral-200/90 bg-white px-3 py-2.5 text-left text-sm font-medium text-neutral-800 hover:bg-neutral-50"
+                aria-expanded={devJsonOpen}
+                className="flex h-auto w-full items-center justify-between gap-2 rounded-lg border border-neutral-200/90 bg-white px-3 py-2.5 text-left text-sm font-medium text-neutral-800 hover:bg-neutral-50"
               >
                 <span className="text-sm font-semibold text-neutral-900">Utvikler: JSON (import / eksport)</span>
                 <ChevronDown className={`size-4 shrink-0 text-neutral-500 transition ${devJsonOpen ? 'rotate-180' : ''}`} />
-              </button>
+              </Button>
               {devJsonOpen && (
                 <div className="mt-4 space-y-4 border-t border-neutral-200/80 pt-4">
                   <p className="text-sm leading-relaxed text-neutral-600">Kun for feilsøking eller migrering. «Synkroniser til flyt» overskriver den visuelle byggeren.</p>
                   <div className="flex flex-wrap gap-2">
-                    <button type="button" onClick={() => { setConditionText(JSON.stringify(conditionJson, null, 2)); setActionsText(actionsToJsonString(actionsPayload)) }} className={BTN_SEC}>
+                    <Button variant="secondary" onClick={() => { setConditionText(JSON.stringify(conditionJson, null, 2)); setActionsText(actionsToJsonString(actionsPayload)) }} className={BTN_SEC}>
                       Oppdater tekstfelt fra flyt
-                    </button>
-                    <button type="button" onClick={applyAdvancedToFlow} className={BTN_SEC}>Synkroniser JSON → flyt</button>
+                    </Button>
+                    <Button variant="secondary" onClick={applyAdvancedToFlow} className={BTN_SEC}>Synkroniser JSON → flyt</Button>
                   </div>
                   <div>
                     <label className="mb-1 text-[10px] font-bold uppercase tracking-wider text-neutral-500" htmlFor="wf-dev-cond">Betingelse (JSON)</label>
@@ -405,10 +413,10 @@ export function WorkflowModulePage() {
         </div>
 
         <div className="flex shrink-0 flex-wrap justify-end gap-2 border-t border-neutral-200/90 bg-[#f4f1ea] px-5 py-4">
-          <button type="button" onClick={closeEditor} className={BTN_SEC}>Avbryt</button>
-          <button type="button" onClick={() => void handleSaveRule()} className={BTN_PRI}>
+          <Button variant="secondary" onClick={closeEditor} className={BTN_SEC}>Avbryt</Button>
+          <Button variant="primary" onClick={() => void handleSaveRule()} className={BTN_PRI}>
             Lagre regel <span className="text-xs opacity-70">(starter inaktiv)</span>
-          </button>
+          </Button>
         </div>
       </aside>
     </>
@@ -433,9 +441,9 @@ export function WorkflowModulePage() {
         </div>
         {wf.canManage && (
           <div className="ml-auto flex items-center">
-            <button type="button" onClick={() => openNewRule()} className={BTN_PRI}>
+            <Button variant="primary" onClick={() => openNewRule()} className={BTN_PRI}>
               <Plus className="size-4" /> Ny regel
-            </button>
+            </Button>
           </div>
         )}
       </div>
@@ -468,14 +476,15 @@ export function WorkflowModulePage() {
                   {moduleRules.length > 4 && <li className="text-[11px] text-neutral-400">+{moduleRules.length - 4} til</li>}
                 </ul>
               )}
-              <button
-                type="button"
+              <Button
+                variant="ghost"
+                size="sm"
                 onClick={() => setSection(`module:${mod.value}`)}
-                className="mt-auto inline-flex items-center gap-1 text-[11px] font-medium text-[#1a3d32] hover:underline"
+                className="mt-auto inline-flex h-auto items-center gap-1 rounded-none p-0 text-[11px] font-medium text-[#1a3d32] hover:bg-transparent hover:underline"
               >
                 <GitBranch className="size-3" />
                 {moduleRules.length > 0 ? 'Rediger regler' : 'Legg til regler'}
-              </button>
+              </Button>
             </div>
           )
         })}
@@ -495,9 +504,9 @@ export function WorkflowModulePage() {
           </p>
         </div>
         {wf.canManage && (
-          <button type="button" onClick={() => openNewRule(activeModuleSlug)} className={BTN_PRI}>
+          <Button variant="primary" onClick={() => openNewRule(activeModuleSlug)} className={BTN_PRI}>
             <Plus className="size-4" /> Ny regel
-          </button>
+          </Button>
         )}
       </div>
       <WorkflowRulesTab key={activeModuleSlug} supabase={supabase} module={activeModuleSlug} />
@@ -556,8 +565,8 @@ export function WorkflowModulePage() {
           </p>
         </div>
         {wf.canManage ? (
-          <button
-            type="button"
+          <Button
+            variant="ghost"
             onClick={async () => {
               const r = await wf.seedComplianceTemplates()
               if (r.ok) alert('Maler lagt til (eller fantes fra før).')
@@ -565,7 +574,7 @@ export function WorkflowModulePage() {
             className="inline-flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-4 py-2.5 text-sm font-medium text-amber-950 hover:bg-amber-100"
           >
             <Zap className="size-4" /> Importer compliance-maler
-          </button>
+          </Button>
         ) : (
           <p className="text-sm text-neutral-500">Kun administratorer med «workflows.manage» kan importere.</p>
         )}

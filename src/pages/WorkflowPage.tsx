@@ -21,6 +21,9 @@ import {
 } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { ModulePageShell, ModuleSectionCard } from '../components/module'
+import { Button } from '../components/ui/Button'
+import { StandardInput } from '../components/ui/Input'
+import { SearchableSelect } from '../components/ui/SearchableSelect'
 import { useWorkflows } from '../hooks/useWorkflows'
 import { useOrgSetupContext } from '../hooks/useOrgSetupContext'
 import { getWfModuleMeta } from '../components/workflow/workflowModuleRegistry'
@@ -44,11 +47,13 @@ function ModChip({ sourceModule }: { sourceModule: string }) {
 
 function Toggle({ value, onChange }: { value: boolean; onChange: (v: boolean) => void }) {
   return (
-    <button
-      type="button"
+    <Button
+      variant="ghost"
       onClick={() => onChange(!value)}
       title={value ? 'Aktiv' : 'Inaktiv'}
-      className="inline-flex items-center"
+      role="switch"
+      aria-checked={value}
+      className="inline-flex h-auto items-center rounded-none p-0 hover:bg-transparent"
     >
       <span
         className="relative inline-flex h-5 w-9 items-center rounded-full transition-colors"
@@ -59,7 +64,7 @@ function Toggle({ value, onChange }: { value: boolean; onChange: (v: boolean) =>
           style={{ transform: value ? 'translateX(18px)' : 'translateX(2px)' }}
         />
       </span>
-    </button>
+    </Button>
   )
 }
 
@@ -190,14 +195,17 @@ function WorkflowLibrary({
         className="flex flex-wrap items-center gap-2 rounded-xl bg-white px-4 py-3"
         style={{ border: '1px solid #e5e5e5', boxShadow: '0 1px 2px rgba(0,0,0,0.04)' }}
       >
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-1" role="radiogroup" aria-label="Regel-filter">
           {tabs.map((t) => (
-            <button
+            <Button
               key={t.id}
+              variant="ghost"
               onClick={() => setActiveFilter(t.id as typeof activeFilter)}
+              role="radio"
+              aria-checked={activeFilter === t.id}
               className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-semibold transition-colors ${
                 activeFilter === t.id
-                  ? 'bg-neutral-900 text-white'
+                  ? 'bg-neutral-900 text-white hover:bg-neutral-900'
                   : 'text-neutral-600 hover:bg-neutral-100'
               }`}
             >
@@ -209,33 +217,34 @@ function WorkflowLibrary({
               >
                 {t.count}
               </span>
-            </button>
+            </Button>
           ))}
         </div>
 
         <div className="ml-auto flex items-center gap-2">
           <label className="flex items-center gap-1.5 rounded-md border border-neutral-300 bg-white px-2.5 py-1.5 text-xs">
             <Search className="h-3.5 w-3.5 text-neutral-400" />
-            <input
+            <StandardInput
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="w-44 outline-none placeholder:text-neutral-400"
+              className="w-44 border-0 p-0 outline-none placeholder:text-neutral-400 focus:ring-0"
               placeholder="Søk i navn, ID..."
             />
           </label>
-          <select
-            value={moduleFilter}
-            onChange={(e) => setModuleFilter(e.target.value)}
-            className="rounded-md border border-neutral-300 bg-white px-2.5 py-1.5 text-xs"
-          >
-            <option value="alle">Alle moduler</option>
-            {moduleOptions.map((m) => (
-              <option key={m} value={m}>{getWfModuleMeta(m).label}</option>
-            ))}
-          </select>
-          <button className="rounded-md border border-neutral-300 bg-white p-1.5 text-neutral-500 hover:bg-neutral-50" title="Sortering">
+          <div className="min-w-[10rem]">
+            <SearchableSelect
+              value={moduleFilter}
+              onChange={(v) => setModuleFilter(v)}
+              triggerClassName="rounded-md border border-neutral-300 bg-white px-2.5 py-1.5 text-xs"
+              options={[
+                { value: 'alle', label: 'Alle moduler' },
+                ...moduleOptions.map((m) => ({ value: m, label: getWfModuleMeta(m).label })),
+              ]}
+            />
+          </div>
+          <Button variant="ghost" size="icon" className="h-auto w-auto rounded-md border border-neutral-300 bg-white p-1.5 text-neutral-500 hover:bg-neutral-50" title="Sortering" aria-label="Sortering">
             <ArrowUpDown className="h-3.5 w-3.5" />
-          </button>
+          </Button>
         </div>
       </div>
 
@@ -247,13 +256,14 @@ function WorkflowLibrary({
             {search || moduleFilter !== 'alle' ? 'Prøv et annet søk eller fjern filtre.' : 'Kom i gang ved å opprette din første arbeidsflyt.'}
           </p>
           {canManage && (
-            <button
+            <Button
+              variant="primary"
               onClick={() => onNew()}
               className="mt-4 inline-flex items-center gap-1.5 rounded-lg bg-[#1a3d32] px-4 py-2 text-sm font-semibold text-white hover:bg-[#153329]"
             >
               <Plus className="h-4 w-4" />
               Ny arbeidsflyt
-            </button>
+            </Button>
           )}
         </ModuleSectionCard>
       )}
@@ -271,13 +281,15 @@ function WorkflowLibrary({
                 </span>
               </div>
               {canManage && (
-                <button
+                <Button
+                  variant="ghost"
+                  size="sm"
                   onClick={() => onNew(mod)}
-                  className="text-xs font-semibold hover:underline"
+                  className="h-auto rounded-none p-0 text-xs font-semibold hover:bg-transparent hover:underline"
                   style={{ color: meta.accent }}
                 >
                   + Ny i {meta.label.toLowerCase()}
-                </button>
+                </Button>
               )}
             </div>
             <ul className="divide-y divide-neutral-100">
@@ -294,12 +306,14 @@ function WorkflowLibrary({
                       />
                       <div className="min-w-0">
                         <div className="flex items-baseline gap-2">
-                          <button
+                          <Button
+                            variant="ghost"
+                            size="sm"
                             onClick={() => onEdit(r.id)}
-                            className="text-sm font-semibold text-neutral-900 hover:underline"
+                            className="h-auto rounded-none p-0 text-sm font-semibold text-neutral-900 hover:bg-transparent hover:underline"
                           >
                             {r.name}
-                          </button>
+                          </Button>
                           <span className="font-mono text-[10px] text-neutral-400">{r.slug}</span>
                         </div>
                         <p className="mt-0.5 line-clamp-1 text-xs text-neutral-600">{r.description}</p>
@@ -320,9 +334,9 @@ function WorkflowLibrary({
                       <span className="flex h-7 w-7 items-center justify-center rounded-full bg-neutral-200 text-[10px] font-semibold text-neutral-700">
                         AD
                       </span>
-                      <button className="rounded-md p-1.5 text-neutral-500 hover:bg-neutral-100">
+                      <Button variant="ghost" size="icon" className="h-auto w-auto rounded-md p-1.5 text-neutral-500 hover:bg-neutral-100" aria-label="Mer">
                         <MoreHorizontal className="h-4 w-4" />
-                      </button>
+                      </Button>
                     </div>
                   </div>
                 </li>
@@ -385,13 +399,14 @@ function TemplateCatalog({
                 ))}
               </div>
             )}
-            <button
+            <Button
+              variant="secondary"
               onClick={() => onUse(t)}
               className="mt-4 w-full rounded-lg border py-2 text-xs font-semibold transition-colors hover:opacity-90"
               style={{ borderColor: meta.border, color: meta.accent, background: meta.tint }}
             >
               Bruk denne malen
-            </button>
+            </Button>
           </div>
         )
       })}
@@ -545,25 +560,27 @@ export function WorkflowPage() {
       description="Knytt hendelser fra alle moduler — avvik, ROS, vernerunder, sykefravær — til handlinger som e-post, oppgaver, signaturer og ROS-utkast. Sporer alt for revisor."
       headerActions={
         <div className="flex shrink-0 flex-wrap items-center gap-2">
-          <button className="inline-flex items-center gap-1.5 rounded-lg border border-neutral-300 bg-white px-3 py-2 text-sm font-semibold text-neutral-700 hover:bg-neutral-50">
+          <Button variant="secondary" className="inline-flex items-center gap-1.5 rounded-lg border border-neutral-300 bg-white px-3 py-2 text-sm font-semibold text-neutral-700 hover:bg-neutral-50">
             <Upload className="h-3.5 w-3.5" />
             Importer mal
-          </button>
-          <button
+          </Button>
+          <Button
+            variant="secondary"
             onClick={() => handleTabChange('historikk')}
             className="inline-flex items-center gap-1.5 rounded-lg border border-neutral-300 bg-white px-3 py-2 text-sm font-semibold text-neutral-700 hover:bg-neutral-50"
           >
             <History className="h-3.5 w-3.5" />
             Kjørehistorikk
-          </button>
+          </Button>
           {canManage && (
-            <button
+            <Button
+              variant="primary"
               onClick={() => handleNew()}
               className="inline-flex items-center gap-1.5 rounded-lg bg-[#1a3d32] px-3 py-2 text-sm font-semibold text-white hover:bg-[#153329]"
             >
               <Plus className="h-4 w-4" />
               Ny arbeidsflyt
-            </button>
+            </Button>
           )}
         </div>
       }
@@ -572,19 +589,22 @@ export function WorkflowPage() {
       <WfKpiStrip rules={rules} runs={runs} />
 
       {/* Tab bar */}
-      <div className="flex items-center gap-1 border-b border-neutral-200 pb-0">
+      <div className="flex items-center gap-1 border-b border-neutral-200 pb-0" role="tablist">
         {tabs.map((t) => (
-          <button
+          <Button
             key={t.id}
+            variant="ghost"
             onClick={() => handleTabChange(t.id)}
-            className={`-mb-px border-b-2 px-4 py-2.5 text-sm font-semibold transition-colors ${
+            role="tab"
+            aria-selected={tab === t.id}
+            className={`-mb-px rounded-none border-b-2 px-4 py-2.5 text-sm font-semibold transition-colors hover:bg-transparent ${
               tab === t.id
                 ? 'border-[#1a3d32] text-[#1a3d32]'
                 : 'border-transparent text-neutral-500 hover:text-neutral-800'
             }`}
           >
             {t.label}
-          </button>
+          </Button>
         ))}
       </div>
 

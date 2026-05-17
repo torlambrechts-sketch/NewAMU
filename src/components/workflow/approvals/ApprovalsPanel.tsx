@@ -11,6 +11,8 @@ import { useMemo, useState } from 'react'
 import { AlertTriangle, Check, Clock, FileWarning, X } from 'lucide-react'
 import { useWorkflowApprovals } from '../../../hooks/useWorkflowApprovals'
 import { useWorkflows } from '../../../hooks/useWorkflows'
+import { Button } from '../../ui/Button'
+import { StandardTextarea } from '../../ui/Textarea'
 
 export function ApprovalsPanel() {
   const { approvals, loading, error, decide } = useWorkflowApprovals()
@@ -46,25 +48,29 @@ export function ApprovalsPanel() {
       <div className="flex flex-wrap items-center gap-2 rounded-xl border border-neutral-200 bg-white px-4 py-3">
         <h2 className="text-sm font-semibold text-neutral-900">Godkjenninger</h2>
         <span className="flex-1" />
-        <div className="flex rounded-md bg-neutral-100 p-0.5">
-          <button
-            type="button"
+        <div className="flex rounded-md bg-neutral-100 p-0.5" role="radiogroup" aria-label="Godkjenningsstatus">
+          <Button
+            variant="ghost"
             onClick={() => setStatusTab('pending')}
+            role="radio"
+            aria-checked={statusTab === 'pending'}
             className={`rounded px-3 py-1 text-xs font-medium ${
-              statusTab === 'pending' ? 'bg-white text-neutral-900 shadow-sm' : 'text-neutral-600'
+              statusTab === 'pending' ? 'bg-white text-neutral-900 shadow-sm hover:bg-white' : 'text-neutral-600 hover:bg-transparent'
             }`}
           >
             Venter ({approvals.filter((a) => a.status === 'pending').length})
-          </button>
-          <button
-            type="button"
+          </Button>
+          <Button
+            variant="ghost"
             onClick={() => setStatusTab('decided')}
+            role="radio"
+            aria-checked={statusTab === 'decided'}
             className={`rounded px-3 py-1 text-xs font-medium ${
-              statusTab === 'decided' ? 'bg-white text-neutral-900 shadow-sm' : 'text-neutral-600'
+              statusTab === 'decided' ? 'bg-white text-neutral-900 shadow-sm hover:bg-white' : 'text-neutral-600 hover:bg-transparent'
             }`}
           >
             Besluttet ({approvals.filter((a) => a.status !== 'pending').length})
-          </button>
+          </Button>
         </div>
       </div>
 
@@ -95,13 +101,14 @@ export function ApprovalsPanel() {
                     : 'border-neutral-100 opacity-90'
                 }`}
               >
-                <button
-                  type="button"
+                <Button
+                  variant="ghost"
                   onClick={() => {
                     setActiveId(isExpanded ? null : a.id)
                     setNote('')
                   }}
-                  className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left"
+                  aria-expanded={isExpanded}
+                  className="flex h-auto w-full items-center justify-between gap-3 rounded-none px-4 py-3 text-left font-normal hover:bg-neutral-50"
                 >
                   <div className="min-w-0">
                     <div className="flex items-center gap-2">
@@ -133,7 +140,7 @@ export function ApprovalsPanel() {
                       {a.status}
                     </span>
                   </div>
-                </button>
+                </Button>
                 {isExpanded && (
                   <div className="border-t border-neutral-100 px-4 py-3">
                     <div className="grid grid-cols-2 gap-2 text-xs">
@@ -175,7 +182,7 @@ export function ApprovalsPanel() {
                             Forsikre deg om at innholdet er korrekt før godkjenning.
                           </div>
                         )}
-                        <textarea
+                        <StandardTextarea
                           value={note}
                           onChange={(e) => setNote(e.target.value)}
                           placeholder="Begrunnelse (valgfritt, men anbefalt for revisjonsspor)"
@@ -183,20 +190,22 @@ export function ApprovalsPanel() {
                           className="w-full rounded-md border border-neutral-300 px-2 py-1.5 text-xs"
                         />
                         <div className="flex gap-2">
-                          <button
-                            type="button"
+                          <Button
+                            variant="primary"
+                            size="sm"
                             onClick={() => handleDecide(a.id, 'approved')}
                             className="inline-flex items-center gap-1 rounded-md bg-emerald-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-emerald-700"
                           >
                             <Check className="h-3.5 w-3.5" /> Godkjenn
-                          </button>
-                          <button
-                            type="button"
+                          </Button>
+                          <Button
+                            variant="secondary"
+                            size="sm"
                             onClick={() => handleDecide(a.id, 'rejected')}
                             className="inline-flex items-center gap-1 rounded-md border border-rose-300 bg-white px-3 py-1.5 text-xs font-medium text-rose-700 hover:bg-rose-50"
                           >
                             <X className="h-3.5 w-3.5" /> Avvis
-                          </button>
+                          </Button>
                         </div>
                       </div>
                     )}

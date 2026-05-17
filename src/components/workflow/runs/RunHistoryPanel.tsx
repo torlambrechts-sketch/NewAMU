@@ -11,6 +11,8 @@ import { ChevronRight, Clock, Eye, EyeOff, Lock } from 'lucide-react'
 import { useWorkflows } from '../../../hooks/useWorkflows'
 import { useWorkflowRunDetail } from '../../../hooks/useWorkflowRunDetail'
 import type { WorkflowRunRow } from '../../../types/workflow'
+import { StandardInput } from '../../ui/Input'
+import { SearchableSelect } from '../../ui/SearchableSelect'
 
 const statusTint: Record<string, { bg: string; fg: string }> = {
   completed: { bg: '#ecfdf5', fg: '#047857' },
@@ -50,22 +52,25 @@ export function RunHistoryPanel({ ruleId }: { ruleId?: string }) {
           <h2 className="text-sm font-semibold text-neutral-900">Kjøringer</h2>
           <span className="text-xs text-neutral-500">{filtered.length} treff</span>
           <span className="flex-1" />
-          <input
+          <StandardInput
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Søk i hendelse / detalj …"
             className="rounded-md border border-neutral-300 bg-white px-2 py-1 text-xs"
           />
-          <select
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
-            className="rounded-md border border-neutral-300 bg-white px-2 py-1 text-xs"
-          >
-            <option value="all">Alle statuser</option>
-            <option value="completed">Fullført</option>
-            <option value="skipped">Hoppet over</option>
-            <option value="failed">Feilet</option>
-          </select>
+          <div className="min-w-[10rem]">
+            <SearchableSelect
+              value={statusFilter}
+              onChange={(v) => setStatusFilter(v)}
+              triggerClassName="rounded-md border border-neutral-300 bg-white px-2 py-1 text-xs"
+              options={[
+                { value: 'all', label: 'Alle statuser' },
+                { value: 'completed', label: 'Fullført' },
+                { value: 'skipped', label: 'Hoppet over' },
+                { value: 'failed', label: 'Feilet' },
+              ]}
+            />
+          </div>
         </div>
         <div className="overflow-hidden rounded-xl border border-neutral-200 bg-white">
           <table className="min-w-full text-sm">

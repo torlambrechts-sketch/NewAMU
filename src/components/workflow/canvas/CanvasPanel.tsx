@@ -19,6 +19,8 @@ import { useWorkflows } from '../../../hooks/useWorkflows'
 import { WorkflowFlowBuilder } from '../WorkflowFlowBuilder'
 import { getWorkflowScope } from '../../../lib/workflows/workflowRegistry'
 import { Badge } from '../../ui/Badge'
+import { Button } from '../../ui/Button'
+import { SearchableSelect } from '../../ui/SearchableSelect'
 import { isGovernmentActionType } from '../../../types/workflow'
 import type { WorkflowAction, WorkflowXorActionsEnvelope } from '../../../types/workflow'
 import {
@@ -116,28 +118,28 @@ export function CanvasPanel({ initialRuleId }: { initialRuleId?: string | null }
         <Workflow className="h-4 w-4 text-emerald-700" />
         <h2 className="text-sm font-semibold text-neutral-900">Visuell canvas</h2>
         <span className="flex-1" />
-        <select
-          value={selectedRuleId}
-          onChange={(e) => selectRule(e.target.value)}
-          className="rounded-md border border-neutral-300 bg-white px-2 py-1 text-xs"
-        >
-          <option value="">— velg en regel —</option>
-          {rules.map((r) => (
-            <option key={r.id} value={r.id}>
-              {r.name} ({r.source_module})
-            </option>
-          ))}
-        </select>
+        <div className="min-w-[14rem]">
+          <SearchableSelect
+            value={selectedRuleId}
+            onChange={(v) => selectRule(v)}
+            triggerClassName="rounded-md border border-neutral-300 bg-white px-2 py-1 text-xs"
+            options={[
+              { value: '', label: '— velg en regel —' },
+              ...rules.map((r) => ({ value: r.id, label: `${r.name} (${r.source_module})` })),
+            ]}
+          />
+        </div>
         {rule && canCompose && (
-          <button
-            type="button"
+          <Button
+            variant="primary"
+            size="sm"
             onClick={save}
             disabled={saving}
             className="inline-flex items-center gap-1 rounded-md bg-emerald-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-emerald-700 disabled:opacity-50"
           >
             <Save className="h-3.5 w-3.5" />
             {saving ? 'Lagrer …' : 'Lagre'}
-          </button>
+          </Button>
         )}
       </div>
       {error && <p className="rounded-md bg-rose-50 px-3 py-2 text-sm text-rose-800">{error}</p>}

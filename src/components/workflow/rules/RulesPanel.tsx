@@ -25,6 +25,9 @@ import { isGovernmentActionType } from '../../../types/workflow'
 import type { WorkflowAction, WorkflowRuleRow, WorkflowXorActionsEnvelope } from '../../../types/workflow'
 import { getWorkflowScope, listWorkflowScopes } from '../../../lib/workflows/workflowRegistry'
 import { Badge } from '../../ui/Badge'
+import { Button } from '../../ui/Button'
+import { StandardInput } from '../../ui/Input'
+import { SearchableSelect } from '../../ui/SearchableSelect'
 
 function ruleContainsGovAction(rule: WorkflowRuleRow): boolean {
   const a = rule.actions_json
@@ -106,26 +109,25 @@ export function RulesPanel({
           {rules.length} totalt · {filtered.length} viser nå · {rules.filter((r) => r.is_active).length} aktive
         </span>
         <span className="flex-1" />
-        <input
+        <StandardInput
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           placeholder="Søk navn / slug / law ref …"
           className="rounded-md border border-neutral-300 bg-white px-2 py-1 text-xs"
         />
-        <select
-          value={scopeFilter}
-          onChange={(e) => setScopeFilter(e.target.value)}
-          className="rounded-md border border-neutral-300 bg-white px-2 py-1 text-xs"
-        >
-          <option value="all">Alle moduler</option>
-          {scopes.map((s) => (
-            <option key={s.scopeId} value={s.scopeId}>
-              {s.label}
-            </option>
-          ))}
-        </select>
+        <div className="min-w-[10rem]">
+          <SearchableSelect
+            value={scopeFilter}
+            onChange={(v) => setScopeFilter(v)}
+            triggerClassName="rounded-md border border-neutral-300 bg-white px-2 py-1 text-xs"
+            options={[
+              { value: 'all', label: 'Alle moduler' },
+              ...scopes.map((s) => ({ value: s.scopeId, label: s.label })),
+            ]}
+          />
+        </div>
         <label className="inline-flex items-center gap-1 text-xs text-neutral-700">
-          <input
+          <StandardInput
             type="checkbox"
             checked={showOnlyActive}
             onChange={(e) => setShowOnlyActive(e.target.checked)}
@@ -205,11 +207,14 @@ export function RulesPanel({
                       )}
                     </td>
                     <td className="px-3 py-2">
-                      <button
-                        type="button"
+                      <Button
+                        variant="ghost"
+                        size="sm"
                         onClick={() => handleToggleActive(rule)}
                         disabled={!canCompose}
-                        className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium ${
+                        role="switch"
+                        aria-checked={rule.is_active}
+                        className={`inline-flex h-auto items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium ${
                           rule.is_active
                             ? 'bg-emerald-100 text-emerald-800 hover:bg-emerald-200'
                             : 'bg-neutral-100 text-neutral-700 hover:bg-neutral-200'
@@ -225,43 +230,51 @@ export function RulesPanel({
                             <FileWarning className="h-3 w-3" /> Inaktiv
                           </>
                         )}
-                      </button>
+                      </Button>
                     </td>
                     <td className="px-3 py-2 text-right">
                       <div className="inline-flex items-center gap-1">
-                        <button
-                          type="button"
+                        <Button
+                          variant="ghost"
+                          size="icon"
                           onClick={() => onEdit(rule.id)}
-                          className="rounded p-1 text-neutral-600 hover:bg-neutral-100"
+                          className="h-auto w-auto rounded p-1 text-neutral-600 hover:bg-neutral-100"
                           title="Rediger flyt"
+                          aria-label="Rediger flyt"
                         >
                           <Pencil className="h-4 w-4" />
-                        </button>
-                        <button
-                          type="button"
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
                           onClick={() => onViewRuns(rule.id)}
-                          className="rounded p-1 text-neutral-600 hover:bg-neutral-100"
+                          className="h-auto w-auto rounded p-1 text-neutral-600 hover:bg-neutral-100"
                           title="Kjøringer"
+                          aria-label="Kjøringer"
                         >
                           <PlayCircle className="h-4 w-4" />
-                        </button>
-                        <button
-                          type="button"
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
                           onClick={() => onViewRevisions(rule.id)}
-                          className="rounded p-1 text-neutral-600 hover:bg-neutral-100"
+                          className="h-auto w-auto rounded p-1 text-neutral-600 hover:bg-neutral-100"
                           title="Endringslogg"
+                          aria-label="Endringslogg"
                         >
                           <ScrollText className="h-4 w-4" />
-                        </button>
-                        <button
-                          type="button"
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
                           onClick={() => handleDelete(rule)}
                           disabled={!canCompose}
-                          className="rounded p-1 text-rose-600 hover:bg-rose-50 disabled:opacity-30"
+                          className="h-auto w-auto rounded p-1 text-rose-600 hover:bg-rose-50 disabled:opacity-30"
                           title="Slett"
+                          aria-label="Slett"
                         >
                           <Trash2 className="h-4 w-4" />
-                        </button>
+                        </Button>
                       </div>
                     </td>
                   </tr>
