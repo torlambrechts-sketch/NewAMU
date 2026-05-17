@@ -670,34 +670,77 @@ export function buildRiskDatasets(
     // ── Top-10 scorecard ──
     const top10 = buildTop10(rows)
 
-    // ── Bowtie top hazards (P2) ──
-    // The bowtie renderer consumes the same scorecard shape but adds a
-    // `byKind` per row to drive barrier-coverage colouring. P2 ships a
-    // basic version: for each top-5 red row, count preventive barriers
-    // (sjekkliste/læring law-refs that match) and reactive barriers
-    // (tasks that link back as `hasOpenAction`). Sveitserost-style
-    // layering follows in a future PR.
+    // ── Bowtie top hazards (P2 + Sveitserost layering) ──
+    // The bowtie renderer expects `byKind` keyed by the engine's axis
+    // ids (course_system / document / checklist_item / survey /
+    // meeting_template on the preventive side, `task` on the reactive
+    // side). We compute counts per hazard category from the unified
+    // rows + (where available) the linked tasks. A row is `proof`-fresh
+    // when at least one mitigating task is open — that's the same
+    // signal `is_red_without_action` inverts.
+    //
+    // The status pill ('covered' / 'partial' / 'only_avvik' /
+    // 'uncovered') drives the colour: covered = fully justified,
+    // partial = mitigating action present, only_avvik = reactive-only
+    // (Sveitserost cheese-hole), uncovered = no barriers at all.
     const top5Red = [...rows]
       .filter((r) => r.isOpen && r.band === 'red')
       .sort((a, b) => b.riskScore - a.riskScore)
       .slice(0, 5)
     const bowtieRows = top5Red.map((r) => {
-      const preventive = rowsRaw.filter(
+      // Preventive: count source rows in the same hazard category that
+      // act as barriers. Checklists are the strongest preventive
+      // signal we have today; ROS/SJA hazards are "known and assessed"
+      // which also counts as a preventive layer.
+      const checklistItem = rowsRaw.filter(
         (x) => x.source === 'checklist' && x.hazardCategory === r.hazardCategory,
       ).length
-      const reactive = rowsRaw.filter(
+      const rosAssessed = rowsRaw.filter(
+        (x) => (x.source === 'ros' || x.source === 'sja') && x.hazardCategory === r.hazardCategory,
+      ).length
+      // Reactive: open tasks in the same hazard category (CAPA loop).
+      const taskCount = rowsRaw.filter(
         (x) => x.source === 'task' && x.hazardCategory === r.hazardCategory && x.isOpen,
       ).length
+
+      // Sveitserost cell colouring:
+      //   covered    — at least one preventive AND at least one reactive
+      //                (defence in depth — no hole)
+      //   partial    — preventive only (mitigation pending)
+      //   only_avvik — reactive only (cheese-hole on preventive side)
+      //   uncovered  — no barriers at all (open red with nothing)
+      const hasPreventive = checklistItem + rosAssessed > 0
+      const hasReactive = taskCount > 0 || r.hasOpenAction
       const status: 'covered' | 'partial' | 'only_avvik' | 'uncovered' =
-        r.hasOpenAction ? 'partial' : reactive > 0 ? 'only_avvik' : 'uncovered'
+        hasPreventive && hasReactive ? 'covered' :
+        hasPreventive ? 'partial' :
+        hasReactive ? 'only_avvik' : 'uncovered'
+
+      // The renderer treats AML-tagged rows as 'mandatory' for the
+      // consequence column. Default to mandatory for red rows since the
+      // inspector would treat any red residual as non-compliant.
+      const obligation: 'mandatory' | 'recommended' | 'conditional' =
+        r.lawRefs.some((ref) => ref.startsWith('AML') || ref.startsWith('IK-f')) ? 'mandatory' :
+        r.isPsychosocial ? 'mandatory' : 'recommended'
+
       return {
         id: r.id,
         label: r.title,
-        title: `${RISK_SOURCE_LABELS[r.source]} · Score ${r.riskScore}`,
-        applies: true,
-        obligation: r.lawRefs[0] ?? '',
+        title: `${RISK_SOURCE_LABELS[r.source]} · Score ${r.riskScore}${r.lawRefs[0] ? ` · ${r.lawRefs[0]}` : ''}`,
+        applies: 'true',
+        obligation,
         status,
-        byKind: { preventive, reactive },
+        byKind: {
+          checklist_item: checklistItem,
+          // ros/sja rows count as a checklist-style preventive layer.
+          checklist_template: rosAssessed,
+          task: taskCount,
+        },
+        // `proof.freshInstances > 0` flips the cell border green in
+        // the renderer. We use mitigating task presence as the freshness
+        // signal — if there's an open task, the org is actively
+        // addressing the hazard.
+        proof: { freshInstances: hasReactive ? taskCount : 0 },
       }
     })
     const bowtieTop = bowtieRows.length === 0 ? [] : [{

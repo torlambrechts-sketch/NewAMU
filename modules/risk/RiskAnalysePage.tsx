@@ -31,6 +31,7 @@ import './dashboards/riskDashboardScope'
 import { buildRiskDatasets } from './dashboards/useRiskDatasets'
 import { useRiskDashboardRows } from './dashboards/useRiskDashboardRows'
 import { HAZARD_CATEGORIES, HAZARD_CATEGORY_OPTIONS, type HazardCategoryId } from './dashboards/hazardCategories'
+import { LiveRiskFeed } from './components/LiveRiskFeed'
 import type { ReportModule } from '../../src/types/reportBuilder'
 import { makeFilter, type DashboardDimension } from '../../src/lib/dashboards/dashboardFilters'
 import type { DrillDownEvent } from '../../src/components/reports/ReportModuleWidget'
@@ -70,7 +71,7 @@ const SOURCE_OPTIONS = [
 export function RiskAnalysePage() {
   const { supabase, departments } = useOrgSetupContext()
 
-  const { loading: dataLoading, error: dataError, rows, path } = useRiskDashboardRows()
+  const { loading: dataLoading, error: dataError, rows, path, reload: reloadRows } = useRiskDashboardRows()
 
   const dashboard = useDashboardLayout({ supabase, scopeId: RISK_DASHBOARD_SCOPE_ID })
 
@@ -238,8 +239,21 @@ export function RiskAnalysePage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [location.search])
 
+  // Live feed: show only when there are red / critical rows worth
+  // highlighting. The component handles its own empty state, but we
+  // omit it entirely when calm so the page chrome stays lean.
+  const hasRedOrCritical = useMemo(
+    () => rows.some((r) => r.isOpen && (r.band === 'red' || r.severityTier === 'critical')),
+    [rows],
+  )
+
   return (
     <>
+      {hasRedOrCritical && (
+        <div className="mx-auto mb-4 max-w-7xl px-6 pt-4">
+          <LiveRiskFeed rows={rows} onTick={() => { void reloadRows() }} />
+        </div>
+      )}
       <ModuleAnalyticsDashboard
         accent={getDashboardScope(RISK_DASHBOARD_SCOPE_ID)?.accent}
         breadcrumb={[

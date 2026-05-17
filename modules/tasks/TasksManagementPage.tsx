@@ -6,7 +6,7 @@
 //
 // URL is the source of truth for mode. No silent defaulting.
 
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { BarChart3, ChevronRight, KanbanSquare, Plus, Printer, Settings } from 'lucide-react'
 import { ModulePageShell } from '../../src/components/module/ModulePageShell'
@@ -48,9 +48,14 @@ function isOverdue(dueDate: string | null, status: TaskItemStatus) {
 
 export function TasksManagementPage() {
   const navigate = useNavigate()
-  const [searchParams] = useSearchParams()
+  const [searchParams, setSearchParams] = useSearchParams()
   const templateSlug = searchParams.get('template')
   const projectId = searchParams.get('project')
+  // Deeplink — when present, open the task detail panel for that id.
+  // Used by the Risikoregister-side to drill from a row into the
+  // source task. Cleared from the URL after the panel opens so a
+  // browser back doesn't re-open it.
+  const selectedIdParam = searchParams.get('selected')
 
   const isTemplateMode = !!templateSlug && !projectId
 
@@ -68,6 +73,21 @@ export function TasksManagementPage() {
   const [projectCreateOpen, setProjectCreateOpen] = useState(false)
   const [selectedItem, setSelectedItem] = useState<TaskItemRow | null>(null)
   const [boardError, setBoardError] = useState<string | null>(null)
+
+  // ?selected=<id> deeplink — derive the matching item synchronously
+  // and strip the param via a router-level effect (no setState inside).
+  // `effectiveSelected` falls back to the user's manual selection.
+  const selectedFromUrl = useMemo(
+    () => (selectedIdParam ? itemData.items.find((it) => it.id === selectedIdParam) ?? null : null),
+    [selectedIdParam, itemData.items],
+  )
+  useEffect(() => {
+    if (!selectedFromUrl) return
+    const next = new URLSearchParams(searchParams)
+    next.delete('selected')
+    setSearchParams(next, { replace: true })
+  }, [selectedFromUrl, searchParams, setSearchParams])
+  const effectiveSelected = selectedItem ?? selectedFromUrl
 
   const focusedTemplate = useMemo(() => {
     if (!templateSlug) return null
@@ -181,9 +201,9 @@ export function TasksManagementPage() {
         </ModulePageShell>
 
         <TaskDetailPanel
-          open={selectedItem !== null}
+          open={effectiveSelected !== null}
           onClose={() => setSelectedItem(null)}
-          item={selectedItem}
+          item={effectiveSelected}
           onStatusChange={async (id, status) => {
             await itemData.updateStatus(id, status)
             setSelectedItem((prev) => (prev?.id === id ? { ...prev, status } : prev))
@@ -405,9 +425,9 @@ export function TasksManagementPage() {
 
       {/* Detail panel */}
       <TaskDetailPanel
-        open={selectedItem !== null}
+        open={effectiveSelected !== null}
         onClose={() => setSelectedItem(null)}
-        item={selectedItem}
+        item={effectiveSelected}
         onStatusChange={async (id, status) => {
           await itemData.updateStatus(id, status)
           // Reflect status change in the selected item

@@ -21,6 +21,8 @@ export type RiskDashboardRowsState = {
   rows: UnifiedRiskRow[]
   /** 'view' when P2 view served the data, 'source' for the P1 fallback. */
   path: 'view' | 'source'
+  /** Manually re-fetch from the underlying source (live feed uses this). */
+  reload: () => Promise<void>
 }
 
 export function useRiskDashboardRows(): RiskDashboardRowsState {
@@ -59,6 +61,7 @@ export function useRiskDashboardRows(): RiskDashboardRowsState {
       error: view.error && view.viewAvailable ? view.error : null,
       rows: view.rows,
       path: 'view',
+      reload: view.reload,
     }
   }
   return {
@@ -66,5 +69,6 @@ export function useRiskDashboardRows(): RiskDashboardRowsState {
     error: source.error,
     rows: sourceRows,
     path: 'source',
+    reload: source.reload,
   }
 }

@@ -25,12 +25,13 @@ import {
 } from './dashboards/hazardCategories'
 import { RISK_SOURCE_LABELS, type RiskSource, type UnifiedRiskRow } from './dashboards/useRiskDatasets'
 
-// Source-specific deeplinks. Per-row precision (e.g. opening the exact
-// task detail panel) requires `selected=<id>` query support on the
-// target page; that doesn't exist yet, so we land the user on the
-// closest list view and they pick the row by title.
-const SOURCE_DEEPLINK: Record<RiskSource, () => string | null> = {
-  task: () => `/tasks/management`,
+// Source-specific deeplinks. Tasks support per-row precision via
+// `?selected=<id>` (TasksManagementPage opens the detail panel and
+// strips the param). Other sources land on the closest list view —
+// users pick the row by title until those pages gain similar
+// deeplink support.
+const SOURCE_DEEPLINK: Record<RiskSource, (sourceId: string) => string | null> = {
+  task: (id) => `/tasks/management?selected=${encodeURIComponent(id)}`,
   checklist: () => `/compliance/checklists`,
   deviation: () => `/tasks/management/alle`,
   inspection: () => `/tasks/management/alle`,
@@ -230,7 +231,7 @@ export function RiskRegisterPage() {
 }
 
 function RegisterRow({ row, highlighted }: { row: UnifiedRiskRow; highlighted: boolean }) {
-  const deeplink = SOURCE_DEEPLINK[row.source]?.() ?? null
+  const deeplink = SOURCE_DEEPLINK[row.source]?.(row.sourceId) ?? null
   const hazardMeta = HAZARD_CATEGORIES.find((c) => c.id === row.hazardCategory)
   const stale = ageDays(row.lastReviewedAt) > 365 && row.isOpen
   return (

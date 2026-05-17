@@ -197,6 +197,11 @@ const DEFAULT_LAYOUT: ReportModule[] = [
   KPI_OPEN, KPI_RED, KPI_RESIDUAL_UNJUSTIFIED, KPI_STALE,
   HEATMAP_5X5,
   SCORECARD_TOP10,
+  // Bowtie sits after the top-10 list so the read order is:
+  // KPI overview → matrix → ranked list → deep-dive on top hazards →
+  // distributions → trend. Two `full`-spanning widgets in a row is
+  // intentional; this is the centerpiece of the page.
+  BOWTIE_TOP,
   BAR_BY_CATEGORY, DONUT_PSYCHOSOCIAL,
   BAR_BY_DEPARTMENT, LINE_TIME_TO_MITIGATION,
   BAR_ACTION_PLAN_COVERAGE,
