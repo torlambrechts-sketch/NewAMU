@@ -25,6 +25,14 @@ import '../../pages/documents/workflows/documentsWorkflowScope'
 import '../../pages/meetings/workflows/meetingsWorkflowScope'
 import '../../pages/learning/workflows/learningWorkflowScope'
 import '../../pages/registers/workflows/registersWorkflowScope'
+// Homeless scopes — the legacy "Gamle moduler" UI was removed (per
+// CLAUDE.md) so these registrations live under src/lib/workflows/scopes/.
+// The DB triggers still fire, so the builder must still show them.
+import './scopes/inspectionWorkflowScope'
+import './scopes/rosWorkflowScope'
+import './scopes/actionPlanWorkflowScope'
+import './scopes/vernerunderWorkflowScope'
+import './scopes/internalControlWorkflowScope'
 import './gov/govWorkflowScope'
 
 if (import.meta.env?.DEV) {

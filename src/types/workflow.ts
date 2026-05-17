@@ -413,6 +413,11 @@ export const WORKFLOW_SOURCE_MODULES = [
   { value: 'tasks', label: 'Oppgaver' },
   { value: 'learning', label: 'E-læring (kurs, sertifikater)' },
   { value: 'registers', label: 'Registre (kjemikalier, maskiner, lovkrav, …)' },
+  { value: 'inspection', label: 'Inspeksjon (legacy — DB-trigger)' },
+  { value: 'ros', label: 'Risikovurdering (ROS)' },
+  { value: 'action_plan', label: 'Handlingsplan / tiltak' },
+  { value: 'vernerunder', label: 'Vernerunder' },
+  { value: 'internkontroll', label: 'Internkontroll — årlig gjennomgang' },
   { value: 'wiki_published', label: 'Wiki — side publisert' },
   { value: 'gov', label: 'Statlig rapportering (Altinn, Arbeidstilsynet, Datatilsynet, NAV, LDO)' },
 ] as const
