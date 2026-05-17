@@ -1,4 +1,5 @@
 import { useModuleLegalFramework } from './ModuleLegalFrameworkContext'
+import { Button } from '../ui/Button'
 
 /**
  * Green helper control in {@link ModulePageShell} header: turn the legal-framework
@@ -13,15 +14,15 @@ export function ModuleLegalFrameworkToggle() {
   return (
     <div className="inline-flex items-center gap-2 rounded-full border border-emerald-700/25 bg-emerald-50 px-2.5 py-1 shadow-sm">
       <span className="text-[10px] font-semibold uppercase tracking-wide text-emerald-900">Regelverk</span>
-      <button
-        type="button"
+      <Button
+        variant="ghost"
         role="switch"
         aria-checked={showBar}
         aria-label={showBar ? 'Skjul regelverkspanel' : 'Vis regelverkspanel'}
         onClick={() => setDismissed(!dismissed)}
         className={[
-          'relative h-6 w-11 shrink-0 rounded-full transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600/50',
-          showBar ? 'bg-emerald-600' : 'bg-neutral-300',
+          'relative h-6 w-11 shrink-0 rounded-full p-0 transition-colors hover:bg-current focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600/50',
+          showBar ? 'bg-emerald-600 hover:bg-emerald-600' : 'bg-neutral-300 hover:bg-neutral-300',
         ].join(' ')}
       >
         <span
@@ -31,7 +32,7 @@ export function ModuleLegalFrameworkToggle() {
           ].join(' ')}
           aria-hidden
         />
-      </button>
+      </Button>
     </div>
   )
 }

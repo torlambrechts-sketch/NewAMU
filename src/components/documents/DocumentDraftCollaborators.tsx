@@ -167,14 +167,15 @@ export function DocumentDraftCollaborators({ pageId, pageStatus, canManage }: Pr
                 {new Date(r.invitedAt).toLocaleDateString('nb-NO')}
               </span>
               {canManage ? (
-                <button
-                  type="button"
-                  className="inline-flex size-5 items-center justify-center rounded text-neutral-400 hover:bg-neutral-100 hover:text-red-600"
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="inline-flex h-5 w-5 items-center justify-center rounded p-0 text-neutral-400 hover:bg-neutral-100 hover:text-red-600"
                   aria-label={`Fjern ${r.displayName}`}
                   onClick={() => void remove(r.id)}
                 >
                   <X className="size-3" aria-hidden />
-                </button>
+                </Button>
               ) : null}
             </li>
           ))}

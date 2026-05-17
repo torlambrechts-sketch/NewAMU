@@ -70,10 +70,10 @@ export function AlertsPage() {
               <ul className="divide-y divide-neutral-100">
                 {cases.map((c) => (
                   <li key={c.id}>
-                    <button
-                      type="button"
+                    <Button
+                      variant="ghost"
                       onClick={() => navigate(`/alerts/${c.id}`)}
-                      className="flex w-full items-center justify-between gap-3 px-6 py-3 text-left transition-colors hover:bg-neutral-50"
+                      className="flex w-full items-center justify-between gap-3 rounded-none px-6 py-3 text-left font-normal transition-colors hover:bg-neutral-50"
                     >
                       <div className="min-w-0">
                         <p className="truncate text-sm font-medium text-neutral-900">{c.title}</p>
@@ -87,7 +87,7 @@ export function AlertsPage() {
                         </Badge>
                         {c.confidentiality_level === 'confidential' ? <Badge variant="critical">Konfidensielt</Badge> : null}
                       </div>
-                    </button>
+                    </Button>
                   </li>
                 ))}
               </ul>

@@ -7,6 +7,7 @@ import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { ChevronDown, ChevronUp, BookOpen, Lightbulb } from 'lucide-react'
 import { sanitizeLearningHtml } from '../../lib/sanitizeHtml'
+import { Button } from '../ui/Button'
 import { normalizeModuleHtml } from '../../lib/richTextDisplay'
 
 // ── Shared prose class ───────────────────────────────────────────────────────
@@ -54,10 +55,10 @@ export function DeepDiveAccordion({ markdown }: { markdown: string }) {
   const [open, setOpen] = useState(false)
   return (
     <div className="mt-6 overflow-hidden rounded-xl border border-emerald-200 bg-emerald-50/40">
-      <button
-        type="button"
+      <Button
+        variant="ghost"
         onClick={() => setOpen((v) => !v)}
-        className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left text-sm font-semibold text-emerald-900 hover:bg-emerald-100/60 transition-colors"
+        className="flex h-auto w-full items-center justify-between gap-3 rounded-none px-4 py-3 text-left text-sm font-semibold text-emerald-900 transition-colors hover:bg-emerald-100/60"
         aria-expanded={open}
       >
         <span className="flex items-center gap-2">
@@ -65,7 +66,7 @@ export function DeepDiveAccordion({ markdown }: { markdown: string }) {
           Fordypning
         </span>
         {open ? <ChevronUp className="size-4 shrink-0" /> : <ChevronDown className="size-4 shrink-0" />}
-      </button>
+      </Button>
       {open && (
         <div className="border-t border-emerald-200 px-4 py-4">
           <MarkdownBody markdown={markdown} />

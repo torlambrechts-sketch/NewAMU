@@ -349,6 +349,7 @@ function EksternSection({
             <p className="mt-1 text-xs text-neutral-500">
               Maks 10&nbsp;MB. Aksepterte formater: PDF, JPG, PNG.
             </p>
+            {/* eslint-disable-next-line no-restricted-syntax -- native file picker; no primitive supports file accept + custom file:* styling */}
             <input
               id="ext-file"
               type="file"

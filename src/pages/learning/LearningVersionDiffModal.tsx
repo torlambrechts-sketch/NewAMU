@@ -77,14 +77,15 @@ export function LearningVersionDiffModal({
               <p className="mt-0.5 text-xs text-neutral-500">Publisert {fmtDate(publishedAt)}</p>
             ) : null}
           </div>
-          <button
-            type="button"
+          <Button
+            variant="ghost"
+            size="icon"
             onClick={onClose}
-            className="rounded-md p-1.5 text-neutral-500 hover:bg-neutral-100"
+            className="h-7 w-7 rounded-md p-1.5 text-neutral-500 hover:bg-neutral-100"
             aria-label="Lukk"
           >
             <X className="h-4 w-4" />
-          </button>
+          </Button>
         </header>
 
         <div className="space-y-6 px-6 py-5 text-sm">

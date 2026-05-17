@@ -2,6 +2,7 @@ import { useState, type ReactNode } from 'react'
 import { Wand2 } from 'lucide-react'
 import { WizardModal } from './WizardModal'
 import type { WizardDef } from './types'
+import { Button } from '../ui/Button'
 
 /**
  * A trigger button that opens a WizardModal inline (portal-free, fixed overlay).
@@ -42,14 +43,14 @@ export function WizardButton({
       {renderTrigger ? (
         renderTrigger(openModal)
       ) : (
-        <button
-          type="button"
+        <Button
+          variant="ghost"
           onClick={openModal}
           className={`inline-flex items-center rounded-full font-medium transition-colors ${sizeClass} ${variantClass} ${className ?? ''}`}
         >
           <Wand2 className={size === 'xs' ? 'size-3' : 'size-3.5'} />
           {label}
-        </button>
+        </Button>
       )}
 
       {open && (

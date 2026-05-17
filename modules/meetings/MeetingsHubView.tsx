@@ -300,10 +300,10 @@ function TemplateGallery({
                       key={t.key}
                       className="flex flex-col gap-2 rounded-lg border border-neutral-200/80 bg-neutral-50/50 p-4"
                     >
-                      <button
-                        type="button"
+                      <Button
+                        variant="ghost"
                         onClick={() => onSelect(t)}
-                        className="flex flex-col gap-2 text-left"
+                        className="flex h-auto flex-col items-start gap-2 rounded-none p-0 text-left font-normal hover:bg-transparent"
                       >
                         <div className="flex items-start justify-between gap-2">
                           <span className="text-sm font-semibold text-neutral-900">{t.name}</span>
@@ -330,7 +330,7 @@ function TemplateGallery({
                             </span>
                           ) : null}
                         </div>
-                      </button>
+                      </Button>
                     </li>
                   )
                 })}

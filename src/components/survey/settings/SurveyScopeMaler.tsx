@@ -172,6 +172,7 @@ export default function SurveyScopeMaler() {
             <div className="space-y-3 rounded-lg border border-neutral-200/80 bg-neutral-50/50 p-4">
               <p className="text-sm font-medium text-neutral-800">Importer</p>
               <p className="text-xs text-neutral-600">Oppretter en ny mal med suffikset «(import)».</p>
+              {/* eslint-disable-next-line no-restricted-syntax -- hidden native file picker; no primitive exists */}
               <input
                 ref={templateImportRef}
                 type="file"

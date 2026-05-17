@@ -10,6 +10,7 @@
 import { useMemo, useState } from 'react'
 import { Loader2 } from 'lucide-react'
 import { ModulePageShell } from '../../../components/module'
+import { Button } from '../../../components/ui/Button'
 import { useOrgSetupContext } from '../../../hooks/useOrgSetupContext'
 import { useRegelverkCoverage } from '../../../hooks/useRegelverkCoverage'
 import {
@@ -134,10 +135,11 @@ export function ComplianceStudioPage() {
               const active = cat.id === activeCategoryId
               return (
                 <li key={cat.id}>
-                  <button
-                    type="button"
+                  <Button
+                    variant="ghost"
                     onClick={() => setActiveCategoryId(cat.id)}
-                    className={`flex w-full items-center justify-between rounded-md px-3 py-2 text-left text-sm transition ${
+                    aria-current={active ? 'page' : undefined}
+                    className={`flex w-full items-center justify-between rounded-md px-3 py-2 text-left text-sm font-normal transition ${
                       active
                         ? 'bg-neutral-100 font-semibold text-neutral-900'
                         : 'text-neutral-700 hover:bg-neutral-50'
@@ -161,7 +163,7 @@ export function ComplianceStudioPage() {
                         </span>
                       )}
                     </span>
-                  </button>
+                  </Button>
                 </li>
               )
             })}

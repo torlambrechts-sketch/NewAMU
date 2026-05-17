@@ -842,6 +842,7 @@ function EvidenceField({
         <label className="flex cursor-pointer items-center gap-2 rounded-lg border border-dashed border-neutral-300 bg-neutral-50 px-4 py-3 text-sm text-neutral-600 hover:bg-neutral-100">
           <Paperclip className="size-4 shrink-0 text-neutral-400" />
           <span>{value ? value : 'Klikk for å laste opp fil (PDF, bilde, dokument)'}</span>
+          {/* eslint-disable-next-line no-restricted-syntax -- hidden native file picker; no primitive exists */}
           <input
             type="file"
             className="sr-only"

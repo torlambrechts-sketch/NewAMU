@@ -121,14 +121,15 @@ export function AlertsDetailView() {
 
       <div className="flex gap-2 border-b border-neutral-200">
         {(['info', 'timeline', 'notes', 'attachments', 'close'] as Tab[]).map((t) => (
-          <button
+          <Button
             key={t}
-            type="button"
+            variant="ghost"
             onClick={() => setTab(t)}
-            className={`border-b-2 px-3 py-2 text-sm font-medium ${tab === t ? 'border-[#b91c1c] text-neutral-900' : 'border-transparent text-neutral-500 hover:text-neutral-700'}`}
+            aria-pressed={tab === t}
+            className={`rounded-none border-b-2 px-3 py-2 text-sm font-medium hover:bg-transparent ${tab === t ? 'border-[#b91c1c] text-neutral-900' : 'border-transparent text-neutral-500 hover:text-neutral-700'}`}
           >
             {t === 'info' ? 'Informasjon' : t === 'timeline' ? `Tidslinje (${alerts.detail.timeline.length})` : t === 'notes' ? `Notater (${alerts.detail.notes.length})` : t === 'attachments' ? `Vedlegg (${alerts.detail.attachments.length})` : 'Lukk'}
-          </button>
+          </Button>
         ))}
       </div>
 
