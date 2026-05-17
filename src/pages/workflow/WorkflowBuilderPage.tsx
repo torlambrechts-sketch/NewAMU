@@ -47,18 +47,24 @@ import { useWorkflowApprovals } from '../../hooks/useWorkflowApprovals'
 
 type Tab = 'rules' | 'system' | 'library' | 'canvas' | 'approvals' | 'runs' | 'dry-run' | 'evidence' | 'revisions'
 
-const VALID_TABS: Tab[] = ['rules', 'system', 'library', 'canvas', 'approvals', 'runs', 'dry-run', 'evidence', 'revisions']
+// First element doubles as default landing tab when ?tab= is absent.
+const VALID_TABS: Tab[] = ['library', 'rules', 'system', 'canvas', 'approvals', 'runs', 'dry-run', 'evidence', 'revisions']
 
 export function WorkflowBuilderPage() {
   const [searchParams, setSearchParams] = useSearchParams()
   const tabParam = searchParams.get('tab') as Tab | null
-  const tab: Tab = tabParam && VALID_TABS.includes(tabParam) ? tabParam : 'rules'
+  // Library is the default landing tab. We honor ?tab= when present and
+  // valid; the empty-state nudge for orgs with no rules is handled below
+  // via an effect that only fires while ?tab= is still absent.
+  const tab: Tab = tabParam && VALID_TABS.includes(tabParam) ? tabParam : 'library'
   const setTab = useCallback(
     (next: Tab) => {
       setSearchParams(
         (prev) => {
           const params = new URLSearchParams(prev)
-          if (next === 'rules') params.delete('tab')
+          // Keep the canonical URL clean: omit the param when it matches
+          // the default landing tab.
+          if (next === 'library') params.delete('tab')
           else params.set('tab', next)
           return params
         },
@@ -78,7 +84,7 @@ export function WorkflowBuilderPage() {
           const params = new URLSearchParams(prev)
           if (ruleId) params.set('rule', ruleId)
           else params.delete('rule')
-          if (nextTab === 'rules') params.delete('tab')
+          if (nextTab === 'library') params.delete('tab')
           else params.set('tab', nextTab)
           return params
         },

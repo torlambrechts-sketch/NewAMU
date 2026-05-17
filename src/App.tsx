@@ -25,7 +25,6 @@ import { WorkflowPage } from './pages/WorkflowPage'
 import { WorkflowBuilderPage } from './pages/workflow/WorkflowBuilderPage'
 import { AuditorWorkflowsPage } from './pages/auditor/AuditorWorkflowsPage'
 import { GovIntegrationsPage } from './pages/admin/integrations/GovIntegrationsPage'
-import { WorkflowEditorV2 } from './components/workflow/WorkflowEditorV2'
 import { NotFound } from './pages/NotFound'
 import { MeetingsHubPage } from './pages/meetings/MeetingsHubPage'
 import { MeetingsDetailView } from './pages/meetings/MeetingsDetailView'
@@ -135,8 +134,8 @@ import { SurveyAnalysePage } from '../modules/survey/SurveyAnalysePage'
 
 function WorkflowEditorRoute() {
   const { ruleId } = useParams<{ ruleId: string }>()
-  if (!ruleId) return null
-  return <WorkflowEditorV2 ruleId={ruleId} />
+  if (!ruleId) return <Navigate to="/workflow" replace />
+  return <Navigate to={`/workflow?tab=canvas&rule=${encodeURIComponent(ruleId)}`} replace />
 }
 
 /**

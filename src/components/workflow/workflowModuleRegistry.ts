@@ -1,6 +1,6 @@
 // Pure data registry mapping source_module → display metadata.
-// Consumed by WorkflowPage, WorkflowEditorV2, and ChainPreview to colour-code
-// module chips without coupling component logic to raw string comparisons.
+// Consumed by ChainPreview (and legacy panels) to colour-code module
+// chips without coupling component logic to raw string comparisons.
 
 export type WfModuleMeta = {
   label: string
