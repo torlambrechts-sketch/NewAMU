@@ -111,19 +111,26 @@ export function BenchmarkWidget({
 }: Props) {
   const ctx = useOrgSetupContext()
   const supabase = ctx.supabase
-  const [data, setData] = useState<BenchmarkPoint[]>(series ?? [])
+  const [fetched, setFetched] = useState<BenchmarkPoint[]>([])
   const [loading, setLoading] = useState<boolean>(!series && !!orgId)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    if (series) {
-      setData(series)
-      return
-    }
+    // When the parent passes an explicit `series`, treat it as the
+    // source of truth and skip the RPC entirely — `data` below picks
+    // it up via useMemo so we don't setState inside this effect
+    // (react-hooks/set-state-in-effect).
+    if (series) return
     if (!supabase || !orgId) return
     let cancelled = false
-    setLoading(true)
-    setError(null)
+    // Defer the synchronous "starting fetch" resets to a microtask so
+    // the effect body itself does no setState (mirrors the pattern in
+    // src/hooks/usePartnerBranding.ts).
+    void Promise.resolve().then(() => {
+      if (cancelled) return
+      setLoading(true)
+      setError(null)
+    })
     void supabase
       .rpc('get_my_org_benchmark', {
         p_org_id: orgId,
@@ -151,7 +158,7 @@ export function BenchmarkWidget({
             kAnonOk: Boolean(r.k_anon_ok),
           }),
         )
-        setData(normalized)
+        setFetched(normalized)
         setLoading(false)
       })
     return () => {
@@ -159,6 +166,9 @@ export function BenchmarkWidget({
     }
   }, [supabase, orgId, metric, periods, series])
 
+  // Effective data: prefer the caller-provided series, otherwise fall
+  // back to the most recent RPC result.
+  const data = useMemo<BenchmarkPoint[]>(() => series ?? fetched, [series, fetched])
   const latest = data[0]
   const naceName = latest?.naceCode2digit ? NACE2_NAMES[latest.naceCode2digit] ?? `NACE ${latest.naceCode2digit}` : null
   const orgPercentile = useMemo(() => {
