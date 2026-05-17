@@ -1174,6 +1174,16 @@ export function AticsShell() {
         const s = new URLSearchParams(search).get('source')
         return source === null ? !s : s === source
       }
+    const tilsynsbrevSubs: SubItem[] = [
+      {
+        label: 'Tilsynsbrev',
+        path: '/admin/tilsynsbrev',
+        Icon: ScrollText,
+        match: ({ pathname }) =>
+          pathname === '/admin/tilsynsbrev' || pathname.startsWith('/admin/tilsynsbrev/'),
+        requirePermAny: ['tilsynsbrev.upload', 'tilsynsbrev.view_confidential', 'module.view.admin'],
+      },
+    ]
     const malerSubs: SubItem[] = [
       {
         label: 'Alle maler',
@@ -1335,6 +1345,15 @@ export function AticsShell() {
           icon: LayoutTemplate,
           subs: malerSubs,
           permAny: SETTINGS_NAV_PERMS,
+          flatSubs: true,
+        },
+        {
+          to: '/admin/tilsynsbrev',
+          label: 'Tilsynssaker',
+          end: false,
+          icon: ScrollText,
+          subs: tilsynsbrevSubs,
+          permAny: ['tilsynsbrev.upload', 'tilsynsbrev.view_confidential', 'module.view.admin'],
           flatSubs: true,
         },
         {

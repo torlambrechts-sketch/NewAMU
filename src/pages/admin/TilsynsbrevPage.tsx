@@ -6,7 +6,7 @@
 // entrepreneur-review). Selve LLM-ekstraksjonen + regex-fallback
 // kjøres på serveren — denne siden er kun upload-form + listevisning.
 
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { FileText, Plus, RefreshCw, Upload } from 'lucide-react'
 import { ModulePageShell, ModuleSectionCard } from '../../components/module'

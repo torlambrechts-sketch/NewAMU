@@ -100,6 +100,12 @@ export const PERMISSION_KEYS = [
   // ─── Organisation ─────────────────────────────────────────────────────────
   /** Eksporter ansatt/org-data (GDPR Art. 20 forespørsler) */
   'org.export',
+
+  // ─── Tilsynsbrev (Arbeidstilsynet/Datatilsynet inspeksjonsbrev) ──────────
+  /** Last opp et tilsynsbrev (PDF) og kjør parser. */
+  'tilsynsbrev.upload',
+  /** Se konfidensielle tilsynsbrev (default-confidentiality = restricted). */
+  'tilsynsbrev.view_confidential',
 ] as const
 
 export type PermissionKey = (typeof PERMISSION_KEYS)[number]
@@ -151,6 +157,8 @@ export const PERMISSION_LABELS: Record<PermissionKey, string> = {
   'meetings.manage': 'Møter — administrere møter, agenda, protokoll og maler',
   'meetings.manage_confidential': 'Møter — innsyn i konfidensielle møter (drøfting, varsling)',
   'org.export': 'Organisasjon — eksportere ansatt- og org-data (GDPR Art. 20)',
+  'tilsynsbrev.upload': 'Tilsynsbrev — laste opp og parse inspeksjonsbrev',
+  'tilsynsbrev.view_confidential': 'Tilsynsbrev — se konfidensielle saker',
 }
 
 /** Route prefix → permission (primary nav). Index route checked separately. */

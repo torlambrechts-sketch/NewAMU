@@ -49,6 +49,8 @@ function LegacyVarsleRedirect() {
 }
 import { AdminTemplatesPage } from './pages/admin/AdminTemplatesPage'
 import { AdminSettingsPage } from './pages/admin/AdminSettingsPage'
+import { TilsynsbrevPage } from './pages/admin/TilsynsbrevPage'
+import { TilsynsbrevDetailPage } from './pages/admin/TilsynsbrevDetailPage'
 import { OrganisationPage } from './pages/OrganisationPage'
 import { WorkplaceChrome } from './components/layout/WorkplaceChrome'
 import { ModuleLegalFrameworkProvider } from './components/module'
@@ -434,6 +436,12 @@ const router = createBrowserRouter(
                       {/* Admin: module overview + RBAC */}
                       <Route path="admin/modules" element={<ModuleAdminPage />} />
                       <Route path="admin/templates" element={<AdminTemplatesPage />} />
+                      {/* Tilsynsbrev — uploaded inspeksjonsbrev fra Arbeidstilsynet,
+                          Datatilsynet etc. Parses asynkront via edge-funksjonen
+                          tilsynsbrev-parser; detalj-siden lar admin opprette
+                          oppgaver per pålegg. */}
+                      <Route path="admin/tilsynsbrev" element={<TilsynsbrevPage />} />
+                      <Route path="admin/tilsynsbrev/:id" element={<TilsynsbrevDetailPage />} />
                       {/* Unified settings hub. Legacy `/<module>/admin` URLs
                           continue to render their existing pages for one
                           release so bookmarks survive; sidebar entries now
