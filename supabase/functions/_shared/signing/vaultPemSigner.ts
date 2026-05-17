@@ -128,9 +128,9 @@ class VaultPemSigner implements Signer {
 export const vaultPemSignerFactory: SignerFactory = {
   async build(cfg: SignerFactoryConfig): Promise<Signer> {
     const env = cfg.environment ?? 'tt02'
-    let privateKeyPem = ''
+    let privateKeyPem = cfg.inlinePrivateKeyPem ?? ''
 
-    if (cfg.vaultSecretName) {
+    if (!privateKeyPem && cfg.vaultSecretName) {
       if (!cfg.supabase) {
         throw new Error(
           'vaultPemSignerFactory: supabase client required to read Vault secret',

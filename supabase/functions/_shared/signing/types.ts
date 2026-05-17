@@ -58,6 +58,15 @@ export interface SignerFactoryConfig {
    */
   // deno-lint-ignore no-explicit-any
   supabase?: any
+  /**
+   * Optional already-fetched PEM. When set, the vault_pem adapter skips
+   * its own Vault read and uses this material directly. The four gov
+   * edge functions still call resolveMaskinportenCredentials() first
+   * (so they can return a clean 500/maskinporten_credentials_missing
+   * before the signer is constructed) and then thread the PEM through.
+   * HSM adapters ignore this field.
+   */
+  inlinePrivateKeyPem?: string | null
 }
 
 export interface SignerFactory {

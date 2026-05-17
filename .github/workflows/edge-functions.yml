@@ -1,0 +1,26 @@
+# Run Deno test suite for Supabase edge functions on every push + PR.
+#
+# Currently exercises `_shared/__tests__/*.test.ts` only — the pure
+# helpers behind every gov submission (idempotency hashing, Maskinporten
+# sha256, signing-adapter routing). Per-function handlers stay untested
+# at this level because they call Deno.serve + Supabase RPCs that need
+# a Postgres fixture (separate work item, tracked in audit P1).
+
+name: edge-functions
+
+on: [push, pull_request]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Deno
+        uses: denoland/setup-deno@v1
+        with:
+          deno-version: v2.x
+
+      - name: Run edge-function tests
+        run: deno task test
+        working-directory: supabase/functions
