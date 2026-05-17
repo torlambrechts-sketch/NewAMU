@@ -164,7 +164,7 @@ export function DashboardChooser({
         variant="ghost"
         onClick={() => setOpen((o) => !o)}
         className={
-          'inline-flex items-center gap-2 rounded-none border bg-white px-3 py-2.5 text-sm font-normal text-neutral-900 outline-none transition-colors hover:bg-white ' +
+          'inline-flex items-center gap-2 rounded-none border bg-white px-3 py-2.5 text-sm font-normal text-neutral-900 outline-none transition-colors hover:bg-neutral-50 ' +
           (open
             ? 'border-[#1a3d32] ring-1 ring-[#1a3d32]/25'
             : 'border-neutral-300 hover:border-neutral-400')

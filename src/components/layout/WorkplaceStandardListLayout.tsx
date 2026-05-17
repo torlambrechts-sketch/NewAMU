@@ -163,8 +163,8 @@ export function WorkplaceListToolbar({
                 className={`h-auto w-auto rounded-md p-2 ${viewMode === 'box' ? 'bg-[#EFE8DC] text-neutral-900' : 'text-neutral-500 hover:text-neutral-700'}`}
                 role="radio"
                 aria-checked={viewMode === 'box'}
-                aria-label="Boks (rutenett)"
-                title="Boks"
+                aria-label="Rutenett"
+                title="Rutenett"
               >
                 <LayoutGrid className="size-4" />
               </Button>

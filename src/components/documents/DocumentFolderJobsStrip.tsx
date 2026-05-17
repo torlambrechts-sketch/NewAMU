@@ -253,7 +253,7 @@ export function DocumentFolderJobsStrip({
               <div className="flex flex-wrap items-start justify-between gap-2 border-b border-neutral-100 px-2.5 py-2 sm:px-3 sm:py-2.5">
                 <Button
                   variant="ghost"
-                  className="min-w-0 flex-1 flex-col items-start justify-start rounded-md p-0 text-left font-normal outline-none ring-[#1a3d32] hover:bg-transparent focus-visible:ring-2"
+                  className="group/title min-w-0 flex-1 flex-col items-start justify-start rounded-md p-0 text-left font-normal outline-none ring-[#1a3d32] hover:bg-transparent focus-visible:ring-2 [&_p]:transition-colors [&:hover_p]:text-[#1a3d32]"
                   onClick={() => onFolderOpen?.(f.id)}
                   disabled={!onFolderOpen}
                 >
@@ -300,7 +300,7 @@ export function DocumentFolderJobsStrip({
                             <Button
                               variant="ghost"
                               size="sm"
-                              className="h-auto min-w-0 flex-1 truncate justify-start rounded p-0 text-left font-medium text-neutral-800 underline-offset-2 hover:bg-transparent hover:underline"
+                              className="h-auto min-w-0 flex-1 truncate justify-start rounded p-0 text-left font-medium text-neutral-800 underline-offset-2 hover:bg-transparent hover:text-[#1a3d32] hover:underline"
                               onClick={() => onRecentDocumentClick(d)}
                             >
                               {d.name}

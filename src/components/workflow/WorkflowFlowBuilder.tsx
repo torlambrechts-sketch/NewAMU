@@ -154,7 +154,7 @@ function StepRow({
       <Button
         variant="ghost"
         onClick={onSelect}
-        className="flex h-auto min-w-0 flex-1 items-start justify-start gap-3 rounded-lg py-0.5 text-left font-normal hover:bg-transparent"
+        className="flex h-auto min-w-0 flex-1 items-start justify-start gap-3 rounded-lg px-1 py-0.5 text-left font-normal hover:bg-neutral-50"
       >
         <span className={`flex size-10 shrink-0 items-center justify-center rounded-lg ${stepAccent(step)}`}>
           {IconBox}

@@ -74,7 +74,7 @@ function WizardFieldRenderer({
 
   if (field.kind === 'radio-cards') {
     return (
-      <div className="mt-1 grid gap-2">
+      <div className="mt-1 grid gap-2" role="radiogroup" aria-label={field.label ?? 'Velg'}>
         {(field.options ?? []).map((opt) => (
           <Button
             key={opt.value}
