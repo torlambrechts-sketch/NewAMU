@@ -28,6 +28,7 @@ import { getWorkflowScope, listWorkflowScopes } from '../../../lib/workflows/wor
 import { Badge } from '../../ui/Badge'
 import { StandardInput } from '../../ui/Input'
 import { SearchableSelect } from '../../ui/SearchableSelect'
+import { ConfirmDialog } from '../../../pages/admin/ConfirmDialog'
 
 function ruleContainsGovAction(rule: WorkflowRuleRow): boolean {
   const a = rule.actions_json
@@ -84,6 +85,7 @@ export function RulesPanel({
   }, [rules, scopeFilter, showOnlyActive, search])
 
   const [toggleError, setToggleError] = useState<string | null>(null)
+  const [pendingDelete, setPendingDelete] = useState<WorkflowRuleRow | null>(null)
 
   const handleToggleActive = async (rule: WorkflowRuleRow) => {
     const isGov = ruleContainsGovAction(rule)
@@ -102,9 +104,15 @@ export function RulesPanel({
     await setRuleActive(rule.id, willActivate)
   }
 
-  const handleDelete = async (rule: WorkflowRuleRow) => {
+  const handleDelete = (rule: WorkflowRuleRow) => {
     if (!canCompose) return
-    if (!window.confirm(`Slette regelen «${rule.name}»? Kan ikke angres.`)) return
+    setPendingDelete(rule)
+  }
+
+  const confirmDelete = async () => {
+    const rule = pendingDelete
+    if (!rule) return
+    setPendingDelete(null)
     await deleteRule(rule.id)
   }
 
@@ -304,6 +312,17 @@ export function RulesPanel({
         redigerbar). Statlige regler kan kun aktiveres av brukere med{' '}
         <code>workflows.activate_external</code> + dobbel godkjenning før innsending.
       </p>
+
+      {pendingDelete && (
+        <ConfirmDialog
+          title="Slette arbeidsflyt-regel?"
+          body={`Du er i ferd med å slette regelen «${pendingDelete.name}». Kan ikke angres.`}
+          confirmLabel="Slett regel"
+          tone="danger"
+          onConfirm={() => void confirmDelete()}
+          onCancel={() => setPendingDelete(null)}
+        />
+      )}
     </div>
   )
 }
