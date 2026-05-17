@@ -23,15 +23,18 @@ import { SharedReportPage } from './pages/public/SharedReportPage'
 import { WorkflowBuilderPage } from './pages/workflow/WorkflowBuilderPage'
 import { AuditorWorkflowsPage } from './pages/auditor/AuditorWorkflowsPage'
 import { GovIntegrationsPage } from './pages/admin/integrations/GovIntegrationsPage'
+import { GovOutboxPage } from './pages/admin/GovOutboxPage'
 import { AltinnSetup } from './pages/admin/integrations/AltinnSetup'
 import { ArbeidstilsynetSetup } from './pages/admin/integrations/ArbeidstilsynetSetup'
 import { DatatilsynetSetup } from './pages/admin/integrations/DatatilsynetSetup'
 import { NavSetup } from './pages/admin/integrations/NavSetup'
+import { CertRotationPage } from './pages/admin/integrations/CertRotationPage'
 import { NotFound } from './pages/NotFound'
 import { MeetingsHubPage } from './pages/meetings/MeetingsHubPage'
 import { MeetingsDetailView } from './pages/meetings/MeetingsDetailView'
 import { MeetingsAnalysePage } from './pages/meetings/MeetingsAnalysePage'
 import { MeetingsExportPage } from './pages/meetings/MeetingsExportPage'
+import { AMUAgendaBacklogPage } from './pages/meetings/AMUAgendaBacklogPage'
 import { AlertsPage } from '../modules/alerts/pages/AlertsPage'
 import { AlertsAdminPage } from '../modules/alerts/pages/AlertsAdminPage'
 import { AlertsAnalysePage } from '../modules/alerts/pages/AlertsAnalysePage'
@@ -346,6 +349,14 @@ const router = createBrowserRouter(
                       />
                       <Route path="meetings/admin" element={<LegacyAdminRedirect scope="meetings" />} />
                       <Route
+                        path="meetings/agenda-backlog"
+                        element={
+                          <RouteErrorBoundary title="Kunne ikke vise agenda-restanser">
+                            <AMUAgendaBacklogPage />
+                          </RouteErrorBoundary>
+                        }
+                      />
+                      <Route
                         path="meetings/:meetingId/eksport"
                         element={
                           <RouteErrorBoundary title="Kunne ikke vise protokoll-pakke">
@@ -540,6 +551,8 @@ const router = createBrowserRouter(
                       <Route path="admin/integrations/arbeidstilsynet" element={<ArbeidstilsynetSetup />} />
                       <Route path="admin/integrations/datatilsynet" element={<DatatilsynetSetup />} />
                       <Route path="admin/integrations/nav" element={<NavSetup />} />
+                      <Route path="admin/integrations/sertifikat-rotasjon" element={<CertRotationPage />} />
+                      <Route path="admin/integrations/utboks" element={<GovOutboxPage />} />
                       <Route element={<DocumentsModuleShellLayout />}>
                         <Route path="documents/editor-test" element={<DocumentEditorTestPage />} />
                         <Route

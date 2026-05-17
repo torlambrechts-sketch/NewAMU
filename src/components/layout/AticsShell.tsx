@@ -56,6 +56,7 @@ import { useRegistersNav } from '../../hooks/useRegistersNav'
 import { useTaskNav } from '../../../modules/tasks/useTaskNav'
 import { useMeetingsNav } from '../../../modules/meetings/useMeetingsNav'
 import { useAlertsNav } from '../../../modules/alerts/useAlertsNav'
+import { useGovOutboxPendingCount } from '../../hooks/useGovOutboxPendingCount'
 import { usePartnerMembership } from '../../hooks/usePartnerMembership'
 import { useConsultantClock } from '../../hooks/useConsultantClock'
 import { OrgSwitcher } from './OrgSwitcher'
@@ -89,6 +90,12 @@ type SubItem = {
    * render only when the parent header is expanded.
    */
   headerKey?: string
+  /**
+   * Render a numeric counter pill on the row when > 0. Used by the
+   * gov-outbox manual-triage sub-link so admins see at a glance how
+   * many rows are awaiting human action.
+   */
+  badgeCount?: number
 }
 
 function visibleSubs(
@@ -467,6 +474,9 @@ export function AticsShell() {
   // the consultant clock side effect runs unconditionally and self-gates.
   const { isPartnerMember } = usePartnerMembership()
   useConsultantClock()
+  // Manual-triage queue counter used by the Integrasjoner submenu badge.
+  // 60s polling, cheap RLS-scoped count, see hook for rationale.
+  const { count: govOutboxPendingCount } = useGovOutboxPendingCount()
   const { isActive: isRegulationActive, activeRegulationIds } = useRegulationFilter()
   const mergedNavGroups = useMemo<NavGroup[]>(() => {
     // Fixed sub-entries that always sit under "Sjekklister" — Analyse and
@@ -1145,6 +1155,14 @@ export function AticsShell() {
         requirePermAny: INTEGRATIONS_NAV_PERMS,
       },
       {
+        label: 'Manuell utboks (statlige meldinger)',
+        path: '/admin/integrations/utboks',
+        Icon: ScrollText,
+        match: matchAdminIntegrations('utboks'),
+        requirePermAny: ['gov.outbox_triage', ...INTEGRATIONS_NAV_PERMS],
+        badgeCount: govOutboxPendingCount,
+      },
+      {
         label: 'Webhooks & API',
         path: '/admin/settings/integrations/webhooks',
         Icon: Plug,
@@ -1735,6 +1753,7 @@ export function AticsShell() {
     isRegulationActive,
     activeRegulationIds,
     isPartnerMember,
+    govOutboxPendingCount,
   ])
 
   const visibleGroups = useMemo(
@@ -1986,7 +2005,17 @@ export function AticsShell() {
                                 {iconOnly ? (
                                   <SubIcon className="size-4 shrink-0 opacity-90" aria-hidden />
                                 ) : (
-                                  item.label
+                                  <>
+                                    <span className="flex-1">{item.label}</span>
+                                    {typeof item.badgeCount === 'number' && item.badgeCount > 0 ? (
+                                      <span
+                                        className="ml-2 inline-flex h-5 min-w-[20px] shrink-0 items-center justify-center rounded-full bg-[#c9a227] px-1.5 text-[10px] font-bold text-[#1a1a1a]"
+                                        aria-label={`${item.badgeCount} venter på behandling`}
+                                      >
+                                        {item.badgeCount > 99 ? '99+' : item.badgeCount}
+                                      </span>
+                                    ) : null}
+                                  </>
                                 )}
                               </NavLink>
                             )
@@ -2236,7 +2265,17 @@ export function AticsShell() {
                       {iconOnly ? (
                         <SubIcon className="size-[1.125rem] shrink-0 opacity-90" aria-hidden />
                       ) : (
-                        item.label
+                        <span className="inline-flex items-center gap-1.5">
+                          <span>{item.label}</span>
+                          {typeof item.badgeCount === 'number' && item.badgeCount > 0 ? (
+                            <span
+                              className="inline-flex h-5 min-w-[20px] items-center justify-center rounded-full bg-[#c9a227] px-1.5 text-[10px] font-bold text-[#1a1a1a]"
+                              aria-label={`${item.badgeCount} venter på behandling`}
+                            >
+                              {item.badgeCount > 99 ? '99+' : item.badgeCount}
+                            </span>
+                          ) : null}
+                        </span>
                       )}
                     </NavLink>
                   )
