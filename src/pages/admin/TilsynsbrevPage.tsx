@@ -92,14 +92,14 @@ function confidentialityBadge(level: ConfidentialityLevel): null | {
     return {
       label: 'Begrenset',
       variant: 'warning',
-      tooltip: 'Krever utvidet tilgang',
+      tooltip: 'Krever tilsynsbrev.view_confidential',
     }
   }
   if (level === 'confidential') {
     return {
       label: 'Konfidensielt',
       variant: 'danger',
-      tooltip: 'Krever workflows.view_confidential',
+      tooltip: 'Krever tilsynsbrev.view_confidential',
     }
   }
   return null
@@ -143,17 +143,17 @@ export function TilsynsbrevPage() {
     }
 
     // Even without the view-confidential permission, give the admin a
-    // count of how many confidential rows exist. RLS hides their
-    // payload — but `select count(*)` over a head-only request returns
-    // the unfiltered total via the response's `count` header.
+    // count of how many restricted/confidential rows exist. RLS would
+    // collapse a head-count to 0 because the policy hides the rows
+    // themselves — we use a SECURITY DEFINER RPC (_125600) instead,
+    // which permission-checks the caller and only exposes a number.
     if (!canViewConfidential) {
-      const head = await supabase
-        .from('tilsynsbrev_uploads')
-        .select('id', { count: 'exact', head: true })
-        .eq('organization_id', orgId)
-        .eq('confidentiality_level', 'confidential')
-      if (!head.error && typeof head.count === 'number') {
-        setHiddenConfidentialCount(head.count)
+      const { data: count, error: countErr } = await supabase.rpc(
+        'tilsynsbrev_count_hidden_confidential',
+        { p_org_id: orgId },
+      )
+      if (!countErr && typeof count === 'number') {
+        setHiddenConfidentialCount(count)
       } else {
         setHiddenConfidentialCount(0)
       }
@@ -236,7 +236,7 @@ export function TilsynsbrevPage() {
             <>
               {' · '}
               <span className="font-semibold text-amber-700">
-                {hiddenConfidentialCount} konfidensielle skjult (kreve gjennomgang)
+                {hiddenConfidentialCount} konfidensielle skjult (krever gjennomgang)
               </span>
             </>
           )}

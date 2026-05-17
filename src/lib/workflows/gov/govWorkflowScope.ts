@@ -6,8 +6,34 @@
 // ("⚖️ Statlig melding") and activating a rule containing any of these
 // requires the workflows.activate_external permission (enforced by
 // trg_workflow_rules_activation_guard in migration _20260905120900).
+//
+// One exception: ON_EVIDENCE_TAMPER_DETECTED is emitted by the workflow
+// engine itself (workflow_verify_all_anchors_tick in _125200) when a TSA-
+// signed Merkle anchor fails re-verification. It lives here because the
+// downstream rules — emergency "stopp tilsynsbrev-eksport" / Datatilsynet-
+// melding — are regulator-facing. The DB emits it with source_module =
+// 'workflow' (engine meta-event); we declare 'workflow' in
+// WORKFLOW_SOURCE_MODULES so the builder's source-module picker accepts
+// it, then route the event off the gov scope so the existing gov-action
+// catalog is one click away.
 
 import { registerWorkflowScope } from '../workflowRegistry'
+
+declare module '../workflowTypes' {
+  interface WorkflowEventMap {
+    'ON_EVIDENCE_TAMPER_DETECTED': {
+      anchorId: string
+      organizationId: string | null
+      chainKey: string
+      periodStart: string
+      periodEnd: string
+      merkleRoot: string
+      verifyError: string
+      detectedAt: string
+      detector: string
+    }
+  }
+}
 
 registerWorkflowScope({
   scopeId: 'gov',
@@ -15,7 +41,27 @@ registerWorkflowScope({
   accent: '#991b1b',
   description:
     'Altinn / Arbeidstilsynet (AML § 5-2) / Datatilsynet (GDPR Art. 33) / NAV / LDO. Rule-aktivering krever workflows.activate_external og dobbel godkjenning.',
-  events: [],
+  events: [
+    {
+      name: 'ON_EVIDENCE_TAMPER_DETECTED',
+      label: 'Bevis-anker tukling oppdaget',
+      description:
+        'Kvartalsvis re-verifisering av en TSA-signert Merkle-rot feilet — kjeden er tuklet med eller anker-ID er korrupt. Emit fra workflow_verify_all_anchors_tick (engine meta-event, source_module=''workflow'').',
+      lawRefs: ['GDPR Art. 32', 'Arkivforskriften § 7', 'AML § 3-1'],
+      severity: 'critical',
+      samplePayload: {
+        anchorId: '00000000-0000-0000-0000-000000000000',
+        organizationId: '00000000-0000-0000-0000-000000000000',
+        chainKey: 'system:compliance_checklist:execution_signed',
+        periodStart: '2026-01-01T00:00:00Z',
+        periodEnd: '2026-04-01T00:00:00Z',
+        merkleRoot: 'a1b2c3…',
+        verifyError: 'merkle_root_mismatch',
+        detectedAt: '2026-04-01T04:00:05Z',
+        detector: 'workflow_verify_all_anchors_tick',
+      },
+    },
+  ],
   actions: [
     {
       type: 'rapporter_alvorlig_skade_arbeidstilsynet',

@@ -187,6 +187,9 @@ export function TilsynsbrevDetailPage() {
     if (e) {
       // 42P01 = undefined_table → migration not applied yet. Render the
       // placeholder card instead of an error.
+      // TODO remove after _125300 propagates — the table is guaranteed
+      // to exist on every environment that ran _20260907125300_
+      // tilsynsbrev_access_log.sql; this branch will be dead code.
       if (/relation .* does not exist/i.test(e.message) || (e as { code?: string }).code === '42P01') {
         setAccessLogAvailable(false)
         return
@@ -476,7 +479,6 @@ export function TilsynsbrevDetailPage() {
               ) : (
                 <span>Standard</span>
               )}
-              <span className="text-neutral-500">({upload.confidentiality_level})</span>
             </dd>
           </div>
           {upload.notes && <Field label="Notater" value={upload.notes} />}

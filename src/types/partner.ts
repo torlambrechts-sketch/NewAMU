@@ -9,6 +9,10 @@ export type PartnerOrganizationRow = {
   default_hourly_rate: number
   billing_email: string | null
   brand_accent: string | null
+  /** Norwegian VAT default 0.25 (set by `20260907126000_partner_invoice_pdf_pdf_storage`). */
+  vat_rate: number
+  bank_account_number: string | null
+  payment_terms_days: number
   created_at: string
   updated_at: string
 }
@@ -55,6 +59,11 @@ export type PartnerInvoiceRow = {
   total_minutes: number
   total_amount_nok: number
   csv_storage_path: string | null
+  /** Set on first PDF render by `partner-invoice-pdf` edge function. */
+  pdf_storage_path: string | null
+  pdf_generated_at: string | null
+  /** Customer-facing sequential number `<year>-<NNNN>`, minted per partner_id. */
+  invoice_number: string | null
   generated_at: string
   sent_at: string | null
   paid_at: string | null

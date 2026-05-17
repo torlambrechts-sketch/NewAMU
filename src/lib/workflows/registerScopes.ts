@@ -42,7 +42,10 @@ if (import.meta.env?.DEV) {
     const expected = WORKFLOW_SOURCE_MODULES.map((m) => m.value)
     // Modules we deliberately don't model as a workflow scope yet:
     //   - wiki_published: aggregated under documents scope
-    const excluded = new Set(['wiki_published'])
+    //   - workflow: meta-events (e.g. ON_EVIDENCE_TAMPER_DETECTED) live
+    //     on the gov scope so the regulator-facing actions are one click
+    //     away in the builder
+    const excluded = new Set(['wiki_published', 'workflow'])
     const missing = expected.filter((m) => !registered.has(m) && !excluded.has(m))
     if (missing.length > 0) {
       console.warn(

@@ -110,6 +110,11 @@ export const PERMISSION_KEYS = [
   // ─── Tasks confidentiality (tilsynsbrev spawns restricted/confidential tasks) ─
   /** Se konfidensielle oppgaver — speiles på workflow.view_confidential-mønsteret. */
   'tasks.view_confidential',
+
+  // ─── Gov-outbox triage (manual_* rows in gov_notifications_outbox) ─────
+  /** Triagér rader i gov_notifications_outbox som krever menneskelig behandling
+   *  (manuelle innsendinger til Datatilsynet/Arbeidstilsynet/LDO). */
+  'gov.outbox_triage',
 ] as const
 
 export type PermissionKey = (typeof PERMISSION_KEYS)[number]
@@ -164,6 +169,7 @@ export const PERMISSION_LABELS: Record<PermissionKey, string> = {
   'tilsynsbrev.upload': 'Tilsynsbrev — laste opp og parse inspeksjonsbrev',
   'tilsynsbrev.view_confidential': 'Tilsynsbrev — se konfidensielle saker',
   'tasks.view_confidential': 'Se konfidensielle oppgaver',
+  'gov.outbox_triage': 'Triagér utgående statlige meldinger',
 }
 
 /** Route prefix → permission (primary nav). Index route checked separately. */

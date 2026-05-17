@@ -420,6 +420,7 @@ export const WORKFLOW_SOURCE_MODULES = [
   { value: 'internkontroll', label: 'Internkontroll — årlig gjennomgang' },
   { value: 'wiki_published', label: 'Wiki — side publisert' },
   { value: 'gov', label: 'Statlig rapportering (Altinn, Arbeidstilsynet, Datatilsynet, NAV, LDO)' },
+  { value: 'workflow', label: 'Workflow-motor (meta-events: ON_EVIDENCE_TAMPER_DETECTED, …)' },
 ] as const
 
 export type WorkflowSourceModule = (typeof WORKFLOW_SOURCE_MODULES)[number]['value']
