@@ -1850,10 +1850,14 @@ export function AticsShell() {
         requirePermAny: overviewNavPerms,
       },
       {
+        // Legacy "Compliance Studio" entry redirected to the unified /studio
+        // shell per Studio Builder Phase 1. Now points at /studio?scope=compliance.
         label: 'Compliance Studio',
-        path: '/compliance-studio',
+        path: '/studio?scope=compliance',
         Icon: Wand2,
-        match: ({ pathname }) => pathname.startsWith('/compliance-studio'),
+        match: ({ pathname, search }) =>
+          pathname.startsWith('/compliance-studio') ||
+          (pathname === '/studio' && search.includes('scope=compliance')),
         requirePermAny: ADMINISTRASJON_NAV_PERMS,
       },
     ]
@@ -1909,7 +1913,28 @@ export function AticsShell() {
         }
       : null
 
-    const base: NavGroup[] = [hmsOverviewGroup, complianceGroup, surveyGroup, documentsGroup, meetingsGroup, alertsGroup, registersGroup, tasksGroup, learningGroup, adminGroup]
+    // Studio Builder — unified authoring shell. Top-level NavGroup so it
+    // sits alongside the seven content modules rather than buried under
+    // Administrasjon. Permission gate uses studio.simple per
+    // ROUTE_PERMISSION_ANY mapping for /studio.
+    const studioGroup: NavGroup = {
+      id: 'studio',
+      label: 'Studio',
+      icon: Wand2,
+      modules: [
+        {
+          to: '/studio',
+          label: 'Studio',
+          end: false,
+          icon: Wand2,
+          subs: [],
+          permAny: ['studio.simple'],
+          flatSubs: true,
+        },
+      ],
+    }
+
+    const base: NavGroup[] = [hmsOverviewGroup, complianceGroup, surveyGroup, documentsGroup, meetingsGroup, alertsGroup, registersGroup, tasksGroup, learningGroup, studioGroup, adminGroup]
     return partnerGroup ? [partnerGroup, ...base] : base
   }, [
     complianceNav.items,
