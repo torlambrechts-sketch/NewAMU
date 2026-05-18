@@ -54,7 +54,6 @@ export function useStudioMode() {
     const next: StudioMode = stored === 'advanced' ? 'advanced' : 'simple'
     if (next !== lastInitialRef.current) {
       lastInitialRef.current = next
-      // eslint-disable-next-line react-hooks/set-state-in-effect -- syncing local state to a late-arriving profile value
       setModeState(next)
     }
   }, [profile])

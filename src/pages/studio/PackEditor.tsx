@@ -23,7 +23,9 @@ import { Button } from '../../components/ui/Button'
 import { StandardInput } from '../../components/ui/Input'
 import { StandardTextarea } from '../../components/ui/Textarea'
 import { AutosaveIndicator } from '../../components/studio/shell/AutosaveIndicator'
+import { ConflictModal } from '../../components/studio/shell/ConflictModal'
 import type { AutosaveState } from '../../hooks/useStudioAutosave'
+import type { EmbedderConflictResolution } from '../../lib/studio/studioTypes'
 import { useOrgSetupContext } from '../../hooks/useOrgSetupContext'
 import { getSupabaseErrorMessage } from '../../lib/supabaseError'
 
@@ -106,6 +108,20 @@ export function PackEditor() {
   const [autosaveState, setAutosaveState] = useState<AutosaveState>('idle')
   const [autosaveLastAt, setAutosaveLastAt] = useState<Date | null>(null)
 
+  // Optimistic-lock: snapshot the server's last_edited_at at the moment
+  // the user opened a draft. On save, if the server row has moved past
+  // that timestamp (another admin saved in between), open the
+  // ConflictModal with server-vs-client side-by-side.
+  const [openedAt, setOpenedAt] = useState<string | null>(null)
+  const [conflict, setConflict] = useState<{
+    serverPayload: Record<string, unknown>
+    clientPayload: Record<string, unknown>
+    serverUpdatedAt: string | null
+  } | null>(null)
+  if (activeDraft?.last_edited_at !== openedAt && activeDraft) {
+    setOpenedAt(activeDraft.last_edited_at)
+  }
+
   async function handleCreateDraft() {
     if (!supabase || !organization) return
     setBusy(true)
@@ -154,6 +170,26 @@ export function PackEditor() {
       setBusy(false)
       return
     }
+    // Optimistic-lock check — re-read the row's last_edited_at; if it
+    // moved past openedAt the row was changed under us. Surface the
+    // ConflictModal with server-vs-client side-by-side.
+    const { data: serverNow } = await supabase
+      .from('studio_pack_drafts')
+      .select('last_edited_at, draft_payload')
+      .eq('id', activeDraft.id)
+      .single()
+    type SnapShot = { last_edited_at: string; draft_payload: Record<string, unknown> }
+    const snap = (serverNow as SnapShot | null) ?? null
+    if (snap && openedAt && snap.last_edited_at !== openedAt) {
+      setConflict({
+        serverPayload: snap.draft_payload ?? {},
+        clientPayload: parsed,
+        serverUpdatedAt: snap.last_edited_at,
+      })
+      setAutosaveState('error')
+      setBusy(false)
+      return
+    }
     const { error: e } = await supabase
       .from('studio_pack_drafts')
       .update({ draft_payload: parsed })
@@ -167,6 +203,33 @@ export function PackEditor() {
       await reload()
     }
     setBusy(false)
+  }
+
+  async function handleConflictResolution(resolution: EmbedderConflictResolution) {
+    if (!supabase || !activeDraft || !conflict) return
+    if (resolution === 'use_server') {
+      setEditorBody(JSON.stringify(conflict.serverPayload, null, 2))
+      setConflict(null)
+      setAutosaveState('idle')
+      await reload()
+      return
+    }
+    if (resolution === 'use_client') {
+      const { error: e } = await supabase
+        .from('studio_pack_drafts')
+        .update({ draft_payload: conflict.clientPayload })
+        .eq('id', activeDraft.id)
+      if (e) setError(getSupabaseErrorMessage(e))
+      else {
+        setAutosaveState('saved')
+        setAutosaveLastAt(new Date())
+      }
+      setConflict(null)
+      await reload()
+      return
+    }
+    // 'merge' — close modal, user merges by hand in the textarea
+    setConflict(null)
   }
 
   async function handlePublish() {
@@ -375,6 +438,15 @@ export function PackEditor() {
           )}
         </section>
       </div>
+      <ConflictModal
+        open={conflict !== null}
+        rowTable="studio_pack_drafts"
+        serverPayload={conflict?.serverPayload ?? {}}
+        clientPayload={conflict?.clientPayload ?? {}}
+        serverUpdatedAt={conflict?.serverUpdatedAt ?? null}
+        onResolve={handleConflictResolution}
+        onClose={() => setConflict(null)}
+      />
     </ModulePageShell>
   )
 }
