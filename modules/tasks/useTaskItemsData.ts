@@ -39,6 +39,10 @@ export type CreateTaskItemInput = {
   projectId?: string
   pdcaPhase?: TaskPdcaPhase
   parentItemId?: string
+  sourceType?: string
+  sourceId?: string
+  lawRefs?: string[]
+  pack?: string
 }
 
 export type UseTaskItemsDataReturn = {
@@ -138,7 +142,10 @@ export function useTaskItemsData(
           description: input.description ?? '',
           priority: input.priority,
           status: input.status ?? 'open',
-          pack: 'aml-amu',
+          pack: input.pack ?? 'aml-amu',
+          source_type: input.sourceType ?? null,
+          source_id: input.sourceId ?? null,
+          law_refs: input.lawRefs ?? null,
           source_category: input.templateKind ?? 'general',
           pdca_phase: input.pdcaPhase ?? 'do',
           template_slug: input.templateSlug ?? null,

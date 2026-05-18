@@ -45,14 +45,21 @@ export function PakkerTab() {
   const [editing, setEditing] = useState<CompliancePack | null>(null)
   const [confirming, setConfirming] = useState<CompliancePack | null>(null)
   const [activating, setActivating] = useState<string | null>(null)
+  const [successMsg, setSuccessMsg] = useState<string | null>(null)
 
   const activePacks   = packs.filter((p) => p.isActive)
   const inactivePacks = packs.filter((p) => !p.isActive)
+
+  const showSuccess = (msg: string) => {
+    setSuccessMsg(msg)
+    setTimeout(() => setSuccessMsg(null), 3500)
+  }
 
   const handleActivate = async (slug: CompliancePackSlug) => {
     setActivating(slug)
     await activatePack(slug)
     setActivating(null)
+    showSuccess('Pakken er aktivert. Maler og krav er nå tilgjengelige.')
   }
 
   const handleDeactivate = async (slug: CompliancePackSlug) => {
@@ -60,10 +67,17 @@ export function PakkerTab() {
     await deactivatePack(slug)
     setActivating(null)
     setConfirming(null)
+    showSuccess('Pakken er deaktivert og skjult fra compliance-hubben.')
   }
 
   return (
     <div className="space-y-6">
+      {successMsg && (
+        <div className="flex items-center gap-2 rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700">
+          <CheckCircle2 className="h-4 w-4 shrink-0" />
+          {successMsg}
+        </div>
+      )}
       {/* ── Active packs ── */}
       <ModuleSectionCard className="p-5 md:p-6">
         <div className="flex items-center gap-2">

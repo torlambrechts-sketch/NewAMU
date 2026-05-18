@@ -73,14 +73,21 @@ export function IsoGapAnalysisSessionPage() {
   }
 
   const handleCreateTask = async (clause: IsoClause) => {
-    if (!session) return
+    if (!session || !sessionId) return
     setCreatingTaskForClauseId(clause.id)
+    const standardLabel = ISO_STANDARD_SHORT[session.standard]
+    const standardYear = session.standard === 'iso-27001' ? '2022' : '2015'
+    const lawRef = `${standardLabel}:${standardYear} § ${clause.clauseId}`
     await tasksApi.createItem({
       title: `Tiltak: ${clause.title}`,
-      description: `Gap-analyse avdekket mangel i klausul ${clause.clauseId} — ${clause.title}. Standard: ${ISO_STANDARD_SHORT[session.standard]}.`,
+      description: `Gap-analyse avdekket mangel i klausul ${clause.clauseId} — ${clause.title}. Standard: ${standardLabel}.`,
       priority: 'medium',
       templateSlug: 'iso_gap',
       templateKind: 'tiltak',
+      sourceType: 'iso_gap',
+      sourceId: sessionId,
+      lawRefs: [lawRef],
+      pack: session.standard,
     })
     setCreatingTaskForClauseId(null)
   }

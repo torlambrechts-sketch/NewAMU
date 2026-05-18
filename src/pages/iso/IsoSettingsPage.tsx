@@ -35,11 +35,18 @@ export function IsoSettingsPage() {
   const { loading, error, isStandardActive, toggleStandard } = useIsoSettings()
   const [toggling, setToggling] = useState<IsoStandard | null>(null)
   const [confirming, setConfirming] = useState<IsoStandard | null>(null)
+  const [successMsg, setSuccessMsg] = useState<string | null>(null)
+
+  const showSuccess = (msg: string) => {
+    setSuccessMsg(msg)
+    setTimeout(() => setSuccessMsg(null), 3500)
+  }
 
   const handleActivate = async (standard: IsoStandard) => {
     setToggling(standard)
     await toggleStandard(standard, true)
     setToggling(null)
+    showSuccess(`${ISO_STANDARD_SHORT[standard]} er aktivert. Gap-analyse og sjekklister er nå tilgjengelige.`)
   }
 
   const handleDeactivate = async (standard: IsoStandard) => {
@@ -47,6 +54,7 @@ export function IsoSettingsPage() {
     await toggleStandard(standard, false)
     setToggling(null)
     setConfirming(null)
+    showSuccess(`${ISO_STANDARD_SHORT[standard]} er deaktivert.`)
   }
 
   const activeStandards = ISO_STANDARDS.filter(isStandardActive)
@@ -64,6 +72,12 @@ export function IsoSettingsPage() {
         {error && (
           <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
             {error}
+          </div>
+        )}
+        {successMsg && (
+          <div className="flex items-center gap-2 rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700">
+            <CheckCircle2 className="h-4 w-4 shrink-0" />
+            {successMsg}
           </div>
         )}
 
@@ -112,7 +126,8 @@ export function IsoSettingsPage() {
                           variant="ghost"
                           size="sm"
                           icon={<Settings className="h-3.5 w-3.5" />}
-                          onClick={() => {/* Phase 2: per-standard settings panel */}}
+                          disabled
+                          title="Kommer i neste versjon"
                         >
                           Sertifiseringsmål
                         </Button>
