@@ -27,6 +27,18 @@
 // Spec: specs/studio-builder.md §5 Phase 0 Task 0.3.
 
 import type { ReportModuleKind } from '../../types/reportBuilder'
+import {
+  renderKpi,
+  renderTable,
+  renderBar,
+  renderDonut,
+  renderHeatmap,
+  renderLine,
+  renderScorecard,
+  renderBowtie,
+  renderBenchmark,
+  type WidgetRenderer,
+} from '../../components/reports/widgetRenderers'
 
 // ────────────────────────────────────────────────────────────────────
 // 1. Registry entry shape
@@ -47,6 +59,13 @@ export type WidgetKindEntry = {
   group: 'KPI' | 'Tabell' | 'Diagram' | 'Spesial'
   /** Brief description (1 sentence) shown as a hint in the picker. */
   description: string
+  /**
+   * Renderer function for the widget runtime. Takes the typed module
+   * config + a WidgetRenderContext, returns the inner JSX (with an
+   * optional `skipWrap` flag for kinds that emit their own card chrome).
+   * Migrated out of ReportModuleWidget's if-chain in Task 0.3 Stage B.
+   */
+  renderer: WidgetRenderer
 }
 
 // ────────────────────────────────────────────────────────────────────
@@ -63,16 +82,16 @@ export const WIDGET_KIND_ENTRIES: WidgetKindEntry[] = [
     label: 'KPI-tall',
     group: 'KPI',
     description: 'Ett tall, med valgfri sammenligning og sparkline.',
-    // Pre-refactor fallback (the if-chain returns ['kpi'] for kpi).
     defaultCompatibleKinds: ['kpi'],
+    renderer: renderKpi,
   },
   {
     id: 'bar',
     label: 'Søylediagram',
     group: 'Diagram',
     description: 'Horisontale søyler med valgfri drill-down.',
-    // donut/bar/table share dataset shape and are mutually compatible.
     defaultCompatibleKinds: ['donut', 'bar', 'table'],
+    renderer: renderBar,
   },
   {
     id: 'donut',
@@ -80,6 +99,7 @@ export const WIDGET_KIND_ENTRIES: WidgetKindEntry[] = [
     group: 'Diagram',
     description: 'Andelsfordeling som donut/sektor.',
     defaultCompatibleKinds: ['donut', 'bar', 'table'],
+    renderer: renderDonut,
   },
   {
     id: 'line',
@@ -87,6 +107,7 @@ export const WIDGET_KIND_ENTRIES: WidgetKindEntry[] = [
     group: 'Diagram',
     description: 'Tidsserie eller trend.',
     defaultCompatibleKinds: ['line'],
+    renderer: renderLine,
   },
   {
     id: 'table',
@@ -94,6 +115,7 @@ export const WIDGET_KIND_ENTRIES: WidgetKindEntry[] = [
     group: 'Tabell',
     description: 'Radbasert tabell med valgfri søyle/lenke per rad.',
     defaultCompatibleKinds: ['donut', 'bar', 'table'],
+    renderer: renderTable,
   },
   {
     id: 'heatmap',
@@ -101,14 +123,15 @@ export const WIDGET_KIND_ENTRIES: WidgetKindEntry[] = [
     group: 'Spesial',
     description: 'Matrise (f.eks. lokasjon × kategori).',
     defaultCompatibleKinds: ['heatmap'],
+    renderer: renderHeatmap,
   },
   {
     id: 'scorecard',
     label: 'Scorecard',
     group: 'KPI',
     description: 'Stort tall i kort med valgfri kontekst-rad.',
-    // scorecard/bowtie share the rows-with-status dataset shape.
     defaultCompatibleKinds: ['scorecard', 'bowtie'],
+    renderer: renderScorecard,
   },
   {
     id: 'bowtie',
@@ -116,6 +139,7 @@ export const WIDGET_KIND_ENTRIES: WidgetKindEntry[] = [
     group: 'Spesial',
     description: 'Risiko-bowtie — venstre årsaker, høyre konsekvenser.',
     defaultCompatibleKinds: ['scorecard', 'bowtie'],
+    renderer: renderBowtie,
   },
   {
     id: 'benchmark',
@@ -123,6 +147,7 @@ export const WIDGET_KIND_ENTRIES: WidgetKindEntry[] = [
     group: 'Spesial',
     description: 'Sammenligning mot referansegruppe (industri, fjorår).',
     defaultCompatibleKinds: ['benchmark'],
+    renderer: renderBenchmark,
   },
 ]
 
