@@ -12,8 +12,8 @@ that validation. §12 lists upstream specs and current substrate state;
 phases that depend on unshipped work declare that dependency in their
 task entries.
 
-**Spec status:** `📋 ready — pending stakeholder review on PR`.
-**Last reviewed:** 2026-05-17 (senior dev + senior PL second pass; §13 checklist signed off).
+**Spec status:** `🚧 in flight — Phases 0–3 substrate shipped, Phase 4 marketplace gated`.
+**Last reviewed:** 2026-05-18 (engineering pass; Phases 0+1+2a+2b+3 substrate + 8 scopes + 21 presets + PackEditor + 7 real embedders + ISO 27001 v1.1.0 + CommandPalette + PartnerOffboarding + PlatformStudioGrants + RLS profile script + Visual-diff fixture + CI workflow shipped). Task 0.9 customer-signal validation kit at `specs/studio-signal-validation.md`; interviews not yet run.
 **Reference modules:** dashboards (`src/lib/dashboards/dashboardRegistry.ts`),
 workflows (`src/lib/workflows/workflowRegistry.ts` + 12 module scopes),
 compliance studio (`src/pages/overview/studio/ComplianceStudioPage.tsx`),

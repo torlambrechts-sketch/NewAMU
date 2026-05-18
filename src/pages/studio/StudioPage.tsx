@@ -25,6 +25,7 @@ import { SimpleModeCards } from '../../components/studio/shell/SimpleModeCards'
 import { AdvancedShell } from '../../components/studio/shell/AdvancedShell'
 import { CommandPalette } from '../../components/studio/shell/CommandPalette'
 import { PartnerOrgSwitcher } from '../../components/studio/shell/PartnerOrgSwitcher'
+import { VersionTimeline } from '../../components/studio/shell/VersionTimeline'
 import { useStudioMode } from '../../hooks/useStudioMode'
 import { emitStudioTelemetry } from '../../lib/studio/telemetry'
 import type { StudioTelemetryEvent } from '../../lib/studio/studioTypes'
@@ -120,10 +121,13 @@ export function StudioPage() {
           {effectiveMode === 'simple' ? (
             <SimpleModeCards scopeId={activeScope.scopeId} emit={emit} />
           ) : (
-            <AdvancedShell
-              scopeId={activeScope.scopeId}
-              onBackToSimple={() => handleModeChange('simple')}
-            />
+            <>
+              <AdvancedShell
+                scopeId={activeScope.scopeId}
+                onBackToSimple={() => handleModeChange('simple')}
+              />
+              <VersionTimeline scopeId={activeScope.scopeId} />
+            </>
           )}
         </div>
       )}

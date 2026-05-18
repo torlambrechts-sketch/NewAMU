@@ -73,10 +73,9 @@ export function listStudioKinds(scopeId?: string): StudioKindRegistration[] {
 // ────────────────────────────────────────────────────────────────────
 // STUDIO_SOURCE_MODULES — known scope ids
 // ────────────────────────────────────────────────────────────────────
-// The 7 content scopes the spec promises in Phase 1. Workflows is
-// listed in STUDIO_DEFERRED_MODULES so the dev-mode startup assertion
-// doesn't warn about it on every page load — it ships when
-// workflow-engine-review.md Phase A/B lands (spec §12 coordination).
+// The 8 scopes the spec promises in Phase 1. Workflows lands as a
+// Phase 1.5 deep-link stub (the v3 canvas comes when
+// workflow-engine-review.md Phase B ships).
 // Adding a new scope means adding it here AND shipping the scope file.
 
 export const STUDIO_SOURCE_MODULES = [
@@ -87,14 +86,16 @@ export const STUDIO_SOURCE_MODULES = [
   'meetings',
   'registers',
   'dashboards',
+  'workflows',
 ] as const
 
 /**
  * Scopes named in the spec but explicitly deferred. Listed so the
  * prebuild assertion's informational output can name them; NOT
- * enforced at runtime so the dev console stays quiet.
+ * enforced at runtime so the dev console stays quiet. Currently empty
+ * — every scope in the spec has at least a Phase 1.5 stub shipped.
  */
-export const STUDIO_DEFERRED_MODULES = ['workflows'] as const
+export const STUDIO_DEFERRED_MODULES = [] as const
 
 export type StudioSourceModule = (typeof STUDIO_SOURCE_MODULES)[number]
 

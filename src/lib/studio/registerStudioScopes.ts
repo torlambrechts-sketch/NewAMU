@@ -16,9 +16,7 @@ import '../../../modules/learning/studio/learningStudioScope'
 import '../../../modules/meetings/studio/meetingsStudioScope'
 import '../../../modules/registers/studio/registersStudioScope'
 import '../../../modules/dashboards/studio/dashboardsStudioScope'
-// Workflows scope deferred — depends on workflow-engine-review.md Phase A/B
-// (registry refactor + WorkflowBuilderPage). Per studio-builder.md §12
-// coordination plan, ship without workflows; add when upstream lands.
+import '../../../modules/workflows/studio/workflowsStudioScope'
 
 import { assertStudioScopesRegistered } from './studioRegistry'
 

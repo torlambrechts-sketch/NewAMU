@@ -13,6 +13,7 @@
     "db:gen-learning-system": "node scripts/generate-learning-system-migration.mjs",
     "db:gen-survey-catalog-seed": "node scripts/build-survey-catalog-seed.mjs",
     "studio:assert": "npx tsx scripts/assert-studio-registry.ts",
+    "studio:rls-profile": "npx tsx scripts/studio-rls-profile.ts",
     "test": "vitest run",
     "test:watch": "vitest"
   },
