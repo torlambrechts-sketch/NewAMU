@@ -254,8 +254,8 @@ export function KlarertStudioSurveyEditorPage() {
   return (
     <ModulePageShell
       breadcrumb={[
-        { label: 'Studio', href: '/studio' },
-        { label: 'Spørreundersøkelser', href: '/studio/survey' },
+        { label: 'Studio', to: '/studio' },
+        { label: 'Spørreundersøkelser', to: '/studio/survey' },
         { label: displayName },
       ]}
       title={titleNode}
