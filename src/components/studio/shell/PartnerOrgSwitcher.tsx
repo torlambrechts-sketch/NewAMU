@@ -1,67 +1,70 @@
 // Partner org switcher — Studio Builder Phase 3 Task 3.2.
 //
-// Renders a dropdown listing every customer org the active partner_membership
-// covers. Selecting a customer narrows the studio's writes to that
-// organization_id via the existing partner_resolve_active_partner GUC
-// substrate (no new table — spec §3 reuse of partner_memberships).
+// Renders a dropdown listing every customer org the active
+// partner_membership covers. Selection persists to localStorage via
+// useStudioOrgContext (single source of truth for "which org are we
+// writing to"). The studio's preset mutators read the same hook (or
+// the matching resolveActiveOrgId() helper) so writes land in the
+// right tenant.
 //
-// Visible only when the caller has at least one active partner_membership.
-// Customer admins (single-org users) don't see the switcher.
+// Visible only when the caller has at least one active
+// partner_membership. Customer admins (single-org users) don't see
+// the switcher.
 
-import { useCallback, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Button } from '../../ui/Button'
 import { usePartnerMembership } from '../../../hooks/usePartnerMembership'
-
-const ACTIVE_CUSTOMER_KEY = 'studio-active-customer-org-id'
-
-function readActiveCustomerFromStorage(): string | null {
-  try {
-    return localStorage.getItem(ACTIVE_CUSTOMER_KEY)
-  } catch {
-    return null
-  }
-}
-
-function writeActiveCustomerToStorage(id: string | null) {
-  try {
-    if (id) localStorage.setItem(ACTIVE_CUSTOMER_KEY, id)
-    else localStorage.removeItem(ACTIVE_CUSTOMER_KEY)
-  } catch {
-    /* ignore */
-  }
-}
+import { useStudioOrgContext } from '../../../hooks/useStudioOrgContext'
 
 export type PartnerOrgSwitcherProps = {
-  /** Called when the active customer changes. */
+  /** Called after a successful switch. */
   onChange?: (customerOrgId: string | null) => void
 }
 
 export function PartnerOrgSwitcher({ onChange }: PartnerOrgSwitcherProps) {
   const { isPartnerMember, customers, loading, currentPartner } = usePartnerMembership()
+  const { activeCustomerOrgId, setActiveCustomerOrgId } = useStudioOrgContext()
   const [open, setOpen] = useState(false)
-  const [activeCustomerId, setActiveCustomerId] = useState<string | null>(
-    readActiveCustomerFromStorage,
-  )
+  const containerRef = useRef<HTMLDivElement | null>(null)
+
+  // Click-outside / escape to close.
+  useEffect(() => {
+    if (!open) return
+    function handlePointer(e: PointerEvent) {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+        setOpen(false)
+      }
+    }
+    function handleKey(e: KeyboardEvent) {
+      if (e.key === 'Escape') setOpen(false)
+    }
+    window.addEventListener('pointerdown', handlePointer)
+    window.addEventListener('keydown', handleKey)
+    return () => {
+      window.removeEventListener('pointerdown', handlePointer)
+      window.removeEventListener('keydown', handleKey)
+    }
+  }, [open])
 
   const activeCustomer = useMemo(
-    () => customers.find((c) => c.organization_id === activeCustomerId) ?? null,
-    [customers, activeCustomerId],
+    () => customers.find((c) => c.organization_id === activeCustomerOrgId) ?? null,
+    [customers, activeCustomerOrgId],
   )
 
   const handleSelect = useCallback(
-    (orgId: string | null) => {
-      setActiveCustomerId(orgId)
-      writeActiveCustomerToStorage(orgId)
+    async (orgId: string | null) => {
+      const ok = await setActiveCustomerOrgId(orgId)
+      if (!ok) return
       setOpen(false)
       onChange?.(orgId)
     },
-    [onChange],
+    [onChange, setActiveCustomerOrgId],
   )
 
   if (!isPartnerMember || loading || customers.length === 0) return null
 
   return (
-    <div className="relative inline-block">
+    <div ref={containerRef} className="relative inline-block">
       <Button
         variant="secondary"
         size="sm"
@@ -82,6 +85,7 @@ export function PartnerOrgSwitcher({ onChange }: PartnerOrgSwitcherProps) {
       {open ? (
         <div
           role="listbox"
+          aria-label="Velg klient-organisasjon"
           className="absolute right-0 z-30 mt-2 w-72 rounded-xl border border-neutral-200 bg-white p-2 shadow-lg"
         >
           {currentPartner ? (
@@ -90,9 +94,9 @@ export function PartnerOrgSwitcher({ onChange }: PartnerOrgSwitcherProps) {
             </div>
           ) : null}
           <ul className="max-h-72 overflow-auto">
-            <li>
+            <li role="option" aria-selected={activeCustomerOrgId === null}>
               <Button
-                variant={activeCustomerId === null ? 'primary' : 'ghost'}
+                variant={activeCustomerOrgId === null ? 'primary' : 'ghost'}
                 size="sm"
                 className="w-full justify-start font-normal"
                 onClick={() => handleSelect(null)}
@@ -101,9 +105,9 @@ export function PartnerOrgSwitcher({ onChange }: PartnerOrgSwitcherProps) {
               </Button>
             </li>
             {customers.map((c) => (
-              <li key={c.organization_id}>
+              <li key={c.organization_id} role="option" aria-selected={c.organization_id === activeCustomerOrgId}>
                 <Button
-                  variant={c.organization_id === activeCustomerId ? 'primary' : 'ghost'}
+                  variant={c.organization_id === activeCustomerOrgId ? 'primary' : 'ghost'}
                   size="sm"
                   className="w-full justify-start font-normal"
                   onClick={() => handleSelect(c.organization_id)}

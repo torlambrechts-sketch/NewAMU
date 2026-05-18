@@ -23,13 +23,9 @@ registerStudioScope({
 
 async function provisionSurveyBaseline(values: Record<string, string | boolean>): Promise<void> {
   const { supabase } = await import('../../../src/lib/supabaseClient')
-  if (!supabase) return
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('organization_id')
-    .single()
-  const orgId = (profile as { organization_id?: string } | null)?.organization_id
-  if (!orgId) return
+  const { resolveActiveOrgId } = await import('../../../src/lib/studio/resolveActiveOrgId')
+  const orgId = await resolveActiveOrgId(supabase)
+  if (!supabase || !orgId) return
   await supabase.rpc('provision_survey_baseline_for_org', { p_org_id: orgId })
   // Optional: kick off a draft survey row keyed by the chosen template
   const slug = String(values.templateSlug ?? '')

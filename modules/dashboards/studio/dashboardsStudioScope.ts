@@ -17,13 +17,9 @@ registerStudioScope({
 
 async function createDashboardLayout(values: Record<string, string | boolean>, kind: 'studio_preset_layout' | 'dashboard'): Promise<void> {
   const { supabase } = await import('../../../src/lib/supabaseClient')
-  if (!supabase) return
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('organization_id')
-    .single()
-  const orgId = (profile as { organization_id?: string } | null)?.organization_id
-  if (!orgId) return
+  const { resolveActiveOrgId } = await import('../../../src/lib/studio/resolveActiveOrgId')
+  const orgId = await resolveActiveOrgId(supabase)
+  if (!supabase || !orgId) return
   await supabase.from('dashboard_layouts').insert({
     organization_id: orgId,
     scope_id: String(values.scopeId ?? 'compliance_checklist'),

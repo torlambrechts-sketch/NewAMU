@@ -17,13 +17,9 @@ registerStudioScope({
 
 async function createMeetingFromTemplate(values: Record<string, string | boolean>): Promise<void> {
   const { supabase } = await import('../../../src/lib/supabaseClient')
-  if (!supabase) return
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('organization_id')
-    .single()
-  const orgId = (profile as { organization_id?: string } | null)?.organization_id
-  if (!orgId) return
+  const { resolveActiveOrgId } = await import('../../../src/lib/studio/resolveActiveOrgId')
+  const orgId = await resolveActiveOrgId(supabase)
+  if (!supabase || !orgId) return
   await supabase.from('meetings').insert({
     organization_id: orgId,
     title: String(values.title ?? 'Nytt møte'),
