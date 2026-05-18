@@ -258,3 +258,80 @@ If picking up cold, do these in this order — each builds on the previous and e
 6. **Composite scopes (3.3.1)** — last, because the abstraction needs two healthy real consumers.
 
 Items not in this list can land opportunistically — they're either too small to plan around (3.5.x polish) or too speculative without more user data (3.4.x outputs).
+
+---
+
+## 9. Trust & Security — GDPR · ISMS · NIS2 · Digitalsikkerhetsloven
+
+Full strategy and implementation plan in [`specs/gdpr-isms-nis2-strategy.md`](specs/gdpr-isms-nis2-strategy.md).
+Architecture decisions, UX mockups, competitor analysis, and 6-phase roadmap.
+Extends the existing regulation taxonomy, register engine, alerts module, and compliance planner.
+
+### Phase 1 — Foundation (data layer + navigation)
+
+| # | Status | Item | Notes |
+|---|---|---|---|
+| T1.1 | 📋 | Regulation seeds (ISO 27001, NIS2, DSL, POL) | `20260920120000` — extend `regulations` table |
+| T1.2 | 📋 | 8 new system register types (ROPA, DPA, DSR, Transfers, Assets, Vulnerabilities, Suppliers, NIS2 Incidents) | `20260920120001` — same engine, new types |
+| T1.3 | 📋 | `isms_soa_controls` table + `provision_isms_baseline_for_org` | `20260920120002` — 93 Annex A controls per org |
+| T1.4 | 📋 | Multi-regulation gap planner (answer OQ-P1: parameterise on `regulation_id` from day one) | Extend `specs/compliance-planner.md` — GDPR + ISO 27001 + NIS2 are all consumers |
+| T1.5 | 📋 | NIS2 incident alert type (extend alerts module) | Adds `nis2_incident` alongside `gdpr_breach` + `whistleblowing` |
+| T1.6 | 📋 | Trust & Security navigation group in AticsShell | New top-level NavGroup after Læring |
+| T1.7 | 📋 | `TRUST_NAV_PERMS` permission keys | New `trust.*` permission namespace |
+
+### Phase 2 — Privacy Hub (GDPR / Datatilsynet)
+
+| # | Status | Item | Notes |
+|---|---|---|---|
+| T2.1 | 📋 | ROPA page (Art. 30) — structured view + form | `src/pages/trust/privacy/RopaPage.tsx` |
+| T2.2 | 📋 | DSR workflow page (Art. 15–22) — request tracking + timeline | `src/pages/trust/privacy/DsrPage.tsx` |
+| T2.3 | 📋 | DPA contract register (Art. 28) | `src/pages/trust/privacy/DpaContractsPage.tsx` |
+| T2.4 | 📋 | Transfer register (Art. 44) | `src/pages/trust/privacy/TransfersPage.tsx` |
+| T2.5 | 📋 | Privacy Hub landing + dashboard scope | `src/pages/trust/privacy/` |
+| T2.6 | 📋 | ROPA PDF export (Art. 30 formatted) | Extend `compliance-audit-pdf` Edge Function |
+
+### Phase 3 — ISMS Hub (ISO 27001:2022)
+
+| # | Status | Item | Notes |
+|---|---|---|---|
+| T3.1 | 📋 | SoA builder — all 93 Annex A controls, applicable/excluded/status/evidence | `src/pages/trust/isms/SoaPage.tsx` |
+| T3.2 | 📋 | 93-control seed migration | `20260925120000` — ISO 27001:2022 Annex A complete |
+| T3.3 | 📋 | Asset inventory page (wraps `isms_assets` register type) | `src/pages/trust/isms/AssetsPage.tsx` |
+| T3.4 | 📋 | Vulnerability register page (wraps `isms_vulnerabilities`) | `src/pages/trust/isms/VulnerabilitiesPage.tsx` |
+| T3.5 | 📋 | Internal audit meeting template + scheduling | Extend meetings seeds + fix gated 8.17 (ISO 27001 §9.3.2) |
+| T3.6 | 📋 | ISMS risk bridge (wire existing risk module into ISO 27001 §6) | `src/hooks/useIsmsRiskBridge.ts` |
+| T3.7 | 📋 | SoA PDF export ("Certification readiness report") | Extend Edge Function |
+| T3.8 | 📋 | ISMS dashboard scope + datasets | `src/pages/trust/isms/dashboards/` |
+
+### Phase 4 — NIS2 Hub (NIS2 / Digitalsikkerhetsloven)
+
+| # | Status | Item | Notes |
+|---|---|---|---|
+| T4.1 | 📋 | NIS2 incident timeline page — 24h/72h/30d countdown + NSM submission | `src/pages/trust/nis2/IncidentsPage.tsx` |
+| T4.2 | 📋 | NSM report Edge Function | `supabase/functions/gov-nsm-incident-report/` |
+| T4.3 | 📋 | Supplier security register + automated questionnaire (via Survey module) | `src/pages/trust/nis2/SuppliersPage.tsx` |
+| T4.4 | 📋 | BCP/DR register page | `src/pages/trust/nis2/BcpPage.tsx` |
+| T4.5 | 📋 | Board training tracker (NIS2 Art. 20 — e-learning completion check) | `src/hooks/useNis2BoardTraining.ts` |
+| T4.6 | 📋 | NIS2 dashboard scope + datasets | `src/pages/trust/nis2/dashboards/` |
+
+### Phase 5 — Trust Dashboard + Trust Center
+
+| # | Status | Item | Notes |
+|---|---|---|---|
+| T5.1 | 📋 | Trust composite dashboard (board-level GDPR + ISMS + NIS2 KPIs) | `src/pages/trust/dashboards/trustDashboardScope.ts` |
+| T5.2 | 📋 | Regulation coverage bar chart across all four frameworks | New composite dataset |
+| T5.3 | 📋 | Public Trust Center page `/trust/:org-slug` | `src/pages/public/TrustCenterPage.tsx` |
+| T5.4 | 📋 | Trust Center admin (enable/customise) | `src/pages/trust/settings/TrustCenterSettings.tsx` |
+| T5.5 | 📋 | Auditor token extension (covers ISMS + NIS2 in addition to compliance planner) | Extend `workflow-auditor-view` Edge Function |
+| T5.6 | 📋 | Board report PDF (executive summary) | New Edge Function |
+
+### Phase 6 — Intelligence Layer (ongoing, post-P5)
+
+| # | Status | Item | Notes |
+|---|---|---|---|
+| T6.1 | ⏸ | ROPA auto-suggest from system scan | Scan templates + law_refs to propose ROPA entries |
+| T6.2 | ⏸ | SoA auto-evidence matching (link checklist/meeting evidence to Annex A) | Automated evidence mapping |
+| T6.3 | ⏸ | Datatilsynet DPO API integration | Register/update DPO in Datatilsynet portal |
+| T6.4 | ⏸ | Altinn NIS2 reporting integration | NIS2 incident reports via Altinn API |
+| T6.5 | ⏸ | CVE feed integration → vulnerability register auto-populate | NVD/CVE feed ingestion |
+| T6.6 | ⏸ | AI-assisted DPIA risk scoring | Suggest risk level from processing purpose + data categories |
