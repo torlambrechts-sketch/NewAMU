@@ -24,7 +24,10 @@ type ContentType = {
   description: string
   exampleLabel: string
   icon: React.ComponentType<{ className?: string }>
+  /** Where clicking the card navigates (list/hub page) */
   href?: string
+  /** Where "Bygg ny →" navigates (create-new page); defaults to href */
+  newHref?: string
   soon?: boolean
   bgColor?: string
 }
@@ -61,7 +64,7 @@ const CONTENT_TYPES: ContentType[] = [
     key: 'elaering',
     title: 'E-læringskurs',
     description: 'Moduler med video, tekst, quiz og sertifikat. AML-systemkurs og egne kurs.',
-    exampleLabel: 'Førsteggangsopplæring HMS',
+    exampleLabel: 'Førstegangopplæring HMS',
     icon: BookOpen,
     soon: true,
     bgColor: 'bg-neutral-900',
@@ -73,6 +76,7 @@ const CONTENT_TYPES: ContentType[] = [
     exampleLabel: 'Arbeidsmiljø Q2 2026',
     icon: Megaphone,
     href: '/studio/survey',
+    newHref: '/studio/survey/new',
     bgColor: 'bg-[#f0f7f4]',
   },
   {
@@ -138,7 +142,8 @@ function ContentTypeCard({ type }: { type: ContentType }) {
           disabled={type.soon}
           onClick={(e) => {
             e.stopPropagation()
-            if (type.href) navigate(type.href)
+            const dest = type.newHref ?? type.href
+            if (dest) navigate(dest)
           }}
           className={[
             'flex items-center gap-1 text-xs font-medium transition',

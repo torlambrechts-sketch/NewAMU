@@ -11,6 +11,21 @@ import { Button } from '../../src/components/ui/Button'
 import { WPSTD_FORM_FIELD_LABEL } from '../../src/components/layout/WorkplaceStandardFormPanel'
 import type { StudioBlock, StudioBranchBlock, StudioQuestionBlock, StudioSectionBlock } from './types'
 
+const QUESTION_TYPE_LABEL: Partial<Record<string, string>> = {
+  single_select: 'Enkeltvalg',
+  multi_select: 'Flervalg',
+  multiple_choice: 'Flervalg (knapper)',
+  likert_5: 'Skala 1–5',
+  likert_7: 'Skala 1–7',
+  scale_10: 'Skala 0–10',
+  text: 'Fritekst',
+  yes_no: 'Ja / Nei',
+  matrix: 'Matrise',
+  ranking: 'Rangering',
+  voting: 'Votering',
+  nps: 'NPS',
+}
+
 type Props = {
   block: StudioBlock | null
   advanced: boolean
@@ -20,11 +35,9 @@ type Props = {
 
 function SectionPanel({
   block,
-  advanced,
   onUpdate,
 }: {
   block: StudioSectionBlock
-  advanced: boolean
   onUpdate: (patch: Partial<StudioSectionBlock>) => void
 }) {
   return (
@@ -63,7 +76,6 @@ function QuestionPanel({
     block.questionType === 'single_select' ||
     block.questionType === 'multi_select' ||
     block.questionType === 'multiple_choice' ||
-    block.questionType === 'yes_no' ||
     block.questionType === 'ranking'
 
   const hasAnchors =
@@ -98,18 +110,6 @@ function QuestionPanel({
         />
       </div>
 
-      {block.questionType !== 'yes_no' && (
-        <div>
-          <label className={WPSTD_FORM_FIELD_LABEL}>BESKRIVELSE</label>
-          <StandardTextarea
-            value={''}
-            onChange={() => {}}
-            placeholder="4 svaralternativer · obligatorisk"
-            rows={2}
-            disabled
-          />
-        </div>
-      )}
 
       <div>
         <label className={WPSTD_FORM_FIELD_LABEL}>OBLIGATORISK</label>
@@ -237,7 +237,7 @@ export function StudioSurveyPropertyPanel({ block, advanced, onUpdate, onDeselec
       ? 'Seksjon'
       : block.kind === 'branch'
         ? 'Forgrening'
-        : 'Enkeltvalg'
+        : (QUESTION_TYPE_LABEL[block.questionType] ?? block.questionType)
 
   return (
     <aside className="flex h-full w-72 shrink-0 flex-col overflow-y-auto border-l border-neutral-200 bg-[#fafaf9]">
@@ -247,10 +247,10 @@ export function StudioSurveyPropertyPanel({ block, advanced, onUpdate, onDeselec
           <p className="text-xs font-semibold uppercase tracking-wide text-neutral-400">BLOKK</p>
           <p className="mt-0.5 text-sm font-semibold text-neutral-900">
             {block.kind === 'section'
-              ? (block as typeof block & { title: string }).title || 'Seksjon'
+              ? block.title || 'Seksjon'
               : block.kind === 'branch'
-                ? 'Forgrening'
-                : (block as typeof block & { text: string }).text || 'Spørsmål uten tekst'}
+                ? block.label || 'Forgrening'
+                : block.text || 'Spørsmål uten tekst'}
           </p>
           <p className="text-xs text-neutral-400">{blockTypeLabel}</p>
         </div>
@@ -286,7 +286,6 @@ export function StudioSurveyPropertyPanel({ block, advanced, onUpdate, onDeselec
         {block.kind === 'section' && (
           <SectionPanel
             block={block}
-            advanced={advanced}
             onUpdate={(patch) => onUpdate(block.id, patch)}
           />
         )}

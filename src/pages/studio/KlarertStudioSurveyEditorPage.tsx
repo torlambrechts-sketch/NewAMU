@@ -4,17 +4,19 @@
 // template on first save. Auto-saves to survey_template_catalog.studio_blocks
 // (+ derived body.questions) with a 1.5 s debounce.
 
-import { useCallback, useState } from 'react'
+import { useCallback, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import {
   ArrowLeft,
   Check,
   ChevronRight,
   Loader2,
+  Pencil,
   Play,
   Zap,
 } from 'lucide-react'
 import { Button } from '../../components/ui/Button'
+import { StandardInput } from '../../components/ui/Input'
 import { StudioBlockPalette } from '../../../modules/studio/StudioBlockPalette'
 import { StudioSurveyBlockCanvas } from '../../../modules/studio/StudioSurveyBlockCanvas'
 import { StudioSurveyPropertyPanel } from '../../../modules/studio/StudioSurveyPropertyPanel'
@@ -51,6 +53,8 @@ export function KlarertStudioSurveyEditorPage() {
   const studio = useSurveyStudio(templateId)
   const [advanced, setAdvanced] = useState(false)
   const [selectedId, setSelectedId] = useState<string | null>(null)
+  const [editingName, setEditingName] = useState(false)
+  const nameInputRef = useRef<HTMLInputElement>(null)
 
   const selectedBlock = studio.blocks.find((b) => b.id === selectedId) ?? null
 
@@ -60,7 +64,8 @@ export function KlarertStudioSurveyEditorPage() {
       setSelectedId(id)
       return id
     },
-    [studio],
+    // studio.addBlock is stable (useCallback in the hook), safe dep
+    [studio.addBlock],
   )
 
   const handleRemove = useCallback(
@@ -68,24 +73,24 @@ export function KlarertStudioSurveyEditorPage() {
       studio.removeBlock(id)
       if (selectedId === id) setSelectedId(null)
     },
-    [studio, selectedId],
+    [studio.removeBlock, selectedId],
   )
 
   const handleTestRun = () => {
-    const id = studio.rowId ?? templateId
-    if (id && id !== 'new') {
-      navigate(`/survey/templates/org/${id}`)
+    if (studio.rowId) {
+      navigate(`/survey/templates/org/${studio.rowId}`)
     }
   }
 
-  const handlePublish = () => {
-    // Navigate back to the survey templates list after publishing
+  const handlePublish = async () => {
+    // Intentionally a navigation only — full publish flow (is_active, campaign creation)
+    // is handled in the existing SurveyOrgTemplateEditorPage; this just saves and exits.
     navigate('/studio/survey')
   }
 
   if (studio.loading) {
     return (
-      <div className="flex h-screen items-center justify-center bg-[#fafaf9]">
+      <div className="flex h-full items-center justify-center bg-[#fafaf9]">
         <Loader2 className="h-6 w-6 animate-spin text-neutral-400" />
       </div>
     )
@@ -93,7 +98,7 @@ export function KlarertStudioSurveyEditorPage() {
 
   if (studio.loadError) {
     return (
-      <div className="flex h-screen flex-col items-center justify-center gap-3 bg-[#fafaf9]">
+      <div className="flex h-full flex-col items-center justify-center gap-3 bg-[#fafaf9]">
         <p className="text-sm text-red-600">{studio.loadError}</p>
         <Button variant="ghost" onClick={() => navigate('/studio')}>
           Tilbake til Studio
@@ -105,7 +110,7 @@ export function KlarertStudioSurveyEditorPage() {
   const displayName = studio.templateName || 'Ny spørreundersøkelse'
 
   return (
-    <div className="flex h-screen flex-col overflow-hidden bg-[#fafaf9]">
+    <div className="flex h-full flex-col overflow-hidden bg-[#fafaf9]">
       {/* ── Header ─────────────────────────────────────────────────── */}
       <header className="flex items-center justify-between border-b border-neutral-200 bg-white px-4 py-2.5 shadow-sm">
         {/* Breadcrumb */}
@@ -127,7 +132,26 @@ export function KlarertStudioSurveyEditorPage() {
             Spørreundersøkelser
           </button>
           <ChevronRight className="h-3.5 w-3.5 text-neutral-300" />
-          <span className="max-w-48 truncate font-medium text-neutral-900">{displayName}</span>
+          {editingName ? (
+            <StandardInput
+              ref={nameInputRef}
+              value={studio.templateName}
+              onChange={(e) => studio.updateName(e.target.value)}
+              onBlur={() => setEditingName(false)}
+              onKeyDown={(e) => { if (e.key === 'Enter' || e.key === 'Escape') setEditingName(false) }}
+              className="h-7 w-48 py-0 text-sm font-medium"
+              autoFocus
+            />
+          ) : (
+            <button
+              type="button"
+              onClick={() => { setEditingName(true); setTimeout(() => nameInputRef.current?.select(), 0) }}
+              className="group flex items-center gap-1 max-w-48 truncate font-medium text-neutral-900 hover:text-[#1a3d32]"
+            >
+              <span className="truncate">{displayName}</span>
+              <Pencil className="h-3 w-3 shrink-0 opacity-0 group-hover:opacity-60" aria-hidden />
+            </button>
+          )}
         </div>
 
         {/* Mode toggle + save + actions */}

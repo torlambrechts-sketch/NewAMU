@@ -1,7 +1,7 @@
 // Center panel of the Studio editor — sortable block list plus a drop zone
 // for palette items. Uses @dnd-kit with the same pattern as LearningSectionBuilder.
 
-import { useRef } from 'react'
+import { useRef, useState } from 'react'
 import {
   DndContext,
   DragOverlay,
@@ -13,21 +13,19 @@ import {
   useDroppable,
   type DragEndEvent,
   type DragStartEvent,
-  type DragOverEvent,
   type Active,
 } from '@dnd-kit/core'
 import {
   SortableContext,
-  arrayMove,
   verticalListSortingStrategy,
 } from '@dnd-kit/sortable'
-import { useState } from 'react'
 import { Plus } from 'lucide-react'
 import { StudioSurveyBlockCard } from './StudioSurveyBlockCard'
 import { PALETTE_DRAG_PREFIX } from './StudioBlockPalette'
 import type { PaletteItem, StudioBlock } from './types'
 
 const CANVAS_DROP_ZONE_ID = 'studio-canvas-empty'
+const CANVAS_TAIL_ID = 'studio-canvas-tail'
 
 function EmptyCanvas({ isOver }: { isOver: boolean }) {
   return (
@@ -53,6 +51,21 @@ function EmptyDropZone() {
   return (
     <div ref={setNodeRef}>
       <EmptyCanvas isOver={isOver} />
+    </div>
+  )
+}
+
+function TailDropZone() {
+  const { setNodeRef, isOver } = useDroppable({ id: CANVAS_TAIL_ID })
+  return (
+    <div
+      ref={setNodeRef}
+      className={[
+        'mt-2 rounded-xl border-2 border-dashed py-4 text-center text-xs text-neutral-400 transition',
+        isOver ? 'border-[#1a3d32]/40 bg-[#f0f7f4] text-[#1a3d32]' : 'border-neutral-200',
+      ].join(' ')}
+    >
+      Slipp her for å legge til på slutten
     </div>
   )
 }
@@ -100,7 +113,6 @@ export function StudioSurveyBlockCanvas({
   disabled = false,
 }: Props) {
   const [activeItem, setActiveItem] = useState<Active | null>(null)
-  const overIndexRef = useRef<number>(-1)
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
@@ -113,17 +125,9 @@ export function StudioSurveyBlockCanvas({
     setActiveItem(event.active)
   }
 
-  function handleDragOver(event: DragOverEvent) {
-    const { over } = event
-    if (!over) { overIndexRef.current = -1; return }
-    const overIndex = ids.indexOf(String(over.id))
-    overIndexRef.current = overIndex
-  }
-
   function handleDragEnd(event: DragEndEvent) {
     const { active, over } = event
     setActiveItem(null)
-    overIndexRef.current = -1
 
     if (!over) return
 
@@ -135,8 +139,12 @@ export function StudioSurveyBlockCanvas({
       const item: PaletteItem | undefined = active.data.current?.paletteItem
       if (!item) return
       const newBlock = buildNewBlock(item)
-      const insertAt = overId === CANVAS_DROP_ZONE_ID ? undefined : ids.indexOf(overId)
-      onAdd(newBlock, insertAt === -1 ? undefined : insertAt ?? undefined)
+      if (overId === CANVAS_DROP_ZONE_ID || overId === CANVAS_TAIL_ID) {
+        onAdd(newBlock)
+      } else {
+        const insertAt = ids.indexOf(overId)
+        onAdd(newBlock, insertAt === -1 ? undefined : insertAt)
+      }
       return
     }
 
@@ -148,17 +156,22 @@ export function StudioSurveyBlockCanvas({
     }
   }
 
-  // Drag overlay content
-  const overlayBlock = activeItem
-    ? blocks.find((b) => b.id === String(activeItem.id))
-    : null
+  // For palette drags, show a ghost chip in the overlay; for sort drags show the block card
+  const isPaletteDrag =
+    activeItem !== null && String(activeItem.id).startsWith(PALETTE_DRAG_PREFIX)
+  const overlayBlock =
+    !isPaletteDrag && activeItem
+      ? blocks.find((b) => b.id === String(activeItem.id))
+      : null
+  const overlayPaletteItem: PaletteItem | undefined = isPaletteDrag
+    ? activeItem?.data.current?.paletteItem
+    : undefined
 
   return (
     <DndContext
       sensors={sensors}
       collisionDetection={closestCenter}
       onDragStart={handleDragStart}
-      onDragOver={handleDragOver}
       onDragEnd={handleDragEnd}
     >
       <div className="flex h-full flex-1 flex-col overflow-y-auto px-8 py-6">
@@ -179,6 +192,7 @@ export function StudioSurveyBlockCanvas({
                 />
               ))}
             </div>
+            <TailDropZone />
           </SortableContext>
         )}
       </div>
@@ -193,6 +207,12 @@ export function StudioSurveyBlockCanvas({
             onRemove={() => {}}
             disabled
           />
+        )}
+        {overlayPaletteItem && (
+          <div className="flex items-center gap-2.5 rounded-lg border border-neutral-300 bg-white px-3 py-2 text-sm shadow-lg opacity-90">
+            <span className="font-medium text-neutral-900">{overlayPaletteItem.label}</span>
+            <span className="text-xs text-neutral-400">{overlayPaletteItem.hint}</span>
+          </div>
         )}
       </DragOverlay>
     </DndContext>

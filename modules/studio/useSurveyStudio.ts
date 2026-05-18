@@ -78,6 +78,7 @@ export function useSurveyStudio(templateId: string) {
   const [lastSavedAt, setLastSavedAt] = useState<Date | null>(null)
 
   // Tracks the current DB row id (may differ from templateId when templateId==='new')
+  const [rowId, setRowId] = useState<string | null>(templateId === 'new' ? null : templateId)
   const rowIdRef = useRef<string | null>(templateId === 'new' ? null : templateId)
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   // Holds latest blocks so the debounced save always sees the newest state
@@ -116,16 +117,27 @@ export function useSurveyStudio(templateId: string) {
         setTemplateName(data.name ?? '')
         setTemplateDescription(data.description ?? '')
         rowIdRef.current = data.id
+        setRowId(data.id)
         setLoading(false)
       })
   }, [supabase, organization?.id, templateId])
 
   // ─── Sync refs ───────────────────────────────────────────────────────────
 
-  useEffect(() => { blocksRef.current = blocks }, [blocks])
+  useEffect(() => {
+    blocksRef.current = blocks
+  }, [blocks])
+
   useEffect(() => {
     metaRef.current = { name: templateName, description: templateDescription }
   }, [templateName, templateDescription])
+
+  // Clear pending debounce on unmount to avoid saving to an unmounted component
+  useEffect(() => {
+    return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current)
+    }
+  }, [])
 
   // ─── Save ─────────────────────────────────────────────────────────────────
 
@@ -159,6 +171,7 @@ export function useSurveyStudio(templateId: string) {
           .single()
         if (error) throw error
         rowIdRef.current = data.id
+        setRowId(data.id)
       } else {
         const { error } = await supabase
           .from('survey_template_catalog')
@@ -258,7 +271,7 @@ export function useSurveyStudio(templateId: string) {
     loadError,
     saveStatus,
     lastSavedAt,
-    rowId: rowIdRef.current,
+    rowId,
     addBlock,
     removeBlock,
     moveBlock,
