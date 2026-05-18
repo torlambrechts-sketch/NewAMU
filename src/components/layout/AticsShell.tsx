@@ -1961,7 +1961,39 @@ export function AticsShell() {
       ],
     }
 
-    const base: NavGroup[] = [hmsOverviewGroup, isoImsGroup, complianceGroup, surveyGroup, documentsGroup, meetingsGroup, alertsGroup, registersGroup, tasksGroup, learningGroup, adminGroup]
+    const studioGroup: NavGroup = {
+      id: 'klarert-studio',
+      label: 'Klarert Studio',
+      icon: LayoutTemplate,
+      modules: [
+        {
+          to: '/studio',
+          label: 'Klarert Studio',
+          end: false,
+          icon: LayoutTemplate,
+          permAny: ['survey.manage'],
+          flatSubs: true,
+          subs: [
+            {
+              label: 'Studio-hjem',
+              path: '/studio',
+              Icon: LayoutTemplate,
+              match: ({ pathname }) => pathname === '/studio',
+              requirePerm: 'survey.manage',
+            },
+            {
+              label: 'Spørreundersøkelser',
+              path: '/studio/survey',
+              Icon: Megaphone,
+              match: ({ pathname }) => pathname.startsWith('/studio/survey'),
+              requirePerm: 'survey.manage',
+            },
+          ],
+        },
+      ],
+    }
+
+    const base: NavGroup[] = [hmsOverviewGroup, isoImsGroup, complianceGroup, surveyGroup, documentsGroup, meetingsGroup, alertsGroup, registersGroup, tasksGroup, learningGroup, studioGroup, adminGroup]
     return partnerGroup ? [partnerGroup, ...base] : base
   }, [
     complianceNav.items,

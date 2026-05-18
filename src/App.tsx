@@ -155,6 +155,9 @@ import { SurveyRespondPage } from './pages/SurveyRespondPage'
 import { SurveyAnalysePage } from '../modules/survey/SurveyAnalysePage'
 import { PartnerConsolePage } from './pages/partner/PartnerConsolePage'
 import { PartnerBrandingPage } from './pages/partner/PartnerBrandingPage'
+import { KlarertStudioPage } from './pages/studio/KlarertStudioPage'
+import { KlarertStudioSurveyListPage } from './pages/studio/KlarertStudioSurveyListPage'
+import { KlarertStudioSurveyEditorPage } from './pages/studio/KlarertStudioSurveyEditorPage'
 
 /**
  * Providers that depend on react-router (e.g. useOrgSetup → useLocation) must live *inside*
@@ -373,6 +376,9 @@ const router = createBrowserRouter(
                       <Route path="risk/register" element={<RiskRegisterPage />} />
                       <Route path="benchmarking" element={<BenchmarkPage />} />
                       <Route path="compliance-studio" element={<ComplianceStudioPage />} />
+                      <Route path="studio" element={<KlarertStudioPage />} />
+                      <Route path="studio/survey" element={<KlarertStudioSurveyListPage />} />
+                      <Route path="studio/survey/:templateId" element={<KlarertStudioSurveyEditorPage />} />
                       <Route path="organisation" element={<OrganisationPage />} />
                       <Route path="organisation/admin" element={<LegacyOrgAdminRedirect />} />
                       <Route
