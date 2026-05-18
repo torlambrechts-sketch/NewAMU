@@ -122,7 +122,30 @@ export function SurveyOrgTemplateEditorPage() {
 
     const t = hook.templateCatalog.find((x) => x.id === templateId)
     if (!t) {
-      setInitError('Fant ikke malen. Oppdater siden eller gå tilbake til Maler.')
+      // Fallback: fetch directly for draft/inactive templates created by Studio
+      if (supabase && templateId && !isNew) {
+        void supabase
+          .from('survey_template_catalog')
+          .select('*')
+          .eq('id', templateId)
+          .maybeSingle()
+          .then(({ data }) => {
+            if (!data) {
+              setInitError('Fant ikke malen. Oppdater siden eller gå tilbake til Maler.')
+              return
+            }
+            if (data.is_system) { setInitError('system'); return }
+            setName(data.name ?? '')
+            setShortName(data.short_name ?? '')
+            setDescription(data.description ?? '')
+            setCategory(data.category ?? 'custom')
+            setAudience((data.audience as 'internal' | 'external' | 'both') ?? 'internal')
+            setQuestions([...((data.body as { questions: CatalogTemplateQuestion[] })?.questions ?? [])])
+            setInitError(null)
+          })
+      } else {
+        setInitError('Fant ikke malen. Oppdater siden eller gå tilbake til Maler.')
+      }
       return
     }
     if (t.is_system) {
@@ -136,7 +159,7 @@ export function SurveyOrgTemplateEditorPage() {
     setAudience(t.audience)
     setQuestions([...(t.body?.questions ?? [])])
     setInitError(null)
-  }, [hook.templateCatalog, hook.templateCatalogLoading, templateId, isNew, fromId])
+  }, [hook.templateCatalog, hook.templateCatalogLoading, templateId, isNew, fromId, supabase])
 
   const moveQuestion = useCallback((index: number, dir: -1 | 1) => {
     setQuestions((prev) => {

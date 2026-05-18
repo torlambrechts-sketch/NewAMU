@@ -165,7 +165,7 @@ export function KlarertStudioPage() {
 
   return (
     <div className="min-h-full bg-[#f5f4f0]">
-      <div className="mx-auto max-w-6xl px-6 py-10">
+      <div className="mx-auto max-w-[1400px] px-6 py-10">
         {/* Page header */}
         <div className="mb-8 flex items-start justify-between">
           <div>

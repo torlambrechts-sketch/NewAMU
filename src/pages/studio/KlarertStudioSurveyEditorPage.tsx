@@ -19,13 +19,26 @@ import {
   Play,
   Zap,
 } from 'lucide-react'
+import {
+  DndContext,
+  DragOverlay,
+  PointerSensor,
+  TouchSensor,
+  closestCenter,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+  type DragStartEvent,
+  type Active,
+} from '@dnd-kit/core'
 import { Button } from '../../components/ui/Button'
 import { StandardInput } from '../../components/ui/Input'
-import { StudioBlockPalette } from '../../../modules/studio/StudioBlockPalette'
-import { StudioSurveyBlockCanvas } from '../../../modules/studio/StudioSurveyBlockCanvas'
+import { PALETTE_DRAG_PREFIX, StudioBlockPalette } from '../../../modules/studio/StudioBlockPalette'
+import { buildNewBlock, CANVAS_DROP_ZONE_ID, CANVAS_TAIL_ID, StudioSurveyBlockCanvas } from '../../../modules/studio/StudioSurveyBlockCanvas'
+import { StudioSurveyBlockCard } from '../../../modules/studio/StudioSurveyBlockCard'
 import { StudioSurveyPropertyPanel } from '../../../modules/studio/StudioSurveyPropertyPanel'
 import { useSurveyStudio } from '../../../modules/studio/useSurveyStudio'
-import type { NewStudioBlock } from '../../../modules/studio/types'
+import type { NewStudioBlock, PaletteItem } from '../../../modules/studio/types'
 
 function SaveIndicator({ status, lastSavedAt }: { status: string; lastSavedAt: Date | null }) {
   if (status === 'saving') {
@@ -64,6 +77,13 @@ export function KlarertStudioSurveyEditorPage() {
 
   const selectedBlock = studio.blocks.find((b) => b.id === selectedId) ?? null
 
+  // DnD — context lifted here so palette chips (siblings of canvas) share it
+  const [activeItem, setActiveItem] = useState<Active | null>(null)
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 200, tolerance: 5 } }),
+  )
+
   const handleAdd = useCallback(
     (block: NewStudioBlock, atIndex?: number) => {
       const id = studio.addBlock(block, atIndex)
@@ -80,6 +100,45 @@ export function KlarertStudioSurveyEditorPage() {
     },
     [studio.removeBlock, selectedId],
   )
+
+  const handlePaletteAdd = useCallback(
+    (item: PaletteItem) => {
+      if (studio.isSystemTemplate) return
+      handleAdd(buildNewBlock(item))
+    },
+    [studio.isSystemTemplate, handleAdd],
+  )
+
+  function handleDragStart(event: DragStartEvent) {
+    setActiveItem(event.active)
+  }
+
+  function handleDragEnd(event: DragEndEvent) {
+    const { active, over } = event
+    setActiveItem(null)
+    if (!over) return
+    const activeId = String(active.id)
+    const overId = String(over.id)
+    if (activeId.startsWith(PALETTE_DRAG_PREFIX)) {
+      const item: PaletteItem | undefined = active.data.current?.paletteItem
+      if (!item) return
+      const newBlock = buildNewBlock(item)
+      const ids = studio.blocks.map((b) => b.id)
+      if (overId === CANVAS_DROP_ZONE_ID || overId === CANVAS_TAIL_ID) {
+        handleAdd(newBlock)
+      } else {
+        const insertAt = ids.indexOf(overId)
+        handleAdd(newBlock, insertAt === -1 ? undefined : insertAt)
+      }
+      return
+    }
+    if (activeId !== overId) {
+      const ids = studio.blocks.map((b) => b.id)
+      const fromIndex = ids.indexOf(activeId)
+      const toIndex = ids.indexOf(overId)
+      if (fromIndex !== -1 && toIndex !== -1) studio.moveBlock(fromIndex, toIndex)
+    }
+  }
 
   const handleTestRun = () => {
     if (studio.rowId) {
@@ -259,26 +318,60 @@ export function KlarertStudioSurveyEditorPage() {
       </header>
 
       {/* ── Three-panel body ────────────────────────────────────────── */}
-      <div className="flex flex-1 overflow-hidden">
-        <StudioBlockPalette advanced={advanced} />
+      <DndContext
+        sensors={sensors}
+        collisionDetection={closestCenter}
+        onDragStart={handleDragStart}
+        onDragEnd={handleDragEnd}
+      >
+        <div className="flex flex-1 overflow-hidden">
+          <StudioBlockPalette
+            advanced={advanced}
+            disabled={studio.isSystemTemplate}
+            onAdd={handlePaletteAdd}
+          />
 
-        <StudioSurveyBlockCanvas
-          blocks={studio.blocks}
-          selectedId={selectedId}
-          onSelect={setSelectedId}
-          onAdd={handleAdd}
-          onRemove={handleRemove}
-          onMove={studio.moveBlock}
-          disabled={studio.isSystemTemplate}
-        />
+          <StudioSurveyBlockCanvas
+            blocks={studio.blocks}
+            selectedId={selectedId}
+            onSelect={setSelectedId}
+            onRemove={handleRemove}
+            disabled={studio.isSystemTemplate}
+          />
 
-        <StudioSurveyPropertyPanel
-          block={selectedBlock}
-          advanced={advanced}
-          onUpdate={studio.updateBlock}
-          onDeselect={() => setSelectedId(null)}
-        />
-      </div>
+          <StudioSurveyPropertyPanel
+            block={selectedBlock}
+            advanced={advanced}
+            onUpdate={studio.updateBlock}
+            onDeselect={() => setSelectedId(null)}
+          />
+        </div>
+        <DragOverlay>
+          {activeItem && (() => {
+            const activeId = String(activeItem.id)
+            if (activeId.startsWith(PALETTE_DRAG_PREFIX)) {
+              const item: PaletteItem | undefined = activeItem.data.current?.paletteItem
+              return item ? (
+                <div className="flex items-center gap-2.5 rounded-lg border border-neutral-300 bg-white px-3 py-2 text-sm shadow-lg opacity-90">
+                  <span className="font-medium text-neutral-900">{item.label}</span>
+                  <span className="text-xs text-neutral-400">{item.hint}</span>
+                </div>
+              ) : null
+            }
+            const block = studio.blocks.find((b) => b.id === activeId)
+            return block ? (
+              <StudioSurveyBlockCard
+                block={block}
+                index={studio.blocks.findIndex((b) => b.id === block.id)}
+                selected={false}
+                onSelect={() => {}}
+                onRemove={() => {}}
+                disabled
+              />
+            ) : null
+          })()}
+        </DragOverlay>
+      </DndContext>
     </div>
   )
 }

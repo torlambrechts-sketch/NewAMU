@@ -74,7 +74,7 @@ export function KlarertStudioSurveyListPage() {
 
   return (
     <div className="min-h-full bg-[#f5f4f0]">
-      <div className="mx-auto max-w-4xl px-6 py-10">
+      <div className="mx-auto max-w-[1400px] px-6 py-10">
         {/* Header */}
         <div className="mb-8 flex items-center justify-between">
           <div className="flex items-center gap-3">

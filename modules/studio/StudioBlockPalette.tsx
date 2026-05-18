@@ -41,9 +41,11 @@ function paletteItemId(item: PaletteItem) {
 function PaletteChip({
   item,
   disabled,
+  onAdd,
 }: {
   item: PaletteItem
   disabled: boolean
+  onAdd?: (item: PaletteItem) => void
 }) {
   const id = paletteItemId(item)
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
@@ -60,6 +62,7 @@ function PaletteChip({
       ref={setNodeRef}
       type="button"
       disabled={disabled}
+      onClick={() => onAdd?.(item)}
       {...listeners}
       {...attributes}
       className={[
@@ -83,9 +86,10 @@ function PaletteChip({
 type Props = {
   advanced: boolean
   disabled?: boolean
+  onAdd?: (item: PaletteItem) => void
 }
 
-export function StudioBlockPalette({ advanced, disabled = false }: Props) {
+export function StudioBlockPalette({ advanced, disabled = false, onAdd }: Props) {
   const visibleItems = SURVEY_PALETTE.filter((item) => advanced || !item.advancedOnly)
 
   return (
@@ -101,6 +105,7 @@ export function StudioBlockPalette({ advanced, disabled = false }: Props) {
           key={paletteItemId(item)}
           item={item}
           disabled={disabled}
+          onAdd={onAdd}
         />
       ))}
     </aside>
