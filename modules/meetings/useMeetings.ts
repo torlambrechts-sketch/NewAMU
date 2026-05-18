@@ -224,13 +224,16 @@ export type UseMeetingsState = {
     agendaItemId: string,
     model: import('./types').MeetingVotingModel | null,
   ) => Promise<boolean>
-  /** Cast / change a single ballot — supports both live and pre-vote. */
+  /** Cast / change a single ballot — supports both live and pre-vote.
+   *  Anonymous voting is a *display-time* concern (the UI hides voter
+   *  identity in the rendered result); at the DB level every ballot has
+   *  a member_id so we get one row per voter per agenda item. */
   castVote: (input: {
     agendaItemId: string
     meetingId: string
-    memberId: string | null
+    memberId: string
     ballot: import('./types').MeetingBallot
-    side?: import('./types').MeetingSide | null
+    side?: Exclude<import('./types').MeetingSide, 'observer'> | null
     isPreVote?: boolean
   }) => Promise<boolean>
   /** Server-computed result (model-aware) for an agenda item. */
@@ -1390,7 +1393,12 @@ export function useMeetings(): UseMeetingsState {
   const addExternalInvitee: UseMeetingsState['addExternalInvitee'] = useCallback(
     async (input) => {
       if (!supabase || !orgId) return null
-      const token = crypto.randomUUID().replace(/-/g, '').slice(0, 24)
+      // 128 bits of entropy via getRandomValues. Encoded as 32 hex chars
+      // so the URL stays short and human-shareable while resisting
+      // birthday-collision + brute-force across realistic time windows.
+      const tokenBytes = new Uint8Array(16)
+      crypto.getRandomValues(tokenBytes)
+      const token = Array.from(tokenBytes, (b) => b.toString(16).padStart(2, '0')).join('')
       const res = await supabase
         .from('meeting_external_invitees')
         .insert({

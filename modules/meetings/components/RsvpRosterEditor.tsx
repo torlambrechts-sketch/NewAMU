@@ -125,15 +125,30 @@ export function RsvpRosterRow({
           >
             Avslå
           </Button>
-          {attendee.rsvp_status === 'declined' && sameSideSubs.length > 0 ? (
-            <Button
-              variant="secondary"
-              size="sm"
-              disabled={busy}
-              onClick={() => setSubPickerOpen((v) => !v)}
-            >
-              Aktiver vara
-            </Button>
+          {attendee.rsvp_status === 'declined' ? (
+            sameSideSubs.length > 0 ? (
+              <Button
+                variant="secondary"
+                size="sm"
+                disabled={busy}
+                onClick={() => setSubPickerOpen((v) => !v)}
+              >
+                Aktiver vara
+              </Button>
+            ) : (
+              <Button
+                variant="ghost"
+                size="sm"
+                disabled
+                title={
+                  attendee.side
+                    ? `Ingen vara registrert på ${attendee.side === 'employer' ? 'arbeidsgiversiden' : attendee.side === 'employee' ? 'arbeidstakersiden' : 'denne siden'}`
+                    : 'Ingen vara registrert'
+                }
+              >
+                Vara ikke tilgjengelig
+              </Button>
+            )
           ) : null}
         </div>
       ) : null}

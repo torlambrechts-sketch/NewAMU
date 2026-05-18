@@ -538,3 +538,49 @@ Self-audit (Arbeidstilsynet POV)
   definition.invitationLeadDays — surfaced as red badge if breached
 - Restrisiko: eSignature still demo-level (Council Review §3.4 noted)
 ```
+
+---
+
+## 14 · Klarert Phase 1+2 additions (post-ROADMAP §8.29-31)
+
+The original §3 tables were extended with Klarert-design-derived additions
+in the H13 batch. Shipped tables + RPCs:
+
+| Table | Purpose |
+|---|---|
+| `meeting_votes` | Per-ballot record (one row per voter per agenda item). `side` enum drives AML § 7-1 (2) parity tally; `is_pre_vote` distinguishes async from live votes. Anonymous voting is a *display-time* concern — the schema always carries a non-null `member_id` so PG unique-key semantics work correctly. |
+| `meeting_live_sessions` | Ephemeral live-room state per meeting (one row): `started_at`, `active_agenda_item_id`, `ended_at`. Timer elapsed is *derived* from `started_at` client-side; never written to the DB. |
+| `meeting_speaker_queue` | Taleliste — append + drain queue per agenda item. Position-ordered; `given_floor_at` / `yielded_at` for floor handoff. |
+| `meeting_external_invitees` | Token-gated non-user attendees (Arbeidstilsynet inspector, ekstern tillitsvalgt, BHT-guest). 128-bit `secure_token` via `crypto.getRandomValues`. Access levels: observer/speak/vote. |
+| `meeting_digest_recipients` | Post-signing filtered distribution list. `recipient_filter` jsonb + `extract_mode` ('full' | 'decisions_only'). |
+
+Plus `meetings.required_signer_roles text[]` (default `{chair,secretary}`)
+and a CHECK on `meeting_agenda_items.voting_model in ('simple','qualified',
+'parity','consensus','anonymous')`.
+
+### 14.1 New RPCs
+
+| Function | Returns | Purpose |
+|---|---|---|
+| `meeting_vote_result(p_agenda_item_id uuid)` | `jsonb {model, passed, reason, tally, parity}` | Server-computed outcome applying the correct rule per model. Parity model returns `passed=null, reason='parity_missing_employer/employee'` when one side has zero ballots — distinct from "not passed". |
+| `meeting_parity_check(p_meeting_id uuid)` | `jsonb {employer_count, employee_count, bht_count, total_present_or_accepted, parity_ok, quorum_min, quorum_ok}` | SECURITY INVOKER so RLS-cascaded counts. Used by `ParityPanel` on the Deltakere tab + the live-room top-bar. |
+
+### 14.2 New triggers
+
+| Trigger | Fires | Behaviour |
+|---|---|---|
+| `meeting_check_all_signed_tg` | AFTER INSERT on `meeting_signatures` | Flips `protocol_signed_at` only when all `required_signer_roles` have signed. Replaces single-shot stamp in `meetings_sign_protocol_v1`. Race-safe via `WHERE protocol_signed_at IS NULL` guard. |
+| `meeting_votes_set_org_id_tg` + speaker-queue equivalent | BEFORE INSERT | Auto-populates `organization_id` from the parent meeting (defense-in-depth — RLS already enforces via EXISTS-from-meetings cascade). |
+
+### 14.3 UI surfaces shipped
+
+- `/meetings/:id/live` — full-screen workspace, 3-col (agenda / active item + voting / speakers + attendance). Cyan accent #0891b2 per CLAUDE.md.
+- `TimeBudgetBar` on Agenda tab — summed durations vs. meeting window.
+- `CadenceWarningCard` on Hub — derived warnings for templates whose cadence is exceeded.
+- `ParityPanel` on Deltakere tab — quorum + parity tiles.
+- `RsvpRosterEditor` replaces the static attendance table on Deltakere tab.
+- `AutoSourceRail` on Agenda tab — clickable cards for resolved data bindings.
+
+### 14.4 Deferred (post-§8.31)
+
+See ROADMAP entries 8.32-8.38: live-room Realtime sync, external-invitee public viewer, digest dispatch, chair-disconnect recovery, COI UI, GDPR erasure, vitest framework. Schemas are complete; UI/edge-function surfaces are the gap.

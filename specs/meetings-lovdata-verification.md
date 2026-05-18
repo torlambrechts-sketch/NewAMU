@@ -239,3 +239,38 @@ Once both items are reviewer-confirmed, H2 + H3 are unblocked end-to-end.
 - **2026-05-11 (post-H10 closeout):** WebFetch retry attempted on `lo.no/contentassets/.../hovedavtalen-2022-2025.pdf` (404) and `iso.org/standard/27001` (403). Both still inaccessible without authenticated/paid access. No change to gating status.
 - **2026-05-11 (closeout-stretch):** Third WebFetch sweep — 6 additional URLs: `snl.no/Hovedavtalen` (no § 9-3 substance), `isms.online/iso-27001-management-review` (404), `iso.org/obp` (403), `arbinn.nho.no` (members-gated 403), `no.wikipedia.org/wiki/Bedriftsutvalg` + `en.wikipedia.org/wiki/ISO/IEC_27000-series` (no clause-level detail), `regjeringen.no/...medbestemmelse` (404). No public source surfaces verbatim text for either G6 or G7. **Both items remain reviewer-gated** — punted to follow-up PR with login-portal access.
 
+---
+
+## 11 · AML § 7-1 (2) — Partssammensatt utvalg & parity voting ✅ RESOLVED
+
+**Live fetch**: [`lovdata.no/lov/2005-06-17-62/§7-1`](https://lovdata.no/lov/2005-06-17-62/§7-1).
+
+**Verbatim from § 7-1 second paragraph:**
+
+> *"Arbeidsmiljøutvalget skal bestå av representanter for arbeidsgiveren og arbeidstakerne i like stort antall. … Lederen velges vekselsvis fra arbeidsgiverens og arbeidstakernes representanter."*
+
+**Key phrases:**
+- **"i like stort antall"** — equal representation (employer side ≡ employee side count).
+- BHT is a participant per § 7-1 (3) but **does NOT count toward parity**.
+- Lederen rotates between sides each functional period.
+
+### Implementation contract (Klarert Phase 1+2)
+
+The `meeting_votes.side` enum (`'employer' | 'employee' | 'bht' | 'external'`) and the `meeting_vote_result()` RPC implement the parity model as follows:
+
+| Scenario | passed | reason |
+|---|---|---|
+| Both sides have ballots; employer-yes > employer-no AND employee-yes > employee-no | `true` | `parity_both_sides` |
+| Both sides have ballots; either side fails majority | `false` | `parity_both_sides` |
+| Employer side has zero ballots | `null` | `parity_missing_employer` |
+| Employee side has zero ballots | `null` | `parity_missing_employee` |
+| No votes at all | `null` | `no_votes` |
+
+The `null + reason` pattern is the legally-correct rendering when one side is unrepresented in the vote — the vote is **invalid**, not "not passed". Per AML § 7-1 (2) intent, partssammensatt vedtak requires participation from both sides.
+
+**Schema CHECK constraint**: `meeting_votes.side IN ('employer','employee','bht','external')` excludes `'observer'`. Observers attend but cannot vote.
+
+### Out of scope for this audit pass
+- **Lederen-rotasjon** between functional periods. Not encoded in code; orgs manage manually. Tracked as restrisiko.
+- **Stemmelikhet ved leders dobbeltstemme** — § 7-1 doesn't grant lederen a tiebreaker vote in AMU. Klarert's parity model mirrors this: ties are not passed, no automatic chair-tiebreaker.
+

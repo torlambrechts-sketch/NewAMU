@@ -59,6 +59,10 @@ export default function MeetingLivePage() {
   const navigate = useNavigate()
   const meetings = useMeetings()
   const [activeItemId, setActiveItemId] = useState<string | null>(null)
+  // Elapsed is derived from `sessionStartedAt` (a persisted value) — we
+  // never write elapsed_seconds back to the DB, so refresh/reconnect
+  // recovers the true wall-clock duration without losing audit fidelity.
+  const [sessionStartedAt, setSessionStartedAt] = useState<string | null>(null)
   const [elapsedSec, setElapsedSec] = useState(0)
   const [parityCheck, setParityCheck] = useState<MeetingParityCheck | null>(null)
   const [voteResult, setVoteResult] = useState<MeetingVoteResult | null>(null)
@@ -86,8 +90,14 @@ export default function MeetingLivePage() {
     void meetings.loadLiveSession(meetingId).then((s) => {
       if (cancelled || !s) return
       setActiveItemId(s.active_agenda_item_id)
-      setElapsedSec(s.elapsed_seconds ?? 0)
+      setSessionStartedAt(s.started_at)
       setSessionStarted(s.ended_at === null)
+      // Seed initial elapsed from the persisted started_at so the timer
+      // is correct immediately, before the interval ticks.
+      if (s.ended_at === null && s.started_at) {
+        const ms = Date.now() - new Date(s.started_at).getTime()
+        setElapsedSec(Math.max(0, Math.floor(ms / 1000)))
+      }
     })
     return () => {
       cancelled = true
@@ -106,12 +116,21 @@ export default function MeetingLivePage() {
     return () => window.clearTimeout(t)
   }, [activeItemId, agendaItems])
 
-  // Timer tick while session active
+  // Timer tick — recomputes elapsed from the persisted started_at every
+  // second. This means reload + reconnect always shows the correct
+  // wall-clock duration and we never need to write elapsed_seconds back
+  // to the DB (eliminating the audit-trail gap flagged by external review).
   useEffect(() => {
-    if (!sessionStarted) return
-    const t = window.setInterval(() => setElapsedSec((s) => s + 1), 1000)
+    if (!sessionStarted || !sessionStartedAt) return
+    const startMs = new Date(sessionStartedAt).getTime()
+    const tick = () => {
+      const ms = Date.now() - startMs
+      setElapsedSec(Math.max(0, Math.floor(ms / 1000)))
+    }
+    tick()
+    const t = window.setInterval(tick, 1000)
     return () => window.clearInterval(t)
-  }, [sessionStarted])
+  }, [sessionStarted, sessionStartedAt])
 
   // Stable method refs — useMeetings returns a new object every render so
   // we destructure the specific callbacks (they're useCallback-stable inside
@@ -157,6 +176,10 @@ export default function MeetingLivePage() {
     if (!meetingId) return
     const ok = await meetings.startLiveSession(meetingId)
     if (ok) {
+      // Re-read the session row so we get the authoritative started_at
+      // value (timer derives elapsed from this).
+      const s = await meetings.loadLiveSession(meetingId)
+      setSessionStartedAt(s?.started_at ?? new Date().toISOString())
       setSessionStarted(true)
       setRefreshKey((k) => k + 1)
     } else {
@@ -183,10 +206,17 @@ export default function MeetingLivePage() {
 
   async function castBallot(ballot: MeetingBallot) {
     if (!activeItem || !meetingId) return
-    // Local optimistic: we have no member context here; the chair casts
-    // on behalf of self. Real "vote-as-member" UI for each participant
-    // lives in the attendance grid below.
-    const memberId = meeting?.protocol_signed_by ?? null
+    // We need a member_id to record a ballot — anonymous voting is a
+    // display-time concern, not a NULL-member pattern (the schema now
+    // enforces NOT NULL). For v1 the chair casts on behalf of self if a
+    // protocol_signed_by member exists; otherwise the live-room ballot
+    // buttons are inert and the chair must cast from the participant
+    // grid where each member's id is bound.
+    const memberId = meeting?.protocol_signed_by
+    if (!memberId) {
+      setError('Kan ikke registrere stemme uten medlems-ID. Bruk deltakerlisten.')
+      return
+    }
     const ok = await meetings.castVote({
       agendaItemId: activeItem.id,
       meetingId,
@@ -324,6 +354,18 @@ export default function MeetingLivePage() {
       {error ? (
         <div className="mx-auto max-w-[1600px] px-4 pt-3 md:px-8">
           <WarningBox>{error}</WarningBox>
+        </div>
+      ) : null}
+
+      {!sessionStarted && (agendaItems.length === 0 || (meeting.participant_member_ids?.length ?? 0) === 0) ? (
+        <div className="mx-auto max-w-[1600px] px-4 pt-3 md:px-8">
+          <WarningBox>
+            {agendaItems.length === 0 && (meeting.participant_member_ids?.length ?? 0) === 0
+              ? 'Møtet har ingen agendapunkter og ingen deltakere — legg til begge før du starter.'
+              : agendaItems.length === 0
+                ? 'Møtet har ingen agendapunkter ennå. Legg til saker i møtedetaljene.'
+                : 'Ingen deltakere er lagt til — møtet kan ikke være beslutningsdyktig.'}
+          </WarningBox>
         </div>
       ) : null}
 
@@ -474,6 +516,14 @@ export default function MeetingLivePage() {
                       ) : voteResult.passed === false ? (
                         <span className="ml-2 inline-flex items-center gap-1 font-semibold text-red-700">
                           <X className="h-3 w-3" aria-hidden /> Ikke vedtatt
+                        </span>
+                      ) : voteResult.reason === 'parity_missing_employer' ? (
+                        <span className="ml-2 inline-flex items-center gap-1 font-semibold text-amber-800">
+                          <AlertTriangle className="h-3 w-3" aria-hidden /> Ugyldig — arbeidsgiversiden mangler
+                        </span>
+                      ) : voteResult.reason === 'parity_missing_employee' ? (
+                        <span className="ml-2 inline-flex items-center gap-1 font-semibold text-amber-800">
+                          <AlertTriangle className="h-3 w-3" aria-hidden /> Ugyldig — arbeidstakersiden mangler
                         </span>
                       ) : null}
                     </p>
