@@ -22,6 +22,11 @@
 
 set local search_path = public, pg_catalog;
 
+-- studio_capture_revision() tries to cast the text PK as UUID and fails on
+-- system register types (id = 'hira' etc.). Disable user triggers for the
+-- duration of these inserts; re-enable immediately after.
+alter table public.register_types disable trigger user;
+
 -- ── 1. hira — Hazard Identification and Risk Assessment ───────────────────────
 -- ISO 45001:2018 §6.1.2
 
@@ -373,6 +378,8 @@ insert into public.register_types (
   array['iso-14001', 'iso-45001']::text[],
   12, true, true, 90
 ) on conflict (id) do nothing;
+
+alter table public.register_types enable trigger user;
 
 -- ── 7. Backfill existing orgs ─────────────────────────────────────────────────
 -- provision_registers_baseline_for_org selects all active system types and
