@@ -41,13 +41,18 @@ registerStudioScope({
 // Preset → wizard adapter
 // ────────────────────────────────────────────────────────────────────
 // The existing factories expect StudioWizardDeps (supabase, organizationId,
-// coverage, employeeCount, onCompleted). At preset-time we don't have any
-// of those — they come from the studio shell's runtime context. We expose
-// the wizard wrapped with placeholder deps and rely on the picker passing
-// onSubmit through; the underlying mutation RPCs read auth.uid() / org
-// from supabase JWT, so the placeholder values are only used for picker-
-// options building (coverage) which gracefully falls back to "no
-// pre-defined resources" when empty.
+// coverage, employeeCount, onCompleted). The picker doesn't have those
+// at preset-build time, so the adapter:
+//   1. Builds the wizard once with placeholder deps for the UI shape
+//      (steps + fields). The picker_options on the 'content' step come
+//      out as the "no pre-defined resources" fallback; that's OK for the
+//      Simple-mode flow.
+//   2. At submit time, rebuilds with real deps resolved from
+//      supabaseClient + resolveActiveOrgId (so partner-on-behalf-of
+//      writes land in the customer org).
+//
+// runActivateStep() is the shared side-effect runner so we don't
+// duplicate the resolve+rebuild dance in every adaptPreset call.
 
 const PLACEHOLDER_DEPS = {
   supabase: null,
@@ -59,6 +64,32 @@ const PLACEHOLDER_DEPS = {
   },
 } as const
 
+/**
+ * Resolves runtime deps + invokes the factory's `activate` step
+ * onAdvance side-effect. Returns the WizardStepAdvanceResult so callers
+ * can surface failures.
+ */
+async function runActivateStep(
+  factory: typeof makeHmsGrunnmurWizard,
+  values: Record<string, string | boolean>,
+): Promise<void> {
+  const { supabase } = await import('../../../src/lib/supabaseClient')
+  const { resolveActiveOrgId } = await import('../../../src/lib/studio/resolveActiveOrgId')
+  const orgId = await resolveActiveOrgId(supabase)
+  if (!supabase || !orgId) return
+  const wizardDef = factory({
+    supabase,
+    organizationId: orgId,
+    coverage: new Map(),
+    employeeCount: Number(values.employeeCount ?? 1) || 1,
+    onCompleted: () => {
+      /* PresetPicker.onComplete fires telemetry */
+    },
+  })
+  const activate = wizardDef.steps.find((s) => s.id === 'activate')
+  if (activate?.onAdvance) await activate.onAdvance(values)
+}
+
 function adaptPreset(
   id: string,
   title: string,
@@ -67,10 +98,9 @@ function adaptPreset(
   badge: string | undefined,
   factory: typeof makeHmsGrunnmurWizard,
 ): SimplePreset {
-  const wizard = factory(PLACEHOLDER_DEPS)
-  // Strip the factory's own id; PresetPicker re-stamps with a fresh run-id.
-  // Drop onSubmit — picker wraps with telemetry + completion.
-  const { onSubmit: _drop, ...rest } = wizard
+  // Strip the factory's own id + onSubmit — picker re-stamps id and
+  // wraps onSubmit with telemetry.
+  const { onSubmit: _drop, ...rest } = factory(PLACEHOLDER_DEPS)
   void _drop
   return {
     id,
@@ -81,26 +111,7 @@ function adaptPreset(
     wizard: {
       ...rest,
       onSubmit: (values) => {
-        // Bind the active org at submit-time via dynamic import to avoid a
-        // boot-time circular dep with useOrgSetupContext.
-        void (async () => {
-          const { supabase } = await import('../../../src/lib/supabaseClient')
-          const { resolveActiveOrgId } = await import('../../../src/lib/studio/resolveActiveOrgId')
-          const orgId = await resolveActiveOrgId(supabase)
-          if (!supabase || !orgId) return
-          const wizardDef = factory({
-            supabase,
-            organizationId: orgId,
-            coverage: new Map(),
-            employeeCount: Number(values.employeeCount ?? 1) || 1,
-            onCompleted: () => {
-              /* PresetPicker.onComplete fires telemetry */
-            },
-          })
-          // Run the activate step's side-effect (provisioning RPCs).
-          const activate = wizardDef.steps.find((s) => s.id === 'activate')
-          if (activate?.onAdvance) await activate.onAdvance(values)
-        })()
+        void runActivateStep(factory, values)
       },
     },
   }

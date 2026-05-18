@@ -122,6 +122,7 @@ import { PlatformAdminLoginPage } from './pages/platform/PlatformAdminLoginPage'
 import { PlatformAdminLayout } from './pages/platform/PlatformAdminLayout'
 import { PlatformAdminDashboardPage } from './pages/platform/PlatformAdminDashboardPage'
 import { PlatformRoadmapPage } from './pages/platform/PlatformRoadmapPage'
+import { PlatformStudioGrantsPage } from './pages/platform/PlatformStudioGrantsPage'
 import { LayoutLabPage } from './pages/platform/LayoutLabPage'
 import { PlatformUiAdvancedPage } from './pages/platform/PlatformUiAdvancedPage'
 import { PlatformBoxDesignerPage } from './pages/platform/PlatformBoxDesignerPage'
@@ -302,6 +303,7 @@ const router = createBrowserRouter(
               <Route path="platform-admin" element={<PlatformAdminLayout />}>
                 <Route index element={<PlatformAdminDashboardPage />} />
                 <Route path="roadmap" element={<PlatformRoadmapPage />} />
+                <Route path="studio-grants" element={<PlatformStudioGrantsPage />} />
                 <Route path="layout-lab" element={<LayoutLabPage />} />
                 <Route path="ui-advanced" element={<PlatformUiAdvancedPage />} />
                 <Route path="box-designer" element={<PlatformBoxDesignerPage />} />

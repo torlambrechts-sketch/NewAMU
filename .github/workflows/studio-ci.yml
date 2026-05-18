@@ -1,0 +1,65 @@
+# Studio Builder CI — Vitest unit tests + studio:assert prebuild gate +
+# typecheck + lint. Runs on every push + PR that touches any studio
+# surface (src/lib/studio/**, modules/*/studio/**, supabase/migrations/
+# 2026091412*) plus the StudioPage + admin/partners.
+#
+# Spec: specs/studio-builder.md §9.1 test strategy.
+
+name: studio-ci
+
+on:
+  push:
+    paths:
+      - 'src/lib/studio/**'
+      - 'src/components/studio/**'
+      - 'src/pages/studio/**'
+      - 'src/pages/admin/partners/**'
+      - 'src/hooks/useStudio*'
+      - 'modules/*/studio/**'
+      - 'supabase/migrations/2026091412*.sql'
+      - 'scripts/assert-studio-registry.ts'
+      - '.github/workflows/studio-ci.yml'
+  pull_request:
+    paths:
+      - 'src/lib/studio/**'
+      - 'src/components/studio/**'
+      - 'src/pages/studio/**'
+      - 'src/pages/admin/partners/**'
+      - 'src/hooks/useStudio*'
+      - 'modules/*/studio/**'
+      - 'supabase/migrations/2026091412*.sql'
+      - 'scripts/assert-studio-registry.ts'
+
+jobs:
+  studio-gates:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci --no-audit --no-fund
+
+      - name: Studio registry assertion (prebuild gate)
+        run: npm run studio:assert
+
+      - name: Typecheck
+        run: npx tsc -b
+
+      - name: Vitest — studio surface
+        run: npm test
+
+      - name: Lint studio surface
+        run: |
+          npx eslint \
+            src/lib/studio \
+            src/components/studio \
+            src/pages/studio \
+            src/pages/admin/partners \
+            'modules/*/studio'
