@@ -65,7 +65,10 @@ const SeverityLabelsSchema: z.ZodType<PackSeverityLabels> = z.object({
 const CompliancePackRowSchema = z.object({
   id: z.string().uuid(),
   organization_id: z.string().uuid(),
-  slug: z.enum(['aml-amu', 'iso-45001']),
+  // Mirror of the Postgres compliance_pack enum. Keep in sync with
+  // CompliancePackSlug in modules/compliance/types.ts. Falling out of
+  // sync surfaces as "Kunne ikke tolke N pakkerader" at load time.
+  slug: z.enum(['aml-amu', 'iso-45001', 'iso-9001', 'iso-14001', 'iso-27001']),
   short_name: z.string(),
   plural_label: z.string(),
   cta_label: z.string(),

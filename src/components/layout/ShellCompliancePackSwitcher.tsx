@@ -8,7 +8,7 @@
 // the focus.
 
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { ChevronDown, Globe2, Shield } from 'lucide-react'
+import { ChevronDown, Globe2, Shield, Award, Leaf, Lock } from 'lucide-react'
 import { useLocation, useSearchParams } from 'react-router-dom'
 import { useOrgSetupContext } from '../../hooks/useOrgSetupContext'
 import { usePacks } from '../../../modules/compliance/usePacks'
@@ -18,6 +18,9 @@ import type { CompliancePackSlug } from '../../../modules/compliance/types'
 const ICON: Record<CompliancePackSlug, typeof Shield> = {
   'aml-amu': Shield,
   'iso-45001': Globe2,
+  'iso-9001': Award,
+  'iso-14001': Leaf,
+  'iso-27001': Lock,
 }
 
 type Variant = 'topbar' | 'sidebar'

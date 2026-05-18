@@ -13,6 +13,9 @@ import type { CompliancePackSlug } from '../types'
 export const PACK_ACCENTS: Record<CompliancePackSlug, string> = {
   'aml-amu': '#1a3d32', // brand green — AML / arbeidsmiljø
   'iso-45001': '#1e40af', // ISO blue — occupational H&S
+  'iso-9001': '#7c3aed', // ISO purple — quality
+  'iso-14001': '#15803d', // green — environmental
+  'iso-27001': '#0e7490', // teal — information security
 }
 
 /**
