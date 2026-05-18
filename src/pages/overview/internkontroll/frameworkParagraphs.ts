@@ -31,6 +31,34 @@ export type FrameworkDef = {
   paragraphs: FrameworkParagraph[]
 }
 
+/**
+ * Compact chapter token used as a row-label prefix in the gap matrix
+ * ("K2A · AML § 2A-1"). Extracted from `chapter` so we don't repeat
+ * the full text on every row. Falls back to '—' when chapter is unset.
+ */
+export function chapterToken(chapter: string | undefined): string {
+  if (!chapter) return '—'
+  // "Kap. 14A — Konkurranseklausuler" → "K14A"
+  // "Innhold i internkontrollen"      → first 4 chars uppercased: "INNH" (acceptable noise)
+  // "Innledning"                       → "INNL"
+  const kapMatch = chapter.match(/Kap\.\s*([0-9]+[A-Za-z]*)/)
+  if (kapMatch) return `K${kapMatch[1]}`
+  return chapter.slice(0, 4).toUpperCase()
+}
+
+/** Distinct chapter labels for a framework, preserving paragraph order. */
+export function chaptersForFramework(framework: FrameworkId): string[] {
+  const seen = new Set<string>()
+  const out: string[] = []
+  for (const p of FRAMEWORKS[framework].paragraphs) {
+    if (p.chapter && !seen.has(p.chapter)) {
+      seen.add(p.chapter)
+      out.push(p.chapter)
+    }
+  }
+  return out
+}
+
 const AML_PARAGRAPHS: FrameworkParagraph[] = [
   { code: 'AML § 2-1', chapter: 'Kap. 2 — Arbeidsgivers og arbeidstakers plikter' },
   { code: 'AML § 2-3', chapter: 'Kap. 2 — Arbeidsgivers og arbeidstakers plikter' },

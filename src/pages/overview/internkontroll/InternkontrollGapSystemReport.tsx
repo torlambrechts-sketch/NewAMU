@@ -22,6 +22,7 @@ import { ParagraphInspectorPanel } from './ParagraphInspectorPanel'
 import {
   FRAMEWORKS,
   FRAMEWORK_IDS,
+  chaptersForFramework,
   type FrameworkId,
 } from './frameworkParagraphs'
 import './internkontrollDashboardScope'
@@ -69,8 +70,19 @@ export function InternkontrollGapSystemReport({
             label: `${FRAMEWORKS[id].shortLabel} — ${FRAMEWORKS[id].fullLabel}`,
           })),
       },
+      {
+        id: 'chapter',
+        label: 'Kapittel',
+        description:
+          'Begrenser matrisen til ett kapittel av valgt regelverk — nyttig når den fulle 80-rads-listen er for lang.',
+        kind: 'enum',
+        defaultOperator: 'is',
+        operatorOptions: ['is'],
+        loadOptions: () =>
+          chaptersForFramework(framework).map((c) => ({ id: c, label: c })),
+      },
     ],
-    [],
+    [framework],
   )
 
   const inspectorData = useMemo(() => {
@@ -95,8 +107,12 @@ export function InternkontrollGapSystemReport({
         onFiltersChange={setSessionFilters}
         onDrillDown={(e) => {
           if (e.dimensionId !== 'gap_cell') return
-          const [paragraph] = e.segmentLabel.split('::')
-          if (paragraph) setOpenLawRef(paragraph)
+          const [rowLabel] = e.segmentLabel.split('::')
+          if (!rowLabel) return
+          // Row labels are prefixed ("K2A · AML § 2A-1"); use the
+          // dataset's reverse lookup to recover the bare law_ref.
+          const lawRef = datasets.internkontroll_gap_matrix.codeByLabel[rowLabel] ?? rowLabel
+          setOpenLawRef(lawRef)
         }}
       />
 

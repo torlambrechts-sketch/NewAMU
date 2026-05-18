@@ -18,6 +18,7 @@ import type {
 } from '../../../lib/dashboards/dashboardFilters'
 import { useInternkontrollDatasets } from './useInternkontrollDatasets'
 import { FRAMEWORKS, FRAMEWORK_IDS, type FrameworkId } from './frameworkParagraphs'
+import { ShareWithAuditorButton } from './ShareWithAuditorButton'
 import './internkontrollDashboardScope'
 
 // Reverse-lookup: bar-widget segment label ("AML", "IK-f", …) → framework id.
@@ -34,7 +35,7 @@ export function InternkontrollDashboardSystemReport({
 }) {
   const navigate = useNavigate()
   const [sessionFilters, setSessionFilters] = useState<DashboardFilter[]>(row.filters)
-  const { datasets, loading } = useInternkontrollDatasets(sessionFilters)
+  const { datasets, loading, framework } = useInternkontrollDatasets(sessionFilters)
   const accent = getDashboardScope(row.scopeId)?.accent
 
   const dimensions: DashboardDimension[] = useMemo(
@@ -85,6 +86,14 @@ export function InternkontrollDashboardSystemReport({
       filters={sessionFilters}
       dimensions={dimensions}
       onFiltersChange={setSessionFilters}
+      headerActions={
+        <ShareWithAuditorButton
+          framework={framework}
+          scopeLabel={row.name}
+          snapshot={datasets as unknown as Record<string, unknown>}
+          layout={layout}
+        />
+      }
       onDrillDown={(e) => {
         if (e.dimensionId !== 'framework') return
         const id = FRAMEWORK_BY_LABEL[e.segmentLabel]

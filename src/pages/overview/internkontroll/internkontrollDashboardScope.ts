@@ -17,6 +17,7 @@ import type {
   ReportModule,
   ReportModuleKpi,
   ReportModuleBar,
+  ReportModuleDonut,
   ReportModuleHeatmap,
   ReportModuleTable,
 } from '../../../types/reportBuilder'
@@ -48,6 +49,11 @@ const DATASETS: DatasetMeta[] = [
     key: 'internkontroll_recent_evidence',
     label: 'Internkontroll — siste aktivitet',
     shape: 'rows',
+  },
+  {
+    key: 'internkontroll_plan_items_by_status',
+    label: 'Internkontroll — tiltak per status',
+    shape: 'segments',
   },
 ]
 
@@ -115,6 +121,17 @@ const HEATMAP_GAP_MATRIX: ReportModuleHeatmap = {
   colSpan: 'full',
 }
 
+const DONUT_PLAN_STATUS: ReportModuleDonut = {
+  id: 'donut-internkontroll-plan-status',
+  kind: 'donut',
+  datasetKey: 'internkontroll_plan_items_by_status',
+  title: 'Tiltak per status',
+  subtitle: 'Plan-tiltak fordelt på planlagt / pågår / blokkert / fullført',
+  segmentsPath: '',
+  drillDimensionId: 'plan_status',
+  colSpan: 'md',
+}
+
 const TABLE_RECENT_EVIDENCE: ReportModuleTable = {
   id: 'table-internkontroll-recent-evidence',
   kind: 'table',
@@ -131,6 +148,7 @@ const DEFAULT_LAYOUT: ReportModule[] = [
   KPI_UNCOVERED,
   KPI_OPEN_PLAN_ITEMS,
   BAR_FRAMEWORK_COVERAGE,
+  DONUT_PLAN_STATUS,
   TABLE_RECENT_EVIDENCE,
 ]
 
@@ -164,6 +182,12 @@ const WIDGET_CATALOG: WidgetCatalogEntry[] = [
     category: 'Diagrammer',
     label: 'Dekning per regelverk',
     template: BAR_FRAMEWORK_COVERAGE,
+  },
+  {
+    catalogId: 'donut-internkontroll-plan-status',
+    category: 'Diagrammer',
+    label: 'Tiltak per status',
+    template: DONUT_PLAN_STATUS,
   },
   {
     catalogId: 'heatmap-internkontroll-gap-matrix',

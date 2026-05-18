@@ -28,11 +28,19 @@ import {
   FRAMEWORKS,
   FRAMEWORK_IDS,
   GAP_MODULE_COLUMNS,
+  chapterToken,
   type FrameworkId,
 } from './frameworkParagraphs'
 
 type RegisterCoverageRow = { id: string; label: string; aml_paragraphs: string[] | null }
-type PlanItemStatusRow = { status: string }
+type PlanItemStatusRow = { status: 'planned' | 'in_progress' | 'blocked' | 'done' }
+
+const PLAN_STATUS_LABEL: Record<PlanItemStatusRow['status'], string> = {
+  planned: 'Planlagt',
+  in_progress: 'Pågår',
+  blocked: 'Blokkert',
+  done: 'Fullført',
+}
 
 export type RegisterCoverageMatch = { id: string; label: string }
 
@@ -79,6 +87,10 @@ export type InternkontrollDatasets = {
     rows: string[]
     columns: string[]
     cells: number[][]
+    /** Reverse-lookup from the prefixed row label back to the bare
+     *  law-ref string. Used by drill-down handlers to translate a cell
+     *  click into a paragraph reference. */
+    codeByLabel: Record<string, string>
   }
   internkontroll_recent_evidence: Array<{
     Paragraf: string
@@ -87,6 +99,8 @@ export type InternkontrollDatasets = {
     Tittel: string
     Kilde: string
   }>
+  /** Plan items grouped by status — donut/bar input. */
+  internkontroll_plan_items_by_status: Record<string, number>
 }
 
 export function useInternkontrollDatasets(filters: DashboardFilter[]): {
@@ -108,6 +122,12 @@ export function useInternkontrollDatasets(filters: DashboardFilter[]): {
   const [registerRows, setRegisterRows] = useState<RegisterCoverageRow[]>([])
   const [registersLoading, setRegistersLoading] = useState<boolean>(true)
   const [openPlanItems, setOpenPlanItems] = useState<number>(0)
+  const [planItemsByStatus, setPlanItemsByStatus] = useState<Record<string, number>>({
+    Planlagt: 0,
+    Pågår: 0,
+    Blokkert: 0,
+    Fullført: 0,
+  })
 
   useEffect(() => {
     if (!supabase || !organization?.id) {
@@ -135,28 +155,38 @@ export function useInternkontrollDatasets(filters: DashboardFilter[]): {
     }
   }, [supabase, organization?.id])
 
-  // Count compliance_plan_items in 'in_progress' status for the active
-  // org — used by the "Tiltak i arbeid" KPI on the dashboard. Cheap
-  // single-row query; refreshed whenever the org changes.
+  // Plan-item status distribution for the active org — used by the
+  // "Tiltak i arbeid" KPI and the "Tiltak per status" donut on the
+  // dashboard. One query, two derived signals.
   useEffect(() => {
     if (!supabase || !organization?.id) {
       setOpenPlanItems(0)
+      setPlanItemsByStatus({ Planlagt: 0, Pågår: 0, Blokkert: 0, Fullført: 0 })
       return
     }
     let cancelled = false
     void supabase
       .from('compliance_plan_items')
-      .select('status', { count: 'exact', head: false })
+      .select('status')
       .eq('organization_id', organization.id)
-      .eq('status', 'in_progress')
       .is('deleted_at', null)
       .then(({ data, error }) => {
         if (cancelled) return
         if (error) {
           setOpenPlanItems(0)
+          setPlanItemsByStatus({ Planlagt: 0, Pågår: 0, Blokkert: 0, Fullført: 0 })
           return
         }
-        setOpenPlanItems(((data as PlanItemStatusRow[] | null) ?? []).length)
+        const rows = (data as PlanItemStatusRow[] | null) ?? []
+        const counts: Record<string, number> = {
+          Planlagt: 0, Pågår: 0, Blokkert: 0, Fullført: 0,
+        }
+        for (const r of rows) {
+          const label = PLAN_STATUS_LABEL[r.status]
+          if (label) counts[label] = (counts[label] ?? 0) + 1
+        }
+        setPlanItemsByStatus(counts)
+        setOpenPlanItems(counts['Pågår'] ?? 0)
       })
     return () => {
       cancelled = true
@@ -164,21 +194,27 @@ export function useInternkontrollDatasets(filters: DashboardFilter[]): {
   }, [supabase, organization?.id])
 
   const framework: FrameworkId = (pickFilterValue(filters, 'framework') as FrameworkId | null) ?? 'aml'
+  const chapterFilter = pickFilterValue(filters, 'chapter')
 
-  // Resolve coverage entries per paragraph and module column.
+  // Resolve coverage entries per paragraph and module column. Rows are
+  // optionally narrowed by the `chapter` filter chip; row labels carry
+  // a short chapter token ("K2A · AML § 2A-1") so chapter membership is
+  // visible even without the chip.
   const matrix = useMemo(() => {
     const def = FRAMEWORKS[framework]
-    const paragraphCodes = def.paragraphs.map((p) => p.code)
-    const cells: number[][] = paragraphCodes.map((code) => {
-      const norm = normalizeLawRef(code)
+    const paragraphs = chapterFilter
+      ? def.paragraphs.filter((p) => p.chapter === chapterFilter)
+      : def.paragraphs
+    const rowLabels = paragraphs.map((p) => `${chapterToken(p.chapter)} · ${p.code}`)
+    const codeByLabel = new Map(rowLabels.map((label, i) => [label, paragraphs[i]!.code]))
+    const cells: number[][] = paragraphs.map((p) => {
+      const norm = normalizeLawRef(p.code)
       const entries = dedupeEntries(coverage.get(norm) ?? [])
       return GAP_MODULE_COLUMNS.map((col) => {
         if (col.id === 'registers') {
-          // Registers aren't in useRegelverkCoverage; count from the
-          // local register_types query — match by aml_paragraphs[].
           if (framework !== 'aml') return 0
           return registerRows.reduce(
-            (sum, r) => sum + ((r.aml_paragraphs ?? []).includes(code) ? 1 : 0),
+            (sum, r) => sum + ((r.aml_paragraphs ?? []).includes(p.code) ? 1 : 0),
             0,
           )
         }
@@ -186,11 +222,14 @@ export function useInternkontrollDatasets(filters: DashboardFilter[]): {
       })
     })
     return {
-      rows: paragraphCodes,
+      rows: rowLabels,
       columns: GAP_MODULE_COLUMNS.map((c) => c.label),
       cells,
+      // Reverse-lookup so drill-down events can map the prefixed row
+      // label back to the bare law-ref string.
+      codeByLabel: Object.fromEntries(codeByLabel) as Record<string, string>,
     }
-  }, [framework, coverage, registerRows])
+  }, [framework, coverage, registerRows, chapterFilter])
 
   const kpiSummary = useMemo(() => {
     const total = matrix.rows.length
@@ -255,8 +294,9 @@ export function useInternkontrollDatasets(filters: DashboardFilter[]): {
       internkontroll_framework_coverage: frameworkCoverage,
       internkontroll_gap_matrix: matrix,
       internkontroll_recent_evidence: recentEvidence,
+      internkontroll_plan_items_by_status: planItemsByStatus,
     }),
-    [kpiSummary, frameworkCoverage, matrix, recentEvidence],
+    [kpiSummary, frameworkCoverage, matrix, recentEvidence, planItemsByStatus],
   )
 
   const entriesFor = useMemo(() => {

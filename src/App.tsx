@@ -100,6 +100,7 @@ import { IsoSoAPage } from './pages/iso/IsoSoAPage'
 import { RegelverkCoveragePage } from './pages/overview/regelverk/RegelverkCoveragePage'
 import { InternkontrollDashboardPage } from './pages/overview/internkontroll/InternkontrollDashboardPage'
 import { InternkontrollGapPage } from './pages/overview/internkontroll/InternkontrollGapPage'
+import { InternkontrollAuditorPage } from './pages/auditor/InternkontrollAuditorPage'
 import { BenchmarkPage } from './pages/dashboards/BenchmarkPage'
 import { ComplianceStudioPage } from './pages/overview/studio/ComplianceStudioPage'
 import { LearningFlowEntry } from './pages/learning/LearningFlowEntry'
@@ -289,6 +290,7 @@ const router = createBrowserRouter(
             <Route path="/anonym-aml/:slug" element={<LegacyVarsleRedirect />} />
             <Route path="/auditor/workflows" element={<AuditorWorkflowsPage />} />
             <Route path="/survey-respond/:campaignId" element={<SurveyRespondPage />} />
+            <Route path="/auditor/internkontroll/:token" element={<InternkontrollAuditorPage />} />
             <Route path="/r/:token" element={<SharedReportPage />} />
             {/* Public marketing — landing + per-module feature pages + etterlevelse + integrations + about + endringer + demo. */}
             <Route element={<MarketingShell />}>
