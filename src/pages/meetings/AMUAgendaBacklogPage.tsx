@@ -4,27 +4,32 @@
 // Append-only avvisnings­log skrives av amu_backlog_dismiss(); auto-drenert
 // historikk leses fra amu_agenda_backlog der drained_at IS NOT NULL.
 
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react'
-import { Link } from 'react-router-dom'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
-  AlertTriangle,
-  ArrowLeft,
   CalendarDays,
   CheckCircle2,
   ChevronDown,
   ChevronRight,
   Clock,
-  Inbox,
   RotateCcw,
   Search,
-  ShieldAlert,
-  X,
 } from 'lucide-react'
-import { AticsModalFrame } from '../../components/ui/aticsPrimitives'
+import { ModulePageShell, ModulePageEmpty } from '../../components/module/ModulePageShell'
+import { ModuleSectionCard } from '../../components/module/ModuleSectionCard'
+import { LayoutScoreStatRow } from '../../components/layout/LayoutScoreStatRow'
+import {
+  LAYOUT_TABLE1_POSTINGS_BODY_ROW,
+  LAYOUT_TABLE1_POSTINGS_HEADER_ROW,
+  LAYOUT_TABLE1_POSTINGS_TD,
+  LAYOUT_TABLE1_POSTINGS_TH,
+} from '../../components/layout/layoutTable1PostingsKit'
+import { Badge, type BadgeVariant } from '../../components/ui/Badge'
 import { Button } from '../../components/ui/Button'
+import { InfoBox, WarningBox } from '../../components/ui/AlertBox'
 import { StandardInput } from '../../components/ui/Input'
 import { StandardTextarea } from '../../components/ui/Textarea'
-import { ModuleSectionCard } from '../../components/module/ModuleSectionCard'
+import { WPSTD_FORM_FIELD_LABEL } from '../../components/layout/WorkplaceStandardFormPanel'
+import { FormModal } from '../../template'
 import { useOrgSetupContext } from '../../hooks/useOrgSetupContext'
 import { useMeetings } from '../../../modules/meetings'
 import { getSupabaseErrorMessage } from '../../lib/supabaseError'
@@ -54,7 +59,6 @@ type DrainedAgendaTitle = {
 
 // ─── Helpers ──────────────────────────────────────────────────────────────
 
-const ACCENT = '#4338ca' // shared HMS overview accent — backlog crosses modules
 const STALE_DAYS = 14
 const RECENT_DRAIN_DAYS = 7
 
@@ -100,16 +104,16 @@ function priorityLabel(p: BacklogRow['priority']): string {
   }
 }
 
-function priorityToneClass(p: BacklogRow['priority']): string {
+function priorityBadgeVariant(p: BacklogRow['priority']): BadgeVariant {
   switch (p) {
     case 'critical':
-      return 'bg-red-100 text-red-800'
+      return 'critical'
     case 'high':
-      return 'bg-amber-100 text-amber-800'
+      return 'high'
     case 'low':
-      return 'bg-neutral-100 text-neutral-600'
+      return 'neutral'
     default:
-      return 'bg-indigo-100 text-indigo-800'
+      return 'info'
   }
 }
 
@@ -360,138 +364,111 @@ export function AMUAgendaBacklogPage() {
 
   // ── Render ───────────────────────────────────────────────────────────────
 
+  const breadcrumb = [
+    { label: 'HMS' },
+    { label: 'Møter', to: '/meetings' },
+    { label: 'Agenda-restanser' },
+  ]
+
   if (!orgId) {
     return (
-      <div className="mx-auto max-w-5xl p-6 text-sm text-neutral-600">
-        Velg en organisasjon for å se restansene.
-      </div>
+      <ModulePageShell breadcrumb={breadcrumb} title="Agenda-restanser">
+        <ModulePageEmpty
+          title="Velg en organisasjon"
+          description="Du må velge en organisasjon før restansene kan vises."
+        />
+      </ModulePageShell>
     )
   }
 
   return (
-    <div className="mx-auto max-w-7xl space-y-6 px-4 py-6 md:px-6">
-      {/* Header */}
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="min-w-0">
-          <p className="text-xs font-medium uppercase tracking-wide text-neutral-500">
-            HMS · Møter
-          </p>
-          <h1 className="mt-1 flex items-center gap-2 text-2xl font-semibold text-neutral-900">
-            <Inbox className="h-6 w-6" style={{ color: ACCENT }} aria-hidden />
-            Agenda-restanser
-          </h1>
-          <p className="mt-1 max-w-2xl text-sm text-neutral-600">
-            Saker som ble emittert av en arbeidsflyt, men som ikke fant et planlagt
-            møte å lande på. Knytt dem manuelt til et kommende møte, eller avvis
-            dem med en sporbar begrunnelse.
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          <Button
-            type="button"
-            variant="secondary"
-            size="sm"
-            onClick={() => void load()}
-            icon={<RotateCcw className="h-3.5 w-3.5" aria-hidden />}
-          >
-            Oppdater
-          </Button>
-          <Link to="/meetings">
-            <Button
-              type="button"
-              variant="secondary"
-              size="sm"
-              icon={<ArrowLeft className="h-3.5 w-3.5" aria-hidden />}
-            >
-              Tilbake til møter
-            </Button>
-          </Link>
-        </div>
-      </div>
-
+    <ModulePageShell
+      breadcrumb={breadcrumb}
+      title="Agenda-restanser"
+      description={
+        <span className="text-sm text-neutral-600">
+          Saker som ble emittert av en arbeidsflyt, men som ikke fant et planlagt
+          møte å lande på. Knytt dem manuelt til et kommende møte, eller avvis dem
+          med en sporbar begrunnelse.
+        </span>
+      }
+      headerActions={
+        <Button
+          type="button"
+          variant="secondary"
+          size="sm"
+          onClick={() => void load()}
+          icon={<RotateCcw className="h-3.5 w-3.5" aria-hidden />}
+        >
+          Oppdater
+        </Button>
+      }
+      loading={loading && rows.length === 0}
+      loadingLabel="Laster restanser …"
+    >
       {/* Permission notice */}
       {!canManage ? (
-        <div className="flex items-start gap-2 rounded-md border border-amber-300 bg-amber-50 px-3 py-2.5 text-sm text-amber-800">
-          <ShieldAlert className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
-          <span>
-            Du kan se restansene, men trenger tilgangen <code>meetings.manage</code>{' '}
-            for å knytte til møter eller avvise saker.
-          </span>
-        </div>
+        <InfoBox>
+          Du kan se restansene, men trenger tilgangen <code>meetings.manage</code>{' '}
+          for å knytte til møter eller avvise saker.
+        </InfoBox>
       ) : null}
 
-      {/* Section A — KPI strip */}
-      <section aria-label="Nøkkeltall" className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-        <KpiCard
-          label="I kø"
-          value={pending.length}
-          icon={<Inbox className="h-4 w-4" aria-hidden />}
-          tone="default"
-        />
-        <KpiCard
-          label={`Ventet for lenge (>${STALE_DAYS} dager)`}
-          value={stalePendingCount}
-          icon={<AlertTriangle className="h-4 w-4" aria-hidden />}
-          tone={stalePendingCount > 0 ? 'warn' : 'default'}
-        />
-        <KpiCard
-          label={`Nylig drenert (siste ${RECENT_DRAIN_DAYS} dager)`}
-          value={recentlyDrainedCount}
-          icon={<CheckCircle2 className="h-4 w-4" aria-hidden />}
-          tone="ok"
-        />
-      </section>
+      {/* KPI strip */}
+      <LayoutScoreStatRow
+        items={[
+          {
+            big: String(pending.length),
+            title: 'I kø',
+            sub: 'Saker som venter på et møte',
+          },
+          {
+            big: String(stalePendingCount),
+            title: `Ventet >${STALE_DAYS} dager`,
+            sub: stalePendingCount > 0 ? 'Bør behandles' : 'Innenfor frist',
+          },
+          {
+            big: String(recentlyDrainedCount),
+            title: `Drenert siste ${RECENT_DRAIN_DAYS} dager`,
+            sub: 'Knyttet til møte',
+          },
+        ]}
+      />
 
       {/* Flashes */}
-      {actionMessage ? (
-        <div className="rounded-md border border-emerald-300 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
-          {actionMessage}
-        </div>
-      ) : null}
-      {error ? (
-        <div className="flex items-start justify-between gap-3 rounded-md border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-800">
-          <span>{error}</span>
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => setError(null)}
-            className="text-red-700 hover:bg-red-100 hover:text-red-900"
-            aria-label="Lukk feilmelding"
-          >
-            <X className="h-4 w-4" aria-hidden />
-          </Button>
-        </div>
-      ) : null}
+      {actionMessage ? <InfoBox>{actionMessage}</InfoBox> : null}
+      {error ? <WarningBox>{error}</WarningBox> : null}
 
       {/* Section B — Backlog table */}
       <ModuleSectionCard className="p-5 md:p-6">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <h2 className="text-lg font-semibold text-neutral-900">Saker i kø</h2>
-          <span className="text-xs text-neutral-500">
+          <Badge variant="neutral">
             {filteredPending.length} av {pending.length}
-          </span>
+          </Badge>
         </div>
 
         {/* Filters */}
         <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-[1fr_auto_auto]">
-          <label className="block text-xs">
-            <span className="mb-1 flex items-center gap-1.5 font-medium text-neutral-600">
-              <Search className="h-3.5 w-3.5" aria-hidden />
+          <label className="block">
+            <span className={WPSTD_FORM_FIELD_LABEL}>
+              <Search className="mr-1 inline h-3.5 w-3.5" aria-hidden />
               Søk i tittel
             </span>
             <StandardInput
               value={searchText}
               onChange={(e) => setSearchText(e.target.value)}
               placeholder="Skriv et søkeord …"
+              className="mt-1.5"
             />
           </label>
-          <label className="block text-xs md:min-w-[14rem]">
-            <span className="mb-1 flex items-center justify-between font-medium text-neutral-600">
-              <span className="flex items-center gap-1.5">
-                <Clock className="h-3.5 w-3.5" aria-hidden />
+          <label className="block md:min-w-[14rem]">
+            <span className={`${WPSTD_FORM_FIELD_LABEL} flex items-center justify-between`}>
+              <span>
+                <Clock className="mr-1 inline h-3.5 w-3.5" aria-hidden />
                 Maks alder
               </span>
-              <span className="font-normal text-neutral-500">{maxAgeDays} dager</span>
+              <span className="font-normal normal-case text-neutral-500">{maxAgeDays} dager</span>
             </span>
             <StandardInput
               type="range"
@@ -499,28 +476,24 @@ export function AMUAgendaBacklogPage() {
               max={365}
               value={maxAgeDays}
               onChange={(e) => setMaxAgeDays(Number(e.target.value))}
-              className="block w-full"
+              className="mt-1.5 block w-full"
               aria-label="Maks alder i dager"
             />
           </label>
-          <div className="block text-xs">
-            <span className="mb-1 block font-medium text-neutral-600">Kilde-modul</span>
-            <div className="flex flex-wrap gap-1.5">
+          <div className="block">
+            <span className={WPSTD_FORM_FIELD_LABEL}>Kilde-modul</span>
+            <div className="mt-1.5 flex flex-wrap gap-1.5">
               {sourceModuleOptions.length === 0 ? (
-                <span className="text-neutral-400">Ingen kildemoduler i køen.</span>
+                <span className="text-xs text-neutral-400">Ingen kildemoduler i køen.</span>
               ) : (
                 sourceModuleOptions.map((key) => {
                   const active = selectedSourceModules.has(key)
                   return (
                     <Button
                       key={key}
-                      variant="ghost"
+                      variant={active ? 'secondary' : 'ghost'}
+                      size="sm"
                       onClick={() => toggleSourceModule(key)}
-                      className={`rounded-full border px-2.5 py-1 text-xs font-normal transition-colors ${
-                        active
-                          ? 'border-indigo-300 bg-indigo-50 text-indigo-800 hover:bg-indigo-100 hover:text-indigo-900'
-                          : 'border-neutral-300 bg-white text-neutral-600 hover:bg-neutral-50'
-                      }`}
                       aria-pressed={active}
                     >
                       {key}
@@ -534,30 +507,22 @@ export function AMUAgendaBacklogPage() {
 
         {/* Table */}
         <div className="mt-5 overflow-x-auto">
-          {loading ? (
-            <div className="rounded-md border border-dashed border-neutral-300 bg-white p-6 text-center text-sm text-neutral-500">
-              Laster restanser …
-            </div>
-          ) : filteredPending.length === 0 ? (
+          {filteredPending.length === 0 ? (
             <div className="rounded-md border border-dashed border-neutral-300 bg-white p-6 text-center text-sm text-neutral-500">
               {pending.length === 0
                 ? 'Ingen saker i kø. Arbeidsflyt-saker som ikke finner et møte havner her.'
                 : 'Ingen saker matcher filtrene.'}
             </div>
           ) : (
-            <table className="w-full min-w-[60rem] border-separate border-spacing-0 text-left text-sm">
+            <table className="w-full min-w-[60rem] border-collapse text-left text-sm">
               <thead>
-                <tr className="text-xs uppercase tracking-wide text-neutral-500">
-                  <th className="border-b border-neutral-200 px-3 py-2 font-medium">Opprettet</th>
-                  <th className="border-b border-neutral-200 px-3 py-2 font-medium">Kilde</th>
-                  <th className="border-b border-neutral-200 px-3 py-2 font-medium">Tittel</th>
-                  <th className="border-b border-neutral-200 px-3 py-2 font-medium">Alder</th>
-                  <th className="border-b border-neutral-200 px-3 py-2 font-medium">
-                    Kandidat-møter
-                  </th>
-                  <th className="border-b border-neutral-200 px-3 py-2 font-medium text-right">
-                    Handlinger
-                  </th>
+                <tr className={LAYOUT_TABLE1_POSTINGS_HEADER_ROW}>
+                  <th className={LAYOUT_TABLE1_POSTINGS_TH}>Opprettet</th>
+                  <th className={LAYOUT_TABLE1_POSTINGS_TH}>Kilde</th>
+                  <th className={LAYOUT_TABLE1_POSTINGS_TH}>Tittel</th>
+                  <th className={LAYOUT_TABLE1_POSTINGS_TH}>Alder</th>
+                  <th className={LAYOUT_TABLE1_POSTINGS_TH}>Kandidat-møter</th>
+                  <th className={`${LAYOUT_TABLE1_POSTINGS_TH} text-right`}>Handlinger</th>
                 </tr>
               </thead>
               <tbody>
@@ -566,24 +531,22 @@ export function AMUAgendaBacklogPage() {
                   const stale = ageInDays(row.created_at) > STALE_DAYS
                   const open = assignOpenFor === row.id
                   return (
-                    <tr key={row.id} className="align-top">
-                      <td className="border-b border-neutral-100 px-3 py-3 text-xs text-neutral-600">
+                    <tr key={row.id} className={`${LAYOUT_TABLE1_POSTINGS_BODY_ROW} align-top`}>
+                      <td className={`${LAYOUT_TABLE1_POSTINGS_TD} text-xs text-neutral-600`}>
                         {formatDateTime(row.created_at)}
                       </td>
-                      <td className="border-b border-neutral-100 px-3 py-3 text-xs text-neutral-700">
+                      <td className={`${LAYOUT_TABLE1_POSTINGS_TD} text-xs text-neutral-700`}>
                         <div className="font-medium text-neutral-800">
                           {row.source_module ?? '—'}
                         </div>
                         <div className="mt-0.5 text-neutral-500">{row.source_id ?? '—'}</div>
-                        <div className="mt-1">
-                          <span
-                            className={`inline-flex rounded-full px-2 py-0.5 text-[11px] font-medium ${priorityToneClass(row.priority)}`}
-                          >
+                        <div className="mt-1.5">
+                          <Badge variant={priorityBadgeVariant(row.priority)}>
                             {priorityLabel(row.priority)}
-                          </span>
+                          </Badge>
                         </div>
                       </td>
-                      <td className="border-b border-neutral-100 px-3 py-3">
+                      <td className={LAYOUT_TABLE1_POSTINGS_TD}>
                         <div className="font-medium text-neutral-900">{row.title}</div>
                         {row.description ? (
                           <p className="mt-1 text-xs text-neutral-600">{row.description}</p>
@@ -592,18 +555,12 @@ export function AMUAgendaBacklogPage() {
                           møtetype: {row.meeting_type}
                         </p>
                       </td>
-                      <td className="border-b border-neutral-100 px-3 py-3 text-xs">
-                        <span
-                          className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 ${
-                            stale
-                              ? 'bg-amber-100 text-amber-800'
-                              : 'bg-neutral-100 text-neutral-600'
-                          }`}
-                        >
+                      <td className={`${LAYOUT_TABLE1_POSTINGS_TD} text-xs`}>
+                        <Badge variant={stale ? 'warning' : 'neutral'}>
                           {ageInDays(row.created_at)} d
-                        </span>
+                        </Badge>
                       </td>
-                      <td className="border-b border-neutral-100 px-3 py-3 text-xs text-neutral-700">
+                      <td className={`${LAYOUT_TABLE1_POSTINGS_TD} text-xs text-neutral-700`}>
                         {candidates.length === 0 ? (
                           <span className="text-neutral-400">Ingen kommende møter matcher.</span>
                         ) : (
@@ -625,7 +582,7 @@ export function AMUAgendaBacklogPage() {
                           </ul>
                         )}
                       </td>
-                      <td className="border-b border-neutral-100 px-3 py-3 text-right text-xs">
+                      <td className={`${LAYOUT_TABLE1_POSTINGS_TD} text-right text-xs`}>
                         <div className="relative inline-flex flex-col items-end gap-1">
                           <div className="flex items-center gap-1.5">
                             <Button
@@ -635,19 +592,18 @@ export function AMUAgendaBacklogPage() {
                               onClick={() => setAssignOpenFor(open ? null : row.id)}
                               aria-expanded={open}
                               aria-haspopup="menu"
+                              icon={<ChevronDown className="h-3 w-3" aria-hidden />}
                             >
                               Knytt til møte
-                              <ChevronDown className="h-3 w-3" aria-hidden />
                             </Button>
                             <Button
-                              variant="secondary"
+                              variant="danger"
                               size="sm"
                               disabled={!canManage}
                               onClick={() => {
                                 setDismissTarget(row)
                                 setDismissReason('')
                               }}
-                              className="border-red-200 text-red-700 hover:bg-red-50"
                             >
                               Avvis
                             </Button>
@@ -756,13 +712,40 @@ export function AMUAgendaBacklogPage() {
       </ModuleSectionCard>
 
       {/* Dismiss modal */}
-      <AticsModalFrame
+      <FormModal
         open={dismissTarget !== null}
+        titleId="amu-backlog-dismiss-title"
         title="Avvis sak fra køen"
         onClose={() => {
           setDismissTarget(null)
           setDismissReason('')
         }}
+        footer={
+          <div className="flex w-full items-center justify-end gap-2">
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={() => {
+                setDismissTarget(null)
+                setDismissReason('')
+              }}
+            >
+              Avbryt
+            </Button>
+            <Button
+              type="button"
+              variant="danger"
+              disabled={
+                !dismissTarget ||
+                busyRowId === dismissTarget.id ||
+                dismissReason.trim().length < 10
+              }
+              onClick={() => void handleDismiss()}
+            >
+              Avvis saken
+            </Button>
+          </div>
+        }
       >
         {dismissTarget ? (
           <div className="space-y-4">
@@ -773,9 +756,11 @@ export function AMUAgendaBacklogPage() {
               <code>amu_backlog_dismissal_log</code> (kun-tilføy).
             </p>
             <label className="block text-sm">
-              <span className="mb-1 block font-medium text-neutral-700">
+              <span className={WPSTD_FORM_FIELD_LABEL}>
                 Begrunnelse <span className="text-red-600">*</span>{' '}
-                <span className="text-xs font-normal text-neutral-500">(minst 10 tegn)</span>
+                <span className="font-normal normal-case text-neutral-500">
+                  (minst 10 tegn)
+                </span>
               </span>
               <StandardTextarea
                 value={dismissReason}
@@ -783,65 +768,16 @@ export function AMUAgendaBacklogPage() {
                 rows={4}
                 minLength={10}
                 placeholder="Hvorfor avvises denne saken? (synlig i loggen)"
+                className="mt-1.5"
               />
               {dismissReason.trim().length > 0 && dismissReason.trim().length < 10 ? (
                 <p className="mt-1 text-xs text-red-700">Begrunnelse må være minst 10 tegn.</p>
               ) : null}
             </label>
-            <div className="flex items-center justify-end gap-2">
-              <Button
-                type="button"
-                variant="secondary"
-                onClick={() => {
-                  setDismissTarget(null)
-                  setDismissReason('')
-                }}
-              >
-                Avbryt
-              </Button>
-              <Button
-                type="button"
-                variant="danger"
-                disabled={busyRowId === dismissTarget.id || dismissReason.trim().length < 10}
-                onClick={() => void handleDismiss()}
-              >
-                Avvis saken
-              </Button>
-            </div>
           </div>
         ) : null}
-      </AticsModalFrame>
-    </div>
-  )
-}
-
-// ─── KPI card ────────────────────────────────────────────────────────────
-
-function KpiCard({
-  label,
-  value,
-  icon,
-  tone,
-}: {
-  label: string
-  value: number
-  icon: ReactNode
-  tone: 'default' | 'warn' | 'ok'
-}) {
-  const toneClass =
-    tone === 'warn'
-      ? 'bg-amber-50 border-amber-200 text-amber-900'
-      : tone === 'ok'
-        ? 'bg-emerald-50 border-emerald-200 text-emerald-900'
-        : 'bg-white border-neutral-200 text-neutral-900'
-  return (
-    <div className={`rounded-lg border px-4 py-3 shadow-sm ${toneClass}`}>
-      <div className="flex items-center gap-2 text-xs font-medium uppercase tracking-wide opacity-80">
-        {icon}
-        {label}
-      </div>
-      <div className="mt-1 text-2xl font-semibold">{value}</div>
-    </div>
+      </FormModal>
+    </ModulePageShell>
   )
 }
 
