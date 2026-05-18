@@ -37,29 +37,44 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
           node-version: '20'
-          cache: 'npm'
+          cache: 'pnpm'
 
       - name: Install dependencies
-        run: npm ci --no-audit --no-fund
+        run: pnpm install --frozen-lockfile
 
       - name: Studio registry assertion (prebuild gate)
-        run: npm run studio:assert
+        run: pnpm run studio:assert
 
       - name: Typecheck
-        run: npx tsc -b
+        run: pnpm exec tsc -b
 
       - name: Vitest — studio surface
-        run: npm test
+        run: pnpm test
 
       - name: Lint studio surface
         run: |
-          npx eslint \
+          pnpm exec eslint \
             src/lib/studio \
             src/components/studio \
             src/pages/studio \
             src/pages/admin/partners \
-            'modules/*/studio'
+            src/pages/platform/PlatformStudioGrantsPage.tsx \
+            modules/compliance/studio \
+            modules/survey/studio \
+            modules/documents/studio \
+            modules/learning/studio \
+            modules/meetings/studio \
+            modules/registers/studio \
+            modules/dashboards/studio \
+            modules/workflows/studio \
+            scripts/assert-studio-registry.ts \
+            scripts/studio-rls-profile.ts
