@@ -108,12 +108,8 @@ export function useAmlHubData(): {
     const now = new Date()
     const rows: AmlTaskRow[] = []
     for (const t of tasksApi.items) {
-      // Skip terminal-state tasks. Both legacy ('done') and modern
-      // ('closed') completed values are excluded.
-      if (
-        t.status === 'closed' || t.status === 'done' ||
-        t.status === 'cancelled' || t.status === 'effectiveness_verified'
-      ) continue
+      // Skip terminal-state tasks (CAPA lifecycle § 10.2).
+      if (t.status === 'cancelled' || t.status === 'effectiveness_verified') continue
       const kindStr = t.templateKind ?? ''
       const moduleId = KIND_TO_MODULE[kindStr] ?? null
       const matched = moduleId ? AML_MODULES.find((m) => m.id === moduleId) ?? null : null
@@ -196,7 +192,7 @@ export function useAmlHubData(): {
     inTwoWeeks.setDate(inTwoWeeks.getDate() + 14)
     const now = new Date()
     const tasksDueSoon = tasksApi.items.filter((t) => {
-      if (t.status === 'closed' || t.status === 'cancelled' || t.status === 'done') return false
+      if (t.status === 'cancelled' || t.status === 'effectiveness_verified') return false
       const iso = t.dueDate ?? t.slaDueAt ?? null
       if (!iso) return false
       const d = new Date(iso)
