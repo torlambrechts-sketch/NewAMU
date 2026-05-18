@@ -25,7 +25,7 @@ import { StudioBlockPalette } from '../../../modules/studio/StudioBlockPalette'
 import { StudioSurveyBlockCanvas } from '../../../modules/studio/StudioSurveyBlockCanvas'
 import { StudioSurveyPropertyPanel } from '../../../modules/studio/StudioSurveyPropertyPanel'
 import { useSurveyStudio } from '../../../modules/studio/useSurveyStudio'
-import type { StudioBlock } from '../../../modules/studio/types'
+import type { NewStudioBlock } from '../../../modules/studio/types'
 
 function SaveIndicator({ status, lastSavedAt }: { status: string; lastSavedAt: Date | null }) {
   if (status === 'saving') {
@@ -65,7 +65,7 @@ export function KlarertStudioSurveyEditorPage() {
   const selectedBlock = studio.blocks.find((b) => b.id === selectedId) ?? null
 
   const handleAdd = useCallback(
-    (block: Omit<StudioBlock, 'id'>, atIndex?: number) => {
+    (block: NewStudioBlock, atIndex?: number) => {
       const id = studio.addBlock(block, atIndex)
       setSelectedId(id)
       return id

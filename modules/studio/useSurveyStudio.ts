@@ -19,6 +19,7 @@ import {
 } from '../survey/surveyTemplateCatalogTypes'
 import {
   StudioBlockSchema,
+  type NewStudioBlock,
   type StudioBlock,
   type StudioQuestionBlock,
   type StudioSaveStatus,
@@ -271,7 +272,7 @@ export function useSurveyStudio(templateId: string, fromTemplateId?: string) {
   // ─── Block mutations ──────────────────────────────────────────────────────
 
   const addBlock = useCallback(
-    (block: Omit<StudioBlock, 'id'>, atIndex?: number) => {
+    (block: NewStudioBlock, atIndex?: number) => {
       const newBlock = { ...block, id: freshId('blk') } as StudioBlock
       setBlocks((prev) => {
         const next = [...prev]

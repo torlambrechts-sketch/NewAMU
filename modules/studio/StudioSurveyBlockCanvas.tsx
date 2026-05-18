@@ -1,7 +1,7 @@
 // Center panel of the Studio editor — sortable block list plus a drop zone
 // for palette items. Uses @dnd-kit with the same pattern as LearningSectionBuilder.
 
-import { useRef, useState } from 'react'
+import { useState } from 'react'
 import {
   DndContext,
   DragOverlay,
@@ -22,7 +22,7 @@ import {
 import { Plus } from 'lucide-react'
 import { StudioSurveyBlockCard } from './StudioSurveyBlockCard'
 import { PALETTE_DRAG_PREFIX } from './StudioBlockPalette'
-import type { PaletteItem, StudioBlock } from './types'
+import type { NewStudioBlock, PaletteItem, StudioBlock } from './types'
 
 const CANVAS_DROP_ZONE_ID = 'studio-canvas-empty'
 const CANVAS_TAIL_ID = 'studio-canvas-tail'
@@ -70,7 +70,7 @@ function TailDropZone() {
   )
 }
 
-function buildNewBlock(item: PaletteItem): Omit<StudioBlock, 'id'> {
+function buildNewBlock(item: PaletteItem): NewStudioBlock {
   if (item.kind === 'section') {
     return { kind: 'section', title: '' }
   }
@@ -97,7 +97,7 @@ type Props = {
   blocks: StudioBlock[]
   selectedId: string | null
   onSelect: (id: string) => void
-  onAdd: (block: Omit<StudioBlock, 'id'>, atIndex?: number) => string
+  onAdd: (block: NewStudioBlock, atIndex?: number) => string
   onRemove: (id: string) => void
   onMove: (fromIndex: number, toIndex: number) => void
   disabled?: boolean

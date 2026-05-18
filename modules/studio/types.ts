@@ -84,4 +84,13 @@ export const SURVEY_PALETTE: PaletteItem[] = [
 
 // ─── Save state ───────────────────────────────────────────────────────────────
 
+// Distributive Omit — strips 'id' from each member of the union individually.
+// Plain Omit<StudioBlock, 'id'> collapses to the intersection of all members,
+// losing the discriminant and making object literals unsound.
+export type NewStudioBlock = StudioBlock extends infer T
+  ? T extends StudioBlock
+    ? Omit<T, 'id'>
+    : never
+  : never
+
 export type StudioSaveStatus = 'idle' | 'saving' | 'saved' | 'error'
