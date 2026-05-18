@@ -39,12 +39,17 @@ import {
   parseMeetingAttendeeRow,
   parseMeetingCategoryRow,
   parseMeetingDecisionRow,
+  parseMeetingDigestRecipientRow,
+  parseMeetingExternalInviteeRow,
+  parseMeetingLiveSessionRow,
   parseMeetingOrgTemplateRow,
   parseMeetingOrgTemplateSettingRow,
   parseMeetingRow,
   parseMeetingSignatureRow,
+  parseMeetingSpeakerQueueRow,
   parseMeetingSystemTemplateRow,
 } from './types'
+import type { MeetingParityCheck, MeetingVoteResult } from './types'
 
 type Supabase = SupabaseClient
 type ParseResult<T> = { success: true; data: T } | { success: false }
@@ -202,6 +207,73 @@ export type UseMeetingsState = {
     meetingId: string
     mode?: 'initial' | 'reminder'
   }) => Promise<{ ok: boolean; sent: number; error?: string }>
+  /** RSVP state machine for invited members + substitute auto-activation. */
+  setRsvp: (input: {
+    meetingId: string
+    memberId: string
+    status: import('./types').MeetingRsvpStatus
+    reason?: string | null
+  }) => Promise<boolean>
+  activateSubstitute: (input: {
+    meetingId: string
+    substituteMemberId: string
+    principalMemberId: string
+  }) => Promise<boolean>
+  /** Voting model on an agenda item (controls how the result is derived). */
+  setAgendaVotingModel: (
+    agendaItemId: string,
+    model: import('./types').MeetingVotingModel | null,
+  ) => Promise<boolean>
+  /** Cast / change a single ballot — supports both live and pre-vote. */
+  castVote: (input: {
+    agendaItemId: string
+    meetingId: string
+    memberId: string | null
+    ballot: import('./types').MeetingBallot
+    side?: import('./types').MeetingSide | null
+    isPreVote?: boolean
+  }) => Promise<boolean>
+  /** Server-computed result (model-aware) for an agenda item. */
+  getVoteResult: (agendaItemId: string) => Promise<import('./types').MeetingVoteResult | null>
+  /** Server-computed parity + quorum status for a meeting. */
+  getParityCheck: (meetingId: string) => Promise<import('./types').MeetingParityCheck | null>
+  /** Live-room session controls. */
+  startLiveSession: (meetingId: string) => Promise<boolean>
+  setLiveActiveItem: (meetingId: string, agendaItemId: string | null) => Promise<boolean>
+  endLiveSession: (meetingId: string) => Promise<boolean>
+  loadLiveSession: (meetingId: string) => Promise<import('./types').MeetingLiveSessionRow | null>
+  /** Speaker queue (taleliste). */
+  addSpeaker: (input: {
+    meetingId: string
+    agendaItemId: string | null
+    memberId: string | null
+    topic?: string | null
+  }) => Promise<boolean>
+  giveSpeakerFloor: (speakerId: string) => Promise<boolean>
+  yieldSpeaker: (speakerId: string) => Promise<boolean>
+  loadSpeakerQueue: (meetingId: string) => Promise<import('./types').MeetingSpeakerQueueRow[]>
+  /** External invitees with secure tokens (token-gated public access). */
+  addExternalInvitee: (input: {
+    meetingId: string
+    name: string
+    email?: string | null
+    role?: string | null
+    accessLevel?: 'observer' | 'speak' | 'vote'
+    orgAffiliation?: string | null
+    expiresAt?: string | null
+  }) => Promise<import('./types').MeetingExternalInviteeRow | null>
+  loadExternalInvitees: (meetingId: string) => Promise<import('./types').MeetingExternalInviteeRow[]>
+  /** Stakeholder digest recipients (post-signing distribution). */
+  upsertDigestRecipient: (input: {
+    id?: string
+    meetingId: string
+    name: string
+    recipientFilter?: Record<string, unknown>
+    extractMode?: 'full' | 'decisions_only'
+    defaultSelected?: boolean
+    lawRef?: string | null
+  }) => Promise<boolean>
+  loadDigestRecipients: (meetingId: string) => Promise<import('./types').MeetingDigestRecipientRow[]>
   /** Admin: toggle a system template on/off for the current org. */
   setTemplateEnabled: (systemTemplateId: string, enabled: boolean) => Promise<boolean>
   setTemplateCategory: (systemTemplateId: string, categoryId: string | null) => Promise<boolean>
@@ -1043,6 +1115,360 @@ export function useMeetings(): UseMeetingsState {
     [supabase, meetings, detailMeetingId, detail, markInvitationSent],
   )
 
+  // ── RSVP + substitute (L4) ────────────────────────────────────────────────
+
+  const setRsvp: UseMeetingsState['setRsvp'] = useCallback(
+    async (input) => {
+      if (!supabase) return false
+      const res = await supabase
+        .from('meeting_attendees')
+        .update({
+          rsvp_status: input.status,
+          rsvp_reason: input.reason ?? null,
+          rsvp_responded_at: new Date().toISOString(),
+        })
+        .eq('meeting_id', input.meetingId)
+        .eq('member_id', input.memberId)
+      if (res.error) {
+        setError(getSupabaseErrorMessage(res.error))
+        return false
+      }
+      if (detailMeetingId === input.meetingId) await loadDetail(input.meetingId)
+      return true
+    },
+    [supabase, detailMeetingId, loadDetail],
+  )
+
+  const activateSubstitute: UseMeetingsState['activateSubstitute'] = useCallback(
+    async (input) => {
+      if (!supabase) return false
+      const res = await supabase
+        .from('meeting_attendees')
+        .update({
+          substitute_for_member_id: input.principalMemberId,
+          substitute_activated_at: new Date().toISOString(),
+          rsvp_status: 'accepted',
+        })
+        .eq('meeting_id', input.meetingId)
+        .eq('member_id', input.substituteMemberId)
+      if (res.error) {
+        setError(getSupabaseErrorMessage(res.error))
+        return false
+      }
+      if (detailMeetingId === input.meetingId) await loadDetail(input.meetingId)
+      return true
+    },
+    [supabase, detailMeetingId, loadDetail],
+  )
+
+  // ── Voting models + ballots (L2 + L3) ─────────────────────────────────────
+
+  const setAgendaVotingModel: UseMeetingsState['setAgendaVotingModel'] = useCallback(
+    async (agendaItemId, model) => {
+      if (!supabase) return false
+      const res = await supabase
+        .from('meeting_agenda_items')
+        .update({ voting_model: model })
+        .eq('id', agendaItemId)
+      if (res.error) {
+        setError(getSupabaseErrorMessage(res.error))
+        return false
+      }
+      if (detailMeetingId) await loadDetail(detailMeetingId)
+      return true
+    },
+    [supabase, detailMeetingId, loadDetail],
+  )
+
+  const castVote: UseMeetingsState['castVote'] = useCallback(
+    async (input) => {
+      if (!supabase) return false
+      const res = await supabase
+        .from('meeting_votes')
+        .upsert(
+          {
+            agenda_item_id: input.agendaItemId,
+            meeting_id: input.meetingId,
+            member_id: input.memberId,
+            ballot: input.ballot,
+            side: input.side ?? null,
+            is_pre_vote: input.isPreVote ?? false,
+            cast_at: new Date().toISOString(),
+          },
+          { onConflict: 'agenda_item_id,member_id' },
+        )
+      if (res.error) {
+        setError(getSupabaseErrorMessage(res.error))
+        return false
+      }
+      return true
+    },
+    [supabase],
+  )
+
+  const getVoteResult: UseMeetingsState['getVoteResult'] = useCallback(
+    async (agendaItemId) => {
+      if (!supabase) return null
+      const res = await supabase.rpc('meeting_vote_result', { p_agenda_item_id: agendaItemId })
+      if (res.error) {
+        setError(getSupabaseErrorMessage(res.error))
+        return null
+      }
+      return (res.data ?? null) as MeetingVoteResult | null
+    },
+    [supabase],
+  )
+
+  const getParityCheck: UseMeetingsState['getParityCheck'] = useCallback(
+    async (meetingId) => {
+      if (!supabase) return null
+      const res = await supabase.rpc('meeting_parity_check', { p_meeting_id: meetingId })
+      if (res.error) {
+        setError(getSupabaseErrorMessage(res.error))
+        return null
+      }
+      return (res.data ?? null) as MeetingParityCheck | null
+    },
+    [supabase],
+  )
+
+  // ── Live session + speaker queue (L1 + L13) ───────────────────────────────
+
+  const startLiveSession: UseMeetingsState['startLiveSession'] = useCallback(
+    async (meetingId) => {
+      if (!supabase || !orgId) return false
+      const res = await supabase
+        .from('meeting_live_sessions')
+        .upsert(
+          {
+            meeting_id: meetingId,
+            organization_id: orgId,
+            started_at: new Date().toISOString(),
+            ended_at: null,
+            elapsed_seconds: 0,
+            paused: false,
+          },
+          { onConflict: 'meeting_id' },
+        )
+      if (res.error) {
+        setError(getSupabaseErrorMessage(res.error))
+        return false
+      }
+      await supabase
+        .from('meetings')
+        .update({ status: 'in_progress' as MeetingStatus })
+        .eq('id', meetingId)
+      return true
+    },
+    [supabase, orgId],
+  )
+
+  const setLiveActiveItem: UseMeetingsState['setLiveActiveItem'] = useCallback(
+    async (meetingId, agendaItemId) => {
+      if (!supabase) return false
+      const res = await supabase
+        .from('meeting_live_sessions')
+        .update({ active_agenda_item_id: agendaItemId })
+        .eq('meeting_id', meetingId)
+      if (res.error) {
+        setError(getSupabaseErrorMessage(res.error))
+        return false
+      }
+      return true
+    },
+    [supabase],
+  )
+
+  const endLiveSession: UseMeetingsState['endLiveSession'] = useCallback(
+    async (meetingId) => {
+      if (!supabase) return false
+      const res = await supabase
+        .from('meeting_live_sessions')
+        .update({ ended_at: new Date().toISOString() })
+        .eq('meeting_id', meetingId)
+      if (res.error) {
+        setError(getSupabaseErrorMessage(res.error))
+        return false
+      }
+      return true
+    },
+    [supabase],
+  )
+
+  const loadLiveSession: UseMeetingsState['loadLiveSession'] = useCallback(
+    async (meetingId) => {
+      if (!supabase) return null
+      const res = await supabase
+        .from('meeting_live_sessions')
+        .select('*')
+        .eq('meeting_id', meetingId)
+        .maybeSingle()
+      if (res.error || !res.data) return null
+      const parsed = parseMeetingLiveSessionRow(res.data)
+      return parsed.success ? parsed.data : null
+    },
+    [supabase],
+  )
+
+  const addSpeaker: UseMeetingsState['addSpeaker'] = useCallback(
+    async (input) => {
+      if (!supabase) return false
+      // Compute next position in queue
+      const posRes = await supabase
+        .from('meeting_speaker_queue')
+        .select('position')
+        .eq('meeting_id', input.meetingId)
+        .is('yielded_at', null)
+        .order('position', { ascending: false })
+        .limit(1)
+      const nextPos = ((posRes.data?.[0] as { position?: number } | undefined)?.position ?? 0) + 1
+      const res = await supabase.from('meeting_speaker_queue').insert({
+        meeting_id: input.meetingId,
+        agenda_item_id: input.agendaItemId,
+        member_id: input.memberId,
+        position: nextPos,
+        topic: input.topic ?? null,
+      })
+      if (res.error) {
+        setError(getSupabaseErrorMessage(res.error))
+        return false
+      }
+      return true
+    },
+    [supabase],
+  )
+
+  const giveSpeakerFloor: UseMeetingsState['giveSpeakerFloor'] = useCallback(
+    async (speakerId) => {
+      if (!supabase) return false
+      const res = await supabase
+        .from('meeting_speaker_queue')
+        .update({ given_floor_at: new Date().toISOString() })
+        .eq('id', speakerId)
+      if (res.error) {
+        setError(getSupabaseErrorMessage(res.error))
+        return false
+      }
+      return true
+    },
+    [supabase],
+  )
+
+  const yieldSpeaker: UseMeetingsState['yieldSpeaker'] = useCallback(
+    async (speakerId) => {
+      if (!supabase) return false
+      const res = await supabase
+        .from('meeting_speaker_queue')
+        .update({ yielded_at: new Date().toISOString() })
+        .eq('id', speakerId)
+      if (res.error) {
+        setError(getSupabaseErrorMessage(res.error))
+        return false
+      }
+      return true
+    },
+    [supabase],
+  )
+
+  const loadSpeakerQueue: UseMeetingsState['loadSpeakerQueue'] = useCallback(
+    async (meetingId) => {
+      if (!supabase) return []
+      const res = await supabase
+        .from('meeting_speaker_queue')
+        .select('*')
+        .eq('meeting_id', meetingId)
+        .is('yielded_at', null)
+        .order('position', { ascending: true })
+      if (res.error) return []
+      return collect(res.data, parseMeetingSpeakerQueueRow)
+    },
+    [supabase],
+  )
+
+  // ── External invitees + digest (L8 + L11) ─────────────────────────────────
+
+  const addExternalInvitee: UseMeetingsState['addExternalInvitee'] = useCallback(
+    async (input) => {
+      if (!supabase || !orgId) return null
+      const token = crypto.randomUUID().replace(/-/g, '').slice(0, 24)
+      const res = await supabase
+        .from('meeting_external_invitees')
+        .insert({
+          meeting_id: input.meetingId,
+          organization_id: orgId,
+          name: input.name,
+          email: input.email ?? null,
+          role: input.role ?? null,
+          access_level: input.accessLevel ?? 'observer',
+          org_affiliation: input.orgAffiliation ?? null,
+          secure_token: token,
+          expires_at: input.expiresAt ?? null,
+        })
+        .select('*')
+        .single()
+      if (res.error || !res.data) {
+        setError(getSupabaseErrorMessage(res.error))
+        return null
+      }
+      const parsed = parseMeetingExternalInviteeRow(res.data)
+      return parsed.success ? parsed.data : null
+    },
+    [supabase, orgId],
+  )
+
+  const loadExternalInvitees: UseMeetingsState['loadExternalInvitees'] = useCallback(
+    async (meetingId) => {
+      if (!supabase) return []
+      const res = await supabase
+        .from('meeting_external_invitees')
+        .select('*')
+        .eq('meeting_id', meetingId)
+        .order('created_at', { ascending: true })
+      if (res.error) return []
+      return collect(res.data, parseMeetingExternalInviteeRow)
+    },
+    [supabase],
+  )
+
+  const upsertDigestRecipient: UseMeetingsState['upsertDigestRecipient'] = useCallback(
+    async (input) => {
+      if (!supabase || !orgId) return false
+      const row = {
+        ...(input.id ? { id: input.id } : {}),
+        meeting_id: input.meetingId,
+        organization_id: orgId,
+        name: input.name,
+        recipient_filter: input.recipientFilter ?? {},
+        extract_mode: input.extractMode ?? 'full',
+        default_selected: input.defaultSelected ?? false,
+        law_ref: input.lawRef ?? null,
+      }
+      const res = await supabase
+        .from('meeting_digest_recipients')
+        .upsert(row, { onConflict: 'id' })
+      if (res.error) {
+        setError(getSupabaseErrorMessage(res.error))
+        return false
+      }
+      return true
+    },
+    [supabase, orgId],
+  )
+
+  const loadDigestRecipients: UseMeetingsState['loadDigestRecipients'] = useCallback(
+    async (meetingId) => {
+      if (!supabase) return []
+      const res = await supabase
+        .from('meeting_digest_recipients')
+        .select('*')
+        .eq('meeting_id', meetingId)
+        .order('created_at', { ascending: true })
+      if (res.error) return []
+      return collect(res.data, parseMeetingDigestRecipientRow)
+    },
+    [supabase],
+  )
+
   // ── Admin: org template settings + categories ─────────────────────────────
 
   const upsertSetting = useCallback(
@@ -1479,6 +1905,24 @@ export function useMeetings(): UseMeetingsState {
     signProtocol,
     markInvitationSent,
     sendInvitations,
+    setRsvp,
+    activateSubstitute,
+    setAgendaVotingModel,
+    castVote,
+    getVoteResult,
+    getParityCheck,
+    startLiveSession,
+    setLiveActiveItem,
+    endLiveSession,
+    loadLiveSession,
+    addSpeaker,
+    giveSpeakerFloor,
+    yieldSpeaker,
+    loadSpeakerQueue,
+    addExternalInvitee,
+    loadExternalInvitees,
+    upsertDigestRecipient,
+    loadDigestRecipients,
     setTemplateEnabled,
     setTemplateCategory,
     setTemplatePinned,

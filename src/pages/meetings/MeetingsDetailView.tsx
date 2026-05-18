@@ -39,6 +39,8 @@ import { SearchableSelect } from '../../components/ui/SearchableSelect'
 import { Tabs } from '../../components/ui/Tabs'
 import { WarningBox, InfoBox } from '../../components/ui/AlertBox'
 import { MandatoryGapsNoticePanel } from '../../../modules/meetings/components/MandatoryGapsNoticePanel'
+import { TimeBudgetBar } from '../../../modules/meetings/components/TimeBudgetBar'
+import { ParityPanel } from '../../../modules/meetings/components/ParityPanel'
 import { WPSTD_FORM_FIELD_LABEL } from '../../components/layout/WorkplaceStandardFormPanel'
 import { useOrgSetupContext } from '../../hooks/useOrgSetupContext'
 import { useMeetings, useMeetingDataBindings } from '../../../modules/meetings'
@@ -301,6 +303,16 @@ export function MeetingsDetailView() {
               Signert
             </Badge>
           ) : null}
+          {!isLocked && meeting.scheduled_at ? (
+            <Link to={`/meetings/${meeting.id}/live`}>
+              <Button
+                variant={meeting.status === 'in_progress' ? 'primary' : 'secondary'}
+                size="sm"
+              >
+                {meeting.status === 'in_progress' ? 'Åpne møterom →' : 'Gå inn i møterom'}
+              </Button>
+            </Link>
+          ) : null}
         </div>
       }
       tabs={<Tabs items={tabItems} activeId={tab} onChange={(id) => setTab(id as Tab)} />}
@@ -362,6 +374,12 @@ export function MeetingsDetailView() {
       {tab === 'agenda' ? (
         <div className="space-y-4">
           <MandatoryGapsNoticePanel gaps={mandatoryGaps} />
+          <TimeBudgetBar
+            items={meetings.detail.agendaItems}
+            scheduledAt={meeting.scheduled_at}
+            endsAt={meeting.ends_at}
+            fallbackMinutes={undefined}
+          />
           <ModuleSectionCard className="p-5 md:p-6">
             <AgendaTab
               items={meetings.detail.agendaItems}
@@ -440,9 +458,16 @@ export function MeetingsDetailView() {
       />
 
       {tab === 'deltakere' ? (
-        <ModuleSectionCard className="p-5 md:p-6">
-          <AttendeesTab attendees={meetings.detail.attendees} memberById={memberById} />
-        </ModuleSectionCard>
+        <div className="space-y-4">
+          <ParityPanel
+            meetingId={meeting.id}
+            loader={meetings.getParityCheck}
+            refreshKey={meetings.detail.attendees.length}
+          />
+          <ModuleSectionCard className="p-5 md:p-6">
+            <AttendeesTab attendees={meetings.detail.attendees} memberById={memberById} />
+          </ModuleSectionCard>
+        </div>
       ) : null}
 
       {tab === 'vedtak' ? (

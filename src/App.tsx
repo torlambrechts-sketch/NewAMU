@@ -45,6 +45,7 @@ import { MeetingsHubPage } from './pages/meetings/MeetingsHubPage'
 import { MeetingsDetailView } from './pages/meetings/MeetingsDetailView'
 import { MeetingsAnalysePage } from './pages/meetings/MeetingsAnalysePage'
 import { MeetingsExportPage } from './pages/meetings/MeetingsExportPage'
+import MeetingLivePage from './pages/meetings/MeetingLivePage'
 import { AMUAgendaBacklogPage } from './pages/meetings/AMUAgendaBacklogPage'
 import { AlertsPage } from '../modules/alerts/pages/AlertsPage'
 import { AlertsAdminPage } from '../modules/alerts/pages/AlertsAdminPage'
@@ -401,6 +402,14 @@ const router = createBrowserRouter(
                         element={
                           <RouteErrorBoundary title="Kunne ikke vise protokoll-pakke">
                             <MeetingsExportPage />
+                          </RouteErrorBoundary>
+                        }
+                      />
+                      <Route
+                        path="meetings/:id/live"
+                        element={
+                          <RouteErrorBoundary title="Kunne ikke åpne møterom">
+                            <MeetingLivePage />
                           </RouteErrorBoundary>
                         }
                       />

@@ -368,6 +368,10 @@ export type MeetingAgendaItemRow = {
   vote_abstain: number | null
   /** Forskrift om org. ledelse § 3-16 — mindretallets standpunkt. */
   minority_dissent_text: string | null
+  /** Voting model for this agenda item — null = not a vedtak. */
+  voting_model: MeetingVotingModel | null
+  pre_vote_opens_at: string | null
+  pre_vote_closes_at: string | null
   conflict_of_interest: Array<{ member_id: string; reason: string }> | null
   binding_snapshot: RenderedBindingResult | null
   created_at: string
@@ -383,6 +387,9 @@ export type MeetingAgendaAttachmentRow = {
   created_by: string | null
 }
 
+export type MeetingRsvpStatus = 'no_response' | 'accepted' | 'declined' | 'tentative'
+export type MeetingSide = 'employer' | 'employee' | 'bht' | 'external' | 'observer'
+
 export type MeetingAttendeeRow = {
   meeting_id: string
   member_id: string
@@ -392,8 +399,100 @@ export type MeetingAttendeeRow = {
   excused: boolean
   digital: boolean
   notes: string | null
+  rsvp_status: MeetingRsvpStatus
+  rsvp_reason: string | null
+  rsvp_responded_at: string | null
+  side: MeetingSide | null
+  substitute_for_member_id: string | null
+  substitute_activated_at: string | null
   created_at: string
   updated_at: string
+}
+
+export type MeetingVotingModel = 'simple' | 'qualified' | 'parity' | 'consensus' | 'anonymous'
+export type MeetingBallot = 'yes' | 'no' | 'blank' | 'abstain'
+
+export type MeetingVoteRow = {
+  id: string
+  agenda_item_id: string
+  meeting_id: string
+  member_id: string | null
+  ballot: MeetingBallot
+  side: MeetingSide | null
+  is_pre_vote: boolean
+  cast_at: string
+  cast_by_user_id: string | null
+}
+
+export type MeetingVoteResult = {
+  model: MeetingVotingModel | null
+  passed: boolean | null
+  reason: string | null
+  tally?: { yes: number; no: number; blank: number; abstain: number; total: number }
+  parity?: { employer_yes: number; employer_no: number; employee_yes: number; employee_no: number }
+}
+
+export type MeetingParityCheck = {
+  employer_count: number
+  employee_count: number
+  bht_count: number
+  total_present_or_accepted: number
+  parity_ok: boolean
+  quorum_min: number
+  quorum_ok: boolean
+}
+
+export type MeetingLiveSessionRow = {
+  meeting_id: string
+  organization_id: string
+  started_at: string
+  ended_at: string | null
+  active_agenda_item_id: string | null
+  elapsed_seconds: number
+  paused: boolean
+  created_at: string
+  updated_at: string
+}
+
+export type MeetingSpeakerQueueRow = {
+  id: string
+  meeting_id: string
+  agenda_item_id: string | null
+  member_id: string | null
+  position: number
+  topic: string | null
+  requested_at: string
+  given_floor_at: string | null
+  yielded_at: string | null
+}
+
+export type MeetingExternalInviteeRow = {
+  id: string
+  meeting_id: string
+  organization_id: string
+  name: string
+  email: string | null
+  org_affiliation: string | null
+  role: string | null
+  access_level: 'observer' | 'speak' | 'vote'
+  secure_token: string
+  expires_at: string | null
+  used_at: string | null
+  created_at: string
+}
+
+export type MeetingDigestRecipientRow = {
+  id: string
+  meeting_id: string
+  organization_id: string
+  name: string
+  recipient_filter: Record<string, unknown>
+  extract_mode: 'full' | 'decisions_only'
+  default_selected: boolean
+  sent_at: string | null
+  sent_count: number
+  law_ref: string | null
+  created_at: string
 }
 
 export type MeetingDecisionRow = {
@@ -702,6 +801,12 @@ export const MeetingAgendaItemRowSchema = z
     vote_against: z.number().int().nullable(),
     vote_abstain: z.number().int().nullable(),
     minority_dissent_text: z.string().nullable().default(null),
+    voting_model: z
+      .enum(['simple', 'qualified', 'parity', 'consensus', 'anonymous'])
+      .nullable()
+      .default(null),
+    pre_vote_opens_at: z.string().nullable().default(null),
+    pre_vote_closes_at: z.string().nullable().default(null),
     conflict_of_interest: z
       .array(z.object({ member_id: z.string(), reason: z.string() }))
       .nullable(),
@@ -743,8 +848,96 @@ export const MeetingAttendeeRowSchema = z
     excused: z.boolean(),
     digital: z.boolean(),
     notes: z.string().nullable(),
+    rsvp_status: z
+      .enum(['no_response', 'accepted', 'declined', 'tentative'])
+      .default('no_response'),
+    rsvp_reason: z.string().nullable().default(null),
+    rsvp_responded_at: z.string().nullable().default(null),
+    side: z
+      .enum(['employer', 'employee', 'bht', 'external', 'observer'])
+      .nullable()
+      .default(null),
+    substitute_for_member_id: z.string().uuid().nullable().default(null),
+    substitute_activated_at: z.string().nullable().default(null),
     created_at: z.string(),
     updated_at: z.string(),
+  })
+  .passthrough()
+
+export const MeetingVoteRowSchema = z
+  .object({
+    id: z.string().uuid(),
+    agenda_item_id: z.string().uuid(),
+    meeting_id: z.string().uuid(),
+    member_id: z.string().uuid().nullable(),
+    ballot: z.enum(['yes', 'no', 'blank', 'abstain']),
+    side: z
+      .enum(['employer', 'employee', 'bht', 'external', 'observer'])
+      .nullable(),
+    is_pre_vote: z.boolean(),
+    cast_at: z.string(),
+    cast_by_user_id: z.string().nullable(),
+  })
+  .passthrough()
+
+export const MeetingLiveSessionRowSchema = z
+  .object({
+    meeting_id: z.string().uuid(),
+    organization_id: z.string().uuid(),
+    started_at: z.string(),
+    ended_at: z.string().nullable(),
+    active_agenda_item_id: z.string().uuid().nullable(),
+    elapsed_seconds: z.number().int(),
+    paused: z.boolean(),
+    created_at: z.string(),
+    updated_at: z.string(),
+  })
+  .passthrough()
+
+export const MeetingSpeakerQueueRowSchema = z
+  .object({
+    id: z.string().uuid(),
+    meeting_id: z.string().uuid(),
+    agenda_item_id: z.string().uuid().nullable(),
+    member_id: z.string().uuid().nullable(),
+    position: z.number().int(),
+    topic: z.string().nullable(),
+    requested_at: z.string(),
+    given_floor_at: z.string().nullable(),
+    yielded_at: z.string().nullable(),
+  })
+  .passthrough()
+
+export const MeetingExternalInviteeRowSchema = z
+  .object({
+    id: z.string().uuid(),
+    meeting_id: z.string().uuid(),
+    organization_id: z.string().uuid(),
+    name: z.string(),
+    email: z.string().nullable(),
+    org_affiliation: z.string().nullable(),
+    role: z.string().nullable(),
+    access_level: z.enum(['observer', 'speak', 'vote']),
+    secure_token: z.string(),
+    expires_at: z.string().nullable(),
+    used_at: z.string().nullable(),
+    created_at: z.string(),
+  })
+  .passthrough()
+
+export const MeetingDigestRecipientRowSchema = z
+  .object({
+    id: z.string().uuid(),
+    meeting_id: z.string().uuid(),
+    organization_id: z.string().uuid(),
+    name: z.string(),
+    recipient_filter: z.record(z.string(), z.unknown()).default({}),
+    extract_mode: z.enum(['full', 'decisions_only']),
+    default_selected: z.boolean(),
+    sent_at: z.string().nullable(),
+    sent_count: z.number().int(),
+    law_ref: z.string().nullable(),
+    created_at: z.string(),
   })
   .passthrough()
 
@@ -838,6 +1031,21 @@ export const parseMeetingActionItemRow = mk<MeetingActionItemRow>(
 )
 export const parseMeetingSignatureRow = mk<MeetingSignatureRow>(
   MeetingSignatureRowSchema as unknown as z.ZodType<MeetingSignatureRow>,
+)
+export const parseMeetingVoteRow = mk<MeetingVoteRow>(
+  MeetingVoteRowSchema as unknown as z.ZodType<MeetingVoteRow>,
+)
+export const parseMeetingLiveSessionRow = mk<MeetingLiveSessionRow>(
+  MeetingLiveSessionRowSchema as unknown as z.ZodType<MeetingLiveSessionRow>,
+)
+export const parseMeetingSpeakerQueueRow = mk<MeetingSpeakerQueueRow>(
+  MeetingSpeakerQueueRowSchema as unknown as z.ZodType<MeetingSpeakerQueueRow>,
+)
+export const parseMeetingExternalInviteeRow = mk<MeetingExternalInviteeRow>(
+  MeetingExternalInviteeRowSchema as unknown as z.ZodType<MeetingExternalInviteeRow>,
+)
+export const parseMeetingDigestRecipientRow = mk<MeetingDigestRecipientRow>(
+  MeetingDigestRecipientRowSchema as unknown as z.ZodType<MeetingDigestRecipientRow>,
 )
 
 // ── Resolved template — system + per-org setting overlay or org-custom ───

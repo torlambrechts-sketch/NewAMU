@@ -24,6 +24,7 @@ import {
 import { ModulePageShell } from '../../src/components/module/ModulePageShell'
 import { ModuleSectionCard } from '../../src/components/module/ModuleSectionCard'
 import { ModuleLegalBanner } from '../../src/components/module/ModuleLegalBanner'
+import { CadenceWarningCard } from './components/CadenceWarningCard'
 import { LayoutScoreStatRow } from '../../src/components/layout/LayoutScoreStatRow'
 import { LayoutTable1PostingsShell } from '../../src/components/layout/LayoutTable1PostingsShell'
 import {
@@ -165,6 +166,10 @@ export function MeetingsHubView({ tabs, bodyOnly = false, hideAdminNav = false }
         />
       ) : (
         <>
+          <CadenceWarningCard
+            meetings={meetings.meetings}
+            templates={meetings.templates}
+          />
           <ModuleLegalBanner
             title="Møter — lovpålagte fora og styringssystem"
             intro="Møteregisteret samler AMU, drøftingsmøter, ledelsens gjennomgang og GDPR-fora med protokoll, vedtak og oppfølging i én tråd."
