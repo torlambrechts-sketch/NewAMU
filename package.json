@@ -12,7 +12,9 @@
     "db:migrate": "bash scripts/apply-migrations.sh",
     "db:gen-learning-system": "node scripts/generate-learning-system-migration.mjs",
     "db:gen-survey-catalog-seed": "node scripts/build-survey-catalog-seed.mjs",
-    "studio:assert": "npx tsx scripts/assert-studio-registry.ts"
+    "studio:assert": "npx tsx scripts/assert-studio-registry.ts",
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",
@@ -54,6 +56,7 @@
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^6.0.1",
+    "@vitest/ui": "^3.2.4",
     "eslint": "^9.39.4",
     "eslint-plugin-react-hooks": "^7.0.1",
     "eslint-plugin-react-refresh": "^0.5.2",
@@ -61,6 +64,7 @@
     "tailwindcss": "^4.2.2",
     "typescript": "~5.9.3",
     "typescript-eslint": "^8.57.0",
-    "vite": "^8.0.1"
+    "vite": "^8.0.1",
+    "vitest": "^3.2.4"
   }
 }
