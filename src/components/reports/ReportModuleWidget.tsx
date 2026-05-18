@@ -501,6 +501,15 @@ export function ReportModuleWidget({
           Array.isArray(row) ? (row as unknown[]).map((v) => Number(v) || 0) : [],
         )
       : []
+    const onCellClick =
+      m.drillDimensionId && onDrillDown
+        ? (rowLabel: string, colLabel: string) =>
+            onDrillDown({
+              module: m,
+              segmentLabel: `${rowLabel}::${colLabel}`,
+              dimensionId: m.drillDimensionId!,
+            })
+        : undefined
     return wrap(
       <>
         {titleBlock}
@@ -515,6 +524,7 @@ export function ReportModuleWidget({
             valueMin={m.valueMin}
             valueMax={m.valueMax}
             valueLabel={m.valueLabel}
+            onCellClick={onCellClick}
           />
         )}
       </>,
@@ -1257,6 +1267,7 @@ function HeatmapMini({
   valueMin,
   valueMax,
   valueLabel,
+  onCellClick,
 }: {
   rows: string[]
   columns: string[]
@@ -1265,6 +1276,8 @@ function HeatmapMini({
   valueMin?: number
   valueMax?: number
   valueLabel?: string
+  /** When set, non-empty cells (value > 0) become clickable. */
+  onCellClick?: (rowLabel: string, colLabel: string) => void
 }) {
   const flat = cells.flat().filter((v) => Number.isFinite(v))
   const lo = valueMin ?? (flat.length ? Math.min(...flat) : 0)
@@ -1313,19 +1326,39 @@ function HeatmapMini({
               {columns.map((colLabel, ci) => {
                 const v = cells[ri]?.[ci] ?? 0
                 const t = Math.max(0, Math.min(1, (v - lo) / span))
-                // Mix accent against white via alpha — quick & dependency-free.
-                const bg = `${accent}${Math.round((0.1 + t * 0.8) * 255)
-                  .toString(16)
-                  .padStart(2, '0')}`
-                const text = t > 0.55 ? '#ffffff' : '#1f2937'
+                // Empty cells get a visibly distinct neutral wash so gaps
+                // read as gaps; non-empty mixes accent by intensity.
+                const bg =
+                  v <= 0
+                    ? '#f8fafc'
+                    : `${accent}${Math.round((0.15 + t * 0.75) * 255)
+                        .toString(16)
+                        .padStart(2, '0')}`
+                const text = v <= 0 ? '#94a3b8' : t > 0.55 ? '#ffffff' : '#1f2937'
+                const clickable = onCellClick && v > 0
+                const cellContent = Number.isFinite(v)
+                  ? Number.isInteger(v)
+                    ? v
+                    : v.toFixed(1)
+                  : '—'
                 return (
                   <td
                     key={colLabel}
                     title={`${rowLabel} · ${colLabel}: ${v}${valueLabel ? ` ${valueLabel}` : ''}`}
-                    className="border border-neutral-200 px-2 py-1 text-center font-medium tabular-nums"
+                    className={`border border-neutral-200 text-center font-medium tabular-nums ${clickable ? 'cursor-pointer transition-opacity hover:opacity-80 focus-within:opacity-80' : ''}`}
                     style={{ backgroundColor: bg, color: text, minWidth: 40 }}
                   >
-                    {Number.isFinite(v) ? (Number.isInteger(v) ? v : v.toFixed(1)) : '—'}
+                    {clickable ? (
+                      <button
+                        type="button"
+                        onClick={() => onCellClick?.(rowLabel, colLabel)}
+                        className="block w-full px-2 py-1 text-current focus:outline-none"
+                      >
+                        {cellContent}
+                      </button>
+                    ) : (
+                      <span className="block px-2 py-1">{cellContent}</span>
+                    )}
                   </td>
                 )
               })}

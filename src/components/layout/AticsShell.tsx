@@ -1849,6 +1849,22 @@ export function AticsShell() {
         requirePermAny: ADMINISTRASJON_NAV_PERMS,
       },
       {
+        label: 'Internkontroll',
+        path: '/overview/internkontroll',
+        Icon: ShieldCheck,
+        match: ({ pathname }) =>
+          pathname === '/overview/internkontroll' ||
+          (pathname.startsWith('/overview/internkontroll') && !pathname.startsWith('/overview/internkontroll/gaps')),
+        requirePermAny: overviewNavPerms,
+      },
+      {
+        label: 'Gap-analyse',
+        path: '/overview/internkontroll/gaps',
+        Icon: ShieldAlert,
+        match: ({ pathname }) => pathname.startsWith('/overview/internkontroll/gaps'),
+        requirePermAny: overviewNavPerms,
+      },
+      {
         label: 'Benchmarking',
         path: '/benchmarking',
         Icon: BarChart3,

@@ -26,7 +26,7 @@ const ReportModuleSchema = z
     id: z.string(),
     title: z.string(),
     datasetKey: z.string(),
-    kind: z.enum(['kpi', 'table', 'bar', 'donut', 'line', 'heatmap', 'scorecard', 'bowtie']),
+    kind: z.enum(['kpi', 'table', 'bar', 'donut', 'line', 'heatmap', 'scorecard', 'bowtie', 'benchmark']),
   })
   .passthrough()
 

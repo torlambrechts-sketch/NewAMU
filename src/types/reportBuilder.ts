@@ -138,6 +138,13 @@ export type ReportModuleHeatmap = ReportModuleBase & {
   valueMax?: number
   /** Tooltip label for the value (e.g. "Fullført %"). */
   valueLabel?: string
+  /**
+   * When set, cells become clickable and the runtime emits a drill-down
+   * event tagged with this dimension id. `segmentLabel` carries
+   * `${rowLabel}::${columnLabel}` so the host can decode both axes.
+   * Empty cells (value <= 0) stay un-clickable.
+   */
+  drillDimensionId?: string
 }
 
 /**

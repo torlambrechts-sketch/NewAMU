@@ -20,6 +20,8 @@
 import { useOrgSetupContext } from '../../hooks/useOrgSetupContext'
 import { useSystemReport } from './useSystemReport'
 import { RegelverkCoverageSystemReport } from '../../pages/overview/regelverk/RegelverkCoverageSystemReport'
+import { InternkontrollDashboardSystemReport } from '../../pages/overview/internkontroll/InternkontrollDashboardSystemReport'
+import { InternkontrollGapSystemReport } from '../../pages/overview/internkontroll/InternkontrollGapSystemReport'
 
 export type SystemReportProps = {
   /** The system row's slug, e.g. 'regelverk-coverage-overview'. */
@@ -69,6 +71,23 @@ export function SystemReport({ id, breadcrumb, className }: SystemReportProps) {
     return (
       <div className={className}>
         <RegelverkCoverageSystemReport row={row} breadcrumb={breadcrumb} />
+      </div>
+    )
+  }
+
+  if (row.scopeId === 'internkontroll') {
+    // Two system reports share the scope; dispatch on slug. The slugs
+    // are seeded by 20260915120000_internkontroll_system_reports.sql.
+    if (row.slug === 'internkontroll-gap-analysis') {
+      return (
+        <div className={className}>
+          <InternkontrollGapSystemReport row={row} breadcrumb={breadcrumb} />
+        </div>
+      )
+    }
+    return (
+      <div className={className}>
+        <InternkontrollDashboardSystemReport row={row} breadcrumb={breadcrumb} />
       </div>
     )
   }
