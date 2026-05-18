@@ -15,6 +15,7 @@ import { useCallback, useState } from 'react'
 import { Send, ShieldCheck, FileEdit } from 'lucide-react'
 import { Button } from '../../ui/Button'
 import { useOrgSetupContext } from '../../../hooks/useOrgSetupContext'
+import { freshId } from '../../../lib/studio/freshId'
 
 export type ReviewStatus = 'draft' | 'reviewed' | 'approved'
 
@@ -47,14 +48,14 @@ export function PublishBar({
   currentStatus,
   onStatusChange,
 }: PublishBarProps) {
-  const { supabase, organization } = useOrgSetupContext()
+  const { supabase, organization, user } = useOrgSetupContext()
   const [status, setStatus] = useState<ReviewStatus>(currentStatus)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   const transition = useCallback(
     async (next: ReviewStatus, category: string) => {
-      if (!supabase || !organization) return
+      if (!supabase || !organization || !user) return
       setBusy(true)
       setError(null)
       const { error: updateErr } = await supabase
@@ -66,12 +67,17 @@ export function PublishBar({
         setBusy(false)
         return
       }
-      // Best-effort notification — failures are not fatal.
+      // Best-effort notification — failures are non-fatal (the
+      // status transition is the canonical state; the notification
+      // is just the inbox surface). recipient_user_id + notification_key
+      // are NOT NULL on the table; severity must be one of
+      // low/medium/high/critical.
       try {
         await supabase
           .from('compliance_notifications')
           .insert({
             organization_id: organization.id,
+            recipient_user_id: user.id,
             category,
             payload: { row_id: rowId, scope_id: scopeId, kind_id: kindId, row_table: rowTable },
             title:
@@ -81,16 +87,17 @@ export function PublishBar({
                   ? 'Innhold godkjent'
                   : 'Innhold returnert til utkast',
             body: `${scopeId}::${kindId}`,
-            severity: 'info',
+            severity: category === 'studio_review_approved' ? 'low' : 'medium',
+            notification_key: freshId(`studio:${category}:${rowTable}:${rowId}`),
           })
       } catch {
-        /* non-fatal */
+        /* non-fatal — the underlying status transition already landed */
       }
       setStatus(next)
       setBusy(false)
       onStatusChange?.(next)
     },
-    [supabase, organization, rowTable, rowId, scopeId, kindId, onStatusChange],
+    [supabase, organization, user, rowTable, rowId, scopeId, kindId, onStatusChange],
   )
 
   return (

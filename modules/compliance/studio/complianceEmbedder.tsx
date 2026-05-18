@@ -34,6 +34,7 @@ import { useActivePack } from '../../../src/context/packContextValue'
 import { useChecklistModule } from '../useChecklistModule'
 import type { ComplianceTemplateRow } from '../types'
 import type { EmbedderProps } from '../../../src/lib/studio/studioTypes'
+import { PublishBar } from '../../../src/components/studio/shell/PublishBar'
 
 type EditorState =
   | { kind: 'idle' }
@@ -46,6 +47,7 @@ export default function ComplianceEmbedder({ mode }: EmbedderProps) {
   const cl = useChecklistModule({ supabase })
   const [editor, setEditor] = useState<EditorState>({ kind: 'idle' })
   const [reloadKey, setReloadKey] = useState(0)
+  const [expandedRowId, setExpandedRowId] = useState<string | null>(null)
 
   const filtered = useMemo(
     () => cl.templates.filter((t) => (pack ? t.pack === pack.slug : true)),
@@ -85,30 +87,52 @@ export default function ComplianceEmbedder({ mode }: EmbedderProps) {
         </div>
       ) : (
         <ul className="divide-y divide-neutral-200 rounded-xl border border-neutral-200 bg-white">
-          {filtered.map((t) => (
-            <li key={t.id}>
-              <Button
-                variant="ghost"
-                size="sm"
-                className="w-full justify-start py-3 font-normal"
-                onClick={() => setEditor({ kind: 'edit', template: t })}
-              >
-                <div className="flex w-full items-start justify-between gap-3 text-left">
-                  <div className="min-w-0">
-                    <p className="truncate font-medium text-neutral-900">{t.name}</p>
-                    <p className="truncate text-[11px] text-neutral-500">
-                      {t.slug} · {t.cadence_hint ?? 'ingen kadens'}
-                    </p>
-                  </div>
-                  {t.review_status ? (
-                    <span className="rounded-full bg-neutral-100 px-2 py-0.5 text-[10px] uppercase tracking-wider text-neutral-600">
-                      {t.review_status}
-                    </span>
-                  ) : null}
+          {filtered.map((t) => {
+            const expanded = expandedRowId === t.id
+            return (
+              <li key={t.id} className="space-y-0">
+                <div className="flex w-full items-center gap-2">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="flex-1 justify-start py-3 font-normal"
+                    onClick={() => setEditor({ kind: 'edit', template: t })}
+                  >
+                    <div className="flex w-full items-start justify-between gap-3 text-left">
+                      <div className="min-w-0">
+                        <p className="truncate font-medium text-neutral-900">{t.name}</p>
+                        <p className="truncate text-[11px] text-neutral-500">
+                          {t.slug} · {t.cadence_hint ?? 'ingen kadens'}
+                        </p>
+                      </div>
+                    </div>
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="mr-2 text-[11px] text-neutral-500"
+                    onClick={() => setExpandedRowId(expanded ? null : t.id)}
+                    aria-expanded={expanded}
+                    aria-controls={`publishbar-${t.id}`}
+                  >
+                    {expanded ? '▴ Status' : '▾ Status'}
+                  </Button>
                 </div>
-              </Button>
-            </li>
-          ))}
+                {expanded ? (
+                  <div id={`publishbar-${t.id}`} className="border-t border-neutral-100 px-3 py-2">
+                    <PublishBar
+                      rowTable="compliance_checklist_templates"
+                      rowId={t.id}
+                      scopeId="compliance"
+                      kindId="baseline"
+                      currentStatus={t.review_status}
+                      onStatusChange={() => setReloadKey((k) => k + 1)}
+                    />
+                  </div>
+                ) : null}
+              </li>
+            )
+          })}
         </ul>
       )}
 

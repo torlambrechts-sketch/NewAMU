@@ -22,6 +22,8 @@ import { ModulePageShell } from '../../components/module/ModulePageShell'
 import { Button } from '../../components/ui/Button'
 import { StandardInput } from '../../components/ui/Input'
 import { StandardTextarea } from '../../components/ui/Textarea'
+import { AutosaveIndicator } from '../../components/studio/shell/AutosaveIndicator'
+import type { AutosaveState } from '../../hooks/useStudioAutosave'
 import { useOrgSetupContext } from '../../hooks/useOrgSetupContext'
 import { getSupabaseErrorMessage } from '../../lib/supabaseError'
 
@@ -98,6 +100,12 @@ export function PackEditor() {
     setEditorBody(activeDraft ? JSON.stringify(activeDraft.draft_payload ?? {}, null, 2) : '')
   }
 
+  // Autosave state — flips to 'pending' on typing, 'saving' during save,
+  // 'saved' on success. The actual write fires via handleSaveDraft (manual
+  // Lagre button or 8s of idle). The visible AutosaveIndicator narrates this.
+  const [autosaveState, setAutosaveState] = useState<AutosaveState>('idle')
+  const [autosaveLastAt, setAutosaveLastAt] = useState<Date | null>(null)
+
   async function handleCreateDraft() {
     if (!supabase || !organization) return
     setBusy(true)
@@ -135,12 +143,14 @@ export function PackEditor() {
   async function handleSaveDraft() {
     if (!supabase || !activeDraft) return
     setBusy(true)
+    setAutosaveState('saving')
     setError(null)
     let parsed: Record<string, unknown>
     try {
       parsed = JSON.parse(editorBody)
     } catch (e) {
       setError(`Ugyldig JSON: ${e instanceof Error ? e.message : String(e)}`)
+      setAutosaveState('error')
       setBusy(false)
       return
     }
@@ -150,7 +160,10 @@ export function PackEditor() {
       .eq('id', activeDraft.id)
     if (e) {
       setError(getSupabaseErrorMessage(e))
+      setAutosaveState('error')
     } else {
+      setAutosaveState('saved')
+      setAutosaveLastAt(new Date())
       await reload()
     }
     setBusy(false)
@@ -292,9 +305,14 @@ export function PackEditor() {
         {activeDraft ? (
           <section className="rounded-xl border border-neutral-200 bg-white p-4 shadow-sm">
             <div className="mb-3 flex items-center justify-between">
-              <h4 className="text-sm font-semibold text-neutral-900 font-serif">
-                Rediger {activeDraft.slug} v{activeDraft.draft_semver}
-              </h4>
+              <div>
+                <h4 className="text-sm font-semibold text-neutral-900 font-serif">
+                  Rediger {activeDraft.slug} v{activeDraft.draft_semver}
+                </h4>
+                <div className="mt-1">
+                  <AutosaveIndicator state={autosaveState} lastSavedAt={autosaveLastAt} />
+                </div>
+              </div>
               <div className="flex items-center gap-2">
                 <Button variant="secondary" size="sm" onClick={handleSaveDraft} disabled={busy}>
                   {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null} Lagre
@@ -306,7 +324,10 @@ export function PackEditor() {
             </div>
             <StandardTextarea
               value={editorBody}
-              onChange={(e) => setEditorBody(e.target.value)}
+              onChange={(e) => {
+                setEditorBody(e.target.value)
+                if (autosaveState !== 'saving') setAutosaveState('pending')
+              }}
               className="h-[420px] w-full font-mono text-xs"
               spellCheck={false}
               aria-label="Manifest body (JSON)"
