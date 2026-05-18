@@ -30,9 +30,12 @@ returns trigger
 language plpgsql
 as $$
 begin
-  -- Only act on transitions into 'done' for tasks that bridge a plan item.
+  -- Tasks complete in the modern CAPA lifecycle by transitioning to
+  -- 'closed'; the legacy 'done' value is still accepted for
+  -- backward-compat (see RUN_IN_SQL_EDITOR.sql task_items_status_check).
+  -- Mirror either onto the plan item.
   if new.status is distinct from old.status
-     and new.status = 'done'
+     and new.status in ('closed', 'done', 'effectiveness_verified')
      and new.source_type = 'compliance_plan'
      and new.source_id is not null
   then

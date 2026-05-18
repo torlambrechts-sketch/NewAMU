@@ -19,6 +19,7 @@ import { freshId } from '../../../lib/dashboards/freshId'
 import { useInternkontrollDatasets } from './useInternkontrollDatasets'
 import { useCompliancePlanItems } from './useCompliancePlanItems'
 import { ParagraphInspectorPanel } from './ParagraphInspectorPanel'
+import { ShareWithAuditorButton } from './ShareWithAuditorButton'
 import {
   FRAMEWORKS,
   FRAMEWORK_IDS,
@@ -105,6 +106,14 @@ export function InternkontrollGapSystemReport({
         filters={sessionFilters}
         dimensions={dimensions}
         onFiltersChange={setSessionFilters}
+        headerActions={
+          <ShareWithAuditorButton
+            framework={framework as FrameworkId}
+            scopeLabel={row.name}
+            snapshot={datasets as unknown as Record<string, unknown>}
+            layout={row.layout}
+          />
+        }
         onDrillDown={(e) => {
           if (e.dimensionId !== 'gap_cell') return
           const [rowLabel] = e.segmentLabel.split('::')
