@@ -1,15 +1,15 @@
-// Registers embedder — Studio Builder Phase 1 stub.
+// Registers embedder — Studio Builder Phase 2a Task 2a.1.
+//
+// Wraps the existing RegistersScopeTyper inline. The settings hub
+// already covers list + add + lock-toggle for the org's register types.
 
+import RegistersScopeTyper from '../../../src/pages/registers/RegistersScopeTyper'
 import type { EmbedderProps } from '../../../src/lib/studio/studioTypes'
-import { DeferredEmbedderPlaceholder } from '../../../src/components/studio/shell/DeferredEmbedderPlaceholder'
 
 export default function RegistersEmbedder({ mode }: EmbedderProps) {
   return (
-    <DeferredEmbedderPlaceholder
-      scopeLabel="register"
-      fallbackHref="/registers/admin"
-      fallbackLabel="Register → Admin"
-      mode={mode}
-    />
+    <div data-studio-mode={mode}>
+      <RegistersScopeTyper />
+    </div>
   )
 }

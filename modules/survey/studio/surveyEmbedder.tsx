@@ -1,15 +1,19 @@
-// Survey embedder — Studio Builder Phase 1 stub.
+// Survey embedder — Studio Builder Phase 2a Task 2a.1.
+//
+// Wraps the existing SurveyMalerOpsCard (template management +
+// metadata schema editor) inline in the studio shell. The card already
+// owns its own state, pack filter, edit panel and mutations — perfect
+// shape for a thin adapter that just hosts it.
 
+import { useOrgSetupContext } from '../../../src/hooks/useOrgSetupContext'
+import { SurveyMalerOpsCard } from '../admin/SurveyMalerOpsCard'
 import type { EmbedderProps } from '../../../src/lib/studio/studioTypes'
-import { DeferredEmbedderPlaceholder } from '../../../src/components/studio/shell/DeferredEmbedderPlaceholder'
 
 export default function SurveyEmbedder({ mode }: EmbedderProps) {
+  const { supabase } = useOrgSetupContext()
   return (
-    <DeferredEmbedderPlaceholder
-      scopeLabel="undersøkelser"
-      fallbackHref="/survey/admin"
-      fallbackLabel="Undersøkelser → Innstillinger"
-      mode={mode}
-    />
+    <div data-studio-mode={mode}>
+      <SurveyMalerOpsCard supabase={supabase} />
+    </div>
   )
 }
