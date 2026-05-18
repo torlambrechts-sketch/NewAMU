@@ -363,8 +363,10 @@ const router = createBrowserRouter(
                       {/* Legacy /compliance-studio fully retired post-Phase 1
                           ship — links into the unified /studio shell directly. */}
                       <Route path="compliance-studio" element={<Navigate to="/studio?scope=compliance" replace />} />
-                      <Route path="studio" element={<StudioPage />} />
-                      <Route path="studio/pakker" element={<PackEditor />} />
+                      {/* PackProvider wraps /studio so the compliance scope's
+                          embedder can read useActivePack(). Other scopes ignore. */}
+                      <Route path="studio" element={<PackProvider><StudioPage /></PackProvider>} />
+                      <Route path="studio/pakker" element={<PackProvider><PackEditor /></PackProvider>} />
                       <Route path="organisation" element={<OrganisationPage />} />
                       <Route path="organisation/admin" element={<LegacyOrgAdminRedirect />} />
                       <Route
