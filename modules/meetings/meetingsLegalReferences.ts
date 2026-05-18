@@ -27,8 +27,8 @@ export const MEETINGS_LEGAL_REFERENCES: ModuleLegalReference[] = [
     text: 'Systematisk dokumentasjon av møter, vedtak og oppfølging.',
   },
   {
-    code: 'Forskrift om org. ledelse § 3-2',
-    text: 'Minst 7 dagers innkallingsfrist for AMU og verneombudsmøter.',
+    code: 'Forskrift om org. ledelse § 3-16',
+    text: 'AMU-saksbehandling: referatplikt, flertall + mindretall protokollføres. 7-dagers innkallingsfrist er anbefalt praksis, ikke lov-grunnet.',
   },
   {
     code: 'Likestillingsloven § 26 / § 26a',

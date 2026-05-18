@@ -51,6 +51,18 @@ create trigger meeting_block_writes_when_archived_tg
   for each row
   execute function public.meeting_block_writes_when_archived();
 
+-- Trigger composition note: Postgres fires BEFORE triggers in alphabetical
+-- order by trigger name. Active BEFORE UPDATE triggers on `meetings`:
+--   1. `meeting_block_writes_when_archived_tg`  (this one)
+--   2. `meetings_before_update_defaults_tg`     (sign-lock, archive/20260901120000)
+--   3. `meetings_set_updated_at`
+-- The archive trigger fires FIRST, so any write to an archived row aborts
+-- before the sign-lock has a chance to evaluate. Archive takes precedence
+-- over sign. Archiving a signed meeting is allowed because the sign-lock
+-- trigger does NOT block changes to `archived_at` (verify in the source).
+-- Un-archiving an archived row passes the archive trigger (NEW.archived_at
+-- IS NULL branch) and then runs through the sign-lock normally.
+
 comment on function public.meeting_block_writes_when_archived() is
   'BEFORE UPDATE trigger: blocks mutation of archived meeting rows. Un-archiving (set archived_at = null) is still allowed.';
 
@@ -59,6 +71,14 @@ comment on function public.meeting_block_writes_when_archived() is
 -- adding an `and m.archived_at is null` clause via a stricter
 -- replacement. The select policy is unchanged — archived data remains
 -- readable for audit purposes.
+--
+-- Confidentiality cascade is preserved: the original policies use
+-- `exists (select 1 from public.meetings m where m.id = meeting_id)`
+-- with no inline confidentiality predicate, relying on Postgres RLS
+-- to cascade the parent `meetings_select` confidentiality guard
+-- through the EXISTS subquery. The new policies use the same pattern
+-- plus the archive predicate — no regression on confidentiality
+-- enforcement.
 
 drop policy if exists meeting_agenda_items_write on public.meeting_agenda_items;
 create policy meeting_agenda_items_write

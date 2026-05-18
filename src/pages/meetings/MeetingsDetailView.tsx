@@ -511,11 +511,14 @@ function InformationTab({
     [onSendInvitations, meeting.id],
   )
 
-  const canSend =
-    canManage &&
-    !locked &&
-    meeting.scheduled_at !== null &&
-    (meeting.participant_member_ids?.length ?? 0) > 0
+  const participantCount = meeting.participant_member_ids?.length ?? 0
+  const canSendBaseline = canManage && !locked && meeting.scheduled_at !== null
+  const canSend = canSendBaseline && participantCount > 0
+  const disabledReason = !canSendBaseline
+    ? null
+    : participantCount === 0
+      ? 'Legg til deltakere på møtet før du kan sende innkalling.'
+      : null
 
   return (
     <div className="grid gap-6 lg:grid-cols-[1fr_320px]">
@@ -533,34 +536,49 @@ function InformationTab({
               scheduledAt={meeting.scheduled_at}
               invitationSentAt={meeting.invitation_sent_at}
             />
-            {canSend ? (
+            {sendStatus.kind === 'error' ? (
+              <WarningBox>
+                Innkallingen ble ikke sendt: {sendStatus.message} Sjekk at deltakerne
+                har gyldig e-postadresse og prøv igjen.
+              </WarningBox>
+            ) : null}
+            {canSendBaseline ? (
               <div className="flex flex-wrap items-center gap-2">
                 <Button
                   variant="secondary"
                   size="sm"
                   onClick={() => handleSend('initial')}
-                  disabled={sendStatus.kind === 'sending'}
+                  disabled={!canSend || sendStatus.kind === 'sending'}
+                  title={disabledReason ?? undefined}
                 >
-                  {meeting.invitation_sent_at ? 'Send innkalling på nytt' : 'Send innkalling'}
+                  {meeting.invitation_sent_at ? 'Send ny innkalling' : 'Send innkalling'}
                 </Button>
                 {meeting.invitation_sent_at ? (
                   <Button
                     variant="ghost"
                     size="sm"
                     onClick={() => handleSend('reminder')}
-                    disabled={sendStatus.kind === 'sending'}
+                    disabled={!canSend || sendStatus.kind === 'sending'}
+                    title={disabledReason ?? undefined}
                   >
                     Send påminnelse
                   </Button>
                 ) : null}
                 {sendStatus.kind === 'sending' ? (
-                  <span className="text-xs text-neutral-500">Sender …</span>
+                  <span role="status" className="text-xs text-neutral-500">
+                    Sender …
+                  </span>
                 ) : null}
                 {sendStatus.kind === 'sent' ? (
-                  <span className="text-xs text-emerald-700">Sendt til {sendStatus.count}.</span>
+                  <span role="status" className="text-xs text-emerald-700">
+                    Sendt til {sendStatus.count} deltaker{sendStatus.count === 1 ? '' : 'e'}.
+                    {meeting.invitation_sent_at && sendStatus.count > 0
+                      ? ' Påminnelse er nå tilgjengelig.'
+                      : ''}
+                  </span>
                 ) : null}
-                {sendStatus.kind === 'error' ? (
-                  <span className="text-xs text-red-700">Feil: {sendStatus.message}</span>
+                {disabledReason ? (
+                  <span className="text-xs text-neutral-500">{disabledReason}</span>
                 ) : null}
               </div>
             ) : null}
@@ -622,7 +640,7 @@ function InvitationBadge({
     return (
       <div className="inline-flex items-center gap-2 rounded-lg border border-red-300 bg-red-50 px-3 py-2 text-xs text-red-900">
         <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
-        Innkalling sendt {diffDays} dager før — anbefalt minimum er {invitationLeadDays} dager.
+        Innkalling sendt bare {diffDays} dag{diffDays === 1 ? '' : 'er'} før — anbefalt er minst {invitationLeadDays} dager.
       </div>
     )
   }

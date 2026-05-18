@@ -159,6 +159,18 @@ function escapeIcs(text: string): string {
   return text.replace(/\\/g, '\\\\').replace(/;/g, '\\;').replace(/,/g, '\\,').replace(/\n/g, '\\n')
 }
 
+/** btoa() only handles Latin-1; Norwegian characters (æ/ø/å) in meeting
+ *  titles or location labels would otherwise produce corrupt base64. We
+ *  UTF-8-encode first, then base64-encode the bytes. */
+function base64Utf8(text: string): string {
+  const bytes = new TextEncoder().encode(text)
+  let bin = ''
+  for (let i = 0; i < bytes.length; i += 1) {
+    bin += String.fromCharCode(bytes[i]!)
+  }
+  return btoa(bin)
+}
+
 function sleep(ms: number): Promise<void> {
   return new Promise((r) => setTimeout(r, ms))
 }
@@ -231,7 +243,7 @@ async function runInvitationBatch(args: {
     ? [
         {
           filename: `${meeting.title.replace(/[^\w\-]+/g, '_')}.ics`,
-          content: btoa(ics),
+          content: base64Utf8(ics),
         },
       ]
     : undefined
@@ -319,8 +331,14 @@ async function handleCron(req: Request): Promise<Response> {
       })
       results.push({ meetingId: row.id, sent: out.summary.sent, failed: out.summary.failed })
     } catch (err) {
-      results.push({ meetingId: row.id, sent: 0, failed: -1 })
-      console.error('reminder failed', row.id, (err as Error).message)
+      results.push({
+        meetingId: row.id,
+        sent: 0,
+        failed: -1,
+      })
+      // Error captured in results; Supabase Edge runtime forwards unhandled
+      // exceptions to logs automatically — no need for a separate console.error.
+      void err
     }
   }
   return respondJson({ ok: true, count: results.length, results })

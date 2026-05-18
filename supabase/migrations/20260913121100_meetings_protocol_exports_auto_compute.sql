@@ -130,8 +130,16 @@ begin
     ), '[]'::jsonb)
   ) into v_payload;
 
-  -- Stable hash: jsonb→text uses Postgres' canonical jsonb formatting
-  -- (sorted keys, no whitespace) which is deterministic across sessions.
+  -- Stable hash: Postgres' jsonb→text cast uses canonical output
+  -- (object keys in stable order — see PostgreSQL docs §8.14.2 "jsonb
+  -- Type" and the `jsonb_build_object` documentation). Whitespace is
+  -- omitted. This is guaranteed within a major Postgres version; an
+  -- inspector who needs to re-verify a hash should run the same SELECT
+  -- on the same major version that signed the protocol. If we later
+  -- upgrade across major versions and the canonical form shifts, the
+  -- existing hashes remain valid as historical evidence — they just
+  -- can't be regenerated bit-identical without a snapshot of the
+  -- prior major's output. Document this in the audit-evidence runbook.
   v_canonical := v_payload::text;
   v_hash := encode(digest(v_canonical::bytea, 'sha256'), 'hex');
 

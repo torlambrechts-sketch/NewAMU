@@ -492,9 +492,8 @@ async function loadOrgSettingsRow(
 }
 
 export function useMeetings(): UseMeetingsState {
-  const { supabase, organization, can, isAdmin, user } = useOrgSetupContext()
+  const { supabase, organization, can, isAdmin } = useOrgSetupContext()
   const orgId = organization?.id ?? null
-  const userId = user?.id ?? null
   const canManage = isAdmin || can('meetings.manage')
 
   const [error, setError] = useState<string | null>(null)
@@ -903,104 +902,70 @@ export function useMeetings(): UseMeetingsState {
     async (input) => {
       if (!supabase) return false
       const now = new Date().toISOString()
-      // Level-1 audit (system_signature_events) — only when we have org + user
-      // identity. The hash covers a canonical view of the meeting + child
-      // tables at signing time so any later mutation can be detected.
-      let level1EventId: string | null = null
-      if (orgId && userId) {
-        const meetingRow = meetings.find((m) => m.id === input.meetingId)
-          ?? (detailMeetingId === input.meetingId ? detail.meeting : null)
-        const hashPayload = {
-          meetingId: input.meetingId,
-          organizationId: orgId,
-          title: meetingRow?.title ?? null,
-          scheduledAt: meetingRow?.scheduled_at ?? null,
-          confidentialityLevel: meetingRow?.confidentiality_level ?? null,
-          participants: meetingRow?.participant_member_ids ?? [],
-          agenda: (detailMeetingId === input.meetingId ? detail.agendaItems : []).map((a) => ({
-            position: a.position,
-            title: a.title,
-            minutesSummary: a.minutes_summary,
-            decisionText: a.decision_text,
-            decisionStatus: a.decision_status,
-            voteFor: a.vote_for,
-            voteAgainst: a.vote_against,
-            voteAbstain: a.vote_abstain,
-          })),
-          attendees: (detailMeetingId === input.meetingId ? detail.attendees : []).map((p) => ({
-            memberId: p.member_id,
-            role: p.role,
-            present: p.present,
-            excused: p.excused,
-          })),
-          decisions: (detailMeetingId === input.meetingId ? detail.decisions : []).map((d) => ({
-            id: d.id,
-            agendaItemId: d.agenda_item_id,
-            text: d.decision_text,
-            status: d.status,
-          })),
-          signature: {
-            name: input.signerName,
-            role: input.signerRole,
-            memberId: input.signerMemberId ?? null,
-            signedAt: now,
-          },
-        }
-        const documentHashSha256 = await hashDocumentPayload(hashPayload)
-        const clientIp = await fetchClientIpBestEffort()
-        const evt = await supabase
-          .from('system_signature_events')
-          .insert({
-            organization_id: orgId,
-            user_id: userId,
-            resource_type: 'meeting_protocol',
-            resource_id: input.meetingId,
-            action: `meeting_protocol_sign_${input.signerRole}`,
-            document_hash_sha256: documentHashSha256,
-            signer_display_name: input.signerName.trim(),
-            role: input.signerRole,
-            client_ip: clientIp ?? null,
-          })
-          .select('id')
-          .single()
-        if (evt.error) {
-          setError(getSupabaseErrorMessage(evt.error))
-          return false
-        }
-        level1EventId = (evt.data as { id: string }).id
+      // Build canonical hash payload over the meeting + child tables.
+      // The L1 audit row, the signature row, and the protocol_signed_at
+      // stamp are then written atomically by the meetings_sign_protocol_v1
+      // RPC — single transaction, rolls back on any failure so the audit
+      // ledger can never end up partial.
+      const meetingRow =
+        meetings.find((m) => m.id === input.meetingId) ??
+        (detailMeetingId === input.meetingId ? detail.meeting : null)
+      const hashPayload = {
+        meetingId: input.meetingId,
+        organizationId: orgId,
+        title: meetingRow?.title ?? null,
+        scheduledAt: meetingRow?.scheduled_at ?? null,
+        confidentialityLevel: meetingRow?.confidentiality_level ?? null,
+        participants: meetingRow?.participant_member_ids ?? [],
+        agenda: (detailMeetingId === input.meetingId ? detail.agendaItems : []).map((a) => ({
+          position: a.position,
+          title: a.title,
+          minutesSummary: a.minutes_summary,
+          decisionText: a.decision_text,
+          decisionStatus: a.decision_status,
+          voteFor: a.vote_for,
+          voteAgainst: a.vote_against,
+          voteAbstain: a.vote_abstain,
+          minorityDissentText: a.minority_dissent_text,
+        })),
+        attendees: (detailMeetingId === input.meetingId ? detail.attendees : []).map((p) => ({
+          memberId: p.member_id,
+          role: p.role,
+          present: p.present,
+          excused: p.excused,
+        })),
+        decisions: (detailMeetingId === input.meetingId ? detail.decisions : []).map((d) => ({
+          id: d.id,
+          agendaItemId: d.agenda_item_id,
+          text: d.decision_text,
+          status: d.status,
+        })),
+        signature: {
+          name: input.signerName,
+          role: input.signerRole,
+          memberId: input.signerMemberId ?? null,
+          signedAt: now,
+        },
       }
-      const sigIns = await supabase.from('meeting_signatures').insert({
-        meeting_id: input.meetingId,
-        signer_member_id: input.signerMemberId ?? null,
-        signer_name: input.signerName,
-        signer_role: input.signerRole,
-        signed_at: now,
-        is_legally_binding: false,
-        level1_event_id: level1EventId,
+      const documentHashSha256 = await hashDocumentPayload(hashPayload)
+      const clientIp = await fetchClientIpBestEffort()
+      const rpc = await supabase.rpc('meetings_sign_protocol_v1', {
+        p_meeting_id: input.meetingId,
+        p_signer_name: input.signerName,
+        p_signer_role: input.signerRole,
+        p_signer_member_id: input.signerMemberId ?? null,
+        p_document_hash_sha256: documentHashSha256,
+        p_client_ip: clientIp ?? null,
       })
-      if (sigIns.error) {
-        setError(getSupabaseErrorMessage(sigIns.error))
+      if (rpc.error) {
+        setError(getSupabaseErrorMessage(rpc.error))
         return false
-      }
-      // Stamp the meeting itself with protocol_signed_at if not already set.
-      const mres = await supabase
-        .from('meetings')
-        .update({
-          status: 'completed' as MeetingStatus,
-          completed_at: now,
-          protocol_signed_at: now,
-          protocol_signed_by: input.signerMemberId ?? null,
-        })
-        .eq('id', input.meetingId)
-        .is('protocol_signed_at', null)
-      if (mres.error) {
-        // Ignore — trigger may reject if already signed; that's fine.
       }
       if (detailMeetingId === input.meetingId) await loadDetail(input.meetingId)
       await loadList()
       return true
     },
-    [supabase, orgId, userId, meetings, detail, detailMeetingId, loadDetail, loadList],
+    [supabase, orgId, meetings, detail, detailMeetingId, loadDetail, loadList],
   )
 
   const markInvitationSent: UseMeetingsState['markInvitationSent'] = useCallback(
@@ -1028,29 +993,52 @@ export function useMeetings(): UseMeetingsState {
   const sendInvitations: UseMeetingsState['sendInvitations'] = useCallback(
     async (input) => {
       if (!supabase) return { ok: false, sent: 0, error: 'Supabase ikke tilgjengelig' }
-      // Optimistically stamp invitation_sent_at first so the compliance
-      // badge updates immediately. The edge function is best-effort delivery;
-      // if it fails the chair can resend without losing the recorded intent.
-      const meetingRow = meetings.find((m) => m.id === input.meetingId)
-        ?? (detailMeetingId === input.meetingId ? detail.meeting : null)
-      const recipients = meetingRow?.participant_member_ids ?? []
-      const stamp = await markInvitationSent({
-        meetingId: input.meetingId,
-        recipientMemberIds: recipients,
-      })
-      if (!stamp) return { ok: false, sent: 0, error: 'Kunne ikke registrere innkalling' }
+      // Send FIRST, stamp `invitation_sent_at` only after the edge function
+      // confirms delivery — otherwise the green "innkalling i god tid" badge
+      // would lie about emails that never actually left Resend's queue.
       const invoke = await supabase.functions.invoke('send-meeting-invites', {
         body: { meeting_id: input.meetingId, mode: input.mode ?? 'initial' },
       })
       if (invoke.error) {
-        const msg = getSupabaseErrorMessage(invoke.error)
-        // Don't rollback the timestamp — the chair's intent is recorded.
-        // Surface the delivery failure so they can retry or use a backup
-        // channel (e.g. paste recipients into Outlook).
-        return { ok: false, sent: 0, error: msg }
+        return { ok: false, sent: 0, error: getSupabaseErrorMessage(invoke.error) }
       }
-      const data = (invoke.data ?? {}) as { sent?: number }
-      return { ok: true, sent: Number(data.sent ?? 0) }
+      const data = (invoke.data ?? {}) as { sent?: number; failed?: number; total?: number }
+      const sent = Number(data.sent ?? 0)
+      const failed = Number(data.failed ?? 0)
+      // Partial-failure semantics: if NO message was delivered, treat as full
+      // failure and don't stamp the timestamp. If at least one made it, stamp
+      // but surface the partial-failure count so the chair can investigate.
+      if (sent === 0) {
+        return {
+          ok: false,
+          sent: 0,
+          error: failed > 0
+            ? `Ingen e-poster ble levert (${failed} feilet — sjekk at deltakerne har e-postadresse).`
+            : 'Ingen e-poster ble sendt — sjekk at det er deltakere registrert.',
+        }
+      }
+      const meetingRow = meetings.find((m) => m.id === input.meetingId)
+        ?? (detailMeetingId === input.meetingId ? detail.meeting : null)
+      const recipients = meetingRow?.participant_member_ids ?? []
+      const stamped = await markInvitationSent({
+        meetingId: input.meetingId,
+        recipientMemberIds: recipients,
+      })
+      if (!stamped) {
+        return {
+          ok: false,
+          sent,
+          error: `E-post sendt til ${sent}, men kunne ikke registrere innkallings­tidspunkt i databasen.`,
+        }
+      }
+      if (failed > 0) {
+        return {
+          ok: true,
+          sent,
+          error: `${failed} av ${sent + failed} deltakere fikk ikke e-post (mangler e-postadresse).`,
+        }
+      }
+      return { ok: true, sent }
     },
     [supabase, meetings, detailMeetingId, detail, markInvitationSent],
   )

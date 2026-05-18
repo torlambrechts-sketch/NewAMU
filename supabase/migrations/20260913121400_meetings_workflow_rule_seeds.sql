@@ -37,15 +37,15 @@ insert into public.workflow_system_rules (
 (
   'meetings-scheduled-chair-prep-reminder',
   'AML', 'Kap. 7 — AMU og verneombud', 7, 'AML § 7-2 — Innkalling og forberedelse',
-  'Når et møte planlegges → oppgave til møteleder: bekreft innkalling og agenda er klart minst 7 dager før.',
+  'Når et møte planlegges → oppgave til møteleder: bekreft innkalling og agenda er klart i god tid.',
   'AML § 7-2 forutsetter at AMU-medlemmer har reell forberedelsestid. Forskrift om org. ledelse § 3-16 forutsetter referatkrav og dermed at agenda er distribuert i forveien. Denne regelen fanger opp møter som er planlagt men hvor innkalling ennå ikke er registrert som sendt.',
   'meetings', 'db_event', 'ON_MEETING_SCHEDULED', null, 'insert',
   '{"match":"always"}'::jsonb,
   '[
-    {"type":"create_task","title":"Bekreft innkalling sendt: {{event.title}}","description":"Send innkalling og saksliste (anbefalt 7 dager før). Bruk «Send innkalling»-knappen i møtedetaljene for å registrere distribusjonen.","assignee":"{{event.createdByUserId}}","ownerRole":"HMS","dueInDays":-7,"module":"meetings","sourceType":"meeting_invitation_check"}
+    {"type":"create_task","title":"Bekreft innkalling sendt: {{event.title}}","description":"Send innkalling og saksliste (anbefalt 7 dager før møtet). Bruk «Send innkalling»-knappen i møtedetaljene for å registrere distribusjonen — selve påminnelse-bommen i tide håndteres av invitation-badge + send-meeting-invites edge-funksjonen.","assignee":"{{event.createdByUserId}}","ownerRole":"HMS","dueInDays":1,"module":"meetings","sourceType":"meeting_invitation_check"}
   ]'::jsonb,
   ARRAY['AML § 7-2'], ARRAY['aml-amu'], 'do', null, true,
-  'dueInDays er negativ — oppgaven forfaller 7 dager *før* møtet (relativt scheduled_at).'
+  'Oppgave forfaller 1 dag etter regelen fyrer (dvs. dagen etter møtet ble planlagt). Selve 7-dagers-fristen håndheves separat av invitation-badge UI og send-meeting-invites cron reminder-sweep. Dagens workflow action-handler regner due_date relativt til now() — ikke event.scheduled_at — så negative verdier ville gi due_date i fortiden.'
 ),
 
 (
