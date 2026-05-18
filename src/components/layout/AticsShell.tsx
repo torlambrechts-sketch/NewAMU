@@ -35,6 +35,7 @@ import {
   Wand2,
   Workflow,
   CalendarDays,
+  LayoutDashboard,
 } from 'lucide-react'
 import { NotificationTray } from '../notifications/NotificationTray'
 import { SurveyPendingInvitesBanner } from '../../../modules/survey/SurveyPendingInvitesBanner'
@@ -229,6 +230,11 @@ type NavModule = {
 // route gate in ROUTE_PERMISSION_ANY so anyone who can reach the page also
 // sees the menu entry.
 const COMPLIANCE_NAV_PERMS: PermissionKey[] = [
+  'module.view.dashboard',
+  'checklist.manage',
+]
+
+const ISO_IMS_NAV_PERMS: PermissionKey[] = [
   'module.view.dashboard',
   'checklist.manage',
 ]
@@ -1909,7 +1915,53 @@ export function AticsShell() {
         }
       : null
 
-    const base: NavGroup[] = [hmsOverviewGroup, complianceGroup, surveyGroup, documentsGroup, meetingsGroup, alertsGroup, registersGroup, tasksGroup, learningGroup, adminGroup]
+    const isoImsGroup: NavGroup = {
+      id: 'iso-ims',
+      label: 'ISO IMS',
+      icon: LayoutDashboard,
+      modules: [
+        {
+          to: '/iso/analyse',
+          label: 'ISO IMS',
+          end: false,
+          icon: LayoutDashboard,
+          permAny: ISO_IMS_NAV_PERMS,
+          flatSubs: true,
+          subs: [
+            {
+              label: 'Analyse',
+              path: '/iso/analyse',
+              Icon: LayoutDashboard,
+              match: ({ pathname }) => pathname.startsWith('/iso/analyse'),
+              requirePermAny: ISO_IMS_NAV_PERMS,
+            },
+            {
+              label: 'Gap-analyse',
+              path: '/iso/gap',
+              Icon: LayoutDashboard,
+              match: ({ pathname }) => pathname.startsWith('/iso/gap'),
+              requirePermAny: ISO_IMS_NAV_PERMS,
+            },
+            {
+              label: 'SoA (ISO 27001)',
+              path: '/iso/soa',
+              Icon: LayoutDashboard,
+              match: ({ pathname }) => pathname.startsWith('/iso/soa'),
+              requirePermAny: ISO_IMS_NAV_PERMS,
+            },
+            {
+              label: 'Innstillinger',
+              path: '/iso/innstillinger',
+              Icon: Settings,
+              match: ({ pathname }) => pathname.startsWith('/iso/innstillinger'),
+              requirePermAny: ISO_IMS_NAV_PERMS,
+            },
+          ],
+        },
+      ],
+    }
+
+    const base: NavGroup[] = [hmsOverviewGroup, isoImsGroup, complianceGroup, surveyGroup, documentsGroup, meetingsGroup, alertsGroup, registersGroup, tasksGroup, learningGroup, adminGroup]
     return partnerGroup ? [partnerGroup, ...base] : base
   }, [
     complianceNav.items,

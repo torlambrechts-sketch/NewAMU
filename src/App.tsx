@@ -90,6 +90,8 @@ import { LearningDeltakerePage } from './pages/learning/LearningDeltakerePage'
 import { LearningKompetansePage } from './pages/learning/LearningKompetansePage'
 import { LearningAnalysePage } from './pages/learning/LearningAnalysePage'
 import { HmsOverviewPage } from './pages/overview/HmsOverviewPage'
+import { IsoImsAnalysePage } from './pages/iso/IsoImsAnalysePage'
+import { IsoSettingsPage } from './pages/iso/IsoSettingsPage'
 import { RegelverkCoveragePage } from './pages/overview/regelverk/RegelverkCoveragePage'
 import { BenchmarkPage } from './pages/dashboards/BenchmarkPage'
 import { ComplianceStudioPage } from './pages/overview/studio/ComplianceStudioPage'
@@ -349,6 +351,8 @@ const router = createBrowserRouter(
                       <Route path="tasks/management/admin/:tab" element={<LegacyAdminRedirect scope="tasks" />} />
                       <Route path="tasks/management/review" element={<TasksManagementReviewPage />} />
                       <Route path="overview/hms" element={<PackProvider><HmsOverviewPage /></PackProvider>} />
+                      <Route path="iso/analyse" element={<IsoImsAnalysePage />} />
+                      <Route path="iso/innstillinger" element={<IsoSettingsPage />} />
                       {/* Partner-konsoll — HMS-konsulent multi-org surface (v0). */}
                       <Route path="partner" element={<PartnerConsolePage />} />
                       <Route path="partner/branding" element={<PartnerBrandingPage />} />
