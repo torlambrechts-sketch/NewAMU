@@ -1,8 +1,7 @@
 // PackEditorPanel — edit the display fields of one compliance pack.
 //
-// Per Q2 A: customers can re-skin a pack but cannot create or remove
-// one. Slug + is_active are not editable here; they belong to platform
-// admin via SQL.
+// Customers can re-skin a pack but cannot create or remove one. Slug
+// is not editable. is_active is managed via PakkerTab activate/deactivate.
 
 import { useState } from 'react'
 import { Plus, Trash2 } from 'lucide-react'

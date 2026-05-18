@@ -110,18 +110,24 @@ export function useIsoImsDatasets(): IsoImsDatasetsResult & { loading: boolean }
         implementationRate: total > 0 ? Math.round((implemented / total) * 100) : 0,
       }
 
-      // Open tasks per ISO standard — source_type = 'iso_gap', group by pack.
+      // Open tasks sourced from ISO gap findings — grouped by standard via law_refs prefix.
+      // law_refs format: ['ISO 9001:2015 § 9.2.2a'] — extract standard from prefix.
       const { data: taskRows } = await supabase
         .from('task_items')
-        .select('source_type, metadata')
+        .select('source_type, law_refs')
         .eq('organization_id', orgId)
         .eq('source_type', 'iso_gap')
-        .in('status', ['todo', 'in_progress'])
+        .in('status', ['open', 'in_progress'])
         .is('deleted_at', null)
 
       const capaCounts: Record<string, number> = {}
       for (const row of taskRows ?? []) {
-        const standard: string = (row.metadata as Record<string, unknown>)?.standard as string ?? 'ukjent'
+        const refs: string[] = (row.law_refs as string[] | null) ?? []
+        const standard = refs[0]?.startsWith('ISO 9001') ? 'iso-9001'
+          : refs[0]?.startsWith('ISO 14001') ? 'iso-14001'
+          : refs[0]?.startsWith('ISO 45001') ? 'iso-45001'
+          : refs[0]?.startsWith('ISO 27001') ? 'iso-27001'
+          : 'andre'
         capaCounts[standard] = (capaCounts[standard] ?? 0) + 1
       }
       const openCapas: StandardSegment[] = Object.entries(capaCounts).map(([label, value]) => ({
@@ -130,17 +136,18 @@ export function useIsoImsDatasets(): IsoImsDatasetsResult & { loading: boolean }
       }))
 
       // Legal compliance status — from legal_compliance register records.
+      // register_records stores field values in the `values` jsonb column.
       const { data: legalRows } = await supabase
         .from('register_records')
-        .select('metadata')
+        .select('values')
         .eq('organization_id', orgId)
         .eq('register_type_id', 'legal_compliance')
+        .neq('status', 'archived')
         .is('deleted_at', null)
-        .is('archived_at', null)
 
       const legalCounts: Record<string, number> = {}
       for (const row of legalRows ?? []) {
-        const status: string = (row.metadata as Record<string, unknown>)?.compliance_status as string ?? 'ukjent'
+        const status: string = (row.values as Record<string, unknown>)?.compliance_status as string ?? 'ukjent'
         legalCounts[status] = (legalCounts[status] ?? 0) + 1
       }
       const legalCompliance: StandardSegment[] = Object.entries(legalCounts).map(([label, value]) => ({

@@ -10,13 +10,14 @@
 
 import { useParams, useNavigate } from 'react-router-dom'
 import { useState } from 'react'
-import { ArrowLeft, CheckCircle2 } from 'lucide-react'
+import { ArrowLeft, CheckCircle2, PlusCircle } from 'lucide-react'
 import { Button } from '../../components/ui/Button'
 import { Badge } from '../../components/ui/Badge'
 import { ModulePageShell } from '../../components/module/ModulePageShell'
 import { ModuleSectionCard } from '../../components/module/ModuleSectionCard'
 import { useIsoGapAnalysis } from '../../hooks/useIsoGapAnalysis'
-import type { GapRating } from '../../types/iso'
+import { useTaskItemsData } from '../../../modules/tasks/useTaskItemsData'
+import type { GapRating, IsoClause } from '../../types/iso'
 import { GAP_RATING_LABELS, ISO_STANDARD_SHORT } from '../../types/iso'
 
 const RATING_COLOURS: Record<GapRating, string> = {
@@ -40,8 +41,10 @@ export function IsoGapAnalysisSessionPage() {
     completeSession,
   } = useIsoGapAnalysis(sessionId ?? null)
 
+  const tasksApi = useTaskItemsData()
   const [completing, setCompleting] = useState(false)
   const [savingClauseId, setSavingClauseId] = useState<string | null>(null)
+  const [creatingTaskForClauseId, setCreatingTaskForClauseId] = useState<string | null>(null)
 
   const leafClauses = clauses.filter((c) => c.isLeaf)
   const answeredCount = leafClauses.filter((c) => responseByClauseId.has(c.id)).length
@@ -67,6 +70,19 @@ export function IsoGapAnalysisSessionPage() {
     setCompleting(true)
     await completeSession()
     setCompleting(false)
+  }
+
+  const handleCreateTask = async (clause: IsoClause) => {
+    if (!session) return
+    setCreatingTaskForClauseId(clause.id)
+    await tasksApi.createItem({
+      title: `Tiltak: ${clause.title}`,
+      description: `Gap-analyse avdekket mangel i klausul ${clause.clauseId} — ${clause.title}. Standard: ${ISO_STANDARD_SHORT[session.standard]}.`,
+      priority: 'medium',
+      templateSlug: 'iso_gap',
+      templateKind: 'tiltak',
+    })
+    setCreatingTaskForClauseId(null)
   }
 
   const notFound = !loading && !session
@@ -172,6 +188,22 @@ export function IsoGapAnalysisSessionPage() {
                         disabled={isCompleted}
                         onBlur={(e) => handleNotes(clause.id, e.target.value)}
                       />
+                    )}
+
+                    {/* Quick-create task for low-rated clauses */}
+                    {response?.rating !== undefined && response.rating <= 1 && (
+                      <div className="mt-2">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          icon={<PlusCircle className="h-3.5 w-3.5" />}
+                          onClick={() => handleCreateTask(clause)}
+                          disabled={creatingTaskForClauseId === clause.id}
+                          className="text-neutral-500 hover:text-[#3730a3]"
+                        >
+                          {creatingTaskForClauseId === clause.id ? 'Oppretter…' : 'Opprett tiltak'}
+                        </Button>
+                      </div>
                     )}
                   </div>
 
