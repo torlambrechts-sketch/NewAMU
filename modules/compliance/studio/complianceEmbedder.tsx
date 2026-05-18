@@ -1,54 +1,35 @@
 // Compliance embedder — Studio Builder Phase 2a Task 2a.1.
 //
-// First real embedder shipped. Wraps the existing TemplateEditorPanel
-// (the slide-panel form already used at /compliance/checklists/admin)
-// so the studio shell hosts it inline in Advanced mode without forking
-// the editor.
+// Three modes:
+//   1. ?template=<id> in URL → mount the full ComplianceBuilder canvas
+//      for that template (drag-drop items + property inspector)
+//   2. Otherwise → list templates with PublishBar per-row expander +
+//      "Ny mal" Button (compliance's own list view, kept consistent with
+//      the rest of the scopes' list shape)
+//   3. Clicking a row → navigates to ?template=<id> which triggers (1)
 //
-// Design pattern (the canonical adapter shape per spec §4 "Embedder
-// adapter contract"):
-//   1. Browse: list templates from useChecklistModule, let the user
-//      pick one or click "Ny" to create.
-//   2. Edit: mount TemplateEditorPanel with mode={'edit'|'create'} and
-//      the selected template row. The panel owns its own state, save
-//      semantics and close gesture.
-//   3. Forward: the panel calls onClose/onSaved to bubble lifecycle
-//      back into the shell. We use those callbacks to refresh the
-//      template list and notify the shell's onDirty (Phase 2a doesn't
-//      need autosave wiring yet; reserved for the conflict modal in 2a).
-//
-// The EmbedderProps.value/onChange/lockState are not threaded here yet
-// because the existing TemplateEditorPanel owns its persistence path.
-// Wiring those into the wrapper means lifting the panel's internal
-// state into the shell — which the spec explicitly says NOT to do
-// (§4: "The adapter is a thin shim — it does NOT lift the editor's
-// internal state into the shell"). We keep the panel self-contained
-// and rely on the shell's row-selection state.
+// The legacy slide-panel TemplateEditorPanel is dropped in favour of
+// the builder canvas. For "Ny mal" we navigate via the existing
+// /compliance/checklists/admin?new=… flow so the slide-panel still
+// covers create-from-scratch (slug + initial wiring needs handling we
+// don't want to duplicate).
 
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { Loader2, Plus } from 'lucide-react'
-import { TemplateEditorPanel } from '../admin/TemplateEditorPanel'
 import { Button } from '../../../src/components/ui/Button'
 import { useOrgSetupContext } from '../../../src/hooks/useOrgSetupContext'
 import { useActivePack } from '../../../src/context/packContextValue'
 import { useChecklistModule } from '../useChecklistModule'
-import type { ComplianceTemplateRow } from '../types'
 import type { EmbedderProps } from '../../../src/lib/studio/studioTypes'
 import { PublishBar } from '../../../src/components/studio/shell/PublishBar'
-
-type EditorState =
-  | { kind: 'idle' }
-  | { kind: 'create' }
-  | { kind: 'edit'; template: ComplianceTemplateRow }
+import { ComplianceBuilder } from './ComplianceBuilder'
 
 export default function ComplianceEmbedder({ mode }: EmbedderProps) {
   const { supabase } = useOrgSetupContext()
   const pack = useActivePack()
   const cl = useChecklistModule({ supabase })
   const [searchParams, setSearchParams] = useSearchParams()
-  const [editor, setEditor] = useState<EditorState>({ kind: 'idle' })
-  const [reloadKey, setReloadKey] = useState(0)
   const [expandedRowId, setExpandedRowId] = useState<string | null>(null)
 
   const filtered = useMemo(
@@ -56,43 +37,56 @@ export default function ComplianceEmbedder({ mode }: EmbedderProps) {
     [cl.templates, pack],
   )
 
-  // Deep-link auto-open: ?template=<id> opens the editor inline (used by
-  // SystemTemplateBrowser after a successful Klon). Strip the param once
-  // consumed so reloads don't keep re-opening.
-  const deepLinkTemplateId = searchParams.get('template')
-  useEffect(() => {
-    if (!deepLinkTemplateId) return
-    if (editor.kind === 'edit' && editor.template.id === deepLinkTemplateId) return
-    const target = cl.templates.find((t) => t.id === deepLinkTemplateId)
-    if (target) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect -- one-shot sync from URL param to editor state
-      setEditor({ kind: 'edit', template: target })
-      const next = new URLSearchParams(searchParams)
-      next.delete('template')
-      setSearchParams(next, { replace: true })
-    }
-  }, [deepLinkTemplateId, cl.templates, editor, searchParams, setSearchParams])
+  const templateId = searchParams.get('template')
 
-  function handleSaved() {
-    setEditor({ kind: 'idle' })
-    setReloadKey((k) => k + 1)
-    // useChecklistModule reload runs via internal effect on reloadKey-keyed pack change.
-    void cl.reloadAggregates?.()
+  // Mode 1: ?template=<id> → full builder canvas
+  if (templateId) {
+    return (
+      <div data-studio-mode={mode}>
+        <div className="mb-3">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => {
+              const next = new URLSearchParams(searchParams)
+              next.delete('template')
+              setSearchParams(next, { replace: true })
+            }}
+          >
+            ← Tilbake til mal-liste
+          </Button>
+        </div>
+        <ComplianceBuilder templateId={templateId} />
+      </div>
+    )
+  }
+
+  // Mode 2: list templates with per-row PublishBar expander
+  function openTemplate(id: string) {
+    const next = new URLSearchParams(searchParams)
+    next.set('template', id)
+    setSearchParams(next, { replace: true })
   }
 
   return (
-    <div data-studio-mode={mode} className="space-y-4" key={reloadKey}>
+    <div data-studio-mode={mode} className="space-y-4">
       <div className="flex items-center justify-between gap-3">
         <div>
           <h4 className="text-sm font-semibold text-neutral-900 font-serif">
             Sjekkliste-maler{pack ? ` · ${pack.shortName}` : ''}
           </h4>
           <p className="text-xs text-neutral-500">
-            Klikk en mal for å redigere, eller opprett en ny.
+            Klikk en mal for å åpne i builder, eller opprett en ny via «Klon fra system-mal» over.
           </p>
         </div>
-        <Button variant="primary" size="sm" onClick={() => setEditor({ kind: 'create' })}>
-          <Plus className="h-3.5 w-3.5" /> Ny mal
+        <Button
+          variant="secondary"
+          size="sm"
+          onClick={() => {
+            window.location.href = '/compliance/checklists/admin?new=1'
+          }}
+        >
+          <Plus className="h-3.5 w-3.5" /> Ny tom mal
         </Button>
       </div>
 
@@ -102,7 +96,7 @@ export default function ComplianceEmbedder({ mode }: EmbedderProps) {
         </div>
       ) : filtered.length === 0 ? (
         <div className="rounded-md border border-dashed border-neutral-300 bg-white p-6 text-center text-sm text-neutral-500">
-          Ingen maler for valgt pakke. Klikk «Ny mal» for å opprette en.
+          Ingen maler for valgt pakke. Klikk «Klon fra system-mal» over for å komme i gang.
         </div>
       ) : (
         <ul className="divide-y divide-neutral-200 rounded-xl border border-neutral-200 bg-white">
@@ -115,7 +109,7 @@ export default function ComplianceEmbedder({ mode }: EmbedderProps) {
                     variant="ghost"
                     size="sm"
                     className="flex-1 justify-start py-3 font-normal"
-                    onClick={() => setEditor({ kind: 'edit', template: t })}
+                    onClick={() => openTemplate(t.id)}
                   >
                     <div className="flex w-full items-start justify-between gap-3 text-left">
                       <div className="min-w-0">
@@ -145,7 +139,6 @@ export default function ComplianceEmbedder({ mode }: EmbedderProps) {
                       scopeId="compliance"
                       kindId="baseline"
                       currentStatus={t.review_status}
-                      onStatusChange={() => setReloadKey((k) => k + 1)}
                     />
                   </div>
                 ) : null}
@@ -154,15 +147,6 @@ export default function ComplianceEmbedder({ mode }: EmbedderProps) {
           })}
         </ul>
       )}
-
-      {editor.kind !== 'idle' ? (
-        <TemplateEditorPanel
-          mode={editor.kind === 'create' ? 'create' : 'edit'}
-          template={editor.kind === 'edit' ? editor.template : null}
-          onClose={() => setEditor({ kind: 'idle' })}
-          onSaved={handleSaved}
-        />
-      ) : null}
     </div>
   )
 }

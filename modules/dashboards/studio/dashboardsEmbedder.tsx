@@ -15,6 +15,7 @@ import { Loader2, LayoutDashboard, ExternalLink } from 'lucide-react'
 import { Button } from '../../../src/components/ui/Button'
 import { useOrgSetupContext } from '../../../src/hooks/useOrgSetupContext'
 import { CloneDeepLinkRedirect } from '../../../src/components/studio/shell/CloneDeepLinkRedirect'
+import { ScopeListShell } from '../../../src/components/studio/shell/ScopeListShell'
 import type { EmbedderProps } from '../../../src/lib/studio/studioTypes'
 
 type LayoutRow = {
@@ -76,59 +77,57 @@ export default function DashboardsEmbedder({ mode }: EmbedderProps) {
   }, [supabase, organization])
 
   return (
-    <div data-studio-mode={mode} className="space-y-4">
+    <div data-studio-mode={mode}>
       <CloneDeepLinkRedirect scopeId="dashboards" />
-      <div>
-        <h4 className="text-sm font-semibold text-neutral-900 font-serif">Dashboards</h4>
-        <p className="text-xs text-neutral-500">
-          Lagrede analyse-layouts. Klikk «Åpne» for å redigere på modul-siden hvor scope-data lever.
-        </p>
-      </div>
-
-      {loading ? (
-        <div className="flex items-center gap-2 rounded-md border border-neutral-200 bg-white p-4 text-sm text-neutral-600">
-          <Loader2 className="h-3.5 w-3.5 animate-spin" /> Laster layouts…
-        </div>
-      ) : layouts.length === 0 ? (
-        <div className="rounded-md border border-dashed border-neutral-300 bg-white p-6 text-center text-sm text-neutral-500">
-          Ingen lagrede dashboards enda. Opprett ett via Enkel-modus eller på Analyse-sidene.
-        </div>
-      ) : (
-        <ul className="divide-y divide-neutral-200 rounded-xl border border-neutral-200 bg-white">
-          {layouts.map((l) => {
-            const href = SCOPE_TO_ANALYSE_HREF[l.scope_id] ?? '/overview/hms'
-            return (
-              <li key={l.id} className="flex items-center justify-between gap-3 px-3 py-2.5">
-                <div className="flex min-w-0 items-center gap-3">
-                  <LayoutDashboard className="h-3.5 w-3.5 shrink-0 text-neutral-400" aria-hidden />
-                  <div className="min-w-0">
-                    <p className="truncate text-sm font-medium text-neutral-900">
-                      {l.name}
-                      {l.is_default ? (
-                        <span className="ml-2 rounded-full bg-emerald-50 px-1.5 py-0 text-[9.5px] uppercase text-emerald-800">
-                          Standard
-                        </span>
-                      ) : null}
-                    </p>
-                    <p className="truncate text-[11px] text-neutral-500">
-                      {KIND_LABEL[l.kind]} · {l.scope_id}
-                    </p>
+      <ScopeListShell
+        title="Dashboards"
+        subtitle="Lagrede analyse-layouts — åpne for å redigere på modul-siden"
+      >
+        {loading ? (
+          <div className="flex items-center gap-2 text-sm text-neutral-600">
+            <Loader2 className="h-3.5 w-3.5 animate-spin" /> Laster layouts…
+          </div>
+        ) : layouts.length === 0 ? (
+          <div className="rounded-md border border-dashed border-neutral-300 bg-neutral-50 p-6 text-center text-sm text-neutral-500">
+            Ingen lagrede dashboards enda. Klon en system-layout fra panelet over.
+          </div>
+        ) : (
+          <ul className="divide-y divide-neutral-100">
+            {layouts.map((l) => {
+              const href = SCOPE_TO_ANALYSE_HREF[l.scope_id] ?? '/overview/hms'
+              return (
+                <li key={l.id} className="flex items-center justify-between gap-3 py-2.5">
+                  <div className="flex min-w-0 items-center gap-3">
+                    <LayoutDashboard className="h-3.5 w-3.5 shrink-0 text-neutral-400" aria-hidden />
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-medium text-neutral-900">
+                        {l.name}
+                        {l.is_default ? (
+                          <span className="ml-2 rounded-full bg-emerald-50 px-1.5 py-0 text-[9.5px] uppercase text-emerald-800">
+                            Standard
+                          </span>
+                        ) : null}
+                      </p>
+                      <p className="truncate text-[11px] text-neutral-500">
+                        {KIND_LABEL[l.kind]} · {l.scope_id}
+                      </p>
+                    </div>
                   </div>
-                </div>
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  onClick={() => {
-                    window.location.href = `${href}?layout=${encodeURIComponent(l.slug ?? l.id)}`
-                  }}
-                >
-                  Åpne <ExternalLink className="ml-1 h-3 w-3" aria-hidden />
-                </Button>
-              </li>
-            )
-          })}
-        </ul>
-      )}
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    onClick={() => {
+                      window.location.href = `${href}?layout=${encodeURIComponent(l.slug ?? l.id)}`
+                    }}
+                  >
+                    Åpne <ExternalLink className="ml-1 h-3 w-3" aria-hidden />
+                  </Button>
+                </li>
+              )
+            })}
+          </ul>
+        )}
+      </ScopeListShell>
     </div>
   )
 }
