@@ -251,7 +251,7 @@ export function useIsoGapAnalysis(sessionId: string | null): UseIsoGapAnalysisRe
     setError(null)
     try {
       const leafClauses = clauses.filter((c) => c.isLeaf)
-      const answered = responses.filter((r) => r.rating === 3).length
+      const answered = responses.filter((r) => r.rating >= 2).length
       const total = leafClauses.length || 1
       const scorePct = Math.round((answered / total) * 100)
 

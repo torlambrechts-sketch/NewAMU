@@ -142,6 +142,7 @@ export function IsoSoAPage() {
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Søk kontroll-ID eller tittel…"
+              aria-label="Søk i kontroller"
               className="w-full rounded-md border border-neutral-200 bg-white py-2 pl-9 pr-3 text-sm text-neutral-800 placeholder-neutral-400 focus:outline-none focus:ring-1 focus:ring-[#7c3aed]"
             />
           </div>

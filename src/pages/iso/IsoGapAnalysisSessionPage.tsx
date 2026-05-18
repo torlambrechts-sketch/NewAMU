@@ -48,6 +48,8 @@ export function IsoGapAnalysisSessionPage() {
 
   const leafClauses = clauses.filter((c) => c.isLeaf)
   const answeredCount = leafClauses.filter((c) => responseByClauseId.has(c.id)).length
+  const compliantCount = [...responseByClauseId.values()].filter((r) => r.rating >= 2).length
+  const estimatedScore = leafClauses.length > 0 ? Math.round((compliantCount / leafClauses.length) * 100) : null
   const allAnswered = answeredCount === leafClauses.length && leafClauses.length > 0
   const isCompleted = session?.status === 'completed'
 
@@ -131,9 +133,16 @@ export function IsoGapAnalysisSessionPage() {
                 Fullført — {session.scorePct}%
               </Badge>
             ) : (
-              <Badge variant="info">
-                {answeredCount} / {leafClauses.length} klausuler vurdert
-              </Badge>
+              <>
+                <Badge variant="info">
+                  {answeredCount} / {leafClauses.length} klausuler vurdert
+                </Badge>
+                {estimatedScore !== null && answeredCount > 0 && (
+                  <Badge variant="neutral">
+                    Estimert score: {estimatedScore}%
+                  </Badge>
+                )}
+              </>
             )}
           </div>
           {!isCompleted && (
