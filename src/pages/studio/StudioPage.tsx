@@ -37,8 +37,9 @@ export function StudioPage() {
   const scopes = useMemo(() => listStudioScopes(), [])
   const activeScopeId = searchParams.get('scope')
   const activeScope = activeScopeId ? getStudioScope(activeScopeId) : null
+  const urlMode = searchParams.get('mode') as 'simple' | 'advanced' | null
   const { mode, canUseAdvanced, setStudioMode } = useStudioMode()
-  const [forcedMode, setForcedMode] = useState<'simple' | 'advanced' | null>(null)
+  const [forcedMode, setForcedMode] = useState<'simple' | 'advanced' | null>(urlMode)
   const effectiveMode = forcedMode ?? mode
 
   // Emit + funnel through Vercel Analytics.

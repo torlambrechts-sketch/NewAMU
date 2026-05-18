@@ -25,7 +25,8 @@
 // internal state into the shell"). We keep the panel self-contained
 // and rely on the shell's row-selection state.
 
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { Loader2, Plus } from 'lucide-react'
 import { TemplateEditorPanel } from '../admin/TemplateEditorPanel'
 import { Button } from '../../../src/components/ui/Button'
@@ -45,6 +46,7 @@ export default function ComplianceEmbedder({ mode }: EmbedderProps) {
   const { supabase } = useOrgSetupContext()
   const pack = useActivePack()
   const cl = useChecklistModule({ supabase })
+  const [searchParams, setSearchParams] = useSearchParams()
   const [editor, setEditor] = useState<EditorState>({ kind: 'idle' })
   const [reloadKey, setReloadKey] = useState(0)
   const [expandedRowId, setExpandedRowId] = useState<string | null>(null)
@@ -53,6 +55,23 @@ export default function ComplianceEmbedder({ mode }: EmbedderProps) {
     () => cl.templates.filter((t) => (pack ? t.pack === pack.slug : true)),
     [cl.templates, pack],
   )
+
+  // Deep-link auto-open: ?template=<id> opens the editor inline (used by
+  // SystemTemplateBrowser after a successful Klon). Strip the param once
+  // consumed so reloads don't keep re-opening.
+  const deepLinkTemplateId = searchParams.get('template')
+  useEffect(() => {
+    if (!deepLinkTemplateId) return
+    if (editor.kind === 'edit' && editor.template.id === deepLinkTemplateId) return
+    const target = cl.templates.find((t) => t.id === deepLinkTemplateId)
+    if (target) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- one-shot sync from URL param to editor state
+      setEditor({ kind: 'edit', template: target })
+      const next = new URLSearchParams(searchParams)
+      next.delete('template')
+      setSearchParams(next, { replace: true })
+    }
+  }, [deepLinkTemplateId, cl.templates, editor, searchParams, setSearchParams])
 
   function handleSaved() {
     setEditor({ kind: 'idle' })
