@@ -8,10 +8,12 @@ import { listStudioKinds } from '../../../lib/studio/studioRegistry'
 import type { StudioTelemetryEvent } from '../../../lib/studio/studioTypes'
 import { SystemTemplateBrowser } from './SystemTemplateBrowser'
 
-// Scopes that have a system→org template clone path wired in
-// clone_studio_template. SimpleModeCards mounts the SystemTemplateBrowser
-// for these scopes; others fall back to preset-cards-only.
-const CLONABLE_SCOPES = new Set(['compliance', 'documents', 'meetings', 'survey'])
+// Every scope that has a system→org template clone path wired in
+// clone_studio_template v2.
+const CLONABLE_SCOPES = new Set([
+  'compliance', 'documents', 'meetings', 'survey',
+  'learning', 'registers', 'dashboards', 'workflows',
+])
 
 export type SimpleModeCardsProps = {
   scopeId: string

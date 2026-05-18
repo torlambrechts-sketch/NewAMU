@@ -7,14 +7,14 @@
 
 import { Button } from '../../../src/components/ui/Button'
 import { ExternalLink } from 'lucide-react'
+import { CloneDeepLinkRedirect } from '../../../src/components/studio/shell/CloneDeepLinkRedirect'
 import type { EmbedderProps } from '../../../src/lib/studio/studioTypes'
 
 export default function WorkflowsEmbedder({ mode }: EmbedderProps) {
   return (
-    <div
-      data-studio-mode={mode}
-      className="rounded-xl border border-dashed border-neutral-300 bg-white p-8 text-center"
-    >
+    <div data-studio-mode={mode}>
+      <CloneDeepLinkRedirect scopeId="workflows" />
+      <div className="rounded-xl border border-dashed border-neutral-300 bg-white p-8 text-center">
       <div className="mx-auto max-w-md space-y-4">
         <div className="mx-auto inline-flex h-10 w-10 items-center justify-center rounded-full bg-neutral-100 text-neutral-500">
           <ExternalLink className="h-5 w-5" aria-hidden />
@@ -38,6 +38,7 @@ export default function WorkflowsEmbedder({ mode }: EmbedderProps) {
           Åpne arbeidsflyt-bygger
           <ExternalLink className="ml-1 h-3 w-3" aria-hidden />
         </Button>
+      </div>
       </div>
     </div>
   )

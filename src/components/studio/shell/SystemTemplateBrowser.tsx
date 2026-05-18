@@ -47,16 +47,33 @@ const SCOPE_TO_QUERY: Record<
     idCol: 'id', nameCol: 'name', descCol: 'description', metaCol: 'pack',
     filter: { is_active: true },
   },
+  learning: {
+    table: 'learning_system_courses',
+    idCol: 'id', nameCol: 'slug', descCol: 'slug', metaCol: 'default_locale',
+    filter: {},
+  },
+  registers: {
+    table: 'register_types',
+    idCol: 'id', nameCol: 'name', descCol: 'description', metaCol: 'default_review_cadence_months',
+    filter: { is_system: true, is_active: true },
+  },
+  dashboards: {
+    table: 'dashboard_layouts',
+    idCol: 'id', nameCol: 'name', descCol: 'description', metaCol: 'scope_id',
+    filter: { is_system: true },
+  },
+  workflows: {
+    table: 'workflow_template_catalog',
+    idCol: 'id', nameCol: 'name', descCol: 'description', metaCol: 'source_module',
+    filter: { is_system: true },
+  },
 }
 
 // After clone, redirect back into the studio Advanced view for the
 // scope, with ?template=<id> so the scope's embedder can deep-link the
 // editor open. Keeps the user inside the studio shell context.
-const SCOPE_REDIRECT: Record<string, (newId: string) => string> = {
-  compliance: (id) => `/studio?scope=compliance&mode=advanced&template=${encodeURIComponent(id)}`,
-  documents: (id) => `/studio?scope=documents&mode=advanced&template=${encodeURIComponent(id)}`,
-  meetings: (id) => `/studio?scope=meetings&mode=advanced&template=${encodeURIComponent(id)}`,
-  survey: (id) => `/studio?scope=survey&mode=advanced&template=${encodeURIComponent(id)}`,
+function scopeRedirect(scopeId: string, newId: string): string {
+  return `/studio?scope=${encodeURIComponent(scopeId)}&mode=advanced&template=${encodeURIComponent(newId)}`
 }
 
 export type SystemTemplateBrowserProps = {
@@ -135,8 +152,7 @@ export function SystemTemplateBrowser({ scopeId }: SystemTemplateBrowserProps) {
       setError('Klone-RPCen returnerte ingen id.')
       return
     }
-    const redirect = SCOPE_REDIRECT[scopeId]?.(newId) ?? `/studio?scope=${scopeId}`
-    navigate(redirect)
+    navigate(scopeRedirect(scopeId, newId))
   }
 
   const filtered = useMemo(() => {

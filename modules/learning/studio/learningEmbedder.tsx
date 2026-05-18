@@ -6,11 +6,13 @@
 // of a course body happens in the dedicated builder UI.
 
 import { LearningCoursesList } from '../../../src/pages/learning/LearningCoursesList'
+import { CloneDeepLinkRedirect } from '../../../src/components/studio/shell/CloneDeepLinkRedirect'
 import type { EmbedderProps } from '../../../src/lib/studio/studioTypes'
 
 export default function LearningEmbedder({ mode }: EmbedderProps) {
   return (
     <div data-studio-mode={mode}>
+      <CloneDeepLinkRedirect scopeId="learning" />
       <LearningCoursesList />
     </div>
   )

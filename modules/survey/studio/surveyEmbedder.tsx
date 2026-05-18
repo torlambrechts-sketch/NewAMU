@@ -7,12 +7,14 @@
 
 import { useOrgSetupContext } from '../../../src/hooks/useOrgSetupContext'
 import { SurveyMalerOpsCard } from '../admin/SurveyMalerOpsCard'
+import { CloneDeepLinkRedirect } from '../../../src/components/studio/shell/CloneDeepLinkRedirect'
 import type { EmbedderProps } from '../../../src/lib/studio/studioTypes'
 
 export default function SurveyEmbedder({ mode }: EmbedderProps) {
   const { supabase } = useOrgSetupContext()
   return (
     <div data-studio-mode={mode}>
+      <CloneDeepLinkRedirect scopeId="survey" />
       <SurveyMalerOpsCard supabase={supabase} />
     </div>
   )

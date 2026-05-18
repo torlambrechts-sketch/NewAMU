@@ -11,11 +11,13 @@
 // route /documents/:id, kept outside the studio shell on purpose.
 
 import { DocumentTemplatesSettings } from '../../../src/pages/documents/DocumentTemplatesSettings'
+import { CloneDeepLinkRedirect } from '../../../src/components/studio/shell/CloneDeepLinkRedirect'
 import type { EmbedderProps } from '../../../src/lib/studio/studioTypes'
 
 export default function DocumentsEmbedder({ mode }: EmbedderProps) {
   return (
     <div data-studio-mode={mode}>
+      <CloneDeepLinkRedirect scopeId="documents" />
       <DocumentTemplatesSettings />
     </div>
   )

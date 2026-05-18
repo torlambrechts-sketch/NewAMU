@@ -11,6 +11,7 @@ import { Button } from '../../../src/components/ui/Button'
 import { useMeetings } from '../useMeetings'
 import type { MeetingOrgTemplateRow } from '../types'
 import type { EmbedderProps } from '../../../src/lib/studio/studioTypes'
+import { CloneDeepLinkRedirect } from '../../../src/components/studio/shell/CloneDeepLinkRedirect'
 
 type EditorState =
   | { kind: 'idle' }
@@ -24,6 +25,7 @@ export default function MeetingsEmbedder({ mode }: EmbedderProps) {
 
   return (
     <div data-studio-mode={mode} className="space-y-4">
+      <CloneDeepLinkRedirect scopeId="meetings" />
       <div className="flex items-center justify-between gap-3">
         <div>
           <h4 className="text-sm font-semibold text-neutral-900 font-serif">Møte-maler</h4>

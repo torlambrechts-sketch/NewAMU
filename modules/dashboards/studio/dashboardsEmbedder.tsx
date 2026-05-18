@@ -14,6 +14,7 @@ import { useEffect, useState } from 'react'
 import { Loader2, LayoutDashboard, ExternalLink } from 'lucide-react'
 import { Button } from '../../../src/components/ui/Button'
 import { useOrgSetupContext } from '../../../src/hooks/useOrgSetupContext'
+import { CloneDeepLinkRedirect } from '../../../src/components/studio/shell/CloneDeepLinkRedirect'
 import type { EmbedderProps } from '../../../src/lib/studio/studioTypes'
 
 type LayoutRow = {
@@ -76,6 +77,7 @@ export default function DashboardsEmbedder({ mode }: EmbedderProps) {
 
   return (
     <div data-studio-mode={mode} className="space-y-4">
+      <CloneDeepLinkRedirect scopeId="dashboards" />
       <div>
         <h4 className="text-sm font-semibold text-neutral-900 font-serif">Dashboards</h4>
         <p className="text-xs text-neutral-500">
