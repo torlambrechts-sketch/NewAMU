@@ -182,7 +182,7 @@ export function PakkerTab() {
                       </div>
                     </div>
                     <Button
-                      variant="outline"
+                      variant="secondary"
                       size="sm"
                       icon={<PlusCircle className="h-3.5 w-3.5" />}
                       onClick={() => handleActivate(p.slug as CompliancePackSlug)}
@@ -215,11 +215,10 @@ export function PakkerTab() {
                 Avbryt
               </Button>
               <Button
-                variant="outline"
+                variant="danger"
                 size="sm"
                 onClick={() => handleDeactivate(confirming.slug as CompliancePackSlug)}
                 disabled={activating === confirming.slug}
-                className="border-red-300 text-red-600 hover:bg-red-50"
               >
                 {activating === confirming.slug ? 'Deaktiverer…' : 'Deaktiver pakke'}
               </Button>
