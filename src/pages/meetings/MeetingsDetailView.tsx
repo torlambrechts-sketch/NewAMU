@@ -41,6 +41,8 @@ import { WarningBox, InfoBox } from '../../components/ui/AlertBox'
 import { MandatoryGapsNoticePanel } from '../../../modules/meetings/components/MandatoryGapsNoticePanel'
 import { TimeBudgetBar } from '../../../modules/meetings/components/TimeBudgetBar'
 import { ParityPanel } from '../../../modules/meetings/components/ParityPanel'
+import { RsvpRosterRow } from '../../../modules/meetings/components/RsvpRosterEditor'
+import { AutoSourceRail } from '../../../modules/meetings/components/AutoSourceRail'
 import { WPSTD_FORM_FIELD_LABEL } from '../../components/layout/WorkplaceStandardFormPanel'
 import { useOrgSetupContext } from '../../hooks/useOrgSetupContext'
 import { useMeetings, useMeetingDataBindings } from '../../../modules/meetings'
@@ -192,6 +194,14 @@ export function MeetingsDetailView() {
     bindings.loading,
     meetings,
   ])
+
+  // Stable parity-loader ref for ParityPanel — declared before any early
+  // return so React's hook-order invariant holds.
+  const getParityCheckRef = meetings.getParityCheck
+  const parityLoader = useCallback(
+    (id: string) => getParityCheckRef(id),
+    [getParityCheckRef],
+  )
 
   if (!meetingId) {
     return (
@@ -380,6 +390,20 @@ export function MeetingsDetailView() {
             endsAt={meeting.ends_at}
             fallbackMinutes={undefined}
           />
+          {!isLocked ? (
+            <AutoSourceRail
+              bindings={Object.fromEntries(bindings.extraSignalsBySource.entries())}
+              loading={bindings.loading}
+              onAddItem={async (sourceKey, summaryMarkdown) => {
+                const created = await meetings.addAgendaItem({
+                  meetingId: meeting.id,
+                  title: `Auto: ${sourceKey}`,
+                  description: summaryMarkdown.slice(0, 500),
+                })
+                if (created) await meetings.loadDetail(meeting.id)
+              }}
+            />
+          ) : null}
           <ModuleSectionCard className="p-5 md:p-6">
             <AgendaTab
               items={meetings.detail.agendaItems}
@@ -461,11 +485,17 @@ export function MeetingsDetailView() {
         <div className="space-y-4">
           <ParityPanel
             meetingId={meeting.id}
-            loader={meetings.getParityCheck}
+            loader={parityLoader}
             refreshKey={meetings.detail.attendees.length}
           />
           <ModuleSectionCard className="p-5 md:p-6">
-            <AttendeesTab attendees={meetings.detail.attendees} memberById={memberById} />
+            <AttendeesTab
+              attendees={meetings.detail.attendees}
+              memberById={memberById}
+              canManage={meetings.canManage}
+              onSetRsvp={meetings.setRsvp}
+              onActivateSubstitute={meetings.activateSubstitute}
+            />
           </ModuleSectionCard>
         </div>
       ) : null}
@@ -1135,9 +1165,15 @@ function AgendaItemEditor({
 function AttendeesTab({
   attendees,
   memberById,
+  canManage,
+  onSetRsvp,
+  onActivateSubstitute,
 }: {
   attendees: ReturnType<typeof useMeetings>['detail']['attendees']
   memberById: Map<string, string>
+  canManage: boolean
+  onSetRsvp: ReturnType<typeof useMeetings>['setRsvp']
+  onActivateSubstitute: ReturnType<typeof useMeetings>['activateSubstitute']
 }) {
   if (attendees.length === 0) {
     return (
@@ -1146,41 +1182,46 @@ function AttendeesTab({
       </p>
     )
   }
+  // Candidate substitutes per side — anyone marked as substitute_for_*
+  // can be activated for their principal.
+  const candidates = attendees
+    .filter((a) => a.substitute_for_member_id !== null)
+    .map((a) => ({
+      id: a.member_id,
+      name: memberById.get(a.member_id) ?? `${a.member_id.slice(0, 8)}…`,
+      side: a.side,
+    }))
+
+  // Principals = attendees who are NOT marked as someone else's substitute.
+  const principals = attendees.filter((a) => a.substitute_for_member_id === null)
   return (
-    <table className="w-full border-collapse text-left text-sm">
-      <thead className="bg-neutral-50/60">
-        <tr>
-          <th className="px-5 py-3 text-[10px] font-bold uppercase tracking-wider text-neutral-700">
-            Deltaker
-          </th>
-          <th className="px-5 py-3 text-[10px] font-bold uppercase tracking-wider text-neutral-700">
-            Rolle
-          </th>
-          <th className="px-5 py-3 text-[10px] font-bold uppercase tracking-wider text-neutral-700">
-            Til stede
-          </th>
-          <th className="px-5 py-3 text-[10px] font-bold uppercase tracking-wider text-neutral-700">
-            Notat
-          </th>
-        </tr>
-      </thead>
-      <tbody>
-        {attendees.map((a) => (
-          <tr key={`${a.meeting_id}-${a.member_id}`} className="border-t border-neutral-100">
-            <td className="px-5 py-3 text-sm text-neutral-900">
-              {memberById.get(a.member_id) ?? `${a.member_id.slice(0, 8)}…`}
-            </td>
-            <td className="px-5 py-3 text-sm text-neutral-700">
-              {MEETING_ATTENDEE_ROLE_LABEL[a.role as MeetingAttendeeRole] ?? a.role}
-            </td>
-            <td className="px-5 py-3 text-sm text-neutral-700">
-              {a.present === null ? '—' : a.present ? 'Ja' : 'Nei'}
-            </td>
-            <td className="px-5 py-3 text-sm text-neutral-600">{a.notes ?? '—'}</td>
-          </tr>
-        ))}
-      </tbody>
-    </table>
+    <ul className="divide-y divide-neutral-100">
+      {principals.map((a) => (
+        <RsvpRosterRow
+          key={`${a.meeting_id}-${a.member_id}`}
+          attendee={a}
+          memberName={memberById.get(a.member_id) ?? `${a.member_id.slice(0, 8)}…`}
+          memberRole={MEETING_ATTENDEE_ROLE_LABEL[a.role as MeetingAttendeeRole] ?? a.role}
+          candidateSubstitutes={candidates}
+          canManage={canManage}
+          onSetRsvp={(status, reason) =>
+            onSetRsvp({
+              meetingId: a.meeting_id,
+              memberId: a.member_id,
+              status,
+              reason: reason ?? null,
+            })
+          }
+          onActivateSubstitute={(substituteMemberId) =>
+            onActivateSubstitute({
+              meetingId: a.meeting_id,
+              substituteMemberId,
+              principalMemberId: a.member_id,
+            })
+          }
+        />
+      ))}
+    </ul>
   )
 }
 
