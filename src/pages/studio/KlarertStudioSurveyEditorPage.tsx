@@ -3,13 +3,17 @@
 // Accessed via /studio/survey/:templateId. templateId === 'new' creates a fresh
 // template on first save. Auto-saves to survey_template_catalog.studio_blocks
 // (+ derived body.questions) with a 1.5 s debounce.
+//
+// ?from=<id>  when templateId==='new' → fork/copy an existing template.
 
 import { useCallback, useRef, useState } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import {
   ArrowLeft,
   Check,
   ChevronRight,
+  Copy,
+  Info,
   Loader2,
   Pencil,
   Play,
@@ -48,9 +52,11 @@ function SaveIndicator({ status, lastSavedAt }: { status: string; lastSavedAt: D
 
 export function KlarertStudioSurveyEditorPage() {
   const { templateId = 'new' } = useParams<{ templateId: string }>()
+  const [searchParams] = useSearchParams()
+  const fromTemplateId = searchParams.get('from') ?? undefined
   const navigate = useNavigate()
 
-  const studio = useSurveyStudio(templateId)
+  const studio = useSurveyStudio(templateId, fromTemplateId)
   const [advanced, setAdvanced] = useState(false)
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [editingName, setEditingName] = useState(false)
@@ -64,7 +70,6 @@ export function KlarertStudioSurveyEditorPage() {
       setSelectedId(id)
       return id
     },
-    // studio.addBlock is stable (useCallback in the hook), safe dep
     [studio.addBlock],
   )
 
@@ -83,8 +88,7 @@ export function KlarertStudioSurveyEditorPage() {
   }
 
   const handlePublish = async () => {
-    // Intentionally a navigation only — full publish flow (is_active, campaign creation)
-    // is handled in the existing SurveyOrgTemplateEditorPage; this just saves and exits.
+    await studio.publishTemplate()
     navigate('/studio/survey')
   }
 
@@ -111,6 +115,27 @@ export function KlarertStudioSurveyEditorPage() {
 
   return (
     <div className="flex h-full flex-col overflow-hidden bg-[#fafaf9]">
+      {/* ── Read-only banner (system templates) ───────────────────── */}
+      {studio.isSystemTemplate && (
+        <div className="flex items-center justify-between border-b border-amber-200 bg-amber-50 px-4 py-2">
+          <div className="flex items-center gap-2 text-sm text-amber-800">
+            <Info className="h-4 w-4 shrink-0" />
+            <span>
+              Dette er en systemmal og kan ikke redigeres. Kopier den for å lage din egen versjon.
+            </span>
+          </div>
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={() => navigate(`/studio/survey/new?from=${templateId}`)}
+            className="ml-4 shrink-0 gap-1.5"
+          >
+            <Copy className="h-3.5 w-3.5" />
+            Kopier og rediger
+          </Button>
+        </div>
+      )}
+
       {/* ── Header ─────────────────────────────────────────────────── */}
       <header className="flex items-center justify-between border-b border-neutral-200 bg-white px-4 py-2.5 shadow-sm">
         {/* Breadcrumb */}
@@ -132,24 +157,38 @@ export function KlarertStudioSurveyEditorPage() {
             Spørreundersøkelser
           </button>
           <ChevronRight className="h-3.5 w-3.5 text-neutral-300" />
-          {editingName ? (
+          {editingName && !studio.isSystemTemplate ? (
             <StandardInput
               ref={nameInputRef}
               value={studio.templateName}
               onChange={(e) => studio.updateName(e.target.value)}
               onBlur={() => setEditingName(false)}
-              onKeyDown={(e) => { if (e.key === 'Enter' || e.key === 'Escape') setEditingName(false) }}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === 'Escape') setEditingName(false)
+              }}
               className="h-7 w-48 py-0 text-sm font-medium"
               autoFocus
             />
           ) : (
             <button
               type="button"
-              onClick={() => { setEditingName(true); setTimeout(() => nameInputRef.current?.select(), 0) }}
-              className="group flex items-center gap-1 max-w-48 truncate font-medium text-neutral-900 hover:text-[#1a3d32]"
+              onClick={() => {
+                if (!studio.isSystemTemplate) {
+                  setEditingName(true)
+                  setTimeout(() => nameInputRef.current?.select(), 0)
+                }
+              }}
+              className={[
+                'group flex items-center gap-1 max-w-48 truncate font-medium text-neutral-900',
+                !studio.isSystemTemplate && 'hover:text-[#1a3d32]',
+              ]
+                .filter(Boolean)
+                .join(' ')}
             >
               <span className="truncate">{displayName}</span>
-              <Pencil className="h-3 w-3 shrink-0 opacity-0 group-hover:opacity-60" aria-hidden />
+              {!studio.isSystemTemplate && (
+                <Pencil className="h-3 w-3 shrink-0 opacity-0 group-hover:opacity-60" aria-hidden />
+              )}
             </button>
           )}
         </div>
@@ -180,7 +219,9 @@ export function KlarertStudioSurveyEditorPage() {
             </button>
           </div>
 
-          <SaveIndicator status={studio.saveStatus} lastSavedAt={studio.lastSavedAt} />
+          {!studio.isSystemTemplate && (
+            <SaveIndicator status={studio.saveStatus} lastSavedAt={studio.lastSavedAt} />
+          )}
 
           <Button
             variant="secondary"
@@ -193,15 +234,27 @@ export function KlarertStudioSurveyEditorPage() {
             Test-kjør
           </Button>
 
-          <Button
-            variant="primary"
-            size="sm"
-            onClick={handlePublish}
-            className="gap-1.5 bg-[#1a3d32] hover:bg-[#1a3d32]/90"
-          >
-            <Zap className="h-3.5 w-3.5" />
-            Publiser
-          </Button>
+          {studio.isSystemTemplate ? (
+            <Button
+              variant="primary"
+              size="sm"
+              onClick={() => navigate(`/studio/survey/new?from=${templateId}`)}
+              className="gap-1.5 bg-[#1a3d32] hover:bg-[#1a3d32]/90"
+            >
+              <Copy className="h-3.5 w-3.5" />
+              Kopier og rediger
+            </Button>
+          ) : (
+            <Button
+              variant="primary"
+              size="sm"
+              onClick={handlePublish}
+              className="gap-1.5 bg-[#1a3d32] hover:bg-[#1a3d32]/90"
+            >
+              <Zap className="h-3.5 w-3.5" />
+              Publiser
+            </Button>
+          )}
         </div>
       </header>
 
@@ -216,6 +269,7 @@ export function KlarertStudioSurveyEditorPage() {
           onAdd={handleAdd}
           onRemove={handleRemove}
           onMove={studio.moveBlock}
+          disabled={studio.isSystemTemplate}
         />
 
         <StudioSurveyPropertyPanel

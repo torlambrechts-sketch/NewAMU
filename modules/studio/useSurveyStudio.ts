@@ -1,8 +1,13 @@
 // Central hook for the Klarert Studio survey editor.
 //
-// Loads a survey_template_catalog row, manages the in-memory StudioBlock[]
-// state, and debounce-saves changes back to the DB (studio_blocks column +
-// derived body.questions for backward compat with existing consumers).
+// Supports three entry modes:
+//   templateId='new'              → blank new template
+//   templateId='new' + fromId     → copy/fork an existing template (system or org)
+//   templateId=<uuid>             → edit an existing org template (read-only for system ones)
+//
+// Saves to survey_template_catalog.studio_blocks + derived body.questions
+// (backward compat) with a 1.5 s debounce. System templates are read-only;
+// the editor shows a copy-to-edit banner instead.
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useOrgSetupContext } from '../../src/hooks/useOrgSetupContext'
@@ -10,6 +15,7 @@ import { freshId } from '../../src/lib/dashboards/freshId'
 import {
   CatalogRowForListSchema,
   type CatalogTemplateQuestion,
+  type SurveyTemplateCatalogRow,
 } from '../survey/surveyTemplateCatalogTypes'
 import {
   StudioBlockSchema,
@@ -62,48 +68,68 @@ function initBlocksFromRow(
   }))
 }
 
+function rowToMeta(row: SurveyTemplateCatalogRow) {
+  return {
+    name: row.name,
+    description: row.description ?? '',
+    category: row.category,
+    audience: row.audience,
+    estimatedMinutes: row.estimated_minutes,
+    pack: row.pack,
+  }
+}
+
 // ─── Hook ─────────────────────────────────────────────────────────────────────
 
 export type SurveyStudioHook = ReturnType<typeof useSurveyStudio>
 
-export function useSurveyStudio(templateId: string) {
+export function useSurveyStudio(templateId: string, fromTemplateId?: string) {
   const { supabase, organization } = useOrgSetupContext()
 
   const [blocks, setBlocks] = useState<StudioBlock[]>([])
   const [templateName, setTemplateName] = useState('')
   const [templateDescription, setTemplateDescription] = useState('')
+  const [templateCategory, setTemplateCategory] = useState('custom')
+  const [templateAudience, setTemplateAudience] = useState<'internal' | 'external' | 'both'>('internal')
+  const [templatePack, setTemplatePack] = useState<SurveyTemplateCatalogRow['pack']>('engagement')
+  const [isSystemTemplate, setIsSystemTemplate] = useState(false)
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState<string | null>(null)
   const [saveStatus, setSaveStatus] = useState<StudioSaveStatus>('idle')
   const [lastSavedAt, setLastSavedAt] = useState<Date | null>(null)
-
-  // Tracks the current DB row id (may differ from templateId when templateId==='new')
   const [rowId, setRowId] = useState<string | null>(templateId === 'new' ? null : templateId)
+
   const rowIdRef = useRef<string | null>(templateId === 'new' ? null : templateId)
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-  // Holds latest blocks so the debounced save always sees the newest state
   const blocksRef = useRef<StudioBlock[]>(blocks)
-  const metaRef = useRef({ name: templateName, description: templateDescription })
+  const metaRef = useRef({
+    name: templateName,
+    description: templateDescription,
+    category: templateCategory,
+    audience: templateAudience,
+    pack: templatePack,
+  })
 
   // ─── Load ────────────────────────────────────────────────────────────────
 
   useEffect(() => {
     if (!supabase || !organization?.id) return
 
-    if (templateId === 'new') {
+    // New blank template
+    if (templateId === 'new' && !fromTemplateId) {
       setBlocks([])
-      setTemplateName('')
-      setTemplateDescription('')
       setLoading(false)
       return
     }
 
+    const idToLoad = templateId === 'new' ? fromTemplateId! : templateId
     setLoading(true)
+
+    // Query by ID only — RLS handles access for both system and org templates
     void supabase
       .from('survey_template_catalog')
       .select('*')
-      .eq('id', templateId)
-      .eq('organization_id', organization.id)
+      .eq('id', idToLoad)
       .maybeSingle()
       .then(({ data, error }) => {
         if (error || !data) {
@@ -112,27 +138,51 @@ export function useSurveyStudio(templateId: string) {
           return
         }
         const parsed = CatalogRowForListSchema.safeParse(data)
-        const bodyQuestions = parsed.success ? parsed.data.body.questions : []
-        setBlocks(initBlocksFromRow((data as Record<string, unknown>).studio_blocks, bodyQuestions))
-        setTemplateName(data.name ?? '')
-        setTemplateDescription(data.description ?? '')
-        rowIdRef.current = data.id
-        setRowId(data.id)
+        if (!parsed.success) {
+          setLoadError('Ugyldig maldata.')
+          setLoading(false)
+          return
+        }
+        const row = parsed.data
+        const isSys = row.is_system && row.organization_id == null
+
+        // When copying: pre-fill from source but don't write to it
+        const meta = rowToMeta(row)
+        setTemplateName(templateId === 'new' ? `${row.name} (kopi)` : row.name)
+        setTemplateDescription(meta.description)
+        setTemplateCategory(meta.category)
+        setTemplateAudience(meta.audience)
+        setTemplatePack(meta.pack)
+        setIsSystemTemplate(isSys && templateId !== 'new')
+
+        const rawStudio = (data as Record<string, unknown>).studio_blocks
+        setBlocks(initBlocksFromRow(rawStudio, row.body.questions))
+
+        if (templateId !== 'new') {
+          rowIdRef.current = row.id
+          setRowId(row.id)
+        }
         setLoading(false)
       })
-  }, [supabase, organization?.id, templateId])
+  }, [supabase, organization?.id, templateId, fromTemplateId])
 
-  // ─── Sync refs ───────────────────────────────────────────────────────────
+  // ─── Sync refs ────────────────────────────────────────────────────────────
 
   useEffect(() => {
     blocksRef.current = blocks
   }, [blocks])
 
   useEffect(() => {
-    metaRef.current = { name: templateName, description: templateDescription }
-  }, [templateName, templateDescription])
+    metaRef.current = {
+      name: templateName,
+      description: templateDescription,
+      category: templateCategory,
+      audience: templateAudience,
+      pack: templatePack,
+    }
+  }, [templateName, templateDescription, templateCategory, templateAudience, templatePack])
 
-  // Clear pending debounce on unmount to avoid saving to an unmounted component
+  // Clear pending debounce on unmount
   useEffect(() => {
     return () => {
       if (debounceRef.current) clearTimeout(debounceRef.current)
@@ -141,62 +191,81 @@ export function useSurveyStudio(templateId: string) {
 
   // ─── Save ─────────────────────────────────────────────────────────────────
 
-  const persist = useCallback(async () => {
-    if (!supabase || !organization?.id) return
-    setSaveStatus('saving')
-    const currentBlocks = blocksRef.current
-    const { name, description } = metaRef.current
-    const questions = blocksToQuestions(currentBlocks)
+  const persist = useCallback(
+    async (publishNow = false) => {
+      if (!supabase || !organization?.id) return
+      if (isSystemTemplate) return // read-only
+      setSaveStatus('saving')
+      const currentBlocks = blocksRef.current
+      const { name, description, category, audience, pack } = metaRef.current
+      const questions = blocksToQuestions(currentBlocks)
 
-    try {
-      if (!rowIdRef.current) {
-        // Create new row
-        const { data, error } = await supabase
-          .from('survey_template_catalog')
-          .insert({
-            organization_id: organization.id,
-            is_system: false,
-            name: name || 'Ny mal',
-            description,
-            category: 'custom',
-            audience: 'internal',
-            estimated_minutes: 5,
-            recommend_anonymous: true,
-            pack: 'engagement',
-            body: { version: 1, questions },
-            studio_blocks: currentBlocks,
-            is_active: false,
-          })
-          .select('id')
-          .single()
-        if (error) throw error
-        rowIdRef.current = data.id
-        setRowId(data.id)
-      } else {
-        const { error } = await supabase
-          .from('survey_template_catalog')
-          .update({
-            name: name || 'Ny mal',
-            description,
-            body: { version: 1, questions },
-            studio_blocks: currentBlocks,
-            updated_at: new Date().toISOString(),
-          })
-          .eq('id', rowIdRef.current)
-          .eq('organization_id', organization.id)
-        if (error) throw error
+      const payload = {
+        organization_id: organization.id,
+        is_system: false,
+        name: name.trim() || 'Ny mal',
+        short_name: null,
+        description: description || null,
+        source: 'Organisasjon',
+        use_case: 'Egen mal',
+        category,
+        audience,
+        estimated_minutes: 5,
+        recommend_anonymous: true,
+        scoring_note: null,
+        law_ref: null,
+        pack,
+        body: { version: 1, questions },
+        studio_blocks: currentBlocks,
+        is_active: publishNow ? true : rowIdRef.current ? undefined : false,
       }
-      setSaveStatus('saved')
-      setLastSavedAt(new Date())
-    } catch {
-      setSaveStatus('error')
-    }
-  }, [supabase, organization?.id])
+
+      try {
+        if (!rowIdRef.current) {
+          // INSERT new org template
+          const { data, error } = await supabase
+            .from('survey_template_catalog')
+            .insert({ ...payload, id: freshId('tpl'), is_active: publishNow })
+            .select('id')
+            .single()
+          if (error) throw error
+          rowIdRef.current = data.id
+          setRowId(data.id)
+        } else {
+          const updatePayload: Record<string, unknown> = {
+            name: payload.name,
+            description: payload.description,
+            category: payload.category,
+            audience: payload.audience,
+            body: payload.body,
+            studio_blocks: payload.studio_blocks,
+            updated_at: new Date().toISOString(),
+          }
+          if (publishNow) updatePayload.is_active = true
+          const { error } = await supabase
+            .from('survey_template_catalog')
+            .update(updatePayload)
+            .eq('id', rowIdRef.current)
+            .eq('organization_id', organization.id)
+          if (error) throw error
+        }
+        setSaveStatus('saved')
+        setLastSavedAt(new Date())
+      } catch {
+        setSaveStatus('error')
+      }
+    },
+    [supabase, organization?.id, isSystemTemplate],
+  )
 
   const scheduleSave = useCallback(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current)
-    debounceRef.current = setTimeout(() => void persist(), AUTOSAVE_DELAY_MS)
+    debounceRef.current = setTimeout(() => void persist(false), AUTOSAVE_DELAY_MS)
     setSaveStatus('idle')
+  }, [persist])
+
+  const publishTemplate = useCallback(async () => {
+    await persist(true)
   }, [persist])
 
   // ─── Block mutations ──────────────────────────────────────────────────────
@@ -263,10 +332,22 @@ export function useSurveyStudio(templateId: string) {
     [scheduleSave],
   )
 
+  const updateCategory = useCallback(
+    (category: string) => {
+      setTemplateCategory(category)
+      scheduleSave()
+    },
+    [scheduleSave],
+  )
+
   return {
     blocks,
     templateName,
     templateDescription,
+    templateCategory,
+    templateAudience,
+    templatePack,
+    isSystemTemplate,
     loading,
     loadError,
     saveStatus,
@@ -278,5 +359,7 @@ export function useSurveyStudio(templateId: string) {
     updateBlock,
     updateName,
     updateDescription,
+    updateCategory,
+    publishTemplate,
   }
 }
