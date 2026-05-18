@@ -50,47 +50,36 @@ export type WidgetKindEntry = {
 }
 
 // ────────────────────────────────────────────────────────────────────
-// 2. The 9 widget kinds — labels + compatibility matched to existing code
-// ────────────────────────────────────────────────────────────────────
-// Labels mirror src/components/module/dashboard/DashboardEditWidgetPanel.tsx
-// KIND_LABELS. Compatibility matrix mirrors
-// src/components/module/dashboard/dashboardWidgetKinds.ts defaultCompatibleKinds.
+// 2. The 9 widget kinds — labels + compatibility EXACTLY matched to the
+//    pre-refactor behaviour (DashboardEditWidgetPanel KIND_LABELS,
+//    dashboardWidgetKinds defaultCompatibleKinds). Do NOT edit these
+//    values to "improve" them — they are the contract consumers read
+//    from. A label/compat change here changes user-visible UI in every
+//    widget-edit panel and shape-aware kind picker.
 
 export const WIDGET_KIND_ENTRIES: WidgetKindEntry[] = [
   {
     id: 'kpi',
-    label: 'KPI-tile',
+    label: 'KPI-tall',
     group: 'KPI',
     description: 'Ett tall, med valgfri sammenligning og sparkline.',
-    defaultCompatibleKinds: ['kpi', 'scorecard'],
-  },
-  {
-    id: 'scorecard',
-    label: 'Scorecard',
-    group: 'KPI',
-    description: 'Stort tall i kort med valgfri kontekst-rad.',
-    defaultCompatibleKinds: ['scorecard', 'kpi'],
-  },
-  {
-    id: 'table',
-    label: 'Tabell',
-    group: 'Tabell',
-    description: 'Radbasert tabell med valgfri søyle/lenke per rad.',
-    defaultCompatibleKinds: ['table'],
+    // Pre-refactor fallback (the if-chain returns ['kpi'] for kpi).
+    defaultCompatibleKinds: ['kpi'],
   },
   {
     id: 'bar',
     label: 'Søylediagram',
     group: 'Diagram',
-    description: 'Horisontale eller vertikale søyler.',
-    defaultCompatibleKinds: ['bar', 'donut'],
+    description: 'Horisontale søyler med valgfri drill-down.',
+    // donut/bar/table share dataset shape and are mutually compatible.
+    defaultCompatibleKinds: ['donut', 'bar', 'table'],
   },
   {
     id: 'donut',
-    label: 'Sektordiagram',
+    label: 'Kakediagram',
     group: 'Diagram',
     description: 'Andelsfordeling som donut/sektor.',
-    defaultCompatibleKinds: ['donut', 'bar'],
+    defaultCompatibleKinds: ['donut', 'bar', 'table'],
   },
   {
     id: 'line',
@@ -100,6 +89,13 @@ export const WIDGET_KIND_ENTRIES: WidgetKindEntry[] = [
     defaultCompatibleKinds: ['line'],
   },
   {
+    id: 'table',
+    label: 'Tabell',
+    group: 'Tabell',
+    description: 'Radbasert tabell med valgfri søyle/lenke per rad.',
+    defaultCompatibleKinds: ['donut', 'bar', 'table'],
+  },
+  {
     id: 'heatmap',
     label: 'Heatmap',
     group: 'Spesial',
@@ -107,15 +103,23 @@ export const WIDGET_KIND_ENTRIES: WidgetKindEntry[] = [
     defaultCompatibleKinds: ['heatmap'],
   },
   {
+    id: 'scorecard',
+    label: 'Scorecard',
+    group: 'KPI',
+    description: 'Stort tall i kort med valgfri kontekst-rad.',
+    // scorecard/bowtie share the rows-with-status dataset shape.
+    defaultCompatibleKinds: ['scorecard', 'bowtie'],
+  },
+  {
     id: 'bowtie',
-    label: 'Sløyfediagram (bowtie)',
+    label: 'Bowtie',
     group: 'Spesial',
     description: 'Risiko-bowtie — venstre årsaker, høyre konsekvenser.',
-    defaultCompatibleKinds: ['bowtie'],
+    defaultCompatibleKinds: ['scorecard', 'bowtie'],
   },
   {
     id: 'benchmark',
-    label: 'Benchmark',
+    label: 'Benchmark (anonymisert)',
     group: 'Spesial',
     description: 'Sammenligning mot referansegruppe (industri, fjorår).',
     defaultCompatibleKinds: ['benchmark'],
@@ -143,3 +147,44 @@ export function listWidgetKinds(): WidgetKindEntry[] {
  * and TS unions instead of hand-maintaining a parallel list.
  */
 export const WIDGET_KIND_IDS = WIDGET_KIND_ENTRIES.map((e) => e.id) as readonly ReportModuleKind[]
+
+/**
+ * Norwegian label lookup. Mirrors the old hand-maintained KIND_LABELS
+ * object in DashboardEditWidgetPanel.tsx — that consumer now reads from
+ * here instead.
+ */
+export function getWidgetKindLabel(kind: ReportModuleKind): string {
+  return REGISTRY.get(kind)?.label ?? kind
+}
+
+/**
+ * Compatibility lookup for the widget editor's "convert to" UX. Mirrors
+ * the old hand-maintained `defaultCompatibleKinds` function in
+ * dashboardWidgetKinds.ts. Unknown kinds fall back to `['kpi']`
+ * (the legacy default).
+ */
+export function defaultCompatibleKindsFor(kind: ReportModuleKind): ReportModuleKind[] {
+  return REGISTRY.get(kind)?.defaultCompatibleKinds ?? ['kpi']
+}
+
+/**
+ * The full KIND_LABELS map as a Record. Provided for consumers that want
+ * a plain object lookup. Built once at module load.
+ */
+export const WIDGET_KIND_LABELS: Record<ReportModuleKind, string> = Object.fromEntries(
+  WIDGET_KIND_ENTRIES.map((e) => [e.id, e.label]),
+) as Record<ReportModuleKind, string>
+
+// ────────────────────────────────────────────────────────────────────
+// 4. Lookup helpers with graceful fallbacks
+// ────────────────────────────────────────────────────────────────────
+// WIDGET_KIND_ENTRIES is asserted to contain all 9 ReportModuleKind
+// values via the consumer-side helpers (getWidgetKindLabel, etc.) which
+// fall back gracefully. Missing-entry safety is enforced socially: when
+// you add a new kind to ReportModuleKind, add an entry here in the same
+// commit.
+//
+// (A type-level exhaustiveness check would require restructuring this as
+// `Record<ReportModuleKind, WidgetKindEntry>` rather than an array; the
+// array shape better serves consumers that need ordering for pickers, so
+// we keep the array + soft-check pattern.)

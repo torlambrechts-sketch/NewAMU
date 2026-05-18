@@ -25,6 +25,7 @@ import type {
   ReportModuleColSpan,
   ReportModuleKind,
 } from '../../../types/reportBuilder'
+import { WIDGET_KIND_LABELS } from '../../../lib/studio/WidgetKindRegistry'
 
 type Props = {
   open: boolean
@@ -49,17 +50,11 @@ const COL_SPAN_OPTIONS: { value: ReportModuleColSpan; label: string }[] = [
   { value: 'full', label: 'Full bredde' },
 ]
 
-const KIND_LABELS: Record<ReportModuleKind, string> = {
-  kpi: 'KPI-tall',
-  bar: 'Søylediagram',
-  donut: 'Kakediagram',
-  line: 'Linjediagram',
-  table: 'Tabell',
-  heatmap: 'Heatmap',
-  scorecard: 'Scorecard',
-  bowtie: 'Bowtie',
-  benchmark: 'Benchmark (anonymisert)',
-}
+// KIND_LABELS now sourced from WIDGET_KIND_LABELS in
+// src/lib/studio/WidgetKindRegistry.ts. Keep the local alias so the rest
+// of this file stays untouched. Adding a new kind means adding it to the
+// registry, not here.
+const KIND_LABELS: Record<ReportModuleKind, string> = WIDGET_KIND_LABELS
 
 // ── Lossless kind-switch helpers ────────────────────────────────────────────
 // We stash the kind-specific fields in a hidden `_archive` keyed by the
