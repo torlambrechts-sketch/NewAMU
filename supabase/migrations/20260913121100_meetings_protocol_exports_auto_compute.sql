@@ -64,18 +64,19 @@ begin
     ),
     'agenda_items', coalesce((
       select jsonb_agg(jsonb_build_object(
-        'id',               i.id,
-        'position',         i.position,
-        'title',            i.title,
-        'description',      i.description,
-        'law_ref',          i.law_ref,
-        'is_mandatory',     i.is_mandatory,
-        'minutes_summary',  i.minutes_summary,
-        'decision_text',    i.decision_text,
-        'decision_status',  i.decision_status,
-        'vote_for',         i.vote_for,
-        'vote_against',     i.vote_against,
-        'vote_abstain',     i.vote_abstain
+        'id',                    i.id,
+        'position',              i.position,
+        'title',                 i.title,
+        'description',           i.description,
+        'law_ref',               i.law_ref,
+        'is_mandatory',          i.is_mandatory,
+        'minutes_summary',       i.minutes_summary,
+        'decision_text',         i.decision_text,
+        'decision_status',       i.decision_status,
+        'vote_for',              i.vote_for,
+        'vote_against',          i.vote_against,
+        'vote_abstain',          i.vote_abstain,
+        'minority_dissent_text', i.minority_dissent_text
       ) order by i.position, i.id)
       from public.meeting_agenda_items i
       where i.meeting_id = new.id
@@ -227,7 +228,8 @@ begin
           'is_mandatory', i.is_mandatory, 'minutes_summary', i.minutes_summary,
           'decision_text', i.decision_text, 'decision_status', i.decision_status,
           'vote_for', i.vote_for, 'vote_against', i.vote_against,
-          'vote_abstain', i.vote_abstain
+          'vote_abstain', i.vote_abstain,
+          'minority_dissent_text', i.minority_dissent_text
         ) order by i.position, i.id)
         from public.meeting_agenda_items i where i.meeting_id = v_row.id
       ), '[]'::jsonb),

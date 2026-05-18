@@ -222,6 +222,16 @@ async function runInvitationBatch(args: {
     meetingId: args.meetingId,
   })
 
+  // Early exit: no participants → nothing to send. Caller still gets a
+  // 200 with sent=0 so the client can surface the helpful "no recipients"
+  // hint rather than treating it as an opaque failure.
+  if (members.length === 0) {
+    return {
+      summary: { total: 0, sent: 0, failed: 0 },
+      results: [],
+    }
+  }
+
   const meetingUrl = buildMeetingUrl(publicAppUrl, meeting.id)
   const whenLabel = meeting.scheduled_at ? fmtDateNb(meeting.scheduled_at) : 'Tidspunkt ikke fastsatt'
   const subject =
@@ -242,7 +252,7 @@ async function runInvitationBatch(args: {
   const attachments = ics
     ? [
         {
-          filename: `${meeting.title.replace(/[^\w\-]+/g, '_')}.ics`,
+          filename: `${meeting.title.replace(/[^\w-]+/g, '_')}.ics`,
           content: base64Utf8(ics),
         },
       ]

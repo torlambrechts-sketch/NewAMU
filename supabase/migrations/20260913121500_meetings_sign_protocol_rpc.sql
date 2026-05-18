@@ -9,12 +9,27 @@
 --     - signature row referencing a missing L1 event, or
 --     - signature recorded but meetings.protocol_signed_at not stamped
 --       (so the lock-trigger doesn't engage).
---   Wrapping in a SECURITY DEFINER function gives a single transaction:
---   any failure rolls back all three writes.
+--   Wrapping in a single function gives a single transaction: any
+--   failure rolls back all three writes.
 --
 --   The document hash is still computed client-side (the canonical JSON
 --   covers meeting + agenda + attendees + decisions + signature, and
 --   client owns that data view) and passed in as a parameter.
+--
+-- Security model
+--   SECURITY INVOKER — explicit choice. Each statement inside runs as
+--   the calling user, so the existing RLS policies enforce authority:
+--     * SELECT on meetings    → user can only resolve org_id for
+--                                meetings they''re authorized to see
+--                                (current_org_id() + confidentiality
+--                                guard cascade)
+--     * INSERT system_signature_events → enforces user_id = auth.uid()
+--                                         + organization_id =
+--                                         current_org_id()
+--     * INSERT meeting_signatures → exists-from-meetings cascade
+--     * UPDATE meetings        → meetings_select_or_write predicate
+--   A SECURITY DEFINER variant would bypass all four checks and
+--   reintroduce an obvious privilege-escalation path.
 --
 -- Self-audit (Arbeidstilsynet POV)
 --   No new compliance claim — this hardens an existing trail so the
@@ -35,7 +50,7 @@ returns table (
   level1_event_id uuid
 )
 language plpgsql
-security definer
+security invoker
 set search_path = public, pg_catalog
 as $$
 declare
@@ -45,13 +60,14 @@ declare
   v_sig_id uuid;
   v_now timestamptz := now();
 begin
-  -- Resolve caller + meeting org (RLS on `meetings` is the access gate;
-  -- we re-select via the caller''s view so callers without read access
-  -- get a "Meeting not found" rather than an org-leak).
   v_user_id := auth.uid();
   if v_user_id is null then
     raise exception 'unauthenticated' using errcode = '28000';
   end if;
+
+  -- RLS-filtered SELECT: if the caller can''t see this meeting, v_org_id
+  -- is NULL and we abort with a generic "not found" so we don''t leak
+  -- the existence of meetings the caller isn''t authorised for.
   select organization_id into v_org_id
     from public.meetings
    where id = p_meeting_id;
@@ -66,7 +82,8 @@ begin
       using errcode = 'check_violation';
   end if;
 
-  -- Insert L1 event first; capture id.
+  -- Insert L1 event first; capture id. RLS WITH CHECK enforces
+  -- user_id = auth.uid() + organization_id = current_org_id().
   insert into public.system_signature_events (
     organization_id,
     user_id,
@@ -132,4 +149,4 @@ grant execute on function public.meetings_sign_protocol_v1(uuid, text, text, uui
   to authenticated;
 
 comment on function public.meetings_sign_protocol_v1 is
-  'Atomic protocol-sign: insert system_signature_events row, insert meeting_signatures row referencing it, stamp meetings.protocol_signed_at — all in one transaction. SECURITY DEFINER. Caller must be authenticated; visibility into the meeting is enforced by RLS on the SELECT used to resolve organization_id.';
+  'Atomic protocol-sign: insert system_signature_events row, insert meeting_signatures row referencing it, stamp meetings.protocol_signed_at — all in one transaction. SECURITY INVOKER: RLS on every inner statement enforces authority. Caller must be authenticated and have meeting visibility.';

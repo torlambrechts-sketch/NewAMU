@@ -494,7 +494,7 @@ function InformationTab({
   const [sendStatus, setSendStatus] = useState<
     | { kind: 'idle' }
     | { kind: 'sending' }
-    | { kind: 'sent'; count: number }
+    | { kind: 'sent'; count: number; partialWarning?: string }
     | { kind: 'error'; message: string }
   >({ kind: 'idle' })
 
@@ -503,7 +503,15 @@ function InformationTab({
       setSendStatus({ kind: 'sending' })
       const res = await onSendInvitations({ meetingId: meeting.id, mode })
       if (res.ok) {
-        setSendStatus({ kind: 'sent', count: res.sent })
+        // Partial-failure: ok=true with an error message means some
+        // recipients were delivered but others weren't (e.g. missing
+        // email on profile). Surface both the success count and the
+        // warning so the chair can fix profiles for the missing few.
+        setSendStatus({
+          kind: 'sent',
+          count: res.sent,
+          partialWarning: res.error,
+        })
       } else {
         setSendStatus({ kind: 'error', message: res.error ?? 'Ukjent feil' })
       }
@@ -575,6 +583,7 @@ function InformationTab({
                     {meeting.invitation_sent_at && sendStatus.count > 0
                       ? ' Påminnelse er nå tilgjengelig.'
                       : ''}
+                    {sendStatus.partialWarning ? ` ${sendStatus.partialWarning}` : ''}
                   </span>
                 ) : null}
                 {disabledReason ? (
