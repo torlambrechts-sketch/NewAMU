@@ -20,6 +20,7 @@ const GapSessionRowSchema = z.object({
   id: z.string().uuid(),
   organization_id: z.string().uuid(),
   standard: z.enum(['iso-9001', 'iso-14001', 'iso-45001', 'iso-27001']),
+  title: z.string(),
   status: z.enum(['in_progress', 'completed']),
   score_pct: z.number().nullable(),
   completed_at: z.string().nullable(),
@@ -198,9 +199,11 @@ export function useIsoGapAnalysis(sessionId: string | null): UseIsoGapAnalysisRe
       if (!supabase || !orgId) return null
       setError(null)
       try {
+        const dateStr = new Date().toLocaleDateString('nb-NO', { day: '2-digit', month: 'short', year: 'numeric' })
+        const title = `Gap-analyse ${standard.toUpperCase().replace('-', ' ')} — ${dateStr}`
         const { data, error: insErr } = await supabase
           .from('iso_gap_analysis_sessions')
-          .insert({ organization_id: orgId, standard, status: 'in_progress' })
+          .insert({ organization_id: orgId, standard, status: 'in_progress', title })
           .select('*')
           .single()
         if (insErr) throw insErr
