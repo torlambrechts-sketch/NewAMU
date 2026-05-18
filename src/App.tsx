@@ -92,6 +92,8 @@ import { LearningAnalysePage } from './pages/learning/LearningAnalysePage'
 import { HmsOverviewPage } from './pages/overview/HmsOverviewPage'
 import { IsoImsAnalysePage } from './pages/iso/IsoImsAnalysePage'
 import { IsoSettingsPage } from './pages/iso/IsoSettingsPage'
+import { IsoGapAnalysisHubPage } from './pages/iso/IsoGapAnalysisHubPage'
+import { IsoGapAnalysisSessionPage } from './pages/iso/IsoGapAnalysisSessionPage'
 import { RegelverkCoveragePage } from './pages/overview/regelverk/RegelverkCoveragePage'
 import { BenchmarkPage } from './pages/dashboards/BenchmarkPage'
 import { ComplianceStudioPage } from './pages/overview/studio/ComplianceStudioPage'
@@ -353,6 +355,8 @@ const router = createBrowserRouter(
                       <Route path="overview/hms" element={<PackProvider><HmsOverviewPage /></PackProvider>} />
                       <Route path="iso/analyse" element={<IsoImsAnalysePage />} />
                       <Route path="iso/innstillinger" element={<IsoSettingsPage />} />
+                      <Route path="iso/gap" element={<IsoGapAnalysisHubPage />} />
+                      <Route path="iso/gap/:sessionId" element={<IsoGapAnalysisSessionPage />} />
                       {/* Partner-konsoll — HMS-konsulent multi-org surface (v0). */}
                       <Route path="partner" element={<PartnerConsolePage />} />
                       <Route path="partner/branding" element={<PartnerBrandingPage />} />
