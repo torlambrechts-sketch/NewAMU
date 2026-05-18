@@ -93,9 +93,9 @@ import { HmsOverviewPage } from './pages/overview/HmsOverviewPage'
 import { RegelverkCoveragePage } from './pages/overview/regelverk/RegelverkCoveragePage'
 import { BenchmarkPage } from './pages/dashboards/BenchmarkPage'
 // ComplianceStudioPage retired — /compliance-studio now redirects to /studio.
-// See Studio Builder Phase 1 Task 0.10. Original file kept on disk for one
-// release cycle so we can flip the redirect back if needed.
+// See Studio Builder Phase 1 Task 0.10.
 import { StudioPage } from './pages/studio/StudioPage'
+import { PackEditor } from './pages/studio/PackEditor'
 import { LearningFlowEntry } from './pages/learning/LearningFlowEntry'
 import { LearningCertificatePrintPage } from './pages/learning/LearningCertificatePrintPage'
 import { LearningMinHistorikkPage } from './pages/learning/LearningMinHistorikkPage'
@@ -364,6 +364,7 @@ const router = createBrowserRouter(
                           ship — links into the unified /studio shell directly. */}
                       <Route path="compliance-studio" element={<Navigate to="/studio?scope=compliance" replace />} />
                       <Route path="studio" element={<StudioPage />} />
+                      <Route path="studio/pakker" element={<PackEditor />} />
                       <Route path="organisation" element={<OrganisationPage />} />
                       <Route path="organisation/admin" element={<LegacyOrgAdminRedirect />} />
                       <Route

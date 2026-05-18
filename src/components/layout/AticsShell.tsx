@@ -33,6 +33,7 @@ import {
   UserSearch,
   Users,
   Wand2,
+  Layers,
   Workflow,
   CalendarDays,
 } from 'lucide-react'
@@ -1919,7 +1920,15 @@ export function AticsShell() {
           label: 'Studio',
           end: false,
           icon: Wand2,
-          subs: [],
+          subs: [
+            {
+              label: 'Pakker',
+              path: '/studio/pakker',
+              Icon: Layers,
+              match: ({ pathname }) => pathname.startsWith('/studio/pakker'),
+              requirePermAny: ['studio.packs'],
+            },
+          ],
           permAny: ['studio.simple'],
           flatSubs: true,
         },
