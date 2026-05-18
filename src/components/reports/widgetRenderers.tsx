@@ -48,22 +48,19 @@ import {
   Sparkline,
   segmentsFromObject,
 } from './widgetParts'
+// DrillDownEvent is canonically declared in ReportModuleWidget.tsx so
+// existing consumers (LearningAnalysePage, DocumentsAnalysePage, etc.)
+// can keep importing it from there. We pull it via `import type` so
+// there's no runtime cycle even though WidgetKindRegistry → this file →
+// ReportModuleWidget would otherwise form one. `import type` statements
+// are erased at compile time and contribute zero to the runtime module
+// graph.
+import type { DrillDownEvent } from './ReportModuleWidget'
 
 // ────────────────────────────────────────────────────────────────────
 // 1. Renderer context + result types
 // ────────────────────────────────────────────────────────────────────
 
-/**
- * The DrillDown event shape — duplicated here from ReportModuleWidget to
- * avoid a circular value-import. Type-only re-export at the bottom of
- * this file lets the registry pass renderers without importing
- * ReportModuleWidget transitively.
- */
-export type DrillDownEvent = {
-  module: ReportModule
-  segmentLabel: string
-  dimensionId: string
-}
 export type OnDrillDown = (e: DrillDownEvent) => void
 
 export type WidgetRenderContext = {

@@ -210,6 +210,21 @@ Picks up where the AML template baseline (PR #175) leaves off. The seed migratio
 
 **Status:** Full handover-spec ligger i [`specs/compliance-planner.md`](specs/compliance-planner.md) — inkluderer data-inventar (eksakt SQL-union over alle fem template-flater), schema for `compliance_plan_items`, fil-for-fil deliverables per item, mønstre å speile, og en one-shot-prompt for neste sesjon. Innholdet er seedet (PR #175). Neste sesjon kan starte direkte fra spec'en.
 
+## 6. Studio Builder — unified authoring surface
+
+Single `/studio` shell replacing the 7+ scattered template / wizard / dashboard editors. Two modes (Simple = preset+form, Advanced = inspector+canvas), one registry per scope. Phase 0 substrate landed; Phase 1 ships the shell.
+
+| # | Status | Item | Notes |
+|---|---|---|---|
+| 6.1 | 🚧 | **Phase 0 — substrate** | 9 of 10 tasks shipped (0.1 studio_revisions + trigger · 0.2 permissions + sticky mode · 0.3 WidgetKindRegistry + renderer extraction · 0.4 studioRegistry + types + form gen + preset picker · 0.5 dashboard_layouts.kind CHECK · 0.6 compliance_notifications extension · 0.7 prebuild assertion · 0.8 useStudioRevision + useStudioMode hooks). 0.9 (customer-signal validation, non-engineering) and 0.10 (relocate compliance wizards) land with Phase 1. PR #311 — needs visual diff on the Stage B refactor before merge. |
+| 6.2 | 📋 | **Phase 1 — StudioPage shell** | ScopePicker · ModeToggle · PalettePanel · CanvasFrame · PropertyInspector · PreviewPane · VersionTimeline · PublishBar · ConflictModal · AutosaveIndicator. Promotes Studio to top-level NavGroup. Relocates the 3 compliance wizards (Task 0.10) as the first user-visible scope. |
+| 6.3 | 📋 | **Phase 2a — Advanced mode** | 7 embedders (lawRefPicker, presetPicker, richTextEmbed, layoutEmbed, datasetEmbed, signEmbed, regulationCoverageEmbed). Pack authoring (compliance pack import/export). VersionTimeline writes review_status transitions. |
+| 6.4 | 📋 | **Phase 2b — ISO 27001 ships via studio** | First pack authored end-to-end in the studio (no migrations). Validates the substrate. Soft launch to 2-3 design-partner orgs. |
+| 6.5 | ⏸ | **Phase 3 — Customer + partner authoring** | Studio gates expand to studio.packs (Enterprise) + studio.partner_admin (Partner). Wires partner_memberships substrate. |
+| 6.6 | ⏸ | **Phase 4 — Marketplace** | Gated catalog of community-authored packs. studio.marketplace_publish key activates. Hard dependency on Phase 3 customer authoring being stable. |
+
+**Status:** Spec is [`specs/studio-builder.md`](specs/studio-builder.md) §13 signed off. Phase 0 substrate is 9/10 shipped on branch `claude/studio-builder-evaluation-bRNjX`; PR #311 open. Acceptance gate for Task 0.3 destructive refactor (renderer extraction) is a manual screenshot diff <0.5% — verification deferred to a dev environment before merge.
+
 ---
 
 ## 8 · Meetings (Møter) — new module
