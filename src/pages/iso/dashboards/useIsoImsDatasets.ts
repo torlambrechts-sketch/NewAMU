@@ -184,19 +184,20 @@ export function useIsoImsDatasets(): IsoImsDatasetsResult & { loading: boolean }
         .order('created_at', { ascending: false })
         .limit(10)
 
-      type FindingQueryRow = { item_key: string; severity: string | null; created_at: string; executions: { pack: string; title: string } | null }
-      const recentFindings: FindingRow[] = (findingRows as FindingQueryRow[] ?? [])
+      // Supabase returns joined rows as an array even for to-one relations.
+      type FindingQueryRow = { item_key: unknown; severity: unknown; created_at: unknown; executions: unknown }
+      const recentFindings: FindingRow[] = ((findingRows ?? []) as FindingQueryRow[])
         .filter((r) => {
-          const exec = r.executions
-          return exec !== null && ['iso-9001', 'iso-14001', 'iso-45001', 'iso-27001'].includes(exec.pack)
+          const exec = Array.isArray(r.executions) ? r.executions[0] : r.executions
+          return exec != null && ['iso-9001', 'iso-14001', 'iso-45001', 'iso-27001'].includes((exec as { pack: string }).pack)
         })
         .map((r) => {
-          const exec = r.executions as { pack: string; title: string }
+          const exec = (Array.isArray(r.executions) ? r.executions[0] : r.executions) as { pack: string; title: string }
           return {
             title: exec.title,
             standard: exec.pack,
-            severity: r.severity ?? 'low',
-            createdAt: r.created_at,
+            severity: (r.severity as string | null) ?? 'low',
+            createdAt: r.created_at as string,
           }
         })
 

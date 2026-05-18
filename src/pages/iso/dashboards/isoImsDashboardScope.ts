@@ -109,13 +109,7 @@ const TABLE_AUDIT_SCHEDULE: ReportModuleTable = {
   kind: 'table',
   datasetKey: 'iso_audit_schedule',
   title: 'Kommende revisjoner',
-  rowKeys: [],
-  columns: [
-    { key: 'title',       label: 'Revisjon' },
-    { key: 'standard',    label: 'Standard' },
-    { key: 'scheduledFor', label: 'Planlagt' },
-    { key: 'status',      label: 'Status' },
-  ],
+  rowKeys: ['title', 'standard', 'scheduledFor', 'status'],
   colSpan: 'lg',
 }
 const TABLE_RECENT_FINDINGS: ReportModuleTable = {
@@ -123,13 +117,7 @@ const TABLE_RECENT_FINDINGS: ReportModuleTable = {
   kind: 'table',
   datasetKey: 'iso_recent_findings',
   title: 'Siste avvik fra revisjoner',
-  rowKeys: [],
-  columns: [
-    { key: 'title',     label: 'Avvik' },
-    { key: 'standard',  label: 'Standard' },
-    { key: 'severity',  label: 'Alvorlighet' },
-    { key: 'createdAt', label: 'Dato' },
-  ],
+  rowKeys: ['title', 'standard', 'severity', 'createdAt'],
   colSpan: 'lg',
 }
 
