@@ -581,6 +581,17 @@ and a CHECK on `meeting_agenda_items.voting_model in ('simple','qualified',
 - `RsvpRosterEditor` replaces the static attendance table on Deltakere tab.
 - `AutoSourceRail` on Agenda tab — clickable cards for resolved data bindings.
 
-### 14.4 Deferred (post-§8.31)
+### 14.4 Phase 3 — shipped in §8.32-§8.37
 
-See ROADMAP entries 8.32-8.38: live-room Realtime sync, external-invitee public viewer, digest dispatch, chair-disconnect recovery, COI UI, GDPR erasure, vitest framework. Schemas are complete; UI/edge-function surfaces are the gap.
+| Item | Shipped artefact |
+|---|---|
+| Live-room Realtime sync | `meeting_votes`/`meeting_speaker_queue`/`meeting_live_sessions`/`meeting_attendees` added to `supabase_realtime` publication. `MeetingLivePage` channel subscription pushes vote/speaker/active-item/RSVP changes. |
+| External invitee public viewer | `/meetings/external/:token` route + `meetings_external_redeem_token(text)` SECURITY DEFINER RPC (anon-callable). |
+| Stakeholder-digest dispatch | `send-meeting-digest` edge function + `useMeetings.sendDigest()` + per-recipient `sent_at` stamping. |
+| Chair-disconnect recovery | `meetings_recover_live_session(uuid)` RPC + `useMeetings.recoverLiveSession()`. |
+| COI declaration UI | `CoiDeclarePanel` component + `setAgendaConflictOfInterest` hook method. |
+| GDPR Art. 15+17 helpers | `meetings_gdpr_pseudonymize_member(uuid)` + `meetings_gdpr_export_member(uuid)` RPCs. |
+
+### 14.5 Still deferred
+
+Only §8.38 vitest test framework remains — a cross-module infra PR.

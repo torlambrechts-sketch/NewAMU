@@ -3,7 +3,7 @@
 // so the chair can navigate agenda + voting + attendance + speakers
 // without secondary nav. Cyan accent per CLAUDE.md meetings palette.
 
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import {
   AlertTriangle,
@@ -25,6 +25,8 @@ import { Button } from '../../components/ui/Button'
 import { Badge } from '../../components/ui/Badge'
 import { WarningBox } from '../../components/ui/AlertBox'
 import { useMeetings } from '../../../modules/meetings'
+import { useOrgSetupContext } from '../../hooks/useOrgSetupContext'
+import type { RealtimeChannel } from '@supabase/supabase-js'
 import type {
   MeetingAgendaItemRow,
   MeetingBallot,
@@ -58,6 +60,8 @@ export default function MeetingLivePage() {
   const { id: meetingId = '' } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const meetings = useMeetings()
+  const { supabase } = useOrgSetupContext()
+  const channelRef = useRef<RealtimeChannel | null>(null)
   const [activeItemId, setActiveItemId] = useState<string | null>(null)
   // Elapsed is derived from `sessionStartedAt` (a persisted value) — we
   // never write elapsed_seconds back to the DB, so refresh/reconnect
@@ -131,6 +135,73 @@ export default function MeetingLivePage() {
     const t = window.setInterval(tick, 1000)
     return () => window.clearInterval(t)
   }, [sessionStarted, sessionStartedAt])
+
+  // Realtime subscription (§8.32) — postgres_changes on the live tables
+  // bumps refreshKey so the existing reload effects re-fire. This replaces
+  // the manual "Oppdater" pattern with push-based updates while keeping
+  // the same data path (no separate optimistic state to reconcile).
+  useEffect(() => {
+    if (!supabase || !meetingId) return
+    const ch = supabase
+      .channel(`meeting-live:${meetingId}`, {
+        config: { broadcast: { self: false } },
+      })
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'meeting_votes',
+          filter: `meeting_id=eq.${meetingId}`,
+        },
+        () => setRefreshKey((k) => k + 1),
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'meeting_speaker_queue',
+          filter: `meeting_id=eq.${meetingId}`,
+        },
+        () => setRefreshKey((k) => k + 1),
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'meeting_live_sessions',
+          filter: `meeting_id=eq.${meetingId}`,
+        },
+        (payload) => {
+          const next = payload.new as { active_agenda_item_id?: string | null; ended_at?: string | null }
+          if (next.active_agenda_item_id !== undefined) {
+            setActiveItemId(next.active_agenda_item_id ?? null)
+          }
+          if (next.ended_at) {
+            setSessionStarted(false)
+          }
+          setRefreshKey((k) => k + 1)
+        },
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'meeting_attendees',
+          filter: `meeting_id=eq.${meetingId}`,
+        },
+        () => setRefreshKey((k) => k + 1),
+      )
+      .subscribe()
+    channelRef.current = ch
+    return () => {
+      void supabase.removeChannel(ch)
+      channelRef.current = null
+    }
+  }, [supabase, meetingId])
 
   // Stable method refs — useMeetings returns a new object every render so
   // we destructure the specific callbacks (they're useCallback-stable inside

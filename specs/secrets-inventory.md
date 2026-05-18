@@ -92,6 +92,11 @@
 - **Tilgjengelig for:** Cron-jobben som kaller funksjonen
 - **Co-deps:** Funksjonen leser også `RESEND_API_KEY`, `RESEND_FROM`, `PUBLIC_APP_URL`, `EMAIL_SEND_DELAY_MS` — gjenbruk allerede satt for `send-survey-invites`.
 
+### 2.11 `send-meeting-digest` secrets (aktiv — §8.34)
+- **Brukes av:** `send-meeting-digest` edge function (post-signing protokoll-digest)
+- **Type:** Ingen nye secrets — gjenbruker `RESEND_API_KEY`, `RESEND_FROM`, `PUBLIC_APP_URL`
+- **Caller-driven only:** Ingen cron-secret; funksjonen krever user-JWT i Authorization-header (chair kaller fra Protokoll-tabben etter signering)
+
 ---
 
 ## 3. Tilgang og kontroll

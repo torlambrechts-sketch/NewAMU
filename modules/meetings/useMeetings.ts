@@ -219,6 +219,11 @@ export type UseMeetingsState = {
     substituteMemberId: string
     principalMemberId: string
   }) => Promise<boolean>
+  /** Per-agenda COI declarations. Replaces the entire array; pass [] to clear. */
+  setAgendaConflictOfInterest: (
+    agendaItemId: string,
+    entries: Array<{ member_id: string; reason: string }>,
+  ) => Promise<boolean>
   /** Voting model on an agenda item (controls how the result is derived). */
   setAgendaVotingModel: (
     agendaItemId: string,
@@ -244,6 +249,8 @@ export type UseMeetingsState = {
   startLiveSession: (meetingId: string) => Promise<boolean>
   setLiveActiveItem: (meetingId: string, agendaItemId: string | null) => Promise<boolean>
   endLiveSession: (meetingId: string) => Promise<boolean>
+  /** Force-end a zombie session if the chair disconnected mid-meeting. */
+  recoverLiveSession: (meetingId: string) => Promise<boolean>
   loadLiveSession: (meetingId: string) => Promise<import('./types').MeetingLiveSessionRow | null>
   /** Speaker queue (taleliste). */
   addSpeaker: (input: {
@@ -277,6 +284,13 @@ export type UseMeetingsState = {
     lawRef?: string | null
   }) => Promise<boolean>
   loadDigestRecipients: (meetingId: string) => Promise<import('./types').MeetingDigestRecipientRow[]>
+  /** Dispatch the signed protocol to selected (or all default) recipients
+   *  via the send-meeting-digest edge function. Stamps sent_at on each
+   *  resolved row. */
+  sendDigest: (input: {
+    meetingId: string
+    recipientIds?: string[]
+  }) => Promise<{ ok: boolean; sent: number; failed: number; error?: string }>
   /** Admin: toggle a system template on/off for the current org. */
   setTemplateEnabled: (systemTemplateId: string, enabled: boolean) => Promise<boolean>
   setTemplateCategory: (systemTemplateId: string, categoryId: string | null) => Promise<boolean>
@@ -1166,6 +1180,23 @@ export function useMeetings(): UseMeetingsState {
 
   // ── Voting models + ballots (L2 + L3) ─────────────────────────────────────
 
+  const setAgendaConflictOfInterest: UseMeetingsState['setAgendaConflictOfInterest'] = useCallback(
+    async (agendaItemId, entries) => {
+      if (!supabase) return false
+      const res = await supabase
+        .from('meeting_agenda_items')
+        .update({ conflict_of_interest: entries.length === 0 ? null : entries })
+        .eq('id', agendaItemId)
+      if (res.error) {
+        setError(getSupabaseErrorMessage(res.error))
+        return false
+      }
+      if (detailMeetingId) await loadDetail(detailMeetingId)
+      return true
+    },
+    [supabase, detailMeetingId, loadDetail],
+  )
+
   const setAgendaVotingModel: UseMeetingsState['setAgendaVotingModel'] = useCallback(
     async (agendaItemId, model) => {
       if (!supabase) return false
@@ -1294,6 +1325,21 @@ export function useMeetings(): UseMeetingsState {
         return false
       }
       return true
+    },
+    [supabase],
+  )
+
+  const recoverLiveSession: UseMeetingsState['recoverLiveSession'] = useCallback(
+    async (meetingId) => {
+      if (!supabase) return false
+      const res = await supabase.rpc('meetings_recover_live_session', {
+        p_meeting_id: meetingId,
+      })
+      if (res.error) {
+        setError(getSupabaseErrorMessage(res.error))
+        return false
+      }
+      return Boolean(res.data)
     },
     [supabase],
   )
@@ -1473,6 +1519,29 @@ export function useMeetings(): UseMeetingsState {
         .order('created_at', { ascending: true })
       if (res.error) return []
       return collect(res.data, parseMeetingDigestRecipientRow)
+    },
+    [supabase],
+  )
+
+  const sendDigest: UseMeetingsState['sendDigest'] = useCallback(
+    async (input) => {
+      if (!supabase) return { ok: false, sent: 0, failed: 0, error: 'Supabase ikke tilgjengelig' }
+      const invoke = await supabase.functions.invoke('send-meeting-digest', {
+        body: {
+          meeting_id: input.meetingId,
+          ...(input.recipientIds ? { recipient_ids: input.recipientIds } : {}),
+        },
+      })
+      if (invoke.error) {
+        return { ok: false, sent: 0, failed: 0, error: getSupabaseErrorMessage(invoke.error) }
+      }
+      const data = (invoke.data ?? {}) as { emails_sent?: number; emails_failed?: number; error?: string }
+      return {
+        ok: !data.error,
+        sent: Number(data.emails_sent ?? 0),
+        failed: Number(data.emails_failed ?? 0),
+        error: data.error,
+      }
     },
     [supabase],
   )
@@ -1915,6 +1984,7 @@ export function useMeetings(): UseMeetingsState {
     sendInvitations,
     setRsvp,
     activateSubstitute,
+    setAgendaConflictOfInterest,
     setAgendaVotingModel,
     castVote,
     getVoteResult,
@@ -1922,6 +1992,7 @@ export function useMeetings(): UseMeetingsState {
     startLiveSession,
     setLiveActiveItem,
     endLiveSession,
+    recoverLiveSession,
     loadLiveSession,
     addSpeaker,
     giveSpeakerFloor,
@@ -1931,6 +2002,7 @@ export function useMeetings(): UseMeetingsState {
     loadExternalInvitees,
     upsertDigestRecipient,
     loadDigestRecipients,
+    sendDigest,
     setTemplateEnabled,
     setTemplateCategory,
     setTemplatePinned,

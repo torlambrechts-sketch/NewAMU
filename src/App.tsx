@@ -46,6 +46,7 @@ import { MeetingsDetailView } from './pages/meetings/MeetingsDetailView'
 import { MeetingsAnalysePage } from './pages/meetings/MeetingsAnalysePage'
 import { MeetingsExportPage } from './pages/meetings/MeetingsExportPage'
 import MeetingLivePage from './pages/meetings/MeetingLivePage'
+import MeetingExternalViewerPage from './pages/meetings/MeetingExternalViewerPage'
 import { AMUAgendaBacklogPage } from './pages/meetings/AMUAgendaBacklogPage'
 import { AlertsPage } from '../modules/alerts/pages/AlertsPage'
 import { AlertsAdminPage } from '../modules/alerts/pages/AlertsAdminPage'
@@ -278,6 +279,8 @@ const router = createBrowserRouter(
             {/* Varslinger — anonymous submission + status check */}
             <Route path="/alerts/public/status" element={<PublicAlertStatusPage />} />
             <Route path="/alerts/public/:slug" element={<PublicAlertSubmitPage />} />
+            {/* Meetings — external invitee token-gated viewer (§8.33) */}
+            <Route path="/meetings/external/:token" element={<MeetingExternalViewerPage />} />
             {/* Legacy /varsle aliases — permanent redirect per OQ-A2 */}
             <Route path="/varsle/status" element={<Navigate to="/alerts/public/status" replace />} />
             <Route path="/varsle/:slug" element={<LegacyVarsleRedirect />} />
