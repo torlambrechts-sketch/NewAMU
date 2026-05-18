@@ -22,6 +22,7 @@
     "@dnd-kit/sortable": "^10.0.0",
     "@dnd-kit/utilities": "^3.2.2",
     "@supabase/supabase-js": "^2.103.0",
+    "@tiptap/core": "^3.22.4",
     "@tiptap/extension-link": "^3.22.4",
     "@tiptap/extension-mention": "^3.22.4",
     "@tiptap/extension-placeholder": "^3.22.4",
