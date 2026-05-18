@@ -8,6 +8,7 @@
 // and the dashboard's "scope" reads).
 
 import { useMemo, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { ModuleAnalyticsDashboard } from '../../../components/module/ModuleAnalyticsDashboard'
 import { getDashboardScope } from '../../../lib/dashboards/dashboardRegistry'
 import type { SystemReportRow } from '../../../lib/dashboards/useSystemReport'
@@ -16,8 +17,13 @@ import type {
   DashboardFilter,
 } from '../../../lib/dashboards/dashboardFilters'
 import { useInternkontrollDatasets } from './useInternkontrollDatasets'
-import { FRAMEWORKS, FRAMEWORK_IDS } from './frameworkParagraphs'
+import { FRAMEWORKS, FRAMEWORK_IDS, type FrameworkId } from './frameworkParagraphs'
 import './internkontrollDashboardScope'
+
+// Reverse-lookup: bar-widget segment label ("AML", "IK-f", …) → framework id.
+const FRAMEWORK_BY_LABEL: Record<string, FrameworkId> = Object.fromEntries(
+  FRAMEWORK_IDS.map((id) => [FRAMEWORKS[id].shortLabel, id]),
+) as Record<string, FrameworkId>
 
 export function InternkontrollDashboardSystemReport({
   row,
@@ -26,6 +32,7 @@ export function InternkontrollDashboardSystemReport({
   row: SystemReportRow
   breadcrumb?: { label: string; to?: string }[]
 }) {
+  const navigate = useNavigate()
   const [sessionFilters, setSessionFilters] = useState<DashboardFilter[]>(row.filters)
   const { datasets, loading } = useInternkontrollDatasets(sessionFilters)
   const accent = getDashboardScope(row.scopeId)?.accent
@@ -78,6 +85,11 @@ export function InternkontrollDashboardSystemReport({
       filters={sessionFilters}
       dimensions={dimensions}
       onFiltersChange={setSessionFilters}
+      onDrillDown={(e) => {
+        if (e.dimensionId !== 'framework') return
+        const id = FRAMEWORK_BY_LABEL[e.segmentLabel]
+        if (id) navigate(`/overview/internkontroll/gaps?framework=${id}`)
+      }}
     />
   )
 }

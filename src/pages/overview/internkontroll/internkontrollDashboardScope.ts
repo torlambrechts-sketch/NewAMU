@@ -189,4 +189,24 @@ registerDashboardScope({
   // Audit-burgundy — reads as gravitas without alarm. Distinct from
   // compliance brand green, hms_overview indigo, and brand neutral.
   accent: '#7F1D1D',
+  // Filter dimensions exposed to the dashboard editor. The framework
+  // chip is also added inline by the two system-report renderers so
+  // session-local filtering works even on the locked layouts.
+  dimensions: [
+    {
+      id: 'framework',
+      label: 'Regelverk',
+      description: 'Begrenser dekning og gap-matrise til valgt regelverk.',
+      kind: 'enum',
+      defaultOperator: 'is',
+      operatorOptions: ['is'],
+      loadOptions: () => [
+        { id: 'aml', label: 'AML — Arbeidsmiljøloven' },
+        { id: 'ik-f', label: 'IK-f — Internkontrollforskriften' },
+        { id: 'gdpr', label: 'GDPR — Personopplysningsloven' },
+        { id: 'apenhetsloven', label: 'Åpenhetsloven' },
+        { id: 'iso-45001', label: 'ISO 45001 — NS-EN ISO 45001:2018' },
+      ],
+    },
+  ],
 })

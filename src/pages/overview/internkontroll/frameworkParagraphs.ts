@@ -163,20 +163,23 @@ const APENHETSLOVEN_PARAGRAPHS: FrameworkParagraph[] = [
   { code: 'Åpenhetsloven § 8', chapter: 'Tilsyn og sanksjoner' },
 ]
 
+// ISO 45001 paragraphs are consistently seeded as "ISO 45001:2018 § N"
+// in the meetings module (RUN_MEETINGS_MODULE.sql) and elsewhere — keep
+// this format to match seeded law_refs[] entries via exact string equality.
 const ISO_45001_PARAGRAPHS: FrameworkParagraph[] = [
-  { code: 'ISO 45001 § 4', chapter: 'Konteksten til virksomheten' },
-  { code: 'ISO 45001 § 5', chapter: 'Lederskap og medvirkning' },
-  { code: 'ISO 45001 § 5.4', chapter: 'Lederskap og medvirkning' },
-  { code: 'ISO 45001 § 6', chapter: 'Planlegging' },
-  { code: 'ISO 45001 § 6.1.2', chapter: 'Planlegging' },
-  { code: 'ISO 45001 § 7', chapter: 'Støtte' },
-  { code: 'ISO 45001 § 7.2', chapter: 'Støtte' },
-  { code: 'ISO 45001 § 7.4', chapter: 'Støtte' },
-  { code: 'ISO 45001 § 8', chapter: 'Drift' },
-  { code: 'ISO 45001 § 9', chapter: 'Vurdering av prestasjon' },
-  { code: 'ISO 45001 § 9.2', chapter: 'Vurdering av prestasjon' },
-  { code: 'ISO 45001 § 9.3', chapter: 'Vurdering av prestasjon' },
-  { code: 'ISO 45001 § 10', chapter: 'Forbedring' },
+  { code: 'ISO 45001:2018 § 4', chapter: 'Konteksten til virksomheten' },
+  { code: 'ISO 45001:2018 § 5', chapter: 'Lederskap og medvirkning' },
+  { code: 'ISO 45001:2018 § 5.4', chapter: 'Lederskap og medvirkning' },
+  { code: 'ISO 45001:2018 § 6', chapter: 'Planlegging' },
+  { code: 'ISO 45001:2018 § 6.1.2', chapter: 'Planlegging' },
+  { code: 'ISO 45001:2018 § 7', chapter: 'Støtte' },
+  { code: 'ISO 45001:2018 § 7.2', chapter: 'Støtte' },
+  { code: 'ISO 45001:2018 § 7.4', chapter: 'Støtte' },
+  { code: 'ISO 45001:2018 § 8', chapter: 'Drift' },
+  { code: 'ISO 45001:2018 § 9', chapter: 'Vurdering av prestasjon' },
+  { code: 'ISO 45001:2018 § 9.2', chapter: 'Vurdering av prestasjon' },
+  { code: 'ISO 45001:2018 § 9.3', chapter: 'Vurdering av prestasjon' },
+  { code: 'ISO 45001:2018 § 10', chapter: 'Forbedring' },
 ]
 
 export const FRAMEWORKS: Record<FrameworkId, FrameworkDef> = {

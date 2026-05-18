@@ -3,12 +3,11 @@
 // Dispatched from <SystemReport /> when the row's scopeId is
 // 'internkontroll' and its slug is 'internkontroll-gap-analysis'.
 // Shows the full paragraphs × 5 modules heatmap plus a compact KPI
-// strip. Cell drill-down navigates to the corresponding module's
-// analyse page filtered by ?law_ref=… (Phase 1) — Phase 2 will swap
-// the navigation for an in-page paragraph inspector slide-over.
+// strip. Cell drill-down opens an in-page paragraph inspector with
+// covering artefacts + plan items (Phase 2 + Phase 3).
 
 import { useMemo, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useSearchParams } from 'react-router-dom'
 import { ModuleAnalyticsDashboard } from '../../../components/module/ModuleAnalyticsDashboard'
 import { getDashboardScope } from '../../../lib/dashboards/dashboardRegistry'
 import type { SystemReportRow } from '../../../lib/dashboards/useSystemReport'
@@ -16,12 +15,14 @@ import type {
   DashboardDimension,
   DashboardFilter,
 } from '../../../lib/dashboards/dashboardFilters'
+import { freshId } from '../../../lib/dashboards/freshId'
 import { useInternkontrollDatasets } from './useInternkontrollDatasets'
+import { useCompliancePlanItems } from './useCompliancePlanItems'
+import { ParagraphInspectorPanel } from './ParagraphInspectorPanel'
 import {
   FRAMEWORKS,
   FRAMEWORK_IDS,
-  GAP_MODULE_COLUMNS,
-  GAP_MODULE_ROUTES,
+  type FrameworkId,
 } from './frameworkParagraphs'
 import './internkontrollDashboardScope'
 
@@ -32,10 +33,26 @@ export function InternkontrollGapSystemReport({
   row: SystemReportRow
   breadcrumb?: { label: string; to?: string }[]
 }) {
-  const navigate = useNavigate()
-  const [sessionFilters, setSessionFilters] = useState<DashboardFilter[]>(row.filters)
-  const { datasets, loading } = useInternkontrollDatasets(sessionFilters)
+  const [searchParams] = useSearchParams()
+  const [sessionFilters, setSessionFilters] = useState<DashboardFilter[]>(() => {
+    const urlFramework = searchParams.get('framework')
+    if (urlFramework && (FRAMEWORK_IDS as readonly string[]).includes(urlFramework)) {
+      return [
+        ...row.filters.filter((f) => f.dimensionId !== 'framework'),
+        { id: freshId('f'), dimensionId: 'framework', operator: 'is', value: urlFramework },
+      ]
+    }
+    return row.filters
+  })
+  const { datasets, loading, framework, entriesFor } =
+    useInternkontrollDatasets(sessionFilters)
   const accent = getDashboardScope(row.scopeId)?.accent
+
+  // Plan items for the active framework — loaded once, indexed by
+  // law_ref so the inspector lookup is O(1).
+  const planItems = useCompliancePlanItems(framework)
+
+  const [openLawRef, setOpenLawRef] = useState<string | null>(null)
 
   const dimensions: DashboardDimension[] = useMemo(
     () => [
@@ -56,29 +73,59 @@ export function InternkontrollGapSystemReport({
     [],
   )
 
+  const inspectorData = useMemo(() => {
+    if (!openLawRef) return null
+    const { entries, registerMatches } = entriesFor(openLawRef)
+    const items = planItems.itemsByLawRef.get(openLawRef) ?? []
+    return { entries, registerMatches, items }
+  }, [openLawRef, entriesFor, planItems.itemsByLawRef])
+
   return (
-    <ModuleAnalyticsDashboard
-      accent={accent}
-      breadcrumb={breadcrumb}
-      title={row.name}
-      description={row.description ?? undefined}
-      layout={row.layout}
-      datasets={datasets as unknown as Record<string, unknown>}
-      loading={loading}
-      filters={sessionFilters}
-      dimensions={dimensions}
-      onFiltersChange={setSessionFilters}
-      onDrillDown={(e) => {
-        if (e.dimensionId !== 'gap_cell') return
-        // segmentLabel is encoded `${paragraph}::${moduleLabel}` by the
-        // heatmap renderer.
-        const [paragraph, moduleLabel] = e.segmentLabel.split('::')
-        if (!paragraph || !moduleLabel) return
-        const col = GAP_MODULE_COLUMNS.find((c) => c.label === moduleLabel)
-        if (!col) return
-        const route = GAP_MODULE_ROUTES[col.id]
-        navigate(`${route}?law_ref=${encodeURIComponent(paragraph)}`)
-      }}
-    />
+    <>
+      <ModuleAnalyticsDashboard
+        accent={accent}
+        breadcrumb={breadcrumb}
+        title={row.name}
+        description={row.description ?? undefined}
+        layout={row.layout}
+        datasets={datasets as unknown as Record<string, unknown>}
+        loading={loading}
+        filters={sessionFilters}
+        dimensions={dimensions}
+        onFiltersChange={setSessionFilters}
+        onDrillDown={(e) => {
+          if (e.dimensionId !== 'gap_cell') return
+          const [paragraph] = e.segmentLabel.split('::')
+          if (paragraph) setOpenLawRef(paragraph)
+        }}
+      />
+
+      <ParagraphInspectorPanel
+        open={openLawRef !== null && inspectorData !== null}
+        framework={framework as FrameworkId}
+        lawRef={openLawRef}
+        entries={inspectorData?.entries ?? []}
+        registerMatches={inspectorData?.registerMatches ?? []}
+        planItems={inspectorData?.items ?? []}
+        onClose={() => setOpenLawRef(null)}
+        onCreatePlanItem={async (input) => {
+          if (!openLawRef) return
+          await planItems.createItem({
+            law_ref: openLawRef,
+            framework_id: framework as FrameworkId,
+            title: input.title,
+            description: input.description,
+            status: input.status,
+            due_at: input.dueAt,
+          })
+        }}
+        onUpdatePlanItem={async (id, patch) => {
+          await planItems.updateItem(id, patch)
+        }}
+        onDeletePlanItem={async (id) => {
+          await planItems.deleteItem(id)
+        }}
+      />
+    </>
   )
 }

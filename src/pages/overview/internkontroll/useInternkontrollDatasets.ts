@@ -7,6 +7,10 @@
 //   internkontroll_gap_matrix        (heatmap — paragraphs × 5 modules)
 //   internkontroll_recent_evidence   (rows — last execution events)
 //
+// The hook also exposes the raw coverage map + register rows so the
+// Phase 2 paragraph inspector can read per-paragraph entries without
+// re-fetching the same data.
+//
 // The Phase-1 evidence ledger is intentionally a stub: it emits a row
 // per template-side entry from useRegelverkCoverage so the dashboard
 // has *something* to render. Phase 2 swaps in the proper
@@ -17,6 +21,7 @@ import type { DashboardFilter } from '../../../lib/dashboards/dashboardFilters'
 import {
   useRegelverkCoverage,
   type CoverageEntry,
+  type CoverageMap,
 } from '../../../hooks/useRegelverkCoverage'
 import { useOrgSetupContext } from '../../../hooks/useOrgSetupContext'
 import {
@@ -27,6 +32,8 @@ import {
 } from './frameworkParagraphs'
 
 type RegisterCoverageRow = { id: string; label: string; aml_paragraphs: string[] | null }
+
+export type RegisterCoverageMatch = { id: string; label: string }
 
 function normalizeLawRef(ref: string): string {
   return ref.replace(/\s+/g, ' ').replace(/§\s*/g, '§ ').trim()
@@ -70,6 +77,15 @@ export function useInternkontrollDatasets(filters: DashboardFilter[]): {
   datasets: InternkontrollDatasets
   loading: boolean
   framework: FrameworkId
+  /** Raw coverage map — passed to the paragraph inspector. */
+  coverage: CoverageMap
+  /** Register rows that reference an AML paragraph — used by the inspector. */
+  registerRows: RegisterCoverageRow[]
+  /** Helper for the inspector — read entries for a paragraph + register matches. */
+  entriesFor: (lawRef: string) => {
+    entries: CoverageEntry[]
+    registerMatches: RegisterCoverageMatch[]
+  }
 } {
   const { coverage, loading: coverageLoading } = useRegelverkCoverage()
   const { supabase, organization } = useOrgSetupContext()
@@ -198,9 +214,23 @@ export function useInternkontrollDatasets(filters: DashboardFilter[]): {
     [kpiSummary, frameworkCoverage, matrix, recentEvidence],
   )
 
+  const entriesFor = useMemo(() => {
+    return (lawRef: string) => {
+      const norm = normalizeLawRef(lawRef)
+      const entries: CoverageEntry[] = coverage.get(norm) ?? []
+      const registerMatches: RegisterCoverageMatch[] = registerRows
+        .filter((r) => (r.aml_paragraphs ?? []).includes(lawRef))
+        .map((r) => ({ id: r.id, label: r.label }))
+      return { entries, registerMatches }
+    }
+  }, [coverage, registerRows])
+
   return {
     datasets,
     loading: coverageLoading || registersLoading,
     framework,
+    coverage,
+    registerRows,
+    entriesFor,
   }
 }
