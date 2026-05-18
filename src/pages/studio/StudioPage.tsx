@@ -23,6 +23,7 @@ import { ScopePicker } from '../../components/studio/shell/ScopePicker'
 import { ModeToggle } from '../../components/studio/shell/ModeToggle'
 import { SimpleModeCards } from '../../components/studio/shell/SimpleModeCards'
 import { AdvancedShell } from '../../components/studio/shell/AdvancedShell'
+import { PartnerOrgSwitcher } from '../../components/studio/shell/PartnerOrgSwitcher'
 import { useStudioMode } from '../../hooks/useStudioMode'
 import { emitStudioTelemetry } from '../../lib/studio/telemetry'
 import type { StudioTelemetryEvent } from '../../lib/studio/studioTypes'
@@ -77,7 +78,10 @@ export function StudioPage() {
           : 'Velg en innholdstype for å begynne. Enkel-modus tar deg gjennom en kort veiviser; Avansert åpner kanvas + inspektør.'
       }
       headerActions={
-        <ModeToggle mode={effectiveMode} canUseAdvanced={canUseAdvanced} onChange={handleModeChange} />
+        <div className="flex items-center gap-2">
+          <PartnerOrgSwitcher />
+          <ModeToggle mode={effectiveMode} canUseAdvanced={canUseAdvanced} onChange={handleModeChange} />
+        </div>
       }
     >
       {!activeScope ? (
