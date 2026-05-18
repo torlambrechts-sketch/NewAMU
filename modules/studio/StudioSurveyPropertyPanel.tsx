@@ -128,7 +128,7 @@ function QuestionPanel({
           <label className={WPSTD_FORM_FIELD_LABEL}>SVARALTERNATIVER</label>
           <div className="space-y-1.5">
             {(block.options ?? []).map((opt, i) => (
-              <div key={i} className="flex items-center gap-1.5">
+              <div key={`opt-${i}`} className="flex items-center gap-1.5">
                 <StandardInput
                   value={opt}
                   onChange={(e) => updateOption(i, e.target.value)}

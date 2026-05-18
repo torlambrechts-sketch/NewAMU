@@ -87,7 +87,21 @@ export const CatalogRowForListSchema = z.object({
   law_ref: z.string().nullable().optional(),
   body: CatalogTemplateBodySchema,
   is_active: z.boolean().default(true),
-  pack: z.enum(['vendor', 'arbeidsmiljo', 'compliance', 'engagement', 'exit']).default('engagement'),
+  pack: z
+    .enum([
+      // Legacy catalog values (pre-Studio)
+      'vendor',
+      'arbeidsmiljo',
+      'compliance',
+      // Studio-era values
+      'engagement',
+      'safety',
+      'onboarding',
+      'pulse',
+      'exit',
+      'custom',
+    ])
+    .default('engagement'),
   created_at: z.string().optional(),
   updated_at: z.string().optional(),
 })

@@ -75,7 +75,7 @@ function rowToMeta(row: SurveyTemplateCatalogRow) {
     description: row.description ?? '',
     category: row.category,
     audience: row.audience,
-    estimatedMinutes: row.estimated_minutes,
+    estimatedMinutes: row.estimated_minutes ?? 5,
     pack: row.pack,
   }
 }
@@ -93,15 +93,19 @@ export function useSurveyStudio(templateId: string, fromTemplateId?: string) {
   const [templateCategory, setTemplateCategory] = useState('custom')
   const [templateAudience, setTemplateAudience] = useState<'internal' | 'external' | 'both'>('internal')
   const [templatePack, setTemplatePack] = useState<SurveyTemplateCatalogRow['pack']>('engagement')
+  const [templateEstimatedMinutes, setTemplateEstimatedMinutes] = useState(5)
   const [isSystemTemplate, setIsSystemTemplate] = useState(false)
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState<string | null>(null)
   const [saveStatus, setSaveStatus] = useState<StudioSaveStatus>('idle')
+  const [saveError, setSaveError] = useState<string | null>(null)
   const [lastSavedAt, setLastSavedAt] = useState<Date | null>(null)
   const [rowId, setRowId] = useState<string | null>(templateId === 'new' ? null : templateId)
 
   const rowIdRef = useRef<string | null>(templateId === 'new' ? null : templateId)
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  // Prevents concurrent persist calls (e.g. publish racing with auto-save)
+  const savingRef = useRef(false)
   const blocksRef = useRef<StudioBlock[]>(blocks)
   const metaRef = useRef({
     name: templateName,
@@ -109,6 +113,7 @@ export function useSurveyStudio(templateId: string, fromTemplateId?: string) {
     category: templateCategory,
     audience: templateAudience,
     pack: templatePack,
+    estimatedMinutes: templateEstimatedMinutes,
   })
 
   // ─── Load ────────────────────────────────────────────────────────────────
@@ -147,13 +152,13 @@ export function useSurveyStudio(templateId: string, fromTemplateId?: string) {
         const row = parsed.data
         const isSys = row.is_system && row.organization_id == null
 
-        // When copying: pre-fill from source but don't write to it
         const meta = rowToMeta(row)
         setTemplateName(templateId === 'new' ? `${row.name} (kopi)` : row.name)
         setTemplateDescription(meta.description)
         setTemplateCategory(meta.category)
         setTemplateAudience(meta.audience)
         setTemplatePack(meta.pack)
+        setTemplateEstimatedMinutes(meta.estimatedMinutes)
         setIsSystemTemplate(isSys && templateId !== 'new')
 
         const rawStudio = (data as Record<string, unknown>).studio_blocks
@@ -180,8 +185,9 @@ export function useSurveyStudio(templateId: string, fromTemplateId?: string) {
       category: templateCategory,
       audience: templateAudience,
       pack: templatePack,
+      estimatedMinutes: templateEstimatedMinutes,
     }
-  }, [templateName, templateDescription, templateCategory, templateAudience, templatePack])
+  }, [templateName, templateDescription, templateCategory, templateAudience, templatePack, templateEstimatedMinutes])
 
   // Clear pending debounce on unmount
   useEffect(() => {
@@ -195,38 +201,41 @@ export function useSurveyStudio(templateId: string, fromTemplateId?: string) {
   const persist = useCallback(
     async (publishNow = false) => {
       if (!supabase || !organization?.id) return
-      if (isSystemTemplate) return // read-only
+      if (isSystemTemplate) return // read-only; RLS also enforces this at DB level
+      if (savingRef.current) return // prevent concurrent writes
+      savingRef.current = true
       setSaveStatus('saving')
-      const currentBlocks = blocksRef.current
-      const { name, description, category, audience, pack } = metaRef.current
-      const questions = blocksToQuestions(currentBlocks)
+      setSaveError(null)
 
-      const payload = {
-        organization_id: organization.id,
-        is_system: false,
-        name: name.trim() || 'Ny mal',
-        short_name: null,
-        description: description || null,
-        source: 'Organisasjon',
-        use_case: 'Egen mal',
-        category,
-        audience,
-        estimated_minutes: 5,
-        recommend_anonymous: true,
-        scoring_note: null,
-        law_ref: null,
-        pack,
-        body: { version: 1, questions },
-        studio_blocks: currentBlocks,
-        is_active: publishNow ? true : rowIdRef.current ? undefined : false,
-      }
+      const currentBlocks = blocksRef.current
+      const { name, description, category, audience, pack, estimatedMinutes } = metaRef.current
+      const questions = blocksToQuestions(currentBlocks)
 
       try {
         if (!rowIdRef.current) {
-          // INSERT new org template
+          // INSERT new org template — force is_active=false until explicit publish
           const { data, error } = await supabase
             .from('survey_template_catalog')
-            .insert({ ...payload, id: freshId('tpl'), is_active: publishNow })
+            .insert({
+              id: freshId('tpl'),
+              organization_id: organization.id,
+              is_system: false,
+              name: name.trim() || 'Ny mal',
+              short_name: null,
+              description: description || null,
+              source: 'Organisasjon',
+              use_case: 'Egen mal',
+              category,
+              audience,
+              estimated_minutes: estimatedMinutes,
+              recommend_anonymous: true,
+              scoring_note: null,
+              law_ref: null,
+              pack,
+              body: { version: 1, questions },
+              studio_blocks: currentBlocks,
+              is_active: publishNow,
+            })
             .select('id')
             .single()
           if (error) throw error
@@ -234,12 +243,13 @@ export function useSurveyStudio(templateId: string, fromTemplateId?: string) {
           setRowId(data.id)
         } else {
           const updatePayload: Record<string, unknown> = {
-            name: payload.name,
-            description: payload.description,
-            category: payload.category,
-            audience: payload.audience,
-            body: payload.body,
-            studio_blocks: payload.studio_blocks,
+            name: name.trim() || 'Ny mal',
+            description: description || null,
+            category,
+            audience,
+            estimated_minutes: estimatedMinutes,
+            body: { version: 1, questions },
+            studio_blocks: currentBlocks,
             updated_at: new Date().toISOString(),
           }
           if (publishNow) updatePayload.is_active = true
@@ -247,25 +257,33 @@ export function useSurveyStudio(templateId: string, fromTemplateId?: string) {
             .from('survey_template_catalog')
             .update(updatePayload)
             .eq('id', rowIdRef.current)
-            .eq('organization_id', organization.id)
+            .eq('organization_id', organization.id) // redundant with RLS but explicit
           if (error) throw error
         }
         setSaveStatus('saved')
         setLastSavedAt(new Date())
-      } catch {
+      } catch (err) {
+        console.error('[useSurveyStudio] persist failed', err)
+        const msg = err instanceof Error ? err.message : 'Ukjent feil ved lagring'
         setSaveStatus('error')
+        setSaveError(msg)
+      } finally {
+        savingRef.current = false
       }
     },
     [supabase, organization?.id, isSystemTemplate],
   )
 
   const scheduleSave = useCallback(() => {
+    if (savingRef.current) return // skip schedule if a save is already in-flight
     if (debounceRef.current) clearTimeout(debounceRef.current)
     debounceRef.current = setTimeout(() => void persist(false), AUTOSAVE_DELAY_MS)
     setSaveStatus('idle')
   }, [persist])
 
   const publishTemplate = useCallback(async () => {
+    // Cancel any pending debounce — publish will write everything
+    if (debounceRef.current) clearTimeout(debounceRef.current)
     await persist(true)
   }, [persist])
 
@@ -307,10 +325,15 @@ export function useSurveyStudio(templateId: string, fromTemplateId?: string) {
     [scheduleSave],
   )
 
+  // Preserve id and kind to prevent invalid discriminated union states
   const updateBlock = useCallback(
     (id: string, patch: Partial<StudioBlock>) => {
       setBlocks((prev) =>
-        prev.map((b) => (b.id === id ? ({ ...b, ...patch } as StudioBlock) : b)),
+        prev.map((b) =>
+          b.id === id
+            ? ({ ...b, ...patch, id: b.id, kind: b.kind } as StudioBlock)
+            : b,
+        ),
       )
       scheduleSave()
     },
@@ -318,26 +341,27 @@ export function useSurveyStudio(templateId: string, fromTemplateId?: string) {
   )
 
   const updateName = useCallback(
-    (name: string) => {
-      setTemplateName(name)
-      scheduleSave()
-    },
+    (name: string) => { setTemplateName(name); scheduleSave() },
     [scheduleSave],
   )
 
   const updateDescription = useCallback(
-    (description: string) => {
-      setTemplateDescription(description)
-      scheduleSave()
-    },
+    (description: string) => { setTemplateDescription(description); scheduleSave() },
     [scheduleSave],
   )
 
   const updateCategory = useCallback(
-    (category: string) => {
-      setTemplateCategory(category)
-      scheduleSave()
-    },
+    (category: string) => { setTemplateCategory(category); scheduleSave() },
+    [scheduleSave],
+  )
+
+  const updateAudience = useCallback(
+    (audience: 'internal' | 'external' | 'both') => { setTemplateAudience(audience); scheduleSave() },
+    [scheduleSave],
+  )
+
+  const updatePack = useCallback(
+    (pack: SurveyTemplateCatalogRow['pack']) => { setTemplatePack(pack); scheduleSave() },
     [scheduleSave],
   )
 
@@ -348,10 +372,12 @@ export function useSurveyStudio(templateId: string, fromTemplateId?: string) {
     templateCategory,
     templateAudience,
     templatePack,
+    templateEstimatedMinutes,
     isSystemTemplate,
     loading,
     loadError,
     saveStatus,
+    saveError,
     lastSavedAt,
     rowId,
     addBlock,
@@ -361,6 +387,8 @@ export function useSurveyStudio(templateId: string, fromTemplateId?: string) {
     updateName,
     updateDescription,
     updateCategory,
+    updateAudience,
+    updatePack,
     publishTemplate,
   }
 }

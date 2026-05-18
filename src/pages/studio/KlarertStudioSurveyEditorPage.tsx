@@ -47,7 +47,15 @@ import { StudioSurveyPropertyPanel } from '../../../modules/studio/StudioSurveyP
 import { useSurveyStudio } from '../../../modules/studio/useSurveyStudio'
 import type { NewStudioBlock, PaletteItem } from '../../../modules/studio/types'
 
-function SaveIndicator({ status, lastSavedAt }: { status: string; lastSavedAt: Date | null }) {
+function SaveIndicator({
+  status,
+  lastSavedAt,
+  saveError,
+}: {
+  status: string
+  lastSavedAt: Date | null
+  saveError: string | null
+}) {
   if (status === 'saving') {
     return (
       <span className="flex items-center gap-1.5 text-xs text-neutral-400">
@@ -65,7 +73,11 @@ function SaveIndicator({ status, lastSavedAt }: { status: string; lastSavedAt: D
     )
   }
   if (status === 'error') {
-    return <span className="text-xs text-red-500">Lagring feilet</span>
+    return (
+      <span className="text-xs text-red-500" title={saveError ?? undefined}>
+        Lagring feilet
+      </span>
+    )
   }
   return null
 }
@@ -151,7 +163,13 @@ export function KlarertStudioSurveyEditorPage() {
     if (studio.rowId) navigate(`/survey/templates/org/${studio.rowId}`)
   }
 
+  const questionCount = studio.blocks.filter((b) => b.kind === 'question').length
+
   const handlePublish = async () => {
+    if (questionCount === 0) {
+      alert('Legg til minst ett spørsmål før du publiserer.')
+      return
+    }
     await studio.publishTemplate()
     navigate('/studio/survey')
   }
@@ -193,7 +211,11 @@ export function KlarertStudioSurveyEditorPage() {
   const headerActions = (
     <div className="flex items-center gap-3">
       {!studio.isSystemTemplate && (
-        <SaveIndicator status={studio.saveStatus} lastSavedAt={studio.lastSavedAt} />
+        <SaveIndicator
+          status={studio.saveStatus}
+          lastSavedAt={studio.lastSavedAt}
+          saveError={studio.saveError}
+        />
       )}
       <Button
         variant="secondary"

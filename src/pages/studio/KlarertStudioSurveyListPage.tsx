@@ -132,13 +132,7 @@ export function KlarertStudioSurveyListPage() {
                       {/* Left: name + meta */}
                       <button
                         type="button"
-                        onClick={() =>
-                          navigate(
-                            t.isSystem
-                              ? `/studio/survey/${t.id}`
-                              : `/studio/survey/${t.id}`,
-                          )
-                        }
+                        onClick={() => navigate(`/studio/survey/${t.id}`)}
                         className="flex-1 text-left"
                       >
                         <div className="flex items-center gap-2">
