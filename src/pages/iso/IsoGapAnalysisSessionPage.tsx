@@ -35,7 +35,6 @@ export function IsoGapAnalysisSessionPage() {
     error,
     session,
     clauses,
-    responses,
     responseByClauseId,
     upsertResponse,
     completeSession,

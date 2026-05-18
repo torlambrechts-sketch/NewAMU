@@ -99,7 +99,7 @@ export function IsoGapAnalysisHubPage() {
                 return (
                   <Button
                     key={standard}
-                    variant="outline"
+                    variant="secondary"
                     size="sm"
                     icon={<Icon className="h-3.5 w-3.5" />}
                     onClick={() => handleNewSession(standard)}

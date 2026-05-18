@@ -8,7 +8,7 @@
 // dashboard renders placeholder KPIs immediately without flicker.
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { useOrgSetupContext } from '../../hooks/useOrgSetupContext'
+import { useOrgSetupContext } from '../../../hooks/useOrgSetupContext'
 
 type GapScores = {
   iso_9001: number | null
@@ -103,7 +103,8 @@ export function useIsoImsDatasets(): IsoImsDatasetsResult & { loading: boolean }
         .eq('organization_id', orgId)
 
       const total = soaRows?.length ?? 0
-      const implemented = soaRows?.filter((r) => r.implementation_status === 'implemented').length ?? 0
+      const implemented = (soaRows as Array<{ implementation_status: string }> | null)
+        ?.filter((r) => r.implementation_status === 'implemented').length ?? 0
       const soaStats: SoAStats = {
         implementedCount: implemented,
         totalCount: total || 93,
@@ -166,7 +167,8 @@ export function useIsoImsDatasets(): IsoImsDatasetsResult & { loading: boolean }
         .order('scheduled_for', { ascending: true })
         .limit(10)
 
-      const auditSchedule: AuditRow[] = (auditRows ?? []).map((r) => ({
+      type AuditQueryRow = { title: string; pack: string; status: string; scheduled_for: string | null }
+      const auditSchedule: AuditRow[] = (auditRows as AuditQueryRow[] ?? []).map((r) => ({
         title: r.title,
         standard: r.pack,
         scheduledFor: r.scheduled_for,
@@ -182,10 +184,11 @@ export function useIsoImsDatasets(): IsoImsDatasetsResult & { loading: boolean }
         .order('created_at', { ascending: false })
         .limit(10)
 
-      const recentFindings: FindingRow[] = (findingRows ?? [])
+      type FindingQueryRow = { item_key: string; severity: string | null; created_at: string; executions: { pack: string; title: string } | null }
+      const recentFindings: FindingRow[] = (findingRows as FindingQueryRow[] ?? [])
         .filter((r) => {
-          const exec = r.executions as { pack: string; title: string } | null
-          return exec && ['iso-9001', 'iso-14001', 'iso-45001', 'iso-27001'].includes(exec.pack)
+          const exec = r.executions
+          return exec !== null && ['iso-9001', 'iso-14001', 'iso-45001', 'iso-27001'].includes(exec.pack)
         })
         .map((r) => {
           const exec = r.executions as { pack: string; title: string }

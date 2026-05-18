@@ -12,7 +12,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { z } from 'zod'
 import { useOrgSetupContext } from './useOrgSetupContext'
 import { getSupabaseErrorMessage } from '../lib/supabaseError'
-import type { AnnexAControl, IsoSoAEntry, SoAImplementationStatus, AnnexATheme } from '../types/iso'
+import type { AnnexAControl, IsoSoAEntry, SoAImplementationStatus } from '../types/iso'
 
 // ── Schemas ───────────────────────────────────────────────────────────────────
 
@@ -179,7 +179,6 @@ export function useIsoSoA(): UseIsoSoAReturn {
       if (!supabase || !orgId) return
       setError(null)
       try {
-        const current = entryByControlId.get(input.controlId)
         const update: Record<string, unknown> = {
           organization_id: orgId,
           control_id: input.controlId,

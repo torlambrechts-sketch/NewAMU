@@ -187,7 +187,7 @@ export function IsoSettingsPage() {
                         </div>
                       </div>
                       <Button
-                        variant="outline"
+                        variant="secondary"
                         size="sm"
                         onClick={() => handleActivate(standard)}
                         disabled={toggling === standard}
@@ -221,11 +221,10 @@ export function IsoSettingsPage() {
                 Avbryt
               </Button>
               <Button
-                variant="outline"
+                variant="danger"
                 size="sm"
                 onClick={() => handleDeactivate(confirming)}
                 disabled={toggling === confirming}
-                className="border-red-300 text-red-600 hover:bg-red-50"
               >
                 {toggling === confirming ? 'Deaktiverer…' : 'Deaktiver standard'}
               </Button>

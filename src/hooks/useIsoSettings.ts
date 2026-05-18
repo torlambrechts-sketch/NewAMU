@@ -13,7 +13,6 @@ import { useOrgSetupContext } from './useOrgSetupContext'
 import { usePacks } from '../../modules/compliance/usePacks'
 import { getSupabaseErrorMessage } from '../lib/supabaseError'
 import type { IsoSettings, IsoStandard } from '../types/iso'
-import { ISO_STANDARDS } from '../types/iso'
 
 const IsoSettingsRowSchema = z.object({
   id: z.string().uuid(),

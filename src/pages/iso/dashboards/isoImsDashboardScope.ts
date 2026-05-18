@@ -87,7 +87,7 @@ const BAR_OPEN_CAPAS: ReportModuleBar = {
   kind: 'bar',
   datasetKey: 'iso_open_capas_by_standard',
   title: 'Åpne tiltak per standard',
-  segmentsPath: '',
+  seriesKeys: [],
   colSpan: 'md',
 }
 
@@ -109,7 +109,7 @@ const TABLE_AUDIT_SCHEDULE: ReportModuleTable = {
   kind: 'table',
   datasetKey: 'iso_audit_schedule',
   title: 'Kommende revisjoner',
-  rowsPath: '',
+  rowKeys: [],
   columns: [
     { key: 'title',       label: 'Revisjon' },
     { key: 'standard',    label: 'Standard' },
@@ -123,7 +123,7 @@ const TABLE_RECENT_FINDINGS: ReportModuleTable = {
   kind: 'table',
   datasetKey: 'iso_recent_findings',
   title: 'Siste avvik fra revisjoner',
-  rowsPath: '',
+  rowKeys: [],
   columns: [
     { key: 'title',     label: 'Avvik' },
     { key: 'standard',  label: 'Standard' },
