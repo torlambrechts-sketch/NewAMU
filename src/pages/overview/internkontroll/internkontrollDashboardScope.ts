@@ -80,14 +80,13 @@ const KPI_UNCOVERED: ReportModuleKpi = {
   comparisonGoal: 'decrease',
   colSpan: 'sm',
 }
-const KPI_OPEN_PALEGG: ReportModuleKpi = {
-  id: 'kpi-internkontroll-open-palegg',
+const KPI_OPEN_PLAN_ITEMS: ReportModuleKpi = {
+  id: 'kpi-internkontroll-open-plan-items',
   kind: 'kpi',
   datasetKey: 'internkontroll_kpi_summary',
-  title: 'Åpne pålegg',
-  valuePath: 'openPalegg',
-  subtitle: 'Tilsynssaker uten lukking (Phase 2)',
-  comparisonGoal: 'decrease',
+  title: 'Tiltak i arbeid',
+  valuePath: 'openPlanItems',
+  subtitle: 'Plan-tiltak med status pågående',
   colSpan: 'sm',
 }
 
@@ -130,7 +129,7 @@ const DEFAULT_LAYOUT: ReportModule[] = [
   KPI_COVERAGE_PCT,
   KPI_COVERED,
   KPI_UNCOVERED,
-  KPI_OPEN_PALEGG,
+  KPI_OPEN_PLAN_ITEMS,
   BAR_FRAMEWORK_COVERAGE,
   TABLE_RECENT_EVIDENCE,
 ]
@@ -155,10 +154,10 @@ const WIDGET_CATALOG: WidgetCatalogEntry[] = [
     template: KPI_UNCOVERED,
   },
   {
-    catalogId: 'kpi-internkontroll-open-palegg',
+    catalogId: 'kpi-internkontroll-open-plan-items',
     category: 'KPI',
-    label: 'Åpne pålegg',
-    template: KPI_OPEN_PALEGG,
+    label: 'Tiltak i arbeid',
+    template: KPI_OPEN_PLAN_ITEMS,
   },
   {
     catalogId: 'bar-internkontroll-framework-coverage',

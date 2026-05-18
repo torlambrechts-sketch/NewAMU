@@ -32,11 +32,25 @@ import {
 } from './frameworkParagraphs'
 
 type RegisterCoverageRow = { id: string; label: string; aml_paragraphs: string[] | null }
+type PlanItemStatusRow = { status: string }
 
 export type RegisterCoverageMatch = { id: string; label: string }
 
 function normalizeLawRef(ref: string): string {
   return ref.replace(/\s+/g, ' ').replace(/§\s*/g, '§ ').trim()
+}
+
+// Dedupe coverage entries by `${kind}:${id}` so a single source resource
+// is counted once even when it surfaces multiple times in the coverage
+// hook (e.g. a checklist_template whose N items each tag the same §
+// would produce 1 template entry + N item entries — all pointing at the
+// same template id). Without dedup, a single checklist with 3 items can
+// inflate the "Sjekklister" cell to 4. Mirrors the dedup pattern used
+// by useRegelverkDatasets.
+function dedupeEntries(entries: CoverageEntry[]): CoverageEntry[] {
+  const m = new Map<string, CoverageEntry>()
+  for (const e of entries) m.set(`${e.kind}:${e.id}`, e)
+  return [...m.values()]
 }
 
 function pickFilterValue(filters: DashboardFilter[], dimensionId: string): string | null {
@@ -55,8 +69,10 @@ export type InternkontrollDatasets = {
     paragraphsCovered: number
     pctCoverage: number
     paragraphsUncovered: number
-    /** Placeholder until tilsynssaker register is wired in Phase 2. */
-    openPalegg: number
+    /** Count of compliance_plan_items with status='in_progress' across
+     *  the active framework. Real metric — when zero, leaders know
+     *  the closure backlog hasn't been picked up. */
+    openPlanItems: number
   }
   internkontroll_framework_coverage: Record<string, number>
   internkontroll_gap_matrix: {
@@ -91,6 +107,7 @@ export function useInternkontrollDatasets(filters: DashboardFilter[]): {
   const { supabase, organization } = useOrgSetupContext()
   const [registerRows, setRegisterRows] = useState<RegisterCoverageRow[]>([])
   const [registersLoading, setRegistersLoading] = useState<boolean>(true)
+  const [openPlanItems, setOpenPlanItems] = useState<number>(0)
 
   useEffect(() => {
     if (!supabase || !organization?.id) {
@@ -118,6 +135,34 @@ export function useInternkontrollDatasets(filters: DashboardFilter[]): {
     }
   }, [supabase, organization?.id])
 
+  // Count compliance_plan_items in 'in_progress' status for the active
+  // org — used by the "Tiltak i arbeid" KPI on the dashboard. Cheap
+  // single-row query; refreshed whenever the org changes.
+  useEffect(() => {
+    if (!supabase || !organization?.id) {
+      setOpenPlanItems(0)
+      return
+    }
+    let cancelled = false
+    void supabase
+      .from('compliance_plan_items')
+      .select('status', { count: 'exact', head: false })
+      .eq('organization_id', organization.id)
+      .eq('status', 'in_progress')
+      .is('deleted_at', null)
+      .then(({ data, error }) => {
+        if (cancelled) return
+        if (error) {
+          setOpenPlanItems(0)
+          return
+        }
+        setOpenPlanItems(((data as PlanItemStatusRow[] | null) ?? []).length)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [supabase, organization?.id])
+
   const framework: FrameworkId = (pickFilterValue(filters, 'framework') as FrameworkId | null) ?? 'aml'
 
   // Resolve coverage entries per paragraph and module column.
@@ -126,7 +171,7 @@ export function useInternkontrollDatasets(filters: DashboardFilter[]): {
     const paragraphCodes = def.paragraphs.map((p) => p.code)
     const cells: number[][] = paragraphCodes.map((code) => {
       const norm = normalizeLawRef(code)
-      const entries: CoverageEntry[] = coverage.get(norm) ?? []
+      const entries = dedupeEntries(coverage.get(norm) ?? [])
       return GAP_MODULE_COLUMNS.map((col) => {
         if (col.id === 'registers') {
           // Registers aren't in useRegelverkCoverage; count from the
@@ -159,9 +204,9 @@ export function useInternkontrollDatasets(filters: DashboardFilter[]): {
       paragraphsCovered: covered,
       pctCoverage: pct,
       paragraphsUncovered: total - covered,
-      openPalegg: 0,
+      openPlanItems,
     }
-  }, [matrix])
+  }, [matrix, openPlanItems])
 
   const frameworkCoverage = useMemo(() => {
     const out: Record<string, number> = {}
@@ -217,7 +262,7 @@ export function useInternkontrollDatasets(filters: DashboardFilter[]): {
   const entriesFor = useMemo(() => {
     return (lawRef: string) => {
       const norm = normalizeLawRef(lawRef)
-      const entries: CoverageEntry[] = coverage.get(norm) ?? []
+      const entries = dedupeEntries(coverage.get(norm) ?? [])
       const registerMatches: RegisterCoverageMatch[] = registerRows
         .filter((r) => (r.aml_paragraphs ?? []).includes(lawRef))
         .map((r) => ({ id: r.id, label: r.label }))
