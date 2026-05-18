@@ -165,10 +165,33 @@ async function resolveRecipients(args: {
   const kind = typeof filter.kind === 'string' ? filter.kind : 'org_members_all'
 
   if (kind === 'emails' && Array.isArray((filter as { emails?: unknown }).emails)) {
-    const emails = ((filter as { emails: unknown[] }).emails ?? []).filter(
-      (e): e is string => typeof e === 'string' && e.includes('@'),
-    )
-    return emails.map((email) => ({ email, display_name: null }))
+    // Security (§8.34 round-2 fix): intersect the chair-provided email
+    // list with the org's organization_members directory. This blocks
+    // arbitrary-inbox dispatch where a compromised or malicious chair
+    // could weaponise the org's Resend domain to spam external parties.
+    // Only emails that match a registered org member will be sent.
+    const requested = ((filter as { emails: unknown[] }).emails ?? [])
+      .filter((e): e is string => typeof e === 'string' && e.includes('@'))
+      .map((e) => e.toLowerCase().trim())
+    if (requested.length === 0) return []
+    const { data } = await supabase
+      .from('organization_members')
+      .select('id, display_name, email')
+      .eq('organization_id', orgId)
+      .in('email', requested)
+    const known = (data ?? [])
+      .filter((r): r is { id: string; display_name: string | null; email: string } =>
+        Boolean((r as { email?: string }).email),
+      )
+      .map((r) => ({ email: r.email, display_name: r.display_name }))
+    const knownEmails = new Set(known.map((k) => k.email.toLowerCase()))
+    const dropped = requested.filter((e) => !knownEmails.has(e))
+    if (dropped.length > 0) {
+      console.warn(
+        `send-meeting-digest: dropped ${dropped.length} email(s) not found in organization_members for org ${orgId}`,
+      )
+    }
+    return known
   }
 
   if (kind === 'org_members_role' && typeof (filter as { role?: unknown }).role === 'string') {
@@ -201,7 +224,7 @@ async function dispatchDigest(args: {
   recipientIds: string[] | null
 }): Promise<{
   summary: { recipients_resolved: number; emails_sent: number; emails_failed: number }
-  results: Array<{ recipient_id: string; sent: number; failed: number }>
+  results: Array<{ recipient_id: string; sent: number; failed: number; per_email?: Array<{ email: string; ok: boolean; status?: number; error?: string }> }>
 }> {
   const resendKey = Deno.env.get('RESEND_API_KEY')
   const publicAppUrl = (Deno.env.get('PUBLIC_APP_URL') ?? '').trim() || 'http://localhost:5173'
@@ -245,7 +268,7 @@ async function dispatchDigest(args: {
   const recipients = (recRes.data ?? []) as RecipientRow[]
 
   const meetingUrl = buildMeetingUrl(publicAppUrl, meeting.id)
-  const results: Array<{ recipient_id: string; sent: number; failed: number }> = []
+  const results: Array<{ recipient_id: string; sent: number; failed: number; per_email?: Array<{ email: string; ok: boolean; status?: number; error?: string }> }> = []
   let totalResolved = 0
   let totalSent = 0
   let totalFailed = 0
@@ -268,6 +291,7 @@ async function dispatchDigest(args: {
 
     let sent = 0
     let failed = 0
+    const perEmail: Array<{ email: string; ok: boolean; status?: number; error?: string }> = []
     for (const r of resolved) {
       try {
         const resp = await fetch('https://api.resend.com/emails', {
@@ -283,10 +307,27 @@ async function dispatchDigest(args: {
             html,
           }),
         })
-        if (resp.ok) sent += 1
-        else failed += 1
-      } catch {
+        if (resp.ok) {
+          sent += 1
+          perEmail.push({ email: r.email, ok: true, status: resp.status })
+        } else {
+          failed += 1
+          const text = await resp.text().catch(() => '')
+          perEmail.push({ email: r.email, ok: false, status: resp.status, error: text.slice(0, 200) })
+          console.warn(
+            `send-meeting-digest: Resend ${resp.status} for ${r.email} on meeting ${meeting.id}`,
+          )
+        }
+      } catch (err) {
+        // Re-mirror the per-recipient detail so the chair sees something
+        // useful in the response, not just "failed: N".
         failed += 1
+        perEmail.push({ email: r.email, ok: false, error: (err as Error).message })
+        console.error(
+          `send-meeting-digest: exception sending to ${r.email} on meeting ${meeting.id}:`,
+          (err as Error).message,
+        )
+        continue
       }
     }
 
@@ -300,7 +341,7 @@ async function dispatchDigest(args: {
 
     totalSent += sent
     totalFailed += failed
-    results.push({ recipient_id: recipient.id, sent, failed })
+    results.push({ recipient_id: recipient.id, sent, failed, per_email: perEmail })
   }
 
   return {

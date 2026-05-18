@@ -43,6 +43,7 @@ import { TimeBudgetBar } from '../../../modules/meetings/components/TimeBudgetBa
 import { ParityPanel } from '../../../modules/meetings/components/ParityPanel'
 import { RsvpRosterRow } from '../../../modules/meetings/components/RsvpRosterEditor'
 import { AutoSourceRail } from '../../../modules/meetings/components/AutoSourceRail'
+import { CoiDeclarePanel } from '../../../modules/meetings/components/CoiDeclarePanel'
 import { WPSTD_FORM_FIELD_LABEL } from '../../components/layout/WorkplaceStandardFormPanel'
 import { useOrgSetupContext } from '../../hooks/useOrgSetupContext'
 import { useMeetings, useMeetingDataBindings } from '../../../modules/meetings'
@@ -412,6 +413,8 @@ export function MeetingsDetailView() {
               suggestedSignals={bindings.extraSignalsBySource}
               priorOpenDecisions={meetings.detail.priorOpenDecisions}
               onSave={meetings.setAgendaMinutes}
+              onSaveCoi={meetings.setAgendaConflictOfInterest}
+              agendaMembers={Array.from(memberById.entries()).map(([id, name]) => ({ id, name }))}
               onAddItem={() => {
                 setAgendaEditTarget(null)
                 setAgendaFormOpen(true)
@@ -741,12 +744,14 @@ function AgendaTab({
   suggestedSignals,
   priorOpenDecisions,
   onSave,
+  onSaveCoi,
   onAddItem,
   onEditItem,
   onRemoveItem,
   onReorder,
   onRefreshBinding,
   onAddSuggestedTopic,
+  agendaMembers,
 }: {
   items: MeetingAgendaItemRow[]
   locked: boolean
@@ -754,12 +759,17 @@ function AgendaTab({
   suggestedSignals: Map<MeetingDataBindingSource, RenderedBindingResult>
   priorOpenDecisions: ReturnType<typeof useMeetings>['detail']['priorOpenDecisions']
   onSave: ReturnType<typeof useMeetings>['setAgendaMinutes']
+  onSaveCoi: (
+    agendaItemId: string,
+    entries: Array<{ member_id: string; reason: string }>,
+  ) => Promise<boolean>
   onAddItem: () => void
   onEditItem: (item: MeetingAgendaItemRow) => void
   onRemoveItem: (id: string) => Promise<void>
   onReorder: (orderedIds: string[]) => Promise<void>
   onRefreshBinding: (itemId: string) => Promise<void>
   onAddSuggestedTopic: (topic: SuggestedTopic) => Promise<void>
+  agendaMembers: Array<{ id: string; name: string }>
 }) {
   // Sort by position so up/down reorder operates on the displayed order.
   const ordered = items.slice().sort((a, b) => a.position - b.position)
@@ -840,6 +850,8 @@ function AgendaTab({
                 !locked && idx < ordered.length - 1 ? () => moveDown(idx) : undefined
               }
               onRefreshBinding={() => void onRefreshBinding(item.id)}
+              onSaveCoi={(next) => onSaveCoi(item.id, next)}
+              members={agendaMembers}
             />
           ))}
         </ol>
@@ -853,21 +865,25 @@ function AgendaItemEditor({
   locked,
   binding,
   onSave,
+  onSaveCoi,
   onEdit,
   onRemove,
   onMoveUp,
   onMoveDown,
   onRefreshBinding,
+  members,
 }: {
   item: MeetingAgendaItemRow
   locked: boolean
   binding: RenderedBindingResult | undefined
   onSave: ReturnType<typeof useMeetings>['setAgendaMinutes']
+  onSaveCoi: (next: Array<{ member_id: string; reason: string }>) => Promise<boolean>
   onEdit?: () => void
   onRemove?: () => void
   onMoveUp?: () => void
   onMoveDown?: () => void
   onRefreshBinding: () => void
+  members: Array<{ id: string; name: string }>
 }) {
   const [minutes, setMinutes] = useState(item.minutes_summary ?? '')
   const [decisionText, setDecisionText] = useState(item.decision_text ?? '')
@@ -1140,6 +1156,14 @@ function AgendaItemEditor({
               />
             </div>
           ) : null}
+
+          <CoiDeclarePanel
+            agendaItemId={item.id}
+            current={item.conflict_of_interest}
+            members={members}
+            locked={locked}
+            onSave={onSaveCoi}
+          />
 
           <div className="flex items-center justify-end gap-3 pt-1">
             {savedAt ? <Badge variant="signed">Lagret</Badge> : null}

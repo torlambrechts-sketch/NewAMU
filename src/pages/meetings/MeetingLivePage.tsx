@@ -179,7 +179,10 @@ export default function MeetingLivePage() {
           if (next.active_agenda_item_id !== undefined) {
             setActiveItemId(next.active_agenda_item_id ?? null)
           }
-          if (next.ended_at) {
+          // Explicit non-null/undefined check — `if (next.ended_at)`
+          // would also match empty string / unset and could leave the
+          // UI in "live" mode after a session ends.
+          if (next.ended_at !== null && next.ended_at !== undefined && next.ended_at !== '') {
             setSessionStarted(false)
           }
           setRefreshKey((k) => k + 1)
