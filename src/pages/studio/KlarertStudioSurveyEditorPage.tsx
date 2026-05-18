@@ -173,7 +173,8 @@ export function KlarertStudioSurveyEditorPage() {
   const displayName = studio.templateName || 'Ny spørreundersøkelse'
 
   return (
-    <div className="flex h-full flex-col overflow-hidden bg-[#fafaf9]">
+    <div className="flex h-full flex-col bg-[#fafaf9]">
+      <div className="mx-auto flex w-full max-w-[1400px] flex-1 flex-col overflow-hidden">
       {/* ── Read-only banner (system templates) ───────────────────── */}
       {studio.isSystemTemplate && (
         <div className="flex items-center justify-between border-b border-amber-200 bg-amber-50 px-4 py-2">
@@ -372,6 +373,7 @@ export function KlarertStudioSurveyEditorPage() {
           })()}
         </DragOverlay>
       </DndContext>
+      </div>
     </div>
   )
 }
