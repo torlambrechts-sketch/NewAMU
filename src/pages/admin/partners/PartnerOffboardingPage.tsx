@@ -38,7 +38,7 @@ const BREADCRUMB = [
 ]
 
 export function PartnerOffboardingPage() {
-  const { supabase, organization } = useOrgSetupContext()
+  const { supabase, organization, isAdmin } = useOrgSetupContext()
   const [memberships, setMemberships] = useState<MembershipRow[]>([])
   const [loading, setLoading] = useState(true)
   const [busyId, setBusyId] = useState<string | null>(null)
@@ -141,6 +141,16 @@ export function PartnerOffboardingPage() {
     if (e) setError(e.message)
     setBusyId(null)
     await reload()
+  }
+
+  if (!isAdmin) {
+    return (
+      <ModulePageShell breadcrumb={BREADCRUMB} title="Partner-tilganger">
+        <div className="rounded-md border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
+          Denne siden er kun for organisasjons-administratorer.
+        </div>
+      </ModulePageShell>
+    )
   }
 
   return (

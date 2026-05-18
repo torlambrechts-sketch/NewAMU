@@ -13,17 +13,14 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Loader2, GitCommit } from 'lucide-react'
 import { useOrgSetupContext } from '../../../hooks/useOrgSetupContext'
+import { useStudioRevision, type StudioRevisionRow } from '../../../hooks/useStudioRevision'
 import { Button } from '../../ui/Button'
 
-type RevisionRow = {
-  id: string
-  scope_id: string
-  kind_id: string
-  row_id: string
-  row_table: string
-  changed_at: string
-  change_reason: string | null
-  changed_by: string | null
+// Local row type extends the hook's RevisionRow with the joined
+// reviewer email (the hook returns just the id; we hydrate the email
+// per row inside this component since the hook intentionally stays
+// narrow on what the DB column shape is).
+type RevisionRow = StudioRevisionRow & {
   changed_by_email: string | null
 }
 
@@ -47,6 +44,7 @@ export type VersionTimelineProps = {
 
 export function VersionTimeline({ scopeId }: VersionTimelineProps) {
   const { supabase, organization } = useOrgSetupContext()
+  const studioRevision = useStudioRevision()
   const [rows, setRows] = useState<RevisionRow[]>([])
   const [loading, setLoading] = useState(true)
   const [expanded, setExpanded] = useState(false)
@@ -54,30 +52,35 @@ export function VersionTimeline({ scopeId }: VersionTimelineProps) {
   const reload = useCallback(async () => {
     if (!supabase || !organization) return
     setLoading(true)
-    let q = supabase
-      .from('studio_revisions')
-      .select(`
-        id, scope_id, kind_id, row_id, row_table, changed_at,
-        change_reason, changed_by,
-        profiles:changed_by ( email )
-      `)
-      .eq('organization_id', organization.id)
-      .order('changed_at', { ascending: false })
-      .limit(LIMIT)
-    if (scopeId) q = q.eq('scope_id', scopeId)
-    const { data } = await q
-    type Joined = RevisionRow & {
-      profiles: { email: string | null } | { email: string | null }[] | null
+    // Drive the read through the canonical useStudioRevision hook so
+    // every consumer of studio_revisions data shares one boundary +
+    // benefits from any future read-side enrichment (currently the
+    // hook returns rows verbatim; Phase 2a wires reviewer details).
+    const baseRows = await studioRevision.fetchRevisions(scopeId)
+    // Hydrate reviewer email by joining profiles separately to keep
+    // the hook narrow. RLS lets each user see their own org's profiles.
+    const userIds = Array.from(
+      new Set(baseRows.map((r) => r.changed_by).filter((id): id is string => !!id)),
+    )
+    const emails = new Map<string, string>()
+    if (userIds.length > 0) {
+      const { data } = await supabase
+        .from('profiles')
+        .select('id, email')
+        .in('id', userIds)
+      for (const p of data ?? []) {
+        const row = p as { id: string; email: string | null }
+        if (row.email) emails.set(row.id, row.email)
+      }
     }
-    const pick = <T,>(v: T | T[] | null | undefined): T | null =>
-      v == null ? null : Array.isArray(v) ? v[0] ?? null : v
-    const normalised = ((data ?? []) as unknown as Joined[]).map((r) => ({
-      ...r,
-      changed_by_email: pick(r.profiles)?.email ?? null,
-    }))
-    setRows(normalised)
+    setRows(
+      baseRows.map((r) => ({
+        ...r,
+        changed_by_email: r.changed_by ? emails.get(r.changed_by) ?? null : null,
+      })),
+    )
     setLoading(false)
-  }, [supabase, organization, scopeId])
+  }, [supabase, organization, scopeId, studioRevision])
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- canonical fetch-on-mount; reload internally setStates

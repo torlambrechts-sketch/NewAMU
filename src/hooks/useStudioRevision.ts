@@ -105,20 +105,25 @@ export function useStudioRevision() {
   )
 
   /**
-   * Fetch recent revisions for a row. Phase 2a wires this into the
-   * Studio shell's VersionTimeline panel; Phase 0 just exposes the
-   * helper for testability + early consumers.
+   * Fetch recent revisions. Three modes:
+   *   - fetchRevisions()                    → last N rows for the caller's org
+   *   - fetchRevisions(scopeId)             → last N for one scope
+   *   - fetchRevisions(scopeId, rowId)      → last N for one row
+   * The org filter is implicit via RLS; passing organization here just
+   * keeps the query plan tight on the index.
    */
   const fetchRevisions = useCallback(
-    async (rowTable: string, rowId: string, limit = 20): Promise<StudioRevisionRow[]> => {
+    async (scopeId?: string, rowId?: string, limit = 20): Promise<StudioRevisionRow[]> => {
       if (!supabase || !organization) return []
-      const { data, error: e } = await supabase
+      let q = supabase
         .from('studio_revisions')
         .select('*')
-        .eq('row_table', rowTable)
-        .eq('row_id', rowId)
+        .eq('organization_id', organization.id)
         .order('changed_at', { ascending: false })
         .limit(limit)
+      if (scopeId) q = q.eq('scope_id', scopeId)
+      if (rowId) q = q.eq('row_id', rowId)
+      const { data, error: e } = await q
       if (e || !data) return []
       return data as StudioRevisionRow[]
     },

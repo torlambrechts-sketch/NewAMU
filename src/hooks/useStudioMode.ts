@@ -21,6 +21,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useOrgSetupContext } from './useOrgSetupContext'
+import { emitStudioTelemetry } from '../lib/studio/telemetry'
 import type { StudioTelemetryEvent } from '../lib/studio/studioTypes'
 
 export type StudioMode = 'simple' | 'advanced'
@@ -53,17 +54,20 @@ export function useStudioMode() {
     const next: StudioMode = stored === 'advanced' ? 'advanced' : 'simple'
     if (next !== lastInitialRef.current) {
       lastInitialRef.current = next
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- syncing local state to a late-arriving profile value
       setModeState(next)
     }
   }, [profile])
 
   const canUseAdvanced = isAdmin || can('studio.advanced')
 
-  /** Emit a telemetry event. Phase 1 wires a real sink; for now we log in dev. */
+  /**
+   * Emit a telemetry event through the canonical Studio sink (console
+   * in dev + Vercel Analytics in prod). Identity-stable callback so
+   * consumers can memoise on it.
+   */
   const emit = useCallback((event: StudioTelemetryEvent) => {
-    if (import.meta.env.DEV) {
-      console.debug('[studio:telemetry]', event)
-    }
+    emitStudioTelemetry(event)
   }, [])
 
   /**

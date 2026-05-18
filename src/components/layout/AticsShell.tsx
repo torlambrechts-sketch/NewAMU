@@ -1463,6 +1463,19 @@ export function AticsShell() {
           flatSubs: true,
         },
         {
+          // Phase 3.4 admin UI — revoke partner_memberships + 30 day grace.
+          // Visible only when the org actually has partner memberships
+          // (gated by the same broad admin permAny as the rest of
+          // Administrasjon; the page is itself empty when there are none).
+          to: '/admin/partners',
+          label: 'Partner-tilganger',
+          end: false,
+          icon: Briefcase,
+          subs: [],
+          permAny: SETTINGS_NAV_PERMS,
+          flatSubs: true,
+        },
+        {
           to: '/admin/tilsynsbrev',
           label: 'Tilsynssaker',
           end: false,

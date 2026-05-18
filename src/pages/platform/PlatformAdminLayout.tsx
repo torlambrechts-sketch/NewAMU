@@ -11,6 +11,7 @@ import {
   Map,
   PanelsTopLeft,
   Settings,
+  ShieldCheck,
   Rows3,
   Shield,
   Sparkles,
@@ -25,6 +26,7 @@ const nav: {
 }[] = [
   { to: '/platform-admin', label: 'Oversikt', end: true, icon: Shield },
   { to: '/platform-admin/roadmap', label: 'Veikart', icon: Map },
+  { to: '/platform-admin/studio-grants', label: 'Studio Partner-tilganger', icon: ShieldCheck },
   { to: '/platform-admin/layout-lab', label: 'Layout-lab', icon: LayoutGrid },
   { to: '/platform-admin/ui-advanced', label: 'Avansert UI', icon: PanelsTopLeft },
   { to: '/platform-admin/box-designer', label: 'Komponentdesigner', icon: Box },
