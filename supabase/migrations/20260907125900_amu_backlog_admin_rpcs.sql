@@ -51,7 +51,9 @@ alter table public.amu_backlog_dismissal_log enable row level security;
 
 drop policy if exists amu_backlog_dismissal_log_select on public.amu_backlog_dismissal_log;
 create policy amu_backlog_dismissal_log_select
-  on public.amu_backlog_dismissal_log for select
+  on public.amu_backlog_dismissal_log
+  for select
+  to authenticated
   using (organization_id = public.current_org_id());
 
 -- Inserts only via SECURITY DEFINER RPC (no direct INSERT policy).
@@ -59,6 +61,7 @@ create policy amu_backlog_dismissal_log_select
 create or replace function public.trg_amu_backlog_dismissal_log_deny_update()
 returns trigger
 language plpgsql
+set search_path = public, pg_catalog
 as $$
 begin
   raise exception 'amu_backlog_dismissal_log is append-only; update denied for row %', old.id;
@@ -73,6 +76,7 @@ create trigger amu_backlog_dismissal_log_deny_update
 create or replace function public.trg_amu_backlog_dismissal_log_deny_delete()
 returns trigger
 language plpgsql
+set search_path = public, pg_catalog
 as $$
 begin
   raise exception 'amu_backlog_dismissal_log is append-only; delete denied for row %', old.id;

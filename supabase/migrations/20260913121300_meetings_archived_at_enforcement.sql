@@ -25,6 +25,7 @@ set local search_path = public, pg_catalog;
 create or replace function public.meeting_block_writes_when_archived()
 returns trigger
 language plpgsql
+set search_path = public, pg_catalog
 as $$
 begin
   -- Allow the un-archive itself (NEW.archived_at IS NULL) and the

@@ -69,12 +69,16 @@ alter table public.amu_agenda_backlog enable row level security;
 
 drop policy if exists amu_agenda_backlog_select on public.amu_agenda_backlog;
 create policy amu_agenda_backlog_select
-  on public.amu_agenda_backlog for select
+  on public.amu_agenda_backlog
+  for select
+  to authenticated
   using (organization_id = public.current_org_id());
 
 drop policy if exists amu_agenda_backlog_write_admin on public.amu_agenda_backlog;
 create policy amu_agenda_backlog_write_admin
-  on public.amu_agenda_backlog for all
+  on public.amu_agenda_backlog
+  for all
+  to authenticated
   using (
     organization_id = public.current_org_id()
     and (public.is_org_admin() or public.user_has_permission('meetings.manage'))
@@ -153,6 +157,11 @@ drop trigger if exists amu_agenda_backlog_drain on public.meetings;
 create trigger amu_agenda_backlog_drain
   after insert on public.meetings
   for each row execute function public.trg_amu_agenda_backlog_drain();
+
+-- Trigger-only SECURITY DEFINER func — revoke EXECUTE so direct calls
+-- from authenticated/anon are denied. The trigger system still invokes
+-- it as the function owner when meetings is inserted.
+revoke execute on function public.trg_amu_agenda_backlog_drain() from public, anon, authenticated;
 
 comment on function public.trg_amu_agenda_backlog_drain() is
   'On meeting insert (status planned/in_progress), drain matching amu_agenda_backlog rows into meeting_agenda_items, ordered by priority then FIFO. Idempotent via drained_at marker.';

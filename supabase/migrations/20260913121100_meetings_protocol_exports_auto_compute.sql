@@ -176,6 +176,11 @@ create trigger meeting_compute_protocol_export_tg
   when (old.protocol_signed_at is null and new.protocol_signed_at is not null)
   execute function public.meeting_compute_protocol_export();
 
+-- Trigger-only SECURITY DEFINER func — revoke direct EXECUTE so the
+-- function can only run via the trigger. Postgres still invokes it as
+-- the function owner when meetings.protocol_signed_at transitions.
+revoke execute on function public.meeting_compute_protocol_export() from public, anon, authenticated;
+
 -- Backfill for any already-signed meetings that never got an export row.
 -- Safe via on-conflict-do-nothing; a re-run is a no-op.
 do $$
