@@ -44,8 +44,7 @@ export function registerStudioKind(kind: StudioKindRegistration): void {
     // Don't throw at registration time — scope file order is not
     // guaranteed in dev with HMR. Just log; the prebuild script catches
     // missing scopes properly.
-    // eslint-disable-next-line no-console
-    if (typeof console !== 'undefined' && process.env.NODE_ENV !== 'production') {
+    if (typeof console !== 'undefined' && import.meta.env.DEV) {
       console.warn(
         `[studio] kind "${kind.kindId}" registered before scope "${kind.scopeId}" — check side-effect import order`,
       )
@@ -103,16 +102,14 @@ let assertionRan = false
 export function assertStudioScopesRegistered(): void {
   if (assertionRan) return
   assertionRan = true
-  if (typeof process !== 'undefined' && process.env.NODE_ENV === 'production') return
+  if (!import.meta.env.DEV) return
   const missing = STUDIO_SOURCE_MODULES.filter((m) => !scopeRegistry.has(m))
   if (missing.length > 0) {
-    // eslint-disable-next-line no-console
     console.warn(
       `[studio] ${missing.length} scope(s) missing from registry — did you forget the side-effect import?\n` +
         missing.map((m) => `  · ${m}  →  modules/${m}/studio/${m}StudioScope.ts`).join('\n'),
     )
   } else {
-    // eslint-disable-next-line no-console
     console.log(
       `[studio] ${scopeRegistry.size} scopes / ${kindRegistry.size} kinds registered`,
     )

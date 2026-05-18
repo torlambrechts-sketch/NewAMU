@@ -256,7 +256,10 @@ function FieldRow({
     )
   }
 
-  // Exhaustiveness guard — TS verifies all branches above.
+  // Exhaustiveness guard — TS verifies all branches above. The `void`
+  // reference silences noUnusedLocals; the assignment is what enforces
+  // the compile-time check.
   const _exhaustive: never = field
+  void _exhaustive
   return null
 }

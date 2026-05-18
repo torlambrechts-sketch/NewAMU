@@ -46,8 +46,8 @@ import {
   KpiDeltaChip,
   LineMini,
   Sparkline,
-  segmentsFromObject,
 } from './widgetParts'
+import { segmentsFromObject } from './widgetUtils'
 // DrillDownEvent is canonically declared in ReportModuleWidget.tsx so
 // existing consumers (LearningAnalysePage, DocumentsAnalysePage, etc.)
 // can keep importing it from there. We pull it via `import type` so

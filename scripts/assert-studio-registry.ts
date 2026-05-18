@@ -38,7 +38,7 @@ async function importScopes(): Promise<{ imported: string[]; missing: string[] }
     try {
       await import(path)
       imported.push(scopeId)
-    } catch (err) {
+    } catch {
       // Phase 1 ships compliance scope first; others land per spec phasing.
       // Treat as "not yet shipped" rather than a hard error.
       missing.push(scopeId)

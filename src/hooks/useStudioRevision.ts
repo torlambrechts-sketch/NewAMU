@@ -74,7 +74,6 @@ export function useStudioRevision() {
         .eq('id', data.id)
       if (updateErr) {
         // Don't throw — the underlying mutation already succeeded.
-        // eslint-disable-next-line no-console
         console.warn('[studio] attachChangeReason failed:', getSupabaseErrorMessage(updateErr))
         return false
       }

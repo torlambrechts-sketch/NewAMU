@@ -91,19 +91,8 @@ export function DonutMini({
   )
 }
 
-// ────────────────────────────────────────────────────────────────────
-// segmentsFromObject — Record → array of colored segments
-// ────────────────────────────────────────────────────────────────────
-
-export function segmentsFromObject(o: Record<string, unknown>, colors: string[]) {
-  return Object.entries(o)
-    .filter(([, v]) => typeof v === 'number' && !Number.isNaN(v as number))
-    .map(([label, value], i) => ({
-      label,
-      value: value as number,
-      color: colors[i % colors.length],
-    }))
-}
+// segmentsFromObject moved to ./widgetUtils.ts so this file can stay
+// component-only (React Fast Refresh requirement).
 
 // ────────────────────────────────────────────────────────────────────
 // EmptyWidget — quiet skeleton for "no data"

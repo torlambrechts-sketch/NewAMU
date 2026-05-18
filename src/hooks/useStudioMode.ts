@@ -61,8 +61,7 @@ export function useStudioMode() {
 
   /** Emit a telemetry event. Phase 1 wires a real sink; for now we log in dev. */
   const emit = useCallback((event: StudioTelemetryEvent) => {
-    if (typeof process !== 'undefined' && process.env.NODE_ENV !== 'production') {
-      // eslint-disable-next-line no-console
+    if (import.meta.env.DEV) {
       console.debug('[studio:telemetry]', event)
     }
   }, [])
@@ -87,7 +86,6 @@ export function useStudioMode() {
         .eq('id', user.id)
       if (e) {
         // Roll back the local mode change so the UI reflects the persisted state.
-        // eslint-disable-next-line no-console
         console.warn('[studio] mode persist failed; rolling back', e.message)
         setModeState(previous)
         return false

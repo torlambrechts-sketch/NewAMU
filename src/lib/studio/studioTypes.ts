@@ -37,8 +37,15 @@ export type PropertyFieldBase = {
   required?: boolean
 }
 
+// Each kind is its own variant so TypeScript can narrow exhaustively
+// inside PropertyFormGenerator's render switch. Combining text/textarea/
+// number/toggle into one variant with a union discriminant prevents the
+// per-branch narrowing the form generator relies on.
 export type PropertyField =
-  | (PropertyFieldBase & { kind: 'text' | 'textarea' | 'number' | 'toggle' })
+  | (PropertyFieldBase & { kind: 'text' })
+  | (PropertyFieldBase & { kind: 'textarea' })
+  | (PropertyFieldBase & { kind: 'number' })
+  | (PropertyFieldBase & { kind: 'toggle' })
   | (PropertyFieldBase & { kind: 'select'; options: Array<{ value: string; label: string }> })
   | (PropertyFieldBase & {
       kind: 'radio-cards'
