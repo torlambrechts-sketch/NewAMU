@@ -1,8 +1,12 @@
-// Compliance Packs — fetch the active org's licensed pack rows from
-// public.compliance_packs and surface them as CompliancePack objects.
+// Compliance Packs — fetch the org's pack rows from public.compliance_packs.
 //
-// "Licensed" = a row exists for this org with is_active = true. The hook
-// is read-only (admin write paths land later in the admin page commit).
+// By default returns only active packs (is_active = true) — this is what the
+// hub, switcher, and nav hook need. Pass includeInactive: true from the admin
+// PakkerTab to also receive dormant packs so admins can toggle them on/off.
+//
+// activatePack / deactivatePack set is_active via a plain UPDATE. The DB
+// trigger compliance_pack_provision_on_change fires automatically on
+// activation and seeds templates + categories for the pack.
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { z } from 'zod'
@@ -19,6 +23,8 @@ import type { CompliancePackSlug } from './types'
 
 type UsePacksInput = {
   supabase: SupabaseClient | null
+  /** When true, returns ALL packs including inactive ones. Default: false. */
+  includeInactive?: boolean
 }
 
 export type UpdatePackInput = {
@@ -40,6 +46,8 @@ export type UsePacksReturn = {
   getPack: (slug: string | null | undefined) => CompliancePack | null
   refresh: () => Promise<void>
   updatePack: (input: UpdatePackInput) => Promise<void>
+  activatePack: (slug: CompliancePackSlug) => Promise<void>
+  deactivatePack: (slug: CompliancePackSlug) => Promise<void>
 }
 
 // ── Zod (DB row shape) ──────────────────────────────────────────────────────
@@ -65,7 +73,7 @@ const SeverityLabelsSchema: z.ZodType<PackSeverityLabels> = z.object({
 const CompliancePackRowSchema = z.object({
   id: z.string().uuid(),
   organization_id: z.string().uuid(),
-  slug: z.enum(['aml-amu', 'iso-45001']),
+  slug: z.enum(['aml-amu', 'iso-45001', 'iso-9001', 'iso-14001', 'iso-27001']),
   short_name: z.string(),
   plural_label: z.string(),
   cta_label: z.string(),
@@ -97,7 +105,7 @@ function mapRowToPack(row: CompliancePackRow): CompliancePack {
 // ── Hook ────────────────────────────────────────────────────────────────────
 
 export function usePacks(input: UsePacksInput): UsePacksReturn {
-  const { supabase } = input
+  const { supabase, includeInactive = false } = input
   const { organization } = useOrgSetupContext()
   const orgId = organization?.id ?? null
 
@@ -110,14 +118,19 @@ export function usePacks(input: UsePacksInput): UsePacksReturn {
     setLoading(true)
     setError(null)
     try {
-      const { data, error: respErr } = await supabase
+      let query = supabase
         .from('compliance_packs')
         .select('*')
         .eq('organization_id', orgId)
-        .eq('is_active', true)
         .is('deleted_at', null)
         .order('position', { ascending: true })
         .order('slug', { ascending: true })
+
+      if (!includeInactive) {
+        query = query.eq('is_active', true)
+      }
+
+      const { data, error: respErr } = await query
       if (respErr) throw respErr
 
       const ok: CompliancePack[] = []
@@ -136,7 +149,7 @@ export function usePacks(input: UsePacksInput): UsePacksReturn {
     } finally {
       setLoading(false)
     }
-  }, [supabase, orgId])
+  }, [supabase, orgId, includeInactive])
 
   useEffect(() => {
     void load()
@@ -192,8 +205,42 @@ export function usePacks(input: UsePacksInput): UsePacksReturn {
     [supabase, orgId],
   )
 
+  const setPackActive = useCallback(
+    async (slug: CompliancePackSlug, isActive: boolean): Promise<void> => {
+      if (!supabase || !orgId) return
+      setError(null)
+      try {
+        const { error: upErr } = await supabase
+          .from('compliance_packs')
+          .update({ is_active: isActive })
+          .eq('organization_id', orgId)
+          .eq('slug', slug)
+        if (upErr) throw upErr
+        // Optimistic update: flip the flag locally, then refresh to pick up
+        // any newly-provisioned templates that appear as side-effects.
+        setPacks((prev) =>
+          prev.map((p) => (p.slug === slug ? { ...p, isActive } : p)),
+        )
+        await load()
+      } catch (unknownError) {
+        setError(getSupabaseErrorMessage(unknownError))
+      }
+    },
+    [supabase, orgId, load],
+  )
+
+  const activatePack = useCallback(
+    (slug: CompliancePackSlug) => setPackActive(slug, true),
+    [setPackActive],
+  )
+
+  const deactivatePack = useCallback(
+    (slug: CompliancePackSlug) => setPackActive(slug, false),
+    [setPackActive],
+  )
+
   return useMemo(
-    () => ({ loading, error, packs, getPack, refresh: load, updatePack }),
-    [loading, error, packs, getPack, load, updatePack],
+    () => ({ loading, error, packs, getPack, refresh: load, updatePack, activatePack, deactivatePack }),
+    [loading, error, packs, getPack, load, updatePack, activatePack, deactivatePack],
   )
 }

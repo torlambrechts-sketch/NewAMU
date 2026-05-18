@@ -95,7 +95,7 @@ export function parseMetadataSchema(input: unknown): TemplateMetadataSchema {
 const UuidSchema = z.string().uuid()
 const TimestampSchema = z.string()
 
-const PackSchema = z.enum(['aml-amu', 'iso-45001'])
+const PackSchema = z.enum(['aml-amu', 'iso-45001', 'iso-9001', 'iso-14001', 'iso-27001'])
 const StatusSchema = z.enum(['draft', 'active', 'signed'])
 const SeveritySchema = z.enum(['low', 'medium', 'high', 'critical'])
 

@@ -2,7 +2,7 @@
 // Mirrors public.compliance_checklist_* tables. Definition jsonb is unknown
 // here; parsed via Zod in schema.ts.
 
-export type CompliancePackSlug = 'aml-amu' | 'iso-45001'
+export type CompliancePackSlug = 'aml-amu' | 'iso-45001' | 'iso-9001' | 'iso-14001' | 'iso-27001'
 
 export type ComplianceChecklistStatus = 'draft' | 'active' | 'signed'
 
