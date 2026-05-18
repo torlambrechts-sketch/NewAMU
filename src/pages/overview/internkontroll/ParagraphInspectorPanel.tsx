@@ -11,14 +11,13 @@
 // + register rows, so it doesn't trigger any new network requests for
 // the artefact list. Plan items have their own hook.
 
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo } from 'react'
 import { ExternalLink, X } from 'lucide-react'
 import { Button } from '../../../components/ui/Button'
 import type { CoverageEntry } from '../../../hooks/useRegelverkCoverage'
 import {
   FRAMEWORKS,
   GAP_MODULE_COLUMNS,
-  GAP_MODULE_ROUTES,
   type FrameworkId,
 } from './frameworkParagraphs'
 import type { RegisterCoverageMatch } from './useInternkontrollDatasets'

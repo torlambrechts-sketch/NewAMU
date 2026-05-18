@@ -43,6 +43,10 @@ export function InternkontrollAuditorPage() {
     }
     let cancelled = false
     const supabase = getSupabaseBrowserClient()
+    if (!supabase) {
+      setState({ kind: 'error', message: 'Supabase-klient utilgjengelig.' })
+      return
+    }
     void supabase
       .rpc('compliance_auditor_token_verify', { p_token: token })
       .then(({ data, error }) => {
