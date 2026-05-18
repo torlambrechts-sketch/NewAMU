@@ -9,6 +9,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { useOrgSetupContext } from '../../src/hooks/useOrgSetupContext'
 import { getSupabaseErrorMessage } from '../../src/lib/supabaseError'
+import { fetchClientIpBestEffort, hashDocumentPayload } from '../../src/lib/level1Signature'
 import type {
   MeetingActionItemRow,
   MeetingActionStatus,
@@ -161,6 +162,7 @@ export type UseMeetingsState = {
       voteFor?: number | null
       voteAgainst?: number | null
       voteAbstain?: number | null
+      minorityDissentText?: string | null
     },
   ) => Promise<boolean>
   upsertAttendee: (input: {
@@ -186,6 +188,20 @@ export type UseMeetingsState = {
     signerRole: 'chair' | 'secretary' | 'management' | 'member' | 'other'
     signerMemberId?: string | null
   }) => Promise<boolean>
+  /** Records that innkalling was sent at `sentAt` (default: now) and which
+   *  members were notified. Does not send email itself — invoke the
+   *  `send-meeting-invites` edge function for that. */
+  markInvitationSent: (input: {
+    meetingId: string
+    recipientMemberIds: string[]
+    sentAt?: string
+  }) => Promise<boolean>
+  /** Optimistically invokes `send-meeting-invites` edge function and on
+   *  success stamps `invitation_sent_at` + `invitation_recipients`. */
+  sendInvitations: (input: {
+    meetingId: string
+    mode?: 'initial' | 'reminder'
+  }) => Promise<{ ok: boolean; sent: number; error?: string }>
   /** Admin: toggle a system template on/off for the current org. */
   setTemplateEnabled: (systemTemplateId: string, enabled: boolean) => Promise<boolean>
   setTemplateCategory: (systemTemplateId: string, categoryId: string | null) => Promise<boolean>
@@ -476,8 +492,9 @@ async function loadOrgSettingsRow(
 }
 
 export function useMeetings(): UseMeetingsState {
-  const { supabase, organization, can, isAdmin } = useOrgSetupContext()
+  const { supabase, organization, can, isAdmin, user } = useOrgSetupContext()
   const orgId = organization?.id ?? null
+  const userId = user?.id ?? null
   const canManage = isAdmin || can('meetings.manage')
 
   const [error, setError] = useState<string | null>(null)
@@ -725,6 +742,8 @@ export function useMeetings(): UseMeetingsState {
       if (patch.voteFor !== undefined) update.vote_for = patch.voteFor
       if (patch.voteAgainst !== undefined) update.vote_against = patch.voteAgainst
       if (patch.voteAbstain !== undefined) update.vote_abstain = patch.voteAbstain
+      if (patch.minorityDissentText !== undefined)
+        update.minority_dissent_text = patch.minorityDissentText
       if (Object.keys(update).length === 0) return true
       const res = await supabase
         .from('meeting_agenda_items')
@@ -884,6 +903,72 @@ export function useMeetings(): UseMeetingsState {
     async (input) => {
       if (!supabase) return false
       const now = new Date().toISOString()
+      // Level-1 audit (system_signature_events) — only when we have org + user
+      // identity. The hash covers a canonical view of the meeting + child
+      // tables at signing time so any later mutation can be detected.
+      let level1EventId: string | null = null
+      if (orgId && userId) {
+        const meetingRow = meetings.find((m) => m.id === input.meetingId)
+          ?? (detailMeetingId === input.meetingId ? detail.meeting : null)
+        const hashPayload = {
+          meetingId: input.meetingId,
+          organizationId: orgId,
+          title: meetingRow?.title ?? null,
+          scheduledAt: meetingRow?.scheduled_at ?? null,
+          confidentialityLevel: meetingRow?.confidentiality_level ?? null,
+          participants: meetingRow?.participant_member_ids ?? [],
+          agenda: (detailMeetingId === input.meetingId ? detail.agendaItems : []).map((a) => ({
+            position: a.position,
+            title: a.title,
+            minutesSummary: a.minutes_summary,
+            decisionText: a.decision_text,
+            decisionStatus: a.decision_status,
+            voteFor: a.vote_for,
+            voteAgainst: a.vote_against,
+            voteAbstain: a.vote_abstain,
+          })),
+          attendees: (detailMeetingId === input.meetingId ? detail.attendees : []).map((p) => ({
+            memberId: p.member_id,
+            role: p.role,
+            present: p.present,
+            excused: p.excused,
+          })),
+          decisions: (detailMeetingId === input.meetingId ? detail.decisions : []).map((d) => ({
+            id: d.id,
+            agendaItemId: d.agenda_item_id,
+            text: d.decision_text,
+            status: d.status,
+          })),
+          signature: {
+            name: input.signerName,
+            role: input.signerRole,
+            memberId: input.signerMemberId ?? null,
+            signedAt: now,
+          },
+        }
+        const documentHashSha256 = await hashDocumentPayload(hashPayload)
+        const clientIp = await fetchClientIpBestEffort()
+        const evt = await supabase
+          .from('system_signature_events')
+          .insert({
+            organization_id: orgId,
+            user_id: userId,
+            resource_type: 'meeting_protocol',
+            resource_id: input.meetingId,
+            action: `meeting_protocol_sign_${input.signerRole}`,
+            document_hash_sha256: documentHashSha256,
+            signer_display_name: input.signerName.trim(),
+            role: input.signerRole,
+            client_ip: clientIp ?? null,
+          })
+          .select('id')
+          .single()
+        if (evt.error) {
+          setError(getSupabaseErrorMessage(evt.error))
+          return false
+        }
+        level1EventId = (evt.data as { id: string }).id
+      }
       const sigIns = await supabase.from('meeting_signatures').insert({
         meeting_id: input.meetingId,
         signer_member_id: input.signerMemberId ?? null,
@@ -891,6 +976,7 @@ export function useMeetings(): UseMeetingsState {
         signer_role: input.signerRole,
         signed_at: now,
         is_legally_binding: false,
+        level1_event_id: level1EventId,
       })
       if (sigIns.error) {
         setError(getSupabaseErrorMessage(sigIns.error))
@@ -914,7 +1000,59 @@ export function useMeetings(): UseMeetingsState {
       await loadList()
       return true
     },
+    [supabase, orgId, userId, meetings, detail, detailMeetingId, loadDetail, loadList],
+  )
+
+  const markInvitationSent: UseMeetingsState['markInvitationSent'] = useCallback(
+    async (input) => {
+      if (!supabase) return false
+      const sentAt = input.sentAt ?? new Date().toISOString()
+      const res = await supabase
+        .from('meetings')
+        .update({
+          invitation_sent_at: sentAt,
+          invitation_recipients: input.recipientMemberIds,
+        })
+        .eq('id', input.meetingId)
+      if (res.error) {
+        setError(getSupabaseErrorMessage(res.error))
+        return false
+      }
+      if (detailMeetingId === input.meetingId) await loadDetail(input.meetingId)
+      await loadList()
+      return true
+    },
     [supabase, detailMeetingId, loadDetail, loadList],
+  )
+
+  const sendInvitations: UseMeetingsState['sendInvitations'] = useCallback(
+    async (input) => {
+      if (!supabase) return { ok: false, sent: 0, error: 'Supabase ikke tilgjengelig' }
+      // Optimistically stamp invitation_sent_at first so the compliance
+      // badge updates immediately. The edge function is best-effort delivery;
+      // if it fails the chair can resend without losing the recorded intent.
+      const meetingRow = meetings.find((m) => m.id === input.meetingId)
+        ?? (detailMeetingId === input.meetingId ? detail.meeting : null)
+      const recipients = meetingRow?.participant_member_ids ?? []
+      const stamp = await markInvitationSent({
+        meetingId: input.meetingId,
+        recipientMemberIds: recipients,
+      })
+      if (!stamp) return { ok: false, sent: 0, error: 'Kunne ikke registrere innkalling' }
+      const invoke = await supabase.functions.invoke('send-meeting-invites', {
+        body: { meeting_id: input.meetingId, mode: input.mode ?? 'initial' },
+      })
+      if (invoke.error) {
+        const msg = getSupabaseErrorMessage(invoke.error)
+        // Don't rollback the timestamp — the chair's intent is recorded.
+        // Surface the delivery failure so they can retry or use a backup
+        // channel (e.g. paste recipients into Outlook).
+        return { ok: false, sent: 0, error: msg }
+      }
+      const data = (invoke.data ?? {}) as { sent?: number }
+      return { ok: true, sent: Number(data.sent ?? 0) }
+    },
+    [supabase, meetings, detailMeetingId, detail, markInvitationSent],
   )
 
   // ── Admin: org template settings + categories ─────────────────────────────
@@ -1351,6 +1489,8 @@ export function useMeetings(): UseMeetingsState {
     addActionItem,
     setActionItemStatus,
     signProtocol,
+    markInvitationSent,
+    sendInvitations,
     setTemplateEnabled,
     setTemplateCategory,
     setTemplatePinned,

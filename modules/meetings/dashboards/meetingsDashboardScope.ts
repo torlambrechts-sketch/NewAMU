@@ -33,6 +33,7 @@ const DATASETS: DatasetMeta[] = [
   { key: 'meeting_instances_by_location', label: 'Per lokasjon', shape: 'segments' },
   { key: 'meeting_instances_by_department', label: 'Per avdeling', shape: 'segments' },
   { key: 'meeting_law_ref_coverage', label: 'Lovreferanser dekket', shape: 'segments' },
+  { key: 'meeting_invitation_compliance', label: 'Innkalling i tide', shape: 'segments' },
 ]
 
 const KPI_TOTAL: ReportModuleKpi = {
@@ -174,6 +175,14 @@ const TABLE_LAW_REFS: ReportModuleTable = {
   rowKeys: [],
   colSpan: 'full',
 }
+const DONUT_INVITATION: ReportModuleDonut = {
+  id: 'donut-invitation',
+  kind: 'donut',
+  datasetKey: 'meeting_invitation_compliance',
+  title: 'Innkalling i tide',
+  segmentsPath: '',
+  colSpan: 'md',
+}
 
 const DEFAULT_LAYOUT: ReportModule[] = [
   KPI_TOTAL,
@@ -203,6 +212,7 @@ const WIDGET_CATALOG: WidgetCatalogEntry[] = [
   { catalogId: 'donut-location', category: 'Org-kontekst', label: 'Per lokasjon', template: DONUT_LOCATION },
   { catalogId: 'donut-department', category: 'Org-kontekst', label: 'Per avdeling', template: DONUT_DEPARTMENT },
   { catalogId: 'table-law-refs', category: 'Etterlevelse', label: 'Lovreferanser dekket', template: TABLE_LAW_REFS },
+  { catalogId: 'donut-invitation', category: 'Etterlevelse', label: 'Innkalling i tide', template: DONUT_INVITATION },
 ]
 
 registerDashboardScope({

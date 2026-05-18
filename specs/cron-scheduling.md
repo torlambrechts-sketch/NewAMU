@@ -11,6 +11,7 @@ NewAMU har 3 edge functions som bør kjøres på faste intervaller:
 | `compliance-notification-scan` | Hver time | Detekter nye situasjoner og opprett varsler |
 | `documents-acknowledgement-reminders` | Daglig 09:00 | Eksisterende — påminnelser om kvittering |
 | `documents-notification-digest` | Hver time | Eksisterende — e-post-digest |
+| `send-meeting-invites` | Daglig 07:00 | Reminder-sweep for møter innen 48t som har innkalling registrert. Body: `{"cron_reminder_sweep": true}`, header `X-Meetings-Cron-Secret`. |
 
 ---
 
@@ -30,6 +31,13 @@ Function: compliance-notification-scan
 Schedule: 0 * * * *           (hver time)
 Header: X-Compliance-Cron-Secret: <secret>
 Body: {}
+```
+
+```
+Function: send-meeting-invites
+Schedule: 0 7 * * *           (daglig 07:00 UTC — påminnelser)
+Header: X-Meetings-Cron-Secret: <secret>
+Body: {"cron_reminder_sweep": true}
 ```
 
 Secrets settes via:

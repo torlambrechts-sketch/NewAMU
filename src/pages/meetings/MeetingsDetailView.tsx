@@ -11,7 +11,7 @@
 // the decision text per agenda item — they remain editable until the
 // protocol is signed.
 
-import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import {
   AlertTriangle,
@@ -317,7 +317,12 @@ export function MeetingsDetailView() {
 
       {tab === 'informasjon' ? (
         <ModuleSectionCard className="p-5 md:p-6">
-          <InformationTab meeting={meeting} />
+          <InformationTab
+            meeting={meeting}
+            canManage={meetings.canManage}
+            locked={isLocked}
+            onSendInvitations={meetings.sendInvitations}
+          />
         </ModuleSectionCard>
       ) : null}
 
@@ -471,8 +476,47 @@ export function MeetingsDetailView() {
 
 // ── Informasjon ───────────────────────────────────────────────────────────
 
-function InformationTab({ meeting }: { meeting: MeetingRow }) {
+function InformationTab({
+  meeting,
+  canManage,
+  locked,
+  onSendInvitations,
+}: {
+  meeting: MeetingRow
+  canManage: boolean
+  locked: boolean
+  onSendInvitations: (input: {
+    meetingId: string
+    mode?: 'initial' | 'reminder'
+  }) => Promise<{ ok: boolean; sent: number; error?: string }>
+}) {
   const snap = meeting.definition_snapshot
+  const [sendStatus, setSendStatus] = useState<
+    | { kind: 'idle' }
+    | { kind: 'sending' }
+    | { kind: 'sent'; count: number }
+    | { kind: 'error'; message: string }
+  >({ kind: 'idle' })
+
+  const handleSend = useCallback(
+    async (mode: 'initial' | 'reminder') => {
+      setSendStatus({ kind: 'sending' })
+      const res = await onSendInvitations({ meetingId: meeting.id, mode })
+      if (res.ok) {
+        setSendStatus({ kind: 'sent', count: res.sent })
+      } else {
+        setSendStatus({ kind: 'error', message: res.error ?? 'Ukjent feil' })
+      }
+    },
+    [onSendInvitations, meeting.id],
+  )
+
+  const canSend =
+    canManage &&
+    !locked &&
+    meeting.scheduled_at !== null &&
+    (meeting.participant_member_ids?.length ?? 0) > 0
+
   return (
     <div className="grid gap-6 lg:grid-cols-[1fr_320px]">
       <div className="space-y-4">
@@ -483,11 +527,44 @@ function InformationTab({ meeting }: { meeting: MeetingRow }) {
           </p>
         </div>
         {snap?.invitationLeadDays && meeting.scheduled_at ? (
-          <InvitationBadge
-            invitationLeadDays={snap.invitationLeadDays}
-            scheduledAt={meeting.scheduled_at}
-            invitationSentAt={meeting.invitation_sent_at}
-          />
+          <div className="space-y-2">
+            <InvitationBadge
+              invitationLeadDays={snap.invitationLeadDays}
+              scheduledAt={meeting.scheduled_at}
+              invitationSentAt={meeting.invitation_sent_at}
+            />
+            {canSend ? (
+              <div className="flex flex-wrap items-center gap-2">
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => handleSend('initial')}
+                  disabled={sendStatus.kind === 'sending'}
+                >
+                  {meeting.invitation_sent_at ? 'Send innkalling på nytt' : 'Send innkalling'}
+                </Button>
+                {meeting.invitation_sent_at ? (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => handleSend('reminder')}
+                    disabled={sendStatus.kind === 'sending'}
+                  >
+                    Send påminnelse
+                  </Button>
+                ) : null}
+                {sendStatus.kind === 'sending' ? (
+                  <span className="text-xs text-neutral-500">Sender …</span>
+                ) : null}
+                {sendStatus.kind === 'sent' ? (
+                  <span className="text-xs text-emerald-700">Sendt til {sendStatus.count}.</span>
+                ) : null}
+                {sendStatus.kind === 'error' ? (
+                  <span className="text-xs text-red-700">Feil: {sendStatus.message}</span>
+                ) : null}
+              </div>
+            ) : null}
+          </div>
         ) : null}
       </div>
       <aside className="space-y-4">
@@ -535,7 +612,7 @@ function InvitationBadge({
     return (
       <div className="inline-flex items-center gap-2 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-900">
         <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
-        Innkalling ikke registrert (minst {invitationLeadDays} dagers frist iht. forskrift om organisering).
+        Innkalling ikke registrert (anbefalt minst {invitationLeadDays} dagers frist for god medvirkning).
       </div>
     )
   }
@@ -545,7 +622,7 @@ function InvitationBadge({
     return (
       <div className="inline-flex items-center gap-2 rounded-lg border border-red-300 bg-red-50 px-3 py-2 text-xs text-red-900">
         <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
-        Innkalling sendt {diffDays} dager før — frist er {invitationLeadDays} dager.
+        Innkalling sendt {diffDays} dager før — anbefalt minimum er {invitationLeadDays} dager.
       </div>
     )
   }
@@ -718,6 +795,9 @@ function AgendaItemEditor({
   const [voteFor, setVoteFor] = useState<string>(item.vote_for?.toString() ?? '')
   const [voteAgainst, setVoteAgainst] = useState<string>(item.vote_against?.toString() ?? '')
   const [voteAbstain, setVoteAbstain] = useState<string>(item.vote_abstain?.toString() ?? '')
+  const [minorityDissent, setMinorityDissent] = useState<string>(
+    item.minority_dissent_text ?? '',
+  )
   const [busy, setBusy] = useState(false)
   const [savedAt, setSavedAt] = useState<number | null>(null)
 
@@ -739,6 +819,7 @@ function AgendaItemEditor({
         voteFor: parseInt0(voteFor),
         voteAgainst: parseInt0(voteAgainst),
         voteAbstain: parseInt0(voteAbstain),
+        minorityDissentText: minorityDissent.trim() ? minorityDissent : null,
       })
       if (ok) setSavedAt(Date.now())
     } finally {
@@ -956,6 +1037,27 @@ function AgendaItemEditor({
               />
             </div>
           </div>
+
+          {(parseInt0(voteAgainst) ?? 0) + (parseInt0(voteAbstain) ?? 0) > 0 ||
+          minorityDissent ? (
+            <div>
+              <label className={WPSTD_FORM_FIELD_LABEL} htmlFor={`agenda-${item.id}-dissent`}>
+                Mindretallets standpunkt
+                <span className="ml-2 text-[10px] font-normal text-neutral-500">
+                  Forskrift om org. ledelse § 3-16
+                </span>
+              </label>
+              <StandardTextarea
+                id={`agenda-${item.id}-dissent`}
+                rows={3}
+                placeholder="Protokollfør mindretallets begrunnelse for å sikre etterlevelse av § 3-16."
+                value={minorityDissent}
+                onChange={(e) => setMinorityDissent(e.target.value)}
+                disabled={locked}
+                className="mt-1.5"
+              />
+            </div>
+          ) : null}
 
           <div className="flex items-center justify-end gap-3 pt-1">
             {savedAt ? <Badge variant="signed">Lagret</Badge> : null}

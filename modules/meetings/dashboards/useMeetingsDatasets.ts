@@ -313,6 +313,34 @@ export function useMeetingsDatasets({
       .sort((a, b) => b.value - a.value)
       .slice(0, 24)
 
+    // Invitation compliance: per meeting with both `invitationLeadDays`
+    // (from definition_snapshot) and `scheduled_at`, classify as on-time
+    // (sent at least leadDays before), late (sent but < leadDays), or
+    // unsent. Meetings without a leadDays default are excluded so the
+    // chart doesn't get noisy from ad-hoc templates.
+    let invOnTime = 0
+    let invLate = 0
+    let invMissing = 0
+    for (const m of filtered) {
+      const lead = m.definition_snapshot?.invitationLeadDays
+      if (!lead || !m.scheduled_at) continue
+      if (!m.invitation_sent_at) {
+        invMissing += 1
+        continue
+      }
+      const diffDays = Math.floor(
+        (new Date(m.scheduled_at).getTime() - new Date(m.invitation_sent_at).getTime()) /
+          (1000 * 60 * 60 * 24),
+      )
+      if (diffDays >= lead) invOnTime += 1
+      else invLate += 1
+    }
+    const meeting_invitation_compliance: Segment[] = [
+      { id: 'on_time', label: 'I tide', value: invOnTime },
+      { id: 'late', label: 'For sent', value: invLate },
+      { id: 'missing', label: 'Ikke sendt', value: invMissing },
+    ].filter((s) => s.value > 0)
+
     return {
       meeting_kpi_summary,
       meeting_status_distribution,
@@ -325,6 +353,7 @@ export function useMeetingsDatasets({
       meeting_instances_by_location,
       meeting_instances_by_department,
       meeting_law_ref_coverage,
+      meeting_invitation_compliance,
     }
   }, [selectors, meetings, decisions, templates, locations, departments, categoryByMeetingId])
 }

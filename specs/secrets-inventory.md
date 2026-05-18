@@ -83,6 +83,15 @@
 - **Type:** PKCS#8 PEM
 - **Lagring:** Supabase Vault
 
+### 2.10 `MEETINGS_CRON_SECRET` (aktiv — Sprint-1)
+- **Brukes av:** `send-meeting-invites` edge function (reminder-sweep cron)
+- **Type:** Shared secret string (UUID anbefales)
+- **Lagring:** Edge function env via `supabase secrets set MEETINGS_CRON_SECRET=...`
+- **Rotasjon:** Hver 12. måned
+- **Revocation:** `supabase secrets unset MEETINGS_CRON_SECRET` + generer ny
+- **Tilgjengelig for:** Cron-jobben som kaller funksjonen
+- **Co-deps:** Funksjonen leser også `RESEND_API_KEY`, `RESEND_FROM`, `PUBLIC_APP_URL`, `EMAIL_SEND_DELAY_MS` — gjenbruk allerede satt for `send-survey-invites`.
+
 ---
 
 ## 3. Tilgang og kontroll

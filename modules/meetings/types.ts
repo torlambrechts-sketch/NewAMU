@@ -366,6 +366,8 @@ export type MeetingAgendaItemRow = {
   vote_for: number | null
   vote_against: number | null
   vote_abstain: number | null
+  /** Forskrift om org. ledelse § 3-16 — mindretallets standpunkt. */
+  minority_dissent_text: string | null
   conflict_of_interest: Array<{ member_id: string; reason: string }> | null
   binding_snapshot: RenderedBindingResult | null
   created_at: string
@@ -699,6 +701,7 @@ export const MeetingAgendaItemRowSchema = z
     vote_for: z.number().int().nullable(),
     vote_against: z.number().int().nullable(),
     vote_abstain: z.number().int().nullable(),
+    minority_dissent_text: z.string().nullable().default(null),
     conflict_of_interest: z
       .array(z.object({ member_id: z.string(), reason: z.string() }))
       .nullable(),
