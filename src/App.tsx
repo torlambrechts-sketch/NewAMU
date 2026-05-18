@@ -360,9 +360,8 @@ const router = createBrowserRouter(
                       <Route path="risk/analyse" element={<RiskAnalysePage />} />
                       <Route path="risk/register" element={<RiskRegisterPage />} />
                       <Route path="benchmarking" element={<BenchmarkPage />} />
-                      {/* Legacy /compliance-studio redirects to the unified /studio
-                          shell per Studio Builder Phase 1 Task 0.10. The original
-                          ComplianceStudioPage is kept for one-cycle rollback. */}
+                      {/* Legacy /compliance-studio fully retired post-Phase 1
+                          ship — links into the unified /studio shell directly. */}
                       <Route path="compliance-studio" element={<Navigate to="/studio?scope=compliance" replace />} />
                       <Route path="studio" element={<StudioPage />} />
                       <Route path="organisation" element={<OrganisationPage />} />

@@ -1849,17 +1849,9 @@ export function AticsShell() {
         match: ({ pathname }) => pathname.startsWith('/benchmarking'),
         requirePermAny: overviewNavPerms,
       },
-      {
-        // Legacy "Compliance Studio" entry redirected to the unified /studio
-        // shell per Studio Builder Phase 1. Now points at /studio?scope=compliance.
-        label: 'Compliance Studio',
-        path: '/studio?scope=compliance',
-        Icon: Wand2,
-        match: ({ pathname, search }) =>
-          pathname.startsWith('/compliance-studio') ||
-          (pathname === '/studio' && search.includes('scope=compliance')),
-        requirePermAny: ADMINISTRASJON_NAV_PERMS,
-      },
+      // Note: the old "Compliance Studio" sub-entry was dropped in Studio
+      // Builder Phase 1 post-ship. The top-level "Studio" NavGroup is the
+      // single canonical authoring doorway.
     ]
     // Hazard-pinned subs are added under the same "Risikoanalyse" entry
     // — they share the /risk/analyse route and only differ in query

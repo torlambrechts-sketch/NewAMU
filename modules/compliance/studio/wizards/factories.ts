@@ -9,8 +9,8 @@
 //   intro → org-fakta → velg innhold → tilordne ansvar → aktivere → verifisere.
 
 import type { SupabaseClient } from '@supabase/supabase-js'
-import type { SelectOption, WizardDef, WizardStepAdvanceResult } from '../../../components/wizard/types'
-import type { CoverageEntry, CoverageMap } from '../../../hooks/useRegelverkCoverage'
+import type { SelectOption, WizardDef, WizardStepAdvanceResult } from '../../../../src/components/wizard/types'
+import type { CoverageEntry, CoverageMap } from '../../../../src/hooks/useRegelverkCoverage'
 
 const AXIS_BY_KIND: Record<CoverageEntry['kind'], string> = {
   course_system: 'Kurs',

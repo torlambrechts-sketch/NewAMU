@@ -2,9 +2,10 @@
 //
 // Task 0.10: relocates the three existing compliance wizards (HMS-grunnmur,
 // Varsling, AMU-etablering) from /compliance-studio into the unified
-// /studio shell as the first content scope. The factories themselves stay
-// in src/pages/overview/studio/studioWizardFactories.ts — we only re-shape
-// them as SimplePreset entries here so the studio's registry picks them up.
+// /studio shell as the first content scope. Factories live alongside this
+// file at ./wizards/factories.ts; the catalog at ./wizards/catalog.ts
+// stays for the wizard-key-stability constraint
+// (compliance_wizard_runs.wizard_key persists keys verbatim).
 //
 // Side-effect import: src/lib/studio/registerStudioScopes.ts re-exports
 // this file so the studio shell sees the scope.
@@ -15,7 +16,7 @@ import {
   makeAmuEtableringWizard,
   makeHmsGrunnmurWizard,
   makeVarslingWizard,
-} from '../../../src/pages/overview/studio/studioWizardFactories'
+} from './wizards/factories'
 import type { SimplePreset } from '../../../src/lib/studio/studioTypes'
 
 // ────────────────────────────────────────────────────────────────────

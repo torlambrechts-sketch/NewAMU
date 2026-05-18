@@ -18,7 +18,7 @@
 //
 // Spec: specs/studio-builder.md §5 Phase 0 Task 0.7.
 
-import { _internalEnumerateKindsForAssertion, listStudioScopes, STUDIO_SOURCE_MODULES } from '../src/lib/studio/studioRegistry'
+import { _internalEnumerateKindsForAssertion, listStudioScopes, STUDIO_SOURCE_MODULES, STUDIO_DEFERRED_MODULES } from '../src/lib/studio/studioRegistry'
 
 // ────────────────────────────────────────────────────────────────────
 // 1. Import every scope file so they register
@@ -93,8 +93,12 @@ async function main(): Promise<void> {
   console.log(`[studio:assert] scopes registered: ${scopes.length}`)
   console.log(`[studio:assert] kinds registered: ${kinds.length}`)
   if (missing.length > 0) {
-    console.log(`[studio:assert] scopes not yet shipped (OK — per spec phasing):`)
+    console.log(`[studio:assert] scopes not yet shipped:`)
     for (const m of missing) console.log(`  · ${m}  →  modules/${m}/studio/${m}StudioScope.ts`)
+  }
+  if (STUDIO_DEFERRED_MODULES.length > 0) {
+    console.log(`[studio:assert] scopes deferred per spec phasing:`)
+    for (const d of STUDIO_DEFERRED_MODULES) console.log(`  · ${d}  (waits on workflow-engine-review.md Phase A/B)`)
   }
 
   if (violations.length > 0) {
