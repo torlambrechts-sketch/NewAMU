@@ -90,15 +90,21 @@ export function StudioPage() {
         <div className="space-y-6">
           <div className="flex items-center gap-3">
             <Button variant="ghost" size="sm" onClick={clearScope}>
-              ← Bytt innholdstype
+              ← Vis alle
             </Button>
-            <div
-              className="h-2 w-2 rounded-full"
-              style={{ backgroundColor: activeScope.accent }}
-              aria-hidden
-            />
+            <span
+              className="inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-[10px] uppercase tracking-wider font-medium"
+              style={{ borderColor: activeScope.accent, color: activeScope.accent }}
+            >
+              <span
+                className="h-1.5 w-1.5 rounded-full"
+                style={{ backgroundColor: activeScope.accent }}
+                aria-hidden
+              />
+              {activeScope.singular}
+            </span>
             <span className="text-[11px] uppercase tracking-wider text-neutral-500">
-              {effectiveMode === 'simple' ? 'Enkel' : 'Avansert'}
+              {effectiveMode === 'simple' ? 'Enkel modus' : 'Avansert modus'}
             </span>
           </div>
 
