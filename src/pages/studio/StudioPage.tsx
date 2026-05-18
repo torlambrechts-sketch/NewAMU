@@ -23,6 +23,7 @@ import { ScopePicker } from '../../components/studio/shell/ScopePicker'
 import { ModeToggle } from '../../components/studio/shell/ModeToggle'
 import { SimpleModeCards } from '../../components/studio/shell/SimpleModeCards'
 import { AdvancedShell } from '../../components/studio/shell/AdvancedShell'
+import { CommandPalette } from '../../components/studio/shell/CommandPalette'
 import { PartnerOrgSwitcher } from '../../components/studio/shell/PartnerOrgSwitcher'
 import { useStudioMode } from '../../hooks/useStudioMode'
 import { emitStudioTelemetry } from '../../lib/studio/telemetry'
@@ -80,6 +81,14 @@ export function StudioPage() {
       headerActions={
         <div className="flex items-center gap-2">
           <PartnerOrgSwitcher />
+          <div
+            className="hidden md:inline-flex items-center gap-1 rounded-md border border-neutral-200 bg-white px-2 py-1 text-[10px] text-neutral-500"
+            title="Trykk Cmd+K (eller Ctrl+K) for å bytte scope"
+            aria-hidden
+          >
+            <span className="font-mono">⌘K</span>
+            <span>for hurtigvalg</span>
+          </div>
           <ModeToggle mode={effectiveMode} canUseAdvanced={canUseAdvanced} onChange={handleModeChange} />
         </div>
       }
@@ -118,6 +127,7 @@ export function StudioPage() {
           )}
         </div>
       )}
+      <CommandPalette />
     </ModulePageShell>
   )
 }

@@ -143,6 +143,7 @@ import { ChecklistsAnalysePage } from '../modules/compliance/ChecklistsAnalysePa
 import { ChecklistExecutionPage } from '../modules/compliance/ChecklistExecutionPage'
 import { PackProvider } from './context/PackContext'
 import { ModuleAdminPage } from './pages/ModuleAdminPage'
+import { PartnerOffboardingPage } from './pages/admin/partners/PartnerOffboardingPage'
 import { SurveyModulePage } from './pages/SurveyModulePage'
 import { SurveyVendorsPage } from './pages/SurveyVendorsPage'
 import { SurveyOrgTemplateEditorPage } from './pages/SurveyOrgTemplateEditorPage'
@@ -484,6 +485,7 @@ const router = createBrowserRouter(
                       <Route path="survey/:surveyId" element={<SurveyDetailPage />} />
                       {/* Admin: module overview + RBAC */}
                       <Route path="admin/modules" element={<ModuleAdminPage />} />
+                      <Route path="admin/partners" element={<PartnerOffboardingPage />} />
                       <Route path="admin/templates" element={<AdminTemplatesPage />} />
                       {/* Tilsynsbrev — uploaded inspeksjonsbrev fra Arbeidstilsynet,
                           Datatilsynet etc. Parses asynkront via edge-funksjonen

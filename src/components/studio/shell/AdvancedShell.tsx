@@ -42,7 +42,24 @@ export function AdvancedShell({ scopeId, onBackToSimple }: AdvancedShellProps) {
     : null
 
   return (
-    <div className="grid gap-6 lg:grid-cols-[240px_1fr]">
+    <>
+      {/* Mobile fallback: Advanced authoring is desktop-only per spec
+          §10 open Q 11. Show a clear empty state on <lg, prompt the
+          user to switch to Enkel mode or open on desktop. */}
+      <div className="lg:hidden rounded-xl border border-dashed border-neutral-300 bg-white p-6 text-center">
+        <p className="text-sm font-semibold text-neutral-900 font-serif">
+          Avansert er kun for desktop
+        </p>
+        <p className="mt-1 text-xs text-neutral-600">
+          Bytt til Enkel-modus eller åpne studio på en større skjerm for kanvas + inspektør.
+        </p>
+        <div className="mt-4">
+          <Button variant="secondary" size="sm" onClick={onBackToSimple}>
+            Bytt til Enkel-modus
+          </Button>
+        </div>
+      </div>
+      <div className="hidden lg:grid gap-6 lg:grid-cols-[240px_1fr]">
       <aside className="space-y-2 rounded-xl border border-neutral-200 bg-white p-4 shadow-sm">
         <h3 className="text-xs font-semibold uppercase tracking-wider text-neutral-500">
           Innholdstyper
@@ -78,7 +95,8 @@ export function AdvancedShell({ scopeId, onBackToSimple }: AdvancedShellProps) {
           <p className="text-sm text-neutral-600">Velg en innholdstype.</p>
         )}
       </section>
-    </div>
+      </div>
+    </>
   )
 }
 
