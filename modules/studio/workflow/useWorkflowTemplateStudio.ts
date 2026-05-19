@@ -312,7 +312,7 @@ export function useWorkflowTemplateStudio(ruleId: string, fromId?: string) {
             organization_id: organization.id,
             slug: newSlug,
             name: n.trim() || 'Ny arbeidsflyt-mal',
-            description: desc || null,
+            description: desc || '',
             source_module: sm,
             trigger_on: to,
             trigger_type: tt,
@@ -336,7 +336,7 @@ export function useWorkflowTemplateStudio(ruleId: string, fromId?: string) {
         } else {
           const updatePayload: Record<string, unknown> = {
             name: n.trim() || 'Ny arbeidsflyt-mal',
-            description: desc || null,
+            description: desc || '',
             source_module: sm,
             trigger_on: to,
             trigger_type: tt,

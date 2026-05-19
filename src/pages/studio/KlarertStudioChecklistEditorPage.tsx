@@ -220,7 +220,9 @@ export function KlarertStudioChecklistEditorPage() {
     }
     setPublishError(null)
     await studio.publishTemplate()
-    navigate('/studio/checklist')
+    if (!studio.saveError) {
+      navigate('/studio/checklist')
+    }
   }
 
   const displayName = studio.templateName || 'Ny sjekkliste'
@@ -314,10 +316,10 @@ export function KlarertStudioChecklistEditorPage() {
           : undefined
       }
     >
-      {publishError && (
+      {(publishError ?? (studio.saveError && studio.saveStatus === 'error' ? studio.saveError : null)) && (
         <div className="mb-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-2.5 text-sm text-red-700">
           <AlertTriangle className="h-4 w-4 shrink-0" />
-          <span className="flex-1">{publishError}</span>
+          <span className="flex-1">{publishError ?? studio.saveError}</span>
           <button type="button" onClick={() => setPublishError(null)} className="shrink-0 text-red-400 hover:text-red-600" aria-label="Lukk">×</button>
         </div>
       )}

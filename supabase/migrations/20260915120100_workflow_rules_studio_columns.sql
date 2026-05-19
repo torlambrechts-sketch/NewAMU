@@ -40,20 +40,28 @@ create index if not exists workflow_rules_active_templates_idx
   on public.workflow_rules (organization_id, is_template, deleted_at)
   where is_template = true;
 
--- Allow workflows.compose to INSERT/UPDATE/DELETE their own org templates.
--- Scoped to is_template=true so composers cannot touch live operational rules.
--- The existing workflow_rules_write_manage policy covers non-template rules
--- for workflows.manage / org admins.
+-- Allow workflows.compose (and org admins) to INSERT/UPDATE/DELETE their own
+-- org templates. Scoped to is_template=true so composers cannot touch live
+-- operational rules. The existing workflow_rules_write_manage policy covers
+-- non-template rules for workflows.manage / org admins.
+-- is_org_admin() is included so freshly-created admins (who have the
+-- profile flag but no explicit permission key yet) can save Studio templates.
 drop policy if exists "workflow_rules_write_compose_templates" on public.workflow_rules;
 create policy "workflow_rules_write_compose_templates"
   on public.workflow_rules for all
   using (
     organization_id = public.current_org_id()
     and is_template = true
-    and public.user_has_permission('workflows.compose')
+    and (
+      public.user_has_permission('workflows.compose')
+      or public.is_org_admin()
+    )
   )
   with check (
     organization_id = public.current_org_id()
     and is_template = true
-    and public.user_has_permission('workflows.compose')
+    and (
+      public.user_has_permission('workflows.compose')
+      or public.is_org_admin()
+    )
   );
