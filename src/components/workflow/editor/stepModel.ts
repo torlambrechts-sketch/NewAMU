@@ -265,9 +265,10 @@ export function patchCondition(
 
 export function removeStep(doc: WorkflowFlowDocument, step: EditorStep): WorkflowFlowDocument {
   if (step.source.type === 'condition') {
+    const { flowStepId } = step.source
     return {
       ...doc,
-      linearSteps: doc.linearSteps.filter((s) => s.id !== step.source.flowStepId),
+      linearSteps: doc.linearSteps.filter((s) => s.id !== flowStepId),
     }
   }
   if (step.source.type === 'action') {

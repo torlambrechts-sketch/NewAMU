@@ -252,15 +252,13 @@ export function WorkflowEditorShell({
       )
     }
     if (step.kind === 'condition' && step.source.type === 'condition') {
-      const flowStep = doc.linearSteps.find((s) => s.id === step.source.flowStepId)
+      const { flowStepId } = step.source
+      const flowStep = doc.linearSteps.find((s) => s.id === flowStepId)
       if (!flowStep || flowStep.kind !== 'condition') return null
       return (
         <ConditionFields
           value={flowStep.condition}
-          onChange={(next) =>
-            step.source.type === 'condition' &&
-            markDirty(patchCondition(doc, step.source.flowStepId, next))
-          }
+          onChange={(next) => markDirty(patchCondition(doc, flowStepId, next))}
         />
       )
     }
