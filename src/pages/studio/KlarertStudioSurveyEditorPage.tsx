@@ -3,7 +3,7 @@
 // DndContext wraps the shell so palette chips and canvas share one drag context.
 // Accessed via /studio/survey/:templateId  (templateId='new' creates on first save).
 
-import { useCallback, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { toast } from 'sonner'
 import { AlertTriangle, Copy, Play, X, Zap } from 'lucide-react'
@@ -43,7 +43,14 @@ export function KlarertStudioSurveyEditorPage() {
   const navigate = useNavigate()
 
   const studio = useSurveyStudio(templateId, fromTemplateId)
-  useDirtyGuard(!studio.isSystemTemplate && studio.saveStatus === 'idle')
+  useDirtyGuard(!studio.isSystemTemplate && studio.saveStatus === 'saving')
+
+  // URL sync: after first INSERT, update URL so refresh edits rather than re-forks
+  useEffect(() => {
+    if (studio.rowId && templateId === 'new') {
+      navigate(`/studio/survey/${studio.rowId}`, { replace: true })
+    }
+  }, [studio.rowId, templateId, navigate])
 
   // ── UI state ─────────────────────────────────────────────────────────────────
   const [mode, setMode] = useState<'simple' | 'advanced'>('simple')

@@ -226,7 +226,6 @@ function BlockCard({
     : actionTypeToKind((step.actions[0] as { type: string } | undefined)?.type ?? 'create_task')
 
   const meta = STUDIO_BLOCK_META[kind] ?? STUDIO_BLOCK_META.task
-  const enabled = isTrigger ? true : true // steps don't have enabled on this model directly
   const label = isTrigger
     ? (triggerEventName ?? 'Utløser')
     : (step.label ?? meta.label)
@@ -237,7 +236,6 @@ function BlockCard({
         'k-block',
         isSelected ? 'is-selected' : '',
         isDragging ? 'is-dragging' : '',
-        !enabled ? 'is-disabled' : '',
       ].filter(Boolean).join(' ')}
       onClick={(e) => { e.stopPropagation(); onSelect(stepIndex) }}
     >
@@ -501,11 +499,13 @@ export function StudioWorkflowCanvas({
     setDropIndex(null)
   }, [draggingIdx, draggingKind, steps, flowDoc, onChange, onSelect, insertAt])
 
-  // Expose drag kind setter for palette drag events (via data transfer)
+  // dataTransfer.getData is not readable during dragover (browser security restriction).
+  // Use .types.includes() to detect presence only; actual kind is read in the drop handler.
   const handleCanvasDragOver = (e: React.DragEvent) => {
     e.preventDefault()
-    const kind = e.dataTransfer.getData('application/x-klarert-kind') as StudioBlockKind | ''
-    if (kind) setDraggingKind(kind || null)
+    if (e.dataTransfer.types.includes('application/x-klarert-kind') && !draggingKind) {
+      setDraggingKind('task') // placeholder to show drop affordance; corrected on drop
+    }
   }
 
   const totalCount = steps.length

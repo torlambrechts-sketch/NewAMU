@@ -19,7 +19,6 @@ import {
   type WorkflowFlowDocument,
 } from '../../../src/lib/workflowFlowTypes'
 import {
-  isGovernmentActionType,
   type WorkflowAction,
   type WorkflowConfidentialityLevel,
   type WorkflowRuleCatalogRow,
@@ -30,19 +29,6 @@ import {
 } from '../../../src/types/workflow'
 
 const AUTOSAVE_DELAY_MS = 2000
-
-// ─── Helpers ──────────────────────────────────────────────────────────────────
-
-function deriveContainsGovAction(
-  actionsJson: WorkflowAction[] | WorkflowXorActionsEnvelope,
-): boolean {
-  if (Array.isArray(actionsJson)) {
-    return actionsJson.some((a) => isGovernmentActionType((a as { type: string }).type))
-  }
-  return actionsJson.branches.some((b) =>
-    b.actions.some((a) => isGovernmentActionType((a as { type: string }).type)),
-  )
-}
 
 // ─── Hook ─────────────────────────────────────────────────────────────────────
 
@@ -80,6 +66,7 @@ export function useWorkflowTemplateStudio(ruleId: string, fromId?: string) {
   const rowIdRef = useRef<string | null>(ruleId === 'new' ? null : ruleId)
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const savingRef = useRef(false)
+  const savePromiseRef = useRef<Promise<void> | null>(null)
   const revisionNumberRef = useRef(0)
 
   const [revisions, setRevisions] = useState<WorkflowRuleStudioRevisionRow[]>([])
@@ -105,6 +92,29 @@ export function useWorkflowTemplateStudio(ruleId: string, fromId?: string) {
 
   useEffect(() => {
     if (!supabase || !organization?.id) return
+
+    // Reset eagerly so stale data is never visible and in-flight debounce saves
+    // cannot target the previous template's rowId.
+    if (debounceRef.current) clearTimeout(debounceRef.current)
+    rowIdRef.current = ruleId === 'new' ? null : ruleId
+    setRowId(ruleId === 'new' ? null : ruleId)
+    setName('')
+    setDescription('')
+    setSourceModule('compliance_checklist')
+    setTriggerEventName(null)
+    setTriggerType('db_event')
+    setTriggerOn('both')
+    setLawRefs([])
+    setFrameworks([])
+    setPack(null)
+    setCadenceHint('')
+    setConfidentialityLevel('standard')
+    setFlowDoc(defaultWorkflowFlowDocument())
+    setIsSystemTemplate(false)
+    setLoadError(null)
+    setSaveStatus('idle')
+    setSaveError(null)
+    revisionNumberRef.current = 0
 
     if (ruleId === 'new' && !fromId) {
       setLoading(false)
@@ -280,15 +290,15 @@ export function useWorkflowTemplateStudio(ruleId: string, fromId?: string) {
   // ─── Save ─────────────────────────────────────────────────────────────────
 
   const persist = useCallback(
-    async (publishNow = false) => {
-      if (!supabase) return
+    async (publishNow = false): Promise<string | null> => {
+      if (!supabase) return null
       if (!organization?.id) {
         setSaveError('Organisasjonsdata mangler – prøv igjen.')
         setSaveStatus('error')
-        return
+        return 'Organisasjonsdata mangler'
       }
-      if (isSystemTemplate) return
-      if (savingRef.current) return
+      if (isSystemTemplate) return null
+      if (savingRef.current) return null
 
       // Compile flow → DB payload; abort on error
       const compiled = compileWorkflowFlow(flowDocRef.current)
@@ -321,9 +331,11 @@ export function useWorkflowTemplateStudio(ruleId: string, fromId?: string) {
         confidentialityLevel: cl,
       } = metaRef.current
 
-      const containsGov = deriveContainsGovAction(actions_json)
-
+      let saveErr: string | null = null
       try {
+        const { data: { user: currentUser } } = await supabase.auth.getUser()
+        const userId = currentUser?.id ?? null
+
         if (!rowIdRef.current) {
           const newId = freshId('wfl')
           const newSlug = freshId('wfl-s')
@@ -352,7 +364,7 @@ export function useWorkflowTemplateStudio(ruleId: string, fromId?: string) {
           })
           if (error) throw error
           rowIdRef.current = newId
-          setRowId(newId)
+          setRowId(newId) // triggers URL-sync effect in editor page
         } else {
           const updatePayload: Record<string, unknown> = {
             name: n.trim() || 'Ny arbeidsflyt-mal',
@@ -383,7 +395,6 @@ export function useWorkflowTemplateStudio(ruleId: string, fromId?: string) {
 
         setSaveStatus('saved')
         setLastSavedAt(new Date())
-        void containsGov // consumed by derived field — no separate column in workflow_rules
 
         // Append revision snapshot (best-effort; failure does not block save)
         const targetId = rowIdRef.current
@@ -403,30 +414,43 @@ export function useWorkflowTemplateStudio(ruleId: string, fromId?: string) {
             frameworks: fw,
             pack: pk || null,
             cadence_hint: ch || null,
+            created_by: userId,
           } as Record<string, unknown>)
         }
       } catch (err) {
         console.error('[useWorkflowTemplateStudio] persist failed', err)
-        const msg = err instanceof Error ? err.message : 'Ukjent feil ved lagring'
+        saveErr = err instanceof Error ? err.message : 'Ukjent feil ved lagring'
         setSaveStatus('error')
-        setSaveError(msg)
+        setSaveError(saveErr)
       } finally {
         savingRef.current = false
+        savePromiseRef.current = null
       }
+      return saveErr
     },
     [supabase, organization?.id, isSystemTemplate],
   )
 
   const scheduleSave = useCallback(() => {
-    if (savingRef.current) return
     if (debounceRef.current) clearTimeout(debounceRef.current)
-    debounceRef.current = setTimeout(() => void persist(false), AUTOSAVE_DELAY_MS)
-    setSaveStatus('idle')
+    debounceRef.current = setTimeout(() => {
+      const p = persist(false)
+      savePromiseRef.current = p.then(() => undefined)
+    }, AUTOSAVE_DELAY_MS)
   }, [persist])
 
-  const publishTemplate = useCallback(async () => {
+  const publishTemplate = useCallback(async (): Promise<string | null> => {
     if (debounceRef.current) clearTimeout(debounceRef.current)
-    await persist(true)
+    // Drain any in-flight auto-save before publishing so is_active=true lands last
+    if (savePromiseRef.current) await savePromiseRef.current
+    if (savingRef.current) {
+      // Wait up to 3 s for in-flight save to finish
+      const deadline = Date.now() + 3000
+      while (savingRef.current && Date.now() < deadline) {
+        await new Promise((r) => setTimeout(r, 50))
+      }
+    }
+    return persist(true)
   }, [persist])
 
   // ─── Setters that schedule save ───────────────────────────────────────────

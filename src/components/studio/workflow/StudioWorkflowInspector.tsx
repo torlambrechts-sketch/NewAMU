@@ -131,9 +131,9 @@ function TriggerPropsForm({ sourceModule, triggerEventName, onChangeModule, onCh
   onChangeEvent: (v: string | null) => void
   disabled?: boolean
 }) {
-  const [filters, setFilters] = useState<TriggerFilter[]>([
-    { field: 'severity', op: 'equals', value: 'kritisk' },
-  ])
+  // Filters are shown for UX context but are not yet wired to condition_json.
+  // They default empty; the compiled condition is managed via Condition blocks in the canvas.
+  const [filters, setFilters] = useState<TriggerFilter[]>([])
 
   const moduleOptions = Object.entries(MODULE_LABELS).map(([v, l]) => ({ value: v, label: l }))
 

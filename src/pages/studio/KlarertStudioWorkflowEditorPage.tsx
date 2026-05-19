@@ -50,7 +50,15 @@ export function KlarertStudioWorkflowEditorPage() {
     !profile?.is_org_admin
   const effectivelyDisabled = studio.isSystemTemplate || isViewOnly
 
-  useDirtyGuard(!effectivelyDisabled && studio.saveStatus === 'idle')
+  useDirtyGuard(!effectivelyDisabled && studio.saveStatus === 'saving')
+
+  // ── URL sync: after first INSERT the hook sets rowId; update URL so a refresh
+  // edits the saved row instead of forking again.
+  useEffect(() => {
+    if (studio.rowId && ruleId === 'new') {
+      navigate(`/studio/workflow/${studio.rowId}`, { replace: true })
+    }
+  }, [studio.rowId, ruleId, navigate])
 
   // ── UI state ─────────────────────────────────────────────────────────────────
   const [mode, setMode] = useState<'simple' | 'advanced'>('advanced')
@@ -92,12 +100,12 @@ export function KlarertStudioWorkflowEditorPage() {
     if (!hasAtLeastOneAction) { setPublishError('Legg til minst én handling i flyten.'); return }
     if (studio.compileError) { setPublishError(`Valideringsfeil: ${studio.compileError}`); return }
     setPublishError(null)
-    await studio.publishTemplate()
-    if (!studio.saveError) {
+    const err = await studio.publishTemplate()
+    if (!err) {
       toast.success(`«${studio.name.trim()}» er publisert`)
       navigate('/studio/workflow')
     } else {
-      toast.error(`Publisering feilet: ${studio.saveError}`)
+      toast.error(`Publisering feilet: ${err}`)
     }
   }
 
@@ -139,10 +147,14 @@ export function KlarertStudioWorkflowEditorPage() {
     // Palette click-to-append is handled by the canvas directly via DnD data transfer
   }, [])
 
+  // Use stable individual deps to avoid stale-closure over the whole studio object
+  const { flowDoc, updateFlowDoc } = studio
   const handleUpdateStep = useCallback((idx: number, step: WorkflowFlowStep) => {
-    const next = studio.flowDoc.linearSteps.map((s, i) => i === idx ? step : s)
-    studio.updateFlowDoc({ ...studio.flowDoc, linearSteps: next })
-  }, [studio])
+    updateFlowDoc({
+      ...flowDoc,
+      linearSteps: flowDoc.linearSteps.map((s, i) => i === idx ? step : s),
+    })
+  }, [flowDoc, updateFlowDoc])
 
   // ── Top-bar action buttons ────────────────────────────────────────────────────
   const actions = (
@@ -280,7 +292,7 @@ export function KlarertStudioWorkflowEditorPage() {
 
       {/* Dry-run results overlay */}
       {showDryRunPanel && (dryRunLog || dryRunError) && (
-        <div className="fixed inset-0 z-50 flex items-end justify-center p-4 bg-black/20" role="dialog" aria-modal>
+        <div className="fixed inset-0 z-50 flex items-end justify-center p-4 bg-black/20" role="dialog" aria-modal="true">
           <div className="w-full max-w-2xl rounded-2xl bg-white shadow-2xl overflow-hidden">
             <div className="flex items-center justify-between border-b border-neutral-100 px-5 py-4">
               <div className="flex items-center gap-2">
