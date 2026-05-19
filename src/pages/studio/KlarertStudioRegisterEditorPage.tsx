@@ -66,7 +66,7 @@ export function KlarertStudioRegisterEditorPage() {
   const navigate = useNavigate()
 
   const studio = useRegisterTypeStudio(typeId, fromTypeId)
-  useDirtyGuard(!studio.isSystemType && studio.saveStatus === 'saving')
+  useDirtyGuard(!studio.isSystemType && studio.isDirty)
 
   useEffect(() => {
     if (studio.rowId && typeId === 'new') {
@@ -75,6 +75,7 @@ export function KlarertStudioRegisterEditorPage() {
   }, [studio.rowId, typeId, navigate])
 
   // ── UI state ─────────────────────────────────────────────────────────────────
+  const [mode, setMode] = useState<'simple' | 'advanced'>('simple')
   const [showInspector, setShowInspector] = useState(true)
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [publishError, setPublishError] = useState<string | null>(null)
@@ -234,6 +235,8 @@ export function KlarertStudioRegisterEditorPage() {
         title={studio.typeName || 'Ny registertype'}
         onTitleChange={studio.isSystemType ? undefined : studio.updateName}
         titlePlaceholder="Ny registertype"
+        mode={mode}
+        onModeChange={setMode}
         showInspector={showInspector}
         onToggleInspector={() => setShowInspector((v) => !v)}
         loading={studio.loading}

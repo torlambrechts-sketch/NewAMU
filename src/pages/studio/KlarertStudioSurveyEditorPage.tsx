@@ -43,7 +43,7 @@ export function KlarertStudioSurveyEditorPage() {
   const navigate = useNavigate()
 
   const studio = useSurveyStudio(templateId, fromTemplateId)
-  useDirtyGuard(!studio.isSystemTemplate && studio.saveStatus === 'saving')
+  useDirtyGuard(!studio.isSystemTemplate && studio.isDirty)
 
   // URL sync: after first INSERT, update URL so refresh edits rather than re-forks
   useEffect(() => {

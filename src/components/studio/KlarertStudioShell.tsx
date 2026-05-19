@@ -87,7 +87,8 @@ export function SaveStatus({ status, saveError }: { status: string; saveError: s
       </span>
     )
   }
-  // saved / idle — show pulse dot
+  if (status === 'idle') return null
+  // saved — show pulse dot
   return (
     <span className="inline-flex items-center gap-1.5 text-[11px] text-neutral-500">
       <span className="h-1.5 w-1.5 rounded-full k-pulse" style={{ background: '#2f7757' }} />

@@ -88,6 +88,7 @@ export function useChecklistStudio(templateId: string, fromTemplateId?: string) 
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
   const [saveError, setSaveError] = useState<string | null>(null)
   const [lastSavedAt, setLastSavedAt] = useState<Date | null>(null)
+  const [isDirty, setIsDirty] = useState(false)
   const [rowId, setRowId] = useState<string | null>(templateId === 'new' ? null : templateId)
 
   const rowIdRef = useRef<string | null>(templateId === 'new' ? null : templateId)
@@ -121,6 +122,7 @@ export function useChecklistStudio(templateId: string, fromTemplateId?: string) 
     setLoadError(null)
     setSaveStatus('idle')
     setSaveError(null)
+    setIsDirty(false)
 
     if (templateId === 'new' && !fromTemplateId) {
       setLoading(false)
@@ -266,6 +268,7 @@ export function useChecklistStudio(templateId: string, fromTemplateId?: string) 
         }
         setSaveStatus('saved')
         setLastSavedAt(new Date())
+        setIsDirty(false)
       } catch (err) {
         console.error('[useChecklistStudio] persist failed', err)
         saveErr = err instanceof Error ? err.message : 'Ukjent feil ved lagring'
@@ -281,6 +284,7 @@ export function useChecklistStudio(templateId: string, fromTemplateId?: string) 
   )
 
   const scheduleSave = useCallback(() => {
+    setIsDirty(true)
     if (debounceRef.current) clearTimeout(debounceRef.current)
     debounceRef.current = setTimeout(() => {
       const p = persist(false)
@@ -391,6 +395,7 @@ export function useChecklistStudio(templateId: string, fromTemplateId?: string) 
     loadError,
     saveStatus,
     saveError,
+    isDirty,
     lastSavedAt,
     rowId,
     addBlock,

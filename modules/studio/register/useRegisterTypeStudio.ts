@@ -94,6 +94,7 @@ export function useRegisterTypeStudio(typeId: string, fromTypeId?: string) {
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
   const [saveError, setSaveError] = useState<string | null>(null)
   const [lastSavedAt, setLastSavedAt] = useState<Date | null>(null)
+  const [isDirty, setIsDirty] = useState(false)
   const [rowId, setRowId] = useState<string | null>(typeId === 'new' ? null : typeId)
 
   const rowIdRef = useRef<string | null>(typeId === 'new' ? null : typeId)
@@ -119,6 +120,7 @@ export function useRegisterTypeStudio(typeId: string, fromTypeId?: string) {
     setLoadError(null)
     setSaveStatus('idle')
     setSaveError(null)
+    setIsDirty(false)
 
     if (typeId === 'new' && !fromTypeId) {
       setLoading(false)
@@ -224,7 +226,7 @@ export function useRegisterTypeStudio(typeId: string, fromTypeId?: string) {
           // Slug derived from a fresh id; id = org-<prefix>-<slug> to match useRegisters convention.
           const slug = freshId('rgt')
           const newId = `org-${organization.id.slice(0, 8)}-${slug}`
-          const { error } = await supabase
+          const { data: insertedType, error } = await supabase
             .from('register_types')
             .insert({
               id: newId,
@@ -237,18 +239,22 @@ export function useRegisterTypeStudio(typeId: string, fromTypeId?: string) {
               is_active: publishNow,
               is_system: false,
             })
+            .select('id')
+            .single()
           if (error) throw error
+
+          const confirmedId = insertedType.id as string
 
           // Auto-enable for org (mirrors createOrgType in useRegisters)
           await supabase.from('register_org_settings').insert({
             organization_id: organization.id,
-            register_type_id: newId,
+            register_type_id: confirmedId,
             enabled: true,
             nav_pinned: navPinned,
           })
 
-          rowIdRef.current = newId
-          setRowId(newId)
+          rowIdRef.current = confirmedId
+          setRowId(confirmedId)
         } else {
           const updatePayload: Record<string, unknown> = {
             name: name.trim() || 'Ny registertype',
@@ -280,6 +286,7 @@ export function useRegisterTypeStudio(typeId: string, fromTypeId?: string) {
 
         setSaveStatus('saved')
         setLastSavedAt(new Date())
+        setIsDirty(false)
       } catch (err) {
         console.error('[useRegisterTypeStudio] persist failed', err)
         saveErr = err instanceof Error ? err.message : 'Ukjent feil ved lagring'
@@ -295,6 +302,7 @@ export function useRegisterTypeStudio(typeId: string, fromTypeId?: string) {
   )
 
   const scheduleSave = useCallback(() => {
+    setIsDirty(true)
     if (debounceRef.current) clearTimeout(debounceRef.current)
     debounceRef.current = setTimeout(() => {
       const p = persist(false)
@@ -394,6 +402,7 @@ export function useRegisterTypeStudio(typeId: string, fromTypeId?: string) {
     loadError,
     saveStatus,
     saveError,
+    isDirty,
     lastSavedAt,
     rowId,
     addBlock,

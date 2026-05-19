@@ -61,6 +61,7 @@ export function useWorkflowTemplateStudio(ruleId: string, fromId?: string) {
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
   const [saveError, setSaveError] = useState<string | null>(null)
   const [lastSavedAt, setLastSavedAt] = useState<Date | null>(null)
+  const [isDirty, setIsDirty] = useState(false)
   const [rowId, setRowId] = useState<string | null>(ruleId === 'new' ? null : ruleId)
 
   const rowIdRef = useRef<string | null>(ruleId === 'new' ? null : ruleId)
@@ -114,6 +115,7 @@ export function useWorkflowTemplateStudio(ruleId: string, fromId?: string) {
     setLoadError(null)
     setSaveStatus('idle')
     setSaveError(null)
+    setIsDirty(false)
     revisionNumberRef.current = 0
 
     if (ruleId === 'new' && !fromId) {
@@ -303,13 +305,12 @@ export function useWorkflowTemplateStudio(ruleId: string, fromId?: string) {
       // Compile flow → DB payload; abort on error
       const compiled = compileWorkflowFlow(flowDocRef.current)
       if ('error' in compiled) {
-        // Don't treat a transient flow-in-progress compile error as a hard save failure
-        // unless the user explicitly publishes
         if (publishNow) {
           setSaveError(compiled.error)
           setSaveStatus('error')
+          return compiled.error
         }
-        return
+        return null
       }
 
       savingRef.current = true
@@ -395,6 +396,7 @@ export function useWorkflowTemplateStudio(ruleId: string, fromId?: string) {
 
         setSaveStatus('saved')
         setLastSavedAt(new Date())
+        setIsDirty(false)
 
         // Append revision snapshot (best-effort; failure does not block save)
         const targetId = rowIdRef.current
@@ -432,6 +434,7 @@ export function useWorkflowTemplateStudio(ruleId: string, fromId?: string) {
   )
 
   const scheduleSave = useCallback(() => {
+    setIsDirty(true)
     if (debounceRef.current) clearTimeout(debounceRef.current)
     debounceRef.current = setTimeout(() => {
       const p = persist(false)
@@ -522,6 +525,7 @@ export function useWorkflowTemplateStudio(ruleId: string, fromId?: string) {
     loadError,
     saveStatus,
     saveError,
+    isDirty,
     lastSavedAt,
     rowId,
     // setters

@@ -50,7 +50,7 @@ export function KlarertStudioWorkflowEditorPage() {
     !profile?.is_org_admin
   const effectivelyDisabled = studio.isSystemTemplate || isViewOnly
 
-  useDirtyGuard(!effectivelyDisabled && studio.saveStatus === 'saving')
+  useDirtyGuard(!effectivelyDisabled && studio.isDirty)
 
   // ── URL sync: after first INSERT the hook sets rowId; update URL so a refresh
   // edits the saved row instead of forking again.
@@ -166,6 +166,7 @@ export function KlarertStudioWorkflowEditorPage() {
         type="button"
         className="rounded-md p-1.5 text-neutral-500 hover:bg-neutral-100"
         title="Forhåndsvis"
+        aria-label="Forhåndsvis"
       >
         <Eye className="h-4 w-4" />
       </button>
@@ -302,16 +303,19 @@ export function KlarertStudioWorkflowEditorPage() {
 
       {/* Dry-run results overlay */}
       {showDryRunPanel && (dryRunLog || dryRunError) && (
-        <div className="fixed inset-0 z-50 flex items-end justify-center p-4 bg-black/20" role="dialog" aria-modal="true">
+        <div className="fixed inset-0 z-50 flex items-end justify-center p-4 bg-black/20" role="dialog" aria-modal="true" aria-labelledby="dry-run-title">
           <div className="w-full max-w-2xl rounded-2xl bg-white shadow-2xl overflow-hidden">
             <div className="flex items-center justify-between border-b border-neutral-100 px-5 py-4">
               <div className="flex items-center gap-2">
                 <Play className="h-4 w-4 text-emerald-600" />
-                <h3 className="text-sm font-semibold text-neutral-900">Dry-run resultat</h3>
+                <h3 id="dry-run-title" className="text-sm font-semibold text-neutral-900">Dry-run resultat</h3>
               </div>
               <button
                 type="button"
                 onClick={() => setShowDryRunPanel(false)}
+                // eslint-disable-next-line jsx-a11y/no-autofocus
+                autoFocus
+                aria-label="Lukk dry-run resultat"
                 className="rounded-lg p-1 text-neutral-400 hover:bg-neutral-100 hover:text-neutral-600"
               >
                 <X className="h-4 w-4" />
@@ -327,7 +331,7 @@ export function KlarertStudioWorkflowEditorPage() {
                 <ul className="space-y-1.5">
                   {dryRunLog.map((entry, idx) => (
                     <li
-                      key={idx}
+                      key={`${entry.step}-${entry.action_type}`}
                       className="flex items-start gap-2 rounded-lg px-3 py-2 text-xs"
                       style={{
                         backgroundColor:

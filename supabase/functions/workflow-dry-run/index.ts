@@ -24,11 +24,15 @@ const ALLOWED_ORIGINS = new Set(
 
 function makeCorsHeaders(req: Request): Record<string, string> {
   const origin = req.headers.get('origin') ?? ''
-  return {
-    'Access-Control-Allow-Origin': ALLOWED_ORIGINS.has(origin) ? origin : '',
+  const headers: Record<string, string> = {
     'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+    'Access-Control-Allow-Methods': 'POST, OPTIONS',
     'Vary': 'Origin',
   }
+  if (ALLOWED_ORIGINS.has(origin)) {
+    headers['Access-Control-Allow-Origin'] = origin
+  }
+  return headers
 }
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -108,7 +112,17 @@ Deno.serve(async (req) => {
       rule_id: string
       sample_payload?: Record<string, unknown>
     }
-    const { rule_id, sample_payload = {} } = body
+    const { rule_id } = body
+    // Sanitise sample_payload: only accept a plain object with string keys to
+    // prevent prototype-pollution vectors and avoid leaking runtime properties.
+    const rawPayload = body.sample_payload
+    const sample_payload: Record<string, unknown> =
+      rawPayload != null && typeof rawPayload === 'object' && !Array.isArray(rawPayload)
+        ? Object.fromEntries(
+            Object.entries(rawPayload as Record<string, unknown>)
+              .filter(([k]) => typeof k === 'string' && !k.startsWith('__'))
+          )
+        : {}
 
     // ── UUID validation ───────────────────────────────────────────────────────
     if (!rule_id || !UUID_RE.test(rule_id)) {
@@ -224,7 +238,7 @@ function describeAction(action: { type: string; [k: string]: unknown }): string 
     case 'call_webhook': {
       const url = safeStr(action.url, '(url ikke satt)')
       // Only log https:// URLs to avoid logging dangerous schemes
-      const safeUrl = url.startsWith('https://') ? url : '(ikke-https url)')
+      const safeUrl = url.startsWith('https://') ? url : '(ikke-https url)'
       return `Ville kalt webhook: ${safeUrl}`
     }
     case 'log_only':

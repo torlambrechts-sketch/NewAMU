@@ -48,7 +48,7 @@ export function KlarertStudioChecklistEditorPage() {
   const navigate = useNavigate()
 
   const studio = useChecklistStudio(templateId, fromTemplateId)
-  useDirtyGuard(!studio.isSystemTemplate && studio.saveStatus === 'saving')
+  useDirtyGuard(!studio.isSystemTemplate && studio.isDirty)
 
   useEffect(() => {
     if (studio.rowId && templateId === 'new') {
@@ -119,8 +119,7 @@ export function KlarertStudioChecklistEditorPage() {
       if (!checklistItem) return
       handlePaletteAdd(checklistItem)
     },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [handlePaletteAdd],
+    [checklistItemById, handlePaletteAdd],
   )
 
   function handleDragStart(event: DragStartEvent) {
