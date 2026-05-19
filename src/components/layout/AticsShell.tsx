@@ -29,6 +29,7 @@ import {
   ShieldAlert,
   ShieldCheck,
   Settings,
+  Sliders,
   UserCheck,
   UserSearch,
   Users,
@@ -1820,10 +1821,26 @@ export function AticsShell() {
     ]
     const overviewFixedSubs: SubItem[] = [
       {
-        label: 'HMS-oversikt',
+        label: 'AML-oversikt',
         path: '/overview/hms',
         Icon: Activity,
         match: ({ pathname }) => pathname === '/overview/hms',
+        requirePermAny: overviewNavPerms,
+      },
+      {
+        label: 'Internkontroll',
+        path: '/overview/internkontroll',
+        Icon: ShieldCheck,
+        match: ({ pathname }) =>
+          pathname === '/overview/internkontroll' ||
+          (pathname.startsWith('/overview/internkontroll') && !pathname.startsWith('/overview/internkontroll/gaps')),
+        requirePermAny: overviewNavPerms,
+      },
+      {
+        label: 'Gap-analyse',
+        path: '/overview/internkontroll/gaps',
+        Icon: ShieldAlert,
+        match: ({ pathname }) => pathname.startsWith('/overview/internkontroll/gaps'),
         requirePermAny: overviewNavPerms,
       },
       {
@@ -1849,19 +1866,10 @@ export function AticsShell() {
         requirePermAny: ADMINISTRASJON_NAV_PERMS,
       },
       {
-        label: 'Internkontroll',
-        path: '/overview/internkontroll',
-        Icon: ShieldCheck,
-        match: ({ pathname }) =>
-          pathname === '/overview/internkontroll' ||
-          (pathname.startsWith('/overview/internkontroll') && !pathname.startsWith('/overview/internkontroll/gaps')),
-        requirePermAny: overviewNavPerms,
-      },
-      {
-        label: 'Gap-analyse',
-        path: '/overview/internkontroll/gaps',
-        Icon: ShieldAlert,
-        match: ({ pathname }) => pathname.startsWith('/overview/internkontroll/gaps'),
+        label: 'Tilpasset oversikt',
+        path: '/overview/hms/widgets',
+        Icon: Sliders,
+        match: ({ pathname }) => pathname.startsWith('/overview/hms/widgets'),
         requirePermAny: overviewNavPerms,
       },
       {
