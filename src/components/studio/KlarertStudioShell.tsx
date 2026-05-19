@@ -46,23 +46,25 @@ export function ModePill({ mode, onChange }: {
   onChange: (m: 'simple' | 'advanced') => void
 }) {
   return (
-    <div className="k-mode-pill" role="tablist" aria-label="Studio modus">
+    <div className="k-mode-pill" role="group" aria-label="Studio modus">
       <button
         type="button"
         className={mode === 'simple' ? 'is-active' : ''}
         onClick={() => onChange('simple')}
+        aria-pressed={mode === 'simple'}
         title="Skjul avanserte paneler"
       >
-        <span className="k-mode-dot" />
+        <span className="k-mode-dot" aria-hidden="true" />
         Enkel
       </button>
       <button
         type="button"
         className={mode === 'advanced' ? 'is-active' : ''}
         onClick={() => onChange('advanced')}
+        aria-pressed={mode === 'advanced'}
         title="Vis alt — palett, regelverk, versjoner, stil"
       >
-        <span className="k-mode-dot" />
+        <span className="k-mode-dot" aria-hidden="true" />
         Avansert
       </button>
     </div>
@@ -74,15 +76,15 @@ export function ModePill({ mode, onChange }: {
 export function SaveStatus({ status, saveError }: { status: string; saveError: string | null }) {
   if (status === 'saving') {
     return (
-      <span className="inline-flex items-center gap-1.5 text-[11px] text-neutral-500">
-        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+      <span role="status" aria-live="polite" className="inline-flex items-center gap-1.5 text-[11px] text-neutral-500">
+        <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />
         Lagrer…
       </span>
     )
   }
   if (status === 'error') {
     return (
-      <span className="text-[11px] text-red-500" title={saveError ?? undefined}>
+      <span role="alert" aria-live="assertive" className="text-[11px] text-red-500" title={saveError ?? undefined}>
         Lagring feilet
       </span>
     )
@@ -90,8 +92,8 @@ export function SaveStatus({ status, saveError }: { status: string; saveError: s
   if (status === 'idle') return null
   // saved — show pulse dot
   return (
-    <span className="inline-flex items-center gap-1.5 text-[11px] text-neutral-500">
-      <span className="h-1.5 w-1.5 rounded-full k-pulse" style={{ background: '#2f7757' }} />
+    <span role="status" aria-live="polite" className="inline-flex items-center gap-1.5 text-[11px] text-neutral-500">
+      <span className="h-1.5 w-1.5 rounded-full k-pulse" style={{ background: '#2f7757' }} aria-hidden="true" />
       Auto-lagret
     </span>
   )
@@ -173,8 +175,9 @@ export function KlarertStudioShell({
   // ── Loading ──────────────────────────────────────────────────────────────────
   if (loading) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-[#F9F7F2]">
-        <Loader2 className="h-8 w-8 animate-spin text-[#1a3d32]" />
+      <div className="flex min-h-screen items-center justify-center bg-[#F9F7F2]" role="status" aria-label="Laster…">
+        <Loader2 className="h-8 w-8 animate-spin text-[#1a3d32]" aria-hidden="true" />
+        <span className="sr-only">Laster…</span>
       </div>
     )
   }
@@ -205,7 +208,7 @@ export function KlarertStudioShell({
         <span className="hidden sm:inline-block h-5 w-px bg-neutral-300/70" />
 
         {/* Breadcrumb + title */}
-        <nav className="flex items-center gap-1.5 text-[12.5px] min-w-0 flex-1">
+        <nav aria-label="Brødsmule" className="flex items-center gap-1.5 text-[12.5px] min-w-0 flex-1">
           <button
             type="button"
             onClick={() => navigate('/studio')}
@@ -213,7 +216,7 @@ export function KlarertStudioShell({
           >
             Studio-hjem
           </button>
-          <span className="hidden md:inline text-neutral-300">›</span>
+          <span className="hidden md:inline text-neutral-300" aria-hidden="true">›</span>
           <button
             type="button"
             onClick={() => navigate(moduleHref)}
@@ -221,7 +224,7 @@ export function KlarertStudioShell({
           >
             {moduleLabel}
           </button>
-          <span className="hidden lg:inline text-neutral-300">›</span>
+          <span className="hidden lg:inline text-neutral-300" aria-hidden="true">›</span>
 
           {readOnly || !onTitleChange ? (
             <span
@@ -232,6 +235,7 @@ export function KlarertStudioShell({
             </span>
           ) : (
             <input
+              aria-label="Malnavn"
               className="k-title-input min-w-0"
               value={title}
               onChange={(e) => onTitleChange(e.target.value)}
@@ -262,8 +266,10 @@ export function KlarertStudioShell({
             onClick={onToggleInspector}
             className={`rounded-md p-1.5 transition-colors ${showInspector ? 'text-[#1a3d32] bg-[#e7efe9]' : 'text-neutral-500 hover:bg-neutral-100'}`}
             title={showInspector ? 'Skjul inspektør' : 'Vis inspektør'}
+            aria-label={showInspector ? 'Skjul inspektør' : 'Vis inspektør'}
+            aria-pressed={showInspector}
           >
-            <PanelRight className="h-4 w-4" />
+            <PanelRight className="h-4 w-4" aria-hidden="true" />
           </button>
         )}
 

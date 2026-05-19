@@ -61,7 +61,7 @@ export function KlarertStudioWorkflowEditorPage() {
   }, [studio.rowId, ruleId, navigate])
 
   // ── UI state ─────────────────────────────────────────────────────────────────
-  const [mode, setMode] = useState<'simple' | 'advanced'>('advanced')
+  const [mode, setMode] = useState<'simple' | 'advanced'>('simple')
   const [showInspector, setShowInspector] = useState(true)
   const [selectedIdx, setSelectedIdx] = useState<number | null>(-1)
   const [publishError, setPublishError] = useState<string | null>(null)
@@ -224,14 +224,14 @@ export function KlarertStudioWorkflowEditorPage() {
         </div>
       )}
       {studio.compileError && (
-        <div className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">
-          <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
+        <div role="alert" className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">
+          <AlertTriangle className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
           Valideringsfeil: {studio.compileError}
         </div>
       )}
       {hasGovActions && (
-        <div className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 px-4 py-2.5 text-sm text-amber-800">
-          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+        <div role="alert" className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 px-4 py-2.5 text-sm text-amber-800">
+          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
           <span>
             Malen inneholder <strong>myndighetsrapportering-handlinger</strong> som krever
             tillatelsen{' '}

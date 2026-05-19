@@ -194,7 +194,7 @@ export function KlarertStudioChecklistEditorPage() {
   )
 
   // ── Alert banners ─────────────────────────────────────────────────────────────
-  const hasBanners = !!publishError || studio.isSystemTemplate
+  const hasBanners = !!publishError || (!!studio.saveError && studio.saveStatus === 'error') || studio.isSystemTemplate
   const banners = hasBanners ? (
     <>
       {publishError && (
@@ -204,6 +204,12 @@ export function KlarertStudioChecklistEditorPage() {
           <button type="button" onClick={() => setPublishError(null)} className="shrink-0 text-red-400 hover:text-red-600">
             <X className="h-4 w-4" />
           </button>
+        </div>
+      )}
+      {studio.saveError && studio.saveStatus === 'error' && (
+        <div className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-2.5 text-sm text-red-700">
+          <AlertTriangle className="h-4 w-4 shrink-0" />
+          <span className="flex-1">{studio.saveError}</span>
         </div>
       )}
       {studio.isSystemTemplate && (

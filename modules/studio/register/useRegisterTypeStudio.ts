@@ -246,12 +246,13 @@ export function useRegisterTypeStudio(typeId: string, fromTypeId?: string) {
           const confirmedId = insertedType.id as string
 
           // Auto-enable for org (mirrors createOrgType in useRegisters)
-          await supabase.from('register_org_settings').insert({
+          const { error: settingsError } = await supabase.from('register_org_settings').insert({
             organization_id: organization.id,
             register_type_id: confirmedId,
             enabled: true,
             nav_pinned: navPinned,
           })
+          if (settingsError) throw settingsError
 
           rowIdRef.current = confirmedId
           setRowId(confirmedId)

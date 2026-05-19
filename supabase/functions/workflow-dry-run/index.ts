@@ -108,9 +108,11 @@ Deno.serve(async (req) => {
     if (rawBody.byteLength > MAX_BODY_BYTES) {
       return Response.json({ ok: false, error: 'Request too large' }, { status: 413, headers: corsHeaders })
     }
-    const body = JSON.parse(new TextDecoder().decode(rawBody)) as {
-      rule_id: string
-      sample_payload?: Record<string, unknown>
+    let body: { rule_id: string; sample_payload?: Record<string, unknown> }
+    try {
+      body = JSON.parse(new TextDecoder().decode(rawBody)) as typeof body
+    } catch {
+      return Response.json({ ok: false, error: 'Invalid JSON body' }, { status: 400, headers: corsHeaders })
     }
     const { rule_id } = body
     // Sanitise sample_payload: only accept a plain object with string keys to
