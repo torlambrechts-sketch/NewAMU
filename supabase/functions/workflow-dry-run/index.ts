@@ -13,12 +13,14 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
 // ─── CORS ─────────────────────────────────────────────────────────────────────
-// Restrict to known app origins; never wildcard with authenticated endpoints.
-const ALLOWED_ORIGINS = new Set([
-  'https://app.klarert.no',
-  'https://staging.klarert.no',
-  'http://localhost:5173', // dev
-])
+// Origins from APP_ORIGINS env var (comma-separated); localhost fallback for dev.
+// Never wildcard with authenticated endpoints.
+const _envOrigins = Deno.env.get('APP_ORIGINS')
+const ALLOWED_ORIGINS = new Set(
+  _envOrigins
+    ? _envOrigins.split(',').map((o) => o.trim()).filter(Boolean)
+    : ['http://localhost:5173'],
+)
 
 function makeCorsHeaders(req: Request): Record<string, string> {
   const origin = req.headers.get('origin') ?? ''

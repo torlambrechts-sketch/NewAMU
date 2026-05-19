@@ -99,6 +99,7 @@ export function useRegisterTypeStudio(typeId: string, fromTypeId?: string) {
   const rowIdRef = useRef<string | null>(typeId === 'new' ? null : typeId)
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const savingRef = useRef(false)
+  const savePromiseRef = useRef<Promise<void> | null>(null)
   const blocksRef = useRef<RegisterFieldBlock[]>(blocks)
   const metaRef = useRef({ name: typeName, description: typeDescription, navPinned: typeNavPinned })
 
@@ -107,8 +108,19 @@ export function useRegisterTypeStudio(typeId: string, fromTypeId?: string) {
   useEffect(() => {
     if (!supabase || !organization?.id) return
 
+    if (debounceRef.current) clearTimeout(debounceRef.current)
+    rowIdRef.current = typeId === 'new' ? null : typeId
+    setRowId(typeId === 'new' ? null : typeId)
+    setBlocks([])
+    setTypeName('')
+    setTypeDescription('')
+    setTypeNavPinned(true)
+    setIsSystemType(false)
+    setLoadError(null)
+    setSaveStatus('idle')
+    setSaveError(null)
+
     if (typeId === 'new' && !fromTypeId) {
-      setBlocks([])
       setLoading(false)
       return
     }
@@ -189,18 +201,19 @@ export function useRegisterTypeStudio(typeId: string, fromTypeId?: string) {
   // ─── Save ─────────────────────────────────────────────────────────────────
 
   const persist = useCallback(
-    async (publishNow = false) => {
-      if (!supabase) return
+    async (publishNow = false): Promise<string | null> => {
+      if (!supabase) return null
       if (!organization?.id) {
         setSaveError('Organisasjonsdata mangler – prøv igjen.')
         setSaveStatus('error')
-        return
+        return 'Organisasjonsdata mangler – prøv igjen.'
       }
-      if (isSystemType) return
-      if (savingRef.current) return
+      if (isSystemType) return null
+      if (savingRef.current) return null
       savingRef.current = true
       setSaveStatus('saving')
       setSaveError(null)
+      let saveErr: string | null = null
 
       const currentBlocks = blocksRef.current
       const { name, description, navPinned } = metaRef.current
@@ -269,26 +282,36 @@ export function useRegisterTypeStudio(typeId: string, fromTypeId?: string) {
         setLastSavedAt(new Date())
       } catch (err) {
         console.error('[useRegisterTypeStudio] persist failed', err)
-        const msg = err instanceof Error ? err.message : 'Ukjent feil ved lagring'
+        saveErr = err instanceof Error ? err.message : 'Ukjent feil ved lagring'
         setSaveStatus('error')
-        setSaveError(msg)
+        setSaveError(saveErr)
       } finally {
         savingRef.current = false
+        savePromiseRef.current = null
       }
+      return saveErr
     },
     [supabase, organization?.id, isSystemType],
   )
 
   const scheduleSave = useCallback(() => {
-    if (savingRef.current) return
     if (debounceRef.current) clearTimeout(debounceRef.current)
-    debounceRef.current = setTimeout(() => void persist(false), AUTOSAVE_DELAY_MS)
-    setSaveStatus('idle')
+    debounceRef.current = setTimeout(() => {
+      const p = persist(false)
+      savePromiseRef.current = p.then(() => undefined)
+    }, AUTOSAVE_DELAY_MS)
   }, [persist])
 
-  const publishType = useCallback(async () => {
+  const publishType = useCallback(async (): Promise<string | null> => {
     if (debounceRef.current) clearTimeout(debounceRef.current)
-    await persist(true)
+    if (savePromiseRef.current) await savePromiseRef.current
+    if (savingRef.current) {
+      const deadline = Date.now() + 3000
+      while (savingRef.current && Date.now() < deadline) {
+        await new Promise((r) => setTimeout(r, 50))
+      }
+    }
+    return persist(true)
   }, [persist])
 
   // ─── Block mutations ───────────────────────────────────────────────────────

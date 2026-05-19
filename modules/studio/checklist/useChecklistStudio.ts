@@ -93,6 +93,7 @@ export function useChecklistStudio(templateId: string, fromTemplateId?: string) 
   const rowIdRef = useRef<string | null>(templateId === 'new' ? null : templateId)
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const savingRef = useRef(false)
+  const savePromiseRef = useRef<Promise<void> | null>(null)
   const blocksRef = useRef<ChecklistStudioBlock[]>(blocks)
   const metaRef = useRef({
     name: templateName,
@@ -107,8 +108,21 @@ export function useChecklistStudio(templateId: string, fromTemplateId?: string) 
   useEffect(() => {
     if (!supabase || !organization?.id) return
 
+    if (debounceRef.current) clearTimeout(debounceRef.current)
+    rowIdRef.current = templateId === 'new' ? null : templateId
+    setRowId(templateId === 'new' ? null : templateId)
+    setBlocks([])
+    setTemplateName('')
+    setTemplateDescription('')
+    setTemplatePack('aml-amu')
+    setTemplateCadenceHint('')
+    setTemplateNavPinned(false)
+    setIsSystemTemplate(false)
+    setLoadError(null)
+    setSaveStatus('idle')
+    setSaveError(null)
+
     if (templateId === 'new' && !fromTemplateId) {
-      setBlocks([])
       setLoading(false)
       return
     }
@@ -181,18 +195,19 @@ export function useChecklistStudio(templateId: string, fromTemplateId?: string) 
   // ─── Save ─────────────────────────────────────────────────────────────────
 
   const persist = useCallback(
-    async (publishNow = false) => {
-      if (!supabase) return
+    async (publishNow = false): Promise<string | null> => {
+      if (!supabase) return null
       if (!organization?.id) {
         setSaveError('Organisasjonsdata mangler – prøv igjen.')
         setSaveStatus('error')
-        return
+        return 'Organisasjonsdata mangler – prøv igjen.'
       }
-      if (isSystemTemplate) return
-      if (savingRef.current) return
+      if (isSystemTemplate) return null
+      if (savingRef.current) return null
       savingRef.current = true
       setSaveStatus('saving')
       setSaveError(null)
+      let saveErr: string | null = null
 
       const currentBlocks = blocksRef.current
       const { name, description, pack, cadenceHint, navPinned } = metaRef.current
@@ -253,26 +268,36 @@ export function useChecklistStudio(templateId: string, fromTemplateId?: string) 
         setLastSavedAt(new Date())
       } catch (err) {
         console.error('[useChecklistStudio] persist failed', err)
-        const msg = err instanceof Error ? err.message : 'Ukjent feil ved lagring'
+        saveErr = err instanceof Error ? err.message : 'Ukjent feil ved lagring'
         setSaveStatus('error')
-        setSaveError(msg)
+        setSaveError(saveErr)
       } finally {
         savingRef.current = false
+        savePromiseRef.current = null
       }
+      return saveErr
     },
     [supabase, organization?.id, isSystemTemplate],
   )
 
   const scheduleSave = useCallback(() => {
-    if (savingRef.current) return
     if (debounceRef.current) clearTimeout(debounceRef.current)
-    debounceRef.current = setTimeout(() => void persist(false), AUTOSAVE_DELAY_MS)
-    setSaveStatus('idle')
+    debounceRef.current = setTimeout(() => {
+      const p = persist(false)
+      savePromiseRef.current = p.then(() => undefined)
+    }, AUTOSAVE_DELAY_MS)
   }, [persist])
 
-  const publishTemplate = useCallback(async () => {
+  const publishTemplate = useCallback(async (): Promise<string | null> => {
     if (debounceRef.current) clearTimeout(debounceRef.current)
-    await persist(true)
+    if (savePromiseRef.current) await savePromiseRef.current
+    if (savingRef.current) {
+      const deadline = Date.now() + 3000
+      while (savingRef.current && Date.now() < deadline) {
+        await new Promise((r) => setTimeout(r, 50))
+      }
+    }
+    return persist(true)
   }, [persist])
 
   // ─── Block mutations ───────────────────────────────────────────────────────
