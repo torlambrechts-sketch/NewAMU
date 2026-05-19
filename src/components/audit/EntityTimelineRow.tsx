@@ -12,6 +12,7 @@ import { EntityTimelineActor } from './EntityTimelineActor'
 import { DiffSingleField } from './diff/DiffSingleField'
 import { DiffMultiField } from './diff/DiffMultiField'
 import { DiffTextBlock } from './diff/DiffTextBlock'
+import { DiffListChange } from './diff/DiffListChange'
 import { DiffNullCard } from './diff/DiffNullCard'
 import { copyEventPermalink } from '../../lib/audit/permalink'
 import { Button } from '../ui/Button'
@@ -151,24 +152,13 @@ export function EntityTimelineRow({ event, isLast = false, highlighted = false }
           {event.diff?.kind === 'single_field' ? <DiffSingleField diff={event.diff} /> : null}
           {event.diff?.kind === 'multi_field' ? <DiffMultiField diff={event.diff} /> : null}
           {event.diff?.kind === 'text_block' ? <DiffTextBlock diff={event.diff} /> : null}
+          {event.diff?.kind === 'list_change' ? <DiffListChange diff={event.diff} /> : null}
           {!hasDiff ? (
             <DiffNullCard
               action={event.action}
               summary={event.summary_nb}
               detail={event.actor.external_label ?? undefined}
             />
-          ) : null}
-          {event.diff?.kind === 'list_change' ? (
-            // P3 — list_change renderer pending. Show the field name and
-            // the +/− counts so the row still carries usable signal.
-            <div className="rounded-md border border-neutral-200 bg-neutral-50 p-3 text-xs text-neutral-600">
-              <p className="font-semibold uppercase tracking-wider text-neutral-500">
-                {event.diff.field_label_nb}
-              </p>
-              <p className="mt-1">
-                +{event.diff.added.length} lagt til · −{event.diff.removed.length} fjernet
-              </p>
-            </div>
           ) : null}
 
           <div className="flex flex-wrap items-center gap-2 pt-1">

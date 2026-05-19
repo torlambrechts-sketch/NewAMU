@@ -25,6 +25,15 @@ const RAIL_TONE: Record<
   eksportert: 'grey',
   delt: 'grey',
   arkivert: 'grey',
+  // W0 additions
+  besvart: 'blue',
+  publisert: 'green',
+  protokollert: 'indigo',
+  votert: 'cyan',
+  innkalt: 'blue',
+  mottatt: 'amber',
+  fullfort: 'green',
+  slettet_kommentar: 'red',
 }
 
 const RAIL_BG: Record<(typeof RAIL_TONE)[keyof typeof RAIL_TONE], string> = {

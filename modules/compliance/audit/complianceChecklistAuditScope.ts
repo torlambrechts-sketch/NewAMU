@@ -15,4 +15,10 @@ registerAuditScope({
     'compliance_checklist_response',
     'compliance_checklist_comment',
   ],
+  accent: '#1a3d32',
+  auditableTables: [
+    'compliance_checklist_executions',
+    'compliance_checklist_responses',
+    'compliance_checklist_comments',
+  ],
 })

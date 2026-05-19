@@ -12,7 +12,7 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import type { AuditEvent } from '../../lib/audit/diffShape'
 import { useEntityTimeline, groupEventsByDay } from '../../lib/audit/useEntityTimeline'
 import { readPermalinkEventId } from '../../lib/audit/permalink'
-import { getAuditScope } from '../../lib/audit/auditRegistry'
+import { getAuditScope, findScopeForEntityKind } from '../../lib/audit/auditRegistry'
 import { Button } from '../ui/Button'
 import { EntityTimelineRow } from './EntityTimelineRow'
 
@@ -43,8 +43,16 @@ export type EntityTimelineProps = (LiveProps | StaticProps) & {
 
 export function EntityTimeline(props: EntityTimelineProps) {
   const { t } = useTranslation()
-  const accent = props.accent ?? '#1a3d32'
   const isLive = 'supabase' in props && props.supabase !== undefined
+  // Resolve accent from the registered scope (if any) before falling
+  // back to the explicit prop or the compliance green default. Mirrors
+  // the dashboard-engine convention so per-module accent stays consistent.
+  const scope = isLive
+    ? (props as LiveProps).scopeId
+      ? getAuditScope((props as LiveProps).scopeId as string)
+      : findScopeForEntityKind((props as LiveProps).entityKind as string)
+    : undefined
+  const accent = props.accent ?? scope?.accent ?? '#1a3d32'
 
   return (
     <aside

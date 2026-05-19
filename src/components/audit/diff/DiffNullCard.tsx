@@ -24,6 +24,15 @@ const ICON: Record<AuditAction, ReactNode> = {
   eksportert: <Download className="h-4 w-4" aria-hidden />,
   delt: <Share2 className="h-4 w-4" aria-hidden />,
   arkivert: <Archive className="h-4 w-4" aria-hidden />,
+  // W0
+  besvart: <FileCheck2 className="h-4 w-4" aria-hidden />,
+  publisert: <Share2 className="h-4 w-4" aria-hidden />,
+  protokollert: <ShieldCheck className="h-4 w-4" aria-hidden />,
+  votert: <FileCheck2 className="h-4 w-4" aria-hidden />,
+  innkalt: <MessageSquare className="h-4 w-4" aria-hidden />,
+  mottatt: <FileCheck2 className="h-4 w-4" aria-hidden />,
+  fullfort: <ShieldCheck className="h-4 w-4" aria-hidden />,
+  slettet_kommentar: <MessageSquare className="h-4 w-4" aria-hidden />,
 }
 
 export type DiffNullCardProps = {

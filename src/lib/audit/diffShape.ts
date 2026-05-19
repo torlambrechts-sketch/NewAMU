@@ -31,6 +31,15 @@ export type AuditAction =
   | 'eksportert'
   | 'delt'
   | 'arkivert'
+  // W0 — added for cross-module rollout
+  | 'besvart'
+  | 'publisert'
+  | 'protokollert'
+  | 'votert'
+  | 'innkalt'
+  | 'mottatt'
+  | 'fullfort'
+  | 'slettet_kommentar'
 
 export type AuditActor = {
   id: string | null

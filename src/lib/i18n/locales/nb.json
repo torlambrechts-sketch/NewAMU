@@ -156,7 +156,15 @@
       "eskalert": "ESKALERT",
       "eksportert": "EKSPORTERT",
       "delt": "DELT",
-      "arkivert": "ARKIVERT"
+      "arkivert": "ARKIVERT",
+      "besvart": "BESVART",
+      "publisert": "PUBLISERT",
+      "protokollert": "PROTOKOLLERT",
+      "votert": "VOTERT",
+      "innkalt": "INNKALT",
+      "mottatt": "MOTTATT",
+      "fullfort": "FULLFØRT",
+      "slettet_kommentar": "SLETTET KOMMENTAR"
     }
   }
 }

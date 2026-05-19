@@ -27,6 +27,15 @@ const TONE: Record<AuditAction, Tone> = {
   eksportert: { bg: 'bg-neutral-100', text: 'text-neutral-700' },
   delt: { bg: 'bg-neutral-100', text: 'text-neutral-700' },
   arkivert: { bg: 'bg-neutral-100', text: 'text-neutral-700' },
+  // W0 additions
+  besvart: { bg: 'bg-blue-100', text: 'text-blue-800' },
+  publisert: { bg: 'bg-green-100', text: 'text-green-800' },
+  protokollert: { bg: 'bg-indigo-100', text: 'text-indigo-800' },
+  votert: { bg: 'bg-cyan-100', text: 'text-cyan-800' },
+  innkalt: { bg: 'bg-blue-100', text: 'text-blue-800' },
+  mottatt: { bg: 'bg-amber-100', text: 'text-amber-900' },
+  fullfort: { bg: 'bg-green-100', text: 'text-green-800' },
+  slettet_kommentar: { bg: 'bg-red-100', text: 'text-red-800' },
 }
 
 export type EntityTimelineActionChipProps = {

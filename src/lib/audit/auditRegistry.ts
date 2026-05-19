@@ -9,6 +9,10 @@ export type AuditScope = {
   label: string
   /** Entity kinds owned by this scope. UI uses the first as the room subject. */
   entityKinds: string[]
+  /** Tailwind hex used by the panel header. Defaults to compliance green. */
+  accent?: string
+  /** Tables this scope writes to. Consumed by the recon SQL + the lint rule. */
+  auditableTables?: string[]
 }
 
 const REGISTRY = new Map<string, AuditScope>()
@@ -23,4 +27,14 @@ export function getAuditScope(scopeId: string): AuditScope | undefined {
 
 export function listAuditScopes(): AuditScope[] {
   return Array.from(REGISTRY.values())
+}
+
+/** Reverse lookup — find a scope by an entityKind it owns. Used by
+ *  `<EntityTimeline>` so callers can pass only `entityKind` (no
+ *  redundant `scopeId`). */
+export function findScopeForEntityKind(entityKind: string): AuditScope | undefined {
+  for (const scope of REGISTRY.values()) {
+    if (scope.entityKinds.includes(entityKind)) return scope
+  }
+  return undefined
 }
