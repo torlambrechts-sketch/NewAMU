@@ -1988,6 +1988,13 @@ export function AticsShell() {
               match: ({ pathname }) => pathname.startsWith('/studio/survey'),
               requirePerm: 'survey.manage',
             },
+            {
+              label: 'Arbeidsflyt-maler',
+              path: '/studio/workflow',
+              Icon: Workflow,
+              match: ({ pathname }) => pathname.startsWith('/studio/workflow'),
+              requirePermAny: ['workflows.compose', 'workflows.manage'],
+            },
           ],
         },
       ],

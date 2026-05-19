@@ -39,7 +39,8 @@ const CONTENT_TYPES: ContentType[] = [
     description: 'Kobler hendelser i Klarert til automatiske handlinger — varsler, oppgaver, ROS-…',
     exampleLabel: 'Kritisk avvik + AMU + ROS',
     icon: Workflow,
-    soon: true,
+    href: '/studio/workflow',
+    newHref: '/studio/workflow/new',
     bgColor: 'bg-neutral-100',
   },
   {
@@ -229,7 +230,39 @@ export function KlarertStudioPage() {
         </section>
 
         {/* Quick-start sections */}
-        <div className="mt-12 grid gap-6 md:grid-cols-3">
+        <div className="mt-12 grid gap-6 md:grid-cols-3 lg:grid-cols-4">
+          <section>
+            <div className="mb-4 flex items-center justify-between">
+              <h2 className="text-sm font-semibold text-neutral-700">ARBEIDSFLYT</h2>
+              <button
+                type="button"
+                onClick={() => navigate('/studio/workflow')}
+                className="text-xs text-[#1a3d32] hover:underline"
+              >
+                Se alle →
+              </button>
+            </div>
+            <div className="rounded-xl border border-neutral-200 bg-white p-5 shadow-sm">
+              <p className="text-sm text-neutral-600">
+                Automatiser handlinger basert på hendelser — send varsler, opprett oppgaver eller
+                start prosedyrer når noe skjer i en modul. Systemkatalog + egne maler.
+              </p>
+              <div className="mt-4 flex gap-3">
+                <Button
+                  variant="primary"
+                  size="sm"
+                  onClick={() => navigate('/studio/workflow/new')}
+                  className="bg-[#1a3d32] hover:bg-[#1a3d32]/90"
+                >
+                  Ny mal
+                </Button>
+                <Button variant="secondary" size="sm" onClick={() => navigate('/studio/workflow')}>
+                  Alle maler
+                </Button>
+              </div>
+            </div>
+          </section>
+
           <section>
             <div className="mb-4 flex items-center justify-between">
               <h2 className="text-sm font-semibold text-neutral-700">SPØRREUNDERSØKELSER</h2>
