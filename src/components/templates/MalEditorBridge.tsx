@@ -11,6 +11,10 @@ import { createMeetingsAdapter } from './adapters/meetingsAdapter'
 import { createComplianceAdapter } from './adapters/complianceAdapter'
 import { createSurveyAdapter } from './adapters/surveyAdapter'
 import { createLearningAdapter } from './adapters/learningAdapter'
+import { createAlertsAdapter } from './adapters/alertsAdapter'
+import { createDocumentsAdapter } from './adapters/documentsAdapter'
+import { createRegistersAdapter } from './adapters/registersAdapter'
+import { createTasksAdapter } from './adapters/tasksAdapter'
 import type { AdminTemplateSource } from '../../hooks/useAdminTemplates'
 
 export type MalEditorBridgeProps = {
@@ -45,6 +49,14 @@ export function MalEditorBridge({
         return createSurveyAdapter({ supabase, canEdit }) as TemplateEditorAdapter<unknown>
       case 'learning':
         return createLearningAdapter({ supabase, canEdit }) as TemplateEditorAdapter<unknown>
+      case 'alerts':
+        return createAlertsAdapter({ supabase, canEdit }) as TemplateEditorAdapter<unknown>
+      case 'documents':
+        return createDocumentsAdapter({ supabase, canEdit }) as TemplateEditorAdapter<unknown>
+      case 'registers':
+        return createRegistersAdapter({ supabase, canEdit }) as TemplateEditorAdapter<unknown>
+      case 'tasks':
+        return createTasksAdapter({ supabase, canEdit }) as TemplateEditorAdapter<unknown>
       default:
         return null
     }

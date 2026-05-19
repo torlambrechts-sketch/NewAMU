@@ -118,4 +118,8 @@ export const STEP_LIST_SOURCES: ReadonlySet<AdminTemplateSource> = new Set([
   'compliance',
   'survey',
   'learning',
+  'alerts',
+  'documents',
+  'registers',
+  'tasks',
 ])
