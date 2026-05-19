@@ -41,7 +41,7 @@ create or replace view public.v_admin_templates as
     t.pack::text as pack,
     null::text as hint
   from public.compliance_checklist_templates t
-  left join public.compliance_categories cat on cat.id = t.category_id
+  left join public.compliance_checklist_categories cat on cat.id = t.category_id
   where t.deleted_at is null
 
   union all
