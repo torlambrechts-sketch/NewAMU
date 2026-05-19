@@ -22,7 +22,10 @@ function SeverityChip({ display }: { display: string }) {
   const key = display.trim().toLowerCase()
   const tone = SEVERITY_TONE[key] ?? { dot: 'bg-neutral-400', chip: 'bg-neutral-50 text-neutral-700 border-neutral-200' }
   return (
-    <span className={`inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-xs font-medium ${tone.chip}`}>
+    <span
+      className={`inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-xs font-medium ${tone.chip}`}
+      aria-label={`Alvorlighet: ${display}`}
+    >
       <span className={`h-1.5 w-1.5 rounded-full ${tone.dot}`} aria-hidden />
       {display}
     </span>

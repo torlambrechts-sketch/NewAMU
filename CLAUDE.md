@@ -214,3 +214,15 @@ the cleanup recipe).
 - `survey_template_catalog.law_ref` (singular text) is legacy —
   always set `law_refs text[]` too. `_120043` backfills the old rows
   but new seeds must populate both for the planner to find them.
+- **Endringslogg emitter discipline.** Any mutation that touches a
+  forensic-interesting table (compliance, survey, tasks, documents,
+  meetings, learning, alerts) must call `emitAuditEvent` after the
+  successful DB write, *with* the `roomEntityKind` / `roomEntityId`
+  pair when the changed row is a child of a parent "room" (comments,
+  responses, attachments). Skip the emit when the diff is `null` *and*
+  the row already existed — that's a no-op resave. Reads MUST go via
+  `audit_events_read`, never the base table — base-table SELECT is
+  revoked by `_121000` so the privileged-event mask cannot be
+  bypassed. Drift between the forensic floor and the semantic layer
+  is monitored daily via the `audit_events_recon` view (`_122000`);
+  a sustained per-table gap means a mutation path forgot the emitter.

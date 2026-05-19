@@ -11,19 +11,24 @@
 // invisible to one user. Pair with the nightly recon SQL (spec §11).
 
 import type { SupabaseClient } from '@supabase/supabase-js'
-import type { AuditAction, AuditActorRole, Diff } from './diffShape'
+import type { AuditAction, Diff } from './diffShape'
 import { renderSummary, type SummaryTemplate, actionForPreset } from './summaryTemplates'
 
 export type EmitAuditEventInput = {
   scopeId: string
+  /** The entity that changed (e.g. a comment row). */
   entityKind: string
   entityId: string
+  /** Optional parent "room" entity the timeline panel anchors on. Defaults
+   *  to (entityKind, entityId) when omitted. Use this for child entities
+   *  (comments, responses) so they surface under the parent execution
+   *  without losing their own canonical identity. */
+  roomEntityKind?: string
+  roomEntityId?: string
   /** Defaults to action implied by `summary.preset`. Required when summary is literal. */
   action?: AuditAction
-  /** The actor's display name. Used to render the Norwegian sentence locally; server still re-resolves actor identity. */
+  /** Actor's display name. Used for client-side sentence rendering; the server still re-resolves identity to prevent spoofing. */
   actorName: string
-  /** Optional role hint. Server validates against the enum; falls back to leder/ansatt if invalid. */
-  actorRole?: AuditActorRole | null
   summary: SummaryTemplate
   diff?: Diff | null
   location?: string | null
@@ -59,8 +64,9 @@ export async function emitAuditEvent(
       p_diff: input.diff ?? null,
       p_location: input.location ?? null,
       p_privileged: input.privileged ?? false,
-      p_actor_role: input.actorRole ?? null,
       p_hse_audit_log_id: input.hseAuditLogId ?? null,
+      p_room_entity_kind: input.roomEntityKind ?? null,
+      p_room_entity_id: input.roomEntityId ?? null,
     })
     if (error) {
       console.warn('[emitAuditEvent] RPC error', error.message)

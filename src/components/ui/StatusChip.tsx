@@ -29,6 +29,7 @@ export type StatusChipProps = HTMLAttributes<HTMLSpanElement> & {
 
 export function StatusChip({ status, label, className, ...props }: StatusChipProps) {
   const tone = TONE[status]
+  const visibleLabel = label ?? tone.label
   return (
     <span
       className={twMerge(
@@ -36,10 +37,11 @@ export function StatusChip({ status, label, className, ...props }: StatusChipPro
         tone.chip,
         className,
       )}
+      aria-label={props['aria-label'] ?? visibleLabel}
       {...props}
     >
       <span className={twMerge('h-1.5 w-1.5 rounded-full', tone.dot)} aria-hidden />
-      <span>{label ?? tone.label}</span>
+      <span>{visibleLabel}</span>
     </span>
   )
 }

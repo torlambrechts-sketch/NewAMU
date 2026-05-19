@@ -84,15 +84,17 @@ export function useEntityTimeline({
     setLoading(true)
     setError(null)
     try {
+      // Filter on the room columns so child events (comments, responses)
+      // belonging to this execution surface here too.
       const { data, error: qErr } = await supabase
         .from('audit_events_read')
         .select(
           'id, occurred_at, actor_user_id, actor_name, actor_initials, actor_role, ' +
             'actor_is_external, actor_external_label, action, entity_kind, entity_id, ' +
-            'scope_id, location, summary_nb, diff, privileged',
+            'room_entity_kind, room_entity_id, scope_id, location, summary_nb, diff, privileged',
         )
-        .eq('entity_kind', entityKind)
-        .eq('entity_id', entityId)
+        .eq('room_entity_kind', entityKind)
+        .eq('room_entity_id', entityId)
         .order('occurred_at', { ascending: false })
         .limit(cap)
       if (qErr) throw qErr

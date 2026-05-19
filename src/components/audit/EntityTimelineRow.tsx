@@ -1,7 +1,7 @@
 // One event row — collapsed by default, click to expand.
 // Spec §2 (collapsed anatomy) + §4 (expanded diff renderers).
 
-import { useId, useState } from 'react'
+import { useEffect, useId, useRef, useState } from 'react'
 import { ChevronDown, AlertTriangle } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { twMerge } from 'tailwind-merge'
@@ -11,6 +11,7 @@ import { railDotClass } from './entityTimelineActionTone'
 import { EntityTimelineActor } from './EntityTimelineActor'
 import { DiffSingleField } from './diff/DiffSingleField'
 import { DiffMultiField } from './diff/DiffMultiField'
+import { DiffTextBlock } from './diff/DiffTextBlock'
 import { DiffNullCard } from './diff/DiffNullCard'
 import { copyEventPermalink } from '../../lib/audit/permalink'
 import { Button } from '../ui/Button'
@@ -21,11 +22,11 @@ function relativeTime(iso: string, t: ReturnType<typeof useTranslation>['t']): s
   const diffSec = Math.max(0, Math.round((now - then) / 1000))
   if (diffSec < 90) return t('endringslogg.relativeJustNow', 'akkurat nå')
   const diffMin = Math.round(diffSec / 60)
-  if (diffMin < 60) return t('endringslogg.relativeMinutes', 'for {{n}} minutter siden', { n: diffMin })
+  if (diffMin < 60) return t('endringslogg.relativeMinutes', { count: diffMin, defaultValue: `for ${diffMin} minutter siden` })
   const diffHr = Math.round(diffMin / 60)
-  if (diffHr < 24) return t('endringslogg.relativeHours', 'for {{n}} timer siden', { n: diffHr })
+  if (diffHr < 24) return t('endringslogg.relativeHours', { count: diffHr, defaultValue: `for ${diffHr} timer siden` })
   const diffDay = Math.round(diffHr / 24)
-  return t('endringslogg.relativeDays', 'for {{n}} dager siden', { n: diffDay })
+  return t('endringslogg.relativeDays', { count: diffDay, defaultValue: `for ${diffDay} dager siden` })
 }
 
 function absoluteTimestamp(iso: string): string {
@@ -51,6 +52,15 @@ export function EntityTimelineRow({ event, isLast = false, highlighted = false }
   const [expanded, setExpanded] = useState<boolean>(highlighted)
   const [copied, setCopied] = useState<boolean>(false)
   const detailsId = useId()
+  const rowRef = useRef<HTMLLIElement | null>(null)
+
+  // Scroll-into-view when this row is the permalink target. Once only.
+  useEffect(() => {
+    if (highlighted && rowRef.current) {
+      rowRef.current.scrollIntoView({ block: 'center', behavior: 'smooth' })
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   const hasDiff = event.diff != null
   const dotClass = railDotClass(event.action)
@@ -65,16 +75,16 @@ export function EntityTimelineRow({ event, isLast = false, highlighted = false }
 
   return (
     <li
+      ref={rowRef}
       className={twMerge(
         'group relative pl-7',
         highlighted ? 'rounded-md ring-2 ring-indigo-300' : null,
       )}
-      aria-expanded={expanded}
     >
       {/* Rail (vertical line) + dot */}
       <span
         className={twMerge(
-          'absolute left-2 top-1.5 h-2 w-2 rounded-full transition-all',
+          'absolute left-2 top-1.5 h-2 w-2 rounded-full transition-all motion-reduce:transition-none',
           dotClass,
           expanded ? 'h-2.5 w-2.5' : 'group-hover:h-2.5 group-hover:w-2.5',
         )}
@@ -82,7 +92,7 @@ export function EntityTimelineRow({ event, isLast = false, highlighted = false }
       />
       {!isLast ? (
         <span
-          className="absolute left-[10px] top-4 w-px bg-neutral-200"
+          className="absolute left-[9px] top-4 w-0.5 bg-neutral-300"
           style={{ bottom: '-12px' }}
           aria-hidden
         />
@@ -138,19 +148,27 @@ export function EntityTimelineRow({ event, isLast = false, highlighted = false }
       {/* Expanded body */}
       {expanded ? (
         <div id={detailsId} className="mt-2 ml-9 mr-2 mb-3 space-y-3">
-          {hasDiff && event.diff!.kind === 'single_field' ? (
-            <DiffSingleField diff={event.diff as Extract<NonNullable<AuditEvent['diff']>, { kind: 'single_field' }>} />
-          ) : null}
-          {hasDiff && event.diff!.kind === 'multi_field' ? (
-            <DiffMultiField diff={event.diff as Extract<NonNullable<AuditEvent['diff']>, { kind: 'multi_field' }>} />
-          ) : null}
+          {event.diff?.kind === 'single_field' ? <DiffSingleField diff={event.diff} /> : null}
+          {event.diff?.kind === 'multi_field' ? <DiffMultiField diff={event.diff} /> : null}
+          {event.diff?.kind === 'text_block' ? <DiffTextBlock diff={event.diff} /> : null}
           {!hasDiff ? (
-            <DiffNullCard action={event.action} summary={event.summary_nb} />
+            <DiffNullCard
+              action={event.action}
+              summary={event.summary_nb}
+              detail={event.actor.external_label ?? undefined}
+            />
           ) : null}
-          {hasDiff && (event.diff!.kind === 'list_change' || event.diff!.kind === 'text_block') ? (
-            <p className="text-xs italic text-neutral-500">
-              Detaljert visning for denne typen endring kommer i neste versjon.
-            </p>
+          {event.diff?.kind === 'list_change' ? (
+            // P3 — list_change renderer pending. Show the field name and
+            // the +/− counts so the row still carries usable signal.
+            <div className="rounded-md border border-neutral-200 bg-neutral-50 p-3 text-xs text-neutral-600">
+              <p className="font-semibold uppercase tracking-wider text-neutral-500">
+                {event.diff.field_label_nb}
+              </p>
+              <p className="mt-1">
+                +{event.diff.added.length} lagt til · −{event.diff.removed.length} fjernet
+              </p>
+            </div>
           ) : null}
 
           <div className="flex flex-wrap items-center gap-2 pt-1">

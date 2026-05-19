@@ -682,17 +682,26 @@ export function useChecklistModule(
           return { ...prev, [payload.executionId]: next }
         })
 
+        // Skip emit for no-op re-saves (B7 from review). An existing
+        // response whose diff yields no changes is a UI bounce — usually
+        // from a tab blur+focus chain — and should not pollute the log.
+        const responseDiff = buildResponseDiff(existing, parsed.data)
+        if (existing && responseDiff === null) {
+          return
+        }
         void emitAuditEvent(supabase, {
           scopeId: 'compliance_checklist',
           entityKind: 'compliance_checklist_response',
           entityId: parsed.data.id,
+          roomEntityKind: 'compliance_checklist_execution',
+          roomEntityId: payload.executionId,
           actorName,
           summary: {
             kind: 'preset',
             preset: becameAFinding ? 'sjekklistepunkt_funn' : 'sjekklistepunkt_besvart',
             subject: item,
           },
-          diff: buildResponseDiff(existing, parsed.data),
+          diff: responseDiff,
         })
       } catch (unknownError) {
         setError(getSupabaseErrorMessage(unknownError))
@@ -1129,12 +1138,15 @@ export function useChecklistModule(
           return { ...prev, [payload.executionId]: [...list, parsed.data] }
         })
 
-        // §13.5: first save = kommentert; later edits (via updateComment)
-        // would fire endret with text_block (deferred to P3).
+        // §13.5: first save = kommentert. The event lives on the comment
+        // row itself (B2 from review) so its permalink is stable; the
+        // timeline filters on the parent execution at read time.
         void emitAuditEvent(supabase, {
           scopeId: 'compliance_checklist',
-          entityKind: 'compliance_checklist_execution',
-          entityId: payload.executionId,
+          entityKind: 'compliance_checklist_comment',
+          entityId: parsed.data.id,
+          roomEntityKind: 'compliance_checklist_execution',
+          roomEntityId: payload.executionId,
           actorName: authorName,
           summary: { kind: 'preset', preset: 'sjekkliste_kommentar' },
           diff: null,
@@ -1158,6 +1170,19 @@ export function useChecklistModule(
       if (!supabase || !orgId) return
       setError(null)
       try {
+        // Snapshot the previous body for the text_block diff. Cached
+        // locally because the comment row is already loaded.
+        let previousBody: string | null = null
+        let cachedExecutionId: string | null = null
+        for (const list of Object.values(commentsByExecutionId)) {
+          const hit = list.find((c) => c.id === payload.commentId)
+          if (hit) {
+            previousBody = hit.body
+            cachedExecutionId = hit.execution_id
+            break
+          }
+        }
+
         const { data, error: upErr } = await supabase
           .from('compliance_checklist_comments')
           .update({ body: payload.body.trim(), mentions: payload.mentions ?? [] })
@@ -1178,11 +1203,30 @@ export function useChecklistModule(
             [executionId]: list.map((c) => (c.id === parsed.data.id ? parsed.data : c)),
           }
         })
+
+        if (previousBody !== null && previousBody !== parsed.data.body) {
+          void emitAuditEvent(supabase, {
+            scopeId: 'compliance_checklist',
+            entityKind: 'compliance_checklist_comment',
+            entityId: parsed.data.id,
+            roomEntityKind: 'compliance_checklist_execution',
+            roomEntityId: cachedExecutionId ?? parsed.data.execution_id,
+            action: 'endret',
+            actorName,
+            summary: { kind: 'literal', nb: `${actorName} oppdaterte en kommentar` },
+            diff: {
+              kind: 'text_block',
+              field_label_nb: 'Kommentar',
+              before: previousBody,
+              after: parsed.data.body,
+            },
+          })
+        }
       } catch (unknownError) {
         setError(getSupabaseErrorMessage(unknownError))
       }
     },
-    [supabase, orgId],
+    [supabase, orgId, commentsByExecutionId, actorName],
   )
 
   const deleteComment = useCallback(
@@ -1201,11 +1245,27 @@ export function useChecklistModule(
           const list = prev[executionId] ?? []
           return { ...prev, [executionId]: list.filter((c) => c.id !== commentId) }
         })
+
+        // Use action='endret' for v1 since the action enum doesn't yet
+        // include 'slettet_kommentar'. The summary makes the intent
+        // explicit. The deleted comment id is preserved on the audit row
+        // so admins can still resolve who said what.
+        void emitAuditEvent(supabase, {
+          scopeId: 'compliance_checklist',
+          entityKind: 'compliance_checklist_comment',
+          entityId: commentId,
+          roomEntityKind: 'compliance_checklist_execution',
+          roomEntityId: executionId,
+          action: 'endret',
+          actorName,
+          summary: { kind: 'literal', nb: `${actorName} slettet en kommentar` },
+          diff: null,
+        })
       } catch (unknownError) {
         setError(getSupabaseErrorMessage(unknownError))
       }
     },
-    [supabase, orgId],
+    [supabase, orgId, actorName],
   )
 
   // ── Template administration ──────────────────────────────────────────────

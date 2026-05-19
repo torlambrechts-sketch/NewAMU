@@ -22,22 +22,30 @@ export function DiffMultiField({ diff }: { diff: MultiFieldDiff }) {
 
   return (
     <div className="space-y-4">
-      {diff.changes.slice(0, visible).map((change, idx) => (
-        <div key={`${change.field_label_nb}-${idx}`} className="space-y-2">
-          <p className="text-[11px] font-semibold uppercase tracking-wider text-neutral-500">
-            {change.field_label_nb}
-          </p>
-          <div className="grid grid-cols-[1fr_auto_1fr] items-start gap-2 sm:gap-3">
-            <Card label={t('endringslogg.before', 'Før')}>
-              <SemanticValue value={change.before} />
-            </Card>
-            <ArrowRight className="mt-6 h-4 w-4 text-neutral-400" aria-hidden />
-            <Card label={t('endringslogg.after', 'Etter')} highlight>
-              <SemanticValue value={change.after} />
-            </Card>
+      {diff.changes.slice(0, visible).map((change, idx) => {
+        const same = change.before.display === change.after.display
+        return (
+          <div key={`${change.field_label_nb}-${idx}`} className="space-y-2">
+            <p className="text-[11px] font-semibold uppercase tracking-wider text-neutral-500">
+              {change.field_label_nb}
+            </p>
+            <div className="grid grid-cols-[1fr_auto_1fr] items-start gap-2 sm:gap-3">
+              <Card label={t('endringslogg.before', 'Før')}>
+                <SemanticValue value={change.before} />
+              </Card>
+              <ArrowRight className="mt-6 h-4 w-4 text-neutral-400" aria-hidden />
+              <Card label={t('endringslogg.after', 'Etter')} highlight>
+                <SemanticValue value={change.after} />
+              </Card>
+            </div>
+            {same ? (
+              <p className="text-xs italic text-neutral-400">
+                {t('endringslogg.unchanged', '(uendret)')}
+              </p>
+            ) : null}
           </div>
-        </div>
-      ))}
+        )
+      })}
       {hiddenCount > 0 ? (
         <Button
           variant="ghost"
@@ -45,7 +53,17 @@ export function DiffMultiField({ diff }: { diff: MultiFieldDiff }) {
           className="px-2 text-xs font-medium text-indigo-700 hover:text-indigo-900"
           onClick={() => setExpanded(true)}
         >
-          {t('endringslogg.showMore', 'Vis {{count}} flere endringer', { count: hiddenCount })}
+          {t('endringslogg.showMore', { count: hiddenCount, defaultValue: `Vis ${hiddenCount} flere endringer` })}
+        </Button>
+      ) : null}
+      {expanded && total > DEFAULT_VISIBLE ? (
+        <Button
+          variant="ghost"
+          size="sm"
+          className="px-2 text-xs font-medium text-neutral-600 hover:text-neutral-900"
+          onClick={() => setExpanded(false)}
+        >
+          {t('endringslogg.showLess', 'Vis færre')}
         </Button>
       ) : null}
     </div>

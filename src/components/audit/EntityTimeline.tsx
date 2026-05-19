@@ -5,13 +5,14 @@
 // Renders day-grouped event rows. Loading / empty / error / no-access
 // states from spec §6.3.
 
-import { useMemo, useState } from 'react'
+import { useCallback, useMemo, useRef, useState } from 'react'
 import { Loader2, History } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { AuditEvent } from '../../lib/audit/diffShape'
 import { useEntityTimeline, groupEventsByDay } from '../../lib/audit/useEntityTimeline'
 import { readPermalinkEventId } from '../../lib/audit/permalink'
+import { getAuditScope } from '../../lib/audit/auditRegistry'
 import { Button } from '../ui/Button'
 import { EntityTimelineRow } from './EntityTimelineRow'
 
@@ -19,6 +20,10 @@ type LiveProps = {
   supabase: SupabaseClient | null
   entityKind: string
   entityId: string
+  /** Defaults to entity_kind. Used to look up the scope label / accent
+   *  from the registry. Pass when the entity belongs to a scope whose
+   *  registry key isn't its own kind (rare). */
+  scopeId?: string
   events?: never
 }
 
@@ -66,6 +71,7 @@ export function EntityTimeline(props: EntityTimelineProps) {
             supabase={props.supabase as SupabaseClient | null}
             entityKind={props.entityKind as string}
             entityId={props.entityId as string}
+            scopeId={(props as LiveProps).scopeId}
           />
         ) : (
           <StaticBody events={(props as StaticProps).events} />
@@ -79,11 +85,22 @@ function LiveBody({
   supabase,
   entityKind,
   entityId,
+  scopeId,
 }: {
   supabase: SupabaseClient | null
   entityKind: string
   entityId: string
+  scopeId?: string
 }) {
+  // Warn loudly when a consumer renders for an unregistered scope —
+  // R7 mitigation from spec §11. Side-effect import was probably missed.
+  const effectiveScopeId = scopeId ?? entityKind
+  if (typeof window !== 'undefined' && !getAuditScope(effectiveScopeId)) {
+    console.warn(
+      `[EntityTimeline] No AuditScope registered for "${effectiveScopeId}". ` +
+        `Add a side-effect import of the module's audit-scope file before this component mounts.`,
+    )
+  }
   const { events, loading, error, reload } = useEntityTimeline({ supabase, entityKind, entityId })
   return <Body events={events} loading={loading} error={error} reload={reload} />
 }
@@ -106,8 +123,43 @@ function Body({
   const { t } = useTranslation()
   // Lazy init reads window.location once at mount, no effect needed.
   const [highlightId] = useState<string | null>(() => readPermalinkEventId())
+  const listRef = useRef<HTMLDivElement | null>(null)
 
   const groups = useMemo(() => groupEventsByDay(events), [events])
+
+  // Roving focus: ↑/↓ move between rows, Esc collapses focused row.
+  // Implemented at the container so we don't have to hand-roll a
+  // per-row ref dance. Walks the toggle buttons that EntityTimelineRow
+  // renders (they have aria-controls + aria-expanded attrs).
+  const onKeyDown = useCallback((evt: React.KeyboardEvent<HTMLDivElement>) => {
+    if (evt.key !== 'ArrowDown' && evt.key !== 'ArrowUp' && evt.key !== 'Escape') return
+    const root = listRef.current
+    if (!root) return
+    const buttons = Array.from(
+      root.querySelectorAll<HTMLButtonElement>('button[aria-controls][aria-expanded]'),
+    )
+    const active = document.activeElement
+    const idx = active instanceof HTMLElement ? buttons.indexOf(active as HTMLButtonElement) : -1
+    if (evt.key === 'ArrowDown') {
+      const next = buttons[idx + 1] ?? buttons[0]
+      if (next) {
+        evt.preventDefault()
+        next.focus()
+      }
+    } else if (evt.key === 'ArrowUp') {
+      const prev = buttons[idx - 1] ?? buttons[buttons.length - 1]
+      if (prev) {
+        evt.preventDefault()
+        prev.focus()
+      }
+    } else if (evt.key === 'Escape') {
+      // Only collapse if the focused row is currently expanded.
+      if (active instanceof HTMLButtonElement && active.getAttribute('aria-expanded') === 'true') {
+        evt.preventDefault()
+        active.click()
+      }
+    }
+  }, [])
 
   if (loading) {
     return (
@@ -138,7 +190,7 @@ function Body({
   }
 
   return (
-    <div className="space-y-5">
+    <div ref={listRef} className="space-y-5" onKeyDown={onKeyDown}>
       {groups.map((group) => (
         <section key={group.dayKey} aria-label={group.dayLabel}>
           <p className="mb-2 px-2 text-[11px] font-semibold uppercase tracking-wider text-neutral-500">

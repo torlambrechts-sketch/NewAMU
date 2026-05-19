@@ -6,7 +6,52 @@ learning / registers. Ships first on the compliance checklist
 execution page; rolls out to siblings after the engine stabilises.
 
 Owner: TBD. Spec author: senior eng + PM collab.
-Status: 🛠 P1 + P2 implemented (compliance checklist scope).
+Status: 🛠 P1 + P2 implemented + external-review gaps closed.
+
+External-review pass — must-fix closures landed in this branch:
+
+- DB hardening migration `20260919121000_audit_events_hardening.sql`:
+  base-table SELECT revoked, `audit_events_read` view recreated with
+  `security_invoker=true`, `p_actor_role` removed from RPC (server
+  derives role), `audit_actor_initials` returns 2 chars for single-name
+  inputs, `audit.read` seeded on the `member` role (spec §13.3 honoured),
+  `room_entity_kind` + `room_entity_id` added so child events surface
+  under parent rooms.
+- Recon view `20260919122000_audit_events_recon.sql` (R1 + R5 mitigation).
+- `DiffTextBlock` shipped (uses `diff-match-patch`). Storybook evt_04
+  now renders the spec §4.4 word-level diff instead of the leaky
+  placeholder.
+- `updateComment` and `deleteComment` now emit audit events
+  (`endret` + text_block diff, and `endret` + literal "slettet en
+  kommentar" respectively).
+- Norwegian pluralisation: `relativeMinutes/Hours/Days` and `showMore`
+  use i18next `_one`/`_other` rules, so "for 1 minutt siden" / "Vis 1
+  flere endring" land grammatically.
+- StatusChip and severity chip carry `aria-label`. Roving focus
+  (↑/↓/Esc) implemented at the timeline container.
+- `motion-reduce:transition-none` on the rail dot. Rail line bumped
+  to `w-0.5 bg-neutral-300` (2px per spec §2).
+- `(uendret)` italic now also renders per-row inside `DiffMultiField`.
+- `DiffMultiField` gains a collapse-back "Vis færre" button.
+- Scope registry now gets a runtime `console.warn` when
+  `<EntityTimeline>` mounts for an unregistered `scopeId` (R7).
+- `DiffNullCard` now receives `detail` (used for external_label
+  tooltip context on `eksportert` rows).
+- Permalink highlight scrolls the target row into view.
+- Invalid `aria-expanded` on `<li>` removed.
+- `renderSummary` collapses the `{subject}` slot cleanly when empty
+  (B11).
+- `CLAUDE.md` *Things that are easy to get wrong* now carries the
+  emitter-discipline reminder.
+
+Still on the backlog per the published phasing (§10) — *not regressions*:
+P3 (DiffListChange, tablet drawer overlay, long-value truncation,
+filters), P4 (deactivated-user strikethrough), P6 (external-token
+actor wiring), P7 (bulk collapsing, failed-action red rail). The
+scope registry's `resolveActor`/`resolveEntityContext` from the
+original draft remain a P3 deliverable; the v1 registry is presence-
+only (used for the runtime warning), since v1 hardcodes the
+compliance scope.
 
 ---
 

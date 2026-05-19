@@ -69,9 +69,12 @@ export function renderSummary(input: {
 }): string {
   const { actorName, template } = input
   if (template.kind === 'literal') return template.nb
-  const body = PRESET_BODY[template.preset].replace(
-    '{subject}',
-    template.subject ?? '',
-  )
-  return `${actorName} ${body}`.trim()
+  // Drop the entire {subject ...} clause when the slot is empty rather
+  // than leaving the leading verb dangling (B11 from external review).
+  const subject = (template.subject ?? '').trim()
+  const raw = PRESET_BODY[template.preset]
+  const body = subject
+    ? raw.replace('{subject}', subject)
+    : raw.replace(/\s*"?\{subject\}"?\s*/g, ' ').replace(/\s+/g, ' ').trim()
+  return `${actorName} ${body}`.replace(/\s+/g, ' ').trim()
 }
