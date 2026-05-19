@@ -141,8 +141,10 @@ export function KlarertStudioWorkflowEditorPage() {
     setDryRunError(null)
     try {
       const { data: { session } } = await supabase.auth.getSession()
+      const supabaseUrl = (import.meta as unknown as { env: { VITE_SUPABASE_URL?: string } }).env
+        ?.VITE_SUPABASE_URL ?? ''
       const resp = await fetch(
-        `${(supabase as unknown as { supabaseUrl: string }).supabaseUrl}/functions/v1/workflow-dry-run`,
+        `${supabaseUrl}/functions/v1/workflow-dry-run`,
         {
           method: 'POST',
           headers: {
@@ -463,9 +465,9 @@ export function KlarertStudioWorkflowEditorPage() {
 
               {dryRunLog && (
                 <ul className="mt-3 space-y-1.5">
-                  {dryRunLog.map((entry) => (
+                  {dryRunLog.map((entry, idx) => (
                     <li
-                      key={`${entry.step}-${entry.action_type}`}
+                      key={idx}
                       className="flex items-start gap-2 rounded-lg px-3 py-2 text-xs"
                       style={{
                         backgroundColor:

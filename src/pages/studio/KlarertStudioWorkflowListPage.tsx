@@ -155,7 +155,10 @@ export function KlarertStudioWorkflowListPage() {
                     onEdit={() => navigate(`/studio/workflow/${row.id}`)}
                     onCopy={() => navigate(`/studio/workflow/new?from=${row.id}`)}
                     onDelete={() => handleDelete(row.id)}
-                    onUpdate={() => navigate(`/studio/workflow/new?from=${row.catalog_slug}`)}
+                    onUpdate={() => {
+                      const catEntry = catalog.find((c) => c.slug === row.catalog_slug)
+                      if (catEntry) navigate(`/studio/workflow/new?from=${catEntry.id}`)
+                    }}
                   />
                 ))}
               </div>

@@ -141,20 +141,18 @@ function StepRow({
     <div
       className={`${STEP_CARD} flex items-stretch gap-2 pl-1 ${selected ? 'ring-2 ring-[#1a3d32] ring-offset-1' : ''}`}
     >
-      {!readOnly && (
-        <span
-          draggable
-          onDragStart={(e) => {
-            e.dataTransfer.setData('application/x-atics-workflow', JSON.stringify(dragPayload))
-            e.dataTransfer.effectAllowed = 'move'
-          }}
-          className="flex w-8 shrink-0 cursor-grab items-center justify-center text-neutral-400 active:cursor-grabbing"
-          title="Dra for å flytte rekkefølge"
-          aria-hidden
-        >
-          <GripVertical className="size-5" />
-        </span>
-      )}
+      <span
+        draggable={!readOnly}
+        onDragStart={readOnly ? undefined : (e) => {
+          e.dataTransfer.setData('application/x-atics-workflow', JSON.stringify(dragPayload))
+          e.dataTransfer.effectAllowed = 'move'
+        }}
+        className={`flex w-8 shrink-0 items-center justify-center text-neutral-400${readOnly ? ' invisible' : ' cursor-grab active:cursor-grabbing'}`}
+        title={readOnly ? undefined : 'Dra for å flytte rekkefølge'}
+        aria-hidden
+      >
+        <GripVertical className="size-5" />
+      </span>
       <Button
         variant="ghost"
         onClick={onSelect}
@@ -686,7 +684,12 @@ export function WorkflowFlowBuilder({ value, onChange, sourceModule, compileErro
         </div>
 
         <div className={`rounded-none border border-neutral-200/90 bg-[#f4f1ea] p-5 sm:p-6 min-h-[min(70vh,36rem)]${readOnly ? ' pointer-events-none select-none opacity-60' : ''}`}>
-          <h4 className={FIELD_LABEL}>Spesifikasjon{readOnly ? <span className="ml-2 font-normal normal-case tracking-normal text-neutral-400"> — kun lesing</span> : ''}</h4>
+          <h4 className={FIELD_LABEL}>
+            Spesifikasjon
+            {readOnly && (
+              <span className="ml-2 font-normal normal-case tracking-normal text-neutral-400"> — kun lesing</span>
+            )}
+          </h4>
           {!selectedStep ? (
             <p className={`${WF_LEAD} mt-10 text-center`}>Velg et steg i listen for å redigere.</p>
           ) : selectedStep.kind === 'condition' ? (
