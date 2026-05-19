@@ -196,7 +196,13 @@ export function RulesPanel({
                   <tr key={rule.id} className="hover:bg-neutral-50">
                     <td className="px-3 py-2">
                       <div className="flex items-center gap-2">
-                        <span className="font-medium text-neutral-900">{rule.name}</span>
+                        <Button
+                          variant="ghost"
+                          onClick={() => onEdit(rule.id)}
+                          className="h-auto rounded-none p-0 text-left font-medium text-neutral-900 hover:bg-transparent hover:text-emerald-700 hover:underline"
+                        >
+                          {rule.name}
+                        </Button>
                         {isGov && (
                           <Badge variant="warning">
                             <ShieldAlert className="mr-1 inline h-3 w-3" />

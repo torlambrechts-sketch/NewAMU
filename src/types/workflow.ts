@@ -26,6 +26,8 @@ export type WorkflowActionSendEmail = {
   type: 'send_email'
   fromAddress: string
   toAddress: string
+  /** Comma-separated CC addresses. Optional. */
+  ccAddress?: string
   subject: string
   body: string
   contentType?: 'text/plain' | 'text/html'

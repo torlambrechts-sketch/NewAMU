@@ -44,6 +44,7 @@ import { ApprovalsPanel } from '../../components/workflow/approvals/ApprovalsPan
 import { EvidenceExportPanel } from '../../components/workflow/evidence/EvidenceExportPanel'
 import { CanvasPanel } from '../../components/workflow/canvas/CanvasPanel'
 import { HealthPanel } from '../../components/workflow/health/HealthPanel'
+import { WorkflowEditorShell } from '../../components/workflow/editor/WorkflowEditorShell'
 import { useWorkflows } from '../../hooks/useWorkflows'
 import { useWorkflowApprovals } from '../../hooks/useWorkflowApprovals'
 import { useT } from '../../hooks/useT'
@@ -121,6 +122,11 @@ export function WorkflowBuilderPage() {
     [setSearchParams],
   )
   const [newRuleOpen, setNewRuleOpen] = useState(false)
+  const [editor, setEditor] = useState<{ ruleId: string; mode: 'drawer' | 'fullscreen' } | null>(null)
+  const openEditor = useCallback(
+    (ruleId: string) => setEditor({ ruleId, mode: 'drawer' }),
+    [],
+  )
   const { rules, runs } = useWorkflows()
   const { approvals } = useWorkflowApprovals()
   const { t } = useT()
@@ -239,7 +245,7 @@ export function WorkflowBuilderPage() {
 
         {tab === 'rules' && (
           <RulesPanel
-            onEdit={(id) => focusRuleAndTab(id, 'canvas')}
+            onEdit={openEditor}
             onViewRuns={(id) => focusRuleAndTab(id, 'runs')}
             onViewRevisions={(id) => focusRuleAndTab(id, 'revisions')}
           />
@@ -262,10 +268,18 @@ export function WorkflowBuilderPage() {
         open={newRuleOpen}
         onClose={() => setNewRuleOpen(false)}
         onCreated={(slugOrId) => {
-          // upsertRule returns ok without id; we re-fetch and find by slug.
-          // For deep-link, store the slug; CanvasPanel resolves to the
-          // freshly-inserted rule (slug match in rules array).
-          focusRuleAndTab(slugOrId, 'canvas')
+          openEditor(slugOrId)
+        }}
+      />
+      <WorkflowEditorShell
+        open={!!editor}
+        ruleId={editor?.ruleId ?? null}
+        mode={editor?.mode ?? 'drawer'}
+        onClose={() => setEditor(null)}
+        onChangeMode={(next) => setEditor((prev) => (prev ? { ...prev, mode: next } : prev))}
+        onOpenAdvanced={(id) => {
+          setEditor(null)
+          focusRuleAndTab(id, 'canvas')
         }}
       />
     </ModulePageShell>
