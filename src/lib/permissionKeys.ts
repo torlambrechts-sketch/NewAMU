@@ -121,6 +121,12 @@ export const PERMISSION_KEYS = [
    *  Datatilsynet / NAV). Gir tilgang til /admin/integrations/sertifikat-rotasjon
    *  + workflow_record_cert_rotation RPC. Seedet til admin-rollen kun. */
   'integrations.cert_rotate',
+
+  // ─── Endringslogg (audit timeline) ─────────────────────────────────────
+  /** Se endringslogg-panelet for entiteter brukeren ellers har tilgang til. */
+  'audit.read',
+  /** Se diff-innhold for privilegerte hendelser (HR, varsling, AML-sensitivt). */
+  'audit.read.privileged',
 ] as const
 
 export type PermissionKey = (typeof PERMISSION_KEYS)[number]
@@ -177,6 +183,8 @@ export const PERMISSION_LABELS: Record<PermissionKey, string> = {
   'tasks.view_confidential': 'Se konfidensielle oppgaver',
   'gov.outbox_triage': 'Triagér utgående statlige meldinger',
   'integrations.cert_rotate': 'Integrasjoner — rotere virksomhetssertifikat',
+  'audit.read': 'Endringslogg — se endringer for entiteter du har tilgang til',
+  'audit.read.privileged': 'Endringslogg — se privilegerte hendelser (HR, varsling)',
 }
 
 /** Route prefix → permission (primary nav). Index route checked separately. */

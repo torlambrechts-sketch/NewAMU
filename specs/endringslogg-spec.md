@@ -6,7 +6,7 @@ learning / registers. Ships first on the compliance checklist
 execution page; rolls out to siblings after the engine stabilises.
 
 Owner: TBD. Spec author: senior eng + PM collab.
-Status: 📋 ready for review.
+Status: 🛠 P1 + P2 implemented (compliance checklist scope).
 
 ---
 
@@ -553,44 +553,37 @@ Direct lifts from spec §8, codified as acceptance criteria:
 
 ---
 
-## 13. Open questions for review
+## 13. Decisions (resolved)
 
-These should be resolved before P1 starts. None are blockers; all
-default to a sensible answer if the reviewer signs off.
+Approved by the reviewer 2026-05-19. All seven open questions
+collapsed to the defaults proposed in §13 of the original draft.
 
-1. **`audit_events` vs extending `hse_audit_log`**: do we accept the
-   two-layer pattern (§2) or push the semantic verb / summary into
-   `hse_audit_log` itself? *Default*: two layers — forensic floor
-   stays paranoid, semantic layer is read-side.
-
-2. **Backfill or fresh start?** Spec defaults to fresh start. PM
-   call: how badly do we want the last N days of history on day-1?
-   *Default*: fresh start in v1; offer a backfill button in admin
-   that runs the projection from `hse_audit_log` for the last 30
-   days on demand.
-
-3. **Permission inheritance**: should `verneombud` and `amu_medlem`
-   get `audit.read` by default, or per-org opt-in? *Default*: yes,
-   both get it by default — the change-log is part of their job.
-
-4. **Drawer position on tablet**: right-overlay or push-content?
-   *Default*: right-overlay with a translucent backdrop (no layout
-   shift on the main content).
-
-5. **Comment events**: should every keystroke save bump a
-   `kommentert` event, or only the first save per comment? *Default*:
-   first save only; subsequent edits within the same comment fire
-   `endret` with a `text_block` diff of the body.
-
-6. **External-token actor in v1?** Spec §6 shows it
-   (Arbeidstilsynet ekstern). *Default*: no — defer to P6 since
-   the auditor-token wiring (`auditor_tokens`) is a separate
-   delivery. v1 renders the row but with `actor_role='system'`
-   fallback if it does fire.
-
-7. **Storybook vs real data for P1 exit**: review with sample
-   events first, or wait for live integration in P2? *Default*:
-   storybook gates P1; live integration gates P2.
+1. **Two layers, not one.** `hse_audit_log` stays as the immutable
+   forensic floor. `audit_events` is the semantic layer the UI
+   reads. Drift is monitored by a recon SQL, not prevented by
+   coupling.
+2. **Fresh start in v1.** No automatic backfill. An admin-triggered
+   "rekonstruér siste 30 dager" button lands in P5; backfilled rows
+   carry a `backfilled=true` flag (added then) so the UI can render
+   "(rekonstruert)" on those events.
+3. **Default-true `audit.read`** for admin, verneombud, amu_medlem,
+   hms_radgiver. Member / ansatt opt-in per org. `audit.read.privileged`
+   admin-only by default; per-org admins can grant to a named
+   HMS-rådgiver.
+4. **Right-overlay on tablet.** Translucent backdrop, no layout
+   shift on the underlying content. Desktop ≥1280px keeps the
+   inline side-rail.
+5. **First save = `kommentert` event.** Later edits to the same
+   comment fire `endret` with a `text_block` diff on the body.
+   Implementation note: P1 only ships `kommentert`; `endret` on
+   comments slips to P3 alongside the `text_block` renderer.
+6. **External-token actor deferred to P6.** v1 logs the event but
+   the actor row degrades to `actor_role='system'` if it fires
+   before P6 wiring lands.
+7. **Storybook gates P1, live wiring gates P2.** P1 is shipped
+   when the 6 sample events from spec §7 render in the demo page;
+   P2 is shipped when a fresh checklist execution shows the same
+   event types from real mutations.
 
 ---
 
