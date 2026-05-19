@@ -160,6 +160,8 @@ import { KlarertStudioSurveyListPage } from './pages/studio/KlarertStudioSurveyL
 import { KlarertStudioSurveyEditorPage } from './pages/studio/KlarertStudioSurveyEditorPage'
 import { KlarertStudioChecklistListPage } from './pages/studio/KlarertStudioChecklistListPage'
 import { KlarertStudioChecklistEditorPage } from './pages/studio/KlarertStudioChecklistEditorPage'
+import { KlarertStudioRegisterListPage } from './pages/studio/KlarertStudioRegisterListPage'
+import { KlarertStudioRegisterEditorPage } from './pages/studio/KlarertStudioRegisterEditorPage'
 
 /**
  * Providers that depend on react-router (e.g. useOrgSetup → useLocation) must live *inside*
@@ -383,6 +385,8 @@ const router = createBrowserRouter(
                       <Route path="studio/survey/:templateId" element={<KlarertStudioSurveyEditorPage />} />
                       <Route path="studio/checklist" element={<KlarertStudioChecklistListPage />} />
                       <Route path="studio/checklist/:templateId" element={<KlarertStudioChecklistEditorPage />} />
+                      <Route path="studio/register" element={<KlarertStudioRegisterListPage />} />
+                      <Route path="studio/register/:typeId" element={<KlarertStudioRegisterEditorPage />} />
                       <Route path="organisation" element={<OrganisationPage />} />
                       <Route path="organisation/admin" element={<LegacyOrgAdminRedirect />} />
                       <Route

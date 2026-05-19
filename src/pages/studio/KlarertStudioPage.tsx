@@ -86,7 +86,8 @@ const CONTENT_TYPES: ContentType[] = [
     description: 'Egendefinerte tabeller — kjemikalier, utstyr, leverandører. Med felter, validering, eksport.',
     exampleLabel: 'Kjemikalieregister',
     icon: Table2,
-    soon: true,
+    href: '/studio/register',
+    newHref: '/studio/register/new',
     bgColor: 'bg-amber-50',
   },
   {
@@ -228,7 +229,7 @@ export function KlarertStudioPage() {
         </section>
 
         {/* Quick-start sections */}
-        <div className="mt-12 grid gap-6 md:grid-cols-2">
+        <div className="mt-12 grid gap-6 md:grid-cols-3">
           <section>
             <div className="mb-4 flex items-center justify-between">
               <h2 className="text-sm font-semibold text-neutral-700">SPØRREUNDERSØKELSER</h2>
@@ -274,7 +275,7 @@ export function KlarertStudioPage() {
             </div>
             <div className="rounded-xl border border-neutral-200 bg-white p-5 shadow-sm">
               <p className="text-sm text-neutral-600">
-                Bygg sjekklisters med sjekkpunkter, alvorlighetsgrad og lovhenvisning. Kobles mot
+                Bygg sjekklister med sjekkpunkter, alvorlighetsgrad og lovhenvisning. Kobles mot
                 AML- og ISO-pakker og gjenbrukes i vernerunder, SJA og HMS-inspeksjoner.
               </p>
               <div className="mt-4 flex gap-3">
@@ -292,6 +293,42 @@ export function KlarertStudioPage() {
                   onClick={() => navigate('/studio/checklist')}
                 >
                   Alle maler
+                </Button>
+              </div>
+            </div>
+          </section>
+
+          <section>
+            <div className="mb-4 flex items-center justify-between">
+              <h2 className="text-sm font-semibold text-neutral-700">REGISTERTYPER</h2>
+              <button
+                type="button"
+                onClick={() => navigate('/studio/register')}
+                className="text-xs text-[#1a3d32] hover:underline"
+              >
+                Se alle →
+              </button>
+            </div>
+            <div className="rounded-xl border border-neutral-200 bg-white p-5 shadow-sm">
+              <p className="text-sm text-neutral-600">
+                Definer egne registertyper med tilpassede feltskjemaer — kjemikalier, utstyr,
+                leverandører. Publiser til Register-modulen for innmatning og eksport.
+              </p>
+              <div className="mt-4 flex gap-3">
+                <Button
+                  variant="primary"
+                  size="sm"
+                  onClick={() => navigate('/studio/register/new')}
+                  className="bg-[#1a3d32] hover:bg-[#1a3d32]/90"
+                >
+                  Ny registertype
+                </Button>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => navigate('/studio/register')}
+                >
+                  Alle typer
                 </Button>
               </div>
             </div>
