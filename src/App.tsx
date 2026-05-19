@@ -132,6 +132,7 @@ import { PlatformRoadmapPage } from './pages/platform/PlatformRoadmapPage'
 import { LayoutLabPage } from './pages/platform/LayoutLabPage'
 import { PlatformUiAdvancedPage } from './pages/platform/PlatformUiAdvancedPage'
 import { PlatformBoxDesignerPage } from './pages/platform/PlatformBoxDesignerPage'
+import { PlatformEndringsloggDemoPage } from './pages/platform/PlatformEndringsloggDemoPage'
 import { PlatformLayoutCompositionPage } from './pages/platform/PlatformLayoutCompositionPage'
 import { PlatformPinpointLayoutsPage } from './pages/platform/PlatformPinpointLayoutsPage'
 import { PlatformLayoutTemplatesPage } from './pages/platform/PlatformLayoutTemplatesPage'
@@ -315,6 +316,7 @@ const router = createBrowserRouter(
                 <Route path="layout-lab" element={<LayoutLabPage />} />
                 <Route path="ui-advanced" element={<PlatformUiAdvancedPage />} />
                 <Route path="box-designer" element={<PlatformBoxDesignerPage />} />
+                <Route path="endringslogg-demo" element={<PlatformEndringsloggDemoPage />} />
                 <Route path="layout-builder" element={<PlatformLayoutCompositionPage />} />
                 <Route path="layout-reference" element={<PlatformPinpointLayoutsPage />} />
                 <Route path="layout-templates" element={<PlatformLayoutTemplatesPage />} />

@@ -1,0 +1,74 @@
+// Multi-field diff — spec §4.2. Each change is its own field-label +
+// two-card pair. Caps at 3 visible changes by default with a
+// "Vis N flere endringer" expander.
+
+import { useState } from 'react'
+import { ArrowRight } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
+import type { Diff } from '../../../lib/audit/diffShape'
+import { SemanticValue } from './semanticValue'
+
+type MultiFieldDiff = Extract<Diff, { kind: 'multi_field' }>
+
+const DEFAULT_VISIBLE = 3
+
+export function DiffMultiField({ diff }: { diff: MultiFieldDiff }) {
+  const { t } = useTranslation()
+  const [expanded, setExpanded] = useState(false)
+  const total = diff.changes.length
+  const visible = expanded ? total : Math.min(DEFAULT_VISIBLE, total)
+  const hiddenCount = total - visible
+
+  return (
+    <div className="space-y-4">
+      {diff.changes.slice(0, visible).map((change, idx) => (
+        <div key={`${change.field_label_nb}-${idx}`} className="space-y-2">
+          <p className="text-[11px] font-semibold uppercase tracking-wider text-neutral-500">
+            {change.field_label_nb}
+          </p>
+          <div className="grid grid-cols-[1fr_auto_1fr] items-start gap-2 sm:gap-3">
+            <Card label={t('endringslogg.before', 'Før')}>
+              <SemanticValue value={change.before} />
+            </Card>
+            <ArrowRight className="mt-6 h-4 w-4 text-neutral-400" aria-hidden />
+            <Card label={t('endringslogg.after', 'Etter')} highlight>
+              <SemanticValue value={change.after} />
+            </Card>
+          </div>
+        </div>
+      ))}
+      {hiddenCount > 0 ? (
+        <button
+          type="button"
+          className="text-xs font-medium text-indigo-700 hover:text-indigo-900 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-700"
+          onClick={() => setExpanded(true)}
+        >
+          {t('endringslogg.showMore', 'Vis {{count}} flere endringer', { count: hiddenCount })}
+        </button>
+      ) : null}
+    </div>
+  )
+}
+
+function Card({
+  label,
+  highlight,
+  children,
+}: {
+  label: string
+  highlight?: boolean
+  children: React.ReactNode
+}) {
+  return (
+    <div
+      className={`rounded-md border p-3 ${
+        highlight ? 'border-neutral-300 bg-white' : 'border-neutral-200 bg-neutral-50/60'
+      }`}
+    >
+      <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-neutral-500">
+        {label}
+      </p>
+      <div>{children}</div>
+    </div>
+  )
+}

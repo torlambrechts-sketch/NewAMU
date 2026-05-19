@@ -1,0 +1,167 @@
+// Top-level Endringslogg panel. Pass either:
+//   - `entityKind` + `entityId` to fetch from audit_events_read, OR
+//   - `events` directly (storybook / demo mode).
+//
+// Renders day-grouped event rows. Loading / empty / error / no-access
+// states from spec §6.3.
+
+import { useEffect, useMemo, useState } from 'react'
+import { Loader2, History } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
+import type { SupabaseClient } from '@supabase/supabase-js'
+import type { AuditEvent } from '../../lib/audit/diffShape'
+import { useEntityTimeline, groupEventsByDay } from '../../lib/audit/useEntityTimeline'
+import { readPermalinkEventId } from '../../lib/audit/permalink'
+import { EntityTimelineRow } from './EntityTimelineRow'
+
+type LiveProps = {
+  supabase: SupabaseClient | null
+  entityKind: string
+  entityId: string
+  events?: never
+}
+
+type StaticProps = {
+  supabase?: never
+  entityKind?: never
+  entityId?: never
+  events: AuditEvent[]
+}
+
+export type EntityTimelineProps = (LiveProps | StaticProps) & {
+  /** Optional accent for the panel header. Defaults to compliance green. */
+  accent?: string
+  /** Hide the panel header when embedded inside an already-titled container. */
+  hideHeader?: boolean
+}
+
+export function EntityTimeline(props: EntityTimelineProps) {
+  const { t } = useTranslation()
+  const accent = props.accent ?? '#1a3d32'
+  const isLive = 'supabase' in props && props.supabase !== undefined
+
+  return (
+    <aside
+      className="flex h-full min-h-[280px] flex-col rounded-lg border border-neutral-200 bg-white"
+      aria-label={t('endringslogg.title', 'Endringslogg')}
+    >
+      {props.hideHeader ? null : (
+        <header className="flex items-center gap-2 border-b border-neutral-200 px-4 py-3">
+          <span
+            className="inline-flex h-7 w-7 items-center justify-center rounded-md text-white"
+            style={{ backgroundColor: accent }}
+            aria-hidden
+          >
+            <History className="h-4 w-4" />
+          </span>
+          <h2 className="text-sm font-semibold text-neutral-900">
+            {t('endringslogg.title', 'Endringslogg')}
+          </h2>
+        </header>
+      )}
+      <div className="flex-1 overflow-auto p-3">
+        {isLive ? (
+          <LiveBody
+            supabase={props.supabase as SupabaseClient | null}
+            entityKind={props.entityKind as string}
+            entityId={props.entityId as string}
+          />
+        ) : (
+          <StaticBody events={(props as StaticProps).events} />
+        )}
+      </div>
+    </aside>
+  )
+}
+
+function LiveBody({
+  supabase,
+  entityKind,
+  entityId,
+}: {
+  supabase: SupabaseClient | null
+  entityKind: string
+  entityId: string
+}) {
+  const { events, loading, error, reload } = useEntityTimeline({ supabase, entityKind, entityId })
+  return <Body events={events} loading={loading} error={error} reload={reload} />
+}
+
+function StaticBody({ events }: { events: AuditEvent[] }) {
+  return <Body events={events} loading={false} error={null} reload={undefined} />
+}
+
+function Body({
+  events,
+  loading,
+  error,
+  reload,
+}: {
+  events: AuditEvent[]
+  loading: boolean
+  error: string | null
+  reload?: () => Promise<void>
+}) {
+  const { t } = useTranslation()
+  const [highlightId, setHighlightId] = useState<string | null>(null)
+
+  useEffect(() => {
+    setHighlightId(readPermalinkEventId())
+  }, [])
+
+  const groups = useMemo(() => groupEventsByDay(events), [events])
+
+  if (loading) {
+    return (
+      <div className="flex h-full min-h-[200px] flex-col items-center justify-center gap-2 text-sm text-neutral-500">
+        <Loader2 className="h-5 w-5 animate-spin" aria-hidden />
+        <span>Laster…</span>
+      </div>
+    )
+  }
+  if (error) {
+    return (
+      <div className="flex h-full min-h-[200px] flex-col items-center justify-center gap-3 px-4 text-center text-sm text-neutral-600">
+        <p>{t('endringslogg.loadError', 'Klarte ikke laste endringsloggen. Prøv igjen.')}</p>
+        {reload ? (
+          <button
+            type="button"
+            onClick={() => void reload()}
+            className="rounded-md border border-neutral-300 bg-white px-3 py-1.5 text-xs font-medium text-neutral-700 hover:bg-neutral-50"
+          >
+            {t('endringslogg.retry', 'Prøv igjen')}
+          </button>
+        ) : null}
+      </div>
+    )
+  }
+  if (events.length === 0) {
+    return (
+      <p className="flex h-full min-h-[200px] items-center justify-center px-4 text-center text-sm italic text-neutral-500">
+        {t('endringslogg.emptyState', 'Ingen hendelser ennå. Endringer logges automatisk.')}
+      </p>
+    )
+  }
+
+  return (
+    <div className="space-y-5">
+      {groups.map((group) => (
+        <section key={group.dayKey} aria-label={group.dayLabel}>
+          <p className="mb-2 px-2 text-[11px] font-semibold uppercase tracking-wider text-neutral-500">
+            {group.dayLabel}
+          </p>
+          <ol className="space-y-1" aria-label={t('endringslogg.title', 'Endringslogg')}>
+            {group.events.map((ev, idx) => (
+              <EntityTimelineRow
+                key={ev.id}
+                event={ev}
+                isLast={idx === group.events.length - 1}
+                highlighted={ev.id === highlightId}
+              />
+            ))}
+          </ol>
+        </section>
+      ))}
+    </div>
+  )
+}
