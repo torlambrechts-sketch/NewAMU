@@ -2,12 +2,20 @@
 // Per MODULE_SPEC.md §3 + AI_MODULE_SPEC.md §3: components do not call
 // Supabase directly; all error handling routes through getSupabaseErrorMessage.
 // Authorization: isAdmin || can('checklist.manage') gates every mutation.
+//
+// Each mutation that touches a row of forensic interest also calls
+// emitAuditEvent after the DB write succeeds. Audit failures are logged
+// (inside the helper) and never rethrown — losing one log row is bad,
+// but regressing the user-visible mutation behind a logging failure is
+// worse. See specs/endringslogg-spec.md §5.2 + §11 (recon SQL).
 
 import { useCallback, useMemo, useState } from 'react'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { fetchAssignableUsers } from '../../src/hooks/useAssignableUsers'
 import { useOrgSetupContext } from '../../src/hooks/useOrgSetupContext'
 import { getSupabaseErrorMessage } from '../../src/lib/supabaseError'
+import { emitAuditEvent } from '../../src/lib/audit/emitAuditEvent'
+import type { Diff } from '../../src/lib/audit/diffShape'
 import type {
   ChecklistCommentRow,
   ChecklistDefinition,
@@ -198,6 +206,93 @@ export type ChecklistModuleState = {
 
 const ATTACHMENT_BUCKET = 'compliance_checklist_files'
 
+// Convert a response upsert into a friendly Diff. Existing rows may be
+// undefined (first save) — render as opprettet-style "(ingen verdi)" → x.
+// Severity changes get the 'severity' semantic so the chip renders.
+// We intentionally don't try to diff the raw `value` jsonb; per-item-type
+// rendering is a deeper rabbit hole than v1 needs.
+function buildResponseDiff(
+  before: ComplianceResponseRow | undefined,
+  after: ComplianceResponseRow,
+): Diff | null {
+  const changes: Array<{ field_label_nb: string; before: { display: string; semantic?: 'severity' | 'plain' }; after: { display: string; semantic?: 'severity' | 'plain' } }> = []
+
+  const beforeAnswered = before ? 'Besvart' : '(ingen verdi)'
+  const afterAnswered = 'Besvart'
+  if (beforeAnswered !== afterAnswered) {
+    changes.push({
+      field_label_nb: 'Svar',
+      before: { display: beforeAnswered, semantic: 'plain' },
+      after: { display: afterAnswered, semantic: 'plain' },
+    })
+  }
+
+  const beforeSev = before?.severity ?? null
+  const afterSev = after.severity ?? null
+  if (beforeSev !== afterSev) {
+    changes.push({
+      field_label_nb: 'Alvorlighet',
+      before: { display: beforeSev ?? '(ingen verdi)', semantic: beforeSev ? 'severity' : 'plain' },
+      after: { display: afterSev ?? '(ingen verdi)', semantic: afterSev ? 'severity' : 'plain' },
+    })
+  }
+
+  const beforeFinding = before?.is_finding ?? false
+  const afterFinding = after.is_finding ?? false
+  if (beforeFinding !== afterFinding) {
+    changes.push({
+      field_label_nb: 'Funn',
+      before: { display: beforeFinding ? 'Ja' : 'Nei', semantic: 'plain' },
+      after: { display: afterFinding ? 'Ja' : 'Nei', semantic: 'plain' },
+    })
+  }
+
+  if (changes.length === 0) return null
+  if (changes.length === 1) {
+    const c = changes[0]
+    return { kind: 'single_field', field_label_nb: c.field_label_nb, before: c.before, after: c.after }
+  }
+  return { kind: 'multi_field', changes }
+}
+
+// Diff between two execution snapshots, scoped to the fields the user
+// can edit via updateExecutionMetadata. The payload tells us which
+// fields were touched — we never log fields the user didn't write.
+function buildMetadataDiff(
+  before: ComplianceExecutionRow | undefined,
+  after: ComplianceExecutionRow,
+  payload: {
+    title?: string
+    summary?: string | null
+    scheduledFor?: string | null
+    locationId?: string | null
+    departmentId?: string | null
+    teamId?: string | null
+  },
+): Diff | null {
+  const changes: Array<{ field_label_nb: string; before: { display: string; semantic?: 'date' | 'plain' }; after: { display: string; semantic?: 'date' | 'plain' } }> = []
+
+  const pushIf = (label: string, b: string | null | undefined, a: string | null | undefined, semantic?: 'date' | 'plain') => {
+    if (b === a) return
+    changes.push({
+      field_label_nb: label,
+      before: { display: b ?? '(ingen verdi)', semantic: b ? semantic ?? 'plain' : 'plain' },
+      after: { display: a ?? '(ingen verdi)', semantic: a ? semantic ?? 'plain' : 'plain' },
+    })
+  }
+
+  if (payload.title !== undefined) pushIf('Tittel', before?.title, after.title)
+  if (payload.summary !== undefined) pushIf('Sammendrag', before?.summary, after.summary)
+  if (payload.scheduledFor !== undefined) pushIf('Tidsplan', before?.scheduled_for, after.scheduled_for, 'date')
+
+  if (changes.length === 0) return null
+  if (changes.length === 1) {
+    const c = changes[0]
+    return { kind: 'single_field', field_label_nb: c.field_label_nb, before: c.before, after: c.after }
+  }
+  return { kind: 'multi_field', changes }
+}
+
 const EMPTY_AGGREGATES: ComplianceAggregates = {
   totalExecutions: 0,
   openCount: 0,
@@ -230,6 +325,16 @@ export function useChecklistModule(
   const [commentsByExecutionId, setCommentsByExecutionId] = useState<
     Record<string, ChecklistCommentRow[]>
   >({})
+
+  // Resolve the actor's display name for inline rendering of summary_nb.
+  // Server-side emit_audit_event re-derives this from profiles, so this
+  // is purely the local sentence rendering. Falls back to a neutral
+  // placeholder if the user isn't in the assignable list yet.
+  const actorName = useMemo(() => {
+    if (!currentUserId) return 'Bruker'
+    const user = assignableUsers.find((u) => u.id === currentUserId)
+    return user?.displayName ?? 'Bruker'
+  }, [assignableUsers, currentUserId])
 
   // ── Aggregates (org-wide; fetched separately from paginated list) ────────
 
@@ -475,6 +580,35 @@ export function useChecklistModule(
         if (parsed.success) {
           setExecutions((prev) => [parsed.data, ...prev])
           await reloadAggregates(template.pack)
+          void emitAuditEvent(supabase, {
+            scopeId: 'compliance_checklist',
+            entityKind: 'compliance_checklist_execution',
+            entityId: parsed.data.id,
+            actorName,
+            summary: { kind: 'preset', preset: 'sjekkliste_opprettet' },
+            diff: {
+              kind: 'multi_field',
+              changes: [
+                {
+                  field_label_nb: 'Tittel',
+                  before: { display: '(ingen verdi)', semantic: 'plain' },
+                  after: { display: payload.title, semantic: 'plain' },
+                },
+                {
+                  field_label_nb: 'Status',
+                  before: { display: '(ingen verdi)', semantic: 'plain' },
+                  after: { display: 'Kladd', semantic: 'status' },
+                },
+                ...(payload.scheduledFor
+                  ? [{
+                      field_label_nb: 'Tidsplan',
+                      before: { display: '(ingen verdi)', semantic: 'plain' as const },
+                      after: { display: payload.scheduledFor, semantic: 'date' as const, raw: payload.scheduledFor },
+                    }]
+                  : []),
+              ],
+            },
+          })
           return parsed.data.id
         }
         return null
@@ -483,7 +617,7 @@ export function useChecklistModule(
         return null
       }
     },
-    [supabase, orgId, canManage, templates, reloadAggregates],
+    [supabase, orgId, canManage, templates, reloadAggregates, actorName],
   )
 
   const saveResponse = useCallback(
@@ -528,17 +662,43 @@ export function useChecklistModule(
         const parsed = ComplianceResponseRowSchema.safeParse(data)
         if (!parsed.success) return
 
+        const existing = (responsesByExecutionId[payload.executionId] ?? []).find(
+          (r) => r.item_key === payload.itemKey,
+        )
+        const becameAFinding =
+          !existing?.is_finding && parsed.data.is_finding === true
+        const item = (() => {
+          // Resolve the item prompt for a friendlier summary subject.
+          const exec = executions.find((e) => e.id === payload.executionId)
+          const tmpl = templates.find((t) => t.id === exec?.template_id)
+          const def = parseChecklistDefinition(tmpl?.definition)
+          return def.items.find((i) => i.key === payload.itemKey)?.prompt ?? payload.itemKey
+        })()
+
         setResponsesByExecutionId((prev) => {
           const list = prev[payload.executionId] ?? []
           const next = list.filter((r) => r.item_key !== payload.itemKey)
           next.push(parsed.data)
           return { ...prev, [payload.executionId]: next }
         })
+
+        void emitAuditEvent(supabase, {
+          scopeId: 'compliance_checklist',
+          entityKind: 'compliance_checklist_response',
+          entityId: parsed.data.id,
+          actorName,
+          summary: {
+            kind: 'preset',
+            preset: becameAFinding ? 'sjekklistepunkt_funn' : 'sjekklistepunkt_besvart',
+            subject: item,
+          },
+          diff: buildResponseDiff(existing, parsed.data),
+        })
       } catch (unknownError) {
         setError(getSupabaseErrorMessage(unknownError))
       }
     },
-    [supabase, orgId, canManage, executions],
+    [supabase, orgId, canManage, executions, templates, responsesByExecutionId, actorName],
   )
 
   const signExecution = useCallback(
@@ -594,12 +754,25 @@ export function useChecklistModule(
             prev.map((e) => (e.id === executionId ? parsed.data : e)),
           )
           await reloadAggregates(exec.pack)
+          void emitAuditEvent(supabase, {
+            scopeId: 'compliance_checklist',
+            entityKind: 'compliance_checklist_execution',
+            entityId: parsed.data.id,
+            actorName,
+            summary: { kind: 'preset', preset: 'sjekkliste_signert' },
+            diff: {
+              kind: 'single_field',
+              field_label_nb: 'Status',
+              before: { display: 'Aktiv', semantic: 'status' },
+              after: { display: 'Signert', semantic: 'status' },
+            },
+          })
         }
       } catch (unknownError) {
         setError(getSupabaseErrorMessage(unknownError))
       }
     },
-    [supabase, orgId, canManage, executions, templates, responsesByExecutionId, reloadAggregates],
+    [supabase, orgId, canManage, executions, templates, responsesByExecutionId, reloadAggregates, actorName],
   )
 
   const archiveExecution = useCallback(
@@ -639,12 +812,25 @@ export function useChecklistModule(
         if (parsed.success) {
           // Default load filters out archived; drop from local state.
           setExecutions((prev) => prev.filter((e) => e.id !== executionId))
+          void emitAuditEvent(supabase, {
+            scopeId: 'compliance_checklist',
+            entityKind: 'compliance_checklist_execution',
+            entityId: parsed.data.id,
+            actorName,
+            summary: { kind: 'preset', preset: 'sjekkliste_arkivert' },
+            diff: {
+              kind: 'single_field',
+              field_label_nb: 'Arkivert',
+              before: { display: 'Nei', semantic: 'plain' },
+              after: { display: 'Ja', semantic: 'plain' },
+            },
+          })
         }
       } catch (unknownError) {
         setError(getSupabaseErrorMessage(unknownError))
       }
     },
-    [supabase, orgId, canManage, executions],
+    [supabase, orgId, canManage, executions, actorName],
   )
 
   // Amendable metadata. Allowed both pre- and post-sign — the BEFORE UPDATE
@@ -696,6 +882,10 @@ export function useChecklistModule(
         update.scope_other_label = payload.scopeOtherLabel
       if (Object.keys(update).length === 0) return
 
+      // Capture the before-state for the audit diff. Pulled from local
+      // state — the row is already loaded by the time the user edits.
+      const before = executions.find((e) => e.id === payload.executionId)
+
       try {
         const { data, error: upErr } = await supabase
           .from('compliance_checklist_executions')
@@ -709,12 +899,23 @@ export function useChecklistModule(
         const parsed = ComplianceExecutionRowSchema.safeParse(data)
         if (parsed.success) {
           setExecutions((prev) => prev.map((e) => (e.id === parsed.data.id ? parsed.data : e)))
+          const diff = buildMetadataDiff(before, parsed.data, payload)
+          if (diff) {
+            void emitAuditEvent(supabase, {
+              scopeId: 'compliance_checklist',
+              entityKind: 'compliance_checklist_execution',
+              entityId: parsed.data.id,
+              actorName,
+              summary: { kind: 'preset', preset: 'sjekkliste_metadata_endret' },
+              diff,
+            })
+          }
         }
       } catch (unknownError) {
         setError(getSupabaseErrorMessage(unknownError))
       }
     },
-    [supabase, orgId, canManage],
+    [supabase, orgId, canManage, executions, actorName],
   )
 
   // ── Attachments (Supabase Storage) ───────────────────────────────────────
@@ -927,6 +1128,18 @@ export function useChecklistModule(
           const list = prev[payload.executionId] ?? []
           return { ...prev, [payload.executionId]: [...list, parsed.data] }
         })
+
+        // §13.5: first save = kommentert; later edits (via updateComment)
+        // would fire endret with text_block (deferred to P3).
+        void emitAuditEvent(supabase, {
+          scopeId: 'compliance_checklist',
+          entityKind: 'compliance_checklist_execution',
+          entityId: payload.executionId,
+          actorName: authorName,
+          summary: { kind: 'preset', preset: 'sjekkliste_kommentar' },
+          diff: null,
+        })
+
         return parsed.data
       } catch (unknownError) {
         setError(getSupabaseErrorMessage(unknownError))

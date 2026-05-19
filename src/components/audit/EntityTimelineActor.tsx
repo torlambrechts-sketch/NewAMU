@@ -5,6 +5,7 @@
 import { Cog, Link as LinkIcon } from 'lucide-react'
 import { twMerge } from 'tailwind-merge'
 import type { AuditActor, AuditActorRole } from '../../lib/audit/diffShape'
+import { ROLE_LABEL } from './entityTimelineActorTone'
 
 type Swatch = { bg: string; text: string }
 
@@ -18,16 +19,6 @@ const ROLE_SWATCH: Record<AuditActorRole, Swatch> = {
   ekstern: { bg: 'bg-red-100', text: 'text-red-900' },
 }
 
-const ROLE_LABEL: Record<AuditActorRole, string> = {
-  verneombud: 'Verneombud',
-  amu_medlem: 'AMU-medlem',
-  leder: 'Leder',
-  hms_radgiver: 'HMS-rådgiver',
-  ansatt: 'Ansatt',
-  system: 'System',
-  ekstern: 'Ekstern',
-}
-
 export type EntityTimelineActorProps = {
   actor: AuditActor
   size?: 'sm' | 'md'
@@ -37,7 +28,12 @@ export type EntityTimelineActorProps = {
 export function EntityTimelineActor({ actor, size = 'md', className }: EntityTimelineActorProps) {
   const swatch = ROLE_SWATCH[actor.role]
   const dim = size === 'sm' ? 'h-5 w-5 text-[10px]' : 'h-7 w-7 text-xs'
-  const glyph = actor.role === 'system' ? <Cog className="h-3 w-3" aria-hidden /> : actor.role === 'ekstern' ? <LinkIcon className="h-3 w-3" aria-hidden /> : null
+  const glyph =
+    actor.role === 'system' ? (
+      <Cog className="h-3 w-3" aria-hidden />
+    ) : actor.role === 'ekstern' ? (
+      <LinkIcon className="h-3 w-3" aria-hidden />
+    ) : null
 
   return (
     <span
@@ -61,5 +57,3 @@ export function EntityTimelineActor({ actor, size = 'md', className }: EntityTim
     </span>
   )
 }
-
-export { ROLE_LABEL as roleLabel }

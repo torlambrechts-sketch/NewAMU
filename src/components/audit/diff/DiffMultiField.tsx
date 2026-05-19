@@ -7,6 +7,7 @@ import { ArrowRight } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import type { Diff } from '../../../lib/audit/diffShape'
 import { SemanticValue } from './semanticValue'
+import { Button } from '../../ui/Button'
 
 type MultiFieldDiff = Extract<Diff, { kind: 'multi_field' }>
 
@@ -38,13 +39,14 @@ export function DiffMultiField({ diff }: { diff: MultiFieldDiff }) {
         </div>
       ))}
       {hiddenCount > 0 ? (
-        <button
-          type="button"
-          className="text-xs font-medium text-indigo-700 hover:text-indigo-900 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-700"
+        <Button
+          variant="ghost"
+          size="sm"
+          className="px-2 text-xs font-medium text-indigo-700 hover:text-indigo-900"
           onClick={() => setExpanded(true)}
         >
           {t('endringslogg.showMore', 'Vis {{count}} flere endringer', { count: hiddenCount })}
-        </button>
+        </Button>
       ) : null}
     </div>
   )

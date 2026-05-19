@@ -5,15 +5,7 @@
 
 import type { HTMLAttributes } from 'react'
 import { twMerge } from 'tailwind-merge'
-
-export type StatusChipStatus =
-  | 'open'              // Åpen
-  | 'in_progress'       // I arbeid
-  | 'overdue'           // Forfalt
-  | 'closed'            // Lukket
-  | 'rejected'          // Avvist
-  | 'approved'          // Godkjent
-  | 'unknown'           // Fallback
+import type { StatusChipStatus } from './statusChipTone'
 
 const TONE: Record<StatusChipStatus, { dot: string; chip: string; label: string }> = {
   open: { dot: 'bg-green-500', chip: 'bg-green-50 text-green-800 border-green-200', label: 'Åpen' },
@@ -27,20 +19,6 @@ const TONE: Record<StatusChipStatus, { dot: string; chip: string; label: string 
   rejected: { dot: 'bg-red-500', chip: 'bg-red-50 text-red-800 border-red-200', label: 'Avvist' },
   approved: { dot: 'bg-green-500', chip: 'bg-green-50 text-green-800 border-green-200', label: 'Godkjent' },
   unknown: { dot: 'bg-neutral-300', chip: 'bg-neutral-50 text-neutral-700 border-neutral-200', label: '' },
-}
-
-// Map free-form Norwegian status text → StatusChipStatus. Used by the
-// semantic value renderer when a diff value carries semantic='status'.
-export function statusFromLabel(label: string): StatusChipStatus {
-  const t = label.trim().toLowerCase()
-  if (!t) return 'unknown'
-  if (t === 'åpen' || t === 'apen' || t === 'open') return 'open'
-  if (t === 'i arbeid' || t === 'pågår' || t === 'pagar' || t === 'in_progress') return 'in_progress'
-  if (t === 'forfalt' || t === 'overdue') return 'overdue'
-  if (t === 'lukket' || t === 'closed') return 'closed'
-  if (t === 'avvist' || t === 'rejected') return 'rejected'
-  if (t === 'godkjent' || t === 'approved') return 'approved'
-  return 'unknown'
 }
 
 export type StatusChipProps = HTMLAttributes<HTMLSpanElement> & {

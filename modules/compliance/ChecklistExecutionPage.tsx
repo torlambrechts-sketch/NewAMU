@@ -21,6 +21,10 @@ import { SeverityBadge } from './components/SeverityBadge'
 import { PhotoItemControl } from './components/PhotoItemControl'
 import { ExecutionMetadataPanel } from './components/ExecutionMetadataPanel'
 import { ExecutionCommentThread } from './components/ExecutionCommentThread'
+import { EntityTimeline } from '../../src/components/audit/EntityTimeline'
+// Side-effect import — registers the compliance_checklist audit scope
+// before <EntityTimeline> first renders. See specs/endringslogg-spec.md §5.
+import './audit/complianceChecklistAuditScope'
 import type {
   ChecklistItem,
   ComplianceExecutionRow,
@@ -202,7 +206,8 @@ export function ChecklistExecutionPage() {
         </div>
       }
     >
-      <div className="space-y-6">
+      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_360px]">
+        <div className="space-y-6">
         {cl.error ? <WarningBox>{cl.error}</WarningBox> : null}
 
         <div className="flex flex-wrap items-center gap-3">
@@ -379,6 +384,15 @@ export function ChecklistExecutionPage() {
             })}
           </ul>
         </ModuleSectionCard>
+        </div>
+        <div className="lg:sticky lg:top-6 lg:h-[calc(100vh-6rem)]">
+          <EntityTimeline
+            supabase={supabase}
+            entityKind="compliance_checklist_execution"
+            entityId={executionId}
+            accent="#1a3d32"
+          />
+        </div>
       </div>
     </ModulePageShell>
   )

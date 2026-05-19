@@ -5,13 +5,14 @@
 // Renders day-grouped event rows. Loading / empty / error / no-access
 // states from spec §6.3.
 
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { Loader2, History } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { AuditEvent } from '../../lib/audit/diffShape'
 import { useEntityTimeline, groupEventsByDay } from '../../lib/audit/useEntityTimeline'
 import { readPermalinkEventId } from '../../lib/audit/permalink'
+import { Button } from '../ui/Button'
 import { EntityTimelineRow } from './EntityTimelineRow'
 
 type LiveProps = {
@@ -103,11 +104,8 @@ function Body({
   reload?: () => Promise<void>
 }) {
   const { t } = useTranslation()
-  const [highlightId, setHighlightId] = useState<string | null>(null)
-
-  useEffect(() => {
-    setHighlightId(readPermalinkEventId())
-  }, [])
+  // Lazy init reads window.location once at mount, no effect needed.
+  const [highlightId] = useState<string | null>(() => readPermalinkEventId())
 
   const groups = useMemo(() => groupEventsByDay(events), [events])
 
@@ -124,13 +122,9 @@ function Body({
       <div className="flex h-full min-h-[200px] flex-col items-center justify-center gap-3 px-4 text-center text-sm text-neutral-600">
         <p>{t('endringslogg.loadError', 'Klarte ikke laste endringsloggen. Prøv igjen.')}</p>
         {reload ? (
-          <button
-            type="button"
-            onClick={() => void reload()}
-            className="rounded-md border border-neutral-300 bg-white px-3 py-1.5 text-xs font-medium text-neutral-700 hover:bg-neutral-50"
-          >
+          <Button variant="secondary" size="sm" onClick={() => void reload()}>
             {t('endringslogg.retry', 'Prøv igjen')}
-          </button>
+          </Button>
         ) : null}
       </div>
     )

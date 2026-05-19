@@ -6,12 +6,14 @@ import { ChevronDown, AlertTriangle } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { twMerge } from 'tailwind-merge'
 import type { AuditEvent } from '../../lib/audit/diffShape'
-import { EntityTimelineActionChip, railDotClass } from './EntityTimelineActionChip'
+import { EntityTimelineActionChip } from './EntityTimelineActionChip'
+import { railDotClass } from './entityTimelineActionTone'
 import { EntityTimelineActor } from './EntityTimelineActor'
 import { DiffSingleField } from './diff/DiffSingleField'
 import { DiffMultiField } from './diff/DiffMultiField'
 import { DiffNullCard } from './diff/DiffNullCard'
 import { copyEventPermalink } from '../../lib/audit/permalink'
+import { Button } from '../ui/Button'
 
 function relativeTime(iso: string, t: ReturnType<typeof useTranslation>['t']): string {
   const then = new Date(iso).getTime()
@@ -86,7 +88,10 @@ export function EntityTimelineRow({ event, isLast = false, highlighted = false }
         />
       ) : null}
 
-      {/* Row body */}
+      {/* Row body — wide row-toggle; Button's centred layout doesn't fit
+          this use case (we need left-aligned summary + right-aligned
+          chevron), so we use a native button with explicit a11y. */}
+      {/* eslint-disable-next-line no-restricted-syntax -- wide row toggle, no Button variant covers this */}
       <button
         type="button"
         onClick={() => setExpanded((v) => !v)}
@@ -149,15 +154,16 @@ export function EntityTimelineRow({ event, isLast = false, highlighted = false }
           ) : null}
 
           <div className="flex flex-wrap items-center gap-2 pt-1">
-            <button
-              type="button"
+            <Button
+              variant="ghost"
+              size="sm"
               onClick={onCopyLink}
-              className="text-xs font-medium text-neutral-600 hover:text-neutral-900 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-700"
+              className="px-2 text-xs font-medium text-neutral-600 hover:text-neutral-900"
             >
               {copied
                 ? t('endringslogg.copyPermalinkDone', 'Permalink kopiert')
                 : t('endringslogg.copyPermalink', 'Kopier permalink')}
-            </button>
+            </Button>
             <span className="text-[11px] text-neutral-400" title={absoluteTimestamp(event.occurred_at)}>
               {absoluteTimestamp(event.occurred_at)}
             </span>

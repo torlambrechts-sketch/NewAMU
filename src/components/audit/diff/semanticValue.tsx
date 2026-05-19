@@ -7,7 +7,8 @@
 
 import { useTranslation } from 'react-i18next'
 import type { DiffValue } from '../../../lib/audit/diffShape'
-import { StatusChip, statusFromLabel } from '../../ui/StatusChip'
+import { StatusChip } from '../../ui/StatusChip'
+import { statusFromLabel } from '../../ui/statusChipTone'
 
 const SEVERITY_TONE: Record<string, { dot: string; chip: string }> = {
   lav: { dot: 'bg-green-500', chip: 'bg-green-50 text-green-800 border-green-200' },
