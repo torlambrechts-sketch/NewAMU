@@ -37,6 +37,16 @@ export type SummaryPreset =
   | 'mote_protokollert'              // "<actor> signerte protokollen"
   | 'mote_votert'                    // "<actor> avga stemme i {subject}"
   | 'mote_delt'                      // "<actor> delte møtesammendraget"
+  // Tasks
+  | 'oppgave_opprettet'              // "<actor> opprettet oppgaven"
+  | 'oppgave_status_endret'          // "<actor> endret status til {subject}"
+  | 'oppgave_pdca_endret'            // "<actor> flyttet til {subject}-fasen"
+  | 'oppgave_lukket'                 // "<actor> lukket oppgaven"
+  // Documents
+  | 'dokument_opprettet'             // "<actor> opprettet siden"
+  | 'dokument_publisert'             // "<actor> publiserte siden"
+  | 'dokument_endret'                // "<actor> oppdaterte siden"
+  | 'dokument_arkivert'              // "<actor> arkiverte siden"
 
 const PRESET_BODY: Record<SummaryPreset, string> = {
   opprettet_subject: 'opprettet {subject}',
@@ -59,6 +69,14 @@ const PRESET_BODY: Record<SummaryPreset, string> = {
   mote_protokollert: 'signerte protokollen',
   mote_votert: 'avga stemme i "{subject}"',
   mote_delt: 'delte møtesammendraget',
+  oppgave_opprettet: 'opprettet oppgaven',
+  oppgave_status_endret: 'endret status til {subject}',
+  oppgave_pdca_endret: 'flyttet til {subject}-fasen',
+  oppgave_lukket: 'lukket oppgaven',
+  dokument_opprettet: 'opprettet siden',
+  dokument_publisert: 'publiserte siden',
+  dokument_endret: 'oppdaterte siden',
+  dokument_arkivert: 'arkiverte siden',
 }
 
 const PRESET_TO_ACTION: Record<SummaryPreset, AuditAction> = {
@@ -82,6 +100,14 @@ const PRESET_TO_ACTION: Record<SummaryPreset, AuditAction> = {
   mote_protokollert: 'protokollert',
   mote_votert: 'votert',
   mote_delt: 'delt',
+  oppgave_opprettet: 'opprettet',
+  oppgave_status_endret: 'endret',
+  oppgave_pdca_endret: 'endret',
+  oppgave_lukket: 'lukket',
+  dokument_opprettet: 'opprettet',
+  dokument_publisert: 'publisert',
+  dokument_endret: 'endret',
+  dokument_arkivert: 'arkivert',
 }
 
 export function actionForPreset(preset: SummaryPreset): AuditAction {

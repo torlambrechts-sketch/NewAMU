@@ -20,6 +20,10 @@ import type {
 } from '../types/documents'
 import { useOrgSetupContext } from './useOrgSetupContext'
 import { getSupabaseErrorMessage } from '../lib/supabaseError'
+import { emitAuditEvent } from '../lib/audit/emitAuditEvent'
+import { isPrivileged } from '../lib/audit/privilege'
+// Side-effect — register documents audit scope at module load.
+import '../../modules/documents/audit/documentsAuditScope'
 import { ensureContentBlockInstanceIds, stripContentBlockInstanceIds } from '../lib/wikiContentBlocks'
 import { extractWikiInternalPageIdsFromBlocks } from '../lib/wikiPageLinks'
 import { wikiSpaceDepthFromRoot } from '../lib/wikiSpaceTree'
@@ -1178,6 +1182,20 @@ function useDocumentsStore() {
         void refreshDocuments().catch((err) => {
           setError(getSupabaseErrorMessage(err))
         })
+        void emitAuditEvent(supabase, {
+          scopeId: 'documents',
+          entityKind: 'wiki_page',
+          entityId: page.id,
+          actorName: authorFallback,
+          summary: { kind: 'preset', preset: 'dokument_opprettet' },
+          privileged: isPrivileged.document({ legal_basis: page.legalRefs }, 'metadata'),
+          diff: {
+            kind: 'single_field',
+            field_label_nb: 'Tittel',
+            before: { display: '(ingen verdi)', semantic: 'plain' },
+            after: { display: page.title, semantic: 'plain' },
+          },
+        })
         return page
       }
       const page: WikiPage = {
@@ -1398,6 +1416,20 @@ function useDocumentsStore() {
         if (e) throw e
         const page = mapPage(data as Parameters<typeof mapPage>[0], authorFallback)
         await insertLedgerRemote(page, 'published', fromVersion)
+        void emitAuditEvent(supabase, {
+          scopeId: 'documents',
+          entityKind: 'wiki_page',
+          entityId: page.id,
+          actorName: authorFallback,
+          summary: { kind: 'preset', preset: 'dokument_publisert' },
+          privileged: isPrivileged.document({ legal_basis: page.legalRefs }, 'metadata'),
+          diff: {
+            kind: 'single_field',
+            field_label_nb: 'Versjon',
+            before: { display: String(fromVersion), semantic: 'plain' },
+            after: { display: String(nextVersion), semantic: 'plain' },
+          },
+        })
         const linkTargets = extractWikiInternalPageIdsFromBlocks(page.blocks).filter((tid) => tid !== page.id)
         const { error: delLinksErr } = await supabase.from('wiki_page_links').delete().eq('source_page_id', page.id)
         if (delLinksErr && !String(delLinksErr.message).toLowerCase().includes('does not exist')) {

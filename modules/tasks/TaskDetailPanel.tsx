@@ -17,6 +17,9 @@ import { TaskCommentThread } from './components/TaskCommentThread'
 import { TaskEvidenceSection } from './components/TaskEvidenceSection'
 import { TaskConsultationLog } from './components/TaskConsultationLog'
 import { TaskActivityFeed } from './components/TaskActivityFeed'
+import { EntityTimeline } from '../../src/components/audit/EntityTimeline'
+// Side-effect — registers tasks audit scope. See spec §5.
+import './audit/tasksAuditScope'
 import type { TaskItemStatus, TaskItemPriority } from '../../src/types/task'
 import type { TaskItemRow } from './useTaskItemsData'
 
@@ -72,6 +75,7 @@ type DetailRow = {
 const TABS = [
   { id: 'oppgave', label: 'Oppgave' },
   { id: 'aktivitet', label: 'Aktivitet' },
+  { id: 'endringslogg', label: 'Endringslogg' },
   { id: 'bevis', label: 'Bevis' },
   { id: 'konsultasjoner', label: 'Konsultasjoner' },
 ]
@@ -379,6 +383,17 @@ export function TaskDetailPanel({ open, onClose, item, onStatusChange, onUpdate 
                   <TaskActivityFeed taskItemId={row.id} />
                 </section>
               </>
+            )}
+
+            {/* ── Endringslogg tab ── */}
+            {tab === 'endringslogg' && (
+              <section className="h-[60vh]">
+                <EntityTimeline
+                  supabase={supabase}
+                  entityKind="task_item"
+                  entityId={row.id}
+                />
+              </section>
             )}
 
             {/* ── Bevis tab ── */}
