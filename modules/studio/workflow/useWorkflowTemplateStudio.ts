@@ -160,23 +160,53 @@ export function useWorkflowTemplateStudio(ruleId: string, fromId?: string) {
       return
     }
 
-    // Edit existing org template
+    // Edit existing org template — fall back to catalog (read-only view)
     void supabase
       .from('workflow_rules')
       .select('*')
       .eq('id', ruleId)
       .eq('organization_id', organization.id)
       .maybeSingle()
-      .then(({ data, error }) => {
-        if (error || !data) {
-          setLoadError(error?.message ?? 'Fant ikke malen.')
+      .then(({ data, error: orgError }) => {
+        if (data) {
+          applyOrgRuleToState(data as WorkflowRuleRow, false)
+          rowIdRef.current = ruleId
+          setRowId(ruleId)
           setLoading(false)
           return
         }
-        applyOrgRuleToState(data as WorkflowRuleRow, false)
-        rowIdRef.current = ruleId
-        setRowId(ruleId)
-        setLoading(false)
+        // Not found in org rules — try system catalog (read-only view)
+        void supabase
+          .from('workflow_rule_catalog')
+          .select('*')
+          .eq('id', ruleId)
+          .maybeSingle()
+          .then(({ data: catData, error: catError }) => {
+            if (catData) {
+              const row = catData as WorkflowRuleCatalogRow
+              setName(row.name_i18n?.nb ?? '')
+              setDescription(
+                typeof row.description_i18n === 'object' && 'nb' in row.description_i18n
+                  ? (row.description_i18n as { nb: string }).nb
+                  : '',
+              )
+              setSourceModule(row.source_module)
+              setTriggerEventName(row.trigger_event_name ?? null)
+              setTriggerType(row.trigger_type)
+              setTriggerOn(row.trigger_on)
+              setLawRefs(row.law_refs ?? [])
+              setFrameworks(row.frameworks ?? [])
+              setPack(row.pack ?? null)
+              setCadenceHint(row.cadence_hint ?? '')
+              setConfidentialityLevel(row.confidentiality_level)
+              const parsed = row.flow_graph_json ? parseFlowDocument(row.flow_graph_json) : null
+              setFlowDoc(parsed ?? defaultWorkflowFlowDocument())
+              setIsSystemTemplate(true)
+            } else {
+              setLoadError(orgError?.message ?? catError?.message ?? 'Fant ikke malen.')
+            }
+            setLoading(false)
+          })
       })
 
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -191,8 +221,8 @@ export function useWorkflowTemplateStudio(ruleId: string, fromId?: string) {
     setTriggerOn(row.trigger_on)
     setLawRefs(row.law_refs ?? [])
     setFrameworks(row.frameworks ?? [])
-    setPack(null) // workflow_rules doesn't have a pack column — metadata only
-    setCadenceHint('')
+    setPack(row.pack ?? null)
+    setCadenceHint(row.cadence_hint ?? '')
     setConfidentialityLevel(row.confidentiality_level ?? 'standard')
     const parsed = row.flow_graph_json ? parseFlowDocument(row.flow_graph_json) : null
     setFlowDoc(parsed ?? defaultWorkflowFlowDocument())
@@ -266,6 +296,8 @@ export function useWorkflowTemplateStudio(ruleId: string, fromId?: string) {
         triggerOn: to,
         lawRefs: lr,
         frameworks: fw,
+        pack: pk,
+        cadenceHint: ch,
         confidentialityLevel: cl,
       } = metaRef.current
 
@@ -292,6 +324,8 @@ export function useWorkflowTemplateStudio(ruleId: string, fromId?: string) {
             flow_graph_json: flowDocRef.current,
             law_refs: lr,
             frameworks: fw,
+            pack: pk || null,
+            cadence_hint: ch || null,
             confidentiality_level: cl,
             priority: 0,
             runtime_environment: 'test',
@@ -312,6 +346,8 @@ export function useWorkflowTemplateStudio(ruleId: string, fromId?: string) {
             flow_graph_json: flowDocRef.current,
             law_refs: lr,
             frameworks: fw,
+            pack: pk || null,
+            cadence_hint: ch || null,
             confidentiality_level: cl,
             updated_at: new Date().toISOString(),
           }

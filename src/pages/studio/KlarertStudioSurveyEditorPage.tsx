@@ -11,7 +11,9 @@
 
 import { useCallback, useRef, useState } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
+import { useDirtyGuard } from '../../hooks/useDirtyGuard'
 import {
+  AlertTriangle,
   Check,
   Copy,
   Loader2,
@@ -89,6 +91,7 @@ export function KlarertStudioSurveyEditorPage() {
   const navigate = useNavigate()
 
   const studio = useSurveyStudio(templateId, fromTemplateId)
+  useDirtyGuard(!studio.isSystemTemplate && studio.saveStatus === 'idle')
   const [advanced, setAdvanced] = useState(false)
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [editingName, setEditingName] = useState(false)
@@ -165,11 +168,14 @@ export function KlarertStudioSurveyEditorPage() {
 
   const questionCount = studio.blocks.filter((b) => b.kind === 'question').length
 
+  const [publishError, setPublishError] = useState<string | null>(null)
+
   const handlePublish = async () => {
     if (questionCount === 0) {
-      alert('Legg til minst ett spørsmål før du publiserer.')
+      setPublishError('Legg til minst ett spørsmål før du publiserer.')
       return
     }
+    setPublishError(null)
     await studio.publishTemplate()
     navigate('/studio/survey')
   }
@@ -267,6 +273,14 @@ export function KlarertStudioSurveyEditorPage() {
           : undefined
       }
     >
+      {publishError && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-2.5 text-sm text-red-700">
+          <AlertTriangle className="h-4 w-4 shrink-0" />
+          <span className="flex-1">{publishError}</span>
+          <button type="button" onClick={() => setPublishError(null)} className="shrink-0 text-red-400 hover:text-red-600" aria-label="Lukk">×</button>
+        </div>
+      )}
+
       {/* System template read-only notice */}
       {studio.isSystemTemplate && (
         <InfoBox>

@@ -8,7 +8,8 @@
 
 import { useCallback, useRef, useState } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
-import { Check, Copy, Loader2, Pencil, Zap } from 'lucide-react'
+import { useDirtyGuard } from '../../hooks/useDirtyGuard'
+import { AlertTriangle, Check, Copy, Loader2, Pencil, Zap } from 'lucide-react'
 import {
   DndContext,
   DragOverlay,
@@ -110,6 +111,7 @@ export function KlarertStudioRegisterEditorPage() {
   const navigate = useNavigate()
 
   const studio = useRegisterTypeStudio(typeId, fromTypeId)
+  useDirtyGuard(!studio.isSystemType && studio.saveStatus === 'idle')
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [editingName, setEditingName] = useState(false)
   const nameInputRef = useRef<HTMLInputElement>(null)
@@ -190,11 +192,14 @@ export function KlarertStudioRegisterEditorPage() {
     [studio.isSystemType, handleAdd],
   )
 
+  const [publishError, setPublishError] = useState<string | null>(null)
+
   const handlePublish = async () => {
     if (fieldCount === 0) {
-      alert('Legg til minst ett felt før du publiserer.')
+      setPublishError('Legg til minst ett felt før du publiserer.')
       return
     }
+    setPublishError(null)
     await studio.publishType()
     navigate('/studio/register')
   }
@@ -287,6 +292,14 @@ export function KlarertStudioRegisterEditorPage() {
           : undefined
       }
     >
+      {publishError && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-2.5 text-sm text-red-700">
+          <AlertTriangle className="h-4 w-4 shrink-0" />
+          <span className="flex-1">{publishError}</span>
+          <button type="button" onClick={() => setPublishError(null)} className="shrink-0 text-red-400 hover:text-red-600" aria-label="Lukk">×</button>
+        </div>
+      )}
+
       {studio.isSystemType && (
         <InfoBox>
           Dette er en systemtype og kan ikke redigeres.{' '}

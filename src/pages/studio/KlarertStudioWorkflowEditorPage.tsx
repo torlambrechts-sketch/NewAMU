@@ -10,6 +10,7 @@
 
 import { useRef, useState } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
+import { useDirtyGuard } from '../../hooks/useDirtyGuard'
 import { AlertTriangle, Check, Copy, Loader2, Pencil, Zap } from 'lucide-react'
 import { ModulePageShell } from '../../components/module/ModulePageShell'
 import { WarningBox } from '../../components/ui/AlertBox'
@@ -77,6 +78,7 @@ export function KlarertStudioWorkflowEditorPage() {
   const navigate = useNavigate()
 
   const studio = useWorkflowTemplateStudio(ruleId, fromId)
+  useDirtyGuard(!studio.isSystemTemplate && studio.saveStatus === 'idle')
   const [editingName, setEditingName] = useState(false)
   const nameInputRef = useRef<HTMLInputElement>(null)
 
@@ -94,19 +96,38 @@ export function KlarertStudioWorkflowEditorPage() {
     ),
   )
 
+  const hasAtLeastOneAction =
+    studio.flowDoc.linearSteps.some((s) => s.kind === 'actions' && s.actions.length > 0) ||
+    studio.flowDoc.xorBranches.some((b) =>
+      b.steps.some((s) => s.kind === 'actions' && s.actions.length > 0),
+    )
+
   const canPublish =
     !studio.compileError &&
     studio.name.trim().length > 0 &&
-    !!studio.triggerEventName
+    !!studio.triggerEventName &&
+    hasAtLeastOneAction
+
+  const [publishError, setPublishError] = useState<string | null>(null)
 
   const handlePublish = async () => {
-    if (!canPublish) {
-      alert(
-        studio.compileError ??
-          'Legg til et navn, velg en hendelse, og legg til minst én handling.',
-      )
+    if (!studio.name.trim()) {
+      setPublishError('Gi malen et navn før publisering.')
       return
     }
+    if (!studio.triggerEventName) {
+      setPublishError('Velg en utløserhendelse før publisering.')
+      return
+    }
+    if (!hasAtLeastOneAction) {
+      setPublishError('Legg til minst én handling i flyten før publisering.')
+      return
+    }
+    if (studio.compileError) {
+      setPublishError(`Valideringsfeil: ${studio.compileError}`)
+      return
+    }
+    setPublishError(null)
     await studio.publishTemplate()
     if (!studio.saveError) {
       navigate('/studio/workflow')
@@ -214,6 +235,22 @@ export function KlarertStudioWorkflowEditorPage() {
         />
       </div>
 
+      {/* Publish validation error */}
+      {publishError && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-2.5 text-sm text-red-700">
+          <AlertTriangle className="h-4 w-4 shrink-0" />
+          <span className="flex-1">{publishError}</span>
+          <button
+            type="button"
+            onClick={() => setPublishError(null)}
+            className="shrink-0 text-red-400 hover:text-red-600"
+            aria-label="Lukk"
+          >
+            ×
+          </button>
+        </div>
+      )}
+
       {/* Gov-action compliance warning */}
       {hasGovActions && (
         <WarningBox>
@@ -227,6 +264,14 @@ export function KlarertStudioWorkflowEditorPage() {
             </span>
           </div>
         </WarningBox>
+      )}
+
+      {/* Save error (auto-save or publish failure) */}
+      {studio.saveError && studio.saveStatus === 'error' && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-2.5 text-sm text-red-700">
+          <AlertTriangle className="h-4 w-4 shrink-0" />
+          <span className="flex-1">Lagring feilet: {studio.saveError}</span>
+        </div>
       )}
 
       <div className="overflow-hidden rounded-xl border border-neutral-200/80 bg-white shadow-sm">

@@ -1971,7 +1971,7 @@ export function AticsShell() {
           label: 'Klarert Studio',
           end: false,
           icon: LayoutTemplate,
-          permAny: ['survey.manage'],
+          permAny: ['survey.manage', 'checklist.manage', 'workflows.compose', 'workflows.manage'],
           flatSubs: true,
           subs: [
             {
