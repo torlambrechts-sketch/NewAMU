@@ -41,6 +41,9 @@ import { StandardTextarea } from '../../components/ui/Textarea'
 import { WarningBox } from '../../components/ui/AlertBox'
 import { Tabs, type TabItem } from '../../components/ui/Tabs'
 import { ModuleLegalBanner, ModulePageShell, ModuleSectionCard } from '../../components/module'
+import { EntityTimeline } from '../../components/audit/EntityTimeline'
+// Side-effect — registers learning audit scope.
+import '../../../modules/learning/audit/learningAuditScope'
 import { LearningVersionPublishModal } from './LearningVersionPublishModal'
 import { LearningVersionHistoryTab } from './LearningVersionHistoryTab'
 import { WPSTD_FORM_FIELD_LABEL } from '../../components/layout/WorkplaceStandardFormPanel'
@@ -56,7 +59,7 @@ type MainTab = 'innhold' | 'detaljer' | 'lovverk' | 'participants' | 'insights' 
 export function LearningCourseBuilder() {
   const navigate = useNavigate()
   const { courseId } = useParams<{ courseId: string }>()
-  const { can, isAdmin } = useOrgSetupContext()
+  const { can, isAdmin, supabase: supabaseClient } = useOrgSetupContext()
   const canManage = isAdmin || can('learning.manage')
   const canDelete = isAdmin || can('learning.delete') || canManage
   const learning = useLearning()
@@ -409,6 +412,8 @@ export function LearningCourseBuilder() {
         />
       }
     >
+      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_360px]">
+      <div className="space-y-4">
       <ModuleLegalBanner
         title="Regelverk for dette kurset"
         intro={
@@ -803,6 +808,15 @@ export function LearningCourseBuilder() {
           }}
         />
       ) : null}
+      </div>
+      <div className="lg:sticky lg:top-6 lg:h-[calc(100vh-6rem)]">
+        <EntityTimeline
+          supabase={supabaseClient}
+          entityKind="learning_course"
+          entityId={course.id}
+        />
+      </div>
+      </div>
     </ModulePageShell>
   )
 }

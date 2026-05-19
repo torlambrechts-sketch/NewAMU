@@ -2,6 +2,9 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useOrgSetupContext } from './useOrgSetupContext'
 import { useI18n } from './useI18n'
 import { getSupabaseErrorMessage } from '../lib/supabaseError'
+import { emitAuditEvent } from '../lib/audit/emitAuditEvent'
+// Side-effect — register learning audit scope.
+import '../../modules/learning/audit/learningAuditScope'
 import type {
   Certificate,
   Course,
@@ -742,7 +745,7 @@ function mergeCatalogIntoCourses(
 }
 
 export function useLearning() {
-  const { supabase, organization, user, can, refreshPermissions } = useOrgSetupContext()
+  const { supabase, organization, user, profile, can, refreshPermissions } = useOrgSetupContext()
   const { locale: appLocale } = useI18n()
   const orgId = organization?.id
   const userId = user?.id
@@ -1263,10 +1266,23 @@ export function useLearning() {
           return
         }
         await refreshLearning()
+        void emitAuditEvent(supabase, {
+          scopeId: 'learning',
+          entityKind: 'learning_course',
+          entityId: c.id,
+          actorName: profile?.display_name ?? user?.email ?? 'Bruker',
+          summary: { kind: 'preset', preset: 'kurs_opprettet' },
+          diff: {
+            kind: 'single_field',
+            field_label_nb: 'Tittel',
+            before: { display: '(ingen verdi)', semantic: 'plain' },
+            after: { display: c.title, semantic: 'plain' },
+          },
+        })
       })()
       return c
     },
-    [useSupabase, supabase, orgId, setState, refreshLearning],
+    [useSupabase, supabase, orgId, setState, refreshLearning, profile, user],
   )
 
   const updateCourse = useCallback(

@@ -54,6 +54,12 @@ export type SummaryPreset =
   | 'varsling_lukket'                // "<actor> lukket saken"
   | 'varsling_kommentar'             // "<actor> la til et notat"
   | 'varsling_vedlegg'               // "<actor> lastet opp et vedlegg"
+  // Learning
+  | 'kurs_opprettet'                 // "<actor> opprettet kurset"
+  | 'kurs_publisert'                 // "<actor> publiserte kurset"
+  | 'kurs_endret'                    // "<actor> oppdaterte kurset"
+  | 'kurs_versjon_bumpet'            // "<actor> publiserte ny versjon"
+  | 'kurs_fullfort'                  // "<actor> fullførte kurset"
 
 const PRESET_BODY: Record<SummaryPreset, string> = {
   opprettet_subject: 'opprettet {subject}',
@@ -90,6 +96,11 @@ const PRESET_BODY: Record<SummaryPreset, string> = {
   varsling_lukket: 'lukket saken',
   varsling_kommentar: 'la til et notat',
   varsling_vedlegg: 'lastet opp et vedlegg',
+  kurs_opprettet: 'opprettet kurset',
+  kurs_publisert: 'publiserte kurset',
+  kurs_endret: 'oppdaterte kurset',
+  kurs_versjon_bumpet: 'publiserte ny versjon',
+  kurs_fullfort: 'fullførte kurset',
 }
 
 const PRESET_TO_ACTION: Record<SummaryPreset, AuditAction> = {
@@ -127,6 +138,11 @@ const PRESET_TO_ACTION: Record<SummaryPreset, AuditAction> = {
   varsling_lukket: 'lukket',
   varsling_kommentar: 'kommentert',
   varsling_vedlegg: 'lastet_opp_vedlegg',
+  kurs_opprettet: 'opprettet',
+  kurs_publisert: 'publisert',
+  kurs_endret: 'endret',
+  kurs_versjon_bumpet: 'versjon_bumpet',
+  kurs_fullfort: 'fullfort',
 }
 
 export function actionForPreset(preset: SummaryPreset): AuditAction {
