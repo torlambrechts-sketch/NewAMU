@@ -280,6 +280,9 @@ export type WorkflowRuleRow = {
   last_reviewed_at?: string | null
   last_reviewed_by?: string | null
   next_review_due?: string | null
+  pack?: string | null
+  cadence_hint?: string | null
+  deleted_at?: string | null
   // ──────────────────────────────────────────────────────────────────────
   /**
    * UX Run 2 — per-rule sandbox/prod toggle (migration _127600). Even when

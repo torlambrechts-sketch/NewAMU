@@ -23,20 +23,7 @@ import { StudioWorkflowMetadataPanel } from '../../../modules/studio/workflow/St
 import { useWorkflowTemplateStudio } from '../../../modules/studio/workflow/useWorkflowTemplateStudio'
 import { useOrgSetupContext } from '../../hooks/useOrgSetupContext'
 import { isGovernmentActionType } from '../../../src/types/workflow'
-import type { WorkflowAction, WorkflowXorActionsEnvelope } from '../../../src/types/workflow'
 
-// Derive whether the current flow contains gov actions (for warning banner).
-function flowHasGovAction(
-  actionsJson: WorkflowAction[] | WorkflowXorActionsEnvelope | null,
-): boolean {
-  if (!actionsJson) return false
-  if (Array.isArray(actionsJson)) {
-    return actionsJson.some((a) => isGovernmentActionType((a as { type: string }).type))
-  }
-  return actionsJson.branches.some((b) =>
-    b.actions.some((a) => isGovernmentActionType((a as { type: string }).type)),
-  )
-}
 
 function SaveIndicator({
   status,
