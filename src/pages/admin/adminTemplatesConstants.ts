@@ -103,3 +103,16 @@ export type DrawerState =
   | { kind: 'compliance-edit'; templateId: string | null }
   | { kind: 'survey-edit'; templateId: string | null }
   | { kind: 'lightweight-edit'; row: AdminTemplateRow }
+  | {
+      kind: 'step-list-edit'
+      source: AdminTemplateSource
+      rowId: string
+      mode: 'drawer' | 'fullscreen'
+      canEdit: boolean
+    }
+
+/** Sources that route through the new step-list shell instead of the
+ *  legacy bridges. As each P2/P3 adapter lands, add its key here. */
+export const STEP_LIST_SOURCES: ReadonlySet<AdminTemplateSource> = new Set([
+  'meetings',
+])

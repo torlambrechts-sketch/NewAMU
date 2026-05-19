@@ -87,9 +87,11 @@ import {
   SOURCE_ICON,
   INLINE_EDITABLE_SOURCES,
   PAGE_SIZE_OPTIONS,
+  STEP_LIST_SOURCES,
   type PageSize,
   type DrawerState,
 } from './adminTemplatesConstants'
+import { MalEditorBridge } from '../../components/templates/MalEditorBridge'
 
 /** Look up the catalog_id that an override row points to. Survey
  *  duplicate needs to fork the catalog, not the override. */
@@ -1128,7 +1130,15 @@ export function AdminTemplatesPage() {
                     }
                     busy={busyRowId === r.rowId}
                     onOpen={() => {
-                      if (r.source === 'compliance') {
+                      if (STEP_LIST_SOURCES.has(r.source)) {
+                        setDrawer({
+                          kind: 'step-list-edit',
+                          source: r.source,
+                          rowId: r.id,
+                          mode: 'drawer',
+                          canEdit: !r.isSystem,
+                        })
+                      } else if (r.source === 'compliance') {
                         setDrawer({ kind: 'compliance-edit', templateId: r.id })
                       } else {
                         // Survey / documents / learning / registers
@@ -1243,6 +1253,24 @@ export function AdminTemplatesPage() {
             void refresh()
             setDrawer({ kind: 'closed' })
           }}
+        />
+      ) : null}
+      {drawer.kind === 'step-list-edit' ? (
+        <MalEditorBridge
+          open
+          source={drawer.source}
+          rowId={drawer.rowId}
+          mode={drawer.mode}
+          canEdit={drawer.canEdit}
+          onClose={() => {
+            void refresh()
+            setDrawer({ kind: 'closed' })
+          }}
+          onChangeMode={(next) =>
+            setDrawer((prev) =>
+              prev.kind === 'step-list-edit' ? { ...prev, mode: next } : prev,
+            )
+          }
         />
       ) : null}
       {historyFor ? (
