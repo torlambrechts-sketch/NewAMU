@@ -30,6 +30,9 @@ import {
   Users,
 } from 'lucide-react'
 import { ModulePageShell, ModulePageEmpty } from '../../components/module/ModulePageShell'
+import { EntityTimeline } from '../../components/audit/EntityTimeline'
+// Side-effect — registers the meetings audit scope. See spec §5.
+import '../../../modules/meetings/audit/meetingsAuditScope'
 import { ModuleSectionCard } from '../../components/module/ModuleSectionCard'
 import { Badge } from '../../components/ui/Badge'
 import { Button } from '../../components/ui/Button'
@@ -102,7 +105,7 @@ function fmtDate(iso: string | null): string {
 export function MeetingsDetailView() {
   const { meetingId = '' } = useParams<{ meetingId: string }>()
   const navigate = useNavigate()
-  const { members } = useOrgSetupContext()
+  const { members, supabase } = useOrgSetupContext()
   const meetings = useMeetings()
   const { loadDetail, clearDetail } = meetings
   const [tab, setTab] = useState<Tab>('informasjon')
@@ -328,6 +331,8 @@ export function MeetingsDetailView() {
       }
       tabs={<Tabs items={tabItems} activeId={tab} onChange={(id) => setTab(id as Tab)} />}
     >
+      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_360px]">
+      <div className="space-y-4">
       {meetings.error ? <WarningBox>{meetings.error}</WarningBox> : null}
 
       {mandatoryGaps.length > 0 && tab !== 'agenda' ? (
@@ -528,6 +533,15 @@ export function MeetingsDetailView() {
           />
         </ModuleSectionCard>
       ) : null}
+      </div>
+      <div className="lg:sticky lg:top-6 lg:h-[calc(100vh-6rem)]">
+        <EntityTimeline
+          supabase={supabase}
+          entityKind="meeting"
+          entityId={meeting.id}
+        />
+      </div>
+      </div>
     </ModulePageShell>
   )
 }

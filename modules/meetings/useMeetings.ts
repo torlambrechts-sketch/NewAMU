@@ -10,6 +10,8 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import { useOrgSetupContext } from '../../src/hooks/useOrgSetupContext'
 import { getSupabaseErrorMessage } from '../../src/lib/supabaseError'
 import { fetchClientIpBestEffort, hashDocumentPayload } from '../../src/lib/level1Signature'
+import { emitAuditEvent } from '../../src/lib/audit/emitAuditEvent'
+import { isPrivileged } from '../../src/lib/audit/privilege'
 import type {
   MeetingActionItemRow,
   MeetingActionStatus,
@@ -580,10 +582,54 @@ async function loadOrgSettingsRow(
   return parsed.success ? parsed.data : null
 }
 
+import type { Diff } from '../../src/lib/audit/diffShape'
+
+function buildMeetingDiff(
+  before: MeetingRow | null,
+  patch: Partial<MeetingRow>,
+): Diff | null {
+  if (!before) return null
+  const changes: Array<{ field_label_nb: string; before: { display: string; semantic?: 'date' | 'plain' }; after: { display: string; semantic?: 'date' | 'plain' } }> = []
+  const LABELS: Record<string, { label: string; semantic?: 'date' | 'plain' }> = {
+    title: { label: 'Tittel' },
+    description: { label: 'Beskrivelse' },
+    scheduled_at: { label: 'Tidsplan', semantic: 'date' },
+    ends_at: { label: 'Sluttidspunkt', semantic: 'date' },
+    location_label: { label: 'Sted' },
+    confidentiality_level: { label: 'Konfidensialitet' },
+    status: { label: 'Status' },
+  }
+  for (const key of Object.keys(patch) as (keyof MeetingRow)[]) {
+    const cfg = LABELS[key as string]
+    if (!cfg) continue
+    const b = (before as Record<string, unknown>)[key]
+    const a = (patch as Record<string, unknown>)[key]
+    if (b === a) continue
+    const bStr = b == null || b === '' ? '(ingen verdi)' : String(b)
+    const aStr = a == null || a === '' ? '(ingen verdi)' : String(a)
+    if (bStr === aStr) continue
+    changes.push({
+      field_label_nb: cfg.label,
+      before: { display: bStr, semantic: b ? (cfg.semantic ?? 'plain') : 'plain' },
+      after: { display: aStr, semantic: a ? (cfg.semantic ?? 'plain') : 'plain' },
+    })
+  }
+  if (changes.length === 0) return null
+  if (changes.length === 1) {
+    const c = changes[0]
+    return { kind: 'single_field', field_label_nb: c.field_label_nb, before: c.before, after: c.after }
+  }
+  return { kind: 'multi_field', changes }
+}
+
 export function useMeetings(): UseMeetingsState {
-  const { supabase, organization, can, isAdmin } = useOrgSetupContext()
+  const { supabase, organization, can, isAdmin, profile, user } = useOrgSetupContext()
   const orgId = organization?.id ?? null
   const canManage = isAdmin || can('meetings.manage')
+  const actorName = useMemo(
+    () => profile?.display_name ?? user?.email ?? 'Bruker',
+    [profile, user],
+  )
 
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
@@ -800,14 +846,42 @@ export function useMeetings(): UseMeetingsState {
         }
       }
       await loadList()
+
+      void emitAuditEvent(supabase, {
+        scopeId: 'meetings',
+        entityKind: 'meeting',
+        entityId: meeting.id,
+        actorName,
+        summary: { kind: 'preset', preset: 'mote_opprettet' },
+        privileged: isPrivileged.meeting(meeting, 'opprettet'),
+        diff: {
+          kind: 'multi_field',
+          changes: [
+            {
+              field_label_nb: 'Tittel',
+              before: { display: '(ingen verdi)', semantic: 'plain' },
+              after: { display: meeting.title, semantic: 'plain' },
+            },
+            ...(meeting.scheduled_at
+              ? [{
+                  field_label_nb: 'Tidsplan',
+                  before: { display: '(ingen verdi)', semantic: 'plain' as const },
+                  after: { display: meeting.scheduled_at, semantic: 'date' as const, raw: meeting.scheduled_at },
+                }]
+              : []),
+          ],
+        },
+      })
+
       return meeting
     },
-    [supabase, orgId, templates, loadList],
+    [supabase, orgId, templates, loadList, actorName],
   )
 
   const updateMeeting = useCallback(
     async (id: string, patch: Partial<MeetingRow>): Promise<boolean> => {
       if (!supabase) return false
+      const before = meetings.find((m) => m.id === id) ?? null
       const res = await supabase.from('meetings').update(patch).eq('id', id)
       if (res.error) {
         setError(getSupabaseErrorMessage(res.error))
@@ -815,9 +889,22 @@ export function useMeetings(): UseMeetingsState {
       }
       setMeetings((prev) => prev.map((m) => (m.id === id ? { ...m, ...patch } : m)))
       if (detailMeetingId === id) await loadDetail(id)
+
+      const diff = buildMeetingDiff(before, patch)
+      if (before && (diff || patch.status !== before.status)) {
+        void emitAuditEvent(supabase, {
+          scopeId: 'meetings',
+          entityKind: 'meeting',
+          entityId: id,
+          actorName,
+          summary: { kind: 'preset', preset: 'mote_endret' },
+          diff,
+          privileged: isPrivileged.meeting(before, 'endret'),
+        })
+      }
       return true
     },
-    [supabase, detailMeetingId, loadDetail],
+    [supabase, detailMeetingId, loadDetail, actorName, meetings],
   )
 
   const setAgendaMinutes: UseMeetingsState['setAgendaMinutes'] = useCallback(
@@ -1052,9 +1139,27 @@ export function useMeetings(): UseMeetingsState {
       }
       if (detailMeetingId === input.meetingId) await loadDetail(input.meetingId)
       await loadList()
+
+      void emitAuditEvent(supabase, {
+        scopeId: 'meetings',
+        entityKind: 'meeting',
+        entityId: input.meetingId,
+        actorName,
+        summary: { kind: 'preset', preset: 'mote_protokollert' },
+        // Protocol-signing event itself is public-record per AML §7-2 (4),
+        // even on confidential meetings. See isPrivileged.meeting + spec
+        // privileged-data classification table.
+        privileged: isPrivileged.meeting(meetingRow ?? null, 'signert'),
+        diff: {
+          kind: 'single_field',
+          field_label_nb: 'Protokoll',
+          before: { display: 'Ikke signert', semantic: 'plain' },
+          after: { display: `Signert av ${input.signerName}`, semantic: 'plain' },
+        },
+      })
       return true
     },
-    [supabase, orgId, meetings, detail, detailMeetingId, loadDetail, loadList],
+    [supabase, orgId, meetings, detail, detailMeetingId, loadDetail, loadList, actorName],
   )
 
   const markInvitationSent: UseMeetingsState['markInvitationSent'] = useCallback(
@@ -1120,6 +1225,23 @@ export function useMeetings(): UseMeetingsState {
           error: `E-post sendt til ${sent}, men kunne ikke registrere innkallings­tidspunkt i databasen.`,
         }
       }
+      if (meetingRow) {
+        void emitAuditEvent(supabase, {
+          scopeId: 'meetings',
+          entityKind: 'meeting',
+          entityId: input.meetingId,
+          actorName,
+          summary: { kind: 'preset', preset: 'mote_innkalt' },
+          privileged: isPrivileged.meeting(meetingRow, 'innkalt'),
+          diff: {
+            kind: 'single_field',
+            field_label_nb: 'Innkalt antall',
+            before: { display: '0', semantic: 'plain' },
+            after: { display: String(sent), semantic: 'plain' },
+          },
+        })
+      }
+
       if (failed > 0) {
         return {
           ok: true,
@@ -1129,7 +1251,7 @@ export function useMeetings(): UseMeetingsState {
       }
       return { ok: true, sent }
     },
-    [supabase, meetings, detailMeetingId, detail, markInvitationSent],
+    [supabase, meetings, detailMeetingId, detail, markInvitationSent, actorName],
   )
 
   // ── RSVP + substitute (L4) ────────────────────────────────────────────────
@@ -1235,9 +1357,33 @@ export function useMeetings(): UseMeetingsState {
         setError(getSupabaseErrorMessage(res.error))
         return false
       }
+
+      // Resolve agenda item label + parent confidentiality for privileged
+      // classification. Vote direction (for / against / blank) is the diff;
+      // for confidential meetings the diff is masked server-side via the
+      // privileged view.
+      const meetingRow = meetings.find((m) => m.id === input.meetingId) ?? null
+      const agendaItem = detail.agendaItems.find((a) => a.id === input.agendaItemId)
+      const subject = agendaItem?.title ?? 'agendapunkt'
+      void emitAuditEvent(supabase, {
+        scopeId: 'meetings',
+        entityKind: 'meeting_vote',
+        entityId: input.agendaItemId,
+        roomEntityKind: 'meeting',
+        roomEntityId: input.meetingId,
+        actorName,
+        summary: { kind: 'preset', preset: 'mote_votert', subject },
+        privileged: isPrivileged.meeting(meetingRow, 'votert'),
+        diff: {
+          kind: 'single_field',
+          field_label_nb: 'Stemme',
+          before: { display: '(ingen verdi)', semantic: 'plain' },
+          after: { display: input.ballot, semantic: 'plain' },
+        },
+      })
       return true
     },
-    [supabase],
+    [supabase, meetings, detail, actorName],
   )
 
   const getVoteResult: UseMeetingsState['getVoteResult'] = useCallback(

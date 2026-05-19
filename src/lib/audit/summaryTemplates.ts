@@ -30,6 +30,13 @@ export type SummaryPreset =
   | 'undersokelse_publisert'         // "<actor> publiserte undersøkelsen"
   | 'undersokelse_lukket'            // "<actor> lukket undersøkelsen"
   | 'undersokelse_endret'            // "<actor> oppdaterte undersøkelsen"
+  // Meetings
+  | 'mote_opprettet'                 // "<actor> opprettet møtet"
+  | 'mote_endret'                    // "<actor> oppdaterte møtet"
+  | 'mote_innkalt'                   // "<actor> sendte innkallinger"
+  | 'mote_protokollert'              // "<actor> signerte protokollen"
+  | 'mote_votert'                    // "<actor> avga stemme i {subject}"
+  | 'mote_delt'                      // "<actor> delte møtesammendraget"
 
 const PRESET_BODY: Record<SummaryPreset, string> = {
   opprettet_subject: 'opprettet {subject}',
@@ -46,6 +53,12 @@ const PRESET_BODY: Record<SummaryPreset, string> = {
   undersokelse_publisert: 'publiserte undersøkelsen',
   undersokelse_lukket: 'lukket undersøkelsen',
   undersokelse_endret: 'oppdaterte undersøkelsen',
+  mote_opprettet: 'opprettet møtet',
+  mote_endret: 'oppdaterte møtet',
+  mote_innkalt: 'sendte innkallinger',
+  mote_protokollert: 'signerte protokollen',
+  mote_votert: 'avga stemme i "{subject}"',
+  mote_delt: 'delte møtesammendraget',
 }
 
 const PRESET_TO_ACTION: Record<SummaryPreset, AuditAction> = {
@@ -63,6 +76,12 @@ const PRESET_TO_ACTION: Record<SummaryPreset, AuditAction> = {
   undersokelse_publisert: 'publisert',
   undersokelse_lukket: 'lukket',
   undersokelse_endret: 'endret',
+  mote_opprettet: 'opprettet',
+  mote_endret: 'endret',
+  mote_innkalt: 'innkalt',
+  mote_protokollert: 'protokollert',
+  mote_votert: 'votert',
+  mote_delt: 'delt',
 }
 
 export function actionForPreset(preset: SummaryPreset): AuditAction {
