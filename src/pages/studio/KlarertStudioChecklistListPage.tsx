@@ -6,6 +6,7 @@ import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { ArrowLeft, Copy, Loader2, Pencil, Plus } from 'lucide-react'
 import { Button } from '../../components/ui/Button'
+import { StudioListSkeleton } from '../../components/studio/StudioListSkeleton'
 import { useOrgSetupContext } from '../../hooks/useOrgSetupContext'
 import type { ComplianceTemplateRow } from '../../../modules/compliance/types'
 
@@ -116,9 +117,7 @@ export function KlarertStudioChecklistListPage() {
 
         {/* Content */}
         {loading ? (
-          <div className="flex items-center justify-center py-20">
-            <Loader2 className="h-6 w-6 animate-spin text-neutral-400" />
-          </div>
+          <StudioListSkeleton rows={4} showHeader={false} />
         ) : templates.length === 0 ? (
           <div className="flex flex-col items-center justify-center rounded-xl border-2 border-dashed border-neutral-200 py-20 text-center">
             <p className="text-sm font-medium text-neutral-500">Ingen maler ennå</p>

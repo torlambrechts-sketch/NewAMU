@@ -38,6 +38,7 @@ import {
   LayoutDashboard,
 } from 'lucide-react'
 import { NotificationTray } from '../notifications/NotificationTray'
+import { Toaster } from 'sonner'
 import { SurveyPendingInvitesBanner } from '../../../modules/survey/SurveyPendingInvitesBanner'
 import { useI18n } from '../../hooks/useI18n'
 import { useT } from '../../hooks/useT'
@@ -2576,6 +2577,8 @@ export function AticsShell() {
       <main className="min-h-0 flex-1 overflow-y-auto bg-[var(--ui-surface)]">
         <Outlet />
       </main>
+
+      <Toaster richColors position="bottom-right" closeButton />
     </div>
   )
 }

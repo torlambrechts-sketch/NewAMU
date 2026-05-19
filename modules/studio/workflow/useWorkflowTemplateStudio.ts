@@ -65,6 +65,7 @@ export function useWorkflowTemplateStudio(ruleId: string, fromId?: string) {
     useState<WorkflowConfidentialityLevel>('standard')
   const [flowDoc, setFlowDoc] = useState<WorkflowFlowDocument>(defaultWorkflowFlowDocument)
   const [compileError, setCompileError] = useState<string | null>(null)
+  const [runtimeEnvironment, setRuntimeEnvironment] = useState<'test' | 'prod'>('test')
 
   // ── Load / save state ──────────────────────────────────────────────────────
   const [isSystemTemplate, setIsSystemTemplate] = useState(false)
@@ -224,6 +225,7 @@ export function useWorkflowTemplateStudio(ruleId: string, fromId?: string) {
     setPack(row.pack ?? null)
     setCadenceHint(row.cadence_hint ?? '')
     setConfidentialityLevel(row.confidentiality_level ?? 'standard')
+    setRuntimeEnvironment((row.runtime_environment as 'test' | 'prod' | undefined) === 'prod' ? 'prod' : 'test')
     const parsed = row.flow_graph_json ? parseFlowDocument(row.flow_graph_json) : null
     setFlowDoc(parsed ?? defaultWorkflowFlowDocument())
     setIsSystemTemplate(false)
@@ -407,6 +409,21 @@ export function useWorkflowTemplateStudio(ruleId: string, fromId?: string) {
   const updateCadenceHint = useCallback((v: string) => { setCadenceHint(v); scheduleSave() }, [scheduleSave])
   const updateConfidentialityLevel = useCallback((v: WorkflowConfidentialityLevel) => { setConfidentialityLevel(v); scheduleSave() }, [scheduleSave])
 
+  // Promote a published gov-action template from TT02 sandbox to Altinn prod.
+  // Requires workflows.activate_external. Guarded in the UI by a typed confirmation.
+  const upgradeToProduction = useCallback(async (): Promise<boolean> => {
+    if (!supabase || !organization?.id || !rowIdRef.current || isSystemTemplate) return false
+    const { error } = await supabase
+      .from('workflow_rules')
+      .update({ runtime_environment: 'prod' } as Record<string, unknown>)
+      .eq('id', rowIdRef.current)
+      .eq('organization_id', organization.id)
+      .eq('is_template', true)
+    if (error) return false
+    setRuntimeEnvironment('prod')
+    return true
+  }, [supabase, organization?.id, isSystemTemplate])
+
   return {
     // state
     name,
@@ -417,6 +434,7 @@ export function useWorkflowTemplateStudio(ruleId: string, fromId?: string) {
     triggerOn,
     flowDoc,
     compileError,
+    runtimeEnvironment,
     lawRefs,
     frameworks,
     pack,
@@ -443,5 +461,6 @@ export function useWorkflowTemplateStudio(ruleId: string, fromId?: string) {
     updateCadenceHint,
     updateConfidentialityLevel,
     publishTemplate,
+    upgradeToProduction,
   }
 }

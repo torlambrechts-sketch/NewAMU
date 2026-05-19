@@ -10,16 +10,18 @@
 
 import { useRef, useState } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
+import { toast } from 'sonner'
 import { useDirtyGuard } from '../../hooks/useDirtyGuard'
 import { AlertTriangle, Check, Copy, Loader2, Pencil, Zap } from 'lucide-react'
 import { ModulePageShell } from '../../components/module/ModulePageShell'
-import { WarningBox } from '../../components/ui/AlertBox'
+import { InfoBox, WarningBox } from '../../components/ui/AlertBox'
 import { Button } from '../../components/ui/Button'
 import { StandardInput } from '../../components/ui/Input'
 import { WorkflowFlowBuilder } from '../../components/workflow/WorkflowFlowBuilder'
 import { StudioWorkflowTriggerSelector } from '../../../modules/studio/workflow/StudioWorkflowTriggerSelector'
 import { StudioWorkflowMetadataPanel } from '../../../modules/studio/workflow/StudioWorkflowMetadataPanel'
 import { useWorkflowTemplateStudio } from '../../../modules/studio/workflow/useWorkflowTemplateStudio'
+import { useOrgSetupContext } from '../../hooks/useOrgSetupContext'
 import { isGovernmentActionType } from '../../../src/types/workflow'
 import type { WorkflowAction, WorkflowXorActionsEnvelope } from '../../../src/types/workflow'
 
@@ -77,8 +79,17 @@ export function KlarertStudioWorkflowEditorPage() {
   const fromId = searchParams.get('from') ?? undefined
   const navigate = useNavigate()
 
+  const { can, profile } = useOrgSetupContext()
   const studio = useWorkflowTemplateStudio(ruleId, fromId)
-  useDirtyGuard(!studio.isSystemTemplate && studio.saveStatus === 'idle')
+  // View-only for users who can view but cannot edit org templates
+  const isViewOnly =
+    !studio.isSystemTemplate &&
+    !can('workflows.compose') &&
+    !can('workflows.manage') &&
+    !profile?.is_org_admin
+  const effectivelyDisabled = studio.isSystemTemplate || isViewOnly
+  useDirtyGuard(!effectivelyDisabled && studio.saveStatus === 'idle')
+  const canPromoteToProduction = can('workflows.activate_external')
   const [editingName, setEditingName] = useState(false)
   const nameInputRef = useRef<HTMLInputElement>(null)
 
@@ -130,12 +141,15 @@ export function KlarertStudioWorkflowEditorPage() {
     setPublishError(null)
     await studio.publishTemplate()
     if (!studio.saveError) {
+      toast.success(`«${studio.name.trim()}» er publisert`)
       navigate('/studio/workflow')
+    } else {
+      toast.error(`Publisering feilet: ${studio.saveError}`)
     }
   }
 
   const titleNode =
-    editingName && !studio.isSystemTemplate ? (
+    editingName && !effectivelyDisabled ? (
       <StandardInput
         ref={nameInputRef}
         value={studio.name}
@@ -151,20 +165,20 @@ export function KlarertStudioWorkflowEditorPage() {
       <button
         type="button"
         onClick={() => {
-          if (!studio.isSystemTemplate) {
+          if (!effectivelyDisabled) {
             setEditingName(true)
             setTimeout(() => nameInputRef.current?.select(), 0)
           }
         }}
         className={[
           'group flex items-center gap-2',
-          !studio.isSystemTemplate && 'hover:text-[#1a3d32]',
+          !effectivelyDisabled && 'hover:text-[#1a3d32]',
         ]
           .filter(Boolean)
           .join(' ')}
       >
         {displayName}
-        {!studio.isSystemTemplate && (
+        {!effectivelyDisabled && (
           <Pencil className="h-3.5 w-3.5 shrink-0 opacity-0 group-hover:opacity-50" aria-hidden />
         )}
       </button>
@@ -172,14 +186,14 @@ export function KlarertStudioWorkflowEditorPage() {
 
   const headerActions = (
     <div className="flex items-center gap-3">
-      {!studio.isSystemTemplate && (
+      {!effectivelyDisabled && (
         <SaveIndicator
           status={studio.saveStatus}
           lastSavedAt={studio.lastSavedAt}
           saveError={studio.saveError}
         />
       )}
-      {studio.isSystemTemplate ? (
+      {effectivelyDisabled ? (
         <Button
           variant="primary"
           size="sm"
@@ -224,12 +238,28 @@ export function KlarertStudioWorkflowEditorPage() {
           : undefined
       }
     >
+      {/* View-only notice for users without compose permission */}
+      {isViewOnly && (
+        <InfoBox>
+          Du kan se denne malen, men mangler tillatelsen{' '}
+          <code className="rounded bg-blue-50 px-1 text-xs">workflows.compose</code>{' '}
+          for å redigere den.{' '}
+          <button
+            type="button"
+            onClick={() => navigate(`/studio/workflow/new?from=${ruleId}`)}
+            className="font-semibold underline underline-offset-2 hover:no-underline"
+          >
+            Kopier den for å lage din egen versjon.
+          </button>
+        </InfoBox>
+      )}
+
       {/* Description field above the three-panel area */}
       <div className="mb-3">
         <StandardInput
           value={studio.description}
           onChange={(e) => studio.updateDescription(e.target.value)}
-          disabled={studio.isSystemTemplate}
+          disabled={effectivelyDisabled}
           placeholder="Kort beskrivelse av hva denne malen gjør…"
           className="w-full"
         />
@@ -294,7 +324,7 @@ export function KlarertStudioWorkflowEditorPage() {
             onChangeEvent={studio.updateTriggerEventName}
             onChangeTriggerType={studio.updateTriggerType}
             onChangeTriggerOn={studio.updateTriggerOn}
-            disabled={studio.isSystemTemplate}
+            disabled={effectivelyDisabled}
           />
 
           {/* Center: flow builder */}
@@ -314,12 +344,16 @@ export function KlarertStudioWorkflowEditorPage() {
             pack={studio.pack}
             cadenceHint={studio.cadenceHint}
             confidentialityLevel={studio.confidentialityLevel}
-            disabled={studio.isSystemTemplate}
+            runtimeEnvironment={studio.runtimeEnvironment}
+            hasGovActions={hasGovActions}
+            canPromote={canPromoteToProduction}
+            disabled={effectivelyDisabled}
             onLawRefs={studio.updateLawRefs}
             onFrameworks={studio.updateFrameworks}
             onPack={studio.updatePack}
             onCadenceHint={studio.updateCadenceHint}
             onConfidentialityLevel={studio.updateConfidentialityLevel}
+            onUpgradeToProduction={studio.upgradeToProduction}
           />
         </div>
       </div>

@@ -11,6 +11,7 @@
 
 import { useCallback, useRef, useState } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
+import { toast } from 'sonner'
 import { useDirtyGuard } from '../../hooks/useDirtyGuard'
 import {
   AlertTriangle,
@@ -178,7 +179,10 @@ export function KlarertStudioSurveyEditorPage() {
     setPublishError(null)
     await studio.publishTemplate()
     if (!studio.saveError) {
+      toast.success(`«${studio.templateName.trim() || 'Ny spørreundersøkelse'}» er publisert`)
       navigate('/studio/survey')
+    } else {
+      toast.error(`Publisering feilet: ${studio.saveError}`)
     }
   }
 

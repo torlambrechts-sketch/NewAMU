@@ -6,6 +6,7 @@ import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Copy, Loader2, Pencil, Plus } from 'lucide-react'
 import { Button } from '../../components/ui/Button'
+import { StudioListSkeleton } from '../../components/studio/StudioListSkeleton'
 import { useOrgSetupContext } from '../../hooks/useOrgSetupContext'
 
 type RegisterTypeRow = {
@@ -82,9 +83,9 @@ export function KlarertStudioRegisterListPage() {
       </div>
 
       {loading ? (
-        <div className="flex items-center gap-2 text-neutral-500">
-          <Loader2 className="h-4 w-4 animate-spin" />
-          Laster…
+        <div className="space-y-8">
+          <StudioListSkeleton rows={3} showHeader />
+          <StudioListSkeleton rows={4} showHeader />
         </div>
       ) : (
         <>

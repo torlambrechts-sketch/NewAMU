@@ -7,8 +7,10 @@
 
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { toast } from 'sonner'
 import { Copy, Loader2, Pencil, Plus, Shield, Trash2 } from 'lucide-react'
 import { Button } from '../../components/ui/Button'
+import { StudioListSkeleton } from '../../components/studio/StudioListSkeleton'
 import { useOrgSetupContext } from '../../hooks/useOrgSetupContext'
 import type { WorkflowRuleCatalogRow, WorkflowRuleRow } from '../../../src/types/workflow'
 
@@ -72,8 +74,10 @@ export function KlarertStudioWorkflowListPage() {
       .eq('id', id)
       .eq('organization_id', organization.id)
       .eq('is_template', true)
+    const deleted = orgTemplates.find((r) => r.id === id)
     setOrgTemplates((prev) => prev.filter((r) => r.id !== id))
     setDeletingId(null)
+    toast.success(deleted ? `«${deleted.name}» ble slettet` : 'Mal slettet')
   }
 
   // Group catalog by source_module
@@ -106,9 +110,9 @@ export function KlarertStudioWorkflowListPage() {
       </div>
 
       {loading ? (
-        <div className="flex items-center gap-2 text-neutral-500">
-          <Loader2 className="h-4 w-4 animate-spin" />
-          Laster…
+        <div className="space-y-8">
+          <StudioListSkeleton rows={3} showHeader />
+          <StudioListSkeleton rows={5} showHeader />
         </div>
       ) : (
         <>

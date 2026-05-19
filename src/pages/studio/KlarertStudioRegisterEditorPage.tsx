@@ -8,6 +8,7 @@
 
 import { useCallback, useRef, useState } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
+import { toast } from 'sonner'
 import { useDirtyGuard } from '../../hooks/useDirtyGuard'
 import { AlertTriangle, Check, Copy, Loader2, Pencil, Zap } from 'lucide-react'
 import {
@@ -201,7 +202,12 @@ export function KlarertStudioRegisterEditorPage() {
     }
     setPublishError(null)
     await studio.publishType()
-    navigate('/studio/register')
+    if (!studio.saveError) {
+      toast.success(`«${studio.typeName.trim() || 'Ny registertype'}» er publisert`)
+      navigate('/studio/register')
+    } else {
+      toast.error(`Publisering feilet: ${studio.saveError}`)
+    }
   }
 
   const displayName = studio.typeName || 'Ny registertype'

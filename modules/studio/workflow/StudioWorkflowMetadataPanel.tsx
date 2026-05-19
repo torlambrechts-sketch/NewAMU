@@ -2,7 +2,8 @@
 // Handles law_refs, frameworks, pack, cadence_hint, and confidentiality_level.
 
 import { useState } from 'react'
-import { Plus, X } from 'lucide-react'
+import { AlertTriangle, Plus, ShieldCheck, X } from 'lucide-react'
+import { toast } from 'sonner'
 import { StandardInput } from '../../../src/components/ui/Input'
 import type { WorkflowConfidentialityLevel } from '../../../src/types/workflow'
 
@@ -38,12 +39,16 @@ type Props = {
   pack: string | null
   cadenceHint: string
   confidentialityLevel: WorkflowConfidentialityLevel
+  runtimeEnvironment: 'test' | 'prod'
+  hasGovActions: boolean
+  canPromote: boolean
   disabled?: boolean
   onLawRefs: (refs: string[]) => void
   onFrameworks: (fw: string[]) => void
   onPack: (p: string | null) => void
   onCadenceHint: (h: string) => void
   onConfidentialityLevel: (l: WorkflowConfidentialityLevel) => void
+  onUpgradeToProduction: () => Promise<boolean>
 }
 
 export function StudioWorkflowMetadataPanel({
@@ -52,14 +57,34 @@ export function StudioWorkflowMetadataPanel({
   pack,
   cadenceHint,
   confidentialityLevel,
+  runtimeEnvironment,
+  hasGovActions,
+  canPromote,
   disabled = false,
   onLawRefs,
   onFrameworks,
   onPack,
   onCadenceHint,
   onConfidentialityLevel,
+  onUpgradeToProduction,
 }: Props) {
   const [lawRefInput, setLawRefInput] = useState('')
+  const [promoteConfirmText, setPromoteConfirmText] = useState('')
+  const [showPromoteModal, setShowPromoteModal] = useState(false)
+  const [promoting, setPromoting] = useState(false)
+
+  async function handlePromote() {
+    setPromoting(true)
+    const ok = await onUpgradeToProduction()
+    setPromoting(false)
+    setShowPromoteModal(false)
+    setPromoteConfirmText('')
+    if (ok) {
+      toast.success('Mal er nå satt til produksjonsmiljø.')
+    } else {
+      toast.error('Kunne ikke oppdatere miljø. Sjekk tillatelser.')
+    }
+  }
 
   function addLawRef(ref: string) {
     const trimmed = ref.trim()
@@ -207,6 +232,79 @@ export function StudioWorkflowMetadataPanel({
           ))}
         </div>
       </div>
+
+      {/* Runtime environment */}
+      {hasGovActions && (
+        <div className="flex flex-col gap-2">
+          <span className="text-xs font-medium text-neutral-600">Kjøremiljø</span>
+          <div className="flex items-center gap-2">
+            {runtimeEnvironment === 'prod' ? (
+              <span className="flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold text-emerald-700">
+                <ShieldCheck className="h-3 w-3" />
+                Produksjon
+              </span>
+            ) : (
+              <span className="flex items-center gap-1 rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-semibold text-amber-700">
+                <AlertTriangle className="h-3 w-3" />
+                Testmiljø (TT02)
+              </span>
+            )}
+          </div>
+          {runtimeEnvironment === 'test' && canPromote && !disabled && (
+            <button
+              type="button"
+              onClick={() => setShowPromoteModal(true)}
+              className="rounded-lg border border-amber-300 bg-amber-50 px-2.5 py-1.5 text-[11px] font-medium text-amber-800 hover:bg-amber-100"
+            >
+              Flytt til produksjon…
+            </button>
+          )}
+          {runtimeEnvironment === 'test' && !canPromote && !disabled && (
+            <p className="text-[10px] text-neutral-400">
+              Krever tillatelsen <code className="rounded bg-neutral-100 px-0.5">workflows.activate_external</code> for å aktivere.
+            </p>
+          )}
+        </div>
+      )}
+
+      {/* Promote-to-prod modal */}
+      {showPromoteModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" role="dialog" aria-modal>
+          <div className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-2xl">
+            <h3 className="text-sm font-semibold text-neutral-900">Flytt til produksjonsmiljø</h3>
+            <p className="mt-2 text-xs text-neutral-500">
+              Malen vil sende reelle myndighetsrapporter via Altinn.{' '}
+              <strong>Dette kan ikke angres uten manuell DB-endring.</strong>{' '}
+              Skriv <span className="font-mono font-semibold">PRODUKSJON</span> for å bekrefte.
+            </p>
+            <input
+              type="text"
+              value={promoteConfirmText}
+              onChange={(e) => setPromoteConfirmText(e.target.value)}
+              placeholder="PRODUKSJON"
+              className="mt-3 w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400"
+              autoFocus
+            />
+            <div className="mt-4 flex gap-2">
+              <button
+                type="button"
+                onClick={() => { setShowPromoteModal(false); setPromoteConfirmText('') }}
+                className="flex-1 rounded-lg border border-neutral-200 px-3 py-2 text-xs font-medium text-neutral-600 hover:bg-neutral-50"
+              >
+                Avbryt
+              </button>
+              <button
+                type="button"
+                disabled={promoteConfirmText !== 'PRODUKSJON' || promoting}
+                onClick={handlePromote}
+                className="flex-1 rounded-lg bg-amber-600 px-3 py-2 text-xs font-semibold text-white hover:bg-amber-700 disabled:opacity-40"
+              >
+                {promoting ? 'Oppdaterer…' : 'Bekreft'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </aside>
   )
 }
