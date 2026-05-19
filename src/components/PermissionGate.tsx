@@ -61,6 +61,21 @@ export function PermissionGate() {
     return <Outlet />
   }
 
+  /** Studio is a template-authoring tool — requires at least one manage permission.
+   *  Org admins always get access (same pattern as other editor paths). */
+  const isStudioPath = path === '/studio' || path.startsWith('/studio/')
+  if (isStudioPath) {
+    const canEnterStudio =
+      profile?.is_org_admin === true ||
+      can('survey.manage') ||
+      can('checklist.manage') ||
+      can('documents.manage')
+    if (!canEnterStudio) {
+      return <Navigate to="/home" replace state={{ accessDenied: 'survey.manage' }} />
+    }
+    return <Outlet />
+  }
+
   const isDocumentsPath = path === '/documents' || path.startsWith('/documents/')
   const isDocumentsEditorPath =
     /\/reference-edit$/.test(path) ||

@@ -39,6 +39,8 @@ function blocksToItems(blocks: ChecklistStudioBlock[]): ChecklistItem[] {
       iso_clause: b.iso_clause,
       severity_default: b.severity_default,
       help: b.help,
+      // Preserved round-trip — requirement_slugs is managed via compliance admin, not Studio UI
+      requirement_slugs: b.requirement_slugs,
     }))
 }
 
@@ -62,6 +64,8 @@ function initBlocksFromRow(
     iso_clause: item.iso_clause,
     severity_default: item.severity_default,
     help: item.help,
+    // Preserve requirement_slugs round-trip — not editable in Studio UI
+    requirement_slugs: item.requirement_slugs,
   }))
 }
 
@@ -77,6 +81,7 @@ export function useChecklistStudio(templateId: string, fromTemplateId?: string) 
   const [templateDescription, setTemplateDescription] = useState('')
   const [templatePack, setTemplatePack] = useState<CompliancePackSlug>('aml-amu')
   const [templateCadenceHint, setTemplateCadenceHint] = useState('')
+  const [templateNavPinned, setTemplateNavPinned] = useState(false)
   const [isSystemTemplate, setIsSystemTemplate] = useState(false)
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState<string | null>(null)
@@ -94,6 +99,7 @@ export function useChecklistStudio(templateId: string, fromTemplateId?: string) 
     description: templateDescription,
     pack: templatePack,
     cadenceHint: templateCadenceHint,
+    navPinned: templateNavPinned,
   })
 
   // ─── Load ──────────────────────────────────────────────────────────────────
@@ -122,13 +128,15 @@ export function useChecklistStudio(templateId: string, fromTemplateId?: string) 
           return
         }
 
-        const row = data as ComplianceTemplateRow & { studio_blocks?: unknown }
+        const row = data as ComplianceTemplateRow
         const isSys = row.is_system && row.organization_id == null
 
         setTemplateName(templateId === 'new' ? `${row.name} (kopi)` : row.name)
         setTemplateDescription(row.description ?? '')
         setTemplatePack(row.pack)
         setTemplateCadenceHint(row.cadence_hint ?? '')
+        // Don't copy nav_pinned when forking — a copy starts unpinned
+        setTemplateNavPinned(templateId !== 'new' ? row.nav_pinned : false)
         setIsSystemTemplate(isSys && templateId !== 'new')
 
         const rawItems: ChecklistItem[] =
@@ -160,8 +168,9 @@ export function useChecklistStudio(templateId: string, fromTemplateId?: string) 
       description: templateDescription,
       pack: templatePack,
       cadenceHint: templateCadenceHint,
+      navPinned: templateNavPinned,
     }
-  }, [templateName, templateDescription, templatePack, templateCadenceHint])
+  }, [templateName, templateDescription, templatePack, templateCadenceHint, templateNavPinned])
 
   useEffect(() => {
     return () => {
@@ -186,7 +195,7 @@ export function useChecklistStudio(templateId: string, fromTemplateId?: string) 
       setSaveError(null)
 
       const currentBlocks = blocksRef.current
-      const { name, description, pack, cadenceHint } = metaRef.current
+      const { name, description, pack, cadenceHint, navPinned } = metaRef.current
       const items = blocksToItems(currentBlocks)
       if (items.length === 0 && currentBlocks.length > 0) {
         console.warn('[useChecklistStudio] persist: all blocks are sections — definition.items will be empty')
@@ -194,20 +203,24 @@ export function useChecklistStudio(templateId: string, fromTemplateId?: string) 
 
       try {
         if (!rowIdRef.current) {
+          const newId = freshId('ckl')
+          // slug must be unique per (organization_id) — use a separate freshId so
+          // it differs from the row id and slug-based lookups in the compliance module work.
+          const newSlug = freshId('ckl-s')
           const { data, error } = await supabase
             .from('compliance_checklist_templates')
             .insert({
-              id: freshId('ckl'),
+              id: newId,
               organization_id: organization.id,
               is_system: false,
               pack,
-              slug: freshId('ckl'),
+              slug: newSlug,
               name: name.trim() || 'Ny sjekkliste',
               description: description || null,
               definition: { items },
               studio_blocks: currentBlocks,
               is_active: publishNow,
-              nav_pinned: false,
+              nav_pinned: navPinned,
               review_status: 'draft',
               cadence_hint: cadenceHint || null,
               metadata_schema: { fields: [] },
@@ -223,6 +236,7 @@ export function useChecklistStudio(templateId: string, fromTemplateId?: string) 
             description: description || null,
             pack,
             cadence_hint: cadenceHint || null,
+            nav_pinned: navPinned,
             definition: { items },
             studio_blocks: currentBlocks,
             updated_at: new Date().toISOString(),
@@ -335,6 +349,10 @@ export function useChecklistStudio(templateId: string, fromTemplateId?: string) 
     (hint: string) => { setTemplateCadenceHint(hint); scheduleSave() },
     [scheduleSave],
   )
+  const updateNavPinned = useCallback(
+    (pinned: boolean) => { setTemplateNavPinned(pinned); scheduleSave() },
+    [scheduleSave],
+  )
 
   return {
     blocks,
@@ -342,6 +360,7 @@ export function useChecklistStudio(templateId: string, fromTemplateId?: string) 
     templateDescription,
     templatePack,
     templateCadenceHint,
+    templateNavPinned,
     isSystemTemplate,
     loading,
     loadError,
@@ -357,6 +376,7 @@ export function useChecklistStudio(templateId: string, fromTemplateId?: string) 
     updateDescription,
     updatePack,
     updateCadenceHint,
+    updateNavPinned,
     publishTemplate,
   }
 }

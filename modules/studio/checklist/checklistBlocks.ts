@@ -36,6 +36,8 @@ export const ChecklistItemBlockSchema = z.object({
   law_ref: z.string().optional(),
   iso_clause: z.string().optional(),
   help: z.string().optional(),
+  // Preserved round-trip; not editable in the Studio UI (managed via compliance admin).
+  requirement_slugs: z.array(z.string()).optional(),
 })
 export type ChecklistItemBlock = z.infer<typeof ChecklistItemBlockSchema>
 

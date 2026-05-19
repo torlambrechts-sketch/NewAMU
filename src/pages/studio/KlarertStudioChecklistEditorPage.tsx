@@ -7,7 +7,7 @@
 //
 // ?from=<id> when templateId==='new' → fork/copy an existing template.
 
-import { useCallback, useRef, useState } from 'react'
+import { useCallback, useMemo, useRef, useState } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import {
   Check,
@@ -115,19 +115,21 @@ export function KlarertStudioChecklistEditorPage() {
 
   // Stable lookup map: drag-id → original ChecklistPaletteItem.
   // Keyed by the same formula PaletteChip uses for useDraggable.id so that
-  // handleDragEnd can recover the original item without unsafe casts.
-  const checklistItemById: Record<string, ChecklistPaletteItem> = {}
-  for (const item of CHECKLIST_PALETTE) {
-    // PaletteChip uses `${PALETTE_DRAG_PREFIX}${item.kind}:${item.questionType ?? ''}`
-    // Our render adapter maps checklist_item → kind:'question', questionType:'text'
-    // so reconstruct with the *rendered* key (kind + questionType after adapter).
-    const rendered = toRenderPaletteItem(item)
-    const renderedId = `${PALETTE_DRAG_PREFIX}${rendered.kind}:${(rendered as { questionType?: string }).questionType ?? ''}`
-    checklistItemById[renderedId] = item
-    // Also store by original key for safety
-    const originalId = `${PALETTE_DRAG_PREFIX}${item.kind}:${item.itemType ?? ''}`
-    checklistItemById[originalId] = item
-  }
+  // CHECKLIST_PALETTE is a module-level constant so this memo never re-runs.
+  const checklistItemById = useMemo(() => {
+    const map: Record<string, ChecklistPaletteItem> = {}
+    for (const item of CHECKLIST_PALETTE) {
+      // PaletteChip uses `${PALETTE_DRAG_PREFIX}${item.kind}:${item.questionType ?? ''}`
+      // Our render adapter maps checklist_item → kind:'question', questionType:'text'
+      // so register both the rendered key and the original key for safety.
+      const rendered = toRenderPaletteItem(item)
+      const renderedId = `${PALETTE_DRAG_PREFIX}${rendered.kind}:${(rendered as { questionType?: string }).questionType ?? ''}`
+      map[renderedId] = item
+      const originalId = `${PALETTE_DRAG_PREFIX}${item.kind}:${item.itemType ?? ''}`
+      map[originalId] = item
+    }
+    return map
+  }, [])
 
   const handleAdd = useCallback(
     (block: NewChecklistStudioBlock, atIndex?: number) => {
@@ -356,6 +358,18 @@ export function KlarertStudioChecklistEditorPage() {
               ? 'Foto, signatur og dato-blokker tilgjengelig'
               : 'Klikk eller dra blokker fra venstre for å bygge sjekklisten'}
           </p>
+          {/* Sidebar pin toggle — only visible for editable org templates */}
+          {!studio.isSystemTemplate && (
+            <label className="ml-auto flex cursor-pointer items-center gap-2 text-xs text-neutral-500">
+              <input
+                type="checkbox"
+                checked={studio.templateNavPinned}
+                onChange={(e) => studio.updateNavPinned(e.target.checked)}
+                className="h-3.5 w-3.5 accent-[#1a3d32]"
+              />
+              Fest i sidebar
+            </label>
+          )}
         </div>
 
         {/* Three-panel area */}

@@ -70,6 +70,8 @@ export type ComplianceTemplateRow = {
   created_by: string | null
   created_at: string
   updated_at: string
+  /** Visual editor block tree written by Studio. Null for pre-Studio templates. */
+  studio_blocks?: unknown
 }
 
 /**
