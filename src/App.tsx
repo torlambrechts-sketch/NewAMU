@@ -92,6 +92,7 @@ import { LearningDeltakerePage } from './pages/learning/LearningDeltakerePage'
 import { LearningKompetansePage } from './pages/learning/LearningKompetansePage'
 import { LearningAnalysePage } from './pages/learning/LearningAnalysePage'
 import { HmsOverviewPage } from './pages/overview/HmsOverviewPage'
+import { AmlOverviewPage } from './pages/overview/aml/AmlOverviewPage'
 import { IsoImsAnalysePage } from './pages/iso/IsoImsAnalysePage'
 import { IsoSettingsPage } from './pages/iso/IsoSettingsPage'
 import { IsoGapAnalysisHubPage } from './pages/iso/IsoGapAnalysisHubPage'
@@ -361,7 +362,8 @@ const router = createBrowserRouter(
                       <Route path="tasks/management/admin" element={<LegacyAdminRedirect scope="tasks" />} />
                       <Route path="tasks/management/admin/:tab" element={<LegacyAdminRedirect scope="tasks" />} />
                       <Route path="tasks/management/review" element={<TasksManagementReviewPage />} />
-                      <Route path="overview/hms" element={<PackProvider><HmsOverviewPage /></PackProvider>} />
+                      <Route path="overview/hms" element={<PackProvider><AmlOverviewPage /></PackProvider>} />
+                      <Route path="overview/hms/widgets" element={<PackProvider><HmsOverviewPage /></PackProvider>} />
                       <Route path="iso/analyse" element={<IsoImsAnalysePage />} />
                       <Route path="iso/innstillinger" element={<IsoSettingsPage />} />
                       <Route path="iso/gap" element={<IsoGapAnalysisHubPage />} />
