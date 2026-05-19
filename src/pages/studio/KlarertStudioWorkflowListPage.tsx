@@ -8,7 +8,7 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { toast } from 'sonner'
-import { Copy, Loader2, Pencil, Plus, Shield, Trash2 } from 'lucide-react'
+import { ArrowUpCircle, Copy, Loader2, Pencil, Plus, Shield, Trash2 } from 'lucide-react'
 import { Button } from '../../components/ui/Button'
 import { StudioListSkeleton } from '../../components/studio/StudioListSkeleton'
 import { useOrgSetupContext } from '../../hooks/useOrgSetupContext'
@@ -80,6 +80,22 @@ export function KlarertStudioWorkflowListPage() {
     toast.success(deleted ? `«${deleted.name}» ble slettet` : 'Mal slettet')
   }
 
+  // Detect org templates whose source catalog entry has a newer version.
+  // Keyed by catalog_slug → current catalog_version.
+  const catalogVersionBySlug = Object.fromEntries(
+    catalog.map((r) => [r.slug, r.catalog_version]),
+  )
+  const staleTemplateIds = new Set(
+    orgTemplates
+      .filter(
+        (r) =>
+          r.catalog_slug &&
+          r.catalog_version !== undefined &&
+          (catalogVersionBySlug[r.catalog_slug] ?? 0) > r.catalog_version,
+      )
+      .map((r) => r.id),
+  )
+
   // Group catalog by source_module
   const catalogByModule = catalog.reduce<Record<string, WorkflowRuleCatalogRow[]>>((acc, r) => {
     const key = MODULE_LABELS[r.source_module] ?? r.source_module
@@ -135,9 +151,11 @@ export function KlarertStudioWorkflowListPage() {
                     key={row.id}
                     row={row}
                     deleting={deletingId === row.id}
+                    updateAvailable={staleTemplateIds.has(row.id)}
                     onEdit={() => navigate(`/studio/workflow/${row.id}`)}
                     onCopy={() => navigate(`/studio/workflow/new?from=${row.id}`)}
                     onDelete={() => handleDelete(row.id)}
+                    onUpdate={() => navigate(`/studio/workflow/new?from=${row.catalog_slug}`)}
                   />
                 ))}
               </div>
@@ -181,20 +199,35 @@ export function KlarertStudioWorkflowListPage() {
 function OrgTemplateRow({
   row,
   deleting,
+  updateAvailable,
   onEdit,
   onCopy,
   onDelete,
+  onUpdate,
 }: {
   row: WorkflowRuleRow
   deleting: boolean
+  updateAvailable: boolean
   onEdit: () => void
   onCopy: () => void
   onDelete: () => void
+  onUpdate: () => void
 }) {
   return (
     <div className="flex items-center gap-3 px-4 py-3">
       <div className="min-w-0 flex-1">
-        <p className="truncate font-medium text-neutral-800">{row.name}</p>
+        <div className="flex items-center gap-2">
+          <p className="truncate font-medium text-neutral-800">{row.name}</p>
+          {updateAvailable && (
+            <span
+              title="Systemkatalogen har en ny versjon — kopier for å hente oppdateringen"
+              className="flex shrink-0 items-center gap-1 rounded-full bg-blue-50 px-2 py-0.5 text-[10px] font-semibold text-blue-700"
+            >
+              <ArrowUpCircle className="h-3 w-3" />
+              Oppdatering tilgjengelig
+            </span>
+          )}
+        </div>
         <p className="mt-0.5 truncate text-xs text-neutral-400">
           {MODULE_LABELS[row.source_module] ?? row.source_module}
           {row.trigger_event_name && (
@@ -211,6 +244,17 @@ function OrgTemplateRow({
         </p>
       </div>
       <div className="flex shrink-0 items-center gap-2">
+        {updateAvailable && (
+          <button
+            type="button"
+            onClick={onUpdate}
+            className="flex items-center gap-1 rounded px-2 py-1 text-xs font-medium text-blue-600 hover:bg-blue-50"
+            title="Lag en kopi fra den nyeste systemversjonen"
+          >
+            <ArrowUpCircle className="h-3.5 w-3.5" />
+            Oppdater
+          </button>
+        )}
         <button
           type="button"
           onClick={onCopy}

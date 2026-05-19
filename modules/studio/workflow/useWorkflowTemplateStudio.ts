@@ -24,6 +24,7 @@ import {
   type WorkflowConfidentialityLevel,
   type WorkflowRuleCatalogRow,
   type WorkflowRuleRow,
+  type WorkflowRuleStudioRevisionRow,
   type WorkflowTriggerType,
   type WorkflowXorActionsEnvelope,
 } from '../../../src/types/workflow'
@@ -79,6 +80,10 @@ export function useWorkflowTemplateStudio(ruleId: string, fromId?: string) {
   const rowIdRef = useRef<string | null>(ruleId === 'new' ? null : ruleId)
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const savingRef = useRef(false)
+  const revisionNumberRef = useRef(0)
+
+  const [revisions, setRevisions] = useState<WorkflowRuleStudioRevisionRow[]>([])
+  const [revisionsLoading, setRevisionsLoading] = useState(false)
 
   // Stale-closure-safe refs for persist
   const flowDocRef = useRef<WorkflowFlowDocument>(flowDoc)
@@ -229,6 +234,19 @@ export function useWorkflowTemplateStudio(ruleId: string, fromId?: string) {
     const parsed = row.flow_graph_json ? parseFlowDocument(row.flow_graph_json) : null
     setFlowDoc(parsed ?? defaultWorkflowFlowDocument())
     setIsSystemTemplate(false)
+    // Seed the revision counter so new snapshots continue from the current max
+    if (!isCopy) {
+      void supabase!
+        .from('workflow_rule_revisions')
+        .select('revision_number')
+        .eq('rule_id', row.id)
+        .order('revision_number', { ascending: false })
+        .limit(1)
+        .maybeSingle()
+        .then(({ data }) => {
+          revisionNumberRef.current = (data as { revision_number: number } | null)?.revision_number ?? 0
+        })
+    }
   }
 
   // ─── Sync refs ────────────────────────────────────────────────────────────
@@ -366,6 +384,27 @@ export function useWorkflowTemplateStudio(ruleId: string, fromId?: string) {
         setSaveStatus('saved')
         setLastSavedAt(new Date())
         void containsGov // consumed by derived field — no separate column in workflow_rules
+
+        // Append revision snapshot (best-effort; failure does not block save)
+        const targetId = rowIdRef.current
+        if (targetId) {
+          revisionNumberRef.current += 1
+          void supabase.from('workflow_rule_revisions').insert({
+            rule_id: targetId,
+            organization_id: organization.id,
+            revision_number: revisionNumberRef.current,
+            name: n.trim() || 'Ny arbeidsflyt-mal',
+            description: desc || '',
+            source_module: sm,
+            trigger_event_name: ten ?? null,
+            actions_json,
+            flow_doc: flowDocRef.current as unknown as Record<string, unknown>,
+            law_refs: lr,
+            frameworks: fw,
+            pack: pk || null,
+            cadence_hint: ch || null,
+          } as Record<string, unknown>)
+        }
       } catch (err) {
         console.error('[useWorkflowTemplateStudio] persist failed', err)
         const msg = err instanceof Error ? err.message : 'Ukjent feil ved lagring'
@@ -408,6 +447,20 @@ export function useWorkflowTemplateStudio(ruleId: string, fromId?: string) {
   const updatePack = useCallback((v: string | null) => { setPack(v); scheduleSave() }, [scheduleSave])
   const updateCadenceHint = useCallback((v: string) => { setCadenceHint(v); scheduleSave() }, [scheduleSave])
   const updateConfidentialityLevel = useCallback((v: WorkflowConfidentialityLevel) => { setConfidentialityLevel(v); scheduleSave() }, [scheduleSave])
+
+  const fetchRevisions = useCallback(async () => {
+    if (!supabase || !organization?.id || !rowIdRef.current) return
+    setRevisionsLoading(true)
+    const { data } = await supabase
+      .from('workflow_rule_revisions')
+      .select('*')
+      .eq('rule_id', rowIdRef.current)
+      .eq('organization_id', organization.id)
+      .order('created_at', { ascending: false })
+      .limit(50)
+    setRevisions((data ?? []) as WorkflowRuleStudioRevisionRow[])
+    setRevisionsLoading(false)
+  }, [supabase, organization?.id])
 
   // Promote a published gov-action template from TT02 sandbox to Altinn prod.
   // Requires workflows.activate_external. Guarded in the UI by a typed confirmation.
@@ -462,5 +515,8 @@ export function useWorkflowTemplateStudio(ruleId: string, fromId?: string) {
     updateConfidentialityLevel,
     publishTemplate,
     upgradeToProduction,
+    revisions,
+    revisionsLoading,
+    fetchRevisions,
   }
 }

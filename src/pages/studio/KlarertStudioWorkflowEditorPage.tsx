@@ -12,7 +12,7 @@ import { useRef, useState } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { toast } from 'sonner'
 import { useDirtyGuard } from '../../hooks/useDirtyGuard'
-import { AlertTriangle, Check, Copy, Loader2, Pencil, Zap } from 'lucide-react'
+import { AlertTriangle, Check, ChevronDown, ChevronRight, Clock, Copy, Loader2, Pencil, Play, X, Zap } from 'lucide-react'
 import { ModulePageShell } from '../../components/module/ModulePageShell'
 import { InfoBox, WarningBox } from '../../components/ui/AlertBox'
 import { Button } from '../../components/ui/Button'
@@ -73,13 +73,21 @@ function SaveIndicator({
   return null
 }
 
+type DryRunLogEntry = {
+  step: number
+  action_type: string
+  label: string | null
+  status: 'would_execute' | 'would_skip' | 'gov_action_blocked'
+  note: string
+}
+
 export function KlarertStudioWorkflowEditorPage() {
   const { ruleId = 'new' } = useParams<{ ruleId: string }>()
   const [searchParams] = useSearchParams()
   const fromId = searchParams.get('from') ?? undefined
   const navigate = useNavigate()
 
-  const { can, profile } = useOrgSetupContext()
+  const { can, profile, supabase } = useOrgSetupContext()
   const studio = useWorkflowTemplateStudio(ruleId, fromId)
   // View-only for users who can view but cannot edit org templates
   const isViewOnly =
@@ -120,6 +128,42 @@ export function KlarertStudioWorkflowEditorPage() {
     hasAtLeastOneAction
 
   const [publishError, setPublishError] = useState<string | null>(null)
+  const [showHistory, setShowHistory] = useState(false)
+  const [showDryRun, setShowDryRun] = useState(false)
+  const [dryRunning, setDryRunning] = useState(false)
+  const [dryRunLog, setDryRunLog] = useState<DryRunLogEntry[] | null>(null)
+  const [dryRunError, setDryRunError] = useState<string | null>(null)
+
+  const handleDryRun = async () => {
+    if (!supabase || !studio.rowId) return
+    setDryRunning(true)
+    setDryRunLog(null)
+    setDryRunError(null)
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      const resp = await fetch(
+        `${(supabase as unknown as { supabaseUrl: string }).supabaseUrl}/functions/v1/workflow-dry-run`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${session?.access_token ?? ''}`,
+          },
+          body: JSON.stringify({ rule_id: studio.rowId }),
+        },
+      )
+      const result = await resp.json() as { ok: boolean; log?: DryRunLogEntry[]; error?: string }
+      if (result.ok && result.log) {
+        setDryRunLog(result.log)
+      } else {
+        setDryRunError(result.error ?? 'Ukjent feil under dry-run')
+      }
+    } catch (e) {
+      setDryRunError(e instanceof Error ? e.message : 'Nettverksfeil')
+    } finally {
+      setDryRunning(false)
+    }
+  }
 
   const handlePublish = async () => {
     if (!studio.name.trim()) {
@@ -192,6 +236,19 @@ export function KlarertStudioWorkflowEditorPage() {
           lastSavedAt={studio.lastSavedAt}
           saveError={studio.saveError}
         />
+      )}
+      {!studio.isSystemTemplate && studio.rowId && (
+        <button
+          type="button"
+          onClick={() => {
+            setShowHistory(true)
+            void studio.fetchRevisions()
+          }}
+          className="flex items-center gap-1.5 rounded-lg border border-neutral-200 bg-white px-2.5 py-1.5 text-xs text-neutral-500 hover:border-neutral-300 hover:text-neutral-700"
+        >
+          <Clock className="h-3.5 w-3.5" />
+          Historikk
+        </button>
       )}
       {effectivelyDisabled ? (
         <Button
@@ -334,11 +391,13 @@ export function KlarertStudioWorkflowEditorPage() {
               onChange={studio.updateFlowDoc}
               sourceModule={studio.sourceModule}
               compileError={studio.compileError}
+              readOnly={effectivelyDisabled}
             />
           </div>
 
           {/* Right: metadata panel */}
           <StudioWorkflowMetadataPanel
+            templateName={studio.name}
             lawRefs={studio.lawRefs}
             frameworks={studio.frameworks}
             pack={studio.pack}
@@ -357,6 +416,149 @@ export function KlarertStudioWorkflowEditorPage() {
           />
         </div>
       </div>
+      {/* Dry-run test panel */}
+      {studio.rowId && !studio.isSystemTemplate && (
+        <div className="mt-4 overflow-hidden rounded-xl border border-neutral-200/80 bg-white shadow-sm">
+          <button
+            type="button"
+            onClick={() => setShowDryRun((v) => !v)}
+            className="flex w-full items-center gap-2 px-4 py-3 text-left text-sm font-medium text-neutral-700 hover:bg-neutral-50"
+          >
+            {showDryRun ? (
+              <ChevronDown className="h-4 w-4 shrink-0 text-neutral-400" />
+            ) : (
+              <ChevronRight className="h-4 w-4 shrink-0 text-neutral-400" />
+            )}
+            <Play className="h-4 w-4 shrink-0 text-emerald-600" />
+            Dry-run test
+            <span className="ml-1 text-xs font-normal text-neutral-400">— simuler flyten uten å kjøre handlinger</span>
+          </button>
+
+          {showDryRun && (
+            <div className="border-t border-neutral-100 px-4 py-4">
+              <div className="flex items-center gap-3">
+                <button
+                  type="button"
+                  onClick={() => void handleDryRun()}
+                  disabled={dryRunning || !!studio.compileError}
+                  className="flex items-center gap-1.5 rounded-lg bg-[#1a3d32] px-3 py-1.5 text-xs font-semibold text-white hover:bg-[#15322a] disabled:opacity-40"
+                >
+                  {dryRunning ? (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  ) : (
+                    <Play className="h-3.5 w-3.5" />
+                  )}
+                  Kjør simulering
+                </button>
+                {studio.compileError && (
+                  <span className="text-xs text-red-500">Fiks valideringsfeil før test</span>
+                )}
+              </div>
+
+              {dryRunError && (
+                <p className="mt-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">
+                  {dryRunError}
+                </p>
+              )}
+
+              {dryRunLog && (
+                <ul className="mt-3 space-y-1.5">
+                  {dryRunLog.map((entry) => (
+                    <li
+                      key={`${entry.step}-${entry.action_type}`}
+                      className="flex items-start gap-2 rounded-lg px-3 py-2 text-xs"
+                      style={{
+                        backgroundColor:
+                          entry.status === 'gov_action_blocked'
+                            ? '#fef3c7'
+                            : entry.status === 'would_skip'
+                              ? '#f5f5f5'
+                              : '#f0fdf4',
+                      }}
+                    >
+                      <span className="mt-0.5 shrink-0 font-mono text-[10px] text-neutral-400">
+                        {entry.step === 0 ? 'Cond' : `#${entry.step}`}
+                      </span>
+                      <span className="min-w-0 flex-1">
+                        <span className="font-semibold text-neutral-700">
+                          {entry.label ?? entry.action_type}
+                        </span>
+                        <span className="ml-2 text-neutral-500">{entry.note}</span>
+                      </span>
+                      <span className={`shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-semibold ${
+                        entry.status === 'gov_action_blocked'
+                          ? 'bg-amber-100 text-amber-700'
+                          : entry.status === 'would_skip'
+                            ? 'bg-neutral-200 text-neutral-600'
+                            : 'bg-emerald-100 text-emerald-700'
+                      }`}>
+                        {entry.status === 'gov_action_blocked'
+                          ? 'Gov (blokkert)'
+                          : entry.status === 'would_skip'
+                            ? 'Hoppet over'
+                            : 'Ville kjørt'}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Revision history modal */}
+      {showHistory && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" role="dialog" aria-modal aria-labelledby="history-modal-title">
+          <div className="flex max-h-[80vh] w-full max-w-lg flex-col overflow-hidden rounded-2xl bg-white shadow-2xl">
+            <div className="flex items-center justify-between border-b border-neutral-100 px-5 py-4">
+              <h3 id="history-modal-title" className="text-sm font-semibold text-neutral-900">
+                Versjonshistorikk
+              </h3>
+              <button
+                type="button"
+                onClick={() => setShowHistory(false)}
+                className="rounded-lg p-1 text-neutral-400 hover:bg-neutral-100 hover:text-neutral-600"
+                aria-label="Lukk"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            <div className="flex-1 overflow-y-auto">
+              {studio.revisionsLoading ? (
+                <div className="flex items-center justify-center py-10">
+                  <Loader2 className="h-5 w-5 animate-spin text-neutral-400" />
+                </div>
+              ) : studio.revisions.length === 0 ? (
+                <p className="px-5 py-10 text-center text-sm text-neutral-400">
+                  Ingen versjoner lagret ennå. Lagring skjer automatisk.
+                </p>
+              ) : (
+                <ul className="divide-y divide-neutral-100">
+                  {studio.revisions.map((rev, i) => (
+                    <li key={rev.id} className="px-5 py-3">
+                      <div className="flex items-baseline justify-between gap-2">
+                        <span className="text-xs font-semibold text-neutral-700">
+                          v{rev.revision_number}
+                          {i === 0 && (
+                            <span className="ml-2 rounded-full bg-emerald-50 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-700">
+                              Siste
+                            </span>
+                          )}
+                        </span>
+                        <time className="shrink-0 text-[11px] text-neutral-400">
+                          {new Date(rev.created_at).toLocaleString('nb')}
+                        </time>
+                      </div>
+                      <p className="mt-0.5 truncate text-xs text-neutral-500">{rev.name}</p>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </ModulePageShell>
   )
 }

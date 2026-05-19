@@ -16,7 +16,7 @@ function SkeletonRow() {
       </div>
       <div className="flex shrink-0 items-center gap-2">
         <div className="h-6 w-14 rounded bg-neutral-100" />
-        <div className="h-7 w-16 rounded-lg bg-neutral-100" />
+        <div className="h-7 w-20 rounded-lg bg-neutral-100" />
       </div>
     </div>
   )
@@ -28,7 +28,7 @@ export function StudioListSkeleton({ rows = 4, showHeader = true }: Props) {
       {showHeader && <div className="h-3 w-24 rounded bg-neutral-200" />}
       <div className="divide-y divide-neutral-100 overflow-hidden rounded-xl border border-neutral-200 bg-white shadow-sm">
         {Array.from({ length: rows }).map((_, i) => (
-          <SkeletonRow key={i} />
+          <SkeletonRow key={`skeleton-row-${i}`} />
         ))}
       </div>
     </div>

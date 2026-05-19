@@ -448,6 +448,25 @@ export type WorkflowRuleRevisionRow = {
   diff_summary: string | null
 }
 
+export type WorkflowRuleStudioRevisionRow = {
+  id: string
+  rule_id: string
+  organization_id: string
+  revision_number: number
+  name: string
+  description: string
+  source_module: string
+  trigger_event_name: string | null
+  actions_json: WorkflowAction[] | WorkflowXorActionsEnvelope | null
+  flow_doc: Record<string, unknown> | null
+  law_refs: string[]
+  frameworks: string[]
+  pack: string | null
+  cadence_hint: string | null
+  created_at: string
+  created_by: string | null
+}
+
 export const WORKFLOW_SOURCE_MODULES = [
   { value: 'compliance_checklist', label: 'Sjekklister (compliance)' },
   { value: 'survey', label: 'Undersøkelser' },

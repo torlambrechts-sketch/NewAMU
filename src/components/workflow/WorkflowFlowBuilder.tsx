@@ -121,12 +121,14 @@ function StepRow({
   onSelect,
   onDelete,
   dragPayload,
+  readOnly = false,
 }: {
   step: WorkflowFlowStep
   selected: boolean
   onSelect: () => void
   onDelete: () => void
   dragPayload: ReorderPayload
+  readOnly?: boolean
 }) {
   const IconBox =
     step.kind === 'condition' ? (
@@ -139,18 +141,20 @@ function StepRow({
     <div
       className={`${STEP_CARD} flex items-stretch gap-2 pl-1 ${selected ? 'ring-2 ring-[#1a3d32] ring-offset-1' : ''}`}
     >
-      <span
-        draggable
-        onDragStart={(e) => {
-          e.dataTransfer.setData('application/x-atics-workflow', JSON.stringify(dragPayload))
-          e.dataTransfer.effectAllowed = 'move'
-        }}
-        className="flex w-8 shrink-0 cursor-grab items-center justify-center text-neutral-400 active:cursor-grabbing"
-        title="Dra for å flytte rekkefølge"
-        aria-hidden
-      >
-        <GripVertical className="size-5" />
-      </span>
+      {!readOnly && (
+        <span
+          draggable
+          onDragStart={(e) => {
+            e.dataTransfer.setData('application/x-atics-workflow', JSON.stringify(dragPayload))
+            e.dataTransfer.effectAllowed = 'move'
+          }}
+          className="flex w-8 shrink-0 cursor-grab items-center justify-center text-neutral-400 active:cursor-grabbing"
+          title="Dra for å flytte rekkefølge"
+          aria-hidden
+        >
+          <GripVertical className="size-5" />
+        </span>
+      )}
       <Button
         variant="ghost"
         onClick={onSelect}
@@ -180,18 +184,20 @@ function StepRow({
         >
           <Pencil className="size-4" />
         </Button>
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={(e) => {
-            e.stopPropagation()
-            onDelete()
-          }}
-          className="h-auto w-auto rounded-lg p-2 text-neutral-400 hover:bg-red-50 hover:text-red-700"
-          aria-label="Slett"
-        >
-          <Trash2 className="size-4" />
-        </Button>
+        {!readOnly && (
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={(e) => {
+              e.stopPropagation()
+              onDelete()
+            }}
+            className="h-auto w-auto rounded-lg p-2 text-neutral-400 hover:bg-red-50 hover:text-red-700"
+            aria-label="Slett"
+          >
+            <Trash2 className="size-4" />
+          </Button>
+        )}
       </div>
     </div>
   )
@@ -229,6 +235,7 @@ function FlowStepsBlock({
   removeStep,
   insertStep,
   moveStep,
+  readOnly = false,
 }: {
   branchId?: string
   steps: WorkflowFlowStep[]
@@ -238,6 +245,7 @@ function FlowStepsBlock({
   removeStep: (branchId: string | undefined, stepId: string) => void
   insertStep: (branchId: string | undefined, index: number, step: WorkflowFlowStep) => void
   moveStep: (branchId: string | undefined, from: number, to: number) => void
+  readOnly?: boolean
 }) {
   const [whenPick, setWhenPick] = useState('')
   const [actPick, setActPick] = useState('')
@@ -295,6 +303,7 @@ function FlowStepsBlock({
   // Renders an "+ Sett inn her" button; on click, swaps to two compact
   // pickers (Når / Så) that insert at the given index.
   const InsertGap = ({ index }: { index: number }) => {
+    if (readOnly) return null
     if (insertAt !== index) {
       return (
         <div className="flex justify-center py-1">
@@ -367,32 +376,36 @@ function FlowStepsBlock({
           {steps.length === 0 ? (
             <>
               <p className={`${WF_LEAD} py-3 text-center text-neutral-500`}>
-                Ingen steg ennå. Legg til ditt første inndata- eller handling-steg under.
+                {readOnly
+                  ? 'Ingen steg i denne flyten.'
+                  : 'Ingen steg ennå. Legg til ditt første inndata- eller handling-steg under.'}
               </p>
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
-                <div className="min-w-0 flex-1">
-                  <p className={FIELD_LABEL}>Legg til inndata (når)</p>
-                  <SearchableSelect
-                    value={whenPick}
-                    options={whenPresetOptions}
-                    onChange={(v) => {
-                      setWhenPick(v)
-                      addWhenPreset(v)
-                    }}
-                  />
+              {!readOnly && (
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
+                  <div className="min-w-0 flex-1">
+                    <p className={FIELD_LABEL}>Legg til inndata (når)</p>
+                    <SearchableSelect
+                      value={whenPick}
+                      options={whenPresetOptions}
+                      onChange={(v) => {
+                        setWhenPick(v)
+                        addWhenPreset(v)
+                      }}
+                    />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className={FIELD_LABEL}>Legg til handling (så)</p>
+                    <SearchableSelect
+                      value={actPick}
+                      options={ACTION_SELECT_OPTIONS}
+                      onChange={(v) => {
+                        setActPick(v)
+                        addActionTemplate(v)
+                      }}
+                    />
+                  </div>
                 </div>
-                <div className="min-w-0 flex-1">
-                  <p className={FIELD_LABEL}>Legg til handling (så)</p>
-                  <SearchableSelect
-                    value={actPick}
-                    options={ACTION_SELECT_OPTIONS}
-                    onChange={(v) => {
-                      setActPick(v)
-                      addActionTemplate(v)
-                    }}
-                  />
-                </div>
-              </div>
+              )}
             </>
           ) : null}
           {steps.map((step, i) => (
@@ -419,6 +432,7 @@ function FlowStepsBlock({
                     stepId: step.id,
                     branchId: branchId ?? undefined,
                   }}
+                  readOnly={readOnly}
                 />
               </div>
             </div>
@@ -442,9 +456,10 @@ type Props = {
   onChange: (d: WorkflowFlowDocument) => void
   sourceModule: string
   compileError: string | null
+  readOnly?: boolean
 }
 
-export function WorkflowFlowBuilder({ value, onChange, sourceModule, compileError }: Props) {
+export function WorkflowFlowBuilder({ value, onChange, sourceModule, compileError, readOnly = false }: Props) {
   const [selectedPath, setSelectedPath] = useState<{ branchId?: string; stepId: string } | null>(null)
 
   const inputPresets = useMemo(() => presetsForSourceModule(sourceModule), [sourceModule])
@@ -551,7 +566,9 @@ export function WorkflowFlowBuilder({ value, onChange, sourceModule, compileErro
             <Button
               variant={value.mode === 'linear' ? 'primary' : 'secondary'}
               size="sm"
+              disabled={readOnly}
               onClick={() => {
+                if (readOnly) return
                 const d = { ...value, mode: 'linear' as const }
                 if (d.linearSteps.length === 0) d.linearSteps = defaultWorkflowFlowDocument().linearSteps
                 updateDoc(d)
@@ -562,7 +579,8 @@ export function WorkflowFlowBuilder({ value, onChange, sourceModule, compileErro
             <Button
               variant={value.mode === 'xor' ? 'primary' : 'secondary'}
               size="sm"
-              onClick={() => updateDoc({ ...value, mode: 'xor' })}
+              disabled={readOnly}
+              onClick={() => { if (!readOnly) updateDoc({ ...value, mode: 'xor' }) }}
             >
               <Split className="size-4" />
               XOR
@@ -589,33 +607,37 @@ export function WorkflowFlowBuilder({ value, onChange, sourceModule, compileErro
               removeStep={removeStep}
               insertStep={insertStep}
               moveStep={moveStep}
+              readOnly={readOnly}
             />
           ) : (
             <div className="space-y-4">
-              <Button
-                variant="secondary"
-                size="sm"
-                onClick={() =>
-                  updateDoc({
-                    ...value,
-                    xorBranches: [
-                      ...value.xorBranches,
-                      { id: newBranchId(), label: `Gren ${value.xorBranches.length + 1}`, steps: [] },
-                    ],
-                  })
-                }
-              >
-                <Plus className="size-4" />
-                Ny gren
-              </Button>
+              {!readOnly && (
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={() =>
+                    updateDoc({
+                      ...value,
+                      xorBranches: [
+                        ...value.xorBranches,
+                        { id: newBranchId(), label: `Gren ${value.xorBranches.length + 1}`, steps: [] },
+                      ],
+                    })
+                  }
+                >
+                  <Plus className="size-4" />
+                  Ny gren
+                </Button>
+              )}
               <div className="space-y-4">
                 {value.xorBranches.map((branch) => (
                   <div key={branch.id} className="rounded-lg border border-neutral-200/90 bg-white p-4">
                     <label className={FIELD_LABEL}>Grenenavn</label>
                     <StandardInput
                       value={branch.label}
+                      disabled={readOnly}
                       onChange={(e) =>
-                        updateDoc({
+                        readOnly ? undefined : updateDoc({
                           ...value,
                           xorBranches: value.xorBranches.map((b) =>
                             b.id === branch.id ? { ...b, label: e.target.value } : b,
@@ -624,7 +646,7 @@ export function WorkflowFlowBuilder({ value, onChange, sourceModule, compileErro
                       }
                       className="mt-1.5 font-semibold"
                     />
-                    {value.xorBranches.length > 2 ? (
+                    {!readOnly && value.xorBranches.length > 2 ? (
                       <Button
                         variant="ghost"
                         size="sm"
@@ -649,6 +671,7 @@ export function WorkflowFlowBuilder({ value, onChange, sourceModule, compileErro
                         removeStep={removeStep}
                         insertStep={insertStep}
                         moveStep={moveStep}
+                        readOnly={readOnly}
                       />
                     </div>
                   </div>
@@ -662,8 +685,8 @@ export function WorkflowFlowBuilder({ value, onChange, sourceModule, compileErro
           ) : null}
         </div>
 
-        <div className="rounded-none border border-neutral-200/90 bg-[#f4f1ea] p-5 sm:p-6 min-h-[min(70vh,36rem)]">
-          <h4 className={FIELD_LABEL}>Spesifikasjon</h4>
+        <div className={`rounded-none border border-neutral-200/90 bg-[#f4f1ea] p-5 sm:p-6 min-h-[min(70vh,36rem)]${readOnly ? ' pointer-events-none select-none opacity-60' : ''}`}>
+          <h4 className={FIELD_LABEL}>Spesifikasjon{readOnly ? <span className="ml-2 font-normal normal-case tracking-normal text-neutral-400"> — kun lesing</span> : ''}</h4>
           {!selectedStep ? (
             <p className={`${WF_LEAD} mt-10 text-center`}>Velg et steg i listen for å redigere.</p>
           ) : selectedStep.kind === 'condition' ? (

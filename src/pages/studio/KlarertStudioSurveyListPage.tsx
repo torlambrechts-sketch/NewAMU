@@ -5,7 +5,7 @@
 
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ArrowLeft, Copy, Loader2, Pencil, Plus } from 'lucide-react'
+import { ArrowLeft, Copy, Pencil, Plus } from 'lucide-react'
 import { Button } from '../../components/ui/Button'
 import { StudioListSkeleton } from '../../components/studio/StudioListSkeleton'
 import { useOrgSetupContext } from '../../hooks/useOrgSetupContext'

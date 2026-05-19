@@ -2578,7 +2578,7 @@ export function AticsShell() {
         <Outlet />
       </main>
 
-      <Toaster richColors position="bottom-right" closeButton />
+      <Toaster richColors position="bottom-right" closeButton theme="system" />
     </div>
   )
 }

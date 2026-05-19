@@ -34,6 +34,7 @@ const CONFIDENTIALITY_OPTIONS: { value: WorkflowConfidentialityLevel; label: str
 ]
 
 type Props = {
+  templateName: string
   lawRefs: string[]
   frameworks: string[]
   pack: string | null
@@ -52,6 +53,7 @@ type Props = {
 }
 
 export function StudioWorkflowMetadataPanel({
+  templateName,
   lawRefs,
   frameworks,
   pack,
@@ -269,19 +271,23 @@ export function StudioWorkflowMetadataPanel({
 
       {/* Promote-to-prod modal */}
       {showPromoteModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" role="dialog" aria-modal>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" role="dialog" aria-modal aria-labelledby="promote-modal-title">
           <div className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-2xl">
-            <h3 className="text-sm font-semibold text-neutral-900">Flytt til produksjonsmiljø</h3>
+            <h3 id="promote-modal-title" className="text-sm font-semibold text-neutral-900">Flytt til produksjonsmiljø</h3>
             <p className="mt-2 text-xs text-neutral-500">
               Malen vil sende reelle myndighetsrapporter via Altinn.{' '}
               <strong>Dette kan ikke angres uten manuell DB-endring.</strong>{' '}
-              Skriv <span className="font-mono font-semibold">PRODUKSJON</span> for å bekrefte.
+              Skriv{' '}
+              <span className="font-mono font-semibold text-neutral-800">
+                {templateName || 'malnavnet'}
+              </span>{' '}
+              for å bekrefte.
             </p>
             <input
               type="text"
               value={promoteConfirmText}
               onChange={(e) => setPromoteConfirmText(e.target.value)}
-              placeholder="PRODUKSJON"
+              placeholder={templateName || 'Skriv malnavnet'}
               className="mt-3 w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400"
               autoFocus
             />
@@ -295,7 +301,7 @@ export function StudioWorkflowMetadataPanel({
               </button>
               <button
                 type="button"
-                disabled={promoteConfirmText !== 'PRODUKSJON' || promoting}
+                disabled={promoteConfirmText !== (templateName || '') || promoting}
                 onClick={handlePromote}
                 className="flex-1 rounded-lg bg-amber-600 px-3 py-2 text-xs font-semibold text-white hover:bg-amber-700 disabled:opacity-40"
               >
