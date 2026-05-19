@@ -87,10 +87,21 @@ type Props = {
   advanced: boolean
   disabled?: boolean
   onAdd?: (item: PaletteItem) => void
+  /** Override the default SURVEY_PALETTE. Useful for checklist / other editors. */
+  items?: PaletteItem[]
+  /** Override the hint text shown below the "Blokker" heading. */
+  hintText?: string
 }
 
-export function StudioBlockPalette({ advanced, disabled = false, onAdd }: Props) {
-  const visibleItems = SURVEY_PALETTE.filter((item) => advanced || !item.advancedOnly)
+export function StudioBlockPalette({
+  advanced,
+  disabled = false,
+  onAdd,
+  items,
+  hintText,
+}: Props) {
+  const source = items ?? SURVEY_PALETTE
+  const visibleItems = source.filter((item) => advanced || !item.advancedOnly)
 
   return (
     <aside className="flex h-full w-48 shrink-0 flex-col gap-1 overflow-y-auto border-r border-neutral-200 bg-[#fafaf9] p-3">
@@ -98,7 +109,7 @@ export function StudioBlockPalette({ advanced, disabled = false, onAdd }: Props)
         Blokker
       </p>
       <p className="mb-2 text-[11px] text-neutral-400">
-        Dra inn blokker for spørreundersøkelse.
+        {hintText ?? 'Dra inn blokker for spørreundersøkelse.'}
       </p>
       {visibleItems.map((item) => (
         <PaletteChip

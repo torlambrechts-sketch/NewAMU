@@ -1,0 +1,18 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npx tsc *)",
+      "Bash(npx tsc)",
+      "Bash(find /home/user/NewAMU *)",
+      "Bash(grep -n *)",
+      "Bash(grep -r *)",
+      "Bash(grep -rn *)",
+      "Bash(grep -A *)",
+      "Bash(grep -l *)",
+      "Bash(grep -B *)",
+      "Bash(sed -n *)",
+      "Bash(ls /home/user/NewAMU/*)",
+      "Bash(wc -l *)"
+    ]
+  }
+}

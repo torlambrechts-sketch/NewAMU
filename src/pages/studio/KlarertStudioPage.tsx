@@ -43,12 +43,13 @@ const CONTENT_TYPES: ContentType[] = [
     bgColor: 'bg-neutral-100',
   },
   {
-    key: 'mal',
-    title: 'Mal',
-    description: 'Forhåndsdefinerte skjemaer og dokumenter — vernerunde, SJA, ROS-…',
-    exampleLabel: 'Vernerunde · standard',
+    key: 'sjekkliste',
+    title: 'Sjekkliste',
+    description: 'Vernerunde, SJA, HMS-inspeksjon. Sjekkpunkter med alvorlighetsgrad og lovhenvisning.',
+    exampleLabel: 'Vernerunde · AML § 4-1',
     icon: Grid3X3,
-    soon: true,
+    href: '/studio/checklist',
+    newHref: '/studio/checklist/new',
     bgColor: 'bg-[#f0f7f4]',
   },
   {
@@ -226,42 +227,76 @@ export function KlarertStudioPage() {
           </div>
         </section>
 
-        {/* Quick-start for surveys */}
-        <section className="mt-12">
-          <div className="mb-4 flex items-center justify-between">
-            <h2 className="text-sm font-semibold text-neutral-700">SPØRREUNDERSØKELSER</h2>
-            <button
-              type="button"
-              onClick={() => navigate('/studio/survey')}
-              className="text-xs text-[#1a3d32] hover:underline"
-            >
-              Se alle →
-            </button>
-          </div>
-          <div className="rounded-xl border border-neutral-200 bg-white p-5 shadow-sm">
-            <p className="text-sm text-neutral-600">
-              Bygg spørreundersøkelser med drag-and-drop blokker — seksjoner, enkeltvalg, skalaer,
-              fritekst og forgrening. Publish direkte til ansatte eller lenk til AMU-agenda.
-            </p>
-            <div className="mt-4 flex gap-3">
-              <Button
-                variant="primary"
-                size="sm"
-                onClick={() => navigate('/studio/survey/new')}
-                className="bg-[#1a3d32] hover:bg-[#1a3d32]/90"
-              >
-                Ny undersøkelse
-              </Button>
-              <Button
-                variant="secondary"
-                size="sm"
+        {/* Quick-start sections */}
+        <div className="mt-12 grid gap-6 md:grid-cols-2">
+          <section>
+            <div className="mb-4 flex items-center justify-between">
+              <h2 className="text-sm font-semibold text-neutral-700">SPØRREUNDERSØKELSER</h2>
+              <button
+                type="button"
                 onClick={() => navigate('/studio/survey')}
+                className="text-xs text-[#1a3d32] hover:underline"
               >
-                Alle maler
-              </Button>
+                Se alle →
+              </button>
             </div>
-          </div>
-        </section>
+            <div className="rounded-xl border border-neutral-200 bg-white p-5 shadow-sm">
+              <p className="text-sm text-neutral-600">
+                Bygg undersøkelser med drag-and-drop blokker — seksjoner, enkeltvalg, skalaer,
+                fritekst og forgrening. Publiser direkte til ansatte eller lenk til AMU-agenda.
+              </p>
+              <div className="mt-4 flex gap-3">
+                <Button
+                  variant="primary"
+                  size="sm"
+                  onClick={() => navigate('/studio/survey/new')}
+                  className="bg-[#1a3d32] hover:bg-[#1a3d32]/90"
+                >
+                  Ny undersøkelse
+                </Button>
+                <Button variant="secondary" size="sm" onClick={() => navigate('/studio/survey')}>
+                  Alle maler
+                </Button>
+              </div>
+            </div>
+          </section>
+
+          <section>
+            <div className="mb-4 flex items-center justify-between">
+              <h2 className="text-sm font-semibold text-neutral-700">SJEKKLISTER</h2>
+              <button
+                type="button"
+                onClick={() => navigate('/studio/checklist')}
+                className="text-xs text-[#1a3d32] hover:underline"
+              >
+                Se alle →
+              </button>
+            </div>
+            <div className="rounded-xl border border-neutral-200 bg-white p-5 shadow-sm">
+              <p className="text-sm text-neutral-600">
+                Bygg sjekklisters med sjekkpunkter, alvorlighetsgrad og lovhenvisning. Kobles mot
+                AML- og ISO-pakker og gjenbrukes i vernerunder, SJA og HMS-inspeksjoner.
+              </p>
+              <div className="mt-4 flex gap-3">
+                <Button
+                  variant="primary"
+                  size="sm"
+                  onClick={() => navigate('/studio/checklist/new')}
+                  className="bg-[#1a3d32] hover:bg-[#1a3d32]/90"
+                >
+                  Ny sjekkliste
+                </Button>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => navigate('/studio/checklist')}
+                >
+                  Alle maler
+                </Button>
+              </div>
+            </div>
+          </section>
+        </div>
       </div>
     </div>
   )
