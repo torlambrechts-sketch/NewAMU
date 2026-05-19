@@ -115,4 +115,7 @@ export type DrawerState =
  *  legacy bridges. As each P2/P3 adapter lands, add its key here. */
 export const STEP_LIST_SOURCES: ReadonlySet<AdminTemplateSource> = new Set([
   'meetings',
+  'compliance',
+  'survey',
+  'learning',
 ])

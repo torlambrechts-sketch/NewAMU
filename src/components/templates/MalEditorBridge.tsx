@@ -3,11 +3,14 @@
 // `source`, then mounts the shell. Adding a new source = importing
 // its adapter factory and adding a switch case.
 
-import { useMemo, useRef } from 'react'
+import { useMemo } from 'react'
 import { useOrgSetupContext } from '../../hooks/useOrgSetupContext'
 import { StepListEditorShell } from './editor/StepListEditorShell'
 import type { EditorMode, TemplateEditorAdapter } from './editor/types'
 import { createMeetingsAdapter } from './adapters/meetingsAdapter'
+import { createComplianceAdapter } from './adapters/complianceAdapter'
+import { createSurveyAdapter } from './adapters/surveyAdapter'
+import { createLearningAdapter } from './adapters/learningAdapter'
 import type { AdminTemplateSource } from '../../hooks/useAdminTemplates'
 
 export type MalEditorBridgeProps = {
@@ -31,14 +34,17 @@ export function MalEditorBridge({
 }: MalEditorBridgeProps) {
   const { supabase } = useOrgSetupContext()
 
-  const canEditRef = useRef(canEdit)
-  canEditRef.current = canEdit
-
   const adapter: TemplateEditorAdapter<unknown> | null = useMemo(() => {
     if (!source) return null
     switch (source) {
       case 'meetings':
         return createMeetingsAdapter({ supabase, canEdit }) as TemplateEditorAdapter<unknown>
+      case 'compliance':
+        return createComplianceAdapter({ supabase, canEdit }) as TemplateEditorAdapter<unknown>
+      case 'survey':
+        return createSurveyAdapter({ supabase, canEdit }) as TemplateEditorAdapter<unknown>
+      case 'learning':
+        return createLearningAdapter({ supabase, canEdit }) as TemplateEditorAdapter<unknown>
       default:
         return null
     }
