@@ -14,7 +14,7 @@ type PaletteProps = {
 }
 
 function LucideIcon({ name, className }: { name: string; className?: string }) {
-  const icons = LucideIcons as Record<string, ComponentType<LucideProps>>
+  const icons = LucideIcons as unknown as Record<string, ComponentType<LucideProps>>
   const Icon = icons[name]
   if (!Icon) return null
   return <Icon className={className} />

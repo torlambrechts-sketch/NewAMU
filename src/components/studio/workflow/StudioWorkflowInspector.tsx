@@ -14,7 +14,7 @@ import type { WorkflowRuleStudioRevisionRow } from '../../../types/workflow'
 // ─── Local icon helper ─────────────────────────────────────────────────────────
 
 function LucideIcon({ name, className }: { name: string; className?: string }) {
-  const icons = LucideIcons as Record<string, ComponentType<LucideProps>>
+  const icons = LucideIcons as unknown as Record<string, ComponentType<LucideProps>>
   const Icon = icons[name]
   if (!Icon) return null
   return <Icon className={className} />
@@ -42,13 +42,14 @@ function FieldRow({ label, hint, required, children }: {
 }
 
 function In({
-  value, onChange, mono, placeholder, type = 'text',
+  value, onChange, mono, placeholder, type = 'text', disabled,
 }: {
   value?: string | null
   onChange: (v: string) => void
   mono?: boolean
   placeholder?: string
   type?: string
+  disabled?: boolean
 }) {
   return (
     <input
@@ -56,10 +57,12 @@ function In({
       value={value ?? ''}
       onChange={(e) => onChange(e.target.value)}
       placeholder={placeholder}
+      disabled={disabled}
       className={[
         'w-full rounded-md border border-neutral-300 bg-white px-2.5 py-1.5 text-[12.5px] outline-none transition-colors',
         'focus:border-[#1a3d32] focus:ring-1 focus:ring-[#1a3d32]/25',
         mono ? 'font-mono text-[11px]' : '',
+        disabled ? 'opacity-50 cursor-not-allowed' : '',
       ].join(' ')}
     />
   )
@@ -97,21 +100,6 @@ function Sel({ value, onChange, options }: {
         <option key={o.value} value={o.value}>{o.label}</option>
       ))}
     </select>
-  )
-}
-
-function Toggle({ value, onChange }: { value: boolean; onChange: (v: boolean) => void }) {
-  return (
-    <button
-      type="button"
-      onClick={() => onChange(!value)}
-      className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${value ? 'bg-[#1a3d32]' : 'bg-neutral-300'}`}
-    >
-      <span
-        className="inline-block h-4 w-4 rounded-full bg-white shadow transition-transform"
-        style={{ transform: value ? 'translateX(18px)' : 'translateX(2px)' }}
-      />
-    </button>
   )
 }
 
@@ -222,7 +210,7 @@ function ActionPropsForm({ step, onUpdateStep }: {
           <div className="inline-flex items-center gap-0 rounded-md border border-neutral-200 bg-white p-0.5">
             {['AND', 'OR'].map((op) => (
               <button key={op} type="button"
-                onClick={() => onUpdateStep({ ...step, condition: { ...step.condition, logic: op } as typeof step.condition })}
+                onClick={() => onUpdateStep({ ...step, condition: { ...step.condition, logic: op } as unknown as typeof step.condition })}
                 className={`rounded px-3 py-1 text-[11px] font-semibold ${(c.logic ?? 'AND') === op ? 'bg-[#1a3d32] text-white' : 'text-neutral-600 hover:bg-neutral-50'}`}>
                 {op === 'AND' ? 'OG · alle' : 'ELLER · minst én'}
               </button>

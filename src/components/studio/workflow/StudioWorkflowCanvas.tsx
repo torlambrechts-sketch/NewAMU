@@ -32,7 +32,7 @@ import {
 // ─── Local icon helper ───────────────────────────────────────────────────────
 
 function LucideIcon({ name, className }: { name: string; className?: string }) {
-  const icons = LucideIcons as Record<string, ComponentType<LucideProps>>
+  const icons = LucideIcons as unknown as Record<string, ComponentType<LucideProps>>
   const Icon = icons[name]
   if (!Icon) return null
   return <Icon className={className} />
@@ -56,7 +56,7 @@ function makeNewStep(kind: StudioBlockKind): WorkflowFlowStep {
     case 'wait':     action = defaultWaitUntilAction(); break
     case 'approval': action = defaultRequestApprovalAction(); break
     case 'assign':   action = defaultEscalateAction(); break
-    case 'ros':      return { id, kind: 'actions', label: 'ROS-utkast', actions: [{ type: 'create_ros_draft', template: 'standard 5×5' } as Parameters<typeof defaultTaskAction>[0] extends never ? never : never ] as never }
+    case 'ros':      return { id, kind: 'actions', label: 'ROS-utkast', actions: [{ type: 'create_ros_draft', template: 'standard 5×5' } as unknown as ReturnType<typeof defaultTaskAction>] }
     case 'amu':      return { id, kind: 'actions', label: 'AMU-saksliste', actions: [{ type: 'add_amu_agenda_item', agendaItem: '', priority: 'normal' } as never] }
     default:         action = defaultTaskAction()
   }
@@ -214,7 +214,7 @@ type BlockCardProps = {
 }
 
 function BlockCard({
-  stepIndex, step, order, isSelected, isDragging, isDisabled,
+  stepIndex, step, order, isSelected, isDragging,
   sourceModule, triggerEventName,
   onSelect, onDragStart, onDelete, onDuplicate, onToggle, onTitleChange, readOnly,
 }: BlockCardProps) {
@@ -444,7 +444,7 @@ type CanvasProps = {
 // ─── Canvas ───────────────────────────────────────────────────────────────────
 
 export function StudioWorkflowCanvas({
-  flowDoc, onChange, sourceModule, triggerEventName, name, description, rowId,
+  flowDoc, onChange, sourceModule, triggerEventName, description, rowId,
   mode, selectedIdx, onSelect, readOnly,
 }: CanvasProps) {
   const [draggingIdx, setDraggingIdx] = useState<number | null>(null)
