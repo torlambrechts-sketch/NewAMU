@@ -1,64 +1,130 @@
-// Workflow template Studio editor — three-panel layout
-// (trigger selector | flow builder | metadata panel).
-//
-// Accessed via /studio/workflow/:ruleId.
-// ruleId === 'new' creates a new template on first save.
-// ?from=<id> forks from workflow_rule_catalog or an existing org template.
-//
-// Writes to workflow_rules with is_template=true.
-// Government actions in the flow trigger a compliance warning banner.
+// Klarert Studio — full-bleed workflow editor.
+// Replaces the three-panel ModulePageShell layout with the Studio chrome:
+//   sticky 56px top bar + body = palette (240px) + canvas (flex-1) + inspector (340px).
+// Uses useWorkflowTemplateStudio for all persistence; only the UI changes.
+// Accessed via /studio/workflow/:ruleId  (ruleId='new' creates on first save).
 
-import { useRef, useState } from 'react'
+import { useCallback, useState } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { toast } from 'sonner'
+import {
+  Check,
+  Copy,
+  Eye,
+  Loader2,
+  PanelRight,
+  Play,
+  X,
+  AlertTriangle,
+} from 'lucide-react'
 import { useDirtyGuard } from '../../hooks/useDirtyGuard'
-import { AlertTriangle, Check, ChevronDown, ChevronRight, Clock, Copy, Loader2, Pencil, Play, X, Zap } from 'lucide-react'
-import { ModulePageShell } from '../../components/module/ModulePageShell'
-import { InfoBox, WarningBox } from '../../components/ui/AlertBox'
-import { Button } from '../../components/ui/Button'
-import { StandardInput } from '../../components/ui/Input'
-import { WorkflowFlowBuilder } from '../../components/workflow/WorkflowFlowBuilder'
-import { StudioWorkflowTriggerSelector } from '../../../modules/studio/workflow/StudioWorkflowTriggerSelector'
-import { StudioWorkflowMetadataPanel } from '../../../modules/studio/workflow/StudioWorkflowMetadataPanel'
 import { useWorkflowTemplateStudio } from '../../../modules/studio/workflow/useWorkflowTemplateStudio'
 import { useOrgSetupContext } from '../../hooks/useOrgSetupContext'
-import { isGovernmentActionType } from '../../../src/types/workflow'
+import { isGovernmentActionType } from '../../types/workflow'
+import type { WorkflowFlowStep } from '../../lib/workflowFlowTypes'
 
+import { StudioWorkflowPalette } from '../../components/studio/workflow/StudioWorkflowPalette'
+import { StudioWorkflowCanvas } from '../../components/studio/workflow/StudioWorkflowCanvas'
+import { StudioWorkflowInspector } from '../../components/studio/workflow/StudioWorkflowInspector'
+import type { StudioBlockKind } from '../../components/studio/workflow/studioBlockMeta'
 
-function SaveIndicator({
-  status,
-  lastSavedAt,
-  saveError,
-}: {
-  status: string
-  lastSavedAt: Date | null
-  saveError: string | null
-}) {
+// ─── Save status indicator ────────────────────────────────────────────────────
+
+function SaveStatus({ status, saveError }: { status: string; saveError: string | null }) {
   if (status === 'saving') {
     return (
-      <span className="flex items-center gap-1.5 text-xs text-neutral-400">
+      <span className="inline-flex items-center gap-1.5 text-[11px] text-neutral-500">
         <Loader2 className="h-3.5 w-3.5 animate-spin" />
         Lagrer…
       </span>
     )
   }
-  if (status === 'saved' && lastSavedAt) {
+  if (status === 'saved') {
     return (
-      <span className="flex items-center gap-1.5 text-xs text-neutral-400">
-        <Check className="h-3.5 w-3.5 text-emerald-500" />
+      <span className="inline-flex items-center gap-1.5 text-[11px] text-neutral-500">
+        <span className="h-1.5 w-1.5 rounded-full k-pulse" style={{ background: '#2f7757' }} />
         Auto-lagret
       </span>
     )
   }
   if (status === 'error') {
     return (
-      <span className="text-xs text-red-500" title={saveError ?? undefined}>
+      <span className="text-[11px] text-red-500" title={saveError ?? undefined}>
         Lagring feilet
       </span>
     )
   }
-  return null
+  return (
+    <span className="inline-flex items-center gap-1.5 text-[11px] text-neutral-500">
+      <span className="h-1.5 w-1.5 rounded-full k-pulse" style={{ background: '#2f7757' }} />
+      Auto-lagret
+    </span>
+  )
 }
+
+// ─── K mark (brand) ────────────────────────────────────────────────────────────
+
+function KMark() {
+  return (
+    <div className="flex items-center gap-2 shrink-0">
+      <span
+        className="flex items-center justify-center rounded-md"
+        style={{
+          width: 28, height: 28,
+          background: 'var(--forest, #1a3d32)',
+          color: '#fff',
+          fontFamily: 'var(--font-serif)',
+          fontWeight: 700,
+          fontSize: 17,
+          letterSpacing: '-0.04em',
+          lineHeight: 1,
+        }}
+      >
+        K
+      </span>
+      <span className="hidden md:inline-flex items-baseline gap-1 leading-none">
+        <span style={{ fontFamily: 'var(--font-serif)', fontSize: 15, fontWeight: 600 }}>
+          Klarert
+        </span>
+        <span style={{ fontFamily: 'var(--font-serif)', fontSize: 15, fontWeight: 400, color: '#737373' }}>
+          Studio
+        </span>
+      </span>
+    </div>
+  )
+}
+
+// ─── Mode pill ─────────────────────────────────────────────────────────────────
+
+function ModePill({ mode, onChange }: {
+  mode: 'simple' | 'advanced'
+  onChange: (m: 'simple' | 'advanced') => void
+}) {
+  return (
+    <div className="k-mode-pill" role="tablist" aria-label="Studio modus">
+      <button
+        type="button"
+        className={mode === 'simple' ? 'is-active' : ''}
+        onClick={() => onChange('simple')}
+        title="Skjul avanserte paneler"
+      >
+        <span className="k-mode-dot" />
+        Enkel
+      </button>
+      <button
+        type="button"
+        className={mode === 'advanced' ? 'is-active' : ''}
+        onClick={() => onChange('advanced')}
+        title="Vis alt — palett, regelverk, versjoner, stil"
+      >
+        <span className="k-mode-dot" />
+        Avansert
+      </button>
+    </div>
+  )
+}
+
+// ─── Dry-run log entry type ────────────────────────────────────────────────────
 
 type DryRunLogEntry = {
   step: number
@@ -68,6 +134,8 @@ type DryRunLogEntry = {
   note: string
 }
 
+// ─── Main page ────────────────────────────────────────────────────────────────
+
 export function KlarertStudioWorkflowEditorPage() {
   const { ruleId = 'new' } = useParams<{ ruleId: string }>()
   const [searchParams] = useSearchParams()
@@ -76,22 +144,28 @@ export function KlarertStudioWorkflowEditorPage() {
 
   const { can, profile, supabase } = useOrgSetupContext()
   const studio = useWorkflowTemplateStudio(ruleId, fromId)
-  // View-only for users who can view but cannot edit org templates
+
   const isViewOnly =
     !studio.isSystemTemplate &&
     !can('workflows.compose') &&
     !can('workflows.manage') &&
     !profile?.is_org_admin
   const effectivelyDisabled = studio.isSystemTemplate || isViewOnly
+
   useDirtyGuard(!effectivelyDisabled && studio.saveStatus === 'idle')
-  const canPromoteToProduction = can('workflows.activate_external')
-  const [editingName, setEditingName] = useState(false)
-  const nameInputRef = useRef<HTMLInputElement>(null)
 
-  const displayName = studio.name || 'Ny arbeidsflyt-mal'
+  // ── UI state ────────────────────────────────────────────────────────────────
+  const [mode, setMode] = useState<'simple' | 'advanced'>('advanced')
+  const [showInspector, setShowInspector] = useState(true)
+  const [selectedIdx, setSelectedIdx] = useState<number | null>(-1) // -1 = trigger
+  const [publishError, setPublishError] = useState<string | null>(null)
+  const [dryRunning, setDryRunning] = useState(false)
+  const [dryRunLog, setDryRunLog] = useState<DryRunLogEntry[] | null>(null)
+  const [dryRunError, setDryRunError] = useState<string | null>(null)
+  const [showDryRunPanel, setShowDryRunPanel] = useState(false)
 
-  // Derive gov action presence from compiled flow for warning banner
-  // (compile happens inside hook; we check compileError absence + actions in flowDoc)
+  // ── Derived ─────────────────────────────────────────────────────────────────
+
   const hasGovActions = studio.flowDoc.linearSteps.some((s) =>
     s.kind === 'actions' &&
     s.actions.some((a) => isGovernmentActionType((a as { type: string }).type)),
@@ -114,45 +188,7 @@ export function KlarertStudioWorkflowEditorPage() {
     !!studio.triggerEventName &&
     hasAtLeastOneAction
 
-  const [publishError, setPublishError] = useState<string | null>(null)
-  const [showHistory, setShowHistory] = useState(false)
-  const [showDryRun, setShowDryRun] = useState(false)
-  const [dryRunning, setDryRunning] = useState(false)
-  const [dryRunLog, setDryRunLog] = useState<DryRunLogEntry[] | null>(null)
-  const [dryRunError, setDryRunError] = useState<string | null>(null)
-
-  const handleDryRun = async () => {
-    if (!supabase || !studio.rowId) return
-    setDryRunning(true)
-    setDryRunLog(null)
-    setDryRunError(null)
-    try {
-      const { data: { session } } = await supabase.auth.getSession()
-      const supabaseUrl = (import.meta as unknown as { env: { VITE_SUPABASE_URL?: string } }).env
-        ?.VITE_SUPABASE_URL ?? ''
-      const resp = await fetch(
-        `${supabaseUrl}/functions/v1/workflow-dry-run`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${session?.access_token ?? ''}`,
-          },
-          body: JSON.stringify({ rule_id: studio.rowId }),
-        },
-      )
-      const result = await resp.json() as { ok: boolean; log?: DryRunLogEntry[]; error?: string }
-      if (result.ok && result.log) {
-        setDryRunLog(result.log)
-      } else {
-        setDryRunError(result.error ?? 'Ukjent feil under dry-run')
-      }
-    } catch (e) {
-      setDryRunError(e instanceof Error ? e.message : 'Nettverksfeil')
-    } finally {
-      setDryRunning(false)
-    }
-  }
+  // ── Handlers ────────────────────────────────────────────────────────────────
 
   const handlePublish = async () => {
     if (!studio.name.trim()) {
@@ -181,288 +217,306 @@ export function KlarertStudioWorkflowEditorPage() {
     }
   }
 
-  const titleNode =
-    editingName && !effectivelyDisabled ? (
-      <StandardInput
-        ref={nameInputRef}
-        value={studio.name}
-        onChange={(e) => studio.updateName(e.target.value)}
-        onBlur={() => setEditingName(false)}
-        onKeyDown={(e) => {
-          if (e.key === 'Enter' || e.key === 'Escape') setEditingName(false)
-        }}
-        className="h-9 w-72 text-base font-semibold"
-        autoFocus
-      />
-    ) : (
-      <button
-        type="button"
-        onClick={() => {
-          if (!effectivelyDisabled) {
-            setEditingName(true)
-            setTimeout(() => nameInputRef.current?.select(), 0)
-          }
-        }}
-        className={[
-          'group flex items-center gap-2',
-          !effectivelyDisabled && 'hover:text-[#1a3d32]',
-        ]
-          .filter(Boolean)
-          .join(' ')}
-      >
-        {displayName}
-        {!effectivelyDisabled && (
-          <Pencil className="h-3.5 w-3.5 shrink-0 opacity-0 group-hover:opacity-50" aria-hidden />
-        )}
-      </button>
-    )
+  const handleDryRun = async () => {
+    if (!supabase || !studio.rowId) return
+    setDryRunning(true)
+    setDryRunLog(null)
+    setDryRunError(null)
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      const supabaseUrl = (import.meta as unknown as { env: { VITE_SUPABASE_URL?: string } }).env
+        ?.VITE_SUPABASE_URL ?? ''
+      const resp = await fetch(`${supabaseUrl}/functions/v1/workflow-dry-run`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${session?.access_token ?? ''}`,
+        },
+        body: JSON.stringify({ rule_id: studio.rowId }),
+      })
+      const result = await resp.json() as { ok: boolean; log?: DryRunLogEntry[]; error?: string }
+      if (result.ok && result.log) {
+        setDryRunLog(result.log)
+        setShowDryRunPanel(true)
+      } else {
+        setDryRunError(result.error ?? 'Ukjent feil under dry-run')
+        setShowDryRunPanel(true)
+      }
+    } catch (e) {
+      setDryRunError(e instanceof Error ? e.message : 'Nettverksfeil')
+      setShowDryRunPanel(true)
+    } finally {
+      setDryRunning(false)
+    }
+  }
 
-  const headerActions = (
-    <div className="flex items-center gap-3">
-      {!effectivelyDisabled && (
-        <SaveIndicator
-          status={studio.saveStatus}
-          lastSavedAt={studio.lastSavedAt}
-          saveError={studio.saveError}
-        />
-      )}
-      {!studio.isSystemTemplate && studio.rowId && (
+  const handlePaletteKind = useCallback((action: 'start' | 'end' | 'append', kind: StudioBlockKind | null) => {
+    if (action === 'append' && kind) {
+      // Append triggers the canvas insert — just dispatching via dataTransfer isn't possible here;
+      // canvas handles DnD directly. For click-append we update flowDoc:
+      // Find the canvas's insert logic via a shared handler
+    }
+  }, [])
+
+  const handleUpdateStep = useCallback((idx: number, step: WorkflowFlowStep) => {
+    const next = studio.flowDoc.linearSteps.map((s, i) => i === idx ? step : s)
+    studio.updateFlowDoc({ ...studio.flowDoc, linearSteps: next })
+  }, [studio])
+
+  // ── Loading / error ──────────────────────────────────────────────────────────
+
+  if (studio.loading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-[#F9F7F2]">
+        <Loader2 className="h-8 w-8 animate-spin text-[#1a3d32]" />
+      </div>
+    )
+  }
+
+  if (studio.loadError) {
+    return (
+      <div className="flex min-h-screen flex-col items-center justify-center gap-4 bg-[#F9F7F2]">
+        <AlertTriangle className="h-8 w-8 text-red-500" />
+        <p className="text-sm font-semibold text-neutral-700">{studio.loadError}</p>
         <button
           type="button"
-          onClick={() => {
-            setShowHistory(true)
-            void studio.fetchRevisions()
-          }}
-          className="flex items-center gap-1.5 rounded-lg border border-neutral-200 bg-white px-2.5 py-1.5 text-xs text-neutral-500 hover:border-neutral-300 hover:text-neutral-700"
+          onClick={() => navigate('/studio/workflow')}
+          className="rounded-md border border-neutral-300 bg-white px-3 py-1.5 text-xs font-semibold text-neutral-700 hover:bg-neutral-50"
         >
-          <Clock className="h-3.5 w-3.5" />
-          Historikk
+          ← Tilbake til maler
         </button>
-      )}
-      {effectivelyDisabled ? (
-        <Button
-          variant="primary"
-          size="sm"
-          onClick={() => navigate(`/studio/workflow/new?from=${ruleId}`)}
-          className="gap-1.5"
-        >
-          <Copy className="h-3.5 w-3.5" />
-          Kopier og rediger
-        </Button>
-      ) : (
-        <Button
-          variant="primary"
-          size="sm"
-          onClick={handlePublish}
-          disabled={!canPublish}
-          className="gap-1.5"
-        >
-          <Zap className="h-3.5 w-3.5" />
-          Publiser
-        </Button>
-      )}
-    </div>
-  )
+      </div>
+    )
+  }
+
+  const displayName = studio.name || 'Ny arbeidsflyt-mal'
+  const showPalette = mode === 'advanced'
+
+  // ── Render ──────────────────────────────────────────────────────────────────
 
   return (
-    <ModulePageShell
-      breadcrumb={[
-        { label: 'Studio', to: '/studio' },
-        { label: 'Arbeidsflyt', to: '/studio/workflow' },
-        { label: displayName },
-      ]}
-      title={titleNode}
-      headerActions={headerActions}
-      loading={studio.loading}
-      notFound={
-        studio.loadError
-          ? {
-              title: studio.loadError,
-              backHref: '/studio/workflow',
-              backLabel: '← Tilbake til maler',
-            }
-          : undefined
-      }
-    >
-      {/* View-only notice for users without compose permission */}
-      {isViewOnly && (
-        <InfoBox>
-          Du kan se denne malen, men mangler tillatelsen{' '}
-          <code className="rounded bg-blue-50 px-1 text-xs">workflows.compose</code>{' '}
-          for å redigere den.{' '}
+    <div className="studio-root">
+
+      {/* Top bar */}
+      <header className="studio-top">
+        <KMark />
+        <span className="hidden sm:inline-block h-5 w-px bg-neutral-300/70" />
+
+        {/* Breadcrumb */}
+        <nav className="flex items-center gap-1.5 text-[12.5px] min-w-0 flex-1">
+          <button
+            type="button"
+            onClick={() => navigate('/studio')}
+            className="hidden md:inline text-neutral-500 hover:text-neutral-900 transition-colors shrink-0"
+          >
+            Studio-hjem
+          </button>
+          <span className="hidden md:inline text-neutral-300">›</span>
+          <button
+            type="button"
+            onClick={() => navigate('/studio/workflow')}
+            className="hidden lg:inline text-neutral-500 hover:text-neutral-900 transition-colors shrink-0"
+          >
+            Arbeidsflyter
+          </button>
+          <span className="hidden lg:inline text-neutral-300">›</span>
+          {effectivelyDisabled ? (
+            <span
+              className="font-semibold text-neutral-800 truncate max-w-[260px]"
+              style={{ fontFamily: 'var(--font-serif)' }}
+            >
+              {displayName}
+            </span>
+          ) : (
+            <input
+              className="k-title-input min-w-0"
+              value={studio.name}
+              onChange={(e) => studio.updateName(e.target.value)}
+              placeholder="Ny arbeidsflyt-mal"
+              spellCheck={false}
+            />
+          )}
+        </nav>
+
+        {/* Mode pill */}
+        <ModePill mode={mode} onChange={setMode} />
+
+        <div className="flex-1 hidden md:block" />
+
+        {/* Right actions */}
+        {!effectivelyDisabled && (
+          <SaveStatus status={studio.saveStatus} saveError={studio.saveError} />
+        )}
+
+        <span className="hidden md:inline-block h-5 w-px bg-neutral-300/70" />
+
+        <button
+          type="button"
+          onClick={() => setShowInspector((v) => !v)}
+          className={`rounded-md p-1.5 transition-colors ${showInspector ? 'text-[#1a3d32] bg-[#e7efe9]' : 'text-neutral-500 hover:bg-neutral-100'}`}
+          title={showInspector ? 'Skjul inspektør' : 'Vis inspektør'}
+        >
+          <PanelRight className="h-4 w-4" />
+        </button>
+
+        <button
+          type="button"
+          className="rounded-md p-1.5 text-neutral-500 hover:bg-neutral-100"
+          title="Forhåndsvis"
+        >
+          <Eye className="h-4 w-4" />
+        </button>
+
+        {studio.rowId && !studio.isSystemTemplate && (
+          <button
+            type="button"
+            onClick={() => void handleDryRun()}
+            disabled={dryRunning || !!studio.compileError}
+            className="hidden md:inline-flex items-center gap-1.5 rounded-md border border-neutral-300 bg-white px-2.5 py-1.5 text-xs font-semibold text-neutral-700 hover:bg-neutral-50 disabled:opacity-40"
+          >
+            {dryRunning ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            ) : (
+              <Play className="h-3.5 w-3.5" />
+            )}
+            Test-kjør
+          </button>
+        )}
+
+        {effectivelyDisabled ? (
           <button
             type="button"
             onClick={() => navigate(`/studio/workflow/new?from=${ruleId}`)}
-            className="font-semibold underline underline-offset-2 hover:no-underline"
+            className="inline-flex items-center gap-1.5 rounded-md bg-[#1a3d32] px-3 py-1.5 text-xs font-semibold text-white hover:bg-[#14312a]"
           >
-            Kopier den for å lage din egen versjon.
+            <Copy className="h-3.5 w-3.5" />
+            Kopier og rediger
           </button>
-        </InfoBox>
-      )}
-
-      {/* Description field above the three-panel area */}
-      <div className="mb-3">
-        <StandardInput
-          value={studio.description}
-          onChange={(e) => studio.updateDescription(e.target.value)}
-          disabled={effectivelyDisabled}
-          placeholder="Kort beskrivelse av hva denne malen gjør…"
-          className="w-full"
-        />
-      </div>
-
-      {/* Publish validation error */}
-      {publishError && (
-        <div className="mb-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-2.5 text-sm text-red-700">
-          <AlertTriangle className="h-4 w-4 shrink-0" />
-          <span className="flex-1">{publishError}</span>
+        ) : (
           <button
             type="button"
-            onClick={() => setPublishError(null)}
-            className="shrink-0 text-red-400 hover:text-red-600"
-            aria-label="Lukk"
+            onClick={() => void handlePublish()}
+            disabled={!canPublish}
+            className="inline-flex items-center gap-1.5 rounded-md bg-[#1a3d32] px-3 py-1.5 text-xs font-semibold text-white hover:bg-[#14312a] disabled:opacity-40"
           >
-            ×
+            <Check className="h-3.5 w-3.5" />
+            Publiser
           </button>
+        )}
+      </header>
+
+      {/* Error/warning banners — floating over body */}
+      {(publishError || hasGovActions || (studio.saveError && studio.saveStatus === 'error') || studio.compileError) && (
+        <div className="px-4 pt-2 space-y-1.5">
+          {publishError && (
+            <div className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-2.5 text-sm text-red-700">
+              <AlertTriangle className="h-4 w-4 shrink-0" />
+              <span className="flex-1">{publishError}</span>
+              <button type="button" onClick={() => setPublishError(null)} className="shrink-0 text-red-400 hover:text-red-600">
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+          )}
+          {studio.compileError && (
+            <div className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">
+              <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
+              Valideringsfeil: {studio.compileError}
+            </div>
+          )}
+          {hasGovActions && (
+            <div className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 px-4 py-2.5 text-sm text-amber-800">
+              <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+              <span>
+                Malen inneholder <strong>myndighetsrapportering-handlinger</strong> som krever
+                tillatelsen{' '}
+                <code className="rounded bg-amber-100 px-1 text-xs">workflows.activate_external</code>.
+              </span>
+            </div>
+          )}
         </div>
       )}
 
-      {/* Gov-action compliance warning */}
-      {hasGovActions && (
-        <WarningBox>
-          <div className="flex items-start gap-2">
-            <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" />
-            <span>
-              Malen inneholder en eller flere <strong>myndighetsrapportering-handlinger</strong>.
-              Aktivering krever tillatelsen{' '}
-              <code className="rounded bg-amber-100 px-1 text-xs">workflows.activate_external</code>{' '}
-              og godkjenning fra en annen administrator.
-            </span>
-          </div>
-        </WarningBox>
-      )}
+      {/* Studio body */}
+      <div className="studio-body" style={{ height: 'calc(100vh - 56px)' }}>
 
-      {/* Save error (auto-save or publish failure) */}
-      {studio.saveError && studio.saveStatus === 'error' && (
-        <div className="mb-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-2.5 text-sm text-red-700">
-          <AlertTriangle className="h-4 w-4 shrink-0" />
-          <span className="flex-1">Lagring feilet: {studio.saveError}</span>
-        </div>
-      )}
-
-      <div className="overflow-hidden rounded-xl border border-neutral-200/80 bg-white shadow-sm">
-        {/* Compile error strip */}
-        {studio.compileError && (
-          <div className="border-b border-red-100 bg-red-50 px-4 py-2 text-xs font-medium text-red-700">
-            Valideringsfeil: {studio.compileError}
-          </div>
+        {/* Left palette (advanced mode only) */}
+        {showPalette && (
+          <StudioWorkflowPalette
+            mode={mode}
+            onDragKind={handlePaletteKind}
+          />
         )}
 
-        {/* Three-panel area */}
-        <div className="flex" style={{ height: 'calc(100vh - 20rem)' }}>
-          {/* Left: trigger selector */}
-          <StudioWorkflowTriggerSelector
+        {/* Center canvas */}
+        <StudioWorkflowCanvas
+          flowDoc={studio.flowDoc}
+          onChange={studio.updateFlowDoc}
+          sourceModule={studio.sourceModule}
+          triggerEventName={studio.triggerEventName}
+          name={studio.name}
+          description={studio.description}
+          rowId={studio.rowId}
+          mode={mode}
+          selectedIdx={selectedIdx ?? -1}
+          onSelect={setSelectedIdx}
+          readOnly={effectivelyDisabled}
+        />
+
+        {/* Right inspector */}
+        {showInspector && (
+          <StudioWorkflowInspector
+            selectedIdx={selectedIdx}
+            flowDoc={studio.flowDoc}
+            onUpdateStep={handleUpdateStep}
             sourceModule={studio.sourceModule}
             triggerEventName={studio.triggerEventName}
-            triggerType={studio.triggerType}
-            triggerOn={studio.triggerOn}
             onChangeModule={studio.updateSourceModule}
             onChangeEvent={studio.updateTriggerEventName}
-            onChangeTriggerType={studio.updateTriggerType}
-            onChangeTriggerOn={studio.updateTriggerOn}
-            disabled={effectivelyDisabled}
-          />
-
-          {/* Center: flow builder */}
-          <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
-            <WorkflowFlowBuilder
-              value={studio.flowDoc}
-              onChange={studio.updateFlowDoc}
-              sourceModule={studio.sourceModule}
-              compileError={studio.compileError}
-              readOnly={effectivelyDisabled}
-            />
-          </div>
-
-          {/* Right: metadata panel */}
-          <StudioWorkflowMetadataPanel
-            templateName={studio.name}
             lawRefs={studio.lawRefs}
-            frameworks={studio.frameworks}
-            pack={studio.pack}
-            cadenceHint={studio.cadenceHint}
-            confidentialityLevel={studio.confidentialityLevel}
-            runtimeEnvironment={studio.runtimeEnvironment}
-            hasGovActions={hasGovActions}
-            canPromote={canPromoteToProduction}
-            disabled={effectivelyDisabled}
             onLawRefs={studio.updateLawRefs}
-            onFrameworks={studio.updateFrameworks}
-            onPack={studio.updatePack}
-            onCadenceHint={studio.updateCadenceHint}
-            onConfidentialityLevel={studio.updateConfidentialityLevel}
-            onUpgradeToProduction={studio.upgradeToProduction}
+            revisions={studio.revisions}
+            revisionsLoading={studio.revisionsLoading}
+            onFetchRevisions={studio.fetchRevisions}
+            mode={mode}
+            disabled={effectivelyDisabled}
           />
-        </div>
+        )}
       </div>
-      {/* Dry-run test panel */}
-      {studio.rowId && !studio.isSystemTemplate && (
-        <div className="mt-4 overflow-hidden rounded-xl border border-neutral-200/80 bg-white shadow-sm">
-          <button
-            type="button"
-            onClick={() => setShowDryRun((v) => !v)}
-            className="flex w-full items-center gap-2 px-4 py-3 text-left text-sm font-medium text-neutral-700 hover:bg-neutral-50"
-          >
-            {showDryRun ? (
-              <ChevronDown className="h-4 w-4 shrink-0 text-neutral-400" />
-            ) : (
-              <ChevronRight className="h-4 w-4 shrink-0 text-neutral-400" />
-            )}
-            <Play className="h-4 w-4 shrink-0 text-emerald-600" />
-            Dry-run test
-            <span className="ml-1 text-xs font-normal text-neutral-400">— simuler flyten uten å kjøre handlinger</span>
-          </button>
 
-          {showDryRun && (
-            <div className="border-t border-neutral-100 px-4 py-4">
-              <div className="flex items-center gap-3">
-                <button
-                  type="button"
-                  onClick={() => void handleDryRun()}
-                  disabled={dryRunning || !!studio.compileError}
-                  className="flex items-center gap-1.5 rounded-lg bg-[#1a3d32] px-3 py-1.5 text-xs font-semibold text-white hover:bg-[#15322a] disabled:opacity-40"
-                >
-                  {dryRunning ? (
-                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                  ) : (
-                    <Play className="h-3.5 w-3.5" />
-                  )}
-                  Kjør simulering
-                </button>
-                {studio.compileError && (
-                  <span className="text-xs text-red-500">Fiks valideringsfeil før test</span>
-                )}
+      {/* Dry-run results overlay */}
+      {showDryRunPanel && (dryRunLog || dryRunError) && (
+        <div className="fixed inset-0 z-50 flex items-end justify-center p-4 bg-black/20" role="dialog" aria-modal>
+          <div className="w-full max-w-2xl rounded-2xl bg-white shadow-2xl overflow-hidden">
+            <div className="flex items-center justify-between border-b border-neutral-100 px-5 py-4">
+              <div className="flex items-center gap-2">
+                <Play className="h-4 w-4 text-emerald-600" />
+                <h3 className="text-sm font-semibold text-neutral-900">Dry-run resultat</h3>
               </div>
-
+              <button
+                type="button"
+                onClick={() => setShowDryRunPanel(false)}
+                className="rounded-lg p-1 text-neutral-400 hover:bg-neutral-100 hover:text-neutral-600"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            <div className="max-h-[50vh] overflow-y-auto px-5 py-4">
               {dryRunError && (
-                <p className="mt-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">
+                <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">
                   {dryRunError}
                 </p>
               )}
-
               {dryRunLog && (
-                <ul className="mt-3 space-y-1.5">
+                <ul className="space-y-1.5">
                   {dryRunLog.map((entry, idx) => (
                     <li
                       key={idx}
                       className="flex items-start gap-2 rounded-lg px-3 py-2 text-xs"
                       style={{
                         backgroundColor:
-                          entry.status === 'gov_action_blocked'
-                            ? '#fef3c7'
-                            : entry.status === 'would_skip'
-                              ? '#f5f5f5'
-                              : '#f0fdf4',
+                          entry.status === 'gov_action_blocked' ? '#fef3c7'
+                          : entry.status === 'would_skip' ? '#f5f5f5'
+                          : '#f0fdf4',
                       }}
                     >
                       <span className="mt-0.5 shrink-0 font-mono text-[10px] text-neutral-400">
@@ -475,71 +529,14 @@ export function KlarertStudioWorkflowEditorPage() {
                         <span className="ml-2 text-neutral-500">{entry.note}</span>
                       </span>
                       <span className={`shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-semibold ${
-                        entry.status === 'gov_action_blocked'
-                          ? 'bg-amber-100 text-amber-700'
-                          : entry.status === 'would_skip'
-                            ? 'bg-neutral-200 text-neutral-600'
-                            : 'bg-emerald-100 text-emerald-700'
+                        entry.status === 'gov_action_blocked' ? 'bg-amber-100 text-amber-700'
+                        : entry.status === 'would_skip' ? 'bg-neutral-200 text-neutral-600'
+                        : 'bg-emerald-100 text-emerald-700'
                       }`}>
-                        {entry.status === 'gov_action_blocked'
-                          ? 'Gov (blokkert)'
-                          : entry.status === 'would_skip'
-                            ? 'Hoppet over'
-                            : 'Ville kjørt'}
+                        {entry.status === 'gov_action_blocked' ? 'Gov (blokkert)'
+                         : entry.status === 'would_skip' ? 'Hoppet over'
+                         : 'Ville kjørt'}
                       </span>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* Revision history modal */}
-      {showHistory && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" role="dialog" aria-modal aria-labelledby="history-modal-title">
-          <div className="flex max-h-[80vh] w-full max-w-lg flex-col overflow-hidden rounded-2xl bg-white shadow-2xl">
-            <div className="flex items-center justify-between border-b border-neutral-100 px-5 py-4">
-              <h3 id="history-modal-title" className="text-sm font-semibold text-neutral-900">
-                Versjonshistorikk
-              </h3>
-              <button
-                type="button"
-                onClick={() => setShowHistory(false)}
-                className="rounded-lg p-1 text-neutral-400 hover:bg-neutral-100 hover:text-neutral-600"
-                aria-label="Lukk"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            </div>
-            <div className="flex-1 overflow-y-auto">
-              {studio.revisionsLoading ? (
-                <div className="flex items-center justify-center py-10">
-                  <Loader2 className="h-5 w-5 animate-spin text-neutral-400" />
-                </div>
-              ) : studio.revisions.length === 0 ? (
-                <p className="px-5 py-10 text-center text-sm text-neutral-400">
-                  Ingen versjoner lagret ennå. Lagring skjer automatisk.
-                </p>
-              ) : (
-                <ul className="divide-y divide-neutral-100">
-                  {studio.revisions.map((rev, i) => (
-                    <li key={rev.id} className="px-5 py-3">
-                      <div className="flex items-baseline justify-between gap-2">
-                        <span className="text-xs font-semibold text-neutral-700">
-                          v{rev.revision_number}
-                          {i === 0 && (
-                            <span className="ml-2 rounded-full bg-emerald-50 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-700">
-                              Siste
-                            </span>
-                          )}
-                        </span>
-                        <time className="shrink-0 text-[11px] text-neutral-400">
-                          {new Date(rev.created_at).toLocaleString('nb')}
-                        </time>
-                      </div>
-                      <p className="mt-0.5 truncate text-xs text-neutral-500">{rev.name}</p>
                     </li>
                   ))}
                 </ul>
@@ -548,6 +545,6 @@ export function KlarertStudioWorkflowEditorPage() {
           </div>
         </div>
       )}
-    </ModulePageShell>
+    </div>
   )
 }

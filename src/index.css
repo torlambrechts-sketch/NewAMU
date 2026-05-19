@@ -64,3 +64,301 @@
 .docs-module-shell {
   font-size: var(--doc-font-size, 1rem);
 }
+
+/* ─── Klarert Studio ──────────────────────────────────────────────
+   Full-bleed editing surface for the workflow / form / dashboard
+   Studio editors. These classes must NOT conflict with module shells.
+   Design tokens mirror /tmp/klarert-studio/project/studio.css.
+   ────────────────────────────────────────────────────────────── */
+
+:root {
+  --studio-bg: #F9F7F2;
+  --studio-paper: #fbf9f3;
+  --studio-ink: #1d1f1c;
+  --studio-line: #e3ddcc;
+  --studio-line-soft: #ede7d4;
+  --kpi-cream: #F1ECDF;
+  --shadow-card: 0 1px 2px rgba(0,0,0,0.04);
+}
+
+.studio-root {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background: var(--studio-bg);
+  color: var(--studio-ink);
+  -webkit-font-smoothing: antialiased;
+}
+
+.studio-body {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+}
+
+/* Top bar */
+.studio-top {
+  height: 56px;
+  background: var(--studio-bg);
+  border-bottom: 1px solid rgba(0,0,0,0.06);
+  display: flex;
+  align-items: center;
+  padding: 0 20px;
+  gap: 16px;
+  position: sticky;
+  top: 0;
+  z-index: 30;
+}
+
+/* Inline editable title in chrome */
+.k-title-input {
+  font-family: var(--font-serif);
+  font-weight: 600;
+  font-size: 15px;
+  letter-spacing: -0.01em;
+  background: transparent;
+  border: 1px solid transparent;
+  padding: 4px 8px;
+  border-radius: 6px;
+  outline: none;
+  color: var(--studio-ink);
+  min-width: 120px;
+  width: 100%;
+  max-width: 360px;
+  transition: border-color .12s, background-color .12s;
+}
+.k-title-input:hover { border-color: rgba(0,0,0,0.08); background: #fff; }
+.k-title-input:focus { border-color: rgba(26,61,50,0.4); background: #fff; }
+
+/* Mode pill */
+.k-mode-pill {
+  display: inline-flex;
+  padding: 3px;
+  background: #fff;
+  border-radius: 999px;
+  border: 1px solid rgba(0,0,0,0.08);
+  gap: 0;
+}
+.k-mode-pill button {
+  position: relative;
+  padding: 5px 12px 5px 24px;
+  font-size: 11.5px;
+  font-weight: 600;
+  border-radius: 999px;
+  color: rgba(0,0,0,0.55);
+  transition: background-color .15s, color .15s;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.k-mode-pill button:hover { color: rgba(0,0,0,0.85); background: rgba(0,0,0,0.03); }
+.k-mode-pill button.is-active { background: var(--forest); color: #fff; }
+.k-mode-pill button.is-active:hover { background: var(--forest); }
+.k-mode-pill button .k-mode-dot {
+  position: absolute;
+  left: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 7px; height: 7px;
+  border-radius: 50%;
+  background: rgba(0,0,0,0.20);
+  transition: background-color .15s;
+}
+.k-mode-pill button.is-active .k-mode-dot { background: #fff; }
+
+/* Notion-style block */
+.k-block {
+  position: relative;
+  padding: 14px 18px 14px 52px;
+  border-radius: 12px;
+  border: 1px solid transparent;
+  background: #fff;
+  transition: border-color .12s, box-shadow .12s;
+}
+.k-block:hover { border-color: rgba(0,0,0,0.06); }
+.k-block.is-selected {
+  border-color: rgba(26,61,50,0.45);
+  box-shadow: 0 0 0 3px rgba(26,61,50,0.10), var(--shadow-card);
+}
+.k-block.is-dragging { opacity: 0.4; }
+.k-block.is-disabled { opacity: 0.55; }
+
+/* Hover-only block handles */
+.k-block-handles {
+  position: absolute;
+  left: 12px;
+  top: 14px;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  opacity: 0;
+  transition: opacity .12s;
+}
+.k-block:hover .k-block-handles,
+.k-block.is-selected .k-block-handles,
+.k-block.is-dragging .k-block-handles { opacity: 1; }
+.k-block-handle {
+  width: 18px; height: 22px;
+  display: inline-flex; align-items: center; justify-content: center;
+  border-radius: 4px;
+  color: rgba(0,0,0,0.32);
+  cursor: grab;
+  background: transparent;
+  border: 0;
+  transition: background-color .12s, color .12s;
+}
+.k-block-handle:hover { background: rgba(0,0,0,0.05); color: rgba(0,0,0,0.7); }
+.k-block-handle.is-add { color: rgba(0,0,0,0.35); }
+.k-block-handle:active { cursor: grabbing; }
+
+/* Insert-between affordance */
+.k-insert-row {
+  position: relative;
+  height: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.k-insert-row.is-drop { height: 28px; }
+.k-insert-line {
+  width: 100%;
+  height: 1px;
+  background: transparent;
+  border-radius: 1px;
+  transition: background-color .12s, height .12s;
+}
+.k-insert-row.is-drop .k-insert-line {
+  background: var(--forest);
+  height: 2px;
+}
+.k-insert-btn {
+  position: absolute;
+  width: 20px; height: 20px;
+  border-radius: 10px;
+  background: #fff;
+  border: 1px solid rgba(0,0,0,0.10);
+  color: rgba(0,0,0,0.55);
+  font-size: 13px;
+  display: flex; align-items: center; justify-content: center;
+  opacity: 0;
+  transition: opacity .12s, border-color .12s, color .12s, background-color .12s;
+  cursor: pointer;
+}
+.k-insert-row:hover .k-insert-btn { opacity: 1; }
+.k-insert-btn:hover {
+  border-color: var(--forest);
+  color: var(--forest);
+  background: var(--forest-soft);
+}
+
+/* Step number */
+.k-step-number {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px; height: 28px;
+  border-radius: 14px;
+  background: var(--kpi-cream);
+  color: var(--forest);
+  font-size: 12px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  transition: background-color .12s, color .12s;
+  flex-shrink: 0;
+}
+.k-step-number.is-active { background: var(--forest); color: #fff; }
+
+/* Inspector panel */
+.studio-inspector {
+  width: 340px;
+  flex-shrink: 0;
+  background: #fff;
+  border-left: 1px solid rgba(0,0,0,0.06);
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+}
+
+/* Left palette */
+.studio-palette {
+  width: 240px;
+  flex-shrink: 0;
+  background: var(--studio-bg);
+  border-right: 1px solid rgba(0,0,0,0.06);
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+}
+
+/* Canvas */
+.studio-canvas {
+  flex: 1;
+  min-width: 0;
+  overflow-y: auto;
+  position: relative;
+  background: var(--studio-bg);
+}
+
+/* Tab strip in inspector */
+.k-itabs {
+  display: flex;
+  border-bottom: 1px solid rgba(0,0,0,0.06);
+  padding: 0 6px;
+  gap: 2px;
+  flex-shrink: 0;
+}
+.k-itab {
+  padding: 10px 10px 8px;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: rgba(0,0,0,0.5);
+  border-bottom: 2px solid transparent;
+  transition: color .12s, border-color .12s;
+  display: inline-flex; align-items: center; gap: 5px;
+  position: relative;
+  background: transparent;
+  border-left: 0; border-right: 0; border-top: 0;
+  cursor: pointer;
+}
+.k-itab:hover { color: rgba(0,0,0,0.85); }
+.k-itab.is-active { color: var(--forest); border-bottom-color: var(--forest); }
+.k-itab.is-locked { color: rgba(0,0,0,0.30); cursor: not-allowed; }
+
+/* Eyebrow */
+.k-eyebrow {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: #525252;
+}
+
+/* Minimap block */
+.k-minimap-block {
+  height: 12px;
+  border-radius: 3px;
+  background: #fff;
+  border: 1px solid rgba(0,0,0,0.08);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0 4px;
+  cursor: pointer;
+  transition: border-color .12s, background-color .12s;
+}
+.k-minimap-block:hover { border-color: var(--forest); }
+.k-minimap-block.is-active { background: var(--forest-soft); border-color: var(--forest); }
+.k-minimap-block .k-mm-dot {
+  width: 4px; height: 4px; border-radius: 50%; flex-shrink: 0;
+}
+.k-minimap-block .k-mm-bar {
+  flex: 1; height: 2px; border-radius: 1px; background: rgba(0,0,0,0.12);
+}
+.k-minimap-block.is-active .k-mm-bar { background: var(--forest); }
+
+/* Saved status pulse */
+@keyframes pulse-dot {
+  0%, 100% { opacity: 0.45; }
+  50% { opacity: 1; }
+}
+.k-pulse { animation: pulse-dot 1.4s ease-in-out infinite; }
