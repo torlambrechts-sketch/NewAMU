@@ -35,7 +35,7 @@ const PALETTE_ICONS: Record<string, LucideIcon> = {
 }
 
 function paletteItemId(item: PaletteItem) {
-  return `${PALETTE_DRAG_PREFIX}${item.kind}:${item.questionType ?? ''}`
+  return item.dragId ?? `${PALETTE_DRAG_PREFIX}${item.kind}:${item.questionType ?? ''}`
 }
 
 function PaletteChip({
@@ -84,7 +84,7 @@ function PaletteChip({
 }
 
 type Props = {
-  advanced: boolean
+  advanced?: boolean
   disabled?: boolean
   onAdd?: (item: PaletteItem) => void
   /** Override the default SURVEY_PALETTE. Useful for checklist / other editors. */
@@ -94,7 +94,7 @@ type Props = {
 }
 
 export function StudioBlockPalette({
-  advanced,
+  advanced = false,
   disabled = false,
   onAdd,
   items,

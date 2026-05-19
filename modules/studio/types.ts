@@ -64,6 +64,11 @@ export type PaletteItem = {
   label: string
   hint: string
   advancedOnly?: boolean
+  /** Override the computed drag ID (palette:<kind>:<questionType>). Use when
+   *  multiple palette items share the same kind+questionType combination —
+   *  e.g. register field types all adapt to kind='question', so each needs a
+   *  unique dragId to avoid DnD-kit collision. */
+  dragId?: string
 }
 
 export const SURVEY_PALETTE: PaletteItem[] = [

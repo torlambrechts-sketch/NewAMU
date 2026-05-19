@@ -116,49 +116,64 @@ export function useRegisterTypeStudio(typeId: string, fromTypeId?: string) {
     const idToLoad = typeId === 'new' ? fromTypeId! : typeId
     setLoading(true)
 
-    void supabase
-      .from('register_types')
-      .select('*')
-      .eq('id', idToLoad)
-      .maybeSingle()
-      .then(({ data, error }) => {
-        if (error || !data) {
-          setLoadError(error?.message ?? 'Fant ikke registertypen.')
-          setLoading(false)
-          return
-        }
-
-        const row = data as {
-          id: string
-          organization_id: string | null
-          name: string
-          description: string | null
-          metadata_schema: unknown
-          is_active: boolean
-          is_system: boolean
-        }
-        const isSys = row.is_system && row.organization_id == null
-
-        setTypeName(typeId === 'new' ? `${row.name} (kopi)` : row.name)
-        setTypeDescription(row.description ?? '')
-        setTypeNavPinned(true) // copies start pinned; editing preserves via settings upsert
-        setIsSystemType(isSys && typeId !== 'new')
-
-        const rawFields: unknown[] =
-          row.metadata_schema != null &&
-          typeof row.metadata_schema === 'object' &&
-          'fields' in (row.metadata_schema as object)
-            ? ((row.metadata_schema as { fields: unknown[] }).fields ?? [])
-            : []
-
-        setBlocks(initBlocksFromFields(rawFields))
-
-        if (typeId !== 'new') {
-          rowIdRef.current = row.id
-          setRowId(row.id)
-        }
+    // Load type + org settings in parallel so nav_pinned is read correctly.
+    void Promise.all([
+      supabase
+        .from('register_types')
+        .select('*')
+        .eq('id', idToLoad)
+        .maybeSingle(),
+      typeId !== 'new'
+        ? supabase
+            .from('register_org_settings')
+            .select('nav_pinned')
+            .eq('organization_id', organization.id)
+            .eq('register_type_id', idToLoad)
+            .maybeSingle()
+        : Promise.resolve({ data: null, error: null }),
+    ]).then(([typeRes, settingsRes]) => {
+      if (typeRes.error || !typeRes.data) {
+        setLoadError(typeRes.error?.message ?? 'Fant ikke registertypen.')
         setLoading(false)
-      })
+        return
+      }
+
+      const row = typeRes.data as {
+        id: string
+        organization_id: string | null
+        name: string
+        description: string | null
+        metadata_schema: unknown
+        is_active: boolean
+        is_system: boolean
+      }
+      const isSys = row.is_system && row.organization_id == null
+
+      setTypeName(typeId === 'new' ? `${row.name} (kopi)` : row.name)
+      setTypeDescription(row.description ?? '')
+      // For a fork/copy, start pinned. For editing, use saved setting (default true if no settings row).
+      const savedNavPinned =
+        typeId !== 'new'
+          ? ((settingsRes.data as { nav_pinned?: boolean } | null)?.nav_pinned ?? true)
+          : true
+      setTypeNavPinned(savedNavPinned)
+      setIsSystemType(isSys && typeId !== 'new')
+
+      const rawFields: unknown[] =
+        row.metadata_schema != null &&
+        typeof row.metadata_schema === 'object' &&
+        'fields' in (row.metadata_schema as object)
+          ? ((row.metadata_schema as { fields: unknown[] }).fields ?? [])
+          : []
+
+      setBlocks(initBlocksFromFields(rawFields))
+
+      if (typeId !== 'new') {
+        rowIdRef.current = row.id
+        setRowId(row.id)
+      }
+      setLoading(false)
+    })
   }, [supabase, organization?.id, typeId, fromTypeId])
 
   // ─── Sync refs ────────────────────────────────────────────────────────────

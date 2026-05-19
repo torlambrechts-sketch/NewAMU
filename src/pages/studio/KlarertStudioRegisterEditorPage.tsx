@@ -42,24 +42,31 @@ import {
 } from '../../../modules/studio/register/registerFieldBlocks'
 import type { PaletteItem } from '../../../modules/studio/types'
 
-// Adapt RegisterPaletteItem → generic PaletteItem for StudioBlockPalette rendering.
+// Each register palette item is adapted to kind='question' for the generic
+// StudioBlockPalette renderer, but given a unique dragId so DnD-kit can
+// distinguish them — without this every chip would share id 'palette:question:text'.
+const REGISTER_PALETTE_DRAG_PREFIX = `${PALETTE_DRAG_PREFIX}register:`
+
 function toRenderPaletteItem(item: RegisterPaletteItem): PaletteItem {
-  return { kind: 'question', questionType: 'text', label: item.label, hint: item.hint }
+  return {
+    kind: 'question',
+    questionType: 'text',
+    label: item.label,
+    hint: item.hint,
+    dragId: `${REGISTER_PALETTE_DRAG_PREFIX}${item.fieldKind}`,
+  }
 }
 
-// Stable lookup: drag-id → RegisterPaletteItem
-function buildPaletteMap(): Record<string, RegisterPaletteItem> {
-  const map: Record<string, RegisterPaletteItem> = {}
-  for (const item of REGISTER_FIELD_PALETTE) {
-    const renderedId = `${PALETTE_DRAG_PREFIX}question:text`
-    // Register by original field kind too
-    map[`${PALETTE_DRAG_PREFIX}${item.fieldKind}:`] = item
-    map[renderedId] = item // overwritten each time; last item's generic hit
-    // Keyed lookup by label suffix for disambiguation
-    map[`${PALETTE_DRAG_PREFIX}register:${item.fieldKind}`] = item
-  }
-  return map
-}
+// Module-level constants — built once, never re-rendered.
+const GENERIC_PALETTE: PaletteItem[] = REGISTER_FIELD_PALETTE.map(toRenderPaletteItem)
+
+// drag-id → RegisterPaletteItem, keyed by the same dragId used above.
+const PALETTE_MAP: Record<string, RegisterPaletteItem> = Object.fromEntries(
+  REGISTER_FIELD_PALETTE.map((item) => [
+    `${REGISTER_PALETTE_DRAG_PREFIX}${item.fieldKind}`,
+    item,
+  ]),
+)
 
 function SaveIndicator({
   status,
@@ -117,12 +124,7 @@ export function KlarertStudioRegisterEditorPage() {
     useSensor(TouchSensor, { activationConstraint: { delay: 200, tolerance: 5 } }),
   )
 
-  // Palette items adapted for generic renderer — use label as unique key
-  const genericPalette: PaletteItem[] = REGISTER_FIELD_PALETTE.map(toRenderPaletteItem)
-
-  // For DnD resolution we use the fieldKind embedded in the drag id (see handleDragEnd)
-  // rather than the over-simplified generic PaletteItem.
-  const paletteMap = buildPaletteMap()
+  // Use module-level constants — no per-render allocation needed.
 
   const handleAdd = useCallback(
     (block: Omit<RegisterFieldBlock, 'id'>, atIndex?: number) => {
@@ -154,12 +156,8 @@ export function KlarertStudioRegisterEditorPage() {
     const overId = String(over.id)
 
     if (activeId.startsWith(PALETTE_DRAG_PREFIX)) {
-      // Extract field kind from drag data if available, else fall back to first palette item
-      const data = active.data?.current as { registerPaletteItem?: RegisterPaletteItem } | undefined
-      const paletteItem: RegisterPaletteItem =
-        data?.registerPaletteItem ??
-        paletteMap[activeId] ??
-        REGISTER_FIELD_PALETTE[0]
+      // dragId = `palette:register:<fieldKind>` — direct lookup in PALETTE_MAP.
+      const paletteItem: RegisterPaletteItem = PALETTE_MAP[activeId] ?? REGISTER_FIELD_PALETTE[0]
 
       const newBlock = buildNewRegisterFieldBlock(paletteItem)
       const ids = studio.blocks.map((b) => b.id)
@@ -181,16 +179,14 @@ export function KlarertStudioRegisterEditorPage() {
     }
   }
 
-  // Palette click — StudioBlockPalette calls back with generic PaletteItem;
-  // we map by index since all register palette items adapt to kind='question',questionType='text'.
+  // Palette click — StudioBlockPalette calls back with generic PaletteItem.
+  // The dragId on the item encodes the fieldKind; use it for direct lookup.
   const handleGenericPaletteAdd = useCallback(
     (genericItem: PaletteItem) => {
       if (studio.isSystemType) return
-      const idx = genericPalette.findIndex((p) => p.label === genericItem.label)
-      const paletteItem = idx >= 0 ? REGISTER_FIELD_PALETTE[idx] : REGISTER_FIELD_PALETTE[0]
+      const paletteItem = genericItem.dragId ? (PALETTE_MAP[genericItem.dragId] ?? REGISTER_FIELD_PALETTE[0]) : REGISTER_FIELD_PALETTE[0]
       handleAdd(buildNewRegisterFieldBlock(paletteItem))
     },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
     [studio.isSystemType, handleAdd],
   )
 
@@ -335,7 +331,7 @@ export function KlarertStudioRegisterEditorPage() {
             <StudioBlockPalette
               disabled={studio.isSystemType}
               onAdd={handleGenericPaletteAdd}
-              items={genericPalette}
+              items={GENERIC_PALETTE}
               hintText="Dra inn felttyper for registertypen."
             />
 
@@ -374,8 +370,7 @@ export function KlarertStudioRegisterEditorPage() {
               (() => {
                 const activeId = String(activeItem.id)
                 if (activeId.startsWith(PALETTE_DRAG_PREFIX)) {
-                  const data = activeItem.data?.current as { registerPaletteItem?: RegisterPaletteItem } | undefined
-                  const paletteItem = data?.registerPaletteItem ?? paletteMap[activeId]
+                  const paletteItem = PALETTE_MAP[activeId]
                   return paletteItem ? (
                     <div className="flex items-center gap-2.5 rounded-lg border border-neutral-300 bg-white px-3 py-2 text-sm shadow-lg opacity-90">
                       <span className="font-medium text-neutral-900">{paletteItem.label}</span>

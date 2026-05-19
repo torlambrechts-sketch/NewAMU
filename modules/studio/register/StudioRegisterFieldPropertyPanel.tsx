@@ -42,9 +42,13 @@ export function StudioRegisterFieldPropertyPanel({ block, onUpdate, onDeselect }
     })
   }
 
-  function updateOption(index: number, field: 'value' | 'label', val: string) {
+  function updateOptionLabel(index: number, newLabel: string) {
     const current = block!.options ?? []
-    const next = current.map((o, i) => (i === index ? { ...o, [field]: val } : o))
+    const next = current.map((o, i) =>
+      i === index
+        ? { label: newLabel, value: slugify(newLabel) || o.value }
+        : o,
+    )
     onUpdate(block!.id, { options: next })
   }
 
@@ -134,7 +138,7 @@ export function StudioRegisterFieldPropertyPanel({ block, onUpdate, onDeselect }
             <div key={i} className="flex items-center gap-1.5">
               <StandardInput
                 value={opt.label}
-                onChange={(e) => updateOption(i, 'label', e.target.value)}
+                onChange={(e) => updateOptionLabel(i, e.target.value)}
                 placeholder={`Alternativ ${i + 1}`}
                 className="flex-1 text-xs"
               />
@@ -172,4 +176,12 @@ export function StudioRegisterFieldPropertyPanel({ block, onUpdate, onDeselect }
 
 function freshOptionValue(index: number) {
   return `option_${index + 1}`
+}
+
+function slugify(text: string): string {
+  return text
+    .toLowerCase()
+    .replace(/\s+/g, '_')
+    .replace(/[^a-z0-9_]/g, '')
+    .slice(0, 40)
 }
