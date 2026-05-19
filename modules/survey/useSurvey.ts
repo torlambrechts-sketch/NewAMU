@@ -1,8 +1,10 @@
-import { useCallback, useState } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { useOrgSetupContext } from '../../src/hooks/useOrgSetupContext'
 import { getSupabaseErrorMessage } from '../../src/lib/supabaseError'
 import { fetchOrgModulePayload } from '../../src/lib/orgModulePayload'
+import { emitAuditEvent } from '../../src/lib/audit/emitAuditEvent'
+import type { Diff } from '../../src/lib/audit/diffShape'
 import { parseSurveyModuleSettings } from './surveyAdminSettingsSchema'
 import type {
   SurveyRow,
@@ -230,10 +232,61 @@ export type UseSurveyState = {
 
 type UseSurveyInput = { supabase: Supabase | null }
 
+// Diff between a survey row before/after updateSurvey patch. We log only
+// the fields the user actually touched (patch keys), skip status (covered
+// by the explicit publisert/lukket verbs), and omit timestamp churn.
+function buildSurveyDiff(
+  before: SurveyRow,
+  patch: Partial<SurveyRow>,
+): Diff | null {
+  const changes: Array<{
+    field_label_nb: string
+    before: { display: string; semantic?: 'date' | 'plain' }
+    after: { display: string; semantic?: 'date' | 'plain' }
+  }> = []
+  const LABELS: Record<string, { label: string; semantic?: 'date' | 'plain' }> = {
+    title: { label: 'Tittel' },
+    description: { label: 'Beskrivelse' },
+    survey_purpose: { label: 'Formål' },
+    survey_amu_summary: { label: 'AMU-sammendrag' },
+    start_date: { label: 'Startdato', semantic: 'date' },
+    end_date: { label: 'Sluttdato', semantic: 'date' },
+    vendor_name: { label: 'Leverandør' },
+    is_anonymous: { label: 'Anonymitet' },
+  }
+  for (const key of Object.keys(patch) as (keyof SurveyRow)[]) {
+    const cfg = LABELS[key as string]
+    if (!cfg) continue
+    const b = (before as Record<string, unknown>)[key]
+    const a = (patch as Record<string, unknown>)[key]
+    if (b === a) continue
+    const bStr = b == null || b === '' ? '(ingen verdi)' : String(b)
+    const aStr = a == null || a === '' ? '(ingen verdi)' : String(a)
+    if (bStr === aStr) continue
+    changes.push({
+      field_label_nb: cfg.label,
+      before: { display: bStr, semantic: b ? (cfg.semantic ?? 'plain') : 'plain' },
+      after: { display: aStr, semantic: a ? (cfg.semantic ?? 'plain') : 'plain' },
+    })
+  }
+  if (changes.length === 0) return null
+  if (changes.length === 1) {
+    const c = changes[0]
+    return { kind: 'single_field', field_label_nb: c.field_label_nb, before: c.before, after: c.after }
+  }
+  return { kind: 'multi_field', changes }
+}
+
 export function useSurvey({ supabase }: UseSurveyInput): UseSurveyState {
-  const { organization, can, isAdmin, user } = useOrgSetupContext()
+  const { organization, can, isAdmin, user, profile } = useOrgSetupContext()
   const orgId = organization?.id
   const canManage = isAdmin || can('survey.manage')
+  // Display name for audit summary — re-resolved server-side so this is
+  // just for the local Norwegian sentence rendering. See spec §5.
+  const actorName = useMemo(
+    () => profile?.display_name ?? user?.email ?? 'Bruker',
+    [profile, user],
+  )
 
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -577,13 +630,37 @@ export function useSurvey({ supabase }: UseSurveyInput): UseSurveyState {
         const p = parseSurveyRow(data)
         if (!p.success) throw new Error('Ugyldig svar fra database')
         setSurveys((prev) => [p.data, ...prev])
+
+        void emitAuditEvent(supabase, {
+          scopeId: 'survey',
+          entityKind: 'survey',
+          entityId: p.data.id,
+          actorName,
+          summary: { kind: 'preset', preset: 'undersokelse_opprettet' },
+          diff: {
+            kind: 'multi_field',
+            changes: [
+              {
+                field_label_nb: 'Tittel',
+                before: { display: '(ingen verdi)', semantic: 'plain' },
+                after: { display: p.data.title, semantic: 'plain' },
+              },
+              {
+                field_label_nb: 'Status',
+                before: { display: '(ingen verdi)', semantic: 'plain' },
+                after: { display: 'Kladd', semantic: 'status' },
+              },
+            ],
+          },
+        })
+
         return p.data
       } catch (err) {
         setError(getSupabaseErrorMessage(err))
         return null
       }
     },
-    [supabase, assertOrg, requireManage],
+    [supabase, assertOrg, requireManage, actorName],
   )
 
   const updateSurvey = useCallback(
@@ -618,6 +695,8 @@ export function useSurvey({ supabase }: UseSurveyInput): UseSurveyState {
       const oid = assertOrg()
       if (!oid) return false
       setError(null)
+      // Capture the row before update so we can build the audit diff.
+      const before = surveys.find((s) => s.id === surveyId)
       try {
         const { error: e } = await supabase
           .from('surveys')
@@ -627,13 +706,35 @@ export function useSurvey({ supabase }: UseSurveyInput): UseSurveyState {
         if (e) throw e
         setSurveys((prev) => prev.map((s) => (s.id === surveyId ? { ...s, ...patch } : s)))
         setSelectedSurvey((prev) => (prev?.id === surveyId ? { ...prev, ...patch } : prev))
+
+        // Pick verb based on status transition; otherwise generic endret.
+        if (before) {
+          const diff = buildSurveyDiff(before, patch)
+          if (diff || patch.status !== before.status) {
+            const preset =
+              patch.status === 'active' && before.status !== 'active'
+                ? 'undersokelse_publisert'
+                : patch.status === 'closed' && before.status !== 'closed'
+                  ? 'undersokelse_lukket'
+                  : 'undersokelse_endret'
+            void emitAuditEvent(supabase, {
+              scopeId: 'survey',
+              entityKind: 'survey',
+              entityId: surveyId,
+              actorName,
+              summary: { kind: 'preset', preset },
+              diff,
+            })
+          }
+        }
+
         return true
       } catch (err) {
         setError(getSupabaseErrorMessage(err))
         return false
       }
     },
-    [supabase, assertOrg, requireManage],
+    [supabase, assertOrg, requireManage, actorName, surveys],
   )
 
   const publishSurvey = useCallback(

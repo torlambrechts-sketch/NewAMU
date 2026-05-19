@@ -25,6 +25,11 @@ export type SummaryPreset =
   | 'sjekklistepunkt_besvart'        // "<actor> besvarte <subject>"
   | 'sjekklistepunkt_funn'           // "<actor> registrerte funn på <subject>"
   | 'sjekkliste_kommentar'           // "<actor> kommenterte sjekklisten"
+  // Survey
+  | 'undersokelse_opprettet'         // "<actor> opprettet undersøkelsen"
+  | 'undersokelse_publisert'         // "<actor> publiserte undersøkelsen"
+  | 'undersokelse_lukket'            // "<actor> lukket undersøkelsen"
+  | 'undersokelse_endret'            // "<actor> oppdaterte undersøkelsen"
 
 const PRESET_BODY: Record<SummaryPreset, string> = {
   opprettet_subject: 'opprettet {subject}',
@@ -37,6 +42,10 @@ const PRESET_BODY: Record<SummaryPreset, string> = {
   sjekklistepunkt_besvart: 'besvarte punktet "{subject}"',
   sjekklistepunkt_funn: 'registrerte funn på "{subject}"',
   sjekkliste_kommentar: 'kommenterte sjekklisten',
+  undersokelse_opprettet: 'opprettet undersøkelsen',
+  undersokelse_publisert: 'publiserte undersøkelsen',
+  undersokelse_lukket: 'lukket undersøkelsen',
+  undersokelse_endret: 'oppdaterte undersøkelsen',
 }
 
 const PRESET_TO_ACTION: Record<SummaryPreset, AuditAction> = {
@@ -50,6 +59,10 @@ const PRESET_TO_ACTION: Record<SummaryPreset, AuditAction> = {
   sjekklistepunkt_besvart: 'endret',
   sjekklistepunkt_funn: 'endret',
   sjekkliste_kommentar: 'kommentert',
+  undersokelse_opprettet: 'opprettet',
+  undersokelse_publisert: 'publisert',
+  undersokelse_lukket: 'lukket',
+  undersokelse_endret: 'endret',
 }
 
 export function actionForPreset(preset: SummaryPreset): AuditAction {

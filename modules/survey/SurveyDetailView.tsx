@@ -21,6 +21,10 @@ import { StandardInput } from '../../src/components/ui/Input'
 import { StandardTextarea } from '../../src/components/ui/Textarea'
 import { Tabs, type TabItem } from '../../src/components/ui/Tabs'
 import { useOrgSetupContext } from '../../src/hooks/useOrgSetupContext'
+import { EntityTimeline } from '../../src/components/audit/EntityTimeline'
+// Side-effect import — registers the survey audit scope before the
+// timeline renders. See specs/endringslogg-spec.md §5.
+import './audit/surveyAuditScope'
 import { useSurvey } from './useSurvey'
 import type { UseSurveyState } from './useSurvey'
 import { useSurveyOrgTemplates } from './useSurveyOrgTemplates'
@@ -926,7 +930,8 @@ export function SurveyDetailView({ supabase }: Props) {
         }
         loading={false}
       >
-        <div className="w-full space-y-6">
+        <div className="grid w-full gap-6 lg:grid-cols-[minmax(0,1fr)_360px]">
+        <div className="space-y-6">
           <div className="mb-2 flex flex-wrap items-center gap-3 border-b border-neutral-200 pb-4">
             <Badge variant={surveyStatusBadgeVariant(s.status)}>{surveyStatusLabel(s.status)}</Badge>
             {s.is_anonymous ? <Badge variant="info">Anonym</Badge> : <Badge variant="neutral">Identifisert</Badge>}
@@ -1075,6 +1080,14 @@ export function SurveyDetailView({ supabase }: Props) {
           {tab === 'amu' && <SurveyAmuTab survey={survey} s={s} />}
 
           {tab === 'tiltak' && <SurveyTiltakTab survey={survey} s={s} />}
+        </div>
+        <div className="lg:sticky lg:top-6 lg:h-[calc(100vh-6rem)]">
+          <EntityTimeline
+            supabase={supabase}
+            entityKind="survey"
+            entityId={s.id}
+          />
+        </div>
         </div>
       </ModulePageShell>
 
