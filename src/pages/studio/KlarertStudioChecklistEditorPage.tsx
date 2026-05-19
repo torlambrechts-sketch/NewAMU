@@ -45,16 +45,15 @@ import { useChecklistStudio } from '../../../modules/studio/checklist/useCheckli
 import { CHECKLIST_PALETTE, type ChecklistPaletteItem, type NewChecklistStudioBlock } from '../../../modules/studio/checklist/checklistBlocks'
 import type { PaletteItem } from '../../../modules/studio/types'
 
-// Adapter: ChecklistPaletteItem satisfies the PaletteItem shape that
-// StudioBlockPalette expects (label + hint + advancedOnly are common).
-function toGenericPaletteItem(item: ChecklistPaletteItem): PaletteItem {
-  if (item.kind === 'section') {
-    return { kind: 'section', label: item.label, hint: item.hint, advancedOnly: item.advancedOnly }
-  }
-  // checklist_item doesn't map to a survey questionType — cast kind to 'question'
-  // just for palette rendering (icon lookup uses kind). The actual block is built
-  // from the original ChecklistPaletteItem in handleDragEnd / handlePaletteAdd.
-  return { kind: 'question', label: item.label, hint: item.hint, advancedOnly: item.advancedOnly } as PaletteItem
+// Adapt ChecklistPaletteItem → PaletteItem for rendering only (label, hint,
+// advancedOnly). The original ChecklistPaletteItem is stored in DnD data so
+// handleDragEnd can recover it without any string-keyed lookup or cast.
+function toRenderPaletteItem(item: ChecklistPaletteItem): PaletteItem {
+  const base = { label: item.label, hint: item.hint, advancedOnly: item.advancedOnly }
+  if (item.kind === 'section') return { kind: 'section', ...base }
+  // Map to 'text' questionType for icon rendering — the real item kind is
+  // carried via DnD data.current.checklistPaletteItem, not this render shape.
+  return { kind: 'question', questionType: 'text', ...base }
 }
 
 function SaveIndicator({
@@ -114,13 +113,21 @@ export function KlarertStudioChecklistEditorPage() {
     useSensor(TouchSensor, { activationConstraint: { delay: 200, tolerance: 5 } }),
   )
 
-  // Map from palette drag ID back to the original ChecklistPaletteItem
-  const paletteItemById = Object.fromEntries(
-    CHECKLIST_PALETTE.map((item) => {
-      const id = `${PALETTE_DRAG_PREFIX}${item.kind}:${item.itemType ?? ''}`
-      return [id, item]
-    }),
-  )
+  // Stable lookup map: drag-id → original ChecklistPaletteItem.
+  // Keyed by the same formula PaletteChip uses for useDraggable.id so that
+  // handleDragEnd can recover the original item without unsafe casts.
+  const checklistItemById: Record<string, ChecklistPaletteItem> = {}
+  for (const item of CHECKLIST_PALETTE) {
+    // PaletteChip uses `${PALETTE_DRAG_PREFIX}${item.kind}:${item.questionType ?? ''}`
+    // Our render adapter maps checklist_item → kind:'question', questionType:'text'
+    // so reconstruct with the *rendered* key (kind + questionType after adapter).
+    const rendered = toRenderPaletteItem(item)
+    const renderedId = `${PALETTE_DRAG_PREFIX}${rendered.kind}:${(rendered as { questionType?: string }).questionType ?? ''}`
+    checklistItemById[renderedId] = item
+    // Also store by original key for safety
+    const originalId = `${PALETTE_DRAG_PREFIX}${item.kind}:${item.itemType ?? ''}`
+    checklistItemById[originalId] = item
+  }
 
   const handleAdd = useCallback(
     (block: NewChecklistStudioBlock, atIndex?: number) => {
@@ -147,15 +154,20 @@ export function KlarertStudioChecklistEditorPage() {
     [studio.isSystemTemplate, handleAdd],
   )
 
-  // StudioBlockPalette calls back with a generic PaletteItem; we recover the
-  // original ChecklistPaletteItem via the drag-id mapping.
+  // StudioBlockPalette calls back with the rendered PaletteItem; recover the
+  // original ChecklistPaletteItem via the stable lookup map.
   const handleGenericPaletteAdd = useCallback(
     (genericItem: PaletteItem) => {
       const id = `${PALETTE_DRAG_PREFIX}${genericItem.kind}:${(genericItem as { questionType?: string }).questionType ?? ''}`
-      const checklistItem = paletteItemById[id]
-      if (checklistItem) handlePaletteAdd(checklistItem)
+      const checklistItem = checklistItemById[id]
+      if (!checklistItem) {
+        console.warn('[StudioChecklist] palette item not found for id', id)
+        return
+      }
+      handlePaletteAdd(checklistItem)
     },
-    [paletteItemById, handlePaletteAdd],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [handlePaletteAdd],
   )
 
   function handleDragStart(event: DragStartEvent) {
@@ -170,8 +182,11 @@ export function KlarertStudioChecklistEditorPage() {
     const overId = String(over.id)
 
     if (activeId.startsWith(PALETTE_DRAG_PREFIX)) {
-      const checklistItem = paletteItemById[activeId]
-      if (!checklistItem) return
+      const checklistItem = checklistItemById[activeId]
+      if (!checklistItem) {
+        console.warn('[StudioChecklist] drag item not found for id', activeId)
+        return
+      }
       const newBlock = buildNewChecklistBlock(checklistItem)
       const ids = studio.blocks.map((b) => b.id)
       if (overId === CHECKLIST_CANVAS_DROP_ZONE_ID || overId === CHECKLIST_CANVAS_TAIL_ID) {
@@ -273,7 +288,7 @@ export function KlarertStudioChecklistEditorPage() {
   )
 
   // Palette items adapted to the generic PaletteItem shape for StudioBlockPalette
-  const genericPalette = CHECKLIST_PALETTE.map(toGenericPaletteItem)
+  const genericPalette = CHECKLIST_PALETTE.map(toRenderPaletteItem)
 
   return (
     <ModulePageShell
@@ -356,6 +371,7 @@ export function KlarertStudioChecklistEditorPage() {
               disabled={studio.isSystemTemplate}
               onAdd={handleGenericPaletteAdd}
               items={genericPalette}
+              hintText="Dra inn sjekkpunkter for sjekklisten."
             />
 
             <StudioChecklistBlockCanvas
@@ -380,7 +396,7 @@ export function KlarertStudioChecklistEditorPage() {
               (() => {
                 const activeId = String(activeItem.id)
                 if (activeId.startsWith(PALETTE_DRAG_PREFIX)) {
-                  const checklistItem = paletteItemById[activeId]
+                  const checklistItem = checklistItemById[activeId]
                   return checklistItem ? (
                     <div className="flex items-center gap-2.5 rounded-lg border border-neutral-300 bg-white px-3 py-2 text-sm shadow-lg opacity-90">
                       <span className="font-medium text-neutral-900">{checklistItem.label}</span>

@@ -173,7 +173,12 @@ export function useChecklistStudio(templateId: string, fromTemplateId?: string) 
 
   const persist = useCallback(
     async (publishNow = false) => {
-      if (!supabase || !organization?.id) return
+      if (!supabase) return
+      if (!organization?.id) {
+        setSaveError('Organisasjonsdata mangler – prøv igjen.')
+        setSaveStatus('error')
+        return
+      }
       if (isSystemTemplate) return
       if (savingRef.current) return
       savingRef.current = true
@@ -183,6 +188,9 @@ export function useChecklistStudio(templateId: string, fromTemplateId?: string) 
       const currentBlocks = blocksRef.current
       const { name, description, pack, cadenceHint } = metaRef.current
       const items = blocksToItems(currentBlocks)
+      if (items.length === 0 && currentBlocks.length > 0) {
+        console.warn('[useChecklistStudio] persist: all blocks are sections — definition.items will be empty')
+      }
 
       try {
         if (!rowIdRef.current) {
@@ -294,11 +302,17 @@ export function useChecklistStudio(templateId: string, fromTemplateId?: string) 
   const updateBlock = useCallback(
     (id: string, patch: Partial<ChecklistStudioBlock>) => {
       setBlocks((prev) =>
-        prev.map((b) =>
-          b.id === id
-            ? ({ ...b, ...patch, id: b.id, kind: b.kind } as ChecklistStudioBlock)
-            : b,
-        ),
+        prev.map((b) => {
+          if (b.id !== id) return b
+          const merged = { ...b, ...patch, id: b.id, kind: b.kind }
+          // Validate merged block preserves the discriminated union shape
+          const parsed = ChecklistStudioBlockSchema.safeParse(merged)
+          if (!parsed.success) {
+            console.error('[useChecklistStudio] updateBlock invalid patch', parsed.error)
+            return b
+          }
+          return parsed.data
+        }),
       )
       scheduleSave()
     },

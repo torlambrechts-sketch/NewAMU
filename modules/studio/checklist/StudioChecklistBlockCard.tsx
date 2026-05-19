@@ -88,7 +88,7 @@ export function StudioChecklistBlockCard({
     disabled,
   })
 
-  const typeKey = block.kind === 'section' ? 'section' : block.itemType
+  const typeKey: string = block.kind === 'section' ? 'section' : block.itemType ?? 'yes_no_na'
   const Icon = ITEM_TYPE_ICON[typeKey] ?? CheckSquare
   const typeLabel = ITEM_TYPE_LABEL[typeKey] ?? typeKey
 
