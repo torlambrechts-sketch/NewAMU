@@ -104,8 +104,8 @@ export function useSurveyStudio(templateId: string, fromTemplateId?: string) {
 
   const rowIdRef = useRef<string | null>(templateId === 'new' ? null : templateId)
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-  // Prevents concurrent persist calls (e.g. publish racing with auto-save)
   const savingRef = useRef(false)
+  const savePromiseRef = useRef<Promise<void> | null>(null)
   const blocksRef = useRef<StudioBlock[]>(blocks)
   const metaRef = useRef({
     name: templateName,
@@ -121,9 +121,23 @@ export function useSurveyStudio(templateId: string, fromTemplateId?: string) {
   useEffect(() => {
     if (!supabase || !organization?.id) return
 
-    // New blank template
+    // Reset eagerly before async load to prevent stale saves targeting old rowId
+    if (debounceRef.current) clearTimeout(debounceRef.current)
+    rowIdRef.current = templateId === 'new' ? null : templateId
+    setRowId(templateId === 'new' ? null : templateId)
+    setBlocks([])
+    setTemplateName('')
+    setTemplateDescription('')
+    setTemplateCategory('custom')
+    setTemplateAudience('internal')
+    setTemplatePack('engagement')
+    setTemplateEstimatedMinutes(5)
+    setIsSystemTemplate(false)
+    setLoadError(null)
+    setSaveStatus('idle')
+    setSaveError(null)
+
     if (templateId === 'new' && !fromTemplateId) {
-      setBlocks([])
       setLoading(false)
       return
     }
@@ -199,13 +213,14 @@ export function useSurveyStudio(templateId: string, fromTemplateId?: string) {
   // ─── Save ─────────────────────────────────────────────────────────────────
 
   const persist = useCallback(
-    async (publishNow = false) => {
-      if (!supabase || !organization?.id) return
-      if (isSystemTemplate) return // read-only; RLS also enforces this at DB level
-      if (savingRef.current) return // prevent concurrent writes
+    async (publishNow = false): Promise<string | null> => {
+      if (!supabase || !organization?.id) return null
+      if (isSystemTemplate) return null
+      if (savingRef.current) return null
       savingRef.current = true
       setSaveStatus('saving')
       setSaveError(null)
+      let saveErr: string | null = null
 
       const currentBlocks = blocksRef.current
       const { name, description, category, audience, pack, estimatedMinutes } = metaRef.current
@@ -264,27 +279,36 @@ export function useSurveyStudio(templateId: string, fromTemplateId?: string) {
         setLastSavedAt(new Date())
       } catch (err) {
         console.error('[useSurveyStudio] persist failed', err)
-        const msg = err instanceof Error ? err.message : 'Ukjent feil ved lagring'
+        saveErr = err instanceof Error ? err.message : 'Ukjent feil ved lagring'
         setSaveStatus('error')
-        setSaveError(msg)
+        setSaveError(saveErr)
       } finally {
         savingRef.current = false
+        savePromiseRef.current = null
       }
+      return saveErr
     },
     [supabase, organization?.id, isSystemTemplate],
   )
 
   const scheduleSave = useCallback(() => {
-    if (savingRef.current) return // skip schedule if a save is already in-flight
     if (debounceRef.current) clearTimeout(debounceRef.current)
-    debounceRef.current = setTimeout(() => void persist(false), AUTOSAVE_DELAY_MS)
-    setSaveStatus('idle')
+    debounceRef.current = setTimeout(() => {
+      const p = persist(false)
+      savePromiseRef.current = p.then(() => undefined)
+    }, AUTOSAVE_DELAY_MS)
   }, [persist])
 
-  const publishTemplate = useCallback(async () => {
-    // Cancel any pending debounce — publish will write everything
+  const publishTemplate = useCallback(async (): Promise<string | null> => {
     if (debounceRef.current) clearTimeout(debounceRef.current)
-    await persist(true)
+    if (savePromiseRef.current) await savePromiseRef.current
+    if (savingRef.current) {
+      const deadline = Date.now() + 3000
+      while (savingRef.current && Date.now() < deadline) {
+        await new Promise((r) => setTimeout(r, 50))
+      }
+    }
+    return persist(true)
   }, [persist])
 
   // ─── Block mutations ──────────────────────────────────────────────────────
@@ -365,6 +389,11 @@ export function useSurveyStudio(templateId: string, fromTemplateId?: string) {
     [scheduleSave],
   )
 
+  const updateEstimatedMinutes = useCallback(
+    (minutes: number) => { setTemplateEstimatedMinutes(minutes); scheduleSave() },
+    [scheduleSave],
+  )
+
   return {
     blocks,
     templateName,
@@ -389,6 +418,7 @@ export function useSurveyStudio(templateId: string, fromTemplateId?: string) {
     updateCategory,
     updateAudience,
     updatePack,
+    updateEstimatedMinutes,
     publishTemplate,
   }
 }

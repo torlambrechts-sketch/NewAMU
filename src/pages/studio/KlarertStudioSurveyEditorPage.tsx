@@ -133,12 +133,12 @@ export function KlarertStudioSurveyEditorPage() {
       return
     }
     setPublishError(null)
-    await studio.publishTemplate()
-    if (!studio.saveError) {
+    const err = await studio.publishTemplate()
+    if (!err) {
       toast.success(`«${studio.templateName.trim() || 'Ny spørreundersøkelse'}» er publisert`)
       navigate('/studio/survey')
     } else {
-      toast.error(`Publisering feilet: ${studio.saveError}`)
+      toast.error(`Publisering feilet: ${err}`)
     }
   }
 

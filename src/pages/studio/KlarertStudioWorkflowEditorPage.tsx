@@ -2,7 +2,7 @@
 // Uses KlarertStudioShell for chrome; useWorkflowTemplateStudio for persistence.
 // Accessed via /studio/workflow/:ruleId  (ruleId='new' creates on first save).
 
-import { useCallback, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { toast } from 'sonner'
 import {
@@ -142,9 +142,12 @@ export function KlarertStudioWorkflowEditorPage() {
     }
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const handlePaletteKind = useCallback((_action: 'start' | 'end' | 'append', _kind: StudioBlockKind | null) => {
-    // Palette click-to-append is handled by the canvas directly via DnD data transfer
+  const appendKindRef = useRef<((kind: StudioBlockKind) => void) | null>(null)
+
+  const handlePaletteKind = useCallback((action: 'start' | 'end' | 'append', kind: StudioBlockKind | null) => {
+    if (action === 'append' && kind) {
+      appendKindRef.current?.(kind)
+    }
   }, [])
 
   // Use stable individual deps to avoid stale-closure over the whole studio object
@@ -179,7 +182,7 @@ export function KlarertStudioWorkflowEditorPage() {
         </button>
       )}
 
-      {effectivelyDisabled ? (
+      {studio.isSystemTemplate ? (
         <button
           type="button"
           onClick={() => navigate(`/studio/workflow/new?from=${ruleId}`)}
@@ -188,6 +191,11 @@ export function KlarertStudioWorkflowEditorPage() {
           <Copy className="h-3.5 w-3.5" />
           Kopier og rediger
         </button>
+      ) : isViewOnly ? (
+        <span className="inline-flex items-center gap-1.5 rounded-md border border-neutral-200 bg-neutral-50 px-3 py-1.5 text-xs font-semibold text-neutral-400 cursor-not-allowed" title="Du har ikke workflows.compose-tillatelse">
+          <Eye className="h-3.5 w-3.5" />
+          Kun lesing
+        </span>
       ) : (
         <button
           type="button"
@@ -260,6 +268,7 @@ export function KlarertStudioWorkflowEditorPage() {
           <StudioWorkflowInspector
             selectedIdx={selectedIdx}
             flowDoc={studio.flowDoc}
+            onFlowDocChange={updateFlowDoc}
             onUpdateStep={handleUpdateStep}
             sourceModule={studio.sourceModule}
             triggerEventName={studio.triggerEventName}
@@ -287,6 +296,7 @@ export function KlarertStudioWorkflowEditorPage() {
           selectedIdx={selectedIdx ?? -1}
           onSelect={setSelectedIdx}
           readOnly={effectivelyDisabled}
+          onAppendKindRef={appendKindRef}
         />
       </KlarertStudioShell>
 

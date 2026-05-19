@@ -7,7 +7,7 @@ import { useState } from 'react'
 import * as LucideIcons from 'lucide-react'
 import type { LucideProps } from 'lucide-react'
 import type { ComponentType } from 'react'
-import type { WorkflowFlowDocument, WorkflowFlowStep } from '../../../lib/workflowFlowTypes'
+import type { TriggerFilter, WorkflowFlowDocument, WorkflowFlowStep } from '../../../lib/workflowFlowTypes'
 import { STUDIO_BLOCK_META, actionTypeToKind, type StudioBlockKind } from './studioBlockMeta'
 import type { WorkflowRuleStudioRevisionRow } from '../../../types/workflow'
 
@@ -120,31 +120,25 @@ const MODULE_LABELS: Record<string, string> = {
   action_plan:          'Handlingsplan',
 }
 
-// ─── Trigger properties form ───────────────────────────────────────────────────
+// ─── Trigger properties form (fully controlled) ────────────────────────────────
 
-type TriggerFilter = { field: string; op: string; value: string }
-
-function TriggerPropsForm({ sourceModule, triggerEventName, onChangeModule, onChangeEvent, disabled }: {
+function TriggerPropsForm({
+  sourceModule, triggerEventName, filters, onChangeModule, onChangeEvent, onFiltersChange, disabled,
+}: {
   sourceModule: string
   triggerEventName: string | null
+  filters: TriggerFilter[]
   onChangeModule: (v: string) => void
   onChangeEvent: (v: string | null) => void
+  onFiltersChange: (f: TriggerFilter[]) => void
   disabled?: boolean
 }) {
-  // Filters are shown for UX context but are not yet wired to condition_json.
-  // They default empty; the compiled condition is managed via Condition blocks in the canvas.
-  const [filters, setFilters] = useState<TriggerFilter[]>([])
-
   const moduleOptions = Object.entries(MODULE_LABELS).map(([v, l]) => ({ value: v, label: l }))
 
   return (
     <>
       <FieldRow label="Modul">
-        <Sel
-          value={sourceModule}
-          onChange={onChangeModule}
-          options={moduleOptions}
-        />
+        <Sel value={sourceModule} onChange={onChangeModule} options={moduleOptions} />
       </FieldRow>
       <FieldRow label="Hendelse">
         <In
@@ -154,15 +148,15 @@ function TriggerPropsForm({ sourceModule, triggerEventName, onChangeModule, onCh
           disabled={disabled}
         />
       </FieldRow>
-      <FieldRow label="Filtre" hint={`${filters.length} regel${filters.length === 1 ? '' : 'er'}`}>
+      <FieldRow label="Nyttelast-filtre" hint={`${filters.length} regel${filters.length === 1 ? '' : 'er'}`}>
         <div className="space-y-1.5">
           {filters.map((f, i) => (
             <div key={i} className="grid grid-cols-[1fr_auto_1fr_22px] gap-1">
               <In value={f.field} onChange={(v) => {
-                const next = filters.slice(); next[i] = { ...f, field: v }; setFilters(next)
-              }} />
+                const next = filters.slice(); next[i] = { ...f, field: v }; onFiltersChange(next)
+              }} disabled={disabled} />
               <Sel value={f.op} onChange={(v) => {
-                const next = filters.slice(); next[i] = { ...f, op: v }; setFilters(next)
+                const next = filters.slice(); next[i] = { ...f, op: v as TriggerFilter['op'] }; onFiltersChange(next)
               }} options={[
                 { value: 'equals', label: '=' },
                 { value: 'not_equals', label: '≠' },
@@ -170,21 +164,23 @@ function TriggerPropsForm({ sourceModule, triggerEventName, onChangeModule, onCh
                 { value: 'contains', label: 'inneh.' },
               ]} />
               <In value={f.value} onChange={(v) => {
-                const next = filters.slice(); next[i] = { ...f, value: v }; setFilters(next)
-              }} />
-              <button
-                type="button"
-                onClick={() => setFilters(filters.filter((_, j) => j !== i))}
-                className="rounded p-1 text-neutral-400 hover:bg-neutral-100 hover:text-red-600"
-              >
-                <LucideIcon name="X" className="h-3 w-3" />
-              </button>
+                const next = filters.slice(); next[i] = { ...f, value: v }; onFiltersChange(next)
+              }} disabled={disabled} />
+              {!disabled && (
+                <button
+                  type="button"
+                  onClick={() => onFiltersChange(filters.filter((_, j) => j !== i))}
+                  className="rounded p-1 text-neutral-400 hover:bg-neutral-100 hover:text-red-600"
+                >
+                  <LucideIcon name="X" className="h-3 w-3" />
+                </button>
+              )}
             </div>
           ))}
           {!disabled && (
             <button
               type="button"
-              onClick={() => setFilters([...filters, { field: '', op: 'equals', value: '' }])}
+              onClick={() => onFiltersChange([...filters, { field: '', op: 'equals', value: '' }])}
               className="text-[11px] font-semibold text-[#1a3d32] hover:underline"
             >
               + Legg til filter
@@ -571,6 +567,7 @@ type InspectorProps = {
   /** -1 = trigger selected, >=0 = linearSteps index, null = none selected */
   selectedIdx: number | null
   flowDoc: WorkflowFlowDocument
+  onFlowDocChange: (doc: WorkflowFlowDocument) => void
   onUpdateStep: (idx: number, step: WorkflowFlowStep) => void
   sourceModule: string
   triggerEventName: string | null
@@ -586,7 +583,7 @@ type InspectorProps = {
 }
 
 export function StudioWorkflowInspector({
-  selectedIdx, flowDoc, onUpdateStep,
+  selectedIdx, flowDoc, onFlowDocChange, onUpdateStep,
   sourceModule, triggerEventName, onChangeModule, onChangeEvent,
   lawRefs, onLawRefs,
   revisions, revisionsLoading, onFetchRevisions,
@@ -695,8 +692,10 @@ export function StudioWorkflowInspector({
               <TriggerPropsForm
                 sourceModule={sourceModule}
                 triggerEventName={triggerEventName}
+                filters={flowDoc.triggerFilters ?? []}
                 onChangeModule={onChangeModule}
                 onChangeEvent={onChangeEvent}
+                onFiltersChange={(f) => onFlowDocChange({ ...flowDoc, triggerFilters: f })}
                 disabled={disabled}
               />
             ) : step ? (

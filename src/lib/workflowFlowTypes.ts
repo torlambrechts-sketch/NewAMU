@@ -18,6 +18,12 @@ export type WorkflowFlowBranch = {
  * Visual flow state (stored in workflow_rules.flow_graph_json).
  * Execution still uses compiled condition_json + actions_json.
  */
+export type TriggerFilter = {
+  field: string
+  op: 'equals' | 'not_equals' | 'in' | 'contains'
+  value: string
+}
+
 export type WorkflowFlowDocument = {
   version: typeof WORKFLOW_FLOW_VERSION
   mode: 'linear' | 'xor'
@@ -25,6 +31,12 @@ export type WorkflowFlowDocument = {
   linearSteps: WorkflowFlowStep[]
   /** XOR: exactly one branch must match at runtime; each branch has its own action list */
   xorBranches: WorkflowFlowBranch[]
+  /**
+   * Trigger-level payload filters shown in the inspector's trigger block.
+   * These are currently for UX context only — they compile into the first
+   * condition step when a full filter-to-condition compiler is added.
+   */
+  triggerFilters?: TriggerFilter[]
 }
 
 export function newFlowStepId() {

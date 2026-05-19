@@ -437,13 +437,15 @@ type CanvasProps = {
   selectedIdx: number   // -1 = trigger, >=0 = linearSteps index
   onSelect: (idx: number) => void
   readOnly?: boolean
+  /** Called when the palette's click-to-append fires for this kind */
+  onAppendKindRef?: React.MutableRefObject<((kind: StudioBlockKind) => void) | null>
 }
 
 // ─── Canvas ───────────────────────────────────────────────────────────────────
 
 export function StudioWorkflowCanvas({
   flowDoc, onChange, sourceModule, triggerEventName, description, rowId,
-  mode, selectedIdx, onSelect, readOnly,
+  mode, selectedIdx, onSelect, readOnly, onAppendKindRef,
 }: CanvasProps) {
   const [draggingIdx, setDraggingIdx] = useState<number | null>(null)
   const [draggingKind, setDraggingKind] = useState<StudioBlockKind | null>(null)
@@ -459,6 +461,11 @@ export function StudioWorkflowCanvas({
     onChange({ ...flowDoc, linearSteps: next })
     onSelect(at)
   }, [steps, flowDoc, onChange, onSelect])
+
+  // Expose append-at-end for palette click-to-append
+  if (onAppendKindRef) {
+    onAppendKindRef.current = (kind: StudioBlockKind) => insertAt(kind, steps.length)
+  }
 
   const deleteStep = useCallback((idx: number) => {
     const next = steps.filter((_, i) => i !== idx)
