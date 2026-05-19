@@ -47,6 +47,13 @@ export type SummaryPreset =
   | 'dokument_publisert'             // "<actor> publiserte siden"
   | 'dokument_endret'                // "<actor> oppdaterte siden"
   | 'dokument_arkivert'              // "<actor> arkiverte siden"
+  // Alerts
+  | 'varsling_mottatt'               // "<actor> registrerte en varslingssak"
+  | 'varsling_status'                // "<actor> endret status til {subject}"
+  | 'varsling_tildelt'               // "<actor> tildelte saken til komiteen"
+  | 'varsling_lukket'                // "<actor> lukket saken"
+  | 'varsling_kommentar'             // "<actor> la til et notat"
+  | 'varsling_vedlegg'               // "<actor> lastet opp et vedlegg"
 
 const PRESET_BODY: Record<SummaryPreset, string> = {
   opprettet_subject: 'opprettet {subject}',
@@ -77,6 +84,12 @@ const PRESET_BODY: Record<SummaryPreset, string> = {
   dokument_publisert: 'publiserte siden',
   dokument_endret: 'oppdaterte siden',
   dokument_arkivert: 'arkiverte siden',
+  varsling_mottatt: 'registrerte en varslingssak',
+  varsling_status: 'endret status til {subject}',
+  varsling_tildelt: 'tildelte saken til komiteen',
+  varsling_lukket: 'lukket saken',
+  varsling_kommentar: 'la til et notat',
+  varsling_vedlegg: 'lastet opp et vedlegg',
 }
 
 const PRESET_TO_ACTION: Record<SummaryPreset, AuditAction> = {
@@ -108,6 +121,12 @@ const PRESET_TO_ACTION: Record<SummaryPreset, AuditAction> = {
   dokument_publisert: 'publisert',
   dokument_endret: 'endret',
   dokument_arkivert: 'arkivert',
+  varsling_mottatt: 'mottatt',
+  varsling_status: 'endret',
+  varsling_tildelt: 'tildelt',
+  varsling_lukket: 'lukket',
+  varsling_kommentar: 'kommentert',
+  varsling_vedlegg: 'lastet_opp_vedlegg',
 }
 
 export function actionForPreset(preset: SummaryPreset): AuditAction {

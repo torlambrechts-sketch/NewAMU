@@ -6,6 +6,10 @@ import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { ArrowLeft, Lock, AlertTriangle, Download, Trash2, Upload } from 'lucide-react'
 import { ModulePageShell } from '../../../src/components/module/ModulePageShell'
+import { EntityTimeline } from '../../../src/components/audit/EntityTimeline'
+import { useOrgSetupContext } from '../../../src/hooks/useOrgSetupContext'
+// Side-effect — registers the alerts audit scope. See spec §5.
+import '../audit/alertsAuditScope'
 import { ModuleSectionCard } from '../../../src/components/module/ModuleSectionCard'
 import { Badge } from '../../../src/components/ui/Badge'
 import { Button } from '../../../src/components/ui/Button'
@@ -29,13 +33,14 @@ const STATUS_OPTIONS: AlertStatus[] = ['received', 'triage', 'investigation', 'i
 const SEVERITY_OPTIONS: AlertSeverity[] = ['low', 'medium', 'high', 'critical']
 const OUTCOME_OPTIONS: AlertClosingOutcome[] = ['substantiated', 'unsubstantiated', 'inconclusive', 'referred']
 
-type Tab = 'info' | 'timeline' | 'notes' | 'attachments' | 'close'
+type Tab = 'info' | 'timeline' | 'notes' | 'attachments' | 'endringslogg' | 'close'
 
 export function AlertsDetailView() {
   const { caseId } = useParams<{ caseId: string }>()
   const alerts = useAlerts()
   const navigate = useNavigate()
   const [tab, setTab] = useState<Tab>('info')
+  const { supabase } = useOrgSetupContext()
   const [newNote, setNewNote] = useState('')
   const [noteVisible, setNoteVisible] = useState(false)
   const [closingSummary, setClosingSummary] = useState('')
@@ -123,7 +128,7 @@ export function AlertsDetailView() {
       ) : null}
 
       <div className="flex gap-2 border-b border-neutral-200">
-        {(['info', 'timeline', 'notes', 'attachments', 'close'] as Tab[]).map((t) => (
+        {(['info', 'timeline', 'notes', 'attachments', 'endringslogg', 'close'] as Tab[]).map((t) => (
           <Button
             key={t}
             variant="ghost"
@@ -131,7 +136,7 @@ export function AlertsDetailView() {
             aria-pressed={tab === t}
             className={`rounded-none border-b-2 px-3 py-2 text-sm font-medium hover:bg-transparent ${tab === t ? 'border-[#b91c1c] text-neutral-900' : 'border-transparent text-neutral-500 hover:text-neutral-700'}`}
           >
-            {t === 'info' ? 'Informasjon' : t === 'timeline' ? `Tidslinje (${alerts.detail.timeline.length})` : t === 'notes' ? `Notater (${alerts.detail.notes.length})` : t === 'attachments' ? `Vedlegg (${alerts.detail.attachments.length})` : 'Lukk'}
+            {t === 'info' ? 'Informasjon' : t === 'timeline' ? `Tidslinje (${alerts.detail.timeline.length})` : t === 'notes' ? `Notater (${alerts.detail.notes.length})` : t === 'attachments' ? `Vedlegg (${alerts.detail.attachments.length})` : t === 'endringslogg' ? 'Endringslogg' : 'Lukk'}
           </Button>
         ))}
       </div>
@@ -286,6 +291,16 @@ export function AlertsDetailView() {
           {c.closing_summary ? <p className="mt-2 whitespace-pre-wrap text-sm text-neutral-800">{c.closing_summary}</p> : null}
           {c.retention_until ? <p className="mt-3 text-xs text-neutral-500">Oppbevaringsfrist: {new Date(c.retention_until).toLocaleDateString('no-NO')}</p> : null}
         </ModuleSectionCard>
+      ) : null}
+
+      {tab === 'endringslogg' ? (
+        <section className="h-[60vh]">
+          <EntityTimeline
+            supabase={supabase}
+            entityKind="alert_case"
+            entityId={c.id}
+          />
+        </section>
       ) : null}
     </ModulePageShell>
   )

@@ -9,6 +9,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useOrgSetupContext } from '../../src/hooks/useOrgSetupContext'
 import { getSupabaseErrorMessage } from '../../src/lib/supabaseError'
+import { emitAuditEvent } from '../../src/lib/audit/emitAuditEvent'
+import { isPrivileged } from '../../src/lib/audit/privilege'
 import {
   parseCaseNoteRow,
   parseCaseRow,
@@ -174,7 +176,11 @@ function resolveTemplates(
 }
 
 export function useAlerts(): UseAlertsState {
-  const { supabase, organization, can, isAdmin } = useOrgSetupContext()
+  const { supabase, organization, can, isAdmin, profile, user } = useOrgSetupContext()
+  const actorName = useMemo(
+    () => profile?.display_name ?? user?.email ?? 'Anonym',
+    [profile, user],
+  )
   const orgId = organization?.id ?? null
   const canManage = isAdmin || can('alerts.manage') || can('alerts.committee')
   const isDpo = can('alerts.dpo')
@@ -284,9 +290,29 @@ export function useAlerts(): UseAlertsState {
       })
       void timeline
       await reload()
+
+      // Alerts is always privileged (spec §13.3 + isPrivileged.alertCase).
+      // The summary is generic — the case title may contain PII and we
+      // never use it as a subject without the privileged read.
+      void emitAuditEvent(supabase, {
+        scopeId: 'alerts',
+        entityKind: 'alert_case',
+        entityId: res.data.id as string,
+        actorName,
+        action: 'mottatt',
+        summary: { kind: 'preset', preset: 'varsling_mottatt' },
+        privileged: isPrivileged.alertCase(),
+        diff: {
+          kind: 'single_field',
+          field_label_nb: 'Status',
+          before: { display: '(ingen verdi)', semantic: 'plain' },
+          after: { display: 'Mottatt', semantic: 'status' },
+        },
+      })
+
       return { id: res.data.id as string, accessKey: res.data.access_key as string }
     },
-    [supabase, orgId, reload]
+    [supabase, orgId, reload, actorName]
   )
 
   const addNote = useCallback(
@@ -315,9 +341,23 @@ export function useAlerts(): UseAlertsState {
         payload: { note_kind: opts?.noteKind ?? 'internal' },
       })
       if (detailCaseId === caseId) await loadDetail(caseId)
+
+      void emitAuditEvent(supabase, {
+        scopeId: 'alerts',
+        entityKind: 'alert_case_note',
+        entityId: (res.data?.id as string) ?? caseId,
+        roomEntityKind: 'alert_case',
+        roomEntityId: caseId,
+        actorName,
+        action: 'kommentert',
+        summary: { kind: 'preset', preset: 'varsling_kommentar' },
+        privileged: isPrivileged.alertCase(),
+        diff: null,
+      })
+
       return res.data ? parseCaseNoteRow(res.data) : null
     },
-    [supabase, orgId, detailCaseId, loadDetail]
+    [supabase, orgId, detailCaseId, loadDetail, actorName]
   )
 
   const updateCase = useCallback(
@@ -337,6 +377,7 @@ export function useAlerts(): UseAlertsState {
 
   const setStatus = useCallback(
     async (caseId: string, status: AlertStatus) => {
+      const beforeStatus = cases.find((c) => c.id === caseId)?.status ?? null
       const ok = await updateCase(caseId, { status, ...(status === 'triage' && !cases.find((c) => c.id === caseId)?.acknowledged_at ? { acknowledged_at: new Date().toISOString() } : {}) })
       if (ok && supabase && orgId) {
         await supabase.from('alert_case_timeline_events').insert({
@@ -346,10 +387,26 @@ export function useAlerts(): UseAlertsState {
           actor_kind: 'committee',
           payload: { to: status },
         })
+        if (beforeStatus !== status) {
+          void emitAuditEvent(supabase, {
+            scopeId: 'alerts',
+            entityKind: 'alert_case',
+            entityId: caseId,
+            actorName,
+            summary: { kind: 'preset', preset: 'varsling_status', subject: status },
+            privileged: isPrivileged.alertCase(),
+            diff: {
+              kind: 'single_field',
+              field_label_nb: 'Status',
+              before: { display: beforeStatus ?? '(ingen verdi)', semantic: 'status' },
+              after: { display: status, semantic: 'status' },
+            },
+          })
+        }
       }
       return ok
     },
-    [updateCase, cases, supabase, orgId]
+    [updateCase, cases, supabase, orgId, actorName]
   )
 
   const setSeverity = useCallback(
@@ -401,10 +458,25 @@ export function useAlerts(): UseAlertsState {
           case_id: caseId, organization_id: orgId, event_kind: 'closed', actor_kind: 'committee',
           payload: { outcome: args.closingOutcome },
         })
+        void emitAuditEvent(supabase, {
+          scopeId: 'alerts',
+          entityKind: 'alert_case',
+          entityId: caseId,
+          actorName,
+          action: 'lukket',
+          summary: { kind: 'preset', preset: 'varsling_lukket' },
+          privileged: isPrivileged.alertCase(),
+          diff: {
+            kind: 'single_field',
+            field_label_nb: 'Utfall',
+            before: { display: '(ingen verdi)', semantic: 'plain' },
+            after: { display: args.closingOutcome, semantic: 'plain' },
+          },
+        })
       }
       return ok
     },
-    [updateCase, supabase, orgId]
+    [updateCase, supabase, orgId, actorName]
   )
 
   const upsertOrgTemplateSetting = useCallback<UseAlertsState['upsertOrgTemplateSetting']>(
