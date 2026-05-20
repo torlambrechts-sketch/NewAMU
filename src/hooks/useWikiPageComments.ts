@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useOrgSetupContext } from './useOrgSetupContext'
 import type {
   WikiCommentAnchor,
+  WikiCommentEvent,
   WikiCommentSuggestion,
   WikiPageComment,
   WikiPageCommentEditEntry,
@@ -140,10 +141,39 @@ export function canEditComment(c: WikiPageComment, currentUserId: string | undef
 }
 
 export function useWikiPageComments(pageId: string | undefined) {
-  const { supabase, organization, user } = useOrgSetupContext()
+  const { supabase, organization, user, profile } = useOrgSetupContext()
   const orgId = organization?.id
   const [comments, setComments] = useState<WikiPageComment[]>([])
   const [loading, setLoading] = useState(false)
+
+  /**
+   * Append a row to the wiki_comment_events lifecycle log (Rec06). Non-fatal:
+   * a failure here must not block the underlying resolve/delete action, and
+   * legacy DBs without the table simply skip the audit row.
+   */
+  const logCommentEvent = useCallback(
+    async (
+      comment: Pick<WikiPageComment, 'id' | 'pageId'>,
+      event: 'resolved' | 'reopened' | 'acknowledged' | 'accepted' | 'rejected' | 'deleted',
+      note?: string,
+    ) => {
+      if (!supabase || !orgId || !user?.id) return
+      try {
+        await supabase.from('wiki_comment_events').insert({
+          organization_id: orgId,
+          comment_id: comment.id,
+          page_id: comment.pageId,
+          event,
+          actor_id: user.id,
+          actor_name: profile?.display_name?.trim() || 'Bruker',
+          note: note ?? null,
+        })
+      } catch {
+        /* lifecycle log is best-effort */
+      }
+    },
+    [supabase, orgId, user?.id, profile?.display_name],
+  )
 
   const refresh = useCallback(async () => {
     if (!supabase || !orgId || !pageId) {
@@ -188,6 +218,47 @@ export function useWikiPageComments(pageId: string | undefined) {
   useEffect(() => {
     void refresh()
   }, [refresh])
+
+  // Lifecycle log (Rec06) — loaded alongside the comments for the page.
+  const [commentEvents, setCommentEvents] = useState<WikiCommentEvent[]>([])
+  useEffect(() => {
+    if (!supabase || !orgId || !pageId) {
+      setCommentEvents([])
+      return
+    }
+    let cancelled = false
+    void (async () => {
+      try {
+        const { data } = await supabase
+          .from('wiki_comment_events')
+          .select('*')
+          .eq('organization_id', orgId)
+          .eq('page_id', pageId)
+          .order('created_at', { ascending: false })
+        if (cancelled) return
+        setCommentEvents(
+          (data ?? []).map((r) => {
+            const o = r as Record<string, unknown>
+            return {
+              id: String(o.id),
+              commentId: String(o.comment_id),
+              pageId: String(o.page_id),
+              event: o.event as WikiCommentEvent['event'],
+              actorId: String(o.actor_id),
+              actorName: String(o.actor_name ?? ''),
+              note: o.note == null ? null : String(o.note),
+              createdAt: String(o.created_at),
+            }
+          }),
+        )
+      } catch {
+        if (!cancelled) setCommentEvents([])
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [supabase, orgId, pageId, comments])
 
   const addComment = useCallback(
     async (input: AddCommentInput) => {
@@ -295,8 +366,10 @@ export function useWikiPageComments(pageId: string | undefined) {
             : c,
         ),
       )
+      const target = comments.find((c) => c.id === commentId)
+      if (target) await logCommentEvent(target, resolved ? 'resolved' : 'reopened')
     },
-    [supabase, orgId, user?.id],
+    [supabase, orgId, user?.id, comments, logCommentEvent],
   )
 
   const removeComment = useCallback(
@@ -322,9 +395,10 @@ export function useWikiPageComments(pageId: string | undefined) {
       } else if (softErr) {
         throw softErr
       }
+      if (existing) await logCommentEvent(existing, 'deleted')
       setComments((prev) => prev.filter((c) => c.id !== commentId))
     },
-    [supabase, orgId, comments],
+    [supabase, orgId, comments, logCommentEvent],
   )
 
   /** Build a tree: top-level comments and their replies in insertion order. */
@@ -339,6 +413,7 @@ export function useWikiPageComments(pageId: string | undefined) {
 
   return {
     comments,
+    commentEvents,
     threadsByBlock,
     loading,
     refresh,
@@ -346,5 +421,6 @@ export function useWikiPageComments(pageId: string | undefined) {
     editComment,
     setResolved,
     removeComment,
+    logCommentEvent,
   }
 }

@@ -7,6 +7,7 @@ import { useReaderWidth } from '../../hooks/useReaderWidth'
 import { useWikiPageComments } from '../../hooks/useWikiPageComments'
 import { WikiPageTree } from '../../components/documents/WikiPageTree'
 import { WikiMetaPanel } from '../../components/documents/WikiMetaPanel'
+import { WikiCommentEventLog } from '../../components/documents/WikiCommentEventLog'
 import { PanelRightClose, PanelRightOpen } from 'lucide-react'
 import { RetentionBadge } from './RetentionBadge'
 import { WikiBlockRenderer } from './WikiBlockRenderer'
@@ -107,7 +108,8 @@ export function WikiPageView() {
     requestReviewChanges,
     auditLedger,
   } = docs
-  const { comments, addComment, editComment, setResolved, removeComment } = useWikiPageComments(pageId)
+  const { comments, commentEvents, addComment, editComment, setResolved, removeComment } =
+    useWikiPageComments(pageId)
   const { isWide: readerWide, toggle: toggleReaderWide } = useReaderWidth()
   const {
     linked: linkedAvvik,
@@ -1168,6 +1170,17 @@ export function WikiPageView() {
               </div>
             </ModuleSectionCard>
           ) : null}
+
+          <ModuleSectionCard className="p-5 md:p-6">
+            <h2 className="text-lg font-semibold text-neutral-900">Sporing av endringer</h2>
+            <p className="mt-1.5 text-sm text-neutral-600">
+              Hver gang en kommentar eller et forslag løses, gjenåpnes eller slettes, logges det her —
+              en sporbar endringshistorikk for tilsyn.
+            </p>
+            <div className="mt-5">
+              <WikiCommentEventLog events={commentEvents} />
+            </div>
+          </ModuleSectionCard>
 
           <ModuleSectionCard className="p-5 md:p-6">
             <h2 className="text-lg font-semibold text-neutral-900">Aktivitet</h2>
