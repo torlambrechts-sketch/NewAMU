@@ -3,7 +3,11 @@ import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { Eye, History, Maximize2, MessageSquare, Minimize2, PanelLeft, Pencil, Printer } from 'lucide-react'
 import { useDocuments } from '../../hooks/useDocuments'
 import { useOrgSetupContext } from '../../hooks/useOrgSetupContext'
+import { useReaderWidth } from '../../hooks/useReaderWidth'
 import { useWikiPageComments } from '../../hooks/useWikiPageComments'
+import { WikiPageTree } from '../../components/documents/WikiPageTree'
+import { WikiMetaPanel } from '../../components/documents/WikiMetaPanel'
+import { PanelRightClose, PanelRightOpen } from 'lucide-react'
 import { RetentionBadge } from './RetentionBadge'
 import { WikiBlockRenderer } from './WikiBlockRenderer'
 import { AddTaskLink } from '../../components/tasks/AddTaskLink'
@@ -104,6 +108,7 @@ export function WikiPageView() {
     auditLedger,
   } = docs
   const { comments, addComment, editComment, setResolved, removeComment } = useWikiPageComments(pageId)
+  const { isWide: readerWide, toggle: toggleReaderWide } = useReaderWidth()
   const {
     linked: linkedAvvik,
     loading: avvikLoading,
@@ -800,7 +805,23 @@ export function WikiPageView() {
       )}
 
       {activeTabExt === 'innhold' && (
-        <ModuleSectionCard clip="visible" className="overflow-visible">
+        <div
+          className="grid gap-4"
+          style={{
+            gridTemplateColumns: readerWide
+              ? '260px minmax(0,1fr)'
+              : '260px minmax(0,1fr) 300px',
+          }}
+        >
+          <div className="hidden lg:block">
+            <WikiPageTree
+              spaces={docs.spaces}
+              pages={docs.pages}
+              activePageId={page.id}
+              activeSpaceId={page.spaceId}
+            />
+          </div>
+          <ModuleSectionCard clip="visible" className="overflow-visible">
           {/* ── Reading toolbar ── */}
           <div
             data-print-hide
@@ -867,6 +888,26 @@ export function WikiPageView() {
                 ? <Minimize2 className="size-3.5" aria-hidden />
                 : <Maximize2 className="size-3.5" aria-hidden />}
               <span className="hidden sm:inline">{widthFull ? 'Lesemodus' : 'Full bredde'}</span>
+            </Button>
+
+            <div className="mx-1.5 h-4 w-px shrink-0 bg-neutral-200" aria-hidden />
+
+            {/* Size toggle — expand reader over the side panel */}
+            <Button
+              variant="ghost"
+              onClick={toggleReaderWide}
+              title={readerWide ? 'Vis sidepanel' : 'Utvid leseren over sidepanelet'}
+              aria-pressed={readerWide}
+              className={`inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-medium transition-colors ${
+                readerWide ? 'bg-[#0f766e]/10 text-[#0f766e]' : 'text-neutral-500 hover:bg-neutral-100'
+              }`}
+            >
+              {readerWide ? (
+                <PanelRightOpen className="size-3.5" aria-hidden />
+              ) : (
+                <PanelRightClose className="size-3.5" aria-hidden />
+              )}
+              <span className="hidden sm:inline">{readerWide ? 'Vis panel' : 'Utvid'}</span>
             </Button>
 
             <div className="flex-1" />
@@ -1061,7 +1102,21 @@ export function WikiPageView() {
               </div>
             </div>
           </div>
-        </ModuleSectionCard>
+          </ModuleSectionCard>
+          {!readerWide ? (
+            <div className="hidden lg:block">
+              <WikiMetaPanel
+                page={page}
+                space={space}
+                ownerName={resolveMemberName(page.authorId)}
+                auditLedger={auditLedger}
+                resolveUserName={resolveMemberName}
+                backlinkIds={backlinkIds}
+                pageTitleById={(id) => docs.pages.find((p) => p.id === id)?.title ?? id}
+              />
+            </div>
+          ) : null}
+        </div>
       )}
 
       {activeTabExt === 'diskusjon' && (
