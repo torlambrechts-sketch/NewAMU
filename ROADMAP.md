@@ -259,6 +259,24 @@ Template-driven meeting engine that supersedes `CouncilModule.tsx` meeting CRUD 
 
 ---
 
+## 9 · Multi-language (i18n)
+
+Make the whole app multi-language. Norwegian (nb) + English (en) now; Swedish
+(sv) + Danish (da) later. Database-first, phased.
+
+| # | Status | Item | Notes |
+|---|---|---|---|
+| 9.1 | ✅ | Phase 0 — DB foundation | Migrations `20260916120000`–`_120400` + `_120800`. `app_locales` registry; `organizations.default_locale`/`supported_locales`; `profiles.locale` → FK; eight `<table>_locales` sidecar tables mirroring the learning per-locale pattern; nb backfill (154 rows); `resolve_locale()` fallback helper. Applied to the project and verified. |
+| 9.2 | ✅ | Phase 1 — frontend stack consolidation | Removed the legacy custom string bundle (`i18n/strings.ts` + `I18nProvider` + `useI18n`); standardised on react-i18next. New `lib/i18n/locales.ts` (locale registry), `lib/i18n/format.ts` (locale-aware date/number/currency), `LocaleSync` component. |
+| 9.3 | ✅ | Phase 2 — English seed for system content | Migration `20260916120500`. `en` rows for all 155 vendor system templates with translated display fields (name/label/description/use-case/scoring). jsonb payload bodies remain nb pending a translation-team pass — resolver coalesces per column. |
+| 9.4 | 🚧 | Phase 3 — UI string extraction | ~4,000–4,500 strings across ~440 files, module by module. Done: `ShellHeaderWidgets` (`shell.header.*`, incl. first plural). Remaining: shell/nav bulk, every feature module, admin, validation messages, ~68 hardcoded `nb-NO` formatting sites → `lib/i18n/format.ts`. |
+| 9.5 | 📋 | Phase 4 — marketing site + SEO | Locale-prefixed routes (`/en/...`), translate `pages/marketing/content/*.ts` (~745 lines), per-locale prerender + `hreflang` in `scripts/prerender-marketing.mjs`. |
+| 9.6 | 📋 | Phase 5 — server-side text | `_shared/i18n.ts`; recipient-locale emails (join `profiles.locale`); notification SQL → key+params; government PDFs stay nb (legally locked). |
+| 9.7 | 📋 | RPC locale-parameterisation | Deferred from Phase 0: add `p_locale` to the 4 provisioning RPCs; replace hard-coded `('nb','en')` whitelists in learning RPCs + `handle_new_user()` with an `app_locales` lookup; new `set_profile_locale()` RPC. Touches existing functions — own reviewed PR. |
+| 9.8 | 📋 | Phase 6 — Swedish + Danish | By design now config-only: `insert into app_locales`, add locale JSON + sidecar rows, extend the switcher. No schema migrations. |
+
+---
+
 ## Suggested order of work
 
 If picking up cold, do these in this order — each builds on the previous and exposes any abstraction problems early:
