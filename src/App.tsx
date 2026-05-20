@@ -108,6 +108,7 @@ import { LearningCertificatePrintPage } from './pages/learning/LearningCertifica
 import { LearningMinHistorikkPage } from './pages/learning/LearningMinHistorikkPage'
 import { DocumentsHome } from './pages/documents/DocumentsHome'
 import { DocumentsAnalysePage } from './pages/documents/DocumentsAnalysePage'
+import { DocumentsSokPage } from './pages/documents/DocumentsSokPage'
 import { DocumentsMalbibliotekPage } from './pages/documents/DocumentsMalbibliotekPage'
 import { WikiSpaceView } from './pages/documents/WikiSpaceView'
 import { WikiPageView } from './pages/documents/WikiPageView'
@@ -627,6 +628,7 @@ const router = createBrowserRouter(
                         <Route path="documents/malbibliotek" element={<DocumentsMalbibliotekPage />} />
                         <Route path="documents" element={<DocumentsHome />} />
                         <Route path="documents/analyse" element={<DocumentsAnalysePage />} />
+                        <Route path="documents/sok" element={<DocumentsSokPage />} />
                         <Route path="documents/alle" element={<DocumentsAllePage />} />
                         <Route path="documents/compliance" element={<ComplianceDashboard />} />
                         <Route path="documents/admin" element={<LegacyAdminRedirect scope="documents" />} />
