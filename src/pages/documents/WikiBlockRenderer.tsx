@@ -2,6 +2,7 @@ import { Fragment, type ReactNode } from 'react'
 import { ExternalLink } from 'lucide-react'
 import type { ContentBlock, WikiPageLang } from '../../types/documents'
 import { sanitizeLearningHtml } from '../../lib/sanitizeHtml'
+import { injectCommentHighlights, type CommentAnchorHighlight } from '../../lib/wikiCommentHighlights'
 import { headingAnchorId } from '../../lib/wikiPageLinks'
 import { LiveOrgChart } from './modules/LiveOrgChart'
 import { LiveRiskFeed } from './modules/LiveRiskFeed'
@@ -25,6 +26,10 @@ type Props = {
   blockFooter?: (blockIndex: number) => ReactNode
   /** Prose font size. Defaults to 'base'. */
   fontSize?: 'sm' | 'base' | 'lg'
+  /** Rec05 — anchored comment highlights injected into text blocks. */
+  commentAnchors?: CommentAnchorHighlight[]
+  /** Called when a comment highlight `<mark>` is clicked. */
+  onAnchorClick?: (commentId: string) => void
 }
 
 const alertStyles = {
@@ -46,11 +51,33 @@ const FONT_SIZE_PX: Record<'sm' | 'base' | 'lg', string> = {
   lg: '1.125rem',
 }
 
-export function WikiBlockRenderer({ blocks, pageId, pageVersion, lang = 'nb', blockFooter, fontSize = 'base' }: Props) {
+export function WikiBlockRenderer({
+  blocks,
+  pageId,
+  pageVersion,
+  lang = 'nb',
+  blockFooter,
+  fontSize = 'base',
+  commentAnchors,
+  onAnchorClick,
+}: Props) {
   const fontSizePx = FONT_SIZE_PX[fontSize]
   const headingCounts = new Map<string, number>()
+  const anchors = commentAnchors ?? []
+  const handleAnchorClick = onAnchorClick
+    ? (e: React.MouseEvent<HTMLElement>) => {
+        const mark = (e.target as HTMLElement).closest('mark[data-comment-id]')
+        const id = mark?.getAttribute('data-comment-id')
+        if (id) onAnchorClick(id)
+      }
+    : undefined
   return (
-    <article lang={lang} className="space-y-4" style={{ fontSize: fontSizePx }}>
+    <article
+      lang={lang}
+      className="space-y-4"
+      style={{ fontSize: fontSizePx }}
+      onClick={handleAnchorClick}
+    >
       {blocks.map((block, i) => {
         if (!block || typeof block !== 'object' || !('kind' in block)) {
           return (
@@ -94,7 +121,10 @@ export function WikiBlockRenderer({ blocks, pageId, pageVersion, lang = 'nb', bl
                 className="prose max-w-none text-neutral-800 [&_a]:text-[#1a3d32] [&_a]:underline [&_table]:w-full [&_table]:border-collapse [&_td]:border [&_td]:border-neutral-200 [&_td]:px-3 [&_td]:py-1.5 [&_td]:text-sm [&_th]:border [&_th]:border-neutral-200 [&_th]:bg-neutral-50 [&_th]:px-3 [&_th]:py-1.5 [&_th]:text-left [&_th]:text-xs [&_th]:font-semibold [&_th]:uppercase [&_th]:tracking-wide [&_th]:text-neutral-500"
                 style={{ fontSize: fontSizePx }}
                 dangerouslySetInnerHTML={{
-                  __html: sanitizeLearningHtml(typeof block.body === 'string' ? block.body : ''),
+                  __html: injectCommentHighlights(
+                    sanitizeLearningHtml(typeof block.body === 'string' ? block.body : ''),
+                    anchors,
+                  ),
                 }}
               />
             )

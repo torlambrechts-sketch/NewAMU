@@ -8,6 +8,7 @@ import { useWikiPageComments } from '../../hooks/useWikiPageComments'
 import { WikiTocPanel } from '../../components/documents/WikiTocPanel'
 import { WikiMetaPanel } from '../../components/documents/WikiMetaPanel'
 import { WikiCommentsRail } from '../../components/documents/WikiCommentsRail'
+import { THREAD_COLORS, type CommentAnchorHighlight } from '../../lib/wikiCommentHighlights'
 import { WikiCommentEventLog } from '../../components/documents/WikiCommentEventLog'
 import { DocumentApprovalPipeline } from '../../components/documents/DocumentApprovalPipeline'
 import { RetentionBadge } from './RetentionBadge'
@@ -107,7 +108,7 @@ export function WikiPageView() {
     requestReviewChanges,
     auditLedger,
   } = docs
-  const { comments, commentEvents, addComment, setResolved, removeComment } =
+  const { comments, commentEvents, addComment, setResolved, removeComment, logCommentEvent } =
     useWikiPageComments(pageId)
   const { isWide: readerWide, toggle: toggleReaderWide } = useReaderWidth()
   const {
@@ -139,6 +140,25 @@ export function WikiPageView() {
   })
   /** Which panel fills the viewer's right column — page meta or the comment rail. */
   const [rightPanel, setRightPanel] = useState<'meta' | 'comments'>('meta')
+  /** Text selected in the document, pending a new anchored comment thread. */
+  const [pendingQuote, setPendingQuote] = useState<string | null>(null)
+
+  /** Anchored-comment highlights — numbered to match the thread rail. */
+  const commentAnchors = useMemo<CommentAnchorHighlight[]>(() => {
+    const tops = comments.filter((c) => !c.deletedAt && !c.parentCommentId)
+    return tops.flatMap((c, i) =>
+      c.anchor?.quotedText
+        ? [
+            {
+              commentId: c.id,
+              quotedText: c.anchor.quotedText,
+              index: i + 1,
+              color: THREAD_COLORS[i % THREAD_COLORS.length],
+            },
+          ]
+        : [],
+    )
+  }, [comments])
 
   const page = docs.pages.find((p) => p.id === pageId)
   const space = page ? docs.spaces.find((s) => s.id === page.spaceId) : null
@@ -910,13 +930,32 @@ export function WikiPageView() {
                   ) : null}
                 </div>
               ) : null}
-              <div className={readerWide ? '' : `mx-auto ${TEMPLATE_CLASS[templateKey]}`}>
+              <div
+                className={readerWide ? '' : `mx-auto ${TEMPLATE_CLASS[templateKey]}`}
+                onMouseUp={
+                  rightPanel === 'comments'
+                    ? () => {
+                        const text = window.getSelection()?.toString().trim() ?? ''
+                        if (text.length >= 4 && text.length <= 300) setPendingQuote(text)
+                      }
+                    : undefined
+                }
+              >
                 <WikiBlockRenderer
                   blocks={Array.isArray(page.blocks) ? page.blocks : []}
                   pageId={page.id}
                   pageVersion={page.version}
                   lang={page.lang ?? 'nb'}
                   fontSize={fontSize}
+                  commentAnchors={rightPanel === 'comments' ? commentAnchors : undefined}
+                  onAnchorClick={(id) => {
+                    setRightPanel('comments')
+                    queueMicrotask(() =>
+                      document
+                        .getElementById(`cm-thread-${id}`)
+                        ?.scrollIntoView({ behavior: 'smooth', block: 'center' }),
+                    )
+                  }}
                 />
               </div>
             </div>
@@ -927,6 +966,8 @@ export function WikiPageView() {
                 <WikiCommentsRail
                   comments={comments}
                   canComment={Boolean(user?.id && can('documents.view') && page.status !== 'archived')}
+                  pendingQuote={pendingQuote}
+                  onClearQuote={() => setPendingQuote(null)}
                   onAddComment={async (body) => {
                     await addComment({
                       blockIndex: 0,
@@ -934,7 +975,11 @@ export function WikiPageView() {
                       authorName: profile?.display_name ?? '',
                       kind: 'comment',
                       legalBasis: pageLegalBasis,
+                      anchor: pendingQuote
+                        ? { blockIndex: 0, from: 0, to: 0, quotedText: pendingQuote }
+                        : null,
                     })
+                    setPendingQuote(null)
                   }}
                   onReply={async (parentId, blockIndex, body) => {
                     await addComment({
@@ -948,6 +993,11 @@ export function WikiPageView() {
                   }}
                   onResolve={(id, r) => setResolved(id, r)}
                   onDelete={(id) => removeComment(id)}
+                  onSuggestion={async (id, decision) => {
+                    const c = comments.find((x) => x.id === id)
+                    if (c) await logCommentEvent({ id: c.id, pageId: c.pageId }, decision)
+                    await setResolved(id, true)
+                  }}
                 />
               ) : (
               <WikiMetaPanel

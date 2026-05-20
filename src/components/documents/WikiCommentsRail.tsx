@@ -4,6 +4,7 @@ import { ArrowUp, Check, MessageSquare, RotateCcw, Trash2 } from 'lucide-react'
 import { ModuleSectionCard } from '../module/ModuleSectionCard'
 import { StandardTextarea } from '../ui/Textarea'
 import { Button } from '../ui/Button'
+import { THREAD_COLORS } from '../../lib/wikiCommentHighlights'
 import type { WikiPageComment } from '../../types/documents'
 
 /**
@@ -15,8 +16,6 @@ import type { WikiPageComment } from '../../types/documents'
  */
 
 type FilterKey = 'all' | 'open' | 'suggestion' | 'resolved'
-
-const THREAD_COLORS = ['#fde68a', '#dbeafe', '#fecaca', '#ddd6fe', '#bbf7d0', '#fed7aa']
 
 function initials(name: string): string {
   return name.trim().split(/\s+/).slice(0, 2).map((w) => w[0]?.toUpperCase() ?? '').join('')
@@ -61,6 +60,9 @@ export function WikiCommentsRail({
   onReply,
   onResolve,
   onDelete,
+  onSuggestion,
+  pendingQuote,
+  onClearQuote,
 }: {
   comments: WikiPageComment[]
   canComment: boolean
@@ -69,6 +71,11 @@ export function WikiCommentsRail({
   onReply: (parentId: string, blockIndex: number, body: string) => Promise<void> | void
   onResolve: (commentId: string, resolved: boolean) => Promise<void> | void
   onDelete: (commentId: string) => Promise<void> | void
+  /** Accept / reject a `suggestion`-kind comment (Rec06 track-changes). */
+  onSuggestion?: (commentId: string, decision: 'accepted' | 'rejected') => Promise<void> | void
+  /** Text selected in the document — the new comment will anchor to it. */
+  pendingQuote?: string | null
+  onClearQuote?: () => void
 }) {
   const [filter, setFilter] = useState<FilterKey>('all')
   const [replyOpen, setReplyOpen] = useState<string | null>(null)
@@ -79,8 +86,11 @@ export function WikiCommentsRail({
 
   const threads = useMemo(() => {
     const tops = visible.filter((c) => !c.parentCommentId)
-    return tops.map((top) => ({
+    // `number` is the stable 1-based position among all top-level comments,
+    // so it matches the document highlight markers regardless of the filter.
+    return tops.map((top, i) => ({
       top,
+      number: i + 1,
       replies: visible
         .filter((c) => c.parentCommentId === top.id)
         .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()),
@@ -135,14 +145,22 @@ export function WikiCommentsRail({
           </p>
         </ModuleSectionCard>
       ) : (
-        filteredThreads.map(({ top, replies }, idx) => {
-          const color = THREAD_COLORS[idx % THREAD_COLORS.length]
+        filteredThreads.map(({ top, replies, number }) => {
+          const color = THREAD_COLORS[(number - 1) % THREAD_COLORS.length]
           const quote = top.anchor?.quotedText
           return (
-            <ModuleSectionCard key={top.id} className="!p-0 overflow-hidden">
-              <div className="flex items-start gap-2 border-b border-neutral-100 px-3 py-2">
+            <ModuleSectionCard key={top.id} id={`cm-thread-${top.id}`} className="!p-0 overflow-hidden">
+              <button
+                type="button"
+                onClick={() => {
+                  document
+                    .querySelector(`mark[data-comment-id="${top.id}"]`)
+                    ?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+                }}
+                className="flex w-full items-start gap-2 border-b border-neutral-100 px-3 py-2 text-left hover:bg-neutral-50"
+              >
                 <span className="flex h-5 min-w-[20px] items-center justify-center rounded-full bg-[#0f766e] px-1 text-[10px] font-bold text-white">
-                  {idx + 1}
+                  {number}
                 </span>
                 {quote ? (
                   <span className="flex-1 truncate text-[11px] text-neutral-600">
@@ -163,7 +181,7 @@ export function WikiCommentsRail({
                     LØST
                   </span>
                 ) : null}
-              </div>
+              </button>
 
               <div className="px-3 py-3">
                 <Bubble comment={top} />
@@ -179,6 +197,27 @@ export function WikiCommentsRail({
                         {top.suggestion.add}
                       </span>
                     </p>
+                    {!top.resolved && onSuggestion ? (
+                      <div className="mt-2 flex gap-1.5">
+                        <Button
+                          size="sm"
+                          className="!px-2 !py-1 !text-[11px]"
+                          disabled={busy}
+                          onClick={() => void onSuggestion(top.id, 'accepted')}
+                        >
+                          Aksepter
+                        </Button>
+                        <Button
+                          variant="secondary"
+                          size="sm"
+                          className="!px-2 !py-1 !text-[11px]"
+                          disabled={busy}
+                          onClick={() => void onSuggestion(top.id, 'rejected')}
+                        >
+                          Avvis
+                        </Button>
+                      </div>
+                    ) : null}
                   </div>
                 ) : null}
 
@@ -278,6 +317,28 @@ export function WikiCommentsRail({
       {canComment ? (
         <ModuleSectionCard className="!p-3">
           <p className="mb-1.5 text-[10px] font-bold uppercase tracking-wider text-neutral-500">Ny kommentar</p>
+          {pendingQuote ? (
+            <div className="mb-2 flex items-start gap-1.5 rounded-md bg-[#fde68a]/50 px-2 py-1.5 text-[11px] text-neutral-700">
+              <span className="min-w-0 flex-1">
+                Kommenterer: «{pendingQuote.length > 80 ? `${pendingQuote.slice(0, 80)}…` : pendingQuote}»
+              </span>
+              {onClearQuote ? (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="!h-5 !min-w-0 !px-1 !py-0 !text-[11px]"
+                  title="Fjern markering"
+                  onClick={onClearQuote}
+                >
+                  ✕
+                </Button>
+              ) : null}
+            </div>
+          ) : (
+            <p className="mb-2 text-[11px] text-neutral-400">
+              Marker en setning i dokumentet for å feste kommentaren til den.
+            </p>
+          )}
           <StandardTextarea
             value={newText}
             onChange={(e) => setNewText(e.target.value)}
