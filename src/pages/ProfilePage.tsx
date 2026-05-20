@@ -14,8 +14,8 @@ import {
   User,
   Users,
 } from 'lucide-react'
-import { APP_LOCALES, LOCALE_LABELS, type AppLocale } from '../i18n/strings'
-import { useI18n } from '../hooks/useI18n'
+import { APP_LOCALES, LOCALE_LABELS, type AppLocale } from '../lib/i18n/locales'
+import { useT } from '../hooks/useT'
 import { useOrgSetupContext } from '../hooks/useOrgSetupContext'
 import { mergeNotificationPreferences, parseNotificationPreferences } from '../lib/notificationPreferences'
 import { getSupabaseErrorMessage } from '../lib/supabaseError'
@@ -42,7 +42,7 @@ function initialsFromName(name: string) {
 
 export function ProfilePage() {
   const navigate = useNavigate()
-  const { t, locale: ctxLocale } = useI18n()
+  const { t, locale: ctxLocale } = useT()
   const {
     user,
     profile,

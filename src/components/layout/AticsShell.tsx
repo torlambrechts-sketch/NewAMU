@@ -39,7 +39,6 @@ import {
 } from 'lucide-react'
 import { NotificationTray } from '../notifications/NotificationTray'
 import { SurveyPendingInvitesBanner } from '../../../modules/survey/SurveyPendingInvitesBanner'
-import { useI18n } from '../../hooks/useI18n'
 import { useT } from '../../hooks/useT'
 import { useOrgSetupContext } from '../../hooks/useOrgSetupContext'
 import type { PermissionKey } from '../../lib/permissionKeys'
@@ -481,7 +480,7 @@ function LocaleSwitcher() {
 export function AticsShell() {
   const location = useLocation()
   const { supabase, supabaseConfigured, can, permissionKeys, user, profile, signOut, organization } = useOrgSetupContext()
-  const { t } = useI18n()
+  const { t } = useT()
   const gateNav = supabaseConfigured && permissionKeys.size > 0
 
   // Disabled at org level (modules.is_active = false)

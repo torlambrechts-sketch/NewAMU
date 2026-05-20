@@ -158,10 +158,8 @@ export function ShellProfileMenuButton({
 
           <div className="space-y-4">
             {/* Locale switcher lives in AticsShell's <LocaleSwitcher> (i18next-backed).
-                The legacy <LanguageSwitcher /> mount was removed 2026-09 to end the
-                split-brain between `newamu_locale` (i18next) and `atics-locale`
-                (legacy I18nProvider). The I18nProvider now bridges into i18next on
-                every locale change, so a single switcher suffices. */}
+                A logged-in user's choice is bridged from `profiles.locale` by
+                <LocaleSync>, so a single switcher suffices. */}
             <LayoutModeInline navMode={navMode} onChange={onNavModeChange} darkSurface={dark} />
             <Link
               to={profileTo}

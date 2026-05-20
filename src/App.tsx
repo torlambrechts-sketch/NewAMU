@@ -19,7 +19,7 @@ const EndringerPage = lazy(() => import('./pages/marketing/EndringerPage').then(
 const ContactPage = lazy(() => import('./pages/marketing/ContactPage').then((m) => ({ default: m.ContactPage })))
 import { OrgSetupProvider } from './context/OrgSetupProvider'
 import { UiThemeProvider } from './context/UiThemeProvider'
-import { I18nProvider } from './context/I18nProvider'
+import { LocaleSync } from './components/LocaleSync'
 import { AticsShell } from './components/layout/AticsShell'
 import { RegulationFilterProvider } from './context/RegulationFilterContext'
 import { OrgGate } from './components/OrgGate'
@@ -262,9 +262,8 @@ function AppRouterLayout() {
   return (
     <OrgSetupProvider>
       <UiThemeProvider>
-        <I18nProvider>
-          <Outlet />
-        </I18nProvider>
+        <LocaleSync />
+        <Outlet />
       </UiThemeProvider>
     </OrgSetupProvider>
   )
