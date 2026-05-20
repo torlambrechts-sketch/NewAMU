@@ -1,3 +1,4 @@
+/* eslint-disable no-restricted-syntax -- design-system filter chip primitive; intentionally a styled native button */
 import { ChevronDown } from 'lucide-react'
 import { twMerge } from 'tailwind-merge'
 

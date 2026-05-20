@@ -1,3 +1,4 @@
+/* eslint-disable react-refresh/only-export-components -- provider + hook in one module */
 import { createContext, useCallback, useContext, useMemo, useState } from 'react'
 import type { ReactNode } from 'react'
 
