@@ -205,20 +205,11 @@ export function makeHmsGrunnmurWizard(deps: StudioWizardDeps): WizardDef {
         onAdvance: async (): Promise<WizardStepAdvanceResult> => {
           if (!deps.supabase || !deps.organizationId)
             return { ok: false, error: 'Mangler organisasjons-kontekst.' }
-          // Idempotent: kan kjøres flere ganger uten duplisering.
-          const docs = await provisionWithErrorHandling(() =>
-            deps.supabase!.rpc('provision_documents_baseline_for_org', {
-              p_org_id: deps.organizationId!,
-            }),
+          // Idempotent: kan kjøres flere ganger uten duplisering. Org-en
+          // utledes server-side fra sesjonen — aldri fra en parameter.
+          return provisionWithErrorHandling(() =>
+            deps.supabase!.rpc('studio_provision_baseline_for_current_org'),
           )
-          if (!docs.ok) return docs
-          const checklists = await provisionWithErrorHandling(() =>
-            deps.supabase!.rpc('provision_compliance_baseline_for_org', {
-              p_org_id: deps.organizationId!,
-              p_pack: 'aml-amu',
-            }),
-          )
-          return checklists
         },
       },
       {
@@ -369,9 +360,7 @@ export function makeVarslingWizard(deps: StudioWizardDeps): WizardDef {
           if (!deps.supabase || !deps.organizationId)
             return { ok: false, error: 'Mangler organisasjons-kontekst.' }
           return provisionWithErrorHandling(() =>
-            deps.supabase!.rpc('provision_documents_baseline_for_org', {
-              p_org_id: deps.organizationId!,
-            }),
+            deps.supabase!.rpc('studio_provision_baseline_for_current_org'),
           )
         },
       },
@@ -521,17 +510,8 @@ export function makeAmuEtableringWizard(deps: StudioWizardDeps): WizardDef {
         onAdvance: async (): Promise<WizardStepAdvanceResult> => {
           if (!deps.supabase || !deps.organizationId)
             return { ok: false, error: 'Mangler organisasjons-kontekst.' }
-          const docs = await provisionWithErrorHandling(() =>
-            deps.supabase!.rpc('provision_documents_baseline_for_org', {
-              p_org_id: deps.organizationId!,
-            }),
-          )
-          if (!docs.ok) return docs
           return provisionWithErrorHandling(() =>
-            deps.supabase!.rpc('provision_compliance_baseline_for_org', {
-              p_org_id: deps.organizationId!,
-              p_pack: 'aml-amu',
-            }),
+            deps.supabase!.rpc('studio_provision_baseline_for_current_org'),
           )
         },
       },

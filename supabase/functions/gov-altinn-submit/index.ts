@@ -27,6 +27,7 @@ import {
   serviceRoleClient,
   type CommonRequestBody,
 } from '../_shared/govEvidence.ts'
+import { assertCallerOrg, GuardError } from '../_shared/auth.ts'
 
 const corsHeaders: Record<string, string> = {
   'Access-Control-Allow-Origin': '*',
@@ -72,6 +73,17 @@ Deno.serve(async (req) => {
   const p = payload as Partial<Payload>
   if (!p.tjeneste || !p.skjema) {
     return json({ ok: false, error: 'missing_tjeneste_or_skjema' }, 400)
+  }
+
+  // Cross-tenant guard: the caller must belong to organization_id (or be
+  // service-role). Runs BEFORE any service-role DB work.
+  try {
+    await assertCallerOrg(req, organization_id)
+  } catch (err) {
+    if (err instanceof GuardError) {
+      return json({ ok: false, error: err.code, detail: err.detail }, err.status)
+    }
+    throw err
   }
 
   const supabase = serviceRoleClient()
