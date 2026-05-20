@@ -9,10 +9,24 @@
  *          SUPABASE_SERVICE_ROLE_KEY (cron only), MEETINGS_CRON_SECRET,
  *          RESEND_FROM, PUBLIC_APP_URL
  *
- * Mirrors `send-survey-invites/index.ts` pattern. Returns
- * { ok: true, sent: number, failed: number, results: [...] }.
+ * i18n: subject + body are rendered per recipient. `organization_members`
+ * has no account FK, so the recipient locale is resolved by matching the
+ * member email against `profiles.locale`; members with no app account fall
+ * back to the organisation's `default_locale`, then 'nb'. Shared copy and
+ * helpers live in `../_shared/i18n.ts`.
+ *
+ * Returns { ok: true, sent: number, failed: number, results: [...] }.
  */
 import { createClient, type SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2.49.1'
+import {
+  escapeAttr,
+  escapeHtml,
+  escapeIcs,
+  formatDateTime,
+  resolveLocale,
+  t,
+  type ServerLocale,
+} from '../_shared/i18n.ts'
 
 const corsHeaders: Record<string, string> = {
   'Access-Control-Allow-Origin': '*',
@@ -47,58 +61,37 @@ function respondJson(body: unknown, status = 200): Response {
   })
 }
 
-function escapeHtml(s: string): string {
-  return s
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-}
-
-function escapeAttr(s: string): string {
-  return escapeHtml(s).replace(/'/g, '&#39;')
-}
-
-function fmtDateNb(iso: string): string {
-  try {
-    return new Date(iso).toLocaleString('nb-NO', {
-      dateStyle: 'full',
-      timeStyle: 'short',
-    })
-  } catch {
-    return iso
-  }
-}
-
 function defaultInviteHtml(args: {
+  locale: ServerLocale
   title: string
   whenLabel: string
   location: string | null
   description: string | null
   meetingUrl: string
 }): string {
-  const { title, whenLabel, location, description, meetingUrl } = args
+  const { locale, title, whenLabel, location, description, meetingUrl } = args
   return `<!DOCTYPE html><html><body style="font-family:system-ui,sans-serif;line-height:1.55;color:#1f2937">
-<h2 style="margin:0 0 8px 0">Innkalling: ${escapeHtml(title)}</h2>
-<p style="margin:4px 0"><strong>Tidspunkt:</strong> ${escapeHtml(whenLabel)}</p>
-${location ? `<p style="margin:4px 0"><strong>Sted:</strong> ${escapeHtml(location)}</p>` : ''}
+<h2 style="margin:0 0 8px 0">${escapeHtml(t(locale, 'meeting.invite.heading', { title }))}</h2>
+<p style="margin:4px 0"><strong>${escapeHtml(t(locale, 'meeting.field.when'))}:</strong> ${escapeHtml(whenLabel)}</p>
+${location ? `<p style="margin:4px 0"><strong>${escapeHtml(t(locale, 'meeting.field.location'))}:</strong> ${escapeHtml(location)}</p>` : ''}
 ${description ? `<p style="margin:12px 0">${escapeHtml(description)}</p>` : ''}
-<p style="margin:16px 0"><a href="${escapeAttr(meetingUrl)}" style="display:inline-block;padding:10px 16px;background:#0891b2;color:#fff;text-decoration:none;border-radius:6px">Åpne møtet</a></p>
-<p style="font-size:12px;color:#6b7280">Hvis knappen ikke virker, lim inn denne lenken i nettleseren:<br/>${escapeHtml(meetingUrl)}</p>
-<p style="font-size:12px;color:#6b7280">Kalenderfilen (.ics) er vedlagt — åpne den for å legge møtet til i kalenderen din.</p>
+<p style="margin:16px 0"><a href="${escapeAttr(meetingUrl)}" style="display:inline-block;padding:10px 16px;background:#0891b2;color:#fff;text-decoration:none;border-radius:6px">${escapeHtml(t(locale, 'meeting.openButton'))}</a></p>
+<p style="font-size:12px;color:#6b7280">${escapeHtml(t(locale, 'meeting.linkFallback'))}<br/>${escapeHtml(meetingUrl)}</p>
+<p style="font-size:12px;color:#6b7280">${escapeHtml(t(locale, 'meeting.icsHint'))}</p>
 </body></html>`
 }
 
 function defaultReminderHtml(args: {
+  locale: ServerLocale
   title: string
   whenLabel: string
   meetingUrl: string
 }): string {
-  const { title, whenLabel, meetingUrl } = args
+  const { locale, title, whenLabel, meetingUrl } = args
   return `<!DOCTYPE html><html><body style="font-family:system-ui,sans-serif;line-height:1.55;color:#1f2937">
-<h2 style="margin:0 0 8px 0">Påminnelse: ${escapeHtml(title)}</h2>
+<h2 style="margin:0 0 8px 0">${escapeHtml(t(locale, 'meeting.reminder.heading', { title }))}</h2>
 <p>${escapeHtml(whenLabel)}</p>
-<p style="margin:16px 0"><a href="${escapeAttr(meetingUrl)}" style="display:inline-block;padding:10px 16px;background:#0891b2;color:#fff;text-decoration:none;border-radius:6px">Åpne møtet</a></p>
+<p style="margin:16px 0"><a href="${escapeAttr(meetingUrl)}" style="display:inline-block;padding:10px 16px;background:#0891b2;color:#fff;text-decoration:none;border-radius:6px">${escapeHtml(t(locale, 'meeting.openButton'))}</a></p>
 </body></html>`
 }
 
@@ -107,12 +100,14 @@ function buildMeetingUrl(baseUrl: string, meetingId: string): string {
   return `${origin}/meetings/${encodeURIComponent(meetingId)}`
 }
 
-/** RFC 5545 minimal VEVENT. Returns null when scheduled_at is missing. */
+/** RFC 5545 minimal VEVENT. Returns null when scheduled_at is missing.
+ *  Built once per send with the organisation locale (one ICS for all). */
 function buildIcs(args: {
   meeting: MeetingRow
   meetingUrl: string
+  locale: ServerLocale
 }): string | null {
-  const { meeting, meetingUrl } = args
+  const { meeting, meetingUrl, locale } = args
   if (!meeting.scheduled_at) return null
   const dtstart = toIcsTimestamp(meeting.scheduled_at)
   const dtend = meeting.ends_at
@@ -122,7 +117,9 @@ function buildIcs(args: {
   const dtstamp = toIcsTimestamp(new Date().toISOString())
   const summary = escapeIcs(meeting.title)
   const description = escapeIcs(
-    [meeting.description ?? '', `Lenke: ${meetingUrl}`].filter(Boolean).join('\\n\\n'),
+    [meeting.description ?? '', `${t(locale, 'meeting.ics.linkLabel')}: ${meetingUrl}`]
+      .filter(Boolean)
+      .join('\\n\\n'),
   )
   const location = meeting.location_label ? escapeIcs(meeting.location_label) : ''
   return [
@@ -155,10 +152,6 @@ function toIcsTimestamp(iso: string): string {
     .replace(/\.\d{3}/, '')
 }
 
-function escapeIcs(text: string): string {
-  return text.replace(/\\/g, '\\\\').replace(/;/g, '\\;').replace(/,/g, '\\,').replace(/\n/g, '\\n')
-}
-
 /** btoa() only handles Latin-1; Norwegian characters (æ/ø/å) in meeting
  *  titles or location labels would otherwise produce corrupt base64. We
  *  UTF-8-encode first, then base64-encode the bytes. */
@@ -178,7 +171,7 @@ function sleep(ms: number): Promise<void> {
 async function loadMeetingAndMembers(args: {
   supabase: SupabaseClient
   meetingId: string
-}): Promise<{ meeting: MeetingRow; members: MemberRow[] }> {
+}): Promise<{ meeting: MeetingRow; members: MemberRow[]; orgLocale: ServerLocale }> {
   const { data: meetingData, error: meetingErr } = await args.supabase
     .from('meetings')
     .select(
@@ -190,16 +183,46 @@ async function loadMeetingAndMembers(args: {
     throw new Error(meetingErr?.message ?? 'Meeting not found')
   }
   const meeting = meetingData as MeetingRow
+
+  // Organisation default locale — the fallback for recipients with no account.
+  const { data: orgData } = await args.supabase
+    .from('organizations')
+    .select('default_locale')
+    .eq('id', meeting.organization_id)
+    .single()
+  const orgLocale = resolveLocale((orgData as { default_locale?: string } | null)?.default_locale)
+
   const ids = (meeting.participant_member_ids ?? []).filter((x) => typeof x === 'string')
   if (ids.length === 0) {
-    return { meeting, members: [] }
+    return { meeting, members: [], orgLocale }
   }
   const { data: memberRows, error: memberErr } = await args.supabase
     .from('organization_members')
     .select('id, display_name, email')
     .in('id', ids)
   if (memberErr) throw new Error(memberErr.message)
-  return { meeting, members: (memberRows ?? []) as MemberRow[] }
+  return { meeting, members: (memberRows ?? []) as MemberRow[], orgLocale }
+}
+
+/** Build an email -> locale map from `profiles`. `organization_members` has
+ *  no account FK, so recipients are matched by email; anyone without a
+ *  profile is simply absent from the map and falls back to the org locale. */
+async function loadRecipientLocales(args: {
+  supabase: SupabaseClient
+  emails: string[]
+}): Promise<Map<string, ServerLocale>> {
+  const map = new Map<string, ServerLocale>()
+  const clean = args.emails.map((e) => e.trim().toLowerCase()).filter(Boolean)
+  if (clean.length === 0) return map
+  const { data, error } = await args.supabase
+    .from('profiles')
+    .select('email, locale')
+    .in('email', clean)
+  if (error || !data) return map
+  for (const row of data as Array<{ email: string | null; locale: string | null }>) {
+    if (row.email) map.set(row.email.trim().toLowerCase(), resolveLocale(row.locale))
+  }
+  return map
 }
 
 async function runInvitationBatch(args: {
@@ -217,7 +240,7 @@ async function runInvitationBatch(args: {
 
   if (!resendKey) throw new Error('RESEND_API_KEY missing')
 
-  const { meeting, members } = await loadMeetingAndMembers({
+  const { meeting, members, orgLocale } = await loadMeetingAndMembers({
     supabase: args.supabase,
     meetingId: args.meetingId,
   })
@@ -232,23 +255,16 @@ async function runInvitationBatch(args: {
     }
   }
 
+  const localeByEmail = await loadRecipientLocales({
+    supabase: args.supabase,
+    emails: members.map((m) => m.email ?? '').filter(Boolean),
+  })
+
   const meetingUrl = buildMeetingUrl(publicAppUrl, meeting.id)
-  const whenLabel = meeting.scheduled_at ? fmtDateNb(meeting.scheduled_at) : 'Tidspunkt ikke fastsatt'
-  const subject =
-    args.mode === 'reminder'
-      ? `Påminnelse: ${meeting.title}`
-      : `Innkalling: ${meeting.title}`
-  const html =
-    args.mode === 'reminder'
-      ? defaultReminderHtml({ title: meeting.title, whenLabel, meetingUrl })
-      : defaultInviteHtml({
-          title: meeting.title,
-          whenLabel,
-          location: meeting.location_label,
-          description: meeting.description,
-          meetingUrl,
-        })
-  const ics = buildIcs({ meeting, meetingUrl })
+
+  // ICS is the same calendar object for everyone — built once with the org
+  // locale. Per-recipient localisation applies to the email subject + body.
+  const ics = buildIcs({ meeting, meetingUrl, locale: orgLocale })
   const attachments = ics
     ? [
         {
@@ -269,6 +285,27 @@ async function runInvitationBatch(args: {
       failed += 1
       continue
     }
+
+    const locale = localeByEmail.get(email.toLowerCase()) ?? orgLocale
+    const whenLabel = meeting.scheduled_at
+      ? formatDateTime(meeting.scheduled_at, locale)
+      : t(locale, 'meeting.whenUnset')
+    const subject =
+      args.mode === 'reminder'
+        ? t(locale, 'meeting.reminder.subject', { title: meeting.title })
+        : t(locale, 'meeting.invite.subject', { title: meeting.title })
+    const html =
+      args.mode === 'reminder'
+        ? defaultReminderHtml({ locale, title: meeting.title, whenLabel, meetingUrl })
+        : defaultInviteHtml({
+            locale,
+            title: meeting.title,
+            whenLabel,
+            location: meeting.location_label,
+            description: meeting.description,
+            meetingUrl,
+          })
+
     try {
       const resp = await fetch('https://api.resend.com/emails', {
         method: 'POST',
