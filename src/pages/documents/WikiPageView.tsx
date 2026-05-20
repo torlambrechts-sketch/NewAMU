@@ -8,6 +8,7 @@ import { useWikiPageComments } from '../../hooks/useWikiPageComments'
 import { WikiPageTree } from '../../components/documents/WikiPageTree'
 import { WikiMetaPanel } from '../../components/documents/WikiMetaPanel'
 import { WikiCommentEventLog } from '../../components/documents/WikiCommentEventLog'
+import { DocumentApprovalPipeline } from '../../components/documents/DocumentApprovalPipeline'
 import { PanelRightClose, PanelRightOpen } from 'lucide-react'
 import { RetentionBadge } from './RetentionBadge'
 import { WikiBlockRenderer } from './WikiBlockRenderer'
@@ -1129,6 +1130,17 @@ export function WikiPageView() {
             <em>Avvik</em> eller <em>Varsling</em> etter hva som passer. Konfidensiell varsling følger AML § 2A —
             append-only, og synlig kun for deg, organisasjonsadmin og varslingsutvalget.
           </InfoBox>
+
+          <ModuleSectionCard className="p-5 md:p-6">
+            <h2 className="text-lg font-semibold text-neutral-900">Godkjenningsløype</h2>
+            <p className="mt-1.5 text-sm text-neutral-600">
+              Kladd → gjennomgang → godkjenning → publisering. Steget oppdateres etter dokumentets
+              status og siste godkjenningsforespørsel.
+            </p>
+            <div className="mt-6">
+              <DocumentApprovalPipeline page={page} requests={wikiReviewRequests} />
+            </div>
+          </ModuleSectionCard>
 
           <ModuleSectionCard className="p-5 md:p-6">
             <h2 className="text-lg font-semibold text-neutral-900">Forespørsel om godkjenning</h2>
