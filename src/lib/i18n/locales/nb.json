@@ -226,5 +226,43 @@
     "publish": "Publiser",
     "cancel": "Avbryt",
     "versionConflict": "Versjon må være større enn nyeste utgitte versjon."
+  },
+  "marketing": {
+    "nav": {
+      "toFrontpage": "Klarert — til forsiden",
+      "product": "Produkt",
+      "compliance": "Etterlevelse",
+      "integrations": "Integrasjoner",
+      "pricing": "Pris",
+      "contact": "Kontakt",
+      "login": "Logg inn",
+      "tryFree": "Prøv gratis",
+      "menu": "Meny"
+    },
+    "footer": {
+      "blurb": "Norsk plattform for HMS, internkontroll og etterlevelse — for virksomheter med 5–500 ansatte. Bygget på arbeidsmiljøloven, internkontrollforskriften og GDPR.",
+      "euHosting": "EU-hosting",
+      "colProduct": "Produkt",
+      "colCompliance": "Etterlevelse",
+      "colCompany": "Selskapet",
+      "fullCoverage": "Full lovdekning",
+      "datacenter": "Datasenter: EU (Frankfurt + Stockholm)",
+      "orgnr": "Org.nr.: oppdateres ved registrering",
+      "location": "Oslo, Norge",
+      "rights": "Alle rettigheter forbeholdt.",
+      "about": "Om oss",
+      "changes": "Endringer",
+      "requestDemo": "Be om demo",
+      "contactUs": "Kontakt oss",
+      "signup": "Opprett konto",
+      "privacy": "Personvern",
+      "terms": "Vilkår",
+      "cookies": "Cookies"
+    },
+    "shell": {
+      "loadingPage": "Laster inn side",
+      "skipToContent": "Hopp til hovedinnhold",
+      "pageError": "Kunne ikke vise siden"
+    }
   }
 }

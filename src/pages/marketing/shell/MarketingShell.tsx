@@ -8,10 +8,12 @@ import { MarketingNav } from './MarketingNav'
 import { MarketingFooter } from './MarketingFooter'
 import { TEAL, SANS } from '../theme'
 import { RouteErrorBoundary } from '../../../components/RouteErrorBoundary'
+import { useT } from '../../../hooks/useT'
 
 function LazyLoadingBar() {
+  const { t } = useT()
   return (
-    <div role="progressbar" aria-busy="true" aria-label="Laster inn side" className="h-1 w-full overflow-hidden bg-neutral-100">
+    <div role="progressbar" aria-busy="true" aria-label={t('marketing.shell.loadingPage')} className="h-1 w-full overflow-hidden bg-neutral-100">
       <div className="marketing-shimmer h-full w-1/3 rounded-full" style={{ background: TEAL }} />
       <style>{`
         @keyframes shimmer { 0% { transform: translateX(-100%); } 100% { transform: translateX(400%); } }
@@ -25,6 +27,7 @@ function LazyLoadingBar() {
 }
 
 export function MarketingShell() {
+  const { t } = useT()
   const { pathname, hash } = useLocation()
 
   useEffect(() => {
@@ -57,11 +60,11 @@ export function MarketingShell() {
         className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[60] focus:rounded-md focus:bg-white focus:px-4 focus:py-2 focus:text-sm focus:font-semibold focus:shadow-lg"
         style={{ color: '#1a3d32' }}
       >
-        Hopp til hovedinnhold
+        {t('marketing.shell.skipToContent')}
       </a>
       <MarketingNav />
       <main id="hovedinnhold" tabIndex={-1}>
-        <RouteErrorBoundary title="Kunne ikke vise siden">
+        <RouteErrorBoundary title={t('marketing.shell.pageError')}>
           <Suspense fallback={<LazyLoadingBar />}>
             <Outlet />
           </Suspense>

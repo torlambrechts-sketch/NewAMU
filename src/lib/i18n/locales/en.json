@@ -226,5 +226,43 @@
     "publish": "Publish",
     "cancel": "Cancel",
     "versionConflict": "Version must be greater than the latest published."
+  },
+  "marketing": {
+    "nav": {
+      "toFrontpage": "Klarert — to the homepage",
+      "product": "Product",
+      "compliance": "Compliance",
+      "integrations": "Integrations",
+      "pricing": "Pricing",
+      "contact": "Contact",
+      "login": "Log in",
+      "tryFree": "Try for free",
+      "menu": "Menu"
+    },
+    "footer": {
+      "blurb": "Norwegian platform for HSE, internal control and compliance — for organisations with 5–500 employees. Built on the Working Environment Act, the Internal Control Regulations and GDPR.",
+      "euHosting": "EU hosting",
+      "colProduct": "Product",
+      "colCompliance": "Compliance",
+      "colCompany": "Company",
+      "fullCoverage": "Full legal coverage",
+      "datacenter": "Data centre: EU (Frankfurt + Stockholm)",
+      "orgnr": "Org. no.: added on registration",
+      "location": "Oslo, Norway",
+      "rights": "All rights reserved.",
+      "about": "About us",
+      "changes": "Changelog",
+      "requestDemo": "Request a demo",
+      "contactUs": "Contact us",
+      "signup": "Create account",
+      "privacy": "Privacy",
+      "terms": "Terms",
+      "cookies": "Cookies"
+    },
+    "shell": {
+      "loadingPage": "Loading page",
+      "skipToContent": "Skip to main content",
+      "pageError": "Could not display the page"
+    }
   }
 }

@@ -5,10 +5,11 @@ import { Link } from 'react-router-dom'
 import { KlarertLogo } from '../../../components/brand/KlarertLogo'
 import {
   FOOTER_PRODUCT,
-  FOOTER_COMPLIANCE,
-  FOOTER_COMPANY,
-  FOOTER_LEGAL,
+  getFooterCompliance,
+  getFooterCompany,
+  getFooterLegal,
 } from '../content/navigation'
+import { useT } from '../../../hooks/useT'
 
 const TEAL = '#2dd4bf'
 
@@ -28,6 +29,10 @@ function FooterLink({ to, label, external }: { to: string; label: string; extern
 }
 
 export function MarketingFooter() {
+  const { t } = useT()
+  const footerCompliance = getFooterCompliance(t)
+  const footerCompany = getFooterCompany(t)
+  const footerLegal = getFooterLegal(t)
   return (
     <footer className="border-t border-neutral-200 bg-white">
       <div className="mx-auto max-w-6xl px-4 py-12 md:px-8 md:py-16">
@@ -35,28 +40,27 @@ export function MarketingFooter() {
           <div className="md:col-span-2">
             <KlarertLogo size={22} variant="onLight" />
             <p className="mt-3 max-w-xs text-xs leading-relaxed text-neutral-500">
-              Norsk plattform for HMS, internkontroll og etterlevelse — for virksomheter med
-              5–500 ansatte. Bygget på arbeidsmiljøloven, internkontrollforskriften og GDPR.
+              {t('marketing.footer.blurb')}
             </p>
             <p className="mt-4 text-xs text-neutral-400">
-              <span className="font-semibold" style={{ color: TEAL }}>EU-hosting</span> · Supabase Frankfurt + Stockholm
+              <span className="font-semibold" style={{ color: TEAL }}>{t('marketing.footer.euHosting')}</span> · Supabase Frankfurt + Stockholm
             </p>
           </div>
-          <nav aria-label="Produkt" className="space-y-2">
-            <p className="text-xs font-bold uppercase tracking-wide text-neutral-400">Produkt</p>
+          <nav aria-label={t('marketing.footer.colProduct')} className="space-y-2">
+            <p className="text-xs font-bold uppercase tracking-wide text-neutral-400">{t('marketing.footer.colProduct')}</p>
             {FOOTER_PRODUCT.map((l) => (
               <FooterLink key={l.label} {...l} />
             ))}
           </nav>
-          <nav aria-label="Etterlevelse" className="space-y-2">
-            <p className="text-xs font-bold uppercase tracking-wide text-neutral-400">Etterlevelse</p>
-            {FOOTER_COMPLIANCE.map((l) => (
+          <nav aria-label={t('marketing.footer.colCompliance')} className="space-y-2">
+            <p className="text-xs font-bold uppercase tracking-wide text-neutral-400">{t('marketing.footer.colCompliance')}</p>
+            {footerCompliance.map((l) => (
               <FooterLink key={l.label} {...l} />
             ))}
           </nav>
-          <nav aria-label="Selskapet" className="space-y-2">
-            <p className="text-xs font-bold uppercase tracking-wide text-neutral-400">Selskapet</p>
-            {FOOTER_COMPANY.map((l) => (
+          <nav aria-label={t('marketing.footer.colCompany')} className="space-y-2">
+            <p className="text-xs font-bold uppercase tracking-wide text-neutral-400">{t('marketing.footer.colCompany')}</p>
+            {footerCompany.map((l) => (
               <FooterLink key={l.label} {...l} />
             ))}
           </nav>
@@ -65,18 +69,18 @@ export function MarketingFooter() {
           <div className="flex flex-wrap items-center gap-x-6 gap-y-2">
             <span className="inline-flex items-center gap-1.5">
               <span className="size-1.5 rounded-full" style={{ background: '#22c55e' }} />
-              Datasenter: EU (Frankfurt + Stockholm)
+              {t('marketing.footer.datacenter')}
             </span>
-            <span>Org.nr.: oppdateres ved registrering</span>
-            <span>Oslo, Norge</span>
+            <span>{t('marketing.footer.orgnr')}</span>
+            <span>{t('marketing.footer.location')}</span>
             <a href="mailto:hei@klarert.com" className="transition-colors hover:text-neutral-700">
               hei@klarert.com
             </a>
           </div>
           <div className="mt-4 flex flex-wrap items-center justify-between gap-4 text-neutral-400">
-            <p>© {new Date().getFullYear()} Klarert.com. Alle rettigheter forbeholdt.</p>
+            <p>© {new Date().getFullYear()} Klarert.com. {t('marketing.footer.rights')}</p>
             <div className="flex gap-6">
-              {FOOTER_LEGAL.map((l) => (
+              {footerLegal.map((l) => (
                 <Link key={l.label} to={l.to} className="transition-colors hover:text-neutral-600">
                   {l.label}
                 </Link>

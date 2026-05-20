@@ -4,12 +4,15 @@
 import { useState } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import { KlarertLogo } from '../../../components/brand/KlarertLogo'
-import { NAV_LINKS } from '../content/navigation'
+import { getNavLinks } from '../content/navigation'
+import { useT } from '../../../hooks/useT'
 
 const FOREST = '#1a3d32'
 const TEAL = '#2dd4bf'
 
 export function MarketingNav() {
+  const { t } = useT()
+  const navLinks = getNavLinks(t)
   const [open, setOpen] = useState(false)
   const location = useLocation()
   const isLanding = location.pathname === '/'
@@ -22,11 +25,11 @@ export function MarketingNav() {
   return (
     <header className={`sticky top-0 z-50 border-b ${borderColor}`} style={{ background: navBg }}>
       <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-4 md:px-8">
-        <Link to="/" aria-label="Klarert — til forsiden">
+        <Link to="/" aria-label={t('marketing.nav.toFrontpage')}>
           <KlarertLogo size={24} variant={logoVariant} />
         </Link>
         <nav className="hidden items-center gap-7 text-sm font-medium md:flex">
-          {NAV_LINKS.map(({ label, to }) => (
+          {navLinks.map(({ label, to }) => (
             <Link key={label} to={to} className={`${linkColor} ${hoverColor} transition-colors`}>
               {label}
             </Link>
@@ -39,19 +42,19 @@ export function MarketingNav() {
               isLanding ? 'border border-white/30 text-white hover:bg-white/10' : 'border border-neutral-300 text-neutral-700 hover:bg-neutral-50'
             }`}
           >
-            Logg inn
+            {t('marketing.nav.login')}
           </Link>
           <Link
             to="/signup"
             className="inline-flex items-center gap-1.5 rounded-md px-4 py-2 text-sm font-semibold transition hover:opacity-90"
             style={{ background: TEAL, color: FOREST }}
           >
-            Prøv gratis
+            {t('marketing.nav.tryFree')}
           </Link>
           <button
             type="button"
             onClick={() => setOpen((v) => !v)}
-            aria-label="Meny"
+            aria-label={t('marketing.nav.menu')}
             aria-expanded={open}
             className={`flex size-9 items-center justify-center rounded-md md:hidden ${
               isLanding ? 'text-white hover:bg-white/10' : 'text-neutral-700 hover:bg-neutral-100'
@@ -67,7 +70,7 @@ export function MarketingNav() {
         <nav className={`border-t md:hidden ${borderColor}`} style={{ background: navBg }}>
           <div className="mx-auto max-w-6xl px-4 py-4 md:px-8">
             <div className="flex flex-col gap-3 text-sm font-medium">
-              {NAV_LINKS.map(({ label, to }) => (
+              {navLinks.map(({ label, to }) => (
                 <Link
                   key={label}
                   to={to}
@@ -82,7 +85,7 @@ export function MarketingNav() {
                 onClick={() => setOpen(false)}
                 className={`${linkColor} ${hoverColor} transition-colors`}
               >
-                Logg inn
+                {t('marketing.nav.login')}
               </Link>
             </div>
           </div>
