@@ -49,6 +49,7 @@
  * supabase/migrations/20260905121400_workflow_queue_worker_cron.sql.
  */
 import { createClient, SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2.49.1'
+import { assertServiceRole, GuardError } from '../_shared/auth.ts'
 
 const corsHeaders: Record<string, string> = {
   'Access-Control-Allow-Origin': '*',
@@ -331,6 +332,19 @@ async function dispatchRow(
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
+
+  // Cron-only: this is a service-role cross-tenant queue drainer. The
+  // pg_cron job invokes it with the service-role key; requiring service
+  // role rejects every ordinary user JWT, so a logged-in tenant user can
+  // no longer force-drain other tenants' action queues.
+  try {
+    assertServiceRole(req)
+  } catch (err) {
+    if (err instanceof GuardError) {
+      return json({ ok: false, error: err.code, detail: err.detail }, err.status)
+    }
+    throw err
+  }
 
   const SUPABASE_URL = Deno.env.get('SUPABASE_URL') ?? ''
   const SERVICE_ROLE = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''

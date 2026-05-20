@@ -31,6 +31,7 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.1'
 import { sha256Hex } from '../_shared/maskinporten.ts'
 import { recordRegulatorEvidence } from '../_shared/govEvidence.ts'
+import { assertCallerOrg, GuardError } from '../_shared/auth.ts'
 
 const corsHeaders: Record<string, string> = {
   'Access-Control-Allow-Origin': '*',
@@ -98,6 +99,18 @@ Deno.serve(async (req) => {
   }
   if (!body.organization_id || !body.date_from || !body.date_to) {
     return json({ ok: false, error: 'missing_fields' }, 400)
+  }
+
+  // Cross-tenant guard: the caller must belong to organization_id (or be
+  // service-role — gov-outbox-worker invokes this for the LDO export
+  // pointer). Runs BEFORE any service-role DB work / evidence export.
+  try {
+    await assertCallerOrg(req, body.organization_id)
+  } catch (err) {
+    if (err instanceof GuardError) {
+      return json({ ok: false, error: err.code, detail: err.detail }, err.status)
+    }
+    throw err
   }
 
   const supabase = createClient(SUPABASE_URL, SERVICE_ROLE, { auth: { persistSession: false } })

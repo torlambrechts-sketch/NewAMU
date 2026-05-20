@@ -28,6 +28,7 @@
  */
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.1'
 import { submitToTsa, type TsaProvider, TsaError } from '../_shared/tsa.ts'
+import { assertCallerOrg, GuardError, isServiceRole } from '../_shared/auth.ts'
 
 const corsHeaders: Record<string, string> = {
   'Access-Control-Allow-Origin': '*',
@@ -110,6 +111,23 @@ Deno.serve(async (req) => {
       { error: 'anchor_not_pending', status: anchor.status, anchor_id: anchorId },
       409,
     )
+  }
+
+  // Cross-tenant guard: now that the anchor row is loaded, verify the
+  // caller belongs to the anchor's org. Platform-wide anchors
+  // (organization_id IS NULL) are signable by the monthly cron only —
+  // i.e. service-role — so a non-service caller is rejected outright.
+  if (anchor.organization_id) {
+    try {
+      await assertCallerOrg(req, anchor.organization_id)
+    } catch (err) {
+      if (err instanceof GuardError) {
+        return json({ error: err.code, detail: err.detail }, err.status)
+      }
+      throw err
+    }
+  } else if (!isServiceRole(req.headers.get('Authorization') ?? '')) {
+    return json({ error: 'cross_org_denied', anchor_id: anchorId }, 403)
   }
   if (!anchor.merkle_root_sha256) {
     await markFailed(supabase, anchorId, 'missing_merkle_root', {})
