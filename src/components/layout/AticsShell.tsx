@@ -39,8 +39,8 @@ import {
 } from 'lucide-react'
 import { NotificationTray } from '../notifications/NotificationTray'
 import { SurveyPendingInvitesBanner } from '../../../modules/survey/SurveyPendingInvitesBanner'
-import { useI18n } from '../../hooks/useI18n'
 import { useT } from '../../hooks/useT'
+import { LanguageDropdown } from '../LanguageDropdown'
 import { useOrgSetupContext } from '../../hooks/useOrgSetupContext'
 import type { PermissionKey } from '../../lib/permissionKeys'
 import { Button } from '../ui/Button'
@@ -438,50 +438,12 @@ function saveSubNavCollapsed(collapsed: boolean) {
   }
 }
 
-// ─── Locale switcher (i18n scaffold P3-#20) ──────────────────────────────────
-// Small flag-pair button placed next to the profile menu. Persistence is
-// handled by the i18next localStorage detector (key `newamu_locale`), so
-// we don't write to localStorage manually here.
-function LocaleSwitcher() {
-  const { locale, setLocale, t } = useT()
-  const baseBtn =
-    'inline-flex h-7 items-center gap-1 rounded-md px-1.5 text-[11px] font-medium transition-colors'
-  const active = 'bg-white/20 text-white ring-1 ring-[#c9a227]/60'
-  const inactive = 'text-white/65 hover:bg-white/10 hover:text-white'
-  return (
-    <div className="flex shrink-0 items-center gap-1" role="radiogroup" aria-label="Locale">
-      <Button
-        variant="ghost"
-        onClick={() => void setLocale('nb')}
-        className={`${baseBtn} ${locale === 'nb' ? active : inactive}`}
-        role="radio"
-        aria-checked={locale === 'nb'}
-        title={t('shell.locale.switchToNb')}
-      >
-        <span aria-hidden>{'🇳🇴'}</span>
-        <span>NB</span>
-      </Button>
-      <Button
-        variant="ghost"
-        onClick={() => void setLocale('en')}
-        className={`${baseBtn} ${locale === 'en' ? active : inactive}`}
-        role="radio"
-        aria-checked={locale === 'en'}
-        title={t('shell.locale.switchToEn')}
-      >
-        <span aria-hidden>{'🇬🇧'}</span>
-        <span>EN</span>
-      </Button>
-    </div>
-  )
-}
-
 // ─── Shell ────────────────────────────────────────────────────────────────────
 
 export function AticsShell() {
   const location = useLocation()
   const { supabase, supabaseConfigured, can, permissionKeys, user, profile, signOut, organization } = useOrgSetupContext()
-  const { t } = useI18n()
+  const { t } = useT()
   const gateNav = supabaseConfigured && permissionKeys.size > 0
 
   // Disabled at org level (modules.is_active = false)
@@ -2304,7 +2266,7 @@ export function AticsShell() {
                       (e.g. compliance accent flip). */}
                   <RegulationFilterMenu variant="sidebar" />
                   <NotificationTray variant="sidebar" />
-                  <LocaleSwitcher />
+                  <LanguageDropdown variant="sidebar" />
                   <ShellProfileMenuButton
                     variant="sidebar"
                     displayName={profileDisplay}
@@ -2383,7 +2345,7 @@ export function AticsShell() {
               when the param is absent. */}
           <RegulationFilterMenu variant="topbar" />
           <NotificationTray variant="topbar" />
-          <LocaleSwitcher />
+          <LanguageDropdown variant="topbar" />
           <ShellProfileMenuButton
             variant="topbar"
             displayName={profileDisplay}

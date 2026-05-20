@@ -35,6 +35,7 @@ import {
   type CommonRequestBody,
 } from '../_shared/govEvidence.ts'
 import { sha256Hex } from '../_shared/maskinporten.ts'
+import { assertCallerOrg, GuardError } from '../_shared/auth.ts'
 
 const corsHeaders: Record<string, string> = {
   'Access-Control-Allow-Origin': '*',
@@ -86,6 +87,18 @@ Deno.serve(async (req) => {
   const ageMs = Date.now() - awareTs
   const SUBMISSION_DEADLINE_MS = 72 * 60 * 60 * 1000
   const lateSubmission = ageMs > SUBMISSION_DEADLINE_MS
+
+  // Cross-tenant guard: the caller must belong to organization_id (or be
+  // service-role — gov-datatilsynet-breach is also invoked server-to-
+  // server by workflow-queue-worker). Runs BEFORE any service-role DB work.
+  try {
+    await assertCallerOrg(req, organization_id)
+  } catch (err) {
+    if (err instanceof GuardError) {
+      return json({ ok: false, error: err.code, detail: err.detail }, err.status)
+    }
+    throw err
+  }
 
   const supabase = serviceRoleClient()
 

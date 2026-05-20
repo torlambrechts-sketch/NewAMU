@@ -13,7 +13,7 @@ import { getSupabaseBrowserClient } from '../lib/supabaseClient'
 import { getSupabaseErrorMessage } from '../lib/supabaseError'
 import { fetchEnhetByOrgnr, normalizeOrgNumber } from '../lib/brreg'
 import type { BrregEnhet } from '../types/brreg'
-import type { AppLocale } from '../i18n/strings'
+import type { AppLocale } from '../lib/i18n/locales'
 import type { NotificationPreferences } from '../types/notifications'
 import type {
   DepartmentRow,

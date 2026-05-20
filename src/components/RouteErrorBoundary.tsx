@@ -1,6 +1,7 @@
 import { Component, type ErrorInfo, type ReactNode } from 'react'
 import { Link } from 'react-router-dom'
 import { Button } from './ui/Button'
+import i18n from '../lib/i18n'
 
 type Props = { children: ReactNode; title?: string }
 
@@ -53,18 +54,19 @@ export class RouteErrorBoundary extends Component<Props, State> {
 
   render() {
     const { error } = this.state
-    const { children, title = 'Noe gikk galt' } = this.props
+    // Class component — i18next's standalone `t` is used instead of the
+    // `useT()` hook. An error screen does not need to re-render on a live
+    // language switch, so reading the active locale at render is sufficient.
+    const { children, title = i18n.t('errors.somethingWrong') } = this.props
     if (error) {
       const isChunk = isChunkLoadError(error)
       return (
         <div className="mx-auto max-w-lg px-4 py-16 text-center">
           <h1 className="text-lg font-semibold text-neutral-900">
-            {isChunk ? 'Applikasjonen er oppdatert' : title}
+            {isChunk ? i18n.t('errors.appUpdated') : title}
           </h1>
           <p className="mt-2 text-sm text-neutral-600">
-            {isChunk
-              ? 'En ny versjon av appen er tilgjengelig. Last siden på nytt for å fortsette.'
-              : 'Siden kunne ikke vises. Prøv å laste på nytt.'}
+            {isChunk ? i18n.t('errors.appUpdatedBody') : i18n.t('errors.pageFailed')}
           </p>
           <Button
             variant="primary"
@@ -74,11 +76,11 @@ export class RouteErrorBoundary extends Component<Props, State> {
             }}
             className="mt-6 inline-flex items-center rounded-md bg-[#1a3d32] px-4 py-2 text-sm font-medium text-white hover:opacity-90"
           >
-            Last siden på nytt
+            {i18n.t('errors.reload')}
           </Button>
           {!isChunk && (
             <Link to="/" className="mt-4 block text-sm text-neutral-500 underline">
-              ← Til forsiden
+              {i18n.t('errors.toFrontpage')}
             </Link>
           )}
           {import.meta.env.DEV && (

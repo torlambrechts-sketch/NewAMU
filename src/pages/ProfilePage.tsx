@@ -14,8 +14,8 @@ import {
   User,
   Users,
 } from 'lucide-react'
-import { APP_LOCALES, LOCALE_LABELS, type AppLocale } from '../i18n/strings'
-import { useI18n } from '../hooks/useI18n'
+import { useT } from '../hooks/useT'
+import { LanguageDropdown } from '../components/LanguageDropdown'
 import { useOrgSetupContext } from '../hooks/useOrgSetupContext'
 import { mergeNotificationPreferences, parseNotificationPreferences } from '../lib/notificationPreferences'
 import { getSupabaseErrorMessage } from '../lib/supabaseError'
@@ -42,7 +42,7 @@ function initialsFromName(name: string) {
 
 export function ProfilePage() {
   const navigate = useNavigate()
-  const { t, locale: ctxLocale } = useI18n()
+  const { t } = useT()
   const {
     user,
     profile,
@@ -51,7 +51,6 @@ export function ProfilePage() {
     organization,
     members,
     departments,
-    updateLocale,
     updateDepartmentId,
     updateLearningMetadata,
     updateProfileFields,
@@ -62,7 +61,6 @@ export function ProfilePage() {
   const [name, setName] = useState('')
   const [phone, setPhone] = useState('')
   const [jobTitle, setJobTitle] = useState('')
-  const [loc, setLoc] = useState<AppLocale>('nb')
   const [deptId, setDeptId] = useState<string>('')
   const [safetyRep, setSafetyRep] = useState(false)
   const [pw1, setPw1] = useState('')
@@ -88,13 +86,11 @@ export function ProfilePage() {
       setName(profile.display_name ?? '')
       setPhone(profile.phone?.trim() ?? '')
       setJobTitle(profile.job_title?.trim() ?? '')
-      const l = profile.locale
-      setLoc(l === 'en' || l === 'nb' ? l : ctxLocale)
       setDeptId(profile.department_id ?? '')
       const lm = profile.learning_metadata as Record<string, unknown> | null | undefined
       setSafetyRep(lm?.is_safety_rep === true)
     }
-  }, [profile, ctxLocale])
+  }, [profile])
 
   useEffect(() => {
     setNotifPrefs(parseNotificationPreferences(profile?.notification_preferences))
@@ -115,7 +111,6 @@ export function ProfilePage() {
         phone: phone.trim() || null,
         job_title: jobTitle.trim() || null,
       })
-      await updateLocale(loc)
       await updateDepartmentId(deptId || null)
       await updateLearningMetadata({ is_safety_rep: safetyRep })
       setMsg(t('profile.saved'))
@@ -426,11 +421,7 @@ export function ProfilePage() {
                   <div>
                     <label className="text-sm font-medium text-neutral-800">{t('profile.locale')}</label>
                     <div className="mt-1">
-                      <SearchableSelect
-                        value={loc}
-                        options={APP_LOCALES.map((code) => ({ value: code, label: LOCALE_LABELS[code] }))}
-                        onChange={(v) => setLoc(v as AppLocale)}
-                      />
+                      <LanguageDropdown variant="page" />
                     </div>
                   </div>
                   {departments.length > 0 ? (

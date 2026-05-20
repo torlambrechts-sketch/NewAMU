@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useOrgSetupContext } from './useOrgSetupContext'
-import { useI18n } from './useI18n'
+import { useT } from './useT'
 import { getSupabaseErrorMessage } from '../lib/supabaseError'
 import type {
   Certificate,
@@ -743,7 +743,7 @@ function mergeCatalogIntoCourses(
 
 export function useLearning() {
   const { supabase, organization, user, can, refreshPermissions } = useOrgSetupContext()
-  const { locale: appLocale } = useI18n()
+  const { locale: appLocale } = useT()
   const orgId = organization?.id
   const userId = user?.id
   const useSupabase = !!(supabase && orgId && userId)
