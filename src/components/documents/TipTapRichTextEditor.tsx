@@ -513,11 +513,7 @@ export function TipTapRichTextEditor({
   }, [editor, readOnly])
 
   useEffect(() => {
-    if (!editor || readOnly || !wikiLinkPages?.length) {
-      setWikiLinkPickAnchor(null)
-      setWikiLinkPickRect(null)
-      return
-    }
+    if (!editor || readOnly || !wikiLinkPages?.length) return
     const sync = () => {
       const { from } = editor.state.selection
       const $from = editor.state.doc.resolve(from)
@@ -583,6 +579,18 @@ export function TipTapRichTextEditor({
     }
   }, [editor, readOnly])
 
+  // Esc closes the slash menu (the menu footer advertises this).
+  useEffect(() => {
+    if (slashAnchor == null) return
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape') return
+      setSlashAnchor(null)
+      setSlashRect(null)
+    }
+    document.addEventListener('keydown', onKey)
+    return () => document.removeEventListener('keydown', onKey)
+  }, [slashAnchor])
+
   // Sync external value (e.g. hydration, undo outside editor) without fighting local typing
   useEffect(() => {
     if (!editor) return
@@ -605,6 +613,13 @@ export function TipTapRichTextEditor({
     }
   }, [editor])
 
+  // Hooks must run unconditionally — keep this above the `!editor` early return.
+  const filteredWikiPages = useMemo(() => {
+    if (!wikiLinkPages) return []
+    const q = wikiLinkQuery.toLowerCase()
+    return wikiLinkPages.filter((p) => p.title.toLowerCase().includes(q)).slice(0, 20)
+  }, [wikiLinkPages, wikiLinkQuery])
+
   if (!editor) {
     return (
       <div className={twMerge('rounded-lg border border-neutral-200 bg-white px-3 py-8 text-center text-sm text-neutral-500', className)}>
@@ -612,12 +627,6 @@ export function TipTapRichTextEditor({
       </div>
     )
   }
-
-  const filteredWikiPages = useMemo(() => {
-    if (!wikiLinkPages) return []
-    const q = wikiLinkQuery.toLowerCase()
-    return wikiLinkPages.filter((p) => p.title.toLowerCase().includes(q)).slice(0, 20)
-  }, [wikiLinkPages, wikiLinkQuery])
 
   const slashQ = slashQuery.toLowerCase()
   const filteredSlashItems = slashQ
@@ -656,7 +665,7 @@ export function TipTapRichTextEditor({
       {!readOnly && toolbar === 'full' ? <TipTapToolbar editor={editor} /> : null}
       {!readOnly && toolbar === 'minimal' ? <TipTapMinimalToolbar editor={editor} /> : null}
       <EditorContent editor={editor} />
-      {wikiLinkPickAnchor != null && wikiLinkPickRect && wikiLinkPages?.length ? (
+      {!readOnly && wikiLinkPickAnchor != null && wikiLinkPickRect && wikiLinkPages?.length ? (
         <div
           className="fixed z-[100] w-72 rounded-lg border border-neutral-200 bg-white p-2 shadow-xl"
           style={{ left: wikiLinkPickRect.left, top: wikiLinkPickRect.bottom + 4 }}

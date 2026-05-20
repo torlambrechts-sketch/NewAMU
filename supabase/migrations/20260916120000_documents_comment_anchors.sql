@@ -64,6 +64,20 @@ create policy "wiki_comment_events_select"
   using (
     organization_id = public.current_org_id()
     and public.user_has_permission('documents.view')
+    -- Do not leak the existence of lifecycle events on a confidential
+    -- (varsling, AML § 2A) comment — gate on the parent comment being
+    -- visible to the caller, mirroring wiki_page_comments_select.
+    and exists (
+      select 1 from public.wiki_page_comments c
+      where c.id = wiki_comment_events.comment_id
+        and (
+          c.is_confidential is false
+          or c.author_id = auth.uid()
+          or public.is_org_admin()
+          or public.user_has_permission('whistleblowing.committee')
+          or public.user_has_permission('documents.manage')
+        )
+    )
   );
 
 drop policy if exists "wiki_comment_events_insert" on public.wiki_comment_events;
