@@ -111,10 +111,6 @@
     "externalAria": "Åpne ekstern lenke",
     "userProfileAria": "Brukerprofil",
     "language": "Språk",
-    "locale": {
-      "switchToNb": "Bytt til norsk",
-      "switchToEn": "Bytt til engelsk"
-    },
     "header": {
       "navLayout": "Navigasjonslayout",
       "navLayoutTopbar": "Toppmeny",

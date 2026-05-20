@@ -111,10 +111,6 @@
     "externalAria": "Open external link",
     "userProfileAria": "User profile",
     "language": "Language",
-    "locale": {
-      "switchToNb": "Switch to Norwegian",
-      "switchToEn": "Switch to English"
-    },
     "header": {
       "navLayout": "Navigation layout",
       "navLayoutTopbar": "Top menu",
