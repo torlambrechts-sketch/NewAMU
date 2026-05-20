@@ -7,30 +7,45 @@
  * Placeholder) with our layout instead.
  */
 import { forwardRef, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react'
+import type { ReactNode } from 'react'
 import type { AnyExtension, Editor } from '@tiptap/core'
 import { EditorContent, ReactRenderer, useEditor, useEditorState } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
 import Placeholder from '@tiptap/extension-placeholder'
 import Underline from '@tiptap/extension-underline'
 import Mention from '@tiptap/extension-mention'
+import Highlight from '@tiptap/extension-highlight'
+import TextAlign from '@tiptap/extension-text-align'
+import Image from '@tiptap/extension-image'
+import { TableKit } from '@tiptap/extension-table'
+import { TaskItem, TaskList } from '@tiptap/extension-list'
 import type { SuggestionKeyDownProps, SuggestionProps } from '@tiptap/suggestion'
 import { twMerge } from 'tailwind-merge'
 import {
+  AlignCenter,
+  AlignLeft,
+  AlignRight,
   Bold,
   Braces,
   Code,
   Heading1,
   Heading2,
   Heading3,
+  Highlighter,
+  Image as ImageIcon,
+  IndentDecrease,
+  IndentIncrease,
   Italic,
   Link2,
   List,
+  ListChecks,
   ListOrdered,
   Minus,
   Pilcrow,
   Quote,
   Redo2,
   Strikethrough,
+  Table as TableIcon,
   Underline as UnderlineIcon,
   Undo2,
 } from 'lucide-react'
@@ -167,6 +182,39 @@ function TipTapMinimalToolbar({ editor }: { editor: NonNullable<ReturnType<typeo
   )
 }
 
+/** One toolbar button — a styled design-system Button. */
+function TBtn({
+  icon,
+  label,
+  active = false,
+  disabled = false,
+  onClick,
+}: {
+  icon: ReactNode
+  label: string
+  active?: boolean
+  disabled?: boolean
+  onClick: () => void
+}) {
+  return (
+    <Button
+      type="button"
+      variant={active ? 'primary' : 'secondary'}
+      size="sm"
+      icon={icon}
+      disabled={disabled}
+      onClick={onClick}
+      aria-pressed={active}
+      aria-label={label}
+      title={label}
+    />
+  )
+}
+
+function ToolbarSep() {
+  return <span className="mx-0.5 hidden h-6 w-px bg-neutral-200 sm:inline" aria-hidden />
+}
+
 function TipTapToolbar({ editor }: { editor: NonNullable<ReturnType<typeof useEditor>> }) {
   const state = useEditorState({
     editor,
@@ -175,12 +223,16 @@ function TipTapToolbar({ editor }: { editor: NonNullable<ReturnType<typeof useEd
       italic: snap.editor.isActive('italic'),
       strike: snap.editor.isActive('strike'),
       code: snap.editor.isActive('code'),
+      highlight: snap.editor.isActive('highlight'),
       h1: snap.editor.isActive('heading', { level: 1 }),
       h2: snap.editor.isActive('heading', { level: 2 }),
       h3: snap.editor.isActive('heading', { level: 3 }),
       underline: snap.editor.isActive('underline'),
+      alignCenter: snap.editor.isActive({ textAlign: 'center' }),
+      alignRight: snap.editor.isActive({ textAlign: 'right' }),
       bulletList: snap.editor.isActive('bulletList'),
       orderedList: snap.editor.isActive('orderedList'),
+      taskList: snap.editor.isActive('taskList'),
       blockquote: snap.editor.isActive('blockquote'),
       codeBlock: snap.editor.isActive('codeBlock'),
       link: snap.editor.isActive('link'),
@@ -196,12 +248,16 @@ function TipTapToolbar({ editor }: { editor: NonNullable<ReturnType<typeof useEd
     italic,
     strike,
     code,
+    highlight,
     h1,
     h2,
     h3,
     underline,
+    alignCenter,
+    alignRight,
     bulletList,
     orderedList,
+    taskList,
     blockquote,
     codeBlock,
     link,
@@ -222,144 +278,58 @@ function TipTapToolbar({ editor }: { editor: NonNullable<ReturnType<typeof useEd
     editor.chain().focus().extendMarkRange('link').setLink({ href: trimmed }).run()
   }
 
+  const addImage = () => {
+    const url = window.prompt('Bilde-URL (https://…)', 'https://')
+    if (url === null) return
+    const trimmed = url.trim()
+    if (!trimmed) return
+    editor.chain().focus().setImage({ src: trimmed }).run()
+  }
+
+  /** Indent / outdent — works for both bullet/ordered (listItem) and task lists. */
+  const indent = (dir: 'in' | 'out') => {
+    const cmd = dir === 'in' ? 'sinkListItem' : 'liftListItem'
+    if (!editor.chain().focus()[cmd]('listItem').run()) {
+      editor.chain().focus()[cmd]('taskItem').run()
+    }
+  }
+
   return (
     <div
       className="flex flex-wrap items-center gap-1 border-b border-neutral-200 bg-neutral-50/90 px-2 py-2"
       role="toolbar"
       aria-label="Formatering"
     >
-      <Button
-        type="button"
-        variant={bold ? 'primary' : 'secondary'}
-        size="sm"
-        icon={<Bold className="h-3.5 w-3.5" />}
-        onClick={() => editor.chain().focus().toggleBold().run()}
-        aria-pressed={bold}
-      />
-      <Button
-        type="button"
-        variant={italic ? 'primary' : 'secondary'}
-        size="sm"
-        icon={<Italic className="h-3.5 w-3.5" />}
-        onClick={() => editor.chain().focus().toggleItalic().run()}
-        aria-pressed={italic}
-      />
-      <Button
-        type="button"
-        variant={strike ? 'primary' : 'secondary'}
-        size="sm"
-        icon={<Strikethrough className="h-3.5 w-3.5" />}
-        onClick={() => editor.chain().focus().toggleStrike().run()}
-        aria-pressed={strike}
-      />
-      <Button
-        type="button"
-        variant={code ? 'primary' : 'secondary'}
-        size="sm"
-        icon={<Code className="h-3.5 w-3.5" />}
-        onClick={() => editor.chain().focus().toggleCode().run()}
-        aria-pressed={code}
-      />
-      <Button
-        type="button"
-        variant={underline ? 'primary' : 'secondary'}
-        size="sm"
-        icon={<UnderlineIcon className="h-3.5 w-3.5" />}
-        onClick={() => editor.chain().focus().toggleUnderline().run()}
-        aria-pressed={underline}
-      />
-      <span className="mx-1 hidden h-6 w-px bg-neutral-200 sm:inline" aria-hidden />
-      <Button
-        type="button"
-        variant={h1 ? 'primary' : 'secondary'}
-        size="sm"
-        icon={<Heading1 className="h-3.5 w-3.5" />}
-        onClick={() => editor.chain().focus().toggleHeading({ level: 1 }).run()}
-        aria-pressed={h1}
-      />
-      <Button
-        type="button"
-        variant={h2 ? 'primary' : 'secondary'}
-        size="sm"
-        icon={<Heading2 className="h-3.5 w-3.5" />}
-        onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()}
-        aria-pressed={h2}
-      />
-      <Button
-        type="button"
-        variant={h3 ? 'primary' : 'secondary'}
-        size="sm"
-        icon={<Heading3 className="h-3.5 w-3.5" />}
-        onClick={() => editor.chain().focus().toggleHeading({ level: 3 }).run()}
-        aria-pressed={h3}
-      />
-      <span className="mx-1 hidden h-6 w-px bg-neutral-200 sm:inline" aria-hidden />
-      <Button
-        type="button"
-        variant={bulletList ? 'primary' : 'secondary'}
-        size="sm"
-        icon={<List className="h-3.5 w-3.5" />}
-        onClick={() => editor.chain().focus().toggleBulletList().run()}
-        aria-pressed={bulletList}
-      />
-      <Button
-        type="button"
-        variant={orderedList ? 'primary' : 'secondary'}
-        size="sm"
-        icon={<ListOrdered className="h-3.5 w-3.5" />}
-        onClick={() => editor.chain().focus().toggleOrderedList().run()}
-        aria-pressed={orderedList}
-      />
-      <Button
-        type="button"
-        variant={blockquote ? 'primary' : 'secondary'}
-        size="sm"
-        icon={<Quote className="h-3.5 w-3.5" />}
-        onClick={() => editor.chain().focus().toggleBlockquote().run()}
-        aria-pressed={blockquote}
-      />
-      <Button
-        type="button"
-        variant={codeBlock ? 'primary' : 'secondary'}
-        size="sm"
-        icon={<Braces className="h-3.5 w-3.5" />}
-        onClick={() => editor.chain().focus().toggleCodeBlock().run()}
-        aria-pressed={codeBlock}
-      />
-      <span className="mx-1 hidden h-6 w-px bg-neutral-200 sm:inline" aria-hidden />
-      <Button
-        type="button"
-        variant={link ? 'primary' : 'secondary'}
-        size="sm"
-        icon={<Link2 className="h-3.5 w-3.5" />}
-        onClick={toggleLink}
-        aria-pressed={link}
-      />
-      <Button
-        type="button"
-        variant="secondary"
-        size="sm"
-        icon={<Minus className="h-3.5 w-3.5" />}
-        onClick={() => editor.chain().focus().setHorizontalRule().run()}
-        aria-label="Horisontal linje"
-      />
-      <span className="mx-1 hidden h-6 w-px bg-neutral-200 sm:inline" aria-hidden />
-      <Button
-        type="button"
-        variant="secondary"
-        size="sm"
-        icon={<Undo2 className="h-3.5 w-3.5" />}
-        disabled={!canUndo}
-        onClick={() => editor.chain().focus().undo().run()}
-      />
-      <Button
-        type="button"
-        variant="secondary"
-        size="sm"
-        icon={<Redo2 className="h-3.5 w-3.5" />}
-        disabled={!canRedo}
-        onClick={() => editor.chain().focus().redo().run()}
-      />
+      <TBtn icon={<Heading1 className="h-3.5 w-3.5" />} label="Overskrift 1" active={h1} onClick={() => editor.chain().focus().toggleHeading({ level: 1 }).run()} />
+      <TBtn icon={<Heading2 className="h-3.5 w-3.5" />} label="Overskrift 2" active={h2} onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()} />
+      <TBtn icon={<Heading3 className="h-3.5 w-3.5" />} label="Overskrift 3" active={h3} onClick={() => editor.chain().focus().toggleHeading({ level: 3 }).run()} />
+      <ToolbarSep />
+      <TBtn icon={<Bold className="h-3.5 w-3.5" />} label="Fet" active={bold} onClick={() => editor.chain().focus().toggleBold().run()} />
+      <TBtn icon={<Italic className="h-3.5 w-3.5" />} label="Kursiv" active={italic} onClick={() => editor.chain().focus().toggleItalic().run()} />
+      <TBtn icon={<UnderlineIcon className="h-3.5 w-3.5" />} label="Understrek" active={underline} onClick={() => editor.chain().focus().toggleUnderline().run()} />
+      <TBtn icon={<Strikethrough className="h-3.5 w-3.5" />} label="Gjennomstrek" active={strike} onClick={() => editor.chain().focus().toggleStrike().run()} />
+      <TBtn icon={<Code className="h-3.5 w-3.5" />} label="Kode" active={code} onClick={() => editor.chain().focus().toggleCode().run()} />
+      <TBtn icon={<Highlighter className="h-3.5 w-3.5" />} label="Marker" active={highlight} onClick={() => editor.chain().focus().toggleHighlight().run()} />
+      <ToolbarSep />
+      <TBtn icon={<AlignLeft className="h-3.5 w-3.5" />} label="Venstrejuster" active={!alignCenter && !alignRight} onClick={() => editor.chain().focus().setTextAlign('left').run()} />
+      <TBtn icon={<AlignCenter className="h-3.5 w-3.5" />} label="Midtstill" active={alignCenter} onClick={() => editor.chain().focus().setTextAlign('center').run()} />
+      <TBtn icon={<AlignRight className="h-3.5 w-3.5" />} label="Høyrejuster" active={alignRight} onClick={() => editor.chain().focus().setTextAlign('right').run()} />
+      <ToolbarSep />
+      <TBtn icon={<List className="h-3.5 w-3.5" />} label="Punktliste" active={bulletList} onClick={() => editor.chain().focus().toggleBulletList().run()} />
+      <TBtn icon={<ListOrdered className="h-3.5 w-3.5" />} label="Nummerert liste" active={orderedList} onClick={() => editor.chain().focus().toggleOrderedList().run()} />
+      <TBtn icon={<ListChecks className="h-3.5 w-3.5" />} label="Sjekkliste" active={taskList} onClick={() => editor.chain().focus().toggleTaskList().run()} />
+      <TBtn icon={<IndentDecrease className="h-3.5 w-3.5" />} label="Mindre innrykk" onClick={() => indent('out')} />
+      <TBtn icon={<IndentIncrease className="h-3.5 w-3.5" />} label="Mer innrykk" onClick={() => indent('in')} />
+      <ToolbarSep />
+      <TBtn icon={<Link2 className="h-3.5 w-3.5" />} label="Lenke" active={link} onClick={toggleLink} />
+      <TBtn icon={<ImageIcon className="h-3.5 w-3.5" />} label="Bilde" onClick={addImage} />
+      <TBtn icon={<TableIcon className="h-3.5 w-3.5" />} label="Tabell" onClick={() => editor.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run()} />
+      <TBtn icon={<Quote className="h-3.5 w-3.5" />} label="Sitat" active={blockquote} onClick={() => editor.chain().focus().toggleBlockquote().run()} />
+      <TBtn icon={<Braces className="h-3.5 w-3.5" />} label="Kodeblokk" active={codeBlock} onClick={() => editor.chain().focus().toggleCodeBlock().run()} />
+      <TBtn icon={<Minus className="h-3.5 w-3.5" />} label="Skillelinje" onClick={() => editor.chain().focus().setHorizontalRule().run()} />
+      <ToolbarSep />
+      <TBtn icon={<Undo2 className="h-3.5 w-3.5" />} label="Angre" disabled={!canUndo} onClick={() => editor.chain().focus().undo().run()} />
+      <TBtn icon={<Redo2 className="h-3.5 w-3.5" />} label="Gjør om" disabled={!canRedo} onClick={() => editor.chain().focus().redo().run()} />
     </div>
   )
 }
@@ -411,6 +381,12 @@ export function TipTapRichTextEditor({
         link: { openOnClick: false, HTMLAttributes: { class: 'text-[#1a3d32] underline underline-offset-2' } },
       }),
       Underline,
+      Highlight.configure({ HTMLAttributes: { class: 'rounded-sm bg-[#fef3c7] px-0.5' } }),
+      TextAlign.configure({ types: ['heading', 'paragraph'] }),
+      TaskList,
+      TaskItem.configure({ nested: true }),
+      Image.configure({ HTMLAttributes: { class: 'rounded-lg border border-neutral-200' } }),
+      TableKit.configure({ table: { resizable: true } }),
       Placeholder.configure({ placeholder }),
     ]
     if (mentionProfiles && mentionProfiles.length > 0 && !readOnly) {
@@ -659,6 +635,19 @@ export function TipTapRichTextEditor({
         '[&_.tiptap-editor-root_blockquote]:my-2 [&_.tiptap-editor-root_blockquote]:border-l-4 [&_.tiptap-editor-root_blockquote]:border-neutral-300 [&_.tiptap-editor-root_blockquote]:pl-3 [&_.tiptap-editor-root_blockquote]:italic [&_.tiptap-editor-root_blockquote]:text-neutral-700',
         '[&_.tiptap-editor-root_pre]:my-2 [&_.tiptap-editor-root_pre]:overflow-x-auto [&_.tiptap-editor-root_pre]:rounded-md [&_.tiptap-editor-root_pre]:bg-neutral-900 [&_.tiptap-editor-root_pre]:p-3 [&_.tiptap-editor-root_pre]:text-xs [&_.tiptap-editor-root_pre]:text-neutral-100',
         '[&_.tiptap-editor-root_p.is-editor-empty:first-child::before]:float-left [&_.tiptap-editor-root_p.is-editor-empty:first-child::before]:h-0 [&_.tiptap-editor-root_p.is-editor-empty:first-child::before]:text-neutral-400 [&_.tiptap-editor-root_p.is-editor-empty:first-child::before]:content-[attr(data-placeholder)] [&_.tiptap-editor-root_p.is-editor-empty:first-child::before]:pointer-events-none',
+        // Task list (checklist)
+        '[&_ul[data-type=taskList]]:my-2 [&_ul[data-type=taskList]]:list-none [&_ul[data-type=taskList]]:pl-1',
+        '[&_ul[data-type=taskList]_li]:flex [&_ul[data-type=taskList]_li]:items-start [&_ul[data-type=taskList]_li]:gap-2',
+        '[&_ul[data-type=taskList]_li_label]:mt-0.5 [&_ul[data-type=taskList]_li_label]:select-none',
+        '[&_ul[data-type=taskList]_li_div]:min-w-0 [&_ul[data-type=taskList]_li_div]:flex-1',
+        // Tables
+        '[&_.tiptap-editor-root_table]:my-3 [&_.tiptap-editor-root_table]:w-full [&_.tiptap-editor-root_table]:border-collapse',
+        '[&_.tiptap-editor-root_td]:border [&_.tiptap-editor-root_td]:border-neutral-300 [&_.tiptap-editor-root_td]:px-3 [&_.tiptap-editor-root_td]:py-1.5 [&_.tiptap-editor-root_td]:text-sm [&_.tiptap-editor-root_td]:align-top',
+        '[&_.tiptap-editor-root_th]:border [&_.tiptap-editor-root_th]:border-neutral-300 [&_.tiptap-editor-root_th]:bg-neutral-50 [&_.tiptap-editor-root_th]:px-3 [&_.tiptap-editor-root_th]:py-1.5 [&_.tiptap-editor-root_th]:text-left [&_.tiptap-editor-root_th]:text-xs [&_.tiptap-editor-root_th]:font-semibold',
+        // Images
+        '[&_.tiptap-editor-root_img]:my-3 [&_.tiptap-editor-root_img]:max-w-full [&_.tiptap-editor-root_img]:rounded-lg',
+        // Highlight mark
+        '[&_.tiptap-editor-root_mark]:rounded-sm [&_.tiptap-editor-root_mark]:bg-[#fef3c7] [&_.tiptap-editor-root_mark]:px-0.5',
         className,
       )}
     >
