@@ -12,6 +12,7 @@ import {
 import { useTaskItemsData } from '../../../modules/tasks/useTaskItemsData'
 import type { NavMode } from './aticsNavMode'
 import { Button } from '../ui/Button'
+import { useT } from '../../hooks/useT'
 
 type ProfileMenuProps = {
   variant: 'sidebar' | 'topbar'
@@ -51,6 +52,7 @@ function LayoutModeInline({
   onChange: (m: NavMode) => void
   darkSurface: boolean
 }) {
+  const { t } = useT()
   const inactive = darkSurface
     ? 'border-white/20 text-white/70 hover:border-white/35 hover:text-white'
     : 'border-neutral-200 text-neutral-500 hover:border-neutral-300 hover:text-neutral-800'
@@ -62,9 +64,9 @@ function LayoutModeInline({
       <p
         className={`mb-2 text-xs font-semibold uppercase tracking-wide ${darkSurface ? 'text-white/55' : 'text-neutral-500'}`}
       >
-        Navigasjonslayout
+        {t('shell.header.navLayout')}
       </p>
-      <div className="flex gap-2" role="radiogroup" aria-label="Navigasjonslayout">
+      <div className="flex gap-2" role="radiogroup" aria-label={t('shell.header.navLayout')}>
         <Button
           variant="ghost"
           onClick={() => onChange('topbar')}
@@ -79,7 +81,7 @@ function LayoutModeInline({
             <span className="block h-1 w-8 rounded-sm bg-current opacity-40" />
             <span className="block h-6 w-8 rounded-sm border border-current opacity-30" />
           </span>
-          Toppmeny
+          {t('shell.header.navLayoutTopbar')}
         </Button>
         <Button
           variant="ghost"
@@ -94,7 +96,7 @@ function LayoutModeInline({
             <span className="block h-8 w-2 rounded-sm bg-current opacity-80" />
             <span className="block h-8 w-6 rounded-sm border border-current opacity-30" />
           </span>
-          Sidemeny
+          {t('shell.header.navLayoutSidebar')}
         </Button>
       </div>
     </div>
@@ -116,6 +118,7 @@ export function ShellProfileMenuButton({
   showAuth,
   isLoggedIn,
 }: ProfileMenuProps) {
+  const { t } = useT()
   const [open, setOpen] = useState(false)
   const ref = useCloseOnOutsideClick(open, () => setOpen(false))
   const dark = variant === 'topbar'
@@ -144,11 +147,11 @@ export function ShellProfileMenuButton({
         <User className={variant === 'topbar' ? 'size-5' : 'size-4'} />
       </Button>
       {open && (
-        <div className={panelClass} role="dialog" aria-label="Bruker og innstillinger">
+        <div className={panelClass} role="dialog" aria-label={t('shell.header.userAndSettings')}>
           {isLoggedIn ? (
             <div className={`mb-3 border-b pb-3 ${dark ? 'border-white/10' : 'border-neutral-200'}`}>
               <p className={`text-sm font-semibold ${dark ? 'text-white' : 'text-neutral-900'}`}>
-                {displayName || 'Bruker'}
+                {displayName || t('shell.header.userFallback')}
               </p>
               {email ? (
                 <p className={`mt-0.5 truncate text-xs ${dark ? 'text-white/60' : 'text-neutral-500'}`}>{email}</p>
@@ -170,7 +173,7 @@ export function ShellProfileMenuButton({
                   : 'border-neutral-200 text-neutral-800 hover:bg-neutral-50'
               }`}
             >
-              Profil og konto
+              {t('shell.header.profileAndAccount')}
             </Link>
             {showAuth ? (
               isLoggedIn ? (
@@ -226,6 +229,7 @@ export function ShellCompanyBlock({
 }
 
 export function ShellQuickCreateMenu({ variant }: { variant: 'sidebar' | 'topbar' }) {
+  const { t } = useT()
   const nav = useNavigate()
   const [open, setOpen] = useState(false)
   const ref = useCloseOnOutsideClick(open, () => setOpen(false))
@@ -254,18 +258,18 @@ export function ShellQuickCreateMenu({ variant }: { variant: 'sidebar' | 'topbar
     <div className="relative" ref={ref}>
       <Button variant="ghost" className={btnBase} onClick={() => setOpen((o) => !o)} aria-expanded={open}>
         <Plus className="size-4" />
-        Nytt
+        {t('shell.header.quickCreate')}
         <ChevronDown className="size-3.5 opacity-70" />
       </Button>
       {open ? (
         <div className={panelClass} role="menu">
           <Button variant="ghost" role="menuitem" className={`${itemClass} justify-start font-normal`} onClick={() => go('/tasks/management?quickNew=task')}>
             <ClipboardList className="size-4 shrink-0 opacity-80" />
-            Ny oppgave
+            {t('shell.header.newTask')}
           </Button>
           <Button variant="ghost" role="menuitem" className={`${itemClass} justify-start font-normal`} onClick={() => go('/tasks/management?tab=varsling')}>
             <Megaphone className="size-4 shrink-0 opacity-80" />
-            Ny varslingssak
+            {t('shell.header.newAlert')}
           </Button>
         </div>
       ) : null}
@@ -280,6 +284,7 @@ type GapSection = {
 }
 
 export function ShellComplianceIndicator({ variant }: { variant: 'sidebar' | 'topbar' }) {
+  const { t } = useT()
   const ts = useTaskItemsData()
   const [open, setOpen] = useState(false)
   const ref = useCloseOnOutsideClick(open, () => setOpen(false))
@@ -293,10 +298,10 @@ export function ShellComplianceIndicator({ variant }: { variant: 'sidebar' | 'to
     if (overdueTasks.length) {
       sectionsAcc.push({
         id: 'tasks',
-        title: 'Oppgaver',
+        title: t('shell.header.tasksSection'),
         items: [
           {
-            label: `${overdueTasks.length} forfalte oppgave(r)`,
+            label: t('shell.header.overdueTasks', { count: overdueTasks.length }),
             to: '/tasks/management',
           },
         ],
@@ -307,7 +312,7 @@ export function ShellComplianceIndicator({ variant }: { variant: 'sidebar' | 'to
     if (sectionsAcc.length > 0) level = 'yellow'
 
     return { level, sections: sectionsAcc }
-  }, [ts.items, today])
+  }, [ts.items, today, t])
 
   const dotClass =
     level === 'green'
@@ -339,23 +344,23 @@ export function ShellComplianceIndicator({ variant }: { variant: 'sidebar' | 'to
         className={`h-auto w-auto ${btnClass}`}
         onClick={() => setOpen((o) => !o)}
         aria-expanded={open}
-        title="Samsvar — åpne detaljer"
-        aria-label="Samsvarsoversikt"
+        title={t('shell.header.complianceOpenDetails')}
+        aria-label={t('shell.header.complianceOverview')}
       >
         <ShieldAlert className={variant === 'topbar' ? 'size-5' : 'size-4'} />
         <span className={`absolute right-1 top-1 size-2 rounded-full ${dotClass}`} aria-hidden />
       </Button>
       {open ? (
-        <div className={panelClass} role="dialog" aria-label="Samsvar">
-          <h3 className={`text-sm font-semibold ${heading}`}>Samsvar</h3>
+        <div className={panelClass} role="dialog" aria-label={t('shell.header.compliance')}>
+          <h3 className={`text-sm font-semibold ${heading}`}>{t('shell.header.compliance')}</h3>
           <p className={`mt-1 text-xs ${sub}`}>
             {level === 'green'
-              ? 'Ingen åpne oppgaver krever oppfølging.'
-              : 'Det finnes punkter som bør følges opp (se under).'}
+              ? t('shell.header.complianceGreen')
+              : t('shell.header.complianceYellow')}
           </p>
           {sections.length === 0 ? (
             <p className={`mt-4 text-sm ${variant === 'topbar' ? 'text-white/70' : 'text-neutral-600'}`}>
-              Alt ser bra ut i oversikten akkurat nå.
+              {t('shell.header.complianceEmpty')}
             </p>
           ) : (
             <ul className={`mt-4 space-y-4 ${sub} text-xs`}>
@@ -380,7 +385,7 @@ export function ShellComplianceIndicator({ variant }: { variant: 'sidebar' | 'to
             </ul>
           )}
           <p className={`mt-4 border-t pt-3 text-[10px] ${sub}`}>
-            Oversikten er veiledende og bygger på data i appen (ikke juridisk vurdering).
+            {t('shell.header.complianceDisclaimer')}
           </p>
         </div>
       ) : null}

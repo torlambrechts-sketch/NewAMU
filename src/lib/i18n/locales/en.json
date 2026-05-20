@@ -114,6 +114,27 @@
     "locale": {
       "switchToNb": "Switch to Norwegian",
       "switchToEn": "Switch to English"
+    },
+    "header": {
+      "navLayout": "Navigation layout",
+      "navLayoutTopbar": "Top menu",
+      "navLayoutSidebar": "Side menu",
+      "userAndSettings": "User and settings",
+      "userFallback": "User",
+      "profileAndAccount": "Profile and account",
+      "quickCreate": "New",
+      "newTask": "New task",
+      "newAlert": "New whistleblowing case",
+      "tasksSection": "Tasks",
+      "overdueTasks_one": "{{count}} overdue task",
+      "overdueTasks_other": "{{count}} overdue tasks",
+      "complianceOpenDetails": "Compliance — open details",
+      "complianceOverview": "Compliance overview",
+      "compliance": "Compliance",
+      "complianceGreen": "No open tasks require follow-up.",
+      "complianceYellow": "There are items that should be followed up (see below).",
+      "complianceEmpty": "Everything looks fine in the overview right now.",
+      "complianceDisclaimer": "The overview is advisory and based on data in the app (not a legal assessment)."
     }
   },
   "nav": {

@@ -114,6 +114,27 @@
     "locale": {
       "switchToNb": "Bytt til norsk",
       "switchToEn": "Bytt til engelsk"
+    },
+    "header": {
+      "navLayout": "Navigasjonslayout",
+      "navLayoutTopbar": "Toppmeny",
+      "navLayoutSidebar": "Sidemeny",
+      "userAndSettings": "Bruker og innstillinger",
+      "userFallback": "Bruker",
+      "profileAndAccount": "Profil og konto",
+      "quickCreate": "Nytt",
+      "newTask": "Ny oppgave",
+      "newAlert": "Ny varslingssak",
+      "tasksSection": "Oppgaver",
+      "overdueTasks_one": "{{count}} forfalt oppgave",
+      "overdueTasks_other": "{{count}} forfalte oppgaver",
+      "complianceOpenDetails": "Samsvar — åpne detaljer",
+      "complianceOverview": "Samsvarsoversikt",
+      "compliance": "Samsvar",
+      "complianceGreen": "Ingen åpne oppgaver krever oppfølging.",
+      "complianceYellow": "Det finnes punkter som bør følges opp (se under).",
+      "complianceEmpty": "Alt ser bra ut i oversikten akkurat nå.",
+      "complianceDisclaimer": "Oversikten er veiledende og bygger på data i appen (ikke juridisk vurdering)."
     }
   },
   "nav": {
