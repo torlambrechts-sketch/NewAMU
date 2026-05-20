@@ -2266,7 +2266,7 @@ export function AticsShell() {
                       (e.g. compliance accent flip). */}
                   <RegulationFilterMenu variant="sidebar" />
                   <NotificationTray variant="sidebar" />
-                  <LanguageDropdown variant="topbar" />
+                  <LanguageDropdown variant="sidebar" />
                   <ShellProfileMenuButton
                     variant="sidebar"
                     displayName={profileDisplay}
