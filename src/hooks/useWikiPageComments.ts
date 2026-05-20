@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useOrgSetupContext } from './useOrgSetupContext'
 import type {
+  WikiCommentAnchor,
+  WikiCommentSuggestion,
   WikiPageComment,
   WikiPageCommentEditEntry,
   WikiPageCommentKind,
@@ -29,6 +31,29 @@ type DbRow = {
   updated_at?: string | null
   hidden_until_reviewed?: boolean | null
   linked_avvik_id?: string | null
+  anchor?: unknown
+  suggestion?: unknown
+}
+
+function coerceAnchor(raw: unknown): WikiCommentAnchor | null {
+  if (!raw || typeof raw !== 'object') return null
+  const o = raw as Record<string, unknown>
+  if (
+    typeof o.blockIndex !== 'number' ||
+    typeof o.from !== 'number' ||
+    typeof o.to !== 'number' ||
+    typeof o.quotedText !== 'string'
+  ) {
+    return null
+  }
+  return { blockIndex: o.blockIndex, from: o.from, to: o.to, quotedText: o.quotedText }
+}
+
+function coerceSuggestion(raw: unknown): WikiCommentSuggestion | null {
+  if (!raw || typeof raw !== 'object') return null
+  const o = raw as Record<string, unknown>
+  if (typeof o.remove !== 'string' || typeof o.add !== 'string') return null
+  return { remove: o.remove, add: o.add }
 }
 
 const VALID_KINDS = new Set<WikiPageCommentKind>(['comment', 'suggestion', 'avvik_proposal', 'varsling'])
@@ -78,6 +103,8 @@ function mapRow(row: DbRow): WikiPageComment {
     updatedAt: row.updated_at ?? null,
     hiddenUntilReviewed: row.hidden_until_reviewed === true,
     linkedAvvikId: row.linked_avvik_id ?? null,
+    anchor: coerceAnchor(row.anchor),
+    suggestion: coerceSuggestion(row.suggestion),
   }
 }
 
@@ -91,6 +118,10 @@ export type AddCommentInput = {
   isAnonymous?: boolean
   isConfidential?: boolean
   legalBasis?: string[]
+  /** Text-selection anchor (Rec05). Omit for block-level comments. */
+  anchor?: WikiCommentAnchor | null
+  /** Proposed change for a `suggestion`-kind comment (Rec06). */
+  suggestion?: WikiCommentSuggestion | null
 }
 
 export type EditCommentInput = {
@@ -181,6 +212,8 @@ export function useWikiPageComments(pageId: string | undefined) {
         is_anonymous: isAnonymous,
         is_confidential: isConfidential,
         legal_basis: input.legalBasis ?? [],
+        anchor: input.anchor ?? null,
+        suggestion: kind === 'suggestion' ? input.suggestion ?? null : null,
       }
       const { data, error: e } = await supabase
         .from('wiki_page_comments')
