@@ -146,6 +146,14 @@
   "access": {
     "denied": "Ingen tilgang"
   },
+  "errors": {
+    "somethingWrong": "Noe gikk galt",
+    "appUpdated": "Applikasjonen er oppdatert",
+    "appUpdatedBody": "En ny versjon av appen er tilgjengelig. Last siden på nytt for å fortsette.",
+    "pageFailed": "Siden kunne ikke vises. Prøv å laste på nytt.",
+    "reload": "Last siden på nytt",
+    "toFrontpage": "← Til forsiden"
+  },
   "profile": {
     "title": "Profil og innstillinger",
     "subtitle": "Språk lagres i databasen og gjelder denne kontoen.",

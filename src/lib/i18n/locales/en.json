@@ -146,6 +146,14 @@
   "access": {
     "denied": "Access denied"
   },
+  "errors": {
+    "somethingWrong": "Something went wrong",
+    "appUpdated": "The application has been updated",
+    "appUpdatedBody": "A new version of the app is available. Reload the page to continue.",
+    "pageFailed": "The page could not be displayed. Try reloading.",
+    "reload": "Reload the page",
+    "toFrontpage": "← To the homepage"
+  },
   "profile": {
     "title": "Profile & settings",
     "subtitle": "Language is stored in the database for this account.",
