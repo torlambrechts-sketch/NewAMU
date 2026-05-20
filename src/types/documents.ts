@@ -339,6 +339,33 @@ export type WikiPageCommentEditEntry = {
   prevBody: string
 }
 
+/** Text-selection anchor for an inline comment thread (documents redesign Rec05). */
+export type WikiCommentAnchor = {
+  blockIndex: number
+  /** ProseMirror-style character offsets within the block's plain text. */
+  from: number
+  to: number
+  quotedText: string
+}
+
+/** Proposed-change payload for a `suggestion`-kind comment (Rec06 track-changes). */
+export type WikiCommentSuggestion = {
+  remove: string
+  add: string
+}
+
+/** One row of the append-only comment-lifecycle log (`wiki_comment_events`). */
+export type WikiCommentEvent = {
+  id: string
+  commentId: string
+  pageId: string
+  event: 'resolved' | 'reopened' | 'acknowledged' | 'accepted' | 'rejected' | 'deleted'
+  actorId: string
+  actorName: string
+  note: string | null
+  createdAt: string
+}
+
 export type WikiPageComment = {
   id: string
   pageId: string
@@ -371,6 +398,10 @@ export type WikiPageComment = {
   hiddenUntilReviewed?: boolean
   /** Deviation row this comment is linked to (auto-promote trigger or manual). */
   linkedAvvikId?: string | null
+  /** Text-selection anchor (Rec05). Null for block-level comments. */
+  anchor?: WikiCommentAnchor | null
+  /** Proposed change for `kind = 'suggestion'` (Rec06). Null otherwise. */
+  suggestion?: WikiCommentSuggestion | null
 }
 
 export type WikiMentionNotification = {

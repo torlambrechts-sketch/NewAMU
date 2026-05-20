@@ -19,6 +19,7 @@ import type {
   WikiSpaceItem,
 } from '../types/documents'
 import { useOrgSetupContext } from './useOrgSetupContext'
+import { ReaderWidthProvider } from './useReaderWidth'
 import { getSupabaseErrorMessage } from '../lib/supabaseError'
 import { ensureContentBlockInstanceIds, stripContentBlockInstanceIds } from '../lib/wikiContentBlocks'
 import { extractWikiInternalPageIdsFromBlocks } from '../lib/wikiPageLinks'
@@ -2439,7 +2440,9 @@ export function DocumentsProvider({ children }: { children: ReactNode }) {
 export function DocumentsLayout() {
   return (
     <DocumentsProvider>
-      <Outlet />
+      <ReaderWidthProvider>
+        <Outlet />
+      </ReaderWidthProvider>
     </DocumentsProvider>
   )
 }

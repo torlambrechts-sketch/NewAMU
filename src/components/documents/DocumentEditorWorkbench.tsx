@@ -11,7 +11,9 @@ import {
   GraduationCap,
   History,
   LayoutTemplate,
+  Maximize2,
   Megaphone,
+  Minimize2,
   MoreHorizontal,
   Pencil,
   PenLine,
@@ -242,6 +244,10 @@ export function DocumentEditorWorkbench({
     if (s === 'content' || s === 'specification' || s === 'history' || s === 'collaboration') return s
     return 'content'
   })
+  /** Rec03 "fokusmodus" — hides the workbench side panel and centres the canvas.
+   *  On by default so "Rediger" opens the clean Rec03 editor; the side panel
+   *  (publish gates, sections, history) is one click away via "Vis panel". */
+  const [focusMode, setFocusMode] = useState(true)
   // Page-level realtime presence (avatar stack in the title strip). Per-block
   // soft locks don't apply to the TipTap surface — locking the whole doc
   // would be too coarse. Skipped intentionally.
@@ -598,6 +604,19 @@ export function DocumentEditorWorkbench({
               {originalPage ? (
                 <DocumentPresenceStack users={presence.presence} currentUserId={user?.id} />
               ) : null}
+              <Button
+                type="button"
+                variant="ghost"
+                onClick={() => setFocusMode((f) => !f)}
+                aria-pressed={focusMode}
+                title={focusMode ? 'Vis sidepanel' : 'Fokusmodus — skjul sidepanelet'}
+                className={`inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-medium ${
+                  focusMode ? 'bg-[#0f766e]/10 text-[#0f766e]' : 'text-neutral-500 hover:bg-neutral-100'
+                }`}
+              >
+                {focusMode ? <Minimize2 className="h-3.5 w-3.5" /> : <Maximize2 className="h-3.5 w-3.5" />}
+                <span className="hidden sm:inline">{focusMode ? 'Vis panel' : 'Fokusmodus'}</span>
+              </Button>
               <Button type="button" variant="ghost" size="icon" aria-label="Legg til side">
                 <Plus className="h-4 w-4" />
               </Button>
@@ -621,7 +640,11 @@ export function DocumentEditorWorkbench({
                 />
               </div>
             ) : null}
-            <div className="flex w-full flex-1 flex-col border-neutral-200/90 bg-white shadow-sm lg:border-r-0">
+            <div
+              className={`flex w-full flex-1 flex-col border-neutral-200/90 bg-white shadow-sm lg:border-r-0 ${
+                focusMode ? 'mx-auto max-w-[920px] lg:my-6 lg:rounded-xl lg:border' : ''
+              }`}
+            >
               <div className="flex-1 border-b border-neutral-100">
                 <TipTapRichTextEditor
                   key={
@@ -644,7 +667,8 @@ export function DocumentEditorWorkbench({
           </div>
         </div>
 
-        {/* Right sidebar */}
+        {/* Right sidebar — hidden in Rec03 focus mode */}
+        {!focusMode ? (
         <div className="flex w-full shrink-0 border-t border-neutral-200/80 bg-neutral-50 lg:w-[360px] lg:border-l lg:border-t-0">
           <div
             className="flex w-12 flex-col items-center gap-1 border-r border-neutral-200/80 py-3"
@@ -946,6 +970,7 @@ export function DocumentEditorWorkbench({
             )}
           </div>
         </div>
+        ) : null}
       </div>
     </ModuleSectionCard>
   )

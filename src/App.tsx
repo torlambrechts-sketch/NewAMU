@@ -108,6 +108,7 @@ import { LearningCertificatePrintPage } from './pages/learning/LearningCertifica
 import { LearningMinHistorikkPage } from './pages/learning/LearningMinHistorikkPage'
 import { DocumentsHome } from './pages/documents/DocumentsHome'
 import { DocumentsAnalysePage } from './pages/documents/DocumentsAnalysePage'
+import { DocumentsSokPage } from './pages/documents/DocumentsSokPage'
 import { DocumentsMalbibliotekPage } from './pages/documents/DocumentsMalbibliotekPage'
 import { WikiSpaceView } from './pages/documents/WikiSpaceView'
 import { WikiPageView } from './pages/documents/WikiPageView'
@@ -614,18 +615,11 @@ const router = createBrowserRouter(
                       <Route path="admin/varsling/dedup-grupper" element={<AlertDedupGroupsPage />} />
                       <Route element={<DocumentsModuleShellLayout />}>
                         <Route path="documents/editor-test" element={<DocumentEditorTestPage />} />
-                        <Route
-                          path="documents/page/:pageId/reference-edit"
-                          element={
-                            <RouteErrorBoundary title="Kunne ikke åpne redigering">
-                              <WikiPageReferenceEditor />
-                            </RouteErrorBoundary>
-                          }
-                        />
                         <Route path="documents/kandidatdetalj-layout-test" element={<DocumentKandidatdetaljLayoutTestPage />} />
                         <Route path="documents/malbibliotek" element={<DocumentsMalbibliotekPage />} />
                         <Route path="documents" element={<DocumentsHome />} />
                         <Route path="documents/analyse" element={<DocumentsAnalysePage />} />
+                        <Route path="documents/sok" element={<DocumentsSokPage />} />
                         <Route path="documents/alle" element={<DocumentsAllePage />} />
                         <Route path="documents/compliance" element={<ComplianceDashboard />} />
                         <Route path="documents/admin" element={<LegacyAdminRedirect scope="documents" />} />
@@ -657,6 +651,14 @@ const router = createBrowserRouter(
                           element={
                             <RouteErrorBoundary title="Kunne ikke vise dokumentet">
                               <WikiPageView />
+                            </RouteErrorBoundary>
+                          }
+                        />
+                        <Route
+                          path="documents/page/:pageId/reference-edit"
+                          element={
+                            <RouteErrorBoundary title="Kunne ikke åpne redigering">
+                              <WikiPageReferenceEditor />
                             </RouteErrorBoundary>
                           }
                         />

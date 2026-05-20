@@ -1,6 +1,6 @@
 import { useMemo } from 'react'
 import { useMatch } from 'react-router-dom'
-import { BookOpen, ClipboardCheck, FolderOpen, Settings, ShieldCheck } from 'lucide-react'
+import { BookOpen, ClipboardCheck, FolderOpen, Search, Settings, ShieldCheck } from 'lucide-react'
 import { HubMenu1Bar, type HubMenu1Item } from '../layout/HubMenu1Bar'
 
 type Props = {
@@ -43,6 +43,14 @@ export function DocumentsHubSecondaryNav({ canManage, annualReviewBadgeDot }: Pr
         to: '/documents',
         end: true,
         navActiveOverride: documentsTabOn,
+        active: false,
+      },
+      {
+        key: 'sok',
+        label: 'Søk & oppslag',
+        icon: Search,
+        to: '/documents/sok',
+        end: true,
         active: false,
       },
       {
