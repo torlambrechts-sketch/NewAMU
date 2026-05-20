@@ -27,16 +27,41 @@ import {
   List,
   ListOrdered,
   Minus,
+  Pilcrow,
   Quote,
   Redo2,
   Strikethrough,
   Underline as UnderlineIcon,
   Undo2,
 } from 'lucide-react'
+import type { LucideIcon } from 'lucide-react'
 import { Button } from '../ui/Button'
 import { normalizeModuleHtml } from '../../lib/richTextDisplay'
 
 export type WikiLinkPageOption = { id: string; title: string }
+
+/** Slash-command block options. `apply` runs after the typed `/query` is deleted. */
+type SlashItem = {
+  id: string
+  label: string
+  hint: string
+  icon: LucideIcon
+  keys: string
+  keywords: string
+  apply: (editor: Editor) => void
+}
+
+const SLASH_ITEMS: SlashItem[] = [
+  { id: 'h1', label: 'Overskrift 1', hint: 'Stort kapittel', icon: Heading1, keys: '# ', keywords: 'overskrift heading tittel h1', apply: (e) => e.chain().focus().setNode('heading', { level: 1 }).run() },
+  { id: 'h2', label: 'Overskrift 2', hint: 'Underkapittel', icon: Heading2, keys: '## ', keywords: 'overskrift heading h2', apply: (e) => e.chain().focus().setNode('heading', { level: 2 }).run() },
+  { id: 'h3', label: 'Overskrift 3', hint: 'Avsnittstittel', icon: Heading3, keys: '### ', keywords: 'overskrift heading h3', apply: (e) => e.chain().focus().setNode('heading', { level: 3 }).run() },
+  { id: 'text', label: 'Tekst', hint: 'Vanlig avsnitt', icon: Pilcrow, keys: '', keywords: 'tekst avsnitt paragraph text', apply: (e) => e.chain().focus().setParagraph().run() },
+  { id: 'ul', label: 'Punktliste', hint: 'Uordnet liste', icon: List, keys: '- ', keywords: 'liste punkt bullet ul', apply: (e) => e.chain().focus().toggleBulletList().run() },
+  { id: 'ol', label: 'Nummerert liste', hint: 'Ordnet liste', icon: ListOrdered, keys: '1. ', keywords: 'liste nummerert ordered ol', apply: (e) => e.chain().focus().toggleOrderedList().run() },
+  { id: 'quote', label: 'Sitat', hint: 'Innrammet sitat', icon: Quote, keys: '> ', keywords: 'sitat quote blockquote', apply: (e) => e.chain().focus().toggleBlockquote().run() },
+  { id: 'code', label: 'Kode', hint: 'Monospaced blokk', icon: Code, keys: '```', keywords: 'kode code pre', apply: (e) => e.chain().focus().toggleCodeBlock().run() },
+  { id: 'hr', label: 'Skillelinje', hint: 'Horisontal strek', icon: Minus, keys: '---', keywords: 'skille linje divider hr', apply: (e) => e.chain().focus().setHorizontalRule().run() },
+]
 export type WikiMentionProfileOption = { id: string; label: string }
 
 type Props = {
@@ -366,6 +391,9 @@ export function TipTapRichTextEditor({
   const [wikiLinkPickAnchor, setWikiLinkPickAnchor] = useState<number | null>(null)
   const [wikiLinkPickRect, setWikiLinkPickRect] = useState<DOMRect | null>(null)
   const [wikiLinkQuery, setWikiLinkQuery] = useState('')
+  const [slashAnchor, setSlashAnchor] = useState<number | null>(null)
+  const [slashRect, setSlashRect] = useState<DOMRect | null>(null)
+  const [slashQuery, setSlashQuery] = useState('')
   useEffect(() => {
     onChangeRef.current = onChange
   }, [onChange])
@@ -521,6 +549,40 @@ export function TipTapRichTextEditor({
     }
   }, [editor, readOnly, wikiLinkPages])
 
+  // Slash command menu — detect a `/query` typed at the start of an empty
+  // paragraph, mirroring the `[[` wiki-link picker pattern.
+  useEffect(() => {
+    if (!editor || readOnly) return
+    const sync = () => {
+      const { from, empty } = editor.state.selection
+      if (!empty) {
+        setSlashAnchor(null)
+        return
+      }
+      const $from = editor.state.doc.resolve(from)
+      if ($from.parent.type.name !== 'paragraph') {
+        setSlashAnchor(null)
+        return
+      }
+      const textBefore = $from.parent.textBetween(0, $from.parentOffset, '￼', '￼')
+      const match = /^\/([\p{L}0-9]*)$/u.exec(textBefore)
+      if (!match) {
+        setSlashAnchor(null)
+        return
+      }
+      setSlashAnchor($from.start())
+      setSlashQuery(match[1] ?? '')
+      const coords = editor.view.coordsAtPos(from)
+      setSlashRect(new DOMRect(coords.left, coords.top, 0, coords.bottom - coords.top))
+    }
+    editor.on('transaction', sync)
+    editor.on('selectionUpdate', sync)
+    return () => {
+      editor.off('transaction', sync)
+      editor.off('selectionUpdate', sync)
+    }
+  }, [editor, readOnly])
+
   // Sync external value (e.g. hydration, undo outside editor) without fighting local typing
   useEffect(() => {
     if (!editor) return
@@ -556,6 +618,22 @@ export function TipTapRichTextEditor({
     const q = wikiLinkQuery.toLowerCase()
     return wikiLinkPages.filter((p) => p.title.toLowerCase().includes(q)).slice(0, 20)
   }, [wikiLinkPages, wikiLinkQuery])
+
+  const slashQ = slashQuery.toLowerCase()
+  const filteredSlashItems = slashQ
+    ? SLASH_ITEMS.filter(
+        (it) => it.label.toLowerCase().includes(slashQ) || it.keywords.includes(slashQ),
+      )
+    : SLASH_ITEMS
+
+  const applySlash = (item: SlashItem) => {
+    if (slashAnchor == null) return
+    const to = editor.state.selection.from
+    editor.chain().focus().deleteRange({ from: slashAnchor, to }).run()
+    item.apply(editor)
+    setSlashAnchor(null)
+    setSlashRect(null)
+  }
 
   return (
     <div
@@ -623,6 +701,51 @@ export function TipTapRichTextEditor({
           >
             Avbryt
           </Button>
+        </div>
+      ) : null}
+      {!readOnly && slashAnchor != null && slashRect ? (
+        <div
+          className="fixed z-[100] w-[320px] overflow-hidden rounded-xl border border-neutral-200 bg-white shadow-xl"
+          style={{ left: slashRect.left, top: slashRect.bottom + 6 }}
+        >
+          <div className="border-b border-neutral-100 px-3 py-2 text-[10px] font-bold uppercase tracking-wider text-neutral-500">
+            Sett inn blokk
+          </div>
+          {filteredSlashItems.length === 0 ? (
+            <p className="px-3 py-3 text-xs text-neutral-400">Ingen blokk «{slashQuery}».</p>
+          ) : (
+            <ul className="max-h-[320px] overflow-y-auto py-1">
+              {filteredSlashItems.map((item) => {
+                const Icon = item.icon
+                return (
+                  <li key={item.id}>
+                    <Button
+                      variant="ghost"
+                      className="flex w-full items-center gap-2.5 rounded-none px-3 py-1.5 text-left font-normal hover:bg-neutral-50"
+                      onMouseDown={(e) => e.preventDefault()}
+                      onClick={() => applySlash(item)}
+                    >
+                      <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md border border-neutral-200 bg-neutral-50 text-neutral-700">
+                        <Icon className="h-3.5 w-3.5" aria-hidden />
+                      </span>
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate text-sm text-neutral-900">{item.label}</span>
+                        <span className="block truncate text-[11px] text-neutral-500">{item.hint}</span>
+                      </span>
+                      {item.keys ? (
+                        <kbd className="rounded border border-neutral-200 bg-neutral-50 px-1.5 py-0.5 font-mono text-[10px] text-neutral-500">
+                          {item.keys}
+                        </kbd>
+                      ) : null}
+                    </Button>
+                  </li>
+                )
+              })}
+            </ul>
+          )}
+          <div className="border-t border-neutral-100 px-3 py-1.5 text-[10px] text-neutral-500">
+            Skriv for å filtrere · Esc for å lukke
+          </div>
         </div>
       ) : null}
     </div>
