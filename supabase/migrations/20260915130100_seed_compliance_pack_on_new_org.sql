@@ -72,9 +72,9 @@ begin
     new.id, 'aml-amu', 'AML', 'Vernerunder', 'Ny vernerunde',
     'Vernerunder og avvik etter arbeidsmiljøloven og internkontrollforskriften.',
     10, true, true,
-    '[{"code":"AML §3-1","text":"Krav til systematisk HMS-arbeid (internkontroll)."},'
+    ('[{"code":"AML §3-1","text":"Krav til systematisk HMS-arbeid (internkontroll)."},'
     || '{"code":"AML §4-1","text":"Generelle krav til arbeidsmiljøet."},'
-    || '{"code":"IK-forskriften §5","text":"Internkontrollens innhold (sjekklister, avvik, oppfølging)."}]',
+    || '{"code":"IK-forskriften §5","text":"Internkontrollens innhold (sjekklister, avvik, oppfølging)."}]')::jsonb,
     '{"ytd":"Vernerunder i år","open":"Åpne vernerunder","critical":"Kritiske avvik"}',
     '{"low":"Forbedringspotensial","medium":"Mindre avvik","high":"Vesentlig avvik","critical":"Kritisk avvik"}'
   )
@@ -99,9 +99,9 @@ select
   o.id, 'aml-amu', 'AML', 'Vernerunder', 'Ny vernerunde',
   'Vernerunder og avvik etter arbeidsmiljøloven og internkontrollforskriften.',
   10, true, true,
-  '[{"code":"AML §3-1","text":"Krav til systematisk HMS-arbeid (internkontroll)."},'
+  ('[{"code":"AML §3-1","text":"Krav til systematisk HMS-arbeid (internkontroll)."},'
   || '{"code":"AML §4-1","text":"Generelle krav til arbeidsmiljøet."},'
-  || '{"code":"IK-forskriften §5","text":"Internkontrollens innhold (sjekklister, avvik, oppfølging)."}]',
+  || '{"code":"IK-forskriften §5","text":"Internkontrollens innhold (sjekklister, avvik, oppfølging)."}]')::jsonb,
   '{"ytd":"Vernerunder i år","open":"Åpne vernerunder","critical":"Kritiske avvik"}',
   '{"low":"Forbedringspotensial","medium":"Mindre avvik","high":"Vesentlig avvik","critical":"Kritisk avvik"}'
 from public.organizations o
