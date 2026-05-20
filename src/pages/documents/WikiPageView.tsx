@@ -7,6 +7,7 @@ import { useReaderWidth } from '../../hooks/useReaderWidth'
 import { useWikiPageComments } from '../../hooks/useWikiPageComments'
 import { WikiTocPanel } from '../../components/documents/WikiTocPanel'
 import { WikiMetaPanel } from '../../components/documents/WikiMetaPanel'
+import { WikiCommentsRail } from '../../components/documents/WikiCommentsRail'
 import { WikiCommentEventLog } from '../../components/documents/WikiCommentEventLog'
 import { DocumentApprovalPipeline } from '../../components/documents/DocumentApprovalPipeline'
 import { RetentionBadge } from './RetentionBadge'
@@ -28,7 +29,6 @@ import { DOCUMENTS_MODULE_TITLE } from '../../data/documentsNav'
 import type { ContentBlock, HeadingBlock, PageStatus, WikiPage, WikiPageVersionSnapshot } from '../../types/documents'
 import { headingAnchorId } from '../../lib/wikiPageLinks'
 import { useTickingClock } from '../../lib/useTickingClock'
-import { WikiBlockCommentsPanel } from '../../components/documents/WikiBlockCommentsPanel'
 import { DocumentAcknowledgementsPanel } from '../../components/documents/DocumentAcknowledgementsPanel'
 import { DocumentActivityTimeline } from '../../components/documents/DocumentActivityTimeline'
 import { DocumentAvvikChip, DocumentAvvikPanel } from '../../components/documents/DocumentAvvikPanel'
@@ -100,7 +100,6 @@ export function WikiPageView() {
     createWikiAccessRequest,
     fetchPageBacklinks,
     fetchOrgPageViewCounts,
-    notifyWikiMentions,
     wikiRetentionCategories,
     wikiReviewRequests,
     submitForReview,
@@ -108,23 +107,14 @@ export function WikiPageView() {
     requestReviewChanges,
     auditLedger,
   } = docs
-  const { comments, commentEvents, addComment, editComment, setResolved, removeComment } =
+  const { comments, commentEvents, addComment, setResolved, removeComment } =
     useWikiPageComments(pageId)
   const { isWide: readerWide, toggle: toggleReaderWide } = useReaderWidth()
   const {
     linked: linkedAvvik,
     loading: avvikLoading,
-    refresh: refreshAvvik,
-    promoteCommentToAvvik,
   } = useWikiPageAvvik(pageId)
   const openAvvikCount = useMemo(() => linkedAvvik.filter((a) => !a.closedAt).length, [linkedAvvik])
-  const mentionUsers = useMemo(
-    () =>
-      orgProfiles
-        .filter((p) => p.id && p.display_name)
-        .map((p) => ({ id: p.id, displayName: p.display_name })),
-    [orgProfiles],
-  )
   const canSeeConfidential = isAdmin || permissionKeys.has('alerts.committee')
   const resolveMemberName = useCallback(
     (uid: string) => orgProfiles.find((p) => p.id === uid)?.display_name ?? uid.slice(0, 8),
@@ -147,6 +137,8 @@ export function WikiPageView() {
   const [fontSize, setFontSize] = useState<'sm' | 'base' | 'lg'>(() => {
     try { return (localStorage.getItem('wiki-font-size') as 'sm' | 'base' | 'lg') || 'base' } catch { return 'base' }
   })
+  /** Which panel fills the viewer's right column — page meta or the comment rail. */
+  const [rightPanel, setRightPanel] = useState<'meta' | 'comments'>('meta')
 
   const page = docs.pages.find((p) => p.id === pageId)
   const space = page ? docs.spaces.find((s) => s.id === page.spaceId) : null
@@ -236,11 +228,6 @@ export function WikiPageView() {
     () => (page?.retentionCategory ? wikiRetentionCategories.find((r) => r.slug === page.retentionCategory) ?? null : null),
     [page?.retentionCategory, wikiRetentionCategories],
   )
-  const retentionHint = useMemo(() => {
-    if (!retentionCategoryRow) return undefined
-    const yrs = retentionCategoryRow.maxYears ?? retentionCategoryRow.minYears
-    return `Bevares i ${yrs} år (${retentionCategoryRow.label}).`
-  }, [retentionCategoryRow])
   const pageLegalBasis = useMemo(() => {
     const set = new Set<string>()
     for (const r of legalRefs) set.add(r)
@@ -849,15 +836,24 @@ export function WikiPageView() {
 
             <div className="flex-1" />
 
-            {/* Open comment count */}
-            {comments.length > 0 && (
-              <span className="inline-flex items-center gap-1 rounded-md px-2 py-1.5 text-xs text-neutral-500">
-                <MessageSquare className="size-3.5" aria-hidden />
-                {comments.filter((c) => !c.resolved).length > 0
-                  ? comments.filter((c) => !c.resolved).length
-                  : null}
+            {/* Comments — toggles the right column to the inline thread rail */}
+            <Button
+              variant="ghost"
+              onClick={() => setRightPanel((p) => (p === 'comments' ? 'meta' : 'comments'))}
+              title={rightPanel === 'comments' ? 'Skjul kommentarer' : 'Vis kommentarer'}
+              aria-pressed={rightPanel === 'comments'}
+              className={`inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-medium transition-colors ${
+                rightPanel === 'comments' ? 'bg-[#0f766e]/10 text-[#0f766e]' : 'text-neutral-500 hover:bg-neutral-100'
+              }`}
+            >
+              <MessageSquare className="size-3.5" aria-hidden />
+              <span className="hidden sm:inline">
+                Kommentarer
+                {comments.filter((c) => !c.resolved && !c.deletedAt && !c.parentCommentId).length > 0
+                  ? ` (${comments.filter((c) => !c.resolved && !c.deletedAt && !c.parentCommentId).length})`
+                  : ''}
               </span>
-            )}
+            </Button>
 
             <div className="mx-1 h-4 w-px shrink-0 bg-neutral-200" aria-hidden />
 
@@ -921,73 +917,39 @@ export function WikiPageView() {
                   pageVersion={page.version}
                   lang={page.lang ?? 'nb'}
                   fontSize={fontSize}
-                  blockFooter={(idx) =>
-                    page.status !== 'archived' ? (
-                      <WikiBlockCommentsPanel
-                        blockIndex={idx}
-                        comments={comments}
-                        currentUserId={user?.id}
-                        canView={can('documents.view')}
-                        canComment={Boolean(user?.id && can('documents.view'))}
-                        mentionUsers={mentionUsers}
-                        retentionHint={retentionHint}
-                        canSeeConfidential={canSeeConfidential}
-                        inviteCollaboratorsHref={
-                          page.status === 'draft' && canEditThisDoc
-                            ? `/documents/page/${page.id}/reference-edit?sidebar=collaboration`
-                            : undefined
-                        }
-                        onPromoteToAvvik={async ({ commentId, body, severity }) => {
-                          const id = await promoteCommentToAvvik({
-                            commentId,
-                            body,
-                            severity,
-                            pageTitle: page.title,
-                          })
-                          await refreshAvvik()
-                          return id
-                        }}
-                        onAdd={async (args) => {
-                          await addComment({
-                            blockIndex: args.blockIndex,
-                            body: args.body,
-                            authorName: profile?.display_name ?? '',
-                            parentCommentId: args.parentCommentId ?? null,
-                            kind: args.kind,
-                            severity: args.severity,
-                            isAnonymous: args.isAnonymous,
-                            isConfidential: args.isConfidential,
-                            legalBasis: pageLegalBasis,
-                          })
-                          if (args.mentionedUserIds.length > 0) {
-                            const chips = args.mentionedUserIds
-                              .map((id) => `<span data-mention="true" data-user-id="${id}"></span>`)
-                              .join(' ')
-                            await notifyWikiMentions({
-                              html: `<p>${args.kind === 'varsling' ? 'Varsling' : 'Kommentar'} på «${page.title}»: ${chips} ${args.body}</p>`,
-                              pageId: page.id,
-                              context: 'comment',
-                              actorName: args.isAnonymous ? 'Anonym ansatt' : profile?.display_name ?? '',
-                            })
-                          }
-                          if (args.kind === 'avvik_proposal') {
-                            await refreshAvvik()
-                          }
-                        }}
-                        onEdit={async (id, body) => {
-                          await editComment({ commentId: id, body })
-                        }}
-                        onResolve={(id, r) => setResolved(id, r)}
-                        onDelete={(id) => removeComment(id)}
-                      />
-                    ) : null
-                  }
                 />
               </div>
             </div>
           </ModuleSectionCard>
           {!readerWide ? (
             <div className="hidden lg:block">
+              {rightPanel === 'comments' ? (
+                <WikiCommentsRail
+                  comments={comments}
+                  canComment={Boolean(user?.id && can('documents.view') && page.status !== 'archived')}
+                  onAddComment={async (body) => {
+                    await addComment({
+                      blockIndex: 0,
+                      body,
+                      authorName: profile?.display_name ?? '',
+                      kind: 'comment',
+                      legalBasis: pageLegalBasis,
+                    })
+                  }}
+                  onReply={async (parentId, blockIndex, body) => {
+                    await addComment({
+                      blockIndex,
+                      body,
+                      authorName: profile?.display_name ?? '',
+                      parentCommentId: parentId,
+                      kind: 'comment',
+                      legalBasis: pageLegalBasis,
+                    })
+                  }}
+                  onResolve={(id, r) => setResolved(id, r)}
+                  onDelete={(id) => removeComment(id)}
+                />
+              ) : (
               <WikiMetaPanel
                 page={page}
                 space={space}
@@ -997,6 +959,7 @@ export function WikiPageView() {
                 backlinkIds={backlinkIds}
                 pageTitleById={(id) => docs.pages.find((p) => p.id === id)?.title ?? id}
               />
+              )}
             </div>
           ) : null}
         </div>
