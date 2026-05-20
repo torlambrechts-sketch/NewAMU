@@ -25,7 +25,7 @@
       "govSubmissionsSub": "Regler som rapporterer til myndighet",
       "runs7d": "Kjøringer siste 7 dager",
       "runs7dNone": "Ingen kjøringer ennå",
-      "runs7dSome": "Tellig av workflow_runs"
+      "runs7dSome": "Telling av workflow_runs"
     },
     "newRule": "Ny arbeidsflyt",
     "health": {

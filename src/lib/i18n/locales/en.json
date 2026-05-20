@@ -175,11 +175,11 @@
     "passwordSave": "Update password",
     "passwordSaved": "Password updated.",
     "passwordMismatch": "Passwords do not match.",
-    "sectionAccount": "Account and organization",
-    "accountOrg": "Organization",
-    "accountNoOrg": "No organization linked yet.",
+    "sectionAccount": "Account and organisation",
+    "accountOrg": "Organisation",
+    "accountNoOrg": "No organisation linked yet.",
     "accountMembers": "Members in directory",
-    "linkOrganisation": "Go to organization",
+    "linkOrganisation": "Go to organisation",
     "savePersonalia": "Save details",
     "savingPersonalia": "Saving…"
   },
@@ -195,8 +195,8 @@
       "density": "Table",
       "comfortable": "Comfortable",
       "compact": "Compact",
-      "orgLink": "Organization setup (Brønnøysund, structure)",
-      "orgLinkOnboarding": "Complete organization setup",
+      "orgLink": "Organisation setup (Brønnøysund, structure)",
+      "orgLinkOnboarding": "Complete organisation setup",
       "orgLinkProfile": "Profile & language",
       "open": "Setup"
     }
