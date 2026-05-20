@@ -1,15 +1,14 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
-import { Eye, History, Maximize2, MessageSquare, Minimize2, PanelLeft, Pencil, Printer } from 'lucide-react'
+import { Eye, History, Maximize2, MessageSquare, Minimize2, Pencil, Printer } from 'lucide-react'
 import { useDocuments } from '../../hooks/useDocuments'
 import { useOrgSetupContext } from '../../hooks/useOrgSetupContext'
 import { useReaderWidth } from '../../hooks/useReaderWidth'
 import { useWikiPageComments } from '../../hooks/useWikiPageComments'
-import { WikiPageTree } from '../../components/documents/WikiPageTree'
+import { WikiTocPanel } from '../../components/documents/WikiTocPanel'
 import { WikiMetaPanel } from '../../components/documents/WikiMetaPanel'
 import { WikiCommentEventLog } from '../../components/documents/WikiCommentEventLog'
 import { DocumentApprovalPipeline } from '../../components/documents/DocumentApprovalPipeline'
-import { PanelRightClose, PanelRightOpen } from 'lucide-react'
 import { RetentionBadge } from './RetentionBadge'
 import { WikiBlockRenderer } from './WikiBlockRenderer'
 import { AddTaskLink } from '../../components/tasks/AddTaskLink'
@@ -133,7 +132,6 @@ export function WikiPageView() {
   )
   const [backlinkIds, setBacklinkIds] = useState<string[]>([])
   const [viewRow, setViewRow] = useState<{ uniqueViewers: number; viewsLast30: number } | null>(null)
-  const [ackFooterVisible, setAckFooterVisible] = useState(false)
   const [tocActiveId, setTocActiveId] = useState<string | null>(null)
   const timeNow = useTickingClock()
   const [accessReqBusy, setAccessReqBusy] = useState(false)
@@ -146,10 +144,6 @@ export function WikiPageView() {
   const [editAccessErr, setEditAccessErr] = useState<string | null>(null)
   const [editAccessDone, setEditAccessDone] = useState(false)
   const [diffVersion, setDiffVersion] = useState<WikiPageVersionSnapshot | null>(null)
-  const [tocOpen, setTocOpen] = useState(true)
-  const [widthFull, setWidthFull] = useState(() => {
-    try { return localStorage.getItem('wiki-width-full') !== 'false' } catch { return true }
-  })
   const [fontSize, setFontSize] = useState<'sm' | 'base' | 'lg'>(() => {
     try { return (localStorage.getItem('wiki-font-size') as 'sm' | 'base' | 'lg') || 'base' } catch { return 'base' }
   })
@@ -179,10 +173,6 @@ export function WikiPageView() {
   useEffect(() => {
     try { localStorage.setItem('wiki-font-size', fontSize) } catch { /* quota */ }
   }, [fontSize])
-
-  useEffect(() => {
-    try { localStorage.setItem('wiki-width-full', String(widthFull)) } catch { /* quota */ }
-  }, [widthFull])
 
   const folderRestricted =
     page && space
@@ -365,22 +355,6 @@ export function WikiPageView() {
     }
   }, [showViewsTab, organization?.id, pageId, fetchOrgPageViewCounts])
 
-  useEffect(() => {
-    const needsAckSticky =
-      Boolean(page?.requiresAcknowledgement && page.status === 'published' && showSignBadge && !alreadySigned)
-    if (!needsAckSticky) {
-      setAckFooterVisible(false)
-      return
-    }
-    const el = document.getElementById('wiki-ack-footer')
-    if (!el) return
-    const obs = new IntersectionObserver(
-      ([e]) => setAckFooterVisible(Boolean(e?.isIntersecting)),
-      { threshold: 0.35 },
-    )
-    obs.observe(el)
-    return () => obs.disconnect()
-  }, [page?.id, page?.requiresAcknowledgement, page?.status, showSignBadge, alreadySigned, activeTabExt])
 
   useEffect(() => {
     if (headingToc.length < 3 || activeTabExt !== 'innhold') {
@@ -817,12 +791,7 @@ export function WikiPageView() {
           }}
         >
           <div className="hidden lg:block">
-            <WikiPageTree
-              spaces={docs.spaces}
-              pages={docs.pages}
-              activePageId={page.id}
-              activeSpaceId={page.spaceId}
-            />
+            <WikiTocPanel toc={headingToc} activeId={tocActiveId} />
           </div>
           <ModuleSectionCard clip="visible" className="overflow-visible">
           {/* ── Reading toolbar ── */}
@@ -830,24 +799,6 @@ export function WikiPageView() {
             data-print-hide
             className="no-print sticky top-0 z-20 flex items-center gap-1 rounded-t-xl border-b border-neutral-200 bg-white/95 px-3 py-2 backdrop-blur-sm"
           >
-            {/* TOC toggle */}
-            {headingToc.length > 0 && (
-              <Button
-                variant="ghost"
-                onClick={() => setTocOpen((o) => !o)}
-                title={tocOpen ? 'Skjul innholdsliste' : 'Vis innholdsliste'}
-                aria-pressed={tocOpen}
-                className={`inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-medium transition-colors ${
-                  tocOpen ? 'bg-[#1a3d32]/10 text-[#1a3d32]' : 'text-neutral-500 hover:bg-neutral-100'
-                }`}
-              >
-                <PanelLeft className="size-3.5" aria-hidden />
-                <span className="hidden sm:inline">Innholdsliste</span>
-              </Button>
-            )}
-
-            <div className="mx-1.5 h-4 w-px shrink-0 bg-neutral-200" aria-hidden />
-
             {/* Font size controls */}
             <span className="hidden select-none text-[10px] font-semibold uppercase tracking-widest text-neutral-400 sm:inline">
               Størrelse
@@ -877,40 +828,23 @@ export function WikiPageView() {
 
             <div className="mx-1.5 h-4 w-px shrink-0 bg-neutral-200" aria-hidden />
 
-            {/* Width toggle */}
-            <Button
-              variant="ghost"
-              onClick={() => setWidthFull((w) => !w)}
-              title={widthFull ? 'Lesemodus (smalere bredde)' : 'Full bredde'}
-              aria-pressed={!widthFull}
-              className={`inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-medium transition-colors ${
-                widthFull ? 'text-neutral-500 hover:bg-neutral-100' : 'bg-[#1a3d32]/10 text-[#1a3d32]'
-              }`}
-            >
-              {widthFull
-                ? <Minimize2 className="size-3.5" aria-hidden />
-                : <Maximize2 className="size-3.5" aria-hidden />}
-              <span className="hidden sm:inline">{widthFull ? 'Lesemodus' : 'Full bredde'}</span>
-            </Button>
-
-            <div className="mx-1.5 h-4 w-px shrink-0 bg-neutral-200" aria-hidden />
-
-            {/* Size toggle — expand reader over the side panel */}
+            {/* Width toggle — Full bredde expands the prose over the side panel,
+                Lesemodus restores the constrained reading width + side panel. */}
             <Button
               variant="ghost"
               onClick={toggleReaderWide}
-              title={readerWide ? 'Vis sidepanel' : 'Utvid leseren over sidepanelet'}
+              title={readerWide ? 'Lesemodus — smal bredde med sidepanel' : 'Full bredde — utvid over sidepanelet'}
               aria-pressed={readerWide}
               className={`inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-medium transition-colors ${
                 readerWide ? 'bg-[#0f766e]/10 text-[#0f766e]' : 'text-neutral-500 hover:bg-neutral-100'
               }`}
             >
               {readerWide ? (
-                <PanelRightOpen className="size-3.5" aria-hidden />
+                <Minimize2 className="size-3.5" aria-hidden />
               ) : (
-                <PanelRightClose className="size-3.5" aria-hidden />
+                <Maximize2 className="size-3.5" aria-hidden />
               )}
-              <span className="hidden sm:inline">{readerWide ? 'Vis panel' : 'Utvid'}</span>
+              <span className="hidden sm:inline">{readerWide ? 'Lesemodus' : 'Full bredde'}</span>
             </Button>
 
             <div className="flex-1" />
@@ -960,61 +894,8 @@ export function WikiPageView() {
             )}
           </div>
 
-          {/* ── Three-panel layout ── */}
-          <div className="flex items-start">
-            {/* Left TOC rail */}
-            {tocOpen && headingToc.length > 0 && (
-              <aside
-                data-print-hide
-                className="no-print sticky hidden w-56 shrink-0 self-start overflow-y-auto border-r border-neutral-100 md:block"
-                style={{ top: '41px', maxHeight: 'calc(100dvh - 120px)' }}
-                aria-label="Dokumentnavigasjon"
-              >
-                <div className="py-6 pl-5 pr-4">
-                  <p className="mb-3 text-[10px] font-bold uppercase tracking-widest text-neutral-400">
-                    Innhold
-                  </p>
-                  <nav>
-                    <ul className="space-y-0.5">
-                      {headingToc.map((h) => {
-                        const active = tocActiveId === h.id
-                        return (
-                          <li key={h.id} style={{ paddingLeft: `${(h.level - 1) * 10}px` }}>
-                            <a
-                              href={`#${h.id}`}
-                              className={`flex items-center gap-2 rounded-md py-1 pr-2 text-xs leading-5 transition-all ${
-                                active
-                                  ? 'border-l-2 border-[#1a3d32] bg-[#1a3d32]/5 pl-[6px] font-semibold text-[#1a3d32]'
-                                  : 'pl-2 text-neutral-500 hover:bg-neutral-50 hover:text-neutral-800'
-                              }`}
-                              onClick={(e) => {
-                                e.preventDefault()
-                                document.getElementById(h.id)?.scrollIntoView({ behavior: 'smooth' })
-                              }}
-                            >
-                              {h.level === 1 && (
-                                <span
-                                  className="size-1.5 shrink-0 rounded-full bg-current opacity-50"
-                                  aria-hidden
-                                />
-                              )}
-                              <span className="truncate">{h.text}</span>
-                            </a>
-                          </li>
-                        )
-                      })}
-                    </ul>
-                  </nav>
-                </div>
-              </aside>
-            )}
-
-            {/* Main prose area */}
-            <div
-              className={`min-w-0 flex-1 py-8 ${
-                tocOpen && headingToc.length > 0 ? 'px-8 md:px-10' : 'px-6 md:px-10'
-              }`}
-            >
+          {/* ── Reader prose ── */}
+          <div className="min-w-0 px-6 py-8 md:px-10">
               {page.containsPii ? (
                 <div
                   className="mb-6 rounded-lg border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-sky-950"
@@ -1033,7 +914,7 @@ export function WikiPageView() {
                   ) : null}
                 </div>
               ) : null}
-              <div className={widthFull ? '' : `mx-auto ${TEMPLATE_CLASS[templateKey]}`}>
+              <div className={readerWide ? '' : `mx-auto ${TEMPLATE_CLASS[templateKey]}`}>
                 <WikiBlockRenderer
                   blocks={Array.isArray(page.blocks) ? page.blocks : []}
                   pageId={page.id}
@@ -1104,7 +985,6 @@ export function WikiPageView() {
                 />
               </div>
             </div>
-          </div>
           </ModuleSectionCard>
           {!readerWide ? (
             <div className="hidden lg:block">
@@ -1303,30 +1183,6 @@ export function WikiPageView() {
           )}
         </ModuleSectionCard>
       )}
-
-      {showSignBadge && !alreadySigned && !ackFooterVisible ? (
-        <div
-          className="fixed bottom-0 left-0 right-0 z-50 flex items-center justify-center gap-3 border-t border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-950 shadow-lg"
-          role="status"
-          aria-live="polite"
-        >
-          <span className="font-medium">Dette dokumentet krever din bekreftelse — scroll ned for å signere</span>
-          <Button
-            type="button"
-            variant="primary"
-            size="sm"
-            className="shrink-0 bg-amber-600 hover:bg-amber-700"
-            onClick={() => {
-              setActiveTabExt('innhold')
-              queueMicrotask(() => {
-                document.getElementById('wiki-ack-footer')?.scrollIntoView({ behavior: 'smooth' })
-              })
-            }}
-          >
-            Scroll ned ↓
-          </Button>
-        </div>
-      ) : null}
 
       <div data-print-only className="mt-8 hidden border-t border-black pt-4 text-xs text-neutral-600">
         Eksportert fra Klarert · v{page.version} · {new Date().toLocaleDateString('no-NO')}

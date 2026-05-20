@@ -50,7 +50,7 @@ export function WikiBlockRenderer({ blocks, pageId, pageVersion, lang = 'nb', bl
   const fontSizePx = FONT_SIZE_PX[fontSize]
   const headingCounts = new Map<string, number>()
   return (
-    <article lang={lang} className="space-y-4">
+    <article lang={lang} className="space-y-4" style={{ fontSize: fontSizePx }}>
       {blocks.map((block, i) => {
         if (!block || typeof block !== 'object' || !('kind' in block)) {
           return (
@@ -69,17 +69,19 @@ export function WikiBlockRenderer({ blocks, pageId, pageVersion, lang = 'nb', bl
             const Tag = `h${level}` as 'h1' | 'h2' | 'h3'
             const cls =
               level === 1
-                ? 'text-2xl font-bold text-neutral-900 mt-6 mb-2'
+                ? 'font-bold text-neutral-900 mt-6 mb-2'
                 : level === 2
-                  ? 'text-lg font-semibold text-neutral-800 mt-5 mb-1'
-                  : 'text-base font-semibold text-neutral-700 mt-4 mb-1'
+                  ? 'font-semibold text-neutral-800 mt-5 mb-1'
+                  : 'font-semibold text-neutral-700 mt-4 mb-1'
+            // em-relative so the reader text-size control scales headings too.
+            const headingEm = level === 1 ? '1.6em' : level === 2 ? '1.2em' : '1.05em'
             const text = typeof block.text === 'string' ? block.text : ''
             const baseKey = text.toLowerCase().replace(/\s+/g, ' ').trim()
             const occ = headingCounts.get(baseKey) ?? 0
             headingCounts.set(baseKey, occ + 1)
             const hid = headingAnchorId(text, occ)
             node = (
-              <Tag id={hid} className={cls}>
+              <Tag id={hid} className={cls} style={{ fontSize: headingEm }}>
                 {text}
               </Tag>
             )
