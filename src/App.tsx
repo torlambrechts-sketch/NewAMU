@@ -616,14 +616,6 @@ const router = createBrowserRouter(
                       <Route path="admin/varsling/dedup-grupper" element={<AlertDedupGroupsPage />} />
                       <Route element={<DocumentsModuleShellLayout />}>
                         <Route path="documents/editor-test" element={<DocumentEditorTestPage />} />
-                        <Route
-                          path="documents/page/:pageId/reference-edit"
-                          element={
-                            <RouteErrorBoundary title="Kunne ikke åpne redigering">
-                              <WikiPageReferenceEditor />
-                            </RouteErrorBoundary>
-                          }
-                        />
                         <Route path="documents/kandidatdetalj-layout-test" element={<DocumentKandidatdetaljLayoutTestPage />} />
                         <Route path="documents/malbibliotek" element={<DocumentsMalbibliotekPage />} />
                         <Route path="documents" element={<DocumentsHome />} />
@@ -660,6 +652,14 @@ const router = createBrowserRouter(
                           element={
                             <RouteErrorBoundary title="Kunne ikke vise dokumentet">
                               <WikiPageView />
+                            </RouteErrorBoundary>
+                          }
+                        />
+                        <Route
+                          path="documents/page/:pageId/reference-edit"
+                          element={
+                            <RouteErrorBoundary title="Kunne ikke åpne redigering">
+                              <WikiPageReferenceEditor />
                             </RouteErrorBoundary>
                           }
                         />
