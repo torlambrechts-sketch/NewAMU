@@ -25,11 +25,20 @@ revoke select on public.reporting_compliance_score_mv from anon, authenticated, 
 
 drop policy if exists profile_avatars_select_public on storage.objects;
 
-create policy profile_avatars_select_own
-  on storage.objects
-  for select
-  using (
-    bucket_id = 'profile_avatars'
-    and auth.uid() is not null
-    and (storage.foldername(name))[1] = (auth.uid())::text
-  );
+do $$
+begin
+  if not exists (
+    select 1 from pg_policies
+    where schemaname='storage' and tablename='objects'
+      and policyname='profile_avatars_select_own'
+  ) then
+    create policy profile_avatars_select_own
+      on storage.objects
+      for select
+      using (
+        bucket_id = 'profile_avatars'
+        and auth.uid() is not null
+        and (storage.foldername(name))[1] = (auth.uid())::text
+      );
+  end if;
+end$$;
