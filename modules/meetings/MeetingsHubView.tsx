@@ -306,10 +306,10 @@ function TemplateGallery({
                       key={t.key}
                       className="relative flex flex-col gap-2 rounded-lg border border-neutral-200/80 bg-neutral-50/50 p-4"
                     >
-                      {t.systemTemplateId ? (
+                      {(t.systemTemplateId ?? t.orgTemplateId) ? (
                         <FavoriteToggle
                           kind="meeting"
-                          templateRef={t.systemTemplateId}
+                          templateRef={(t.systemTemplateId ?? t.orgTemplateId) as string}
                           templateName={t.name}
                           size="sm"
                           className="absolute right-1.5 top-1.5 z-10 bg-white/90"

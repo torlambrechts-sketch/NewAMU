@@ -45,8 +45,12 @@ as $$
         select name from public.compliance_checklist_templates
         where id::text = f.template_ref and organization_id = f.organization_id)
       when 'survey' then (
+        -- org-scoped: a system row (organization_id null) is shared; an org
+        -- row is only resolvable by its own tenant — prevents a crafted
+        -- favourite from leaking another tenant's template name.
         select name from public.survey_template_catalog
-        where id = f.template_ref)
+        where id = f.template_ref
+          and (organization_id is null or organization_id = f.organization_id))
       when 'document' then coalesce(
         (select label from public.document_system_templates
          where id = f.template_ref),
@@ -54,7 +58,8 @@ as $$
          where id = f.template_ref and organization_id = f.organization_id))
       when 'register' then (
         select name from public.register_types
-        where id = f.template_ref)
+        where id = f.template_ref
+          and (organization_id is null or organization_id = f.organization_id))
       when 'learning' then (
         select l.title
         from public.learning_system_course_locales l
@@ -64,7 +69,8 @@ as $$
         limit 1)
       when 'task' then (
         select name from public.task_template_catalog
-        where id::text = f.template_ref)
+        where id::text = f.template_ref
+          and (organization_id is null or organization_id = f.organization_id))
       when 'meeting' then coalesce(
         (select label from public.meeting_system_templates
          where id = f.template_ref),
