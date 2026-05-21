@@ -594,6 +594,11 @@ function useDocumentsStore() {
   /** Serialize full org refresh so concurrent calls (save + composer poll + tab focus) do not abort IndexedDB locks. */
   const refreshDocumentsChainRef = useRef<Promise<void>>(Promise.resolve())
 
+  /** Pages ensurePageLoaded has already fetched — makes it idempotent so a
+   *  caller that re-runs (e.g. an effect with unstable deps) cannot flood the
+   *  REST API with duplicate GETs. */
+  const ensureLoadedRef = useRef<Set<string>>(new Set())
+
   const state = useRemote ? remoteState : localState
 
   const isOrgAdmin = profile?.is_org_admin === true || isOrgAdminFromPerms
@@ -602,6 +607,10 @@ function useDocumentsStore() {
     async (pageId: string | undefined) => {
       if (!pageId) return
       if (!useRemote || !supabase || !orgId || !userId) return
+      // Idempotent: fetch each page at most once. Guards against any caller
+      // whose effect re-runs (unstable deps) turning into a request flood.
+      if (ensureLoadedRef.current.has(pageId)) return
+      ensureLoadedRef.current.add(pageId)
       setPageHydrate({ loading: true, error: null })
       try {
         const { data, error: qe } = await supabase
@@ -624,6 +633,8 @@ function useDocumentsStore() {
         })
         setPageHydrate({ loading: false, error: null })
       } catch (e) {
+        // Allow a retry on failure — don't leave the page permanently blocked.
+        ensureLoadedRef.current.delete(pageId)
         setPageHydrate({ loading: false, error: getSupabaseErrorMessage(e) })
       }
     },

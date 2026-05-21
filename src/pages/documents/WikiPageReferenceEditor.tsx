@@ -73,7 +73,11 @@ export function WikiPageReferenceEditor() {
 
   useEffect(() => {
     if (pageId) void docs.ensurePageLoaded(pageId)
-  }, [docs, pageId])
+    // `docs` is a fresh object every render; ensurePageLoaded is a stable
+    // callback. Depending on `docs` here caused an infinite request loop
+    // (ensurePageLoaded → setState → re-render → new docs → effect again).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pageId])
 
   // Hydrate the editor from the page body. Re-runs whenever the page object
   // changes — so a stub page (empty blocks before ensurePageLoaded resolves)
