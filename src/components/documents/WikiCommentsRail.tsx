@@ -127,8 +127,8 @@ export function WikiCommentsRail({
   )
 
   return (
-    <div className="sticky top-4 flex flex-col gap-3 self-start">
-      <ModuleSectionCard className="!p-3">
+    <div className="sticky top-4 flex max-h-[calc(100dvh-7rem)] flex-col gap-3 self-start overflow-y-auto pr-1">
+      <ModuleSectionCard className="!p-3 sticky top-0 z-10">
         <div className="flex flex-wrap items-center gap-1.5">
           {pill('all', 'Alle', counts.all)}
           {pill('open', 'Åpne', counts.open)}

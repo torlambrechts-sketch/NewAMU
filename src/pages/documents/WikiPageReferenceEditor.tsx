@@ -1,6 +1,16 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { Check, CloudUpload, Hash, Loader2, MessageSquare, Send, GitPullRequest } from 'lucide-react'
+import {
+  Check,
+  CloudUpload,
+  GitPullRequest,
+  Hash,
+  Loader2,
+  Maximize2,
+  MessageSquare,
+  Minimize2,
+  Send,
+} from 'lucide-react'
 import { useDocuments } from '../../hooks/useDocuments'
 import { useOrgSetupContext } from '../../hooks/useOrgSetupContext'
 import { ModulePageShell, ModuleSectionCard } from '../../components/module'
@@ -44,6 +54,8 @@ export function WikiPageReferenceEditor() {
   const [saveState, setSaveState] = useState<SaveState>('saved')
   const [busy, setBusy] = useState(false)
   const [actionError, setActionError] = useState<string | null>(null)
+  /** Editor canvas width — false = lesemodus (820px), true = full bredde. */
+  const [fullWidth, setFullWidth] = useState(false)
   const saveTimer = useRef<number | null>(null)
   const lastHydrated = useRef<string | null>(null)
   /** The block list the current editor HTML was serialised from — preserved
@@ -91,9 +103,13 @@ export function WikiPageReferenceEditor() {
           blocks: editorHtmlToBlocks(nextHtml, hydratedBlocks.current),
         })
         pendingHtml.current = null
+        setActionError(null)
         setSaveState('saved')
-      } catch {
+      } catch (e) {
         setSaveState('error')
+        setActionError(
+          `Lagring feilet: ${e instanceof Error ? e.message : 'ukjent feil'}`,
+        )
       }
     },
     [docs, pageId, page],
@@ -197,8 +213,26 @@ export function WikiPageReferenceEditor() {
           </span>
           <Button
             variant="secondary"
+            icon={
+              fullWidth ? (
+                <Minimize2 className="h-4 w-4" aria-hidden />
+              ) : (
+                <Maximize2 className="h-4 w-4" aria-hidden />
+              )
+            }
+            aria-pressed={fullWidth}
+            onClick={() => setFullWidth((w) => !w)}
+          >
+            {fullWidth ? 'Lesebredde' : 'Full bredde'}
+          </Button>
+          <Button
+            variant="secondary"
             icon={<MessageSquare className="h-4 w-4" aria-hidden />}
-            onClick={() => navigate(`/documents/page/${page.id}?comments=1`)}
+            onClick={() => {
+              if (saveTimer.current) window.clearTimeout(saveTimer.current)
+              if (pendingHtml.current != null) void persist(pendingHtml.current)
+              navigate(`/documents/page/${page.id}?comments=1`)
+            }}
           >
             Kommentar
           </Button>
@@ -258,7 +292,11 @@ export function WikiPageReferenceEditor() {
           placeholder="Skriv dokumentteksten… trykk / for blokk-meny"
           wikiLinkPages={wikiLinkPages}
           mentionProfiles={mentionProfiles}
-          className="rounded-xl border-0 shadow-none [&_.tiptap-editor-root]:mx-auto [&_.tiptap-editor-root]:max-w-[820px] [&_.tiptap-editor-root]:px-8 [&_.tiptap-editor-root]:py-10"
+          className={`rounded-xl border-0 shadow-none [&_.tiptap-editor-root]:px-8 [&_.tiptap-editor-root]:py-10 ${
+            fullWidth
+              ? '[&_.tiptap-editor-root]:max-w-none'
+              : '[&_.tiptap-editor-root]:mx-auto [&_.tiptap-editor-root]:max-w-[820px]'
+          }`}
         />
       </ModuleSectionCard>
 
