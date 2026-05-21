@@ -19,6 +19,7 @@ import TextAlign from '@tiptap/extension-text-align'
 import Image from '@tiptap/extension-image'
 import { TableKit } from '@tiptap/extension-table'
 import { TaskItem, TaskList } from '@tiptap/extension-list'
+import { WikiPreservedBlock } from './tiptapPreservedBlock'
 import type { SuggestionKeyDownProps, SuggestionProps } from '@tiptap/suggestion'
 import { twMerge } from 'tailwind-merge'
 import {
@@ -387,6 +388,7 @@ export function TipTapRichTextEditor({
       TaskItem.configure({ nested: true }),
       Image.configure({ HTMLAttributes: { class: 'rounded-lg border border-neutral-200' } }),
       TableKit.configure({ table: { resizable: true } }),
+      WikiPreservedBlock,
       Placeholder.configure({ placeholder }),
     ]
     if (mentionProfiles && mentionProfiles.length > 0 && !readOnly) {
@@ -648,6 +650,8 @@ export function TipTapRichTextEditor({
         '[&_.tiptap-editor-root_img]:my-3 [&_.tiptap-editor-root_img]:max-w-full [&_.tiptap-editor-root_img]:rounded-lg',
         // Highlight mark
         '[&_.tiptap-editor-root_mark]:rounded-sm [&_.tiptap-editor-root_mark]:bg-[#fef3c7] [&_.tiptap-editor-root_mark]:px-0.5',
+        // Preserved (non-prose) block placeholders
+        '[&_.wiki-preserved-block]:my-2 [&_.wiki-preserved-block]:rounded-md [&_.wiki-preserved-block]:border [&_.wiki-preserved-block]:border-dashed [&_.wiki-preserved-block]:border-neutral-300 [&_.wiki-preserved-block]:bg-neutral-50 [&_.wiki-preserved-block]:px-3 [&_.wiki-preserved-block]:py-2 [&_.wiki-preserved-block]:text-xs [&_.wiki-preserved-block]:text-neutral-500',
         className,
       )}
     >

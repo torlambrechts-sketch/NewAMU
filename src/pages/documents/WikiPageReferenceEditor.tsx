@@ -8,6 +8,7 @@ import { Button } from '../../components/ui/Button'
 import { WarningBox } from '../../components/ui/AlertBox'
 import { TipTapRichTextEditor } from '../../components/documents/TipTapRichTextEditor'
 import { canEditWikiDocuments } from '../../lib/documentsAccess'
+import { blocksToEditorHtml, editorHtmlToBlocks } from '../../lib/wikiEditorBlocks'
 import { DOCUMENTS_MODULE_TITLE } from '../../data/documentsNav'
 import type { ContentBlock } from '../../types/documents'
 
@@ -20,18 +21,6 @@ import type { ContentBlock } from '../../types/documents'
  * toolbar + slash-menu canvas and a word-count footer. Replaces the
  * DocumentEditorWorkbench chrome for `/documents/page/:id/reference-edit`.
  */
-
-function firstTextHtml(blocks: ContentBlock[]): string {
-  const t = blocks.find((b): b is Extract<ContentBlock, { kind: 'text' }> => b.kind === 'text')
-  return t?.body?.trim() ? t.body : '<p></p>'
-}
-
-function mergeHtml(blocks: ContentBlock[], html: string): ContentBlock[] {
-  const body = html.trim() ? html : '<p></p>'
-  const idx = blocks.findIndex((b) => b.kind === 'text')
-  if (idx >= 0) return blocks.map((b, i) => (i === idx ? { kind: 'text' as const, body } : b))
-  return [{ kind: 'text', body }, ...blocks]
-}
 
 function wordStats(html: string): { words: number; minutes: number } {
   const text = html.replace(/<[^>]+>/g, ' ').replace(/&[a-z]+;/gi, ' ')
@@ -57,6 +46,9 @@ export function WikiPageReferenceEditor() {
   const [actionError, setActionError] = useState<string | null>(null)
   const saveTimer = useRef<number | null>(null)
   const lastHydrated = useRef<string | null>(null)
+  /** The block list the current editor HTML was serialised from — preserved
+   *  (non-prose) blocks are restored by index against this on save. */
+  const hydratedBlocks = useRef<ContentBlock[]>([])
   /** Latest unsaved HTML — flushed on unmount so navigating away never drops it. */
   const pendingHtml = useRef<string | null>(null)
   const flushRef = useRef<() => void>(() => {})
@@ -71,9 +63,10 @@ export function WikiPageReferenceEditor() {
   // local edits.
   useEffect(() => {
     if (!page || saveState === 'dirty' || saveState === 'saving') return
-    const next = firstTextHtml(page.blocks)
+    const next = blocksToEditorHtml(page.blocks)
     if (next === lastHydrated.current) return
     lastHydrated.current = next
+    hydratedBlocks.current = page.blocks
     setHtml(next)
   }, [page, saveState])
 
@@ -94,7 +87,9 @@ export function WikiPageReferenceEditor() {
       if (!pageId || !page) return
       setSaveState('saving')
       try {
-        await docs.updatePage(pageId, { blocks: mergeHtml(page.blocks, nextHtml) })
+        await docs.updatePage(pageId, {
+          blocks: editorHtmlToBlocks(nextHtml, hydratedBlocks.current),
+        })
         pendingHtml.current = null
         setSaveState('saved')
       } catch {
@@ -118,7 +113,9 @@ export function WikiPageReferenceEditor() {
   // Keep a current flush closure; the unmount cleanup calls the latest one.
   flushRef.current = () => {
     if (pendingHtml.current != null && pageId && page) {
-      void docs.updatePage(pageId, { blocks: mergeHtml(page.blocks, pendingHtml.current) })
+      void docs.updatePage(pageId, {
+        blocks: editorHtmlToBlocks(pendingHtml.current, hydratedBlocks.current),
+      })
       pendingHtml.current = null
     }
   }

@@ -29,6 +29,7 @@ import type { ContentBlock, HeadingBlock, PageStatus, WikiPage, WikiPageVersionS
 import { headingAnchorId } from '../../lib/wikiPageLinks'
 import { useTickingClock } from '../../lib/useTickingClock'
 import { DocumentAvvikChip } from '../../components/documents/DocumentAvvikPanel'
+import { DocumentAcknowledgementsPanel } from '../../components/documents/DocumentAcknowledgementsPanel'
 import { WikiVersionDiff } from '../../components/documents/WikiVersionDiff'
 import { useWikiPageAvvik } from '../../hooks/useWikiPageAvvik'
 import {
@@ -768,6 +769,18 @@ export function WikiPageView() {
           ) : null}
         </ModuleSectionCard>
       )}
+
+      {activeTabExt === 'informasjon' && page.requiresAcknowledgement ? (
+        <ModuleSectionCard className="p-5 md:p-6">
+          <h2 className="text-lg font-semibold text-neutral-900">Lest og forstått</h2>
+          <p className="mt-1.5 text-sm text-neutral-600">
+            Hvem i målgruppen har signert «Lest og forstått» for nåværende versjon.
+          </p>
+          <div className="mt-5">
+            <DocumentAcknowledgementsPanel page={page} receipts={docs.receipts} />
+          </div>
+        </ModuleSectionCard>
+      ) : null}
 
       {activeTabExt === 'innhold' && (
         <div
