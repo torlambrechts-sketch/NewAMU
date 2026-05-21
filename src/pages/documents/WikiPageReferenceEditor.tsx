@@ -19,7 +19,12 @@ import { Button } from '../../components/ui/Button'
 import { WarningBox } from '../../components/ui/AlertBox'
 import { TipTapRichTextEditor } from '../../components/documents/TipTapRichTextEditor'
 import { canEditWikiDocuments } from '../../lib/documentsAccess'
-import { blocksToEditorHtml, editorHtmlToBlocks } from '../../lib/wikiEditorBlocks'
+import {
+  blocksAreEmpty,
+  blocksToEditorHtml,
+  editorHtmlToBlocks,
+  isEmptyEditorHtml,
+} from '../../lib/wikiEditorBlocks'
 import { DOCUMENTS_MODULE_TITLE } from '../../data/documentsNav'
 import type { ContentBlock } from '../../types/documents'
 
@@ -72,16 +77,19 @@ export function WikiPageReferenceEditor() {
 
   // Hydrate the editor from the page body. Re-runs whenever the page object
   // changes — so a stub page (empty blocks before ensurePageLoaded resolves)
-  // is replaced by the real content once it loads. Never clobbers unsaved
-  // local edits.
+  // is replaced by the real content once it loads. It will not clobber real
+  // unsaved edits, but an *empty* editor is always re-hydrated so a hydration
+  // race can't leave the editor blank.
   useEffect(() => {
-    if (!page || saveState === 'dirty' || saveState === 'saving') return
+    if (!page || saveState === 'saving') return
+    if (saveState === 'dirty' && !isEmptyEditorHtml(html)) return
     const next = blocksToEditorHtml(page.blocks)
     if (next === lastHydrated.current) return
     lastHydrated.current = next
     hydratedBlocks.current = page.blocks
     setHtml(next)
-  }, [page, saveState])
+    setSaveState('saved')
+  }, [page, saveState, html])
 
   const wikiLinkPages = useMemo(
     () => docs.pages.map((p) => ({ id: p.id, title: p.title })),
@@ -97,12 +105,21 @@ export function WikiPageReferenceEditor() {
 
   const persist = useCallback(
     async (nextHtml: string) => {
-      if (!pageId || !page) return
+      if (!pageId) return
+      const nextBlocks = editorHtmlToBlocks(nextHtml, hydratedBlocks.current)
+      // Safety net: never overwrite a document that has content with an empty
+      // editor — that is always a hydration race, never a real edit.
+      const live = docs.pages.find((p) => p.id === pageId)
+      if (live && blocksAreEmpty(nextBlocks) && !blocksAreEmpty(live.blocks)) {
+        setSaveState('error')
+        setActionError(
+          'Lagring avbrutt: editoren var tom mens dokumentet har innhold. Last siden på nytt før du redigerer.',
+        )
+        return
+      }
       setSaveState('saving')
       try {
-        await docs.updatePage(pageId, {
-          blocks: editorHtmlToBlocks(nextHtml, hydratedBlocks.current),
-        })
+        await docs.updatePage(pageId, { blocks: nextBlocks })
         pendingHtml.current = null
         setActionError(null)
         setSaveState('saved')
@@ -113,7 +130,7 @@ export function WikiPageReferenceEditor() {
         )
       }
     },
-    [docs, pageId, page],
+    [docs, pageId],
   )
 
   const handleChange = useCallback(
@@ -129,12 +146,16 @@ export function WikiPageReferenceEditor() {
 
   // Keep a current flush closure; the unmount cleanup calls the latest one.
   flushRef.current = () => {
-    if (pendingHtml.current != null && pageId && page) {
-      void docs.updatePage(pageId, {
-        blocks: editorHtmlToBlocks(pendingHtml.current, hydratedBlocks.current),
-      })
+    if (pendingHtml.current == null || !pageId) return
+    const nextBlocks = editorHtmlToBlocks(pendingHtml.current, hydratedBlocks.current)
+    const live = docs.pages.find((p) => p.id === pageId)
+    // Same safety net as persist() — don't flush an empty editor over content.
+    if (live && blocksAreEmpty(nextBlocks) && !blocksAreEmpty(live.blocks)) {
       pendingHtml.current = null
+      return
     }
+    void docs.updatePage(pageId, { blocks: nextBlocks })
+    pendingHtml.current = null
   }
 
   useEffect(
@@ -243,7 +264,7 @@ export function WikiPageReferenceEditor() {
             onClick={async () => {
               if (saveTimer.current) window.clearTimeout(saveTimer.current)
               if (pendingHtml.current != null) await persist(pendingHtml.current)
-              window.location.assign(`/documents/page/${page.id}?comments=1`)
+              navigate(`/documents/page/${page.id}?comments=1`)
             }}
           >
             Kommentar

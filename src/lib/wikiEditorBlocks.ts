@@ -37,6 +37,26 @@ export function preservedBlockLabel(block: ContentBlock): string {
   }
 }
 
+/** True when HTML has no meaningful content (an empty editor). */
+export function isEmptyEditorHtml(html: string): boolean {
+  if (/<(img|table|hr)\b/i.test(html)) return false
+  if (/data-wiki-block=/i.test(html)) return false
+  const text = html
+    .replace(/<[^>]*>/g, '')
+    .replace(/&nbsp;/gi, ' ')
+    .replace(/&[a-z]+;/gi, ' ')
+    .trim()
+  return text.length === 0
+}
+
+/** True when a block list carries no real content (all-empty text blocks). */
+export function blocksAreEmpty(blocks: ContentBlock[]): boolean {
+  if (!Array.isArray(blocks) || blocks.length === 0) return true
+  return blocks.every(
+    (b) => b.kind === 'text' && isEmptyEditorHtml(typeof b.body === 'string' ? b.body : ''),
+  )
+}
+
 /** Serialises page blocks into one HTML string for the TipTap editor. */
 export function blocksToEditorHtml(blocks: ContentBlock[]): string {
   if (!Array.isArray(blocks) || blocks.length === 0) return '<p></p>'
