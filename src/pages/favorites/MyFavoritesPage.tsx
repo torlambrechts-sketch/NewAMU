@@ -23,7 +23,8 @@ import {
 } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import { ArrowUpRight, GripVertical, Sparkles, Star, Trash2 } from 'lucide-react'
-import { useFavorites } from '../../components/favorites/FavoritesProvider'
+import { Button } from '../../components/ui/Button'
+import { useFavorites } from '../../components/favorites/favoritesContext'
 import {
   TEMPLATE_KINDS,
   TEMPLATE_KIND_HOME,
@@ -51,15 +52,16 @@ function FavoriteRow({
         isDragging ? 'opacity-60 shadow-md' : '',
       ].join(' ')}
     >
-      <button
-        type="button"
-        className="cursor-grab text-neutral-300 hover:text-neutral-500 focus-visible:outline-none"
+      <Button
+        variant="ghost"
+        size="icon"
+        className="cursor-grab text-neutral-300 hover:text-neutral-500"
         aria-label="Endre rekkefølge"
         {...attributes}
         {...listeners}
       >
         <GripVertical className="h-4 w-4" aria-hidden />
-      </button>
+      </Button>
       <Star className="h-4 w-4 shrink-0 text-amber-500" aria-hidden fill="currentColor" />
       <div className="min-w-0 flex-1">
         <p className="truncate text-sm font-medium text-neutral-800">{fav.title}</p>
@@ -76,14 +78,15 @@ function FavoriteRow({
       >
         Åpne <ArrowUpRight className="h-3.5 w-3.5" aria-hidden />
       </Link>
-      <button
-        type="button"
+      <Button
+        variant="ghost"
+        size="icon"
         onClick={onRemove}
         aria-label={`Fjern ${fav.title} fra favoritter`}
-        className="inline-flex items-center justify-center rounded-md p-1.5 text-neutral-400 transition-colors hover:bg-rose-50 hover:text-rose-500"
+        className="text-neutral-400 hover:bg-rose-50 hover:text-rose-500"
       >
         <Trash2 className="h-4 w-4" aria-hidden />
-      </button>
+      </Button>
     </li>
   )
 }
@@ -154,7 +157,7 @@ export function MyFavoritesPage() {
       const added = await applyRoleDefaults()
       setApplyMsg(
         added > 0
-          ? `La til ${added} ${added === 1 ? 'forslag' : 'forslag'} fra rollen din.`
+          ? `La til ${added} forslag fra rollen din.`
           : 'Ingen nye forslag — favorittene dine er allerede oppdatert.',
       )
     } finally {
@@ -175,15 +178,14 @@ export function MyFavoritesPage() {
             hvor som helst, så dukker den opp her.
           </p>
         </div>
-        <button
-          type="button"
+        <Button
+          variant="secondary"
           onClick={() => void onApplyDefaults()}
           disabled={applying}
-          className="inline-flex items-center gap-1.5 rounded-md border border-neutral-300 bg-white px-3 py-2 text-sm font-semibold text-neutral-700 transition-colors hover:bg-neutral-50 disabled:opacity-60"
+          icon={<Sparkles className="h-4 w-4" aria-hidden />}
         >
-          <Sparkles className="h-4 w-4" aria-hidden />
           {applying ? 'Henter forslag …' : 'Bruk rolleforslag'}
-        </button>
+        </Button>
       </header>
 
       {applyMsg && (

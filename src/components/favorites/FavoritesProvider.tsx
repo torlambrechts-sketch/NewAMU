@@ -5,9 +5,7 @@
 // favoritter" stays in sync the moment a star is clicked anywhere.
 
 import {
-  createContext,
   useCallback,
-  useContext,
   useEffect,
   useMemo,
   useRef,
@@ -16,21 +14,7 @@ import {
 } from 'react'
 import { useOrgSetupContext } from '../../hooks/useOrgSetupContext'
 import type { TemplateFavorite, TemplateKind } from '../../types/favorites'
-
-type FavoritesContextValue = {
-  loading: boolean
-  favorites: TemplateFavorite[]
-  isFavorite: (kind: TemplateKind, templateRef: string) => boolean
-  /** Star / unstar a template. Optimistic; reverts on failure. */
-  toggle: (kind: TemplateKind, templateRef: string) => Promise<void>
-  /** Persist a new ordering for one module's favourites. */
-  reorder: (kind: TemplateKind, orderedIds: string[]) => Promise<void>
-  /** Re-apply the role-based starter list (additive). Returns rows added. */
-  applyRoleDefaults: () => Promise<number>
-  refresh: () => Promise<void>
-}
-
-const FavoritesContext = createContext<FavoritesContextValue | null>(null)
+import { FavoritesContext, type FavoritesContextValue } from './favoritesContext'
 
 type FavoriteRow = {
   id: string
@@ -167,16 +151,4 @@ export function FavoritesProvider({ children }: { children: ReactNode }) {
   )
 
   return <FavoritesContext.Provider value={value}>{children}</FavoritesContext.Provider>
-}
-
-/** Access the favourites context. Returns null when used outside the provider. */
-export function useFavoritesOptional(): FavoritesContextValue | null {
-  return useContext(FavoritesContext)
-}
-
-/** Access the favourites context — throws when used outside the provider. */
-export function useFavorites(): FavoritesContextValue {
-  const ctx = useContext(FavoritesContext)
-  if (!ctx) throw new Error('useFavorites must be used within a FavoritesProvider')
-  return ctx
 }

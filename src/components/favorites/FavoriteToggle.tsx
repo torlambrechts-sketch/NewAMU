@@ -3,8 +3,10 @@
 
 import { useState } from 'react'
 import { Star } from 'lucide-react'
+import { twMerge } from 'tailwind-merge'
+import { Button } from '../ui/Button'
 import type { TemplateKind } from '../../types/favorites'
-import { useFavoritesOptional } from './FavoritesProvider'
+import { useFavoritesOptional } from './favoritesContext'
 
 type Props = {
   kind: TemplateKind
@@ -42,22 +44,21 @@ export function FavoriteToggle({ kind, templateRef, templateName, size = 'md', c
   }
 
   return (
-    <button
-      type="button"
+    <Button
+      variant="ghost"
+      size="icon"
       onClick={onClick}
       disabled={busy}
       aria-pressed={active}
       aria-label={label}
       title={label}
-      className={[
-        'inline-flex items-center justify-center rounded-md p-1 transition-colors',
-        'hover:bg-amber-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400',
+      className={twMerge(
+        'rounded-md hover:bg-amber-50 focus-visible:ring-2 focus-visible:ring-amber-400',
         active ? 'text-amber-500' : 'text-neutral-300 hover:text-amber-400',
-        busy ? 'opacity-60' : '',
-        className ?? '',
-      ].join(' ')}
+        className,
+      )}
     >
       <Star className={iconSize} aria-hidden fill={active ? 'currentColor' : 'none'} />
-    </button>
+    </Button>
   )
 }
