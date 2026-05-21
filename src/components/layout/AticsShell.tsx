@@ -534,6 +534,15 @@ export function AticsShell() {
         requirePermAny: COMPLIANCE_NAV_PERMS,
       },
       {
+        label: 'Bibliotek',
+        path: '/compliance/checklists/bibliotek',
+        match: ({ pathname }) =>
+          pathname === '/compliance/checklists/bibliotek' ||
+          pathname === '/compliance/checklists/maler' ||
+          pathname === '/compliance/checklists/aktivitet',
+        requirePermAny: COMPLIANCE_NAV_PERMS,
+      },
+      {
         label: 'Alle sjekklister',
         path: '/compliance/checklists/alle',
         match: ({ pathname }) => pathname === '/compliance/checklists/alle',
