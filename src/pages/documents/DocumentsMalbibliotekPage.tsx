@@ -8,6 +8,7 @@ import { SearchableSelect } from '../../components/ui/SearchableSelect'
 import { Badge } from '../../components/ui/Badge'
 import { Button } from '../../components/ui/Button'
 import { WarningBox } from '../../components/ui/AlertBox'
+import { FavoriteToggle } from '../../components/favorites/FavoriteToggle'
 import type { PageTemplate, SpaceCategory } from '../../types/documents'
 
 /**
@@ -45,6 +46,14 @@ function TemplateCard({
 }) {
   const blockCount = Array.isArray(template.page.blocks) ? template.page.blocks.length : 0
   return (
+    <div className="relative h-full">
+      <FavoriteToggle
+        kind="document"
+        templateRef={template.id}
+        templateName={template.label}
+        size="sm"
+        className="absolute right-1.5 top-1.5 z-10 bg-white/90"
+      />
     <Button
       variant="ghost"
       onClick={onSelect}
@@ -56,7 +65,7 @@ function TemplateCard({
         <LayoutTemplate className="h-8 w-8 text-[#0f766e]" aria-hidden />
       </span>
       <span className="flex flex-1 flex-col gap-1 px-3 py-2.5">
-        <span className="flex items-start justify-between gap-2">
+        <span className="flex items-start justify-between gap-2 pr-6">
           <span className="truncate text-[13px] font-semibold text-neutral-900">{template.label}</span>
           {template.legalBasis[0] ? <Badge variant="info">{template.legalBasis[0]}</Badge> : null}
         </span>
@@ -65,6 +74,7 @@ function TemplateCard({
         </span>
       </span>
     </Button>
+    </div>
   )
 }
 

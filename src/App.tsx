@@ -92,6 +92,8 @@ import { LearningDeltakerePage } from './pages/learning/LearningDeltakerePage'
 import { LearningKompetansePage } from './pages/learning/LearningKompetansePage'
 import { LearningAnalysePage } from './pages/learning/LearningAnalysePage'
 import { HmsOverviewPage } from './pages/overview/HmsOverviewPage'
+import { MyFavoritesPage } from './pages/favorites/MyFavoritesPage'
+import { FavoritesProvider } from './components/favorites/FavoritesProvider'
 import { IsoImsAnalysePage } from './pages/iso/IsoImsAnalysePage'
 import { IsoSettingsPage } from './pages/iso/IsoSettingsPage'
 import { IsoGapAnalysisHubPage } from './pages/iso/IsoGapAnalysisHubPage'
@@ -348,7 +350,9 @@ const router = createBrowserRouter(
                       element={
                         <WorkplacePublishedComposerProvider>
                           <ModuleLegalFrameworkProvider>
-                            <WorkplaceChrome />
+                            <FavoritesProvider>
+                              <WorkplaceChrome />
+                            </FavoritesProvider>
                           </ModuleLegalFrameworkProvider>
                         </WorkplacePublishedComposerProvider>
                       }
@@ -362,6 +366,7 @@ const router = createBrowserRouter(
                       <Route path="tasks/management/admin/:tab" element={<LegacyAdminRedirect scope="tasks" />} />
                       <Route path="tasks/management/review" element={<TasksManagementReviewPage />} />
                       <Route path="overview/hms" element={<PackProvider><HmsOverviewPage /></PackProvider>} />
+                      <Route path="favoritter" element={<MyFavoritesPage />} />
                       <Route path="iso/analyse" element={<IsoImsAnalysePage />} />
                       <Route path="iso/innstillinger" element={<IsoSettingsPage />} />
                       <Route path="iso/gap" element={<IsoGapAnalysisHubPage />} />

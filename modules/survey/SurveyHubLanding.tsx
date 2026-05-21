@@ -12,6 +12,7 @@ import { ArrowRight, FileText, Sparkles } from 'lucide-react'
 import { Button } from '../../src/components/ui/Button'
 import { Badge } from '../../src/components/ui/Badge'
 import { ModuleSectionCard } from '../../src/components/module/ModuleSectionCard'
+import { FavoriteToggle } from '../../src/components/favorites/FavoriteToggle'
 import type { ResolvedSurveyTemplate } from './useSurveyOrgTemplates'
 import type { SurveyTemplateCatalogRow } from './surveyTemplateCatalogTypes'
 import type { SurveyCategoryRow, SurveyPackRow, SurveyPackSlug } from './types'
@@ -202,7 +203,14 @@ export function SurveyHubLanding({
                     </div>
                     <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                       {bucket.tiles.map((t) => (
-                        <li key={t.id}>
+                        <li key={t.id} className="relative">
+                          <FavoriteToggle
+                            kind="survey"
+                            templateRef={t.id}
+                            templateName={t.name}
+                            size="sm"
+                            className="absolute right-1.5 top-1.5 z-10 bg-white/90"
+                          />
                           <Button
                             variant="ghost"
                             onClick={() =>
@@ -212,7 +220,7 @@ export function SurveyHubLanding({
                             }
                             className="group flex h-full w-full flex-col items-start gap-2 rounded-lg border border-neutral-200/80 bg-white p-4 text-left font-normal transition-colors hover:border-[#1a3d32]/30 hover:bg-neutral-50"
                           >
-                            <div className="flex items-start gap-2">
+                            <div className="flex w-full items-start gap-2 pr-6">
                               <FileText className="mt-0.5 h-4 w-4 shrink-0 text-[#1a3d32]" aria-hidden />
                               <span className="min-w-0 flex-1">
                                 <span className="block truncate text-sm font-medium text-neutral-900 group-hover:text-[#1a3d32]">

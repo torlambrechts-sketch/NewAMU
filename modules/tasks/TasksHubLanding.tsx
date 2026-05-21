@@ -8,6 +8,7 @@ import { KanbanSquare, Plus, Settings, Sparkles } from 'lucide-react'
 import { Button } from '../../src/components/ui/Button'
 import { Badge } from '../../src/components/ui/Badge'
 import { ModuleSectionCard } from '../../src/components/module/ModuleSectionCard'
+import { FavoriteToggle } from '../../src/components/favorites/FavoriteToggle'
 import { TaskKindIcon } from './components/TaskKindIcon'
 import type { TaskTemplateRow, TaskCategoryRow } from './useTaskTemplates'
 import type { TaskProject } from './useTaskProjects'
@@ -132,7 +133,14 @@ export function TasksHubLanding({
 
           <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {bucket.templates.map((t) => (
-              <li key={t.id}>
+              <li key={t.id} className="relative">
+                <FavoriteToggle
+                  kind="task"
+                  templateRef={t.id}
+                  templateName={t.name}
+                  size="sm"
+                  className="absolute right-1.5 top-1.5 z-10 bg-white/90"
+                />
                 <Button
                   variant="ghost"
                   onClick={() =>
@@ -140,7 +148,7 @@ export function TasksHubLanding({
                   }
                   className="group flex h-full w-full flex-col items-start gap-2.5 rounded-lg border border-neutral-200/80 bg-white p-4 text-left font-normal transition-all hover:border-[#c2410c]/30 hover:bg-orange-50/30 hover:shadow-sm"
                 >
-                  <div className="flex items-start gap-2.5">
+                  <div className="flex w-full items-start gap-2.5 pr-6">
                     <span className="mt-0.5 shrink-0 text-[#c2410c]/60 transition group-hover:text-[#c2410c]">
                       <TaskKindIcon kind={t.templateKind} className="h-4 w-4" />
                     </span>

@@ -23,6 +23,7 @@ import {
 } from 'lucide-react'
 import { ModulePageShell } from '../../src/components/module/ModulePageShell'
 import { ModuleSectionCard } from '../../src/components/module/ModuleSectionCard'
+import { FavoriteToggle } from '../../src/components/favorites/FavoriteToggle'
 import { ModuleLegalBanner } from '../../src/components/module/ModuleLegalBanner'
 import { CadenceWarningCard } from './components/CadenceWarningCard'
 import { LayoutScoreStatRow } from '../../src/components/layout/LayoutScoreStatRow'
@@ -303,14 +304,23 @@ function TemplateGallery({
                   return (
                     <li
                       key={t.key}
-                      className="flex flex-col gap-2 rounded-lg border border-neutral-200/80 bg-neutral-50/50 p-4"
+                      className="relative flex flex-col gap-2 rounded-lg border border-neutral-200/80 bg-neutral-50/50 p-4"
                     >
+                      {(t.systemTemplateId ?? t.orgTemplateId) ? (
+                        <FavoriteToggle
+                          kind="meeting"
+                          templateRef={(t.systemTemplateId ?? t.orgTemplateId) as string}
+                          templateName={t.name}
+                          size="sm"
+                          className="absolute right-1.5 top-1.5 z-10 bg-white/90"
+                        />
+                      ) : null}
                       <Button
                         variant="ghost"
                         onClick={() => onSelect(t)}
                         className="flex h-auto flex-col items-start gap-2 rounded-none p-0 text-left font-normal hover:bg-transparent"
                       >
-                        <div className="flex items-start justify-between gap-2">
+                        <div className="flex w-full items-start justify-between gap-2 pr-6">
                           <span className="text-sm font-semibold text-neutral-900">{t.name}</span>
                           <Badge variant="info">{frameworkLabel(t.framework)}</Badge>
                         </div>
