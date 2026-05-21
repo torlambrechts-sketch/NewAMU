@@ -57,6 +57,9 @@ export function WikiPageReferenceEditor() {
   const [actionError, setActionError] = useState<string | null>(null)
   const saveTimer = useRef<number | null>(null)
   const lastHydrated = useRef<string | null>(null)
+  /** Latest unsaved HTML — flushed on unmount so navigating away never drops it. */
+  const pendingHtml = useRef<string | null>(null)
+  const flushRef = useRef<() => void>(() => {})
 
   useEffect(() => {
     if (pageId) void docs.ensurePageLoaded(pageId)
@@ -92,6 +95,7 @@ export function WikiPageReferenceEditor() {
       setSaveState('saving')
       try {
         await docs.updatePage(pageId, { blocks: mergeHtml(page.blocks, nextHtml) })
+        pendingHtml.current = null
         setSaveState('saved')
       } catch {
         setSaveState('error')
@@ -103,6 +107,7 @@ export function WikiPageReferenceEditor() {
   const handleChange = useCallback(
     (next: string) => {
       setHtml(next)
+      pendingHtml.current = next
       setSaveState('dirty')
       if (saveTimer.current) window.clearTimeout(saveTimer.current)
       saveTimer.current = window.setTimeout(() => void persist(next), 1200)
@@ -110,9 +115,18 @@ export function WikiPageReferenceEditor() {
     [persist],
   )
 
+  // Keep a current flush closure; the unmount cleanup calls the latest one.
+  flushRef.current = () => {
+    if (pendingHtml.current != null && pageId && page) {
+      void docs.updatePage(pageId, { blocks: mergeHtml(page.blocks, pendingHtml.current) })
+      pendingHtml.current = null
+    }
+  }
+
   useEffect(
     () => () => {
       if (saveTimer.current) window.clearTimeout(saveTimer.current)
+      flushRef.current()
     },
     [],
   )
