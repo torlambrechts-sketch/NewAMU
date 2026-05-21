@@ -1,13 +1,12 @@
 // ChecklistsAktivitetPage — "Alle aktivitet" — full execution log.
 //
-// Three views: Tidslinje (default, day-grouped vertical timeline) · Liste
-// (dense audit table) · Tavle (kanban by status). Accessible from the
-// Bibliotek page via "Se all aktivitet →" and from the sidebar.
+// Three views: Tidslinje (default, day-grouped vertical) · Liste (audit
+// table) · Tavle (kanban by status). View toggle + CSV export always
+// visible. Back link to Bibliotek lives in the sticky page header.
 
 import { useEffect, useMemo, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
-import { Activity, ChevronRight, LayoutGrid, ListChecks, Search } from 'lucide-react'
-import { ModulePageShell } from '../../src/components/module/ModulePageShell'
+import { Link, useNavigate } from 'react-router-dom'
+import { Activity, ArrowLeft, ChevronRight, Download, LayoutGrid, ListChecks } from 'lucide-react'
 import { Badge } from '../../src/components/ui/Badge'
 import { Button } from '../../src/components/ui/Button'
 import { useLicensedPacks } from '../../src/context/packContextValue'
@@ -23,22 +22,23 @@ const STATUS_LABEL: Record<string, string> = {
   signed: 'Fullført',
 }
 
-function statusBadge(status: string) {
-  if (status === 'signed') return 'signed'
-  if (status === 'active') return 'active'
+function statusVariant(s: string): 'draft' | 'active' | 'signed' {
+  if (s === 'signed') return 'signed'
+  if (s === 'active') return 'active'
   return 'draft'
 }
 
+// ── Shared view toggle ─────────────────────────────────────────────────────
+
 function ViewToggle({ mode, setMode }: { mode: ViewMode; setMode: (v: ViewMode) => void }) {
+  const OPTIONS = [
+    { id: 'timeline' as const, label: 'Tidslinje', Icon: Activity },
+    { id: 'list' as const, label: 'Liste', Icon: ListChecks },
+    { id: 'board' as const, label: 'Tavle', Icon: LayoutGrid },
+  ]
   return (
     <div className="inline-flex rounded-lg bg-neutral-100 p-1 gap-0.5">
-      {(
-        [
-          { id: 'timeline', label: 'Tidslinje', LucideIcon: Activity },
-          { id: 'list', label: 'Liste', LucideIcon: ListChecks },
-          { id: 'board', label: 'Tavle', LucideIcon: LayoutGrid },
-        ] as const
-      ).map((m) => (
+      {OPTIONS.map((m) => (
         <button
           key={m.id}
           onClick={() => setMode(m.id)}
@@ -48,7 +48,7 @@ function ViewToggle({ mode, setMode }: { mode: ViewMode; setMode: (v: ViewMode) 
               : 'text-neutral-600 hover:text-neutral-800'
           }`}
         >
-          <m.LucideIcon className="h-3.5 w-3.5" />
+          <m.Icon className="h-3.5 w-3.5" />
           {m.label}
         </button>
       ))}
@@ -56,7 +56,55 @@ function ViewToggle({ mode, setMode }: { mode: ViewMode; setMode: (v: ViewMode) 
   )
 }
 
-// Timeline view — vertical, grouped by day
+// ── Page header (matches design ShowAllHeader) ─────────────────────────────
+
+function PageHeader({
+  title,
+  count,
+  mode,
+  setMode,
+  onExport,
+}: {
+  title: string
+  count: number
+  mode: ViewMode
+  setMode: (v: ViewMode) => void
+  onExport: () => void
+}) {
+  return (
+    <div className="border-b border-neutral-200 bg-white">
+      <div className="mx-auto max-w-[1400px] px-6 pb-0 pt-5 md:px-10">
+        <Link
+          to="/compliance/checklists/bibliotek"
+          className="mb-2 inline-flex items-center gap-1.5 rounded px-1 py-1 text-xs font-medium text-neutral-500 transition-colors hover:bg-neutral-100 hover:text-neutral-700"
+        >
+          <ArrowLeft className="h-3.5 w-3.5" />
+          Tilbake til biblioteket
+        </Link>
+        <div className="flex flex-wrap items-end justify-between gap-4 pb-4">
+          <div>
+            <p className="text-xs text-neutral-500">{count} treff</p>
+            <h1 className="text-2xl font-bold tracking-tight text-neutral-900">{title}</h1>
+          </div>
+          <div className="flex items-center gap-2.5">
+            <ViewToggle mode={mode} setMode={setMode} />
+            <Button
+              variant="secondary"
+              size="sm"
+              icon={<Download className="h-3.5 w-3.5" />}
+              onClick={onExport}
+            >
+              Eksporter CSV
+            </Button>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ── Timeline view ──────────────────────────────────────────────────────────
+
 function ActivityTimeline({
   items,
   templateNameById,
@@ -66,11 +114,8 @@ function ActivityTimeline({
   templateNameById: Map<string, string>
   onOpen: (e: ComplianceExecutionRow) => void
 }) {
-  const now = useMemo(() => new Date(), [])
-  const todayStart = useMemo(
-    () => new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime(),
-    [now],
-  )
+  const now = new Date()
+  const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime()
   const yesterdayStart = todayStart - 86400000
 
   const days = useMemo(() => {
@@ -80,20 +125,11 @@ function ActivityTimeline({
     >()
     for (const e of items) {
       const d = new Date(e.updated_at)
-      const dayStart = new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime()
-      const isToday = dayStart === todayStart
-      const isYesterday = dayStart === yesterdayStart
-      const key = String(dayStart)
-      const label = isToday
-        ? 'I dag'
-        : isYesterday
-          ? 'I går'
-          : d.toLocaleDateString('nb-NO', { weekday: 'long' })
-      const dateStr = d.toLocaleDateString('nb-NO', {
-        day: 'numeric',
-        month: 'long',
-        year: 'numeric',
-      })
+      const ds = new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime()
+      const key = String(ds)
+      const label =
+        ds === todayStart ? 'I dag' : ds === yesterdayStart ? 'I går' : d.toLocaleDateString('nb-NO', { weekday: 'long' })
+      const dateStr = d.toLocaleDateString('nb-NO', { day: 'numeric', month: 'long', year: 'numeric' })
       const existing = g.get(key) ?? { label, date: dateStr, items: [] }
       existing.items.push(e)
       g.set(key, existing)
@@ -104,18 +140,14 @@ function ActivityTimeline({
   }, [items, todayStart, yesterdayStart])
 
   if (days.length === 0) {
-    return (
-      <div className="py-16 text-center text-sm text-neutral-500">Ingen aktivitet.</div>
-    )
+    return <div className="py-16 text-center text-sm text-neutral-500">Ingen aktivitet.</div>
   }
 
   return (
     <div className="relative max-w-2xl">
-      {/* Vertical line */}
-      <div className="absolute left-[89px] top-8 bottom-0 w-0.5 bg-neutral-200" />
+      <div className="absolute bottom-0 left-[89px] top-8 w-0.5 bg-neutral-200" />
       {days.map((day) => (
         <div key={day.date} className="relative mb-7">
-          {/* Day label + dot */}
           <div className="mb-3 flex items-center gap-3">
             <div className="w-20 text-right">
               <div className="text-sm font-semibold text-neutral-900">{day.label}</div>
@@ -125,8 +157,6 @@ function ActivityTimeline({
             <div className="flex-1 border-t border-neutral-200" />
             <span className="text-xs text-neutral-400">{day.items.length} hendelser</span>
           </div>
-
-          {/* Event cards */}
           <div className="ml-[110px] flex flex-col gap-2">
             {day.items.map((e) => {
               const tpl = templateNameById.get(e.template_id)
@@ -142,9 +172,7 @@ function ActivityTimeline({
                   <div className="min-w-0 flex-1">
                     <div className="text-sm text-neutral-800">
                       <span className="font-medium text-neutral-900">{e.title}</span>
-                      {tpl ? (
-                        <span className="text-neutral-500"> · {tpl}</span>
-                      ) : null}
+                      {tpl ? <span className="text-neutral-500"> · {tpl}</span> : null}
                     </div>
                     <div className="mt-0.5 text-xs text-neutral-500">
                       {new Date(e.updated_at).toLocaleTimeString('nb-NO', {
@@ -153,7 +181,7 @@ function ActivityTimeline({
                       })}
                     </div>
                   </div>
-                  <Badge variant={statusBadge(e.status)}>
+                  <Badge variant={statusVariant(e.status)}>
                     {STATUS_LABEL[e.status] ?? e.status}
                   </Badge>
                 </button>
@@ -166,75 +194,86 @@ function ActivityTimeline({
   )
 }
 
-// List view — dense audit table
+// ── List view — proper <table> for reliable column alignment ───────────────
+
 function ActivityList({
   items,
   templateNameById,
+  categoryNameById,
+  templateCategoryById,
   onOpen,
 }: {
   items: ComplianceExecutionRow[]
   templateNameById: Map<string, string>
+  categoryNameById: Map<string, string>
+  templateCategoryById: Map<string, string | null>
   onOpen: (e: ComplianceExecutionRow) => void
 }) {
+  if (items.length === 0) {
+    return (
+      <div className="rounded-lg border border-neutral-200 bg-white py-16 text-center text-sm text-neutral-500 shadow-sm">
+        Ingen aktivitet.
+      </div>
+    )
+  }
+
   return (
     <div className="overflow-hidden rounded-lg border border-neutral-200 bg-white shadow-sm">
-      {/* Desktop header */}
-      <div className="hidden grid-cols-[2fr_1.5fr_1fr_1fr_100px_36px] gap-3 border-b border-neutral-200 bg-neutral-50 px-4 py-2.5 text-[10px] font-bold uppercase tracking-wide text-neutral-500 sm:grid">
-        <span>Tittel</span>
-        <span>Mal</span>
-        <span>Pakke</span>
-        <span>Status</span>
-        <span>Dato</span>
-        <span />
+      <div className="overflow-x-auto">
+        <table className="w-full min-w-[700px] border-collapse text-sm">
+          <thead>
+            <tr className="border-b border-neutral-200 bg-neutral-50">
+              {['Tittel', 'Mal', 'Kategori', 'Status', 'Dato', ''].map((h, i) => (
+                <th
+                  key={i}
+                  className={`px-4 py-2.5 text-left text-[10px] font-bold uppercase tracking-wide text-neutral-500 ${
+                    i === 5 ? 'w-8' : ''
+                  }`}
+                >
+                  {h}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {items.map((e) => {
+              const tplName = templateNameById.get(e.template_id) ?? '—'
+              const catId = templateCategoryById.get(e.template_id) ?? null
+              const catName = catId ? (categoryNameById.get(catId) ?? '—') : '—'
+              return (
+                <tr
+                  key={e.id}
+                  onClick={() => onOpen(e)}
+                  className="cursor-pointer border-t border-neutral-100 transition-colors hover:bg-neutral-50"
+                >
+                  <td className="px-4 py-2.5 font-semibold text-neutral-900">{e.title}</td>
+                  <td className="max-w-[200px] truncate px-4 py-2.5 text-xs text-neutral-600">
+                    {tplName}
+                  </td>
+                  <td className="px-4 py-2.5 text-xs text-neutral-600">{catName}</td>
+                  <td className="px-4 py-2.5">
+                    <Badge variant={statusVariant(e.status)}>
+                      {STATUS_LABEL[e.status] ?? e.status}
+                    </Badge>
+                  </td>
+                  <td className="px-4 py-2.5 text-xs tabular-nums text-neutral-500">
+                    {new Date(e.updated_at).toLocaleDateString('nb-NO', { dateStyle: 'short' })}
+                  </td>
+                  <td className="w-8 px-4 py-2.5 text-neutral-300">
+                    <ChevronRight className="h-4 w-4" />
+                  </td>
+                </tr>
+              )
+            })}
+          </tbody>
+        </table>
       </div>
-
-      {/* Rows */}
-      {items.map((e) => (
-        <button
-          key={e.id}
-          onClick={() => onOpen(e)}
-          className="hidden w-full grid-cols-[2fr_1.5fr_1fr_1fr_100px_36px] items-center gap-3 border-t border-neutral-100 px-4 py-2.5 text-left transition-colors hover:bg-neutral-50 first:border-t-0 sm:grid"
-        >
-          <span className="truncate font-semibold text-neutral-900">{e.title}</span>
-          <span className="truncate text-xs text-neutral-600">
-            {templateNameById.get(e.template_id) ?? '—'}
-          </span>
-          <span className="text-xs text-neutral-600">{e.pack}</span>
-          <span>
-            <Badge variant={statusBadge(e.status)}>
-              {STATUS_LABEL[e.status] ?? e.status}
-            </Badge>
-          </span>
-          <span className="text-xs tabular-nums text-neutral-500">
-            {new Date(e.updated_at).toLocaleDateString('nb-NO', { dateStyle: 'short' })}
-          </span>
-          <span className="text-neutral-300">
-            <ChevronRight className="h-4 w-4" />
-          </span>
-        </button>
-      ))}
-
-      {/* Mobile rows */}
-      {items.map((e) => (
-        <button
-          key={`m-${e.id}`}
-          onClick={() => onOpen(e)}
-          className="flex w-full items-center gap-3 border-t border-neutral-100 px-4 py-3 text-left transition-colors hover:bg-neutral-50 sm:hidden"
-        >
-          <span className="flex-1 text-sm font-medium text-neutral-900">{e.title}</span>
-          <Badge variant={statusBadge(e.status)}>{STATUS_LABEL[e.status] ?? e.status}</Badge>
-          <ChevronRight className="h-4 w-4 text-neutral-300" />
-        </button>
-      ))}
-
-      {items.length === 0 && (
-        <div className="px-4 py-12 text-center text-sm text-neutral-500">Ingen aktivitet.</div>
-      )}
     </div>
   )
 }
 
-// Board view — kanban by status
+// ── Board view — kanban by status ──────────────────────────────────────────
+
 function ActivityBoard({
   items,
   templateNameById,
@@ -252,7 +291,7 @@ function ActivityBoard({
 
   return (
     <div className="overflow-x-auto pb-4">
-      <div className="grid grid-cols-3 gap-4 min-w-[700px]">
+      <div className="grid min-w-[700px] grid-cols-3 gap-4">
         {cols.map((c) => {
           const list = items.filter((e) => c.statuses.includes(e.status))
           return (
@@ -303,6 +342,8 @@ function ActivityBoard({
   )
 }
 
+// ── Page ───────────────────────────────────────────────────────────────────
+
 export function ChecklistsAktivitetPage() {
   const navigate = useNavigate()
   const [mode, setMode] = useState<ViewMode>('timeline')
@@ -320,6 +361,14 @@ export function ChecklistsAktivitetPage() {
 
   const templateNameById = useMemo(
     () => new Map(cl.templates.map((t) => [t.id, t.name])),
+    [cl.templates],
+  )
+  const categoryNameById = useMemo(
+    () => new Map(cl.categories.map((c) => [c.id, c.name])),
+    [cl.categories],
+  )
+  const templateCategoryById = useMemo(
+    () => new Map(cl.templates.map((t) => [t.id, t.category_id])),
     [cl.templates],
   )
 
@@ -343,101 +392,116 @@ export function ChecklistsAktivitetPage() {
     { id: 'draft', label: 'Kladd' },
   ]
 
+  function handleExport() {
+    const rows = [
+      ['Tittel', 'Mal', 'Pakke', 'Status', 'Dato'],
+      ...filtered.map((e) => [
+        e.title,
+        templateNameById.get(e.template_id) ?? '',
+        e.pack,
+        STATUS_LABEL[e.status] ?? e.status,
+        new Date(e.updated_at).toLocaleDateString('nb-NO'),
+      ]),
+    ]
+    const csv = rows.map((r) => r.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(',')).join('\n')
+    const a = document.createElement('a')
+    a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv' }))
+    a.download = 'sjekkliste-aktivitet.csv'
+    a.click()
+  }
+
   return (
-    <ModulePageShell
-      breadcrumb={[
-        { label: 'Sjekklister', to: '/compliance/checklists' },
-        { label: 'Bibliotek', to: '/compliance/checklists/bibliotek' },
-        { label: 'Alle aktivitet' },
-      ]}
-      title="All aktivitet"
-      description={`${filtered.length} aktiviteter — søkbar logg over alle sjekklistegjennomganger.`}
-      headerActions={
-        <div className="flex items-center gap-2">
-          <ViewToggle mode={mode} setMode={setMode} />
-          {mode === 'list' && (
-            <Button variant="secondary" size="sm">
-              Eksporter CSV
-            </Button>
-          )}
-        </div>
-      }
-    >
+    <div className="min-h-screen bg-[#F9F7F2]">
+      <PageHeader
+        title="All aktivitet"
+        count={filtered.length}
+        mode={mode}
+        setMode={setMode}
+        onExport={handleExport}
+      />
+
       {/* Filter bar */}
-      <div className="flex flex-wrap items-center gap-3 rounded-lg border border-neutral-200 bg-white px-4 py-3 shadow-sm">
-        <div
-          className="flex flex-1 items-center gap-2 rounded border border-neutral-300 px-2.5 py-1.5"
-          style={{ minWidth: 220, maxWidth: 300 }}
-        >
-          <Search className="h-3.5 w-3.5 shrink-0 text-neutral-400" />
-          <input
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
-            placeholder="Søk i logg…"
-            className="flex-1 bg-transparent text-sm outline-none placeholder:text-neutral-400"
-          />
-        </div>
-        <select
-          value={filterStatus ?? ''}
-          onChange={(e) => setFilterStatus(e.target.value || null)}
-          className="rounded border border-neutral-300 px-2.5 py-1.5 text-xs font-semibold text-neutral-700 outline-none"
-        >
-          <option value="">Status: Alle</option>
-          {STATUS_OPTS.map((o) => (
-            <option key={o.id} value={o.id}>
-              {o.label}
-            </option>
-          ))}
-        </select>
-        {PACK_OPTS.length > 1 && (
-          <select
-            value={filterPack ?? ''}
-            onChange={(e) => setFilterPack(e.target.value || null)}
-            className="rounded border border-neutral-300 px-2.5 py-1.5 text-xs font-semibold text-neutral-700 outline-none"
+      <div className="border-b border-neutral-200 bg-white">
+        <div className="mx-auto flex max-w-[1400px] flex-wrap items-center gap-3 px-6 py-3 md:px-10">
+          <div
+            className="flex flex-1 items-center gap-2 rounded border border-neutral-300 bg-white px-2.5 py-1.5"
+            style={{ minWidth: 200, maxWidth: 300 }}
           >
-            <option value="">Pakke: Alle</option>
-            {PACK_OPTS.map((o) => (
+            <svg className="h-3.5 w-3.5 shrink-0 text-neutral-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+            <input
+              value={q}
+              onChange={(e) => setQ(e.target.value)}
+              placeholder="Søk i logg…"
+              className="flex-1 bg-transparent text-sm outline-none placeholder:text-neutral-400"
+            />
+          </div>
+          <select
+            value={filterStatus ?? ''}
+            onChange={(e) => setFilterStatus(e.target.value || null)}
+            className="rounded border border-neutral-300 bg-white px-2.5 py-1.5 text-xs font-semibold text-neutral-700 outline-none"
+          >
+            <option value="">Status: Alle</option>
+            {STATUS_OPTS.map((o) => (
               <option key={o.id} value={o.id}>
                 {o.label}
               </option>
             ))}
           </select>
-        )}
-        {(q || filterStatus || filterPack) && (
-          <button
-            onClick={() => {
-              setQ('')
-              setFilterStatus(null)
-              setFilterPack(null)
-            }}
-            className="text-xs text-neutral-400 hover:text-neutral-600"
-          >
-            Nullstill
-          </button>
-        )}
+          {PACK_OPTS.length > 1 && (
+            <select
+              value={filterPack ?? ''}
+              onChange={(e) => setFilterPack(e.target.value || null)}
+              className="rounded border border-neutral-300 bg-white px-2.5 py-1.5 text-xs font-semibold text-neutral-700 outline-none"
+            >
+              <option value="">Pakke: Alle</option>
+              {PACK_OPTS.map((o) => (
+                <option key={o.id} value={o.id}>
+                  {o.label}
+                </option>
+              ))}
+            </select>
+          )}
+          {(q || filterStatus || filterPack) && (
+            <button
+              onClick={() => {
+                setQ('')
+                setFilterStatus(null)
+                setFilterPack(null)
+              }}
+              className="text-xs text-neutral-400 hover:text-neutral-600"
+            >
+              Nullstill
+            </button>
+          )}
+        </div>
       </div>
 
-      {mode === 'timeline' && (
-        <ActivityTimeline
-          items={filtered}
-          templateNameById={templateNameById}
-          onOpen={(e) => navigate(`/compliance/checklists/${e.id}`)}
-        />
-      )}
-      {mode === 'list' && (
-        <ActivityList
-          items={filtered}
-          templateNameById={templateNameById}
-          onOpen={(e) => navigate(`/compliance/checklists/${e.id}`)}
-        />
-      )}
-      {mode === 'board' && (
-        <ActivityBoard
-          items={filtered}
-          templateNameById={templateNameById}
-          onOpen={(e) => navigate(`/compliance/checklists/${e.id}`)}
-        />
-      )}
-    </ModulePageShell>
+      {/* Content */}
+      <div className="mx-auto max-w-[1400px] px-6 py-6 md:px-10">
+        {mode === 'timeline' && (
+          <ActivityTimeline
+            items={filtered}
+            templateNameById={templateNameById}
+            onOpen={(e) => navigate(`/compliance/checklists/${e.id}`)}
+          />
+        )}
+        {mode === 'list' && (
+          <ActivityList
+            items={filtered}
+            templateNameById={templateNameById}
+            categoryNameById={categoryNameById}
+            templateCategoryById={templateCategoryById}
+            onOpen={(e) => navigate(`/compliance/checklists/${e.id}`)}
+          />
+        )}
+        {mode === 'board' && (
+          <ActivityBoard
+            items={filtered}
+            templateNameById={templateNameById}
+            onOpen={(e) => navigate(`/compliance/checklists/${e.id}`)}
+          />
+        )}
+      </div>
+    </div>
   )
 }

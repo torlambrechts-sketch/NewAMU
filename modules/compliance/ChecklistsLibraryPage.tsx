@@ -1,9 +1,9 @@
 // ChecklistsLibraryPage — "Bibliotek" — Direction 5a side-by-side page.
 //
-// Three-lens view: Pakke | Kategori | Alle
-//   • Pakke   — sub-tabs per licensed pack; context card shows pack info
-//   • Kategori — sub-tabs per category; context card shows category info
-//   • Alle    — two-column grid: all templates + all executions
+// Three-lens view: Lovverk | Roller | Alle
+//   • Lovverk  — sub-tabs per licensed pack; context card shows pack info
+//   • Roller   — sub-tabs per category; context card shows category info
+//   • Alle     — two-column grid: all templates + all executions
 //
 // Each lens shows "Maler å starte fra" alongside "Nylig aktivitet".
 // "Se alle" links navigate to /maler (template library) and /aktivitet
@@ -26,7 +26,7 @@ import { useOrgSetupContext } from '../../src/hooks/useOrgSetupContext'
 import { useChecklistModule } from './useChecklistModule'
 import type { ComplianceExecutionRow, ComplianceTemplateRow } from './types'
 
-type Lens = 'pakke' | 'kategori' | 'alle'
+type Lens = 'lovverk' | 'roller' | 'alle'
 
 const STATUS_LABEL: Record<string, string> = {
   draft: 'Kladd',
@@ -191,7 +191,7 @@ function ActivityRow({
 
 export function ChecklistsLibraryPage() {
   const [searchParams, setSearchParams] = useSearchParams()
-  const lens = (searchParams.get('lens') as Lens) ?? 'pakke'
+  const lens = (searchParams.get('lens') as Lens) ?? 'lovverk'
   const lensVal = searchParams.get('lv')
 
   const licensedPacks = useLicensedPacks()
@@ -221,10 +221,10 @@ export function ChecklistsLibraryPage() {
 
   // Build sub-tabs list for the active lens
   const tabs = useMemo(() => {
-    if (lens === 'pakke') {
+    if (lens === 'lovverk') {
       return licensedPacks.map((p) => ({ id: p.slug, label: p.shortName }))
     }
-    if (lens === 'kategori') {
+    if (lens === 'roller') {
       return cl.categories
         .filter((c) => c.is_active)
         .sort((a, b) => a.position - b.position || a.name.localeCompare(b.name, 'nb'))
@@ -237,11 +237,11 @@ export function ChecklistsLibraryPage() {
 
   // Context card data
   const activePack =
-    lens === 'pakke' && activeTab
+    lens === 'lovverk' && activeTab
       ? (licensedPacks.find((p) => p.slug === activeTab) ?? null)
       : null
   const activeCat =
-    lens === 'kategori' && activeTab
+    lens === 'roller' && activeTab
       ? (cl.categories.find((c) => c.id === activeTab) ?? null)
       : null
 
@@ -257,8 +257,8 @@ export function ChecklistsLibraryPage() {
   // Filter templates for the active lens + value
   const filteredTemplates = useMemo(() => {
     let list = [...cl.templates].filter((t) => t.is_active)
-    if (lens === 'pakke' && activeTab) list = list.filter((t) => t.pack === activeTab)
-    if (lens === 'kategori' && activeTab) list = list.filter((t) => t.category_id === activeTab)
+    if (lens === 'lovverk' && activeTab) list = list.filter((t) => t.pack === activeTab)
+    if (lens === 'roller' && activeTab) list = list.filter((t) => t.category_id === activeTab)
     if (tplStatus === 'approved') list = list.filter((t) => t.review_status === 'approved')
     if (tplStatus === 'reviewed') list = list.filter((t) => t.review_status === 'reviewed')
     if (tplStatus === 'pinned') list = list.filter((t) => t.nav_pinned)
@@ -268,8 +268,8 @@ export function ChecklistsLibraryPage() {
   // Filter executions for the active lens + value
   const filteredExecutions = useMemo(() => {
     let list = [...cl.executions]
-    if (lens === 'pakke' && activeTab) list = list.filter((e) => e.pack === activeTab)
-    if (lens === 'kategori' && activeTab) {
+    if (lens === 'lovverk' && activeTab) list = list.filter((e) => e.pack === activeTab)
+    if (lens === 'roller' && activeTab) {
       list = list.filter((e) => {
         const tpl = templateById.get(e.template_id)
         return tpl?.category_id === activeTab
@@ -282,16 +282,16 @@ export function ChecklistsLibraryPage() {
   const hasContextCard = activePack !== null || activeCat !== null
 
   const pageTitle =
-    lens === 'pakke'
-      ? 'Maler etter pakke'
-      : lens === 'kategori'
-        ? 'Maler etter kategori'
+    lens === 'lovverk'
+      ? 'Maler etter lovverk'
+      : lens === 'roller'
+        ? 'Maler etter rolle'
         : 'Alle maler'
   const pageSubtitle =
-    lens === 'pakke'
+    lens === 'lovverk'
       ? 'Maler og aktivitet per lovverk og pakke'
-      : lens === 'kategori'
-        ? 'Maler og aktivitet per kategori'
+      : lens === 'roller'
+        ? 'Maler og aktivitet per rolle og kategori'
         : 'Hele biblioteket med alle maler og aktivitet'
 
   const TPL_FILTER_OPTS = [
@@ -309,7 +309,7 @@ export function ChecklistsLibraryPage() {
     <div className="min-h-screen bg-[#F9F7F2]">
       {/* Page header */}
       <header className="bg-[#F9F7F2]">
-        <div className="mx-auto max-w-[1400px] px-4 pb-0 pt-4 md:px-8">
+        <div className="mx-auto max-w-[1400px] px-6 pb-0 pt-4 md:px-10">
           {/* Breadcrumb + title + segmented control */}
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div>
@@ -331,8 +331,8 @@ export function ChecklistsLibraryPage() {
               <div className="inline-flex rounded-lg bg-neutral-100 p-1 gap-0.5">
                 {(
                   [
-                    { id: 'pakke', label: 'Pakke', LucideIcon: Scale },
-                    { id: 'kategori', label: 'Kategori', LucideIcon: Users },
+                    { id: 'lovverk', label: 'Lovverk', LucideIcon: Scale },
+                    { id: 'roller', label: 'Roller', LucideIcon: Users },
                     { id: 'alle', label: 'Alle', LucideIcon: LayoutGrid },
                   ] as const
                 ).map((m) => (
@@ -384,7 +384,7 @@ export function ChecklistsLibraryPage() {
       </header>
 
       {/* Body */}
-      <div className="mx-auto max-w-[1400px] px-4 py-6 md:px-8">
+      <div className="mx-auto max-w-[1400px] px-6 py-6 md:px-10">
         <div
           className={`grid gap-6 ${
             hasContextCard
