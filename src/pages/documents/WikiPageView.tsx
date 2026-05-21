@@ -798,7 +798,7 @@ export function WikiPageView() {
           style={{
             gridTemplateColumns: readerWide
               ? '260px minmax(0,1fr)'
-              : '260px minmax(0,1fr) 300px',
+              : '260px minmax(0,1fr) 360px',
           }}
         >
           <div className="hidden lg:block">

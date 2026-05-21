@@ -269,14 +269,17 @@ export function WikiCommentsRail({
                 ) : null}
               </div>
 
-              <div className="flex items-center justify-between border-t border-neutral-100 bg-neutral-50/60 px-3 py-1.5 text-[11px]">
-                <span className="text-neutral-500">{replies.length + 1} innlegg</span>
-                <div className="flex flex-wrap items-center justify-end gap-0.5">
+              <div className="border-t border-neutral-100 bg-neutral-50/60 px-3 py-2">
+                <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-neutral-400">
+                  {replies.length + 1} innlegg · handlinger
+                </p>
+                <div className="flex flex-wrap gap-1.5">
                   {canComment && replyOpen !== top.id ? (
                     <Button
-                      variant="ghost"
+                      variant="secondary"
                       size="sm"
                       className="!px-2 !py-1 !text-[11px]"
+                      icon={<ArrowUp className="h-3 w-3" aria-hidden />}
                       onClick={() => {
                         setReplyOpen(top.id)
                         setReplyText('')
@@ -287,7 +290,7 @@ export function WikiCommentsRail({
                   ) : null}
                   {onAcknowledge ? (
                     <Button
-                      variant="ghost"
+                      variant="secondary"
                       size="sm"
                       className="!px-2 !py-1 !text-[11px]"
                       icon={<CheckCheck className="h-3 w-3" aria-hidden />}
@@ -298,7 +301,7 @@ export function WikiCommentsRail({
                     </Button>
                   ) : null}
                   <AddTaskLink
-                    className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-[11px] font-medium text-neutral-600 hover:bg-neutral-100"
+                    className="inline-flex items-center gap-1 rounded-md border border-neutral-300 bg-white px-2 py-1 text-[11px] font-semibold text-neutral-700 hover:bg-neutral-50"
                     title={`Følg opp kommentar: ${top.body.slice(0, 60)}`}
                     description={top.body}
                     sourceId={top.id}
@@ -308,7 +311,7 @@ export function WikiCommentsRail({
                     Lag oppgave
                   </AddTaskLink>
                   <Button
-                    variant="ghost"
+                    variant="secondary"
                     size="sm"
                     className="!px-2 !py-1 !text-[11px]"
                     icon={
@@ -324,9 +327,9 @@ export function WikiCommentsRail({
                   </Button>
                   {!top.isConfidential ? (
                     <Button
-                      variant="ghost"
+                      variant="secondary"
                       size="sm"
-                      className="!px-1.5 !py-1 text-neutral-400 hover:text-red-700"
+                      className="!px-2 !py-1 !text-[11px] !text-red-700"
                       title="Slett kommentaren"
                       icon={<Trash2 className="h-3 w-3" aria-hidden />}
                       onClick={() => void onDelete(top.id)}

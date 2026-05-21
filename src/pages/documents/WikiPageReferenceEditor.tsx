@@ -9,6 +9,7 @@ import {
   Maximize2,
   MessageSquare,
   Minimize2,
+  Save,
   Send,
 } from 'lucide-react'
 import { useDocuments } from '../../hooks/useDocuments'
@@ -227,11 +228,22 @@ export function WikiPageReferenceEditor() {
           </Button>
           <Button
             variant="secondary"
-            icon={<MessageSquare className="h-4 w-4" aria-hidden />}
-            onClick={() => {
+            icon={<Save className="h-4 w-4" aria-hidden />}
+            disabled={!canEdit || saveState === 'saving'}
+            onClick={async () => {
               if (saveTimer.current) window.clearTimeout(saveTimer.current)
-              if (pendingHtml.current != null) void persist(pendingHtml.current)
-              navigate(`/documents/page/${page.id}?comments=1`)
+              await persist(html)
+            }}
+          >
+            Lagre
+          </Button>
+          <Button
+            variant="secondary"
+            icon={<MessageSquare className="h-4 w-4" aria-hidden />}
+            onClick={async () => {
+              if (saveTimer.current) window.clearTimeout(saveTimer.current)
+              if (pendingHtml.current != null) await persist(pendingHtml.current)
+              window.location.assign(`/documents/page/${page.id}?comments=1`)
             }}
           >
             Kommentar
