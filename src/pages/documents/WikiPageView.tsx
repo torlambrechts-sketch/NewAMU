@@ -136,7 +136,7 @@ export function WikiPageView() {
   /** Anchored-comment highlights — numbered to match the thread rail. */
   const commentAnchors = useMemo<CommentAnchorHighlight[]>(() => {
     const tops = comments.filter((c) => !c.deletedAt && !c.parentCommentId)
-    return tops.flatMap((c, i) =>
+    const out = tops.flatMap((c, i) =>
       c.anchor?.quotedText
         ? [
             {
@@ -148,7 +148,17 @@ export function WikiPageView() {
           ]
         : [],
     )
-  }, [comments])
+    // Keep the selected text highlighted while the new comment is being written.
+    if (pendingQuote) {
+      out.push({
+        commentId: 'pending',
+        quotedText: pendingQuote,
+        index: tops.length + 1,
+        color: THREAD_COLORS[tops.length % THREAD_COLORS.length],
+      })
+    }
+    return out
+  }, [comments, pendingQuote])
 
   const page = docs.pages.find((p) => p.id === pageId)
   const space = page ? docs.spaces.find((s) => s.id === page.spaceId) : null
@@ -991,6 +1001,10 @@ export function WikiPageView() {
                     const c = comments.find((x) => x.id === id)
                     if (c) await logCommentEvent({ id: c.id, pageId: c.pageId }, decision)
                     await setResolved(id, true)
+                  }}
+                  onAcknowledge={async (id) => {
+                    const c = comments.find((x) => x.id === id)
+                    if (c) await logCommentEvent({ id: c.id, pageId: c.pageId }, 'acknowledged')
                   }}
                 />
               ) : (

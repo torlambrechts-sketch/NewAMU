@@ -1,9 +1,10 @@
 /* eslint-disable no-restricted-syntax -- filter pills are intentionally styled native buttons */
 import { useMemo, useState } from 'react'
-import { ArrowUp, Check, MessageSquare, RotateCcw, Trash2 } from 'lucide-react'
+import { ArrowUp, Check, CheckCheck, ListPlus, MessageSquare, RotateCcw, Trash2 } from 'lucide-react'
 import { ModuleSectionCard } from '../module/ModuleSectionCard'
 import { StandardTextarea } from '../ui/Textarea'
 import { Button } from '../ui/Button'
+import { AddTaskLink } from '../tasks/AddTaskLink'
 import { THREAD_COLORS } from '../../lib/wikiCommentHighlights'
 import type { WikiPageComment } from '../../types/documents'
 
@@ -61,6 +62,7 @@ export function WikiCommentsRail({
   onResolve,
   onDelete,
   onSuggestion,
+  onAcknowledge,
   pendingQuote,
   onClearQuote,
 }: {
@@ -73,6 +75,8 @@ export function WikiCommentsRail({
   onDelete: (commentId: string) => Promise<void> | void
   /** Accept / reject a `suggestion`-kind comment (Rec06 track-changes). */
   onSuggestion?: (commentId: string, decision: 'accepted' | 'rejected') => Promise<void> | void
+  /** Mark a comment as acknowledged — logs a lifecycle event. */
+  onAcknowledge?: (commentId: string) => Promise<void> | void
   /** Text selected in the document — the new comment will anchor to it. */
   pendingQuote?: string | null
   onClearQuote?: () => void
@@ -267,7 +271,7 @@ export function WikiCommentsRail({
 
               <div className="flex items-center justify-between border-t border-neutral-100 bg-neutral-50/60 px-3 py-1.5 text-[11px]">
                 <span className="text-neutral-500">{replies.length + 1} innlegg</span>
-                <div className="flex items-center gap-1">
+                <div className="flex flex-wrap items-center justify-end gap-0.5">
                   {canComment && replyOpen !== top.id ? (
                     <Button
                       variant="ghost"
@@ -281,6 +285,28 @@ export function WikiCommentsRail({
                       Svar
                     </Button>
                   ) : null}
+                  {onAcknowledge ? (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="!px-2 !py-1 !text-[11px]"
+                      icon={<CheckCheck className="h-3 w-3" aria-hidden />}
+                      title="Bekreft kommentaren"
+                      onClick={() => void onAcknowledge(top.id)}
+                    >
+                      Bekreft
+                    </Button>
+                  ) : null}
+                  <AddTaskLink
+                    className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-[11px] font-medium text-neutral-600 hover:bg-neutral-100"
+                    title={`Følg opp kommentar: ${top.body.slice(0, 60)}`}
+                    description={top.body}
+                    sourceId={top.id}
+                    sourceLabel="Kommentar"
+                  >
+                    <ListPlus className="h-3 w-3" aria-hidden />
+                    Lag oppgave
+                  </AddTaskLink>
                   <Button
                     variant="ghost"
                     size="sm"
@@ -301,10 +327,11 @@ export function WikiCommentsRail({
                       variant="ghost"
                       size="sm"
                       className="!px-1.5 !py-1 text-neutral-400 hover:text-red-700"
-                      title="Slett"
+                      title="Slett kommentaren"
+                      icon={<Trash2 className="h-3 w-3" aria-hidden />}
                       onClick={() => void onDelete(top.id)}
                     >
-                      <Trash2 className="h-3 w-3" aria-hidden />
+                      Slett
                     </Button>
                   ) : null}
                 </div>
