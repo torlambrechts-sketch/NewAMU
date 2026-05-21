@@ -29,6 +29,7 @@ import {
   ShieldAlert,
   ShieldCheck,
   Settings,
+  Star,
   UserCheck,
   UserSearch,
   Users,
@@ -1781,6 +1782,13 @@ export function AticsShell() {
       'module.view.tasks',
     ]
     const overviewFixedSubs: SubItem[] = [
+      {
+        label: 'Mine favoritter',
+        path: '/favoritter',
+        Icon: Star,
+        match: ({ pathname }) => pathname.startsWith('/favoritter'),
+        requirePermAny: overviewNavPerms,
+      },
       {
         label: 'HMS-oversikt',
         path: '/overview/hms',
