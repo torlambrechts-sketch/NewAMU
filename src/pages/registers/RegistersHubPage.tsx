@@ -11,6 +11,7 @@ import { useRegulationFilter } from '../../context/RegulationFilterContext'
 import { useRegisters } from '../../hooks/useRegisters'
 import { ModulePageShell, ModuleSectionCard } from '../../components/module'
 import { Badge } from '../../components/ui/Badge'
+import { FavoriteToggle } from '../../components/favorites/FavoriteToggle'
 
 const UNCAT_KEY = '__uncat__'
 
@@ -97,12 +98,19 @@ export function RegistersHubPage() {
               </div>
               <ul className="mt-4 grid gap-3 md:grid-cols-2 lg:grid-cols-3">
                 {bucket.types.map((t) => (
-                  <li key={t.id}>
+                  <li key={t.id} className="relative">
+                    <FavoriteToggle
+                      kind="register"
+                      templateRef={t.id}
+                      templateName={t.resolvedName}
+                      size="sm"
+                      className="absolute right-1.5 top-1.5 z-10 bg-white/90"
+                    />
                     <Link
                       to={`/registers/${encodeURIComponent(t.id)}`}
                       className="group flex h-full flex-col gap-2 rounded-lg border border-neutral-200/80 bg-white p-4 transition-colors hover:border-[#1a3d32] hover:bg-[#1a3d32]/[0.02]"
                     >
-                      <div className="flex items-start justify-between gap-2">
+                      <div className="flex items-start justify-between gap-2 pr-6">
                         <div className="flex items-center gap-2">
                           <Database className="h-4 w-4 text-[#1a3d32]" aria-hidden />
                           <p className="text-sm font-semibold text-neutral-900">

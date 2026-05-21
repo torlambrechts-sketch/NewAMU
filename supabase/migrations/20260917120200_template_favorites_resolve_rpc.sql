@@ -47,9 +47,11 @@ as $$
       when 'survey' then (
         select name from public.survey_template_catalog
         where id = f.template_ref)
-      when 'document' then (
-        select label from public.document_system_templates
-        where id = f.template_ref)
+      when 'document' then coalesce(
+        (select label from public.document_system_templates
+         where id = f.template_ref),
+        (select label from public.document_org_templates
+         where id = f.template_ref and organization_id = f.organization_id))
       when 'register' then (
         select name from public.register_types
         where id = f.template_ref)
@@ -63,9 +65,11 @@ as $$
       when 'task' then (
         select name from public.task_template_catalog
         where id::text = f.template_ref)
-      when 'meeting' then (
-        select label from public.meeting_system_templates
-        where id = f.template_ref)
+      when 'meeting' then coalesce(
+        (select label from public.meeting_system_templates
+         where id = f.template_ref),
+        (select name from public.meeting_org_templates
+         where id::text = f.template_ref and organization_id = f.organization_id))
       else null
     end as title
   ) t on true
