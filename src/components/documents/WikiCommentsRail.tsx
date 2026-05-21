@@ -1,6 +1,6 @@
 /* eslint-disable no-restricted-syntax -- filter pills are intentionally styled native buttons */
 import { useMemo, useState } from 'react'
-import { ArrowUp, Check, CheckCheck, ListPlus, MessageSquare, RotateCcw, Trash2 } from 'lucide-react'
+import { ArrowUp, Check, ListPlus, MessageSquare, RotateCcw, Trash2 } from 'lucide-react'
 import { ModuleSectionCard } from '../module/ModuleSectionCard'
 import { StandardTextarea } from '../ui/Textarea'
 import { Button } from '../ui/Button'
@@ -62,7 +62,6 @@ export function WikiCommentsRail({
   onResolve,
   onDelete,
   onSuggestion,
-  onAcknowledge,
   pendingQuote,
   onClearQuote,
 }: {
@@ -75,8 +74,6 @@ export function WikiCommentsRail({
   onDelete: (commentId: string) => Promise<void> | void
   /** Accept / reject a `suggestion`-kind comment (Rec06 track-changes). */
   onSuggestion?: (commentId: string, decision: 'accepted' | 'rejected') => Promise<void> | void
-  /** Mark a comment as acknowledged — logs a lifecycle event. */
-  onAcknowledge?: (commentId: string) => Promise<void> | void
   /** Text selected in the document — the new comment will anchor to it. */
   pendingQuote?: string | null
   onClearQuote?: () => void
@@ -269,75 +266,55 @@ export function WikiCommentsRail({
                 ) : null}
               </div>
 
-              <div className="border-t border-neutral-100 bg-neutral-50/60 px-3 py-2">
-                <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-neutral-400">
-                  {replies.length + 1} innlegg · handlinger
-                </p>
-                <div className="flex flex-wrap gap-1.5">
-                  {canComment && replyOpen !== top.id ? (
-                    <Button
-                      variant="secondary"
-                      size="sm"
-                      className="!px-2 !py-1 !text-[11px]"
-                      icon={<ArrowUp className="h-3 w-3" aria-hidden />}
-                      onClick={() => {
-                        setReplyOpen(top.id)
-                        setReplyText('')
-                      }}
-                    >
-                      Svar
-                    </Button>
-                  ) : null}
-                  {onAcknowledge ? (
-                    <Button
-                      variant="secondary"
-                      size="sm"
-                      className="!px-2 !py-1 !text-[11px]"
-                      icon={<CheckCheck className="h-3 w-3" aria-hidden />}
-                      title="Bekreft kommentaren"
-                      onClick={() => void onAcknowledge(top.id)}
-                    >
-                      Bekreft
-                    </Button>
-                  ) : null}
-                  <AddTaskLink
-                    className="inline-flex items-center gap-1 rounded-md border border-neutral-300 bg-white px-2 py-1 text-[11px] font-semibold text-neutral-700 hover:bg-neutral-50"
-                    title={`Følg opp kommentar: ${top.body.slice(0, 60)}`}
-                    description={top.body}
-                    sourceId={top.id}
-                    sourceLabel="Kommentar"
-                  >
-                    <ListPlus className="h-3 w-3" aria-hidden />
-                    Lag oppgave
-                  </AddTaskLink>
+              <div className="flex flex-wrap items-center gap-2 border-t border-neutral-200 bg-neutral-50 px-3 py-3">
+                {canComment && replyOpen !== top.id ? (
                   <Button
                     variant="secondary"
                     size="sm"
-                    className="!px-2 !py-1 !text-[11px]"
-                    icon={
-                      top.resolved ? (
-                        <RotateCcw className="h-3 w-3" aria-hidden />
-                      ) : (
-                        <Check className="h-3 w-3" aria-hidden />
-                      )
-                    }
-                    onClick={() => void onResolve(top.id, !top.resolved)}
+                    icon={<ArrowUp className="h-3.5 w-3.5" aria-hidden />}
+                    onClick={() => {
+                      setReplyOpen(top.id)
+                      setReplyText('')
+                    }}
                   >
-                    {top.resolved ? 'Gjenåpne' : 'Løs'}
+                    Svar
                   </Button>
-                  {!top.isConfidential ? (
-                    <Button
-                      variant="secondary"
-                      size="sm"
-                      className="!px-2 !py-1 !text-[11px] !text-red-700"
-                      title="Slett kommentaren"
-                      icon={<Trash2 className="h-3 w-3" aria-hidden />}
-                      onClick={() => void onDelete(top.id)}
-                    >
-                      Slett
-                    </Button>
-                  ) : null}
-                </div>
+                ) : null}
+                <AddTaskLink
+                  className="inline-flex items-center gap-1.5 rounded-md border border-neutral-300 bg-white px-3 py-1.5 text-xs font-semibold text-neutral-700 hover:bg-neutral-50"
+                  title={`Følg opp kommentar: ${top.body.slice(0, 60)}`}
+                  description={top.body}
+                  sourceId={top.id}
+                  sourceLabel="Kommentar"
+                >
+                  <ListPlus className="h-3.5 w-3.5" aria-hidden />
+                  Lag oppgave
+                </AddTaskLink>
+                <Button
+                  variant={top.resolved ? 'secondary' : 'primary'}
+                  size="sm"
+                  icon={
+                    top.resolved ? (
+                      <RotateCcw className="h-3.5 w-3.5" aria-hidden />
+                    ) : (
+                      <Check className="h-3.5 w-3.5" aria-hidden />
+                    )
+                  }
+                  onClick={() => void onResolve(top.id, !top.resolved)}
+                >
+                  {top.resolved ? 'Gjenåpne' : 'Løs'}
+                </Button>
+                {!top.isConfidential ? (
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    className="!text-red-700"
+                    icon={<Trash2 className="h-3.5 w-3.5" aria-hidden />}
+                    onClick={() => void onDelete(top.id)}
+                  >
+                    Slett
+                  </Button>
+                ) : null}
               </div>
             </ModuleSectionCard>
           )

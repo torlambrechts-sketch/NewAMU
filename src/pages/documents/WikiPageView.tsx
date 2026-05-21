@@ -1002,10 +1002,6 @@ export function WikiPageView() {
                     if (c) await logCommentEvent({ id: c.id, pageId: c.pageId }, decision)
                     await setResolved(id, true)
                   }}
-                  onAcknowledge={async (id) => {
-                    const c = comments.find((x) => x.id === id)
-                    if (c) await logCommentEvent({ id: c.id, pageId: c.pageId }, 'acknowledged')
-                  }}
                 />
               ) : (
               <WikiMetaPanel
