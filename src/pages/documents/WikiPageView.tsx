@@ -9,8 +9,6 @@ import { WikiTocPanel } from '../../components/documents/WikiTocPanel'
 import { WikiMetaPanel } from '../../components/documents/WikiMetaPanel'
 import { WikiCommentsRail } from '../../components/documents/WikiCommentsRail'
 import { THREAD_COLORS, type CommentAnchorHighlight } from '../../lib/wikiCommentHighlights'
-import { WikiCommentEventLog } from '../../components/documents/WikiCommentEventLog'
-import { DocumentApprovalPipeline } from '../../components/documents/DocumentApprovalPipeline'
 import { RetentionBadge } from './RetentionBadge'
 import { WikiBlockRenderer } from './WikiBlockRenderer'
 import { AddTaskLink } from '../../components/tasks/AddTaskLink'
@@ -30,10 +28,7 @@ import { DOCUMENTS_MODULE_TITLE } from '../../data/documentsNav'
 import type { ContentBlock, HeadingBlock, PageStatus, WikiPage, WikiPageVersionSnapshot } from '../../types/documents'
 import { headingAnchorId } from '../../lib/wikiPageLinks'
 import { useTickingClock } from '../../lib/useTickingClock'
-import { DocumentAcknowledgementsPanel } from '../../components/documents/DocumentAcknowledgementsPanel'
-import { DocumentActivityTimeline } from '../../components/documents/DocumentActivityTimeline'
-import { DocumentAvvikChip, DocumentAvvikPanel } from '../../components/documents/DocumentAvvikPanel'
-import { DocumentReviewRequestPanel } from '../../components/documents/DocumentReviewRequestPanel'
+import { DocumentAvvikChip } from '../../components/documents/DocumentAvvikPanel'
 import { WikiVersionDiff } from '../../components/documents/WikiVersionDiff'
 import { useWikiPageAvvik } from '../../hooks/useWikiPageAvvik'
 import {
@@ -61,7 +56,7 @@ const STATUS_LABEL: Record<PageStatus, string> = {
   archived: 'Arkivert',
 }
 
-type DetailTab = 'informasjon' | 'innhold' | 'diskusjon' | 'versjoner' | 'visninger'
+type DetailTab = 'informasjon' | 'innhold' | 'versjoner' | 'visninger'
 
 function publishedPageToSnapshot(page: WikiPage): WikiPageVersionSnapshot {
   return {
@@ -89,7 +84,7 @@ export function WikiPageView() {
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
   const docs = useDocuments()
-  const { can, user, profile, members, supabase, organization, isAdmin, orgProfiles, permissionKeys } =
+  const { can, user, profile, members, supabase, organization, isAdmin, orgProfiles } =
     useOrgSetupContext()
   const canEditDocs = canEditWikiDocuments(can, profile?.is_org_admin)
   const bypassFolderRbac = canBypassWikiFolderGrants(can, profile?.is_org_admin)
@@ -102,21 +97,13 @@ export function WikiPageView() {
     fetchPageBacklinks,
     fetchOrgPageViewCounts,
     wikiRetentionCategories,
-    wikiReviewRequests,
-    submitForReview,
-    approveReviewRequest,
-    requestReviewChanges,
     auditLedger,
   } = docs
-  const { comments, commentEvents, addComment, setResolved, removeComment, logCommentEvent } =
+  const { comments, addComment, setResolved, removeComment, logCommentEvent } =
     useWikiPageComments(pageId)
   const { isWide: readerWide, toggle: toggleReaderWide } = useReaderWidth()
-  const {
-    linked: linkedAvvik,
-    loading: avvikLoading,
-  } = useWikiPageAvvik(pageId)
+  const { linked: linkedAvvik } = useWikiPageAvvik(pageId)
   const openAvvikCount = useMemo(() => linkedAvvik.filter((a) => !a.closedAt).length, [linkedAvvik])
-  const canSeeConfidential = isAdmin || permissionKeys.has('alerts.committee')
   const resolveMemberName = useCallback(
     (uid: string) => orgProfiles.find((p) => p.id === uid)?.display_name ?? uid.slice(0, 8),
     [orgProfiles],
@@ -139,7 +126,9 @@ export function WikiPageView() {
     try { return (localStorage.getItem('wiki-font-size') as 'sm' | 'base' | 'lg') || 'base' } catch { return 'base' }
   })
   /** Which panel fills the viewer's right column — page meta or the comment rail. */
-  const [rightPanel, setRightPanel] = useState<'meta' | 'comments'>('meta')
+  const [rightPanel, setRightPanel] = useState<'meta' | 'comments'>(() =>
+    searchParams.get('comments') === '1' ? 'comments' : 'meta',
+  )
   /** Text selected in the document, pending a new anchored comment thread. */
   const [pendingQuote, setPendingQuote] = useState<string | null>(null)
 
@@ -272,7 +261,7 @@ export function WikiPageView() {
   const showViewsTab = Boolean(isAdmin || can('documents.manage'))
   const [activeTabExt, setActiveTabExt] = useState<DetailTab>(() => {
     const t = searchParams.get('tab')
-    if (t === 'informasjon' || t === 'innhold' || t === 'diskusjon' || t === 'versjoner' || t === 'visninger') return t
+    if (t === 'informasjon' || t === 'innhold' || t === 'versjoner' || t === 'visninger') return t
     return 'innhold'
   })
 
@@ -382,18 +371,10 @@ export function WikiPageView() {
     return () => obs.disconnect()
   }, [headingToc, activeTabExt])
 
-  const discussionCount = useMemo(
-    () => comments.filter((c) => !c.deletedAt && (!c.isConfidential || canSeeConfidential)).length,
-    [comments, canSeeConfidential],
-  )
   const tabItems = useMemo((): TabItem[] => {
     const base: TabItem[] = [
       { id: 'informasjon', label: 'Informasjon' },
       { id: 'innhold', label: 'Innhold' },
-      {
-        id: 'diskusjon',
-        label: discussionCount > 0 ? `Diskusjon (${discussionCount})` : 'Diskusjon',
-      },
       {
         id: 'versjoner',
         label: versionCount > 0 ? `Versjoner (${versionCount})` : 'Versjoner',
@@ -403,7 +384,7 @@ export function WikiPageView() {
       base.push({ id: 'visninger', label: 'Visninger' })
     }
     return base
-  }, [versionCount, showViewsTab, discussionCount])
+  }, [versionCount, showViewsTab])
 
   if (!pageId) {
     return (
@@ -1012,101 +993,6 @@ export function WikiPageView() {
               )}
             </div>
           ) : null}
-        </div>
-      )}
-
-      {activeTabExt === 'diskusjon' && (
-        <div className="space-y-6">
-          <InfoBox>
-            <strong>Slik bruker du diskusjon:</strong> bytt til <em>Innhold</em> for å kommentere en bestemt blokk,
-            bruk <strong>@</strong> for å varsle en kollega, og merk innlegget som <em>Forslag</em>,{' '}
-            <em>Avvik</em> eller <em>Varsling</em> etter hva som passer. Konfidensiell varsling følger AML § 2A —
-            append-only, og synlig kun for deg, organisasjonsadmin og varslingsutvalget.
-          </InfoBox>
-
-          <ModuleSectionCard className="p-5 md:p-6">
-            <h2 className="text-lg font-semibold text-neutral-900">Godkjenningsløype</h2>
-            <p className="mt-1.5 text-sm text-neutral-600">
-              Kladd → gjennomgang → godkjenning → publisering. Steget oppdateres etter dokumentets
-              status og siste godkjenningsforespørsel.
-            </p>
-            <div className="mt-6">
-              <DocumentApprovalPipeline page={page} requests={wikiReviewRequests} />
-            </div>
-          </ModuleSectionCard>
-
-          <ModuleSectionCard className="p-5 md:p-6">
-            <h2 className="text-lg font-semibold text-neutral-900">Forespørsel om godkjenning</h2>
-            <p className="mt-1.5 text-sm text-neutral-600">
-              Når dokumentet krever godkjenning før publisering, vises forespørselen her.
-            </p>
-            <div className="mt-5">
-              <DocumentReviewRequestPanel
-                page={page}
-                requests={wikiReviewRequests}
-                currentUserId={user?.id}
-                reviewerName={page.reviewerId ? resolveMemberName(page.reviewerId) : undefined}
-                onSubmitForReview={submitForReview}
-                onApprove={approveReviewRequest}
-                onRequestChanges={requestReviewChanges}
-              />
-            </div>
-          </ModuleSectionCard>
-
-          <ModuleSectionCard className="p-5 md:p-6">
-            <h2 className="text-lg font-semibold text-neutral-900">Avvik knyttet til dokumentet</h2>
-            <p className="mt-1.5 text-sm text-neutral-600">
-              Når noen melder et avvik fra dette dokumentet (eller forfatter forslår et høy-/kritisk-alvorlig avvik
-              i en kommentar), dukker det opp her — og i avvik-modulen.
-            </p>
-            <div className="mt-5">
-              <DocumentAvvikPanel linked={linkedAvvik} loading={avvikLoading} />
-            </div>
-          </ModuleSectionCard>
-
-          {page.requiresAcknowledgement ? (
-            <ModuleSectionCard className="p-5 md:p-6">
-              <h2 className="text-lg font-semibold text-neutral-900">Signaturer</h2>
-              <p className="mt-1.5 text-sm text-neutral-600">
-                Hvem i målgruppen har signert «Lest og forstått» for nåværende versjon.
-              </p>
-              <div className="mt-5">
-                <DocumentAcknowledgementsPanel page={page} receipts={docs.receipts} />
-              </div>
-            </ModuleSectionCard>
-          ) : null}
-
-          <ModuleSectionCard className="p-5 md:p-6">
-            <h2 className="text-lg font-semibold text-neutral-900">Sporing av endringer</h2>
-            <p className="mt-1.5 text-sm text-neutral-600">
-              Hver gang en kommentar eller et forslag løses, gjenåpnes eller slettes, logges det her —
-              en sporbar endringshistorikk for tilsyn.
-            </p>
-            <div className="mt-5">
-              <WikiCommentEventLog events={commentEvents} />
-            </div>
-          </ModuleSectionCard>
-
-          <ModuleSectionCard className="p-5 md:p-6">
-            <h2 className="text-lg font-semibold text-neutral-900">Aktivitet</h2>
-            <p className="mt-1.5 text-sm text-neutral-600">
-              Sporbar tidslinje for revisjon — opprettelse, publisering, godkjenninger og signaturer.
-            </p>
-            <div className="mt-5">
-              <DocumentActivityTimeline
-                pageId={page.id}
-                entries={auditLedger}
-                resolveUserName={resolveMemberName}
-                onCompareVersion={(fromVersion) => {
-                  const snap = versions.find((v) => v.version === fromVersion)
-                  if (snap) {
-                    setDiffVersion(snap)
-                    setActiveTabExt('versjoner')
-                  }
-                }}
-              />
-            </div>
-          </ModuleSectionCard>
         </div>
       )}
 

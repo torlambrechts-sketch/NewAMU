@@ -52,23 +52,27 @@ export function WikiPageReferenceEditor() {
   const space = page ? docs.spaces.find((s) => s.id === page.spaceId) : null
 
   const [html, setHtml] = useState<string>('<p></p>')
-  const [hydrated, setHydrated] = useState(false)
   const [saveState, setSaveState] = useState<SaveState>('saved')
   const [busy, setBusy] = useState(false)
   const [actionError, setActionError] = useState<string | null>(null)
   const saveTimer = useRef<number | null>(null)
+  const lastHydrated = useRef<string | null>(null)
 
   useEffect(() => {
     if (pageId) void docs.ensurePageLoaded(pageId)
   }, [docs, pageId])
 
-  // Hydrate the editor once the page is loaded.
+  // Hydrate the editor from the page body. Re-runs whenever the page object
+  // changes — so a stub page (empty blocks before ensurePageLoaded resolves)
+  // is replaced by the real content once it loads. Never clobbers unsaved
+  // local edits.
   useEffect(() => {
-    if (page && !hydrated) {
-      setHtml(firstTextHtml(page.blocks))
-      setHydrated(true)
-    }
-  }, [page, hydrated])
+    if (!page || saveState === 'dirty' || saveState === 'saving') return
+    const next = firstTextHtml(page.blocks)
+    if (next === lastHydrated.current) return
+    lastHydrated.current = next
+    setHtml(next)
+  }, [page, saveState])
 
   const wikiLinkPages = useMemo(
     () => docs.pages.map((p) => ({ id: p.id, title: p.title })),
@@ -183,7 +187,7 @@ export function WikiPageReferenceEditor() {
           <Button
             variant="secondary"
             icon={<MessageSquare className="h-4 w-4" aria-hidden />}
-            onClick={() => navigate(`/documents/page/${page.id}?tab=diskusjon`)}
+            onClick={() => navigate(`/documents/page/${page.id}?comments=1`)}
           >
             Kommentar
           </Button>
@@ -196,7 +200,7 @@ export function WikiPageReferenceEditor() {
               setBusy(true)
               try {
                 await docs.submitForReview(page.id)
-                navigate(`/documents/page/${page.id}?tab=diskusjon`)
+                navigate(`/documents/page/${page.id}?comments=1`)
               } catch (e) {
                 setActionError(e instanceof Error ? e.message : 'Kunne ikke sende til godkjenning.')
               } finally {
