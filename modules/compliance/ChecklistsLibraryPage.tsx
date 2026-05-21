@@ -5,9 +5,8 @@
 //   • Roller   — sub-tabs per category; context card shows category info
 //   • Alle     — two-column grid: all templates + all executions
 //
-// Each lens shows "Maler å starte fra" alongside "Nylig aktivitet".
-// "Se alle" links navigate to /maler (template library) and /aktivitet
-// (execution log).
+// Matches the design's LensHeader pattern: white header with border-bottom,
+// serif h1, eyebrow label, sub-tabs with counts.
 
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
@@ -17,6 +16,7 @@ import {
   LayoutGrid,
   Plus,
   Scale,
+  User,
   Users,
 } from 'lucide-react'
 import { Badge } from '../../src/components/ui/Badge'
@@ -38,6 +38,8 @@ const STATUS_BADGE = {
   active: 'active',
   signed: 'signed',
 } as const
+
+const SERIF = "'Libre Baskerville', 'Source Serif 4', Georgia, serif"
 
 // Compact inline dropdown filter chip
 function MiniFilter({
@@ -73,10 +75,7 @@ function MiniFilter({
           <div className="fixed inset-0 z-20" onClick={() => setOpen(false)} />
           <div className="absolute left-0 top-7 z-30 min-w-[160px] rounded-lg border border-neutral-200 bg-white py-1 shadow-lg">
             <button
-              onClick={() => {
-                onChange(null)
-                setOpen(false)
-              }}
+              onClick={() => { onChange(null); setOpen(false) }}
               className={`block w-full px-3 py-1.5 text-left text-sm hover:bg-neutral-50 ${!value ? 'font-semibold text-neutral-900' : 'text-neutral-700'}`}
             >
               Alle
@@ -84,10 +83,7 @@ function MiniFilter({
             {options.map((o) => (
               <button
                 key={o.id}
-                onClick={() => {
-                  onChange(o.id)
-                  setOpen(false)
-                }}
+                onClick={() => { onChange(o.id); setOpen(false) }}
                 className={`block w-full px-3 py-1.5 text-left text-sm hover:bg-neutral-50 ${
                   value === o.id ? 'font-semibold text-[#1a3d32]' : 'text-neutral-700'
                 }`}
@@ -115,10 +111,10 @@ function TemplateCard({
   return (
     <button
       onClick={onClick}
-      className="group w-full rounded-lg border border-neutral-200 bg-white p-3 text-left shadow-sm transition-colors hover:border-[#1a3d32]/40 hover:bg-neutral-50"
+      className="group w-full rounded-xl border border-neutral-200 bg-white p-3.5 text-left shadow-sm transition-colors hover:border-[#1a3d32]/30 hover:shadow-md"
     >
       <div className="flex items-start justify-between gap-2">
-        <span className="text-sm font-semibold leading-tight text-neutral-900 group-hover:text-[#1a3d32]">
+        <span className="text-[13px] font-semibold leading-snug text-neutral-900 group-hover:text-[#1a3d32]">
           {template.name}
         </span>
         {template.review_status === 'approved' && (
@@ -142,7 +138,7 @@ function TemplateCard({
   )
 }
 
-// Single activity/execution row
+// Single activity/execution row (feed style from design)
 function ActivityRow({
   execution,
   templateName,
@@ -160,26 +156,33 @@ function ActivityRow({
     .join('')
     .toUpperCase()
 
+  const statusIcon =
+    execution.status === 'signed'
+      ? { bg: 'bg-emerald-100', fg: 'text-emerald-600' }
+      : execution.status === 'active'
+        ? { bg: 'bg-[#e8f0ec]', fg: 'text-[#1a3d32]' }
+        : { bg: 'bg-neutral-100', fg: 'text-neutral-500' }
+
   return (
     <button
       onClick={() => navigate(`/compliance/checklists/${execution.id}`)}
-      className="flex w-full items-start gap-2.5 border-t border-neutral-100 px-4 py-2.5 text-left transition-colors hover:bg-neutral-50 first:border-t-0"
+      className="flex w-full items-start gap-3 border-t border-neutral-100 px-4 py-3 text-left transition-colors hover:bg-neutral-50 first:border-t-0"
     >
-      <div className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[#1a3d32] text-[10px] font-bold text-white">
+      <div
+        className={`mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[10px] font-bold ${statusIcon.bg} ${statusIcon.fg}`}
+      >
         {initials || '??'}
       </div>
       <div className="min-w-0 flex-1">
-        <p className="text-sm leading-snug text-neutral-800">
+        <p className="text-[13px] leading-snug">
           <span className="font-medium text-neutral-900">{execution.title}</span>
           {templateName ? (
-            <span className="text-neutral-600"> · {templateName}</span>
+            <span className="text-neutral-500"> · {templateName}</span>
           ) : null}
         </p>
         <p className="mt-0.5 text-xs text-neutral-500">
           {categoryName ? `${categoryName} · ` : ''}
-          {new Date(execution.updated_at).toLocaleDateString('nb-NO', {
-            dateStyle: 'short',
-          })}
+          {new Date(execution.updated_at).toLocaleDateString('nb-NO', { dateStyle: 'short' })}
         </p>
       </div>
       <Badge variant={STATUS_BADGE[execution.status] ?? 'neutral'}>
@@ -219,19 +222,44 @@ export function ChecklistsLibraryPage() {
     setSearchParams(p, { replace: true })
   }
 
-  // Build sub-tabs list for the active lens
+  const categoryNameById = useMemo(
+    () => new Map(cl.categories.map((c) => [c.id, c.name])),
+    [cl.categories],
+  )
+  const templateById = useMemo(
+    () => new Map(cl.templates.map((t) => [t.id, t])),
+    [cl.templates],
+  )
+
+  // Build sub-tabs list for the active lens — each tab gets a count
   const tabs = useMemo(() => {
+    const activeTpls = cl.templates.filter((t) => t.is_active)
     if (lens === 'lovverk') {
-      return licensedPacks.map((p) => ({ id: p.slug, label: p.shortName }))
+      return licensedPacks.map((p) => ({
+        id: p.slug,
+        label: p.shortName,
+        count:
+          activeTpls.filter((t) => t.pack === p.slug).length +
+          cl.executions.filter((e) => e.pack === p.slug).length,
+      }))
     }
     if (lens === 'roller') {
       return cl.categories
         .filter((c) => c.is_active)
         .sort((a, b) => a.position - b.position || a.name.localeCompare(b.name, 'nb'))
-        .map((c) => ({ id: c.id, label: c.name }))
+        .map((c) => ({
+          id: c.id,
+          label: c.name,
+          count:
+            activeTpls.filter((t) => t.category_id === c.id).length +
+            cl.executions.filter((e) => {
+              const t = templateById.get(e.template_id)
+              return t?.category_id === c.id
+            }).length,
+        }))
     }
     return []
-  }, [lens, licensedPacks, cl.categories])
+  }, [lens, licensedPacks, cl.categories, cl.templates, cl.executions, templateById])
 
   const activeTab = tabs.find((t) => t.id === lensVal)?.id ?? tabs[0]?.id ?? null
 
@@ -244,15 +272,6 @@ export function ChecklistsLibraryPage() {
     lens === 'roller' && activeTab
       ? (cl.categories.find((c) => c.id === activeTab) ?? null)
       : null
-
-  const categoryNameById = useMemo(
-    () => new Map(cl.categories.map((c) => [c.id, c.name])),
-    [cl.categories],
-  )
-  const templateById = useMemo(
-    () => new Map(cl.templates.map((t) => [t.id, t])),
-    [cl.templates],
-  )
 
   // Filter templates for the active lens + value
   const filteredTemplates = useMemo(() => {
@@ -289,10 +308,10 @@ export function ChecklistsLibraryPage() {
         : 'Alle maler'
   const pageSubtitle =
     lens === 'lovverk'
-      ? 'Maler og aktivitet per lovverk og pakke'
+      ? 'Maler og aktivitet for valgt lovgrunnlag'
       : lens === 'roller'
-        ? 'Maler og aktivitet per rolle og kategori'
-        : 'Hele biblioteket med alle maler og aktivitet'
+        ? 'Maler og aktivitet for din rolle'
+        : 'Hele biblioteket med levende aktivitet'
 
   const TPL_FILTER_OPTS = [
     { id: 'approved', label: 'Offisiell' },
@@ -306,40 +325,41 @@ export function ChecklistsLibraryPage() {
   ]
 
   return (
-    <div className="min-h-screen bg-[#F9F7F2]">
-      {/* Page header */}
-      <header className="bg-[#F9F7F2]">
-        <div className="mx-auto max-w-[1400px] px-6 pb-0 pt-4 md:px-10">
-          {/* Breadcrumb + title + segmented control */}
-          <div className="flex flex-wrap items-start justify-between gap-4">
+    <div className="flex min-h-screen flex-col bg-[#F9F7F2]">
+      {/* ── LensHeader ── white, border-bottom, matches design */}
+      <header className="flex-shrink-0 border-b border-neutral-200 bg-white">
+        <div className="mx-auto max-w-[1400px] px-10 pb-0 pt-6">
+          {/* Eyebrow + title + segmented control */}
+          <div className="flex items-start justify-between gap-6">
             <div>
-              <nav className="flex items-center gap-1.5 text-xs text-neutral-500">
-                <Link to="/compliance/checklists" className="hover:text-neutral-700">
-                  Sjekklister
-                </Link>
-                <ChevronRight className="h-3 w-3" />
-                <span className="font-medium text-neutral-700">Bibliotek</span>
-              </nav>
-              <h1 className="mt-1 text-2xl font-bold tracking-tight text-neutral-900">
+              {/* Eyebrow "SJEKKLISTER · BIBLIOTEKET" */}
+              <p className="mb-1 text-[10px] font-bold uppercase tracking-widest text-neutral-500">
+                Sjekklister · biblioteket
+              </p>
+              {/* Serif h1 */}
+              <h1
+                className="text-3xl font-bold leading-tight text-neutral-900"
+                style={{ fontFamily: SERIF }}
+              >
                 {pageTitle}
               </h1>
-              <p className="mt-0.5 text-sm text-neutral-600">{pageSubtitle}</p>
+              <p className="mt-1 text-[13px] text-neutral-600">{pageSubtitle}</p>
             </div>
 
-            <div className="flex items-center gap-3">
-              {/* Tri-mode segmented control */}
-              <div className="inline-flex rounded-lg bg-neutral-100 p-1 gap-0.5">
+            {/* Tri-mode segmented control */}
+            <div className="mt-1 flex shrink-0 items-center gap-3">
+              <div className="inline-flex rounded-lg bg-neutral-100 p-[3px] gap-0.5">
                 {(
                   [
                     { id: 'lovverk', label: 'Lovverk', LucideIcon: Scale },
-                    { id: 'roller', label: 'Roller', LucideIcon: Users },
+                    { id: 'roller', label: 'Rolle', LucideIcon: Users },
                     { id: 'alle', label: 'Alle', LucideIcon: LayoutGrid },
                   ] as const
                 ).map((m) => (
                   <button
                     key={m.id}
                     onClick={() => setLens(m.id)}
-                    className={`inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-semibold transition-all ${
+                    className={`inline-flex items-center gap-1.5 rounded-md px-3.5 py-[7px] text-xs font-semibold transition-all ${
                       lens === m.id
                         ? 'bg-white text-neutral-900 shadow-sm'
                         : 'text-neutral-600 hover:text-neutral-800'
@@ -364,18 +384,30 @@ export function ChecklistsLibraryPage() {
 
           {/* Sub-tabs (hidden in 'alle' lens) */}
           {tabs.length > 0 && (
-            <div className="mt-3 flex gap-0 overflow-x-auto border-b border-neutral-200">
+            <div className="mt-4 flex gap-0 overflow-x-auto">
               {tabs.map((tab) => (
                 <button
                   key={tab.id}
                   onClick={() => setLensVal(tab.id)}
-                  className={`flex-shrink-0 border-b-2 px-4 py-2.5 text-sm font-medium whitespace-nowrap transition-colors ${
+                  className={`flex-shrink-0 border-b-2 px-[18px] py-2.5 text-[13px] font-medium whitespace-nowrap transition-colors ${
                     activeTab === tab.id
                       ? 'border-[#1a3d32] text-neutral-900'
-                      : 'border-transparent text-neutral-500 hover:border-neutral-200 hover:text-neutral-700'
+                      : 'border-transparent text-neutral-600 hover:border-neutral-200 hover:text-neutral-700'
                   }`}
                 >
-                  {tab.label}
+                  <span
+                    style={{
+                      fontFamily: lens === 'lovverk' ? SERIF : undefined,
+                      fontWeight: 700,
+                    }}
+                  >
+                    {tab.label}
+                  </span>
+                  {tab.count > 0 && (
+                    <span className="ml-2 tabular-nums text-[12px] text-neutral-500">
+                      {tab.count}
+                    </span>
+                  )}
                 </button>
               ))}
             </div>
@@ -384,35 +416,33 @@ export function ChecklistsLibraryPage() {
       </header>
 
       {/* Body */}
-      <div className="mx-auto max-w-[1400px] px-6 py-6 md:px-10">
+      <div className="mx-auto w-full max-w-[1400px] px-10 py-6">
         <div
           className={`grid gap-6 ${
-            hasContextCard
-              ? 'lg:grid-cols-[240px_1fr_1fr]'
-              : 'lg:grid-cols-2'
+            hasContextCard ? 'lg:grid-cols-[240px_1fr_1fr]' : 'lg:grid-cols-2'
           }`}
         >
-          {/* Context card — only in pakke/kategori mode when a tab is active */}
+          {/* Context card — only in lovverk/roller mode when a tab is active */}
           {hasContextCard && (
             <div className="lg:sticky lg:top-6 lg:self-start">
-              <div className="rounded-xl border border-neutral-200 bg-white p-4 shadow-sm">
+              <div className="rounded-xl border border-neutral-200 bg-white p-5 shadow-sm">
                 {activePack && (
                   <>
-                    <div className="mb-1 font-serif text-2xl font-bold text-[#1a3d32]">
+                    <div
+                      className="mb-1 text-[26px] font-bold leading-none text-[#1a3d32]"
+                      style={{ fontFamily: SERIF }}
+                    >
                       {activePack.shortName}
                     </div>
-                    <div className="mb-3 text-sm font-semibold text-neutral-800">
+                    <div className="mb-3 text-[13px] font-semibold text-neutral-800">
                       {activePack.pluralLabel}
                     </div>
-                    <p className="text-xs leading-relaxed text-neutral-600">
-                      {activePack.description}
-                    </p>
                     {activePack.legalReferences.length > 0 && (
-                      <div className="mt-3">
-                        <div className="mb-1.5 text-[10px] font-bold uppercase tracking-wide text-neutral-500">
-                          Sentrale referanser
+                      <div className="mb-3">
+                        <div className="mb-2 text-[10px] font-bold uppercase tracking-widest text-neutral-500">
+                          Sentrale paragrafer
                         </div>
-                        {activePack.legalReferences.slice(0, 4).map((ref, i) => (
+                        {activePack.legalReferences.slice(0, 5).map((ref, i) => (
                           <div
                             key={i}
                             className="border-t border-neutral-100 py-1.5 text-xs text-neutral-700 first:border-t-0"
@@ -422,38 +452,59 @@ export function ChecklistsLibraryPage() {
                         ))}
                       </div>
                     )}
+                    {activePack.description && (
+                      <p className="text-xs leading-relaxed text-neutral-600">
+                        {activePack.description}
+                      </p>
+                    )}
                   </>
                 )}
                 {activeCat && (
                   <>
-                    <div className="mb-1 text-lg font-bold text-neutral-900">
-                      {activeCat.name}
+                    <div className="mb-3 flex items-center gap-3">
+                      <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-[#e8f0ec] text-[#1a3d32]">
+                        <User className="h-5 w-5" />
+                      </div>
+                      <div>
+                        <div
+                          className="text-[17px] font-semibold text-neutral-900"
+                          style={{ fontFamily: SERIF }}
+                        >
+                          {activeCat.name}
+                        </div>
+                        {activeCat.description ? (
+                          <p className="text-xs text-neutral-500">{activeCat.description}</p>
+                        ) : null}
+                      </div>
                     </div>
-                    {activeCat.description ? (
-                      <p className="text-xs leading-relaxed text-neutral-600">
-                        {activeCat.description}
-                      </p>
-                    ) : null}
-                    <div className="mt-2">
-                      <Badge variant="neutral">{activeCat.pack.toUpperCase()}</Badge>
+                    <div className="mb-2 text-[10px] font-bold uppercase tracking-widest text-neutral-500">
+                      Hovedoppgaver
                     </div>
+                    {['Daglige runder', 'Avviksmelding', 'Følge opp tiltak'].map((task, i) => (
+                      <div
+                        key={i}
+                        className="border-t border-neutral-100 py-1.5 text-xs text-neutral-700 first:border-t-0"
+                      >
+                        {task}
+                      </div>
+                    ))}
                   </>
                 )}
                 {/* Stats */}
-                <div className="mt-4 flex gap-4 border-t border-neutral-100 pt-4">
+                <div className="mt-4 flex gap-6 border-t border-neutral-100 pt-4">
                   <div>
-                    <div className="text-[10px] font-bold uppercase tracking-wide text-neutral-500">
+                    <div className="text-[10px] font-bold uppercase tracking-widest text-neutral-500">
                       Maler
                     </div>
-                    <div className="text-xl font-bold tabular-nums text-neutral-900">
+                    <div className="text-[17px] font-bold tabular-nums text-neutral-900">
                       {filteredTemplates.length}
                     </div>
                   </div>
                   <div>
-                    <div className="text-[10px] font-bold uppercase tracking-wide text-neutral-500">
-                      Aktivitet
+                    <div className="text-[10px] font-bold uppercase tracking-widest text-neutral-500">
+                      Aktivitet 7d
                     </div>
-                    <div className="text-xl font-bold tabular-nums text-[#1a3d32]">
+                    <div className="text-[17px] font-bold tabular-nums text-[#1a3d32]">
                       {filteredExecutions.length}
                     </div>
                   </div>
@@ -464,8 +515,8 @@ export function ChecklistsLibraryPage() {
 
           {/* Templates column */}
           <div>
-            <div className="mb-2 flex items-baseline justify-between">
-              <h2 className="text-base font-semibold text-neutral-900">Maler å starte fra</h2>
+            <div className="mb-3 flex items-baseline justify-between">
+              <h2 className="text-[15px] font-semibold text-neutral-900">Maler å starte fra</h2>
               <Link
                 to="/compliance/checklists/maler"
                 className="text-xs font-semibold text-[#1a3d32] hover:underline"
@@ -475,7 +526,7 @@ export function ChecklistsLibraryPage() {
             </div>
 
             {/* Inline filter chips */}
-            <div className="mb-3 flex flex-wrap items-center gap-2">
+            <div className="mb-3 flex flex-wrap items-center gap-1.5">
               <MiniFilter
                 label="Status"
                 value={tplStatus}
@@ -511,7 +562,7 @@ export function ChecklistsLibraryPage() {
                 />
               ))}
               {filteredTemplates.length === 0 && (
-                <div className="rounded-lg border border-dashed border-neutral-200 bg-white px-4 py-8 text-center text-sm text-neutral-500">
+                <div className="rounded-xl border border-dashed border-neutral-200 bg-white px-4 py-8 text-center text-sm text-neutral-500">
                   Ingen maler matcher filtrene.
                 </div>
               )}
@@ -520,8 +571,8 @@ export function ChecklistsLibraryPage() {
 
           {/* Activity/Executions column */}
           <div>
-            <div className="mb-2 flex items-baseline justify-between">
-              <h2 className="text-base font-semibold text-neutral-900">Nylig aktivitet</h2>
+            <div className="mb-3 flex items-baseline justify-between">
+              <h2 className="text-[15px] font-semibold text-neutral-900">Nylig aktivitet</h2>
               <Link
                 to="/compliance/checklists/aktivitet"
                 className="text-xs font-semibold text-[#1a3d32] hover:underline"
@@ -531,7 +582,7 @@ export function ChecklistsLibraryPage() {
             </div>
 
             {/* Inline filter chips */}
-            <div className="mb-3 flex flex-wrap items-center gap-2">
+            <div className="mb-3 flex flex-wrap items-center gap-1.5">
               <MiniFilter
                 label="Status"
                 value={actStatus}
@@ -551,7 +602,7 @@ export function ChecklistsLibraryPage() {
               </span>
             </div>
 
-            <div className="rounded-xl border border-neutral-200 bg-white shadow-sm">
+            <div className="overflow-hidden rounded-xl border border-neutral-200 bg-white shadow-sm">
               {filteredExecutions.slice(0, 8).map((e) => {
                 const tpl = templateById.get(e.template_id)
                 const catId = tpl?.category_id ?? null
