@@ -14,11 +14,15 @@
 -- by `provision_favorite_defaults_for_user` — wrong/renamed keys degrade
 -- gracefully rather than breaking provisioning.
 --
+-- Role keys map to role_definitions.slug (see favorite_role_keys_for_user):
+-- a user holding the 'verneombud' role gets the verneombud set, an org admin
+-- gets the admin set, everyone gets 'ansatt'. The 'leder' set is seeded ahead
+-- of demand — it activates automatically if an org adds a 'leder' role.
+--
 -- Self-audit (Arbeidstilsynet POV): a verneombud now opens the product with
 -- vernerunde, psykososial pulsmåling, stoffkartotek and avvik already at hand
 -- (AML § 6-1 / IK-f § 5) instead of hunting the catalogue. Restrisiko
--- deferred: roles beyond the four resolvable keys (e.g. personvernombud,
--- BHT) get only the 'ansatt' baseline until richer role data exists.
+-- deferred: roles with no matching preset set get only the 'ansatt' baseline.
 
 set local search_path = public, pg_catalog;
 
@@ -124,26 +128,6 @@ drop trigger if exists profiles_favorite_provision_tg on public.profiles;
 create trigger profiles_favorite_provision_tg
   after update of organization_id on public.profiles
   for each row execute function public.template_favorites_provision_on_org_join();
-
--- User added to the AMU → re-resolve (they may now count as verneombud/leder).
-create or replace function public.template_favorites_provision_on_amu()
-returns trigger
-language plpgsql
-security definer
-set search_path = public, pg_catalog
-as $$
-begin
-  if new.user_id is not null then
-    perform public.provision_favorite_defaults_for_user(new.user_id, new.organization_id);
-  end if;
-  return new;
-end;
-$$;
-
-drop trigger if exists amu_members_favorite_provision_tg on public.amu_members;
-create trigger amu_members_favorite_provision_tg
-  after insert on public.amu_members
-  for each row execute function public.template_favorites_provision_on_amu();
 
 -- ───────────────────────────────────────────────────────────────────────────
 -- 3. Backfill existing users

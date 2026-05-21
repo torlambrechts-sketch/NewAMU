@@ -92,10 +92,9 @@ grant select, insert, update, delete on public.template_favorites to authenticat
 -- ───────────────────────────────────────────────────────────────────────────
 -- 2. template_favorite_role_presets — the role-based starter lists
 -- ───────────────────────────────────────────────────────────────────────────
--- role_key is the conceptual role, NOT a role_definitions.slug — orgs only
--- seed 'admin'/'member' as real role rows, while 'verneombud'/'leder' are
--- derived from AMU membership. `favorite_role_keys_for_user` is the single
--- place that maps a user to this enumeration.
+-- role_key matches a role_definitions.slug ('verneombud', 'admin', …) plus
+-- the synthetic 'ansatt' every user gets. `favorite_role_keys_for_user` is
+-- the single place that maps a user to this set.
 create table if not exists public.template_favorite_role_presets (
   id            uuid primary key default gen_random_uuid(),
   role_key      text not null check (role_key in
@@ -119,11 +118,13 @@ create policy template_favorite_role_presets_read
 grant select on public.template_favorite_role_presets to authenticated;
 
 -- ───────────────────────────────────────────────────────────────────────────
--- 3. favorite_role_keys_for_user — map a user to conceptual role keys
+-- 3. favorite_role_keys_for_user — map a user to role keys
 -- ───────────────────────────────────────────────────────────────────────────
--- Best-effort and additive: 'ansatt' for everyone, plus whatever the org's
--- data supports. AMU employee-side membership is the closest stable proxy
--- for verneombud / vernetjeneste; leader / deputy_leader for 'leder'.
+-- Returns 'ansatt' (everyone) plus every role slug the user actually holds
+-- through user_roles. A preset applies only when its role_key matches one of
+-- these, so granting an org role (e.g. 'verneombud') automatically activates
+-- that role's preset set with no code change. The org-admin bootstrap flag on
+-- profiles counts as the 'admin' role even without an explicit user_roles row.
 create or replace function public.favorite_role_keys_for_user(p_user uuid, p_org uuid)
 returns text[]
 language sql
@@ -138,23 +139,12 @@ as $$
       select 'admin' where exists (
         select 1 from public.profiles pr
         where pr.id = p_user and pr.organization_id = p_org and pr.is_org_admin
-      ) or exists (
-        select 1 from public.user_roles ur
-        join public.role_definitions rd on rd.id = ur.role_id
-        where ur.user_id = p_user and rd.organization_id = p_org and rd.slug = 'admin'
       )
       union all
-      select 'verneombud' where exists (
-        select 1 from public.amu_members m
-        where m.user_id = p_user and m.organization_id = p_org
-          and m.active and m.side = 'employee'
-      )
-      union all
-      select 'leder' where exists (
-        select 1 from public.amu_members m
-        where m.user_id = p_user and m.organization_id = p_org
-          and m.active and m.role in ('leader','deputy_leader')
-      )
+      select rd.slug
+      from public.user_roles ur
+      join public.role_definitions rd on rd.id = ur.role_id
+      where ur.user_id = p_user and rd.organization_id = p_org
     ) roles
   );
 $$;
