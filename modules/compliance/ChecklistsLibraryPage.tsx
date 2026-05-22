@@ -9,8 +9,9 @@
 // serif h1, eyebrow label, sub-tabs with counts.
 
 import { useEffect, useMemo, useState } from 'react'
-import { Link, useNavigate, useSearchParams } from 'react-router-dom'
+import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import {
+  BarChart3,
   ChevronRight,
   ClipboardList,
   LayoutGrid,
@@ -18,6 +19,7 @@ import {
   Scale,
   User,
   Users,
+  Wrench,
 } from 'lucide-react'
 import { Badge } from '../../src/components/ui/Badge'
 import { Button } from '../../src/components/ui/Button'
@@ -197,6 +199,7 @@ export function ChecklistsLibraryPage() {
   const lens = (searchParams.get('lens') as Lens) ?? 'lovverk'
   const lensVal = searchParams.get('lv')
 
+  const location = useLocation()
   const licensedPacks = useLicensedPacks()
   const { supabase } = useOrgSetupContext()
   const cl = useChecklistModule({ supabase })
@@ -300,19 +303,6 @@ export function ChecklistsLibraryPage() {
 
   const hasContextCard = activePack !== null || activeCat !== null
 
-  const pageTitle =
-    lens === 'lovverk'
-      ? 'Maler etter lovverk'
-      : lens === 'roller'
-        ? 'Maler etter rolle'
-        : 'Alle maler'
-  const pageSubtitle =
-    lens === 'lovverk'
-      ? 'Maler og aktivitet for valgt lovgrunnlag'
-      : lens === 'roller'
-        ? 'Maler og aktivitet for din rolle'
-        : 'Hele biblioteket med levende aktivitet'
-
   const TPL_FILTER_OPTS = [
     { id: 'approved', label: 'Offisiell' },
     { id: 'reviewed', label: 'Verifisert' },
@@ -329,25 +319,25 @@ export function ChecklistsLibraryPage() {
       {/* ── LensHeader ── white, border-bottom, matches design */}
       <header className="flex-shrink-0 border-b border-neutral-200 bg-white">
         <div className="mx-auto max-w-[1400px] px-10 pb-0 pt-6">
-          {/* Eyebrow + title + segmented control */}
+          {/* Title row + segmented control + settings */}
           <div className="flex items-start justify-between gap-6">
             <div>
-              {/* Eyebrow "SJEKKLISTER · BIBLIOTEKET" */}
               <p className="mb-1 text-[10px] font-bold uppercase tracking-widest text-neutral-500">
                 Sjekklister · biblioteket
               </p>
-              {/* Serif h1 */}
               <h1
                 className="text-3xl font-bold leading-tight text-neutral-900"
                 style={{ fontFamily: SERIF }}
               >
-                {pageTitle}
+                Sjekklister
               </h1>
-              <p className="mt-1 text-[13px] text-neutral-600">{pageSubtitle}</p>
+              <p className="mt-1 text-[13px] text-neutral-600">
+                Administrer og følg opp sjekklister mot lovverk, roller og standarder
+              </p>
             </div>
 
-            {/* Tri-mode segmented control */}
-            <div className="mt-1 flex shrink-0 items-center gap-3">
+            <div className="mt-1 flex shrink-0 items-center gap-2">
+              {/* Tri-mode segmented control */}
               <div className="inline-flex rounded-lg bg-neutral-100 p-[3px] gap-0.5">
                 {(
                   [
@@ -371,20 +361,34 @@ export function ChecklistsLibraryPage() {
                 ))}
               </div>
 
-              <Button
-                variant="primary"
-                size="sm"
-                icon={<Plus className="h-3.5 w-3.5" />}
-                onClick={() => navigate('/compliance/checklists')}
+              {/* Settings wrench */}
+              <button
+                onClick={() => navigate('/admin/settings/compliance')}
+                title="Innstillinger"
+                className="flex h-8 w-8 items-center justify-center rounded-lg border border-neutral-200 bg-white text-neutral-500 transition-colors hover:border-neutral-300 hover:bg-neutral-50 hover:text-neutral-700"
               >
-                Ny sjekkliste
-              </Button>
+                <Wrench className="h-4 w-4" />
+              </button>
             </div>
           </div>
 
-          {/* Sub-tabs (hidden in 'alle' lens) */}
-          {tabs.length > 0 && (
-            <div className="mt-4 flex gap-0 overflow-x-auto">
+          {/* Tab row: Analyse (persistent) + lens-specific tabs + Ny sjekkliste */}
+          <div className="mt-4 flex items-end justify-between gap-2">
+            <div className="flex gap-0 overflow-x-auto">
+              {/* Analyse tab — always first */}
+              <Link
+                to="/compliance/checklists/analyse"
+                className={`flex shrink-0 items-center gap-1.5 border-b-2 px-[18px] py-2.5 text-[13px] font-medium whitespace-nowrap transition-colors ${
+                  location.pathname === '/compliance/checklists/analyse'
+                    ? 'border-[#1a3d32] text-neutral-900'
+                    : 'border-transparent text-neutral-600 hover:border-neutral-200 hover:text-neutral-700'
+                }`}
+              >
+                <BarChart3 className="h-3.5 w-3.5 opacity-70" />
+                Analyse
+              </Link>
+
+              {/* Lens-specific tabs */}
               {tabs.map((tab) => (
                 <button
                   key={tab.id}
@@ -411,7 +415,19 @@ export function ChecklistsLibraryPage() {
                 </button>
               ))}
             </div>
-          )}
+
+            {/* Ny sjekkliste — moved here from the header */}
+            <div className="shrink-0 pb-1.5">
+              <Button
+                variant="primary"
+                size="sm"
+                icon={<Plus className="h-3.5 w-3.5" />}
+                onClick={() => navigate('/compliance/checklists')}
+              >
+                Ny sjekkliste
+              </Button>
+            </div>
+          </div>
         </div>
       </header>
 

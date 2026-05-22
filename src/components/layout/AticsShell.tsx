@@ -646,7 +646,7 @@ export function AticsShell() {
           label: 'Sjekklister',
           end: false,
           icon: ClipboardList,
-          subs: [...complianceFixedSubs, ...compliancePinnedSubs],
+          subs: [],
           permAny: COMPLIANCE_NAV_PERMS,
           flatSubs: true,
         },
