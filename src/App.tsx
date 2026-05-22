@@ -42,6 +42,7 @@ import { HelsetilsynetSetup } from './pages/admin/integrations/HelsetilsynetSetu
 import { CertRotationPage } from './pages/admin/integrations/CertRotationPage'
 import { NotFound } from './pages/NotFound'
 import { MeetingsHubPage } from './pages/meetings/MeetingsHubPage'
+import { MeetingsLibraryPage } from '../modules/meetings/MeetingsLibraryPage'
 import { MeetingsDetailView } from './pages/meetings/MeetingsDetailView'
 import { MeetingsAnalysePage } from './pages/meetings/MeetingsAnalysePage'
 import { MeetingsExportPage } from './pages/meetings/MeetingsExportPage'
@@ -157,6 +158,7 @@ import { ChecklistsAktivitetPage } from '../modules/compliance/ChecklistsAktivit
 import { PackProvider } from './context/PackContext'
 import { ModuleAdminPage } from './pages/ModuleAdminPage'
 import { SurveyModulePage } from './pages/SurveyModulePage'
+import { SurveyLibraryPage } from '../modules/survey/SurveyLibraryPage'
 import { SurveyVendorsPage } from './pages/SurveyVendorsPage'
 import { SurveyOrgTemplateEditorPage } from './pages/SurveyOrgTemplateEditorPage'
 import { SurveyDetailPage } from './pages/SurveyDetailPage'
@@ -398,6 +400,14 @@ const router = createBrowserRouter(
                         }
                       />
                       <Route
+                        path="meetings/bibliotek"
+                        element={
+                          <RouteErrorBoundary title="Kunne ikke vise møter">
+                            <MeetingsLibraryPage />
+                          </RouteErrorBoundary>
+                        }
+                      />
+                      <Route
                         path="meetings/analyse"
                         element={
                           <RouteErrorBoundary title="Kunne ikke vise analyse">
@@ -527,6 +537,7 @@ const router = createBrowserRouter(
                         }
                       />
                       <Route path="survey" element={<SurveyModulePage />} />
+                      <Route path="survey/bibliotek" element={<SurveyLibraryPage />} />
                       <Route path="survey/admin" element={<LegacyAdminRedirect scope="survey" />} />
                       <Route path="survey/analyse" element={<SurveyAnalysePage />} />
                       <Route path="survey/alle" element={<SurveyAllePage />} />

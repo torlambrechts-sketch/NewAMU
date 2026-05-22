@@ -372,8 +372,12 @@ function activeModuleForPath(modules: NavModule[], pathname: string, search: str
     if (adminMod) return adminMod
   }
   if (pathname === '/meetings' || pathname.startsWith('/meetings/')) {
-    const mtg = modules.find((m) => m.to === '/meetings')
+    const mtg = modules.find((m) => m.to === '/meetings/bibliotek')
     if (mtg) return mtg
+  }
+  if (pathname === '/survey' || pathname.startsWith('/survey/')) {
+    const svy = modules.find((m) => m.to === '/survey/bibliotek')
+    if (svy) return svy
   }
   // Exact-match with query (handles /council?tab=board vs /council)
   for (const mod of modules) {
@@ -644,7 +648,7 @@ export function AticsShell() {
       icon: Megaphone,
       modules: [
         {
-          to: '/survey',
+          to: '/survey/bibliotek',
           label: 'Undersøkelser',
           end: false,
           icon: Megaphone,
@@ -1532,7 +1536,7 @@ export function AticsShell() {
       icon: CalendarDays,
       modules: [
         {
-          to: '/meetings',
+          to: '/meetings/bibliotek',
           label: 'Møter',
           end: false,
           icon: CalendarDays,
