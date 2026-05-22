@@ -43,11 +43,6 @@ export function ChecklistExecutionPage() {
 
   const readOnly = execution?.status === 'signed'
 
-  const requiredCount = useMemo(() => {
-    // Approximate until definition loads — ExecutionDetailContent computes accurately
-    return 0
-  }, [])
-
   const templateBackUrl = useMemo(() => {
     if (template) {
       return `/compliance/checklists?template=${encodeURIComponent(template.slug)}&pack=${encodeURIComponent(template.pack)}`
