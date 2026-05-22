@@ -10,7 +10,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ComponentType, type FormEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { BarChart3, ChevronRight, FileText, Package, Plus, Sparkles } from 'lucide-react'
-import { ModuleLibraryShell } from '../../src/components/module/ModuleLibraryShell'
+import { ModuleLibraryShell, type ViewMode } from '../../src/components/module/ModuleLibraryShell'
 import { LibraryTemplateTile } from '../../src/components/module/library/LibraryTemplateTile'
 import { LibrarySectionHeader } from '../../src/components/module/library/LibrarySectionHeader'
 import { ModuleAnalyticsDashboard } from '../../src/components/module/ModuleAnalyticsDashboard'
@@ -118,6 +118,9 @@ export function SurveyLibraryPage() {
     setActiveLens(id)
     setActiveTab('alle')
   }, [])
+
+  // ── View mode (controlled so library can programmatically switch to Katalog) ──
+  const [viewMode, setViewMode] = useState<'library' | 'katalog' | 'analyse'>('library')
 
   // ── Create panel state ───────────────────────────────────────────────────
   const [createOpen, setCreateOpen] = useState(false)
@@ -370,11 +373,13 @@ export function SurveyLibraryPage() {
             setPresetTemplateId(t.id)
             setCreateOpen(true)
           }}
+          onViewAll={() => setViewMode('katalog')}
         />
         <RecentSurveysCard
           surveys={filteredSurveys}
           activePack={activeLens as SurveyPackSlug}
           onOpen={(id) => navigate(`/survey/${id}`)}
+          onViewAll={() => setViewMode('katalog')}
         />
       </div>
     </div>
@@ -569,6 +574,8 @@ export function SurveyLibraryPage() {
           </Button>
         ) : undefined
       }
+      externalViewMode={viewMode}
+      onViewModeChange={(m) => setViewMode(m as ViewMode)}
       libraryView={libraryView}
       katalogView={katalogView}
       analyseView={analyseView}
@@ -597,6 +604,7 @@ function TemplateGallery({
   pinnedById,
   accentColor = '#7c3aed',
   onSelect,
+  onViewAll,
 }: {
   templates: SurveyTemplateCatalogRow[]
   categories: ReturnType<typeof useSurveyCategories>['categories']
@@ -605,6 +613,7 @@ function TemplateGallery({
   pinnedById: Map<string, boolean>
   accentColor?: string
   onSelect: (t: SurveyTemplateCatalogRow) => void
+  onViewAll?: () => void
 }) {
   type Bucket = { key: string; name: string | null; tiles: SurveyTemplateCatalogRow[] }
 
@@ -643,7 +652,18 @@ function TemplateGallery({
     <div>
       <div className="mb-3 flex items-baseline justify-between">
         <h2 className="text-[15px] font-semibold text-neutral-900">Maler å starte fra</h2>
-        <span className="text-xs text-neutral-500">{templates.length} aktive</span>
+        {onViewAll ? (
+          <button
+            type="button"
+            onClick={onViewAll}
+            className="text-xs font-semibold hover:underline"
+            style={{ color: accentColor }}
+          >
+            Se alle {templates.length} →
+          </button>
+        ) : (
+          <span className="text-xs text-neutral-500">{templates.length} aktive</span>
+        )}
       </div>
       <div className="space-y-5">
         {templates.length === 0 ? (
@@ -681,7 +701,7 @@ function TemplateGallery({
                             aria-hidden
                           />
                           <span className="min-w-0 flex-1">
-                            <span className="block truncate text-sm font-medium text-neutral-900 group-hover:text-[#7c3aed]">
+                            <span className="block line-clamp-2 text-sm font-medium text-neutral-900">
                               {t.name}
                             </span>
                             {t.estimated_minutes != null ? (
@@ -721,10 +741,12 @@ function RecentSurveysCard({
   surveys,
   activePack,
   onOpen,
+  onViewAll,
 }: {
   surveys: SurveyRow[]
   activePack: SurveyPackSlug
   onOpen: (id: string) => void
+  onViewAll?: () => void
 }) {
   const recent = useMemo(
     () =>
@@ -739,7 +761,18 @@ function RecentSurveysCard({
     <div>
       <div className="mb-3 flex items-baseline justify-between">
         <h2 className="text-[15px] font-semibold text-neutral-900">Nylig aktivitet</h2>
-        <span className="text-xs text-neutral-500">{recent.length} siste</span>
+        {onViewAll ? (
+          <button
+            type="button"
+            onClick={onViewAll}
+            className="text-xs font-semibold hover:underline"
+            style={{ color: ACCENT }}
+          >
+            Se alle →
+          </button>
+        ) : (
+          <span className="text-xs text-neutral-500">{recent.length} siste</span>
+        )}
       </div>
       <div className="overflow-hidden rounded-lg border border-neutral-200/80 bg-white">
         {recent.length === 0 ? (

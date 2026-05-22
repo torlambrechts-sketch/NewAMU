@@ -74,6 +74,11 @@ export type ModuleLibraryShellProps = {
   /** Node placed at the far right of the tab row (e.g. primary CTA button). */
   tabRowAction?: ReactNode
 
+  // ── Controlled view mode (optional) ─────────────────────────────────────
+  /** When provided, shell operates as a controlled component for view mode. */
+  externalViewMode?: ViewMode
+  onViewModeChange?: (mode: ViewMode) => void
+
   // ── Body view slots ──────────────────────────────────────────────────────
   libraryView: ReactNode
   /** Presence of this prop adds a Katalog tab. */
@@ -107,9 +112,16 @@ export function ModuleLibraryShell({
   analyseEditPanels,
   detailPanel,
   detailFullView,
+  externalViewMode,
+  onViewModeChange,
 }: ModuleLibraryShellProps) {
   const navigate = useNavigate()
-  const [viewMode, setViewMode] = useState<ViewMode>('library')
+  const [internalViewMode, setInternalViewMode] = useState<ViewMode>('library')
+  const viewMode = externalViewMode ?? internalViewMode
+  const setViewMode = (m: ViewMode) => {
+    setInternalViewMode(m)
+    onViewModeChange?.(m)
+  }
 
   const isFullView = Boolean(detailFullView)
   const showAnalyse = viewMode === 'analyse'

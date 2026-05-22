@@ -8,7 +8,7 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { BarChart3, ChevronRight, Clock, ListChecks, Plus, Scale, Users } from 'lucide-react'
-import { ModuleLibraryShell } from '../../src/components/module/ModuleLibraryShell'
+import { ModuleLibraryShell, type ViewMode } from '../../src/components/module/ModuleLibraryShell'
 import { LibraryTemplateTile } from '../../src/components/module/library/LibraryTemplateTile'
 import { LibrarySectionHeader } from '../../src/components/module/library/LibrarySectionHeader'
 import { ModuleAnalyticsDashboard } from '../../src/components/module/ModuleAnalyticsDashboard'
@@ -98,6 +98,7 @@ export function MeetingsLibraryPage() {
   const navigate = useNavigate()
   const meetings = useMeetings()
 
+  const [viewMode, setViewMode] = useState<ViewMode>('library')
   const [activeTab, setActiveTab] = useState<string>('alle')
   const [createOpen, setCreateOpen] = useState(false)
   const [presetTemplateId, setPresetTemplateId] = useState<string | null>(null)
@@ -316,6 +317,7 @@ export function MeetingsLibraryPage() {
           meetings={meetings.meetings}
           categoryFilter={activeTab === 'alle' ? null : activeTab}
           categoryByMeetingId={categoryByMeetingId}
+          onViewAll={() => setViewMode('katalog')}
         />
       </div>
     </div>
@@ -514,6 +516,8 @@ export function MeetingsLibraryPage() {
           </Button>
         ) : undefined
       }
+      externalViewMode={viewMode}
+      onViewModeChange={setViewMode}
       libraryView={libraryView}
       katalogView={katalogView}
       analyseView={analyseView}
@@ -674,10 +678,12 @@ function UpcomingMeetingsCard({
   meetings,
   categoryFilter,
   categoryByMeetingId,
+  onViewAll,
 }: {
   meetings: MeetingRow[]
   categoryFilter: string | null
   categoryByMeetingId: Map<string, string | null>
+  onViewAll?: () => void
 }) {
   const upcoming = useMemo(() => {
     let list = meetings.filter(
@@ -694,8 +700,19 @@ function UpcomingMeetingsCard({
   return (
     <div>
       <div className="mb-3 flex items-baseline justify-between">
-        <h2 className="text-[15px] font-semibold text-neutral-900">Nylig aktivitet</h2>
-        <span className="text-xs text-neutral-500">{upcoming.length} kommende</span>
+        <h2 className="text-[15px] font-semibold text-neutral-900">Kommende møter</h2>
+        {onViewAll ? (
+          <button
+            type="button"
+            onClick={onViewAll}
+            className="text-xs font-semibold hover:underline"
+            style={{ color: ACCENT }}
+          >
+            Se alle →
+          </button>
+        ) : (
+          <span className="text-xs text-neutral-500">{upcoming.length} kommende</span>
+        )}
       </div>
       <div className="overflow-hidden rounded-lg border border-neutral-200/80 bg-white">
         {upcoming.length === 0 ? (

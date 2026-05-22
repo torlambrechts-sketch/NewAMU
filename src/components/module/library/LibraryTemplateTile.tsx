@@ -41,13 +41,20 @@ export function LibraryTemplateTile({
 
   const shared = {
     ref,
-    className: `group ${SHELL} ${className}`,
+    className: `group ${SHELL} ${className} focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2`,
     onMouseEnter: () => hover(true),
     onMouseLeave: () => hover(false),
+    onFocus: () => hover(true),
+    onBlur: () => hover(false),
   }
 
   const inner = onClick ? (
-    <button type="button" onClick={onClick} {...shared}>
+    <button
+      type="button"
+      onClick={onClick}
+      {...shared}
+      style={{ '--tw-ring-color': accentColor } as React.CSSProperties}
+    >
       {children}
     </button>
   ) : (

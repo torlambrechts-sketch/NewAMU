@@ -1004,6 +1004,22 @@ export function ChecklistsLibraryPage() {
 
   const execSlidePanel = detailPane?.kind === 'exec' && detailPane.view === 'panel' ? (() => {
     const exec = cl.executions.find((e) => e.id === detailPane.id)
+
+    if (!exec && !cl.loading) {
+      return (
+        <SlidePanel
+          open
+          onClose={() => setDetailPane(null)}
+          titleId="exec-detail-panel"
+          title="Detaljer"
+        >
+          <p className="px-6 py-8 text-sm text-neutral-500">
+            Utførelsen ble ikke funnet. Den kan ha blitt slettet, eller er ikke lastet ennå.
+          </p>
+        </SlidePanel>
+      )
+    }
+
     const tpl = exec ? cl.templates.find((t) => t.id === exec.template_id) ?? null : null
     const pack = licensedPacks.find((p) => p.slug === exec?.pack) ?? licensedPacks[0]
     const isReadOnly = exec?.status === 'signed'
