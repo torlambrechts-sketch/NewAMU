@@ -6,28 +6,51 @@
 //   • Alle     — two-column grid: all templates + all executions
 //   • Analyse  — inline ModuleAnalyticsDashboard (no separate page navigation)
 //
-// The header + tab bar are sticky so they remain visible while dashboard or
-// library content scrolls beneath them.
+// Detail pane state machine:
+//   null                         — nothing open
+//   { kind:'create', … }        — SlidePanel with create form
+//   { kind:'exec', view:'panel' } — SlidePanel with execution detail
+//   { kind:'exec', view:'full' } — full-width execution content below sticky header
+//
+// The header + tab bar are sticky so they remain visible while content scrolls.
 
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import {
+  Archive,
+  ArrowLeft,
   BarChart3,
   ChevronRight,
   ClipboardList,
+  ExternalLink,
   LayoutGrid,
+  Maximize2,
   Plus,
   Scale,
+  ShieldCheck,
   User,
   Users,
   Wrench,
 } from 'lucide-react'
 import { Badge } from '../../src/components/ui/Badge'
 import { Button } from '../../src/components/ui/Button'
+import { SlidePanel } from '../../src/components/layout/SlidePanel'
+import { SearchableSelect } from '../../src/components/ui/SearchableSelect'
+import { StandardInput } from '../../src/components/ui/Input'
+import {
+  WPSTD_FORM_ROW_GRID,
+  WPSTD_FORM_FIELD_LABEL,
+  WPSTD_FORM_LEAD,
+} from '../../src/components/layout/WorkplaceStandardFormPanel'
 import { useLicensedPacks } from '../../src/context/packContextValue'
 import { useOrgSetupContext } from '../../src/hooks/useOrgSetupContext'
 import { useChecklistModule } from './useChecklistModule'
+import { ExecutionDetailContent } from './components/ExecutionDetailContent'
 import type { ComplianceExecutionRow, ComplianceTemplateRow } from './types'
+
+type DetailPane =
+  | { kind: 'create'; template: ComplianceTemplateRow | null }
+  | { kind: 'exec'; id: string; view: 'panel' | 'full' }
 
 // Dashboard engine imports
 import { ModuleAnalyticsDashboard } from '../../src/components/module/ModuleAnalyticsDashboard'
@@ -177,12 +200,13 @@ function ActivityRow({
   execution,
   templateName,
   categoryName,
+  onClick,
 }: {
   execution: ComplianceExecutionRow
   templateName: string | null
   categoryName: string | null
+  onClick: () => void
 }) {
-  const navigate = useNavigate()
   const initials = execution.title
     .split(/\s+/)
     .slice(0, 2)
@@ -199,7 +223,7 @@ function ActivityRow({
 
   return (
     <button
-      onClick={() => navigate(`/compliance/checklists/${execution.id}`)}
+      onClick={onClick}
       className="flex w-full items-start gap-3 border-t border-neutral-100 px-4 py-3 text-left transition-colors hover:bg-neutral-50 first:border-t-0"
     >
       <div
@@ -234,6 +258,12 @@ export function ChecklistsLibraryPage() {
   // 'library' shows the two-column content; 'analyse' embeds the dashboard inline
   const [view, setView] = useState<'library' | 'analyse'>('library')
 
+  // Detail pane — null = closed, 'create' = new-form panel, 'exec' = execution panel/full
+  const [detailPane, setDetailPane] = useState<DetailPane | null>(null)
+  // Create form state (lives here so it persists while the panel is open)
+  const [createForm, setCreateForm] = useState({ templateId: '', title: '', scheduledFor: '', assignedTo: '' })
+  const [createSubmitting, setCreateSubmitting] = useState(false)
+
   const [addOpen, setAddOpen] = useState(false)
   const [editWidget, setEditWidget] = useState<ReportModule | null>(null)
 
@@ -249,6 +279,13 @@ export function ChecklistsLibraryPage() {
   useEffect(() => {
     void cl.load()
   }, [cl])
+
+  // Load execution detail (responses) when panel opens on an execution
+  useEffect(() => {
+    if (detailPane?.kind === 'exec') {
+      void cl.loadDetail(detailPane.id)
+    }
+  }, [detailPane?.kind === 'exec' ? (detailPane as { kind: 'exec'; id: string; view: string }).id : null, cl.loadDetail])
 
   // ── Dashboard engine wiring (mirrors ChecklistsAnalysePage) ──────────────
 
@@ -637,7 +674,11 @@ export function ChecklistsLibraryPage() {
                 variant="primary"
                 size="sm"
                 icon={<Plus className="h-3.5 w-3.5" />}
-                onClick={() => navigate('/compliance/checklists')}
+                onClick={() => {
+                  const first = cl.templates.filter((t) => t.is_active)[0] ?? null
+                  setCreateForm({ templateId: first?.id ?? '', title: first?.name ?? '', scheduledFor: '', assignedTo: '' })
+                  setDetailPane({ kind: 'create', template: null })
+                }}
               >
                 Ny sjekkliste
               </Button>
@@ -878,11 +919,10 @@ export function ChecklistsLibraryPage() {
                     categoryName={
                       t.category_id ? (categoryNameById.get(t.category_id) ?? null) : null
                     }
-                    onClick={() =>
-                      navigate(
-                        `/compliance/checklists?template=${encodeURIComponent(t.slug)}&pack=${encodeURIComponent(t.pack)}`,
-                      )
-                    }
+                    onClick={() => {
+                      setCreateForm({ templateId: t.id, title: t.name, scheduledFor: '', assignedTo: '' })
+                      setDetailPane({ kind: 'create', template: t })
+                    }}
                   />
                 ))}
                 {filteredTemplates.length === 0 && (
@@ -936,6 +976,7 @@ export function ChecklistsLibraryPage() {
                       execution={e}
                       templateName={tpl?.name ?? null}
                       categoryName={catId ? (categoryNameById.get(catId) ?? null) : null}
+                      onClick={() => setDetailPane({ kind: 'exec', id: e.id, view: 'panel' })}
                     />
                   )
                 })}
@@ -949,6 +990,267 @@ export function ChecklistsLibraryPage() {
           </div>
         </div>
       )}
+
+      {/* ── Full-view execution (below sticky header, no panel) ── */}
+      {view === 'library' && detailPane?.kind === 'exec' && detailPane.view === 'full' && (() => {
+        const exec = cl.executions.find((e) => e.id === detailPane.id)
+        const tpl = exec ? cl.templates.find((t) => t.id === exec.template_id) ?? null : null
+        const pack = licensedPacks.find((p) => p.slug === exec?.pack) ?? licensedPacks[0]
+        const isReadOnly = exec?.status === 'signed'
+        return (
+          <div className="mx-auto w-full max-w-[1400px] px-10 py-6">
+            {/* Full-view action bar */}
+            <div className="mb-5 flex items-center justify-between gap-4">
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={() => setDetailPane({ ...detailPane, view: 'panel' })}
+                  className="inline-flex items-center gap-1.5 text-sm font-medium text-neutral-600 hover:text-neutral-900"
+                >
+                  <ArrowLeft className="h-4 w-4" />
+                  Tilbake til panel
+                </button>
+                <span className="text-neutral-300">|</span>
+                <span
+                  className="text-[17px] font-semibold text-neutral-900"
+                  style={{ fontFamily: SERIF }}
+                >
+                  {exec?.title ?? '…'}
+                </span>
+                {tpl && (
+                  <span className="text-sm text-neutral-500">{tpl.name}</span>
+                )}
+              </div>
+              <div className="flex items-center gap-2">
+                <a
+                  href={`/compliance/checklists/${detailPane.id}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex items-center gap-1.5 rounded-md border border-neutral-200 bg-white px-3 py-1.5 text-xs font-semibold text-neutral-600 hover:bg-neutral-50"
+                >
+                  <ExternalLink className="h-3.5 w-3.5" />
+                  Åpne frittstående side
+                </a>
+                {!isReadOnly && pack && (
+                  <Button
+                    variant="primary"
+                    size="sm"
+                    icon={<ShieldCheck className="h-3.5 w-3.5" />}
+                    onClick={async () => {
+                      await cl.signExecution(detailPane.id)
+                    }}
+                  >
+                    Signer
+                  </Button>
+                )}
+                {isReadOnly && exec && !exec.archived_at && (
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    icon={<Archive className="h-3.5 w-3.5" />}
+                    onClick={() => {
+                      if (window.confirm('Arkivere denne signerte sjekklisten? Handlingen kan ikke angres.')) {
+                        void cl.archiveExecution(detailPane.id)
+                      }
+                    }}
+                  >
+                    Arkiver
+                  </Button>
+                )}
+              </div>
+            </div>
+            {pack && (
+              <ExecutionDetailContent
+                executionId={detailPane.id}
+                cl={cl}
+                orgSetup={orgSetup}
+                pack={pack}
+              />
+            )}
+          </div>
+        )
+      })()}
+
+      {/* ── Create new execution — SlidePanel ── */}
+      {detailPane?.kind === 'create' && (() => {
+        const allActiveTpls = cl.templates.filter((t) => t.is_active)
+        const templateOptions = (detailPane.template ? [detailPane.template] : allActiveTpls)
+          .map((t) => ({ value: t.id, label: t.name }))
+        const userOptions = [
+          { value: '', label: '(Ingen)' },
+          ...cl.assignableUsers.map((u) => ({ value: u.id, label: u.displayName })),
+        ]
+        const canSubmit = !createSubmitting && createForm.templateId.length > 0 && createForm.title.trim().length > 0
+
+        const handleCreate = async () => {
+          if (!canSubmit) return
+          setCreateSubmitting(true)
+          try {
+            const id = await cl.createExecution({
+              templateId: createForm.templateId,
+              title: createForm.title.trim(),
+              scheduledFor: createForm.scheduledFor || undefined,
+              assignedTo: createForm.assignedTo || undefined,
+            })
+            if (id) {
+              setDetailPane({ kind: 'exec', id, view: 'panel' })
+            }
+          } finally {
+            setCreateSubmitting(false)
+          }
+        }
+
+        return (
+          <SlidePanel
+            open
+            onClose={() => setDetailPane(null)}
+            titleId="create-checklist-panel"
+            title={detailPane.template ? `Ny ${detailPane.template.name.toLowerCase()}` : 'Ny sjekkliste'}
+            footer={
+              <div className="flex justify-end gap-3">
+                <Button variant="secondary" onClick={() => setDetailPane(null)}>Avbryt</Button>
+                <Button variant="primary" onClick={handleCreate} disabled={!canSubmit}>
+                  Opprett
+                </Button>
+              </div>
+            }
+          >
+            <div className="-mx-6 -mt-8 sm:-mx-8">
+              <div className={WPSTD_FORM_ROW_GRID}>
+                <p className={WPSTD_FORM_LEAD}>Hvilken mal skal brukes?</p>
+                <div>
+                  <p className={WPSTD_FORM_FIELD_LABEL}>Mal</p>
+                  <SearchableSelect
+                    options={templateOptions}
+                    value={createForm.templateId}
+                    onChange={(value) => {
+                      const t = allActiveTpls.find((x) => x.id === value)
+                      setCreateForm((prev) => ({
+                        ...prev,
+                        templateId: value,
+                        title: prev.title.trim().length === 0 && t ? t.name : prev.title,
+                      }))
+                    }}
+                    placeholder="Velg mal …"
+                    className="mt-1.5"
+                  />
+                </div>
+              </div>
+              <div className={WPSTD_FORM_ROW_GRID}>
+                <p className={WPSTD_FORM_LEAD}>Hva er tittelen på utførelsen?</p>
+                <div>
+                  <p className={WPSTD_FORM_FIELD_LABEL}>Tittel</p>
+                  <StandardInput
+                    value={createForm.title}
+                    onChange={(e) => setCreateForm({ ...createForm, title: e.target.value })}
+                    placeholder="F.eks. Q1 — Produksjonshall"
+                    className="mt-1.5"
+                  />
+                </div>
+              </div>
+              <div className={WPSTD_FORM_ROW_GRID}>
+                <p className={WPSTD_FORM_LEAD}>Når skal utførelsen gjennomføres?</p>
+                <div>
+                  <p className={WPSTD_FORM_FIELD_LABEL}>
+                    Planlagt tidspunkt{' '}
+                    <span className="font-normal normal-case tracking-normal text-neutral-400">Valgfri</span>
+                  </p>
+                  <StandardInput
+                    type="datetime-local"
+                    value={createForm.scheduledFor}
+                    onChange={(e) => setCreateForm({ ...createForm, scheduledFor: e.target.value })}
+                    className="mt-1.5"
+                  />
+                </div>
+              </div>
+              <div className={WPSTD_FORM_ROW_GRID}>
+                <p className={WPSTD_FORM_LEAD}>Hvem er ansvarlig?</p>
+                <div>
+                  <p className={WPSTD_FORM_FIELD_LABEL}>
+                    Tildelt til{' '}
+                    <span className="font-normal normal-case tracking-normal text-neutral-400">Valgfri</span>
+                  </p>
+                  <SearchableSelect
+                    options={userOptions}
+                    value={createForm.assignedTo}
+                    onChange={(value) => setCreateForm({ ...createForm, assignedTo: value })}
+                    placeholder="Velg ansvarlig …"
+                    className="mt-1.5"
+                  />
+                </div>
+              </div>
+            </div>
+          </SlidePanel>
+        )
+      })()}
+
+      {/* ── Execution detail — SlidePanel ── */}
+      {detailPane?.kind === 'exec' && detailPane.view === 'panel' && (() => {
+        const exec = cl.executions.find((e) => e.id === detailPane.id)
+        const tpl = exec ? cl.templates.find((t) => t.id === exec.template_id) ?? null : null
+        const pack = licensedPacks.find((p) => p.slug === exec?.pack) ?? licensedPacks[0]
+        const isReadOnly = exec?.status === 'signed'
+
+        return (
+          <SlidePanel
+            open
+            onClose={() => setDetailPane(null)}
+            titleId="exec-detail-panel"
+            title={exec?.title ?? 'Detaljer'}
+            footer={
+              <div className="flex items-center justify-between gap-3">
+                {/* Expand to full view */}
+                <button
+                  onClick={() => setDetailPane({ ...detailPane, view: 'full' })}
+                  className="inline-flex items-center gap-1.5 text-sm font-medium text-neutral-600 hover:text-neutral-900"
+                >
+                  <Maximize2 className="h-4 w-4" />
+                  Vis i full bredde
+                </button>
+                <div className="flex gap-2">
+                  {!isReadOnly && pack && (
+                    <Button
+                      variant="primary"
+                      size="sm"
+                      icon={<ShieldCheck className="h-3.5 w-3.5" />}
+                      onClick={async () => {
+                        if (exec) await cl.signExecution(exec.id)
+                      }}
+                    >
+                      Signer
+                    </Button>
+                  )}
+                  {isReadOnly && exec && !exec.archived_at && (
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      icon={<Archive className="h-3.5 w-3.5" />}
+                      onClick={() => {
+                        if (window.confirm('Arkivere denne signerte sjekklisten? Handlingen kan ikke angres.')) {
+                          void cl.archiveExecution(detailPane.id).then(() => setDetailPane(null))
+                        }
+                      }}
+                    >
+                      Arkiver
+                    </Button>
+                  )}
+                </div>
+              </div>
+            }
+          >
+            {tpl && (
+              <p className="-mt-4 mb-5 text-sm text-neutral-500">{tpl.name}</p>
+            )}
+            {pack && (
+              <ExecutionDetailContent
+                executionId={detailPane.id}
+                cl={cl}
+                orgSetup={orgSetup}
+                pack={pack}
+              />
+            )}
+          </SlidePanel>
+        )
+      })()}
     </div>
   )
 }
