@@ -593,14 +593,14 @@ export function ChecklistsLibraryPage() {
               {/* Analyse tab — always first; toggles inline dashboard */}
               <button
                 onClick={() => setView(view === 'analyse' ? 'library' : 'analyse')}
-                className={`flex shrink-0 items-center gap-1.5 border-b-2 px-[18px] py-2.5 text-[13px] font-medium whitespace-nowrap transition-colors ${
+                className={`flex shrink-0 items-center gap-1.5 border-b-2 px-[18px] py-2.5 text-[13px] whitespace-nowrap transition-colors ${
                   view === 'analyse'
                     ? 'border-[#1a3d32] text-neutral-900'
                     : 'border-transparent text-neutral-600 hover:border-neutral-200 hover:text-neutral-700'
                 }`}
               >
                 <BarChart3 className="h-3.5 w-3.5 opacity-70" />
-                Analyse
+                <span style={{ fontWeight: 700 }}>Analyse</span>
               </button>
 
               {/* Lens-specific tabs — only visible in library view */}
