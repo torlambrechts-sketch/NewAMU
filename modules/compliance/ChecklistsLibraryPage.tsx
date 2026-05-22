@@ -780,7 +780,7 @@ export function ChecklistsLibraryPage() {
       )}
 
       {/* ── Library body ── */}
-      {view === 'library' && (
+      {view === 'library' && !(detailPane?.kind === 'exec' && detailPane.view === 'full') && (
         <div className="mx-auto w-full max-w-[1400px] px-10 py-6">
           <div
             className={`grid gap-6 ${
