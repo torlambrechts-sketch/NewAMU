@@ -293,10 +293,12 @@ function ItemControl({
     return (
       <div className="flex flex-wrap gap-2">
         {opts.map((o) => {
+          // 'na' only active when the row was explicitly saved — 'ok' key must be present
+          // in the stored value, not just absent (which would also produce current === null)
           const active =
             (o.id === 'yes' && current === true) ||
             (o.id === 'no' && current === false) ||
-            (o.id === 'na' && current === null && response !== undefined)
+            (o.id === 'na' && current === null && response !== undefined && 'ok' in value)
           return (
             <Button
               key={o.id}

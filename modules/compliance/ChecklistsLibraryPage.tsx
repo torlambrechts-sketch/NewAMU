@@ -15,7 +15,7 @@
 // Chrome (header, lens control, tab row, sticky positioning) is provided by
 // ModuleLibraryShell — this file owns only data fetching and content slots.
 
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import {
   Archive,
@@ -33,6 +33,7 @@ import {
 } from 'lucide-react'
 import { Badge } from '../../src/components/ui/Badge'
 import { Button } from '../../src/components/ui/Button'
+import { WarningBox } from '../../src/components/ui/AlertBox'
 import { SlidePanel } from '../../src/components/layout/SlidePanel'
 import { SearchableSelect } from '../../src/components/ui/SearchableSelect'
 import { StandardInput } from '../../src/components/ui/Input'
@@ -60,7 +61,6 @@ type DetailPane =
 
 // Dashboard engine imports
 import { ModuleAnalyticsDashboard } from '../../src/components/module/ModuleAnalyticsDashboard'
-import { DashboardEditLayoutPanel } from '../../src/components/module/dashboard/DashboardEditLayoutPanel'
 import { DashboardAddWidgetPanel } from '../../src/components/module/dashboard/DashboardAddWidgetPanel'
 import { DashboardEditWidgetPanel } from '../../src/components/module/dashboard/DashboardEditWidgetPanel'
 import { useDashboardEditChrome } from '../../src/components/module/dashboard/useDashboardEditChrome'
@@ -267,25 +267,28 @@ export function ChecklistsLibraryPage() {
 
   const [addOpen, setAddOpen] = useState(false)
   const [editWidget, setEditWidget] = useState<ReportModule | null>(null)
+  // Ref-based guard prevents duplicate executions on rapid double-click
+  const createSubmittingRef = useRef(false)
 
   const licensedPacks = useLicensedPacks()
   const orgSetup = useOrgSetupContext()
   const { supabase } = orgSetup
   const cl = useChecklistModule({ supabase })
+  // Destructure stable useCallback refs so effects don't re-fire on every data update
+  const { load, loadDetail } = cl
 
   const [tplStatus, setTplStatus] = useState<string | null>(null)
   const [actStatus, setActStatus] = useState<string | null>(null)
 
   useEffect(() => {
-    void cl.load()
-  }, [cl])
+    void load()
+  }, [load])
 
   // Load execution detail (responses) when panel opens on an execution
+  const openExecId = detailPane?.kind === 'exec' ? detailPane.id : null
   useEffect(() => {
-    if (detailPane?.kind === 'exec') {
-      void cl.loadDetail(detailPane.id)
-    }
-  }, [detailPane?.kind === 'exec' ? (detailPane as { kind: 'exec'; id: string; view: string }).id : null, cl.loadDetail])
+    if (openExecId) void loadDetail(openExecId)
+  }, [openExecId, loadDetail])
 
   // ── Dashboard engine wiring (mirrors ChecklistsAnalysePage) ──────────────
 
@@ -576,6 +579,9 @@ export function ChecklistsLibraryPage() {
 
   const libraryView = (
     <div className="mx-auto w-full max-w-[1400px] px-10 py-6">
+      {cl.error && (
+        <WarningBox className="mb-5">{cl.error}</WarningBox>
+      )}
       <div
         className={`grid gap-6 ${
           hasContextCard ? 'lg:grid-cols-[240px_1fr_1fr]' : 'lg:grid-cols-2'
@@ -849,13 +855,6 @@ export function ChecklistsLibraryPage() {
 
   const analyseEditPanels = (
     <>
-      <DashboardEditLayoutPanel
-        open={false}
-        onClose={() => {}}
-        layout={dashboard.layout}
-        onSave={(next) => dashboard.saveLayout(next)}
-        onResetToDefault={dashboard.isDefault ? undefined : () => dashboard.resetToDefault()}
-      />
       <DashboardAddWidgetPanel
         open={addOpen}
         onClose={() => setAddOpen(false)}
@@ -898,7 +897,8 @@ export function ChecklistsLibraryPage() {
     const canSubmit = !createSubmitting && createForm.templateId.length > 0 && createForm.title.trim().length > 0
 
     const handleCreate = async () => {
-      if (!canSubmit) return
+      if (!canSubmit || createSubmittingRef.current) return
+      createSubmittingRef.current = true
       setCreateSubmitting(true)
       try {
         const id = await cl.createExecution({
@@ -911,6 +911,7 @@ export function ChecklistsLibraryPage() {
           setDetailPane({ kind: 'exec', id, view: 'panel' })
         }
       } finally {
+        createSubmittingRef.current = false
         setCreateSubmitting(false)
       }
     }
@@ -1121,7 +1122,9 @@ export function ChecklistsLibraryPage() {
                   icon={<Archive className="h-3.5 w-3.5" />}
                   onClick={() => {
                     if (window.confirm('Arkivere denne signerte sjekklisten? Handlingen kan ikke angres.')) {
-                      void cl.archiveExecution(fullViewExecId)
+                      void cl.archiveExecution(fullViewExecId).then(() =>
+                        setDetailPane(null),
+                      )
                     }
                   }}
                 >

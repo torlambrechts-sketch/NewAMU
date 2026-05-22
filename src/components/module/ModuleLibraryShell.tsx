@@ -32,6 +32,13 @@ export type ModuleLibraryTab = {
 export type ModuleLibraryLenses = {
   items: { id: string; label: string; icon: ComponentType<{ className?: string }> }[]
   value: string
+  /**
+   * Called when the user clicks a lens button. The shell resets viewMode to
+   * 'library' automatically after calling this — callers must not do it
+   * themselves. If the lens ever needs to change programmatically (deep-link,
+   * effect), call onChange AND handle any external view state separately,
+   * because only the shell's button onClick pairs the two actions.
+   */
   onChange: (id: string) => void
 }
 

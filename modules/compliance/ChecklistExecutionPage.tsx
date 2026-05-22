@@ -9,7 +9,7 @@ import { ModulePageShell } from '../../src/components/module/ModulePageShell'
 import { Button } from '../../src/components/ui/Button'
 import { Badge } from '../../src/components/ui/Badge'
 import { WarningBox } from '../../src/components/ui/AlertBox'
-import { useActivePack } from '../../src/context/packContextValue'
+import { useActivePack, useLicensedPacks } from '../../src/context/packContextValue'
 import { useOrgSetupContext } from '../../src/hooks/useOrgSetupContext'
 import { useChecklistModule } from './useChecklistModule'
 import { ExecutionDetailContent } from './components/ExecutionDetailContent'
@@ -18,7 +18,11 @@ export function ChecklistExecutionPage() {
   const params = useParams<{ executionId: string }>()
   const executionId = params.executionId ?? ''
   const navigate = useNavigate()
-  const pack = useActivePack()
+  // Resolve pack from the execution row so cross-pack links always show correct labels.
+  // Fall back to the URL-driven active pack (covers the direct-navigate case where the
+  // execution hasn't loaded yet on the first render).
+  const allPacks = useLicensedPacks()
+  const activePack = useActivePack()
   const orgSetup = useOrgSetupContext()
   const { supabase } = orgSetup
   const cl = useChecklistModule({ supabase })
@@ -39,6 +43,11 @@ export function ChecklistExecutionPage() {
   const template = useMemo(
     () => cl.templates.find((t) => t.id === execution?.template_id) ?? null,
     [cl.templates, execution?.template_id],
+  )
+  const pack = useMemo(
+    () =>
+      (execution?.pack ? (allPacks.find((p) => p.slug === execution.pack) ?? activePack) : activePack),
+    [execution?.pack, allPacks, activePack],
   )
 
   const readOnly = execution?.status === 'signed'
