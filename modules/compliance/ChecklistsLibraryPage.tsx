@@ -580,7 +580,7 @@ export function ChecklistsLibraryPage() {
   const libraryView = (
     <div className="mx-auto w-full max-w-[1400px] px-10 py-6">
       {cl.error && (
-        <WarningBox className="mb-5">{cl.error}</WarningBox>
+        <div className="mb-5"><WarningBox>{cl.error}</WarningBox></div>
       )}
       <div
         className={`grid gap-6 ${
