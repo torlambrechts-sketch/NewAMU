@@ -7,7 +7,7 @@
 // Analyse: inline ModuleAnalyticsDashboard (same wiring as SurveyAnalysePage).
 // One hook instance per data source to avoid duplicate fetches.
 
-import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type ComponentType, type FormEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { BarChart3, FileText, Package, Plus, Sparkles } from 'lucide-react'
 import { ModuleLibraryShell } from '../../src/components/module/ModuleLibraryShell'
@@ -113,10 +113,10 @@ export function SurveyLibraryPage() {
     }
   }, [activeLens, packs])
 
-  const handleLensChange = (id: string) => {
+  const handleLensChange = useCallback((id: string) => {
     setActiveLens(id)
     setActiveTab('alle')
-  }
+  }, [])
 
   // ── Create panel state ───────────────────────────────────────────────────
   const [createOpen, setCreateOpen] = useState(false)
@@ -291,13 +291,12 @@ export function SurveyLibraryPage() {
       items: packs.map((p) => ({
         id: p.slug,
         label: p.short_name,
-        icon: Package as React.ComponentType<{ className?: string }>,
+        icon: Package as ComponentType<{ className?: string }>,
       })),
       value: activeLens,
       onChange: handleLensChange,
     }),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [packs, activeLens],
+    [packs, activeLens, handleLensChange],
   )
 
   // ── Tabs (categories per active lens) ────────────────────────────────────
@@ -361,6 +360,7 @@ export function SurveyLibraryPage() {
         templates={filteredTemplates}
         categories={surveyCategories.categories}
         activeCategoryId={activeTab === 'alle' ? null : activeTab}
+        categoryByCatalogId={categoryByCatalogId}
         pinnedById={pinnedById}
         onSelect={(t) => {
           setPresetTemplateId(t.id)
@@ -588,32 +588,50 @@ function TemplateGallery({
   templates,
   categories,
   activeCategoryId,
+  categoryByCatalogId,
   pinnedById,
   onSelect,
 }: {
   templates: SurveyTemplateCatalogRow[]
   categories: ReturnType<typeof useSurveyCategories>['categories']
   activeCategoryId: string | null
+  categoryByCatalogId: Map<string, string | null>
   pinnedById: Map<string, boolean>
   onSelect: (t: SurveyTemplateCatalogRow) => void
 }) {
-  type Bucket = { key: string; name: string; tiles: SurveyTemplateCatalogRow[] }
+  type Bucket = { key: string; name: string | null; tiles: SurveyTemplateCatalogRow[] }
+
+  // When a specific category is active the parent pre-filtered `templates` already;
+  // just show them flat. When "Alle" is active, group by category using the
+  // org-template override mapping (catalogId → categoryId from surveyOrgTemplates).
   const grouped = useMemo<Bucket[]>(() => {
     if (activeCategoryId !== null) {
       return templates.length > 0
-        ? [{ key: activeCategoryId, name: '', tiles: templates }]
+        ? [{ key: activeCategoryId, name: null, tiles: templates }]
         : []
     }
-    const catMap = new Map(categories.map((c) => [c.id, c.name]))
+    const catNameById = new Map(categories.map((c) => [c.id, c.name]))
+    const catOrder = categories
+      .slice()
+      .sort((a, b) => a.position - b.position)
+      .map((c) => c.id)
     const buckets = new Map<string, SurveyTemplateCatalogRow[]>()
     for (const t of templates) {
-      const key = '__uncat__'
-      buckets.set(key, [...(buckets.get(key) ?? []), t])
+      const catId = categoryByCatalogId.get(t.id) ?? '__uncat__'
+      const list = buckets.get(catId) ?? []
+      list.push(t)
+      buckets.set(catId, list)
     }
-    // Group by category via the lookup — templates don't have categoryId,
-    // so we rely on the "Alle" case to show them flat when no cat is selected.
-    return [{ key: '__all__', name: '', tiles: templates }]
-  }, [templates, categories, activeCategoryId])
+    const result: Bucket[] = []
+    for (const catId of catOrder) {
+      const tiles = buckets.get(catId)
+      if (tiles?.length) result.push({ key: catId, name: catNameById.get(catId) ?? catId, tiles })
+    }
+    const uncat = buckets.get('__uncat__')
+    if (uncat?.length) result.push({ key: '__uncat__', name: 'Uten kategori', tiles: uncat })
+    // Fallback: if nothing grouped (no org-template overrides), show flat.
+    return result.length > 0 ? result : [{ key: '__all__', name: null, tiles: templates }]
+  }, [templates, categories, activeCategoryId, categoryByCatalogId])
 
   return (
     <ModuleSectionCard className="p-5 md:p-6">
@@ -624,12 +642,19 @@ function TemplateGallery({
       <p className="mt-1.5 text-sm text-neutral-600">
         Velg en mal for å opprette en ny undersøkelse med forhåndsutfylte spørsmål.
       </p>
-      <div className="mt-5">
+      <div className="mt-5 space-y-6">
         {templates.length === 0 ? (
           <p className="text-sm text-neutral-600">Ingen maler tilgjengelig for denne pakken.</p>
         ) : (
-          <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {templates.map((t) => {
+          grouped.map((group) => (
+            <div key={group.key}>
+              {group.name !== null && (
+                <h3 className="mb-3 text-[10px] font-bold uppercase tracking-wider text-neutral-600">
+                  {group.name}
+                </h3>
+              )}
+              <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                {group.tiles.map((t) => {
               const isPinned = pinnedById.has(t.id)
               return (
                 <li key={t.id} className="relative">
@@ -677,9 +702,11 @@ function TemplateGallery({
               )
             })}
           </ul>
-        )}
-      </div>
-    </ModuleSectionCard>
+        </div>
+      ))
+      )}
+    </div>
+  </ModuleSectionCard>
   )
 }
 
