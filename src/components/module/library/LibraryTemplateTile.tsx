@@ -18,9 +18,9 @@ type Props = {
   favoriteSlot?: ReactNode
   /** Primary action. When provided the card shell renders as a <button>. */
   onClick?: () => void
-  /** Accessible label for the card group (multi-action mode only). */
+  /** Accessible label for the card shell. Required in multi-action (group) mode. */
   ariaLabel?: string
-  /** Accent hex colour for hover border — default brand green. */
+  /** Accent hex colour for hover border and focus ring — default brand green. */
   accentColor?: string
   children: ReactNode
   className?: string
@@ -38,7 +38,8 @@ export function LibraryTemplateTile({
   children,
   className = '',
 }: Props) {
-  const ref = useRef<HTMLButtonElement & HTMLDivElement>(null)
+  // HTMLElement covers both button and div; we only access .style on the ref.
+  const ref = useRef<HTMLElement>(null)
 
   const hover = (on: boolean) => {
     if (!ref.current) return
@@ -46,7 +47,6 @@ export function LibraryTemplateTile({
   }
 
   const baseShared = {
-    ref,
     className: `group ${SHELL} ${className}`,
     onMouseEnter: () => hover(true),
     onMouseLeave: () => hover(false),
@@ -54,6 +54,7 @@ export function LibraryTemplateTile({
 
   const inner = onClick ? (
     <button
+      ref={ref as React.RefObject<HTMLButtonElement>}
       type="button"
       onClick={onClick}
       aria-label={ariaLabel}
@@ -67,6 +68,7 @@ export function LibraryTemplateTile({
     </button>
   ) : (
     <div
+      ref={ref as React.RefObject<HTMLDivElement>}
       {...baseShared}
       role="group"
       aria-label={ariaLabel}

@@ -257,7 +257,8 @@ function ActivityRow({
 
 export function ChecklistsLibraryPage() {
   const [searchParams, setSearchParams] = useSearchParams()
-  const lens = (searchParams.get('lens') as Lens) ?? 'lovverk'
+  const rawLens = searchParams.get('lens')
+  const lens: Lens = rawLens === 'roller' || rawLens === 'alle' ? rawLens : 'lovverk'
   const lensVal = searchParams.get('lv')
 
   // Detail pane — null = closed, 'create' = new-form panel, 'exec' = execution panel/full

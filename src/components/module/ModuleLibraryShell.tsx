@@ -44,7 +44,7 @@ export type ModuleLibraryLenses = {
 
 /** When set, replaces the library/katalog body with full-width detail content. */
 export type DetailFullView = {
-  title: string
+  title?: string
   content: ReactNode
   actions?: ReactNode
   onClose: () => void
@@ -119,7 +119,7 @@ export function ModuleLibraryShell({
   const [internalViewMode, setInternalViewMode] = useState<ViewMode>('library')
   const viewMode = externalViewMode ?? internalViewMode
   const setViewMode = (m: ViewMode) => {
-    setInternalViewMode(m)
+    if (externalViewMode === undefined) setInternalViewMode(m)
     onViewModeChange?.(m)
   }
 
@@ -166,6 +166,7 @@ export function ModuleLibraryShell({
                   {lenses.items.map((m) => (
                     <button
                       key={m.id}
+                      type="button"
                       onClick={() => { lenses.onChange(m.id); setViewMode('library') }}
                       className={
                         'inline-flex items-center gap-1.5 rounded-md px-3.5 py-[7px] text-xs font-semibold transition-all ' +
@@ -185,8 +186,10 @@ export function ModuleLibraryShell({
 
               {settingsTo && (
                 <button
+                  type="button"
                   onClick={() => navigate(settingsTo)}
                   title="Innstillinger"
+                  aria-label="Innstillinger"
                   className="flex h-8 w-8 items-center justify-center rounded-lg border border-neutral-200 bg-white text-neutral-500 transition-colors hover:border-neutral-300 hover:bg-neutral-50 hover:text-neutral-700"
                 >
                   <Wrench className="h-4 w-4" />
@@ -197,9 +200,12 @@ export function ModuleLibraryShell({
 
           {/* Tab row */}
           <div className="mt-4 flex items-end justify-between gap-2">
-            <div className="flex gap-0 overflow-x-auto">
+            <div role="tablist" className="flex gap-0 overflow-x-auto">
               {/* Analyse — always first */}
               <button
+                role="tab"
+                type="button"
+                aria-selected={viewMode === 'analyse'}
                 onClick={() => setViewMode(viewMode === 'analyse' ? 'library' : 'analyse')}
                 className={tabCls(viewMode === 'analyse')}
                 style={viewMode === 'analyse' ? { borderColor: accentColor } : undefined}
@@ -214,6 +220,9 @@ export function ModuleLibraryShell({
                 return (
                   <button
                     key={tab.id}
+                    role="tab"
+                    type="button"
+                    aria-selected={active}
                     onClick={() => { onTabChange(tab.id); setViewMode('library') }}
                     className={tabCls(active)}
                     style={active ? { borderColor: accentColor } : undefined}
@@ -238,6 +247,9 @@ export function ModuleLibraryShell({
               {/* Katalog — present only when katalogView slot is provided */}
               {katalogView !== undefined && (
                 <button
+                  role="tab"
+                  type="button"
+                  aria-selected={viewMode === 'katalog'}
                   onClick={() => setViewMode(viewMode === 'katalog' ? 'library' : 'katalog')}
                   className={tabCls(viewMode === 'katalog')}
                   style={viewMode === 'katalog' ? { borderColor: accentColor } : undefined}

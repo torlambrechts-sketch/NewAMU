@@ -575,7 +575,7 @@ export function SurveyLibraryPage() {
         ) : undefined
       }
       externalViewMode={viewMode}
-      onViewModeChange={(m) => setViewMode(m as ViewMode)}
+      onViewModeChange={setViewMode}
       libraryView={libraryView}
       katalogView={katalogView}
       analyseView={analyseView}
@@ -900,8 +900,8 @@ function CreateSurveySlidePanel({
           </Button>
           <Button
             variant="primary"
-            type="button"
-            onClick={() => void doCreate()}
+            type="submit"
+            form="survey-lib-create-form"
             disabled={busy || !title.trim()}
           >
             {busy ? 'Oppretter …' : 'Opprett'}
@@ -909,7 +909,7 @@ function CreateSurveySlidePanel({
         </div>
       }
     >
-      <form onSubmit={(e) => { e.preventDefault(); void doCreate() }} className="space-y-5">
+      <form id="survey-lib-create-form" onSubmit={(e) => { e.preventDefault(); void doCreate() }} className="space-y-5">
         <div>
           <label className={WPSTD_FORM_FIELD_LABEL} htmlFor="survey-lib-template">
             Mal (valgfri)
