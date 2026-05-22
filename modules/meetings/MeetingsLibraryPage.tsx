@@ -5,7 +5,7 @@
 // inline ModuleAnalyticsDashboard, and the create/peek slide panels.
 // One useMeetings() instance feeds all views — no duplicate fetches.
 
-import { useEffect, useMemo, useState, type FormEvent } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { BarChart3, ChevronRight, Clock, ListChecks, Plus, Scale, Users } from 'lucide-react'
 import { ModuleLibraryShell, type ViewMode } from '../../src/components/module/ModuleLibraryShell'
@@ -610,6 +610,7 @@ function LibraryTemplateGallery({
                     <LibraryTemplateTile
                       key={t.key}
                       accentColor={ACCENT}
+                      ariaLabel={t.name}
                       favoriteSlot={
                         tplRef ? (
                           <FavoriteToggle
@@ -625,10 +626,11 @@ function LibraryTemplateGallery({
                         <button
                           type="button"
                           onClick={() => onPeek(t)}
+                          aria-label={`Vis mal: ${t.name}`}
                           className="flex flex-col items-start gap-2 text-left w-full pr-6"
                         >
                           <div className="flex w-full items-start justify-between gap-2">
-                            <span className="text-sm font-semibold text-neutral-900">{t.name}</span>
+                            <span className="text-sm font-semibold text-neutral-900 line-clamp-2">{t.name}</span>
                             <Badge variant="info">{frameworkLabel(t.framework)}</Badge>
                           </div>
                           {t.description ? (
@@ -819,8 +821,7 @@ function CreateMeetingSlidePanel({
     [meetings.templates, templateId],
   )
 
-  async function handleCreate(e: FormEvent) {
-    e.preventDefault()
+  async function doCreate() {
     if (busy || !templateId || !title.trim()) return
     setBusy(true)
     try {
@@ -857,7 +858,7 @@ function CreateMeetingSlidePanel({
           <Button
             variant="primary"
             type="button"
-            onClick={() => void handleCreate(new Event('submit') as unknown as FormEvent)}
+            onClick={() => void doCreate()}
             disabled={busy || !templateId || !title.trim()}
           >
             {busy ? 'Oppretter …' : 'Opprett'}
@@ -865,7 +866,7 @@ function CreateMeetingSlidePanel({
         </div>
       }
     >
-      <form onSubmit={handleCreate} className="space-y-5">
+      <form onSubmit={(e) => { e.preventDefault(); void doCreate() }} className="space-y-5">
         <div>
           <label className={WPSTD_FORM_FIELD_LABEL} htmlFor="meetings-lib-template">
             Mal

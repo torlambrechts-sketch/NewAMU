@@ -14,7 +14,7 @@ export function LibrarySectionHeader({ name, count }: Props) {
         {name}
       </h3>
       {count !== undefined && (
-        <span className="text-[11px] text-neutral-400">{count}</span>
+        <span className="text-[11px] text-neutral-500">{count}</span>
       )}
     </div>
   )

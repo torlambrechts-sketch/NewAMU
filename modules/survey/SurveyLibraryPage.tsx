@@ -7,7 +7,7 @@
 // Analyse: inline ModuleAnalyticsDashboard (same wiring as SurveyAnalysePage).
 // One hook instance per data source to avoid duplicate fetches.
 
-import { useCallback, useEffect, useMemo, useRef, useState, type ComponentType, type FormEvent } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type ComponentType } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { BarChart3, ChevronRight, FileText, Package, Plus, Sparkles } from 'lucide-react'
 import { ModuleLibraryShell, type ViewMode } from '../../src/components/module/ModuleLibraryShell'
@@ -860,8 +860,7 @@ function CreateSurveySlidePanel({
     ]
   }, [survey.templateCatalog, presetPack])
 
-  async function handleCreate(e: FormEvent) {
-    e.preventDefault()
+  async function doCreate() {
     if (!title.trim() || busyRef.current) return
     busyRef.current = true
     setBusy(true)
@@ -902,7 +901,7 @@ function CreateSurveySlidePanel({
           <Button
             variant="primary"
             type="button"
-            onClick={() => void handleCreate(new Event('submit') as unknown as FormEvent)}
+            onClick={() => void doCreate()}
             disabled={busy || !title.trim()}
           >
             {busy ? 'Oppretter …' : 'Opprett'}
@@ -910,7 +909,7 @@ function CreateSurveySlidePanel({
         </div>
       }
     >
-      <form onSubmit={handleCreate} className="space-y-5">
+      <form onSubmit={(e) => { e.preventDefault(); void doCreate() }} className="space-y-5">
         <div>
           <label className={WPSTD_FORM_FIELD_LABEL} htmlFor="survey-lib-template">
             Mal (valgfri)

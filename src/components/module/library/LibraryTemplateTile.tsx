@@ -1,9 +1,12 @@
 // LibraryTemplateTile — consistent card shell for template tiles across all
 // module library pages (compliance, survey, meetings).
 //
-// Single-action tiles: pass onClick — the entire card becomes a <button>.
-// Multi-action tiles (e.g. peek + create): omit onClick — a <div> shell is
-// rendered and callers place their own <button> elements inside children.
+// Single-action tiles: pass onClick — the entire card becomes a <button> with
+// a focus-visible ring coloured by accentColor.
+//
+// Multi-action tiles (e.g. peek + create): omit onClick — a <div role="group">
+// shell is rendered so screen readers announce the card as a group and the
+// child buttons are individually reachable.
 //
 // favoriteSlot is absolutely positioned at top-right.
 
@@ -15,6 +18,8 @@ type Props = {
   favoriteSlot?: ReactNode
   /** Primary action. When provided the card shell renders as a <button>. */
   onClick?: () => void
+  /** Accessible label for the card group (multi-action mode only). */
+  ariaLabel?: string
   /** Accent hex colour for hover border — default brand green. */
   accentColor?: string
   children: ReactNode
@@ -28,6 +33,7 @@ const SHELL =
 export function LibraryTemplateTile({
   favoriteSlot,
   onClick,
+  ariaLabel,
   accentColor = '#1a3d32',
   children,
   className = '',
@@ -39,26 +45,34 @@ export function LibraryTemplateTile({
     ref.current.style.borderColor = on ? `${accentColor}4d` : ''
   }
 
-  const shared = {
+  const baseShared = {
     ref,
-    className: `group ${SHELL} ${className} focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2`,
+    className: `group ${SHELL} ${className}`,
     onMouseEnter: () => hover(true),
     onMouseLeave: () => hover(false),
-    onFocus: () => hover(true),
-    onBlur: () => hover(false),
   }
 
   const inner = onClick ? (
     <button
       type="button"
       onClick={onClick}
-      {...shared}
+      aria-label={ariaLabel}
+      {...baseShared}
+      className={`${baseShared.className} focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2`}
       style={{ '--tw-ring-color': accentColor } as React.CSSProperties}
+      onFocus={() => hover(true)}
+      onBlur={() => hover(false)}
     >
       {children}
     </button>
   ) : (
-    <div {...shared}>{children}</div>
+    <div
+      {...baseShared}
+      role="group"
+      aria-label={ariaLabel}
+    >
+      {children}
+    </div>
   )
 
   return (
