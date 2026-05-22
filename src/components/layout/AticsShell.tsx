@@ -2031,123 +2031,78 @@ export function AticsShell() {
     const activeModule = activeModuleForPath(visibleModules, location.pathname, location.search)
     const activeGroup = visibleGroups.find((g) => g.modules.some((m) => m.to === activeModule.to))
 
+    // Single combined sidebar — replaces the old two-rail (icon strip + module panel) layout.
+    // Width reduced from ~268px (60 + 208) to 200px; groups + sub-items live in one panel.
     return (
       <div className="flex h-[100dvh] max-h-[100dvh] overflow-hidden">
 
-        {/* ── Rail 1: Group icons ──────────────────────────────────────────── */}
-        <aside className="flex w-[3.75rem] shrink-0 flex-col bg-[var(--ui-nav-rail)]">
-          {/* Logo */}
-          <div className="flex h-14 shrink-0 items-center justify-center border-b border-white/10">
-            <NavLink
-              to="/app"
-              aria-label={t('shell.homeAria')}
-              className="flex items-center justify-center rounded-lg p-1.5 hover:bg-white/10"
-            >
-              <KlarertLogo size={22} markOnly variant="onDark" />
-            </NavLink>
-          </div>
-
-          {/* One icon per group */}
-          <nav className="flex flex-1 flex-col gap-1.5 overflow-y-auto px-2 py-4" aria-label="Primary">
-            {visibleGroups.map((group) => {
-              const GroupIcon = group.icon
-              const isActive = activeGroup?.id === group.id
-              return (
-                <NavLink
-                  key={group.id}
-                  to={group.modules[0].to}
-                  end={false}
-                  title={group.label}
-                  className={`flex items-center justify-center rounded-lg p-3 transition-colors ${
-                    isActive
-                      ? 'bg-white/15 text-white ring-1 ring-[#c9a227]/60'
-                      : 'text-white/55 hover:bg-white/10 hover:text-white'
-                  }`}
-                >
-                  <GroupIcon className="size-[1.125rem] shrink-0" aria-hidden />
-                </NavLink>
-              )
-            })}
-          </nav>
-
-          {/* Section rail toggle — always on this column (mid rail can be absent before activeGroup resolves) */}
-          <div className="border-t border-white/10 px-2 py-2">
-            <Button
-              variant="ghost"
-              onClick={toggleSubNavCollapsed}
-              className={`flex w-full items-center justify-center rounded-lg p-3 transition-colors ${
-                subNavCollapsed ? 'bg-white/15 text-white' : 'text-white/70 hover:bg-white/10 hover:text-white'
-              }`}
-              aria-expanded={!subNavCollapsed}
-              aria-label={subNavCollapsed ? t('shell.expandSectionNav') : t('shell.collapseSectionNav')}
-              title={subNavCollapsed ? t('shell.expandSectionNav') : t('shell.collapseSectionNav')}
-            >
-              {subNavCollapsed ? (
-                <PanelRight className="size-[1.125rem] shrink-0" aria-hidden />
-              ) : (
-                <PanelLeft className="size-[1.125rem] shrink-0" aria-hidden />
-              )}
-            </Button>
-          </div>
-
-        </aside>
-
-        {/* ── Rail 2: Modules + sub-items for active group ─────────────────── */}
-        {!subNavCollapsed && activeGroup && (
-          <aside className="flex w-52 shrink-0 flex-col overflow-hidden bg-[var(--ui-nav-rail-mid)]">
-            {/* Group name header — collapse/expand lives on left icon rail only */}
-            <div className="flex h-14 shrink-0 items-center border-b border-white/10 px-4">
-              <span
-                className="min-w-0 truncate text-sm font-semibold text-white"
-                style={{ fontFamily: "'Libre Baskerville', Georgia, serif" }}
+        {/* ── Combined sidebar ─────────────────────────────────────────────── */}
+        {!subNavCollapsed && (
+          <aside className="flex w-[200px] shrink-0 flex-col overflow-hidden bg-[var(--ui-nav-rail)]">
+            {/* Logo + wordmark */}
+            <div className="flex h-14 shrink-0 items-center gap-2.5 border-b border-white/10 px-4">
+              <NavLink
+                to="/app"
+                aria-label={t('shell.homeAria')}
+                className="flex items-center gap-2.5 rounded-lg hover:opacity-80"
               >
-                {activeGroup.label}
-              </span>
+                <KlarertLogo size={22} markOnly variant="onDark" />
+                <span
+                  className="text-[17px] font-bold tracking-tight text-white"
+                  style={{ fontFamily: "'Libre Baskerville', Georgia, serif" }}
+                >
+                  klarert
+                </span>
+              </NavLink>
             </div>
 
-            {/* Module list — each module can expand to show its sub-items */}
-            <nav className="flex-1 overflow-y-auto px-2 py-3" aria-label="Section">
-              {activeGroup.modules.map((mod) => {
-                const ModIcon = mod.icon
-                const isActiveMod = activeModule.to === mod.to
-                const modSubs = visibleSubs(mod.subs, gateNav, can)
-                const hasModSubs = modSubs.length > 0
+            {/* Group + module list */}
+            <nav className="flex-1 overflow-y-auto px-2 py-3" aria-label="Primary">
+              <div className="mb-1 px-2.5 pt-1 text-[10px] font-bold uppercase tracking-widest text-white/35">
+                Moduler
+              </div>
+              {visibleGroups.map((group) => {
+                const GroupIcon = group.icon
+                const isActiveGroup = activeGroup?.id === group.id
+                // For single-module groups, the group row IS the module link.
+                // For multi-module groups (Administrasjon), it links to the first module.
+                const firstMod = group.modules[0]
+
+                // Active module's sub-items (shown inline below the active group)
+                const activeModInGroup = isActiveGroup
+                  ? group.modules.find((m) => m.to === activeModule.to) ?? firstMod
+                  : null
+                const modSubs = activeModInGroup
+                  ? visibleSubs(activeModInGroup.subs, gateNav, can)
+                  : []
 
                 return (
-                  <div key={mod.to}>
-                    {/* Module row */}
+                  <div key={group.id}>
+                    {/* Group / module row */}
                     <NavLink
-                      to={mod.to}
-                      end={mod.end}
-                      className={`flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm font-medium transition-colors ${
-                        isActiveMod
+                      to={firstMod.to}
+                      end={false}
+                      title={group.label}
+                      className={`flex items-center gap-2.5 rounded-lg px-2.5 py-[9px] text-[13px] font-medium transition-colors ${
+                        isActiveGroup
                           ? 'bg-white/10 text-white'
                           : 'text-white/65 hover:bg-white/5 hover:text-white/90'
                       }`}
                     >
-                      <ModIcon className="size-4 shrink-0 opacity-80" aria-hidden />
-                      <span className="flex-1">{mod.label}</span>
-                      {isActiveMod && hasModSubs && (
-                        <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-[#c9a227]" aria-hidden />
-                      )}
+                      <GroupIcon className="size-4 shrink-0 opacity-80" aria-hidden />
+                      <span className="flex-1">{group.label}</span>
                     </NavLink>
 
-                    {/* Sub-items — expanded inline when this module is active.
-                        flatSubs modules (e.g. Sjekklister) render their sub-items
-                        at module-level size and zero extra indent so the templates
-                        read as co-equal first-class entries. */}
-                    {isActiveMod && hasModSubs && (
+                    {/* Sub-items — shown inline below the active group */}
+                    {isActiveGroup && modSubs.length > 0 && (
                       <div
                         className={
-                          mod.flatSubs
+                          activeModInGroup?.flatSubs
                             ? 'mb-1 mt-0.5'
                             : 'mb-1 ml-4 mt-0.5 border-l border-white/10 pl-3'
                         }
                       >
                         {(() => {
-                          // Pre-compute auto-expand: a header is auto-open
-                          // when any item beneath it (before the next
-                          // header) matches the current location.
                           const loc = { pathname: location.pathname, search: location.search }
                           const autoOpenByKey = new Map<string, boolean>()
                           for (let i = 0; i < modSubs.length; i++) {
@@ -2176,21 +2131,18 @@ export function AticsShell() {
                                   variant="ghost"
                                   onClick={() => toggleHeader(key, auto)}
                                   aria-expanded={expanded}
-                                  className="mt-3 flex w-full items-center justify-start gap-2 rounded-lg px-2.5 py-1.5 text-left text-[11px] font-semibold uppercase tracking-wider text-white/55 transition-colors hover:bg-white/5 hover:text-white/80 first:mt-0"
+                                  className="mt-3 flex w-full items-center justify-start gap-2 rounded-lg px-2.5 py-1.5 text-left text-[10px] font-bold uppercase tracking-widest text-white/40 transition-colors hover:bg-white/5 hover:text-white/70 first:mt-0"
                                 >
-                                  <HeaderIcon className="size-3.5 shrink-0 opacity-80" aria-hidden />
+                                  <HeaderIcon className="size-3 shrink-0 opacity-70" aria-hidden />
                                   <span className="min-w-0 flex-1 truncate">{item.label}</span>
                                   {expanded ? (
-                                    <ChevronDown className="size-3.5 shrink-0 opacity-70" aria-hidden />
+                                    <ChevronDown className="size-3 shrink-0 opacity-60" aria-hidden />
                                   ) : (
-                                    <ChevronRight className="size-3.5 shrink-0 opacity-70" aria-hidden />
+                                    <ChevronRight className="size-3 shrink-0 opacity-60" aria-hidden />
                                   )}
                                 </Button>
                               )
                             }
-                            // Items belonging to a header: render only if
-                            // that header is currently expanded. Items
-                            // without a headerKey always render.
                             if (item.headerKey) {
                               const auto = autoOpenByKey.get(item.headerKey) ?? false
                               const expanded = expandedHeaders.has(item.headerKey)
@@ -2209,7 +2161,7 @@ export function AticsShell() {
                                 title={item.label}
                                 aria-label={iconOnly ? item.label : undefined}
                                 className={
-                                  mod.flatSubs
+                                  activeModInGroup?.flatSubs
                                     ? `flex items-center gap-2.5 rounded-lg ${indented ? 'pl-7 pr-2.5' : 'px-2.5'} py-2 text-sm font-medium transition-colors ${
                                         active
                                           ? 'bg-white/10 text-white'
@@ -2226,10 +2178,10 @@ export function AticsShell() {
                                       }`
                                 }
                               >
-                                {!iconOnly && active && !mod.flatSubs && (
+                                {!iconOnly && active && !activeModInGroup?.flatSubs && (
                                   <span className="h-3 w-0.5 shrink-0 rounded-full bg-[#c9a227]" aria-hidden />
                                 )}
-                                {!iconOnly && !active && !mod.flatSubs && (
+                                {!iconOnly && !active && !activeModInGroup?.flatSubs && (
                                   <span className="h-3 w-0.5 shrink-0" aria-hidden />
                                 )}
                                 {iconOnly ? (
@@ -2239,7 +2191,7 @@ export function AticsShell() {
                                     <span className="flex-1">{item.label}</span>
                                     {typeof item.badgeCount === 'number' && item.badgeCount > 0 ? (
                                       <span
-                                        className={`ml-2 inline-flex h-5 min-w-[20px] shrink-0 items-center justify-center rounded-full px-1.5 text-[10px] font-bold ${
+                                        className={`ml-1.5 inline-flex h-5 min-w-[20px] shrink-0 items-center justify-center rounded-full px-1.5 text-[10px] font-bold ${
                                           item.badgeTone === 'danger'
                                             ? 'bg-rose-600 text-white'
                                             : 'bg-[#c9a227] text-[#1a1a1a]'
@@ -2261,12 +2213,55 @@ export function AticsShell() {
                 )
               })}
             </nav>
+
+            {/* User footer + collapse toggle */}
+            <div className="shrink-0 border-t border-white/10 px-3 py-2.5">
+              <div className="flex items-center gap-2.5">
+                <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[#c9a227] text-[11px] font-bold text-[#1a1a1a]">
+                  {(profileDisplay || profileEmail).slice(0, 2).toUpperCase() || 'TL'}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <div className="truncate text-[12px] font-semibold text-white">{profileDisplay || profileEmail}</div>
+                </div>
+                <Button
+                  variant="ghost"
+                  onClick={toggleSubNavCollapsed}
+                  className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-white/50 transition-colors hover:bg-white/10 hover:text-white"
+                  aria-label={t('shell.collapseSectionNav')}
+                  title={t('shell.collapseSectionNav')}
+                >
+                  <PanelLeft className="size-4 shrink-0" aria-hidden />
+                </Button>
+              </div>
+            </div>
           </aside>
+        )}
+
+        {/* Collapsed state: show just a thin toggle strip */}
+        {subNavCollapsed && (
+          <div className="flex w-10 shrink-0 flex-col items-center bg-[var(--ui-nav-rail)] py-3">
+            <NavLink
+              to="/app"
+              aria-label={t('shell.homeAria')}
+              className="mb-4 flex items-center justify-center rounded-lg p-1 hover:bg-white/10"
+            >
+              <KlarertLogo size={20} markOnly variant="onDark" />
+            </NavLink>
+            <Button
+              variant="ghost"
+              onClick={toggleSubNavCollapsed}
+              className="flex h-8 w-8 items-center justify-center rounded-md text-white/60 hover:bg-white/10 hover:text-white"
+              aria-label={t('shell.expandSectionNav')}
+              title={t('shell.expandSectionNav')}
+            >
+              <PanelRight className="size-4 shrink-0" aria-hidden />
+            </Button>
+          </div>
         )}
 
         {/* ── Content area ─────────────────────────────────────────────────── */}
         <div className="flex flex-1 flex-col overflow-hidden">
-          {/* Utility bar — page background colour */}
+          {/* Top utility bar */}
           <header className="flex h-14 shrink-0 items-center gap-3 border-b border-neutral-300/40 bg-[var(--ui-surface)] px-4 md:px-5">
             <div className="min-w-0 flex-1" />
             <div className="ml-auto flex min-w-0 flex-wrap items-center justify-end gap-2 sm:gap-3">
@@ -2276,11 +2271,6 @@ export function AticsShell() {
                   <ShellCompanyBlock name={orgDisplayName} variant="sidebar" />
                   <ShellQuickCreateMenu variant="sidebar" />
                   <ShellComplianceIndicator variant="sidebar" />
-                  {/* Cross-module Cat 1 filter (regulations) — replaces the
-                      single-pack switchers as the dominant control. The
-                      compliance + survey pack switchers stay for module-
-                      internal pack focus where the URL ?pack= param matters
-                      (e.g. compliance accent flip). */}
                   <RegulationFilterMenu variant="sidebar" />
                   <NotificationTray variant="sidebar" />
                   <LanguageDropdown variant="sidebar" />
