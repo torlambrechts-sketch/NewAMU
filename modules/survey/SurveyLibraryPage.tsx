@@ -508,7 +508,7 @@ export function SurveyLibraryPage() {
         open={addOpen}
         onClose={() => setAddOpen(false)}
         scopeId={SURVEY_DASHBOARD_SCOPE_ID}
-        onAdd={(widget: ReportModule) => void dashboard.saveLayout([...dashboard.layout, widget])}
+        onAdd={(widget: ReportModule) => dashboard.saveLayout([...dashboard.layout, widget])}
       />
       <DashboardEditWidgetPanel
         open={editWidget !== null}
@@ -931,13 +931,11 @@ function CreateSurveySlidePanel({
           />
         </div>
         <div>
-          <YesNoToggle
-            id="survey-lib-anonymous"
-            label="Anonym"
-            hint="Deltakernes identitet skjules for administratorer."
-            value={isAnonymous}
-            onChange={setIsAnonymous}
-          />
+          <label className={WPSTD_FORM_FIELD_LABEL}>Anonym</label>
+          <p className="mb-1.5 text-xs text-neutral-500">
+            Deltakernes identitet skjules for administratorer.
+          </p>
+          <YesNoToggle value={isAnonymous} onChange={setIsAnonymous} />
         </div>
         <div className="grid grid-cols-2 gap-4">
           <div>

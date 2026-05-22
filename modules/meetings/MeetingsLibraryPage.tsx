@@ -462,7 +462,7 @@ export function MeetingsLibraryPage() {
         open={addOpen}
         onClose={() => setAddOpen(false)}
         scopeId={MEETINGS_DASHBOARD_SCOPE_ID}
-        onAdd={(widget: ReportModule) => void dashboard.saveLayout([...dashboard.layout, widget])}
+        onAdd={(widget: ReportModule) => dashboard.saveLayout([...dashboard.layout, widget])}
       />
       <DashboardEditWidgetPanel
         open={editWidget !== null}
