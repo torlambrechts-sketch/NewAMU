@@ -532,7 +532,7 @@ export function AticsShell() {
       icon: ClipboardList,
       modules: [
         {
-          to: '/compliance/checklists',
+          to: '/compliance/checklists/bibliotek',
           label: 'Sjekklister',
           end: false,
           icon: ClipboardList,
