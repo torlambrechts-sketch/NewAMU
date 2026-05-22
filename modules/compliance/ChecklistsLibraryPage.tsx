@@ -603,12 +603,11 @@ export function ChecklistsLibraryPage() {
                 <span style={{ fontWeight: 700 }}>Analyse</span>
               </button>
 
-              {/* Lens-specific tabs — only visible in library view */}
-              {view === 'library' &&
-                tabs.map((tab) => (
+              {/* Lens-specific tabs — always visible */}
+              {tabs.map((tab) => (
                   <button
                     key={tab.id}
-                    onClick={() => setLensVal(tab.id)}
+                    onClick={() => { setLensVal(tab.id); setView('library') }}
                     className={`flex-shrink-0 border-b-2 px-[18px] py-2.5 text-[13px] font-medium whitespace-nowrap transition-colors ${
                       activeTab === tab.id
                         ? 'border-[#1a3d32] text-neutral-900'
