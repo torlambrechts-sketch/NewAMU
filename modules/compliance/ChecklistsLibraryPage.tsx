@@ -10,15 +10,15 @@
 //   null                         — nothing open
 //   { kind:'create', … }        — SlidePanel with create form
 //   { kind:'exec', view:'panel' } — SlidePanel with execution detail
-//   { kind:'exec', view:'full' } — full-width execution content below sticky header
+//   { kind:'exec', view:'full' } — full-width execution content (shell detailFullView)
 //
-// The header + tab bar are sticky so they remain visible while content scrolls.
+// Chrome (header, lens control, tab row, sticky positioning) is provided by
+// ModuleLibraryShell — this file owns only data fetching and content slots.
 
 import { useEffect, useMemo, useState } from 'react'
-import { Link, useNavigate, useSearchParams } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import {
   Archive,
-  ArrowLeft,
   BarChart3,
   ChevronRight,
   ClipboardList,
@@ -30,7 +30,6 @@ import {
   ShieldCheck,
   User,
   Users,
-  Wrench,
 } from 'lucide-react'
 import { Badge } from '../../src/components/ui/Badge'
 import { Button } from '../../src/components/ui/Button'
@@ -42,6 +41,13 @@ import {
   WPSTD_FORM_FIELD_LABEL,
   WPSTD_FORM_LEAD,
 } from '../../src/components/layout/WorkplaceStandardFormPanel'
+import {
+  ModuleLibraryShell,
+  SERIF,
+  type DetailFullView,
+  type ModuleLibraryLenses,
+  type ModuleLibraryTab,
+} from '../../src/components/module/ModuleLibraryShell'
 import { useLicensedPacks } from '../../src/context/packContextValue'
 import { useOrgSetupContext } from '../../src/hooks/useOrgSetupContext'
 import { useChecklistModule } from './useChecklistModule'
@@ -95,8 +101,6 @@ const STATUS_BADGE = {
   active: 'active',
   signed: 'signed',
 } as const
-
-const SERIF = "'Libre Baskerville', 'Source Serif 4', Georgia, serif"
 
 // Compact inline dropdown filter chip
 function MiniFilter({
@@ -255,9 +259,6 @@ export function ChecklistsLibraryPage() {
   const lens = (searchParams.get('lens') as Lens) ?? 'lovverk'
   const lensVal = searchParams.get('lv')
 
-  // 'library' shows the two-column content; 'analyse' embeds the dashboard inline
-  const [view, setView] = useState<'library' | 'analyse'>('library')
-
   // Detail pane — null = closed, 'create' = new-form panel, 'exec' = execution panel/full
   const [detailPane, setDetailPane] = useState<DetailPane | null>(null)
   // Create form state (lives here so it persists while the panel is open)
@@ -271,7 +272,6 @@ export function ChecklistsLibraryPage() {
   const orgSetup = useOrgSetupContext()
   const { supabase } = orgSetup
   const cl = useChecklistModule({ supabase })
-  const navigate = useNavigate()
 
   const [tplStatus, setTplStatus] = useState<string | null>(null)
   const [actStatus, setActStatus] = useState<string | null>(null)
@@ -455,16 +455,6 @@ export function ChecklistsLibraryPage() {
     void dashboard.saveFilters(next)
   }
 
-  const dashboardEmpty =
-    cl.executions.length === 0 ? (
-      <div className="rounded-md border border-dashed border-neutral-300 bg-white p-8 text-center">
-        <BarChart3 className="mx-auto h-8 w-8 text-neutral-300" aria-hidden />
-        <p className="mt-3 text-sm text-neutral-600">
-          Ingen sjekklister å analysere ennå. Opprett eller signer en kjøring for å se tallene her.
-        </p>
-      </div>
-    ) : null
-
   // ── Library data ──────────────────────────────────────────────────────────
 
   function setLens(l: Lens) {
@@ -472,7 +462,7 @@ export function ChecklistsLibraryPage() {
     p.set('lens', l)
     p.delete('lv')
     setSearchParams(p, { replace: true })
-    setView('library')
+    // Shell handles viewMode reset to 'library' when lenses.onChange fires
   }
 
   function setLensVal(v: string) {
@@ -490,7 +480,7 @@ export function ChecklistsLibraryPage() {
     [cl.templates],
   )
 
-  const tabs = useMemo(() => {
+  const rawTabs = useMemo(() => {
     const activeTpls = cl.templates.filter((t) => t.is_active)
     if (lens === 'lovverk') {
       return licensedPacks.map((p) => ({
@@ -519,7 +509,13 @@ export function ChecklistsLibraryPage() {
     return []
   }, [lens, licensedPacks, cl.categories, cl.templates, cl.executions, templateById])
 
-  const activeTab = tabs.find((t) => t.id === lensVal)?.id ?? tabs[0]?.id ?? null
+  // Add serifLabel for lovverk (pack names) tabs
+  const shellTabs: ModuleLibraryTab[] = rawTabs.map((t) => ({
+    ...t,
+    serifLabel: lens === 'lovverk',
+  }))
+
+  const activeTab = rawTabs.find((t) => t.id === lensVal)?.id ?? rawTabs[0]?.id ?? null
 
   const activePackCtx =
     lens === 'lovverk' && activeTab
@@ -566,691 +562,615 @@ export function ChecklistsLibraryPage() {
     { id: 'draft', label: 'Kladd' },
   ]
 
-  return (
-    <div className="flex min-h-screen flex-col bg-[#F9F7F2]">
-      {/* ── LensHeader — sticky so it stays pinned while content scrolls ── */}
-      <header className="sticky top-0 z-10 flex-shrink-0 border-b border-neutral-200 bg-white">
-        <div className="mx-auto max-w-[1400px] px-10 pb-0 pt-6">
-          {/* Title row + segmented control + settings */}
-          <div className="flex items-start justify-between gap-6">
-            <div>
-              <p className="mb-1 text-[10px] font-bold uppercase tracking-widest text-neutral-500">
-                Sjekklister · biblioteket
-              </p>
-              <h1
-                className="text-3xl font-bold leading-tight text-neutral-900"
-                style={{ fontFamily: SERIF }}
-              >
-                Sjekklister
-              </h1>
-              <p className="mt-1 text-[13px] text-neutral-600">
-                Administrer og følg opp sjekklister mot lovverk, roller og standarder
-              </p>
-            </div>
+  // ── Shell prop assembly ───────────────────────────────────────────────────
 
-            <div className="mt-1 flex shrink-0 items-center gap-2">
-              {/* Tri-mode segmented control */}
-              <div className="inline-flex rounded-lg bg-neutral-100 p-[3px] gap-0.5">
-                {(
-                  [
-                    { id: 'lovverk', label: 'Lovverk', LucideIcon: Scale },
-                    { id: 'roller', label: 'Rolle', LucideIcon: Users },
-                    { id: 'alle', label: 'Alle', LucideIcon: LayoutGrid },
-                  ] as const
-                ).map((m) => (
-                  <button
-                    key={m.id}
-                    onClick={() => setLens(m.id)}
-                    className={`inline-flex items-center gap-1.5 rounded-md px-3.5 py-[7px] text-xs font-semibold transition-all ${
-                      lens === m.id && view === 'library'
-                        ? 'bg-white text-neutral-900 shadow-sm'
-                        : 'text-neutral-600 hover:text-neutral-800'
-                    }`}
+  const lensesControl: ModuleLibraryLenses = {
+    items: [
+      { id: 'lovverk', label: 'Lovverk', icon: Scale },
+      { id: 'roller', label: 'Rolle', icon: Users },
+      { id: 'alle', label: 'Alle', icon: LayoutGrid },
+    ],
+    value: lens,
+    onChange: (id) => setLens(id as Lens),
+  }
+
+  const libraryView = (
+    <div className="mx-auto w-full max-w-[1400px] px-10 py-6">
+      <div
+        className={`grid gap-6 ${
+          hasContextCard ? 'lg:grid-cols-[240px_1fr_1fr]' : 'lg:grid-cols-2'
+        }`}
+      >
+        {/* Context card — only in lovverk/roller mode when a tab is active */}
+        {hasContextCard && (
+          <div className="lg:sticky lg:top-[var(--header-h,140px)] lg:self-start">
+            <div className="rounded-xl border border-neutral-200 bg-white p-5 shadow-sm">
+              {activePackCtx && (
+                <>
+                  <div
+                    className="mb-1 text-[26px] font-bold leading-none text-[#1a3d32]"
+                    style={{ fontFamily: SERIF }}
                   >
-                    <m.LucideIcon className="h-3.5 w-3.5" />
-                    {m.label}
-                  </button>
-                ))}
-              </div>
-
-              {/* Settings wrench */}
-              <button
-                onClick={() => navigate('/admin/settings/compliance')}
-                title="Innstillinger"
-                className="flex h-8 w-8 items-center justify-center rounded-lg border border-neutral-200 bg-white text-neutral-500 transition-colors hover:border-neutral-300 hover:bg-neutral-50 hover:text-neutral-700"
-              >
-                <Wrench className="h-4 w-4" />
-              </button>
-            </div>
-          </div>
-
-          {/* Tab row: Analyse (persistent) + lens-specific tabs + Ny sjekkliste */}
-          <div className="mt-4 flex items-end justify-between gap-2">
-            <div className="flex gap-0 overflow-x-auto">
-              {/* Analyse tab — always first; toggles inline dashboard */}
-              <button
-                onClick={() => setView(view === 'analyse' ? 'library' : 'analyse')}
-                className={`flex shrink-0 items-center gap-1.5 border-b-2 px-[18px] py-2.5 text-[13px] whitespace-nowrap transition-colors ${
-                  view === 'analyse'
-                    ? 'border-[#1a3d32] text-neutral-900'
-                    : 'border-transparent text-neutral-600 hover:border-neutral-200 hover:text-neutral-700'
-                }`}
-              >
-                <BarChart3 className="h-3.5 w-3.5 opacity-70" />
-                <span style={{ fontWeight: 700 }}>Analyse</span>
-              </button>
-
-              {/* Lens-specific tabs — always visible */}
-              {tabs.map((tab) => (
-                  <button
-                    key={tab.id}
-                    onClick={() => { setLensVal(tab.id); setView('library') }}
-                    className={`flex-shrink-0 border-b-2 px-[18px] py-2.5 text-[13px] font-medium whitespace-nowrap transition-colors ${
-                      activeTab === tab.id
-                        ? 'border-[#1a3d32] text-neutral-900'
-                        : 'border-transparent text-neutral-600 hover:border-neutral-200 hover:text-neutral-700'
-                    }`}
-                  >
-                    <span
-                      style={{
-                        fontFamily: lens === 'lovverk' ? SERIF : undefined,
-                        fontWeight: 700,
-                      }}
-                    >
-                      {tab.label}
-                    </span>
-                    {tab.count > 0 && (
-                      <span className="ml-2 tabular-nums text-[12px] text-neutral-500">
-                        {tab.count}
-                      </span>
-                    )}
-                  </button>
-                ))}
-            </div>
-
-            {/* Ny sjekkliste */}
-            <div className="shrink-0 pb-1.5">
-              <Button
-                variant="primary"
-                size="sm"
-                icon={<Plus className="h-3.5 w-3.5" />}
-                onClick={() => {
-                  const first = cl.templates.filter((t) => t.is_active)[0] ?? null
-                  setCreateForm({ templateId: first?.id ?? '', title: first?.name ?? '', scheduledFor: '', assignedTo: '' })
-                  setDetailPane({ kind: 'create', template: null })
-                }}
-              >
-                Ny sjekkliste
-              </Button>
-            </div>
-          </div>
-        </div>
-      </header>
-
-      {/* ── Inline Analyse dashboard ── */}
-      {view === 'analyse' && (
-        <>
-          <ModuleAnalyticsDashboard
-            accent={accent}
-            breadcrumb={[]}
-            title=""
-            description=""
-            titleChooser={
-              <DashboardChooser
-                available={dashboard.available}
-                activeRow={dashboard.row}
-                isDefault={dashboard.isDefault}
-                currentUserId={dashboard.currentUserId}
-                onSelect={dashboard.selectLayout}
-                onSaveAs={dashboard.saveAs}
-                onRename={dashboard.renameActive}
-                onDelete={dashboard.deleteActive}
-                onMarkDefault={dashboard.markActiveDefault}
-              />
-            }
-            headerActions={
-              <div className="flex flex-wrap items-center gap-2">
-                {editChrome.toggleButton}
-                <PublishReportButton
-                  sourceDashboardId={dashboard.row?.id ?? null}
-                  sourceDashboardName={dashboard.row?.name ?? null}
-                  scopeId={CHECKLIST_DASHBOARD_SCOPE_ID}
-                  scopeLabel="Sjekklister"
-                  datasets={datasets}
-                  ensureSavedRow={dashboard.ensureSavedRow}
-                />
-              </div>
-            }
-            layout={dashboardLayout}
-            datasets={datasets}
-            loading={cl.loading || dashboard.loading}
-            error={cl.error ?? dashboard.error}
-            emptyState={dashboardEmpty}
-            onEdit={undefined}
-            onAddWidget={editChrome.editMode ? undefined : () => setAddOpen(true)}
-            widgetControlSlot={widgetControlSlot}
-            onDrillDown={handleDrillDown}
-            onResize={(w, next) =>
-              void dashboard.saveLayout(
-                dashboard.layout.map((x) => (x.id === w.id ? { ...x, colSpan: next } : x)),
-              )
-            }
-            {...editChrome.moduleProps}
-            filters={dashboard.filters}
-            dimensions={dimensions}
-            onFiltersChange={(next) => void dashboard.saveFilters(next)}
-          />
-
-          <DashboardEditLayoutPanel
-            open={false}
-            onClose={() => {}}
-            layout={dashboard.layout}
-            onSave={(next) => dashboard.saveLayout(next)}
-            onResetToDefault={dashboard.isDefault ? undefined : () => dashboard.resetToDefault()}
-          />
-
-          <DashboardAddWidgetPanel
-            open={addOpen}
-            onClose={() => setAddOpen(false)}
-            scopeId={CHECKLIST_DASHBOARD_SCOPE_ID}
-            onAdd={(widget: ReportModule) => dashboard.saveLayout([...dashboard.layout, widget])}
-          />
-
-          <DashboardEditWidgetPanel
-            open={editWidget !== null}
-            widget={editWidget}
-            datasets={datasets}
-            onClose={() => setEditWidget(null)}
-            onDuplicate={(w) => {
-              const dup = { ...w, id: freshId('w'), title: `${w.title} (kopi)` }
-              void dashboard.saveLayout([...dashboard.layout, dup])
-            }}
-            onRemove={(w) => {
-              void dashboard.saveLayout(dashboard.layout.filter((m) => m.id !== w.id))
-            }}
-            onSave={async (next) => {
-              const ok = await dashboard.saveLayout(
-                dashboard.layout.map((m) => (m.id === next.id ? next : m)),
-              )
-              return ok
-            }}
-            compatibleKinds={editWidget ? defaultCompatibleKinds(editWidget.kind) : undefined}
-          />
-        </>
-      )}
-
-      {/* ── Library body ── */}
-      {view === 'library' && !(detailPane?.kind === 'exec' && detailPane.view === 'full') && (
-        <div className="mx-auto w-full max-w-[1400px] px-10 py-6">
-          <div
-            className={`grid gap-6 ${
-              hasContextCard ? 'lg:grid-cols-[240px_1fr_1fr]' : 'lg:grid-cols-2'
-            }`}
-          >
-            {/* Context card — only in lovverk/roller mode when a tab is active */}
-            {hasContextCard && (
-              <div className="lg:sticky lg:top-[var(--header-h,140px)] lg:self-start">
-                <div className="rounded-xl border border-neutral-200 bg-white p-5 shadow-sm">
-                  {activePackCtx && (
-                    <>
-                      <div
-                        className="mb-1 text-[26px] font-bold leading-none text-[#1a3d32]"
-                        style={{ fontFamily: SERIF }}
-                      >
-                        {activePackCtx.shortName}
-                      </div>
-                      <div className="mb-3 text-[13px] font-semibold text-neutral-800">
-                        {activePackCtx.pluralLabel}
-                      </div>
-                      {activePackCtx.legalReferences.length > 0 && (
-                        <div className="mb-3">
-                          <div className="mb-2 text-[10px] font-bold uppercase tracking-widest text-neutral-500">
-                            Sentrale paragrafer
-                          </div>
-                          {activePackCtx.legalReferences.slice(0, 5).map((ref, i) => (
-                            <div
-                              key={i}
-                              className="border-t border-neutral-100 py-1.5 text-xs text-neutral-700 first:border-t-0"
-                            >
-                              {ref.code}
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                      {activePackCtx.description && (
-                        <p className="text-xs leading-relaxed text-neutral-600">
-                          {activePackCtx.description}
-                        </p>
-                      )}
-                    </>
-                  )}
-                  {activeCat && (
-                    <>
-                      <div className="mb-3 flex items-center gap-3">
-                        <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-[#e8f0ec] text-[#1a3d32]">
-                          <User className="h-5 w-5" />
-                        </div>
-                        <div>
-                          <div
-                            className="text-[17px] font-semibold text-neutral-900"
-                            style={{ fontFamily: SERIF }}
-                          >
-                            {activeCat.name}
-                          </div>
-                          {activeCat.description ? (
-                            <p className="text-xs text-neutral-500">{activeCat.description}</p>
-                          ) : null}
-                        </div>
-                      </div>
+                    {activePackCtx.shortName}
+                  </div>
+                  <div className="mb-3 text-[13px] font-semibold text-neutral-800">
+                    {activePackCtx.pluralLabel}
+                  </div>
+                  {activePackCtx.legalReferences.length > 0 && (
+                    <div className="mb-3">
                       <div className="mb-2 text-[10px] font-bold uppercase tracking-widest text-neutral-500">
-                        Hovedoppgaver
+                        Sentrale paragrafer
                       </div>
-                      {['Daglige runder', 'Avviksmelding', 'Følge opp tiltak'].map((task, i) => (
+                      {activePackCtx.legalReferences.slice(0, 5).map((ref, i) => (
                         <div
                           key={i}
                           className="border-t border-neutral-100 py-1.5 text-xs text-neutral-700 first:border-t-0"
                         >
-                          {task}
+                          {ref.code}
                         </div>
                       ))}
-                    </>
+                    </div>
                   )}
-                  {/* Stats */}
-                  <div className="mt-4 flex gap-6 border-t border-neutral-100 pt-4">
-                    <div>
-                      <div className="text-[10px] font-bold uppercase tracking-widest text-neutral-500">
-                        Maler
-                      </div>
-                      <div className="text-[17px] font-bold tabular-nums text-neutral-900">
-                        {filteredTemplates.length}
-                      </div>
+                  {activePackCtx.description && (
+                    <p className="text-xs leading-relaxed text-neutral-600">
+                      {activePackCtx.description}
+                    </p>
+                  )}
+                </>
+              )}
+              {activeCat && (
+                <>
+                  <div className="mb-3 flex items-center gap-3">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-[#e8f0ec] text-[#1a3d32]">
+                      <User className="h-5 w-5" />
                     </div>
                     <div>
-                      <div className="text-[10px] font-bold uppercase tracking-widest text-neutral-500">
-                        Aktivitet 7d
+                      <div
+                        className="text-[17px] font-semibold text-neutral-900"
+                        style={{ fontFamily: SERIF }}
+                      >
+                        {activeCat.name}
                       </div>
-                      <div className="text-[17px] font-bold tabular-nums text-[#1a3d32]">
-                        {filteredExecutions.length}
-                      </div>
+                      {activeCat.description ? (
+                        <p className="text-xs text-neutral-500">{activeCat.description}</p>
+                      ) : null}
                     </div>
+                  </div>
+                  <div className="mb-2 text-[10px] font-bold uppercase tracking-widest text-neutral-500">
+                    Hovedoppgaver
+                  </div>
+                  {['Daglige runder', 'Avviksmelding', 'Følge opp tiltak'].map((task, i) => (
+                    <div
+                      key={i}
+                      className="border-t border-neutral-100 py-1.5 text-xs text-neutral-700 first:border-t-0"
+                    >
+                      {task}
+                    </div>
+                  ))}
+                </>
+              )}
+              {/* Stats */}
+              <div className="mt-4 flex gap-6 border-t border-neutral-100 pt-4">
+                <div>
+                  <div className="text-[10px] font-bold uppercase tracking-widest text-neutral-500">
+                    Maler
+                  </div>
+                  <div className="text-[17px] font-bold tabular-nums text-neutral-900">
+                    {filteredTemplates.length}
+                  </div>
+                </div>
+                <div>
+                  <div className="text-[10px] font-bold uppercase tracking-widest text-neutral-500">
+                    Aktivitet 7d
+                  </div>
+                  <div className="text-[17px] font-bold tabular-nums text-[#1a3d32]">
+                    {filteredExecutions.length}
                   </div>
                 </div>
               </div>
-            )}
-
-            {/* Templates column */}
-            <div>
-              <div className="mb-3 flex items-baseline justify-between">
-                <h2 className="text-[15px] font-semibold text-neutral-900">Maler å starte fra</h2>
-                <Link
-                  to="/compliance/checklists/maler"
-                  className="text-xs font-semibold text-[#1a3d32] hover:underline"
-                >
-                  Se alle {cl.templates.filter((t) => t.is_active).length} →
-                </Link>
-              </div>
-
-              {/* Inline filter chips */}
-              <div className="mb-3 flex flex-wrap items-center gap-1.5">
-                <MiniFilter
-                  label="Status"
-                  value={tplStatus}
-                  options={TPL_FILTER_OPTS}
-                  onChange={setTplStatus}
-                />
-                {tplStatus && (
-                  <button
-                    onClick={() => setTplStatus(null)}
-                    className="text-xs text-neutral-400 hover:text-neutral-600"
-                  >
-                    Nullstill
-                  </button>
-                )}
-                <span className="ml-auto text-xs text-neutral-500">
-                  {filteredTemplates.length} treff
-                </span>
-              </div>
-
-              <div className="flex flex-col gap-2">
-                {filteredTemplates.slice(0, 8).map((t) => (
-                  <TemplateCard
-                    key={t.id}
-                    template={t}
-                    categoryName={
-                      t.category_id ? (categoryNameById.get(t.category_id) ?? null) : null
-                    }
-                    onClick={() => {
-                      setCreateForm({ templateId: t.id, title: t.name, scheduledFor: '', assignedTo: '' })
-                      setDetailPane({ kind: 'create', template: t })
-                    }}
-                  />
-                ))}
-                {filteredTemplates.length === 0 && (
-                  <div className="rounded-xl border border-dashed border-neutral-200 bg-white px-4 py-8 text-center text-sm text-neutral-500">
-                    Ingen maler matcher filtrene.
-                  </div>
-                )}
-              </div>
             </div>
+          </div>
+        )}
 
-            {/* Activity/Executions column */}
-            <div>
-              <div className="mb-3 flex items-baseline justify-between">
-                <h2 className="text-[15px] font-semibold text-neutral-900">Nylig aktivitet</h2>
-                <Link
-                  to="/compliance/checklists/aktivitet"
-                  className="text-xs font-semibold text-[#1a3d32] hover:underline"
-                >
-                  Se all aktivitet →
-                </Link>
+        {/* Templates column */}
+        <div>
+          <div className="mb-3 flex items-baseline justify-between">
+            <h2 className="text-[15px] font-semibold text-neutral-900">Maler å starte fra</h2>
+            <Link
+              to="/compliance/checklists/maler"
+              className="text-xs font-semibold text-[#1a3d32] hover:underline"
+            >
+              Se alle {cl.templates.filter((t) => t.is_active).length} →
+            </Link>
+          </div>
+
+          {/* Inline filter chips */}
+          <div className="mb-3 flex flex-wrap items-center gap-1.5">
+            <MiniFilter
+              label="Status"
+              value={tplStatus}
+              options={TPL_FILTER_OPTS}
+              onChange={setTplStatus}
+            />
+            {tplStatus && (
+              <button
+                onClick={() => setTplStatus(null)}
+                className="text-xs text-neutral-400 hover:text-neutral-600"
+              >
+                Nullstill
+              </button>
+            )}
+            <span className="ml-auto text-xs text-neutral-500">
+              {filteredTemplates.length} treff
+            </span>
+          </div>
+
+          <div className="flex flex-col gap-2">
+            {filteredTemplates.slice(0, 8).map((t) => (
+              <TemplateCard
+                key={t.id}
+                template={t}
+                categoryName={
+                  t.category_id ? (categoryNameById.get(t.category_id) ?? null) : null
+                }
+                onClick={() => {
+                  setCreateForm({ templateId: t.id, title: t.name, scheduledFor: '', assignedTo: '' })
+                  setDetailPane({ kind: 'create', template: t })
+                }}
+              />
+            ))}
+            {filteredTemplates.length === 0 && (
+              <div className="rounded-xl border border-dashed border-neutral-200 bg-white px-4 py-8 text-center text-sm text-neutral-500">
+                Ingen maler matcher filtrene.
               </div>
+            )}
+          </div>
+        </div>
 
-              {/* Inline filter chips */}
-              <div className="mb-3 flex flex-wrap items-center gap-1.5">
-                <MiniFilter
-                  label="Status"
-                  value={actStatus}
-                  options={ACT_FILTER_OPTS}
-                  onChange={setActStatus}
+        {/* Activity/Executions column */}
+        <div>
+          <div className="mb-3 flex items-baseline justify-between">
+            <h2 className="text-[15px] font-semibold text-neutral-900">Nylig aktivitet</h2>
+            <Link
+              to="/compliance/checklists/aktivitet"
+              className="text-xs font-semibold text-[#1a3d32] hover:underline"
+            >
+              Se all aktivitet →
+            </Link>
+          </div>
+
+          {/* Inline filter chips */}
+          <div className="mb-3 flex flex-wrap items-center gap-1.5">
+            <MiniFilter
+              label="Status"
+              value={actStatus}
+              options={ACT_FILTER_OPTS}
+              onChange={setActStatus}
+            />
+            {actStatus && (
+              <button
+                onClick={() => setActStatus(null)}
+                className="text-xs text-neutral-400 hover:text-neutral-600"
+              >
+                Nullstill
+              </button>
+            )}
+            <span className="ml-auto text-xs text-neutral-500">
+              {filteredExecutions.length} treff
+            </span>
+          </div>
+
+          <div className="overflow-hidden rounded-xl border border-neutral-200 bg-white shadow-sm">
+            {filteredExecutions.slice(0, 8).map((e) => {
+              const tpl = templateById.get(e.template_id)
+              const catId = tpl?.category_id ?? null
+              return (
+                <ActivityRow
+                  key={e.id}
+                  execution={e}
+                  templateName={tpl?.name ?? null}
+                  categoryName={catId ? (categoryNameById.get(catId) ?? null) : null}
+                  onClick={() => setDetailPane({ kind: 'exec', id: e.id, view: 'panel' })}
                 />
-                {actStatus && (
-                  <button
-                    onClick={() => setActStatus(null)}
-                    className="text-xs text-neutral-400 hover:text-neutral-600"
-                  >
-                    Nullstill
-                  </button>
-                )}
-                <span className="ml-auto text-xs text-neutral-500">
-                  {filteredExecutions.length} treff
-                </span>
+              )
+            })}
+            {filteredExecutions.length === 0 && (
+              <div className="px-4 py-8 text-center text-sm text-neutral-500">
+                Ingen aktivitet matcher filtrene.
               </div>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  )
 
-              <div className="overflow-hidden rounded-xl border border-neutral-200 bg-white shadow-sm">
-                {filteredExecutions.slice(0, 8).map((e) => {
-                  const tpl = templateById.get(e.template_id)
-                  const catId = tpl?.category_id ?? null
-                  return (
-                    <ActivityRow
-                      key={e.id}
-                      execution={e}
-                      templateName={tpl?.name ?? null}
-                      categoryName={catId ? (categoryNameById.get(catId) ?? null) : null}
-                      onClick={() => setDetailPane({ kind: 'exec', id: e.id, view: 'panel' })}
-                    />
-                  )
-                })}
-                {filteredExecutions.length === 0 && (
-                  <div className="px-4 py-8 text-center text-sm text-neutral-500">
-                    Ingen aktivitet matcher filtrene.
-                  </div>
-                )}
-              </div>
+  const analyseView = (
+    <ModuleAnalyticsDashboard
+      accent={accent}
+      breadcrumb={[]}
+      title=""
+      description=""
+      titleChooser={
+        <DashboardChooser
+          available={dashboard.available}
+          activeRow={dashboard.row}
+          isDefault={dashboard.isDefault}
+          currentUserId={dashboard.currentUserId}
+          onSelect={dashboard.selectLayout}
+          onSaveAs={dashboard.saveAs}
+          onRename={dashboard.renameActive}
+          onDelete={dashboard.deleteActive}
+          onMarkDefault={dashboard.markActiveDefault}
+        />
+      }
+      headerActions={
+        <div className="flex flex-wrap items-center gap-2">
+          {editChrome.toggleButton}
+          <PublishReportButton
+            sourceDashboardId={dashboard.row?.id ?? null}
+            sourceDashboardName={dashboard.row?.name ?? null}
+            scopeId={CHECKLIST_DASHBOARD_SCOPE_ID}
+            scopeLabel="Sjekklister"
+            datasets={datasets}
+            ensureSavedRow={dashboard.ensureSavedRow}
+          />
+        </div>
+      }
+      layout={dashboardLayout}
+      datasets={datasets}
+      loading={cl.loading || dashboard.loading}
+      error={cl.error ?? dashboard.error}
+      emptyState={
+        cl.executions.length === 0 ? (
+          <div className="rounded-md border border-dashed border-neutral-300 bg-white p-8 text-center">
+            <BarChart3 className="mx-auto h-8 w-8 text-neutral-300" aria-hidden />
+            <p className="mt-3 text-sm text-neutral-600">
+              Ingen sjekklister å analysere ennå. Opprett eller signer en kjøring for å se tallene her.
+            </p>
+          </div>
+        ) : null
+      }
+      onEdit={undefined}
+      onAddWidget={editChrome.editMode ? undefined : () => setAddOpen(true)}
+      widgetControlSlot={widgetControlSlot}
+      onDrillDown={handleDrillDown}
+      onResize={(w, next) =>
+        void dashboard.saveLayout(
+          dashboard.layout.map((x) => (x.id === w.id ? { ...x, colSpan: next } : x)),
+        )
+      }
+      {...editChrome.moduleProps}
+      filters={dashboard.filters}
+      dimensions={dimensions}
+      onFiltersChange={(next) => void dashboard.saveFilters(next)}
+    />
+  )
+
+  const analyseEditPanels = (
+    <>
+      <DashboardEditLayoutPanel
+        open={false}
+        onClose={() => {}}
+        layout={dashboard.layout}
+        onSave={(next) => dashboard.saveLayout(next)}
+        onResetToDefault={dashboard.isDefault ? undefined : () => dashboard.resetToDefault()}
+      />
+      <DashboardAddWidgetPanel
+        open={addOpen}
+        onClose={() => setAddOpen(false)}
+        scopeId={CHECKLIST_DASHBOARD_SCOPE_ID}
+        onAdd={(widget: ReportModule) => dashboard.saveLayout([...dashboard.layout, widget])}
+      />
+      <DashboardEditWidgetPanel
+        open={editWidget !== null}
+        widget={editWidget}
+        datasets={datasets}
+        onClose={() => setEditWidget(null)}
+        onDuplicate={(w) => {
+          const dup = { ...w, id: freshId('w'), title: `${w.title} (kopi)` }
+          void dashboard.saveLayout([...dashboard.layout, dup])
+        }}
+        onRemove={(w) => {
+          void dashboard.saveLayout(dashboard.layout.filter((m) => m.id !== w.id))
+        }}
+        onSave={async (next) => {
+          const ok = await dashboard.saveLayout(
+            dashboard.layout.map((m) => (m.id === next.id ? next : m)),
+          )
+          return ok
+        }}
+        compatibleKinds={editWidget ? defaultCompatibleKinds(editWidget.kind) : undefined}
+      />
+    </>
+  )
+
+  // ── Detail panels (overlays rendered outside body flow) ───────────────────
+
+  const createSlidePanel = detailPane?.kind === 'create' ? (() => {
+    const allActiveTpls = cl.templates.filter((t) => t.is_active)
+    const templateOptions = (detailPane.template ? [detailPane.template] : allActiveTpls)
+      .map((t) => ({ value: t.id, label: t.name }))
+    const userOptions = [
+      { value: '', label: '(Ingen)' },
+      ...cl.assignableUsers.map((u) => ({ value: u.id, label: u.displayName })),
+    ]
+    const canSubmit = !createSubmitting && createForm.templateId.length > 0 && createForm.title.trim().length > 0
+
+    const handleCreate = async () => {
+      if (!canSubmit) return
+      setCreateSubmitting(true)
+      try {
+        const id = await cl.createExecution({
+          templateId: createForm.templateId,
+          title: createForm.title.trim(),
+          scheduledFor: createForm.scheduledFor || undefined,
+          assignedTo: createForm.assignedTo || undefined,
+        })
+        if (id) {
+          setDetailPane({ kind: 'exec', id, view: 'panel' })
+        }
+      } finally {
+        setCreateSubmitting(false)
+      }
+    }
+
+    return (
+      <SlidePanel
+        open
+        onClose={() => setDetailPane(null)}
+        titleId="create-checklist-panel"
+        title={detailPane.template ? `Ny ${detailPane.template.name.toLowerCase()}` : 'Ny sjekkliste'}
+        footer={
+          <div className="flex justify-end gap-3">
+            <Button variant="secondary" onClick={() => setDetailPane(null)}>Avbryt</Button>
+            <Button variant="primary" onClick={handleCreate} disabled={!canSubmit}>
+              Opprett
+            </Button>
+          </div>
+        }
+      >
+        <div className="-mx-6 -mt-8 sm:-mx-8">
+          <div className={WPSTD_FORM_ROW_GRID}>
+            <p className={WPSTD_FORM_LEAD}>Hvilken mal skal brukes?</p>
+            <div>
+              <p className={WPSTD_FORM_FIELD_LABEL}>Mal</p>
+              <SearchableSelect
+                options={templateOptions}
+                value={createForm.templateId}
+                onChange={(value) => {
+                  const t = allActiveTpls.find((x) => x.id === value)
+                  setCreateForm((prev) => ({
+                    ...prev,
+                    templateId: value,
+                    title: prev.title.trim().length === 0 && t ? t.name : prev.title,
+                  }))
+                }}
+                placeholder="Velg mal …"
+                className="mt-1.5"
+              />
+            </div>
+          </div>
+          <div className={WPSTD_FORM_ROW_GRID}>
+            <p className={WPSTD_FORM_LEAD}>Hva er tittelen på utførelsen?</p>
+            <div>
+              <p className={WPSTD_FORM_FIELD_LABEL}>Tittel</p>
+              <StandardInput
+                value={createForm.title}
+                onChange={(e) => setCreateForm({ ...createForm, title: e.target.value })}
+                placeholder="F.eks. Q1 — Produksjonshall"
+                className="mt-1.5"
+              />
+            </div>
+          </div>
+          <div className={WPSTD_FORM_ROW_GRID}>
+            <p className={WPSTD_FORM_LEAD}>Når skal utførelsen gjennomføres?</p>
+            <div>
+              <p className={WPSTD_FORM_FIELD_LABEL}>
+                Planlagt tidspunkt{' '}
+                <span className="font-normal normal-case tracking-normal text-neutral-400">Valgfri</span>
+              </p>
+              <StandardInput
+                type="datetime-local"
+                value={createForm.scheduledFor}
+                onChange={(e) => setCreateForm({ ...createForm, scheduledFor: e.target.value })}
+                className="mt-1.5"
+              />
+            </div>
+          </div>
+          <div className={WPSTD_FORM_ROW_GRID}>
+            <p className={WPSTD_FORM_LEAD}>Hvem er ansvarlig?</p>
+            <div>
+              <p className={WPSTD_FORM_FIELD_LABEL}>
+                Tildelt til{' '}
+                <span className="font-normal normal-case tracking-normal text-neutral-400">Valgfri</span>
+              </p>
+              <SearchableSelect
+                options={userOptions}
+                value={createForm.assignedTo}
+                onChange={(value) => setCreateForm({ ...createForm, assignedTo: value })}
+                placeholder="Velg ansvarlig …"
+                className="mt-1.5"
+              />
             </div>
           </div>
         </div>
-      )}
+      </SlidePanel>
+    )
+  })() : null
 
-      {/* ── Full-view execution (below sticky header, no panel) ── */}
-      {view === 'library' && detailPane?.kind === 'exec' && detailPane.view === 'full' && (() => {
-        const exec = cl.executions.find((e) => e.id === detailPane.id)
-        const tpl = exec ? cl.templates.find((t) => t.id === exec.template_id) ?? null : null
-        const pack = licensedPacks.find((p) => p.slug === exec?.pack) ?? licensedPacks[0]
-        const isReadOnly = exec?.status === 'signed'
-        return (
-          <div className="mx-auto w-full max-w-[1400px] px-10 py-6">
-            {/* Full-view action bar */}
-            <div className="mb-5 flex items-center justify-between gap-4">
-              <div className="flex items-center gap-3">
-                <button
-                  onClick={() => setDetailPane({ ...detailPane, view: 'panel' })}
-                  className="inline-flex items-center gap-1.5 text-sm font-medium text-neutral-600 hover:text-neutral-900"
+  const execSlidePanel = detailPane?.kind === 'exec' && detailPane.view === 'panel' ? (() => {
+    const exec = cl.executions.find((e) => e.id === detailPane.id)
+    const tpl = exec ? cl.templates.find((t) => t.id === exec.template_id) ?? null : null
+    const pack = licensedPacks.find((p) => p.slug === exec?.pack) ?? licensedPacks[0]
+    const isReadOnly = exec?.status === 'signed'
+    const execId = detailPane.id
+
+    return (
+      <SlidePanel
+        open
+        onClose={() => setDetailPane(null)}
+        titleId="exec-detail-panel"
+        title={exec?.title ?? 'Detaljer'}
+        footer={
+          <div className="flex items-center justify-between gap-3">
+            {/* Expand to full view */}
+            <button
+              onClick={() => setDetailPane({ ...detailPane, view: 'full' })}
+              className="inline-flex items-center gap-1.5 text-sm font-medium text-neutral-600 hover:text-neutral-900"
+            >
+              <Maximize2 className="h-4 w-4" />
+              Vis i full bredde
+            </button>
+            <div className="flex gap-2">
+              {!isReadOnly && pack && (
+                <Button
+                  variant="primary"
+                  size="sm"
+                  icon={<ShieldCheck className="h-3.5 w-3.5" />}
+                  onClick={async () => {
+                    if (exec) await cl.signExecution(exec.id)
+                  }}
                 >
-                  <ArrowLeft className="h-4 w-4" />
-                  Tilbake til panel
-                </button>
-                <span className="text-neutral-300">|</span>
-                <span
-                  className="text-[17px] font-semibold text-neutral-900"
-                  style={{ fontFamily: SERIF }}
-                >
-                  {exec?.title ?? '…'}
-                </span>
-                {tpl && (
-                  <span className="text-sm text-neutral-500">{tpl.name}</span>
-                )}
-              </div>
-              <div className="flex items-center gap-2">
-                <a
-                  href={`/compliance/checklists/${detailPane.id}`}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="inline-flex items-center gap-1.5 rounded-md border border-neutral-200 bg-white px-3 py-1.5 text-xs font-semibold text-neutral-600 hover:bg-neutral-50"
-                >
-                  <ExternalLink className="h-3.5 w-3.5" />
-                  Åpne frittstående side
-                </a>
-                {!isReadOnly && pack && (
-                  <Button
-                    variant="primary"
-                    size="sm"
-                    icon={<ShieldCheck className="h-3.5 w-3.5" />}
-                    onClick={async () => {
-                      await cl.signExecution(detailPane.id)
-                    }}
-                  >
-                    Signer
-                  </Button>
-                )}
-                {isReadOnly && exec && !exec.archived_at && (
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    icon={<Archive className="h-3.5 w-3.5" />}
-                    onClick={() => {
-                      if (window.confirm('Arkivere denne signerte sjekklisten? Handlingen kan ikke angres.')) {
-                        void cl.archiveExecution(detailPane.id)
-                      }
-                    }}
-                  >
-                    Arkiver
-                  </Button>
-                )}
-              </div>
-            </div>
-            {pack && (
-              <ExecutionDetailContent
-                executionId={detailPane.id}
-                cl={cl}
-                orgSetup={orgSetup}
-                pack={pack}
-              />
-            )}
-          </div>
-        )
-      })()}
-
-      {/* ── Create new execution — SlidePanel ── */}
-      {detailPane?.kind === 'create' && (() => {
-        const allActiveTpls = cl.templates.filter((t) => t.is_active)
-        const templateOptions = (detailPane.template ? [detailPane.template] : allActiveTpls)
-          .map((t) => ({ value: t.id, label: t.name }))
-        const userOptions = [
-          { value: '', label: '(Ingen)' },
-          ...cl.assignableUsers.map((u) => ({ value: u.id, label: u.displayName })),
-        ]
-        const canSubmit = !createSubmitting && createForm.templateId.length > 0 && createForm.title.trim().length > 0
-
-        const handleCreate = async () => {
-          if (!canSubmit) return
-          setCreateSubmitting(true)
-          try {
-            const id = await cl.createExecution({
-              templateId: createForm.templateId,
-              title: createForm.title.trim(),
-              scheduledFor: createForm.scheduledFor || undefined,
-              assignedTo: createForm.assignedTo || undefined,
-            })
-            if (id) {
-              setDetailPane({ kind: 'exec', id, view: 'panel' })
-            }
-          } finally {
-            setCreateSubmitting(false)
-          }
-        }
-
-        return (
-          <SlidePanel
-            open
-            onClose={() => setDetailPane(null)}
-            titleId="create-checklist-panel"
-            title={detailPane.template ? `Ny ${detailPane.template.name.toLowerCase()}` : 'Ny sjekkliste'}
-            footer={
-              <div className="flex justify-end gap-3">
-                <Button variant="secondary" onClick={() => setDetailPane(null)}>Avbryt</Button>
-                <Button variant="primary" onClick={handleCreate} disabled={!canSubmit}>
-                  Opprett
+                  Signer
                 </Button>
-              </div>
-            }
-          >
-            <div className="-mx-6 -mt-8 sm:-mx-8">
-              <div className={WPSTD_FORM_ROW_GRID}>
-                <p className={WPSTD_FORM_LEAD}>Hvilken mal skal brukes?</p>
-                <div>
-                  <p className={WPSTD_FORM_FIELD_LABEL}>Mal</p>
-                  <SearchableSelect
-                    options={templateOptions}
-                    value={createForm.templateId}
-                    onChange={(value) => {
-                      const t = allActiveTpls.find((x) => x.id === value)
-                      setCreateForm((prev) => ({
-                        ...prev,
-                        templateId: value,
-                        title: prev.title.trim().length === 0 && t ? t.name : prev.title,
-                      }))
-                    }}
-                    placeholder="Velg mal …"
-                    className="mt-1.5"
-                  />
-                </div>
-              </div>
-              <div className={WPSTD_FORM_ROW_GRID}>
-                <p className={WPSTD_FORM_LEAD}>Hva er tittelen på utførelsen?</p>
-                <div>
-                  <p className={WPSTD_FORM_FIELD_LABEL}>Tittel</p>
-                  <StandardInput
-                    value={createForm.title}
-                    onChange={(e) => setCreateForm({ ...createForm, title: e.target.value })}
-                    placeholder="F.eks. Q1 — Produksjonshall"
-                    className="mt-1.5"
-                  />
-                </div>
-              </div>
-              <div className={WPSTD_FORM_ROW_GRID}>
-                <p className={WPSTD_FORM_LEAD}>Når skal utførelsen gjennomføres?</p>
-                <div>
-                  <p className={WPSTD_FORM_FIELD_LABEL}>
-                    Planlagt tidspunkt{' '}
-                    <span className="font-normal normal-case tracking-normal text-neutral-400">Valgfri</span>
-                  </p>
-                  <StandardInput
-                    type="datetime-local"
-                    value={createForm.scheduledFor}
-                    onChange={(e) => setCreateForm({ ...createForm, scheduledFor: e.target.value })}
-                    className="mt-1.5"
-                  />
-                </div>
-              </div>
-              <div className={WPSTD_FORM_ROW_GRID}>
-                <p className={WPSTD_FORM_LEAD}>Hvem er ansvarlig?</p>
-                <div>
-                  <p className={WPSTD_FORM_FIELD_LABEL}>
-                    Tildelt til{' '}
-                    <span className="font-normal normal-case tracking-normal text-neutral-400">Valgfri</span>
-                  </p>
-                  <SearchableSelect
-                    options={userOptions}
-                    value={createForm.assignedTo}
-                    onChange={(value) => setCreateForm({ ...createForm, assignedTo: value })}
-                    placeholder="Velg ansvarlig …"
-                    className="mt-1.5"
-                  />
-                </div>
-              </div>
-            </div>
-          </SlidePanel>
-        )
-      })()}
-
-      {/* ── Execution detail — SlidePanel ── */}
-      {detailPane?.kind === 'exec' && detailPane.view === 'panel' && (() => {
-        const exec = cl.executions.find((e) => e.id === detailPane.id)
-        const tpl = exec ? cl.templates.find((t) => t.id === exec.template_id) ?? null : null
-        const pack = licensedPacks.find((p) => p.slug === exec?.pack) ?? licensedPacks[0]
-        const isReadOnly = exec?.status === 'signed'
-
-        return (
-          <SlidePanel
-            open
-            onClose={() => setDetailPane(null)}
-            titleId="exec-detail-panel"
-            title={exec?.title ?? 'Detaljer'}
-            footer={
-              <div className="flex items-center justify-between gap-3">
-                {/* Expand to full view */}
-                <button
-                  onClick={() => setDetailPane({ ...detailPane, view: 'full' })}
-                  className="inline-flex items-center gap-1.5 text-sm font-medium text-neutral-600 hover:text-neutral-900"
+              )}
+              {isReadOnly && exec && !exec.archived_at && (
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  icon={<Archive className="h-3.5 w-3.5" />}
+                  onClick={() => {
+                    if (window.confirm('Arkivere denne signerte sjekklisten? Handlingen kan ikke angres.')) {
+                      void cl.archiveExecution(execId).then(() => setDetailPane(null))
+                    }
+                  }}
                 >
-                  <Maximize2 className="h-4 w-4" />
-                  Vis i full bredde
-                </button>
-                <div className="flex gap-2">
-                  {!isReadOnly && pack && (
-                    <Button
-                      variant="primary"
-                      size="sm"
-                      icon={<ShieldCheck className="h-3.5 w-3.5" />}
-                      onClick={async () => {
-                        if (exec) await cl.signExecution(exec.id)
-                      }}
-                    >
-                      Signer
-                    </Button>
-                  )}
-                  {isReadOnly && exec && !exec.archived_at && (
-                    <Button
-                      variant="secondary"
-                      size="sm"
-                      icon={<Archive className="h-3.5 w-3.5" />}
-                      onClick={() => {
-                        if (window.confirm('Arkivere denne signerte sjekklisten? Handlingen kan ikke angres.')) {
-                          void cl.archiveExecution(detailPane.id).then(() => setDetailPane(null))
-                        }
-                      }}
-                    >
-                      Arkiver
-                    </Button>
-                  )}
-                </div>
-              </div>
-            }
-          >
-            {tpl && (
-              <p className="-mt-4 mb-5 text-sm text-neutral-500">{tpl.name}</p>
-            )}
-            {pack && (
-              <ExecutionDetailContent
-                executionId={detailPane.id}
-                cl={cl}
-                orgSetup={orgSetup}
-                pack={pack}
-              />
-            )}
-          </SlidePanel>
-        )
-      })()}
-    </div>
+                  Arkiver
+                </Button>
+              )}
+            </div>
+          </div>
+        }
+      >
+        {tpl && (
+          <p className="-mt-4 mb-5 text-sm text-neutral-500">{tpl.name}</p>
+        )}
+        {pack && (
+          <ExecutionDetailContent
+            executionId={execId}
+            cl={cl}
+            orgSetup={orgSetup}
+            pack={pack}
+          />
+        )}
+      </SlidePanel>
+    )
+  })() : null
+
+  // Full-width execution view — replaces library body when panel expands
+  const fullViewExec = detailPane?.kind === 'exec' && detailPane.view === 'full'
+    ? cl.executions.find((e) => e.id === detailPane.id) ?? null
+    : null
+  const fullViewPack = fullViewExec
+    ? (licensedPacks.find((p) => p.slug === fullViewExec.pack) ?? licensedPacks[0])
+    : null
+  const fullViewExecId = detailPane?.kind === 'exec' && detailPane.view === 'full'
+    ? detailPane.id
+    : null
+
+  const detailFullView: DetailFullView | null =
+    fullViewExec && fullViewPack && fullViewExecId
+      ? {
+          title: fullViewExec.title,
+          content: (
+            <ExecutionDetailContent
+              executionId={fullViewExecId}
+              cl={cl}
+              orgSetup={orgSetup}
+              pack={fullViewPack}
+            />
+          ),
+          actions: (
+            <div className="flex items-center gap-2">
+              <a
+                href={`/compliance/checklists/${fullViewExecId}`}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex items-center gap-1.5 rounded-md border border-neutral-200 bg-white px-3 py-1.5 text-xs font-semibold text-neutral-600 hover:bg-neutral-50"
+              >
+                <ExternalLink className="h-3.5 w-3.5" />
+                Åpne frittstående side
+              </a>
+              {fullViewExec.status !== 'signed' && (
+                <Button
+                  variant="primary"
+                  size="sm"
+                  icon={<ShieldCheck className="h-3.5 w-3.5" />}
+                  onClick={async () => {
+                    await cl.signExecution(fullViewExecId)
+                  }}
+                >
+                  Signer
+                </Button>
+              )}
+              {fullViewExec.status === 'signed' && !fullViewExec.archived_at && (
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  icon={<Archive className="h-3.5 w-3.5" />}
+                  onClick={() => {
+                    if (window.confirm('Arkivere denne signerte sjekklisten? Handlingen kan ikke angres.')) {
+                      void cl.archiveExecution(fullViewExecId)
+                    }
+                  }}
+                >
+                  Arkiver
+                </Button>
+              )}
+            </div>
+          ),
+          onClose: () => {
+            if (fullViewExecId) setDetailPane({ kind: 'exec', id: fullViewExecId, view: 'panel' })
+          },
+        }
+      : null
+
+  return (
+    <ModuleLibraryShell
+      eyebrow="Sjekklister · biblioteket"
+      title="Sjekklister"
+      subtitle="Administrer og følg opp sjekklister mot lovverk, roller og standarder"
+      accentColor={accent ?? '#1a3d32'}
+      lenses={lensesControl}
+      settingsTo="/admin/settings/compliance"
+      tabs={shellTabs}
+      activeTab={activeTab}
+      onTabChange={(id) => setLensVal(id)}
+      tabRowAction={
+        <Button
+          variant="primary"
+          size="sm"
+          icon={<Plus className="h-3.5 w-3.5" />}
+          onClick={() => {
+            const first = cl.templates.filter((t) => t.is_active)[0] ?? null
+            setCreateForm({ templateId: first?.id ?? '', title: first?.name ?? '', scheduledFor: '', assignedTo: '' })
+            setDetailPane({ kind: 'create', template: null })
+          }}
+        >
+          Ny sjekkliste
+        </Button>
+      }
+      libraryView={libraryView}
+      analyseView={analyseView}
+      analyseEditPanels={analyseEditPanels}
+      detailPanel={
+        <>
+          {createSlidePanel}
+          {execSlidePanel}
+        </>
+      }
+      detailFullView={detailFullView}
+    />
   )
 }
