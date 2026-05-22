@@ -9,10 +9,11 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState, type ComponentType, type FormEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { BarChart3, FileText, Package, Plus, Sparkles } from 'lucide-react'
+import { BarChart3, ChevronRight, FileText, Package, Plus, Sparkles } from 'lucide-react'
 import { ModuleLibraryShell } from '../../src/components/module/ModuleLibraryShell'
+import { LibraryTemplateTile } from '../../src/components/module/library/LibraryTemplateTile'
+import { LibrarySectionHeader } from '../../src/components/module/library/LibrarySectionHeader'
 import { ModuleAnalyticsDashboard } from '../../src/components/module/ModuleAnalyticsDashboard'
-import { ModuleSectionCard } from '../../src/components/module/ModuleSectionCard'
 import { DashboardAddWidgetPanel } from '../../src/components/module/dashboard/DashboardAddWidgetPanel'
 import { DashboardEditWidgetPanel } from '../../src/components/module/dashboard/DashboardEditWidgetPanel'
 import { useDashboardEditChrome } from '../../src/components/module/dashboard/useDashboardEditChrome'
@@ -318,6 +319,7 @@ export function SurveyLibraryPage() {
         id: c.id,
         label: c.name,
         count: countByCat.get(c.id) ?? 0,
+        serifLabel: packs.length > 1,
       })),
     ]
   }, [surveyCategories.categories, survey.templateCatalog, activeLens, categoryByCatalogId])
@@ -350,28 +352,31 @@ export function SurveyLibraryPage() {
 
   // ── Library view ─────────────────────────────────────────────────────────
   const libraryView = (
-    <div className="mx-auto max-w-[1400px] space-y-5 px-10 py-6">
+    <div className="mx-auto w-full max-w-[1400px] px-10 py-6">
       {survey.error && (
         <div className="mb-5">
           <WarningBox>{survey.error}</WarningBox>
         </div>
       )}
-      <TemplateGallery
-        templates={filteredTemplates}
-        categories={surveyCategories.categories}
-        activeCategoryId={activeTab === 'alle' ? null : activeTab}
-        categoryByCatalogId={categoryByCatalogId}
-        pinnedById={pinnedById}
-        onSelect={(t) => {
-          setPresetTemplateId(t.id)
-          setCreateOpen(true)
-        }}
-      />
-      <RecentSurveysCard
-        surveys={filteredSurveys}
-        activePack={activeLens as SurveyPackSlug}
-        onOpen={(id) => navigate(`/survey/${id}`)}
-      />
+      <div className="grid gap-6 lg:grid-cols-2">
+        <TemplateGallery
+          templates={filteredTemplates}
+          categories={surveyCategories.categories}
+          activeCategoryId={activeTab === 'alle' ? null : activeTab}
+          categoryByCatalogId={categoryByCatalogId}
+          pinnedById={pinnedById}
+          accentColor={ACCENT}
+          onSelect={(t) => {
+            setPresetTemplateId(t.id)
+            setCreateOpen(true)
+          }}
+        />
+        <RecentSurveysCard
+          surveys={filteredSurveys}
+          activePack={activeLens as SurveyPackSlug}
+          onOpen={(id) => navigate(`/survey/${id}`)}
+        />
+      </div>
     </div>
   )
 
@@ -426,7 +431,7 @@ export function SurveyLibraryPage() {
                     </td>
                     <td className="px-5 py-3 text-neutral-700">{fmtDate(s.published_at)}</td>
                     <td className="px-5 py-3 text-right">
-                      <span className="text-neutral-400">›</span>
+                      <ChevronRight className="ml-auto h-4 w-4 text-neutral-400" />
                     </td>
                   </tr>
                 ))
@@ -590,6 +595,7 @@ function TemplateGallery({
   activeCategoryId,
   categoryByCatalogId,
   pinnedById,
+  accentColor = '#7c3aed',
   onSelect,
 }: {
   templates: SurveyTemplateCatalogRow[]
@@ -597,6 +603,7 @@ function TemplateGallery({
   activeCategoryId: string | null
   categoryByCatalogId: Map<string, string | null>
   pinnedById: Map<string, boolean>
+  accentColor?: string
   onSelect: (t: SurveyTemplateCatalogRow) => void
 }) {
   type Bucket = { key: string; name: string | null; tiles: SurveyTemplateCatalogRow[] }
@@ -629,84 +636,82 @@ function TemplateGallery({
     }
     const uncat = buckets.get('__uncat__')
     if (uncat?.length) result.push({ key: '__uncat__', name: 'Uten kategori', tiles: uncat })
-    // Fallback: if nothing grouped (no org-template overrides), show flat.
     return result.length > 0 ? result : [{ key: '__all__', name: null, tiles: templates }]
   }, [templates, categories, activeCategoryId, categoryByCatalogId])
 
   return (
-    <ModuleSectionCard className="p-5 md:p-6">
-      <div className="flex items-center justify-between gap-3">
-        <h2 className="text-lg font-semibold text-neutral-900">Maler</h2>
+    <div>
+      <div className="mb-3 flex items-baseline justify-between">
+        <h2 className="text-[15px] font-semibold text-neutral-900">Maler å starte fra</h2>
         <span className="text-xs text-neutral-500">{templates.length} aktive</span>
       </div>
-      <p className="mt-1.5 text-sm text-neutral-600">
-        Velg en mal for å opprette en ny undersøkelse med forhåndsutfylte spørsmål.
-      </p>
-      <div className="mt-5 space-y-6">
+      <div className="space-y-5">
         {templates.length === 0 ? (
-          <p className="text-sm text-neutral-600">Ingen maler tilgjengelig for denne pakken.</p>
+          <div className="rounded-lg border border-dashed border-neutral-200 bg-white px-4 py-8 text-center text-sm text-neutral-500">
+            Ingen maler tilgjengelig for denne pakken.
+          </div>
         ) : (
           grouped.map((group) => (
             <div key={group.key}>
               {group.name !== null && (
-                <h3 className="mb-3 text-[10px] font-bold uppercase tracking-wider text-neutral-600">
-                  {group.name}
-                </h3>
+                <LibrarySectionHeader name={group.name} count={group.tiles.length} />
               )}
-              <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              <ul className="grid gap-3 sm:grid-cols-2">
                 {group.tiles.map((t) => {
-              const isPinned = pinnedById.has(t.id)
-              return (
-                <li key={t.id} className="relative">
-                  <FavoriteToggle
-                    kind="survey"
-                    templateRef={t.id}
-                    templateName={t.name}
-                    size="sm"
-                    className="absolute right-1.5 top-1.5 z-10 bg-white/90"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => onSelect(t)}
-                    className="group flex h-full w-full flex-col items-start gap-2 rounded-lg border border-neutral-200/80 bg-white p-4 text-left font-normal transition-colors hover:border-[#7c3aed]/30 hover:bg-neutral-50"
-                  >
-                    <div className="flex w-full items-start gap-2 pr-6">
-                      <FileText
-                        className="mt-0.5 h-4 w-4 shrink-0 text-[#7c3aed]"
-                        aria-hidden
-                      />
-                      <span className="min-w-0 flex-1">
-                        <span className="block truncate text-sm font-medium text-neutral-900 group-hover:text-[#7c3aed]">
-                          {t.name}
-                        </span>
-                        {t.estimated_minutes != null ? (
-                          <span className="mt-0.5 block text-xs text-neutral-500">
-                            ~{t.estimated_minutes} min
+                  const isPinned = pinnedById.has(t.id)
+                  return (
+                    <LibraryTemplateTile
+                      key={t.id}
+                      onClick={() => onSelect(t)}
+                      accentColor={accentColor}
+                      favoriteSlot={
+                        <FavoriteToggle
+                          kind="survey"
+                          templateRef={t.id}
+                          templateName={t.name}
+                          size="sm"
+                        />
+                      }
+                    >
+                      <div className="flex w-full flex-col gap-2 pr-6">
+                        <div className="flex items-start gap-2">
+                          <FileText
+                            className="mt-0.5 h-4 w-4 shrink-0"
+                            style={{ color: accentColor }}
+                            aria-hidden
+                          />
+                          <span className="min-w-0 flex-1">
+                            <span className="block truncate text-sm font-medium text-neutral-900 group-hover:text-[#7c3aed]">
+                              {t.name}
+                            </span>
+                            {t.estimated_minutes != null ? (
+                              <span className="mt-0.5 block text-xs text-neutral-500">
+                                ~{t.estimated_minutes} min
+                              </span>
+                            ) : null}
                           </span>
+                          {isPinned ? (
+                            <Badge variant="success">
+                              <Sparkles className="mr-1 inline h-3 w-3" aria-hidden />
+                              Festet
+                            </Badge>
+                          ) : t.is_system ? (
+                            <Badge variant="neutral">System</Badge>
+                          ) : null}
+                        </div>
+                        {t.description ? (
+                          <p className="line-clamp-2 text-xs text-neutral-600">{t.description}</p>
                         ) : null}
-                      </span>
-                      {isPinned ? (
-                        <Badge variant="success">
-                          <Sparkles className="mr-1 inline h-3 w-3" aria-hidden />
-                          Festet
-                        </Badge>
-                      ) : t.is_system ? (
-                        <Badge variant="neutral">System</Badge>
-                      ) : null}
-                    </div>
-                    {t.description ? (
-                      <p className="line-clamp-2 text-xs text-neutral-600">{t.description}</p>
-                    ) : null}
-                  </button>
-                </li>
-              )
-            })}
-          </ul>
-        </div>
-      ))
-      )}
+                      </div>
+                    </LibraryTemplateTile>
+                  )
+                })}
+              </ul>
+            </div>
+          ))
+        )}
+      </div>
     </div>
-  </ModuleSectionCard>
   )
 }
 
@@ -731,31 +736,34 @@ function RecentSurveysCard({
   )
 
   return (
-    <ModuleSectionCard className="p-5 md:p-6">
-      <div className="flex items-center justify-between gap-3">
-        <h2 className="text-lg font-semibold text-neutral-900">Siste undersøkelser</h2>
-        <span className="text-xs text-neutral-500">{recent.length}</span>
+    <div>
+      <div className="mb-3 flex items-baseline justify-between">
+        <h2 className="text-[15px] font-semibold text-neutral-900">Nylig aktivitet</h2>
+        <span className="text-xs text-neutral-500">{recent.length} siste</span>
       </div>
-      {recent.length === 0 ? (
-        <p className="mt-3 text-sm text-neutral-600">Ingen undersøkelser i denne pakken ennå.</p>
-      ) : (
-        <ul className="mt-4 space-y-3">
-          {recent.map((s) => (
-            <li
+      <div className="overflow-hidden rounded-lg border border-neutral-200/80 bg-white">
+        {recent.length === 0 ? (
+          <p className="px-4 py-8 text-center text-sm text-neutral-500">
+            Ingen undersøkelser i denne pakken ennå.
+          </p>
+        ) : (
+          recent.map((s) => (
+            <button
               key={s.id}
-              className="flex flex-wrap items-center justify-between gap-4 rounded-lg border border-neutral-200/80 bg-neutral-50/50 p-4 cursor-pointer hover:bg-neutral-100"
+              type="button"
+              className="flex w-full items-start gap-3 border-t border-neutral-100 px-4 py-3 text-left transition-colors hover:bg-neutral-50 first:border-t-0"
               onClick={() => onOpen(s.id)}
             >
               <div className="min-w-0 flex-1">
-                <p className="text-sm font-semibold text-neutral-900">{s.title}</p>
-                <p className="mt-0.5 text-xs text-neutral-600">{fmtDate(s.published_at)}</p>
+                <p className="text-[13px] font-medium leading-snug text-neutral-900">{s.title}</p>
+                <p className="mt-0.5 text-xs text-neutral-500">{fmtDate(s.published_at)}</p>
               </div>
               <Badge variant={SURVEY_STATUS_BADGE[s.status]}>{SURVEY_STATUS_LABEL[s.status]}</Badge>
-            </li>
-          ))}
-        </ul>
-      )}
-    </ModuleSectionCard>
+            </button>
+          ))
+        )}
+      </div>
+    </div>
   )
 }
 

@@ -53,6 +53,8 @@ import { useLicensedPacks } from '../../src/context/packContextValue'
 import { useOrgSetupContext } from '../../src/hooks/useOrgSetupContext'
 import { useChecklistModule } from './useChecklistModule'
 import { ExecutionDetailContent } from './components/ExecutionDetailContent'
+import { LibraryTemplateTile } from '../../src/components/module/library/LibraryTemplateTile'
+import { LibrarySectionHeader } from '../../src/components/module/library/LibrarySectionHeader'
 import type { ComplianceExecutionRow, ComplianceTemplateRow } from './types'
 
 type DetailPane =
@@ -159,21 +161,20 @@ function MiniFilter({
   )
 }
 
-// Template card (compact)
+// Template card — uses LibraryTemplateTile shell for consistent styling.
 function TemplateCard({
   template,
   categoryName,
+  accentColor,
   onClick,
 }: {
   template: ComplianceTemplateRow
   categoryName: string | null
+  accentColor?: string
   onClick: () => void
 }) {
   return (
-    <button
-      onClick={onClick}
-      className="group w-full rounded-xl border border-neutral-200 bg-white p-3.5 text-left shadow-sm transition-colors hover:border-[#1a3d32]/30 hover:shadow-md"
-    >
+    <LibraryTemplateTile onClick={onClick} accentColor={accentColor}>
       <div className="flex items-start justify-between gap-2">
         <span className="text-[13px] font-semibold leading-snug text-neutral-900 group-hover:text-[#1a3d32]">
           {template.name}
@@ -195,7 +196,7 @@ function TemplateCard({
           <Badge variant="neutral">Verifisert</Badge>
         ) : null}
       </div>
-    </button>
+    </LibraryTemplateTile>
   )
 }
 
@@ -711,7 +712,7 @@ export function ChecklistsLibraryPage() {
             </span>
           </div>
 
-          <div className="flex flex-col gap-2">
+          <ul className="flex flex-col gap-2">
             {filteredTemplates.slice(0, 8).map((t) => (
               <TemplateCard
                 key={t.id}
@@ -719,6 +720,7 @@ export function ChecklistsLibraryPage() {
                 categoryName={
                   t.category_id ? (categoryNameById.get(t.category_id) ?? null) : null
                 }
+                accentColor={accent ?? '#1a3d32'}
                 onClick={() => {
                   setCreateForm({ templateId: t.id, title: t.name, scheduledFor: '', assignedTo: '' })
                   setDetailPane({ kind: 'create', template: t })
@@ -726,11 +728,11 @@ export function ChecklistsLibraryPage() {
               />
             ))}
             {filteredTemplates.length === 0 && (
-              <div className="rounded-xl border border-dashed border-neutral-200 bg-white px-4 py-8 text-center text-sm text-neutral-500">
+              <li className="rounded-lg border border-dashed border-neutral-200 bg-white px-4 py-8 text-center text-sm text-neutral-500">
                 Ingen maler matcher filtrene.
-              </div>
+              </li>
             )}
-          </div>
+          </ul>
         </div>
 
         {/* Activity/Executions column */}
@@ -766,7 +768,7 @@ export function ChecklistsLibraryPage() {
             </span>
           </div>
 
-          <div className="overflow-hidden rounded-xl border border-neutral-200 bg-white shadow-sm">
+          <div className="overflow-hidden rounded-lg border border-neutral-200/80 bg-white">
             {filteredExecutions.slice(0, 8).map((e) => {
               const tpl = templateById.get(e.template_id)
               const catId = tpl?.category_id ?? null
@@ -1141,7 +1143,7 @@ export function ChecklistsLibraryPage() {
 
   return (
     <ModuleLibraryShell
-      eyebrow="Sjekklister · biblioteket"
+      eyebrow="HMS"
       title="Sjekklister"
       subtitle="Administrer og følg opp sjekklister mot lovverk, roller og standarder"
       accentColor={accent ?? '#1a3d32'}
@@ -1151,18 +1153,20 @@ export function ChecklistsLibraryPage() {
       activeTab={activeTab}
       onTabChange={(id) => setLensVal(id)}
       tabRowAction={
-        <Button
-          variant="primary"
-          size="sm"
-          icon={<Plus className="h-3.5 w-3.5" />}
-          onClick={() => {
-            const first = cl.templates.filter((t) => t.is_active)[0] ?? null
-            setCreateForm({ templateId: first?.id ?? '', title: first?.name ?? '', scheduledFor: '', assignedTo: '' })
-            setDetailPane({ kind: 'create', template: null })
-          }}
-        >
-          Ny sjekkliste
-        </Button>
+        cl.canManage ? (
+          <Button
+            variant="primary"
+            size="sm"
+            icon={<Plus className="h-3.5 w-3.5" />}
+            onClick={() => {
+              const first = cl.templates.filter((t) => t.is_active)[0] ?? null
+              setCreateForm({ templateId: first?.id ?? '', title: first?.name ?? '', scheduledFor: '', assignedTo: '' })
+              setDetailPane({ kind: 'create', template: null })
+            }}
+          >
+            Ny sjekkliste
+          </Button>
+        ) : undefined
       }
       libraryView={libraryView}
       analyseView={analyseView}

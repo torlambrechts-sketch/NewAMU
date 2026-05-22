@@ -1364,6 +1364,7 @@ export function useChecklistModule(
       requirementIdsByTemplateId,
       loadTemplateRequirements,
       setTemplateRequirements,
+      canManage,
     }),
     [
       loading,
@@ -1401,6 +1402,7 @@ export function useChecklistModule(
       requirementIdsByTemplateId,
       loadTemplateRequirements,
       setTemplateRequirements,
+      canManage,
     ],
   )
 }

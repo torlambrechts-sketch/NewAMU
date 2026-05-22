@@ -9,8 +9,9 @@ import { useEffect, useMemo, useState, type FormEvent } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { BarChart3, ChevronRight, Clock, ListChecks, Plus, Scale, Users } from 'lucide-react'
 import { ModuleLibraryShell } from '../../src/components/module/ModuleLibraryShell'
+import { LibraryTemplateTile } from '../../src/components/module/library/LibraryTemplateTile'
+import { LibrarySectionHeader } from '../../src/components/module/library/LibrarySectionHeader'
 import { ModuleAnalyticsDashboard } from '../../src/components/module/ModuleAnalyticsDashboard'
-import { ModuleSectionCard } from '../../src/components/module/ModuleSectionCard'
 import { DashboardAddWidgetPanel } from '../../src/components/module/dashboard/DashboardAddWidgetPanel'
 import { DashboardEditWidgetPanel } from '../../src/components/module/dashboard/DashboardEditWidgetPanel'
 import { useDashboardEditChrome } from '../../src/components/module/dashboard/useDashboardEditChrome'
@@ -293,28 +294,30 @@ export function MeetingsLibraryPage() {
 
   // ── Library view ─────────────────────────────────────────────────────────
   const libraryView = (
-    <div className="mx-auto max-w-[1400px] space-y-5 px-10 py-6">
+    <div className="mx-auto w-full max-w-[1400px] px-10 py-6">
       {meetings.error && (
         <div className="mb-5">
           <WarningBox>{meetings.error}</WarningBox>
         </div>
       )}
-      <LibraryTemplateGallery
-        templates={filteredTemplates}
-        categories={meetings.categories}
-        activeCategory={activeTab === 'alle' ? null : activeTab}
-        orgHeadcount={orgSetup.members?.length ?? 0}
-        onPeek={setPeekTemplate}
-        onCreateForTemplate={(t) => {
-          setPresetTemplateId(t.systemTemplateId ?? t.orgTemplateId ?? null)
-          setCreateOpen(true)
-        }}
-      />
-      <UpcomingMeetingsCard
-        meetings={meetings.meetings}
-        categoryFilter={activeTab === 'alle' ? null : activeTab}
-        categoryByMeetingId={categoryByMeetingId}
-      />
+      <div className="grid gap-6 lg:grid-cols-2">
+        <LibraryTemplateGallery
+          templates={filteredTemplates}
+          categories={meetings.categories}
+          activeCategory={activeTab === 'alle' ? null : activeTab}
+          orgHeadcount={orgSetup.members?.length ?? 0}
+          onPeek={setPeekTemplate}
+          onCreateForTemplate={(t) => {
+            setPresetTemplateId(t.systemTemplateId ?? t.orgTemplateId ?? null)
+            setCreateOpen(true)
+          }}
+        />
+        <UpcomingMeetingsCard
+          meetings={meetings.meetings}
+          categoryFilter={activeTab === 'alle' ? null : activeTab}
+          categoryByMeetingId={categoryByMeetingId}
+        />
+      </div>
     </div>
   )
 
@@ -578,88 +581,82 @@ function LibraryTemplateGallery({
   }, [templates, categories, activeCategory])
 
   return (
-    <ModuleSectionCard className="p-5 md:p-6">
-      <div className="flex items-center justify-between gap-3">
-        <div className="flex items-center gap-2">
-          <ListChecks className="h-5 w-5 text-[#0891b2]" />
-          <h2 className="text-lg font-semibold text-neutral-900">Maler</h2>
-        </div>
+    <div>
+      <div className="mb-3 flex items-baseline justify-between">
+        <h2 className="text-[15px] font-semibold text-neutral-900">Maler å starte fra</h2>
         <span className="text-xs text-neutral-500">{templates.length} aktive</span>
       </div>
-      <p className="mt-1.5 text-sm text-neutral-600">
-        Velg en mal for å se agendasaker og krav, eller opprett et nytt møte direkte.
-      </p>
-
-      <div className="mt-5 space-y-6">
+      <div className="space-y-5">
         {grouped.length === 0 ? (
-          <p className="text-sm text-neutral-600">Ingen maler tilgjengelig ennå.</p>
+          <div className="rounded-lg border border-dashed border-neutral-200 bg-white px-4 py-8 text-center text-sm text-neutral-500">
+            Ingen maler tilgjengelig ennå.
+          </div>
         ) : (
           grouped.map((group) => (
             <div key={group.id}>
               {group.name !== null && (
-                <h3 className="mb-3 text-[10px] font-bold uppercase tracking-wider text-neutral-600">
-                  {group.name}
-                </h3>
+                <LibrarySectionHeader name={group.name} count={group.templates.length} />
               )}
-              <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              <ul className="grid gap-3 sm:grid-cols-2">
                 {group.templates.map((t) => {
                   const belowThreshold =
                     t.minimumEmployeeCount != null && orgHeadcount < t.minimumEmployeeCount
+                  const tplRef = t.systemTemplateId ?? t.orgTemplateId
                   return (
-                    <li
+                    <LibraryTemplateTile
                       key={t.key}
-                      className="relative flex flex-col gap-2 rounded-lg border border-neutral-200/80 bg-neutral-50/50 p-4"
+                      accentColor={ACCENT}
+                      favoriteSlot={
+                        tplRef ? (
+                          <FavoriteToggle
+                            kind="meeting"
+                            templateRef={tplRef}
+                            templateName={t.name}
+                            size="sm"
+                          />
+                        ) : undefined
+                      }
                     >
-                      {(t.systemTemplateId ?? t.orgTemplateId) ? (
-                        <FavoriteToggle
-                          kind="meeting"
-                          templateRef={(t.systemTemplateId ?? t.orgTemplateId) as string}
-                          templateName={t.name}
-                          size="sm"
-                          className="absolute right-1.5 top-1.5 z-10 bg-white/90"
-                        />
-                      ) : null}
-                      <button
-                        type="button"
-                        onClick={() => onPeek(t)}
-                        className="flex h-auto flex-col items-start gap-2 rounded-none p-0 text-left font-normal hover:bg-transparent w-full"
-                      >
-                        <div className="flex w-full items-start justify-between gap-2 pr-6">
-                          <span className="text-sm font-semibold text-neutral-900">{t.name}</span>
-                          <Badge variant="info">{frameworkLabel(t.framework)}</Badge>
-                        </div>
-                        {t.description ? (
-                          <p className="line-clamp-3 text-xs text-neutral-600">{t.description}</p>
-                        ) : null}
-                        {belowThreshold ? (
-                          <div>
+                      <div className="flex flex-col gap-2">
+                        <button
+                          type="button"
+                          onClick={() => onPeek(t)}
+                          className="flex flex-col items-start gap-2 text-left w-full pr-6"
+                        >
+                          <div className="flex w-full items-start justify-between gap-2">
+                            <span className="text-sm font-semibold text-neutral-900">{t.name}</span>
+                            <Badge variant="info">{frameworkLabel(t.framework)}</Badge>
+                          </div>
+                          {t.description ? (
+                            <p className="line-clamp-3 text-xs text-neutral-600">{t.description}</p>
+                          ) : null}
+                          {belowThreshold ? (
                             <Badge variant="warning">
                               Krever {t.minimumEmployeeCount}+ ansatte
                             </Badge>
-                          </div>
-                        ) : null}
-                        <div className="mt-auto flex flex-wrap items-center gap-3 pt-2 text-[11px] text-neutral-500">
-                          <span className="inline-flex items-center gap-1">
-                            <Clock className="h-3 w-3" /> {templateCadenceLabel(t)}
-                          </span>
-                          {t.definition.agendaItems.length ? (
-                            <span className="inline-flex items-center gap-1">
-                              <ListChecks className="h-3 w-3" />
-                              {t.definition.agendaItems.length} saker
-                            </span>
                           ) : null}
-                        </div>
-                      </button>
-                      <Button
-                        variant="secondary"
-                        size="sm"
-                        icon={<Plus className="h-3.5 w-3.5" />}
-                        onClick={() => onCreateForTemplate(t)}
-                        className="mt-auto"
-                      >
-                        Nytt {t.name.toLowerCase()}
-                      </Button>
-                    </li>
+                          <div className="flex flex-wrap items-center gap-3 text-[11px] text-neutral-500">
+                            <span className="inline-flex items-center gap-1">
+                              <Clock className="h-3 w-3" /> {templateCadenceLabel(t)}
+                            </span>
+                            {t.definition.agendaItems.length ? (
+                              <span className="inline-flex items-center gap-1">
+                                <ListChecks className="h-3 w-3" />
+                                {t.definition.agendaItems.length} saker
+                              </span>
+                            ) : null}
+                          </div>
+                        </button>
+                        <Button
+                          variant="secondary"
+                          size="sm"
+                          icon={<Plus className="h-3.5 w-3.5" />}
+                          onClick={() => onCreateForTemplate(t)}
+                        >
+                          Nytt {t.name.toLowerCase()}
+                        </Button>
+                      </div>
+                    </LibraryTemplateTile>
                   )
                 })}
               </ul>
@@ -667,7 +664,7 @@ function LibraryTemplateGallery({
           ))
         )}
       </div>
-    </ModuleSectionCard>
+    </div>
   )
 }
 
@@ -695,30 +692,32 @@ function UpcomingMeetingsCard({
   }, [meetings, categoryFilter, categoryByMeetingId])
 
   return (
-    <ModuleSectionCard className="p-5 md:p-6">
-      <div className="flex items-center justify-between gap-3">
-        <h2 className="text-lg font-semibold text-neutral-900">Kommende og pågående møter</h2>
-        <span className="text-xs text-neutral-500">{upcoming.length}</span>
+    <div>
+      <div className="mb-3 flex items-baseline justify-between">
+        <h2 className="text-[15px] font-semibold text-neutral-900">Nylig aktivitet</h2>
+        <span className="text-xs text-neutral-500">{upcoming.length} kommende</span>
       </div>
-      {upcoming.length === 0 ? (
-        <p className="mt-3 text-sm text-neutral-600">Ingen planlagte eller pågående møter.</p>
-      ) : (
-        <ul className="mt-4 space-y-3">
-          {upcoming.map((m) => (
-            <li
+      <div className="overflow-hidden rounded-lg border border-neutral-200/80 bg-white">
+        {upcoming.length === 0 ? (
+          <p className="px-4 py-8 text-center text-sm text-neutral-500">
+            Ingen planlagte eller pågående møter.
+          </p>
+        ) : (
+          upcoming.map((m) => (
+            <div
               key={m.id}
-              className="flex flex-wrap items-center justify-between gap-4 rounded-lg border border-neutral-200/80 bg-neutral-50/50 p-4"
+              className="flex w-full items-start gap-3 border-t border-neutral-100 px-4 py-3 first:border-t-0"
             >
               <div className="min-w-0 flex-1">
                 <Link
                   to={`/meetings/${m.id}`}
-                  className="text-sm font-semibold text-neutral-900 hover:underline"
+                  className="text-[13px] font-medium leading-snug text-neutral-900 hover:underline"
                 >
                   {m.title}
                 </Link>
-                <p className="mt-0.5 text-xs text-neutral-600">{fmtDate(m.scheduled_at)}</p>
+                <p className="mt-0.5 text-xs text-neutral-500">{fmtDate(m.scheduled_at)}</p>
               </div>
-              <div className="flex items-center gap-2">
+              <div className="flex shrink-0 flex-wrap items-center gap-1.5">
                 <Badge variant={STATUS_BADGE[m.status]}>
                   {MEETING_STATUS_LABEL[m.status]}
                 </Badge>
@@ -727,19 +726,12 @@ function UpcomingMeetingsCard({
                     {MEETING_CONFIDENTIALITY_LABEL[m.confidentiality_level]}
                   </Badge>
                 ) : null}
-                <Link
-                  to={`/meetings/${m.id}`}
-                  className="inline-flex items-center gap-1 text-xs font-semibold text-neutral-700 hover:text-neutral-900"
-                  aria-label={`Åpne ${m.title}`}
-                >
-                  Åpne <ChevronRight className="h-3 w-3" />
-                </Link>
               </div>
-            </li>
-          ))}
-        </ul>
-      )}
-    </ModuleSectionCard>
+            </div>
+          ))
+        )}
+      </div>
+    </div>
   )
 }
 
