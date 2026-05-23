@@ -242,61 +242,90 @@ function EntriesTable({
     )
   }
   return (
-    <table className="w-full text-sm">
-      <thead className="bg-neutral-50/60">
-        <tr>
-          <th className={LAYOUT_TABLE1_POSTINGS_TH}>Tittel</th>
-          <th className={LAYOUT_TABLE1_POSTINGS_TH}>Sted</th>
-          <th className={LAYOUT_TABLE1_POSTINGS_TH}>Status</th>
-          {!easy && <th className={LAYOUT_TABLE1_POSTINGS_TH}>Score</th>}
-          {!easy && <th className={LAYOUT_TABLE1_POSTINGS_TH}>Funn</th>}
-          <th className={LAYOUT_TABLE1_POSTINGS_TH}>Frist</th>
-          {!easy && <th className={LAYOUT_TABLE1_POSTINGS_TH}>Ansvarlig</th>}
-          <th className={`w-8 ${LAYOUT_TABLE1_POSTINGS_TH}`} />
-        </tr>
-      </thead>
-      <tbody>
+    <>
+      {/* Mobile: compact list */}
+      <ul className="divide-y divide-neutral-100 sm:hidden">
         {entries.map((e) => (
-          <tr
-            key={e.id}
-            className={`${LAYOUT_TABLE1_POSTINGS_BODY_ROW} cursor-pointer`}
-            onClick={() => onOpen(e.id)}
-          >
-            <td className="px-5 py-3">
-              <div className="flex items-center gap-2.5">
-                <RowIcon title={e.tplName} />
-                <div className="min-w-0">
-                  <div className="truncate font-medium text-neutral-900">{e.tplName}</div>
-                  <div className="text-[11px] text-neutral-500">#{e.id.slice(-4).toUpperCase()}</div>
+          <li key={e.id}>
+            <button
+              type="button"
+              onClick={() => onOpen(e.id)}
+              className="flex w-full items-center gap-3 px-4 py-3 text-left hover:bg-neutral-50 active:bg-neutral-100"
+            >
+              <RowIcon title={e.tplName} />
+              <div className="min-w-0 flex-1">
+                <div className="truncate text-sm font-medium text-neutral-900">{e.tplName}</div>
+                <div className="mt-0.5 flex items-center gap-2 text-[11px] text-neutral-500">
+                  <span>{e.location}</span>
+                  <span>·</span>
+                  <span className="tabular-nums">{e.due}</span>
                 </div>
               </div>
-            </td>
-            <td className="px-5 py-3 text-neutral-700">{e.location}</td>
-            <td className="px-5 py-3"><StatusPill status={e.status} /></td>
-            {!easy && (
-              <td className="px-5 py-3 tabular-nums text-neutral-400">—</td>
-            )}
-            {!easy && (
-              <td className="px-5 py-3 text-neutral-400">—</td>
-            )}
-            <td className="px-5 py-3 tabular-nums text-neutral-700">{e.due}</td>
-            {!easy && (
-              <td className="px-5 py-3">
-                {e.assignee !== '—' ? (
-                  <span className="inline-flex items-center gap-2">
-                    <Initials name={e.assignee} size={22} />
-                    <span className="text-neutral-700">{e.assignee}</span>
-                  </span>
-                ) : (
-                  <span className="text-neutral-400">—</span>
-                )}
-              </td>
-            )}
-            <td className="px-5 py-3 text-right text-neutral-300">›</td>
-          </tr>
+              <StatusPill status={e.status} />
+              <ChevronRight className="h-3.5 w-3.5 shrink-0 text-neutral-300" aria-hidden />
+            </button>
+          </li>
         ))}
-      </tbody>
-    </table>
+      </ul>
+      {/* Desktop: full table */}
+      <div className="hidden overflow-x-auto sm:block">
+        <table className="w-full text-sm">
+          <thead className="bg-neutral-50/60">
+            <tr>
+              <th className={LAYOUT_TABLE1_POSTINGS_TH}>Tittel</th>
+              <th className={LAYOUT_TABLE1_POSTINGS_TH}>Sted</th>
+              <th className={LAYOUT_TABLE1_POSTINGS_TH}>Status</th>
+              {!easy && <th className={LAYOUT_TABLE1_POSTINGS_TH}>Score</th>}
+              {!easy && <th className={LAYOUT_TABLE1_POSTINGS_TH}>Funn</th>}
+              <th className={LAYOUT_TABLE1_POSTINGS_TH}>Frist</th>
+              {!easy && <th className={LAYOUT_TABLE1_POSTINGS_TH}>Ansvarlig</th>}
+              <th className={`w-8 ${LAYOUT_TABLE1_POSTINGS_TH}`} />
+            </tr>
+          </thead>
+          <tbody>
+            {entries.map((e) => (
+              <tr
+                key={e.id}
+                className={`${LAYOUT_TABLE1_POSTINGS_BODY_ROW} cursor-pointer`}
+                onClick={() => onOpen(e.id)}
+              >
+                <td className="px-5 py-3">
+                  <div className="flex items-center gap-2.5">
+                    <RowIcon title={e.tplName} />
+                    <div className="min-w-0">
+                      <div className="truncate font-medium text-neutral-900">{e.tplName}</div>
+                      <div className="text-[11px] text-neutral-500">#{e.id.slice(-4).toUpperCase()}</div>
+                    </div>
+                  </div>
+                </td>
+                <td className="px-5 py-3 text-neutral-700">{e.location}</td>
+                <td className="px-5 py-3"><StatusPill status={e.status} /></td>
+                {!easy && (
+                  <td className="px-5 py-3 tabular-nums text-neutral-400">—</td>
+                )}
+                {!easy && (
+                  <td className="px-5 py-3 text-neutral-400">—</td>
+                )}
+                <td className="px-5 py-3 tabular-nums text-neutral-700">{e.due}</td>
+                {!easy && (
+                  <td className="px-5 py-3">
+                    {e.assignee !== '—' ? (
+                      <span className="inline-flex items-center gap-2">
+                        <Initials name={e.assignee} size={22} />
+                        <span className="text-neutral-700">{e.assignee}</span>
+                      </span>
+                    ) : (
+                      <span className="text-neutral-400">—</span>
+                    )}
+                  </td>
+                )}
+                <td className="px-5 py-3 text-right text-neutral-300">›</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </>
   )
 }
 
@@ -538,15 +567,38 @@ function MalerTable({
   easy: boolean
   onStart: (templateId: string) => void
 }) {
+  if (templates.length === 0) {
+    return (
+      <div className="px-5 py-12 text-center text-sm text-neutral-500">
+        Ingen aktive maler. Gå til Innstillinger for å aktivere maler.
+      </div>
+    )
+  }
   return (
-    <table className="w-full text-sm">
-      <thead className="bg-neutral-50/60">
-        <tr>
-          <th className={LAYOUT_TABLE1_POSTINGS_TH}>Mal</th>
-          <th className={LAYOUT_TABLE1_POSTINGS_TH}>Punkter</th>
-          {!easy && <th className={LAYOUT_TABLE1_POSTINGS_TH}>Lovverk</th>}
-          <th className={LAYOUT_TABLE1_POSTINGS_TH}>Oppdatert</th>
-          <th className={`${LAYOUT_TABLE1_POSTINGS_TH} text-right`} />
+    <>
+      {/* Mobile: compact list */}
+      <ul className="divide-y divide-neutral-100 sm:hidden">
+        {templates.map((t) => (
+          <li key={t.id} className="flex items-center gap-3 px-4 py-3">
+            <RowIcon title={t.name} />
+            <div className="min-w-0 flex-1">
+              <div className="truncate text-sm font-medium text-neutral-900">{t.name}</div>
+              <div className="text-[11px] text-neutral-500">{t.cadence_hint ?? 'Ingen kadense'}</div>
+            </div>
+            <Button variant="primary" size="sm" icon={<Play className="h-3 w-3" />} onClick={() => onStart(t.id)}>Start</Button>
+          </li>
+        ))}
+      </ul>
+      {/* Desktop: full table */}
+      <div className="hidden overflow-x-auto sm:block">
+        <table className="w-full text-sm">
+          <thead className="bg-neutral-50/60">
+            <tr>
+              <th className={LAYOUT_TABLE1_POSTINGS_TH}>Mal</th>
+              <th className={LAYOUT_TABLE1_POSTINGS_TH}>Punkter</th>
+              {!easy && <th className={LAYOUT_TABLE1_POSTINGS_TH}>Lovverk</th>}
+              <th className={LAYOUT_TABLE1_POSTINGS_TH}>Oppdatert</th>
+              <th className={`${LAYOUT_TABLE1_POSTINGS_TH} text-right`} />
         </tr>
       </thead>
       <tbody>
@@ -579,15 +631,10 @@ function MalerTable({
             </td>
           </tr>
         ))}
-        {templates.length === 0 && (
-          <tr>
-            <td colSpan={easy ? 4 : 5} className="px-5 py-12 text-center text-sm text-neutral-500">
-              Ingen aktive maler. Gå til Innstillinger for å aktivere maler.
-            </td>
-          </tr>
-        )}
       </tbody>
-    </table>
+        </table>
+      </div>
+    </>
   )
 }
 
@@ -892,23 +939,25 @@ export function ChecklistsPage() {
               variant="secondary"
               icon={<ShieldCheck className="h-4 w-4" />}
               onClick={() => navigate('/compliance/checklists/etterlevelse')}
+              title="Etterlevelse"
             >
-              Etterlevelse
+              <span className="hidden sm:inline">Etterlevelse</span>
             </Button>
             <Button
               variant="secondary"
               icon={<Settings className="h-4 w-4" />}
               onClick={() => navigate('/compliance/checklists/admin')}
+              title="Innstillinger"
             >
-              Innstillinger
+              <span className="hidden sm:inline">Innstillinger</span>
             </Button>
             <Button
               variant="primary"
-              icon={<Play className="h-4 w-4" />}
+              icon={<Plus className="h-4 w-4" />}
               onClick={() => setCreateOpen(true)}
               disabled={cl.templates.filter((t) => t.is_active).length === 0}
             >
-              Ny gjennomføring
+              <span className="hidden sm:inline">Ny gjennomføring</span>
             </Button>
           </div>
         }
