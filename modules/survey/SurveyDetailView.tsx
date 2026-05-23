@@ -938,7 +938,7 @@ function SvarTab({
 // ─── Design Resultater section ─────────────────────────────────────────────────
 // eNPS donut + per-question stacked bars + fritekst excerpts from design.
 
-function ResultaterDesignSection({ survey, s }: { survey: UseSurveyState; s: SurveyRow }) {
+function ResultaterDesignSection({ survey }: { survey: UseSurveyState; s: SurveyRow }) {
   const analyticsByQuestion = useMemo(
     () => buildAnalyticsByQuestionId(survey.questions, survey.answers),
     [survey.questions, survey.answers],
