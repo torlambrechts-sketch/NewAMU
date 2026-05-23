@@ -150,6 +150,7 @@ import { PlatformCoursePlayerHjemPage } from './pages/platform/coursePlayer/Plat
 import { LandingPage } from './pages/LandingPage'
 import { ChecklistsPage } from '../modules/compliance/ChecklistsPage'
 import { ChecklistsAnalysePage } from '../modules/compliance/ChecklistsAnalysePage'
+import { ChecklistsEtterlevelsePage } from '../modules/compliance/ChecklistsEtterlevelsePage'
 import { ChecklistExecutionPage } from '../modules/compliance/ChecklistExecutionPage'
 import { PackProvider } from './context/PackContext'
 import { ModuleAdminPage } from './pages/ModuleAdminPage'
@@ -475,6 +476,14 @@ const router = createBrowserRouter(
                         }
                       />
                       <Route path="compliance/checklists/admin" element={<LegacyAdminRedirect scope="compliance" />} />
+                      <Route
+                        path="compliance/checklists/etterlevelse"
+                        element={
+                          <PackProvider>
+                            <ChecklistsEtterlevelsePage />
+                          </PackProvider>
+                        }
+                      />
                       <Route
                         path="compliance/checklists/analyse"
                         element={

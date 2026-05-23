@@ -72,6 +72,12 @@ export interface ModuleAlleListPageProps<RowT> {
   emptyState?: ReactNode
   /** Optional accent — currently reserved for future use. */
   accent?: string
+  /**
+   * When provided, rows are rendered as a compact touch list on narrow screens
+   * (< sm) instead of the horizontal-scroll table. Return the full anchor/button
+   * element — ModuleAlleListPage wraps it in a <li>.
+   */
+  renderMobileRow?: (row: RowT) => ReactNode
 }
 
 export function ModuleAlleListPage<RowT>({
@@ -87,6 +93,7 @@ export function ModuleAlleListPage<RowT>({
   searchableText,
   chipFilters,
   emptyState,
+  renderMobileRow,
 }: ModuleAlleListPageProps<RowT>) {
   const { isActive: isRegulationActive } = useRegulationFilter()
   const [query, setQuery] = useState('')
@@ -333,8 +340,25 @@ export function ModuleAlleListPage<RowT>({
           </div>
         ) : null}
 
+        {/* Mobile compact list — only rendered when the caller supplies renderMobileRow */}
+        {renderMobileRow ? (
+          <ul className="divide-y divide-neutral-100 sm:hidden">
+            {total === 0 ? (
+              <li className="px-5 py-10 text-center text-sm text-neutral-500">
+                {emptyState ?? 'Ingen rader matcher de aktive filtrene.'}
+              </li>
+            ) : (
+              pagedGroups.flatMap((group) =>
+                group.rows.map((row, ri) => (
+                  <li key={`${group.key}:${ri}`}>{renderMobileRow(row)}</li>
+                )),
+              )
+            )}
+          </ul>
+        ) : null}
+
         {/* Table */}
-        <div className="overflow-x-auto">
+        <div className={renderMobileRow ? 'hidden overflow-x-auto sm:block' : 'overflow-x-auto'}>
           <table className="w-full min-w-[640px] text-left text-sm">
             <thead>
               <tr className="border-b border-neutral-200 bg-neutral-50/90 text-[10px] font-bold uppercase tracking-wide text-neutral-500">

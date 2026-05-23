@@ -37,6 +37,8 @@ export type ChecklistItem = {
    * compliance_template_requirements.
    */
   requirement_slugs?: string[]
+  /** Optional section/group label for UI grouping within the fill-in canvas. */
+  section?: string
 }
 
 export type ChecklistDefinition = {
@@ -66,6 +68,8 @@ export type ComplianceTemplateRow = {
   category_id: string | null
   /** Field declarations that drive the execution metadata editor — see TemplateMetadataSchema. */
   metadata_schema: TemplateMetadataSchema
+  /** Legal/regulatory references this template addresses, e.g. ["AML § 3-1", "IK § 5"]. */
+  law_refs: string[]
   deleted_at: string | null
   created_by: string | null
   created_at: string
