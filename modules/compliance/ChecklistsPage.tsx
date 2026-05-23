@@ -21,6 +21,7 @@ import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import {
   Building2,
   ChevronRight,
+  CircleDot,
   ClipboardCheck,
   ClipboardList,
   Filter,
@@ -29,6 +30,7 @@ import {
   Search,
   Settings,
   Shield,
+  SlidersHorizontal,
   Truck,
 } from 'lucide-react'
 import { ModulePageShell } from '../../src/components/module/ModulePageShell'
@@ -270,41 +272,44 @@ export function ChecklistsPage() {
         headerActions={
           <div className="flex flex-wrap items-center gap-2">
             {/* Enkel / Avansert mode toggle */}
-            <div className="flex items-stretch overflow-hidden rounded-lg border border-neutral-200 bg-neutral-50">
+            <div
+              role="tablist"
+              aria-label="Visningsmodus"
+              className="inline-flex items-center gap-1 rounded-md border border-neutral-200/80 bg-white p-1"
+            >
               <button
+                role="tab"
                 type="button"
+                aria-selected={viewMode === 'enkel'}
                 onClick={() => setViewMode('enkel')}
-                className={`flex items-center gap-1.5 px-3 py-2 text-sm font-medium transition-colors ${
+                className={`flex items-center gap-2 rounded-[5px] px-2.5 py-1.5 text-xs font-semibold transition-colors ${
                   viewMode === 'enkel'
                     ? 'bg-[#1a3d32] text-white'
-                    : 'text-neutral-600 hover:bg-neutral-100'
+                    : 'text-neutral-600 hover:text-neutral-900'
                 }`}
               >
-                <Shield className="h-3.5 w-3.5" aria-hidden />
+                <CircleDot className="h-3.5 w-3.5 shrink-0" aria-hidden />
                 <span>Enkel</span>
-                {viewMode === 'enkel' && (
-                  <span className="ml-0.5 text-[11px] font-normal opacity-75">
-                    · For alle i felt
-                  </span>
-                )}
+                <span className={`text-[11px] font-normal ${viewMode === 'enkel' ? 'text-white/70' : 'text-neutral-400'}`}>
+                  · For alle i felt
+                </span>
               </button>
-              <div className="w-px bg-neutral-200" />
               <button
+                role="tab"
                 type="button"
+                aria-selected={viewMode === 'avansert'}
                 onClick={() => setViewMode('avansert')}
-                className={`flex items-center gap-1.5 px-3 py-2 text-sm font-medium transition-colors ${
+                className={`flex items-center gap-2 rounded-[5px] px-2.5 py-1.5 text-xs font-semibold transition-colors ${
                   viewMode === 'avansert'
                     ? 'bg-[#1a3d32] text-white'
-                    : 'text-neutral-600 hover:bg-neutral-100'
+                    : 'text-neutral-600 hover:text-neutral-900'
                 }`}
               >
-                <Filter className="h-3.5 w-3.5" aria-hidden />
+                <SlidersHorizontal className="h-3.5 w-3.5 shrink-0" aria-hidden />
                 <span>Avansert</span>
-                {viewMode === 'avansert' && (
-                  <span className="ml-0.5 text-[11px] font-normal opacity-75">
-                    · HMS-ansvarlig
-                  </span>
-                )}
+                <span className={`text-[11px] font-normal ${viewMode === 'avansert' ? 'text-white/70' : 'text-neutral-400'}`}>
+                  · HMS-ansvarlig
+                </span>
               </button>
             </div>
 
@@ -332,24 +337,23 @@ export function ChecklistsPage() {
           {cl.error ? <WarningBox>{cl.error}</WarningBox> : null}
 
           {/* Tabs */}
-          <div className="flex items-end gap-1 border-b border-neutral-200">
+          <div className="flex items-center gap-1.5">
             <button
               type="button"
               onClick={() => setActiveTab('executions')}
-              className={`inline-flex items-center gap-2 px-1 pb-3 pt-1 text-sm font-medium transition-colors ${
+              className={`flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-colors ${
                 activeTab === 'executions'
-                  ? 'border-b-2 border-[#1a3d32] text-[#1a3d32]'
-                  : 'text-neutral-500 hover:text-neutral-700'
+                  ? 'bg-[#1a3d32] text-white'
+                  : 'text-neutral-600 hover:bg-neutral-100 hover:text-neutral-900'
               }`}
-              style={activeTab === 'executions' ? { marginBottom: '-1px' } : undefined}
             >
               <ClipboardCheck className="h-4 w-4" aria-hidden />
               Gjennomføringer
               <span
-                className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${
+                className={`ml-1.5 rounded-full px-2 py-0.5 text-xs ${
                   activeTab === 'executions'
-                    ? 'bg-[#1a3d32]/10 text-[#1a3d32]'
-                    : 'bg-neutral-100 text-neutral-500'
+                    ? 'bg-white/20 text-white'
+                    : 'bg-neutral-100 text-neutral-600'
                 }`}
               >
                 {cl.executions.length}
@@ -359,20 +363,19 @@ export function ChecklistsPage() {
             <button
               type="button"
               onClick={() => setActiveTab('templates')}
-              className={`inline-flex items-center gap-2 px-1 pb-3 pt-1 text-sm font-medium transition-colors ${
+              className={`flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-colors ${
                 activeTab === 'templates'
-                  ? 'border-b-2 border-[#1a3d32] text-[#1a3d32]'
-                  : 'text-neutral-500 hover:text-neutral-700'
+                  ? 'bg-[#1a3d32] text-white'
+                  : 'text-neutral-600 hover:bg-neutral-100 hover:text-neutral-900'
               }`}
-              style={activeTab === 'templates' ? { marginBottom: '-1px' } : undefined}
             >
               <ClipboardList className="h-4 w-4" aria-hidden />
               Maler
               <span
-                className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${
+                className={`ml-1.5 rounded-full px-2 py-0.5 text-xs ${
                   activeTab === 'templates'
-                    ? 'bg-[#1a3d32]/10 text-[#1a3d32]'
-                    : 'bg-neutral-100 text-neutral-500'
+                    ? 'bg-white/20 text-white'
+                    : 'bg-neutral-100 text-neutral-600'
                 }`}
               >
                 {activeTemplates.length}
@@ -438,11 +441,9 @@ export function ChecklistsPage() {
                 <thead>
                   <tr className={LAYOUT_TABLE1_POSTINGS_HEADER_ROW}>
                     <th className={LAYOUT_TABLE1_POSTINGS_TH}>Tittel</th>
+                    <th className={LAYOUT_TABLE1_POSTINGS_TH}>Sted</th>
                     {viewMode === 'avansert' && (
-                      <th className={LAYOUT_TABLE1_POSTINGS_TH}>Sted</th>
-                    )}
-                    {viewMode !== 'avansert' && (
-                      <th className={LAYOUT_TABLE1_POSTINGS_TH}>Sted</th>
+                      <th className={LAYOUT_TABLE1_POSTINGS_TH}>Ansvarlig</th>
                     )}
                     <th className={LAYOUT_TABLE1_POSTINGS_TH}>Status</th>
                     <th className={LAYOUT_TABLE1_POSTINGS_TH}>Frist</th>
@@ -452,7 +453,7 @@ export function ChecklistsPage() {
                 <tbody>
                   {filteredExecutions.length === 0 ? (
                     <tr>
-                      <td colSpan={5}>
+                      <td colSpan={viewMode === 'avansert' ? 6 : 5}>
                         <div className="py-12 text-center">
                           <p className="text-sm text-neutral-500">
                             {search.trim()
@@ -475,37 +476,45 @@ export function ChecklistsPage() {
                       </td>
                     </tr>
                   ) : (
-                    filteredExecutions.map((row) => (
-                      <tr
-                        key={row.id}
-                        className={`${LAYOUT_TABLE1_POSTINGS_BODY_ROW} cursor-pointer hover:bg-neutral-50`}
-                        onClick={() => navigate(`/compliance/checklists/${row.id}`)}
-                      >
-                        <td className="px-5 py-3">
-                          <div className="flex items-center gap-3">
-                            <RowIcon title={row.title} />
-                            <div className="min-w-0">
-                              <p className="font-medium text-neutral-900">{row.title}</p>
-                              <p className="text-xs text-neutral-400">#{row.id.slice(-4).toUpperCase()}</p>
+                    filteredExecutions.map((row) => {
+                      const assignee = row.assigned_to
+                        ? (cl.assignableUsers.find((u) => u.id === row.assigned_to)?.displayName ?? '—')
+                        : '—'
+                      return (
+                        <tr
+                          key={row.id}
+                          className={`${LAYOUT_TABLE1_POSTINGS_BODY_ROW} cursor-pointer hover:bg-neutral-50`}
+                          onClick={() => navigate(`/compliance/checklists/${row.id}`)}
+                        >
+                          <td className="px-5 py-3">
+                            <div className="flex items-center gap-3">
+                              <RowIcon title={row.title} />
+                              <div className="min-w-0">
+                                <p className="font-medium text-neutral-900">{row.title}</p>
+                                <p className="text-xs text-neutral-400">#{row.id.slice(-4).toUpperCase()}</p>
+                              </div>
                             </div>
-                          </div>
-                        </td>
-                        <td className="px-5 py-3 text-neutral-600">
-                          {getLocationDisplay(row)}
-                        </td>
-                        <td className="px-5 py-3">
-                          <Badge variant={statusBadgeVariant(row.status)}>
-                            {STATUS_LABEL[row.status]}
-                          </Badge>
-                        </td>
-                        <td className="px-5 py-3 text-neutral-600">
-                          {formatDate(row.scheduled_for)}
-                        </td>
-                        <td className="w-8 px-3 py-3 text-neutral-300">
-                          <ChevronRight className="h-4 w-4" />
-                        </td>
-                      </tr>
-                    ))
+                          </td>
+                          <td className="px-5 py-3 text-neutral-600">
+                            {getLocationDisplay(row)}
+                          </td>
+                          {viewMode === 'avansert' && (
+                            <td className="px-5 py-3 text-neutral-600">{assignee}</td>
+                          )}
+                          <td className="px-5 py-3">
+                            <Badge variant={statusBadgeVariant(row.status)}>
+                              {STATUS_LABEL[row.status]}
+                            </Badge>
+                          </td>
+                          <td className="px-5 py-3 text-neutral-600">
+                            {formatDate(row.scheduled_for)}
+                          </td>
+                          <td className="w-8 px-3 py-3 text-neutral-300">
+                            <ChevronRight className="h-4 w-4" />
+                          </td>
+                        </tr>
+                      )
+                    })
                   )}
                 </tbody>
               </table>
