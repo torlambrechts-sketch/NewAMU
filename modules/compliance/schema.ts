@@ -119,6 +119,7 @@ export const ComplianceTemplateRowSchema: z.ZodType<ComplianceTemplateRow> = z.o
     .unknown()
     .transform((u) => parseMetadataSchema(u))
     .default({ fields: [] }),
+  law_refs: z.array(z.string()).default([]),
   deleted_at: z.string().nullable(),
   created_by: z.string().uuid().nullable(),
   created_at: TimestampSchema,
