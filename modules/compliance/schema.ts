@@ -29,6 +29,7 @@ const ChecklistItemSchema: z.ZodType<ChecklistItem> = z.object({
   severity_default: z.enum(['low', 'medium', 'high', 'critical']).optional(),
   help: z.string().optional(),
   requirement_slugs: z.array(z.string()).optional(),
+  section: z.string().optional(),
 })
 
 const ChecklistDefinitionSchema: z.ZodType<ChecklistDefinition> = z.object({
