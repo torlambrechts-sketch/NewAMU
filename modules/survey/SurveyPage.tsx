@@ -34,6 +34,7 @@ import { SurveyMalerTab } from './tabs/SurveyMalerTab'
 import { SurveyLeverandorerTab } from './tabs/SurveyLeverandorerTab'
 import { SurveyAnalyseOverviewTab } from './tabs/SurveyAnalyseOverviewTab'
 import { SurveyHubLanding } from './SurveyHubLanding'
+import { SurveyHubRecordsShell } from './SurveyHubRecordsShell'
 import { SURVEY_MODULE_LEGAL_REFERENCES } from './surveyLegalReferences'
 
 
@@ -111,6 +112,17 @@ export function SurveyPage({ supabase }: Props) {
     if (!selectedTemplate) return undefined
     return survey.templateCatalog.find((t) => t.id === selectedTemplate)
   }, [selectedTemplate, survey.templateCatalog])
+
+  // Maps catalogId → categoryId for the Records-shell category rail.
+  // Resolved through the org-template override layer (pinnedById).
+  const categoryByCatalogId = useMemo(() => {
+    const m = new Map<string, string | null>()
+    for (const tpl of survey.templateCatalog) {
+      const override = orgTemplates.templates.find((t) => t.catalogId === tpl.id)
+      m.set(tpl.id, override?.categoryId ?? null)
+    }
+    return m
+  }, [survey.templateCatalog, orgTemplates.templates])
 
   const { loadSurveys, loadTemplateCatalog } = survey
   useEffect(() => {
@@ -328,14 +340,15 @@ export function SurveyPage({ supabase }: Props) {
         {survey.error && <WarningBox>{survey.error}</WarningBox>}
 
         {mode === 'hub' ? (
-          <SurveyHubLanding
-            packs={packs}
+          <SurveyHubRecordsShell
+            surveys={survey.surveys}
             templates={survey.templateCatalog}
-            pinned={orgTemplates.templates}
             categories={surveyCategories.categories}
-            loading={survey.templateCatalogLoading}
+            categoryByCatalogId={categoryByCatalogId}
+            loading={survey.templateCatalogLoading || survey.loading}
             canManage={survey.canManage}
-            onOpenAdmin={() => navigate('/survey/admin')}
+            onNewSurvey={() => openPanel('internal')}
+            onNavigate={(path) => navigate(path)}
           />
         ) : survey.loading && scopedSurveys.length === 0 ? (
           <div className="flex items-center justify-center gap-2 py-16 text-sm text-neutral-500">
