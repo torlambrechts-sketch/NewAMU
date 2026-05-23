@@ -926,7 +926,7 @@ export function ChecklistsPage() {
                     ].join(' ')}
                   >
                     <Icon className="h-3.5 w-3.5 shrink-0" aria-hidden />
-                    <span>{label}</span>
+                    <span className="hidden sm:inline">{label}</span>
                     <span className={['hidden md:inline text-[10px] font-medium', active ? 'text-white/70' : 'text-neutral-400'].join(' ')}>
                       · {sub}
                     </span>
