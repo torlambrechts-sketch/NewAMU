@@ -53,6 +53,7 @@ type MappedSurvey = {
   surveyType: string
   due: string
   dueRaw: Date | null
+  startDate: string
   responseCount: number
   invitationCount: number
   isAnonymous: boolean
@@ -211,8 +212,8 @@ function EntriesTable({ entries, onOpen }: { entries: MappedSurvey[]; onOpen: (i
               <th className="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wider text-neutral-500">Tittel</th>
               <th className="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wider text-neutral-500">Status</th>
               <th className="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wider text-neutral-500">Type</th>
+              <th className="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wider text-neutral-500">Periode</th>
               <th className="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wider text-neutral-500">Svarprosent</th>
-              <th className="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wider text-neutral-500">Sluttdato</th>
               <th className="w-8 px-5 py-3" />
             </tr>
           </thead>
@@ -234,6 +235,11 @@ function EntriesTable({ entries, onOpen }: { entries: MappedSurvey[]; onOpen: (i
                 </td>
                 <td className="px-5 py-3"><StatusPill status={e.status} /></td>
                 <td className="px-5 py-3 text-neutral-700">{SURVEY_TYPE_LABEL[e.surveyType] ?? e.surveyType}</td>
+                <td className="px-5 py-3 tabular-nums text-neutral-600">
+                  <span>{e.startDate}</span>
+                  <span className="mx-1 text-neutral-300">–</span>
+                  <span>{e.due}</span>
+                </td>
                 <td className="px-5 py-3">
                   {e.invitationCount > 0 ? (
                     <div className="flex items-center gap-2">
@@ -244,7 +250,6 @@ function EntriesTable({ entries, onOpen }: { entries: MappedSurvey[]; onOpen: (i
                     <span className="tabular-nums text-neutral-700">{e.responseCount}</span>
                   )}
                 </td>
-                <td className="px-5 py-3 tabular-nums text-neutral-700">{e.due}</td>
                 <td className="px-5 py-3 text-right text-neutral-300">›</td>
               </tr>
             ))}
@@ -727,6 +732,7 @@ export function SurveyHubRecordsShell({
         closed:   'lukket',
         archived: 'arkivert',
       }
+      const startRaw = s.start_date ? new Date(s.start_date) : null
       return {
         id:            s.id,
         catalogId:     s.catalog_id ?? null,
@@ -736,6 +742,7 @@ export function SurveyHubRecordsShell({
         surveyType:    s.survey_type,
         due:           dueRaw ? dueRaw.toLocaleDateString('nb-NO', { dateStyle: 'short' }) : '—',
         dueRaw,
+        startDate:     startRaw ? startRaw.toLocaleDateString('nb-NO', { dateStyle: 'short' }) : '—',
         responseCount:   s.response_count,
         invitationCount: s.invitation_count,
         isAnonymous:     s.is_anonymous,

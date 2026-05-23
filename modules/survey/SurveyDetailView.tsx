@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState, useRef, type ReactNode } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import type { SupabaseClient } from '@supabase/supabase-js'
-import { ArrowLeft, CheckCircle2, ChevronRight, Eye, Ghost, Save, Trash2 } from 'lucide-react'
+import { AlertCircle, ArrowLeft, BarChart3, Calendar, CheckCircle2, ChevronRight, Eye, EyeOff, Ghost, HelpCircle, Save, Send, Trash2, TrendingUp, Users2 } from 'lucide-react'
 import {
   WPSTD_FORM_FIELD_LABEL,
   WPSTD_FORM_ROW_GRID,
@@ -39,7 +39,9 @@ import { SURVEY_DETAIL_EXTRA_LEGAL_REFERENCES, SURVEY_MODULE_LEGAL_REFERENCES } 
 import { orgQuestionToCatalogQuestion } from './surveyTemplateCatalogHelpers'
 import { suggestionsForSurveyPurpose, type PurposeSuggestion } from './surveyPurposeSuggestions'
 import { SurveyAnalyseTab } from './SurveyAnalyseTab'
+import { SURVEY_TYPE_LABEL } from './types'
 import type { OrgSurveyQuestionRow, OrgSurveyResponseRow, SurveyAmuReviewRow, SurveyQuestionType, SurveyRow } from './types'
+import { buildAnalyticsByQuestionId } from './surveyAnalytics'
 
 function mergeQuestionConfig(
   baseConfig: Record<string, unknown>,
@@ -188,6 +190,31 @@ function InnstillingerTab({ survey, s }: { survey: UseSurveyState; s: SurveyRow 
         </div>
       </div>
 
+      {/* Resultatdeling */}
+      <div className="overflow-hidden rounded-lg border border-neutral-200 bg-white shadow-sm">
+        <div className="border-b border-neutral-100 px-5 py-4">
+          <p className="text-sm font-semibold text-neutral-900">Resultatdeling</p>
+          <p className="mt-0.5 text-xs text-neutral-500">Styr hvem som ser resultater og når de distribueres.</p>
+        </div>
+        <div className="divide-y divide-neutral-100">
+          {[
+            { label: 'Del live-dashboard med HMS-leder', desc: 'Aggregert status vises mens undersøkelsen pågår.', value: true },
+            { label: 'Send sammendrag automatisk ved lukking', desc: 'PDF til eier + verneombud etter lukking.', value: true },
+            { label: 'Tillat ledere å se sitt teams resultater', desc: 'Kun aggregert · minimum 5 svar.', value: false },
+          ].map(({ label, desc, value }) => (
+            <div key={label} className="flex items-start justify-between gap-3 px-5 py-3.5">
+              <div className="min-w-0">
+                <p className="text-sm font-medium text-neutral-800">{label}</p>
+                <p className="text-xs text-neutral-500">{desc}</p>
+              </div>
+              <div className={['relative mt-0.5 h-5 w-9 shrink-0 rounded-full transition-colors', value ? 'bg-[#1a3d32]' : 'bg-neutral-300'].join(' ')}>
+                <span className={['absolute top-0.5 h-4 w-4 rounded-full bg-white transition-transform', value ? 'translate-x-4' : 'translate-x-0.5'].join(' ')} />
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
       {/* Faresone */}
       {survey.canManage && (
         <div className="overflow-hidden rounded-lg border border-red-200 bg-red-50/50 shadow-sm">
@@ -262,17 +289,82 @@ function OversiktTab({
   s,
   onOpenAmuTab,
   isOrgAdmin,
+  nameByUserId,
+  onTabChange,
 }: {
   survey: UseSurveyState
   s: SurveyRow
   onOpenAmuTab: () => void
   isOrgAdmin: boolean
+  nameByUserId: Record<string, string>
+  onTabChange: (tab: DetailTab) => void
 }) {
   const [titleEdit, setTitleEdit] = useState(s.title)
   const [descEdit, setDescEdit] = useState(s.description ?? '')
   const [purposeEdit, setPurposeEdit] = useState(s.survey_purpose ?? '')
   const [amuSummaryEdit, setAmuSummaryEdit] = useState(s.survey_amu_summary ?? '')
   const [savingMeta, setSavingMeta] = useState(false)
+
+  // ── Dashboard metrics ──────────────────────────────────────────────────────
+  const responseCount = s.response_count
+  const invitationCount = s.invitation_count
+  const svarprosent = invitationCount > 0 ? responseCount / invitationCount : null
+
+  const avgScore = useMemo(() => {
+    const ratingQs = survey.questions.filter((q) => q.question_type === 'rating_1_to_5')
+    const ratingIds = new Set(ratingQs.map((q) => q.id))
+    const vals = survey.answers
+      .filter((a) => ratingIds.has(a.question_id) && a.answer_value != null)
+      .map((a) => a.answer_value!)
+    return vals.length > 0 ? vals.reduce((acc, v) => acc + v, 0) / vals.length : null
+  }, [survey.questions, survey.answers])
+
+  const npsData = useMemo(() => {
+    const npsQs = survey.questions.filter((q) => q.question_type === 'nps')
+    if (npsQs.length === 0) return null
+    const npsIds = new Set(npsQs.map((q) => q.id))
+    const vals = survey.answers
+      .filter((a) => npsIds.has(a.question_id) && a.answer_value != null)
+      .map((a) => a.answer_value!)
+    if (vals.length === 0) return null
+    const promoters = vals.filter((v) => v >= 9).length
+    const detractors = vals.filter((v) => v <= 6).length
+    const passives = vals.length - promoters - detractors
+    const score = Math.round(((promoters - detractors) / vals.length) * 100)
+    return { promoters, passives, detractors, total: vals.length, score }
+  }, [survey.questions, survey.answers])
+
+  const responseTimeline = useMemo(() => {
+    if (survey.responses.length === 0) return null
+    const byDay: Record<string, number> = {}
+    for (const r of survey.responses) {
+      const day = r.submitted_at.slice(0, 10)
+      byDay[day] = (byDay[day] || 0) + 1
+    }
+    const days = Object.keys(byDay).sort()
+    let cum = 0
+    const points = days.map((d) => { cum += byDay[d]; return { day: d, count: cum } })
+    return { points, max: cum }
+  }, [survey.responses])
+
+  const insights = useMemo(() => {
+    const list: { tone: 'positive' | 'warning' | 'critical'; text: string }[] = []
+    if (svarprosent !== null) {
+      if (svarprosent >= 0.7) list.push({ tone: 'positive', text: `Høy svarprosent (${Math.round(svarprosent * 100)}%) — bra engasjement.` })
+      else if (svarprosent < 0.4 && s.status === 'active') list.push({ tone: 'warning', text: `Lav svarprosent (${Math.round(svarprosent * 100)}%). Vurder å sende påminnelse til deltakere som ikke har svart.` })
+    }
+    if (npsData) {
+      if (npsData.score >= 30) list.push({ tone: 'positive', text: `eNPS på +${npsData.score} er over benchmark (+25).` })
+      else if (npsData.score < 0) list.push({ tone: 'critical', text: `Negativt eNPS (${npsData.score}) — bør adresseres i AMU-møte.` })
+    }
+    if (avgScore !== null && avgScore < 3.5) list.push({ tone: 'warning', text: `Gjennomsnittsscore ${avgScore.toFixed(1)}/5 er under terskel 3,5. Se per-spørsmål i Resultater.` })
+    return list
+  }, [svarprosent, npsData, avgScore, s.status])
+
+  const respondentNames = useMemo(() => {
+    if (s.is_anonymous) return []
+    return Object.values(nameByUserId).slice(0, 5)
+  }, [s.is_anonymous, nameByUserId])
 
   const amuGate = useMemo(() => {
     if (s.survey_type !== 'internal' || !s.amu_review_required) return null
@@ -313,6 +405,183 @@ function OversiktTab({
 
   return (
     <div className="space-y-6">
+      {/* ── Dashboard section ─────────────────────────────────────────────── */}
+      <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1fr)_288px]">
+        <div className="space-y-4">
+          {/* KPI cards */}
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+            <div className="rounded-md bg-[#fbf9f3] px-3 py-2.5">
+              <div className="text-[10px] font-bold uppercase tracking-wider text-neutral-500">Svarprosent</div>
+              <div className="mt-0.5 text-2xl font-bold tabular-nums" style={{ color: svarprosent === null ? '#a3a3a3' : svarprosent >= 0.7 ? '#1a3d32' : svarprosent >= 0.4 ? '#c98a2b' : '#b3382a' }}>
+                {svarprosent !== null ? `${Math.round(svarprosent * 100)}%` : '—'}
+              </div>
+              {svarprosent !== null && (
+                <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-neutral-200">
+                  <div className="h-1.5 rounded-full transition-[width]" style={{ width: `${Math.min(100, Math.round(svarprosent * 100))}%`, background: svarprosent >= 0.7 ? '#1a3d32' : svarprosent >= 0.4 ? '#c98a2b' : '#b3382a' }} />
+                </div>
+              )}
+            </div>
+            <div className="rounded-md bg-[#fbf9f3] px-3 py-2.5">
+              <div className="text-[10px] font-bold uppercase tracking-wider text-neutral-500">Svar</div>
+              <div className="mt-0.5 text-2xl font-bold tabular-nums text-neutral-900">
+                {responseCount}<span className="text-base font-normal text-neutral-400">/{invitationCount}</span>
+              </div>
+              <div className="text-[10px] text-neutral-500">{Math.max(0, invitationCount - responseCount)} gjenstår</div>
+            </div>
+            <div className="rounded-md bg-[#fbf9f3] px-3 py-2.5">
+              <div className="text-[10px] font-bold uppercase tracking-wider text-neutral-500">Snittscore</div>
+              <div className="mt-0.5 text-2xl font-bold tabular-nums text-neutral-900">
+                {avgScore !== null ? avgScore.toFixed(1) : <span className="text-lg text-neutral-400">—</span>}
+              </div>
+              <div className="text-[10px] text-neutral-500">av 5,0</div>
+            </div>
+            <div className="rounded-md bg-[#fbf9f3] px-3 py-2.5">
+              <div className="text-[10px] font-bold uppercase tracking-wider text-neutral-500">eNPS</div>
+              <div className={`mt-0.5 text-2xl font-bold tabular-nums ${npsData ? (npsData.score >= 30 ? 'text-green-700' : npsData.score >= 0 ? 'text-amber-700' : 'text-red-700') : 'text-neutral-400'}`}>
+                {npsData ? (npsData.score > 0 ? `+${npsData.score}` : String(npsData.score)) : '—'}
+              </div>
+              {npsData ? <div className="text-[10px] text-neutral-500">benchmark +25</div> : <div className="text-[10px] text-neutral-400">ingen NPS-spørsmål</div>}
+            </div>
+          </div>
+
+          {/* Response over time */}
+          {responseTimeline && responseTimeline.points.length > 1 && (
+            <div className="rounded-md border border-neutral-200/80 p-4">
+              <div className="flex items-center justify-between">
+                <h4 className="text-sm font-semibold text-neutral-900">Svar over tid</h4>
+                <span className="text-[11px] text-neutral-500">Daglig akkumulert</span>
+              </div>
+              <svg className="mt-3" width="100%" height="120" viewBox="0 0 300 120" preserveAspectRatio="none" aria-hidden>
+                <defs>
+                  <linearGradient id="ovRespFill" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="#1a3d32" stopOpacity="0.18" />
+                    <stop offset="100%" stopColor="#1a3d32" stopOpacity="0" />
+                  </linearGradient>
+                </defs>
+                {[0.25, 0.5, 0.75].map((y) => (
+                  <line key={y} x1="0" x2="300" y1={110 - y * 90} y2={110 - y * 90} stroke="#E5E5E5" strokeDasharray="2 3" />
+                ))}
+                {(() => {
+                  const pts = responseTimeline.points
+                  const max = responseTimeline.max
+                  const xs = pts.map((_, i) => (i / Math.max(pts.length - 1, 1)) * 290 + 5)
+                  const ys = pts.map((p) => 110 - (p.count / max) * 90)
+                  const linePath = xs.map((x, i) => `${i === 0 ? 'M' : 'L'}${x},${ys[i]}`).join(' ')
+                  const areaPath = `${linePath} L${xs[xs.length - 1]},115 L${xs[0]},115 Z`
+                  return (
+                    <>
+                      <path d={areaPath} fill="url(#ovRespFill)" />
+                      <path d={linePath} fill="none" stroke="#1a3d32" strokeWidth="2" />
+                      {xs.map((x, i) => <circle key={i} cx={x} cy={ys[i]} r="3" fill="#1a3d32" />)}
+                    </>
+                  )
+                })()}
+              </svg>
+              <div className="mt-2 flex justify-between text-[10px] text-neutral-500">
+                <span>{responseTimeline.points[0]?.day ?? ''}</span>
+                <span>{responseTimeline.points[responseTimeline.points.length - 1]?.day ?? ''}</span>
+              </div>
+            </div>
+          )}
+
+          {/* Key insights */}
+          {insights.length > 0 && (
+            <div>
+              <h4 className="text-sm font-semibold text-neutral-900">Nøkkelfunn</h4>
+              <ul className="mt-2 space-y-2">
+                {insights.map((ins, i) => (
+                  <li key={i} className={['flex items-start gap-3 rounded-md border px-3 py-2.5 text-xs', ins.tone === 'positive' ? 'border-green-200 bg-green-50/60' : ins.tone === 'warning' ? 'border-amber-200 bg-amber-50' : 'border-red-200 bg-red-50'].join(' ')}>
+                    {ins.tone === 'positive'
+                      ? <TrendingUp className="mt-0.5 h-3.5 w-3.5 shrink-0 text-green-700" aria-hidden />
+                      : <AlertCircle className={`mt-0.5 h-3.5 w-3.5 shrink-0 ${ins.tone === 'warning' ? 'text-amber-700' : 'text-red-700'}`} aria-hidden />}
+                    <span className={ins.tone === 'positive' ? 'text-green-900' : ins.tone === 'warning' ? 'text-amber-900' : 'text-red-900'}>{ins.text}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          {/* Quick links */}
+          <div className="grid grid-cols-3 gap-2">
+            <button type="button" onClick={() => onTabChange('bygger')} className="flex items-center gap-2 rounded-md border border-neutral-200/80 bg-white p-3 text-left transition-colors hover:border-[#1a3d32]/40 hover:bg-[#fbf9f3]">
+              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-[#e7efe9] text-[#1a3d32]"><HelpCircle className="h-4 w-4" aria-hidden /></span>
+              <div><div className="text-xs font-semibold text-neutral-900">Spørsmål</div><div className="text-[10px] text-neutral-500">Se og rediger</div></div>
+            </button>
+            <button type="button" onClick={() => onTabChange('distribusjon')} className="flex items-center gap-2 rounded-md border border-neutral-200/80 bg-white p-3 text-left transition-colors hover:border-[#1a3d32]/40 hover:bg-[#fbf9f3]">
+              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-[#e7efe9] text-[#1a3d32]"><Send className="h-4 w-4" aria-hidden /></span>
+              <div><div className="text-xs font-semibold text-neutral-900">Distribusjon</div><div className="text-[10px] text-neutral-500">Mottakere &amp; påminnelser</div></div>
+            </button>
+            <button type="button" onClick={() => onTabChange('resultater')} className="flex items-center gap-2 rounded-md border border-neutral-200/80 bg-white p-3 text-left transition-colors hover:border-[#1a3d32]/40 hover:bg-[#fbf9f3]">
+              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-[#e7efe9] text-[#1a3d32]"><BarChart3 className="h-4 w-4" aria-hidden /></span>
+              <div><div className="text-xs font-semibold text-neutral-900">Resultater</div><div className="text-[10px] text-neutral-500">Diagrammer &amp; innsikt</div></div>
+            </button>
+          </div>
+        </div>
+
+        {/* Sidebar */}
+        <aside className="hidden space-y-3 xl:block">
+          <div className="rounded-xl border border-neutral-200/80 bg-white p-4" style={{ boxShadow: '0 1px 2px rgba(0,0,0,0.04)' }}>
+            <h3 className="text-sm font-semibold text-neutral-900">Detaljer</h3>
+            <dl className="mt-2 space-y-2 text-[12px]">
+              <div className="flex justify-between">
+                <dt className="text-neutral-500">Type</dt>
+                <dd className="text-right text-neutral-900">{SURVEY_TYPE_LABEL[s.survey_type] ?? s.survey_type}</dd>
+              </div>
+              <div className="flex justify-between">
+                <dt className="text-neutral-500">Anonym</dt>
+                <dd className="text-neutral-900">{s.is_anonymous ? 'Ja' : 'Nei'}</dd>
+              </div>
+              <div className="flex justify-between">
+                <dt className="text-neutral-500">Spørsmål</dt>
+                <dd className="tabular-nums text-neutral-900">{survey.questions.length}</dd>
+              </div>
+              <div className="flex justify-between">
+                <dt className="text-neutral-500">Pack</dt>
+                <dd className="text-neutral-900">{s.pack}</dd>
+              </div>
+              {s.start_date && (
+                <div className="flex justify-between">
+                  <dt className="text-neutral-500">Start</dt>
+                  <dd className="tabular-nums text-neutral-900">{new Date(s.start_date).toLocaleDateString('nb-NO', { dateStyle: 'short' })}</dd>
+                </div>
+              )}
+              {s.end_date && (
+                <div className="flex justify-between">
+                  <dt className="text-neutral-500">Slutt</dt>
+                  <dd className="tabular-nums text-neutral-900">{new Date(s.end_date).toLocaleDateString('nb-NO', { dateStyle: 'short' })}</dd>
+                </div>
+              )}
+            </dl>
+          </div>
+
+          {!s.is_anonymous && respondentNames.length > 0 ? (
+            <div className="rounded-xl border border-neutral-200/80 bg-white p-4" style={{ boxShadow: '0 1px 2px rgba(0,0,0,0.04)' }}>
+              <h3 className="text-sm font-semibold text-neutral-900">Deltakere</h3>
+              <p className="mt-0.5 text-[11px] text-neutral-500">{invitationCount} invitert · {responseCount} svart</p>
+              <ul className="mt-2 space-y-2">
+                {respondentNames.map((name, i) => (
+                  <li key={i} className="flex items-center gap-2 text-xs">
+                    <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[#e7efe9] text-[10px] font-bold text-[#1a3d32]">
+                      {name.slice(0, 2).toUpperCase()}
+                    </span>
+                    <span className="truncate font-medium text-neutral-900">{name}</span>
+                  </li>
+                ))}
+                {Object.keys(nameByUserId).length > 5 && (
+                  <li className="text-[11px] text-neutral-500">+{Object.keys(nameByUserId).length - 5} til</li>
+                )}
+              </ul>
+            </div>
+          ) : s.is_anonymous && invitationCount > 0 ? (
+            <div className="rounded-xl border border-neutral-200/80 bg-white p-4" style={{ boxShadow: '0 1px 2px rgba(0,0,0,0.04)' }}>
+              <h3 className="text-sm font-semibold text-neutral-900">Deltakere</h3>
+              <p className="mt-1 text-[11px] text-neutral-500">{invitationCount} invitert · anonym undersøkelse — navn vises ikke.</p>
+            </div>
+          ) : null}
+        </aside>
+      </div>
+
+      {/* ── Existing editing / AMU / workflow sections ────────────────────── */}
       <SurveyAttestasjonCard
         s={s}
         invitations={survey.invitations}
@@ -665,6 +934,156 @@ function SvarTab({
   )
 }
 
+
+// ─── Design Resultater section ─────────────────────────────────────────────────
+// eNPS donut + per-question stacked bars + fritekst excerpts from design.
+
+function ResultaterDesignSection({ survey, s }: { survey: UseSurveyState; s: SurveyRow }) {
+  const analyticsByQuestion = useMemo(
+    () => buildAnalyticsByQuestionId(survey.questions, survey.answers),
+    [survey.questions, survey.answers],
+  )
+
+  const npsData = useMemo(() => {
+    const npsQs = survey.questions.filter((q) => q.question_type === 'nps')
+    if (npsQs.length === 0) return null
+    const npsIds = new Set(npsQs.map((q) => q.id))
+    const vals = survey.answers
+      .filter((a) => npsIds.has(a.question_id) && a.answer_value != null)
+      .map((a) => a.answer_value!)
+    if (vals.length === 0) return null
+    const promoters = vals.filter((v) => v >= 9).length
+    const detractors = vals.filter((v) => v <= 6).length
+    const passives = vals.length - promoters - detractors
+    const score = Math.round(((promoters - detractors) / vals.length) * 100)
+    return { promoters, passives, detractors, total: vals.length, score }
+  }, [survey.questions, survey.answers])
+
+  const ratingQsWithData = useMemo(() => {
+    return survey.questions
+      .filter((q) => q.question_type === 'rating_1_to_5')
+      .map((q) => {
+        const bucket = analyticsByQuestion[q.id]
+        const nums = bucket?.numbers ?? []
+        const dist = [1, 2, 3, 4, 5].map((v) => nums.filter((n) => Math.round(n) === v).length)
+        const total = dist.reduce((acc, v) => acc + v, 0)
+        if (total === 0) return null
+        const avg = nums.reduce((acc, v) => acc + v, 0) / nums.length
+        return { id: q.id, label: q.question_text, dist, total, avg }
+      })
+      .filter((r): r is NonNullable<typeof r> => r !== null)
+  }, [survey.questions, analyticsByQuestion])
+
+  const fritekstExcerpts = useMemo(() => {
+    const textTypes = new Set<SurveyQuestionType>(['text', 'long_text', 'short_text'])
+    const textQs = survey.questions.filter((q) => textTypes.has(q.question_type))
+    const textQIds = new Set(textQs.map((q) => q.id))
+    return survey.answers
+      .filter((a) => textQIds.has(a.question_id) && a.answer_text && a.answer_text.trim().length > 5)
+      .slice(0, 6)
+      .map((a) => ({
+        text: a.answer_text!,
+        questionLabel: textQs.find((q) => q.id === a.question_id)?.question_text ?? 'Spørsmål',
+      }))
+  }, [survey.questions, survey.answers])
+
+  if (survey.responses.length === 0) return null
+
+  const hasVisuals = npsData != null || ratingQsWithData.length > 0
+
+  return (
+    <div className="space-y-5">
+      {hasVisuals && (
+        <div className={['grid grid-cols-1 gap-4', npsData ? 'md:grid-cols-[240px_minmax(0,1fr)]' : ''].join(' ')}>
+          {npsData && (
+            <div className="rounded-md border border-neutral-200/80 p-4">
+              <h4 className="text-sm font-semibold text-neutral-900">eNPS-fordeling</h4>
+              <div className="mt-3 flex items-center justify-center">
+                <svg width="160" height="160" viewBox="0 0 160 160" aria-hidden>
+                  {(() => {
+                    const segs = [
+                      { v: npsData.promoters / npsData.total, color: '#2F7757' },
+                      { v: npsData.passives / npsData.total, color: '#C98A2B' },
+                      { v: npsData.detractors / npsData.total, color: '#B3382A' },
+                    ]
+                    const cx = 80, cy = 80, r = 60, sw = 22
+                    let start = -Math.PI / 2
+                    return segs.map((seg, i) => {
+                      if (seg.v === 0) return null
+                      const end = start + seg.v * 2 * Math.PI
+                      const x1 = cx + r * Math.cos(start), y1 = cy + r * Math.sin(start)
+                      const x2 = cx + r * Math.cos(end), y2 = cy + r * Math.sin(end)
+                      const large = seg.v > 0.5 ? 1 : 0
+                      const path = `M ${x1} ${y1} A ${r} ${r} 0 ${large} 1 ${x2} ${y2}`
+                      start = end
+                      return <path key={i} d={path} stroke={seg.color} strokeWidth={sw} fill="none" />
+                    })
+                  })()}
+                  <text x="80" y="76" textAnchor="middle" style={{ fontSize: 22, fontWeight: 700, fill: npsData.score >= 0 ? '#1a3d32' : '#b3382a' }}>
+                    {npsData.score > 0 ? `+${npsData.score}` : String(npsData.score)}
+                  </text>
+                  <text x="80" y="94" textAnchor="middle" style={{ fontSize: 10, fill: '#737373', letterSpacing: 1 }}>eNPS</text>
+                </svg>
+              </div>
+              <ul className="mt-3 space-y-1 text-[11px]">
+                <li className="flex items-center justify-between"><span className="inline-flex items-center gap-2"><span className="h-2 w-2 rounded-full bg-[#2F7757]" />Promotere (9–10)</span><span className="tabular-nums font-semibold text-neutral-900">{npsData.promoters}</span></li>
+                <li className="flex items-center justify-between"><span className="inline-flex items-center gap-2"><span className="h-2 w-2 rounded-full bg-[#C98A2B]" />Passive (7–8)</span><span className="tabular-nums font-semibold text-neutral-900">{npsData.passives}</span></li>
+                <li className="flex items-center justify-between"><span className="inline-flex items-center gap-2"><span className="h-2 w-2 rounded-full bg-[#B3382A]" />Detraktorer (0–6)</span><span className="tabular-nums font-semibold text-neutral-900">{npsData.detractors}</span></li>
+              </ul>
+            </div>
+          )}
+
+          {ratingQsWithData.length > 0 && (
+            <div className="rounded-md border border-neutral-200/80 p-4">
+              <h4 className="text-sm font-semibold text-neutral-900">Per spørsmål — skala 1–5</h4>
+              <ul className="mt-3 space-y-3">
+                {ratingQsWithData.map((q) => (
+                  <li key={q.id}>
+                    <div className="flex items-baseline justify-between text-xs">
+                      <span className="min-w-0 truncate pr-2 font-medium text-neutral-900">{q.label}</span>
+                      <span className="shrink-0 tabular-nums text-neutral-700">snitt <span className={`font-bold ${q.avg >= 4 ? 'text-green-700' : q.avg >= 3.5 ? 'text-neutral-900' : 'text-amber-700'}`}>{q.avg.toFixed(1)}</span></span>
+                    </div>
+                    <div className="mt-1 flex h-3 overflow-hidden rounded-sm">
+                      {q.dist.map((v, i) => {
+                        const colors = ['#B3382A', '#D67849', '#C98A2B', '#5A9C76', '#1a3d32']
+                        const pct = q.total > 0 ? (v / q.total) * 100 : 0
+                        return pct > 0 ? <span key={i} style={{ width: `${pct}%`, background: colors[i] }} title={`${i + 1}: ${v} svar`} /> : null
+                      })}
+                    </div>
+                  </li>
+                ))}
+              </ul>
+              <div className="mt-3 flex flex-wrap items-center gap-3 border-t border-neutral-100 pt-2 text-[10px] text-neutral-500">
+                {['#B3382A', '#D67849', '#C98A2B', '#5A9C76', '#1a3d32'].map((c, i) => (
+                  <span key={i} className="inline-flex items-center gap-1"><span className="h-2 w-2" style={{ background: c }} />{i + 1}</span>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {fritekstExcerpts.length > 0 && (
+        <div className="rounded-md border border-neutral-200/80 p-4">
+          <div className="flex items-center justify-between">
+            <h4 className="text-sm font-semibold text-neutral-900">Fritekst — utdrag</h4>
+            <span className="text-[11px] text-neutral-500">{fritekstExcerpts.length} svar vist</span>
+          </div>
+          <ul className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
+            {fritekstExcerpts.map((c, i) => (
+              <li key={i} className="rounded-md border border-neutral-200/80 bg-neutral-50/60 p-2.5 text-[12px]">
+                <p className="italic text-neutral-800">"{c.text.length > 120 ? c.text.slice(0, 120) + '…' : c.text}"</p>
+                <div className="mt-1.5 truncate text-[10px] font-semibold text-neutral-500">{c.questionLabel}</div>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ─── SurveyDetailView ─────────────────────────────────────────────────────────
 
 export function SurveyDetailView({ supabase }: Props) {
   const { surveyId } = useParams<{ surveyId: string }>()
@@ -1032,9 +1451,37 @@ export function SurveyDetailView({ supabase }: Props) {
         loading={false}
       >
         <div className="w-full space-y-6">
-          <div className="mb-2 flex flex-wrap items-center gap-3 border-b border-neutral-200 pb-4">
-            <Badge variant={surveyStatusBadgeVariant(s.status)}>{surveyStatusLabel(s.status)}</Badge>
-            {s.is_anonymous ? <Badge variant="info">Anonym</Badge> : <Badge variant="neutral">Identifisert</Badge>}
+          {/* Status strip — status + anonym + period + recipients */}
+          <div className="mb-2 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-neutral-200/80 bg-white px-5 py-3" style={{ boxShadow: '0 1px 2px rgba(0,0,0,0.04)' }}>
+            <div className="flex flex-wrap items-center gap-2">
+              <Badge variant={surveyStatusBadgeVariant(s.status)}>{surveyStatusLabel(s.status)}</Badge>
+              {s.is_anonymous
+                ? <span className="inline-flex items-center gap-1 rounded border border-[#c5d3c8] bg-[#e7efe9] px-2 py-0.5 text-[11px] font-semibold text-[#14312a]"><EyeOff className="h-3 w-3" aria-hidden /> Anonym</span>
+                : <Badge variant="neutral">Identifisert</Badge>
+              }
+            </div>
+            <div className="flex flex-wrap items-center gap-4 text-xs text-neutral-600">
+              {(s.start_date || s.end_date) && (
+                <span className="inline-flex items-center gap-1.5">
+                  <Calendar className="h-3.5 w-3.5 text-neutral-400" aria-hidden />
+                  <span className="tabular-nums">
+                    {s.start_date ? new Date(s.start_date).toLocaleDateString('nb-NO', { dateStyle: 'short' }) : '—'}
+                    {' – '}
+                    {s.end_date ? new Date(s.end_date).toLocaleDateString('nb-NO', { dateStyle: 'short' }) : '—'}
+                  </span>
+                </span>
+              )}
+              <span className="inline-flex items-center gap-1.5">
+                <Users2 className="h-3.5 w-3.5 text-neutral-400" aria-hidden />
+                <span className="tabular-nums">{s.invitation_count} mottakere</span>
+              </span>
+              {s.invitation_count > 0 && (
+                <span className="inline-flex items-center gap-1.5">
+                  <CheckCircle2 className="h-3.5 w-3.5 text-neutral-400" aria-hidden />
+                  <span className="tabular-nums">{Math.round((s.response_count / s.invitation_count) * 100)}% svart</span>
+                </span>
+              )}
+            </div>
           </div>
 
           {fremdriftPhase ? (
@@ -1136,6 +1583,8 @@ export function SurveyDetailView({ supabase }: Props) {
               s={s}
               onOpenAmuTab={() => setTab('amu')}
               isOrgAdmin={isOrgAdmin}
+              nameByUserId={nameByUserId}
+              onTabChange={(nextTab) => setTab(nextTab)}
             />
           )}
 
@@ -1176,11 +1625,14 @@ export function SurveyDetailView({ supabase }: Props) {
 
           {tab === 'resultater' && (
             <div className="space-y-6">
+              <ResultaterDesignSection survey={survey} s={s} />
               <SvarTab survey={survey} s={s} nameByUserId={nameByUserId} onOpenResponse={openResponsePanel} />
-              <div className="border-t border-neutral-200 pt-6">
-                <h3 className="mb-4 text-sm font-semibold text-neutral-800">Analyse</h3>
-                <SurveyAnalyseTab survey={survey} s={s} supabase={supabase} />
-              </div>
+              {survey.responses.length > 0 && (
+                <div className="border-t border-neutral-200 pt-6">
+                  <h3 className="mb-4 text-sm font-semibold text-neutral-800">Detaljert analyse</h3>
+                  <SurveyAnalyseTab survey={survey} s={s} supabase={supabase} />
+                </div>
+              )}
             </div>
           )}
 
