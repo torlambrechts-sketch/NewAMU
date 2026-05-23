@@ -27,7 +27,7 @@ import { Button } from '../../src/components/ui/Button'
 import { useOrgSetupContext } from '../../src/hooks/useOrgSetupContext'
 import { useChecklistModule } from './useChecklistModule'
 import { ComplianceCreateForm } from './ComplianceCreateForm'
-import type { ComplianceCategoryRow, ComplianceExecutionRow } from './types'
+import type { ComplianceExecutionRow } from './types'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
