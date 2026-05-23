@@ -2,10 +2,10 @@
 //
 // Renders INSIDE an existing ModulePageShell (no wrapping shell here).
 // Left rail: category chips (mobile) + vertical list (desktop).
-// Right card: tab strip (Undersøkelser / Maler) + search + 4 view modes.
+// Right card: tab strip (Undersøkelser / Maler / Resultater) + search + 4 view modes.
 //
-// Mirrors the hub-mode pattern in modules/compliance/ChecklistsPage.tsx but
-// adapted to survey data shapes and the purple accent (#7c3aed).
+// Category rail active state: forest green (#e7efe9 / #1a3d32) per design.
+// Tab strip active state: survey purple (#7c3aed) — hub-level accent.
 
 import { useMemo, useState } from 'react'
 import type { LucideIcon } from 'lucide-react'
@@ -18,12 +18,22 @@ import {
   ClipboardCheck,
   ClipboardList,
   Columns3,
+  Eye,
+  EyeOff,
   FileText,
   Flame,
+  Globe,
+  GripVertical,
+  Hash,
   LayoutGrid,
+  Link2,
+  Mail,
+  MessageCircle,
   Play,
   Rows3,
+  Scan,
   Search,
+  Send,
   ShieldCheck,
   Truck,
 } from 'lucide-react'
@@ -34,11 +44,16 @@ import type { SurveyRow, SurveyCategoryRow } from './types'
 import type { SurveyTemplateCatalogRow } from './surveyTemplateCatalogTypes'
 import { ResponseRing } from './components/ResponseRing'
 
-// ─── Accent ───────────────────────────────────────────────────────────────────
+// ─── Accent — purple for tab strip, green for category rail ──────────────────
 
-const ACCENT = '#7c3aed'
-const ACCENT_BG = '#f3effe'
-const ACCENT_FG = '#4c1d95'
+const ACCENT     = '#7c3aed'
+const ACCENT_BG  = '#f3effe'
+const ACCENT_FG  = '#4c1d95'
+
+// Category rail green active state (design-spec)
+const CAT_ACTIVE_BG     = '#e7efe9'
+const CAT_ACTIVE_BORDER = '#1a3d32'
+const CAT_ACTIVE_TEXT   = '#14312a'
 
 // ─── Display types ────────────────────────────────────────────────────────────
 
@@ -57,6 +72,8 @@ type MappedSurvey = {
   responseCount: number
   invitationCount: number
   isAnonymous: boolean
+  /** No DB column yet — always empty until migration adds distribution_channels */
+  channels: string[]
 }
 
 // ─── Status config ────────────────────────────────────────────────────────────
@@ -105,6 +122,17 @@ const SURVEY_TYPE_LABEL: Record<string, string> = {
   onboarding: 'Onboarding',
 }
 
+// ─── Channel icon map ─────────────────────────────────────────────────────────
+
+const CHANNEL_ICON_MAP: Record<string, LucideIcon> = {
+  'e-post':   Mail,
+  'SMS':      MessageCircle,
+  'Slack':    Hash,
+  'intranett': Globe,
+  'QR-plakat': Scan,
+  'lenke':    Link2,
+}
+
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function getCategoryIcon(name: string): LucideIcon {
@@ -118,9 +146,41 @@ function getCategoryIcon(name: string): LucideIcon {
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
-function RowIcon({ title, size = 'default' }: { title: string; size?: 'default' | 'lg' }) {
+function ChannelBadge({ ch }: { ch: string }) {
+  const Icon = CHANNEL_ICON_MAP[ch] ?? Send
+  return (
+    <span className="inline-flex items-center gap-1 rounded border border-neutral-200 bg-white px-1.5 py-0.5 text-[10px] font-semibold text-neutral-700">
+      <Icon className="h-2.5 w-2.5" aria-hidden /> {ch}
+    </span>
+  )
+}
+
+/** Survey kind icon. variant='green' for box/card views, 'neutral' for table rows. */
+function RowIcon({
+  title,
+  size = 'default',
+  variant = 'neutral',
+}: {
+  title: string
+  size?: 'default' | 'lg'
+  variant?: 'neutral' | 'green'
+}) {
   const lower = title.toLowerCase()
   let Icon: LucideIcon = ClipboardList
+
+  if (variant === 'green') {
+    const szCls  = size === 'lg' ? 'h-10 w-10 rounded-lg' : 'h-9 w-9 rounded-lg'
+    const icoCls = size === 'lg' ? 'h-5 w-5' : 'h-4 w-4'
+    if (lower.includes('brann'))                               Icon = Flame
+    else if (lower.includes('truck') || lower.includes('maskin')) Icon = Truck
+    else if (lower.includes('verne'))                          Icon = ShieldCheck
+    return (
+      <span className={`inline-flex shrink-0 items-center justify-center ${szCls} bg-[#e7efe9] text-[#1a3d32]`}>
+        <Icon className={icoCls} aria-hidden />
+      </span>
+    )
+  }
+
   let bg = 'bg-neutral-100'
   let fg = 'text-neutral-600'
   if (lower.includes('brann'))                                         { Icon = Flame;       bg = 'bg-orange-50'; fg = 'text-orange-500' }
@@ -168,7 +228,7 @@ function ViewSwitcher({ value, onChange }: { value: ViewMode; onChange: (v: View
   )
 }
 
-// ─── Survey entries views ─────────────────────────────────────────────────────
+// ─── Entries — table view ─────────────────────────────────────────────────────
 
 function EntriesTable({ entries, onOpen }: { entries: MappedSurvey[]; onOpen: (id: string) => void }) {
   if (entries.length === 0) {
@@ -193,7 +253,7 @@ function EntriesTable({ entries, onOpen }: { entries: MappedSurvey[]; onOpen: (i
               <div className="min-w-0 flex-1">
                 <div className="truncate text-sm font-medium text-neutral-900">{e.title}</div>
                 <div className="mt-0.5 flex items-center gap-2 text-[11px] text-neutral-500">
-                  <span>{e.pack}</span>
+                  <span>{SURVEY_TYPE_LABEL[e.surveyType] ?? e.surveyType}</span>
                   <span>·</span>
                   <span className="tabular-nums">{e.due}</span>
                 </div>
@@ -204,16 +264,19 @@ function EntriesTable({ entries, onOpen }: { entries: MappedSurvey[]; onOpen: (i
           </li>
         ))}
       </ul>
+
       {/* Desktop: full table */}
       <div className="hidden overflow-x-auto sm:block">
         <table className="w-full text-sm">
           <thead className="bg-neutral-50/60">
             <tr>
-              <th className="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wider text-neutral-500">Tittel</th>
+              <th className="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wider text-neutral-500">Undersøkelse</th>
               <th className="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wider text-neutral-500">Status</th>
-              <th className="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wider text-neutral-500">Type</th>
               <th className="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wider text-neutral-500">Periode</th>
-              <th className="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wider text-neutral-500">Svarprosent</th>
+              <th className="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wider text-neutral-500">Svar</th>
+              <th className="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wider text-neutral-500">Distribusjon</th>
+              <th className="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wider text-neutral-500">Anonym</th>
+              <th className="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wider text-neutral-500">Eier</th>
               <th className="w-8 px-5 py-3" />
             </tr>
           </thead>
@@ -229,12 +292,11 @@ function EntriesTable({ entries, onOpen }: { entries: MappedSurvey[]; onOpen: (i
                     <RowIcon title={e.title} />
                     <div className="min-w-0">
                       <div className="truncate font-medium text-neutral-900">{e.title}</div>
-                      <div className="text-[11px] text-neutral-500">#{e.id.slice(-4).toUpperCase()}</div>
+                      <div className="text-[11px] text-neutral-500">{SURVEY_TYPE_LABEL[e.surveyType] ?? e.surveyType}</div>
                     </div>
                   </div>
                 </td>
                 <td className="px-5 py-3"><StatusPill status={e.status} /></td>
-                <td className="px-5 py-3 text-neutral-700">{SURVEY_TYPE_LABEL[e.surveyType] ?? e.surveyType}</td>
                 <td className="px-5 py-3 tabular-nums text-neutral-600">
                   <span>{e.startDate}</span>
                   <span className="mx-1 text-neutral-300">–</span>
@@ -244,11 +306,37 @@ function EntriesTable({ entries, onOpen }: { entries: MappedSurvey[]; onOpen: (i
                   {e.invitationCount > 0 ? (
                     <div className="flex items-center gap-2">
                       <ResponseRing value={e.responseCount / e.invitationCount} size={32} strokeWidth={3} />
-                      <span className="text-[11px] tabular-nums text-neutral-700">{e.responseCount}/{e.invitationCount}</span>
+                      <div className="text-[11px] tabular-nums text-neutral-700">
+                        <div className="font-semibold">{e.responseCount}<span className="font-normal text-neutral-400">/{e.invitationCount}</span></div>
+                        <div className="text-[10px] text-neutral-500">svarprosent</div>
+                      </div>
                     </div>
                   ) : (
-                    <span className="tabular-nums text-neutral-700">{e.responseCount}</span>
+                    <span className="tabular-nums text-neutral-700">{e.responseCount} svar</span>
                   )}
+                </td>
+                <td className="px-5 py-3">
+                  {e.channels.length > 0 ? (
+                    <div className="flex flex-wrap gap-1">
+                      {e.channels.map((ch) => <ChannelBadge key={ch} ch={ch} />)}
+                    </div>
+                  ) : (
+                    <span className="text-neutral-400">—</span>
+                  )}
+                </td>
+                <td className="px-5 py-3">
+                  {e.isAnonymous ? (
+                    <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-[#1a3d32]">
+                      <EyeOff className="h-3 w-3" /> Ja
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center gap-1 text-[11px] text-neutral-600">
+                      <Eye className="h-3 w-3" /> Nei
+                    </span>
+                  )}
+                </td>
+                <td className="px-5 py-3 text-neutral-500">
+                  <span className="text-[11px]">—</span>
                 </td>
                 <td className="px-5 py-3 text-right text-neutral-300">›</td>
               </tr>
@@ -259,6 +347,8 @@ function EntriesTable({ entries, onOpen }: { entries: MappedSurvey[]; onOpen: (i
     </>
   )
 }
+
+// ─── Entries — box view ───────────────────────────────────────────────────────
 
 function EntriesBoxes({ entries, onOpen }: { entries: MappedSurvey[]; onOpen: (id: string) => void }) {
   if (entries.length === 0) {
@@ -274,41 +364,47 @@ function EntriesBoxes({ entries, onOpen }: { entries: MappedSurvey[]; onOpen: (i
         <article
           key={e.id}
           onClick={() => onOpen(e.id)}
-          className="cursor-pointer rounded-xl border border-neutral-200/80 bg-white p-4 transition-all hover:shadow-md"
-          style={{ boxShadow: '0 1px 2px rgba(0,0,0,0.04)', borderColor: undefined }}
-          onMouseEnter={(ev) => { (ev.currentTarget as HTMLElement).style.borderColor = `${ACCENT}66` }}
-          onMouseLeave={(ev) => { (ev.currentTarget as HTMLElement).style.borderColor = '' }}
+          className="cursor-pointer rounded-xl border border-neutral-200/80 bg-white p-4 transition-all hover:border-[#1a3d32]/40 hover:shadow-md"
+          style={{ boxShadow: '0 1px 2px rgba(0,0,0,0.04)' }}
         >
           <div className="flex items-start gap-3">
-            <div
-              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg"
-              style={{ background: ACCENT_BG }}
-            >
-              <RowIcon title={e.title} size="default" />
-            </div>
+            <RowIcon title={e.title} variant="green" />
             <div className="min-w-0 flex-1">
               <div className="line-clamp-2 text-sm font-semibold leading-tight text-neutral-900">{e.title}</div>
-              <div className="mt-0.5 text-[11px] text-neutral-500">{SURVEY_TYPE_LABEL[e.surveyType] ?? e.surveyType}</div>
+              <div className="mt-0.5 truncate text-[11px] text-neutral-500">{SURVEY_TYPE_LABEL[e.surveyType] ?? e.surveyType}</div>
             </div>
-          </div>
-          <div className="mt-3 flex items-center gap-2">
-            <StatusPill status={e.status} />
             {e.isAnonymous && (
-              <span className="inline-flex items-center gap-1 rounded-full border border-[#c5d3c8] bg-[#e7efe9] px-2 py-0.5 text-[10px] font-semibold text-[#14312a]">Anonym</span>
+              <span title="Anonym" className="shrink-0 rounded-full bg-[#e7efe9] p-1 text-[#1a3d32]">
+                <EyeOff className="h-3 w-3" aria-hidden />
+              </span>
             )}
           </div>
+
+          <div className="mt-3 flex items-center justify-between">
+            <StatusPill status={e.status} />
+            <span className="text-[11px] tabular-nums text-neutral-500">{e.startDate} – {e.due}</span>
+          </div>
+
           {e.invitationCount > 0 ? (
             <div className="mt-3 flex items-center gap-3 rounded-md bg-[#fbf9f3] px-3 py-2.5">
-              <ResponseRing value={e.responseCount / e.invitationCount} size={40} strokeWidth={4} />
-              <div className="text-[11px] tabular-nums text-neutral-700">
-                <div className="font-semibold text-neutral-900">{e.responseCount} <span className="font-normal text-neutral-400">av {e.invitationCount}</span></div>
+              <ResponseRing value={e.responseCount / e.invitationCount} size={48} strokeWidth={4} />
+              <div className="min-w-0 flex-1">
+                <div className="text-[10px] font-bold uppercase tracking-wider text-neutral-500">Svar</div>
+                <div className="text-sm font-bold tabular-nums text-neutral-900">
+                  {e.responseCount} <span className="text-xs font-normal text-neutral-500">av {e.invitationCount}</span>
+                </div>
                 <div className="text-[10px] text-neutral-500">svarprosent</div>
               </div>
             </div>
           ) : (
-            <div className="mt-3 flex items-center justify-between border-t border-neutral-100 pt-2.5 text-[11px] text-neutral-500">
-              <span className="tabular-nums">Sluttdato {e.due}</span>
-              <span className="tabular-nums">{e.responseCount} svar</span>
+            <div className="mt-3 rounded-md border border-dashed border-neutral-200 px-3 py-2.5 text-center text-[11px] text-neutral-500">
+              Ikke startet
+            </div>
+          )}
+
+          {e.channels.length > 0 && (
+            <div className="mt-3 flex flex-wrap items-center gap-1 border-t border-neutral-100 pt-2.5">
+              {e.channels.map((ch) => <ChannelBadge key={ch} ch={ch} />)}
             </div>
           )}
         </article>
@@ -316,6 +412,8 @@ function EntriesBoxes({ entries, onOpen }: { entries: MappedSurvey[]; onOpen: (i
     </div>
   )
 }
+
+// ─── Entries — timeline view ──────────────────────────────────────────────────
 
 function EntriesTimeline({ entries, onOpen }: { entries: MappedSurvey[]; onOpen: (id: string) => void }) {
   const sorted = [...entries].sort((a, b) => {
@@ -350,10 +448,7 @@ function EntriesTimeline({ entries, onOpen }: { entries: MappedSurvey[]; onOpen:
           return (
             <div key={monthKey}>
               <div className="mb-2 flex items-baseline gap-2">
-                <h4
-                  className="text-sm font-semibold text-neutral-900"
-                  style={{ fontFamily: "'Libre Baskerville', Georgia, serif" }}
-                >
+                <h4 className="text-sm font-semibold text-neutral-900" style={{ fontFamily: "'Libre Baskerville', Georgia, serif" }}>
                   {MONTH_LABELS[mm]} {yyyy}
                 </h4>
                 <span className="text-[11px] tabular-nums text-neutral-400">{list.length} undersøkelser</span>
@@ -363,8 +458,8 @@ function EntriesTimeline({ entries, onOpen }: { entries: MappedSurvey[]; onOpen:
                   const day = e.dueRaw ? String(e.dueRaw.getDate()).padStart(2, '0') : '?'
                   const dotColor =
                     e.status === 'aktiv'    ? 'bg-blue-600' :
-                    e.status === 'lukket'   ? 'bg-green-600' :
-                    e.status === 'arkivert' ? 'bg-neutral-400' : 'bg-neutral-400'
+                    e.status === 'lukket'   ? 'bg-[#2F7757]' :
+                    'bg-neutral-400'
                   const DotIcon =
                     e.status === 'lukket' ? CheckCircle2 :
                     e.status === 'aktiv'  ? AlertTriangle : ChevronRight
@@ -376,10 +471,8 @@ function EntriesTimeline({ entries, onOpen }: { entries: MappedSurvey[]; onOpen:
                       <button
                         type="button"
                         onClick={() => onOpen(e.id)}
-                        className="block w-full rounded-md border border-neutral-200/80 bg-white px-3 py-2 text-left hover:bg-neutral-50"
+                        className="block w-full rounded-md border border-neutral-200/80 bg-white px-3 py-2 text-left hover:border-[#1a3d32]/40 hover:bg-[#fbf9f3]"
                         style={{ transition: 'border-color .15s' }}
-                        onMouseEnter={(ev) => { (ev.currentTarget as HTMLElement).style.borderColor = `${ACCENT}66` }}
-                        onMouseLeave={(ev) => { (ev.currentTarget as HTMLElement).style.borderColor = '' }}
                       >
                         <div className="flex items-center gap-3">
                           <div className="w-8 shrink-0 text-center">
@@ -407,6 +500,8 @@ function EntriesTimeline({ entries, onOpen }: { entries: MappedSurvey[]; onOpen:
   )
 }
 
+// ─── Entries — kanban view ────────────────────────────────────────────────────
+
 function EntriesKanban({ entries, onOpen }: { entries: MappedSurvey[]; onOpen: (id: string) => void }) {
   const buckets = Object.fromEntries(KANBAN_COLS.map((c) => [c.id, [] as MappedSurvey[]]))
   entries.forEach((e) => {
@@ -419,7 +514,7 @@ function EntriesKanban({ entries, onOpen }: { entries: MappedSurvey[]; onOpen: (
       {KANBAN_COLS.map((col) => {
         const items = buckets[col.id] ?? []
         return (
-          <div key={col.id} className="flex min-h-[400px] flex-col rounded-lg border border-neutral-200/80 bg-neutral-50/60">
+          <div key={col.id} className="flex min-h-[400px] flex-col rounded-lg border border-neutral-200/80 bg-[#fbf9f3]/60">
             <div className="flex items-center justify-between border-b border-neutral-200/70 px-3 py-2">
               <div className="flex items-center gap-2">
                 <span className="h-2 w-2 rounded-full" style={{ background: col.accent }} />
@@ -435,18 +530,25 @@ function EntriesKanban({ entries, onOpen }: { entries: MappedSurvey[]; onOpen: (
                   <article
                     key={e.id}
                     onClick={() => onOpen(e.id)}
-                    className="cursor-pointer rounded-md border border-neutral-200/80 bg-white p-2.5 hover:shadow-sm"
+                    className="cursor-pointer rounded-md border border-neutral-200/80 bg-white p-2.5 hover:border-[#1a3d32]/40 hover:shadow-sm"
                     style={{ boxShadow: '0 1px 2px rgba(0,0,0,0.04)', transition: 'border-color .15s' }}
-                    onMouseEnter={(ev) => { (ev.currentTarget as HTMLElement).style.borderColor = `${ACCENT}66` }}
-                    onMouseLeave={(ev) => { (ev.currentTarget as HTMLElement).style.borderColor = '' }}
                   >
                     <div className="flex items-start gap-2">
                       <RowIcon title={e.title} />
                       <div className="min-w-0 flex-1">
                         <div className="line-clamp-2 text-xs font-medium leading-tight text-neutral-900">{e.title}</div>
-                        <div className="mt-0.5 text-[10px] text-neutral-500">{SURVEY_TYPE_LABEL[e.surveyType] ?? e.surveyType}</div>
+                        <div className="mt-0.5 truncate text-[10px] text-neutral-500">{SURVEY_TYPE_LABEL[e.surveyType] ?? e.surveyType}</div>
                       </div>
+                      {e.isAnonymous && <EyeOff title="Anonym" className="mt-0.5 h-3 w-3 shrink-0 text-[#1a3d32]" aria-hidden />}
                     </div>
+                    {e.invitationCount > 0 ? (
+                      <div className="mt-2 flex items-center gap-2 rounded-sm bg-[#fbf9f3] px-2 py-1.5">
+                        <ResponseRing value={e.responseCount / e.invitationCount} size={28} strokeWidth={3} />
+                        <div className="text-[10px] tabular-nums leading-tight">
+                          <div className="font-semibold text-neutral-900">{e.responseCount}/{e.invitationCount}</div>
+                        </div>
+                      </div>
+                    ) : null}
                     <div className="mt-1.5 flex items-center justify-between border-t border-neutral-100 pt-1.5 text-[10px]">
                       <span className="tabular-nums text-neutral-500">{e.due}</span>
                       <span className="tabular-nums text-neutral-500">{e.responseCount} svar</span>
@@ -462,13 +564,15 @@ function EntriesKanban({ entries, onOpen }: { entries: MappedSurvey[]; onOpen: (
   )
 }
 
-// ─── Maler views ──────────────────────────────────────────────────────────────
+// ─── Maler — table view ───────────────────────────────────────────────────────
 
 function MalerTable({
   templates,
+  surveys,
   onNewSurvey,
 }: {
   templates: SurveyTemplateCatalogRow[]
+  surveys: SurveyRow[]
   onNewSurvey: () => void
 }) {
   if (templates.length === 0) {
@@ -489,51 +593,69 @@ function MalerTable({
               <div className="truncate text-sm font-medium text-neutral-900">{t.name}</div>
               <div className="text-[11px] text-neutral-500">{t.pack}</div>
             </div>
-            <Button variant="primary" size="sm" icon={<Play className="h-3 w-3" />} onClick={onNewSurvey}>Start</Button>
+            <Button variant="primary" size="sm" icon={<Send className="h-3 w-3" />} onClick={onNewSurvey}>Send ut</Button>
           </li>
         ))}
       </ul>
+
       {/* Desktop: full table */}
       <div className="hidden overflow-x-auto sm:block">
         <table className="w-full text-sm">
           <thead className="bg-neutral-50/60">
             <tr>
               <th className="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wider text-neutral-500">Mal</th>
-              <th className="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wider text-neutral-500">Estimert tid</th>
-              <th className="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wider text-neutral-500">Pack</th>
+              <th className="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wider text-neutral-500">Spørsmål</th>
+              <th className="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wider text-neutral-500">Cadence</th>
+              <th className="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wider text-neutral-500">Lov</th>
+              <th className="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wider text-neutral-500">Anonym</th>
+              <th className="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wider text-neutral-500">Kjøringer</th>
               <th className="w-32 px-5 py-3 text-right text-xs font-semibold uppercase tracking-wider text-neutral-500" />
             </tr>
           </thead>
           <tbody className="divide-y divide-neutral-100">
-            {templates.map((t) => (
-              <tr key={t.id} className="cursor-pointer transition-colors hover:bg-neutral-50/70">
-                <td className="px-5 py-3">
-                  <div className="flex items-center gap-2.5">
-                    <RowIcon title={t.name} />
-                    <div>
-                      <div className="font-medium text-neutral-900">{t.name}</div>
-                      {t.description ? (
-                        <div className="text-[11px] text-neutral-500 line-clamp-1">{t.description}</div>
-                      ) : null}
+            {templates.map((t) => {
+              const questionCount = t.body?.questions?.length ?? 0
+              const kjøringer = surveys.filter((s) => s.catalog_id === t.id).length
+              return (
+                <tr key={t.id} className="cursor-pointer transition-colors hover:bg-neutral-50/70">
+                  <td className="px-5 py-3">
+                    <div className="flex items-center gap-2.5">
+                      <RowIcon title={t.name} />
+                      <div>
+                        <div className="font-medium text-neutral-900">{t.name}</div>
+                        {t.description ? (
+                          <div className="line-clamp-1 text-[11px] text-neutral-500">{t.description}</div>
+                        ) : null}
+                      </div>
                     </div>
-                  </div>
-                </td>
-                <td className="px-5 py-3 tabular-nums text-neutral-700">
-                  {t.estimated_minutes} min
-                </td>
-                <td className="px-5 py-3">
-                  <span
-                    className="rounded px-1.5 py-0.5 text-[10px] font-semibold"
-                    style={{ background: ACCENT_BG, color: ACCENT_FG }}
-                  >
-                    {t.pack}
-                  </span>
-                </td>
-                <td className="px-5 py-3 text-right">
-                  <Button variant="primary" size="sm" icon={<Play className="h-3 w-3" />} onClick={onNewSurvey}>Start</Button>
-                </td>
-              </tr>
-            ))}
+                  </td>
+                  <td className="px-5 py-3 tabular-nums text-neutral-800">{questionCount}</td>
+                  <td className="px-5 py-3 text-neutral-700">{t.estimated_minutes} min</td>
+                  <td className="px-5 py-3">
+                    {t.law_ref ? (
+                      <span className="rounded bg-[#e7efe9] px-1.5 py-0.5 text-[10px] font-semibold text-[#14312a]">{t.law_ref}</span>
+                    ) : (
+                      <span className="text-[10px] text-neutral-400">—</span>
+                    )}
+                  </td>
+                  <td className="px-5 py-3">
+                    {t.recommend_anonymous ? (
+                      <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-[#1a3d32]">
+                        <EyeOff className="h-3 w-3" /> Ja
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1 text-[11px] text-neutral-600">
+                        <Eye className="h-3 w-3" /> Nei
+                      </span>
+                    )}
+                  </td>
+                  <td className="px-5 py-3 tabular-nums text-neutral-800">{kjøringer}</td>
+                  <td className="px-5 py-3 text-right">
+                    <Button variant="primary" size="sm" icon={<Send className="h-3 w-3" />} onClick={onNewSurvey}>Send ut</Button>
+                  </td>
+                </tr>
+              )
+            })}
           </tbody>
         </table>
       </div>
@@ -541,11 +663,15 @@ function MalerTable({
   )
 }
 
+// ─── Maler — box view ─────────────────────────────────────────────────────────
+
 function MalerBoxes({
   templates,
+  surveys,
   onNewSurvey,
 }: {
   templates: SurveyTemplateCatalogRow[]
+  surveys: SurveyRow[]
   onNewSurvey: () => void
 }) {
   if (templates.length === 0) {
@@ -557,52 +683,68 @@ function MalerBoxes({
   }
   return (
     <div className="grid grid-cols-1 gap-3 p-4 sm:grid-cols-2 lg:grid-cols-3">
-      {templates.map((t) => (
-        <article
-          key={t.id}
-          className="flex flex-col rounded-xl border border-neutral-200/80 bg-white"
-          style={{ boxShadow: '0 1px 2px rgba(0,0,0,0.04)' }}
-        >
-          <div className="flex items-start gap-3 p-4 pb-3">
-            <div
-              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg"
-              style={{ background: ACCENT_BG }}
-            >
-              <RowIcon title={t.name} size="lg" />
+      {templates.map((t) => {
+        const questionCount = t.body?.questions?.length ?? 0
+        const kjøringer = surveys.filter((s) => s.catalog_id === t.id).length
+        return (
+          <article
+            key={t.id}
+            className="flex flex-col rounded-xl border border-neutral-200/80 bg-white"
+            style={{ boxShadow: '0 1px 2px rgba(0,0,0,0.04)' }}
+          >
+            <div className="flex items-start gap-3 p-4 pb-3">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-[#e7efe9] text-[#1a3d32]">
+                <RowIcon title={t.name} size="default" variant="green" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <div className="text-[10px] font-bold uppercase tracking-wider text-neutral-500">Mal · {t.pack}</div>
+                <h3 className="mt-0.5 line-clamp-2 text-sm font-semibold leading-tight text-neutral-900" style={{ fontFamily: "'Libre Baskerville', Georgia, serif" }}>
+                  {t.name}
+                </h3>
+              </div>
+              {t.recommend_anonymous && (
+                <span title="Anbefalt anonym" className="shrink-0 rounded-full bg-[#e7efe9] p-1 text-[#1a3d32]">
+                  <EyeOff className="h-3 w-3" aria-hidden />
+                </span>
+              )}
             </div>
-            <div className="min-w-0 flex-1">
-              <div className="text-[10px] font-bold uppercase tracking-wider text-neutral-500">Mal · {t.pack}</div>
-              <h3
-                className="mt-0.5 line-clamp-2 text-sm font-semibold leading-tight text-neutral-900"
-                style={{ fontFamily: "'Libre Baskerville', Georgia, serif" }}
-              >
-                {t.name}
-              </h3>
+
+            {t.description ? (
+              <div className="border-t border-dashed border-neutral-200 px-4 py-2.5">
+                <p className="line-clamp-2 text-[11px] text-neutral-600">{t.description}</p>
+              </div>
+            ) : null}
+
+            <div className="border-t border-neutral-100 bg-[#fbf9f3] px-4 py-2 text-[11px]">
+              <div className="grid grid-cols-3 gap-1 text-center">
+                <div>
+                  <div className="font-semibold tabular-nums text-neutral-900">{questionCount}</div>
+                  <div className="text-[10px] text-neutral-500">spørsmål</div>
+                </div>
+                <div>
+                  <div className="font-semibold tabular-nums text-neutral-900">{kjøringer}</div>
+                  <div className="text-[10px] text-neutral-500">kjøringer</div>
+                </div>
+                <div>
+                  <div className="font-semibold tabular-nums text-neutral-900">{t.estimated_minutes}m</div>
+                  <div className="text-[10px] text-neutral-500">snitt</div>
+                </div>
+              </div>
             </div>
-          </div>
-          {t.description ? (
-            <div className="border-t border-dashed border-neutral-200 px-4 py-2.5">
-              <p className="line-clamp-3 text-[11px] text-neutral-600">{t.description}</p>
+
+            {t.law_ref && (
+              <div className="px-4 py-1.5">
+                <span className="rounded bg-[#e7efe9] px-1.5 py-0.5 text-[10px] font-semibold text-[#14312a]">{t.law_ref}</span>
+              </div>
+            )}
+
+            <div className="mt-auto flex items-center justify-between border-t border-neutral-100 px-4 py-2.5">
+              <button type="button" className="text-[11px] font-medium text-neutral-500 hover:text-neutral-800">Rediger ›</button>
+              <Button variant="primary" size="sm" icon={<Send className="h-3 w-3" />} onClick={onNewSurvey}>Send ut</Button>
             </div>
-          ) : null}
-          <div className="border-t border-neutral-100 bg-neutral-50/60 px-4 py-2 text-[11px]">
-            <div className="flex items-center gap-1">
-              <span
-                className="rounded px-1.5 py-0.5 text-[10px] font-semibold"
-                style={{ background: ACCENT_BG, color: ACCENT_FG }}
-              >
-                {t.pack}
-              </span>
-              <span className="rounded bg-neutral-100 px-1.5 py-0.5 text-[10px] font-semibold text-neutral-600">
-                {t.estimated_minutes} min
-              </span>
-            </div>
-          </div>
-          <div className="mt-auto flex items-center justify-end border-t border-neutral-100 px-4 py-2.5">
-            <Button variant="primary" size="sm" icon={<Play className="h-3 w-3" />} onClick={onNewSurvey}>Start</Button>
-          </div>
-        </article>
-      ))}
+          </article>
+        )
+      })}
     </div>
   )
 }
@@ -614,34 +756,33 @@ function ResultaterTab({ surveys, onOpen }: { surveys: SurveyRow[]; onOpen: (id:
   const totalResp = surveys.reduce((acc, s) => acc + s.response_count, 0)
   const totalInv  = surveys.reduce((acc, s) => acc + s.invitation_count, 0)
   const avgPct    = totalInv > 0 ? Math.round((totalResp / totalInv) * 100) : 0
-  const activeWithData = surveys.filter((s) => s.status === 'active' && s.invitation_count > 0)
-  const avgActive = activeWithData.length > 0
-    ? Math.round(activeWithData.reduce((acc, s) => acc + s.response_count / s.invitation_count, 0) / activeWithData.length * 100)
-    : 0
+
+  // eNPS: can't compute without answer data from hub — show placeholder
+  const riskCount = 0 // would need answer data per survey
 
   return (
-    <div className="p-5 space-y-5">
-      {/* KPI strip */}
+    <div className="space-y-5 p-5">
+      {/* KPI strip — 4 cards per design */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         <div className="rounded-md bg-[#fbf9f3] px-3 py-2.5">
           <div className="text-[10px] font-bold uppercase tracking-wider text-neutral-500">Snitt svarprosent</div>
-          <div className="mt-0.5 text-2xl font-bold tabular-nums text-[#1a3d32]">{avgPct}%</div>
-          <div className="text-[11px] text-neutral-500">totalt</div>
+          <div className="mt-1 text-2xl font-bold tabular-nums text-[#1a3d32]" style={{ fontFamily: "'Libre Baskerville', Georgia, serif" }}>{avgPct}%</div>
+          <div className="text-[11px] text-neutral-500">på tvers av aktive</div>
         </div>
         <div className="rounded-md bg-[#fbf9f3] px-3 py-2.5">
-          <div className="text-[10px] font-bold uppercase tracking-wider text-neutral-500">Aktiv svarprosent</div>
-          <div className="mt-0.5 text-2xl font-bold tabular-nums text-[#1a3d32]">{avgActive}%</div>
-          <div className="text-[11px] text-neutral-500">pågående undersøkelser</div>
+          <div className="text-[10px] font-bold uppercase tracking-wider text-neutral-500">Snitt eNPS</div>
+          <div className="mt-1 text-2xl font-bold tabular-nums text-[#1a3d32]" style={{ fontFamily: "'Libre Baskerville', Georgia, serif" }}>—</div>
+          <div className="text-[11px] text-neutral-500">på tvers av undersøkelser</div>
+        </div>
+        <div className="rounded-md bg-amber-50 px-3 py-2.5 ring-1 ring-amber-100">
+          <div className="text-[10px] font-bold uppercase tracking-wider text-amber-800">Røde flagg</div>
+          <div className="mt-1 text-2xl font-bold tabular-nums text-amber-900" style={{ fontFamily: "'Libre Baskerville', Georgia, serif" }}>{riskCount}</div>
+          <div className="text-[11px] text-amber-800">krever oppfølging</div>
         </div>
         <div className="rounded-md bg-[#fbf9f3] px-3 py-2.5">
           <div className="text-[10px] font-bold uppercase tracking-wider text-neutral-500">Innsamlede svar</div>
-          <div className="mt-0.5 text-2xl font-bold tabular-nums text-neutral-900">{totalResp}</div>
+          <div className="mt-1 text-2xl font-bold tabular-nums text-[#1a3d32]" style={{ fontFamily: "'Libre Baskerville', Georgia, serif" }}>{totalResp}</div>
           <div className="text-[11px] text-neutral-500">totalt</div>
-        </div>
-        <div className="rounded-md bg-[#fbf9f3] px-3 py-2.5">
-          <div className="text-[10px] font-bold uppercase tracking-wider text-neutral-500">Med svar</div>
-          <div className="mt-0.5 text-2xl font-bold tabular-nums text-neutral-900">{withData.length}</div>
-          <div className="text-[11px] text-neutral-500">av {surveys.length} undersøkelser</div>
         </div>
       </div>
 
@@ -655,30 +796,47 @@ function ResultaterTab({ surveys, onOpen }: { surveys: SurveyRow[]; onOpen: (id:
               <tr>
                 <th className="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wider text-neutral-500">Undersøkelse</th>
                 <th className="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wider text-neutral-500">Svarprosent</th>
-                <th className="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wider text-neutral-500">Svar / Inviterte</th>
+                <th className="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wider text-neutral-500">Snittscore</th>
+                <th className="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wider text-neutral-500">eNPS</th>
+                <th className="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wider text-neutral-500">Distribusjon</th>
                 <th className="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wider text-neutral-500">Avsluttet</th>
                 <th className="w-8 px-5 py-3" />
               </tr>
             </thead>
             <tbody className="divide-y divide-neutral-100">
               {[...withData].sort((a, b) => b.response_count - a.response_count).map((s) => {
-                const rate = s.invitation_count > 0 ? s.response_count / s.invitation_count : null
+                const rate   = s.invitation_count > 0 ? s.response_count / s.invitation_count : null
                 const dueStr = s.end_date ? new Date(s.end_date).toLocaleDateString('nb-NO', { dateStyle: 'short' }) : '—'
                 return (
                   <tr key={s.id} className="cursor-pointer transition-colors hover:bg-neutral-50/70" onClick={() => onOpen(s.id)}>
                     <td className="px-5 py-3">
-                      <div className="font-medium text-neutral-900">{s.title}</div>
-                      <div className="text-[11px] text-neutral-500">{s.survey_type}</div>
+                      <div className="flex items-center gap-2.5">
+                        <RowIcon title={s.title} />
+                        <div>
+                          <div className="font-medium text-neutral-900">{s.title}</div>
+                          <div className="text-[11px] text-neutral-500">{s.response_count} av {s.invitation_count} svarte</div>
+                        </div>
+                      </div>
                     </td>
                     <td className="px-5 py-3">
                       {rate != null ? (
                         <div className="flex items-center gap-2">
-                          <ResponseRing value={rate} size={32} strokeWidth={3} />
+                          <div className="w-16 h-1.5 overflow-hidden rounded-full bg-neutral-200">
+                            <div className="h-1.5 rounded-full" style={{ width: `${Math.min(100, Math.round(rate * 100))}%`, background: rate >= 0.7 ? '#1a3d32' : rate >= 0.4 ? '#c98a2b' : '#b3382a' }} />
+                          </div>
                           <span className="text-xs font-semibold tabular-nums text-neutral-900">{Math.round(rate * 100)}%</span>
                         </div>
                       ) : <span className="text-neutral-400">—</span>}
                     </td>
-                    <td className="px-5 py-3 tabular-nums text-neutral-700">{s.response_count} / {s.invitation_count}</td>
+                    <td className="px-5 py-3 tabular-nums text-neutral-700">
+                      <span className="text-neutral-400">—</span>
+                    </td>
+                    <td className="px-5 py-3 tabular-nums">
+                      <span className="text-neutral-400">—</span>
+                    </td>
+                    <td className="px-5 py-3">
+                      <span className="text-neutral-400">—</span>
+                    </td>
                     <td className="px-5 py-3 tabular-nums text-neutral-700">{dueStr}</td>
                     <td className="px-5 py-3 text-right text-neutral-300">›</td>
                   </tr>
@@ -746,6 +904,7 @@ export function SurveyHubRecordsShell({
         responseCount:   s.response_count,
         invitationCount: s.invitation_count,
         isAnonymous:     s.is_anonymous,
+        channels:        [],
       }
     }),
   [surveys])
@@ -775,7 +934,6 @@ export function SurveyHubRecordsShell({
 
   // Survey-to-category lookup (via catalog_id)
   const surveyCategorySet = useMemo(() => {
-    // Returns: categoryId → Set<surveyId>
     const m = new Map<string, Set<string>>()
     for (const s of mappedSurveys) {
       if (!s.catalogId) continue
@@ -806,7 +964,7 @@ export function SurveyHubRecordsShell({
     return counts
   }, [mappedSurveys, tplIdsByCategory, surveyCategorySet, templates])
 
-  // Status sidebar stats (all surveys, not filtered)
+  // Status sidebar stats
   const activeCount = surveys.filter((s) => s.status === 'active').length
   const draftCount  = surveys.filter((s) => s.status === 'draft').length
   const totalInv    = surveys.reduce((acc, s) => acc + s.invitation_count, 0)
@@ -837,6 +995,9 @@ export function SurveyHubRecordsShell({
     if (q) tpls = tpls.filter((t) => t.name.toLowerCase().includes(q))
     return tpls
   }, [templates, activeCategory, tplIdsByCategory, search])
+
+  // Hide grip icon import usage suppression
+  void GripVertical
 
   if (loading) {
     return (
@@ -873,13 +1034,11 @@ export function SurveyHubRecordsShell({
                     'inline-flex shrink-0 items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold transition-colors',
                     isActive ? 'text-white' : 'bg-neutral-100 text-neutral-700 hover:bg-neutral-200',
                   ].join(' ')}
-                  style={isActive ? { background: ACCENT } : undefined}
+                  style={isActive ? { background: CAT_ACTIVE_BORDER } : undefined}
                 >
                   <Icon className="h-3 w-3" aria-hidden />
                   <span>{label}</span>
-                  <span
-                    className={['rounded-full px-1 py-0 text-[10px] tabular-nums', isActive ? 'bg-white/20 text-white' : 'text-neutral-500'].join(' ')}
-                  >
+                  <span className={['rounded-full px-1 py-0 text-[10px] tabular-nums', isActive ? 'bg-white/20 text-white' : 'text-neutral-500'].join(' ')}>
                     {count}
                   </span>
                 </button>
@@ -887,7 +1046,7 @@ export function SurveyHubRecordsShell({
             })}
           </div>
 
-          {/* Desktop: vertical list */}
+          {/* Desktop: vertical list — green active state per design */}
           <ul className="hidden py-1.5 lg:block">
             {categoryItems.map(({ id, label, Icon }) => {
               const isActive = id === activeCategory
@@ -901,11 +1060,13 @@ export function SurveyHubRecordsShell({
                       'flex w-full items-center gap-2.5 px-4 py-2 text-left text-sm transition-colors',
                       isActive ? 'text-neutral-900' : 'text-neutral-700 hover:bg-neutral-50',
                     ].join(' ')}
-                    style={isActive ? { background: `${ACCENT}18`, boxShadow: `inset 3px 0 0 ${ACCENT}` } : undefined}
+                    style={isActive
+                      ? { background: CAT_ACTIVE_BG, boxShadow: `inset 3px 0 0 ${CAT_ACTIVE_BORDER}` }
+                      : undefined}
                   >
                     <Icon
                       className="h-3.5 w-3.5 shrink-0"
-                      style={{ color: isActive ? ACCENT : '#6b7280' }}
+                      style={{ color: isActive ? CAT_ACTIVE_BORDER : '#6b7280' }}
                       aria-hidden
                     />
                     <span className={['min-w-0 flex-1 truncate', isActive ? 'font-semibold' : 'font-medium'].join(' ')}>
@@ -915,7 +1076,7 @@ export function SurveyHubRecordsShell({
                       className="rounded-full px-1.5 py-0.5 text-[10px] font-semibold tabular-nums"
                       style={
                         isActive
-                          ? { background: 'white', color: ACCENT_FG }
+                          ? { background: 'white', color: CAT_ACTIVE_TEXT }
                           : { background: '#f3f4f6', color: '#6b7280' }
                       }
                     >
@@ -965,7 +1126,7 @@ export function SurveyHubRecordsShell({
 
         {/* Legal nudge */}
         {hasPsychosocial && (
-          <div className="hidden rounded-xl border border-amber-200 bg-amber-50/70 p-3 lg:block text-[11px] text-amber-900">
+          <div className="hidden rounded-xl border border-amber-200 bg-amber-50/70 p-3 text-[11px] text-amber-900 lg:block">
             <div className="flex items-start gap-2">
               <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-amber-700" aria-hidden />
               <div>
@@ -985,12 +1146,12 @@ export function SurveyHubRecordsShell({
         >
           {/* Header strip: tabs + search + view switcher */}
           <div className="flex flex-col gap-2 border-b border-neutral-100 px-4 py-2.5 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
-            {/* Tabs */}
+            {/* Tabs — purple active per design spec for hub tab strip */}
             <nav className="flex items-center gap-1" aria-label="Faner">
               {([
-                { id: 'surveys',   label: 'Undersøkelser', Icon: ClipboardList,  count: categoryCounts[activeCategory]?.surveys ?? 0 },
-                { id: 'maler',     label: 'Maler',          Icon: ClipboardCheck, count: categoryCounts[activeCategory]?.maler   ?? 0 },
-                { id: 'resultater', label: 'Resultater',    Icon: BarChart3,      count: surveys.filter((s) => s.response_count > 0).length },
+                { id: 'surveys',    label: 'Undersøkelser', Icon: ClipboardList,  count: categoryCounts[activeCategory]?.surveys ?? 0 },
+                { id: 'maler',      label: 'Maler',          Icon: ClipboardCheck, count: categoryCounts[activeCategory]?.maler   ?? 0 },
+                { id: 'resultater', label: 'Resultater',     Icon: BarChart3,      count: surveys.filter((s) => s.response_count > 0).length },
               ] as const).map(({ id, label, Icon, count }) => {
                 const active = activeTab === id
                 return (
@@ -1029,13 +1190,13 @@ export function SurveyHubRecordsShell({
                   placeholder={activeTab === 'surveys' ? 'Søk i tittel…' : 'Søk i malnavn…'}
                   value={search}
                   onChange={(ev) => setSearch(ev.target.value)}
-                  className="w-full rounded-md border border-neutral-200 bg-neutral-50 py-1.5 pl-7 pr-2 text-xs outline-none focus:bg-white sm:w-52"
+                  className="w-full rounded-md border border-neutral-200 bg-neutral-50 py-1.5 pl-7 pr-2 text-xs outline-none focus:border-[#1a3d32] focus:bg-white sm:w-52"
                   style={{ transition: 'border-color .15s' }}
-                  onFocus={(ev) => { ev.currentTarget.style.borderColor = ACCENT }}
-                  onBlur={(ev) => { ev.currentTarget.style.borderColor = '' }}
                 />
               </div>
-              <ViewSwitcher value={view} onChange={setView} />
+              {activeTab !== 'resultater' && (
+                <ViewSwitcher value={view} onChange={setView} />
+              )}
             </div>
           </div>
 
@@ -1053,9 +1214,9 @@ export function SurveyHubRecordsShell({
             ) : (
               <>
                 {view === 'bokser' ? (
-                  <MalerBoxes templates={displayedTemplates} onNewSurvey={onNewSurvey} />
+                  <MalerBoxes templates={displayedTemplates} surveys={surveys} onNewSurvey={onNewSurvey} />
                 ) : (
-                  <MalerTable templates={displayedTemplates} onNewSurvey={onNewSurvey} />
+                  <MalerTable templates={displayedTemplates} surveys={surveys} onNewSurvey={onNewSurvey} />
                 )}
               </>
             )}

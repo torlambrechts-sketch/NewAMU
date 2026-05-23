@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useMemo, useState, useRef, type ReactNode } from 'react'
+import type { LucideIcon } from 'lucide-react'
 import { useNavigate, useParams } from 'react-router-dom'
 import type { SupabaseClient } from '@supabase/supabase-js'
-import { AlertCircle, ArrowLeft, BarChart3, Calendar, CheckCircle2, ChevronRight, Eye, EyeOff, Ghost, HelpCircle, Save, Send, Trash2, TrendingUp, Users2 } from 'lucide-react'
+import { AlertCircle, ArrowLeft, BarChart3, Calendar, CheckCircle2, ChevronRight, Copy, Eye, EyeOff, Ghost, Globe, Hash, HelpCircle, Link2, Mail, MessageCircle, Scan, Save, Send, Trash2, TrendingUp, Users2 } from 'lucide-react'
 import {
   WPSTD_FORM_FIELD_LABEL,
   WPSTD_FORM_ROW_GRID,
@@ -139,124 +140,130 @@ function buildTabs(
 
 // ─── Innstillinger tab ────────────────────────────────────────────────────────
 
+function ToggleRow({ label, desc, value }: { label: string; desc: string; value: boolean }) {
+  return (
+    <div className="flex items-start justify-between gap-3 border-b border-neutral-100 py-2.5 last:border-b-0">
+      <div className="min-w-0">
+        <div className="text-sm font-medium text-neutral-900">{label}</div>
+        <div className="mt-0.5 text-[11px] text-neutral-500">{desc}</div>
+      </div>
+      <div className={['relative mt-1 h-5 w-9 shrink-0 rounded-full transition-colors', value ? 'bg-[#1a3d32]' : 'bg-neutral-300'].join(' ')}>
+        <span className={['absolute top-0.5 h-4 w-4 rounded-full bg-white transition-transform', value ? 'translate-x-4' : 'translate-x-0.5'].join(' ')} />
+      </div>
+    </div>
+  )
+}
+
 function InnstillingerTab({ survey, s }: { survey: UseSurveyState; s: SurveyRow }) {
   const [closing, setClosing] = useState(false)
 
   return (
-    <div className="space-y-6">
-      {/* Tilgang & anonymitet */}
-      <div className="overflow-hidden rounded-lg border border-neutral-200 bg-white shadow-sm">
-        <div className="border-b border-neutral-100 px-5 py-4">
-          <p className="text-sm font-semibold text-neutral-900">Tilgang &amp; anonymitet</p>
-          <p className="mt-0.5 text-xs text-neutral-500">Personverninnstillinger som gjelder for denne undersøkelsen.</p>
-        </div>
-        <div className="divide-y divide-neutral-100">
-          <div className="flex items-center justify-between px-5 py-4">
-            <div>
-              <p className="text-sm font-medium text-neutral-800">Anonymisert</p>
-              <p className="text-xs text-neutral-500">Ingen bruker-ID lagres på svar (GDPR Art. 25). Kan ikke endres etter at svar er mottatt.</p>
+    <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
+      {/* ── Left column: access + GDPR ── */}
+      <section className="space-y-3">
+        <h3 className="text-sm font-semibold text-neutral-900">Tilgang &amp; anonymitet</h3>
+        <div className="rounded-md border border-neutral-200/80 p-4">
+          {/* Anonymisert — functional */}
+          <div className="flex items-start justify-between gap-3 border-b border-neutral-100 py-2.5">
+            <div className="min-w-0">
+              <div className="text-sm font-medium text-neutral-900">Anonymisert</div>
+              <div className="mt-0.5 text-[11px] text-neutral-500">Svar lagres uten kobling til respondent. Kan ikke endres når svar er mottatt.</div>
             </div>
-            <YesNoToggle
-              value={s.is_anonymous}
-              onChange={(v) => {
+            <button
+              type="button"
+              disabled={!survey.canManage || s.status !== 'draft'}
+              onClick={() => {
                 if (!survey.canManage || s.status !== 'draft') return
-                void survey.updateSurvey(s.id, { is_anonymous: v })
+                void survey.updateSurvey(s.id, { is_anonymous: !s.is_anonymous })
               }}
-            />
+              className={['relative mt-1 h-5 w-9 shrink-0 rounded-full transition-colors', s.is_anonymous ? 'bg-[#1a3d32]' : 'bg-neutral-300', (!survey.canManage || s.status !== 'draft') ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer'].join(' ')}
+            >
+              <span className={['absolute top-0.5 h-4 w-4 rounded-full bg-white transition-transform', s.is_anonymous ? 'translate-x-4' : 'translate-x-0.5'].join(' ')} />
+            </button>
           </div>
+          <ToggleRow label="Krev innlogging" desc="Respondenten må logge inn med SSO før svar lagres." value={true} />
+          <ToggleRow label="Tillat delvis lagring" desc="Respondent kan lukke og fortsette senere." value={true} />
+          <ToggleRow label="Vis fremdriftslinje" desc="Respondent ser hvor langt de er kommet." value={true} />
         </div>
-      </div>
 
-      {/* Lovverk & retensjon */}
-      <div className="overflow-hidden rounded-lg border border-neutral-200 bg-white shadow-sm">
-        <div className="border-b border-neutral-100 px-5 py-4">
-          <p className="text-sm font-semibold text-neutral-900">Lovverk &amp; retensjon</p>
-        </div>
-        <div className="space-y-3 px-5 py-4">
-          {s.is_anonymous ? (
-            <InfoBox>
-              Anonyme undersøkelser lagrer ikke bruker-ID. Rådata slettes automatisk etter 3 år
-              (GDPR Art. 5 (1)(e) — lagringsminimering).
-            </InfoBox>
-          ) : (
-            <InfoBox>
-              Identifiserte undersøkelser lagrer bruker-ID. Behandlingsgrunnlag: AML § 4-1 og GDPR
-              Art. 6(1)(c). Informer deltakerne i forkant.
-            </InfoBox>
-          )}
-          <p className="text-xs text-neutral-500">
-            Resultater presenteres aggregert for AMU — ikke enkeltbesvarelser (AML § 7-2 (2) e).
+        <h3 className="text-sm font-semibold text-neutral-900">Lovverk &amp; retensjon</h3>
+        <div className="rounded-md border border-neutral-200/80 p-4 text-sm">
+          <dl className="space-y-2 text-xs">
+            <div className="flex justify-between">
+              <dt className="text-neutral-500">Lagringstid</dt>
+              <dd className="text-neutral-900">5 år (i tråd med IK § 5)</dd>
+            </div>
+            <div className="flex justify-between">
+              <dt className="text-neutral-500">Behandlingsgrunnlag</dt>
+              <dd className="text-neutral-900">GDPR Art. 6 (1) c</dd>
+            </div>
+            <div className="flex justify-between">
+              <dt className="text-neutral-500">Anonym</dt>
+              <dd className="text-neutral-900">{s.is_anonymous ? 'Ja — ingen bruker-ID' : 'Nei — identifisert'}</dd>
+            </div>
+            <div className="flex justify-between">
+              <dt className="text-neutral-500">Eksport</dt>
+              <dd className="text-neutral-900">CSV · PDF · API</dd>
+            </div>
+          </dl>
+          <p className="mt-3 border-t border-neutral-100 pt-3 text-[11px] text-neutral-500">
+            {s.is_anonymous
+              ? 'Anonyme undersøkelser lagrer ikke bruker-ID. Rådata slettes etter 3 år (GDPR Art. 5(1)(e)).'
+              : 'Identifiserte undersøkelser lagrer bruker-ID. Informer deltakerne i forkant (AML § 4-1, GDPR Art. 6(1)(c)).'}
           </p>
         </div>
-      </div>
+      </section>
 
-      {/* Resultatdeling */}
-      <div className="overflow-hidden rounded-lg border border-neutral-200 bg-white shadow-sm">
-        <div className="border-b border-neutral-100 px-5 py-4">
-          <p className="text-sm font-semibold text-neutral-900">Resultatdeling</p>
-          <p className="mt-0.5 text-xs text-neutral-500">Styr hvem som ser resultater og når de distribueres.</p>
+      {/* ── Right column: result sharing + danger zone ── */}
+      <section className="space-y-3">
+        <h3 className="text-sm font-semibold text-neutral-900">Resultatdeling</h3>
+        <div className="rounded-md border border-neutral-200/80 p-4">
+          <ToggleRow label="Del live-dashboard med HMS-leder" desc="Aggregert status vises mens undersøkelsen pågår." value={true} />
+          <ToggleRow label="Send sammendrag automatisk ved lukking" desc="PDF til eier + verneombud etter lukking." value={true} />
+          <ToggleRow label="Tillat ledere å se sitt teams resultater" desc="Kun aggregert · minimum 5 svar." value={false} />
         </div>
-        <div className="divide-y divide-neutral-100">
-          {[
-            { label: 'Del live-dashboard med HMS-leder', desc: 'Aggregert status vises mens undersøkelsen pågår.', value: true },
-            { label: 'Send sammendrag automatisk ved lukking', desc: 'PDF til eier + verneombud etter lukking.', value: true },
-            { label: 'Tillat ledere å se sitt teams resultater', desc: 'Kun aggregert · minimum 5 svar.', value: false },
-          ].map(({ label, desc, value }) => (
-            <div key={label} className="flex items-start justify-between gap-3 px-5 py-3.5">
-              <div className="min-w-0">
-                <p className="text-sm font-medium text-neutral-800">{label}</p>
-                <p className="text-xs text-neutral-500">{desc}</p>
-              </div>
-              <div className={['relative mt-0.5 h-5 w-9 shrink-0 rounded-full transition-colors', value ? 'bg-[#1a3d32]' : 'bg-neutral-300'].join(' ')}>
-                <span className={['absolute top-0.5 h-4 w-4 rounded-full bg-white transition-transform', value ? 'translate-x-4' : 'translate-x-0.5'].join(' ')} />
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
 
-      {/* Faresone */}
-      {survey.canManage && (
-        <div className="overflow-hidden rounded-lg border border-red-200 bg-red-50/50 shadow-sm">
-          <div className="border-b border-red-100 px-5 py-4">
-            <p className="text-sm font-semibold text-red-900">Faresone</p>
-            <p className="mt-0.5 text-xs text-red-700">Handlinger som ikke kan angres.</p>
-          </div>
-          <div className="divide-y divide-red-100">
-            {s.status === 'active' && (
-              <div className="flex flex-wrap items-center justify-between gap-3 px-5 py-4">
-                <div>
-                  <p className="text-sm font-medium text-red-900">Lukk undersøkelsen</p>
-                  <p className="text-xs text-red-700">Stopper innsamling av nye svar.</p>
-                </div>
-                <Button
-                  type="button"
-                  variant="secondary"
-                  size="sm"
-                  disabled={closing}
-                  onClick={async () => {
-                    if (!window.confirm('Vil du lukke undersøkelsen? Ingen nye svar kan sendes inn etter lukking.')) return
-                    setClosing(true)
-                    await survey.updateSurvey(s.id, { status: 'closed' })
-                    setClosing(false)
-                  }}
-                >
-                  {closing ? 'Lukker…' : 'Lukk nå'}
-                </Button>
-              </div>
-            )}
-            <div className="flex flex-wrap items-center justify-between gap-3 px-5 py-4">
-              <div>
-                <p className="text-sm font-medium text-red-900">Slett undersøkelse</p>
-                <p className="text-xs text-red-700">Alle svar og data slettes permanent. Krever bekreftelse.</p>
-              </div>
-              <Button type="button" variant="ghost" size="sm" className="text-red-700 hover:bg-red-100" disabled>
-                Slett
-              </Button>
+        {survey.canManage && (
+          <>
+            <h3 className="text-sm font-semibold text-neutral-900">Faresone</h3>
+            <div className="rounded-md border border-red-200 bg-red-50/50 p-4">
+              <ul className="space-y-2 text-xs">
+                {s.status === 'active' && (
+                  <li className="flex items-center justify-between">
+                    <div>
+                      <div className="font-medium text-red-900">Lukk undersøkelse nå</div>
+                      <div className="text-[11px] text-red-700">Stenger for nye svar. Kan ikke åpnes igjen.</div>
+                    </div>
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      size="sm"
+                      disabled={closing}
+                      onClick={async () => {
+                        if (!window.confirm('Vil du lukke undersøkelsen? Ingen nye svar kan sendes inn etter lukking.')) return
+                        setClosing(true)
+                        await survey.updateSurvey(s.id, { status: 'closed' })
+                        setClosing(false)
+                      }}
+                    >
+                      {closing ? 'Lukker…' : 'Lukk'}
+                    </Button>
+                  </li>
+                )}
+                <li className={['flex items-center justify-between', s.status === 'active' ? 'border-t border-red-100 pt-2' : ''].join(' ')}>
+                  <div>
+                    <div className="font-medium text-red-900">Slett undersøkelse</div>
+                    <div className="text-[11px] text-red-700">Alle svar slettes permanent. Krever bekreftelse.</div>
+                  </div>
+                  <Button type="button" variant="ghost" size="sm" className="!text-red-700 hover:bg-red-100" disabled>
+                    Slett
+                  </Button>
+                </li>
+              </ul>
             </div>
-          </div>
-        </div>
-      )}
+          </>
+        )}
+      </section>
     </div>
   )
 }
@@ -1083,6 +1090,130 @@ function ResultaterDesignSection({ survey }: { survey: UseSurveyState; s: Survey
   )
 }
 
+// ─── Distribusjon — channel visual + QR sidebar wrapper ──────────────────────
+
+const ALL_CHANNELS = ['e-post', 'SMS', 'Slack', 'intranett', 'QR-plakat', 'lenke'] as const
+const CHANNEL_ICON_MAP: Record<string, LucideIcon> = {
+  'e-post':    Mail,
+  'SMS':       MessageCircle,
+  'Slack':     Hash,
+  'intranett': Globe,
+  'QR-plakat': Scan,
+  'lenke':     Link2,
+}
+
+function DistribusjonWrapper({
+  s,
+  children,
+}: {
+  s: SurveyRow
+  children: ReactNode
+}) {
+  const [copied, setCopied] = useState(false)
+  // Shareable link — best approximation without a token
+  const shareUrl = `${typeof window !== 'undefined' ? window.location.origin : ''}/u/${s.id.slice(-8)}`
+
+  const copyLink = async () => {
+    try {
+      await navigator.clipboard.writeText(shareUrl)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    } catch { /* ignore */ }
+  }
+
+  return (
+    <div className="grid grid-cols-1 gap-5 xl:grid-cols-[minmax(0,1fr)_320px]">
+      <div className="space-y-5">
+        {/* 6-channel toggle grid — visual, no DB persistence yet */}
+        <section>
+          <h3 className="text-sm font-semibold text-neutral-900">Kanaler</h3>
+          <p className="mt-0.5 text-[11px] text-neutral-500">Velg hvor undersøkelsen distribueres. Aktive kanaler markert grønt.</p>
+          <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3">
+            {ALL_CHANNELS.map((ch) => {
+              const Icon = CHANNEL_ICON_MAP[ch] ?? Send
+              const active = ch === 'e-post'
+              return (
+                <div
+                  key={ch}
+                  className={['flex items-center justify-between rounded-md border p-3 transition-colors',
+                    active ? 'border-[#1a3d32] bg-[#e7efe9]' : 'border-neutral-200 bg-white'].join(' ')}
+                >
+                  <div className="flex items-center gap-2">
+                    <span className={['flex h-7 w-7 items-center justify-center rounded-md', active ? 'bg-white text-[#1a3d32]' : 'bg-neutral-100 text-neutral-500'].join(' ')}>
+                      <Icon className="h-3.5 w-3.5" aria-hidden />
+                    </span>
+                    <div>
+                      <div className="text-sm font-medium text-neutral-900">{ch}</div>
+                      <div className="text-[10px] text-neutral-500">{active ? 'Aktiv' : 'Inaktiv'}</div>
+                    </div>
+                  </div>
+                  <div className={['relative h-5 w-9 cursor-pointer rounded-full transition-colors', active ? 'bg-[#1a3d32]' : 'bg-neutral-300'].join(' ')}>
+                    <span className={['absolute top-0.5 h-4 w-4 rounded-full bg-white transition-transform', active ? 'translate-x-4' : 'translate-x-0.5'].join(' ')} />
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        </section>
+
+        {/* Existing functional distribusjon tab content */}
+        {children}
+      </div>
+
+      {/* Sidebar: shareable link + QR code */}
+      <aside className="space-y-3">
+        <div className="rounded-xl border border-neutral-200/80 bg-white p-4" style={{ boxShadow: '0 1px 2px rgba(0,0,0,0.04)' }}>
+          <h3 className="text-sm font-semibold text-neutral-900">Delbar lenke</h3>
+          <div className="mt-2 flex items-center gap-1.5 rounded-md border border-neutral-200 bg-neutral-50 px-2 py-1.5 text-[11px]">
+            <Link2 className="h-3 w-3 shrink-0 text-neutral-400" aria-hidden />
+            <code className="min-w-0 flex-1 truncate font-mono text-neutral-700">{shareUrl}</code>
+            <button
+              type="button"
+              onClick={() => void copyLink()}
+              className="rounded p-1 text-neutral-500 hover:bg-white hover:text-neutral-900"
+              title="Kopier lenke"
+            >
+              <Copy className="h-3 w-3" aria-hidden />
+            </button>
+          </div>
+          {copied && <p className="mt-1 text-[10px] text-[#1a3d32]">Kopiert!</p>}
+          {s.is_anonymous && (
+            <div className="mt-2 inline-flex items-center gap-1 text-[10px] text-[#1a3d32]">
+              <EyeOff className="h-3 w-3" aria-hidden /> Lenke gir anonym tilgang
+            </div>
+          )}
+        </div>
+
+        <div className="rounded-xl border border-neutral-200/80 bg-white p-4" style={{ boxShadow: '0 1px 2px rgba(0,0,0,0.04)' }}>
+          <h3 className="text-sm font-semibold text-neutral-900">QR-kode</h3>
+          <p className="mt-1 text-[11px] text-neutral-500">Skriv ut for verksted / lager / pauserom.</p>
+          <div className="mt-2 flex h-36 items-center justify-center rounded-md bg-[#fbf9f3] ring-1 ring-neutral-200">
+            <svg width="80" height="80" viewBox="0 0 80 80" aria-hidden>
+              <rect width="80" height="80" fill="#fff" />
+              {Array.from({ length: 64 }).map((_, i) => {
+                const r = ((i * 9301 + 49297) % 233280) / 233280
+                if (r < 0.45) return null
+                const x = (i % 8) * 10
+                const y = Math.floor(i / 8) * 10
+                return <rect key={i} x={x} y={y} width="10" height="10" fill="#1a3d32" />
+              })}
+              <rect x="0" y="0" width="20" height="20" fill="none" stroke="#1a3d32" strokeWidth="3" />
+              <rect x="60" y="0" width="20" height="20" fill="none" stroke="#1a3d32" strokeWidth="3" />
+              <rect x="0" y="60" width="20" height="20" fill="none" stroke="#1a3d32" strokeWidth="3" />
+            </svg>
+          </div>
+          <button
+            type="button"
+            className="mt-2 flex w-full items-center justify-center gap-1.5 rounded-md border border-neutral-200 bg-white px-3 py-1.5 text-xs font-medium text-neutral-700 transition-colors hover:bg-neutral-50"
+          >
+            Last ned PNG
+          </button>
+        </div>
+      </aside>
+    </div>
+  )
+}
+
 // ─── SurveyDetailView ─────────────────────────────────────────────────────────
 
 export function SurveyDetailView({ supabase }: Props) {
@@ -1618,7 +1749,11 @@ export function SurveyDetailView({ supabase }: Props) {
             />
           )}
 
-          {tab === 'distribusjon' && <SurveyDistribusjonTab survey={survey} s={s} />}
+          {tab === 'distribusjon' && (
+            <DistribusjonWrapper s={s}>
+              <SurveyDistribusjonTab survey={survey} s={s} />
+            </DistribusjonWrapper>
+          )}
 
           {/* Legacy URL compat: redirect old ?tab=svar / ?tab=analyse to resultater */}
           {(tab === 'svar' || tab === 'analyse') && (() => { setTab('resultater'); return null })()}
