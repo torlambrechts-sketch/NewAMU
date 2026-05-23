@@ -29,7 +29,6 @@ import {
   Link2,
   Mail,
   MessageCircle,
-  Play,
   Rows3,
   Scan,
   Search,
@@ -46,9 +45,7 @@ import { ResponseRing } from './components/ResponseRing'
 
 // ─── Accent — purple for tab strip, green for category rail ──────────────────
 
-const ACCENT     = '#7c3aed'
-const ACCENT_BG  = '#f3effe'
-const ACCENT_FG  = '#4c1d95'
+const ACCENT = '#7c3aed'
 
 // Category rail green active state (design-spec)
 const CAT_ACTIVE_BG     = '#e7efe9'
@@ -539,7 +536,7 @@ function EntriesKanban({ entries, onOpen }: { entries: MappedSurvey[]; onOpen: (
                         <div className="line-clamp-2 text-xs font-medium leading-tight text-neutral-900">{e.title}</div>
                         <div className="mt-0.5 truncate text-[10px] text-neutral-500">{SURVEY_TYPE_LABEL[e.surveyType] ?? e.surveyType}</div>
                       </div>
-                      {e.isAnonymous && <EyeOff title="Anonym" className="mt-0.5 h-3 w-3 shrink-0 text-[#1a3d32]" aria-hidden />}
+                      {e.isAnonymous && <EyeOff aria-label="Anonym" className="mt-0.5 h-3 w-3 shrink-0 text-[#1a3d32]" aria-hidden />}
                     </div>
                     {e.invitationCount > 0 ? (
                       <div className="mt-2 flex items-center gap-2 rounded-sm bg-[#fbf9f3] px-2 py-1.5">
