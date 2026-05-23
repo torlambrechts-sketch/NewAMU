@@ -102,15 +102,6 @@ const SURVEY_TYPE_LABEL: Record<string, string> = {
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-function formatDate(input: string | null): string {
-  if (!input) return '—'
-  try {
-    return new Date(input).toLocaleDateString('nb-NO', { dateStyle: 'short' })
-  } catch {
-    return input
-  }
-}
-
 function getCategoryIcon(name: string): LucideIcon {
   const l = name.toLowerCase()
   if (l.includes('verne'))                                    return ShieldCheck

@@ -33,7 +33,6 @@ import { SurveyKampanjerTab } from './tabs/SurveyKampanjerTab'
 import { SurveyMalerTab } from './tabs/SurveyMalerTab'
 import { SurveyLeverandorerTab } from './tabs/SurveyLeverandorerTab'
 import { SurveyAnalyseOverviewTab } from './tabs/SurveyAnalyseOverviewTab'
-import { SurveyHubLanding } from './SurveyHubLanding'
 import { SurveyHubRecordsShell } from './SurveyHubRecordsShell'
 import { SURVEY_MODULE_LEGAL_REFERENCES } from './surveyLegalReferences'
 
