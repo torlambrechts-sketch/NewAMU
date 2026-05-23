@@ -121,7 +121,7 @@ const CREAM = '#F1ECDF'
 
 function KpiRow({ items }: { items: { big: string; title: string; sub: string }[] }) {
   return (
-    <div className="grid gap-3" style={{ gridTemplateColumns: `repeat(${items.length}, minmax(0, 1fr))` }}>
+    <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
       {items.map((it, i) => (
         <div key={i} className="min-w-0 rounded-xl px-4 py-4 sm:px-5" style={{ backgroundColor: CREAM }}>
           <p className="text-3xl font-bold tabular-nums text-neutral-900">{it.big}</p>
@@ -304,7 +304,7 @@ export function ChecklistsEtterlevelsePage() {
             : 'Ingen aktive kategorier. Opprett kategorier under Innstillinger → Sjekklister.'}
         </ModuleSectionCard>
       ) : (
-        <div className="grid gap-4" style={{ gridTemplateColumns: 'minmax(0,1fr) 320px' }}>
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1fr)_320px]">
 
           {/* ── Matrix ── */}
           <div className="rounded-xl border border-neutral-200/80 bg-white p-5" style={{ boxShadow: '0 1px 2px rgba(0,0,0,0.04)' }}>
@@ -323,7 +323,7 @@ export function ChecklistsEtterlevelsePage() {
             </div>
 
             <div className="mt-3 overflow-x-auto rounded-md border border-neutral-200/80">
-              <table className="w-full border-collapse text-xs">
+              <table className="w-full min-w-[480px] border-collapse text-xs">
                 <thead>
                   <tr className="bg-[#fbf9f3]">
                     <th className="w-44 border-b border-neutral-200 px-3 py-2.5 text-left text-[10px] font-bold uppercase tracking-wider text-neutral-600">

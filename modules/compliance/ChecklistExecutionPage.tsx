@@ -227,7 +227,7 @@ export function ChecklistExecutionPage() {
       title={execution.title}
       description={`${locationLabel} · ${execution.scheduled_for ? fmt(execution.scheduled_for) : ''}`}
       headerActions={
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <Link
             to={templateBackUrl}
             className="inline-flex items-center gap-1.5 rounded-md border border-neutral-300 bg-white px-3 py-2 text-sm font-medium text-neutral-700 hover:bg-neutral-50"
@@ -288,7 +288,7 @@ export function ChecklistExecutionPage() {
         <div className="rounded-xl border border-neutral-200/80 bg-white" style={{ boxShadow: '0 1px 2px rgba(0,0,0,0.04)' }}>
 
           {/* Sub-tab strip */}
-          <div className="flex items-center justify-between border-b border-neutral-100 px-4 py-2.5">
+          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-neutral-100 px-4 py-2.5">
             <div className="flex items-center gap-1">
               <Badge variant={statusVariant(execution.status)}>{STATUS_LABEL[execution.status]}</Badge>
               <span className="ml-2 text-xs text-neutral-400">

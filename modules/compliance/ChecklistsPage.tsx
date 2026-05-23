@@ -317,7 +317,7 @@ function EntriesBoxes({
     )
   }
   return (
-    <div className="grid grid-cols-3 gap-3 p-4">
+    <div className="grid grid-cols-1 gap-3 p-4 sm:grid-cols-2 lg:grid-cols-3">
       {entries.map((e) => (
         <article
           key={e.id}
@@ -471,7 +471,7 @@ function EntriesKanban({
   })
 
   return (
-    <div className="grid grid-cols-4 gap-3 p-3">
+    <div className="grid grid-cols-2 gap-3 overflow-x-auto p-3 sm:grid-cols-2 md:grid-cols-4">
       {KANBAN_COLS.map((col) => {
         const items = buckets[col.id] ?? []
         return (
@@ -608,7 +608,7 @@ function MalerBoxes({
     )
   }
   return (
-    <div className="grid grid-cols-3 gap-3 p-4">
+    <div className="grid grid-cols-1 gap-3 p-4 sm:grid-cols-2 lg:grid-cols-3">
       {templates.map((t) => (
         <article key={t.id} className="flex flex-col rounded-xl border border-neutral-200/80 bg-white" style={{ boxShadow: '0 1px 2px rgba(0,0,0,0.04)' }}>
           <div className="flex items-start gap-3 p-4 pb-3">
@@ -916,16 +916,41 @@ export function ChecklistsPage() {
         {cl.error ? <WarningBox>{cl.error}</WarningBox> : null}
 
         {/* Two-column layout: category rail + content */}
-        <div className="grid grid-cols-[260px_minmax(0,1fr)] gap-5">
+        <div className="grid grid-cols-1 gap-5 lg:grid-cols-[260px_minmax(0,1fr)]">
 
           {/* ── LEFT: Category rail ── */}
           <aside className="space-y-3">
-            {/* Categories card */}
+            {/* Mobile: horizontal chip scroll. Desktop: vertical list card */}
             <div className="rounded-xl border border-neutral-200/80 bg-white" style={{ boxShadow: '0 1px 2px rgba(0,0,0,0.04)' }}>
-              <div className="border-b border-neutral-100 px-4 py-3">
+              <div className="border-b border-neutral-100 px-4 py-3 lg:block hidden">
                 <h2 className="text-xs font-bold uppercase tracking-wider text-neutral-500">Kategorier</h2>
               </div>
-              <ul className="py-1.5">
+              {/* Mobile: horizontal chips */}
+              <div className="flex gap-1.5 overflow-x-auto px-3 py-2.5 lg:hidden">
+                {categoryItems.map(({ id, label, Icon }) => {
+                  const isActive = id === activeCategory
+                  const count = categoryCounts[id]?.[activeTab === 'entries' ? 'entries' : 'maler'] ?? 0
+                  return (
+                    <button
+                      key={id}
+                      type="button"
+                      onClick={() => setActiveCategory(id)}
+                      className={[
+                        'inline-flex shrink-0 items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold transition-colors',
+                        isActive ? 'bg-[#1a3d32] text-white' : 'bg-neutral-100 text-neutral-700 hover:bg-neutral-200',
+                      ].join(' ')}
+                    >
+                      <Icon className="h-3 w-3" aria-hidden />
+                      <span>{label}</span>
+                      <span className={['rounded-full px-1 py-0 text-[10px] tabular-nums', isActive ? 'bg-white/20 text-white' : 'text-neutral-500'].join(' ')}>
+                        {count}
+                      </span>
+                    </button>
+                  )
+                })}
+              </div>
+              {/* Desktop: vertical list */}
+              <ul className="hidden py-1.5 lg:block">
                 {categoryItems.map(({ id, label, Icon }) => {
                   const isActive = id === activeCategory
                   const count = categoryCounts[id]?.[activeTab === 'entries' ? 'entries' : 'maler'] ?? 0
@@ -952,9 +977,9 @@ export function ChecklistsPage() {
               </ul>
             </div>
 
-            {/* Status panel — Avansert only */}
+            {/* Status panel — Avansert only, desktop only (rail is hidden on mobile) */}
             {!easy && (
-              <div className="rounded-xl border border-neutral-200/80 bg-white p-4" style={{ boxShadow: '0 1px 2px rgba(0,0,0,0.04)' }}>
+              <div className="hidden rounded-xl border border-neutral-200/80 bg-white p-4 lg:block" style={{ boxShadow: '0 1px 2px rgba(0,0,0,0.04)' }}>
                 <h3 className="text-xs font-bold uppercase tracking-wider text-neutral-500">Status</h3>
                 <ul className="mt-2 space-y-1.5 text-xs">
                   <li className="flex items-center justify-between">
@@ -989,9 +1014,9 @@ export function ChecklistsPage() {
           <section className="space-y-3">
             <div className="rounded-xl border border-neutral-200/80 bg-white" style={{ boxShadow: '0 1px 2px rgba(0,0,0,0.04)' }}>
               {/* Header strip: tabs + search + view switcher */}
-              <div className="flex items-center justify-between gap-4 border-b border-neutral-100 px-4 py-2.5">
+              <div className="flex flex-col gap-2 border-b border-neutral-100 px-4 py-2.5 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
                 {/* Tabs */}
-                <nav className="flex flex-wrap items-center gap-1" aria-label="Faner">
+                <nav className="flex items-center gap-1" aria-label="Faner">
                   {([
                     { id: 'entries', label: 'Gjennomføringer', Icon: ClipboardList, count: categoryCounts[activeCategory]?.entries ?? 0 },
                     { id: 'maler', label: 'Maler', Icon: ClipboardCheck, count: categoryCounts[activeCategory]?.maler ?? 0 },
@@ -1020,14 +1045,14 @@ export function ChecklistsPage() {
 
                 {/* Search + view switcher */}
                 <div className="flex items-center gap-2">
-                  <div className="relative">
+                  <div className="relative flex-1 sm:flex-none">
                     <Search className="pointer-events-none absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-neutral-400" aria-hidden />
                     <input
                       type="search"
                       placeholder={activeTab === 'entries' ? 'Søk i tittel, sted…' : 'Søk i malnavn…'}
                       value={search}
                       onChange={(e) => setSearch(e.target.value)}
-                      className="w-52 rounded-md border border-neutral-200 bg-neutral-50 py-1.5 pl-7 pr-2 text-xs outline-none focus:border-[#1a3d32] focus:bg-white"
+                      className="w-full rounded-md border border-neutral-200 bg-neutral-50 py-1.5 pl-7 pr-2 text-xs outline-none focus:border-[#1a3d32] focus:bg-white sm:w-52"
                     />
                   </div>
                   <ViewSwitcher value={view} onChange={setView} />
