@@ -54,7 +54,6 @@ import { useOrgSetupContext } from '../../src/hooks/useOrgSetupContext'
 import { useChecklistModule } from './useChecklistModule'
 import { ExecutionDetailContent } from './components/ExecutionDetailContent'
 import { LibraryTemplateTile } from '../../src/components/module/library/LibraryTemplateTile'
-import { LibrarySectionHeader } from '../../src/components/module/library/LibrarySectionHeader'
 import type { ComplianceExecutionRow, ComplianceTemplateRow } from './types'
 
 type DetailPane =
@@ -1013,6 +1012,11 @@ export function ChecklistsLibraryPage() {
           onClose={() => setDetailPane(null)}
           titleId="exec-detail-panel"
           title="Detaljer"
+          footer={
+            <div className="flex justify-end">
+              <Button variant="secondary" onClick={() => setDetailPane(null)}>Lukk</Button>
+            </div>
+          }
         >
           <p className="px-6 py-8 text-sm text-neutral-500">
             Utførelsen ble ikke funnet. Den kan ha blitt slettet, eller er ikke lastet ennå.

@@ -10,7 +10,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ComponentType } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { BarChart3, ChevronRight, FileText, Package, Plus, Sparkles } from 'lucide-react'
-import { ModuleLibraryShell, type ViewMode } from '../../src/components/module/ModuleLibraryShell'
+import { ModuleLibraryShell } from '../../src/components/module/ModuleLibraryShell'
 import { LibraryTemplateTile } from '../../src/components/module/library/LibraryTemplateTile'
 import { LibrarySectionHeader } from '../../src/components/module/library/LibrarySectionHeader'
 import { ModuleAnalyticsDashboard } from '../../src/components/module/ModuleAnalyticsDashboard'

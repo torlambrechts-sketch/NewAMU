@@ -194,6 +194,9 @@ export type ChecklistModuleState = {
     templateId: string,
     requirementIds: string[],
   ) => Promise<void>
+
+  /** Whether the current user can create / edit / delete checklists in this org. */
+  canManage: boolean
 }
 
 const ATTACHMENT_BUCKET = 'compliance_checklist_files'
