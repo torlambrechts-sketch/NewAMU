@@ -80,7 +80,7 @@ function extraJsonFromStoredQuestionConfig(cfg: Record<string, unknown> | undefi
   }
 }
 
-type DetailTab = 'oversikt' | 'bygger' | 'distribusjon' | 'svar' | 'analyse' | 'amu' | 'tiltak'
+type DetailTab = 'oversikt' | 'bygger' | 'distribusjon' | 'svar' | 'analyse' | 'amu' | 'tiltak' | 'resultater' | 'innstillinger'
 
 function surveyWorkflowSteps(params: {
   status: SurveyRow['status']
@@ -106,14 +106,18 @@ function buildTabs(
 ): TabItem[] {
   const items: TabItem[] = [
     { id: 'oversikt', label: 'Oversikt' },
-    { id: 'bygger', label: 'Bygger' },
+    { id: 'bygger', label: 'Spørsmål' },
     {
       id: 'distribusjon',
       label: 'Distribusjon',
       badgeCount: pendingInvites > 0 ? pendingInvites : undefined,
     },
-    { id: 'svar', label: 'Svar', badgeCount: responseCount > 0 ? responseCount : undefined },
-    { id: 'analyse', label: 'Analyse' },
+    {
+      id: 'resultater',
+      label: 'Resultater',
+      badgeCount: responseCount > 0 ? responseCount : undefined,
+    },
+    { id: 'innstillinger', label: 'Innstillinger' },
     {
       id: 'amu',
       label: 'AMU-gjennomgang',
@@ -130,6 +134,107 @@ function buildTabs(
   }
   return items
 }
+
+// ─── Innstillinger tab ────────────────────────────────────────────────────────
+
+function InnstillingerTab({ survey, s }: { survey: UseSurveyState; s: SurveyRow }) {
+  const [closing, setClosing] = useState(false)
+
+  return (
+    <div className="space-y-6">
+      {/* Tilgang & anonymitet */}
+      <div className="overflow-hidden rounded-lg border border-neutral-200 bg-white shadow-sm">
+        <div className="border-b border-neutral-100 px-5 py-4">
+          <p className="text-sm font-semibold text-neutral-900">Tilgang &amp; anonymitet</p>
+          <p className="mt-0.5 text-xs text-neutral-500">Personverninnstillinger som gjelder for denne undersøkelsen.</p>
+        </div>
+        <div className="divide-y divide-neutral-100">
+          <div className="flex items-center justify-between px-5 py-4">
+            <div>
+              <p className="text-sm font-medium text-neutral-800">Anonymisert</p>
+              <p className="text-xs text-neutral-500">Ingen bruker-ID lagres på svar (GDPR Art. 25). Kan ikke endres etter at svar er mottatt.</p>
+            </div>
+            <YesNoToggle
+              value={s.is_anonymous}
+              onChange={(v) => {
+                if (!survey.canManage || s.status !== 'draft') return
+                void survey.updateSurvey(s.id, { is_anonymous: v })
+              }}
+            />
+          </div>
+        </div>
+      </div>
+
+      {/* Lovverk & retensjon */}
+      <div className="overflow-hidden rounded-lg border border-neutral-200 bg-white shadow-sm">
+        <div className="border-b border-neutral-100 px-5 py-4">
+          <p className="text-sm font-semibold text-neutral-900">Lovverk &amp; retensjon</p>
+        </div>
+        <div className="space-y-3 px-5 py-4">
+          {s.is_anonymous ? (
+            <InfoBox>
+              Anonyme undersøkelser lagrer ikke bruker-ID. Rådata slettes automatisk etter 3 år
+              (GDPR Art. 5 (1)(e) — lagringsminimering).
+            </InfoBox>
+          ) : (
+            <InfoBox>
+              Identifiserte undersøkelser lagrer bruker-ID. Behandlingsgrunnlag: AML § 4-1 og GDPR
+              Art. 6(1)(c). Informer deltakerne i forkant.
+            </InfoBox>
+          )}
+          <p className="text-xs text-neutral-500">
+            Resultater presenteres aggregert for AMU — ikke enkeltbesvarelser (AML § 7-2 (2) e).
+          </p>
+        </div>
+      </div>
+
+      {/* Faresone */}
+      {survey.canManage && (
+        <div className="overflow-hidden rounded-lg border border-red-200 bg-red-50/50 shadow-sm">
+          <div className="border-b border-red-100 px-5 py-4">
+            <p className="text-sm font-semibold text-red-900">Faresone</p>
+            <p className="mt-0.5 text-xs text-red-700">Handlinger som ikke kan angres.</p>
+          </div>
+          <div className="divide-y divide-red-100">
+            {s.status === 'active' && (
+              <div className="flex flex-wrap items-center justify-between gap-3 px-5 py-4">
+                <div>
+                  <p className="text-sm font-medium text-red-900">Lukk undersøkelsen</p>
+                  <p className="text-xs text-red-700">Stopper innsamling av nye svar.</p>
+                </div>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="sm"
+                  disabled={closing}
+                  onClick={async () => {
+                    if (!window.confirm('Vil du lukke undersøkelsen? Ingen nye svar kan sendes inn etter lukking.')) return
+                    setClosing(true)
+                    await survey.updateSurvey(s.id, { status: 'closed' })
+                    setClosing(false)
+                  }}
+                >
+                  {closing ? 'Lukker…' : 'Lukk nå'}
+                </Button>
+              </div>
+            )}
+            <div className="flex flex-wrap items-center justify-between gap-3 px-5 py-4">
+              <div>
+                <p className="text-sm font-medium text-red-900">Slett undersøkelse</p>
+                <p className="text-xs text-red-700">Alle svar og data slettes permanent. Krever bekreftelse.</p>
+              </div>
+              <Button type="button" variant="ghost" size="sm" className="text-red-700 hover:bg-red-100" disabled>
+                Slett
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 
 type Props = { supabase: SupabaseClient | null }
 
@@ -1066,11 +1171,22 @@ export function SurveyDetailView({ supabase }: Props) {
 
           {tab === 'distribusjon' && <SurveyDistribusjonTab survey={survey} s={s} />}
 
-          {tab === 'svar' && (
-            <SvarTab survey={survey} s={s} nameByUserId={nameByUserId} onOpenResponse={openResponsePanel} />
+          {/* Legacy URL compat: redirect old ?tab=svar / ?tab=analyse to resultater */}
+          {(tab === 'svar' || tab === 'analyse') && (() => { setTab('resultater'); return null })()}
+
+          {tab === 'resultater' && (
+            <div className="space-y-6">
+              <SvarTab survey={survey} s={s} nameByUserId={nameByUserId} onOpenResponse={openResponsePanel} />
+              <div className="border-t border-neutral-200 pt-6">
+                <h3 className="mb-4 text-sm font-semibold text-neutral-800">Analyse</h3>
+                <SurveyAnalyseTab survey={survey} s={s} supabase={supabase} />
+              </div>
+            </div>
           )}
 
-          {tab === 'analyse' && <SurveyAnalyseTab survey={survey} s={s} supabase={supabase} />}
+          {tab === 'innstillinger' && (
+            <InnstillingerTab survey={survey} s={s} />
+          )}
 
           {tab === 'amu' && <SurveyAmuTab survey={survey} s={s} />}
 

@@ -11,6 +11,7 @@ import { useMemo, useState } from 'react'
 import type { LucideIcon } from 'lucide-react'
 import {
   AlertTriangle,
+  BarChart3,
   CalendarDays,
   CheckCircle2,
   ChevronRight,
@@ -31,6 +32,7 @@ import { Badge } from '../../src/components/ui/Badge'
 import type { BadgeVariant } from '../../src/components/ui/Badge'
 import type { SurveyRow, SurveyCategoryRow } from './types'
 import type { SurveyTemplateCatalogRow } from './surveyTemplateCatalogTypes'
+import { ResponseRing } from './components/ResponseRing'
 
 // ─── Accent ───────────────────────────────────────────────────────────────────
 
@@ -52,6 +54,8 @@ type MappedSurvey = {
   due: string
   dueRaw: Date | null
   responseCount: number
+  invitationCount: number
+  isAnonymous: boolean
 }
 
 // ─── Status config ────────────────────────────────────────────────────────────
@@ -207,7 +211,7 @@ function EntriesTable({ entries, onOpen }: { entries: MappedSurvey[]; onOpen: (i
               <th className="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wider text-neutral-500">Tittel</th>
               <th className="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wider text-neutral-500">Status</th>
               <th className="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wider text-neutral-500">Type</th>
-              <th className="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wider text-neutral-500">Svar</th>
+              <th className="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wider text-neutral-500">Svarprosent</th>
               <th className="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wider text-neutral-500">Sluttdato</th>
               <th className="w-8 px-5 py-3" />
             </tr>
@@ -230,7 +234,16 @@ function EntriesTable({ entries, onOpen }: { entries: MappedSurvey[]; onOpen: (i
                 </td>
                 <td className="px-5 py-3"><StatusPill status={e.status} /></td>
                 <td className="px-5 py-3 text-neutral-700">{SURVEY_TYPE_LABEL[e.surveyType] ?? e.surveyType}</td>
-                <td className="px-5 py-3 tabular-nums text-neutral-700">{e.responseCount}</td>
+                <td className="px-5 py-3">
+                  {e.invitationCount > 0 ? (
+                    <div className="flex items-center gap-2">
+                      <ResponseRing value={e.responseCount / e.invitationCount} size={32} strokeWidth={3} />
+                      <span className="text-[11px] tabular-nums text-neutral-700">{e.responseCount}/{e.invitationCount}</span>
+                    </div>
+                  ) : (
+                    <span className="tabular-nums text-neutral-700">{e.responseCount}</span>
+                  )}
+                </td>
                 <td className="px-5 py-3 tabular-nums text-neutral-700">{e.due}</td>
                 <td className="px-5 py-3 text-right text-neutral-300">›</td>
               </tr>
@@ -275,11 +288,24 @@ function EntriesBoxes({ entries, onOpen }: { entries: MappedSurvey[]; onOpen: (i
           </div>
           <div className="mt-3 flex items-center gap-2">
             <StatusPill status={e.status} />
+            {e.isAnonymous && (
+              <span className="inline-flex items-center gap-1 rounded-full border border-[#c5d3c8] bg-[#e7efe9] px-2 py-0.5 text-[10px] font-semibold text-[#14312a]">Anonym</span>
+            )}
           </div>
-          <div className="mt-3 flex items-center justify-between border-t border-neutral-100 pt-2.5 text-[11px] text-neutral-500">
-            <span className="tabular-nums">Sluttdato {e.due}</span>
-            <span className="tabular-nums">{e.responseCount} svar</span>
-          </div>
+          {e.invitationCount > 0 ? (
+            <div className="mt-3 flex items-center gap-3 rounded-md bg-[#fbf9f3] px-3 py-2.5">
+              <ResponseRing value={e.responseCount / e.invitationCount} size={40} strokeWidth={4} />
+              <div className="text-[11px] tabular-nums text-neutral-700">
+                <div className="font-semibold text-neutral-900">{e.responseCount} <span className="font-normal text-neutral-400">av {e.invitationCount}</span></div>
+                <div className="text-[10px] text-neutral-500">svarprosent</div>
+              </div>
+            </div>
+          ) : (
+            <div className="mt-3 flex items-center justify-between border-t border-neutral-100 pt-2.5 text-[11px] text-neutral-500">
+              <span className="tabular-nums">Sluttdato {e.due}</span>
+              <span className="tabular-nums">{e.responseCount} svar</span>
+            </div>
+          )}
         </article>
       ))}
     </div>
@@ -576,6 +602,91 @@ function MalerBoxes({
   )
 }
 
+// ─── Resultater tab ───────────────────────────────────────────────────────────
+
+function ResultaterTab({ surveys, onOpen }: { surveys: SurveyRow[]; onOpen: (id: string) => void }) {
+  const withData = surveys.filter((s) => s.response_count > 0 || s.invitation_count > 0)
+  const totalResp = surveys.reduce((acc, s) => acc + s.response_count, 0)
+  const totalInv  = surveys.reduce((acc, s) => acc + s.invitation_count, 0)
+  const avgPct    = totalInv > 0 ? Math.round((totalResp / totalInv) * 100) : 0
+  const activeWithData = surveys.filter((s) => s.status === 'active' && s.invitation_count > 0)
+  const avgActive = activeWithData.length > 0
+    ? Math.round(activeWithData.reduce((acc, s) => acc + s.response_count / s.invitation_count, 0) / activeWithData.length * 100)
+    : 0
+
+  return (
+    <div className="p-5 space-y-5">
+      {/* KPI strip */}
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <div className="rounded-md bg-[#fbf9f3] px-3 py-2.5">
+          <div className="text-[10px] font-bold uppercase tracking-wider text-neutral-500">Snitt svarprosent</div>
+          <div className="mt-0.5 text-2xl font-bold tabular-nums text-[#1a3d32]">{avgPct}%</div>
+          <div className="text-[11px] text-neutral-500">totalt</div>
+        </div>
+        <div className="rounded-md bg-[#fbf9f3] px-3 py-2.5">
+          <div className="text-[10px] font-bold uppercase tracking-wider text-neutral-500">Aktiv svarprosent</div>
+          <div className="mt-0.5 text-2xl font-bold tabular-nums text-[#1a3d32]">{avgActive}%</div>
+          <div className="text-[11px] text-neutral-500">pågående undersøkelser</div>
+        </div>
+        <div className="rounded-md bg-[#fbf9f3] px-3 py-2.5">
+          <div className="text-[10px] font-bold uppercase tracking-wider text-neutral-500">Innsamlede svar</div>
+          <div className="mt-0.5 text-2xl font-bold tabular-nums text-neutral-900">{totalResp}</div>
+          <div className="text-[11px] text-neutral-500">totalt</div>
+        </div>
+        <div className="rounded-md bg-[#fbf9f3] px-3 py-2.5">
+          <div className="text-[10px] font-bold uppercase tracking-wider text-neutral-500">Med svar</div>
+          <div className="mt-0.5 text-2xl font-bold tabular-nums text-neutral-900">{withData.length}</div>
+          <div className="text-[11px] text-neutral-500">av {surveys.length} undersøkelser</div>
+        </div>
+      </div>
+
+      {/* Per-survey table */}
+      {withData.length === 0 ? (
+        <p className="py-8 text-center text-sm text-neutral-500">Ingen svar registrert ennå.</p>
+      ) : (
+        <div className="overflow-hidden rounded-lg border border-neutral-200">
+          <table className="w-full text-sm">
+            <thead className="border-b border-neutral-200 bg-neutral-50/60">
+              <tr>
+                <th className="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wider text-neutral-500">Undersøkelse</th>
+                <th className="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wider text-neutral-500">Svarprosent</th>
+                <th className="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wider text-neutral-500">Svar / Inviterte</th>
+                <th className="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wider text-neutral-500">Avsluttet</th>
+                <th className="w-8 px-5 py-3" />
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-neutral-100">
+              {[...withData].sort((a, b) => b.response_count - a.response_count).map((s) => {
+                const rate = s.invitation_count > 0 ? s.response_count / s.invitation_count : null
+                const dueStr = s.end_date ? new Date(s.end_date).toLocaleDateString('nb-NO', { dateStyle: 'short' }) : '—'
+                return (
+                  <tr key={s.id} className="cursor-pointer transition-colors hover:bg-neutral-50/70" onClick={() => onOpen(s.id)}>
+                    <td className="px-5 py-3">
+                      <div className="font-medium text-neutral-900">{s.title}</div>
+                      <div className="text-[11px] text-neutral-500">{s.survey_type}</div>
+                    </td>
+                    <td className="px-5 py-3">
+                      {rate != null ? (
+                        <div className="flex items-center gap-2">
+                          <ResponseRing value={rate} size={32} strokeWidth={3} />
+                          <span className="text-xs font-semibold tabular-nums text-neutral-900">{Math.round(rate * 100)}%</span>
+                        </div>
+                      ) : <span className="text-neutral-400">—</span>}
+                    </td>
+                    <td className="px-5 py-3 tabular-nums text-neutral-700">{s.response_count} / {s.invitation_count}</td>
+                    <td className="px-5 py-3 tabular-nums text-neutral-700">{dueStr}</td>
+                    <td className="px-5 py-3 text-right text-neutral-300">›</td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  )
+}
+
 // ─── Props ────────────────────────────────────────────────────────────────────
 
 type Props = {
@@ -601,7 +712,7 @@ export function SurveyHubRecordsShell({
   onNewSurvey,
   onNavigate,
 }: Props) {
-  const [activeTab, setActiveTab] = useState<'surveys' | 'maler'>('surveys')
+  const [activeTab, setActiveTab] = useState<'surveys' | 'maler' | 'resultater'>('surveys')
   const [view, setView]           = useState<ViewMode>('tabell')
   const [activeCategory, setActiveCategory] = useState<string>('all')
   const [search, setSearch]       = useState('')
@@ -625,7 +736,9 @@ export function SurveyHubRecordsShell({
         surveyType:    s.survey_type,
         due:           dueRaw ? dueRaw.toLocaleDateString('nb-NO', { dateStyle: 'short' }) : '—',
         dueRaw,
-        responseCount: s.response_count,
+        responseCount:   s.response_count,
+        invitationCount: s.invitation_count,
+        isAnonymous:     s.is_anonymous,
       }
     }),
   [surveys])
@@ -686,6 +799,14 @@ export function SurveyHubRecordsShell({
     return counts
   }, [mappedSurveys, tplIdsByCategory, surveyCategorySet, templates])
 
+  // Status sidebar stats (all surveys, not filtered)
+  const activeCount = surveys.filter((s) => s.status === 'active').length
+  const draftCount  = surveys.filter((s) => s.status === 'draft').length
+  const totalInv    = surveys.reduce((acc, s) => acc + s.invitation_count, 0)
+  const totalResp   = surveys.reduce((acc, s) => acc + s.response_count, 0)
+  const avgRatePct  = totalInv > 0 ? Math.round((totalResp / totalInv) * 100) : 0
+  const hasPsychosocial = surveys.some((s) => s.survey_type === 'internal' && s.status === 'active')
+
   // Filtered surveys
   const displayedSurveys = useMemo(() => {
     let result = mappedSurveys
@@ -735,7 +856,7 @@ export function SurveyHubRecordsShell({
           <div className="flex gap-1.5 overflow-x-auto px-3 py-2.5 lg:hidden">
             {categoryItems.map(({ id, label, Icon }) => {
               const isActive = id === activeCategory
-              const count    = categoryCounts[id]?.[activeTab === 'surveys' ? 'surveys' : 'maler'] ?? 0
+              const count    = categoryCounts[id]?.[activeTab === 'maler' ? 'maler' : 'surveys'] ?? 0
               return (
                 <button
                   key={id}
@@ -763,7 +884,7 @@ export function SurveyHubRecordsShell({
           <ul className="hidden py-1.5 lg:block">
             {categoryItems.map(({ id, label, Icon }) => {
               const isActive = id === activeCategory
-              const count    = categoryCounts[id]?.[activeTab === 'surveys' ? 'surveys' : 'maler'] ?? 0
+              const count    = categoryCounts[id]?.[activeTab === 'maler' ? 'maler' : 'surveys'] ?? 0
               return (
                 <li key={id}>
                   <button
@@ -799,6 +920,54 @@ export function SurveyHubRecordsShell({
             })}
           </ul>
         </div>
+
+        {/* Status nå */}
+        <div className="hidden rounded-xl border border-neutral-200/80 bg-white p-4 lg:block" style={{ boxShadow: '0 1px 2px rgba(0,0,0,0.04)' }}>
+          <p className="text-xs font-bold uppercase tracking-wider text-neutral-500">Status nå</p>
+          <ul className="mt-2 space-y-1.5 text-xs">
+            <li className="flex items-center justify-between">
+              <span className="inline-flex items-center gap-2 text-neutral-700">
+                <span className="relative flex h-2 w-2">
+                  <span className="absolute inset-0 animate-ping rounded-full bg-green-500 opacity-60" />
+                  <span className="relative h-2 w-2 rounded-full bg-green-600" />
+                </span>
+                Aktive
+              </span>
+              <span className="tabular-nums font-semibold text-neutral-900">{activeCount}</span>
+            </li>
+            <li className="flex items-center justify-between">
+              <span className="inline-flex items-center gap-2 text-neutral-700">
+                <span className="h-2 w-2 rounded-full bg-neutral-400" />
+                Kladder
+              </span>
+              <span className="tabular-nums font-semibold text-neutral-900">{draftCount}</span>
+            </li>
+          </ul>
+          {totalInv > 0 && (
+            <div className="mt-3 border-t border-neutral-100 pt-3">
+              <div className="flex items-baseline justify-between">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-neutral-500">Snitt svar</span>
+                <span className="text-base font-bold tabular-nums text-[#1a3d32]">{avgRatePct}%</span>
+              </div>
+              <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-neutral-200">
+                <div className="h-1.5 rounded-full bg-[#1a3d32] transition-[width]" style={{ width: `${avgRatePct}%` }} />
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Legal nudge */}
+        {hasPsychosocial && (
+          <div className="hidden rounded-xl border border-amber-200 bg-amber-50/70 p-3 lg:block text-[11px] text-amber-900">
+            <div className="flex items-start gap-2">
+              <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-amber-700" aria-hidden />
+              <div>
+                <div className="font-semibold">Lovpålagt: psykososialt arbeidsmiljø</div>
+                <div className="mt-0.5 text-amber-800">Kvartalsvis kartlegging kreves — AML § 4-3.</div>
+              </div>
+            </div>
+          </div>
+        )}
       </aside>
 
       {/* ── RIGHT: Content card ── */}
@@ -812,8 +981,9 @@ export function SurveyHubRecordsShell({
             {/* Tabs */}
             <nav className="flex items-center gap-1" aria-label="Faner">
               {([
-                { id: 'surveys', label: 'Undersøkelser', Icon: ClipboardList,  count: categoryCounts[activeCategory]?.surveys ?? 0 },
-                { id: 'maler',   label: 'Maler',          Icon: ClipboardCheck, count: categoryCounts[activeCategory]?.maler   ?? 0 },
+                { id: 'surveys',   label: 'Undersøkelser', Icon: ClipboardList,  count: categoryCounts[activeCategory]?.surveys ?? 0 },
+                { id: 'maler',     label: 'Maler',          Icon: ClipboardCheck, count: categoryCounts[activeCategory]?.maler   ?? 0 },
+                { id: 'resultater', label: 'Resultater',    Icon: BarChart3,      count: surveys.filter((s) => s.response_count > 0).length },
               ] as const).map(({ id, label, Icon, count }) => {
                 const active = activeTab === id
                 return (
@@ -871,6 +1041,8 @@ export function SurveyHubRecordsShell({
                 {view === 'tidslinje' && <EntriesTimeline entries={displayedSurveys} onOpen={(id) => onNavigate(`/survey/${id}`)} />}
                 {view === 'tavle'     && <EntriesKanban   entries={displayedSurveys} onOpen={(id) => onNavigate(`/survey/${id}`)} />}
               </>
+            ) : activeTab === 'resultater' ? (
+              <ResultaterTab surveys={surveys} onOpen={(id) => onNavigate(`/survey/${id}`)} />
             ) : (
               <>
                 {view === 'bokser' ? (
