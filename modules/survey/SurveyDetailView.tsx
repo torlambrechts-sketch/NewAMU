@@ -9,7 +9,6 @@ import {
 } from '../../src/components/layout/WorkplaceStandardFormPanel'
 import { SlidePanel } from '../../src/components/layout/SlidePanel'
 import {
-  ModuleLegalBanner,
   ModulePageShell,
   ModulePageEmpty,
   ModuleSectionCard,
@@ -36,7 +35,6 @@ import { defaultQuestionPayload } from './surveyQuestionDefaults'
 import { SurveyAmuTab } from './tabs/SurveyAmuTab'
 import { SurveyDistribusjonTab } from './tabs/SurveyDistribusjonTab'
 import { SurveyTiltakTab } from './tabs/SurveyTiltakTab'
-import { SURVEY_DETAIL_EXTRA_LEGAL_REFERENCES, SURVEY_MODULE_LEGAL_REFERENCES } from './surveyLegalReferences'
 import { orgQuestionToCatalogQuestion } from './surveyTemplateCatalogHelpers'
 import { suggestionsForSurveyPurpose, type PurposeSuggestion } from './surveyPurposeSuggestions'
 import { SurveyAnalyseTab } from './SurveyAnalyseTab'
@@ -85,20 +83,6 @@ function extraJsonFromStoredQuestionConfig(cfg: Record<string, unknown> | undefi
 
 type DetailTab = 'oversikt' | 'bygger' | 'distribusjon' | 'svar' | 'analyse' | 'amu' | 'tiltak' | 'resultater' | 'innstillinger'
 
-function surveyWorkflowSteps(params: {
-  status: SurveyRow['status']
-  responseCount: number
-}) {
-  const { status, responseCount } = params
-  const published = status === 'active' || status === 'closed' || status === 'archived'
-  return [
-    { id: 'draft', label: 'Kladd og spørsmål', done: published },
-    { id: 'pub', label: 'Publisert / åpen', done: published },
-    { id: 'resp', label: 'Mottar svar', done: responseCount > 0 },
-    { id: 'anl', label: 'Analyse', done: responseCount > 0 },
-    { id: 'closed', label: 'Lukket', done: status === 'closed' || status === 'archived' },
-  ]
-}
 
 function buildTabs(
   responseCount: number,
@@ -588,7 +572,13 @@ function OversiktTab({
         </aside>
       </div>
 
-      {/* ── Existing editing / AMU / workflow sections ────────────────────── */}
+      {/* ── Admin / workflow sections (collapsed by default per design) ─────── */}
+      <details className="group rounded-lg border border-neutral-200/80 bg-white">
+        <summary className="flex cursor-pointer list-none items-center justify-between px-4 py-3 text-sm font-medium text-neutral-700 hover:bg-neutral-50/60 [&::-webkit-details-marker]:hidden">
+          <span>Administrasjon og arbeidsflyt</span>
+          <ChevronRight className="h-4 w-4 text-neutral-400 transition-transform group-open:rotate-90" aria-hidden />
+        </summary>
+        <div className="space-y-5 border-t border-neutral-100 px-4 py-5">
       <SurveyAttestasjonCard
         s={s}
         invitations={survey.invitations}
@@ -822,6 +812,8 @@ function OversiktTab({
           </div>
         </ModuleSectionCard>
       ) : null}
+        </div>
+      </details>
     </div>
   )
 }
@@ -1501,22 +1493,6 @@ export function SurveyDetailView({ supabase }: Props) {
   const panelTitleId = 'survey-question-panel-title'
   const responsePanelTitleId = 'survey-response-read-panel-title'
 
-  const fremdriftPhase = useMemo(() => {
-    if (!s) return null
-    const steps = surveyWorkflowSteps({
-      status: s.status,
-      responseCount: survey.responses.length,
-    })
-    const doneCount = steps.filter((x) => x.done).length
-    const activeIdx = steps.findIndex((x) => !x.done)
-    const currentIdx = activeIdx === -1 ? steps.length - 1 : activeIdx
-    return { steps, doneCount, currentIdx }
-  }, [s, survey.responses.length])
-
-  const legalReferences = useMemo(
-    () => [...SURVEY_MODULE_LEGAL_REFERENCES, ...SURVEY_DETAIL_EXTRA_LEGAL_REFERENCES],
-    [],
-  )
 
   if (!surveyId) {
     return <ModulePageEmpty title="Mangler undersøkelses-ID" onBack={() => navigate('/survey')} backLabel="Tilbake til listen" />
@@ -1615,97 +1591,27 @@ export function SurveyDetailView({ supabase }: Props) {
             </div>
           </div>
 
-          {fremdriftPhase ? (
-            <div className="overflow-hidden rounded-lg border border-neutral-200/80 bg-white shadow-sm">
-              <div className="flex flex-wrap items-center justify-between gap-2 border-b border-neutral-100 px-4 py-2.5">
-                <p className="text-[10px] font-bold uppercase tracking-wide text-neutral-500">Fremdrift</p>
-                <span className="rounded-full bg-[#1a3d32] px-2 py-0.5 text-[10px] font-bold text-white">
-                  {fremdriftPhase.doneCount}/5
-                </span>
-              </div>
-              <div className="px-2 py-2.5 md:px-3">
-                <ol className="flex min-w-0 flex-nowrap items-center gap-0.5 overflow-x-auto pb-0.5 md:gap-1">
-                  {fremdriftPhase.steps.map((st, i) => {
-                    const isCurrent = i === fremdriftPhase.currentIdx && !st.done
-                    const isPast = st.done
-                    return (
-                      <li key={st.id} className="flex shrink-0 items-center">
-                        {i > 0 ? (
-                          <ChevronRight
-                            className="mx-0.5 h-3 w-3 shrink-0 text-neutral-300 md:mx-1"
-                            aria-hidden
-                          />
-                        ) : null}
-                        <div className="flex min-w-0 max-w-[7.5rem] flex-col items-center gap-1 px-0.5 sm:max-w-none sm:flex-row sm:gap-1.5 sm:px-1">
-                          <span
-                            className={[
-                              'flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[9px] font-bold leading-none md:h-6 md:w-6 md:text-[10px]',
-                              isPast
-                                ? 'bg-emerald-600 text-white'
-                                : isCurrent
-                                  ? 'border-2 border-[#1a3d32] bg-white text-[#1a3d32] ring-2 ring-[#1a3d32]/20'
-                                  : 'border border-neutral-300 bg-neutral-50 text-neutral-400',
-                            ].join(' ')}
-                            aria-hidden
-                          >
-                            {isPast ? <CheckCircle2 className="h-3 w-3 md:h-3.5 md:w-3.5" /> : i + 1}
-                          </span>
-                          <span
-                            className={[
-                              'max-w-full text-center text-[10px] leading-tight sm:text-left md:text-xs',
-                              isPast
-                                ? 'font-medium text-neutral-800'
-                                : isCurrent
-                                  ? 'font-semibold text-neutral-900'
-                                  : 'text-neutral-500',
-                            ].join(' ')}
-                          >
-                            {st.label}
-                          </span>
-                        </div>
-                      </li>
-                    )
-                  })}
-                </ol>
-              </div>
-            </div>
-          ) : null}
-
-          <ModuleLegalBanner
-            title="Regelverk for denne undersøkelsen"
-            intro={
-              <p>
-                {s.survey_type === 'external'
-                  ? 'Leverandørundersøkelsen støtter dokumentasjonskrav (åpenhetsloven, internkontroll).'
-                  : 'Ansattundersøkelsen støtter systematisk kartlegging av arbeidsmiljø (AML kap. 4) og følges opp i AMU etter behov.'}
-              </p>
-            }
-            references={legalReferences}
-          />
-
           {survey.error ? <WarningBox>{survey.error}</WarningBox> : null}
 
-          {/* Schema-driven hoveddata, visible across all tabs. The
-              template's metadata_schema declares which org-context and
-              free-form fields appear here; the existing OversiktTab
-              card keeps title/description editing for backward compat. */}
-          <SurveyMetadataPanel
-            survey={s}
-            templateMetadataSchema={
-              s.catalog_id
-                ? orgTemplates.templates.find((t) => t.catalogId === s.catalog_id)
-                    ?.metadataSchema ?? null
-                : null
-            }
-            locations={orgSetup.locations}
-            departments={orgSetup.departments}
-            teams={orgSetup.teams}
-            members={orgSetup.members}
-            hideUniversalFields
-            onSave={async (payload) => {
-              await survey.updateSurvey(s.id, payload)
-            }}
-          />
+          {tab === 'oversikt' && (
+            <SurveyMetadataPanel
+              survey={s}
+              templateMetadataSchema={
+                s.catalog_id
+                  ? orgTemplates.templates.find((t) => t.catalogId === s.catalog_id)
+                      ?.metadataSchema ?? null
+                  : null
+              }
+              locations={orgSetup.locations}
+              departments={orgSetup.departments}
+              teams={orgSetup.teams}
+              members={orgSetup.members}
+              hideUniversalFields
+              onSave={async (payload) => {
+                await survey.updateSurvey(s.id, payload)
+              }}
+            />
+          )}
 
           {tab === 'oversikt' && (
             <OversiktTab
