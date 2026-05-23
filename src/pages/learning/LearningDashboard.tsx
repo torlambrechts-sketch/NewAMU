@@ -1,33 +1,36 @@
+// LearningDashboard — Records-shell layout for the course catalogue.
+// Two-column: 260 px category rail (mobile: horizontal chips) + content card
+// with tab strip (Alle / Mine / Publisert / Utkast), search, and view
+// switcher (Bokser / Tabell). Mirrors the ChecklistsPage hub-mode pattern.
 import { useMemo, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import {
   ArrowRight,
   BookOpen,
+  ChevronRight,
   Clock,
+  Flame,
   GraduationCap,
   LayoutGrid,
-  List as ListIcon,
   RefreshCw,
+  Rows3,
   Search,
+  ShieldCheck,
 } from 'lucide-react'
 import { useLearning } from '../../hooks/useLearning'
 import { useLearningCategories } from '../../hooks/useLearningCategories'
 import { useOrgSetupContext } from '../../hooks/useOrgSetupContext'
 import { Badge } from '../../components/ui/Badge'
 import { Button } from '../../components/ui/Button'
-import { StandardInput } from '../../components/ui/Input'
 import { LayoutScoreStatRow } from '../../components/layout/LayoutScoreStatRow'
 import type { LayoutScoreStatItem } from '../../components/layout/platformLayoutKit'
-import { LayoutTable1PostingsShell } from '../../components/layout/LayoutTable1PostingsShell'
-import { MODULE_TABLE_TH, MODULE_TABLE_TR_BODY, ModuleSectionCard } from '../../components/module'
-import { BEIGE_NAV, WikiFolderNavRow } from '../../components/module/ModuleWikiFolderNavRow'
+import { MODULE_TABLE_TH, MODULE_TABLE_TR_BODY } from '../../components/module'
 import type { Course, CourseProgress } from '../../types/learning'
 
 const PIN_GREEN = '#1a3d32'
 const MINT_BG = '#e7efe9'
 
-// Shared with /learning/katalog so the user's Kort/Liste choice carries between
-// the two course-listing surfaces.
+// Shared with /learning/katalog so the user's Bokser/Tabell choice persists.
 const VIEW_MODE_KEY = 'atics-learning-courses-view-mode'
 const ALL_KEY = '__all__'
 const UNCATEGORISED_KEY = '__uncat__'
@@ -74,6 +77,14 @@ function isCourseProgressComplete(course: Course, p: CourseProgress | undefined)
   if (!p || course.modules.length === 0) return false
   if (p.completedAt) return true
   return course.modules.every((m) => p.moduleProgress[m.id]?.completed)
+}
+
+/** Pick a category icon by name heuristic. */
+function categoryIcon(name: string) {
+  const n = name.toLowerCase()
+  if (n.includes('hms') || n.includes('vern') || n.includes('sikkerhet')) return ShieldCheck
+  if (n.includes('brann') || n.includes('brann') || n.includes('fire')) return Flame
+  return GraduationCap
 }
 
 function CourseCard({
@@ -266,11 +277,12 @@ export function LearningDashboard() {
   const { courses, progress } = useLearning()
   const { profile, supabase } = useOrgSetupContext()
   const { categories } = useLearningCategories({ supabase })
+  const navigate = useNavigate()
 
   const [view, setView] = useState<ViewMode>(loadViewMode)
   const [filter, setFilter] = useState<FilterId>('alle')
   const [search, setSearch] = useState('')
-  const [selectedCategoryId, setSelectedCategoryId] = useState<string>(ALL_KEY)
+  const [activeCategory, setActiveCategory] = useState<string>(ALL_KEY)
 
   const myProgressById = useMemo<Record<string, CourseProgress>>(() => {
     const out: Record<string, CourseProgress> = {}
@@ -298,7 +310,7 @@ export function LearningDashboard() {
     return out
   }, [courses, progress])
 
-  // Tab + search → independent of the selected category sidebar.
+  // Tab + search filter — independent of sidebar category selection.
   const tabFiltered = useMemo(() => {
     return courses.filter((c) => {
       if (filter === 'mine' && !myProgressById[c.id]) return false
@@ -313,33 +325,55 @@ export function LearningDashboard() {
     })
   }, [courses, filter, search, myProgressById])
 
-  // Counts per sidebar row (Alle / per-kategori / Annet) — react to the
-  // tab + search filter so the rail mirrors what would land in the right pane.
-  const sidebarCategories = useMemo(() => {
-    const activeCats = categories.filter((c) => c.is_active)
+  // Build the sidebar category items with counts (react to tab + search).
+  const activeCats = useMemo(
+    () => categories.filter((c) => c.is_active).sort((a, b) => a.position - b.position || a.name.localeCompare(b.name, 'nb')),
+    [categories],
+  )
+
+  const categoryCounts = useMemo(() => {
     const byId = new Map<string, number>()
     let uncategorised = 0
+    const activeIdSet = new Set(activeCats.map((c) => c.id))
     for (const c of tabFiltered) {
-      if (c.categoryId && activeCats.some((cat) => cat.id === c.categoryId)) {
+      if (c.categoryId && activeIdSet.has(c.categoryId)) {
         byId.set(c.categoryId, (byId.get(c.categoryId) ?? 0) + 1)
       } else {
         uncategorised += 1
       }
     }
-    const rows = activeCats
-      .map((cat) => ({ id: cat.id, name: cat.name, position: cat.position, count: byId.get(cat.id) ?? 0 }))
-      .sort((a, b) => a.position - b.position || a.name.localeCompare(b.name, 'nb'))
-    return { rows, uncategorised, all: tabFiltered.length }
-  }, [tabFiltered, categories])
+    return { byId, uncategorised }
+  }, [tabFiltered, activeCats])
 
-  const visibleCourses = useMemo(() => {
-    if (selectedCategoryId === ALL_KEY) return tabFiltered
-    if (selectedCategoryId === UNCATEGORISED_KEY) {
-      const activeIds = new Set(categories.filter((c) => c.is_active).map((c) => c.id))
-      return tabFiltered.filter((c) => !c.categoryId || !activeIds.has(c.categoryId))
+  // Category rail items: Alle + active categories + optional Annet.
+  type RailItem = { id: string; label: string; count: number; Icon: typeof GraduationCap }
+  const railItems = useMemo<RailItem[]>(() => {
+    const items: RailItem[] = [
+      { id: ALL_KEY, label: 'Alle', count: tabFiltered.length, Icon: GraduationCap },
+    ]
+    for (const cat of activeCats) {
+      items.push({
+        id: cat.id,
+        label: cat.name,
+        count: categoryCounts.byId.get(cat.id) ?? 0,
+        Icon: categoryIcon(cat.name),
+      })
     }
-    return tabFiltered.filter((c) => c.categoryId === selectedCategoryId)
-  }, [tabFiltered, selectedCategoryId, categories])
+    if (categoryCounts.uncategorised > 0) {
+      items.push({ id: UNCATEGORISED_KEY, label: 'Annet', count: categoryCounts.uncategorised, Icon: GraduationCap })
+    }
+    return items
+  }, [tabFiltered.length, activeCats, categoryCounts])
+
+  // Final visible courses after category selection.
+  const visibleCourses = useMemo(() => {
+    if (activeCategory === ALL_KEY) return tabFiltered
+    if (activeCategory === UNCATEGORISED_KEY) {
+      const activeIdSet = new Set(activeCats.map((c) => c.id))
+      return tabFiltered.filter((c) => !c.categoryId || !activeIdSet.has(c.categoryId))
+    }
+    return tabFiltered.filter((c) => c.categoryId === activeCategory)
+  }, [tabFiltered, activeCategory, activeCats])
 
   const kpis = useMemo<LayoutScoreStatItem[]>(() => {
     const totalAssigned = Object.values(orgStatsById).reduce((s, x) => s + x.assigned, 0)
@@ -359,160 +393,254 @@ export function LearningDashboard() {
     ]
   }, [courses, orgStatsById])
 
-  const filterChips: { id: FilterId; label: string }[] = [
+  const filterTabs: { id: FilterId; label: string }[] = [
     { id: 'alle', label: 'Alle' },
     { id: 'mine', label: 'Mine kurs' },
     { id: 'publisert', label: 'Publisert' },
     { id: 'utkast', label: 'Utkast' },
   ]
 
-  const headerActions = (
-    <div className="inline-flex rounded-md border border-neutral-200 bg-white p-0.5" role="radiogroup" aria-label="Visningstype">
-      <Button
-        variant="ghost"
-        onClick={() => {
-          setView('grid')
-          saveViewMode('grid')
-        }}
-        role="radio"
-        aria-checked={view === 'grid'}
-        className={`inline-flex items-center gap-1 rounded px-2.5 py-1 text-xs font-medium transition-colors ${
-          view === 'grid' ? 'bg-neutral-100 text-neutral-900' : 'text-neutral-500 hover:text-neutral-800'
-        }`}
-      >
-        <LayoutGrid className="h-3.5 w-3.5" />
-        Kort
-      </Button>
-      <Button
-        variant="ghost"
-        onClick={() => {
-          setView('list')
-          saveViewMode('list')
-        }}
-        role="radio"
-        aria-checked={view === 'list'}
-        className={`inline-flex items-center gap-1 rounded px-2.5 py-1 text-xs font-medium transition-colors ${
-          view === 'list' ? 'bg-neutral-100 text-neutral-900' : 'text-neutral-500 hover:text-neutral-800'
-        }`}
-      >
-        <ListIcon className="h-3.5 w-3.5" />
-        Liste
-      </Button>
-    </div>
-  )
-
-  const toolbar = (
-    <>
-      <div className="relative max-w-sm flex-1">
-        <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-neutral-400" />
-        <StandardInput
-          placeholder="Søk i tittel, tagger eller beskrivelse"
-          className="pl-9"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          aria-label="Søk i kurs"
-        />
-      </div>
-      <div className="flex flex-wrap items-center gap-1" role="radiogroup" aria-label="Kursfilter">
-        {filterChips.map((f) => {
-          const active = filter === f.id
-          return (
-            <Button
-              key={f.id}
-              variant="ghost"
-              onClick={() => setFilter(f.id)}
-              role="radio"
-              aria-checked={active}
-              className={`rounded-md px-2.5 py-1 text-xs font-medium transition-colors ${
-                active
-                  ? 'bg-[#1a3d32] text-white hover:bg-[#1a3d32]'
-                  : 'text-neutral-600 hover:bg-neutral-100 hover:text-neutral-900'
-              }`}
-            >
-              {f.label}
-            </Button>
-          )
-        })}
-      </div>
-    </>
-  )
-
   return (
     <div className="space-y-6">
       <LayoutScoreStatRow items={kpis} />
 
-      <ModuleSectionCard className="!p-0">
-        <LayoutTable1PostingsShell
-          wrap={false}
-          titleTypography="sans"
-          title="Kurskatalog"
-          description="Velg et kurs for å se moduler, deltakere og lovgrunnlag."
-          headerActions={headerActions}
-          toolbar={toolbar}
-          footer={
-            <span>
+      {/* Records-shell: two-column layout */}
+      <div className="grid grid-cols-1 gap-5 lg:grid-cols-[260px_minmax(0,1fr)]">
+
+        {/* ── LEFT: Category rail ── */}
+        <aside className="space-y-3">
+          <div
+            className="rounded-xl border border-neutral-200/80 bg-white"
+            style={{ boxShadow: '0 1px 2px rgba(0,0,0,0.04)' }}
+          >
+            {/* Desktop header */}
+            <div className="hidden border-b border-neutral-100 px-4 py-3 lg:block">
+              <h2 className="text-xs font-bold uppercase tracking-wider text-neutral-500">Kategorier</h2>
+            </div>
+
+            {/* Mobile: horizontal chip scroll */}
+            <div className="flex gap-1.5 overflow-x-auto px-3 py-2.5 lg:hidden">
+              {railItems.map(({ id, label, Icon, count }) => {
+                const isActive = id === activeCategory
+                return (
+                  <button
+                    key={id}
+                    type="button"
+                    onClick={() => setActiveCategory(id)}
+                    className={[
+                      'inline-flex shrink-0 items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold transition-colors',
+                      isActive ? 'bg-[#1a3d32] text-white' : 'bg-neutral-100 text-neutral-700 hover:bg-neutral-200',
+                    ].join(' ')}
+                  >
+                    <Icon className="h-3 w-3" aria-hidden />
+                    <span>{label}</span>
+                    <span className={[
+                      'rounded-full px-1 py-0 text-[10px] tabular-nums',
+                      isActive ? 'bg-white/20 text-white' : 'text-neutral-500',
+                    ].join(' ')}>
+                      {count}
+                    </span>
+                  </button>
+                )
+              })}
+            </div>
+
+            {/* Desktop: vertical list */}
+            <ul className="hidden py-1.5 lg:block">
+              {railItems.map(({ id, label, Icon, count }) => {
+                const isActive = id === activeCategory
+                return (
+                  <li key={id}>
+                    <button
+                      type="button"
+                      onClick={() => setActiveCategory(id)}
+                      className={[
+                        'flex w-full items-center gap-2.5 px-4 py-2 text-left text-sm transition-colors',
+                        isActive ? 'bg-[#e7efe9] text-neutral-900' : 'text-neutral-700 hover:bg-neutral-50',
+                      ].join(' ')}
+                      style={isActive ? { boxShadow: 'inset 3px 0 0 #1a3d32' } : undefined}
+                    >
+                      <Icon
+                        className={['h-3.5 w-3.5 shrink-0', isActive ? 'text-[#1a3d32]' : 'text-neutral-500'].join(' ')}
+                        aria-hidden
+                      />
+                      <span className={['min-w-0 flex-1 truncate', isActive ? 'font-semibold' : 'font-medium'].join(' ')}>
+                        {label}
+                      </span>
+                      <span className={[
+                        'rounded-full px-1.5 py-0.5 text-[10px] font-semibold tabular-nums',
+                        isActive ? 'bg-white text-[#14312a]' : 'bg-neutral-100 text-neutral-500',
+                      ].join(' ')}>
+                        {count}
+                      </span>
+                    </button>
+                  </li>
+                )
+              })}
+            </ul>
+          </div>
+        </aside>
+
+        {/* ── RIGHT: Content card ── */}
+        <section className="space-y-3">
+          <div
+            className="rounded-xl border border-neutral-200/80 bg-white"
+            style={{ boxShadow: '0 1px 2px rgba(0,0,0,0.04)' }}
+          >
+            {/* Header strip: tabs + search + view switcher */}
+            <div className="flex flex-col gap-2 border-b border-neutral-100 px-4 py-2.5 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
+              {/* Tab strip */}
+              <nav className="flex items-center gap-1" aria-label="Kursfilter">
+                {filterTabs.map(({ id, label }) => {
+                  const active = filter === id
+                  return (
+                    <button
+                      key={id}
+                      type="button"
+                      onClick={() => setFilter(id)}
+                      aria-current={active ? 'page' : undefined}
+                      className={[
+                        'rounded-md px-3 py-2 text-sm font-medium transition-colors',
+                        active
+                          ? 'bg-[#1a3d32] text-white'
+                          : 'text-neutral-600 hover:bg-neutral-100 hover:text-neutral-900',
+                      ].join(' ')}
+                    >
+                      {label}
+                    </button>
+                  )
+                })}
+              </nav>
+
+              {/* Search + view switcher */}
+              <div className="flex items-center gap-2">
+                <div className="relative flex-1 sm:flex-none">
+                  <Search
+                    className="pointer-events-none absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-neutral-400"
+                    aria-hidden
+                  />
+                  <input
+                    type="search"
+                    placeholder="Søk i tittel, tagger…"
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                    aria-label="Søk i kurs"
+                    className="w-full rounded-md border border-neutral-200 bg-neutral-50 py-1.5 pl-7 pr-2 text-xs outline-none focus:border-[#1a3d32] focus:bg-white sm:w-52"
+                  />
+                </div>
+
+                {/* View switcher: Bokser | Tabell */}
+                <div
+                  className="inline-flex items-center rounded-md border border-neutral-200 bg-neutral-50 p-0.5"
+                  role="radiogroup"
+                  aria-label="Visningstype"
+                >
+                  <button
+                    type="button"
+                    role="radio"
+                    aria-checked={view === 'grid'}
+                    onClick={() => { setView('grid'); saveViewMode('grid') }}
+                    title="Bokser"
+                    className={[
+                      'inline-flex items-center gap-1.5 rounded px-2.5 py-1.5 text-xs font-medium transition-colors',
+                      view === 'grid' ? 'bg-white text-neutral-900 shadow-sm' : 'text-neutral-500 hover:text-neutral-800',
+                    ].join(' ')}
+                  >
+                    <LayoutGrid className="h-3.5 w-3.5" aria-hidden />
+                    <span className="hidden sm:inline">Bokser</span>
+                  </button>
+                  <button
+                    type="button"
+                    role="radio"
+                    aria-checked={view === 'list'}
+                    onClick={() => { setView('list'); saveViewMode('list') }}
+                    title="Tabell"
+                    className={[
+                      'inline-flex items-center gap-1.5 rounded px-2.5 py-1.5 text-xs font-medium transition-colors',
+                      view === 'list' ? 'bg-white text-neutral-900 shadow-sm' : 'text-neutral-500 hover:text-neutral-800',
+                    ].join(' ')}
+                  >
+                    <Rows3 className="h-3.5 w-3.5" aria-hidden />
+                    <span className="hidden sm:inline">Tabell</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* Content area */}
+            {view === 'grid' ? (
+              /* Bokser view */
+              <div className="grid grid-cols-1 gap-4 p-4 sm:grid-cols-2 md:p-6 xl:grid-cols-3">
+                {visibleCourses.map((c) => (
+                  <CourseCard
+                    key={c.id}
+                    course={c}
+                    myProgress={myProgressById[c.id]}
+                    orgStats={orgStatsById[c.id]}
+                  />
+                ))}
+                {visibleCourses.length === 0 ? (
+                  <div className="col-span-full py-12 text-center text-sm text-neutral-500">
+                    Ingen kurs samsvarer med filtrene.
+                  </div>
+                ) : null}
+              </div>
+            ) : visibleCourses.length === 0 ? (
+              <div className="px-5 py-12 text-center text-sm text-neutral-500">
+                Ingen kurs samsvarer med filtrene.
+              </div>
+            ) : (
+              /* Tabell view */
+              <>
+                {/* Mobile compact list (sm:hidden) */}
+                <ul className="divide-y divide-neutral-100 sm:hidden">
+                  {visibleCourses.map((c) => {
+                    const totalMin = courseDurationMinutes(c)
+                    const status = statusBadgeFor(c.status)
+                    return (
+                      <li key={c.id}>
+                        <button
+                          type="button"
+                          onClick={() => navigate(`/learning/courses/${c.id}`)}
+                          className="flex w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-neutral-50"
+                        >
+                          <div
+                            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg"
+                            style={{ background: MINT_BG, color: PIN_GREEN }}
+                          >
+                            <GraduationCap className="h-4 w-4" />
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <div className="truncate text-sm font-medium text-neutral-900">{c.title}</div>
+                            <div className="mt-0.5 flex items-center gap-2 text-xs text-neutral-500">
+                              <span>{c.modules.length} {c.modules.length === 1 ? 'modul' : 'moduler'}</span>
+                              {totalMin > 0 ? <span>· ~{totalMin} min</span> : null}
+                            </div>
+                          </div>
+                          <div className="flex shrink-0 items-center gap-2">
+                            <Badge variant={status.variant}>{status.label}</Badge>
+                            <ChevronRight className="h-4 w-4 text-neutral-400" aria-hidden />
+                          </div>
+                        </button>
+                      </li>
+                    )
+                  })}
+                </ul>
+
+                {/* Desktop table (hidden sm:block) */}
+                <div className="hidden overflow-x-auto sm:block">
+                  <CatalogTable courses={visibleCourses} orgStatsById={orgStatsById} />
+                </div>
+              </>
+            )}
+
+            {/* Footer */}
+            <div className="border-t border-neutral-100 px-4 py-2.5 text-xs text-neutral-500">
               Viser {visibleCourses.length} av {courses.length} kurs
-            </span>
-          }
-        >
-          <div className="grid grid-cols-1 gap-0 overflow-hidden lg:grid-cols-[minmax(200px,22%)_1fr]">
-            <aside
-              className="border-b border-neutral-200 p-2 lg:border-b-0 lg:border-r lg:border-neutral-200/80"
-              style={{ backgroundColor: BEIGE_NAV }}
-            >
-              <WikiFolderNavRow
-                label="Alle kategorier"
-                sub={`${sidebarCategories.all} kurs`}
-                active={selectedCategoryId === ALL_KEY}
-                onSelect={() => setSelectedCategoryId(ALL_KEY)}
-              />
-              {sidebarCategories.rows.map((cat) => (
-                <WikiFolderNavRow
-                  key={cat.id}
-                  label={cat.name}
-                  sub={`${cat.count} kurs`}
-                  active={selectedCategoryId === cat.id}
-                  onSelect={() => setSelectedCategoryId(cat.id)}
-                />
-              ))}
-              {sidebarCategories.uncategorised > 0 ? (
-                <WikiFolderNavRow
-                  label="Annet"
-                  sub={`${sidebarCategories.uncategorised} kurs`}
-                  active={selectedCategoryId === UNCATEGORISED_KEY}
-                  onSelect={() => setSelectedCategoryId(UNCATEGORISED_KEY)}
-                />
-              ) : null}
-            </aside>
-            <div className="min-w-0 bg-white">
-              {view === 'grid' ? (
-                <div className="grid grid-cols-1 gap-4 p-4 md:p-6 sm:grid-cols-2 xl:grid-cols-3">
-                  {visibleCourses.map((c) => (
-                    <CourseCard
-                      key={c.id}
-                      course={c}
-                      myProgress={myProgressById[c.id]}
-                      orgStats={orgStatsById[c.id]}
-                    />
-                  ))}
-                  {visibleCourses.length === 0 ? (
-                    <div className="col-span-full py-12 text-center text-sm text-neutral-500">
-                      Ingen kurs samsvarer med filtrene.
-                    </div>
-                  ) : null}
-                </div>
-              ) : visibleCourses.length === 0 ? (
-                <div className="px-5 py-12 text-center text-sm text-neutral-500">
-                  Ingen kurs samsvarer med filtrene.
-                </div>
-              ) : (
-                <CatalogTable courses={visibleCourses} orgStatsById={orgStatsById} />
-              )}
             </div>
           </div>
-        </LayoutTable1PostingsShell>
-      </ModuleSectionCard>
-
+        </section>
+      </div>
     </div>
   )
 }
