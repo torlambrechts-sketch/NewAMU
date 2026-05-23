@@ -16,6 +16,7 @@ import {
   Minus,
   Plus,
   Save,
+  Search,
   Send,
   ShieldCheck,
 } from 'lucide-react'
@@ -34,6 +35,7 @@ import { PhotoItemControl } from './components/PhotoItemControl'
 import { ExecutionCommentThread } from './components/ExecutionCommentThread'
 import type {
   ChecklistItem,
+  ComplianceAssignableUser,
   ComplianceExecutionRow,
   ComplianceResponseRow,
   ComplianceSeverity,
@@ -261,7 +263,7 @@ export function ChecklistExecutionPage() {
             </>
           ) : (
             <>
-              <Button variant="secondary" icon={<Save className="h-4 w-4" />}>
+              <Button variant="secondary" icon={<Save className="h-4 w-4" />} onClick={() => navigate(templateBackUrl)}>
                 Lagre kladd
               </Button>
               <Button
@@ -519,12 +521,20 @@ export function ChecklistExecutionPage() {
             </dl>
           </div>
 
-          {/* Deltakere */}
+          {/* Deltakere — org members + free-text attendees */}
           <DeltakereCard
+            memberIds={execution.participant_member_ids}
             attendees={execution.attendees}
+            assignableUsers={cl.assignableUsers}
             readOnly={readOnly}
-            onAdd={(name) => void updateExecutionMetadata({ executionId, attendees: [...execution.attendees, name] })}
-            onRemove={(name) => void updateExecutionMetadata({ executionId, attendees: execution.attendees.filter((a) => a !== name) })}
+            onToggleMember={(memberId, add) => {
+              const next = add
+                ? [...execution.participant_member_ids, memberId]
+                : execution.participant_member_ids.filter((id) => id !== memberId)
+              void updateExecutionMetadata({ executionId, participantMemberIds: next })
+            }}
+            onAddAttendee={(name) => void updateExecutionMetadata({ executionId, attendees: [...execution.attendees, name] })}
+            onRemoveAttendee={(name) => void updateExecutionMetadata({ executionId, attendees: execution.attendees.filter((a) => a !== name) })}
           />
 
           {/* Lovverk */}
@@ -731,39 +741,57 @@ function SectionItemRow({
 }
 
 // ── Deltakere card ────────────────────────────────────────────────────────────
+// Two tiers: org members (tracked, with IDs) + free-text attendees (external).
+// Org members come from cl.assignableUsers; toggling saves participantMemberIds.
+// Free-text is for external people not in the org (e.g. external auditors).
 
 function DeltakereCard({
+  memberIds,
   attendees,
+  assignableUsers,
   readOnly,
-  onAdd,
-  onRemove,
+  onToggleMember,
+  onAddAttendee,
+  onRemoveAttendee,
 }: {
+  memberIds: string[]
   attendees: string[]
+  assignableUsers: ComplianceAssignableUser[]
   readOnly: boolean
-  onAdd: (name: string) => void
-  onRemove: (name: string) => void
+  onToggleMember: (memberId: string, add: boolean) => void
+  onAddAttendee: (name: string) => void
+  onRemoveAttendee: (name: string) => void
 }) {
-  const [adding, setAdding] = useState(false)
-  const [draft, setDraft] = useState('')
+  const [memberSearch, setMemberSearch] = useState('')
+  const [showMemberPicker, setShowMemberPicker] = useState(false)
+  const [attendeeDraft, setAttendeeDraft] = useState('')
 
-  const commit = () => {
-    const name = draft.trim()
-    if (name && !attendees.includes(name)) onAdd(name)
-    setDraft('')
-    setAdding(false)
+  const selectedMembers = assignableUsers.filter((u) => memberIds.includes(u.id))
+  const filteredMembers = assignableUsers.filter(
+    (u) => !memberIds.includes(u.id) &&
+      u.displayName.toLowerCase().includes(memberSearch.toLowerCase()),
+  )
+
+  const commitAttendee = () => {
+    const name = attendeeDraft.trim()
+    if (name && !attendees.includes(name)) onAddAttendee(name)
+    setAttendeeDraft('')
   }
 
   return (
     <div className="rounded-xl border border-neutral-200/80 bg-white p-4" style={{ boxShadow: '0 1px 2px rgba(0,0,0,0.04)' }}>
       <h3 className="text-sm font-semibold text-neutral-900">Deltakere</h3>
+
+      {/* Org members */}
       <ul className="mt-2 space-y-1.5">
-        {attendees.map((name, i) => (
-          <li key={i} className="flex items-center gap-2 text-xs">
-            <Initials name={name} size={22} />
-            <span className="flex-1 truncate font-medium text-neutral-900">{name}</span>
+        {selectedMembers.map((u) => (
+          <li key={u.id} className="flex items-center gap-2 text-xs">
+            <Initials name={u.displayName} size={22} />
+            <span className="flex-1 truncate font-medium text-neutral-900">{u.displayName}</span>
             {!readOnly && (
               <button
-                onClick={() => onRemove(name)}
+                type="button"
+                onClick={() => onToggleMember(u.id, false)}
                 className="text-neutral-300 hover:text-red-500"
                 title="Fjern"
               >
@@ -772,32 +800,105 @@ function DeltakereCard({
             )}
           </li>
         ))}
-
-        {!readOnly && (
-          adding ? (
-            <li className="flex items-center gap-1.5">
-              <StandardInput
-                autoFocus
-                value={draft}
-                onChange={(e) => setDraft(e.target.value)}
-                onKeyDown={(e) => { if (e.key === 'Enter') commit(); if (e.key === 'Escape') { setAdding(false); setDraft('') } }}
-                placeholder="Navn …"
-                className="h-7 text-xs"
-              />
-              <button onClick={commit} className="text-xs font-semibold text-[#1a3d32] hover:underline">Legg til</button>
-            </li>
-          ) : (
-            <li>
+        {/* Free-text external attendees */}
+        {attendees.map((name, i) => (
+          <li key={`ext-${i}`} className="flex items-center gap-2 text-xs">
+            <Initials name={name} size={22} />
+            <div className="flex-1 min-w-0">
+              <span className="block truncate font-medium text-neutral-900">{name}</span>
+              <span className="text-[10px] text-neutral-400">Ekstern</span>
+            </div>
+            {!readOnly && (
               <button
-                onClick={() => setAdding(true)}
-                className="flex w-full items-center gap-2 rounded-md border border-dashed border-neutral-300 px-2 py-1.5 text-[11px] font-semibold text-neutral-500 hover:border-[#1a3d32] hover:text-[#1a3d32]"
+                type="button"
+                onClick={() => onRemoveAttendee(name)}
+                className="text-neutral-300 hover:text-red-500"
+                title="Fjern"
               >
-                <Plus className="h-3 w-3" /> Legg til deltaker
+                <Minus className="h-3 w-3" />
               </button>
-            </li>
-          )
-        )}
+            )}
+          </li>
+        ))}
       </ul>
+
+      {/* Member picker (org employees) */}
+      {!readOnly && assignableUsers.length > 0 && (
+        <div className="mt-2">
+          {showMemberPicker ? (
+            <div className="rounded-md border border-neutral-200 bg-white">
+              <div className="flex items-center gap-1.5 border-b border-neutral-100 px-2 py-1.5">
+                <Search className="h-3 w-3 shrink-0 text-neutral-400" aria-hidden />
+                <input
+                  autoFocus
+                  type="search"
+                  value={memberSearch}
+                  onChange={(e) => setMemberSearch(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Escape' && setShowMemberPicker(false)}
+                  placeholder="Søk ansatt …"
+                  className="flex-1 text-xs outline-none bg-transparent placeholder:text-neutral-400"
+                />
+              </div>
+              <ul className="max-h-40 overflow-y-auto py-1">
+                {filteredMembers.length === 0 ? (
+                  <li className="px-3 py-2 text-[11px] text-neutral-400">Ingen treff</li>
+                ) : filteredMembers.map((u) => (
+                  <li key={u.id}>
+                    <button
+                      type="button"
+                      onClick={() => { onToggleMember(u.id, true); setMemberSearch('') }}
+                      className="flex w-full items-center gap-2 px-3 py-1.5 text-xs hover:bg-[#e7efe9] hover:text-[#1a3d32]"
+                    >
+                      <Initials name={u.displayName} size={18} />
+                      <span className="truncate">{u.displayName}</span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+              <div className="border-t border-neutral-100 px-3 py-1.5">
+                <button
+                  type="button"
+                  onClick={() => { setShowMemberPicker(false); setMemberSearch('') }}
+                  className="text-[11px] text-neutral-500 hover:text-neutral-800"
+                >
+                  Lukk ›
+                </button>
+              </div>
+            </div>
+          ) : (
+            <button
+              type="button"
+              onClick={() => setShowMemberPicker(true)}
+              className="flex w-full items-center gap-2 rounded-md border border-dashed border-neutral-300 px-2 py-1.5 text-[11px] font-semibold text-neutral-500 hover:border-[#1a3d32] hover:text-[#1a3d32]"
+            >
+              <Plus className="h-3 w-3" /> Legg til ansatt
+            </button>
+          )}
+        </div>
+      )}
+
+      {/* External / free-text attendees */}
+      {!readOnly && (
+        <div className="mt-2">
+          <div className="flex items-center gap-1.5">
+            <StandardInput
+              value={attendeeDraft}
+              onChange={(e) => setAttendeeDraft(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter') commitAttendee(); if (e.key === 'Escape') setAttendeeDraft('') }}
+              placeholder="Ekstern deltaker (navn) …"
+              className="h-7 flex-1 text-xs"
+            />
+            <button
+              type="button"
+              disabled={!attendeeDraft.trim()}
+              onClick={commitAttendee}
+              className="rounded-md bg-neutral-100 px-2 py-1 text-[11px] font-semibold text-neutral-700 hover:bg-neutral-200 disabled:opacity-40"
+            >
+              Legg til
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

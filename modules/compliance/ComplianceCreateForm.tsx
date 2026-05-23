@@ -29,6 +29,8 @@ type Props = {
   onClose: () => void
   templates: ComplianceTemplateRow[]
   assignableUsers: ComplianceAssignableUser[]
+  /** Pre-select this template when the form opens (e.g. from a template's Start button). */
+  initialTemplateId?: string
   onCreate: (payload: CreatePayload) => Promise<void>
 }
 
@@ -44,24 +46,29 @@ export function ComplianceCreateForm({
   onClose,
   templates,
   assignableUsers,
+  initialTemplateId,
   onCreate,
 }: Props) {
   const [form, setForm] = useState(EMPTY_FORM)
   const [submitting, setSubmitting] = useState(false)
 
-  // Default the form to the first template + its name when the panel opens
-  // or the available templates change underneath.
+  // When the panel opens, prefer initialTemplateId, then the previously
+  // selected template, then the first template in the list.
   useEffect(() => {
     if (!open) return
     if (templates.length === 0) return
     setForm((prev) => {
+      const pinned = initialTemplateId && templates.find((t) => t.id === initialTemplateId)
+      if (pinned) {
+        return { ...prev, templateId: pinned.id, title: pinned.name }
+      }
       if (prev.templateId && templates.some((t) => t.id === prev.templateId)) {
         return prev
       }
       const first = templates[0]
       return { ...prev, templateId: first.id, title: prev.title || first.name }
     })
-  }, [open, templates])
+  }, [open, templates, initialTemplateId])
 
   const templateOptions = templates.map((t) => ({ value: t.id, label: t.name }))
   const userOptions = [

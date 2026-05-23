@@ -532,9 +532,11 @@ function EntriesKanban({
 function MalerTable({
   templates,
   easy,
+  onStart,
 }: {
   templates: ReturnType<typeof useChecklistModule>['templates']
   easy: boolean
+  onStart: (templateId: string) => void
 }) {
   return (
     <table className="w-full text-sm">
@@ -573,7 +575,7 @@ function MalerTable({
               {formatDate(t.updated_at)}
             </td>
             <td className="px-5 py-3 text-right">
-              <Button variant="primary" size="sm" icon={<Play className="h-3 w-3" />}>Start</Button>
+              <Button variant="primary" size="sm" icon={<Play className="h-3 w-3" />} onClick={() => onStart(t.id)}>Start</Button>
             </td>
           </tr>
         ))}
@@ -592,9 +594,11 @@ function MalerTable({
 function MalerBoxes({
   templates,
   easy,
+  onStart,
 }: {
   templates: ReturnType<typeof useChecklistModule>['templates']
   easy: boolean
+  onStart: (templateId: string) => void
 }) {
   if (templates.length === 0) {
     return (
@@ -633,7 +637,7 @@ function MalerBoxes({
           )}
           <div className="mt-auto flex items-center justify-between border-t border-neutral-100 px-4 py-2.5">
             <Link to="/compliance/checklists/admin" className="text-[11px] font-medium text-neutral-500 hover:text-neutral-800">Rediger ›</Link>
-            <Button variant="primary" size="sm" icon={<Play className="h-3 w-3" />}>Start</Button>
+            <Button variant="primary" size="sm" icon={<Play className="h-3 w-3" />} onClick={() => onStart(t.id)}>Start</Button>
           </div>
         </article>
       ))}
@@ -654,6 +658,7 @@ export function ChecklistsPage() {
   const cl = useChecklistModule({ supabase })
   const { load, reloadAggregates } = cl
   const [createOpen, setCreateOpen] = useState(false)
+  const [startTemplateId, setStartTemplateId] = useState<string | undefined>(undefined)
 
   // Hub-mode UI state
   const [activeTab, setActiveTab] = useState<'entries' | 'maler'>('entries')
@@ -886,7 +891,7 @@ export function ChecklistsPage() {
             <Button
               variant="secondary"
               icon={<ShieldCheck className="h-4 w-4" />}
-              onClick={() => navigate('/compliance/checklists/analyse')}
+              onClick={() => navigate('/compliance/checklists/etterlevelse')}
             >
               Etterlevelse
             </Button>
@@ -1041,9 +1046,17 @@ export function ChecklistsPage() {
                 ) : (
                   <>
                     {view === 'bokser' ? (
-                      <MalerBoxes templates={displayedTemplates} easy={easy} />
+                      <MalerBoxes
+                        templates={displayedTemplates}
+                        easy={easy}
+                        onStart={(id) => { setStartTemplateId(id); setCreateOpen(true) }}
+                      />
                     ) : (
-                      <MalerTable templates={displayedTemplates} easy={easy} />
+                      <MalerTable
+                        templates={displayedTemplates}
+                        easy={easy}
+                        onStart={(id) => { setStartTemplateId(id); setCreateOpen(true) }}
+                      />
                     )}
                   </>
                 )}
@@ -1054,13 +1067,15 @@ export function ChecklistsPage() {
 
         <ComplianceCreateForm
           open={createOpen}
-          onClose={() => setCreateOpen(false)}
+          onClose={() => { setCreateOpen(false); setStartTemplateId(undefined) }}
           templates={cl.templates.filter((t) => t.is_active)}
           assignableUsers={cl.assignableUsers}
+          initialTemplateId={startTemplateId}
           onCreate={async (payload) => {
             const id = await cl.createExecution(payload)
             if (id) {
               setCreateOpen(false)
+              setStartTemplateId(undefined)
               navigate(`/compliance/checklists/${id}`)
             }
           }}
