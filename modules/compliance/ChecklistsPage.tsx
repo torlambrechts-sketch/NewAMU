@@ -840,11 +840,6 @@ export function ChecklistsPage() {
   // ─── Hub mode render ────────────────────────────────────────────────────────
 
   if (mode === 'hub') {
-    const activeCount = categoryCounts[activeCategory]
-    const tabCount = activeTab === 'entries'
-      ? (activeCount?.entries ?? 0)
-      : (activeCount?.maler ?? 0)
-
     return (
       <ModulePageShell
         breadcrumb={[{ label: 'Klarert' }, { label: 'HMS' }, { label: 'Sjekklister' }]}
