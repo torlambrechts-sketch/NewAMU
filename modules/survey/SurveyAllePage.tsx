@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo } from 'react'
 import { Link } from 'react-router-dom'
-import { ArrowLeft } from 'lucide-react'
+import { ArrowLeft, ChevronRight } from 'lucide-react'
 import { ModuleAlleListPage } from '../../src/components/module/ModuleAlleListPage'
 import { Badge } from '../../src/components/ui/Badge'
 import { useOrgSetupContext } from '../../src/hooks/useOrgSetupContext'
@@ -120,6 +120,29 @@ export function SurveyAllePage() {
         return catId ? (categoryRegulationById.get(catId) ?? null) : null
       }}
       searchableText={(r) => [r.title, r.pack, r.description ?? ''].join(' ')}
+      renderMobileRow={(r) => (
+        <Link
+          to={`/survey/${r.id}`}
+          className="flex items-center gap-3 px-4 py-3 hover:bg-neutral-50 active:bg-neutral-100"
+        >
+          <div className="min-w-0 flex-1">
+            <div className="truncate text-sm font-medium text-[#7c3aed]">{r.title}</div>
+            <div className="mt-0.5 flex items-center gap-2 text-[11px] text-neutral-500">
+              <span>{r.pack}</span>
+              {r.published_at ? (
+                <>
+                  <span>·</span>
+                  <span className="tabular-nums">{new Date(r.published_at).toLocaleDateString('nb-NO')}</span>
+                </>
+              ) : null}
+            </div>
+          </div>
+          <Badge variant={STATUS_VARIANT[r.status] ?? 'neutral'}>
+            {STATUS_LABEL[r.status] ?? r.status}
+          </Badge>
+          <ChevronRight className="h-3.5 w-3.5 shrink-0 text-neutral-300" aria-hidden />
+        </Link>
+      )}
       chipFilters={[
         {
           kind: 'enum',
