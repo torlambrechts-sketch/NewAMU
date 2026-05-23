@@ -1,7 +1,8 @@
 // ChecklistsPage — three-mode landing for compliance checklists.
 //
-//   hub        no params              — neutral landing, tile grid by pack
-//                                       listing pinned (or system) templates
+//   hub        no params              — redesigned unified landing: tabs,
+//                                       KPI stats, execution table with
+//                                       search + Enkel/Avansert mode toggle
 //   pack       ?pack=<slug>           — pack lens: KPI row, banner, all
 //                                       executions for the pack
 //   template   ?template=<slug>       — single-template focus: title and
@@ -17,7 +18,19 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
-import { BarChart3, ChevronRight, Plus, Settings } from 'lucide-react'
+import {
+  Building2,
+  ChevronRight,
+  ClipboardCheck,
+  ClipboardList,
+  Filter,
+  Flame,
+  Plus,
+  Search,
+  Settings,
+  Shield,
+  Truck,
+} from 'lucide-react'
 import { ModulePageShell } from '../../src/components/module/ModulePageShell'
 import { ModuleLegalBanner } from '../../src/components/module/ModuleLegalBanner'
 import { LayoutScoreStatRow } from '../../src/components/layout/LayoutScoreStatRow'
@@ -34,13 +47,12 @@ import { useLicensedPacks } from '../../src/context/packContextValue'
 import { useOrgSetupContext } from '../../src/hooks/useOrgSetupContext'
 import { useChecklistModule } from './useChecklistModule'
 import { ComplianceCreateForm } from './ComplianceCreateForm'
-import { ChecklistsHubLanding } from './ChecklistsHubLanding'
 import type { ComplianceExecutionRow, CompliancePackSlug } from './types'
 
 const STATUS_LABEL: Record<ComplianceExecutionRow['status'], string> = {
   draft: 'Kladd',
-  active: 'Aktiv',
-  signed: 'Signert',
+  active: 'Pågår',
+  signed: 'Fullført',
 }
 
 function statusBadgeVariant(
@@ -60,6 +72,44 @@ function formatDate(input: string | null) {
   }
 }
 
+/** Pick a small icon from the execution title for visual variety in the table. */
+function RowIcon({ title }: { title: string }) {
+  const lower = title.toLowerCase()
+  let Icon = ClipboardCheck
+  let bg = 'bg-neutral-100'
+  let fg = 'text-neutral-500'
+  if (lower.includes('brann') || lower.includes('brannvern')) {
+    Icon = Flame
+    bg = 'bg-orange-50'
+    fg = 'text-orange-500'
+  } else if (lower.includes('truck') || lower.includes('løft') || lower.includes('kjøretøy')) {
+    Icon = Truck
+    bg = 'bg-blue-50'
+    fg = 'text-blue-500'
+  } else if (
+    lower.includes('bygg') ||
+    lower.includes('bygg') ||
+    lower.includes('egenkontroll')
+  ) {
+    Icon = Building2
+    bg = 'bg-teal-50'
+    fg = 'text-teal-600'
+  } else if (lower.includes('verne') || lower.includes('vernerunde')) {
+    Icon = Shield
+    bg = 'bg-green-50'
+    fg = 'text-green-600'
+  } else if (lower.includes('mal') || lower.includes('template')) {
+    Icon = ClipboardList
+    bg = 'bg-purple-50'
+    fg = 'text-purple-600'
+  }
+  return (
+    <span className={`inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${bg}`}>
+      <Icon className={`h-4 w-4 ${fg}`} aria-hidden />
+    </span>
+  )
+}
+
 export function ChecklistsPage() {
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
@@ -67,10 +117,15 @@ export function ChecklistsPage() {
   const templateSlugParam = searchParams.get('template')
 
   const licensedPacks = useLicensedPacks()
-  const { supabase } = useOrgSetupContext()
+  const { supabase, locations } = useOrgSetupContext()
   const cl = useChecklistModule({ supabase })
   const { load, reloadAggregates } = cl
   const [createOpen, setCreateOpen] = useState(false)
+
+  // Hub-mode UI state
+  const [activeTab, setActiveTab] = useState<'executions' | 'templates'>('executions')
+  const [viewMode, setViewMode] = useState<'enkel' | 'avansert'>('enkel')
+  const [search, setSearch] = useState('')
 
   // Pack mode requires an explicit ?pack= so /compliance/checklists with no
   // params falls to the neutral hub instead of defaulting to packs[0].
@@ -148,44 +203,423 @@ export function ChecklistsPage() {
     return []
   }, [cl.templates, activePack, focusedTemplate])
 
+  // --- Hub-mode computations ---
+
+  /** Location name lookup for STED column. */
+  const locationById = useMemo(() => {
+    const m = new Map<string, string>()
+    for (const loc of locations ?? []) m.set(loc.id, loc.name)
+    return m
+  }, [locations])
+
+  function getLocationDisplay(row: ComplianceExecutionRow): string {
+    if (row.location_id) return locationById.get(row.location_id) ?? '—'
+    if (row.scope_type === 'catalogue_item') return row.scope_catalogue_item_label ?? '—'
+    if (row.scope_type === 'other') return row.scope_other_label ?? '—'
+    return '—'
+  }
+
+  const activeTemplates = useMemo(
+    () => cl.templates.filter((t) => t.is_active),
+    [cl.templates],
+  )
+
+  /** Unique active category count across all packs. */
+  const typeCount = useMemo(
+    () => new Set(cl.categories.filter((c) => c.is_active).map((c) => c.id)).size,
+    [cl.categories],
+  )
+
+  const ongoingCount = useMemo(
+    () => cl.executions.filter((e) => e.status === 'active').length,
+    [cl.executions],
+  )
+
+  const completionRate = useMemo(() => {
+    const cutoff = new Date()
+    cutoff.setDate(cutoff.getDate() - 30)
+    const recent = cl.executions.filter(
+      (e) => e.scheduled_for && new Date(e.scheduled_for) >= cutoff,
+    )
+    if (!recent.length) return 0
+    return Math.round((recent.filter((e) => e.status === 'signed').length / recent.length) * 100)
+  }, [cl.executions])
+
+  /** Executions filtered by search query (title + location name). */
+  const filteredExecutions = useMemo(() => {
+    const q = search.trim().toLowerCase()
+    if (!q) return cl.executions
+    return cl.executions.filter((e) => {
+      const loc = e.location_id ? (locationById.get(e.location_id) ?? '') : ''
+      return (
+        e.title.toLowerCase().includes(q) ||
+        loc.toLowerCase().includes(q) ||
+        (e.scope_catalogue_item_label ?? '').toLowerCase().includes(q) ||
+        (e.scope_other_label ?? '').toLowerCase().includes(q)
+      )
+    })
+  }, [cl.executions, search, locationById])
+
+  // --- Hub mode render ---
   if (mode === 'hub') {
     return (
       <ModulePageShell
         breadcrumb={[{ label: 'HMS' }, { label: 'Sjekklister' }]}
         title="Sjekklister"
-        description="Velg en mal eller pakke for å starte. Maler markert i menyen vises som faste valg."
+        description="Planlegg og gjennomfør sjekklister — vernerunder, brannvern og daglig kontroll."
         headerActions={
-          <div className="flex items-center gap-2">
-            <Link
-              to="/compliance/checklists/analyse"
-              aria-label="Analyse"
-              className="inline-flex items-center gap-1.5 border border-neutral-300 bg-white px-3 py-2 text-sm font-medium text-neutral-700 transition-colors hover:bg-neutral-50"
-            >
-              <BarChart3 className="h-4 w-4" aria-hidden />
-              <span className="hidden sm:inline">Analyse</span>
-            </Link>
+          <div className="flex flex-wrap items-center gap-2">
+            {/* Enkel / Avansert mode toggle */}
+            <div className="flex items-stretch overflow-hidden rounded-lg border border-neutral-200 bg-neutral-50">
+              <button
+                type="button"
+                onClick={() => setViewMode('enkel')}
+                className={`flex items-center gap-1.5 px-3 py-2 text-sm font-medium transition-colors ${
+                  viewMode === 'enkel'
+                    ? 'bg-[#1a3d32] text-white'
+                    : 'text-neutral-600 hover:bg-neutral-100'
+                }`}
+              >
+                <Shield className="h-3.5 w-3.5" aria-hidden />
+                <span>Enkel</span>
+                {viewMode === 'enkel' && (
+                  <span className="ml-0.5 text-[11px] font-normal opacity-75">
+                    · For alle i felt
+                  </span>
+                )}
+              </button>
+              <div className="w-px bg-neutral-200" />
+              <button
+                type="button"
+                onClick={() => setViewMode('avansert')}
+                className={`flex items-center gap-1.5 px-3 py-2 text-sm font-medium transition-colors ${
+                  viewMode === 'avansert'
+                    ? 'bg-[#1a3d32] text-white'
+                    : 'text-neutral-600 hover:bg-neutral-100'
+                }`}
+              >
+                <Filter className="h-3.5 w-3.5" aria-hidden />
+                <span>Avansert</span>
+                {viewMode === 'avansert' && (
+                  <span className="ml-0.5 text-[11px] font-normal opacity-75">
+                    · HMS-ansvarlig
+                  </span>
+                )}
+              </button>
+            </div>
+
             <Link
               to="/compliance/checklists/admin"
               aria-label="Innstillinger"
-              className="inline-flex items-center gap-1.5 border border-neutral-300 bg-white px-3 py-2 text-sm font-medium text-neutral-700 transition-colors hover:bg-neutral-50"
+              className="inline-flex items-center gap-1.5 rounded-lg border border-neutral-300 bg-white px-3 py-2 text-sm font-medium text-neutral-700 transition-colors hover:bg-neutral-50"
             >
               <Settings className="h-4 w-4" aria-hidden />
-              <span className="hidden sm:inline">Innstillinger</span>
+              <span>Innstillinger</span>
             </Link>
+
+            <Button
+              variant="primary"
+              icon={<Plus className="h-4 w-4" />}
+              onClick={() => setCreateOpen(true)}
+              disabled={cl.templates.filter((t) => t.is_active).length === 0}
+            >
+              Ny sjekkliste
+            </Button>
           </div>
         }
       >
-        <div className="space-y-6">
+        <div className="space-y-5">
           {cl.error ? <WarningBox>{cl.error}</WarningBox> : null}
-          <ChecklistsHubLanding
-            packs={licensedPacks}
-            templates={cl.templates}
-            categories={cl.categories}
-            loading={cl.loading}
-            canManage={true}
-            onOpenAdmin={() => navigate('/compliance/checklists/admin')}
+
+          {/* Tabs */}
+          <div className="flex items-end gap-1 border-b border-neutral-200">
+            <button
+              type="button"
+              onClick={() => setActiveTab('executions')}
+              className={`inline-flex items-center gap-2 px-1 pb-3 pt-1 text-sm font-medium transition-colors ${
+                activeTab === 'executions'
+                  ? 'border-b-2 border-[#1a3d32] text-[#1a3d32]'
+                  : 'text-neutral-500 hover:text-neutral-700'
+              }`}
+              style={activeTab === 'executions' ? { marginBottom: '-1px' } : undefined}
+            >
+              <ClipboardCheck className="h-4 w-4" aria-hidden />
+              Gjennomføringer
+              <span
+                className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${
+                  activeTab === 'executions'
+                    ? 'bg-[#1a3d32]/10 text-[#1a3d32]'
+                    : 'bg-neutral-100 text-neutral-500'
+                }`}
+              >
+                {cl.executions.length}
+              </span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setActiveTab('templates')}
+              className={`inline-flex items-center gap-2 px-1 pb-3 pt-1 text-sm font-medium transition-colors ${
+                activeTab === 'templates'
+                  ? 'border-b-2 border-[#1a3d32] text-[#1a3d32]'
+                  : 'text-neutral-500 hover:text-neutral-700'
+              }`}
+              style={activeTab === 'templates' ? { marginBottom: '-1px' } : undefined}
+            >
+              <ClipboardList className="h-4 w-4" aria-hidden />
+              Maler
+              <span
+                className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${
+                  activeTab === 'templates'
+                    ? 'bg-[#1a3d32]/10 text-[#1a3d32]'
+                    : 'bg-neutral-100 text-neutral-500'
+                }`}
+              >
+                {activeTemplates.length}
+              </span>
+            </button>
+          </div>
+
+          {/* KPI stat row */}
+          <LayoutScoreStatRow
+            items={[
+              {
+                big: String(activeTemplates.length),
+                title: 'Aktive maler',
+                sub: typeCount > 0 ? `${typeCount} typer` : 'Alle typer',
+              },
+              {
+                big: String(ongoingCount),
+                title: 'Pågående',
+                sub: 'Denne uka',
+              },
+              {
+                big: `${completionRate}%`,
+                title: 'Fullført',
+                sub: 'Siste 30 dager',
+              },
+            ]}
           />
+
+          {/* Gjennomføringer tab */}
+          {activeTab === 'executions' && (
+            <LayoutTable1PostingsShell
+              wrap
+              title="Gjennomføringer"
+              titleTypography="sans"
+              toolbar={
+                <div className="flex w-full items-center gap-3">
+                  <div className="relative flex-1">
+                    <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-neutral-400" aria-hidden />
+                    <input
+                      type="search"
+                      placeholder="Søk i tittel, sted..."
+                      value={search}
+                      onChange={(e) => setSearch(e.target.value)}
+                      className="w-full rounded-lg border border-neutral-200 bg-white py-2 pl-9 pr-3 text-sm text-neutral-900 placeholder:text-neutral-400 focus:border-[#1a3d32] focus:outline-none focus:ring-1 focus:ring-[#1a3d32]"
+                    />
+                  </div>
+                  <button
+                    type="button"
+                    className="inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm font-medium text-neutral-700 hover:bg-neutral-50"
+                  >
+                    <Filter className="h-4 w-4" aria-hidden />
+                    Filtrer
+                  </button>
+                </div>
+              }
+              footer={
+                <span className="text-neutral-500">
+                  Viser {filteredExecutions.length} av {cl.executions.length} oppføringer
+                </span>
+              }
+            >
+              <table className="w-full min-w-[600px] border-collapse text-left text-sm">
+                <thead>
+                  <tr className={LAYOUT_TABLE1_POSTINGS_HEADER_ROW}>
+                    <th className={LAYOUT_TABLE1_POSTINGS_TH}>Tittel</th>
+                    {viewMode === 'avansert' && (
+                      <th className={LAYOUT_TABLE1_POSTINGS_TH}>Sted</th>
+                    )}
+                    {viewMode !== 'avansert' && (
+                      <th className={LAYOUT_TABLE1_POSTINGS_TH}>Sted</th>
+                    )}
+                    <th className={LAYOUT_TABLE1_POSTINGS_TH}>Status</th>
+                    <th className={LAYOUT_TABLE1_POSTINGS_TH}>Frist</th>
+                    <th className={`w-8 ${LAYOUT_TABLE1_POSTINGS_TH}`} />
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredExecutions.length === 0 ? (
+                    <tr>
+                      <td colSpan={5}>
+                        <div className="py-12 text-center">
+                          <p className="text-sm text-neutral-500">
+                            {search.trim()
+                              ? 'Ingen treff på søket.'
+                              : 'Ingen gjennomføringer ennå.'}
+                          </p>
+                          {!search.trim() && (
+                            <div className="mt-3 inline-flex">
+                              <Button
+                                variant="primary"
+                                icon={<Plus className="h-4 w-4" />}
+                                onClick={() => setCreateOpen(true)}
+                                disabled={cl.templates.filter((t) => t.is_active).length === 0}
+                              >
+                                Ny sjekkliste
+                              </Button>
+                            </div>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  ) : (
+                    filteredExecutions.map((row) => (
+                      <tr
+                        key={row.id}
+                        className={`${LAYOUT_TABLE1_POSTINGS_BODY_ROW} cursor-pointer hover:bg-neutral-50`}
+                        onClick={() => navigate(`/compliance/checklists/${row.id}`)}
+                      >
+                        <td className="px-5 py-3">
+                          <div className="flex items-center gap-3">
+                            <RowIcon title={row.title} />
+                            <div className="min-w-0">
+                              <p className="font-medium text-neutral-900">{row.title}</p>
+                              <p className="text-xs text-neutral-400">#{row.id.slice(-4).toUpperCase()}</p>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-5 py-3 text-neutral-600">
+                          {getLocationDisplay(row)}
+                        </td>
+                        <td className="px-5 py-3">
+                          <Badge variant={statusBadgeVariant(row.status)}>
+                            {STATUS_LABEL[row.status]}
+                          </Badge>
+                        </td>
+                        <td className="px-5 py-3 text-neutral-600">
+                          {formatDate(row.scheduled_for)}
+                        </td>
+                        <td className="w-8 px-3 py-3 text-neutral-300">
+                          <ChevronRight className="h-4 w-4" />
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </LayoutTable1PostingsShell>
+          )}
+
+          {/* Maler tab */}
+          {activeTab === 'templates' && (
+            <LayoutTable1PostingsShell
+              wrap
+              title="Maler"
+              titleTypography="sans"
+              toolbar={
+                <div className="flex w-full items-center gap-3">
+                  <div className="relative flex-1">
+                    <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-neutral-400" aria-hidden />
+                    <input
+                      type="search"
+                      placeholder="Søk i malnavn..."
+                      value={search}
+                      onChange={(e) => setSearch(e.target.value)}
+                      className="w-full rounded-lg border border-neutral-200 bg-white py-2 pl-9 pr-3 text-sm text-neutral-900 placeholder:text-neutral-400 focus:border-[#1a3d32] focus:outline-none focus:ring-1 focus:ring-[#1a3d32]"
+                    />
+                  </div>
+                  <Link
+                    to="/compliance/checklists/admin"
+                    className="inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm font-medium text-neutral-700 hover:bg-neutral-50"
+                  >
+                    <Settings className="h-4 w-4" aria-hidden />
+                    Administrer
+                  </Link>
+                </div>
+              }
+              footer={
+                <span className="text-neutral-500">
+                  {activeTemplates.length} aktive maler
+                </span>
+              }
+            >
+              <table className="w-full min-w-[500px] border-collapse text-left text-sm">
+                <thead>
+                  <tr className={LAYOUT_TABLE1_POSTINGS_HEADER_ROW}>
+                    <th className={LAYOUT_TABLE1_POSTINGS_TH}>Navn</th>
+                    <th className={LAYOUT_TABLE1_POSTINGS_TH}>Pakke</th>
+                    <th className={LAYOUT_TABLE1_POSTINGS_TH}>Kadense</th>
+                    <th className={`w-8 ${LAYOUT_TABLE1_POSTINGS_TH}`} />
+                  </tr>
+                </thead>
+                <tbody>
+                  {activeTemplates
+                    .filter((t) => {
+                      const q = search.trim().toLowerCase()
+                      return !q || t.name.toLowerCase().includes(q)
+                    })
+                    .map((tpl) => (
+                      <tr
+                        key={tpl.id}
+                        className={`${LAYOUT_TABLE1_POSTINGS_BODY_ROW} cursor-pointer hover:bg-neutral-50`}
+                        onClick={() =>
+                          navigate(`/compliance/checklists?pack=${tpl.pack}&template=${tpl.slug}`)
+                        }
+                      >
+                        <td className="px-5 py-3">
+                          <div className="flex items-center gap-3">
+                            <RowIcon title={tpl.name} />
+                            <div className="min-w-0">
+                              <p className="font-medium text-neutral-900">{tpl.name}</p>
+                              {tpl.description && (
+                                <p className="mt-0.5 text-xs text-neutral-400 line-clamp-1">
+                                  {tpl.description}
+                                </p>
+                              )}
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-5 py-3">
+                          <Badge variant="neutral">{tpl.pack}</Badge>
+                        </td>
+                        <td className="px-5 py-3 text-neutral-600">
+                          {tpl.cadence_hint ?? '—'}
+                        </td>
+                        <td className="w-8 px-3 py-3 text-neutral-300">
+                          <ChevronRight className="h-4 w-4" />
+                        </td>
+                      </tr>
+                    ))}
+                  {activeTemplates.length === 0 && (
+                    <tr>
+                      <td colSpan={4}>
+                        <div className="py-12 text-center text-sm text-neutral-500">
+                          Ingen aktive maler. Gå til Innstillinger for å aktivere maler.
+                        </div>
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </LayoutTable1PostingsShell>
+          )}
         </div>
+
+        <ComplianceCreateForm
+          open={createOpen}
+          onClose={() => setCreateOpen(false)}
+          templates={cl.templates.filter((t) => t.is_active)}
+          assignableUsers={cl.assignableUsers}
+          onCreate={async (payload) => {
+            const id = await cl.createExecution(payload)
+            if (id) {
+              setCreateOpen(false)
+              navigate(`/compliance/checklists/${id}`)
+            }
+          }}
+        />
       </ModulePageShell>
     )
   }
