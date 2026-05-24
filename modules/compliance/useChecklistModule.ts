@@ -738,6 +738,36 @@ export function useChecklistModule(
         return null
       }
 
+      // File size guard: 20 MB cap prevents runaway storage costs and
+      // protects against accidental large-binary uploads.
+      const MAX_BYTES = 20 * 1024 * 1024
+      if (payload.file.size > MAX_BYTES) {
+        setError('Filen er for stor (maks 20 MB).')
+        return null
+      }
+      if (payload.file.size === 0) {
+        setError('Filen er tom og kan ikke lastes opp.')
+        return null
+      }
+
+      // MIME allowlist — images, PDFs and common Office formats.
+      const ALLOWED_TYPES = new Set([
+        'image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/heic',
+        'application/pdf',
+        'application/msword',
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        'application/vnd.ms-excel',
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        'application/vnd.ms-powerpoint',
+        'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+        'text/plain', 'text/csv',
+      ])
+      const mimeType = payload.file.type.toLowerCase().split(';')[0].trim()
+      if (mimeType && !ALLOWED_TYPES.has(mimeType)) {
+        setError(`Filtypen «${mimeType}» er ikke tillatt. Last opp bilde, PDF eller Office-dokument.`)
+        return null
+      }
+
       // Sanitised filename — keep extension, strip path separators and
       // collapse any other suspicious characters. Prepend a uuid for
       // collision safety inside the (org, exec, item_key) folder.

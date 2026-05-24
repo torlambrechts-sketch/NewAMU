@@ -11,6 +11,7 @@ import {
   ArrowLeft,
   Building2,
   CircleDot,
+  Clock,
   ClipboardList,
   Flame,
   FlaskConical,
@@ -113,6 +114,34 @@ function getCategoryIcon(name: string): LucideIcon {
   if (n.includes('stoff') || n.includes('kjemikalie')) return FlaskConical
   if (n.includes('verne') || n.includes('hms')) return ShieldCheck
   return ClipboardList
+}
+
+// ── Cadence health helpers ────────────────────────────────────────────────────
+
+const CADENCE_DAYS: Record<string, number> = {
+  månedlig: 30,
+  kvartalsvis: 90,
+  halvårlig: 180,
+  'halvårlig (hvert AMU-møte)': 90,
+  årlig: 365,
+}
+
+function cadenceDays(hint: string | null | undefined): number | null {
+  if (!hint) return null
+  // Event-driven templates (ved ...) have no fixed frequency
+  if (hint.startsWith('ved ')) return null
+  return CADENCE_DAYS[hint.toLowerCase()] ?? null
+}
+
+type CadenceStatus = 'ok' | 'amber' | 'red' | 'never'
+
+type CadenceItem = {
+  id: string
+  name: string
+  cadenceHint: string | null
+  lastSignedAt: string | null
+  daysOverdue: number | null
+  status: CadenceStatus
 }
 
 // ── KPI row (matches design) ──────────────────────────────────────────────────
@@ -238,6 +267,39 @@ export function ChecklistsEtterlevelsePage() {
   }, [cellMatrix])
 
   const compliancePct = applicable > 0 ? Math.round((ok / applicable) * 100) : 0
+
+  // Cadence health: for each active template compute overdue status
+  const cadenceItems = useMemo<CadenceItem[]>(() => {
+    return cl.templates
+      .filter((t) => t.is_active)
+      .map((t) => {
+        const maxDays = cadenceDays(t.cadence_hint)
+        const signed = cl.executions
+          .filter((e) => e.template_id === t.id && e.status === 'signed' && e.signed_at)
+          .sort((a, b) => new Date(b.signed_at!).getTime() - new Date(a.signed_at!).getTime())
+        const last = signed[0]?.signed_at ?? null
+
+        if (maxDays === null) {
+          return { id: t.id, name: t.name, cadenceHint: t.cadence_hint, lastSignedAt: last, daysOverdue: null, status: last ? 'ok' : 'never' as CadenceStatus }
+        }
+        if (!last) {
+          return { id: t.id, name: t.name, cadenceHint: t.cadence_hint, lastSignedAt: null, daysOverdue: null, status: 'never' as CadenceStatus }
+        }
+        const daysSince = Math.floor((TODAY.getTime() - new Date(last).getTime()) / 86_400_000)
+        const overdue = daysSince - maxDays
+        const status: CadenceStatus =
+          overdue > 0 ? 'red' : overdue > -(maxDays * 0.15) ? 'amber' : 'ok'
+        return { id: t.id, name: t.name, cadenceHint: t.cadence_hint, lastSignedAt: last, daysOverdue: overdue > 0 ? overdue : null, status }
+      })
+      .sort((a, b) => {
+        const order = { red: 0, never: 1, amber: 2, ok: 3 }
+        return order[a.status] - order[b.status]
+      })
+  }, [cl.templates, cl.executions])
+
+  const cadenceRed = cadenceItems.filter((i) => i.status === 'red').length
+  const cadenceAmber = cadenceItems.filter((i) => i.status === 'amber').length
+  const cadenceNever = cadenceItems.filter((i) => i.status === 'never').length
 
   // Selected cell detail
   const selectedCell = selected ? cellMatrix.get(`${selected.locationId}:${selected.categoryId}`) : null
@@ -497,6 +559,64 @@ export function ChecklistsEtterlevelsePage() {
           </aside>
         </div>
       )}
+
+      {/* Cadence health — only shown in advanced mode */}
+      {!easy && cadenceItems.length > 0 ? (
+        <div className="rounded-xl border border-neutral-200/80 bg-white" style={{ boxShadow: '0 1px 2px rgba(0,0,0,0.04)' }}>
+          <div className="flex items-center justify-between border-b border-neutral-100 px-5 py-3.5">
+            <div className="flex items-center gap-2">
+              <Clock className="h-4 w-4 text-[#1a3d32]" aria-hidden />
+              <h3 className="text-sm font-semibold text-neutral-900">Kadensehelse</h3>
+              <span className="text-xs text-neutral-500">— siste signerte gjennomføring vs. forventet frekvens</span>
+            </div>
+            <div className="flex items-center gap-2 text-[11px]">
+              {cadenceRed > 0 && <span className="rounded-full bg-red-100 px-2 py-0.5 font-semibold text-red-800">{cadenceRed} utgått</span>}
+              {cadenceAmber > 0 && <span className="rounded-full bg-amber-100 px-2 py-0.5 font-semibold text-amber-800">{cadenceAmber} nær</span>}
+              {cadenceNever > 0 && <span className="rounded-full bg-neutral-100 px-2 py-0.5 font-semibold text-neutral-600">{cadenceNever} aldri kjørt</span>}
+            </div>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[560px] text-xs">
+              <thead>
+                <tr className="border-b border-neutral-100 bg-neutral-50/60">
+                  <th className="px-5 py-2.5 text-left text-[10px] font-bold uppercase tracking-wider text-neutral-500">Mal</th>
+                  <th className="px-4 py-2.5 text-left text-[10px] font-bold uppercase tracking-wider text-neutral-500">Frekvens</th>
+                  <th className="px-4 py-2.5 text-left text-[10px] font-bold uppercase tracking-wider text-neutral-500">Sist signert</th>
+                  <th className="px-4 py-2.5 text-left text-[10px] font-bold uppercase tracking-wider text-neutral-500">Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {cadenceItems.map((item) => {
+                  const dot = item.status === 'ok' ? 'bg-green-500' : item.status === 'amber' ? 'bg-amber-400' : item.status === 'red' ? 'bg-red-500' : 'bg-neutral-300'
+                  const label =
+                    item.status === 'red' ? `Utgått — ${item.daysOverdue} dager siden` :
+                    item.status === 'amber' ? 'Nær grensen' :
+                    item.status === 'never' ? 'Aldri kjørt' : 'OK'
+                  const txtColor =
+                    item.status === 'red' ? 'text-red-700' :
+                    item.status === 'amber' ? 'text-amber-700' :
+                    item.status === 'never' ? 'text-neutral-500' : 'text-green-700'
+                  return (
+                    <tr key={item.id} className="border-b border-neutral-50 last:border-b-0 hover:bg-neutral-50/50">
+                      <td className="px-5 py-2.5 font-medium text-neutral-900">{item.name}</td>
+                      <td className="px-4 py-2.5 text-neutral-600 capitalize">{item.cadenceHint ?? '—'}</td>
+                      <td className="px-4 py-2.5 tabular-nums text-neutral-600">
+                        {item.lastSignedAt ? new Date(item.lastSignedAt).toLocaleDateString('nb-NO') : '—'}
+                      </td>
+                      <td className="px-4 py-2.5">
+                        <div className="flex items-center gap-1.5">
+                          <span className={`h-2 w-2 shrink-0 rounded-full ${dot}`} aria-hidden />
+                          <span className={`font-semibold ${txtColor}`}>{label}</span>
+                        </div>
+                      </td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      ) : null}
 
       <ComplianceCreateForm
         open={createOpen}

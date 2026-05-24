@@ -713,6 +713,7 @@ export function ChecklistsPage() {
   const [view, setView] = useState<ViewMode>('tabell')
   const [activeCategory, setActiveCategory] = useState<string>('all')
   const [search, setSearch] = useState('')
+  const [showAllEntries, setShowAllEntries] = useState(false)
 
   const easy = viewMode === 'easy'
 
@@ -845,6 +846,11 @@ export function ChecklistsPage() {
     return counts
   }, [mappedExecutions, tplIdsByCategory, cl.templates])
 
+  // Reset pagination when filter changes
+  useEffect(() => { setShowAllEntries(false) }, [activeCategory, search, activeTab])
+
+  const HUB_PAGE_SIZE = 50
+
   // Category-filtered then search-filtered executions
   const displayedExecutions = useMemo(() => {
     let result = mappedExecutions
@@ -964,8 +970,24 @@ export function ChecklistsPage() {
       >
         {cl.error ? <WarningBox>{cl.error}</WarningBox> : null}
 
+        {/* Loading skeleton — shown while first load is in progress */}
+        {cl.loading && cl.templates.length === 0 ? (
+          <div className="grid animate-pulse grid-cols-1 gap-5 lg:grid-cols-[260px_minmax(0,1fr)]">
+            <div className="space-y-3">
+              <div className="h-[200px] rounded-xl bg-neutral-100" />
+            </div>
+            <div className="space-y-4">
+              <div className="h-10 rounded-lg bg-neutral-100" />
+              <div className="h-10 rounded-lg bg-neutral-100 w-2/3" />
+              {[...Array(5)].map((_, i) => (
+                <div key={i} className="h-12 rounded-lg bg-neutral-100" />
+              ))}
+            </div>
+          </div>
+        ) : null}
+
         {/* Two-column layout: category rail + content */}
-        <div className="grid grid-cols-1 gap-5 lg:grid-cols-[260px_minmax(0,1fr)]">
+        <div className={['grid grid-cols-1 gap-5 lg:grid-cols-[260px_minmax(0,1fr)]', cl.loading && cl.templates.length === 0 ? 'hidden' : ''].join(' ')}>
 
           {/* ── LEFT: Category rail ── */}
           <aside className="space-y-3">
@@ -1112,10 +1134,29 @@ export function ChecklistsPage() {
               <div className="p-0">
                 {activeTab === 'entries' ? (
                   <>
-                    {view === 'tabell' && <EntriesTable entries={displayedExecutions} easy={easy} onOpen={(id) => navigate(`/compliance/checklists/${id}`)} />}
-                    {view === 'bokser' && <EntriesBoxes entries={displayedExecutions} easy={easy} onOpen={(id) => navigate(`/compliance/checklists/${id}`)} />}
-                    {view === 'tidslinje' && <EntriesTimeline entries={displayedExecutions} easy={easy} onOpen={(id) => navigate(`/compliance/checklists/${id}`)} />}
-                    {view === 'tavle' && <EntriesKanban entries={displayedExecutions} easy={easy} onOpen={(id) => navigate(`/compliance/checklists/${id}`)} />}
+                    {(() => {
+                      const paged = showAllEntries ? displayedExecutions : displayedExecutions.slice(0, HUB_PAGE_SIZE)
+                      const hasMore = !showAllEntries && displayedExecutions.length > HUB_PAGE_SIZE
+                      return (
+                        <>
+                          {view === 'tabell' && <EntriesTable entries={paged} easy={easy} onOpen={(id) => navigate(`/compliance/checklists/${id}`)} />}
+                          {view === 'bokser' && <EntriesBoxes entries={paged} easy={easy} onOpen={(id) => navigate(`/compliance/checklists/${id}`)} />}
+                          {view === 'tidslinje' && <EntriesTimeline entries={paged} easy={easy} onOpen={(id) => navigate(`/compliance/checklists/${id}`)} />}
+                          {view === 'tavle' && <EntriesKanban entries={paged} easy={easy} onOpen={(id) => navigate(`/compliance/checklists/${id}`)} />}
+                          {hasMore && (
+                            <div className="flex items-center justify-center border-t border-neutral-100 py-3">
+                              <button
+                                type="button"
+                                onClick={() => setShowAllEntries(true)}
+                                className="text-xs font-semibold text-[#1a3d32] hover:underline"
+                              >
+                                Vis alle {displayedExecutions.length} gjennomføringer
+                              </button>
+                            </div>
+                          )}
+                        </>
+                      )
+                    })()}
                   </>
                 ) : (
                   <>
