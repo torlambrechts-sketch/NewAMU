@@ -91,6 +91,11 @@ import {
   type DocStatusKey,
 } from '../../components/documents/docsShared'
 import { sanitizeLearningHtml } from '../../lib/sanitizeHtml'
+import {
+  THREAD_COLORS,
+  injectCommentHighlights,
+  type CommentAnchorHighlight,
+} from '../../lib/wikiCommentHighlights'
 
 /**
  * Document detail page — Notion-style document viewer with five tabs:
@@ -1676,6 +1681,35 @@ function DdKommentarer({
     return m
   }, [comments])
 
+  /** Anchored highlights — numbered to match the comment cards in the rail.
+   *  Includes the pending quote (while composing) and any already-saved
+   *  anchored comments, so the marker stays on the paragraph after the
+   *  comment has been posted. */
+  const commentAnchors = useMemo<CommentAnchorHighlight[]>(() => {
+    const out: CommentAnchorHighlight[] = []
+    tops.forEach((c, i) => {
+      const quoted = c.anchor?.quotedText?.trim()
+      if (!quoted) return
+      out.push({
+        commentId: c.id,
+        quotedText: quoted,
+        index: i + 1,
+        color: c.resolved
+          ? '#dcfce7'
+          : THREAD_COLORS[i % THREAD_COLORS.length] ?? THREAD_COLORS[0],
+      })
+    })
+    if (pendingAnchor?.quotedText?.trim()) {
+      out.push({
+        commentId: 'pending',
+        quotedText: pendingAnchor.quotedText,
+        index: tops.length + 1,
+        color: '#fed7aa',
+      })
+    }
+    return out
+  }, [tops, pendingAnchor])
+
   return (
     <div className="grid grid-cols-1 gap-6 lg:grid-cols-[200px_minmax(0,1fr)_320px]">
       <aside className="hidden lg:block">
@@ -1737,14 +1771,31 @@ function DdKommentarer({
               <h2 className="text-[26px] font-bold leading-tight tracking-tight text-neutral-900">
                 {s.title}
               </h2>
-              <div className="mt-3 space-y-3 text-[15.5px] leading-[1.65] text-neutral-700">
+              <div
+                className="mt-3 space-y-3 text-[15.5px] leading-[1.65] text-neutral-700"
+                onClick={(e) => {
+                  const target = e.target as HTMLElement | null
+                  const mark = target?.closest('mark[data-comment-id]') as HTMLElement | null
+                  if (!mark) return
+                  const id = mark.getAttribute('data-comment-id')
+                  if (!id || id === 'pending') return
+                  setActiveId(id)
+                  const card = document.getElementById(`cm-thread-${id}`)
+                  card?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+                }}
+              >
                 {s.paragraphs.length === 0 ? (
                   <p className="text-neutral-500">—</p>
                 ) : (
                   s.paragraphs.map((p, i) => (
                     <div
                       key={i}
-                      dangerouslySetInnerHTML={{ __html: sanitizeLearningHtml(p.html) }}
+                      dangerouslySetInnerHTML={{
+                        __html: injectCommentHighlights(
+                          sanitizeLearningHtml(p.html),
+                          commentAnchors,
+                        ),
+                      }}
                     />
                   ))
                 )}
@@ -1859,7 +1910,7 @@ function DdKommentarer({
                 ? 'Anonym'
                 : c.authorName || resolveUserName(c.authorId)
               return (
-                <li key={c.id}>
+                <li key={c.id} id={`cm-thread-${c.id}`}>
                   <button
                     type="button"
                     onClick={() => setActiveId(active ? null : c.id)}

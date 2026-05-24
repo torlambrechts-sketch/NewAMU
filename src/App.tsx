@@ -633,7 +633,6 @@ const router = createBrowserRouter(
                         <Route path="documents/editor-test" element={<DocumentEditorTestPage />} />
                         <Route path="documents/kandidatdetalj-layout-test" element={<DocumentKandidatdetaljLayoutTestPage />} />
                         <Route path="documents/malbibliotek" element={<DocumentsMalbibliotekPage />} />
-                        <Route path="documents" element={<DocumentsHome />} />
                         <Route path="documents/analyse" element={<DocumentsAnalysePage />} />
                         <Route path="documents/sok" element={<DocumentsSokPage />} />
                         <Route path="documents/alle" element={<DocumentsAllePage />} />
@@ -661,6 +660,11 @@ const router = createBrowserRouter(
                         />
                       </Route>
                       <Route element={<DocumentsWikiOutlet />}>
+                        {/* /documents owns its own ModulePageShell (new design).
+                            Keep it in the lightweight outlet so the outer
+                            DocumentsModuleShellLayout doesn't stack a second
+                            header on top. */}
+                        <Route path="documents" element={<DocumentsHome />} />
                         <Route path="documents/space/:spaceId" element={<WikiSpaceView />} />
                         <Route
                           path="documents/page/:pageId"
