@@ -277,6 +277,29 @@ Make the whole app multi-language. Norwegian (nb) + English (en) now; Swedish
 
 ---
 
+## 11 · Compliance Layer (3-Tier) — Rules → Internal Controls → Execution
+
+New top-level decoupling layer between regulations and module artefacts. Adds an explicit Internal Controls tier so a single named control ("Årlig ledelses-gjennomgang") can satisfy AML § 7-2(2)f + IK-f § 5 nr. 8 + ISO 9001/14001/27001/45001 § 9.3 simultaneously, evidenced by any combination of module sign events. Full spec in [`specs/compliance-layer-architecture.md`](specs/compliance-layer-architecture.md).
+
+| # | Status | Item | Notes |
+|---|---|---|---|
+| 11.1 | ✅ | Tier 1 — `regulation_clauses` table | Composite-PK per-org; same-org coherence trigger; additive `clause_id` FK on `compliance_requirements` with backfill (`_120000`). |
+| 11.2 | ✅ | Tier 2 — `internal_controls` core | Per-org named controls with `control_family`, `frequency_hint`, `owner_role`, `status` (`_120100`). RLS protects system rows. |
+| 11.3 | ✅ | Tier 2 — `internal_control_clauses` junction | Cross-pack control ↔ clause linkage with `coverage_level` enum (`_120200`). |
+| 11.4 | ✅ | Tier 2 — `internal_control_bindings` declarative spec | Polymorphic over the 7 module template surfaces; template-existence trigger; idempotent unique constraints (`_120300`). |
+| 11.5 | ✅ | Tier 2 — `internal_control_executions` ledger + 7 auto-bind triggers | Append-only; BEFORE UPDATE/DELETE deny; SECURITY DEFINER resolver `_compliance_layer_record_execution` (`_120400`). Triggers on compliance/meeting/document/learning/task/register/survey sign events. |
+| 11.6 | ✅ | Tier 3 — `compliance_evidence_v` + `internal_control_status_v` | Read-only union view (compliance + meetings + documents + learning + tasks + registers + surveys) plus live status view computing `on_track`/`due_soon`/`overdue`/`never_executed` (`_120500`). |
+| 11.7 | ✅ | Provisioning + ~30 baseline controls | `provision_regulation_clauses_baseline_for_org` (≈120 clauses across 9 regulations) + `provision_internal_controls_baseline_for_org` (30 system controls covering AML kap. 2–18, IK-f § 5, ISO 9001/14001/27001/45001, GDPR Art. 32/33/35, LDL § 26, Åpenhetsloven, brann). AFTER-INSERT trigger on `organizations` + backfill loop (`_120600`). |
+| 11.8 | ✅ | Module shell `modules/compliance-layer/` | 17 files: types/schema/index, four hooks (`useInternalControls`, `useControlClauses`, `useControlBindings`, `useControlEvidence`), nav hook, four pages (`ControlsHubLanding`, `ControlsListPage`, `ControlDetailPage`, `ControlEditorPanel`), three admin panels (`BindingEditorPanel`, `ClauseMappingPanel`, `KontrollerInnstillingerPage`), dashboard scope + datasets + analyse page. |
+| 11.9 | ✅ | Sidebar + routes + permissions | `controlsGroup` NavGroup between Sjekklister and Undersøkelser. Five routes (`/controls`, `/controls/list`, `/controls/analyse`, `/controls/admin`, `/controls/:controlId`). Permissions `module.view.compliance_layer` + `compliance_layer.manage`. |
+| 11.10 | ✅ | 9th dashboard scope | `compliance_layer` registered with accent `#b45309` (amber-700); seven datasets, nine default widgets, supports comparison. |
+| 11.11 | 📋 | Gap matrix UI update (compliance planner) | Add control axis to ROADMAP §5 matrix once planner UI ships. Data already queryable via the new views. |
+| 11.12 | 📋 | Auditor view full PDF export | Re-uses generic `compliance-audit-pdf` edge function once available. |
+| 11.13 | 📋 | Internal-control workflow scope | `modules/compliance-layer/workflows/` once unified workflow builder lands per `specs/workflow-engine-review.md`. |
+| 11.14 | ⏸ | Bidirectional plan-item ↔ execution sync | One-way today (compliance_plan_items → tasks). Reverse direction deferred. |
+
+---
+
 ## Suggested order of work
 
 If picking up cold, do these in this order — each builds on the previous and exposes any abstraction problems early:

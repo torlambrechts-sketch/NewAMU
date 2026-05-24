@@ -121,6 +121,15 @@ export const PERMISSION_KEYS = [
    *  Datatilsynet / NAV). Gir tilgang til /admin/integrations/sertifikat-rotasjon
    *  + workflow_record_cert_rotation RPC. Seedet til admin-rollen kun. */
   'integrations.cert_rotate',
+
+  // ─── Compliance Layer (Tier 2 — internal controls) ──────────────────────
+  /** Kontroller-modulen — lese internkontroller, lovkrav-koblinger,
+   *  bindinger og bevisjournal. Top-level NavGroup `/controls`. */
+  'module.view.compliance_layer',
+  /** Compliance Layer — opprette/endre kontroller, klausul-koblinger,
+   *  bindinger og manuelle bevisrader. Systemkontroller forblir
+   *  read-only via RLS uavhengig av denne nøkkelen. */
+  'compliance_layer.manage',
 ] as const
 
 export type PermissionKey = (typeof PERMISSION_KEYS)[number]
@@ -177,6 +186,8 @@ export const PERMISSION_LABELS: Record<PermissionKey, string> = {
   'tasks.view_confidential': 'Se konfidensielle oppgaver',
   'gov.outbox_triage': 'Triagér utgående statlige meldinger',
   'integrations.cert_rotate': 'Integrasjoner — rotere virksomhetssertifikat',
+  'module.view.compliance_layer': 'Kontroller — lese internkontroller og bevisjournal',
+  'compliance_layer.manage': 'Kontroller — administrere internkontroller, bindinger og koblinger',
 }
 
 /** Route prefix → permission (primary nav). Index route checked separately. */
@@ -191,6 +202,14 @@ export const ROUTE_PERMISSION: { pathPrefix: string; permission: PermissionKey }
 
 /** Paths that need any one of several permissions (e.g. hub + underlying module). */
 export const ROUTE_PERMISSION_ANY: { pathPrefix: string; permissions: PermissionKey[] }[] = [
+  {
+    pathPrefix: '/controls',
+    permissions: [
+      'module.view.compliance_layer',
+      'compliance_layer.manage',
+      'module.view.dashboard',
+    ],
+  },
   {
     pathPrefix: '/compliance',
     permissions: [

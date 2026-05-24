@@ -54,6 +54,7 @@ import {
 import { RegulationFilterMenu } from './RegulationFilterMenu'
 import { useRegulationFilter } from '../../context/RegulationFilterContext'
 import { useComplianceNav } from '../../../modules/compliance/useComplianceNav'
+import { useComplianceLayerNav } from '../../../modules/compliance-layer/useComplianceLayerNav'
 import { useSurveyNav } from '../../../modules/survey/useSurveyNav'
 import { useLearningNav } from '../../hooks/useLearningNav'
 import { useDocumentNav } from '../../hooks/useDocumentNav'
@@ -235,6 +236,15 @@ const COMPLIANCE_NAV_PERMS: PermissionKey[] = [
 ]
 
 const ISO_IMS_NAV_PERMS: PermissionKey[] = [
+  'module.view.dashboard',
+  'checklist.manage',
+]
+
+// Compliance Layer (Kontroller) — broad permAny so view-only roles see
+// the menu. Page-level RLS keeps system controls read-only regardless.
+const COMPLIANCE_LAYER_NAV_PERMS: PermissionKey[] = [
+  'module.view.compliance_layer',
+  'compliance_layer.manage',
   'module.view.dashboard',
   'checklist.manage',
 ]
@@ -494,6 +504,7 @@ export function AticsShell() {
   // better UX than silently hiding the menu (the customer would have no
   // path to discover the feature).
   const complianceNav = useComplianceNav()
+  const complianceLayerNav = useComplianceLayerNav()
   const surveyNav = useSurveyNav()
   const learningNav = useLearningNav()
   const documentNav = useDocumentNav()
@@ -638,6 +649,90 @@ export function AticsShell() {
           icon: ClipboardList,
           subs: [...complianceFixedSubs, ...compliancePinnedSubs],
           permAny: COMPLIANCE_NAV_PERMS,
+          flatSubs: true,
+        },
+      ],
+    }
+
+    // Compliance Layer (Kontroller) — Tier 2 internal controls. Fixed
+    // children: Alle / Analyse / Innstillinger; dynamic pinned controls
+    // from useComplianceLayerNav. Sits between Sjekklister and
+    // Undersøkelser because controls span every capability module and
+    // belong with the compliance backbone, not nested under it.
+    const controlsFixedSubs: SubItem[] = [
+      {
+        label: 'Alle kontroller',
+        path: '/controls/list',
+        Icon: ClipboardList,
+        match: ({ pathname }) => pathname === '/controls/list',
+        requirePermAny: COMPLIANCE_LAYER_NAV_PERMS,
+      },
+      {
+        label: 'Analyse',
+        path: '/controls/analyse',
+        Icon: BarChart3,
+        match: ({ pathname }) => pathname === '/controls/analyse',
+        requirePermAny: COMPLIANCE_LAYER_NAV_PERMS,
+      },
+      {
+        label: 'Innstillinger',
+        path: '/controls/admin',
+        Icon: Settings,
+        match: ({ pathname }) => pathname.startsWith('/controls/admin'),
+        requirePermAny: COMPLIANCE_LAYER_NAV_PERMS,
+      },
+    ]
+
+    const controlsPinnedSubs: SubItem[] = (() => {
+      if (complianceLayerNav.items.length === 0) return []
+      const buckets = new Map<string, typeof complianceLayerNav.items>()
+      for (const it of complianceLayerNav.items) {
+        const list = buckets.get(it.headerKey) ?? []
+        list.push(it)
+        buckets.set(it.headerKey, list)
+      }
+      const showHeaders = buckets.size > 1
+      const subs: SubItem[] = []
+      for (const fam of complianceLayerNav.families) {
+        const list = buckets.get(`family:${fam.id}`) ?? []
+        if (list.length === 0) continue
+        if (showHeaders) {
+          subs.push({
+            kind: 'header',
+            label: fam.label,
+            path: `__cf:${fam.id}`,
+            match: () => false,
+            headerKey: `family:${fam.id}`,
+            Icon: FolderTree,
+            requirePermAny: COMPLIANCE_LAYER_NAV_PERMS,
+          })
+        }
+        for (const it of list) {
+          subs.push({
+            label: it.name,
+            path: it.to,
+            match: ({ pathname }) =>
+              pathname === `/controls/${it.controlId}`,
+            headerKey: showHeaders ? `family:${fam.id}` : undefined,
+            requirePermAny: COMPLIANCE_LAYER_NAV_PERMS,
+          })
+        }
+      }
+      return subs
+    })()
+
+    const controlsGroup: NavGroup = {
+      id: 'kontroller',
+      label: 'Kontroller',
+      icon: ShieldCheck,
+      modules: [
+        {
+          to: '/controls',
+          label: 'Kontroller',
+          end: false,
+          icon: ShieldCheck,
+          subs: [...controlsFixedSubs, ...controlsPinnedSubs],
+          permAny: COMPLIANCE_LAYER_NAV_PERMS,
           flatSubs: true,
         },
       ],
@@ -1921,12 +2016,14 @@ export function AticsShell() {
       ],
     }
 
-    const base: NavGroup[] = [hmsOverviewGroup, isoImsGroup, complianceGroup, surveyGroup, documentsGroup, meetingsGroup, alertsGroup, registersGroup, tasksGroup, learningGroup, adminGroup]
+    const base: NavGroup[] = [hmsOverviewGroup, isoImsGroup, complianceGroup, controlsGroup, surveyGroup, documentsGroup, meetingsGroup, alertsGroup, registersGroup, tasksGroup, learningGroup, adminGroup]
     return partnerGroup ? [partnerGroup, ...base] : base
   }, [
     complianceNav.items,
     complianceNav.categories,
     complianceNav.packShortNameBySlug,
+    complianceLayerNav.items,
+    complianceLayerNav.families,
     surveyNav.items,
     surveyNav.categories,
     surveyNav.packShortNameBySlug,

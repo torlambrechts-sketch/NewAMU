@@ -157,6 +157,13 @@ import { ChecklistsPage } from '../modules/compliance/ChecklistsPage'
 import { ChecklistsAnalysePage } from '../modules/compliance/ChecklistsAnalysePage'
 import { ChecklistsEtterlevelsePage } from '../modules/compliance/ChecklistsEtterlevelsePage'
 import { ChecklistExecutionPage } from '../modules/compliance/ChecklistExecutionPage'
+import {
+  ControlsHubLanding,
+  ControlsListPage,
+  ControlDetailPage,
+  ComplianceLayerAnalysePage,
+  KontrollerInnstillingerPage,
+} from '../modules/compliance-layer'
 import { PackProvider } from './context/PackContext'
 import { ModuleAdminPage } from './pages/ModuleAdminPage'
 import { SurveyModulePage } from './pages/SurveyModulePage'
@@ -524,6 +531,25 @@ const router = createBrowserRouter(
                             <ChecklistExecutionPage />
                           </PackProvider>
                         }
+                      />
+                      {/* Compliance Layer — Tier 2 internal controls
+                          (Rules → Internal Controls → Execution).
+                          Top-level NavGroup at /controls; integrates
+                          with all module sign events via M5 auto-bind
+                          triggers. */}
+                      <Route path="controls" element={<ControlsHubLanding />} />
+                      <Route path="controls/list" element={<ControlsListPage />} />
+                      <Route
+                        path="controls/analyse"
+                        element={<ComplianceLayerAnalysePage />}
+                      />
+                      <Route
+                        path="controls/admin"
+                        element={<KontrollerInnstillingerPage />}
+                      />
+                      <Route
+                        path="controls/:controlId"
+                        element={<ControlDetailPage />}
                       />
                       <Route path="survey" element={<SurveyModulePage />} />
                       <Route path="survey/admin" element={<LegacyAdminRedirect scope="survey" />} />
