@@ -43,7 +43,7 @@ const DATASETS: DatasetMeta[] = [
     shape: 'segments',
   },
   {
-    key: 'executions_over_time',
+    key: 'controls_executions_over_time',
     label: 'Bevisrader over tid',
     shape: 'series',
   },
@@ -124,7 +124,7 @@ const BAR_FAMILY: Omit<ReportModuleBar, 'id'> = {
 const LINE_EXECUTIONS: Omit<ReportModuleLine, 'id'> = {
   kind: 'line',
   title: 'Bevisrader over tid',
-  datasetKey: 'executions_over_time',
+  datasetKey: 'controls_executions_over_time',
   pointsPath: '',
   colSpan: 'lg',
 }

@@ -163,7 +163,7 @@ export function useComplianceLayerDatasets(): {
       controls_status_distribution: statusDistribution,
       controls_by_regulation: byRegulation,
       controls_by_family: byFamily,
-      executions_over_time: executionsOverTime,
+      controls_executions_over_time: executionsOverTime,
       controls_overdue_table: overdueRows,
       controls_kpi_summary_prev: prevKpi,
     }

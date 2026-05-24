@@ -39,6 +39,9 @@ const MEMBERS = [
   'documents',
   'risk',
   'alerts',
+  // Tier-2 internal controls (compliance-layer module). Adds at-a-glance
+  // "X av N kontroller forfalt" for ledelse without leaving HMS-oversikt.
+  'compliance_layer',
 ] as const
 
 // ── Dataset catalogue ─────────────────────────────────────────────────────
@@ -71,6 +74,11 @@ const DATASETS: DatasetMeta[] = [
   { key: 'alerts_kpi_summary', label: 'Varslinger — KPI-sammendrag', shape: 'kpi-record' },
   { key: 'alerts_received_over_time', label: 'Varslinger — mottatt over tid', shape: 'series' },
   { key: 'alerts_kind_distribution', label: 'Varslinger — type', shape: 'segments' },
+  // Compliance Layer (Tier-2 internal controls)
+  { key: 'controls_kpi_summary', label: 'Kontroller — KPI-sammendrag', shape: 'kpi-record' },
+  { key: 'controls_status_distribution', label: 'Kontroller — status', shape: 'segments' },
+  { key: 'controls_by_regulation', label: 'Kontroller — per regelverk', shape: 'segments' },
+  { key: 'controls_executions_over_time', label: 'Kontroller — bevis over tid', shape: 'series' },
 ]
 
 // ── KPI strip — one per member scope ──────────────────────────────────────
@@ -158,6 +166,60 @@ const KPI_RISK_AGEING_STALE: ReportModuleKpi = {
   comparisonGoal: 'decrease',
   colSpan: 'sm',
 }
+// Compliance Layer (controls) — three KPI tiles + one donut. These read
+// from the per-org `internal_control_status_v` view via the controls
+// dataset hook, so leadership sees a live picture of "is our compliance
+// cadence on track" without leaving HMS-oversikt. comparisonGoal=
+// 'decrease' on the overdue/due-soon tiles flips delta colouring so an
+// uptick reads as a warning, not progress.
+const KPI_CONTROLS_OVERDUE: ReportModuleKpi = {
+  id: 'kpi-controls-overdue',
+  kind: 'kpi',
+  datasetKey: 'controls_kpi_summary',
+  title: 'Forfalte kontroller',
+  valuePath: 'overdue',
+  subtitle: 'Internkontroll · krever oppfølging',
+  comparisonGoal: 'decrease',
+  colSpan: 'sm',
+}
+const KPI_CONTROLS_DUE_SOON: ReportModuleKpi = {
+  id: 'kpi-controls-due-soon',
+  kind: 'kpi',
+  datasetKey: 'controls_kpi_summary',
+  title: 'Forfaller snart',
+  valuePath: 'due_soon',
+  subtitle: 'Internkontroll · neste 30 dager',
+  comparisonGoal: 'decrease',
+  colSpan: 'sm',
+}
+const KPI_CONTROLS_ON_TRACK: ReportModuleKpi = {
+  id: 'kpi-controls-on-track',
+  kind: 'kpi',
+  datasetKey: 'controls_kpi_summary',
+  title: 'Kontroller på sporet',
+  valuePath: 'on_track',
+  subtitle: 'Internkontroll · innenfor frekvens',
+  colSpan: 'sm',
+}
+const DONUT_CONTROLS_BY_REGULATION: ReportModuleDonut = {
+  id: 'donut-controls-by-regulation',
+  kind: 'donut',
+  datasetKey: 'controls_by_regulation',
+  title: 'Kontroller per regelverk',
+  segmentsPath: '',
+  colSpan: 'md',
+}
+const LINE_CONTROLS_OVER_TIME: ReportModuleLine = {
+  id: 'line-controls-executions',
+  kind: 'line',
+  datasetKey: 'controls_executions_over_time',
+  title: 'Kontroller — bevis over tid',
+  pointsPath: '',
+  xLabel: 'Måned',
+  yLabel: 'Antall',
+  colSpan: 'md',
+}
+
 const KPI_ALERTS_OPEN: ReportModuleKpi = {
   id: 'kpi-alerts-open',
   kind: 'kpi',
@@ -254,17 +316,25 @@ const DONUT_DOCUMENTS_STATUS: ReportModuleDonut = {
 }
 
 const DEFAULT_LAYOUT: ReportModule[] = [
+  // Top KPI strip — risk + control hygiene first because they're the
+  // executive-level "is anything on fire?" signals. Compliance / survey
+  // / tasks / learning detail below.
+  KPI_CONTROLS_OVERDUE,
+  KPI_CONTROLS_DUE_SOON,
+  KPI_CONTROLS_ON_TRACK,
+  KPI_RISK_RED_BAND,
+  KPI_RISK_AGEING_STALE,
   KPI_COMPLIANCE_YTD,
   KPI_SURVEY_RESPONSES,
   KPI_TASKS_OPEN,
-  KPI_RISK_RED_BAND,
-  KPI_RISK_AGEING_STALE,
   KPI_LEARNING_COMPLETED_YTD,
   KPI_ALERTS_OPEN,
   KPI_ALERTS_OVERDUE_ACK,
+  LINE_CONTROLS_OVER_TIME,
   LINE_CHECKLIST_OVER_TIME,
   LINE_LEARNING_OVER_TIME,
   LINE_ALERTS_OVER_TIME,
+  DONUT_CONTROLS_BY_REGULATION,
   DONUT_TASKS_STATUS,
   DONUT_SURVEY_STATUS,
   DONUT_ALERTS_KIND,
@@ -289,6 +359,11 @@ const WIDGET_CATALOG: WidgetCatalogEntry[] = [
   { catalogId: 'kpi-alerts-overdue-ack', category: 'Varslinger', label: 'Forsinket kvittering (AML § 2A-3)', template: KPI_ALERTS_OVERDUE_ACK },
   { catalogId: 'line-alerts-received', category: 'Trender', label: 'Varslinger over tid', template: LINE_ALERTS_OVER_TIME },
   { catalogId: 'donut-alerts-kind', category: 'Diagrammer', label: 'Varslinger — type', template: DONUT_ALERTS_KIND },
+  { catalogId: 'kpi-controls-overdue', category: 'Kontroller', label: 'Forfalte kontroller', description: 'Antall internkontroller som har gått ut over sin frekvens.', template: KPI_CONTROLS_OVERDUE },
+  { catalogId: 'kpi-controls-due-soon', category: 'Kontroller', label: 'Kontroller som forfaller snart', description: 'Internkontroller med frist innen 30 dager.', template: KPI_CONTROLS_DUE_SOON },
+  { catalogId: 'kpi-controls-on-track', category: 'Kontroller', label: 'Kontroller på sporet', description: 'Internkontroller som er innenfor sin frekvens.', template: KPI_CONTROLS_ON_TRACK },
+  { catalogId: 'donut-controls-by-regulation', category: 'Kontroller', label: 'Kontroller per regelverk', description: 'Fordeling av kontroller etter primær-regelverket de oppfyller.', template: DONUT_CONTROLS_BY_REGULATION },
+  { catalogId: 'line-controls-executions', category: 'Trender', label: 'Kontroller — bevis over tid', template: LINE_CONTROLS_OVER_TIME },
 ]
 
 registerDashboardScope({
