@@ -279,7 +279,13 @@ export function SecUsers({ easy }: AdminSectionProps) {
                       ) : null}
                     </td>
                     {!easy && (
-                      <td className="px-5 py-3 text-neutral-500">—</td>
+                      <td className="px-5 py-3 text-neutral-700">
+                        {u.locationName ? (
+                          u.locationName.split('·')[0]?.trim()
+                        ) : (
+                          <span className="text-neutral-400">—</span>
+                        )}
+                      </td>
                     )}
                     <td className="px-5 py-3">
                       {!authMetaAvailable ? (

@@ -17,6 +17,7 @@ interface ProfileRow {
   department_id: string | null
   job_title: string | null
   updated_at: string
+  location_id: string | null
 }
 
 interface RoleRow {
@@ -90,10 +91,10 @@ export function useAdminUsers(): AdminUsersResult {
     setLoading(true)
     setError(null)
     try {
-      const [profileRes, roleRes, userRoleRes, overviewRes] = await Promise.all([
+      const [profileRes, roleRes, userRoleRes, overviewRes, locRes] = await Promise.all([
         supabase
           .from('profiles')
-          .select('id, display_name, email, is_org_admin, department_id, job_title, updated_at')
+          .select('id, display_name, email, is_org_admin, department_id, job_title, updated_at, location_id')
           .eq('organization_id', organization.id)
           .order('display_name', { ascending: true }),
         supabase
@@ -103,6 +104,10 @@ export function useAdminUsers(): AdminUsersResult {
         supabase.from('user_roles').select('user_id, role_id'),
         // SECURITY DEFINER RPC — returns empty set for non-admin callers.
         supabase.rpc('users_admin_overview'),
+        supabase
+          .from('locations')
+          .select('id, name')
+          .eq('organization_id', organization.id),
       ])
 
       if (profileRes.error) throw profileRes.error
@@ -110,6 +115,13 @@ export function useAdminUsers(): AdminUsersResult {
       if (userRoleRes.error) throw userRoleRes.error
       // Auth metadata is best-effort — surface error but keep page rendering.
       const overviewError = overviewRes.error?.message ?? null
+
+      const locationsById = new Map<string, string>()
+      if (!locRes.error && locRes.data) {
+        for (const l of locRes.data as { id: string; name: string }[]) {
+          locationsById.set(l.id, l.name)
+        }
+      }
 
       const roleById = new Map<string, RoleRow>()
       for (const r of (roleRes.data ?? []) as RoleRow[]) roleById.set(r.id, r)
@@ -168,8 +180,8 @@ export function useAdminUsers(): AdminUsersResult {
           // Prefer real last_sign_in_at when available; fall back to
           // profile updated_at otherwise (best non-auth proxy).
           lastLogin: auth?.last_sign_in_at ?? p.updated_at,
-          locationId: null,
-          locationName: null,
+          locationId: p.location_id,
+          locationName: p.location_id ? locationsById.get(p.location_id) ?? null : null,
           external,
         }
       })

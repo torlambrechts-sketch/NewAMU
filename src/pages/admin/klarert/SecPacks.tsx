@@ -34,7 +34,7 @@ import {
   AdminInfoBanner,
   AdminLoading,
 } from './AdminShared'
-import { useAdminPacks, type PackTemplateRow } from './useAdminPacks'
+import { useAdminPacks, type CreateInternalPackResult, type PackTemplateRow } from './useAdminPacks'
 import type { PackSummary, RouteName } from './types'
 
 interface SecPacksProps {
@@ -123,7 +123,9 @@ export function SecPacks({ easy, route, setRoute }: SecPacksProps) {
         pack={pack}
         templates={templates.filter((t) => t.packFramework === pack.framework)}
         onBack={() => setRoute({ name: 'pack-detail', packId: pack.id })}
-        onCreate={createInternalPackFromTemplates}
+        onCreate={(ids, name) =>
+          createInternalPackFromTemplates(ids, name, pack.framework)
+        }
       />
     )
   }
@@ -1024,6 +1026,66 @@ function EdPreview({ template }: { template: PackTemplateRow | null }) {
 // Tilpass wizard
 // ──────────────────────────────────────────────────────────────────────────
 
+function WizardResultPanel({ result }: { result: CreateInternalPackResult }) {
+  const hasError = !!result.error
+  const partial = hasError && result.copied > 0
+  const tone = hasError
+    ? partial
+      ? 'border-amber-200 bg-amber-50/60 text-amber-900'
+      : 'border-red-200 bg-red-50/60 text-red-900'
+    : 'border-green-200 bg-green-50/60 text-green-900'
+  const Icon = hasError ? AlertCircle : Check
+  const iconCls = hasError ? (partial ? 'text-amber-700' : 'text-red-700') : 'text-green-700'
+
+  const moduleLabels: Record<
+    keyof CreateInternalPackResult['perModule'],
+    string
+  > = {
+    checklist: 'Sjekkliste',
+    survey: 'Undersøkelse',
+    document: 'Dokument',
+    meeting: 'Møte',
+    register: 'Register',
+    course: 'Kurs',
+  }
+  const rows = (Object.keys(result.perModule) as Array<keyof CreateInternalPackResult['perModule']>)
+    .map((k) => ({ key: k, label: moduleLabels[k], ...result.perModule[k] }))
+    .filter((r) => r.copied > 0 || r.failed > 0)
+
+  return (
+    <div className={`mt-4 rounded-md border p-3 text-[12px] ${tone}`}>
+      <div className="flex items-start gap-2">
+        <Icon className={`mt-0.5 h-3.5 w-3.5 shrink-0 ${iconCls}`} aria-hidden="true" />
+        <div className="flex-1">
+          <div className="font-semibold">
+            {hasError
+              ? partial
+                ? `Pakken ble opprettet med ${result.copied} maler — noen typer feilet`
+                : 'Kunne ikke opprette pakken'
+              : `Pakken er opprettet · ${result.copied} mal${result.copied === 1 ? '' : 'er'} kopiert`}
+          </div>
+          {rows.length > 0 && (
+            <ul className="mt-2 grid grid-cols-1 gap-1 sm:grid-cols-2 md:grid-cols-3">
+              {rows.map((r) => (
+                <li key={r.key} className="flex items-center justify-between gap-2 rounded bg-white/50 px-2 py-1 text-[11px]">
+                  <span className="font-medium">{r.label}</span>
+                  <span className="tabular-nums">
+                    {r.copied > 0 ? `${r.copied} ✓` : ''}
+                    {r.failed > 0 ? ` ${r.failed} ✗` : ''}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )}
+          {result.error && (
+            <div className="mt-2 text-[11px] opacity-80">{result.error}</div>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
+
 function TilpassWizard({
   pack,
   templates,
@@ -1036,15 +1098,13 @@ function TilpassWizard({
   onCreate: (
     sourceTemplateIds: string[],
     packName: string,
-  ) => Promise<{ copied: number; skipped: number; error: string | null }>
+  ) => Promise<CreateInternalPackResult>
 }) {
   const [step, setStep] = useState<1 | 2 | 3>(1)
   const [selected, setSelected] = useState<Record<string, boolean>>({})
   const [packName, setPackName] = useState(`${pack.name} (kopi)`)
   const [creating, setCreating] = useState(false)
-  const [createResult, setCreateResult] = useState<
-    { copied: number; skipped: number; error: string | null } | null
-  >(null)
+  const [createResult, setCreateResult] = useState<CreateInternalPackResult | null>(null)
   const selectedIds = Object.keys(selected).filter((k) => selected[k])
 
   function toggle(id: string) {
@@ -1310,30 +1370,7 @@ function TilpassWizard({
             </aside>
           </div>
 
-          {createResult && (
-            <div
-              className={
-                'mt-4 flex items-start gap-2 rounded-md border p-3 text-[12px] ' +
-                (createResult.error
-                  ? 'border-red-200 bg-red-50/60'
-                  : 'border-green-200 bg-green-50/60')
-              }
-            >
-              {createResult.error ? (
-                <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-red-700" aria-hidden="true" />
-              ) : (
-                <Check className="mt-0.5 h-3.5 w-3.5 shrink-0 text-green-700" aria-hidden="true" />
-              )}
-              <div className={createResult.error ? 'text-red-900' : 'text-green-900'}>
-                {createResult.error
-                  ? createResult.error
-                  : `Opprettet ${createResult.copied} mal${createResult.copied === 1 ? '' : 'er'}` +
-                    (createResult.skipped > 0
-                      ? ` · hoppet over ${createResult.skipped} (kun sjekkliste-maler kopieres i denne wizarden)`
-                      : '')}
-              </div>
-            </div>
-          )}
+          {createResult && <WizardResultPanel result={createResult} />}
 
           <div className="mt-4 flex items-center justify-between">
             <Button
