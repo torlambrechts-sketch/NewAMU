@@ -10,31 +10,18 @@ import { useNavigate, useParams } from 'react-router-dom'
 import {
   AlertCircle,
   ArrowRight,
-  Bold,
   CheckCircle2,
   ChevronDown,
   ChevronUp,
   Eye,
   FileText,
-  GitMerge,
-  ImagePlus,
   Info,
-  Italic,
   Link as LinkIcon,
-  List,
-  ListOrdered,
-  Paperclip,
   Pencil,
   Plus,
-  Quote,
-  Redo2,
   Save,
   Send,
-  ShieldCheck,
-  Table as TableIcon,
   Trash2,
-  Underline,
-  Undo2,
   Upload,
   X,
 } from 'lucide-react'
@@ -43,6 +30,7 @@ import { useOrgSetupContext } from '../../hooks/useOrgSetupContext'
 import { ModulePageShell } from '../../components/module'
 import { Button } from '../../components/ui/Button'
 import { WarningBox } from '../../components/ui/AlertBox'
+import { TipTapRichTextEditor } from '../../components/documents/TipTapRichTextEditor'
 import { DOCUMENTS_MODULE_TITLE } from '../../data/documentsNav'
 import {
   Initials,
@@ -80,7 +68,10 @@ type Section = {
   id: string
   n: string
   title: string
-  paragraphs: string[]
+  /** Rich HTML body for the section — edited via TipTap. Aggregates all
+   *  text/alert/divider/lawRef blocks under the heading so the editor can
+   *  drive lists, bold, italics, links, mentions, etc. */
+  bodyHtml: string
 }
 
 function freshSectionId(): string {
@@ -97,7 +88,7 @@ function blocksToSections(blocks: ContentBlock[] | undefined): Section[] {
         id: freshSectionId(),
         n: '1',
         title: 'Innledning',
-        paragraphs: [''],
+        bodyHtml: '',
       },
     ]
   }
@@ -111,25 +102,23 @@ function blocksToSections(blocks: ContentBlock[] | undefined): Section[] {
         id: freshSectionId(),
         n: String(counter),
         title: String((b as HeadingBlock).text ?? ''),
-        paragraphs: [],
+        bodyHtml: '',
       }
       out.push(current)
       continue
     }
     if (!current) {
       counter = 1
-      current = { id: freshSectionId(), n: '1', title: 'Innledning', paragraphs: [] }
+      current = { id: freshSectionId(), n: '1', title: 'Innledning', bodyHtml: '' }
       out.push(current)
     }
     if (b && b.kind === 'text') {
-      // Strip HTML for the simple text editor — the rich editor lives on the
-      // /reference-edit route; this fast lane keeps blocks portable.
-      const plain = String((b as TextBlock).body ?? '').replace(/<[^>]+>/g, '').trim()
-      current.paragraphs.push(plain)
+      const body = String((b as TextBlock).body ?? '').trim()
+      if (body) current.bodyHtml = current.bodyHtml ? `${current.bodyHtml}\n${body}` : body
     }
   }
   if (out.length === 0) {
-    out.push({ id: freshSectionId(), n: '1', title: 'Innledning', paragraphs: [''] })
+    out.push({ id: freshSectionId(), n: '1', title: 'Innledning', bodyHtml: '' })
   }
   return out
 }
@@ -138,26 +127,16 @@ function sectionsToBlocks(sections: Section[]): ContentBlock[] {
   const blocks: ContentBlock[] = []
   for (const s of sections) {
     blocks.push({ kind: 'heading', level: 2, text: s.title } as HeadingBlock)
-    for (const p of s.paragraphs) {
-      blocks.push({
-        kind: 'text',
-        body: p ? `<p>${escapeHtml(p)}</p>` : '',
-      } as TextBlock)
-    }
+    blocks.push({
+      kind: 'text',
+      body: s.bodyHtml || '',
+    } as TextBlock)
   }
   return blocks
 }
 
-function escapeHtml(s: string): string {
-  return s
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;')
-}
-
-// ─── Auto-resizing textarea (mirrors DocumentEdit.jsx AutoTextarea) ──────────
+// Auto-resizing textarea for the document subtitle (single line of help text
+// under the title). The section bodies use TipTapRichTextEditor instead.
 function AutoTextarea({
   value,
   onChange,
@@ -216,29 +195,6 @@ function InlineEdit({
   )
 }
 
-function ToolbarButton({
-  icon: Icon,
-  label,
-  active,
-}: {
-  icon: typeof Bold
-  label: string
-  active?: boolean
-}) {
-  return (
-    <button
-      type="button"
-      title={label}
-      className={[
-        'inline-flex h-7 w-7 items-center justify-center rounded text-neutral-600 transition-colors',
-        active ? 'bg-neutral-200 text-neutral-900' : 'hover:bg-neutral-100 hover:text-neutral-900',
-      ].join(' ')}
-    >
-      <Icon className="h-3.5 w-3.5" aria-hidden />
-    </button>
-  )
-}
-
 function FieldGroup({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div>
@@ -266,6 +222,21 @@ export function DocumentEditPage() {
   const page = docs.pages.find((p) => p.id === pageId)
   const space = page ? docs.spaces.find((s) => s.id === page.spaceId) : null
   const docKind = useMemo(() => categoryToKind(space?.category ?? null), [space?.category])
+
+  // TipTap auxiliary data — `[[` opens the wiki-link picker, `@` opens the
+  // mention picker. We feed both straight from the existing stores so we
+  // don't duplicate any user / page caches.
+  const wikiLinkPages = useMemo(
+    () =>
+      docs.pages
+        .filter((p) => p.id !== pageId)
+        .map((p) => ({ id: p.id, title: p.title })),
+    [docs.pages, pageId],
+  )
+  const mentionProfiles = useMemo(
+    () => orgProfiles.map((p) => ({ id: p.id, label: p.display_name })),
+    [orgProfiles],
+  )
 
   // Editor mode toggle (Enkel / Avansert) — only affects the right sidebar
   const [mode, setMode] = useState<DocsMode>('advanced')
@@ -336,37 +307,9 @@ export function DocumentEditPage() {
     },
     [markDirty],
   )
-  const updateParagraph = useCallback(
-    (secIdx: number, parIdx: number, text: string) => {
-      setSections((prev) =>
-        prev.map((s, i) =>
-          i === secIdx
-            ? { ...s, paragraphs: s.paragraphs.map((p, j) => (j === parIdx ? text : p)) }
-            : s,
-        ),
-      )
-      markDirty()
-    },
-    [markDirty],
-  )
-  const addParagraph = useCallback(
-    (secIdx: number) => {
-      setSections((prev) =>
-        prev.map((s, i) => (i === secIdx ? { ...s, paragraphs: [...s.paragraphs, ''] } : s)),
-      )
-      markDirty()
-    },
-    [markDirty],
-  )
-  const removeParagraph = useCallback(
-    (secIdx: number, parIdx: number) => {
-      setSections((prev) =>
-        prev.map((s, i) =>
-          i === secIdx
-            ? { ...s, paragraphs: s.paragraphs.filter((_, j) => j !== parIdx) }
-            : s,
-        ),
-      )
+  const updateSectionBody = useCallback(
+    (idx: number, html: string) => {
+      setSections((prev) => prev.map((s, i) => (i === idx ? { ...s, bodyHtml: html } : s)))
       markDirty()
     },
     [markDirty],
@@ -374,7 +317,7 @@ export function DocumentEditPage() {
   const addSection = useCallback(() => {
     const id = freshSectionId()
     setSections((prev) => {
-      const next = [...prev, { id, n: String(prev.length + 1), title: 'Ny seksjon', paragraphs: [''] }]
+      const next = [...prev, { id, n: String(prev.length + 1), title: 'Ny seksjon', bodyHtml: '' }]
       return next.map((s, i) => ({ ...s, n: String(i + 1) }))
     })
     setActiveSection(id)
@@ -429,16 +372,20 @@ export function DocumentEditPage() {
   const nextVersionNum = page ? (bumpMajor ? page.version + 1 : page.version) : 1
   const nextVersion = displayVersion(nextVersionNum)
 
-  // Stats
+  // Stats — count paragraphs as the number of <p> blocks across all section
+  // HTML bodies; words are extracted from the plain-text projection.
   const stats = useMemo(() => {
-    const totalParagraphs = sections.reduce((a, s) => a + s.paragraphs.length, 0)
-    const words = sections.reduce(
-      (a, s) => a + s.paragraphs.join(' ').split(/\s+/).filter(Boolean).length,
-      0,
-    )
+    let paragraphCount = 0
+    let words = 0
+    for (const s of sections) {
+      const html = s.bodyHtml ?? ''
+      paragraphCount += (html.match(/<p[\s>]/gi) ?? []).length
+      const plain = html.replace(/<[^>]+>/g, ' ').replace(/&nbsp;/g, ' ').trim()
+      if (plain) words += plain.split(/\s+/).filter(Boolean).length
+    }
     return {
       sections: sections.length,
-      paragraphs: totalParagraphs,
+      paragraphs: paragraphCount,
       words,
     }
   }, [sections])
@@ -737,49 +684,9 @@ export function DocumentEditPage() {
         </div>
       </div>
 
-      {/* Formatting toolbar */}
-      <div
-        className="sticky top-0 z-10 flex flex-wrap items-center gap-1 rounded-xl border border-neutral-200/80 bg-white px-3 py-1.5"
-        style={{ boxShadow: '0 1px 2px rgba(0,0,0,0.04)' }}
-      >
-        <select
-          className="rounded border-none bg-neutral-50 px-2 py-1 text-xs font-medium text-neutral-700 outline-none hover:bg-neutral-100 focus:bg-white"
-          defaultValue="paragraph"
-        >
-          <option value="h2">Overskrift</option>
-          <option value="paragraph">Brødtekst</option>
-          <option value="quote">Sitat</option>
-        </select>
-        <span className="mx-1 h-5 w-px bg-neutral-200" aria-hidden />
-        <ToolbarButton icon={Bold} label="Fet" />
-        <ToolbarButton icon={Italic} label="Kursiv" />
-        <ToolbarButton icon={Underline} label="Understrek" />
-        <span className="mx-1 h-5 w-px bg-neutral-200" aria-hidden />
-        <ToolbarButton icon={List} label="Punktliste" />
-        <ToolbarButton icon={ListOrdered} label="Nummerert liste" />
-        <ToolbarButton icon={Quote} label="Sitat" />
-        <span className="mx-1 h-5 w-px bg-neutral-200" aria-hidden />
-        <ToolbarButton icon={LinkIcon} label="Lenke" />
-        <ToolbarButton icon={Paperclip} label="Legg ved fil" />
-        <ToolbarButton icon={ImagePlus} label="Bilde" />
-        <ToolbarButton icon={TableIcon} label="Tabell" />
-        <span className="mx-1 h-5 w-px bg-neutral-200" aria-hidden />
-        <ToolbarButton icon={ShieldCheck} label="Sett inn lovverk-referanse" />
-        <ToolbarButton icon={GitMerge} label="Sett inn lenke til relatert dokument" />
-        <div className="ml-auto flex items-center gap-2 text-[10px] text-neutral-500">
-          <span className="inline-flex items-center gap-1">
-            <Undo2 className="h-3 w-3" aria-hidden />
-          </span>
-          <span className="inline-flex items-center gap-1">
-            <Redo2 className="h-3 w-3" aria-hidden />
-          </span>
-          <span className="inline-flex items-center gap-1">
-            <kbd className="rounded bg-neutral-100 px-1 py-0.5 font-mono text-[9px]">⌘S</kbd> Lagre
-          </span>
-        </div>
-      </div>
-
-      {/* 3-column body */}
+      {/* 3-column body — each section's TipTap editor renders its own
+          formatting toolbar (bold, italic, lists, links, etc.) above the
+          prose. Slash-menu and `@`/`[[` triggers also work in-line. */}
       <div className="grid grid-cols-1 gap-5 lg:grid-cols-[220px_minmax(0,1fr)_320px]">
         {/* LEFT — ToC */}
         <aside>
@@ -962,35 +869,16 @@ export function DocumentEditPage() {
                   </button>
                 </span>
               </div>
-              <div className="mt-3 space-y-3">
-                {s.paragraphs.map((p, parIdx) => (
-                  <div
-                    key={parIdx}
-                    className="group/par relative -mx-2 rounded px-2 py-0.5 transition-colors hover:bg-neutral-50"
-                  >
-                    <AutoTextarea
-                      value={p}
-                      onChange={(v) => updateParagraph(secIdx, parIdx, v)}
-                      className="text-[15.5px] leading-[1.65] text-neutral-700"
-                      placeholder="Skriv et avsnitt…"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => removeParagraph(secIdx, parIdx)}
-                      className="absolute -right-7 top-1.5 hidden h-5 w-5 items-center justify-center rounded text-neutral-300 hover:bg-red-50 hover:text-red-600 group-hover/par:inline-flex"
-                      title="Slett avsnitt"
-                    >
-                      <Trash2 className="h-3 w-3" aria-hidden />
-                    </button>
-                  </div>
-                ))}
-                <button
-                  type="button"
-                  onClick={() => addParagraph(secIdx)}
-                  className="-ml-0.5 mt-1 inline-flex items-center gap-1 rounded px-1.5 py-1 text-[11px] font-semibold text-neutral-400 hover:bg-neutral-50 hover:text-[#1a3d32]"
-                >
-                  <Plus className="h-3 w-3" aria-hidden /> Nytt avsnitt
-                </button>
+              <div className="mt-3">
+                <TipTapRichTextEditor
+                  value={s.bodyHtml}
+                  onChange={(html) => updateSectionBody(secIdx, html)}
+                  toolbar="full"
+                  placeholder="Skriv innhold — bruk verktøylinjen, /-meny, eller @ for mentions"
+                  wikiLinkPages={wikiLinkPages}
+                  mentionProfiles={mentionProfiles}
+                  className="docs-edit-tiptap"
+                />
               </div>
             </section>
           ))}

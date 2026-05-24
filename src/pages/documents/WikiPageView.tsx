@@ -8,13 +8,13 @@ import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import {
   AlertCircle,
   ArrowLeft,
-  AtSign,
   BadgeCheck,
   Bell,
   BookOpen,
   CalendarClock,
   Check,
   CheckCircle2,
+  CheckSquare,
   ChevronDown,
   Clock,
   Download,
@@ -25,6 +25,7 @@ import {
   Info,
   MessageSquare,
   Pencil,
+  Quote as QuoteIcon,
   RefreshCw,
   Send,
   Settings,
@@ -47,6 +48,13 @@ import { Tabs, type TabItem } from '../../components/ui/Tabs'
 import { DocumentAccessRequestForm } from '../../components/documents/DocumentAccessRequestForm'
 import { DocumentAccessRequestDialog } from '../../components/documents/DocumentAccessRequestDialog'
 import { DocumentAvvikChip } from '../../components/documents/DocumentAvvikPanel'
+import { MentionAutocomplete } from '../../components/documents/MentionAutocomplete'
+import { useTaskItemsData, type CreateTaskItemInput } from '../../../modules/tasks/useTaskItemsData'
+import { SlidePanel } from '../../components/layout/SlidePanel'
+import { StandardInput } from '../../components/ui/Input'
+import { StandardTextarea } from '../../components/ui/Textarea'
+import { SearchableSelect } from '../../components/ui/SearchableSelect'
+import type { TaskItemPriority } from '../../types/task'
 import { DOCUMENTS_MODULE_TITLE } from '../../data/documentsNav'
 import type {
   AuditLedgerEntry,
@@ -54,6 +62,7 @@ import type {
   HeadingBlock,
   PageStatus,
   TextBlock,
+  WikiCommentAnchor,
   WikiPage,
   WikiPageComment,
   WikiPageVersionSnapshot,
@@ -806,13 +815,16 @@ export function WikiPageView() {
               comments={comments}
               easy={easy}
               canComment={Boolean(user?.id && can('documents.view') && page.status !== 'archived')}
-              onAddComment={async (body) => {
+              mentionUsers={orgProfiles.map((p) => ({ id: p.id, displayName: p.display_name }))}
+              assignableUsers={orgProfiles.map((p) => ({ id: p.id, display_name: p.display_name }))}
+              onAddComment={async (body, anchor) => {
                 await addComment({
-                  blockIndex: 0,
+                  blockIndex: anchor?.blockIndex ?? 0,
                   body,
                   authorName: profile?.display_name ?? '',
                   kind: 'comment',
                   legalBasis: page.legalRefs,
+                  anchor: anchor ?? null,
                 })
               }}
               onReply={async (parentId, body) => {
@@ -1597,6 +1609,8 @@ function DdKommentarer({
   comments,
   easy,
   canComment,
+  mentionUsers,
+  assignableUsers,
   onAddComment,
   onReply,
   onResolve,
@@ -1610,7 +1624,9 @@ function DdKommentarer({
   comments: WikiPageComment[]
   easy: boolean
   canComment: boolean
-  onAddComment: (body: string) => Promise<void>
+  mentionUsers: { id: string; displayName: string }[]
+  assignableUsers: { id: string; display_name: string }[]
+  onAddComment: (body: string, anchor?: WikiCommentAnchor | null) => Promise<void>
   onReply: (parentId: string, body: string) => Promise<void>
   onResolve: (id: string, resolved: boolean) => void
   onDelete: (id: string) => void
@@ -1619,12 +1635,17 @@ function DdKommentarer({
 }) {
   void onSuggestion // surface for future inline-suggestion UI
   void onDelete
+  const taskApi = useTaskItemsData()
   const [activeSection, setActiveSection] = useState<string | null>(sections[0]?.id ?? null)
   const [activeId, setActiveId] = useState<string | null>(null)
   const [filter, setFilter] = useState<'open' | 'resolved' | 'all'>('open')
   const [newBody, setNewBody] = useState('')
   const [replyBody, setReplyBody] = useState('')
   const [busy, setBusy] = useState(false)
+  /** Text selected in the document body that anchors the new comment. */
+  const [pendingAnchor, setPendingAnchor] = useState<WikiCommentAnchor | null>(null)
+  /** Comment whose "Create task" panel is currently open. */
+  const [taskForComment, setTaskForComment] = useState<WikiPageComment | null>(null)
 
   // Top-level comments only, in document order (use blockIndex then createdAt)
   const tops = useMemo(
@@ -1674,6 +1695,37 @@ function DdKommentarer({
           fontFamily: "'Inter', sans-serif",
           boxShadow: '0 1px 3px rgba(0,0,0,0.04), 0 4px 12px rgba(0,0,0,0.03)',
         }}
+        onMouseUp={() => {
+          if (!canComment) return
+          const sel = window.getSelection()
+          const text = sel?.toString().trim() ?? ''
+          if (text.length < 4 || text.length > 300) {
+            // Selection too short / too long — fall back to block-level comment.
+            return
+          }
+          // Map selection to a block index by walking up to the nearest
+          // <section id="..."> ancestor that matches a section id.
+          let anchorNode: Node | null = sel?.anchorNode ?? null
+          let blockIndex = 0
+          while (anchorNode) {
+            if (
+              anchorNode.nodeType === 1 &&
+              (anchorNode as Element).tagName === 'SECTION'
+            ) {
+              const sid = (anchorNode as Element).id
+              const idx = sections.findIndex((sec) => sec.id === sid)
+              if (idx >= 0) {
+                // Use the first text block under the heading as a stable
+                // anchor — sections may contain multiple paragraphs.
+                const firstPar = sections[idx].paragraphs[0]
+                if (firstPar) blockIndex = firstPar.blockIndex
+                break
+              }
+            }
+            anchorNode = anchorNode.parentNode
+          }
+          setPendingAnchor({ blockIndex, from: 0, to: text.length, quotedText: text })
+        }}
       >
         <NotionDocHeader page={page} docKind={docKind} />
 
@@ -1709,27 +1761,42 @@ function DdKommentarer({
             className="rounded-xl border border-neutral-200/80 bg-white p-3"
             style={{ boxShadow: '0 1px 2px rgba(0,0,0,0.04)' }}
           >
-            <h3 className="text-xs font-bold uppercase tracking-wider text-neutral-500">
-              Ny kommentar
-            </h3>
-            <p className="mt-1 text-[10px] text-neutral-500">
-              Marker tekst i dokumentet for å forankre.
-            </p>
-            <textarea
-              rows={2}
-              value={newBody}
-              onChange={(e) => setNewBody(e.target.value)}
-              className="mt-2 w-full rounded-md border border-neutral-200 bg-neutral-50 p-2 text-xs outline-none focus:border-[#1a3d32] focus:bg-white"
-              placeholder="Skriv en kommentar…"
-            />
+            <div className="flex items-center justify-between">
+              <h3 className="text-xs font-bold uppercase tracking-wider text-neutral-500">
+                Ny kommentar
+              </h3>
+              {pendingAnchor ? (
+                <button
+                  type="button"
+                  className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-[9px] font-semibold text-amber-900 hover:bg-amber-200"
+                  onClick={() => setPendingAnchor(null)}
+                  title="Fjern forankring"
+                >
+                  <QuoteIcon className="h-2.5 w-2.5" aria-hidden /> Forankret
+                  <X className="h-2.5 w-2.5" aria-hidden />
+                </button>
+              ) : null}
+            </div>
+            {pendingAnchor ? (
+              <blockquote className="mt-2 rounded-md border-l-2 border-amber-400 bg-amber-50/60 px-2 py-1 text-[11px] italic text-neutral-700">
+                «{pendingAnchor.quotedText}»
+              </blockquote>
+            ) : (
+              <p className="mt-1 text-[10px] text-neutral-500">
+                Marker tekst i dokumentet for å forankre. Skriv «@» for å varsle en kollega.
+              </p>
+            )}
+            <div className="mt-2">
+              <MentionAutocomplete
+                value={newBody}
+                onChange={setNewBody}
+                users={mentionUsers}
+                rows={2}
+                placeholder="Skriv en kommentar…"
+                className="!bg-neutral-50 !text-xs !px-2 !py-2"
+              />
+            </div>
             <div className="mt-1.5 flex items-center justify-end gap-1.5">
-              <button
-                type="button"
-                className="text-[10px] font-medium text-neutral-500 hover:text-neutral-800"
-              >
-                <AtSign className="mr-0.5 inline h-2.5 w-2.5" aria-hidden />
-                Tagg
-              </button>
               <Button
                 variant="primary"
                 size="sm"
@@ -1738,8 +1805,9 @@ function DdKommentarer({
                   if (!newBody.trim()) return
                   setBusy(true)
                   try {
-                    await onAddComment(newBody.trim())
+                    await onAddComment(newBody.trim(), pendingAnchor)
                     setNewBody('')
+                    setPendingAnchor(null)
                   } catch (err) {
                     console.error('Add comment failed', err)
                   } finally {
@@ -1894,6 +1962,14 @@ function DdKommentarer({
                         </button>
                         <button
                           type="button"
+                          title="Lag oppgave fra kommentar"
+                          className="rounded p-1 text-neutral-400 hover:bg-[#1a3d32]/10 hover:text-[#1a3d32]"
+                          onClick={() => setTaskForComment(c)}
+                        >
+                          <CheckSquare className="h-3.5 w-3.5" aria-hidden />
+                        </button>
+                        <button
+                          type="button"
                           title="Marker som løst"
                           className="rounded p-1 text-neutral-400 hover:bg-green-50 hover:text-green-700"
                           onClick={() => onResolve(c.id, true)}
@@ -1902,6 +1978,22 @@ function DdKommentarer({
                         </button>
                       </div>
                     ) : null}
+
+                    {/* Always-visible quick-task button (works whether the
+                        thread is expanded or resolved). */}
+                    <div className="mt-2 flex items-center justify-end gap-1.5 border-t border-neutral-100 pt-2">
+                      <button
+                        type="button"
+                        title="Lag oppgave fra kommentar"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          setTaskForComment(c)
+                        }}
+                        className="inline-flex items-center gap-1 rounded-md border border-neutral-200 px-2 py-1 text-[10px] font-semibold text-neutral-600 hover:border-[#1a3d32] hover:bg-[#1a3d32]/5 hover:text-[#1a3d32]"
+                      >
+                        <CheckSquare className="h-2.5 w-2.5" aria-hidden /> Lag oppgave
+                      </button>
+                    </div>
                   </button>
                 </li>
               )
@@ -1909,7 +2001,203 @@ function DdKommentarer({
           )}
         </ul>
       </aside>
+
+      <CreateTaskFromCommentPanel
+        open={taskForComment != null}
+        comment={taskForComment}
+        page={page}
+        assignableUsers={assignableUsers}
+        onClose={() => setTaskForComment(null)}
+        onCreate={async (input) => {
+          const id = await taskApi.createItem(input)
+          if (id) setTaskForComment(null)
+          return id
+        }}
+      />
     </div>
+  )
+}
+
+// ----------------------------------------------------------------------------
+// CreateTaskFromCommentPanel — slide-out form that prefills a task with the
+// comment body and a back-link to the document.
+// ----------------------------------------------------------------------------
+function CreateTaskFromCommentPanel({
+  open,
+  comment,
+  page,
+  assignableUsers,
+  onClose,
+  onCreate,
+}: {
+  open: boolean
+  comment: WikiPageComment | null
+  page: WikiPage
+  assignableUsers: { id: string; display_name: string }[]
+  onClose: () => void
+  onCreate: (input: CreateTaskItemInput) => Promise<string | null>
+}) {
+  const [title, setTitle] = useState('')
+  const [description, setDescription] = useState('')
+  const [priority, setPriority] = useState<TaskItemPriority>('medium')
+  const [assigneeId, setAssigneeId] = useState('')
+  const [dueDate, setDueDate] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [err, setErr] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (!open || !comment) return
+    const snippet = comment.body.length > 80 ? `${comment.body.slice(0, 78)}…` : comment.body
+    setTitle(`Oppfølging: ${snippet}`)
+    setDescription(
+      [
+        `Følger opp kommentar på dokument «${page.title}» (v${displayVersion(page.version)}).`,
+        '',
+        `> ${comment.body}`,
+        '',
+        `Forfatter: ${comment.authorName || comment.authorId}`,
+      ].join('\n'),
+    )
+    setPriority('medium')
+    setAssigneeId('')
+    setDueDate('')
+    setErr(null)
+  }, [open, comment, page.title, page.version])
+
+  if (!open || !comment) return null
+
+  const assigneeOptions = [
+    { value: '', label: 'Ingen valgt' },
+    ...assignableUsers.map((u) => ({ value: u.id, label: u.display_name })),
+  ]
+  const priorityOptions: { value: TaskItemPriority; label: string }[] = [
+    { value: 'low', label: 'Lav' },
+    { value: 'medium', label: 'Middels' },
+    { value: 'high', label: 'Høy' },
+    { value: 'critical', label: 'Kritisk' },
+  ]
+  const assigneeName = assignableUsers.find((u) => u.id === assigneeId)?.display_name
+
+  return (
+    <SlidePanel
+      open={open}
+      onClose={onClose}
+      titleId="create-task-from-comment"
+      title="Ny oppgave fra kommentar"
+      footer={
+        <div className="flex w-full flex-wrap items-center justify-end gap-2">
+          <Button variant="secondary" onClick={onClose} disabled={busy}>
+            Avbryt
+          </Button>
+          <Button
+            variant="primary"
+            disabled={busy || !title.trim()}
+            onClick={async () => {
+              if (!title.trim()) return
+              setBusy(true)
+              setErr(null)
+              try {
+                await onCreate({
+                  title: title.trim(),
+                  description: description.trim() || undefined,
+                  priority,
+                  assigneeName: assigneeName || undefined,
+                  ownerName: assigneeName || undefined,
+                  dueDate: dueDate || undefined,
+                  sourceType: 'document',
+                  sourceId: page.id,
+                })
+              } catch (e) {
+                setErr(e instanceof Error ? e.message : 'Kunne ikke opprette oppgave.')
+              } finally {
+                setBusy(false)
+              }
+            }}
+          >
+            Opprett oppgave
+          </Button>
+        </div>
+      }
+    >
+      <div className="space-y-4">
+        <p className="text-xs text-neutral-500">
+          Forankret til «{page.title}» (v{displayVersion(page.version)}).
+        </p>
+        {err ? <WarningBox>{err}</WarningBox> : null}
+        <div>
+          <label className="text-[10px] font-bold uppercase tracking-wider text-neutral-500" htmlFor="task-title">
+            Tittel
+          </label>
+          <StandardInput
+            id="task-title"
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            className="mt-1.5"
+            placeholder="Hva må gjøres?"
+          />
+        </div>
+        <div>
+          <label
+            className="text-[10px] font-bold uppercase tracking-wider text-neutral-500"
+            htmlFor="task-desc"
+          >
+            Beskrivelse
+          </label>
+          <StandardTextarea
+            id="task-desc"
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            rows={5}
+            className="mt-1.5"
+          />
+        </div>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <div>
+            <label className="text-[10px] font-bold uppercase tracking-wider text-neutral-500">
+              Prioritet
+            </label>
+            <SearchableSelect
+              value={priority}
+              onChange={(v) => setPriority(v as TaskItemPriority)}
+              options={priorityOptions}
+              placeholder="Velg prioritet"
+              className="mt-1.5"
+            />
+          </div>
+          <div>
+            <label className="text-[10px] font-bold uppercase tracking-wider text-neutral-500">
+              Tildelt
+            </label>
+            <SearchableSelect
+              value={assigneeId}
+              onChange={setAssigneeId}
+              options={assigneeOptions}
+              placeholder="Velg ansvarlig"
+              className="mt-1.5"
+            />
+          </div>
+        </div>
+        <div>
+          <label className="text-[10px] font-bold uppercase tracking-wider text-neutral-500" htmlFor="task-due">
+            Frist
+          </label>
+          <StandardInput
+            id="task-due"
+            type="date"
+            value={dueDate}
+            onChange={(e) => setDueDate(e.target.value)}
+            className="mt-1.5"
+          />
+        </div>
+        <div className="rounded-md border border-neutral-200/80 bg-neutral-50/50 p-3 text-xs text-neutral-600">
+          <div className="font-semibold text-neutral-800">Kobling</div>
+          <p className="mt-1">
+            Oppgaven lenkes til dokument «{page.title}» (sourceType=document) slik at den synes i
+            historikken og kan filtreres i tasks-modulen.
+          </p>
+        </div>
+      </div>
+    </SlidePanel>
   )
 }
 
