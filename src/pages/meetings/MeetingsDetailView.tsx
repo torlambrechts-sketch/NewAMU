@@ -2603,7 +2603,11 @@ function ReferatTabPanel({
 
   async function handleSign(e: FormEvent) {
     e.preventDefault()
-    if (busy || locked || !signerName.trim()) return
+    // Defense-in-depth: the form is already hidden behind a `canManage`
+    // check at the call site, but guard the action itself too — the
+    // hook is callable from anywhere with a meetings reference, and a
+    // future refactor must not silently expose signing to participants.
+    if (busy || locked || !canManage || !signerName.trim()) return
     setBusy(true)
     setErrorMsg(null)
     try {
