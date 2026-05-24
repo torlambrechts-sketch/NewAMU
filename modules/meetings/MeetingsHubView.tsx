@@ -328,9 +328,19 @@ export function MeetingsHubView({ tabs, bodyOnly = false }: MeetingsHubViewProps
   const [tab, setTab] = useState<'meetings' | 'maler' | 'statistikk'>('meetings')
   const [view, setView] = useState<ViewMode>('tabell')
   const [search, setSearch] = useState('')
-  // Capture "now" once per mount via lazy init so every per-render
-  // daysUntil() and "late-invite" check uses the same anchor (purity rule).
-  const [now] = useState<number>(() => Date.now())
+  // Wall-clock anchor for "Om X dager" + late-invite checks. Captured
+  // once per mount for purity, then refreshed when the tab becomes
+  // visible again (covers "left open over the weekend" → Monday morning
+  // labels were 3 days stale).
+  const [now, setNow] = useState<number>(() => Date.now())
+  useEffect(() => {
+    if (typeof document === 'undefined') return
+    const onVisibility = () => {
+      if (document.visibilityState === 'visible') setNow(Date.now())
+    }
+    document.addEventListener('visibilitychange', onVisibility)
+    return () => document.removeEventListener('visibilitychange', onVisibility)
+  }, [])
   const [createOpen, setCreateOpen] = useState(false)
   const [presetTemplateId, setPresetTemplateId] = useState<string | null>(null)
 

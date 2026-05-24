@@ -120,6 +120,7 @@ seed migration for that module — don't invent a new one.
 | documents | `document_system_templates` | `document_org_templates` (custom) + `document_org_template_settings` (toggle) | `provision_documents_baseline_for_org(org)` | `legal_basis text[]` |
 | registers | `register_types` (org_id NULL = system) | `register_org_settings` (toggle) | `provision_registers_baseline_for_org(org)` | `regulation_ids text[]` (frameworks) + `aml_paragraphs text[]` (paragraphs) |
 | learning | `learning_system_courses` + `learning_system_course_locales` | `learning_org_course_settings` (toggle/fork) → `learning_courses` | inline (no provision fn yet) | `law_refs jsonb` on `learning_courses` |
+| meetings | `meeting_system_templates` + `meeting_system_templates_locales` | `meeting_org_templates` (custom) + `meeting_org_template_settings` (toggle/override/pin) | inline (no provision fn yet — seed migrations directly upsert system rows) | `law_refs text[]` (catalog) + `definition.agendaItems[].lawRef` (per item) + `definition.preparationChecklist[].lawRef` |
 
 Conventions every seed migration follows:
 - **Idempotent**: `on conflict (...) do update set …` for system rows;
@@ -214,3 +215,17 @@ the cleanup recipe).
 - `survey_template_catalog.law_ref` (singular text) is legacy —
   always set `law_refs text[]` too. `_120043` backfills the old rows
   but new seeds must populate both for the planner to find them.
+- For meetings, the **canonical roster lives in `meeting_attendees`**
+  after the `_120500` backfill — `meetings.participant_member_ids` is
+  the *initial planned list* from creation time and stops updating
+  when invites are added/removed in the panel. The new RLS write
+  policies (`_120000`) check `meetings_user_can_manage(id)` which
+  resolves the attendee roster (chair/secretary), not the legacy
+  `participant_member_ids[]`. Always join through `meeting_attendees`
+  when answering "is this user a participant".
+- For meetings, **never display `meeting_external_invitees.secure_token`
+  via base-table SELECT** — read-side UIs must use the
+  `meeting_external_invitees_safe` view (added in `_120800`). The raw
+  token is only returned at insert-time + via the
+  `meetings_external_redeem_token` RPC. Direct column SELECT on
+  `secure_token` was revoked from `authenticated` in `_120800`.

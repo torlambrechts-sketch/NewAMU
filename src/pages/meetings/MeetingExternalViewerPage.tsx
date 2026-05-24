@@ -60,109 +60,133 @@ function fmtDateNb(iso: string | null): string {
   }
 }
 
+// Module-scope client (reused across renders + tabs in this window). Lazy
+// because import.meta.env may be unavailable in non-Vite test harnesses.
+// We disable typed-RPC inference (no Database type generated for the
+// anon path) — Postgres validates RPC signatures at runtime.
+let cachedSupabaseClient: ReturnType<typeof createClient> | null = null
+function getSupabase() {
+  if (cachedSupabaseClient) return cachedSupabaseClient
+  const url = import.meta.env.VITE_SUPABASE_URL
+  const key = import.meta.env.VITE_SUPABASE_ANON_KEY
+  if (!url || !key) return null
+  cachedSupabaseClient = createClient(url, key)
+  return cachedSupabaseClient
+}
+
+type RedeemOutcome =
+  | 'ok'
+  | 'not_found'
+  | 'expired'
+  | 'used'
+  | 'confidential_blocked'
+  | 'invalid_format'
+  | 'rate_limited'
+
+function mapErrorToOutcome(msg: string): { outcome: RedeemOutcome; userMsg: string } {
+  if (msg.includes('invite_not_found') || msg.includes('meeting_not_found')) {
+    return { outcome: 'not_found', userMsg: 'Lenken er ikke gyldig.' }
+  }
+  if (msg.includes('invite_expired')) {
+    return { outcome: 'expired', userMsg: 'Lenken er utløpt.' }
+  }
+  if (msg.includes('invite_already_used')) {
+    return {
+      outcome: 'used',
+      userMsg:
+        'Lenken er allerede brukt. Be møteleder om en ny lenke om du trenger ny tilgang.',
+    }
+  }
+  if (msg.includes('confidential_meeting_access_denied')) {
+    return {
+      outcome: 'confidential_blocked',
+      userMsg: 'Møtet er konfidensielt. Be møteleder gi deg utvidet tilgang.',
+    }
+  }
+  if (msg.includes('rate_limited')) {
+    return {
+      outcome: 'rate_limited',
+      userMsg: 'For mange forsøk fra denne nettleseren. Vent noen minutter og prøv igjen.',
+    }
+  }
+  if (msg.includes('invalid_token')) {
+    return { outcome: 'invalid_format', userMsg: 'Lenken er ikke gjenkjennelig.' }
+  }
+  return { outcome: 'invalid_format', userMsg: msg || 'Ukjent feil.' }
+}
+
 export default function MeetingExternalViewerPage() {
   const { token = '' } = useParams<{ token: string }>()
-  const [payload, setPayload] = useState<Payload | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
+
+  // Lazy initial state — covers the synchronous error cases at mount
+  // without an effect-setState round-trip (the lint rule we used to dodge
+  // with setTimeout(0) is happy with this pattern).
+  const initial = (() => {
+    if (!token) {
+      return { payload: null, loading: false, error: 'Manglende token' }
+    }
+    if (!getSupabase()) {
+      return { payload: null, loading: false, error: 'Supabase-konfigurasjon mangler' }
+    }
+    return { payload: null as Payload | null, loading: true, error: null as string | null }
+  })()
+
+  const [payload, setPayload] = useState<Payload | null>(initial.payload)
+  const [loading, setLoading] = useState(initial.loading)
+  const [error, setError] = useState<string | null>(initial.error)
 
   useEffect(() => {
+    const supabase = getSupabase()
+    if (!supabase || !token) return
     let cancelled = false
-    if (!token) {
-      // Defer to next tick so the synchronous-setState lint rule is satisfied.
-      const t = window.setTimeout(() => {
-        if (cancelled) return
-        setError('Manglende token')
-        setLoading(false)
-      }, 0)
-      return () => {
-        cancelled = true
-        window.clearTimeout(t)
-      }
-    }
-    // Create an unauthenticated client for the public route. The RPC is
-    // SECURITY DEFINER + granted to anon; RLS isn't applied.
-    const url = import.meta.env.VITE_SUPABASE_URL
-    const key = import.meta.env.VITE_SUPABASE_ANON_KEY
-    if (!url || !key) {
-      const t = window.setTimeout(() => {
-        if (cancelled) return
-        setError('Supabase-konfigurasjon mangler')
-        setLoading(false)
-      }, 0)
-      return () => {
-        cancelled = true
-        window.clearTimeout(t)
-      }
-    }
-    const supabase = createClient(url, key)
     const tokenPrefix = token.slice(0, 8)
-    // Best-effort user-agent only; we deliberately don't request the IP
-    // client-side because that would round-trip to an unauthenticated
-    // upstream. The Postgres RPC's rate-limit relies on the IP being
-    // present, so this is a degraded mode when called directly from the
-    // browser. The edge-function path (when added) will pass the real IP.
+    // Browser-direct flow: we can't access the real client IP without an
+    // edge-function hop. The Postgres redeem RPC handles this gracefully —
+    // it skips the per-IP rate-limit when null AND falls back to the
+    // per-token-prefix rate-limit (added in 20260925120800).
     const userAgent = typeof navigator !== 'undefined' ? navigator.userAgent : null
-    void supabase
-      .rpc('meetings_external_redeem_token', {
+
+    // Cast to any once — Database types aren't generated for this anon path,
+    // so the rpc() overload picks the no-args signature without help.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const sb = supabase as any
+    void (async () => {
+      const res = await sb.rpc('meetings_external_redeem_token', {
         p_token: token,
         p_client_ip: null,
         p_user_agent: userAgent,
       })
-      .then(async (res) => {
+      if (cancelled) return
+
+      if (res.error) {
+        const { outcome, userMsg } = mapErrorToOutcome(res.error.message ?? '')
+        setError(userMsg)
+        setLoading(false)
         if (cancelled) return
-        if (res.error) {
-          const msg = res.error.message ?? ''
-          let outcome:
-            | 'not_found'
-            | 'expired'
-            | 'used'
-            | 'confidential_blocked'
-            | 'invalid_format'
-            | 'rate_limited' = 'invalid_format'
-          if (msg.includes('invite_not_found') || msg.includes('meeting_not_found')) {
-            outcome = 'not_found'
-            setError('Lenken er ikke gyldig.')
-          } else if (msg.includes('invite_expired')) {
-            outcome = 'expired'
-            setError('Lenken er utløpt.')
-          } else if (msg.includes('invite_already_used')) {
-            outcome = 'used'
-            setError('Lenken er allerede brukt. Be møteleder om en ny lenke om du trenger ny tilgang.')
-          } else if (msg.includes('confidential_meeting_access_denied')) {
-            outcome = 'confidential_blocked'
-            setError('Møtet er konfidensielt. Be møteleder gi deg utvidet tilgang.')
-          } else if (msg.includes('rate_limited')) {
-            outcome = 'rate_limited'
-            setError('For mange forsøk fra denne nettleseren. Vent noen minutter og prøv igjen.')
-          } else if (msg.includes('invalid_token')) {
-            outcome = 'invalid_format'
-            setError('Lenken er ikke gjenkjennelig.')
-          } else {
-            setError(msg)
-          }
-          // Audit the failed attempt — survives the redeem RPC's rollback.
-          await supabase.rpc('meetings_external_token_record_attempt', {
-            p_token_prefix: tokenPrefix,
-            p_outcome: outcome,
-            p_client_ip: null,
-            p_user_agent: userAgent,
-            p_meeting_id: null,
-          })
-          setLoading(false)
-          return
-        }
-        const data = res.data as Payload
-        await supabase.rpc('meetings_external_token_record_attempt', {
+        // Fire-and-forget audit (best-effort; failure not surfaced to user).
+        void sb.rpc('meetings_external_token_record_attempt', {
           p_token_prefix: tokenPrefix,
-          p_outcome: 'ok',
+          p_outcome: outcome,
           p_client_ip: null,
           p_user_agent: userAgent,
-          p_meeting_id: data.meeting.id,
+          p_meeting_id: null,
         })
-        setPayload(data)
-        setLoading(false)
+        return
+      }
+
+      const data = res.data as Payload
+      setPayload(data)
+      setLoading(false)
+      if (cancelled) return
+      void sb.rpc('meetings_external_token_record_attempt', {
+        p_token_prefix: tokenPrefix,
+        p_outcome: 'ok',
+        p_client_ip: null,
+        p_user_agent: userAgent,
+        p_meeting_id: data.meeting.id,
       })
+    })()
+
     return () => {
       cancelled = true
     }

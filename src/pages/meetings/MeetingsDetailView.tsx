@@ -269,7 +269,11 @@ export function MeetingsDetailView() {
     meetings.detail.agendaItems,
     bindings.resolvedByAgendaItemId,
     bindings.loading,
-    meetings,
+    // Stable function references — depending on the whole `meetings` object
+    // would force the effect to re-think it needs to run on every state
+    // change of the parent.
+    meetings.writeBindingSnapshot,
+    meetings.setAgendaMinutes,
   ])
 
   if (!meetingId) {
@@ -2424,12 +2428,14 @@ function MinorityDissentEditor({
   const [busy, setBusy] = useState(false)
   const [saved, setSaved] = useState(false)
 
-  // Reset local state when the row is reloaded from the server.
-  const lastSnapshotRef = useRef<string | null>(item.minority_dissent_text ?? null)
-  if (lastSnapshotRef.current !== (item.minority_dissent_text ?? null) && !busy) {
-    lastSnapshotRef.current = item.minority_dissent_text ?? null
+  // Sync local text state from server reloads, but only when we're not
+  // in the middle of an in-flight save (that would silently discard the
+  // user's typed text). useEffect avoids the setState-during-render
+  // anti-pattern the previous implementation used.
+  useEffect(() => {
+    if (busy) return
     setText(item.minority_dissent_text ?? '')
-  }
+  }, [item.minority_dissent_text, busy])
 
   async function handleSave() {
     if (busy) return
