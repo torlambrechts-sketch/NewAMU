@@ -561,13 +561,22 @@ export function useChecklistModule(
         return
       }
 
-      // Required-item validation: every required item must have a response.
+      // Required-item validation: mirrors the DB trigger gate exactly.
+      // A response only counts if value is non-null and non-empty string.
       const template = templates.find((t) => t.id === exec.template_id)
       const def = parseChecklistDefinition(template?.definition)
       const responses = responsesByExecutionId[executionId] ?? []
-      const responseKeys = new Set(responses.map((r) => r.item_key))
+      const answered = new Set(
+        responses
+          .filter((r) => {
+            if (r.value === null || r.value === undefined) return false
+            const s = JSON.stringify(r.value)
+            return s !== 'null' && s !== '""' && s !== ''
+          })
+          .map((r) => r.item_key),
+      )
       const missing = def.items
-        .filter((it) => it.required && !responseKeys.has(it.key))
+        .filter((it) => it.required && !answered.has(it.key))
         .map((it) => it.prompt)
       if (missing.length > 0) {
         setError(
@@ -764,8 +773,8 @@ export function useChecklistModule(
         'text/plain', 'text/csv',
       ])
       const mimeType = payload.file.type.toLowerCase().split(';')[0].trim()
-      if (mimeType && !ALLOWED_TYPES.has(mimeType)) {
-        setError(`Filtypen «${mimeType}» er ikke tillatt. Last opp bilde, PDF eller Office-dokument.`)
+      if (!mimeType || !ALLOWED_TYPES.has(mimeType)) {
+        setError(`Filtypen er ikke tillatt. Last opp bilde, PDF eller Office-dokument.`)
         return null
       }
 

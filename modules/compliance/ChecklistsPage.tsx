@@ -718,6 +718,7 @@ export function ChecklistsPage() {
   const [search, setSearch] = useState('')
   const [showAllEntries, setShowAllEntries] = useState(false)
   const [showAllMaler, setShowAllMaler] = useState(false)
+  const [hasLoadedOnce, setHasLoadedOnce] = useState(false)
 
   const easy = viewMode === 'easy'
 
@@ -851,7 +852,8 @@ export function ChecklistsPage() {
   }, [mappedExecutions, tplIdsByCategory, cl.templates])
 
   // Reset pagination when filter changes
-  useEffect(() => { setShowAllEntries(false); setShowAllMaler(false) }, [activeCategory, search, activeTab])
+  useEffect(() => { setShowAllEntries(false); setShowAllMaler(false) }, [activeCategory, search, activeTab, viewMode])
+  useEffect(() => { if (!cl.loading) setHasLoadedOnce(true) }, [cl.loading])
 
   // Category-filtered then search-filtered executions
   const displayedExecutions = useMemo(() => {
@@ -1162,7 +1164,7 @@ export function ChecklistsPage() {
                   </>
                 ) : (
                   <>
-                    {!cl.loading && displayedTemplates.length === 0 ? (
+                    {hasLoadedOnce && !cl.loading && displayedTemplates.length === 0 ? (
                       <div className="flex flex-col items-center justify-center gap-3 py-16 text-center text-neutral-400">
                         <ClipboardCheck className="h-10 w-10 opacity-30" />
                         <p className="text-sm font-medium">Ingen aktive maler i denne kategorien</p>
