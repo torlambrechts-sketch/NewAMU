@@ -429,12 +429,64 @@ Deno.serve(async (req) => {
   }
   const mode: SendMode = body.mode === 'reminder' ? 'reminder' : 'initial'
 
+  // Authorization gate — only the chair/secretary or someone with
+  // meetings.manage may trigger invites. RLS would also block the read,
+  // but failing early gives the caller a clear 403 instead of an empty
+  // result set + a misleading "sent 0" report.
+  const { data: canManageRow, error: canManageErr } = await supabase.rpc(
+    'meetings_user_can_manage',
+    { p_meeting_id: body.meeting_id },
+  )
+  if (canManageErr) {
+    return respondJson({ ok: false, error: canManageErr.message }, 500)
+  }
+  if (canManageRow !== true) {
+    return respondJson({ ok: false, error: 'forbidden_not_meeting_manager' }, 403)
+  }
+
+  // Per-meeting rate-limit. Cap at 3 invitation sends per 10 minutes —
+  // legitimate flows are: initial → optional reminder → optional second
+  // reminder if the first failed for some recipients. Anything more is
+  // spam. Stored as a count of rows in meetings.invitation_recipients
+  // history isn't tracked; we rely on `meetings.invitation_sent_at` +
+  // the new `meetings_invitation_send_log` table below.
+  const { data: recentSends, error: rsErr } = await supabase
+    .from('meetings_invitation_send_log')
+    .select('id, created_at')
+    .eq('meeting_id', body.meeting_id)
+    .gte('created_at', new Date(Date.now() - 10 * 60 * 1000).toISOString())
+  if (rsErr && rsErr.code !== '42P01') {
+    // 42P01 = relation does not exist; treat as "no rate-limit table yet".
+    return respondJson({ ok: false, error: rsErr.message }, 500)
+  }
+  if (recentSends && recentSends.length >= 3) {
+    return respondJson(
+      {
+        ok: false,
+        error: 'rate_limited',
+        retry_after_seconds: 600,
+        message: 'For mange innkalling-utsendelser på dette møtet siste 10 minutter (maks 3).',
+      },
+      429,
+    )
+  }
+
   try {
     const out = await runInvitationBatch({
       supabase,
       meetingId: body.meeting_id,
       mode,
     })
+    // Best-effort: log the send for rate-limit. Failure to log doesn't
+    // block the response.
+    await supabase
+      .from('meetings_invitation_send_log')
+      .insert({
+        meeting_id: body.meeting_id,
+        mode,
+        sent: out.summary.sent,
+        failed: out.summary.failed,
+      })
     return respondJson({
       ok: true,
       sent: out.summary.sent,
