@@ -1111,7 +1111,10 @@ function DistribusjonWrapper({
 }) {
   const [copied, setCopied] = useState(false)
   // Shareable link — best approximation without a token
-  const shareUrl = `${typeof window !== 'undefined' ? window.location.origin : ''}/u/${s.id.slice(-8)}`
+  // Public shareable link → /survey-respond/:surveyId (the actual respond route)
+  // Personal links with ?invite=token are generated per recipient by
+  // useSurveyDistribution and shown in the recipients table.
+  const shareUrl = `${typeof window !== 'undefined' ? window.location.origin : ''}/survey-respond/${s.id}`
 
   const copyLink = async () => {
     try {
