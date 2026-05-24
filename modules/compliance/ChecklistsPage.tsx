@@ -717,6 +717,7 @@ export function ChecklistsPage() {
   const [activeCategory, setActiveCategory] = useState<string>('all')
   const [search, setSearch] = useState('')
   const [showAllEntries, setShowAllEntries] = useState(false)
+  const [showAllMaler, setShowAllMaler] = useState(false)
 
   const easy = viewMode === 'easy'
 
@@ -850,7 +851,7 @@ export function ChecklistsPage() {
   }, [mappedExecutions, tplIdsByCategory, cl.templates])
 
   // Reset pagination when filter changes
-  useEffect(() => { setShowAllEntries(false) }, [activeCategory, search, activeTab])
+  useEffect(() => { setShowAllEntries(false); setShowAllMaler(false) }, [activeCategory, search, activeTab])
 
   // Category-filtered then search-filtered executions
   const displayedExecutions = useMemo(() => {
@@ -1161,19 +1162,44 @@ export function ChecklistsPage() {
                   </>
                 ) : (
                   <>
-                    {view === 'bokser' ? (
-                      <MalerBoxes
-                        templates={displayedTemplates}
-                        easy={easy}
-                        onStart={(id) => { setStartTemplateId(id); setCreateOpen(true) }}
-                      />
-                    ) : (
-                      <MalerTable
-                        templates={displayedTemplates}
-                        easy={easy}
-                        onStart={(id) => { setStartTemplateId(id); setCreateOpen(true) }}
-                      />
-                    )}
+                    {!cl.loading && displayedTemplates.length === 0 ? (
+                      <div className="flex flex-col items-center justify-center gap-3 py-16 text-center text-neutral-400">
+                        <ClipboardCheck className="h-10 w-10 opacity-30" />
+                        <p className="text-sm font-medium">Ingen aktive maler i denne kategorien</p>
+                        <p className="text-xs">Aktiver maler i Innstillinger for å komme i gang.</p>
+                      </div>
+                    ) : (() => {
+                      const pagedMaler = showAllMaler ? displayedTemplates : displayedTemplates.slice(0, HUB_PAGE_SIZE)
+                      const hasMoreMaler = !showAllMaler && displayedTemplates.length > HUB_PAGE_SIZE
+                      return (
+                        <>
+                          {view === 'bokser' ? (
+                            <MalerBoxes
+                              templates={pagedMaler}
+                              easy={easy}
+                              onStart={(id) => { setStartTemplateId(id); setCreateOpen(true) }}
+                            />
+                          ) : (
+                            <MalerTable
+                              templates={pagedMaler}
+                              easy={easy}
+                              onStart={(id) => { setStartTemplateId(id); setCreateOpen(true) }}
+                            />
+                          )}
+                          {hasMoreMaler && (
+                            <div className="flex items-center justify-center border-t border-neutral-100 py-3">
+                              <button
+                                type="button"
+                                onClick={() => setShowAllMaler(true)}
+                                className="text-xs font-semibold text-[#1a3d32] hover:underline"
+                              >
+                                Vis alle {displayedTemplates.length} maler
+                              </button>
+                            </div>
+                          )}
+                        </>
+                      )
+                    })()}
                   </>
                 )}
               </div>
