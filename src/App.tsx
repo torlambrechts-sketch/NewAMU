@@ -82,13 +82,17 @@ import { DocumentsAllePage } from './pages/documents/DocumentsAllePage'
 import { LearningAllePage } from './pages/learning/LearningAllePage'
 import { LearningLayout } from './components/learning/LearningLayout'
 import { LearningDashboard } from './pages/learning/LearningDashboard'
+import { LearningHubPage } from './pages/learning/LearningHubPage'
+import { LearningCourseDetailPage } from './pages/learning/LearningCourseDetailPage'
 import { LearningCoursesList } from './pages/learning/LearningCoursesList'
 import { LearningCourseBuilder } from './pages/learning/LearningCourseBuilder'
+import { LearningCourseBuilderV2 } from './pages/learning/LearningCourseBuilderV2'
 import { RegistersHubPage } from './pages/registers/RegistersHubPage'
 import { RegistersAnalysePage } from './pages/registers/RegistersAnalysePage'
 import { RegisterTypePage } from './pages/registers/RegisterTypePage'
 import { RegisterEntryPage } from './pages/registers/RegisterEntryPage'
 import { LearningPlayer } from './pages/learning/LearningPlayer'
+import { LearningPlayerV2 } from './pages/learning/LearningPlayerV2'
 import { LearningDeltakerePage } from './pages/learning/LearningDeltakerePage'
 import { LearningKompetansePage } from './pages/learning/LearningKompetansePage'
 import { LearningAnalysePage } from './pages/learning/LearningAnalysePage'
@@ -580,35 +584,42 @@ const router = createBrowserRouter(
                       <Route path="admin/settings/workflows/auditors" element={<Navigate to="/admin/settings/users-roles/external" replace />} />
                       <Route path="admin" element={<Navigate to="/organisation" replace />} />
                       <Route path="profile" element={<ProfilePage />} />
-                      <Route path="learning/play/:courseId" element={<LearningPlayer />} />
+                      {/* New e-læring hub & detail surfaces render their own page chrome
+                          (breadcrumb + header + framework rail). The legacy LearningLayout
+                          still wraps the catalogue + deltakere + kompetanse tabs at the
+                          `/learning/*` sub-URLs. */}
+                      <Route path="learning" element={<LearningHubPage />} />
+                      <Route path="learning/play/:courseId" element={<LearningPlayerV2 />} />
+                      <Route path="learning/play-classic/:courseId" element={<LearningPlayer />} />
                       <Route path="learning/certificates/:certId/print" element={<LearningCertificatePrintPage />} />
                       <Route path="learning/flow" element={<LearningFlowEntry />} />
-                      {/* Detail page renders its own ModulePageShell (course title + tabs + status). */}
-                      <Route path="learning/courses/:courseId" element={<LearningCourseBuilder />} />
+                      <Route path="learning/courses/:courseId" element={<LearningCourseBuilderV2 />} />
+                      <Route path="learning/courses/:courseId/detail" element={<LearningCourseDetailPage />} />
+                      <Route path="learning/courses/:courseId/classic" element={<LearningCourseBuilder />} />
                       <Route path="registers" element={<RegistersHubPage />} />
                       <Route path="registers/analyse" element={<RegistersAnalysePage />} />
                       <Route path="registers/admin" element={<LegacyAdminRedirect scope="registers" />} />
                       <Route path="registers/:typeId" element={<RegisterTypePage />} />
                       <Route path="registers/:typeId/:recordId" element={<RegisterEntryPage />} />
-                      <Route path="learning" element={<LearningLayout />}>
-                        <Route index element={<LearningDashboard />} />
+                      <Route element={<LearningLayout />}>
+                        <Route path="learning/oversikt-klassisk" element={<LearningDashboard />} />
                         {/* Five canonical tabs */}
-                        <Route path="katalog" element={<LearningCoursesList />} />
-                        <Route path="deltakere" element={<LearningDeltakerePage />} />
-                        <Route path="kompetanse" element={<LearningKompetansePage />} />
-                        <Route path="min-historikk" element={<LearningMinHistorikkPage />} />
-                        <Route path="analyse" element={<LearningAnalysePage />} />
-                        <Route path="alle" element={<LearningAllePage />} />
-                        <Route path="innstillinger" element={<LegacyLearningRedirect />} />
+                        <Route path="learning/katalog" element={<LearningCoursesList />} />
+                        <Route path="learning/deltakere" element={<LearningDeltakerePage />} />
+                        <Route path="learning/kompetanse" element={<LearningKompetansePage />} />
+                        <Route path="learning/min-historikk" element={<LearningMinHistorikkPage />} />
+                        <Route path="learning/analyse" element={<LearningAnalysePage />} />
+                        <Route path="learning/alle" element={<LearningAllePage />} />
+                        <Route path="learning/innstillinger" element={<LegacyLearningRedirect />} />
                         {/* Back-compat redirects — old URLs land on the new IA. */}
-                        <Route path="courses" element={<Navigate to="/learning/katalog" replace />} />
-                        <Route path="participants" element={<Navigate to="/learning/deltakere" replace />} />
-                        <Route path="compliance" element={<Navigate to="/learning/deltakere?view=heatmap" replace />} />
-                        <Route path="certifications" element={<Navigate to="/learning/kompetanse" replace />} />
-                        <Route path="external" element={<Navigate to="/learning/kompetanse?tab=ekstern" replace />} />
-                        <Route path="settings" element={<Navigate to="/admin/settings/learning" replace />} />
-                        <Route path="paths" element={<Navigate to="/admin/settings/learning?tab=stier" replace />} />
-                        <Route path="insights" element={<Navigate to="/learning" replace />} />
+                        <Route path="learning/courses" element={<Navigate to="/learning/katalog" replace />} />
+                        <Route path="learning/participants" element={<Navigate to="/learning/deltakere" replace />} />
+                        <Route path="learning/compliance" element={<Navigate to="/learning/deltakere?view=heatmap" replace />} />
+                        <Route path="learning/certifications" element={<Navigate to="/learning/kompetanse" replace />} />
+                        <Route path="learning/external" element={<Navigate to="/learning/kompetanse?tab=ekstern" replace />} />
+                        <Route path="learning/settings" element={<Navigate to="/admin/settings/learning" replace />} />
+                        <Route path="learning/paths" element={<Navigate to="/admin/settings/learning?tab=stier" replace />} />
+                        <Route path="learning/insights" element={<Navigate to="/learning" replace />} />
                       </Route>
                       <Route path="prosesser" element={<Navigate to="/workflow" replace />} />
                       <Route path="workflow" element={<WorkflowBuilderPage />} />
