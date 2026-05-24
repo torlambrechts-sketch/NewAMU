@@ -40,6 +40,17 @@ import {
   ProgressBar,
   type LearningMode,
 } from '../../components/ui/elearningPrimitives'
+import {
+  CommonPitfalls,
+  DeepDiveAccordion,
+  HrExample,
+  HrTips,
+  KeyTakeaways,
+  ModuleBody,
+} from '../../components/learning/MarkdownBody'
+import { LeadershipInsight } from '../../components/learning/LearningGamification'
+import { ParagrafReferanse } from '../../components/learning/ParagrafReferanse'
+import { AML_LAW_REFS_CATALOG } from '../../lib/learning/amlLawRefsCatalog'
 import { deriveLeaderboard, moduleKindToBlock } from '../../lib/learning/elearningDesignKit'
 import type { CourseModule } from '../../types/learning'
 
@@ -433,12 +444,23 @@ function ViewerBlock({
     )
   }
   if (c.kind === 'text') {
+    // Reading order mirrors LearningPlayerHjemLayout: body → leadership insight
+    // → pitfalls → "fra praksis" → HR tips → key takeaways → deep dive.
+    // System catalog modules ship every field populated; rendering them all is
+    // what makes the JSON content actually look like the design.
     return (
-      <section>
+      <section className="space-y-4">
         <h2 className="text-lg font-bold tracking-tight text-neutral-900">{lesson.title}</h2>
-        <p className="mt-2 text-[15px] leading-[1.65] text-neutral-700">
-          {c.bodyMarkdown || c.body || 'Brødtekst…'}
-        </p>
+        <ModuleBody body={c.body} bodyMarkdown={c.bodyMarkdown} bodyFormat={c.bodyFormat} />
+        {lesson.refLawIds?.length ? (
+          <ParagrafReferanse refLawIds={lesson.refLawIds} lawRefs={AML_LAW_REFS_CATALOG} />
+        ) : null}
+        {c.leadershipInsight ? <LeadershipInsight markdown={c.leadershipInsight} /> : null}
+        {c.commonPitfalls?.length ? <CommonPitfalls items={c.commonPitfalls} /> : null}
+        {c.hrExample ? <HrExample markdown={c.hrExample} /> : null}
+        {c.hrTips ? <HrTips markdown={c.hrTips} /> : null}
+        {c.keyTakeaways?.length ? <KeyTakeaways items={c.keyTakeaways} /> : null}
+        {c.deepDive ? <DeepDiveAccordion markdown={c.deepDive} /> : null}
       </section>
     )
   }
@@ -572,11 +594,17 @@ function ViewerBlock({
           <DesignIcon name="Briefcase" className="h-3 w-3" /> Praktisk øvelse
         </div>
         <h2 className="mt-1 text-lg font-bold tracking-tight text-neutral-900">{lesson.title}</h2>
+        {c.hrTips ? <div className="mt-2"><HrTips markdown={c.hrTips} /></div> : null}
         <ul className="mt-2 space-y-2">
           {c.tasks.map((t) => (
             <li key={t.id} className="rounded-md bg-white p-3 text-[13px] text-neutral-700">
               <div className="font-semibold text-neutral-900">{t.title}</div>
-              <div className="mt-1">{t.description}</div>
+              {t.description ? <div className="mt-1">{t.description}</div> : null}
+              {t.requiredRole ? (
+                <span className="mt-1 inline-flex items-center rounded-full bg-orange-100 px-2 py-0.5 text-[10px] font-semibold text-orange-900">
+                  Krever rolle: {t.requiredRole}
+                </span>
+              ) : null}
             </li>
           ))}
         </ul>

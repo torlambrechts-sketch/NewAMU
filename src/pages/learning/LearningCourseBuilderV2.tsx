@@ -7,15 +7,18 @@ import { useNavigate, useParams } from 'react-router-dom'
 import {
   AlertTriangle,
   AlignLeft,
+  ArrowLeft,
   ArrowRight,
   Briefcase,
   CheckCircle2,
   ChevronDown,
   ChevronUp,
   Clock,
+  Copy,
   Download,
   Eye,
   FileDown,
+  FileJson,
   GitBranch,
   HelpCircle,
   Info,
@@ -46,8 +49,15 @@ import {
   type LessonBlockKind,
 } from '../../lib/learning/elearningDesignKit'
 import { Card } from '../../components/ui/elearningPrimitives'
+import {
+  downloadJson,
+  jsonFilename,
+  parseCourseJson,
+  pickJsonFile,
+} from '../../lib/learning/courseJsonIo'
 import type {
   ChecklistItem,
+  Course,
   CourseModule,
   ModuleContent,
   ModuleKind,
@@ -72,8 +82,14 @@ export function LearningCourseBuilderV2() {
     reorderModules,
     updateCourse,
     publishOrgCourseVersion,
+    forkSystemCourse,
+    importAllCoursesBundle,
+    exportCourseJson,
   } = learning
   const [publishStatus, setPublishStatus] = useState<{ kind: 'idle' } | { kind: 'busy' } | { kind: 'error'; message: string } | { kind: 'ok' }>(
+    { kind: 'idle' },
+  )
+  const [ioStatus, setIoStatus] = useState<{ kind: 'idle' } | { kind: 'busy'; verb: 'export' | 'import' } | { kind: 'ok'; verb: 'export' | 'import' } | { kind: 'error'; message: string }>(
     { kind: 'idle' },
   )
 
@@ -131,6 +147,15 @@ export function LearningCourseBuilderV2() {
         </div>
       </ModulePageShell>
     )
+  }
+
+  // System courses are read-only. Editing modules directly poisons the catalog
+  // merge in useLearning.mergeCatalogIntoCourses — once `learning_modules` has
+  // any row for a system course id, ALL catalog modules are skipped. The only
+  // safe path is to fork first (creates an org-local copy with all catalog
+  // modules cloned). Same UX as the legacy LearningCourseBuilder.
+  if (course.origin === 'system' && course.sourceSystemCourseId) {
+    return <SystemCourseForkGuard course={course} navigate={navigate} forkSystemCourse={forkSystemCourse} />
   }
 
   const courseRow = course
@@ -193,6 +218,63 @@ export function LearningCourseBuilderV2() {
     }
   }
 
+  function handleExportJson() {
+    setIoStatus({ kind: 'busy', verb: 'export' })
+    try {
+      const json = exportCourseJson(courseRow.id)
+      if (!json) {
+        setIoStatus({ kind: 'error', message: 'Fant ikke kurset.' })
+        return
+      }
+      const payload = JSON.parse(json) as { course?: Course }
+      const courseObj = payload.course ?? null
+      if (!courseObj) {
+        setIoStatus({ kind: 'error', message: 'Eksport-formatet er ugyldig.' })
+        return
+      }
+      downloadJson(jsonFilename(courseRow.title, 'course'), courseObj)
+      setIoStatus({ kind: 'ok', verb: 'export' })
+    } catch (e) {
+      setIoStatus({ kind: 'error', message: e instanceof Error ? e.message : 'Eksport feilet.' })
+    }
+  }
+
+  async function handleImportJson() {
+    setIoStatus({ kind: 'busy', verb: 'import' })
+    const raw = await pickJsonFile()
+    if (!raw) {
+      setIoStatus({ kind: 'idle' })
+      return
+    }
+    // Accept both shapes: a raw Course JSON OR a wrapped {kind:'course', course:{...}}
+    // export. Strip the wrapper before parsing.
+    const inner =
+      raw && typeof raw === 'object' && 'course' in (raw as Record<string, unknown>)
+        ? (raw as { course: unknown }).course
+        : raw
+    const parsed = parseCourseJson(inner)
+    if (!parsed.ok) {
+      setIoStatus({ kind: 'error', message: parsed.error })
+      return
+    }
+    // Reuse the existing bundle importer — it deletes & re-inserts modules
+    // and upserts course-level fields in one Supabase round trip.
+    const bundle = {
+      version: 1,
+      kind: 'courses_all_export',
+      exportedAt: new Date().toISOString(),
+      orgCourses: [{ ...parsed.value, id: courseRow.id }],
+      systemCourses: [],
+    }
+    const result = await importAllCoursesBundle(JSON.stringify(bundle))
+    if (!result.ok) {
+      setIoStatus({ kind: 'error', message: result.error })
+      return
+    }
+    noteSaved()
+    setIoStatus({ kind: 'ok', verb: 'import' })
+  }
+
   async function handlePublish() {
     if (publishStatus.kind === 'busy') return
     setPublishStatus({ kind: 'busy' })
@@ -234,6 +316,24 @@ export function LearningCourseBuilderV2() {
           <Button variant="secondary" icon={<Eye className="h-4 w-4" />} onClick={() => navigate(`/learning/play/${courseRow.id}`)}>
             Forhåndsvis
           </Button>
+          <Button
+            variant="ghost"
+            icon={ioStatus.kind === 'busy' && ioStatus.verb === 'import' ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileJson className="h-4 w-4" />}
+            onClick={handleImportJson}
+            disabled={ioStatus.kind === 'busy'}
+            title="Importer hele kursinnholdet fra JSON-fil (overskriver eksisterende moduler)"
+          >
+            Importer
+          </Button>
+          <Button
+            variant="ghost"
+            icon={ioStatus.kind === 'busy' && ioStatus.verb === 'export' ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
+            onClick={handleExportJson}
+            disabled={ioStatus.kind === 'busy'}
+            title="Last ned kurset som JSON-fil for ekstern redigering"
+          >
+            Eksporter
+          </Button>
           <Button variant="secondary" icon={<Save className="h-4 w-4" />} onClick={noteSaved}>
             Lagre kladd
           </Button>
@@ -264,6 +364,22 @@ export function LearningCourseBuilderV2() {
         <div className="flex items-start gap-2.5 rounded-md border border-green-300 bg-green-50 px-3 py-3 text-sm text-green-900">
           <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-green-600" />
           <span className="flex-1">Ny versjon publisert. Læringer ser endringene umiddelbart.</span>
+        </div>
+      ) : null}
+      {ioStatus.kind === 'error' ? (
+        <div className="flex items-start gap-2.5 rounded-md border border-red-300 bg-red-50 px-3 py-3 text-sm text-red-900">
+          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-red-600" />
+          <span className="flex-1">JSON-operasjon feilet: {ioStatus.message}</span>
+        </div>
+      ) : null}
+      {ioStatus.kind === 'ok' ? (
+        <div className="flex items-start gap-2.5 rounded-md border border-green-300 bg-green-50 px-3 py-3 text-sm text-green-900">
+          <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-green-600" />
+          <span className="flex-1">
+            {ioStatus.verb === 'export'
+              ? 'Kurset er eksportert som JSON.'
+              : 'Kursinnholdet er importert fra JSON og lagret.'}
+          </span>
         </div>
       ) : null}
       <Card className="flex items-center justify-between gap-3 px-5 py-3">
@@ -1281,4 +1397,81 @@ function BlockIcon({ type }: { type: LessonBlockKind }) {
     case 'practical':
       return <Briefcase className="h-4 w-4 text-[#1a3d32]" />
   }
+}
+
+/**
+ * System-course read-only guard. The catalog merge in useLearning skips system
+ * courses that already have ANY row in learning_modules — meaning the first
+ * inadvertent edit nukes the visible module list. Block edits and offer the
+ * canonical "fork-to-edit" CTA (same flow as the legacy builder).
+ */
+function SystemCourseForkGuard({
+  course,
+  navigate,
+  forkSystemCourse,
+}: {
+  course: Course
+  navigate: (path: string) => void
+  forkSystemCourse: (id: string) => Promise<{ ok: true; newCourseId: string } | { ok: false; error: string }>
+}) {
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const sourceId = course.sourceSystemCourseId ?? course.id
+  async function doFork() {
+    setBusy(true)
+    setError(null)
+    const r = await forkSystemCourse(sourceId)
+    if (!r.ok) {
+      setError(r.error)
+      setBusy(false)
+      return
+    }
+    navigate(`/learning/courses/${r.newCourseId}`)
+  }
+  return (
+    <ModulePageShell
+      breadcrumb={[
+        { label: 'Klarert', to: '/' },
+        { label: 'Opplæring', to: '/learning' },
+        { label: course.title, to: `/learning/courses/${course.id}/detail` },
+        { label: 'Bygger' },
+      ]}
+      title={course.title}
+      description="Dette kurset leveres fra Klarert sin systemkatalog og kan ikke redigeres direkte."
+      headerActions={
+        <Button variant="secondary" icon={<ArrowLeft className="h-4 w-4" />} onClick={() => navigate('/learning')}>
+          Tilbake
+        </Button>
+      }
+    >
+      <Card className="p-5 md:p-6">
+        <h2 className="text-lg font-semibold text-neutral-900">Systemkurs — kun lesetilgang</h2>
+        <p className="mt-2 text-sm text-neutral-700">
+          Dette kurset er en del av Klarert sin systemkatalog. For å tilpasse innhold, rekkefølge
+          eller publiseringsstatus må du først lage en redigerbar kopi i organisasjonen din. Kopien
+          beholder alle leksjoner og blokker, og fremtidige oppdateringer i systemkurset varsles
+          som en diff du selv velger å adoptere.
+        </p>
+        {error ? (
+          <div className="mt-3 flex items-start gap-2.5 rounded-md border border-red-300 bg-red-50 px-3 py-3 text-sm text-red-900">
+            <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-red-600" />
+            <span className="flex-1">{error}</span>
+          </div>
+        ) : null}
+        <div className="mt-5 flex flex-wrap items-center justify-end gap-2 border-t border-neutral-100 pt-4">
+          <Button variant="secondary" icon={<Eye className="h-4 w-4" />} onClick={() => navigate(`/learning/play/${course.id}`)}>
+            Forhåndsvisning
+          </Button>
+          <Button
+            variant="primary"
+            icon={busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Copy className="h-4 w-4" />}
+            onClick={doFork}
+            disabled={busy}
+          >
+            {busy ? 'Forker…' : 'Kopier og tilpass'}
+          </Button>
+        </div>
+      </Card>
+    </ModulePageShell>
+  )
 }
