@@ -16,6 +16,7 @@ import {
 } from 'lucide-react'
 import { Button } from '../../../components/ui/Button'
 import { AdminCard, AdminError, AdminInfoBanner, AdminLoading } from './AdminShared'
+import { formatShortDate } from './format'
 import { useAdminWorkflows, type AdminWorkflowSummary } from './useAdminWorkflows'
 import type { AdminSectionProps, RouteName } from './types'
 
@@ -182,14 +183,3 @@ function WorkflowRow({
   )
 }
 
-function formatShortDate(iso: string): string {
-  try {
-    const d = new Date(iso)
-    return `${String(d.getDate()).padStart(2, '0')}.${String(d.getMonth() + 1).padStart(
-      2,
-      '0',
-    )}.${d.getFullYear()}`
-  } catch {
-    return iso
-  }
-}

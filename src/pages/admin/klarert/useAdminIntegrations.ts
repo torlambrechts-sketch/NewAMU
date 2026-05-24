@@ -21,6 +21,7 @@ import {
 } from 'lucide-react'
 import type { ElementType } from 'react'
 import { useOrgSetupContext } from '../../../hooks/useOrgSetupContext'
+import { formatDateTime } from './format'
 import type { IntegrationSummary } from './types'
 
 interface CatalogEntry {
@@ -234,11 +235,6 @@ interface OrgIntegrationRow {
   last_health_status: 'ok' | 'degraded' | 'down' | null
 }
 
-function formatDate(iso: string | null): string | null {
-  if (!iso) return null
-  const d = new Date(iso)
-  return `${String(d.getDate()).padStart(2, '0')}.${String(d.getMonth() + 1).padStart(2, '0')}.${d.getFullYear()} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
-}
 
 export interface AdminIntegrationsResult {
   integrations: IntegrationSummary[]
@@ -288,7 +284,7 @@ export function useAdminIntegrations(): AdminIntegrationsResult {
           status,
           dataFlow: c.dataFlow,
           authMethod: c.authMethod,
-          lastSync: formatDate(row?.last_submission_at ?? null),
+          lastSync: row?.last_submission_at ? formatDateTime(row.last_submission_at) : null,
           connector: c.connector,
           scopes: c.defaultScopes,
           wizardPath: c.wizardPath ?? null,

@@ -22,13 +22,25 @@ export function SecAudit({ easy }: AdminSectionProps) {
   if (loading) return <AdminLoading />
 
   function exportCsv() {
+    // RFC 4180 escape: wrap every field in quotes and double-up any
+    // embedded quotes. Strip CR/LF defensively so a forged display
+    // name can't break out of its row in the exported file.
+    const esc = (v: string) => `"${String(v).replace(/[\r\n]+/g, ' ').replace(/"/g, '""')}"`
+    // Prevent CSV-injection / formula-injection: cells starting with
+    // =, +, -, @ are prefixed with a single quote so Excel/Sheets
+    // doesn't evaluate them. AML § 5-1 dokumentasjon må ikke kunne
+    // misbrukes til å trigge formler.
+    const safeCell = (v: string) => {
+      const s = String(v)
+      return /^[=+\-@\t]/.test(s) ? `'${s}` : s
+    }
     const headers = ['Tidspunkt', 'Bruker', 'Handling', 'Detalj', 'Tabell']
     const rows = entries.map((e) =>
-      [e.when, e.who, e.action, e.detail.replace(/"/g, '""'), e.table]
-        .map((c) => `"${c}"`)
-        .join(','),
+      [e.when, e.who, e.action, e.detail, e.table].map((c) => esc(safeCell(c))).join(','),
     )
-    const blob = new Blob([[headers.join(','), ...rows].join('\n')], { type: 'text/csv' })
+    const blob = new Blob([[headers.map(esc).join(','), ...rows].join('\r\n')], {
+      type: 'text/csv;charset=utf-8',
+    })
     const a = document.createElement('a')
     a.href = URL.createObjectURL(blob)
     a.download = `klarert-audit-${new Date().toISOString().slice(0, 10)}.csv`

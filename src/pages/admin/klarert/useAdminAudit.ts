@@ -4,6 +4,7 @@
 
 import { useCallback, useEffect, useState } from 'react'
 import { useOrgSetupContext } from '../../../hooks/useOrgSetupContext'
+import { formatDateTime } from './format'
 import type { AuditEntry } from './types'
 
 interface RawAuditRow {
@@ -83,10 +84,8 @@ function describeDetail(row: RawAuditRow): string {
   return `${label} ${action}`
 }
 
-function formatWhen(iso: string): string {
-  const d = new Date(iso)
-  return `${String(d.getDate()).padStart(2, '0')}.${String(d.getMonth() + 1).padStart(2, '0')}.${d.getFullYear()} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
-}
+// Re-exported for symmetry with the other admin sections.
+const formatWhen = (iso: string) => formatDateTime(iso)
 
 const DEFAULT_PAGE_SIZE = 50
 
@@ -107,20 +106,33 @@ export function useAdminAudit(pageSize: number = DEFAULT_PAGE_SIZE): AdminAuditR
   const [loadingMore, setLoadingMore] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [hasMore, setHasMore] = useState(false)
-  const [cursor, setCursor] = useState<string | null>(null) // ISO timestamp of last loaded row
+  // Composite cursor — see fetchPage for why id is required.
+  const [cursor, setCursor] = useState<{ changedAt: string; id: string } | null>(null)
 
   const fetchPage = useCallback(
-    async (before: string | null): Promise<{ rows: AuditEntry[]; nextCursor: string | null }> => {
+    async (
+      before: { changedAt: string; id: string } | null,
+    ): Promise<{ rows: AuditEntry[]; nextCursor: { changedAt: string; id: string } | null }> => {
       if (!supabase || !organization?.id) return { rows: [], nextCursor: null }
       let q = supabase
         .from('hse_audit_log')
         .select('id, table_name, record_id, action, changed_by, changed_at, changed_fields, old_data, new_data')
         .eq('organization_id', organization.id)
         .in('table_name', ADMIN_TABLES)
+        // Composite ordering — id breaks ties when multiple rows share
+        // a `changed_at` timestamp (audit rows batched in the same
+        // transaction land on the same microsecond). Without the id
+        // tie-breaker, cursor-paging silently skipped those rows.
         .order('changed_at', { ascending: false })
+        .order('id', { ascending: false })
         .limit(pageSize + 1) // one extra row so we can detect more pages
       if (before) {
-        q = q.lt('changed_at', before)
+        // (changed_at, id) < (before.changedAt, before.id), expressed as the
+        // OR-form Postgres needs: either earlier timestamp OR same
+        // timestamp with smaller id (descending id within same ts).
+        q = q.or(
+          `changed_at.lt.${before.changedAt},and(changed_at.eq.${before.changedAt},id.lt.${before.id})`,
+        )
       }
       const { data, error: e } = await q
       if (e) throw e
@@ -152,12 +164,12 @@ export function useAdminAudit(pageSize: number = DEFAULT_PAGE_SIZE): AdminAuditR
         detail: describeDetail(r),
         table: TABLE_LABELS[r.table_name] ?? r.table_name,
       }))
-      const nextCursor = hasMorePages && page.length > 0
-        ? page[page.length - 1]!.changed_at
-        : null
-      // Note: hasMorePages reflects whether the upstream had more, but
-      // we also need to flag false when nextCursor is null.
-      return { rows, nextCursor: nextCursor }
+      const last = page[page.length - 1]
+      const nextCursor =
+        hasMorePages && last
+          ? { changedAt: last.changed_at, id: last.id }
+          : null
+      return { rows, nextCursor }
     },
     [supabase, organization?.id, pageSize],
   )

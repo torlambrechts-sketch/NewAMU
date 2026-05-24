@@ -11,6 +11,7 @@
 import { useCallback, useMemo, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import {
+  AlertCircle,
   Building2,
   CheckCircle2,
   Download,
@@ -29,6 +30,7 @@ import { SecOrg } from './SecOrg'
 import { SecUsers } from './SecUsers'
 import { SecRoles } from './SecRoles'
 import { SecPacks } from './SecPacks'
+import { useAdminRoles } from './useAdminRoles'
 import { SecWorkflows } from './SecWorkflows'
 import { SecWorkflowEditor } from './SecWorkflowEditor'
 import { SecIntegrations } from './SecIntegrations'
@@ -59,9 +61,35 @@ function isSectionId(value: string | undefined): value is AdminSectionId {
 export function AdminPage() {
   const navigate = useNavigate()
   const params = useParams<{ scope?: string; section?: string }>()
-  const { organization } = useOrgSetupContext()
+  const { organization, members } = useOrgSetupContext()
+  const { roles } = useAdminRoles()
 
   const sectionFromUrl: AdminSectionId = isSectionId(params.scope) ? params.scope : 'org'
+
+  // Derive real compliance status for the sidebar panel. Aspirational
+  // checks (BHT, IA) stay true by default since most orgs have them
+  // contracted out and the data isn't tracked yet — the AMU and DPO
+  // checks use real signal.
+  const employees = members?.length ?? 0
+  const amuMet = employees < 30 || roles.some((r) => r.userCount > 0 && r.slug.includes('amu'))
+  const dpoMet = roles.some((r) => r.userCount > 0 && r.slug === 'dpo')
+  const hmsMet = roles.some(
+    (r) => r.userCount > 0 && (r.slug === 'hms_koordinator' || r.slug === 'hms_leder' || r.slug === 'hmsleder'),
+  )
+  const voMet = roles.some(
+    (r) => r.userCount > 0 && (r.slug === 'verneombud' || r.slug === 'hoved_verneombud'),
+  )
+  const complianceChecks = [
+    {
+      label: 'AMU lovpålagt',
+      met: amuMet,
+      detail: employees < 30 ? '< 30 ansatte' : 'AMU-medlem tildelt',
+    },
+    { label: 'Verneombud', met: voMet, detail: 'AML § 6-2' },
+    { label: 'HMS-koordinator', met: hmsMet, detail: 'AML § 3-5' },
+    { label: 'BHT avtale', met: true, detail: 'AML § 3-3 (ekstern)' },
+    { label: 'DPO oppnevnt', met: dpoMet, detail: 'GDPR Art. 37' },
+  ]
 
   const [mode, setMode] = useState<AdminMode>('advanced')
   // Sub-routen er fullt avledet fra URL — ingen lokal state-sync.
@@ -163,21 +191,23 @@ export function AdminPage() {
                 Compliance
               </h3>
               <ul className="mt-2 space-y-1.5 text-[11px]">
-                {[
-                  { label: 'AMU opprettet', met: true },
-                  { label: 'BHT avtale', met: true },
-                  { label: 'IK-rutine', met: true },
-                  { label: 'IA-avtale', met: true },
-                  { label: 'DPO oppnevnt', met: true },
-                ].map((c) => (
-                  <li key={c.label} className="flex items-center justify-between">
-                    <span className="text-neutral-700">{c.label}</span>
-                    <CheckCircle2
-                      className={`h-3 w-3 ${
-                        c.met ? 'text-green-600' : 'text-amber-600'
-                      }`}
-                      aria-label={c.met ? 'oppfylt' : 'mangler'}
-                    />
+                {complianceChecks.map((c) => (
+                  <li key={c.label} className="flex items-center justify-between gap-2">
+                    <div className="min-w-0">
+                      <div className="truncate text-neutral-700">{c.label}</div>
+                      <div className="truncate text-[10px] text-neutral-400">{c.detail}</div>
+                    </div>
+                    {c.met ? (
+                      <CheckCircle2
+                        className="h-3 w-3 shrink-0 text-green-600"
+                        aria-label={`${c.label}: oppfylt`}
+                      />
+                    ) : (
+                      <AlertCircle
+                        className="h-3 w-3 shrink-0 text-amber-600"
+                        aria-label={`${c.label}: mangler`}
+                      />
+                    )}
                   </li>
                 ))}
               </ul>

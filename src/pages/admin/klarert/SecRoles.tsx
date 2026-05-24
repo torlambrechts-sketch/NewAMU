@@ -20,6 +20,7 @@ import {
   AdminInfoBanner,
   AdminLoading,
 } from './AdminShared'
+import { slugify } from './format'
 import { useAdminRoles } from './useAdminRoles'
 import type { AdminSectionProps } from './types'
 
@@ -41,15 +42,6 @@ const RECOMMENDED_FUNCTIONAL_SLUGS = [
   'dpo',
 ] as const
 
-function slugify(value: string): string {
-  return value
-    .toLowerCase()
-    .replace(/[æå]/g, 'a')
-    .replace(/ø/g, 'o')
-    .replace(/[^a-z0-9]+/g, '_')
-    .replace(/^_+|_+$/g, '')
-    .slice(0, 64)
-}
 
 export function SecRoles({ easy }: AdminSectionProps) {
   const { supabase, organization, isAdmin } = useOrgSetupContext()
@@ -87,6 +79,15 @@ export function SecRoles({ easy }: AdminSectionProps) {
       setCreateErr('Navn og slug er påkrevd.')
       return
     }
+    if (roles.some((r) => r.slug === finalSlug)) {
+      // Pre-flight check before the DB rejects it. Faster + nicer
+      // message than waiting for the (organization_id, slug) unique
+      // constraint to fire.
+      setCreateErr(
+        `Slug «${finalSlug}» er allerede i bruk. Velg en annen slug eller endre navnet.`,
+      )
+      return
+    }
     setBusy(true)
     setCreateErr(null)
     try {
@@ -97,7 +98,22 @@ export function SecRoles({ easy }: AdminSectionProps) {
         description: description.trim() || null,
         is_system: false,
       })
-      if (insErr) throw insErr
+      if (insErr) {
+        // Postgres 23505 = unique_violation — race condition when a
+        // simultaneous admin created the same slug between our pre-
+        // flight and the insert.
+        const isUniqueViolation =
+          (insErr as { code?: string }).code === '23505' ||
+          /duplicate key/i.test(insErr.message)
+        if (isUniqueViolation) {
+          setCreateErr(
+            `Slug «${finalSlug}» ble nettopp opprettet av en annen admin. Bruk en annen slug.`,
+          )
+          await refresh()
+          return
+        }
+        throw insErr
+      }
       setName('')
       setSlug('')
       setDescription('')

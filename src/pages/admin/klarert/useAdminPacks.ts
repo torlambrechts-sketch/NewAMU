@@ -15,6 +15,7 @@
 
 import { useCallback, useEffect, useState } from 'react'
 import { useOrgSetupContext } from '../../../hooks/useOrgSetupContext'
+import { slugify } from './format'
 import { FRAMEWORK_PACK_DEFAULTS, getFrameworkMeta } from './packMetadata'
 import type { PackSummary } from './types'
 
@@ -203,36 +204,51 @@ export function useAdminPacks(): AdminPacksResult {
     setLoading(true)
     setError(null)
     try {
+      // Per-table cap. Each module's system catalog typically holds
+      // 10-80 templates; 1000 is well above realistic for any single
+      // org. Past that limit, the admin shell is the wrong surface —
+      // owners should drill into the module-specific page. If a query
+      // ever truncates we surface that via `truncated` so the UI can
+      // hint at it instead of silently lying.
+      const ROW_CAP = 1000
+
       // Parallel fetch — none of these depend on each other.
       const [cpRes, clRes, svRes, docRes, meetRes, regRes, courseRes] = await Promise.all([
         supabase
           .from('compliance_packs')
           .select('slug, short_name, plural_label, description, legal_references, position, is_active, updated_at')
-          .eq('organization_id', organization.id),
+          .eq('organization_id', organization.id)
+          .limit(ROW_CAP),
         supabase
           .from('compliance_checklist_templates')
           .select('id, organization_id, pack, name, law_refs, is_active, is_system, current_version_major, current_version_minor')
           .eq('organization_id', organization.id)
-          .is('deleted_at', null),
+          .is('deleted_at', null)
+          .limit(ROW_CAP),
         supabase
           .from('survey_template_catalog')
           .select('id, name, pack, law_refs, body, is_system')
-          .eq('is_active', true),
+          .eq('is_active', true)
+          .limit(ROW_CAP),
         supabase
           .from('document_system_templates')
-          .select('id, label, category, legal_basis'),
+          .select('id, label, category, legal_basis')
+          .limit(ROW_CAP),
         supabase
           .from('meeting_system_templates')
           .select('id, label, framework, frameworks, law_refs, default_duration_minutes')
-          .eq('is_active', true),
+          .eq('is_active', true)
+          .limit(ROW_CAP),
         supabase
           .from('register_types')
           .select('id, name, pack_slugs, regulation_ids, aml_paragraphs, organization_id, is_system')
           .or(`organization_id.is.null,organization_id.eq.${organization.id}`)
-          .eq('is_active', true),
+          .eq('is_active', true)
+          .limit(ROW_CAP),
         supabase
           .from('learning_system_courses')
-          .select('id, slug, law_refs, required_for_roles, default_locale'),
+          .select('id, slug, law_refs, required_for_roles, default_locale')
+          .limit(ROW_CAP),
       ])
 
       const cpRows = (cpRes.error ? [] : (cpRes.data ?? [])) as CompliancePackRow[]
@@ -579,13 +595,7 @@ export function useAdminPacks(): AdminPacksResult {
         return { copied: 0, skipped, error: selErr.message }
       }
 
-      const packTag = packName
-        .toLowerCase()
-        .replace(/[æå]/g, 'a')
-        .replace(/ø/g, 'o')
-        .replace(/[^a-z0-9]+/g, '_')
-        .replace(/^_+|_+$/g, '')
-        .slice(0, 40) || 'kopi'
+      const packTag = slugify(packName).slice(0, 40) || 'kopi'
       const suffix = `_${packTag}_${Date.now().toString(36)}`
       const inserts = (srcRows ?? []).map((r) => {
         const row = r as {

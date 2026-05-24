@@ -23,6 +23,7 @@ import {
   AdminLoading,
   Initials,
 } from './AdminShared'
+import { formatDateTime } from './format'
 import { useAdminUsers } from './useAdminUsers'
 import { useOrgSetupContext } from '../../../hooks/useOrgSetupContext'
 import type { AdminSectionProps } from './types'
@@ -278,6 +279,7 @@ export function SecUsers({ easy }: AdminSectionProps) {
                       {!authMetaAvailable ? (
                         <span
                           className="text-neutral-400"
+                          aria-label="MFA-status krever administrator-tilgang"
                           title="MFA-status krever administrator-tilgang"
                         >
                           —
@@ -298,6 +300,7 @@ export function SecUsers({ easy }: AdminSectionProps) {
                         {!authMetaAvailable ? (
                           <span
                             className="text-neutral-400"
+                            aria-label="SSO-status krever administrator-tilgang"
                             title="SSO-status krever administrator-tilgang"
                           >
                             —
@@ -320,7 +323,7 @@ export function SecUsers({ easy }: AdminSectionProps) {
                       )}
                     </td>
                     <td className="px-5 py-3 text-[11px] tabular-nums text-neutral-600">
-                      {u.lastLogin ? formatDate(u.lastLogin) : '—'}
+                      {formatDateTime(u.lastLogin)}
                     </td>
                     <td className="px-5 py-3 text-right text-neutral-300" aria-hidden="true">
                       ›
@@ -362,16 +365,3 @@ function FilterChip({
   )
 }
 
-function formatDate(iso: string): string {
-  try {
-    const d = new Date(iso)
-    return `${String(d.getDate()).padStart(2, '0')}.${String(d.getMonth() + 1).padStart(
-      2,
-      '0',
-    )}.${d.getFullYear()} ${String(d.getHours()).padStart(2, '0')}:${String(
-      d.getMinutes(),
-    ).padStart(2, '0')}`
-  } catch {
-    return iso
-  }
-}
