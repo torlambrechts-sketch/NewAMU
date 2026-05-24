@@ -16,6 +16,13 @@ import { useInternalControls } from '../useInternalControls'
 
 const BURGUNDY = '#7F1D1D'
 
+/**
+ * Sentinel `framework_id` used for compliance-layer auditor tokens.
+ * Shared with `useAuditorTokens({ frameworkFilter })` callers + the
+ * server-side guard in `compliance_auditor_token_verify(text, text)`.
+ */
+export const CONTROLS_FRAMEWORK_ID = 'controls'
+
 export function ShareControlsWithAuditorButton() {
   const { supabase } = useOrgSetupContext()
   const {
@@ -92,7 +99,7 @@ export function ShareControlsWithAuditorButton() {
     const { data, error: rpcErr } = await supabase.rpc(
       'create_compliance_auditor_token',
       {
-        p_framework_id: 'controls',
+        p_framework_id: CONTROLS_FRAMEWORK_ID,
         p_scope_label: 'Internkontroller — revisor-visning',
         p_snapshot: snapshot as unknown as Record<string, unknown>,
         // Layout left empty; ControlsAuditorPage renders its own bespoke

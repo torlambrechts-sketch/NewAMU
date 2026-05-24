@@ -68,6 +68,16 @@ export { ControlEditorPanel } from './ControlEditorPanel'
 export { KontrollerInnstillingerPage } from './admin/KontrollerInnstillingerPage'
 export { BindingEditorPanel } from './admin/BindingEditorPanel'
 export { ClauseMappingPanel } from './admin/ClauseMappingPanel'
-export { ShareControlsWithAuditorButton } from './admin/ShareControlsWithAuditorButton'
+export {
+  ShareControlsWithAuditorButton,
+  CONTROLS_FRAMEWORK_ID,
+} from './admin/ShareControlsWithAuditorButton'
+export { AuditorTokensSection } from './admin/AuditorTokensSection'
+export { useAuditorTokens } from './admin/useAuditorTokens'
+export type {
+  AuditorTokenRow,
+  UseAuditorTokensInput,
+  UseAuditorTokensReturn,
+} from './admin/useAuditorTokens'
 
 export { ComplianceLayerAnalysePage } from './ComplianceLayerAnalysePage'

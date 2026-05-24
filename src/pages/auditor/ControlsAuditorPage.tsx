@@ -129,6 +129,11 @@ export function ControlsAuditorPage() {
     void supabase
       .rpc('compliance_auditor_token_verify', {
         p_token: token,
+        // Sentinel mirrored from
+        // `modules/compliance-layer/admin/ShareControlsWithAuditorButton.tsx`
+        // (CONTROLS_FRAMEWORK_ID). Hard-coded here to keep this public
+        // page self-contained — no dependency on the authenticated
+        // module bundle that ships the constant.
         p_expected_framework_id: 'controls',
       })
       .then(({ data, error }) => {

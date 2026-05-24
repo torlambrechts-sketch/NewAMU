@@ -11,6 +11,7 @@ import { PageShell } from '../../../template'
 import { Button } from '../../../src/components/ui/Button'
 import { StandardInput } from '../../../src/components/ui/Input'
 import { ControlEditorPanel } from '../ControlEditorPanel'
+import { AuditorTokensSection } from './AuditorTokensSection'
 import { ShareControlsWithAuditorButton } from './ShareControlsWithAuditorButton'
 import { useInternalControls } from '../useInternalControls'
 
@@ -138,6 +139,12 @@ export function KontrollerInnstillingerPage() {
           </ul>
         )}
       </section>
+
+      <AuditorTokensSection
+        frameworkFilter="controls"
+        title="Aktive revisor-lenker"
+        description="Lenker du har delt med eksterne revisorer. Tilbakekall for å oppheve tilgangen umiddelbart — auditor-siden viser «Lenken er utløpt»."
+      />
 
       <ControlEditorPanel
         open={creating}

@@ -21,6 +21,7 @@ import { useControlsByLawRef } from './useControlsByLawRef'
 import { useCompliancePlanItems } from './useCompliancePlanItems'
 import { ParagraphInspectorPanel } from './ParagraphInspectorPanel'
 import { ShareWithAuditorButton } from './ShareWithAuditorButton'
+import { AuditorTokensSection } from '../../../../modules/compliance-layer/admin/AuditorTokensSection'
 import {
   FRAMEWORKS,
   FRAMEWORK_IDS,
@@ -161,6 +162,17 @@ export function InternkontrollGapSystemReport({
           await planItems.deleteItem(id)
         }}
       />
+
+      {/* Active auditor share-tokens — scoped to the currently-active
+          framework so internkontroll admins only see tokens minted from
+          this surface. Lets them revoke without leaving the page. */}
+      <div className="mx-auto mt-6 w-full max-w-7xl px-4 md:px-8">
+        <AuditorTokensSection
+          frameworkFilter={framework}
+          title="Aktive revisor-lenker for dette regelverket"
+          description="Lenker du har delt for gjeldende regelverk. Tilbakekall for å oppheve tilgangen umiddelbart."
+        />
+      </div>
     </>
   )
 }
