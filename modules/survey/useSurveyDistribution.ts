@@ -67,12 +67,15 @@ export function useSurveyDistribution({ supabase, assertOrg, requireManage, setE
       const oid = assertOrg()
       if (!oid) return
       try {
+        // Supabase default row limit is 1000. We cap at 500 and surface a
+        // warning in the UI when the count is exactly 500 (likely truncated).
         const { data, error: e } = await supabase
           .from('survey_invitations')
           .select('*')
           .eq('survey_id', surveyId)
           .eq('organization_id', oid)
           .order('created_at', { ascending: true })
+          .range(0, 499)
         if (e) throw e
         setInvitations(collect(data, parseSurveyInvitationRow))
       } catch (err) {

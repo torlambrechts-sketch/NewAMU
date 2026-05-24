@@ -627,7 +627,9 @@ export function SurveyRespondPage() {
   const { campaignId: surveyId } = useParams<{ campaignId: string }>()
   const [searchParams] = useSearchParams()
   const inviteToken = searchParams.get('invite')?.trim() ?? ''
-  const { user } = useOrgSetupContext()
+  const isPreview = searchParams.get('preview') === '1'
+  const { user, profile } = useOrgSetupContext()
+  const canManagePreview = isPreview && (profile?.permissions?.includes('survey.manage') || profile?.is_org_admin === true)
   const supabase = getSupabaseBrowserClient()
   const survey = useSurvey({ supabase })
 
@@ -780,11 +782,16 @@ export function SurveyRespondPage() {
     )
   }
 
-  if (survey.selectedSurvey.status !== 'active') {
+  if (survey.selectedSurvey.status !== 'active' && !canManagePreview) {
     return (
       <div className="min-h-screen bg-[#F9F7F2] py-12 px-4">
         <div className="mx-auto max-w-2xl">
           <WarningBox>Denne undersøkelsen er ikke åpen for svar.</WarningBox>
+          {isPreview && !canManagePreview && (
+            <p className="mt-3 text-center text-xs text-neutral-500">
+              Forhåndsvisning krever innlogging med survey.manage-tilgang.
+            </p>
+          )}
         </div>
       </div>
     )
@@ -793,6 +800,11 @@ export function SurveyRespondPage() {
   return (
     <div className="min-h-screen bg-[#F9F7F2] py-12 px-4">
       <div className="mx-auto max-w-2xl space-y-6">
+        {canManagePreview && (
+          <div className="rounded-lg border border-amber-300 bg-amber-50 px-4 py-2.5 text-center text-xs font-bold uppercase tracking-widest text-amber-800">
+            Forhåndsvisning — svar lagres ikke
+          </div>
+        )}
         <div>
           <p className="text-xs font-bold uppercase tracking-wider text-neutral-400">Medarbeiderundersøkelse</p>
           <h1 className="mt-1 text-2xl font-bold text-[#1a3d32]">{survey.selectedSurvey.title}</h1>
@@ -849,16 +861,22 @@ export function SurveyRespondPage() {
                 </div>
               )
             })}
-            <Button type="submit" variant="primary" disabled={submitting}>
-              {submitting ? (
-                <>
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  Sender…
-                </>
-              ) : (
-                'Send inn svar'
-              )}
-            </Button>
+            {canManagePreview ? (
+              <Button type="button" variant="secondary" disabled>
+                Send inn svar (deaktivert i forhåndsvisning)
+              </Button>
+            ) : (
+              <Button type="submit" variant="primary" disabled={submitting}>
+                {submitting ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Sender…
+                  </>
+                ) : (
+                  'Send inn svar'
+                )}
+              </Button>
+            )}
           </form>
         )}
       </div>

@@ -123,8 +123,16 @@ export function SurveyDistribusjonTab({ survey, s }: { survey: UseSurveyState; s
     return <TabEmpty message="Du har ikke tilgang til å se distribusjon. Krever survey.manage eller administrator." />
   }
 
+  const invitationsTruncated = survey.invitations.length === 500
+
   return (
     <div className="space-y-6">
+      {invitationsTruncated && (
+        <WarningBox>
+          Viser de 500 første invitasjonene. Undersøkelsen har flere mottakere enn det som vises her.
+          Eksporter CSV for komplett mottakerliste.
+        </WarningBox>
+      )}
       {s.is_anonymous ? (
         <InfoBox>
           <p>

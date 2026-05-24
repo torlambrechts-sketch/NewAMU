@@ -11,7 +11,7 @@
 // kind controls. Edits flush on field blur via the supplied onSave
 // callback (typically wired to useSurvey.updateSurvey).
 
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { X } from 'lucide-react'
 import { ModuleSectionCard } from '../../../src/components/module/ModuleSectionCard'
 import { Badge } from '../../../src/components/ui/Badge'
@@ -105,6 +105,26 @@ export function SurveyMetadataPanel({
   }
 
   const isClosed = survey.status === 'closed' || survey.status === 'archived'
+
+  // Debounced auto-save: 1.5s after the last keystroke in title or description.
+  const autoSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const autoSaveRef = useRef<{ title: string; description: string; survey: typeof survey; onSave: typeof onSave }>({ title, description, survey, onSave })
+  autoSaveRef.current = { title, description, survey, onSave }
+
+  const scheduleAutoSave = () => {
+    if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current)
+    autoSaveTimerRef.current = setTimeout(() => {
+      const { title: t, description: d, survey: s, onSave: save } = autoSaveRef.current
+      const patch: Parameters<typeof save>[0] = {}
+      const trimTitle = t.trim()
+      if (trimTitle.length > 0 && trimTitle !== s.title) patch.title = trimTitle
+      const trimDesc = d.trim()
+      if (trimDesc !== (s.description ?? '')) patch.description = trimDesc.length > 0 ? trimDesc : null
+      if (Object.keys(patch).length > 0) void save(patch)
+    }, 1500)
+  }
+
+  useEffect(() => () => { if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current) }, [])
 
   const flushTitle = () => {
     const next = title.trim()
@@ -209,7 +229,7 @@ export function SurveyMetadataPanel({
               <StandardInput
                 id="survey-title"
                 value={title}
-                onChange={(e) => setTitle(e.target.value)}
+                onChange={(e) => { setTitle(e.target.value); scheduleAutoSave() }}
                 onBlur={flushTitle}
                 onKeyDown={(e) => {
                   if (e.key === 'Enter') {
@@ -227,7 +247,7 @@ export function SurveyMetadataPanel({
               <StandardTextarea
                 id="survey-description"
                 value={description}
-                onChange={(e) => setDescription(e.target.value)}
+                onChange={(e) => { setDescription(e.target.value); scheduleAutoSave() }}
                 onBlur={flushDescription}
                 rows={3}
                 placeholder="Kort introduksjon til undersøkelsen, kontekst eller bakgrunn."

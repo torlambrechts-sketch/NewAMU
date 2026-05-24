@@ -1781,10 +1781,39 @@ export function SurveyDetailView({ supabase }: Props) {
   const [questionPanelError, setQuestionPanelError] = useState<string | null>(null)
   const [templateSaving, setTemplateSaving] = useState(false)
 
-  const { loadSurveyDetail } = survey
+  const { loadSurveyDetail, patchSelectedSurvey } = survey
   useEffect(() => {
     if (surveyId) void loadSurveyDetail(surveyId)
   }, [surveyId, loadSurveyDetail])
+
+  // Real-time: subscribe to response_count / invitation_count changes on the
+  // survey row so the status strip updates live without a full page refresh.
+  useEffect(() => {
+    if (!supabase || !surveyId || !orgId) return
+    const channel = supabase
+      .channel(`survey_detail_${surveyId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'org_surveys',
+          filter: `id=eq.${surveyId}`,
+        },
+        (payload) => {
+          const row = payload.new as Record<string, unknown>
+          if (typeof row.response_count === 'number' || typeof row.invitation_count === 'number') {
+            patchSelectedSurvey(surveyId, {
+              ...(typeof row.response_count === 'number' ? { response_count: row.response_count } : {}),
+              ...(typeof row.invitation_count === 'number' ? { invitation_count: row.invitation_count } : {}),
+              ...(typeof row.status === 'string' ? { status: row.status as SurveyRow['status'] } : {}),
+            })
+          }
+        },
+      )
+      .subscribe()
+    return () => { void supabase.removeChannel(channel) }
+  }, [supabase, surveyId, orgId, updateSurveyRow])
 
   const s: SurveyRow | null = survey.selectedSurvey
 

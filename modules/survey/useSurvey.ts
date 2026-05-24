@@ -156,6 +156,8 @@ export type UseSurveyState = {
   }) => Promise<OrgSurveyResponseRow | null>
   dispatchOnSurveyPublished: (surveyId: string) => Promise<void>
   dispatchOnSurveyClosed: (surveyId: string) => Promise<void>
+  /** Patch only the in-memory selected survey row — no DB write. Used for realtime updates. */
+  patchSelectedSurvey: (surveyId: string, patch: Partial<Pick<SurveyRow, 'response_count' | 'invitation_count' | 'status'>>) => void
   clearError: () => void
   refresh: () => Promise<void>
   loadQuestionBank: () => Promise<void>
@@ -249,6 +251,14 @@ export function useSurvey({ supabase }: UseSurveyInput): UseSurveyState {
   const [templateCatalogLoading, setTemplateCatalogLoading] = useState(false)
 
   const clearError = useCallback(() => setError(null), [])
+
+  const patchSelectedSurvey = useCallback(
+    (surveyId: string, patch: Partial<Pick<SurveyRow, 'response_count' | 'invitation_count' | 'status'>>) => {
+      setSurveys((prev) => prev.map((s) => (s.id === surveyId ? { ...s, ...patch } : s)))
+      setSelectedSurvey((prev) => (prev?.id === surveyId ? { ...prev, ...patch } : prev))
+    },
+    [],
+  )
 
   const assertOrg = useCallback((): string | null => {
     if (!orgId) {
@@ -1455,6 +1465,7 @@ export function useSurvey({ supabase }: UseSurveyInput): UseSurveyState {
     dispatchOnSurveyClosed,
     dispatchOnSurveyResponseSubmitted,
     maybeDispatchSurveyResponseThreshold,
+    patchSelectedSurvey,
     clearError,
     refresh,
     loadQuestionBank,
