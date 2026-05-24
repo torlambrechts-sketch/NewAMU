@@ -88,11 +88,16 @@ function buildTabs(
   actionCount: number,
   amuReview: SurveyAmuReviewRow | null,
   pendingInvites: number,
+  questionCount: number,
   hideAmuAndTiltak: boolean,
 ): TabItem[] {
   const items: TabItem[] = [
     { id: 'oversikt', label: 'Oversikt' },
-    { id: 'bygger', label: 'Spørsmål' },
+    {
+      id: 'bygger',
+      label: 'Spørsmål',
+      badgeCount: questionCount > 0 ? questionCount : undefined,
+    },
     {
       id: 'distribusjon',
       label: 'Distribusjon',
@@ -1310,6 +1315,8 @@ function SporsmalDesignView({
   easy,
   openNewQuestion,
   openEditQuestion,
+  onSaveAsTemplate,
+  templateSaving,
 }: {
   survey: UseSurveyState
   surveyId: string
@@ -1317,6 +1324,8 @@ function SporsmalDesignView({
   easy: boolean
   openNewQuestion: (sectionId: string | null, typeHint?: SurveyQuestionType) => void
   openEditQuestion: (q: OrgSurveyQuestionRow) => void
+  onSaveAsTemplate: (() => void) | null
+  templateSaving: boolean
 }) {
   const [newSectionTitle, setNewSectionTitle] = useState('')
   const [creatingSection, setCreatingSection] = useState(false)
@@ -1411,7 +1420,7 @@ function SporsmalDesignView({
                       const idx = sortedSections.find((x) => x.id === sectionId)?.order_index ?? si
                       await survey.upsertSection({ id: sectionId, surveyId, title: trimmed, orderIndex: idx })
                     }}
-                    className="ml-auto text-[10px] font-medium text-neutral-500 hover:text-neutral-900"
+                    className="text-[10px] font-medium text-neutral-500 hover:text-neutral-900"
                   >
                     Rediger
                   </button>
@@ -1432,20 +1441,20 @@ function SporsmalDesignView({
                   </button>
                 )
               })() : null}
+              {!isLocked && (
+                <button
+                  type="button"
+                  onClick={() => openNewQuestion(g.id)}
+                  className="ml-auto inline-flex items-center gap-1 text-[11px] font-medium text-neutral-500 hover:text-[#1a3d32]"
+                >
+                  <Plus className="h-3 w-3" aria-hidden /> Legg til
+                </button>
+              )}
             </div>
 
             {g.questions.length === 0 ? (
               <div className="rounded-md border border-dashed border-neutral-200 px-3 py-4 text-center text-[11px] text-neutral-400">
                 Ingen spørsmål i denne seksjonen ennå.
-                {!isLocked && (
-                  <button
-                    type="button"
-                    onClick={() => openNewQuestion(g.id)}
-                    className="ml-2 inline-flex items-center gap-1 text-[11px] font-semibold text-[#1a3d32] hover:underline"
-                  >
-                    <Plus className="h-3 w-3" aria-hidden /> Legg til
-                  </button>
-                )}
               </div>
             ) : (
               <ul className="space-y-1.5">
@@ -1584,6 +1593,17 @@ function SporsmalDesignView({
                 className="inline-flex items-center gap-1 rounded-md border border-dashed border-neutral-300 px-2.5 py-1.5 text-xs font-semibold text-neutral-500 hover:border-[#1a3d32] hover:text-[#1a3d32]"
               >
                 <Plus className="h-3 w-3" aria-hidden /> Ny seksjon
+              </button>
+            )}
+            {onSaveAsTemplate && survey.questions.length > 0 && (
+              <button
+                type="button"
+                onClick={onSaveAsTemplate}
+                disabled={templateSaving}
+                className="ml-auto inline-flex items-center gap-1 rounded-md px-2.5 py-1.5 text-[11px] font-medium text-neutral-500 hover:text-[#1a3d32] disabled:opacity-50"
+              >
+                <Save className="h-3 w-3" aria-hidden />
+                {templateSaving ? 'Lagrer mal…' : 'Lagre som organisasjonsmal'}
               </button>
             )}
           </div>
@@ -1745,6 +1765,7 @@ export function SurveyDetailView({ supabase }: Props) {
         survey.actionPlans.filter((p) => p.status !== 'closed').length,
         survey.amuReview,
         pendingInviteCount,
+        survey.questions.length,
         hideAmuAndTiltak,
       ),
     [
@@ -1752,6 +1773,7 @@ export function SurveyDetailView({ supabase }: Props) {
       survey.actionPlans,
       survey.amuReview,
       pendingInviteCount,
+      survey.questions.length,
       hideAmuAndTiltak,
     ],
   )
@@ -2001,6 +2023,7 @@ export function SurveyDetailView({ supabase }: Props) {
 
   const periodLabel = useMemo(() => {
     if (!s) return ''
+    if (!s.start_date && !s.end_date) return ''
     const from = s.start_date ? new Date(s.start_date).toLocaleDateString('nb-NO', { dateStyle: 'short' }) : '—'
     const to = s.end_date ? new Date(s.end_date).toLocaleDateString('nb-NO', { dateStyle: 'short' }) : '—'
     return `${from} – ${to}`
@@ -2076,7 +2099,14 @@ export function SurveyDetailView({ supabase }: Props) {
         description={
           easy
             ? audienceLabel
-            : `${templateRow ? `Mal: ${templateRow.name} · ` : ''}${audienceLabel} · åpen ${periodLabel}.`
+            : [
+                templateRow ? `Mal: ${templateRow.name}` : null,
+                audienceLabel,
+                s.invitation_count > 0 ? `${s.invitation_count} mottakere` : null,
+                periodLabel ? `åpen ${periodLabel}` : null,
+              ]
+                .filter(Boolean)
+                .join(' · ') + '.'
         }
         headerActions={
           <div className="flex flex-wrap items-center gap-2">
@@ -2085,6 +2115,16 @@ export function SurveyDetailView({ supabase }: Props) {
               Tilbake
             </Button>
             <ModeToggle mode={detailMode} onChange={setDetailMode} />
+            {(s.status === 'active' || s.status === 'closed') && (
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={() => window.open(`/survey-respond/${s.id}?preview=1`, '_blank')}
+              >
+                <Eye className="h-4 w-4" aria-hidden />
+                <span className="hidden sm:inline">Forhåndsvis</span>
+              </Button>
+            )}
             {survey.canManage && s.status === 'active' && (
               <Button
                 type="button"
@@ -2233,26 +2273,6 @@ export function SurveyDetailView({ supabase }: Props) {
             />
           )}
 
-          {tab === 'bygger' && survey.canManage && s.status === 'draft' && !isLocked && !easy ? (
-            <div className="rounded-lg border border-[#1a3d32]/20 bg-[#f7faf8] p-4">
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                <p className="text-sm text-neutral-700">
-                  Lagre denne spørsmålslisten som gjenbrukbar mal under Maler.
-                </p>
-                <Button
-                  type="button"
-                  variant="secondary"
-                  size="sm"
-                  disabled={templateSaving || survey.questions.length === 0}
-                  onClick={() => void saveAsOrgTemplate()}
-                >
-                  <Save className="h-4 w-4" aria-hidden />
-                  {templateSaving ? 'Lagrer mal…' : 'Lagre som organisasjonsmal'}
-                </Button>
-              </div>
-            </div>
-          ) : null}
-
           {tab === 'bygger' && (
             <SporsmalDesignView
               survey={survey}
@@ -2261,6 +2281,12 @@ export function SurveyDetailView({ supabase }: Props) {
               easy={easy}
               openNewQuestion={openNewQuestion}
               openEditQuestion={openEditQuestion}
+              onSaveAsTemplate={
+                survey.canManage && s.status === 'draft' && !easy
+                  ? () => void saveAsOrgTemplate()
+                  : null
+              }
+              templateSaving={templateSaving}
             />
           )}
 
