@@ -2183,26 +2183,11 @@ export function SurveyDetailView({ supabase }: Props) {
             )}
           </div>
         }
-        tabs={
-          <Tabs
-            className="w-full md:w-auto"
-            items={tabs}
-            activeId={tab}
-            onChange={(id) => {
-              const next = id as DetailTab
-              if (hideAmuAndTiltak && (next === 'amu' || next === 'tiltak')) {
-                setTab('oversikt')
-                return
-              }
-              setTab(next)
-            }}
-          />
-        }
         loading={false}
       >
-        <div className="w-full space-y-6">
+        <div className="w-full space-y-4">
           {/* Status strip — status + anonym + law refs + period + recipients */}
-          <div className="mb-2 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-neutral-200/80 bg-white px-5 py-3" style={{ boxShadow: '0 1px 2px rgba(0,0,0,0.04)' }}>
+          <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-neutral-200/80 bg-white px-5 py-3" style={{ boxShadow: '0 1px 2px rgba(0,0,0,0.04)' }}>
             <div className="flex flex-wrap items-center gap-2">
               <Badge variant={surveyStatusBadgeVariant(s.status)}>{surveyStatusLabel(s.status)}</Badge>
               {s.is_anonymous && (
@@ -2240,6 +2225,26 @@ export function SurveyDetailView({ supabase }: Props) {
           </div>
 
           {survey.error ? <WarningBox>{survey.error}</WarningBox> : null}
+
+          {/* Tabs + content wrapped in a single white card per design (SurveyDetail.jsx) */}
+          <div className="rounded-xl border border-neutral-200/80 bg-white" style={{ boxShadow: '0 1px 2px rgba(0,0,0,0.04)' }}>
+            <div className="overflow-x-auto border-b border-neutral-100 px-5 py-2.5">
+              <Tabs
+                className="w-full md:w-auto"
+                overflow="scroll"
+                items={tabs}
+                activeId={tab}
+                onChange={(id) => {
+                  const next = id as DetailTab
+                  if (hideAmuAndTiltak && (next === 'amu' || next === 'tiltak')) {
+                    setTab('oversikt')
+                    return
+                  }
+                  setTab(next)
+                }}
+              />
+            </div>
+            <div className="space-y-5 p-5">
 
           {tab === 'oversikt' && (
             <SurveyMetadataPanel
@@ -2319,6 +2324,8 @@ export function SurveyDetailView({ supabase }: Props) {
           {tab === 'amu' && <SurveyAmuTab survey={survey} s={s} />}
 
           {tab === 'tiltak' && <SurveyTiltakTab survey={survey} s={s} />}
+            </div>
+          </div>
         </div>
       </ModulePageShell>
 
