@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState, useRef, type ReactNode } fro
 import type { LucideIcon } from 'lucide-react'
 import { useNavigate, useParams } from 'react-router-dom'
 import type { SupabaseClient } from '@supabase/supabase-js'
-import { AlertCircle, ArrowLeft, BarChart3, Calendar, CheckCircle2, ChevronRight, Copy, Eye, EyeOff, Ghost, Globe, Hash, HelpCircle, Link2, Mail, MessageCircle, Scan, Save, Send, Trash2, TrendingUp, Users2 } from 'lucide-react'
+import { AlertCircle, ArrowLeft, BarChart2, BarChart3, Bell, Calendar, CheckCircle2, ChevronRight, CircleDot, Copy, Download, Eye, EyeOff, Gauge, Ghost, GitBranch, Globe, GripVertical, Hash, HelpCircle, Link2, List, Lock, Mail, MessageCircle, Play, Plus, Scan, Save, Send, SlidersHorizontal, ToggleLeft, Trash2, TrendingUp, Type as TypeIcon, Users2 } from 'lucide-react'
 import {
   WPSTD_FORM_FIELD_LABEL,
   WPSTD_FORM_ROW_GRID,
@@ -29,7 +29,6 @@ import { SurveyAttestasjonCard } from './SurveyAttestasjonCard'
 import { SurveyResponseReadPanel } from './SurveyResponseReadPanel'
 import { surveyStatusBadgeVariant, surveyStatusLabel } from './surveyLabels'
 import { globalQuestionIdOrder } from './surveyQuestionGlobalOrder'
-import { SurveySectionBuilder } from './SurveySectionBuilder'
 import { SurveyQuestionFormFields, type QuestionDraft } from './SurveyQuestionFormFields'
 import { defaultQuestionPayload } from './surveyQuestionDefaults'
 import { SurveyAmuTab } from './tabs/SurveyAmuTab'
@@ -138,7 +137,17 @@ function ToggleRow({ label, desc, value }: { label: string; desc: string; value:
   )
 }
 
-function InnstillingerTab({ survey, s }: { survey: UseSurveyState; s: SurveyRow }) {
+function InnstillingerTab({
+  survey,
+  s,
+  easy,
+  templateLawRefs,
+}: {
+  survey: UseSurveyState
+  s: SurveyRow
+  easy: boolean
+  templateLawRefs: string[]
+}) {
   const [closing, setClosing] = useState(false)
 
   return (
@@ -166,13 +175,29 @@ function InnstillingerTab({ survey, s }: { survey: UseSurveyState; s: SurveyRow 
             </button>
           </div>
           <ToggleRow label="Krev innlogging" desc="Respondenten må logge inn med SSO før svar lagres." value={true} />
-          <ToggleRow label="Tillat delvis lagring" desc="Respondent kan lukke og fortsette senere." value={true} />
-          <ToggleRow label="Vis fremdriftslinje" desc="Respondent ser hvor langt de er kommet." value={true} />
+          {!easy && (
+            <>
+              <ToggleRow label="Tillat delvis lagring" desc="Respondent kan lukke og fortsette senere." value={true} />
+              <ToggleRow label="Vis fremdriftslinje" desc="Respondent ser hvor langt de er kommet." value={true} />
+            </>
+          )}
         </div>
 
         <h3 className="text-sm font-semibold text-neutral-900">Lovverk &amp; retensjon</h3>
         <div className="rounded-md border border-neutral-200/80 p-4 text-sm">
-          <dl className="space-y-2 text-xs">
+          {!easy && templateLawRefs.length > 0 && (
+            <div className="flex flex-wrap gap-1.5 border-b border-neutral-100 pb-3">
+              {templateLawRefs.map((l) => (
+                <span
+                  key={l}
+                  className="rounded border border-[#c5d3c8] bg-[#e7efe9] px-2 py-0.5 text-[11px] font-semibold text-[#14312a]"
+                >
+                  {l}
+                </span>
+              ))}
+            </div>
+          )}
+          <dl className={[!easy && templateLawRefs.length > 0 ? 'mt-3' : '', 'space-y-2 text-xs'].join(' ')}>
             <div className="flex justify-between">
               <dt className="text-neutral-500">Lagringstid</dt>
               <dd className="text-neutral-900">5 år (i tråd med IK § 5)</dd>
@@ -190,22 +215,28 @@ function InnstillingerTab({ survey, s }: { survey: UseSurveyState; s: SurveyRow 
               <dd className="text-neutral-900">CSV · PDF · API</dd>
             </div>
           </dl>
-          <p className="mt-3 border-t border-neutral-100 pt-3 text-[11px] text-neutral-500">
-            {s.is_anonymous
-              ? 'Anonyme undersøkelser lagrer ikke bruker-ID. Rådata slettes etter 3 år (GDPR Art. 5(1)(e)).'
-              : 'Identifiserte undersøkelser lagrer bruker-ID. Informer deltakerne i forkant (AML § 4-1, GDPR Art. 6(1)(c)).'}
-          </p>
+          {!easy && (
+            <p className="mt-3 border-t border-neutral-100 pt-3 text-[11px] text-neutral-500">
+              {s.is_anonymous
+                ? 'Anonyme undersøkelser lagrer ikke bruker-ID. Rådata slettes etter 3 år (GDPR Art. 5(1)(e)).'
+                : 'Identifiserte undersøkelser lagrer bruker-ID. Informer deltakerne i forkant (AML § 4-1, GDPR Art. 6(1)(c)).'}
+            </p>
+          )}
         </div>
       </section>
 
       {/* ── Right column: result sharing + danger zone ── */}
       <section className="space-y-3">
-        <h3 className="text-sm font-semibold text-neutral-900">Resultatdeling</h3>
-        <div className="rounded-md border border-neutral-200/80 p-4">
-          <ToggleRow label="Del live-dashboard med HMS-leder" desc="Aggregert status vises mens undersøkelsen pågår." value={true} />
-          <ToggleRow label="Send sammendrag automatisk ved lukking" desc="PDF til eier + verneombud etter lukking." value={true} />
-          <ToggleRow label="Tillat ledere å se sitt teams resultater" desc="Kun aggregert · minimum 5 svar." value={false} />
-        </div>
+        {!easy && (
+          <>
+            <h3 className="text-sm font-semibold text-neutral-900">Resultatdeling</h3>
+            <div className="rounded-md border border-neutral-200/80 p-4">
+              <ToggleRow label="Del live-dashboard med HMS-leder" desc="Aggregert status vises mens undersøkelsen pågår." value={true} />
+              <ToggleRow label="Send sammendrag automatisk ved lukking" desc="PDF til eier + verneombud etter lukking." value={true} />
+              <ToggleRow label="Tillat ledere å se sitt teams resultater" desc="Kun aggregert · minimum 5 svar." value={false} />
+            </div>
+          </>
+        )}
 
         {survey.canManage && (
           <>
@@ -818,41 +849,6 @@ function OversiktTab({
   )
 }
 
-function ByggerTab({
-  survey,
-  surveyId,
-  isLocked,
-  openNewQuestion,
-  openEditQuestion,
-}: {
-  survey: UseSurveyState
-  surveyId: string
-  isLocked: boolean
-  openNewQuestion: (sectionId: string | null) => void
-  openEditQuestion: (q: OrgSurveyQuestionRow) => void
-}) {
-  if (!survey.canManage) {
-    return (
-      <TabEmpty message="Du har ikke tilgang til å redigere spørsmål. Kontakt en administrator med survey.manage." />
-    )
-  }
-
-  return (
-    <div className="space-y-4">
-      {isLocked ? (
-        <InfoBox>Undersøkelsen er publisert eller lukket — spørsmål kan ikke legges til eller endres.</InfoBox>
-      ) : null}
-      <SurveySectionBuilder
-        survey={survey}
-        surveyId={surveyId}
-        isLocked={isLocked}
-        onEditQuestion={openEditQuestion}
-        onAddQuestion={openNewQuestion}
-      />
-    </div>
-  )
-}
-
 function SvarTab({
   survey,
   s,
@@ -937,7 +933,7 @@ function SvarTab({
 // ─── Design Resultater section ─────────────────────────────────────────────────
 // eNPS donut + per-question stacked bars + fritekst excerpts from design.
 
-function ResultaterDesignSection({ survey }: { survey: UseSurveyState; s: SurveyRow }) {
+function ResultaterDesignSection({ survey, easy }: { survey: UseSurveyState; s: SurveyRow; easy: boolean }) {
   const analyticsByQuestion = useMemo(
     () => buildAnalyticsByQuestionId(survey.questions, survey.answers),
     [survey.questions, survey.answers],
@@ -1062,7 +1058,7 @@ function ResultaterDesignSection({ survey }: { survey: UseSurveyState; s: Survey
         </div>
       )}
 
-      {fritekstExcerpts.length > 0 && (
+      {!easy && fritekstExcerpts.length > 0 && (
         <div className="rounded-md border border-neutral-200/80 p-4">
           <div className="flex items-center justify-between">
             <h4 className="text-sm font-semibold text-neutral-900">Fritekst — utdrag</h4>
@@ -1096,9 +1092,11 @@ const CHANNEL_ICON_MAP: Record<string, LucideIcon> = {
 
 function DistribusjonWrapper({
   s,
+  easy,
   children,
 }: {
   s: SurveyRow
+  easy: boolean
   children: ReactNode
 }) {
   const [copied, setCopied] = useState(false)
@@ -1136,7 +1134,7 @@ function DistribusjonWrapper({
                     </span>
                     <div>
                       <div className="text-sm font-medium text-neutral-900">{ch}</div>
-                      <div className="text-[10px] text-neutral-500">{active ? 'Aktiv' : 'Inaktiv'}</div>
+                      {!easy && <div className="text-[10px] text-neutral-500">{active ? 'Aktiv' : 'Inaktiv'}</div>}
                     </div>
                   </div>
                   <div className={['relative h-5 w-9 cursor-pointer rounded-full transition-colors', active ? 'bg-[#1a3d32]' : 'bg-neutral-300'].join(' ')}>
@@ -1200,6 +1198,486 @@ function DistribusjonWrapper({
           >
             Last ned PNG
           </button>
+        </div>
+      </aside>
+    </div>
+  )
+}
+
+// ─── ModeToggle — Enkel / Avansert switcher ───────────────────────────────────
+
+type DetailMode = 'easy' | 'advanced'
+
+function ModeToggle({
+  mode,
+  onChange,
+  compact = false,
+}: {
+  mode: DetailMode
+  onChange: (m: DetailMode) => void
+  compact?: boolean
+}) {
+  const items: { id: DetailMode; label: string; sub: string; Icon: LucideIcon }[] = [
+    { id: 'easy', label: 'Enkel', sub: 'For alle i felt', Icon: CircleDot },
+    { id: 'advanced', label: 'Avansert', sub: 'HMS-ansvarlig', Icon: SlidersHorizontal },
+  ]
+  return (
+    <div
+      role="tablist"
+      aria-label="Visningsmodus"
+      className="inline-flex items-center gap-1 rounded-md border border-neutral-200/80 bg-white p-1"
+      style={{ boxShadow: '0 1px 1px rgba(0,0,0,0.03)' }}
+    >
+      {items.map(({ id, label, sub, Icon }) => {
+        const active = id === mode
+        return (
+          <button
+            key={id}
+            role="tab"
+            aria-selected={active}
+            type="button"
+            onClick={() => onChange(id)}
+            className={[
+              'flex items-center gap-2 rounded-[5px] px-2.5 py-1.5 text-xs font-semibold transition-colors',
+              active ? 'bg-[#1a3d32] text-white' : 'text-neutral-600 hover:text-neutral-900',
+            ].join(' ')}
+          >
+            <Icon className="h-3.5 w-3.5" aria-hidden />
+            <span>{label}</span>
+            {!compact ? (
+              <span
+                className={['hidden text-[10px] font-medium md:inline', active ? 'text-white/70' : 'text-neutral-400'].join(' ')}
+              >
+                · {sub}
+              </span>
+            ) : null}
+          </button>
+        )
+      })}
+    </div>
+  )
+}
+
+// ─── Spørsmål design view — section-grouped list + preview sidebar ────────────
+
+const QTYPE_GROUPS: Record<string, { Icon: LucideIcon; label: string }> = {
+  skala:    { Icon: BarChart2,  label: 'Skala' },
+  nps:      { Icon: Gauge,      label: 'NPS' },
+  yesno:    { Icon: ToggleLeft, label: 'Ja/Nei' },
+  fritekst: { Icon: TypeIcon,   label: 'Fritekst' },
+  flervalg: { Icon: List,       label: 'Flervalg' },
+}
+
+function questionTypeGroup(t: SurveyQuestionType): keyof typeof QTYPE_GROUPS {
+  if (t === 'nps') return 'nps'
+  if (t === 'yes_no') return 'yesno'
+  if (t === 'rating_1_to_5' || t === 'rating_1_to_10' || t === 'likert_scale' || t === 'slider' || t === 'rating_visual') return 'skala'
+  if (t === 'text' || t === 'short_text' || t === 'long_text' || t === 'email' || t === 'number') return 'fritekst'
+  return 'flervalg'
+}
+
+function questionRangeLabel(t: SurveyQuestionType, cfg: Record<string, unknown>): string | null {
+  if (t === 'rating_1_to_5') return '1–5'
+  if (t === 'rating_1_to_10') return '0–10'
+  if (t === 'likert_scale') return 'Likert'
+  if (t === 'nps') return '0–10'
+  if (t === 'slider') {
+    const min = (cfg.min as number | undefined) ?? 0
+    const max = (cfg.max as number | undefined) ?? 100
+    return `${min}–${max}`
+  }
+  return null
+}
+
+function isConditional(q: OrgSurveyQuestionRow): boolean {
+  const c = q.config as { showIf?: unknown; logic_jump?: unknown } | undefined
+  return Boolean(c?.showIf || c?.logic_jump)
+}
+
+function branchingLabel(q: OrgSurveyQuestionRow): string | null {
+  const c = q.config as { showIf?: unknown; logic_jump?: { jumps?: unknown[] } } | undefined
+  if (c?.logic_jump?.jumps && Array.isArray(c.logic_jump.jumps) && c.logic_jump.jumps.length > 0) {
+    return `${c.logic_jump.jumps.length} forgrening${c.logic_jump.jumps.length > 1 ? 'er' : ''}`
+  }
+  if (c?.showIf) return 'Betinget visning'
+  return null
+}
+
+function SporsmalDesignView({
+  survey,
+  surveyId,
+  isLocked,
+  easy,
+  openNewQuestion,
+  openEditQuestion,
+}: {
+  survey: UseSurveyState
+  surveyId: string
+  isLocked: boolean
+  easy: boolean
+  openNewQuestion: (sectionId: string | null, typeHint?: SurveyQuestionType) => void
+  openEditQuestion: (q: OrgSurveyQuestionRow) => void
+}) {
+  const [newSectionTitle, setNewSectionTitle] = useState('')
+  const [creatingSection, setCreatingSection] = useState(false)
+  const [showNewSection, setShowNewSection] = useState(false)
+
+  const sortedSections = useMemo(
+    () => [...survey.surveySections].sort((a, b) => a.order_index - b.order_index),
+    [survey.surveySections],
+  )
+
+  type SectionGroup = { id: string | null; title: string; questions: OrgSurveyQuestionRow[] }
+  const groups: SectionGroup[] = useMemo(() => {
+    const out: SectionGroup[] = []
+    // First, sections in order
+    for (const sec of sortedSections) {
+      out.push({
+        id: sec.id,
+        title: sec.title,
+        questions: survey.questions
+          .filter((q) => q.section_id === sec.id)
+          .sort((a, b) => a.order_index - b.order_index),
+      })
+    }
+    // Then, "Uten seksjon" group if any unattached questions
+    const orphans = survey.questions
+      .filter((q) => q.section_id == null)
+      .sort((a, b) => a.order_index - b.order_index)
+    if (orphans.length > 0 || sortedSections.length === 0) {
+      out.push({ id: null, title: sortedSections.length === 0 ? 'Spørsmål' : 'Uten seksjon', questions: orphans })
+    }
+    return out
+  }, [sortedSections, survey.questions])
+
+  const previewQuestion = useMemo(() => {
+    return (
+      survey.questions.find((q) => q.question_type === 'rating_1_to_5') ??
+      survey.questions[0] ??
+      null
+    )
+  }, [survey.questions])
+
+  const previewIsScale =
+    previewQuestion?.question_type === 'rating_1_to_5' || previewQuestion?.question_type === 'likert_scale'
+
+  if (!survey.canManage) {
+    return <TabEmpty message="Du har ikke tilgang til å redigere spørsmål. Kontakt en administrator med survey.manage." />
+  }
+
+  const createSection = async () => {
+    const title = newSectionTitle.trim()
+    if (!title) return
+    setCreatingSection(true)
+    const nextOrder = sortedSections.length > 0 ? Math.max(...sortedSections.map((s) => s.order_index)) + 1 : 0
+    await survey.upsertSection({ surveyId, title, orderIndex: nextOrder })
+    setCreatingSection(false)
+    setNewSectionTitle('')
+    setShowNewSection(false)
+  }
+
+  return (
+    <div className="grid grid-cols-1 gap-5 xl:grid-cols-[minmax(0,1fr)_280px]">
+      <div className="space-y-5">
+        {isLocked ? (
+          <InfoBox>
+            Undersøkelsen er publisert eller lukket — spørsmål kan ikke legges til eller endres.
+          </InfoBox>
+        ) : null}
+
+        {groups.length === 0 || groups.every((g) => g.questions.length === 0) ? (
+          <div className="rounded-md border border-dashed border-neutral-300 px-5 py-10 text-center text-sm text-neutral-500">
+            Ingen spørsmål ennå. Klikk «Nytt spørsmål» nederst for å begynne.
+          </div>
+        ) : null}
+
+        {groups.map((g, si) => (
+          <section key={g.id ?? 'orphans'}>
+            <div className="mb-2 flex items-baseline gap-2">
+              <h3 className="text-sm font-semibold text-neutral-900" style={{ fontFamily: "'Libre Baskerville', Georgia, serif" }}>
+                {si + 1}. {g.title}
+              </h3>
+              <span className="text-[11px] tabular-nums text-neutral-400">{g.questions.length} spørsmål</span>
+              {g.id && !isLocked ? (
+                <button
+                  type="button"
+                  onClick={async () => {
+                    const next = window.prompt('Nytt navn på seksjon:', g.title)
+                    if (next == null) return
+                    const trimmed = next.trim()
+                    if (!trimmed || trimmed === g.title) return
+                    const idx = sortedSections.find((x) => x.id === g.id)?.order_index ?? si
+                    await survey.upsertSection({ id: g.id, surveyId, title: trimmed, orderIndex: idx })
+                  }}
+                  className="ml-auto text-[10px] font-medium text-neutral-500 hover:text-neutral-900"
+                >
+                  Rediger
+                </button>
+              ) : null}
+              {g.id && !isLocked && g.questions.length === 0 ? (
+                <button
+                  type="button"
+                  onClick={async () => {
+                    if (!window.confirm(`Slett seksjonen «${g.title}»?`)) return
+                    await survey.deleteSection(g.id!, surveyId)
+                  }}
+                  className="text-[10px] font-medium text-red-600 hover:text-red-800"
+                >
+                  Slett
+                </button>
+              ) : null}
+            </div>
+
+            {g.questions.length === 0 ? (
+              <div className="rounded-md border border-dashed border-neutral-200 px-3 py-4 text-center text-[11px] text-neutral-400">
+                Ingen spørsmål i denne seksjonen ennå.
+                {!isLocked && (
+                  <button
+                    type="button"
+                    onClick={() => openNewQuestion(g.id)}
+                    className="ml-2 inline-flex items-center gap-1 text-[11px] font-semibold text-[#1a3d32] hover:underline"
+                  >
+                    <Plus className="h-3 w-3" aria-hidden /> Legg til
+                  </button>
+                )}
+              </div>
+            ) : (
+              <ul className="space-y-1.5">
+                {g.questions.map((q, qi) => {
+                  const grp = questionTypeGroup(q.question_type)
+                  const T = QTYPE_GROUPS[grp]
+                  const range = questionRangeLabel(q.question_type, (q.config as Record<string, unknown>) ?? {})
+                  const conditional = isConditional(q)
+                  const branchLabel = branchingLabel(q)
+                  return (
+                    <li
+                      key={q.id}
+                      className="group flex items-start gap-2 rounded-md border border-neutral-200/80 bg-white p-2.5 transition-colors hover:border-[#1a3d32]/40 hover:bg-[#fbf9f3]"
+                    >
+                      <GripVertical
+                        className="mt-1 h-3.5 w-3.5 shrink-0 text-neutral-300 group-hover:text-neutral-500"
+                        aria-hidden
+                      />
+                      <button
+                        type="button"
+                        onClick={() => !isLocked && openEditQuestion(q)}
+                        disabled={isLocked}
+                        className="min-w-0 flex-1 text-left disabled:cursor-default"
+                      >
+                        <div className="flex items-start gap-2">
+                          <span className="text-[11px] font-bold tabular-nums text-neutral-400">{qi + 1}</span>
+                          <span className="text-sm text-neutral-900">
+                            {q.question_text}
+                            {q.is_required && <span className="ml-1 text-red-600">*</span>}
+                            {!easy && conditional && (
+                              <span className="ml-1 text-[10px] font-semibold uppercase tracking-wider text-neutral-400">
+                                (betinget)
+                              </span>
+                            )}
+                          </span>
+                        </div>
+                        {!easy && (
+                          <div className="mt-1.5 flex flex-wrap items-center gap-1.5 pl-5">
+                            <span className="inline-flex items-center gap-1 rounded border border-neutral-200 bg-white px-1.5 py-0.5 text-[10px] font-semibold text-neutral-700">
+                              <T.Icon className="h-2.5 w-2.5" aria-hidden /> {T.label}
+                              {range ? ` · ${range}` : ''}
+                            </span>
+                            {q.is_mandatory && q.mandatory_law ? (
+                              <span className="inline-flex items-center rounded border border-[#c5d3c8] bg-[#e7efe9] px-1.5 py-0.5 text-[10px] font-semibold text-[#14312a]">
+                                {q.mandatory_law.replace(/_/g, ' ')}
+                              </span>
+                            ) : null}
+                            {branchLabel ? (
+                              <span className="inline-flex items-center gap-1 text-[10px] text-neutral-500">
+                                <GitBranch className="h-2.5 w-2.5" aria-hidden /> {branchLabel}
+                              </span>
+                            ) : null}
+                          </div>
+                        )}
+                      </button>
+                    </li>
+                  )
+                })}
+              </ul>
+            )}
+          </section>
+        ))}
+
+        {!isLocked && (
+          <div className="flex flex-wrap items-center gap-2 border-t border-neutral-100 pt-3">
+            <button
+              type="button"
+              onClick={() => openNewQuestion(null)}
+              className="inline-flex items-center gap-1 rounded-md border border-dashed border-neutral-300 px-2.5 py-1.5 text-xs font-semibold text-neutral-500 hover:border-[#1a3d32] hover:text-[#1a3d32]"
+            >
+              <Plus className="h-3 w-3" aria-hidden /> Nytt spørsmål
+            </button>
+            {!easy &&
+              (Object.entries(QTYPE_GROUPS) as [keyof typeof QTYPE_GROUPS, { Icon: LucideIcon; label: string }][]).map(
+                ([k, v]) => {
+                  const typeForGroup: Record<keyof typeof QTYPE_GROUPS, SurveyQuestionType> = {
+                    skala: 'rating_1_to_5',
+                    nps: 'nps',
+                    yesno: 'yes_no',
+                    fritekst: 'long_text',
+                    flervalg: 'multiple_choice',
+                  }
+                  return (
+                    <button
+                      key={k}
+                      type="button"
+                      onClick={() => openNewQuestion(null, typeForGroup[k])}
+                      className="inline-flex items-center gap-1 rounded px-1.5 py-1 text-[10px] font-semibold text-neutral-500 hover:bg-neutral-100 hover:text-neutral-800"
+                    >
+                      <v.Icon className="h-3 w-3" aria-hidden /> {v.label}
+                    </button>
+                  )
+                },
+              )}
+            <span className="mx-2 h-4 w-px bg-neutral-200" aria-hidden />
+            {showNewSection ? (
+              <span className="inline-flex items-center gap-1">
+                <input
+                  autoFocus
+                  type="text"
+                  value={newSectionTitle}
+                  onChange={(e) => setNewSectionTitle(e.target.value)}
+                  placeholder="Seksjonsnavn"
+                  className="rounded-md border border-neutral-300 bg-white px-2 py-1 text-xs outline-none focus:border-[#1a3d32]"
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') void createSection()
+                    if (e.key === 'Escape') {
+                      setShowNewSection(false)
+                      setNewSectionTitle('')
+                    }
+                  }}
+                />
+                <button
+                  type="button"
+                  onClick={() => void createSection()}
+                  disabled={creatingSection || !newSectionTitle.trim()}
+                  className="rounded bg-[#1a3d32] px-2 py-1 text-[10px] font-semibold text-white disabled:opacity-50"
+                >
+                  {creatingSection ? '…' : 'Lagre'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowNewSection(false)
+                    setNewSectionTitle('')
+                  }}
+                  className="rounded px-2 py-1 text-[10px] font-semibold text-neutral-500 hover:text-neutral-800"
+                >
+                  Avbryt
+                </button>
+              </span>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setShowNewSection(true)}
+                className="inline-flex items-center gap-1 rounded-md border border-dashed border-neutral-300 px-2.5 py-1.5 text-xs font-semibold text-neutral-500 hover:border-[#1a3d32] hover:text-[#1a3d32]"
+              >
+                <Plus className="h-3 w-3" aria-hidden /> Ny seksjon
+              </button>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* Sidebar preview */}
+      <aside>
+        <div
+          className="rounded-xl border border-neutral-200/80 bg-white p-4"
+          style={{ boxShadow: '0 1px 2px rgba(0,0,0,0.04)' }}
+        >
+          <h3 className="text-sm font-semibold text-neutral-900">Forhåndsvisning</h3>
+          <p className="mt-1 text-[11px] text-neutral-500">Slik ser ett spørsmål ut for respondenten:</p>
+          <div className="mt-3 rounded-md border border-neutral-200 bg-[#fbf9f3] p-3">
+            <div className="text-[10px] font-bold uppercase tracking-wider text-neutral-500">
+              Spørsmål 1 av {survey.questions.length || 1}
+            </div>
+            <div className="mt-1.5 text-sm text-neutral-900">
+              {previewQuestion?.question_text ?? 'Jeg trives på jobben.'}
+            </div>
+            {previewIsScale || previewQuestion == null ? (
+              <>
+                <div className="mt-3 grid grid-cols-5 gap-1.5">
+                  {[1, 2, 3, 4, 5].map((n) => (
+                    <button
+                      key={n}
+                      type="button"
+                      disabled
+                      className={[
+                        'rounded-md border py-2 text-center text-sm font-semibold transition-colors',
+                        n === 4
+                          ? 'border-[#1a3d32] bg-[#1a3d32] text-white'
+                          : 'border-neutral-200 bg-white text-neutral-700',
+                      ].join(' ')}
+                    >
+                      {n}
+                    </button>
+                  ))}
+                </div>
+                <div className="mt-1 flex justify-between text-[10px] text-neutral-400">
+                  <span>Helt uenig</span>
+                  <span>Helt enig</span>
+                </div>
+              </>
+            ) : previewQuestion.question_type === 'yes_no' ? (
+              <div className="mt-3 grid grid-cols-2 gap-2">
+                <button type="button" disabled className="rounded-md border border-[#1a3d32] bg-[#1a3d32] py-2 text-sm font-semibold text-white">Ja</button>
+                <button type="button" disabled className="rounded-md border border-neutral-200 bg-white py-2 text-sm font-semibold text-neutral-700">Nei</button>
+              </div>
+            ) : previewQuestion.question_type === 'nps' ? (
+              <div className="mt-3 grid grid-cols-11 gap-1">
+                {Array.from({ length: 11 }, (_, i) => (
+                  <button
+                    key={i}
+                    type="button"
+                    disabled
+                    className={[
+                      'rounded border py-1 text-center text-[10px] font-semibold',
+                      i === 9 ? 'border-[#1a3d32] bg-[#1a3d32] text-white' : 'border-neutral-200 bg-white text-neutral-600',
+                    ].join(' ')}
+                  >
+                    {i}
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <div className="mt-3 rounded-md border border-neutral-200 bg-white px-2 py-2 text-[11px] text-neutral-400">
+                Skriv ditt svar her…
+              </div>
+            )}
+          </div>
+
+          {!easy && (
+            <div className="mt-3 rounded-md border border-neutral-200/80 bg-neutral-50/60 p-2.5">
+              <div className="text-[10px] font-bold uppercase tracking-wider text-neutral-500">Statistikk</div>
+              <dl className="mt-1.5 space-y-1 text-[11px]">
+                <div className="flex justify-between">
+                  <dt className="text-neutral-500">Totalt</dt>
+                  <dd className="font-semibold tabular-nums text-neutral-900">{survey.questions.length}</dd>
+                </div>
+                <div className="flex justify-between">
+                  <dt className="text-neutral-500">Påkrevd</dt>
+                  <dd className="font-semibold tabular-nums text-neutral-900">
+                    {survey.questions.filter((q) => q.is_required).length}
+                  </dd>
+                </div>
+                <div className="flex justify-between">
+                  <dt className="text-neutral-500">Lovkrav</dt>
+                  <dd className="font-semibold tabular-nums text-neutral-900">
+                    {survey.questions.filter((q) => q.is_mandatory).length}
+                  </dd>
+                </div>
+                <div className="flex justify-between">
+                  <dt className="text-neutral-500">Seksjoner</dt>
+                  <dd className="font-semibold tabular-nums text-neutral-900">{sortedSections.length}</dd>
+                </div>
+              </dl>
+            </div>
+          )}
         </div>
       </aside>
     </div>
@@ -1325,9 +1803,9 @@ export function SurveyDetailView({ supabase }: Props) {
   )
 
   const openNewQuestion = useCallback(
-    (sectionId: string | null = null) => {
+    (sectionId: string | null = null, typeHint?: SurveyQuestionType) => {
       if (!s || !surveyId) return
-      const baseType: SurveyQuestionType = 'rating_1_to_5'
+      const baseType: SurveyQuestionType = typeHint ?? 'rating_1_to_5'
       const defaults = defaultQuestionPayload(baseType)
       setEditingQ(null)
       setQuestionDraft({
@@ -1338,7 +1816,8 @@ export function SurveyDetailView({ supabase }: Props) {
         sectionId,
         config: defaults.config,
       })
-      setQOptionsLines('')
+      const opts = (defaults.config as { options?: string[] }).options
+      setQOptionsLines(Array.isArray(opts) ? opts.join('\n') : '')
       setQConfigExtraJson('{}')
       setPanelOpen(true)
     },
@@ -1493,6 +1972,61 @@ export function SurveyDetailView({ supabase }: Props) {
   const panelTitleId = 'survey-question-panel-title'
   const responsePanelTitleId = 'survey-response-read-panel-title'
 
+  const [detailMode, setDetailMode] = useState<DetailMode>('advanced')
+  const easy = detailMode === 'easy'
+
+  const templateRow = useMemo(() => {
+    if (!s?.catalog_id) return null
+    return survey.templateCatalog.find((t) => t.id === s.catalog_id) ?? null
+  }, [s?.catalog_id, survey.templateCatalog])
+
+  const templateLawRefs = useMemo(() => {
+    const refs: string[] = []
+    const tplLaw = templateRow?.law_ref?.trim()
+    if (tplLaw) refs.push(tplLaw)
+    // Augment with packs's first legal reference code if any
+    return refs
+  }, [templateRow])
+
+  const audienceLabel = useMemo(() => {
+    if (!s) return ''
+    return SURVEY_TYPE_LABEL[s.survey_type] ?? s.survey_type
+  }, [s])
+
+  const periodLabel = useMemo(() => {
+    if (!s) return ''
+    const from = s.start_date ? new Date(s.start_date).toLocaleDateString('nb-NO', { dateStyle: 'short' }) : '—'
+    const to = s.end_date ? new Date(s.end_date).toLocaleDateString('nb-NO', { dateStyle: 'short' }) : '—'
+    return `${from} – ${to}`
+  }, [s])
+
+  const sendRemindersForAllDistributions = useCallback(async () => {
+    if (!s) return
+    if (typeof window !== 'undefined' && !window.confirm('Send påminnelse til alle som ikke har svart?')) return
+    let totalSent = 0
+    let totalFailed = 0
+    for (const dist of survey.distributions) {
+      const res = await survey.sendInvitationReminders(dist.id, s.id)
+      if (res) {
+        totalSent += res.sent
+        totalFailed += res.failed
+      }
+    }
+    if (typeof window !== 'undefined') {
+      window.alert(`Påminnelser sendt: ${totalSent}. Feilet: ${totalFailed}.`)
+    }
+  }, [s, survey])
+
+  const exportReport = useCallback(async () => {
+    if (!s) return
+    if (survey.distributions.length === 0) {
+      if (typeof window !== 'undefined') window.alert('Ingen distribusjoner å eksportere fra.')
+      return
+    }
+    // Export the most recent (first) distribution's CSV
+    const dist = survey.distributions[0]
+    await survey.exportDistributionCsv(s.id, dist.id)
+  }, [s, survey])
 
   if (!surveyId) {
     return <ModulePageEmpty title="Mangler undersøkelses-ID" onBack={() => navigate('/survey')} backLabel="Tilbake til listen" />
@@ -1531,14 +2065,77 @@ export function SurveyDetailView({ supabase }: Props) {
   return (
     <>
       <ModulePageShell
-        breadcrumb={[{ label: 'HMS' }, { label: 'Undersøkelser', to: '/survey' }, { label: s.title }]}
+        breadcrumb={[{ label: 'HMS' }, { label: 'Undersøkelser', to: '/survey' }, { label: s.title.length > 40 ? s.title.slice(0, 38) + '…' : s.title }]}
         title={s.title}
-        description={s.description ?? 'Detaljert visning — innstillinger, spørsmål, svar og analyse.'}
+        description={
+          easy
+            ? audienceLabel
+            : `${templateRow ? `Mal: ${templateRow.name} · ` : ''}${audienceLabel} · åpen ${periodLabel}.`
+        }
         headerActions={
-          <Button type="button" variant="secondary" onClick={() => navigate('/survey')}>
-            <ArrowLeft className="h-4 w-4" aria-hidden />
-            Tilbake
-          </Button>
+          <div className="flex flex-wrap items-center gap-2">
+            <Button type="button" variant="ghost" onClick={() => navigate('/survey')}>
+              <ArrowLeft className="h-4 w-4" aria-hidden />
+              Tilbake
+            </Button>
+            <ModeToggle mode={detailMode} onChange={setDetailMode} />
+            {survey.canManage && s.status === 'active' && (
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={() => void sendRemindersForAllDistributions()}
+              >
+                <Bell className="h-4 w-4" aria-hidden />
+                <span className="hidden sm:inline">Send påminnelse</span>
+              </Button>
+            )}
+            {survey.canManage && s.status === 'draft' && (
+              <Button
+                type="button"
+                variant="primary"
+                onClick={() => {
+                  if (typeof window !== 'undefined' && !window.confirm('Vil du publisere undersøkelsen? Spørsmålene låses og kan ikke endres etterpå.')) return
+                  void survey.publishSurvey(s.id)
+                }}
+              >
+                <Send className="h-4 w-4" aria-hidden />
+                <span className="hidden sm:inline">Publiser &amp; send ut</span>
+              </Button>
+            )}
+            {survey.canManage && s.status === 'active' && (
+              <Button
+                type="button"
+                variant="primary"
+                onClick={() => {
+                  if (typeof window !== 'undefined' && !window.confirm('Vil du lukke undersøkelsen? Ingen nye svar kan sendes inn etter lukking.')) return
+                  void survey.closeSurvey(s.id)
+                }}
+              >
+                <Lock className="h-4 w-4" aria-hidden />
+                <span className="hidden sm:inline">Lukk undersøkelse</span>
+              </Button>
+            )}
+            {survey.canManage && s.status === 'closed' && (
+              <Button
+                type="button"
+                variant="primary"
+                onClick={() => void exportReport()}
+              >
+                <Download className="h-4 w-4" aria-hidden />
+                <span className="hidden sm:inline">Eksporter rapport</span>
+              </Button>
+            )}
+            {survey.canManage && (s.status as string) === 'planlagt' && (
+              <Button
+                type="button"
+                variant="primary"
+                onClick={() => void survey.publishSurvey(s.id)}
+              >
+                <Play className="h-4 w-4" aria-hidden />
+                <span className="hidden sm:inline">Start nå</span>
+              </Button>
+            )}
+          </div>
         }
         tabs={
           <Tabs
@@ -1558,24 +2155,29 @@ export function SurveyDetailView({ supabase }: Props) {
         loading={false}
       >
         <div className="w-full space-y-6">
-          {/* Status strip — status + anonym + period + recipients */}
+          {/* Status strip — status + anonym + law refs + period + recipients */}
           <div className="mb-2 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-neutral-200/80 bg-white px-5 py-3" style={{ boxShadow: '0 1px 2px rgba(0,0,0,0.04)' }}>
             <div className="flex flex-wrap items-center gap-2">
               <Badge variant={surveyStatusBadgeVariant(s.status)}>{surveyStatusLabel(s.status)}</Badge>
-              {s.is_anonymous
-                ? <span className="inline-flex items-center gap-1 rounded border border-[#c5d3c8] bg-[#e7efe9] px-2 py-0.5 text-[11px] font-semibold text-[#14312a]"><EyeOff className="h-3 w-3" aria-hidden /> Anonym</span>
-                : <Badge variant="neutral">Identifisert</Badge>
-              }
+              {s.is_anonymous && (
+                <span className="inline-flex items-center gap-1 rounded border border-[#c5d3c8] bg-[#e7efe9] px-2 py-0.5 text-[11px] font-semibold text-[#14312a]">
+                  <EyeOff className="h-3 w-3" aria-hidden /> Anonym
+                </span>
+              )}
+              {!easy && templateLawRefs.map((l) => (
+                <span
+                  key={l}
+                  className="rounded border border-[#c5d3c8] bg-[#e7efe9] px-1.5 py-0.5 text-[10px] font-semibold text-[#14312a]"
+                >
+                  {l}
+                </span>
+              ))}
             </div>
             <div className="flex flex-wrap items-center gap-4 text-xs text-neutral-600">
               {(s.start_date || s.end_date) && (
                 <span className="inline-flex items-center gap-1.5">
                   <Calendar className="h-3.5 w-3.5 text-neutral-400" aria-hidden />
-                  <span className="tabular-nums">
-                    {s.start_date ? new Date(s.start_date).toLocaleDateString('nb-NO', { dateStyle: 'short' }) : '—'}
-                    {' – '}
-                    {s.end_date ? new Date(s.end_date).toLocaleDateString('nb-NO', { dateStyle: 'short' }) : '—'}
-                  </span>
+                  <span className="tabular-nums">{periodLabel}</span>
                 </span>
               )}
               <span className="inline-flex items-center gap-1.5">
@@ -1625,7 +2227,7 @@ export function SurveyDetailView({ supabase }: Props) {
             />
           )}
 
-          {tab === 'bygger' && survey.canManage && s.status === 'draft' && !isLocked ? (
+          {tab === 'bygger' && survey.canManage && s.status === 'draft' && !isLocked && !easy ? (
             <div className="rounded-lg border border-[#1a3d32]/20 bg-[#f7faf8] p-4">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <p className="text-sm text-neutral-700">
@@ -1646,17 +2248,18 @@ export function SurveyDetailView({ supabase }: Props) {
           ) : null}
 
           {tab === 'bygger' && (
-            <ByggerTab
+            <SporsmalDesignView
               survey={survey}
               surveyId={s.id}
               isLocked={isLocked}
+              easy={easy}
               openNewQuestion={openNewQuestion}
               openEditQuestion={openEditQuestion}
             />
           )}
 
           {tab === 'distribusjon' && (
-            <DistribusjonWrapper s={s}>
+            <DistribusjonWrapper s={s} easy={easy}>
               <SurveyDistribusjonTab survey={survey} s={s} />
             </DistribusjonWrapper>
           )}
@@ -1666,9 +2269,9 @@ export function SurveyDetailView({ supabase }: Props) {
 
           {tab === 'resultater' && (
             <div className="space-y-6">
-              <ResultaterDesignSection survey={survey} s={s} />
+              <ResultaterDesignSection survey={survey} s={s} easy={easy} />
               <SvarTab survey={survey} s={s} nameByUserId={nameByUserId} onOpenResponse={openResponsePanel} />
-              {survey.responses.length > 0 && (
+              {!easy && survey.responses.length > 0 && (
                 <div className="border-t border-neutral-200 pt-6">
                   <h3 className="mb-4 text-sm font-semibold text-neutral-800">Detaljert analyse</h3>
                   <SurveyAnalyseTab survey={survey} s={s} supabase={supabase} />
@@ -1678,7 +2281,7 @@ export function SurveyDetailView({ supabase }: Props) {
           )}
 
           {tab === 'innstillinger' && (
-            <InnstillingerTab survey={survey} s={s} />
+            <InnstillingerTab survey={survey} s={s} easy={easy} templateLawRefs={templateLawRefs} />
           )}
 
           {tab === 'amu' && <SurveyAmuTab survey={survey} s={s} />}
