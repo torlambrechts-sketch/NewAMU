@@ -1852,6 +1852,9 @@ function StatistikkCard({
         <Sparkline data={snap.dataRows} />
       ) : null}
 
+      {/* Breakdown — subsequent dataRows with label+value structure */}
+      <BreakdownList rows={snap.dataRows ?? []} />
+
       {/* Narrative */}
       <p className="mt-3 whitespace-pre-wrap text-[12px] leading-relaxed text-neutral-700">
         {snap.summaryMarkdown}
@@ -1903,11 +1906,77 @@ function extractHeadline(snap: RenderedBindingResult): Headline | null {
   ]
   const hit = candidates.find((c) => c.value !== null && Number.isFinite(c.value))
   if (!hit) return null
+  const prev = num('prev') ?? num('previous')
+  const target = num('target')
+  const delta =
+    prev !== null && Number.isFinite(prev) ? Number((hit.value! - prev).toFixed(2)) : undefined
+  const trend = delta == null ? 'flat' : delta > 0 ? 'up' : delta < 0 ? 'down' : 'flat'
+  // Tone: if target exists, a value above target trends "over_target";
+  // below target trends "on_target". When no target, we use attention.
+  let tone: Headline['tone'] = 'attention'
+  if (target !== null && Number.isFinite(target)) {
+    tone = hit.value! <= target ? 'on_target' : 'over_target'
+  } else if (delta != null && delta < 0) {
+    tone = 'on_target'
+  } else if (delta != null && delta > 0) {
+    tone = 'attention'
+  }
   return {
     value: hit.value!,
     unit: hit.unit,
-    tone: 'attention',
+    delta,
+    trend,
+    tone,
   }
+}
+
+function BreakdownList({ rows }: { rows: Array<Record<string, unknown>> }) {
+  // Show subsequent rows when they expose a label-style key — useful for
+  // sub-aggregates like "Korttid / Langtid" or "Kritisk / Høy / Middels / Lav".
+  const items = useMemo(() => {
+    const out: Array<{ label: string; value: string; delta?: number }> = []
+    for (const row of rows.slice(0, 6)) {
+      const label =
+        (row.label as string | undefined) ??
+        (row.category as string | undefined) ??
+        (row.severity as string | undefined) ??
+        (row.bucket as string | undefined) ??
+        (row.name as string | undefined)
+      if (!label) continue
+      const valueRaw =
+        (row.value as number | string | undefined) ??
+        (row.count as number | string | undefined) ??
+        (row.current as number | string | undefined)
+      if (valueRaw == null) continue
+      const value = typeof valueRaw === 'number' ? valueRaw.toString() : String(valueRaw)
+      const prev = (row.prev as number | undefined) ?? null
+      const delta =
+        prev != null && typeof valueRaw === 'number' ? valueRaw - prev : undefined
+      out.push({ label, value, delta })
+    }
+    return out
+  }, [rows])
+  if (items.length === 0) return null
+  return (
+    <ul className="mt-3 space-y-1 text-[11px]">
+      {items.map((b, i) => (
+        <li key={i} className="flex items-center justify-between">
+          <span className="text-neutral-600">{b.label}</span>
+          <span className="tabular-nums">
+            <span className="font-semibold text-neutral-900">{b.value}</span>
+            {b.delta != null && b.delta !== 0 ? (
+              <span
+                className={['ml-1', b.delta > 0 ? 'text-amber-700' : 'text-green-700'].join(' ')}
+              >
+                {b.delta > 0 ? '+' : ''}
+                {b.delta}
+              </span>
+            ) : null}
+          </span>
+        </li>
+      ))}
+    </ul>
+  )
 }
 
 function Sparkline({ data }: { data: Array<Record<string, unknown>> }) {
