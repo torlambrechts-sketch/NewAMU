@@ -1,8 +1,9 @@
 // Audit-logg-seksjonen.
-// Henter hse_audit_log filtrert til admin-relevante tabeller.
-// 10 års retensjon. Eksporterbar til Arbeidstilsynet (CSV-knapp i header).
+// Henter hse_audit_log filtrert til admin-relevante tabeller med
+// cursor-pagination. 10 års retensjon. Eksport til CSV bygger på den
+// allerede-lastede listen.
 
-import { Download, History, RefreshCw } from 'lucide-react'
+import { ChevronDown, Download, History, Loader2, RefreshCw } from 'lucide-react'
 import { Button } from '../../../components/ui/Button'
 import {
   ADMIN_TABLE_TH,
@@ -16,14 +17,16 @@ import { useAdminAudit } from './useAdminAudit'
 import type { AdminSectionProps } from './types'
 
 export function SecAudit({ easy }: AdminSectionProps) {
-  const { entries, loading, error, refresh } = useAdminAudit(50)
+  const { entries, loading, loadingMore, error, hasMore, refresh, loadMore } = useAdminAudit(50)
 
   if (loading) return <AdminLoading />
 
   function exportCsv() {
     const headers = ['Tidspunkt', 'Bruker', 'Handling', 'Detalj', 'Tabell']
     const rows = entries.map((e) =>
-      [e.when, e.who, e.action, e.detail.replace(/"/g, '""'), e.table].map((c) => `"${c}"`).join(','),
+      [e.when, e.who, e.action, e.detail.replace(/"/g, '""'), e.table]
+        .map((c) => `"${c}"`)
+        .join(','),
     )
     const blob = new Blob([[headers.join(','), ...rows].join('\n')], { type: 'text/csv' })
     const a = document.createElement('a')
@@ -62,8 +65,9 @@ export function SecAudit({ easy }: AdminSectionProps) {
               size="sm"
               icon={<Download className="h-3 w-3" />}
               onClick={exportCsv}
+              disabled={entries.length === 0}
             >
-              Eksporter CSV
+              Eksporter CSV ({entries.length})
             </Button>
           </div>
         </div>
@@ -130,6 +134,26 @@ export function SecAudit({ easy }: AdminSectionProps) {
             </table>
           </div>
         )}
+
+        {hasMore && !easy ? (
+          <div className="flex items-center justify-center border-t border-neutral-100 px-5 py-3">
+            <Button
+              variant="secondary"
+              size="sm"
+              disabled={loadingMore}
+              icon={
+                loadingMore ? (
+                  <Loader2 className="h-3 w-3 animate-spin" />
+                ) : (
+                  <ChevronDown className="h-3 w-3" />
+                )
+              }
+              onClick={() => void loadMore()}
+            >
+              {loadingMore ? 'Laster …' : 'Last flere'}
+            </Button>
+          </div>
+        ) : null}
       </AdminCard>
     </div>
   )

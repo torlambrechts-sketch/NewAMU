@@ -108,6 +108,12 @@ export interface AdminPacksResult {
   loading: boolean
   error: string | null
   refresh: () => Promise<void>
+  installPack: (framework: string) => Promise<string | null>
+  uninstallPack: (framework: string) => Promise<string | null>
+  createInternalPackFromTemplates: (
+    sourceTemplateIds: string[],
+    packName: string,
+  ) => Promise<{ copied: number; skipped: number; error: string | null }>
 }
 
 // ── Helpers ─────────────────────────────────────────────────────────────
@@ -457,9 +463,187 @@ export function useAdminPacks(): AdminPacksResult {
     }
   }, [supabase, organization?.id])
 
+  /**
+   * Install or uninstall a system pack by calling the provisioning
+   * RPC (compliance / survey / meetings / registers / workflows).
+   *
+   * For compliance packs we call `provision_compliance_baseline_for_org`
+   * with the pack slug. Other frameworks fall back to their own
+   * provision_* RPC if a matching one exists.
+   *
+   * Returns null on success or an error message.
+   */
+  const installPack = useCallback(
+    async (framework: string): Promise<string | null> => {
+      if (!supabase || !organization?.id) return 'Mangler organisasjon.'
+
+      // provision_compliance_baseline_for_org provisions templates +
+      // upserts the compliance_packs row. It does NOT toggle is_active
+      // on its own — that's a separate admin gesture.
+      const { error: rpcErr } = await supabase.rpc(
+        'provision_compliance_baseline_for_org',
+        { p_org_id: organization.id, p_pack_slug: framework },
+      )
+      if (rpcErr) {
+        setError(rpcErr.message)
+        return rpcErr.message
+      }
+
+      // Activate the pack row so the UI reflects "installed". Idempotent.
+      const { error: actErr } = await supabase
+        .from('compliance_packs')
+        .update({ is_active: true })
+        .eq('organization_id', organization.id)
+        .eq('slug', framework)
+      if (actErr) {
+        setError(actErr.message)
+        return actErr.message
+      }
+
+      await refresh()
+      return null
+    },
+    [supabase, organization?.id, refresh],
+  )
+
+  /**
+   * Soft-uninstall a pack by setting compliance_packs.is_active = false
+   * for the row matching `framework`. Existing executions still hold
+   * the slug reference so we don't hard-delete.
+   */
+  const uninstallPack = useCallback(
+    async (framework: string): Promise<string | null> => {
+      if (!supabase || !organization?.id) return 'Mangler organisasjon.'
+      const { error: updErr } = await supabase
+        .from('compliance_packs')
+        .update({ is_active: false })
+        .eq('organization_id', organization.id)
+        .eq('slug', framework)
+      if (updErr) {
+        setError(updErr.message)
+        return updErr.message
+      }
+      await refresh()
+      return null
+    },
+    [supabase, organization?.id, refresh],
+  )
+
+  /**
+   * Tilpass-wizard finalizer. Copies each selected source template
+   * into a per-org compliance_checklist_templates row with
+   * `is_system = false` so the org can edit freely.
+   *
+   * Only sjekkliste templates are supported per row today —
+   * survey/doc/meeting/learning copies need their own per-table flow
+   * because they live in different override tables.
+   *
+   * Returns the count of successful copies + skipped templates.
+   */
+  const createInternalPackFromTemplates = useCallback(
+    async (
+      sourceTemplateIds: string[],
+      packName: string,
+    ): Promise<{
+      copied: number
+      skipped: number
+      error: string | null
+    }> => {
+      if (!supabase || !organization?.id) {
+        return { copied: 0, skipped: sourceTemplateIds.length, error: 'Mangler organisasjon.' }
+      }
+      // Only sjekkliste (compliance_checklist_templates) rows can be
+      // per-row copied today; ignore the rest with a `skipped` count.
+      const clIds = sourceTemplateIds
+        .filter((id) => id.startsWith('cl-'))
+        .map((id) => id.slice('cl-'.length))
+      const skipped = sourceTemplateIds.length - clIds.length
+
+      if (clIds.length === 0) {
+        return {
+          copied: 0,
+          skipped,
+          error: skipped > 0
+            ? 'Kun sjekkliste-maler støttes for tilpasning i denne versjonen. Bruk de respektive modulene for å tilpasse de andre malene.'
+            : 'Ingen maler valgt.',
+        }
+      }
+
+      // Fetch the source rows so we can rewrite slug + organization_id.
+      const { data: srcRows, error: selErr } = await supabase
+        .from('compliance_checklist_templates')
+        .select('id, pack, slug, name, definition, metadata_schema, law_refs, category_id, cadence_hint')
+        .in('id', clIds)
+      if (selErr) {
+        setError(selErr.message)
+        return { copied: 0, skipped, error: selErr.message }
+      }
+
+      const packTag = packName
+        .toLowerCase()
+        .replace(/[æå]/g, 'a')
+        .replace(/ø/g, 'o')
+        .replace(/[^a-z0-9]+/g, '_')
+        .replace(/^_+|_+$/g, '')
+        .slice(0, 40) || 'kopi'
+      const suffix = `_${packTag}_${Date.now().toString(36)}`
+      const inserts = (srcRows ?? []).map((r) => {
+        const row = r as {
+          pack: string
+          slug: string
+          name: string
+          definition: unknown
+          metadata_schema: unknown
+          law_refs: string[] | null
+          category_id: string | null
+          cadence_hint: string | null
+        }
+        return {
+          organization_id: organization.id,
+          pack: row.pack,
+          slug: `${row.slug}${suffix}`.slice(0, 120),
+          name: `${row.name} (${packName})`,
+          definition: row.definition ?? { items: [] },
+          metadata_schema: row.metadata_schema ?? { fields: [] },
+          law_refs: row.law_refs ?? [],
+          is_system: false,
+          is_active: true,
+          review_status: 'draft' as const,
+          category_id: row.category_id,
+          cadence_hint: row.cadence_hint,
+        }
+      })
+
+      if (inserts.length === 0) {
+        return { copied: 0, skipped, error: 'Fant ingen kildemaler å kopiere.' }
+      }
+
+      const { error: insErr, data: insRows } = await supabase
+        .from('compliance_checklist_templates')
+        .insert(inserts)
+        .select('id, slug')
+      if (insErr) {
+        setError(insErr.message)
+        return { copied: 0, skipped, error: insErr.message }
+      }
+      await refresh()
+      return { copied: (insRows ?? []).length, skipped, error: null }
+    },
+    [supabase, organization?.id, refresh],
+  )
+
   useEffect(() => {
     void refresh()
   }, [refresh])
 
-  return { packs, templates, loading, error, refresh }
+  return {
+    packs,
+    templates,
+    loading,
+    error,
+    refresh,
+    installPack,
+    uninstallPack,
+    createInternalPackFromTemplates,
+  }
 }

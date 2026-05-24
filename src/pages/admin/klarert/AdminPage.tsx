@@ -210,52 +210,74 @@ export function AdminPage() {
   )
 }
 
+// ── Sub-route URL encoding ─────────────────────────────────────────────
+// Sub-routes live under /admin/settings/<section>/<segment>. The segment
+// uses a small grammar prefixed by intent verb:
+//   pack-<framework>            → pack detail
+//   tilpass-<framework>         → tilpass wizard
+//   edit-<framework>__<tplId>   → template editor (double-underscore
+//                                  separator; component-encoded so IDs
+//                                  with hyphens or slashes survive)
+//   new                         → workflow editor (new rule)
+//   edit-<ruleId>               → workflow editor (existing rule)
+
+const TPL_SEPARATOR = '__'
+
 function decodeRoute(
   section: AdminSectionId,
   routeSegment: string | undefined,
 ): RouteName {
   if (!routeSegment) return { name: 'list' }
+  const decoded = safeDecode(routeSegment)
   if (section === 'packs') {
-    if (routeSegment.startsWith('pack-')) {
-      const packId = routeSegment.slice('pack-'.length)
-      return { name: 'pack-detail', packId: `pack-${packId}` }
-    }
-    if (routeSegment.startsWith('tilpass-')) {
-      const packId = routeSegment.slice('tilpass-'.length)
-      return { name: 'pack-tilpass', packId: `pack-${packId}` }
-    }
-    if (routeSegment.startsWith('edit-')) {
-      const [packId, templateId] = routeSegment.slice('edit-'.length).split('--')
-      return {
-        name: 'pack-template-edit',
-        packId: `pack-${packId}`,
-        templateId: templateId ?? '',
+    if (decoded.startsWith('edit-')) {
+      const rest = decoded.slice('edit-'.length)
+      const sepAt = rest.indexOf(TPL_SEPARATOR)
+      if (sepAt > 0) {
+        return {
+          name: 'pack-template-edit',
+          packId: `pack-${safeDecode(rest.slice(0, sepAt))}`,
+          templateId: safeDecode(rest.slice(sepAt + TPL_SEPARATOR.length)),
+        }
       }
+    }
+    if (decoded.startsWith('tilpass-')) {
+      return { name: 'pack-tilpass', packId: `pack-${safeDecode(decoded.slice('tilpass-'.length))}` }
+    }
+    if (decoded.startsWith('pack-')) {
+      return { name: 'pack-detail', packId: `pack-${safeDecode(decoded.slice('pack-'.length))}` }
     }
   }
   if (section === 'workflows') {
-    if (routeSegment === 'new') return { name: 'wf-edit', ruleId: 'new' }
-    if (routeSegment.startsWith('edit-')) {
-      return { name: 'wf-edit', ruleId: routeSegment.slice('edit-'.length) }
+    if (decoded === 'new') return { name: 'wf-edit', ruleId: 'new' }
+    if (decoded.startsWith('edit-')) {
+      return { name: 'wf-edit', ruleId: safeDecode(decoded.slice('edit-'.length)) }
     }
   }
   return { name: 'list' }
 }
 
+function safeDecode(s: string): string {
+  try {
+    return decodeURIComponent(s)
+  } catch {
+    return s
+  }
+}
+
 function routeToPath(section: AdminSectionId, route: RouteName): string {
   const base = `/admin/settings/${section}`
+  const enc = (s: string) => encodeURIComponent(s)
   switch (route.name) {
     case 'list':
       return base
     case 'pack-detail':
-      return `${base}/pack-${route.packId.replace(/^pack-/, '')}`
+      return `${base}/pack-${enc(route.packId.replace(/^pack-/, ''))}`
     case 'pack-template-edit':
-      return `${base}/edit-${route.packId.replace(/^pack-/, '')}--${route.templateId}`
+      return `${base}/edit-${enc(route.packId.replace(/^pack-/, ''))}${TPL_SEPARATOR}${enc(route.templateId)}`
     case 'pack-tilpass':
-      return `${base}/tilpass-${route.packId.replace(/^pack-/, '')}`
+      return `${base}/tilpass-${enc(route.packId.replace(/^pack-/, ''))}`
     case 'wf-edit':
-      return route.ruleId === 'new'
-        ? `${base}/new`
-        : `${base}/edit-${route.ruleId}`
+      return route.ruleId === 'new' ? `${base}/new` : `${base}/edit-${enc(route.ruleId)}`
   }
 }

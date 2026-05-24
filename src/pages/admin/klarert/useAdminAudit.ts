@@ -1,7 +1,6 @@
-// Loads the most recent admin-relevant audit entries for the
-// Audit-log section. Source: `hse_audit_log` filtered to tables that
-// the admin shell can mutate (org settings, roles, integrations,
-// workflow_rules, compliance_packs).
+// Loads admin-relevant audit entries from `hse_audit_log` with
+// cursor-style pagination. Source tables are the ones the admin shell
+// can mutate (org settings, roles, integrations, workflow_rules, etc.).
 
 import { useCallback, useEffect, useState } from 'react'
 import { useOrgSetupContext } from '../../../hooks/useOrgSetupContext'
@@ -89,36 +88,48 @@ function formatWhen(iso: string): string {
   return `${String(d.getDate()).padStart(2, '0')}.${String(d.getMonth() + 1).padStart(2, '0')}.${d.getFullYear()} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
 }
 
+const DEFAULT_PAGE_SIZE = 50
+
 export interface AdminAuditResult {
   entries: AuditEntry[]
   loading: boolean
+  loadingMore: boolean
   error: string | null
+  hasMore: boolean
   refresh: () => Promise<void>
+  loadMore: () => Promise<void>
 }
 
-export function useAdminAudit(limit = 50): AdminAuditResult {
+export function useAdminAudit(pageSize: number = DEFAULT_PAGE_SIZE): AdminAuditResult {
   const { supabase, organization } = useOrgSetupContext()
   const [entries, setEntries] = useState<AuditEntry[]>([])
   const [loading, setLoading] = useState(true)
+  const [loadingMore, setLoadingMore] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [hasMore, setHasMore] = useState(false)
+  const [cursor, setCursor] = useState<string | null>(null) // ISO timestamp of last loaded row
 
-  const refresh = useCallback(async () => {
-    if (!supabase || !organization?.id) return
-    setLoading(true)
-    setError(null)
-    try {
-      const { data, error: e } = await supabase
+  const fetchPage = useCallback(
+    async (before: string | null): Promise<{ rows: AuditEntry[]; nextCursor: string | null }> => {
+      if (!supabase || !organization?.id) return { rows: [], nextCursor: null }
+      let q = supabase
         .from('hse_audit_log')
         .select('id, table_name, record_id, action, changed_by, changed_at, changed_fields, old_data, new_data')
         .eq('organization_id', organization.id)
         .in('table_name', ADMIN_TABLES)
         .order('changed_at', { ascending: false })
-        .limit(limit)
+        .limit(pageSize + 1) // one extra row so we can detect more pages
+      if (before) {
+        q = q.lt('changed_at', before)
+      }
+      const { data, error: e } = await q
       if (e) throw e
-      const rows = (data ?? []) as RawAuditRow[]
+      const all = (data ?? []) as RawAuditRow[]
+      const hasMorePages = all.length > pageSize
+      const page = hasMorePages ? all.slice(0, pageSize) : all
 
       const userIds = Array.from(
-        new Set(rows.map((r) => r.changed_by).filter((x): x is string => !!x)),
+        new Set(page.map((r) => r.changed_by).filter((x): x is string => !!x)),
       )
       const userMap = new Map<string, string>()
       if (userIds.length > 0) {
@@ -133,26 +144,58 @@ export function useAdminAudit(limit = 50): AdminAuditResult {
         }
       }
 
-      setEntries(
-        rows.map((r) => ({
-          id: r.id,
-          when: formatWhen(r.changed_at),
-          who: r.changed_by ? userMap.get(r.changed_by) ?? 'System' : 'System',
-          action: ACTION_LABELS[r.action] ?? r.action,
-          detail: describeDetail(r),
-          table: TABLE_LABELS[r.table_name] ?? r.table_name,
-        })),
-      )
+      const rows: AuditEntry[] = page.map((r) => ({
+        id: r.id,
+        when: formatWhen(r.changed_at),
+        who: r.changed_by ? userMap.get(r.changed_by) ?? 'System' : 'System',
+        action: ACTION_LABELS[r.action] ?? r.action,
+        detail: describeDetail(r),
+        table: TABLE_LABELS[r.table_name] ?? r.table_name,
+      }))
+      const nextCursor = hasMorePages && page.length > 0
+        ? page[page.length - 1]!.changed_at
+        : null
+      // Note: hasMorePages reflects whether the upstream had more, but
+      // we also need to flag false when nextCursor is null.
+      return { rows, nextCursor: nextCursor }
+    },
+    [supabase, organization?.id, pageSize],
+  )
+
+  const refresh = useCallback(async () => {
+    if (!supabase || !organization?.id) return
+    setLoading(true)
+    setError(null)
+    try {
+      const { rows, nextCursor } = await fetchPage(null)
+      setEntries(rows)
+      setCursor(nextCursor)
+      setHasMore(nextCursor != null)
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Kunne ikke laste audit-logg')
     } finally {
       setLoading(false)
     }
-  }, [supabase, organization?.id, limit])
+  }, [supabase, organization?.id, fetchPage])
+
+  const loadMore = useCallback(async () => {
+    if (!cursor || loadingMore) return
+    setLoadingMore(true)
+    try {
+      const { rows, nextCursor } = await fetchPage(cursor)
+      setEntries((prev) => [...prev, ...rows])
+      setCursor(nextCursor)
+      setHasMore(nextCursor != null)
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Kunne ikke laste flere oppføringer')
+    } finally {
+      setLoadingMore(false)
+    }
+  }, [cursor, loadingMore, fetchPage])
 
   useEffect(() => {
     void refresh()
   }, [refresh])
 
-  return { entries, loading, error, refresh }
+  return { entries, loading, loadingMore, error, hasMore, refresh, loadMore }
 }

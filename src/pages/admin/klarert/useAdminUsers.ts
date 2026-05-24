@@ -1,12 +1,9 @@
 // Loads the user catalogue for the Brukere section.
-// Joins profiles ↔ user_roles ↔ role_definitions so the table can render
-// role names and primary-role legal references.
-//
-// Note on auth metadata: `auth.users` is not exposed to the JS client
-// (only via service-role admin API). MFA status and last sign-in time
-// therefore default to `null` here and the UI renders "—" instead of
-// fabricated values. Wire those up later via an Edge Function once a
-// `users_admin_overview` view exists.
+// Joins profiles ↔ user_roles ↔ role_definitions and calls the
+// SECURITY DEFINER RPC `users_admin_overview()` to surface MFA / SSO /
+// last_sign_in_at from auth.users. The RPC is gated to org-admin /
+// users.manage and returns an empty set otherwise — the hook treats
+// that as "auth metadata unavailable" and renders "—" in the table.
 
 import { useCallback, useEffect, useState } from 'react'
 import { useOrgSetupContext } from '../../../hooks/useOrgSetupContext'
@@ -73,6 +70,12 @@ export interface AdminUsersResult {
   loading: boolean
   error: string | null
   refresh: () => Promise<void>
+  /**
+   * True when the admin overview RPC returned auth metadata (caller is
+   * org-admin or has users.manage). False when the RPC came back empty
+   * — UI should render "—" instead of false/zero for MFA / SSO.
+   */
+  authMetaAvailable: boolean
 }
 
 export function useAdminUsers(): AdminUsersResult {
@@ -80,13 +83,14 @@ export function useAdminUsers(): AdminUsersResult {
   const [users, setUsers] = useState<UserSummary[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [authMetaAvailable, setAuthMetaAvailable] = useState(false)
 
   const refresh = useCallback(async () => {
     if (!supabase || !organization?.id) return
     setLoading(true)
     setError(null)
     try {
-      const [profileRes, roleRes, userRoleRes, locationRes] = await Promise.all([
+      const [profileRes, roleRes, userRoleRes, overviewRes] = await Promise.all([
         supabase
           .from('profiles')
           .select('id, display_name, email, is_org_admin, department_id, job_title, updated_at')
@@ -97,16 +101,15 @@ export function useAdminUsers(): AdminUsersResult {
           .select('id, slug, name')
           .eq('organization_id', organization.id),
         supabase.from('user_roles').select('user_id, role_id'),
-        supabase
-          .from('locations')
-          .select('id, name')
-          .eq('organization_id', organization.id),
+        // SECURITY DEFINER RPC — returns empty set for non-admin callers.
+        supabase.rpc('users_admin_overview'),
       ])
 
       if (profileRes.error) throw profileRes.error
       if (roleRes.error) throw roleRes.error
       if (userRoleRes.error) throw userRoleRes.error
-      if (locationRes.error) throw locationRes.error
+      // Auth metadata is best-effort — surface error but keep page rendering.
+      const overviewError = overviewRes.error?.message ?? null
 
       const roleById = new Map<string, RoleRow>()
       for (const r of (roleRes.data ?? []) as RoleRow[]) roleById.set(r.id, r)
@@ -120,10 +123,24 @@ export function useAdminUsers(): AdminUsersResult {
         rolesByUser.set(ur.user_id, arr)
       }
 
-      // Locations are surfaced as a future expansion (profiles don't
-      // currently carry a location FK). The map is built so the field
-      // is ready to wire up.
-      void locationRes
+      // Index auth metadata by user_id (empty if non-admin caller).
+      const overviewByUser = new Map<
+        string,
+        { last_sign_in_at: string | null; has_verified_mfa: boolean; is_sso: boolean }
+      >()
+      for (const row of (overviewRes.data ?? []) as {
+        user_id: string
+        last_sign_in_at: string | null
+        has_verified_mfa: boolean
+        is_sso: boolean
+      }[]) {
+        overviewByUser.set(row.user_id, {
+          last_sign_in_at: row.last_sign_in_at,
+          has_verified_mfa: row.has_verified_mfa,
+          is_sso: row.is_sso,
+        })
+      }
+      setAuthMetaAvailable(overviewByUser.size > 0)
 
       const userRows = (profileRes.data ?? []) as ProfileRow[]
       const adminRole = [...roleById.values()].find((r) => r.slug === 'admin')
@@ -137,6 +154,7 @@ export function useAdminUsers(): AdminUsersResult {
         const primarySlug = primary?.slug ?? (p.is_org_admin ? 'admin' : null)
         const law = primarySlug ? ROLE_LAW_REFS[primarySlug] ?? [] : []
         const external = userRoles.some((r) => EXTERNAL_ROLE_SLUGS.has(r.slug))
+        const auth = overviewByUser.get(p.id)
         return {
           id: p.id,
           displayName: p.display_name,
@@ -145,15 +163,11 @@ export function useAdminUsers(): AdminUsersResult {
           primaryRoleSlug: primarySlug,
           primaryRoleLaw: law,
           status: 'aktiv',
-          // MFA / SSO live on auth.users which isn't exposed to the JS
-          // client. Both fields default to false here; the UI renders
-          // "—" so admins aren't misled by fabricated indicators.
-          mfa: false,
-          sso: false,
-          // updated_at on profiles is the last profile-mutation time —
-          // best proxy until auth.users.last_sign_in_at is exposed via
-          // an admin function.
-          lastLogin: p.updated_at,
+          mfa: auth?.has_verified_mfa ?? false,
+          sso: auth?.is_sso ?? false,
+          // Prefer real last_sign_in_at when available; fall back to
+          // profile updated_at otherwise (best non-auth proxy).
+          lastLogin: auth?.last_sign_in_at ?? p.updated_at,
           locationId: null,
           locationName: null,
           external,
@@ -161,6 +175,11 @@ export function useAdminUsers(): AdminUsersResult {
       })
 
       setUsers(summaries)
+      if (overviewError && overviewByUser.size === 0) {
+        // Don't fail the whole load — just leave authMetaAvailable=false.
+        // The error itself is logged for debugging.
+        console.warn('users_admin_overview RPC failed:', overviewError)
+      }
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Kunne ikke laste brukere')
     } finally {
@@ -172,5 +191,5 @@ export function useAdminUsers(): AdminUsersResult {
     void refresh()
   }, [refresh])
 
-  return { users, loading, error, refresh }
+  return { users, loading, error, refresh, authMetaAvailable }
 }

@@ -4,7 +4,14 @@
 // invitations-flyten (samme RPC som UsersInternalAdminPanel).
 
 import { useMemo, useState } from 'react'
-import { Loader2, RefreshCw, UserPlus } from 'lucide-react'
+import {
+  KeyRound,
+  Loader2,
+  RefreshCw,
+  ShieldCheck,
+  ShieldOff,
+  UserPlus,
+} from 'lucide-react'
 import { Badge } from '../../../components/ui/Badge'
 import { Button } from '../../../components/ui/Button'
 import { StandardInput } from '../../../components/ui/Input'
@@ -20,10 +27,10 @@ import { useAdminUsers } from './useAdminUsers'
 import { useOrgSetupContext } from '../../../hooks/useOrgSetupContext'
 import type { AdminSectionProps } from './types'
 
-type FilterId = 'all' | 'admin' | 'vo' | 'external' | 'no-role'
+type FilterId = 'all' | 'admin' | 'vo' | 'external' | 'no-role' | 'mfa-off'
 
 export function SecUsers({ easy }: AdminSectionProps) {
-  const { users, loading, error, refresh } = useAdminUsers()
+  const { users, loading, error, refresh, authMetaAvailable } = useAdminUsers()
   const { supabase, organization, refreshChildren } = useOrgSetupContext()
   const [filter, setFilter] = useState<FilterId>('all')
   const [inviteOpen, setInviteOpen] = useState(false)
@@ -33,6 +40,9 @@ export function SecUsers({ easy }: AdminSectionProps) {
 
   const noRoleCount = users.filter((u) => u.roleNames.length === 0).length
   const externalCount = users.filter((u) => u.external).length
+  const mfaOffCount = authMetaAvailable
+    ? users.filter((u) => !u.mfa).length
+    : 0
 
   const filtered = useMemo(() => {
     switch (filter) {
@@ -42,6 +52,8 @@ export function SecUsers({ easy }: AdminSectionProps) {
         return users.filter((u) => u.external)
       case 'admin':
         return users.filter((u) => u.primaryRoleSlug === 'admin')
+      case 'mfa-off':
+        return users.filter((u) => !u.mfa)
       case 'vo':
         return users.filter(
           (u) =>
@@ -187,6 +199,13 @@ export function SecUsers({ easy }: AdminSectionProps) {
             active={filter === 'external'}
             onClick={() => setFilter('external')}
           />
+          {authMetaAvailable ? (
+            <FilterChip
+              label={`MFA av (${mfaOffCount})`}
+              active={filter === 'mfa-off'}
+              onClick={() => setFilter('mfa-off')}
+            />
+          ) : null}
         </div>
       </div>
 
@@ -256,25 +275,41 @@ export function SecUsers({ easy }: AdminSectionProps) {
                       <td className="px-5 py-3 text-neutral-500">—</td>
                     )}
                     <td className="px-5 py-3">
-                      {/* MFA-status is not exposed via the JS client — render
-                          "—" rather than fabricate Av/På. Wire to auth.mfa
-                          via an admin Edge Function later. */}
-                      <span
-                        className="text-neutral-400"
-                        title="MFA-status er ikke tilgjengelig fra auth.users via klient"
-                      >
-                        —
-                      </span>
-                    </td>
-                    {!easy && (
-                      <td className="px-5 py-3">
-                        {/* SSO-status mirrors MFA — needs admin endpoint. */}
+                      {!authMetaAvailable ? (
                         <span
                           className="text-neutral-400"
-                          title="SSO-status er ikke tilgjengelig fra auth.users via klient"
+                          title="MFA-status krever administrator-tilgang"
                         >
                           —
                         </span>
+                      ) : u.mfa ? (
+                        <ShieldCheck
+                          className="h-4 w-4 text-green-700"
+                          aria-label="MFA aktivert"
+                        />
+                      ) : (
+                        <span className="inline-flex items-center gap-1 rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold text-amber-900">
+                          <ShieldOff className="h-2.5 w-2.5" aria-hidden="true" /> Av
+                        </span>
+                      )}
+                    </td>
+                    {!easy && (
+                      <td className="px-5 py-3">
+                        {!authMetaAvailable ? (
+                          <span
+                            className="text-neutral-400"
+                            title="SSO-status krever administrator-tilgang"
+                          >
+                            —
+                          </span>
+                        ) : u.sso ? (
+                          <KeyRound
+                            className="h-4 w-4 text-[#1a3d32]"
+                            aria-label="SSO aktivert"
+                          />
+                        ) : (
+                          <span className="text-neutral-400">—</span>
+                        )}
                       </td>
                     )}
                     <td className="px-5 py-3">

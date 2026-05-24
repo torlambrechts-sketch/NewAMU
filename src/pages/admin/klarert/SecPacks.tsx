@@ -5,6 +5,7 @@
 
 import { useState } from 'react'
 import {
+  AlertCircle,
   ArrowLeft,
   ArrowRight,
   Check,
@@ -15,6 +16,7 @@ import {
   GitBranch,
   Info,
   KeyRound,
+  Loader2,
   Lock,
   Package,
   Pencil,
@@ -41,7 +43,8 @@ interface SecPacksProps {
 }
 
 export function SecPacks({ easy, route, setRoute }: SecPacksProps) {
-  const { packs, templates, loading, error } = useAdminPacks()
+  const { packs, templates, loading, error, installPack, uninstallPack, createInternalPackFromTemplates } =
+    useAdminPacks()
 
   if (loading) return <AdminLoading />
   if (error) return <AdminError message={error} />
@@ -73,6 +76,8 @@ export function SecPacks({ easy, route, setRoute }: SecPacksProps) {
           setRoute({ name: 'pack-template-edit', packId: pack.id, templateId: t.id })
         }
         onTilpass={() => setRoute({ name: 'pack-tilpass', packId: pack.id })}
+        onInstall={() => installPack(pack.framework)}
+        onUninstall={() => uninstallPack(pack.framework)}
       />
     )
   }
@@ -117,6 +122,7 @@ export function SecPacks({ easy, route, setRoute }: SecPacksProps) {
         pack={pack}
         templates={templates.filter((t) => t.packFramework === pack.framework)}
         onBack={() => setRoute({ name: 'pack-detail', packId: pack.id })}
+        onCreate={createInternalPackFromTemplates}
       />
     )
   }
@@ -213,6 +219,8 @@ function PackDetail({
   onBack,
   onOpenTemplate,
   onTilpass,
+  onInstall,
+  onUninstall,
 }: {
   pack: PackSummary
   templates: PackTemplateRow[]
@@ -220,10 +228,39 @@ function PackDetail({
   onBack: () => void
   onOpenTemplate: (t: PackTemplateRow) => void
   onTilpass: () => void
+  onInstall: () => Promise<string | null>
+  onUninstall: () => Promise<string | null>
 }) {
   const [tab, setTab] = useState<'contents' | 'permissions' | 'versions'>('contents')
+  const [installBusy, setInstallBusy] = useState(false)
+  const [installErr, setInstallErr] = useState<string | null>(null)
   const isSystem = pack.official
   const Icon = pack.icon
+
+  async function handleInstall() {
+    setInstallBusy(true)
+    setInstallErr(null)
+    try {
+      const err = await onInstall()
+      if (err) setInstallErr(err)
+    } finally {
+      setInstallBusy(false)
+    }
+  }
+
+  async function handleUninstall() {
+    if (!window.confirm(`Avinstaller ${pack.name}? Eksisterende gjennomføringer beholdes — bare malene fjernes fra aktiv katalog.`)) {
+      return
+    }
+    setInstallBusy(true)
+    setInstallErr(null)
+    try {
+      const err = await onUninstall()
+      if (err) setInstallErr(err)
+    } finally {
+      setInstallBusy(false)
+    }
+  }
 
   return (
     <div className="space-y-4">
@@ -288,16 +325,35 @@ function PackDetail({
               Tilpass
             </Button>
             {pack.installed ? (
-              <Button variant="secondary" size="sm" icon={<Trash2 className="h-3 w-3" />}>
+              <Button
+                variant="secondary"
+                size="sm"
+                disabled={installBusy}
+                icon={installBusy ? <Loader2 className="h-3 w-3 animate-spin" /> : <Trash2 className="h-3 w-3" />}
+                onClick={() => void handleUninstall()}
+              >
                 Avinstaller
               </Button>
             ) : (
-              <Button variant="primary" size="sm" icon={<Download className="h-3 w-3" />}>
+              <Button
+                variant="primary"
+                size="sm"
+                disabled={installBusy}
+                icon={installBusy ? <Loader2 className="h-3 w-3 animate-spin" /> : <Download className="h-3 w-3" />}
+                onClick={() => void handleInstall()}
+              >
                 Installer pakke
               </Button>
             )}
           </div>
         </div>
+
+        {installErr && (
+          <div className="mt-3 flex items-start gap-2 rounded-md border border-red-200 bg-red-50/60 p-3 text-[12px]">
+            <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-red-700" aria-hidden="true" />
+            <p className="text-red-900">{installErr}</p>
+          </div>
+        )}
 
         {isSystem && (
           <div className="mt-3 flex items-start gap-2 rounded-md border border-amber-200 bg-amber-50/60 p-3 text-[12px]">
@@ -971,18 +1027,38 @@ function TilpassWizard({
   pack,
   templates,
   onBack,
+  onCreate,
 }: {
   pack: PackSummary
   templates: PackTemplateRow[]
   onBack: () => void
+  onCreate: (
+    sourceTemplateIds: string[],
+    packName: string,
+  ) => Promise<{ copied: number; skipped: number; error: string | null }>
 }) {
   const [step, setStep] = useState<1 | 2 | 3>(1)
   const [selected, setSelected] = useState<Record<string, boolean>>({})
   const [packName, setPackName] = useState(`${pack.name} (kopi)`)
+  const [creating, setCreating] = useState(false)
+  const [createResult, setCreateResult] = useState<
+    { copied: number; skipped: number; error: string | null } | null
+  >(null)
   const selectedIds = Object.keys(selected).filter((k) => selected[k])
 
   function toggle(id: string) {
     setSelected((prev) => ({ ...prev, [id]: !prev[id] }))
+  }
+
+  async function submit() {
+    setCreating(true)
+    setCreateResult(null)
+    try {
+      const result = await onCreate(selectedIds, packName.trim() || `${pack.name} (kopi)`)
+      setCreateResult(result)
+    } finally {
+      setCreating(false)
+    }
   }
 
   const steps = [
@@ -1233,6 +1309,31 @@ function TilpassWizard({
             </aside>
           </div>
 
+          {createResult && (
+            <div
+              className={
+                'mt-4 flex items-start gap-2 rounded-md border p-3 text-[12px] ' +
+                (createResult.error
+                  ? 'border-red-200 bg-red-50/60'
+                  : 'border-green-200 bg-green-50/60')
+              }
+            >
+              {createResult.error ? (
+                <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-red-700" aria-hidden="true" />
+              ) : (
+                <Check className="mt-0.5 h-3.5 w-3.5 shrink-0 text-green-700" aria-hidden="true" />
+              )}
+              <div className={createResult.error ? 'text-red-900' : 'text-green-900'}>
+                {createResult.error
+                  ? createResult.error
+                  : `Opprettet ${createResult.copied} mal${createResult.copied === 1 ? '' : 'er'}` +
+                    (createResult.skipped > 0
+                      ? ` · hoppet over ${createResult.skipped} (kun sjekkliste-maler kopieres i denne wizarden)`
+                      : '')}
+              </div>
+            </div>
+          )}
+
           <div className="mt-4 flex items-center justify-between">
             <Button
               variant="ghost"
@@ -1242,9 +1343,28 @@ function TilpassWizard({
             >
               Tilbake
             </Button>
-            <Button variant="primary" size="sm" icon={<Package className="h-3 w-3" />}>
-              Opprett intern pakke
-            </Button>
+            {createResult && !createResult.error ? (
+              <Button
+                variant="primary"
+                size="sm"
+                icon={<Check className="h-3 w-3" />}
+                onClick={onBack}
+              >
+                Ferdig — se pakken
+              </Button>
+            ) : (
+              <Button
+                variant="primary"
+                size="sm"
+                disabled={creating || selectedIds.length === 0}
+                icon={
+                  creating ? <Loader2 className="h-3 w-3 animate-spin" /> : <Package className="h-3 w-3" />
+                }
+                onClick={() => void submit()}
+              >
+                Opprett intern pakke
+              </Button>
+            )}
           </div>
         </AdminCard>
       )}
