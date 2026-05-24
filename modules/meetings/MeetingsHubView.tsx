@@ -1,43 +1,53 @@
-// Møter — hub body. Canonical primitives only.
+// Møter — hub body (redesign).
 //
-// Two render modes:
-//   - default: template gallery grouped by category + upcoming meetings list.
-//   - ?template=ID: drilldown card for that template + meetings using it.
+// Three top-level tabs: Møter · Maler · Statistikk.
+// Four view modes for the Møter list: Tabell · Bokser · Tidslinje · Tavle.
+// Left rail = compliance framework filter + upcoming reminders + status sidebar.
 //
-// The orchestrator (`MeetingsHubPage`) wraps this in `ModulePageShell` when
-// rendering at the root; the embedded admin tab swaps the body for
-// `MeetingsAdminPage embedded`.
+// Data flows from `useMeetings` (system + per-org templates, instances, categories).
 
 import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from 'react'
-import { Link, useNavigate, useSearchParams } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import {
-  ArrowRight,
+  AlertTriangle,
+  Award,
+  BadgeCheck,
   BarChart3,
+  Bell,
+  Building2,
+  Calendar,
+  CalendarClock,
+  CalendarDays,
+  CalendarPlus,
+  CheckCircle2,
   ChevronRight,
+  Check,
+  ClipboardList,
   Clock,
-  Eye,
+  Columns3,
+  Database,
+  FilePen,
+  FileStack,
+  FileText,
+  Handshake,
+  LayoutGrid,
   ListChecks,
-  Plus,
+  ListTodo,
+  Lock,
+  MapPin,
+  Radio,
+  Rows3,
   Scale,
+  Search,
+  ShieldAlert,
+  ShieldCheck,
   Users,
 } from 'lucide-react'
 import { ModulePageShell } from '../../src/components/module/ModulePageShell'
-import { ModuleSectionCard } from '../../src/components/module/ModuleSectionCard'
-import { FavoriteToggle } from '../../src/components/favorites/FavoriteToggle'
-import { ModuleLegalBanner } from '../../src/components/module/ModuleLegalBanner'
-import { CadenceWarningCard } from './components/CadenceWarningCard'
-import { LayoutScoreStatRow } from '../../src/components/layout/LayoutScoreStatRow'
-import { LayoutTable1PostingsShell } from '../../src/components/layout/LayoutTable1PostingsShell'
-import {
-  LAYOUT_TABLE1_POSTINGS_BODY_ROW,
-  LAYOUT_TABLE1_POSTINGS_HEADER_ROW,
-  LAYOUT_TABLE1_POSTINGS_TH,
-} from '../../src/components/layout/layoutTable1PostingsKit'
 import { Button } from '../../src/components/ui/Button'
 import { Badge } from '../../src/components/ui/Badge'
 import { StandardInput } from '../../src/components/ui/Input'
 import { SearchableSelect } from '../../src/components/ui/SearchableSelect'
-import { WarningBox } from '../../src/components/ui/AlertBox'
 import { SlidePanel } from '../../src/components/layout/SlidePanel'
 import { WPSTD_FORM_FIELD_LABEL } from '../../src/components/layout/WorkplaceStandardFormPanel'
 import {
@@ -47,12 +57,9 @@ import {
 import { suggestPeriodForTemplate } from './lib/suggestPeriodForTemplate'
 import { useOrgSetupContext } from '../../src/hooks/useOrgSetupContext'
 import { useMeetings } from './useMeetings'
-import { MEETINGS_LEGAL_REFERENCES } from './meetingsLegalReferences'
 import {
-  MEETING_CADENCE_LABEL,
   MEETING_CONFIDENTIALITY_LABEL,
   MEETING_STATUS_LABEL,
-  frameworkLabel,
 } from './meetingsLabels'
 import type {
   MeetingConfidentialityLevel,
@@ -61,25 +68,57 @@ import type {
   ResolvedMeetingTemplate,
 } from './types'
 
-type MeetingsHookValue = ReturnType<typeof useMeetings>
+// ── Framework presentation (icon + brand colour + short label) ────────────
 
-function fmtDate(iso: string | null): string {
-  if (!iso) return '—'
-  const d = new Date(iso)
-  if (Number.isNaN(d.getTime())) return '—'
-  return d.toLocaleString('nb-NO', { dateStyle: 'medium', timeStyle: 'short' })
+type FrameworkVisual = {
+  id: string
+  label: string
+  short: string
+  icon: typeof Building2
+  color: string
 }
 
-function templateCadenceLabel(t: ResolvedMeetingTemplate): string {
-  return t.cadenceHint ? MEETING_CADENCE_LABEL[t.cadenceHint] : 'Ved behov'
+const FRAMEWORK_VISUALS: FrameworkVisual[] = [
+  { id: 'AML', label: 'Arbeidsmiljøloven', short: 'AML', icon: Scale, color: '#1a3d32' },
+  { id: 'IK-f', label: 'IK-forskriften', short: 'IK-f', icon: ClipboardList, color: '#5A9C76' },
+  { id: 'Hovedavtalen', label: 'Hovedavtalen', short: 'Hovedavtalen', icon: Handshake, color: '#5A9C76' },
+  { id: 'Likestillingsloven', label: 'Likestillingsloven', short: 'Likestilling', icon: Scale, color: '#7C3AED' },
+  { id: 'ISO_45001', label: 'ISO 45001 — HMS', short: 'ISO 45001', icon: BadgeCheck, color: '#2563EB' },
+  { id: 'ISO_9001', label: 'ISO 9001 — Kvalitet', short: 'ISO 9001', icon: Award, color: '#7C3AED' },
+  { id: 'ISO_14001', label: 'ISO 14001 — Miljø', short: 'ISO 14001', icon: BadgeCheck, color: '#16A34A' },
+  { id: 'ISO_27001', label: 'ISO 27001 — Informasjonssikkerhet', short: 'ISO 27001', icon: ShieldCheck, color: '#0EA5E9' },
+  { id: 'GDPR', label: 'Personvern (GDPR)', short: 'GDPR', icon: Lock, color: '#0EA5E9' },
+  { id: 'INTERNAL', label: 'Internt', short: 'Internt', icon: Users, color: '#737373' },
+]
+
+const FRAMEWORK_BY_ID = new Map(FRAMEWORK_VISUALS.map((f) => [f.id, f]))
+
+function frameworkVisual(id: string): FrameworkVisual {
+  return FRAMEWORK_BY_ID.get(id) ?? FRAMEWORK_VISUALS[FRAMEWORK_VISUALS.length - 1]
 }
 
-function isRestrictedTemplate(t: ResolvedMeetingTemplate): boolean {
-  // Reads the template-level `defaultConfidentialityLevel` field (DB column
-  // populated by H7 migration). Slug-based heuristic removed — admins can
-  // now control the default per template in the editor.
-  return t.defaultConfidentialityLevel !== 'standard'
-}
+// ── View modes for the Møter list ────────────────────────────────────────
+
+const MTG_VIEW_MODES = [
+  { id: 'tabell' as const, label: 'Tabell', icon: Rows3 },
+  { id: 'bokser' as const, label: 'Bokser', icon: LayoutGrid },
+  { id: 'tidslinje' as const, label: 'Tidslinje', icon: CalendarDays },
+  { id: 'tavle' as const, label: 'Tavle', icon: Columns3 },
+]
+
+type ViewMode = (typeof MTG_VIEW_MODES)[number]['id']
+
+const MTG_KANBAN_COLS: Array<{
+  id: MeetingStatus
+  label: string
+  accent: string
+  icon: typeof FilePen
+}> = [
+  { id: 'planned', label: 'Planlagt', accent: '#6366F1', icon: CalendarClock },
+  { id: 'in_progress', label: 'Pågår', accent: '#2F7757', icon: Radio },
+  { id: 'completed', label: 'Fullført', accent: '#1a3d32', icon: CheckCircle2 },
+  { id: 'cancelled', label: 'Avlyst', accent: '#a3a3a3', icon: FilePen },
+]
 
 const STATUS_BADGE: Record<MeetingStatus, 'draft' | 'active' | 'signed' | 'neutral'> = {
   planned: 'active',
@@ -88,144 +127,447 @@ const STATUS_BADGE: Record<MeetingStatus, 'draft' | 'active' | 'signed' | 'neutr
   cancelled: 'neutral',
 }
 
+// ── Date helpers ─────────────────────────────────────────────────────────
+
+function fmtDateTime(iso: string | null): string {
+  if (!iso) return '—'
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return '—'
+  return d.toLocaleString('nb-NO', { dateStyle: 'medium', timeStyle: 'short' })
+}
+
+function fmtDateShort(iso: string | null): string {
+  if (!iso) return '—'
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return '—'
+  return d.toLocaleDateString('nb-NO', { day: '2-digit', month: '2-digit', year: 'numeric' })
+}
+
+function fmtTimeShort(iso: string | null): string {
+  if (!iso) return ''
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return ''
+  return d.toLocaleTimeString('nb-NO', { hour: '2-digit', minute: '2-digit' })
+}
+
+function daysUntil(iso: string | null): number | null {
+  if (!iso) return null
+  const t = new Date(iso).getTime()
+  if (Number.isNaN(t)) return null
+  const now = Date.now()
+  return Math.max(0, Math.ceil((t - now) / (1000 * 60 * 60 * 24)))
+}
+
+// ── Pill components ──────────────────────────────────────────────────────
+
+function MtgStatusPill({ status }: { status: MeetingStatus }) {
+  return <Badge variant={STATUS_BADGE[status]}>{MEETING_STATUS_LABEL[status]}</Badge>
+}
+
+function FrameworkPill({ framework }: { framework: string }) {
+  const fw = frameworkVisual(framework)
+  const Icon = fw.icon
+  return (
+    <span
+      className="inline-flex items-center gap-1 rounded border px-1.5 py-0.5 text-[10px] font-semibold"
+      style={{ borderColor: `${fw.color}40`, background: `${fw.color}12`, color: fw.color }}
+    >
+      <Icon className="h-2.5 w-2.5" aria-hidden />
+      {fw.short}
+    </span>
+  )
+}
+
+function ProgressBar({
+  value,
+  tone = 'forest',
+  height = 6,
+}: {
+  value: number
+  tone?: 'forest' | 'warn' | 'danger'
+  height?: number
+}) {
+  const pct = Math.min(100, Math.max(0, value * 100))
+  const bg = tone === 'forest' ? '#1a3d32' : tone === 'danger' ? '#dc2626' : '#d97706'
+  return (
+    <div
+      className="overflow-hidden rounded-full bg-neutral-200"
+      style={{ height }}
+      aria-hidden
+    >
+      <div className="h-full transition-all" style={{ width: `${pct}%`, background: bg }} />
+    </div>
+  )
+}
+
+function ConfirmationDots({ confirmed, total }: { confirmed: number; total: number }) {
+  const cap = Math.min(total, 10)
+  const dots = Array.from({ length: cap }).map((_, i) => i < confirmed)
+  return (
+    <span className="inline-flex items-center gap-0.5">
+      {dots.map((on, i) => (
+        <span
+          key={i}
+          className={['h-1.5 w-1.5 rounded-full', on ? 'bg-[#1a3d32]' : 'bg-neutral-200'].join(' ')}
+        />
+      ))}
+      <span className="ml-1 text-[10px] tabular-nums text-neutral-600">
+        {confirmed}/{total}
+      </span>
+    </span>
+  )
+}
+
+// ── Aggregates from raw data ─────────────────────────────────────────────
+
+type FrameworkAggregate = {
+  id: string
+  label: string
+  held: number
+  required: number
+  complianceRate: number
+}
+
+function frameworksWithCounts(
+  meetings: MeetingRow[],
+  templates: ResolvedMeetingTemplate[],
+): { id: string; label: string; short: string; meetingsCount: number; malerCount: number }[] {
+  const visited = new Set<string>()
+  const list: { id: string; label: string; short: string; meetingsCount: number; malerCount: number }[] = []
+  for (const f of FRAMEWORK_VISUALS) {
+    const meetingsCount = meetings.filter((m) => meetingFramework(m) === f.id).length
+    const malerCount = templates.filter((t) => t.framework === f.id).length
+    if (meetingsCount === 0 && malerCount === 0) continue
+    visited.add(f.id)
+    list.push({ id: f.id, label: f.label, short: f.short, meetingsCount, malerCount })
+  }
+  // Surface any framework we haven't visualised yet.
+  for (const m of meetings) {
+    const f = meetingFramework(m)
+    if (visited.has(f)) continue
+    visited.add(f)
+    const fv = frameworkVisual(f)
+    list.push({
+      id: f,
+      label: fv.label,
+      short: fv.short,
+      meetingsCount: meetings.filter((mm) => meetingFramework(mm) === f).length,
+      malerCount: templates.filter((t) => t.framework === f).length,
+    })
+  }
+  return list
+}
+
+function meetingFramework(m: MeetingRow): string {
+  const snap = m.definition_snapshot?.framework
+  return snap ?? 'INTERNAL'
+}
+
+function computeFrameworkAggregates(
+  meetings: MeetingRow[],
+  templates: ResolvedMeetingTemplate[],
+): FrameworkAggregate[] {
+  const visuals = frameworksWithCounts(meetings, templates)
+  return visuals
+    .map((v) => {
+      // "required" = number of meetings per year mandated by the cadence
+      // hints across templates within this framework. Templates with
+      // ad_hoc/null cadence contribute 0.
+      const required = templates
+        .filter((t) => t.framework === v.id)
+        .reduce((sum, t) => sum + cadenceToAnnual(t.cadenceHint), 0)
+      const held = meetings.filter(
+        (m) =>
+          meetingFramework(m) === v.id &&
+          (m.status === 'completed' ||
+            (m.completed_at &&
+              new Date(m.completed_at).getFullYear() === new Date().getFullYear())),
+      ).length
+      const safeRequired = Math.max(required, 1)
+      return {
+        id: v.id,
+        label: v.short,
+        held,
+        required: required || held,
+        complianceRate: Math.min(1, held / safeRequired),
+      }
+    })
+    .filter((b) => b.required > 0 || b.held > 0)
+}
+
+function cadenceToAnnual(cadenceHint: string | null): number {
+  switch (cadenceHint) {
+    case 'monthly':
+      return 12
+    case 'quarterly':
+      return 4
+    case 'semiannual':
+      return 2
+    case 'annual':
+      return 1
+    case 'ad_hoc':
+    case null:
+    default:
+      return 0
+  }
+}
+
+// ── Main component ───────────────────────────────────────────────────────
+
 export interface MeetingsHubViewProps {
-  /** Tabs rendered as the secondary heading row (root-tab strip from orchestrator). */
+  /** Tabs rendered as the secondary heading row (root-tab strip). */
   tabs?: ReactNode
   /** When true, the orchestrator owns the shell — render body only. */
   bodyOnly?: boolean
-  /** Suppress the in-header "Innstillinger" shortcut (orchestrator already shows root tabs). */
+  /** Suppress the in-header "Innstillinger" shortcut. */
   hideAdminNav?: boolean
 }
 
 export function MeetingsHubView({ tabs, bodyOnly = false, hideAdminNav = false }: MeetingsHubViewProps) {
+  void hideAdminNav
   const meetings = useMeetings()
   const orgSetup = useOrgSetupContext()
   const orgHeadcount = orgSetup.members?.length ?? 0
   const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
-  const activeTemplateId = searchParams.get('template')
+
+  const activeTemplateParam = searchParams.get('template')
+
+  const [framework, setFramework] = useState<string>('all')
+  const [tab, setTab] = useState<'meetings' | 'maler' | 'statistikk'>('meetings')
+  const [view, setView] = useState<ViewMode>('tabell')
+  const [search, setSearch] = useState('')
   const [createOpen, setCreateOpen] = useState(false)
   const [presetTemplateId, setPresetTemplateId] = useState<string | null>(null)
-  const [templatePeekOpen, setTemplatePeekOpen] = useState(false)
 
-  const activeTemplate = useMemo(
-    () =>
-      meetings.templates.find(
-        (t) => t.systemTemplateId === activeTemplateId || t.orgTemplateId === activeTemplateId,
-      ) ?? null,
-    [meetings.templates, activeTemplateId],
+  // Derive panel-open and preset from either local state OR the URL
+  // ?template=<id>. The URL is cleared when the slide closes, so there's
+  // no setState-in-effect handshake.
+  const effectiveOpen = createOpen || !!activeTemplateParam
+  const effectivePreset = presetTemplateId ?? activeTemplateParam
+
+  const frameworksList = useMemo(
+    () => frameworksWithCounts(meetings.meetings, meetings.templates),
+    [meetings.meetings, meetings.templates],
   )
 
-  const openCreateForActive = () => {
-    setPresetTemplateId(activeTemplate?.systemTemplateId ?? activeTemplate?.orgTemplateId ?? null)
+  const filteredMeetings = useMemo(() => {
+    const term = search.trim().toLowerCase()
+    return meetings.meetings.filter((m) => {
+      if (framework !== 'all' && meetingFramework(m) !== framework) return false
+      if (term) {
+        const hay = `${m.title} ${m.location_label ?? ''} ${m.description ?? ''}`.toLowerCase()
+        if (!hay.includes(term)) return false
+      }
+      return true
+    })
+  }, [meetings.meetings, framework, search])
+
+  const filteredTemplates = useMemo(() => {
+    const term = search.trim().toLowerCase()
+    return meetings.templates.filter((t) => {
+      if (!t.isActive) return false
+      if (framework !== 'all' && t.framework !== framework) return false
+      if (term) {
+        const hay = `${t.name} ${t.description ?? ''}`.toLowerCase()
+        if (!hay.includes(term)) return false
+      }
+      return true
+    })
+  }, [meetings.templates, framework, search])
+
+  const upcoming = useMemo(
+    () =>
+      meetings.meetings
+        .filter((m) => m.status === 'planned' && m.scheduled_at)
+        .sort((a, b) => (a.scheduled_at ?? '').localeCompare(b.scheduled_at ?? ''))
+        .slice(0, 3),
+    [meetings.meetings],
+  )
+
+  const legalAlerts = useMemo(() => {
+    return meetings.meetings.filter((m) => {
+      if (m.status !== 'planned') return false
+      const snap = m.definition_snapshot
+      if (!snap?.agendaItems?.length) return false
+      const hasMandatory = snap.agendaItems.some((a) => a.isMandatory)
+      if (!hasMandatory) return false
+      // Heuristic: no invitation sent and we're inside the lead window.
+      if (!m.invitation_sent_at && m.scheduled_at) {
+        const days = daysUntil(m.scheduled_at)
+        if (days !== null && days <= (snap.invitationLeadDays ?? 7)) return true
+      }
+      return false
+    }).length
+  }, [meetings.meetings])
+
+  const frameworkAggregates = useMemo(
+    () => computeFrameworkAggregates(meetings.meetings, meetings.templates),
+    [meetings.meetings, meetings.templates],
+  )
+
+  const minutesOnTime = useMemo(() => computeMinutesOnTime(meetings.meetings), [meetings.meetings])
+
+  const openCreate = (templateId: string | null) => {
+    setPresetTemplateId(templateId)
     setCreateOpen(true)
   }
 
   const headerActions = (
     <div className="flex flex-wrap items-center gap-2">
-      {activeTemplate ? (
-        <Button
-          type="button"
-          variant="secondary"
-          icon={<Eye className="h-4 w-4" />}
-          onClick={() => setTemplatePeekOpen(true)}
-        >
-          <span className="hidden sm:inline">Vis mal</span>
-        </Button>
-      ) : (
-        <Button
-          type="button"
-          variant="secondary"
-          icon={<BarChart3 className="h-4 w-4" />}
-          onClick={() => navigate('/meetings/analyse')}
-        >
-          <span className="hidden sm:inline">Analyse</span>
-        </Button>
-      )}
+      <Button
+        type="button"
+        variant="secondary"
+        icon={<Bell className="h-4 w-4" />}
+        onClick={() => navigate('/meetings/agenda-backlog')}
+      >
+        Påminnelser {upcoming.length > 0 ? `(${upcoming.length})` : ''}
+      </Button>
+      <Button
+        type="button"
+        variant="secondary"
+        icon={<BarChart3 className="h-4 w-4" />}
+        onClick={() => navigate('/meetings/analyse')}
+      >
+        Analyse
+      </Button>
       {meetings.canManage ? (
         <Button
           type="button"
           variant="primary"
-          icon={<Plus className="h-4 w-4" />}
-          onClick={openCreateForActive}
+          icon={<CalendarPlus className="h-4 w-4" />}
+          onClick={() => openCreate(null)}
         >
-          {activeTemplate ? `Nytt ${activeTemplate.name.toLowerCase()}` : 'Nytt møte'}
+          Planlegg møte
         </Button>
       ) : null}
     </div>
   )
 
   const body = (
-    <>
-      {meetings.error ? <WarningBox>{meetings.error}</WarningBox> : null}
-
-      {activeTemplate ? (
-        <TemplateDrilldown
-          meetings={meetings}
-          template={activeTemplate}
-          onCreate={openCreateForActive}
-        />
-      ) : (
-        <>
-          <CadenceWarningCard
-            meetings={meetings.meetings}
-            templates={meetings.templates}
-          />
-          <ModuleLegalBanner
-            title="Møter — lovpålagte fora og styringssystem"
-            intro="Møteregisteret samler AMU, drøftingsmøter, ledelsens gjennomgang og GDPR-fora med protokoll, vedtak og oppfølging i én tråd."
-            references={MEETINGS_LEGAL_REFERENCES}
-          />
-          <TemplateGallery
-            templates={meetings.templates}
-            categories={meetings.categories}
-            orgHeadcount={orgHeadcount}
-            onSelect={(t) =>
-              setSearchParams({ template: t.systemTemplateId ?? t.orgTemplateId ?? '' })
-            }
-          />
-          <UpcomingMeetingsCard meetings={meetings.meetings} />
-        </>
-      )}
-
-      <CreateMeetingSlidePanel
-        open={createOpen}
-        onClose={() => setCreateOpen(false)}
-        meetings={meetings}
-        presetTemplateId={presetTemplateId}
+    <div className="grid grid-cols-1 gap-5 lg:grid-cols-[260px_minmax(0,1fr)]">
+      {/* CATEGORY RAIL — frameworks */}
+      <FrameworkRail
+        framework={framework}
+        setFramework={setFramework}
+        frameworks={frameworksList}
+        tab={tab}
+        totalMeetings={meetings.meetings.length}
+        totalTemplates={meetings.templates.filter((t) => t.isActive).length}
+        upcoming={upcoming}
+        onOpenUpcoming={(id) => navigate(`/meetings/${id}`)}
+        frameworkAggregates={frameworkAggregates}
+        minutesOnTime={minutesOnTime}
+        legalAlerts={legalAlerts}
       />
 
-      {activeTemplate ? (
-        <TemplatePeekSlidePanel
-          open={templatePeekOpen}
-          onClose={() => setTemplatePeekOpen(false)}
-          template={activeTemplate}
-        />
-      ) : null}
-    </>
+      {/* RIGHT */}
+      <section>
+        <div className="rounded-xl border border-neutral-200/80 bg-white k-card-shadow">
+          <div className="flex flex-wrap items-center justify-between gap-4 border-b border-neutral-100 px-4 py-2.5">
+            <HubInlineTabs
+              activeId={tab}
+              counts={{
+                meetings: filteredMeetings.length,
+                maler: filteredTemplates.length,
+              }}
+              onChange={setTab}
+            />
+            <div className="flex flex-wrap items-center gap-2">
+              <div className="relative">
+                <Search
+                  className="pointer-events-none absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-neutral-400"
+                  aria-hidden
+                />
+                <StandardInput
+                  className="w-52 bg-neutral-50 py-1.5 pl-7 pr-2 text-xs"
+                  placeholder="Søk i tittel, sted, deltakere…"
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                />
+              </div>
+              {tab === 'meetings' ? (
+                <div className="inline-flex items-center rounded-md border border-neutral-200 bg-neutral-50 p-0.5">
+                  {MTG_VIEW_MODES.map((m) => {
+                    const Icon = m.icon
+                    const active = m.id === view
+                    return (
+                      <Button
+                        key={m.id}
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setView(m.id)}
+                        title={m.label}
+                        className={[
+                          'rounded px-2 py-1 text-xs font-medium',
+                          active
+                            ? 'bg-white text-neutral-900 shadow-sm ring-1 ring-neutral-200'
+                            : 'text-neutral-500 hover:text-neutral-800',
+                        ].join(' ')}
+                      >
+                        <Icon className="h-3.5 w-3.5" aria-hidden />
+                        <span className="hidden md:inline">{m.label}</span>
+                      </Button>
+                    )
+                  })}
+                </div>
+              ) : null}
+            </div>
+          </div>
+
+          <div>
+            {tab === 'meetings' ? (
+              <MtgList
+                view={view}
+                meetings={filteredMeetings}
+                templates={meetings.templates}
+                onOpen={(m) => navigate(`/meetings/${m.id}`)}
+              />
+            ) : tab === 'maler' ? (
+              <MtgMalerTable
+                templates={filteredTemplates}
+                meetings={meetings.meetings}
+                orgHeadcount={orgHeadcount}
+                onSchedule={(t) =>
+                  openCreate(t.systemTemplateId ?? t.orgTemplateId ?? null)
+                }
+              />
+            ) : (
+              <MtgStatistikk
+                meetings={meetings.meetings}
+                aggregates={frameworkAggregates}
+                minutesOnTime={minutesOnTime}
+              />
+            )}
+          </div>
+        </div>
+      </section>
+
+      <CreateMeetingSlidePanel
+        open={effectiveOpen}
+        onClose={() => {
+          setCreateOpen(false)
+          setPresetTemplateId(null)
+          // Clear the URL param if it triggered this open.
+          if (activeTemplateParam) {
+            const next = new URLSearchParams(searchParams)
+            next.delete('template')
+            setSearchParams(next, { replace: true })
+          }
+        }}
+        meetings={meetings}
+        presetTemplateId={effectivePreset}
+      />
+    </div>
   )
 
   if (bodyOnly) return body
 
-  const breadcrumb = activeTemplate
-    ? [
-        { label: 'HMS' },
-        { label: 'Møter', to: '/meetings' },
-        { label: activeTemplate.name },
-      ]
-    : [{ label: 'HMS' }, { label: 'Møter' }]
-
-  const title = activeTemplate ? activeTemplate.name : 'Møter'
-  const description = activeTemplate
-    ? (activeTemplate.description ??
-        'Planlagte og pågående møter for denne malen. Bruk «Vis mal» for å se obligatoriske saker og krav.')
-    : 'Planlegg, gjennomfør og dokumenter lovpålagte møter på tvers av AML, IK-forskriften, ISO og GDPR.'
-
   return (
     <ModulePageShell
-      breadcrumb={breadcrumb}
-      title={title}
-      description={description}
+      breadcrumb={[{ label: 'HMS' }, { label: 'Compliance' }, { label: 'Møter' }]}
+      title="Møter"
+      description="Møter med lovpålagte agendaer, automatisk statistikkhenting og protokoll-arkiv. Skalerer fra AML kapittel 7 til ISO 45001/9001-ledelsesgjennomgåelser."
       tabs={tabs}
       headerActions={headerActions}
       loading={meetings.loading && meetings.templates.length === 0}
@@ -234,454 +576,1098 @@ export function MeetingsHubView({ tabs, bodyOnly = false, hideAdminNav = false }
       {body}
     </ModulePageShell>
   )
-
-  // Local helpers below silence unused-var when bodyOnly=false. (No-op.)
-  void hideAdminNav
 }
 
-// ── Template gallery card ─────────────────────────────────────────────────
+// ── Helpers: minutes-on-time (within 14 days after completion) ───────────
 
-function TemplateGallery({
-  templates,
-  categories,
-  orgHeadcount,
-  onSelect,
+function computeMinutesOnTime(meetings: MeetingRow[]): number {
+  let signed = 0
+  let onTime = 0
+  for (const m of meetings) {
+    if (!m.protocol_signed_at) continue
+    signed += 1
+    const completedAt = m.completed_at ?? m.scheduled_at
+    if (!completedAt) continue
+    const completed = new Date(completedAt).getTime()
+    const signedAt = new Date(m.protocol_signed_at).getTime()
+    const days = Math.max(0, (signedAt - completed) / 86400000)
+    if (days <= 14) onTime += 1
+  }
+  return signed === 0 ? 0 : onTime / signed
+}
+
+// ── Framework rail (left column) ─────────────────────────────────────────
+
+type FrameworkRailItem = ReturnType<typeof frameworksWithCounts>[number]
+
+function FrameworkRail({
+  framework,
+  setFramework,
+  frameworks,
+  tab,
+  totalMeetings,
+  totalTemplates,
+  upcoming,
+  onOpenUpcoming,
+  frameworkAggregates,
+  minutesOnTime,
+  legalAlerts,
 }: {
-  templates: ResolvedMeetingTemplate[]
-  categories: ReturnType<typeof useMeetings>['categories']
-  orgHeadcount: number
-  onSelect: (t: ResolvedMeetingTemplate) => void
+  framework: string
+  setFramework: (v: string) => void
+  frameworks: FrameworkRailItem[]
+  tab: 'meetings' | 'maler' | 'statistikk'
+  totalMeetings: number
+  totalTemplates: number
+  upcoming: MeetingRow[]
+  onOpenUpcoming: (meetingId: string) => void
+  frameworkAggregates: FrameworkAggregate[]
+  minutesOnTime: number
+  legalAlerts: number
 }) {
-  const grouped = useMemo(() => {
-    const buckets = new Map<string, ResolvedMeetingTemplate[]>()
-    for (const t of templates) {
-      if (!t.isActive) continue
-      const key = t.categoryId ?? '__uncat__'
-      const list = buckets.get(key) ?? []
-      list.push(t)
-      buckets.set(key, list)
-    }
-    const cats = categories.slice().sort((a, b) => a.position - b.position)
-    const ordered: Array<{ id: string; name: string; templates: ResolvedMeetingTemplate[] }> = []
-    for (const cat of cats) {
-      const list = buckets.get(cat.id)
-      if (list?.length) ordered.push({ id: cat.id, name: cat.name, templates: list })
-    }
-    const uncat = buckets.get('__uncat__')
-    if (uncat?.length) ordered.push({ id: '__uncat__', name: 'Uten kategori', templates: uncat })
-    return ordered
-  }, [templates, categories])
+  return (
+    <aside className="space-y-3">
+      <div className="rounded-xl border border-neutral-200/80 bg-white k-card-shadow">
+        <div className="border-b border-neutral-100 px-4 py-3">
+          <h2 className="text-xs font-bold uppercase tracking-wider text-neutral-500">Rammeverk</h2>
+        </div>
+        <ul className="py-1.5">
+          <li>
+            <FrameworkRailButton
+              active={framework === 'all'}
+              onClick={() => setFramework('all')}
+              icon={LayoutGrid}
+              label="Alle"
+              count={tab === 'maler' ? totalTemplates : totalMeetings}
+            />
+          </li>
+          {frameworks.map((f) => {
+            const fv = frameworkVisual(f.id)
+            return (
+              <li key={f.id}>
+                <FrameworkRailButton
+                  active={framework === f.id}
+                  onClick={() => setFramework(f.id)}
+                  icon={fv.icon}
+                  iconColor={fv.color}
+                  label={f.short}
+                  count={tab === 'maler' ? f.malerCount : f.meetingsCount}
+                />
+              </li>
+            )
+          })}
+        </ul>
+      </div>
+
+      {/* Upcoming reminders */}
+      <div className="rounded-xl border border-neutral-200/80 bg-white p-4 k-card-shadow">
+        <div className="flex items-center justify-between">
+          <h3 className="text-xs font-bold uppercase tracking-wider text-neutral-500">
+            Kommende møter
+          </h3>
+          <Bell className="h-3 w-3 text-neutral-400" aria-hidden />
+        </div>
+        {upcoming.length === 0 ? (
+          <p className="mt-2 text-[11px] text-neutral-500">Ingen planlagte møter.</p>
+        ) : (
+          <ul className="mt-2.5 space-y-2">
+            {upcoming.map((m) => {
+              const days = daysUntil(m.scheduled_at)
+              const snap = m.definition_snapshot
+              const missingAgenda =
+                !snap?.agendaItems?.length || !snap.agendaItems.some((a) => a.isMandatory === false)
+              return (
+                <li key={m.id}>
+                  <Button
+                    variant="ghost"
+                    onClick={() => onOpenUpcoming(m.id)}
+                    className="block h-auto w-full rounded-md border border-neutral-200/80 bg-[#fbf9f3] p-2.5 text-left font-normal transition-colors hover:border-[#1a3d32]/40 hover:bg-[#e7efe9]/50"
+                  >
+                    <div className="flex items-baseline justify-between gap-2">
+                      <div className="text-[11px] font-semibold text-neutral-900">
+                        {days !== null
+                          ? `Om ${days} ${days === 1 ? 'dag' : 'dager'}`
+                          : 'Ikke datofestet'}
+                      </div>
+                      <FrameworkPill framework={meetingFramework(m)} />
+                    </div>
+                    <div className="mt-1 truncate text-xs font-medium text-neutral-900">
+                      {m.title}
+                    </div>
+                    <div className="mt-0.5 text-[10px] tabular-nums text-neutral-500">
+                      {fmtDateTime(m.scheduled_at)}
+                    </div>
+                    {missingAgenda ? (
+                      <div className="mt-1.5 inline-flex items-center gap-1 rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold text-amber-900">
+                        <AlertTriangle className="h-2.5 w-2.5" aria-hidden /> Sjekk agenda
+                      </div>
+                    ) : null}
+                  </Button>
+                </li>
+              )
+            })}
+          </ul>
+        )}
+      </div>
+
+      {/* Compliance status */}
+      {frameworkAggregates.length > 0 ? (
+        <div className="rounded-xl border border-neutral-200/80 bg-white p-4 k-card-shadow">
+          <h3 className="text-xs font-bold uppercase tracking-wider text-neutral-500">
+            Compliance-status
+          </h3>
+          <ul className="mt-2 space-y-1.5 text-xs">
+            {frameworkAggregates.map((b) => (
+              <li key={b.id} className="flex items-center justify-between">
+                <span className="inline-flex items-center gap-2 text-neutral-700">{b.label}</span>
+                <span className="tabular-nums">
+                  <span
+                    className={[
+                      'font-semibold',
+                      b.complianceRate >= 1 ? 'text-[#1a3d32]' : 'text-amber-700',
+                    ].join(' ')}
+                  >
+                    {b.held}
+                  </span>
+                  <span className="text-neutral-400">/{b.required}</span>
+                </span>
+              </li>
+            ))}
+          </ul>
+          <div className="mt-3 border-t border-neutral-100 pt-3">
+            <div className="flex items-baseline justify-between">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-neutral-500">
+                Snitt referat-frist
+              </span>
+              <span className="text-base font-bold tabular-nums text-[#1a3d32]">
+                {Math.round(minutesOnTime * 100)}%
+              </span>
+            </div>
+            <div className="mt-1.5">
+              <ProgressBar value={minutesOnTime} />
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {legalAlerts > 0 ? (
+        <div className="rounded-xl border border-amber-200 bg-amber-50/70 p-3 text-[11px] text-amber-900">
+          <div className="flex items-start gap-2">
+            <ShieldAlert className="mt-0.5 h-3.5 w-3.5 shrink-0 text-amber-700" aria-hidden />
+            <div>
+              <div className="font-semibold">
+                {legalAlerts} lovpålagt møte uten innkalling i god tid
+              </div>
+              <div className="mt-0.5">
+                Send innkallingen så tidlig som mulig — anbefalt minst 7 dagers frist.
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : null}
+    </aside>
+  )
+}
+
+function FrameworkRailButton({
+  active,
+  onClick,
+  icon: Icon,
+  iconColor,
+  label,
+  count,
+}: {
+  active: boolean
+  onClick: () => void
+  icon: typeof Building2
+  iconColor?: string
+  label: string
+  count: number
+}) {
+  return (
+    <Button
+      variant="ghost"
+      onClick={onClick}
+      className={[
+        'flex h-auto w-full items-center gap-2.5 rounded-none px-4 py-2 text-left text-sm font-normal transition-colors hover:bg-neutral-50',
+        active ? 'bg-[#e7efe9] text-neutral-900 hover:bg-[#e7efe9]' : 'text-neutral-700',
+      ].join(' ')}
+      style={active ? { boxShadow: 'inset 3px 0 0 #1a3d32' } : undefined}
+    >
+      <Icon
+        className={[
+          'h-3.5 w-3.5 shrink-0',
+          active ? 'text-[#1a3d32]' : 'text-neutral-500',
+        ].join(' ')}
+        style={active && iconColor ? { color: iconColor } : undefined}
+        aria-hidden
+      />
+      <span className={['min-w-0 flex-1 truncate', active ? 'font-semibold' : 'font-medium'].join(' ')}>
+        {label}
+      </span>
+      <span
+        className={[
+          'rounded-full px-1.5 py-0.5 text-[10px] font-semibold tabular-nums',
+          active ? 'bg-white text-[#14312a]' : 'bg-neutral-100 text-neutral-500',
+        ].join(' ')}
+      >
+        {count}
+      </span>
+    </Button>
+  )
+}
+
+// ── Inline tab strip ────────────────────────────────────────────────────
+
+function HubInlineTabs({
+  activeId,
+  counts,
+  onChange,
+}: {
+  activeId: 'meetings' | 'maler' | 'statistikk'
+  counts: { meetings: number; maler: number }
+  onChange: (id: 'meetings' | 'maler' | 'statistikk') => void
+}) {
+  const items = [
+    { id: 'meetings' as const, label: 'Møter', icon: Calendar, badgeCount: counts.meetings },
+    { id: 'maler' as const, label: 'Maler', icon: FileStack, badgeCount: counts.maler },
+    { id: 'statistikk' as const, label: 'Statistikk', icon: BarChart3 },
+  ]
+  return (
+    <nav className="flex flex-wrap items-center gap-1" aria-label="Møter-fanestrip">
+      {items.map((t) => {
+        const Icon = t.icon
+        const active = t.id === activeId
+        return (
+          <Button
+            key={t.id}
+            variant="ghost"
+            size="sm"
+            onClick={() => onChange(t.id)}
+            className={[
+              'flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium transition-colors',
+              active
+                ? 'bg-[#1a3d32] text-white hover:bg-[#14312a] hover:text-white'
+                : 'text-neutral-600 hover:bg-neutral-100 hover:text-neutral-900',
+            ].join(' ')}
+            aria-current={active ? 'page' : undefined}
+          >
+            <Icon className="h-4 w-4 shrink-0" aria-hidden />
+            <span>{t.label}</span>
+            {t.badgeCount !== undefined ? (
+              <span
+                className={[
+                  'ml-1 rounded-full px-1.5 py-0.5 text-[10px]',
+                  active ? 'bg-white/20 text-white' : 'bg-neutral-200 text-neutral-700',
+                ].join(' ')}
+              >
+                {t.badgeCount}
+              </span>
+            ) : null}
+          </Button>
+        )
+      })}
+    </nav>
+  )
+}
+
+// ── Møter list — dispatcher + view modes ─────────────────────────────────
+
+function MtgList({
+  view,
+  meetings,
+  templates,
+  onOpen,
+}: {
+  view: ViewMode
+  meetings: MeetingRow[]
+  templates: ResolvedMeetingTemplate[]
+  onOpen: (m: MeetingRow) => void
+}) {
+  if (meetings.length === 0) {
+    return (
+      <div className="px-5 py-12 text-center text-sm text-neutral-500">
+        Ingen møter i denne kategorien ennå.
+      </div>
+    )
+  }
+  if (view === 'tabell') return <MtgTable meetings={meetings} templates={templates} onOpen={onOpen} />
+  if (view === 'bokser') return <MtgBoxes meetings={meetings} templates={templates} onOpen={onOpen} />
+  if (view === 'tidslinje')
+    return <MtgTimeline meetings={meetings} templates={templates} onOpen={onOpen} />
+  return <MtgKanban meetings={meetings} templates={templates} onOpen={onOpen} />
+}
+
+function templateForMeeting(
+  m: MeetingRow,
+  templates: ResolvedMeetingTemplate[],
+): ResolvedMeetingTemplate | null {
+  if (m.system_template_id) {
+    const t = templates.find((tt) => tt.systemTemplateId === m.system_template_id)
+    if (t) return t
+  }
+  if (m.org_template_id) {
+    const t = templates.find((tt) => tt.orgTemplateId === m.org_template_id)
+    if (t) return t
+  }
+  return null
+}
+
+const TABLE_TH =
+  'px-5 py-3 text-left text-[10px] font-bold uppercase tracking-wider text-neutral-600'
+const TABLE_TR =
+  'border-b border-neutral-100 hover:bg-neutral-50/60 transition-colors'
+
+function MtgTable({
+  meetings,
+  templates,
+  onOpen,
+}: {
+  meetings: MeetingRow[]
+  templates: ResolvedMeetingTemplate[]
+  onOpen: (m: MeetingRow) => void
+}) {
+  return (
+    <div className="overflow-x-auto">
+      <table className="w-full min-w-[920px] text-sm">
+        <thead className="bg-neutral-50/60">
+          <tr>
+            <th className={TABLE_TH}>Møte</th>
+            <th className={TABLE_TH}>Tid og sted</th>
+            <th className={TABLE_TH}>Status</th>
+            <th className={TABLE_TH}>Deltakere</th>
+            <th className={TABLE_TH}>Rammeverk</th>
+            <th className={TABLE_TH}>Sjekk</th>
+            <th className={`${TABLE_TH} text-right`} />
+          </tr>
+        </thead>
+        <tbody>
+          {meetings.map((m) => {
+            const tpl = templateForMeeting(m, templates)
+            const issues = computeMeetingIssues(m)
+            const participants = m.participant_member_ids?.length ?? 0
+            return (
+              <tr
+                key={m.id}
+                className={`${TABLE_TR} cursor-pointer`}
+                onClick={() => onOpen(m)}
+              >
+                <td className="px-5 py-3">
+                  <div className="flex items-center gap-2.5">
+                    <span className="flex h-7 w-7 items-center justify-center rounded-md bg-neutral-100 text-neutral-700">
+                      <Calendar className="h-3.5 w-3.5" aria-hidden />
+                    </span>
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2">
+                        <span className="truncate font-medium text-neutral-900">{m.title}</span>
+                        {tpl?.lawRefs?.length ? (
+                          <span
+                            title="Lovpålagt"
+                            className="inline-flex h-4 w-4 items-center justify-center rounded-full bg-[#e7efe9] text-[#1a3d32]"
+                          >
+                            <ShieldCheck className="h-2.5 w-2.5" aria-hidden />
+                          </span>
+                        ) : null}
+                        {m.confidentiality_level !== 'standard' ? (
+                          <span
+                            title="Konfidensielt"
+                            className="inline-flex h-4 w-4 items-center justify-center rounded-full bg-neutral-100 text-neutral-600"
+                          >
+                            <Lock className="h-2.5 w-2.5" aria-hidden />
+                          </span>
+                        ) : null}
+                      </div>
+                      <div className="text-[11px] text-neutral-500">{tpl?.name ?? ''}</div>
+                    </div>
+                  </div>
+                </td>
+                <td className="px-5 py-3 text-neutral-700">
+                  <div className="tabular-nums">{fmtDateTime(m.scheduled_at)}</div>
+                  <div className="text-[11px] text-neutral-500">{m.location_label ?? '—'}</div>
+                </td>
+                <td className="px-5 py-3">
+                  <MtgStatusPill status={m.status} />
+                </td>
+                <td className="px-5 py-3">
+                  <ConfirmationDots confirmed={participants} total={Math.max(participants, 1)} />
+                </td>
+                <td className="px-5 py-3">
+                  <FrameworkPill framework={meetingFramework(m)} />
+                </td>
+                <td className="px-5 py-3">
+                  {issues.length === 0 ? (
+                    <span className="inline-flex items-center gap-1 text-[11px] text-green-700">
+                      <Check className="h-3 w-3" aria-hidden /> OK
+                    </span>
+                  ) : (
+                    <span
+                      className="inline-flex items-center gap-1 rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold text-amber-900"
+                      title={issues.join(' · ')}
+                    >
+                      <AlertTriangle className="h-2.5 w-2.5" aria-hidden /> {issues.length}{' '}
+                      sak{issues.length === 1 ? '' : 'er'}
+                    </span>
+                  )}
+                </td>
+                <td className="px-5 py-3 text-right text-neutral-300">
+                  <ChevronRight className="ml-auto h-4 w-4" aria-hidden />
+                </td>
+              </tr>
+            )
+          })}
+        </tbody>
+      </table>
+    </div>
+  )
+}
+
+function computeMeetingIssues(m: MeetingRow): string[] {
+  const issues: string[] = []
+  const snap = m.definition_snapshot
+  const mandatoryCount = snap?.agendaItems?.filter((a) => a.isMandatory).length ?? 0
+  if (m.status === 'planned' && !m.invitation_sent_at && mandatoryCount > 0) {
+    issues.push('Innkalling ikke sendt')
+  }
+  if (m.status === 'completed' && !m.protocol_signed_at) {
+    issues.push('Referat ikke signert')
+  }
+  return issues
+}
+
+function MtgBoxes({
+  meetings,
+  templates,
+  onOpen,
+}: {
+  meetings: MeetingRow[]
+  templates: ResolvedMeetingTemplate[]
+  onOpen: (m: MeetingRow) => void
+}) {
+  return (
+    <div className="grid grid-cols-1 gap-3 p-4 sm:grid-cols-2 lg:grid-cols-3">
+      {meetings.map((m) => {
+        const tpl = templateForMeeting(m, templates)
+        const days = daysUntil(m.scheduled_at)
+        const participants = m.participant_member_ids?.length ?? 0
+        const hasMinutes = !!m.protocol_signed_at
+        const hasAgenda = (m.definition_snapshot?.agendaItems?.length ?? 0) > 0
+        return (
+          <article
+            key={m.id}
+            onClick={() => onOpen(m)}
+            className="cursor-pointer rounded-xl border border-neutral-200/80 bg-white p-4 transition-all hover:border-[#1a3d32]/40 hover:shadow-md k-card-shadow"
+          >
+            <div className="flex items-start gap-3">
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[#e7efe9] text-[#1a3d32]">
+                <Calendar className="h-4 w-4" aria-hidden />
+              </div>
+              <div className="min-w-0 flex-1">
+                <div className="flex flex-wrap items-center gap-1.5">
+                  <FrameworkPill framework={meetingFramework(m)} />
+                  {tpl?.lawRefs?.length ? (
+                    <span className="inline-flex items-center gap-0.5 rounded bg-[#e7efe9] px-1 py-0.5 text-[9px] font-bold text-[#14312a]">
+                      <ShieldCheck className="h-2 w-2" aria-hidden /> Lovpålagt
+                    </span>
+                  ) : null}
+                  {m.confidentiality_level !== 'standard' ? (
+                    <span title="Konfidensielt">
+                      <Lock className="h-3 w-3 text-neutral-500" aria-hidden />
+                    </span>
+                  ) : null}
+                </div>
+                <h3 className="mt-1 line-clamp-2 text-sm font-semibold leading-tight text-neutral-900">
+                  {m.title}
+                </h3>
+              </div>
+            </div>
+
+            <div className="mt-3 flex items-center justify-between">
+              <MtgStatusPill status={m.status} />
+              {m.status === 'planned' && days !== null ? (
+                <span className="text-[11px] tabular-nums font-medium text-neutral-700">
+                  Om {days}d
+                </span>
+              ) : (
+                <span className="text-[11px] tabular-nums text-neutral-500">
+                  {fmtDateShort(m.scheduled_at)}
+                </span>
+              )}
+            </div>
+
+            <div className="mt-3 rounded-md bg-[#fbf9f3] px-3 py-2 text-[11px] text-neutral-700">
+              <div className="flex items-center gap-1.5">
+                <Clock className="h-3 w-3 text-neutral-400" aria-hidden />
+                <span className="tabular-nums">{fmtDateTime(m.scheduled_at)}</span>
+              </div>
+              <div className="mt-1 flex items-center gap-1.5">
+                <MapPin className="h-3 w-3 text-neutral-400" aria-hidden />
+                <span className="truncate">{m.location_label ?? '—'}</span>
+              </div>
+            </div>
+
+            <div className="mt-3 flex items-center justify-between border-t border-neutral-100 pt-2.5 text-[11px]">
+              <ConfirmationDots confirmed={participants} total={Math.max(participants, 1)} />
+              <div className="flex items-center gap-1.5 text-neutral-500">
+                <ListChecks
+                  className={['h-3 w-3', hasAgenda ? 'text-green-600' : 'text-amber-500'].join(' ')}
+                  aria-hidden
+                />
+                <FileText
+                  className={['h-3 w-3', hasMinutes ? 'text-green-600' : 'text-neutral-300'].join(' ')}
+                  aria-hidden
+                />
+                {participants > 0 ? (
+                  <span className="inline-flex items-center gap-0.5">
+                    <ListTodo className="h-3 w-3 text-neutral-400" aria-hidden />
+                    {participants}
+                  </span>
+                ) : null}
+              </div>
+            </div>
+          </article>
+        )
+      })}
+    </div>
+  )
+}
+
+function MtgTimeline({
+  meetings,
+  templates,
+  onOpen,
+}: {
+  meetings: MeetingRow[]
+  templates: ResolvedMeetingTemplate[]
+  onOpen: (m: MeetingRow) => void
+}) {
+  const sorted = [...meetings].sort((a, b) => {
+    const ta = a.scheduled_at ? new Date(a.scheduled_at).getTime() : 0
+    const tb = b.scheduled_at ? new Date(b.scheduled_at).getTime() : 0
+    return ta - tb
+  })
+  const groups = new Map<string, MeetingRow[]>()
+  for (const m of sorted) {
+    if (!m.scheduled_at) continue
+    const d = new Date(m.scheduled_at)
+    const key = `${String(d.getMonth() + 1).padStart(2, '0')}.${d.getFullYear()}`
+    const arr = groups.get(key) ?? []
+    arr.push(m)
+    groups.set(key, arr)
+  }
+  const MONTH_LABELS = [
+    'Januar',
+    'Februar',
+    'Mars',
+    'April',
+    'Mai',
+    'Juni',
+    'Juli',
+    'August',
+    'September',
+    'Oktober',
+    'November',
+    'Desember',
+  ]
 
   return (
-    <ModuleSectionCard className="p-5 md:p-6">
-      <div className="flex items-center justify-between gap-3">
-        <div className="flex items-center gap-2">
-          <ListChecks className="h-5 w-5 text-[#1a3d32]" />
-          <h2 className="text-lg font-semibold text-neutral-900">Maler</h2>
-        </div>
-        <span className="text-xs text-neutral-500">
-          {templates.filter((t) => t.isActive).length} aktive
-        </span>
-      </div>
-      <p className="mt-1.5 text-sm text-neutral-600">
-        Velg en mal for å planlegge eller dokumentere et møte. Hver mal bærer obligatoriske
-        saker, kadens og lovreferanser som lander på protokollen.
-      </p>
-
-      <div className="mt-5 space-y-6">
-        {grouped.length === 0 ? (
-          <p className="text-sm text-neutral-600">Ingen maler tilgjengelig ennå.</p>
-        ) : (
-          grouped.map((group) => (
-            <div key={group.id}>
-              <h3 className="mb-3 text-[10px] font-bold uppercase tracking-wider text-neutral-600">
-                {group.name}
-              </h3>
-              <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                {group.templates.map((t) => {
-                  const belowThreshold =
-                    t.minimumEmployeeCount != null && orgHeadcount < t.minimumEmployeeCount
+    <div className="p-5">
+      <div className="space-y-5">
+        {[...groups.entries()].map(([k, list]) => {
+          const [mm, yyyy] = k.split('.')
+          const monthIdx = parseInt(mm, 10) - 1
+          return (
+            <div key={k}>
+              <div className="mb-2 flex items-baseline gap-2">
+                <h4 className="text-sm font-semibold text-neutral-900">
+                  {MONTH_LABELS[monthIdx]} {yyyy}
+                </h4>
+                <span className="text-[11px] tabular-nums text-neutral-400">
+                  {list.length} møter
+                </span>
+              </div>
+              <ol className="relative border-l-2 border-neutral-200 pl-5">
+                {list.map((m) => {
+                  const tpl = templateForMeeting(m, templates)
+                  const d = new Date(m.scheduled_at!)
                   return (
-                    <li
-                      key={t.key}
-                      className="relative flex flex-col gap-2 rounded-lg border border-neutral-200/80 bg-neutral-50/50 p-4"
-                    >
-                      {(t.systemTemplateId ?? t.orgTemplateId) ? (
-                        <FavoriteToggle
-                          kind="meeting"
-                          templateRef={(t.systemTemplateId ?? t.orgTemplateId) as string}
-                          templateName={t.name}
-                          size="sm"
-                          className="absolute right-1.5 top-1.5 z-10 bg-white/90"
-                        />
-                      ) : null}
+                    <li key={m.id} className="relative mb-2.5 last:mb-0">
+                      <span
+                        className={[
+                          'absolute -left-[28px] top-1 flex h-4 w-4 items-center justify-center rounded-full ring-2 ring-white',
+                          m.status === 'completed'
+                            ? 'bg-[#1a3d32]'
+                            : m.status === 'in_progress'
+                              ? 'bg-green-600'
+                              : m.status === 'planned'
+                                ? 'bg-indigo-500'
+                                : 'bg-neutral-400',
+                        ].join(' ')}
+                      >
+                        {m.status === 'completed' ? (
+                          <Check className="h-2.5 w-2.5 text-white" aria-hidden />
+                        ) : m.status === 'in_progress' ? (
+                          <Radio className="h-2.5 w-2.5 text-white" aria-hidden />
+                        ) : (
+                          <Calendar className="h-2.5 w-2.5 text-white" aria-hidden />
+                        )}
+                      </span>
                       <Button
                         variant="ghost"
-                        onClick={() => onSelect(t)}
-                        className="flex h-auto flex-col items-start gap-2 rounded-none p-0 text-left font-normal hover:bg-transparent"
+                        onClick={() => onOpen(m)}
+                        className="block h-auto w-full rounded-md border border-neutral-200/80 bg-white px-3 py-2 text-left font-normal hover:border-[#1a3d32]/40 hover:bg-[#fbf9f3]"
                       >
-                        <div className="flex w-full items-start justify-between gap-2 pr-6">
-                          <span className="text-sm font-semibold text-neutral-900">{t.name}</span>
-                          <Badge variant="info">{frameworkLabel(t.framework)}</Badge>
-                        </div>
-                        {t.description ? (
-                          <p className="line-clamp-3 text-xs text-neutral-600">{t.description}</p>
-                        ) : null}
-                        {belowThreshold ? (
-                          <div>
-                            <Badge variant="warning">
-                              Krever {t.minimumEmployeeCount}+ ansatte
-                            </Badge>
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 shrink-0 text-center">
+                            <div className="text-[10px] font-bold uppercase tracking-wider text-neutral-500">
+                              {MONTH_LABELS[monthIdx].slice(0, 3)}
+                            </div>
+                            <div className="text-base font-bold tabular-nums leading-none text-neutral-900">
+                              {String(d.getDate()).padStart(2, '0')}
+                            </div>
+                            <div className="text-[10px] tabular-nums text-neutral-500">
+                              {fmtTimeShort(m.scheduled_at)}
+                            </div>
                           </div>
-                        ) : null}
-                        <div className="mt-auto flex flex-wrap items-center gap-3 pt-2 text-[11px] text-neutral-500">
-                          <span className="inline-flex items-center gap-1">
-                            <Clock className="h-3 w-3" /> {templateCadenceLabel(t)}
-                          </span>
-                          {t.definition.agendaItems.length ? (
-                            <span className="inline-flex items-center gap-1">
-                              <ListChecks className="h-3 w-3" />
-                              {t.definition.agendaItems.length} saker
-                            </span>
-                          ) : null}
+                          <div className="h-8 w-px bg-neutral-200" />
+                          <Calendar className="h-3.5 w-3.5 shrink-0 text-neutral-500" aria-hidden />
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center gap-2">
+                              <span className="truncate text-sm font-medium text-neutral-900">
+                                {m.title}
+                              </span>
+                              {tpl?.lawRefs?.length ? (
+                                <span title="Lovpålagt">
+                                  <ShieldCheck
+                                    className="h-3 w-3 shrink-0 text-[#1a3d32]"
+                                    aria-hidden
+                                  />
+                                </span>
+                              ) : null}
+                            </div>
+                            <div className="text-[11px] text-neutral-500">
+                              {m.location_label ?? '—'}
+                            </div>
+                          </div>
+                          <FrameworkPill framework={meetingFramework(m)} />
+                          <MtgStatusPill status={m.status} />
                         </div>
                       </Button>
                     </li>
                   )
                 })}
-              </ul>
+              </ol>
             </div>
-          ))
-        )}
-      </div>
-    </ModuleSectionCard>
-  )
-}
-
-// ── Template drilldown — checklist-shaped (KPI row + meetings table) ──────
-
-function TemplateDrilldown({
-  meetings,
-  template,
-  onCreate,
-}: {
-  meetings: MeetingsHookValue
-  template: ResolvedMeetingTemplate
-  onCreate: () => void
-}) {
-  const navigate = useNavigate()
-
-  const templateMeetings = useMemo(() => {
-    const id = template.systemTemplateId ?? template.orgTemplateId
-    return meetings.meetings
-      .filter((m) => m.system_template_id === id || m.org_template_id === id)
-      .sort((a, b) => (b.scheduled_at ?? '').localeCompare(a.scheduled_at ?? ''))
-  }, [meetings.meetings, template])
-
-  const aggregates = useMemo(() => {
-    const currentYear = new Date().getFullYear()
-    let open = 0
-    let awaitingSign = 0
-    let signedYtd = 0
-    for (const m of templateMeetings) {
-      if (m.status === 'planned' || m.status === 'in_progress') open += 1
-      if (m.status === 'completed' && !m.protocol_signed_at) awaitingSign += 1
-      if (
-        m.protocol_signed_at &&
-        new Date(m.protocol_signed_at).getFullYear() === currentYear
-      ) {
-        signedYtd += 1
-      }
-    }
-    return { open, awaitingSign, signedYtd }
-  }, [templateMeetings])
-
-  return (
-    <>
-      <LayoutScoreStatRow
-        items={[
-          {
-            big: String(aggregates.open),
-            title: 'Åpne møter',
-            sub: 'Planlagt eller pågående',
-          },
-          {
-            big: String(aggregates.awaitingSign),
-            title: 'Mangler signering',
-            sub: 'Gjennomført, men protokoll ikke signert',
-          },
-          {
-            big: String(aggregates.signedYtd),
-            title: 'Signert i år',
-            sub: template.name,
-          },
-        ]}
-      />
-
-      <LayoutTable1PostingsShell
-        wrap
-        title={template.name}
-        description={`Alle ${template.name.toLowerCase()} — sortert etter siste aktivitet.`}
-        toolbar={null}
-        footer={<span className="text-neutral-500">{templateMeetings.length} poster</span>}
-      >
-        <div className="overflow-x-auto w-full">
-          <table className="w-full min-w-[640px] border-collapse text-left text-sm">
-            <thead>
-              <tr className={LAYOUT_TABLE1_POSTINGS_HEADER_ROW}>
-                <th className={LAYOUT_TABLE1_POSTINGS_TH}>Tittel</th>
-                <th className={LAYOUT_TABLE1_POSTINGS_TH}>Status</th>
-                <th className={LAYOUT_TABLE1_POSTINGS_TH}>Planlagt</th>
-                <th className={`w-8 ${LAYOUT_TABLE1_POSTINGS_TH}`} />
-              </tr>
-            </thead>
-            <tbody>
-              {templateMeetings.length === 0 ? (
-                <tr>
-                  <td colSpan={4}>
-                    <div className="py-12 text-center">
-                      <p className="text-sm text-neutral-500">
-                        Ingen {template.name.toLowerCase()} ennå.
-                      </p>
-                      {meetings.canManage ? (
-                        <div className="mt-3 inline-flex">
-                          <Button
-                            variant="primary"
-                            icon={<Plus className="h-4 w-4" />}
-                            onClick={onCreate}
-                          >
-                            Nytt {template.name.toLowerCase()}
-                          </Button>
-                        </div>
-                      ) : null}
-                    </div>
-                  </td>
-                </tr>
-              ) : (
-                templateMeetings.map((m) => (
-                  <tr
-                    key={m.id}
-                    className={`${LAYOUT_TABLE1_POSTINGS_BODY_ROW} cursor-pointer hover:bg-neutral-50`}
-                    onClick={() => navigate(`/meetings/${m.id}`)}
-                  >
-                    <td className="px-5 py-3 font-medium text-neutral-900">{m.title}</td>
-                    <td className="px-5 py-3">
-                      <Badge variant={STATUS_BADGE[m.status]}>
-                        {MEETING_STATUS_LABEL[m.status]}
-                      </Badge>
-                      {m.confidentiality_level !== 'standard' ? (
-                        <Badge
-                          variant={m.confidentiality_level === 'confidential' ? 'confidential' : 'restricted'}
-                          className="ml-1.5"
-                        >
-                          {MEETING_CONFIDENTIALITY_LABEL[m.confidentiality_level]}
-                        </Badge>
-                      ) : null}
-                    </td>
-                    <td className="px-5 py-3 text-neutral-700">{fmtDate(m.scheduled_at)}</td>
-                    <td className="px-5 py-3 text-right">
-                      <ChevronRight className="ml-auto h-4 w-4 text-neutral-400" />
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
-      </LayoutTable1PostingsShell>
-    </>
-  )
-}
-
-// ── Template peek panel — shows the malen content (agenda + krav) ─────────
-
-function TemplatePeekSlidePanel({
-  open,
-  onClose,
-  template,
-}: {
-  open: boolean
-  onClose: () => void
-  template: ResolvedMeetingTemplate
-}) {
-  return (
-    <SlidePanel
-      open={open}
-      onClose={onClose}
-      titleId="meetings-template-peek-title"
-      title={`Mal: ${template.name}`}
-      footer={
-        <div className="flex w-full items-center justify-end">
-          <Button variant="secondary" onClick={onClose}>
-            Lukk
-          </Button>
-        </div>
-      }
-    >
-      <div className="space-y-5">
-        <div className="flex flex-wrap items-center gap-2">
-          <Badge variant="info">{frameworkLabel(template.framework)}</Badge>
-          <Badge variant="neutral">{templateCadenceLabel(template)}</Badge>
-          {isRestrictedTemplate(template) ? (
-            <Badge variant="warning">Begrenset som standard</Badge>
-          ) : null}
-        </div>
-
-        {template.description ? (
-          <p className="text-sm leading-relaxed text-neutral-700">{template.description}</p>
+          )
+        })}
+        {groups.size === 0 ? (
+          <p className="text-center text-sm text-neutral-500">Ingen tidsfestede møter.</p>
         ) : null}
+      </div>
+    </div>
+  )
+}
 
-        <div className="rounded-lg border border-neutral-200/80 bg-neutral-50/50 p-4">
-          <p className="text-[10px] font-bold uppercase tracking-wider text-neutral-600">Krav</p>
-          <dl className="mt-2 space-y-1.5 text-xs text-neutral-700">
-            <div className="flex justify-between gap-3">
-              <dt>Kadens</dt>
-              <dd className="font-semibold">{templateCadenceLabel(template)}</dd>
-            </div>
-            <div className="flex justify-between gap-3">
-              <dt>Varighet</dt>
-              <dd className="font-semibold">
-                {template.defaultDurationMinutes ? `${template.defaultDurationMinutes} min` : '—'}
-              </dd>
-            </div>
-            <div className="flex justify-between gap-3">
-              <dt>Innkallingsfrist</dt>
-              <dd className="font-semibold">
-                {template.definition.invitationLeadDays
-                  ? `${template.definition.invitationLeadDays} dager`
-                  : '—'}
-              </dd>
-            </div>
-          </dl>
-          {template.definition.requiredAttendees.length ? (
-            <div className="mt-3 border-t border-neutral-200/80 pt-3">
-              <p className="mb-1 inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider text-neutral-600">
-                <Users className="h-3 w-3" /> Påkrevde roller
-              </p>
-              <ul className="space-y-0.5 text-xs text-neutral-700">
-                {template.definition.requiredAttendees.map((r, idx) => (
-                  <li key={idx}>
-                    {r.role}
-                    {r.count ? ` × ${r.count}` : ''}
-                  </li>
-                ))}
-              </ul>
-            </div>
-          ) : null}
-        </div>
+function MtgKanban({
+  meetings,
+  templates,
+  onOpen,
+}: {
+  meetings: MeetingRow[]
+  templates: ResolvedMeetingTemplate[]
+  onOpen: (m: MeetingRow) => void
+}) {
+  const buckets: Record<MeetingStatus, MeetingRow[]> = {
+    planned: [],
+    in_progress: [],
+    completed: [],
+    cancelled: [],
+  }
+  for (const m of meetings) {
+    buckets[m.status].push(m)
+  }
 
-        <div>
-          <h3 className="mb-2 text-sm font-semibold text-neutral-900">Obligatoriske saker</h3>
-          {template.definition.agendaItems.length === 0 ? (
-            <p className="text-sm text-neutral-600">Ingen saker i malen.</p>
-          ) : (
-            <ol className="space-y-3">
-              {template.definition.agendaItems
-                .slice()
-                .sort((a, b) => a.defaultPosition - b.defaultPosition)
-                .map((item) => (
-                  <li
-                    key={item.key}
-                    className="rounded-lg border border-neutral-200/80 bg-neutral-50/50 p-4"
-                  >
-                    <div className="flex flex-wrap items-start justify-between gap-2">
-                      <p className="text-sm font-semibold text-neutral-900">{item.title}</p>
-                      {item.isMandatory ? <Badge variant="critical">Obligatorisk</Badge> : null}
+  return (
+    <div className="grid grid-cols-1 gap-3 p-3 md:grid-cols-2 xl:grid-cols-4">
+      {MTG_KANBAN_COLS.map((col) => {
+        const items = buckets[col.id]
+        return (
+          <div
+            key={col.id}
+            className="flex min-h-[420px] flex-col rounded-lg border border-neutral-200/80 bg-[#fbf9f3]/60"
+          >
+            <div className="flex items-center justify-between border-b border-neutral-200/70 px-3 py-2">
+              <div className="flex items-center gap-2">
+                <span className="h-2 w-2 rounded-full" style={{ background: col.accent }} />
+                <span className="text-xs font-semibold text-neutral-900">{col.label}</span>
+                <span className="rounded-full bg-white px-1.5 py-0.5 text-[10px] font-semibold text-neutral-500 ring-1 ring-neutral-200">
+                  {items.length}
+                </span>
+              </div>
+            </div>
+            <div className="flex-1 space-y-2 p-2">
+              {items.length === 0 ? (
+                <div className="rounded-md border border-dashed border-neutral-200 p-3 text-center text-[11px] text-neutral-400">
+                  Ingen
+                </div>
+              ) : (
+                items.map((m) => {
+                  const tpl = templateForMeeting(m, templates)
+                  const participants = m.participant_member_ids?.length ?? 0
+                  return (
+                    <article
+                      key={m.id}
+                      onClick={() => onOpen(m)}
+                      className="cursor-pointer rounded-md border border-neutral-200/80 bg-white p-2.5 hover:border-[#1a3d32]/40 hover:shadow-sm k-card-shadow"
+                    >
+                      <div className="flex items-start gap-2">
+                        <Calendar className="mt-0.5 h-3 w-3 shrink-0 text-neutral-500" aria-hidden />
+                        <div className="min-w-0 flex-1">
+                          <div className="line-clamp-2 text-xs font-medium leading-tight text-neutral-900">
+                            {m.title}
+                          </div>
+                          <div className="mt-0.5 text-[10px] text-neutral-500">
+                            {fmtDateShort(m.scheduled_at)} · {fmtTimeShort(m.scheduled_at)}
+                          </div>
+                        </div>
+                        {tpl?.lawRefs?.length ? (
+                          <span title="Lovpålagt">
+                            <ShieldCheck className="h-3 w-3 text-[#1a3d32]" aria-hidden />
+                          </span>
+                        ) : null}
+                      </div>
+                      <div className="mt-1.5 flex items-center justify-between text-[10px]">
+                        <FrameworkPill framework={meetingFramework(m)} />
+                        <ConfirmationDots
+                          confirmed={participants}
+                          total={Math.max(participants, 1)}
+                        />
+                      </div>
+                    </article>
+                  )
+                })
+              )}
+            </div>
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
+// ── Maler tab ────────────────────────────────────────────────────────────
+
+function MtgMalerTable({
+  templates,
+  meetings,
+  orgHeadcount,
+  onSchedule,
+}: {
+  templates: ResolvedMeetingTemplate[]
+  meetings: MeetingRow[]
+  orgHeadcount: number
+  onSchedule: (t: ResolvedMeetingTemplate) => void
+}) {
+  if (templates.length === 0) {
+    return (
+      <div className="px-5 py-12 text-center text-sm text-neutral-500">
+        Ingen maler i denne kategorien ennå.
+      </div>
+    )
+  }
+  return (
+    <div className="overflow-x-auto">
+      <table className="w-full min-w-[820px] text-sm">
+        <thead className="bg-neutral-50/60">
+          <tr>
+            <th className={TABLE_TH}>Mal</th>
+            <th className={TABLE_TH}>Rammeverk</th>
+            <th className={TABLE_TH}>Cadence</th>
+            <th className={TABLE_TH}>Agendapunkter</th>
+            <th className={TABLE_TH}>Datakilder</th>
+            <th className={TABLE_TH}>Brukt</th>
+            <th className={`${TABLE_TH} text-right`} />
+          </tr>
+        </thead>
+        <tbody>
+          {templates.map((t) => {
+            const id = t.systemTemplateId ?? t.orgTemplateId
+            const usedCount = meetings.filter(
+              (m) => m.system_template_id === id || m.org_template_id === id,
+            ).length
+            const datasourceCount = (t.definition.agendaItems ?? []).filter(
+              (a) => 'dataBinding' in a && a.dataBinding,
+            ).length
+            const belowThreshold =
+              t.minimumEmployeeCount != null && orgHeadcount < t.minimumEmployeeCount
+            return (
+              <tr key={t.key} className={TABLE_TR}>
+                <td className="px-5 py-3">
+                  <div className="flex items-center gap-2.5">
+                    <span className="flex h-7 w-7 items-center justify-center rounded-md bg-neutral-100 text-neutral-700">
+                      <FileStack className="h-3.5 w-3.5" aria-hidden />
+                    </span>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="font-medium text-neutral-900">{t.name}</span>
+                        {belowThreshold ? (
+                          <Badge variant="warning">Krever {t.minimumEmployeeCount}+ ansatte</Badge>
+                        ) : null}
+                      </div>
+                      <div className="text-[11px] text-neutral-500">
+                        {t.defaultDurationMinutes ? `${t.defaultDurationMinutes} min · ` : ''}
+                        {t.isSystem ? 'systemmal' : 'organisasjonsmal'}
+                        {t.defaultConfidentialityLevel !== 'standard'
+                          ? ` · ${MEETING_CONFIDENTIALITY_LABEL[t.defaultConfidentialityLevel]}`
+                          : ''}
+                      </div>
                     </div>
-                    {item.description ? (
-                      <p className="mt-2 text-xs text-neutral-600">{item.description}</p>
-                    ) : null}
-                    {item.lawRef ? (
-                      <p className="mt-2 inline-flex items-center gap-1 text-[11px] text-neutral-500">
-                        <Scale className="h-3 w-3" /> {item.lawRef}
-                      </p>
-                    ) : null}
-                  </li>
-                ))}
-            </ol>
-          )}
+                  </div>
+                </td>
+                <td className="px-5 py-3">
+                  <FrameworkPill framework={t.framework} />
+                </td>
+                <td className="px-5 py-3 text-neutral-700">{cadenceLabelFor(t.cadenceHint)}</td>
+                <td className="px-5 py-3 tabular-nums text-neutral-800">
+                  {t.definition.agendaItems?.length ?? 0}
+                </td>
+                <td className="px-5 py-3">
+                  {datasourceCount > 0 ? (
+                    <span className="inline-flex items-center gap-1 rounded bg-[#fbf9f3] px-1.5 py-0.5 text-[10px] font-semibold text-neutral-700">
+                      <Database className="h-2.5 w-2.5" aria-hidden /> {datasourceCount} kilder
+                    </span>
+                  ) : (
+                    <span className="text-[11px] text-neutral-400">—</span>
+                  )}
+                </td>
+                <td className="px-5 py-3 tabular-nums text-neutral-800">{usedCount} møter</td>
+                <td className="px-5 py-3 text-right">
+                  <Button
+                    variant="primary"
+                    size="sm"
+                    icon={<CalendarPlus className="h-3 w-3" />}
+                    onClick={() => onSchedule(t)}
+                  >
+                    Planlegg
+                  </Button>
+                </td>
+              </tr>
+            )
+          })}
+        </tbody>
+      </table>
+    </div>
+  )
+}
+
+function cadenceLabelFor(cadenceHint: string | null): string {
+  switch (cadenceHint) {
+    case 'monthly':
+      return 'Månedlig'
+    case 'quarterly':
+      return 'Kvartalsvis · 4/år'
+    case 'semiannual':
+      return 'Halvårlig · 2/år'
+    case 'annual':
+      return 'Årlig'
+    case 'ad_hoc':
+      return 'Ved behov'
+    default:
+      return '—'
+  }
+}
+
+// ── Statistikk tab ───────────────────────────────────────────────────────
+
+function MtgStatistikk({
+  meetings,
+  aggregates,
+  minutesOnTime,
+}: {
+  meetings: MeetingRow[]
+  aggregates: FrameworkAggregate[]
+  minutesOnTime: number
+}) {
+  const totalHeld = aggregates.reduce((a, b) => a + b.held, 0)
+  const totalRequired = aggregates.reduce((a, b) => a + b.required, 0)
+  const overall = totalRequired ? totalHeld / totalRequired : 0
+  const quorumRate = computeQuorumRate(meetings)
+  const overdueDecisions = computeOverdueDecisions(meetings)
+  const perMonth = computeMonthlyHistogram(meetings)
+  const maxMonth = Math.max(1, ...perMonth)
+  const monthLabels = ['Apr', 'Mai', 'Jun', 'Jul', 'Aug', 'Sep', 'Okt', 'Nov', 'Des', 'Jan', 'Feb', 'Mar']
+
+  return (
+    <div className="p-5">
+      {/* KPI strip */}
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <KpiTile
+          label="Etterlevelse"
+          value={`${Math.round(overall * 100)}%`}
+          sub={`${totalHeld} av ${totalRequired} forpliktende møter`}
+          progress={overall}
+        />
+        <KpiTile
+          label="Quorum-rate"
+          value={`${Math.round(quorumRate * 100)}%`}
+          sub="av møter beslutningsdyktige"
+        />
+        <KpiTile
+          label="Referat på tid"
+          value={`${Math.round(minutesOnTime * 100)}%`}
+          sub="signert innen 14 dager"
+        />
+        <KpiTile
+          label="Forsinkede vedtak"
+          value={`${overdueDecisions}`}
+          sub="krever oppfølging"
+          warning={overdueDecisions > 0}
+        />
+      </div>
+
+      {/* Per framework + histogram */}
+      <div className="mt-5 grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)]">
+        <div className="rounded-md border border-neutral-200/80 p-4">
+          <h4 className="text-sm font-semibold text-neutral-900">Møter siste 12 måneder</h4>
+          <div className="mt-3 flex h-32 items-end gap-1.5">
+            {perMonth.map((v, i) => (
+              <div key={i} className="flex flex-1 flex-col items-center justify-end gap-1">
+                <span className="text-[9px] tabular-nums text-neutral-500">{v}</span>
+                <div
+                  className="w-full rounded-t-sm bg-[#1a3d32]/80"
+                  style={{ height: `${(v / maxMonth) * 100}%`, minHeight: 3 }}
+                />
+              </div>
+            ))}
+          </div>
+          <div className="mt-1 grid grid-cols-12 gap-1.5 text-[9px] uppercase tracking-wider text-neutral-400">
+            {monthLabels.map((m) => (
+              <span key={m} className="text-center">
+                {m}
+              </span>
+            ))}
+          </div>
         </div>
 
-        {template.lawRefs.length ? (
-          <div className="rounded-lg border border-neutral-200/80 bg-neutral-50/50 p-4">
-            <p className="inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider text-neutral-600">
-              <Scale className="h-3 w-3" /> Lovreferanser
-            </p>
-            <ul className="mt-2 space-y-0.5 text-xs text-neutral-700">
-              {template.lawRefs.map((r) => (
-                <li key={r}>{r}</li>
+        <div className="rounded-md border border-neutral-200/80 p-4">
+          <h4 className="text-sm font-semibold text-neutral-900">Per rammeverk</h4>
+          {aggregates.length === 0 ? (
+            <p className="mt-3 text-sm text-neutral-500">Ingen tall ennå.</p>
+          ) : (
+            <ul className="mt-3 space-y-2.5">
+              {aggregates.map((b) => (
+                <li key={b.id}>
+                  <div className="flex items-baseline justify-between text-[11px]">
+                    <span className="font-medium text-neutral-900">{b.label}</span>
+                    <span className="tabular-nums">
+                      <span
+                        className={[
+                          'font-semibold',
+                          b.complianceRate >= 1 ? 'text-[#1a3d32]' : 'text-amber-700',
+                        ].join(' ')}
+                      >
+                        {b.held}
+                      </span>
+                      <span className="text-neutral-400">/{b.required}</span>
+                    </span>
+                  </div>
+                  <div className="mt-1">
+                    <ProgressBar
+                      value={b.complianceRate}
+                      tone={b.complianceRate >= 1 ? 'forest' : 'warn'}
+                      height={4}
+                    />
+                  </div>
+                </li>
               ))}
             </ul>
-          </div>
-        ) : null}
+          )}
+        </div>
       </div>
-    </SlidePanel>
+    </div>
   )
 }
 
-// ── Upcoming meetings card ────────────────────────────────────────────────
-
-function UpcomingMeetingsCard({ meetings }: { meetings: MeetingRow[] }) {
-  const upcoming = useMemo(
-    () =>
-      meetings
-        .filter((m) => m.status === 'planned' || m.status === 'in_progress')
-        .sort((a, b) => (a.scheduled_at ?? '').localeCompare(b.scheduled_at ?? ''))
-        .slice(0, 8),
-    [meetings],
-  )
-
+function KpiTile({
+  label,
+  value,
+  sub,
+  progress,
+  warning,
+}: {
+  label: string
+  value: string
+  sub: string
+  progress?: number
+  warning?: boolean
+}) {
   return (
-    <ModuleSectionCard className="p-5 md:p-6">
-      <div className="flex items-center justify-between gap-3">
-        <h2 className="text-lg font-semibold text-neutral-900">Kommende og pågående møter</h2>
-        <span className="text-xs text-neutral-500">{upcoming.length}</span>
+    <div
+      className={[
+        'rounded-md p-3',
+        warning ? 'bg-amber-50 ring-1 ring-amber-100' : 'bg-[#fbf9f3]',
+      ].join(' ')}
+    >
+      <div
+        className={[
+          'text-[10px] font-bold uppercase tracking-wider',
+          warning ? 'text-amber-800' : 'text-neutral-500',
+        ].join(' ')}
+      >
+        {label}
       </div>
-      {upcoming.length === 0 ? (
-        <p className="mt-3 text-sm text-neutral-600">Ingen planlagte eller pågående møter.</p>
-      ) : (
-        <ul className="mt-4 space-y-3">
-          {upcoming.map((m) => (
-            <MeetingListItem key={m.id} meeting={m} />
-          ))}
-        </ul>
-      )}
-    </ModuleSectionCard>
+      <div
+        className={[
+          'mt-1 text-2xl font-bold tabular-nums',
+          warning ? 'text-amber-900' : 'text-[#1a3d32]',
+        ].join(' ')}
+      >
+        {value}
+      </div>
+      {progress !== undefined ? (
+        <div className="mt-1.5">
+          <ProgressBar value={progress} />
+        </div>
+      ) : null}
+      <div
+        className={['mt-1 text-[10px]', warning ? 'text-amber-800' : 'text-neutral-500'].join(' ')}
+      >
+        {sub}
+      </div>
+    </div>
   )
 }
 
-function MeetingListItem({ meeting }: { meeting: MeetingRow }) {
-  return (
-    <li className="flex flex-wrap items-center justify-between gap-4 rounded-lg border border-neutral-200/80 bg-neutral-50/50 p-4">
-      <div className="min-w-0 flex-1">
-        <Link
-          to={`/meetings/${meeting.id}`}
-          className="text-sm font-semibold text-neutral-900 hover:underline"
-        >
-          {meeting.title}
-        </Link>
-        <p className="mt-0.5 text-xs text-neutral-600">{fmtDate(meeting.scheduled_at)}</p>
-      </div>
-      <div className="flex items-center gap-2">
-        <Badge variant={STATUS_BADGE[meeting.status]}>{MEETING_STATUS_LABEL[meeting.status]}</Badge>
-        {meeting.confidentiality_level !== 'standard' ? (
-          <Badge variant="warning">
-            {MEETING_CONFIDENTIALITY_LABEL[meeting.confidentiality_level]}
-          </Badge>
-        ) : null}
-        <Link
-          to={`/meetings/${meeting.id}`}
-          className="inline-flex items-center gap-1 text-xs font-semibold text-neutral-700 hover:text-neutral-900"
-          aria-label={`Åpne ${meeting.title}`}
-        >
-          Åpne <ArrowRight className="h-3 w-3" />
-        </Link>
-      </div>
-    </li>
-  )
+function computeMonthlyHistogram(meetings: MeetingRow[]): number[] {
+  const now = new Date()
+  const buckets = new Array(12).fill(0)
+  for (const m of meetings) {
+    if (!m.scheduled_at) continue
+    const d = new Date(m.scheduled_at)
+    const months =
+      (now.getFullYear() - d.getFullYear()) * 12 + (now.getMonth() - d.getMonth())
+    if (months < 0 || months >= 12) continue
+    buckets[11 - months] += 1
+  }
+  return buckets
 }
 
-// ── Slide-panel: create meeting ───────────────────────────────────────────
+function computeQuorumRate(meetings: MeetingRow[]): number {
+  const completed = meetings.filter((m) => m.status === 'completed')
+  if (completed.length === 0) return 0
+  const ok = completed.filter((m) => m.quorum_met !== false).length
+  return ok / completed.length
+}
+
+function computeOverdueDecisions(_meetings: MeetingRow[]): number {
+  // Heuristic only — the actual decisions table is fetched per meeting
+  // via the detail loader. The Statistikk tab uses a simple stand-in
+  // (count of completed meetings without signed protocol).
+  return _meetings.filter(
+    (m) => m.status === 'completed' && !m.protocol_signed_at,
+  ).length
+}
+
+// ── Slide-panel: create meeting ──────────────────────────────────────────
 
 function CreateMeetingSlidePanel({
   open,
@@ -691,7 +1677,7 @@ function CreateMeetingSlidePanel({
 }: {
   open: boolean
   onClose: () => void
-  meetings: MeetingsHookValue
+  meetings: ReturnType<typeof useMeetings>
   presetTemplateId: string | null
 }) {
   const navigate = useNavigate()
@@ -701,8 +1687,8 @@ function CreateMeetingSlidePanel({
   const [confidentiality, setConfidentiality] = useState<MeetingConfidentialityLevel>('standard')
   const [period, setPeriod] = useState<PeriodValue>({ start: null, end: null, label: null })
   const [busy, setBusy] = useState(false)
+  const [locationLabel, setLocationLabel] = useState('')
 
-  // Sync local state with preset when panel opens.
   useEffect(() => {
     if (!open) return
     const preset = presetTemplateId ?? ''
@@ -713,12 +1699,10 @@ function CreateMeetingSlidePanel({
     setTitle(tpl?.name ?? '')
     setConfidentiality(tpl?.defaultConfidentialityLevel ?? 'standard')
     setScheduledAt('')
-    // Smart-suggest reporting period from the template's cadenceHint.
+    setLocationLabel('')
     setPeriod(suggestPeriodForTemplate(tpl?.cadenceHint ?? null, null))
   }, [open, presetTemplateId, meetings.templates])
 
-  // Re-suggest period when the user changes scheduledAt — the relative
-  // window anchors on scheduledAt when set, else on `now`.
   useEffect(() => {
     if (!open || !scheduledAt) return
     const tpl = meetings.templates.find(
@@ -726,8 +1710,6 @@ function CreateMeetingSlidePanel({
     )
     if (!tpl?.cadenceHint) return
     setPeriod((prev) => {
-      // Don't override an explicit user edit; only re-suggest when the
-      // user hasn't touched the period yet (still matches a preset).
       if (prev.start || prev.end || prev.label) return prev
       return suggestPeriodForTemplate(tpl.cadenceHint ?? null, scheduledAt)
     })
@@ -763,6 +1745,7 @@ function CreateMeetingSlidePanel({
         orgTemplateId: selectedTemplate?.orgTemplateId ?? undefined,
         scheduledAt: scheduledAt ? new Date(scheduledAt).toISOString() : null,
         confidentialityLevel: confidentiality,
+        locationLabel: locationLabel.trim() || null,
         reportingPeriodStart: period.start,
         reportingPeriodEnd: period.end,
         reportingPeriodLabel: period.label,
@@ -800,7 +1783,12 @@ function CreateMeetingSlidePanel({
         </div>
       }
     >
-      <form onSubmit={handleCreate} className="space-y-5">
+      <form
+        onSubmit={(e) => {
+          void handleCreate(e)
+        }}
+        className="space-y-5"
+      >
         <div>
           <label className={WPSTD_FORM_FIELD_LABEL} htmlFor="meetings-new-template">
             Mal
@@ -836,17 +1824,31 @@ function CreateMeetingSlidePanel({
             className="mt-1.5"
           />
         </div>
-        <div>
-          <label className={WPSTD_FORM_FIELD_LABEL} htmlFor="meetings-new-when">
-            Planlagt tidspunkt
-          </label>
-          <StandardInput
-            id="meetings-new-when"
-            type="datetime-local"
-            value={scheduledAt}
-            onChange={(e) => setScheduledAt(e.target.value)}
-            className="mt-1.5"
-          />
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <div>
+            <label className={WPSTD_FORM_FIELD_LABEL} htmlFor="meetings-new-when">
+              Planlagt tidspunkt
+            </label>
+            <StandardInput
+              id="meetings-new-when"
+              type="datetime-local"
+              value={scheduledAt}
+              onChange={(e) => setScheduledAt(e.target.value)}
+              className="mt-1.5"
+            />
+          </div>
+          <div>
+            <label className={WPSTD_FORM_FIELD_LABEL} htmlFor="meetings-new-location">
+              Sted
+            </label>
+            <StandardInput
+              id="meetings-new-location"
+              value={locationLabel}
+              onChange={(e) => setLocationLabel(e.target.value)}
+              placeholder="Møterom, by …"
+              className="mt-1.5"
+            />
+          </div>
         </div>
         <div>
           <label className={WPSTD_FORM_FIELD_LABEL} htmlFor="meetings-new-confidentiality">
@@ -870,7 +1872,7 @@ function CreateMeetingSlidePanel({
           value={period}
           onChange={setPeriod}
           anchor={scheduledAt || null}
-          hint="Hvilken periode skal møtet gjennomgå? Forslag genereres fra malens kadens. Bindinger som filtrerer på dato bruker disse bounds."
+          hint="Hvilken periode skal møtet gjennomgå? Forslag genereres fra malens kadens."
         />
       </form>
     </SlidePanel>
