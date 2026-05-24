@@ -76,7 +76,7 @@ export interface AdminWorkflowsResult {
   loading: boolean
   error: string | null
   refresh: () => Promise<void>
-  toggleActive: (id: string, nextActive: boolean) => Promise<void>
+  toggleActive: (id: string, nextActive: boolean) => Promise<string | null>
 }
 
 export function useAdminWorkflows(): AdminWorkflowsResult {
@@ -153,20 +153,30 @@ export function useAdminWorkflows(): AdminWorkflowsResult {
     void refresh()
   }, [refresh])
 
+  /**
+   * Toggle a rule active/draft.
+   *
+   * Returns `null` on success or the postgres error message on failure
+   * (e.g. the workflow_rules activation guard triggers
+   * "Activating a rule requires the workflows.activate permission" when
+   * the caller lacks the right). Caller may surface this as a toast.
+   */
   const toggleActive = useCallback(
-    async (id: string, nextActive: boolean) => {
-      if (!supabase) return
+    async (id: string, nextActive: boolean): Promise<string | null> => {
+      if (!supabase || !organization?.id) return 'Mangler organisasjon.'
       const { error: e } = await supabase
         .from('workflow_rules')
         .update({ is_active: nextActive })
         .eq('id', id)
+        .eq('organization_id', organization.id)
       if (e) {
         setError(e.message)
-        return
+        return e.message
       }
       await refresh()
+      return null
     },
-    [supabase, refresh],
+    [supabase, organization?.id, refresh],
   )
 
   return { rules, summaries, loading, error, refresh, toggleActive }

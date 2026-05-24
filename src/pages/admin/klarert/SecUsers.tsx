@@ -4,15 +4,10 @@
 // invitations-flyten (samme RPC som UsersInternalAdminPanel).
 
 import { useMemo, useState } from 'react'
-import {
-  KeyRound,
-  RefreshCw,
-  ShieldCheck,
-  ShieldOff,
-  UserPlus,
-} from 'lucide-react'
+import { Loader2, RefreshCw, UserPlus } from 'lucide-react'
 import { Badge } from '../../../components/ui/Badge'
 import { Button } from '../../../components/ui/Button'
+import { StandardInput } from '../../../components/ui/Input'
 import {
   ADMIN_TABLE_TH,
   ADMIN_TABLE_TR_BODY,
@@ -25,34 +20,70 @@ import { useAdminUsers } from './useAdminUsers'
 import { useOrgSetupContext } from '../../../hooks/useOrgSetupContext'
 import type { AdminSectionProps } from './types'
 
-type FilterId = 'all' | 'admin' | 'vo' | 'mfa-off' | 'external'
+type FilterId = 'all' | 'admin' | 'vo' | 'external' | 'no-role'
 
 export function SecUsers({ easy }: AdminSectionProps) {
   const { users, loading, error, refresh } = useAdminUsers()
-  const { locations } = useOrgSetupContext()
+  const { supabase, organization, refreshChildren } = useOrgSetupContext()
   const [filter, setFilter] = useState<FilterId>('all')
+  const [inviteOpen, setInviteOpen] = useState(false)
+  const [inviteEmail, setInviteEmail] = useState('')
+  const [inviteBusy, setInviteBusy] = useState(false)
+  const [inviteMsg, setInviteMsg] = useState<string | null>(null)
 
-  const mfaOffCount = users.filter((u) => !u.mfa).length
+  const noRoleCount = users.filter((u) => u.roleNames.length === 0).length
   const externalCount = users.filter((u) => u.external).length
 
   const filtered = useMemo(() => {
     switch (filter) {
-      case 'mfa-off':
-        return users.filter((u) => !u.mfa)
+      case 'no-role':
+        return users.filter((u) => u.roleNames.length === 0)
       case 'external':
         return users.filter((u) => u.external)
       case 'admin':
         return users.filter((u) => u.primaryRoleSlug === 'admin')
       case 'vo':
         return users.filter(
-          (u) => u.primaryRoleSlug === 'vo' || u.primaryRoleSlug === 'hvo',
+          (u) =>
+            u.primaryRoleSlug === 'verneombud' ||
+            u.primaryRoleSlug === 'hoved_verneombud',
         )
       default:
         return users
     }
   }, [filter, users])
 
+  async function submitInvite() {
+    if (!supabase || !inviteEmail.includes('@')) return
+    setInviteBusy(true)
+    setInviteMsg(null)
+    try {
+      const { data, error: rpcErr } = await supabase.rpc('create_invitation', {
+        p_email: inviteEmail.trim(),
+        p_role_ids: null,
+        p_days_valid: 14,
+      })
+      if (rpcErr) throw rpcErr
+      const row = Array.isArray(data) ? data[0] : data
+      const path = (row as { invite_url_path?: string } | null)?.invite_url_path
+      if (path) {
+        const full = `${window.location.origin}${path}`
+        await navigator.clipboard.writeText(full).catch(() => undefined)
+        setInviteMsg(`Lenke kopiert: ${full}`)
+      } else {
+        setInviteMsg('Invitasjon opprettet.')
+      }
+      setInviteEmail('')
+      await Promise.all([refresh(), refreshChildren?.()])
+    } catch (e) {
+      setInviteMsg(e instanceof Error ? e.message : 'Kunne ikke opprette invitasjon')
+    } finally {
+      setInviteBusy(false)
+    }
+  }
+
   if (loading) return <AdminLoading />
+  if (!organization) return <AdminError message="Mangler organisasjon." />
 
   return (
     <AdminCard>
@@ -60,7 +91,7 @@ export function SecUsers({ easy }: AdminSectionProps) {
         <div>
           <h3 className="text-sm font-semibold text-neutral-900">Brukere</h3>
           <p className="text-[11px] text-neutral-500">
-            {users.length} totalt · {users.filter((u) => u.mfa).length} med MFA
+            {users.length} totalt · {externalCount} eksterne
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -70,13 +101,58 @@ export function SecUsers({ easy }: AdminSectionProps) {
             icon={<RefreshCw className="h-3 w-3" />}
             onClick={() => void refresh()}
           >
-            Synk Aa-register
+            Oppdater
           </Button>
-          <Button variant="primary" size="sm" icon={<UserPlus className="h-3 w-3" />}>
+          <Button
+            variant="primary"
+            size="sm"
+            icon={<UserPlus className="h-3 w-3" />}
+            onClick={() => setInviteOpen((v) => !v)}
+          >
             Inviter bruker
           </Button>
         </div>
       </div>
+
+      {inviteOpen && (
+        <div className="flex flex-wrap items-end gap-2 border-b border-neutral-100 bg-neutral-50/60 px-5 py-3">
+          <div className="flex-1 min-w-[220px]">
+            <label className="text-[10px] font-bold uppercase tracking-wider text-neutral-500" htmlFor="invite-email">
+              E-post
+            </label>
+            <StandardInput
+              id="invite-email"
+              type="email"
+              placeholder="navn@firma.no"
+              value={inviteEmail}
+              onChange={(e) => setInviteEmail(e.target.value)}
+              className="mt-1"
+            />
+          </div>
+          <Button
+            variant="primary"
+            size="sm"
+            disabled={inviteBusy || !inviteEmail.includes('@')}
+            icon={inviteBusy ? <Loader2 className="h-3 w-3 animate-spin" /> : <UserPlus className="h-3 w-3" />}
+            onClick={() => void submitInvite()}
+          >
+            Opprett invitasjons-lenke
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => {
+              setInviteOpen(false)
+              setInviteMsg(null)
+            }}
+          >
+            Avbryt
+          </Button>
+          {inviteMsg ? (
+            <span className="basis-full text-[11px] text-neutral-700">{inviteMsg}</span>
+          ) : null}
+        </div>
+      )}
 
       {error ? (
         <div className="px-5 pt-3">
@@ -102,9 +178,9 @@ export function SecUsers({ easy }: AdminSectionProps) {
             onClick={() => setFilter('vo')}
           />
           <FilterChip
-            label={`MFA av (${mfaOffCount})`}
-            active={filter === 'mfa-off'}
-            onClick={() => setFilter('mfa-off')}
+            label={`Uten rolle (${noRoleCount})`}
+            active={filter === 'no-role'}
+            onClick={() => setFilter('no-role')}
           />
           <FilterChip
             label={`Eksterne (${externalCount})`}
@@ -141,10 +217,6 @@ export function SecUsers({ easy }: AdminSectionProps) {
             ) : (
               filtered.map((u, i) => {
                 const tone = (['forest', 'cream', 'sand'] as const)[i % 3]
-                const locName =
-                  u.locationName ??
-                  locations.find((l) => l.id === u.locationId)?.name ??
-                  '—'
                 return (
                   <tr key={u.id} className={`${ADMIN_TABLE_TR_BODY} cursor-pointer`}>
                     <td className="px-5 py-3">
@@ -181,32 +253,28 @@ export function SecUsers({ easy }: AdminSectionProps) {
                       ) : null}
                     </td>
                     {!easy && (
-                      <td className="px-5 py-3 text-neutral-700">
-                        {locName.split('·')[0]}
-                      </td>
+                      <td className="px-5 py-3 text-neutral-500">—</td>
                     )}
                     <td className="px-5 py-3">
-                      {u.mfa ? (
-                        <ShieldCheck
-                          className="h-4 w-4 text-green-700"
-                          aria-label="MFA aktivert"
-                        />
-                      ) : (
-                        <span className="inline-flex items-center gap-1 rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold text-amber-900">
-                          <ShieldOff className="h-2.5 w-2.5" aria-hidden="true" /> Av
-                        </span>
-                      )}
+                      {/* MFA-status is not exposed via the JS client — render
+                          "—" rather than fabricate Av/På. Wire to auth.mfa
+                          via an admin Edge Function later. */}
+                      <span
+                        className="text-neutral-400"
+                        title="MFA-status er ikke tilgjengelig fra auth.users via klient"
+                      >
+                        —
+                      </span>
                     </td>
                     {!easy && (
                       <td className="px-5 py-3">
-                        {u.sso ? (
-                          <KeyRound
-                            className="h-4 w-4 text-[#1a3d32]"
-                            aria-label="SSO aktivert"
-                          />
-                        ) : (
-                          <span className="text-neutral-400">—</span>
-                        )}
+                        {/* SSO-status mirrors MFA — needs admin endpoint. */}
+                        <span
+                          className="text-neutral-400"
+                          title="SSO-status er ikke tilgjengelig fra auth.users via klient"
+                        >
+                          —
+                        </span>
                       </td>
                     )}
                     <td className="px-5 py-3">

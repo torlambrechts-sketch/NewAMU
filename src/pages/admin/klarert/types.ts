@@ -53,6 +53,12 @@ export interface PackSummary {
 
 export interface IntegrationSummary {
   id: string
+  /**
+   * org_integrations.kind value if this provider can be toggled by
+   * writing to org_integrations. Null = OAuth/SAML/manual-only —
+   * caller routes to the dedicated wizard at /admin/integrations/<id>.
+   */
+  kind: string | null
   name: string
   category: string
   description: string
@@ -63,6 +69,13 @@ export interface IntegrationSummary {
   lastSync: string | null
   connector: string
   scopes: string[]
+  /**
+   * Wizard route when the OAuth/Maskinporten flow lives under
+   * /admin/integrations/<slug>. Populated for state-side integrations
+   * (Altinn, NAV, Arbeidstilsynet, Datatilsynet, Helsetilsynet,
+   * Sertifikat-rotasjon). Null = no dedicated wizard.
+   */
+  wizardPath: string | null
 }
 
 export interface RoleSummary {

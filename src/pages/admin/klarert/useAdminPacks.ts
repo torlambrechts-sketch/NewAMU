@@ -2,14 +2,16 @@
 //
 // The "pack" concept aggregates per-framework content from:
 //   - compliance_packs (per-org pack configuration)
-//   - survey_template_catalog (system survey templates)
-//   - document_system_templates (system docs)
-//   - meeting_system_templates (system meetings)
-//   - register_types (org_id NULL = system)
-//   - learning_system_courses (system courses)
+//   - compliance_checklist_templates (per-org checklists, .pack)
+//   - survey_template_catalog (.pack — system catalog enum)
+//   - document_system_templates (.category + .legal_basis → framework inferred)
+//   - meeting_system_templates (.framework, .frameworks[])
+//   - register_types (.pack_slugs[], org_id NULL = system)
+//   - learning_system_courses (no framework column — derived from law_refs)
 //
-// Each template surface stores law refs in a slightly different column;
-// the loader maps them via the framework constants in packMetadata.
+// Framework keys are inconsistent across the schema (some use lowercase
+// hyphenated, some uppercase underscored, some use aliases like
+// 'arbeidsmiljo' for AML). normalizeFramework() collapses them.
 
 import { useCallback, useEffect, useState } from 'react'
 import { useOrgSetupContext } from '../../../hooks/useOrgSetupContext'
@@ -39,50 +41,65 @@ interface CompliancePackRow {
   updated_at: string
 }
 
+interface ChecklistTemplateRow {
+  id: string
+  organization_id: string | null
+  pack: string
+  name: string
+  law_refs: string[] | null
+  is_active: boolean
+  is_system: boolean
+  current_version_major: number | null
+  current_version_minor: number | null
+}
+
 interface SurveyCatalogRow {
   id: string
-  slug: string
   name: string
-  framework: string | null
+  pack: string
   law_refs: string[] | null
-  questions_count: number | null
-  version: number | null
+  body: Record<string, unknown> | null
+  is_system: boolean
 }
 
 interface DocumentTemplateRow {
   id: string
-  slug: string
-  name: string
-  framework: string | null
+  label: string
+  category: string
   legal_basis: string[] | null
-  version: number | null
 }
 
 interface MeetingTemplateRow {
   id: string
-  slug: string
-  name: string
+  label: string
   framework: string | null
+  frameworks: string[] | null
   law_refs: string[] | null
-  version: number | null
+  default_duration_minutes: number | null
 }
 
 interface RegisterTypeRow {
   id: string
-  slug: string
   name: string
-  framework: string | null
+  pack_slugs: string[] | null
   regulation_ids: string[] | null
+  aml_paragraphs: string[] | null
   organization_id: string | null
+  is_system: boolean
 }
 
 interface LearningCourseRow {
   id: string
   slug: string
-  name: string
-  framework: string | null
   law_refs: unknown
-  version: number | null
+  required_for_roles: string[] | null
+  default_locale: string
+}
+
+interface LearningCourseLocale {
+  system_course_id: string
+  locale: string
+  title: string
 }
 
 export interface AdminPacksResult {
@@ -92,6 +109,8 @@ export interface AdminPacksResult {
   error: string | null
   refresh: () => Promise<void>
 }
+
+// ── Helpers ─────────────────────────────────────────────────────────────
 
 function safelyParseLawRefs(raw: unknown): string[] {
   if (!raw) return []
@@ -105,6 +124,67 @@ function safelyParseLawRefs(raw: unknown): string[] {
   return []
 }
 
+/**
+ * Normalises the per-table framework identifiers into the canonical
+ * keys used by `packMetadata.FRAMEWORK_REGISTRY`. The schema is
+ * inconsistent:
+ *   - compliance_packs.slug:         aml-amu | iso-45001 | iso-27001 | …
+ *   - meeting_system_templates.framework: AML | ISO_45001 | …
+ *   - survey_template_catalog.pack:  arbeidsmiljo | engagement | …
+ *   - register_types.pack_slugs:     aml-amu | iso-45001 | …
+ */
+function normalizeFramework(raw: string | null | undefined): string {
+  if (!raw) return 'internal'
+  const lower = raw.toLowerCase()
+  // Survey-pack aliases. 'arbeidsmiljo' is the survey-side label for the
+  // AML grunnpakke; 'engagement' / 'vendor' / 'compliance' are survey-
+  // only packs that should fold into the closest framework we render.
+  if (lower === 'arbeidsmiljo') return 'aml-amu'
+  if (lower === 'aml') return 'aml-amu'
+  if (lower === 'engagement' || lower === 'vendor' || lower === 'compliance') {
+    return 'internal'
+  }
+  return lower.replace(/_/g, '-')
+}
+
+/**
+ * Documents are tagged with `category` (hms_handbook / policy / …)
+ * instead of a framework key. Sniff `legal_basis[]` so docs land under
+ * the right pack tile.
+ */
+function inferDocumentFramework(legalBasis: string[] | null | undefined): string {
+  if (!legalBasis || legalBasis.length === 0) return 'internal'
+  const joined = legalBasis.join(' ').toLowerCase()
+  if (joined.includes('iso 45001') || joined.includes('iso/iec 45001')) return 'iso-45001'
+  if (joined.includes('iso 27001') || joined.includes('iso/iec 27001')) return 'iso-27001'
+  if (joined.includes('iso 9001')) return 'iso-9001'
+  if (joined.includes('iso 14001')) return 'iso-14001'
+  if (joined.includes('gdpr') || joined.includes('personopplysningsloven')) return 'gdpr'
+  if (joined.includes('aml') || joined.includes('arbeidsmiljølov')) return 'aml-amu'
+  if (joined.includes('ik-f') || joined.includes('internkontroll')) return 'ik'
+  return 'aml-amu'
+}
+
+function inferLearningFramework(course: LearningCourseRow): string {
+  const refs = safelyParseLawRefs(course.law_refs).join(' ').toLowerCase()
+  if (refs.includes('iso 45001')) return 'iso-45001'
+  if (refs.includes('iso 27001')) return 'iso-27001'
+  if (refs.includes('iso 9001')) return 'iso-9001'
+  if (refs.includes('iso 14001')) return 'iso-14001'
+  if (refs.includes('gdpr')) return 'gdpr'
+  if (refs.includes('ik-f') || refs.includes('internkontroll')) return 'ik'
+  return 'aml-amu'
+}
+
+function questionCount(body: Record<string, unknown> | null | undefined): number {
+  if (!body) return 0
+  const qs = body['questions']
+  if (Array.isArray(qs)) return qs.length
+  return 0
+}
+
+// ── Hook ────────────────────────────────────────────────────────────────
+
 export function useAdminPacks(): AdminPacksResult {
   const { supabase, organization } = useOrgSetupContext()
   const [packs, setPacks] = useState<PackSummary[]>([])
@@ -117,161 +197,254 @@ export function useAdminPacks(): AdminPacksResult {
     setLoading(true)
     setError(null)
     try {
-      const collected: PackTemplateRow[] = []
+      // Parallel fetch — none of these depend on each other.
+      const [cpRes, clRes, svRes, docRes, meetRes, regRes, courseRes] = await Promise.all([
+        supabase
+          .from('compliance_packs')
+          .select('slug, short_name, plural_label, description, legal_references, position, is_active, updated_at')
+          .eq('organization_id', organization.id),
+        supabase
+          .from('compliance_checklist_templates')
+          .select('id, organization_id, pack, name, law_refs, is_active, is_system, current_version_major, current_version_minor')
+          .eq('organization_id', organization.id)
+          .is('deleted_at', null),
+        supabase
+          .from('survey_template_catalog')
+          .select('id, name, pack, law_refs, body, is_system')
+          .eq('is_active', true),
+        supabase
+          .from('document_system_templates')
+          .select('id, label, category, legal_basis'),
+        supabase
+          .from('meeting_system_templates')
+          .select('id, label, framework, frameworks, law_refs, default_duration_minutes')
+          .eq('is_active', true),
+        supabase
+          .from('register_types')
+          .select('id, name, pack_slugs, regulation_ids, aml_paragraphs, organization_id, is_system')
+          .or(`organization_id.is.null,organization_id.eq.${organization.id}`)
+          .eq('is_active', true),
+        supabase
+          .from('learning_system_courses')
+          .select('id, slug, law_refs, required_for_roles, default_locale'),
+      ])
 
-      // 1) Compliance packs — per-org content config
-      const cpRes = await supabase
-        .from('compliance_packs')
-        .select('slug, short_name, plural_label, description, legal_references, position, is_active, updated_at')
-        .eq('organization_id', organization.id)
-      const cpRows = ((cpRes.data ?? []) as CompliancePackRow[]).filter(() => !cpRes.error)
-      const installedSlugs = new Set(cpRows.filter((r) => r.is_active).map((r) => r.slug))
+      const cpRows = (cpRes.error ? [] : (cpRes.data ?? [])) as CompliancePackRow[]
+      const clRows = (clRes.error ? [] : (clRes.data ?? [])) as ChecklistTemplateRow[]
+      const svRows = (svRes.error ? [] : (svRes.data ?? [])) as SurveyCatalogRow[]
+      const docRows = (docRes.error ? [] : (docRes.data ?? [])) as DocumentTemplateRow[]
+      const meetRows = (meetRes.error ? [] : (meetRes.data ?? [])) as MeetingTemplateRow[]
+      const regRows = (regRes.error ? [] : (regRes.data ?? [])) as RegisterTypeRow[]
+      const courseRows = (courseRes.error ? [] : (courseRes.data ?? [])) as LearningCourseRow[]
 
-      // 2) Survey catalog (system-wide)
-      const svRes = await supabase
-        .from('survey_template_catalog')
-        .select('id, slug, name, framework, law_refs, questions_count, version')
-      if (!svRes.error && svRes.data) {
-        for (const s of svRes.data as SurveyCatalogRow[]) {
-          collected.push({
-            id: `sv-${s.id}`,
-            packFramework: s.framework ?? 'aml-amu',
-            module: 'undersokelse',
-            moduleLabel: 'Undersøkelse',
-            name: s.name,
-            lawRefs: safelyParseLawRefs(s.law_refs),
-            itemCount: s.questions_count ?? 0,
-            version: s.version ? String(s.version) : '1.0',
-            isSystem: true,
-          })
+      // Pull localized course titles in a follow-up query — the FK lives
+      // on the locale table and Postgres doesn't expose it as a single
+      // statement here. Done in a second round-trip to keep the main
+      // batch clean.
+      const courseIds = courseRows.map((c) => c.id)
+      let courseLocales: LearningCourseLocale[] = []
+      if (courseIds.length > 0) {
+        const localeRes = await supabase
+          .from('learning_system_course_locales')
+          .select('system_course_id, locale, title')
+          .in('system_course_id', courseIds)
+        if (!localeRes.error) {
+          courseLocales = (localeRes.data ?? []) as LearningCourseLocale[]
+        }
+      }
+      const titleByCourse = new Map<string, string>()
+      for (const cl of courseLocales) {
+        const existing = titleByCourse.get(cl.system_course_id)
+        if (!existing || cl.locale === 'nb') {
+          titleByCourse.set(cl.system_course_id, cl.title)
         }
       }
 
-      // 3) Document system templates
-      const docRes = await supabase
-        .from('document_system_templates')
-        .select('id, slug, name, framework, legal_basis, version')
-      if (!docRes.error && docRes.data) {
-        for (const d of docRes.data as DocumentTemplateRow[]) {
-          collected.push({
-            id: `doc-${d.id}`,
-            packFramework: d.framework ?? 'aml-amu',
-            module: 'dokument',
-            moduleLabel: 'Dokument',
-            name: d.name,
-            lawRefs: safelyParseLawRefs(d.legal_basis),
-            itemCount: 0,
-            version: d.version ? String(d.version) : '1.0',
-            isSystem: true,
-          })
-        }
+      const collected: PackTemplateRow[] = []
+
+      // 1) Checklists (per-org templates carry the pack enum directly)
+      for (const c of clRows) {
+        const version = `${c.current_version_major ?? 1}.${c.current_version_minor ?? 0}`
+        collected.push({
+          id: `cl-${c.id}`,
+          packFramework: normalizeFramework(c.pack),
+          module: 'sjekkliste',
+          moduleLabel: 'Sjekkliste',
+          name: c.name,
+          lawRefs: safelyParseLawRefs(c.law_refs),
+          itemCount: 0,
+          version,
+          isSystem: c.is_system,
+        })
+      }
+
+      // 2) Surveys (system catalog)
+      for (const s of svRows) {
+        collected.push({
+          id: `sv-${s.id}`,
+          packFramework: normalizeFramework(s.pack),
+          module: 'undersokelse',
+          moduleLabel: 'Undersøkelse',
+          name: s.name,
+          lawRefs: safelyParseLawRefs(s.law_refs),
+          itemCount: questionCount(s.body),
+          version: '1.0',
+          isSystem: s.is_system,
+        })
+      }
+
+      // 3) Document system templates (framework inferred from legal_basis)
+      for (const d of docRows) {
+        collected.push({
+          id: `doc-${d.id}`,
+          packFramework: inferDocumentFramework(d.legal_basis),
+          module: 'dokument',
+          moduleLabel: 'Dokument',
+          name: d.label,
+          lawRefs: safelyParseLawRefs(d.legal_basis),
+          itemCount: 0,
+          version: '1.0',
+          isSystem: true,
+        })
       }
 
       // 4) Meeting system templates
-      const meetRes = await supabase
-        .from('meeting_system_templates')
-        .select('id, slug, name, framework, law_refs, version')
-      if (!meetRes.error && meetRes.data) {
-        for (const m of meetRes.data as MeetingTemplateRow[]) {
-          collected.push({
-            id: `meet-${m.id}`,
-            packFramework: m.framework ?? 'aml-amu',
-            module: 'mote',
-            moduleLabel: 'Møte',
-            name: m.name,
-            lawRefs: safelyParseLawRefs(m.law_refs),
-            itemCount: 0,
-            version: m.version ? String(m.version) : '1.0',
-            isSystem: true,
-          })
-        }
+      for (const m of meetRows) {
+        const fwKey = normalizeFramework(m.framework ?? m.frameworks?.[0])
+        collected.push({
+          id: `meet-${m.id}`,
+          packFramework: fwKey,
+          module: 'mote',
+          moduleLabel: 'Møte',
+          name: m.label,
+          lawRefs: safelyParseLawRefs(m.law_refs),
+          itemCount: m.default_duration_minutes ?? 0,
+          version: '1.0',
+          isSystem: true,
+        })
       }
 
-      // 5) Register types (system rows: organization_id IS NULL)
-      const regRes = await supabase
-        .from('register_types')
-        .select('id, slug, name, framework, regulation_ids, organization_id')
-        .or(`organization_id.is.null,organization_id.eq.${organization.id}`)
-      if (!regRes.error && regRes.data) {
-        for (const r of regRes.data as RegisterTypeRow[]) {
+      // 5) Register types (system + per-org). One register may map to
+      // multiple packs — emit a row per pack so it shows up everywhere
+      // it's listed.
+      for (const r of regRows) {
+        const slugs =
+          r.pack_slugs && r.pack_slugs.length > 0 ? r.pack_slugs : ['internal']
+        for (const slug of slugs) {
           collected.push({
-            id: `reg-${r.id}`,
-            packFramework: r.framework ?? 'aml-amu',
+            id: `reg-${r.id}-${slug}`,
+            packFramework: normalizeFramework(slug),
             module: 'register',
             moduleLabel: 'Register',
             name: r.name,
-            lawRefs: safelyParseLawRefs(r.regulation_ids),
+            lawRefs: [
+              ...safelyParseLawRefs(r.regulation_ids),
+              ...safelyParseLawRefs(r.aml_paragraphs),
+            ],
             itemCount: 0,
             version: '1.0',
-            isSystem: r.organization_id == null,
+            isSystem: r.organization_id == null || r.is_system,
           })
         }
       }
 
       // 6) Learning system courses
-      const courseRes = await supabase
-        .from('learning_system_courses')
-        .select('id, slug, name, framework, law_refs, version')
-      if (!courseRes.error && courseRes.data) {
-        for (const c of courseRes.data as LearningCourseRow[]) {
-          collected.push({
-            id: `course-${c.id}`,
-            packFramework: c.framework ?? 'aml-amu',
-            module: 'kurs',
-            moduleLabel: 'Kurs',
-            name: c.name,
-            lawRefs: safelyParseLawRefs(c.law_refs),
-            itemCount: 0,
-            version: c.version ? String(c.version) : '1.0',
-            isSystem: true,
-          })
-        }
+      for (const c of courseRows) {
+        collected.push({
+          id: `course-${c.id}`,
+          packFramework: inferLearningFramework(c),
+          module: 'kurs',
+          moduleLabel: 'Kurs',
+          name: titleByCourse.get(c.id) ?? c.slug,
+          lawRefs: safelyParseLawRefs(c.law_refs),
+          itemCount: 0,
+          version: '1.0',
+          isSystem: true,
+        })
       }
 
-      // Build the per-framework pack summaries.
+      // Active compliance_packs rows define which packs are "installed".
+      const installedSlugs = new Set(
+        cpRows.filter((r) => r.is_active).map((r) => normalizeFramework(r.slug)),
+      )
+
+      // Aggregate frameworks from defaults + DB rows + template rows so
+      // every framework that actually has content shows up.
       const allFrameworks = new Set<string>([
         ...FRAMEWORK_PACK_DEFAULTS.map((f) => f.framework),
+        ...cpRows.map((r) => normalizeFramework(r.slug)),
         ...collected.map((t) => t.packFramework),
-        ...cpRows.map((r) => r.slug),
       ])
+
+      const packsByFw = new Map<string, CompliancePackRow | undefined>()
+      for (const p of cpRows) {
+        packsByFw.set(normalizeFramework(p.slug), p)
+      }
 
       const result: PackSummary[] = []
       for (const fw of allFrameworks) {
         const meta = getFrameworkMeta(fw)
-        const pack = cpRows.find((r) => r.slug === fw)
+        const cpRow = packsByFw.get(fw)
         const defaults = FRAMEWORK_PACK_DEFAULTS.find((d) => d.framework === fw)
         const myTemplates = collected.filter((t) => t.packFramework === fw)
         const contents = {
-          checklist: pack && pack.is_active ? Math.max(2, Math.round((meta.lawRefs.length || 1) * 2.5)) : 0,
+          checklist: myTemplates.filter((t) => t.module === 'sjekkliste').length,
           survey: myTemplates.filter((t) => t.module === 'undersokelse').length,
           document: myTemplates.filter((t) => t.module === 'dokument').length,
           meeting: myTemplates.filter((t) => t.module === 'mote').length,
           register: myTemplates.filter((t) => t.module === 'register').length,
           course: myTemplates.filter((t) => t.module === 'kurs').length,
         }
+        const totalContents =
+          contents.checklist +
+          contents.survey +
+          contents.document +
+          contents.meeting +
+          contents.register +
+          contents.course
         const isInstalled = installedSlugs.has(fw) || (defaults?.installed ?? false)
+        // Don't list frameworks that have neither a configured pack row
+        // nor any content — they're registry entries with no signal to
+        // render. Always include 'internal' so the Tilpass wizard has
+        // somewhere to write user-built packs.
+        if (totalContents === 0 && !cpRow && !defaults && fw !== 'internal') continue
         result.push({
           id: `pack-${fw}`,
           framework: fw,
-          name: pack?.short_name ? pack.plural_label || meta.fallbackName : meta.fallbackName,
-          shortName: pack?.short_name ?? meta.fallbackName,
-          description: pack?.description || meta.fallbackDescription,
+          name: cpRow?.plural_label || meta.fallbackName,
+          shortName: cpRow?.short_name ?? meta.fallbackName,
+          description: cpRow?.description || meta.fallbackDescription,
           icon: meta.icon,
           color: meta.color,
           installed: isInstalled,
           official: fw !== 'internal',
           version: defaults?.version ?? '2026.1',
-          lastUpdated: pack?.updated_at ?? null,
+          lastUpdated: cpRow?.updated_at ?? null,
           lawRefs:
-            (pack?.legal_references ?? []).map((lr) => lr.code).filter(Boolean) ||
+            (cpRow?.legal_references ?? []).map((lr) => lr.code).filter(Boolean) ||
             meta.lawRefs,
           contents,
         })
       }
 
-      // Order: installed first, then by name.
+      // Order: installed first, then by total content size, then by name.
       result.sort((a, b) => {
         if (a.installed !== b.installed) return a.installed ? -1 : 1
+        const aTot =
+          a.contents.checklist +
+          a.contents.survey +
+          a.contents.document +
+          a.contents.meeting +
+          a.contents.register +
+          a.contents.course
+        const bTot =
+          b.contents.checklist +
+          b.contents.survey +
+          b.contents.document +
+          b.contents.meeting +
+          b.contents.register +
+          b.contents.course
+        if (aTot !== bTot) return bTot - aTot
         return a.name.localeCompare(b.name)
       })
 

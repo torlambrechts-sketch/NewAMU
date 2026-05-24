@@ -4,6 +4,7 @@
 // går direkte mot workflow_rules.is_active. Editor-rutekast videre
 // til workflow-builderen (/workflow?rule=…).
 
+import { useState } from 'react'
 import {
   ArrowRight,
   ChevronRight,
@@ -25,11 +26,18 @@ interface SecWorkflowsProps extends AdminSectionProps {
 
 export function SecWorkflows({ easy, setRoute }: SecWorkflowsProps) {
   const { summaries, loading, error, toggleActive } = useAdminWorkflows()
+  const [toggleErr, setToggleErr] = useState<string | null>(null)
 
   if (loading) return <AdminLoading />
 
   const activeCount = summaries.filter((w) => w.enabled).length
   const totalRuns = summaries.reduce((a, w) => a + w.runs, 0)
+
+  async function handleToggle(id: string, nextActive: boolean) {
+    setToggleErr(null)
+    const errMsg = await toggleActive(id, nextActive)
+    if (errMsg) setToggleErr(errMsg)
+  }
 
   return (
     <div className="space-y-4">
@@ -40,6 +48,7 @@ export function SecWorkflows({ easy, setRoute }: SecWorkflowsProps) {
       />
 
       {error ? <AdminError message={error} /> : null}
+      {toggleErr ? <AdminError message={toggleErr} /> : null}
 
       <AdminCard>
         <div className="flex items-center justify-between border-b border-neutral-100 px-5 py-3">
@@ -72,7 +81,7 @@ export function SecWorkflows({ easy, setRoute }: SecWorkflowsProps) {
                 key={w.id}
                 wf={w}
                 easy={easy}
-                onToggle={() => void toggleActive(w.id, !w.enabled)}
+                onToggle={() => void handleToggle(w.id, !w.enabled)}
                 onOpen={() => setRoute({ name: 'wf-edit', ruleId: w.id })}
               />
             ))}

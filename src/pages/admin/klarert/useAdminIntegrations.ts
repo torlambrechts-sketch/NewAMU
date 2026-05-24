@@ -34,6 +34,8 @@ interface CatalogEntry {
   dataFlow: string
   connector: string
   defaultScopes: string[]
+  /** Optional deep-link to the per-provider wizard page. */
+  wizardPath?: string | null
 }
 
 const CATALOG: CatalogEntry[] = [
@@ -49,6 +51,7 @@ const CATALOG: CatalogEntry[] = [
     dataFlow: 'inn + ut',
     connector: 'Direkte',
     defaultScopes: ['aa.read', 'sykmelding.read', 'dialogmote.write'],
+    wizardPath: '/admin/integrations/nav',
   },
   {
     id: 'bankid',
@@ -73,6 +76,7 @@ const CATALOG: CatalogEntry[] = [
     dataFlow: 'ut',
     connector: 'Direkte',
     defaultScopes: ['altinn.submit'],
+    wizardPath: '/admin/integrations/altinn',
   },
   {
     id: 'idporten',
@@ -201,6 +205,7 @@ const CATALOG: CatalogEntry[] = [
     category: 'Myndigheter',
     description: '72-timers innsending av personvernbrudd iht. GDPR Art. 33.',
     icon: Send,
+    wizardPath: '/admin/integrations/datatilsynet',
     authMethod: 'Maskinporten',
     dataFlow: 'ut',
     connector: 'Direkte',
@@ -217,6 +222,7 @@ const CATALOG: CatalogEntry[] = [
     dataFlow: 'ut',
     connector: 'Direkte',
     defaultScopes: ['arbeidstilsynet.submit'],
+    wizardPath: '/admin/integrations/arbeidstilsynet',
   },
 ]
 
@@ -239,6 +245,13 @@ export interface AdminIntegrationsResult {
   loading: boolean
   error: string | null
   refresh: () => Promise<void>
+  /**
+   * Upsert an org_integrations row with `enabled = nextEnabled`. Returns
+   * null on success or a string error message (e.g. RLS denial).
+   * Only valid for entries where `kind` is non-null — OAuth/Maskinporten
+   * providers should use the per-provider wizard at `wizardPath`.
+   */
+  setEnabled: (kind: string, nextEnabled: boolean) => Promise<string | null>
 }
 
 export function useAdminIntegrations(): AdminIntegrationsResult {
@@ -267,6 +280,7 @@ export function useAdminIntegrations(): AdminIntegrationsResult {
         else if (row && !row.enabled) status = 'venter'
         return {
           id: c.id,
+          kind: c.kind,
           name: c.name,
           category: c.category,
           description: c.description,
@@ -277,6 +291,7 @@ export function useAdminIntegrations(): AdminIntegrationsResult {
           lastSync: formatDate(row?.last_submission_at ?? null),
           connector: c.connector,
           scopes: c.defaultScopes,
+          wizardPath: c.wizardPath ?? null,
         }
       })
 
@@ -288,9 +303,35 @@ export function useAdminIntegrations(): AdminIntegrationsResult {
     }
   }, [supabase, organization?.id])
 
+  const setEnabled = useCallback(
+    async (kind: string, nextEnabled: boolean): Promise<string | null> => {
+      if (!supabase || !organization?.id) return 'Mangler organisasjon.'
+      // Upsert by (organization_id, kind) — unique key per the schema.
+      const { error: e } = await supabase
+        .from('org_integrations')
+        .upsert(
+          {
+            organization_id: organization.id,
+            kind,
+            enabled: nextEnabled,
+            environment: 'tt02',
+            config: {},
+          },
+          { onConflict: 'organization_id,kind' },
+        )
+      if (e) {
+        setError(e.message)
+        return e.message
+      }
+      await refresh()
+      return null
+    },
+    [supabase, organization?.id, refresh],
+  )
+
   useEffect(() => {
     void refresh()
   }, [refresh])
 
-  return { integrations, loading, error, refresh }
+  return { integrations, loading, error, refresh, setEnabled }
 }

@@ -2,12 +2,20 @@
 // Henter status fra org_integrations + en statisk katalog av leverandører.
 // Hver kategori (Myndigheter, Identitet, Kommunikasjon, HR, Kalender,
 // Regnskap, Utviklere) blir et eget panel.
+//
+// "Frakobl" / "Koble til"-knappene gjør en upsert mot org_integrations
+// for de leverandørene som har et `kind`. OAuth/SAML-leverandører
+// (Slack, Teams, Google, Outlook, BankID, ID-porten, Entra) har
+// `kind = null` og deeplinker til /admin/integrations/<id>-wizarden
+// hvis den finnes, eller deaktiveres til en disabled-tilstand.
 
+import { useState } from 'react'
 import {
   CheckCircle2,
   Circle,
   Clock,
   ExternalLink,
+  Loader2,
   Plug,
   Settings,
 } from 'lucide-react'
@@ -36,7 +44,9 @@ const STATUS_META: Record<
 }
 
 export function SecIntegrations({ easy }: AdminSectionProps) {
-  const { integrations, loading, error } = useAdminIntegrations()
+  const { integrations, loading, error, setEnabled, refresh } = useAdminIntegrations()
+  const [busyId, setBusyId] = useState<string | null>(null)
+  const [actionErr, setActionErr] = useState<string | null>(null)
 
   if (loading) return <AdminLoading />
 
@@ -46,6 +56,28 @@ export function SecIntegrations({ easy }: AdminSectionProps) {
   }, {})
 
   const connectedCount = integrations.filter((i) => i.status === 'koblet').length
+
+  async function handleToggle(integration: IntegrationSummary, nextEnabled: boolean) {
+    if (!integration.kind) {
+      // OAuth/SAML — open wizard if one exists, otherwise inform user.
+      if (integration.wizardPath) {
+        window.location.assign(integration.wizardPath)
+      } else {
+        setActionErr(
+          `${integration.name} må kobles via leverandørens eget OAuth-flow. Kontakt support for oppsett.`,
+        )
+      }
+      return
+    }
+    setBusyId(integration.id)
+    setActionErr(null)
+    try {
+      const err = await setEnabled(integration.kind, nextEnabled)
+      if (err) setActionErr(err)
+    } finally {
+      setBusyId(null)
+    }
+  }
 
   return (
     <div className="space-y-4">
@@ -61,6 +93,7 @@ export function SecIntegrations({ easy }: AdminSectionProps) {
       />
 
       {error ? <AdminError message={error} /> : null}
+      {actionErr ? <AdminError message={actionErr} /> : null}
 
       {Object.entries(grouped).map(([cat, items]) => (
         <section key={cat}>
@@ -69,7 +102,14 @@ export function SecIntegrations({ easy }: AdminSectionProps) {
           </h3>
           <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-3">
             {items.map((i) => (
-              <IntegrationCard key={i.id} integration={i} easy={easy} />
+              <IntegrationCard
+                key={i.id}
+                integration={i}
+                easy={easy}
+                busy={busyId === i.id}
+                onToggle={(next) => handleToggle(i, next)}
+                onConfigure={() => refresh()}
+              />
             ))}
           </div>
         </section>
@@ -81,9 +121,15 @@ export function SecIntegrations({ easy }: AdminSectionProps) {
 function IntegrationCard({
   integration: i,
   easy,
+  busy,
+  onToggle,
+  onConfigure,
 }: {
   integration: IntegrationSummary
   easy: boolean
+  busy: boolean
+  onToggle: (nextEnabled: boolean) => void
+  onConfigure: () => void
 }) {
   const meta = STATUS_META[i.status]
   const Icon = i.icon
@@ -132,23 +178,62 @@ function IntegrationCard({
       <div className="mt-3 flex items-center justify-end gap-1.5 border-t border-neutral-100 pt-2.5">
         {i.status === 'koblet' ? (
           <>
-            <Button variant="ghost" size="sm">
-              Frakobl
+            <Button
+              variant="ghost"
+              size="sm"
+              disabled={busy}
+              onClick={() => onToggle(false)}
+            >
+              {busy ? <Loader2 className="h-3 w-3 animate-spin" /> : null} Frakobl
             </Button>
-            <Button variant="secondary" size="sm" icon={<Settings className="h-3 w-3" />}>
-              Konfig
-            </Button>
+            {i.wizardPath ? (
+              <Button
+                variant="secondary"
+                size="sm"
+                icon={<Settings className="h-3 w-3" />}
+                onClick={() => {
+                  window.location.assign(i.wizardPath!)
+                  onConfigure()
+                }}
+              >
+                Konfig
+              </Button>
+            ) : null}
           </>
         ) : i.status === 'venter' ? (
+          <>
+            <Button
+              variant="ghost"
+              size="sm"
+              disabled={busy}
+              onClick={() => onToggle(false)}
+            >
+              Avbryt
+            </Button>
+            <Button
+              variant="primary"
+              size="sm"
+              disabled={busy}
+              icon={
+                busy ? (
+                  <Loader2 className="h-3 w-3 animate-spin" />
+                ) : (
+                  <ExternalLink className="h-3 w-3" />
+                )
+              }
+              onClick={() => onToggle(true)}
+            >
+              Fullfør oppsett
+            </Button>
+          </>
+        ) : (
           <Button
             variant="primary"
             size="sm"
-            icon={<ExternalLink className="h-3 w-3" />}
+            disabled={busy}
+            icon={busy ? <Loader2 className="h-3 w-3 animate-spin" /> : <Plug className="h-3 w-3" />}
+            onClick={() => onToggle(true)}
           >
-            Fullfør oppsett
-          </Button>
-        ) : (
-          <Button variant="primary" size="sm" icon={<Plug className="h-3 w-3" />}>
             Koble til
           </Button>
         )}

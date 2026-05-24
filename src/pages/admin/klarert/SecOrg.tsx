@@ -1,22 +1,51 @@
 // Organisasjon-seksjonen.
 // Header card med basisdata om virksomheten + lovpålagte krav,
 // fulgt av tabell over lokasjoner og en panel for avdelinger.
+//
+// "Ny lokasjon" og "Ny avdeling" wires til addLocation/addDepartment
+// fra useOrgSetup. "Rediger" deeplinker til OrganisationPage hvor
+// hele org-redigereren bor (vi duplikerer ikke det skjemaet her).
 
-import { MapPin, Pencil, Plus, ShieldCheck, Users } from 'lucide-react'
+import { useState } from 'react'
+import { Loader2, MapPin, Pencil, Plus, ShieldCheck, Users } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
 import { Button } from '../../../components/ui/Button'
+import { StandardInput } from '../../../components/ui/Input'
 import { useOrgSetupContext } from '../../../hooks/useOrgSetupContext'
 import {
   ADMIN_SERIF,
   ADMIN_TABLE_TH,
   ADMIN_TABLE_TR_BODY,
   AdminCard,
+  AdminError,
   AdminLoading,
   ComplianceCheck,
 } from './AdminShared'
 import type { AdminSectionProps } from './types'
 
 export function SecOrg({ easy }: AdminSectionProps) {
-  const { organization, locations, departments, members, loadState } = useOrgSetupContext()
+  const navigate = useNavigate()
+  const {
+    organization,
+    locations,
+    departments,
+    members,
+    loadState,
+    addLocation,
+    addDepartment,
+    refreshChildren,
+  } = useOrgSetupContext()
+
+  const [openLoc, setOpenLoc] = useState(false)
+  const [locName, setLocName] = useState('')
+  const [locAddress, setLocAddress] = useState('')
+  const [locBusy, setLocBusy] = useState(false)
+  const [locErr, setLocErr] = useState<string | null>(null)
+
+  const [openDep, setOpenDep] = useState(false)
+  const [depName, setDepName] = useState('')
+  const [depBusy, setDepBusy] = useState(false)
+  const [depErr, setDepErr] = useState<string | null>(null)
 
   if (loadState !== 'ready' || !organization) {
     return <AdminLoading />
@@ -42,6 +71,39 @@ export function SecOrg({ easy }: AdminSectionProps) {
   const bhtRequired = true
   const ikRequired = true
   const dpoAppointed = members.some((m) => /personvern|dpo/i.test(m.display_name))
+
+  async function submitLocation() {
+    if (!locName.trim()) return
+    setLocBusy(true)
+    setLocErr(null)
+    try {
+      await addLocation(locName.trim(), locAddress.trim() || undefined)
+      setLocName('')
+      setLocAddress('')
+      setOpenLoc(false)
+      await refreshChildren?.()
+    } catch (e) {
+      setLocErr(e instanceof Error ? e.message : 'Kunne ikke lagre lokasjon')
+    } finally {
+      setLocBusy(false)
+    }
+  }
+
+  async function submitDepartment() {
+    if (!depName.trim()) return
+    setDepBusy(true)
+    setDepErr(null)
+    try {
+      await addDepartment(depName.trim())
+      setDepName('')
+      setOpenDep(false)
+      await refreshChildren?.()
+    } catch (e) {
+      setDepErr(e instanceof Error ? e.message : 'Kunne ikke lagre avdeling')
+    } finally {
+      setDepBusy(false)
+    }
+  }
 
   return (
     <div className="space-y-4">
@@ -78,7 +140,12 @@ export function SecOrg({ easy }: AdminSectionProps) {
               <span>{hq}</span>
             </div>
           </div>
-          <Button variant="secondary" size="sm" icon={<Pencil className="h-3 w-3" />}>
+          <Button
+            variant="secondary"
+            size="sm"
+            icon={<Pencil className="h-3 w-3" />}
+            onClick={() => navigate('/organisation?tab=settings')}
+          >
             Rediger
           </Button>
         </div>
@@ -109,10 +176,73 @@ export function SecOrg({ easy }: AdminSectionProps) {
                 : ' — legg til hovedkontor og avdelinger'}
             </p>
           </div>
-          <Button variant="secondary" size="sm" icon={<Plus className="h-3 w-3" />}>
+          <Button
+            variant="secondary"
+            size="sm"
+            icon={<Plus className="h-3 w-3" />}
+            onClick={() => setOpenLoc((v) => !v)}
+          >
             Ny lokasjon
           </Button>
         </div>
+        {openLoc && (
+          <div className="flex flex-wrap items-end gap-2 border-b border-neutral-100 bg-neutral-50/60 px-5 py-3">
+            <div className="flex-1 min-w-[180px]">
+              <label
+                className="text-[10px] font-bold uppercase tracking-wider text-neutral-500"
+                htmlFor="new-loc-name"
+              >
+                Navn
+              </label>
+              <StandardInput
+                id="new-loc-name"
+                value={locName}
+                onChange={(e) => setLocName(e.target.value)}
+                placeholder="f.eks. Oslo hovedkontor"
+                className="mt-1"
+              />
+            </div>
+            <div className="flex-1 min-w-[180px]">
+              <label
+                className="text-[10px] font-bold uppercase tracking-wider text-neutral-500"
+                htmlFor="new-loc-addr"
+              >
+                Adresse (valgfri)
+              </label>
+              <StandardInput
+                id="new-loc-addr"
+                value={locAddress}
+                onChange={(e) => setLocAddress(e.target.value)}
+                placeholder="Gateadresse 1, 0123 Oslo"
+                className="mt-1"
+              />
+            </div>
+            <Button
+              variant="primary"
+              size="sm"
+              disabled={locBusy || !locName.trim()}
+              icon={locBusy ? <Loader2 className="h-3 w-3 animate-spin" /> : <Plus className="h-3 w-3" />}
+              onClick={() => void submitLocation()}
+            >
+              Lagre
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => {
+                setOpenLoc(false)
+                setLocErr(null)
+              }}
+            >
+              Avbryt
+            </Button>
+            {locErr ? (
+              <div className="basis-full">
+                <AdminError message={locErr} />
+              </div>
+            ) : null}
+          </div>
+        )}
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead className="bg-neutral-50/60">
@@ -178,10 +308,58 @@ export function SecOrg({ easy }: AdminSectionProps) {
                 {departments.length} avdelinger · brukes for rapportering og tilgang
               </p>
             </div>
-            <Button variant="secondary" size="sm" icon={<Plus className="h-3 w-3" />}>
+            <Button
+              variant="secondary"
+              size="sm"
+              icon={<Plus className="h-3 w-3" />}
+              onClick={() => setOpenDep((v) => !v)}
+            >
               Ny avdeling
             </Button>
           </div>
+          {openDep && (
+            <div className="flex flex-wrap items-end gap-2 border-b border-neutral-100 bg-neutral-50/60 px-5 py-3">
+              <div className="flex-1 min-w-[180px]">
+                <label
+                  className="text-[10px] font-bold uppercase tracking-wider text-neutral-500"
+                  htmlFor="new-dep-name"
+                >
+                  Navn
+                </label>
+                <StandardInput
+                  id="new-dep-name"
+                  value={depName}
+                  onChange={(e) => setDepName(e.target.value)}
+                  placeholder="f.eks. Produksjon"
+                  className="mt-1"
+                />
+              </div>
+              <Button
+                variant="primary"
+                size="sm"
+                disabled={depBusy || !depName.trim()}
+                icon={depBusy ? <Loader2 className="h-3 w-3 animate-spin" /> : <Plus className="h-3 w-3" />}
+                onClick={() => void submitDepartment()}
+              >
+                Lagre
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  setOpenDep(false)
+                  setDepErr(null)
+                }}
+              >
+                Avbryt
+              </Button>
+              {depErr ? (
+                <div className="basis-full">
+                  <AdminError message={depErr} />
+                </div>
+              ) : null}
+            </div>
+          )}
           <ul className="divide-y divide-neutral-100">
             {departments.length === 0 ? (
               <li className="px-5 py-6 text-center text-xs text-neutral-500">
