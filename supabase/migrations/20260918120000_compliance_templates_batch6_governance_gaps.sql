@@ -89,10 +89,11 @@ begin
       ),
       jsonb_build_object(
         'key','funksjonstid',
-        'prompt','Hva er funksjonstiden? (typisk 2 år)',
-        'type','text','required',false,
+        'prompt','Hva er funksjonstiden? (typisk 2 år per AML § 6-1 (3))',
+        'type','text','required',true,
         'law_ref','AML § 6-1 (3)',
-        'severity_default','low'
+        'help','AML § 6-1 (3): funksjonstiden er 2 år med mindre annet er skriftlig avtalt. Dokumenter avvik.',
+        'severity_default','medium'
       ),
       jsonb_build_object(
         'key','opplaering_gjennomfort',
@@ -167,6 +168,7 @@ begin
         'prompt','Er AMU formelt etablert?',
         'type','yes_no_na','required',true,
         'law_ref','AML § 7-1',
+        'help','Svar «Ikke aktuelt» hvis virksomheten har færre enn 50 ansatte og AMU ikke er påkrevd.',
         'task_template',jsonb_build_object('title','Etabler AMU – Arbeidsmiljøutvalg – med representanter fra begge parter','priority','high'),
         'severity_default','critical'
       ),
@@ -493,7 +495,6 @@ declare
   v_varsling   uuid;
   v_internkontroll uuid;
   v_ansettelse uuid;
-  v_psykososialt uuid;
 begin
   for v_org in
     select id from public.organizations
@@ -527,8 +528,6 @@ begin
       where organization_id = v_org.id and pack = 'aml-amu' and slug = 'internkontroll';
     select id into v_ansettelse from public.compliance_checklist_categories
       where organization_id = v_org.id and pack = 'aml-amu' and slug = 'ansettelse';
-    select id into v_psykososialt from public.compliance_checklist_categories
-      where organization_id = v_org.id and pack = 'aml-amu' and slug = 'psykososialt';
 
     -- Batch 6 governance templates → styrende-organer
     if v_styrende is not null then

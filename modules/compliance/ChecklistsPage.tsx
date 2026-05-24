@@ -180,6 +180,9 @@ const VIEW_MODES = [
 ] as const
 type ViewMode = (typeof VIEW_MODES)[number]['id']
 
+// Initial page size for hub mode entry list — expand via "Vis alle" button.
+const HUB_PAGE_SIZE = 50
+
 function ViewSwitcher({ value, onChange }: { value: ViewMode; onChange: (v: ViewMode) => void }) {
   return (
     <div className="inline-flex items-center rounded-md border border-neutral-200 bg-neutral-50 p-0.5">
@@ -848,8 +851,6 @@ export function ChecklistsPage() {
 
   // Reset pagination when filter changes
   useEffect(() => { setShowAllEntries(false) }, [activeCategory, search, activeTab])
-
-  const HUB_PAGE_SIZE = 50
 
   // Category-filtered then search-filtered executions
   const displayedExecutions = useMemo(() => {

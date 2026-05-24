@@ -45,13 +45,12 @@ type Selected = { locationId: string; categoryId: string }
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 const SERIF = "'Libre Baskerville', Georgia, serif"
-const TODAY = new Date()
 const WARNING_DAYS = 7
 
-function daysUntil(iso: string | null): number | null {
+function daysUntil(iso: string | null, today: Date): number | null {
   if (!iso) return null
   const d = new Date(iso)
-  return Math.ceil((d.getTime() - TODAY.getTime()) / 86_400_000)
+  return Math.ceil((d.getTime() - today.getTime()) / 86_400_000)
 }
 
 function fmtDate(iso: string | null): string {
@@ -78,7 +77,7 @@ function computeCell(execs: ComplianceExecutionRow[]): Cell {
   }
 
   if (latest.status === 'active' || latest.status === 'draft') {
-    const days = daysUntil(latest.scheduled_for)
+    const days = daysUntil(latest.scheduled_for, new Date())
     if (days !== null && days < 0) {
       return { state: 'breach', lastDate: latest.scheduled_for, executionId: latest.id }
     }
@@ -268,8 +267,11 @@ export function ChecklistsEtterlevelsePage() {
 
   const compliancePct = applicable > 0 ? Math.round((ok / applicable) * 100) : 0
 
-  // Cadence health: for each active template compute overdue status
+  // Cadence health: for each active template compute overdue status.
+  // today is captured fresh per render so cadence calculations are correct
+  // in long-running sessions that span midnight.
   const cadenceItems = useMemo<CadenceItem[]>(() => {
+    const today = new Date()
     return cl.templates
       .filter((t) => t.is_active)
       .map((t) => {
@@ -285,7 +287,7 @@ export function ChecklistsEtterlevelsePage() {
         if (!last) {
           return { id: t.id, name: t.name, cadenceHint: t.cadence_hint, lastSignedAt: null, daysOverdue: null, status: 'never' as CadenceStatus }
         }
-        const daysSince = Math.floor((TODAY.getTime() - new Date(last).getTime()) / 86_400_000)
+        const daysSince = Math.floor((today.getTime() - new Date(last).getTime()) / 86_400_000)
         const overdue = daysSince - maxDays
         const status: CadenceStatus =
           overdue > 0 ? 'red' : overdue > -(maxDays * 0.15) ? 'amber' : 'ok'

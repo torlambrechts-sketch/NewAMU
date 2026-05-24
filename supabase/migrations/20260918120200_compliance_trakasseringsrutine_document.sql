@@ -18,6 +18,35 @@
 --     seeded som compliance-sjekkliste i batch5. Dette dokumentet er rutine-
 --     malen som forklarer prosessen — ikke loggen per sak.
 
+-- ── 1. Extend document_system_templates category check to include 'varsling'
+--    The original check (20260412120000_wiki_documents.sql) only covered the
+--    original five categories. The wiki_spaces + document_org_templates checks
+--    were already extended in 20260902120200, but document_system_templates was
+--    not touched in that migration.
+
+alter table public.document_system_templates
+  drop constraint if exists document_system_templates_category_check;
+
+alter table public.document_system_templates
+  add constraint document_system_templates_category_check
+  check (category in (
+    'hms_handbook',
+    'policy',
+    'procedure',
+    'guide',
+    'template_library',
+    'varsling',
+    'personal',
+    'personvern',
+    'likestilling',
+    'protokoll',
+    'register',
+    'beredskap',
+    'bransje'
+  ));
+
+-- ── 2. Seed the harassment procedure template ────────────────────────────────
+
 insert into public.document_system_templates (
   id, slug, label, description, category, legal_basis,
   sort_order, page_payload
@@ -29,7 +58,6 @@ insert into public.document_system_templates (
   'varsling',
   array[
     'AML § 4-3',
-    'AML § 2A-3',
     'AML § 2A-4',
     'AML § 13-1',
     'Likestillings- og diskrimineringsloven § 13',
@@ -43,7 +71,6 @@ insert into public.document_system_templates (
     "template": "procedure",
     "legalRefs": [
       "AML § 4-3",
-      "AML § 2A-3",
       "AML § 2A-4",
       "AML § 13-1",
       "Likestillings- og diskrimineringsloven § 13",
@@ -100,7 +127,7 @@ insert into public.document_system_templates (
       },
       {
         "kind": "text",
-        "body": "<p>Det er forbudt å gjengjelde mot en arbeidstaker som varsler om trakassering eller medvirker i undersøkelsen (AML § 2A-4). Gjengjeldelse kan innebære:</p><ul><li>Degradering, endring av arbeidsoppgaver eller arbeidstid</li><li>Manglende lønnstillegg, oppsigelse eller avskjed</li><li>Trakassering eller utfrysing</li></ul><p>Brudd på forbudet mot gjengjeldelse er et eget arbeidsrettslig brudd og kan medføre erstatnings- og oppreisningsansvar for arbeidsgiver.</p>"
+        "body": "<p>Det er forbudt å gjengjelde mot en arbeidstaker som varsler om trakassering eller medvirker i undersøkelsen (AML § 2A-4). Gjengjeldelse kan innebære:</p><ul><li>Degradering, endring av arbeidsoppgaver eller arbeidstid</li><li>Manglende lønnstillegg, oppsigelse eller avskjed</li><li>Trakassering eller utfrysing</li></ul><p>Brudd på forbudet mot gjengjeldelse er et eget arbeidsrettslig brudd og kan medføre erstatnings- og oppreisningsansvar for arbeidsgiver (AML § 2A-4).</p>"
       },
       {
         "kind": "heading",
@@ -123,17 +150,17 @@ insert into public.document_system_templates (
       {
         "kind": "law_ref",
         "ref": "AML § 4-3",
-        "description": "Psykososialt arbeidsmiljø — krav om rutine mot trakassering og utilbørlig atferd."
+        "description": "Psykososialt arbeidsmiljø — krav om rutine mot trakassering og utilbørlig atferd (tredje ledd)."
       },
       {
         "kind": "law_ref",
-        "ref": "AML § 2A-3",
-        "description": "Vern mot gjengjeldelse ved varsling — gjelder også trakasseringsvarsler."
+        "ref": "AML § 2A-4",
+        "description": "Forbud mot gjengjeldelse — arbeidsgiver kan ikke gjengjelde mot ansatt som varsler om trakassering eller medvirker i undersøkelse."
       },
       {
         "kind": "law_ref",
         "ref": "Likestillings- og diskrimineringsloven § 13",
-        "description": "Forbud mot trakassering på grunn av diskrimineringsgrunnlag."
+        "description": "Forbud mot trakassering på grunn av diskrimineringsgrunnlag — kjønn, etnisitet, religion, funksjonsnedsettelse, alder, seksuell orientering m.fl."
       },
       {
         "kind": "module",

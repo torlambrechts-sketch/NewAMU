@@ -1813,7 +1813,7 @@ export function SurveyDetailView({ supabase }: Props) {
       )
       .subscribe()
     return () => { void supabase.removeChannel(channel) }
-  }, [supabase, surveyId, orgId, updateSurveyRow])
+  }, [supabase, surveyId, orgId, survey.updateSurvey])
 
   const s: SurveyRow | null = survey.selectedSurvey
 

@@ -629,7 +629,7 @@ export function SurveyRespondPage() {
   const inviteToken = searchParams.get('invite')?.trim() ?? ''
   const isPreview = searchParams.get('preview') === '1'
   const { user, profile } = useOrgSetupContext()
-  const canManagePreview = isPreview && (profile?.permissions?.includes('survey.manage') || profile?.is_org_admin === true)
+  const canManagePreview = isPreview && (profile?.is_org_admin === true)
   const supabase = getSupabaseBrowserClient()
   const survey = useSurvey({ supabase })
 

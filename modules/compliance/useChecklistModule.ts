@@ -31,6 +31,7 @@ import {
   parseChecklistDefinition,
   parseRows,
 } from './schema'
+import { freshId } from '../../src/lib/dashboards/freshId'
 
 type UseChecklistModuleInput = {
   supabase: SupabaseClient | null
@@ -777,8 +778,8 @@ export function useChecklistModule(
       const stem = (dot >= 0 ? original.slice(0, dot) : original)
         .replace(/[^A-Za-z0-9._-]+/g, '_')
         .slice(0, 60) || 'fil'
-      const uuid = crypto.randomUUID()
-      const path = `${orgId}/${payload.executionId}/${payload.itemKey}/${uuid}-${stem}${ext}`
+      const uid = freshId('att')
+      const path = `${orgId}/${payload.executionId}/${payload.itemKey}/${uid}-${stem}${ext}`
 
       try {
         const { error: upErr } = await supabase.storage

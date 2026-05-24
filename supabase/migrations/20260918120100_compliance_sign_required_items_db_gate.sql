@@ -5,14 +5,43 @@
 -- migration scripts). This migration patches the BEFORE UPDATE trigger to enforce
 -- the same constraint at the DB layer so the rule cannot be bypassed.
 --
+-- The gate checks:
+--   1. A response row exists for every required item.
+--   2. The response value is not null, not the literal string 'null', and not empty.
+--      This closes the bypass path where saveResponse({ value: null }) creates a
+--      row that satisfies an existence-only check.
+--
 -- Arbeidstilsynet self-audit:
 --   Addressed: sign integrity for mandatory checklist items.
---   The trigger raises check_violation so the client sees a clear error.
---   Restrisiko: items with type='signature' are validated like any other item
---   (response row must exist); whether the signature *value* is valid is
---   still client-side only (acceptable tradeoff for phase 1).
+--   Restrisiko: signature item *value* shape is not validated (accepted as non-null
+--   object). A future migration may enforce {dataUrl: non-empty-string} for
+--   type='signature' items. Acceptable for phase 1.
 
--- ── Replace the sign trigger to add required-item gate ───────────────────
+-- ── Pre-condition: ensure pgcrypto is present (digest/encode used below) ─────
+
+create extension if not exists pgcrypto with schema public;
+
+-- ── Guard: verify compliance_user_has_verneombud_role exists before patching ──
+-- The function is defined in archive/20260809130000; the archive applier runs it
+-- before this migration (sorted by basename). Guard makes the dependency explicit
+-- so CI on fresh DBs surfaces a missing-function error rather than silent runtime
+-- failures.
+
+do $$
+begin
+  if not exists (
+    select 1 from pg_proc p
+    join pg_namespace n on n.oid = p.pronamespace
+    where n.nspname = 'public'
+      and p.proname = 'compliance_user_has_verneombud_role'
+  ) then
+    raise exception
+      'compliance_sign_gate: required function public.compliance_user_has_verneombud_role '
+      'is not defined. Apply archive/20260809130000_compliance_hardening_verneombud_signing.sql first.';
+  end if;
+end $$;
+
+-- ── Replace the sign trigger to add required-item gate ───────────────────────
 
 create or replace function public.compliance_checklist_executions_before_update_defaults()
 returns trigger
@@ -54,9 +83,10 @@ begin
       v_def := new.definition_snapshot;
     end if;
 
-    -- ── Required-item gate ───────────────────────────────────────────────
-    -- Every item with required=true must have at least one response row.
-    -- Compares the template's item keys against existing responses.
+    -- ── Required-item gate ───────────────────────────────────────────────────
+    -- Every required item must have a response row with a non-null, non-empty
+    -- value. Existence alone is not sufficient: saveResponse({ value: null })
+    -- creates a row that would otherwise pass an existence-only check.
     if v_def is null then
       select definition into v_def
       from public.compliance_checklist_templates
@@ -73,6 +103,11 @@ begin
                  from public.compliance_checklist_responses r
                 where r.execution_id = new.id
                   and r.item_key = item ->> 'key'
+                  -- Value must be non-null and non-empty in all serialised forms
+                  and r.value is not null
+                  and r.value::text <> 'null'
+                  and r.value::text <> ''
+                  and r.value::text <> '""'
              );
 
       if array_length(v_missing_prompts, 1) > 0 then
@@ -84,7 +119,7 @@ begin
       end if;
     end if;
 
-    -- ── Verneombud-role gate (AML §6-2) ─────────────────────────────────
+    -- ── Verneombud-role gate (AML §6-2) ─────────────────────────────────────
     select coalesce(p.requires_verneombud_signing, false)
     into v_pack_requires
     from public.compliance_packs p
@@ -102,7 +137,7 @@ begin
         using errcode = 'check_violation';
     end if;
 
-    -- ── Sign-state SHA-256 ───────────────────────────────────────────────
+    -- ── Sign-state SHA-256 ───────────────────────────────────────────────────
     select coalesce(
       string_agg(
         r.item_key
