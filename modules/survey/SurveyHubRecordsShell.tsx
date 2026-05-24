@@ -857,6 +857,7 @@ type Props = {
   categoryByCatalogId: Map<string, string | null>
   loading: boolean
   canManage: boolean
+  mode: 'easy' | 'advanced'
   onNewSurvey: () => void
   onNavigate: (path: string) => void
 }
@@ -869,9 +870,11 @@ export function SurveyHubRecordsShell({
   categories,
   categoryByCatalogId,
   loading,
+  mode,
   onNewSurvey,
   onNavigate,
 }: Props) {
+  const easy = mode === 'easy'
   const [activeTab, setActiveTab] = useState<'surveys' | 'maler' | 'resultater'>('surveys')
   const [view, setView]           = useState<ViewMode>('tabell')
   const [activeCategory, setActiveCategory] = useState<string>('all')
@@ -1086,49 +1089,55 @@ export function SurveyHubRecordsShell({
           </ul>
         </div>
 
-        {/* Status nå */}
-        <div className="hidden rounded-xl border border-neutral-200/80 bg-white p-4 lg:block" style={{ boxShadow: '0 1px 2px rgba(0,0,0,0.04)' }}>
-          <p className="text-xs font-bold uppercase tracking-wider text-neutral-500">Status nå</p>
-          <ul className="mt-2 space-y-1.5 text-xs">
-            <li className="flex items-center justify-between">
-              <span className="inline-flex items-center gap-2 text-neutral-700">
-                <span className="relative flex h-2 w-2">
-                  <span className="absolute inset-0 animate-ping rounded-full bg-green-500 opacity-60" />
-                  <span className="relative h-2 w-2 rounded-full bg-green-600" />
+        {/* Status nå — hidden in easy mode */}
+        {!easy && (
+          <div className="hidden rounded-xl border border-neutral-200/80 bg-white p-4 lg:block" style={{ boxShadow: '0 1px 2px rgba(0,0,0,0.04)' }}>
+            <p className="text-xs font-bold uppercase tracking-wider text-neutral-500">Status nå</p>
+            <ul className="mt-2 space-y-1.5 text-xs">
+              <li className="flex items-center justify-between">
+                <span className="inline-flex items-center gap-2 text-neutral-700">
+                  <span className="relative flex h-2 w-2">
+                    <span className="absolute inset-0 animate-ping rounded-full bg-green-500 opacity-60" />
+                    <span className="relative h-2 w-2 rounded-full bg-green-600" />
+                  </span>
+                  Aktive
                 </span>
-                Aktive
-              </span>
-              <span className="tabular-nums font-semibold text-neutral-900">{activeCount}</span>
-            </li>
-            <li className="flex items-center justify-between">
-              <span className="inline-flex items-center gap-2 text-neutral-700">
-                <span className="h-2 w-2 rounded-full bg-neutral-400" />
-                Kladder
-              </span>
-              <span className="tabular-nums font-semibold text-neutral-900">{draftCount}</span>
-            </li>
-          </ul>
-          {totalInv > 0 && (
-            <div className="mt-3 border-t border-neutral-100 pt-3">
-              <div className="flex items-baseline justify-between">
-                <span className="text-[10px] font-bold uppercase tracking-wider text-neutral-500">Snitt svar</span>
-                <span className="text-base font-bold tabular-nums text-[#1a3d32]">{avgRatePct}%</span>
+                <span className="tabular-nums font-semibold text-neutral-900">{activeCount}</span>
+              </li>
+              <li className="flex items-center justify-between">
+                <span className="inline-flex items-center gap-2 text-neutral-700">
+                  <span className="h-2 w-2 rounded-full bg-neutral-400" />
+                  Kladder
+                </span>
+                <span className="tabular-nums font-semibold text-neutral-900">{draftCount}</span>
+              </li>
+            </ul>
+            {totalInv > 0 && (
+              <div className="mt-3 border-t border-neutral-100 pt-3">
+                <div className="flex items-baseline justify-between">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-neutral-500">Snitt svar</span>
+                  <span className="text-base font-bold tabular-nums text-[#1a3d32]">{avgRatePct}%</span>
+                </div>
+                <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-neutral-200">
+                  <div className="h-1.5 rounded-full bg-[#1a3d32] transition-[width]" style={{ width: `${avgRatePct}%` }} />
+                </div>
               </div>
-              <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-neutral-200">
-                <div className="h-1.5 rounded-full bg-[#1a3d32] transition-[width]" style={{ width: `${avgRatePct}%` }} />
-              </div>
-            </div>
-          )}
-        </div>
+            )}
+          </div>
+        )}
 
-        {/* Legal nudge */}
-        {hasPsychosocial && (
+        {/* Lovpålagt nudge — always show in advanced mode */}
+        {!easy && (
           <div className="hidden rounded-xl border border-amber-200 bg-amber-50/70 p-3 text-[11px] text-amber-900 lg:block">
             <div className="flex items-start gap-2">
               <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-amber-700" aria-hidden />
               <div>
                 <div className="font-semibold">Lovpålagt: psykososialt arbeidsmiljø</div>
-                <div className="mt-0.5 text-amber-800">Kvartalsvis kartlegging kreves — AML § 4-3.</div>
+                <div className="mt-0.5 text-amber-800">
+                  {hasPsychosocial
+                    ? 'Kvartalsvis kartlegging — aktiv undersøkelse pågår.'
+                    : 'Kvartalsvis kartlegging neste forfall 30.06.2026.'}
+                </div>
               </div>
             </div>
           </div>
@@ -1198,7 +1207,7 @@ export function SurveyHubRecordsShell({
           </div>
 
           {/* Body */}
-          <div className="p-0">
+          <div className="bg-[#fbf9f3]/60 p-0">
             {activeTab === 'surveys' ? (
               <>
                 {view === 'tabell'    && <EntriesTable    entries={displayedSurveys} onOpen={(id) => onNavigate(`/survey/${id}`)} />}

@@ -72,6 +72,7 @@ export function SurveyPage({ supabase }: Props) {
     ? 'pack'
     : 'hub'
   const [tab, setTab] = useState<ModuleTab>('oversikt')
+  const [hubMode, setHubMode] = useState<'easy' | 'advanced'>('advanced')
 
   // Create panel state
   const [panelOpen, setPanelOpen] = useState(false)
@@ -251,7 +252,9 @@ export function SurveyPage({ supabase }: Props) {
   const headerDescription =
     activeTemplate?.description ??
     activePack?.description ??
-    'Velg en mal eller pakke for å starte. Maler markert i menyen vises som faste valg.'
+    (hubMode === 'easy'
+      ? 'Lag og send ut undersøkelser — medarbeider, puls, HMS og mer.'
+      : 'Spørreundersøkelser for arbeidsmiljø, puls og lifecycle. Anonyme der det kreves, med distribusjon, påminnelser og resultatanalyse.')
   const headerCtaLabel = activeTemplate
     ? `Ny ${activeTemplate.short_name ?? activeTemplate.name}`
     : activePack?.cta_label ?? 'Ny undersøkelse'
@@ -271,36 +274,78 @@ export function SurveyPage({ supabase }: Props) {
         description={headerDescription}
         headerActions={
           <div className="flex flex-wrap items-center gap-2">
+            {/* Enkelt / Avansert mode toggle — hub only */}
+            {mode === 'hub' && (
+              <div className="inline-flex items-center rounded-md border border-neutral-200 bg-neutral-50 p-0.5">
+                {(['easy', 'advanced'] as const).map((m) => {
+                  const active = hubMode === m
+                  return (
+                    <button
+                      key={m}
+                      type="button"
+                      onClick={() => setHubMode(m)}
+                      className={[
+                        'rounded px-2.5 py-1 text-xs font-medium transition-colors',
+                        active
+                          ? 'bg-white text-neutral-900 shadow-sm ring-1 ring-neutral-200'
+                          : 'text-neutral-500 hover:text-neutral-800',
+                      ].join(' ')}
+                    >
+                      {m === 'easy' ? 'Enkel' : 'Avansert'}
+                    </button>
+                  )
+                })}
+              </div>
+            )}
             {survey.canManage && (
               <>
                 {mode === 'hub' ? (
-                  <Button
-                    type="button"
-                    variant="secondary"
-                    icon={<BarChart3 className="h-4 w-4" />}
-                    onClick={() => navigate('/survey/analyse')}
-                  >
-                    <span className="hidden sm:inline">Analyse</span>
-                  </Button>
-                ) : null}
-                <Button
-                  type="button"
-                  variant="secondary"
-                  icon={<Settings className="h-4 w-4" />}
-                  onClick={() => navigate('/survey/admin')}
-                >
-                  <span className="hidden sm:inline">Innstillinger</span>
-                </Button>
-                {mode !== 'hub' ? (
-                  <Button
-                    type="button"
-                    variant="primary"
-                    icon={<Plus className="h-4 w-4" />}
-                    onClick={handlePrimaryCreate}
-                  >
-                    {headerCtaLabel}
-                  </Button>
-                ) : null}
+                  <>
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      icon={<BarChart3 className="h-4 w-4" />}
+                      onClick={() => navigate('/survey/analyse')}
+                    >
+                      <span className="hidden sm:inline">Analyse</span>
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      icon={<Plus className="h-4 w-4" />}
+                      onClick={() => navigate('/survey/templates/org/new')}
+                    >
+                      <span className="hidden sm:inline">Ny mal</span>
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="primary"
+                      icon={<Plus className="h-4 w-4" />}
+                      onClick={handlePrimaryCreate}
+                    >
+                      <span className="hidden sm:inline">Ny undersøkelse</span>
+                    </Button>
+                  </>
+                ) : (
+                  <>
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      icon={<Settings className="h-4 w-4" />}
+                      onClick={() => navigate('/survey/admin')}
+                    >
+                      <span className="hidden sm:inline">Innstillinger</span>
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="primary"
+                      icon={<Plus className="h-4 w-4" />}
+                      onClick={handlePrimaryCreate}
+                    >
+                      {headerCtaLabel}
+                    </Button>
+                  </>
+                )}
               </>
             )}
           </div>
@@ -346,6 +391,7 @@ export function SurveyPage({ supabase }: Props) {
             categoryByCatalogId={categoryByCatalogId}
             loading={survey.templateCatalogLoading || survey.loading}
             canManage={survey.canManage}
+            mode={hubMode}
             onNewSurvey={() => openPanel('internal')}
             onNavigate={(path) => navigate(path)}
           />
