@@ -1398,34 +1398,40 @@ function SporsmalDesignView({
                 {si + 1}. {g.title}
               </h3>
               <span className="text-[11px] tabular-nums text-neutral-400">{g.questions.length} spørsmål</span>
-              {g.id && !isLocked ? (
-                <button
-                  type="button"
-                  onClick={async () => {
-                    const next = window.prompt('Nytt navn på seksjon:', g.title)
-                    if (next == null) return
-                    const trimmed = next.trim()
-                    if (!trimmed || trimmed === g.title) return
-                    const idx = sortedSections.find((x) => x.id === g.id)?.order_index ?? si
-                    await survey.upsertSection({ id: g.id, surveyId, title: trimmed, orderIndex: idx })
-                  }}
-                  className="ml-auto text-[10px] font-medium text-neutral-500 hover:text-neutral-900"
-                >
-                  Rediger
-                </button>
-              ) : null}
-              {g.id && !isLocked && g.questions.length === 0 ? (
-                <button
-                  type="button"
-                  onClick={async () => {
-                    if (!window.confirm(`Slett seksjonen «${g.title}»?`)) return
-                    await survey.deleteSection(g.id!, surveyId)
-                  }}
-                  className="text-[10px] font-medium text-red-600 hover:text-red-800"
-                >
-                  Slett
-                </button>
-              ) : null}
+              {g.id != null && !isLocked ? (() => {
+                const sectionId = g.id
+                return (
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      const next = window.prompt('Nytt navn på seksjon:', g.title)
+                      if (next == null) return
+                      const trimmed = next.trim()
+                      if (!trimmed || trimmed === g.title) return
+                      const idx = sortedSections.find((x) => x.id === sectionId)?.order_index ?? si
+                      await survey.upsertSection({ id: sectionId, surveyId, title: trimmed, orderIndex: idx })
+                    }}
+                    className="ml-auto text-[10px] font-medium text-neutral-500 hover:text-neutral-900"
+                  >
+                    Rediger
+                  </button>
+                )
+              })() : null}
+              {g.id != null && !isLocked && g.questions.length === 0 ? (() => {
+                const sectionId = g.id
+                return (
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      if (!window.confirm(`Slett seksjonen «${g.title}»?`)) return
+                      await survey.deleteSection(sectionId, surveyId)
+                    }}
+                    className="text-[10px] font-medium text-red-600 hover:text-red-800"
+                  >
+                    Slett
+                  </button>
+                )
+              })() : null}
             </div>
 
             {g.questions.length === 0 ? (
