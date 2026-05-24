@@ -31,7 +31,6 @@ import {
   Settings,
   Star,
   UserCheck,
-  UserSearch,
   Users,
   Wand2,
   Workflow,
@@ -1051,13 +1050,6 @@ export function AticsShell() {
     // file) make sure a specialist role — e.g. integrasjons­ansvarlig
     // with only `workflows.manage` — sees the Integrasjoner/Arbeidsflyt
     // modules but not the rest.
-    const isAdminSettings = (scope: string, section?: string) =>
-      ({ pathname }: { pathname: string; search: string }) => {
-        if (!pathname.startsWith(`/admin/settings/${scope}`)) return false
-        if (!section) return true
-        return pathname === `/admin/settings/${scope}/${section}` ||
-          pathname.startsWith(`/admin/settings/${scope}/${section}/`)
-      }
     // Organisasjon subs deep-link to the existing OrganisationPage tabs
     // (insights / settings / units / employees / mandates). The earlier
     // /admin/settings/organisation/* registry scope was just a row of
@@ -1109,41 +1101,23 @@ export function AticsShell() {
         requirePermAny: ORG_NAV_PERMS,
       },
     ]
+    // Klarert Admin har en flat seksjons-modell. Brukere og roller er
+    // egne seksjoner. Eksterne brukere, funksjonelle roller og
+    // delegering vises som filterchips inni Brukere-seksjonen.
     const usersRolesSubs: SubItem[] = [
       {
-        label: 'Interne brukere',
-        path: '/admin/settings/users-roles/internal',
+        label: 'Brukere',
+        path: '/admin/settings/users',
         Icon: Users,
-        match: isAdminSettings('users-roles', 'internal'),
+        match: ({ pathname }) => pathname.startsWith('/admin/settings/users'),
         requirePermAny: ['users.manage', 'users.invite'],
       },
       {
-        label: 'Eksterne brukere',
-        path: '/admin/settings/users-roles/external',
-        Icon: UserSearch,
-        match: isAdminSettings('users-roles', 'external'),
-        requirePermAny: ['users.manage'],
-      },
-      {
         label: 'Roller & tilganger',
-        path: '/admin/settings/users-roles/roles',
+        path: '/admin/settings/roles',
         Icon: ShieldCheck,
-        match: isAdminSettings('users-roles', 'roles'),
+        match: ({ pathname }) => pathname.startsWith('/admin/settings/roles'),
         requirePerm: 'roles.manage',
-      },
-      {
-        label: 'Funksjonelle roller',
-        path: '/admin/settings/users-roles/functional-roles',
-        Icon: UserCheck,
-        match: isAdminSettings('users-roles', 'functional-roles'),
-        requirePermAny: USERS_ROLES_NAV_PERMS,
-      },
-      {
-        label: 'Delegering',
-        path: '/admin/settings/users-roles/delegation',
-        Icon: Users,
-        match: isAdminSettings('users-roles', 'delegation'),
-        requirePermAny: ['roles.manage', 'delegation.manage'],
       },
     ]
     // Per-provider gov-integration wizards live under
@@ -1156,9 +1130,11 @@ export function AticsShell() {
     const integrationsSubs: SubItem[] = [
       {
         label: 'Tilkoblede tjenester',
-        path: '/admin/settings/integrations/providers',
+        path: '/admin/settings/integrations',
         Icon: Plug,
-        match: isAdminSettings('integrations', 'providers'),
+        match: ({ pathname }) =>
+          pathname === '/admin/settings/integrations' ||
+          pathname.startsWith('/admin/settings/integrations/'),
         requirePermAny: INTEGRATIONS_NAV_PERMS,
       },
       {
@@ -1229,9 +1205,9 @@ export function AticsShell() {
       },
       {
         label: 'Webhooks & API',
-        path: '/admin/settings/integrations/webhooks',
+        path: '/admin/settings/integrations',
         Icon: Plug,
-        match: isAdminSettings('integrations', 'webhooks'),
+        match: ({ pathname }) => pathname === '/admin/settings/integrations/webhooks',
         requirePermAny: ['roles.manage', 'workflows.manage'],
       },
     ]
@@ -1352,26 +1328,27 @@ export function AticsShell() {
         requirePermAny: WORKFLOWS_NAV_PERMS,
       },
     ]
+    // Innstillinger-undersettet i den nye Klarert Admin har slått
+    // sammen organisasjons-, sikkerhets- og personvern-tabbene i
+    // overordnede seksjoner. Lenker peker til riktig seksjon, samt
+    // Audit-loggen som er en egen seksjon for tilsyn / GDPR-rapporter.
     const settingsSubs: SubItem[] = [
       {
-        label: 'Generelt',
-        path: '/admin/settings/settings/general',
-        Icon: Settings,
-        match: isAdminSettings('settings', 'general'),
+        label: 'Organisasjon',
+        path: '/admin/settings/org',
+        Icon: Building2,
+        match: ({ pathname }) =>
+          pathname === '/admin/settings/org' ||
+          pathname.startsWith('/admin/settings/org/'),
         requirePermAny: SETTINGS_NAV_PERMS,
       },
       {
-        label: 'Sikkerhet',
-        path: '/admin/settings/settings/security',
+        label: 'Audit-logg',
+        path: '/admin/settings/audit',
         Icon: ScrollText,
-        match: isAdminSettings('settings', 'security'),
-        requirePermAny: SETTINGS_NAV_PERMS,
-      },
-      {
-        label: 'Personvern & GDPR',
-        path: '/admin/settings/settings/privacy',
-        Icon: ShieldAlert,
-        match: isAdminSettings('settings', 'privacy'),
+        match: ({ pathname }) =>
+          pathname === '/admin/settings/audit' ||
+          pathname.startsWith('/admin/settings/audit/'),
         requirePermAny: SETTINGS_NAV_PERMS,
       },
       {
@@ -1381,21 +1358,18 @@ export function AticsShell() {
         match: ({ pathname }) => pathname.startsWith('/admin/modules'),
         requirePermAny: SETTINGS_NAV_PERMS,
       },
-      {
-        label: 'Plan & abonnement',
-        path: '/admin/settings/settings/plan',
-        Icon: BookOpen,
-        match: isAdminSettings('settings', 'plan'),
-        requirePermAny: SETTINGS_NAV_PERMS,
-      },
     ]
+    // Klarert Admin-gruppa speiler den nye 7-seksjons-shellen.
+    // Hver modul peker til en seksjon i den nye admin-siden; sub-
+    // entries (`subs`) viser samme seksjon med snarvei-lenker til
+    // beslektede sider (f.eks. Organisasjon → OrganisationPage-tabber).
     const adminGroup: NavGroup = {
       id: 'administrasjon',
       label: 'Administrasjon',
       icon: Settings,
       modules: [
         {
-          to: '/organisation',
+          to: '/admin/settings/org',
           label: 'Organisasjon',
           end: false,
           icon: Building2,
@@ -1404,12 +1378,30 @@ export function AticsShell() {
           flatSubs: true,
         },
         {
-          to: '/admin/settings/users-roles',
+          to: '/admin/settings/users',
           label: 'Brukere & roller',
           end: false,
           icon: Users,
           subs: usersRolesSubs,
           permAny: USERS_ROLES_NAV_PERMS,
+          flatSubs: true,
+        },
+        {
+          to: '/admin/settings/packs',
+          label: 'Mal-pakker',
+          end: false,
+          icon: LayoutTemplate,
+          subs: malerSubs,
+          permAny: SETTINGS_NAV_PERMS,
+          flatSubs: true,
+        },
+        {
+          to: '/admin/settings/workflows',
+          label: 'Arbeidsflyt',
+          end: false,
+          icon: Workflow,
+          subs: workflowsSubs,
+          permAny: WORKFLOWS_NAV_PERMS,
           flatSubs: true,
         },
         {
@@ -1422,15 +1414,6 @@ export function AticsShell() {
           flatSubs: true,
         },
         {
-          to: '/admin/templates',
-          label: 'Maler',
-          end: false,
-          icon: LayoutTemplate,
-          subs: malerSubs,
-          permAny: SETTINGS_NAV_PERMS,
-          flatSubs: true,
-        },
-        {
           to: '/admin/tilsynsbrev',
           label: 'Tilsynssaker',
           end: false,
@@ -1440,19 +1423,10 @@ export function AticsShell() {
           flatSubs: true,
         },
         {
-          to: '/workflow',
-          label: 'Arbeidsflyt',
+          to: '/admin/settings/audit',
+          label: 'Audit-logg',
           end: false,
-          icon: Workflow,
-          subs: workflowsSubs,
-          permAny: WORKFLOWS_NAV_PERMS,
-          flatSubs: true,
-        },
-        {
-          to: '/admin/settings/settings',
-          label: 'Innstillinger',
-          end: false,
-          icon: Settings,
+          icon: History,
           subs: settingsSubs,
           permAny: SETTINGS_NAV_PERMS,
           flatSubs: true,

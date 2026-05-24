@@ -64,7 +64,7 @@ function LegacyVarsleRedirect() {
   return <Navigate to={`/alerts/public/${encodeURIComponent(slug)}${params.toString() ? `?${params.toString()}` : ''}`} replace />
 }
 import { AdminTemplatesPage } from './pages/admin/AdminTemplatesPage'
-import { AdminSettingsPage } from './pages/admin/AdminSettingsPage'
+import { AdminPage as KlarertAdminPage } from './pages/admin/klarert/AdminPage'
 import { TilsynsbrevPage } from './pages/admin/TilsynsbrevPage'
 import { TilsynsbrevDetailPage } from './pages/admin/TilsynsbrevDetailPage'
 import { OrganisationPage } from './pages/OrganisationPage'
@@ -180,41 +180,56 @@ function WorkflowEditorRoute() {
 }
 
 /**
- * Legacy module admin URL redirector. The seven per-module admin pages
- * were merged into the unified hub at `/admin/settings/<scope>/<section>`
- * (see consolidate-admin-settings refactor). This component translates
- * the legacy URL into the new path, mapping both the `:tab` path segment
- * and the `?tab=` query param to the new `:section` segment so external
- * bookmarks and Intercom deep links keep working.
+ * Legacy module admin URL redirector. The per-module admin pages and
+ * the old scope-based settings hub have been replaced by the Klarert
+ * Admin shell (`/admin/settings/<section>` where section ∈ org / users
+ * / roles / packs / workflows / integrations / audit). This component
+ * maps the old scope identifiers onto the new sections so external
+ * bookmarks and Intercom deep links keep resolving.
  */
+const LEGACY_SCOPE_TO_SECTION: Record<string, string> = {
+  compliance: 'packs',
+  survey: 'packs',
+  tasks: 'packs',
+  learning: 'packs',
+  documents: 'packs',
+  meetings: 'packs',
+  registers: 'packs',
+  'users-roles': 'users',
+  integrations: 'integrations',
+  organisation: 'org',
+  settings: 'org',
+  workflows: 'workflows',
+}
+
 function LegacyAdminRedirect({ scope }: { scope: string }) {
   const { tab: pathTab } = useParams<{ tab?: string }>()
   const { search, hash } = useLocation()
   const params = new URLSearchParams(search)
   const queryTab = params.get('tab')
-  const tab = pathTab ?? queryTab ?? undefined
   if (queryTab) params.delete('tab')
+  void pathTab // ignored — old per-module tabs have no analogue in the new shell
   const remaining = params.toString()
-  const base = `/admin/settings/${scope}${tab ? `/${tab}` : ''}`
-  const target = `${base}${remaining ? `?${remaining}` : ''}${hash}`
+  const section = LEGACY_SCOPE_TO_SECTION[scope] ?? 'org'
+  const target = `/admin/settings/${section}${remaining ? `?${remaining}` : ''}${hash}`
   return <Navigate to={target} replace />
 }
 
 /**
  * Translates the legacy `/organisation/admin?tab=…` URLs into the new
- * per-scope paths under Administrasjon. The old page used one route with
- * eight tabs; the new IA puts each tab inside the scope that owns it
- * (users-roles / integrations / settings).
+ * sections. `users / roles / delegation / functional_roles /
+ * role_compliance` all live in Brukere or Roller now; integrations and
+ * gdpr-related tabs map to the relevant sections.
  */
 const ORG_ADMIN_TAB_REDIRECTS: Record<string, string> = {
-  users: '/admin/settings/users-roles/internal',
-  roles: '/admin/settings/users-roles/roles',
-  delegation: '/admin/settings/users-roles/delegation',
-  functional_roles: '/admin/settings/users-roles/functional-roles',
-  role_compliance: '/admin/settings/users-roles/role-compliance',
-  integrations: '/admin/settings/integrations/providers',
-  gdpr_breach: '/admin/settings/settings/privacy?gdpr=breach',
-  gdpr_subject_requests: '/admin/settings/settings/privacy?gdpr=subject',
+  users: '/admin/settings/users',
+  roles: '/admin/settings/roles',
+  delegation: '/admin/settings/roles',
+  functional_roles: '/admin/settings/roles',
+  role_compliance: '/admin/settings/roles',
+  integrations: '/admin/settings/integrations',
+  gdpr_breach: '/admin/settings/audit',
+  gdpr_subject_requests: '/admin/settings/audit',
 }
 
 function LegacyOrgAdminRedirect() {
@@ -222,7 +237,7 @@ function LegacyOrgAdminRedirect() {
   const params = new URLSearchParams(search)
   const tab = params.get('tab')
   const mapped = tab ? ORG_ADMIN_TAB_REDIRECTS[tab] : undefined
-  const target = mapped ?? '/admin/settings/users-roles/internal'
+  const target = mapped ?? '/admin/settings/users'
   const [base, query] = target.split('?')
   const merged = new URLSearchParams(query ?? '')
   params.delete('tab')
@@ -233,21 +248,20 @@ function LegacyOrgAdminRedirect() {
 
 /**
  * Redirects the old `/admin/settings/org/<section>` URLs into the new
- * scoped paths after the org scope was split into 4 (organisation /
- * users-roles / integrations / settings).
+ * Klarert Admin sections.
  */
 const LEGACY_ORG_SECTION_REDIRECTS: Record<string, string> = {
-  'functional-roles': '/admin/settings/users-roles/functional-roles',
-  'gdpr-breach': '/admin/settings/settings/privacy?gdpr=breach',
-  'gdpr-subject-requests': '/admin/settings/settings/privacy?gdpr=subject',
-  integrations: '/admin/settings/integrations/providers',
+  'functional-roles': '/admin/settings/roles',
+  'gdpr-breach': '/admin/settings/audit',
+  'gdpr-subject-requests': '/admin/settings/audit',
+  integrations: '/admin/settings/integrations',
 }
 
 function LegacyOrgScopeRedirect() {
   const { section } = useParams<{ section?: string }>()
   const { search, hash } = useLocation()
   const mapped = section ? LEGACY_ORG_SECTION_REDIRECTS[section] : undefined
-  const target = mapped ?? '/admin/settings/users-roles/internal'
+  const target = mapped ?? '/admin/settings/users'
   const [base, query] = target.split('?')
   const merged = new URLSearchParams(query ?? '')
   const incoming = new URLSearchParams(search)
@@ -257,14 +271,12 @@ function LegacyOrgScopeRedirect() {
 }
 
 /**
- * Learning's legacy `/learning/innstillinger?tab=…` URL preserves the
- * query string verbatim — the existing `LearningSettings` component
- * (registered as a single section under the `learning` scope) reads
- * `?tab=` itself, so we hand it through untouched.
+ * Learning's legacy `/learning/innstillinger?tab=…` URL nå mapper til
+ * Mal-pakker-seksjonen i den nye Klarert Admin-shellen.
  */
 function LegacyLearningRedirect() {
   const { search, hash } = useLocation()
-  return <Navigate to={`/admin/settings/learning${search}${hash}`} replace />
+  return <Navigate to={`/admin/settings/packs${search}${hash}`} replace />
 }
 
 function AppRouterLayout() {
@@ -530,15 +542,17 @@ const router = createBrowserRouter(
                           oppgaver per pålegg. */}
                       <Route path="admin/tilsynsbrev" element={<TilsynsbrevPage />} />
                       <Route path="admin/tilsynsbrev/:id" element={<TilsynsbrevDetailPage />} />
-                      {/* Unified settings hub. Legacy `/<module>/admin` URLs
-                          continue to render their existing pages for one
-                          release so bookmarks survive; sidebar entries now
-                          point at `/admin/settings/<scope>`. */}
+                      {/* Klarert Admin — sentralt kontrollpanel som erstatter
+                          den gamle registry-baserte settings-siden. Hoster
+                          syv seksjoner: Organisasjon, Brukere, Roller,
+                          Mal-pakker, Arbeidsflyt, Integrasjoner, Audit-logg.
+                          Legacy `/<module>/admin`-URLer rediregrer fortsatt
+                          hit slik at gamle bokmerker overlever. */}
                       <Route
                         path="admin/settings"
                         element={
                           <PackProvider>
-                            <AdminSettingsPage />
+                            <KlarertAdminPage />
                           </PackProvider>
                         }
                       />
@@ -546,7 +560,7 @@ const router = createBrowserRouter(
                         path="admin/settings/:scope"
                         element={
                           <PackProvider>
-                            <AdminSettingsPage />
+                            <KlarertAdminPage />
                           </PackProvider>
                         }
                       />
@@ -554,34 +568,33 @@ const router = createBrowserRouter(
                         path="admin/settings/:scope/:section"
                         element={
                           <PackProvider>
-                            <AdminSettingsPage />
+                            <KlarertAdminPage />
                           </PackProvider>
                         }
                       />
-                      {/* Legacy `/admin/settings/org/<section>` URLs from
-                          before the org scope was split. */}
-                      <Route path="admin/settings/org" element={<Navigate to="/admin/settings/users-roles/internal" replace />} />
+                      {/* Legacy `/admin/settings/org` URLs from den gamle
+                          scope-tree-en — `org` scope eksisterer ikke
+                          lenger som en egen rute, men `LegacyOrgScopeRedirect`
+                          mapper mest brukte sub-veier inn i den nye shellen. */}
                       <Route path="admin/settings/org/:section" element={<LegacyOrgScopeRedirect />} />
-                      {/* Organisasjon scope was retired in favour of
-                          deep-linking to the existing OrganisationPage
-                          tabs. Map the old placeholder URLs to the
-                          real surface so bookmarks survive. */}
+                      {/* Organisasjon-tabbene under /organisation har sin
+                          egen side; gamle `/admin/settings/organisation/*`
+                          bokmerker peker dit. */}
                       <Route path="admin/settings/organisation" element={<Navigate to="/organisation" replace />} />
                       <Route path="admin/settings/organisation/analyse" element={<Navigate to="/organisation?tab=insights" replace />} />
                       <Route path="admin/settings/organisation/company" element={<Navigate to="/organisation?tab=settings" replace />} />
                       <Route path="admin/settings/organisation/units" element={<Navigate to="/organisation?tab=units" replace />} />
                       <Route path="admin/settings/organisation/employees" element={<Navigate to="/organisation?tab=employees" replace />} />
                       <Route path="admin/settings/organisation/mandates" element={<Navigate to="/organisation?tab=mandates" replace />} />
-                      {/* Arbeidsflyt scope was retired in favour of
-                          deep-linking to the existing WorkflowBuilderPage
-                          tabs. Map old placeholder URLs to the real
-                          surface. */}
-                      <Route path="admin/settings/workflows" element={<Navigate to="/workflow" replace />} />
+                      {/* Gamle workflow-byggerlenker sender til /workflow
+                          som beholder den fulle canvas-redigereren. Den
+                          enkle, listebaserte arbeidsflyt-redigereren bor
+                          nå i Klarert Admin → Arbeidsflyt. */}
                       <Route path="admin/settings/workflows/analyse" element={<Navigate to="/workflow" replace />} />
                       <Route path="admin/settings/workflows/rules" element={<Navigate to="/workflow?tab=rules" replace />} />
                       <Route path="admin/settings/workflows/runs" element={<Navigate to="/workflow?tab=runs" replace />} />
                       <Route path="admin/settings/workflows/templates" element={<Navigate to="/workflow?tab=library" replace />} />
-                      <Route path="admin/settings/workflows/auditors" element={<Navigate to="/admin/settings/users-roles/external" replace />} />
+                      <Route path="admin/settings/workflows/auditors" element={<Navigate to="/admin/settings/users" replace />} />
                       <Route path="admin" element={<Navigate to="/organisation" replace />} />
                       <Route path="profile" element={<ProfilePage />} />
                       {/* New e-læring hub & detail surfaces render their own page chrome
