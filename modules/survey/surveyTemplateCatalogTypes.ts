@@ -85,6 +85,7 @@ export const CatalogRowForListSchema = z.object({
   recommend_anonymous: z.boolean().default(true),
   scoring_note: z.string().nullable().optional(),
   law_ref: z.string().nullable().optional(),
+  law_refs: z.array(z.string()).nullable().optional(),
   body: CatalogTemplateBodySchema,
   is_active: z.boolean().default(true),
   pack: z.enum(['vendor', 'arbeidsmiljo', 'compliance', 'engagement', 'exit']).default('engagement'),

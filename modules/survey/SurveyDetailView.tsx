@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState, useRef, type ReactNode } fro
 import type { LucideIcon } from 'lucide-react'
 import { useNavigate, useParams } from 'react-router-dom'
 import type { SupabaseClient } from '@supabase/supabase-js'
-import { AlertCircle, ArrowLeft, BarChart2, BarChart3, Bell, Calendar, CheckCircle2, ChevronRight, CircleDot, ClipboardList, Copy, Download, Eye, EyeOff, Gauge, Ghost, GitBranch, Globe, GripVertical, Hash, HelpCircle, LayoutDashboard, Link2, List, Lock, Mail, MessageCircle, Play, Plus, Scan, Save, Send, Settings, ShieldCheck, SlidersHorizontal, ToggleLeft, Trash2, TrendingUp, Type as TypeIcon, Users2 } from 'lucide-react'
+import { AlertCircle, ArrowLeft, BarChart2, BarChart3, Bell, Calendar, CheckCircle2, ChevronRight, CircleDot, ClipboardList, Copy, Download, Eye, EyeOff, Gauge, Ghost, GitBranch, Globe, GripVertical, Hash, HelpCircle, LayoutDashboard, Link2, List, Lock, Mail, MessageCircle, Plus, Scan, Save, Send, Settings, ShieldCheck, SlidersHorizontal, ToggleLeft, Trash2, TrendingUp, Type as TypeIcon, Users2 } from 'lucide-react'
 import {
   WPSTD_FORM_FIELD_LABEL,
   WPSTD_FORM_ROW_GRID,
@@ -1100,6 +1100,29 @@ const CHANNEL_ICON_MAP: Record<string, LucideIcon> = {
   'lenke':     Link2,
 }
 
+function downloadSvgAsPng(svgEl: SVGSVGElement, filename: string) {
+  const svgData = new XMLSerializer().serializeToString(svgEl)
+  const blob = new Blob([svgData], { type: 'image/svg+xml;charset=utf-8' })
+  const url = URL.createObjectURL(blob)
+  const img = new Image()
+  img.onload = () => {
+    const canvas = document.createElement('canvas')
+    canvas.width = 400
+    canvas.height = 400
+    const ctx = canvas.getContext('2d')
+    if (!ctx) return
+    ctx.fillStyle = '#ffffff'
+    ctx.fillRect(0, 0, 400, 400)
+    ctx.drawImage(img, 0, 0, 400, 400)
+    URL.revokeObjectURL(url)
+    const a = document.createElement('a')
+    a.download = filename
+    a.href = canvas.toDataURL('image/png')
+    a.click()
+  }
+  img.src = url
+}
+
 function DistribusjonWrapper({
   s,
   easy,
@@ -1110,6 +1133,7 @@ function DistribusjonWrapper({
   children: ReactNode
 }) {
   const [copied, setCopied] = useState(false)
+  const qrSvgRef = useRef<SVGSVGElement>(null)
   // Shareable link — best approximation without a token
   // Public shareable link → /survey-respond/:surveyId (the actual respond route)
   // Personal links with ?invite=token are generated per recipient by
@@ -1191,7 +1215,7 @@ function DistribusjonWrapper({
           <h3 className="text-sm font-semibold text-neutral-900">QR-kode</h3>
           <p className="mt-1 text-[11px] text-neutral-500">Skriv ut for verksted / lager / pauserom.</p>
           <div className="mt-2 flex h-36 items-center justify-center rounded-md bg-[#fbf9f3] ring-1 ring-neutral-200">
-            <svg width="80" height="80" viewBox="0 0 80 80" aria-hidden>
+            <svg ref={qrSvgRef} width="80" height="80" viewBox="0 0 80 80" aria-hidden>
               <rect width="80" height="80" fill="#fff" />
               {Array.from({ length: 64 }).map((_, i) => {
                 const r = ((i * 9301 + 49297) % 233280) / 233280
@@ -1207,8 +1231,14 @@ function DistribusjonWrapper({
           </div>
           <button
             type="button"
+            onClick={() => {
+              if (qrSvgRef.current) {
+                downloadSvgAsPng(qrSvgRef.current, `qr-${s.id.slice(-8)}.png`)
+              }
+            }}
             className="mt-2 flex w-full items-center justify-center gap-1.5 rounded-md border border-neutral-200 bg-white px-3 py-1.5 text-xs font-medium text-neutral-700 transition-colors hover:bg-neutral-50"
           >
+            <Download className="h-3 w-3" aria-hidden />
             Last ned PNG
           </button>
         </div>
@@ -2017,12 +2047,20 @@ export function SurveyDetailView({ supabase }: Props) {
   }, [s?.catalog_id, survey.templateCatalog])
 
   const templateLawRefs = useMemo(() => {
-    const refs: string[] = []
-    const tplLaw = templateRow?.law_ref?.trim()
-    if (tplLaw) refs.push(tplLaw)
-    // Augment with packs's first legal reference code if any
-    return refs
-  }, [templateRow])
+    const refs = new Set<string>()
+    const singular = templateRow?.law_ref?.trim()
+    if (singular) refs.add(singular)
+    for (const r of templateRow?.law_refs ?? []) {
+      const t = r?.trim()
+      if (t) refs.add(t)
+    }
+    for (const q of survey.questions) {
+      if (q.is_mandatory && q.mandatory_law) {
+        refs.add(q.mandatory_law.replace(/_/g, ' '))
+      }
+    }
+    return [...refs]
+  }, [templateRow, survey.questions])
 
   const audienceLabel = useMemo(() => {
     if (!s) return ''
@@ -2179,16 +2217,6 @@ export function SurveyDetailView({ supabase }: Props) {
                 <span className="hidden sm:inline">Eksporter rapport</span>
               </Button>
             )}
-            {survey.canManage && (s.status as string) === 'planlagt' && (
-              <Button
-                type="button"
-                variant="primary"
-                onClick={() => void survey.publishSurvey(s.id)}
-              >
-                <Play className="h-4 w-4" aria-hidden />
-                <span className="hidden sm:inline">Start nå</span>
-              </Button>
-            )}
           </div>
         }
         loading={false}
@@ -2314,13 +2342,23 @@ export function SurveyDetailView({ supabase }: Props) {
 
           {tab === 'resultater' && (
             <div className="space-y-6">
-              <ResultaterDesignSection survey={survey} s={s} easy={easy} />
-              <SvarTab survey={survey} s={s} nameByUserId={nameByUserId} onOpenResponse={openResponsePanel} />
-              {!easy && survey.responses.length > 0 && (
-                <div className="border-t border-neutral-200 pt-6">
-                  <h3 className="mb-4 text-sm font-semibold text-neutral-800">Detaljert analyse</h3>
-                  <SurveyAnalyseTab survey={survey} s={s} supabase={supabase} />
-                </div>
+              {s.is_anonymous && survey.responses.length > 0 && survey.responses.length < s.anonymity_threshold ? (
+                <WarningBox>
+                  Kun {survey.responses.length} av {s.anonymity_threshold} påkrevde svar mottatt. Resultater vises ikke
+                  for anonyme undersøkelser under anonymitetsterskelen ({s.anonymity_threshold} svar) for å beskytte
+                  respondentenes identitet. Vent til terskelen er nådd.
+                </WarningBox>
+              ) : (
+                <>
+                  <ResultaterDesignSection survey={survey} s={s} easy={easy} />
+                  <SvarTab survey={survey} s={s} nameByUserId={nameByUserId} onOpenResponse={openResponsePanel} />
+                  {!easy && survey.responses.length > 0 && (
+                    <div className="border-t border-neutral-200 pt-6">
+                      <h3 className="mb-4 text-sm font-semibold text-neutral-800">Detaljert analyse</h3>
+                      <SurveyAnalyseTab survey={survey} s={s} supabase={supabase} />
+                    </div>
+                  )}
+                </>
               )}
             </div>
           )}
