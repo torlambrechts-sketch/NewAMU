@@ -150,11 +150,10 @@ function fmtTimeShort(iso: string | null): string {
   return d.toLocaleTimeString('nb-NO', { hour: '2-digit', minute: '2-digit' })
 }
 
-function daysUntil(iso: string | null): number | null {
+function daysUntil(iso: string | null, now: number): number | null {
   if (!iso) return null
   const t = new Date(iso).getTime()
   if (Number.isNaN(t)) return null
-  const now = Date.now()
   return Math.max(0, Math.ceil((t - now) / (1000 * 60 * 60 * 24)))
 }
 
@@ -200,20 +199,15 @@ function ProgressBar({
   )
 }
 
-function ConfirmationDots({ confirmed, total }: { confirmed: number; total: number }) {
-  const cap = Math.min(total, 10)
-  const dots = Array.from({ length: cap }).map((_, i) => i < confirmed)
+function ParticipantsCount({ count }: { count: number }) {
+  // Hub list query doesn't include attendee rows, so we can only show the
+  // initially-planned participant count (snapshot from meeting creation).
+  // The actual confirmed/declined breakdown lives on the detail view.
+  if (count === 0) return <span className="text-[10px] text-neutral-400">Ingen deltakere</span>
   return (
-    <span className="inline-flex items-center gap-0.5">
-      {dots.map((on, i) => (
-        <span
-          key={i}
-          className={['h-1.5 w-1.5 rounded-full', on ? 'bg-[#1a3d32]' : 'bg-neutral-200'].join(' ')}
-        />
-      ))}
-      <span className="ml-1 text-[10px] tabular-nums text-neutral-600">
-        {confirmed}/{total}
-      </span>
+    <span className="inline-flex items-center gap-1 text-[10px] tabular-nums text-neutral-600">
+      <span className="h-1.5 w-1.5 rounded-full bg-[#1a3d32]" aria-hidden />
+      {count} {count === 1 ? 'deltaker' : 'deltakere'}
     </span>
   )
 }
@@ -319,12 +313,9 @@ export interface MeetingsHubViewProps {
   tabs?: ReactNode
   /** When true, the orchestrator owns the shell — render body only. */
   bodyOnly?: boolean
-  /** Suppress the in-header "Innstillinger" shortcut. */
-  hideAdminNav?: boolean
 }
 
-export function MeetingsHubView({ tabs, bodyOnly = false, hideAdminNav = false }: MeetingsHubViewProps) {
-  void hideAdminNav
+export function MeetingsHubView({ tabs, bodyOnly = false }: MeetingsHubViewProps) {
   const meetings = useMeetings()
   const orgSetup = useOrgSetupContext()
   const orgHeadcount = orgSetup.members?.length ?? 0
@@ -337,6 +328,9 @@ export function MeetingsHubView({ tabs, bodyOnly = false, hideAdminNav = false }
   const [tab, setTab] = useState<'meetings' | 'maler' | 'statistikk'>('meetings')
   const [view, setView] = useState<ViewMode>('tabell')
   const [search, setSearch] = useState('')
+  // Capture "now" once per mount via lazy init so every per-render
+  // daysUntil() and "late-invite" check uses the same anchor (purity rule).
+  const [now] = useState<number>(() => Date.now())
   const [createOpen, setCreateOpen] = useState(false)
   const [presetTemplateId, setPresetTemplateId] = useState<string | null>(null)
 
@@ -394,12 +388,12 @@ export function MeetingsHubView({ tabs, bodyOnly = false, hideAdminNav = false }
       if (!hasMandatory) return false
       // Heuristic: no invitation sent and we're inside the lead window.
       if (!m.invitation_sent_at && m.scheduled_at) {
-        const days = daysUntil(m.scheduled_at)
+        const days = daysUntil(m.scheduled_at, now)
         if (days !== null && days <= (snap.invitationLeadDays ?? 7)) return true
       }
       return false
     }).length
-  }, [meetings.meetings])
+  }, [meetings.meetings, now])
 
   const frameworkAggregates = useMemo(
     () => computeFrameworkAggregates(meetings.meetings, meetings.templates),
@@ -459,6 +453,7 @@ export function MeetingsHubView({ tabs, bodyOnly = false, hideAdminNav = false }
         frameworkAggregates={frameworkAggregates}
         minutesOnTime={minutesOnTime}
         legalAlerts={legalAlerts}
+        now={now}
       />
 
       {/* RIGHT */}
@@ -481,7 +476,7 @@ export function MeetingsHubView({ tabs, bodyOnly = false, hideAdminNav = false }
                 />
                 <StandardInput
                   className="w-52 bg-neutral-50 py-1.5 pl-7 pr-2 text-xs"
-                  placeholder="Søk i tittel, sted, deltakere…"
+                  placeholder="Søk i tittel, sted…"
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
                 />
@@ -522,6 +517,7 @@ export function MeetingsHubView({ tabs, bodyOnly = false, hideAdminNav = false }
                 meetings={filteredMeetings}
                 templates={meetings.templates}
                 onOpen={(m) => navigate(`/meetings/${m.id}`)}
+                now={now}
               />
             ) : tab === 'maler' ? (
               <MtgMalerTable
@@ -537,6 +533,7 @@ export function MeetingsHubView({ tabs, bodyOnly = false, hideAdminNav = false }
                 meetings={meetings.meetings}
                 aggregates={frameworkAggregates}
                 minutesOnTime={minutesOnTime}
+                now={now}
               />
             )}
           </div>
@@ -612,6 +609,7 @@ function FrameworkRail({
   frameworkAggregates,
   minutesOnTime,
   legalAlerts,
+  now,
 }: {
   framework: string
   setFramework: (v: string) => void
@@ -623,6 +621,7 @@ function FrameworkRail({
   onOpenUpcoming: (meetingId: string) => void
   frameworkAggregates: FrameworkAggregate[]
   minutesOnTime: number
+  now: number
   legalAlerts: number
 }) {
   return (
@@ -672,10 +671,18 @@ function FrameworkRail({
         ) : (
           <ul className="mt-2.5 space-y-2">
             {upcoming.map((m) => {
-              const days = daysUntil(m.scheduled_at)
+              const days = daysUntil(m.scheduled_at, now)
               const snap = m.definition_snapshot
-              const missingAgenda =
-                !snap?.agendaItems?.length || !snap.agendaItems.some((a) => a.isMandatory === false)
+              // "Sjekk innkalling" — the hub list doesn't load child rows so
+              // we can't tell whether agenda items exist for real. Instead we
+              // flag meetings inside the invitation lead window with no
+              // invitation sent yet (matches the legalAlerts heuristic).
+              const leadDays = snap?.invitationLeadDays ?? 7
+              const inviteLate =
+                m.status === 'planned' &&
+                !m.invitation_sent_at &&
+                days !== null &&
+                days <= leadDays
               return (
                 <li key={m.id}>
                   <Button
@@ -697,9 +704,9 @@ function FrameworkRail({
                     <div className="mt-0.5 text-[10px] tabular-nums text-neutral-500">
                       {fmtDateTime(m.scheduled_at)}
                     </div>
-                    {missingAgenda ? (
+                    {inviteLate ? (
                       <div className="mt-1.5 inline-flex items-center gap-1 rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold text-amber-900">
-                        <AlertTriangle className="h-2.5 w-2.5" aria-hidden /> Sjekk agenda
+                        <AlertTriangle className="h-2.5 w-2.5" aria-hidden /> Mangler innkalling
                       </div>
                     ) : null}
                   </Button>
@@ -878,12 +885,15 @@ function MtgList({
   meetings,
   templates,
   onOpen,
+  now,
 }: {
   view: ViewMode
   meetings: MeetingRow[]
   templates: ResolvedMeetingTemplate[]
   onOpen: (m: MeetingRow) => void
+  now: number
 }) {
+  const lookupTpl = useTemplateLookup(templates)
   if (meetings.length === 0) {
     return (
       <div className="px-5 py-12 text-center text-sm text-neutral-500">
@@ -891,26 +901,42 @@ function MtgList({
       </div>
     )
   }
-  if (view === 'tabell') return <MtgTable meetings={meetings} templates={templates} onOpen={onOpen} />
-  if (view === 'bokser') return <MtgBoxes meetings={meetings} templates={templates} onOpen={onOpen} />
+  if (view === 'tabell') return <MtgTable meetings={meetings} lookupTpl={lookupTpl} onOpen={onOpen} />
+  if (view === 'bokser') return <MtgBoxes meetings={meetings} lookupTpl={lookupTpl} onOpen={onOpen} now={now} />
   if (view === 'tidslinje')
-    return <MtgTimeline meetings={meetings} templates={templates} onOpen={onOpen} />
-  return <MtgKanban meetings={meetings} templates={templates} onOpen={onOpen} />
+    return <MtgTimeline meetings={meetings} lookupTpl={lookupTpl} onOpen={onOpen} />
+  return <MtgKanban meetings={meetings} lookupTpl={lookupTpl} onOpen={onOpen} />
 }
 
-function templateForMeeting(
-  m: MeetingRow,
+type TemplateLookup = (m: MeetingRow) => ResolvedMeetingTemplate | null
+
+/** Build a O(1) lookup map keyed by system + org template id. The four
+ *  view-mode components iterate hundreds of meetings on every render —
+ *  building the map once per render is much cheaper than .find() per row. */
+function useTemplateLookup(
   templates: ResolvedMeetingTemplate[],
-): ResolvedMeetingTemplate | null {
-  if (m.system_template_id) {
-    const t = templates.find((tt) => tt.systemTemplateId === m.system_template_id)
-    if (t) return t
-  }
-  if (m.org_template_id) {
-    const t = templates.find((tt) => tt.orgTemplateId === m.org_template_id)
-    if (t) return t
-  }
-  return null
+): (m: MeetingRow) => ResolvedMeetingTemplate | null {
+  const map = useMemo(() => {
+    const m = new Map<string, ResolvedMeetingTemplate>()
+    for (const t of templates) {
+      if (t.systemTemplateId) m.set(`sys:${t.systemTemplateId}`, t)
+      if (t.orgTemplateId) m.set(`org:${t.orgTemplateId}`, t)
+    }
+    return m
+  }, [templates])
+  return useMemo(() => {
+    return (m: MeetingRow) => {
+      if (m.system_template_id) {
+        const hit = map.get(`sys:${m.system_template_id}`)
+        if (hit) return hit
+      }
+      if (m.org_template_id) {
+        const hit = map.get(`org:${m.org_template_id}`)
+        if (hit) return hit
+      }
+      return null
+    }
+  }, [map])
 }
 
 const TABLE_TH =
@@ -920,11 +946,11 @@ const TABLE_TR =
 
 function MtgTable({
   meetings,
-  templates,
+  lookupTpl,
   onOpen,
 }: {
   meetings: MeetingRow[]
-  templates: ResolvedMeetingTemplate[]
+  lookupTpl: TemplateLookup
   onOpen: (m: MeetingRow) => void
 }) {
   return (
@@ -943,7 +969,7 @@ function MtgTable({
         </thead>
         <tbody>
           {meetings.map((m) => {
-            const tpl = templateForMeeting(m, templates)
+            const tpl = lookupTpl(m)
             const issues = computeMeetingIssues(m)
             const participants = m.participant_member_ids?.length ?? 0
             return (
@@ -951,6 +977,15 @@ function MtgTable({
                 key={m.id}
                 className={`${TABLE_TR} cursor-pointer`}
                 onClick={() => onOpen(m)}
+                tabIndex={0}
+                role="link"
+                aria-label={`Åpne ${m.title}`}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault()
+                    onOpen(m)
+                  }
+                }}
               >
                 <td className="px-5 py-3">
                   <div className="flex items-center gap-2.5">
@@ -989,7 +1024,7 @@ function MtgTable({
                   <MtgStatusPill status={m.status} />
                 </td>
                 <td className="px-5 py-3">
-                  <ConfirmationDots confirmed={participants} total={Math.max(participants, 1)} />
+                  <ParticipantsCount count={participants} />
                 </td>
                 <td className="px-5 py-3">
                   <FrameworkPill framework={meetingFramework(m)} />
@@ -1036,18 +1071,20 @@ function computeMeetingIssues(m: MeetingRow): string[] {
 
 function MtgBoxes({
   meetings,
-  templates,
+  lookupTpl,
   onOpen,
+  now,
 }: {
   meetings: MeetingRow[]
-  templates: ResolvedMeetingTemplate[]
+  lookupTpl: TemplateLookup
   onOpen: (m: MeetingRow) => void
+  now: number
 }) {
   return (
     <div className="grid grid-cols-1 gap-3 p-4 sm:grid-cols-2 lg:grid-cols-3">
       {meetings.map((m) => {
-        const tpl = templateForMeeting(m, templates)
-        const days = daysUntil(m.scheduled_at)
+        const tpl = lookupTpl(m)
+        const days = daysUntil(m.scheduled_at, now)
         const participants = m.participant_member_ids?.length ?? 0
         const hasMinutes = !!m.protocol_signed_at
         const hasAgenda = (m.definition_snapshot?.agendaItems?.length ?? 0) > 0
@@ -1055,7 +1092,16 @@ function MtgBoxes({
           <article
             key={m.id}
             onClick={() => onOpen(m)}
-            className="cursor-pointer rounded-xl border border-neutral-200/80 bg-white p-4 transition-all hover:border-[#1a3d32]/40 hover:shadow-md k-card-shadow"
+            tabIndex={0}
+            role="link"
+            aria-label={`Åpne ${m.title}`}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault()
+                onOpen(m)
+              }
+            }}
+            className="cursor-pointer rounded-xl border border-neutral-200/80 bg-white p-4 transition-all hover:border-[#1a3d32]/40 hover:shadow-md k-card-shadow focus:outline-none focus:ring-2 focus:ring-[#1a3d32]/40"
           >
             <div className="flex items-start gap-3">
               <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[#e7efe9] text-[#1a3d32]">
@@ -1106,7 +1152,7 @@ function MtgBoxes({
             </div>
 
             <div className="mt-3 flex items-center justify-between border-t border-neutral-100 pt-2.5 text-[11px]">
-              <ConfirmationDots confirmed={participants} total={Math.max(participants, 1)} />
+              <ParticipantsCount count={participants} />
               <div className="flex items-center gap-1.5 text-neutral-500">
                 <ListChecks
                   className={['h-3 w-3', hasAgenda ? 'text-green-600' : 'text-amber-500'].join(' ')}
@@ -1133,11 +1179,11 @@ function MtgBoxes({
 
 function MtgTimeline({
   meetings,
-  templates,
+  lookupTpl,
   onOpen,
 }: {
   meetings: MeetingRow[]
-  templates: ResolvedMeetingTemplate[]
+  lookupTpl: TemplateLookup
   onOpen: (m: MeetingRow) => void
 }) {
   const sorted = [...meetings].sort((a, b) => {
@@ -1187,7 +1233,7 @@ function MtgTimeline({
               </div>
               <ol className="relative border-l-2 border-neutral-200 pl-5">
                 {list.map((m) => {
-                  const tpl = templateForMeeting(m, templates)
+                  const tpl = lookupTpl(m)
                   const d = new Date(m.scheduled_at!)
                   return (
                     <li key={m.id} className="relative mb-2.5 last:mb-0">
@@ -1269,11 +1315,11 @@ function MtgTimeline({
 
 function MtgKanban({
   meetings,
-  templates,
+  lookupTpl,
   onOpen,
 }: {
   meetings: MeetingRow[]
-  templates: ResolvedMeetingTemplate[]
+  lookupTpl: TemplateLookup
   onOpen: (m: MeetingRow) => void
 }) {
   const buckets: Record<MeetingStatus, MeetingRow[]> = {
@@ -1283,7 +1329,10 @@ function MtgKanban({
     cancelled: [],
   }
   for (const m of meetings) {
-    buckets[m.status].push(m)
+    // Defensive: if a future status leaks past the zod parser, drop it
+    // in `planned` rather than crashing on `undefined.push()`.
+    const bucket = buckets[m.status] ?? buckets.planned
+    bucket.push(m)
   }
 
   return (
@@ -1311,13 +1360,22 @@ function MtgKanban({
                 </div>
               ) : (
                 items.map((m) => {
-                  const tpl = templateForMeeting(m, templates)
+                  const tpl = lookupTpl(m)
                   const participants = m.participant_member_ids?.length ?? 0
                   return (
                     <article
                       key={m.id}
                       onClick={() => onOpen(m)}
-                      className="cursor-pointer rounded-md border border-neutral-200/80 bg-white p-2.5 hover:border-[#1a3d32]/40 hover:shadow-sm k-card-shadow"
+                      tabIndex={0}
+                      role="link"
+                      aria-label={`Åpne ${m.title}`}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          e.preventDefault()
+                          onOpen(m)
+                        }
+                      }}
+                      className="cursor-pointer rounded-md border border-neutral-200/80 bg-white p-2.5 hover:border-[#1a3d32]/40 hover:shadow-sm k-card-shadow focus:outline-none focus:ring-2 focus:ring-[#1a3d32]/40"
                     >
                       <div className="flex items-start gap-2">
                         <Calendar className="mt-0.5 h-3 w-3 shrink-0 text-neutral-500" aria-hidden />
@@ -1337,10 +1395,7 @@ function MtgKanban({
                       </div>
                       <div className="mt-1.5 flex items-center justify-between text-[10px]">
                         <FrameworkPill framework={meetingFramework(m)} />
-                        <ConfirmationDots
-                          confirmed={participants}
-                          total={Math.max(participants, 1)}
-                        />
+                        <ParticipantsCount count={participants} />
                       </div>
                     </article>
                   )
@@ -1482,19 +1537,24 @@ function MtgStatistikk({
   meetings,
   aggregates,
   minutesOnTime,
+  now,
 }: {
   meetings: MeetingRow[]
   aggregates: FrameworkAggregate[]
   minutesOnTime: number
+  now: number
 }) {
   const totalHeld = aggregates.reduce((a, b) => a + b.held, 0)
   const totalRequired = aggregates.reduce((a, b) => a + b.required, 0)
   const overall = totalRequired ? totalHeld / totalRequired : 0
   const quorumRate = computeQuorumRate(meetings)
   const overdueDecisions = computeOverdueDecisions(meetings)
-  const perMonth = computeMonthlyHistogram(meetings)
+  const perMonth = computeMonthlyHistogram(meetings, now)
   const maxMonth = Math.max(1, ...perMonth)
-  const monthLabels = ['Apr', 'Mai', 'Jun', 'Jul', 'Aug', 'Sep', 'Okt', 'Nov', 'Des', 'Jan', 'Feb', 'Mar']
+  // Rolling 12-month labels ending on the current month — rotates with
+  // wall clock so the chart matches "last 12 months" regardless of when
+  // the page is opened.
+  const monthLabels = computeMonthLabels(now)
 
   return (
     <div className="p-5">
@@ -1637,8 +1697,8 @@ function KpiTile({
   )
 }
 
-function computeMonthlyHistogram(meetings: MeetingRow[]): number[] {
-  const now = new Date()
+function computeMonthlyHistogram(meetings: MeetingRow[], nowMs: number): number[] {
+  const now = new Date(nowMs)
   const buckets = new Array(12).fill(0)
   for (const m of meetings) {
     if (!m.scheduled_at) continue
@@ -1649,6 +1709,22 @@ function computeMonthlyHistogram(meetings: MeetingRow[]): number[] {
     buckets[11 - months] += 1
   }
   return buckets
+}
+
+const MONTH_NAMES_NB = [
+  'Jan', 'Feb', 'Mar', 'Apr', 'Mai', 'Jun',
+  'Jul', 'Aug', 'Sep', 'Okt', 'Nov', 'Des',
+]
+
+function computeMonthLabels(nowMs: number): string[] {
+  // 12-month rolling labels — index 0 is "11 months ago", index 11 is "this month".
+  const now = new Date(nowMs)
+  const labels: string[] = []
+  for (let i = 11; i >= 0; i--) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1)
+    labels.push(MONTH_NAMES_NB[d.getMonth()])
+  }
+  return labels
 }
 
 function computeQuorumRate(meetings: MeetingRow[]): number {
@@ -1734,8 +1810,7 @@ function CreateMeetingSlidePanel({
     [meetings.templates, templateId],
   )
 
-  async function handleCreate(e: FormEvent) {
-    e.preventDefault()
+  async function submit() {
     if (busy || !templateId || !title.trim()) return
     setBusy(true)
     try {
@@ -1759,6 +1834,11 @@ function CreateMeetingSlidePanel({
     }
   }
 
+  async function handleSubmit(e: FormEvent) {
+    e.preventDefault()
+    await submit()
+  }
+
   return (
     <SlidePanel
       open={open}
@@ -1773,9 +1853,7 @@ function CreateMeetingSlidePanel({
           <Button
             variant="primary"
             type="button"
-            onClick={() => {
-              void handleCreate(new Event('submit') as unknown as FormEvent)
-            }}
+            onClick={() => void submit()}
             disabled={busy || !templateId || !title.trim()}
           >
             Opprett
@@ -1785,7 +1863,7 @@ function CreateMeetingSlidePanel({
     >
       <form
         onSubmit={(e) => {
-          void handleCreate(e)
+          void handleSubmit(e)
         }}
         className="space-y-5"
       >

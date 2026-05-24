@@ -220,7 +220,14 @@ export function MeetingsDetailView() {
     agendaItems: meetings.detail.agendaItems,
   })
 
-  // Auto-fill bindings into snapshots once per meeting open.
+  // Auto-fill bindings into snapshots once per meeting open. Guards:
+  //   - ref-gate per meeting id (don't re-run on every render)
+  //   - signed meetings never auto-fill (the snapshot is part of the hash)
+  //   - only fills snapshots / minutes that are still empty (preserves edits)
+  //   - skips placeholder resolvers (snap.error set)
+  //   - re-checks the meeting id before each write (rapid back-button
+  //     into a different meeting must NOT write to the new meeting's items)
+  //   - bails on first error so a sign-in-flight collision surfaces cleanly
   const autoFilledRef = useRef<string | null>(null)
   useEffect(() => {
     const m = meetings.detail.meeting
@@ -229,17 +236,32 @@ export function MeetingsDetailView() {
     if (meetings.detail.agendaItems.length === 0) return
     if (bindings.resolvedByAgendaItemId.size === 0) return
     if (bindings.loading) return
-    autoFilledRef.current = m.id
+    const meetingId = m.id
+    autoFilledRef.current = meetingId
     void (async () => {
-      for (const item of meetings.detail.agendaItems) {
-        const snap = bindings.resolvedByAgendaItemId.get(item.id)
-        if (!snap) continue
-        if (!item.binding_snapshot) {
-          await meetings.writeBindingSnapshot(item.id, snap)
+      try {
+        for (const item of meetings.detail.agendaItems) {
+          // Bail if the detail view switched to a different meeting mid-loop.
+          if (meetings.detail.meeting?.id !== meetingId) return
+          // Bail if someone signed the protocol while we were iterating.
+          if (meetings.detail.meeting?.protocol_signed_at) return
+          const snap = bindings.resolvedByAgendaItemId.get(item.id)
+          if (!snap) continue
+          if (!item.binding_snapshot) {
+            const ok = await meetings.writeBindingSnapshot(item.id, snap)
+            if (!ok) return
+          }
+          if (!item.minutes_summary?.trim() && !snap.error) {
+            const ok = await meetings.setAgendaMinutes(item.id, {
+              minutesSummary: snap.summaryMarkdown,
+            })
+            if (!ok) return
+          }
         }
-        if (!item.minutes_summary?.trim() && !snap.error) {
-          await meetings.setAgendaMinutes(item.id, { minutesSummary: snap.summaryMarkdown })
-        }
+      } catch {
+        // Concurrent edit / sign races land here — clear the ref so a
+        // subsequent reopen has a fresh attempt.
+        autoFilledRef.current = null
       }
     })()
   }, [
@@ -342,12 +364,15 @@ export function MeetingsDetailView() {
         <Button
           variant="primary"
           icon={<Check className="h-4 w-4" />}
-          onClick={() =>
-            void meetings.updateMeeting(meeting.id, {
+          onClick={async () => {
+            // Close the live session row first so MeetingLivePage's
+            // recovery flow doesn't see a zombie when next opened.
+            await meetings.endLiveSession(meeting.id)
+            await meetings.updateMeeting(meeting.id, {
               status: 'completed',
               completed_at: new Date().toISOString(),
             })
-          }
+          }}
         >
           Avslutt og skriv referat
         </Button>
@@ -482,8 +507,16 @@ export function MeetingsDetailView() {
           <span className="inline-flex items-center gap-1.5">
             <Users className="h-3.5 w-3.5 text-neutral-400" aria-hidden />
             <span className="tabular-nums">
-              {meetings.detail.attendees.filter((a) => a.rsvp_status === 'accepted').length}/
-              {Math.max(meetings.detail.attendees.length, meeting.participant_member_ids?.length ?? 0)}
+              {/* Use the roster (`attendees.length`) as the denominator —
+                  it's the post-invite headcount the chair manages.
+                  `participant_member_ids` is the initial planned list
+                  from creation time and stops updating after invites
+                  are added/removed from the panel. */}
+              {meetings.detail.attendees.filter((a) =>
+                meeting.status === 'planned'
+                  ? a.rsvp_status === 'accepted'
+                  : a.present === true,
+              ).length}/{meetings.detail.attendees.length}
             </span>
           </span>
         </div>
@@ -553,7 +586,6 @@ export function MeetingsDetailView() {
               tpl={tpl}
               items={meetings.detail.agendaItems}
               memberById={memberById}
-              memberOptions={memberOptions}
               locked={isLocked}
               canManage={meetings.canManage}
               priorOpenDecisions={meetings.detail.priorOpenDecisions}
@@ -568,7 +600,13 @@ export function MeetingsDetailView() {
               onRemove={(id) => void meetings.removeAgendaItem(id)}
               onReorder={(orderedIds) => void meetings.reorderAgendaItems(meeting.id, orderedIds)}
               onSendAgenda={() =>
-                void meetings.sendInvitations({ meetingId: meeting.id, mode: 'initial' })
+                // Pick mode based on whether innkalling is already on file —
+                // re-stamping `invitation_sent_at` after the chair already
+                // sent the initial round breaks the "X dager før" warning.
+                void meetings.sendInvitations({
+                  meetingId: meeting.id,
+                  mode: meeting.invitation_sent_at ? 'reminder' : 'initial',
+                })
               }
               onJumpToStatistikk={() => setTab('statistikk')}
             />
@@ -580,7 +618,6 @@ export function MeetingsDetailView() {
               tpl={tpl}
               attendees={meetings.detail.attendees}
               memberById={memberById}
-              memberOptions={memberOptions}
               canManage={meetings.canManage}
               onInvite={() => setInviteOpen(true)}
               onSetRsvp={meetings.setRsvp}
@@ -606,6 +643,7 @@ export function MeetingsDetailView() {
           {tab === 'vedtak' ? (
             <VedtakTabPanel
               meeting={meeting}
+              agendaItems={meetings.detail.agendaItems}
               decisions={meetings.detail.decisions}
               actionItems={meetings.detail.actionItems}
               priorOpenDecisions={meetings.detail.priorOpenDecisions}
@@ -614,6 +652,9 @@ export function MeetingsDetailView() {
               canManage={meetings.canManage}
               onAddAction={meetings.addActionItem}
               onSetActionStatus={meetings.setActionItemStatus}
+              onSaveMinorityDissent={(itemId, text) =>
+                meetings.setAgendaMinutes(itemId, { minorityDissentText: text })
+              }
             />
           ) : null}
 
@@ -869,7 +910,6 @@ function AgendaTabPanel({
   tpl,
   items,
   memberById,
-  memberOptions: _memberOptions,
   locked,
   canManage,
   priorOpenDecisions,
@@ -884,7 +924,6 @@ function AgendaTabPanel({
   tpl: ResolvedMeetingTemplate | null
   items: MeetingAgendaItemRow[]
   memberById: Map<string, string>
-  memberOptions: Array<{ value: string; label: string }>
   locked: boolean
   canManage: boolean
   priorOpenDecisions: Array<{ id: string; decision_text: string; meeting_title: string }>
@@ -895,7 +934,6 @@ function AgendaTabPanel({
   onSendAgenda: () => void
   onJumpToStatistikk: () => void
 }) {
-  void _memberOptions
   const ordered = useMemo(() => items.slice().sort((a, b) => a.position - b.position), [items])
   const totalMin = ordered.reduce((a, x) => a + (x.duration_minutes ?? 0), 0)
   const plannedWindowMin = (() => {
@@ -1044,7 +1082,11 @@ function AgendaTabPanel({
                     </div>
                     {!locked && canManage ? (
                       <div className="flex shrink-0 items-center gap-0.5 self-start">
-                        {idx > 0 ? (
+                        {/* Mandatory template items have a fixed position
+                            baked into the snapshot — letting the chair
+                            reorder them defeats template integrity for
+                            audits. Only manual items can be moved. */}
+                        {!item.is_mandatory && idx > 0 ? (
                           <Button
                             variant="ghost"
                             size="icon"
@@ -1055,7 +1097,7 @@ function AgendaTabPanel({
                             <ListTodo className="h-3.5 w-3.5 rotate-180" aria-hidden />
                           </Button>
                         ) : null}
-                        {idx < ordered.length - 1 ? (
+                        {!item.is_mandatory && idx < ordered.length - 1 ? (
                           <Button
                             variant="ghost"
                             size="icon"
@@ -1183,7 +1225,7 @@ function AgendaTabPanel({
 
         {/* Related docs from agenda attachments — surfaces wiki/document refs
             attached to any agenda item on this meeting. */}
-        <RelatedDocsSidebar meetingId={meeting.id} agendaItems={ordered} locked={locked} />
+        <RelatedDocsSidebar agendaItems={ordered} />
       </aside>
     </div>
   )
@@ -1192,16 +1234,10 @@ function AgendaTabPanel({
 // Related-docs sidebar — surfaces agenda items with law_refs or
 // binding_snapshots as references the chair should have at hand.
 function RelatedDocsSidebar({
-  meetingId: _meetingId,
   agendaItems,
-  locked: _locked,
 }: {
-  meetingId: string
   agendaItems: MeetingAgendaItemRow[]
-  locked: boolean
 }) {
-  void _meetingId
-  void _locked
   const hits = useMemo(
     () =>
       agendaItems
@@ -1284,7 +1320,6 @@ function DeltakereTabPanel({
   tpl,
   attendees,
   memberById,
-  memberOptions: _memberOptions,
   canManage,
   onInvite,
   onSetRsvp,
@@ -1293,12 +1328,10 @@ function DeltakereTabPanel({
   tpl: ResolvedMeetingTemplate | null
   attendees: MeetingAttendeeRow[]
   memberById: Map<string, string>
-  memberOptions: Array<{ value: string; label: string }>
   canManage: boolean
   onInvite: () => void
   onSetRsvp: ReturnType<typeof useMeetings>['setRsvp']
 }) {
-  void _memberOptions
   const isConfidential = meeting.confidentiality_level !== 'standard'
   const isAmuLike = !!tpl?.definition?.minimumQuorum
   const grouped = useMemo(() => {
@@ -1315,21 +1348,38 @@ function DeltakereTabPanel({
   const chair = attendees.find((a) => a.role === 'chair')
   const secretary = attendees.find((a) => a.role === 'secretary')
 
-  // Local quorum heuristic — uses minimumQuorum value if defined, else uses RSVP accepted count.
-  const acceptedCount = attendees.filter((a) => a.rsvp_status === 'accepted').length
+  // Quorum tracker — once the meeting is `in_progress` or `completed` the
+  // chair records `present` per attendee, and that's the authoritative
+  // count. While the meeting is still `planned` we fall back to RSVP
+  // accepted so the chair can preview whether quorum is likely.
+  //
+  // The server-side `meeting_parity_check` RPC is the source of truth for
+  // signing; this local view is a chair-side preview only — see
+  // `ParityPanel.tsx` for the authoritative panel.
+  const stage: 'planned' | 'live' =
+    meeting.status === 'planned' ? 'planned' : 'live'
+  const countAttendee = (a: MeetingAttendeeRow): boolean =>
+    stage === 'live' ? a.present === true : a.rsvp_status === 'accepted'
+  const presentCount = attendees.filter(countAttendee).length
   const employerCount = attendees.filter(
-    (a) => sideForAttendee(a) === 'employer' && a.rsvp_status === 'accepted' && isVotingRole(a.role),
+    (a) => sideForAttendee(a) === 'employer' && countAttendee(a) && isVotingRole(a.role),
   ).length
   const employeeCount = attendees.filter(
-    (a) => sideForAttendee(a) === 'employee' && a.rsvp_status === 'accepted' && isVotingRole(a.role),
+    (a) => sideForAttendee(a) === 'employee' && countAttendee(a) && isVotingRole(a.role),
   ).length
-  const quorumNeeded =
-    tpl?.definition?.minimumQuorum?.kind === 'count'
-      ? tpl.definition.minimumQuorum.value
-      : 4
+  const totalVotingMembers = attendees.filter((a) => isVotingRole(a.role)).length
+  // Quorum: prefer the template's minimumQuorum spec; both 'count' and
+  // 'percent' kinds are honoured. Default to 4 (AML § 7-2 minimum AMU size).
+  const quorumNeeded = (() => {
+    const q = tpl?.definition?.minimumQuorum
+    if (!q) return 4
+    if (q.kind === 'count') return q.value
+    if (q.kind === 'percent') return Math.ceil((q.value / 100) * Math.max(1, totalVotingMembers))
+    return 4
+  })()
   const balanced = employerCount === employeeCount
   const quorumOK = isAmuLike
-    ? acceptedCount >= quorumNeeded && employerCount > 0 && employeeCount > 0
+    ? presentCount >= quorumNeeded && employerCount > 0 && employeeCount > 0
     : meeting.quorum_met !== false
 
   return (
@@ -1366,7 +1416,7 @@ function DeltakereTabPanel({
                     quorumOK ? 'text-green-800' : 'text-red-800',
                   ].join(' ')}
                 >
-                  {acceptedCount} stemmeberettigede til stede ({employerCount} fra arbeidsgiver ·{' '}
+                  {presentCount} stemmeberettigede {stage === 'live' ? 'til stede' : 'bekreftet'} ({employerCount} fra arbeidsgiver ·{' '}
                   {employeeCount} fra arbeidstaker). Minimum {quorumNeeded}. Like mange fra hver side:{' '}
                   {balanced ? 'Ja' : 'Nei'}.
                 </p>
@@ -1493,9 +1543,9 @@ function DeltakereTabPanel({
               </dd>
             </li>
             <li className="flex justify-between">
-              <dt className="text-neutral-500">Bekreftet</dt>
+              <dt className="text-neutral-500">{stage === 'live' ? 'Til stede' : 'Bekreftet'}</dt>
               <dd className="font-medium tabular-nums text-neutral-900">
-                {acceptedCount}/{attendees.length}
+                {presentCount}/{attendees.length}
               </dd>
             </li>
           </ul>
@@ -1716,6 +1766,11 @@ function StatistikkTabPanel({
           >
             Oppdater
           </Button>
+          <Link to={`/meetings/${meeting.id}/eksport`}>
+            <Button variant="secondary" size="sm" icon={<Download className="h-3 w-3" />}>
+              Eksporter
+            </Button>
+          </Link>
         </div>
       </div>
 
@@ -2017,6 +2072,7 @@ function Sparkline({ data }: { data: Array<Record<string, unknown>> }) {
 
 function VedtakTabPanel({
   meeting,
+  agendaItems,
   decisions,
   actionItems,
   priorOpenDecisions,
@@ -2025,8 +2081,10 @@ function VedtakTabPanel({
   canManage,
   onAddAction,
   onSetActionStatus,
+  onSaveMinorityDissent,
 }: {
   meeting: MeetingRow
+  agendaItems: MeetingAgendaItemRow[]
   decisions: MeetingDecisionRow[]
   actionItems: MeetingActionItemRow[]
   priorOpenDecisions: Array<{
@@ -2042,15 +2100,13 @@ function VedtakTabPanel({
   canManage: boolean
   onAddAction: ReturnType<typeof useMeetings>['addActionItem']
   onSetActionStatus: ReturnType<typeof useMeetings>['setActionItemStatus']
+  onSaveMinorityDissent: (agendaItemId: string, text: string | null) => Promise<boolean>
 }) {
   // Capture "now" once per mount via a lazy useState initialiser so the
   // render is deterministic between re-renders (purity rule).
   const [now] = useState<number>(() => Date.now())
 
-  const closedFromPrior: typeof priorOpenDecisions = []
   const openFromPrior = priorOpenDecisions
-
-  void closedFromPrior
   void meeting
 
   // Decisions made in THIS meeting, split by status.
@@ -2162,6 +2218,16 @@ function VedtakTabPanel({
             )}
           </ul>
         </div>
+
+        {/* Mindretallets standpunkt (Forskrift om org. ledelse § 3-16).
+            Lovpåkrevd protokollføring av mindretallets begrunnelse for hvert
+            agendapunkt der det er stemt mot eller avholdt seg. */}
+        <MinorityDissentSection
+          agendaItems={agendaItems}
+          locked={locked}
+          canManage={canManage}
+          onSave={onSaveMinorityDissent}
+        />
 
         {/* Action items / oppfølginger */}
         <div className="mt-5">
@@ -2288,6 +2354,139 @@ function VedtakTabPanel({
   )
 }
 
+// Mindretallets standpunkt — Forskrift om org. ledelse § 3-16 krever at
+// mindretallets begrunnelse protokollføres på hver avstemming der det er
+// stemt mot eller avholdt seg. Surfaces a textarea per agenda item with
+// recorded against/abstain votes.
+function MinorityDissentSection({
+  agendaItems,
+  locked,
+  canManage,
+  onSave,
+}: {
+  agendaItems: MeetingAgendaItemRow[]
+  locked: boolean
+  canManage: boolean
+  onSave: (agendaItemId: string, text: string | null) => Promise<boolean>
+}) {
+  // Find items where someone voted against or abstained — these need
+  // mindretallsbegrunnelse per § 3-16.
+  const itemsWithMinority = useMemo(
+    () =>
+      agendaItems
+        .filter(
+          (i) =>
+            (i.vote_against != null && i.vote_against > 0) ||
+            (i.vote_abstain != null && i.vote_abstain > 0),
+        )
+        .sort((a, b) => a.position - b.position),
+    [agendaItems],
+  )
+
+  if (itemsWithMinority.length === 0) return null
+
+  return (
+    <div className="mt-5">
+      <h4 className="text-xs font-bold uppercase tracking-wider text-neutral-500">
+        Mindretallets standpunkt ({itemsWithMinority.length})
+        <span className="ml-2 text-[10px] font-normal normal-case text-neutral-400">
+          Forskrift om org. ledelse § 3-16
+        </span>
+      </h4>
+      <p className="mt-1 text-[11px] text-neutral-500">
+        Lovpåkrevd protokollføring av mindretallets begrunnelse. Fyll inn for hver sak der det er
+        stemt mot eller avholdt seg.
+      </p>
+      <ul className="mt-2 space-y-2">
+        {itemsWithMinority.map((item) => (
+          <MinorityDissentEditor
+            key={item.id}
+            item={item}
+            locked={locked || !canManage}
+            onSave={onSave}
+          />
+        ))}
+      </ul>
+    </div>
+  )
+}
+
+function MinorityDissentEditor({
+  item,
+  locked,
+  onSave,
+}: {
+  item: MeetingAgendaItemRow
+  locked: boolean
+  onSave: (agendaItemId: string, text: string | null) => Promise<boolean>
+}) {
+  const [text, setText] = useState<string>(item.minority_dissent_text ?? '')
+  const [busy, setBusy] = useState(false)
+  const [saved, setSaved] = useState(false)
+
+  // Reset local state when the row is reloaded from the server.
+  const lastSnapshotRef = useRef<string | null>(item.minority_dissent_text ?? null)
+  if (lastSnapshotRef.current !== (item.minority_dissent_text ?? null) && !busy) {
+    lastSnapshotRef.current = item.minority_dissent_text ?? null
+    setText(item.minority_dissent_text ?? '')
+  }
+
+  async function handleSave() {
+    if (busy) return
+    setBusy(true)
+    setSaved(false)
+    try {
+      const next = text.trim() ? text : null
+      const ok = await onSave(item.id, next)
+      if (ok) setSaved(true)
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const hasContent = !!item.minority_dissent_text?.trim()
+
+  return (
+    <li className="rounded-md border border-neutral-200/80 bg-white p-3">
+      <div className="flex items-baseline justify-between gap-2">
+        <div className="min-w-0 flex-1">
+          <div className="text-sm font-medium text-neutral-900">{item.title}</div>
+          <div className="mt-0.5 flex flex-wrap items-center gap-2 text-[10px] tabular-nums text-neutral-500">
+            {item.vote_for != null ? <span>For: {item.vote_for}</span> : null}
+            {item.vote_against != null ? <span>Mot: {item.vote_against}</span> : null}
+            {item.vote_abstain != null ? <span>Avholdende: {item.vote_abstain}</span> : null}
+          </div>
+        </div>
+        {hasContent ? (
+          <Badge variant="signed">Protokollført</Badge>
+        ) : (
+          <Badge variant="warning">Mangler</Badge>
+        )}
+      </div>
+      <StandardTextarea
+        rows={3}
+        value={text}
+        onChange={(e) => setText(e.target.value)}
+        disabled={locked}
+        placeholder="Mindretallets begrunnelse — kort sammendrag av hvorfor stemt mot/avholdt."
+        className="mt-2"
+      />
+      <div className="mt-2 flex items-center justify-end gap-2">
+        {saved ? <span className="text-[10px] text-green-700">Lagret</span> : null}
+        <Button
+          variant="secondary"
+          size="sm"
+          icon={<Edit3 className="h-3 w-3" />}
+          onClick={() => void handleSave()}
+          disabled={locked || busy || text === (item.minority_dissent_text ?? '')}
+        >
+          Lagre
+        </Button>
+      </div>
+    </li>
+  )
+}
+
 function NewActionForm({
   onAdd,
   meetingId,
@@ -2388,7 +2587,11 @@ function ReferatTabPanel({
 }) {
   const ordered = useMemo(() => agendaItems.slice().sort((a, b) => a.position - b.position), [agendaItems])
   const hasMinutes = ordered.some((it) => it.minutes_summary && it.minutes_summary.trim())
-  const isDraft = !meeting.protocol_signed_at && (mandatoryGaps.length > 0 || !hasMinutes)
+  // "Draft" view (empty-state with seed CTA) only when NO minutes exist at
+  // all. Once the chair has started writing, render the full document even
+  // if some mandatory gaps remain — the sidebar checklist + signature
+  // warning already surface what's left to fill.
+  const isDraft = !meeting.protocol_signed_at && !hasMinutes
   const confirmedAttendees = attendees.filter((a) => a.rsvp_status === 'accepted')
   const chair = attendees.find((a) => a.role === 'chair')
   const secretary = attendees.find((a) => a.role === 'secretary')
