@@ -173,12 +173,24 @@ export function WikiPageView() {
   void toggleReaderWide
 
   const resolveMemberName = useCallback(
-    (uid: string) => orgProfiles.find((p) => p.id === uid)?.display_name ?? uid.slice(0, 8),
+    (uid: string | undefined | null) =>
+      (uid && orgProfiles.find((p) => p.id === uid)?.display_name) ??
+      (uid ? uid.slice(0, 8) : 'Ukjent'),
     [orgProfiles],
   )
 
   const [mode, setMode] = useState<DocsMode>('advanced')
   const easy = mode === 'easy'
+
+  /** Lightweight feedback banner for non-form actions (archive/delete/etc.). */
+  const [actionMsg, setActionMsg] = useState<{ tone: 'success' | 'error'; text: string } | null>(
+    null,
+  )
+  useEffect(() => {
+    if (!actionMsg) return
+    const id = window.setTimeout(() => setActionMsg(null), 6000)
+    return () => window.clearTimeout(id)
+  }, [actionMsg])
 
   const [backlinkIds, setBacklinkIds] = useState<string[]>([])
   const [accessReqBusy, setAccessReqBusy] = useState(false)
@@ -364,8 +376,11 @@ export function WikiPageView() {
   const confirmedPct = page && totalRequired ? confirmedCount / totalRequired : 0
 
   // Comments — counts for tab badge.
-  const openComments = comments.filter((c) => !c.deletedAt && !c.parentCommentId)
-  const totalComments = openComments.length
+  const topLevelComments = useMemo(
+    () => comments.filter((c) => !c.deletedAt && !c.parentCommentId),
+    [comments],
+  )
+  const totalComments = topLevelComments.length
 
   // Audit ledger entries for this page (with most-recent first)
   const pageLedger = useMemo<AuditLedgerEntry[]>(() => {
@@ -702,6 +717,14 @@ export function WikiPageView() {
         </>
       }
     >
+      {actionMsg ? (
+        actionMsg.tone === 'success' ? (
+          <InfoBox>{actionMsg.text}</InfoBox>
+        ) : (
+          <WarningBox>{actionMsg.text}</WarningBox>
+        )
+      ) : null}
+
       {/* Status strip */}
       <div
         className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-neutral-200/80 bg-white px-5 py-3"
@@ -832,8 +855,13 @@ export function WikiPageView() {
                 })
               }}
               onReply={async (parentId, body) => {
+                // Inherit blockIndex from the parent comment so reply threads
+                // stay attached to the same paragraph the original quote
+                // anchors to. Falls back to 0 only when the parent (or its
+                // blockIndex) can't be found.
+                const parent = comments.find((c) => c.id === parentId)
                 await addComment({
-                  blockIndex: 0,
+                  blockIndex: parent?.blockIndex ?? 0,
                   body,
                   authorName: profile?.display_name ?? '',
                   parentCommentId: parentId,
@@ -873,8 +901,15 @@ export function WikiPageView() {
                 if (!page) return
                 try {
                   await docs.archivePage(page.id)
+                  setActionMsg({ tone: 'success', text: 'Dokumentet er arkivert.' })
                 } catch (err) {
                   console.error('Archive failed', err)
+                  setActionMsg({
+                    tone: 'error',
+                    text: `Kunne ikke arkivere dokumentet: ${
+                      err instanceof Error ? err.message : 'ukjent feil'
+                    }`,
+                  })
                 }
               }}
               onDelete={async () => {
@@ -888,6 +923,12 @@ export function WikiPageView() {
                   navigate('/documents')
                 } catch (err) {
                   console.error('Delete failed', err)
+                  setActionMsg({
+                    tone: 'error',
+                    text: `Kunne ikke slette dokumentet: ${
+                      err instanceof Error ? err.message : 'ukjent feil'
+                    }`,
+                  })
                 }
               }}
             />

@@ -259,22 +259,31 @@ export function DocumentEditPage() {
   const [saveStatus, setSaveStatus] = useState<'saved' | 'dirty' | 'saving' | 'error'>('saved')
   const [savedAt, setSavedAt] = useState<Date | null>(null)
   const [dirty, setDirty] = useState(false)
+  /** Page identity for which we've already seeded the subtitle. Prevents the
+   *  hydrate effect from clobbering user-edited subtitle text on re-render. */
+  const hydratedForPageRef = useRef<string | null>(null)
 
   // Hydrate state from page
   useEffect(() => {
     if (!page) return
+    const fresh = hydratedForPageRef.current !== `${page.id}:${page.version}`
     setTitle(page.title)
-    setSubtitle(
-      `Gjeldende fra ${
-        page.status === 'published'
-          ? new Date(page.updatedAt).toLocaleDateString('nb-NO')
-          : 'TBA'
-      }. Neste revisjon ${
-        page.nextRevisionDueAt
-          ? new Date(page.nextRevisionDueAt).toLocaleDateString('nb-NO')
-          : 'ikke planlagt'
-      }.`,
-    )
+    if (fresh) {
+      // Only seed the auto-generated subtitle on a fresh hydrate — otherwise a
+      // user who tweaks the subtitle would see it reset on every re-render of
+      // the page (e.g. after an autosave bumps page.updatedAt).
+      setSubtitle(
+        `Gjeldende fra ${
+          page.status === 'published'
+            ? new Date(page.updatedAt).toLocaleDateString('nb-NO')
+            : 'TBA'
+        }. Neste revisjon ${
+          page.nextRevisionDueAt
+            ? new Date(page.nextRevisionDueAt).toLocaleDateString('nb-NO')
+            : 'ikke planlagt'
+        }.`,
+      )
+    }
     const initialSections = blocksToSections(page.blocks)
     setSections(initialSections)
     setActiveSection(initialSections[0]?.id ?? null)
@@ -291,8 +300,37 @@ export function DocumentEditPage() {
     setDirty(false)
     setSaveStatus('saved')
     setSavedAt(null)
+    hydratedForPageRef.current = `${page.id}:${page.version}`
     // eslint-disable-next-line react-hooks/exhaustive-deps -- hydrate the editor only when the page identity or version changes; the inner `page` snapshot is fresh per run and re-running on every field change would obliterate user input.
   }, [page?.id, page?.version])
+
+  /** Wrap navigation in a dirty-state confirm so the user can't silently
+   *  discard unsaved edits (autosave runs every 8 s; pressing "Avbryt"
+   *  immediately after an edit would otherwise lose work). */
+  const safeNavigate = useCallback(
+    (to: string) => {
+      if (!dirty) {
+        navigate(to)
+        return
+      }
+      const ok = window.confirm(
+        'Du har endringer som ikke er lagret. Forlat siden likevel?',
+      )
+      if (ok) navigate(to)
+    },
+    [dirty, navigate],
+  )
+
+  /** Browser-level guard for reload / tab-close while dirty. */
+  useEffect(() => {
+    if (!dirty) return
+    const handler = (e: BeforeUnloadEvent) => {
+      e.preventDefault()
+      e.returnValue = ''
+    }
+    window.addEventListener('beforeunload', handler)
+    return () => window.removeEventListener('beforeunload', handler)
+  }, [dirty])
 
   const markDirty = useCallback(() => {
     setDirty(true)
@@ -544,7 +582,11 @@ export function DocumentEditPage() {
   const possibleOwners = orgProfiles.filter((p) => p.id)
 
   const totalRequired = docs.stats?.requireAck ?? 0
-  const reConfirmCount = bumpMajor ? totalRequired : Math.round(totalRequired * 0.6)
+  /** Receipts are keyed by `page_version`. A major version bump (X.0) freezes
+   *  the old version's receipts and forces *every* required user to ack the
+   *  new version. Minor bumps reuse the existing version-id, so no one is
+   *  forced to re-ack. */
+  const reConfirmCount = bumpMajor ? totalRequired : 0
 
   return (
     <ModulePageShell
@@ -581,7 +623,7 @@ export function DocumentEditPage() {
           <Button
             variant="ghost"
             icon={<X className="h-4 w-4" aria-hidden />}
-            onClick={() => navigate(`/documents/page/${page.id}`)}
+            onClick={() => safeNavigate(`/documents/page/${page.id}`)}
           >
             Avbryt
           </Button>
@@ -589,7 +631,7 @@ export function DocumentEditPage() {
           <Button
             variant="secondary"
             icon={<Eye className="h-4 w-4" aria-hidden />}
-            onClick={() => navigate(`/documents/page/${page.id}`)}
+            onClick={() => safeNavigate(`/documents/page/${page.id}`)}
           >
             Forhåndsvis
           </Button>
@@ -609,7 +651,8 @@ export function DocumentEditPage() {
             onClick={() => {
               void handleSubmitForReview()
             }}
-            disabled={busy}
+            disabled={busy || !changelog.trim()}
+            title={!changelog.trim() ? 'Endringslogg er påkrevd før du kan sende til godkjenning' : undefined}
           >
             Send til godkjenning
           </Button>
@@ -1069,8 +1112,9 @@ export function DocumentEditPage() {
                 <div className="flex items-start gap-1.5">
                   <Info className="mt-0.5 h-3 w-3 shrink-0 text-amber-700" aria-hidden />
                   <span>
-                    Ved publisering av {bumpMajor ? 'stor revisjon' : 'denne versjonen'} må{' '}
-                    {reConfirmCount} ansatte bekrefte på nytt.
+                    {bumpMajor
+                      ? `Ved publisering av stor revisjon må ${reConfirmCount} ansatte bekrefte på nytt.`
+                      : 'Minor revisjon — eksisterende bekreftelser beholdes. Merk «Stor revisjon» for å tvinge ny bekreftelse.'}
                   </span>
                 </div>
               </div>
@@ -1195,7 +1239,7 @@ export function DocumentEditPage() {
           ) : null}
         </div>
         <div className="flex items-center gap-2">
-          <Button variant="ghost" onClick={() => navigate(`/documents/page/${page.id}`)}>
+          <Button variant="ghost" onClick={() => safeNavigate(`/documents/page/${page.id}`)}>
             Avbryt
           </Button>
           <Button
@@ -1214,7 +1258,8 @@ export function DocumentEditPage() {
             onClick={() => {
               void handleSubmitForReview()
             }}
-            disabled={busy}
+            disabled={busy || !changelog.trim()}
+            title={!changelog.trim() ? 'Endringslogg er påkrevd før du kan sende til godkjenning' : undefined}
           >
             Send til godkjenning
           </Button>

@@ -24,7 +24,6 @@ import {
   History,
   LayoutGrid,
   ListChecks,
-  MessageSquare,
   Paperclip,
   Plus,
   Rows3,
@@ -143,7 +142,6 @@ type DocRow = {
   required: boolean
   confirmedCount: number
   totalRequired: number
-  commentsCount: number
   attachmentsCount: number
   editedAt: string
   publishedAt: string | null
@@ -161,7 +159,6 @@ function buildDocRows({
   reviews,
   nameById,
   totalAudience,
-  commentCounts,
   attachmentCounts,
 }: {
   pages: WikiPage[]
@@ -170,7 +167,6 @@ function buildDocRows({
   reviews: WikiReviewRequest[]
   nameById: Map<string, string>
   totalAudience: number
-  commentCounts: Map<string, number>
   attachmentCounts: Map<string, number>
 }): DocRow[] {
   const receiptIndex = buildReceiptIndex(receipts)
@@ -205,7 +201,6 @@ function buildDocRows({
       required,
       confirmedCount: required ? confirmedCount : 0,
       totalRequired: required ? totalAudience : 0,
-      commentsCount: commentCounts.get(p.id) ?? 0,
       attachmentsCount: attachmentCounts.get(p.spaceId) ?? 0,
       editedAt: p.updatedAt,
       publishedAt: p.status === 'published' ? p.updatedAt : null,
@@ -239,12 +234,10 @@ export function DocumentsHome() {
   // hub only needs a sane denominator.)
   const totalAudience = useMemo(() => members.length, [members])
 
-  // Cheap derived maps — comment/attachment count fed from existing arrays.
-  const commentCounts = useMemo(() => {
-    const m = new Map<string, number>()
-    // Without an aggregate column, fall back to ledger entries flagged with action='created' (a comment isn't logged here) — instead we leave 0 and rely on the per-page detail to surface the real number.
-    return m
-  }, [])
+  // Attachment counts derived from wiki_space_items already on the store —
+  // shown as the paperclip pill in table/box views. Comments aren't loaded
+  // at the org level by `useDocuments`, so we surface them only inside the
+  // per-page detail (where `useWikiPageComments(pageId)` fetches the thread).
   const attachmentCounts = useMemo(() => {
     const m = new Map<string, number>()
     for (const item of docs.spaceItems) {
@@ -262,7 +255,6 @@ export function DocumentsHome() {
         reviews: docs.wikiReviewRequests,
         nameById,
         totalAudience,
-        commentCounts,
         attachmentCounts,
       }),
     [
@@ -272,7 +264,6 @@ export function DocumentsHome() {
       docs.wikiReviewRequests,
       nameById,
       totalAudience,
-      commentCounts,
       attachmentCounts,
     ],
   )
@@ -693,12 +684,6 @@ function DocTable({
                     </div>
                     <div className="text-[11px] text-neutral-500">
                       Endret {formatIsoDate(r.editedAt)} av {r.editorName}
-                      {r.commentsCount > 0 ? (
-                        <span className="ml-2 inline-flex items-center gap-0.5 text-neutral-400">
-                          <MessageSquare className="h-2.5 w-2.5" aria-hidden />
-                          {r.commentsCount}
-                        </span>
-                      ) : null}
                       {r.attachmentsCount > 0 ? (
                         <span className="ml-2 inline-flex items-center gap-0.5 text-neutral-400">
                           <Paperclip className="h-2.5 w-2.5" aria-hidden />
@@ -848,12 +833,6 @@ function DocBoxes({
           {!easy ? (
             <div className="mt-3 flex items-center justify-between border-t border-neutral-100 pt-2.5 text-[11px]">
               <div className="flex items-center gap-2 text-neutral-500">
-                {r.commentsCount > 0 ? (
-                  <span className="inline-flex items-center gap-0.5">
-                    <MessageSquare className="h-3 w-3" aria-hidden />
-                    {r.commentsCount}
-                  </span>
-                ) : null}
                 {r.attachmentsCount > 0 ? (
                   <span className="inline-flex items-center gap-0.5">
                     <Paperclip className="h-3 w-3" aria-hidden />
