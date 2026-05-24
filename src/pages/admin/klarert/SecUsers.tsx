@@ -54,7 +54,11 @@ export function SecUsers({ easy }: AdminSectionProps) {
       case 'admin':
         return users.filter((u) => u.primaryRoleSlug === 'admin')
       case 'mfa-off':
-        return users.filter((u) => !u.mfa)
+        // Defensive: when auth metadata isn't available all users
+        // would falsely have `mfa: false` (the fallback default). The
+        // filter chip is hidden in that case, but guard here too in
+        // case URL state ever drives the filter.
+        return authMetaAvailable ? users.filter((u) => !u.mfa) : []
       case 'vo':
         return users.filter(
           (u) =>
@@ -64,7 +68,7 @@ export function SecUsers({ easy }: AdminSectionProps) {
       default:
         return users
     }
-  }, [filter, users])
+  }, [filter, users, authMetaAvailable])
 
   async function submitInvite() {
     if (!supabase || !inviteEmail.includes('@')) return
@@ -228,7 +232,9 @@ export function SecUsers({ easy }: AdminSectionProps) {
             {filtered.length === 0 ? (
               <tr>
                 <td
-                  colSpan={easy ? 5 : 7}
+                  // Easy mode = 6 cols (Bruker, Rolle, MFA, Status, Sist pålogget, action).
+                  // Advanced adds Lokasjon + SSO = 8.
+                  colSpan={easy ? 6 : 8}
                   className="px-5 py-8 text-center text-xs text-neutral-500"
                 >
                   Ingen brukere matcher filteret.
