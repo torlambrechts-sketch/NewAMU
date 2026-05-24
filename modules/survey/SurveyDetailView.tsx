@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState, useRef, type ReactNode } fro
 import type { LucideIcon } from 'lucide-react'
 import { useNavigate, useParams } from 'react-router-dom'
 import type { SupabaseClient } from '@supabase/supabase-js'
-import { AlertCircle, ArrowLeft, BarChart2, BarChart3, Bell, Calendar, CheckCircle2, ChevronRight, CircleDot, Copy, Download, Eye, EyeOff, Gauge, Ghost, GitBranch, Globe, GripVertical, Hash, HelpCircle, Link2, List, Lock, Mail, MessageCircle, Play, Plus, Scan, Save, Send, SlidersHorizontal, ToggleLeft, Trash2, TrendingUp, Type as TypeIcon, Users2 } from 'lucide-react'
+import { AlertCircle, ArrowLeft, BarChart2, BarChart3, Bell, Calendar, CheckCircle2, ChevronRight, CircleDot, ClipboardList, Copy, Download, Eye, EyeOff, Gauge, Ghost, GitBranch, Globe, GripVertical, Hash, HelpCircle, LayoutDashboard, Link2, List, Lock, Mail, MessageCircle, Play, Plus, Scan, Save, Send, Settings, ShieldCheck, SlidersHorizontal, ToggleLeft, Trash2, TrendingUp, Type as TypeIcon, Users2 } from 'lucide-react'
 import {
   WPSTD_FORM_FIELD_LABEL,
   WPSTD_FORM_ROW_GRID,
@@ -92,31 +92,36 @@ function buildTabs(
   hideAmuAndTiltak: boolean,
 ): TabItem[] {
   const items: TabItem[] = [
-    { id: 'oversikt', label: 'Oversikt' },
+    { id: 'oversikt', label: 'Oversikt', icon: LayoutDashboard },
     {
       id: 'bygger',
       label: 'Spørsmål',
+      icon: HelpCircle,
       badgeCount: questionCount > 0 ? questionCount : undefined,
     },
     {
       id: 'distribusjon',
       label: 'Distribusjon',
+      icon: Send,
       badgeCount: pendingInvites > 0 ? pendingInvites : undefined,
     },
     {
       id: 'resultater',
       label: 'Resultater',
+      icon: BarChart3,
       badgeCount: responseCount > 0 ? responseCount : undefined,
     },
-    { id: 'innstillinger', label: 'Innstillinger' },
+    { id: 'innstillinger', label: 'Innstillinger', icon: Settings },
     {
       id: 'amu',
       label: 'AMU-gjennomgang',
+      icon: ShieldCheck,
       badgeCount: amuReview && !amuReview.amu_chair_signed_at ? 1 : undefined,
     },
     {
       id: 'tiltak',
       label: 'Handlingsplan',
+      icon: ClipboardList,
       badgeCount: actionCount > 0 ? actionCount : undefined,
     },
   ]
@@ -2115,20 +2120,20 @@ export function SurveyDetailView({ supabase }: Props) {
               Tilbake
             </Button>
             <ModeToggle mode={detailMode} onChange={setDetailMode} />
-            {(s.status === 'active' || s.status === 'closed') && (
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={() => window.open(`/survey-respond/${s.id}?preview=1`, '_blank')}
+            >
+              <Eye className="h-4 w-4" aria-hidden />
+              <span className="hidden sm:inline">Forhåndsvis</span>
+            </Button>
+            {survey.canManage && (
               <Button
                 type="button"
                 variant="secondary"
-                onClick={() => window.open(`/survey-respond/${s.id}?preview=1`, '_blank')}
-              >
-                <Eye className="h-4 w-4" aria-hidden />
-                <span className="hidden sm:inline">Forhåndsvis</span>
-              </Button>
-            )}
-            {survey.canManage && s.status === 'active' && (
-              <Button
-                type="button"
-                variant="secondary"
+                disabled={survey.distributions.length === 0 || s.invitation_count === 0}
+                title={survey.distributions.length === 0 ? 'Ingen distribusjon å sende påminnelse for' : undefined}
                 onClick={() => void sendRemindersForAllDistributions()}
               >
                 <Bell className="h-4 w-4" aria-hidden />
