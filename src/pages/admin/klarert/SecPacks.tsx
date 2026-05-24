@@ -3,7 +3,7 @@
 // med tre faner (Innhold, Tilganger, Versjoner). System-pakker er
 // låst — Tilpass-knappen åpner en wizard som lager intern kopi.
 
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import {
   AlertCircle,
   ArrowLeft,
@@ -26,6 +26,7 @@ import {
 import { Button } from '../../../components/ui/Button'
 import { StandardInput } from '../../../components/ui/Input'
 import { Tabs } from '../../../components/ui/Tabs'
+import { useOrgSetupContext } from '../../../hooks/useOrgSetupContext'
 import { formatShortDate } from './format'
 import {
   ADMIN_SERIF,
@@ -248,90 +249,174 @@ export function SecPacks({ easy, route, setRoute }: SecPacksProps) {
       </div>
 
       {newPackOpen && (
-        <div
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="new-pack-title"
-          className="fixed inset-0 z-40 flex items-center justify-center bg-black/40 p-4"
-          onClick={(e) => {
-            if (e.target === e.currentTarget) setNewPackOpen(false)
+        <NewPackDialog
+          onClose={() => {
+            setNewPackOpen(false)
+            setNewPackErr(null)
           }}
-        >
-          <AdminCard className="w-full max-w-md p-5">
-            <h3 id="new-pack-title" className="text-base font-semibold text-neutral-900">
-              Ny intern pakke
-            </h3>
-            <p className="mt-0.5 text-[12px] text-neutral-600">
-              Lager en tom pakke som du kan fylle med egne maler senere. For å kopiere fra en
-              system-pakke, åpne den og bruk «Tilpass».
-            </p>
-
-            <div className="mt-4 space-y-3">
-              <div>
-                <label
-                  htmlFor="new-pack-name"
-                  className="text-[10px] font-bold uppercase tracking-wider text-neutral-500"
-                >
-                  Navn
-                </label>
-                <StandardInput
-                  id="new-pack-name"
-                  value={newPackName}
-                  onChange={(e) => setNewPackName(e.target.value)}
-                  placeholder="f.eks. Bergen-pakken"
-                  className="mt-1"
-                  autoFocus
-                />
-              </div>
-              <div>
-                <label
-                  htmlFor="new-pack-desc"
-                  className="text-[10px] font-bold uppercase tracking-wider text-neutral-500"
-                >
-                  Beskrivelse (valgfri)
-                </label>
-                <StandardInput
-                  id="new-pack-desc"
-                  value={newPackDesc}
-                  onChange={(e) => setNewPackDesc(e.target.value)}
-                  placeholder="Hva pakken inneholder"
-                  className="mt-1"
-                />
-              </div>
-            </div>
-
-            {newPackErr ? (
-              <div className="mt-3">
-                <AdminError message={newPackErr} />
-              </div>
-            ) : null}
-
-            <div className="mt-4 flex items-center justify-end gap-2">
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => {
-                  setNewPackOpen(false)
-                  setNewPackErr(null)
-                }}
-              >
-                Avbryt
-              </Button>
-              <Button
-                variant="primary"
-                size="sm"
-                disabled={newPackBusy || !newPackName.trim()}
-                icon={
-                  newPackBusy ? <Loader2 className="h-3 w-3 animate-spin" /> : <Plus className="h-3 w-3" />
-                }
-                onClick={() => void submitNewPack()}
-              >
-                Opprett pakke
-              </Button>
-            </div>
-          </AdminCard>
-        </div>
+          name={newPackName}
+          setName={setNewPackName}
+          description={newPackDesc}
+          setDescription={setNewPackDesc}
+          busy={newPackBusy}
+          error={newPackErr}
+          onSubmit={() => void submitNewPack()}
+        />
       )}
+    </div>
+  )
+}
+
+function NewPackDialog({
+  onClose,
+  name,
+  setName,
+  description,
+  setDescription,
+  busy,
+  error,
+  onSubmit,
+}: {
+  onClose: () => void
+  name: string
+  setName: (v: string) => void
+  description: string
+  setDescription: (v: string) => void
+  busy: boolean
+  error: string | null
+  onSubmit: () => void
+}) {
+  const nameInputRef = useRef<HTMLInputElement>(null)
+  const cancelRef = useRef<HTMLButtonElement>(null)
+  const submitRef = useRef<HTMLButtonElement>(null)
+  const containerRef = useRef<HTMLDivElement>(null)
+
+  // Focus the name input on mount.
+  useEffect(() => {
+    const t = setTimeout(() => nameInputRef.current?.focus(), 0)
+    return () => clearTimeout(t)
+  }, [])
+
+  // ESC to close + minimal focus-trap (cycle Tab between cancel + submit
+  // when focus would leave the dialog).
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (e.key === 'Escape') {
+        e.preventDefault()
+        onClose()
+        return
+      }
+      if (e.key === 'Tab') {
+        const focusables: HTMLElement[] = []
+        const root = containerRef.current
+        if (!root) return
+        root
+          .querySelectorAll<HTMLElement>(
+            'input, button, select, textarea, [tabindex]:not([tabindex="-1"])',
+          )
+          .forEach((el) => {
+            if (!el.hasAttribute('disabled') && el.tabIndex !== -1) focusables.push(el)
+          })
+        if (focusables.length === 0) return
+        const first = focusables[0]!
+        const last = focusables[focusables.length - 1]!
+        if (e.shiftKey && document.activeElement === first) {
+          e.preventDefault()
+          last.focus()
+        } else if (!e.shiftKey && document.activeElement === last) {
+          e.preventDefault()
+          first.focus()
+        }
+      }
+    }
+    document.addEventListener('keydown', onKey)
+    return () => document.removeEventListener('keydown', onKey)
+  }, [onClose])
+
+  return (
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="new-pack-title"
+      className="fixed inset-0 z-40 flex items-center justify-center bg-black/40 p-4"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose()
+      }}
+      ref={containerRef}
+    >
+      <AdminCard className="w-full max-w-md p-5">
+        <h3 id="new-pack-title" className="text-base font-semibold text-neutral-900">
+          Ny intern pakke
+        </h3>
+        <p className="mt-0.5 text-[12px] text-neutral-600">
+          Lager en tom pakke som du kan fylle med egne maler senere. For å kopiere fra en
+          system-pakke, åpne den og bruk «Tilpass».
+        </p>
+
+        <div className="mt-4 space-y-3">
+          <div>
+            <label
+              htmlFor="new-pack-name"
+              className="text-[10px] font-bold uppercase tracking-wider text-neutral-500"
+            >
+              Navn
+            </label>
+            <StandardInput
+              id="new-pack-name"
+              ref={nameInputRef}
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && name.trim() && !busy) {
+                  e.preventDefault()
+                  onSubmit()
+                }
+              }}
+              placeholder="f.eks. Bergen-pakken"
+              className="mt-1"
+            />
+          </div>
+          <div>
+            <label
+              htmlFor="new-pack-desc"
+              className="text-[10px] font-bold uppercase tracking-wider text-neutral-500"
+            >
+              Beskrivelse (valgfri)
+            </label>
+            <StandardInput
+              id="new-pack-desc"
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              placeholder="Hva pakken inneholder"
+              className="mt-1"
+            />
+          </div>
+        </div>
+
+        {error ? (
+          <div className="mt-3">
+            <AdminError message={error} />
+          </div>
+        ) : null}
+
+        <div className="mt-4 flex items-center justify-end gap-2">
+          <Button ref={cancelRef} variant="ghost" size="sm" onClick={onClose}>
+            Avbryt
+          </Button>
+          <Button
+            ref={submitRef}
+            variant="primary"
+            size="sm"
+            disabled={busy || !name.trim()}
+            icon={
+              busy ? <Loader2 className="h-3 w-3 animate-spin" /> : <Plus className="h-3 w-3" />
+            }
+            onClick={onSubmit}
+          >
+            Opprett pakke
+          </Button>
+        </div>
+      </AdminCard>
     </div>
   )
 }
@@ -1224,14 +1309,44 @@ function TilpassWizard({
     packName: string,
   ) => Promise<CreateInternalPackResult>
 }) {
+  const { can, isAdmin } = useOrgSetupContext()
   const [step, setStep] = useState<1 | 2 | 3>(1)
   const [selected, setSelected] = useState<Record<string, boolean>>({})
   const [packName, setPackName] = useState(`${pack.name} (kopi)`)
   const [creating, setCreating] = useState(false)
   const [createResult, setCreateResult] = useState<CreateInternalPackResult | null>(null)
-  const selectedIds = Object.keys(selected).filter((k) => selected[k])
+
+  // Pre-flight RLS gate per module — disable rows the user can't write
+  // so they don't get a confusing per-module RLS error mid-wizard.
+  // checklist.manage covers the internal_packs container write too;
+  // the other modules have stricter per-table policies.
+  const canModule: Record<PackTemplateRow['module'], { allowed: boolean; missing: string | null }> = {
+    sjekkliste: { allowed: true, missing: null },
+    undersokelse: { allowed: true, missing: null },
+    mote: { allowed: true, missing: null },
+    dokument: isAdmin || can('documents.manage')
+      ? { allowed: true, missing: null }
+      : { allowed: false, missing: 'documents.manage' },
+    register: isAdmin || can('internkontroll.manage')
+      ? { allowed: true, missing: null }
+      : { allowed: false, missing: 'internkontroll.manage' },
+    kurs: isAdmin || can('learning.manage')
+      ? { allowed: true, missing: null }
+      : { allowed: false, missing: 'learning.manage' },
+  }
+
+  // Drop disallowed ids from `selected` whenever permissions shift —
+  // prevents stale checkbox state from sending forbidden inserts.
+  const selectedIds = Object.keys(selected).filter((k) => {
+    if (!selected[k]) return false
+    const tpl = templates.find((t) => t.id === k)
+    if (!tpl) return false
+    return canModule[tpl.module].allowed
+  })
 
   function toggle(id: string) {
+    const tpl = templates.find((t) => t.id === id)
+    if (tpl && !canModule[tpl.module].allowed) return
     setSelected((prev) => ({ ...prev, [id]: !prev[id] }))
   }
 
@@ -1309,37 +1424,56 @@ function TilpassWizard({
                 Ingen maler i pakken.
               </li>
             ) : (
-              templates.map((t) => (
-                <li
-                  key={t.id}
-                  className="flex items-center gap-3 px-3 py-2.5 hover:bg-neutral-50/60"
-                >
-                  <StandardInput
-                    type="checkbox"
-                    checked={!!selected[t.id]}
-                    onChange={() => toggle(t.id)}
-                    className="h-4 w-4"
-                    aria-label={`Velg ${t.name}`}
-                  />
-                  <span className="rounded bg-neutral-100 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-neutral-700">
-                    {t.moduleLabel}
-                  </span>
-                  <div className="min-w-0 flex-1">
-                    <div className="text-sm font-medium text-neutral-900">{t.name}</div>
-                    <div className="mt-0.5 flex flex-wrap items-center gap-1.5 text-[10px] text-neutral-500">
-                      <span className="tabular-nums">v{t.version}</span>
-                      {t.lawRefs.slice(0, 3).map((l) => (
-                        <span
-                          key={l}
-                          className="rounded bg-[#e7efe9] px-1 py-0 font-semibold text-[#14312a]"
-                        >
-                          {l}
-                        </span>
-                      ))}
+              templates.map((t) => {
+                const perm = canModule[t.module]
+                const disabled = !perm.allowed
+                return (
+                  <li
+                    key={t.id}
+                    className={
+                      'flex items-center gap-3 px-3 py-2.5 ' +
+                      (disabled
+                        ? 'cursor-not-allowed bg-neutral-50/40 opacity-60'
+                        : 'hover:bg-neutral-50/60')
+                    }
+                    aria-disabled={disabled || undefined}
+                  >
+                    <StandardInput
+                      type="checkbox"
+                      checked={!!selected[t.id]}
+                      onChange={() => toggle(t.id)}
+                      disabled={disabled}
+                      className="h-4 w-4"
+                      aria-label={`Velg ${t.name}`}
+                    />
+                    <span className="rounded bg-neutral-100 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-neutral-700">
+                      {t.moduleLabel}
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <div className="text-sm font-medium text-neutral-900">{t.name}</div>
+                      <div className="mt-0.5 flex flex-wrap items-center gap-1.5 text-[10px] text-neutral-500">
+                        <span className="tabular-nums">v{t.version}</span>
+                        {t.lawRefs.slice(0, 3).map((l) => (
+                          <span
+                            key={l}
+                            className="rounded bg-[#e7efe9] px-1 py-0 font-semibold text-[#14312a]"
+                          >
+                            {l}
+                          </span>
+                        ))}
+                        {disabled && perm.missing && (
+                          <span
+                            className="rounded bg-amber-100 px-1 py-0 font-semibold text-amber-900"
+                            title={`Du mangler tillatelsen «${perm.missing}» for å kopiere denne typen mal.`}
+                          >
+                            krever {perm.missing}
+                          </span>
+                        )}
+                      </div>
                     </div>
-                  </div>
-                </li>
-              ))
+                  </li>
+                )
+              })
             )}
           </ul>
           <div className="mt-4 flex items-center justify-between">

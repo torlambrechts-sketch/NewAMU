@@ -47,6 +47,8 @@ export const PERMISSION_KEYS = [
   'documents.manage',
   /** Documents & wiki — opprette og redigere sider (ikke malbibliotek-admin) */
   'documents.edit',
+  /** Internkontroll — opprette/redigere registre (register_types) og register-innstillinger */
+  'internkontroll.manage',
   /** Documents & wiki — lese mapper og sider (ikke redigere eller publisere) */
   'documents.view',
   'module.view.admin',
@@ -154,6 +156,7 @@ export const PERMISSION_LABELS: Record<PermissionKey, string> = {
   'documents.manage': 'Documents & wiki — administrere maler og mapper',
   'documents.edit': 'Documents & wiki — redigere og publisere dokumenter',
   'documents.view': 'Documents & wiki — lese innhold (visning)',
+  'internkontroll.manage': 'Internkontroll — administrere registre og innstillinger',
   'module.view.admin': 'Admin (brukere & roller)',
   'employee.pii.read': 'Ansatte — lese kontaktopplysninger (e-post, telefon)',
   'employee.sensitive.read': 'Ansatte — lese sensitiv informasjon (ansettelsestype, kontrakt)',
