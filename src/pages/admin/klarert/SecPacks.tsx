@@ -44,8 +44,45 @@ interface SecPacksProps {
 }
 
 export function SecPacks({ easy, route, setRoute }: SecPacksProps) {
-  const { packs, templates, loading, error, installPack, uninstallPack, createInternalPackFromTemplates } =
-    useAdminPacks()
+  const {
+    packs,
+    templates,
+    loading,
+    error,
+    installPack,
+    uninstallPack,
+    createInternalPackFromTemplates,
+    createEmptyInternalPack,
+  } = useAdminPacks()
+  const [newPackOpen, setNewPackOpen] = useState(false)
+  const [newPackName, setNewPackName] = useState('')
+  const [newPackDesc, setNewPackDesc] = useState('')
+  const [newPackBusy, setNewPackBusy] = useState(false)
+  const [newPackErr, setNewPackErr] = useState<string | null>(null)
+
+  async function submitNewPack() {
+    if (!newPackName.trim()) return
+    setNewPackBusy(true)
+    setNewPackErr(null)
+    try {
+      const { packId, error: err } = await createEmptyInternalPack(
+        newPackName.trim(),
+        newPackDesc.trim(),
+      )
+      if (err) {
+        setNewPackErr(err)
+        return
+      }
+      setNewPackOpen(false)
+      setNewPackName('')
+      setNewPackDesc('')
+      if (packId) {
+        setRoute({ name: 'pack-detail', packId: `pack-internal:${packId}` })
+      }
+    } finally {
+      setNewPackBusy(false)
+    }
+  }
 
   if (loading) return <AdminLoading />
   if (error) return <AdminError message={error} />
@@ -201,6 +238,7 @@ export function SecPacks({ easy, route, setRoute }: SecPacksProps) {
         })}
         <Button
           variant="ghost"
+          onClick={() => setNewPackOpen(true)}
           className="flex min-h-[180px] flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed border-neutral-300 bg-transparent p-4 text-neutral-500 transition-colors hover:border-[#1a3d32] hover:bg-white hover:text-[#1a3d32]"
         >
           <Plus className="h-6 w-6" aria-hidden="true" />
@@ -208,6 +246,92 @@ export function SecPacks({ easy, route, setRoute }: SecPacksProps) {
           <span className="text-[11px] text-neutral-400">Bunt opp dine egne maler</span>
         </Button>
       </div>
+
+      {newPackOpen && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="new-pack-title"
+          className="fixed inset-0 z-40 flex items-center justify-center bg-black/40 p-4"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setNewPackOpen(false)
+          }}
+        >
+          <AdminCard className="w-full max-w-md p-5">
+            <h3 id="new-pack-title" className="text-base font-semibold text-neutral-900">
+              Ny intern pakke
+            </h3>
+            <p className="mt-0.5 text-[12px] text-neutral-600">
+              Lager en tom pakke som du kan fylle med egne maler senere. For å kopiere fra en
+              system-pakke, åpne den og bruk «Tilpass».
+            </p>
+
+            <div className="mt-4 space-y-3">
+              <div>
+                <label
+                  htmlFor="new-pack-name"
+                  className="text-[10px] font-bold uppercase tracking-wider text-neutral-500"
+                >
+                  Navn
+                </label>
+                <StandardInput
+                  id="new-pack-name"
+                  value={newPackName}
+                  onChange={(e) => setNewPackName(e.target.value)}
+                  placeholder="f.eks. Bergen-pakken"
+                  className="mt-1"
+                  autoFocus
+                />
+              </div>
+              <div>
+                <label
+                  htmlFor="new-pack-desc"
+                  className="text-[10px] font-bold uppercase tracking-wider text-neutral-500"
+                >
+                  Beskrivelse (valgfri)
+                </label>
+                <StandardInput
+                  id="new-pack-desc"
+                  value={newPackDesc}
+                  onChange={(e) => setNewPackDesc(e.target.value)}
+                  placeholder="Hva pakken inneholder"
+                  className="mt-1"
+                />
+              </div>
+            </div>
+
+            {newPackErr ? (
+              <div className="mt-3">
+                <AdminError message={newPackErr} />
+              </div>
+            ) : null}
+
+            <div className="mt-4 flex items-center justify-end gap-2">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  setNewPackOpen(false)
+                  setNewPackErr(null)
+                }}
+              >
+                Avbryt
+              </Button>
+              <Button
+                variant="primary"
+                size="sm"
+                disabled={newPackBusy || !newPackName.trim()}
+                icon={
+                  newPackBusy ? <Loader2 className="h-3 w-3 animate-spin" /> : <Plus className="h-3 w-3" />
+                }
+                onClick={() => void submitNewPack()}
+              >
+                Opprett pakke
+              </Button>
+            </div>
+          </AdminCard>
+        </div>
+      )}
     </div>
   )
 }

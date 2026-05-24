@@ -152,6 +152,10 @@ export interface AdminPacksResult {
     packName: string,
     sourcePackSlug?: string | null,
   ) => Promise<CreateInternalPackResult>
+  createEmptyInternalPack: (
+    name: string,
+    description?: string,
+  ) => Promise<{ packId: string | null; error: string | null }>
 }
 
 // ── Helpers ─────────────────────────────────────────────────────────────
@@ -737,6 +741,47 @@ export function useAdminPacks(): AdminPacksResult {
   )
 
   /**
+   * Create an empty internal pack (no templates yet). Used by the
+   * "Ny intern pakke" button on the pack grid for admins who want to
+   * group their existing templates without cloning a system pack.
+   * Returns the new pack id on success.
+   */
+  const createEmptyInternalPack = useCallback(
+    async (
+      name: string,
+      description?: string,
+    ): Promise<{ packId: string | null; error: string | null }> => {
+      if (!supabase || !organization?.id) {
+        return { packId: null, error: 'Mangler organisasjon.' }
+      }
+      const trimmedName = name.trim()
+      if (!trimmedName) {
+        return { packId: null, error: 'Pakkenavn er påkrevd.' }
+      }
+      const packSlug = `${slugify(trimmedName).slice(0, 60) || 'pakke'}-${Date.now().toString(36)}`
+      const { data, error: insErr } = await supabase
+        .from('internal_packs')
+        .insert({
+          organization_id: organization.id,
+          slug: packSlug,
+          name: trimmedName,
+          description: description?.trim() ?? '',
+          source_pack_slug: null,
+        })
+        .select('id')
+        .single()
+      if (insErr || !data) {
+        const msg = insErr?.message ?? 'Kunne ikke opprette pakke.'
+        setError(msg)
+        return { packId: null, error: msg }
+      }
+      await refresh()
+      return { packId: (data as { id: string }).id, error: null }
+    },
+    [supabase, organization?.id, refresh],
+  )
+
+  /**
    * Tilpass-wizard finalizer. Creates one `internal_packs` row to
    * group the copies and then writes one per-org row for each selected
    * source template — across all six module-side tables:
@@ -1230,5 +1275,6 @@ export function useAdminPacks(): AdminPacksResult {
     installPack,
     uninstallPack,
     createInternalPackFromTemplates,
+    createEmptyInternalPack,
   }
 }
