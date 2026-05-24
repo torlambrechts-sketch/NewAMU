@@ -27,13 +27,36 @@ export const ELEARNING_FRAMEWORKS: ElearningFramework[] = [
  * 'GDPR Art. …', 'ISO 27001 …', 'ISO 45001 …'. Anything without a match (or
  * an empty lawRefs array) falls back to `internal`.
  */
+/**
+ * Map a course's lawRefs / title / description onto a framework id. We look at
+ * three sources in order of fidelity:
+ *   1. `course.lawRefs[]` — structured strings ('AML § 4-3', 'GDPR Art. 32').
+ *      Most reliable when populated.
+ *   2. `course.title` and `course.description` — fallback when lawRefs[] is
+ *      empty. The org-catalog rows in production today ship with empty
+ *      `learning_courses.law_refs` (structured refs live under
+ *      `learning_system_course_locales.meta.lawRefs` and aren't merged onto
+ *      the runtime Course object), so we rescue framework classification by
+ *      parsing the title for `§`, `iso`, `gdpr`, `forskrift` markers.
+ *   3. `internal` — last-resort fallback.
+ */
 export function frameworkForCourse(course: Course): string {
   const refs = (course.lawRefs ?? []).map((r) => r.toLowerCase())
-  if (refs.some((r) => r.startsWith('aml'))) return 'aml'
-  if (refs.some((r) => r.includes('iso 27001') || r.includes('iso27001'))) return 'iso27001'
-  if (refs.some((r) => r.includes('iso 45001') || r.includes('iso45001'))) return 'iso45001'
-  if (refs.some((r) => r.includes('gdpr') || r.includes('personopplysning'))) return 'gdpr'
-  if (refs.some((r) => r.includes('forskrift') || r.includes('ik-'))) return 'forskrift'
+  if (refs.length > 0) {
+    if (refs.some((r) => r.startsWith('aml'))) return 'aml'
+    if (refs.some((r) => r.includes('iso 27001') || r.includes('iso27001'))) return 'iso27001'
+    if (refs.some((r) => r.includes('iso 45001') || r.includes('iso45001'))) return 'iso45001'
+    if (refs.some((r) => r.includes('gdpr') || r.includes('personopplysning'))) return 'gdpr'
+    if (refs.some((r) => r.includes('forskrift') || r.includes('ik-'))) return 'forskrift'
+  }
+  const haystack = `${course.title ?? ''} ${course.description ?? ''} ${(course.tags ?? []).join(' ')}`.toLowerCase()
+  // Specific frameworks first so a title like "GDPR Art. 32 (jf. AML § 9)"
+  // resolves to GDPR rather than AML — narrower wins.
+  if (haystack.includes('iso 27001') || haystack.includes('iso27001')) return 'iso27001'
+  if (haystack.includes('iso 45001') || haystack.includes('iso45001')) return 'iso45001'
+  if (haystack.includes('gdpr') || haystack.includes('personvern') || haystack.includes('personopplysning')) return 'gdpr'
+  if (haystack.includes('forskrift') || haystack.includes('ik-') || haystack.includes('internkontroll')) return 'forskrift'
+  if (/(\baml\b|arbeidsmilj|§\s*\d|kap\.\s*\d|paragraf)/.test(haystack)) return 'aml'
   return 'internal'
 }
 

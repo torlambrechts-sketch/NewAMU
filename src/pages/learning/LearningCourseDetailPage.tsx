@@ -69,7 +69,7 @@ export function LearningCourseDetailPage() {
   const learning = useLearning()
   const { can, isAdmin } = useOrgSetupContext()
   const canManage = isAdmin || can('learning.manage')
-  const { courses, progress, learningLoading } = learning
+  const { courses, progress, learningLoading, learningError } = learning
   const [mode, setMode] = useState<LearningMode>('advanced')
   const [tab, setTab] = useState<DetailTab>('innhold')
 
@@ -158,6 +158,12 @@ export function LearningCourseDetailPage() {
         </>
       }
     >
+      {learningError ? (
+        <div className="flex items-start gap-2.5 rounded-md border border-red-300 bg-red-50 px-3 py-3 text-sm text-red-900">
+          <DesignIcon name="AlertTriangle" className="mt-0.5 h-4 w-4 shrink-0 text-red-600" />
+          <span className="flex-1">{learningError}</span>
+        </div>
+      ) : null}
       <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-neutral-200/80 bg-white px-5 py-3" style={{ boxShadow: '0 1px 2px rgba(0,0,0,0.04)' }}>
         <div className="flex flex-wrap items-center gap-3">
           <CohortStatusPill status={cohort.status} />
@@ -458,8 +464,16 @@ function LaerereTab({
                       <span className="font-medium text-neutral-900">{p.learnerName ?? '—'}</span>
                     </div>
                   </td>
-                  <td className="px-3 py-2 text-neutral-700">{p.departmentIdAtCompletion ?? '—'}</td>
-                  <td className="px-3 py-2 text-neutral-700">{p.locationIdAtCompletion ?? '—'}</td>
+                  <td className="px-3 py-2 text-neutral-500">
+                    {p.departmentIdAtCompletion
+                      ? <span className="font-mono text-[10px]">{p.departmentIdAtCompletion.slice(0, 8)}…</span>
+                      : <span className="text-neutral-400">—</span>}
+                  </td>
+                  <td className="px-3 py-2 text-neutral-500">
+                    {p.locationIdAtCompletion
+                      ? <span className="font-mono text-[10px]">{p.locationIdAtCompletion.slice(0, 8)}…</span>
+                      : <span className="text-neutral-400">—</span>}
+                  </td>
                   <td className="px-3 py-2">
                     <div className="flex items-center gap-2">
                       <div className="w-16">
@@ -522,25 +536,16 @@ function GamificationTab({
   easy: boolean
 }) {
   const leaderboard = deriveLeaderboard(course, progress, 5)
-  const badges = course.badges ?? [
-    { id: 'b1', label: 'Første steg', description: 'Fullført første leksjon', icon: 'Footprints', color: '#5A9C76' },
-    { id: 'b2', label: 'Risikoekspert', description: 'Bestått risikoquiz', icon: 'Target', color: '#1a3d32' },
-    { id: 'b3', label: '7-dagers stim', description: 'Studert 7 dager på rad', icon: 'Flame', color: '#D67849' },
-    { id: 'b4', label: 'Hjelpsom kollega', description: 'Hjulpet 3+ kollegaer', icon: 'HeartHandshake', color: '#6366F1' },
-    { id: 'b5', label: 'Eksamenshelt', description: 'Bestått sluttest', icon: 'Trophy', color: '#C98A2B' },
-  ]
+  const badges = course.badges ?? []
 
   const totalLearners = progress.length || 1
-  // "Aktive denne uka" — counts learners that have started the course (a
-  // reasonable proxy until per-day session telemetry lands). Avoids a
-  // render-time `Date.now()` call (forbidden by the purity rule).
-  const activeThisWeek = progress.filter((p) => !!p.startedAt && !p.completedAt).length
-  const completedThisWeek = progress.filter((p) => p.completedAt).length
+  // "Aktive læringer" — proxy for "currently in progress" (started but not
+  // completed). Without per-day session telemetry we cannot reliably show
+  // "denne uka", so the label below reflects what we can compute.
+  const activeInProgress = progress.filter((p) => !!p.startedAt && !p.completedAt).length
+  const completedTotal = progress.filter((p) => p.completedAt).length
   const failedQuizzes = progress.reduce((acc, p) => {
-    return (
-      acc +
-      Object.values(p.moduleProgress).filter((mp) => mp.score !== undefined && (mp.score ?? 0) < 75).length
-    )
+    return acc + Object.values(p.moduleProgress).filter((mp) => typeof mp.score === 'number' && mp.score < 75).length
   }, 0)
 
   return (
@@ -605,45 +610,57 @@ function GamificationTab({
         )}
 
         <h3 className="mt-6 text-sm font-semibold text-neutral-900">Badges</h3>
-        <div className="mt-3 grid gap-2 md:grid-cols-2">
-          {badges.map((b) => (
-            <div key={b.id} className="flex items-center gap-3 rounded-lg border border-neutral-200/80 bg-white p-3">
-              <span
-                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full"
-                style={{ background: (b.color ?? '#1a3d32') + '20', color: b.color ?? '#1a3d32' }}
-              >
-                <DesignIcon name={b.icon ?? 'Award'} className="h-5 w-5" />
-              </span>
-              <div className="min-w-0 flex-1">
-                <div className="text-sm font-semibold text-neutral-900">{b.label}</div>
-                <div className="text-[11px] text-neutral-500">{b.description ?? ''}</div>
+        {badges.length === 0 ? (
+          <div className="mt-3 rounded-md border border-dashed border-neutral-200 bg-neutral-50/40 px-4 py-6 text-center text-sm text-neutral-500">
+            Ingen badges definert for kurset ennå. Legg dem inn via byggeren.
+          </div>
+        ) : (
+          <div className="mt-3 grid gap-2 md:grid-cols-2">
+            {badges.map((b) => (
+              <div key={b.id} className="flex items-center gap-3 rounded-lg border border-neutral-200/80 bg-white p-3">
+                <span
+                  className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full"
+                  style={{ background: (b.color ?? '#1a3d32') + '20', color: b.color ?? '#1a3d32' }}
+                >
+                  <DesignIcon name={b.icon ?? 'Award'} className="h-5 w-5" />
+                </span>
+                <div className="min-w-0 flex-1">
+                  <div className="text-sm font-semibold text-neutral-900">{b.label}</div>
+                  <div className="text-[11px] text-neutral-500">{b.description ?? ''}</div>
+                </div>
+                <span className="text-xs font-semibold tabular-nums text-neutral-700">
+                  {/* TODO: replace heuristic once per-badge earned-count lands on Course.badges */}
+                  <span className="text-neutral-400">—</span>
+                  <span className="text-[10px] text-neutral-400">/{totalLearners}</span>
+                </span>
               </div>
-              <span className="text-xs font-semibold tabular-nums text-neutral-700">
-                {Math.min(totalLearners, Math.round(totalLearners * 0.5))}
-                <span className="text-[10px] text-neutral-400">/{totalLearners}</span>
-              </span>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        )}
       </div>
 
       <aside className="space-y-3">
         <Card className="p-4">
-          <h3 className="text-sm font-semibold text-neutral-900">Engagement</h3>
+          <h3 className="text-sm font-semibold text-neutral-900">Engasjement</h3>
           <ul className="mt-2 space-y-2 text-xs">
             <li className="flex justify-between">
-              <span className="text-neutral-500">Aktive denne uka</span>
+              <span className="text-neutral-500">Pågående læringer</span>
               <span className="font-semibold tabular-nums text-neutral-900">
-                {activeThisWeek} av {progress.length}
+                {activeInProgress} av {progress.length}
               </span>
             </li>
             <li className="flex justify-between">
-              <span className="text-neutral-500">Fullført denne uka</span>
-              <span className="font-semibold tabular-nums text-neutral-900">{completedThisWeek}</span>
+              <span className="text-neutral-500">Totalt fullført</span>
+              <span className="font-semibold tabular-nums text-neutral-900">{completedTotal}</span>
             </li>
             <li className="flex justify-between">
-              <span className="text-neutral-500">Snitt sesjonslengde</span>
-              <span className="font-semibold tabular-nums text-neutral-900">28 min</span>
+              <span className="text-neutral-500">Snittfremdrift</span>
+              <span className="font-semibold tabular-nums text-neutral-900">
+                {progress.length
+                  ? Math.round((progress.reduce((s, p) => s + learnerProgressFor(course, p), 0) / progress.length) * 100)
+                  : 0}
+                %
+              </span>
             </li>
             <li className="flex justify-between">
               <span className="text-neutral-500">Ufullførte quizzer</span>

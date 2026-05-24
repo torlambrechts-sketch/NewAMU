@@ -5,6 +5,7 @@
 import { useMemo, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import {
+  AlertTriangle,
   AlignLeft,
   ArrowRight,
   Briefcase,
@@ -19,6 +20,7 @@ import {
   HelpCircle,
   Info,
   ListChecks,
+  Loader2,
   MousePointer2,
   Pencil,
   Plus,
@@ -43,7 +45,7 @@ import {
   moduleKindToBlock,
   type LessonBlockKind,
 } from '../../lib/learning/elearningDesignKit'
-import { Card, ModeToggle, type LearningMode } from '../../components/ui/elearningPrimitives'
+import { Card } from '../../components/ui/elearningPrimitives'
 import type {
   ChecklistItem,
   CourseModule,
@@ -63,12 +65,17 @@ export function LearningCourseBuilderV2() {
   const {
     courses,
     learningLoading,
+    learningError,
     addModule,
     updateModule,
     deleteModule,
     reorderModules,
     updateCourse,
+    publishOrgCourseVersion,
   } = learning
+  const [publishStatus, setPublishStatus] = useState<{ kind: 'idle' } | { kind: 'busy' } | { kind: 'error'; message: string } | { kind: 'ok' }>(
+    { kind: 'idle' },
+  )
 
   const course = useMemo(() => courses.find((c) => c.id === courseId) ?? null, [courses, courseId])
   const [activeLessonId, setActiveLessonId] = useState<string | null>(null)
@@ -175,24 +182,38 @@ export function LearningCourseBuilderV2() {
   }
 
   function handleAddBlock(kind: LessonBlockKind) {
-    if (!activeLesson) {
-      const mod = addModule(courseRow.id, blockToModuleKind(kind), defaultBlockTitle(kind), null)
-      if (mod) {
-        setActiveLessonId(mod.id)
-        noteSaved()
-      }
-      return
+    // Each module is one block in this mapping (1:1). "Add block" creates a
+    // NEW module so the outline grows — does NOT replace the current module's
+    // content. If the user wants to change the active block's type, they can
+    // use the kind switcher inside the BlockEditor instead.
+    const mod = addModule(courseRow.id, blockToModuleKind(kind), defaultBlockTitle(kind), null)
+    if (mod) {
+      setActiveLessonId(mod.id)
+      noteSaved()
     }
-    const moduleKind = blockToModuleKind(kind)
-    handleUpdateLesson(activeLesson.id, {
-      kind: moduleKind,
-      content: defaultContentFor(moduleKind, activeLesson.title),
-    })
   }
 
-  function handlePublish() {
+  async function handlePublish() {
+    if (publishStatus.kind === 'busy') return
+    setPublishStatus({ kind: 'busy' })
+    const result = await publishOrgCourseVersion({
+      courseId: courseRow.id,
+      versionMajor: bumpMajor ? major + 1 : major,
+      versionMinor: bumpMajor ? 0 : minor + 1,
+      isMajor: bumpMajor,
+      changeNotesMd: changelog || 'Ingen endringslogg notert.',
+    })
+    if (!result.ok) {
+      // Permission gate falls through with "Krever tilgang." — surface a
+      // local notice rather than relying on the parent error banner.
+      setPublishStatus({ kind: 'error', message: result.error })
+      return
+    }
+    // Promote to published even if it already was — keeps the status
+    // consistent with the version bump.
     updateCourse(courseRow.id, { status: 'published' })
     noteSaved()
+    setPublishStatus({ kind: 'ok' })
   }
 
   return (
@@ -210,19 +231,41 @@ export function LearningCourseBuilderV2() {
           <Button variant="ghost" icon={<X className="h-4 w-4" />} onClick={() => navigate(`/learning/courses/${courseRow.id}/detail`)}>
             Avbryt
           </Button>
-          <ModeToggle mode={'advanced' as LearningMode} onChange={() => undefined} />
           <Button variant="secondary" icon={<Eye className="h-4 w-4" />} onClick={() => navigate(`/learning/play/${courseRow.id}`)}>
             Forhåndsvis
           </Button>
           <Button variant="secondary" icon={<Save className="h-4 w-4" />} onClick={noteSaved}>
             Lagre kladd
           </Button>
-          <Button variant="primary" icon={<Send className="h-4 w-4" />} onClick={handlePublish}>
-            Publiser v{nextVersion}
+          <Button
+            variant="primary"
+            icon={publishStatus.kind === 'busy' ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+            onClick={handlePublish}
+            disabled={publishStatus.kind === 'busy'}
+          >
+            {publishStatus.kind === 'busy' ? 'Publiserer…' : `Publiser v${nextVersion}`}
           </Button>
         </>
       }
     >
+      {learningError ? (
+        <div className="flex items-start gap-2.5 rounded-md border border-red-300 bg-red-50 px-3 py-3 text-sm text-red-900">
+          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-red-600" />
+          <span className="flex-1">{learningError}</span>
+        </div>
+      ) : null}
+      {publishStatus.kind === 'error' ? (
+        <div className="flex items-start gap-2.5 rounded-md border border-red-300 bg-red-50 px-3 py-3 text-sm text-red-900">
+          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-red-600" />
+          <span className="flex-1">Publisering feilet: {publishStatus.message}</span>
+        </div>
+      ) : null}
+      {publishStatus.kind === 'ok' ? (
+        <div className="flex items-start gap-2.5 rounded-md border border-green-300 bg-green-50 px-3 py-3 text-sm text-green-900">
+          <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-green-600" />
+          <span className="flex-1">Ny versjon publisert. Læringer ser endringene umiddelbart.</span>
+        </div>
+      ) : null}
       <Card className="flex items-center justify-between gap-3 px-5 py-3">
         <div className="flex flex-wrap items-center gap-3 text-xs">
           <span className="inline-flex items-center gap-1.5 rounded border border-neutral-200 px-2 py-1 font-semibold tabular-nums">
@@ -399,9 +442,9 @@ export function LearningCourseBuilderV2() {
           <Card className="p-4">
             <h3 className="text-sm font-semibold text-neutral-900">Leksjon-innstillinger</h3>
             <ul className="mt-2 space-y-2.5">
-              <ToggleRow label="Krev at forrige leksjon er fullført" />
-              <ToggleRow label="Lås før dato" />
-              <ToggleRow label="Anbefalt for verneombud" defaultOn />
+              <ToggleRow label="Krev at forrige leksjon er fullført" hint="UI-visning, ikke lagret" />
+              <ToggleRow label="Lås før dato" hint="UI-visning, ikke lagret" />
+              <ToggleRow label="Anbefalt for verneombud" defaultOn hint="UI-visning, ikke lagret" />
             </ul>
           </Card>
 
@@ -445,16 +488,34 @@ export function LearningCourseBuilderV2() {
   )
 }
 
-function ToggleRow({ label, defaultOn = false }: { label: string; defaultOn?: boolean }) {
+// Lesson-level settings toggle. NB: these toggles are visual scaffolding for
+// the design — the per-lesson rules (prerequisites, lock-before-date,
+// recommended-for-role) don't have DB columns yet, so flipping them only
+// updates local state. When the matching `learning_modules` columns ship
+// (prereq_module_id, available_at, recommended_for_role), wire onChange
+// here to call `updateModule`.
+function ToggleRow({
+  label,
+  defaultOn = false,
+  hint,
+}: {
+  label: string
+  defaultOn?: boolean
+  hint?: string
+}) {
   const [on, setOn] = useState(defaultOn)
   return (
     <li className="flex items-center justify-between gap-2">
-      <span className="text-[12px] text-neutral-700">{label}</span>
+      <span className="text-[12px] text-neutral-700">
+        {label}
+        {hint ? <span className="ml-1 text-[10px] text-neutral-400">({hint})</span> : null}
+      </span>
       <Button
         variant="ghost"
         size="icon"
         onClick={() => setOn(!on)}
         aria-pressed={on}
+        title={hint ?? label}
         className={[
           'relative !h-4 !w-7 cursor-pointer !rounded-full !p-0 transition-colors',
           on ? '!bg-[#1a3d32]' : '!bg-neutral-300',

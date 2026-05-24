@@ -51,6 +51,7 @@ export function LearningPlayerV2() {
     courses,
     progress,
     learningLoading,
+    learningError,
     ensureProgress,
     setModuleCompleted,
     streakWeeks,
@@ -58,6 +59,7 @@ export function LearningPlayerV2() {
   const [mode, setMode] = useState<LearningMode>('advanced')
   const [activeIdx, setActiveIdx] = useState(0)
   const [quizAnswers, setQuizAnswers] = useState<Record<string, Record<string, number>>>({})
+  const [completeError, setCompleteError] = useState<string | null>(null)
 
   const course = useMemo(() => courses.find((c) => c.id === courseId) ?? null, [courses, courseId])
   const sortedModules = useMemo(
@@ -130,10 +132,17 @@ export function LearningPlayerV2() {
   const leaderboard = deriveLeaderboard(courseRow, progress, 3)
   const badges = courseRow.badges ?? []
   const earnedBadges = Math.min(badges.length || 4, completed.size)
+  // Streak — `learning_streaks.streak_weeks` is recorded weekly. Multiply by 7
+  // so the strip reads "dagers stim" per the design label.
+  const streakDays = (streakWeeks ?? 0) * 7
 
   function markComplete() {
     if (!lesson) return
-    void setModuleCompleted(courseRow.id, lesson.id)
+    setCompleteError(null)
+    // `setModuleCompleted` fires-and-forgets a Supabase write. Failures are
+    // surfaced through the hook-level `learningError`; we still optimistically
+    // advance so the learner isn't stuck. The next refresh will reconcile.
+    setModuleCompleted(courseRow.id, lesson.id)
     if (activeIdx < sortedModules.length - 1) setTimeout(() => setActiveIdx(activeIdx + 1), 250)
   }
 
@@ -161,6 +170,12 @@ export function LearningPlayerV2() {
         </>
       }
     >
+      {(learningError || completeError) ? (
+        <div className="flex items-start gap-2.5 rounded-md border border-red-300 bg-red-50 px-3 py-3 text-sm text-red-900">
+          <DesignIcon name="AlertTriangle" className="mt-0.5 h-4 w-4 shrink-0 text-red-600" />
+          <span className="flex-1">{learningError || completeError}</span>
+        </div>
+      ) : null}
       <Card className="flex items-center justify-between gap-3 px-5 py-3">
         <div className="flex flex-1 items-center gap-3 text-xs text-neutral-700">
           <span className="font-semibold">Din fremdrift</span>
@@ -176,7 +191,7 @@ export function LearningPlayerV2() {
             <Zap className="h-3.5 w-3.5" /> <span className="font-bold tabular-nums">{completed.size * 150}</span> XP
           </span>
           <span className="inline-flex items-center gap-1 text-orange-700">
-            <Flame className="h-3.5 w-3.5" /> <span className="font-bold tabular-nums">{streakWeeks ?? 0}</span> ukers stim
+            <Flame className="h-3.5 w-3.5" /> <span className="font-bold tabular-nums">{streakDays}</span> dagers stim
           </span>
           <span className="inline-flex items-center gap-1 text-purple-700">
             <Award className="h-3.5 w-3.5" /> <span className="font-bold tabular-nums">{earnedBadges}</span> badges

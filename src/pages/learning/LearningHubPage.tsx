@@ -1,15 +1,17 @@
 // LearningHubPage — Main e-læring hub. Framework rail on the left,
 // Kurs/Maler/Statistikk tabs with bokser/tabell view modes, search and a
 // compliance summary aside. Replaces the legacy LearningDashboard at /learning.
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
+  AlertTriangle,
   Award,
   BarChart3,
   BookOpen,
   BookOpenCheck,
   FileStack,
   LayoutGrid,
+  Loader2,
   Pencil,
   Play,
   Plus,
@@ -18,10 +20,14 @@ import {
   ShieldAlert,
   ShieldCheck,
   Star,
+  X,
 } from 'lucide-react'
 import { useLearning } from '../../hooks/useLearning'
+import { useOrgSetupContext } from '../../hooks/useOrgSetupContext'
 import { Button } from '../../components/ui/Button'
 import { StandardInput } from '../../components/ui/Input'
+import { StandardTextarea } from '../../components/ui/Textarea'
+import { SlidePanel } from '../../components/layout/SlidePanel'
 import { Tabs, type TabItem } from '../../components/ui/Tabs'
 import {
   ELEARNING_FRAMEWORKS,
@@ -80,20 +86,58 @@ const SHARED_SERIF = "'Libre Baskerville', Georgia, serif"
 export function LearningHubPage() {
   const navigate = useNavigate()
   const learning = useLearning()
-  const { courses, progress } = learning
+  const { can, isAdmin } = useOrgSetupContext()
+  const canManage = isAdmin || can('learning.manage')
+  const {
+    courses,
+    progress,
+    learningLoading,
+    learningError,
+    createCourse,
+    updateCourse,
+  } = learning
   const [mode, setMode] = useState<LearningMode>('advanced')
   const [framework, setFramework] = useState<string>('all')
   const [tab, setTab] = useState<TabId>('courses')
   const [view, setView] = useState<ViewMode>(() => loadViewMode())
   const [query, setQuery] = useState('')
+  const [dismissedError, setDismissedError] = useState<string | null>(null)
+  const [newCourseOpen, setNewCourseOpen] = useState(false)
+  const [newTitle, setNewTitle] = useState('')
+  const [newDesc, setNewDesc] = useState('')
+  const [creating, setCreating] = useState(false)
 
   useEffect(() => {
     saveViewMode(view)
   }, [view])
 
   const easy = mode === 'easy'
+  const errorVisible = learningError && learningError !== dismissedError
 
   const courseById = useMemo(() => new Map(courses.map((c) => [c.id, c])), [courses])
+
+  const closeNewCourse = useCallback(() => {
+    if (creating) return
+    setNewCourseOpen(false)
+    setNewTitle('')
+    setNewDesc('')
+  }, [creating])
+
+  const submitNewCourse = useCallback(() => {
+    if (!newTitle.trim() || !canManage) return
+    setCreating(true)
+    try {
+      const c = createCourse(newTitle, newDesc)
+      const tags = newTitle.match(/§\s*\d+(-\d+)?/g) ?? []
+      if (tags.length > 0) updateCourse(c.id, { tags })
+      navigate(`/learning/courses/${c.id}`)
+      setNewCourseOpen(false)
+      setNewTitle('')
+      setNewDesc('')
+    } finally {
+      setCreating(false)
+    }
+  }, [canManage, createCourse, navigate, newDesc, newTitle, updateCourse])
 
   const filteredCourses = useMemo(() => {
     let list = courses
@@ -186,20 +230,24 @@ export function LearningHubPage() {
                 >
                   Sertifikater
                 </Button>
-                <Button
-                  variant="secondary"
-                  icon={<Plus className="h-4 w-4" />}
-                  onClick={() => navigate('/learning/courses/new')}
-                >
-                  Ny mal
-                </Button>
+                {canManage ? (
+                  <Button
+                    variant="secondary"
+                    icon={creating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
+                    onClick={() => setNewCourseOpen(true)}
+                    disabled={creating}
+                  >
+                    Ny mal
+                  </Button>
+                ) : null}
                 <Button
                   variant="primary"
                   icon={<BookOpenCheck className="h-4 w-4" />}
                   onClick={() => {
-                    const first = courses.find((c) => c.status === 'published')
+                    const first = courses.find((c) => c.status === 'published' && c.modules.length > 0)
                     if (first) navigate(`/learning/play/${first.id}`)
                   }}
+                  disabled={!courses.some((c) => c.status === 'published' && c.modules.length > 0)}
                 >
                   Start kurs
                 </Button>
@@ -210,6 +258,27 @@ export function LearningHubPage() {
       </header>
 
       <div className="mx-auto max-w-[1400px] space-y-6 px-4 py-6 md:px-8">
+        {errorVisible ? (
+          <div className="flex items-start gap-2.5 rounded-md border border-red-300 bg-red-50 px-3 py-3 text-sm text-red-900">
+            <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-red-600" />
+            <span className="flex-1">{learningError}</span>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setDismissedError(learningError)}
+              className="!p-1 text-red-700 hover:!bg-red-100"
+              aria-label="Lukk feilmelding"
+            >
+              <X className="h-3.5 w-3.5" />
+            </Button>
+          </div>
+        ) : null}
+        {learningLoading ? (
+          <div className="flex min-h-[40vh] flex-col items-center justify-center gap-3">
+            <Loader2 className="h-8 w-8 animate-spin text-[#1a3d32]" aria-hidden />
+            <p className="text-sm text-neutral-600">Henter kurs og påmeldinger…</p>
+          </div>
+        ) : (
         <div className="grid gap-5 lg:grid-cols-[260px_minmax(0,1fr)]">
           <aside className="space-y-3">
             <Card>
@@ -388,7 +457,59 @@ export function LearningHubPage() {
             </Card>
           </section>
         </div>
+        )}
       </div>
+      <SlidePanel
+        open={newCourseOpen}
+        onClose={closeNewCourse}
+        titleId="elearning-new-course-title"
+        title="Ny kursmal"
+        footer={
+          <div className="flex w-full flex-wrap items-center justify-end gap-2">
+            <Button type="button" variant="secondary" onClick={closeNewCourse} disabled={creating}>
+              Avbryt
+            </Button>
+            <Button
+              type="button"
+              variant="primary"
+              icon={creating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
+              onClick={submitNewCourse}
+              disabled={creating || !newTitle.trim()}
+            >
+              {creating ? 'Oppretter…' : 'Opprett kladd og åpne bygger'}
+            </Button>
+          </div>
+        }
+      >
+        <div className="space-y-5">
+          <div>
+            <label className="mb-1 block text-sm font-semibold text-neutral-700" htmlFor="elearning-new-course-title">
+              Tittel <span className="text-red-500">*</span>
+            </label>
+            <StandardInput
+              id="elearning-new-course-title"
+              value={newTitle}
+              onChange={(e) => setNewTitle(e.target.value)}
+              placeholder="F.eks. HMS-grunnkurs for verneombud og AMU (§ 6-5)"
+            />
+            <p className="mt-1 text-xs text-neutral-500">
+              Tips: ta med §-referansen i tittelen — Rammeverk-rail filtrerer automatisk på den.
+            </p>
+          </div>
+          <div>
+            <label className="mb-1 block text-sm font-semibold text-neutral-700" htmlFor="elearning-new-course-desc">
+              Beskrivelse
+            </label>
+            <StandardTextarea
+              id="elearning-new-course-desc"
+              value={newDesc}
+              onChange={(e) => setNewDesc(e.target.value)}
+              rows={3}
+              placeholder="Hvem er målgruppen og hva oppnår de?"
+            />
+          </div>
+        </div>
+      </SlidePanel>
     </div>
   )
 }
@@ -433,7 +554,7 @@ function CourseBoxes({
                 <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-[#e7efe9] text-[#1a3d32]">
                   <DesignIcon name={courseIconName(course)} className="h-3 w-3" />
                 </span>
-                <h3 className="min-w-0 flex-1 text-[13px] font-semibold leading-snug text-neutral-900">{course.title}</h3>
+                <h3 className="line-clamp-2 min-w-0 flex-1 text-[13px] font-semibold leading-snug text-neutral-900">{course.title}</h3>
               </div>
               <div className="mt-1.5 flex items-center gap-1.5">
                 <CohortStatusPill status={c.status} />
