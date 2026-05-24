@@ -114,7 +114,6 @@ import { DocumentsSokPage } from './pages/documents/DocumentsSokPage'
 import { DocumentsMalbibliotekPage } from './pages/documents/DocumentsMalbibliotekPage'
 import { WikiSpaceView } from './pages/documents/WikiSpaceView'
 import { WikiPageView } from './pages/documents/WikiPageView'
-import { WikiPageEditRedirect } from './pages/documents/WikiPageEditRedirect'
 import { ComplianceDashboard } from './pages/documents/ComplianceDashboard'
 import { AnnualReviewPage } from './pages/documents/AnnualReviewPage'
 
@@ -124,6 +123,7 @@ import { DocumentPrivacyPage } from './pages/documents/DocumentPrivacyPage'
 import { DocumentEditorTestPage } from './pages/documents/DocumentEditorTestPage'
 import { DocumentKandidatdetaljLayoutTestPage } from './pages/documents/DocumentKandidatdetaljLayoutTestPage'
 import { WikiPageReferenceEditor } from './pages/documents/WikiPageReferenceEditor'
+import { DocumentEditPage } from './pages/documents/DocumentEditPage'
 import { DocumentsOrgTemplateEditorPage } from './pages/documents/DocumentsOrgTemplateEditorPage'
 import { DocumentsModuleShellLayout, DocumentsWikiOutlet } from '../modules/documents'
 import { RouteErrorBoundary } from './components/RouteErrorBoundary'
@@ -676,7 +676,14 @@ const router = createBrowserRouter(
                             </RouteErrorBoundary>
                           }
                         />
-                        <Route path="documents/page/:pageId/edit" element={<WikiPageEditRedirect />} />
+                        <Route
+                          path="documents/page/:pageId/edit"
+                          element={
+                            <RouteErrorBoundary title="Kunne ikke åpne redigering">
+                              <DocumentEditPage />
+                            </RouteErrorBoundary>
+                          }
+                        />
                       </Route>
                     </Route>
                   </Route>
