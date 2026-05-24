@@ -29,6 +29,8 @@ export type ProfileRow = {
   learning_metadata?: Record<string, unknown> | null
   /** In-app / email / webhook notification preferences (jsonb). */
   notification_preferences?: Record<string, unknown> | null
+  /** Per-user UI density / mode preferences (jsonb). Keys are scope-namespaced. */
+  ui_preferences?: Record<string, unknown> | null
   /** Public URL for profile photo (storage or HTTPS) */
   avatar_url?: string | null
   phone?: string | null

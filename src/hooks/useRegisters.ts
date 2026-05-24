@@ -16,9 +16,11 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import { useOrgSetupContext } from './useOrgSetupContext'
 import { getSupabaseErrorMessage } from '../lib/supabaseError'
 import {
+  RegisterDisplayMetadataSchema,
   RegisterMetadataSchemaSchema,
   RegisterRecordStatusSchema,
   type RegisterCategory,
+  type RegisterDisplayMetadata,
   type RegisterMetadataSchema,
   type RegisterOrgSettings,
   type RegisterRecord,
@@ -98,6 +100,7 @@ type DbRegisterTypeRow = {
   is_active: boolean
   is_system: boolean
   position: number
+  display_metadata: unknown
   created_at: string
   updated_at: string
 }
@@ -129,6 +132,8 @@ type DbSettingsRow = {
 function mapType(row: DbRegisterTypeRow): RegisterType {
   // Defensive parse of metadata_schema — fall back to empty when malformed.
   const schemaParse = RegisterMetadataSchemaSchema.safeParse(row.metadata_schema)
+  const displayParse = RegisterDisplayMetadataSchema.safeParse(row.display_metadata ?? {})
+  const display: RegisterDisplayMetadata = displayParse.success ? displayParse.data : {}
   return {
     id: row.id,
     organizationId: row.organization_id,
@@ -141,6 +146,7 @@ function mapType(row: DbRegisterTypeRow): RegisterType {
     isActive: row.is_active,
     isSystem: row.is_system,
     position: row.position,
+    displayMetadata: display,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   }

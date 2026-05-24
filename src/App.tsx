@@ -87,6 +87,7 @@ import { LearningCourseBuilder } from './pages/learning/LearningCourseBuilder'
 import { RegistersHubPage } from './pages/registers/RegistersHubPage'
 import { RegistersAnalysePage } from './pages/registers/RegistersAnalysePage'
 import { RegisterTypePage } from './pages/registers/RegisterTypePage'
+import { RegisterEntryPage } from './pages/registers/RegisterEntryPage'
 import { LearningPlayer } from './pages/learning/LearningPlayer'
 import { LearningDeltakerePage } from './pages/learning/LearningDeltakerePage'
 import { LearningKompetansePage } from './pages/learning/LearningKompetansePage'
@@ -588,6 +589,7 @@ const router = createBrowserRouter(
                       <Route path="registers/analyse" element={<RegistersAnalysePage />} />
                       <Route path="registers/admin" element={<LegacyAdminRedirect scope="registers" />} />
                       <Route path="registers/:typeId" element={<RegisterTypePage />} />
+                      <Route path="registers/:typeId/:recordId" element={<RegisterEntryPage />} />
                       <Route path="learning" element={<LearningLayout />}>
                         <Route index element={<LearningDashboard />} />
                         {/* Five canonical tabs */}
