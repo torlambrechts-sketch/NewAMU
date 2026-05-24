@@ -274,24 +274,35 @@ export function SurveyPage({ supabase }: Props) {
         description={headerDescription}
         headerActions={
           <div className="flex flex-wrap items-center gap-2">
-            {/* Enkelt / Avansert mode toggle — hub only */}
+            {/* Enkel / Avansert mode toggle — forest green active per design */}
             {mode === 'hub' && (
-              <div className="inline-flex items-center rounded-md border border-neutral-200 bg-neutral-50 p-0.5">
-                {(['easy', 'advanced'] as const).map((m) => {
-                  const active = hubMode === m
+              <div
+                role="tablist"
+                aria-label="Visningsmodus"
+                className="inline-flex items-center gap-1 rounded-md border border-neutral-200/80 bg-white p-1"
+                style={{ boxShadow: '0 1px 1px rgba(0,0,0,0.03)' }}
+              >
+                {([
+                  { id: 'easy' as const, label: 'Enkel', sub: 'For alle i felt' },
+                  { id: 'advanced' as const, label: 'Avansert', sub: 'HMS-ansvarlig' },
+                ]).map(({ id, label, sub }) => {
+                  const active = hubMode === id
                   return (
                     <button
-                      key={m}
+                      key={id}
                       type="button"
-                      onClick={() => setHubMode(m)}
+                      role="tab"
+                      aria-selected={active}
+                      onClick={() => setHubMode(id)}
                       className={[
-                        'rounded px-2.5 py-1 text-xs font-medium transition-colors',
-                        active
-                          ? 'bg-white text-neutral-900 shadow-sm ring-1 ring-neutral-200'
-                          : 'text-neutral-500 hover:text-neutral-800',
+                        'flex items-center gap-2 rounded-[5px] px-2.5 py-1.5 text-xs font-semibold transition-colors',
+                        active ? 'bg-[#1a3d32] text-white' : 'text-neutral-600 hover:text-neutral-900',
                       ].join(' ')}
                     >
-                      {m === 'easy' ? 'Enkel' : 'Avansert'}
+                      <span>{label}</span>
+                      <span className={['hidden text-[10px] font-medium md:inline', active ? 'text-white/70' : 'text-neutral-400'].join(' ')}>
+                        · {sub}
+                      </span>
                     </button>
                   )
                 })}
@@ -307,7 +318,7 @@ export function SurveyPage({ supabase }: Props) {
                       icon={<BarChart3 className="h-4 w-4" />}
                       onClick={() => navigate('/survey/analyse')}
                     >
-                      <span className="hidden sm:inline">Analyse</span>
+                      <span className="hidden sm:inline">Resultatanalyse</span>
                     </Button>
                     <Button
                       type="button"

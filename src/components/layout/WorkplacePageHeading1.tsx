@@ -13,7 +13,7 @@ export type WorkplaceBreadcrumbItem = { label: string; to?: string }
 export function WorkplacePageHeading1({
   breadcrumb,
   title,
-  description: _description,
+  description,
   menu,
   headerActions,
   headerActionsLayout = 'default',
@@ -69,6 +69,9 @@ export function WorkplacePageHeading1({
             >
               {title}
             </h1>
+            {description ? (
+              <div className="mt-2 max-w-3xl text-sm text-neutral-600">{description}</div>
+            ) : null}
           </div>
           {headerActions ? (
             <div

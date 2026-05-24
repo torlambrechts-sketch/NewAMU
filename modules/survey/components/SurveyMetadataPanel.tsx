@@ -180,6 +180,11 @@ export function SurveyMetadataPanel({
     return m
   }, [members])
 
+  // When the panel has nothing to show (no template fields and the caller
+  // hides the universal title/description fields), don't render the empty
+  // "Hoveddata" card — the design's SdOversikt has no such block.
+  if (hideUniversalFields && fields.length === 0) return null
+
   return (
     <ModuleSectionCard className="p-5 md:p-6">
       <div className="flex flex-wrap items-center justify-between gap-2">

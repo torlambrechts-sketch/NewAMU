@@ -43,9 +43,9 @@ import type { SurveyRow, SurveyCategoryRow } from './types'
 import type { SurveyTemplateCatalogRow } from './surveyTemplateCatalogTypes'
 import { ResponseRing } from './components/ResponseRing'
 
-// ─── Accent — purple for tab strip, green for category rail ──────────────────
+// ─── Accent — forest green for everything per SurveyApp.jsx design ───────────
 
-const ACCENT = '#7c3aed'
+const ACCENT = '#1a3d32'
 
 // Category rail green active state (design-spec)
 const CAT_ACTIVE_BG     = '#e7efe9'
