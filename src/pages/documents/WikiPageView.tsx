@@ -92,7 +92,6 @@ import {
 } from '../../components/documents/docsShared'
 import { sanitizeLearningHtml } from '../../lib/sanitizeHtml'
 import {
-  THREAD_COLORS,
   injectCommentHighlights,
   type CommentAnchorHighlight,
 } from '../../lib/wikiCommentHighlights'
@@ -1684,7 +1683,9 @@ function DdKommentarer({
   /** Anchored highlights — numbered to match the comment cards in the rail.
    *  Includes the pending quote (while composing) and any already-saved
    *  anchored comments, so the marker stays on the paragraph after the
-   *  comment has been posted. */
+   *  comment has been posted. Open threads use amber, resolved use green,
+   *  pending (during composition) uses orange — matching the Klarert
+   *  Dokumenter design handover. */
   const commentAnchors = useMemo<CommentAnchorHighlight[]>(() => {
     const out: CommentAnchorHighlight[] = []
     tops.forEach((c, i) => {
@@ -1694,9 +1695,13 @@ function DdKommentarer({
         commentId: c.id,
         quotedText: quoted,
         index: i + 1,
-        color: c.resolved
-          ? '#dcfce7'
-          : THREAD_COLORS[i % THREAD_COLORS.length] ?? THREAD_COLORS[0],
+        // Light tinted background + matching saturated underline + filled
+        // circular badge — same triple per resolved/open state.
+        color: c.resolved ? '#dcfce7' : '#fef3c7',
+        borderColor: c.resolved ? '#16a34a' : '#d97706',
+        badgeColor: c.resolved ? '#16a34a' : '#d97706',
+        badgeTextColor: '#ffffff',
+        badgeFloat: true,
       })
     })
     if (pendingAnchor?.quotedText?.trim()) {
@@ -1704,7 +1709,11 @@ function DdKommentarer({
         commentId: 'pending',
         quotedText: pendingAnchor.quotedText,
         index: tops.length + 1,
-        color: '#fed7aa',
+        color: '#ffedd5',
+        borderColor: '#ea580c',
+        badgeColor: '#ea580c',
+        badgeTextColor: '#ffffff',
+        badgeFloat: true,
       })
     }
     return out
