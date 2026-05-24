@@ -48,7 +48,17 @@ export function InternkontrollAuditorPage() {
       return
     }
     void supabase
-      .rpc('compliance_auditor_token_verify', { p_token: token })
+      .rpc('compliance_auditor_token_verify', {
+        p_token: token,
+        // Server-side guard added in migration 20260926130000 — the RPC
+        // now accepts an optional framework hint. We leave it NULL here
+        // because the internkontroll page handles five frameworks
+        // (aml/ik-f/gdpr/apenhetsloven/iso-45001) and the RPC overload
+        // takes a single value; the client-side check below rejects the
+        // controls sentinel so a wrong-surface token shows a clear
+        // error instead of an empty dashboard.
+        p_expected_framework_id: null,
+      })
       .then(({ data, error }) => {
         if (cancelled) return
         if (error) {
@@ -60,10 +70,20 @@ export function InternkontrollAuditorPage() {
           setState({ kind: 'expired' })
           return
         }
-        setState({
-          kind: 'ok',
-          payload: row as TokenPayload,
-        })
+        const payload = row as TokenPayload
+        // The controls auditor surface lives at /auditor/controls/:token
+        // and ships its own snapshot shape. A controls token loaded here
+        // would render an empty dashboard layout; surface a clearer
+        // error so the recipient knows where to go.
+        if (payload.framework_id === 'controls') {
+          setState({
+            kind: 'error',
+            message:
+              'Denne lenken er for "Internkontroller" — åpne den fra /auditor/controls/ i stedet.',
+          })
+          return
+        }
+        setState({ kind: 'ok', payload })
       })
     return () => {
       cancelled = true

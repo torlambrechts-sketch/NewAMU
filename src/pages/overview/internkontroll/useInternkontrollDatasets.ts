@@ -31,6 +31,7 @@ import {
   chapterToken,
   type FrameworkId,
 } from './frameworkParagraphs'
+import { useControlsByLawRef } from './useControlsByLawRef'
 
 type RegisterCoverageRow = { id: string; label: string; aml_paragraphs: string[] | null }
 type PlanItemStatusRow = { status: 'planned' | 'in_progress' | 'blocked' | 'done' }
@@ -118,6 +119,7 @@ export function useInternkontrollDatasets(filters: DashboardFilter[]): {
   }
 } {
   const { coverage, loading: coverageLoading } = useRegelverkCoverage()
+  const controlsLookup = useControlsByLawRef()
   const { supabase, organization } = useOrgSetupContext()
   const [registerRows, setRegisterRows] = useState<RegisterCoverageRow[]>([])
   const [registersLoading, setRegistersLoading] = useState<boolean>(true)
@@ -211,6 +213,15 @@ export function useInternkontrollDatasets(filters: DashboardFilter[]): {
       const norm = normalizeLawRef(p.code)
       const entries = dedupeEntries(coverage.get(norm) ?? [])
       return GAP_MODULE_COLUMNS.map((col) => {
+        if (col.id === 'controls') {
+          // Count of internal controls (Tier 2) whose junction links to
+          // this paragraph. Cross-framework — a single control can cover
+          // ISO 9.3 + AML § 7-2 (2) f + IK-f § 5 nr. 8 simultaneously.
+          // Lookup key is normalised (whitespace + § spacing) on both
+          // sides so an org-custom clause with whitespace variants still
+          // matches the framework paragraph definition.
+          return controlsLookup.countByLawRef.get(normalizeLawRef(p.code)) ?? 0
+        }
         if (col.id === 'registers') {
           if (framework !== 'aml') return 0
           return registerRows.reduce(
@@ -229,7 +240,7 @@ export function useInternkontrollDatasets(filters: DashboardFilter[]): {
       // label back to the bare law-ref string.
       codeByLabel: Object.fromEntries(codeByLabel) as Record<string, string>,
     }
-  }, [framework, coverage, registerRows, chapterFilter])
+  }, [framework, coverage, registerRows, chapterFilter, controlsLookup.countByLawRef])
 
   const kpiSummary = useMemo(() => {
     const total = matrix.rows.length
@@ -260,12 +271,19 @@ export function useInternkontrollDatasets(filters: DashboardFilter[]): {
         const hasRegister =
           id === 'aml' &&
           registerRows.some((r) => (r.aml_paragraphs ?? []).includes(p.code))
-        if (hasNonRegister || hasRegister) covered += 1
+        // Tier-2 internal controls also count as coverage. Without this
+        // branch a paragraph covered only by a control row shows green
+        // in the gap matrix (the Kontroller column) but doesn't count
+        // toward the framework coverage % — inconsistent. Key is the
+        // normalised form so org-custom whitespace variants still match.
+        const hasControl =
+          (controlsLookup.countByLawRef.get(normalizeLawRef(p.code)) ?? 0) > 0
+        if (hasNonRegister || hasRegister || hasControl) covered += 1
       }
       out[def.shortLabel] = total === 0 ? 0 : Math.round((covered / total) * 100)
     }
     return out
-  }, [coverage, registerRows])
+  }, [coverage, registerRows, controlsLookup.countByLawRef])
 
   const recentEvidence = useMemo(() => {
     const def = FRAMEWORKS[framework]
@@ -312,7 +330,7 @@ export function useInternkontrollDatasets(filters: DashboardFilter[]): {
 
   return {
     datasets,
-    loading: coverageLoading || registersLoading,
+    loading: coverageLoading || registersLoading || controlsLookup.loading,
     framework,
     coverage,
     registerRows,

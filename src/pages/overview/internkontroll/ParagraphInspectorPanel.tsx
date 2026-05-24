@@ -12,7 +12,8 @@
 // the artefact list. Plan items have their own hook.
 
 import { useEffect, useMemo } from 'react'
-import { ExternalLink, X } from 'lucide-react'
+import { ExternalLink, ShieldCheck, X } from 'lucide-react'
+import { Link } from 'react-router-dom'
 import { Button } from '../../../components/ui/Button'
 import type { CoverageEntry } from '../../../hooks/useRegelverkCoverage'
 import {
@@ -21,6 +22,7 @@ import {
   type FrameworkId,
 } from './frameworkParagraphs'
 import type { RegisterCoverageMatch } from './useInternkontrollDatasets'
+import type { ControlCoverageSummary } from './useControlsByLawRef'
 import {
   PlanItemsSection,
   type CompliancePlanItem,
@@ -134,6 +136,7 @@ export function ParagraphInspectorPanel({
   lawRef,
   entries,
   registerMatches,
+  controls,
   planItems,
   onClose,
   onCreatePlanItem,
@@ -145,6 +148,8 @@ export function ParagraphInspectorPanel({
   lawRef: string | null
   entries: CoverageEntry[]
   registerMatches: RegisterCoverageMatch[]
+  /** Internal controls (Tier 2) whose junction links to this paragraph. */
+  controls: ControlCoverageSummary[]
   planItems: CompliancePlanItem[]
   onClose: () => void
   onCreatePlanItem: (input: { title: string; description: string; status: CompliancePlanItem['status']; dueAt: string | null }) => Promise<void>
@@ -179,6 +184,7 @@ export function ParagraphInspectorPanel({
   if (!open || !lawRef) return null
 
   const totalArtefacts = entries.length + registerMatches.length
+  const activeControls = controls.filter((c) => c.isActive && c.status !== 'retired')
 
   return (
     <div className="fixed inset-0 z-[60]" role="dialog" aria-modal="true">
@@ -235,6 +241,14 @@ export function ParagraphInspectorPanel({
                 ? 'Udekket'
                 : `${totalArtefacts} dekkende ressurs${totalArtefacts === 1 ? '' : 'er'}`}
             </span>
+            {activeControls.length > 0 ? (
+              <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2.5 py-1 text-[11px] font-semibold text-amber-900 ring-1 ring-inset ring-amber-200">
+                <ShieldCheck className="size-3" aria-hidden />
+                {activeControls.length === 1
+                  ? '1 internkontroll'
+                  : `${activeControls.length} internkontroller`}
+              </span>
+            ) : null}
             {planItems.length > 0 ? (
               <span className="rounded-full bg-blue-50 px-2.5 py-1 text-[11px] font-semibold text-blue-900 ring-1 ring-inset ring-blue-200">
                 {planItems.length === 1
@@ -291,6 +305,9 @@ export function ParagraphInspectorPanel({
             )}
           </section>
 
+          {/* Internkontroller (Tier 2 — controls covering this paragraph) */}
+          <ControlsCoverageSection controls={controls} />
+
           {/* Plan items (Phase 3) */}
           <PlanItemsSection
             items={planItems}
@@ -311,5 +328,114 @@ export function ParagraphInspectorPanel({
         </footer>
       </div>
     </div>
+  )
+}
+
+// ── ControlsCoverageSection ──────────────────────────────────────────────
+// Renders the Tier-2 internal controls covering this paragraph. Shows
+// live status pulled from `internal_control_status_v` (overdue, due_soon,
+// on_track, never_executed) so an auditor can see at a glance whether
+// the named control is keeping cadence.
+
+const CONTROL_STATUS_PILL: Record<
+  NonNullable<ControlCoverageSummary['statusLabel']>,
+  { label: string; ring: string }
+> = {
+  on_track: { label: 'På sporet', ring: 'bg-emerald-50 text-emerald-900 ring-emerald-200' },
+  due_soon: { label: 'Forfaller snart', ring: 'bg-amber-50 text-amber-900 ring-amber-200' },
+  overdue: { label: 'Forfalt', ring: 'bg-red-50 text-red-900 ring-red-200' },
+  never_executed: { label: 'Aldri utført', ring: 'bg-neutral-100 text-neutral-700 ring-neutral-200' },
+  retired: { label: 'Pensjonert', ring: 'bg-neutral-200 text-neutral-800 ring-neutral-300' },
+}
+
+const COVERAGE_LABEL: Record<ControlCoverageSummary['coverageLevel'], string> = {
+  primary: 'Primær',
+  supporting: 'Støttende',
+  partial: 'Delvis',
+}
+
+function ControlsCoverageSection({ controls }: { controls: ControlCoverageSummary[] }) {
+  // Defensive: the upstream hook already filters retired/inactive, but
+  // keeping the filter here means the section count never disagrees with
+  // the header pill (which uses `activeControls`) if the hook contract
+  // ever loosens.
+  const visible = controls.filter((c) => c.isActive && c.status !== 'retired')
+  if (visible.length === 0) {
+    return (
+      <section className="mb-6">
+        <p className="text-[10px] font-bold uppercase tracking-wide text-neutral-500">
+          Internkontroller
+        </p>
+        <p className="mt-3 rounded-md border border-dashed border-neutral-300 bg-white/60 p-3 text-xs text-neutral-600">
+          Ingen internkontroller er koblet til denne paragrafen.
+          {' '}
+          <Link to="/controls/admin" className="text-amber-800 underline">
+            Opprett en kontroll →
+          </Link>
+          {' '}
+          (klausul-kobling skjer fra kontrollens detaljside.)
+        </p>
+      </section>
+    )
+  }
+  return (
+    <section className="mb-6">
+      <p className="text-[10px] font-bold uppercase tracking-wide text-neutral-500">
+        Internkontroller · {visible.length}
+      </p>
+      <ul className="mt-3 space-y-2">
+        {visible.map((c) => {
+          const pill = c.statusLabel ? CONTROL_STATUS_PILL[c.statusLabel] : null
+          return (
+            <li
+              key={c.controlId}
+              className="overflow-hidden rounded-md border border-neutral-200 bg-white"
+            >
+              <Link
+                to={`/controls/${c.controlId}`}
+                className="flex items-start justify-between gap-3 px-4 py-2.5 transition-colors hover:bg-neutral-50"
+              >
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-medium text-neutral-900">
+                    <ShieldCheck
+                      className="-mt-0.5 mr-1 inline size-3.5 text-amber-700"
+                      aria-hidden
+                    />
+                    {c.name}
+                  </p>
+                  <p className="mt-0.5 text-[11px] text-neutral-600">
+                    <span className="font-mono">{c.slug}</span>
+                    {' · '}
+                    <span>{COVERAGE_LABEL[c.coverageLevel]}</span>
+                    {c.lastOccurredAt ? (
+                      <>
+                        {' · siste '}
+                        <span>{new Date(c.lastOccurredAt).toLocaleDateString('nb-NO')}</span>
+                      </>
+                    ) : null}
+                    {c.nextDueAt ? (
+                      <>
+                        {' · frist '}
+                        <span>{new Date(c.nextDueAt).toLocaleDateString('nb-NO')}</span>
+                      </>
+                    ) : null}
+                  </p>
+                </div>
+                <div className="flex shrink-0 items-center gap-2">
+                  {pill ? (
+                    <span
+                      className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ring-1 ring-inset ${pill.ring}`}
+                    >
+                      {pill.label}
+                    </span>
+                  ) : null}
+                  <ExternalLink className="size-3.5 text-neutral-400" aria-hidden />
+                </div>
+              </Link>
+            </li>
+          )
+        })}
+      </ul>
+    </section>
   )
 }

@@ -11,6 +11,7 @@ import { PageShell } from '../../../template'
 import { Button } from '../../../src/components/ui/Button'
 import { StandardInput } from '../../../src/components/ui/Input'
 import { ControlEditorPanel } from '../ControlEditorPanel'
+import { ShareControlsWithAuditorButton } from './ShareControlsWithAuditorButton'
 import { useInternalControls } from '../useInternalControls'
 
 export function KontrollerInnstillingerPage() {
@@ -34,9 +35,12 @@ export function KontrollerInnstillingerPage() {
       title="Kontroller — innstillinger"
       description="Forvalt egne kontroller og pin de viktigste til sidebaren."
       actions={
-        <Button variant="primary" size="sm" onClick={() => setCreating(true)}>
-          + Ny kontroll
-        </Button>
+        <div className="flex items-center gap-2">
+          <ShareControlsWithAuditorButton />
+          <Button variant="primary" size="sm" onClick={() => setCreating(true)}>
+            + Ny kontroll
+          </Button>
+        </div>
       }
     >
       {error ? (

@@ -68,5 +68,6 @@ export { ControlEditorPanel } from './ControlEditorPanel'
 export { KontrollerInnstillingerPage } from './admin/KontrollerInnstillingerPage'
 export { BindingEditorPanel } from './admin/BindingEditorPanel'
 export { ClauseMappingPanel } from './admin/ClauseMappingPanel'
+export { ShareControlsWithAuditorButton } from './admin/ShareControlsWithAuditorButton'
 
 export { ComplianceLayerAnalysePage } from './ComplianceLayerAnalysePage'

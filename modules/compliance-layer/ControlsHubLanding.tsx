@@ -37,7 +37,7 @@ const STATUS_COLORS: Record<ControlStatusLabel, string> = {
   due_soon: 'bg-amber-50 text-amber-800 ring-amber-200',
   overdue: 'bg-rose-50 text-rose-800 ring-rose-200',
   never_executed: 'bg-neutral-50 text-neutral-700 ring-neutral-200',
-  retired: 'bg-neutral-100 text-neutral-500 ring-neutral-200',
+  retired: 'bg-neutral-200 text-neutral-800 ring-neutral-300',
 }
 
 const FAMILY_LABELS: Record<ControlFamily, string> = {

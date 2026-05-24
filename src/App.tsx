@@ -108,6 +108,7 @@ import { RegelverkCoveragePage } from './pages/overview/regelverk/RegelverkCover
 import { InternkontrollDashboardPage } from './pages/overview/internkontroll/InternkontrollDashboardPage'
 import { InternkontrollGapPage } from './pages/overview/internkontroll/InternkontrollGapPage'
 import { InternkontrollAuditorPage } from './pages/auditor/InternkontrollAuditorPage'
+import { ControlsAuditorPage } from './pages/auditor/ControlsAuditorPage'
 import { BenchmarkPage } from './pages/dashboards/BenchmarkPage'
 import { ComplianceStudioPage } from './pages/overview/studio/ComplianceStudioPage'
 import { LearningFlowEntry } from './pages/learning/LearningFlowEntry'
@@ -318,6 +319,7 @@ const router = createBrowserRouter(
             <Route path="/auditor/workflows" element={<AuditorWorkflowsPage />} />
             <Route path="/survey-respond/:campaignId" element={<SurveyRespondPage />} />
             <Route path="/auditor/internkontroll/:token" element={<InternkontrollAuditorPage />} />
+            <Route path="/auditor/controls/:token" element={<ControlsAuditorPage />} />
             <Route path="/r/:token" element={<SharedReportPage />} />
             {/* Public marketing — landing + per-module feature pages + etterlevelse + integrations + about + endringer + demo. */}
             <Route element={<MarketingShell />}>
