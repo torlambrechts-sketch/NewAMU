@@ -49,6 +49,32 @@ export type RegisterMetadataSchema = {
   fields: RegisterField[]
 }
 
+// ── Display metadata (presentation-only attributes on a type) ────────────
+//
+// Held in register_types.display_metadata jsonb. Optional / null-tolerant
+// — the page falls back to defaults for any missing key.
+
+export type RegisterDisplayMetadata = {
+  /** Lucide icon name (e.g. 'FlaskConical', 'Database'). */
+  icon?: string | null
+  /** Lovpålagt — drives the "Lovpålagt" pill + compliance status. */
+  mandatory?: boolean
+  /** Sensitive content flag — shows lock icon and access banners. */
+  sensitive?: boolean
+  /** Holds personal data — drives the purple GDPR pill + banner. */
+  gdpr?: boolean
+  /** Canonical owner role label, e.g. "HMS-leder". */
+  ownerRole?: string | null
+  /** Free-text lagringstid description. */
+  retentionLabel?: string | null
+  /** Free-text access rules; one bullet per line. */
+  accessRules?: string[]
+  /** Render-ready legal-reference labels for the badge row (e.g. "AML § 4-5"). */
+  legalLabels?: string[]
+  /** Chemicals special: which boolean field flags a CMR record. */
+  cmrField?: string | null
+}
+
 // ── Register type (catalogue row) ────────────────────────────────────────
 
 export type RegisterType = {
@@ -66,6 +92,8 @@ export type RegisterType = {
   isActive: boolean
   isSystem: boolean
   position: number
+  /** Presentation-layer attributes — icon, mandatory, ownerRole, … */
+  displayMetadata: RegisterDisplayMetadata
   createdAt: string
   updatedAt: string
 }
@@ -164,3 +192,15 @@ export const RegisterMetadataSchemaSchema: z.ZodType<RegisterMetadataSchema> = z
 })
 
 export const RegisterRecordStatusSchema = z.enum(['draft', 'active', 'archived'])
+
+export const RegisterDisplayMetadataSchema: z.ZodType<RegisterDisplayMetadata> = z.object({
+  icon: z.string().nullable().optional(),
+  mandatory: z.boolean().optional(),
+  sensitive: z.boolean().optional(),
+  gdpr: z.boolean().optional(),
+  ownerRole: z.string().nullable().optional(),
+  retentionLabel: z.string().nullable().optional(),
+  accessRules: z.array(z.string()).optional(),
+  legalLabels: z.array(z.string()).optional(),
+  cmrField: z.string().nullable().optional(),
+})
