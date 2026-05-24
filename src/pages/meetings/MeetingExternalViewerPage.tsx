@@ -96,21 +96,71 @@ export default function MeetingExternalViewerPage() {
       }
     }
     const supabase = createClient(url, key)
+    const tokenPrefix = token.slice(0, 8)
+    // Best-effort user-agent only; we deliberately don't request the IP
+    // client-side because that would round-trip to an unauthenticated
+    // upstream. The Postgres RPC's rate-limit relies on the IP being
+    // present, so this is a degraded mode when called directly from the
+    // browser. The edge-function path (when added) will pass the real IP.
+    const userAgent = typeof navigator !== 'undefined' ? navigator.userAgent : null
     void supabase
-      .rpc('meetings_external_redeem_token', { p_token: token })
-      .then((res) => {
+      .rpc('meetings_external_redeem_token', {
+        p_token: token,
+        p_client_ip: null,
+        p_user_agent: userAgent,
+      })
+      .then(async (res) => {
         if (cancelled) return
         if (res.error) {
           const msg = res.error.message ?? ''
-          if (msg.includes('invite_not_found')) setError('Lenken er ikke gyldig.')
-          else if (msg.includes('invite_expired')) setError('Lenken er utløpt.')
-          else if (msg.includes('meeting_not_found')) setError('Møtet er ikke tilgjengelig.')
-          else if (msg.includes('invalid_token')) setError('Lenken er ikke gjenkjennelig.')
-          else setError(msg)
+          let outcome:
+            | 'not_found'
+            | 'expired'
+            | 'used'
+            | 'confidential_blocked'
+            | 'invalid_format'
+            | 'rate_limited' = 'invalid_format'
+          if (msg.includes('invite_not_found') || msg.includes('meeting_not_found')) {
+            outcome = 'not_found'
+            setError('Lenken er ikke gyldig.')
+          } else if (msg.includes('invite_expired')) {
+            outcome = 'expired'
+            setError('Lenken er utløpt.')
+          } else if (msg.includes('invite_already_used')) {
+            outcome = 'used'
+            setError('Lenken er allerede brukt. Be møteleder om en ny lenke om du trenger ny tilgang.')
+          } else if (msg.includes('confidential_meeting_access_denied')) {
+            outcome = 'confidential_blocked'
+            setError('Møtet er konfidensielt. Be møteleder gi deg utvidet tilgang.')
+          } else if (msg.includes('rate_limited')) {
+            outcome = 'rate_limited'
+            setError('For mange forsøk fra denne nettleseren. Vent noen minutter og prøv igjen.')
+          } else if (msg.includes('invalid_token')) {
+            outcome = 'invalid_format'
+            setError('Lenken er ikke gjenkjennelig.')
+          } else {
+            setError(msg)
+          }
+          // Audit the failed attempt — survives the redeem RPC's rollback.
+          await supabase.rpc('meetings_external_token_record_attempt', {
+            p_token_prefix: tokenPrefix,
+            p_outcome: outcome,
+            p_client_ip: null,
+            p_user_agent: userAgent,
+            p_meeting_id: null,
+          })
           setLoading(false)
           return
         }
-        setPayload(res.data as Payload)
+        const data = res.data as Payload
+        await supabase.rpc('meetings_external_token_record_attempt', {
+          p_token_prefix: tokenPrefix,
+          p_outcome: 'ok',
+          p_client_ip: null,
+          p_user_agent: userAgent,
+          p_meeting_id: data.meeting.id,
+        })
+        setPayload(data)
         setLoading(false)
       })
     return () => {
