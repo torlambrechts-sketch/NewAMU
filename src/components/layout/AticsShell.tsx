@@ -208,10 +208,16 @@ type NavGroup = {
 // users mentally bucket the product: personal work → daily operations →
 // governance system → administration. See specs/PLAYBOOK.md and the
 // 2026-05 menu restructure recommendation.
+//
+// In the two-rail layout (Nov 2026), each section gets its own icon in
+// rail 1 — rail 1 no longer has one icon per NavGroup. Rail 2 always
+// shows all sections vertically with section labels + their groups.
 type NavSection = {
   id: string
   /** Uppercase label rendered between group clusters. */
   label: string
+  /** Icon shown in rail 1 (sidebar) — one per section, not per group. */
+  icon: React.ComponentType<{ className?: string; 'aria-hidden'?: boolean | 'true' | 'false' }>
   groups: NavGroup[]
 }
 
@@ -2265,11 +2271,13 @@ export function AticsShell() {
     const mittArbeidSection: NavSection = {
       id: 'mitt-arbeid',
       label: 'Mitt arbeid',
+      icon: Inbox,
       groups: [mittArbeidGroup],
     }
     const dagligDriftSection: NavSection = {
       id: 'daglig-drift',
       label: 'Daglig drift',
+      icon: ClipboardList,
       groups: [
         complianceGroup,
         avvikGroup,
@@ -2283,6 +2291,7 @@ export function AticsShell() {
     const styringssystemSection: NavSection = {
       id: 'styringssystem',
       label: 'Styringssystem',
+      icon: ShieldCheck,
       groups: [
         hmsOverviewGroup,
         controlsGroup,
@@ -2296,6 +2305,7 @@ export function AticsShell() {
     const administrasjonSection: NavSection = {
       id: 'administrasjon',
       label: 'Administrasjon',
+      icon: Settings,
       groups: [adminGroup],
     }
 
@@ -2308,7 +2318,7 @@ export function AticsShell() {
 
     if (partnerGroup) {
       return [
-        { id: 'partner', label: 'Partner', groups: [partnerGroup] },
+        { id: 'partner', label: 'Partner', icon: Briefcase, groups: [partnerGroup] },
         ...sections,
       ]
     }
@@ -2388,11 +2398,14 @@ export function AticsShell() {
   if (navMode === 'sidebar') {
     const activeModule = activeModuleForPath(visibleModules, location.pathname, location.search)
     const activeGroup = visibleGroups.find((g) => g.modules.some((m) => m.to === activeModule.to))
+    const activeSection = visibleSections.find((s) =>
+      s.groups.some((g) => g.id === activeGroup?.id),
+    )
 
     return (
       <div className="flex h-[100dvh] max-h-[100dvh] overflow-hidden">
 
-        {/* ── Rail 1: Group icons ──────────────────────────────────────────── */}
+        {/* ── Rail 1: Section icons (one per section) ──────────────────────── */}
         <aside className="flex w-[3.75rem] shrink-0 flex-col bg-[var(--ui-nav-rail)]">
           {/* Logo */}
           <div className="flex h-14 shrink-0 items-center justify-center border-b border-white/10">
@@ -2405,56 +2418,37 @@ export function AticsShell() {
             </NavLink>
           </div>
 
-          {/* Section-grouped group icons. Each section renders as a
-              labelled landmark (sr-only h2) with a visible divider line
-              + small label that meets WCAG AA contrast on the forest-
-              green rail. The Partner-konsoll "section" carries no label
-              since it's a single-group shortcut shown only to
-              consultants. */}
-          <div className="flex flex-1 flex-col gap-1 overflow-y-auto px-2 py-3">
-            {visibleSections.map((section, sectionIdx) => {
-              const showLabel = section.id !== 'partner'
+          {/* Section icons — one per NavSection (4 total + partner).
+              Clicking navigates to the section's first group's primary
+              route; the rail 2 column shows every section's content
+              regardless, so this is a scroll-anchor / landing
+              shortcut. */}
+          <nav
+            className="flex flex-1 flex-col gap-1.5 overflow-y-auto px-2 py-4"
+            aria-label={t('shell.homeAria')}
+          >
+            {visibleSections.map((section) => {
+              const SectionIcon = section.icon
+              const isActive = activeSection?.id === section.id
+              const firstTarget = section.groups[0]?.modules[0]?.to ?? '/app'
               return (
-                <nav
+                <NavLink
                   key={section.id}
+                  to={firstTarget}
+                  end={false}
+                  title={section.label}
                   aria-label={section.label}
-                  className={sectionIdx > 0 ? 'mt-2' : ''}
+                  className={`flex items-center justify-center rounded-lg p-3 transition-colors ${
+                    isActive
+                      ? 'bg-white/15 text-white ring-1 ring-[#c9a227]/60'
+                      : 'text-white/55 hover:bg-white/10 hover:text-white'
+                  }`}
                 >
-                  {showLabel ? (
-                    <div
-                      className="px-1.5 pb-1 pt-1 text-[10px] font-semibold uppercase tracking-[0.15em] text-white/70"
-                    >
-                      {section.label}
-                    </div>
-                  ) : (
-                    <h2 className="sr-only">{section.label}</h2>
-                  )}
-                  <div className="flex flex-col gap-1">
-                    {section.groups.map((group) => {
-                      const GroupIcon = group.icon
-                      const isActive = activeGroup?.id === group.id
-                      return (
-                        <NavLink
-                          key={group.id}
-                          to={group.modules[0].to}
-                          end={false}
-                          title={`${section.label} · ${group.label}`}
-                          aria-label={`${section.label} · ${group.label}`}
-                          className={`flex items-center justify-center rounded-lg p-2.5 transition-colors ${
-                            isActive
-                              ? 'bg-white/15 text-white ring-1 ring-[#c9a227]/60'
-                              : 'text-white/55 hover:bg-white/10 hover:text-white'
-                          }`}
-                        >
-                          <GroupIcon className="size-[1.125rem] shrink-0" aria-hidden />
-                        </NavLink>
-                      )
-                    })}
-                  </div>
-                </nav>
+                  <SectionIcon className="size-[1.25rem] shrink-0" aria-hidden />
+                </NavLink>
               )
             })}
-          </div>
+          </nav>
 
           {/* Section rail toggle — always on this column (mid rail can be absent before activeGroup resolves) */}
           <div className="border-t border-white/10 px-2 py-2">
@@ -2478,170 +2472,165 @@ export function AticsShell() {
 
         </aside>
 
-        {/* ── Rail 2: Modules + sub-items for active group ─────────────────── */}
-        {!subNavCollapsed && activeGroup && (
-          <aside className="flex w-52 shrink-0 flex-col overflow-hidden bg-[var(--ui-nav-rail-mid)]">
-            {/* Group name header — collapse/expand lives on left icon rail only */}
-            <div className="flex h-14 shrink-0 items-center border-b border-white/10 px-4">
-              <span
-                className="min-w-0 truncate text-sm font-semibold text-white"
-                style={{ fontFamily: "'Libre Baskerville', Georgia, serif" }}
-              >
-                {activeGroup.label}
-              </span>
-            </div>
-
-            {/* Module list — each module can expand to show its sub-items */}
-            <nav className="flex-1 overflow-y-auto px-2 py-3" aria-label="Section">
-              {activeGroup.modules.map((mod) => {
-                const ModIcon = mod.icon
-                const isActiveMod = activeModule.to === mod.to
-                const modSubs = visibleSubs(mod.subs, gateNav, can)
-                const hasModSubs = modSubs.length > 0
-
+        {/* ── Rail 2: All sections + groups + active module's sub-items ─── */}
+        {!subNavCollapsed && (
+          <aside className="flex w-64 shrink-0 flex-col overflow-hidden bg-[var(--ui-nav-rail-mid)]">
+            <nav className="flex-1 overflow-y-auto px-2 py-4" aria-label="Section navigation">
+              {visibleSections.map((section, sectionIdx) => {
+                const showLabel = section.id !== 'partner'
                 return (
-                  <div key={mod.to}>
-                    {/* Module row */}
-                    <NavLink
-                      to={mod.to}
-                      end={mod.end}
-                      className={`flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm font-medium transition-colors ${
-                        isActiveMod
-                          ? 'bg-white/10 text-white'
-                          : 'text-white/65 hover:bg-white/5 hover:text-white/90'
-                      }`}
-                    >
-                      <ModIcon className="size-4 shrink-0 opacity-80" aria-hidden />
-                      <span className="flex-1">{mod.label}</span>
-                      {isActiveMod && hasModSubs && (
-                        <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-[#c9a227]" aria-hidden />
-                      )}
-                    </NavLink>
+                  <div key={section.id} className={sectionIdx > 0 ? 'mt-4' : ''}>
+                    {showLabel ? (
+                      <div className="px-2 pb-1.5 pt-1 text-[10px] font-semibold uppercase tracking-[0.15em] text-white/55">
+                        {section.label}
+                      </div>
+                    ) : (
+                      <h2 className="sr-only">{section.label}</h2>
+                    )}
+                    {section.groups.flatMap((group) =>
+                      group.modules.map((mod) => {
+                        const ModIcon = mod.icon
+                        const isActiveMod = activeModule.to === mod.to
+                        const modSubs = visibleSubs(mod.subs, gateNav, can)
+                        const hasModSubs = modSubs.length > 0
 
-                    {/* Sub-items — expanded inline when this module is active.
-                        flatSubs modules (e.g. Sjekklister) render their sub-items
-                        at module-level size and zero extra indent so the templates
-                        read as co-equal first-class entries. */}
-                    {isActiveMod && hasModSubs && (
-                      <div
-                        className={
-                          mod.flatSubs
-                            ? 'mb-1 mt-0.5'
-                            : 'mb-1 ml-4 mt-0.5 border-l border-white/10 pl-3'
-                        }
-                      >
-                        {(() => {
-                          // Pre-compute auto-expand: a header is auto-open
-                          // when any item beneath it (before the next
-                          // header) matches the current location.
-                          const loc = { pathname: location.pathname, search: location.search }
-                          const autoOpenByKey = new Map<string, boolean>()
-                          for (let i = 0; i < modSubs.length; i++) {
-                            const s = modSubs[i]!
-                            if (s.kind !== 'header' || !s.headerKey) continue
-                            let hasActive = false
-                            for (let j = i + 1; j < modSubs.length; j++) {
-                              const next = modSubs[j]!
-                              if (next.kind === 'header') break
-                              if (next.match(loc)) { hasActive = true; break }
-                            }
-                            autoOpenByKey.set(s.headerKey, hasActive)
-                          }
+                        return (
+                          <div key={`${group.id}:${mod.to}`}>
+                            <NavLink
+                              to={mod.to}
+                              end={mod.end}
+                              className={`flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm font-medium transition-colors ${
+                                isActiveMod
+                                  ? 'bg-white/10 text-white'
+                                  : 'text-white/70 hover:bg-white/5 hover:text-white'
+                              }`}
+                            >
+                              <ModIcon className="size-4 shrink-0 opacity-80" aria-hidden />
+                              <span className="flex-1 truncate">{mod.label}</span>
+                              {isActiveMod && hasModSubs && (
+                                <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-[#c9a227]" aria-hidden />
+                              )}
+                            </NavLink>
 
-                          return modSubs.map((item) => {
-                            if (item.kind === 'header') {
-                              const HeaderIcon = item.Icon ?? FolderTree
-                              const key = item.headerKey ?? `${item.path}:${item.label}`
-                              const auto = autoOpenByKey.get(key) ?? false
-                              const expanded = expandedHeaders.has(key)
-                                ? expandedHeaders.get(key)!
-                                : auto
-                              return (
-                                <Button
-                                  key={`hdr:${key}`}
-                                  variant="ghost"
-                                  onClick={() => toggleHeader(key, auto)}
-                                  aria-expanded={expanded}
-                                  className="mt-3 flex w-full items-center justify-start gap-2 rounded-lg px-2.5 py-1.5 text-left text-[11px] font-semibold uppercase tracking-wider text-white/55 transition-colors hover:bg-white/5 hover:text-white/80 first:mt-0"
-                                >
-                                  <HeaderIcon className="size-3.5 shrink-0 opacity-80" aria-hidden />
-                                  <span className="min-w-0 flex-1 truncate">{item.label}</span>
-                                  {expanded ? (
-                                    <ChevronDown className="size-3.5 shrink-0 opacity-70" aria-hidden />
-                                  ) : (
-                                    <ChevronRight className="size-3.5 shrink-0 opacity-70" aria-hidden />
-                                  )}
-                                </Button>
-                              )
-                            }
-                            // Items belonging to a header: render only if
-                            // that header is currently expanded. Items
-                            // without a headerKey always render.
-                            if (item.headerKey) {
-                              const auto = autoOpenByKey.get(item.headerKey) ?? false
-                              const expanded = expandedHeaders.has(item.headerKey)
-                                ? expandedHeaders.get(item.headerKey)!
-                                : auto
-                              if (!expanded) return null
-                            }
-                            const active = item.match(loc)
-                            const SubIcon = item.Icon
-                            const iconOnly = item.iconOnly && SubIcon
-                            const indented = Boolean(item.headerKey)
-                            return (
-                              <NavLink
-                                key={item.path + item.label}
-                                to={item.path}
-                                title={item.label}
-                                aria-label={iconOnly ? item.label : undefined}
+                            {/* Sub-items expanded inline when active. */}
+                            {isActiveMod && hasModSubs && (
+                              <div
                                 className={
                                   mod.flatSubs
-                                    ? `flex items-center gap-2.5 rounded-lg ${indented ? 'pl-7 pr-2.5' : 'px-2.5'} py-2 text-sm font-medium transition-colors ${
-                                        active
-                                          ? 'bg-white/10 text-white'
-                                          : 'text-white/65 hover:bg-white/5 hover:text-white/90'
-                                      }`
-                                    : `flex items-center gap-2 rounded-md text-xs transition-colors ${
-                                        active
-                                          ? 'font-semibold text-white'
-                                          : 'text-white/50 hover:bg-white/5 hover:text-white/80'
-                                      } ${
-                                        iconOnly
-                                          ? 'size-8 shrink-0 justify-center p-0'
-                                          : 'px-2 py-1.5'
-                                      }`
+                                    ? 'mb-1 mt-0.5'
+                                    : 'mb-1 ml-4 mt-0.5 border-l border-white/10 pl-3'
                                 }
                               >
-                                {!iconOnly && active && !mod.flatSubs && (
-                                  <span className="h-3 w-0.5 shrink-0 rounded-full bg-[#c9a227]" aria-hidden />
-                                )}
-                                {!iconOnly && !active && !mod.flatSubs && (
-                                  <span className="h-3 w-0.5 shrink-0" aria-hidden />
-                                )}
-                                {iconOnly ? (
-                                  <SubIcon className="size-4 shrink-0 opacity-90" aria-hidden />
-                                ) : (
-                                  <>
-                                    <span className="flex-1">{item.label}</span>
-                                    {typeof item.badgeCount === 'number' && item.badgeCount > 0 ? (
-                                      <span
-                                        className={`ml-2 inline-flex h-5 min-w-[20px] shrink-0 items-center justify-center rounded-full px-1.5 text-[10px] font-bold ${
-                                          item.badgeTone === 'danger'
-                                            ? 'bg-rose-600 text-white'
-                                            : 'bg-[#c9a227] text-[#1a1a1a]'
-                                        }`}
-                                        aria-label={`${item.badgeCount} ${item.badgeTone === 'danger' ? 'krever oppmerksomhet' : 'venter på behandling'}`}
+                                {(() => {
+                                  const loc = { pathname: location.pathname, search: location.search }
+                                  const autoOpenByKey = new Map<string, boolean>()
+                                  for (let i = 0; i < modSubs.length; i++) {
+                                    const s = modSubs[i]!
+                                    if (s.kind !== 'header' || !s.headerKey) continue
+                                    let hasActive = false
+                                    for (let j = i + 1; j < modSubs.length; j++) {
+                                      const next = modSubs[j]!
+                                      if (next.kind === 'header') break
+                                      if (next.match(loc)) { hasActive = true; break }
+                                    }
+                                    autoOpenByKey.set(s.headerKey, hasActive)
+                                  }
+
+                                  return modSubs.map((item) => {
+                                    if (item.kind === 'header') {
+                                      const HeaderIcon = item.Icon ?? FolderTree
+                                      const key = item.headerKey ?? `${item.path}:${item.label}`
+                                      const auto = autoOpenByKey.get(key) ?? false
+                                      const expanded = expandedHeaders.has(key)
+                                        ? expandedHeaders.get(key)!
+                                        : auto
+                                      return (
+                                        <Button
+                                          key={`hdr:${key}`}
+                                          variant="ghost"
+                                          onClick={() => toggleHeader(key, auto)}
+                                          aria-expanded={expanded}
+                                          className="mt-3 flex w-full items-center justify-start gap-2 rounded-lg px-2.5 py-1.5 text-left text-[11px] font-semibold uppercase tracking-wider text-white/55 transition-colors hover:bg-white/5 hover:text-white/80 first:mt-0"
+                                        >
+                                          <HeaderIcon className="size-3.5 shrink-0 opacity-80" aria-hidden />
+                                          <span className="min-w-0 flex-1 truncate">{item.label}</span>
+                                          {expanded ? (
+                                            <ChevronDown className="size-3.5 shrink-0 opacity-70" aria-hidden />
+                                          ) : (
+                                            <ChevronRight className="size-3.5 shrink-0 opacity-70" aria-hidden />
+                                          )}
+                                        </Button>
+                                      )
+                                    }
+                                    if (item.headerKey) {
+                                      const auto = autoOpenByKey.get(item.headerKey) ?? false
+                                      const expanded = expandedHeaders.has(item.headerKey)
+                                        ? expandedHeaders.get(item.headerKey)!
+                                        : auto
+                                      if (!expanded) return null
+                                    }
+                                    const active = item.match(loc)
+                                    const SubIcon = item.Icon
+                                    const iconOnly = item.iconOnly && SubIcon
+                                    const indented = Boolean(item.headerKey)
+                                    return (
+                                      <NavLink
+                                        key={item.path + item.label}
+                                        to={item.path}
+                                        title={item.label}
+                                        aria-label={iconOnly ? item.label : undefined}
+                                        className={
+                                          mod.flatSubs
+                                            ? `flex items-center gap-2.5 rounded-lg ${indented ? 'pl-7 pr-2.5' : 'px-2.5'} py-2 text-sm font-medium transition-colors ${
+                                                active
+                                                  ? 'bg-white/10 text-white'
+                                                  : 'text-white/65 hover:bg-white/5 hover:text-white/90'
+                                              }`
+                                            : `flex items-center gap-2 rounded-md text-xs transition-colors ${
+                                                active
+                                                  ? 'font-semibold text-white'
+                                                  : 'text-white/50 hover:bg-white/5 hover:text-white/80'
+                                              } ${
+                                                iconOnly
+                                                  ? 'size-8 shrink-0 justify-center p-0'
+                                                  : 'px-2 py-1.5'
+                                              }`
+                                        }
                                       >
-                                        {item.badgeCount > 99 ? '99+' : item.badgeCount}
-                                      </span>
-                                    ) : null}
-                                  </>
-                                )}
-                              </NavLink>
-                            )
-                          })
-                        })()}
-                      </div>
+                                        {!iconOnly && active && !mod.flatSubs && (
+                                          <span className="h-3 w-0.5 shrink-0 rounded-full bg-[#c9a227]" aria-hidden />
+                                        )}
+                                        {!iconOnly && !active && !mod.flatSubs && (
+                                          <span className="h-3 w-0.5 shrink-0" aria-hidden />
+                                        )}
+                                        {iconOnly ? (
+                                          <SubIcon className="size-4 shrink-0 opacity-90" aria-hidden />
+                                        ) : (
+                                          <>
+                                            <span className="flex-1">{item.label}</span>
+                                            {typeof item.badgeCount === 'number' && item.badgeCount > 0 ? (
+                                              <span
+                                                className={`ml-2 inline-flex h-5 min-w-[20px] shrink-0 items-center justify-center rounded-full px-1.5 text-[10px] font-bold ${
+                                                  item.badgeTone === 'danger'
+                                                    ? 'bg-rose-600 text-white'
+                                                    : 'bg-[#c9a227] text-[#1a1a1a]'
+                                                }`}
+                                                aria-label={`${item.badgeCount} ${item.badgeTone === 'danger' ? 'krever oppmerksomhet' : 'venter på behandling'}`}
+                                              >
+                                                {item.badgeCount > 99 ? '99+' : item.badgeCount}
+                                              </span>
+                                            ) : null}
+                                          </>
+                                        )}
+                                      </NavLink>
+                                    )
+                                  })
+                                })()}
+                              </div>
+                            )}
+                          </div>
+                        )
+                      }),
                     )}
                   </div>
                 )
@@ -2702,42 +2691,40 @@ export function AticsShell() {
   // ── Top-bar layout ──────────────────────────────────────────────────────────
   const activeModule = activeModuleForPath(visibleModules, location.pathname, location.search)
   const activeGroup = visibleGroups.find((g) => g.modules.some((m) => m.to === activeModule.to))
+  const activeSection = visibleSections.find((s) =>
+    s.groups.some((g) => g.id === activeGroup?.id),
+  )
   const subItems = visibleSubs(
     subNavForPath(visibleModules, location.pathname, location.search),
     gateNav,
     can,
   )
 
+  // Topbar row 1: one tab per NavSection (4 + partner). Mirrors the
+  // sidebar Rail 1 (icons-per-section); row 2 below shows modules in
+  // the active section.
   const topBarGroupNav = (
     <nav className="flex min-h-0 items-center gap-1 overflow-x-auto pb-0.5 [-ms-overflow-style:none] [scrollbar-width:none] md:flex-1 md:justify-center md:overflow-visible md:pb-0 [&::-webkit-scrollbar]:hidden" aria-label="Primary">
-      {visibleSections.map((section, sectionIdx) => (
-        <div key={section.id} className="flex shrink-0 items-center gap-1">
-          {sectionIdx > 0 ? (
-            <span
-              className="mx-1 hidden h-4 w-px shrink-0 bg-white/15 md:inline-block"
-              aria-hidden
-            />
-          ) : null}
-          {section.groups.map((group) => {
-            const isActiveGroup = activeGroup?.id === group.id
-            return (
-              <NavLink
-                key={group.id}
-                to={group.modules[0].to}
-                end={false}
-                title={section.id === 'partner' ? group.label : `${section.label} · ${group.label}`}
-                className={`shrink-0 whitespace-nowrap rounded-lg px-3 py-1.5 text-sm font-semibold transition-colors md:px-3.5 md:py-1.5 ${
-                  isActiveGroup
-                    ? 'bg-white/15 text-white ring-1 ring-[#c9a227]/70'
-                    : 'text-white/75 hover:bg-white/10 hover:text-white'
-                }`}
-              >
-                {group.label}
-              </NavLink>
-            )
-          })}
-        </div>
-      ))}
+      {visibleSections.map((section) => {
+        const isActiveSection = activeSection?.id === section.id
+        const firstTarget = section.groups[0]?.modules[0]?.to ?? '/app'
+        return (
+          <NavLink
+            key={section.id}
+            to={firstTarget}
+            end={false}
+            title={section.label}
+            aria-label={section.label}
+            className={`shrink-0 whitespace-nowrap rounded-lg px-3 py-1.5 text-sm font-semibold transition-colors md:px-3.5 md:py-1.5 ${
+              isActiveSection
+                ? 'bg-white/15 text-white ring-1 ring-[#c9a227]/70'
+                : 'text-white/75 hover:bg-white/10 hover:text-white'
+            }`}
+          >
+            {section.label}
+          </NavLink>
+        )
+      })}
     </nav>
   )
 
@@ -2843,31 +2830,33 @@ export function AticsShell() {
           <div className="mt-2 border-t border-white/10 pt-2 md:hidden">{topBarGroupNav}</div>
         </div>
 
-        {/* ── Row 2: module tabs for the active group ─────────────────────── */}
+        {/* ── Row 2: module tabs for the active section ───────────────────── */}
         <div className="border-t border-white/10">
           <div className="mx-auto flex max-w-[1400px] items-center gap-1 overflow-x-auto px-4 py-2 md:px-8">
-            {activeGroup ? (
-              activeGroup.modules.map((mod) => {
-                const Icon = mod.icon
-                const isActiveMod = activeModule.to === mod.to
-                return (
-                  <NavLink
-                    key={mod.to}
-                    to={mod.to}
-                    end={mod.end}
-                    className={`inline-flex shrink-0 items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
-                      isActiveMod
-                        ? 'bg-white/10 text-white'
-                        : 'text-white/65 hover:bg-white/5 hover:text-white/90'
-                    }`}
-                  >
-                    <Icon className="size-3.5 shrink-0 opacity-80" aria-hidden />
-                    {mod.label}
-                  </NavLink>
-                )
-              })
+            {activeSection ? (
+              activeSection.groups.flatMap((group) =>
+                group.modules.map((mod) => {
+                  const Icon = mod.icon
+                  const isActiveMod = activeModule.to === mod.to
+                  return (
+                    <NavLink
+                      key={`${group.id}:${mod.to}`}
+                      to={mod.to}
+                      end={mod.end}
+                      className={`inline-flex shrink-0 items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
+                        isActiveMod
+                          ? 'bg-white/10 text-white'
+                          : 'text-white/65 hover:bg-white/5 hover:text-white/90'
+                      }`}
+                    >
+                      <Icon className="size-3.5 shrink-0 opacity-80" aria-hidden />
+                      {mod.label}
+                    </NavLink>
+                  )
+                }),
+              )
             ) : (
-              <span className="text-sm text-white/40">Velg en gruppe over</span>
+              <span className="text-sm text-white/40">Velg en seksjon over</span>
             )}
           </div>
         </div>
