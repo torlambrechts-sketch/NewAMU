@@ -47,6 +47,7 @@ import { FRAMEWORK_IDS, type FrameworkId } from './frameworkParagraphs'
 import { OversiktSection } from './sections/OversiktSection'
 import { KravSection } from './sections/KravSection'
 import { KontrollerSection } from './sections/KontrollerSection'
+import { ControlDetailView } from '../../../../modules/compliance-layer'
 import { GapSection } from './sections/GapSection'
 import { AarshjulSection } from './sections/AarshjulSection'
 import { TiltakSection } from './sections/TiltakSection'
@@ -115,6 +116,11 @@ export function InternkontrollPage() {
   )
     ? (filterCategoryParam as IkCategoryFilter)
     : 'all'
+
+  // ?control=<uuid> on top of section=kontroller swaps the list for the
+  // detail view in-place. Lets users navigate without leaving the
+  // Internkontroll chrome.
+  const selectedControlId = section === 'kontroller' ? searchParams.get('control') : null
 
   const setSection = (id: IkSectionId) => {
     const sp = new URLSearchParams(searchParams)
@@ -464,9 +470,19 @@ export function InternkontrollPage() {
               setFilterFw={setFilterFw}
             />
           )}
-          {section === 'kontroller' && (
-            <KontrollerSection data={data} filterFw={filterFw} filterCategory={filterCategory} />
-          )}
+          {section === 'kontroller' &&
+            (selectedControlId ? (
+              <ControlDetailView
+                controlId={selectedControlId}
+                onBack={() => {
+                  const sp = new URLSearchParams(searchParams)
+                  sp.delete('control')
+                  setSearchParams(sp, { replace: true })
+                }}
+              />
+            ) : (
+              <KontrollerSection data={data} filterFw={filterFw} filterCategory={filterCategory} />
+            ))}
           {section === 'gap' && (
             <GapSection
               data={data}

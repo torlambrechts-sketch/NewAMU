@@ -1,4 +1,5 @@
-// ControlDetailPage — /controls/:controlId.
+// ControlDetailPage — /controls/:controlId (standalone route) and
+// ControlDetailView (embeddable into Internkontroll · Kontroller).
 //
 // Tabs: Oversikt / Lovkrav / Bindinger / Bevisjournal / Innstillinger.
 // Each tab pulls from a dedicated hook so heavy reads only run when that
@@ -66,8 +67,43 @@ const SOURCE_KIND_LABELS: Record<ControlBindingSourceKind, string> = {
   manual_evidence: 'Manuelt bevis',
 }
 
+// Standalone route. Reads `controlId` from the URL, then defers to
+// ControlDetailView. Kept thin so the embeddable view can be reused
+// from inside Internkontroll · Kontroller without a second hook tree.
 export function ControlDetailPage() {
   const { controlId } = useParams<{ controlId: string }>()
+  if (!controlId) {
+    return (
+      <PageShell title="Mangler kontroll-id" description="">
+        <div className="rounded-lg border border-rose-200 bg-rose-50 p-4 text-sm text-rose-800">
+          Ugyldig URL — kontroll-id mangler.
+        </div>
+      </PageShell>
+    )
+  }
+  return (
+    <PageShell title="" description="">
+      <ControlDetailView controlId={controlId} />
+    </PageShell>
+  )
+}
+
+/**
+ * Embeddable detail view. Renders title + tabs + tab content + the
+ * three edit panels. Use from inside any page chrome (Internkontroll,
+ * /controls/:id PageShell, modal, …). `backHref` controls the
+ * "Tilbake" button target; `onBack` overrides it with a callback for
+ * embed scenarios (e.g. clearing a `?control=` query param).
+ */
+export function ControlDetailView({
+  controlId,
+  backHref = '/internkontroll?section=kontroller',
+  onBack,
+}: {
+  controlId: string
+  backHref?: string
+  onBack?: () => void
+}) {
   const { supabase } = useOrgSetupContext()
   const [activeTab, setActiveTab] = useState<TabId>('overview')
   const [editing, setEditing] = useState(false)
@@ -115,51 +151,57 @@ export function ControlDetailPage() {
     return map
   }, [clauseJunctions, clausesById])
 
-  if (!controlId) {
-    return (
-      <PageShell title="Mangler kontroll-id" description="">
-        <div className="rounded-lg border border-rose-200 bg-rose-50 p-4 text-sm text-rose-800">
-          Ugyldig URL — kontroll-id mangler.
-        </div>
-      </PageShell>
-    )
-  }
+  const backButton = onBack ? (
+    <button
+      type="button"
+      onClick={onBack}
+      className="inline-flex items-center rounded-md border border-neutral-300 bg-white px-3 py-1.5 text-sm font-medium text-neutral-700 shadow-sm hover:bg-neutral-50"
+    >
+      ← Tilbake
+    </button>
+  ) : (
+    <Link
+      to={backHref}
+      className="inline-flex items-center rounded-md border border-neutral-300 bg-white px-3 py-1.5 text-sm font-medium text-neutral-700 shadow-sm hover:bg-neutral-50"
+    >
+      ← Tilbake
+    </Link>
+  )
 
   if (cLoading && !control) {
     return (
-      <PageShell title="Laster…" description="">
-        <div className="rounded-lg border border-neutral-200 bg-white p-6 text-sm text-neutral-500">
-          Laster kontroll…
-        </div>
-      </PageShell>
+      <div className="rounded-lg border border-neutral-200 bg-white p-6 text-sm text-neutral-500">
+        Laster kontroll…
+      </div>
     )
   }
 
   if (!control) {
     return (
-      <PageShell title="Kontroll ikke funnet" description="">
-        <div className="rounded-lg border border-rose-200 bg-rose-50 p-4 text-sm text-rose-800">
-          Fant ingen kontroll med id {controlId}.{' '}
-          <Link to="/controls" className="underline">
-            Tilbake til oversikten
-          </Link>
-        </div>
-      </PageShell>
+      <div className="rounded-lg border border-rose-200 bg-rose-50 p-4 text-sm text-rose-800">
+        Fant ingen kontroll med id {controlId}. {backButton}
+      </div>
     )
   }
 
   return (
-    <PageShell
-      title={control.name}
-      description={control.purpose || undefined}
-      actions={
-        <>
-          <Link
-            to="/controls"
-            className="inline-flex items-center rounded-md border border-neutral-300 bg-white px-3 py-1.5 text-sm font-medium text-neutral-700 shadow-sm hover:bg-neutral-50"
+    <div className="space-y-4">
+      {/* Header — replaces the previous PageShell-supplied chrome so the
+          view can be embedded inside Internkontroll's section column. */}
+      <header className="flex flex-wrap items-start justify-between gap-3 border-b border-neutral-200 pb-3">
+        <div className="min-w-0 space-y-1">
+          <h2
+            className="text-xl font-semibold text-neutral-900 md:text-2xl"
+            style={{ fontFamily: "'Libre Baskerville', Georgia, serif" }}
           >
-            ← Tilbake
-          </Link>
+            {control.name}
+          </h2>
+          {control.purpose ? (
+            <p className="text-sm text-neutral-600">{control.purpose}</p>
+          ) : null}
+        </div>
+        <div className="flex shrink-0 items-center gap-2">
+          {backButton}
           {!control.is_system ? (
             <Button variant="primary" size="sm" onClick={() => setEditing(true)}>
               Rediger
@@ -169,9 +211,8 @@ export function ControlDetailPage() {
               Systemkontroll — skrivebeskyttet
             </span>
           )}
-        </>
-      }
-    >
+        </div>
+      </header>
       <nav className="flex gap-1 border-b border-neutral-200 text-sm">
         {TABS.map((t) => (
           <Button
@@ -492,6 +533,6 @@ export function ControlDetailPage() {
           await refreshClauses()
         }}
       />
-    </PageShell>
+    </div>
   )
 }

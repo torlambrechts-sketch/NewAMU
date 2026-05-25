@@ -1,12 +1,11 @@
 // Kontroller — list of named internal controls (Tier 2 of the
 // compliance-layer architecture). Two views: cards (default) and table.
-// Each row navigates to /controls/<id> for the per-control detail surface
-// (bindings editor, evidence chain, auditor-token sharing) — these live
-// in the compliance-layer module but render under this list now that
-// /controls hub is folded into Internkontroll.
+// Each row sets ?control=<id> so the detail view renders inside the
+// Internkontroll chrome (ControlDetailView) instead of bouncing to a
+// standalone /controls/<id> page.
 
 import { useMemo, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useSearchParams } from 'react-router-dom'
 import { Clock, FileText, LayoutGrid, Plus, ShieldCheck, Table as TableIcon } from 'lucide-react'
 import { Button } from '../../../../components/ui/Button'
 import {
@@ -37,7 +36,12 @@ export function KontrollerSection({
   filterFw: IkFrameworkFilter
   filterCategory: IkCategoryFilter
 }) {
-  const navigate = useNavigate()
+  const [searchParams, setSearchParams] = useSearchParams()
+  const openControl = (id: string) => {
+    const sp = new URLSearchParams(searchParams)
+    sp.set('control', id)
+    setSearchParams(sp, { replace: false })
+  }
   const [view, setView] = useState<'cards' | 'table'>('cards')
   const [typeFilter, setTypeFilter] = useState<ControlType | 'all'>('all')
   const [freqFilter, setFreqFilter] = useState<Freq>('all')
@@ -153,11 +157,11 @@ export function KontrollerSection({
             {filtered.map((c) => (
               <article
                 key={c.id}
-                onClick={() => navigate(`/controls/${c.id}`)}
+                onClick={() => openControl(c.id)}
                 onKeyDown={(e) => {
                   if (e.key === 'Enter' || e.key === ' ') {
                     e.preventDefault()
-                    navigate(`/controls/${c.id}`)
+                    openControl(c.id)
                   }
                 }}
                 role="button"
@@ -247,11 +251,11 @@ export function KontrollerSection({
                 {filtered.map((c) => (
                   <tr
                     key={c.id}
-                    onClick={() => navigate(`/controls/${c.id}`)}
+                    onClick={() => openControl(c.id)}
                     onKeyDown={(e) => {
                       if (e.key === 'Enter') {
                         e.preventDefault()
-                        navigate(`/controls/${c.id}`)
+                        openControl(c.id)
                       }
                     }}
                     role="button"

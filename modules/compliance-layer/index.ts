@@ -62,7 +62,7 @@ export type { UseComplianceLayerNavReturn } from './useComplianceLayerNav'
 
 export { ControlsHubLanding } from './ControlsHubLanding'
 export { ControlsListPage } from './ControlsListPage'
-export { ControlDetailPage } from './ControlDetailPage'
+export { ControlDetailPage, ControlDetailView } from './ControlDetailPage'
 export { ControlEditorPanel } from './ControlEditorPanel'
 
 export { KontrollerInnstillingerPage } from './admin/KontrollerInnstillingerPage'

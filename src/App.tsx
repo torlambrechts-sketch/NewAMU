@@ -166,7 +166,6 @@ import { ChecklistsAnalysePage } from '../modules/compliance/ChecklistsAnalysePa
 import { ChecklistsEtterlevelsePage } from '../modules/compliance/ChecklistsEtterlevelsePage'
 import { ChecklistExecutionPage } from '../modules/compliance/ChecklistExecutionPage'
 import {
-  ControlDetailPage,
   ComplianceLayerAnalysePage,
   KontrollerInnstillingerPage,
 } from '../modules/compliance-layer'
@@ -213,6 +212,24 @@ const LEGACY_SCOPE_TO_SECTION: Record<string, string> = {
   organisation: 'org',
   settings: 'org',
   workflows: 'workflows',
+}
+
+/**
+ * Redirects /controls/:controlId → /internkontroll?section=kontroller&
+ * control=<id> so the per-control detail renders inside the
+ * Internkontroll chrome (the canonical merge target).
+ */
+function ControlDetailRedirect() {
+  const { controlId } = useParams<{ controlId: string }>()
+  if (!controlId) {
+    return <Navigate to="/internkontroll?section=kontroller" replace />
+  }
+  return (
+    <Navigate
+      to={`/internkontroll?section=kontroller&control=${encodeURIComponent(controlId)}`}
+      replace
+    />
+  )
 }
 
 function LegacyAdminRedirect({ scope }: { scope: string }) {
@@ -587,9 +604,14 @@ const router = createBrowserRouter(
                         path="controls/admin"
                         element={<KontrollerInnstillingerPage />}
                       />
+                      {/* Per-control detail standalone — now redirects into the
+                          Internkontroll-embedded view so the chrome matches the
+                          rest of the section. ControlDetailPage / ControlDetailView
+                          stay in the bundle for external pages that want the
+                          standalone form. */}
                       <Route
                         path="controls/:controlId"
-                        element={<ControlDetailPage />}
+                        element={<ControlDetailRedirect />}
                       />
                       <Route path="survey" element={<SurveyModulePage />} />
                       <Route path="survey/admin" element={<LegacyAdminRedirect scope="survey" />} />
