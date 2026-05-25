@@ -21,6 +21,7 @@ import {
   SectionBanner,
   type IkFrameworkFilter,
 } from './internkontrollShared'
+import type { IkCategoryFilter } from './internkontrollTokens'
 import type { IkAarshjulEvent, IkData } from '../useInternkontrollPageData'
 
 type View = 'wheel' | 'grid' | 'timeline'
@@ -28,9 +29,11 @@ type View = 'wheel' | 'grid' | 'timeline'
 export function AarshjulSection({
   data,
   filterFw,
+  filterCategory,
 }: {
   data: IkData
   filterFw: IkFrameworkFilter
+  filterCategory: IkCategoryFilter
 }) {
   const [view, setView] = useState<View>('wheel')
   const [openMonth, setOpenMonth] = useState<number | null>(null)
@@ -40,13 +43,30 @@ export function AarshjulSection({
   const currentYear = useMemo(() => new Date().getFullYear(), [])
   const [year, setYear] = useState<number>(currentYear)
 
+  // Resolve a kontroll → its set of categories via the page's data
+  // pre-computation. The aarshjul event itself doesn't carry category;
+  // we look it up from the underlying kontroll so the same filter
+  // applies consistently (same data the sidebar count uses).
+  const categoriesByControl = useMemo(() => {
+    const m = new Map<string, ReadonlySet<string>>()
+    for (const k of data.kontroller) {
+      m.set(k.id, new Set(k.categories))
+    }
+    return m
+  }, [data.kontroller])
+
   const events = useMemo(() => {
-    const scoped =
-      filterFw === 'all'
-        ? data.aarshjul
-        : data.aarshjul.filter((a) => a.fw.includes(filterFw))
+    let scoped = filterFw === 'all'
+      ? data.aarshjul
+      : data.aarshjul.filter((a) => a.fw.includes(filterFw))
+    if (filterCategory !== 'all') {
+      scoped = scoped.filter((a) => {
+        const cats = categoriesByControl.get(a.controlId)
+        return cats?.has(filterCategory) ?? false
+      })
+    }
     return scoped.filter((a) => a.year === year)
-  }, [data.aarshjul, filterFw, year])
+  }, [data.aarshjul, filterFw, filterCategory, categoriesByControl, year])
 
   // Years present in the underlying data — used to populate the year
   // picker so the user can scrub through historic / planned years that

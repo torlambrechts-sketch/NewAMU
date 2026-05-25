@@ -16,6 +16,7 @@ import {
   TYPE_TONE,
   type IkFrameworkFilter,
 } from './internkontrollShared'
+import type { IkCategoryFilter } from './internkontrollTokens'
 import type { FrameworkId } from '../frameworkParagraphs'
 import type { IkData } from '../useInternkontrollPageData'
 
@@ -25,9 +26,11 @@ type Freq = 'daglig' | 'manedlig' | 'kvartalsvis' | 'arlig' | 'all'
 export function KontrollerSection({
   data,
   filterFw,
+  filterCategory,
 }: {
   data: IkData
   filterFw: IkFrameworkFilter
+  filterCategory: IkCategoryFilter
 }) {
   const [view, setView] = useState<'cards' | 'table'>('cards')
   const [typeFilter, setTypeFilter] = useState<ControlType | 'all'>('all')
@@ -49,6 +52,9 @@ export function KontrollerSection({
 
   const filtered = enriched.filter((c) => {
     if (filterFw !== 'all' && !c.fws.includes(filterFw)) return false
+    // A kontroll matches the category filter if ANY of the paragraphs
+    // it covers fall into the chosen category — kontrol-on-§ is M:M.
+    if (filterCategory !== 'all' && !c.categories.includes(filterCategory)) return false
     if (typeFilter !== 'all' && c.type !== typeFilter) return false
     if (freqFilter !== 'all' && c.frequency !== freqFilter) return false
     return true

@@ -32,6 +32,7 @@ import type {
 } from '../useCompliancePlanItems'
 import type { IkData, IkTiltak } from '../useInternkontrollPageData'
 import { FRAMEWORK_IDS, FRAMEWORKS, type FrameworkId } from '../frameworkParagraphs'
+import type { IkCategoryFilter } from './internkontrollTokens'
 
 type PlanHook = ReturnType<typeof useCompliancePlanItems>
 type Grouping = 'status' | 'priority' | 'owner'
@@ -45,7 +46,15 @@ const STATUS_ORDER: IkTiltak['status'][] = [
 ]
 const PRIO_ORDER: IkTiltak['priority'][] = ['kritisk', 'høy', 'middels', 'lav']
 
-export function TiltakSection({ data, plan }: { data: IkData; plan: PlanHook }) {
+export function TiltakSection({
+  data,
+  plan,
+  filterCategory,
+}: {
+  data: IkData
+  plan: PlanHook
+  filterCategory: IkCategoryFilter
+}) {
   const [statusFilter, setStatusFilter] = useState<IkTiltak['status'] | 'all'>('all')
   const [priorityFilter, setPriorityFilter] = useState<IkTiltak['priority'] | 'all'>('all')
   const [grouping, setGrouping] = useState<Grouping>('status')
@@ -61,11 +70,12 @@ export function TiltakSection({ data, plan }: { data: IkData; plan: PlanHook }) 
   // reflected here immediately without a refetch round-trip.
   const filtered = useMemo(() => {
     return data.tiltak.filter((t) => {
+      if (filterCategory !== 'all' && t.category !== filterCategory) return false
       if (statusFilter !== 'all' && t.status !== statusFilter) return false
       if (priorityFilter !== 'all' && t.priority !== priorityFilter) return false
       return true
     })
-  }, [data.tiltak, statusFilter, priorityFilter])
+  }, [data.tiltak, filterCategory, statusFilter, priorityFilter])
 
   const grouped = useMemo(() => {
     const groups = new Map<string, IkTiltak[]>()

@@ -54,9 +54,15 @@ import { ProsjekterSection } from './sections/ProsjekterSection'
 import { RevisjonSection } from './sections/RevisjonSection'
 import {
   CoverageBar,
+  KategoriIcon,
   type IkSectionId,
   type IkFrameworkFilter,
 } from './sections/internkontrollShared'
+import {
+  IK_CATEGORIES,
+  type IkCategoryFilter,
+  type IkCategoryId,
+} from './sections/internkontrollTokens'
 
 const BREADCRUMB = [
   { label: 'Arbeidsflate', to: '/' },
@@ -80,6 +86,10 @@ const VALID_FRAMEWORK_FILTERS = new Set<IkFrameworkFilter>([
   'all',
   ...(FRAMEWORK_IDS as readonly FrameworkId[]),
 ])
+const VALID_CATEGORY_FILTERS = new Set<IkCategoryFilter>([
+  'all',
+  ...IK_CATEGORIES.map((c) => c.id),
+])
 
 export function InternkontrollPage() {
   const [searchParams, setSearchParams] = useSearchParams()
@@ -99,6 +109,13 @@ export function InternkontrollPage() {
     ? (filterFwParam as IkFrameworkFilter)
     : 'all'
 
+  const filterCategoryParam = searchParams.get('kategori') ?? 'all'
+  const filterCategory: IkCategoryFilter = VALID_CATEGORY_FILTERS.has(
+    filterCategoryParam as IkCategoryFilter,
+  )
+    ? (filterCategoryParam as IkCategoryFilter)
+    : 'all'
+
   const setSection = (id: IkSectionId) => {
     const sp = new URLSearchParams(searchParams)
     sp.set('section', id)
@@ -108,6 +125,12 @@ export function InternkontrollPage() {
     const sp = new URLSearchParams(searchParams)
     if (id === 'all') sp.delete('framework')
     else sp.set('framework', id)
+    setSearchParams(sp, { replace: true })
+  }
+  const setFilterCategory = (id: IkCategoryFilter) => {
+    const sp = new URLSearchParams(searchParams)
+    if (id === 'all') sp.delete('kategori')
+    else sp.set('kategori', id)
     setSearchParams(sp, { replace: true })
   }
 
@@ -137,6 +160,19 @@ export function InternkontrollPage() {
       revisjon: data.audit.length,
     }
   }, [data])
+
+  // Krav counts per category — narrowed by the active framework chip so
+  // the KATEGORIER badges shift when the user scopes by regelverk.
+  const categoryCounts = useMemo(() => {
+    const counts = new Map<IkCategoryId, number>()
+    let total = 0
+    for (const k of data.krav) {
+      if (filterFw !== 'all' && k.fw !== filterFw) continue
+      counts.set(k.category, (counts.get(k.category) ?? 0) + 1)
+      total += 1
+    }
+    return { counts, total }
+  }, [data.krav, filterFw])
 
   const headerActions = (
     <div className="flex items-center gap-2">
@@ -223,6 +259,89 @@ export function InternkontrollPage() {
                           {count}
                         </span>
                       ) : null}
+                    </Button>
+                  </li>
+                )
+              })}
+            </ul>
+          </div>
+
+          {/* Kategorier — content groupings, mirrors the Sjekklister
+              sidebar pattern. Categories live above the Rammeverk block
+              because they're a higher-level lens (one kategori spans
+              several regelverk). Counts react to the active framework. */}
+          <div className="rounded-xl border border-neutral-200/80 bg-white p-3 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
+            <h3 className="text-[10px] font-bold uppercase tracking-wider text-neutral-500">
+              Kategorier
+            </h3>
+            <ul className="mt-1.5 space-y-0.5">
+              <li>
+                <Button
+                  variant="ghost"
+                  onClick={() => setFilterCategory('all')}
+                  className={[
+                    'flex w-full items-center justify-between gap-2 rounded border-0 px-1.5 py-1 text-[11px] font-normal',
+                    filterCategory === 'all'
+                      ? 'bg-[#e7efe9] font-semibold text-neutral-900 hover:bg-[#e7efe9]'
+                      : 'text-neutral-700 hover:bg-neutral-50 hover:text-neutral-900',
+                  ].join(' ')}
+                  style={
+                    filterCategory === 'all' ? { boxShadow: 'inset 3px 0 0 #1a3d32' } : undefined
+                  }
+                >
+                  <span className="flex min-w-0 items-center gap-1.5">
+                    <KategoriIcon name="LayoutGrid" className="h-3 w-3 shrink-0 text-neutral-500" />
+                    <span className="truncate">Alle</span>
+                  </span>
+                  <span
+                    className={[
+                      'shrink-0 rounded-full px-1.5 py-px text-[10px] font-bold tabular-nums',
+                      filterCategory === 'all'
+                        ? 'bg-[#1a3d32] text-white'
+                        : 'bg-neutral-100 text-neutral-600',
+                    ].join(' ')}
+                  >
+                    {categoryCounts.total}
+                  </span>
+                </Button>
+              </li>
+              {IK_CATEGORIES.map((cat) => {
+                const active = filterCategory === cat.id
+                const count = categoryCounts.counts.get(cat.id) ?? 0
+                return (
+                  <li key={cat.id}>
+                    <Button
+                      variant="ghost"
+                      onClick={() => setFilterCategory(cat.id)}
+                      className={[
+                        'flex w-full items-center justify-between gap-2 rounded border-0 px-1.5 py-1 text-[11px] font-normal',
+                        active
+                          ? 'bg-[#e7efe9] font-semibold text-neutral-900 hover:bg-[#e7efe9]'
+                          : 'text-neutral-700 hover:bg-neutral-50 hover:text-neutral-900',
+                      ].join(' ')}
+                      style={active ? { boxShadow: 'inset 3px 0 0 #1a3d32' } : undefined}
+                      title={cat.label}
+                    >
+                      <span className="flex min-w-0 items-center gap-1.5">
+                        <KategoriIcon
+                          name={cat.icon}
+                          className={[
+                            'h-3 w-3 shrink-0',
+                            active ? 'text-[#1a3d32]' : 'text-neutral-500',
+                          ].join(' ')}
+                        />
+                        <span className="truncate">{cat.label}</span>
+                      </span>
+                      <span
+                        className={[
+                          'shrink-0 rounded-full px-1.5 py-px text-[10px] font-bold tabular-nums',
+                          active
+                            ? 'bg-[#1a3d32] text-white'
+                            : 'bg-neutral-100 text-neutral-600',
+                        ].join(' ')}
+                      >
+                        {count}
+                      </span>
                     </Button>
                   </li>
                 )
@@ -335,14 +454,30 @@ export function InternkontrollPage() {
         <section className="min-w-0">
           {section === 'oversikt' && <OversiktSection data={data} setSection={setSection} />}
           {section === 'krav' && (
-            <KravSection data={data} filterFw={filterFw} setFilterFw={setFilterFw} />
+            <KravSection
+              data={data}
+              filterFw={filterFw}
+              filterCategory={filterCategory}
+              setFilterFw={setFilterFw}
+            />
           )}
           {section === 'kontroller' && (
-            <KontrollerSection data={data} filterFw={filterFw} />
+            <KontrollerSection data={data} filterFw={filterFw} filterCategory={filterCategory} />
           )}
-          {section === 'gap' && <GapSection data={data} filterFw={filterFw} plan={plan} />}
-          {section === 'aarshjul' && <AarshjulSection data={data} filterFw={filterFw} />}
-          {section === 'tiltak' && <TiltakSection data={data} plan={plan} />}
+          {section === 'gap' && (
+            <GapSection
+              data={data}
+              filterFw={filterFw}
+              filterCategory={filterCategory}
+              plan={plan}
+            />
+          )}
+          {section === 'aarshjul' && (
+            <AarshjulSection data={data} filterFw={filterFw} filterCategory={filterCategory} />
+          )}
+          {section === 'tiltak' && (
+            <TiltakSection data={data} plan={plan} filterCategory={filterCategory} />
+          )}
           {section === 'prosjekter' && <ProsjekterSection data={data} plan={plan} />}
           {section === 'revisjon' && <RevisjonSection data={data} />}
         </section>

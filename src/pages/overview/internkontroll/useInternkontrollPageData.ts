@@ -31,6 +31,7 @@ import {
   FRAMEWORK_IDS,
   type FrameworkId,
 } from './frameworkParagraphs'
+import { categorizeLawRef, type IkCategoryId } from './sections/internkontrollTokens'
 import type {
   ControlFamily,
   ControlFrequencyHint,
@@ -76,6 +77,9 @@ export type IkKrav = {
   title: string
   status: IkKravStatus
   criticality: IkCriticality
+  /** Functional category — derived from `ref` via `categorizeLawRef`.
+   *  Drives the KATEGORIER sidebar block + per-section category filter. */
+  category: IkCategoryId
   /** Control ids that satisfy this paragraph. */
   controls: string[]
   /** Coverage entries (templates / instances) that mention this paragraph. */
@@ -111,6 +115,10 @@ export type IkKontroll = {
   nextRun: string
   /** Krav (paragraph codes) covered. */
   covers: string[]
+  /** Distinct categories the covered paragraphs fall into. A kontroll
+   *  that covers AML §3-1 + GDPR Art.32 belongs to BOTH `hms-arbeid`
+   *  and `personvern`; sidebar filter shows it under either. */
+  categories: IkCategoryId[]
   statusLabel: ControlStatusLabel | null
   totalExecutions: number
 }
@@ -137,6 +145,8 @@ export type IkTiltak = {
   description: string | null
   krav: string[]
   fw: FrameworkId
+  /** Functional category derived from the law_ref the tiltak closes. */
+  category: IkCategoryId
   owner: string
   /** Mapped from compliance_plan_items.status. */
   priority: 'kritisk' | 'høy' | 'middels' | 'lav'
@@ -377,6 +387,7 @@ export function planItemToTiltak(
     description: p.description,
     krav: [`k-${fwId}-${p.law_ref}`],
     fw: fwId,
+    category: categorizeLawRef(p.law_ref),
     owner: p.owner_user_id ? userNames?.get(p.owner_user_id) ?? '—' : '—',
     priority: mapped.priority,
     status: mapped.status,
@@ -773,6 +784,7 @@ function buildData(input: {
         title: p.title ?? p.code,
         status,
         criticality,
+        category: categorizeLawRef(p.code),
         controls: ctrlIds,
         evidence,
         registerCovered,
@@ -795,6 +807,10 @@ function buildData(input: {
   const kontroller: IkKontroll[] = controlRows.map((c) => {
     const sv = statusByControlId.get(c.id)
     const covers = cluasesByControl.get(c.id) ?? []
+    // Distinct functional categories across all covered paragraphs —
+    // a kontroll that satisfies AML §3-1 + GDPR Art.32 belongs to both
+    // 'hms-arbeid' and 'personvern'.
+    const categories: IkCategoryId[] = [...new Set(covers.map(categorizeLawRef))]
     const owner = c.owner_user_id ? userNames.get(c.owner_user_id) ?? c.owner_role ?? '—' : c.owner_role ?? '—'
     // Effectiveness scoring (1..5) from status + execution history.
     let effectiveness = 3
@@ -818,6 +834,7 @@ function buildData(input: {
       lastRun: formatDate(sv?.last_occurred_at ?? null),
       nextRun: formatDate(sv?.next_due_at ?? null),
       covers,
+      categories,
       statusLabel: sv?.status_label ?? null,
       totalExecutions: sv?.total_executions ?? 0,
     }
@@ -881,6 +898,7 @@ function buildData(input: {
       description: p.description,
       krav: [`k-${fwId}-${p.law_ref}`],
       fw: fwId,
+      category: categorizeLawRef(p.law_ref),
       owner: p.owner_user_id ? userNames.get(p.owner_user_id) ?? '—' : '—',
       priority: mapped.priority,
       status: mapped.status,

@@ -30,14 +30,17 @@ import {
   TYPE_TONE,
   type IkFrameworkFilter,
 } from './internkontrollShared'
+import { IK_CATEGORIES, type IkCategoryFilter } from './internkontrollTokens'
 import type { IkData, IkKravStatus, IkCriticality } from '../useInternkontrollPageData'
 
 export function KravSection({
   data,
   filterFw,
+  filterCategory,
 }: {
   data: IkData
   filterFw: IkFrameworkFilter
+  filterCategory: IkCategoryFilter
   setFilterFw: (id: IkFrameworkFilter) => void
 }) {
   const [search, setSearch] = useState('')
@@ -48,6 +51,7 @@ export function KravSection({
   const filtered = useMemo(() => {
     return data.krav.filter((k) => {
       if (filterFw !== 'all' && k.fw !== filterFw) return false
+      if (filterCategory !== 'all' && k.category !== filterCategory) return false
       if (statusFilter !== 'all' && k.status !== statusFilter) return false
       if (critFilter !== 'all' && k.criticality !== critFilter) return false
       if (search) {
@@ -56,7 +60,15 @@ export function KravSection({
       }
       return true
     })
-  }, [data.krav, filterFw, statusFilter, critFilter, search])
+  }, [data.krav, filterFw, filterCategory, statusFilter, critFilter, search])
+
+  const categoryLabel = useMemo(
+    () =>
+      filterCategory === 'all'
+        ? null
+        : IK_CATEGORIES.find((c) => c.id === filterCategory)?.label ?? null,
+    [filterCategory],
+  )
 
   return (
     <div className="space-y-4">
@@ -71,7 +83,11 @@ export function KravSection({
             <h3 className="text-sm font-semibold text-neutral-900">
               {filtered.length} av {data.krav.length} krav
             </h3>
-            <p className="text-[11px] text-neutral-500">Sortert etter rammeverk og paragraf.</p>
+            <p className="text-[11px] text-neutral-500">
+              Sortert etter rammeverk og paragraf
+              {categoryLabel ? <> · Kategori: <span className="font-semibold text-neutral-700">{categoryLabel}</span></> : null}
+              .
+            </p>
           </div>
           <div className="flex items-center gap-2">
             <Button

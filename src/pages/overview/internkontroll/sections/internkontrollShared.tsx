@@ -12,7 +12,10 @@ import {
   Check,
   Circle,
   Eye,
+  HardHat,
+  LayoutGrid,
   Lock,
+  Megaphone,
   PauseCircle,
   PenLine,
   Play,
@@ -20,6 +23,11 @@ import {
   PowerOff,
   Scale,
   ShieldCheck,
+  Tag,
+  TriangleAlert,
+  Truck,
+  UserCheck,
+  Users,
   type LucideIcon,
 } from 'lucide-react'
 import { Button } from '../../../../components/ui/Button'
@@ -45,6 +53,29 @@ const FW_ICON_MAP: Record<string, LucideIcon> = {
 
 export function FrameworkIcon({ name, className }: { name: string; className?: string }) {
   const I = FW_ICON_MAP[name] ?? Scale
+  return <I className={className} />
+}
+
+// Icon name → component map for the KATEGORIER sidebar block. Kept
+// separate from FW_ICON_MAP because category icons are a different
+// palette (work-area metaphors instead of regelverk metaphors), and
+// keeping them apart means the type-checker enforces only valid icon
+// names per surface.
+const KATEGORI_ICON_MAP: Record<string, LucideIcon> = {
+  ShieldCheck,
+  HardHat,
+  Users,
+  Megaphone,
+  UserCheck,
+  TriangleAlert,
+  Lock,
+  Truck,
+  Tag,
+  LayoutGrid,
+}
+
+export function KategoriIcon({ name, className }: { name: string; className?: string }) {
+  const I = KATEGORI_ICON_MAP[name] ?? Tag
   return <I className={className} />
 }
 

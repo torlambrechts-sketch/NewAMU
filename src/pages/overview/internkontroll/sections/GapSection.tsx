@@ -19,16 +19,19 @@ import {
 } from './internkontrollShared'
 import type { useCompliancePlanItems } from '../useCompliancePlanItems'
 import type { IkData, IkKrav } from '../useInternkontrollPageData'
+import type { IkCategoryFilter } from './internkontrollTokens'
 
 type PlanHook = ReturnType<typeof useCompliancePlanItems>
 
 export function GapSection({
   data,
   filterFw,
+  filterCategory,
   plan,
 }: {
   data: IkData
   filterFw: IkFrameworkFilter
+  filterCategory: IkCategoryFilter
   plan: PlanHook
 }) {
   const [view, setView] = useState<'matrix' | 'list'>('matrix')
@@ -37,6 +40,7 @@ export function GapSection({
     return data.krav
       .filter((k) => k.status !== 'covered' && k.status !== 'na')
       .filter((k) => filterFw === 'all' || k.fw === filterFw)
+      .filter((k) => filterCategory === 'all' || k.category === filterCategory)
       .sort((a, b) => {
         const order: Record<typeof a.status, number> = {
           gap: 0,
@@ -53,7 +57,7 @@ export function GapSection({
         }
         return crit[a.criticality] - crit[b.criticality]
       })
-  }, [data.krav, filterFw])
+  }, [data.krav, filterFw, filterCategory])
 
   return (
     <div className="space-y-4">
