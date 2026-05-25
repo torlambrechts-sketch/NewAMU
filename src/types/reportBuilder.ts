@@ -68,6 +68,13 @@ export type ReportModuleKpi = ReportModuleBase & {
   sparklineDatasetKey?: string
   /** Dot-path to an array of `{ x, y }` points for the inline sparkline. */
   sparklinePath?: string
+  /**
+   * Label rendered in place of the numeric value when the dataset
+   * resolves to null/undefined. Use to distinguish "never happened"
+   * from "loading" or "no data" (e.g. ARP redegjørelse — "Aldri
+   * bekreftet"). Defaults to '—'.
+   */
+  emptyLabel?: string
 }
 
 export type ReportModuleTable = ReportModuleBase & {

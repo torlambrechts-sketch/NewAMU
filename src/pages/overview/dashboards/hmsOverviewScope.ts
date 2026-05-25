@@ -258,6 +258,7 @@ const KPI_LEDELSES_ARP_DAYS: ReportModuleKpi = {
   subtitle: 'LDL § 26 — aktivitets- og redegjørelsesplan',
   colSpan: 'sm',
   comparisonGoal: 'decrease',
+  emptyLabel: 'Aldri bekreftet',
 }
 const KPI_LEDELSES_UTEN_PLAN: ReportModuleKpi = {
   id: 'kpi-ledelses-uten-plan',
@@ -265,7 +266,7 @@ const KPI_LEDELSES_UTEN_PLAN: ReportModuleKpi = {
   datasetKey: 'ledelses_paragraphs_uten_plan',
   title: 'AML-§-er uten plan',
   valuePath: 'paragraphs_uten_plan',
-  subtitle: 'Verken kontroll eller compliance_plan_item',
+  subtitle: 'Paragrafer uten verken kontroll eller plan',
   colSpan: 'sm',
   comparisonGoal: 'decrease',
 }

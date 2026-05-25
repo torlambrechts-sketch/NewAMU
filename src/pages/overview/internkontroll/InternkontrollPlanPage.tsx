@@ -14,8 +14,8 @@
 // kapittel.
 
 import { useMemo, useState } from 'react'
-import { useSearchParams } from 'react-router-dom'
-import { CalendarClock, ListChecks } from 'lucide-react'
+import { Link, useSearchParams } from 'react-router-dom'
+import { CalendarClock, ChevronDown, ListChecks } from 'lucide-react'
 import { ModulePageShell } from '../../../components/module/ModulePageShell'
 import { Button } from '../../../components/ui/Button'
 import {
@@ -42,12 +42,14 @@ const STATUS_LABEL: Record<CompliancePlanItem['status'], string> = {
   done: 'Fullført',
 }
 
-// Tailwind tokens, matching the inspector's PlanItemsSection.
+// Tailwind tokens, matching the inspector's PlanItemsSection. Each bar
+// background must hit WCAG AA against white text — verified for the
+// `neutral-500 / blue-500 / amber-600 / emerald-600` shades below.
 const STATUS_BAR: Record<CompliancePlanItem['status'], string> = {
-  planned: 'bg-neutral-300 ring-neutral-400',
+  planned: 'bg-neutral-500 ring-neutral-700',
   in_progress: 'bg-blue-500 ring-blue-700',
-  blocked: 'bg-amber-500 ring-amber-700',
-  done: 'bg-emerald-500 ring-emerald-700',
+  blocked: 'bg-amber-600 ring-amber-800',
+  done: 'bg-emerald-600 ring-emerald-800',
 }
 
 const STATUS_CHIP: Record<CompliancePlanItem['status'], string> = {
@@ -108,17 +110,13 @@ function barGeometry(
   endMs: number,
   windowStart: number,
   windowEnd: number,
-): { leftPct: number; widthPct: number; clippedLeft: boolean; clippedRight: boolean } {
+): { leftPct: number; widthPct: number } {
   const totalMs = windowEnd - windowStart
-  const clippedLeft = startMs < windowStart
-  const clippedRight = endMs > windowEnd
   const s = clamp(startMs, windowStart, windowEnd)
   const e = clamp(Math.max(endMs, startMs + MS_PER_DAY), windowStart, windowEnd)
   return {
     leftPct: ((s - windowStart) / totalMs) * 100,
     widthPct: Math.max(0.5, ((e - s) / totalMs) * 100),
-    clippedLeft,
-    clippedRight,
   }
 }
 
@@ -157,6 +155,7 @@ export function InternkontrollPlanPage() {
   const [framework, setFramework] = useState<FrameworkId>(initialFramework)
 
   const { items, loading, error, updateItem } = useCompliancePlanItems(framework)
+  const [mutationError, setMutationError] = useState<string | null>(null)
 
   // Resolve chapter membership by joining law_ref against
   // FRAMEWORKS[framework].paragraphs. Items whose law_ref doesn't map
@@ -222,10 +221,18 @@ export function InternkontrollPlanPage() {
   const cycleStatus = async (it: CompliancePlanItem) => {
     const idx = STATUSES.indexOf(it.status)
     const next = STATUSES[(idx + 1) % STATUSES.length]
-    await updateItem(it.id, { status: next })
+    const updated = await updateItem(it.id, { status: next })
+    if (updated === null) {
+      setMutationError(
+        `Klarte ikke å oppdatere «${it.title}» til «${STATUS_LABEL[next]}». Prøv igjen.`,
+      )
+    } else {
+      setMutationError(null)
+    }
   }
 
-  // Week-grid tick positions for the timeline header.
+  // Fortnightly tick positions for the timeline header — denser than
+  // weekly causes label clustering on widths < 1100 px.
   const ticks = useMemo(() => {
     const { startMs, endMs } = window_
     const total = endMs - startMs
@@ -246,7 +253,7 @@ export function InternkontrollPlanPage() {
         label: fmt(cursor),
         isToday: Math.abs(cursor - todayMs) < MS_PER_DAY,
       })
-      cursor += 7 * MS_PER_DAY
+      cursor += 14 * MS_PER_DAY
     }
     return out
   }, [window_])
@@ -263,28 +270,41 @@ export function InternkontrollPlanPage() {
       breadcrumb={BREADCRUMB}
       title="Plan & tidslinje"
       description="Lukke-tiltak gruppert per kapittel — flytt status og se hvor flaskehalsene ligger."
+      loading={loading && items.length === 0}
+      loadingLabel="Laster tiltak …"
       headerActions={
         <div className="flex items-center gap-2">
-          <label className="text-xs font-semibold uppercase tracking-wide text-neutral-500">
+          <label
+            htmlFor="ik-plan-framework"
+            className="text-xs font-semibold uppercase tracking-wide text-neutral-500"
+          >
             Regelverk
           </label>
-          <select
-            value={framework}
-            onChange={(e) => {
-              const next = e.target.value as FrameworkId
-              setFramework(next)
-              const sp = new URLSearchParams(searchParams)
-              sp.set('framework', next)
-              setSearchParams(sp, { replace: true })
-            }}
-            className="rounded-md border border-neutral-300 bg-white px-2.5 py-1.5 text-sm font-semibold text-neutral-800"
-          >
-            {FRAMEWORK_IDS.map((id) => (
-              <option key={id} value={id}>
-                {FRAMEWORKS[id].shortLabel}
-              </option>
-            ))}
-          </select>
+          <div className="relative">
+            <select
+              id="ik-plan-framework"
+              aria-label="Velg regelverk for plan & tidslinje"
+              value={framework}
+              onChange={(e) => {
+                const next = e.target.value as FrameworkId
+                setFramework(next)
+                const sp = new URLSearchParams(searchParams)
+                sp.set('framework', next)
+                setSearchParams(sp, { replace: true })
+              }}
+              className="appearance-none rounded-md border border-neutral-300 bg-white py-1.5 pl-2.5 pr-7 text-sm font-semibold text-neutral-800 hover:border-neutral-400 focus:outline-none focus:ring-2 focus:ring-[#1a3d32]/30"
+            >
+              {FRAMEWORK_IDS.map((id) => (
+                <option key={id} value={id}>
+                  {FRAMEWORKS[id].shortLabel}
+                </option>
+              ))}
+            </select>
+            <ChevronDown
+              className="pointer-events-none absolute right-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-neutral-500"
+              aria-hidden
+            />
+          </div>
         </div>
       }
     >
@@ -307,65 +327,85 @@ export function InternkontrollPlanPage() {
           {error}
         </div>
       ) : null}
+      {mutationError ? (
+        <div
+          role="alert"
+          className="rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-800"
+        >
+          {mutationError}
+        </div>
+      ) : null}
 
       {/* Timeline header */}
-      <section className="rounded-lg border border-neutral-200 bg-white">
-        <div className="grid grid-cols-[220px_1fr] border-b border-neutral-200">
-          <div className="border-r border-neutral-200 px-4 py-2 text-[10px] font-bold uppercase tracking-wide text-neutral-500">
-            Kapittel
-          </div>
-          <div className="relative h-10">
-            {ticks.map((t, i) => (
-              <div
-                key={i}
-                className="absolute top-0 flex h-full -translate-x-1/2 flex-col items-center justify-center"
-                style={{ left: `${t.leftPct}%` }}
-              >
-                <span
-                  className={`text-[10px] font-semibold ${
-                    t.isToday ? 'text-[#1a3d32]' : 'text-neutral-500'
-                  }`}
+      <section className="overflow-x-auto rounded-lg border border-neutral-200 bg-white">
+        <div className="min-w-[760px]">
+          <div className="grid grid-cols-[220px_1fr] border-b border-neutral-200">
+            <div className="border-r border-neutral-200 px-4 py-2 text-[10px] font-bold uppercase tracking-wide text-neutral-500">
+              Kapittel
+            </div>
+            <div className="relative h-10">
+              {ticks.map((t, i) => (
+                <div
+                  key={i}
+                  className="absolute top-0 flex h-full -translate-x-1/2 flex-col items-center justify-center"
+                  style={{ left: `${t.leftPct}%` }}
                 >
-                  {t.label}
-                </span>
-              </div>
-            ))}
-            {/* Today marker */}
-            <div
-              className="pointer-events-none absolute top-0 h-full w-px bg-[#1a3d32]/40"
-              style={{ left: `${todayLeftPct}%` }}
-              aria-hidden
-            />
-          </div>
-        </div>
-
-        {/* Lanes */}
-        {loading ? (
-          <div className="px-4 py-10 text-center text-sm text-neutral-500">Laster tiltak…</div>
-        ) : grouped.length === 0 ? (
-          <div className="px-4 py-10 text-center text-sm text-neutral-500">
-            Ingen tiltak registrert for {FRAMEWORKS[framework].shortLabel} ennå. Åpne
-            gap-matrisen og opprett tiltak per paragraf.
-          </div>
-        ) : (
-          <ul className="divide-y divide-neutral-100">
-            {grouped.map((g) => (
-              <ChapterLane
-                key={g.chapter}
-                chapter={g.chapter}
-                items={g.items}
-                windowStartMs={window_.startMs}
-                windowEndMs={window_.endMs}
-                todayLeftPct={todayLeftPct}
-                onCycleStatus={cycleStatus}
+                  <span
+                    className={`text-[10px] font-semibold ${
+                      t.isToday ? 'text-[#1a3d32]' : 'text-neutral-500'
+                    }`}
+                  >
+                    {t.label}
+                  </span>
+                </div>
+              ))}
+              {/* Today marker */}
+              <div
+                className="pointer-events-none absolute top-0 h-full w-0.5 bg-[#1a3d32]"
+                style={{ left: `${todayLeftPct}%` }}
+                aria-hidden
               />
-            ))}
-          </ul>
-        )}
+              <span
+                className="pointer-events-none absolute top-0.5 -translate-x-1/2 rounded-full bg-[#1a3d32] px-1.5 py-px text-[9px] font-bold text-white"
+                style={{ left: `${todayLeftPct}%` }}
+              >
+                I dag
+              </span>
+            </div>
+          </div>
+
+          {/* Lanes */}
+          {grouped.length === 0 ? (
+            <div className="px-4 py-10 text-center text-sm text-neutral-500">
+              Ingen tiltak registrert for {FRAMEWORKS[framework].shortLabel} ennå. Åpne{' '}
+              <Link
+                to={`/overview/internkontroll/gaps?framework=${framework}`}
+                className="font-semibold text-[#1a3d32] underline underline-offset-2 hover:text-[#14312a]"
+              >
+                gap-matrisen
+              </Link>{' '}
+              og opprett tiltak per paragraf.
+            </div>
+          ) : (
+            <ul className="divide-y divide-neutral-100">
+              {grouped.map((g) => (
+                <ChapterLane
+                  key={g.chapter}
+                  chapter={g.chapter}
+                  items={g.items}
+                  windowStartMs={window_.startMs}
+                  windowEndMs={window_.endMs}
+                  todayLeftPct={todayLeftPct}
+                  onCycleStatus={cycleStatus}
+                />
+              ))}
+            </ul>
+          )}
+        </div>
       </section>
 
       {grouped.length > 0 ? (
-        <p className="text-xs italic text-neutral-500">
+        <p className="text-xs text-neutral-500">
           Klikk på status-pillen for å rotere mellom Planlagt → Pågår → Blokkert → Fullført.
           Et tiltak som settes til «Pågår» oppretter automatisk en oppgave i Oppgaver-modulen.
         </p>
@@ -479,9 +519,15 @@ function PlanBar({
           variant="ghost"
           size="sm"
           onClick={() => void onCycleStatus(item)}
-          className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ring-1 ring-inset ${STATUS_CHIP[item.status]}`}
+          aria-label={`Endre status fra ${STATUS_LABEL[item.status]}`}
+          title="Klikk for å rotere status"
+          className={`group inline-flex cursor-pointer items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold ring-1 ring-inset hover:shadow-sm ${STATUS_CHIP[item.status]}`}
         >
           {STATUS_LABEL[item.status]}
+          <ChevronDown
+            className="h-3 w-3 opacity-50 transition-opacity group-hover:opacity-100"
+            aria-hidden
+          />
         </Button>
       </div>
     </li>

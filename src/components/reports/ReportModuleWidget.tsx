@@ -365,7 +365,15 @@ export function ReportModuleWidget({
       <>
         {titleBlock}
         <div className="mt-3 flex items-baseline gap-2">
-          <p className="text-4xl font-semibold tabular-nums text-neutral-900">{n ?? '—'}</p>
+          <p
+            className={
+              n == null
+                ? 'text-2xl font-semibold text-neutral-700'
+                : 'text-4xl font-semibold tabular-nums text-neutral-900'
+            }
+          >
+            {n ?? m.emptyLabel ?? '—'}
+          </p>
           {cmp != null && n != null ? (
             <KpiDeltaChip current={n} previous={cmp} goal={m.comparisonGoal ?? 'increase'} />
           ) : null}

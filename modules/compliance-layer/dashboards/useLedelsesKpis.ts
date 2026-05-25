@@ -231,7 +231,15 @@ export function useLedelsesKpis(): UseLedelsesKpisReturn {
   )
 
   useEffect(() => {
-    if (!supabase || !orgId) return
+    if (!supabase || !orgId) {
+      setData(EMPTY)
+      setLoading(false)
+      return
+    }
+    // Reset on org switch so the new org's chrome doesn't briefly
+    // display the previous org's KPIs.
+    setLoading(true)
+    setData(EMPTY)
     let cancelled = false
     void load(supabase, orgId).then(() => {
       if (cancelled) return

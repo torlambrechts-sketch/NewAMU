@@ -61,6 +61,12 @@ export function useParagraphEvidence(
 
   useEffect(() => {
     if (!supabase || !orgId || !code) return
+    // Reset the slot whenever the (orgId, code) key changes so a
+    // re-click of a paragraph that previously errored shows the
+    // loading state again instead of the stuck error.
+    setLoaded((prev) =>
+      prev && prev.orgId === orgId && prev.code === code ? prev : null,
+    )
     let cancelled = false
     void supabase
       .from('compliance_evidence_v')

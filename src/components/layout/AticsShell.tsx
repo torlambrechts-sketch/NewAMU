@@ -30,6 +30,7 @@ import {
   ShieldCheck,
   Settings,
   Star,
+  CalendarClock,
   UserCheck,
   Users,
   Wand2,
@@ -1893,7 +1894,9 @@ export function AticsShell() {
         Icon: ShieldCheck,
         match: ({ pathname }) =>
           pathname === '/overview/internkontroll' ||
-          (pathname.startsWith('/overview/internkontroll') && !pathname.startsWith('/overview/internkontroll/gaps')),
+          (pathname.startsWith('/overview/internkontroll') &&
+            !pathname.startsWith('/overview/internkontroll/gaps') &&
+            !pathname.startsWith('/overview/internkontroll/plan')),
         requirePermAny: overviewNavPerms,
       },
       {
@@ -1901,6 +1904,13 @@ export function AticsShell() {
         path: '/overview/internkontroll/gaps',
         Icon: ShieldAlert,
         match: ({ pathname }) => pathname.startsWith('/overview/internkontroll/gaps'),
+        requirePermAny: overviewNavPerms,
+      },
+      {
+        label: 'Plan & tidslinje',
+        path: '/overview/internkontroll/plan',
+        Icon: CalendarClock,
+        match: ({ pathname }) => pathname.startsWith('/overview/internkontroll/plan'),
         requirePermAny: overviewNavPerms,
       },
       {
