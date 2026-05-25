@@ -8,9 +8,7 @@ import {
   Boxes,
   Briefcase,
   Building2,
-  ChevronDown,
   Database,
-  ChevronRight,
   ClipboardList,
   FileText,
   FolderKanban,
@@ -117,39 +115,6 @@ type SubItem = {
   badgeTone?: 'amber' | 'danger'
 }
 
-function visibleSubs(
-  subs: SubItem[],
-  gateNav: boolean,
-  can: (k: PermissionKey) => boolean,
-): SubItem[] {
-  const passes = (s: SubItem) => {
-    if (!gateNav) return true
-    if (s.requirePermAny?.length) return s.requirePermAny.some((k) => can(k))
-    if (s.requirePerm) return can(s.requirePerm)
-    return true
-  }
-  const filtered = subs.filter(passes)
-  // Drop dangling headers — a header followed by no items (or by another
-  // header) would render as an empty category label. Walk once: keep a
-  // header only if at least one non-header item follows it before the
-  // next header.
-  const out: SubItem[] = []
-  for (let i = 0; i < filtered.length; i++) {
-    const s = filtered[i]!
-    if (s.kind === 'header') {
-      let hasItem = false
-      for (let j = i + 1; j < filtered.length; j++) {
-        const next = filtered[j]!
-        if (next.kind === 'header') break
-        hasItem = true
-        break
-      }
-      if (!hasItem) continue
-    }
-    out.push(s)
-  }
-  return out
-}
 
 // Permission gates for the umbrella Administrasjon menu and its 5
 // modules. The umbrella gate (`ADMINISTRASJON_NAV_PERMS`) hides the
@@ -476,11 +441,6 @@ function activeModuleForPath(modules: NavModule[], pathname: string, search: str
     if (pathname.startsWith(base + '/') || pathname.startsWith(base + '?')) return mod
   }
   return modules[0]
-}
-
-function subNavForPath(modules: NavModule[], pathname: string, search: string): SubItem[] {
-  const mod = activeModuleForPath(modules, pathname, search)
-  return mod.subs
 }
 
 // ─── Nav mode persistence ─────────────────────────────────────────────────────
@@ -2362,20 +2322,6 @@ export function AticsShell() {
 
   const [navMode, setNavMode] = useState<NavMode>(loadNavMode)
   const [subNavCollapsed, setSubNavCollapsed] = useState(loadSubNavCollapsed)
-  // User-explicit expand state for category headers in flatSubs lists.
-  // Keyed by headerKey. When a key is absent, we fall back to the auto rule
-  // (expand if the header contains the currently active item). The map is
-  // intentionally not persisted — sidebar groups feel right when the page
-  // you're on is opened by default after navigation.
-  const [expandedHeaders, setExpandedHeaders] = useState<Map<string, boolean>>(new Map())
-  const toggleHeader = useCallback((headerKey: string, autoOpen: boolean) => {
-    setExpandedHeaders((prev) => {
-      const next = new Map(prev)
-      const current = next.has(headerKey) ? next.get(headerKey)! : autoOpen
-      next.set(headerKey, !current)
-      return next
-    })
-  }, [])
 
   const toggleSubNavCollapsed = useCallback(() => {
     setSubNavCollapsed((c) => {
@@ -2472,7 +2418,7 @@ export function AticsShell() {
 
         </aside>
 
-        {/* ── Rail 2: All sections + groups + active module's sub-items ─── */}
+        {/* ── Rail 2: All sections + groups, flat (no inline expansion) ─── */}
         {!subNavCollapsed && (
           <aside className="flex w-64 shrink-0 flex-col overflow-hidden bg-[var(--ui-nav-rail-mid)]">
             <nav className="flex-1 overflow-y-auto px-2 py-4" aria-label="Section navigation">
@@ -2491,144 +2437,20 @@ export function AticsShell() {
                       group.modules.map((mod) => {
                         const ModIcon = mod.icon
                         const isActiveMod = activeModule.to === mod.to
-                        const modSubs = visibleSubs(mod.subs, gateNav, can)
-                        const hasModSubs = modSubs.length > 0
-
                         return (
-                          <div key={`${group.id}:${mod.to}`}>
-                            <NavLink
-                              to={mod.to}
-                              end={mod.end}
-                              className={`flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm font-medium transition-colors ${
-                                isActiveMod
-                                  ? 'bg-white/10 text-white'
-                                  : 'text-white/70 hover:bg-white/5 hover:text-white'
-                              }`}
-                            >
-                              <ModIcon className="size-4 shrink-0 opacity-80" aria-hidden />
-                              <span className="flex-1 truncate">{mod.label}</span>
-                              {isActiveMod && hasModSubs && (
-                                <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-[#c9a227]" aria-hidden />
-                              )}
-                            </NavLink>
-
-                            {/* Sub-items expanded inline when active. */}
-                            {isActiveMod && hasModSubs && (
-                              <div
-                                className={
-                                  mod.flatSubs
-                                    ? 'mb-1 mt-0.5'
-                                    : 'mb-1 ml-4 mt-0.5 border-l border-white/10 pl-3'
-                                }
-                              >
-                                {(() => {
-                                  const loc = { pathname: location.pathname, search: location.search }
-                                  const autoOpenByKey = new Map<string, boolean>()
-                                  for (let i = 0; i < modSubs.length; i++) {
-                                    const s = modSubs[i]!
-                                    if (s.kind !== 'header' || !s.headerKey) continue
-                                    let hasActive = false
-                                    for (let j = i + 1; j < modSubs.length; j++) {
-                                      const next = modSubs[j]!
-                                      if (next.kind === 'header') break
-                                      if (next.match(loc)) { hasActive = true; break }
-                                    }
-                                    autoOpenByKey.set(s.headerKey, hasActive)
-                                  }
-
-                                  return modSubs.map((item) => {
-                                    if (item.kind === 'header') {
-                                      const HeaderIcon = item.Icon ?? FolderTree
-                                      const key = item.headerKey ?? `${item.path}:${item.label}`
-                                      const auto = autoOpenByKey.get(key) ?? false
-                                      const expanded = expandedHeaders.has(key)
-                                        ? expandedHeaders.get(key)!
-                                        : auto
-                                      return (
-                                        <Button
-                                          key={`hdr:${key}`}
-                                          variant="ghost"
-                                          onClick={() => toggleHeader(key, auto)}
-                                          aria-expanded={expanded}
-                                          className="mt-3 flex w-full items-center justify-start gap-2 rounded-lg px-2.5 py-1.5 text-left text-[11px] font-semibold uppercase tracking-wider text-white/55 transition-colors hover:bg-white/5 hover:text-white/80 first:mt-0"
-                                        >
-                                          <HeaderIcon className="size-3.5 shrink-0 opacity-80" aria-hidden />
-                                          <span className="min-w-0 flex-1 truncate">{item.label}</span>
-                                          {expanded ? (
-                                            <ChevronDown className="size-3.5 shrink-0 opacity-70" aria-hidden />
-                                          ) : (
-                                            <ChevronRight className="size-3.5 shrink-0 opacity-70" aria-hidden />
-                                          )}
-                                        </Button>
-                                      )
-                                    }
-                                    if (item.headerKey) {
-                                      const auto = autoOpenByKey.get(item.headerKey) ?? false
-                                      const expanded = expandedHeaders.has(item.headerKey)
-                                        ? expandedHeaders.get(item.headerKey)!
-                                        : auto
-                                      if (!expanded) return null
-                                    }
-                                    const active = item.match(loc)
-                                    const SubIcon = item.Icon
-                                    const iconOnly = item.iconOnly && SubIcon
-                                    const indented = Boolean(item.headerKey)
-                                    return (
-                                      <NavLink
-                                        key={item.path + item.label}
-                                        to={item.path}
-                                        title={item.label}
-                                        aria-label={iconOnly ? item.label : undefined}
-                                        className={
-                                          mod.flatSubs
-                                            ? `flex items-center gap-2.5 rounded-lg ${indented ? 'pl-7 pr-2.5' : 'px-2.5'} py-2 text-sm font-medium transition-colors ${
-                                                active
-                                                  ? 'bg-white/10 text-white'
-                                                  : 'text-white/65 hover:bg-white/5 hover:text-white/90'
-                                              }`
-                                            : `flex items-center gap-2 rounded-md text-xs transition-colors ${
-                                                active
-                                                  ? 'font-semibold text-white'
-                                                  : 'text-white/50 hover:bg-white/5 hover:text-white/80'
-                                              } ${
-                                                iconOnly
-                                                  ? 'size-8 shrink-0 justify-center p-0'
-                                                  : 'px-2 py-1.5'
-                                              }`
-                                        }
-                                      >
-                                        {!iconOnly && active && !mod.flatSubs && (
-                                          <span className="h-3 w-0.5 shrink-0 rounded-full bg-[#c9a227]" aria-hidden />
-                                        )}
-                                        {!iconOnly && !active && !mod.flatSubs && (
-                                          <span className="h-3 w-0.5 shrink-0" aria-hidden />
-                                        )}
-                                        {iconOnly ? (
-                                          <SubIcon className="size-4 shrink-0 opacity-90" aria-hidden />
-                                        ) : (
-                                          <>
-                                            <span className="flex-1">{item.label}</span>
-                                            {typeof item.badgeCount === 'number' && item.badgeCount > 0 ? (
-                                              <span
-                                                className={`ml-2 inline-flex h-5 min-w-[20px] shrink-0 items-center justify-center rounded-full px-1.5 text-[10px] font-bold ${
-                                                  item.badgeTone === 'danger'
-                                                    ? 'bg-rose-600 text-white'
-                                                    : 'bg-[#c9a227] text-[#1a1a1a]'
-                                                }`}
-                                                aria-label={`${item.badgeCount} ${item.badgeTone === 'danger' ? 'krever oppmerksomhet' : 'venter på behandling'}`}
-                                              >
-                                                {item.badgeCount > 99 ? '99+' : item.badgeCount}
-                                              </span>
-                                            ) : null}
-                                          </>
-                                        )}
-                                      </NavLink>
-                                    )
-                                  })
-                                })()}
-                              </div>
-                            )}
-                          </div>
+                          <NavLink
+                            key={`${group.id}:${mod.to}`}
+                            to={mod.to}
+                            end={mod.end}
+                            className={`flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm font-medium transition-colors ${
+                              isActiveMod
+                                ? 'bg-white/10 text-white'
+                                : 'text-white/70 hover:bg-white/5 hover:text-white'
+                            }`}
+                          >
+                            <ModIcon className="size-4 shrink-0 opacity-80" aria-hidden />
+                            <span className="flex-1 truncate">{mod.label}</span>
+                          </NavLink>
                         )
                       }),
                     )}
@@ -2694,12 +2516,6 @@ export function AticsShell() {
   const activeSection = visibleSections.find((s) =>
     s.groups.some((g) => g.id === activeGroup?.id),
   )
-  const subItems = visibleSubs(
-    subNavForPath(visibleModules, location.pathname, location.search),
-    gateNav,
-    can,
-  )
-
   // Topbar row 1: one tab per NavSection (4 + partner). Mirrors the
   // sidebar Rail 1 (icons-per-section); row 2 below shows modules in
   // the active section.
@@ -2860,58 +2676,6 @@ export function AticsShell() {
             )}
           </div>
         </div>
-
-        {/* ── Row 3: sub-item tabs for the active module + search ─────────── */}
-        {!subNavCollapsed && subItems.length > 0 && (
-          <div className="border-t border-white/[0.07] bg-[var(--ui-nav-sub)]">
-            <div className="mx-auto flex max-w-[1400px] flex-wrap items-center gap-3 px-4 py-2 md:px-8">
-              <nav className="flex min-w-0 flex-1 flex-wrap gap-x-1 gap-y-1" aria-label="Section">
-                {subItems.filter((it) => it.kind !== 'header').map((item) => {
-                  const active = item.match({ pathname: location.pathname, search: location.search })
-                  const SubIcon = item.Icon
-                  const iconOnly = item.iconOnly && SubIcon
-                  return (
-                    <NavLink
-                      key={item.path + item.label}
-                      to={item.path}
-                      title={item.label}
-                      aria-label={iconOnly ? item.label : undefined}
-                      className={`whitespace-nowrap rounded-md text-sm transition-colors ${
-                        active
-                          ? 'bg-white/10 font-medium text-white'
-                          : 'text-white/55 hover:bg-white/5 hover:text-white/90'
-                      } ${
-                        iconOnly
-                          ? 'inline-flex size-8 shrink-0 items-center justify-center p-0'
-                          : 'px-3 py-1'
-                      }`}
-                    >
-                      {iconOnly ? (
-                        <SubIcon className="size-[1.125rem] shrink-0 opacity-90" aria-hidden />
-                      ) : (
-                        <span className="inline-flex items-center gap-1.5">
-                          <span>{item.label}</span>
-                          {typeof item.badgeCount === 'number' && item.badgeCount > 0 ? (
-                            <span
-                              className={`inline-flex h-5 min-w-[20px] items-center justify-center rounded-full px-1.5 text-[10px] font-bold ${
-                                item.badgeTone === 'danger'
-                                  ? 'bg-rose-600 text-white'
-                                  : 'bg-[#c9a227] text-[#1a1a1a]'
-                              }`}
-                              aria-label={`${item.badgeCount} ${item.badgeTone === 'danger' ? 'krever oppmerksomhet' : 'venter på behandling'}`}
-                            >
-                              {item.badgeCount > 99 ? '99+' : item.badgeCount}
-                            </span>
-                          ) : null}
-                        </span>
-                      )}
-                    </NavLink>
-                  )
-                })}
-              </nav>
-            </div>
-          </div>
-        )}
 
       </header>
 
