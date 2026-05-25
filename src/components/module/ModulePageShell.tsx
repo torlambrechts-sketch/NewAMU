@@ -3,6 +3,7 @@ import { useMemo } from 'react'
 import { Loader2 } from 'lucide-react'
 import { WorkplacePageHeading1 } from '../layout/WorkplacePageHeading1'
 import type { WorkplaceBreadcrumbItem } from '../layout/WorkplacePageHeading1'
+import { PageContainer, type PageWidth } from '../layout/PageContainer'
 import { Button } from '../ui/Button'
 import { ModuleLegalFrameworkToggle } from './ModuleLegalFrameworkToggle'
 import { useModuleLegalFramework } from './ModuleLegalFrameworkContext'
@@ -46,12 +47,17 @@ export interface ModulePageShellProps {
     backLabel?: string
     onBack?: () => void
   }
+  /**
+   * Content-width preset. Defaults to `'default'` (1400px ceiling — the
+   * historical width). Dashboards and Kanban boards should pass
+   * `'wide'`; reading-heavy single-column pages should pass `'comfort'`.
+   * See `src/components/layout/PageContainer.tsx` for the full table.
+   */
+  width?: PageWidth
 }
 
 const OUTER = 'min-h-screen bg-[#F9F7F2]'
 const HEADER_BAND = 'bg-[#F9F7F2]'
-const HEADER_INNER = 'mx-auto max-w-[1400px] px-4 pb-4 pt-4 md:px-8'
-const CONTENT_INNER = 'mx-auto max-w-[1400px] space-y-6 px-4 py-6 md:px-8'
 
 export function ModulePageShell({
   breadcrumb,
@@ -63,6 +69,7 @@ export function ModulePageShell({
   loading = false,
   loadingLabel = 'Laster…',
   notFound,
+  width = 'default',
 }: ModulePageShellProps) {
   const { bannerMounted } = useModuleLegalFramework()
 
@@ -78,7 +85,7 @@ export function ModulePageShell({
 
   const header = (
     <header className={HEADER_BAND}>
-      <div className={HEADER_INNER}>
+      <PageContainer width={width} py="pb-4 pt-4">
         <WorkplacePageHeading1
           breadcrumb={breadcrumb}
           title={title}
@@ -86,7 +93,7 @@ export function ModulePageShell({
           headerActions={mergedHeaderActions}
           menu={tabs}
         />
-      </div>
+      </PageContainer>
     </header>
   )
 
@@ -94,12 +101,12 @@ export function ModulePageShell({
     return (
       <div className={OUTER}>
         {header}
-        <div className={CONTENT_INNER}>
+        <PageContainer width={width} py="py-6" className="space-y-6">
           <div className="flex min-h-[40vh] flex-col items-center justify-center gap-3">
             <Loader2 className="h-8 w-8 animate-spin text-[#1a3d32]" aria-hidden />
             <p className="text-sm text-neutral-600">{loadingLabel}</p>
           </div>
-        </div>
+        </PageContainer>
       </div>
     )
   }
@@ -115,7 +122,7 @@ export function ModulePageShell({
     return (
       <div className={OUTER}>
         {header}
-        <div className={CONTENT_INNER}>
+        <PageContainer width={width} py="py-6" className="space-y-6">
           <div className="flex min-h-[40vh] flex-col items-center justify-center gap-4 text-center">
             <p className="text-lg font-semibold text-neutral-900">{notFound.title}</p>
             {handleBack ? (
@@ -129,7 +136,7 @@ export function ModulePageShell({
               </Button>
             ) : null}
           </div>
-        </div>
+        </PageContainer>
       </div>
     )
   }
@@ -137,7 +144,9 @@ export function ModulePageShell({
   return (
     <div className={OUTER}>
       {header}
-      <div className={CONTENT_INNER}>{children}</div>
+      <PageContainer width={width} py="py-6" className="space-y-6">
+        {children}
+      </PageContainer>
     </div>
   )
 }
@@ -159,7 +168,7 @@ export function ModulePageEmpty({
 }) {
   return (
     <div className={OUTER}>
-      <div className={`${CONTENT_INNER} flex min-h-screen flex-col items-center justify-center gap-3 text-center`}>
+      <PageContainer py="py-6" className="flex min-h-screen flex-col items-center justify-center gap-3 text-center">
         <p className="text-lg font-semibold text-neutral-900">{title}</p>
         {description ? <p className="text-sm text-neutral-600">{description}</p> : null}
         {onBack ? (
@@ -167,7 +176,7 @@ export function ModulePageEmpty({
             {backLabel ?? '← Tilbake'}
           </Button>
         ) : null}
-      </div>
+      </PageContainer>
     </div>
   )
 }

@@ -17,6 +17,13 @@
   --color-hrm-dark: #0d1f14;
   --color-hrm-lime: #7ee081;
   --color-hrm-lime-bright: #9ef01a;
+
+  /* Extra breakpoints for ultrawide B2B monitors. Tailwind v4 defaults
+     stop at 2xl=1536, but 1920+ displays are common — without these
+     the page-padding ladder maxes out on smaller screens than it
+     should. */
+  --breakpoint-3xl: 1920px;
+  --breakpoint-4xl: 2560px;
 }
 
 @layer base {
@@ -27,6 +34,14 @@
     --ui-nav-rail: var(--color-atics-green);
     --ui-nav-rail-mid: #15302a;
     --ui-nav-sub: #132e25;
+
+    /* Shell rail widths — read by content area so layouts can react to
+       rail state without prop drilling. AticsShell sets data-rail2 on
+       the root, and the [data-rail2="…"] selectors below override
+       --shell-rail2-w. */
+    --shell-rail1-w: 3.75rem;
+    --shell-rail2-w: 16rem;
+
     /* AMU design system tokens */
     --forest: #1a3d32;
     --forest-soft: #e7efe9;
@@ -43,6 +58,12 @@
     --critical-soft: #f8e3df;
     --warn: #c98a2b;
     --warn-soft: #f7ead0;
+  }
+  [data-rail2='mini'] {
+    --shell-rail2-w: 3.5rem;
+  }
+  [data-rail2='hidden'] {
+    --shell-rail2-w: 0rem;
   }
   html {
     @apply antialiased;

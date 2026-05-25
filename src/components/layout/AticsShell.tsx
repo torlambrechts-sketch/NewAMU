@@ -62,6 +62,15 @@ import { useConsultantClock } from '../../hooks/useConsultantClock'
 import { usePlatformAdmin } from '../../hooks/usePlatformAdmin'
 import { OrgSwitcher } from './OrgSwitcher'
 import type { NavMode } from './aticsNavMode'
+import {
+  autoRail2State,
+  cycleRail2State,
+  loadRail2Pref,
+  rail2StateLabel,
+  saveRail2Pref,
+  type Rail2Preference,
+  type Rail2State,
+} from './aticsRailState'
 
 // ─── Sub-item type ────────────────────────────────────────────────────────────
 
@@ -430,23 +439,12 @@ function saveNavMode(mode: NavMode) {
   try { localStorage.setItem('atics-nav-mode', mode) } catch { /* ignore */ }
 }
 
-const SUB_NAV_COLLAPSED_KEY = 'atics-sub-nav-collapsed'
-
-function loadSubNavCollapsed(): boolean {
-  try {
-    return localStorage.getItem(SUB_NAV_COLLAPSED_KEY) === '1'
-  } catch {
-    return false
-  }
-}
-
-function saveSubNavCollapsed(collapsed: boolean) {
-  try {
-    localStorage.setItem(SUB_NAV_COLLAPSED_KEY, collapsed ? '1' : '0')
-  } catch {
-    /* ignore */
-  }
-}
+// Rail-2 state moved to aticsRailState.ts. Two new state slots replace
+// the boolean `subNavCollapsed`:
+//   rail2Pref  — what the user picked (or 'auto' to follow viewport)
+//   autoState  — the breakpoint-resolved state (only used when pref==='auto')
+// The render path reads `resolveRail2State(rail2Pref, autoState)` which
+// returns one of 'expanded' | 'mini' | 'hidden'.
 
 // ─── Shell ────────────────────────────────────────────────────────────────────
 
@@ -1809,15 +1807,67 @@ export function AticsShell() {
   const visibleModules = useMemo(() => allModulesFrom(visibleGroups), [visibleGroups])
 
   const [navMode, setNavMode] = useState<NavMode>(loadNavMode)
-  const [subNavCollapsed, setSubNavCollapsed] = useState(loadSubNavCollapsed)
+  const [rail2Pref, setRail2Pref] = useState<Rail2Preference>(loadRail2Pref)
+  // Auto-resolved rail2 state, recomputed when viewport crosses a
+  // breakpoint. Initialised with a window-aware guess so SSR/first-paint
+  // doesn't flash the wrong state.
+  const [autoState, setAutoState] = useState<Rail2State>(() => {
+    if (typeof window === 'undefined') return 'expanded'
+    return autoRail2State(window.innerWidth)
+  })
 
-  const toggleSubNavCollapsed = useCallback(() => {
-    setSubNavCollapsed((c) => {
-      const next = !c
-      saveSubNavCollapsed(next)
-      return next
-    })
+  // Track viewport via matchMedia so we only re-render when crossing
+  // a breakpoint (768 / 1280), not on every resize pixel.
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const mqHidden = window.matchMedia('(max-width: 767px)')
+    const mqMini = window.matchMedia('(max-width: 1279px)')
+    const update = () => {
+      setAutoState(
+        mqHidden.matches ? 'hidden' : mqMini.matches ? 'mini' : 'expanded',
+      )
+    }
+    update()
+    mqHidden.addEventListener('change', update)
+    mqMini.addEventListener('change', update)
+    return () => {
+      mqHidden.removeEventListener('change', update)
+      mqMini.removeEventListener('change', update)
+    }
   }, [])
+
+  const rail2State: Rail2State = rail2Pref === 'auto' ? autoState : rail2Pref
+
+  const cycleRail2 = useCallback(() => {
+    // Cycling makes the choice explicit; once the user clicks, the
+    // 'auto' default no longer applies for this device.
+    const next = cycleRail2State(rail2State)
+    setRail2Pref(next)
+    saveRail2Pref(next)
+  }, [rail2State])
+
+  // Keyboard shortcut: `[` cycles rail 2 forward (expanded → mini →
+  // hidden → expanded). Skipped when focus is in a text-entry field
+  // so users editing content can type `[` normally.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== '[') return
+      if (e.metaKey || e.ctrlKey || e.altKey) return
+      const t = e.target as HTMLElement | null
+      if (
+        t &&
+        (t.tagName === 'INPUT' ||
+          t.tagName === 'TEXTAREA' ||
+          t.tagName === 'SELECT' ||
+          t.isContentEditable)
+      )
+        return
+      e.preventDefault()
+      cycleRail2()
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [cycleRail2])
 
   function handleNavModeChange(mode: NavMode) {
     setNavMode(mode)
@@ -1836,11 +1886,17 @@ export function AticsShell() {
       s.groups.some((g) => g.id === activeGroup?.id),
     )
 
+    const nextStateLabel = rail2StateLabel(cycleRail2State(rail2State))
+    const toggleTitle = `Navigasjon: ${rail2StateLabel(rail2State)} → ${nextStateLabel} ([)`
+
     return (
-      <div className="flex h-[100dvh] max-h-[100dvh] overflow-hidden">
+      <div
+        className="flex h-[100dvh] max-h-[100dvh] overflow-hidden"
+        data-rail2={rail2State}
+      >
 
         {/* ── Rail 1: Section icons (one per section) ──────────────────────── */}
-        <aside className="flex w-[3.75rem] shrink-0 flex-col bg-[var(--ui-nav-rail)]">
+        <aside className="flex w-[var(--shell-rail1-w)] shrink-0 flex-col bg-[var(--ui-nav-rail)]">
           {/* Logo */}
           <div className="flex h-14 shrink-0 items-center justify-center border-b border-white/10">
             <NavLink
@@ -1884,19 +1940,22 @@ export function AticsShell() {
             })}
           </nav>
 
-          {/* Section rail toggle — always on this column (mid rail can be absent before activeGroup resolves) */}
+          {/* Rail 2 cycle toggle: expanded → mini → hidden → expanded.
+              Also driven by the [ keyboard shortcut. */}
           <div className="border-t border-white/10 px-2 py-2">
             <Button
               variant="ghost"
-              onClick={toggleSubNavCollapsed}
+              onClick={cycleRail2}
               className={`flex w-full items-center justify-center rounded-lg p-3 transition-colors ${
-                subNavCollapsed ? 'bg-white/15 text-white' : 'text-white/70 hover:bg-white/10 hover:text-white'
+                rail2State === 'hidden'
+                  ? 'bg-white/15 text-white'
+                  : 'text-white/70 hover:bg-white/10 hover:text-white'
               }`}
-              aria-expanded={!subNavCollapsed}
-              aria-label={subNavCollapsed ? t('shell.expandSectionNav') : t('shell.collapseSectionNav')}
-              title={subNavCollapsed ? t('shell.expandSectionNav') : t('shell.collapseSectionNav')}
+              aria-expanded={rail2State !== 'hidden'}
+              aria-label={toggleTitle}
+              title={toggleTitle}
             >
-              {subNavCollapsed ? (
+              {rail2State === 'hidden' ? (
                 <PanelRight className="size-[1.125rem] shrink-0" aria-hidden />
               ) : (
                 <PanelLeft className="size-[1.125rem] shrink-0" aria-hidden />
@@ -1906,16 +1965,16 @@ export function AticsShell() {
 
         </aside>
 
-        {/* ── Rail 2: All sections + groups, flat (no inline expansion) ─── */}
-        {!subNavCollapsed && (
-          <aside className="flex w-64 shrink-0 flex-col overflow-hidden bg-[var(--ui-nav-rail-mid)]">
+        {/* ── Rail 2: 3-state — expanded (full labels) / mini (icon-only) / hidden ── */}
+        {rail2State === 'expanded' && (
+          <aside className="flex w-[var(--shell-rail2-w)] shrink-0 flex-col overflow-hidden bg-[var(--ui-nav-rail-mid)]">
             <nav className="flex-1 overflow-y-auto px-2 py-4" aria-label="Section navigation">
               {visibleSections.map((section, sectionIdx) => {
                 const showLabel = section.id !== 'partner'
                 return (
                   <div key={section.id} className={sectionIdx > 0 ? 'mt-4' : ''}>
                     {showLabel ? (
-                      <div className="px-2 pb-1.5 pt-1 text-[10px] font-semibold uppercase tracking-[0.15em] text-white/55">
+                      <div className="px-2 pb-1.5 pt-1 text-[10px] font-semibold uppercase tracking-[0.15em] text-white/70">
                         {section.label}
                       </div>
                     ) : (
@@ -1945,6 +2004,49 @@ export function AticsShell() {
                   </div>
                 )
               })}
+            </nav>
+          </aside>
+        )}
+
+        {rail2State === 'mini' && (
+          <aside
+            className="flex w-[var(--shell-rail2-w)] shrink-0 flex-col overflow-hidden bg-[var(--ui-nav-rail-mid)]"
+            aria-label="Section navigation"
+          >
+            <nav className="flex-1 overflow-y-auto px-1.5 py-3">
+              {visibleSections.map((section, sectionIdx) => (
+                <div
+                  key={section.id}
+                  className={
+                    sectionIdx > 0
+                      ? 'mt-3 border-t border-white/10 pt-3'
+                      : undefined
+                  }
+                >
+                  {section.groups.flatMap((group) =>
+                    group.modules.map((mod) => {
+                      const ModIcon = mod.icon
+                      const isActiveMod = activeModule.to === mod.to
+                      return (
+                        <NavLink
+                          key={`${group.id}:${mod.to}`}
+                          to={mod.to}
+                          end={mod.end}
+                          title={`${section.label} · ${mod.label}`}
+                          aria-label={mod.label}
+                          className={`mx-auto flex h-9 w-9 items-center justify-center rounded-lg transition-colors ${
+                            isActiveMod
+                              ? 'bg-white/15 text-white'
+                              : 'text-white/65 hover:bg-white/10 hover:text-white'
+                          }`}
+                        >
+                          <ModIcon className="size-[1.125rem] shrink-0 opacity-85" aria-hidden />
+                        </NavLink>
+                      )
+                    }),
+                  )}
+                </div>
+              ))}
             </nav>
           </aside>
         )}
@@ -2004,6 +2106,10 @@ export function AticsShell() {
   const activeSection = visibleSections.find((s) =>
     s.groups.some((g) => g.id === activeGroup?.id),
   )
+  // Rail-2 toggle tooltip — same shape as the sidebar mode. The toggle
+  // in topbar mode pre-configures the sidebar's rail2 state for the
+  // next time the user switches modes.
+  const toggleTitleTop = `Navigasjon: ${rail2StateLabel(rail2State)} → ${rail2StateLabel(cycleRail2State(rail2State))} ([)`
   // Topbar row 1: one tab per NavSection (4 + partner). Mirrors the
   // sidebar Rail 1 (icons-per-section); row 2 below shows modules in
   // the active section.
@@ -2084,15 +2190,15 @@ export function AticsShell() {
               <Button
                 variant="ghost"
                 size="icon"
-                onClick={toggleSubNavCollapsed}
+                onClick={cycleRail2}
                 className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg transition-colors ${
-                  subNavCollapsed ? 'bg-white/15 text-white ring-1 ring-[#c9a227]/50' : 'text-white/70 hover:bg-white/10 hover:text-white'
+                  rail2State === 'hidden' ? 'bg-white/15 text-white ring-1 ring-[#c9a227]/50' : 'text-white/70 hover:bg-white/10 hover:text-white'
                 }`}
-                aria-expanded={!subNavCollapsed}
-                aria-label={subNavCollapsed ? t('shell.expandSectionNav') : t('shell.collapseSectionNav')}
-                title={subNavCollapsed ? t('shell.expandSectionNav') : t('shell.collapseSectionNav')}
+                aria-expanded={rail2State !== 'hidden'}
+                aria-label={toggleTitleTop}
+                title={toggleTitleTop}
               >
-                {subNavCollapsed ? (
+                {rail2State === 'hidden' ? (
                   <PanelRight className="size-[1.125rem] shrink-0" aria-hidden />
                 ) : (
                   <PanelLeft className="size-[1.125rem] shrink-0" aria-hidden />
@@ -2111,15 +2217,15 @@ export function AticsShell() {
               <Button
                 variant="ghost"
                 size="icon"
-                onClick={toggleSubNavCollapsed}
+                onClick={cycleRail2}
                 className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg transition-colors ${
-                  subNavCollapsed ? 'bg-white/15 text-white ring-1 ring-[#c9a227]/50' : 'text-white/70 hover:bg-white/10 hover:text-white'
+                  rail2State === 'hidden' ? 'bg-white/15 text-white ring-1 ring-[#c9a227]/50' : 'text-white/70 hover:bg-white/10 hover:text-white'
                 }`}
-                aria-expanded={!subNavCollapsed}
-                aria-label={subNavCollapsed ? t('shell.expandSectionNav') : t('shell.collapseSectionNav')}
-                title={subNavCollapsed ? t('shell.expandSectionNav') : t('shell.collapseSectionNav')}
+                aria-expanded={rail2State !== 'hidden'}
+                aria-label={toggleTitleTop}
+                title={toggleTitleTop}
               >
-                {subNavCollapsed ? (
+                {rail2State === 'hidden' ? (
                   <PanelRight className="size-[1.125rem] shrink-0" aria-hidden />
                 ) : (
                   <PanelLeft className="size-[1.125rem] shrink-0" aria-hidden />

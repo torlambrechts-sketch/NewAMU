@@ -253,6 +253,7 @@ export function ModuleAnalyticsDashboard({
   return (
     <ModulePageShell
       breadcrumb={breadcrumb ?? []}
+      width="wide"
       title={titleNode}
       description={compositeDescription}
       headerActions={
