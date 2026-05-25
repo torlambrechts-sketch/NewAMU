@@ -2241,13 +2241,11 @@ export function AticsShell() {
           flatSubs: true,
         },
         {
-          // Mine oppgaver — alias-view of /tasks/management filtered to
-          // me. Today there's no user_id link on task_items, so the
-          // page renders the same as /tasks/management; the page logic
-          // self-filters by display_name match where available. Wired
-          // as its own route so the breadcrumb + landing reads as a
-          // personal flate, not the org-wide manager.
-          to: '/tasks/management?assignee=me',
+          // Mine oppgaver — focused page that filters task_items by
+          // display_name match (assignee or owner). A user_id link is
+          // a follow-up; until then the page warns when display_name
+          // isn't set and is transparent about the name-string match.
+          to: '/mitt-arbeid/oppgaver',
           label: 'Mine oppgaver',
           end: false,
           icon: ListChecks,
@@ -2407,23 +2405,30 @@ export function AticsShell() {
             </NavLink>
           </div>
 
-          {/* Section-grouped group icons. Section labels sit between
-              clusters as small uppercase dividers. The Partner-konsoll
-              "section" carries no label since it's a single-group
-              shortcut shown only to consultants. */}
-          <nav className="flex flex-1 flex-col gap-1 overflow-y-auto px-2 py-3" aria-label="Primary">
+          {/* Section-grouped group icons. Each section renders as a
+              labelled landmark (sr-only h2) with a visible divider line
+              + small label that meets WCAG AA contrast on the forest-
+              green rail. The Partner-konsoll "section" carries no label
+              since it's a single-group shortcut shown only to
+              consultants. */}
+          <div className="flex flex-1 flex-col gap-1 overflow-y-auto px-2 py-3">
             {visibleSections.map((section, sectionIdx) => {
               const showLabel = section.id !== 'partner'
               return (
-                <div key={section.id} className={sectionIdx > 0 ? 'mt-2' : ''}>
+                <nav
+                  key={section.id}
+                  aria-label={section.label}
+                  className={sectionIdx > 0 ? 'mt-2' : ''}
+                >
                   {showLabel ? (
                     <div
-                      className="px-1.5 pb-1 pt-1 text-[8px] font-semibold uppercase tracking-[0.15em] text-white/35"
-                      aria-hidden
+                      className="px-1.5 pb-1 pt-1 text-[10px] font-semibold uppercase tracking-[0.15em] text-white/70"
                     >
                       {section.label}
                     </div>
-                  ) : null}
+                  ) : (
+                    <h2 className="sr-only">{section.label}</h2>
+                  )}
                   <div className="flex flex-col gap-1">
                     {section.groups.map((group) => {
                       const GroupIcon = group.icon
@@ -2434,6 +2439,7 @@ export function AticsShell() {
                           to={group.modules[0].to}
                           end={false}
                           title={`${section.label} · ${group.label}`}
+                          aria-label={`${section.label} · ${group.label}`}
                           className={`flex items-center justify-center rounded-lg p-2.5 transition-colors ${
                             isActive
                               ? 'bg-white/15 text-white ring-1 ring-[#c9a227]/60'
@@ -2445,10 +2451,10 @@ export function AticsShell() {
                       )
                     })}
                   </div>
-                </div>
+                </nav>
               )
             })}
-          </nav>
+          </div>
 
           {/* Section rail toggle — always on this column (mid rail can be absent before activeGroup resolves) */}
           <div className="border-t border-white/10 px-2 py-2">

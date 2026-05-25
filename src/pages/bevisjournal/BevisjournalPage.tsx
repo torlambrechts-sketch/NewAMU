@@ -18,6 +18,9 @@ export function BevisjournalPage() {
         <div className="flex items-center gap-2 text-[11px] uppercase tracking-[0.18em] text-neutral-500">
           <ShieldCheck className="size-3.5" aria-hidden />
           Styringssystem · Bevisjournal
+          <span className="ml-2 inline-flex items-center rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-[9px] font-semibold uppercase tracking-wider text-amber-800">
+            Fase 1 · Innfallsvinkler
+          </span>
         </div>
         <h1
           className="mt-2 font-serif text-3xl font-medium tracking-tight text-neutral-900 md:text-4xl"
@@ -26,10 +29,9 @@ export function BevisjournalPage() {
           Bevisjournal
         </h1>
         <p className="mt-2 max-w-2xl text-sm leading-relaxed text-neutral-600">
-          Den uforanderlige bevisledgeren. Hver gang en kontroll utføres,
-          en aktivitet lukkes, eller en signatur faller — landes det her som
-          en signert post som ikke kan endres eller slettes. Del en token-
-          lenke med revisor, og de ser hele sannheten på sekunder.
+          Velg innfallsvinkel til bevisene. Fase 1 ruter til de eksisterende
+          beviskildene (internkontroll-revisjon, kontroll-bevis, audit-logg);
+          Fase 2 aggregerer alt bak én delbar revisor-token.
         </p>
       </div>
 

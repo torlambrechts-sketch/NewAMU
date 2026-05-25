@@ -9,7 +9,6 @@ import {
   AlertTriangle,
   ArrowUpRight,
   CalendarClock,
-  CheckCircle2,
   Inbox,
   ListChecks,
   PenLine,
@@ -59,11 +58,21 @@ function relativeDays(iso: string | null): { label: string; tone: 'overdue' | 't
 }
 
 export function MittArbeidInnboksPage() {
-  const { profile, user } = useOrgSetupContext()
+  const { profile, user, can } = useOrgSetupContext()
   const tasks = useTaskItemsData()
   const meetings = useMeetings()
   const alerts = useAlerts()
-  const { unreadList, unreadCount } = useNotifications()
+  const { unreadList } = useNotifications()
+  // Confidentiality gate: only show varslingssaker panel to roles with
+  // committee membership (or full alerts manage right). RLS on
+  // alert_cases protects the rows, but rendering "0 cases" still
+  // reveals existence; not rendering the panel at all is the cleaner
+  // pattern (AML kap. 2 A taushetsplikt).
+  const canSeeAlerts =
+    can('alerts.committee') ||
+    can('alerts.committee_confidential') ||
+    can('alerts.committee_escalated') ||
+    can('alerts.manage')
 
   const displayName = useMemo(() => {
     const n = profile?.display_name?.trim()
@@ -110,15 +119,16 @@ export function MittArbeidInnboksPage() {
       )
   }, [meetings.meetings])
 
-  // Active alerts cases — we surface the count and route the user into
-  // /alerts for the actual triage flow. The full sak-detail is RLS
-  // gated; if user has no committee membership they'll see 0 here.
+  // Active alerts cases — only computed for committee roles. RLS on
+  // alert_cases additionally guards individual rows; rendering this
+  // panel at all reveals existence, so we hide it for non-committee.
   const myAlerts = useMemo(() => {
+    if (!canSeeAlerts) return []
     return alerts.cases
       .filter((c) => c.status !== 'closed' && c.status !== 'dismissed')
       .sort((a, b) => (b.received_at ?? '').localeCompare(a.received_at ?? ''))
       .slice(0, 5)
-  }, [alerts.cases])
+  }, [alerts.cases, canSeeAlerts])
 
   const overdueCount = myTasks.filter((t) => t.dueDate && new Date(t.dueDate).getTime() < Date.now()).length
 
@@ -152,14 +162,36 @@ export function MittArbeidInnboksPage() {
           hint={overdueCount > 0 ? `${overdueCount} forsinket` : 'Åpne'}
           to="/tasks/management"
         />
-        <KpiCard
-          icon={AlertTriangle}
-          label="Varslingssaker"
-          value={myAlerts.length}
-          accent="#c46a2a"
-          hint="Aktive saker"
-          to="/alerts"
-        />
+        {canSeeAlerts ? (
+          <KpiCard
+            icon={AlertTriangle}
+            label="Varslingssaker"
+            value={myAlerts.length}
+            accent="#c46a2a"
+            hint="Aktive saker"
+            to="/alerts"
+          />
+        ) : (
+          <KpiCard
+            icon={CalendarClock}
+            label="Møter i dag"
+            value={
+              myMeetings.filter((m) => {
+                if (!m.scheduled_at) return false
+                const t = new Date(m.scheduled_at)
+                const now = new Date()
+                return (
+                  t.getFullYear() === now.getFullYear() &&
+                  t.getMonth() === now.getMonth() &&
+                  t.getDate() === now.getDate()
+                )
+              }).length
+            }
+            accent="#0e7490"
+            hint="I dag"
+            to="/meetings"
+          />
+        )}
         <KpiCard
           icon={CalendarClock}
           label="Møter neste 14 dager"
@@ -171,11 +203,12 @@ export function MittArbeidInnboksPage() {
         <KpiCard
           icon={PenLine}
           label="Mine signaturer"
-          value={
-            unreadList.filter(
-              (n) => n.category === 'tasks_sign' || n.category === 'documents_review',
-            ).length
-          }
+          // Show only the documents-review stream — that's what the
+          // dedicated signatures page also surfaces from
+          // wiki_review_requests. Including tasks_sign here would
+          // double-count items that don't appear on /mitt-arbeid/
+          // signaturer, so the two counts wouldn't match.
+          value={unreadList.filter((n) => n.category === 'documents_review').length}
           accent="#a88332"
           hint="Krever underskrift"
           to="/mitt-arbeid/signaturer"
@@ -258,32 +291,34 @@ export function MittArbeidInnboksPage() {
           ))}
         </ListPanel>
 
-        <ListPanel
-          title="Aktive varslingssaker"
-          icon={AlertTriangle}
-          accent="#c46a2a"
-          empty="Ingen aktive saker. Trygt på vakt."
-          to="/alerts"
-          toLabel="Åpne Varslinger"
-        >
-          {myAlerts.map((c) => (
-            <Link
-              key={c.id}
-              to={`/alerts/${c.id}`}
-              className="group flex items-center gap-3 rounded-lg border border-neutral-200 bg-white px-3 py-2.5 transition-colors hover:border-neutral-400"
-            >
-              <AlertTriangle className="size-4 shrink-0 text-neutral-400 group-hover:text-neutral-700" aria-hidden />
-              <div className="min-w-0 flex-1">
-                <p className="truncate text-sm font-medium text-neutral-800">{c.title}</p>
-                <p className="mt-0.5 text-[11px] text-neutral-500">
-                  {alertStatusLabel(c.status)}
-                  {c.severity ? ` · ${c.severity}` : ''}
-                </p>
-              </div>
-              <ArrowUpRight className="size-3.5 shrink-0 text-neutral-300 group-hover:text-neutral-600" aria-hidden />
-            </Link>
-          ))}
-        </ListPanel>
+        {canSeeAlerts ? (
+          <ListPanel
+            title="Aktive varslingssaker"
+            icon={AlertTriangle}
+            accent="#c46a2a"
+            empty="Ingen aktive saker. Trygt på vakt."
+            to="/alerts"
+            toLabel="Åpne Varslinger"
+          >
+            {myAlerts.map((c) => (
+              <Link
+                key={c.id}
+                to={`/alerts/${c.id}`}
+                className="group flex items-center gap-3 rounded-lg border border-neutral-200 bg-white px-3 py-2.5 transition-colors hover:border-neutral-400"
+              >
+                <AlertTriangle className="size-4 shrink-0 text-neutral-400 group-hover:text-neutral-700" aria-hidden />
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-medium text-neutral-800">{c.title}</p>
+                  <p className="mt-0.5 text-[11px] text-neutral-500">
+                    {alertStatusLabel(c.status)}
+                    {c.severity ? ` · ${c.severity}` : ''}
+                  </p>
+                </div>
+                <ArrowUpRight className="size-3.5 shrink-0 text-neutral-300 group-hover:text-neutral-600" aria-hidden />
+              </Link>
+            ))}
+          </ListPanel>
+        ) : null}
 
         <ListPanel
           title="Varsler og mentions"
@@ -307,17 +342,11 @@ export function MittArbeidInnboksPage() {
               </div>
             </div>
           ))}
-          {unreadCount === 0 && unreadList.length === 0 ? (
-            <p className="flex items-center gap-2 text-sm text-neutral-500">
-              <CheckCircle2 className="size-4 text-emerald-600" aria-hidden />
-              Innboks tom — du er ajour.
-            </p>
-          ) : null}
         </ListPanel>
       </div>
 
       <p className="mt-10 text-[11px] uppercase tracking-[0.18em] text-neutral-400">
-        Mitt arbeid · Innboks · Kilde: oppgaver · møter · varslinger · varsler
+        Mitt arbeid · Innboks · Kilde: oppgaver · møter · varslingssaker · varsler
       </p>
     </div>
   )

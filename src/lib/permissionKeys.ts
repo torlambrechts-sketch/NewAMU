@@ -220,6 +220,34 @@ export const ROUTE_PERMISSION_ANY: { pathPrefix: string; permissions: Permission
       'checklist.manage',
     ],
   },
+  // May 2026 menu restructure — these surfaces are chooser landings
+  // that link to module-gated detail flates. The sidebar uses a wider
+  // permAny; the route gate uses the same so a deep-link can't bypass
+  // the nav-level gate.
+  {
+    pathPrefix: '/innboks',
+    permissions: ['module.view.dashboard'],
+  },
+  {
+    pathPrefix: '/mitt-arbeid',
+    permissions: ['module.view.dashboard'],
+  },
+  {
+    pathPrefix: '/bevisjournal',
+    permissions: [
+      'module.view.dashboard',
+      'module.view.admin',
+      'users.manage',
+    ],
+  },
+  {
+    pathPrefix: '/rammeverk',
+    permissions: [
+      'module.view.dashboard',
+      'checklist.manage',
+      'module.view.admin',
+    ],
+  },
 ]
 
 export const DASHBOARD_PERMISSION: PermissionKey = 'module.view.dashboard'

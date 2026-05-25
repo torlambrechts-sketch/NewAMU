@@ -100,6 +100,7 @@ import { HmsOverviewPage } from './pages/overview/HmsOverviewPage'
 import { MyFavoritesPage } from './pages/favorites/MyFavoritesPage'
 import {
   MittArbeidInnboksPage,
+  MittArbeidOppgaverPage,
   MittArbeidSignaturerPage,
 } from './pages/mitt-arbeid'
 import { BevisjournalPage } from './pages/bevisjournal/BevisjournalPage'
@@ -400,6 +401,7 @@ const router = createBrowserRouter(
                       <Route path="innboks" element={<MittArbeidInnboksPage />} />
                       <Route path="mitt-arbeid" element={<Navigate to="/innboks" replace />} />
                       <Route path="mitt-arbeid/innboks" element={<Navigate to="/innboks" replace />} />
+                      <Route path="mitt-arbeid/oppgaver" element={<MittArbeidOppgaverPage />} />
                       <Route path="mitt-arbeid/signaturer" element={<MittArbeidSignaturerPage />} />
                       {/* Styringssystem — promoted surfaces. Bevisjournal is
                           a landing that routes to existing evidence flates;

@@ -92,6 +92,9 @@ export function RammeverkPage() {
         <div className="flex items-center gap-2 text-[11px] uppercase tracking-[0.18em] text-neutral-500">
           <Scale className="size-3.5" aria-hidden />
           Styringssystem · Rammeverk & gap
+          <span className="ml-2 inline-flex items-center rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-[9px] font-semibold uppercase tracking-wider text-amber-800">
+            Fase 1 · Rammeverk-velger
+          </span>
         </div>
         <h1
           className="mt-2 font-serif text-3xl font-medium tracking-tight text-neutral-900 md:text-4xl"
@@ -100,9 +103,9 @@ export function RammeverkPage() {
           Rammeverk &amp; gap
         </h1>
         <p className="mt-2 max-w-2xl text-sm leading-relaxed text-neutral-600">
-          Crosswalk-visningen. Velg rammeverk og se hvilken prosent av kravene
-          virksomheten allerede dekker. Når en kontroll i AML er på plass,
-          vises også grønn for parallell ISO-klausul.
+          Velg rammeverk for å se dekning. Fase 1 ruter til de eksisterende
+          analyse- og gap-flatene (AML, ISO 45001, ISO 27001, GDPR); Fase 2
+          legger til samlet crosswalk-prosent på tvers av rammeverk.
         </p>
       </div>
 

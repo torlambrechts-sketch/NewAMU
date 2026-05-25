@@ -54,18 +54,18 @@ export function MittArbeidSignaturerPage() {
     void (async () => {
       try {
         // 1) Compliance checklists awaiting signature — executions in
-        //    status 'open' or 'in_progress' that have signature_required.
-        //    We surface them all (org-wide) for MVP since per-user signer
-        //    membership is held in compliance_checklist_required_signers
-        //    (not always populated). The detail page handles the
-        //    "is this user a signer" check.
+        //    status 'draft' or 'active' that aren't yet signed. The
+        //    schema uses public.inspection_round_status enum (values
+        //    draft/active/signed) and `scheduled_for` for the planned
+        //    execution date (see archive/20260615120000). We surface
+        //    org-wide; the detail page enforces signer membership.
         const compRes = await supabase
           .from('compliance_checklist_executions')
-          .select('id, title, status, scheduled_at, signed_at')
+          .select('id, title, status, scheduled_for, signed_at')
           .eq('organization_id', orgId)
           .is('signed_at', null)
-          .in('status', ['open', 'in_progress'])
-          .order('scheduled_at', { ascending: true, nullsFirst: false })
+          .in('status', ['draft', 'active'])
+          .order('scheduled_for', { ascending: true, nullsFirst: false })
           .limit(50)
 
         // 2) Document review requests where the current user is the
@@ -100,12 +100,12 @@ export function MittArbeidSignaturerPage() {
         const next: SignaturePendingRow[] = []
 
         if (compRes.data && !compRes.error) {
-          for (const r of compRes.data as { id: string; title: string | null; scheduled_at: string | null }[]) {
+          for (const r of compRes.data as { id: string; title: string | null; scheduled_for: string | null }[]) {
             next.push({
               id: `comp:${r.id}`,
               title: r.title ?? 'Sjekkliste-utførelse',
               source: 'compliance',
-              dueAt: r.scheduled_at,
+              dueAt: r.scheduled_for,
               href: `/compliance/checklists/${r.id}`,
             })
           }
