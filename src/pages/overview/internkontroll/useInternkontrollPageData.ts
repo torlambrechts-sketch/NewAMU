@@ -212,6 +212,13 @@ export type IkProsjekt = {
   tiltakIds: string[]
   /** Paragraph codes in scope. */
   kravCodes: string[]
+  /** Canonical task_projects.id when this project is persistent.
+   *  Null for legacy milestone-string groupings. */
+  projectId: string | null
+  /** Project board methodology — drives the chip label + deep-link. */
+  methodology: 'pdca' | 'kanban' | null
+  /** True for legacy milestone-string groupings (no task_projects row). */
+  isLegacy: boolean
 }
 
 export type IkAuditEntry = {
@@ -306,6 +313,23 @@ type ExecutionRow = {
   signed_by: string | null
   signed_at: string | null
 }
+/** Persistent project record from public.task_projects. Replaces the
+ *  earlier "milestone-string grouping" path — projects created in
+ *  Oppgavestyring (PDCA/Kanban boards, dates, lead, law_refs) now
+ *  surface 1:1 on the Internkontroll page. */
+type ProjectRow = {
+  id: string
+  title: string
+  description: string | null
+  methodology: string
+  status: string
+  start_date: string | null
+  end_date: string | null
+  law_refs: string[] | null
+  lead_user_id: string | null
+  created_at: string
+}
+
 /** Minimal slice of task_items pulled for the bridge view. Each row
  *  is a task created via `useCompliancePlanItems.ensureBridgeTask`
  *  (source_type='compliance_plan', source_id=<plan_item.id>) — the
@@ -331,6 +355,7 @@ type PlanItemRow = {
   status: 'planned' | 'in_progress' | 'blocked' | 'done'
   due_at: string | null
   milestone: string | null
+  project_id: string | null
   task_id: string | null
   created_at: string
   updated_at: string
@@ -533,6 +558,9 @@ export function useInternkontrollPageData(): {
      *  twin of each plan-item. Read-only on this page; the Tasks module
      *  owns writes. */
     bridgeTasks: BridgeTaskRow[]
+    /** Persistent task_projects records. Drives the Prosjekter section
+     *  (in place of the legacy milestone-string grouping). */
+    projects: ProjectRow[]
   }
   const [loaded, setLoaded] = useState<Loaded | null>(null)
   const [userNames, setUserNames] = useState<Map<string, string>>(new Map())
@@ -578,7 +606,7 @@ export function useInternkontrollPageData(): {
       supabase
         .from('compliance_plan_items')
         .select(
-          'id, law_ref, framework_id, title, description, owner_user_id, status, due_at, milestone, task_id, created_at, updated_at',
+          'id, law_ref, framework_id, title, description, owner_user_id, status, due_at, milestone, project_id, task_id, created_at, updated_at',
         )
         .eq('organization_id', orgId)
         .is('deleted_at', null)
@@ -597,7 +625,17 @@ export function useInternkontrollPageData(): {
         .eq('source_type', 'compliance_plan')
         .is('deleted_at', null)
         .limit(MAX_PAGE_PLAN_ITEMS),
-    ]).then(([reg, cl, ctrl, jn, st, ex, pl, bridges]) => {
+      // task_projects — Phase 2: persistent project records replacing
+      // the milestone-string grouping. RLS scopes by org already.
+      supabase
+        .from('task_projects')
+        .select(
+          'id, title, description, methodology, status, start_date, end_date, law_refs, lead_user_id, created_at',
+        )
+        .eq('organization_id', orgId)
+        .is('deleted_at', null)
+        .order('created_at', { ascending: false }),
+    ]).then(([reg, cl, ctrl, jn, st, ex, pl, bridges, projects]) => {
       if (cancelled) return
       // Log non-fatal query failures so they don't disappear into the
       // void. We still build a partial view from whatever did succeed —
@@ -612,6 +650,7 @@ export function useInternkontrollPageData(): {
       if (ex.error) failures.push(`internal_control_executions: ${ex.error.message}`)
       if (pl.error) failures.push(`compliance_plan_items: ${pl.error.message}`)
       if (bridges.error) failures.push(`task_items (bridge): ${bridges.error.message}`)
+      if (projects.error) failures.push(`task_projects: ${projects.error.message}`)
       if (failures.length > 0) {
         console.warn('[internkontroll] partial load — some sources failed:', failures)
       }
@@ -625,6 +664,7 @@ export function useInternkontrollPageData(): {
         executionRows: (ex.data ?? []) as ExecutionRow[],
         planRows: (pl.data ?? []) as PlanItemRow[],
         bridgeTasks: (bridges.data ?? []) as BridgeTaskRow[],
+        projects: (projects.data ?? []) as ProjectRow[],
       })
     })
     return () => {
@@ -683,6 +723,7 @@ export function useInternkontrollPageData(): {
         executionRows: [],
         planRows: [],
         bridgeTasks: [],
+        projects: [],
         userNames,
         countByLawRef: controlsLookup.countByLawRef,
       })
@@ -697,6 +738,7 @@ export function useInternkontrollPageData(): {
       executionRows: current.executionRows,
       planRows: current.planRows,
       bridgeTasks: current.bridgeTasks,
+      projects: current.projects,
       userNames,
       countByLawRef: controlsLookup.countByLawRef,
     })
@@ -734,6 +776,7 @@ function buildData(input: {
   executionRows: ExecutionRow[]
   planRows: PlanItemRow[]
   bridgeTasks: BridgeTaskRow[]
+  projects: ProjectRow[]
   userNames: Map<string, string>
   countByLawRef: Map<string, number>
 }): IkData {
@@ -747,6 +790,7 @@ function buildData(input: {
     executionRows,
     planRows,
     bridgeTasks,
+    projects,
     userNames,
     countByLawRef,
   } = input
@@ -1036,26 +1080,70 @@ function buildData(input: {
     }
   })
 
-  // ── Prosjekter — grouped by `milestone` string (Phase 1) ──────────────
-  // Each distinct non-empty milestone label becomes one project card.
+  // ── Prosjekter — Phase 2: task_projects is the persistent source ─────
+  // Three lanes feed the section:
+  //   1. Every task_projects row, with its plan-items resolved through
+  //      compliance_plan_items.project_id (the new FK column).
+  //   2. Plan-items whose `milestone` text matches a project title —
+  //      preserves legacy ad-hoc grouping without forcing a back-fill.
+  //   3. Plan-items with neither project_id nor a matching milestone
+  //      that DO have a milestone string get a synthesised pseudo-
+  //      project keyed `legacy:<milestone>` so users on old data still
+  //      see their groupings. Pseudo-projects are flagged via an
+  //      `isLegacy` marker the section reads to dim the chrome and
+  //      surface a "Konverter til prosjekt" CTA.
   const prosjekter: IkProsjekt[] = (() => {
-    const groups = new Map<string, PlanItemRow[]>()
-    for (const p of planRows) {
-      const key = p.milestone?.trim() || null
-      if (!key) continue
-      const arr = groups.get(key) ?? []
-      arr.push(p)
-      groups.set(key, arr)
+    const projectsById = new Map<string, ProjectRow>()
+    const projectsByTitle = new Map<string, ProjectRow>()
+    for (const p of projects) {
+      projectsById.set(p.id, p)
+      projectsByTitle.set(p.title.trim().toLowerCase(), p)
     }
+
+    type Group = { rows: PlanItemRow[]; project: ProjectRow | null; milestoneFallback: string | null }
+    const groups = new Map<string, Group>()
+    for (const pi of planRows) {
+      let key: string | null = null
+      let project: ProjectRow | null = null
+      let milestoneFallback: string | null = null
+      if (pi.project_id && projectsById.has(pi.project_id)) {
+        key = `proj:${pi.project_id}`
+        project = projectsById.get(pi.project_id) ?? null
+      } else if (pi.milestone) {
+        const ms = pi.milestone.trim()
+        if (ms) {
+          const matched = projectsByTitle.get(ms.toLowerCase())
+          if (matched) {
+            key = `proj:${matched.id}`
+            project = matched
+          } else {
+            key = `legacy:${ms}`
+            milestoneFallback = ms
+          }
+        }
+      }
+      if (!key) continue
+      const g = groups.get(key) ?? { rows: [], project, milestoneFallback }
+      g.rows.push(pi)
+      groups.set(key, g)
+    }
+
+    // Empty-but-still-real projects (no plan-items attached yet) get a
+    // card too so the user sees the project exists.
+    for (const p of projects) {
+      const key = `proj:${p.id}`
+      if (!groups.has(key)) groups.set(key, { rows: [], project: p, milestoneFallback: null })
+    }
+
     const out: IkProsjekt[] = []
-    for (const [name, rows] of groups.entries()) {
+    for (const [key, g] of groups.entries()) {
+      const { rows, project, milestoneFallback } = g
       const done = rows.filter((r) => r.status === 'done').length
       const totalKrav = new Set(rows.map((r) => r.law_ref)).size
       const coveredKrav = new Set(
         rows.filter((r) => r.status === 'done').map((r) => r.law_ref),
       ).size
       const openTasks = rows.filter((r) => r.status !== 'done').length
-      const leader = rows.find((r) => r.owner_user_id)?.owner_user_id
       const earliest = rows
         .map((r) => r.due_at)
         .filter((d): d is string => !!d)
@@ -1065,10 +1153,18 @@ function buildData(input: {
         .filter((d): d is string => !!d)
         .sort()
         .pop()
+
+      const name = project?.title ?? milestoneFallback ?? '—'
+      const leaderId = project?.lead_user_id ?? rows.find((r) => r.owner_user_id)?.owner_user_id ?? null
+      const leader = leaderId ? userNames.get(leaderId) ?? '—' : '—'
+      const projectDeadline = project?.end_date ?? latest ?? null
+      const projectStart = project?.start_date ?? rows[0]?.created_at ?? null
+      const methodologyLabel = project?.methodology === 'kanban' ? 'Kanban' : 'PDCA'
+
       const milestones: IkProsjektMilestone[] = [
         {
           label: 'Oppstart',
-          date: formatDate(rows[0]?.created_at ?? null),
+          date: formatDate(projectStart ?? null),
           done: true,
         },
         {
@@ -1079,21 +1175,32 @@ function buildData(input: {
         },
         {
           label: 'Tiltak fullført',
-          date: formatDate(latest ?? null),
-          done: done === rows.length && rows.length > 0,
+          date: formatDate(projectDeadline ?? null),
+          done: rows.length > 0 && done === rows.length,
         },
       ]
+
       out.push({
-        id: `proj-${name}`,
+        id: project ? `proj-${project.id}` : `legacy-${milestoneFallback ?? key}`,
         name,
-        leader: leader ? userNames.get(leader) ?? '—' : '—',
-        status: done === rows.length ? 'fullført' : 'pågår',
-        phase: done === rows.length ? 'Avsluttet' : openTasks > rows.length / 2 ? 'Planlegging' : 'Pågår',
+        leader,
+        status: project?.status ?? (rows.length > 0 && done === rows.length ? 'fullført' : 'pågår'),
+        phase: project
+          ? methodologyLabel
+          : rows.length > 0 && done === rows.length
+            ? 'Avsluttet'
+            : openTasks > rows.length / 2
+              ? 'Planlegging'
+              : 'Pågår',
         progress: rows.length === 0 ? 0 : done / rows.length,
-        deadline: formatDate(latest ?? null),
+        deadline: formatDate(projectDeadline ?? null),
         budget: 'kr 0',
         spent: 'kr 0',
-        description: `${rows.length} tiltak gruppert under «${name}».`,
+        description:
+          project?.description ||
+          (milestoneFallback
+            ? `${rows.length} tiltak gruppert under fritekst-milepælen «${milestoneFallback}». Konverter til et task_projects-prosjekt for fullt prosjektkort.`
+            : `${rows.length} tiltak.`),
         tasks: rows.length,
         openTasks,
         krav: totalKrav,
@@ -1101,9 +1208,14 @@ function buildData(input: {
         milestones,
         tiltakIds: rows.map((r) => r.id),
         kravCodes: [...new Set(rows.map((r) => r.law_ref))],
+        // Phase-2 additions on the view model so the renderer can
+        // expose the canonical project link + methodology badge.
+        projectId: project?.id ?? null,
+        methodology: project?.methodology === 'kanban' ? 'kanban' : project ? 'pdca' : null,
+        isLegacy: !project,
       })
     }
-    return out
+    return out.sort((a, b) => Number(a.isLegacy) - Number(b.isLegacy) || a.name.localeCompare(b.name, 'nb'))
   })()
 
   // ── Revisjon-logg (most recent first) ────────────────────────────────

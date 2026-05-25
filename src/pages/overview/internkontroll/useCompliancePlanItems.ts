@@ -37,6 +37,11 @@ export type CompliancePlanItem = {
   start_at: string | null
   due_at: string | null
   milestone: string | null
+  /** Optional link to `task_projects(id)`. When set, the bridge task
+   *  inherits this project_id so the same row surfaces on the
+   *  TaskProjectBoard. Falls back to `milestone` text grouping when
+   *  null (legacy data + ad-hoc projects). */
+  project_id: string | null
   task_id: string | null
   created_at: string
   updated_at: string
@@ -49,14 +54,19 @@ export type CreatePlanItemInput = {
   description?: string
   status?: CompliancePlanItemStatus
   due_at?: string | null
+  milestone?: string | null
+  project_id?: string | null
 }
 
 export type UpdatePlanItemInput = Partial<
-  Pick<CompliancePlanItem, 'title' | 'description' | 'status' | 'due_at' | 'owner_user_id'>
+  Pick<
+    CompliancePlanItem,
+    'title' | 'description' | 'status' | 'due_at' | 'owner_user_id' | 'milestone' | 'project_id'
+  >
 >
 
 const PLAN_ITEM_COLUMNS =
-  'id, organization_id, law_ref, framework_id, title, description, owner_user_id, status, start_at, due_at, milestone, task_id, created_at, updated_at'
+  'id, organization_id, law_ref, framework_id, title, description, owner_user_id, status, start_at, due_at, milestone, project_id, task_id, created_at, updated_at'
 
 // Maps an internkontroll FrameworkId to the matching `task_items.pack`
 // enum value (compliance_pack). The 5 frameworks our planner covers
@@ -195,6 +205,10 @@ export function useCompliancePlanItems(framework: FrameworkId | 'all'): {
           source_category: 'tiltak',
           pdca_phase: 'do',
           due_date: plan.due_at,
+          // Carry the project link onto the bridge so the same tiltak
+          // surfaces on the TaskProjectBoard. Null is fine — the column
+          // is nullable both here and on `task_items`.
+          project_id: plan.project_id,
         })
         .select('id')
         .single()
@@ -243,6 +257,8 @@ export function useCompliancePlanItems(framework: FrameworkId | 'all'): {
           description: input.description ?? null,
           status: input.status ?? 'planned',
           due_at: input.due_at ?? null,
+          milestone: input.milestone ?? null,
+          project_id: input.project_id ?? null,
         })
         .select(PLAN_ITEM_COLUMNS)
         .single()
