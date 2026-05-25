@@ -47,6 +47,12 @@ export type CompliancePlanItem = {
   updated_at: string
 }
 
+/** Subset of `task_source_category` enum we accept on plan-item create.
+ *  Defaults to 'tiltak' to keep behaviour identical for existing
+ *  callers; widen as new internkontroll surfaces start producing other
+ *  CAPA kinds (e.g. an avvik raised from a paragraph drill-down). */
+export type PlanItemSourceCategory = 'tiltak' | 'avvik' | 'nestenulykke' | 'risiko' | 'general'
+
 export type CreatePlanItemInput = {
   law_ref: string
   framework_id: FrameworkId
@@ -56,6 +62,10 @@ export type CreatePlanItemInput = {
   due_at?: string | null
   milestone?: string | null
   project_id?: string | null
+  /** Maps onto the bridge task's `source_category`. Drives the task's
+   *  lifecycle rules in the Tasks module (CAPA flow for 'avvik' vs
+   *  the lighter 'tiltak' flow). Defaults to 'tiltak'. */
+  source_category?: PlanItemSourceCategory
 }
 
 export type UpdatePlanItemInput = Partial<
@@ -181,7 +191,10 @@ export function useCompliancePlanItems(framework: FrameworkId | 'all'): {
   // — a double-click race surfaces as a unique_violation which we
   // catch and treat as success (the existing row IS the bridge).
   const ensureBridgeTask = useCallback(
-    async (plan: CompliancePlanItem): Promise<string | null> => {
+    async (
+      plan: CompliancePlanItem,
+      sourceCategory: PlanItemSourceCategory = 'tiltak',
+    ): Promise<string | null> => {
       if (!supabase || !orgId) return null
       if (plan.task_id) return plan.task_id
       const { data, error: insErr } = await supabase
@@ -198,11 +211,11 @@ export function useCompliancePlanItems(framework: FrameworkId | 'all'): {
           source_type: 'compliance_plan',
           source_id: plan.id,
           law_refs: [plan.law_ref],
-          // 'tiltak' is the matching enum label on task_source_category
-          // — using a value outside the enum failed silently before the
-          // unique-bridge index landed. Keep this in sync with the enum
-          // in 20260925120100_register_records.sql.
-          source_category: 'tiltak',
+          // Drives Tasks-module lifecycle rules (CAPA flow for
+          // 'avvik' / 'risiko' vs the lighter 'tiltak' flow).
+          // Defaults to 'tiltak' for backward-compat with the
+          // pre-Phase-3 ensureBridgeTask signature.
+          source_category: sourceCategory,
           pdca_phase: 'do',
           due_date: plan.due_at,
           // Carry the project link onto the bridge so the same tiltak
@@ -266,7 +279,7 @@ export function useCompliancePlanItems(framework: FrameworkId | 'all'): {
       const created = data as CompliancePlanItem
       setItems((prev) => [created, ...prev])
       if (created.status === 'in_progress') {
-        const taskId = await ensureBridgeTask(created)
+        const taskId = await ensureBridgeTask(created, input.source_category ?? 'tiltak')
         if (taskId) {
           setItems((prev) =>
             prev.map((it) => (it.id === created.id ? { ...it, task_id: taskId } : it)),
