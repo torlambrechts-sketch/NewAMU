@@ -64,3 +64,16 @@
 .docs-module-shell {
   font-size: var(--doc-font-size, 1rem);
 }
+
+/* Print: disable content-visibility paint deferral on dashboard
+   widgets so the auditor PDF / print preview always renders every
+   widget. Targeted via `[data-widget-card]` (set in
+   ReportModuleWidget) rather than `*` so this rule never affects
+   other surfaces that may legitimately use content-visibility for
+   their own perf. */
+@media print {
+  [data-widget-card] {
+    content-visibility: visible !important;
+    contain-intrinsic-size: auto !important;
+  }
+}

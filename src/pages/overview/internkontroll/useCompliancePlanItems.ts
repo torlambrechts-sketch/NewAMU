@@ -5,10 +5,22 @@
 // an auto-created task_items row (source_type='compliance_plan',
 // source_id=<plan_item.id>). The Tasks bridge is one-way in v1 —
 // closing the task does NOT auto-flip the plan item to 'done'.
+//
+// RLS POLICY (intentional, documented):
+//   compliance_plan_items_write_org gates writes on
+//   `organization_id = current_org_id()` with NO role check (i.e. no
+//   `is_org_admin() OR user_has_permission(…)` predicate). Any member
+//   of the org can create / update / delete tiltak. This is the right
+//   posture for a "propose a closure" surface — verneombud, AMU
+//   members, and HR all need to spot gaps and write a plan row. If a
+//   tenant wants admin-only management, the right fix is a per-tenant
+//   feature flag, NOT widening the global policy. Cross-org writes
+//   are still impossible (org-scope gate).
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useOrgSetupContext } from '../../../hooks/useOrgSetupContext'
 import { getSupabaseErrorMessage } from '../../../lib/supabaseError'
+import { MAX_PLAN_ITEMS_PER_FRAMEWORK } from '../../../../modules/compliance-layer/limits'
 import type { FrameworkId } from './frameworkParagraphs'
 
 export type CompliancePlanItemStatus = 'planned' | 'in_progress' | 'blocked' | 'done'
@@ -93,11 +105,9 @@ export function useCompliancePlanItems(framework: FrameworkId): {
         return
       }
       setLoading(true)
-      // Defensive cap. The Gantt-ish page is designed for ≤200 active
-      // tiltak per framework; an org with a five-figure plan-item list
-      // wants pagination/server-side aggregation rather than a flat
-      // browser-side render. Newer items first means the cap drops the
-      // long tail of historic done/blocked items.
+      // Defensive cap from modules/compliance-layer/limits.ts. Newer
+      // items first means the cap drops the long tail of historic
+      // done/blocked items if a tenant ever crosses the threshold.
       let query = supabase
         .from('compliance_plan_items')
         .select(PLAN_ITEM_COLUMNS)
@@ -105,7 +115,7 @@ export function useCompliancePlanItems(framework: FrameworkId): {
         .eq('framework_id', framework)
         .is('deleted_at', null)
         .order('updated_at', { ascending: false })
-        .limit(500)
+        .limit(MAX_PLAN_ITEMS_PER_FRAMEWORK)
       if (signal) query = query.abortSignal(signal)
       const { data, error: err } = await query
       // On abort: don't touch state. The new effect run has already

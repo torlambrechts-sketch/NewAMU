@@ -15,6 +15,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useOrgSetupContext } from '../../../hooks/useOrgSetupContext'
 import { getSupabaseErrorMessage } from '../../../lib/supabaseError'
+import { DEFAULT_PARAGRAPH_EVIDENCE_LIMIT } from '../../../../modules/compliance-layer/limits'
 
 export type ParagraphEvidenceRow = {
   occurred_at: string
@@ -64,7 +65,7 @@ const PENDING: UseParagraphEvidenceReturn = {
 export function useParagraphEvidence(
   code: string | null,
   /** Limit rows; default 50 (a 12-mnd. timeline rarely needs more). */
-  limit: number = 50,
+  limit: number = DEFAULT_PARAGRAPH_EVIDENCE_LIMIT,
 ): UseParagraphEvidenceReturn {
   const { supabase, organization } = useOrgSetupContext()
   const orgId = organization?.id ?? null

@@ -52,6 +52,14 @@ export interface ModuleAnalyticsDashboardProps {
   /** Resolved datasets, keyed by ReportDatasetKey. */
   datasets: Record<string, unknown>
   loading?: boolean
+  /**
+   * Soft "datasets still loading" signal. When true, the rendered
+   * widget grid pulses subtly so users don't misread "Ingen rader"
+   * placeholders as confirmed-empty data while async hooks are still
+   * resolving. Distinct from `loading` (which hides the whole grid
+   * until set false). Default false.
+   */
+  dataLoading?: boolean
   /** Page-level error string (renders a WarningBox above the grid). */
   error?: string | null
   /** Accent colour for the KPI insets. */
@@ -159,6 +167,7 @@ export function ModuleAnalyticsDashboard({
   layout,
   datasets,
   loading,
+  dataLoading = false,
   error,
   accent = '#1a3d32',
   emptyState,
@@ -291,8 +300,11 @@ export function ModuleAnalyticsDashboard({
           // V3 edit mode: dock the widget library as a sticky right rail
           // (≥ xl) and let the grid fill the remaining width. Below xl the
           // rail hides itself and falls back to the modal "+Legg til widget".
-          <div className="flex gap-4">
-            <div className="min-w-0 flex-1">
+          <div
+            className="flex gap-4"
+            aria-busy={dataLoading ? 'true' : undefined}
+          >
+            <div className={`min-w-0 flex-1 ${dataLoading ? 'animate-pulse opacity-70' : ''}`}>
               <ReportModulesGrid
                 modules={layout}
                 datasets={datasets}
@@ -310,16 +322,23 @@ export function ModuleAnalyticsDashboard({
             {widgetLibrarySlot}
           </div>
         ) : (
-          <ReportModulesGrid
-            modules={layout}
-            datasets={datasets}
-            accent={accent}
-            layoutMode="grid12"
-            emptyLabel="Ingen data."
-            controlSlot={widgetControlSlot}
-            onDrillDown={effectiveOnDrillDown}
-            onResize={effectiveOnResize}
-          />
+          // aria-busy + animate-pulse signal "datasets still loading"
+          // so empty widgets read as in-flight, not confirmed-empty.
+          <div
+            aria-busy={dataLoading ? 'true' : undefined}
+            className={dataLoading ? 'animate-pulse opacity-70' : undefined}
+          >
+            <ReportModulesGrid
+              modules={layout}
+              datasets={datasets}
+              accent={accent}
+              layoutMode="grid12"
+              emptyLabel="Ingen data."
+              controlSlot={widgetControlSlot}
+              onDrillDown={effectiveOnDrillDown}
+              onResize={effectiveOnResize}
+            />
+          </div>
         )}
         {snapshotMode ? (
           <div className="rounded-md border border-dashed border-neutral-300 bg-neutral-50 px-4 py-3 text-xs text-neutral-600">

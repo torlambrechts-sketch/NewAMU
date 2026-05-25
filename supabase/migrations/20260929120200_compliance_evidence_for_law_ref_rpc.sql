@@ -19,6 +19,26 @@
 -- The function is SECURITY INVOKER so the caller's RLS still gates
 -- access at every base table. No SECURITY DEFINER bypass needed.
 --
+-- PREREQUISITES (hard — function fails to parse if any are missing).
+-- All of these are guaranteed-present in any DB that's run the prior
+-- compliance-layer + module-baseline migrations:
+--   • compliance_checklist_executions    (M5 compliance pack)
+--   • compliance_checklist_templates     (M5 compliance pack)
+--   • meeting_protocol_exports           (meetings module)
+--   • meetings, meeting_system_templates,
+--     meeting_org_templates              (meetings module)
+--   • learning_course_progress,
+--     learning_courses                   (learning module)
+--   • task_items                         (tasks module)
+--   • register_records, register_types   (registers module)
+-- A bare-bones environment that lacks any of these should not apply
+-- this migration. The view at 20260926120500 wraps each branch in
+-- `to_regclass(…)` checks; the function cannot, because SQL-language
+-- functions resolve table references at create-time. Wrapping the
+-- whole CREATE in a plpgsql guard is possible but adds more risk than
+-- it removes — by the time the §5.x compliance-planner is enabled,
+-- every prerequisite is present.
+--
 -- Self-audit (Arbeidstilsynet POV):
 --   • Read-only aggregate over the same 5 base tables the view already
 --     exposes — RLS inheritance unchanged.

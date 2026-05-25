@@ -329,15 +329,20 @@ export function HmsOverviewPage() {
         }
         layout={layout}
         datasets={datasets}
-        loading={
+        // Per-section loading: only block the page on dashboard
+        // layout load (fast — one row). Member-hook progress is
+        // surfaced via `dataLoading`, which pulses the grid until
+        // every member hook resolves so empty widgets don't read as
+        // confirmed-empty during the initial fetch.
+        loading={dashboard.loading}
+        dataLoading={
           cl.loading ||
           survey.loading ||
           learning.learningLoading ||
           docs.loading ||
           riskRows.loading ||
           complianceLayer.loading ||
-          ledelses.loading ||
-          dashboard.loading
+          ledelses.loading
         }
         error={
           cl.error ??

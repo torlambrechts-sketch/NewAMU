@@ -32,6 +32,22 @@ const COL_SPAN_COLS: Record<ReportModuleColSpan, number> = {
   full: 12,
 }
 const COL_SPAN_ORDER: ReportModuleColSpan[] = ['sm', 'md', 'lg', 'full']
+
+// Per-kind paint-deferral placeholder heights. Used as the
+// `contain-intrinsic-size` baseline so scrollbar geometry stays
+// stable while off-screen widgets are paint-skipped. Numbers from
+// observed rendered heights at default colSpan.
+const INTRINSIC_HEIGHT_BY_KIND: Partial<Record<ReportModuleKind, number>> = {
+  kpi: 160,
+  donut: 320,
+  bar: 360,
+  line: 360,
+  heatmap: 360,
+  table: 480,
+  scorecard: 520,
+  bowtie: 600,
+  benchmark: 360,
+}
 function snapToColSpan(cols: number): ReportModuleColSpan {
   let best: ReportModuleColSpan = 'md'
   let bestDiff = Number.POSITIVE_INFINITY
@@ -301,12 +317,31 @@ export function ReportModuleWidget({
   const wrap = (inner: ReactNode) => (
     <div
       ref={wrapRef}
+      data-widget-card
+      data-widget-kind={m.kind}
       className={`${R} group relative h-full min-h-[200px] border bg-white p-6 ${editMode ? 'border-dashed border-[#1a3d32]/30 ring-1 ring-[#1a3d32]/10' : 'border-neutral-200/70'} ${colSpanClass} ${rowBreakClass}`}
-      style={
-        m.kind === 'kpi'
+      style={{
+        // Browser-native paint deferral: off-screen widgets skip
+        // layout + paint until they scroll near the viewport. Saves
+        // initial paint cost on long dashboards (HMS-oversight has
+        // 23+ widgets) without needing JS observers.
+        //
+        // `contain-intrinsic-size` keeps scrollbar geometry stable
+        // while paint is deferred. We use the per-kind heuristic
+        // because KPIs are ~160 px and tables/charts run 500–600 px;
+        // a single average gave scroll-jump when large widgets
+        // entered the viewport from below.
+        //
+        // The screen-only override sits in src/index.css via the
+        // `@media print { [data-widget-card] { content-visibility:
+        // visible !important; } }` rule — auditor PDF / print
+        // preview always renders every widget.
+        contentVisibility: 'auto',
+        containIntrinsicSize: `auto ${INTRINSIC_HEIGHT_BY_KIND[m.kind] ?? 320}px`,
+        ...(m.kind === 'kpi'
           ? { boxShadow: `inset 0 3px 0 0 ${accent}, ${WIDGET_SHADOW}` }
-          : { boxShadow: WIDGET_SHADOW }
-      }
+          : { boxShadow: WIDGET_SHADOW }),
+      }}
     >
       {controlSlot || (editMode && onRemove) ? (
         <div className="absolute right-3 top-3 z-10 flex items-center gap-1">

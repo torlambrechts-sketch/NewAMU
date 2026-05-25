@@ -14,6 +14,7 @@ import {
   ControlExecutionRowSchema,
   parseRows,
 } from './schema'
+import { DEFAULT_CONTROL_EVIDENCE_LIMIT } from './limits'
 import type {
   ComplianceEvidenceViewRow,
   ControlBindingSourceKind,
@@ -31,7 +32,7 @@ type UseControlEvidenceInput = {
   controlId?: string | null
   /** When set, scope evidence by paragraph code (exact string match into law_refs[]). */
   lawRef?: string | null
-  /** Max rows to load (default 200). */
+  /** Max rows to load (default DEFAULT_CONTROL_EVIDENCE_LIMIT). */
   limit?: number
 }
 
@@ -64,7 +65,7 @@ export function useControlEvidence(
   const { supabase, controlId, lawRef, limit } = input
   const { organization } = useOrgSetupContext()
   const orgId = organization?.id ?? null
-  const effectiveLimit = limit ?? 200
+  const effectiveLimit = limit ?? DEFAULT_CONTROL_EVIDENCE_LIMIT
 
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)

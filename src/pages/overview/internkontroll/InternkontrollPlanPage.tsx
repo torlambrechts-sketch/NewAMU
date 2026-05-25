@@ -169,23 +169,45 @@ export function InternkontrollPlanPage() {
     return m
   }, [framework])
 
-  // Re-anchor the timeline window whenever the calendar day rolls
-  // over so a tab left open overnight doesn't show a stale "I dag"
-  // marker. The poll fires every minute and only triggers a state
-  // update on the day boundary.
+  // Re-anchor the timeline window when the calendar day rolls over
+  // so a tab left open overnight doesn't show a stale "I dag" marker.
+  // Implementation: schedule a single setTimeout for the next
+  // midnight, then re-schedule on fire. Cheaper than polling every
+  // minute, and the OS already throttles timers on backgrounded tabs.
   const [dayAnchor, setDayAnchor] = useState(() => {
     const d = new Date()
     d.setHours(0, 0, 0, 0)
     return d.getTime()
   })
   useEffect(() => {
-    const handle = window.setInterval(() => {
-      const d = new Date()
-      d.setHours(0, 0, 0, 0)
-      const today = d.getTime()
-      setDayAnchor((prev) => (prev === today ? prev : today))
-    }, 60_000)
-    return () => window.clearInterval(handle)
+    let handle: number | undefined
+    const recheckToday = () => {
+      const today = new Date()
+      today.setHours(0, 0, 0, 0)
+      setDayAnchor((prev) => (prev === today.getTime() ? prev : today.getTime()))
+    }
+    const scheduleNextMidnight = () => {
+      const now = new Date()
+      const nextMidnight = new Date(now)
+      nextMidnight.setHours(24, 0, 0, 50) // 50ms safety margin past midnight
+      const delay = Math.max(1_000, nextMidnight.getTime() - now.getTime())
+      handle = window.setTimeout(() => {
+        recheckToday()
+        scheduleNextMidnight()
+      }, delay)
+    }
+    // Re-check on tab refocus so a wake-from-sleep / system clock
+    // change picks up the right day immediately rather than waiting
+    // for the next stale setTimeout to fire.
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') recheckToday()
+    }
+    document.addEventListener('visibilitychange', onVisible)
+    scheduleNextMidnight()
+    return () => {
+      if (handle !== undefined) window.clearTimeout(handle)
+      document.removeEventListener('visibilitychange', onVisible)
+    }
   }, [])
   const window_ = useMemo(() => timelineWindow(), [dayAnchor])
 
