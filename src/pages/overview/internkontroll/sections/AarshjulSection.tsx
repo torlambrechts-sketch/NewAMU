@@ -14,6 +14,7 @@ import {
   User,
 } from 'lucide-react'
 import { Button } from '../../../../components/ui/Button'
+import { SearchableSelect } from '../../../../components/ui/SearchableSelect'
 import {
   FwChip,
   Initials,
@@ -33,16 +34,28 @@ export function AarshjulSection({
 }) {
   const [view, setView] = useState<View>('wheel')
   const [openMonth, setOpenMonth] = useState<number | null>(null)
+  // Year selector — defaults to the current calendar year. Year is
+  // captured once per render via `useMemo` so a tab left open across
+  // midnight on Dec 31 doesn't shift the wheel mid-session.
+  const currentYear = useMemo(() => new Date().getFullYear(), [])
+  const [year, setYear] = useState<number>(currentYear)
 
-  const events = useMemo(
-    () =>
+  const events = useMemo(() => {
+    const scoped =
       filterFw === 'all'
         ? data.aarshjul
-        : data.aarshjul.filter((a) => a.fw.includes(filterFw)),
-    [data.aarshjul, filterFw],
-  )
+        : data.aarshjul.filter((a) => a.fw.includes(filterFw))
+    return scoped.filter((a) => a.year === year)
+  }, [data.aarshjul, filterFw, year])
 
-  const year = new Date().getFullYear()
+  // Years present in the underlying data — used to populate the year
+  // picker so the user can scrub through historic / planned years that
+  // the data actually contains.
+  const yearOptions = useMemo(() => {
+    const ys = new Set<number>([currentYear])
+    for (const a of data.aarshjul) ys.add(a.year)
+    return [...ys].sort((a, b) => a - b)
+  }, [data.aarshjul, currentYear])
 
   return (
     <div className="space-y-4">
@@ -80,6 +93,15 @@ export function AarshjulSection({
           ))}
         </div>
         <div className="flex items-center gap-2">
+          <SearchableSelect
+            value={String(year)}
+            onChange={(v) => setYear(Number(v))}
+            triggerClassName="py-1.5 text-xs"
+            options={yearOptions.map((y) => ({
+              value: String(y),
+              label: String(y) + (y === currentYear ? ' (i år)' : ''),
+            }))}
+          />
           <Button
             variant="secondary"
             size="sm"
@@ -98,12 +120,14 @@ export function AarshjulSection({
         <YearWheel
           data={data}
           events={events}
+          year={year}
+          currentYear={currentYear}
           openMonth={openMonth}
           onSelectMonth={setOpenMonth}
         />
       )}
       {view === 'grid' && <YearGrid data={data} events={events} />}
-      {view === 'timeline' && <YearTimeline data={data} events={events} />}
+      {view === 'timeline' && <YearTimeline data={data} events={events} year={year} />}
     </div>
   )
 }
@@ -111,11 +135,15 @@ export function AarshjulSection({
 function YearWheel({
   data,
   events,
+  year,
+  currentYear,
   onSelectMonth,
   openMonth,
 }: {
   data: IkData
   events: IkAarshjulEvent[]
+  year: number
+  currentYear: number
   onSelectMonth: (m: number | null) => void
   openMonth: number | null
 }) {
@@ -125,9 +153,10 @@ function YearWheel({
   const outerR = 250
   const innerR = 110
   const months = data.monthNames
-  const today = new Date()
-  const currentMonth = today.getMonth()
-  const year = today.getFullYear()
+  // Highlight "today" inside the current year only — when the user is
+  // viewing 2025 from 2026 the marker should be hidden.
+  const isViewingCurrentYear = year === currentYear
+  const currentMonth = isViewingCurrentYear ? new Date().getMonth() : -1
 
   return (
     <div className="grid grid-cols-1 gap-5 lg:grid-cols-[minmax(0,1fr)_320px]">
@@ -304,25 +333,26 @@ function YearWheel({
             >
               planlagte aktiviteter
             </text>
-            {(() => {
-              const a = ((currentMonth + 0.5) / 12) * Math.PI * 2 - Math.PI / 2
-              const r = outerR + 6
-              const tx = cx + r * Math.cos(a)
-              const ty = cy + r * Math.sin(a)
-              return (
-                <g>
-                  <circle cx={tx} cy={ty} r={9} fill="#1a3d32" />
-                  <text
-                    x={tx}
-                    y={ty + 3.5}
-                    textAnchor="middle"
-                    style={{ fontSize: 10, fontWeight: 700, fill: '#fff' }}
-                  >
-                    I dag
-                  </text>
-                </g>
-              )
-            })()}
+            {isViewingCurrentYear &&
+              (() => {
+                const a = ((currentMonth + 0.5) / 12) * Math.PI * 2 - Math.PI / 2
+                const r = outerR + 6
+                const tx = cx + r * Math.cos(a)
+                const ty = cy + r * Math.sin(a)
+                return (
+                  <g>
+                    <circle cx={tx} cy={ty} r={9} fill="#1a3d32" />
+                    <text
+                      x={tx}
+                      y={ty + 3.5}
+                      textAnchor="middle"
+                      style={{ fontSize: 10, fontWeight: 700, fill: '#fff' }}
+                    >
+                      I dag
+                    </text>
+                  </g>
+                )
+              })()}
           </svg>
         </div>
         <div className="mt-4 flex flex-wrap items-center justify-center gap-3 text-[10px]">
@@ -535,9 +565,11 @@ function YearGrid({ data, events }: { data: IkData; events: IkAarshjulEvent[] })
 function YearTimeline({
   data,
   events,
+  year,
 }: {
   data: IkData
   events: IkAarshjulEvent[]
+  year: number
 }) {
   const ownersByEvents = useMemo(() => {
     const owners = Array.from(new Set(events.map((e) => e.owner)))
@@ -551,7 +583,7 @@ function YearTimeline({
     <div className="rounded-xl border border-neutral-200/80 bg-white shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
       <div className="border-b border-neutral-100 px-5 py-3">
         <h3 className="text-sm font-semibold text-neutral-900">
-          Per ansvarlig — {new Date().getFullYear()}
+          Per ansvarlig — {year}
         </h3>
         <p className="text-[11px] text-neutral-500">
           Hver rad er en eier; hver markør er en planlagt aktivitet.
@@ -659,7 +691,14 @@ function downloadIcs(events: IkAarshjulEvent[], year: number) {
   URL.revokeObjectURL(url)
 }
 
+// Per RFC 5545 §3.3.11 — escape backslash, comma, semicolon, newline.
+// We also strip CR so a malicious "summary" that contains "\r\n..." can't
+// inject a new vCalendar field into a downstream parser.
 function escapeIcs(s: string): string {
-  return s.replace(/[,;\\]/g, '\\$&').replace(/\n/g, '\\n')
+  return s
+    .replace(/[\\]/g, '\\\\')
+    .replace(/[,;]/g, '\\$&')
+    .replace(/\r/g, '')
+    .replace(/\n/g, '\\n')
 }
 

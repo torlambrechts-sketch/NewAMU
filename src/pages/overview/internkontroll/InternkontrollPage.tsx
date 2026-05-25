@@ -41,8 +41,9 @@ import {
 } from 'lucide-react'
 import { ModulePageShell } from '../../../components/module/ModulePageShell'
 import { Button } from '../../../components/ui/Button'
-import { useInternkontrollPageData } from './useInternkontrollPageData'
+import { planItemToTiltak, useInternkontrollPageData } from './useInternkontrollPageData'
 import { useCompliancePlanItems } from './useCompliancePlanItems'
+import { FRAMEWORK_IDS, type FrameworkId } from './frameworkParagraphs'
 import { OversiktSection } from './sections/OversiktSection'
 import { KravSection } from './sections/KravSection'
 import { KontrollerSection } from './sections/KontrollerSection'
@@ -75,6 +76,10 @@ const NAV: Array<{ id: IkSectionId; label: string; Icon: typeof LayoutDashboard 
 ]
 
 const VALID_SECTIONS = new Set<IkSectionId>(NAV.map((n) => n.id))
+const VALID_FRAMEWORK_FILTERS = new Set<IkFrameworkFilter>([
+  'all',
+  ...(FRAMEWORK_IDS as readonly FrameworkId[]),
+])
 
 export function InternkontrollPage() {
   const [searchParams, setSearchParams] = useSearchParams()
@@ -85,7 +90,14 @@ export function InternkontrollPage() {
       : 'oversikt'
 
   const filterFwParam = searchParams.get('framework') ?? 'all'
-  const filterFw: IkFrameworkFilter = filterFwParam as IkFrameworkFilter
+  // Validate against the allow-list — a malformed/legacy URL param
+  // ("?framework=foo") silently falls back to 'all' instead of letting
+  // a downstream cast inject an unknown framework id into queries.
+  const filterFw: IkFrameworkFilter = VALID_FRAMEWORK_FILTERS.has(
+    filterFwParam as IkFrameworkFilter,
+  )
+    ? (filterFwParam as IkFrameworkFilter)
+    : 'all'
 
   const setSection = (id: IkSectionId) => {
     const sp = new URLSearchParams(searchParams)
@@ -99,8 +111,18 @@ export function InternkontrollPage() {
     setSearchParams(sp, { replace: true })
   }
 
-  const { data, loading } = useInternkontrollPageData()
+  const { data: rawData, loading } = useInternkontrollPageData()
   const plan = useCompliancePlanItemsForActiveFramework(filterFw)
+
+  // Override the snapshot tiltak with the live hook so newly-created /
+  // updated rows reflect immediately across every section (Oversikt's
+  // KPI strip, Prosjekter task lists, sidebar count, etc.).
+  const data = useMemo(() => {
+    const liveTiltak = plan.items.map((p) =>
+      planItemToTiltak(p, rawData.frameworks),
+    )
+    return { ...rawData, tiltak: liveTiltak }
+  }, [rawData, plan.items])
 
   const counts: Record<IkSectionId, number | null> = useMemo(() => {
     const stats = data.stats
@@ -110,11 +132,11 @@ export function InternkontrollPage() {
       kontroller: data.kontroller.length,
       gap: stats.gaps + stats.partial,
       aarshjul: data.aarshjul.length,
-      tiltak: plan.items.length,
+      tiltak: data.tiltak.length,
       prosjekter: data.prosjekter.length,
       revisjon: data.audit.length,
     }
-  }, [data, plan.items.length])
+  }, [data])
 
   const headerActions = (
     <div className="flex items-center gap-2">
@@ -330,12 +352,11 @@ export function InternkontrollPage() {
 }
 
 function useCompliancePlanItemsForActiveFramework(filter: IkFrameworkFilter) {
-  // The plan-items hook is keyed on framework id. When the side filter
-  // is 'all' we still pick a default (AML — largest framework + most
-  // plan items today). Any framework selection narrows the fetch to
-  // that regelverk so the Tiltak section reflects the user's lens.
-  const fw = filter === 'all' ? 'aml' : filter
-  return useCompliancePlanItems(fw)
+  // The hook now accepts 'all' natively so the unified page can render
+  // every plan-item across regelverk when no framework chip is active.
+  // Narrowing to a specific framework still scopes the fetch (and the
+  // sidebar count) to just that regelverk.
+  return useCompliancePlanItems(filter)
 }
 
 function exportStatusCsv(data: ReturnType<typeof useInternkontrollPageData>['data']) {
@@ -354,12 +375,20 @@ function exportStatusCsv(data: ReturnType<typeof useInternkontrollPageData>['dat
       ].join(';'),
     )
   }
-  return new Blob([lines.join('\n')], { type: 'text/csv;charset=utf-8' })
+  // BOM so Excel reads the file as UTF-8 (handles æ/ø/å correctly).
+  return new Blob(['﻿' + lines.join('\n')], { type: 'text/csv;charset=utf-8' })
 }
 
+// Conservative CSV escape that also defuses formula-injection vectors:
+// when a value starts with =, +, -, @ (or tab/CR — chars Excel treats
+// as formula triggers), prepend a single quote so the cell renders as
+// plain text. Without this, a malicious "title" could trigger formula
+// execution when an auditor opens the CSV in Excel.
 function escapeCsv(s: string): string {
-  if (s.includes(';') || s.includes('"') || s.includes('\n')) {
-    return '"' + s.replaceAll('"', '""') + '"'
+  const trigger = /^[=+\-@\t\r]/.test(s) ? "'" : ''
+  const body = trigger + s
+  if (body.includes(';') || body.includes('"') || body.includes('\n') || trigger) {
+    return '"' + body.replaceAll('"', '""') + '"'
   }
-  return s
+  return body
 }

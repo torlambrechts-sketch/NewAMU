@@ -336,16 +336,17 @@ function exportCsv(rows: IkData['krav']) {
   for (const k of rows) {
     lines.push(
       [
-        k.fw,
-        k.ref,
+        escape(k.fw),
+        escape(k.ref),
         escape(k.title),
-        k.status,
-        k.criticality,
+        escape(k.status),
+        escape(k.criticality),
         escape(k.owner),
       ].join(';'),
     )
   }
-  const blob = new Blob([lines.join('\n')], { type: 'text/csv;charset=utf-8' })
+  // BOM prefix so Excel decodes UTF-8 correctly.
+  const blob = new Blob(['﻿' + lines.join('\n')], { type: 'text/csv;charset=utf-8' })
   const url = URL.createObjectURL(blob)
   const a = document.createElement('a')
   a.href = url
@@ -354,9 +355,13 @@ function exportCsv(rows: IkData['krav']) {
   URL.revokeObjectURL(url)
 }
 
+// Escape + neutralise formula-injection vectors (=, +, -, @, tab, CR)
+// when a CSV value would otherwise start a formula in Excel.
 function escape(s: string): string {
-  if (s.includes(';') || s.includes('"') || s.includes('\n')) {
-    return '"' + s.replaceAll('"', '""') + '"'
+  const trigger = /^[=+\-@\t\r]/.test(s) ? "'" : ''
+  const body = trigger + s
+  if (body.includes(';') || body.includes('"') || body.includes('\n') || trigger) {
+    return '"' + body.replaceAll('"', '""') + '"'
   }
-  return s
+  return body
 }

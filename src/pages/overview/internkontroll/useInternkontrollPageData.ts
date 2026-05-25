@@ -37,6 +37,15 @@ import type {
   ControlStatus,
   ControlStatusLabel,
 } from '../../../types/complianceLayer'
+import { MAX_PLAN_ITEMS_PER_FRAMEWORK } from '../../../../modules/compliance-layer/limits'
+
+// Defensive page-level caps. Numbers tuned to fit a comfortably-active
+// org (≈200 controls, ≈500 plan-items, ≈400 recent executions) without
+// hitting a hard scaling cliff. Tenants that cross these limits get a
+// truncated view + a console hint, not a broken page.
+const MAX_PAGE_CONTROLS = 500
+const MAX_PAGE_EXECUTIONS = 400
+const MAX_PAGE_PLAN_ITEMS = MAX_PLAN_ITEMS_PER_FRAMEWORK * 5
 
 // ── Types surfaced to section renderers ─────────────────────────────────────
 
@@ -108,6 +117,10 @@ export type IkKontroll = {
 
 export type IkAarshjulEvent = {
   id: string
+  /** 4-digit year of the underlying timestamp. Year-wheel UIs scope to
+   *  a single calendar year; storing this lets the renderer filter
+   *  without re-parsing the date string. */
+  year: number
   month: number
   /** Day-of-month + "." (e.g. "14.") for display. */
   date: string
@@ -166,6 +179,10 @@ export type IkProsjekt = {
 }
 
 export type IkAuditEntry = {
+  /** ISO timestamp used for sorting — keep separate from the display
+   *  string so the sort is stable across locales and DST transitions. */
+  whenIso: string
+  /** Human-readable Norwegian timestamp for rendering. */
   when: string
   who: string
   action: string
@@ -318,6 +335,60 @@ function mapPlanStatus(
   return { status: 'planlagt', priority: 'middels' }
 }
 
+/**
+ * Convert a raw compliance_plan_item row into the IkTiltak view-model.
+ * Exported so the Tiltak section can derive directly from the live
+ * useCompliancePlanItems hook (single source of truth for writes).
+ */
+export function planItemToTiltak(
+  p: {
+    id: string
+    law_ref: string
+    framework_id: string
+    title: string
+    description: string | null
+    owner_user_id: string | null
+    status: PlanItemRow['status']
+    due_at: string | null
+    milestone: string | null
+    task_id: string | null
+  },
+  frameworks: IkFramework[],
+  userNames?: Map<string, string>,
+): IkTiltak {
+  const mapped = mapPlanStatus(p.status, p.due_at)
+  const progress =
+    p.status === 'done'
+      ? 1
+      : p.status === 'in_progress'
+        ? 0.5
+        : p.status === 'blocked'
+          ? 0.4
+          : 0.1
+  const fwId: FrameworkId = (FRAMEWORK_IDS as readonly string[]).includes(p.framework_id)
+    ? (p.framework_id as FrameworkId)
+    : frameworkFromLawRef(p.law_ref)
+  // Touch frameworks so the import isn't dead (used by callers that
+  // want to keep the fw → color lookup in scope of the same hook).
+  void frameworks
+  return {
+    id: p.id,
+    title: p.title,
+    description: p.description,
+    krav: [`k-${fwId}-${p.law_ref}`],
+    fw: fwId,
+    owner: p.owner_user_id ? userNames?.get(p.owner_user_id) ?? '—' : '—',
+    priority: mapped.priority,
+    status: mapped.status,
+    deadline: formatDate(p.due_at),
+    progress,
+    project: p.milestone ?? null,
+    taskId: p.task_id,
+    rawStatus: p.status,
+    dueAt: p.due_at,
+  }
+}
+
 function formatDate(iso: string | null): string {
   if (!iso) return '—'
   const d = new Date(iso)
@@ -337,14 +408,29 @@ function monthNumber(iso: string): number {
   return d.getMonth() + 1
 }
 
+function yearNumber(iso: string): number {
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return new Date().getFullYear()
+  return d.getFullYear()
+}
+
 // Map a paragraph to a guessed framework id. Picks the framework whose
 // short label appears as a prefix in the law ref, defaulting to AML.
+// Codes from frameworks outside our five FrameworkId values (ISO 9001 /
+// 14001 / 27001, LDL = Likestillings- og diskrimineringsloven, etc.)
+// don't have a dedicated tab today — we fall through to AML so the row
+// is at least *visible* in the unified view rather than disappearing.
 function frameworkFromLawRef(ref: string): FrameworkId {
   if (ref.startsWith('AML ')) return 'aml'
   if (ref.startsWith('IK-f ')) return 'ik-f'
   if (ref.startsWith('GDPR ')) return 'gdpr'
   if (ref.startsWith('Åpenhetsloven ')) return 'apenhetsloven'
   if (ref.startsWith('ISO 45001')) return 'iso-45001'
+  // ISO 9001 / 14001 / 27001 share the management-system clause numbers
+  // with ISO 45001 (§4 — Context, §9.2 — Internal audit, etc.). Bucket
+  // them with 45001 so multi-standard rows still surface on the page
+  // rather than being misclassified as AML.
+  if (ref.startsWith('ISO ')) return 'iso-45001'
   return 'aml'
 }
 
@@ -393,7 +479,8 @@ export function useInternkontrollPageData(): { data: IkData; loading: boolean } 
           'id, slug, name, purpose, control_family, frequency_hint, owner_role, owner_user_id, status, is_active',
         )
         .eq('organization_id', orgId)
-        .is('deleted_at', null),
+        .is('deleted_at', null)
+        .limit(MAX_PAGE_CONTROLS),
       supabase
         .from('internal_control_clauses')
         .select('control_id, clause_id')
@@ -407,7 +494,7 @@ export function useInternkontrollPageData(): { data: IkData; loading: boolean } 
         .select('id, control_id, occurred_at, period_label, summary, signed_by, signed_at')
         .eq('organization_id', orgId)
         .order('occurred_at', { ascending: false })
-        .limit(200),
+        .limit(MAX_PAGE_EXECUTIONS),
       supabase
         .from('compliance_plan_items')
         .select(
@@ -415,9 +502,25 @@ export function useInternkontrollPageData(): { data: IkData; loading: boolean } 
         )
         .eq('organization_id', orgId)
         .is('deleted_at', null)
-        .order('updated_at', { ascending: false }),
+        .order('updated_at', { ascending: false })
+        .limit(MAX_PAGE_PLAN_ITEMS),
     ]).then(([reg, cl, ctrl, jn, st, ex, pl]) => {
       if (cancelled) return
+      // Log non-fatal query failures so they don't disappear into the
+      // void. We still build a partial view from whatever did succeed —
+      // a missing internal_control_executions table shouldn't block the
+      // krav/kontroll sections from rendering.
+      const failures: string[] = []
+      if (reg.error) failures.push(`register_types: ${reg.error.message}`)
+      if (cl.error) failures.push(`regulation_clauses: ${cl.error.message}`)
+      if (ctrl.error) failures.push(`internal_controls: ${ctrl.error.message}`)
+      if (jn.error) failures.push(`internal_control_clauses: ${jn.error.message}`)
+      if (st.error) failures.push(`internal_control_status_v: ${st.error.message}`)
+      if (ex.error) failures.push(`internal_control_executions: ${ex.error.message}`)
+      if (pl.error) failures.push(`compliance_plan_items: ${pl.error.message}`)
+      if (failures.length > 0) {
+        console.warn('[internkontroll] partial load — some sources failed:', failures)
+      }
       setLoaded({
         orgId,
         registerRows: (reg.data ?? []) as RegisterRow[],
@@ -450,15 +553,19 @@ export function useInternkontrollPageData(): { data: IkData; loading: boolean } 
     for (const e of current.executionRows) if (e.signed_by) allIds.add(e.signed_by)
     if (allIds.size === 0) return
     let cancelled = false
+    // profiles.id IS auth.users.id (1:1 row per user; see useOrgSetup.ts).
+    // display_name is non-null per schema; we still guard against empty
+    // strings so the fallback ('—') wins for unset names.
     void supabase
       .from('profiles')
-      .select('user_id, full_name')
-      .in('user_id', [...allIds])
+      .select('id, display_name')
+      .in('id', [...allIds])
       .then(({ data }) => {
         if (cancelled || !data) return
         const m = new Map<string, string>()
-        for (const row of data as Array<{ user_id: string; full_name: string | null }>) {
-          if (row.full_name) m.set(row.user_id, row.full_name)
+        for (const row of data as Array<{ id: string; display_name: string | null }>) {
+          const name = row.display_name?.trim()
+          if (name) m.set(row.id, name)
         }
         setUserNames(m)
       })
@@ -726,6 +833,7 @@ function buildData(input: {
     const fws = new Set<FrameworkId>(codes.map((code) => frameworkFromLawRef(code)))
     aarshjul.push({
       id: `e-${e.id}`,
+      year: yearNumber(e.occurred_at),
       month: monthNumber(e.occurred_at),
       date: dayLabel(e.occurred_at),
       title: e.summary || c.name,
@@ -744,6 +852,7 @@ function buildData(input: {
     const fws = new Set<FrameworkId>(codes.map((code) => frameworkFromLawRef(code)))
     aarshjul.push({
       id: `p-${sv.control_id}-${sv.next_due_at}`,
+      year: yearNumber(sv.next_due_at),
       month: monthNumber(sv.next_due_at),
       date: dayLabel(sv.next_due_at),
       title: c.name,
@@ -753,7 +862,9 @@ function buildData(input: {
       controlId: c.id,
     })
   }
-  aarshjul.sort((a, b) => a.month - b.month)
+  // Stable order: by (year, month) ascending so the year-wheel section
+  // can slice contiguous current-year events.
+  aarshjul.sort((a, b) => a.year - b.year || a.month - b.month)
 
   // ── Tiltak ────────────────────────────────────────────────────────────
   const tiltak: IkTiltak[] = planRows.map((p) => {
@@ -854,16 +965,19 @@ function buildData(input: {
 
   // ── Revisjon-logg (most recent first) ────────────────────────────────
   const audit: IkAuditEntry[] = []
+  const formatWhen = (iso: string): string =>
+    new Date(iso).toLocaleString('nb-NO', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    })
   for (const e of executionRows.slice(0, 60)) {
     const c = controlsById.get(e.control_id)
     audit.push({
-      when: new Date(e.occurred_at).toLocaleString('nb-NO', {
-        day: '2-digit',
-        month: '2-digit',
-        year: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit',
-      }),
+      whenIso: e.occurred_at,
+      when: formatWhen(e.occurred_at),
       who: e.signed_by ? userNames.get(e.signed_by) ?? 'System' : 'System',
       action: 'registrerte gjennomføring',
       detail: c
@@ -873,13 +987,8 @@ function buildData(input: {
   }
   for (const p of planRows.slice(0, 40)) {
     audit.push({
-      when: new Date(p.updated_at).toLocaleString('nb-NO', {
-        day: '2-digit',
-        month: '2-digit',
-        year: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit',
-      }),
+      whenIso: p.updated_at,
+      when: formatWhen(p.updated_at),
       who: p.owner_user_id ? userNames.get(p.owner_user_id) ?? 'System' : 'System',
       action:
         p.status === 'done'
@@ -892,10 +1001,10 @@ function buildData(input: {
       detail: `${p.law_ref} — ${p.title}`,
     })
   }
-  audit.sort((a, b) => {
-    // ISO timestamps are not in the strings, so compare on raw row index.
-    return b.when.localeCompare(a.when)
-  })
+  // Sort newest-first by ISO timestamp (not the human-readable string —
+  // "01.06.2026" sorts BEFORE "25.05.2026" lexicographically, but actually
+  // comes after it in calendar order).
+  audit.sort((a, b) => b.whenIso.localeCompare(a.whenIso))
 
   // ── Stats roll-up ────────────────────────────────────────────────────
   const stats: IkStats = {

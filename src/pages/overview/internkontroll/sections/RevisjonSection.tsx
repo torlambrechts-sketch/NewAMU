@@ -65,7 +65,8 @@ function exportAudit(data: IkData) {
   for (const e of data.audit) {
     lines.push([escape(e.when), escape(e.who), escape(e.action), escape(e.detail)].join(';'))
   }
-  const blob = new Blob([lines.join('\n')], { type: 'text/csv;charset=utf-8' })
+  // BOM so Excel reads UTF-8.
+  const blob = new Blob(['﻿' + lines.join('\n')], { type: 'text/csv;charset=utf-8' })
   const url = URL.createObjectURL(blob)
   const a = document.createElement('a')
   a.href = url
@@ -74,9 +75,13 @@ function exportAudit(data: IkData) {
   URL.revokeObjectURL(url)
 }
 
+// Escape + neutralise formula-injection vectors (=, +, -, @, tab, CR)
+// when a CSV value would otherwise start a formula in Excel.
 function escape(s: string): string {
-  if (s.includes(';') || s.includes('"') || s.includes('\n')) {
-    return '"' + s.replaceAll('"', '""') + '"'
+  const trigger = /^[=+\-@\t\r]/.test(s) ? "'" : ''
+  const body = trigger + s
+  if (body.includes(';') || body.includes('"') || body.includes('\n') || trigger) {
+    return '"' + body.replaceAll('"', '""') + '"'
   }
-  return s
+  return body
 }

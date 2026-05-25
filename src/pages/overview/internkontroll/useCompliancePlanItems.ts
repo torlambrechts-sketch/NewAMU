@@ -80,7 +80,7 @@ function packForFramework(framework: FrameworkId): string {
   }
 }
 
-export function useCompliancePlanItems(framework: FrameworkId): {
+export function useCompliancePlanItems(framework: FrameworkId | 'all'): {
   items: CompliancePlanItem[]
   loading: boolean
   error: string | null
@@ -108,14 +108,23 @@ export function useCompliancePlanItems(framework: FrameworkId): {
       // Defensive cap from modules/compliance-layer/limits.ts. Newer
       // items first means the cap drops the long tail of historic
       // done/blocked items if a tenant ever crosses the threshold.
+      // When `framework === 'all'` we deliberately raise the cap to
+      // 5×MAX_PLAN_ITEMS_PER_FRAMEWORK so the unified Tiltak section
+      // can render a multi-framework view without truncation surprises.
+      const limit =
+        framework === 'all'
+          ? MAX_PLAN_ITEMS_PER_FRAMEWORK * 5
+          : MAX_PLAN_ITEMS_PER_FRAMEWORK
       let query = supabase
         .from('compliance_plan_items')
         .select(PLAN_ITEM_COLUMNS)
         .eq('organization_id', orgId)
-        .eq('framework_id', framework)
         .is('deleted_at', null)
         .order('updated_at', { ascending: false })
-        .limit(MAX_PLAN_ITEMS_PER_FRAMEWORK)
+        .limit(limit)
+      if (framework !== 'all') {
+        query = query.eq('framework_id', framework)
+      }
       if (signal) query = query.abortSignal(signal)
       const { data, error: err } = await query
       // On abort: don't touch state. The new effect run has already

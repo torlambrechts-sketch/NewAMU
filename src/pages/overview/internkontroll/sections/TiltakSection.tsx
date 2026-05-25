@@ -13,6 +13,7 @@ import {
   MoreHorizontal,
   Paperclip,
   Plus,
+  Trash2,
 } from 'lucide-react'
 import { Button } from '../../../../components/ui/Button'
 import { StandardInput } from '../../../../components/ui/Input'
@@ -55,6 +56,9 @@ export function TiltakSection({ data, plan }: { data: IkData; plan: PlanHook }) 
   const [draftDue, setDraftDue] = useState('')
   const [submitting, setSubmitting] = useState(false)
 
+  // data.tiltak is composed at the page level from the live plan-items
+  // hook so writes from `plan.createItem/updateItem/deleteItem` are
+  // reflected here immediately without a refetch round-trip.
   const filtered = useMemo(() => {
     return data.tiltak.filter((t) => {
       if (statusFilter !== 'all' && t.status !== statusFilter) return false
@@ -289,6 +293,11 @@ export function TiltakSection({ data, plan }: { data: IkData; plan: PlanHook }) 
                       t={t}
                       frameworks={data.frameworks}
                       onToggle={() => void cycleStatus(t.id, t.rawStatus)}
+                      onDelete={() => {
+                        if (window.confirm(`Slett tiltaket «${t.title}»?`)) {
+                          void plan.deleteItem(t.id)
+                        }
+                      }}
                     />
                   ))}
                 </ul>
@@ -305,10 +314,12 @@ function TiltakRow({
   t,
   frameworks,
   onToggle,
+  onDelete,
 }: {
   t: IkTiltak
   frameworks: IkData['frameworks']
   onToggle: () => void
+  onDelete: () => void
 }) {
   return (
     <li className="rounded-lg border border-neutral-200/80 bg-white p-3 hover:bg-neutral-50/40">
@@ -393,6 +404,15 @@ function TiltakRow({
                 aria-label="Vedlegg"
               >
                 <Paperclip className="h-3.5 w-3.5" />
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="rounded border-0 p-1 text-neutral-500 hover:bg-red-50 hover:text-red-600"
+                aria-label={`Slett tiltak ${t.title}`}
+                onClick={onDelete}
+              >
+                <Trash2 className="h-3.5 w-3.5" />
               </Button>
               <Button
                 variant="ghost"
