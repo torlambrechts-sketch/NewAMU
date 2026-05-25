@@ -18,7 +18,7 @@
 //   • register_types                        → register coverage for AML
 //   • useControlsByLawRef                   → per-§ control count (shared)
 
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
   useRegelverkCoverage,
   type CoverageEntry,
@@ -47,6 +47,7 @@ import { MAX_PLAN_ITEMS_PER_FRAMEWORK } from '../../../../modules/compliance-lay
 const MAX_PAGE_CONTROLS = 500
 const MAX_PAGE_EXECUTIONS = 400
 const MAX_PAGE_PLAN_ITEMS = MAX_PLAN_ITEMS_PER_FRAMEWORK * 5
+const MAX_PAGE_PROJECTS = 200
 
 // ── Types surfaced to section renderers ─────────────────────────────────────
 
@@ -535,6 +536,10 @@ export function useInternkontrollPageData(): {
    *  (e.g. useCompliancePlanItems) can still attach the CAPA twin's
    *  status + assignee without re-querying. */
   bridgesByPlanId: Map<string, BridgeTaskInfo>
+  /** Re-fetch every source. Invoked after writes that go through hooks
+   *  external to this one (e.g. useTaskProjects.createProject) so the
+   *  page picks up the change without a full route remount. */
+  reload: () => void
 } {
   const { supabase, organization } = useOrgSetupContext()
   const { coverage, loading: coverageLoading } = useRegelverkCoverage()
@@ -564,6 +569,11 @@ export function useInternkontrollPageData(): {
   }
   const [loaded, setLoaded] = useState<Loaded | null>(null)
   const [userNames, setUserNames] = useState<Map<string, string>>(new Map())
+  // Reload version — bumped by `reload()` callers to force the fetch
+  // effect to re-run without changing org. Idiomatic "reload key" pattern
+  // matching `useCompliancePlanItems.reload`.
+  const [reloadVersion, setReloadVersion] = useState(0)
+  const reload = useCallback(() => setReloadVersion((v) => v + 1), [])
 
   useEffect(() => {
     if (!supabase || !organization?.id) return
@@ -634,7 +644,8 @@ export function useInternkontrollPageData(): {
         )
         .eq('organization_id', orgId)
         .is('deleted_at', null)
-        .order('created_at', { ascending: false }),
+        .order('created_at', { ascending: false })
+        .limit(MAX_PAGE_PROJECTS),
     ]).then(([reg, cl, ctrl, jn, st, ex, pl, bridges, projects]) => {
       if (cancelled) return
       // Log non-fatal query failures so they don't disappear into the
@@ -670,7 +681,7 @@ export function useInternkontrollPageData(): {
     return () => {
       cancelled = true
     }
-  }, [supabase, organization?.id])
+  }, [supabase, organization?.id, reloadVersion])
 
   // "Loaded for current org" — derived purely from refs so we never set
   // a transient loading flag synchronously inside the fetch effect.
@@ -711,42 +722,10 @@ export function useInternkontrollPageData(): {
 
   const loading = coverageLoading || controlsLookup.loading || !isCurrent
 
-  const data = useMemo<IkData>(() => {
-    if (!current) {
-      return buildData({
-        coverage,
-        registerRows: [],
-        clauseRows: [],
-        controlRows: [],
-        junctions: [],
-        statusRows: [],
-        executionRows: [],
-        planRows: [],
-        bridgeTasks: [],
-        projects: [],
-        userNames,
-        countByLawRef: controlsLookup.countByLawRef,
-      })
-    }
-    return buildData({
-      coverage,
-      registerRows: current.registerRows,
-      clauseRows: current.clauseRows,
-      controlRows: current.controlRows,
-      junctions: current.junctions,
-      statusRows: current.statusRows,
-      executionRows: current.executionRows,
-      planRows: current.planRows,
-      bridgeTasks: current.bridgeTasks,
-      projects: current.projects,
-      userNames,
-      countByLawRef: controlsLookup.countByLawRef,
-    })
-  }, [coverage, current, userNames, controlsLookup.countByLawRef])
-
-  // Build the bridge map at the hook level too (the same way buildData
-  // does internally) so callers can attach bridge info to tiltak they
-  // derive from sources other than `current.planRows`.
+  // Bridge-task lookup keyed by source plan-item id. Built once at the
+  // hook level and threaded into buildData so the page and downstream
+  // consumers share a single construction — no risk of drift between
+  // "what the page renders" and "what derived tiltak attach to".
   const bridgesByPlanId = useMemo(() => {
     const m = new Map<string, BridgeTaskInfo>()
     const rows = current?.bridgeTasks ?? []
@@ -763,7 +742,40 @@ export function useInternkontrollPageData(): {
     return m
   }, [current, userNames])
 
-  return { data, loading, bridgesByPlanId }
+  const data = useMemo<IkData>(() => {
+    if (!current) {
+      return buildData({
+        coverage,
+        registerRows: [],
+        clauseRows: [],
+        controlRows: [],
+        junctions: [],
+        statusRows: [],
+        executionRows: [],
+        planRows: [],
+        bridgesByPlanId,
+        projects: [],
+        userNames,
+        countByLawRef: controlsLookup.countByLawRef,
+      })
+    }
+    return buildData({
+      coverage,
+      registerRows: current.registerRows,
+      clauseRows: current.clauseRows,
+      controlRows: current.controlRows,
+      junctions: current.junctions,
+      statusRows: current.statusRows,
+      executionRows: current.executionRows,
+      planRows: current.planRows,
+      bridgesByPlanId,
+      projects: current.projects,
+      userNames,
+      countByLawRef: controlsLookup.countByLawRef,
+    })
+  }, [coverage, current, userNames, controlsLookup.countByLawRef, bridgesByPlanId])
+
+  return { data, loading, bridgesByPlanId, reload }
 }
 
 function buildData(input: {
@@ -775,7 +787,10 @@ function buildData(input: {
   statusRows: StatusRow[]
   executionRows: ExecutionRow[]
   planRows: PlanItemRow[]
-  bridgeTasks: BridgeTaskRow[]
+  /** Pre-built at the hook level so we don't reconstruct it inside
+   *  buildData — single source for the page + any caller deriving
+   *  tiltak from the live useCompliancePlanItems hook. */
+  bridgesByPlanId: Map<string, BridgeTaskInfo>
   projects: ProjectRow[]
   userNames: Map<string, string>
   countByLawRef: Map<string, number>
@@ -789,25 +804,11 @@ function buildData(input: {
     statusRows,
     executionRows,
     planRows,
-    bridgeTasks,
+    bridgesByPlanId,
     projects,
     userNames,
     countByLawRef,
   } = input
-
-  // Bridge-task lookup keyed by source plan-item id. Partial unique
-  // index guarantees 1:1, so a Map is safe; even if a duplicate slipped
-  // past the constraint the last writer wins which is the freshest
-  // signal anyway.
-  const bridgesByPlanId = new Map<string, BridgeTaskInfo>()
-  for (const b of bridgeTasks) {
-    if (!b.source_id) continue
-    bridgesByPlanId.set(b.source_id, {
-      status: (b.status as BridgeTaskStatus) ?? 'open',
-      assigneeName: b.assignee_name ?? (b.assignee_user_id ? userNames.get(b.assignee_user_id) ?? null : null),
-      slaDueAt: b.sla_due_at,
-    })
-  }
 
   // clause id ↔ code map.
   const codeByClauseId = new Map<string, string>()

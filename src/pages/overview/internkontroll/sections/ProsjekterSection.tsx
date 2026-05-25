@@ -46,9 +46,14 @@ type PlanHook = ReturnType<typeof useCompliancePlanItems>
 export function ProsjekterSection({
   data,
   plan,
+  onProjectsChanged,
 }: {
   data: IkData
   plan: PlanHook
+  /** Invoked after a project is created / converted so the page-level
+   *  data hook refreshes (and the new row appears in `data.prosjekter`
+   *  without a remount). */
+  onProjectsChanged: () => void
 }) {
   const [openId, setOpenId] = useState<string | null>(null)
   const open = openId ? data.prosjekter.find((p) => p.id === openId) : null
@@ -73,6 +78,9 @@ export function ProsjekterSection({
     setDraftDescription('')
     setDraftMethodology('pdca')
     setComposerOpen(false)
+    // Refresh the page-level hook so the new project shows up in
+    // data.prosjekter without a full reload.
+    onProjectsChanged()
     return id
   }
 
@@ -209,6 +217,8 @@ export function ProsjekterSection({
                         {p.projectId && (
                           <a
                             href={`/tasks/management?project=${p.projectId}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
                             onClick={(e) => e.stopPropagation()}
                             className="inline-flex items-center gap-1 rounded border border-[#1a3d32]/20 bg-[#e7efe9]/40 px-1.5 py-0.5 text-[10px] font-semibold text-[#1a3d32] hover:bg-[#e7efe9]"
                             title="Åpne prosjekt-tavle i Oppgavestyring"
@@ -216,6 +226,21 @@ export function ProsjekterSection({
                             <ArrowUpRight className="h-2.5 w-2.5" />
                             Åpne tavle
                           </a>
+                        )}
+                        {p.isLegacy && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="border-0 px-1.5 py-0.5 text-[10px] font-semibold text-amber-900 hover:bg-amber-100"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              void convertLegacyToProject(p, plan, projects, onProjectsChanged)
+                            }}
+                            title="Konverter til et task_projects-prosjekt"
+                          >
+                            <Plus className="h-2.5 w-2.5" />
+                            Konverter
+                          </Button>
                         )}
                         <span className="text-[10px] tabular-nums text-neutral-500">
                           Frist {p.deadline}
@@ -304,6 +329,36 @@ export function ProsjekterSection({
       )}
     </div>
   )
+}
+
+/**
+ * Promote a legacy free-text milestone grouping into a real task_projects
+ * row + back-fill every plan-item that referenced the same milestone
+ * string with the new project_id. Two-step: create project, then update
+ * the plan-items via the existing useCompliancePlanItems write path so
+ * the same `project_id_must_match_org` trigger guards the back-fill.
+ */
+async function convertLegacyToProject(
+  p: IkProsjekt,
+  plan: PlanHook,
+  projectsHook: ReturnType<typeof useTaskProjects>,
+  onProjectsChanged: () => void,
+) {
+  if (!p.isLegacy || !p.name) return
+  const id = await projectsHook.createProject({
+    title: p.name,
+    description: `Konvertert fra fritekst-milepælen «${p.name}».`,
+    methodology: 'pdca',
+    lawRefs: [],
+  })
+  if (!id) return
+  // Back-fill every plan-item under the legacy bucket.
+  await Promise.all(
+    p.tiltakIds.map((tiltakId) =>
+      plan.updateItem(tiltakId, { project_id: id, milestone: null }),
+    ),
+  )
+  onProjectsChanged()
 }
 
 function MilestoneNode({

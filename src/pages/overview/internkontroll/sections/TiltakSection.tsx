@@ -66,6 +66,7 @@ export function TiltakSection({
   const [draftLawRef, setDraftLawRef] = useState('')
   const [draftFramework, setDraftFramework] = useState<FrameworkId>('aml')
   const [draftDue, setDraftDue] = useState('')
+  const [draftProjectId, setDraftProjectId] = useState<string>('')
   const [submitting, setSubmitting] = useState(false)
   const [detailOpenId, setDetailOpenId] = useState<string | null>(null)
   const detailTiltak = detailOpenId
@@ -122,11 +123,13 @@ export function TiltakSection({
       title: draftTitle.trim(),
       status: 'planned',
       due_at: draftDue || null,
+      project_id: draftProjectId || null,
     })
     setSubmitting(false)
     setDraftTitle('')
     setDraftLawRef('')
     setDraftDue('')
+    setDraftProjectId('')
     setComposerOpen(false)
   }
 
@@ -242,6 +245,20 @@ export function TiltakSection({
                   value={draftDue}
                   onChange={(e) => setDraftDue(e.target.value)}
                   className="mt-1 py-1.5"
+                />
+              </label>
+              <label className="md:col-span-2 block text-[11px] font-semibold text-neutral-700">
+                Prosjekt (valgfri)
+                <SearchableSelect
+                  value={draftProjectId}
+                  onChange={(v) => setDraftProjectId(v)}
+                  className="mt-1"
+                  options={[
+                    { value: '', label: 'Ingen prosjekt' },
+                    ...data.prosjekter
+                      .filter((p) => p.projectId !== null)
+                      .map((p) => ({ value: p.projectId as string, label: p.name })),
+                  ]}
                 />
               </label>
             </div>

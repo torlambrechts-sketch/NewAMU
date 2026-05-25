@@ -134,7 +134,7 @@ export function InternkontrollPage() {
     setSearchParams(sp, { replace: true })
   }
 
-  const { data: rawData, loading, bridgesByPlanId } = useInternkontrollPageData()
+  const { data: rawData, loading, bridgesByPlanId, reload: reloadPageData } = useInternkontrollPageData()
   const plan = useCompliancePlanItemsForActiveFramework(filterFw)
 
   // Override the snapshot tiltak with the live hook so newly-created /
@@ -481,7 +481,9 @@ export function InternkontrollPage() {
           {section === 'tiltak' && (
             <TiltakSection data={data} plan={plan} filterCategory={filterCategory} />
           )}
-          {section === 'prosjekter' && <ProsjekterSection data={data} plan={plan} />}
+          {section === 'prosjekter' && (
+            <ProsjekterSection data={data} plan={plan} onProjectsChanged={reloadPageData} />
+          )}
           {section === 'revisjon' && <RevisjonSection data={data} />}
         </section>
       </div>
