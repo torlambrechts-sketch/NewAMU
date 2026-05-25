@@ -60,7 +60,8 @@ create table if not exists public.internal_control_executions (
   payload             jsonb not null default '{}'::jsonb,
   created_by          uuid references auth.users (id) on delete set null,
   created_at          timestamptz not null default now(),
-  check (jsonb_typeof(payload) = 'object')
+  check (jsonb_typeof(payload) = 'object'),
+  check (char_length(source_id) > 0)
 );
 
 comment on table public.internal_control_executions is
@@ -70,11 +71,14 @@ comment on table public.internal_control_executions is
   so re-emitted events don't double-insert. BEFORE UPDATE/DELETE trigger
   denies mutation unconditionally.$c$;
 
--- Idempotency: (control, table, source) is unique per non-NULL source_id
--- so a re-fired event doesn't insert twice.
+-- Idempotency: (control, table, source) is unique so a re-fired event
+-- doesn't insert twice. Full (non-partial) index so the resolver's
+-- ON CONFLICT inference works — the partial predicate `where source_id
+-- <> ''` was rejected by PostgreSQL for ON CONFLICT (only literal-equal
+-- predicates can be used for index inference). The non-empty constraint
+-- below preserves the original intent.
 create unique index if not exists internal_control_executions_idempotent_uidx
-  on public.internal_control_executions (control_id, source_table, source_id)
-  where source_id <> '';
+  on public.internal_control_executions (control_id, source_table, source_id);
 
 -- Status-view lookup index.
 create index if not exists internal_control_executions_control_time_idx
@@ -271,6 +275,12 @@ begin
 end $$;
 
 -- 6.2 meeting_protocol_exports — fire on insert
+-- NB: meetings split the template reference into two columns:
+--   system_template_table → system_template_id (text)
+--   org_template_table    → org_template_id (uuid)
+-- The resolver dispatches against whichever one is set so a single
+-- binding can target either surface; the binding row's
+-- source_template_table tells the resolver which table to match against.
 do $$
 begin
   if to_regclass('public.meeting_protocol_exports') is not null
@@ -284,7 +294,8 @@ begin
     declare
       v_meeting record;
     begin
-      select id, organization_id, template_id, title, protocol_signed_at
+      select id, organization_id, system_template_id, org_template_id,
+             title, protocol_signed_at
         into v_meeting
         from public.meetings
         where id = new.meeting_id;
@@ -292,23 +303,49 @@ begin
         return new;
       end if;
 
-      perform public._compliance_layer_record_execution(
-        v_meeting.organization_id,
-        'meeting_protocol',
-        'meeting_protocol_exports',
-        new.id::text,
-        'meeting_system_templates',
-        coalesce(v_meeting.template_id::text, ''),
-        coalesce(v_meeting.protocol_signed_at, now()),
-        null,
-        v_meeting.protocol_signed_at,
-        coalesce(v_meeting.title, 'Møteprotokoll signert'),
-        new.payload_sha256,
-        jsonb_build_object(
-          'meeting_id', v_meeting.id,
-          'export_id', new.id
-        )
-      );
+      -- System-template case: bindings reference meeting_system_templates.id (text).
+      if v_meeting.system_template_id is not null then
+        perform public._compliance_layer_record_execution(
+          v_meeting.organization_id,
+          'meeting_protocol',
+          'meeting_protocol_exports',
+          new.id::text,
+          'meeting_system_templates',
+          v_meeting.system_template_id,
+          coalesce(v_meeting.protocol_signed_at, now()),
+          null,
+          v_meeting.protocol_signed_at,
+          coalesce(v_meeting.title, 'Møteprotokoll signert'),
+          new.payload_sha256,
+          jsonb_build_object(
+            'meeting_id', v_meeting.id,
+            'export_id', new.id,
+            'template_kind', 'system'
+          )
+        );
+      end if;
+
+      -- Org-template case: bindings reference meeting_org_templates.id (uuid).
+      if v_meeting.org_template_id is not null then
+        perform public._compliance_layer_record_execution(
+          v_meeting.organization_id,
+          'meeting_protocol',
+          'meeting_protocol_exports',
+          new.id::text,
+          'meeting_org_templates',
+          v_meeting.org_template_id::text,
+          coalesce(v_meeting.protocol_signed_at, now()),
+          null,
+          v_meeting.protocol_signed_at,
+          coalesce(v_meeting.title, 'Møteprotokoll signert'),
+          new.payload_sha256,
+          jsonb_build_object(
+            'meeting_id', v_meeting.id,
+            'export_id', new.id,
+            'template_kind', 'org'
+          )
+        );
+      end if;
       return new;
     end;
     $fn$;

@@ -215,14 +215,18 @@ create trigger internal_control_bindings_set_updated_at
 -- Validate that the referenced template exists in the chosen table.
 -- Uses dynamic SQL because we can't pre-declare FKs across 12 different
 -- template tables. Skipped for manual_evidence bindings.
+--
+-- NB: the function body is wrapped in $fn$...$fn$ (tagged dollar quote)
+-- so the dynamic-SQL string literals using $$ inside don't terminate the
+-- outer body prematurely. Anonymous $$...$$ wrapping would parse as
+-- `as $$...$$select count(*)...$$` and fail with "syntax error at select".
 create or replace function public.internal_control_bindings_validate_template()
 returns trigger
 language plpgsql
-as $$
+as $fn$
 declare
   v_count int;
   v_sql   text;
-  v_org   uuid := new.organization_id;
 begin
   if new.source_kind = 'manual_evidence' then
     return new;
@@ -234,53 +238,12 @@ begin
       new.source_template_table;
   end if;
 
-  -- Templates with uuid PK (the majority).
-  if new.source_template_table in (
-    'compliance_checklist_templates',
-    'survey_template_catalog',
-    'surveys',
-    'survey_campaigns',
-    'document_org_templates',
-    'task_template_catalog',
-    'task_org_templates',
-    'meeting_system_templates',
-    'meeting_org_templates'
-  ) then
-    -- Skip strict uuid casting when the supplied id is clearly not a uuid
-    -- (e.g. a system-template slug); fall through to text equality below.
-    if new.source_template_id ~ '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$' then
-      v_sql := format(
-        $$select count(*) from public.%I where id = %L::uuid and
-          (organization_id = %L or organization_id is null)$$,
-        new.source_template_table, new.source_template_id, v_org
-      );
-      execute v_sql into v_count;
-      if v_count = 0 then
-        raise exception
-          'internal_control_bindings: template id % not found in public.% for org %',
-          new.source_template_id, new.source_template_table, v_org;
-      end if;
-      return new;
-    end if;
-  end if;
-
-  -- Tables with text PK (document_system_templates, learning_courses,
-  -- register_types).
+  -- Text-equality existence check works for both uuid PKs and text PKs.
+  -- Org-scope is already enforced by RLS on the parent control + the
+  -- internal_control_bindings_before_insert_defaults trigger that derives
+  -- organization_id from the parent, so we don't re-check it here.
   v_sql := format(
-    $$select count(*) from public.%I where id = %L
-      and ((organization_id = %L) or
-           ($$ || quote_literal('organization_id') ||
-              $$ not in (select column_name from information_schema.columns
-                         where table_schema = 'public' and table_name = %L)))$$,
-    new.source_template_table,
-    new.source_template_id,
-    v_org,
-    new.source_template_table
-  );
-  -- Simpler fallback: just check existence by text id when the FK path is
-  -- ambiguous. Org-scope already enforced by RLS on the parent control.
-  v_sql := format(
-    $$select count(*) from public.%I where id::text = %L$$,
+    'select count(*) from public.%I where id::text = %L',
     new.source_template_table, new.source_template_id
   );
   execute v_sql into v_count;
@@ -291,7 +254,7 @@ begin
   end if;
   return new;
 end;
-$$;
+$fn$;
 
 drop trigger if exists internal_control_bindings_validate_template_tg on public.internal_control_bindings;
 create trigger internal_control_bindings_validate_template_tg

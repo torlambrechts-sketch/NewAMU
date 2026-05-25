@@ -1,13 +1,17 @@
 // useAuditorTokens — list + revoke active auditor share-tokens for the org.
 //
-// Reads from `compliance_auditor_tokens_safe` (the no-secret projection
-// added in migration `20260926140000`). The bearer token never crosses
-// the network after `create_compliance_auditor_token` returns it once at
-// share-time — eliminates exposure via Sentry/Datadog fetch
-// auto-instrumentation, browser extensions, and console interception.
+// Reads directly from `compliance_auditor_tokens` with an explicit safe
+// column projection. Migration 20260926140000 added:
+//   - generated stored columns `token_prefix` + `token_suffix` (the only
+//     parts of the bearer secret that ever ship to the client)
+//   - column-level GRANT to authenticated for the 10 safe columns
+//   - DENY on the full `token` column (postgres rejects any SELECT that
+//     projects it — including ad-hoc `select * from ...`)
+// This eliminates exposure via Sentry/Datadog fetch auto-instrumentation,
+// browser extensions, and console interception.
 //
 // Revoke goes through `revoke_compliance_auditor_token_by_id(p_id uuid)`
-// — the opaque id from the safe view, not the full token string.
+// — the opaque id, not the full bearer string.
 //
 // Lives in `modules/compliance-layer/admin/` because the controls page
 // is the primary consumer, but the hook is framework-agnostic — the
@@ -80,7 +84,9 @@ export function useAuditorTokens(
     let cancelled = false
     const nowIso = new Date().toISOString()
     void supabase
-      .from('compliance_auditor_tokens_safe')
+      .from('compliance_auditor_tokens')
+      // NB: explicit safe-column list — postgres column-level ACL denies
+      // any query that includes the `token` column. Don't add `*` here.
       .select(
         'id, organization_id, framework_id, scope_label, token_prefix, token_suffix, created_by, created_at, expires_at, revoked_at',
       )

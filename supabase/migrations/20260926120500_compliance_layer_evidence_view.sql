@@ -65,16 +65,23 @@ begin
     v_branches := array_append(v_branches, $sql$
       select
         m.organization_id,
-        coalesce(m.protocol_signed_at, mpe.created_at)                 as occurred_at,
+        -- meeting_protocol_exports timestamps the row at `computed_at`
+        -- (the SHA-256 hash time). protocol_signed_at on the parent
+        -- meeting is the canonical "occurred" timestamp.
+        coalesce(m.protocol_signed_at, mpe.computed_at)                as occurred_at,
         'meeting_protocol'::text                                       as source_kind,
         'meeting_protocol_exports'::text                               as source_table,
         mpe.id::text                                                   as source_id,
         coalesce(m.title, 'Møteprotokoll')                             as title,
-        coalesce(mst.law_refs, '{}'::text[])                           as law_refs,
+        -- meetings keep system + org template ids in separate columns;
+        -- the system one is text (slug), the org one is uuid. Coalesce
+        -- law_refs from whichever side resolves first.
+        coalesce(mst.law_refs, mot.law_refs, '{}'::text[])             as law_refs,
         m.protocol_signed_at                                           as signed_at
       from public.meeting_protocol_exports mpe
       join public.meetings m on m.id = mpe.meeting_id
-      left join public.meeting_system_templates mst on mst.id = m.template_id
+      left join public.meeting_system_templates mst on mst.id = m.system_template_id
+      left join public.meeting_org_templates mot on mot.id = m.org_template_id
     $sql$);
   end if;
 
@@ -143,7 +150,8 @@ begin
         'register_record'::text                                        as source_kind,
         'register_records'::text                                       as source_table,
         r.id::text                                                     as source_id,
-        ('Register: ' || coalesce(rt.label, r.register_type_id))       as title,
+        -- register_types uses `name` (not `label`) as its display string.
+        ('Register: ' || coalesce(rt.name, r.register_type_id))        as title,
         coalesce(rt.aml_paragraphs, '{}'::text[])                      as law_refs,
         null::timestamptz                                              as signed_at
       from public.register_records r
@@ -191,7 +199,8 @@ begin
   -- environments.
   if array_length(v_branches, 1) is null then
     v_sql := $sql$
-      create view public.compliance_evidence_v as
+      create view public.compliance_evidence_v
+      with (security_invoker = true) as
       select
         null::uuid        as organization_id,
         null::timestamptz as occurred_at,
@@ -204,7 +213,8 @@ begin
       where false
     $sql$;
   else
-    v_sql := 'create view public.compliance_evidence_v as '
+    v_sql := 'create view public.compliance_evidence_v '
+             || 'with (security_invoker = true) as '
              || array_to_string(v_branches, ' union all ');
   end if;
 
@@ -224,7 +234,11 @@ grant select on public.compliance_evidence_v to authenticated, service_role;
 
 drop view if exists public.internal_control_status_v cascade;
 
-create view public.internal_control_status_v as
+-- security_invoker = true so the underlying internal_controls /
+-- internal_control_executions RLS policies filter rows for the caller.
+-- Without it the view runs as the owner role and leaks cross-org data.
+create view public.internal_control_status_v
+with (security_invoker = true) as
 with cadence_months as (
   select * from (values
     ('arlig',      12),

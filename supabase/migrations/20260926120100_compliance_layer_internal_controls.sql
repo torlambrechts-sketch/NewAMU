@@ -166,17 +166,13 @@ create policy internal_controls_update_org
     and is_system = false
   );
 
+-- NB: NO DELETE policy on internal_controls. Hard-deleting a control
+-- would cascade to internal_control_executions, but those are append-only
+-- audit data and must persist for compliance (IK-f § 5 nr. 7). The app
+-- path is soft-delete: UPDATE set deleted_at = now() — handled by the
+-- existing `softDeleteControl` hook in
+-- modules/compliance-layer/useInternalControls.ts.
 drop policy if exists internal_controls_delete_org on public.internal_controls;
-create policy internal_controls_delete_org
-  on public.internal_controls for delete
-  using (
-    organization_id = public.current_org_id()
-    and (
-      public.is_org_admin()
-      or public.user_has_permission('compliance_layer.manage')
-    )
-    and is_system = false
-  );
 
 -- ── 4. Triggers ──────────────────────────────────────────────────────────
 
