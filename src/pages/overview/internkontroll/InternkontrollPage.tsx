@@ -223,14 +223,71 @@ export function InternkontrollPage() {
       <div className="grid grid-cols-1 gap-5 lg:grid-cols-[220px_minmax(0,1fr)]">
         {/* SIDE NAV */}
         <aside className="space-y-3">
-          {/* Kategorier — content groupings, mirrors the Sjekklister
-              sidebar pattern. Sits at the top of the sidebar (above the
-              section nav) because the user's mental model is "pick a
-              functional lens first, then drill into the section". Counts
-              react to the active framework chip. */}
+          {/* KATEGORIER — section nav with a Sjekklister-style "Kategorier"
+              header. Section nav sits at the top because the user picks
+              a destination (Oversikt / Krav / Kontroller / …) before
+              applying a control filter underneath. */}
+          <div className="rounded-xl border border-neutral-200/80 bg-white shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
+            <h3 className="border-b border-neutral-100 px-4 py-2.5 text-[10px] font-bold uppercase tracking-wider text-neutral-500">
+              Kategorier
+            </h3>
+            <ul className="py-1.5">
+              {NAV.map(({ id, label, Icon }) => {
+                const active = id === section
+                const count = counts[id]
+                return (
+                  <li key={id}>
+                    <Button
+                      variant="ghost"
+                      onClick={() => setSection(id)}
+                      className={[
+                        'flex w-full items-center justify-start gap-2.5 rounded-none border-0 px-4 py-2 text-left text-sm font-normal',
+                        active
+                          ? 'bg-[#e7efe9] text-neutral-900 hover:bg-[#e7efe9]'
+                          : 'text-neutral-700 hover:bg-neutral-50 hover:text-neutral-900',
+                      ].join(' ')}
+                      style={active ? { boxShadow: 'inset 3px 0 0 #1a3d32' } : undefined}
+                    >
+                      <Icon
+                        className={[
+                          'h-3.5 w-3.5 shrink-0',
+                          active ? 'text-[#1a3d32]' : 'text-neutral-500',
+                        ].join(' ')}
+                      />
+                      <span
+                        className={[
+                          'min-w-0 flex-1',
+                          active ? 'font-semibold' : 'font-medium',
+                        ].join(' ')}
+                      >
+                        {label}
+                      </span>
+                      {count != null ? (
+                        <span
+                          className={[
+                            'rounded-full px-1.5 py-px text-[10px] font-bold tabular-nums',
+                            active
+                              ? 'bg-[#1a3d32] text-white'
+                              : 'bg-neutral-100 text-neutral-600',
+                          ].join(' ')}
+                        >
+                          {count}
+                        </span>
+                      ) : null}
+                    </Button>
+                  </li>
+                )
+              })}
+            </ul>
+          </div>
+
+          {/* KONTROLLER — functional groupings of krav/kontroller/tiltak
+              (preventive / detective / corrective lens, not a destination).
+              Renamed from "Kategorier" because the parent KATEGORIER
+              header now belongs to the section nav above. */}
           <div className="rounded-xl border border-neutral-200/80 bg-white p-3 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
             <h3 className="text-[10px] font-bold uppercase tracking-wider text-neutral-500">
-              Kategorier
+              Kontroller
             </h3>
             <ul className="mt-1.5 space-y-0.5">
               <li>
@@ -300,57 +357,6 @@ export function InternkontrollPage() {
                       >
                         {count}
                       </span>
-                    </Button>
-                  </li>
-                )
-              })}
-            </ul>
-          </div>
-
-          <div className="overflow-hidden rounded-xl border border-neutral-200/80 bg-white shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
-            <ul className="py-1.5">
-              {NAV.map(({ id, label, Icon }) => {
-                const active = id === section
-                const count = counts[id]
-                return (
-                  <li key={id}>
-                    <Button
-                      variant="ghost"
-                      onClick={() => setSection(id)}
-                      className={[
-                        'flex w-full items-center justify-start gap-2.5 rounded-none border-0 px-4 py-2 text-left text-sm font-normal',
-                        active
-                          ? 'bg-[#e7efe9] text-neutral-900 hover:bg-[#e7efe9]'
-                          : 'text-neutral-700 hover:bg-neutral-50 hover:text-neutral-900',
-                      ].join(' ')}
-                      style={active ? { boxShadow: 'inset 3px 0 0 #1a3d32' } : undefined}
-                    >
-                      <Icon
-                        className={[
-                          'h-3.5 w-3.5 shrink-0',
-                          active ? 'text-[#1a3d32]' : 'text-neutral-500',
-                        ].join(' ')}
-                      />
-                      <span
-                        className={[
-                          'min-w-0 flex-1',
-                          active ? 'font-semibold' : 'font-medium',
-                        ].join(' ')}
-                      >
-                        {label}
-                      </span>
-                      {count != null ? (
-                        <span
-                          className={[
-                            'rounded-full px-1.5 py-px text-[10px] font-bold tabular-nums',
-                            active
-                              ? 'bg-[#1a3d32] text-white'
-                              : 'bg-neutral-100 text-neutral-600',
-                          ].join(' ')}
-                        >
-                          {count}
-                        </span>
-                      ) : null}
                     </Button>
                   </li>
                 )
