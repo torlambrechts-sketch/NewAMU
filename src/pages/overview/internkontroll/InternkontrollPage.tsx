@@ -295,7 +295,7 @@ export function InternkontrollPage() {
                   variant="ghost"
                   onClick={() => setFilterCategory('all')}
                   className={[
-                    'flex w-full items-center justify-between gap-2 rounded border-0 px-1.5 py-1 text-[11px] font-normal',
+                    'flex w-full items-center justify-between gap-2 rounded border-0 px-1.5 py-1 text-sm font-normal',
                     filterCategory === 'all'
                       ? 'bg-[#e7efe9] font-semibold text-neutral-900 hover:bg-[#e7efe9]'
                       : 'text-neutral-700 hover:bg-neutral-50 hover:text-neutral-900',
@@ -329,7 +329,7 @@ export function InternkontrollPage() {
                       variant="ghost"
                       onClick={() => setFilterCategory(cat.id)}
                       className={[
-                        'flex w-full items-center justify-between gap-2 rounded border-0 px-1.5 py-1 text-[11px] font-normal',
+                        'flex w-full items-center justify-between gap-2 rounded border-0 px-1.5 py-1 text-sm font-normal',
                         active
                           ? 'bg-[#e7efe9] font-semibold text-neutral-900 hover:bg-[#e7efe9]'
                           : 'text-neutral-700 hover:bg-neutral-50 hover:text-neutral-900',
