@@ -28,6 +28,7 @@ import {
   SectionBanner,
   TiltakStatusPill,
 } from './internkontrollShared'
+import { TiltakDetailPanel } from './TiltakDetailPanel'
 import type {
   CompliancePlanItemStatus,
   useCompliancePlanItems,
@@ -66,6 +67,10 @@ export function TiltakSection({
   const [draftFramework, setDraftFramework] = useState<FrameworkId>('aml')
   const [draftDue, setDraftDue] = useState('')
   const [submitting, setSubmitting] = useState(false)
+  const [detailOpenId, setDetailOpenId] = useState<string | null>(null)
+  const detailTiltak = detailOpenId
+    ? data.tiltak.find((t) => t.id === detailOpenId) ?? null
+    : null
 
   // data.tiltak is composed at the page level from the live plan-items
   // hook so writes from `plan.createItem/updateItem/deleteItem` are
@@ -305,6 +310,7 @@ export function TiltakSection({
                       t={t}
                       frameworks={data.frameworks}
                       onToggle={() => void cycleStatus(t.id, t.rawStatus)}
+                      onOpenDetail={() => setDetailOpenId(t.id)}
                       onDelete={() => {
                         if (window.confirm(`Slett tiltaket «${t.title}»?`)) {
                           void plan.deleteItem(t.id)
@@ -318,6 +324,13 @@ export function TiltakSection({
           </div>
         )}
       </div>
+
+      <TiltakDetailPanel
+        open={detailTiltak !== null}
+        onClose={() => setDetailOpenId(null)}
+        tiltak={detailTiltak}
+        frameworks={data.frameworks}
+      />
     </div>
   )
 }
@@ -327,14 +340,37 @@ function TiltakRow({
   frameworks,
   onToggle,
   onDelete,
+  onOpenDetail,
 }: {
   t: IkTiltak
   frameworks: IkData['frameworks']
   onToggle: () => void
   onDelete: () => void
+  onOpenDetail: () => void
 }) {
   return (
-    <li className="rounded-lg border border-neutral-200/80 bg-white p-3 hover:bg-neutral-50/40">
+    <li
+      className="cursor-pointer rounded-lg border border-neutral-200/80 bg-white p-3 transition-colors hover:bg-neutral-50/40 hover:border-[#1a3d32]/30"
+      onClick={(e) => {
+        // Ignore clicks that originated on interactive controls — the
+        // checkbox, action buttons, and the "Åpne i Oppgaver" link
+        // already have their own handlers; we don't want them to also
+        // pop the detail panel.
+        const target = e.target as HTMLElement
+        if (target.closest('a, button, input, select, textarea')) return
+        onOpenDetail()
+      }}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          const target = e.target as HTMLElement
+          if (target.closest('a, button, input, select, textarea')) return
+          e.preventDefault()
+          onOpenDetail()
+        }
+      }}
+      role="button"
+      tabIndex={0}
+    >
       <div className="flex items-start gap-3">
         <StandardInput
           type="checkbox"
