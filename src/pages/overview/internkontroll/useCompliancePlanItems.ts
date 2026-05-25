@@ -46,6 +46,28 @@ export type UpdatePlanItemInput = Partial<
 const PLAN_ITEM_COLUMNS =
   'id, organization_id, law_ref, framework_id, title, description, owner_user_id, status, start_at, due_at, milestone, task_id, created_at, updated_at'
 
+// Maps an internkontroll FrameworkId to the matching `task_items.pack`
+// enum value (compliance_pack). The 5 frameworks our planner covers
+// fall into 2 logical buckets:
+//   • AML / IK-forskriften / sectoral lover (GDPR, Åpenhetsloven) →
+//     the `aml-amu` pack the AMU surface already owns. IK-f is the
+//     forskrift paired with AML; GDPR + ÅPL ride along on the AMU
+//     pack since there's no dedicated pack yet.
+//   • ISO 45001 → the dedicated `iso-45001` pack.
+// Adding a new framework: extend FrameworkId, add the matching pack
+// here. The compliance_pack enum is at supabase/migrations/.
+function packForFramework(framework: FrameworkId): string {
+  switch (framework) {
+    case 'iso-45001':
+      return 'iso-45001'
+    case 'aml':
+    case 'ik-f':
+    case 'gdpr':
+    case 'apenhetsloven':
+      return 'aml-amu'
+  }
+}
+
 export function useCompliancePlanItems(framework: FrameworkId): {
   items: CompliancePlanItem[]
   loading: boolean
@@ -125,7 +147,7 @@ export function useCompliancePlanItems(framework: FrameworkId): {
             `Lukke-tiltak for ${plan.law_ref}.`,
           priority: 'medium',
           status: 'open',
-          pack: 'aml-amu',
+          pack: packForFramework(plan.framework_id),
           source_type: 'compliance_plan',
           source_id: plan.id,
           law_refs: [plan.law_ref],

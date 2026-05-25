@@ -4,27 +4,20 @@
 // HMS-oversikt composite scope.
 //
 //   1. ledelses_aml_coverage      (kpi-record)
-//        - aml_total: number of active AML paragraphs (per regulation_clauses)
-//        - aml_covered: count with ≥1 internal_control_clauses junction
-//        - aml_coverage_pct: rounded percentage
+//        - aml_total / aml_covered / aml_coverage_pct
 //   2. ledelses_open_palegg       (kpi-record)
-//        - open_palegg: register_records of type 'aml_18_tilsynssaker'
-//          whose `outcome` is one of (pålegg / tvangsmulkt / stansing /
-//          varsel_pålegg / overtredelsesgebyr / pågår) AND `closure_at`
-//          is null. The shape matches the live register_types schema
-//          for aml_18_tilsynssaker (verified against the production DB).
+//        - open_palegg
 //   3. ledelses_arp_status        (kpi-record)
-//        - arp_last_ack_at: most recent acknowledgement of any wiki page
-//          created from the `tpl-aktivitetsplikt` document template
-//        - arp_days_since_ack: integer days since last ack (null when
-//          never acknowledged → status_label = 'overdue' on the widget)
+//        - arp_last_ack_at + arp_days_since_ack
 //   4. ledelses_paragraphs_uten_plan (kpi-record)
-//        - count: AML paragraphs with 0 internal_control_clauses AND 0
-//          compliance_plan_items (after normalisation of law_ref string)
+//        - paragraphs_uten_plan
 //
-// All four are read-only org-scoped queries. RLS on each source table
-// filters per current_org_id() via the security_invoker views and the
-// existing per-module policies.
+// All four come from a single SECURITY DEFINER RPC
+// `compliance_layer_ledelses_kpis()` (see migration
+// 20260929120100_compliance_layer_ledelses_kpis_rpc.sql). Server-side
+// aggregation: no clause / control / plan-item / register-record row
+// data ever ships to the browser — just the 6 scalars. This kept the
+// HMS-oversikt KPI strip flat as the underlying tables grow.
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import type { SupabaseClient } from '@supabase/supabase-js'
@@ -68,20 +61,10 @@ const EMPTY: LedelsesKpis = {
   paragraphs_uten_plan: 0,
 }
 
-// `outcome` values that count as "open" (not yet closed). Lifted
-// verbatim from register_types.metadata_schema for aml_18_tilsynssaker.
-const OPEN_PALEGG_OUTCOMES = [
-  'pålegg',
-  'tvangsmulkt',
-  'stansing',
-  'varsel_pålegg',
-  'overtredelsesgebyr',
-  'pågår',
-]
-
-// The ARP template slug (`tpl-aktivitetsplikt`) is referenced by the
-// `compliance_layer_arp_latest_ack()` SECURITY DEFINER RPC — keep them
-// in sync if either side changes.
+// Both the open-pålegg outcome allow-list and the ARP template slug
+// (`tpl-aktivitetsplikt`) live in the SQL of
+// `compliance_layer_ledelses_kpis()` — keep the function definition
+// in sync with the canonical register_types.metadata_schema.
 
 export function useLedelsesKpis(): UseLedelsesKpisReturn {
   const { supabase, organization } = useOrgSetupContext()
@@ -92,122 +75,41 @@ export function useLedelsesKpis(): UseLedelsesKpisReturn {
   const [data, setData] = useState<LedelsesKpis>(EMPTY)
 
   const load = useCallback(
-    async (sb: SupabaseClient, oid: string) => {
+    async (sb: SupabaseClient) => {
       setError(null)
       try {
-        // Five small parallel queries + 1 RPC. None scans more than a
-        // few hundred rows on a typical org so total latency is gated
-        // by RTT. The ARP latest-ack goes through a SECURITY DEFINER
-        // RPC because wiki_compliance_receipts RLS only exposes a
-        // viewer's own acks — without the RPC, non-admin members would
-        // see a false "Aldri bekreftet" signal on HMS-oversikt.
-        const [
-          amlClauses,
-          coveredClauseIds,
-          paleggRows,
-          planLawRefs,
-          arpLatest,
-        ] = await Promise.all([
-          // 1a. All active AML clauses for this org → gives us aml_total + the
-          //     set of ids we need for the "covered" + "uten plan" counts.
-          sb
-            .from('regulation_clauses')
-            .select('id, code')
-            .eq('organization_id', oid)
-            .eq('regulation_id', 'aml')
-            .eq('is_active', true)
-            .is('deleted_at', null),
-          // 1b. Distinct clause_ids touched by any control junction.
-          sb
-            .from('internal_control_clauses')
-            .select('clause_id')
-            .eq('organization_id', oid),
-          // 2. Open tilsyns-/påleggs-saker.
-          sb
-            .from('register_records')
-            .select('id, values, status')
-            .eq('organization_id', oid)
-            .eq('register_type_id', 'aml_18_tilsynssaker')
-            .is('deleted_at', null),
-          // 3. compliance_plan_items law_refs (we need just the strings).
-          sb
-            .from('compliance_plan_items')
-            .select('law_ref')
-            .eq('organization_id', oid)
-            .is('deleted_at', null),
-          // 4. ARP latest ack via SECURITY DEFINER RPC — see migration
-          //    20260929120000_compliance_planner_review_hardening.
-          sb.rpc('compliance_layer_arp_latest_ack'),
-        ])
-
-        if (amlClauses.error) throw amlClauses.error
-        if (coveredClauseIds.error) throw coveredClauseIds.error
-        if (paleggRows.error) throw paleggRows.error
-        if (planLawRefs.error) throw planLawRefs.error
-        if (arpLatest.error) throw arpLatest.error
-
-        const clauses = (amlClauses.data ?? []) as Array<{
-          id: string
-          code: string
-        }>
-        const covered = new Set<string>(
-          (coveredClauseIds.data ?? []).map(
-            (r: { clause_id: string }) => r.clause_id,
-          ),
+        // Single SECURITY DEFINER RPC. All 6 KPIs computed server-side
+        // (see migration 20260929120100_compliance_layer_ledelses_kpis_rpc).
+        // Replaces the previous 5-select + 1-RPC client-side fold —
+        // we no longer pull every clause / control / register record
+        // / plan_item to the browser just to count them.
+        const { data: rpc, error: respErr } = await sb.rpc(
+          'compliance_layer_ledelses_kpis',
         )
-        const planCodes = new Set<string>(
-          (planLawRefs.data ?? []).map((r: { law_ref: string }) =>
-            normaliseLawRef(r.law_ref),
-          ),
-        )
-
-        const aml_total = clauses.length
-        const aml_covered = clauses.filter((c) => covered.has(c.id)).length
-        const aml_coverage_pct =
-          aml_total === 0 ? 0 : Math.round((aml_covered / aml_total) * 100)
-
-        // §-er uten plan: AML clauses with NO control coverage AND NO
-        // plan item targeting the paragraph (by normalised law_ref).
-        const paragraphs_uten_plan = clauses.filter((c) => {
-          if (covered.has(c.id)) return false
-          if (planCodes.has(normaliseLawRef(c.code))) return false
-          return true
-        }).length
-
-        const palegg = (paleggRows.data ?? []) as Array<{
-          values: Record<string, unknown>
+        if (respErr) throw respErr
+        const payload = (rpc ?? {}) as Partial<{
+          aml_total: number
+          aml_covered: number
+          aml_coverage_pct: number
+          open_palegg: number
+          arp_last_ack_at: string | null
+          paragraphs_uten_plan: number
         }>
-        const open_palegg = palegg.filter((r) => {
-          const outcome = typeof r.values?.outcome === 'string'
-            ? (r.values.outcome as string)
-            : null
-          const closureAt = typeof r.values?.closure_at === 'string'
-            ? (r.values.closure_at as string)
-            : null
-          if (!outcome) return false
-          if (!OPEN_PALEGG_OUTCOMES.includes(outcome)) return false
-          if (closureAt) return false
-          return true
-        }).length
 
-        // ARP — RPC returns a single timestamptz (or null).
-        let arp_last_ack_at: string | null = null
-        let arp_days_since_ack: number | null = null
-        const arpRaw = arpLatest.data as string | null
-        if (arpRaw) {
-          arp_last_ack_at = arpRaw
-          const ms = Date.now() - new Date(arpRaw).getTime()
-          arp_days_since_ack = Math.floor(ms / 86_400_000)
-        }
+        const arpRaw = payload.arp_last_ack_at ?? null
+        const arp_days_since_ack =
+          arpRaw === null
+            ? null
+            : Math.floor((Date.now() - new Date(arpRaw).getTime()) / 86_400_000)
 
         setData({
-          aml_total,
-          aml_covered,
-          aml_coverage_pct,
-          open_palegg,
-          arp_last_ack_at,
+          aml_total: payload.aml_total ?? 0,
+          aml_covered: payload.aml_covered ?? 0,
+          aml_coverage_pct: payload.aml_coverage_pct ?? 0,
+          open_palegg: payload.open_palegg ?? 0,
+          arp_last_ack_at: arpRaw,
           arp_days_since_ack,
-          paragraphs_uten_plan,
+          paragraphs_uten_plan: payload.paragraphs_uten_plan ?? 0,
         })
       } catch (e) {
         setError(getSupabaseErrorMessage(e))
@@ -228,7 +130,7 @@ export function useLedelsesKpis(): UseLedelsesKpisReturn {
     setLoading(true)
     setData(EMPTY)
     let cancelled = false
-    void load(supabase, orgId).then(() => {
+    void load(supabase).then(() => {
       if (cancelled) return
       setLoading(false)
     })
@@ -259,13 +161,4 @@ export function useLedelsesKpis(): UseLedelsesKpisReturn {
   )
 
   return { loading, error, data, datasets }
-}
-
-/**
- * Normalise law-ref strings so plan items typed as 'AML §4-3' match
- * clauses stored as 'AML § 4-3'. Mirrors the helper in
- * useInternkontrollDatasets.
- */
-function normaliseLawRef(ref: string): string {
-  return ref.replace(/\s+/g, ' ').replace(/§\s*/g, '§ ').trim()
 }

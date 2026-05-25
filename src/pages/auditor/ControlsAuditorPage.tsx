@@ -15,6 +15,7 @@ import { useParams } from 'react-router-dom'
 import { Loader2, Printer, ShieldCheck } from 'lucide-react'
 import { Button } from '../../components/ui/Button'
 import { getSupabaseBrowserClient } from '../../lib/supabaseClient'
+import { useStrictRefererPolicy } from '../../lib/security/useStrictRefererPolicy'
 
 type SnapshotControl = {
   id: string
@@ -91,6 +92,7 @@ type FetchState =
   | { kind: 'ok'; payload: TokenPayload }
 
 export function ControlsAuditorPage() {
+  useStrictRefererPolicy()
   const { token } = useParams<{ token: string }>()
   // Initial state is 'loading' so we don't have to setState synchronously
   // inside the effect to enter the fetching phase. Missing-token /

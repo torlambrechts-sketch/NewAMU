@@ -16,6 +16,7 @@ import { ModuleAnalyticsDashboard } from '../../components/module/ModuleAnalytic
 import { Button } from '../../components/ui/Button'
 import { getDashboardScope } from '../../lib/dashboards/dashboardRegistry'
 import { getSupabaseBrowserClient } from '../../lib/supabaseClient'
+import { useStrictRefererPolicy } from '../../lib/security/useStrictRefererPolicy'
 import type { ReportModule } from '../../types/reportBuilder'
 import '../overview/internkontroll/internkontrollDashboardScope'
 
@@ -29,6 +30,9 @@ type TokenPayload = {
 }
 
 export function InternkontrollAuditorPage() {
+  // Strip the bearer token from outbound Referer headers — see hook
+  // header for the rationale.
+  useStrictRefererPolicy()
   const { token } = useParams<{ token: string }>()
   const [state, setState] = useState<
     | { kind: 'loading' }

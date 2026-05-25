@@ -13,6 +13,7 @@
 import { useEffect, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { AlertTriangle, FileCheck, ShieldCheck } from 'lucide-react'
+import { useStrictRefererPolicy } from '../../lib/security/useStrictRefererPolicy'
 
 type AuditorPayload = {
   ok: boolean
@@ -44,6 +45,7 @@ type AuditorPayload = {
 }
 
 export function AuditorWorkflowsPage() {
+  useStrictRefererPolicy()
   const [params] = useSearchParams()
   const token = params.get('token') ?? ''
   const [data, setData] = useState<AuditorPayload | null>(null)
