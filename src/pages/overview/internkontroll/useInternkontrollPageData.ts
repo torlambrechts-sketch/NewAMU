@@ -1,0 +1,923 @@
+// useInternkontrollPageData — single read-side hook that backs the
+// unified Internkontroll page.
+//
+// Aggregates the live data needed for all eight sections (Oversikt,
+// Krav, Kontroller, Gap, Årshjul, Tiltak, Prosjekter, Revisjon) into
+// a single in-memory shape so each SectionXxx renderer can pick what
+// it needs without re-fetching.
+//
+// Sources joined client-side (data fits comfortably in one round-trip
+// for a typical org):
+//   • FRAMEWORKS + useRegelverkCoverage    → krav + coverage
+//   • internal_controls                     → kontroller (Tier 2)
+//   • internal_control_clauses              → kontroll ↔ krav links
+//   • regulation_clauses                    → clause id ↔ code map
+//   • internal_control_status_v             → last/next-run + cadence label
+//   • internal_control_executions           → årshjul gjennomført + revisjon
+//   • compliance_plan_items                 → tiltak + prosjekter (grouped)
+//   • register_types                        → register coverage for AML
+//   • useControlsByLawRef                   → per-§ control count (shared)
+
+import { useEffect, useMemo, useState } from 'react'
+import {
+  useRegelverkCoverage,
+  type CoverageEntry,
+  type CoverageMap,
+} from '../../../hooks/useRegelverkCoverage'
+import { useOrgSetupContext } from '../../../hooks/useOrgSetupContext'
+import { useControlsByLawRef } from './useControlsByLawRef'
+import {
+  FRAMEWORKS,
+  FRAMEWORK_IDS,
+  type FrameworkId,
+} from './frameworkParagraphs'
+import type {
+  ControlFamily,
+  ControlFrequencyHint,
+  ControlStatus,
+  ControlStatusLabel,
+} from '../../../types/complianceLayer'
+
+// ── Types surfaced to section renderers ─────────────────────────────────────
+
+export type IkFramework = {
+  id: FrameworkId
+  short: string
+  name: string
+  color: string
+  /** Lucide icon name passed to the FrameworkIcon helper. */
+  icon: string
+  mandatory: boolean
+  reqs: number
+  covered: number
+  partial: number
+  gap: number
+}
+
+export type IkKravStatus = 'covered' | 'partial' | 'gap' | 'na'
+export type IkCriticality = 'høy' | 'middels' | 'lav'
+
+export type IkKrav = {
+  id: string
+  fw: FrameworkId
+  /** Paragraph code, e.g. "AML § 4-3". */
+  ref: string
+  /** Chapter token (e.g. "Kap. 4 — Krav til arbeidsmiljøet") if known. */
+  chapter?: string
+  title: string
+  status: IkKravStatus
+  criticality: IkCriticality
+  /** Control ids that satisfy this paragraph. */
+  controls: string[]
+  /** Coverage entries (templates / instances) that mention this paragraph. */
+  evidence: CoverageEntry[]
+  /** Whether the row counts as register coverage (AML only). */
+  registerCovered: boolean
+  /** Owner name resolved from internal_controls.owner_user_id (Phase 1: '—'). */
+  owner: string
+  /** Last-review date (Phase 1: latest execution among covering controls). */
+  reviewed: string
+  /** Next-review date (Phase 1: earliest next_due_at among controls). */
+  nextReview: string
+  /** Optional gap description (filled in for status='partial'/'gap'). */
+  gap?: string
+}
+
+export type IkKontrollType = 'forebyggende' | 'oppdagende' | 'korrigerende'
+
+export type IkKontroll = {
+  id: string
+  slug: string
+  title: string
+  type: IkKontrollType
+  frequency: ControlFrequencyHint | null
+  /** Lucide-friendly readable frequency label. */
+  frequencyLabel: string
+  evidence: string
+  owner: string
+  ownerRole: string | null
+  status: 'aktiv' | 'utkast' | 'utgått'
+  effectiveness: number
+  lastRun: string
+  nextRun: string
+  /** Krav (paragraph codes) covered. */
+  covers: string[]
+  statusLabel: ControlStatusLabel | null
+  totalExecutions: number
+}
+
+export type IkAarshjulEvent = {
+  id: string
+  month: number
+  /** Day-of-month + "." (e.g. "14.") for display. */
+  date: string
+  title: string
+  fw: FrameworkId[]
+  owner: string
+  status: 'done' | 'planned'
+  controlId: string
+}
+
+export type IkTiltak = {
+  id: string
+  title: string
+  description: string | null
+  krav: string[]
+  fw: FrameworkId
+  owner: string
+  /** Mapped from compliance_plan_items.status. */
+  priority: 'kritisk' | 'høy' | 'middels' | 'lav'
+  status: 'planlagt' | 'pågår' | 'til-godkjenning' | 'fullført' | 'forsinket'
+  deadline: string
+  progress: number
+  project: string | null
+  taskId: string | null
+  rawStatus: 'planned' | 'in_progress' | 'blocked' | 'done'
+  dueAt: string | null
+}
+
+export type IkProsjektMilestone = {
+  label: string
+  date: string
+  done: boolean
+  current?: boolean
+}
+
+export type IkProsjekt = {
+  id: string
+  name: string
+  leader: string
+  status: string
+  phase: string
+  progress: number
+  deadline: string
+  budget: string
+  spent: string
+  description: string
+  tasks: number
+  openTasks: number
+  krav: number
+  krav_covered: number
+  milestones: IkProsjektMilestone[]
+  /** Plan-item IDs in scope. */
+  tiltakIds: string[]
+  /** Paragraph codes in scope. */
+  kravCodes: string[]
+}
+
+export type IkAuditEntry = {
+  when: string
+  who: string
+  action: string
+  detail: string
+}
+
+export type IkStats = {
+  total: number
+  covered: number
+  partial: number
+  gaps: number
+  na: number
+  overdue: number
+  activeKontroller: number
+  upcoming: number
+}
+
+export type IkData = {
+  frameworks: IkFramework[]
+  krav: IkKrav[]
+  kontroller: IkKontroll[]
+  aarshjul: IkAarshjulEvent[]
+  monthNames: string[]
+  tiltak: IkTiltak[]
+  prosjekter: IkProsjekt[]
+  audit: IkAuditEntry[]
+  stats: IkStats
+}
+
+// ── Static framework metadata (icon + color + short label) ──────────────────
+
+const FW_META: Record<FrameworkId, { color: string; icon: string; mandatory: boolean }> = {
+  aml: { color: '#2f7757', icon: 'Scale', mandatory: true },
+  'ik-f': { color: '#1a3d32', icon: 'BookOpen', mandatory: true },
+  gdpr: { color: '#6366F1', icon: 'Lock', mandatory: true },
+  apenhetsloven: { color: '#c98a2b', icon: 'Eye', mandatory: true },
+  'iso-45001': { color: '#16A34A', icon: 'BadgeCheck', mandatory: false },
+}
+
+const MONTH_NAMES = [
+  'Jan',
+  'Feb',
+  'Mar',
+  'Apr',
+  'Mai',
+  'Jun',
+  'Jul',
+  'Aug',
+  'Sep',
+  'Okt',
+  'Nov',
+  'Des',
+]
+
+// ── Raw row types from the DB ───────────────────────────────────────────────
+
+type RegisterRow = { id: string; label: string; aml_paragraphs: string[] | null }
+type ClauseRow = { id: string; code: string }
+type ControlRow = {
+  id: string
+  slug: string
+  name: string
+  purpose: string
+  control_family: ControlFamily
+  frequency_hint: ControlFrequencyHint | null
+  owner_role: string | null
+  owner_user_id: string | null
+  status: ControlStatus
+  is_active: boolean
+}
+type JunctionRow = { control_id: string; clause_id: string }
+type StatusRow = {
+  control_id: string
+  status_label: ControlStatusLabel | null
+  last_occurred_at: string | null
+  next_due_at: string | null
+  total_executions: number
+}
+type ExecutionRow = {
+  id: string
+  control_id: string
+  occurred_at: string
+  period_label: string | null
+  summary: string | null
+  signed_by: string | null
+  signed_at: string | null
+}
+type PlanItemRow = {
+  id: string
+  law_ref: string
+  framework_id: string
+  title: string
+  description: string | null
+  owner_user_id: string | null
+  status: 'planned' | 'in_progress' | 'blocked' | 'done'
+  due_at: string | null
+  milestone: string | null
+  task_id: string | null
+  created_at: string
+  updated_at: string
+}
+
+function normalizeLawRef(ref: string): string {
+  return ref.replace(/\s+/g, ' ').replace(/§\s*/g, '§ ').trim()
+}
+
+function dedupe(entries: CoverageEntry[]): CoverageEntry[] {
+  const m = new Map<string, CoverageEntry>()
+  for (const e of entries) m.set(`${e.kind}:${e.id}`, e)
+  return [...m.values()]
+}
+
+const FREQUENCY_LABELS: Record<NonNullable<ControlFrequencyHint>, string> = {
+  arlig: 'Årlig',
+  halvarlig: 'Halvårlig',
+  kvartalsvis: 'Kvartalsvis',
+  manedlig: 'Månedlig',
+  ukentlig: 'Ukentlig',
+  daglig: 'Daglig',
+  ad_hoc: 'Hendelse',
+}
+
+const FAMILY_TO_TYPE: Record<ControlFamily, IkKontrollType> = {
+  preventive: 'forebyggende',
+  detective: 'oppdagende',
+  corrective: 'korrigerende',
+  directive: 'forebyggende',
+}
+
+const CONTROL_STATUS_MAP: Record<ControlStatus, IkKontroll['status']> = {
+  active: 'aktiv',
+  draft: 'utkast',
+  retired: 'utgått',
+}
+
+// Plan-item status → tiltak status + priority. Phase 1: priority is
+// derived from the original framework's criticality buckets; if every
+// row gets 'middels' the page is still readable.
+function mapPlanStatus(
+  status: PlanItemRow['status'],
+  dueAt: string | null,
+): { status: IkTiltak['status']; priority: IkTiltak['priority'] } {
+  const now = Date.now()
+  const due = dueAt ? Date.parse(dueAt) : null
+  const overdue = status !== 'done' && due !== null && due < now
+  if (status === 'done') return { status: 'fullført', priority: 'lav' }
+  if (status === 'blocked') return { status: 'til-godkjenning', priority: 'høy' }
+  if (overdue) return { status: 'forsinket', priority: 'kritisk' }
+  if (status === 'in_progress') return { status: 'pågår', priority: 'høy' }
+  return { status: 'planlagt', priority: 'middels' }
+}
+
+function formatDate(iso: string | null): string {
+  if (!iso) return '—'
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return '—'
+  return d.toLocaleDateString('nb-NO', { day: '2-digit', month: '2-digit', year: 'numeric' })
+}
+
+function dayLabel(iso: string): string {
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return ''
+  return d.toLocaleDateString('nb-NO', { day: '2-digit', month: '2-digit' })
+}
+
+function monthNumber(iso: string): number {
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return 1
+  return d.getMonth() + 1
+}
+
+// Map a paragraph to a guessed framework id. Picks the framework whose
+// short label appears as a prefix in the law ref, defaulting to AML.
+function frameworkFromLawRef(ref: string): FrameworkId {
+  if (ref.startsWith('AML ')) return 'aml'
+  if (ref.startsWith('IK-f ')) return 'ik-f'
+  if (ref.startsWith('GDPR ')) return 'gdpr'
+  if (ref.startsWith('Åpenhetsloven ')) return 'apenhetsloven'
+  if (ref.startsWith('ISO 45001')) return 'iso-45001'
+  return 'aml'
+}
+
+export function useInternkontrollPageData(): { data: IkData; loading: boolean } {
+  const { supabase, organization } = useOrgSetupContext()
+  const { coverage, loading: coverageLoading } = useRegelverkCoverage()
+  const controlsLookup = useControlsByLawRef()
+
+  // All fetched rows are persisted in a single state slot keyed by
+  // orgId, so an in-flight org switch never lets the derived shapes
+  // compute against stale data. `loaded === null` (or stale orgId)
+  // doubles as the loading signal — avoids a synchronous setState in
+  // the effect body (`react-hooks/set-state-in-effect`).
+  type Loaded = {
+    orgId: string
+    registerRows: RegisterRow[]
+    clauseRows: ClauseRow[]
+    controlRows: ControlRow[]
+    junctions: JunctionRow[]
+    statusRows: StatusRow[]
+    executionRows: ExecutionRow[]
+    planRows: PlanItemRow[]
+  }
+  const [loaded, setLoaded] = useState<Loaded | null>(null)
+  const [userNames, setUserNames] = useState<Map<string, string>>(new Map())
+
+  useEffect(() => {
+    if (!supabase || !organization?.id) return
+    const orgId = organization.id
+    let cancelled = false
+    void Promise.all([
+      supabase
+        .from('register_types')
+        .select('id, label, aml_paragraphs')
+        .or(`organization_id.eq.${orgId},organization_id.is.null`)
+        .eq('is_active', true),
+      supabase
+        .from('regulation_clauses')
+        .select('id, code')
+        .eq('organization_id', orgId)
+        .is('deleted_at', null)
+        .eq('is_active', true),
+      supabase
+        .from('internal_controls')
+        .select(
+          'id, slug, name, purpose, control_family, frequency_hint, owner_role, owner_user_id, status, is_active',
+        )
+        .eq('organization_id', orgId)
+        .is('deleted_at', null),
+      supabase
+        .from('internal_control_clauses')
+        .select('control_id, clause_id')
+        .eq('organization_id', orgId),
+      supabase
+        .from('internal_control_status_v')
+        .select('control_id, status_label, last_occurred_at, next_due_at, total_executions')
+        .eq('organization_id', orgId),
+      supabase
+        .from('internal_control_executions')
+        .select('id, control_id, occurred_at, period_label, summary, signed_by, signed_at')
+        .eq('organization_id', orgId)
+        .order('occurred_at', { ascending: false })
+        .limit(200),
+      supabase
+        .from('compliance_plan_items')
+        .select(
+          'id, law_ref, framework_id, title, description, owner_user_id, status, due_at, milestone, task_id, created_at, updated_at',
+        )
+        .eq('organization_id', orgId)
+        .is('deleted_at', null)
+        .order('updated_at', { ascending: false }),
+    ]).then(([reg, cl, ctrl, jn, st, ex, pl]) => {
+      if (cancelled) return
+      setLoaded({
+        orgId,
+        registerRows: (reg.data ?? []) as RegisterRow[],
+        clauseRows: (cl.data ?? []) as ClauseRow[],
+        controlRows: (ctrl.data ?? []) as ControlRow[],
+        junctions: (jn.data ?? []) as JunctionRow[],
+        statusRows: (st.data ?? []) as StatusRow[],
+        executionRows: (ex.data ?? []) as ExecutionRow[],
+        planRows: (pl.data ?? []) as PlanItemRow[],
+      })
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [supabase, organization?.id])
+
+  // "Loaded for current org" — derived purely from refs so we never set
+  // a transient loading flag synchronously inside the fetch effect.
+  const isCurrent = loaded !== null && loaded.orgId === organization?.id
+  const current = isCurrent ? loaded : null
+
+  // Resolve user names for owners / actors. Fetched separately so a
+  // missing profile row doesn't fail the main load.
+  useEffect(() => {
+    if (!supabase) return
+    if (!current) return
+    const allIds = new Set<string>()
+    for (const c of current.controlRows) if (c.owner_user_id) allIds.add(c.owner_user_id)
+    for (const p of current.planRows) if (p.owner_user_id) allIds.add(p.owner_user_id)
+    for (const e of current.executionRows) if (e.signed_by) allIds.add(e.signed_by)
+    if (allIds.size === 0) return
+    let cancelled = false
+    void supabase
+      .from('profiles')
+      .select('user_id, full_name')
+      .in('user_id', [...allIds])
+      .then(({ data }) => {
+        if (cancelled || !data) return
+        const m = new Map<string, string>()
+        for (const row of data as Array<{ user_id: string; full_name: string | null }>) {
+          if (row.full_name) m.set(row.user_id, row.full_name)
+        }
+        setUserNames(m)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [supabase, current])
+
+  const loading = coverageLoading || controlsLookup.loading || !isCurrent
+
+  const data = useMemo<IkData>(() => {
+    if (!current) {
+      return buildData({
+        coverage,
+        registerRows: [],
+        clauseRows: [],
+        controlRows: [],
+        junctions: [],
+        statusRows: [],
+        executionRows: [],
+        planRows: [],
+        userNames,
+        countByLawRef: controlsLookup.countByLawRef,
+      })
+    }
+    return buildData({
+      coverage,
+      registerRows: current.registerRows,
+      clauseRows: current.clauseRows,
+      controlRows: current.controlRows,
+      junctions: current.junctions,
+      statusRows: current.statusRows,
+      executionRows: current.executionRows,
+      planRows: current.planRows,
+      userNames,
+      countByLawRef: controlsLookup.countByLawRef,
+    })
+  }, [coverage, current, userNames, controlsLookup.countByLawRef])
+
+  return { data, loading }
+}
+
+function buildData(input: {
+  coverage: CoverageMap
+  registerRows: RegisterRow[]
+  clauseRows: ClauseRow[]
+  controlRows: ControlRow[]
+  junctions: JunctionRow[]
+  statusRows: StatusRow[]
+  executionRows: ExecutionRow[]
+  planRows: PlanItemRow[]
+  userNames: Map<string, string>
+  countByLawRef: Map<string, number>
+}): IkData {
+  const {
+    coverage,
+    registerRows,
+    clauseRows,
+    controlRows,
+    junctions,
+    statusRows,
+    executionRows,
+    planRows,
+    userNames,
+    countByLawRef,
+  } = input
+
+  // clause id ↔ code map.
+  const codeByClauseId = new Map<string, string>()
+  for (const c of clauseRows) codeByClauseId.set(c.id, normalizeLawRef(c.code))
+  const clauseIdsByCode = new Map<string, string[]>()
+  for (const c of clauseRows) {
+    const key = normalizeLawRef(c.code)
+    const arr = clauseIdsByCode.get(key) ?? []
+    arr.push(c.id)
+    clauseIdsByCode.set(key, arr)
+  }
+
+  const controlsById = new Map<string, ControlRow>()
+  for (const c of controlRows) controlsById.set(c.id, c)
+  const statusByControlId = new Map<string, StatusRow>()
+  for (const s of statusRows) statusByControlId.set(s.control_id, s)
+  const cluasesByControl = new Map<string, string[]>() // control_id → paragraph codes
+  for (const j of junctions) {
+    const code = codeByClauseId.get(j.clause_id)
+    if (!code) continue
+    const arr = cluasesByControl.get(j.control_id) ?? []
+    arr.push(code)
+    cluasesByControl.set(j.control_id, arr)
+  }
+  const controlsByCode = new Map<string, string[]>() // code → control ids
+  for (const j of junctions) {
+    const code = codeByClauseId.get(j.clause_id)
+    if (!code) continue
+    const arr = controlsByCode.get(code) ?? []
+    arr.push(j.control_id)
+    controlsByCode.set(code, arr)
+  }
+
+  // ── Frameworks (running totals across krav) ────────────────────────────
+  const frameworkSummaries: Record<FrameworkId, IkFramework> = Object.fromEntries(
+    FRAMEWORK_IDS.map((id) => {
+      const def = FRAMEWORKS[id]
+      return [
+        id,
+        {
+          id,
+          short: def.shortLabel,
+          name: def.fullLabel,
+          color: FW_META[id].color,
+          icon: FW_META[id].icon,
+          mandatory: FW_META[id].mandatory,
+          reqs: def.paragraphs.length,
+          covered: 0,
+          partial: 0,
+          gap: 0,
+        } satisfies IkFramework,
+      ]
+    }),
+  ) as Record<FrameworkId, IkFramework>
+
+  // ── Krav (per paragraph) ───────────────────────────────────────────────
+  const krav: IkKrav[] = []
+  for (const id of FRAMEWORK_IDS) {
+    const def = FRAMEWORKS[id]
+    for (const p of def.paragraphs) {
+      const norm = normalizeLawRef(p.code)
+      const entries = dedupe(coverage.get(norm) ?? [])
+      const ctrlIds = controlsByCode.get(norm) ?? []
+      const ctrlCount = countByLawRef.get(norm) ?? 0
+      const registerCovered =
+        id === 'aml' &&
+        registerRows.some((r) => (r.aml_paragraphs ?? []).includes(p.code))
+      const hasModuleEvidence = entries.length > 0
+      const hasAnyControl = ctrlCount > 0
+
+      // Status:
+      //   - 'covered' when at least one of: an active control with a
+      //     non-stale last-execution, ≥1 module evidence row.
+      //   - 'partial' when there's evidence/control but no recent
+      //     run (stale or never_executed) OR draft control.
+      //   - 'gap' when nothing.
+      let status: IkKravStatus = 'gap'
+      let gapNote: string | undefined
+      let lastRun: string | null = null
+      let nextRun: string | null = null
+      let ownerName: string | null = null
+      let staleSomewhere = false
+      let activeAnywhere = false
+      for (const cid of ctrlIds) {
+        const c = controlsById.get(cid)
+        if (!c || !c.is_active || c.status === 'retired') continue
+        const sv = statusByControlId.get(cid)
+        if (!ownerName && c.owner_user_id) {
+          ownerName = userNames.get(c.owner_user_id) ?? null
+        }
+        if (sv?.last_occurred_at) {
+          if (!lastRun || sv.last_occurred_at > lastRun) lastRun = sv.last_occurred_at
+        }
+        if (sv?.next_due_at) {
+          if (!nextRun || sv.next_due_at < nextRun) nextRun = sv.next_due_at
+        }
+        if (sv?.status_label === 'on_track' || sv?.status_label === 'due_soon') {
+          activeAnywhere = true
+        } else if (
+          sv?.status_label === 'overdue' ||
+          sv?.status_label === 'never_executed' ||
+          c.status === 'draft'
+        ) {
+          staleSomewhere = true
+        }
+      }
+
+      if (activeAnywhere || hasModuleEvidence || registerCovered) {
+        status = staleSomewhere && !activeAnywhere ? 'partial' : 'covered'
+        if (status === 'partial')
+          gapNote = 'Kontroll registrert, men sist gjennomføring er forsinket eller mangler.'
+      } else if (hasAnyControl) {
+        status = 'partial'
+        gapNote = 'Kontroll definert, men ingen gjennomføring registrert ennå.'
+      } else {
+        status = 'gap'
+        gapNote = 'Ingen kontroller, maler eller publiserte ressurser dekker dette kravet.'
+      }
+
+      // Criticality heuristic — base on chapter context. AML §§ 3-x,
+      // 4-x and 7-x are high-stakes; § 18-x (tilsyn) is høy too;
+      // GDPR Art. 5/6/30/32/33/35/37 are høy. Tweakable per row by
+      // org-admin in a follow-up release.
+      let criticality: IkCriticality = 'middels'
+      const high =
+        /\b§\s?(3|4|5|6|7|18)\b/.test(p.code) ||
+        /\b(Art\.\s?(5|6|9|13|14|24|28|30|32|33|34|35|37|44))\b/.test(p.code) ||
+        /\b§\s?(8|10\.2)\b/.test(p.code)
+      if (high) criticality = 'høy'
+      if (/\bArt\.\s?(7|17|34)\b/.test(p.code) || /\b§\s?(13|16)\b/.test(p.code))
+        criticality = 'middels'
+
+      const evidence: CoverageEntry[] = entries
+      krav.push({
+        id: `k-${id}-${p.code}`,
+        fw: id,
+        ref: p.code,
+        chapter: p.chapter,
+        title: p.title ?? p.code,
+        status,
+        criticality,
+        controls: ctrlIds,
+        evidence,
+        registerCovered,
+        owner: ownerName ?? '—',
+        reviewed: formatDate(lastRun),
+        nextReview: formatDate(nextRun),
+        gap: status === 'covered' ? undefined : gapNote,
+      })
+
+      const sum = frameworkSummaries[id]
+      if (status === 'covered') sum.covered += 1
+      else if (status === 'partial') sum.partial += 1
+      else if (status === 'gap') sum.gap += 1
+    }
+  }
+
+  const frameworks = FRAMEWORK_IDS.map((id) => frameworkSummaries[id])
+
+  // ── Kontroller ────────────────────────────────────────────────────────
+  const kontroller: IkKontroll[] = controlRows.map((c) => {
+    const sv = statusByControlId.get(c.id)
+    const covers = cluasesByControl.get(c.id) ?? []
+    const owner = c.owner_user_id ? userNames.get(c.owner_user_id) ?? c.owner_role ?? '—' : c.owner_role ?? '—'
+    // Effectiveness scoring (1..5) from status + execution history.
+    let effectiveness = 3
+    if (sv?.status_label === 'on_track') effectiveness = 5
+    else if (sv?.status_label === 'due_soon') effectiveness = 4
+    else if (sv?.status_label === 'overdue') effectiveness = 2
+    else if (sv?.status_label === 'never_executed') effectiveness = 1
+    else if (sv?.status_label === 'retired') effectiveness = 0
+    return {
+      id: c.id,
+      slug: c.slug,
+      title: c.name,
+      type: FAMILY_TO_TYPE[c.control_family],
+      frequency: c.frequency_hint,
+      frequencyLabel: c.frequency_hint ? FREQUENCY_LABELS[c.frequency_hint] : 'Ad hoc',
+      evidence: c.purpose ? 'dokument' : 'sjekkliste',
+      owner,
+      ownerRole: c.owner_role,
+      status: c.is_active ? CONTROL_STATUS_MAP[c.status] : 'utgått',
+      effectiveness,
+      lastRun: formatDate(sv?.last_occurred_at ?? null),
+      nextRun: formatDate(sv?.next_due_at ?? null),
+      covers,
+      statusLabel: sv?.status_label ?? null,
+      totalExecutions: sv?.total_executions ?? 0,
+    }
+  })
+
+  // ── Årshjul ────────────────────────────────────────────────────────────
+  const aarshjul: IkAarshjulEvent[] = []
+  // Past executions go in as 'done'.
+  for (const e of executionRows) {
+    const c = controlsById.get(e.control_id)
+    if (!c) continue
+    const codes = cluasesByControl.get(e.control_id) ?? []
+    const fws = new Set<FrameworkId>(codes.map((code) => frameworkFromLawRef(code)))
+    aarshjul.push({
+      id: `e-${e.id}`,
+      month: monthNumber(e.occurred_at),
+      date: dayLabel(e.occurred_at),
+      title: e.summary || c.name,
+      fw: [...fws],
+      owner: c.owner_user_id ? userNames.get(c.owner_user_id) ?? c.owner_role ?? '—' : c.owner_role ?? '—',
+      status: 'done',
+      controlId: c.id,
+    })
+  }
+  // Planned next runs.
+  for (const sv of statusRows) {
+    if (!sv.next_due_at) continue
+    const c = controlsById.get(sv.control_id)
+    if (!c || !c.is_active || c.status === 'retired') continue
+    const codes = cluasesByControl.get(sv.control_id) ?? []
+    const fws = new Set<FrameworkId>(codes.map((code) => frameworkFromLawRef(code)))
+    aarshjul.push({
+      id: `p-${sv.control_id}-${sv.next_due_at}`,
+      month: monthNumber(sv.next_due_at),
+      date: dayLabel(sv.next_due_at),
+      title: c.name,
+      fw: [...fws],
+      owner: c.owner_user_id ? userNames.get(c.owner_user_id) ?? c.owner_role ?? '—' : c.owner_role ?? '—',
+      status: 'planned',
+      controlId: c.id,
+    })
+  }
+  aarshjul.sort((a, b) => a.month - b.month)
+
+  // ── Tiltak ────────────────────────────────────────────────────────────
+  const tiltak: IkTiltak[] = planRows.map((p) => {
+    const mapped = mapPlanStatus(p.status, p.due_at)
+    // Progress derived from status: planned=0, in_progress=0.5, blocked=0.4, done=1.
+    const progress =
+      p.status === 'done' ? 1 : p.status === 'in_progress' ? 0.5 : p.status === 'blocked' ? 0.4 : 0.1
+    const fwId = (FRAMEWORK_IDS as readonly string[]).includes(p.framework_id)
+      ? (p.framework_id as FrameworkId)
+      : frameworkFromLawRef(p.law_ref)
+    return {
+      id: p.id,
+      title: p.title,
+      description: p.description,
+      krav: [`k-${fwId}-${p.law_ref}`],
+      fw: fwId,
+      owner: p.owner_user_id ? userNames.get(p.owner_user_id) ?? '—' : '—',
+      priority: mapped.priority,
+      status: mapped.status,
+      deadline: formatDate(p.due_at),
+      progress,
+      project: p.milestone ?? null,
+      taskId: p.task_id,
+      rawStatus: p.status,
+      dueAt: p.due_at,
+    }
+  })
+
+  // ── Prosjekter — grouped by `milestone` string (Phase 1) ──────────────
+  // Each distinct non-empty milestone label becomes one project card.
+  const prosjekter: IkProsjekt[] = (() => {
+    const groups = new Map<string, PlanItemRow[]>()
+    for (const p of planRows) {
+      const key = p.milestone?.trim() || null
+      if (!key) continue
+      const arr = groups.get(key) ?? []
+      arr.push(p)
+      groups.set(key, arr)
+    }
+    const out: IkProsjekt[] = []
+    for (const [name, rows] of groups.entries()) {
+      const done = rows.filter((r) => r.status === 'done').length
+      const totalKrav = new Set(rows.map((r) => r.law_ref)).size
+      const coveredKrav = new Set(
+        rows.filter((r) => r.status === 'done').map((r) => r.law_ref),
+      ).size
+      const openTasks = rows.filter((r) => r.status !== 'done').length
+      const leader = rows.find((r) => r.owner_user_id)?.owner_user_id
+      const earliest = rows
+        .map((r) => r.due_at)
+        .filter((d): d is string => !!d)
+        .sort()[0]
+      const latest = rows
+        .map((r) => r.due_at)
+        .filter((d): d is string => !!d)
+        .sort()
+        .pop()
+      const milestones: IkProsjektMilestone[] = [
+        {
+          label: 'Oppstart',
+          date: formatDate(rows[0]?.created_at ?? null),
+          done: true,
+        },
+        {
+          label: 'Tiltak igangsatt',
+          date: formatDate(earliest ?? null),
+          done: rows.some((r) => r.status !== 'planned'),
+          current: rows.some((r) => r.status === 'in_progress'),
+        },
+        {
+          label: 'Tiltak fullført',
+          date: formatDate(latest ?? null),
+          done: done === rows.length && rows.length > 0,
+        },
+      ]
+      out.push({
+        id: `proj-${name}`,
+        name,
+        leader: leader ? userNames.get(leader) ?? '—' : '—',
+        status: done === rows.length ? 'fullført' : 'pågår',
+        phase: done === rows.length ? 'Avsluttet' : openTasks > rows.length / 2 ? 'Planlegging' : 'Pågår',
+        progress: rows.length === 0 ? 0 : done / rows.length,
+        deadline: formatDate(latest ?? null),
+        budget: 'kr 0',
+        spent: 'kr 0',
+        description: `${rows.length} tiltak gruppert under «${name}».`,
+        tasks: rows.length,
+        openTasks,
+        krav: totalKrav,
+        krav_covered: coveredKrav,
+        milestones,
+        tiltakIds: rows.map((r) => r.id),
+        kravCodes: [...new Set(rows.map((r) => r.law_ref))],
+      })
+    }
+    return out
+  })()
+
+  // ── Revisjon-logg (most recent first) ────────────────────────────────
+  const audit: IkAuditEntry[] = []
+  for (const e of executionRows.slice(0, 60)) {
+    const c = controlsById.get(e.control_id)
+    audit.push({
+      when: new Date(e.occurred_at).toLocaleString('nb-NO', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+      }),
+      who: e.signed_by ? userNames.get(e.signed_by) ?? 'System' : 'System',
+      action: 'registrerte gjennomføring',
+      detail: c
+        ? `${c.name}${e.summary ? ' — ' + e.summary : ''}${e.period_label ? ' (' + e.period_label + ')' : ''}`
+        : (e.summary ?? ''),
+    })
+  }
+  for (const p of planRows.slice(0, 40)) {
+    audit.push({
+      when: new Date(p.updated_at).toLocaleString('nb-NO', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+      }),
+      who: p.owner_user_id ? userNames.get(p.owner_user_id) ?? 'System' : 'System',
+      action:
+        p.status === 'done'
+          ? 'lukket tiltak'
+          : p.status === 'in_progress'
+          ? 'startet tiltak'
+          : p.status === 'blocked'
+          ? 'blokkerte tiltak'
+          : 'opprettet tiltak',
+      detail: `${p.law_ref} — ${p.title}`,
+    })
+  }
+  audit.sort((a, b) => {
+    // ISO timestamps are not in the strings, so compare on raw row index.
+    return b.when.localeCompare(a.when)
+  })
+
+  // ── Stats roll-up ────────────────────────────────────────────────────
+  const stats: IkStats = {
+    total: krav.length,
+    covered: krav.filter((k) => k.status === 'covered').length,
+    partial: krav.filter((k) => k.status === 'partial').length,
+    gaps: krav.filter((k) => k.status === 'gap').length,
+    na: krav.filter((k) => k.status === 'na').length,
+    overdue: tiltak.filter((t) => t.status === 'forsinket').length,
+    activeKontroller: kontroller.filter((c) => c.status === 'aktiv').length,
+    upcoming: aarshjul.filter((a) => a.status === 'planned').length,
+  }
+
+  return {
+    frameworks,
+    krav,
+    kontroller,
+    aarshjul,
+    monthNames: MONTH_NAMES,
+    tiltak,
+    prosjekter,
+    audit,
+    stats,
+  }
+}

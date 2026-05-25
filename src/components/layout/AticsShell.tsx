@@ -13,6 +13,7 @@ import {
   ChevronRight,
   ClipboardList,
   FileText,
+  FolderKanban,
   FolderTree,
   GraduationCap,
   History,
@@ -21,10 +22,12 @@ import {
   Kanban,
   KeyRound,
   LayoutTemplate,
+  ListChecks,
   Megaphone,
   PanelLeft,
   PanelRight,
   Plug,
+  Scale,
   ScrollText,
   ShieldAlert,
   ShieldCheck,
@@ -1892,25 +1895,87 @@ export function AticsShell() {
         label: 'Internkontroll',
         path: '/overview/internkontroll',
         Icon: ShieldCheck,
-        match: ({ pathname }) =>
-          pathname === '/overview/internkontroll' ||
-          (pathname.startsWith('/overview/internkontroll') &&
-            !pathname.startsWith('/overview/internkontroll/gaps') &&
-            !pathname.startsWith('/overview/internkontroll/plan')),
+        match: ({ pathname, search }) => {
+          if (
+            !(
+              pathname === '/internkontroll' ||
+              pathname === '/overview/internkontroll' ||
+              pathname.startsWith('/overview/internkontroll/dashboard')
+            )
+          ) {
+            return false
+          }
+          // The new unified page exposes sections via ?section=…; this
+          // top-level entry only highlights when no specific section is
+          // active or when the user is on Oversikt.
+          const sec = new URLSearchParams(search).get('section') ?? 'oversikt'
+          return sec === 'oversikt'
+        },
+        requirePermAny: overviewNavPerms,
+      },
+      {
+        label: 'Krav',
+        path: '/overview/internkontroll?section=krav',
+        Icon: Scale,
+        match: ({ pathname, search }) =>
+          (pathname === '/overview/internkontroll' || pathname === '/internkontroll') &&
+          new URLSearchParams(search).get('section') === 'krav',
+        requirePermAny: overviewNavPerms,
+      },
+      {
+        label: 'Kontroller',
+        path: '/overview/internkontroll?section=kontroller',
+        Icon: ShieldCheck,
+        match: ({ pathname, search }) =>
+          (pathname === '/overview/internkontroll' || pathname === '/internkontroll') &&
+          new URLSearchParams(search).get('section') === 'kontroller',
         requirePermAny: overviewNavPerms,
       },
       {
         label: 'Gap-analyse',
-        path: '/overview/internkontroll/gaps',
+        path: '/overview/internkontroll?section=gap',
         Icon: ShieldAlert,
-        match: ({ pathname }) => pathname.startsWith('/overview/internkontroll/gaps'),
+        match: ({ pathname, search }) =>
+          pathname.startsWith('/overview/internkontroll/gaps') ||
+          ((pathname === '/overview/internkontroll' || pathname === '/internkontroll') &&
+            new URLSearchParams(search).get('section') === 'gap'),
         requirePermAny: overviewNavPerms,
       },
       {
-        label: 'Plan & tidslinje',
-        path: '/overview/internkontroll/plan',
+        label: 'Årshjul',
+        path: '/overview/internkontroll?section=aarshjul',
         Icon: CalendarClock,
-        match: ({ pathname }) => pathname.startsWith('/overview/internkontroll/plan'),
+        match: ({ pathname, search }) =>
+          (pathname === '/overview/internkontroll' || pathname === '/internkontroll') &&
+          new URLSearchParams(search).get('section') === 'aarshjul',
+        requirePermAny: overviewNavPerms,
+      },
+      {
+        label: 'Tiltak',
+        path: '/overview/internkontroll?section=tiltak',
+        Icon: ListChecks,
+        match: ({ pathname, search }) =>
+          pathname.startsWith('/overview/internkontroll/plan') ||
+          ((pathname === '/overview/internkontroll' || pathname === '/internkontroll') &&
+            new URLSearchParams(search).get('section') === 'tiltak'),
+        requirePermAny: overviewNavPerms,
+      },
+      {
+        label: 'Prosjekter',
+        path: '/overview/internkontroll?section=prosjekter',
+        Icon: FolderKanban,
+        match: ({ pathname, search }) =>
+          (pathname === '/overview/internkontroll' || pathname === '/internkontroll') &&
+          new URLSearchParams(search).get('section') === 'prosjekter',
+        requirePermAny: overviewNavPerms,
+      },
+      {
+        label: 'Revisjon-logg',
+        path: '/overview/internkontroll?section=revisjon',
+        Icon: History,
+        match: ({ pathname, search }) =>
+          (pathname === '/overview/internkontroll' || pathname === '/internkontroll') &&
+          new URLSearchParams(search).get('section') === 'revisjon',
         requirePermAny: overviewNavPerms,
       },
       {

@@ -108,6 +108,7 @@ import { RegelverkCoveragePage } from './pages/overview/regelverk/RegelverkCover
 import { InternkontrollDashboardPage } from './pages/overview/internkontroll/InternkontrollDashboardPage'
 import { InternkontrollGapPage } from './pages/overview/internkontroll/InternkontrollGapPage'
 import { InternkontrollPlanPage } from './pages/overview/internkontroll/InternkontrollPlanPage'
+import { InternkontrollPage } from './pages/overview/internkontroll/InternkontrollPage'
 import { InternkontrollAuditorPage } from './pages/auditor/InternkontrollAuditorPage'
 import { ControlsAuditorPage } from './pages/auditor/ControlsAuditorPage'
 import { BenchmarkPage } from './pages/dashboards/BenchmarkPage'
@@ -405,7 +406,12 @@ const router = createBrowserRouter(
                       <Route path="partner/branding" element={<PartnerBrandingPage />} />
                       <Route path="partner/invoice/:id" element={<PartnerConsolePage />} />
                       <Route path="overview/regelverk" element={<RegelverkCoveragePage />} />
-                      <Route path="overview/internkontroll" element={<InternkontrollDashboardPage />} />
+                      <Route path="internkontroll" element={<InternkontrollPage />} />
+                      <Route path="overview/internkontroll" element={<InternkontrollPage />} />
+                      <Route
+                        path="overview/internkontroll/dashboard"
+                        element={<InternkontrollDashboardPage />}
+                      />
                       <Route path="overview/internkontroll/gaps" element={<InternkontrollGapPage />} />
                       <Route path="overview/internkontroll/plan" element={<InternkontrollPlanPage />} />
                       <Route path="risk" element={<Navigate to="/risk/analyse" replace />} />

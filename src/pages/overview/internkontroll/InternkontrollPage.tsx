@@ -1,0 +1,365 @@
+// Internkontroll — unified compliance management page.
+//
+// Combines what used to live across InternkontrollDashboardPage,
+// InternkontrollGapPage and InternkontrollPlanPage into a single
+// sidebar-driven page with eight sections:
+//
+//   Oversikt · Krav · Kontroller · Gap-analyse · Årshjul ·
+//   Tiltak · Prosjekter · Revisjon-logg
+//
+// Section selection is URL-driven via ?section=… so deep-links survive
+// reload and the side-nav anchor highlight is shareable.
+//
+// Data sources (read from the live tables — no new tables introduced):
+//   • frameworks       — derived from FRAMEWORKS + useRegelverkCoverage
+//                        + useControlsByLawRef + register coverage
+//   • krav             — one row per framework paragraph
+//   • kontroller       — internal_controls + internal_control_clauses +
+//                        internal_control_status_v
+//   • gap              — krav with status != 'covered'
+//   • årshjul          — internal_control_executions (last 12 months)
+//                        + scheduled cadence (frequency_hint → next_due_at)
+//   • tiltak           — compliance_plan_items
+//   • prosjekter       — derived from compliance_plan_items grouped by
+//                        framework + milestone string field (Phase 1 view)
+//   • revisjon-logg    — compliance_plan_items + internal_control_
+//                        executions union, latest first
+
+import { useMemo } from 'react'
+import { useSearchParams } from 'react-router-dom'
+import {
+  CalendarClock,
+  Download,
+  FolderKanban,
+  History,
+  LayoutDashboard,
+  ListChecks,
+  Plus,
+  Scale,
+  ShieldCheck,
+  TriangleAlert,
+} from 'lucide-react'
+import { ModulePageShell } from '../../../components/module/ModulePageShell'
+import { Button } from '../../../components/ui/Button'
+import { useInternkontrollPageData } from './useInternkontrollPageData'
+import { useCompliancePlanItems } from './useCompliancePlanItems'
+import { OversiktSection } from './sections/OversiktSection'
+import { KravSection } from './sections/KravSection'
+import { KontrollerSection } from './sections/KontrollerSection'
+import { GapSection } from './sections/GapSection'
+import { AarshjulSection } from './sections/AarshjulSection'
+import { TiltakSection } from './sections/TiltakSection'
+import { ProsjekterSection } from './sections/ProsjekterSection'
+import { RevisjonSection } from './sections/RevisjonSection'
+import {
+  CoverageBar,
+  type IkSectionId,
+  type IkFrameworkFilter,
+} from './sections/internkontrollShared'
+
+const BREADCRUMB = [
+  { label: 'Arbeidsflate', to: '/' },
+  { label: 'Oversikt', to: '/overview/hms' },
+  { label: 'Internkontroll' },
+]
+
+const NAV: Array<{ id: IkSectionId; label: string; Icon: typeof LayoutDashboard }> = [
+  { id: 'oversikt', label: 'Oversikt', Icon: LayoutDashboard },
+  { id: 'krav', label: 'Krav', Icon: Scale },
+  { id: 'kontroller', label: 'Kontroller', Icon: ShieldCheck },
+  { id: 'gap', label: 'Gap-analyse', Icon: TriangleAlert },
+  { id: 'aarshjul', label: 'Årshjul', Icon: CalendarClock },
+  { id: 'tiltak', label: 'Tiltak', Icon: ListChecks },
+  { id: 'prosjekter', label: 'Prosjekter', Icon: FolderKanban },
+  { id: 'revisjon', label: 'Revisjon-logg', Icon: History },
+]
+
+const VALID_SECTIONS = new Set<IkSectionId>(NAV.map((n) => n.id))
+
+export function InternkontrollPage() {
+  const [searchParams, setSearchParams] = useSearchParams()
+  const sectionParam = searchParams.get('section')
+  const section: IkSectionId =
+    sectionParam && VALID_SECTIONS.has(sectionParam as IkSectionId)
+      ? (sectionParam as IkSectionId)
+      : 'oversikt'
+
+  const filterFwParam = searchParams.get('framework') ?? 'all'
+  const filterFw: IkFrameworkFilter = filterFwParam as IkFrameworkFilter
+
+  const setSection = (id: IkSectionId) => {
+    const sp = new URLSearchParams(searchParams)
+    sp.set('section', id)
+    setSearchParams(sp, { replace: true })
+  }
+  const setFilterFw = (id: IkFrameworkFilter) => {
+    const sp = new URLSearchParams(searchParams)
+    if (id === 'all') sp.delete('framework')
+    else sp.set('framework', id)
+    setSearchParams(sp, { replace: true })
+  }
+
+  const { data, loading } = useInternkontrollPageData()
+  const plan = useCompliancePlanItemsForActiveFramework(filterFw)
+
+  const counts: Record<IkSectionId, number | null> = useMemo(() => {
+    const stats = data.stats
+    return {
+      oversikt: null,
+      krav: data.krav.length,
+      kontroller: data.kontroller.length,
+      gap: stats.gaps + stats.partial,
+      aarshjul: data.aarshjul.length,
+      tiltak: plan.items.length,
+      prosjekter: data.prosjekter.length,
+      revisjon: data.audit.length,
+    }
+  }, [data, plan.items.length])
+
+  const headerActions = (
+    <div className="flex items-center gap-2">
+      <Button
+        variant="secondary"
+        size="sm"
+        icon={<Download className="h-3.5 w-3.5" />}
+        onClick={() => {
+          const blob = exportStatusCsv(data)
+          const url = URL.createObjectURL(blob)
+          const a = document.createElement('a')
+          a.href = url
+          a.download = `internkontroll-status-${new Date().toISOString().slice(0, 10)}.csv`
+          a.click()
+          URL.revokeObjectURL(url)
+        }}
+      >
+        Eksporter status
+      </Button>
+      <Button
+        variant="primary"
+        size="sm"
+        icon={<Plus className="h-3.5 w-3.5" />}
+        onClick={() => setSection('kontroller')}
+      >
+        Ny kontroll
+      </Button>
+    </div>
+  )
+
+  return (
+    <ModulePageShell
+      breadcrumb={BREADCRUMB}
+      title="Internkontroll"
+      description="Krav, kontroller og styring av etterlevelse — på tvers av lovverk og rammeverk."
+      loading={loading}
+      loadingLabel="Laster internkontroll…"
+      headerActions={headerActions}
+    >
+      <div className="grid grid-cols-1 gap-5 lg:grid-cols-[220px_minmax(0,1fr)]">
+        {/* SIDE NAV */}
+        <aside className="space-y-3">
+          <div className="overflow-hidden rounded-xl border border-neutral-200/80 bg-white shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
+            <ul className="py-1.5">
+              {NAV.map(({ id, label, Icon }) => {
+                const active = id === section
+                const count = counts[id]
+                return (
+                  <li key={id}>
+                    <Button
+                      variant="ghost"
+                      onClick={() => setSection(id)}
+                      className={[
+                        'flex w-full items-center justify-start gap-2.5 rounded-none border-0 px-4 py-2 text-left text-sm font-normal',
+                        active
+                          ? 'bg-[#e7efe9] text-neutral-900 hover:bg-[#e7efe9]'
+                          : 'text-neutral-700 hover:bg-neutral-50 hover:text-neutral-900',
+                      ].join(' ')}
+                      style={active ? { boxShadow: 'inset 3px 0 0 #1a3d32' } : undefined}
+                    >
+                      <Icon
+                        className={[
+                          'h-3.5 w-3.5 shrink-0',
+                          active ? 'text-[#1a3d32]' : 'text-neutral-500',
+                        ].join(' ')}
+                      />
+                      <span
+                        className={[
+                          'min-w-0 flex-1',
+                          active ? 'font-semibold' : 'font-medium',
+                        ].join(' ')}
+                      >
+                        {label}
+                      </span>
+                      {count != null ? (
+                        <span
+                          className={[
+                            'rounded-full px-1.5 py-px text-[10px] font-bold tabular-nums',
+                            active
+                              ? 'bg-[#1a3d32] text-white'
+                              : 'bg-neutral-100 text-neutral-600',
+                          ].join(' ')}
+                        >
+                          {count}
+                        </span>
+                      ) : null}
+                    </Button>
+                  </li>
+                )
+              })}
+            </ul>
+          </div>
+
+          {/* Rammeverk-filter */}
+          <div className="rounded-xl border border-neutral-200/80 bg-white p-3 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
+            <h3 className="text-[10px] font-bold uppercase tracking-wider text-neutral-500">
+              Rammeverk
+            </h3>
+            <ul className="mt-1.5 space-y-0.5">
+              <li>
+                <Button
+                  variant="ghost"
+                  onClick={() => setFilterFw('all')}
+                  className={[
+                    'flex w-full items-center justify-between gap-2 rounded border-0 px-1.5 py-1 text-[11px] font-normal',
+                    filterFw === 'all'
+                      ? 'bg-neutral-100 font-semibold text-neutral-900 hover:bg-neutral-100'
+                      : 'text-neutral-700 hover:bg-neutral-50 hover:text-neutral-900',
+                  ].join(' ')}
+                >
+                  <span className="flex items-center gap-1.5">
+                    <span className="h-2 w-2 rounded-full bg-neutral-400" />
+                    Alle ({data.krav.length})
+                  </span>
+                </Button>
+              </li>
+              {data.frameworks.map((f) => {
+                const active = filterFw === f.id
+                return (
+                  <li key={f.id}>
+                    <Button
+                      variant="ghost"
+                      onClick={() => setFilterFw(f.id)}
+                      className={[
+                        'flex w-full items-center justify-between gap-2 rounded border-0 px-1.5 py-1 text-[11px] font-normal',
+                        active
+                          ? 'font-semibold text-neutral-900'
+                          : 'text-neutral-700 hover:bg-neutral-50 hover:text-neutral-900',
+                      ].join(' ')}
+                      style={active ? { background: f.color + '14' } : undefined}
+                    >
+                      <span className="flex min-w-0 items-center gap-1.5">
+                        <span
+                          className="h-2 w-2 shrink-0 rounded-full"
+                          style={{ background: f.color }}
+                        />
+                        <span className="truncate">{f.short}</span>
+                      </span>
+                      <span className="tabular-nums text-[10px] text-neutral-500">{f.reqs}</span>
+                    </Button>
+                  </li>
+                )
+              })}
+            </ul>
+          </div>
+
+          {/* Etterlevelse status mini */}
+          <div className="rounded-xl border border-neutral-200/80 bg-white p-4 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
+            <h3 className="text-[10px] font-bold uppercase tracking-wider text-neutral-500">
+              Etterlevelse
+            </h3>
+            <div className="mt-2 flex items-baseline gap-1.5">
+              <span className="text-2xl font-bold tabular-nums text-neutral-900">
+                {data.stats.total > 0
+                  ? Math.round((data.stats.covered / data.stats.total) * 100)
+                  : 0}
+                %
+              </span>
+              <span className="text-[10px] text-neutral-500">dekket</span>
+            </div>
+            <div className="mt-2">
+              <CoverageBar
+                covered={data.stats.covered}
+                partial={data.stats.partial}
+                gap={data.stats.gaps}
+                total={Math.max(1, data.stats.total)}
+              />
+            </div>
+            <ul className="mt-2 space-y-0.5 text-[10px]">
+              <li className="flex items-center justify-between">
+                <span className="flex items-center gap-1.5">
+                  <span className="h-2 w-2 rounded-full bg-[#2f7757]" />
+                  <span className="text-neutral-700">Dekket</span>
+                </span>
+                <span className="tabular-nums text-neutral-600">{data.stats.covered}</span>
+              </li>
+              <li className="flex items-center justify-between">
+                <span className="flex items-center gap-1.5">
+                  <span className="h-2 w-2 rounded-full bg-[#c98a2b]" />
+                  <span className="text-neutral-700">Delvis</span>
+                </span>
+                <span className="tabular-nums text-neutral-600">{data.stats.partial}</span>
+              </li>
+              <li className="flex items-center justify-between">
+                <span className="flex items-center gap-1.5">
+                  <span className="h-2 w-2 rounded-full bg-[#b3382a]" />
+                  <span className="text-neutral-700">Gap</span>
+                </span>
+                <span className="tabular-nums text-neutral-600">{data.stats.gaps}</span>
+              </li>
+            </ul>
+          </div>
+        </aside>
+
+        {/* SECTION CONTENT */}
+        <section className="min-w-0">
+          {section === 'oversikt' && <OversiktSection data={data} setSection={setSection} />}
+          {section === 'krav' && (
+            <KravSection data={data} filterFw={filterFw} setFilterFw={setFilterFw} />
+          )}
+          {section === 'kontroller' && (
+            <KontrollerSection data={data} filterFw={filterFw} />
+          )}
+          {section === 'gap' && <GapSection data={data} filterFw={filterFw} plan={plan} />}
+          {section === 'aarshjul' && <AarshjulSection data={data} filterFw={filterFw} />}
+          {section === 'tiltak' && <TiltakSection data={data} plan={plan} />}
+          {section === 'prosjekter' && <ProsjekterSection data={data} plan={plan} />}
+          {section === 'revisjon' && <RevisjonSection data={data} />}
+        </section>
+      </div>
+    </ModulePageShell>
+  )
+}
+
+function useCompliancePlanItemsForActiveFramework(filter: IkFrameworkFilter) {
+  // The plan-items hook is keyed on framework id. When the side filter
+  // is 'all' we still pick a default (AML — largest framework + most
+  // plan items today). Any framework selection narrows the fetch to
+  // that regelverk so the Tiltak section reflects the user's lens.
+  const fw = filter === 'all' ? 'aml' : filter
+  return useCompliancePlanItems(fw)
+}
+
+function exportStatusCsv(data: ReturnType<typeof useInternkontrollPageData>['data']) {
+  const lines = [
+    ['Rammeverk', 'Paragraf', 'Tittel', 'Status', 'Kritikalitet', 'Eier'].join(';'),
+  ]
+  for (const k of data.krav) {
+    lines.push(
+      [
+        escapeCsv(k.fw),
+        escapeCsv(k.ref),
+        escapeCsv(k.title),
+        escapeCsv(k.status),
+        escapeCsv(k.criticality),
+        escapeCsv(k.owner ?? ''),
+      ].join(';'),
+    )
+  }
+  return new Blob([lines.join('\n')], { type: 'text/csv;charset=utf-8' })
+}
+
+function escapeCsv(s: string): string {
+  if (s.includes(';') || s.includes('"') || s.includes('\n')) {
+    return '"' + s.replaceAll('"', '""') + '"'
+  }
+  return s
+}
