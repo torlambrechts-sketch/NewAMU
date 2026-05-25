@@ -1,7 +1,12 @@
 // Kontroller — list of named internal controls (Tier 2 of the
 // compliance-layer architecture). Two views: cards (default) and table.
+// Each row navigates to /controls/<id> for the per-control detail surface
+// (bindings editor, evidence chain, auditor-token sharing) — these live
+// in the compliance-layer module but render under this list now that
+// /controls hub is folded into Internkontroll.
 
 import { useMemo, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { Clock, FileText, LayoutGrid, Plus, ShieldCheck, Table as TableIcon } from 'lucide-react'
 import { Button } from '../../../../components/ui/Button'
 import {
@@ -32,6 +37,7 @@ export function KontrollerSection({
   filterFw: IkFrameworkFilter
   filterCategory: IkCategoryFilter
 }) {
+  const navigate = useNavigate()
   const [view, setView] = useState<'cards' | 'table'>('cards')
   const [typeFilter, setTypeFilter] = useState<ControlType | 'all'>('all')
   const [freqFilter, setFreqFilter] = useState<Freq>('all')
@@ -147,7 +153,17 @@ export function KontrollerSection({
             {filtered.map((c) => (
               <article
                 key={c.id}
-                className="overflow-hidden rounded-xl border border-neutral-200/80 bg-white transition-all hover:border-[#1a3d32]/40 hover:shadow-md"
+                onClick={() => navigate(`/controls/${c.id}`)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault()
+                    navigate(`/controls/${c.id}`)
+                  }
+                }}
+                role="button"
+                tabIndex={0}
+                aria-label={`Åpne detalj for ${c.title}`}
+                className="cursor-pointer overflow-hidden rounded-xl border border-neutral-200/80 bg-white transition-all hover:border-[#1a3d32]/40 hover:shadow-md focus:outline-none focus-visible:ring-2 focus-visible:ring-[#1a3d32]/40"
               >
                 <div className="h-1" style={{ background: TYPE_TONE[c.type].bg }} />
                 <div className="p-4">
@@ -229,7 +245,20 @@ export function KontrollerSection({
               </thead>
               <tbody>
                 {filtered.map((c) => (
-                  <tr key={c.id} className={MODULE_TABLE_TR_BODY + ' cursor-pointer'}>
+                  <tr
+                    key={c.id}
+                    onClick={() => navigate(`/controls/${c.id}`)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault()
+                        navigate(`/controls/${c.id}`)
+                      }
+                    }}
+                    role="button"
+                    tabIndex={0}
+                    aria-label={`Åpne detalj for ${c.title}`}
+                    className={MODULE_TABLE_TR_BODY + ' cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#1a3d32]/40'}
+                  >
                     <td className="px-5 py-3">
                       <div className="font-medium text-neutral-900">{c.title}</div>
                       <div className="text-[10px] text-neutral-500">

@@ -166,8 +166,6 @@ import { ChecklistsAnalysePage } from '../modules/compliance/ChecklistsAnalysePa
 import { ChecklistsEtterlevelsePage } from '../modules/compliance/ChecklistsEtterlevelsePage'
 import { ChecklistExecutionPage } from '../modules/compliance/ChecklistExecutionPage'
 import {
-  ControlsHubLanding,
-  ControlsListPage,
   ControlDetailPage,
   ComplianceLayerAnalysePage,
   KontrollerInnstillingerPage,
@@ -568,13 +566,19 @@ const router = createBrowserRouter(
                           </PackProvider>
                         }
                       />
-                      {/* Compliance Layer — Tier 2 internal controls
-                          (Rules → Internal Controls → Execution).
-                          Top-level NavGroup at /controls; integrates
-                          with all module sign events via M5 auto-bind
-                          triggers. */}
-                      <Route path="controls" element={<ControlsHubLanding />} />
-                      <Route path="controls/list" element={<ControlsListPage />} />
+                      {/* Compliance Layer (Tier 2) — `/controls` hub + list
+                          folded into Internkontroll · Kontroller (Nov 2026).
+                          The list at `/internkontroll?section=kontroller`
+                          opens detail at `/controls/:controlId`; the
+                          analyse / admin surfaces stay as deep-dives. */}
+                      <Route
+                        path="controls"
+                        element={<Navigate to="/internkontroll?section=kontroller" replace />}
+                      />
+                      <Route
+                        path="controls/list"
+                        element={<Navigate to="/internkontroll?section=kontroller" replace />}
+                      />
                       <Route
                         path="controls/analyse"
                         element={<ComplianceLayerAnalysePage />}
