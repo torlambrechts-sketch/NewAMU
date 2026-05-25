@@ -12,7 +12,8 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import { useParams } from 'react-router-dom'
-import { Loader2, ShieldCheck } from 'lucide-react'
+import { Loader2, Printer, ShieldCheck } from 'lucide-react'
+import { Button } from '../../components/ui/Button'
 import { getSupabaseBrowserClient } from '../../lib/supabaseClient'
 
 type SnapshotControl = {
@@ -274,19 +275,73 @@ function RenderSnapshot({ payload }: { payload: TokenPayload }) {
 
   return (
     <div className="min-h-screen bg-[#F9F7F2]">
-      <header className="border-b border-neutral-200 bg-white">
-        <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-3">
+      {/* Print-only header — visible only when the page is printed to
+          PDF / paper. The live header (below) carries the same info but
+          is hidden by data-print-hide so the print page can lean on
+          serif typography from print.css and a cleaner banner. */}
+      <div
+        data-print-only
+        className="hidden border-b border-neutral-300 pb-3 mb-3 print:block"
+      >
+        <p className="text-[10px] font-bold uppercase tracking-wide text-neutral-700">
+          Revisor-visning · Internkontroller · Frosset snapshot
+        </p>
+        <p className="mt-1 text-xs text-neutral-700">
+          Delt {createdAt} · Gyldig til {expiresAt}
+        </p>
+      </div>
+
+      <header
+        data-print-hide
+        className="border-b border-neutral-200 bg-white"
+      >
+        <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-2 px-6 py-3">
           <div className="flex items-center gap-2 text-sm font-semibold text-neutral-900">
             <ShieldCheck className="size-4" style={{ color: ACCENT }} aria-hidden />
             Revisor-visning · Internkontroller
           </div>
-          <div className="text-[11px] text-neutral-500">
-            Lest-modus · Delt {createdAt} · Gyldig til {expiresAt}
+          <div className="flex items-center gap-3">
+            <span className="text-[11px] text-neutral-500">
+              Lest-modus · Delt {createdAt} · Gyldig til {expiresAt}
+            </span>
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => window.print()}
+              aria-label="Skriv ut eller lagre som PDF"
+              className="inline-flex items-center gap-1.5"
+            >
+              <Printer className="size-3.5" aria-hidden />
+              Skriv ut / PDF
+            </Button>
           </div>
         </div>
       </header>
 
       <main className="mx-auto max-w-6xl px-6 py-6 space-y-6">
+        {/* Frosset-snapshot watermark band — matches the internkontroll
+            auditor's `snapshotMode` chrome from the dashboard runtime so
+            the recipient understands at a glance that what they see is
+            point-in-time, not live. NB: rendered as a <div> not <aside>
+            because the global print stylesheet hides <aside> by default
+            and we want this band to print. */}
+        <div
+          role="note"
+          aria-label="Snapshot-merknad"
+          className="flex items-start gap-3 rounded-md border border-dashed border-amber-400 bg-amber-50/70 px-4 py-3 text-xs text-amber-900"
+        >
+          <ShieldCheck className="mt-0.5 size-4 shrink-0" aria-hidden />
+          <div>
+            <span className="block font-semibold uppercase tracking-wide">
+              Frosset snapshot · Revisor-visning
+            </span>
+            <span className="mt-0.5 block">
+              Delt {createdAt} · Gyldig til {expiresAt}. Lenken kan tilbakekalles
+              av virksomheten når som helst.
+            </span>
+          </div>
+        </div>
+
         <section>
           <h1
             className="text-2xl font-semibold text-neutral-900"
