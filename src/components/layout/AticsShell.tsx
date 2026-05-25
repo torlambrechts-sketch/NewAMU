@@ -5,9 +5,7 @@ import {
   AlertTriangle,
   BarChart3,
   BookOpen,
-  Boxes,
   Briefcase,
-  Building2,
   Database,
   ClipboardList,
   FileText,
@@ -18,13 +16,10 @@ import {
   Home,
   Inbox,
   Kanban,
-  KeyRound,
-  LayoutTemplate,
   ListChecks,
   Megaphone,
   PanelLeft,
   PanelRight,
-  Plug,
   Scale,
   ScrollText,
   ShieldAlert,
@@ -32,10 +27,7 @@ import {
   Settings,
   Star,
   CalendarClock,
-  UserCheck,
-  Users,
   Wand2,
-  Workflow,
   CalendarDays,
   LayoutDashboard,
 } from 'lucide-react'
@@ -129,31 +121,6 @@ const ADMINISTRASJON_NAV_PERMS: PermissionKey[] = [
   'employee.manage',
   'workflows.manage',
   'module.view.workflow',
-]
-const ORG_NAV_PERMS: PermissionKey[] = [
-  'module.view.admin',
-  'users.manage',
-  'employee.manage',
-]
-const USERS_ROLES_NAV_PERMS: PermissionKey[] = [
-  'users.manage',
-  'users.invite',
-  'roles.manage',
-  'delegation.manage',
-]
-const INTEGRATIONS_NAV_PERMS: PermissionKey[] = [
-  'module.view.admin',
-  'workflows.manage',
-]
-const WORKFLOWS_NAV_PERMS: PermissionKey[] = [
-  'workflows.manage',
-  'workflows.compose',
-  'module.view.workflow',
-  'module.view.admin',
-]
-const SETTINGS_NAV_PERMS: PermissionKey[] = [
-  'module.view.admin',
-  'roles.manage',
 ]
 
 // ─── Navigation groups ────────────────────────────────────────────────────────
@@ -405,6 +372,23 @@ function activeModuleForPath(modules: NavModule[], pathname: string, search: str
   if (pathname === '/admin/tilsynsbrev' || pathname.startsWith('/admin/tilsynsbrev/')) {
     const ts = modules.find((m) => m.to === '/admin/tilsynsbrev')
     if (ts) return ts
+  }
+  // Internkontroll umbrella — /internkontroll + /overview/internkontroll/*
+  // all light up the same Styringssystem group entry.
+  if (
+    pathname === '/internkontroll' ||
+    pathname.startsWith('/internkontroll/') ||
+    pathname === '/overview/internkontroll' ||
+    pathname.startsWith('/overview/internkontroll/')
+  ) {
+    const ik = modules.find((m) => m.to === '/internkontroll')
+    if (ik) return ik
+  }
+  // Admin umbrella — every /admin/settings/* tab maps to the single
+  // Administrasjon nav entry; the page itself handles in-page tabs.
+  if (pathname === '/admin/settings/org' || pathname.startsWith('/admin/settings/')) {
+    const adm = modules.find((m) => m.to === '/admin/settings/org')
+    if (adm) return adm
   }
   // Mitt arbeid surfaces: /innboks + /mitt-arbeid/* all belong to the
   // Mitt arbeid group.
@@ -1168,193 +1152,8 @@ export function AticsShell() {
     // to `/admin/settings/<scope>/<section>` so external bookmarks and
     // email links resolve to the same shell.
     //
-    // Per-module nav perm constants (declared near the top of this
-    // file) make sure a specialist role — e.g. integrasjons­ansvarlig
-    // with only `workflows.manage` — sees the Integrasjoner/Arbeidsflyt
-    // modules but not the rest.
-    // Organisasjon subs deep-link to the existing OrganisationPage tabs
-    // (insights / settings / units / employees / mandates). The earlier
-    // /admin/settings/organisation/* registry scope was just a row of
-    // placeholder cards pointing here — collapsed it into direct links
-    // so admins land on the real surface in one click.
-    const matchOrgTab = (tab: string) =>
-      ({ pathname, search }: { pathname: string; search: string }) => {
-        if (pathname !== '/organisation') return false
-        return new URLSearchParams(search).get('tab') === tab
-      }
-    const organisationSubs: SubItem[] = [
-      {
-        label: 'Analyse',
-        path: '/organisation?tab=insights',
-        Icon: BarChart3,
-        match: ({ pathname, search }) => {
-          if (pathname !== '/organisation') return false
-          const t = new URLSearchParams(search).get('tab')
-          return !t || t === 'insights' || t === 'orgchart'
-        },
-        requirePermAny: ORG_NAV_PERMS,
-      },
-      {
-        label: 'Selskap',
-        path: '/organisation?tab=settings',
-        Icon: Building2,
-        match: matchOrgTab('settings'),
-        requirePermAny: ORG_NAV_PERMS,
-      },
-      {
-        label: 'Avdelinger & enheter',
-        path: '/organisation?tab=units',
-        Icon: FolderTree,
-        match: matchOrgTab('units'),
-        requirePermAny: ORG_NAV_PERMS,
-      },
-      {
-        label: 'Ansatte',
-        path: '/organisation?tab=employees',
-        Icon: Users,
-        match: matchOrgTab('employees'),
-        requirePermAny: ORG_NAV_PERMS,
-      },
-      {
-        label: 'Mandater & verv',
-        path: '/organisation?tab=mandates',
-        Icon: UserCheck,
-        match: matchOrgTab('mandates'),
-        requirePermAny: ORG_NAV_PERMS,
-      },
-    ]
-    // Klarert Admin har en flat seksjons-modell. Brukere og roller er
-    // egne seksjoner. Eksterne brukere, funksjonelle roller og
-    // delegering vises som filterchips inni Brukere-seksjonen.
-    const usersRolesSubs: SubItem[] = [
-      {
-        label: 'Brukere',
-        path: '/admin/settings/users',
-        Icon: Users,
-        match: ({ pathname }) => pathname.startsWith('/admin/settings/users'),
-        requirePermAny: ['users.manage', 'users.invite'],
-      },
-      {
-        label: 'Roller & tilganger',
-        path: '/admin/settings/roles',
-        Icon: ShieldCheck,
-        match: ({ pathname }) => pathname.startsWith('/admin/settings/roles'),
-        requirePerm: 'roles.manage',
-      },
-    ]
-    // Per-provider gov-integration wizards live under
-    // `/admin/integrations/<provider>`. The old combined
-    // `/admin/settings/integrations/gov` route is kept here as a
-    // deprecation-marked entry that opens the hub at `/admin/integrations`.
-    const matchAdminIntegrations = (suffix: string) =>
-      ({ pathname }: { pathname: string }) =>
-        pathname === `/admin/integrations${suffix ? `/${suffix}` : ''}`
-    const integrationsSubs: SubItem[] = [
-      {
-        label: 'Tilkoblede tjenester',
-        path: '/admin/settings/integrations',
-        Icon: Plug,
-        match: ({ pathname }) =>
-          pathname === '/admin/settings/integrations' ||
-          pathname.startsWith('/admin/settings/integrations/'),
-        requirePermAny: INTEGRATIONS_NAV_PERMS,
-      },
-      {
-        label: 'Statlige integrasjoner (oversikt)',
-        path: '/admin/integrations',
-        Icon: ShieldCheck,
-        match: matchAdminIntegrations(''),
-        requirePermAny: INTEGRATIONS_NAV_PERMS,
-      },
-      {
-        label: 'Altinn / Maskinporten',
-        path: '/admin/integrations/altinn',
-        Icon: ShieldCheck,
-        match: matchAdminIntegrations('altinn'),
-        requirePermAny: INTEGRATIONS_NAV_PERMS,
-      },
-      {
-        label: 'Arbeidstilsynet (RegInc)',
-        path: '/admin/integrations/arbeidstilsynet',
-        Icon: ShieldCheck,
-        match: matchAdminIntegrations('arbeidstilsynet'),
-        requirePermAny: INTEGRATIONS_NAV_PERMS,
-      },
-      {
-        label: 'Datatilsynet',
-        path: '/admin/integrations/datatilsynet',
-        Icon: ShieldCheck,
-        match: matchAdminIntegrations('datatilsynet'),
-        requirePermAny: INTEGRATIONS_NAV_PERMS,
-      },
-      {
-        label: 'NAV (DSOP)',
-        path: '/admin/integrations/nav',
-        Icon: ShieldCheck,
-        match: matchAdminIntegrations('nav'),
-        requirePermAny: INTEGRATIONS_NAV_PERMS,
-      },
-      {
-        // Helsesektor: spes.helsetjl. § 3-3 + hol. § 12-3 a. Ingen regulator-
-        // API — wizard'en lagrer kontakt-info + melding-mal i org_integrations
-        // og helsetilsynet-build-melding edge-fn dispatcher som manuell
-        // outbox-rad. Triage skjer i `/admin/integrations/utboks`.
-        label: 'Helsetilsynet (helsesektor)',
-        path: '/admin/integrations/helsetilsynet',
-        Icon: ShieldCheck,
-        match: matchAdminIntegrations('helsetilsynet'),
-        requirePermAny: INTEGRATIONS_NAV_PERMS,
-      },
-      {
-        // NSM Grunnprinsipp 2.4 — planlagt rotasjon av virksomhetssertifikat.
-        // Red pip when ≥1 cert is within 30 days of expiry, driven by
-        // useCertExpiryWarningCount (signing_cert_expires_at column from _123700).
-        label: 'Sertifikat-rotasjon',
-        path: '/admin/integrations/sertifikat-rotasjon',
-        Icon: KeyRound,
-        match: matchAdminIntegrations('sertifikat-rotasjon'),
-        requirePermAny: ['integrations.cert_rotate', ...INTEGRATIONS_NAV_PERMS],
-        badgeCount: certExpiryWarningCount,
-        badgeTone: 'danger',
-      },
-      {
-        label: 'Manuell utboks (statlige meldinger)',
-        path: '/admin/integrations/utboks',
-        Icon: ScrollText,
-        match: matchAdminIntegrations('utboks'),
-        requirePermAny: ['gov.outbox_triage', ...INTEGRATIONS_NAV_PERMS],
-        badgeCount: govOutboxPendingCount,
-      },
-      {
-        label: 'Webhooks & API',
-        path: '/admin/settings/integrations',
-        Icon: Plug,
-        match: ({ pathname }) => pathname === '/admin/settings/integrations/webhooks',
-        requirePermAny: ['roles.manage', 'workflows.manage'],
-      },
-    ]
-    // Arbeidsflyt subs deep-link to the real WorkflowBuilderPage tabs at
-    // /workflow?tab=… . The earlier /admin/settings/workflows/* registry
-    // scope was 5 placeholder cards sitting in front of the working
-    // builder — same anti-pattern we removed for Organisasjon. The old
-    // /workflow/admin sub was retired together with WorkflowModulePage.
-    // Match the builder's own tab IDs: rules / library / runs /
-    // approvals / evidence.
-    const matchWorkflowTab = (tab: string) =>
-      ({ pathname, search }: { pathname: string; search: string }) => {
-        if (pathname !== '/workflow') return false
-        return new URLSearchParams(search).get('tab') === tab
-      }
-    // Maler module — cross-module template browser. Subs deep-link to
-    // /admin/templates with a source-filter query so admins land on
-    // pre-filtered views (Sjekklister, Undersøkelser, Dokumenter,
-    // Kurs, Register). AdminTemplatesPage reads ?source= on mount.
-    const matchTemplateSource = (source: string | null) =>
-      ({ pathname, search }: { pathname: string; search: string }) => {
-        if (pathname !== '/admin/templates') return false
-        const s = new URLSearchParams(search).get('source')
-        return source === null ? !s : s === source
-      }
+    // Tilsynssaker keeps its sub-entry list since it's a standalone
+    // Styringssystem group (not part of the Administrasjon umbrella).
     const tilsynsbrevSubs: SubItem[] = [
       {
         label: 'Tilsynsbrev',
@@ -1365,126 +1164,11 @@ export function AticsShell() {
         requirePermAny: ['tilsynsbrev.upload', 'tilsynsbrev.view_confidential', 'module.view.admin'],
       },
     ]
-    const malerSubs: SubItem[] = [
-      {
-        label: 'Alle maler',
-        path: '/admin/templates',
-        Icon: LayoutTemplate,
-        match: matchTemplateSource(null),
-        requirePermAny: SETTINGS_NAV_PERMS,
-      },
-      {
-        label: 'Sjekklister',
-        path: '/admin/templates?source=compliance',
-        Icon: ClipboardList,
-        match: matchTemplateSource('compliance'),
-        requirePermAny: SETTINGS_NAV_PERMS,
-      },
-      {
-        label: 'Undersøkelser',
-        path: '/admin/templates?source=survey',
-        Icon: Megaphone,
-        match: matchTemplateSource('survey'),
-        requirePermAny: SETTINGS_NAV_PERMS,
-      },
-      {
-        label: 'Dokumenter',
-        path: '/admin/templates?source=documents',
-        Icon: FileText,
-        match: matchTemplateSource('documents'),
-        requirePermAny: SETTINGS_NAV_PERMS,
-      },
-      {
-        label: 'Kurs',
-        path: '/admin/templates?source=learning',
-        Icon: GraduationCap,
-        match: matchTemplateSource('learning'),
-        requirePermAny: SETTINGS_NAV_PERMS,
-      },
-      {
-        label: 'Register',
-        path: '/admin/templates?source=registers',
-        Icon: Database,
-        match: matchTemplateSource('registers'),
-        requirePermAny: SETTINGS_NAV_PERMS,
-      },
-    ]
-    const workflowsSubs: SubItem[] = [
-      {
-        label: 'Mine arbeidsflyter',
-        path: '/workflow?tab=rules',
-        Icon: Workflow,
-        match: ({ pathname, search }) => {
-          if (pathname !== '/workflow') return false
-          const t = new URLSearchParams(search).get('tab')
-          return !t || t === 'rules'
-        },
-        requirePermAny: WORKFLOWS_NAV_PERMS,
-      },
-      {
-        label: 'Mal-bibliotek',
-        path: '/workflow?tab=library',
-        Icon: LayoutTemplate,
-        match: matchWorkflowTab('library'),
-        requirePermAny: WORKFLOWS_NAV_PERMS,
-      },
-      {
-        label: 'Kjøringer',
-        path: '/workflow?tab=runs',
-        Icon: History,
-        match: matchWorkflowTab('runs'),
-        requirePermAny: ['workflows.manage', 'module.view.workflow'],
-      },
-      {
-        label: 'Godkjenninger',
-        path: '/workflow?tab=approvals',
-        Icon: UserCheck,
-        match: matchWorkflowTab('approvals'),
-        requirePermAny: ['workflows.manage', 'workflows.compose'],
-      },
-      {
-        label: 'Bevispakke',
-        path: '/workflow?tab=evidence',
-        Icon: ShieldCheck,
-        match: matchWorkflowTab('evidence'),
-        requirePermAny: WORKFLOWS_NAV_PERMS,
-      },
-    ]
-    // Innstillinger-undersettet i den nye Klarert Admin har slått
-    // sammen organisasjons-, sikkerhets- og personvern-tabbene i
-    // overordnede seksjoner. Lenker peker til riktig seksjon, samt
-    // Audit-loggen som er en egen seksjon for tilsyn / GDPR-rapporter.
-    const settingsSubs: SubItem[] = [
-      {
-        label: 'Organisasjon',
-        path: '/admin/settings/org',
-        Icon: Building2,
-        match: ({ pathname }) =>
-          pathname === '/admin/settings/org' ||
-          pathname.startsWith('/admin/settings/org/'),
-        requirePermAny: SETTINGS_NAV_PERMS,
-      },
-      {
-        label: 'Audit-logg',
-        path: '/admin/settings/audit',
-        Icon: ScrollText,
-        match: ({ pathname }) =>
-          pathname === '/admin/settings/audit' ||
-          pathname.startsWith('/admin/settings/audit/'),
-        requirePermAny: SETTINGS_NAV_PERMS,
-      },
-      {
-        label: 'Modul-konfigurasjon',
-        path: '/admin/modules',
-        Icon: Boxes,
-        match: ({ pathname }) => pathname.startsWith('/admin/modules'),
-        requirePermAny: SETTINGS_NAV_PERMS,
-      },
-    ]
-    // Klarert Admin-gruppa speiler den nye 7-seksjons-shellen.
-    // Hver modul peker til en seksjon i den nye admin-siden; sub-
-    // entries (`subs`) viser samme seksjon med snarvei-lenker til
-    // beslektede sider (f.eks. Organisasjon → OrganisationPage-tabber).
+    // Administrasjon umbrella — the AdminPage at /admin/settings/org
+    // already contains every admin surface (Organisasjon · Brukere &
+    // roller · Mal-pakker · Arbeidsflyt · Integrasjoner · Audit-logg)
+    // as in-page tabs, so the sidebar collapses to a single entry.
+    // Permission gating is the union of all subordinate scopes.
     const adminGroup: NavGroup = {
       id: 'administrasjon',
       label: 'Administrasjon',
@@ -1492,56 +1176,11 @@ export function AticsShell() {
       modules: [
         {
           to: '/admin/settings/org',
-          label: 'Organisasjon',
+          label: 'Administrasjon',
           end: false,
-          icon: Building2,
-          subs: organisationSubs,
-          permAny: ORG_NAV_PERMS,
-          flatSubs: true,
-        },
-        {
-          to: '/admin/settings/users',
-          label: 'Brukere & roller',
-          end: false,
-          icon: Users,
-          subs: usersRolesSubs,
-          permAny: USERS_ROLES_NAV_PERMS,
-          flatSubs: true,
-        },
-        {
-          to: '/admin/settings/packs',
-          label: 'Mal-pakker',
-          end: false,
-          icon: LayoutTemplate,
-          subs: malerSubs,
-          permAny: SETTINGS_NAV_PERMS,
-          flatSubs: true,
-        },
-        {
-          to: '/admin/settings/workflows',
-          label: 'Arbeidsflyt',
-          end: false,
-          icon: Workflow,
-          subs: workflowsSubs,
-          permAny: WORKFLOWS_NAV_PERMS,
-          flatSubs: true,
-        },
-        {
-          to: '/admin/settings/integrations',
-          label: 'Integrasjoner',
-          end: false,
-          icon: Plug,
-          subs: integrationsSubs,
-          permAny: INTEGRATIONS_NAV_PERMS,
-          flatSubs: true,
-        },
-        {
-          to: '/admin/settings/audit',
-          label: 'Audit-logg',
-          end: false,
-          icon: History,
-          subs: settingsSubs,
-          permAny: SETTINGS_NAV_PERMS,
+          icon: Settings,
+          subs: [],
+          permAny: ADMINISTRASJON_NAV_PERMS,
           flatSubs: true,
         },
       ],
@@ -2059,6 +1698,27 @@ export function AticsShell() {
         }
       : null
 
+    // Internkontroll — IK § 5 unified surface (Krav · Kontroller · Gap
+    // · Årshjul · Tiltak · Prosjekter · Revisjon). The page already
+    // exposes all sections internally; nav points to the default
+    // landing.
+    const internkontrollGroup: NavGroup = {
+      id: 'internkontroll',
+      label: 'Internkontroll',
+      icon: ShieldCheck,
+      modules: [
+        {
+          to: '/internkontroll',
+          label: 'Internkontroll',
+          end: false,
+          icon: ShieldCheck,
+          subs: [],
+          permAny: ADMINISTRASJON_NAV_PERMS,
+          flatSubs: true,
+        },
+      ],
+    }
+
     // Tilsynssaker promoted from Administrasjon — a tilsynssak triggers
     // pålegg that change the styringssystem; it's a governance event,
     // not an admin task. (Recommendation §3.1.)
@@ -2254,6 +1914,7 @@ export function AticsShell() {
       icon: ShieldCheck,
       groups: [
         hmsOverviewGroup,
+        internkontrollGroup,
         controlsGroup,
         alertsGroup,
         registersGroup,

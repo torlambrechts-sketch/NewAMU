@@ -118,7 +118,7 @@ export function AdminPage() {
   const breadcrumb = useMemo(
     () => [
       { label: 'Hjem', to: '/app' },
-      { label: 'Admin' },
+      { label: 'Administrasjon' },
       { label: activeNav.label },
     ],
     [activeNav.label],
@@ -127,7 +127,7 @@ export function AdminPage() {
   return (
     <ModulePageShell
       breadcrumb={breadcrumb}
-      title="Admin"
+      title={activeNav.label}
       description={
         easy
           ? 'Organisasjon, brukere, integrasjoner og automatisering.'
