@@ -248,13 +248,14 @@ export const FRAMEWORK_IDS: FrameworkId[] = [
 
 /** Module column definitions for the gap matrix — left-to-right order. */
 export type GapModuleColumn = {
-  id: 'checklists' | 'surveys' | 'documents' | 'registers' | 'learning'
+  id: 'checklists' | 'surveys' | 'documents' | 'registers' | 'learning' | 'controls'
   label: string
   /** Coverage-entry kinds (from useRegelverkCoverage) that count toward this column. */
   kinds: string[]
 }
 
 export const GAP_MODULE_COLUMNS: GapModuleColumn[] = [
+  { id: 'controls', label: 'Kontroller', kinds: [] },
   { id: 'checklists', label: 'Sjekklister', kinds: ['checklist_template', 'checklist_item'] },
   { id: 'surveys', label: 'Undersøkelser', kinds: ['survey'] },
   { id: 'documents', label: 'Dokumenter', kinds: ['document', 'document_template'] },
@@ -264,6 +265,7 @@ export const GAP_MODULE_COLUMNS: GapModuleColumn[] = [
 
 /** Module slug → /-route map used by the gap-matrix drill-down. */
 export const GAP_MODULE_ROUTES: Record<GapModuleColumn['id'], string> = {
+  controls: '/controls/list',
   checklists: '/compliance/checklists',
   surveys: '/survey/analyse',
   documents: '/documents/analyse',

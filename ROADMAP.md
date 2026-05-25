@@ -277,6 +277,32 @@ Make the whole app multi-language. Norwegian (nb) + English (en) now; Swedish
 
 ---
 
+## 11 · Compliance Layer (3-Tier) — Rules → Internal Controls → Execution
+
+New top-level decoupling layer between regulations and module artefacts. Adds an explicit Internal Controls tier so a single named control ("Årlig ledelses-gjennomgang") can satisfy AML § 7-2(2)f + IK-f § 5 nr. 8 + ISO 9001/14001/27001/45001 § 9.3 simultaneously, evidenced by any combination of module sign events. Full spec in [`specs/compliance-layer-architecture.md`](specs/compliance-layer-architecture.md).
+
+| # | Status | Item | Notes |
+|---|---|---|---|
+| 11.1 | ✅ | Tier 1 — `regulation_clauses` table | Composite-PK per-org; same-org coherence trigger; additive `clause_id` FK on `compliance_requirements` with backfill (`_120000`). |
+| 11.2 | ✅ | Tier 2 — `internal_controls` core | Per-org named controls with `control_family`, `frequency_hint`, `owner_role`, `status` (`_120100`). RLS protects system rows. |
+| 11.3 | ✅ | Tier 2 — `internal_control_clauses` junction | Cross-pack control ↔ clause linkage with `coverage_level` enum (`_120200`). |
+| 11.4 | ✅ | Tier 2 — `internal_control_bindings` declarative spec | Polymorphic over the 7 module template surfaces; template-existence trigger; idempotent unique constraints (`_120300`). |
+| 11.5 | ✅ | Tier 2 — `internal_control_executions` ledger + 7 auto-bind triggers | Append-only; BEFORE UPDATE/DELETE deny; SECURITY DEFINER resolver `_compliance_layer_record_execution` (`_120400`). Triggers on compliance/meeting/document/learning/task/register/survey sign events. |
+| 11.6 | ✅ | Tier 3 — `compliance_evidence_v` + `internal_control_status_v` | Read-only union view (compliance + meetings + documents + learning + tasks + registers + surveys) plus live status view computing `on_track`/`due_soon`/`overdue`/`never_executed` (`_120500`). |
+| 11.7 | ✅ | Provisioning + ~30 baseline controls | `provision_regulation_clauses_baseline_for_org` (≈120 clauses across 9 regulations) + `provision_internal_controls_baseline_for_org` (30 system controls covering AML kap. 2–18, IK-f § 5, ISO 9001/14001/27001/45001, GDPR Art. 32/33/35, LDL § 26, Åpenhetsloven, brann). AFTER-INSERT trigger on `organizations` + backfill loop (`_120600`). |
+| 11.8 | ✅ | Module shell `modules/compliance-layer/` | 17 files: types/schema/index, four hooks (`useInternalControls`, `useControlClauses`, `useControlBindings`, `useControlEvidence`), nav hook, four pages (`ControlsHubLanding`, `ControlsListPage`, `ControlDetailPage`, `ControlEditorPanel`), three admin panels (`BindingEditorPanel`, `ClauseMappingPanel`, `KontrollerInnstillingerPage`), dashboard scope + datasets + analyse page. |
+| 11.9 | ✅ | Sidebar + routes + permissions | `controlsGroup` NavGroup between Sjekklister and Undersøkelser. Five routes (`/controls`, `/controls/list`, `/controls/analyse`, `/controls/admin`, `/controls/:controlId`). Permissions `module.view.compliance_layer` + `compliance_layer.manage`. |
+| 11.10 | ✅ | 9th dashboard scope | `compliance_layer` registered with accent `#b45309` (amber-700); seven datasets, nine default widgets, supports comparison. |
+| 11.11 | ✅ | Gap-matrix UI update — Tier 2 axis | "Kontroller" column added to internkontroll gap matrix; paragraph inspector gains an "Internkontroller" section with live status pills, cadence dates, click-through to /controls/:id; `frameworkCoverage` % bar counts control coverage too. New `useControlsByLawRef` hook in `src/pages/overview/internkontroll/`. |
+| 11.12 | ✅ | Auditor token route + management UI | Public `/auditor/controls/:token` page rendering frozen snapshot (KPI strip + sortable table). `ShareControlsWithAuditorButton` on admin page captures + mints 30-day token. Migration `20260926130000` adds server-side `p_expected_framework_id` guard on the verify RPC. Migration `20260926140000` ships `compliance_auditor_tokens_safe` view + opaque-id revoke RPC so bearer secret never crosses the network after creation. `AuditorTokensSection` + `useAuditorTokens` give admins list/revoke for outstanding tokens; wired on both the controls admin page (filtered to 'controls') and the internkontroll gap report (filtered to active framework). |
+| 11.A | ✅ | HMS-oversikt integration | Composite scope gains `compliance_layer` as 8th member: KPI tiles (Forfalt / Forfaller snart / På sporet) lead the top strip, plus "Kontroller per regelverk" donut + "Kontroller — bevis over tid" line in the default layout. Five new catalog entries grouped under 'Kontroller'/'Trender'. Dataset key `executions_over_time` → `controls_executions_over_time` for collision-free composite namespacing. |
+| 11.13 | 📋 | Internal-control workflow scope | `modules/compliance-layer/workflows/` once unified workflow builder lands per `specs/workflow-engine-review.md`. |
+| 11.14 | ⏸ | Bidirectional plan-item ↔ execution sync | One-way today (compliance_plan_items → tasks). Reverse direction deferred. |
+| 11.15 | ✅ | Print stylesheet + browser-print PDF for auditor surfaces | "Skriv ut / PDF" button on both `/auditor/internkontroll/:token` and `/auditor/controls/:token`. Live header hidden via `data-print-hide`; print-only banner (`data-print-only`) leads the paginated output. Global `print.css` extended with `tr { page-break-inside: avoid }` + `print-color-adjust: exact` on rose/amber/emerald/red pills so status colours print legibly. Server-side PDF + Merkle-chain checksum waits on generic `compliance-audit-pdf` from `specs/workflow-engine-review.md` Phase D. |
+| 11.16 | ✅ | Watermark band on controls auditor | Dashed-border amber band ("Frosset snapshot · Revisor-visning · Delt X · Gyldig til Y") rendered as a `<div role="note">` at the top of the main column so it visually parallels the internkontroll dashboard's built-in `snapshotMode` chrome and survives the `<aside>`-hides-on-print rule. |
+
+---
+
 ## Suggested order of work
 
 If picking up cold, do these in this order — each builds on the previous and exposes any abstraction problems early:

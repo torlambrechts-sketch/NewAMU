@@ -48,6 +48,7 @@ import { useRiskDashboardRows } from '../../../modules/risk/dashboards/useRiskDa
 import '../../../modules/risk/dashboards/riskDashboardScope'
 import { useAlerts } from '../../../modules/alerts'
 import { useAlertsDatasets } from '../../../modules/alerts/dashboards/useAlertsDatasets'
+import { useComplianceLayerDatasets } from '../../../modules/compliance-layer/dashboards/useComplianceLayerDatasets'
 import {
   HMS_OVERVIEW_SCOPE_ID,
   // Side-effect import: registers the composite scope on module load.
@@ -61,6 +62,7 @@ import '../../../modules/survey/dashboards/surveyDashboardScope'
 import '../../../modules/tasks/dashboards/tasksDashboardScope'
 import '../learning/dashboards/learningDashboardScope'
 import '../documents/dashboards/documentsDashboardScope'
+import '../../../modules/compliance-layer/dashboards/complianceLayerScope'
 import type { ReportModule } from '../../types/reportBuilder'
 import type { DashboardDimension } from '../../lib/dashboards/dashboardFilters'
 
@@ -184,6 +186,15 @@ export function HmsOverviewPage() {
     categories: alerts.categories,
   })
 
+  // Compliance Layer (Tier 2) — self-fetching hook (reads its own
+  // controls + clauses + status_v rows). Returns scope-prefixed dataset
+  // keys (`controls_*`) so the composite merge below stays collision-
+  // free. Cross-scope filter chips don't currently apply to controls;
+  // adding department/date filtering is a v2 enhancement once
+  // internal_control_executions carries org-context columns.
+  const complianceLayer = useComplianceLayerDatasets()
+  const complianceLayerDs = complianceLayer.datasets
+
   // Risk member — reads from `risk_register_summary_v` when available
   // (P2 migration applied), falls back to the P1 client-side source
   // fold otherwise. Filter chips cascade because `buildRiskDatasets`
@@ -196,8 +207,26 @@ export function HmsOverviewPage() {
 
   // Merge — keys are scope-namespaced so collisions are impossible.
   const datasets = useMemo<Record<string, unknown>>(
-    () => ({ ...checklistDs, ...surveyDs, ...tasksDs, ...learningDs, ...documentsDs, ...riskDs, ...alertsDs }),
-    [checklistDs, surveyDs, tasksDs, learningDs, documentsDs, riskDs, alertsDs],
+    () => ({
+      ...checklistDs,
+      ...surveyDs,
+      ...tasksDs,
+      ...learningDs,
+      ...documentsDs,
+      ...riskDs,
+      ...alertsDs,
+      ...complianceLayerDs,
+    }),
+    [
+      checklistDs,
+      surveyDs,
+      tasksDs,
+      learningDs,
+      documentsDs,
+      riskDs,
+      alertsDs,
+      complianceLayerDs,
+    ],
   )
 
   const layout = useMemo(
@@ -296,10 +325,17 @@ export function HmsOverviewPage() {
           learning.learningLoading ||
           docs.loading ||
           riskRows.loading ||
+          complianceLayer.loading ||
           dashboard.loading
         }
         error={
-          cl.error ?? survey.error ?? learning.learningError ?? docs.error ?? riskRows.error ?? dashboard.error
+          cl.error ??
+          survey.error ??
+          learning.learningError ??
+          docs.error ??
+          riskRows.error ??
+          complianceLayer.error ??
+          dashboard.error
         }
         emptyState={
           <div className="rounded-md border border-dashed border-neutral-300 bg-white p-8 text-center">

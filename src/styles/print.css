@@ -24,6 +24,23 @@
   figure {
     page-break-inside: avoid;
   }
+  /* Individual table rows shouldn't split mid-row — browsers default
+     to leaving widows/orphans. Keep rows + their summary together. */
+  tr {
+    page-break-inside: avoid;
+  }
+  /* Status pills and chips rely on background-color for meaning
+     (red = overdue, amber = due soon, emerald = on track). Browsers
+     strip background colours by default to save ink; force-preserve
+     so the print version stays legible without re-reading the legend. */
+  [class*='bg-rose-'],
+  [class*='bg-amber-'],
+  [class*='bg-emerald-'],
+  [class*='bg-red-'],
+  [data-print-keep-color] {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
   a[href^='http']::after {
     content: ' (' attr(href) ')';
     font-size: 9pt;

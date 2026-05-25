@@ -17,9 +17,11 @@ import type {
 } from '../../../lib/dashboards/dashboardFilters'
 import { freshId } from '../../../lib/dashboards/freshId'
 import { useInternkontrollDatasets } from './useInternkontrollDatasets'
+import { useControlsByLawRef } from './useControlsByLawRef'
 import { useCompliancePlanItems } from './useCompliancePlanItems'
 import { ParagraphInspectorPanel } from './ParagraphInspectorPanel'
 import { ShareWithAuditorButton } from './ShareWithAuditorButton'
+import { AuditorTokensSection } from '../../../../modules/compliance-layer/admin/AuditorTokensSection'
 import {
   FRAMEWORKS,
   FRAMEWORK_IDS,
@@ -53,6 +55,9 @@ export function InternkontrollGapSystemReport({
   // Plan items for the active framework — loaded once, indexed by
   // law_ref so the inspector lookup is O(1).
   const planItems = useCompliancePlanItems(framework)
+  // Internal controls (Tier 2) covering each paragraph. Same shape:
+  // small per-org dataset loaded once and looked up by law_ref string.
+  const controlsByLawRef = useControlsByLawRef()
 
   const [openLawRef, setOpenLawRef] = useState<string | null>(null)
 
@@ -90,8 +95,13 @@ export function InternkontrollGapSystemReport({
     if (!openLawRef) return null
     const { entries, registerMatches } = entriesFor(openLawRef)
     const items = planItems.itemsByLawRef.get(openLawRef) ?? []
-    return { entries, registerMatches, items }
-  }, [openLawRef, entriesFor, planItems.itemsByLawRef])
+    // Normalise whitespace/§-spacing so the lookup keys match between
+    // the gap-matrix row code and the controls map (built with the same
+    // normalisation in useControlsByLawRef).
+    const normalised = openLawRef.replace(/\s+/g, ' ').replace(/§\s*/g, '§ ').trim()
+    const controls = controlsByLawRef.controlsByLawRef.get(normalised) ?? []
+    return { entries, registerMatches, items, controls }
+  }, [openLawRef, entriesFor, planItems.itemsByLawRef, controlsByLawRef.controlsByLawRef])
 
   return (
     <>
@@ -131,6 +141,7 @@ export function InternkontrollGapSystemReport({
         lawRef={openLawRef}
         entries={inspectorData?.entries ?? []}
         registerMatches={inspectorData?.registerMatches ?? []}
+        controls={inspectorData?.controls ?? []}
         planItems={inspectorData?.items ?? []}
         onClose={() => setOpenLawRef(null)}
         onCreatePlanItem={async (input) => {
@@ -151,6 +162,17 @@ export function InternkontrollGapSystemReport({
           await planItems.deleteItem(id)
         }}
       />
+
+      {/* Active auditor share-tokens — scoped to the currently-active
+          framework so internkontroll admins only see tokens minted from
+          this surface. Lets them revoke without leaving the page. */}
+      <div className="mx-auto mt-6 w-full max-w-7xl px-4 md:px-8">
+        <AuditorTokensSection
+          frameworkFilter={framework}
+          title="Aktive revisor-lenker for dette regelverket"
+          description="Lenker du har delt for gjeldende regelverk. Tilbakekall for å oppheve tilgangen umiddelbart."
+        />
+      </div>
     </>
   )
 }

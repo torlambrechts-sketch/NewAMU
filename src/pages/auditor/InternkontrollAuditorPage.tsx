@@ -11,8 +11,9 @@
 
 import { useEffect, useState } from 'react'
 import { useParams } from 'react-router-dom'
-import { Loader2, ShieldCheck } from 'lucide-react'
+import { Loader2, Printer, ShieldCheck } from 'lucide-react'
 import { ModuleAnalyticsDashboard } from '../../components/module/ModuleAnalyticsDashboard'
+import { Button } from '../../components/ui/Button'
 import { getDashboardScope } from '../../lib/dashboards/dashboardRegistry'
 import { getSupabaseBrowserClient } from '../../lib/supabaseClient'
 import type { ReportModule } from '../../types/reportBuilder'
@@ -48,7 +49,17 @@ export function InternkontrollAuditorPage() {
       return
     }
     void supabase
-      .rpc('compliance_auditor_token_verify', { p_token: token })
+      .rpc('compliance_auditor_token_verify', {
+        p_token: token,
+        // Server-side guard added in migration 20260926130000 — the RPC
+        // now accepts an optional framework hint. We leave it NULL here
+        // because the internkontroll page handles five frameworks
+        // (aml/ik-f/gdpr/apenhetsloven/iso-45001) and the RPC overload
+        // takes a single value; the client-side check below rejects the
+        // controls sentinel so a wrong-surface token shows a clear
+        // error instead of an empty dashboard.
+        p_expected_framework_id: null,
+      })
       .then(({ data, error }) => {
         if (cancelled) return
         if (error) {
@@ -60,10 +71,20 @@ export function InternkontrollAuditorPage() {
           setState({ kind: 'expired' })
           return
         }
-        setState({
-          kind: 'ok',
-          payload: row as TokenPayload,
-        })
+        const payload = row as TokenPayload
+        // The controls auditor surface lives at /auditor/controls/:token
+        // and ships its own snapshot shape. A controls token loaded here
+        // would render an empty dashboard layout; surface a clearer
+        // error so the recipient knows where to go.
+        if (payload.framework_id === 'controls') {
+          setState({
+            kind: 'error',
+            message:
+              'Denne lenken er for "Internkontroller" — åpne den fra /auditor/controls/ i stedet.',
+          })
+          return
+        }
+        setState({ kind: 'ok', payload })
       })
     return () => {
       cancelled = true
@@ -112,14 +133,44 @@ export function InternkontrollAuditorPage() {
 
   return (
     <div className="min-h-screen bg-[#F9F7F2]">
-      <header className="border-b border-neutral-200 bg-white">
-        <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-3">
+      {/* Print-only header — the live header below is hidden by
+          data-print-hide (also `<header>` is hidden by the global print
+          stylesheet) so the printed page leads with a clean banner. */}
+      <div
+        data-print-only
+        className="hidden border-b border-neutral-300 pb-3 mb-3 print:block"
+      >
+        <p className="text-[10px] font-bold uppercase tracking-wide text-neutral-700">
+          Revisor-visning · Internkontroll · Frosset snapshot
+        </p>
+        <p className="mt-1 text-xs text-neutral-700">
+          Delt {createdAt} · Gyldig til {expiresAt}
+        </p>
+      </div>
+
+      <header
+        data-print-hide
+        className="border-b border-neutral-200 bg-white"
+      >
+        <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-2 px-6 py-3">
           <div className="flex items-center gap-2 text-sm font-semibold text-neutral-900">
             <ShieldCheck className="size-4" style={{ color: accent }} aria-hidden />
             Revisor-visning · Internkontroll
           </div>
-          <div className="text-[11px] text-neutral-500">
-            Lest-modus · Delt {createdAt} · Gyldig til {expiresAt}
+          <div className="flex items-center gap-3">
+            <span className="text-[11px] text-neutral-500">
+              Lest-modus · Delt {createdAt} · Gyldig til {expiresAt}
+            </span>
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => window.print()}
+              aria-label="Skriv ut eller lagre som PDF"
+              className="inline-flex items-center gap-1.5"
+            >
+              <Printer className="size-3.5" aria-hidden />
+              Skriv ut / PDF
+            </Button>
           </div>
         </div>
       </header>
