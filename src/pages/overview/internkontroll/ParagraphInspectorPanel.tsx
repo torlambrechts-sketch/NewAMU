@@ -139,6 +139,8 @@ export function ParagraphInspectorPanel({
   registerMatches,
   controls,
   planItems,
+  planItemError,
+  onDismissPlanItemError,
   onClose,
   onCreatePlanItem,
   onUpdatePlanItem,
@@ -152,6 +154,10 @@ export function ParagraphInspectorPanel({
   /** Internal controls (Tier 2) whose junction links to this paragraph. */
   controls: ControlCoverageSummary[]
   planItems: CompliancePlanItem[]
+  /** Most recent insert/update/delete failure; rendered inline next to
+   *  the form so the user sees it at the point of action. */
+  planItemError?: string | null
+  onDismissPlanItemError?: () => void
   onClose: () => void
   onCreatePlanItem: (input: { title: string; description: string; status: CompliancePlanItem['status']; dueAt: string | null }) => Promise<void>
   onUpdatePlanItem: (id: string, patch: Partial<Pick<CompliancePlanItem, 'title' | 'description' | 'status' | 'due_at'>>) => Promise<void>
@@ -326,6 +332,8 @@ export function ParagraphInspectorPanel({
           {/* Plan items (Phase 3) */}
           <PlanItemsSection
             items={planItems}
+            submitError={planItemError ?? null}
+            onDismissError={onDismissPlanItemError}
             onCreate={onCreatePlanItem}
             onUpdate={onUpdatePlanItem}
             onDelete={onDeletePlanItem}

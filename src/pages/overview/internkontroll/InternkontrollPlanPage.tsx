@@ -18,6 +18,7 @@ import { Link, useSearchParams } from 'react-router-dom'
 import { CalendarClock, ChevronDown, ListChecks } from 'lucide-react'
 import { ModulePageShell } from '../../../components/module/ModulePageShell'
 import { Button } from '../../../components/ui/Button'
+import { ErrorBox } from '../../../components/ui/AlertBox'
 import {
   FRAMEWORKS,
   FRAMEWORK_IDS,
@@ -242,11 +243,12 @@ export function InternkontrollPlanPage() {
     const updated = await updateItem(it.id, { status: next })
     if (updated === null) {
       setMutationError(
-        `Klarte ikke å oppdatere «${it.title}» til «${STATUS_LABEL[next]}». Prøv igjen.`,
+        `Kunne ikke oppdatere «${it.title}» til «${STATUS_LABEL[next]}». Prøv igjen, eller kontakt en administrator om problemet vedvarer.`,
       )
-    } else {
-      setMutationError(null)
     }
+    // Note: do NOT clear the banner on success — the user must
+    // explicitly dismiss it via the X. Auto-clearing hides previous
+    // failures the user might still want to act on.
   }
 
   // Fortnightly tick positions for the timeline header — denser than
@@ -340,18 +342,12 @@ export function InternkontrollPlanPage() {
         />
       </div>
 
-      {error ? (
-        <div className="rounded-md border border-red-200 bg-red-50 p-4 text-sm text-red-800">
-          {error}
-        </div>
-      ) : null}
-      {mutationError ? (
-        <div
-          role="alert"
-          className="rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-800"
-        >
-          {mutationError}
-        </div>
+      {error || mutationError ? (
+        <ErrorBox onDismiss={mutationError ? () => setMutationError(null) : undefined}>
+          {/* fetch error is the leading signal — if both fire, the
+              fetch failure explains why mutations are broken. */}
+          {error ?? mutationError}
+        </ErrorBox>
       ) : null}
 
       {/* Timeline header */}

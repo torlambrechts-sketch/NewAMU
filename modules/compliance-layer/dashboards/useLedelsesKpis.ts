@@ -139,7 +139,9 @@ export function useLedelsesKpis(): UseLedelsesKpisReturn {
     setLoading(true)
     setData(EMPTY)
     const controller = new AbortController()
-    void load(supabase, controller.signal).then(() => {
+    void load(supabase, controller.signal).finally(() => {
+      // Drop loading state in finally so an aborted request doesn't
+      // leave the spinner stuck until the next effect run.
       if (controller.signal.aborted) return
       setLoading(false)
     })

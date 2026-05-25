@@ -108,6 +108,9 @@ export function useCompliancePlanItems(framework: FrameworkId): {
         .limit(500)
       if (signal) query = query.abortSignal(signal)
       const { data, error: err } = await query
+      // On abort: don't touch state. The new effect run has already
+      // set loading=true; touching loading here would race the next
+      // render. Same for items/error.
       if (signal?.aborted) return
       if (err) {
         if ((err as { name?: string }).name === 'AbortError') return

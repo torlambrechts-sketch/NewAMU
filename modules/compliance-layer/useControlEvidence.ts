@@ -20,6 +20,11 @@ import type {
   ControlExecutionRow,
 } from './types'
 
+/** Mirrors the helper in useParagraphEvidence / useLedelsesKpis. */
+function normaliseLawRef(ref: string): string {
+  return ref.replace(/\s+/g, ' ').replace(/§\s*/g, '§ ').trim()
+}
+
 type UseControlEvidenceInput = {
   supabase: SupabaseClient | null
   /** When set, scope executions to a single control. */
@@ -83,9 +88,12 @@ export function useControlEvidence(
       // (GIN-friendly) and applies per-branch ORDER+LIMIT. Unfiltered
       // queries — the cross-control ledger — keep using the view
       // because the function only handles the filtered case.
+      // Normalise the law-ref so 'AML §4-3' (no space) matches rows
+      // stored as 'AML § 4-3' — same helper as useParagraphEvidence
+      // + useLedelsesKpis.
       const evidencePromise = lawRef
         ? supabase.rpc('compliance_evidence_for_law_ref', {
-            p_code: lawRef,
+            p_code: normaliseLawRef(lawRef),
             p_limit: effectiveLimit,
           })
         : supabase

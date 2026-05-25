@@ -111,23 +111,6 @@ export function InternkontrollGapSystemReport({
 
   return (
     <>
-      {planItemError ? (
-        <div className="mx-auto mt-4 w-full max-w-7xl px-4 md:px-8">
-          <div
-            role="alert"
-            className="flex items-start justify-between gap-3 rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-800"
-          >
-            <span>{planItemError}</span>
-            <button
-              type="button"
-              onClick={() => setPlanItemError(null)}
-              className="shrink-0 rounded-sm px-2 py-0.5 text-xs font-semibold text-red-900 hover:bg-red-100"
-            >
-              Lukk
-            </button>
-          </div>
-        </div>
-      ) : null}
       <ModuleAnalyticsDashboard
         accent={accent}
         breadcrumb={breadcrumb}
@@ -162,6 +145,10 @@ export function InternkontrollGapSystemReport({
           // Row labels are prefixed ("K2A · AML § 2A-1"); use the
           // dataset's reverse lookup to recover the bare law_ref.
           const lawRef = datasets.internkontroll_gap_matrix.codeByLabel[rowLabel] ?? rowLabel
+          // Switching to a different paragraph from inside the open
+          // inspector drops the previous error context. Same intent
+          // as onClose, but for the in-place switch path.
+          if (lawRef !== openLawRef) setPlanItemError(null)
           setOpenLawRef(lawRef)
         }}
       />
@@ -174,11 +161,12 @@ export function InternkontrollGapSystemReport({
         registerMatches={inspectorData?.registerMatches ?? []}
         controls={inspectorData?.controls ?? []}
         planItems={inspectorData?.items ?? []}
+        planItemError={planItemError}
+        onDismissPlanItemError={() => setPlanItemError(null)}
         onClose={() => {
           setOpenLawRef(null)
-          // Clear any plan-item error from this paragraph context — a
-          // fresh open on another paragraph shouldn't inherit the
-          // previous failure banner.
+          // Reset the error when the inspector closes; a fresh open on
+          // another paragraph shouldn't inherit the previous failure.
           setPlanItemError(null)
         }}
         onCreatePlanItem={async (input) => {
@@ -191,28 +179,30 @@ export function InternkontrollGapSystemReport({
             status: input.status,
             due_at: input.dueAt,
           })
+          // Only update the error on outcome change — do NOT clear on
+          // success, since the user might still want to see a previous
+          // failure for a different action they took (the dismiss
+          // button is the explicit ack).
           if (!created) {
             setPlanItemError(
-              `Klarte ikke å opprette tiltak for ${openLawRef}. Sjekk tilgangen din.`,
+              `Kunne ikke opprette tiltak for ${openLawRef}. Prøv igjen, eller kontakt en administrator om problemet vedvarer.`,
             )
-          } else {
-            setPlanItemError(null)
           }
         }}
         onUpdatePlanItem={async (id, patch) => {
           const updated = await planItems.updateItem(id, patch)
           if (!updated) {
-            setPlanItemError('Klarte ikke å oppdatere tiltaket. Prøv igjen.')
-          } else {
-            setPlanItemError(null)
+            setPlanItemError(
+              'Kunne ikke oppdatere tiltaket. Prøv igjen, eller kontakt en administrator om problemet vedvarer.',
+            )
           }
         }}
         onDeletePlanItem={async (id) => {
           const ok = await planItems.deleteItem(id)
           if (!ok) {
-            setPlanItemError('Klarte ikke å slette tiltaket. Prøv igjen.')
-          } else {
-            setPlanItemError(null)
+            setPlanItemError(
+              'Kunne ikke slette tiltaket. Prøv igjen, eller kontakt en administrator om problemet vedvarer.',
+            )
           }
         }}
       />

@@ -11,6 +11,7 @@
 import { useState } from 'react'
 import { Plus, Trash2 } from 'lucide-react'
 import { Button } from '../../../components/ui/Button'
+import { ErrorBox } from '../../../components/ui/AlertBox'
 
 export type CompliancePlanItem = {
   id: string
@@ -45,11 +46,21 @@ const STATUSES: CompliancePlanItem['status'][] = ['planned', 'in_progress', 'blo
 
 export function PlanItemsSection({
   items,
+  submitError,
+  onDismissError,
   onCreate,
   onUpdate,
   onDelete,
 }: {
   items: CompliancePlanItem[]
+  /**
+   * Optional inline error from the most recent insert/update/delete.
+   * Rendered at the top of the section so the user sees the failure
+   * at the same place the action was triggered (not behind the
+   * slide-over).
+   */
+  submitError?: string | null
+  onDismissError?: () => void
   onCreate: (input: {
     title: string
     description: string
@@ -90,6 +101,11 @@ export function PlanItemsSection({
 
   return (
     <section className="mb-6">
+      {submitError ? (
+        <div className="mb-3">
+          <ErrorBox onDismiss={onDismissError ?? undefined}>{submitError}</ErrorBox>
+        </div>
+      ) : null}
       <div className="flex items-baseline justify-between gap-3">
         <p className="text-[10px] font-bold uppercase tracking-wide text-neutral-500">
           Planlagte tiltak ({items.length})
