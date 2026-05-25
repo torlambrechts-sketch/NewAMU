@@ -61,6 +61,12 @@ export function useParagraphEvidence(
 
   useEffect(() => {
     if (!supabase || !orgId || !code) return
+    // Normalise the lookup key so 'AML §4-3' (no space) matches rows
+    // stored as 'AML § 4-3' — mirrors the same helper in
+    // useLedelsesKpis + useInternkontrollDatasets. Without this, a
+    // user-typed paragraph code can yield zero evidence even when
+    // matching rows exist.
+    const lookupCode = normaliseLawRef(code)
     // Reset the slot whenever the (orgId, code) key changes so a
     // re-click of a paragraph that previously errored shows the
     // loading state again instead of the stuck error.
@@ -71,7 +77,7 @@ export function useParagraphEvidence(
     void supabase
       .from('compliance_evidence_v')
       .select('occurred_at, source_kind, source_table, source_id, title, law_refs, signed_at')
-      .contains('law_refs', [code])
+      .contains('law_refs', [lookupCode])
       .order('occurred_at', { ascending: false })
       .limit(limit)
       .then(({ data, error: respErr }) => {
@@ -104,4 +110,13 @@ export function useParagraphEvidence(
     if (!isCurrent) return { loading: true, error: null, rows: [] }
     return { loading: false, error: loaded.error, rows: loaded.rows }
   }, [code, orgId, loaded])
+}
+
+/**
+ * Normalise law-ref strings so 'AML §4-3' matches rows stored as
+ * 'AML § 4-3'. Mirrors the helper in useLedelsesKpis +
+ * useInternkontrollDatasets.
+ */
+function normaliseLawRef(ref: string): string {
+  return ref.replace(/\s+/g, ' ').replace(/§\s*/g, '§ ').trim()
 }

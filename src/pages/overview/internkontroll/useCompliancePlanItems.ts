@@ -8,6 +8,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useOrgSetupContext } from '../../../hooks/useOrgSetupContext'
+import { getSupabaseErrorMessage } from '../../../lib/supabaseError'
 import type { FrameworkId } from './frameworkParagraphs'
 
 export type CompliancePlanItemStatus = 'planned' | 'in_progress' | 'blocked' | 'done'
@@ -77,7 +78,9 @@ export function useCompliancePlanItems(framework: FrameworkId): {
       .is('deleted_at', null)
       .order('updated_at', { ascending: false })
     if (err) {
-      setError(err.message)
+      // Avoid leaking raw Postgres / RLS denial strings (incl. table
+      // names) into the UI banner.
+      setError(getSupabaseErrorMessage(err))
       setItems([])
       setLoading(false)
       return
@@ -101,8 +104,13 @@ export function useCompliancePlanItems(framework: FrameworkId): {
     return m
   }, [items])
 
-  // Tasks bridge: when a plan item flips into 'in_progress' and has no
-  // task yet, create one. Pure client-side mirror — v1 one-way.
+  // Bridge: when a plan item flips into 'in_progress', mint a paired
+  // task_items row (source_type='compliance_plan', source_id=<plan.id>)
+  // so the closure shows up in the Tasks-modulen alongside everything
+  // else the action-owner is responsible for. The DB enforces 1:1 via
+  // the partial unique index `task_items_compliance_plan_bridge_uidx`
+  // — a double-click race surfaces as a unique_violation which we
+  // catch and treat as success (the existing row IS the bridge).
   const ensureBridgeTask = useCallback(
     async (plan: CompliancePlanItem): Promise<string | null> => {
       if (!supabase || !orgId) return null
@@ -121,13 +129,38 @@ export function useCompliancePlanItems(framework: FrameworkId): {
           source_type: 'compliance_plan',
           source_id: plan.id,
           law_refs: [plan.law_ref],
-          source_category: 'compliance',
+          // 'tiltak' is the matching enum label on task_source_category
+          // — using a value outside the enum failed silently before the
+          // unique-bridge index landed. Keep this in sync with the enum
+          // in 20260925120100_register_records.sql.
+          source_category: 'tiltak',
           pdca_phase: 'do',
           due_date: plan.due_at,
         })
         .select('id')
         .single()
-      if (insErr || !data) return null
+      if (insErr) {
+        // Unique-violation on the partial bridge index means another
+        // tab/race already inserted the bridge — fetch and link it.
+        if ((insErr as { code?: string }).code === '23505') {
+          const { data: existing } = await supabase
+            .from('task_items')
+            .select('id')
+            .eq('source_type', 'compliance_plan')
+            .eq('source_id', plan.id)
+            .is('deleted_at', null)
+            .maybeSingle()
+          if (existing?.id) {
+            await supabase
+              .from('compliance_plan_items')
+              .update({ task_id: String(existing.id) })
+              .eq('id', plan.id)
+            return String(existing.id)
+          }
+        }
+        return null
+      }
+      if (!data) return null
       const taskId = String(data.id)
       // Persist the task_id back to the plan item so we don't double-create.
       await supabase

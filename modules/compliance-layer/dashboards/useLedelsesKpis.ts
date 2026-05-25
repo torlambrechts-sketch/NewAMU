@@ -79,8 +79,9 @@ const OPEN_PALEGG_OUTCOMES = [
   'pågår',
 ]
 
-// Slug of the document template that backs the ARP redegjørelse.
-const ARP_TEMPLATE_SLUG = 'tpl-aktivitetsplikt'
+// The ARP template slug (`tpl-aktivitetsplikt`) is referenced by the
+// `compliance_layer_arp_latest_ack()` SECURITY DEFINER RPC — keep them
+// in sync if either side changes.
 
 export function useLedelsesKpis(): UseLedelsesKpisReturn {
   const { supabase, organization } = useOrgSetupContext()
@@ -94,14 +95,18 @@ export function useLedelsesKpis(): UseLedelsesKpisReturn {
     async (sb: SupabaseClient, oid: string) => {
       setError(null)
       try {
-        // Five small parallel queries. None scans more than a few hundred
-        // rows on a typical org so the total latency is gated by RTT.
+        // Five small parallel queries + 1 RPC. None scans more than a
+        // few hundred rows on a typical org so total latency is gated
+        // by RTT. The ARP latest-ack goes through a SECURITY DEFINER
+        // RPC because wiki_compliance_receipts RLS only exposes a
+        // viewer's own acks — without the RPC, non-admin members would
+        // see a false "Aldri bekreftet" signal on HMS-oversikt.
         const [
           amlClauses,
           coveredClauseIds,
           paleggRows,
-          arpPageIds,
           planLawRefs,
+          arpLatest,
         ] = await Promise.all([
           // 1a. All active AML clauses for this org → gives us aml_total + the
           //     set of ids we need for the "covered" + "uten plan" counts.
@@ -124,26 +129,22 @@ export function useLedelsesKpis(): UseLedelsesKpisReturn {
             .eq('organization_id', oid)
             .eq('register_type_id', 'aml_18_tilsynssaker')
             .is('deleted_at', null),
-          // 3. wiki_pages built from the ARP template — we'll then resolve
-          //    the most-recent acknowledgement against this set.
-          sb
-            .from('wiki_pages')
-            .select('id')
-            .eq('organization_id', oid)
-            .eq('created_from_template_id', ARP_TEMPLATE_SLUG),
-          // 4. compliance_plan_items law_refs (we need just the strings).
+          // 3. compliance_plan_items law_refs (we need just the strings).
           sb
             .from('compliance_plan_items')
             .select('law_ref')
             .eq('organization_id', oid)
             .is('deleted_at', null),
+          // 4. ARP latest ack via SECURITY DEFINER RPC — see migration
+          //    20260929120000_compliance_planner_review_hardening.
+          sb.rpc('compliance_layer_arp_latest_ack'),
         ])
 
         if (amlClauses.error) throw amlClauses.error
         if (coveredClauseIds.error) throw coveredClauseIds.error
         if (paleggRows.error) throw paleggRows.error
-        if (arpPageIds.error) throw arpPageIds.error
         if (planLawRefs.error) throw planLawRefs.error
+        if (arpLatest.error) throw arpLatest.error
 
         const clauses = (amlClauses.data ?? []) as Array<{
           id: string
@@ -189,28 +190,14 @@ export function useLedelsesKpis(): UseLedelsesKpisReturn {
           return true
         }).length
 
-        // ARP — query the most recent receipt against the ARP page set.
-        const arpIds = (arpPageIds.data ?? []).map(
-          (r: { id: string }) => r.id,
-        )
+        // ARP — RPC returns a single timestamptz (or null).
         let arp_last_ack_at: string | null = null
         let arp_days_since_ack: number | null = null
-        if (arpIds.length > 0) {
-          const ackResp = await sb
-            .from('wiki_compliance_receipts')
-            .select('acknowledged_at')
-            .eq('organization_id', oid)
-            .in('page_id', arpIds)
-            .order('acknowledged_at', { ascending: false })
-            .limit(1)
-            .maybeSingle()
-          if (ackResp.error) throw ackResp.error
-          const ack = ackResp.data?.acknowledged_at as string | undefined
-          if (ack) {
-            arp_last_ack_at = ack
-            const ms = Date.now() - new Date(ack).getTime()
-            arp_days_since_ack = Math.floor(ms / 86_400_000)
-          }
+        const arpRaw = arpLatest.data as string | null
+        if (arpRaw) {
+          arp_last_ack_at = arpRaw
+          const ms = Date.now() - new Date(arpRaw).getTime()
+          arp_days_since_ack = Math.floor(ms / 86_400_000)
         }
 
         setData({
