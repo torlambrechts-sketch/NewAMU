@@ -107,6 +107,7 @@ import { IsoSoAPage } from './pages/iso/IsoSoAPage'
 import { RegelverkCoveragePage } from './pages/overview/regelverk/RegelverkCoveragePage'
 import { InternkontrollDashboardPage } from './pages/overview/internkontroll/InternkontrollDashboardPage'
 import { InternkontrollGapPage } from './pages/overview/internkontroll/InternkontrollGapPage'
+import { InternkontrollPlanPage } from './pages/overview/internkontroll/InternkontrollPlanPage'
 import { InternkontrollAuditorPage } from './pages/auditor/InternkontrollAuditorPage'
 import { ControlsAuditorPage } from './pages/auditor/ControlsAuditorPage'
 import { BenchmarkPage } from './pages/dashboards/BenchmarkPage'
@@ -406,6 +407,7 @@ const router = createBrowserRouter(
                       <Route path="overview/regelverk" element={<RegelverkCoveragePage />} />
                       <Route path="overview/internkontroll" element={<InternkontrollDashboardPage />} />
                       <Route path="overview/internkontroll/gaps" element={<InternkontrollGapPage />} />
+                      <Route path="overview/internkontroll/plan" element={<InternkontrollPlanPage />} />
                       <Route path="risk" element={<Navigate to="/risk/analyse" replace />} />
                       <Route path="risk/analyse" element={<RiskAnalysePage />} />
                       <Route path="risk/register" element={<RiskRegisterPage />} />

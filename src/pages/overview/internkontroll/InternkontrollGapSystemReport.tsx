@@ -117,12 +117,20 @@ export function InternkontrollGapSystemReport({
         dimensions={dimensions}
         onFiltersChange={setSessionFilters}
         headerActions={
-          <ShareWithAuditorButton
-            framework={framework as FrameworkId}
-            scopeLabel={row.name}
-            snapshot={datasets as unknown as Record<string, unknown>}
-            layout={row.layout}
-          />
+          <div className="flex items-center gap-2">
+            <a
+              href={`/overview/internkontroll/plan?framework=${framework}`}
+              className="inline-flex items-center justify-center gap-1.5 rounded-md border border-neutral-300 bg-white px-3 py-1.5 text-xs font-semibold text-neutral-700 transition-colors hover:bg-neutral-50"
+            >
+              Plan & tidslinje
+            </a>
+            <ShareWithAuditorButton
+              framework={framework as FrameworkId}
+              scopeLabel={row.name}
+              snapshot={datasets as unknown as Record<string, unknown>}
+              layout={row.layout}
+            />
+          </div>
         }
         onDrillDown={(e) => {
           if (e.dimensionId !== 'gap_cell') return
