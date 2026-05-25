@@ -204,6 +204,17 @@ type NavGroup = {
   modules: NavModule[]
 }
 
+// Sidebar / top-bar grouping above NavGroup. The 4 sections mirror how
+// users mentally bucket the product: personal work → daily operations →
+// governance system → administration. See specs/PLAYBOOK.md and the
+// 2026-05 menu restructure recommendation.
+type NavSection = {
+  id: string
+  /** Uppercase label rendered between group clusters. */
+  label: string
+  groups: NavGroup[]
+}
+
 type NavModule = {
   to: string
   label: string
@@ -344,10 +355,29 @@ function filterNavGroups(
     .filter((g) => g.modules.length > 0)
 }
 
+function filterNavSections(
+  sections: NavSection[],
+  gateNav: boolean,
+  can: (k: PermissionKey) => boolean,
+  disabledModules: Set<string>,
+  hiddenForUser: Set<string>,
+): NavSection[] {
+  return sections
+    .map((s) => ({
+      ...s,
+      groups: filterNavGroups(s.groups, gateNav, can, disabledModules, hiddenForUser),
+    }))
+    .filter((s) => s.groups.length > 0)
+}
+
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function allModulesFrom(groups: NavGroup[]): NavModule[] {
   return groups.flatMap((g) => g.modules)
+}
+
+function allGroupsFromSections(sections: NavSection[]): NavGroup[] {
+  return sections.flatMap((s) => s.groups)
 }
 
 function activeModuleForPath(modules: NavModule[], pathname: string, search: string): NavModule {
@@ -534,7 +564,7 @@ export function AticsShell() {
   // sub-link when ≥1 cert is within 30 days of expiry. 5-min polling.
   const { count: certExpiryWarningCount } = useCertExpiryWarningCount()
   const { isActive: isRegulationActive, activeRegulationIds } = useRegulationFilter()
-  const mergedNavGroups = useMemo<NavGroup[]>(() => {
+  const mergedNavSections = useMemo<NavSection[]>(() => {
     // Fixed sub-entries that always sit under "Sjekklister" — Analyse and
     // Innstillinger live here so the user has a clear path to org-level
     // dashboards and pack/template configuration without leaving the menu
@@ -2091,8 +2121,87 @@ export function AticsShell() {
       ],
     }
 
-    const base: NavGroup[] = [hmsOverviewGroup, isoImsGroup, complianceGroup, controlsGroup, surveyGroup, documentsGroup, meetingsGroup, alertsGroup, registersGroup, tasksGroup, learningGroup, adminGroup]
-    return partnerGroup ? [partnerGroup, ...base] : base
+    // Four-section information architecture (May 2026 restructure).
+    // - Mitt arbeid: personal cross-module entry points (Innboks,
+    //   Mine oppgaver, Mine signaturer).
+    // - Daglig drift: operational modules the user touches every day.
+    // - Styringssystem: the governance backbone — controls, evidence,
+    //   frameworks, statutoriske fora, tilsyn.
+    // - Administrasjon: configuration surfaces.
+    // Partner-konsoll sits outside the section model since it's a
+    // consultant-scoped workspace that pre-empts the customer view.
+    const mittArbeidGroup: NavGroup = {
+      id: 'mitt-arbeid',
+      label: 'Mitt arbeid',
+      icon: Inbox,
+      modules: [
+        {
+          to: '/innboks',
+          label: 'Innboks',
+          end: true,
+          icon: Inbox,
+          subs: [],
+          flatSubs: true,
+        },
+        {
+          // Mine oppgaver — alias-view of /tasks/management filtered to
+          // me. Today there's no user_id link on task_items, so the
+          // page renders the same as /tasks/management; the page logic
+          // self-filters by display_name match where available. Wired
+          // as its own route so the breadcrumb + landing reads as a
+          // personal flate, not the org-wide manager.
+          to: '/tasks/management?assignee=me',
+          label: 'Mine oppgaver',
+          end: false,
+          icon: ListChecks,
+          subs: [],
+          flatSubs: true,
+        },
+        {
+          to: '/mitt-arbeid/signaturer',
+          label: 'Mine signaturer',
+          end: false,
+          icon: ScrollText,
+          subs: [],
+          flatSubs: true,
+        },
+      ],
+    }
+    const mittArbeidSection: NavSection = {
+      id: 'mitt-arbeid',
+      label: 'Mitt arbeid',
+      groups: [mittArbeidGroup],
+    }
+    const dagligDriftSection: NavSection = {
+      id: 'daglig-drift',
+      label: 'Daglig drift',
+      groups: [complianceGroup, surveyGroup, documentsGroup, meetingsGroup, learningGroup, tasksGroup],
+    }
+    const styringssystemSection: NavSection = {
+      id: 'styringssystem',
+      label: 'Styringssystem',
+      groups: [hmsOverviewGroup, controlsGroup, alertsGroup, registersGroup, isoImsGroup],
+    }
+    const administrasjonSection: NavSection = {
+      id: 'administrasjon',
+      label: 'Administrasjon',
+      groups: [adminGroup],
+    }
+
+    const sections: NavSection[] = [
+      mittArbeidSection,
+      dagligDriftSection,
+      styringssystemSection,
+      administrasjonSection,
+    ]
+
+    if (partnerGroup) {
+      return [
+        { id: 'partner', label: 'Partner', groups: [partnerGroup] },
+        ...sections,
+      ]
+    }
+    return sections
   }, [
     complianceNav.items,
     complianceNav.categories,
@@ -2123,10 +2232,11 @@ export function AticsShell() {
     certExpiryWarningCount,
   ])
 
-  const visibleGroups = useMemo(
-    () => filterNavGroups(mergedNavGroups, gateNav, can, disabledModules, hiddenForUser),
-    [mergedNavGroups, gateNav, can, disabledModules, hiddenForUser],
+  const visibleSections = useMemo(
+    () => filterNavSections(mergedNavSections, gateNav, can, disabledModules, hiddenForUser),
+    [mergedNavSections, gateNav, can, disabledModules, hiddenForUser],
   )
+  const visibleGroups = useMemo(() => allGroupsFromSections(visibleSections), [visibleSections])
   const visibleModules = useMemo(() => allModulesFrom(visibleGroups), [visibleGroups])
 
   const [navMode, setNavMode] = useState<NavMode>(loadNavMode)
@@ -2184,25 +2294,45 @@ export function AticsShell() {
             </NavLink>
           </div>
 
-          {/* One icon per group */}
-          <nav className="flex flex-1 flex-col gap-1.5 overflow-y-auto px-2 py-4" aria-label="Primary">
-            {visibleGroups.map((group) => {
-              const GroupIcon = group.icon
-              const isActive = activeGroup?.id === group.id
+          {/* Section-grouped group icons. Section labels sit between
+              clusters as small uppercase dividers. The Partner-konsoll
+              "section" carries no label since it's a single-group
+              shortcut shown only to consultants. */}
+          <nav className="flex flex-1 flex-col gap-1 overflow-y-auto px-2 py-3" aria-label="Primary">
+            {visibleSections.map((section, sectionIdx) => {
+              const showLabel = section.id !== 'partner'
               return (
-                <NavLink
-                  key={group.id}
-                  to={group.modules[0].to}
-                  end={false}
-                  title={group.label}
-                  className={`flex items-center justify-center rounded-lg p-3 transition-colors ${
-                    isActive
-                      ? 'bg-white/15 text-white ring-1 ring-[#c9a227]/60'
-                      : 'text-white/55 hover:bg-white/10 hover:text-white'
-                  }`}
-                >
-                  <GroupIcon className="size-[1.125rem] shrink-0" aria-hidden />
-                </NavLink>
+                <div key={section.id} className={sectionIdx > 0 ? 'mt-2' : ''}>
+                  {showLabel ? (
+                    <div
+                      className="px-1.5 pb-1 pt-1 text-[8px] font-semibold uppercase tracking-[0.15em] text-white/35"
+                      aria-hidden
+                    >
+                      {section.label}
+                    </div>
+                  ) : null}
+                  <div className="flex flex-col gap-1">
+                    {section.groups.map((group) => {
+                      const GroupIcon = group.icon
+                      const isActive = activeGroup?.id === group.id
+                      return (
+                        <NavLink
+                          key={group.id}
+                          to={group.modules[0].to}
+                          end={false}
+                          title={`${section.label} · ${group.label}`}
+                          className={`flex items-center justify-center rounded-lg p-2.5 transition-colors ${
+                            isActive
+                              ? 'bg-white/15 text-white ring-1 ring-[#c9a227]/60'
+                              : 'text-white/55 hover:bg-white/10 hover:text-white'
+                          }`}
+                        >
+                          <GroupIcon className="size-[1.125rem] shrink-0" aria-hidden />
+                        </NavLink>
+                      )
+                    })}
+                  </div>
+                </div>
               )
             })}
           </nav>
@@ -2461,23 +2591,34 @@ export function AticsShell() {
 
   const topBarGroupNav = (
     <nav className="flex min-h-0 items-center gap-1 overflow-x-auto pb-0.5 [-ms-overflow-style:none] [scrollbar-width:none] md:flex-1 md:justify-center md:overflow-visible md:pb-0 [&::-webkit-scrollbar]:hidden" aria-label="Primary">
-      {visibleGroups.map((group) => {
-        const isActiveGroup = activeGroup?.id === group.id
-        return (
-          <NavLink
-            key={group.id}
-            to={group.modules[0].to}
-            end={false}
-            className={`shrink-0 whitespace-nowrap rounded-lg px-3 py-1.5 text-sm font-semibold transition-colors md:px-3.5 md:py-1.5 ${
-              isActiveGroup
-                ? 'bg-white/15 text-white ring-1 ring-[#c9a227]/70'
-                : 'text-white/75 hover:bg-white/10 hover:text-white'
-            }`}
-          >
-            {group.label}
-          </NavLink>
-        )
-      })}
+      {visibleSections.map((section, sectionIdx) => (
+        <div key={section.id} className="flex shrink-0 items-center gap-1">
+          {sectionIdx > 0 ? (
+            <span
+              className="mx-1 hidden h-4 w-px shrink-0 bg-white/15 md:inline-block"
+              aria-hidden
+            />
+          ) : null}
+          {section.groups.map((group) => {
+            const isActiveGroup = activeGroup?.id === group.id
+            return (
+              <NavLink
+                key={group.id}
+                to={group.modules[0].to}
+                end={false}
+                title={section.id === 'partner' ? group.label : `${section.label} · ${group.label}`}
+                className={`shrink-0 whitespace-nowrap rounded-lg px-3 py-1.5 text-sm font-semibold transition-colors md:px-3.5 md:py-1.5 ${
+                  isActiveGroup
+                    ? 'bg-white/15 text-white ring-1 ring-[#c9a227]/70'
+                    : 'text-white/75 hover:bg-white/10 hover:text-white'
+                }`}
+              >
+                {group.label}
+              </NavLink>
+            )
+          })}
+        </div>
+      ))}
     </nav>
   )
 

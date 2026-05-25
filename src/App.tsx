@@ -98,6 +98,10 @@ import { LearningKompetansePage } from './pages/learning/LearningKompetansePage'
 import { LearningAnalysePage } from './pages/learning/LearningAnalysePage'
 import { HmsOverviewPage } from './pages/overview/HmsOverviewPage'
 import { MyFavoritesPage } from './pages/favorites/MyFavoritesPage'
+import {
+  MittArbeidInnboksPage,
+  MittArbeidSignaturerPage,
+} from './pages/mitt-arbeid'
 import { FavoritesProvider } from './components/favorites/FavoritesProvider'
 import { IsoImsAnalysePage } from './pages/iso/IsoImsAnalysePage'
 import { IsoSettingsPage } from './pages/iso/IsoSettingsPage'
@@ -387,6 +391,14 @@ const router = createBrowserRouter(
                       }
                     >
                       <Route path="app" element={<WelcomeDashboardPage />} />
+                      {/* Mitt arbeid — cross-module personal landing surfaces.
+                          Innboks aggregates oppgaver, varslinger, møter and
+                          signatur-køen; Signaturer is the focused signature-
+                          pending view. See specs/PLAYBOOK.md menu restructure. */}
+                      <Route path="innboks" element={<MittArbeidInnboksPage />} />
+                      <Route path="mitt-arbeid" element={<Navigate to="/innboks" replace />} />
+                      <Route path="mitt-arbeid/innboks" element={<Navigate to="/innboks" replace />} />
+                      <Route path="mitt-arbeid/signaturer" element={<MittArbeidSignaturerPage />} />
                       <Route path="tasks" element={<Navigate to="/tasks/management" replace />} />
                       <Route path="tasks/management" element={<TasksManagementPage />} />
                       <Route path="tasks/management/analyse" element={<TasksAnalysePage />} />
