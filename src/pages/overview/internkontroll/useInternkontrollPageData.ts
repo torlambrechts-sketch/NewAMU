@@ -139,6 +139,23 @@ export type IkAarshjulEvent = {
   controlId: string
 }
 
+/** CAPA 9-state lifecycle exposed by `task_items.status`. Mirror of
+ *  `src/types/task.ts` — we only consume strings here so the dependency
+ *  is minimal. Legacy values `todo`/`done` are accepted by the DB check
+ *  constraint and may appear on historical rows. */
+export type BridgeTaskStatus =
+  | 'open'
+  | 'in_progress'
+  | 'root_cause_identified'
+  | 'action_defined'
+  | 'action_implemented'
+  | 'effectiveness_pending'
+  | 'effectiveness_verified'
+  | 'closed'
+  | 'cancelled'
+  | 'todo'
+  | 'done'
+
 export type IkTiltak = {
   id: string
   title: string
@@ -157,6 +174,15 @@ export type IkTiltak = {
   taskId: string | null
   rawStatus: 'planned' | 'in_progress' | 'blocked' | 'done'
   dueAt: string | null
+  /** When the plan-item has a bridge task in `task_items`, the live
+   *  CAPA status of that task. Surfaces alongside `status` so users
+   *  see what the doer side actually thinks. Null when no bridge. */
+  bridgeStatus: BridgeTaskStatus | null
+  /** Assignee on the bridge task (distinct from owner — executes the
+   *  work). Null when no bridge or task is unassigned. */
+  bridgeAssignee: string | null
+  /** SLA deadline from the bridge task. Falls back to plan-item due_at. */
+  bridgeSlaDueAt: string | null
 }
 
 export type IkProsjektMilestone = {
@@ -280,6 +306,21 @@ type ExecutionRow = {
   signed_by: string | null
   signed_at: string | null
 }
+/** Minimal slice of task_items pulled for the bridge view. Each row
+ *  is a task created via `useCompliancePlanItems.ensureBridgeTask`
+ *  (source_type='compliance_plan', source_id=<plan_item.id>) — the
+ *  CAPA twin of an internkontroll tiltak. We only read what the
+ *  internkontroll page needs to surface; the full task lives in the
+ *  Tasks module. */
+type BridgeTaskRow = {
+  id: string
+  source_id: string
+  status: string
+  assignee_user_id: string | null
+  assignee_name: string | null
+  sla_due_at: string | null
+  closed_at: string | null
+}
 type PlanItemRow = {
   id: string
   law_ref: string
@@ -345,10 +386,21 @@ function mapPlanStatus(
   return { status: 'planlagt', priority: 'middels' }
 }
 
+export type BridgeTaskInfo = {
+  status: BridgeTaskStatus
+  assigneeName: string | null
+  slaDueAt: string | null
+}
+
 /**
  * Convert a raw compliance_plan_item row into the IkTiltak view-model.
  * Exported so the Tiltak section can derive directly from the live
  * useCompliancePlanItems hook (single source of truth for writes).
+ *
+ * `bridgesByPlanId` carries the bridge task slice from `task_items`
+ * keyed by plan-item id. When present, the resulting IkTiltak exposes
+ * the live CAPA status + assignee so the UI can render the doer's
+ * truth alongside the auditor view.
  */
 export function planItemToTiltak(
   p: {
@@ -365,6 +417,7 @@ export function planItemToTiltak(
   },
   frameworks: IkFramework[],
   userNames?: Map<string, string>,
+  bridgesByPlanId?: Map<string, BridgeTaskInfo>,
 ): IkTiltak {
   const mapped = mapPlanStatus(p.status, p.due_at)
   const progress =
@@ -381,6 +434,7 @@ export function planItemToTiltak(
   // Touch frameworks so the import isn't dead (used by callers that
   // want to keep the fw → color lookup in scope of the same hook).
   void frameworks
+  const bridge = bridgesByPlanId?.get(p.id) ?? null
   return {
     id: p.id,
     title: p.title,
@@ -397,6 +451,9 @@ export function planItemToTiltak(
     taskId: p.task_id,
     rawStatus: p.status,
     dueAt: p.due_at,
+    bridgeStatus: bridge?.status ?? null,
+    bridgeAssignee: bridge?.assigneeName ?? null,
+    bridgeSlaDueAt: bridge?.slaDueAt ?? null,
   }
 }
 
@@ -445,7 +502,15 @@ function frameworkFromLawRef(ref: string): FrameworkId {
   return 'aml'
 }
 
-export function useInternkontrollPageData(): { data: IkData; loading: boolean } {
+export function useInternkontrollPageData(): {
+  data: IkData
+  loading: boolean
+  /** Bridge-task metadata keyed by source compliance_plan_items.id —
+   *  surfaced so callers that derive live tiltak from a write hook
+   *  (e.g. useCompliancePlanItems) can still attach the CAPA twin's
+   *  status + assignee without re-querying. */
+  bridgesByPlanId: Map<string, BridgeTaskInfo>
+} {
   const { supabase, organization } = useOrgSetupContext()
   const { coverage, loading: coverageLoading } = useRegelverkCoverage()
   const controlsLookup = useControlsByLawRef()
@@ -464,6 +529,10 @@ export function useInternkontrollPageData(): { data: IkData; loading: boolean } 
     statusRows: StatusRow[]
     executionRows: ExecutionRow[]
     planRows: PlanItemRow[]
+    /** task_items rows whose source_type='compliance_plan' — the bridge
+     *  twin of each plan-item. Read-only on this page; the Tasks module
+     *  owns writes. */
+    bridgeTasks: BridgeTaskRow[]
   }
   const [loaded, setLoaded] = useState<Loaded | null>(null)
   const [userNames, setUserNames] = useState<Map<string, string>>(new Map())
@@ -515,7 +584,20 @@ export function useInternkontrollPageData(): { data: IkData; loading: boolean } 
         .is('deleted_at', null)
         .order('updated_at', { ascending: false })
         .limit(MAX_PAGE_PLAN_ITEMS),
-    ]).then(([reg, cl, ctrl, jn, st, ex, pl]) => {
+      // Bridge: tasks whose source_type='compliance_plan' are the CAPA
+      // twin of a plan-item. The partial unique index
+      // `task_items_compliance_plan_bridge_uidx` guarantees 1:1 so we
+      // can use `source_id` as the join key directly.
+      supabase
+        .from('task_items')
+        .select(
+          'id, source_id, status, assignee_user_id, assignee_name, sla_due_at, closed_at',
+        )
+        .eq('organization_id', orgId)
+        .eq('source_type', 'compliance_plan')
+        .is('deleted_at', null)
+        .limit(MAX_PAGE_PLAN_ITEMS),
+    ]).then(([reg, cl, ctrl, jn, st, ex, pl, bridges]) => {
       if (cancelled) return
       // Log non-fatal query failures so they don't disappear into the
       // void. We still build a partial view from whatever did succeed —
@@ -529,6 +611,7 @@ export function useInternkontrollPageData(): { data: IkData; loading: boolean } 
       if (st.error) failures.push(`internal_control_status_v: ${st.error.message}`)
       if (ex.error) failures.push(`internal_control_executions: ${ex.error.message}`)
       if (pl.error) failures.push(`compliance_plan_items: ${pl.error.message}`)
+      if (bridges.error) failures.push(`task_items (bridge): ${bridges.error.message}`)
       if (failures.length > 0) {
         console.warn('[internkontroll] partial load — some sources failed:', failures)
       }
@@ -541,6 +624,7 @@ export function useInternkontrollPageData(): { data: IkData; loading: boolean } 
         statusRows: (st.data ?? []) as StatusRow[],
         executionRows: (ex.data ?? []) as ExecutionRow[],
         planRows: (pl.data ?? []) as PlanItemRow[],
+        bridgeTasks: (bridges.data ?? []) as BridgeTaskRow[],
       })
     })
     return () => {
@@ -598,6 +682,7 @@ export function useInternkontrollPageData(): { data: IkData; loading: boolean } 
         statusRows: [],
         executionRows: [],
         planRows: [],
+        bridgeTasks: [],
         userNames,
         countByLawRef: controlsLookup.countByLawRef,
       })
@@ -611,12 +696,32 @@ export function useInternkontrollPageData(): { data: IkData; loading: boolean } 
       statusRows: current.statusRows,
       executionRows: current.executionRows,
       planRows: current.planRows,
+      bridgeTasks: current.bridgeTasks,
       userNames,
       countByLawRef: controlsLookup.countByLawRef,
     })
   }, [coverage, current, userNames, controlsLookup.countByLawRef])
 
-  return { data, loading }
+  // Build the bridge map at the hook level too (the same way buildData
+  // does internally) so callers can attach bridge info to tiltak they
+  // derive from sources other than `current.planRows`.
+  const bridgesByPlanId = useMemo(() => {
+    const m = new Map<string, BridgeTaskInfo>()
+    const rows = current?.bridgeTasks ?? []
+    for (const b of rows) {
+      if (!b.source_id) continue
+      m.set(b.source_id, {
+        status: (b.status as BridgeTaskStatus) ?? 'open',
+        assigneeName:
+          b.assignee_name ??
+          (b.assignee_user_id ? userNames.get(b.assignee_user_id) ?? null : null),
+        slaDueAt: b.sla_due_at,
+      })
+    }
+    return m
+  }, [current, userNames])
+
+  return { data, loading, bridgesByPlanId }
 }
 
 function buildData(input: {
@@ -628,6 +733,7 @@ function buildData(input: {
   statusRows: StatusRow[]
   executionRows: ExecutionRow[]
   planRows: PlanItemRow[]
+  bridgeTasks: BridgeTaskRow[]
   userNames: Map<string, string>
   countByLawRef: Map<string, number>
 }): IkData {
@@ -640,9 +746,24 @@ function buildData(input: {
     statusRows,
     executionRows,
     planRows,
+    bridgeTasks,
     userNames,
     countByLawRef,
   } = input
+
+  // Bridge-task lookup keyed by source plan-item id. Partial unique
+  // index guarantees 1:1, so a Map is safe; even if a duplicate slipped
+  // past the constraint the last writer wins which is the freshest
+  // signal anyway.
+  const bridgesByPlanId = new Map<string, BridgeTaskInfo>()
+  for (const b of bridgeTasks) {
+    if (!b.source_id) continue
+    bridgesByPlanId.set(b.source_id, {
+      status: (b.status as BridgeTaskStatus) ?? 'open',
+      assigneeName: b.assignee_name ?? (b.assignee_user_id ? userNames.get(b.assignee_user_id) ?? null : null),
+      slaDueAt: b.sla_due_at,
+    })
+  }
 
   // clause id ↔ code map.
   const codeByClauseId = new Map<string, string>()
@@ -892,6 +1013,7 @@ function buildData(input: {
     const fwId = (FRAMEWORK_IDS as readonly string[]).includes(p.framework_id)
       ? (p.framework_id as FrameworkId)
       : frameworkFromLawRef(p.law_ref)
+    const bridge = bridgesByPlanId.get(p.id) ?? null
     return {
       id: p.id,
       title: p.title,
@@ -908,6 +1030,9 @@ function buildData(input: {
       taskId: p.task_id,
       rawStatus: p.status,
       dueAt: p.due_at,
+      bridgeStatus: bridge?.status ?? null,
+      bridgeAssignee: bridge?.assigneeName ?? null,
+      bridgeSlaDueAt: bridge?.slaDueAt ?? null,
     }
   })
 

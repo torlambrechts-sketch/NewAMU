@@ -134,18 +134,20 @@ export function InternkontrollPage() {
     setSearchParams(sp, { replace: true })
   }
 
-  const { data: rawData, loading } = useInternkontrollPageData()
+  const { data: rawData, loading, bridgesByPlanId } = useInternkontrollPageData()
   const plan = useCompliancePlanItemsForActiveFramework(filterFw)
 
   // Override the snapshot tiltak with the live hook so newly-created /
   // updated rows reflect immediately across every section (Oversikt's
-  // KPI strip, Prosjekter task lists, sidebar count, etc.).
+  // KPI strip, Prosjekter task lists, sidebar count, etc.). Pass the
+  // bridge map so each live row keeps its CAPA twin's status/assignee
+  // without an extra round-trip.
   const data = useMemo(() => {
     const liveTiltak = plan.items.map((p) =>
-      planItemToTiltak(p, rawData.frameworks),
+      planItemToTiltak(p, rawData.frameworks, undefined, bridgesByPlanId),
     )
     return { ...rawData, tiltak: liveTiltak }
-  }, [rawData, plan.items])
+  }, [rawData, plan.items, bridgesByPlanId])
 
   const counts: Record<IkSectionId, number | null> = useMemo(() => {
     const stats = data.stats

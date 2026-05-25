@@ -6,6 +6,7 @@
 
 import { useMemo, useState } from 'react'
 import {
+  ArrowUpRight,
   Calendar,
   FolderKanban,
   ListChecks,
@@ -19,6 +20,7 @@ import { Button } from '../../../../components/ui/Button'
 import { StandardInput } from '../../../../components/ui/Input'
 import { SearchableSelect } from '../../../../components/ui/SearchableSelect'
 import {
+  BridgeStatusBadge,
   FilterPills,
   FwChip,
   Initials,
@@ -355,6 +357,17 @@ function TiltakRow({
               {t.priority}
             </span>
             <TiltakStatusPill status={t.status} />
+            {t.bridgeStatus && <BridgeStatusBadge status={t.bridgeStatus} />}
+            {t.taskId && (
+              <a
+                href={`/tasks/management/alle?task=${t.taskId}`}
+                className="inline-flex items-center gap-1 rounded border border-[#1a3d32]/20 bg-[#e7efe9]/40 px-1.5 py-0.5 text-[10px] font-semibold text-[#1a3d32] hover:bg-[#e7efe9]"
+                title="Åpne tiltaket i Oppgavestyring"
+              >
+                <ArrowUpRight className="h-2.5 w-2.5" />
+                Åpne i Oppgaver
+              </a>
+            )}
             {t.project && (
               <span className="inline-flex items-center gap-1 rounded border border-neutral-200 bg-[#fbf9f3] px-1.5 py-0.5 text-[10px] font-semibold text-neutral-700">
                 <FolderKanban className="h-2.5 w-2.5" />
@@ -375,10 +388,21 @@ function TiltakRow({
             </span>
           </div>
           <div className="mt-2 grid grid-cols-1 items-center gap-3 md:grid-cols-[minmax(0,1fr)_140px_120px]">
-            <div className="flex items-center gap-2 text-[10px] text-neutral-600">
-              <Initials name={t.owner} size={18} />
-              <span>{t.owner}</span>
-              <span>·</span>
+            <div className="flex flex-wrap items-center gap-2 text-[10px] text-neutral-600">
+              <span className="inline-flex items-center gap-1.5" title="Eier (ansvarlig)">
+                <Initials name={t.owner} size={18} />
+                <span>{t.owner}</span>
+              </span>
+              {t.bridgeAssignee && t.bridgeAssignee !== t.owner && (
+                <>
+                  <span className="text-neutral-400">→</span>
+                  <span className="inline-flex items-center gap-1.5" title="Tildelt (utfører)">
+                    <Initials name={t.bridgeAssignee} size={18} />
+                    <span>{t.bridgeAssignee}</span>
+                  </span>
+                </>
+              )}
+              <span className="text-neutral-300">·</span>
               <span className="inline-flex items-center gap-1">
                 <Calendar className="h-2.5 w-2.5" />
                 <span className="tabular-nums">Frist {t.deadline}</span>

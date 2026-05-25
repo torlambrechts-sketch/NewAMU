@@ -244,6 +244,55 @@ export function TiltakStatusPill({
   )
 }
 
+// ── BridgeStatusBadge — surfaces the CAPA state of the task_items twin
+// next to the plan-item's own status pill. Compresses the 9-state task
+// lifecycle into 4 user-facing labels (CAPA columns: rapportert /
+// pågår / verifikasjon / lukket) so the auditor view stays scannable.
+// When the user wants the granular state, the deep-link in TiltakRow
+// drops them into Oppgavestyring where the full picker lives.
+const BRIDGE_BUCKETS = {
+  reported: {
+    statuses: ['open', 'todo'] as const,
+    label: 'Rapportert',
+    bg: 'bg-neutral-100',
+    text: 'text-neutral-800',
+  },
+  progress: {
+    statuses: ['in_progress', 'root_cause_identified', 'action_defined', 'action_implemented'] as const,
+    label: 'Pågår',
+    bg: 'bg-blue-50',
+    text: 'text-blue-900',
+  },
+  verify: {
+    statuses: ['effectiveness_pending', 'effectiveness_verified'] as const,
+    label: 'Verifikasjon',
+    bg: 'bg-violet-50',
+    text: 'text-violet-900',
+  },
+  closed: {
+    statuses: ['closed', 'done', 'cancelled'] as const,
+    label: 'Lukket',
+    bg: 'bg-green-50',
+    text: 'text-green-900',
+  },
+} as const
+
+export function BridgeStatusBadge({ status }: { status: string }) {
+  const bucket =
+    (Object.values(BRIDGE_BUCKETS).find((b) =>
+      (b.statuses as readonly string[]).includes(status),
+    ) as typeof BRIDGE_BUCKETS.reported | undefined) ?? BRIDGE_BUCKETS.reported
+  return (
+    <span
+      title={`Oppgave-status: ${status}`}
+      className={`inline-flex items-center gap-1 rounded border border-dashed border-current/20 px-1.5 py-0.5 text-[10px] font-semibold ${bucket.bg} ${bucket.text}`}
+    >
+      <span className="h-1.5 w-1.5 rounded-full bg-current opacity-50" />
+      {bucket.label}
+    </span>
+  )
+}
+
 export function Stars({ value, max = 5 }: { value: number; max?: number }) {
   return (
     <span className="inline-flex items-center gap-0.5">
