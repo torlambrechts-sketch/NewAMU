@@ -79,6 +79,11 @@ const DATASETS: DatasetMeta[] = [
   { key: 'controls_status_distribution', label: 'Kontroller — status', shape: 'segments' },
   { key: 'controls_by_regulation', label: 'Kontroller — per regelverk', shape: 'segments' },
   { key: 'controls_executions_over_time', label: 'Kontroller — bevis over tid', shape: 'series' },
+  // Ledelses-KPI (§5.5) — top-line numbers for daglig leder.
+  { key: 'ledelses_aml_coverage', label: 'AML-dekning', shape: 'kpi-record' },
+  { key: 'ledelses_open_palegg', label: 'Åpne tilsynspålegg', shape: 'kpi-record' },
+  { key: 'ledelses_arp_status', label: 'ARP-redegjørelse', shape: 'kpi-record' },
+  { key: 'ledelses_paragraphs_uten_plan', label: 'AML-§-er uten plan', shape: 'kpi-record' },
 ]
 
 // ── KPI strip — one per member scope ──────────────────────────────────────
@@ -220,6 +225,51 @@ const LINE_CONTROLS_OVER_TIME: ReportModuleLine = {
   colSpan: 'md',
 }
 
+// Ledelses-KPI (§5.5) — daglig leder's at-a-glance compliance dial.
+// AML-dekning leads as the headline number; the other three are the
+// "what needs attention this week" signals (open påleggs > 0, ARP gone
+// stale, §-er without any plan).
+const KPI_LEDELSES_AML_COVERAGE: ReportModuleKpi = {
+  id: 'kpi-ledelses-aml-coverage',
+  kind: 'kpi',
+  datasetKey: 'ledelses_aml_coverage',
+  title: 'AML-dekning',
+  valuePath: 'aml_coverage_pct',
+  subtitle: '% av paragrafer med ≥1 internkontroll',
+  colSpan: 'sm',
+  comparisonGoal: 'increase',
+}
+const KPI_LEDELSES_OPEN_PALEGG: ReportModuleKpi = {
+  id: 'kpi-ledelses-open-palegg',
+  kind: 'kpi',
+  datasetKey: 'ledelses_open_palegg',
+  title: 'Åpne tilsynspålegg',
+  valuePath: 'open_palegg',
+  subtitle: 'Pålegg / stansing / pågående saker',
+  colSpan: 'sm',
+  comparisonGoal: 'decrease',
+}
+const KPI_LEDELSES_ARP_DAYS: ReportModuleKpi = {
+  id: 'kpi-ledelses-arp-days',
+  kind: 'kpi',
+  datasetKey: 'ledelses_arp_status',
+  title: 'ARP — dager siden bekreftet',
+  valuePath: 'arp_days_since_ack',
+  subtitle: 'LDL § 26 — aktivitets- og redegjørelsesplan',
+  colSpan: 'sm',
+  comparisonGoal: 'decrease',
+}
+const KPI_LEDELSES_UTEN_PLAN: ReportModuleKpi = {
+  id: 'kpi-ledelses-uten-plan',
+  kind: 'kpi',
+  datasetKey: 'ledelses_paragraphs_uten_plan',
+  title: 'AML-§-er uten plan',
+  valuePath: 'paragraphs_uten_plan',
+  subtitle: 'Verken kontroll eller compliance_plan_item',
+  colSpan: 'sm',
+  comparisonGoal: 'decrease',
+}
+
 const KPI_ALERTS_OPEN: ReportModuleKpi = {
   id: 'kpi-alerts-open',
   kind: 'kpi',
@@ -316,9 +366,13 @@ const DONUT_DOCUMENTS_STATUS: ReportModuleDonut = {
 }
 
 const DEFAULT_LAYOUT: ReportModule[] = [
-  // Top KPI strip — risk + control hygiene first because they're the
-  // executive-level "is anything on fire?" signals. Compliance / survey
-  // / tasks / learning detail below.
+  // Top KPI strip — the four ledelses-numbers lead because they are the
+  // "is anything on fire today?" signals (§5.5). Risk + control hygiene
+  // follow, then per-module detail.
+  KPI_LEDELSES_AML_COVERAGE,
+  KPI_LEDELSES_OPEN_PALEGG,
+  KPI_LEDELSES_ARP_DAYS,
+  KPI_LEDELSES_UTEN_PLAN,
   KPI_CONTROLS_OVERDUE,
   KPI_CONTROLS_DUE_SOON,
   KPI_CONTROLS_ON_TRACK,
@@ -364,6 +418,10 @@ const WIDGET_CATALOG: WidgetCatalogEntry[] = [
   { catalogId: 'kpi-controls-on-track', category: 'Kontroller', label: 'Kontroller på sporet', description: 'Internkontroller som er innenfor sin frekvens.', template: KPI_CONTROLS_ON_TRACK },
   { catalogId: 'donut-controls-by-regulation', category: 'Kontroller', label: 'Kontroller per regelverk', description: 'Fordeling av kontroller etter primær-regelverket de oppfyller.', template: DONUT_CONTROLS_BY_REGULATION },
   { catalogId: 'line-controls-executions', category: 'Trender', label: 'Kontroller — bevis over tid', template: LINE_CONTROLS_OVER_TIME },
+  { catalogId: 'kpi-ledelses-aml-coverage', category: 'Ledelse', label: 'AML-dekning', description: '% av aktive AML-paragrafer med ≥1 internkontroll.', template: KPI_LEDELSES_AML_COVERAGE },
+  { catalogId: 'kpi-ledelses-open-palegg', category: 'Ledelse', label: 'Åpne tilsynspålegg', description: 'Pålegg / tvangsmulkt / stansing / pågående saker uten closure_at.', template: KPI_LEDELSES_OPEN_PALEGG },
+  { catalogId: 'kpi-ledelses-arp-days', category: 'Ledelse', label: 'ARP — dager siden bekreftet', description: 'Siste acknowledgement på Aktivitets- og redegjørelsesplan-malen.', template: KPI_LEDELSES_ARP_DAYS },
+  { catalogId: 'kpi-ledelses-uten-plan', category: 'Ledelse', label: 'AML-§-er uten plan', description: 'Paragrafer uten kontrolldekning OG uten compliance_plan_item.', template: KPI_LEDELSES_UTEN_PLAN },
 ]
 
 registerDashboardScope({

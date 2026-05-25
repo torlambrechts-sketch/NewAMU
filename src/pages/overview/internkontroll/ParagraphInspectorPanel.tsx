@@ -12,7 +12,7 @@
 // the artefact list. Plan items have their own hook.
 
 import { useEffect, useMemo } from 'react'
-import { ExternalLink, ShieldCheck, X } from 'lucide-react'
+import { Clock, ExternalLink, ShieldCheck, X } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { Button } from '../../../components/ui/Button'
 import type { CoverageEntry } from '../../../hooks/useRegelverkCoverage'
@@ -23,6 +23,7 @@ import {
 } from './frameworkParagraphs'
 import type { RegisterCoverageMatch } from './useInternkontrollDatasets'
 import type { ControlCoverageSummary } from './useControlsByLawRef'
+import { useParagraphEvidence, type ParagraphEvidenceRow } from './useParagraphEvidence'
 import {
   PlanItemsSection,
   type CompliancePlanItem,
@@ -181,6 +182,12 @@ export function ParagraphInspectorPanel({
     return out
   }, [entries])
 
+  // Evidence ledger (5.4) — chronological feed of executions, acks,
+  // completions etc. that reference this paragraph in their `law_refs[]`.
+  // Hook handles its own loading + null-code short-circuit; we just
+  // hand it the lawRef when the panel is open.
+  const evidence = useParagraphEvidence(open ? lawRef : null, 50)
+
   if (!open || !lawRef) return null
 
   const totalArtefacts = entries.length + registerMatches.length
@@ -307,6 +314,14 @@ export function ParagraphInspectorPanel({
 
           {/* Internkontroller (Tier 2 — controls covering this paragraph) */}
           <ControlsCoverageSection controls={controls} />
+
+          {/* Evidence ledger (§5.4) — chronological feed for this § */}
+          <EvidenceLedgerSection
+            rows={evidence.rows}
+            loading={evidence.loading}
+            error={evidence.error}
+            lawRef={lawRef}
+          />
 
           {/* Plan items (Phase 3) */}
           <PlanItemsSection
@@ -436,6 +451,91 @@ function ControlsCoverageSection({ controls }: { controls: ControlCoverageSummar
           )
         })}
       </ul>
+    </section>
+  )
+}
+
+// ── EvidenceLedgerSection (§5.4) ────────────────────────────────────────
+// Chronological feed of every artefact across the 7 module surfaces whose
+// `law_refs[]` array contains this paragraph code. Reads from
+// `compliance_evidence_v` via useParagraphEvidence. Empty state nudges
+// the admin toward executing one of the bound artefacts.
+
+const EVIDENCE_KIND_LABEL: Record<ParagraphEvidenceRow['source_kind'], string> = {
+  compliance_execution: 'Sjekklist-utførelse',
+  survey_response: 'Undersøkelse',
+  document_acknowledgement: 'Dokument-bekreftelse',
+  learning_completion: 'Kursfullføring',
+  task_completion: 'Lukket oppgave',
+  meeting_protocol: 'Møteprotokoll',
+  register_record: 'Registerpost',
+  manual_evidence: 'Manuelt bevis',
+}
+
+function EvidenceLedgerSection({
+  rows,
+  loading,
+  error,
+  lawRef,
+}: {
+  rows: ParagraphEvidenceRow[]
+  loading: boolean
+  error: string | null
+  lawRef: string
+}) {
+  return (
+    <section className="mb-6">
+      <p className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wide text-neutral-500">
+        <Clock className="size-3" aria-hidden />
+        Bevisjournal {rows.length > 0 ? `· ${rows.length}` : ''}
+      </p>
+      {loading ? (
+        <p className="mt-2 text-xs text-neutral-500">Laster bevis…</p>
+      ) : null}
+      {error ? (
+        <p role="alert" className="mt-2 text-xs text-rose-700">{error}</p>
+      ) : null}
+      {!loading && !error && rows.length === 0 ? (
+        <p className="mt-3 rounded-md border border-dashed border-neutral-300 bg-white/60 p-3 text-xs text-neutral-600">
+          Ingen bevis registrert for{' '}
+          <code className="rounded bg-white px-1 font-mono">{lawRef}</code> siste 12 mnd.
+          Signer en bundet sjekklist, møteprotokoll eller dokument-ack for å
+          legge til en rad — eller bind en kontroll i {' '}
+          <Link to="/controls/admin" className="text-amber-800 underline">
+            kontrollpanelet
+          </Link>
+          {' '}for at signaturer skal telle som bevis automatisk.
+        </p>
+      ) : null}
+      {rows.length > 0 ? (
+        <ol className="mt-3 space-y-1">
+          {rows.map((r) => (
+            <li
+              key={`${r.source_table}:${r.source_id}:${r.occurred_at}`}
+              className="flex items-baseline gap-3 rounded border border-neutral-100 bg-white px-3 py-1.5 text-xs"
+            >
+              <time
+                dateTime={r.occurred_at}
+                className="shrink-0 font-mono text-neutral-500"
+                style={{ minWidth: '5.5rem' }}
+              >
+                {new Date(r.occurred_at).toLocaleDateString('nb-NO')}
+              </time>
+              <span className="shrink-0 rounded-sm bg-neutral-100 px-1.5 text-[10px] font-semibold text-neutral-700">
+                {EVIDENCE_KIND_LABEL[r.source_kind]}
+              </span>
+              <span className="min-w-0 flex-1 truncate text-neutral-900">
+                {r.title}
+              </span>
+              {r.signed_at ? (
+                <span className="shrink-0 rounded-sm bg-emerald-50 px-1.5 text-[10px] font-semibold text-emerald-800 ring-1 ring-inset ring-emerald-200">
+                  Signert
+                </span>
+              ) : null}
+            </li>
+          ))}
+        </ol>
+      ) : null}
     </section>
   )
 }

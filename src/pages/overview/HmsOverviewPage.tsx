@@ -49,6 +49,7 @@ import '../../../modules/risk/dashboards/riskDashboardScope'
 import { useAlerts } from '../../../modules/alerts'
 import { useAlertsDatasets } from '../../../modules/alerts/dashboards/useAlertsDatasets'
 import { useComplianceLayerDatasets } from '../../../modules/compliance-layer/dashboards/useComplianceLayerDatasets'
+import { useLedelsesKpis } from '../../../modules/compliance-layer/dashboards/useLedelsesKpis'
 import {
   HMS_OVERVIEW_SCOPE_ID,
   // Side-effect import: registers the composite scope on module load.
@@ -195,6 +196,13 @@ export function HmsOverviewPage() {
   const complianceLayer = useComplianceLayerDatasets()
   const complianceLayerDs = complianceLayer.datasets
 
+  // Ledelses-KPI strip (ROADMAP §5.5) — four top-line numbers for the
+  // daglig leder: AML-dekning, åpne pålegg, ARP-status, §-er uten plan.
+  // Self-fetching org-scoped hook; returns dataset keys prefixed
+  // `ledelses_*` so they merge cleanly into the composite map.
+  const ledelses = useLedelsesKpis()
+  const ledelsesDs = ledelses.datasets
+
   // Risk member — reads from `risk_register_summary_v` when available
   // (P2 migration applied), falls back to the P1 client-side source
   // fold otherwise. Filter chips cascade because `buildRiskDatasets`
@@ -216,6 +224,7 @@ export function HmsOverviewPage() {
       ...riskDs,
       ...alertsDs,
       ...complianceLayerDs,
+      ...ledelsesDs,
     }),
     [
       checklistDs,
@@ -226,6 +235,7 @@ export function HmsOverviewPage() {
       riskDs,
       alertsDs,
       complianceLayerDs,
+      ledelsesDs,
     ],
   )
 
@@ -326,6 +336,7 @@ export function HmsOverviewPage() {
           docs.loading ||
           riskRows.loading ||
           complianceLayer.loading ||
+          ledelses.loading ||
           dashboard.loading
         }
         error={
@@ -335,6 +346,7 @@ export function HmsOverviewPage() {
           docs.error ??
           riskRows.error ??
           complianceLayer.error ??
+          ledelses.error ??
           dashboard.error
         }
         emptyState={
