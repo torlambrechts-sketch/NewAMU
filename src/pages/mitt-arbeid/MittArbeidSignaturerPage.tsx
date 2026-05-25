@@ -235,7 +235,7 @@ function SignatureGroup({
   rows,
 }: {
   title: string
-  icon: React.ComponentType<{ className?: string; 'aria-hidden'?: 'true' }>
+  icon: React.ComponentType<{ className?: string; 'aria-hidden'?: 'true'; style?: React.CSSProperties }>
   accent: string
   rows: SignaturePendingRow[]
 }) {

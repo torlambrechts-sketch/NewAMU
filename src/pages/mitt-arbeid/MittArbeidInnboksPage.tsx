@@ -10,7 +10,6 @@ import {
   ArrowUpRight,
   CalendarClock,
   CheckCircle2,
-  ClipboardList,
   Inbox,
   ListChecks,
   PenLine,
@@ -30,6 +29,21 @@ function fmtDate(iso: string | null): string {
     return new Date(iso).toLocaleDateString('no-NO', { day: '2-digit', month: 'short' })
   } catch {
     return iso
+  }
+}
+
+function alertStatusLabel(status: string): string {
+  switch (status) {
+    case 'received':
+      return 'Mottatt'
+    case 'triage':
+      return 'Under triage'
+    case 'investigation':
+      return 'Etterforskning'
+    case 'internal_review':
+      return 'Intern gjennomgang'
+    default:
+      return status
   }
 }
 
@@ -262,7 +276,7 @@ export function MittArbeidInnboksPage() {
               <div className="min-w-0 flex-1">
                 <p className="truncate text-sm font-medium text-neutral-800">{c.title}</p>
                 <p className="mt-0.5 text-[11px] text-neutral-500">
-                  {c.status === 'open' ? 'Åpen' : c.status === 'in_progress' ? 'Under behandling' : c.status}
+                  {alertStatusLabel(c.status)}
                   {c.severity ? ` · ${c.severity}` : ''}
                 </p>
               </div>
@@ -317,7 +331,7 @@ function KpiCard({
   hint,
   to,
 }: {
-  icon: React.ComponentType<{ className?: string; 'aria-hidden'?: 'true' }>
+  icon: React.ComponentType<{ className?: string; 'aria-hidden'?: 'true'; style?: React.CSSProperties }>
   label: string
   value: number
   accent: string
@@ -356,7 +370,7 @@ function ListPanel({
   children,
 }: {
   title: string
-  icon: React.ComponentType<{ className?: string; 'aria-hidden'?: 'true' }>
+  icon: React.ComponentType<{ className?: string; 'aria-hidden'?: 'true'; style?: React.CSSProperties }>
   accent: string
   empty: string
   to: string

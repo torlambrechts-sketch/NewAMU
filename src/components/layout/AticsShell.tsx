@@ -418,6 +418,33 @@ function activeModuleForPath(modules: NavModule[], pathname: string, search: str
     const mtg = modules.find((m) => m.to === '/meetings')
     if (mtg) return mtg
   }
+  // May-2026 menu restructure: /iso/* and /overview/regelverk are
+  // surfaces inside the new Rammeverk & gap group. Without this branch
+  // a user on /iso/analyse would see no group highlighted in rail 1.
+  if (
+    pathname.startsWith('/iso/') ||
+    pathname === '/iso' ||
+    pathname.startsWith('/overview/regelverk')
+  ) {
+    const ramme = modules.find((m) => m.to === '/rammeverk')
+    if (ramme) return ramme
+  }
+  // Tilsynssaker promoted out of admin — keep the group light up when
+  // the user is on /admin/tilsynsbrev/*.
+  if (pathname === '/admin/tilsynsbrev' || pathname.startsWith('/admin/tilsynsbrev/')) {
+    const ts = modules.find((m) => m.to === '/admin/tilsynsbrev')
+    if (ts) return ts
+  }
+  // Mitt arbeid surfaces: /innboks + /mitt-arbeid/* all belong to the
+  // Mitt arbeid group.
+  if (
+    pathname === '/innboks' ||
+    pathname === '/mitt-arbeid' ||
+    pathname.startsWith('/mitt-arbeid/')
+  ) {
+    const inb = modules.find((m) => m.to === '/innboks')
+    if (inb) return inb
+  }
   // Exact-match with query (handles /council?tab=board vs /council)
   for (const mod of modules) {
     if (mod.to.includes('?')) {
@@ -1543,15 +1570,6 @@ export function AticsShell() {
           flatSubs: true,
         },
         {
-          to: '/admin/tilsynsbrev',
-          label: 'Tilsynssaker',
-          end: false,
-          icon: ScrollText,
-          subs: tilsynsbrevSubs,
-          permAny: ['tilsynsbrev.upload', 'tilsynsbrev.view_confidential', 'module.view.admin'],
-          flatSubs: true,
-        },
-        {
           to: '/admin/settings/audit',
           label: 'Audit-logg',
           end: false,
@@ -2075,28 +2093,107 @@ export function AticsShell() {
         }
       : null
 
-    const isoImsGroup: NavGroup = {
-      id: 'iso-ims',
-      label: 'ISO IMS',
-      icon: LayoutDashboard,
+    // Tilsynssaker promoted from Administrasjon — a tilsynssak triggers
+    // pålegg that change the styringssystem; it's a governance event,
+    // not an admin task. (Recommendation §3.1.)
+    const tilsynssakerGroup: NavGroup = {
+      id: 'tilsynssaker',
+      label: 'Tilsynssaker',
+      icon: ScrollText,
       modules: [
         {
-          to: '/iso/analyse',
-          label: 'ISO IMS',
+          to: '/admin/tilsynsbrev',
+          label: 'Tilsynssaker',
           end: false,
-          icon: LayoutDashboard,
-          permAny: ISO_IMS_NAV_PERMS,
+          icon: ScrollText,
+          subs: tilsynsbrevSubs,
+          permAny: ['tilsynsbrev.upload', 'tilsynsbrev.view_confidential', 'module.view.admin'],
+          flatSubs: true,
+        },
+      ],
+    }
+
+    // Avvik — top-level Daglig drift entry. Avvik are tasks with
+    // sourceType=avvik|nestenulykke; the existing /avvik redirect
+    // routes into the tasks module with the right filter applied.
+    const avvikGroup: NavGroup = {
+      id: 'avvik',
+      label: 'Avvik',
+      icon: AlertTriangle,
+      modules: [
+        {
+          to: '/avvik',
+          label: 'Avvik',
+          end: true,
+          icon: AlertTriangle,
+          subs: [],
+          permAny: TASKS_NAV_PERMS,
+          flatSubs: true,
+        },
+      ],
+    }
+
+    // Bevisjournal — Arbeidstilsynet-flata. Today the evidence ledger
+    // is rendered inside the internkontroll page (section=revisjon).
+    // This standalone group routes users to that section and provides
+    // a clear breadcrumb / share-with-auditor entry point.
+    const bevisjournalGroup: NavGroup = {
+      id: 'bevisjournal',
+      label: 'Bevisjournal',
+      icon: ShieldCheck,
+      modules: [
+        {
+          to: '/bevisjournal',
+          label: 'Bevisjournal',
+          end: true,
+          icon: ShieldCheck,
+          subs: [],
+          permAny: ADMINISTRASJON_NAV_PERMS,
+          flatSubs: true,
+        },
+      ],
+    }
+
+    // Rammeverk & gap — unified frameworks surface. Folds ISO IMS
+    // (analyse / gap / SoA) and Regelverk-dekning into a single
+    // entry point. The page resolves to a chooser that links the
+    // user into the right existing surface.
+    const rammeverkGroup: NavGroup = {
+      id: 'rammeverk',
+      label: 'Rammeverk & gap',
+      icon: Scale,
+      modules: [
+        {
+          to: '/rammeverk',
+          label: 'Rammeverk & gap',
+          end: false,
+          icon: Scale,
+          permAny: [...ISO_IMS_NAV_PERMS, ...ADMINISTRASJON_NAV_PERMS],
           flatSubs: true,
           subs: [
             {
-              label: 'Analyse',
+              label: 'Oversikt (alle rammeverk)',
+              path: '/rammeverk',
+              Icon: Scale,
+              match: ({ pathname }) => pathname === '/rammeverk',
+              requirePermAny: [...ISO_IMS_NAV_PERMS, ...ADMINISTRASJON_NAV_PERMS],
+            },
+            {
+              label: 'Regelverk-dekning (AML/IK)',
+              path: '/overview/regelverk',
+              Icon: ScrollText,
+              match: ({ pathname }) => pathname.startsWith('/overview/regelverk'),
+              requirePermAny: ADMINISTRASJON_NAV_PERMS,
+            },
+            {
+              label: 'ISO 45001 / 27001 analyse',
               path: '/iso/analyse',
               Icon: LayoutDashboard,
               match: ({ pathname }) => pathname.startsWith('/iso/analyse'),
               requirePermAny: ISO_IMS_NAV_PERMS,
             },
             {
-              label: 'Gap-analyse',
+              label: 'ISO Gap-analyse',
               path: '/iso/gap',
               Icon: LayoutDashboard,
               match: ({ pathname }) => pathname.startsWith('/iso/gap'),
@@ -2175,12 +2272,28 @@ export function AticsShell() {
     const dagligDriftSection: NavSection = {
       id: 'daglig-drift',
       label: 'Daglig drift',
-      groups: [complianceGroup, surveyGroup, documentsGroup, meetingsGroup, learningGroup, tasksGroup],
+      groups: [
+        complianceGroup,
+        avvikGroup,
+        surveyGroup,
+        documentsGroup,
+        meetingsGroup,
+        learningGroup,
+        tasksGroup,
+      ],
     }
     const styringssystemSection: NavSection = {
       id: 'styringssystem',
       label: 'Styringssystem',
-      groups: [hmsOverviewGroup, controlsGroup, alertsGroup, registersGroup, isoImsGroup],
+      groups: [
+        hmsOverviewGroup,
+        controlsGroup,
+        alertsGroup,
+        registersGroup,
+        bevisjournalGroup,
+        rammeverkGroup,
+        tilsynssakerGroup,
+      ],
     }
     const administrasjonSection: NavSection = {
       id: 'administrasjon',
