@@ -103,8 +103,6 @@ import {
   MittArbeidOppgaverPage,
   MittArbeidSignaturerPage,
 } from './pages/mitt-arbeid'
-import { BevisjournalPage } from './pages/bevisjournal/BevisjournalPage'
-import { RammeverkPage } from './pages/rammeverk/RammeverkPage'
 import { FavoritesProvider } from './components/favorites/FavoritesProvider'
 import { IsoImsAnalysePage } from './pages/iso/IsoImsAnalysePage'
 import { IsoSettingsPage } from './pages/iso/IsoSettingsPage'
@@ -403,11 +401,18 @@ const router = createBrowserRouter(
                       <Route path="mitt-arbeid/innboks" element={<Navigate to="/innboks" replace />} />
                       <Route path="mitt-arbeid/oppgaver" element={<MittArbeidOppgaverPage />} />
                       <Route path="mitt-arbeid/signaturer" element={<MittArbeidSignaturerPage />} />
-                      {/* Styringssystem — promoted surfaces. Bevisjournal is
-                          a landing that routes to existing evidence flates;
-                          Rammeverk consolidates ISO IMS + Regelverk-dekning. */}
-                      <Route path="bevisjournal" element={<BevisjournalPage />} />
-                      <Route path="rammeverk" element={<RammeverkPage />} />
+                      {/* Bevisjournal + Rammeverk folded into Internkontroll —
+                          the Revisjon section IS the evidence ledger and the
+                          rammeverk filter chip handles framework selection.
+                          Redirects keep old links / bookmarks working. */}
+                      <Route
+                        path="bevisjournal"
+                        element={<Navigate to="/internkontroll?section=revisjon" replace />}
+                      />
+                      <Route
+                        path="rammeverk"
+                        element={<Navigate to="/internkontroll?section=krav" replace />}
+                      />
                       <Route path="tasks" element={<Navigate to="/tasks/management" replace />} />
                       <Route path="tasks/management" element={<TasksManagementPage />} />
                       <Route path="tasks/management/analyse" element={<TasksAnalysePage />} />

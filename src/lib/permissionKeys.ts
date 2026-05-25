@@ -232,22 +232,6 @@ export const ROUTE_PERMISSION_ANY: { pathPrefix: string; permissions: Permission
     pathPrefix: '/mitt-arbeid',
     permissions: ['module.view.dashboard'],
   },
-  {
-    pathPrefix: '/bevisjournal',
-    permissions: [
-      'module.view.dashboard',
-      'module.view.admin',
-      'users.manage',
-    ],
-  },
-  {
-    pathPrefix: '/rammeverk',
-    permissions: [
-      'module.view.dashboard',
-      'checklist.manage',
-      'module.view.admin',
-    ],
-  },
 ]
 
 export const DASHBOARD_PERMISSION: PermissionKey = 'module.view.dashboard'

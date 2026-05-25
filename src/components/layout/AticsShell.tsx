@@ -29,7 +29,6 @@ import {
   CalendarClock,
   Wand2,
   CalendarDays,
-  LayoutDashboard,
 } from 'lucide-react'
 import { NotificationTray } from '../notifications/NotificationTray'
 import { SurveyPendingInvitesBanner } from '../../../modules/survey/SurveyPendingInvitesBanner'
@@ -184,11 +183,6 @@ type NavModule = {
 // route gate in ROUTE_PERMISSION_ANY so anyone who can reach the page also
 // sees the menu entry.
 const COMPLIANCE_NAV_PERMS: PermissionKey[] = [
-  'module.view.dashboard',
-  'checklist.manage',
-]
-
-const ISO_IMS_NAV_PERMS: PermissionKey[] = [
   'module.view.dashboard',
   'checklist.manage',
 ]
@@ -356,16 +350,17 @@ function activeModuleForPath(modules: NavModule[], pathname: string, search: str
     const mtg = modules.find((m) => m.to === '/meetings')
     if (mtg) return mtg
   }
-  // May-2026 menu restructure: /iso/* and /overview/regelverk are
-  // surfaces inside the new Rammeverk & gap group. Without this branch
-  // a user on /iso/analyse would see no group highlighted in rail 1.
+  // /iso/* and /overview/regelverk are framework deep-dives still
+  // reachable as direct routes; with Rammeverk & gap folded into
+  // Internkontroll, highlight the Internkontroll entry when the user
+  // is on one of these so the section context stays coherent.
   if (
     pathname.startsWith('/iso/') ||
     pathname === '/iso' ||
     pathname.startsWith('/overview/regelverk')
   ) {
-    const ramme = modules.find((m) => m.to === '/rammeverk')
-    if (ramme) return ramme
+    const ik = modules.find((m) => m.to === '/internkontroll')
+    if (ik) return ik
   }
   // Tilsynssaker promoted out of admin — keep the group light up when
   // the user is on /admin/tilsynsbrev/*.
@@ -1759,90 +1754,12 @@ export function AticsShell() {
       ],
     }
 
-    // Bevisjournal — Arbeidstilsynet-flata. Today the evidence ledger
-    // is rendered inside the internkontroll page (section=revisjon).
-    // This standalone group routes users to that section and provides
-    // a clear breadcrumb / share-with-auditor entry point.
-    const bevisjournalGroup: NavGroup = {
-      id: 'bevisjournal',
-      label: 'Bevisjournal',
-      icon: ShieldCheck,
-      modules: [
-        {
-          to: '/bevisjournal',
-          label: 'Bevisjournal',
-          end: true,
-          icon: ShieldCheck,
-          subs: [],
-          permAny: ADMINISTRASJON_NAV_PERMS,
-          flatSubs: true,
-        },
-      ],
-    }
-
-    // Rammeverk & gap — unified frameworks surface. Folds ISO IMS
-    // (analyse / gap / SoA) and Regelverk-dekning into a single
-    // entry point. The page resolves to a chooser that links the
-    // user into the right existing surface.
-    const rammeverkGroup: NavGroup = {
-      id: 'rammeverk',
-      label: 'Rammeverk & gap',
-      icon: Scale,
-      modules: [
-        {
-          to: '/rammeverk',
-          label: 'Rammeverk & gap',
-          end: false,
-          icon: Scale,
-          permAny: [...ISO_IMS_NAV_PERMS, ...ADMINISTRASJON_NAV_PERMS],
-          flatSubs: true,
-          subs: [
-            {
-              label: 'Oversikt (alle rammeverk)',
-              path: '/rammeverk',
-              Icon: Scale,
-              match: ({ pathname }) => pathname === '/rammeverk',
-              requirePermAny: [...ISO_IMS_NAV_PERMS, ...ADMINISTRASJON_NAV_PERMS],
-            },
-            {
-              label: 'Regelverk-dekning (AML/IK)',
-              path: '/overview/regelverk',
-              Icon: ScrollText,
-              match: ({ pathname }) => pathname.startsWith('/overview/regelverk'),
-              requirePermAny: ADMINISTRASJON_NAV_PERMS,
-            },
-            {
-              label: 'ISO 45001 / 27001 analyse',
-              path: '/iso/analyse',
-              Icon: LayoutDashboard,
-              match: ({ pathname }) => pathname.startsWith('/iso/analyse'),
-              requirePermAny: ISO_IMS_NAV_PERMS,
-            },
-            {
-              label: 'ISO Gap-analyse',
-              path: '/iso/gap',
-              Icon: LayoutDashboard,
-              match: ({ pathname }) => pathname.startsWith('/iso/gap'),
-              requirePermAny: ISO_IMS_NAV_PERMS,
-            },
-            {
-              label: 'SoA (ISO 27001)',
-              path: '/iso/soa',
-              Icon: LayoutDashboard,
-              match: ({ pathname }) => pathname.startsWith('/iso/soa'),
-              requirePermAny: ISO_IMS_NAV_PERMS,
-            },
-            {
-              label: 'Innstillinger',
-              path: '/iso/innstillinger',
-              Icon: Settings,
-              match: ({ pathname }) => pathname.startsWith('/iso/innstillinger'),
-              requirePermAny: ISO_IMS_NAV_PERMS,
-            },
-          ],
-        },
-      ],
-    }
+    // Bevisjournal + Rammeverk & gap folded into Internkontroll
+    // (Nov 2026 cleanup). The Revisjon section IS the evidence ledger;
+    // the rammeverk filter chip handles framework selection. Old
+    // /bevisjournal and /rammeverk URLs redirect into Internkontroll
+    // so external links and bookmarks keep working. The /iso/* and
+    // /overview/regelverk deep-dives are still routable directly.
 
     // Four-section information architecture (May 2026 restructure).
     // - Mitt arbeid: personal cross-module entry points (Innboks,
@@ -1918,8 +1835,6 @@ export function AticsShell() {
         controlsGroup,
         alertsGroup,
         registersGroup,
-        bevisjournalGroup,
-        rammeverkGroup,
         tilsynssakerGroup,
       ],
     }
