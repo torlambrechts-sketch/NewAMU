@@ -78,18 +78,25 @@ export function useControlEvidence(
         .limit(effectiveLimit)
       if (controlId) execQuery = execQuery.eq('control_id', controlId)
 
-      let evidenceQuery = supabase
-        .from('compliance_evidence_v')
-        .select('*')
-        .order('occurred_at', { ascending: false })
-        .limit(effectiveLimit)
-      if (lawRef) {
-        evidenceQuery = evidenceQuery.contains('law_refs', [lawRef])
-      }
+      // Filtered evidence queries go through the SECURITY INVOKER
+      // RPC that pushes the law_refs predicate into each union branch
+      // (GIN-friendly) and applies per-branch ORDER+LIMIT. Unfiltered
+      // queries — the cross-control ledger — keep using the view
+      // because the function only handles the filtered case.
+      const evidencePromise = lawRef
+        ? supabase.rpc('compliance_evidence_for_law_ref', {
+            p_code: lawRef,
+            p_limit: effectiveLimit,
+          })
+        : supabase
+            .from('compliance_evidence_v')
+            .select('*')
+            .order('occurred_at', { ascending: false })
+            .limit(effectiveLimit)
 
       const [execResp, evidenceResp] = await Promise.all([
         execQuery,
-        evidenceQuery,
+        evidencePromise,
       ])
       if (execResp.error) throw execResp.error
       if (evidenceResp.error) throw evidenceResp.error

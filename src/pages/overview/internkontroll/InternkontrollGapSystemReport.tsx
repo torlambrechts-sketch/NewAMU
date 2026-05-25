@@ -60,6 +60,12 @@ export function InternkontrollGapSystemReport({
   const controlsByLawRef = useControlsByLawRef()
 
   const [openLawRef, setOpenLawRef] = useState<string | null>(null)
+  // Surface plan-item mutation failures (insert / update / delete)
+  // that the hook otherwise swallows into a null/false return. Without
+  // this, a user who lacks the per-org permission to write to
+  // compliance_plan_items clicks "Opprett tiltak" and sees nothing
+  // happen.
+  const [planItemError, setPlanItemError] = useState<string | null>(null)
 
   const dimensions: DashboardDimension[] = useMemo(
     () => [
@@ -105,6 +111,23 @@ export function InternkontrollGapSystemReport({
 
   return (
     <>
+      {planItemError ? (
+        <div className="mx-auto mt-4 w-full max-w-7xl px-4 md:px-8">
+          <div
+            role="alert"
+            className="flex items-start justify-between gap-3 rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-800"
+          >
+            <span>{planItemError}</span>
+            <button
+              type="button"
+              onClick={() => setPlanItemError(null)}
+              className="shrink-0 rounded-sm px-2 py-0.5 text-xs font-semibold text-red-900 hover:bg-red-100"
+            >
+              Lukk
+            </button>
+          </div>
+        </div>
+      ) : null}
       <ModuleAnalyticsDashboard
         accent={accent}
         breadcrumb={breadcrumb}
@@ -151,10 +174,16 @@ export function InternkontrollGapSystemReport({
         registerMatches={inspectorData?.registerMatches ?? []}
         controls={inspectorData?.controls ?? []}
         planItems={inspectorData?.items ?? []}
-        onClose={() => setOpenLawRef(null)}
+        onClose={() => {
+          setOpenLawRef(null)
+          // Clear any plan-item error from this paragraph context — a
+          // fresh open on another paragraph shouldn't inherit the
+          // previous failure banner.
+          setPlanItemError(null)
+        }}
         onCreatePlanItem={async (input) => {
           if (!openLawRef) return
-          await planItems.createItem({
+          const created = await planItems.createItem({
             law_ref: openLawRef,
             framework_id: framework as FrameworkId,
             title: input.title,
@@ -162,12 +191,29 @@ export function InternkontrollGapSystemReport({
             status: input.status,
             due_at: input.dueAt,
           })
+          if (!created) {
+            setPlanItemError(
+              `Klarte ikke å opprette tiltak for ${openLawRef}. Sjekk tilgangen din.`,
+            )
+          } else {
+            setPlanItemError(null)
+          }
         }}
         onUpdatePlanItem={async (id, patch) => {
-          await planItems.updateItem(id, patch)
+          const updated = await planItems.updateItem(id, patch)
+          if (!updated) {
+            setPlanItemError('Klarte ikke å oppdatere tiltaket. Prøv igjen.')
+          } else {
+            setPlanItemError(null)
+          }
         }}
         onDeletePlanItem={async (id) => {
-          await planItems.deleteItem(id)
+          const ok = await planItems.deleteItem(id)
+          if (!ok) {
+            setPlanItemError('Klarte ikke å slette tiltaket. Prøv igjen.')
+          } else {
+            setPlanItemError(null)
+          }
         }}
       />
 

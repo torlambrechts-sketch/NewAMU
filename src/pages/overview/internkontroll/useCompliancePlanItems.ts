@@ -74,7 +74,7 @@ export function useCompliancePlanItems(framework: FrameworkId): {
   error: string | null
   /** Items grouped by law_ref for O(1) inspector lookups. */
   itemsByLawRef: Map<string, CompliancePlanItem[]>
-  reload: () => Promise<void>
+  reload: (signal?: AbortSignal) => Promise<void>
   createItem: (input: CreatePlanItemInput) => Promise<CompliancePlanItem | null>
   updateItem: (id: string, patch: UpdatePlanItemInput) => Promise<CompliancePlanItem | null>
   deleteItem: (id: string) => Promise<boolean>
@@ -85,35 +85,50 @@ export function useCompliancePlanItems(framework: FrameworkId): {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  const reload = useCallback(async () => {
-    if (!supabase || !orgId) {
-      setItems([])
+  const reload = useCallback(
+    async (signal?: AbortSignal) => {
+      if (!supabase || !orgId) {
+        setItems([])
+        setLoading(false)
+        return
+      }
+      setLoading(true)
+      // Defensive cap. The Gantt-ish page is designed for ≤200 active
+      // tiltak per framework; an org with a five-figure plan-item list
+      // wants pagination/server-side aggregation rather than a flat
+      // browser-side render. Newer items first means the cap drops the
+      // long tail of historic done/blocked items.
+      let query = supabase
+        .from('compliance_plan_items')
+        .select(PLAN_ITEM_COLUMNS)
+        .eq('organization_id', orgId)
+        .eq('framework_id', framework)
+        .is('deleted_at', null)
+        .order('updated_at', { ascending: false })
+        .limit(500)
+      if (signal) query = query.abortSignal(signal)
+      const { data, error: err } = await query
+      if (signal?.aborted) return
+      if (err) {
+        if ((err as { name?: string }).name === 'AbortError') return
+        // Avoid leaking raw Postgres / RLS denial strings (incl. table
+        // names) into the UI banner.
+        setError(getSupabaseErrorMessage(err))
+        setItems([])
+        setLoading(false)
+        return
+      }
+      setError(null)
+      setItems((data ?? []) as CompliancePlanItem[])
       setLoading(false)
-      return
-    }
-    setLoading(true)
-    const { data, error: err } = await supabase
-      .from('compliance_plan_items')
-      .select(PLAN_ITEM_COLUMNS)
-      .eq('organization_id', orgId)
-      .eq('framework_id', framework)
-      .is('deleted_at', null)
-      .order('updated_at', { ascending: false })
-    if (err) {
-      // Avoid leaking raw Postgres / RLS denial strings (incl. table
-      // names) into the UI banner.
-      setError(getSupabaseErrorMessage(err))
-      setItems([])
-      setLoading(false)
-      return
-    }
-    setError(null)
-    setItems((data ?? []) as CompliancePlanItem[])
-    setLoading(false)
-  }, [supabase, orgId, framework])
+    },
+    [supabase, orgId, framework],
+  )
 
   useEffect(() => {
-    void reload()
+    const controller = new AbortController()
+    void reload(controller.signal)
+    return () => controller.abort()
   }, [reload])
 
   const itemsByLawRef = useMemo(() => {

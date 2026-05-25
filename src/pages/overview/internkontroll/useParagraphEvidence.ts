@@ -47,6 +47,20 @@ export type UseParagraphEvidenceReturn = {
   rows: ParagraphEvidenceRow[]
 }
 
+// Stable references for the two "no real data" return shapes so
+// downstream `useEffect(..., [evidence.rows])` consumers don't re-fire
+// every render just because the array identity churns.
+const IDLE: UseParagraphEvidenceReturn = {
+  loading: false,
+  error: null,
+  rows: [],
+}
+const PENDING: UseParagraphEvidenceReturn = {
+  loading: true,
+  error: null,
+  rows: [],
+}
+
 export function useParagraphEvidence(
   code: string | null,
   /** Limit rows; default 50 (a 12-mnd. timeline rarely needs more). */
@@ -63,9 +77,7 @@ export function useParagraphEvidence(
     if (!supabase || !orgId || !code) return
     // Normalise the lookup key so 'AML §4-3' (no space) matches rows
     // stored as 'AML § 4-3' — mirrors the same helper in
-    // useLedelsesKpis + useInternkontrollDatasets. Without this, a
-    // user-typed paragraph code can yield zero evidence even when
-    // matching rows exist.
+    // useLedelsesKpis + useInternkontrollDatasets.
     const lookupCode = normaliseLawRef(code)
     // Reset the slot whenever the (orgId, code) key changes so a
     // re-click of a paragraph that previously errored shows the
@@ -73,16 +85,23 @@ export function useParagraphEvidence(
     setLoaded((prev) =>
       prev && prev.orgId === orgId && prev.code === code ? prev : null,
     )
-    let cancelled = false
+    const controller = new AbortController()
+    // Use the SECURITY INVOKER set-returning function rather than the
+    // view: the function pushes `law_refs @> array[code]` into each
+    // union branch so the per-table GIN indexes fire, and applies a
+    // per-branch ORDER+LIMIT before the outer sort. Migration:
+    // 20260929120200_compliance_evidence_for_law_ref_rpc.sql.
     void supabase
-      .from('compliance_evidence_v')
-      .select('occurred_at, source_kind, source_table, source_id, title, law_refs, signed_at')
-      .contains('law_refs', [lookupCode])
-      .order('occurred_at', { ascending: false })
-      .limit(limit)
+      .rpc('compliance_evidence_for_law_ref', { p_code: lookupCode, p_limit: limit })
+      .abortSignal(controller.signal)
       .then(({ data, error: respErr }) => {
-        if (cancelled) return
+        if (controller.signal.aborted) return
         if (respErr) {
+          // supabase-js surfaces an AbortError via the same channel
+          // as real failures — guard against it before showing the
+          // user a "noe gikk galt" banner that's actually our own
+          // cleanup.
+          if ((respErr as { name?: string }).name === 'AbortError') return
           setLoaded({
             orgId,
             code,
@@ -99,15 +118,15 @@ export function useParagraphEvidence(
         })
       })
     return () => {
-      cancelled = true
+      controller.abort()
     }
   }, [supabase, orgId, code, limit])
 
   return useMemo(() => {
-    if (!code) return { loading: false, error: null, rows: [] }
+    if (!code) return IDLE
     const isCurrent =
       loaded !== null && loaded.orgId === orgId && loaded.code === code
-    if (!isCurrent) return { loading: true, error: null, rows: [] }
+    if (!isCurrent) return PENDING
     return { loading: false, error: loaded.error, rows: loaded.rows }
   }, [code, orgId, loaded])
 }

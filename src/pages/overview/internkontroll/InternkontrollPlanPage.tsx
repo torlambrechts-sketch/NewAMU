@@ -13,7 +13,7 @@
 // `useCompliancePlanItems`), and read the lukke-tiltak landscape per
 // kapittel.
 
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { CalendarClock, ChevronDown, ListChecks } from 'lucide-react'
 import { ModulePageShell } from '../../../components/module/ModulePageShell'
@@ -168,7 +168,25 @@ export function InternkontrollPlanPage() {
     return m
   }, [framework])
 
-  const window_ = useMemo(timelineWindow, [])
+  // Re-anchor the timeline window whenever the calendar day rolls
+  // over so a tab left open overnight doesn't show a stale "I dag"
+  // marker. The poll fires every minute and only triggers a state
+  // update on the day boundary.
+  const [dayAnchor, setDayAnchor] = useState(() => {
+    const d = new Date()
+    d.setHours(0, 0, 0, 0)
+    return d.getTime()
+  })
+  useEffect(() => {
+    const handle = window.setInterval(() => {
+      const d = new Date()
+      d.setHours(0, 0, 0, 0)
+      const today = d.getTime()
+      setDayAnchor((prev) => (prev === today ? prev : today))
+    }, 60_000)
+    return () => window.clearInterval(handle)
+  }, [])
+  const window_ = useMemo(() => timelineWindow(), [dayAnchor])
 
   const grouped = useMemo(() => {
     const lanes = new Map<string, ResolvedItem[]>()
