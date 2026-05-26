@@ -84,13 +84,11 @@ import { LearningLayout } from './components/learning/LearningLayout'
 import { LearningHubPage } from './pages/learning/LearningHubPage'
 import { LearningCourseDetailPage } from './pages/learning/LearningCourseDetailPage'
 import { LearningCoursesList } from './pages/learning/LearningCoursesList'
-import { LearningCourseBuilder } from './pages/learning/LearningCourseBuilder'
 import { LearningCourseBuilderV2 } from './pages/learning/LearningCourseBuilderV2'
 import { RegistersHubPage } from './pages/registers/RegistersHubPage'
 import { RegistersAnalysePage } from './pages/registers/RegistersAnalysePage'
 import { RegisterTypePage } from './pages/registers/RegisterTypePage'
 import { RegisterEntryPage } from './pages/registers/RegisterEntryPage'
-import { LearningPlayer } from './pages/learning/LearningPlayer'
 import { LearningPlayerV2 } from './pages/learning/LearningPlayerV2'
 import { LearningDeltakerePage } from './pages/learning/LearningDeltakerePage'
 import { LearningKompetansePage } from './pages/learning/LearningKompetansePage'
@@ -673,18 +671,15 @@ const router = createBrowserRouter(
                       <Route path="admin/settings/workflows/auditors" element={<Navigate to="/admin/settings/users" replace />} />
                       <Route path="admin" element={<Navigate to="/organisation" replace />} />
                       <Route path="profile" element={<ProfilePage />} />
-                      {/* New e-læring hub & detail surfaces render their own page chrome
-                          (breadcrumb + header + framework rail). The legacy LearningLayout
-                          still wraps the catalogue + deltakere + kompetanse tabs at the
-                          `/learning/*` sub-URLs. */}
+                      {/* E-læring hub & detail surfaces render their own page chrome.
+                          The LearningLayout below wraps the catalogue + deltakere +
+                          kompetanse tabs at the `/learning/*` sub-URLs. */}
                       <Route path="learning" element={<LearningHubPage />} />
                       <Route path="learning/play/:courseId" element={<LearningPlayerV2 />} />
-                      <Route path="learning/play-classic/:courseId" element={<LearningPlayer />} />
                       <Route path="learning/certificates/:certId/print" element={<LearningCertificatePrintPage />} />
                       <Route path="learning/flow" element={<LearningFlowEntry />} />
                       <Route path="learning/courses/:courseId" element={<LearningCourseBuilderV2 />} />
                       <Route path="learning/courses/:courseId/detail" element={<LearningCourseDetailPage />} />
-                      <Route path="learning/courses/:courseId/classic" element={<LearningCourseBuilder />} />
                       <Route path="registers" element={<RegistersHubPage />} />
                       <Route path="registers/analyse" element={<RegistersAnalysePage />} />
                       <Route path="registers/admin" element={<LegacyAdminRedirect scope="registers" />} />
