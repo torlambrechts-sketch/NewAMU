@@ -1157,7 +1157,10 @@ export function buildNavSections(ctx: NavBuilderContext): NavSection[] {
     ],
   }
 
-  // Mitt arbeid.
+  // Mitt arbeid. "Mine oppgaver" som egen oppføring er fjernet — innboksen
+  // viser allerede personlig oppgavekø under «Oppgaver tildelt meg», så et
+  // dedikert nav-punkt dupliserer innboksens hovedformål. Plassen er gitt
+  // til «Min innsikt» — bedriftens dashboard med faner per modul.
   const mittArbeidGroup: NavGroup = {
     id: 'mitt-arbeid',
     label: 'Mitt arbeid',
@@ -1172,10 +1175,10 @@ export function buildNavSections(ctx: NavBuilderContext): NavSection[] {
         flatSubs: true,
       },
       {
-        to: '/mitt-arbeid/oppgaver',
-        label: 'Mine oppgaver',
+        to: '/min-innsikt',
+        label: 'Min innsikt',
         end: false,
-        icon: ListChecks,
+        icon: BarChart3,
         subs: [],
         flatSubs: true,
       },

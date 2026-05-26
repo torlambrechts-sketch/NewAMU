@@ -1,0 +1,1 @@
+export { MinInnsiktPage } from './MinInnsiktPage'

@@ -172,13 +172,29 @@ function activeModuleForPath(modules: NavModule[], pathname: string, search: str
     const adm = modules.find((m) => m.to === '/admin/settings/org')
     if (adm) return adm
   }
-  // Mitt arbeid surfaces: /innboks + /mitt-arbeid/* all belong to the
-  // Mitt arbeid group.
+  // Mitt arbeid surfaces: /innboks + /mitt-arbeid/* + /min-innsikt all
+  // belong to the Mitt arbeid group. /min-innsikt is the tabbed company
+  // dashboard that replaced /mitt-arbeid/oppgaver. Match the most
+  // specific module first (signaturer, min-innsikt) before falling
+  // back to /innboks for the bare /mitt-arbeid root + redirects.
   if (
     pathname === '/innboks' ||
     pathname === '/mitt-arbeid' ||
-    pathname.startsWith('/mitt-arbeid/')
+    pathname.startsWith('/mitt-arbeid/') ||
+    pathname === '/min-innsikt' ||
+    pathname.startsWith('/min-innsikt/')
   ) {
+    if (pathname === '/min-innsikt' || pathname.startsWith('/min-innsikt/')) {
+      const ins = modules.find((m) => m.to === '/min-innsikt')
+      if (ins) return ins
+    }
+    if (
+      pathname === '/mitt-arbeid/signaturer' ||
+      pathname.startsWith('/mitt-arbeid/signaturer/')
+    ) {
+      const sig = modules.find((m) => m.to === '/mitt-arbeid/signaturer')
+      if (sig) return sig
+    }
     const inb = modules.find((m) => m.to === '/innboks')
     if (inb) return inb
   }

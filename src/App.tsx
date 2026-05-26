@@ -97,9 +97,9 @@ import { HmsOverviewPage } from './pages/overview/HmsOverviewPage'
 import { MyFavoritesPage } from './pages/favorites/MyFavoritesPage'
 import {
   MittArbeidInnboksPage,
-  MittArbeidOppgaverPage,
   MittArbeidSignaturerPage,
 } from './pages/mitt-arbeid'
+import { MinInnsiktPage } from './pages/min-innsikt'
 import { FavoritesProvider } from './components/favorites/FavoritesProvider'
 import { IsoImsAnalysePage } from './pages/iso/IsoImsAnalysePage'
 import { IsoSettingsPage } from './pages/iso/IsoSettingsPage'
@@ -400,8 +400,21 @@ const router = createBrowserRouter(
                       <Route path="innboks" element={<MittArbeidInnboksPage />} />
                       <Route path="mitt-arbeid" element={<Navigate to="/innboks" replace />} />
                       <Route path="mitt-arbeid/innboks" element={<Navigate to="/innboks" replace />} />
-                      <Route path="mitt-arbeid/oppgaver" element={<MittArbeidOppgaverPage />} />
+                      {/* /mitt-arbeid/oppgaver er fjernet — personlig oppgavekø
+                          ligger nå under innboksen. Eldre lenker peker dit. */}
+                      <Route path="mitt-arbeid/oppgaver" element={<Navigate to="/innboks" replace />} />
                       <Route path="mitt-arbeid/signaturer" element={<MittArbeidSignaturerPage />} />
+                      {/* Min innsikt — tverrgående dashboard med faner per modul.
+                          PackProvider trengs av embedded ChecklistsAnalysePage +
+                          HmsOverviewPage som leser useLicensedPacks. */}
+                      <Route
+                        path="min-innsikt"
+                        element={
+                          <PackProvider>
+                            <MinInnsiktPage />
+                          </PackProvider>
+                        }
+                      />
                       {/* Bevisjournal + Rammeverk folded into Internkontroll —
                           the Revisjon section IS the evidence ledger and the
                           rammeverk filter chip handles framework selection.
