@@ -27,7 +27,11 @@ import { StandardInput } from './Input'
 import type { SavedView, UseSavedViewsResult } from '../../hooks/useSavedViews'
 
 export interface FilterBarProps {
-  /** The <FilterChip> children. Rendered left-to-right with gap-2. */
+  /** Leading slot — content on the far left, before the filter chips
+      (e.g. a view-mode segmented control that scopes how the table
+      renders rows). Visually paired with the chips by the same row. */
+  leading?: ReactNode
+  /** The <FilterChip> children. Rendered after `leading` with gap-2. */
   chips: ReactNode
   /** Saved-views control on the right edge (use <SavedViewsControl>). */
   savedViews?: ReactNode
@@ -40,6 +44,7 @@ export interface FilterBarProps {
 }
 
 export function FilterBar({
+  leading,
   chips,
   savedViews,
   onReset,
@@ -48,6 +53,12 @@ export function FilterBar({
 }: FilterBarProps) {
   return (
     <div className="flex flex-wrap items-center gap-2 border-b border-neutral-100 bg-white px-4 py-2.5">
+      {leading ? (
+        <>
+          <div className="flex flex-wrap items-center gap-2">{leading}</div>
+          <div className="hidden h-6 w-px bg-neutral-200 sm:block" aria-hidden />
+        </>
+      ) : null}
       <div className="flex flex-wrap items-center gap-2">{chips}</div>
 
       {activeFilterCount > 0 && onReset ? (

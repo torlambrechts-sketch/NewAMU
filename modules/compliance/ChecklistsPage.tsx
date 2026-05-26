@@ -229,6 +229,9 @@ type ViewMode = (typeof VIEW_MODES)[number]['id']
 const HUB_PAGE_SIZE = 50
 
 function ViewSwitcher({ value, onChange }: { value: ViewMode; onChange: (v: ViewMode) => void }) {
+  // Sized to match the Gjennomføringer / Maler tab buttons in the
+  // header strip (px-3 py-2 text-sm) so the row reads as a single
+  // visual unit at the same baseline height.
   return (
     <div className="inline-flex items-center rounded-md border border-neutral-200 bg-neutral-50 p-0.5">
       {VIEW_MODES.map(({ id, label, Icon }) => {
@@ -240,13 +243,13 @@ function ViewSwitcher({ value, onChange }: { value: ViewMode; onChange: (v: View
             title={label}
             onClick={() => onChange(id)}
             className={[
-              'inline-flex items-center gap-1.5 rounded px-2 py-1 text-xs font-medium transition-colors',
+              'inline-flex items-center gap-2 rounded px-3 py-1.5 text-sm font-medium transition-colors',
               active
                 ? 'bg-white text-neutral-900 shadow-sm ring-1 ring-neutral-200'
                 : 'text-neutral-500 hover:text-neutral-800',
             ].join(' ')}
           >
-            <Icon className="h-3.5 w-3.5" aria-hidden />
+            <Icon className="h-4 w-4 shrink-0" aria-hidden />
             <span className="hidden md:inline">{label}</span>
           </button>
         )
@@ -1041,40 +1044,6 @@ export function ChecklistsPage() {
           : 'Bibliotek av maler. Hver mal kjøres som en egen gjennomføring med eget dokument — i tråd med IK § 5 og AML § 3-1.'}
         headerActions={
           <div className="flex flex-wrap items-center gap-2">
-            {/* Enkel / Avansert toggle */}
-            <div
-              role="tablist"
-              aria-label="Visningsmodus"
-              className="inline-flex items-center gap-1 rounded-md border border-neutral-200/80 bg-white p-1"
-              style={{ boxShadow: '0 1px 1px rgba(0,0,0,0.03)' }}
-            >
-              {([
-                { id: 'easy', label: 'Enkel', sub: 'For alle i felt', Icon: CircleDot },
-                { id: 'advanced', label: 'Avansert', sub: 'HMS-ansvarlig', Icon: SlidersHorizontal },
-              ] as const).map(({ id, label, sub, Icon }) => {
-                const active = viewMode === id
-                return (
-                  <button
-                    key={id}
-                    role="tab"
-                    type="button"
-                    aria-selected={active}
-                    onClick={() => setViewMode(id)}
-                    className={[
-                      'flex items-center gap-2 rounded-[5px] px-2.5 py-1.5 text-xs font-semibold transition-colors',
-                      active ? 'bg-[#1a3d32] text-white' : 'text-neutral-600 hover:text-neutral-900',
-                    ].join(' ')}
-                  >
-                    <Icon className="h-3.5 w-3.5 shrink-0" aria-hidden />
-                    <span className="hidden sm:inline">{label}</span>
-                    <span className={['hidden md:inline text-[10px] font-medium', active ? 'text-white/70' : 'text-neutral-400'].join(' ')}>
-                      · {sub}
-                    </span>
-                  </button>
-                )
-              })}
-            </div>
-
             <Button
               variant="secondary"
               icon={<ShieldCheck className="h-4 w-4" />}
@@ -1150,24 +1119,60 @@ export function ChecklistsPage() {
                 })}
               </nav>
 
-              {/* Search + view switcher */}
+              {/* Search + view switcher — sized to match the tab buttons */}
               <div className="flex items-center gap-2">
                 <div className="relative flex-1 sm:flex-none">
-                  <Search className="pointer-events-none absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-neutral-400" aria-hidden />
+                  <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-neutral-400" aria-hidden />
                   <input
                     type="search"
                     placeholder={activeTab === 'entries' ? 'Søk i tittel, sted…' : 'Søk i malnavn…'}
                     value={search}
                     onChange={(e) => setSearch(e.target.value)}
-                    className="w-full rounded-md border border-neutral-200 bg-neutral-50 py-1.5 pl-7 pr-2 text-xs outline-none focus:border-[var(--ui-accent)] focus:bg-white sm:w-52"
+                    className="w-full rounded-md border border-neutral-200 bg-neutral-50 py-2 pl-9 pr-3 text-sm outline-none focus:border-[var(--ui-accent)] focus:bg-white sm:w-64"
                   />
                 </div>
                 <ViewSwitcher value={view} onChange={setView} />
               </div>
             </div>
 
-            {/* Filter bar — category + status + template chips + saved views */}
+            {/* Filter bar — Enkel/Avansert mode (left) + category + status
+                + template chips + saved views. The Enkel/Avansert toggle
+                lived in the page header before but it's a "how to render
+                the rows" control rather than a page-level CTA, so it
+                pairs naturally with the rest of the filtering chrome. */}
             <FilterBar
+              leading={
+                <div
+                  role="tablist"
+                  aria-label="Visningsmodus"
+                  className="inline-flex items-center gap-1 rounded-md border border-neutral-200/80 bg-neutral-50 p-0.5"
+                >
+                  {([
+                    { id: 'easy', label: 'Enkel', Icon: CircleDot },
+                    { id: 'advanced', label: 'Avansert', Icon: SlidersHorizontal },
+                  ] as const).map(({ id, label, Icon }) => {
+                    const active = viewMode === id
+                    return (
+                      <button
+                        key={id}
+                        role="tab"
+                        type="button"
+                        aria-selected={active}
+                        onClick={() => setViewMode(id)}
+                        className={[
+                          'inline-flex items-center gap-1.5 rounded px-2.5 py-1.5 text-sm font-medium transition-colors',
+                          active
+                            ? 'bg-[var(--ui-accent)] text-white shadow-sm'
+                            : 'text-neutral-600 hover:text-neutral-900',
+                        ].join(' ')}
+                      >
+                        <Icon className="h-4 w-4 shrink-0" aria-hidden />
+                        <span className="hidden sm:inline">{label}</span>
+                      </button>
+                    )
+                  })}
+                </div>
+              }
               chips={
                 <>
                   <FilterChip
