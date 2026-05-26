@@ -52,6 +52,17 @@
        overlays, not extensions of the rail. */
     --ui-overlay-dark: #1f2a26;
 
+    /* Slide-panel cream surfaces. Three subtle tones build the
+       depth: main surface for the body, inset for nested cards,
+       footer for the bottom band. */
+    --ui-panel: #f7f6f2;
+    --ui-panel-inset: #f4f1ea;
+    --ui-panel-footer: #f0efe9;
+
+    /* Toolbar segmented-control active background — distinct from
+       --ui-page so the selected segment reads against the cream page. */
+    --ui-toolbar-active: #efe8dc;
+
     /* AMU design system tokens */
     --forest: #1a3d32;
     --forest-soft: #e7efe9;

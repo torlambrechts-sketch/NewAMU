@@ -1,10 +1,9 @@
 import type { ReactNode } from 'react'
 import type { HubMenu1Item } from './HubMenu1Bar'
 import { HubMenu1Bar } from './HubMenu1Bar'
+import { PageContainer } from './PageContainer'
 import type { WorkplaceBreadcrumbItem } from './WorkplacePageHeading1'
 import { WorkplacePageHeading1 } from './WorkplacePageHeading1'
-
-const SHELL = 'mx-auto max-w-[1400px] px-4 py-6 md:px-8'
 
 export type WorkplaceDashboardShellProps = {
   breadcrumb: WorkplaceBreadcrumbItem[]
@@ -39,7 +38,7 @@ export function WorkplaceDashboardShell({
   bodyTopClassName = 'mt-8',
 }: WorkplaceDashboardShellProps) {
   return (
-    <div className={`${SHELL} ${className}`.trim()}>
+    <PageContainer py="py-6" className={className}>
       <WorkplacePageHeading1
         breadcrumb={breadcrumb}
         title={title}
@@ -49,6 +48,6 @@ export function WorkplaceDashboardShell({
       />
       {kpiSlot ? <div className="mt-6">{kpiSlot}</div> : null}
       <div className={bodyTopClassName}>{children}</div>
-    </div>
+    </PageContainer>
   )
 }

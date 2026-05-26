@@ -35,6 +35,7 @@ import { useOrganisation } from '../hooks/useOrganisation'
 import { useOrgSetupContext } from '../hooks/useOrgSetupContext'
 import { OrganisationHeaderIllustration } from '../components/organisation/OrganisationHeaderIllustration'
 import { Mainbox1 } from '../components/layout/Mainbox1'
+import { PageContainer } from '../components/layout/PageContainer'
 import { Table1Shell } from '../components/layout/Table1Shell'
 import { Table1Toolbar } from '../components/layout/Table1Toolbar'
 import {
@@ -110,8 +111,6 @@ function OrgInsightWhiteCard({ children, className = '' }: { children: ReactNode
   )
 }
 
-/** Matches ProjectDashboard — shell content column */
-const PAGE_WRAP = 'mx-auto max-w-[1400px] px-4 py-6 md:px-8'
 const TABLE_CELL_BASE = 'align-middle text-sm text-neutral-800'
 /** Hero action row: same height & typography as «Ny ansatt» — square corners */
 const HERO_ACTION_CLASS =
@@ -1226,7 +1225,7 @@ export function OrganisationPage() {
     ) : null
 
   return (
-    <div className={PAGE_WRAP}>
+    <PageContainer py="py-6">
       {isDemoMode && (
         <div className="mb-4 rounded-2xl border border-amber-200/80 bg-amber-50/90 px-4 py-3 text-sm text-amber-950">
           <strong className="font-semibold">Demomodus</strong> — du er koblet til en anonym sesjon med forhåndsutfylt
@@ -3394,6 +3393,6 @@ export function OrganisationPage() {
       )}
       </div>
       </div>
-    </div>
+    </PageContainer>
   )
 }

@@ -121,7 +121,7 @@ export function WorkplaceListToolbar({
               value={searchValue}
               onChange={(e) => onSearchChange(e.target.value)}
               placeholder={searchPlaceholder}
-              className="w-full rounded-lg border border-neutral-200 bg-white py-2.5 pl-10 pr-3 text-sm text-neutral-900 outline-none placeholder:text-neutral-400 focus:ring-2 focus:ring-[#1a3d32]/25"
+              className="w-full rounded-lg border border-neutral-200 bg-white py-2.5 pl-10 pr-3 text-sm text-neutral-900 outline-none placeholder:text-neutral-400 focus:ring-2 focus:ring-[color-mix(in_srgb,var(--ui-accent)_25%,transparent)]"
             />
           </div>
           <div className="order-4 flex min-w-0 flex-1 flex-wrap items-center gap-2 md:order-3 md:flex-none md:shrink-0">
@@ -148,7 +148,7 @@ export function WorkplaceListToolbar({
                 variant="ghost"
                 size="icon"
                 onClick={() => onViewModeChange('table')}
-                className={`h-auto w-auto rounded-md p-2 ${viewMode === 'table' ? 'bg-[#EFE8DC] text-neutral-900' : 'text-neutral-500 hover:text-neutral-700'}`}
+                className={`h-auto w-auto rounded-md p-2 ${viewMode === 'table' ? 'bg-[var(--ui-toolbar-active)] text-neutral-900' : 'text-neutral-500 hover:text-neutral-700'}`}
                 role="radio"
                 aria-checked={viewMode === 'table'}
                 aria-label="Tabell"
@@ -160,7 +160,7 @@ export function WorkplaceListToolbar({
                 variant="ghost"
                 size="icon"
                 onClick={() => onViewModeChange('box')}
-                className={`h-auto w-auto rounded-md p-2 ${viewMode === 'box' ? 'bg-[#EFE8DC] text-neutral-900' : 'text-neutral-500 hover:text-neutral-700'}`}
+                className={`h-auto w-auto rounded-md p-2 ${viewMode === 'box' ? 'bg-[var(--ui-toolbar-active)] text-neutral-900' : 'text-neutral-500 hover:text-neutral-700'}`}
                 role="radio"
                 aria-checked={viewMode === 'box'}
                 aria-label="Rutenett"
@@ -172,7 +172,7 @@ export function WorkplaceListToolbar({
                 variant="ghost"
                 size="icon"
                 onClick={() => onViewModeChange('list')}
-                className={`h-auto w-auto rounded-md p-2 ${viewMode === 'list' ? 'bg-[#EFE8DC] text-neutral-900' : 'text-neutral-500 hover:text-neutral-700'}`}
+                className={`h-auto w-auto rounded-md p-2 ${viewMode === 'list' ? 'bg-[var(--ui-toolbar-active)] text-neutral-900' : 'text-neutral-500 hover:text-neutral-700'}`}
                 role="radio"
                 aria-checked={viewMode === 'list'}
                 aria-label="Liste"

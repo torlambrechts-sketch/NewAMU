@@ -8,7 +8,7 @@ import { Button } from '../ui/Button'
 export const WPSTD_FORM_ROW_GRID =
   'grid grid-cols-1 gap-4 border-b border-neutral-200 px-4 py-4 last:border-b-0 md:grid-cols-[minmax(0,40%)_minmax(0,60%)] md:items-start md:gap-10 md:px-5 md:py-5'
 
-export const WPSTD_FORM_INSET = 'rounded-none border border-neutral-200/90 bg-[#f4f1ea] p-5 sm:p-6'
+export const WPSTD_FORM_INSET = 'rounded-none border border-neutral-200/90 bg-[var(--ui-panel-inset)] p-5 sm:p-6'
 
 export const WPSTD_FORM_LEAD = 'text-sm leading-relaxed text-neutral-600'
 
@@ -54,13 +54,13 @@ export function WorkplaceStandardFormPanel({
       }}
     >
       <div
-        className="flex h-full w-full max-w-[min(100vw,920px)] flex-col bg-[#f7f6f2] shadow-[-12px_0_40px_rgba(0,0,0,0.12)]"
+        className="flex h-full w-full max-w-[min(100vw,920px)] flex-col bg-[var(--ui-panel)] shadow-[-12px_0_40px_rgba(0,0,0,0.12)]"
         role="dialog"
         aria-modal="true"
         aria-labelledby={titleId}
         onMouseDown={(e) => e.stopPropagation()}
       >
-        <header className="flex shrink-0 items-start justify-between gap-4 border-b border-neutral-200/90 bg-[#f7f6f2] px-6 py-5 sm:px-8 sm:py-6">
+        <header className="flex shrink-0 items-start justify-between gap-4 border-b border-neutral-200/90 bg-[var(--ui-panel)] px-6 py-5 sm:px-8 sm:py-6">
           <h2
             id={titleId}
             className="text-2xl font-semibold tracking-tight text-neutral-900 sm:text-3xl"
@@ -80,7 +80,7 @@ export function WorkplaceStandardFormPanel({
         </header>
         <div className="flex min-h-0 flex-1 flex-col">
           <div className="min-h-0 flex-1 overflow-y-auto px-6 py-8 sm:px-8">{children}</div>
-          <footer className="shrink-0 border-t border-neutral-200/90 bg-[#f0efe9] px-6 py-5 sm:px-8">{footer}</footer>
+          <footer className="shrink-0 border-t border-neutral-200/90 bg-[var(--ui-panel-footer)] px-6 py-5 sm:px-8">{footer}</footer>
         </div>
       </div>
     </div>

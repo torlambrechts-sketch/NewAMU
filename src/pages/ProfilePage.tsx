@@ -21,13 +21,13 @@ import { mergeNotificationPreferences, parseNotificationPreferences } from '../l
 import { getSupabaseErrorMessage } from '../lib/supabaseError'
 import type { NotificationPreferences } from '../types/notifications'
 import { HubMenu1Bar, type HubMenu1Item } from '../components/layout/HubMenu1Bar'
+import { PageContainer } from '../components/layout/PageContainer'
 import { Button } from '../components/ui/Button'
 import { StandardInput } from '../components/ui/Input'
 import { SearchableSelect } from '../components/ui/SearchableSelect'
 import { ToggleSwitch } from '../components/ui/FormToggles'
 import { WorkplacePageHeading1 } from '../components/layout/WorkplacePageHeading1'
 
-const PAGE_WRAP = 'mx-auto max-w-[1400px] px-4 py-6 md:px-8'
 const CARD = 'rounded-2xl border border-neutral-200/90 bg-white p-6 shadow-sm'
 const AVATAR_BUCKET = 'profile_avatars'
 
@@ -292,26 +292,26 @@ export function ProfilePage() {
 
   if (!supabaseConfigured) {
     return (
-      <div className={PAGE_WRAP}>
+      <PageContainer py="py-6">
         <p className="text-neutral-600">Supabase er ikke konfigurert.</p>
-      </div>
+      </PageContainer>
     )
   }
 
   if (!user) {
     return (
-      <div className={PAGE_WRAP}>
+      <PageContainer py="py-6">
         <p className="text-neutral-600">
           <Link to="/login" className="text-[#1a3d32] underline">
             {t('shell.logIn')}
           </Link>
         </p>
-      </div>
+      </PageContainer>
     )
   }
 
   return (
-    <div className={PAGE_WRAP}>
+    <PageContainer py="py-6">
       <WorkplacePageHeading1
         breadcrumb={[{ label: 'Workspace', to: '/' }, { label: t('profile.breadcrumb') }]}
         title={t('profile.title')}
@@ -739,6 +739,6 @@ export function ProfilePage() {
           {t('profile.backHome')}
         </Link>
       </div>
-    </div>
+    </PageContainer>
   )
 }

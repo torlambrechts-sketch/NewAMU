@@ -123,7 +123,7 @@ export function RegulationFilterMenu({ variant = 'topbar' }: Props) {
                       aria-hidden
                       className={`mt-0.5 inline-flex h-4 w-4 shrink-0 items-center justify-center border ${
                         checked
-                          ? 'border-[#1a3d32] bg-[#1a3d32] text-white'
+                          ? 'border-[var(--ui-accent)] bg-[var(--ui-accent)] text-white'
                           : 'border-neutral-300 bg-white'
                       }`}
                     >

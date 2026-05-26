@@ -122,6 +122,9 @@
       "suggested": "Foreslått",
       "close": "Lukk",
       "openHint": "Søk (⌘K)",
+      "srNoResults": "Ingen treff",
+      "srResultCount_one": "{{count}} treff",
+      "srResultCount_other": "{{count}} treff",
       "footerKeys": "↑↓ naviger · ↵ åpne · esc lukk",
       "footerHint": "Tips: ⌘K åpner overalt"
     },

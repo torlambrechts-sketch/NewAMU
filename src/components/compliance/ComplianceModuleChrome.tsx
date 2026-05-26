@@ -1,10 +1,10 @@
 import type { ReactNode } from 'react'
 import { HubMenu1Bar, type HubMenu1Item } from '../layout/HubMenu1Bar'
+import { PageContainer } from '../layout/PageContainer'
 import { WorkplacePageHeading1, WORKPLACE_PAGE_SERIF } from '../layout/WorkplacePageHeading1'
 
 export const COMPLIANCE_SERIF = WORKPLACE_PAGE_SERIF
 
-const SHELL = 'mx-auto max-w-[1400px] px-4 py-6 md:px-8'
 const CONTENT_PANEL =
   'rounded-xl border border-neutral-200/80 bg-white p-4 shadow-sm md:p-6'
 
@@ -40,9 +40,9 @@ export function ComplianceModuleChrome({
   contentCard = true,
 }: Props) {
   return (
-    <div
-      className={SHELL}
-      style={{ fontFamily: 'Inter, system-ui, sans-serif', color: '#171717' }}
+    <PageContainer
+      py="py-6"
+      className="font-sans text-neutral-900"
     >
       <WorkplacePageHeading1
         breadcrumb={breadcrumb}
@@ -62,6 +62,6 @@ export function ComplianceModuleChrome({
       ) : (
         <div className="mt-6">{children}</div>
       )}
-    </div>
+    </PageContainer>
   )
 }

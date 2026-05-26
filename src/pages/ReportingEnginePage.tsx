@@ -21,6 +21,7 @@ import {
 import { useReporting } from '../hooks/useReporting'
 import { useOrgSetupContext } from '../hooks/useOrgSetupContext'
 import { HubMenu1Bar, type HubMenu1Item } from '../components/layout/HubMenu1Bar'
+import { PageContainer } from '../components/layout/PageContainer'
 import { Button } from '../components/ui/Button'
 import { StandardInput } from '../components/ui/Input'
 import { SearchableSelect } from '../components/ui/SearchableSelect'
@@ -45,7 +46,6 @@ import { ShareSensitiveDataModal } from '../components/reports/ShareSensitiveDat
 import { buildStandardReportVisualModel } from '../lib/standardReportVisualModel'
 import { ReportModuleDesigner } from '../components/dashboard/ReportModuleDesigner'
 
-const PAGE_WRAP = 'mx-auto max-w-[1400px] px-4 py-6 md:px-8'
 const HERO_ACTION_CLASS =
   'inline-flex h-10 shrink-0 items-center justify-center gap-1.5 rounded-none px-4 text-sm font-medium leading-none'
 const R_FLAT = 'rounded-none'
@@ -698,7 +698,7 @@ export function ReportingEnginePage() {
   )
 
   return (
-    <div className={PAGE_WRAP}>
+    <PageContainer py="py-6">
       <WorkplacePageHeading1
         breadcrumb={[
           { label: 'Workspace', to: '/' },
@@ -1663,7 +1663,7 @@ export function ReportingEnginePage() {
           </div>
         </div>
       ) : null}
-    </div>
+    </PageContainer>
   )
 }
 

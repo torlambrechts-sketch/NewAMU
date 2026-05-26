@@ -17,7 +17,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Clock, Search, X } from 'lucide-react'
 import { Button } from '../ui/Button'
-import { StandardInput } from '../ui/Input'
+import { SearchInput } from '../ui/SearchInput'
 import { useT } from '../../hooks/useT'
 import {
   scoreEntry,
@@ -171,13 +171,13 @@ export function CommandPalette({
       >
         <div className="flex items-center gap-2 border-b border-neutral-200 px-4 py-3">
           <Search className="size-4 shrink-0 text-neutral-400" aria-hidden />
-          <StandardInput
+          <SearchInput
             ref={inputRef}
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             onKeyDown={onInputKey}
             placeholder={t('shell.commandPalette.searchPlaceholder')}
-            className="flex-1 border-0 bg-transparent p-0 text-sm shadow-none ring-0 focus:ring-0"
+            className="flex-1"
             aria-label={t('shell.commandPalette.searchLabel')}
             aria-controls="cmdpal-results"
             aria-activedescendant={
@@ -194,6 +194,16 @@ export function CommandPalette({
           >
             <X className="size-4" aria-hidden />
           </Button>
+        </div>
+
+        {/* Screen-reader-only result count. Re-announced on every
+            change because the listbox aria-activedescendant pattern
+            doesn't tell SR users how many matches exist; without this
+            they typed but had no idea whether anything was found. */}
+        <div className="sr-only" role="status" aria-live="polite" aria-atomic="true">
+          {flatList.length === 0
+            ? t('shell.commandPalette.srNoResults')
+            : t('shell.commandPalette.srResultCount', { count: flatList.length })}
         </div>
 
         <div

@@ -122,6 +122,9 @@
       "suggested": "Suggested",
       "close": "Close",
       "openHint": "Search (⌘K)",
+      "srNoResults": "No results",
+      "srResultCount_one": "{{count}} result",
+      "srResultCount_other": "{{count}} results",
       "footerKeys": "↑↓ navigate · ↵ open · esc close",
       "footerHint": "Tip: ⌘K opens this anywhere"
     },

@@ -1,10 +1,11 @@
 import { Link } from 'react-router-dom'
+import { PageContainer } from '../components/layout/PageContainer'
 
 type Props = { title: string; description?: string }
 
 export function PlaceholderPage({ title, description }: Props) {
   return (
-    <div className="mx-auto max-w-[1400px] px-4 py-16 md:px-8">
+    <PageContainer py="py-16">
       <h1
         className="text-2xl font-semibold text-neutral-900 md:text-3xl"
         style={{ fontFamily: "'Libre Baskerville', Georgia, serif" }}
@@ -21,6 +22,6 @@ export function PlaceholderPage({ title, description }: Props) {
       >
         ← Back to project dashboard
       </Link>
-    </div>
+    </PageContainer>
   )
 }

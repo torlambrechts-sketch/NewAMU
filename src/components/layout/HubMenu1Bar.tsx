@@ -58,10 +58,10 @@ type Props = {
 }
 
 const TAB_BASE =
-  'inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-sm font-medium transition focus:outline-none focus-visible:ring-2 focus-visible:ring-[#1a3d32]/30'
+  'inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-sm font-medium transition focus:outline-none focus-visible:ring-2 focus-visible:ring-[color-mix(in_srgb,var(--ui-accent)_30%,transparent)]'
 const TAB_ICON_ONLY =
   '!h-9 !w-9 !min-h-0 !min-w-0 !max-h-9 !max-w-9 !shrink-0 !justify-center !gap-0 !p-0 !px-0'
-const TAB_ACTIVE = 'border-[#142e26] text-white shadow-sm'
+const TAB_ACTIVE = 'border-[var(--color-atics-green-deep)] text-white shadow-sm'
 const TAB_INACTIVE = 'border-transparent text-neutral-600 hover:bg-white/70 hover:text-neutral-900'
 
 /**

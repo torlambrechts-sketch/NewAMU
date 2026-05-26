@@ -23,6 +23,7 @@ import {
   useWorkspaceDashboardData,
 } from '../hooks/useWorkspaceDashboardData'
 import { HubMenu1Bar, type HubMenu1Item } from '../components/layout/HubMenu1Bar'
+import { PageContainer } from '../components/layout/PageContainer'
 import { WorkplacePageHeading1 } from '../components/layout/WorkplacePageHeading1'
 
 const CREAM_DEEP = '#EFE8DC'
@@ -103,7 +104,7 @@ export function WelcomeDashboardPage() {
 
   return (
     <>
-      <div className="mx-auto max-w-[1400px] px-4 py-6 md:px-8">
+      <PageContainer py="py-6">
         <WorkplacePageHeading1
           breadcrumb={[{ label: 'Workspace', to: '/' }, { label: 'Hjem' }]}
           title={`Velkommen tilbake, ${displayName}`}
@@ -390,7 +391,7 @@ export function WelcomeDashboardPage() {
             </div>
           </aside>
         </div>
-      </div>
+      </PageContainer>
     </>
   )
 }

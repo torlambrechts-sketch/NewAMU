@@ -18,6 +18,7 @@ import type { CompliancePackSlug } from '../../modules/compliance/types'
 import { usePacks } from '../../modules/compliance/usePacks'
 import { useOrgSetupContext } from '../hooks/useOrgSetupContext'
 import { WarningBox } from '../components/ui/AlertBox'
+import { PageContainer } from '../components/layout/PageContainer'
 import { PackContext, type PackContextValue } from './packContextValue'
 
 export function PackProvider({ children }: { children: ReactNode }) {
@@ -69,20 +70,20 @@ export function PackProvider({ children }: { children: ReactNode }) {
 
   if (error) {
     return (
-      <div className="mx-auto max-w-[1400px] px-4 py-6 md:px-8">
+      <PageContainer py="py-6">
         <WarningBox>{error}</WarningBox>
-      </div>
+      </PageContainer>
     )
   }
 
   if (!value) {
     return (
-      <div className="mx-auto max-w-[1400px] px-4 py-6 md:px-8">
+      <PageContainer py="py-6">
         <WarningBox>
           Ingen compliance-pakker er lisensiert for denne organisasjonen.
           Kontakt en administrator for å aktivere AML eller ISO 45001.
         </WarningBox>
-      </div>
+      </PageContainer>
     )
   }
 

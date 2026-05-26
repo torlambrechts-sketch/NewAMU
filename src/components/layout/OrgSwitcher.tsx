@@ -44,17 +44,10 @@ export function OrgSwitcher({ variant = 'topbar' }: { variant?: 'topbar' | 'side
   const inputRef = useRef<HTMLInputElement | null>(null)
   const triggerRef = useRef<HTMLButtonElement | null>(null)
 
-  // Global Cmd+K / Ctrl+K — toggles the switcher and focuses the search field.
-  useEffect(() => {
-    function handler(e: KeyboardEvent) {
-      const isCmdK = (e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k'
-      if (!isCmdK) return
-      e.preventDefault()
-      setOpen((v) => !v)
-    }
-    window.addEventListener('keydown', handler)
-    return () => window.removeEventListener('keydown', handler)
-  }, [])
+  // Note: Cmd+K is now owned by the global CommandPalette
+  // (AticsShell). Opening the OrgSwitcher is mouse/touch only here;
+  // the palette can include "Bytt organisasjon" as a command later
+  // if a keyboard entry point is needed.
 
   // Close on outside click / Esc.
   useEffect(() => {
@@ -197,8 +190,8 @@ export function OrgSwitcher({ variant = 'topbar' }: { variant?: 'topbar' | 'side
         onClick={() => setOpen((v) => !v)}
         aria-haspopup="listbox"
         aria-expanded={open}
-        aria-label="Bytt organisasjon (Cmd+K)"
-        title="Bytt organisasjon (Cmd+K / Ctrl+K)"
+        aria-label="Bytt organisasjon"
+        title="Bytt organisasjon"
         className={
           variant === 'topbar'
             ? 'inline-flex max-w-[18rem] shrink-0 items-center gap-1.5 rounded-md bg-white/10 px-2.5 py-1.5 text-sm font-medium text-white/90 hover:bg-white/15'
@@ -285,7 +278,7 @@ export function OrgSwitcher({ variant = 'topbar' }: { variant?: 'topbar' | 'side
                       ) : null}
                     </div>
                     {isCurrent ? (
-                      <Check className="size-4 shrink-0 text-[#1a3d32]" aria-hidden />
+                      <Check className="size-4 shrink-0 text-[var(--ui-accent)]" aria-hidden />
                     ) : null}
                   </Button>
                 )

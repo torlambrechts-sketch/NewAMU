@@ -25,6 +25,7 @@ import {
 import { useLearning } from '../../hooks/useLearning'
 import { useOrgSetupContext } from '../../hooks/useOrgSetupContext'
 import { Button } from '../../components/ui/Button'
+import { PageContainer } from '../../components/layout/PageContainer'
 import { StandardInput } from '../../components/ui/Input'
 import { StandardTextarea } from '../../components/ui/Textarea'
 import { SlidePanel } from '../../components/layout/SlidePanel'
@@ -196,7 +197,7 @@ export function LearningHubPage() {
   return (
     <div className="min-h-screen" style={{ background: '#F9F7F2' }}>
       <header style={{ background: '#F9F7F2' }}>
-        <div className="mx-auto max-w-[1400px] px-4 pb-4 pt-4 md:px-8">
+        <PageContainer py="pb-4 pt-4">
           <div className="space-y-4">
             <nav aria-label="Brødsmule" className="text-xs text-neutral-500">
               <span>
@@ -254,10 +255,10 @@ export function LearningHubPage() {
               </div>
             </div>
           </div>
-        </div>
+        </PageContainer>
       </header>
 
-      <div className="mx-auto max-w-[1400px] space-y-6 px-4 py-6 md:px-8">
+      <PageContainer py="py-6" className="space-y-6">
         {errorVisible ? (
           <div className="flex items-start gap-2.5 rounded-md border border-red-300 bg-red-50 px-3 py-3 text-sm text-red-900">
             <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-red-600" />
@@ -458,7 +459,7 @@ export function LearningHubPage() {
           </section>
         </div>
         )}
-      </div>
+      </PageContainer>
       <SlidePanel
         open={newCourseOpen}
         onClose={closeNewCourse}

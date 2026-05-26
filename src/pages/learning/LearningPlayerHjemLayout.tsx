@@ -40,6 +40,7 @@ import {
 import { useLearning } from '../../hooks/useLearning'
 import { useOrgSetupContext } from '../../hooks/useOrgSetupContext'
 import type { Course, CourseModule, ModuleCompleteMeta } from '../../types/learning'
+import { PageContainer } from '../../components/layout/PageContainer'
 import { SlidePanel } from '../../components/layout/SlidePanel'
 import { InfoBox, WarningBox } from '../../components/ui/AlertBox'
 import { Button } from '../../components/ui/Button'
@@ -625,7 +626,7 @@ function PaperWrapper({ children }: { children: React.ReactNode }) {
         className="min-h-[calc(100vh-100px)] text-neutral-900"
         style={{ backgroundColor: PAPER_BG }}
       >
-        <div className="mx-auto max-w-[1400px] px-4 py-6 md:px-8">{children}</div>
+        <PageContainer py="py-6">{children}</PageContainer>
       </div>
     </div>
   )
