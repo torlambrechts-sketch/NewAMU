@@ -36,9 +36,7 @@ import { ModulePageShell } from '../../components/module'
 import {
   Card,
   DesignIcon,
-  ModeToggle,
   ProgressBar,
-  type LearningMode,
 } from '../../components/ui/elearningPrimitives'
 import {
   CommonPitfalls,
@@ -67,7 +65,6 @@ export function LearningPlayerV2() {
     setModuleCompleted,
     streakWeeks,
   } = learning
-  const [mode, setMode] = useState<LearningMode>('advanced')
   const [activeIdx, setActiveIdx] = useState(0)
   const [quizAnswers, setQuizAnswers] = useState<Record<string, Record<string, number>>>({})
   const [completeError, setCompleteError] = useState<string | null>(null)
@@ -136,7 +133,6 @@ export function LearningPlayerV2() {
   }
 
   const courseRow = course
-  const easy = mode === 'easy'
   const lesson = sortedModules[activeIdx] ?? null
   const totalLessons = sortedModules.length
   const progressRatio = totalLessons ? completed.size / totalLessons : 0
@@ -166,17 +162,12 @@ export function LearningPlayerV2() {
         { label: 'Spiller' },
       ]}
       title={<span className="inline-flex items-center gap-2"><PlayCircle className="h-5 w-5 text-[#1a3d32]" />{courseRow.title}</span>}
-      description={
-        easy
-          ? `Leksjon ${activeIdx + 1} av ${totalLessons}`
-          : `Som læringen ser kurset · pilene navigerer · 80% kreves for å bestå sluttest.`
-      }
+      description={`Som læringen ser kurset · pilene navigerer · 80% kreves for å bestå sluttest.`}
       headerActions={
         <>
           <Button variant="ghost" icon={<X className="h-4 w-4" />} onClick={() => navigate(`/learning/courses/${courseRow.id}/detail`)}>
             Lukk
           </Button>
-          <ModeToggle mode={mode} onChange={setMode} />
           <Button variant="secondary" icon={<Bookmark className="h-4 w-4" />}>Bokmerk</Button>
         </>
       }
@@ -364,7 +355,7 @@ export function LearningPlayerV2() {
             </div>
           </Card>
 
-          {!easy && leaderboard.length > 0 ? (
+          {leaderboard.length > 0 ? (
             <Card className="p-4">
               <h3 className="text-xs font-bold uppercase tracking-wider text-neutral-500">Topp 3 denne uka</h3>
               <ul className="mt-2 space-y-1.5">
@@ -390,21 +381,19 @@ export function LearningPlayerV2() {
             </Card>
           ) : null}
 
-          {!easy ? (
-            <Card className="p-4 text-[11px]">
-              <h3 className="text-xs font-bold uppercase tracking-wider text-neutral-500">Tastatursnarvei</h3>
-              <ul className="mt-2 space-y-1 text-neutral-600">
-                <li className="flex justify-between">
-                  <span>Neste leksjon</span>
-                  <kbd className="rounded bg-neutral-100 px-1.5 py-0.5 font-mono text-[10px]">→</kbd>
-                </li>
-                <li className="flex justify-between">
-                  <span>Forrige</span>
-                  <kbd className="rounded bg-neutral-100 px-1.5 py-0.5 font-mono text-[10px]">←</kbd>
-                </li>
-              </ul>
-            </Card>
-          ) : null}
+          <Card className="p-4 text-[11px]">
+            <h3 className="text-xs font-bold uppercase tracking-wider text-neutral-500">Tastatursnarvei</h3>
+            <ul className="mt-2 space-y-1 text-neutral-600">
+              <li className="flex justify-between">
+                <span>Neste leksjon</span>
+                <kbd className="rounded bg-neutral-100 px-1.5 py-0.5 font-mono text-[10px]">→</kbd>
+              </li>
+              <li className="flex justify-between">
+                <span>Forrige</span>
+                <kbd className="rounded bg-neutral-100 px-1.5 py-0.5 font-mono text-[10px]">←</kbd>
+              </li>
+            </ul>
+          </Card>
         </aside>
       </div>
     </ModulePageShell>

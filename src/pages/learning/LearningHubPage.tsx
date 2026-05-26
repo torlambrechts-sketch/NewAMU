@@ -53,10 +53,8 @@ import {
   ELEARNING_TABLE_TH,
   ELEARNING_TABLE_TR,
   FrameworkPill,
-  ModeToggle,
   PAPER_BG,
   ProgressBar,
-  type LearningMode,
 } from '../../components/ui/elearningPrimitives'
 import type { Course } from '../../types/learning'
 
@@ -108,7 +106,6 @@ export function LearningHubPage() {
     createCourse,
     updateCourse,
   } = learning
-  const [mode, setMode] = useState<LearningMode>('advanced')
   // Multi-select framework filter — mirrors the FilterBar pattern
   // used across the other module hubs. Empty = no filter.
   const [frameworks, setFrameworks] = useState<string[]>([])
@@ -162,7 +159,6 @@ export function LearningHubPage() {
     saveViewMode(view)
   }, [view])
 
-  const easy = mode === 'easy'
   const errorVisible = learningError && learningError !== dismissedError
 
   const courseById = useMemo(() => new Map(courses.map((c) => [c.id, c])), [courses])
@@ -257,13 +253,10 @@ export function LearningHubPage() {
                   Opplæring
                 </h1>
                 <div className="mt-2 max-w-3xl text-sm text-neutral-600">
-                  {easy
-                    ? 'Kurs, sertifiseringer og lovpålagt opplæring.'
-                    : `${kpi.activeCourses} aktive kurs · ${kpi.enrolledTotal} påmeldinger · ${Math.round(kpi.mandatoryCompliance * 100)}% lovpålagt etterlevelse.`}
+                  {`${kpi.activeCourses} aktive kurs · ${kpi.enrolledTotal} påmeldinger · ${Math.round(kpi.mandatoryCompliance * 100)}% lovpålagt etterlevelse.`}
                 </div>
               </div>
               <div className="flex shrink-0 flex-wrap items-center gap-2 lg:justify-end">
-                <ModeToggle mode={mode} onChange={setMode} />
                 <Button
                   variant="secondary"
                   icon={<Award className="h-4 w-4" />}
@@ -435,14 +428,12 @@ export function LearningHubPage() {
                     <CourseBoxes
                       cohorts={filteredCohorts}
                       courseById={courseById}
-                      easy={easy}
                       onOpen={(courseId) => navigate(`/learning/courses/${courseId}/detail`)}
                     />
                   ) : (
                     <CourseTable
                       cohorts={filteredCohorts}
                       courseById={courseById}
-                      easy={easy}
                       onOpen={(courseId) => navigate(`/learning/courses/${courseId}/detail`)}
                     />
                   )
@@ -451,19 +442,17 @@ export function LearningHubPage() {
                   view === 'bokser' ? (
                     <TemplateBoxes
                       templates={filteredTemplates}
-                      easy={easy}
                       onOpen={(c) => navigate(`/learning/courses/${c.id}`)}
                       onStart={(c) => navigate(`/learning/play/${c.id}`)}
                     />
                   ) : (
                     <TemplateTable
                       templates={filteredTemplates}
-                      easy={easy}
                       onOpen={(c) => navigate(`/learning/courses/${c.id}`)}
                     />
                   )
                 ) : null}
-                {tab === 'statistikk' ? <StatistikkPanel kpi={kpi} easy={easy} /> : null}
+                {tab === 'statistikk' ? <StatistikkPanel kpi={kpi} /> : null}
               </div>
             </Card>
           </section>
@@ -528,12 +517,10 @@ export function LearningHubPage() {
 function CourseBoxes({
   cohorts,
   courseById,
-  easy,
   onOpen,
 }: {
   cohorts: CohortAggregate[]
   courseById: Map<string, Course>
-  easy: boolean
   onOpen: (id: string) => void
 }) {
   return (
@@ -569,7 +556,7 @@ function CourseBoxes({
               </div>
               <div className="mt-1.5 flex items-center gap-1.5">
                 <CohortStatusPill status={c.status} />
-                {!easy && c.startedAt ? <span className="text-[9px] tabular-nums text-neutral-500">{formatDateNb(c.startedAt)}</span> : null}
+                {c.startedAt ? <span className="text-[9px] tabular-nums text-neutral-500">{formatDateNb(c.startedAt)}</span> : null}
               </div>
               <div className="mt-2.5 rounded-md px-2.5 py-1.5" style={{ background: PAPER_BG }}>
                 <div className="flex items-baseline justify-between text-[10px] font-bold uppercase tracking-wider text-neutral-500">
@@ -592,7 +579,7 @@ function CourseBoxes({
                 </div>
               </div>
 
-              {!easy && c.avgScore !== null ? (
+              {c.avgScore !== null ? (
                 <div className="mt-2 flex items-center justify-between text-[10px] text-neutral-600">
                   <span className="inline-flex items-center gap-1">
                     <Star className="h-2.5 w-2.5 text-amber-500" />
@@ -615,12 +602,10 @@ function CourseBoxes({
 function CourseTable({
   cohorts,
   courseById,
-  easy,
   onOpen,
 }: {
   cohorts: CohortAggregate[]
   courseById: Map<string, Course>
-  easy: boolean
   onOpen: (id: string) => void
 }) {
   return (
@@ -632,8 +617,8 @@ function CourseTable({
             <th className={ELEARNING_TABLE_TH}>Status</th>
             <th className={ELEARNING_TABLE_TH}>Påmeldte</th>
             <th className={ELEARNING_TABLE_TH}>Fremdrift</th>
-            {!easy ? <th className={ELEARNING_TABLE_TH}>Bestått</th> : null}
-            {!easy ? <th className={ELEARNING_TABLE_TH}>Snittscore</th> : null}
+            <th className={ELEARNING_TABLE_TH}>Bestått</th>
+            <th className={ELEARNING_TABLE_TH}>Snittscore</th>
             <th className={ELEARNING_TABLE_TH}>Periode</th>
             <th className={`${ELEARNING_TABLE_TH} text-right`} />
           </tr>
@@ -684,17 +669,13 @@ function CourseTable({
                     </span>
                   </div>
                 </td>
-                {!easy ? (
-                  <td className="px-5 py-3 tabular-nums">
-                    <span className="font-semibold text-green-700">{c.passed}</span>/
-                    <span className="text-neutral-500">{c.enrolled}</span>
-                  </td>
-                ) : null}
-                {!easy ? (
-                  <td className="px-5 py-3 tabular-nums text-neutral-900">
-                    {c.avgScore !== null ? c.avgScore : <span className="text-neutral-400">—</span>}
-                  </td>
-                ) : null}
+                <td className="px-5 py-3 tabular-nums">
+                  <span className="font-semibold text-green-700">{c.passed}</span>/
+                  <span className="text-neutral-500">{c.enrolled}</span>
+                </td>
+                <td className="px-5 py-3 tabular-nums text-neutral-900">
+                  {c.avgScore !== null ? c.avgScore : <span className="text-neutral-400">—</span>}
+                </td>
                 <td className="px-5 py-3 tabular-nums text-neutral-700">
                   {formatDateNb(c.startedAt)} – {formatDateNb(c.endsAt)}
                 </td>
@@ -710,12 +691,10 @@ function CourseTable({
 
 function TemplateBoxes({
   templates,
-  easy,
   onOpen,
   onStart,
 }: {
   templates: Course[]
-  easy: boolean
   onOpen: (c: Course) => void
   onStart: (c: Course) => void
 }) {
@@ -778,16 +757,14 @@ function TemplateBoxes({
                 </div>
               </div>
             </div>
-            {!easy ? (
-              <div className="border-t border-neutral-100 px-4 py-2 text-[11px] text-neutral-600">
-                <div className="line-clamp-2">{t.description || 'Ingen beskrivelse.'}</div>
-                {t.recertificationMonths ? (
-                  <div className="mt-1.5 inline-flex items-center gap-1 text-neutral-500">
-                    <Award className="h-3 w-3" /> Sertifikat gyldig i {Math.round(t.recertificationMonths / 12)} år
-                  </div>
-                ) : null}
-              </div>
-            ) : null}
+            <div className="border-t border-neutral-100 px-4 py-2 text-[11px] text-neutral-600">
+              <div className="line-clamp-2">{t.description || 'Ingen beskrivelse.'}</div>
+              {t.recertificationMonths ? (
+                <div className="mt-1.5 inline-flex items-center gap-1 text-neutral-500">
+                  <Award className="h-3 w-3" /> Sertifikat gyldig i {Math.round(t.recertificationMonths / 12)} år
+                </div>
+              ) : null}
+            </div>
             <div className="mt-auto flex items-center justify-between border-t border-neutral-100 px-4 py-2.5">
               <Button
                 variant="ghost"
@@ -815,11 +792,9 @@ function TemplateBoxes({
 
 function TemplateTable({
   templates,
-  easy,
   onOpen,
 }: {
   templates: Course[]
-  easy: boolean
   onOpen: (c: Course) => void
 }) {
   if (templates.length === 0) {
@@ -834,7 +809,7 @@ function TemplateTable({
             <th className={ELEARNING_TABLE_TH}>Rammeverk</th>
             <th className={ELEARNING_TABLE_TH}>Varighet</th>
             <th className={ELEARNING_TABLE_TH}>Moduler</th>
-            {!easy ? <th className={ELEARNING_TABLE_TH}>Sertifikat</th> : null}
+            <th className={ELEARNING_TABLE_TH}>Sertifikat</th>
             <th className={ELEARNING_TABLE_TH}>Versjon</th>
             <th className={`${ELEARNING_TABLE_TH} text-right`} />
           </tr>
@@ -869,11 +844,9 @@ function TemplateTable({
                 </td>
                 <td className="px-5 py-3 tabular-nums text-neutral-800">{courseDurationHours(t)}t</td>
                 <td className="px-5 py-3 tabular-nums text-neutral-800">{t.modules.length}</td>
-                {!easy ? (
-                  <td className="px-5 py-3 text-neutral-700">
-                    {t.recertificationMonths ? `${Math.round(t.recertificationMonths / 12)} år` : <span className="text-neutral-400">Permanent</span>}
-                  </td>
-                ) : null}
+                <td className="px-5 py-3 text-neutral-700">
+                  {t.recertificationMonths ? `${Math.round(t.recertificationMonths / 12)} år` : <span className="text-neutral-400">Permanent</span>}
+                </td>
                 <td className="px-5 py-3 tabular-nums text-neutral-700">v{t.localeVersionMajor ?? t.courseVersion ?? 1}.{t.localeVersionMinor ?? t.courseVersionMinor ?? 0}</td>
                 <td className="px-5 py-3 text-right">
                   <Button variant="primary" size="sm" icon={<Pencil className="h-3 w-3" />}>
@@ -891,10 +864,8 @@ function TemplateTable({
 
 function StatistikkPanel({
   kpi,
-  easy,
 }: {
   kpi: ReturnType<typeof aggregateLearningKpis>
-  easy: boolean
 }) {
   return (
     <div className="p-5">
@@ -905,7 +876,7 @@ function StatistikkPanel({
         <StatistikkCard label="Snittrating" value={`${kpi.avgRating.toFixed(1)}`} sub={kpi.avgTimeHours ? `${kpi.avgTimeHours}t snittforbruk` : 'ingen rangering'} starIcon />
       </div>
 
-      {!easy && kpi.perFramework.length > 0 ? (
+      {kpi.perFramework.length > 0 ? (
         <div className="mt-5 rounded-md border border-neutral-200/80 p-4">
           <h4 className="text-sm font-semibold text-neutral-900">Per rammeverk</h4>
           <ul className="mt-3 space-y-2.5">

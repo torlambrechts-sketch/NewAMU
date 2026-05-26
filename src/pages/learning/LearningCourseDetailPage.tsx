@@ -55,9 +55,7 @@ import {
   DesignIcon,
   FrameworkPill,
   Initials,
-  ModeToggle,
   ProgressBar,
-  type LearningMode,
 } from '../../components/ui/elearningPrimitives'
 import type { Course, CourseProgress } from '../../types/learning'
 
@@ -70,7 +68,6 @@ export function LearningCourseDetailPage() {
   const { can, isAdmin } = useOrgSetupContext()
   const canManage = isAdmin || can('learning.manage')
   const { courses, progress, learningLoading, learningError } = learning
-  const [mode, setMode] = useState<LearningMode>('advanced')
   const [tab, setTab] = useState<DetailTab>('innhold')
 
   const course = useMemo(() => courses.find((c) => c.id === courseId) ?? null, [courses, courseId])
@@ -109,7 +106,6 @@ export function LearningCourseDetailPage() {
     )
   }
 
-  const easy = mode === 'easy'
   const fwId = frameworkForCourse(course)
   const mandatory = isMandatoryCourse(course)
   const cohort = aggregateCohort(course, progress)
@@ -123,17 +119,12 @@ export function LearningCourseDetailPage() {
         { label: course.title.length > 40 ? course.title.slice(0, 38) + '…' : course.title },
       ]}
       title={course.title}
-      description={
-        easy
-          ? course.description
-          : `${course.description || 'Ingen beskrivelse.'} · ${cohort.enrolled} påmeldte · v${course.localeVersionMajor ?? course.courseVersion ?? 1}.${course.localeVersionMinor ?? course.courseVersionMinor ?? 0}`
-      }
+      description={`${course.description || 'Ingen beskrivelse.'} · ${cohort.enrolled} påmeldte · v${course.localeVersionMajor ?? course.courseVersion ?? 1}.${course.localeVersionMinor ?? course.courseVersionMinor ?? 0}`}
       headerActions={
         <>
           <Button variant="ghost" icon={<ArrowLeft className="h-4 w-4" />} onClick={() => navigate('/learning')}>
             Tilbake
           </Button>
-          <ModeToggle mode={mode} onChange={setMode} />
           {canManage ? (
             <Button
               variant="secondary"
@@ -173,16 +164,14 @@ export function LearningCourseDetailPage() {
               <ShieldCheck className="h-3 w-3" /> Lovpålagt
             </span>
           ) : null}
-          {!easy
-            ? (course.lawRefs ?? []).slice(0, 4).map((l) => (
-                <span
-                  key={l}
-                  className="rounded border border-[#c5d3c8] bg-[#e7efe9] px-1.5 py-0.5 text-[10px] font-semibold text-[#14312a]"
-                >
-                  {l.length > 28 ? l.slice(0, 26) + '…' : l}
-                </span>
-              ))
-            : null}
+          {(course.lawRefs ?? []).slice(0, 4).map((l) => (
+            <span
+              key={l}
+              className="rounded border border-[#c5d3c8] bg-[#e7efe9] px-1.5 py-0.5 text-[10px] font-semibold text-[#14312a]"
+            >
+              {l.length > 28 ? l.slice(0, 26) + '…' : l}
+            </span>
+          ))}
         </div>
         <div className="flex flex-wrap items-center gap-4 text-xs text-neutral-600">
           <span className="inline-flex items-center gap-1.5">
@@ -213,11 +202,11 @@ export function LearningCourseDetailPage() {
           />
         </div>
         <div className="p-5">
-          {tab === 'innhold' ? <InnholdTab course={course} easy={easy} onOpenBuilder={() => navigate(`/learning/courses/${course.id}`)} /> : null}
-          {tab === 'laerere' ? <LaerereTab course={course} progress={ownProgress} easy={easy} /> : null}
-          {tab === 'gamification' ? <GamificationTab course={course} progress={ownProgress} easy={easy} /> : null}
-          {tab === 'versjoner' ? <VersjonerTab course={course} easy={easy} /> : null}
-          {tab === 'audit' ? <AuditTab course={course} progress={ownProgress} easy={easy} /> : null}
+          {tab === 'innhold' ? <InnholdTab course={course} onOpenBuilder={() => navigate(`/learning/courses/${course.id}`)} /> : null}
+          {tab === 'laerere' ? <LaerereTab course={course} progress={ownProgress} /> : null}
+          {tab === 'gamification' ? <GamificationTab course={course} progress={ownProgress} /> : null}
+          {tab === 'versjoner' ? <VersjonerTab course={course} /> : null}
+          {tab === 'audit' ? <AuditTab course={course} progress={ownProgress} /> : null}
         </div>
       </Card>
     </ModulePageShell>
@@ -226,11 +215,9 @@ export function LearningCourseDetailPage() {
 
 function InnholdTab({
   course,
-  easy,
   onOpenBuilder,
 }: {
   course: Course
-  easy: boolean
   onOpenBuilder: () => void
 }) {
   const sortedModules = [...course.modules].sort((a, b) => a.order - b.order)
@@ -277,24 +264,22 @@ function InnholdTab({
                         <Clock className="h-2.5 w-2.5" /> {m.durationMinutes} min
                       </span>
                     </div>
-                    {!easy ? (
-                      <div className="mt-2 flex flex-wrap gap-1">
-                        <BlockChip
-                          type={block}
-                          title={m.title}
-                          durationMin={block === 'video' ? m.durationMinutes : undefined}
-                          questions={questions ?? undefined}
-                        />
-                        {(m.refLawIds ?? []).slice(0, 2).map((ref) => (
-                          <span
-                            key={ref}
-                            className="inline-flex items-center gap-1 rounded bg-neutral-100 px-1.5 py-0.5 text-[10px] font-semibold text-neutral-700"
-                          >
-                            <BookOpen className="h-2.5 w-2.5" /> {ref}
-                          </span>
-                        ))}
-                      </div>
-                    ) : null}
+                    <div className="mt-2 flex flex-wrap gap-1">
+                      <BlockChip
+                        type={block}
+                        title={m.title}
+                        durationMin={block === 'video' ? m.durationMinutes : undefined}
+                        questions={questions ?? undefined}
+                      />
+                      {(m.refLawIds ?? []).slice(0, 2).map((ref) => (
+                        <span
+                          key={ref}
+                          className="inline-flex items-center gap-1 rounded bg-neutral-100 px-1.5 py-0.5 text-[10px] font-semibold text-neutral-700"
+                        >
+                          <BookOpen className="h-2.5 w-2.5" /> {ref}
+                        </span>
+                      ))}
+                    </div>
                   </div>
                 </div>
               </li>
@@ -316,36 +301,34 @@ function InnholdTab({
           </ul>
         </Card>
 
-        {!easy ? (
-          <Card className="p-4">
-            <h3 className="text-sm font-semibold text-neutral-900">Eksamen og sertifikat</h3>
-            <ul className="mt-2 space-y-2 text-[12px]">
-              <li className="flex justify-between">
-                <span className="text-neutral-500">Bestått-grense</span>
-                <span className="font-semibold tabular-nums text-neutral-900">80%</span>
-              </li>
-              <li className="flex justify-between">
-                <span className="text-neutral-500">Sluttest</span>
-                <span className="text-neutral-900">
-                  {(() => {
-                    const quizMods = sortedModules.filter((m) => m.kind === 'quiz')
-                    if (!quizMods.length) return 'Ingen quiz'
-                    const total = quizMods.reduce((a, m) => a + (quizQuestionCount(m.content) ?? 0), 0)
-                    return `${total} spørsmål`
-                  })()}
-                </span>
-              </li>
-              <li className="flex justify-between">
-                <span className="text-neutral-500">Forsøk</span>
-                <span className="text-neutral-900">3 maks</span>
-              </li>
-              <li className="flex justify-between">
-                <span className="text-neutral-500">Gyldighet</span>
-                <span className="text-neutral-900">{course.recertificationMonths ? `${Math.round(course.recertificationMonths / 12)} år` : 'Permanent'}</span>
-              </li>
-            </ul>
-          </Card>
-        ) : null}
+        <Card className="p-4">
+          <h3 className="text-sm font-semibold text-neutral-900">Eksamen og sertifikat</h3>
+          <ul className="mt-2 space-y-2 text-[12px]">
+            <li className="flex justify-between">
+              <span className="text-neutral-500">Bestått-grense</span>
+              <span className="font-semibold tabular-nums text-neutral-900">80%</span>
+            </li>
+            <li className="flex justify-between">
+              <span className="text-neutral-500">Sluttest</span>
+              <span className="text-neutral-900">
+                {(() => {
+                  const quizMods = sortedModules.filter((m) => m.kind === 'quiz')
+                  if (!quizMods.length) return 'Ingen quiz'
+                  const total = quizMods.reduce((a, m) => a + (quizQuestionCount(m.content) ?? 0), 0)
+                  return `${total} spørsmål`
+                })()}
+              </span>
+            </li>
+            <li className="flex justify-between">
+              <span className="text-neutral-500">Forsøk</span>
+              <span className="text-neutral-900">3 maks</span>
+            </li>
+            <li className="flex justify-between">
+              <span className="text-neutral-500">Gyldighet</span>
+              <span className="text-neutral-900">{course.recertificationMonths ? `${Math.round(course.recertificationMonths / 12)} år` : 'Permanent'}</span>
+            </li>
+          </ul>
+        </Card>
       </aside>
     </div>
   )
@@ -370,11 +353,9 @@ function deriveObjectives(course: Course): string[] {
 function LaerereTab({
   course,
   progress,
-  easy,
 }: {
   course: Course
   progress: CourseProgress[]
-  easy: boolean
 }) {
   const [filter, setFilter] = useState<'all' | 'fullført' | 'pågår' | 'ikke startet'>('all')
 
@@ -418,16 +399,14 @@ function LaerereTab({
             </Button>
           ))}
         </div>
-        {!easy ? (
-          <div className="flex items-center gap-1.5">
-            <Button variant="ghost" size="sm" icon={<Bell className="h-3 w-3" />}>
-              Send påminnelse
-            </Button>
-            <Button variant="secondary" size="sm" icon={<Download className="h-3 w-3" />}>
-              Eksporter
-            </Button>
-          </div>
-        ) : null}
+        <div className="flex items-center gap-1.5">
+          <Button variant="ghost" size="sm" icon={<Bell className="h-3 w-3" />}>
+            Send påminnelse
+          </Button>
+          <Button variant="secondary" size="sm" icon={<Download className="h-3 w-3" />}>
+            Eksporter
+          </Button>
+        </div>
       </div>
 
       <div className="mt-3 overflow-x-auto rounded-md border border-neutral-200/80">
@@ -439,15 +418,15 @@ function LaerereTab({
               <th className="px-3 py-2 text-left font-semibold text-neutral-700">Rolle</th>
               <th className="px-3 py-2 text-left font-semibold text-neutral-700">Fremdrift</th>
               <th className="px-3 py-2 text-left font-semibold text-neutral-700">Score</th>
-              {!easy ? <th className="px-3 py-2 text-left font-semibold text-neutral-700">Tidsbruk</th> : null}
+              <th className="px-3 py-2 text-left font-semibold text-neutral-700">Tidsbruk</th>
               <th className="px-3 py-2 text-left font-semibold text-neutral-700">Status</th>
-              {!easy ? <th className="px-3 py-2 text-left font-semibold text-neutral-700">Sertifikat</th> : null}
+              <th className="px-3 py-2 text-left font-semibold text-neutral-700">Sertifikat</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-neutral-100">
             {filtered.length === 0 ? (
               <tr>
-                <td colSpan={easy ? 6 : 8} className="px-3 py-12 text-center text-sm text-neutral-500">
+                <td colSpan={8} className="px-3 py-12 text-center text-sm text-neutral-500">
                   Ingen påmeldte i denne kategorien.
                 </td>
               </tr>
@@ -496,7 +475,7 @@ function LaerereTab({
                       <span className="text-neutral-400">—</span>
                     )}
                   </td>
-                  {!easy ? <td className="px-3 py-2 tabular-nums text-neutral-700">{learnerTimeHours(course, p)}t</td> : null}
+                  <td className="px-3 py-2 tabular-nums text-neutral-700">{learnerTimeHours(course, p)}t</td>
                   <td className="px-3 py-2">
                     <span
                       className={[
@@ -511,11 +490,9 @@ function LaerereTab({
                       {status}
                     </span>
                   </td>
-                  {!easy ? (
-                    <td className="px-3 py-2">
-                      <span className="font-mono text-[10px] tabular-nums text-neutral-600">{p.completedAt ? `CERT-${(p.userId ?? '').slice(0, 8).toUpperCase()}` : '—'}</span>
-                    </td>
-                  ) : null}
+                  <td className="px-3 py-2">
+                    <span className="font-mono text-[10px] tabular-nums text-neutral-600">{p.completedAt ? `CERT-${(p.userId ?? '').slice(0, 8).toUpperCase()}` : '—'}</span>
+                  </td>
                 </tr>
               )
             })}
@@ -529,11 +506,9 @@ function LaerereTab({
 function GamificationTab({
   course,
   progress,
-  easy,
 }: {
   course: Course
   progress: CourseProgress[]
-  easy: boolean
 }) {
   const leaderboard = deriveLeaderboard(course, progress, 5)
   const badges = course.badges ?? []
@@ -669,28 +644,26 @@ function GamificationTab({
           </ul>
         </Card>
 
-        {!easy ? (
-          <Card className="p-4">
-            <h3 className="text-sm font-semibold text-neutral-900">Belønninger</h3>
-            <ul className="mt-2 space-y-2 text-[11px] text-neutral-600">
-              <li className="flex items-center gap-1.5">
-                <Trophy className="h-3 w-3 text-amber-600" /> Topp 3 mottar HMS-gavekort 1000 kr
-              </li>
-              <li className="flex items-center gap-1.5">
-                <Coffee className="h-3 w-3 text-neutral-500" /> 14-dagers stim → kaffe-gavekort
-              </li>
-              <li className="flex items-center gap-1.5">
-                <HeartHandshake className="h-3 w-3 text-green-600" /> 100% bestått → «Verneombud of the Year»
-              </li>
-            </ul>
-          </Card>
-        ) : null}
+        <Card className="p-4">
+          <h3 className="text-sm font-semibold text-neutral-900">Belønninger</h3>
+          <ul className="mt-2 space-y-2 text-[11px] text-neutral-600">
+            <li className="flex items-center gap-1.5">
+              <Trophy className="h-3 w-3 text-amber-600" /> Topp 3 mottar HMS-gavekort 1000 kr
+            </li>
+            <li className="flex items-center gap-1.5">
+              <Coffee className="h-3 w-3 text-neutral-500" /> 14-dagers stim → kaffe-gavekort
+            </li>
+            <li className="flex items-center gap-1.5">
+              <HeartHandshake className="h-3 w-3 text-green-600" /> 100% bestått → «Verneombud of the Year»
+            </li>
+          </ul>
+        </Card>
       </aside>
     </div>
   )
 }
 
-function VersjonerTab({ course, easy }: { course: Course; easy: boolean }) {
+function VersjonerTab({ course }: { course: Course }) {
   // Derive a synthetic version list from course meta until version history loads asynchronously.
   const major = course.localeVersionMajor ?? course.courseVersion ?? 1
   const minor = course.localeVersionMinor ?? course.courseVersionMinor ?? 0
@@ -752,8 +725,8 @@ function VersjonerTab({ course, easy }: { course: Course; easy: boolean }) {
                   {v.when} · {v.by}
                 </span>
               </div>
-              {!easy ? <p className="mt-1 text-[12px] text-neutral-700">{v.notes}</p> : null}
-              {!easy && !v.current ? (
+              <p className="mt-1 text-[12px] text-neutral-700">{v.notes}</p>
+              {!v.current ? (
                 <Button variant="ghost" size="sm" className="mt-2 !gap-0 !border-transparent !bg-transparent !px-0 !py-0 text-[10px] font-medium text-neutral-500 hover:text-neutral-800">
                   Sammenlign med aktiv ›
                 </Button>
@@ -769,11 +742,9 @@ function VersjonerTab({ course, easy }: { course: Course; easy: boolean }) {
 function AuditTab({
   course,
   progress,
-  easy,
 }: {
   course: Course
   progress: CourseProgress[]
-  easy: boolean
 }) {
   const events = useMemo(() => {
     const items: { when: string; actor: string; action: string; detail: string; icon: 'Check' | 'Trophy' | 'UserPlus' | 'Send' | 'Bell' | 'CalendarPlus'; tone: 'success' | 'neutral' | 'warning' }[] = []
@@ -827,7 +798,7 @@ function AuditTab({
           <li className="text-sm text-neutral-500">Ingen hendelser ennå.</li>
         ) : null}
         {events.map((e, i) => (
-          <AuditRow key={i} event={e} easy={easy} />
+          <AuditRow key={i} event={e} />
         ))}
       </ol>
     </div>
@@ -836,10 +807,8 @@ function AuditTab({
 
 function AuditRow({
   event,
-  easy,
 }: {
   event: { when: string; actor: string; action: string; detail: string; icon: 'Check' | 'Trophy' | 'UserPlus' | 'Send' | 'Bell' | 'CalendarPlus'; tone: 'success' | 'neutral' | 'warning' }
-  easy: boolean
 }) {
   const iconNode = (() => {
     switch (event.icon) {
@@ -878,7 +847,7 @@ function AuditRow({
           </div>
           <span className="shrink-0 text-[10px] tabular-nums text-neutral-400">{event.when}</span>
         </div>
-        {!easy ? <p className="mt-1 text-[12px] text-neutral-700">{event.detail}</p> : null}
+        <p className="mt-1 text-[12px] text-neutral-700">{event.detail}</p>
       </div>
     </li>
   )
