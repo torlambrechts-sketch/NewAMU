@@ -1039,9 +1039,7 @@ export function ChecklistsPage() {
         breadcrumb={[{ label: 'Klarert' }, { label: 'HMS' }, { label: 'Sjekklister' }]}
         width="full"
         title="Sjekklister"
-        description={easy
-          ? 'Planlegg og gjennomfør sjekklister — vernerunder, brannvern og daglig kontroll.'
-          : 'Bibliotek av maler. Hver mal kjøres som en egen gjennomføring med eget dokument — i tråd med IK § 5 og AML § 3-1.'}
+        description="Planlegg og gjennomfør sjekklister — vernerunder, brannvern og daglig kontroll. I tråd med IK § 5 og AML § 3-1."
         headerActions={
           <div className="flex flex-wrap items-center gap-2">
             <Button
