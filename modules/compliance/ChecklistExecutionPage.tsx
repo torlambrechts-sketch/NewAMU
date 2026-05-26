@@ -281,8 +281,10 @@ export function ChecklistExecutionPage() {
     >
       {cl.error ? <WarningBox>{cl.error}</WarningBox> : null}
 
-      {/* Two-column layout */}
-      <div className="grid grid-cols-1 gap-5 lg:grid-cols-[minmax(0,1fr)_340px]">
+      {/* Two-column layout. Bottom padding on mobile clears the sticky
+          action bar below — without it the last checklist item is hidden
+          behind the bar when the user scrolls to the bottom. */}
+      <div className="grid grid-cols-1 gap-5 pb-32 md:pb-0 lg:grid-cols-[minmax(0,1fr)_340px]">
 
         {/* ── LEFT: main canvas ─────────────────────────────────────────── */}
         <div className="rounded-xl border border-neutral-200/80 bg-white" style={{ boxShadow: '0 1px 2px rgba(0,0,0,0.04)' }}>
@@ -555,6 +557,49 @@ export function ChecklistExecutionPage() {
           )}
         </aside>
       </div>
+
+      {/* Sticky mobile action bar. The desktop headerActions scroll out
+          of view on long checklists; on a phone the user needs a
+          permanently-visible Lagre/Send affordance with progress. Hidden
+          for signed/archived executions (no actions to take) and on
+          md+ where headerActions remain visible. */}
+      {!readOnly ? (
+        <div
+          className="fixed inset-x-0 bottom-0 z-30 border-t border-neutral-200 bg-white/95 px-4 py-3 backdrop-blur md:hidden"
+          role="region"
+          aria-label="Sjekkliste — handlinger"
+        >
+          <div className="mx-auto flex max-w-2xl flex-col gap-2">
+            <div className="flex items-center justify-between gap-3 text-xs text-neutral-600">
+              <span className="tabular-nums font-medium">
+                {requiredAnswered}/{requiredCount} påkrevd
+                {findingsCount > 0 ? ` · ${findingsCount} funn` : ''}
+              </span>
+              <span className="truncate text-neutral-400">{execution.title}</span>
+            </div>
+            <ProgressBar
+              value={requiredCount > 0 ? Math.round((requiredAnswered / requiredCount) * 100) : 0}
+            />
+            <div className="flex items-center gap-2">
+              <Button
+                variant="secondary"
+                className="flex-1"
+                onClick={() => navigate(templateBackUrl)}
+              >
+                Lagre kladd
+              </Button>
+              <Button
+                variant="primary"
+                className="flex-1"
+                onClick={onSign}
+                disabled={requiredAnswered < requiredCount}
+              >
+                Send
+              </Button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </ModulePageShell>
   )
 }
