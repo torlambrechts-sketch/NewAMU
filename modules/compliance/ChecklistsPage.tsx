@@ -8,7 +8,7 @@
 // Hub mode mirrors the ComboApp design: left category rail with per-category
 // counts; right card with tab strip, search, view-mode switcher, and content.
 
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import type { LucideIcon } from 'lucide-react'
 import {
@@ -45,11 +45,67 @@ import { Button } from '../../src/components/ui/Button'
 import { Badge } from '../../src/components/ui/Badge'
 import type { BadgeVariant } from '../../src/components/ui/Badge'
 import { WarningBox } from '../../src/components/ui/AlertBox'
+import { FilterBar, SavedViewsControl } from '../../src/components/ui/FilterBar'
+import { FilterChip } from '../../src/components/ui/FilterChip'
 import { useLicensedPacks } from '../../src/context/packContextValue'
 import { useOrgSetupContext } from '../../src/hooks/useOrgSetupContext'
+import { useSavedViews } from '../../src/hooks/useSavedViews'
 import { useChecklistModule } from './useChecklistModule'
 import { ComplianceCreateForm } from './ComplianceCreateForm'
 import type { ComplianceExecutionRow, CompliancePackSlug } from './types'
+
+// Filter payload shape persisted in `module_saved_views.filters` for
+// the "compliance_checklists" module slug. Empty arrays = no filter.
+type ChecklistFilters = {
+  categoryIds: string[]
+  statuses: DisplayStatus[]
+  templateIds: string[]
+}
+
+const EMPTY_FILTERS: ChecklistFilters = {
+  categoryIds: [],
+  statuses: [],
+  templateIds: [],
+}
+
+function filtersEqual(a: ChecklistFilters, b: ChecklistFilters): boolean {
+  const eq = (x: readonly string[], y: readonly string[]) =>
+    x.length === y.length && x.every((v, i) => v === y[i])
+  const sort = (xs: readonly string[]) => [...xs].sort()
+  return (
+    eq(sort(a.categoryIds), sort(b.categoryIds)) &&
+    eq(sort(a.statuses), sort(b.statuses)) &&
+    eq(sort(a.templateIds), sort(b.templateIds))
+  )
+}
+
+function countActiveFilters(f: ChecklistFilters): number {
+  return f.categoryIds.length + f.statuses.length + f.templateIds.length
+}
+
+function filtersFromSearchParams(params: URLSearchParams): ChecklistFilters {
+  const get = (key: string) => {
+    const raw = params.get(key)
+    return raw ? raw.split(',').filter(Boolean) : []
+  }
+  const validStatuses = new Set<DisplayStatus>(['kladd', 'pågår', 'fullført', 'forsinket'])
+  return {
+    categoryIds: get('cat'),
+    statuses: get('status').filter((s): s is DisplayStatus => validStatuses.has(s as DisplayStatus)),
+    templateIds: get('tpl'),
+  }
+}
+
+function filtersToSearchParams(f: ChecklistFilters, base: URLSearchParams): URLSearchParams {
+  const next = new URLSearchParams(base)
+  if (f.categoryIds.length > 0) next.set('cat', f.categoryIds.join(','))
+  else next.delete('cat')
+  if (f.statuses.length > 0) next.set('status', f.statuses.join(','))
+  else next.delete('status')
+  if (f.templateIds.length > 0) next.set('tpl', f.templateIds.join(','))
+  else next.delete('tpl')
+  return next
+}
 
 // ─── Status mapping (DB → display) ───────────────────────────────────────────
 
@@ -108,17 +164,6 @@ function mapStatus(row: ComplianceExecutionRow): DisplayStatus {
   if (due && due < today) return 'forsinket'
   if (row.status === 'active') return 'pågår'
   return 'kladd'
-}
-
-// ─── Category icon helper ─────────────────────────────────────────────────────
-
-function getCategoryIcon(name: string): LucideIcon {
-  const l = name.toLowerCase()
-  if (l.includes('verne')) return ShieldCheck
-  if (l.includes('brann')) return Flame
-  if (l.includes('maskin') || l.includes('utstyr') || l.includes('truck')) return Truck
-  if (l.includes('bygg')) return Building2
-  return ClipboardList
 }
 
 // ─── Row icon (table + boxes) ─────────────────────────────────────────────────
@@ -699,7 +744,7 @@ function MalerBoxes({
 
 export function ChecklistsPage() {
   const navigate = useNavigate()
-  const [searchParams] = useSearchParams()
+  const [searchParams, setSearchParams] = useSearchParams()
   const packSlugParam = searchParams.get('pack')
   const templateSlugParam = searchParams.get('template')
 
@@ -714,11 +759,67 @@ export function ChecklistsPage() {
   const [activeTab, setActiveTab] = useState<'entries' | 'maler'>('entries')
   const [viewMode, setViewMode] = useState<'easy' | 'advanced'>('easy')
   const [view, setView] = useState<ViewMode>('tabell')
-  const [activeCategory, setActiveCategory] = useState<string>('all')
   const [search, setSearch] = useState('')
   const [showAllEntries, setShowAllEntries] = useState(false)
   const [showAllMaler, setShowAllMaler] = useState(false)
   const [hasLoadedOnce, setHasLoadedOnce] = useState(false)
+
+  // Filter bar — URL is the source of truth so links are shareable and
+  // browser back/forward steps through filter combinations.
+  const filters = useMemo<ChecklistFilters>(
+    () => filtersFromSearchParams(searchParams),
+    [searchParams],
+  )
+  const setFilters = useCallback(
+    (next: ChecklistFilters) => {
+      setSearchParams(filtersToSearchParams(next, searchParams), { replace: true })
+    },
+    [searchParams, setSearchParams],
+  )
+  const activeFilterCount = countActiveFilters(filters)
+
+  // Saved views — org-shared content, per-user default landing. The
+  // module slug is the contract — see migration 20260930120000.
+  const savedViews = useSavedViews<ChecklistFilters>('compliance_checklists')
+  const [activeViewId, setActiveViewId] = useState<string | null>(null)
+  // Apply this user's default view once on first load. Skip if URL
+  // already has filters (deep-link wins over default). The setState in
+  // this effect runs exactly once per session after the views load —
+  // not a cascading-render risk.
+  const [defaultApplied, setDefaultApplied] = useState(false)
+  useEffect(() => {
+    if (defaultApplied) return
+    if (savedViews.loading) return
+    if (activeFilterCount > 0) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setDefaultApplied(true)
+      return
+    }
+    if (savedViews.defaultViewId) {
+      const def = savedViews.views.find((v) => v.id === savedViews.defaultViewId)
+      if (def) {
+        setFilters({ ...EMPTY_FILTERS, ...def.filters })
+        setActiveViewId(def.id)
+      }
+    }
+    setDefaultApplied(true)
+  }, [
+    defaultApplied,
+    savedViews.loading,
+    savedViews.defaultViewId,
+    savedViews.views,
+    activeFilterCount,
+    setFilters,
+  ])
+
+  // Detect "active view but the user has edited the filters since
+  // applying" → drives the `*` mark in the saved-views trigger.
+  const hasUnsavedChanges = useMemo(() => {
+    if (!activeViewId) return false
+    const view = savedViews.views.find((v) => v.id === activeViewId)
+    if (!view) return false
+    return !filtersEqual(filters, { ...EMPTY_FILTERS, ...view.filters })
+  }, [activeViewId, filters, savedViews.views])
 
   const easy = viewMode === 'easy'
 
@@ -813,15 +914,8 @@ export function ChecklistsPage() {
     }),
   [cl.executions, locationById, userById])
 
-  // Category rail items: "Alle" + org categories
-  const categoryItems = useMemo(() => [
-    { id: 'all', label: 'Alle', Icon: LayoutGrid as LucideIcon },
-    ...cl.categories
-      .filter((c) => c.is_active)
-      .map((c) => ({ id: c.id, label: c.name, Icon: getCategoryIcon(c.name) })),
-  ], [cl.categories])
-
-  // Template ids per category (for counting)
+  // Template ids per category — used by the category filter chip + the
+  // displayedExecutions / displayedTemplates filters above.
   const tplIdsByCategory = useMemo(() => {
     const m = new Map<string, Set<string>>()
     for (const tpl of cl.templates) {
@@ -834,33 +928,35 @@ export function ChecklistsPage() {
     return m
   }, [cl.templates])
 
-  // Per-category counts
-  const categoryCounts = useMemo(() => {
-    const counts: Record<string, { entries: number; maler: number }> = {
-      all: {
-        entries: mappedExecutions.length,
-        maler: cl.templates.filter((t) => t.is_active).length,
-      },
-    }
-    for (const [catId, tplSet] of tplIdsByCategory) {
-      counts[catId] = {
-        entries: mappedExecutions.filter((e) => tplSet.has(e.tplId)).length,
-        maler: cl.templates.filter((t) => tplSet.has(t.id) && t.is_active).length,
-      }
-    }
-    return counts
-  }, [mappedExecutions, tplIdsByCategory, cl.templates])
-
   // Reset pagination when filter changes
-  useEffect(() => { setShowAllEntries(false); setShowAllMaler(false) }, [activeCategory, search, activeTab, viewMode])
+  useEffect(() => { setShowAllEntries(false); setShowAllMaler(false) }, [filters, search, activeTab, viewMode])
   useEffect(() => { if (!cl.loading) setHasLoadedOnce(true) }, [cl.loading])
 
-  // Category-filtered then search-filtered executions
+  // Union of template ids matched by the selected categories. Empty
+  // selection = all templates pass.
+  const tplIdsFromCategories = useMemo(() => {
+    if (filters.categoryIds.length === 0) return null
+    const set = new Set<string>()
+    for (const catId of filters.categoryIds) {
+      const tplSet = tplIdsByCategory.get(catId)
+      if (tplSet) tplSet.forEach((id) => set.add(id))
+    }
+    return set
+  }, [filters.categoryIds, tplIdsByCategory])
+
+  // Filter-bar + search filter for the executions list.
   const displayedExecutions = useMemo(() => {
     let result = mappedExecutions
-    if (activeCategory !== 'all') {
-      const tplSet = tplIdsByCategory.get(activeCategory)
-      result = tplSet ? result.filter((e) => tplSet.has(e.tplId)) : []
+    if (tplIdsFromCategories) {
+      result = result.filter((e) => tplIdsFromCategories.has(e.tplId))
+    }
+    if (filters.templateIds.length > 0) {
+      const templateSet = new Set(filters.templateIds)
+      result = result.filter((e) => templateSet.has(e.tplId))
+    }
+    if (filters.statuses.length > 0) {
+      const statusSet = new Set(filters.statuses)
+      result = result.filter((e) => statusSet.has(e.status))
     }
     const q = search.trim().toLowerCase()
     if (q) {
@@ -872,32 +968,65 @@ export function ChecklistsPage() {
       )
     }
     return result
-  }, [mappedExecutions, activeCategory, search, tplIdsByCategory])
+  }, [mappedExecutions, tplIdsFromCategories, filters.templateIds, filters.statuses, search])
 
-  // Category-filtered templates
+  // Maler tab: only the Category and Template filters narrow the list
+  // (status doesn't apply to templates themselves). Template filter
+  // becomes a "show only these templates" pin.
   const displayedTemplates = useMemo(() => {
     let tpls = cl.templates.filter((t) => t.is_active)
-    if (activeCategory !== 'all') {
-      const tplSet = tplIdsByCategory.get(activeCategory)
-      tpls = tplSet ? tpls.filter((t) => tplSet.has(t.id)) : []
+    if (tplIdsFromCategories) {
+      tpls = tpls.filter((t) => tplIdsFromCategories.has(t.id))
+    }
+    if (filters.templateIds.length > 0) {
+      const templateSet = new Set(filters.templateIds)
+      tpls = tpls.filter((t) => templateSet.has(t.id))
     }
     const q = search.trim().toLowerCase()
     if (q) tpls = tpls.filter((t) => t.name.toLowerCase().includes(q))
     return tpls
-  }, [cl.templates, activeCategory, search, tplIdsByCategory])
+  }, [cl.templates, tplIdsFromCategories, filters.templateIds, search])
 
-  // Status summary for the rail status panel
-  const statusSummary = useMemo(() => {
-    const ongoing = mappedExecutions.filter((e) => e.status === 'pågår').length
-    const overdue = mappedExecutions.filter((e) => e.status === 'forsinket').length
-    const cutoff = new Date()
-    cutoff.setDate(cutoff.getDate() - 30)
-    const recent = cl.executions.filter((e) => e.scheduled_for && new Date(e.scheduled_for) >= cutoff)
-    const rate = recent.length
-      ? Math.round((recent.filter((e) => e.status === 'signed').length / recent.length) * 100)
-      : 0
-    return { ongoing, overdue, rate }
-  }, [mappedExecutions, cl.executions])
+  // Filter-bar option lists — each computed from the live catalogue so
+  // counts reflect current data. Counts are post-search-but-pre-filter
+  // so the user sees how many rows each option *would* add/remove.
+  const categoryFilterOptions = useMemo(
+    () =>
+      cl.categories
+        .filter((c) => c.is_active)
+        .map((c) => ({
+          value: c.id,
+          label: c.name,
+          count: mappedExecutions.filter((e) => {
+            const tplSet = tplIdsByCategory.get(c.id)
+            return tplSet ? tplSet.has(e.tplId) : false
+          }).length,
+        })),
+    [cl.categories, mappedExecutions, tplIdsByCategory],
+  )
+
+  const statusFilterOptions = useMemo(
+    () =>
+      (['kladd', 'pågår', 'fullført', 'forsinket'] as DisplayStatus[]).map((status) => ({
+        value: status,
+        label: STATUS_CONFIG[status].label,
+        count: mappedExecutions.filter((e) => e.status === status).length,
+      })),
+    [mappedExecutions],
+  )
+
+  const templateFilterOptions = useMemo(
+    () =>
+      cl.templates
+        .filter((t) => t.is_active)
+        .map((t) => ({
+          value: t.id,
+          label: t.name,
+          count: mappedExecutions.filter((e) => e.tplId === t.id).length,
+        }))
+        .sort((a, b) => a.label.localeCompare(b.label, 'nb')),
+    [cl.templates, mappedExecutions],
+  )
 
   // ─── Hub mode render ────────────────────────────────────────────────────────
 
@@ -905,6 +1034,7 @@ export function ChecklistsPage() {
     return (
       <ModulePageShell
         breadcrumb={[{ label: 'Klarert' }, { label: 'HMS' }, { label: 'Sjekklister' }]}
+        width="wide"
         title="Sjekklister"
         description={easy
           ? 'Planlegg og gjennomfør sjekklister — vernerunder, brannvern og daglig kontroll.'
@@ -976,163 +1106,122 @@ export function ChecklistsPage() {
 
         {/* Loading skeleton — shown while first load is in progress */}
         {cl.loading && cl.templates.length === 0 ? (
-          <div className="grid animate-pulse grid-cols-1 gap-5 lg:grid-cols-[260px_minmax(0,1fr)]">
-            <div className="space-y-3">
-              <div className="h-[200px] rounded-xl bg-neutral-100" />
-            </div>
-            <div className="space-y-4">
-              <div className="h-10 rounded-lg bg-neutral-100" />
-              <div className="h-10 rounded-lg bg-neutral-100 w-2/3" />
-              {[...Array(5)].map((_, i) => (
-                <div key={i} className="h-12 rounded-lg bg-neutral-100" />
-              ))}
-            </div>
+          <div className="animate-pulse space-y-4">
+            <div className="h-10 rounded-lg bg-neutral-100" />
+            <div className="h-10 rounded-lg bg-neutral-100 w-2/3" />
+            {[...Array(8)].map((_, i) => (
+              <div key={i} className="h-12 rounded-lg bg-neutral-100" />
+            ))}
           </div>
         ) : null}
 
-        {/* Two-column layout: category rail + content */}
-        <div className={['grid grid-cols-1 gap-5 lg:grid-cols-[260px_minmax(0,1fr)]', cl.loading && cl.templates.length === 0 ? 'hidden' : ''].join(' ')}>
-
-          {/* ── LEFT: Category rail ── */}
-          <aside className="space-y-3">
-            {/* Mobile: horizontal chip scroll. Desktop: vertical list card */}
-            <div className="rounded-xl border border-neutral-200/80 bg-white" style={{ boxShadow: '0 1px 2px rgba(0,0,0,0.04)' }}>
-              <div className="border-b border-neutral-100 px-4 py-3 lg:block hidden">
-                <h2 className="text-xs font-bold uppercase tracking-wider text-neutral-500">Kategorier</h2>
-              </div>
-              {/* Mobile: horizontal chips */}
-              <div className="flex gap-1.5 overflow-x-auto px-3 py-2.5 lg:hidden">
-                {categoryItems.map(({ id, label, Icon }) => {
-                  const isActive = id === activeCategory
-                  const count = categoryCounts[id]?.[activeTab === 'entries' ? 'entries' : 'maler'] ?? 0
+        {/* Single-column layout — left "Kategorier" sidebar replaced by
+            the filter bar (cat/status/template multi-select + saved
+            views). The table now uses the full content width. */}
+        <section className={['space-y-3', cl.loading && cl.templates.length === 0 ? 'hidden' : ''].join(' ')}>
+          <div className="rounded-xl border border-neutral-200/80 bg-white" style={{ boxShadow: '0 1px 2px rgba(0,0,0,0.04)' }}>
+            {/* Header strip: tabs + search + view switcher */}
+            <div className="flex flex-col gap-2 border-b border-neutral-100 px-4 py-2.5 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
+              {/* Tabs */}
+              <nav className="flex items-center gap-1" aria-label="Faner">
+                {([
+                  { id: 'entries', label: 'Gjennomføringer', Icon: ClipboardList, count: displayedExecutions.length },
+                  { id: 'maler', label: 'Maler', Icon: ClipboardCheck, count: displayedTemplates.length },
+                ] as const).map(({ id, label, Icon, count }) => {
+                  const active = activeTab === id
                   return (
                     <button
                       key={id}
                       type="button"
-                      onClick={() => setActiveCategory(id)}
+                      onClick={() => setActiveTab(id)}
+                      aria-current={active ? 'page' : undefined}
                       className={[
-                        'inline-flex shrink-0 items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold transition-colors',
-                        isActive ? 'bg-[#1a3d32] text-white' : 'bg-neutral-100 text-neutral-700 hover:bg-neutral-200',
+                        'flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-colors',
+                        active ? 'bg-[var(--ui-accent)] text-white' : 'text-neutral-600 hover:bg-neutral-100 hover:text-neutral-900',
                       ].join(' ')}
                     >
-                      <Icon className="h-3 w-3" aria-hidden />
+                      <Icon className="h-4 w-4 shrink-0" aria-hidden />
                       <span>{label}</span>
-                      <span className={['rounded-full px-1 py-0 text-[10px] tabular-nums', isActive ? 'bg-white/20 text-white' : 'text-neutral-500'].join(' ')}>
+                      <span className={['ml-1.5 rounded-full px-2 py-0.5 text-xs', active ? 'bg-white/20 text-white' : 'bg-neutral-200 text-neutral-700'].join(' ')}>
                         {count}
                       </span>
                     </button>
                   )
                 })}
+              </nav>
+
+              {/* Search + view switcher */}
+              <div className="flex items-center gap-2">
+                <div className="relative flex-1 sm:flex-none">
+                  <Search className="pointer-events-none absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-neutral-400" aria-hidden />
+                  <input
+                    type="search"
+                    placeholder={activeTab === 'entries' ? 'Søk i tittel, sted…' : 'Søk i malnavn…'}
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                    className="w-full rounded-md border border-neutral-200 bg-neutral-50 py-1.5 pl-7 pr-2 text-xs outline-none focus:border-[var(--ui-accent)] focus:bg-white sm:w-52"
+                  />
+                </div>
+                <ViewSwitcher value={view} onChange={setView} />
               </div>
-              {/* Desktop: vertical list */}
-              <ul className="hidden py-1.5 lg:block">
-                {categoryItems.map(({ id, label, Icon }) => {
-                  const isActive = id === activeCategory
-                  const count = categoryCounts[id]?.[activeTab === 'entries' ? 'entries' : 'maler'] ?? 0
-                  return (
-                    <li key={id}>
-                      <button
-                        type="button"
-                        onClick={() => setActiveCategory(id)}
-                        className={[
-                          'flex w-full items-center gap-2.5 px-4 py-2 text-left text-sm transition-colors',
-                          isActive ? 'bg-[#e7efe9] text-neutral-900' : 'text-neutral-700 hover:bg-neutral-50',
-                        ].join(' ')}
-                        style={isActive ? { boxShadow: 'inset 3px 0 0 #1a3d32' } : undefined}
-                      >
-                        <Icon className={['h-3.5 w-3.5 shrink-0', isActive ? 'text-[#1a3d32]' : 'text-neutral-500'].join(' ')} aria-hidden />
-                        <span className={['min-w-0 flex-1 truncate', isActive ? 'font-semibold' : 'font-medium'].join(' ')}>{label}</span>
-                        <span className={['rounded-full px-1.5 py-0.5 text-[10px] font-semibold tabular-nums', isActive ? 'bg-white text-[#14312a]' : 'bg-neutral-100 text-neutral-500'].join(' ')}>
-                          {count}
-                        </span>
-                      </button>
-                    </li>
-                  )
-                })}
-              </ul>
             </div>
 
-            {/* Status panel — Avansert only, desktop only (rail is hidden on mobile) */}
-            {!easy && (
-              <div className="hidden rounded-xl border border-neutral-200/80 bg-white p-4 lg:block" style={{ boxShadow: '0 1px 2px rgba(0,0,0,0.04)' }}>
-                <h3 className="text-xs font-bold uppercase tracking-wider text-neutral-500">Status</h3>
-                <ul className="mt-2 space-y-1.5 text-xs">
-                  <li className="flex items-center justify-between">
-                    <span className="inline-flex items-center gap-2 text-neutral-700">
-                      <span className="h-2 w-2 rounded-full bg-blue-600" />Pågående
-                    </span>
-                    <span className="tabular-nums font-semibold text-neutral-900">{statusSummary.ongoing}</span>
-                  </li>
-                  <li className="flex items-center justify-between">
-                    <span className="inline-flex items-center gap-2 text-neutral-700">
-                      <span className="h-2 w-2 rounded-full bg-red-600" />Forsinket
-                    </span>
-                    <span className={['tabular-nums font-semibold', statusSummary.overdue > 0 ? 'text-red-700' : 'text-neutral-900'].join(' ')}>
-                      {statusSummary.overdue}
-                    </span>
-                  </li>
-                </ul>
-                <div className="mt-3 border-t border-neutral-100 pt-3">
-                  <div className="flex items-baseline justify-between">
-                    <span className="text-[10px] font-bold uppercase tracking-wider text-neutral-500">Etterlevelse 30d</span>
-                    <span className="text-base font-bold tabular-nums text-[#1a3d32]">{statusSummary.rate}%</span>
-                  </div>
-                  <div className="mt-1.5">
-                    <ProgressBar value={statusSummary.rate / 100} />
-                  </div>
-                </div>
-              </div>
-            )}
-          </aside>
-
-          {/* ── RIGHT: Content card ── */}
-          <section className="space-y-3">
-            <div className="rounded-xl border border-neutral-200/80 bg-white" style={{ boxShadow: '0 1px 2px rgba(0,0,0,0.04)' }}>
-              {/* Header strip: tabs + search + view switcher */}
-              <div className="flex flex-col gap-2 border-b border-neutral-100 px-4 py-2.5 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
-                {/* Tabs */}
-                <nav className="flex items-center gap-1" aria-label="Faner">
-                  {([
-                    { id: 'entries', label: 'Gjennomføringer', Icon: ClipboardList, count: categoryCounts[activeCategory]?.entries ?? 0 },
-                    { id: 'maler', label: 'Maler', Icon: ClipboardCheck, count: categoryCounts[activeCategory]?.maler ?? 0 },
-                  ] as const).map(({ id, label, Icon, count }) => {
-                    const active = activeTab === id
-                    return (
-                      <button
-                        key={id}
-                        type="button"
-                        onClick={() => setActiveTab(id)}
-                        aria-current={active ? 'page' : undefined}
-                        className={[
-                          'flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-colors',
-                          active ? 'bg-[#1a3d32] text-white' : 'text-neutral-600 hover:bg-neutral-100 hover:text-neutral-900',
-                        ].join(' ')}
-                      >
-                        <Icon className="h-4 w-4 shrink-0" aria-hidden />
-                        <span>{label}</span>
-                        <span className={['ml-1.5 rounded-full px-2 py-0.5 text-xs', active ? 'bg-white/20 text-white' : 'bg-neutral-200 text-neutral-700'].join(' ')}>
-                          {count}
-                        </span>
-                      </button>
-                    )
-                  })}
-                </nav>
-
-                {/* Search + view switcher */}
-                <div className="flex items-center gap-2">
-                  <div className="relative flex-1 sm:flex-none">
-                    <Search className="pointer-events-none absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-neutral-400" aria-hidden />
-                    <input
-                      type="search"
-                      placeholder={activeTab === 'entries' ? 'Søk i tittel, sted…' : 'Søk i malnavn…'}
-                      value={search}
-                      onChange={(e) => setSearch(e.target.value)}
-                      className="w-full rounded-md border border-neutral-200 bg-neutral-50 py-1.5 pl-7 pr-2 text-xs outline-none focus:border-[#1a3d32] focus:bg-white sm:w-52"
+            {/* Filter bar — category + status + template chips + saved views */}
+            <FilterBar
+              chips={
+                <>
+                  <FilterChip
+                    label="Kategori"
+                    options={categoryFilterOptions}
+                    value={filters.categoryIds}
+                    onChange={(next) => {
+                      setFilters({ ...filters, categoryIds: next })
+                      setActiveViewId(null)
+                    }}
+                  />
+                  {activeTab === 'entries' ? (
+                    <FilterChip
+                      label="Status"
+                      options={statusFilterOptions}
+                      value={filters.statuses}
+                      onChange={(next) => {
+                        setFilters({ ...filters, statuses: next as DisplayStatus[] })
+                        setActiveViewId(null)
+                      }}
                     />
-                  </div>
-                  <ViewSwitcher value={view} onChange={setView} />
-                </div>
-              </div>
+                  ) : null}
+                  <FilterChip
+                    label="Mal"
+                    options={templateFilterOptions}
+                    value={filters.templateIds}
+                    onChange={(next) => {
+                      setFilters({ ...filters, templateIds: next })
+                      setActiveViewId(null)
+                    }}
+                  />
+                </>
+              }
+              activeFilterCount={activeFilterCount}
+              onReset={() => {
+                setFilters(EMPTY_FILTERS)
+                setActiveViewId(null)
+              }}
+              savedViews={
+                <SavedViewsControl<ChecklistFilters>
+                  currentFilters={filters}
+                  activeViewId={activeViewId}
+                  hasUnsavedChanges={hasUnsavedChanges}
+                  onApplyView={(view) => {
+                    setFilters({ ...EMPTY_FILTERS, ...view.filters })
+                    setActiveViewId(view.id)
+                  }}
+                  onClearActive={() => {
+                    setActiveViewId(null)
+                  }}
+                  saved={savedViews}
+                />
+              }
+            />
 
               {/* Body */}
               <div className="p-0">
@@ -1207,7 +1296,6 @@ export function ChecklistsPage() {
               </div>
             </div>
           </section>
-        </div>
 
         <ComplianceCreateForm
           open={createOpen}
