@@ -349,6 +349,11 @@ function GapList({
                       <CriticalityChip value={k.criticality} />
                     </div>
                     <h4 className="mt-1 text-sm font-semibold text-neutral-900">{k.title}</h4>
+                    {k.description && (
+                      <p className="mt-1 text-[12px] leading-snug text-neutral-600">
+                        {k.description}
+                      </p>
+                    )}
                     {k.gap && (
                       <div className="mt-2 rounded-md border border-amber-200 bg-amber-50/60 px-3 py-2 text-[12px] text-amber-900">
                         <span className="font-semibold">Gap: </span>

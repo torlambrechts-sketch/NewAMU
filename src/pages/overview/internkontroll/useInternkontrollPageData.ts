@@ -75,7 +75,15 @@ export type IkKrav = {
   ref: string
   /** Chapter token (e.g. "Kap. 4 — Krav til arbeidsmiljøet") if known. */
   chapter?: string
+  /** Short paragraph name, e.g. "Arbeidsgivers ansvar" for AML § 2-1.
+   *  Resolved from regulation_clauses.title first, then frameworkParagraphs,
+   *  finally falling back to the code itself. */
   title: string
+  /** Plain-language description of what the paragraph requires, sourced from
+   *  regulation_clauses.description. Empty when the paragraph isn't seeded
+   *  in the org's regulation_clauses table. Surfaced in Gap-analyse rows so
+   *  auditors don't need to leave the app to look up the law text. */
+  description?: string
   status: IkKravStatus
   criticality: IkCriticality
   /** Functional category — derived from `ref` via `categorizeLawRef`.
@@ -288,7 +296,7 @@ const MONTH_NAMES = [
 // ── Raw row types from the DB ───────────────────────────────────────────────
 
 type RegisterRow = { id: string; label: string; aml_paragraphs: string[] | null }
-type ClauseRow = { id: string; code: string }
+type ClauseRow = { id: string; code: string; title: string | null; description: string | null }
 type ControlRow = {
   id: string
   slug: string
@@ -591,7 +599,7 @@ export function useInternkontrollPageData(): {
         .eq('is_active', true),
       supabase
         .from('regulation_clauses')
-        .select('id, code')
+        .select('id, code, title, description')
         .eq('organization_id', orgId)
         .is('deleted_at', null)
         .eq('is_active', true),
@@ -824,6 +832,20 @@ function buildData(input: {
     arr.push(c.id)
     clauseIdsByCode.set(key, arr)
   }
+  // code → { title, description } from the seeded regulation_clauses rows.
+  // First non-empty title/description per code wins (org-level overrides are
+  // edge-cases right now; the system-seed row dominates in practice).
+  const metaByCode = new Map<string, { title: string | null; description: string | null }>()
+  for (const c of clauseRows) {
+    const key = normalizeLawRef(c.code)
+    const existing = metaByCode.get(key)
+    if (!existing) {
+      metaByCode.set(key, { title: c.title, description: c.description })
+      continue
+    }
+    if (!existing.title && c.title) existing.title = c.title
+    if (!existing.description && c.description) existing.description = c.description
+  }
 
   const controlsById = new Map<string, ControlRow>()
   for (const c of controlRows) controlsById.set(c.id, c)
@@ -946,12 +968,16 @@ function buildData(input: {
         criticality = 'middels'
 
       const evidence: CoverageEntry[] = entries
+      const meta = metaByCode.get(norm)
+      const resolvedTitle = meta?.title?.trim() || p.title || p.code
+      const resolvedDescription = meta?.description?.trim() || undefined
       krav.push({
         id: `k-${id}-${p.code}`,
         fw: id,
         ref: p.code,
         chapter: p.chapter,
-        title: p.title ?? p.code,
+        title: resolvedTitle,
+        description: resolvedDescription,
         status,
         criticality,
         category: categorizeLawRef(p.code),
