@@ -193,12 +193,22 @@ export function AdminPage() {
                 if (item.kind === 'leaf') setSection(item.id)
                 else setSection(item.defaultChild)
               }
+              // aria-current="page" must mark the most-specific
+              // active item only. For grouped parents whose sub-tab
+              // also gets aria-current, drop it from the parent so
+              // SR users don't hear "current page" twice. Visual
+              // highlight stays via the styling.
+              const ariaCurrent: 'page' | 'true' | undefined = active
+                ? item.kind === 'grouped'
+                  ? 'true'
+                  : 'page'
+                : undefined
               return (
                 <Button
                   key={item.kind === 'leaf' ? item.id : item.parentId}
                   variant="ghost"
                   onClick={handleClick}
-                  aria-current={active ? 'page' : undefined}
+                  aria-current={ariaCurrent}
                   className={[
                     'inline-flex h-auto items-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-colors',
                     active
