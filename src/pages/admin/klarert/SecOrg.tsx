@@ -21,6 +21,7 @@ import {
   AdminLoading,
   ComplianceCheck,
 } from './AdminShared'
+import { useAdminRoles } from './useAdminRoles'
 import type { AdminSectionProps } from './types'
 
 export function SecOrg({ easy }: AdminSectionProps) {
@@ -35,6 +36,7 @@ export function SecOrg({ easy }: AdminSectionProps) {
     addDepartment,
     refreshChildren,
   } = useOrgSetupContext()
+  const { roles } = useAdminRoles()
 
   const [openLoc, setOpenLoc] = useState(false)
   const [locName, setLocName] = useState('')
@@ -71,6 +73,17 @@ export function SecOrg({ easy }: AdminSectionProps) {
   const bhtRequired = true
   const ikRequired = true
   const dpoAppointed = members.some((m) => /personvern|dpo/i.test(m.display_name))
+  // Rolle-tildelinger — disse erstatter «Compliance»-panelet som
+  // tidligere lå i sidebar-en. Sjekker om kritiske roller har minst
+  // én tildelt bruker.
+  const voAssigned = roles.some(
+    (r) => r.userCount > 0 && (r.slug === 'verneombud' || r.slug === 'hoved_verneombud'),
+  )
+  const hmsAssigned = roles.some(
+    (r) =>
+      r.userCount > 0 &&
+      (r.slug === 'hms_koordinator' || r.slug === 'hms_leder' || r.slug === 'hmsleder'),
+  )
 
   async function submitLocation() {
     if (!locName.trim()) return
@@ -151,7 +164,7 @@ export function SecOrg({ easy }: AdminSectionProps) {
         </div>
 
         {!easy && (
-          <div className="mt-5 grid grid-cols-1 gap-3 border-t border-neutral-100 pt-4 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="mt-5 grid grid-cols-1 gap-3 border-t border-neutral-100 pt-4 sm:grid-cols-2 lg:grid-cols-3">
             <ComplianceCheck
               label="AMU lovpålagt"
               met={amuRequired}
@@ -159,6 +172,8 @@ export function SecOrg({ easy }: AdminSectionProps) {
             />
             <ComplianceCheck label="BHT-avtale" met={bhtRequired} note="AML § 3-3" />
             <ComplianceCheck label="Internkontroll" met={ikRequired} note="IK § 5" />
+            <ComplianceCheck label="Verneombud" met={voAssigned} note="AML § 6-2" />
+            <ComplianceCheck label="HMS-koordinator" met={hmsAssigned} note="AML § 3-5" />
             <ComplianceCheck label="GDPR-DPO" met={dpoAppointed} note="GDPR Art. 37" />
           </div>
         )}

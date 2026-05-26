@@ -1,19 +1,21 @@
 // Klarert Admin — sentralt kontrollpanel for organisasjon, brukere,
 // roller, mal-pakker, arbeidsflyt, integrasjoner og audit-logg.
 //
-// Erstatter den gamle scope-baserte AdminSettingsPage. URL-form:
+// URL-form:
 //   /admin/settings                  → organisasjon (default)
 //   /admin/settings/<seksjon>         → seksjonen
 //   /admin/settings/<seksjon>/<rute>  → spesialrute innen seksjonen
 //
-// Layout: ModulePageShell-ramme + 220px sidebar (sticky) + content.
+// Layout: ModulePageShell (full-width) + horisontal seksjons-tab-strip på
+// toppen. Organisasjon / Brukere / Roller er samlet under en parent-
+// tab «Brukere & roller»; den åpner en sekundær sub-tab-rad under den
+// primære stripen. De øvrige (Mal-pakker, Arbeidsflyt, Integrasjoner,
+// Audit-logg) er egne top-level-tabs.
 
 import { useCallback, useMemo, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import {
-  AlertCircle,
   Building2,
-  CheckCircle2,
   Download,
   GitFork,
   History,
@@ -22,77 +24,96 @@ import {
   Plug,
   Users,
 } from 'lucide-react'
+import type { LucideIcon } from 'lucide-react'
 import { Button } from '../../../components/ui/Button'
 import { ModulePageShell } from '../../../components/module'
-import { useOrgSetupContext } from '../../../hooks/useOrgSetupContext'
 import { AdminModeToggle } from './AdminModeToggle'
 import { SecOrg } from './SecOrg'
 import { SecUsers } from './SecUsers'
 import { SecRoles } from './SecRoles'
 import { SecPacks } from './SecPacks'
-import { useAdminRoles } from './useAdminRoles'
 import { SecWorkflows } from './SecWorkflows'
 import { SecWorkflowEditor } from './SecWorkflowEditor'
 import { SecIntegrations } from './SecIntegrations'
 import { SecAudit } from './SecAudit'
 import type {
   AdminMode,
-  AdminNavItem,
   AdminSectionId,
   RouteName,
 } from './types'
 
-const ADMIN_NAV: AdminNavItem[] = [
-  { id: 'org', label: 'Organisasjon', icon: Building2 },
-  { id: 'users', label: 'Brukere', icon: Users },
-  { id: 'roles', label: 'Roller & tilganger', icon: KeyRound },
-  { id: 'packs', label: 'Mal-pakker', icon: Package },
-  { id: 'workflows', label: 'Arbeidsflyt', icon: GitFork },
-  { id: 'integrations', label: 'Integrasjoner', icon: Plug },
-  { id: 'audit', label: 'Audit-logg', icon: History },
+// ─── Nav structure ───────────────────────────────────────────────────────
+//
+// Top-level horizontal strip with 5 items. Organisasjon / Brukere / Roller
+// are grouped under «Brukere & roller»; clicking the parent lands on
+// /admin/settings/org (the first sub-tab). When the user is on any of
+// the three sub-sections, the parent stays highlighted AND a smaller
+// sub-tab row renders below the main strip so the user can flip between
+// the three.
+
+type AdminTopNavItem =
+  | {
+      kind: 'leaf'
+      id: AdminSectionId
+      label: string
+      icon: LucideIcon
+    }
+  | {
+      kind: 'grouped'
+      parentId: 'personer' // virtuell — ikke en AdminSectionId
+      label: string
+      icon: LucideIcon
+      /** Sub-tab id som skal aktiveres når man klikker parent. */
+      defaultChild: AdminSectionId
+      childIds: readonly AdminSectionId[]
+      subTabs: readonly { id: AdminSectionId; label: string; icon: LucideIcon }[]
+    }
+
+const ADMIN_TOP_NAV: AdminTopNavItem[] = [
+  {
+    kind: 'grouped',
+    parentId: 'personer',
+    label: 'Brukere & roller',
+    icon: Users,
+    defaultChild: 'org',
+    childIds: ['org', 'users', 'roles'],
+    subTabs: [
+      { id: 'org', label: 'Organisasjon', icon: Building2 },
+      { id: 'users', label: 'Brukere', icon: Users },
+      { id: 'roles', label: 'Roller', icon: KeyRound },
+    ],
+  },
+  { kind: 'leaf', id: 'packs', label: 'Mal-pakker', icon: Package },
+  { kind: 'leaf', id: 'workflows', label: 'Arbeidsflyt', icon: GitFork },
+  { kind: 'leaf', id: 'integrations', label: 'Integrasjoner', icon: Plug },
+  { kind: 'leaf', id: 'audit', label: 'Audit-logg', icon: History },
 ]
 
-const SECTION_IDS = new Set<AdminSectionId>(ADMIN_NAV.map((n) => n.id))
+const SECTION_IDS = new Set<AdminSectionId>([
+  'org', 'users', 'roles', 'packs', 'workflows', 'integrations', 'audit',
+])
 
 function isSectionId(value: string | undefined): value is AdminSectionId {
   return !!value && SECTION_IDS.has(value as AdminSectionId)
 }
 
+const SECTION_LABEL: Record<AdminSectionId, string> = {
+  org: 'Organisasjon',
+  users: 'Brukere',
+  roles: 'Roller',
+  packs: 'Mal-pakker',
+  workflows: 'Arbeidsflyt',
+  integrations: 'Integrasjoner',
+  audit: 'Audit-logg',
+}
+
 export function AdminPage() {
   const navigate = useNavigate()
   const params = useParams<{ scope?: string; section?: string }>()
-  const { organization, members } = useOrgSetupContext()
-  const { roles } = useAdminRoles()
 
   const sectionFromUrl: AdminSectionId = isSectionId(params.scope) ? params.scope : 'org'
 
-  // Derive real compliance status for the sidebar panel. Aspirational
-  // checks (BHT, IA) stay true by default since most orgs have them
-  // contracted out and the data isn't tracked yet — the AMU and DPO
-  // checks use real signal.
-  const employees = members?.length ?? 0
-  const amuMet = employees < 30 || roles.some((r) => r.userCount > 0 && r.slug.includes('amu'))
-  const dpoMet = roles.some((r) => r.userCount > 0 && r.slug === 'dpo')
-  const hmsMet = roles.some(
-    (r) => r.userCount > 0 && (r.slug === 'hms_koordinator' || r.slug === 'hms_leder' || r.slug === 'hmsleder'),
-  )
-  const voMet = roles.some(
-    (r) => r.userCount > 0 && (r.slug === 'verneombud' || r.slug === 'hoved_verneombud'),
-  )
-  const complianceChecks = [
-    {
-      label: 'AMU lovpålagt',
-      met: amuMet,
-      detail: employees < 30 ? '< 30 ansatte' : 'AMU-medlem tildelt',
-    },
-    { label: 'Verneombud', met: voMet, detail: 'AML § 6-2' },
-    { label: 'HMS-koordinator', met: hmsMet, detail: 'AML § 3-5' },
-    { label: 'BHT avtale', met: true, detail: 'AML § 3-3 (ekstern)' },
-    { label: 'DPO oppnevnt', met: dpoMet, detail: 'GDPR Art. 37' },
-  ]
-
   const [mode, setMode] = useState<AdminMode>('advanced')
-  // Sub-routen er fullt avledet fra URL — ingen lokal state-sync.
   const route = useMemo<RouteName>(
     () => decodeRoute(sectionFromUrl, params.section),
     [sectionFromUrl, params.section],
@@ -113,21 +134,32 @@ export function AdminPage() {
     [navigate, sectionFromUrl],
   )
 
-  const activeNav = ADMIN_NAV.find((n) => n.id === sectionFromUrl) ?? ADMIN_NAV[0]
+  // The grouped item (if any) whose child is currently active — used
+  // to decide whether to render the secondary sub-tab strip.
+  const activeGroup = useMemo(() => {
+    for (const item of ADMIN_TOP_NAV) {
+      if (item.kind === 'grouped' && item.childIds.includes(sectionFromUrl)) {
+        return item
+      }
+    }
+    return null
+  }, [sectionFromUrl])
 
   const breadcrumb = useMemo(
     () => [
       { label: 'Hjem', to: '/app' },
       { label: 'Administrasjon' },
-      { label: activeNav.label },
+      ...(activeGroup ? [{ label: activeGroup.label }] : []),
+      { label: SECTION_LABEL[sectionFromUrl] },
     ],
-    [activeNav.label],
+    [activeGroup, sectionFromUrl],
   )
 
   return (
     <ModulePageShell
       breadcrumb={breadcrumb}
-      title={activeNav.label}
+      width="full"
+      title="Administrasjon"
       description={
         easy
           ? 'Organisasjon, brukere, integrasjoner og automatisering.'
@@ -142,80 +174,79 @@ export function AdminPage() {
         </>
       }
     >
-      <div className="grid grid-cols-1 gap-5 lg:grid-cols-[220px_minmax(0,1fr)]">
-        {/* SIDEBAR */}
-        <aside className="space-y-3">
-          <div className="rounded-xl border border-neutral-200/80 bg-white shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
-            <ul className="py-1.5">
-              {ADMIN_NAV.map((n) => {
-                const active = n.id === sectionFromUrl
-                const Icon = n.icon
+      <div className="space-y-3">
+        {/* Top-level horisontal nav — samme mønster som Internkontroll-
+            seksjonsstripen. Parent-tabben aktiverer (highlight) når man
+            er på noen av sub-section-IDene. */}
+        <div className="rounded-xl border border-neutral-200/80 bg-white shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
+          <nav
+            className="flex flex-wrap items-center gap-1 border-b border-neutral-100 px-3 py-2"
+            aria-label="Administrasjon-seksjoner"
+          >
+            {ADMIN_TOP_NAV.map((item) => {
+              const Icon = item.icon
+              const active =
+                item.kind === 'leaf'
+                  ? item.id === sectionFromUrl
+                  : item.childIds.includes(sectionFromUrl)
+              const handleClick = () => {
+                if (item.kind === 'leaf') setSection(item.id)
+                else setSection(item.defaultChild)
+              }
+              return (
+                <Button
+                  key={item.kind === 'leaf' ? item.id : item.parentId}
+                  variant="ghost"
+                  onClick={handleClick}
+                  aria-current={active ? 'page' : undefined}
+                  className={[
+                    'inline-flex h-auto items-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-colors',
+                    active
+                      ? '!bg-[var(--ui-accent)] !text-white hover:!bg-[var(--ui-accent)] hover:!text-white'
+                      : 'text-neutral-600 hover:bg-neutral-100 hover:text-neutral-900',
+                  ].join(' ')}
+                >
+                  <Icon className="h-4 w-4 shrink-0" aria-hidden />
+                  <span>{item.label}</span>
+                </Button>
+              )
+            })}
+          </nav>
+
+          {/* Sekundær sub-tab-rad — vises kun når man er inne på en
+              gruppert section (Brukere & roller). Mindre piller, samme
+              accent-stil men hvit bakgrunn istedenfor solid. */}
+          {activeGroup ? (
+            <nav
+              className="flex flex-wrap items-center gap-1 px-3 py-2"
+              aria-label={`${activeGroup.label} sub-seksjoner`}
+            >
+              {activeGroup.subTabs.map((sub) => {
+                const SubIcon = sub.icon
+                const subActive = sub.id === sectionFromUrl
                 return (
-                  <li key={n.id}>
-                    <Button
-                      variant="ghost"
-                      onClick={() => setSection(n.id)}
-                      className={
-                        'flex w-full items-center justify-start gap-2.5 rounded-none border-transparent px-4 py-2 text-left text-sm transition-colors ' +
-                        (active
-                          ? 'bg-[#e7efe9] text-neutral-900 hover:bg-[#e7efe9]/80'
-                          : 'text-neutral-700 hover:bg-neutral-50')
-                      }
-                      style={active ? { boxShadow: 'inset 3px 0 0 #1a3d32' } : undefined}
-                      aria-current={active ? 'page' : undefined}
-                    >
-                      <Icon
-                        className={
-                          'h-3.5 w-3.5 shrink-0 ' +
-                          (active ? 'text-[#1a3d32]' : 'text-neutral-500')
-                        }
-                        aria-hidden="true"
-                      />
-                      <span
-                        className={
-                          'min-w-0 flex-1 ' + (active ? 'font-semibold' : 'font-medium')
-                        }
-                      >
-                        {n.label}
-                      </span>
-                    </Button>
-                  </li>
+                  <Button
+                    key={sub.id}
+                    variant="ghost"
+                    onClick={() => setSection(sub.id)}
+                    aria-current={subActive ? 'page' : undefined}
+                    className={[
+                      'inline-flex h-auto items-center gap-1.5 rounded px-2.5 py-1.5 text-xs font-medium transition-colors',
+                      subActive
+                        ? '!bg-[color-mix(in_srgb,var(--ui-accent)_12%,white)] !text-[var(--ui-accent)] !ring-1 !ring-[color-mix(in_srgb,var(--ui-accent)_30%,transparent)]'
+                        : 'text-neutral-500 hover:bg-neutral-50 hover:text-neutral-800',
+                    ].join(' ')}
+                  >
+                    <SubIcon className="h-3.5 w-3.5 shrink-0" aria-hidden />
+                    <span>{sub.label}</span>
+                  </Button>
                 )
               })}
-            </ul>
-          </div>
-
-          {!easy && organization ? (
-            <div className="rounded-xl border border-neutral-200/80 bg-white p-4 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
-              <h3 className="text-xs font-bold uppercase tracking-wider text-neutral-500">
-                Compliance
-              </h3>
-              <ul className="mt-2 space-y-1.5 text-[11px]">
-                {complianceChecks.map((c) => (
-                  <li key={c.label} className="flex items-center justify-between gap-2">
-                    <div className="min-w-0">
-                      <div className="truncate text-neutral-700">{c.label}</div>
-                      <div className="truncate text-[10px] text-neutral-400">{c.detail}</div>
-                    </div>
-                    {c.met ? (
-                      <CheckCircle2
-                        className="h-3 w-3 shrink-0 text-green-600"
-                        aria-label={`${c.label}: oppfylt`}
-                      />
-                    ) : (
-                      <AlertCircle
-                        className="h-3 w-3 shrink-0 text-amber-600"
-                        aria-label={`${c.label}: mangler`}
-                      />
-                    )}
-                  </li>
-                ))}
-              </ul>
-            </div>
+            </nav>
           ) : null}
-        </aside>
+        </div>
 
-        {/* CONTENT */}
+        {/* SECTION CONTENT — full-bredde uten sidebar. */}
         <section className="min-w-0">
           {sectionFromUrl === 'org' && <SecOrg easy={easy} />}
           {sectionFromUrl === 'users' && <SecUsers easy={easy} />}
