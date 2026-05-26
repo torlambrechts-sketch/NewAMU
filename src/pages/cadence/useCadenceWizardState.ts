@@ -209,16 +209,25 @@ export function useCadenceWizardState(): UseCadenceWizardStateReturn {
     if (hydrated) return
     if (wizardRun.loading) return
     if (wizardRun.run) {
-      const restored = fromPayload(wizardRun.run.payload)
-      setState((prev) => ({
-        ...prev,
-        ...restored,
-        // currentStep tas fra run, ikke fra payload.
-        currentStep: Math.max(1, Math.min(8, wizardRun.run?.current_step ?? 1)),
-      }))
+      if (wizardRun.run.completed_at) {
+        // Brukeren har allerede iverksatt forrige cadence — slett gammel
+        // run-rad fra DB slik at neste auto-save bygger fersk draft, og
+        // start veiviseren i EMPTY_STATE. De iverksatte planene ligger
+        // fortsatt i `cadence_plans` og er synlige under «Aktive planer».
+        void wizardRun.reset()
+        setState(EMPTY_STATE)
+      } else {
+        const restored = fromPayload(wizardRun.run.payload)
+        setState((prev) => ({
+          ...prev,
+          ...restored,
+          // currentStep tas fra run, ikke fra payload.
+          currentStep: Math.max(1, Math.min(8, wizardRun.run?.current_step ?? 1)),
+        }))
+      }
     }
     setHydrated(true)
-  }, [hydrated, wizardRun.loading, wizardRun.run])
+  }, [hydrated, wizardRun.loading, wizardRun.run, wizardRun])
 
   // Auto-save 800ms etter siste state-endring.
   useEffect(() => {
@@ -427,6 +436,12 @@ export function useCadenceWizardState(): UseCadenceWizardStateReturn {
     setActivateStatus('activating')
     setActivateError(null)
 
+    // Holder plan-IDen utenfor try/catch slik at catch-blokken kan
+    // rulle tilbake via cadence_plan_discard_draft() hvis et child-INSERT
+    // feiler etter at plan-raden er opprettet. PostgREST har ikke
+    // klient-styrte transaksjoner, så dette er den eneste sikre veien.
+    let planId: string | null = null
+
     try {
       // 1. Opprett cadence_plans-raden.
       const headcount = (organization as { employee_count?: number | null } | null)?.employee_count ?? null
@@ -446,7 +461,7 @@ export function useCadenceWizardState(): UseCadenceWizardStateReturn {
       if (planErr || !planRow) {
         throw new Error(planErr?.message ?? 'Kunne ikke opprette cadence-plan')
       }
-      const planId = String(planRow.id)
+      planId = String(planRow.id)
 
       // 2. Skriv paragrafer.
       if (state.paragraphs.length > 0) {
@@ -570,6 +585,17 @@ export function useCadenceWizardState(): UseCadenceWizardStateReturn {
       return { planId, tasksCreated }
     } catch (e) {
       const msg = e instanceof Error ? e.message : 'Iverksettelse feilet'
+      // Rollback: hvis plan-raden ble opprettet før feilen oppstod, slett
+      // den som soft-delete via RPC. Forhindrer at orphan-drafts hoper
+      // seg opp i `Aktive planer`-listen ved gjentatte mislykkede forsøk.
+      if (planId) {
+        try {
+          await supabase.rpc('cadence_plan_discard_draft', { p_plan_id: planId })
+        } catch (rollbackErr) {
+          // Stille feilhåndtering — primærfeilen er det vi viser.
+          console.warn('cadence_plan_discard_draft feilet:', rollbackErr)
+        }
+      }
       setActivateError(msg)
       setActivateStatus('error')
       return null

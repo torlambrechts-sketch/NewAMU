@@ -340,7 +340,7 @@ export function Step2Paragrafer({
                   {required > 0 ? (
                     <div className="mt-0.5 text-[10px] text-red-700">{required} lovpålagt</div>
                   ) : (
-                    <div className="mt-0.5 text-[10px] text-neutral-400">Frivillig</div>
+                    <div className="mt-0.5 text-[10px] text-neutral-400">Valgfritt</div>
                   )}
                 </div>
                 <Button

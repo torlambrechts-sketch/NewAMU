@@ -111,6 +111,19 @@ export function CadenceWizard() {
           </Button>
         )}
         <span className="ml-auto text-[11.5px] text-neutral-500">Steg {step}/8 · {STEP_NAMES[step]}</span>
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={async () => {
+            // Bekreft før vi nullstiller alt — utkastet slettes også fra DB.
+            if (window.confirm('Sikker på at du vil starte på nytt? Lagret utkast slettes.')) {
+              await wizard.resetDraft()
+            }
+          }}
+          className="text-[11.5px] text-neutral-500"
+        >
+          Start på nytt
+        </Button>
       </div>
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1fr_320px]">
