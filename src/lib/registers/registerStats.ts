@@ -122,53 +122,6 @@ export function computeRegisterStats(
 }
 
 /**
- * Cross-type rollup: how many issues across the whole org. Used by the
- * "Compliance-status" sidebar on the hub page (utløper snart / utgått
- * / sensitive / mandatory). 'expiringSoon' = reviews due in 90 days
- * (broader than the per-type chip).
- */
-export type RegisterComplianceSummary = {
-  mandatoryRegisters: number
-  totalRegisters: number
-  sensitiveRegisters: number
-  expiringSoon: number
-  overdue: number
-}
-
-export function computeComplianceSummary(
-  types: RegisterType[],
-  recordsByType: Map<string, RegisterRecord[]>,
-): RegisterComplianceSummary {
-  const enabledTypes = types
-  const mandatoryRegisters = enabledTypes.filter((t) => t.displayMetadata.mandatory === true).length
-  const sensitiveRegisters = enabledTypes.filter(
-    (t) => t.displayMetadata.sensitive === true || t.displayMetadata.gdpr === true,
-  ).length
-
-  const today = new Date()
-  today.setHours(0, 0, 0, 0)
-  let overdue = 0
-  let expiringSoon = 0
-  for (const [, recs] of recordsByType) {
-    for (const r of recs) {
-      if (!r.reviewDueAt) continue
-      const due = parseDate(r.reviewDueAt)
-      if (!due) continue
-      if (due < today) overdue += 1
-      else if (inRange(due, today, 90)) expiringSoon += 1
-    }
-  }
-
-  return {
-    mandatoryRegisters,
-    totalRegisters: enabledTypes.length,
-    sensitiveRegisters,
-    expiringSoon,
-    overdue,
-  }
-}
-
-/**
  * Group records by their type for downstream per-type stats.
  * Skips records whose type isn't in the catalogue (orphan after type
  * deletion — shouldn't happen in practice but safe-guarded here).
