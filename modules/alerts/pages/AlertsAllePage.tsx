@@ -1,22 +1,80 @@
-// Flat list of all cases — searchable + status-filterable. Uses the
-// List 2 – kandidat/ordre tabell pattern from the platform layout composer.
+// Flat list of all cases — searchable + multi-select filter chips
+// (Status + Type) with saved-view support. Uses the data-grid
+// FilterBar pattern shared with Sjekklister / Tasks / Surveys.
 
-import { useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ChevronLeft, ChevronRight, Filter, Search, X } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Search } from 'lucide-react'
 import { ModulePageShell } from '../../../src/components/module/ModulePageShell'
 import { List2Shell } from '../../../src/components/layout/List2Shell'
 import { Badge } from '../../../src/components/ui/Badge'
 import { Button } from '../../../src/components/ui/Button'
 import { StandardInput } from '../../../src/components/ui/Input'
 import { SearchableSelect } from '../../../src/components/ui/SearchableSelect'
+import { FilterBar, SavedViewsControl } from '../../../src/components/ui/FilterBar'
+import { FilterChip } from '../../../src/components/ui/FilterChip'
+import { useSavedViews } from '../../../src/hooks/useSavedViews'
 import { useAlerts } from '../useAlerts'
 import { ALERT_KIND_SHORT_LABEL, ALERT_STATUS_LABEL } from '../alertsLabels'
-import type { AlertStatus } from '../types'
+import type { AlertStatus, AlertKind } from '../types'
 
-const CREAM_DEEP = '#EFE8DC'
+const ALL_STATUSES: AlertStatus[] = [
+  'received',
+  'triage',
+  'investigation',
+  'internal_review',
+  'closed',
+  'dismissed',
+]
 
-const STATUSES: Array<AlertStatus | 'open' | 'all'> = ['all', 'open', 'received', 'triage', 'investigation', 'internal_review', 'closed', 'dismissed']
+// The full kind enum lives in types.ts; we surface the labelled set
+// from ALERT_KIND_SHORT_LABEL so the chip stays in sync with whatever
+// the labels file expects.
+const ALL_KINDS = Object.keys(ALERT_KIND_SHORT_LABEL) as AlertKind[]
+
+type AlertFilters = {
+  statuses: AlertStatus[]
+  kinds: AlertKind[]
+}
+
+const EMPTY_FILTERS: AlertFilters = { statuses: [], kinds: [] }
+
+function filtersFromUrl(params: URLSearchParams): AlertFilters {
+  const get = (key: string) => {
+    const raw = params.get(key)
+    return raw ? raw.split(',').filter(Boolean) : []
+  }
+  return {
+    statuses: get('status') as AlertStatus[],
+    kinds: get('kind') as AlertKind[],
+  }
+}
+
+function syncFiltersToUrl(f: AlertFilters) {
+  if (typeof window === 'undefined') return
+  const url = new URL(window.location.href)
+  const setOrDelete = (key: string, values: string[]) => {
+    if (values.length > 0) url.searchParams.set(key, values.join(','))
+    else url.searchParams.delete(key)
+  }
+  setOrDelete('status', f.statuses)
+  setOrDelete('kind', f.kinds)
+  window.history.replaceState(null, '', url.toString())
+}
+
+function countActive(f: AlertFilters): number {
+  return f.statuses.length + f.kinds.length
+}
+
+function filtersEqual(a: AlertFilters, b: AlertFilters): boolean {
+  const eq = (x: readonly string[], y: readonly string[]) => {
+    if (x.length !== y.length) return false
+    const xs = [...x].sort()
+    const ys = [...y].sort()
+    return xs.every((v, i) => v === ys[i])
+  }
+  return eq(a.statuses, b.statuses) && eq(a.kinds, b.kinds)
+}
 
 function statusBadgeVariant(s: AlertStatus): 'neutral' | 'warning' | 'info' | 'success' {
   if (s === 'closed') return 'success'
@@ -29,23 +87,57 @@ export function AlertsAllePage() {
   const alerts = useAlerts()
   const navigate = useNavigate()
   const [q, setQ] = useState('')
-  const [statusFilter, setStatusFilter] = useState<AlertStatus | 'open' | 'all'>('open')
-  const [filtersOpen, setFiltersOpen] = useState(false)
+  const [filters, setFilters] = useState<AlertFilters>(() =>
+    filtersFromUrl(new URLSearchParams(typeof window === 'undefined' ? '' : window.location.search)),
+  )
+  useEffect(() => {
+    syncFiltersToUrl(filters)
+  }, [filters])
   const [perPage, setPerPage] = useState(25)
   const [page, setPage] = useState(1)
 
+  const activeFilterCount = countActive(filters)
+
+  // Saved views — module slug 'alerts'.
+  const saved = useSavedViews<AlertFilters>('alerts')
+  const [activeViewId, setActiveViewId] = useState<string | null>(null)
+  const [defaultApplied, setDefaultApplied] = useState(false)
+  useEffect(() => {
+    if (defaultApplied) return
+    if (saved.loading) return
+    if (activeFilterCount > 0) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setDefaultApplied(true)
+      return
+    }
+    if (saved.defaultViewId) {
+      const def = saved.views.find((v) => v.id === saved.defaultViewId)
+      if (def) {
+        setFilters({ ...EMPTY_FILTERS, ...def.filters })
+        setActiveViewId(def.id)
+      }
+    }
+    setDefaultApplied(true)
+  }, [defaultApplied, saved.loading, saved.defaultViewId, saved.views, activeFilterCount])
+
+  const hasUnsavedChanges = useMemo(() => {
+    if (!activeViewId) return false
+    const view = saved.views.find((v) => v.id === activeViewId)
+    if (!view) return false
+    return !filtersEqual(filters, { ...EMPTY_FILTERS, ...view.filters })
+  }, [activeViewId, filters, saved.views])
+
   const filtered = useMemo(() => {
     const qLower = q.trim().toLowerCase()
+    const statusSet = filters.statuses.length ? new Set(filters.statuses) : null
+    const kindSet = filters.kinds.length ? new Set(filters.kinds) : null
     return alerts.cases.filter((c) => {
-      if (statusFilter === 'all') {
-        // pass
-      } else if (statusFilter === 'open') {
-        if (['closed', 'dismissed'].includes(c.status)) return false
-      } else if (c.status !== statusFilter) return false
+      if (statusSet && !statusSet.has(c.status)) return false
+      if (kindSet && !kindSet.has(c.kind)) return false
       if (qLower && !c.title.toLowerCase().includes(qLower)) return false
       return true
     })
-  }, [alerts.cases, q, statusFilter])
+  }, [alerts.cases, q, filters])
 
   const total = filtered.length
   const totalPages = Math.max(1, Math.ceil(total / perPage))
@@ -53,17 +145,22 @@ export function AlertsAllePage() {
   const start = (pageSafe - 1) * perPage
   const pageRows = filtered.slice(start, start + perPage)
 
-  const activeFilterCount = (q.trim() ? 1 : 0) + (statusFilter !== 'all' ? 1 : 0)
+  const clearAll = useCallback(() => {
+    setFilters(EMPTY_FILTERS)
+    setQ('')
+    setPage(1)
+  }, [])
 
   return (
     <ModulePageShell
       breadcrumb={[{ label: 'Varslinger', to: '/alerts' }, { label: 'Alle' }]}
+      width="full"
       title="Alle saker"
       description="Alle saker — sortert etter mottakstidspunkt."
       loading={alerts.loading}
     >
       <List2Shell>
-        {/* Toolbar: search + filter toggle */}
+        {/* Search row */}
         <div className="flex flex-wrap items-center gap-3 border-b border-neutral-100 px-4 py-3 md:px-5">
           <div className="relative min-w-[200px] flex-1">
             <Search
@@ -79,60 +176,57 @@ export function AlertsAllePage() {
               className="pl-10"
             />
           </div>
-          <div className="flex flex-wrap items-center gap-2">
-            <Button
-              type="button"
-              size="sm"
-              variant={filtersOpen || activeFilterCount > 0 ? 'secondary' : 'ghost'}
-              icon={<Filter className="size-3.5" />}
-              onClick={() => setFiltersOpen((o) => !o)}
-              aria-expanded={filtersOpen}
-            >
-              Filter
-            </Button>
-            {activeFilterCount > 0 ? (
-              <Button
-                type="button"
-                size="sm"
-                variant="ghost"
-                icon={<X className="size-3.5" />}
-                onClick={() => { setQ(''); setStatusFilter('all'); setPage(1) }}
-              >
-                Nullstill
-              </Button>
-            ) : (
-              <span className="text-xs text-neutral-400">Ingen filter aktive</span>
-            )}
-          </div>
         </div>
 
-        {/* Collapsible filter panel */}
-        {filtersOpen ? (
-          <div
-            className="border-b border-neutral-100 px-4 py-4 md:px-5"
-            style={{ backgroundColor: CREAM_DEEP }}
-          >
-            <p className="mb-2 text-[10px] font-bold uppercase tracking-wide text-neutral-600">Status</p>
-            <div className="flex flex-wrap gap-1.5" role="radiogroup" aria-label="Status-filter">
-              {STATUSES.map((s) => (
-                <Button
-                  key={s}
-                  variant="ghost"
-                  onClick={() => { setStatusFilter(s); setPage(1) }}
-                  role="radio"
-                  aria-checked={statusFilter === s}
-                  className={`rounded-md border px-3 py-1.5 text-xs font-medium transition-colors ${
-                    statusFilter === s
-                      ? 'border-[#b91c1c] bg-[#b91c1c] text-white hover:bg-[#b91c1c]'
-                      : 'border-neutral-200 bg-white text-neutral-700 hover:border-neutral-300 hover:bg-neutral-50'
-                  }`}
-                >
-                  {s === 'all' ? 'Alle' : s === 'open' ? 'Åpne' : ALERT_STATUS_LABEL[s as AlertStatus]}
-                </Button>
-              ))}
-            </div>
-          </div>
-        ) : null}
+        {/* Filter bar — Status + Type chips + saved views */}
+        <FilterBar
+          chips={
+            <>
+              <FilterChip
+                label="Status"
+                options={ALL_STATUSES.map((s) => ({ value: s, label: ALERT_STATUS_LABEL[s] }))}
+                value={filters.statuses}
+                onChange={(next) => {
+                  setFilters((f) => ({ ...f, statuses: next as AlertStatus[] }))
+                  setActiveViewId(null)
+                  setPage(1)
+                }}
+              />
+              <FilterChip
+                label="Type"
+                options={ALL_KINDS.map((k) => ({
+                  value: k,
+                  label: ALERT_KIND_SHORT_LABEL[k] ?? k,
+                }))}
+                value={filters.kinds}
+                onChange={(next) => {
+                  setFilters((f) => ({ ...f, kinds: next as AlertKind[] }))
+                  setActiveViewId(null)
+                  setPage(1)
+                }}
+              />
+            </>
+          }
+          activeFilterCount={activeFilterCount}
+          onReset={() => {
+            clearAll()
+            setActiveViewId(null)
+          }}
+          savedViews={
+            <SavedViewsControl<AlertFilters>
+              currentFilters={filters}
+              activeViewId={activeViewId}
+              hasUnsavedChanges={hasUnsavedChanges}
+              onApplyView={(view) => {
+                setFilters({ ...EMPTY_FILTERS, ...view.filters })
+                setActiveViewId(view.id)
+                setPage(1)
+              }}
+              onClearActive={() => setActiveViewId(null)}
+              saved={saved}
+            />
+          }
+        />
 
         {/* Table */}
         <div className="w-full overflow-x-auto">
