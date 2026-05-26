@@ -28,20 +28,21 @@ import {
   SectionBanner,
   StatusPill,
   TYPE_TONE,
-  type IkFrameworkFilter,
 } from './internkontrollShared'
-import { IK_CATEGORIES, type IkCategoryFilter } from './internkontrollTokens'
+import { IK_CATEGORIES, type IkCategoryId } from './internkontrollTokens'
+import type { FrameworkId } from '../frameworkParagraphs'
 import type { IkData, IkKravStatus, IkCriticality } from '../useInternkontrollPageData'
 
 export function KravSection({
   data,
-  filterFw,
-  filterCategory,
+  frameworks,
+  categories,
 }: {
   data: IkData
-  filterFw: IkFrameworkFilter
-  filterCategory: IkCategoryFilter
-  setFilterFw: (id: IkFrameworkFilter) => void
+  /** Empty = no filter on framework. Multiple = OR semantics. */
+  frameworks: FrameworkId[]
+  /** Empty = no filter on category. Multiple = OR semantics. */
+  categories: IkCategoryId[]
 }) {
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState<IkKravStatus | 'all'>('all')
@@ -49,9 +50,11 @@ export function KravSection({
   const [openRow, setOpenRow] = useState<string | null>(null)
 
   const filtered = useMemo(() => {
+    const fwSet = frameworks.length ? new Set(frameworks) : null
+    const catSet = categories.length ? new Set(categories) : null
     return data.krav.filter((k) => {
-      if (filterFw !== 'all' && k.fw !== filterFw) return false
-      if (filterCategory !== 'all' && k.category !== filterCategory) return false
+      if (fwSet && !fwSet.has(k.fw)) return false
+      if (catSet && !catSet.has(k.category)) return false
       if (statusFilter !== 'all' && k.status !== statusFilter) return false
       if (critFilter !== 'all' && k.criticality !== critFilter) return false
       if (search) {
@@ -60,14 +63,14 @@ export function KravSection({
       }
       return true
     })
-  }, [data.krav, filterFw, filterCategory, statusFilter, critFilter, search])
+  }, [data.krav, frameworks, categories, statusFilter, critFilter, search])
 
   const categoryLabel = useMemo(
     () =>
-      filterCategory === 'all'
-        ? null
-        : IK_CATEGORIES.find((c) => c.id === filterCategory)?.label ?? null,
-    [filterCategory],
+      categories.length === 1
+        ? (IK_CATEGORIES.find((c) => c.id === categories[0])?.label ?? null)
+        : null,
+    [categories],
   )
 
   return (

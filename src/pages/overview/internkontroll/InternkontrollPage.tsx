@@ -1,14 +1,16 @@
 // Internkontroll — unified compliance management page.
 //
-// Combines what used to live across InternkontrollDashboardPage,
-// InternkontrollGapPage and InternkontrollPlanPage into a single
-// sidebar-driven page with eight sections:
+// 8 sections selectable via a horizontal tab strip (Oversikt / Krav /
+// Kontroller / Gap-analyse / Årshjul / Tiltak / Prosjekter /
+// Revisjon-logg). Below the tabs, a FilterBar carries the two
+// cross-section filter chips (Rammeverk + Kontroller-kategori) and
+// the saved-views control.
 //
-//   Oversikt · Krav · Kontroller · Gap-analyse · Årshjul ·
-//   Tiltak · Prosjekter · Revisjon-logg
-//
-// Section selection is URL-driven via ?section=… so deep-links survive
-// reload and the side-nav anchor highlight is shareable.
+// Section selection is URL-driven via ?section=…; the filter chips
+// live in local state with history.replaceState sync (same pattern
+// as Sjekklister / Tasks / Surveys after the round-3 rollout — keeps
+// chip toggles instant by avoiding the react-router rerender
+// cascade).
 //
 // Data sources (read from the live tables — no new tables introduced):
 //   • frameworks       — derived from FRAMEWORKS + useRegelverkCoverage
@@ -25,7 +27,7 @@
 //   • revisjon-logg    — compliance_plan_items + internal_control_
 //                        executions union, latest first
 
-import { useMemo } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import {
   CalendarClock,
@@ -41,6 +43,9 @@ import {
 } from 'lucide-react'
 import { ModulePageShell } from '../../../components/module/ModulePageShell'
 import { Button } from '../../../components/ui/Button'
+import { FilterBar, SavedViewsControl } from '../../../components/ui/FilterBar'
+import { FilterChip } from '../../../components/ui/FilterChip'
+import { useSavedViews } from '../../../hooks/useSavedViews'
 import { planItemToTiltak, useInternkontrollPageData } from './useInternkontrollPageData'
 import { useCompliancePlanItems } from './useCompliancePlanItems'
 import { FRAMEWORK_IDS, type FrameworkId } from './frameworkParagraphs'
@@ -53,15 +58,9 @@ import { AarshjulSection } from './sections/AarshjulSection'
 import { TiltakSection } from './sections/TiltakSection'
 import { ProsjekterSection } from './sections/ProsjekterSection'
 import { RevisjonSection } from './sections/RevisjonSection'
-import {
-  CoverageBar,
-  KategoriIcon,
-  type IkSectionId,
-  type IkFrameworkFilter,
-} from './sections/internkontrollShared'
+import { type IkSectionId } from './sections/internkontrollShared'
 import {
   IK_CATEGORIES,
-  type IkCategoryFilter,
   type IkCategoryId,
 } from './sections/internkontrollTokens'
 
@@ -83,14 +82,73 @@ const NAV: Array<{ id: IkSectionId; label: string; Icon: typeof LayoutDashboard 
 ]
 
 const VALID_SECTIONS = new Set<IkSectionId>(NAV.map((n) => n.id))
-const VALID_FRAMEWORK_FILTERS = new Set<IkFrameworkFilter>([
-  'all',
-  ...(FRAMEWORK_IDS as readonly FrameworkId[]),
-])
-const VALID_CATEGORY_FILTERS = new Set<IkCategoryFilter>([
-  'all',
-  ...IK_CATEGORIES.map((c) => c.id),
-])
+
+// Per-section filter relevance — drives whether the FilterBar shows
+// at all and which chips are exposed. Prosjekter, Tiltak and
+// Revisjon don't use the framework dimension; Tiltak uses category.
+const SECTION_SHOWS_FRAMEWORK: Record<IkSectionId, boolean> = {
+  oversikt: false,
+  krav: true,
+  kontroller: true,
+  gap: true,
+  aarshjul: true,
+  tiltak: false,
+  prosjekter: false,
+  revisjon: false,
+}
+const SECTION_SHOWS_CATEGORY: Record<IkSectionId, boolean> = {
+  oversikt: false,
+  krav: true,
+  kontroller: true,
+  gap: true,
+  aarshjul: true,
+  tiltak: true,
+  prosjekter: false,
+  revisjon: false,
+}
+
+// ── Filter state + URL sync ────────────────────────────────────────────
+
+type IkFilters = {
+  frameworks: FrameworkId[]
+  categories: IkCategoryId[]
+}
+const EMPTY_FILTERS: IkFilters = { frameworks: [], categories: [] }
+
+function filtersFromUrl(params: URLSearchParams): IkFilters {
+  const get = (key: string) => {
+    const raw = params.get(key)
+    return raw ? raw.split(',').filter(Boolean) : []
+  }
+  const validFw = new Set<string>(FRAMEWORK_IDS)
+  const validCat = new Set<string>(IK_CATEGORIES.map((c) => c.id))
+  return {
+    frameworks: get('framework').filter((id): id is FrameworkId => validFw.has(id)),
+    categories: get('kategori').filter((id): id is IkCategoryId => validCat.has(id)),
+  }
+}
+
+function syncFiltersToUrl(f: IkFilters) {
+  if (typeof window === 'undefined') return
+  const url = new URL(window.location.href)
+  const setOrDelete = (key: string, values: string[]) => {
+    if (values.length > 0) url.searchParams.set(key, values.join(','))
+    else url.searchParams.delete(key)
+  }
+  setOrDelete('framework', f.frameworks)
+  setOrDelete('kategori', f.categories)
+  window.history.replaceState(null, '', url.toString())
+}
+
+function filtersEqual(a: IkFilters, b: IkFilters): boolean {
+  const eq = (x: readonly string[], y: readonly string[]) => {
+    if (x.length !== y.length) return false
+    const xs = [...x].sort()
+    const ys = [...y].sort()
+    return xs.every((v, i) => v === ys[i])
+  }
+  return eq(a.frameworks, b.frameworks) && eq(a.categories, b.categories)
+}
 
 export function InternkontrollPage() {
   const [searchParams, setSearchParams] = useSearchParams()
@@ -100,54 +158,42 @@ export function InternkontrollPage() {
       ? (sectionParam as IkSectionId)
       : 'oversikt'
 
-  const filterFwParam = searchParams.get('framework') ?? 'all'
-  // Validate against the allow-list — a malformed/legacy URL param
-  // ("?framework=foo") silently falls back to 'all' instead of letting
-  // a downstream cast inject an unknown framework id into queries.
-  const filterFw: IkFrameworkFilter = VALID_FRAMEWORK_FILTERS.has(
-    filterFwParam as IkFrameworkFilter,
+  // Filter state in local React state — see syncFiltersToUrl above for
+  // the URL-sync trick. We still read from searchParams once on mount
+  // so a shared deep-link with ?framework=…&kategori=… hydrates.
+  const [filters, setFilters] = useState<IkFilters>(() =>
+    filtersFromUrl(searchParams),
   )
-    ? (filterFwParam as IkFrameworkFilter)
-    : 'all'
-
-  const filterCategoryParam = searchParams.get('kategori') ?? 'all'
-  const filterCategory: IkCategoryFilter = VALID_CATEGORY_FILTERS.has(
-    filterCategoryParam as IkCategoryFilter,
-  )
-    ? (filterCategoryParam as IkCategoryFilter)
-    : 'all'
+  useEffect(() => {
+    syncFiltersToUrl(filters)
+  }, [filters])
+  const activeFilterCount = filters.frameworks.length + filters.categories.length
 
   // ?control=<uuid> on top of section=kontroller swaps the list for the
   // detail view in-place. Lets users navigate without leaving the
   // Internkontroll chrome.
   const selectedControlId = section === 'kontroller' ? searchParams.get('control') : null
 
-  const setSection = (id: IkSectionId) => {
-    const sp = new URLSearchParams(searchParams)
-    sp.set('section', id)
-    setSearchParams(sp, { replace: true })
-  }
-  const setFilterFw = (id: IkFrameworkFilter) => {
-    const sp = new URLSearchParams(searchParams)
-    if (id === 'all') sp.delete('framework')
-    else sp.set('framework', id)
-    setSearchParams(sp, { replace: true })
-  }
-  const setFilterCategory = (id: IkCategoryFilter) => {
-    const sp = new URLSearchParams(searchParams)
-    if (id === 'all') sp.delete('kategori')
-    else sp.set('kategori', id)
-    setSearchParams(sp, { replace: true })
-  }
+  const setSection = useCallback(
+    (id: IkSectionId) => {
+      const sp = new URLSearchParams(searchParams)
+      sp.set('section', id)
+      setSearchParams(sp, { replace: true })
+    },
+    [searchParams, setSearchParams],
+  )
 
   const { data: rawData, loading, bridgesByPlanId, reload: reloadPageData } = useInternkontrollPageData()
-  const plan = useCompliancePlanItemsForActiveFramework(filterFw)
+  // The plan hook accepts a single FrameworkFilter (string | 'all'). For
+  // multi-select we fall back to 'all' and let the section apply the
+  // narrower client-side filter. Single-select stays scoped at the
+  // query level, so the common case is unchanged.
+  const planScope: FrameworkId | 'all' =
+    filters.frameworks.length === 1 ? filters.frameworks[0] : 'all'
+  const plan = useCompliancePlanItems(planScope)
 
   // Override the snapshot tiltak with the live hook so newly-created /
-  // updated rows reflect immediately across every section (Oversikt's
-  // KPI strip, Prosjekter task lists, sidebar count, etc.). Pass the
-  // bridge map so each live row keeps its CAPA twin's status/assignee
-  // without an extra round-trip.
+  // updated rows reflect immediately across every section.
   const data = useMemo(() => {
     const liveTiltak = plan.items.map((p) =>
       planItemToTiltak(p, rawData.frameworks, undefined, bridgesByPlanId),
@@ -155,6 +201,8 @@ export function InternkontrollPage() {
     return { ...rawData, tiltak: liveTiltak }
   }, [rawData, plan.items, bridgesByPlanId])
 
+  // Tab counts — narrowed by the active filters where it makes sense,
+  // so each tab pill reflects what the section would actually show.
   const counts: Record<IkSectionId, number | null> = useMemo(() => {
     const stats = data.stats
     return {
@@ -169,18 +217,35 @@ export function InternkontrollPage() {
     }
   }, [data])
 
-  // Krav counts per category — narrowed by the active framework chip so
-  // the KATEGORIER badges shift when the user scopes by regelverk.
-  const categoryCounts = useMemo(() => {
-    const counts = new Map<IkCategoryId, number>()
-    let total = 0
-    for (const k of data.krav) {
-      if (filterFw !== 'all' && k.fw !== filterFw) continue
-      counts.set(k.category, (counts.get(k.category) ?? 0) + 1)
-      total += 1
+  // Saved views — module slug 'internkontroll'. Same star-to-set-default
+  // + dropdown contract as Sjekklister / Tasks / Surveys / etc.
+  const saved = useSavedViews<IkFilters>('internkontroll')
+  const [activeViewId, setActiveViewId] = useState<string | null>(null)
+  const [defaultApplied, setDefaultApplied] = useState(false)
+  useEffect(() => {
+    if (defaultApplied) return
+    if (saved.loading) return
+    if (activeFilterCount > 0) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setDefaultApplied(true)
+      return
     }
-    return { counts, total }
-  }, [data.krav, filterFw])
+    if (saved.defaultViewId) {
+      const def = saved.views.find((v) => v.id === saved.defaultViewId)
+      if (def) {
+        setFilters({ ...EMPTY_FILTERS, ...def.filters })
+        setActiveViewId(def.id)
+      }
+    }
+    setDefaultApplied(true)
+  }, [defaultApplied, saved.loading, saved.defaultViewId, saved.views, activeFilterCount])
+
+  const hasUnsavedChanges = useMemo(() => {
+    if (!activeViewId) return false
+    const view = saved.views.find((v) => v.id === activeViewId)
+    if (!view) return false
+    return !filtersEqual(filters, { ...EMPTY_FILTERS, ...view.filters })
+  }, [activeViewId, filters, saved.views])
 
   const headerActions = (
     <div className="flex items-center gap-2">
@@ -211,259 +276,120 @@ export function InternkontrollPage() {
     </div>
   )
 
+  const showFrameworkChip = SECTION_SHOWS_FRAMEWORK[section]
+  const showCategoryChip = SECTION_SHOWS_CATEGORY[section]
+  const showFilterBar = showFrameworkChip || showCategoryChip
+
   return (
     <ModulePageShell
       breadcrumb={BREADCRUMB}
+      width="full"
       title="Internkontroll"
       description="Krav, kontroller og styring av etterlevelse — på tvers av lovverk og rammeverk."
       loading={loading}
       loadingLabel="Laster internkontroll…"
       headerActions={headerActions}
     >
-      <div className="grid grid-cols-1 gap-5 lg:grid-cols-[220px_minmax(0,1fr)]">
-        {/* SIDE NAV */}
-        <aside className="space-y-3">
-          {/* KATEGORIER — section nav with a Sjekklister-style "Kategorier"
-              header. Section nav sits at the top because the user picks
-              a destination (Oversikt / Krav / Kontroller / …) before
-              applying a control filter underneath. */}
-          <div className="rounded-xl border border-neutral-200/80 bg-white shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
-            <h3 className="border-b border-neutral-100 px-4 py-2.5 text-[10px] font-bold uppercase tracking-wider text-neutral-500">
-              Kategorier
-            </h3>
-            <ul className="py-1.5">
-              {NAV.map(({ id, label, Icon }) => {
-                const active = id === section
-                const count = counts[id]
-                return (
-                  <li key={id}>
-                    <Button
-                      variant="ghost"
-                      onClick={() => setSection(id)}
-                      className={[
-                        'flex w-full items-center justify-start gap-2.5 rounded-none border-0 px-4 py-2 text-left text-sm font-normal',
-                        active
-                          ? 'bg-[#e7efe9] text-neutral-900 hover:bg-[#e7efe9]'
-                          : 'text-neutral-700 hover:bg-neutral-50 hover:text-neutral-900',
-                      ].join(' ')}
-                      style={active ? { boxShadow: 'inset 3px 0 0 #1a3d32' } : undefined}
-                    >
-                      <Icon
-                        className={[
-                          'h-3.5 w-3.5 shrink-0',
-                          active ? 'text-[#1a3d32]' : 'text-neutral-500',
-                        ].join(' ')}
-                      />
-                      <span
-                        className={[
-                          'min-w-0 flex-1',
-                          active ? 'font-semibold' : 'font-medium',
-                        ].join(' ')}
-                      >
-                        {label}
-                      </span>
-                      {count != null ? (
-                        <span
-                          className={[
-                            'rounded-full px-1.5 py-px text-[10px] font-bold tabular-nums',
-                            active
-                              ? 'bg-[#1a3d32] text-white'
-                              : 'bg-neutral-100 text-neutral-600',
-                          ].join(' ')}
-                        >
-                          {count}
-                        </span>
-                      ) : null}
-                    </Button>
-                  </li>
-                )
-              })}
-            </ul>
-          </div>
-
-          {/* KONTROLLER — functional groupings of krav/kontroller/tiltak
-              (preventive / detective / corrective lens, not a destination).
-              Renamed from "Kategorier" because the parent KATEGORIER
-              header now belongs to the section nav above. */}
-          <div className="rounded-xl border border-neutral-200/80 bg-white p-3 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
-            <h3 className="text-[10px] font-bold uppercase tracking-wider text-neutral-500">
-              Kontroller
-            </h3>
-            <ul className="mt-1.5 space-y-0.5">
-              <li>
+      <div className="space-y-3">
+        {/* Section tabs — horizontal strip replaces the old left-rail
+            KATEGORIER panel. Same nav, freed-up horizontal space. */}
+        <div className="rounded-xl border border-neutral-200/80 bg-white shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
+          <nav
+            className="flex flex-wrap items-center gap-1 border-b border-neutral-100 px-3 py-2"
+            aria-label="Internkontroll-seksjoner"
+          >
+            {NAV.map(({ id, label, Icon }) => {
+              const active = id === section
+              const count = counts[id]
+              return (
                 <Button
+                  key={id}
                   variant="ghost"
-                  onClick={() => setFilterCategory('all')}
+                  onClick={() => setSection(id)}
+                  aria-current={active ? 'page' : undefined}
                   className={[
-                    'flex w-full items-center justify-between gap-2 rounded border-0 px-1.5 py-1 text-sm font-normal',
-                    filterCategory === 'all'
-                      ? 'bg-[#e7efe9] font-semibold text-neutral-900 hover:bg-[#e7efe9]'
-                      : 'text-neutral-700 hover:bg-neutral-50 hover:text-neutral-900',
-                  ].join(' ')}
-                  style={
-                    filterCategory === 'all' ? { boxShadow: 'inset 3px 0 0 #1a3d32' } : undefined
-                  }
-                >
-                  <span className="flex min-w-0 items-center gap-1.5">
-                    <KategoriIcon name="LayoutGrid" className="h-3 w-3 shrink-0 text-neutral-500" />
-                    <span className="truncate">Alle</span>
-                  </span>
-                  <span
-                    className={[
-                      'shrink-0 rounded-full px-1.5 py-px text-[10px] font-bold tabular-nums',
-                      filterCategory === 'all'
-                        ? 'bg-[#1a3d32] text-white'
-                        : 'bg-neutral-100 text-neutral-600',
-                    ].join(' ')}
-                  >
-                    {categoryCounts.total}
-                  </span>
-                </Button>
-              </li>
-              {IK_CATEGORIES.map((cat) => {
-                const active = filterCategory === cat.id
-                const count = categoryCounts.counts.get(cat.id) ?? 0
-                return (
-                  <li key={cat.id}>
-                    <Button
-                      variant="ghost"
-                      onClick={() => setFilterCategory(cat.id)}
-                      className={[
-                        'flex w-full items-center justify-between gap-2 rounded border-0 px-1.5 py-1 text-sm font-normal',
-                        active
-                          ? 'bg-[#e7efe9] font-semibold text-neutral-900 hover:bg-[#e7efe9]'
-                          : 'text-neutral-700 hover:bg-neutral-50 hover:text-neutral-900',
-                      ].join(' ')}
-                      style={active ? { boxShadow: 'inset 3px 0 0 #1a3d32' } : undefined}
-                      title={cat.label}
-                    >
-                      <span className="flex min-w-0 items-center gap-1.5">
-                        <KategoriIcon
-                          name={cat.icon}
-                          className={[
-                            'h-3 w-3 shrink-0',
-                            active ? 'text-[#1a3d32]' : 'text-neutral-500',
-                          ].join(' ')}
-                        />
-                        <span className="truncate">{cat.label}</span>
-                      </span>
-                      <span
-                        className={[
-                          'shrink-0 rounded-full px-1.5 py-px text-[10px] font-bold tabular-nums',
-                          active
-                            ? 'bg-[#1a3d32] text-white'
-                            : 'bg-neutral-100 text-neutral-600',
-                        ].join(' ')}
-                      >
-                        {count}
-                      </span>
-                    </Button>
-                  </li>
-                )
-              })}
-            </ul>
-          </div>
-
-          {/* Rammeverk-filter */}
-          <div className="rounded-xl border border-neutral-200/80 bg-white p-3 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
-            <h3 className="text-[10px] font-bold uppercase tracking-wider text-neutral-500">
-              Rammeverk
-            </h3>
-            <ul className="mt-1.5 space-y-0.5">
-              <li>
-                <Button
-                  variant="ghost"
-                  onClick={() => setFilterFw('all')}
-                  className={[
-                    'flex w-full items-center justify-between gap-2 rounded border-0 px-1.5 py-1 text-[11px] font-normal',
-                    filterFw === 'all'
-                      ? 'bg-neutral-100 font-semibold text-neutral-900 hover:bg-neutral-100'
-                      : 'text-neutral-700 hover:bg-neutral-50 hover:text-neutral-900',
+                    'inline-flex h-auto items-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-colors',
+                    active
+                      ? 'bg-[var(--ui-accent)] text-white hover:bg-[var(--ui-accent)] hover:text-white'
+                      : 'text-neutral-600 hover:bg-neutral-100 hover:text-neutral-900',
                   ].join(' ')}
                 >
-                  <span className="flex items-center gap-1.5">
-                    <span className="h-2 w-2 rounded-full bg-neutral-400" />
-                    Alle ({data.krav.length})
-                  </span>
-                </Button>
-              </li>
-              {data.frameworks.map((f) => {
-                const active = filterFw === f.id
-                return (
-                  <li key={f.id}>
-                    <Button
-                      variant="ghost"
-                      onClick={() => setFilterFw(f.id)}
+                  <Icon className="h-4 w-4 shrink-0" aria-hidden />
+                  <span>{label}</span>
+                  {count != null ? (
+                    <span
                       className={[
-                        'flex w-full items-center justify-between gap-2 rounded border-0 px-1.5 py-1 text-[11px] font-normal',
-                        active
-                          ? 'font-semibold text-neutral-900'
-                          : 'text-neutral-700 hover:bg-neutral-50 hover:text-neutral-900',
+                        'ml-0.5 rounded-full px-2 py-0.5 text-[10px] font-bold tabular-nums',
+                        active ? 'bg-white/20 text-white' : 'bg-neutral-200 text-neutral-700',
                       ].join(' ')}
-                      style={active ? { background: f.color + '14' } : undefined}
                     >
-                      <span className="flex min-w-0 items-center gap-1.5">
-                        <span
-                          className="h-2 w-2 shrink-0 rounded-full"
-                          style={{ background: f.color }}
-                        />
-                        <span className="truncate">{f.short}</span>
-                      </span>
-                      <span className="tabular-nums text-[10px] text-neutral-500">{f.reqs}</span>
-                    </Button>
-                  </li>
-                )
-              })}
-            </ul>
-          </div>
+                      {count}
+                    </span>
+                  ) : null}
+                </Button>
+              )
+            })}
+          </nav>
 
-          {/* Etterlevelse status mini */}
-          <div className="rounded-xl border border-neutral-200/80 bg-white p-4 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
-            <h3 className="text-[10px] font-bold uppercase tracking-wider text-neutral-500">
-              Etterlevelse
-            </h3>
-            <div className="mt-2 flex items-baseline gap-1.5">
-              <span className="text-2xl font-bold tabular-nums text-neutral-900">
-                {data.stats.total > 0
-                  ? Math.round((data.stats.covered / data.stats.total) * 100)
-                  : 0}
-                %
-              </span>
-              <span className="text-[10px] text-neutral-500">dekket</span>
-            </div>
-            <div className="mt-2">
-              <CoverageBar
-                covered={data.stats.covered}
-                partial={data.stats.partial}
-                gap={data.stats.gaps}
-                total={Math.max(1, data.stats.total)}
-              />
-            </div>
-            <ul className="mt-2 space-y-0.5 text-[10px]">
-              <li className="flex items-center justify-between">
-                <span className="flex items-center gap-1.5">
-                  <span className="h-2 w-2 rounded-full bg-[#2f7757]" />
-                  <span className="text-neutral-700">Dekket</span>
-                </span>
-                <span className="tabular-nums text-neutral-600">{data.stats.covered}</span>
-              </li>
-              <li className="flex items-center justify-between">
-                <span className="flex items-center gap-1.5">
-                  <span className="h-2 w-2 rounded-full bg-[#c98a2b]" />
-                  <span className="text-neutral-700">Delvis</span>
-                </span>
-                <span className="tabular-nums text-neutral-600">{data.stats.partial}</span>
-              </li>
-              <li className="flex items-center justify-between">
-                <span className="flex items-center gap-1.5">
-                  <span className="h-2 w-2 rounded-full bg-[#b3382a]" />
-                  <span className="text-neutral-700">Gap</span>
-                </span>
-                <span className="tabular-nums text-neutral-600">{data.stats.gaps}</span>
-              </li>
-            </ul>
-          </div>
-        </aside>
+          {/* FilterBar — Rammeverk + Kontroller-kategori chips + saved
+              views. Hidden on sections where neither dimension is
+              meaningful (Prosjekter, Revisjon). */}
+          {showFilterBar ? (
+            <FilterBar
+              chips={
+                <>
+                  {showFrameworkChip ? (
+                    <FilterChip
+                      label="Rammeverk"
+                      options={data.frameworks.map((f) => ({
+                        value: f.id,
+                        label: f.short,
+                        count: f.reqs,
+                      }))}
+                      value={filters.frameworks}
+                      onChange={(next) => {
+                        setFilters({ ...filters, frameworks: next as FrameworkId[] })
+                        setActiveViewId(null)
+                      }}
+                    />
+                  ) : null}
+                  {showCategoryChip ? (
+                    <FilterChip
+                      label="Kontroller"
+                      options={IK_CATEGORIES.map((c) => ({
+                        value: c.id,
+                        label: c.label,
+                      }))}
+                      value={filters.categories}
+                      onChange={(next) => {
+                        setFilters({ ...filters, categories: next as IkCategoryId[] })
+                        setActiveViewId(null)
+                      }}
+                    />
+                  ) : null}
+                </>
+              }
+              activeFilterCount={activeFilterCount}
+              onReset={() => {
+                setFilters(EMPTY_FILTERS)
+                setActiveViewId(null)
+              }}
+              savedViews={
+                <SavedViewsControl<IkFilters>
+                  currentFilters={filters}
+                  activeViewId={activeViewId}
+                  hasUnsavedChanges={hasUnsavedChanges}
+                  onApplyView={(view) => {
+                    setFilters({ ...EMPTY_FILTERS, ...view.filters })
+                    setActiveViewId(view.id)
+                  }}
+                  onClearActive={() => setActiveViewId(null)}
+                  saved={saved}
+                />
+              }
+            />
+          ) : null}
+        </div>
 
         {/* SECTION CONTENT */}
         <section className="min-w-0">
@@ -471,9 +397,8 @@ export function InternkontrollPage() {
           {section === 'krav' && (
             <KravSection
               data={data}
-              filterFw={filterFw}
-              filterCategory={filterCategory}
-              setFilterFw={setFilterFw}
+              frameworks={filters.frameworks}
+              categories={filters.categories}
             />
           )}
           {section === 'kontroller' &&
@@ -487,21 +412,29 @@ export function InternkontrollPage() {
                 }}
               />
             ) : (
-              <KontrollerSection data={data} filterFw={filterFw} filterCategory={filterCategory} />
+              <KontrollerSection
+                data={data}
+                frameworks={filters.frameworks}
+                categories={filters.categories}
+              />
             ))}
           {section === 'gap' && (
             <GapSection
               data={data}
-              filterFw={filterFw}
-              filterCategory={filterCategory}
+              frameworks={filters.frameworks}
+              categories={filters.categories}
               plan={plan}
             />
           )}
           {section === 'aarshjul' && (
-            <AarshjulSection data={data} filterFw={filterFw} filterCategory={filterCategory} />
+            <AarshjulSection
+              data={data}
+              frameworks={filters.frameworks}
+              categories={filters.categories}
+            />
           )}
           {section === 'tiltak' && (
-            <TiltakSection data={data} plan={plan} filterCategory={filterCategory} />
+            <TiltakSection data={data} plan={plan} categories={filters.categories} />
           )}
           {section === 'prosjekter' && (
             <ProsjekterSection data={data} plan={plan} onProjectsChanged={reloadPageData} />
@@ -511,14 +444,6 @@ export function InternkontrollPage() {
       </div>
     </ModulePageShell>
   )
-}
-
-function useCompliancePlanItemsForActiveFramework(filter: IkFrameworkFilter) {
-  // The hook now accepts 'all' natively so the unified page can render
-  // every plan-item across regelverk when no framework chip is active.
-  // Narrowing to a specific framework still scopes the fetch (and the
-  // sidebar count) to just that regelverk.
-  return useCompliancePlanItems(filter)
 }
 
 function exportStatusCsv(data: ReturnType<typeof useInternkontrollPageData>['data']) {

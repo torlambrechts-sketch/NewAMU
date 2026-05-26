@@ -19,21 +19,23 @@ import {
   FwChip,
   Initials,
   SectionBanner,
-  type IkFrameworkFilter,
 } from './internkontrollShared'
-import type { IkCategoryFilter } from './internkontrollTokens'
+import type { IkCategoryId } from './internkontrollTokens'
+import type { FrameworkId } from '../frameworkParagraphs'
 import type { IkAarshjulEvent, IkData } from '../useInternkontrollPageData'
 
 type View = 'wheel' | 'grid' | 'timeline'
 
 export function AarshjulSection({
   data,
-  filterFw,
-  filterCategory,
+  frameworks,
+  categories,
 }: {
   data: IkData
-  filterFw: IkFrameworkFilter
-  filterCategory: IkCategoryFilter
+  /** Empty = no filter on framework. Multiple = OR semantics. */
+  frameworks: FrameworkId[]
+  /** Empty = no filter on category. Multiple = OR semantics. */
+  categories: IkCategoryId[]
 }) {
   const [view, setView] = useState<View>('wheel')
   const [openMonth, setOpenMonth] = useState<number | null>(null)
@@ -56,17 +58,21 @@ export function AarshjulSection({
   }, [data.kontroller])
 
   const events = useMemo(() => {
-    let scoped = filterFw === 'all'
+    const fwSet = frameworks.length ? new Set(frameworks) : null
+    const catSet = categories.length ? new Set(categories) : null
+    let scoped = !fwSet
       ? data.aarshjul
-      : data.aarshjul.filter((a) => a.fw.includes(filterFw))
-    if (filterCategory !== 'all') {
+      : data.aarshjul.filter((a) => a.fw.some((id) => fwSet.has(id)))
+    if (catSet) {
       scoped = scoped.filter((a) => {
         const cats = categoriesByControl.get(a.controlId)
-        return cats?.has(filterCategory) ?? false
+        if (!cats) return false
+        for (const id of catSet) if (cats.has(id)) return true
+        return false
       })
     }
     return scoped.filter((a) => a.year === year)
-  }, [data.aarshjul, filterFw, filterCategory, categoriesByControl, year])
+  }, [data.aarshjul, frameworks, categories, categoriesByControl, year])
 
   // Years present in the underlying data — used to populate the year
   // picker so the user can scrub through historic / planned years that

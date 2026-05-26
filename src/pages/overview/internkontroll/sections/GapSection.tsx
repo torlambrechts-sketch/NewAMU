@@ -15,32 +15,36 @@ import {
   PRIO_TONE,
   SectionBanner,
   StatusPill,
-  type IkFrameworkFilter,
 } from './internkontrollShared'
 import type { useCompliancePlanItems } from '../useCompliancePlanItems'
 import type { IkData, IkKrav } from '../useInternkontrollPageData'
-import type { IkCategoryFilter } from './internkontrollTokens'
+import type { IkCategoryId } from './internkontrollTokens'
+import type { FrameworkId } from '../frameworkParagraphs'
 
 type PlanHook = ReturnType<typeof useCompliancePlanItems>
 
 export function GapSection({
   data,
-  filterFw,
-  filterCategory,
+  frameworks,
+  categories,
   plan,
 }: {
   data: IkData
-  filterFw: IkFrameworkFilter
-  filterCategory: IkCategoryFilter
+  /** Empty = no filter on framework. Multiple = OR semantics. */
+  frameworks: FrameworkId[]
+  /** Empty = no filter on category. Multiple = OR semantics. */
+  categories: IkCategoryId[]
   plan: PlanHook
 }) {
   const [view, setView] = useState<'matrix' | 'list'>('matrix')
 
   const gaps = useMemo(() => {
+    const fwSet = frameworks.length ? new Set(frameworks) : null
+    const catSet = categories.length ? new Set(categories) : null
     return data.krav
       .filter((k) => k.status !== 'covered' && k.status !== 'na')
-      .filter((k) => filterFw === 'all' || k.fw === filterFw)
-      .filter((k) => filterCategory === 'all' || k.category === filterCategory)
+      .filter((k) => !fwSet || fwSet.has(k.fw))
+      .filter((k) => !catSet || catSet.has(k.category))
       .sort((a, b) => {
         const order: Record<typeof a.status, number> = {
           gap: 0,
@@ -57,7 +61,7 @@ export function GapSection({
         }
         return crit[a.criticality] - crit[b.criticality]
       })
-  }, [data.krav, filterFw, filterCategory])
+  }, [data.krav, frameworks, categories])
 
   return (
     <div className="space-y-4">
@@ -104,7 +108,7 @@ export function GapSection({
       </div>
 
       {view === 'matrix' ? (
-        <GapMatrix data={data} filterFw={filterFw} />
+        <GapMatrix data={data} frameworks={frameworks} />
       ) : (
         <GapList data={data} sorted={gaps} plan={plan} />
       )}
@@ -112,9 +116,9 @@ export function GapSection({
   )
 }
 
-function GapMatrix({ data, filterFw }: { data: IkData; filterFw: IkFrameworkFilter }) {
-  const fws =
-    filterFw === 'all' ? data.frameworks : data.frameworks.filter((f) => f.id === filterFw)
+function GapMatrix({ data, frameworks }: { data: IkData; frameworks: FrameworkId[] }) {
+  const fwSet = frameworks.length ? new Set(frameworks) : null
+  const fws = fwSet ? data.frameworks.filter((f) => fwSet.has(f.id)) : data.frameworks
   const cols: Array<'høy' | 'middels' | 'lav'> = ['høy', 'middels', 'lav']
 
   return (

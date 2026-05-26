@@ -18,9 +18,8 @@ import {
   SectionBanner,
   Stars,
   TYPE_TONE,
-  type IkFrameworkFilter,
 } from './internkontrollShared'
-import type { IkCategoryFilter } from './internkontrollTokens'
+import type { IkCategoryId } from './internkontrollTokens'
 import type { FrameworkId } from '../frameworkParagraphs'
 import type { IkData } from '../useInternkontrollPageData'
 
@@ -29,12 +28,14 @@ type Freq = 'daglig' | 'manedlig' | 'kvartalsvis' | 'arlig' | 'all'
 
 export function KontrollerSection({
   data,
-  filterFw,
-  filterCategory,
+  frameworks,
+  categories,
 }: {
   data: IkData
-  filterFw: IkFrameworkFilter
-  filterCategory: IkCategoryFilter
+  /** Empty = no filter on framework. Multiple = OR semantics. */
+  frameworks: FrameworkId[]
+  /** Empty = no filter on category. Multiple = OR semantics. */
+  categories: IkCategoryId[]
 }) {
   const [searchParams, setSearchParams] = useSearchParams()
   const openControl = (id: string) => {
@@ -60,15 +61,19 @@ export function KontrollerSection({
     })
   }, [data.kontroller])
 
-  const filtered = enriched.filter((c) => {
-    if (filterFw !== 'all' && !c.fws.includes(filterFw)) return false
-    // A kontroll matches the category filter if ANY of the paragraphs
-    // it covers fall into the chosen category — kontrol-on-§ is M:M.
-    if (filterCategory !== 'all' && !c.categories.includes(filterCategory)) return false
-    if (typeFilter !== 'all' && c.type !== typeFilter) return false
-    if (freqFilter !== 'all' && c.frequency !== freqFilter) return false
-    return true
-  })
+  const filtered = useMemo(() => {
+    const fwSet = frameworks.length ? new Set(frameworks) : null
+    const catSet = categories.length ? new Set(categories) : null
+    return enriched.filter((c) => {
+      if (fwSet && !c.fws.some((id) => fwSet.has(id))) return false
+      // A kontroll matches the category filter if ANY of the paragraphs
+      // it covers fall into any chosen category — kontrol-on-§ is M:M.
+      if (catSet && !c.categories.some((id) => catSet.has(id))) return false
+      if (typeFilter !== 'all' && c.type !== typeFilter) return false
+      if (freqFilter !== 'all' && c.frequency !== freqFilter) return false
+      return true
+    })
+  }, [enriched, frameworks, categories, typeFilter, freqFilter])
 
   const avgEff =
     filtered.length === 0
