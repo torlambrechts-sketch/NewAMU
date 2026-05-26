@@ -42,6 +42,16 @@
     --shell-rail1-w: 3.75rem;
     --shell-rail2-w: 16rem;
 
+    /* Page-content background. Slightly lighter than --ui-surface (the
+       shell-level beige) so the in-app document plane stands apart
+       from the chrome. */
+    --ui-page: #f9f7f2;
+
+    /* Dark dropdown surface used inside the topbar profile menu and
+       quick-create. Distinct from --ui-nav-rail-mid so menus read as
+       overlays, not extensions of the rail. */
+    --ui-overlay-dark: #1f2a26;
+
     /* AMU design system tokens */
     --forest: #1a3d32;
     --forest-soft: #e7efe9;

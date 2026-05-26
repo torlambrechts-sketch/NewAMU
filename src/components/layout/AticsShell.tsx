@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useMemo, useState, type ComponentType } from 'react'
-import { NavLink, Outlet, useLocation } from 'react-router-dom'
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import {
   Activity,
   AlertTriangle,
@@ -33,7 +33,6 @@ import {
 import { NotificationTray } from '../notifications/NotificationTray'
 import { SurveyPendingInvitesBanner } from '../../../modules/survey/SurveyPendingInvitesBanner'
 import { useT } from '../../hooks/useT'
-import { LanguageDropdown } from '../LanguageDropdown'
 import { useOrgSetupContext } from '../../hooks/useOrgSetupContext'
 import type { PermissionKey } from '../../lib/permissionKeys'
 import { Button } from '../ui/Button'
@@ -71,200 +70,25 @@ import {
   type Rail2Preference,
   type Rail2State,
 } from './aticsRailState'
+import type { NavGroup, NavModule, NavSection, SubItem } from './aticsNavTypes'
+import { CommandPalette } from './CommandPalette'
+import { flattenNavToEntries } from './commandPaletteEntries'
+import { loadRecentPaths, pushRecentPath } from './recentPaths'
+import {
+  ADMINISTRASJON_NAV_PERMS,
+  ALERTS_NAV_PERMS,
+  COMPLIANCE_NAV_PERMS,
+  DOCUMENTS_NAV_PERMS,
+  LEARNING_NAV_PERMS,
+  MEETINGS_NAV_PERMS,
+  REGISTERS_NAV_PERMS,
+  RISK_NAV_PERMS,
+  SURVEY_NAV_PERMS,
+  TASKS_NAV_PERMS,
+} from './aticsNavPerms'
 
-// ─── Sub-item type ────────────────────────────────────────────────────────────
-
-type SubItem = {
-  label: string
-  path: string
-  match: (loc: { pathname: string; search: string }) => boolean
-  /** When RBAC is active, hide this sub-link unless the user has the permission. */
-  requirePerm?: PermissionKey
-  /** If set, user needs at least one of these (overrides requirePerm when both would apply — use one or the other). */
-  requirePermAny?: PermissionKey[]
-  /** Save horizontal space: show only `Icon` in the nav row; `label` is used for tooltip and accessibility. */
-  iconOnly?: boolean
-  Icon?: ComponentType<{ className?: string; 'aria-hidden'?: boolean | 'true' | 'false' }>
-  /**
-   * 'header' renders the row as a clickable section heading (no NavLink)
-   * that toggles expand/collapse for its child items. Items below a
-   * header are linked to it via `headerKey`; the header carries the
-   * same value. Defaults to 'item' (the existing link behaviour).
-   * path/match are still required but ignored for headers.
-   */
-  kind?: 'item' | 'header'
-  /**
-   * Stable identifier shared between a header row and the items that
-   * belong to it. Items without `headerKey` (e.g. fixed subs like
-   * Analyse / Innstillinger) always render; items with `headerKey`
-   * render only when the parent header is expanded.
-   */
-  headerKey?: string
-  /**
-   * Render a numeric counter pill on the row when > 0. Used by the
-   * gov-outbox manual-triage sub-link so admins see at a glance how
-   * many rows are awaiting human action.
-   */
-  badgeCount?: number
-  /**
-   * Optional colour override for `badgeCount`. Defaults to amber
-   * (`#c9a227`) for queue-style badges; cert-rotation uses `'danger'`
-   * to signal time-critical action (NSM Grunnprinsipp 2.4).
-   */
-  badgeTone?: 'amber' | 'danger'
-}
-
-
-// Permission gates for the umbrella Administrasjon menu and its 5
-// modules. The umbrella gate (`ADMINISTRASJON_NAV_PERMS`) hides the
-// whole group from non-admins; the per-module gates filter which of
-// the 5 modules a specialist role (DPO, integrasjonsansvarlig,
-// workflow-eier) sees. Sub-pages enforce their own page-level perms.
-const ADMINISTRASJON_NAV_PERMS: PermissionKey[] = [
-  'module.view.admin',
-  'users.manage',
-  'users.invite',
-  'roles.manage',
-  'employee.manage',
-  'workflows.manage',
-  'module.view.workflow',
-]
-
-// ─── Navigation groups ────────────────────────────────────────────────────────
-//
-// The four groups from the spec. Each module carries its icon, route, sub-items,
-// and the group it belongs to. The group label is shown as a section divider in
-// the sidebar sub-nav panel and as a header row in the top-bar secondary nav.
-
-type NavGroup = {
-  id: string
-  label: string
-  icon: React.ComponentType<{ className?: string; 'aria-hidden'?: boolean | 'true' | 'false' }>
-  modules: NavModule[]
-}
-
-// Sidebar / top-bar grouping above NavGroup. The 4 sections mirror how
-// users mentally bucket the product: personal work → daily operations →
-// governance system → administration. See specs/PLAYBOOK.md and the
-// 2026-05 menu restructure recommendation.
-//
-// In the two-rail layout (Nov 2026), each section gets its own icon in
-// rail 1 — rail 1 no longer has one icon per NavGroup. Rail 2 always
-// shows all sections vertically with section labels + their groups.
-type NavSection = {
-  id: string
-  /** Uppercase label rendered between group clusters. */
-  label: string
-  /** Icon shown in rail 1 (sidebar) — one per section, not per group. */
-  icon: React.ComponentType<{ className?: string; 'aria-hidden'?: boolean | 'true' | 'false' }>
-  groups: NavGroup[]
-}
-
-type NavModule = {
-  to: string
-  label: string
-  end: boolean
-  icon: React.ComponentType<{ className?: string; 'aria-hidden'?: boolean | 'true' | 'false' }>
-  subs: SubItem[]
-  /** When set and RBAC is active, module is hidden if user lacks this permission. */
-  perm?: PermissionKey
-  /** When set, user needs any of these permissions (overrides `perm` for the gate). */
-  permAny?: PermissionKey[]
-  /** Maps to the slug in the modules table; item is hidden when the module is disabled. */
-  moduleSlug?: string
-  /**
-   * When true, this module's sub-items render at module-level size and
-   * indent instead of the default compact sub-item styling. Used when the
-   * sub-items represent first-class destinations equal in importance to
-   * the parent (e.g. pinned templates under "Sjekklister").
-   */
-  flatSubs?: boolean
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Canonical information architecture. Each top-level group is a kept module
-// (compliance/checklist, survey, documents, meetings, registers, tasks,
-// learning) plus the cross-module HMS-oversikt + Organisasjon admin group.
-// ─────────────────────────────────────────────────────────────────────────────
-
-// Permission gate for the synthetic Sjekklister menu — matches the /compliance
-// route gate in ROUTE_PERMISSION_ANY so anyone who can reach the page also
-// sees the menu entry.
-const COMPLIANCE_NAV_PERMS: PermissionKey[] = [
-  'module.view.dashboard',
-  'checklist.manage',
-]
-
-
-// Permission gate for the synthetic Undersøkelser menu — anyone who can
-// view a survey-relevant module sees it. Mirrors the broad permAny pattern
-// used for Sjekklister so view-only roles aren't excluded.
-const SURVEY_NAV_PERMS: PermissionKey[] = [
-  'module.view.survey',
-  'module.view.dashboard',
-  'survey.manage',
-  'survey.results.view',
-]
-
-// Permission gate for the synthetic Læring menu — same broad pattern as
-// the two siblings so view-only/dashboard roles can still navigate.
-const LEARNING_NAV_PERMS: PermissionKey[] = [
-  'module.view.learning',
-  'module.view.dashboard',
-]
-
-// Permission gate for the synthetic Oppgaver menu — same broad pattern.
-const TASKS_NAV_PERMS: PermissionKey[] = [
-  'module.view.tasks',
-  'module.view.dashboard',
-]
-
-// Permission gate for the synthetic Dokumenter menu — same broad pattern.
-const DOCUMENTS_NAV_PERMS: PermissionKey[] = [
-  'documents.view',
-  'documents.edit',
-  'documents.manage',
-  'module.view.dashboard',
-]
-
-// Permission gate for the Register menu — broad pattern. The page-level RLS
-// ensures per-record reads stay org-scoped.
-const REGISTERS_NAV_PERMS: PermissionKey[] = [
-  'module.view.dashboard',
-  'documents.view',
-]
-
-// Møter nav permission gate — anyone with the meetings-view permission
-// (or the broader dashboard / HMS roles) gets the menu. Page-level RLS
-// ensures restricted/confidential rows stay hidden from non-participants.
-const MEETINGS_NAV_PERMS: PermissionKey[] = [
-  'module.view.meetings',
-  'meetings.manage',
-  'module.view.dashboard',
-]
-
-const ALERTS_NAV_PERMS: PermissionKey[] = [
-  'module.view.alerts',
-  'alerts.committee',
-  'alerts.committee_confidential',
-  'alerts.committee_escalated',
-  'alerts.dpo',
-  'alerts.manage',
-  'module.view.dashboard',
-]
-
-// Permission gate for the Risiko menu — aggregate dashboard reads from
-// compliance findings, tasks (avvik/nestenulykke/risiko/tiltak),
-// deviations and alerts. Any role that can already see those modules
-// gets the risk view; admins use module-level `is_active` to disable.
-const RISK_NAV_PERMS: PermissionKey[] = [
-  'module.view.dashboard',
-  'checklist.manage',
-  'incident.view',
-  'incident.manage',
-  'module.view.tasks',
-]
-
+// Nav types live in `aticsNavTypes.ts`; permission gates in `aticsNavPerms.ts`.
+// They're imported above. Anything below is shell composition + render.
 
 function filterNavGroups(
   groups: NavGroup[],
@@ -1805,6 +1629,10 @@ export function AticsShell() {
   )
   const visibleGroups = useMemo(() => allGroupsFromSections(visibleSections), [visibleSections])
   const visibleModules = useMemo(() => allModulesFrom(visibleGroups), [visibleGroups])
+  const paletteEntries = useMemo(
+    () => flattenNavToEntries(visibleSections),
+    [visibleSections],
+  )
 
   const [navMode, setNavMode] = useState<NavMode>(loadNavMode)
   const [rail2Pref, setRail2Pref] = useState<Rail2Preference>(loadRail2Pref)
@@ -1869,6 +1697,50 @@ export function AticsShell() {
     return () => window.removeEventListener('keydown', onKey)
   }, [cycleRail2])
 
+  // ── Command palette (Cmd/Ctrl+K) ──────────────────────────────────────────
+  const navigate = useNavigate()
+  const [paletteOpen, setPaletteOpen] = useState(false)
+  const [recentPaths, setRecentPaths] = useState<string[]>(() => loadRecentPaths())
+
+  // Persist + refresh the recent-paths cache every time the route changes.
+  // Once-per-navigation setState is the intended cadence; the
+  // localStorage round-trip is the source of truth and can't be lifted
+  // to props.
+  useEffect(() => {
+    pushRecentPath(location.pathname)
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setRecentPaths(loadRecentPaths())
+  }, [location.pathname])
+
+  // Cmd/Ctrl+K opens the palette. Same input-field guard as the [ shortcut.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      const isOpen = (e.metaKey || e.ctrlKey) && (e.key === 'k' || e.key === 'K')
+      if (!isOpen) return
+      const t = e.target as HTMLElement | null
+      // The palette's own input is fine; only block when typing somewhere
+      // else inside a text field would lose work.
+      if (
+        t &&
+        t.tagName !== 'INPUT' &&
+        t.tagName !== 'TEXTAREA' &&
+        !t.isContentEditable
+      ) {
+        e.preventDefault()
+        setPaletteOpen(true)
+        return
+      }
+      // Even inside a text field, Cmd+K opens — but only if it's not
+      // contentEditable rich text where Cmd+K might be a hyperlink.
+      if (t && t.tagName === 'INPUT') {
+        e.preventDefault()
+        setPaletteOpen(true)
+      }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [])
+
   function handleNavModeChange(mode: NavMode) {
     setNavMode(mode)
     saveNavMode(mode)
@@ -1894,6 +1766,7 @@ export function AticsShell() {
         className="flex h-[100dvh] max-h-[100dvh] overflow-hidden"
         data-rail2={rail2State}
       >
+        <SkipToContent />
 
         {/* ── Rail 1: Section icons (one per section) ──────────────────────── */}
         <aside className="flex w-[var(--shell-rail1-w)] shrink-0 flex-col bg-[var(--ui-nav-rail)]">
@@ -1928,9 +1801,9 @@ export function AticsShell() {
                   end={false}
                   title={section.label}
                   aria-label={section.label}
-                  className={`flex items-center justify-center rounded-lg p-3 transition-colors ${
+                  className={`relative flex items-center justify-center rounded-lg p-3 transition-colors ${
                     isActive
-                      ? 'bg-white/15 text-white ring-1 ring-[#c9a227]/60'
+                      ? 'bg-white/15 text-white before:absolute before:left-0 before:top-1/2 before:h-6 before:w-[3px] before:-translate-y-1/2 before:rounded-r-full before:bg-[var(--color-atics-gold)]'
                       : 'text-white/55 hover:bg-white/10 hover:text-white'
                   }`}
                 >
@@ -2070,7 +1943,6 @@ export function AticsShell() {
                       (e.g. compliance accent flip). */}
                   <RegulationFilterMenu variant="sidebar" />
                   <NotificationTray variant="sidebar" />
-                  <LanguageDropdown variant="sidebar" />
                   <ShellProfileMenuButton
                     variant="sidebar"
                     displayName={profileDisplay}
@@ -2091,11 +1963,18 @@ export function AticsShell() {
             </div>
           </header>
 
-          <main className="flex-1 overflow-y-auto bg-transparent">
+          <main id="main-content" tabIndex={-1} className="flex-1 overflow-y-auto bg-transparent">
             <SurveyPendingInvitesBanner />
             <Outlet />
           </main>
         </div>
+        <CommandPalette
+          open={paletteOpen}
+          onClose={() => setPaletteOpen(false)}
+          onSelect={(path) => navigate(path)}
+          entries={paletteEntries}
+          recentPaths={recentPaths}
+        />
       </div>
     )
   }
@@ -2125,9 +2004,9 @@ export function AticsShell() {
             end={false}
             title={section.label}
             aria-label={section.label}
-            className={`shrink-0 whitespace-nowrap rounded-lg px-3 py-1.5 text-sm font-semibold transition-colors md:px-3.5 md:py-1.5 ${
+            className={`relative shrink-0 whitespace-nowrap rounded-lg px-3 py-1.5 text-sm font-semibold transition-colors md:px-3.5 md:py-1.5 ${
               isActiveSection
-                ? 'bg-white/15 text-white ring-1 ring-[#c9a227]/70'
+                ? 'bg-white/15 text-white after:absolute after:inset-x-3 after:bottom-0 after:h-[2px] after:rounded-full after:bg-[var(--color-atics-gold)]'
                 : 'text-white/75 hover:bg-white/10 hover:text-white'
             }`}
           >
@@ -2156,7 +2035,6 @@ export function AticsShell() {
               when the param is absent. */}
           <RegulationFilterMenu variant="topbar" />
           <NotificationTray variant="topbar" />
-          <LanguageDropdown variant="topbar" />
           <ShellProfileMenuButton
             variant="topbar"
             displayName={profileDisplay}
@@ -2179,6 +2057,7 @@ export function AticsShell() {
 
   return (
     <div className="flex h-[100dvh] max-h-[100dvh] flex-col overflow-hidden bg-[var(--ui-surface)]">
+      <SkipToContent />
       <header className="shrink-0 bg-[var(--ui-nav-rail)] text-white">
         {/* Row 1: mobile — logo + section toggle | utilities (profile/menu always visible without scrolling) */}
         <div className="mx-auto max-w-[1400px] px-4 py-2 md:px-8 md:py-3">
@@ -2192,7 +2071,7 @@ export function AticsShell() {
                 size="icon"
                 onClick={cycleRail2}
                 className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg transition-colors ${
-                  rail2State === 'hidden' ? 'bg-white/15 text-white ring-1 ring-[#c9a227]/50' : 'text-white/70 hover:bg-white/10 hover:text-white'
+                  rail2State === 'hidden' ? 'bg-white/15 text-white ring-1 ring-[color-mix(in_srgb,var(--color-atics-gold)_50%,transparent)]' : 'text-white/70 hover:bg-white/10 hover:text-white'
                 }`}
                 aria-expanded={rail2State !== 'hidden'}
                 aria-label={toggleTitleTop}
@@ -2219,7 +2098,7 @@ export function AticsShell() {
                 size="icon"
                 onClick={cycleRail2}
                 className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg transition-colors ${
-                  rail2State === 'hidden' ? 'bg-white/15 text-white ring-1 ring-[#c9a227]/50' : 'text-white/70 hover:bg-white/10 hover:text-white'
+                  rail2State === 'hidden' ? 'bg-white/15 text-white ring-1 ring-[color-mix(in_srgb,var(--color-atics-gold)_50%,transparent)]' : 'text-white/70 hover:bg-white/10 hover:text-white'
                 }`}
                 aria-expanded={rail2State !== 'hidden'}
                 aria-label={toggleTitleTop}
@@ -2273,10 +2152,31 @@ export function AticsShell() {
 
       </header>
 
-      <main className="min-h-0 flex-1 overflow-y-auto bg-[var(--ui-surface)]">
+      <main id="main-content" tabIndex={-1} className="min-h-0 flex-1 overflow-y-auto bg-[var(--ui-surface)]">
         <Outlet />
       </main>
+      <CommandPalette
+        open={paletteOpen}
+        onClose={() => setPaletteOpen(false)}
+        onSelect={(path) => navigate(path)}
+        entries={paletteEntries}
+        recentPaths={recentPaths}
+      />
     </div>
+  )
+}
+
+// Keyboard-only escape hatch past the 30+ tab stops in the rails. The
+// link is visually hidden until focused (Tab from page load), then
+// jumps focus to <main id="main-content"> when activated. WCAG 2.4.1.
+function SkipToContent() {
+  return (
+    <a
+      href="#main-content"
+      className="sr-only focus:not-sr-only focus:fixed focus:left-3 focus:top-3 focus:z-50 focus:rounded-md focus:bg-[var(--ui-nav-rail)] focus:px-3 focus:py-2 focus:text-sm focus:font-semibold focus:text-white focus:shadow-lg focus:outline-none focus:ring-2 focus:ring-[var(--color-atics-gold)]"
+    >
+      Hopp til innhold
+    </a>
   )
 }
 

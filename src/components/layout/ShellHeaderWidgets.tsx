@@ -13,6 +13,8 @@ import { useTaskItemsData } from '../../../modules/tasks/useTaskItemsData'
 import type { NavMode } from './aticsNavMode'
 import { Button } from '../ui/Button'
 import { useT } from '../../hooks/useT'
+import { useOrgSetupContext } from '../../hooks/useOrgSetupContext'
+import { APP_LOCALES, LOCALE_LABELS, type AppLocale } from '../../lib/i18n/locales'
 
 type ProfileMenuProps = {
   variant: 'sidebar' | 'topbar'
@@ -43,6 +45,59 @@ function useCloseOnOutsideClick(open: boolean, onClose: () => void) {
   return ref
 }
 
+// Inline language picker for the profile dropdown. Moved here from the
+// shell utility row so the header stops at 6 controls; the dropdown is
+// the natural home for low-frequency preferences. The standalone
+// <LanguageDropdown> still ships and is used on /profile.
+function LanguageInline({ darkSurface }: { darkSurface: boolean }) {
+  const { locale, setLocale, t } = useT()
+  const { supabase, user } = useOrgSetupContext()
+
+  const inactive = darkSurface
+    ? 'border-white/20 text-white/70 hover:border-white/35 hover:text-white'
+    : 'border-neutral-200 text-neutral-500 hover:border-neutral-300 hover:text-neutral-800'
+  const active = darkSurface
+    ? 'border-[var(--color-atics-gold)] bg-white/10 text-white'
+    : 'border-[color:var(--ui-accent)] bg-[color-mix(in_srgb,var(--ui-accent)_10%,transparent)] text-[color:var(--ui-accent)]'
+
+  const choose = (next: AppLocale) => {
+    if (next === locale) return
+    void setLocale(next)
+    if (supabase && user) {
+      void supabase.rpc('set_profile_locale', { p_locale: next })
+    }
+  }
+
+  return (
+    <div>
+      <p
+        className={`mb-2 text-xs font-semibold uppercase tracking-wide ${darkSurface ? 'text-white/70' : 'text-neutral-500'}`}
+      >
+        {t('shell.language')}
+      </p>
+      <div className="flex gap-2" role="radiogroup" aria-label={t('shell.language')}>
+        {APP_LOCALES.map((code) => {
+          const selected = code === locale
+          return (
+            <Button
+              key={code}
+              variant="ghost"
+              onClick={() => choose(code)}
+              role="radio"
+              aria-checked={selected}
+              className={`flex-1 rounded-lg border px-3 py-2 text-xs font-medium transition-colors hover:bg-transparent ${
+                selected ? active : inactive
+              }`}
+            >
+              {LOCALE_LABELS[code]}
+            </Button>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
 function LayoutModeInline({
   navMode,
   onChange,
@@ -57,7 +112,7 @@ function LayoutModeInline({
     ? 'border-white/20 text-white/70 hover:border-white/35 hover:text-white'
     : 'border-neutral-200 text-neutral-500 hover:border-neutral-300 hover:text-neutral-800'
   const active = darkSurface
-    ? 'border-[#c9a227] bg-white/10 text-white'
+    ? 'border-[var(--color-atics-gold)] bg-white/10 text-white'
     : 'border-[color:var(--ui-accent)] bg-[color-mix(in_srgb,var(--ui-accent)_10%,transparent)] text-[color:var(--ui-accent)]'
   return (
     <div>
@@ -126,10 +181,10 @@ export function ShellProfileMenuButton({
   const btnClass =
     variant === 'topbar'
       ? `rounded-lg p-2 transition-colors hover:bg-white/10 ${open ? 'bg-white/15' : ''}`
-      : `rounded-lg p-1.5 text-neutral-600 hover:bg-black/5 hover:text-neutral-900 ${open ? 'bg-black/5 ring-1 ring-[#c9a227]/40' : ''}`
+      : `rounded-lg p-1.5 text-neutral-600 hover:bg-black/5 hover:text-neutral-900 ${open ? 'bg-black/5 ring-1 ring-[color-mix(in_srgb,var(--color-atics-gold)_40%,transparent)]' : ''}`
 
   const panelClass = dark
-    ? 'absolute right-0 top-full z-50 mt-2 w-72 rounded-xl border border-white/15 bg-[#1f2a26] p-4 shadow-xl'
+    ? 'absolute right-0 top-full z-50 mt-2 w-72 rounded-xl border border-white/15 bg-[var(--ui-overlay-dark)] p-4 shadow-xl'
     : 'absolute right-0 top-full z-50 mt-2 w-72 rounded-xl border border-neutral-200 bg-white p-4 shadow-xl'
 
   return (
@@ -160,9 +215,7 @@ export function ShellProfileMenuButton({
           ) : null}
 
           <div className="space-y-4">
-            {/* Locale switcher lives in AticsShell's <LocaleSwitcher> (i18next-backed).
-                A logged-in user's choice is bridged from `profiles.locale` by
-                <LocaleSync>, so a single switcher suffices. */}
+            <LanguageInline darkSurface={dark} />
             <LayoutModeInline navMode={navMode} onChange={onNavModeChange} darkSurface={dark} />
             <Link
               to={profileTo}
@@ -194,7 +247,7 @@ export function ShellProfileMenuButton({
                   href={logInHref}
                   onClick={() => setOpen(false)}
                   className={`block w-full rounded-lg px-3 py-2 text-center text-sm font-medium ${
-                    dark ? 'bg-[#c9a227] text-[#1a2e28] hover:brightness-110' : 'bg-[color:var(--ui-accent)] text-white hover:opacity-95'
+                    dark ? 'bg-[var(--color-atics-gold)] text-[color:var(--color-atics-green-deep)] hover:brightness-110' : 'bg-[color:var(--ui-accent)] text-white hover:opacity-95'
                   }`}
                 >
                   {logInLabel}
@@ -241,7 +294,7 @@ export function ShellQuickCreateMenu({ variant }: { variant: 'sidebar' | 'topbar
 
   const panelClass =
     variant === 'topbar'
-      ? 'absolute right-0 top-full z-50 mt-2 w-56 rounded-xl border border-white/15 bg-[#1f2a26] py-1 shadow-xl'
+      ? 'absolute right-0 top-full z-50 mt-2 w-56 rounded-xl border border-white/15 bg-[var(--ui-overlay-dark)] py-1 shadow-xl'
       : 'absolute right-0 top-full z-50 mt-2 w-56 rounded-xl border border-neutral-200 bg-white py-1 shadow-xl'
 
   const itemClass =
@@ -328,7 +381,7 @@ export function ShellComplianceIndicator({ variant }: { variant: 'sidebar' | 'to
 
   const panelClass =
     variant === 'topbar'
-      ? 'absolute right-0 top-full z-50 mt-2 w-[min(100vw-2rem,22rem)] max-h-[min(70vh,28rem)] overflow-y-auto rounded-xl border border-white/15 bg-[#1f2a26] p-4 shadow-xl'
+      ? 'absolute right-0 top-full z-50 mt-2 w-[min(100vw-2rem,22rem)] max-h-[min(70vh,28rem)] overflow-y-auto rounded-xl border border-white/15 bg-[var(--ui-overlay-dark)] p-4 shadow-xl'
       : 'absolute right-0 top-full z-50 mt-2 w-[min(100vw-2rem,22rem)] max-h-[min(70vh,28rem)] overflow-y-auto rounded-xl border border-neutral-200 bg-white p-4 shadow-xl'
 
   const heading = variant === 'topbar' ? 'text-white' : 'text-neutral-900'

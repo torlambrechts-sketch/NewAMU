@@ -14,8 +14,8 @@ import { useModuleLegalFramework } from './ModuleLegalFrameworkContext'
  * Replaces the manually duplicated blocks found across every HSE module page:
  *
  * ```tsx
- * <div className="min-h-screen bg-[#F9F7F2]">
- *   <header className="bg-[#F9F7F2]">
+ * <div className="min-h-screen bg-[var(--ui-page)]">
+ *   <header className="bg-[var(--ui-page)]">
  *     <div className="mx-auto max-w-[1400px] px-4 pb-4 pt-4 md:px-8">
  *       <WorkplacePageHeading1 ... />
  *     </div>
@@ -56,8 +56,8 @@ export interface ModulePageShellProps {
   width?: PageWidth
 }
 
-const OUTER = 'min-h-screen bg-[#F9F7F2]'
-const HEADER_BAND = 'bg-[#F9F7F2]'
+const OUTER = 'min-h-screen bg-[var(--ui-page)]'
+const HEADER_BAND = 'bg-[var(--ui-page)]'
 
 export function ModulePageShell({
   breadcrumb,
@@ -103,7 +103,7 @@ export function ModulePageShell({
         {header}
         <PageContainer width={width} py="py-6" className="space-y-6">
           <div className="flex min-h-[40vh] flex-col items-center justify-center gap-3">
-            <Loader2 className="h-8 w-8 animate-spin text-[#1a3d32]" aria-hidden />
+            <Loader2 className="h-8 w-8 animate-spin text-[var(--ui-accent)]" aria-hidden />
             <p className="text-sm text-neutral-600">{loadingLabel}</p>
           </div>
         </PageContainer>

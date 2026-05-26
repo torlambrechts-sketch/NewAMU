@@ -5,6 +5,28 @@ import reactRefresh from 'eslint-plugin-react-refresh'
 import tseslint from 'typescript-eslint'
 import { defineConfig, globalIgnores } from 'eslint/config'
 
+// Forbid Tailwind arbitrary-value hex literals (e.g. `bg-[#1a3d32]`) in
+// designated central files. Brand colours have CSS variables defined in
+// src/index.css — use `bg-[var(--ui-accent)]` etc. Plain JS string
+// hexes (function default args, inline `style={{ color: '#xxx' }}`) are
+// NOT matched since they often resolve in contexts where `var(...)`
+// can't be used (chart libs, theme JS, etc.).
+const noHexInClassNamesRule = {
+  'no-restricted-syntax': [
+    'error',
+    {
+      selector: "Literal[value=/\\[#[0-9a-fA-F]{3,6}/]",
+      message:
+        'Hex literal inside a Tailwind className. Use the matching CSS variable (bg-[var(--ui-accent)] etc.) so the design tokens stay the single source of truth. See src/index.css.',
+    },
+    {
+      selector: "TemplateElement[value.raw=/\\[#[0-9a-fA-F]{3,6}/]",
+      message:
+        'Hex literal inside a Tailwind className. Use the matching CSS variable (bg-[var(--ui-accent)] etc.) so the design tokens stay the single source of truth. See src/index.css.',
+    },
+  ],
+}
+
 // Forbid raw HTML form controls in module + component code.
 // Design system requires <Button>, <StandardInput>, <StandardTextarea>, <SearchableSelect>.
 // See DESIGN_SYSTEM.md §3.
@@ -48,6 +70,26 @@ export default defineConfig([
       ecmaVersion: 2020,
       globals: globals.browser,
     },
+  },
+  // Enforce design-token usage for Tailwind className hex literals in
+  // the central shell + page-chrome surfaces. Other files are left as
+  // a follow-up cleanup — the ~1700 existing hex literals elsewhere
+  // would flood lint output and need their own dedicated PR.
+  {
+    files: [
+      'src/components/layout/AticsShell.tsx',
+      'src/components/layout/ShellHeaderWidgets.tsx',
+      'src/components/layout/PageContainer.tsx',
+      'src/components/layout/CommandPalette.tsx',
+      'src/components/layout/commandPaletteEntries.ts',
+      'src/components/layout/aticsRailState.ts',
+      'src/components/layout/aticsNavTypes.ts',
+      'src/components/layout/aticsNavPerms.ts',
+      'src/components/layout/recentPaths.ts',
+      'src/components/module/ModulePageShell.tsx',
+      'src/components/module/ModuleAnalyticsDashboard.tsx',
+    ],
+    rules: noHexInClassNamesRule,
   },
   // Enforce primitive usage in module + component code.
   {
