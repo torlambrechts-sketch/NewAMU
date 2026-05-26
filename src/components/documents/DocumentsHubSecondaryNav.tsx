@@ -17,8 +17,6 @@ type Props = {
  */
 export function DocumentsHubSecondaryNav({ canManage, annualReviewBadgeDot }: Props) {
   const documentsHomeMatch = useMatch({ path: '/documents', end: true })
-  const editorTestMatch = useMatch({ path: '/documents/editor-test', end: true })
-  const kandidatTestMatch = useMatch({ path: '/documents/kandidatdetalj-layout-test', end: true })
   const spaceMatch = useMatch({ path: '/documents/space/:spaceId', end: false })
   const pageMatch = useMatch({ path: '/documents/page/:pageId', end: false })
 
@@ -28,7 +26,7 @@ export function DocumentsHubSecondaryNav({ canManage, annualReviewBadgeDot }: Pr
   const settingsMatch = useMatch({ path: '/documents/templates', end: false })
 
   const documentsNavActive = Boolean(
-    documentsHomeMatch || editorTestMatch || kandidatTestMatch || spaceMatch || pageMatch,
+    documentsHomeMatch || spaceMatch || pageMatch,
   )
 
   const items: HubMenu1Item[] = useMemo(() => {

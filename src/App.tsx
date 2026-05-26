@@ -81,7 +81,6 @@ import { SurveyAllePage } from '../modules/survey/SurveyAllePage'
 import { DocumentsAllePage } from './pages/documents/DocumentsAllePage'
 import { LearningAllePage } from './pages/learning/LearningAllePage'
 import { LearningLayout } from './components/learning/LearningLayout'
-import { LearningDashboard } from './pages/learning/LearningDashboard'
 import { LearningHubPage } from './pages/learning/LearningHubPage'
 import { LearningCourseDetailPage } from './pages/learning/LearningCourseDetailPage'
 import { LearningCoursesList } from './pages/learning/LearningCoursesList'
@@ -120,7 +119,6 @@ import { BenchmarkPage } from './pages/dashboards/BenchmarkPage'
 import { ComplianceStudioPage } from './pages/overview/studio/ComplianceStudioPage'
 import { LearningFlowEntry } from './pages/learning/LearningFlowEntry'
 import { LearningCertificatePrintPage } from './pages/learning/LearningCertificatePrintPage'
-import { LearningMinHistorikkPage } from './pages/learning/LearningMinHistorikkPage'
 import { DocumentsHome } from './pages/documents/DocumentsHome'
 import { DocumentsAnalysePage } from './pages/documents/DocumentsAnalysePage'
 import { DocumentsSokPage } from './pages/documents/DocumentsSokPage'
@@ -133,8 +131,6 @@ import { AnnualReviewPage } from './pages/documents/AnnualReviewPage'
 import { DocumentReviewsPage } from './pages/documents/DocumentReviewsPage'
 import { DocumentModerationQueuePage } from './pages/documents/DocumentModerationQueuePage'
 import { DocumentPrivacyPage } from './pages/documents/DocumentPrivacyPage'
-import { DocumentEditorTestPage } from './pages/documents/DocumentEditorTestPage'
-import { DocumentKandidatdetaljLayoutTestPage } from './pages/documents/DocumentKandidatdetaljLayoutTestPage'
 import { WikiPageReferenceEditor } from './pages/documents/WikiPageReferenceEditor'
 import { DocumentEditPage } from './pages/documents/DocumentEditPage'
 import { DocumentsOrgTemplateEditorPage } from './pages/documents/DocumentsOrgTemplateEditorPage'
@@ -149,11 +145,7 @@ import { LayoutLabPage } from './pages/platform/LayoutLabPage'
 import { PlatformUiAdvancedPage } from './pages/platform/PlatformUiAdvancedPage'
 import { PlatformBoxDesignerPage } from './pages/platform/PlatformBoxDesignerPage'
 import { PlatformLayoutCompositionPage } from './pages/platform/PlatformLayoutCompositionPage'
-import { PlatformPinpointLayoutsPage } from './pages/platform/PlatformPinpointLayoutsPage'
-import { PlatformLayoutTemplatesPage } from './pages/platform/PlatformLayoutTemplatesPage'
-import { PlatformModuleTemplatesPage } from './pages/platform/PlatformModuleTemplatesPage'
 import { PlatformLayoutHubPage } from './pages/platform/PlatformLayoutHubPage'
-import { PlatformLayoutElementsGalleryPage } from './pages/platform/PlatformLayoutElementsGalleryPage'
 import { PlatformCoursePlayerHubPage } from './pages/platform/coursePlayer/PlatformCoursePlayerHubPage'
 import { PlatformCoursePlayerFocusPage } from './pages/platform/coursePlayer/PlatformCoursePlayerFocusPage'
 import { PlatformCoursePlayerCinemaPage } from './pages/platform/coursePlayer/PlatformCoursePlayerCinemaPage'
@@ -367,11 +359,7 @@ const router = createBrowserRouter(
                 <Route path="ui-advanced" element={<PlatformUiAdvancedPage />} />
                 <Route path="box-designer" element={<PlatformBoxDesignerPage />} />
                 <Route path="layout-builder" element={<PlatformLayoutCompositionPage />} />
-                <Route path="layout-reference" element={<PlatformPinpointLayoutsPage />} />
-                <Route path="layout-templates" element={<PlatformLayoutTemplatesPage />} />
-                <Route path="module-templates" element={<PlatformModuleTemplatesPage />} />
                 <Route path="layout" element={<PlatformLayoutHubPage />} />
-                <Route path="layout-elements" element={<PlatformLayoutElementsGalleryPage />} />
                 <Route path="course-player" element={<PlatformCoursePlayerHubPage />} />
                 <Route path="course-player/focus" element={<PlatformCoursePlayerFocusPage />} />
                 <Route path="course-player/cinema" element={<PlatformCoursePlayerCinemaPage />} />
@@ -703,12 +691,10 @@ const router = createBrowserRouter(
                       <Route path="registers/:typeId" element={<RegisterTypePage />} />
                       <Route path="registers/:typeId/:recordId" element={<RegisterEntryPage />} />
                       <Route element={<LearningLayout />}>
-                        <Route path="learning/oversikt-klassisk" element={<LearningDashboard />} />
                         {/* Five canonical tabs */}
                         <Route path="learning/katalog" element={<LearningCoursesList />} />
                         <Route path="learning/deltakere" element={<LearningDeltakerePage />} />
                         <Route path="learning/kompetanse" element={<LearningKompetansePage />} />
-                        <Route path="learning/min-historikk" element={<LearningMinHistorikkPage />} />
                         <Route path="learning/analyse" element={<LearningAnalysePage />} />
                         <Route path="learning/alle" element={<LearningAllePage />} />
                         <Route path="learning/innstillinger" element={<LegacyLearningRedirect />} />
@@ -742,8 +728,6 @@ const router = createBrowserRouter(
                       <Route path="admin/integrations/utboks" element={<GovOutboxPage />} />
                       <Route path="admin/varsling/dedup-grupper" element={<AlertDedupGroupsPage />} />
                       <Route element={<DocumentsModuleShellLayout />}>
-                        <Route path="documents/editor-test" element={<DocumentEditorTestPage />} />
-                        <Route path="documents/kandidatdetalj-layout-test" element={<DocumentKandidatdetaljLayoutTestPage />} />
                         <Route path="documents/malbibliotek" element={<DocumentsMalbibliotekPage />} />
                         <Route path="documents/analyse" element={<DocumentsAnalysePage />} />
                         <Route path="documents/sok" element={<DocumentsSokPage />} />

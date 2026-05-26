@@ -124,7 +124,7 @@ function DocumentsModuleShellBody() {
         </p>
       )
     }
-    if (p === '/documents/editor-test' || p.includes('/reference-edit')) {
+    if (p.includes('/reference-edit')) {
       return (
         <p className="max-w-3xl text-sm text-neutral-600">
           Standard dokumentredaktør (TipTap) — innhold og tittel lagres på wiki-siden der den er åpnet fra.
@@ -155,7 +155,7 @@ function DocumentsModuleShellBody() {
 /**
  * Shared `ModulePageShell` for documents hub routes (rule §1).
  * Wiki space / page / wiki block editor use {@link DocumentsWikiOutlet} (own shell). TipTap reference editor
- * (`/documents/page/:id/reference-edit`) lives here next to `editor-test` so it shares the same module chrome.
+ * (`/documents/page/:id/reference-edit`) lives here so it shares the same module chrome.
  */
 export function DocumentsModuleShellLayout() {
   return (

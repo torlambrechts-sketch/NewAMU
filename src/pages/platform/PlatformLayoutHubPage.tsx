@@ -1,8 +1,6 @@
 import { useState } from 'react'
-import { Link } from 'react-router-dom'
 import { PlatformGridComposer } from './PlatformGridComposer'
 import {
-  LAYOUT_COMPOSER_BLOCKS,
   PlatformLayoutComposerDemo,
   type PlatformLayoutPreviewSurface,
 } from './PlatformLayoutComposerPage'
@@ -67,15 +65,7 @@ export function PlatformLayoutHubPage() {
         <div className="min-w-0 max-w-3xl">
           <h1 className="text-2xl font-semibold text-white">Layout (arbeidsflate)</h1>
           <p className="mt-2 text-sm text-neutral-400">
-            Samlet forhåndsvisning av gjenbrukbare arbeidsflate-mønstre. Samme visuelle språk som under{' '}
-            <Link to="/platform-admin/layout-reference" className="text-amber-400/90 hover:underline">
-              Layout-referanse
-            </Link>
-            . Se også{' '}
-            <Link to="/platform-admin/layout-elements" className="text-amber-400/90 hover:underline">
-              Layout-elementer (katalog)
-            </Link>{' '}
-            for alle {LAYOUT_COMPOSER_BLOCKS.length} blokkene én per kort. Velg krem (workplace) eller helhvit bakgrunn for alle demoer under.
+            Samlet forhåndsvisning av gjenbrukbare arbeidsflate-mønstre. Velg krem (workplace) eller helhvit bakgrunn for alle demoer under.
           </p>
         </div>
         <SurfaceToggle value={surface} onChange={setSurface} />
@@ -85,11 +75,7 @@ export function PlatformLayoutHubPage() {
         <div>
           <h2 className="text-lg font-semibold text-white">Layout-komponenter — komponer</h2>
           <p className="mt-1 max-w-3xl text-sm text-neutral-500">
-            Kombiner atomære blokker og hele sider fra{' '}
-            <Link to="/platform-admin/layout-reference" className="text-amber-400/90 hover:underline">
-              layout-referanse
-            </Link>{' '}
-            (prefiks «Ref. —»), pluss overskrift, stat-rad, informasjon/advarsel (varsel-liste), tabeller, scorecard, verktøylinje, list 2, ROS-risikomatrise og ROS-tabell, boksrutenett og rapportering. Dra for å
+            Kombiner atomære blokker og hele sider — overskrift, stat-rad, informasjon/advarsel (varsel-liste), tabeller, scorecard, verktøylinje, list 2, ROS-risikomatrise og ROS-tabell, boksrutenett og rapportering. Dra for å
             endre rekkefølge; lagre som <strong className="text-neutral-300">lokalt</strong> eller i <strong className="text-neutral-300">database</strong>{' '}
             (plattformadmin). Publiserte stack-maler kan brukes i arbeidsflaten (f.eks. Internkontroll → Oversikt ved navnematch).
           </p>

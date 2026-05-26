@@ -4,16 +4,13 @@ import {
   Box,
   GraduationCap,
   LayoutGrid,
-  Layers,
   LayoutTemplate,
   Loader2,
   LogOut,
   Map,
   PanelsTopLeft,
-  Settings,
   Rows3,
   Shield,
-  Sparkles,
 } from 'lucide-react'
 import { usePlatformAdmin } from '../../hooks/usePlatformAdmin'
 
@@ -29,11 +26,7 @@ const nav: {
   { to: '/platform-admin/ui-advanced', label: 'Avansert UI', icon: PanelsTopLeft },
   { to: '/platform-admin/box-designer', label: 'Komponentdesigner', icon: Box },
   { to: '/platform-admin/layout-builder', label: 'Layout-designer', icon: Rows3 },
-  { to: '/platform-admin/layout-reference', label: 'Layout-referanse', icon: Sparkles },
-  { to: '/platform-admin/layout-templates', label: 'Layout-maler', icon: LayoutTemplate },
-  { to: '/platform-admin/module-templates', label: 'Modul-maler', icon: Settings },
   { to: '/platform-admin/layout', label: 'Layout (arbeidsflate)', icon: LayoutTemplate },
-  { to: '/platform-admin/layout-elements', label: 'Layout-elementer', icon: Layers },
   { to: '/platform-admin/course-player', label: 'Kursspiller', icon: GraduationCap },
 ]
 
