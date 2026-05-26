@@ -1034,7 +1034,7 @@ export function ChecklistsPage() {
     return (
       <ModulePageShell
         breadcrumb={[{ label: 'Klarert' }, { label: 'HMS' }, { label: 'Sjekklister' }]}
-        width="wide"
+        width="full"
         title="Sjekklister"
         description={easy
           ? 'Planlegg og gjennomfør sjekklister — vernerunder, brannvern og daglig kontroll.'
