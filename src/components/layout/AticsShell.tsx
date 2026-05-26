@@ -607,6 +607,9 @@ export function AticsShell() {
                       group.modules.map((mod) => {
                         const ModIcon = mod.icon
                         const isActiveMod = activeModule.to === mod.to
+                        const badge =
+                          mod.badgeCount && mod.badgeCount > 0 ? mod.badgeCount : null
+                        const badgeTone = mod.badgeTone ?? 'danger'
                         return (
                           <NavLink
                             key={`${group.id}:${mod.to}`}
@@ -620,6 +623,16 @@ export function AticsShell() {
                           >
                             <ModIcon className="size-4 shrink-0 opacity-80" aria-hidden />
                             <span className="flex-1 truncate">{mod.label}</span>
+                            {badge !== null ? (
+                              <span
+                                className={`ml-1 inline-flex min-w-[1.25rem] shrink-0 items-center justify-center rounded-full px-1.5 py-0.5 text-[10px] font-bold tabular-nums text-white ${
+                                  badgeTone === 'amber' ? 'bg-amber-500' : 'bg-red-500'
+                                }`}
+                                aria-label={`${badge} ventende oppgaver i ${mod.label}`}
+                              >
+                                {badge > 99 ? '99+' : badge}
+                              </span>
+                            ) : null}
                           </NavLink>
                         )
                       }),
@@ -643,13 +656,24 @@ export function AticsShell() {
                     group.modules.map((mod) => {
                       const ModIcon = mod.icon
                       const isActiveMod = activeModule.to === mod.to
+                      const badge =
+                        mod.badgeCount && mod.badgeCount > 0 ? mod.badgeCount : null
+                      const badgeTone = mod.badgeTone ?? 'danger'
+                      const tooltip =
+                        badge !== null
+                          ? `${section.label} · ${mod.label} (${badge})`
+                          : `${section.label} · ${mod.label}`
+                      const ariaLabel =
+                        badge !== null
+                          ? `${mod.label}, ${badge} ventende oppgaver`
+                          : mod.label
                       return (
                         <NavLink
                           key={`${group.id}:${mod.to}`}
                           to={mod.to}
                           end={mod.end}
-                          title={`${section.label} · ${mod.label}`}
-                          aria-label={mod.label}
+                          title={tooltip}
+                          aria-label={ariaLabel}
                           className={`relative mx-auto flex h-9 w-9 items-center justify-center rounded-lg transition-colors ${
                             isActiveMod
                               ? 'bg-white/15 text-white after:absolute after:right-1 after:top-1 after:size-1.5 after:rounded-full after:bg-[var(--color-atics-gold)]'
@@ -657,6 +681,16 @@ export function AticsShell() {
                           }`}
                         >
                           <ModIcon className="size-[1.125rem] shrink-0 opacity-85" aria-hidden />
+                          {badge !== null ? (
+                            <span
+                              className={`absolute -right-0.5 -top-0.5 flex min-w-[1rem] items-center justify-center rounded-full px-1 py-0.5 text-[9px] font-bold leading-none tabular-nums text-white ring-2 ring-[var(--ui-nav-rail-mid)] ${
+                                badgeTone === 'amber' ? 'bg-amber-500' : 'bg-red-500'
+                              }`}
+                              aria-hidden
+                            >
+                              {badge > 9 ? '9+' : badge}
+                            </span>
+                          ) : null}
                         </NavLink>
                       )
                     }),
@@ -839,6 +873,9 @@ export function AticsShell() {
                 group.modules.map((mod) => {
                   const Icon = mod.icon
                   const isActiveMod = activeModule.to === mod.to
+                  const badge =
+                    mod.badgeCount && mod.badgeCount > 0 ? mod.badgeCount : null
+                  const badgeTone = mod.badgeTone ?? 'danger'
                   return (
                     <NavLink
                       key={`${group.id}:${mod.to}`}
@@ -852,6 +889,16 @@ export function AticsShell() {
                     >
                       <Icon className="size-4 shrink-0 opacity-85" aria-hidden />
                       {mod.label}
+                      {badge !== null ? (
+                        <span
+                          className={`ml-0.5 inline-flex min-w-[1.125rem] items-center justify-center rounded-full px-1.5 py-0.5 text-[10px] font-bold tabular-nums text-white ${
+                            badgeTone === 'amber' ? 'bg-amber-500' : 'bg-red-500'
+                          }`}
+                          aria-label={`${badge} ventende`}
+                        >
+                          {badge > 99 ? '99+' : badge}
+                        </span>
+                      ) : null}
                     </NavLink>
                   )
                 }),

@@ -1238,10 +1238,35 @@ export function buildNavSections(ctx: NavBuilderContext): NavSection[] {
   ]
 
   if (partnerGroup) {
-    return [
+    return withDerivedModuleBadges([
       { id: 'partner', label: 'Partner', icon: Briefcase, groups: [partnerGroup] },
       ...sections,
-    ]
+    ])
   }
-  return sections
+  return withDerivedModuleBadges(sections)
+}
+
+/**
+ * Populates `NavModule.badgeCount` from the sum of any sub-item
+ * `badgeCount` values that bubble up to the module. Modules that already
+ * declare an explicit `badgeCount` are left untouched. Returns a fresh
+ * tree — no mutation of the input. The shape of the returned tree is
+ * identical to the input so consumers can stay oblivious.
+ */
+function withDerivedModuleBadges(sections: NavSection[]): NavSection[] {
+  return sections.map((section) => ({
+    ...section,
+    groups: section.groups.map((group) => ({
+      ...group,
+      modules: group.modules.map((mod) => {
+        if (mod.badgeCount !== undefined) return mod
+        const aggregated = (mod.subs ?? []).reduce(
+          (sum, sub) => sum + (sub.badgeCount ?? 0),
+          0,
+        )
+        if (aggregated <= 0) return mod
+        return { ...mod, badgeCount: aggregated }
+      }),
+    })),
+  }))
 }
