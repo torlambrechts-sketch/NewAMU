@@ -51,6 +51,15 @@ export type NavModule = {
   moduleSlug?: string
   /** When true, sub-items render at module-level size and indent (e.g. pinned templates). */
   flatSubs?: boolean
+  /**
+   * Numeric pill on the sidebar nav row. Mirrors the top-bar notification
+   * bell pattern. Defaults to the sum of every sub-item's `badgeCount` so
+   * the module surfaces pending work without each module having to wire
+   * its own aggregator (`aticsNavBuilder` does the derivation).
+   */
+  badgeCount?: number
+  /** Tone for the module-level badge; defaults to 'danger' (red). */
+  badgeTone?: 'amber' | 'danger'
 }
 
 export type NavGroup = {

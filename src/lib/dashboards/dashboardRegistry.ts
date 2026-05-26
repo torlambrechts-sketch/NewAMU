@@ -163,9 +163,25 @@ const registry = new Map<string, DashboardScope>()
 /**
  * Module-init registration. Idempotent — re-registering with the same
  * scopeId replaces the entry, which is what HMR wants during dev.
+ *
+ * Side effect: re-runs the composite key-collision check on every
+ * known composite that touches the just-registered scope (either as
+ * the composite itself or as one of its members). The check is a
+ * dev-time guard against the silent-overwrite bug where two member
+ * scopes publish a dataset under the same key and the second write
+ * shadows the first — see `assertCompositeKeysUnique` below.
  */
 export function registerDashboardScope(scope: DashboardScope): void {
   registry.set(scope.scopeId, scope)
+  if (scope.compositeMembers && scope.compositeMembers.length > 0) {
+    assertCompositeKeysUnique(scope.scopeId)
+  }
+  for (const candidate of registry.values()) {
+    if (candidate.scopeId === scope.scopeId) continue
+    if (candidate.compositeMembers?.includes(scope.scopeId)) {
+      assertCompositeKeysUnique(candidate.scopeId)
+    }
+  }
 }
 
 /** Runtime lookup — returns null if the scope isn't registered yet. */
@@ -176,6 +192,62 @@ export function getDashboardScope(scopeId: string): DashboardScope | null {
 /** All registered scopes (mainly for diagnostics). */
 export function listDashboardScopes(): DashboardScope[] {
   return [...registry.values()]
+}
+
+/**
+ * Composite-scope dataset key uniqueness check.
+ *
+ * Composite scopes merge dataset maps from their `compositeMembers` by
+ * key. If two members publish under the same key (e.g. both compliance
+ * and meetings register `invitation_compliance`), the second write
+ * silently wins and the HMS-oversikt page renders the wrong numbers
+ * under the right label. CLAUDE.md flagged this as a real bug already
+ * fixed once (`§11.A`, `executions_over_time` → `controls_executions_over_time`)
+ * but nothing stopped it from regressing.
+ *
+ * This runs at registration time, so a developer adding a new dataset
+ * key sees the collision in their dev console immediately. It is
+ * defensive — production builds also throw if any composite contains
+ * collisions, because shipping with bad numbers under the right label
+ * is worse than a loud failure.
+ *
+ * Returns the list of colliding keys (empty when clean) so tests can
+ * assert against it without scraping console output.
+ */
+export function assertCompositeKeysUnique(compositeScopeId: string): string[] {
+  const composite = registry.get(compositeScopeId)
+  if (!composite || !composite.compositeMembers?.length) return []
+
+  const seenBy = new Map<string, string>()
+  const collisions = new Set<string>()
+  for (const memberId of composite.compositeMembers) {
+    const member = registry.get(memberId)
+    if (!member) continue
+    for (const meta of member.datasets ?? []) {
+      const owner = seenBy.get(meta.key)
+      if (owner && owner !== memberId) {
+        collisions.add(meta.key)
+      } else {
+        seenBy.set(meta.key, memberId)
+      }
+    }
+  }
+
+  if (collisions.size > 0) {
+    const list = [...collisions].sort()
+    const message =
+      `[dashboardRegistry] Composite scope "${compositeScopeId}" has colliding dataset keys ` +
+      `across its members: ${list.join(', ')}. ` +
+      `Namespace each key by its owning scope (e.g. "<scope>_<metric>") so the ` +
+      `merged dataset map is unambiguous. See CLAUDE.md §11.A.`
+    if (import.meta.env.PROD) {
+      throw new Error(message)
+    } else {
+      console.error(message)
+    }
+  }
+
+  return [...collisions].sort()
 }
 
 /**

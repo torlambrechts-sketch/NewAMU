@@ -36,6 +36,8 @@ export const SURVEY_NAV_PERMS: PermissionKey[] = [
 export const LEARNING_NAV_PERMS: PermissionKey[] = [
   'module.view.learning',
   'module.view.dashboard',
+  'learning.manage',
+  'learning.delete',
 ]
 
 export const TASKS_NAV_PERMS: PermissionKey[] = [
@@ -52,7 +54,7 @@ export const DOCUMENTS_NAV_PERMS: PermissionKey[] = [
 
 export const REGISTERS_NAV_PERMS: PermissionKey[] = [
   'module.view.dashboard',
-  'documents.view',
+  'internkontroll.manage',
 ]
 
 export const MEETINGS_NAV_PERMS: PermissionKey[] = [
