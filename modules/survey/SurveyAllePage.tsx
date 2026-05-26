@@ -55,6 +55,7 @@ export function SurveyAllePage() {
       title="Alle undersøkelser"
       description="Hver undersøkelse organisasjonen har sendt — sortert etter kategori, søkbar og filtrerbar på regelverk."
       breadcrumb={[{ label: 'Undersøkelser', to: '/survey' }, { label: 'Alle' }]}
+      moduleSlug="surveys"
       headerActions={
         <Link
           to="/survey"

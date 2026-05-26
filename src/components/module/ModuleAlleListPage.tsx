@@ -1,18 +1,28 @@
 // ModuleAlleListPage — generic "Alle X" table view for every capability
-// module (category-architecture §T7). Uses the List 2 – kandidat/ordre
-// tabell pattern: search + collapsible filter panel inside a List2Shell card,
-// paginated flat table with category group rows.
+// module. Header bar + always-visible FilterBar with multi-select
+// dropdown chips + paginated grouped table.
+//
+// Consumers pass `chipFilters` (single-select-shaped accessors carried
+// over from the previous panel-based implementation). The wrapper
+// converts each enum chip to a multi-select <FilterChip>; chip state
+// is OR-semantics (show rows where accessor(row) ∈ selected).
+//
+// When `moduleSlug` is provided, the FilterBar exposes the saved-views
+// control so admins can curate per-module landing combinations
+// (org-shared content + per-user default star).
 
-import { Fragment, useMemo, useState, type ReactNode } from 'react'
-import { ChevronLeft, ChevronRight, Filter, Search, X } from 'lucide-react'
+import { Fragment, useCallback, useEffect, useMemo, useState, type ReactNode } from 'react'
+import { ChevronLeft, ChevronRight, X } from 'lucide-react'
 import { ModulePageShell } from './ModulePageShell'
+import type { PageWidth } from '../layout/PageContainer'
 import { List2Shell } from '../layout/List2Shell'
 import { Button } from '../ui/Button'
 import { SearchableSelect } from '../ui/SearchableSelect'
 import { StandardInput } from '../ui/Input'
+import { FilterBar, SavedViewsControl } from '../ui/FilterBar'
+import { FilterChip } from '../ui/FilterChip'
+import { useSavedViews, type SavedView } from '../../hooks/useSavedViews'
 import { useRegulationFilter } from '../../context/RegulationFilterContext'
-
-const CREAM_DEEP = '#EFE8DC'
 
 export type ModuleAlleColumn<RowT> = {
   key: string
@@ -24,13 +34,13 @@ export type ModuleAlleColumn<RowT> = {
   width?: string
 }
 
-/** Single-select enum chip — typical for status / module / source / owner. */
+/** Enum chip — accessor returns the row's value for this chip; null when none. */
 export type ModuleAlleChipEnum<RowT> = {
   kind: 'enum'
   id: string
   label: string
   options: { id: string; label: string }[]
-  /** Returns the row's value for this chip; null when the row has no value. */
+  /** Returns the row's value for this chip. Multi-select uses OR semantics. */
   accessor: (row: RowT) => string | null
 }
 
@@ -47,15 +57,26 @@ export type ModuleAlleChipFilter<RowT> =
   | ModuleAlleChipEnum<RowT>
   | ModuleAlleChipDateRange<RowT>
 
-type ChipState =
-  | { kind: 'enum'; value: string }
+// Internal multi-select state for each chip. Enum: array of selected
+// option ids. Date range: from/to ISO date strings.
+type ChipMultiState =
+  | { kind: 'enum'; values: string[] }
   | { kind: 'date_range'; from: string; to: string }
+
+// Saved-views filter payload — flat record keyed by chip.id. Enum
+// stores its selection array; date range stores { from, to }.
+type SavedFilters = Record<
+  string,
+  { kind: 'enum'; values: string[] } | { kind: 'date_range'; from: string; to: string }
+>
 
 export interface ModuleAlleListPageProps<RowT> {
   title: string
   description?: ReactNode
   breadcrumb: { label: string; to?: string }[]
   headerActions?: ReactNode
+  /** Content-width preset. Defaults to `full` so the table fills available space. */
+  width?: PageWidth
   rows: RowT[]
   columns: ModuleAlleColumn<RowT>[]
   /** Category id (Cat 2) the row belongs to — drives default grouping/sort. */
@@ -66,16 +87,22 @@ export interface ModuleAlleListPageProps<RowT> {
   getRegulationId: (row: RowT) => string | null
   /** Free-text search adapter — joined string is matched case-insensitively. */
   searchableText: (row: RowT) => string
-  /** Optional filter chips rendered in a collapsible panel. */
+  /** Optional filter chips rendered in the always-visible FilterBar. */
   chipFilters?: ModuleAlleChipFilter<RowT>[]
+  /**
+   * When set, enables the saved-views control in the FilterBar. The
+   * slug scopes views to this module (org-shared content + per-user
+   * default). Should be stable across renders (e.g. 'surveys',
+   * 'documents', 'learning').
+   */
+  moduleSlug?: string
   /** Empty-state node when zero rows survive filtering. */
   emptyState?: ReactNode
   /** Optional accent — currently reserved for future use. */
   accent?: string
   /**
    * When provided, rows are rendered as a compact touch list on narrow screens
-   * (< sm) instead of the horizontal-scroll table. Return the full anchor/button
-   * element — ModuleAlleListPage wraps it in a <li>.
+   * (< sm) instead of the horizontal-scroll table.
    */
   renderMobileRow?: (row: RowT) => ReactNode
 }
@@ -85,6 +112,7 @@ export function ModuleAlleListPage<RowT>({
   description,
   breadcrumb,
   headerActions,
+  width = 'full',
   rows,
   columns,
   getCategoryId,
@@ -92,60 +120,87 @@ export function ModuleAlleListPage<RowT>({
   getRegulationId,
   searchableText,
   chipFilters,
+  moduleSlug,
   emptyState,
   renderMobileRow,
 }: ModuleAlleListPageProps<RowT>) {
   const { isActive: isRegulationActive } = useRegulationFilter()
   const [query, setQuery] = useState('')
-  const [chipState, setChipState] = useState<Record<string, ChipState>>({})
-  const [filtersOpen, setFiltersOpen] = useState(false)
+  const [chipState, setChipState] = useState<Record<string, ChipMultiState>>({})
   const [perPage, setPerPage] = useState(25)
   const [page, setPage] = useState(1)
 
-  const setEnumChip = (id: string, value: string) => {
+  const setEnumChip = useCallback((id: string, values: string[]) => {
     setPage(1)
     setChipState((prev) => {
       const next = { ...prev }
-      if (!value) delete next[id]
-      else next[id] = { kind: 'enum', value }
+      if (values.length === 0) delete next[id]
+      else next[id] = { kind: 'enum', values }
       return next
     })
-  }
-  const setDateChip = (id: string, patch: { from?: string; to?: string }) => {
+  }, [])
+
+  const setDateChip = useCallback((id: string, patch: { from?: string; to?: string }) => {
     setPage(1)
     setChipState((prev) => {
-      const cur = (prev[id] as { kind: 'date_range'; from: string; to: string } | undefined) ?? {
-        kind: 'date_range' as const,
-        from: '',
-        to: '',
-      }
-      const next: ChipState = {
+      const cur =
+        prev[id]?.kind === 'date_range'
+          ? (prev[id] as { kind: 'date_range'; from: string; to: string })
+          : { kind: 'date_range' as const, from: '', to: '' }
+      const nextEntry: ChipMultiState = {
         kind: 'date_range',
         from: patch.from ?? cur.from,
         to: patch.to ?? cur.to,
       }
       const out = { ...prev }
-      if (next.from === '' && next.to === '') delete out[id]
-      else out[id] = next
+      if (nextEntry.from === '' && nextEntry.to === '') delete out[id]
+      else out[id] = nextEntry
       return out
     })
-  }
-  const clearChip = (id: string) => {
-    setPage(1)
-    setChipState((prev) => {
-      const next = { ...prev }
-      delete next[id]
-      return next
-    })
-  }
-  const clearAllChips = () => {
+  }, [])
+
+  const clearAll = useCallback(() => {
     setPage(1)
     setChipState({})
     setQuery('')
-  }
+  }, [])
 
   const activeFilterCount =
     (query.trim() ? 1 : 0) + Object.keys(chipState).length
+
+  // ── Saved views ─────────────────────────────────────────────────────
+  // moduleSlug is required for the hook contract; we pass an empty
+  // string when the consumer didn't opt in (the hook short-circuits
+  // on empty slug and returns an empty list).
+  const saved = useSavedViews<SavedFilters>(moduleSlug ?? '')
+  const [activeViewId, setActiveViewId] = useState<string | null>(null)
+  const [defaultApplied, setDefaultApplied] = useState(false)
+
+  // Apply the user's default view once after first load.
+  useEffect(() => {
+    if (!moduleSlug) return
+    if (defaultApplied) return
+    if (saved.loading) return
+    if (activeFilterCount > 0) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setDefaultApplied(true)
+      return
+    }
+    if (saved.defaultViewId) {
+      const def = saved.views.find((v) => v.id === saved.defaultViewId)
+      if (def) {
+        setChipState(savedToChipState(def.filters))
+        setActiveViewId(def.id)
+      }
+    }
+    setDefaultApplied(true)
+  }, [moduleSlug, defaultApplied, saved.loading, saved.defaultViewId, saved.views, activeFilterCount])
+
+  const applyView = useCallback((view: SavedView<SavedFilters>) => {
+    setPage(1)
+    setChipState(savedToChipState(view.filters))
+    setActiveViewId(view.id)
+  }, [])
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase()
@@ -156,7 +211,9 @@ export function ModuleAlleListPage<RowT>({
         const state = chipState[chip.id]
         if (!state) continue
         if (chip.kind === 'enum' && state.kind === 'enum') {
-          if (chip.accessor(r) !== state.value) return false
+          if (state.values.length === 0) continue
+          const v = chip.accessor(r)
+          if (!v || !state.values.includes(v)) return false
         } else if (chip.kind === 'date_range' && state.kind === 'date_range') {
           const raw = chip.accessor(r)
           if (!raw) return false
@@ -202,102 +259,90 @@ export function ModuleAlleListPage<RowT>({
     }))
   }, [pageSlice, getCategoryId, categoryNameById])
 
-  const hasFilters = Boolean(chipFilters && chipFilters.length > 0)
+  // Separate enum chips (rendered as FilterChip dropdowns in the bar)
+  // from date_range chips (rendered as date input pairs below the bar
+  // since they don't fit the dropdown pattern).
+  const enumChips = (chipFilters ?? []).filter(
+    (c): c is ModuleAlleChipEnum<RowT> => c.kind === 'enum',
+  )
+  const dateChips = (chipFilters ?? []).filter(
+    (c): c is ModuleAlleChipDateRange<RowT> => c.kind === 'date_range',
+  )
+
+  // Detect unsaved changes vs the currently-applied view.
+  const hasUnsavedChanges = useMemo(() => {
+    if (!activeViewId) return false
+    const view = saved.views.find((v) => v.id === activeViewId)
+    if (!view) return false
+    return !chipStateEquals(chipState, savedToChipState(view.filters))
+  }, [activeViewId, chipState, saved.views])
 
   return (
-    <ModulePageShell breadcrumb={breadcrumb} title={title} description={description} headerActions={headerActions}>
+    <ModulePageShell breadcrumb={breadcrumb} title={title} description={description} headerActions={headerActions} width={width}>
       <List2Shell>
-        {/* Toolbar: search + filter toggle */}
+        {/* Search row */}
         <div className="flex flex-wrap items-center gap-3 border-b border-neutral-100 px-4 py-3 md:px-5">
           <div className="relative min-w-[200px] flex-1">
-            <Search
-              className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-neutral-400"
-              aria-hidden
-            />
             <StandardInput
               type="search"
               value={query}
               onChange={(e) => { setQuery(e.target.value); setPage(1) }}
               placeholder="Søk i alle…"
               aria-label="Søk"
-              className="w-full rounded-lg border border-neutral-200 bg-white py-2.5 pl-10 pr-3 text-sm text-neutral-900 outline-none placeholder:text-neutral-400 focus:ring-2 focus:ring-[#1a3d32]/20"
+              className="w-full"
             />
           </div>
-          {hasFilters ? (
-            <div className="flex flex-wrap items-center gap-2">
-              <Button
-                variant="ghost"
-                onClick={() => setFiltersOpen((o) => !o)}
-                aria-expanded={filtersOpen}
-                aria-pressed={filtersOpen}
-                className={`inline-flex items-center gap-1.5 rounded-lg border px-3 py-2 text-xs font-semibold uppercase tracking-wide transition-colors ${
-                  filtersOpen || activeFilterCount > 0
-                    ? 'border-neutral-400 bg-neutral-50 text-neutral-900'
-                    : 'border-neutral-200 bg-white text-neutral-700 hover:bg-neutral-50'
-                }`}
-              >
-                <Filter className="size-3.5 text-neutral-500" aria-hidden />
-                Filter
-              </Button>
-              {activeFilterCount > 0 ? (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={clearAllChips}
-                  className="inline-flex h-auto items-center gap-1 rounded-none p-0 text-xs font-normal text-neutral-500 hover:bg-transparent hover:text-neutral-800"
-                >
-                  <X className="size-3.5" aria-hidden />
-                  Nullstill
-                </Button>
-              ) : (
-                <span className="text-xs text-neutral-400">Ingen filter aktive</span>
-              )}
-            </div>
-          ) : null}
         </div>
 
-        {/* Collapsible filter panel */}
-        {filtersOpen && hasFilters ? (
-          <div
-            className="flex flex-wrap items-end gap-4 border-b border-neutral-100 px-4 py-4 md:px-5"
-            style={{ backgroundColor: CREAM_DEEP }}
-          >
-            {chipFilters!.map((chip) => {
-              if (chip.kind === 'enum') {
-                const state = chipState[chip.id]
-                const value = state?.kind === 'enum' ? state.value : ''
-                return (
-                  <div key={chip.id} className="flex flex-col gap-1">
-                    <label className="text-[10px] font-bold uppercase tracking-wide text-neutral-600">
-                      {chip.label}
-                    </label>
-                    <div className="flex items-center gap-1.5">
-                      <div className="min-w-[180px]">
-                        <SearchableSelect
-                          value={value}
-                          options={[
-                            { value: '', label: 'Alle' },
-                            ...chip.options.map((o) => ({ value: o.id, label: o.label })),
-                          ]}
-                          onChange={(v) => setEnumChip(chip.id, v)}
-                          placeholder="Alle"
-                        />
-                      </div>
-                      {value ? (
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => clearChip(chip.id)}
-                          aria-label={`Fjern ${chip.label}-filter`}
-                          className="h-auto w-auto rounded-md border border-neutral-200 bg-white p-1.5 text-neutral-500 transition-colors hover:bg-neutral-100"
-                        >
-                          <X className="size-3.5" aria-hidden />
-                        </Button>
-                      ) : null}
-                    </div>
-                  </div>
-                )
-              }
+        {/* FilterBar — enum chips + saved views */}
+        {enumChips.length > 0 || moduleSlug ? (
+          <FilterBar
+            chips={
+              <>
+                {enumChips.map((chip) => {
+                  const state = chipState[chip.id]
+                  const value = state?.kind === 'enum' ? state.values : []
+                  return (
+                    <FilterChip
+                      key={chip.id}
+                      label={chip.label}
+                      options={chip.options.map((o) => ({ value: o.id, label: o.label }))}
+                      value={value}
+                      onChange={(next) => {
+                        setEnumChip(chip.id, next)
+                        setActiveViewId(null)
+                      }}
+                    />
+                  )
+                })}
+              </>
+            }
+            activeFilterCount={Object.keys(chipState).length}
+            onReset={() => {
+              clearAll()
+              setActiveViewId(null)
+            }}
+            savedViews={
+              moduleSlug ? (
+                <SavedViewsControl<SavedFilters>
+                  currentFilters={chipStateToSaved(chipState)}
+                  activeViewId={activeViewId}
+                  hasUnsavedChanges={hasUnsavedChanges}
+                  onApplyView={applyView}
+                  onClearActive={() => setActiveViewId(null)}
+                  saved={saved}
+                />
+              ) : undefined
+            }
+          />
+        ) : null}
+
+        {/* Date-range chip row — kept as date input pairs since the chip
+            dropdown pattern doesn't fit date pickers. Rendered only when
+            date chips exist. */}
+        {dateChips.length > 0 ? (
+          <div className="flex flex-wrap items-end gap-4 border-b border-neutral-100 bg-neutral-50/40 px-4 py-3 md:px-5">
+            {dateChips.map((chip) => {
               const state = chipState[chip.id]
               const from = state?.kind === 'date_range' ? state.from : ''
               const to = state?.kind === 'date_range' ? state.to : ''
@@ -310,7 +355,7 @@ export function ModuleAlleListPage<RowT>({
                     <StandardInput
                       type="date"
                       value={from}
-                      onChange={(e) => setDateChip(chip.id, { from: e.target.value })}
+                      onChange={(e) => { setDateChip(chip.id, { from: e.target.value }); setActiveViewId(null) }}
                       aria-label={`${chip.label} fra`}
                       className="w-[148px]"
                     />
@@ -318,7 +363,7 @@ export function ModuleAlleListPage<RowT>({
                     <StandardInput
                       type="date"
                       value={to}
-                      onChange={(e) => setDateChip(chip.id, { to: e.target.value })}
+                      onChange={(e) => { setDateChip(chip.id, { to: e.target.value }); setActiveViewId(null) }}
                       aria-label={`${chip.label} til`}
                       className="w-[148px]"
                     />
@@ -326,7 +371,7 @@ export function ModuleAlleListPage<RowT>({
                       <Button
                         variant="ghost"
                         size="icon"
-                        onClick={() => clearChip(chip.id)}
+                        onClick={() => { setDateChip(chip.id, { from: '', to: '' }); setActiveViewId(null) }}
                         aria-label={`Fjern ${chip.label}-filter`}
                         className="h-auto w-auto rounded-md border border-neutral-200 bg-white p-1.5 text-neutral-500 transition-colors hover:bg-neutral-100"
                       >
@@ -473,4 +518,48 @@ export function ModuleAlleListPage<RowT>({
       </List2Shell>
     </ModulePageShell>
   )
+}
+
+// ── Saved-views serialisation helpers ───────────────────────────────────
+
+function savedToChipState(filters: SavedFilters): Record<string, ChipMultiState> {
+  const out: Record<string, ChipMultiState> = {}
+  for (const [id, entry] of Object.entries(filters)) {
+    if (entry.kind === 'enum') out[id] = { kind: 'enum', values: [...entry.values] }
+    else out[id] = { kind: 'date_range', from: entry.from, to: entry.to }
+  }
+  return out
+}
+
+function chipStateToSaved(state: Record<string, ChipMultiState>): SavedFilters {
+  const out: SavedFilters = {}
+  for (const [id, entry] of Object.entries(state)) {
+    if (entry.kind === 'enum') out[id] = { kind: 'enum', values: [...entry.values] }
+    else out[id] = { kind: 'date_range', from: entry.from, to: entry.to }
+  }
+  return out
+}
+
+function chipStateEquals(
+  a: Record<string, ChipMultiState>,
+  b: Record<string, ChipMultiState>,
+): boolean {
+  const ak = Object.keys(a)
+  const bk = Object.keys(b)
+  if (ak.length !== bk.length) return false
+  for (const k of ak) {
+    const av = a[k]
+    const bv = b[k]
+    if (!bv) return false
+    if (av.kind !== bv.kind) return false
+    if (av.kind === 'enum' && bv.kind === 'enum') {
+      if (av.values.length !== bv.values.length) return false
+      const aSorted = [...av.values].sort()
+      const bSorted = [...bv.values].sort()
+      if (aSorted.some((v, i) => v !== bSorted[i])) return false
+    } else if (av.kind === 'date_range' && bv.kind === 'date_range') {
+      if (av.from !== bv.from || av.to !== bv.to) return false
+    }
+  }
+  return true
 }

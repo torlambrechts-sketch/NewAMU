@@ -40,6 +40,7 @@ export function LearningAllePage() {
       title="Alle kurs"
       description="Hvert kurs — sortert etter kategori, søkbart og filtrerbart på regelverk."
       breadcrumb={[{ label: 'Læring', to: '/learning' }, { label: 'Alle' }]}
+      moduleSlug="learning"
       headerActions={
         <Link
           to="/learning"

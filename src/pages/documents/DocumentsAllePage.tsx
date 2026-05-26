@@ -52,6 +52,7 @@ export function DocumentsAllePage() {
       title="Alle dokumenter"
       description="Hver wiki-side organisasjonen har — sortert etter plass, søkbar og filtrerbar på regelverk."
       breadcrumb={[{ label: 'Dokumenter', to: '/documents' }, { label: 'Alle' }]}
+      moduleSlug="documents"
       headerActions={
         <Link
           to="/documents"
