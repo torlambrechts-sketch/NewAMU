@@ -30,12 +30,15 @@ export function AarshjulSection({
   data,
   frameworks,
   categories,
+  search,
 }: {
   data: IkData
   /** Empty = no filter on framework. Multiple = OR semantics. */
   frameworks: FrameworkId[]
   /** Empty = no filter on category. Multiple = OR semantics. */
   categories: IkCategoryId[]
+  /** Free-text search from the page-level Søk row. */
+  search: string
 }) {
   const [view, setView] = useState<View>('wheel')
   const [openMonth, setOpenMonth] = useState<number | null>(null)
@@ -71,8 +74,11 @@ export function AarshjulSection({
         return false
       })
     }
-    return scoped.filter((a) => a.year === year)
-  }, [data.aarshjul, frameworks, categories, categoriesByControl, year])
+    const q = search.trim().toLowerCase()
+    let yearScoped = scoped.filter((a) => a.year === year)
+    if (q) yearScoped = yearScoped.filter((a) => a.title.toLowerCase().includes(q))
+    return yearScoped
+  }, [data.aarshjul, frameworks, categories, categoriesByControl, year, search])
 
   // Years present in the underlying data — used to populate the year
   // picker so the user can scrub through historic / planned years that

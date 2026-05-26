@@ -13,12 +13,10 @@ import {
   ListPlus,
   Plus,
   Scale,
-  Search,
   ShieldCheck,
   ShieldOff,
 } from 'lucide-react'
 import { Button } from '../../../../components/ui/Button'
-import { StandardInput } from '../../../../components/ui/Input'
 import {
   CriticalityChip,
   FilterPills,
@@ -37,14 +35,16 @@ export function KravSection({
   data,
   frameworks,
   categories,
+  search,
 }: {
   data: IkData
   /** Empty = no filter on framework. Multiple = OR semantics. */
   frameworks: FrameworkId[]
   /** Empty = no filter on category. Multiple = OR semantics. */
   categories: IkCategoryId[]
+  /** Free-text search supplied by the page-level Søk row. */
+  search: string
 }) {
-  const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState<IkKravStatus | 'all'>('all')
   const [critFilter, setCritFilter] = useState<IkCriticality | 'all'>('all')
   const [openRow, setOpenRow] = useState<string | null>(null)
@@ -107,18 +107,10 @@ export function KravSection({
           </div>
         </div>
 
-        {/* Toolbar */}
+        {/* Toolbar — section-specific filter pills only. The free-text
+            search row lives at the page level so users see one search
+            input regardless of which section is active. */}
         <div className="flex flex-wrap items-center gap-2 border-b border-neutral-100 px-5 py-2.5">
-          <div className="relative min-w-[220px] flex-1">
-            <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-neutral-400" />
-            <StandardInput
-              type="text"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Søk i tittel, paragraf…"
-              className="bg-neutral-50 py-1.5 pl-8 pr-3 text-xs focus:bg-white"
-            />
-          </div>
           <FilterPills
             value={statusFilter}
             onChange={setStatusFilter}

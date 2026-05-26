@@ -30,12 +30,15 @@ export function KontrollerSection({
   data,
   frameworks,
   categories,
+  search,
 }: {
   data: IkData
   /** Empty = no filter on framework. Multiple = OR semantics. */
   frameworks: FrameworkId[]
   /** Empty = no filter on category. Multiple = OR semantics. */
   categories: IkCategoryId[]
+  /** Free-text search from the page-level Søk row. */
+  search: string
 }) {
   const [searchParams, setSearchParams] = useSearchParams()
   const openControl = (id: string) => {
@@ -64,6 +67,7 @@ export function KontrollerSection({
   const filtered = useMemo(() => {
     const fwSet = frameworks.length ? new Set(frameworks) : null
     const catSet = categories.length ? new Set(categories) : null
+    const q = search.trim().toLowerCase()
     return enriched.filter((c) => {
       if (fwSet && !c.fws.some((id) => fwSet.has(id))) return false
       // A kontroll matches the category filter if ANY of the paragraphs
@@ -71,9 +75,10 @@ export function KontrollerSection({
       if (catSet && !c.categories.some((id) => catSet.has(id))) return false
       if (typeFilter !== 'all' && c.type !== typeFilter) return false
       if (freqFilter !== 'all' && c.frequency !== freqFilter) return false
+      if (q && !c.title.toLowerCase().includes(q) && !c.slug.toLowerCase().includes(q)) return false
       return true
     })
-  }, [enriched, frameworks, categories, typeFilter, freqFilter])
+  }, [enriched, frameworks, categories, typeFilter, freqFilter, search])
 
   const avgEff =
     filtered.length === 0

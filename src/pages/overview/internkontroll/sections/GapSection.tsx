@@ -28,6 +28,7 @@ export function GapSection({
   frameworks,
   categories,
   plan,
+  search,
 }: {
   data: IkData
   /** Empty = no filter on framework. Multiple = OR semantics. */
@@ -35,16 +36,20 @@ export function GapSection({
   /** Empty = no filter on category. Multiple = OR semantics. */
   categories: IkCategoryId[]
   plan: PlanHook
+  /** Free-text search from the page-level Søk row. */
+  search: string
 }) {
   const [view, setView] = useState<'matrix' | 'list'>('matrix')
 
   const gaps = useMemo(() => {
     const fwSet = frameworks.length ? new Set(frameworks) : null
     const catSet = categories.length ? new Set(categories) : null
+    const q = search.trim().toLowerCase()
     return data.krav
       .filter((k) => k.status !== 'covered' && k.status !== 'na')
       .filter((k) => !fwSet || fwSet.has(k.fw))
       .filter((k) => !catSet || catSet.has(k.category))
+      .filter((k) => !q || k.ref.toLowerCase().includes(q) || k.title.toLowerCase().includes(q))
       .sort((a, b) => {
         const order: Record<typeof a.status, number> = {
           gap: 0,
@@ -61,7 +66,7 @@ export function GapSection({
         }
         return crit[a.criticality] - crit[b.criticality]
       })
-  }, [data.krav, frameworks, categories])
+  }, [data.krav, frameworks, categories, search])
 
   return (
     <div className="space-y-4">

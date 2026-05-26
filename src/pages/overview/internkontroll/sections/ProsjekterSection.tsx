@@ -13,7 +13,7 @@
 //     row from the milestone string and updates every plan-item that
 //     shared that string to point at the new project_id.
 
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import {
   ArrowLeft,
   ArrowUpRight,
@@ -47,6 +47,7 @@ export function ProsjekterSection({
   data,
   plan,
   onProjectsChanged,
+  search = '',
 }: {
   data: IkData
   plan: PlanHook
@@ -54,7 +55,18 @@ export function ProsjekterSection({
    *  data hook refreshes (and the new row appears in `data.prosjekter`
    *  without a remount). */
   onProjectsChanged: () => void
+  /** Free-text search from the page-level Søk row. */
+  search?: string
 }) {
+  const filteredProsjekter = useMemo(() => {
+    const q = search.trim().toLowerCase()
+    if (!q) return data.prosjekter
+    return data.prosjekter.filter(
+      (p) =>
+        p.name.toLowerCase().includes(q) ||
+        p.leader.toLowerCase().includes(q),
+    )
+  }, [data.prosjekter, search])
   const [openId, setOpenId] = useState<string | null>(null)
   const open = openId ? data.prosjekter.find((p) => p.id === openId) : null
   const projects = useTaskProjects()
@@ -172,14 +184,15 @@ export function ProsjekterSection({
         </div>
       )}
 
-      {data.prosjekter.length === 0 ? (
+      {filteredProsjekter.length === 0 ? (
         <div className="rounded-xl border border-neutral-200/80 bg-white p-6 text-center text-[12px] italic text-neutral-500 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
-          Ingen prosjekter ennå. Bruk «Nytt prosjekt» for å opprette ett — eller knytt et
-          tiltak til et eksisterende prosjekt i Oppgavestyring.
+          {search.trim()
+            ? 'Ingen prosjekter matcher søket.'
+            : 'Ingen prosjekter ennå. Bruk «Nytt prosjekt» for å opprette ett — eller knytt et tiltak til et eksisterende prosjekt i Oppgavestyring.'}
         </div>
       ) : (
         <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
-          {data.prosjekter.map((p) => {
+          {filteredProsjekter.map((p) => {
             const kravCov = p.krav === 0 ? 0 : Math.round((p.krav_covered / p.krav) * 100)
             return (
               <article

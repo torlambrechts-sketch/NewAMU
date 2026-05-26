@@ -7,7 +7,23 @@ import { Button } from '../../../../components/ui/Button'
 import { Initials, SectionBanner } from './internkontrollShared'
 import type { IkData } from '../useInternkontrollPageData'
 
-export function RevisjonSection({ data }: { data: IkData }) {
+export function RevisjonSection({
+  data,
+  search = '',
+}: {
+  data: IkData
+  /** Free-text search from the page-level Søk row. */
+  search?: string
+}) {
+  const q = search.trim().toLowerCase()
+  const filtered = q
+    ? data.audit.filter(
+        (e) =>
+          e.who.toLowerCase().includes(q) ||
+          e.action.toLowerCase().includes(q) ||
+          e.detail.toLowerCase().includes(q),
+      )
+    : data.audit
   return (
     <div className="space-y-4">
       <SectionBanner
@@ -29,13 +45,13 @@ export function RevisjonSection({ data }: { data: IkData }) {
       </SectionBanner>
 
       <div className="rounded-xl border border-neutral-200/80 bg-white p-5 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
-        {data.audit.length === 0 ? (
+        {filtered.length === 0 ? (
           <p className="py-6 text-center text-[12px] italic text-neutral-500">
-            Ingen registrerte hendelser ennå.
+            {q ? 'Ingen treff for søket.' : 'Ingen registrerte hendelser ennå.'}
           </p>
         ) : (
           <ol className="space-y-2">
-            {data.audit.map((e, i) => (
+            {filtered.map((e, i) => (
               <li
                 key={`${e.when}-${i}`}
                 className="flex items-start gap-3 rounded-md border border-neutral-200/80 bg-white p-3"

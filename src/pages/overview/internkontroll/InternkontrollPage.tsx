@@ -38,11 +38,13 @@ import {
   ListChecks,
   Plus,
   Scale,
+  Search,
   ShieldCheck,
   TriangleAlert,
 } from 'lucide-react'
 import { ModulePageShell } from '../../../components/module/ModulePageShell'
 import { Button } from '../../../components/ui/Button'
+import { StandardInput } from '../../../components/ui/Input'
 import { FilterBar, SavedViewsControl } from '../../../components/ui/FilterBar'
 import { FilterChip } from '../../../components/ui/FilterChip'
 import { useSavedViews } from '../../../hooks/useSavedViews'
@@ -52,7 +54,7 @@ import { FRAMEWORK_IDS, type FrameworkId } from './frameworkParagraphs'
 import { OversiktSection } from './sections/OversiktSection'
 import { KravSection } from './sections/KravSection'
 import { KontrollerSection } from './sections/KontrollerSection'
-import { ControlDetailView } from '../../../../modules/compliance-layer'
+import { ControlDetailView, ControlEditorPanel } from '../../../../modules/compliance-layer'
 import { GapSection } from './sections/GapSection'
 import { AarshjulSection } from './sections/AarshjulSection'
 import { TiltakSection } from './sections/TiltakSection'
@@ -105,6 +107,30 @@ const SECTION_SHOWS_CATEGORY: Record<IkSectionId, boolean> = {
   tiltak: true,
   prosjekter: false,
   revisjon: false,
+}
+
+// Whether the page-level search input is shown. Oversikt is a
+// dashboard (no list); everything else has a list to narrow.
+const SECTION_SHOWS_SEARCH: Record<IkSectionId, boolean> = {
+  oversikt: false,
+  krav: true,
+  kontroller: true,
+  gap: true,
+  aarshjul: true,
+  tiltak: true,
+  prosjekter: true,
+  revisjon: true,
+}
+
+const SEARCH_PLACEHOLDER: Record<IkSectionId, string> = {
+  oversikt: 'Søk…',
+  krav: 'Søk i tittel eller paragraf…',
+  kontroller: 'Søk i kontrolltittel…',
+  gap: 'Søk i tittel eller paragraf…',
+  aarshjul: 'Søk i kontrolltittel…',
+  tiltak: 'Søk i tittel…',
+  prosjekter: 'Søk i prosjektnavn eller leder…',
+  revisjon: 'Søk i aktør, handling eller detalj…',
 }
 
 // ── Filter state + URL sync ────────────────────────────────────────────
@@ -169,6 +195,13 @@ export function InternkontrollPage() {
   }, [filters])
   const activeFilterCount = filters.frameworks.length + filters.categories.length
 
+  // Page-level free-text search. One input drives whatever section is
+  // visible — each section applies it to the fields that make sense
+  // (paragraph + title for Krav, title for Kontroller, …). Kept in
+  // local React state since the SearchableSelect-style URL sync isn't
+  // worth the typing latency on a per-keystroke field.
+  const [search, setSearch] = useState('')
+
   // ?control=<uuid> on top of section=kontroller swaps the list for the
   // detail view in-place. Lets users navigate without leaving the
   // Internkontroll chrome.
@@ -183,6 +216,7 @@ export function InternkontrollPage() {
     [searchParams, setSearchParams],
   )
 
+  const [createControlOpen, setCreateControlOpen] = useState(false)
   const { data: rawData, loading, bridgesByPlanId, reload: reloadPageData } = useInternkontrollPageData()
   // The plan hook accepts a single FrameworkFilter (string | 'all'). For
   // multi-select we fall back to 'all' and let the section apply the
@@ -247,29 +281,40 @@ export function InternkontrollPage() {
     return !filtersEqual(filters, { ...EMPTY_FILTERS, ...view.filters })
   }, [activeViewId, filters, saved.views])
 
+  // Section-aware export. The label + payload follow the active section
+  // so the auditor gets the dataset they're looking at, not always the
+  // krav-catalog. Filters are applied so the export matches what's
+  // visible on screen. Oversikt has no list to export → button hidden.
+  const exportConfig = useMemo(
+    () => buildExportForSection(section, data, filters),
+    [section, data, filters],
+  )
+
   const headerActions = (
     <div className="flex items-center gap-2">
-      <Button
-        variant="secondary"
-        size="sm"
-        icon={<Download className="h-3.5 w-3.5" />}
-        onClick={() => {
-          const blob = exportStatusCsv(data)
-          const url = URL.createObjectURL(blob)
-          const a = document.createElement('a')
-          a.href = url
-          a.download = `internkontroll-status-${new Date().toISOString().slice(0, 10)}.csv`
-          a.click()
-          URL.revokeObjectURL(url)
-        }}
-      >
-        Eksporter status
-      </Button>
+      {exportConfig ? (
+        <Button
+          variant="secondary"
+          size="sm"
+          icon={<Download className="h-3.5 w-3.5" />}
+          onClick={() => {
+            const blob = exportConfig.build()
+            const url = URL.createObjectURL(blob)
+            const a = document.createElement('a')
+            a.href = url
+            a.download = exportConfig.filename
+            a.click()
+            URL.revokeObjectURL(url)
+          }}
+        >
+          {exportConfig.label}
+        </Button>
+      ) : null}
       <Button
         variant="primary"
         size="sm"
         icon={<Plus className="h-3.5 w-3.5" />}
-        onClick={() => setSection('kontroller')}
+        onClick={() => setCreateControlOpen(true)}
       >
         Ny kontroll
       </Button>
@@ -330,6 +375,25 @@ export function InternkontrollPage() {
               )
             })}
           </nav>
+
+          {/* Free-text search — drives whichever section is active.
+              Placeholder text tracks the section so the input hints
+              at the actual fields being matched. */}
+          {SECTION_SHOWS_SEARCH[section] ? (
+            <div className="flex items-center gap-2 border-b border-neutral-100 px-4 py-2.5">
+              <div className="relative w-full max-w-md">
+                <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-neutral-400" aria-hidden />
+                <StandardInput
+                  type="search"
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  placeholder={SEARCH_PLACEHOLDER[section]}
+                  aria-label="Søk"
+                  className="w-full pl-10"
+                />
+              </div>
+            </div>
+          ) : null}
 
           {/* FilterBar — Rammeverk + Kontroller-kategori chips + saved
               views. Hidden on sections where neither dimension is
@@ -399,6 +463,7 @@ export function InternkontrollPage() {
               data={data}
               frameworks={filters.frameworks}
               categories={filters.categories}
+              search={search}
             />
           )}
           {section === 'kontroller' &&
@@ -416,6 +481,7 @@ export function InternkontrollPage() {
                 data={data}
                 frameworks={filters.frameworks}
                 categories={filters.categories}
+                search={search}
               />
             ))}
           {section === 'gap' && (
@@ -424,6 +490,7 @@ export function InternkontrollPage() {
               frameworks={filters.frameworks}
               categories={filters.categories}
               plan={plan}
+              search={search}
             />
           )}
           {section === 'aarshjul' && (
@@ -431,36 +498,223 @@ export function InternkontrollPage() {
               data={data}
               frameworks={filters.frameworks}
               categories={filters.categories}
+              search={search}
             />
           )}
           {section === 'tiltak' && (
-            <TiltakSection data={data} plan={plan} categories={filters.categories} />
+            <TiltakSection
+              data={data}
+              plan={plan}
+              categories={filters.categories}
+              search={search}
+            />
           )}
           {section === 'prosjekter' && (
-            <ProsjekterSection data={data} plan={plan} onProjectsChanged={reloadPageData} />
+            <ProsjekterSection
+              data={data}
+              plan={plan}
+              onProjectsChanged={reloadPageData}
+              search={search}
+            />
           )}
-          {section === 'revisjon' && <RevisjonSection data={data} />}
+          {section === 'revisjon' && <RevisjonSection data={data} search={search} />}
         </section>
       </div>
+
+      <ControlEditorPanel
+        open={createControlOpen}
+        mode="create"
+        onClose={() => setCreateControlOpen(false)}
+        onSaved={async (id) => {
+          setCreateControlOpen(false)
+          await reloadPageData()
+          // Land the user on the new control's detail view inside the
+          // Internkontroll chrome so they can immediately add bindings,
+          // evidence, etc. — same in-place pattern the existing row click
+          // uses for ControlDetailView.
+          const sp = new URLSearchParams(searchParams)
+          sp.set('section', 'kontroller')
+          sp.set('control', id)
+          setSearchParams(sp, { replace: false })
+        }}
+      />
     </ModulePageShell>
   )
 }
 
-function exportStatusCsv(data: ReturnType<typeof useInternkontrollPageData>['data']) {
-  const lines = [
-    ['Rammeverk', 'Paragraf', 'Tittel', 'Status', 'Kritikalitet', 'Eier'].join(';'),
-  ]
-  for (const k of data.krav) {
-    lines.push(
-      [
-        escapeCsv(k.fw),
-        escapeCsv(k.ref),
-        escapeCsv(k.title),
-        escapeCsv(k.status),
-        escapeCsv(k.criticality),
-        escapeCsv(k.owner ?? ''),
-      ].join(';'),
-    )
+// Section-aware export builder. Returns null for sections that have no
+// list to dump (Oversikt). Each section gets its own column set + file
+// name so the auditor receives the dataset they were viewing.
+type IkData = ReturnType<typeof useInternkontrollPageData>['data']
+type ExportConfig = {
+  label: string
+  filename: string
+  build: () => Blob
+}
+
+function buildExportForSection(
+  section: IkSectionId,
+  data: IkData,
+  filters: IkFilters,
+): ExportConfig | null {
+  const today = new Date().toISOString().slice(0, 10)
+  const fwSet = filters.frameworks.length ? new Set(filters.frameworks) : null
+  const catSet = filters.categories.length ? new Set(filters.categories) : null
+
+  switch (section) {
+    case 'krav': {
+      const rows = data.krav.filter(
+        (k) =>
+          (!fwSet || fwSet.has(k.fw)) && (!catSet || catSet.has(k.category)),
+      )
+      return {
+        label: 'Eksporter krav',
+        filename: `internkontroll-krav-${today}.csv`,
+        build: () =>
+          buildCsv(
+            ['Rammeverk', 'Paragraf', 'Tittel', 'Status', 'Kritikalitet', 'Eier'],
+            rows.map((k) => [k.fw, k.ref, k.title, k.status, k.criticality, k.owner ?? '']),
+          ),
+      }
+    }
+    case 'kontroller': {
+      // IkKontroll's framework membership lives in `covers[]` as
+      // prefixed paragraph strings ("AML § 3-1", "ISO 45001 5.4", …),
+      // not a separate array. For multi-framework filter we test
+      // prefix membership; the framework dimension stays best-effort
+      // here since the canonical mapping happens in the section.
+      const fwPrefixOk = (covers: readonly string[]): boolean => {
+        if (!fwSet) return true
+        for (const code of covers) {
+          if (fwSet.has('aml') && code.startsWith('AML ')) return true
+          if (fwSet.has('ik-f') && code.startsWith('IK-f ')) return true
+          if (fwSet.has('gdpr') && code.startsWith('GDPR ')) return true
+          if (fwSet.has('apenhetsloven') && code.startsWith('Åpenhetsloven ')) return true
+          if (fwSet.has('iso-45001') && code.startsWith('ISO 45001')) return true
+        }
+        return false
+      }
+      const rows = data.kontroller.filter(
+        (c) =>
+          fwPrefixOk(c.covers) &&
+          (!catSet || c.categories.some((id) => catSet.has(id))),
+      )
+      return {
+        label: 'Eksporter kontroller',
+        filename: `internkontroll-kontroller-${today}.csv`,
+        build: () =>
+          buildCsv(
+            ['Tittel', 'Type', 'Status', 'Frekvens', 'Eier', 'Effektivitet'],
+            rows.map((c) => [
+              c.title,
+              c.type,
+              c.status,
+              c.frequencyLabel,
+              c.owner,
+              String(c.effectiveness ?? ''),
+            ]),
+          ),
+      }
+    }
+    case 'gap': {
+      const rows = data.krav.filter(
+        (k) =>
+          (k.status === 'gap' || k.status === 'partial') &&
+          (!fwSet || fwSet.has(k.fw)) &&
+          (!catSet || catSet.has(k.category)),
+      )
+      return {
+        label: 'Eksporter gap',
+        filename: `internkontroll-gap-${today}.csv`,
+        build: () =>
+          buildCsv(
+            ['Rammeverk', 'Paragraf', 'Tittel', 'Status', 'Kritikalitet', 'Eier'],
+            rows.map((k) => [k.fw, k.ref, k.title, k.status, k.criticality, k.owner ?? '']),
+          ),
+      }
+    }
+    case 'aarshjul': {
+      const rows = data.aarshjul.filter(
+        (a) => !fwSet || a.fw.some((id) => fwSet.has(id)),
+      )
+      return {
+        label: 'Eksporter årshjul',
+        filename: `internkontroll-aarshjul-${today}.csv`,
+        build: () =>
+          buildCsv(
+            ['År', 'Måned', 'Tittel', 'Status', 'Eier', 'Rammeverk'],
+            rows.map((a) => [
+              String(a.year),
+              String(a.month),
+              a.title,
+              a.status,
+              a.owner,
+              a.fw.join('|'),
+            ]),
+          ),
+      }
+    }
+    case 'tiltak': {
+      const rows = data.tiltak.filter(
+        (t) => !catSet || catSet.has(t.category),
+      )
+      return {
+        label: 'Eksporter tiltak',
+        filename: `internkontroll-tiltak-${today}.csv`,
+        build: () =>
+          buildCsv(
+            ['Tittel', 'Status', 'Prioritet', 'Eier', 'Frist', 'Rammeverk'],
+            rows.map((t) => [
+              t.title,
+              t.status,
+              t.priority,
+              t.owner,
+              t.deadline,
+              t.fw,
+            ]),
+          ),
+      }
+    }
+    case 'prosjekter': {
+      return {
+        label: 'Eksporter prosjekter',
+        filename: `internkontroll-prosjekter-${today}.csv`,
+        build: () =>
+          buildCsv(
+            ['Navn', 'Leder', 'Status', 'Fase', 'Frist', 'Tiltak', 'Åpne tiltak'],
+            data.prosjekter.map((p) => [
+              p.name,
+              p.leader,
+              p.status,
+              p.phase,
+              p.deadline,
+              String(p.tasks),
+              String(p.openTasks),
+            ]),
+          ),
+      }
+    }
+    case 'revisjon': {
+      return {
+        label: 'Eksporter revisjonslogg',
+        filename: `internkontroll-revisjon-${today}.csv`,
+        build: () =>
+          buildCsv(
+            ['Tidspunkt', 'Aktør', 'Handling', 'Detalj'],
+            data.audit.map((a) => [a.when, a.who, a.action, a.detail]),
+          ),
+      }
+    }
+    case 'oversikt':
+      // Dashboard view — no list to export. Button hidden in headerActions.
+      return null
+  }
+}
+
+function buildCsv(headers: string[], rows: string[][]): Blob {
+  const lines = [headers.map(escapeCsv).join(';')]
+  for (const row of rows) {
+    lines.push(row.map(escapeCsv).join(';'))
   }
   // BOM so Excel reads the file as UTF-8 (handles æ/ø/å correctly).
   return new Blob(['﻿' + lines.join('\n')], { type: 'text/csv;charset=utf-8' })

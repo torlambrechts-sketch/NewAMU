@@ -53,11 +53,14 @@ export function TiltakSection({
   data,
   plan,
   categories,
+  search,
 }: {
   data: IkData
   plan: PlanHook
   /** Empty = no filter on category. Multiple = OR semantics. */
   categories: IkCategoryId[]
+  /** Free-text search from the page-level Søk row. */
+  search: string
 }) {
   const [statusFilter, setStatusFilter] = useState<IkTiltak['status'] | 'all'>('all')
   const [priorityFilter, setPriorityFilter] = useState<IkTiltak['priority'] | 'all'>('all')
@@ -79,13 +82,15 @@ export function TiltakSection({
   // reflected here immediately without a refetch round-trip.
   const filtered = useMemo(() => {
     const catSet = categories.length ? new Set(categories) : null
+    const q = search.trim().toLowerCase()
     return data.tiltak.filter((t) => {
       if (catSet && !catSet.has(t.category)) return false
       if (statusFilter !== 'all' && t.status !== statusFilter) return false
       if (priorityFilter !== 'all' && t.priority !== priorityFilter) return false
+      if (q && !t.title.toLowerCase().includes(q)) return false
       return true
     })
-  }, [data.tiltak, categories, statusFilter, priorityFilter])
+  }, [data.tiltak, categories, statusFilter, priorityFilter, search])
 
   const grouped = useMemo(() => {
     const groups = new Map<string, IkTiltak[]>()
