@@ -215,25 +215,17 @@ export function FilterChip({
           {triggerSummary}
         </span>
         {isActive ? (
-          <span
-            role="button"
-            tabIndex={0}
+          <button
+            type="button"
             aria-label={`Tøm ${label.toLowerCase()}`}
             onClick={(e) => {
               e.stopPropagation()
               clear()
             }}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' || e.key === ' ') {
-                e.preventDefault()
-                e.stopPropagation()
-                clear()
-              }
-            }}
-            className="ml-0.5 inline-flex size-4 cursor-pointer items-center justify-center rounded-sm text-neutral-400 hover:bg-neutral-100 hover:text-neutral-700"
+            className="ml-0.5 inline-flex size-4 items-center justify-center rounded-sm text-neutral-400 outline-none hover:bg-neutral-100 hover:text-neutral-700 focus-visible:ring-2 focus-visible:ring-[color-mix(in_srgb,var(--ui-accent)_40%,transparent)]"
           >
             <X className="size-3" aria-hidden />
-          </span>
+          </button>
         ) : (
           <ChevronDown
             className={['size-3.5 shrink-0 transition-transform', open ? 'rotate-180 text-[var(--ui-accent)]' : 'text-neutral-400'].join(' ')}

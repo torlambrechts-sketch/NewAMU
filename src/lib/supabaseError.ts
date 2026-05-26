@@ -73,7 +73,37 @@ export function getSupabaseErrorMessage(err: unknown): string {
     )
   }
 
-  return raw || 'Ukjent feil'
+  // Postgres / Zod / generic-English fallthroughs. The platform is nb-only
+  // to users; the raw English Postgres text is technically accurate but
+  // looks unprofessional in a moment of stress (a save just failed). We
+  // wrap the raw message in a polite Norwegian envelope and keep the
+  // English detail as fine print so engineers can still grep it from
+  // support tickets.
+  if (lower.includes('violates check constraint')) {
+    return 'Lagring feilet på en datavalidering. Sjekk verdiene og prøv igjen.'
+  }
+  if (lower.includes('violates foreign key') || lower.includes('violates not-null')) {
+    return 'Lagring feilet — en påkrevd referanse eller verdi manglet. Last siden på nytt og prøv igjen.'
+  }
+  if (lower.includes('jwt expired') || lower.includes('jwt is expired')) {
+    return 'Innloggingen er utløpt. Last siden på nytt og logg inn på nytt.'
+  }
+  if (lower.includes('invalid input syntax') || lower.includes('invalid_text_representation')) {
+    return 'Lagring feilet — formatet på en verdi var ugyldig. Sjekk feltet og prøv igjen.'
+  }
+  if (lower.includes('canceling statement due to statement timeout') || lower.includes('57014')) {
+    return 'Spørringen brukte for lang tid og ble avbrutt. Prøv et smalere utvalg eller forsøk igjen om et øyeblikk.'
+  }
+  if (lower.includes('too many requests') || lower.includes('rate limit') || lower.includes('429')) {
+    return 'Du har sendt for mange forespørsler på kort tid. Vent et øyeblikk og prøv igjen.'
+  }
+  if (lower.includes('payload too large') || lower.includes('413')) {
+    return 'Filen eller dataene var for store. Reduser størrelsen og prøv igjen.'
+  }
+  if (raw.length > 0) {
+    return `Lagring feilet. Detalj: ${raw}`
+  }
+  return 'Ukjent feil. Last siden på nytt og prøv igjen.'
 }
 
 function mapAbortLikeMessage(message: string): string {

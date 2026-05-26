@@ -2,7 +2,7 @@ import { forwardRef, type ButtonHTMLAttributes, type ReactNode } from 'react'
 import { twMerge } from 'tailwind-merge'
 
 const baseClassName =
-  'inline-flex items-center justify-center gap-1.5 rounded-md font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-50'
+  'inline-flex items-center justify-center gap-1.5 rounded-md font-semibold transition-colors outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-[#1a3d32]/40 disabled:cursor-not-allowed disabled:opacity-50'
 
 const variantClassName: Record<'primary' | 'secondary' | 'danger' | 'ghost', string> = {
   primary: 'bg-[#1a3d32] text-white hover:bg-[#14312a]',
