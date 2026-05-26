@@ -816,7 +816,15 @@ export function ChecklistsPage() {
     if (defaultApplied) return
     if (savedViews.loading) return
     if (activeFilterCount > 0) {
+      // URL had filters — try to recognise them as an existing saved
+      // view so the chip's name + star still light up after refresh.
+      // Without this, the trigger always reads "Tilpasset visning"
+      // for a freshly-loaded URL even if the user starred this view.
+      const match = savedViews.views.find((v) =>
+        filtersEqual(filters, { ...EMPTY_FILTERS, ...v.filters }),
+      )
       // eslint-disable-next-line react-hooks/set-state-in-effect
+      if (match) setActiveViewId(match.id)
       setDefaultApplied(true)
       return
     }
@@ -834,6 +842,7 @@ export function ChecklistsPage() {
     savedViews.defaultViewId,
     savedViews.views,
     activeFilterCount,
+    filters,
     setFilters,
   ])
 

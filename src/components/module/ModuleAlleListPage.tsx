@@ -182,7 +182,15 @@ export function ModuleAlleListPage<RowT>({
     if (defaultApplied) return
     if (saved.loading) return
     if (activeFilterCount > 0) {
+      // Chip state was hydrated from local state; if it happens to
+      // match an existing saved view, surface that view's name in the
+      // trigger label + light up the star icon. Otherwise leave the
+      // trigger reading "Tilpasset visning".
+      const match = saved.views.find((v) =>
+        chipStateEquals(chipState, savedToChipState(v.filters)),
+      )
       // eslint-disable-next-line react-hooks/set-state-in-effect
+      if (match) setActiveViewId(match.id)
       setDefaultApplied(true)
       return
     }
@@ -194,7 +202,7 @@ export function ModuleAlleListPage<RowT>({
       }
     }
     setDefaultApplied(true)
-  }, [moduleSlug, defaultApplied, saved.loading, saved.defaultViewId, saved.views, activeFilterCount])
+  }, [moduleSlug, defaultApplied, saved.loading, saved.defaultViewId, saved.views, activeFilterCount, chipState])
 
   const applyView = useCallback((view: SavedView<SavedFilters>) => {
     setPage(1)

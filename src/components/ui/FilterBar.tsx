@@ -113,6 +113,15 @@ export function SavedViewsControl<Filters>({
   const [open, setOpen] = useState(false)
   const [creating, setCreating] = useState(false)
   const [newName, setNewName] = useState('')
+  // In-flight guards prevent double-click duplicate inserts (the DB's
+  // unique constraint would catch it but the error surface is ugly)
+  // and double-fire star toggles.
+  const [submittingCreate, setSubmittingCreate] = useState(false)
+  const [submittingStar, setSubmittingStar] = useState(false)
+  // Inline form error — shown above the Save button so duplicate /
+  // empty / too-long names get a friendly Norwegian message instead
+  // of a raw Postgres check_violation.
+  const [createError, setCreateError] = useState<string | null>(null)
   const wrapRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
 
@@ -157,30 +166,57 @@ export function SavedViewsControl<Filters>({
     : 'Tilpasset visning'
 
   const handleCreate = async () => {
+    if (submittingCreate) return
     const name = newName.trim()
-    if (!name) return
-    const id = await saved.createView(name, currentFilters)
-    if (id) {
-      setCreating(false)
-      setNewName('')
-      // Apply the newly-created view so the chip name matches
-      const created: SavedView<Filters> = {
-        id,
-        name,
-        filters: currentFilters,
-        createdBy: null,
-        createdAt: new Date().toISOString(),
+    // Client-side validation matches the DB CHECK + UNIQUE constraints
+    // (length 1..80, no duplicate within (org, module)). Pre-checking
+    // here saves a round-trip + gives a Norwegian message instead of
+    // the raw `check_violation` / `unique_violation` strings.
+    if (!name) {
+      setCreateError('Navnet kan ikke være tomt.')
+      return
+    }
+    if (name.length > 80) {
+      setCreateError('Navnet kan være maks 80 tegn.')
+      return
+    }
+    if (saved.views.some((v) => v.name.toLowerCase() === name.toLowerCase())) {
+      setCreateError('Det finnes allerede en visning med dette navnet.')
+      return
+    }
+    setCreateError(null)
+    setSubmittingCreate(true)
+    try {
+      const id = await saved.createView(name, currentFilters)
+      if (id) {
+        setCreating(false)
+        setNewName('')
+        // Apply the newly-created view so the chip name matches
+        const created: SavedView<Filters> = {
+          id,
+          name,
+          filters: currentFilters,
+          createdBy: null,
+          createdAt: new Date().toISOString(),
+        }
+        onApplyView(created)
       }
-      onApplyView(created)
+    } finally {
+      setSubmittingCreate(false)
     }
   }
 
   const handleStar = async () => {
-    if (!activeViewId) return
-    if (isDefault) {
-      await saved.clearDefaultView()
-    } else {
-      await saved.setDefaultView(activeViewId)
+    if (!activeViewId || submittingStar) return
+    setSubmittingStar(true)
+    try {
+      if (isDefault) {
+        await saved.clearDefaultView()
+      } else {
+        await saved.setDefaultView(activeViewId)
+      }
+    } finally {
+      setSubmittingStar(false)
     }
   }
 
@@ -190,7 +226,7 @@ export function SavedViewsControl<Filters>({
       <Button
         variant="ghost"
         size="icon"
-        disabled={!activeViewId}
+        disabled={!activeViewId || submittingStar}
         onClick={handleStar}
         className={[
           'size-8 rounded-md transition-colors',
@@ -331,39 +367,58 @@ export function SavedViewsControl<Filters>({
           {/* Save-as-new section */}
           <div className="border-t border-neutral-100 bg-neutral-50/60 p-2">
             {creating ? (
-              <div className="flex items-center gap-2">
-                <StandardInput
-                  ref={inputRef}
-                  value={newName}
-                  onChange={(e) => setNewName(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') {
-                      e.preventDefault()
-                      void handleCreate()
-                    }
-                  }}
-                  placeholder="Navn på visningen…"
-                  className="flex-1 !py-1.5 !text-sm"
-                  maxLength={80}
-                />
-                <Button
-                  variant="primary"
-                  size="sm"
-                  onClick={handleCreate}
-                  disabled={!newName.trim()}
-                >
-                  Lagre
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => {
-                    setCreating(false)
-                    setNewName('')
-                  }}
-                >
-                  Avbryt
-                </Button>
+              <div className="space-y-1.5">
+                <div className="flex items-center gap-2">
+                  <StandardInput
+                    ref={inputRef}
+                    value={newName}
+                    onChange={(e) => {
+                      setNewName(e.target.value)
+                      if (createError) setCreateError(null)
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault()
+                        void handleCreate()
+                      }
+                    }}
+                    placeholder="Navn på visningen…"
+                    className="flex-1 !py-1.5 !text-sm"
+                    maxLength={80}
+                    aria-invalid={createError ? 'true' : undefined}
+                    aria-describedby={createError ? 'cmdpal-create-error' : undefined}
+                    disabled={submittingCreate}
+                  />
+                  <Button
+                    variant="primary"
+                    size="sm"
+                    onClick={handleCreate}
+                    disabled={!newName.trim() || submittingCreate}
+                  >
+                    {submittingCreate ? 'Lagrer…' : 'Lagre'}
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => {
+                      setCreating(false)
+                      setNewName('')
+                      setCreateError(null)
+                    }}
+                    disabled={submittingCreate}
+                  >
+                    Avbryt
+                  </Button>
+                </div>
+                {createError ? (
+                  <p
+                    id="cmdpal-create-error"
+                    role="alert"
+                    className="px-1 text-[11px] text-red-700"
+                  >
+                    {createError}
+                  </p>
+                ) : null}
               </div>
             ) : (
               <Button

@@ -260,7 +260,11 @@ export function InternkontrollPage() {
     if (defaultApplied) return
     if (saved.loading) return
     if (activeFilterCount > 0) {
+      const match = saved.views.find((v) =>
+        filtersEqual(filters, { ...EMPTY_FILTERS, ...v.filters }),
+      )
       // eslint-disable-next-line react-hooks/set-state-in-effect
+      if (match) setActiveViewId(match.id)
       setDefaultApplied(true)
       return
     }
@@ -272,7 +276,7 @@ export function InternkontrollPage() {
       }
     }
     setDefaultApplied(true)
-  }, [defaultApplied, saved.loading, saved.defaultViewId, saved.views, activeFilterCount])
+  }, [defaultApplied, saved.loading, saved.defaultViewId, saved.views, activeFilterCount, filters])
 
   const hasUnsavedChanges = useMemo(() => {
     if (!activeViewId) return false

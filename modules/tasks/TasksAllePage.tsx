@@ -1095,7 +1095,14 @@ export function TasksAllePage() {
     if (defaultApplied) return
     if (saved.loading) return
     if (activeFilterCount > 0) {
+      // URL had filters — try to recognise them as an existing view
+      // so the trigger label + star reflect the active view after
+      // refresh.
+      const match = saved.views.find((v) =>
+        taskFiltersEqual(filters, { ...EMPTY_FILTERS, ...v.filters }),
+      )
       // eslint-disable-next-line react-hooks/set-state-in-effect
+      if (match) setActiveViewId(match.id)
       setDefaultApplied(true)
       return
     }
@@ -1107,7 +1114,7 @@ export function TasksAllePage() {
       }
     }
     setDefaultApplied(true)
-  }, [defaultApplied, saved.loading, saved.defaultViewId, saved.views, activeFilterCount])
+  }, [defaultApplied, saved.loading, saved.defaultViewId, saved.views, activeFilterCount, filters])
 
   const hasUnsavedChanges = useMemo(() => {
     if (!activeViewId) return false

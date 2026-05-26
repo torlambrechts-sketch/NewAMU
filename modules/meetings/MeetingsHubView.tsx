@@ -469,7 +469,10 @@ export function MeetingsHubView({ tabs, bodyOnly = false }: MeetingsHubViewProps
     if (defaultApplied) return
     if (savedMeetings.loading) return
     if (activeFilterCount > 0) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
+      const match = savedMeetings.views.find((v) =>
+        meetingsFiltersEqual(currentFilters, { ...EMPTY_MEETING_FILTERS, ...v.filters }),
+      )
+      if (match) setActiveViewId(match.id)
       setDefaultApplied(true)
       return
     }
@@ -483,7 +486,8 @@ export function MeetingsHubView({ tabs, bodyOnly = false }: MeetingsHubViewProps
       }
     }
     setDefaultApplied(true)
-  }, [defaultApplied, savedMeetings.loading, savedMeetings.defaultViewId, savedMeetings.views, activeFilterCount])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [defaultApplied, savedMeetings.loading, savedMeetings.defaultViewId, savedMeetings.views, activeFilterCount, frameworks, statuses, confidentialities])
   const hasUnsavedChanges = useMemo(() => {
     if (!activeViewId) return false
     const view = savedMeetings.views.find((v) => v.id === activeViewId)
