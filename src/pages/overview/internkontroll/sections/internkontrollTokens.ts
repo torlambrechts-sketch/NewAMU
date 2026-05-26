@@ -3,6 +3,7 @@
 // stays "components-only" (fast-refresh rule).
 
 import type { IkKontroll, IkKravStatus } from '../useInternkontrollPageData'
+import type { ControlFrequencyHint } from '../../../../types/complianceLayer'
 
 // ── KATEGORIER — functional groupings of krav/kontroller/tiltak ─────────────
 // Mirrors the design pattern from Sjekklister: a sidebar filter list with
@@ -69,6 +70,132 @@ export function categorizeLawRef(ref: string): IkCategoryId {
   // Reporting + supervision: registrerings- og meldeplikt (§5), tilsyn (§18).
   if (/^AML §\s?(5|18)/.test(ref)) return 'internkontroll-avvik'
   return 'andre'
+}
+
+// ── Klarert recommended cadence ─────────────────────────────────────────────
+// Per-category baseline + paragraph-specific overrides for the most well-known
+// Norwegian compliance cadences. Surfaced in the Gap-analyse "Anbefalt løsning"
+// card when no control exists yet, so the user sees what frequency the law
+// (or established practice) expects — e.g. AMU-møte minst 4× pr. år (AML § 7-2),
+// vernerunde halvårlig, brann-/førstehjelpsøvelse årlig.
+//
+// Keys for the override map are paragraph-code prefixes (matched with startsWith
+// after light normalisation). Order doesn't matter — the lookup picks the
+// longest match. Frequency strings match `ControlFrequencyHint` so an "Opprett
+// kontroll"-button can pass the value straight through to the editor.
+export type RecommendedCadence = {
+  frequency: ControlFrequencyHint
+  /** Norwegian label shown in UI. */
+  label: string
+  /** Optional one-line context shown under the cadence (legal basis or
+   *  established practice). Empty → only the label is shown. */
+  rationale?: string
+}
+
+const PARAGRAPH_CADENCE_OVERRIDES: Array<{ prefix: string; cadence: RecommendedCadence }> = [
+  {
+    prefix: 'AML § 7-2',
+    cadence: {
+      frequency: 'kvartalsvis',
+      label: 'Kvartalsvis',
+      rationale: 'AMU-møter minst 4 ganger per år (AML § 7-2 andre ledd).',
+    },
+  },
+  {
+    prefix: 'AML § 6',
+    cadence: {
+      frequency: 'halvarlig',
+      label: 'Halvårlig',
+      rationale: 'Vernerunde anbefales halvårlig som etablert HMS-praksis.',
+    },
+  },
+  {
+    prefix: 'AML § 3-1',
+    cadence: {
+      frequency: 'arlig',
+      label: 'Årlig',
+      rationale: 'Systematisk HMS-arbeid skal følges opp og dokumenteres minst årlig.',
+    },
+  },
+  {
+    prefix: 'IK-f § 5',
+    cadence: {
+      frequency: 'arlig',
+      label: 'Årlig',
+      rationale: 'IK-forskriften § 5 nr. 7 — jevnlig overvåkning og gjennomgang.',
+    },
+  },
+  {
+    prefix: 'GDPR Art. 30',
+    cadence: {
+      frequency: 'arlig',
+      label: 'Årlig',
+      rationale: 'Behandlingsoversikt gjennomgås årlig og ved endringer.',
+    },
+  },
+  {
+    prefix: 'GDPR Art. 35',
+    cadence: {
+      frequency: 'ad_hoc',
+      label: 'Ad hoc',
+      rationale: 'DPIA gjennomføres ved ny eller endret behandling med høy risiko.',
+    },
+  },
+  {
+    prefix: 'Åpenhetsloven',
+    cadence: {
+      frequency: 'arlig',
+      label: 'Årlig',
+      rationale: 'Aktsomhetsvurdering offentliggjøres innen 30. juni hvert år.',
+    },
+  },
+]
+
+const CATEGORY_CADENCE: Record<IkCategoryId, RecommendedCadence> = {
+  arbeidsmiljo: { frequency: 'arlig', label: 'Årlig' },
+  'verneombud-amu': {
+    frequency: 'kvartalsvis',
+    label: 'Kvartalsvis',
+    rationale: 'AMU-arbeidet skjer gjennom faste møter, normalt kvartalsvis.',
+  },
+  varsling: {
+    frequency: 'arlig',
+    label: 'Årlig',
+    rationale: 'Varslingsrutinene gjennomgås årlig og ved endringer.',
+  },
+  ansettelse: {
+    frequency: 'ad_hoc',
+    label: 'Hendelsesbasert',
+    rationale: 'Følger ansettelse, endring eller opphør — ikke fast frekvens.',
+  },
+  'internkontroll-avvik': {
+    frequency: 'arlig',
+    label: 'Årlig',
+    rationale: 'Ledelsens gjennomgang og IK-revisjon minst årlig.',
+  },
+  personvern: { frequency: 'arlig', label: 'Årlig' },
+  leverandorkjeder: {
+    frequency: 'arlig',
+    label: 'Årlig',
+    rationale: 'Åpenhetsloven krever årlig aktsomhetsvurdering.',
+  },
+  andre: { frequency: 'arlig', label: 'Årlig' },
+}
+
+/** Resolve the Klarert-recommended cadence for a krav. Looks for a paragraph
+ *  override first (longest matching prefix wins), then falls back to the
+ *  category baseline. */
+export function recommendedCadenceFor(ref: string, category: IkCategoryId): RecommendedCadence {
+  const normalized = ref.replace(/\s+/g, ' ').trim()
+  let bestMatch: RecommendedCadence | null = null
+  let bestLen = 0
+  for (const entry of PARAGRAPH_CADENCE_OVERRIDES) {
+    if (normalized.startsWith(entry.prefix) && entry.prefix.length > bestLen) {
+      bestMatch = entry.cadence
+      bestLen = entry.prefix.length
+    }
+  }
+  return bestMatch ?? CATEGORY_CADENCE[category]
 }
 
 export const MODULE_TABLE_TH =

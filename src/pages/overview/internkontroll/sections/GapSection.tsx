@@ -5,21 +5,41 @@
 // surfaces gap descriptions and the tiltak attached to each row.
 
 import { useMemo, useState } from 'react'
-import { Calendar, Grid3x3, List, Plus, TriangleAlert, User } from 'lucide-react'
+import { useSearchParams } from 'react-router-dom'
+import {
+  ArrowUpRight,
+  Calendar,
+  ClipboardList,
+  FileText,
+  GraduationCap,
+  Grid3x3,
+  ListChecks,
+  List,
+  Plus,
+  Repeat,
+  ShieldCheck,
+  Sparkles,
+  TriangleAlert,
+  Users,
+} from 'lucide-react'
 import { Button } from '../../../../components/ui/Button'
 import {
   CoverageBar,
   CriticalityChip,
   FrameworkIcon,
   FwChip,
+  Initials,
+  KontrollStatusBadge,
   PRIO_TONE,
   SectionBanner,
   StatusPill,
+  TYPE_TONE,
 } from './internkontrollShared'
 import type { useCompliancePlanItems } from '../useCompliancePlanItems'
-import type { IkData, IkKrav } from '../useInternkontrollPageData'
-import type { IkCategoryId } from './internkontrollTokens'
+import type { IkData, IkKontroll, IkKrav } from '../useInternkontrollPageData'
+import { recommendedCadenceFor, type IkCategoryId } from './internkontrollTokens'
 import type { FrameworkId } from '../frameworkParagraphs'
+import type { CoverageEntry } from '../../../../hooks/useRegelverkCoverage'
 
 type PlanHook = ReturnType<typeof useCompliancePlanItems>
 
@@ -29,6 +49,7 @@ export function GapSection({
   categories,
   plan,
   search,
+  onCreateControl,
 }: {
   data: IkData
   /** Empty = no filter on framework. Multiple = OR semantics. */
@@ -38,6 +59,9 @@ export function GapSection({
   plan: PlanHook
   /** Free-text search from the page-level Søk row. */
   search: string
+  /** Opens the page-level "Ny kontroll"-panel. Passed through from
+   *  InternkontrollPage so gap rows can offer a one-click create. */
+  onCreateControl?: () => void
 }) {
   const [view, setView] = useState<'matrix' | 'list'>('matrix')
 
@@ -115,7 +139,7 @@ export function GapSection({
       {view === 'matrix' ? (
         <GapMatrix data={data} frameworks={frameworks} />
       ) : (
-        <GapList data={data} sorted={gaps} plan={plan} />
+        <GapList data={data} sorted={gaps} plan={plan} onCreateControl={onCreateControl} />
       )}
     </div>
   )
@@ -276,11 +300,26 @@ function GapList({
   data,
   sorted,
   plan,
+  onCreateControl,
 }: {
   data: IkData
   sorted: IkKrav[]
   plan: PlanHook
+  onCreateControl?: () => void
 }) {
+  const [searchParams, setSearchParams] = useSearchParams()
+  const openControl = (id: string) => {
+    const sp = new URLSearchParams(searchParams)
+    sp.set('section', 'kontroller')
+    sp.set('control', id)
+    setSearchParams(sp, { replace: false })
+  }
+  const kontrollerById = useMemo(() => {
+    const m = new Map<string, IkKontroll>()
+    for (const c of data.kontroller) m.set(c.id, c)
+    return m
+  }, [data.kontroller])
+
   if (sorted.length === 0) {
     return (
       <div className="rounded-xl border border-neutral-200/80 bg-white p-6 text-center text-[12px] italic text-neutral-500 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
@@ -293,35 +332,42 @@ function GapList({
       <ul className="divide-y divide-neutral-100">
         {sorted.map((k) => {
           const tiltakForKrav = plan.itemsByLawRef.get(k.ref) ?? []
+          const linkedControls = k.controls
+            .map((id) => kontrollerById.get(id))
+            .filter((c): c is IkKontroll => Boolean(c))
           return (
             <li key={k.id} className="px-5 py-4 hover:bg-neutral-50/40">
               <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1fr)_300px] lg:gap-5">
-                <div>
-                  <div className="flex flex-wrap items-baseline gap-2">
-                    <StatusPill status={k.status} />
-                    <FwChip fw={k.fw} frameworks={data.frameworks} />
-                    <span className="font-mono text-[10px] font-bold tabular-nums text-neutral-500">
-                      {k.ref}
-                    </span>
-                    <CriticalityChip value={k.criticality} />
-                  </div>
-                  <h4 className="mt-1 text-sm font-semibold text-neutral-900">{k.title}</h4>
-                  {k.gap && (
-                    <div className="mt-2 rounded-md border border-amber-200 bg-amber-50/60 px-3 py-2 text-[12px] text-amber-900">
-                      <span className="font-semibold">Gap: </span>
-                      {k.gap}
+                <div className="space-y-3">
+                  <div>
+                    <div className="flex flex-wrap items-baseline gap-2">
+                      <StatusPill status={k.status} />
+                      <FwChip fw={k.fw} frameworks={data.frameworks} />
+                      <span className="font-mono text-[10px] font-bold tabular-nums text-neutral-500">
+                        {k.ref}
+                      </span>
+                      <CriticalityChip value={k.criticality} />
                     </div>
-                  )}
-                  <div className="mt-2 flex flex-wrap items-center gap-3 text-[11px] text-neutral-600">
-                    <span className="inline-flex items-center gap-1">
-                      <User className="h-3 w-3" />
-                      {k.owner}
-                    </span>
-                    <span className="inline-flex items-center gap-1">
-                      <Calendar className="h-3 w-3" />
-                      Frist {k.nextReview}
-                    </span>
+                    <h4 className="mt-1 text-sm font-semibold text-neutral-900">{k.title}</h4>
+                    {k.gap && (
+                      <div className="mt-2 rounded-md border border-amber-200 bg-amber-50/60 px-3 py-2 text-[12px] text-amber-900">
+                        <span className="font-semibold">Gap: </span>
+                        {k.gap}
+                      </div>
+                    )}
                   </div>
+
+                  {linkedControls.length > 0 ? (
+                    <KontrollReferenceBlock
+                      controls={linkedControls}
+                      onOpen={openControl}
+                    />
+                  ) : (
+                    <RecommendedApproachBlock
+                      krav={k}
+                      onCreateControl={onCreateControl}
+                    />
+                  )}
                 </div>
                 <aside className="rounded-md border border-neutral-200/80 bg-[#fbf9f3]/60 p-3">
                   <h5 className="text-[10px] font-bold uppercase tracking-wider text-neutral-500">
@@ -390,6 +436,218 @@ function GapList({
           )
         })}
       </ul>
+    </div>
+  )
+}
+
+// ── KontrollReferenceBlock — shown when at least one control exists ─────────
+//
+// Tells the user exactly which control(s) cover this paragraph: name, type,
+// owner, cadence, last/next run, status. Click opens the control detail in
+// the Kontroller-tab (in-page navigation via ?control=). Addresses the user
+// feedback: "we need to know what the control is and who normally is
+// responsible and the required / recommended cadence".
+function KontrollReferenceBlock({
+  controls,
+  onOpen,
+}: {
+  controls: IkKontroll[]
+  onOpen: (id: string) => void
+}) {
+  return (
+    <div className="rounded-md border border-neutral-200/80 bg-[#fbf9f3]/40 p-3">
+      <div className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-neutral-500">
+        <ShieldCheck className="h-3 w-3" />
+        {controls.length === 1
+          ? '1 kontroll dekker dette kravet'
+          : `${controls.length} kontroller dekker dette kravet`}
+      </div>
+      <ul className="mt-2 space-y-2">
+        {controls.map((c) => (
+          <li
+            key={c.id}
+            className="rounded-md border border-neutral-200 bg-white p-3 text-[12px]"
+          >
+            <div className="flex flex-wrap items-start justify-between gap-2">
+              <div className="min-w-0">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="font-semibold text-neutral-900">{c.title}</span>
+                  <span
+                    className="rounded px-1.5 py-0.5 text-[9px] font-bold uppercase"
+                    style={{
+                      background: TYPE_TONE[c.type].bg,
+                      color: TYPE_TONE[c.type].text,
+                    }}
+                  >
+                    {TYPE_TONE[c.type].label}
+                  </span>
+                  <KontrollStatusBadge status={c.status} />
+                </div>
+                {c.purpose && (
+                  <p className="mt-1 text-[11px] leading-snug text-neutral-600">{c.purpose}</p>
+                )}
+              </div>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => onOpen(c.id)}
+                className="shrink-0 text-[11px]"
+                icon={<ArrowUpRight className="h-3 w-3" />}
+              >
+                Åpne kontroll
+              </Button>
+            </div>
+            <div className="mt-2 grid grid-cols-2 gap-x-3 gap-y-1.5 text-[11px] sm:grid-cols-4">
+              <div className="min-w-0">
+                <div className="text-[10px] uppercase tracking-wider text-neutral-500">Eier</div>
+                <div className="mt-0.5 flex items-center gap-1.5">
+                  <Initials name={c.owner} size={16} />
+                  <span className="truncate text-neutral-800">{c.owner}</span>
+                </div>
+                {c.ownerRole && (
+                  <div className="mt-0.5 text-[10px] text-neutral-500">{c.ownerRole}</div>
+                )}
+              </div>
+              <div>
+                <div className="text-[10px] uppercase tracking-wider text-neutral-500">
+                  Frekvens
+                </div>
+                <div className="mt-0.5 inline-flex items-center gap-1 text-neutral-800">
+                  <Repeat className="h-3 w-3 text-neutral-500" />
+                  {c.frequencyLabel}
+                </div>
+              </div>
+              <div>
+                <div className="text-[10px] uppercase tracking-wider text-neutral-500">
+                  Sist kjørt
+                </div>
+                <div className="mt-0.5 tabular-nums text-neutral-800">{c.lastRun}</div>
+              </div>
+              <div>
+                <div className="text-[10px] uppercase tracking-wider text-neutral-500">
+                  Neste
+                </div>
+                <div className="mt-0.5 tabular-nums text-neutral-800">{c.nextRun}</div>
+              </div>
+            </div>
+          </li>
+        ))}
+      </ul>
+    </div>
+  )
+}
+
+// ── RecommendedApproachBlock — Klarert "slik løser vi det" ──────────────────
+//
+// Shown when no control covers the paragraph. Surfaces:
+//   • recommended cadence based on the krav category (legal basis where known),
+//   • Klarert library templates already available (checklist / meeting /
+//     document / course / survey) that close the gap if activated,
+//   • a one-click button to open the Ny-kontroll-panel.
+const EVIDENCE_KIND_META: Record<
+  CoverageEntry['kind'],
+  { label: string; icon: typeof ShieldCheck }
+> = {
+  checklist_template: { label: 'Sjekkliste-mal', icon: ListChecks },
+  checklist_item: { label: 'Sjekkliste-punkt', icon: ListChecks },
+  meeting_template: { label: 'Møte-mal', icon: Users },
+  document_template: { label: 'Dokument-mal', icon: FileText },
+  document: { label: 'Dokument', icon: FileText },
+  course_system: { label: 'Kurs', icon: GraduationCap },
+  course_org: { label: 'Kurs', icon: GraduationCap },
+  survey: { label: 'Undersøkelse', icon: ClipboardList },
+  ros: { label: 'ROS-analyse', icon: TriangleAlert },
+  task: { label: 'Oppgave', icon: ClipboardList },
+}
+
+function RecommendedApproachBlock({
+  krav,
+  onCreateControl,
+}: {
+  krav: IkKrav
+  onCreateControl?: () => void
+}) {
+  const cadence = recommendedCadenceFor(krav.ref, krav.category)
+  // Dedupe by (kind, id) so a template that mentions the same § twice in
+  // its body doesn't list itself twice. Cap at 4 entries to keep the row
+  // scannable — auditors don't want a wall of templates.
+  const templates = useMemo(() => {
+    const seen = new Set<string>()
+    const out: CoverageEntry[] = []
+    for (const e of krav.evidence) {
+      if (e.source !== 'template') continue
+      const key = `${e.kind}:${e.id}`
+      if (seen.has(key)) continue
+      seen.add(key)
+      out.push(e)
+      if (out.length >= 4) break
+    }
+    return out
+  }, [krav.evidence])
+
+  return (
+    <div className="rounded-md border border-[#dbe6e0] bg-[#f3f7f4] p-3">
+      <div className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-[#1a3d32]">
+        <Sparkles className="h-3 w-3" />
+        Anbefalt løsning fra Klarert
+      </div>
+      <div className="mt-2 flex flex-wrap items-baseline gap-x-3 gap-y-1 text-[12px] text-neutral-800">
+        <span className="inline-flex items-center gap-1 font-semibold">
+          <Repeat className="h-3 w-3 text-[#1a3d32]" />
+          Anbefalt frekvens:
+        </span>
+        <span className="font-semibold text-[#1a3d32]">{cadence.label}</span>
+        {cadence.rationale && (
+          <span className="text-[11px] text-neutral-600">{cadence.rationale}</span>
+        )}
+      </div>
+
+      {templates.length > 0 ? (
+        <div className="mt-3">
+          <div className="text-[10px] uppercase tracking-wider text-neutral-500">
+            Klarert-maler som dekker kravet
+          </div>
+          <ul className="mt-1.5 space-y-1">
+            {templates.map((t) => {
+              const meta = EVIDENCE_KIND_META[t.kind]
+              const Icon = meta.icon
+              return (
+                <li
+                  key={`${t.kind}:${t.id}`}
+                  className="flex items-center gap-2 rounded border border-neutral-200 bg-white px-2 py-1.5 text-[11px]"
+                >
+                  <Icon className="h-3 w-3 shrink-0 text-[#1a3d32]" />
+                  <span className="shrink-0 text-[9px] font-bold uppercase tracking-wider text-neutral-500">
+                    {meta.label}
+                  </span>
+                  <span className="min-w-0 truncate text-neutral-800">{t.title}</span>
+                </li>
+              )
+            })}
+          </ul>
+        </div>
+      ) : (
+        <p className="mt-2 text-[11px] italic text-neutral-600">
+          Ingen Klarert-mal dekker dette kravet ennå — opprett en kontroll manuelt.
+        </p>
+      )}
+
+      <div className="mt-3 flex flex-wrap items-center gap-2">
+        {onCreateControl && (
+          <Button
+            variant="primary"
+            size="sm"
+            icon={<Plus className="h-2.5 w-2.5" />}
+            onClick={onCreateControl}
+          >
+            Opprett kontroll
+          </Button>
+        )}
+        <span className="inline-flex items-center gap-1 text-[10px] text-neutral-500">
+          <Calendar className="h-3 w-3" />
+          Bruk forslagene over som utgangspunkt for kontroll og årshjul.
+        </span>
+      </div>
     </div>
   )
 }
