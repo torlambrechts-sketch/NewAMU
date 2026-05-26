@@ -1,16 +1,16 @@
 // /registers/:typeId — detail view for one register.
 //
-// Mirrors the Klarert RegisterDetail design: status bar (framework
-// pill + lovpålagt / GDPR + legal labels), KPI tiles for the most
-// relevant counts, filter chips above the entries table, then a
-// "Lovverk og tilgang" + audit-log row below.
+// Same data-grid pattern as Sjekklister / Register-hub: full-width
+// ModulePageShell, status bar + KPI tiles, a rounded card with the
+// records table inside; filtering is a FilterBar with search (leading)
+// + multi-select Visning chips + per-type saved views.
 //
 // Entries (records) are rendered through the schema-driven cell
 // renderer so each type shows its own column shape (kjemikalier:
 // CAS-nummer + faresetninger; HIRA: risk score; …).
 
-import { useMemo, useState } from 'react'
-import { Link, useNavigate, useParams } from 'react-router-dom'
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import {
   AlertTriangle,
   ArrowLeft,
@@ -22,7 +22,6 @@ import {
   Plus,
   Search,
   ShieldCheck,
-  SlidersHorizontal,
   Upload,
   User as UserIcon,
   UserCheck,
@@ -30,9 +29,13 @@ import {
 import { useOrgSetupContext } from '../../hooks/useOrgSetupContext'
 import { useRegisterUiPreference } from '../../hooks/useUserUiPreferences'
 import { useRegisters, useRegisterRecords } from '../../hooks/useRegisters'
+import { useSavedViews } from '../../hooks/useSavedViews'
 import { ModulePageShell } from '../../components/module'
 import { Button } from '../../components/ui/Button'
+import { StandardInput } from '../../components/ui/Input'
 import { WarningBox } from '../../components/ui/AlertBox'
+import { FilterBar, SavedViewsControl } from '../../components/ui/FilterBar'
+import { FilterChip } from '../../components/ui/FilterChip'
 import { RegisterRecordForm } from '../../components/registers/RegisterRecordForm'
 import { RegisterFrameworkPill } from '../../components/registers/RegisterFrameworkPill'
 import { RegisterModeToggle } from '../../components/registers/RegisterModeToggle'
@@ -68,6 +71,35 @@ const PERSON_FIELD_HINTS = new Set([
   'reporter',
 ])
 
+// Filter payload persisted in `module_saved_views.filters` for the
+// per-type slug `register_records:<typeId>`. Chips are type-specific
+// so views live per-register-type (slug includes typeId).
+type RegisterRecordFilters = {
+  chips: string[]
+}
+
+const EMPTY_RECORD_FILTERS: RegisterRecordFilters = { chips: [] }
+
+function recordFiltersEqual(a: RegisterRecordFilters, b: RegisterRecordFilters): boolean {
+  if (a.chips.length !== b.chips.length) return false
+  const setA = new Set(a.chips)
+  for (const id of b.chips) if (!setA.has(id)) return false
+  return true
+}
+
+function recordFiltersFromSearchParams(params: URLSearchParams): RegisterRecordFilters {
+  const raw = params.get('chip')
+  return { chips: raw ? raw.split(',').filter(Boolean) : [] }
+}
+
+function syncRecordFiltersToUrl(f: RegisterRecordFilters) {
+  if (typeof window === 'undefined') return
+  const url = new URL(window.location.href)
+  if (f.chips.length > 0) url.searchParams.set('chip', f.chips.join(','))
+  else url.searchParams.delete('chip')
+  window.history.replaceState(null, '', url.toString())
+}
+
 export function RegisterTypePage() {
   const { typeId } = useParams<{ typeId: string }>()
   const orgSetup = useOrgSetupContext()
@@ -85,7 +117,7 @@ export function RegisterTypePage() {
     [registers.types, typeId],
   )
 
-  const [activeChip, setActiveChip] = useState<string>('all')
+  const [searchParams] = useSearchParams()
   const [search, setSearch] = useState('')
   const [editing, setEditing] = useState<
     | { kind: 'new' }
@@ -94,6 +126,62 @@ export function RegisterTypePage() {
   >(null)
   const [importOpen, setImportOpen] = useState(false)
 
+  // Filter state — hydrated from URL on first mount, pushed back via
+  // history.replaceState.
+  const [filters, setFiltersState] = useState<RegisterRecordFilters>(() =>
+    recordFiltersFromSearchParams(searchParams),
+  )
+  const setFilters = useCallback((next: RegisterRecordFilters) => {
+    setFiltersState(next)
+  }, [])
+  useEffect(() => {
+    syncRecordFiltersToUrl(filters)
+  }, [filters])
+  const activeFilterCount = filters.chips.length
+
+  // Saved views — slug is per-register-type since chip vocabulary
+  // varies between types (kjemikalier has CMR, HIRA has risk-score).
+  const savedSlug = typeId ? `register_records:${typeId}` : 'register_records'
+  const savedViews = useSavedViews<RegisterRecordFilters>(savedSlug)
+  const [activeViewId, setActiveViewId] = useState<string | null>(null)
+  const [defaultApplied, setDefaultApplied] = useState(false)
+  useEffect(() => {
+    if (defaultApplied) return
+    if (savedViews.loading) return
+    if (activeFilterCount > 0) {
+      const match = savedViews.views.find((v) =>
+        recordFiltersEqual(filters, { ...EMPTY_RECORD_FILTERS, ...v.filters }),
+      )
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      if (match) setActiveViewId(match.id)
+      setDefaultApplied(true)
+      return
+    }
+    if (savedViews.defaultViewId) {
+      const def = savedViews.views.find((v) => v.id === savedViews.defaultViewId)
+      if (def) {
+        setFilters({ ...EMPTY_RECORD_FILTERS, ...def.filters })
+        setActiveViewId(def.id)
+      }
+    }
+    setDefaultApplied(true)
+  }, [
+    defaultApplied,
+    savedViews.loading,
+    savedViews.defaultViewId,
+    savedViews.views,
+    activeFilterCount,
+    filters,
+    setFilters,
+  ])
+
+  const hasUnsavedChanges = useMemo(() => {
+    if (!activeViewId) return false
+    const view = savedViews.views.find((v) => v.id === activeViewId)
+    if (!view) return false
+    return !recordFiltersEqual(filters, { ...EMPTY_RECORD_FILTERS, ...view.filters })
+  }, [activeViewId, filters, savedViews.views])
+
   const stats = useMemo(
     () => (type ? computeRegisterStats(type, recordsHook.records) : null),
     [type, recordsHook.records],
@@ -101,7 +189,23 @@ export function RegisterTypePage() {
 
   const filteredRecords = useMemo(() => {
     if (!type) return []
-    let out = filterByChip(type, recordsHook.records, activeChip)
+    // Multi-select OR semantics: a record passes if it matches ANY of
+    // the selected chips. Empty selection = pass-through.
+    let out: RegisterRecord[]
+    if (filters.chips.length === 0) {
+      out = recordsHook.records
+    } else {
+      const seen = new Set<string>()
+      out = []
+      for (const chip of filters.chips) {
+        for (const r of filterByChip(type, recordsHook.records, chip)) {
+          if (!seen.has(r.id)) {
+            seen.add(r.id)
+            out.push(r)
+          }
+        }
+      }
+    }
     const norm = search.trim().toLowerCase()
     if (norm) {
       out = out.filter((r) => {
@@ -113,7 +217,7 @@ export function RegisterTypePage() {
       })
     }
     return out
-  }, [type, recordsHook.records, activeChip, search])
+  }, [type, recordsHook.records, filters.chips, search])
 
   // ── States ───────────────────────────────────────────────────────────
 
@@ -213,6 +317,7 @@ export function RegisterTypePage() {
           { label: 'Register', to: '/registers' },
           { label: type.resolvedName },
         ]}
+        width="full"
         title={
           <span className="inline-flex items-center gap-3">
             <span className="flex h-8 w-8 items-center justify-center rounded-md bg-[#e7efe9] text-[#1a3d32]">
@@ -356,48 +461,62 @@ export function RegisterTypePage() {
           </div>
         ) : null}
 
-        {/* Entries table */}
+        {/* Entries table — same layout pattern as Sjekklister og
+            Register-hub: header strip + FilterBar + body. */}
         <div className="rounded-xl border border-neutral-200/80 bg-white shadow-sm">
-          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-neutral-100 px-4 py-2.5">
-            <div className="flex flex-wrap items-center gap-1.5">
-              {chipDefs.map((c) => (
-                <button
-                  key={c.id}
-                  type="button"
-                  onClick={() => setActiveChip(c.id)}
-                  className={[
-                    'rounded-full px-2.5 py-1 text-[11px] font-semibold transition-colors',
-                    activeChip === c.id
-                      ? 'bg-[#1a3d32] text-white'
-                      : 'bg-neutral-100 text-neutral-600 hover:bg-neutral-200/70',
-                  ].join(' ')}
-                >
-                  {c.label}
-                </button>
-              ))}
-            </div>
-            <div className="flex items-center gap-2">
-              <div className="relative">
-                <Search className="pointer-events-none absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-neutral-400" />
-                <input
+          <div className="flex items-center justify-between gap-3 border-b border-neutral-100 px-4 py-2.5">
+            <h3 className="text-sm font-semibold text-neutral-900">
+              {filteredRecords.length}{' '}
+              {filteredRecords.length === 1 ? 'oppføring' : 'oppføringer'}
+            </h3>
+          </div>
+
+          <FilterBar
+            leading={
+              <div className="relative w-64 max-w-full">
+                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-neutral-400" aria-hidden />
+                <StandardInput
                   type="search"
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
-                  className="w-52 rounded-md border border-neutral-200 bg-neutral-50 py-1.5 pl-7 pr-2 text-xs outline-none focus:border-[#1a3d32] focus:bg-white"
-                  placeholder="Søk …"
+                  placeholder="Søk i oppføringer …"
+                  aria-label="Søk i oppføringer"
+                  className="w-full !py-1.5 pl-9 text-sm"
                 />
               </div>
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                icon={<SlidersHorizontal className="h-3.5 w-3.5" />}
-                onClick={() => setActiveChip('all')}
-              >
-                Nullstill
-              </Button>
-            </div>
-          </div>
+            }
+            chips={
+              chipDefs.length > 0 ? (
+                <FilterChip
+                  label="Visning"
+                  options={chipDefs.map((c) => ({ value: c.id, label: c.label, count: c.count }))}
+                  value={filters.chips}
+                  onChange={(next) => {
+                    setFilters({ ...filters, chips: next })
+                    setActiveViewId(null)
+                  }}
+                />
+              ) : null
+            }
+            activeFilterCount={activeFilterCount}
+            onReset={() => {
+              setFilters(EMPTY_RECORD_FILTERS)
+              setActiveViewId(null)
+            }}
+            savedViews={
+              <SavedViewsControl<RegisterRecordFilters>
+                currentFilters={filters}
+                activeViewId={activeViewId}
+                hasUnsavedChanges={hasUnsavedChanges}
+                onApplyView={(view) => {
+                  setFilters({ ...EMPTY_RECORD_FILTERS, ...view.filters })
+                  setActiveViewId(view.id)
+                }}
+                onClearActive={() => setActiveViewId(null)}
+                saved={savedViews}
+              />
+            }
+          />
 
           <div className="overflow-x-auto">
             <table className="w-full min-w-[820px] text-sm">
@@ -465,18 +584,19 @@ export function RegisterTypePage() {
                         <ReviewDate reviewDueAt={record.reviewDueAt} />
                       </td>
                       <td className="px-5 py-3 text-right">
-                        <button
-                          type="button"
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          icon={<Pencil className="h-3 w-3" />}
                           onClick={(e) => {
                             e.stopPropagation()
                             setEditing({ kind: 'edit', record })
                           }}
-                          className="inline-flex items-center gap-1 rounded-md border border-neutral-200 bg-white px-2 py-1 text-[11px] text-neutral-700 transition-colors hover:bg-neutral-50"
                           aria-label="Rediger rad"
+                          className="!gap-1 !rounded-md !border !border-neutral-200 !bg-white !px-2 !py-1 text-[11px] text-neutral-700 hover:!bg-neutral-50"
                         >
-                          <Pencil className="h-3 w-3" />
                           Rediger
-                        </button>
+                        </Button>
                       </td>
                     </tr>
                   ))
@@ -653,29 +773,30 @@ function ReviewDate({ reviewDueAt }: { reviewDueAt: string | null }) {
   )
 }
 
-type ChipDef = { id: string; label: string }
+type ChipDef = { id: string; label: string; count: number }
 
 function buildChipDefs(
   byChip: Record<string, number>,
   fields: RegisterField[],
 ): ChipDef[] {
   const out: ChipDef[] = []
-  out.push({ id: 'all', label: `Alle (${byChip['all'] ?? 0})` })
+  // No 'all' entry — multi-select FilterChip treats empty selection as
+  // "match everything", so the explicit "Alle" pill is redundant.
 
   if (byChip['reviews_overdue']) {
-    out.push({ id: 'reviews_overdue', label: `Forfalt (${byChip['reviews_overdue']})` })
+    out.push({ id: 'reviews_overdue', label: 'Forfalt', count: byChip['reviews_overdue'] })
   }
   if (byChip['reviews_due_soon']) {
-    out.push({ id: 'reviews_due_soon', label: `Utløper snart (${byChip['reviews_due_soon']})` })
+    out.push({ id: 'reviews_due_soon', label: 'Utløper snart', count: byChip['reviews_due_soon'] })
   }
   if (byChip['cmr']) {
-    out.push({ id: 'cmr', label: `CMR (${byChip['cmr']})` })
+    out.push({ id: 'cmr', label: 'CMR', count: byChip['cmr'] })
   }
   if (byChip['drafts']) {
-    out.push({ id: 'drafts', label: `Utkast (${byChip['drafts']})` })
+    out.push({ id: 'drafts', label: 'Utkast', count: byChip['drafts'] })
   }
   if (byChip['archived']) {
-    out.push({ id: 'archived', label: `Arkivert (${byChip['archived']})` })
+    out.push({ id: 'archived', label: 'Arkivert', count: byChip['archived'] })
   }
 
   // Field-specific status/severity chips
@@ -690,7 +811,8 @@ function buildChipDefs(
     if (!opt) continue
     out.push({
       id: key,
-      label: `${opt.label} (${byChip[key]})`,
+      label: opt.label,
+      count: byChip[key],
     })
   }
 
