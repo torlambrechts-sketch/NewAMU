@@ -1,32 +1,37 @@
-// Rail-2 state machine. Replaces the boolean `subNavCollapsed` so the
-// shell can move between three states (expanded / mini / hidden) and
-// pick a breakpoint-aware default when the user hasn't expressed a
-// preference.
+// Rail-2 state machine. Two states — `expanded` (256px nav) and
+// `hidden` (rail collapsed) — toggled by the user via the rail
+// button or the [ keyboard shortcut.
 //
 // Storage shape:
-//   atics-rail2 = 'auto' | 'expanded' | 'mini' | 'hidden'
+//   atics-rail2 = 'auto' | 'expanded' | 'hidden'
 //
-// `auto` resolves at runtime via matchMedia (see AticsShell). The
-// legacy boolean key `atics-sub-nav-collapsed` is migrated on read:
-// users who chose 'collapsed' keep that as 'hidden'; everyone else
-// lands on 'auto' so they get the breakpoint-aware default.
+// `auto` resolves at runtime via matchMedia (see AticsShell):
+// viewports below md collapse to hidden, everything else opens
+// to expanded. The legacy boolean key `atics-sub-nav-collapsed` is
+// migrated on read so existing users keep their preference.
+//
+// (The earlier `mini` icon-only state was dropped in favour of a
+// simple open/closed model — the two-click "expanded → mini →
+// hidden" cycle was noisy when users just wanted to close the rail.)
 
-export type Rail2State = 'expanded' | 'mini' | 'hidden'
+export type Rail2State = 'expanded' | 'hidden'
 export type Rail2Preference = 'auto' | Rail2State
 
 const KEY = 'atics-rail2'
 const LEGACY_KEY = 'atics-sub-nav-collapsed'
 
-// Auto-state thresholds. ≥ XL keeps the full 256px rail; lg/md fall to
-// mini (56px icons) so dashboards have room; <md collapses entirely
-// since the rail consumes a third of the viewport.
-const MINI_BELOW_PX = 1280
+// Auto-state threshold. Below md, the rail eats a third of the
+// viewport — hide by default. md+ defaults to expanded.
 const HIDDEN_BELOW_PX = 768
 
 export function loadRail2Pref(): Rail2Preference {
   try {
     const v = localStorage.getItem(KEY)
-    if (v === 'auto' || v === 'expanded' || v === 'mini' || v === 'hidden') return v
+    // The legacy `mini` value (from the 3-state era) is migrated to
+    // `expanded` — users on small screens get hidden via the auto
+    // default anyway, and the mini state no longer exists.
+    if (v === 'auto' || v === 'expanded' || v === 'hidden') return v
+    if (v === 'mini') return 'expanded'
     const legacy = localStorage.getItem(LEGACY_KEY)
     if (legacy === '1') return 'hidden'
   } catch {
@@ -44,9 +49,7 @@ export function saveRail2Pref(pref: Rail2Preference) {
 }
 
 export function autoRail2State(viewportWidth: number): Rail2State {
-  if (viewportWidth < HIDDEN_BELOW_PX) return 'hidden'
-  if (viewportWidth < MINI_BELOW_PX) return 'mini'
-  return 'expanded'
+  return viewportWidth < HIDDEN_BELOW_PX ? 'hidden' : 'expanded'
 }
 
 export function resolveRail2State(
@@ -56,25 +59,16 @@ export function resolveRail2State(
   return pref === 'auto' ? autoRail2State(viewportWidth) : pref
 }
 
-// Cycle forward: expanded → mini → hidden → expanded. Used by the
-// toggle button and the keyboard shortcut.
+// Binary toggle: expanded ↔ hidden. Used by the rail-toggle button
+// and the [ keyboard shortcut.
 export function cycleRail2State(current: Rail2State): Rail2State {
-  switch (current) {
-    case 'expanded':
-      return 'mini'
-    case 'mini':
-      return 'hidden'
-    case 'hidden':
-      return 'expanded'
-  }
+  return current === 'expanded' ? 'hidden' : 'expanded'
 }
 
 export function rail2StateLabel(state: Rail2State): string {
   switch (state) {
     case 'expanded':
       return 'Utvidet'
-    case 'mini':
-      return 'Kompakt'
     case 'hidden':
       return 'Skjult'
   }

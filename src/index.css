@@ -80,9 +80,6 @@
     --warn: #c98a2b;
     --warn-soft: #f7ead0;
   }
-  [data-rail2='mini'] {
-    --shell-rail2-w: 3.5rem;
-  }
   [data-rail2='hidden'] {
     --shell-rail2-w: 0rem;
   }

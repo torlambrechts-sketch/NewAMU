@@ -380,30 +380,32 @@ export function InternkontrollPage() {
             })}
           </nav>
 
-          {/* Free-text search — drives whichever section is active.
-              Placeholder text tracks the section so the input hints
-              at the actual fields being matched. */}
-          {SECTION_SHOWS_SEARCH[section] ? (
-            <div className="flex items-center gap-2 border-b border-neutral-100 px-4 py-2.5">
-              <div className="relative w-full max-w-md">
-                <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-neutral-400" aria-hidden />
-                <StandardInput
-                  type="search"
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                  placeholder={SEARCH_PLACEHOLDER[section]}
-                  aria-label="Søk"
-                  className="w-full pl-10"
-                />
-              </div>
-            </div>
-          ) : null}
-
-          {/* FilterBar — Rammeverk + Kontroller-kategori chips + saved
-              views. Hidden on sections where neither dimension is
-              meaningful (Prosjekter, Revisjon). */}
-          {showFilterBar ? (
+          {/* FilterBar — search input (leading) + Rammeverk +
+              Kontroller-kategori chips + saved views. Search lives
+              inline on the same row as the chips so users see the
+              entire narrow-the-list control set at once. The bar
+              renders whenever EITHER search or chips are relevant
+              for the section. */}
+          {showFilterBar || SECTION_SHOWS_SEARCH[section] ? (
             <FilterBar
+              leading={
+                SECTION_SHOWS_SEARCH[section] ? (
+                  <div className="relative w-64 max-w-full">
+                    <Search
+                      className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-neutral-400"
+                      aria-hidden
+                    />
+                    <StandardInput
+                      type="search"
+                      value={search}
+                      onChange={(e) => setSearch(e.target.value)}
+                      placeholder={SEARCH_PLACEHOLDER[section]}
+                      aria-label="Søk"
+                      className="w-full !py-1.5 pl-9 text-sm"
+                    />
+                  </div>
+                ) : undefined
+              }
               chips={
                 <>
                   {showFrameworkChip ? (

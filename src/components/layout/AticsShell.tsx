@@ -228,7 +228,7 @@ function saveNavMode(mode: NavMode) {
 //   rail2Pref  — what the user picked (or 'auto' to follow viewport)
 //   autoState  — the breakpoint-resolved state (only used when pref==='auto')
 // The render path reads `resolveRail2State(rail2Pref, autoState)` which
-// returns one of 'expanded' | 'mini' | 'hidden'.
+// returns one of 'expanded' | 'hidden'.
 
 // ─── Shell ────────────────────────────────────────────────────────────────────
 
@@ -366,22 +366,17 @@ export function AticsShell() {
   })
 
   // Track viewport via matchMedia so we only re-render when crossing
-  // a breakpoint (768 / 1280), not on every resize pixel.
+  // the md breakpoint (768px), not on every resize pixel.
   useEffect(() => {
     if (typeof window === 'undefined') return
     const mqHidden = window.matchMedia('(max-width: 767px)')
-    const mqMini = window.matchMedia('(max-width: 1279px)')
     const update = () => {
-      setAutoState(
-        mqHidden.matches ? 'hidden' : mqMini.matches ? 'mini' : 'expanded',
-      )
+      setAutoState(mqHidden.matches ? 'hidden' : 'expanded')
     }
     update()
     mqHidden.addEventListener('change', update)
-    mqMini.addEventListener('change', update)
     return () => {
       mqHidden.removeEventListener('change', update)
-      mqMini.removeEventListener('change', update)
     }
   }, [])
 
@@ -627,42 +622,6 @@ export function AticsShell() {
                   </div>
                 )
               })}
-            </nav>
-          ) : rail2State === 'mini' ? (
-            <nav className="flex-1 overflow-y-auto px-1.5 py-3">
-              {visibleSections.map((section, sectionIdx) => (
-                <div
-                  key={section.id}
-                  className={
-                    sectionIdx > 0
-                      ? 'mt-3 border-t border-white/10 pt-3'
-                      : undefined
-                  }
-                >
-                  {section.groups.flatMap((group) =>
-                    group.modules.map((mod) => {
-                      const ModIcon = mod.icon
-                      const isActiveMod = activeModule.to === mod.to
-                      return (
-                        <NavLink
-                          key={`${group.id}:${mod.to}`}
-                          to={mod.to}
-                          end={mod.end}
-                          title={`${section.label} · ${mod.label}`}
-                          aria-label={mod.label}
-                          className={`relative mx-auto flex h-9 w-9 items-center justify-center rounded-lg transition-colors ${
-                            isActiveMod
-                              ? 'bg-white/15 text-white after:absolute after:right-1 after:top-1 after:size-1.5 after:rounded-full after:bg-[var(--color-atics-gold)]'
-                              : 'text-white/65 hover:bg-white/10 hover:text-white'
-                          }`}
-                        >
-                          <ModIcon className="size-[1.125rem] shrink-0 opacity-85" aria-hidden />
-                        </NavLink>
-                      )
-                    }),
-                  )}
-                </div>
-              ))}
             </nav>
           ) : null}
         </aside>

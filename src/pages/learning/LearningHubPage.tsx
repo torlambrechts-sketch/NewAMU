@@ -1,6 +1,6 @@
-// LearningHubPage — Main e-læring hub. Framework rail on the left,
-// Kurs/Maler/Statistikk tabs with bokser/tabell view modes, search and a
-// compliance summary aside. Replaces the legacy LearningDashboard at /learning.
+// LearningHubPage — Main e-læring hub. Framework + search filter bar with
+// saved views, Kurs/Maler/Statistikk tabs and bokser/tabell view modes.
+// Replaces the legacy LearningDashboard at /learning.
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
@@ -17,7 +17,6 @@ import {
   Plus,
   Rows3,
   Search,
-  ShieldAlert,
   ShieldCheck,
   Star,
   X,
@@ -26,13 +25,15 @@ import { useLearning } from '../../hooks/useLearning'
 import { useOrgSetupContext } from '../../hooks/useOrgSetupContext'
 import { Button } from '../../components/ui/Button'
 import { PageContainer } from '../../components/layout/PageContainer'
+import { FilterBar, SavedViewsControl } from '../../components/ui/FilterBar'
+import { FilterChip } from '../../components/ui/FilterChip'
+import { useSavedViews } from '../../hooks/useSavedViews'
 import { StandardInput } from '../../components/ui/Input'
 import { StandardTextarea } from '../../components/ui/Textarea'
 import { SlidePanel } from '../../components/layout/SlidePanel'
 import { Tabs, type TabItem } from '../../components/ui/Tabs'
 import {
   ELEARNING_FRAMEWORKS,
-  ELEARNING_MANDATORY_LABEL,
   aggregateCohort,
   aggregateLearningKpis,
   courseDurationHours,
@@ -55,13 +56,23 @@ import {
   ModeToggle,
   PAPER_BG,
   ProgressBar,
-  RailItem,
   type LearningMode,
 } from '../../components/ui/elearningPrimitives'
 import type { Course } from '../../types/learning'
 
 type TabId = 'courses' | 'templates' | 'statistikk'
 type ViewMode = 'tabell' | 'bokser'
+
+interface HubFilters {
+  frameworks: string[]
+}
+const EMPTY_FILTERS: HubFilters = { frameworks: [] }
+function filtersEqual(a: HubFilters, b: HubFilters): boolean {
+  if (a.frameworks.length !== b.frameworks.length) return false
+  const setA = new Set(a.frameworks)
+  for (const id of b.frameworks) if (!setA.has(id)) return false
+  return true
+}
 
 const VIEW_MODE_KEY = 'atics-elearning-hub-view-mode'
 
@@ -98,7 +109,9 @@ export function LearningHubPage() {
     updateCourse,
   } = learning
   const [mode, setMode] = useState<LearningMode>('advanced')
-  const [framework, setFramework] = useState<string>('all')
+  // Multi-select framework filter — mirrors the FilterBar pattern
+  // used across the other module hubs. Empty = no filter.
+  const [frameworks, setFrameworks] = useState<string[]>([])
   const [tab, setTab] = useState<TabId>('courses')
   const [view, setView] = useState<ViewMode>(() => loadViewMode())
   const [query, setQuery] = useState('')
@@ -107,6 +120,43 @@ export function LearningHubPage() {
   const [newTitle, setNewTitle] = useState('')
   const [newDesc, setNewDesc] = useState('')
   const [creating, setCreating] = useState(false)
+
+  // Saved views — separate slug from `/learning/alle` (which uses
+  // "learning") so the hub's framework views don't pollute the
+  // category-architecture list page's status/category views.
+  const filters: HubFilters = useMemo(() => ({ frameworks }), [frameworks])
+  const saved = useSavedViews<HubFilters>('learning_hub')
+  const [activeViewId, setActiveViewId] = useState<string | null>(null)
+  const [defaultApplied, setDefaultApplied] = useState(false)
+  const activeFilterCount = frameworks.length
+  useEffect(() => {
+    if (defaultApplied) return
+    if (saved.loading) return
+    if (activeFilterCount > 0) {
+      const match = saved.views.find((v) =>
+        filtersEqual(filters, { ...EMPTY_FILTERS, ...v.filters }),
+      )
+      if (match) setActiveViewId(match.id)
+      setDefaultApplied(true)
+      return
+    }
+    if (saved.defaultViewId) {
+      const def = saved.views.find((v) => v.id === saved.defaultViewId)
+      if (def) {
+        const merged = { ...EMPTY_FILTERS, ...def.filters }
+        setFrameworks(merged.frameworks)
+        setActiveViewId(def.id)
+      }
+    }
+    setDefaultApplied(true)
+  }, [defaultApplied, saved.loading, saved.defaultViewId, saved.views, activeFilterCount, filters])
+
+  const hasUnsavedChanges = useMemo(() => {
+    if (!activeViewId) return false
+    const view = saved.views.find((v) => v.id === activeViewId)
+    if (!view) return false
+    return !filtersEqual(filters, { ...EMPTY_FILTERS, ...view.filters })
+  }, [activeViewId, filters, saved.views])
 
   useEffect(() => {
     saveViewMode(view)
@@ -141,25 +191,27 @@ export function LearningHubPage() {
   }, [canManage, createCourse, navigate, newDesc, newTitle, updateCourse])
 
   const filteredCourses = useMemo(() => {
+    const fwSet = frameworks.length ? new Set(frameworks) : null
     let list = courses
-    if (framework !== 'all') list = list.filter((c) => frameworkForCourse(c) === framework)
+    if (fwSet) list = list.filter((c) => fwSet.has(frameworkForCourse(c)))
     if (query.trim()) {
       const q = query.trim().toLowerCase()
       list = list.filter((c) => `${c.title} ${c.description} ${c.tags.join(' ')}`.toLowerCase().includes(q))
     }
     // Cohorts (Kurs) view — exclude pure drafts so they live in Maler.
     return list.filter((c) => c.status !== 'draft' || progress.some((p) => p.courseId === c.id))
-  }, [courses, framework, query, progress])
+  }, [courses, frameworks, query, progress])
 
   const filteredTemplates = useMemo(() => {
+    const fwSet = frameworks.length ? new Set(frameworks) : null
     let list = courses
-    if (framework !== 'all') list = list.filter((c) => frameworkForCourse(c) === framework)
+    if (fwSet) list = list.filter((c) => fwSet.has(frameworkForCourse(c)))
     if (query.trim()) {
       const q = query.trim().toLowerCase()
       list = list.filter((c) => `${c.title} ${c.description} ${c.tags.join(' ')}`.toLowerCase().includes(q))
     }
     return list
-  }, [courses, framework, query])
+  }, [courses, frameworks, query])
 
   const filteredCohorts = useMemo(
     () =>
@@ -182,22 +234,10 @@ export function LearningHubPage() {
 
   const kpi = useMemo(() => aggregateLearningKpis(courses, progress), [courses, progress])
 
-  const missingMandatory = useMemo(() => {
-    const missing = new Set<string>()
-    for (const c of courses) {
-      if (!isMandatoryCourse(c)) continue
-      // Count distinct learner ids that have not started this mandatory course
-      const own = progress.filter((p) => p.courseId === c.id)
-      const completed = own.filter((p) => !!p.completedAt).length
-      missing.add(`${c.id}:${Math.max(0, own.length - completed)}`)
-    }
-    return missing.size
-  }, [courses, progress])
-
   return (
     <div className="min-h-screen" style={{ background: '#F9F7F2' }}>
       <header style={{ background: '#F9F7F2' }}>
-        <PageContainer py="pb-4 pt-4">
+        <PageContainer width="full" py="pb-4 pt-4">
           <div className="space-y-4">
             <nav aria-label="Brødsmule" className="text-xs text-neutral-500">
               <span>
@@ -258,7 +298,7 @@ export function LearningHubPage() {
         </PageContainer>
       </header>
 
-      <PageContainer py="py-6" className="space-y-6">
+      <PageContainer width="full" py="py-6" className="space-y-6">
         {errorVisible ? (
           <div className="flex items-start gap-2.5 rounded-md border border-red-300 bg-red-50 px-3 py-3 text-sm text-red-900">
             <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-red-600" />
@@ -280,85 +320,67 @@ export function LearningHubPage() {
             <p className="text-sm text-neutral-600">Henter kurs og påmeldinger…</p>
           </div>
         ) : (
-        <div className="grid gap-5 lg:grid-cols-[260px_minmax(0,1fr)]">
-          <aside className="space-y-3">
-            <Card>
-              <div className="border-b border-neutral-100 px-4 py-3">
-                <h2 className="text-xs font-bold uppercase tracking-wider text-neutral-500">Rammeverk</h2>
-              </div>
-              <ul className="py-1.5">
-                <RailItem
-                  active={framework === 'all'}
-                  iconName="LayoutGrid"
-                  label="Alle"
-                  count={counts.all[tab === 'templates' ? 'maler' : 'courses']}
-                  onClick={() => setFramework('all')}
+        <div className="space-y-3">
+          {/* FilterBar — search input (leading) + Rammeverk multi-select
+              chip + saved views. Mirrors the data-grid filter pattern used
+              across Sjekklister / Internkontroll / Oppgaver etc. The
+              Tabell/Bokser switcher lives next to the tab strip below
+              because it scopes how the active tab's rows render, not how
+              the list is filtered. */}
+          <div className="rounded-xl border border-neutral-200/80 bg-white shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
+            <FilterBar
+              leading={
+                <div className="relative w-64 max-w-full">
+                  <Search
+                    className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-neutral-400"
+                    aria-hidden
+                  />
+                  <StandardInput
+                    type="search"
+                    value={query}
+                    onChange={(e) => setQuery(e.target.value)}
+                    placeholder="Søk i kurs, maler…"
+                    aria-label="Søk"
+                    className="w-full !py-1.5 pl-9 text-sm"
+                  />
+                </div>
+              }
+              chips={
+                <FilterChip
+                  label="Rammeverk"
+                  options={ELEARNING_FRAMEWORKS.map((f) => ({
+                    value: f.id,
+                    label: f.short,
+                    count: counts[f.id]?.courses,
+                  }))}
+                  value={frameworks}
+                  onChange={(next) => {
+                    setFrameworks(next)
+                    setActiveViewId(null)
+                  }}
                 />
-                {ELEARNING_FRAMEWORKS.map((f) => {
-                  const count = counts[f.id]?.[tab === 'templates' ? 'maler' : 'courses'] ?? 0
-                  if (!count) return null
-                  return (
-                    <RailItem
-                      key={f.id}
-                      active={framework === f.id}
-                      iconName={f.icon}
-                      iconColor={f.color}
-                      label={f.short}
-                      count={count}
-                      onClick={() => setFramework(f.id)}
-                    />
-                  )
-                })}
-              </ul>
-            </Card>
-
-            {!easy ? (
-              <Card className="p-4">
-                <h3 className="text-xs font-bold uppercase tracking-wider text-neutral-500">Compliance</h3>
-                <div className="mt-3">
-                  <div className="flex items-baseline justify-between">
-                    <span className="text-[10px] font-bold uppercase tracking-wider text-neutral-500">Lovpålagt</span>
-                    <span className="text-base font-bold tabular-nums text-[#1a3d32]">
-                      {Math.round(kpi.mandatoryCompliance * 100)}%
-                    </span>
-                  </div>
-                  <div className="mt-1.5">
-                    <ProgressBar value={kpi.mandatoryCompliance} />
-                  </div>
-                </div>
-                <ul className="mt-3 space-y-1.5 text-xs">
-                  <li className="flex items-center justify-between">
-                    <span className="text-neutral-700">Aktive kurs</span>
-                    <span className="font-semibold tabular-nums text-neutral-900">{kpi.activeCourses}</span>
-                  </li>
-                  <li className="flex items-center justify-between">
-                    <span className="text-neutral-700">Påmeldinger</span>
-                    <span className="font-semibold tabular-nums text-neutral-900">{kpi.enrolledTotal}</span>
-                  </li>
-                  <li className="flex items-center justify-between">
-                    <span className="text-neutral-700">Bestått-rate</span>
-                    <span className="font-semibold tabular-nums text-neutral-900">{Math.round(kpi.passRate * 100)}%</span>
-                  </li>
-                  <li className="flex items-center justify-between">
-                    <span className="text-neutral-700">Snittscore</span>
-                    <span className="font-semibold tabular-nums text-neutral-900">{kpi.avgScore}</span>
-                  </li>
-                </ul>
-              </Card>
-            ) : null}
-
-            {!easy && missingMandatory > 0 ? (
-              <div className="rounded-xl border border-amber-200 bg-amber-50/70 p-3 text-[11px] text-amber-900">
-                <div className="flex items-start gap-2">
-                  <ShieldAlert className="mt-0.5 h-3.5 w-3.5 shrink-0 text-amber-700" />
-                  <div>
-                    <div className="font-semibold">{missingMandatory} {ELEARNING_MANDATORY_LABEL.toLowerCase()} kurs mangler påmeldinger</div>
-                    <div className="mt-0.5">Frist innen 6 mnd etter valg som verneombud.</div>
-                  </div>
-                </div>
-              </div>
-            ) : null}
-          </aside>
+              }
+              activeFilterCount={activeFilterCount}
+              onReset={() => {
+                setFrameworks([])
+                setActiveViewId(null)
+              }}
+              savedViews={
+                <SavedViewsControl<HubFilters>
+                  currentFilters={filters}
+                  activeViewId={activeViewId}
+                  hasUnsavedChanges={hasUnsavedChanges}
+                  onApplyView={(view) => {
+                    const merged = { ...EMPTY_FILTERS, ...view.filters }
+                    setFrameworks(merged.frameworks)
+                    setActiveViewId(view.id)
+                  }}
+                  onClearActive={() => setActiveViewId(null)}
+                  saved={saved}
+                />
+              }
+            />
+          </div>
 
           <section>
             <Card>
@@ -372,49 +394,37 @@ export function LearningHubPage() {
                   activeId={tab}
                   onChange={(id) => setTab(id as TabId)}
                 />
-                <div className="flex items-center gap-2">
-                  <div className="relative">
-                    <Search className="pointer-events-none absolute left-2 top-1/2 z-10 h-3.5 w-3.5 -translate-y-1/2 text-neutral-400" />
-                    <StandardInput
-                      type="text"
-                      value={query}
-                      onChange={(e) => setQuery(e.target.value)}
-                      placeholder="Søk i kurs, maler…"
-                      className="w-52 bg-neutral-50 py-1.5 pl-7 pr-2 text-xs"
-                    />
+                {tab !== 'statistikk' ? (
+                  <div className="inline-flex items-center rounded-md border border-neutral-200 bg-neutral-50 p-0.5">
+                    {(
+                      [
+                        { id: 'tabell' as const, label: 'Tabell', Icon: Rows3 },
+                        { id: 'bokser' as const, label: 'Bokser', Icon: LayoutGrid },
+                      ]
+                    ).map((m) => {
+                      const active = m.id === view
+                      const Icon = m.Icon
+                      return (
+                        <Button
+                          key={m.id}
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setView(m.id)}
+                          title={m.label}
+                          className={[
+                            '!gap-1.5 rounded px-2 py-1 text-xs font-medium',
+                            active
+                              ? '!bg-white text-neutral-900 !shadow-sm ring-1 ring-neutral-200'
+                              : '!bg-transparent text-neutral-500 hover:text-neutral-800',
+                          ].join(' ')}
+                        >
+                          <Icon className="h-3.5 w-3.5" />
+                          <span className="hidden md:inline">{m.label}</span>
+                        </Button>
+                      )
+                    })}
                   </div>
-                  {tab !== 'statistikk' ? (
-                    <div className="inline-flex items-center rounded-md border border-neutral-200 bg-neutral-50 p-0.5">
-                      {(
-                        [
-                          { id: 'tabell' as const, label: 'Tabell', Icon: Rows3 },
-                          { id: 'bokser' as const, label: 'Bokser', Icon: LayoutGrid },
-                        ]
-                      ).map((m) => {
-                        const active = m.id === view
-                        const Icon = m.Icon
-                        return (
-                          <Button
-                            key={m.id}
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => setView(m.id)}
-                            title={m.label}
-                            className={[
-                              '!gap-1.5 rounded px-2 py-1 text-xs font-medium',
-                              active
-                                ? '!bg-white text-neutral-900 !shadow-sm ring-1 ring-neutral-200'
-                                : '!bg-transparent text-neutral-500 hover:text-neutral-800',
-                            ].join(' ')}
-                          >
-                            <Icon className="h-3.5 w-3.5" />
-                            <span className="hidden md:inline">{m.label}</span>
-                          </Button>
-                        )
-                      })}
-                    </div>
-                  ) : null}
-                </div>
+                ) : null}
               </div>
 
               <div>
