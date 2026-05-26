@@ -2,8 +2,9 @@
 
 import { useEffect, useMemo } from 'react'
 import { Link } from 'react-router-dom'
-import { ArrowLeft, ChevronRight } from 'lucide-react'
+import { ArrowLeft, ChevronRight, MessageSquare } from 'lucide-react'
 import { ModuleAlleListPage } from '../../src/components/module/ModuleAlleListPage'
+import { ModuleHeroEmptyState } from '../../src/components/module/ModuleHeroEmptyState'
 import { Badge } from '../../src/components/ui/Badge'
 import { useOrgSetupContext } from '../../src/hooks/useOrgSetupContext'
 import { useSurvey } from './useSurvey'
@@ -66,6 +67,16 @@ export function SurveyAllePage() {
         </Link>
       }
       rows={survey.surveys}
+      firstRunState={
+        <ModuleHeroEmptyState
+          icon={MessageSquare}
+          title="Ingen undersøkelser ennå"
+          body="Send en undersøkelse for å kartlegge arbeidsmiljøet, måle medvirkning eller lukke et tilsynsfunn. Maler dekker både AML §3-1 (kartlegging) og §1A-2 (psykososialt)."
+          primary={{ label: 'Velg en mal og send', to: '/survey' }}
+          secondary={{ label: 'Se analyse av tidligere svar', to: '/survey/analyse' }}
+          accent="#7c3aed"
+        />
+      }
       columns={[
         {
           key: 'title',

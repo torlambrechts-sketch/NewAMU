@@ -2,8 +2,9 @@
 
 import { useMemo } from 'react'
 import { Link } from 'react-router-dom'
-import { ArrowLeft } from 'lucide-react'
+import { ArrowLeft, GraduationCap } from 'lucide-react'
 import { ModuleAlleListPage } from '../../components/module/ModuleAlleListPage'
+import { ModuleHeroEmptyState } from '../../components/module/ModuleHeroEmptyState'
 import { Badge } from '../../components/ui/Badge'
 import { useOrgSetupContext } from '../../hooks/useOrgSetupContext'
 import { useLearning } from '../../hooks/useLearning'
@@ -51,6 +52,16 @@ export function LearningAllePage() {
         </Link>
       }
       rows={learning.courses}
+      firstRunState={
+        <ModuleHeroEmptyState
+          icon={GraduationCap}
+          title="Ingen kurs ennå"
+          body="Læringsmoduler dokumenterer at ansatte har fått pålagt opplæring — verneombud, brann, førstehjelp eller eget innhold. Hvert kurs lagrer hjemmel og resertifiseringssyklus."
+          primary={{ label: 'Lag ditt første kurs', to: '/learning/courses/new' }}
+          secondary={{ label: 'Se eksisterende kategorier', to: '/learning' }}
+          accent="#0e7490"
+        />
+      }
       columns={[
         {
           key: 'title',

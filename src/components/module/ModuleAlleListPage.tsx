@@ -98,6 +98,13 @@ export interface ModuleAlleListPageProps<RowT> {
   moduleSlug?: string
   /** Empty-state node when zero rows survive filtering. */
   emptyState?: ReactNode
+  /**
+   * First-run state when the org's data source has zero rows (distinct
+   * from "filtered to zero"). Renders in place of the table + filters
+   * when `rows.length === 0`. Use <ModuleHeroEmptyState> for the
+   * canonical shape.
+   */
+  firstRunState?: ReactNode
   /** Optional accent — currently reserved for future use. */
   accent?: string
   /**
@@ -122,6 +129,7 @@ export function ModuleAlleListPage<RowT>({
   chipFilters,
   moduleSlug,
   emptyState,
+  firstRunState,
   renderMobileRow,
 }: ModuleAlleListPageProps<RowT>) {
   const { isActive: isRegulationActive } = useRegulationFilter()
@@ -284,6 +292,24 @@ export function ModuleAlleListPage<RowT>({
     if (!view) return false
     return !chipStateEquals(chipState, savedToChipState(view.filters))
   }, [activeViewId, chipState, saved.views])
+
+  // First-run shortcut: when the org has zero rows of source data,
+  // skip the filter bar + table chrome entirely and render the hero
+  // empty state. "Filtered to zero" still uses the inline `emptyState`
+  // copy below so users learn that *their filter* is the cause.
+  if (firstRunState && rows.length === 0) {
+    return (
+      <ModulePageShell
+        breadcrumb={breadcrumb}
+        title={title}
+        description={description}
+        headerActions={headerActions}
+        width={width}
+      >
+        <List2Shell>{firstRunState}</List2Shell>
+      </ModulePageShell>
+    )
+  }
 
   return (
     <ModulePageShell breadcrumb={breadcrumb} title={title} description={description} headerActions={headerActions} width={width}>

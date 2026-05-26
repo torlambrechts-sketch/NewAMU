@@ -4,8 +4,9 @@
 
 import { useEffect, useMemo } from 'react'
 import { Link } from 'react-router-dom'
-import { ArrowLeft } from 'lucide-react'
+import { ArrowLeft, ClipboardCheck } from 'lucide-react'
 import { ModuleAlleListPage } from '../../src/components/module/ModuleAlleListPage'
+import { ModuleHeroEmptyState } from '../../src/components/module/ModuleHeroEmptyState'
 import { Badge } from '../../src/components/ui/Badge'
 import { useOrgSetupContext } from '../../src/hooks/useOrgSetupContext'
 import { useChecklistModule } from './useChecklistModule'
@@ -63,6 +64,16 @@ export function ChecklistsAllePage() {
         </Link>
       }
       rows={cl.executions}
+      firstRunState={
+        <ModuleHeroEmptyState
+          icon={ClipboardCheck}
+          title="Ingen sjekklister ennå"
+          body="Sjekklister er kjørbare maler som dokumenterer at en rutine er fulgt. Velg en mal fra biblioteket for å komme i gang — du kan tilpasse alt før første signering."
+          primary={{ label: 'Velg en sjekklistemal', to: '/compliance/checklists' }}
+          secondary={{ label: 'Se etterlevelsesoversikt', to: '/compliance/checklists/etterlevelse' }}
+          accent="#1a3d32"
+        />
+      }
       columns={[
         {
           key: 'title',

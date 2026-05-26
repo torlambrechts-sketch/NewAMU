@@ -2,8 +2,9 @@
 
 import { useMemo } from 'react'
 import { Link } from 'react-router-dom'
-import { ArrowLeft } from 'lucide-react'
+import { ArrowLeft, FileText } from 'lucide-react'
 import { ModuleAlleListPage } from '../../components/module/ModuleAlleListPage'
+import { ModuleHeroEmptyState } from '../../components/module/ModuleHeroEmptyState'
 import { Badge } from '../../components/ui/Badge'
 import { useDocuments } from '../../hooks/useDocuments'
 import { useOrgSetupContext } from '../../hooks/useOrgSetupContext'
@@ -63,6 +64,16 @@ export function DocumentsAllePage() {
         </Link>
       }
       rows={docs.pages}
+      firstRunState={
+        <ModuleHeroEmptyState
+          icon={FileText}
+          title="Ingen dokumenter ennå"
+          body="Bygg HMS-håndboken, rutinene og policyene fra maler. Hver mal er bundet til en hjemmel (AML, IK-f, ISO eller GDPR) slik at sporbarhet til regelverket blir riktig fra første lagring."
+          primary={{ label: 'Velg en dokumentmal', to: '/documents' }}
+          secondary={{ label: 'Se maloversikten', to: '/documents/templates' }}
+          accent="#0f766e"
+        />
+      }
       columns={[
         {
           key: 'title',
