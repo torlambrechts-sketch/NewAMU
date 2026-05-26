@@ -2,7 +2,7 @@
 
 import { useMemo } from 'react'
 import { Link } from 'react-router-dom'
-import { ArrowLeft, GraduationCap } from 'lucide-react'
+import { ArrowLeft, ChevronRight, GraduationCap } from 'lucide-react'
 import { ModuleAlleListPage } from '../../components/module/ModuleAlleListPage'
 import { ModuleHeroEmptyState } from '../../components/module/ModuleHeroEmptyState'
 import { Badge } from '../../components/ui/Badge'
@@ -106,6 +106,29 @@ export function LearningAllePage() {
       categoryNameById={categoryNameById}
       getRegulationId={(r) => (r.categoryId ? (categoryRegulationById.get(r.categoryId) ?? null) : null)}
       searchableText={(r) => [r.title, r.description, ...r.tags].join(' ')}
+      renderMobileRow={(r) => (
+        <Link
+          to={`/learning/courses/${r.id}`}
+          className="flex items-center gap-3 px-4 py-3 hover:bg-neutral-50 active:bg-neutral-100"
+        >
+          <div className="min-w-0 flex-1">
+            <div className="truncate text-sm font-medium text-[#0e7490]">{r.title}</div>
+            <div className="mt-0.5 flex items-center gap-2 text-[11px] text-neutral-500">
+              <span className="tabular-nums">{r.modules.length} moduler</span>
+              {r.recertificationMonths ? (
+                <>
+                  <span>·</span>
+                  <span className="tabular-nums">Resert. {r.recertificationMonths} mnd</span>
+                </>
+              ) : null}
+            </div>
+          </div>
+          <Badge variant={STATUS_VARIANT[r.status] ?? 'neutral'}>
+            {STATUS_LABEL[r.status] ?? r.status}
+          </Badge>
+          <ChevronRight className="h-3.5 w-3.5 shrink-0 text-neutral-300" aria-hidden />
+        </Link>
+      )}
       chipFilters={[
         {
           kind: 'enum',

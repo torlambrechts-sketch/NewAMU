@@ -4,7 +4,7 @@
 
 import { useEffect, useMemo } from 'react'
 import { Link } from 'react-router-dom'
-import { ArrowLeft, ClipboardCheck } from 'lucide-react'
+import { ArrowLeft, ChevronRight, ClipboardCheck } from 'lucide-react'
 import { ModuleAlleListPage } from '../../src/components/module/ModuleAlleListPage'
 import { ModuleHeroEmptyState } from '../../src/components/module/ModuleHeroEmptyState'
 import { Badge } from '../../src/components/ui/Badge'
@@ -120,6 +120,29 @@ export function ChecklistsAllePage() {
       searchableText={(r) =>
         [r.title, r.pack, templateById.get(r.template_id)?.name].filter(Boolean).join(' ')
       }
+      renderMobileRow={(r) => (
+        <Link
+          to={`/compliance/checklists/${r.id}`}
+          className="flex items-center gap-3 px-4 py-3 hover:bg-neutral-50 active:bg-neutral-100"
+        >
+          <div className="min-w-0 flex-1">
+            <div className="truncate text-sm font-medium text-[#1a3d32]">{r.title}</div>
+            <div className="mt-0.5 flex items-center gap-2 text-[11px] text-neutral-500">
+              <span>{r.pack}</span>
+              {r.created_at ? (
+                <>
+                  <span>·</span>
+                  <span className="tabular-nums">{new Date(r.created_at).toLocaleDateString('nb-NO')}</span>
+                </>
+              ) : null}
+            </div>
+          </div>
+          <Badge variant={STATUS_VARIANT[r.status] ?? 'neutral'}>
+            {STATUS_LABEL[r.status] ?? r.status}
+          </Badge>
+          <ChevronRight className="h-3.5 w-3.5 shrink-0 text-neutral-300" aria-hidden />
+        </Link>
+      )}
       chipFilters={[
         {
           kind: 'enum',

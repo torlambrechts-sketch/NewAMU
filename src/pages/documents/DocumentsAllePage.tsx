@@ -2,7 +2,7 @@
 
 import { useMemo } from 'react'
 import { Link } from 'react-router-dom'
-import { ArrowLeft, FileText } from 'lucide-react'
+import { ArrowLeft, ChevronRight, FileText } from 'lucide-react'
 import { ModuleAlleListPage } from '../../components/module/ModuleAlleListPage'
 import { ModuleHeroEmptyState } from '../../components/module/ModuleHeroEmptyState'
 import { Badge } from '../../components/ui/Badge'
@@ -130,6 +130,29 @@ export function DocumentsAllePage() {
       categoryNameById={categoryNameById}
       getRegulationId={(r) => spaceRegulationById.get(r.spaceId) ?? null}
       searchableText={(r) => [r.title, r.summary ?? '', ...(r.legalRefs ?? [])].join(' ')}
+      renderMobileRow={(r) => (
+        <Link
+          to={`/documents/page/${r.id}`}
+          className="flex items-center gap-3 px-4 py-3 hover:bg-neutral-50 active:bg-neutral-100"
+        >
+          <div className="min-w-0 flex-1">
+            <div className="truncate text-sm font-medium text-[#0f766e]">{r.title}</div>
+            <div className="mt-0.5 flex items-center gap-2 text-[11px] text-neutral-500">
+              <span className="truncate">{categoryNameById.get(r.spaceId) ?? '—'}</span>
+              {r.updatedAt ? (
+                <>
+                  <span>·</span>
+                  <span className="tabular-nums">{new Date(r.updatedAt).toLocaleDateString('nb-NO')}</span>
+                </>
+              ) : null}
+            </div>
+          </div>
+          <Badge variant={STATUS_VARIANT[r.status] ?? 'neutral'}>
+            {STATUS_LABEL[r.status] ?? r.status}
+          </Badge>
+          <ChevronRight className="h-3.5 w-3.5 shrink-0 text-neutral-300" aria-hidden />
+        </Link>
+      )}
       chipFilters={[
         {
           kind: 'enum',
