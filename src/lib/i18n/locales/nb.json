@@ -111,6 +111,20 @@
     "externalAria": "Åpne ekstern lenke",
     "userProfileAria": "Brukerprofil",
     "language": "Språk",
+    "skipToContent": "Hopp til innhold",
+    "commandPalette": {
+      "ariaLabel": "Hurtignavigasjon",
+      "searchPlaceholder": "Søk i moduler, sider og snarveier…",
+      "searchLabel": "Søk",
+      "resultsLabel": "Resultater",
+      "noResults": "Ingen treff for \"{{query}}\".",
+      "recent": "Nylig brukt",
+      "suggested": "Foreslått",
+      "close": "Lukk",
+      "openHint": "Søk (⌘K)",
+      "footerKeys": "↑↓ naviger · ↵ åpne · esc lukk",
+      "footerHint": "Tips: ⌘K åpner overalt"
+    },
     "header": {
       "navLayout": "Navigasjonslayout",
       "navLayoutTopbar": "Toppmeny",

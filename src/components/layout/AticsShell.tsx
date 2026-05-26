@@ -22,6 +22,7 @@ import {
   PanelRight,
   Scale,
   ScrollText,
+  Search,
   ShieldAlert,
   ShieldCheck,
   Settings,
@@ -1712,6 +1713,13 @@ export function AticsShell() {
     setRecentPaths(loadRecentPaths())
   }, [location.pathname])
 
+  // Strip the path the user is currently on from the recent list — no
+  // value showing "where I am" as a suggestion.
+  const paletteRecents = useMemo(
+    () => recentPaths.filter((p) => p !== location.pathname),
+    [recentPaths, location.pathname],
+  )
+
   // Cmd/Ctrl+K opens the palette. Same input-field guard as the [ shortcut.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -1813,6 +1821,21 @@ export function AticsShell() {
             })}
           </nav>
 
+          {/* Quick-search trigger — same as Cmd/Ctrl+K, but discoverable
+              by mouse + touch users. Sits with the rail toggle so all
+              chrome controls cluster at the bottom of rail 1. */}
+          <div className="border-t border-white/10 px-2 py-2">
+            <Button
+              variant="ghost"
+              onClick={() => setPaletteOpen(true)}
+              className="flex w-full items-center justify-center rounded-lg p-3 text-white/70 transition-colors hover:bg-white/10 hover:text-white"
+              aria-label={t('shell.commandPalette.openHint')}
+              title={t('shell.commandPalette.openHint')}
+            >
+              <Search className="size-[1.125rem] shrink-0" aria-hidden />
+            </Button>
+          </div>
+
           {/* Rail 2 cycle toggle: expanded → mini → hidden → expanded.
               Also driven by the [ keyboard shortcut. */}
           <div className="border-t border-white/10 px-2 py-2">
@@ -1862,9 +1885,9 @@ export function AticsShell() {
                             key={`${group.id}:${mod.to}`}
                             to={mod.to}
                             end={mod.end}
-                            className={`flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm font-medium transition-colors ${
+                            className={`relative flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm font-medium transition-colors ${
                               isActiveMod
-                                ? 'bg-white/10 text-white'
+                                ? 'bg-white/10 text-white before:absolute before:left-0 before:top-1/2 before:h-5 before:w-[3px] before:-translate-y-1/2 before:rounded-r-full before:bg-[var(--color-atics-gold)]'
                                 : 'text-white/70 hover:bg-white/5 hover:text-white'
                             }`}
                           >
@@ -1973,7 +1996,7 @@ export function AticsShell() {
           onClose={() => setPaletteOpen(false)}
           onSelect={(path) => navigate(path)}
           entries={paletteEntries}
-          recentPaths={recentPaths}
+          recentPaths={paletteRecents}
         />
       </div>
     )
@@ -2023,6 +2046,16 @@ export function AticsShell() {
         <>
           <OrgSwitcher variant="topbar" />
           <ShellCompanyBlock name={orgDisplayName} variant="topbar" />
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => setPaletteOpen(true)}
+            className="h-9 w-9 rounded-lg text-white/80 transition-colors hover:bg-white/10 hover:text-white"
+            aria-label={t('shell.commandPalette.openHint')}
+            title={t('shell.commandPalette.openHint')}
+          >
+            <Search className="size-4 shrink-0" aria-hidden />
+          </Button>
           <ShellQuickCreateMenu variant="topbar" />
           <ShellComplianceIndicator variant="topbar" />
           {/* Regulation filter is the single cross-module top-bar
@@ -2160,7 +2193,7 @@ export function AticsShell() {
         onClose={() => setPaletteOpen(false)}
         onSelect={(path) => navigate(path)}
         entries={paletteEntries}
-        recentPaths={recentPaths}
+        recentPaths={paletteRecents}
       />
     </div>
   )
@@ -2170,12 +2203,13 @@ export function AticsShell() {
 // link is visually hidden until focused (Tab from page load), then
 // jumps focus to <main id="main-content"> when activated. WCAG 2.4.1.
 function SkipToContent() {
+  const { t } = useT()
   return (
     <a
       href="#main-content"
       className="sr-only focus:not-sr-only focus:fixed focus:left-3 focus:top-3 focus:z-50 focus:rounded-md focus:bg-[var(--ui-nav-rail)] focus:px-3 focus:py-2 focus:text-sm focus:font-semibold focus:text-white focus:shadow-lg focus:outline-none focus:ring-2 focus:ring-[var(--color-atics-gold)]"
     >
-      Hopp til innhold
+      {t('shell.skipToContent')}
     </a>
   )
 }

@@ -18,6 +18,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { Clock, Search, X } from 'lucide-react'
 import { Button } from '../ui/Button'
 import { StandardInput } from '../ui/Input'
+import { useT } from '../../hooks/useT'
 import {
   scoreEntry,
   type CommandEntry,
@@ -38,22 +39,40 @@ export function CommandPalette({
   entries,
   recentPaths,
 }: CommandPaletteProps) {
+  const { t } = useT()
   const [query, setQuery] = useState('')
   const [rawActiveIndex, setActiveIndex] = useState(0)
   const inputRef = useRef<HTMLInputElement>(null)
   const listRef = useRef<HTMLDivElement>(null)
+  // Element that had focus when the palette opened — restored on
+  // close so keyboard users land back where they were. Without this,
+  // focus jumps to <body> and Tab order restarts from the top.
+  const triggerRef = useRef<HTMLElement | null>(null)
 
   // Reset state every time the palette opens. Intentional setState in
   // an effect — the `open` prop is the external state we're syncing
   // against; the alternative (lifting reset into the parent) would
   // duplicate the responsibility.
   useEffect(() => {
-    if (!open) return
+    if (!open) {
+      // Restore focus to whatever opened the palette.
+      const prior = triggerRef.current
+      if (prior && typeof prior.focus === 'function') {
+        try {
+          prior.focus()
+        } catch {
+          /* element may have unmounted; ignore */
+        }
+      }
+      triggerRef.current = null
+      return
+    }
+    triggerRef.current = document.activeElement as HTMLElement | null
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setQuery('')
     setActiveIndex(0)
-    const t = setTimeout(() => inputRef.current?.focus(), 0)
-    return () => clearTimeout(t)
+    const focusTimer = setTimeout(() => inputRef.current?.focus(), 0)
+    return () => clearTimeout(focusTimer)
   }, [open])
 
   // Esc to close, locked to this modal's lifetime.
@@ -148,7 +167,7 @@ export function CommandPalette({
         className="w-full max-w-xl overflow-hidden rounded-xl bg-white shadow-2xl ring-1 ring-black/5"
         role="dialog"
         aria-modal="true"
-        aria-label="Hurtignavigasjon"
+        aria-label={t('shell.commandPalette.ariaLabel')}
       >
         <div className="flex items-center gap-2 border-b border-neutral-200 px-4 py-3">
           <Search className="size-4 shrink-0 text-neutral-400" aria-hidden />
@@ -157,9 +176,9 @@ export function CommandPalette({
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             onKeyDown={onInputKey}
-            placeholder="Søk i moduler, sider og snarveier…"
+            placeholder={t('shell.commandPalette.searchPlaceholder')}
             className="flex-1 border-0 bg-transparent p-0 text-sm shadow-none ring-0 focus:ring-0"
-            aria-label="Søk"
+            aria-label={t('shell.commandPalette.searchLabel')}
             aria-controls="cmdpal-results"
             aria-activedescendant={
               flatList[activeIndex] ? `cmdpal-row-${flatList[activeIndex].id}` : undefined
@@ -171,7 +190,7 @@ export function CommandPalette({
             size="icon"
             onClick={onClose}
             className="size-7 text-neutral-400 hover:bg-neutral-100 hover:text-neutral-700"
-            aria-label="Lukk"
+            aria-label={t('shell.commandPalette.close')}
           >
             <X className="size-4" aria-hidden />
           </Button>
@@ -181,19 +200,19 @@ export function CommandPalette({
           ref={listRef}
           id="cmdpal-results"
           role="listbox"
-          aria-label="Resultater"
+          aria-label={t('shell.commandPalette.resultsLabel')}
           className="max-h-[60vh] overflow-y-auto py-1"
         >
           {flatList.length === 0 ? (
             <p className="px-4 py-8 text-center text-sm text-neutral-500">
-              Ingen treff for &ldquo;{query}&rdquo;.
+              {t('shell.commandPalette.noResults', { query })}
             </p>
           ) : null}
 
           {filtered.kind === 'browse' && filtered.recents.length > 0 ? (
             <div className="border-b border-neutral-100 pb-1 pt-1">
               <p className="px-4 pb-1 pt-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-neutral-500">
-                Nylig brukt
+                {t('shell.commandPalette.recent')}
               </p>
               {filtered.recents.map((entry, idx) =>
                 renderRow(entry, idx, activeIndex, () => {
@@ -207,7 +226,7 @@ export function CommandPalette({
           {filtered.kind === 'browse' && filtered.rest.length > 0 ? (
             <div className="pb-1 pt-1">
               <p className="px-4 pb-1 pt-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-neutral-500">
-                Foreslått
+                {t('shell.commandPalette.suggested')}
               </p>
               {filtered.rest.map((entry, idx) =>
                 renderRow(
@@ -235,26 +254,8 @@ export function CommandPalette({
         </div>
 
         <div className="flex items-center justify-between border-t border-neutral-100 bg-neutral-50/60 px-4 py-2 text-[11px] text-neutral-500">
-          <span>
-            <kbd className="rounded border border-neutral-300 bg-white px-1.5 py-0.5 font-mono text-[10px]">
-              ↑↓
-            </kbd>{' '}
-            naviger ·{' '}
-            <kbd className="rounded border border-neutral-300 bg-white px-1.5 py-0.5 font-mono text-[10px]">
-              ↵
-            </kbd>{' '}
-            åpne ·{' '}
-            <kbd className="rounded border border-neutral-300 bg-white px-1.5 py-0.5 font-mono text-[10px]">
-              esc
-            </kbd>{' '}
-            lukk
-          </span>
-          <span>
-            <kbd className="rounded border border-neutral-300 bg-white px-1.5 py-0.5 font-mono text-[10px]">
-              ⌘K
-            </kbd>{' '}
-            for å åpne
-          </span>
+          <span>{t('shell.commandPalette.footerKeys')}</span>
+          <span>{t('shell.commandPalette.footerHint')}</span>
         </div>
       </div>
     </div>
@@ -281,18 +282,18 @@ function renderRow(
       data-cmdpal-index={index}
       onClick={onActivate}
       className={`flex h-auto w-full items-center justify-start gap-3 rounded-none px-4 py-2.5 text-left text-sm transition-colors ${
-        active ? 'bg-[color-mix(in_srgb,var(--ui-accent)_12%,white)] text-neutral-900' : 'text-neutral-800 hover:bg-neutral-50'
+        active ? 'bg-[color-mix(in_srgb,var(--ui-accent)_18%,white)] text-neutral-900' : 'text-neutral-800 hover:bg-neutral-50'
       }`}
     >
       <span
         className={`flex size-7 shrink-0 items-center justify-center rounded-md ${
-          active ? 'bg-[color-mix(in_srgb,var(--ui-accent)_18%,white)]' : 'bg-neutral-100'
+          active ? 'bg-[var(--ui-accent)] text-white' : 'bg-neutral-100 text-neutral-600'
         }`}
       >
         {isRecent ? (
-          <Clock className="size-3.5 text-neutral-500" aria-hidden />
+          <Clock className={`size-3.5 ${active ? 'text-white' : 'text-neutral-500'}`} aria-hidden />
         ) : (
-          <Icon className="size-4 text-neutral-600" aria-hidden />
+          <Icon className="size-4" aria-hidden />
         )}
       </span>
       <span className="min-w-0 flex-1">

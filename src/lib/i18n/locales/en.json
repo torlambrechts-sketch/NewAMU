@@ -111,6 +111,20 @@
     "externalAria": "Open external link",
     "userProfileAria": "User profile",
     "language": "Language",
+    "skipToContent": "Skip to content",
+    "commandPalette": {
+      "ariaLabel": "Quick navigation",
+      "searchPlaceholder": "Search modules, pages and shortcuts…",
+      "searchLabel": "Search",
+      "resultsLabel": "Results",
+      "noResults": "No results for \"{{query}}\".",
+      "recent": "Recently visited",
+      "suggested": "Suggested",
+      "close": "Close",
+      "openHint": "Search (⌘K)",
+      "footerKeys": "↑↓ navigate · ↵ open · esc close",
+      "footerHint": "Tip: ⌘K opens this anywhere"
+    },
     "header": {
       "navLayout": "Navigation layout",
       "navLayoutTopbar": "Top menu",
