@@ -39,7 +39,6 @@ import {
   Rows3,
   Scale,
   Search,
-  ShieldAlert,
   ShieldCheck,
   Users,
 } from 'lucide-react'
@@ -48,6 +47,9 @@ import { Button } from '../../src/components/ui/Button'
 import { Badge } from '../../src/components/ui/Badge'
 import { StandardInput } from '../../src/components/ui/Input'
 import { SearchableSelect } from '../../src/components/ui/SearchableSelect'
+import { FilterBar, SavedViewsControl } from '../../src/components/ui/FilterBar'
+import { FilterChip } from '../../src/components/ui/FilterChip'
+import { useSavedViews } from '../../src/hooks/useSavedViews'
 import { SlidePanel } from '../../src/components/layout/SlidePanel'
 import { WPSTD_FORM_FIELD_LABEL } from '../../src/components/layout/WorkplaceStandardFormPanel'
 import {
@@ -61,6 +63,10 @@ import {
   MEETING_CONFIDENTIALITY_LABEL,
   MEETING_STATUS_LABEL,
 } from './meetingsLabels'
+import {
+  MEETING_CONFIDENTIALITY_VALUES,
+  MEETING_STATUS_VALUES,
+} from './types'
 import type {
   MeetingConfidentialityLevel,
   MeetingRow,
@@ -324,7 +330,38 @@ export function MeetingsHubView({ tabs, bodyOnly = false }: MeetingsHubViewProps
 
   const activeTemplateParam = searchParams.get('template')
 
-  const [framework, setFramework] = useState<string>('all')
+  // Multi-select filter state — mirrors the compliance/ChecklistsPage
+  // data-grid pattern. Empty arrays = no filter on that dimension.
+  // URL-synced via history.replaceState in the effect below (avoids
+  // the setSearchParams re-render cascade — see Sjekklister commit
+  // 6051593 for the full rationale).
+  const [frameworks, setFrameworks] = useState<string[]>(() => {
+    if (typeof window === 'undefined') return []
+    const raw = new URLSearchParams(window.location.search).get('framework')
+    return raw ? raw.split(',').filter(Boolean) : []
+  })
+  const [statuses, setStatuses] = useState<MeetingStatus[]>(() => {
+    if (typeof window === 'undefined') return []
+    const raw = new URLSearchParams(window.location.search).get('status')
+    return raw ? (raw.split(',').filter(Boolean) as MeetingStatus[]) : []
+  })
+  const [confidentialities, setConfidentialities] = useState<MeetingConfidentialityLevel[]>(() => {
+    if (typeof window === 'undefined') return []
+    const raw = new URLSearchParams(window.location.search).get('conf')
+    return raw ? (raw.split(',').filter(Boolean) as MeetingConfidentialityLevel[]) : []
+  })
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const url = new URL(window.location.href)
+    const setOrDelete = (key: string, values: string[]) => {
+      if (values.length > 0) url.searchParams.set(key, values.join(','))
+      else url.searchParams.delete(key)
+    }
+    setOrDelete('framework', frameworks)
+    setOrDelete('status', statuses)
+    setOrDelete('conf', confidentialities)
+    window.history.replaceState(null, '', url.toString())
+  }, [frameworks, statuses, confidentialities])
   const [tab, setTab] = useState<'meetings' | 'maler' | 'statistikk'>('meetings')
   const [view, setView] = useState<ViewMode>('tabell')
   const [search, setSearch] = useState('')
@@ -357,28 +394,34 @@ export function MeetingsHubView({ tabs, bodyOnly = false }: MeetingsHubViewProps
 
   const filteredMeetings = useMemo(() => {
     const term = search.trim().toLowerCase()
+    const fwSet = frameworks.length ? new Set(frameworks) : null
+    const statusSet = statuses.length ? new Set(statuses) : null
+    const confSet = confidentialities.length ? new Set(confidentialities) : null
     return meetings.meetings.filter((m) => {
-      if (framework !== 'all' && meetingFramework(m) !== framework) return false
+      if (fwSet && !fwSet.has(meetingFramework(m))) return false
+      if (statusSet && !statusSet.has(m.status)) return false
+      if (confSet && !confSet.has(m.confidentiality_level)) return false
       if (term) {
         const hay = `${m.title} ${m.location_label ?? ''} ${m.description ?? ''}`.toLowerCase()
         if (!hay.includes(term)) return false
       }
       return true
     })
-  }, [meetings.meetings, framework, search])
+  }, [meetings.meetings, frameworks, statuses, confidentialities, search])
 
   const filteredTemplates = useMemo(() => {
     const term = search.trim().toLowerCase()
+    const fwSet = frameworks.length ? new Set(frameworks) : null
     return meetings.templates.filter((t) => {
       if (!t.isActive) return false
-      if (framework !== 'all' && t.framework !== framework) return false
+      if (fwSet && !fwSet.has(t.framework)) return false
       if (term) {
         const hay = `${t.name} ${t.description ?? ''}`.toLowerCase()
         if (!hay.includes(term)) return false
       }
       return true
     })
-  }, [meetings.templates, framework, search])
+  }, [meetings.templates, frameworks, search])
 
   const upcoming = useMemo(
     () =>
@@ -389,28 +432,71 @@ export function MeetingsHubView({ tabs, bodyOnly = false }: MeetingsHubViewProps
     [meetings.meetings],
   )
 
-  const legalAlerts = useMemo(() => {
-    return meetings.meetings.filter((m) => {
-      if (m.status !== 'planned') return false
-      const snap = m.definition_snapshot
-      if (!snap?.agendaItems?.length) return false
-      const hasMandatory = snap.agendaItems.some((a) => a.isMandatory)
-      if (!hasMandatory) return false
-      // Heuristic: no invitation sent and we're inside the lead window.
-      if (!m.invitation_sent_at && m.scheduled_at) {
-        const days = daysUntil(m.scheduled_at, now)
-        if (days !== null && days <= (snap.invitationLeadDays ?? 7)) return true
-      }
-      return false
-    }).length
-  }, [meetings.meetings, now])
-
   const frameworkAggregates = useMemo(
     () => computeFrameworkAggregates(meetings.meetings, meetings.templates),
     [meetings.meetings, meetings.templates],
   )
 
   const minutesOnTime = useMemo(() => computeMinutesOnTime(meetings.meetings), [meetings.meetings])
+
+  // ── Filter-bar wiring ───────────────────────────────────────────────
+  type MeetingFilters = {
+    frameworks: string[]
+    statuses: MeetingStatus[]
+    confidentialities: MeetingConfidentialityLevel[]
+  }
+  const EMPTY_MEETING_FILTERS: MeetingFilters = { frameworks: [], statuses: [], confidentialities: [] }
+  const currentFilters: MeetingFilters = { frameworks, statuses, confidentialities }
+  const activeFilterCount =
+    frameworks.length + statuses.length + confidentialities.length
+  const meetingsFiltersEqual = (a: MeetingFilters, b: MeetingFilters) => {
+    const eq = (x: readonly string[], y: readonly string[]) => {
+      if (x.length !== y.length) return false
+      const xs = [...x].sort()
+      const ys = [...y].sort()
+      return xs.every((v, i) => v === ys[i])
+    }
+    return (
+      eq(a.frameworks, b.frameworks) &&
+      eq(a.statuses, b.statuses) &&
+      eq(a.confidentialities, b.confidentialities)
+    )
+  }
+  const savedMeetings = useSavedViews<MeetingFilters>('meetings')
+  const [activeViewId, setActiveViewId] = useState<string | null>(null)
+  const [defaultApplied, setDefaultApplied] = useState(false)
+  useEffect(() => {
+    if (defaultApplied) return
+    if (savedMeetings.loading) return
+    if (activeFilterCount > 0) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setDefaultApplied(true)
+      return
+    }
+    if (savedMeetings.defaultViewId) {
+      const def = savedMeetings.views.find((v) => v.id === savedMeetings.defaultViewId)
+      if (def) {
+        setFrameworks([...(def.filters.frameworks ?? [])])
+        setStatuses([...(def.filters.statuses ?? [])])
+        setConfidentialities([...(def.filters.confidentialities ?? [])])
+        setActiveViewId(def.id)
+      }
+    }
+    setDefaultApplied(true)
+  }, [defaultApplied, savedMeetings.loading, savedMeetings.defaultViewId, savedMeetings.views, activeFilterCount])
+  const hasUnsavedChanges = useMemo(() => {
+    if (!activeViewId) return false
+    const view = savedMeetings.views.find((v) => v.id === activeViewId)
+    if (!view) return false
+    return !meetingsFiltersEqual(currentFilters, { ...EMPTY_MEETING_FILTERS, ...view.filters })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeViewId, frameworks, statuses, confidentialities, savedMeetings.views])
+  const clearAllFilters = () => {
+    setFrameworks([])
+    setStatuses([])
+    setConfidentialities([])
+    setActiveViewId(null)
+  }
 
   const openCreate = (templateId: string | null) => {
     setPresetTemplateId(templateId)
@@ -449,26 +535,75 @@ export function MeetingsHubView({ tabs, bodyOnly = false }: MeetingsHubViewProps
   )
 
   const body = (
-    <div className="grid grid-cols-1 gap-5 lg:grid-cols-[260px_minmax(0,1fr)]">
-      {/* CATEGORY RAIL — frameworks */}
-      <FrameworkRail
-        framework={framework}
-        setFramework={setFramework}
-        frameworks={frameworksList}
-        tab={tab}
-        totalMeetings={meetings.meetings.length}
-        totalTemplates={meetings.templates.filter((t) => t.isActive).length}
-        upcoming={upcoming}
-        onOpenUpcoming={(id) => navigate(`/meetings/${id}`)}
-        frameworkAggregates={frameworkAggregates}
-        minutesOnTime={minutesOnTime}
-        legalAlerts={legalAlerts}
-        now={now}
-      />
-
-      {/* RIGHT */}
+    <div className="space-y-4">
+      {/* The compliance + reminder stats that used to sit in the left
+          rail (upcoming meetings, framework aggregates, on-time
+          minutes, late legal alerts) now live in /meetings/analyse.
+          The filter-bar pattern replaces the rail's framework picker
+          with a multi-select chip. Width=full lets the table breathe. */}
       <section>
         <div className="rounded-xl border border-neutral-200/80 bg-white k-card-shadow">
+          {/* FilterBar — framework + status + confidentiality + saved views */}
+          <FilterBar
+            chips={
+              <>
+                <FilterChip
+                  label="Rammeverk"
+                  options={frameworksList.map((f) => ({
+                    value: f.id,
+                    label: f.label,
+                    count: tab === 'maler' ? f.malerCount : f.meetingsCount,
+                  }))}
+                  value={frameworks}
+                  onChange={(next) => {
+                    setFrameworks(next)
+                    setActiveViewId(null)
+                  }}
+                />
+                <FilterChip
+                  label="Status"
+                  options={MEETING_STATUS_VALUES.map((s) => ({
+                    value: s,
+                    label: MEETING_STATUS_LABEL[s],
+                  }))}
+                  value={statuses}
+                  onChange={(next) => {
+                    setStatuses(next as MeetingStatus[])
+                    setActiveViewId(null)
+                  }}
+                />
+                <FilterChip
+                  label="Konfidensialitet"
+                  options={MEETING_CONFIDENTIALITY_VALUES.map((c) => ({
+                    value: c,
+                    label: MEETING_CONFIDENTIALITY_LABEL[c],
+                  }))}
+                  value={confidentialities}
+                  onChange={(next) => {
+                    setConfidentialities(next as MeetingConfidentialityLevel[])
+                    setActiveViewId(null)
+                  }}
+                />
+              </>
+            }
+            activeFilterCount={activeFilterCount}
+            onReset={clearAllFilters}
+            savedViews={
+              <SavedViewsControl<MeetingFilters>
+                currentFilters={currentFilters}
+                activeViewId={activeViewId}
+                hasUnsavedChanges={hasUnsavedChanges}
+                onApplyView={(view) => {
+                  setFrameworks([...(view.filters.frameworks ?? [])])
+                  setStatuses([...(view.filters.statuses ?? [])])
+                  setConfidentialities([...(view.filters.confidentialities ?? [])])
+                  setActiveViewId(view.id)
+                }}
+                onClearActive={() => setActiveViewId(null)}
+                saved={savedMeetings}
+              />
+            }
+          />
           <div className="flex flex-wrap items-center justify-between gap-4 border-b border-neutral-100 px-4 py-2.5">
             <HubInlineTabs
               activeId={tab}
@@ -573,6 +708,7 @@ export function MeetingsHubView({ tabs, bodyOnly = false }: MeetingsHubViewProps
   return (
     <ModulePageShell
       breadcrumb={[{ label: 'HMS' }, { label: 'Compliance' }, { label: 'Møter' }]}
+      width="full"
       title="Møter"
       description="Møter med lovpålagte agendaer, automatisk statistikkhenting og protokoll-arkiv. Skalerer fra AML kapittel 7 til ISO 45001/9001-ledelsesgjennomgåelser."
       tabs={tabs}
@@ -604,235 +740,6 @@ function computeMinutesOnTime(meetings: MeetingRow[]): number {
 }
 
 // ── Framework rail (left column) ─────────────────────────────────────────
-
-type FrameworkRailItem = ReturnType<typeof frameworksWithCounts>[number]
-
-function FrameworkRail({
-  framework,
-  setFramework,
-  frameworks,
-  tab,
-  totalMeetings,
-  totalTemplates,
-  upcoming,
-  onOpenUpcoming,
-  frameworkAggregates,
-  minutesOnTime,
-  legalAlerts,
-  now,
-}: {
-  framework: string
-  setFramework: (v: string) => void
-  frameworks: FrameworkRailItem[]
-  tab: 'meetings' | 'maler' | 'statistikk'
-  totalMeetings: number
-  totalTemplates: number
-  upcoming: MeetingRow[]
-  onOpenUpcoming: (meetingId: string) => void
-  frameworkAggregates: FrameworkAggregate[]
-  minutesOnTime: number
-  now: number
-  legalAlerts: number
-}) {
-  return (
-    <aside className="space-y-3">
-      <div className="rounded-xl border border-neutral-200/80 bg-white k-card-shadow">
-        <div className="border-b border-neutral-100 px-4 py-3">
-          <h2 className="text-xs font-bold uppercase tracking-wider text-neutral-500">Rammeverk</h2>
-        </div>
-        <ul className="py-1.5">
-          <li>
-            <FrameworkRailButton
-              active={framework === 'all'}
-              onClick={() => setFramework('all')}
-              icon={LayoutGrid}
-              label="Alle"
-              count={tab === 'maler' ? totalTemplates : totalMeetings}
-            />
-          </li>
-          {frameworks.map((f) => {
-            const fv = frameworkVisual(f.id)
-            return (
-              <li key={f.id}>
-                <FrameworkRailButton
-                  active={framework === f.id}
-                  onClick={() => setFramework(f.id)}
-                  icon={fv.icon}
-                  iconColor={fv.color}
-                  label={f.short}
-                  count={tab === 'maler' ? f.malerCount : f.meetingsCount}
-                />
-              </li>
-            )
-          })}
-        </ul>
-      </div>
-
-      {/* Upcoming reminders */}
-      <div className="rounded-xl border border-neutral-200/80 bg-white p-4 k-card-shadow">
-        <div className="flex items-center justify-between">
-          <h3 className="text-xs font-bold uppercase tracking-wider text-neutral-500">
-            Kommende møter
-          </h3>
-          <Bell className="h-3 w-3 text-neutral-400" aria-hidden />
-        </div>
-        {upcoming.length === 0 ? (
-          <p className="mt-2 text-[11px] text-neutral-500">Ingen planlagte møter.</p>
-        ) : (
-          <ul className="mt-2.5 space-y-2">
-            {upcoming.map((m) => {
-              const days = daysUntil(m.scheduled_at, now)
-              const snap = m.definition_snapshot
-              // "Sjekk innkalling" — the hub list doesn't load child rows so
-              // we can't tell whether agenda items exist for real. Instead we
-              // flag meetings inside the invitation lead window with no
-              // invitation sent yet (matches the legalAlerts heuristic).
-              const leadDays = snap?.invitationLeadDays ?? 7
-              const inviteLate =
-                m.status === 'planned' &&
-                !m.invitation_sent_at &&
-                days !== null &&
-                days <= leadDays
-              return (
-                <li key={m.id}>
-                  <Button
-                    variant="ghost"
-                    onClick={() => onOpenUpcoming(m.id)}
-                    className="block h-auto w-full rounded-md border border-neutral-200/80 bg-[#fbf9f3] p-2.5 text-left font-normal transition-colors hover:border-[#1a3d32]/40 hover:bg-[#e7efe9]/50"
-                  >
-                    <div className="flex items-baseline justify-between gap-2">
-                      <div className="text-[11px] font-semibold text-neutral-900">
-                        {days !== null
-                          ? `Om ${days} ${days === 1 ? 'dag' : 'dager'}`
-                          : 'Ikke datofestet'}
-                      </div>
-                      <FrameworkPill framework={meetingFramework(m)} />
-                    </div>
-                    <div className="mt-1 truncate text-xs font-medium text-neutral-900">
-                      {m.title}
-                    </div>
-                    <div className="mt-0.5 text-[10px] tabular-nums text-neutral-500">
-                      {fmtDateTime(m.scheduled_at)}
-                    </div>
-                    {inviteLate ? (
-                      <div className="mt-1.5 inline-flex items-center gap-1 rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold text-amber-900">
-                        <AlertTriangle className="h-2.5 w-2.5" aria-hidden /> Mangler innkalling
-                      </div>
-                    ) : null}
-                  </Button>
-                </li>
-              )
-            })}
-          </ul>
-        )}
-      </div>
-
-      {/* Compliance status */}
-      {frameworkAggregates.length > 0 ? (
-        <div className="rounded-xl border border-neutral-200/80 bg-white p-4 k-card-shadow">
-          <h3 className="text-xs font-bold uppercase tracking-wider text-neutral-500">
-            Compliance-status
-          </h3>
-          <ul className="mt-2 space-y-1.5 text-xs">
-            {frameworkAggregates.map((b) => (
-              <li key={b.id} className="flex items-center justify-between">
-                <span className="inline-flex items-center gap-2 text-neutral-700">{b.label}</span>
-                <span className="tabular-nums">
-                  <span
-                    className={[
-                      'font-semibold',
-                      b.complianceRate >= 1 ? 'text-[#1a3d32]' : 'text-amber-700',
-                    ].join(' ')}
-                  >
-                    {b.held}
-                  </span>
-                  <span className="text-neutral-400">/{b.required}</span>
-                </span>
-              </li>
-            ))}
-          </ul>
-          <div className="mt-3 border-t border-neutral-100 pt-3">
-            <div className="flex items-baseline justify-between">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-neutral-500">
-                Snitt referat-frist
-              </span>
-              <span className="text-base font-bold tabular-nums text-[#1a3d32]">
-                {Math.round(minutesOnTime * 100)}%
-              </span>
-            </div>
-            <div className="mt-1.5">
-              <ProgressBar value={minutesOnTime} />
-            </div>
-          </div>
-        </div>
-      ) : null}
-
-      {legalAlerts > 0 ? (
-        <div className="rounded-xl border border-amber-200 bg-amber-50/70 p-3 text-[11px] text-amber-900">
-          <div className="flex items-start gap-2">
-            <ShieldAlert className="mt-0.5 h-3.5 w-3.5 shrink-0 text-amber-700" aria-hidden />
-            <div>
-              <div className="font-semibold">
-                {legalAlerts} lovpålagt møte uten innkalling i god tid
-              </div>
-              <div className="mt-0.5">
-                Send innkallingen så tidlig som mulig — anbefalt minst 7 dagers frist.
-              </div>
-            </div>
-          </div>
-        </div>
-      ) : null}
-    </aside>
-  )
-}
-
-function FrameworkRailButton({
-  active,
-  onClick,
-  icon: Icon,
-  iconColor,
-  label,
-  count,
-}: {
-  active: boolean
-  onClick: () => void
-  icon: typeof Building2
-  iconColor?: string
-  label: string
-  count: number
-}) {
-  return (
-    <Button
-      variant="ghost"
-      onClick={onClick}
-      className={[
-        'flex h-auto w-full items-center gap-2.5 rounded-none px-4 py-2 text-left text-sm font-normal transition-colors hover:bg-neutral-50',
-        active ? 'bg-[#e7efe9] text-neutral-900 hover:bg-[#e7efe9]' : 'text-neutral-700',
-      ].join(' ')}
-      style={active ? { boxShadow: 'inset 3px 0 0 #1a3d32' } : undefined}
-    >
-      <Icon
-        className={[
-          'h-3.5 w-3.5 shrink-0',
-          active ? 'text-[#1a3d32]' : 'text-neutral-500',
-        ].join(' ')}
-        style={active && iconColor ? { color: iconColor } : undefined}
-        aria-hidden
-      />
-      <span className={['min-w-0 flex-1 truncate', active ? 'font-semibold' : 'font-medium'].join(' ')}>
-        {label}
-      </span>
-      <span
-        className={[
-          'rounded-full px-1.5 py-0.5 text-[10px] font-semibold tabular-nums',
-          active ? 'bg-white text-[#14312a]' : 'bg-neutral-100 text-neutral-500',
-        ].join(' ')}
-      >
-        {count}
-      </span>
-    </Button>
-  )
-}
 
 // ── Inline tab strip ────────────────────────────────────────────────────
 
