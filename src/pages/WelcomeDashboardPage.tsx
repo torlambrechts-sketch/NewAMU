@@ -25,6 +25,7 @@ import {
 import { HubMenu1Bar, type HubMenu1Item } from '../components/layout/HubMenu1Bar'
 import { PageContainer } from '../components/layout/PageContainer'
 import { WorkplacePageHeading1 } from '../components/layout/WorkplacePageHeading1'
+import { OrgSetupChecklistCard } from '../components/welcome/OrgSetupChecklistCard'
 
 const CREAM_DEEP = '#EFE8DC'
 const FOREST = '#1a3d32'
@@ -32,7 +33,7 @@ const FOREST = '#1a3d32'
 export function WelcomeDashboardPage() {
   const navigate = useNavigate()
   const { pathname } = useLocation()
-  const { profile, user } = useOrgSetupContext()
+  const { profile, user, supabase, organization } = useOrgSetupContext()
   const org = useOrganisation()
   const {
     today,
@@ -140,6 +141,11 @@ export function WelcomeDashboardPage() {
         <div className="mt-8 grid grid-cols-1 gap-8 lg:grid-cols-[minmax(0,7fr)_minmax(260px,3fr)] lg:items-start">
           {/* Main 70% */}
           <div className="min-w-0 space-y-6">
+            <OrgSetupChecklistCard
+              supabase={supabase}
+              organizationId={organization?.id ?? null}
+              organizationCreatedAt={organization?.created_at ?? null}
+            />
             <div className="grid gap-4 sm:grid-cols-2">
               <div
                 className="flex items-center justify-between gap-4 rounded-lg border border-neutral-200/60 px-5 py-4"
