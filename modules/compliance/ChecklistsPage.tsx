@@ -96,15 +96,25 @@ function filtersFromSearchParams(params: URLSearchParams): ChecklistFilters {
   }
 }
 
-function filtersToSearchParams(f: ChecklistFilters, base: URLSearchParams): URLSearchParams {
-  const next = new URLSearchParams(base)
-  if (f.categoryIds.length > 0) next.set('cat', f.categoryIds.join(','))
-  else next.delete('cat')
-  if (f.statuses.length > 0) next.set('status', f.statuses.join(','))
-  else next.delete('status')
-  if (f.templateIds.length > 0) next.set('tpl', f.templateIds.join(','))
-  else next.delete('tpl')
-  return next
+// Sync the current filter state to the URL via history.replaceState —
+// NOT via react-router's setSearchParams. The router's setter forces
+// a re-render of every consumer of useSearchParams (including page-
+// scope providers like PackContext), which on a chip toggle reads as
+// a brief page reload. history.replaceState updates the visible URL
+// for shareable links + browser back/forward, but leaves the React
+// tree untouched. Same trick the cross-module Regelverk filter uses
+// (`src/context/RegulationFilterContext.tsx`).
+function syncFiltersToUrl(f: ChecklistFilters) {
+  if (typeof window === 'undefined') return
+  const url = new URL(window.location.href)
+  const setOrDelete = (key: string, values: string[]) => {
+    if (values.length > 0) url.searchParams.set(key, values.join(','))
+    else url.searchParams.delete(key)
+  }
+  setOrDelete('cat', f.categoryIds)
+  setOrDelete('status', f.statuses)
+  setOrDelete('tpl', f.templateIds)
+  window.history.replaceState(null, '', url.toString())
 }
 
 // ─── Status mapping (DB → display) ───────────────────────────────────────────
@@ -747,7 +757,12 @@ function MalerBoxes({
 
 export function ChecklistsPage() {
   const navigate = useNavigate()
-  const [searchParams, setSearchParams] = useSearchParams()
+  // useSearchParams is read-only here — used to hydrate filters on
+  // first mount + react to pack/template deep-links. Filter changes
+  // don't go through setSearchParams (would cascade-rerender every
+  // useSearchParams consumer); see syncFiltersToUrl + filter state
+  // below.
+  const [searchParams] = useSearchParams()
   const packSlugParam = searchParams.get('pack')
   const templateSlugParam = searchParams.get('template')
 
@@ -767,18 +782,25 @@ export function ChecklistsPage() {
   const [showAllMaler, setShowAllMaler] = useState(false)
   const [hasLoadedOnce, setHasLoadedOnce] = useState(false)
 
-  // Filter bar — URL is the source of truth so links are shareable and
-  // browser back/forward steps through filter combinations.
-  const filters = useMemo<ChecklistFilters>(
-    () => filtersFromSearchParams(searchParams),
-    [searchParams],
+  // Filter bar state. Lives in local React state (NOT in
+  // searchParams via setSearchParams) — that would re-render every
+  // useSearchParams consumer on each chip toggle and feel like a
+  // page reload. Initial value is hydrated from the URL once on
+  // mount; subsequent changes are pushed back to the URL via
+  // history.replaceState in the effect below, so deep links stay
+  // shareable without paying the cascade-rerender cost.
+  const [filters, setFiltersState] = useState<ChecklistFilters>(() =>
+    filtersFromSearchParams(searchParams),
   )
-  const setFilters = useCallback(
-    (next: ChecklistFilters) => {
-      setSearchParams(filtersToSearchParams(next, searchParams), { replace: true })
-    },
-    [searchParams, setSearchParams],
-  )
+  // Stable setter — closes over setFiltersState only, never over
+  // searchParams. Safe to use inline in callbacks without stale-
+  // closure worries.
+  const setFilters = useCallback((next: ChecklistFilters) => {
+    setFiltersState(next)
+  }, [])
+  useEffect(() => {
+    syncFiltersToUrl(filters)
+  }, [filters])
   const activeFilterCount = countActiveFilters(filters)
 
   // Saved views — org-shared content, per-user default landing. The
