@@ -22,7 +22,6 @@ import {
   Plus,
   Search,
   Trash2,
-  X,
 } from 'lucide-react'
 import { useOrgSetupContext } from '../../src/hooks/useOrgSetupContext'
 import { ModulePageShell } from '../../src/components/module/ModulePageShell'
@@ -36,7 +35,9 @@ import { WarningBox } from '../../src/components/ui/AlertBox'
 import { Button } from '../../src/components/ui/Button'
 import { StandardInput } from '../../src/components/ui/Input'
 import { SearchableSelect } from '../../src/components/ui/SearchableSelect'
-import { ToggleSwitch } from '../../src/components/ui/FormToggles'
+import { FilterBar, SavedViewsControl } from '../../src/components/ui/FilterBar'
+import { FilterChip } from '../../src/components/ui/FilterChip'
+import { useSavedViews } from '../../src/hooks/useSavedViews'
 import { TaskStatusBadge, TASK_STATUS_LABEL } from './components/TaskStatusBadge'
 import { TaskPriorityBadge, TASK_PRIORITY_LABEL } from './components/TaskPriorityBadge'
 import { TaskKindIcon } from './components/TaskKindIcon'
@@ -61,8 +62,6 @@ const SUB_PRIORITY_STYLE: Record<SubPriority, string> = {
 }
 
 // ── Constants ────────────────────────────────────────────────────────────────
-
-const CREAM_DEEP = '#EFE8DC'
 
 type ViewMode = 'list' | 'box' | 'kanban' | 'gantt'
 
@@ -205,13 +204,66 @@ const ALL_KINDS: TaskTemplateKind[] = [
   'oppgave', 'avvik', 'nestenulykke', 'tiltak', 'risiko', 'forslag', 'sykefravær',
 ]
 
-type ActiveFilters = {
-  status: TaskItemStatus | null
-  priority: TaskItemPriority | null
-  kind: TaskTemplateKind | null
+// Multi-select filter state — mirrors the data-grid filter-bar pattern
+// from compliance/ChecklistsPage. Empty arrays = no filter on that
+// dimension. `overdueOnly` is represented as a single-option chip
+// (selecting it = only show overdue rows).
+type TaskFilters = {
+  statuses: TaskItemStatus[]
+  priorities: TaskItemPriority[]
+  kinds: TaskTemplateKind[]
   overdueOnly: boolean
 }
-const EMPTY_FILTERS: ActiveFilters = { status: null, priority: null, kind: null, overdueOnly: false }
+const EMPTY_FILTERS: TaskFilters = { statuses: [], priorities: [], kinds: [], overdueOnly: false }
+
+function filtersFromUrl(params: URLSearchParams): TaskFilters {
+  const get = (key: string) => {
+    const raw = params.get(key)
+    return raw ? raw.split(',').filter(Boolean) : []
+  }
+  return {
+    statuses: get('status') as TaskItemStatus[],
+    priorities: get('priority') as TaskItemPriority[],
+    kinds: get('kind') as TaskTemplateKind[],
+    overdueOnly: params.get('overdue') === '1',
+  }
+}
+
+function syncFiltersToUrl(f: TaskFilters) {
+  if (typeof window === 'undefined') return
+  const url = new URL(window.location.href)
+  const setOrDelete = (key: string, values: string[]) => {
+    if (values.length > 0) url.searchParams.set(key, values.join(','))
+    else url.searchParams.delete(key)
+  }
+  setOrDelete('status', f.statuses)
+  setOrDelete('priority', f.priorities)
+  setOrDelete('kind', f.kinds)
+  if (f.overdueOnly) url.searchParams.set('overdue', '1')
+  else url.searchParams.delete('overdue')
+  window.history.replaceState(null, '', url.toString())
+}
+
+function countActiveTaskFilters(f: TaskFilters): number {
+  return (
+    f.statuses.length + f.priorities.length + f.kinds.length + (f.overdueOnly ? 1 : 0)
+  )
+}
+
+function taskFiltersEqual(a: TaskFilters, b: TaskFilters): boolean {
+  const eq = (x: readonly string[], y: readonly string[]) => {
+    if (x.length !== y.length) return false
+    const xs = [...x].sort()
+    const ys = [...y].sort()
+    return xs.every((v, i) => v === ys[i])
+  }
+  return (
+    eq(a.statuses, b.statuses) &&
+    eq(a.priorities, b.priorities) &&
+    eq(a.kinds, b.kinds) &&
+    a.overdueOnly === b.overdueOnly
+  )
+}
 
 // ── Kanban view ───────────────────────────────────────────────────────────────
 
@@ -1017,30 +1069,62 @@ function SubtaskTableRows({ taskItemId }: { taskItemId: string }) {
 export function TasksAllePage() {
   const allItems = useTaskItemsData(null)
   const subtaskCounts = useSubtaskCounts()
-  const [filters, setFilters] = useState<ActiveFilters>(EMPTY_FILTERS)
+  // Filter state — local React state, URL-synced via history.replaceState
+  // in the effect below. Hydrated from URL on first mount so links are
+  // still shareable but chip toggles stay snappy (no react-router re-
+  // render cascade).
+  const [filters, setFilters] = useState<TaskFilters>(() =>
+    filtersFromUrl(new URLSearchParams(typeof window === 'undefined' ? '' : window.location.search)),
+  )
+  useEffect(() => {
+    syncFiltersToUrl(filters)
+  }, [filters])
   const [search, setSearch] = useState('')
   const [selectedItem, setSelectedItem] = useState<TaskItemRow | null>(null)
   const [viewMode, setViewMode] = useState<ViewMode>('list')
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set())
 
-  const set = <K extends keyof ActiveFilters>(k: K, v: ActiveFilters[K]) =>
-    setFilters((f) => ({ ...f, [k]: v }))
+  const clear = useCallback(() => { setFilters(EMPTY_FILTERS); setSearch('') }, [])
+  const activeFilterCount = countActiveTaskFilters(filters)
 
-  const clear = () => { setFilters(EMPTY_FILTERS); setSearch('') }
+  // Saved views — module slug 'tasks'.
+  const saved = useSavedViews<TaskFilters>('tasks')
+  const [activeViewId, setActiveViewId] = useState<string | null>(null)
+  const [defaultApplied, setDefaultApplied] = useState(false)
+  useEffect(() => {
+    if (defaultApplied) return
+    if (saved.loading) return
+    if (activeFilterCount > 0) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setDefaultApplied(true)
+      return
+    }
+    if (saved.defaultViewId) {
+      const def = saved.views.find((v) => v.id === saved.defaultViewId)
+      if (def) {
+        setFilters({ ...EMPTY_FILTERS, ...def.filters })
+        setActiveViewId(def.id)
+      }
+    }
+    setDefaultApplied(true)
+  }, [defaultApplied, saved.loading, saved.defaultViewId, saved.views, activeFilterCount])
 
-  const activeCount =
-    (filters.status ? 1 : 0) +
-    (filters.priority ? 1 : 0) +
-    (filters.kind ? 1 : 0) +
-    (filters.overdueOnly ? 1 : 0) +
-    (search ? 1 : 0)
+  const hasUnsavedChanges = useMemo(() => {
+    if (!activeViewId) return false
+    const view = saved.views.find((v) => v.id === activeViewId)
+    if (!view) return false
+    return !taskFiltersEqual(filters, { ...EMPTY_FILTERS, ...view.filters })
+  }, [activeViewId, filters, saved.views])
 
   const filtered = useMemo(() => {
     const q = search.toLowerCase()
+    const statusSet = filters.statuses.length ? new Set(filters.statuses) : null
+    const prioritySet = filters.priorities.length ? new Set(filters.priorities) : null
+    const kindSet = filters.kinds.length ? new Set(filters.kinds) : null
     return allItems.items.filter((item) => {
-      if (filters.status && item.status !== filters.status) return false
-      if (filters.priority && item.priority !== filters.priority) return false
-      if (filters.kind && item.templateKind !== filters.kind) return false
+      if (statusSet && !statusSet.has(item.status)) return false
+      if (prioritySet && (!item.priority || !prioritySet.has(item.priority))) return false
+      if (kindSet && (!item.templateKind || !kindSet.has(item.templateKind))) return false
       if (filters.overdueOnly && !isOverdue(item.dueDate, item.status)) return false
       if (q && !item.title.toLowerCase().includes(q)) return false
       return true
@@ -1068,6 +1152,7 @@ export function TasksAllePage() {
           { label: 'Oppgaver', to: '/tasks/management' },
           { label: 'Alle oppgaver' },
         ]}
+        width="full"
         title="Alle oppgaver"
         description="Tverrsnitt av alle oppgavemaler — filtrer på status, prioritet og type."
         headerActions={
@@ -1095,130 +1180,105 @@ export function TasksAllePage() {
             />
           </div>
 
-          {/* Filter bar — cream-deep, always visible */}
-          <div
-            className="grid gap-4 rounded-lg border border-neutral-200/80 p-4 sm:grid-cols-2 lg:grid-cols-4"
-            style={{ backgroundColor: CREAM_DEEP }}
-          >
-            {/* Status */}
-            <label className="text-[10px] font-bold uppercase tracking-wide text-neutral-600">
-              Status
-              <div className="mt-1.5 flex items-center gap-1">
-                <div className="min-w-0 flex-1">
-                  <SearchableSelect
-                    value={filters.status ?? ''}
-                    options={[
-                      { value: '', label: 'Alle statuser' },
-                      ...ALL_STATUSES.map((s) => ({ value: s, label: TASK_STATUS_LABEL[s] })),
-                    ]}
-                    onChange={(v) => set('status', (v as TaskItemStatus) || null)}
-                  />
+          {/* Filter bar — chips on the left, view mode + saved views on
+              the right. Mirrors the compliance/ChecklistsPage pattern. */}
+          <div className="rounded-lg border border-neutral-200/80 bg-white">
+            <FilterBar
+              leading={
+                <div className="inline-flex items-center rounded-md border border-neutral-200 bg-neutral-50 p-0.5">
+                  {VIEW_BTNS.map(({ mode, Icon, title }) => {
+                    const active = viewMode === mode
+                    return (
+                      <button
+                        key={mode}
+                        type="button"
+                        title={title}
+                        aria-pressed={active}
+                        onClick={() => setViewMode(mode)}
+                        className={[
+                          'inline-flex items-center gap-1.5 rounded px-2.5 py-1.5 text-sm font-medium transition-colors',
+                          active
+                            ? 'bg-white text-neutral-900 shadow-sm ring-1 ring-neutral-200'
+                            : 'text-neutral-500 hover:text-neutral-800',
+                        ].join(' ')}
+                      >
+                        <Icon className="h-4 w-4 shrink-0" />
+                        <span className="hidden md:inline">{title}</span>
+                      </button>
+                    )
+                  })}
                 </div>
-                {filters.status && (
-                  <Button
-                    variant="secondary"
-                    size="icon"
-                    onClick={() => set('status', null)}
-                    className="h-9 w-9 rounded-md border-neutral-200 text-neutral-500"
-                    aria-label="Fjern status-filter"
-                  >×</Button>
-                )}
-              </div>
-            </label>
-
-            {/* Prioritet */}
-            <label className="text-[10px] font-bold uppercase tracking-wide text-neutral-600">
-              Prioritet
-              <div className="mt-1.5 flex items-center gap-1">
-                <div className="min-w-0 flex-1">
-                  <SearchableSelect
-                    value={filters.priority ?? ''}
-                    options={[
-                      { value: '', label: 'Alle prioriteter' },
-                      ...ALL_PRIORITIES.map((p) => ({ value: p, label: TASK_PRIORITY_LABEL[p] })),
-                    ]}
-                    onChange={(v) => set('priority', (v as TaskItemPriority) || null)}
+              }
+              chips={
+                <>
+                  <FilterChip
+                    label="Status"
+                    options={ALL_STATUSES.map((s) => ({ value: s, label: TASK_STATUS_LABEL[s] }))}
+                    value={filters.statuses}
+                    onChange={(next) => {
+                      setFilters((f) => ({ ...f, statuses: next as TaskItemStatus[] }))
+                      setActiveViewId(null)
+                    }}
                   />
-                </div>
-                {filters.priority && (
-                  <Button
-                    variant="secondary"
-                    size="icon"
-                    onClick={() => set('priority', null)}
-                    className="h-9 w-9 rounded-md border-neutral-200 text-neutral-500"
-                    aria-label="Fjern prioritet-filter"
-                  >×</Button>
-                )}
-              </div>
-            </label>
-
-            {/* Maltype */}
-            <label className="text-[10px] font-bold uppercase tracking-wide text-neutral-600">
-              Maltype
-              <div className="mt-1.5 flex items-center gap-1">
-                <div className="min-w-0 flex-1">
-                  <SearchableSelect
-                    value={filters.kind ?? ''}
-                    options={[
-                      { value: '', label: 'Alle typer' },
-                      ...ALL_KINDS.map((k) => ({ value: k, label: KIND_LABEL[k] ?? k })),
-                    ]}
-                    onChange={(v) => set('kind', (v as TaskTemplateKind) || null)}
+                  <FilterChip
+                    label="Prioritet"
+                    options={ALL_PRIORITIES.map((p) => ({ value: p, label: TASK_PRIORITY_LABEL[p] }))}
+                    value={filters.priorities}
+                    onChange={(next) => {
+                      setFilters((f) => ({ ...f, priorities: next as TaskItemPriority[] }))
+                      setActiveViewId(null)
+                    }}
                   />
-                </div>
-                {filters.kind && (
-                  <Button
-                    variant="secondary"
-                    size="icon"
-                    onClick={() => set('kind', null)}
-                    className="h-9 w-9 rounded-md border-neutral-200 text-neutral-500"
-                    aria-label="Fjern type-filter"
-                  >×</Button>
-                )}
-              </div>
-            </label>
-
-            {/* Kun forfalt + view switcher */}
-            <div className="flex flex-col justify-between gap-3">
-              <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-wide text-neutral-600">
-                <ToggleSwitch
-                  checked={filters.overdueOnly}
-                  onChange={(v) => set('overdueOnly', v)}
-                  label="Kun forfalt"
+                  <FilterChip
+                    label="Type"
+                    options={ALL_KINDS.map((k) => ({ value: k, label: KIND_LABEL[k] ?? k }))}
+                    value={filters.kinds}
+                    onChange={(next) => {
+                      setFilters((f) => ({ ...f, kinds: next as TaskTemplateKind[] }))
+                      setActiveViewId(null)
+                    }}
+                  />
+                  <button
+                    type="button"
+                    role="switch"
+                    aria-checked={filters.overdueOnly}
+                    onClick={() => {
+                      setFilters((f) => ({ ...f, overdueOnly: !f.overdueOnly }))
+                      setActiveViewId(null)
+                    }}
+                    className={[
+                      'inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-sm transition-colors outline-none focus-visible:ring-2 focus-visible:ring-[color-mix(in_srgb,var(--ui-accent)_25%,transparent)]',
+                      filters.overdueOnly
+                        ? 'border-[var(--ui-accent)] text-neutral-900'
+                        : 'border-neutral-300 text-neutral-700 hover:border-neutral-400',
+                    ].join(' ')}
+                  >
+                    <span className="font-medium text-neutral-600">Forfalt:</span>
+                    <span className={filters.overdueOnly ? 'font-semibold text-neutral-900' : 'text-neutral-500'}>
+                      {filters.overdueOnly ? 'Kun forfalt' : 'Alle'}
+                    </span>
+                  </button>
+                </>
+              }
+              activeFilterCount={activeFilterCount}
+              onReset={() => {
+                clear()
+                setActiveViewId(null)
+              }}
+              savedViews={
+                <SavedViewsControl<TaskFilters>
+                  currentFilters={filters}
+                  activeViewId={activeViewId}
+                  hasUnsavedChanges={hasUnsavedChanges}
+                  onApplyView={(view) => {
+                    setFilters({ ...EMPTY_FILTERS, ...view.filters })
+                    setActiveViewId(view.id)
+                  }}
+                  onClearActive={() => setActiveViewId(null)}
+                  saved={saved}
                 />
-                <span>Kun forfalt</span>
-              </div>
-              <div className="flex items-center gap-1">
-                {VIEW_BTNS.map(({ mode, Icon, title }) => (
-                  <Button
-                    key={mode}
-                    variant={viewMode === mode ? 'primary' : 'secondary'}
-                    size="icon"
-                    onClick={() => setViewMode(mode)}
-                    title={title}
-                    className={
-                      viewMode === mode
-                        ? 'h-8 w-8 rounded bg-[#c2410c] hover:bg-[#a33609]'
-                        : 'h-8 w-8 rounded border-neutral-200 text-neutral-500 hover:bg-neutral-100'
-                    }
-                  >
-                    <Icon className="h-4 w-4" />
-                  </Button>
-                ))}
-                {activeCount > 0 && (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={clear}
-                    title="Nullstill alle filter"
-                    icon={<X className="h-3 w-3" />}
-                    className="ml-1 px-0 text-[10px] text-neutral-500 hover:bg-transparent hover:text-neutral-800"
-                  >
-                    Nullstill
-                  </Button>
-                )}
-              </div>
-            </div>
+              }
+            />
           </div>
 
           {/* Result count */}
@@ -1289,11 +1349,11 @@ export function TasksAllePage() {
                         <td colSpan={9}>
                           <div className="py-12 text-center">
                             <p className="text-sm text-neutral-500">
-                              {activeCount > 0
+                              {activeFilterCount > 0
                                 ? 'Ingen oppgaver matcher filteret.'
                                 : 'Ingen oppgaver ennå.'}
                             </p>
-                            {activeCount > 0 && (
+                            {activeFilterCount > 0 && (
                               <Button
                                 variant="ghost"
                                 size="sm"
