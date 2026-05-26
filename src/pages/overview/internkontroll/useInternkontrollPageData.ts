@@ -103,6 +103,10 @@ export type IkKontroll = {
   id: string
   slug: string
   title: string
+  /** internal_controls.purpose — short description of what the control does.
+   *  Surfaced in the Gap-analyse reference card as the "slik gjør vi det"
+   *  blurb when present. Empty string when not set. */
+  purpose: string
   type: IkKontrollType
   frequency: ControlFrequencyHint | null
   /** Lucide-friendly readable frequency label. */
@@ -989,6 +993,7 @@ function buildData(input: {
       id: c.id,
       slug: c.slug,
       title: c.name,
+      purpose: c.purpose ?? '',
       type: FAMILY_TO_TYPE[c.control_family],
       frequency: c.frequency_hint,
       frequencyLabel: c.frequency_hint ? FREQUENCY_LABELS[c.frequency_hint] : 'Ad hoc',

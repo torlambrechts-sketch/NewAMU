@@ -497,6 +497,7 @@ export function InternkontrollPage() {
               categories={filters.categories}
               plan={plan}
               search={search}
+              onCreateControl={() => setCreateControlOpen(true)}
             />
           )}
           {section === 'aarshjul' && (
