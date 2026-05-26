@@ -1121,6 +1121,45 @@ export function buildNavSections(ctx: NavBuilderContext): NavSection[] {
     ],
   }
 
+  // Cadence — Klarert Cadence-veiviser (HMS-årshjul). Egen group i
+  // Styringssystem-seksjonen for å holde inngangen synlig — selve siden
+  // /cadence har sin egen tab-stripe for veiviser, planer, årshjul.
+  const cadenceFixedSubs: SubItem[] = [
+    {
+      label: 'Veiviser',
+      path: '/cadence?section=veiviser',
+      Icon: Wand2,
+      match: ({ pathname, search }) =>
+        pathname === '/cadence' &&
+        (new URLSearchParams(search).get('section') ?? 'veiviser') === 'veiviser',
+      requirePermAny: ADMINISTRASJON_NAV_PERMS,
+    },
+    {
+      label: 'Aktive planer',
+      path: '/cadence?section=planer',
+      Icon: ListChecks,
+      match: ({ pathname, search }) =>
+        pathname === '/cadence' && new URLSearchParams(search).get('section') === 'planer',
+      requirePermAny: ADMINISTRASJON_NAV_PERMS,
+    },
+  ]
+  const cadenceGroup: NavGroup = {
+    id: 'cadence',
+    label: 'Cadence',
+    icon: CalendarDays,
+    modules: [
+      {
+        to: '/cadence',
+        label: 'Cadence',
+        end: false,
+        icon: CalendarDays,
+        subs: cadenceFixedSubs,
+        permAny: ADMINISTRASJON_NAV_PERMS,
+        flatSubs: true,
+      },
+    ],
+  }
+
   // Tilsynssaker — separate Styringssystem group with the tilsynsbrevSubs.
   const tilsynssakerGroup: NavGroup = {
     id: 'tilsynssaker',
@@ -1218,6 +1257,7 @@ export function buildNavSections(ctx: NavBuilderContext): NavSection[] {
     groups: [
       hmsOverviewGroup,
       internkontrollGroup,
+      cadenceGroup,
       alertsGroup,
       registersGroup,
       tilsynssakerGroup,

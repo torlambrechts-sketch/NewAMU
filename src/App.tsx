@@ -111,6 +111,7 @@ import { InternkontrollDashboardPage } from './pages/overview/internkontroll/Int
 import { InternkontrollGapPage } from './pages/overview/internkontroll/InternkontrollGapPage'
 import { InternkontrollPlanPage } from './pages/overview/internkontroll/InternkontrollPlanPage'
 import { InternkontrollPage } from './pages/overview/internkontroll/InternkontrollPage'
+import { CadencePage } from './pages/cadence/CadencePage'
 import { InternkontrollAuditorPage } from './pages/auditor/InternkontrollAuditorPage'
 import { ControlsAuditorPage } from './pages/auditor/ControlsAuditorPage'
 import { BenchmarkPage } from './pages/dashboards/BenchmarkPage'
@@ -435,6 +436,7 @@ const router = createBrowserRouter(
                       <Route path="overview/regelverk" element={<RegelverkCoveragePage />} />
                       <Route path="internkontroll" element={<InternkontrollPage />} />
                       <Route path="overview/internkontroll" element={<InternkontrollPage />} />
+                      <Route path="cadence" element={<CadencePage />} />
                       <Route
                         path="overview/internkontroll/dashboard"
                         element={<InternkontrollDashboardPage />}
