@@ -148,6 +148,25 @@ export type DashboardProfileRow = {
   display_name: string
 }
 
+/** Hver enkelt-spørring kan nå ha truffet limit-en. Når truncated=true bør
+ *  widgets vise et lite varsel («Viser første 400 oppgaver — gå til /tasks
+ *  for full liste») i stedet for å late som tallene er komplette. */
+export type DashboardLimits = {
+  tasksTruncated: boolean
+  controlsTruncated: boolean
+  meetingsTruncated: boolean
+  auditTruncated: boolean
+  profilesTruncated: boolean
+}
+
+export const DASHBOARD_LIMITS = {
+  tasks: 400,
+  controls: 200,
+  meetings: 60,
+  audit: 40,
+  profiles: 500,
+} as const
+
 export type DashboardData = {
   loading: boolean
   error: string | null
@@ -161,6 +180,7 @@ export type DashboardData = {
   meetings: DashboardMeetingRow[]
   audit: DashboardAuditRow[]
   profiles: Map<string, string> // user_id → display_name
+  limits: DashboardLimits
   reload: () => Promise<void>
 }
 
@@ -228,6 +248,13 @@ function useDashboardDataInternal(): DashboardData {
   const [meetings, setMeetings] = useState<DashboardMeetingRow[]>([])
   const [audit, setAudit] = useState<DashboardAuditRow[]>([])
   const [profiles, setProfiles] = useState<Map<string, string>>(new Map())
+  const [limits, setLimits] = useState<DashboardLimits>({
+    tasksTruncated: false,
+    controlsTruncated: false,
+    meetingsTruncated: false,
+    auditTruncated: false,
+    profilesTruncated: false,
+  })
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
@@ -319,11 +346,15 @@ function useDashboardDataInternal(): DashboardData {
           .limit(500),
       ])
 
-      setTasks((taskRes.data ?? []) as DashboardTaskRow[])
-      setControls((ctlRes.data ?? []) as DashboardControlRow[])
-      setMeetings((mtgRes.data ?? []) as DashboardMeetingRow[])
+      const taskRows = (taskRes.data ?? []) as DashboardTaskRow[]
+      const ctlRows = (ctlRes.data ?? []) as DashboardControlRow[]
+      const mtgRows = (mtgRes.data ?? []) as DashboardMeetingRow[]
+      setTasks(taskRows)
+      setControls(ctlRows)
+      setMeetings(mtgRows)
       const profMap = new Map<string, string>()
-      for (const p of ((profRes.data ?? []) as DashboardProfileRow[])) {
+      const profRows = (profRes.data ?? []) as DashboardProfileRow[]
+      for (const p of profRows) {
         if (p.id && p.display_name) profMap.set(p.id, p.display_name)
       }
       setProfiles(profMap)
@@ -335,6 +366,16 @@ function useDashboardDataInternal(): DashboardData {
           changed_by_name: row.changed_by ? (profMap.get(row.changed_by) ?? null) : null,
         })),
       )
+
+      // Truncation-flagg: query truffet sin .limit() betyr at brukeren ser
+      // delvis data. Widgets viser et lite varsel slik at det er åpenbart.
+      setLimits({
+        tasksTruncated: taskRows.length >= DASHBOARD_LIMITS.tasks,
+        controlsTruncated: ctlRows.length >= DASHBOARD_LIMITS.controls,
+        meetingsTruncated: mtgRows.length >= DASHBOARD_LIMITS.meetings,
+        auditTruncated: auditRaw.length >= DASHBOARD_LIMITS.audit,
+        profilesTruncated: profRows.length >= DASHBOARD_LIMITS.profiles,
+      })
 
       setLoading(false)
     } catch (e) {
@@ -361,27 +402,14 @@ function useDashboardDataInternal(): DashboardData {
       meetings,
       audit,
       profiles,
+      limits,
       reload: load,
     }),
-    [loading, error, plan, modules, roles, approvals, escalations, tasks, controls, meetings, audit, profiles, load],
+    [loading, error, plan, modules, roles, approvals, escalations, tasks, controls, meetings, audit, profiles, limits, load],
   )
 }
 
-// ── Helpers some widgets share ──────────────────────────────────────────────
-
-/** Cadence-hint → omtrentlig antall hendelser per år. */
-export function cadenceHintToVolume(hint: string | null | undefined): number {
-  switch (hint) {
-    case 'daglig': return 250
-    case 'ukentlig': return 52
-    case 'manedlig': return 12
-    case 'kvartalsvis': return 4
-    case 'halvarlig': return 2
-    case 'arlig': return 1
-    case 'ad_hoc':
-    default: return 0
-  }
-}
+// ── Helpers widgets share ───────────────────────────────────────────────────
 
 /** Cadence-hint → korte måneds-posisjoner for swim-lane timeline. */
 export function cadenceHintToTimeline(hint: string | null | undefined): Array<{ leftPct: number; widthPct: number; label: string }> {
@@ -406,36 +434,6 @@ export function cadenceHintToTimeline(hint: string | null | undefined): Array<{ 
     default:
       return [{ leftPct: 1, widthPct: 96, label: 'Ad hoc' }]
   }
-}
-
-/** Status → tone for badge / kanban-kort. */
-export function statusToTone(status: string): 'success' | 'warn' | 'info' | 'danger' | 'neutral' {
-  switch (status) {
-    case 'closed':
-    case 'effectiveness_verified':
-      return 'success'
-    case 'in_progress':
-    case 'root_cause_identified':
-    case 'action_defined':
-    case 'action_implemented':
-      return 'warn'
-    case 'cancelled':
-      return 'danger'
-    case 'open':
-      return 'info'
-    default:
-      return 'neutral'
-  }
-}
-
-/** Grupper task_items etter pdca_phase (plan/do/check/act). */
-export function groupByPdca(tasks: DashboardTaskRow[]): Record<string, DashboardTaskRow[]> {
-  const groups: Record<string, DashboardTaskRow[]> = { plan: [], do: [], check: [], act: [] }
-  for (const t of tasks) {
-    const key = (t.pdca_phase ?? 'do').toLowerCase()
-    if (groups[key]) groups[key].push(t)
-  }
-  return groups
 }
 
 /** Grupper task_items etter status, mapper til 5 kanban-kolonner. */

@@ -7,7 +7,7 @@
 
 import { useCallback, useMemo } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
-import { Loader2, Wand2 } from 'lucide-react'
+import { Loader2, RefreshCw, Wand2 } from 'lucide-react'
 import { ModulePageShell } from '../../components/module/ModulePageShell'
 import { Button } from '../../components/ui/Button'
 import { DashboardDataProvider, useDashboardData } from './useDashboardData'
@@ -61,15 +61,39 @@ function DashboardContent() {
 
   const navigate = useNavigate()
   const headerActions = (
-    <Button
-      variant="ghost"
-      size="sm"
-      icon={<Wand2 className="h-3.5 w-3.5" />}
-      onClick={() => navigate('/cadence?section=veiviser')}
-    >
-      Ny cadence-plan
-    </Button>
+    <div className="flex items-center gap-2">
+      <Button
+        variant="ghost"
+        size="sm"
+        icon={<RefreshCw className={`h-3.5 w-3.5 ${data.loading ? 'animate-spin' : ''}`} />}
+        onClick={() => void data.reload()}
+        disabled={data.loading}
+        aria-label="Last inn dashboard på nytt"
+      >
+        Oppdater
+      </Button>
+      <Button
+        variant="ghost"
+        size="sm"
+        icon={<Wand2 className="h-3.5 w-3.5" />}
+        onClick={() => navigate('/cadence?section=veiviser')}
+      >
+        Ny cadence-plan
+      </Button>
+    </div>
   )
+
+  // Sjekk om noen av spørringene traff sin limit slik at vi kan vise et
+  // varsel («Viser de første 400 oppgavene …»).
+  const truncationWarnings = useMemo(() => {
+    const out: string[] = []
+    if (data.limits.tasksTruncated) out.push(`oppgaver (viser første ${400})`)
+    if (data.limits.controlsTruncated) out.push(`kontroller (viser første ${200})`)
+    if (data.limits.meetingsTruncated) out.push(`møter (viser første ${60})`)
+    if (data.limits.auditTruncated) out.push(`revisjonshendelser (viser siste ${40})`)
+    if (data.limits.profilesTruncated) out.push(`personer (viser første ${500})`)
+    return out
+  }, [data.limits])
 
   return (
     <ModulePageShell
@@ -155,6 +179,13 @@ function DashboardContent() {
             </div>
           </header>
         )}
+
+        {truncationWarnings.length > 0 ? (
+          <div className="rounded-md border border-amber-200 bg-amber-50 px-4 py-2.5 text-[12px] text-amber-900">
+            <strong>Avkortet datavisning:</strong> {truncationWarnings.join(', ')}.
+            Bruk modulsidene for fullstendig liste.
+          </div>
+        ) : null}
 
         {/* Active dashboard body */}
         <section className="min-w-0">

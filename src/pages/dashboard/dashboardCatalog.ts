@@ -257,10 +257,3 @@ export const DASHBOARDS: DashboardDef[] = [
 export function getDashboard(id: string): DashboardDef | undefined {
   return DASHBOARDS.find((d) => d.id === id)
 }
-
-export function dashboardsForGroup(group: DashboardGroup): DashboardDef[] {
-  return DASHBOARDS.filter((d) => d.group === group)
-}
-
-// Brukt i mindre kort i hub-en for "se alle dashboards".
-export const ALL_DASHBOARD_IDS = DASHBOARDS.map((d) => d.id)

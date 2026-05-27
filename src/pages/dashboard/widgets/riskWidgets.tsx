@@ -198,8 +198,12 @@ export function RaidWidget() {
                     const cls = riskScoreClass(score).cell
                     const inThisCell = risks.filter((r) => r.probability === p && r.consequence === cons)
                     return (
-                      <div key={`${p}-${c}`} className={`relative aspect-[2.5/1] border-l border-t border-neutral-100 ${score >= 15 ? 'bg-[#F0D9D2]' : score >= 9 ? 'bg-[#F4E8D2]' : score >= 4 ? 'bg-[#FFF8E8]' : 'bg-[#E4ECDF]'}`}>
-                        <div className="absolute right-1 top-1 font-mono text-[9px] text-neutral-400">{score}</div>
+                      <div
+                        key={`${p}-${c}`}
+                        className={`relative aspect-[2.5/1] border-l border-t border-neutral-100 ${score >= 15 ? 'bg-[#F0D9D2]' : score >= 9 ? 'bg-[#F4E8D2]' : score >= 4 ? 'bg-[#FFF8E8]' : 'bg-[#E4ECDF]'}`}
+                        aria-label={`Sannsynlighet ${p}, konsekvens ${cons}, score ${score}`}
+                      >
+                        <div className="absolute right-1 top-1 font-mono text-[10px] font-semibold text-neutral-700">{score}</div>
                         <div className="absolute inset-0 flex flex-wrap items-center justify-center gap-1 p-2">
                           {inThisCell.map((r) => (
                             <span key={r.id} className={`flex h-7 w-7 items-center justify-center rounded-full font-mono text-[10px] font-semibold shadow ring-2 ring-white ${cls}`} title={r.title}>
@@ -425,6 +429,7 @@ export function AuditStreamWidget() {
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Søk handling, tabell eller person …"
+            aria-label="Søk i revisjonsspor"
             className="w-72 !py-1.5 pl-8 text-[12px]"
           />
         </div>
