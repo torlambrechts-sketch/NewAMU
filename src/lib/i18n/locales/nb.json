@@ -285,5 +285,43 @@
       "skipToContent": "Hopp til hovedinnhold",
       "pageError": "Kunne ikke vise siden"
     }
+  },
+  "alerts": {
+    "title": "Varslinger",
+    "intake": {
+      "danger": "Er du eller noen i fare?",
+      "anonymityTitle": "Hvor anonym vil du være?",
+      "saveDraft": "Lagre kladd",
+      "resume": "Fortsett der du var"
+    },
+    "handler": {
+      "coiRequired": "Habilitetserklæring må fullføres før du kan se sakens innhold.",
+      "decisionMemoLocked": "Vedtaksnotatet er låst etter finalisering.",
+      "snoozed": "Saken er utsatt til {{date}}"
+    },
+    "dpo": {
+      "dsarConsole": "DSAR-konsoll",
+      "redact": "Rediger",
+      "exportWatermarked": "Eksporter med vannmerke"
+    },
+    "admin": {
+      "legalHold": "Legal hold",
+      "breakGlass": "Break-the-glass",
+      "encryptionKeys": "Krypteringsnøkler"
+    },
+    "state": {
+      "received": "Mottatt",
+      "triage": "Triage",
+      "assigned": "Tildelt",
+      "under_investigation": "Under undersøkelse",
+      "awaiting_reporter_response": "Venter på varsler",
+      "on_hold": "Satt på vent",
+      "decision": "Vedtak",
+      "closed": "Lukket",
+      "rejected": "Avvist",
+      "escalated": "Eskalert",
+      "reopened": "Gjenåpnet",
+      "withdrawn": "Trukket"
+    }
   }
 }

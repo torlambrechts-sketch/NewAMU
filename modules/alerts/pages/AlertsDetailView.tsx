@@ -5,6 +5,13 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { ArrowLeft, Lock, AlertTriangle, Download, Trash2, Upload } from 'lucide-react'
+import { AccusedPanel } from '../components/handler/AccusedPanel'
+import { WitnessPanel } from '../components/handler/WitnessPanel'
+import { InterviewRecord } from '../components/handler/InterviewRecord'
+import { DecisionMemoEditor } from '../components/handler/DecisionMemoEditor'
+import { SnoozePanel } from '../components/handler/SnoozePanel'
+import { CaseLinkingPanel } from '../components/handler/CaseLinkingPanel'
+import { getSupabaseBrowserClient } from '../../../src/lib/supabaseClient'
 import { ModulePageShell } from '../../../src/components/module/ModulePageShell'
 import { ModuleSectionCard } from '../../../src/components/module/ModuleSectionCard'
 import { Badge } from '../../../src/components/ui/Badge'
@@ -29,7 +36,18 @@ const STATUS_OPTIONS: AlertStatus[] = ['received', 'triage', 'investigation', 'i
 const SEVERITY_OPTIONS: AlertSeverity[] = ['low', 'medium', 'high', 'critical']
 const OUTCOME_OPTIONS: AlertClosingOutcome[] = ['substantiated', 'unsubstantiated', 'inconclusive', 'referred']
 
-type Tab = 'info' | 'timeline' | 'notes' | 'attachments' | 'close'
+type Tab =
+  | 'info'
+  | 'timeline'
+  | 'notes'
+  | 'attachments'
+  | 'close'
+  | 'accused'
+  | 'witnesses'
+  | 'interviews'
+  | 'decision_memo'
+  | 'links'
+  | 'snooze'
 
 export function AlertsDetailView() {
   const { caseId } = useParams<{ caseId: string }>()
@@ -123,7 +141,7 @@ export function AlertsDetailView() {
       ) : null}
 
       <div className="flex gap-2 border-b border-neutral-200">
-        {(['info', 'timeline', 'notes', 'attachments', 'close'] as Tab[]).map((t) => (
+        {(['info', 'timeline', 'notes', 'attachments', 'accused', 'witnesses', 'interviews', 'decision_memo', 'links', 'snooze', 'close'] as Tab[]).map((t) => (
           <Button
             key={t}
             variant="ghost"
@@ -131,7 +149,19 @@ export function AlertsDetailView() {
             aria-pressed={tab === t}
             className={`rounded-none border-b-2 px-3 py-2 text-sm font-medium hover:bg-transparent ${tab === t ? 'border-[#b91c1c] text-neutral-900' : 'border-transparent text-neutral-500 hover:text-neutral-700'}`}
           >
-            {t === 'info' ? 'Informasjon' : t === 'timeline' ? `Tidslinje (${alerts.detail.timeline.length})` : t === 'notes' ? `Notater (${alerts.detail.notes.length})` : t === 'attachments' ? `Vedlegg (${alerts.detail.attachments.length})` : 'Lukk'}
+            {
+              t === 'info' ? 'Informasjon'
+              : t === 'timeline' ? `Tidslinje (${alerts.detail.timeline.length})`
+              : t === 'notes' ? `Notater (${alerts.detail.notes.length})`
+              : t === 'attachments' ? `Vedlegg (${alerts.detail.attachments.length})`
+              : t === 'accused' ? 'Anklagede'
+              : t === 'witnesses' ? 'Vitner'
+              : t === 'interviews' ? 'Intervjuer'
+              : t === 'decision_memo' ? 'Vedtaksnotat'
+              : t === 'links' ? 'Koblinger'
+              : t === 'snooze' ? 'Utsett'
+              : 'Lukk'
+            }
           </Button>
         ))}
       </div>
@@ -251,6 +281,78 @@ export function AlertsDetailView() {
 
       {tab === 'attachments' ? (
         <AttachmentsTab caseId={c.id} canManage={alerts.canManage && !isClosed} />
+      ) : null}
+
+      {tab === 'accused' && getSupabaseBrowserClient() ? (
+        <ModuleSectionCard title="Anklagede">
+          <AccusedPanel
+            supabase={getSupabaseBrowserClient()!}
+            caseId={c.id}
+            orgId={c.organization_id}
+            caseClosed={isClosed}
+            lang="nb"
+          />
+        </ModuleSectionCard>
+      ) : null}
+
+      {tab === 'witnesses' && getSupabaseBrowserClient() ? (
+        <ModuleSectionCard title="Vitner">
+          <WitnessPanel
+            supabase={getSupabaseBrowserClient()!}
+            caseId={c.id}
+            orgId={c.organization_id}
+            caseClosed={isClosed}
+            lang="nb"
+          />
+        </ModuleSectionCard>
+      ) : null}
+
+      {tab === 'interviews' && getSupabaseBrowserClient() ? (
+        <ModuleSectionCard title="Intervjuer">
+          <InterviewRecord
+            supabase={getSupabaseBrowserClient()!}
+            caseId={c.id}
+            orgId={c.organization_id}
+            lang="nb"
+          />
+        </ModuleSectionCard>
+      ) : null}
+
+      {tab === 'decision_memo' && getSupabaseBrowserClient() ? (
+        <ModuleSectionCard title="Vedtaksnotat">
+          <DecisionMemoEditor
+            supabase={getSupabaseBrowserClient()!}
+            caseId={c.id}
+            orgId={c.organization_id}
+            lang="nb"
+          />
+        </ModuleSectionCard>
+      ) : null}
+
+      {tab === 'links' && getSupabaseBrowserClient() ? (
+        <ModuleSectionCard title="Koblede saker">
+          <CaseLinkingPanel
+            supabase={getSupabaseBrowserClient()!}
+            caseId={c.id}
+            orgId={c.organization_id}
+            lang="nb"
+          />
+        </ModuleSectionCard>
+      ) : null}
+
+      {tab === 'snooze' && getSupabaseBrowserClient() ? (
+        <ModuleSectionCard title="Utsett saken">
+          <SnoozePanel
+            supabase={getSupabaseBrowserClient()!}
+            caseId={c.id}
+            current={{
+              snoozedUntil: c.snoozed_until,
+              reason: c.snooze_reason,
+            }}
+            onChanged={() => void alerts.loadDetail(c.id)}
+            lang="nb"
+          />
+        </ModuleSectionCard>
       ) : null}
 
       {tab === 'close' && !isClosed && alerts.canManage ? (

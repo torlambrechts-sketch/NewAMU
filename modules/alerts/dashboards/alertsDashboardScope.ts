@@ -35,6 +35,12 @@ const DATASETS: DatasetMeta[] = [
   { key: 'alerts_by_department', label: 'Per avdeling', shape: 'segments' },
   { key: 'alerts_law_ref_coverage', label: 'Lovreferanser dekket', shape: 'segments' },
   { key: 'alerts_retention_upcoming_purges', label: 'Kommende sletting', shape: 'segments' },
+  // v1.1 additions
+  { key: 'alerts_sla_states', label: 'SLA-klokker', shape: 'segments' },
+  { key: 'alerts_anonymity_share', label: 'Anonymitetsfordeling (v1.1)', shape: 'segments' },
+  { key: 'alerts_retention_horizon', label: 'Retensjons-horisont', shape: 'segments' },
+  { key: 'alerts_dsar_burn', label: 'DSAR-nedbrenning (30d)', shape: 'segments' },
+  { key: 'alerts_break_glass_activity', label: 'Break-glass-aktivitet', shape: 'segments' },
 ]
 
 const DIMENSIONS: DashboardDimension[] = [
@@ -47,6 +53,10 @@ const DIMENSIONS: DashboardDimension[] = [
   { id: 'location', label: 'Lokasjon', kind: 'enum' },
   { id: 'department', label: 'Avdeling', kind: 'enum' },
   { id: 'date', label: 'Periode', kind: 'date_range' },
+  // v1.1 additions
+  { id: 'anonymity_mode', label: 'Anonymitetsmodus (v1.1)', kind: 'enum' },
+  { id: 'sla_state', label: 'SLA-status', kind: 'enum' },
+  { id: 'legal_hold', label: 'Legal hold', kind: 'enum' },
 ]
 
 const KPI_TOTAL: ReportModuleKpi = {
