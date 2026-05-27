@@ -101,9 +101,6 @@ export function KravSection({
             >
               Eksporter CSV
             </Button>
-            <Button variant="primary" icon={<Plus className="h-4 w-4" />}>
-              Nytt krav
-            </Button>
           </div>
         </div>
 

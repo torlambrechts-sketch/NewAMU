@@ -6,7 +6,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { useOrgSetupContext } from '../../src/hooks/useOrgSetupContext'
-import { FormModal } from '../../template'
+import { FormModal } from '../../src/template'
 import { Button } from '../../src/components/ui/Button'
 import { StandardInput } from '../../src/components/ui/Input'
 import { StandardTextarea } from '../../src/components/ui/Textarea'
@@ -262,28 +262,30 @@ export function ControlEditorPanel({
   return (
     <FormModal
       open={open}
+      onClose={onClose}
+      titleId="control-editor-title"
       title={mode === 'create' ? 'Ny kontroll' : 'Rediger kontroll'}
-      description={
-        isSystem
-          ? 'Dette er en systemkontroll. Du kan ikke endre den fra appen.'
-          : 'Definer hva kontrollen mitigerer og hvor ofte den må gjennomføres.'
-      }
-      actions={
-        <>
-          <Button variant="secondary" size="sm" onClick={onClose}>
+      footer={
+        <div className="flex items-center justify-end gap-2">
+          <Button variant="secondary" onClick={onClose}>
             Avbryt
           </Button>
           <Button
             variant="primary"
-            size="sm"
             onClick={handleSave}
             disabled={saving || isSystem}
           >
             {saving ? 'Lagrer…' : 'Lagre'}
           </Button>
-        </>
+        </div>
       }
     >
+      <p className="mb-4 text-sm leading-relaxed text-neutral-600">
+        {isSystem
+          ? 'Dette er en systemkontroll. Du kan ikke endre den fra appen.'
+          : 'Definer hva kontrollen mitigerer og hvor ofte den må gjennomføres.'}
+      </p>
+      <div className="space-y-4">
       {localError ? (
         <div className="rounded border border-rose-200 bg-rose-50 p-2 text-sm text-rose-800">
           {localError}
@@ -378,6 +380,7 @@ export function ControlEditorPanel({
             className="mt-1"
           />
         </label>
+      </div>
       </div>
     </FormModal>
   )
