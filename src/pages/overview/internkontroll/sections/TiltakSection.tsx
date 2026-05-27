@@ -29,12 +29,12 @@ import {
   TiltakStatusPill,
 } from './internkontrollShared'
 import { TiltakDetailPanel } from './TiltakDetailPanel'
+import { TiltakCreateForm } from './TiltakCreateForm'
 import type {
   CompliancePlanItemStatus,
   useCompliancePlanItems,
 } from '../useCompliancePlanItems'
 import type { IkData, IkTiltak } from '../useInternkontrollPageData'
-import { FRAMEWORK_IDS, FRAMEWORKS, type FrameworkId } from '../frameworkParagraphs'
 import type { IkCategoryId } from './internkontrollTokens'
 
 type PlanHook = ReturnType<typeof useCompliancePlanItems>
@@ -66,12 +66,6 @@ export function TiltakSection({
   const [priorityFilter, setPriorityFilter] = useState<IkTiltak['priority'] | 'all'>('all')
   const [grouping, setGrouping] = useState<Grouping>('status')
   const [composerOpen, setComposerOpen] = useState(false)
-  const [draftTitle, setDraftTitle] = useState('')
-  const [draftLawRef, setDraftLawRef] = useState('')
-  const [draftFramework, setDraftFramework] = useState<FrameworkId>('aml')
-  const [draftDue, setDraftDue] = useState('')
-  const [draftProjectId, setDraftProjectId] = useState<string>('')
-  const [submitting, setSubmitting] = useState(false)
   const [detailOpenId, setDetailOpenId] = useState<string | null>(null)
   const detailTiltak = detailOpenId
     ? data.tiltak.find((t) => t.id === detailOpenId) ?? null
@@ -121,25 +115,6 @@ export function TiltakSection({
     return keys.sort((a, b) => a.localeCompare(b, 'nb'))
   }, [grouped, grouping])
 
-  const submitNew = async () => {
-    if (submitting || !draftTitle.trim() || !draftLawRef.trim()) return
-    setSubmitting(true)
-    await plan.createItem({
-      law_ref: draftLawRef.trim(),
-      framework_id: draftFramework,
-      title: draftTitle.trim(),
-      status: 'planned',
-      due_at: draftDue || null,
-      project_id: draftProjectId || null,
-    })
-    setSubmitting(false)
-    setDraftTitle('')
-    setDraftLawRef('')
-    setDraftDue('')
-    setDraftProjectId('')
-    setComposerOpen(false)
-  }
-
   const cycleStatus = async (id: string, current: CompliancePlanItemStatus) => {
     const order: CompliancePlanItemStatus[] = ['planned', 'in_progress', 'blocked', 'done']
     const next = order[(order.indexOf(current) + 1) % order.length]
@@ -176,7 +151,7 @@ export function TiltakSection({
               variant="primary"
               size="sm"
               icon={<Plus className="h-3 w-3" />}
-              onClick={() => setComposerOpen((v) => !v)}
+              onClick={() => setComposerOpen(true)}
             >
               Nytt tiltak
             </Button>
@@ -206,94 +181,6 @@ export function TiltakSection({
             ]}
           />
         </div>
-
-        {composerOpen && (
-          <div className="border-b border-neutral-100 bg-[#fbf9f3]/40 p-4">
-            <h4 className="text-[11px] font-bold uppercase tracking-wider text-neutral-500">
-              Nytt tiltak
-            </h4>
-            <div className="mt-2 grid grid-cols-1 gap-3 md:grid-cols-2">
-              <label className="block text-[11px] font-semibold text-neutral-700">
-                Tittel
-                <StandardInput
-                  type="text"
-                  value={draftTitle}
-                  onChange={(e) => setDraftTitle(e.target.value)}
-                  placeholder="Eks. Etabler 24/72-timers meldeprosedyre"
-                  className="mt-1 py-1.5"
-                />
-              </label>
-              <label className="block text-[11px] font-semibold text-neutral-700">
-                Lukker krav (paragraf)
-                <StandardInput
-                  type="text"
-                  value={draftLawRef}
-                  onChange={(e) => setDraftLawRef(e.target.value)}
-                  placeholder="Eks. AML § 4-3"
-                  className="mt-1 py-1.5"
-                />
-              </label>
-              <label className="block text-[11px] font-semibold text-neutral-700">
-                Rammeverk
-                <SearchableSelect
-                  value={draftFramework}
-                  onChange={(v) => setDraftFramework(v as FrameworkId)}
-                  className="mt-1"
-                  options={FRAMEWORK_IDS.map((id) => ({
-                    value: id,
-                    label: `${FRAMEWORKS[id].shortLabel} — ${FRAMEWORKS[id].fullLabel}`,
-                  }))}
-                />
-              </label>
-              <label className="block text-[11px] font-semibold text-neutral-700">
-                Frist (valgfri)
-                <StandardInput
-                  type="date"
-                  value={draftDue}
-                  onChange={(e) => setDraftDue(e.target.value)}
-                  className="mt-1 py-1.5"
-                />
-              </label>
-              <label className="md:col-span-2 block text-[11px] font-semibold text-neutral-700">
-                Prosjekt (valgfri)
-                <SearchableSelect
-                  value={draftProjectId}
-                  onChange={(v) => setDraftProjectId(v)}
-                  className="mt-1"
-                  options={[
-                    { value: '', label: 'Ingen prosjekt' },
-                    ...data.prosjekter
-                      .filter((p) => p.projectId !== null)
-                      .map((p) => ({ value: p.projectId as string, label: p.name })),
-                  ]}
-                />
-              </label>
-            </div>
-            <div className="mt-3 flex items-center justify-end gap-2">
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => {
-                  setComposerOpen(false)
-                  setDraftTitle('')
-                  setDraftLawRef('')
-                  setDraftDue('')
-                }}
-                disabled={submitting}
-              >
-                Avbryt
-              </Button>
-              <Button
-                variant="primary"
-                size="sm"
-                onClick={() => void submitNew()}
-                disabled={submitting || !draftTitle.trim() || !draftLawRef.trim()}
-              >
-                {submitting ? 'Lagrer…' : 'Lagre tiltak'}
-              </Button>
-            </div>
-          </div>
-        )}
 
         {sortedKeys.length === 0 ? (
           <p className="px-5 py-10 text-center text-[12px] italic text-neutral-500">
@@ -354,6 +241,26 @@ export function TiltakSection({
         onClose={() => setDetailOpenId(null)}
         tiltak={detailTiltak}
         frameworks={data.frameworks}
+      />
+      <TiltakCreateForm
+        open={composerOpen}
+        onClose={() => setComposerOpen(false)}
+        projectOptions={data.prosjekter}
+        onCreate={async (payload) => {
+          const created = await plan.createItem({
+            law_ref: payload.lawRef,
+            framework_id: payload.framework,
+            title: payload.title,
+            description: payload.description || undefined,
+            status: 'planned',
+            due_at: payload.dueAt,
+            project_id: payload.projectId,
+          })
+          // createItem returns null on RLS / FK / network failure
+          // without throwing — propagate that so the form stays open
+          // with the user's typed input intact.
+          return created !== null
+        }}
       />
     </div>
   )

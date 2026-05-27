@@ -19,6 +19,18 @@ export const WPSTD_FORM_INPUT =
 
 export const WPSTD_FORM_INPUT_ON_WHITE = `${WPSTD_FORM_INPUT} bg-white`
 
+/**
+ * Inline "Valgfri" badge — render next to a field label that's optional.
+ * Single source for the four create-form surfaces (Tasks, Compliance,
+ * Internkontroll Tiltak, Alerts) that previously each hand-rolled the
+ * same span. Use as: `{WPSTD_FORM_OPTIONAL}` inside the label JSX.
+ */
+export const WPSTD_FORM_OPTIONAL = (
+  <span className="ml-1.5 font-normal normal-case tracking-normal text-neutral-400">
+    Valgfri
+  </span>
+)
+
 export type WorkplaceStandardFormPanelProps = {
   open: boolean
   onClose: () => void

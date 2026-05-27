@@ -24,12 +24,9 @@ import {
   ShieldCheck,
   User,
   Wallet,
-  X,
 } from 'lucide-react'
 import { Button } from '../../../../components/ui/Button'
 import { StandardInput } from '../../../../components/ui/Input'
-import { StandardTextarea } from '../../../../components/ui/Textarea'
-import { SearchableSelect } from '../../../../components/ui/SearchableSelect'
 import {
   FwChip,
   Initials,
@@ -39,6 +36,7 @@ import {
 } from './internkontrollShared'
 import type { useCompliancePlanItems } from '../useCompliancePlanItems'
 import { useTaskProjects } from '../../../../../modules/tasks/useTaskProjects'
+import { TaskProjectCreateForm } from '../../../../../modules/tasks/TaskProjectCreateForm'
 import type { IkData, IkProsjekt } from '../useInternkontrollPageData'
 
 type PlanHook = ReturnType<typeof useCompliancePlanItems>
@@ -71,30 +69,6 @@ export function ProsjekterSection({
   const open = openId ? data.prosjekter.find((p) => p.id === openId) : null
   const projects = useTaskProjects()
   const [composerOpen, setComposerOpen] = useState(false)
-  const [draftTitle, setDraftTitle] = useState('')
-  const [draftDescription, setDraftDescription] = useState('')
-  const [draftMethodology, setDraftMethodology] = useState<'pdca' | 'kanban'>('pdca')
-  const [submitting, setSubmitting] = useState(false)
-
-  const submitProject = async () => {
-    if (submitting || !draftTitle.trim()) return
-    setSubmitting(true)
-    const id = await projects.createProject({
-      title: draftTitle.trim(),
-      description: draftDescription.trim(),
-      methodology: draftMethodology,
-      lawRefs: [],
-    })
-    setSubmitting(false)
-    setDraftTitle('')
-    setDraftDescription('')
-    setDraftMethodology('pdca')
-    setComposerOpen(false)
-    // Refresh the page-level hook so the new project shows up in
-    // data.prosjekter without a full reload.
-    onProjectsChanged()
-    return id
-  }
 
   if (open) return <ProsjektDetail data={data} p={open} plan={plan} onBack={() => setOpenId(null)} />
 
@@ -108,7 +82,7 @@ export function ProsjekterSection({
             variant="primary"
             size="sm"
             icon={<Plus className="h-3 w-3" />}
-            onClick={() => setComposerOpen((v) => !v)}
+            onClick={() => setComposerOpen(true)}
           >
             Nytt prosjekt
           </Button>
@@ -117,72 +91,6 @@ export function ProsjekterSection({
         Større initiativ for å nå ny modenhet — sertifisering, lovendringer, etterlevelse av
         nye rammeverk. Prosjekter lagres i Oppgavestyring (task_projects) og styres herfra.
       </SectionBanner>
-
-      {composerOpen && (
-        <div className="rounded-xl border border-neutral-200/80 bg-[#fbf9f3]/40 p-4 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
-          <div className="flex items-center justify-between">
-            <h4 className="text-[11px] font-bold uppercase tracking-wider text-neutral-500">
-              Nytt prosjekt
-            </h4>
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => setComposerOpen(false)}
-              aria-label="Lukk skjema"
-              className="border-0 p-1 hover:bg-neutral-100"
-            >
-              <X className="h-3.5 w-3.5" />
-            </Button>
-          </div>
-          <div className="mt-2 grid grid-cols-1 gap-3 md:grid-cols-2">
-            <label className="block text-[11px] font-semibold text-neutral-700">
-              Tittel
-              <StandardInput
-                type="text"
-                value={draftTitle}
-                onChange={(e) => setDraftTitle(e.target.value)}
-                placeholder="Eks. ISO 27001-sertifisering"
-                className="mt-1 py-1.5"
-              />
-            </label>
-            <label className="block text-[11px] font-semibold text-neutral-700">
-              Metodologi
-              <SearchableSelect
-                value={draftMethodology}
-                onChange={(v) => setDraftMethodology(v === 'kanban' ? 'kanban' : 'pdca')}
-                className="mt-1"
-                options={[
-                  { value: 'pdca', label: 'PDCA — Plan/Do/Check/Act' },
-                  { value: 'kanban', label: 'Kanban' },
-                ]}
-              />
-            </label>
-            <label className="md:col-span-2 block text-[11px] font-semibold text-neutral-700">
-              Beskrivelse (valgfri)
-              <StandardTextarea
-                value={draftDescription}
-                onChange={(e) => setDraftDescription(e.target.value)}
-                rows={2}
-                placeholder="Hva skal prosjektet oppnå?"
-                className="mt-1"
-              />
-            </label>
-          </div>
-          <div className="mt-3 flex items-center justify-end gap-2">
-            <Button variant="ghost" size="sm" onClick={() => setComposerOpen(false)} disabled={submitting}>
-              Avbryt
-            </Button>
-            <Button
-              variant="primary"
-              size="sm"
-              onClick={() => void submitProject()}
-              disabled={submitting || !draftTitle.trim()}
-            >
-              {submitting ? 'Lagrer…' : 'Opprett prosjekt'}
-            </Button>
-          </div>
-        </div>
-      )}
 
       {filteredProsjekter.length === 0 ? (
         <div className="rounded-xl border border-neutral-200/80 bg-white p-6 text-center text-[12px] italic text-neutral-500 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
@@ -340,6 +248,24 @@ export function ProsjekterSection({
           })}
         </div>
       )}
+
+      {/* Reuse the canonical task_projects create form from modules/tasks.
+          A single Nytt-prosjekt surface across modules avoids the kind of
+          drift that happens when the same row is created from two
+          slightly-different forms. */}
+      <TaskProjectCreateForm
+        open={composerOpen}
+        onClose={() => setComposerOpen(false)}
+        onCreate={async (input) => {
+          const id = await projects.createProject(input)
+          if (id) {
+            // Refresh the page-level hook so the new project shows up
+            // in data.prosjekter without a full route remount.
+            onProjectsChanged()
+          }
+          return id
+        }}
+      />
     </div>
   )
 }
