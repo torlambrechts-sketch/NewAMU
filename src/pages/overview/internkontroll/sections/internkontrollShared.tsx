@@ -195,7 +195,7 @@ export function FilterPills<T extends string>({
           variant="ghost"
           onClick={() => onChange(it.id)}
           className={[
-            'rounded-full border-0 px-2.5 py-1 text-[11px] font-semibold',
+            'rounded-full border-0 px-3 py-1.5 text-xs font-semibold',
             value === it.id
               ? 'bg-[#1a3d32] text-white hover:bg-[#14312a] hover:text-white'
               : 'bg-neutral-100 text-neutral-600 hover:bg-neutral-200/70 hover:text-neutral-700',

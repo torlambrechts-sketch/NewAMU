@@ -97,7 +97,7 @@ export function cadenceLabel(cadence: ControlFrequencyHint | null | undefined): 
 }
 
 export const MODULE_TABLE_TH =
-  'border-b border-neutral-200 bg-neutral-50/60 px-5 py-2 text-left text-[10px] font-bold uppercase tracking-wider text-neutral-500'
+  'border-b border-neutral-200 bg-neutral-50/60 px-5 py-2 text-left text-xs font-bold uppercase tracking-wider text-neutral-500'
 export const MODULE_TABLE_TR_BODY =
   'border-b border-neutral-100 transition-colors hover:bg-neutral-50/60'
 

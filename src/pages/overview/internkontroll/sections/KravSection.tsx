@@ -147,7 +147,7 @@ export function KravSection({
             <tbody>
               {filtered.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="px-5 py-10 text-center text-[12px] italic text-neutral-500">
+                  <td colSpan={8} className="px-5 py-10 text-center text-sm italic text-neutral-500">
                     Ingen krav matcher filteret.
                   </td>
                 </tr>
@@ -169,13 +169,13 @@ export function KravSection({
                       </td>
                       <td className="px-5 py-3">
                         <div className="flex items-baseline gap-2">
-                          <span className="font-mono text-[10px] font-bold tabular-nums text-neutral-500">
+                          <span className="font-mono text-xs font-bold tabular-nums text-neutral-500">
                             {k.ref}
                           </span>
                           <span className="font-medium text-neutral-900">{k.title}</span>
                         </div>
                         {k.description && (
-                          <div className="mt-0.5 text-[11px] leading-snug text-neutral-500">
+                          <div className="mt-0.5 text-sm leading-snug text-neutral-500">
                             {k.description}
                           </div>
                         )}
@@ -185,12 +185,12 @@ export function KravSection({
                       </td>
                       <td className="px-5 py-3">
                         {ctls.length === 0 ? (
-                          <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-red-700">
-                            <ShieldOff className="h-3 w-3" /> Ingen
+                          <span className="inline-flex items-center gap-1 text-sm font-semibold text-red-700">
+                            <ShieldOff className="h-3.5 w-3.5" /> Ingen
                           </span>
                         ) : (
-                          <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-neutral-700">
-                            <ShieldCheck className="h-3 w-3 text-[#1a3d32]" />
+                          <span className="inline-flex items-center gap-1 text-sm font-semibold text-neutral-700">
+                            <ShieldCheck className="h-3.5 w-3.5 text-[#1a3d32]" />
                             {ctls.length} kontroll{ctls.length === 1 ? '' : 'er'}
                           </span>
                         )}
@@ -198,8 +198,8 @@ export function KravSection({
                       <td className="px-5 py-3">
                         <StatusPill status={k.status} />
                       </td>
-                      <td className="px-5 py-3 text-[11px] text-neutral-700">{k.owner}</td>
-                      <td className="px-5 py-3 text-[11px] tabular-nums text-neutral-600">
+                      <td className="px-5 py-3 text-sm text-neutral-700">{k.owner}</td>
+                      <td className="px-5 py-3 text-sm tabular-nums text-neutral-600">
                         {k.nextReview}
                       </td>
                       <td className="px-5 py-3 text-right">
@@ -216,16 +216,16 @@ export function KravSection({
                           <div className="grid grid-cols-1 gap-5 md:grid-cols-[minmax(0,1fr)_280px]">
                             <div>
                               {k.gap && (
-                                <div className="mb-3 rounded-md border border-amber-200 bg-amber-50 p-2.5 text-[12px] text-amber-900">
+                                <div className="mb-3 rounded-md border border-amber-200 bg-amber-50 p-2.5 text-sm text-amber-900">
                                   <div className="font-semibold">Gap-beskrivelse</div>
                                   <p className="mt-0.5">{k.gap}</p>
                                 </div>
                               )}
-                              <h4 className="text-[10px] font-bold uppercase tracking-wider text-neutral-500">
+                              <h4 className="text-xs font-bold uppercase tracking-wider text-neutral-500">
                                 Kontroller som dekker dette kravet
                               </h4>
                               {ctls.length === 0 ? (
-                                <p className="mt-2 text-[12px] italic text-neutral-500">
+                                <p className="mt-2 text-sm italic text-neutral-500">
                                   Ingen kontroller tilknyttet — opprett en for å dekke kravet.
                                 </p>
                               ) : (
@@ -236,7 +236,7 @@ export function KravSection({
                                       className="flex items-center gap-2 rounded-md border border-neutral-200 bg-white p-2"
                                     >
                                       <span
-                                        className="rounded px-1.5 py-0.5 text-[9px] font-bold uppercase"
+                                        className="rounded px-1.5 py-0.5 text-[10px] font-bold uppercase"
                                         style={{
                                           background: TYPE_TONE[c.type].bg,
                                           color: TYPE_TONE[c.type].text,
@@ -244,10 +244,10 @@ export function KravSection({
                                       >
                                         {c.type}
                                       </span>
-                                      <span className="flex-1 text-[12px] font-medium text-neutral-900">
+                                      <span className="flex-1 text-sm font-medium text-neutral-900">
                                         {c.title}
                                       </span>
-                                      <span className="text-[10px] text-neutral-500">
+                                      <span className="text-xs text-neutral-500">
                                         {c.frequencyLabel} · {c.owner}
                                       </span>
                                     </li>
@@ -256,17 +256,17 @@ export function KravSection({
                               )}
                               {k.evidence.length > 0 && (
                                 <>
-                                  <h4 className="mt-4 text-[10px] font-bold uppercase tracking-wider text-neutral-500">
+                                  <h4 className="mt-4 text-xs font-bold uppercase tracking-wider text-neutral-500">
                                     Maler og publiserte ressurser
                                   </h4>
                                   <ul className="mt-2 grid grid-cols-1 gap-1.5 md:grid-cols-2">
                                     {k.evidence.slice(0, 8).map((e) => (
                                       <li
                                         key={`${e.kind}-${e.id}`}
-                                        className="rounded-md border border-neutral-200 bg-white p-2 text-[11px]"
+                                        className="rounded-md border border-neutral-200 bg-white p-2 text-sm"
                                       >
                                         <div className="font-medium text-neutral-900">{e.title}</div>
-                                        <div className="mt-0.5 text-[10px] text-neutral-500">
+                                        <div className="mt-0.5 text-xs text-neutral-500">
                                           {e.kind} · {e.source === 'instance' ? 'publisert' : 'mal'}
                                         </div>
                                       </li>
@@ -298,8 +298,8 @@ export function KravSection({
                                 </Button>
                               </div>
                             </div>
-                            <aside className="rounded-md border border-neutral-200 bg-white p-3 text-[11px]">
-                              <h5 className="text-[10px] font-bold uppercase tracking-wider text-neutral-500">
+                            <aside className="rounded-md border border-neutral-200 bg-white p-3 text-sm">
+                              <h5 className="text-xs font-bold uppercase tracking-wider text-neutral-500">
                                 Metadata
                               </h5>
                               <dl className="mt-2 space-y-1.5">
