@@ -1,21 +1,26 @@
 // DashboardPage — hub som hoster alle 19 dashboards.
 //
-// Layout: samme ModulePageShell + tab-stripe-mønster som /internkontroll
-// og /cadence. URL-state via ?dashboard=<id> — dyplenker direkte til
-// f.eks. Gantt eller RAID. Når ingen spesifikk dashboard er valgt,
-// vises Cadence-oversikten (TimelineWidget) som default landing.
+// Layout: ModulePageShell + FilterBar med to FilterChips (Kategori +
+// Visning) i stedet for den tidligere lange listen med chips per gruppe.
+// Brukeren velger en kategori, deretter et spesifikt dashboard innen
+// den kategorien. Den valgte widgeten rendres i en innrammet card-boks
+// rett under filter-baren — samme mønster som Sjekklister-tabellen.
+// URL-state: ?dashboard=<id> for dyplenker.
 
 import { useCallback, useMemo } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { Loader2, RefreshCw, Wand2 } from 'lucide-react'
 import { ModulePageShell } from '../../components/module/ModulePageShell'
 import { Button } from '../../components/ui/Button'
+import { FilterBar } from '../../components/ui/FilterBar'
+import { FilterChip } from '../../components/ui/FilterChip'
 import { DashboardDataProvider, useDashboardData } from './useDashboardData'
 import {
   DASHBOARDS,
   DASHBOARD_GROUPS,
   getDashboard,
   type DashboardDef,
+  type DashboardGroup,
 } from './dashboardCatalog'
 
 const BREADCRUMB = [
@@ -42,6 +47,7 @@ function DashboardContent() {
   const dashboardId = searchParams.get('dashboard') ?? DEFAULT_DASHBOARD_ID
   const active = getDashboard(dashboardId) ?? getDashboard(DEFAULT_DASHBOARD_ID)
   const data = useDashboardData()
+  const navigate = useNavigate()
 
   const setDashboard = useCallback(
     (id: string) => {
@@ -52,14 +58,75 @@ function DashboardContent() {
     [searchParams, setSearchParams],
   )
 
-  const grouped: Record<string, DashboardDef[]> = useMemo(() => {
-    const out: Record<string, DashboardDef[]> = {}
-    for (const g of DASHBOARD_GROUPS) out[g.id] = []
-    for (const d of DASHBOARDS) out[d.group]?.push(d)
-    return out
-  }, [])
+  // ── Filter-state ──────────────────────────────────────────────────────────
+  // To FilterChips: Kategori (multi-select) + Visning (single-select via
+  // multi-select-API der vi tar første verdi). Begge synkroniserer mot
+  // URL slik at delte lenker reproduserer akkurat samme view.
+  //
+  // Kategori-filteret driver hvilke visninger som er synlige i
+  // visning-dropdownen + farger ikke-matchende widgets på kortene.
+  // Når en visning velges som ikke ligger i Kategori-filteret, utvider
+  // vi filteret automatisk slik at det forblir konsistent.
 
-  const navigate = useNavigate()
+  const categoryFromUrl = useMemo<DashboardGroup[]>(() => {
+    const raw = searchParams.get('kategori')
+    if (!raw) return []
+    const valid = new Set(DASHBOARD_GROUPS.map((g) => g.id))
+    return raw
+      .split(',')
+      .filter((s): s is DashboardGroup => valid.has(s as DashboardGroup))
+  }, [searchParams])
+
+  const setCategories = useCallback(
+    (next: DashboardGroup[]) => {
+      const sp = new URLSearchParams(searchParams)
+      if (next.length > 0) sp.set('kategori', next.join(','))
+      else sp.delete('kategori')
+      setSearchParams(sp, { replace: true })
+    },
+    [searchParams, setSearchParams],
+  )
+
+  // Visningsalternativer som vises i dropdownen — filtrert på valgte
+  // kategorier hvis brukeren har snevret inn.
+  const visibleDashboards = useMemo(() => {
+    if (categoryFromUrl.length === 0) return DASHBOARDS
+    const cats = new Set(categoryFromUrl)
+    return DASHBOARDS.filter((d) => cats.has(d.group))
+  }, [categoryFromUrl])
+
+  // Dashboard-options med liten gruppe-prefiks i label slik at brukeren
+  // ser konteksten i dropdownen ("Tidsbasert · Gantt").
+  const dashboardOptions = useMemo(
+    () =>
+      visibleDashboards.map((d) => ({
+        value: d.id,
+        label: `${DASHBOARD_GROUPS.find((g) => g.id === d.group)?.label ?? d.group} · ${d.label}`,
+      })),
+    [visibleDashboards],
+  )
+
+  const categoryOptions = useMemo(
+    () =>
+      DASHBOARD_GROUPS.map((g) => ({
+        value: g.id,
+        label: g.label,
+        count: DASHBOARDS.filter((d) => d.group === g.id).length,
+      })),
+    [],
+  )
+
+  const activeFilterCount =
+    categoryFromUrl.length +
+    (dashboardId && dashboardId !== DEFAULT_DASHBOARD_ID ? 1 : 0)
+
+  const handleReset = useCallback(() => {
+    const sp = new URLSearchParams(searchParams)
+    sp.delete('kategori')
+    sp.set('dashboard', DEFAULT_DASHBOARD_ID)
+    setSearchParams(sp, { replace: true })
+  }, [searchParams, setSearchParams])
+
   const headerActions = (
     <div className="flex items-center gap-2">
       <Button
@@ -83,8 +150,6 @@ function DashboardContent() {
     </div>
   )
 
-  // Sjekk om noen av spørringene traff sin limit slik at vi kan vise et
-  // varsel («Viser de første 400 oppgavene …»).
   const truncationWarnings = useMemo(() => {
     const out: string[] = []
     if (data.limits.tasksTruncated) out.push(`oppgaver (viser første ${400})`)
@@ -104,9 +169,7 @@ function DashboardContent() {
       headerActions={headerActions}
     >
       <div className="space-y-4">
-        {/* Empty-org nudge: ingen plan + ingen oppgaver → tydelig CTA i stedet
-            for stille fallback-data. Forsvinner straks brukeren har enten
-            iverksatt en cadence eller fått oppgaver via andre flyt. */}
+        {/* Empty-org nudge — uendret. */}
         {!data.loading && !data.plan && data.tasks.length === 0 ? (
           <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-amber-200 bg-amber-50 px-5 py-4">
             <div>
@@ -129,104 +192,109 @@ function DashboardContent() {
           </div>
         ) : null}
 
-        {/* Group nav + dashboard selector */}
-        <div className="overflow-hidden rounded-xl border border-neutral-200/80 bg-white shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
-          {DASHBOARD_GROUPS.map((g) => {
-            const items = grouped[g.id] ?? []
-            if (items.length === 0) return null
-            return (
-              <div key={g.id} className="border-b border-neutral-100 last:border-b-0">
-                <div className="flex items-center gap-2 bg-neutral-50 px-4 py-2 text-[10.5px] font-bold uppercase tracking-wider text-neutral-500">
-                  <g.Icon className="h-3.5 w-3.5" aria-hidden />
-                  <span>{g.label}</span>
-                  <span className="font-normal normal-case text-neutral-400">· {g.description}</span>
-                </div>
-                <nav className="flex flex-wrap items-center gap-1 px-3 py-2" aria-label={`${g.label}-dashboards`}>
-                  {items.map((d) => {
-                    const isActive = active?.id === d.id
+        {/* Boksen som hoster filter-baren + widget-innholdet — samme mønster
+            som Sjekklister-tabellen: avrundet kort med filterbar på topp og
+            innholdet under. */}
+        <div className="overflow-hidden rounded-xl border border-neutral-200 bg-white shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
+          <FilterBar
+            chips={
+              <>
+                <FilterChip
+                  label="Kategori"
+                  options={categoryOptions}
+                  value={categoryFromUrl}
+                  onChange={(next) => setCategories(next as DashboardGroup[])}
+                  searchPlaceholder="Filtrer kategori …"
+                />
+                <FilterChip
+                  label="Visning"
+                  options={dashboardOptions}
+                  value={[dashboardId]}
+                  onChange={(next) => {
+                    // Single-select via multi-select-API: ta siste klikk.
+                    // Når brukeren tømmer alle returneres en tom array;
+                    // vi faller tilbake til default for å unngå tom side.
+                    const picked = next.filter((id) => id !== dashboardId)[0]
+                    setDashboard(picked ?? DEFAULT_DASHBOARD_ID)
+                  }}
+                  searchPlaceholder="Søk visninger …"
+                />
+              </>
+            }
+            activeFilterCount={activeFilterCount}
+            onReset={handleReset}
+          />
+
+          {/* Aktiv-widget-header — vises i toppen av boksen, under filter-baren. */}
+          {active ? (
+            <header className="flex flex-wrap items-end justify-between gap-3 border-t border-neutral-100 px-5 py-3.5">
+              <div>
+                <div className="flex items-center gap-2 text-[10.5px] font-bold uppercase tracking-wider text-neutral-500">
+                  {(() => {
+                    const groupDef = DASHBOARD_GROUPS.find((g) => g.id === active.group)
+                    if (!groupDef) return null
+                    const GroupIcon = groupDef.Icon
                     return (
-                      <Button
-                        key={d.id}
-                        variant="ghost"
-                        onClick={() => setDashboard(d.id)}
-                        aria-current={isActive ? 'page' : undefined}
-                        className={[
-                          'inline-flex h-auto items-center gap-2 rounded-md px-3 py-1.5 text-[12.5px] font-medium transition-colors',
-                          isActive
-                            ? 'bg-[var(--ui-accent)] text-white hover:bg-[var(--ui-accent)] hover:text-white'
-                            : 'text-neutral-600 hover:bg-neutral-100 hover:text-neutral-900',
-                        ].join(' ')}
-                        title={d.description}
-                      >
-                        <d.icon className="h-3.5 w-3.5 shrink-0" aria-hidden />
-                        <span>{d.label}</span>
-                        <span className={[
-                          'ml-1 rounded-full px-1.5 py-0.5 font-mono text-[9px] tracking-wider',
-                          isActive ? 'bg-white/20 text-white' : 'bg-neutral-100 text-neutral-500',
-                        ].join(' ')}>
-                          {d.method}
-                        </span>
-                      </Button>
+                      <>
+                        <GroupIcon className="h-3.5 w-3.5" aria-hidden />
+                        <span>{groupDef.label}</span>
+                      </>
                     )
-                  })}
-                </nav>
+                  })()}
+                  <span className="rounded-md bg-neutral-100 px-1.5 py-0.5 font-mono text-[9.5px] tracking-wider text-neutral-600">
+                    {active.method}
+                  </span>
+                </div>
+                <h2 className="mt-1 font-serif text-xl font-semibold text-neutral-900">
+                  {active.label}
+                </h2>
+                <p className="mt-1 max-w-3xl text-[12.5px] text-neutral-500">{active.description}</p>
               </div>
-            )
-          })}
-        </div>
-
-        {/* Active dashboard header */}
-        {active && (
-          <header className="flex flex-wrap items-end justify-between gap-3 border-b border-neutral-200 pb-3">
-            <div>
-              <div className="text-[10.5px] font-bold uppercase tracking-wider text-neutral-500">
-                {DASHBOARD_GROUPS.find((g) => g.id === active.group)?.label}
+              <div className="flex items-center gap-2">
+                {data.plan ? (
+                  <span className="rounded-full border border-emerald-200 bg-emerald-100 px-2 py-0.5 text-[11px] font-medium text-emerald-800">
+                    {data.plan.name} · {data.plan.status === 'active' ? 'Aktiv' : 'Utkast'}
+                  </span>
+                ) : (
+                  <Link
+                    to="/cadence?section=veiviser"
+                    className="rounded-full border border-amber-200 bg-amber-100 px-2 py-0.5 text-[11px] font-medium text-amber-800 hover:underline"
+                  >
+                    Ingen cadence iverksatt → start veiviser
+                  </Link>
+                )}
               </div>
-              <h2 className="mt-1 font-serif text-2xl font-semibold text-neutral-900">{active.label}</h2>
-              <p className="mt-1 max-w-3xl text-[13px] text-neutral-500">{active.description}</p>
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="rounded-md bg-neutral-100 px-2 py-1 font-mono text-[10px] tracking-wider text-neutral-600">
-                {active.method}
-              </span>
-              {data.plan ? (
-                <span className="rounded-full border border-emerald-200 bg-emerald-100 px-2 py-0.5 text-[11px] font-medium text-emerald-800">
-                  {data.plan.name} · {data.plan.status === 'active' ? 'Aktiv' : 'Utkast'}
-                </span>
-              ) : (
-                <Link
-                  to="/cadence?section=veiviser"
-                  className="rounded-full border border-amber-200 bg-amber-100 px-2 py-0.5 text-[11px] font-medium text-amber-800 hover:underline"
-                >
-                  Ingen cadence iverksatt → start veiviser
-                </Link>
-              )}
-            </div>
-          </header>
-        )}
-
-        {truncationWarnings.length > 0 ? (
-          <div className="rounded-md border border-amber-200 bg-amber-50 px-4 py-2.5 text-[12px] text-amber-900">
-            <strong>Avkortet datavisning:</strong> {truncationWarnings.join(', ')}.
-            Bruk modulsidene for fullstendig liste.
-          </div>
-        ) : null}
-
-        {/* Active dashboard body */}
-        <section className="min-w-0">
-          {data.loading ? (
-            <div className="flex min-h-[40vh] items-center justify-center">
-              <Loader2 className="h-6 w-6 animate-spin text-[var(--ui-accent)]" aria-hidden />
-            </div>
-          ) : data.error ? (
-            <div className="rounded-xl border border-red-200 bg-red-50 px-5 py-4 text-sm text-red-800">
-              {data.error}
-            </div>
-          ) : active ? (
-            <active.Component />
+            </header>
           ) : null}
-        </section>
+
+          {truncationWarnings.length > 0 ? (
+            <div className="border-t border-neutral-100 bg-amber-50 px-5 py-2.5 text-[12px] text-amber-900">
+              <strong>Avkortet datavisning:</strong> {truncationWarnings.join(', ')}.
+              Bruk modulsidene for fullstendig liste.
+            </div>
+          ) : null}
+
+          {/* Widget-innhold renderes innenfor boksen. */}
+          <div className="border-t border-neutral-100 bg-neutral-50/40 p-5">
+            {data.loading ? (
+              <div className="flex min-h-[40vh] items-center justify-center">
+                <Loader2 className="h-6 w-6 animate-spin text-[var(--ui-accent)]" aria-hidden />
+              </div>
+            ) : data.error ? (
+              <div className="rounded-xl border border-red-200 bg-red-50 px-5 py-4 text-sm text-red-800">
+                {data.error}
+              </div>
+            ) : active ? (
+              <ActiveDashboardRenderer dashboard={active} />
+            ) : null}
+          </div>
+        </div>
       </div>
     </ModulePageShell>
   )
+}
+
+function ActiveDashboardRenderer({ dashboard }: { dashboard: DashboardDef }) {
+  const Component = dashboard.Component
+  return <Component />
 }
