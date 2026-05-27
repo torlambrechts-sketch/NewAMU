@@ -1,7 +1,9 @@
 // Tidsbaserte widgets: Gantt, Critical Path, Stage-Gate.
 
 import { Fragment, useMemo } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { GanttChartSquare, Network } from 'lucide-react'
+import { Button } from '../../../components/ui/Button'
 import {
   useDashboardData,
   type DashboardTaskRow,
@@ -32,6 +34,17 @@ function taskBarColor(t: DashboardTaskRow): string {
 export function GanttWidget() {
   const data = useDashboardData()
   const currentMonth = new Date().getMonth()
+  const navigate = useNavigate()
+  // Klikk på en oppgavebar åpner detalj-panelet i /tasks/management via
+  // `?selected=<id>`-mønsteret som Risikoregister allerede bruker.
+  // Vi sender også med `due` slik at en evt. mottakerside kan scrolle
+  // til riktig dato (TasksManagementPage ignorerer det i dag, men lar
+  // oss legge til skroll-til-frist senere uten å bryte lenken).
+  const openTask = (t: DashboardTaskRow) => {
+    const sp = new URLSearchParams({ selected: t.id })
+    if (t.due_date) sp.set('due', t.due_date)
+    navigate(`/tasks/management?${sp.toString()}`)
+  }
 
   const phases = useMemo(() => {
     // Phase-grupper basert på source_category. Hver gruppe blir én "phase"-rad
@@ -120,12 +133,17 @@ export function GanttWidget() {
                   const m = monthOf(t.due_date)
                   return (
                     <div key={t.id} className="grid grid-cols-[260px_1fr] border-b border-neutral-100 last:border-b-0">
-                      <div className="px-4 py-2.5">
-                        <div className="line-clamp-1 text-[12.5px] font-medium text-neutral-900">{t.title}</div>
-                        <div className="mt-0.5 text-[10.5px] text-neutral-500">
+                      <Button
+                        variant="ghost"
+                        onClick={() => openTask(t)}
+                        className="block h-auto rounded-none px-4 py-2.5 text-left font-normal normal-case transition-colors hover:bg-neutral-50 focus-visible:bg-neutral-50"
+                        aria-label={`Åpne oppgaven «${t.title}»`}
+                      >
+                        <span className="line-clamp-1 block text-[12.5px] font-medium text-neutral-900">{t.title}</span>
+                        <span className="mt-0.5 block text-[10.5px] text-neutral-500">
                           {t.assignee_name ?? '—'} · {t.status}
-                        </div>
-                      </div>
+                        </span>
+                      </Button>
                       <div
                         className="relative"
                         style={{
@@ -134,13 +152,16 @@ export function GanttWidget() {
                         }}
                       >
                         {m !== null && (
-                          <span
-                            className={`absolute top-3 flex h-6 items-center rounded px-2 text-[10.5px] font-medium text-white ${taskBarColor(t)}`}
+                          <Button
+                            variant="ghost"
+                            onClick={() => openTask(t)}
+                            className={`absolute top-3 flex h-6 cursor-pointer items-center rounded px-2 text-[10.5px] font-medium normal-case text-white transition-transform hover:-translate-y-0.5 hover:shadow-md ${taskBarColor(t)}`}
                             style={{ left: `${(m / 12) * 100 + 0.5}%`, width: '7.5%' }}
-                            title={`${t.title} — ${t.due_date}`}
+                            title={`Åpne ${t.title} (frist ${t.due_date})`}
+                            aria-label={`Åpne oppgaven «${t.title}» med frist ${formatShortDate(t.due_date)}`}
                           >
                             {formatShortDate(t.due_date)}
-                          </span>
+                          </Button>
                         )}
                       </div>
                     </div>
