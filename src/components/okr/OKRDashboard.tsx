@@ -55,19 +55,49 @@ import {
 } from './OKREditDialogs'
 
 export type { Confidence, KeyResult, Objective, OKROwner } from './types'
+export type { ObjectiveFormPayload, KeyResultFormPayload } from './OKREditDialogs'
+
+/** Controlled-mode CRUD callbacks — caller owns persistence (e.g. Supabase). */
+export type OKRDashboardHandlers = {
+  onCreateObjective: (payload: ObjectiveFormPayload) => void | Promise<void>
+  onUpdateObjective: (
+    id: string,
+    payload: ObjectiveFormPayload,
+  ) => void | Promise<void>
+  onDeleteObjective: (id: string) => void | Promise<void>
+  onCreateKR: (
+    objectiveId: string,
+    payload: KeyResultFormPayload,
+  ) => void | Promise<void>
+  onUpdateKR: (
+    objectiveId: string,
+    krId: string,
+    payload: KeyResultFormPayload,
+  ) => void | Promise<void>
+  onDeleteKR: (objectiveId: string, krId: string) => void | Promise<void>
+}
 
 export type OKRDashboardProps = {
   /**
    * Read-mode: the source of truth.
-   * Edit-mode (`editable` true): initial value only — internal state takes over.
+   * Uncontrolled edit-mode (`editable` + no `handlers`): initial value only —
+   *   internal state takes over.
+   * Controlled edit-mode (`editable` + `handlers`): live source of truth —
+   *   the component renders the prop verbatim and delegates CRUD.
    */
   objectives: Objective[]
   /** Initial view; uncontrolled. */
   defaultView?: 'cards' | 'matrix'
   /** When true, exposes create / edit / delete actions on objectives + KRs. */
   editable?: boolean
-  /** Fired after every CRUD mutation in edit mode. */
+  /** Fired after every CRUD mutation in uncontrolled edit mode. */
   onObjectivesChange?: (next: Objective[]) => void
+  /**
+   * Optional CRUD callbacks. When present, the component runs in controlled
+   * mode and never touches internal state — caller persists each mutation
+   * (e.g. via Supabase) and re-renders with a fresh `objectives` prop.
+   */
+  handlers?: OKRDashboardHandlers
   className?: string
 }
 
@@ -225,13 +255,19 @@ export function OKRDashboard({
   defaultView = 'cards',
   editable = false,
   onObjectivesChange,
+  handlers,
   className = '',
 }: OKRDashboardProps) {
   const [view, setView] = useState<'cards' | 'matrix'>(defaultView)
-  // In edit mode the prop is treated as initial state; internal state owns
-  // updates from there on. In read mode the prop is the live source.
+  // Three modes:
+  //   - read-only         (!editable)             → prop is source of truth
+  //   - controlled edit   (editable + handlers)   → prop is source of truth,
+  //                                                 caller persists mutations
+  //   - uncontrolled edit (editable + !handlers)  → internal state takes over,
+  //                                                 prop is initial value
+  const controlled = editable && handlers !== undefined
   const [localObjectives, setLocalObjectives] = useState<Objective[]>(incomingObjectives)
-  const objectives = editable ? localObjectives : incomingObjectives
+  const objectives = editable && !controlled ? localObjectives : incomingObjectives
   const [dialog, setDialog] = useState<DialogState>({ kind: 'none' })
 
   const tabs: TabItem[] = useMemo(
@@ -262,9 +298,15 @@ export function OKRDashboard({
 
   /* CRUD ----------------------------------------------------------------- */
 
-  const submitObjective = (payload: ObjectiveFormPayload) => {
+  const submitObjective = async (payload: ObjectiveFormPayload) => {
     if (dialog.kind !== 'objective') return
-    if (dialog.mode.kind === 'create') {
+    if (controlled && handlers) {
+      if (dialog.mode.kind === 'create') {
+        await handlers.onCreateObjective(payload)
+      } else {
+        await handlers.onUpdateObjective(dialog.mode.objective.id, payload)
+      }
+    } else if (dialog.mode.kind === 'create') {
       commit([
         ...localObjectives,
         {
@@ -293,10 +335,16 @@ export function OKRDashboard({
     setDialog({ kind: 'none' })
   }
 
-  const submitKR = (payload: KeyResultFormPayload) => {
+  const submitKR = async (payload: KeyResultFormPayload) => {
     if (dialog.kind !== 'kr') return
     const objectiveId = dialog.objectiveId
-    if (dialog.mode.kind === 'create') {
+    if (controlled && handlers) {
+      if (dialog.mode.kind === 'create') {
+        await handlers.onCreateKR(objectiveId, payload)
+      } else {
+        await handlers.onUpdateKR(objectiveId, dialog.mode.kr.id, payload)
+      }
+    } else if (dialog.mode.kind === 'create') {
       commit(
         localObjectives.map((o) =>
           o.id === objectiveId
@@ -328,22 +376,30 @@ export function OKRDashboard({
     setDialog({ kind: 'none' })
   }
 
-  const confirmDelete = () => {
+  const confirmDelete = async () => {
     if (dialog.kind === 'delete-objective') {
-      commit(localObjectives.filter((o) => o.id !== dialog.objective.id))
+      if (controlled && handlers) {
+        await handlers.onDeleteObjective(dialog.objective.id)
+      } else {
+        commit(localObjectives.filter((o) => o.id !== dialog.objective.id))
+      }
     } else if (dialog.kind === 'delete-kr') {
-      commit(
-        localObjectives.map((o) =>
-          o.id === dialog.objective.id
-            ? { ...o, keyResults: o.keyResults.filter((k) => k.id !== dialog.kr.id) }
-            : o,
-        ),
-      )
+      if (controlled && handlers) {
+        await handlers.onDeleteKR(dialog.objective.id, dialog.kr.id)
+      } else {
+        commit(
+          localObjectives.map((o) =>
+            o.id === dialog.objective.id
+              ? { ...o, keyResults: o.keyResults.filter((k) => k.id !== dialog.kr.id) }
+              : o,
+          ),
+        )
+      }
     }
     setDialog({ kind: 'none' })
   }
 
-  const handlers: EditHandlers | undefined = editable
+  const editHandlers: EditHandlers | undefined = editable
     ? {
         onCreateObjective: () =>
           setDialog({ kind: 'objective', mode: { kind: 'create' } }),
@@ -393,13 +449,13 @@ export function OKRDashboard({
           ) : null}
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          {handlers ? (
+          {editHandlers ? (
             <Button
               type="button"
               variant="primary"
               size="sm"
               icon={<Plus className="size-3.5" />}
-              onClick={handlers.onCreateObjective}
+              onClick={editHandlers.onCreateObjective}
             >
               Nytt mål
             </Button>
@@ -422,7 +478,7 @@ export function OKRDashboard({
                 variant="secondary"
                 size="sm"
                 icon={<Plus className="size-3.5" />}
-                onClick={handlers?.onCreateObjective}
+                onClick={editHandlers?.onCreateObjective}
                 className="mt-3"
               >
                 Opprett ditt første mål
@@ -433,9 +489,9 @@ export function OKRDashboard({
           )}
         </Card>
       ) : view === 'cards' ? (
-        <CardsView objectives={objectives} handlers={handlers} />
+        <CardsView objectives={objectives} handlers={editHandlers} />
       ) : (
-        <MatrixView objectives={objectives} handlers={handlers} />
+        <MatrixView objectives={objectives} handlers={editHandlers} />
       )}
 
       {/* Dialogs */}

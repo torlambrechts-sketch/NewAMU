@@ -14,17 +14,10 @@
 
 import { useCallback, useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import {
-  Inbox,
-  KanbanSquare,
-  ListChecks,
-  Plus,
-  Share2,
-  Target,
-  Wand2,
-} from 'lucide-react'
+import { KanbanSquare, Plus, Share2, Target, Wand2 } from 'lucide-react'
 import { ModulePageShell } from '../../components/module/ModulePageShell'
 import { Button } from '../../components/ui/Button'
+import { Tabs, type TabItem } from '../../components/ui/Tabs'
 import { usePlanningOkr } from '../../hooks/usePlanningOkr'
 import { usePlanningTasks } from '../../hooks/usePlanningTasks'
 import { useTaskProjects } from '../../../modules/tasks/useTaskProjects'
@@ -183,81 +176,39 @@ export function PlanningPage() {
     </>
   )
 
+  const tabItems: TabItem[] = PLAN_NAV.map((n) => {
+    let badgeCount: number | undefined
+    let badgeVariant: 'default' | 'danger' | undefined
+    if (n.id === 'strategi' && stats.totalObj > 0) {
+      badgeCount = stats.onTrack
+    } else if (n.id === 'kadens' && stats.recurring > 0) {
+      badgeCount = stats.recurring
+    } else if (n.id === 'oversikt') {
+      if (stats.overdue > 0) {
+        badgeCount = stats.overdue
+        badgeVariant = 'danger'
+      } else if (stats.openTasks > 0) {
+        badgeCount = stats.openTasks
+      }
+    }
+    return {
+      id: n.id,
+      label: n.label,
+      icon: n.Icon,
+      badgeCount,
+      badgeVariant,
+    }
+  })
+
   const tabBar = (
-    <nav className="overflow-hidden rounded-xl border border-neutral-200/80 bg-white shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
-      <div className="flex flex-col md:flex-row">
-        {PLAN_NAV.map((n, i) => {
-          const active = n.id === section
-          const NIcon = n.Icon
-          return (
-            <Button
-              key={n.id}
-              variant="ghost"
-              onClick={() => setSection(n.id)}
-              className={[
-                'group relative flex flex-1 items-center justify-start gap-3 rounded-none px-5 py-3.5 text-left font-normal normal-case transition-colors',
-                active ? 'bg-[#e7efe9]/50 hover:bg-[#e7efe9]/60' : 'bg-white hover:bg-neutral-50',
-                i < PLAN_NAV.length - 1 ? 'border-b border-neutral-200/80 md:border-b-0 md:border-r' : '',
-              ].join(' ')}
-              aria-current={active ? 'page' : undefined}
-            >
-              <span
-                className={[
-                  'flex h-9 w-9 shrink-0 items-center justify-center rounded-md transition-colors',
-                  active
-                    ? 'bg-[#1a3d32] text-white'
-                    : 'bg-neutral-100 text-neutral-500 group-hover:bg-neutral-200',
-                ].join(' ')}
-              >
-                <NIcon className="h-4 w-4" />
-              </span>
-              <div className="min-w-0 flex-1">
-                <div className="flex items-baseline gap-1.5">
-                  <span className="font-mono text-[10px] font-bold tabular-nums text-neutral-400">
-                    0{i + 1}
-                  </span>
-                  <span
-                    className={[
-                      'text-[13.5px]',
-                      active ? 'font-bold text-neutral-900' : 'font-semibold text-neutral-800',
-                    ].join(' ')}
-                  >
-                    {n.label}
-                  </span>
-                </div>
-                <p className="mt-0.5 text-[11px] text-neutral-500">{n.sub}</p>
-              </div>
-              {n.id === 'strategi' && stats.totalObj > 0 && (
-                <span className="hidden items-center gap-1 rounded-full bg-neutral-100 px-2 py-0.5 text-[10px] font-semibold text-neutral-700 lg:inline-flex">
-                  <span className="h-1.5 w-1.5 rounded-full bg-[#2f7757]" />
-                  {stats.onTrack}/{stats.totalObj} på spor
-                </span>
-              )}
-              {n.id === 'kadens' && (
-                <span className="hidden items-center gap-1 rounded-full bg-neutral-100 px-2 py-0.5 text-[10px] font-semibold text-neutral-700 lg:inline-flex">
-                  <ListChecks className="h-2.5 w-2.5" />
-                  {stats.recurring} aktive rutiner
-                </span>
-              )}
-              {n.id === 'oversikt' && (
-                <span className="hidden items-center gap-1 rounded-full bg-neutral-100 px-2 py-0.5 text-[10px] font-semibold text-neutral-700 lg:inline-flex">
-                  <Inbox className="h-2.5 w-2.5" />
-                  {stats.openTasks} åpne
-                  {stats.overdue > 0 && (
-                    <span className="ml-1 rounded-full bg-red-100 px-1 text-red-800">
-                      {stats.overdue}!
-                    </span>
-                  )}
-                </span>
-              )}
-              {active && (
-                <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#1a3d32]" />
-              )}
-            </Button>
-          )
-        })}
-      </div>
-    </nav>
+    <div className="rounded-xl border border-neutral-200/80 bg-white p-1.5 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
+      <Tabs
+        items={tabItems}
+        activeId={section}
+        onChange={(id) => setSection(id as SectionId)}
+        overflow="scroll"
+      />
+    </div>
   )
 
   if (okrCtrl.loading && !okrCtrl.plan) {

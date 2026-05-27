@@ -15,6 +15,8 @@ import { createPortal } from 'react-dom'
 import {
   AlertCircle,
   CalendarRange,
+  ChevronDown,
+  ChevronRight,
   Columns3,
   FolderKanban,
   GanttChart,
@@ -384,6 +386,13 @@ function TaskCard({
 // List view
 // ─────────────────────────────────────────────────────────────────────────────
 
+// Liste view — expandable rows (table-test section 03 pattern).
+// Cream header band, chevron toggle, click row to open a detail panel below
+// with the full description, OKR link, recurrence detail and timestamps.
+const SMALLCAPS = 'text-[11px] font-bold uppercase tracking-[0.18em]'
+const TH_CLS = `border-b border-neutral-200 bg-[#EFE8DC] px-4 py-3 text-left ${SMALLCAPS} text-neutral-600`
+const TD_CLS = 'border-b border-neutral-100 px-4 py-3 text-sm text-neutral-800 align-middle'
+
 function ListView({
   tasks,
   plan,
@@ -393,128 +402,213 @@ function ListView({
   plan: OkrPlanFull | null
   tasksCtrl: UsePlanningTasksReturn
 }) {
+  const [openId, setOpenId] = useState<string | null>(null)
+  const toggle = (id: string) => setOpenId((v) => (v === id ? null : id))
   return (
     <div className="overflow-x-auto">
-      <table className="w-full min-w-[900px] text-sm">
-        <thead className="bg-neutral-50/60">
+      <table className="w-full min-w-[900px] border-collapse">
+        <thead>
           <tr>
-            <th className="px-5 py-2.5 text-left text-[10px] font-bold uppercase tracking-wider text-neutral-500">
-              Oppgave
-            </th>
-            <th className="px-5 py-2.5 text-left text-[10px] font-bold uppercase tracking-wider text-neutral-500">
-              Type
-            </th>
-            <th className="px-5 py-2.5 text-left text-[10px] font-bold uppercase tracking-wider text-neutral-500">
-              OKR
-            </th>
-            <th className="px-5 py-2.5 text-left text-[10px] font-bold uppercase tracking-wider text-neutral-500">
-              Eier
-            </th>
-            <th className="px-5 py-2.5 text-left text-[10px] font-bold uppercase tracking-wider text-neutral-500">
-              Frist
-            </th>
-            <th className="px-5 py-2.5 text-left text-[10px] font-bold uppercase tracking-wider text-neutral-500">
-              Rutine
-            </th>
-            <th className="px-5 py-2.5 text-left text-[10px] font-bold uppercase tracking-wider text-neutral-500">
-              Status
-            </th>
-            <th className="px-5 py-2.5 text-left text-[10px] font-bold uppercase tracking-wider text-neutral-500">
-              Prioritet
-            </th>
-            <th className="px-5 py-2.5 text-right text-[10px] font-bold uppercase tracking-wider text-neutral-500" />
+            <th className={`${TH_CLS} w-10 pl-5`} aria-label="Utvid" />
+            <th className={TH_CLS}>Oppgave</th>
+            <th className={TH_CLS}>Type</th>
+            <th className={TH_CLS}>OKR</th>
+            <th className={TH_CLS}>Eier</th>
+            <th className={TH_CLS}>Frist</th>
+            <th className={TH_CLS}>Status</th>
+            <th className={TH_CLS}>Prioritet</th>
+            <th className={`${TH_CLS} w-20 pr-5 text-right`} aria-label="Handlinger" />
           </tr>
         </thead>
         <tbody>
-          {tasks.map((t) => {
-            const okrObj = plan && t.okrKeyResultId
-              ? plan.objectives.find((o) => o.keyResults.some((k) => k.id === t.okrKeyResultId))
-              : null
-            const meta = statusMetaFor(t.status)
-            const prio = PRIORITY_META[t.priority] ?? PRIORITY_META.medium
-            const Icon = meta.icon
-            return (
-              <tr key={t.id} className="cursor-pointer border-t border-neutral-100 hover:bg-neutral-50/40">
-                <td className="px-5 py-3">
-                  <div className="font-medium text-neutral-900">{t.title}</div>
-                  <div className="text-[10px] text-neutral-500">{t.id.slice(0, 8)}</div>
-                </td>
-                <td className="px-5 py-3">
-                  <span className="rounded bg-neutral-100 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-neutral-700">
-                    {t.recurrenceActive ? 'rutine' : t.templateKind ?? 'oppgave'}
-                  </span>
-                </td>
-                <td className="px-5 py-3">
-                  {okrObj ? (
-                    <span className="inline-flex items-center gap-1 rounded bg-[#e7efe9] px-1.5 py-0.5 text-[10px] font-bold text-[#1a3d32]">
-                      <Target className="h-2.5 w-2.5" />
-                      {okrObj.ordLabel}
-                    </span>
-                  ) : (
-                    <span className="text-[10px] italic text-neutral-400">—</span>
-                  )}
-                </td>
-                <td className="px-5 py-3">
-                  <div className="flex items-center gap-1.5">
-                    <Initials name={t.ownerName ?? '—'} size={18} />
-                    <span className="text-[11px] text-neutral-700">{t.ownerName ?? '—'}</span>
-                  </div>
-                </td>
-                <td className="px-5 py-3 text-[11px] tabular-nums text-neutral-600">
-                  {fmtDateShort(t.dueDate)}
-                </td>
-                <td className="px-5 py-3">
-                  <RecurrenceCell t={t} tasksCtrl={tasksCtrl} />
-                </td>
-                <td className="px-5 py-3">
-                  <span
-                    className={[
-                      'inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] font-semibold',
-                      meta.bg,
-                      meta.text,
-                    ].join(' ')}
-                  >
-                    <Icon className="h-2.5 w-2.5" />
-                    {meta.label}
-                  </span>
-                </td>
-                <td className="px-5 py-3">
-                  <span
-                    className={[
-                      'rounded px-1.5 py-0.5 text-[10px] font-bold uppercase',
-                      prio.bg,
-                      prio.text,
-                    ].join(' ')}
-                  >
-                    {prio.label}
-                  </span>
-                </td>
-                <td className="px-5 py-3 text-right">
-                  {/* eslint-disable-next-line no-restricted-syntax */}
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const next: TaskItemStatus = t.status === 'closed' ? 'open' : 'closed'
-                      void tasksCtrl.updateTaskStatus(t.id, next)
-                    }}
-                    className="rounded px-2 py-1 text-[10px] font-semibold text-neutral-600 hover:bg-neutral-100"
-                  >
-                    {t.status === 'closed' ? 'Gjenåpne' : 'Lukk'}
-                  </button>
-                </td>
-              </tr>
-            )
-          })}
-          {tasks.length === 0 && (
+          {tasks.length === 0 ? (
             <tr>
-              <td colSpan={9} className="px-5 py-8 text-center text-[12px] italic text-neutral-500">
+              <td colSpan={9} className="px-5 py-10 text-center text-sm italic text-neutral-500">
                 Ingen oppgaver matcher filteret.
               </td>
             </tr>
+          ) : (
+            tasks.map((t) => (
+              <ExpandableTaskRow
+                key={t.id}
+                task={t}
+                plan={plan}
+                tasksCtrl={tasksCtrl}
+                isOpen={openId === t.id}
+                onToggle={() => toggle(t.id)}
+              />
+            ))
           )}
         </tbody>
       </table>
     </div>
+  )
+}
+
+function ExpandableTaskRow({
+  task,
+  plan,
+  tasksCtrl,
+  isOpen,
+  onToggle,
+}: {
+  task: PlanningTaskRow
+  plan: OkrPlanFull | null
+  tasksCtrl: UsePlanningTasksReturn
+  isOpen: boolean
+  onToggle: () => void
+}) {
+  const okrObj =
+    plan && task.okrKeyResultId
+      ? plan.objectives.find((o) => o.keyResults.some((k) => k.id === task.okrKeyResultId))
+      : null
+  const okrKr =
+    plan && task.okrKeyResultId
+      ? okrObj?.keyResults.find((k) => k.id === task.okrKeyResultId)
+      : null
+  const meta = statusMetaFor(task.status)
+  const prio = PRIORITY_META[task.priority] ?? PRIORITY_META.medium
+  const Icon = meta.icon
+  return (
+    <>
+      <tr
+        className={`cursor-pointer transition ${isOpen ? 'bg-[#F7F4EE]' : 'hover:bg-neutral-50'}`}
+        onClick={onToggle}
+      >
+        <td className={`${TD_CLS} pl-5`}>
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            onClick={(e) => {
+              e.stopPropagation()
+              onToggle()
+            }}
+            aria-expanded={isOpen}
+            aria-label={isOpen ? 'Skjul detaljer' : 'Vis detaljer'}
+          >
+            {isOpen ? <ChevronDown className="size-4" /> : <ChevronRight className="size-4" />}
+          </Button>
+        </td>
+        <td className={TD_CLS}>
+          <div className="font-medium text-neutral-900">{task.title}</div>
+          <div className="font-mono text-[10px] uppercase tracking-wide text-neutral-400">
+            {task.id.slice(0, 8)}
+          </div>
+        </td>
+        <td className={TD_CLS}>
+          <span className="rounded-full bg-neutral-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-neutral-700">
+            {task.recurrenceActive ? 'rutine' : task.templateKind ?? 'oppgave'}
+          </span>
+        </td>
+        <td className={TD_CLS}>
+          {okrObj ? (
+            <span className="inline-flex items-center gap-1 rounded-full bg-[#e7efe9] px-2 py-0.5 text-[10px] font-bold text-[#1a3d32]">
+              <Target className="size-2.5" />
+              {okrObj.ordLabel}
+            </span>
+          ) : (
+            <span className="text-[10px] italic text-neutral-400">—</span>
+          )}
+        </td>
+        <td className={TD_CLS}>
+          <div className="flex items-center gap-1.5">
+            <Initials name={task.ownerName ?? '—'} size={18} />
+            <span className="text-xs text-neutral-700">{task.ownerName ?? '—'}</span>
+          </div>
+        </td>
+        <td className={`${TD_CLS} font-mono tabular-nums text-neutral-600`}>
+          {fmtDateShort(task.dueDate)}
+        </td>
+        <td className={TD_CLS}>
+          <span
+            className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold ${meta.bg} ${meta.text}`}
+          >
+            <Icon className="size-2.5" />
+            {meta.label}
+          </span>
+        </td>
+        <td className={TD_CLS}>
+          <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold uppercase ${prio.bg} ${prio.text}`}>
+            {prio.label}
+          </span>
+        </td>
+        <td className={`${TD_CLS} pr-5 text-right`}>
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            onClick={(e) => {
+              e.stopPropagation()
+              const next: TaskItemStatus = task.status === 'closed' ? 'open' : 'closed'
+              void tasksCtrl.updateTaskStatus(task.id, next)
+            }}
+          >
+            {task.status === 'closed' ? 'Gjenåpne' : 'Lukk'}
+          </Button>
+        </td>
+      </tr>
+      {isOpen ? (
+        <tr>
+          <td colSpan={9} className="border-b border-neutral-100 bg-[#FBF8F1] px-5 py-5">
+            <div className="grid gap-5 md:grid-cols-[2fr_1fr]">
+              <div>
+                <h4 className={`${SMALLCAPS} text-neutral-500`}>Beskrivelse</h4>
+                <p className="mt-1.5 whitespace-pre-wrap text-sm leading-relaxed text-neutral-700">
+                  {task.description?.trim()
+                    ? task.description
+                    : (
+                      <span className="italic text-neutral-400">Ingen beskrivelse.</span>
+                    )}
+                </p>
+                {okrObj || okrKr ? (
+                  <div className="mt-4">
+                    <h4 className={`${SMALLCAPS} text-neutral-500`}>OKR-link</h4>
+                    <div className="mt-1.5 flex items-center gap-2 text-sm">
+                      <Target className="size-3.5 text-[#1a3d32]" aria-hidden />
+                      <span className="font-mono text-xs font-bold tracking-wider text-[#1a3d32]">
+                        {okrObj?.ordLabel}
+                      </span>
+                      <span className="text-neutral-300" aria-hidden>·</span>
+                      <span className="text-neutral-700">{okrObj?.objective}</span>
+                    </div>
+                    {okrKr ? (
+                      <div className="mt-1 pl-5 text-xs text-neutral-500">
+                        ↳ <span className="text-neutral-700">{okrKr.kr}</span>
+                      </div>
+                    ) : null}
+                  </div>
+                ) : null}
+              </div>
+              <div className="space-y-3">
+                <div>
+                  <h4 className={`${SMALLCAPS} text-neutral-500`}>Rutine</h4>
+                  <div className="mt-1.5 text-sm text-neutral-700">
+                    <RecurrenceCell t={task} tasksCtrl={tasksCtrl} />
+                  </div>
+                </div>
+                <div className="space-y-1 text-xs text-neutral-500">
+                  <div>
+                    Opprettet{' '}
+                    <span className="font-mono text-neutral-700">{fmtDateShort(task.createdAt)}</span>
+                  </div>
+                  <div>
+                    Oppdatert{' '}
+                    <span className="font-mono text-neutral-700">{fmtDateShort(task.updatedAt)}</span>
+                  </div>
+                  {task.closedAt ? (
+                    <div>
+                      Lukket{' '}
+                      <span className="font-mono text-neutral-700">{fmtDateShort(task.closedAt)}</span>
+                    </div>
+                  ) : null}
+                </div>
+              </div>
+            </div>
+          </td>
+        </tr>
+      ) : null}
+    </>
   )
 }
 
@@ -907,13 +1001,13 @@ function ProjectsView({
   onCreateProject: () => void
 }) {
   const activeProjects = projects.filter((p) => p.status === 'active')
+  const [openId, setOpenId] = useState<string | null>(null)
+  const toggle = (id: string) => setOpenId((v) => (v === id ? null : id))
   if (activeProjects.length === 0) {
     return (
       <div className="px-5 py-12 text-center">
         <FolderKanban className="mx-auto h-8 w-8 text-neutral-300" />
-        <p className="mt-3 text-sm text-neutral-700">
-          Ingen aktive prosjekter ennå.
-        </p>
+        <p className="mt-3 text-sm text-neutral-700">Ingen aktive prosjekter ennå.</p>
         <p className="mt-1 text-[12px] text-neutral-500">
           Prosjekter samler relaterte oppgaver under en felles paraply — eks. «Ny HMS-onboarding»,
           «Sykefravær-program», «Gap-lukking IK 2026».
@@ -932,106 +1026,212 @@ function ProjectsView({
     )
   }
   return (
-    <div className="grid grid-cols-1 gap-3 p-5 lg:grid-cols-2">
-      {activeProjects.map((p) => {
-        const linkedTasks = tasks.filter((t) => t.projectId === p.id)
-        const completed = linkedTasks.filter((t) => t.status === 'closed').length
-        const progress = linkedTasks.length === 0 ? 0 : completed / linkedTasks.length
-        const okr =
-          plan && p.lawRefs.length > 0
-            ? plan.objectives.find((o) =>
-                o.lawRef ? p.lawRefs.some((r) => o.lawRef?.includes(r)) : false,
-              )
-            : null
-        const tone =
-          p.methodology === 'pdca'
-            ? '#1a3d32'
-            : p.methodology === 'kanban'
-              ? '#c98a2b'
-              : '#2f7757'
-        return (
-          <article
-            key={p.id}
-            className="overflow-hidden rounded-xl border border-neutral-200/80 bg-white shadow-[0_1px_2px_rgba(0,0,0,0.04)] hover:border-[#1a3d32]/40"
-          >
-            <div className="h-1.5" style={{ background: tone }} />
-            <div className="p-4">
-              <div className="flex flex-wrap items-start justify-between gap-2">
-                <div className="flex items-center gap-1.5">
-                  {okr && (
-                    <span className="rounded bg-[#1a3d32] px-1.5 py-0.5 text-[10px] font-bold tracking-wider text-white">
-                      {okr.ordLabel}
-                    </span>
-                  )}
-                  <span className="rounded bg-neutral-100 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-neutral-600">
-                    {p.methodology}
-                  </span>
-                  <span className="text-[10px] tabular-nums text-neutral-500">
-                    Frist {fmtDateShort(p.endDate ?? null)}
-                  </span>
-                </div>
-                <span className="text-[10px] font-bold tabular-nums" style={{ color: tone }}>
-                  {Math.round(progress * 100)}%
-                </span>
-              </div>
-              <h4 className="mt-2 font-serif text-base font-bold text-neutral-900">{p.title}</h4>
-              {p.description && (
-                <p className="mt-1 line-clamp-2 text-[12px] text-neutral-600">{p.description}</p>
-              )}
-              <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-neutral-100">
-                <div
-                  className="h-full"
-                  style={{ width: `${progress * 100}%`, background: tone }}
-                />
-              </div>
-              <div className="mt-3 flex items-center justify-between border-t border-neutral-100 pt-3">
-                <div className="flex items-center gap-1.5 text-[11px] text-neutral-700">
-                  <CalendarRange className="h-3 w-3 text-neutral-500" />
-                  <span>
-                    {fmtDateShort(p.startDate ?? null)} → {fmtDateShort(p.endDate ?? null)}
-                  </span>
-                </div>
-                <span className="text-[10px] tabular-nums text-neutral-500">
-                  {linkedTasks.length} oppgave{linkedTasks.length === 1 ? '' : 'r'}
-                </span>
-              </div>
-              {linkedTasks.length > 0 && (
-                <ul className="mt-2 space-y-1 border-t border-neutral-100 pt-2">
-                  {linkedTasks.slice(0, 5).map((t) => {
-                    const meta = statusMetaFor(t.status)
-                    const Icon = meta.icon
-                    return (
-                      <li
-                        key={t.id}
-                        className="flex items-center justify-between gap-2 text-[11px]"
-                      >
-                        <span className="flex items-center gap-1.5">
-                          <Icon className="h-2.5 w-2.5 text-neutral-400" />
-                          <span className="truncate text-neutral-800">{t.title}</span>
-                        </span>
-                        <span className="tabular-nums text-[10px] text-neutral-500">
-                          {fmtDateShort(t.dueDate)}
-                        </span>
-                      </li>
-                    )
-                  })}
-                  {linkedTasks.length > 5 && (
-                    <li className="text-[10px] italic text-neutral-500">
-                      + {linkedTasks.length - 5} flere
-                    </li>
-                  )}
-                </ul>
-              )}
-              {linkedTasks.length === 0 && (
-                <p className="mt-2 inline-flex items-center gap-1 text-[10px] italic text-neutral-500">
-                  <ListTodo className="h-2.5 w-2.5" />
-                  Ingen oppgaver i prosjektet ennå.
-                </p>
-              )}
-            </div>
-          </article>
-        )
-      })}
+    <div className="overflow-x-auto">
+      <table className="w-full min-w-[800px] border-collapse">
+        <thead>
+          <tr>
+            <th className={`${TH_CLS} w-10 pl-5`} aria-label="Utvid" />
+            <th className={TH_CLS}>Prosjekt</th>
+            <th className={TH_CLS}>Metode</th>
+            <th className={TH_CLS}>OKR</th>
+            <th className={`${TH_CLS} text-right`}>Oppgaver</th>
+            <th className={TH_CLS}>Frist</th>
+            <th className={`${TH_CLS} pr-5`}>Fremdrift</th>
+          </tr>
+        </thead>
+        <tbody>
+          {activeProjects.map((p) => (
+            <ExpandableProjectRow
+              key={p.id}
+              project={p}
+              tasks={tasks}
+              plan={plan}
+              isOpen={openId === p.id}
+              onToggle={() => toggle(p.id)}
+            />
+          ))}
+        </tbody>
+      </table>
     </div>
+  )
+}
+
+function ExpandableProjectRow({
+  project: p,
+  tasks,
+  plan,
+  isOpen,
+  onToggle,
+}: {
+  project: TaskProject
+  tasks: PlanningTaskRow[]
+  plan: OkrPlanFull | null
+  isOpen: boolean
+  onToggle: () => void
+}) {
+  const linkedTasks = tasks.filter((t) => t.projectId === p.id)
+  const completed = linkedTasks.filter((t) => t.status === 'closed').length
+  const progressPct =
+    linkedTasks.length === 0 ? 0 : Math.round((completed / linkedTasks.length) * 100)
+  const okrObj =
+    plan && p.lawRefs.length > 0
+      ? plan.objectives.find((o) =>
+          o.lawRef ? p.lawRefs.some((r) => o.lawRef?.includes(r)) : false,
+        )
+      : null
+  const tone =
+    p.methodology === 'pdca'
+      ? '#1a3d32'
+      : p.methodology === 'kanban'
+        ? '#c98a2b'
+        : '#2f7757'
+  return (
+    <>
+      <tr
+        className={`cursor-pointer transition ${isOpen ? 'bg-[#F7F4EE]' : 'hover:bg-neutral-50'}`}
+        onClick={onToggle}
+      >
+        <td className={`${TD_CLS} pl-5`}>
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            onClick={(e) => {
+              e.stopPropagation()
+              onToggle()
+            }}
+            aria-expanded={isOpen}
+            aria-label={isOpen ? 'Skjul prosjekt' : 'Vis prosjekt'}
+          >
+            {isOpen ? <ChevronDown className="size-4" /> : <ChevronRight className="size-4" />}
+          </Button>
+        </td>
+        <td className={TD_CLS}>
+          <div
+            className="font-semibold text-neutral-900"
+            style={{ fontFamily: "'Libre Baskerville', Georgia, serif" }}
+          >
+            {p.title}
+          </div>
+          {p.description ? (
+            <div className="line-clamp-1 text-xs text-neutral-500">{p.description}</div>
+          ) : null}
+        </td>
+        <td className={TD_CLS}>
+          <span
+            className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-white"
+            style={{ backgroundColor: tone }}
+          >
+            {p.methodology}
+          </span>
+        </td>
+        <td className={TD_CLS}>
+          {okrObj ? (
+            <span className="inline-flex items-center gap-1 rounded-full bg-[#e7efe9] px-2 py-0.5 text-[10px] font-bold text-[#1a3d32]">
+              <Target className="size-2.5" />
+              {okrObj.ordLabel}
+            </span>
+          ) : (
+            <span className="text-[10px] italic text-neutral-400">—</span>
+          )}
+        </td>
+        <td className={`${TD_CLS} text-right font-mono tabular-nums text-neutral-700`}>
+          {completed} / {linkedTasks.length}
+        </td>
+        <td className={`${TD_CLS} font-mono tabular-nums text-neutral-600`}>
+          {fmtDateShort(p.endDate ?? null)}
+        </td>
+        <td className={`${TD_CLS} pr-5`}>
+          <div className="flex items-center gap-2.5">
+            <div className="h-1.5 w-24 overflow-hidden rounded-full bg-neutral-200">
+              <div
+                className="h-full rounded-full"
+                style={{ width: `${progressPct}%`, backgroundColor: tone }}
+              />
+            </div>
+            <span
+              className="w-10 shrink-0 text-right font-mono text-xs font-semibold tabular-nums"
+              style={{ color: tone }}
+            >
+              {progressPct}%
+            </span>
+          </div>
+        </td>
+      </tr>
+      {isOpen ? (
+        <tr>
+          <td colSpan={7} className="border-b border-neutral-100 bg-[#FBF8F1] px-5 py-5">
+            <div className="grid gap-5 md:grid-cols-[2fr_1fr]">
+              <div>
+                <h4 className={`${SMALLCAPS} text-neutral-500`}>Beskrivelse</h4>
+                <p className="mt-1.5 whitespace-pre-wrap text-sm leading-relaxed text-neutral-700">
+                  {p.description?.trim() ? p.description : (
+                    <span className="italic text-neutral-400">Ingen beskrivelse.</span>
+                  )}
+                </p>
+                <div className="mt-4">
+                  <h4 className={`${SMALLCAPS} text-neutral-500`}>
+                    Oppgaver i prosjektet ({linkedTasks.length})
+                  </h4>
+                  {linkedTasks.length === 0 ? (
+                    <p className="mt-1.5 inline-flex items-center gap-1 text-xs italic text-neutral-500">
+                      <ListTodo className="size-3" />
+                      Ingen oppgaver i prosjektet ennå.
+                    </p>
+                  ) : (
+                    <ul className="mt-1.5 divide-y divide-neutral-200/60 rounded-md border border-neutral-200/60 bg-white">
+                      {linkedTasks.map((t) => {
+                        const meta = statusMetaFor(t.status)
+                        const Icon = meta.icon
+                        return (
+                          <li
+                            key={t.id}
+                            className="flex items-center justify-between gap-3 px-3 py-2 text-sm"
+                          >
+                            <span className="flex min-w-0 items-center gap-2">
+                              <Icon className={`size-3 ${meta.text}`} aria-hidden />
+                              <span className="truncate text-neutral-800">{t.title}</span>
+                            </span>
+                            <span className="font-mono text-xs tabular-nums text-neutral-500">
+                              {fmtDateShort(t.dueDate)}
+                            </span>
+                          </li>
+                        )
+                      })}
+                    </ul>
+                  )}
+                </div>
+              </div>
+              <div className="space-y-3 text-xs">
+                <div>
+                  <h4 className={`${SMALLCAPS} text-neutral-500`}>Tidsrom</h4>
+                  <div className="mt-1.5 flex items-center gap-1.5 text-sm text-neutral-700">
+                    <CalendarRange className="size-3.5 text-neutral-400" />
+                    <span className="font-mono">
+                      {fmtDateShort(p.startDate ?? null)} → {fmtDateShort(p.endDate ?? null)}
+                    </span>
+                  </div>
+                </div>
+                {p.lawRefs.length > 0 ? (
+                  <div>
+                    <h4 className={`${SMALLCAPS} text-neutral-500`}>Lovgrunnlag</h4>
+                    <div className="mt-1.5 flex flex-wrap gap-1">
+                      {p.lawRefs.map((r) => (
+                        <span
+                          key={r}
+                          className="rounded-full bg-neutral-100 px-2 py-0.5 font-mono text-[10px] text-neutral-700"
+                        >
+                          {r}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                ) : null}
+              </div>
+            </div>
+          </td>
+        </tr>
+      ) : null}
+    </>
   )
 }
