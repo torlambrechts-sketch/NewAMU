@@ -274,6 +274,12 @@ export type IkData = {
   prosjekter: IkProsjekt[]
   audit: IkAuditEntry[]
   stats: IkStats
+  /** True when regulation_clauses returned at least one row for this org.
+   *  `krav` is always populated from the static frameworkParagraphs catalog,
+   *  so its non-emptiness doesn't signal whether the DB-backed catalog
+   *  (title / description / cadence) is actually seeded. Use this to show
+   *  an honest "no seed" empty state instead of confusing "alt er dekket". */
+  catalogSeeded: boolean
 }
 
 // ── Static framework metadata (icon + color + short label) ──────────────────
@@ -1408,5 +1414,6 @@ function buildData(input: {
     prosjekter,
     audit,
     stats,
+    catalogSeeded: clauseRows.length > 0,
   }
 }

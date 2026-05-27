@@ -109,6 +109,22 @@ export function GapSection({
 
   return (
     <div className="space-y-4">
+      {!data.catalogSeeded ? (
+        <div
+          role="alert"
+          className="flex items-start gap-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-[12px] text-amber-900"
+        >
+          <TriangleAlert className="mt-0.5 h-4 w-4 shrink-0" />
+          <div>
+            <p className="font-semibold">Regelverk-katalogen er ikke provisjonert for denne orgen.</p>
+            <p className="mt-0.5">
+              Tittel, beskrivelse og anbefalt frekvens mangler fra regulation_clauses, så
+              gap-radene er mindre informative og hver krav defaulter til status &quot;Gap&quot;.
+              Kontakt admin for å kjøre <code className="font-mono">provision_regulation_clauses_baseline_for_org</code>.
+            </p>
+          </div>
+        </div>
+      ) : null}
       <SectionBanner icon={<TriangleAlert className="h-4 w-4" />} title="Gap-analyse">
         Krav uten dekning eller med delvis dekning, sortert etter alvorlighet og kritikalitet.
         Lag tiltak direkte fra raden.
@@ -359,21 +375,11 @@ function GapList({
   }, [data.kontroller])
 
   if (sorted.length === 0) {
-    // Distinguish "filters hid everything" from "all gaps are closed" and
-    // from "this org isn't seeded yet" — three very different states an
-    // auditor must not confuse.
-    const totalKrav = data.krav.length
-    if (totalKrav === 0) {
-      return (
-        <div className="rounded-xl border border-neutral-200/80 bg-white p-6 text-center text-[12px] text-neutral-500 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
-          <p className="font-medium text-neutral-700">Regelverk-katalogen er tom for denne orgen.</p>
-          <p className="mt-1 italic">
-            Ingen paragrafer er seedet — gap-matrisen er tom av strukturelle grunner, ikke fordi alt er
-            dekket. Kontakt admin for å provisjonere regelverk-katalogen.
-          </p>
-        </div>
-      )
-    }
+    // sorted=0 means "no gap rows match the current view". Distinguish two
+    // honest states: filters hid everything vs. all gaps are closed. The
+    // unseeded-catalog case can't reach this branch (catalog unseeded =>
+    // every krav defaults to 'gap' status => sorted=172), so it's surfaced
+    // as a banner above the list/matrix instead (see catalogSeededBanner).
     if (filtersActive) {
       return (
         <div className="rounded-xl border border-neutral-200/80 bg-white p-6 text-center text-[12px] text-neutral-500 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
