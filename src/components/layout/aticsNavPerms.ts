@@ -70,6 +70,13 @@ export const ALERTS_NAV_PERMS: PermissionKey[] = [
   'alerts.committee_escalated',
   'alerts.dpo',
   'alerts.manage',
+  'alerts.verneombud',
+  'alerts.tillitsvalgt',
+  'alerts.pastoral_care',
+  'alerts.accused_representative',
+  'alerts.external_investigator',
+  'alerts.auditor',
+  'alerts.board_escalation',
   'module.view.dashboard',
 ]
 

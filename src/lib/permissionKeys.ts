@@ -25,6 +25,20 @@ export const PERMISSION_KEYS = [
   'alerts.committee_escalated',
   /** Alerts — DPO role for GDPR-brudd handling + Art. 17 erasure path */
   'alerts.dpo',
+  /** Alerts v1.1 — Verneombud får innsyn i HMS-saker (AML § 6-5) */
+  'alerts.verneombud',
+  /** Alerts v1.1 — Tillitsvalgt får innsyn (AML § 8-1) */
+  'alerts.tillitsvalgt',
+  /** Alerts v1.1 — Sjelesørger / pastoral care — pseudonym + status only */
+  'alerts.pastoral_care',
+  /** Alerts v1.1 — Forsvarer for anklagede — redaktert visning av klients sak */
+  'alerts.accused_representative',
+  /** Alerts v1.1 — Ekstern etterforsker — tidsbegrenset sak-spesifikt grant */
+  'alerts.external_investigator',
+  /** Alerts v1.1 — Revisor — full lese, ingen skriving (ISAE 3000 / ISO 27001) */
+  'alerts.auditor',
+  /** Alerts v1.1 — Styre-eskalering — break-glass-initiering + escalert visning */
+  'alerts.board_escalation',
   'module.view.tasks',
   'module.view.learning',
   /** Workflow automation — view rules & run log */
@@ -152,6 +166,13 @@ export const PERMISSION_LABELS: Record<PermissionKey, string> = {
   'alerts.committee_confidential': 'Varslinger — konfidensielle saker',
   'alerts.committee_escalated': 'Varslinger — eskalert utvalg (mot leder)',
   'alerts.dpo': 'Varslinger — personvernombud (GDPR + Art. 17)',
+  'alerts.verneombud': 'Varslinger — verneombud (AML § 6-5)',
+  'alerts.tillitsvalgt': 'Varslinger — tillitsvalgt (AML § 8-1)',
+  'alerts.pastoral_care': 'Varslinger — sjelesørger (pseudonym + status)',
+  'alerts.accused_representative': 'Varslinger — forsvarer for anklagede',
+  'alerts.external_investigator': 'Varslinger — ekstern etterforsker (sak-spesifikt)',
+  'alerts.auditor': 'Varslinger — revisor (les-bare)',
+  'alerts.board_escalation': 'Varslinger — styre-eskalering / break-glass',
   'module.view.tasks': 'Tasks',
   'module.view.learning': 'E-learning',
   'module.view.workflow': 'Arbeidsflyt',
