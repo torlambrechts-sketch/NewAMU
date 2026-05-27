@@ -1,7 +1,7 @@
 // Risiko & styring-widgets: RAID, ApprovalChains, EscalationLadder, AuditStream.
 
 import { useMemo, useState } from 'react'
-import { ScrollText, Search, ShieldAlert } from 'lucide-react'
+import { ScrollText, Search } from 'lucide-react'
 import { Button } from '../../../components/ui/Button'
 import { StandardInput } from '../../../components/ui/Input'
 import {
@@ -138,8 +138,8 @@ function riskScoreClass(score: number): { chip: 'success' | 'warn' | 'danger'; c
 
 export function RaidWidget() {
   const data = useDashboardData()
-  const [tab, setTab] = useState<'risks' | 'assumptions' | 'issues' | 'decisions'>('risks')
   const risks = useMemo(() => deriveRisks(data.tasks), [data.tasks])
+  const issueCount = data.tasks.filter((t) => t.status === 'cancelled').length
 
   const total = risks.length
   const high = risks.filter((r) => r.probability * r.consequence >= 12).length
@@ -151,30 +151,23 @@ export function RaidWidget() {
 
   return (
     <div className="space-y-3">
+      {/* Tab-stripa har historisk hatt 4 RAID-faner (R/A/I/D), men kun
+          Risks + Issues har innhold i dag. Vi viser dem og varsler i
+          footeren at A og D er på Phase-2-roadmappen. */}
       <div className="flex items-center gap-0 border-b border-neutral-200">
-        {([
-          ['risks', `Risks (${risks.length})`],
-          ['assumptions', 'Assumptions (0)'],
-          ['issues', `Issues (${data.tasks.filter((t) => t.status === 'cancelled').length})`],
-          ['decisions', 'Decisions (0)'],
-        ] as const).map(([key, label]) => (
-          <Button
-            key={key}
-            variant="ghost"
-            type="button"
-            onClick={() => setTab(key)}
-            className={`relative h-auto rounded-none px-4 py-2.5 text-[12px] font-medium tracking-wide normal-case transition-colors hover:bg-transparent ${
-              tab === key ? 'text-neutral-900' : 'text-neutral-500 hover:text-neutral-700'
-            }`}
-          >
-            {label}
-            {tab === key && <span className="absolute -bottom-px left-0 right-0 h-0.5 bg-[#BA0C2F]" aria-hidden />}
-          </Button>
-        ))}
+        <span className="relative h-auto rounded-none px-4 py-2.5 text-[12px] font-semibold tracking-wide text-neutral-900">
+          Risks ({risks.length})
+          <span className="absolute -bottom-px left-0 right-0 h-0.5 bg-[#BA0C2F]" aria-hidden />
+        </span>
+        <span className="px-4 py-2.5 text-[12px] font-medium text-neutral-500">
+          Issues ({issueCount})
+        </span>
+        <span className="ml-auto px-4 py-2.5 text-[10.5px] uppercase tracking-wider text-neutral-400">
+          Assumptions · Decisions kommer i neste fase
+        </span>
       </div>
 
-      {tab === 'risks' ? (
-        <>
+      <>
           <KpiStrip
             items={[
               { label: 'Åpne risiki', value: total, sub: `${high} høye · ${medium} middels · ${low} lave`, tone: high > 0 ? 'warn' : 'success' },
@@ -256,9 +249,6 @@ export function RaidWidget() {
             </div>
           </WidgetCard>
         </>
-      ) : (
-        <EmptyState Icon={ShieldAlert} title={`${tab[0].toUpperCase() + tab.slice(1)} kommer snart`} body="Phase 2 — tabellen kobles til neste runde av dashboard-arbeidet." />
-      )}
     </div>
   )
 }

@@ -104,6 +104,31 @@ function DashboardContent() {
       headerActions={headerActions}
     >
       <div className="space-y-4">
+        {/* Empty-org nudge: ingen plan + ingen oppgaver → tydelig CTA i stedet
+            for stille fallback-data. Forsvinner straks brukeren har enten
+            iverksatt en cadence eller fått oppgaver via andre flyt. */}
+        {!data.loading && !data.plan && data.tasks.length === 0 ? (
+          <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-amber-200 bg-amber-50 px-5 py-4">
+            <div>
+              <div className="font-serif text-base font-semibold text-amber-900">
+                Klar til å sette opp HMS-årshjulet?
+              </div>
+              <p className="mt-1 text-[13px] text-amber-800">
+                Visningene nedenfor viser forhåndsforslag inntil du har iverksatt en cadence-plan.
+                Veiviseren tar deg gjennom regelverk, paragrafer, moduler og roller.
+              </p>
+            </div>
+            <Button
+              variant="primary"
+              size="sm"
+              onClick={() => navigate('/cadence?section=veiviser')}
+              icon={<Wand2 className="h-3.5 w-3.5" />}
+            >
+              Start cadence-veiviseren
+            </Button>
+          </div>
+        ) : null}
+
         {/* Group nav + dashboard selector */}
         <div className="overflow-hidden rounded-xl border border-neutral-200/80 bg-white shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
           {DASHBOARD_GROUPS.map((g) => {
@@ -128,7 +153,7 @@ function DashboardContent() {
                         className={[
                           'inline-flex h-auto items-center gap-2 rounded-md px-3 py-1.5 text-[12.5px] font-medium transition-colors',
                           isActive
-                            ? 'bg-[#1a3d32] text-white hover:bg-[#142e26] hover:text-white'
+                            ? 'bg-[var(--ui-accent)] text-white hover:bg-[var(--ui-accent)] hover:text-white'
                             : 'text-neutral-600 hover:bg-neutral-100 hover:text-neutral-900',
                         ].join(' ')}
                         title={d.description}
@@ -191,7 +216,7 @@ function DashboardContent() {
         <section className="min-w-0">
           {data.loading ? (
             <div className="flex min-h-[40vh] items-center justify-center">
-              <Loader2 className="h-6 w-6 animate-spin text-[#1a3d32]" aria-hidden />
+              <Loader2 className="h-6 w-6 animate-spin text-[var(--ui-accent)]" aria-hidden />
             </div>
           ) : data.error ? (
             <div className="rounded-xl border border-red-200 bg-red-50 px-5 py-4 text-sm text-red-800">
