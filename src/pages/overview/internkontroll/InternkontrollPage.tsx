@@ -322,8 +322,7 @@ export function InternkontrollPage() {
       ) : null}
       <Button
         variant="primary"
-        size="sm"
-        icon={<Plus className="h-3.5 w-3.5" />}
+        icon={<Plus className="h-4 w-4" />}
         onClick={() => setCreateControlOpen(true)}
       >
         Ny kontroll
@@ -494,6 +493,10 @@ export function InternkontrollPage() {
                 frameworks={filters.frameworks}
                 categories={filters.categories}
                 search={search}
+                onCreateControl={() => {
+                  setCreateControlInitial(null)
+                  setCreateControlOpen(true)
+                }}
               />
             ))}
           {section === 'gap' && (

@@ -142,7 +142,7 @@ export function AarshjulSection({
           >
             Eksporter ICS
           </Button>
-          <Button variant="primary" size="sm" icon={<Plus className="h-3 w-3" />}>
+          <Button variant="primary" icon={<Plus className="h-4 w-4" />}>
             Ny aktivitet
           </Button>
         </div>

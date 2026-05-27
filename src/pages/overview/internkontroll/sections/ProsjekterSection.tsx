@@ -80,8 +80,7 @@ export function ProsjekterSection({
         trailing={
           <Button
             variant="primary"
-            size="sm"
-            icon={<Plus className="h-3 w-3" />}
+            icon={<Plus className="h-4 w-4" />}
             onClick={() => setComposerOpen(true)}
           >
             Nytt prosjekt

@@ -31,6 +31,7 @@ export function KontrollerSection({
   frameworks,
   categories,
   search,
+  onCreateControl,
 }: {
   data: IkData
   /** Empty = no filter on framework. Multiple = OR semantics. */
@@ -39,6 +40,10 @@ export function KontrollerSection({
   categories: IkCategoryId[]
   /** Free-text search from the page-level Søk row. */
   search: string
+  /** Open the page-level ControlEditorPanel (the same slide-over the
+   *  header "Ny kontroll" button and the gap-section "Opprett kontroll"
+   *  use). Single panel mount, single onSaved hook for refresh. */
+  onCreateControl: () => void
 }) {
   const [searchParams, setSearchParams] = useSearchParams()
   const openControl = (id: string) => {
@@ -128,7 +133,11 @@ export function KontrollerSection({
                 </Button>
               ))}
             </div>
-            <Button variant="primary" size="sm" icon={<Plus className="h-3 w-3" />}>
+            <Button
+              variant="primary"
+              icon={<Plus className="h-4 w-4" />}
+              onClick={onCreateControl}
+            >
               Ny kontroll
             </Button>
           </div>
