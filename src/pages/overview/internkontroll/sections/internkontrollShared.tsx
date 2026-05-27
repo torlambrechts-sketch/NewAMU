@@ -156,6 +156,9 @@ export function CriticalityChip({ value }: { value: 'høy' | 'middels' | 'lav' }
   // Icon + colour + text so the signal survives colour-blindness (≈8% of male
   // users) and printed black-and-white PDFs. The three icons are deliberately
   // distinct in shape: triangle (alert), filled circle (medium), dot (low).
+  // role="img" + aria-label on the wrapper + aria-hidden on the icon and the
+  // visible value so screen readers announce a single contextual label
+  // ("Kritikalitet: høy") instead of the icon name + the bare value.
   const map: Record<typeof value, { c: string; bg: string; Icon: LucideIcon }> = {
     høy: { c: '#9A3412', bg: '#FFEDD5', Icon: TriangleAlert },
     middels: { c: '#854D0E', bg: '#FEF9C3', Icon: AlertCircle },
@@ -164,12 +167,13 @@ export function CriticalityChip({ value }: { value: 'høy' | 'middels' | 'lav' }
   const m = map[value]
   return (
     <span
+      role="img"
+      aria-label={`Kritikalitet: ${value}`}
       className="inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider"
       style={{ background: m.bg, color: m.c }}
-      aria-label={`Kritikalitet: ${value}`}
     >
-      <m.Icon className="h-2.5 w-2.5" />
-      {value}
+      <m.Icon aria-hidden className="h-2.5 w-2.5" />
+      <span aria-hidden>{value}</span>
     </span>
   )
 }

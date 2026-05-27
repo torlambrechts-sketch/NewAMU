@@ -22,7 +22,7 @@ const CATEGORY_LABEL: Record<string, string> = {
   intern_prosedyre: 'Intern prosedyre',
   okonomidokument: 'Økonomi­dokument',
   eksponering_60ar: 'Eksponerings­register',
-  ad_hoc: 'Ad-hoc',
+  ad_hoc: 'Ved hendelse',
 }
 
 export function RetentionMarker({

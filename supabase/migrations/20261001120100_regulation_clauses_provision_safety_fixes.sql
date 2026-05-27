@@ -210,7 +210,13 @@ begin
   on conflict (organization_id, id) do update set
     code = excluded.code, title = excluded.title, description = excluded.description,
     recommended_cadence = excluded.recommended_cadence, cadence_rationale = excluded.cadence_rationale,
-    position = excluded.position
+    position = excluded.position,
+    -- Restore soft-deleted system rows. ON CONFLICT (organization_id, id)
+    -- matches even when deleted_at IS NOT NULL, and the data hook filters
+    -- out soft-deleted rows; without this restore the row would stay
+    -- invisible AND block a fresh INSERT for the same code (PK collision).
+    deleted_at = null,
+    is_active = true
   where regulation_clauses.is_system = true;
 
   insert into public.regulation_clauses (
@@ -240,7 +246,13 @@ begin
   on conflict (organization_id, id) do update set
     code = excluded.code, title = excluded.title, description = excluded.description,
     recommended_cadence = excluded.recommended_cadence, cadence_rationale = excluded.cadence_rationale,
-    position = excluded.position
+    position = excluded.position,
+    -- Restore soft-deleted system rows. ON CONFLICT (organization_id, id)
+    -- matches even when deleted_at IS NOT NULL, and the data hook filters
+    -- out soft-deleted rows; without this restore the row would stay
+    -- invisible AND block a fresh INSERT for the same code (PK collision).
+    deleted_at = null,
+    is_active = true
   where regulation_clauses.is_system = true;
 
   insert into public.regulation_clauses (
@@ -293,7 +305,13 @@ begin
   on conflict (organization_id, id) do update set
     code = excluded.code, title = excluded.title, description = excluded.description,
     recommended_cadence = excluded.recommended_cadence, cadence_rationale = excluded.cadence_rationale,
-    position = excluded.position
+    position = excluded.position,
+    -- Restore soft-deleted system rows. ON CONFLICT (organization_id, id)
+    -- matches even when deleted_at IS NOT NULL, and the data hook filters
+    -- out soft-deleted rows; without this restore the row would stay
+    -- invisible AND block a fresh INSERT for the same code (PK collision).
+    deleted_at = null,
+    is_active = true
   where regulation_clauses.is_system = true;
 
   insert into public.regulation_clauses (
@@ -329,7 +347,13 @@ begin
   on conflict (organization_id, id) do update set
     code = excluded.code, title = excluded.title, description = excluded.description,
     recommended_cadence = excluded.recommended_cadence, cadence_rationale = excluded.cadence_rationale,
-    position = excluded.position
+    position = excluded.position,
+    -- Restore soft-deleted system rows. ON CONFLICT (organization_id, id)
+    -- matches even when deleted_at IS NOT NULL, and the data hook filters
+    -- out soft-deleted rows; without this restore the row would stay
+    -- invisible AND block a fresh INSERT for the same code (PK collision).
+    deleted_at = null,
+    is_active = true
   where regulation_clauses.is_system = true;
 end;
 $$;

@@ -48,7 +48,15 @@ type Props = {
    *  panel will also bind the new control to that paragraph after save. */
   initial?: CreateInitial
   onClose: () => void
+  /** Called when the control was saved AND any auto-bind succeeded.
+   *  Typically navigates to the detail view + closes the panel. */
   onSaved?: (id: string) => void | Promise<void>
+  /** Called when the control was saved but the auto-bind to the originating
+   *  paragraph failed. The panel stays open with a yellow warning so the
+   *  user understands the binding needs manual follow-up; this callback
+   *  should refetch parent data so the new control appears in lists but
+   *  must NOT close the panel or navigate. */
+  onPartialSave?: (id: string) => void | Promise<void>
 }
 
 /** Derive a slug from a paragraph code, e.g. "AML § 4-3" → "kontroll-aml-4-3".
@@ -79,9 +87,10 @@ export function ControlEditorPanel({
   initial,
   onClose,
   onSaved,
+  onPartialSave,
 }: Props) {
   const { supabase } = useOrgSetupContext()
-  const { createControl, updateControl, error: hookError } = useInternalControls({ supabase })
+  const { createControl, updateControl } = useInternalControls({ supabase })
 
   const [slug, setSlug] = useState('')
   const [name, setName] = useState('')
@@ -149,7 +158,7 @@ export function ControlEditorPanel({
     setBindingWarning(null)
     try {
       if (mode === 'create') {
-        const id = await createControl({
+        const { id, error: createErr } = await createControl({
           slug: slug.trim(),
           name: name.trim(),
           purpose: purpose.trim(),
@@ -159,12 +168,12 @@ export function ControlEditorPanel({
           status,
         })
         if (!id) {
-          // useInternalControls captures the supabase error and exposes it
-          // via the hook's error field. Surface it inline so the user sees
-          // why save failed (most common: slug collision with an existing
-          // control — RLS denied or unique-constraint violated).
+          // createControl returns the supabase error in the same payload as
+          // the id, so we get the fresh message even on a same-tick failure
+          // (slug-unique violation 23505, RLS denial, etc.). Falling back to
+          // a generic line only when supabase didn't surface a string.
           setLocalError(
-            hookError ??
+            createErr ??
               'Kunne ikke lagre kontroll. Sjekk at slug er unik og at du har rettigheter.',
           )
           return
@@ -221,10 +230,12 @@ export function ControlEditorPanel({
         // refetch when the panel is already closed (or about to reopen for
         // a different krav).
         if (abortedRef.current) return
-        // If binding produced a warning, keep the panel open with the warning
-        // visible so the user can decide whether to navigate or fix manually.
-        // The control IS saved — they can dismiss via Avbryt.
         if (bindingMessage) {
+          // Control saved but binding failed. Refetch parent data so the
+          // new control appears in lists (it IS persisted), but keep the
+          // panel open with the warning visible — the user needs to know
+          // the binding requires manual follow-up before they navigate.
+          await onPartialSave?.(id)
           setBindingWarning(bindingMessage)
           return
         }

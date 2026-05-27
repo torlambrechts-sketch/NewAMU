@@ -65,7 +65,11 @@ export type UseInternalControlsReturn = {
   /** Status view row keyed by control_id. */
   statusByControlId: Record<string, ControlStatusViewRow>
   refresh: () => Promise<void>
-  createControl: (input: CreateControlInput) => Promise<string | null>
+  /** Returns the new control's id (or null) plus the supabase error message
+   *  when the insert failed. We return the error string directly so callers
+   *  can surface it without depending on the hook's `error` state, which
+   *  is captured at render time and stale relative to a same-tick failure. */
+  createControl: (input: CreateControlInput) => Promise<{ id: string | null; error: string | null }>
   updateControl: (input: UpdateControlInput) => Promise<void>
   softDeleteControl: (id: string) => Promise<void>
   togglePinned: (id: string, pinned: boolean) => Promise<void>
@@ -146,8 +150,12 @@ export function useInternalControls(
   }, [status])
 
   const createControl = useCallback(
-    async (i: CreateControlInput): Promise<string | null> => {
-      if (!supabase || !orgId) return null
+    async (
+      i: CreateControlInput,
+    ): Promise<{ id: string | null; error: string | null }> => {
+      if (!supabase || !orgId) {
+        return { id: null, error: 'Supabase-klient eller org-kontekst mangler.' }
+      }
       setError(null)
       try {
         const { data, error: insErr } = await supabase
@@ -172,12 +180,13 @@ export function useInternalControls(
         const parsed = InternalControlRowSchema.safeParse(data)
         if (parsed.success) {
           setControls((prev) => [...prev, parsed.data])
-          return parsed.data.id
+          return { id: parsed.data.id, error: null }
         }
-        return null
+        return { id: null, error: 'Kunne ikke parse lagret kontroll-rad.' }
       } catch (unknownError) {
-        setError(getSupabaseErrorMessage(unknownError))
-        return null
+        const msg = getSupabaseErrorMessage(unknownError)
+        setError(msg)
+        return { id: null, error: msg }
       }
     },
     [supabase, orgId],

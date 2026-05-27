@@ -558,6 +558,12 @@ export function InternkontrollPage() {
           sp.set('control', id)
           setSearchParams(sp, { replace: false })
         }}
+        onPartialSave={async () => {
+          // Binding step failed. Refetch so the new control appears in the
+          // Kontroller list, but don't close the panel or navigate — the
+          // panel is keeping the warning visible so the user can act on it.
+          await reloadPageData()
+        }}
       />
     </ModulePageShell>
   )

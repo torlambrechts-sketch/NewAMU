@@ -118,9 +118,9 @@ export function GapSection({
           <div>
             <p className="font-semibold">Regelverk-katalogen er ikke provisjonert for denne orgen.</p>
             <p className="mt-0.5">
-              Tittel, beskrivelse og anbefalt frekvens mangler fra regulation_clauses, så
-              gap-radene er mindre informative og hver krav defaulter til status &quot;Gap&quot;.
-              Kontakt admin for å kjøre <code className="font-mono">provision_regulation_clauses_baseline_for_org</code>.
+              Tittel, beskrivelse og anbefalt frekvens per paragraf mangler, så gap-radene blir
+              mindre informative og hvert krav defaulter til status «Gap». Be Klarert eller
+              systemadministrator om å fullføre provisjoneringen.
             </p>
           </div>
         </div>
