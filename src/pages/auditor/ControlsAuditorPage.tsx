@@ -421,7 +421,7 @@ function RenderSnapshot({ payload }: { payload: TokenPayload }) {
                           {FAMILY_LABEL[c.control_family]}
                         </td>
                         <td className="px-3 py-2 text-neutral-800">
-                          {c.frequency_hint ?? 'Ad hoc'}
+                          {c.frequency_hint ?? 'Ved hendelse'}
                         </td>
                         <td className="px-3 py-2 text-neutral-800">{c.owner_role ?? '—'}</td>
                         <td className="px-3 py-2">

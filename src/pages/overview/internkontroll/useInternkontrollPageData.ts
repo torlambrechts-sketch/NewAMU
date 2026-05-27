@@ -400,6 +400,11 @@ function dedupe(entries: CoverageEntry[]): CoverageEntry[] {
   return [...m.values()]
 }
 
+// Canonical Norwegian labels for control_frequency_hint. Keep in sync with
+// `cadenceLabel` in sections/internkontrollTokens.ts — both render the same
+// enum so they MUST produce identical strings. 'Ved hendelse' is preferred
+// over 'Ad hoc' (English) and 'Hendelse' (ambiguous with avvik/sak) per
+// post-review consolidation.
 const FREQUENCY_LABELS: Record<NonNullable<ControlFrequencyHint>, string> = {
   arlig: 'Årlig',
   halvarlig: 'Halvårlig',
@@ -407,7 +412,7 @@ const FREQUENCY_LABELS: Record<NonNullable<ControlFrequencyHint>, string> = {
   manedlig: 'Månedlig',
   ukentlig: 'Ukentlig',
   daglig: 'Daglig',
-  ad_hoc: 'Hendelse',
+  ad_hoc: 'Ved hendelse',
 }
 
 const FAMILY_TO_TYPE: Record<ControlFamily, IkKontrollType> = {
@@ -426,7 +431,7 @@ const CONTROL_STATUS_MAP: Record<ControlStatus, IkKontroll['status']> = {
 // Plan-item status → tiltak status + priority. Phase 1: priority is
 // derived from the original framework's criticality buckets; if every
 // row gets 'middels' the page is still readable.
-function mapPlanStatus(
+export function mapPlanStatus(
   status: PlanItemRow['status'],
   dueAt: string | null,
 ): { status: IkTiltak['status']; priority: IkTiltak['priority'] } {
@@ -720,6 +725,11 @@ export function useInternkontrollPageData(): {
             .eq('organization_id', orgId)
             .is('deleted_at', null)
             .in('id', missingIds)
+          // Re-check cancelled after the second await — if the user switched
+          // org or reloaded between batches, the stale request must not
+          // setLoaded over the fresh org's data. (code-review C3 / external
+          // staff-engineer feedback.)
+          if (cancelled) return
           if (extraErr) {
             console.warn(
               '[internkontroll] failed to fetch junction-referenced controls past cap:',
@@ -1105,7 +1115,7 @@ function buildData(input: {
       purpose: c.purpose ?? '',
       type: FAMILY_TO_TYPE[c.control_family],
       frequency: c.frequency_hint,
-      frequencyLabel: c.frequency_hint ? FREQUENCY_LABELS[c.frequency_hint] : 'Ad hoc',
+      frequencyLabel: c.frequency_hint ? FREQUENCY_LABELS[c.frequency_hint] : 'Ved hendelse',
       evidence: c.purpose ? 'dokument' : 'sjekkliste',
       owner,
       ownerRole: c.owner_role,

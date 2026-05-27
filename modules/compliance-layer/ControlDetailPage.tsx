@@ -279,7 +279,7 @@ export function ControlDetailView({
               <div>
                 <dt className="text-neutral-500">Frekvens</dt>
                 <dd className="text-neutral-900">
-                  {control.frequency_hint ?? 'Ad hoc'}
+                  {control.frequency_hint ?? 'Ved hendelse'}
                 </dd>
               </div>
               <div>

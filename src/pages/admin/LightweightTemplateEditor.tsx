@@ -64,7 +64,7 @@ const SURVEY_CADENCE_OPTIONS = [
   { value: 'arlig', label: 'Årlig' },
   { value: 'halvarlig', label: 'Halvårlig' },
   { value: 'kvartalsvis', label: 'Kvartalsvis' },
-  { value: 'ad_hoc', label: 'Ad hoc' },
+  { value: 'ad_hoc', label: 'Ved hendelse' },
 ]
 
 const DOCUMENT_CATEGORY_OPTIONS = [

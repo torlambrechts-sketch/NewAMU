@@ -52,7 +52,7 @@ const FREQ_LABELS: Record<ControlFrequencyHint, string> = {
   manedlig: 'Månedlig',
   ukentlig: 'Ukentlig',
   daglig: 'Daglig',
-  ad_hoc: 'Ad hoc',
+  ad_hoc: 'Ved hendelse',
 }
 
 const STATUS_OPTIONS = [

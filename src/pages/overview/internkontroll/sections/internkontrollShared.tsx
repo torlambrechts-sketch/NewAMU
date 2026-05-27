@@ -153,17 +153,22 @@ export function CoverageBar({
 }
 
 export function CriticalityChip({ value }: { value: 'høy' | 'middels' | 'lav' }) {
-  const map = {
-    høy: { c: '#9A3412', bg: '#FFEDD5' },
-    middels: { c: '#854D0E', bg: '#FEF9C3' },
-    lav: { c: '#525252', bg: '#F5F5F5' },
+  // Icon + colour + text so the signal survives colour-blindness (≈8% of male
+  // users) and printed black-and-white PDFs. The three icons are deliberately
+  // distinct in shape: triangle (alert), filled circle (medium), dot (low).
+  const map: Record<typeof value, { c: string; bg: string; Icon: LucideIcon }> = {
+    høy: { c: '#9A3412', bg: '#FFEDD5', Icon: TriangleAlert },
+    middels: { c: '#854D0E', bg: '#FEF9C3', Icon: AlertCircle },
+    lav: { c: '#525252', bg: '#F5F5F5', Icon: Circle },
   }
   const m = map[value]
   return (
     <span
-      className="inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider"
+      className="inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider"
       style={{ background: m.bg, color: m.c }}
+      aria-label={`Kritikalitet: ${value}`}
     >
+      <m.Icon className="h-2.5 w-2.5" />
       {value}
     </span>
   )

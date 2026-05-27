@@ -13,10 +13,12 @@ import {
   FileText,
   GraduationCap,
   Grid3x3,
+  Info,
   ListChecks,
   List,
   Plus,
   Repeat,
+  Scale,
   ShieldCheck,
   Sparkles,
   TriangleAlert,
@@ -30,13 +32,13 @@ import {
   FwChip,
   Initials,
   KontrollStatusBadge,
-  PRIO_TONE,
   SectionBanner,
   StatusPill,
+  TiltakStatusPill,
   TYPE_TONE,
 } from './internkontrollShared'
 import type { useCompliancePlanItems } from '../useCompliancePlanItems'
-import type { IkData, IkKontroll, IkKrav } from '../useInternkontrollPageData'
+import { mapPlanStatus, type IkData, type IkKontroll, type IkKrav } from '../useInternkontrollPageData'
 import { cadenceLabel, type IkCategoryId } from './internkontrollTokens'
 import type { FrameworkId } from '../frameworkParagraphs'
 import type { CoverageEntry } from '../../../../hooks/useRegelverkCoverage'
@@ -152,7 +154,15 @@ export function GapSection({
       {view === 'matrix' ? (
         <GapMatrix data={data} frameworks={frameworks} />
       ) : (
-        <GapList data={data} sorted={gaps} plan={plan} onCreateControl={onCreateControl} />
+        <GapList
+          data={data}
+          sorted={gaps}
+          plan={plan}
+          onCreateControl={onCreateControl}
+          filtersActive={
+            frameworks.length > 0 || categories.length > 0 || search.trim().length > 0
+          }
+        />
       )}
     </div>
   )
@@ -314,11 +324,16 @@ function GapList({
   sorted,
   plan,
   onCreateControl,
+  filtersActive,
 }: {
   data: IkData
   sorted: IkKrav[]
   plan: PlanHook
   onCreateControl?: (initial: CreateControlInitial) => void
+  /** True when at least one filter chip (framework / category / search) is
+   *  active. Drives an honest empty state that distinguishes "filter hid
+   *  everything" from "the org is fully covered". */
+  filtersActive: boolean
 }) {
   const [, setSearchParams] = useSearchParams()
   // Use the functional updater form so concurrent URL changes from other
@@ -344,9 +359,38 @@ function GapList({
   }, [data.kontroller])
 
   if (sorted.length === 0) {
+    // Distinguish "filters hid everything" from "all gaps are closed" and
+    // from "this org isn't seeded yet" — three very different states an
+    // auditor must not confuse.
+    const totalKrav = data.krav.length
+    if (totalKrav === 0) {
+      return (
+        <div className="rounded-xl border border-neutral-200/80 bg-white p-6 text-center text-[12px] text-neutral-500 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
+          <p className="font-medium text-neutral-700">Regelverk-katalogen er tom for denne orgen.</p>
+          <p className="mt-1 italic">
+            Ingen paragrafer er seedet — gap-matrisen er tom av strukturelle grunner, ikke fordi alt er
+            dekket. Kontakt admin for å provisjonere regelverk-katalogen.
+          </p>
+        </div>
+      )
+    }
+    if (filtersActive) {
+      return (
+        <div className="rounded-xl border border-neutral-200/80 bg-white p-6 text-center text-[12px] text-neutral-500 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
+          <p className="font-medium text-neutral-700">Ingen gap matcher gjeldende filter.</p>
+          <p className="mt-1 italic">
+            Fjern filter for å se hele oversikten — det kan finnes gap utenfor det valgte rammeverket
+            eller kategorien.
+          </p>
+        </div>
+      )
+    }
     return (
-      <div className="rounded-xl border border-neutral-200/80 bg-white p-6 text-center text-[12px] italic text-neutral-500 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
-        Ingen åpne gap — alt er dekket eller markert som ikke-aktuelt.
+      <div className="rounded-xl border border-green-200 bg-green-50/40 p-6 text-center text-[12px] text-green-900 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
+        <p className="font-semibold">Ingen åpne gap.</p>
+        <p className="mt-1 italic text-green-800/80">
+          Alle krav i katalogen er dekket eller markert som ikke-aktuelt.
+        </p>
       </div>
     )
   }
@@ -372,11 +416,19 @@ function GapList({
                       <CriticalityChip value={k.criticality} />
                     </div>
                     <h4 className="mt-1 text-sm font-semibold text-neutral-900">{k.title}</h4>
-                    {k.description && (
+                    {k.description ? (
                       <p className="mt-1 text-[12px] leading-snug text-neutral-600">
                         {k.description}
                       </p>
-                    )}
+                    ) : k.title === k.ref ? (
+                      // Neither DB description nor a static paragraph title — the
+                      // h4 above just repeats the code. Surface this as a seed
+                      // gap rather than letting the row look broken.
+                      <p className="mt-1 inline-flex items-center gap-1 text-[11px] italic text-neutral-500">
+                        <Info className="h-3 w-3" />
+                        Beskrivelse mangler i regelverk-katalogen.
+                      </p>
+                    ) : null}
                     {k.gap && (
                       <div className="mt-2 rounded-md border border-amber-200 bg-amber-50/60 px-3 py-2 text-[12px] text-amber-900">
                         <span className="font-semibold">Gap: </span>
@@ -428,34 +480,30 @@ function GapList({
                     </div>
                   ) : (
                     <ul className="mt-2 space-y-1.5">
-                      {tiltakForKrav.map((t) => (
-                        <li
-                          key={t.id}
-                          className="rounded border border-neutral-200 bg-white p-2 text-[11px]"
-                        >
-                          <div className="flex items-center justify-between gap-2">
-                            <span className="font-medium text-neutral-900">{t.title}</span>
-                            <span
-                              className={`rounded px-1 py-0.5 text-[9px] font-bold uppercase ${
-                                t.status === 'in_progress'
-                                  ? PRIO_TONE['høy'].bg + ' ' + PRIO_TONE['høy'].text
-                                  : t.status === 'blocked'
-                                  ? PRIO_TONE['kritisk'].bg + ' ' + PRIO_TONE['kritisk'].text
-                                  : t.status === 'done'
-                                  ? PRIO_TONE['lav'].bg + ' ' + PRIO_TONE['lav'].text
-                                  : PRIO_TONE['middels'].bg + ' ' + PRIO_TONE['middels'].text
-                              }`}
-                            >
-                              {t.status}
-                            </span>
-                          </div>
-                          <div className="mt-1 flex items-center gap-2 text-[10px] text-neutral-500">
-                            <span className="tabular-nums">
-                              Frist {t.due_at ?? '—'}
-                            </span>
-                          </div>
-                        </li>
-                      ))}
+                      {tiltakForKrav.map((t) => {
+                        // Use the canonical raw→display status mapper so the
+                        // colour + label match TiltakSection. The previous
+                        // code keyed PRIO_TONE (criticality palette) by raw
+                        // English enum which produced confusing chips
+                        // ("done" with lav-grey, "blocked" with red).
+                        const mapped = mapPlanStatus(t.status, t.due_at)
+                        return (
+                          <li
+                            key={t.id}
+                            className="rounded border border-neutral-200 bg-white p-2 text-[11px]"
+                          >
+                            <div className="flex items-center justify-between gap-2">
+                              <span className="font-medium text-neutral-900">{t.title}</span>
+                              <TiltakStatusPill status={mapped.status} />
+                            </div>
+                            <div className="mt-1 flex items-center gap-2 text-[10px] text-neutral-500">
+                              <span className="tabular-nums">
+                                Frist {t.due_at ?? '—'}
+                              </span>
+                            </div>
+                          </li>
+                        )
+                      })}
                     </ul>
                   )}
                 </aside>
@@ -630,31 +678,38 @@ function RecommendedApproachBlock({
         <Sparkles className="h-3 w-3" />
         Anbefalt løsning fra Klarert
       </div>
-      <div className="mt-2 flex flex-wrap items-baseline gap-x-3 gap-y-1 text-[12px] text-neutral-800">
+      <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-[12px] text-neutral-800">
         <span className="inline-flex items-center gap-1 font-semibold">
           <Repeat className="h-3 w-3 text-[#1a3d32]" />
           Anbefalt frekvens:
         </span>
         <span className="font-semibold text-[#1a3d32]">{cadenceLabelText}</span>
-        <span
-          className={[
-            'rounded px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider',
-            isLegalBasis
-              ? 'bg-[#1a3d32]/10 text-[#1a3d32]'
-              : 'bg-neutral-100 text-neutral-600',
-          ].join(' ')}
-          title={
-            isLegalBasis
-              ? 'Frekvens forankret i lov eller forskrift.'
-              : 'Frekvens er en Klarert-anbefaling, ikke et eksplisitt lovkrav.'
-          }
-        >
-          {isLegalBasis ? 'Lovgrunnlag' : 'Klarert-anbefaling'}
-        </span>
-        {krav.cadenceRationale && (
-          <span className="text-[11px] text-neutral-600">{krav.cadenceRationale}</span>
+        {isLegalBasis ? (
+          <span
+            className="inline-flex items-center gap-1 rounded border border-[#1a3d32]/30 bg-[#1a3d32]/10 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-[#1a3d32]"
+            aria-label="Lovgrunnlag: frekvens forankret i lov eller forskrift."
+            title="Frekvens forankret i lov eller forskrift."
+          >
+            <Scale className="h-2.5 w-2.5" />
+            Lovgrunnlag
+          </span>
+        ) : (
+          <span
+            className="inline-flex items-center gap-1 rounded border border-neutral-300 bg-neutral-50 px-1.5 py-0.5 text-[10px] font-semibold italic text-neutral-600"
+            aria-label="Klarert-anbefaling — ikke et eksplisitt lovkrav."
+            title="Frekvens er en Klarert-anbefaling, ikke et eksplisitt lovkrav."
+          >
+            <Info className="h-2.5 w-2.5" />
+            Klarert-anbefaling (ikke lovkrav)
+          </span>
         )}
       </div>
+      {krav.cadenceRationale && (
+        <p className="mt-1 text-[11px] leading-snug text-neutral-600">
+          <span className="font-semibold text-neutral-700">Begrunnelse:</span>{' '}
+          {krav.cadenceRationale}
+        </p>
+      )}
 
       {templates.length > 0 ? (
         <div className="mt-3">

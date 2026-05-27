@@ -4,7 +4,7 @@
 // (edit existing). System controls are read-only — the panel surfaces
 // a warning and disables the save action. Uses design-system primitives.
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useOrgSetupContext } from '../../src/hooks/useOrgSetupContext'
 import { FormModal } from '../../template'
 import { Button } from '../../src/components/ui/Button'
@@ -81,7 +81,7 @@ export function ControlEditorPanel({
   onSaved,
 }: Props) {
   const { supabase } = useOrgSetupContext()
-  const { createControl, updateControl } = useInternalControls({ supabase })
+  const { createControl, updateControl, error: hookError } = useInternalControls({ supabase })
 
   const [slug, setSlug] = useState('')
   const [name, setName] = useState('')
@@ -92,9 +92,22 @@ export function ControlEditorPanel({
   const [status, setStatus] = useState<ControlStatus>('draft')
   const [saving, setSaving] = useState(false)
   const [localError, setLocalError] = useState<string | null>(null)
+  // Soft warning surfaced when the control was saved successfully but the
+  // auto-bind to a clause failed (RLS, transient network, etc). Distinct
+  // from localError because the control IS saved — we just want the user
+  // to know the binding step needs follow-up.
+  const [bindingWarning, setBindingWarning] = useState<string | null>(null)
+  // Aborted on close to suppress late-arriving onSaved/onClose calls when
+  // the user clicked Avbryt while a slow save was in flight (race A2).
+  const abortedRef = useRef(false)
 
   useEffect(() => {
-    if (!open) return
+    if (!open) {
+      // Mark as aborted so any in-flight save discards its onSaved callback.
+      abortedRef.current = true
+      return
+    }
+    abortedRef.current = false
     if (mode === 'edit' && control) {
       setSlug(control.slug)
       setName(control.name)
@@ -113,6 +126,7 @@ export function ControlEditorPanel({
       setStatus('draft')
     }
     setLocalError(null)
+    setBindingWarning(null)
   }, [open, mode, control, initial])
 
   const isSystem = mode === 'edit' && control?.is_system === true
@@ -132,6 +146,7 @@ export function ControlEditorPanel({
       return
     }
     setSaving(true)
+    setBindingWarning(null)
     try {
       if (mode === 'create') {
         const id = await createControl({
@@ -143,39 +158,78 @@ export function ControlEditorPanel({
           owner_role: ownerRole.trim() || null,
           status,
         })
-        if (id) {
-          // Best-effort: bind the new control to the originating paragraph
-          // when the panel was opened from a gap row (initial.code set).
-          // RLS scopes the lookup to current_org_id() automatically; if the
-          // clause isn't seeded (unlikely after the catalog expansion) we
-          // silently skip — the control is still created.
-          if (initial?.code && supabase) {
-            try {
-              const { data: clauseRow } = await supabase
-                .from('regulation_clauses')
-                .select('id')
-                .eq('code', initial.code)
-                .eq('is_active', true)
-                .is('deleted_at', null)
-                .limit(1)
-                .maybeSingle()
-              if (clauseRow?.id) {
-                await supabase.from('internal_control_clauses').insert({
+        if (!id) {
+          // useInternalControls captures the supabase error and exposes it
+          // via the hook's error field. Surface it inline so the user sees
+          // why save failed (most common: slug collision with an existing
+          // control — RLS denied or unique-constraint violated).
+          setLocalError(
+            hookError ??
+              'Kunne ikke lagre kontroll. Sjekk at slug er unik og at du har rettigheter.',
+          )
+          return
+        }
+        // Auto-bind to the originating paragraph if the panel was opened
+        // from a gap row. The control is already persisted — if the binding
+        // fails we keep the panel open and surface a warning so the user
+        // can decide whether to retry or proceed.
+        let bindingMessage: string | null = null
+        if (initial?.code && supabase) {
+          try {
+            const { data: clauseRow, error: lookupErr } = await supabase
+              .from('regulation_clauses')
+              .select('id')
+              .eq('code', initial.code)
+              .eq('is_active', true)
+              .is('deleted_at', null)
+              .limit(1)
+              .maybeSingle()
+            if (lookupErr) throw lookupErr
+            if (!clauseRow?.id) {
+              bindingMessage =
+                `Kontrollen ble lagret, men paragraf ${initial.code} finnes ikke i regelverk-katalogen for orgen din. ` +
+                'Koblingen må legges til manuelt fra kontrollens detaljside.'
+            } else {
+              const { error: insertErr } = await supabase
+                .from('internal_control_clauses')
+                .insert({
                   control_id: id,
                   clause_id: clauseRow.id,
                   coverage_level: 'primary',
                 })
+              if (insertErr) {
+                // Duplicate junction is benign — the binding already exists.
+                // Anything else (RLS, network, trigger) is worth surfacing
+                // so the user knows the gap row may still show "no kontroll".
+                const msg = insertErr.message ?? ''
+                if (!/duplicate|unique/i.test(msg)) {
+                  bindingMessage =
+                    `Kontrollen ble lagret, men kobling til ${initial.code} feilet: ${msg}. ` +
+                    'Legg til koblingen fra kontrollens detaljside.'
+                }
               }
-            } catch {
-              // Binding failed (e.g. duplicate, RLS, transient) — control is
-              // already persisted. User can wire the binding manually from
-              // the control detail page. We don't surface the error to avoid
-              // confusing the success path.
             }
+          } catch (e) {
+            const msg = e instanceof Error ? e.message : String(e)
+            bindingMessage =
+              `Kontrollen ble lagret, men kobling til ${initial.code} feilet: ${msg}. ` +
+              'Legg til koblingen fra kontrollens detaljside.'
           }
-          await onSaved?.(id)
-          onClose()
         }
+        // Race A2: if the user clicked Avbryt mid-save, abortedRef is true
+        // and we suppress the success callbacks so we don't navigate or
+        // refetch when the panel is already closed (or about to reopen for
+        // a different krav).
+        if (abortedRef.current) return
+        // If binding produced a warning, keep the panel open with the warning
+        // visible so the user can decide whether to navigate or fix manually.
+        // The control IS saved — they can dismiss via Avbryt.
+        if (bindingMessage) {
+          setBindingWarning(bindingMessage)
+          return
+        }
+        await onSaved?.(id)
+        onClose()
       } else if (control) {
         await updateControl({
           id: control.id,
@@ -224,7 +278,15 @@ export function ControlEditorPanel({
           {localError}
         </div>
       ) : null}
-      {mode === 'create' && initial?.code ? (
+      {bindingWarning ? (
+        <div
+          role="status"
+          className="rounded border border-amber-200 bg-amber-50 p-2 text-sm text-amber-900"
+        >
+          {bindingWarning}
+        </div>
+      ) : null}
+      {mode === 'create' && initial?.code && !bindingWarning ? (
         <div className="rounded border border-[#dbe6e0] bg-[#f3f7f4] px-3 py-2 text-[12px] text-[#1a3d32]">
           Kontrollen blir automatisk koblet til <span className="font-semibold">{initial.code}</span>{' '}
           når du lagrer.

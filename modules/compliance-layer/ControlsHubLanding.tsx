@@ -131,7 +131,7 @@ export function ControlsHubLanding() {
                         <dl className="mt-3 grid grid-cols-2 gap-y-1 text-xs">
                           <dt className="text-neutral-500">Frekvens</dt>
                           <dd className="text-neutral-800">
-                            {c.frequency_hint ?? 'Ad hoc'}
+                            {c.frequency_hint ?? 'Ved hendelse'}
                           </dd>
                           <dt className="text-neutral-500">Eier</dt>
                           <dd className="text-neutral-800">
