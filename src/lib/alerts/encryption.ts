@@ -1,38 +1,22 @@
 // Envelope encryption for the alerts module (v1.1 §1).
 //
-// Implements XChaCha20-Poly1305-IETF via libsodium-wrappers. Storage format
-// per spec: version(1 byte) || nonce(24 bytes) || ciphertext(>=16 bytes).
+// Implements XChaCha20-Poly1305-IETF via @noble/ciphers (pure JS, no WASM).
+// Storage format per spec: version(1 byte) || nonce(24 bytes) || ciphertext.
 // Key hierarchy: External KMS / Supabase Vault → Per-org KEK → Per-org DEK
 // (wrapped, stored in alert_org_key) → Per-record encryption with fresh nonce.
 //
-// The DEK is fetched once per session via `alerts_current_org_key()` RPC,
-// unwrapped (by calling alerts-org-key-bootstrap which has KEK access) and
-// cached in memory only. Never persisted to localStorage.
-//
-// Libsodium ships as a WASM bundle (~250 kB). We dynamic-import to keep the
-// public marketing bundle small — the encryption module is only loaded on
-// `/alerts/*` routes.
+// The DEK is fetched once per session via `alerts-org-key-bootstrap` (which
+// has KEK access on the server side) and cached in memory only. Never
+// persisted to localStorage.
 
 import type { SupabaseClient } from '@supabase/supabase-js'
+import { xchacha20poly1305 } from '@noble/ciphers/chacha'
+import { hmac } from '@noble/hashes/hmac'
+import { sha256 } from '@noble/hashes/sha2'
 
 const VERSION_BYTE = 0x01
 const NONCE_LEN = 24
 const VERSION_LEN = 1
-
-type Sodium = typeof import('libsodium-wrappers')
-
-let sodiumReady: Promise<Sodium> | null = null
-
-async function loadSodium(): Promise<Sodium> {
-  if (!sodiumReady) {
-    sodiumReady = import('libsodium-wrappers').then(async (mod) => {
-      const s = (mod as unknown as { default?: Sodium }).default ?? (mod as Sodium)
-      await s.ready
-      return s
-    })
-  }
-  return sodiumReady
-}
 
 type CachedKey = {
   orgId: string
@@ -44,6 +28,24 @@ type CachedKey = {
 let cachedKey: CachedKey | null = null
 
 const CACHE_TTL_MS = 10 * 60 * 1000 // 10 minutes
+
+function randomBytes(n: number): Uint8Array {
+  const out = new Uint8Array(n)
+  if (typeof globalThis !== 'undefined' && globalThis.crypto?.getRandomValues) {
+    globalThis.crypto.getRandomValues(out)
+    return out
+  }
+  // Fallback — shouldn't happen in browsers; keeps SSR happy.
+  for (let i = 0; i < n; i++) out[i] = Math.floor(Math.random() * 256)
+  return out
+}
+
+function fromBase64(b64: string): Uint8Array {
+  const raw = atob(b64)
+  const out = new Uint8Array(raw.length)
+  for (let i = 0; i < raw.length; i++) out[i] = raw.charCodeAt(i)
+  return out
+}
 
 /**
  * Fetches and caches the per-org DEK for the calling user's organisation.
@@ -66,8 +68,7 @@ export async function getOrgKey(
   if (error || !data || typeof data !== 'object') return null
   const payload = data as { dek?: string; version?: number }
   if (!payload.dek || typeof payload.version !== 'number') return null
-  const sodium = await loadSodium()
-  const dek = sodium.from_base64(payload.dek, sodium.base64_variants.ORIGINAL)
+  const dek = fromBase64(payload.dek)
   cachedKey = {
     orgId,
     dek,
@@ -96,16 +97,10 @@ export async function encryptField(
 ): Promise<{ ciphertext: Uint8Array; version: number } | null> {
   const keyMaterial = await getOrgKey(supabase, orgId)
   if (!keyMaterial) return null
-  const sodium = await loadSodium()
-  const nonce = sodium.randombytes_buf(NONCE_LEN)
-  const message = sodium.from_string(plaintext)
-  const ciphertext = sodium.crypto_aead_xchacha20poly1305_ietf_encrypt(
-    message,
-    null,
-    null,
-    nonce,
-    keyMaterial.dek,
-  )
+  const nonce = randomBytes(NONCE_LEN)
+  const cipher = xchacha20poly1305(keyMaterial.dek, nonce)
+  const message = new TextEncoder().encode(plaintext)
+  const ciphertext = cipher.encrypt(message)
   const out = new Uint8Array(VERSION_LEN + NONCE_LEN + ciphertext.length)
   out[0] = VERSION_BYTE
   out.set(nonce, VERSION_LEN)
@@ -126,18 +121,12 @@ export async function decryptField(
   if (blob[0] !== VERSION_BYTE) return null
   const keyMaterial = await getOrgKey(supabase, orgId)
   if (!keyMaterial) return null
-  const sodium = await loadSodium()
   const nonce = blob.slice(VERSION_LEN, VERSION_LEN + NONCE_LEN)
   const ciphertext = blob.slice(VERSION_LEN + NONCE_LEN)
   try {
-    const plaintext = sodium.crypto_aead_xchacha20poly1305_ietf_decrypt(
-      null,
-      ciphertext,
-      null,
-      nonce,
-      keyMaterial.dek,
-    )
-    return sodium.to_string(plaintext)
+    const cipher = xchacha20poly1305(keyMaterial.dek, nonce)
+    const plaintext = cipher.decrypt(ciphertext)
+    return new TextDecoder().decode(plaintext)
   } catch {
     return null
   }
@@ -155,9 +144,8 @@ export async function hmacEmail(
 ): Promise<Uint8Array | null> {
   const keyMaterial = await getOrgKey(supabase, orgId)
   if (!keyMaterial) return null
-  const sodium = await loadSodium()
   const normalised = email.trim().toLowerCase()
-  return sodium.crypto_auth(sodium.from_string(normalised), keyMaterial.dek.slice(0, 32))
+  return hmac(sha256, keyMaterial.dek, new TextEncoder().encode(normalised))
 }
 
 /**
