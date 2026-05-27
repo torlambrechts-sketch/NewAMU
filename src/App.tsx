@@ -55,6 +55,12 @@ import { AlertsAllePage } from '../modules/alerts/pages/AlertsAllePage'
 import { AlertsDetailView } from '../modules/alerts/pages/AlertsDetailView'
 import { PublicAlertSubmitPage } from '../modules/alerts/pages/PublicAlertSubmitPage'
 import { PublicAlertStatusPage } from '../modules/alerts/pages/PublicAlertStatusPage'
+import PublicAlertResumePage from '../modules/alerts/pages/PublicAlertResumePage'
+import PublicAlertPosterPage from '../modules/alerts/pages/PublicAlertPosterPage'
+import AlertsBulkOpsPage from '../modules/alerts/pages/AlertsBulkOpsPage'
+import AlertsDsarConsolePage from '../modules/alerts/pages/AlertsDsarConsolePage'
+import AlertsLegalHoldPage from '../modules/alerts/pages/AlertsLegalHoldPage'
+import AlertsBreakGlassPage from '../modules/alerts/pages/AlertsBreakGlassPage'
 
 // Legacy /varsle/:slug and /anonym-aml/:slug redirect to /alerts/public/:slug.
 // Kept permanently (printed materials in worker break rooms point here).
@@ -323,6 +329,8 @@ const router = createBrowserRouter(
             <Route path="/invite/:token" element={<InviteAcceptPage />} />
             {/* Varslinger — anonymous submission + status check */}
             <Route path="/alerts/public/status" element={<PublicAlertStatusPage />} />
+            <Route path="/alerts/public/resume" element={<PublicAlertResumePage />} />
+            <Route path="/alerts/public/poster/:slug" element={<PublicAlertPosterPage />} />
             <Route path="/alerts/public/:slug" element={<PublicAlertSubmitPage />} />
             {/* Meetings — external invitee token-gated viewer (§8.33) */}
             <Route path="/meetings/external/:token" element={<MeetingExternalViewerPage />} />
@@ -551,6 +559,10 @@ const router = createBrowserRouter(
                         }
                       />
                       <Route path="alerts/alle" element={<AlertsAllePage />} />
+                      <Route path="alerts/bulk" element={<AlertsBulkOpsPage />} />
+                      <Route path="alerts/dsar" element={<AlertsDsarConsolePage />} />
+                      <Route path="alerts/admin/legal-hold" element={<AlertsLegalHoldPage />} />
+                      <Route path="alerts/admin/break-glass" element={<AlertsBreakGlassPage />} />
                       <Route
                         path="alerts/:caseId"
                         element={

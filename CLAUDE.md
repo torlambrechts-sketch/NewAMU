@@ -229,3 +229,15 @@ the cleanup recipe).
   token is only returned at insert-time + via the
   `meetings_external_redeem_token` RPC. Direct column SELECT on
   `secure_token` was revoked from `authenticated` in `_120800`.
+- The alerts module is at **v1.1** as of migrations
+  `20261020120000 → 20261024120000`. Reads of `alert_cases.title` /
+  `description` / `reporter_contact` should prefer the encrypted variants
+  when present — use `coalesce(decryptField(title_encrypted), title)` via
+  `src/lib/alerts/encryption.ts` (libsodium-wrappers, lazy-loaded WASM).
+  State-machine transitions go through `alerts_execute_transition` RPC,
+  **never** direct UPDATEs to `status` — the RPC enforces role +
+  preconditions + side-effects and writes the hash-chained timeline event.
+  Notifications use the content-free `alerts_dispatch_notification` RPC;
+  case bodies must never end up in `gov_notifications_outbox.payload`.
+  Seven new role permission keys (`alerts.verneombud` through
+  `alerts.board_escalation`) are now in `ALERTS_NAV_PERMS`.

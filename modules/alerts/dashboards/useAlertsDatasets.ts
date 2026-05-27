@@ -199,6 +199,52 @@ export function useAlertsDatasets(args: UseAlertsDatasetsArgs): Record<string, u
           { label: '> 365 dager', value: closed.filter((r) => new Date(r.retention_until!).getTime() - nowT >= 365 * day).length },
         ]
       })(),
+      // ── v1.1 additions ────────────────────────────────────────────────
+      alerts_sla_states: (() => {
+        const buckets: Record<string, number> = { running: 0, paused: 0, stopped: 0, breached: 0 }
+        const nowT = Date.now()
+        for (const r of rows) {
+          const closed = r.status === 'closed' || r.status === 'dismissed' || r.status === 'rejected' || r.status === 'withdrawn'
+          const paused = r.status === 'on_hold' || r.status === 'awaiting_reporter_response'
+          if (closed) buckets.stopped++
+          else if (paused) buckets.paused++
+          else {
+            const due = r.acknowledgement_due_at ? new Date(r.acknowledgement_due_at).getTime() : null
+            if (due && due < nowT && !r.acknowledged_at) buckets.breached++
+            else buckets.running++
+          }
+        }
+        return Object.entries(buckets).map(([k, v]) => ({ label: k, value: v }))
+      })(),
+      alerts_anonymity_share: distrib(
+        rows,
+        (c) => c.anonymity_mode,
+        (k) => k,
+      ),
+      alerts_retention_horizon: (() => {
+        const nowT = Date.now()
+        const day = 86400000
+        const open = rows.filter((r) => !r.closed_at)
+        const expired = rows.filter((r) => r.retention_until && new Date(r.retention_until).getTime() < nowT && !r.redacted_at)
+        const lt30 = rows.filter((r) => r.retention_until && (new Date(r.retention_until).getTime() - nowT) > 0 && (new Date(r.retention_until).getTime() - nowT) < 30 * day)
+        const lt90 = rows.filter((r) => r.retention_until && (new Date(r.retention_until).getTime() - nowT) >= 30 * day && (new Date(r.retention_until).getTime() - nowT) < 90 * day)
+        const lt1y = rows.filter((r) => r.retention_until && (new Date(r.retention_until).getTime() - nowT) >= 90 * day && (new Date(r.retention_until).getTime() - nowT) < 365 * day)
+        const gt1y = rows.filter((r) => r.retention_until && (new Date(r.retention_until).getTime() - nowT) >= 365 * day)
+        return [
+          { label: 'Åpne (uten frist)', value: open.length },
+          { label: 'Utløpt', value: expired.length },
+          { label: '< 30d', value: lt30.length },
+          { label: '< 90d', value: lt90.length },
+          { label: '< 1y', value: lt1y.length },
+          { label: '> 1y', value: gt1y.length },
+        ]
+      })(),
+      // The DSAR + break-glass datasets read auxiliary state that isn't
+      // available in the rows array; the analyse page is responsible for
+      // hydrating these via supplementary fetches. Default to empty to
+      // keep widget rendering safe.
+      alerts_dsar_burn: [],
+      alerts_break_glass_activity: [],
     }
   }, [args.filters, args.cases, args.templates, args.categories])
 }

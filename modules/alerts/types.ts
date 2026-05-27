@@ -27,8 +27,27 @@ export const ALERT_STATUS_VALUES = [
   'internal_review',
   'closed',
   'dismissed',
+  // v1.1 additions
+  'assigned',
+  'under_investigation',
+  'awaiting_reporter_response',
+  'on_hold',
+  'decision',
+  'rejected',
+  'escalated',
+  'reopened',
+  'withdrawn',
 ] as const
 export type AlertStatus = (typeof ALERT_STATUS_VALUES)[number]
+
+// v1.1 — anonymity mode (replaces is_anonymous boolean as the modelling primitive).
+export const ALERT_ANONYMITY_MODE_VALUES = [
+  'fully_anonymous',
+  'pseudonymous',
+  'confidential',
+  'open',
+] as const
+export type AlertAnonymityMode = (typeof ALERT_ANONYMITY_MODE_VALUES)[number]
 
 export const ALERT_CONFIDENTIALITY_VALUES = ['standard', 'restricted', 'confidential'] as const
 export type AlertConfidentialityLevel = (typeof ALERT_CONFIDENTIALITY_VALUES)[number]
@@ -259,9 +278,28 @@ export type AlertCaseRow = {
   category_id: string | null
   occurred_at_text: string | null
   is_anonymous: boolean
+  /** v1.1 — anonymity mode (canonical). Derived from is_anonymous for legacy rows. */
+  anonymity_mode: AlertAnonymityMode
   reporter_contact: string | null
   reporter_user_id: string | null
   reporter_display_name: string | null
+  /** v1.1 — encrypted reporter identity blob (postgrest returns as \\x-hex). */
+  reporter_identifier_encrypted: string | null
+  reporter_identifier_key_version: number | null
+  /** v1.1 — HMAC of reporter email for lookup without storing the email. */
+  reporter_email_for_notification_hashed: string | null
+  /** v1.1 — encrypted free-text fields (postgrest \\x-hex). */
+  title_encrypted: string | null
+  title_key_version: number | null
+  description_encrypted: string | null
+  description_key_version: number | null
+  /** v1.1 — case linking. */
+  parent_case_id: string | null
+  /** v1.1 — snooze. */
+  snoozed_until: string | null
+  snooze_reason: string | null
+  /** v1.1 — intake form version snapshot. */
+  intake_form_version_id: string | null
   location_id: string | null
   department_id: string | null
   team_id: string | null
@@ -548,9 +586,21 @@ const CaseSchema = z.object({
   category_id: lenientString,
   occurred_at_text: lenientString,
   is_anonymous: z.boolean().catch(true),
+  anonymity_mode: z.enum(ALERT_ANONYMITY_MODE_VALUES).catch('fully_anonymous'),
   reporter_contact: lenientString,
   reporter_user_id: lenientString,
   reporter_display_name: lenientString,
+  reporter_identifier_encrypted: lenientString,
+  reporter_identifier_key_version: z.number().nullable().catch(null),
+  reporter_email_for_notification_hashed: lenientString,
+  title_encrypted: lenientString,
+  title_key_version: z.number().nullable().catch(null),
+  description_encrypted: lenientString,
+  description_key_version: z.number().nullable().catch(null),
+  parent_case_id: lenientString,
+  snoozed_until: lenientString,
+  snooze_reason: lenientString,
+  intake_form_version_id: lenientString,
   location_id: lenientString,
   department_id: lenientString,
   team_id: lenientString,
@@ -640,6 +690,415 @@ const TimelineEventSchema = z.object({
 export function parseTimelineEventRow(raw: unknown): AlertCaseTimelineEventRow | null {
   const r = TimelineEventSchema.safeParse(raw)
   return r.success ? (r.data as AlertCaseTimelineEventRow) : null
+}
+
+// ── v1.1 — Row types for the new entities ─────────────────────────────────
+
+export type AlertOrgKeyRow = {
+  organization_id: string
+  kek_provider: 'supabase_vault' | 'aws_kms' | 'azure_keyvault' | 'gcp_kms' | 'customer_managed'
+  kms_key_id: string
+  wrapped_dek: string                              // \x-hex
+  dek_version: number
+  rotated_at: string | null
+  created_at: string
+  updated_at: string
+  notes: string | null
+}
+
+export type AlertAccusedRow = {
+  id: string
+  case_id: string
+  organization_id: string
+  display_name_encrypted: string                   // \x-hex
+  display_name_key_version: number
+  role_or_title: string | null
+  reporter_relationship: string | null
+  notified_at: string | null
+  notification_method: string | null
+  right_of_reply_encrypted: string | null
+  right_of_reply_key_version: number | null
+  right_of_reply_received_at: string | null
+  redacted_at: string | null
+  created_by: string | null
+  created_at: string
+  updated_at: string
+}
+
+export type AlertWitnessRow = {
+  id: string
+  case_id: string
+  organization_id: string
+  display_name_encrypted: string | null
+  display_name_key_version: number | null
+  role_or_title: string | null
+  relationship_to_case: string | null
+  interview_at: string | null
+  interview_step_id: string | null
+  consented: boolean
+  consent_recorded_at: string | null
+  redacted_at: string | null
+  created_by: string | null
+  created_at: string
+  updated_at: string
+}
+
+export type AlertCoiOutcome = 'cleared' | 'blocked' | 'requires_review'
+
+export type AlertCoiDeclarationRow = {
+  id: string
+  case_id: string
+  organization_id: string
+  handler_user_id: string
+  questions: Record<string, unknown>
+  answers: Record<string, unknown>
+  outcome: AlertCoiOutcome
+  outcome_reason: string | null
+  ip_hash: string | null
+  ua_hash: string | null
+  declared_at: string
+  reviewed_by: string | null
+  reviewed_at: string | null
+  review_outcome: 'cleared' | 'blocked' | null
+}
+
+export type AlertIntakeFormVersionRow = {
+  id: string
+  organization_id: string
+  system_template_id: string | null
+  org_template_id: string | null
+  version: number
+  schema: unknown
+  privacy_notice_nb: string | null
+  privacy_notice_en: string | null
+  active: boolean
+  published_at: string
+  published_by: string | null
+  retired_at: string | null
+  created_at: string
+}
+
+export type AlertLegalHoldReason = 'criminal' | 'litigation' | 'regulatory' | 'internal_review'
+
+export type AlertLegalHoldRow = {
+  id: string
+  case_id: string
+  organization_id: string
+  reason: AlertLegalHoldReason
+  reference: string
+  imposed_by: string
+  imposed_at: string
+  released_by: string | null
+  released_at: string | null
+  notes: string | null
+  created_at: string
+}
+
+export type AlertDsarSubjectType = 'reporter' | 'accused' | 'witness' | 'other'
+
+export type AlertDsarState =
+  | 'received'
+  | 'in_legal_review'
+  | 'redacting'
+  | 'fulfilled'
+  | 'rejected_rights'
+  | 'rejected_excessive'
+
+export type AlertDsarRequestRow = {
+  id: string
+  organization_id: string
+  subject_type: AlertDsarSubjectType
+  subject_identifier_hash: string                  // \x-hex
+  case_ids: string[]
+  state: AlertDsarState
+  legal_review_notes_encrypted: string | null
+  legal_review_notes_key_version: number | null
+  response_due_at: string
+  outcome: string | null
+  outcome_at: string | null
+  received_at: string
+  received_by: string | null
+  updated_at: string
+  created_at: string
+}
+
+export type AlertExportType =
+  | 'full_case_pdf'
+  | 'audit_log'
+  | 'redacted_disclosure'
+  | 'evidence_zip'
+  | 'dsar_response'
+
+export type AlertExportRow = {
+  id: string
+  case_id: string | null
+  organization_id: string
+  exported_by: string
+  export_type: AlertExportType
+  purpose: string
+  recipient: string
+  file_hash: string | null
+  file_size: number | null
+  expires_at: string | null
+  dsar_request_id: string | null
+  metadata: Record<string, unknown>
+  created_at: string
+}
+
+export type AlertBreakGlassState = 'pending' | 'active' | 'expired' | 'denied' | 'revoked'
+
+export type AlertBreakGlassSessionRow = {
+  id: string
+  organization_id: string
+  initiated_by: string
+  justification_encrypted: string
+  justification_key_version: number
+  approved_by: string | null
+  approved_at: string | null
+  state: AlertBreakGlassState
+  initiated_at: string
+  expires_at: string | null
+  revoked_at: string | null
+  revoked_by: string | null
+  revoke_reason: string | null
+  metadata: Record<string, unknown>
+}
+
+export type AlertWorkflowTransitionRow = {
+  id: string
+  organization_id: string | null
+  from_state: AlertStatus
+  to_state: AlertStatus
+  allowed_roles: string[]
+  preconditions: Record<string, unknown>
+  side_effects: Record<string, unknown>
+  sla_action: 'noop' | 'start_feedback' | 'start_interim' | 'pause_feedback' | 'stop_all'
+  is_active: boolean
+  created_at: string
+  updated_at: string
+}
+
+export type AlertExternalInvestigatorGrantRow = {
+  id: string
+  case_id: string
+  organization_id: string
+  investigator_user_id: string
+  granted_by: string
+  granted_at: string
+  expires_at: string
+  revoked_at: string | null
+  revoked_by: string | null
+  scope_notes: string | null
+}
+
+export type AlertAccusedRepresentativeGrantRow = {
+  id: string
+  case_id: string
+  accused_id: string
+  organization_id: string
+  representative_user_id: string
+  granted_by: string
+  granted_at: string
+  expires_at: string
+  revoked_at: string | null
+  revoked_by: string | null
+  notes: string | null
+}
+
+// ── v1.1 zod parsers ──────────────────────────────────────────────────────
+
+const AccusedSchema = z.object({
+  id: z.string(),
+  case_id: z.string(),
+  organization_id: z.string(),
+  display_name_encrypted: z.string(),
+  display_name_key_version: z.number().catch(1),
+  role_or_title: lenientString,
+  reporter_relationship: lenientString,
+  notified_at: lenientString,
+  notification_method: lenientString,
+  right_of_reply_encrypted: lenientString,
+  right_of_reply_key_version: z.number().nullable().catch(null),
+  right_of_reply_received_at: lenientString,
+  redacted_at: lenientString,
+  created_by: lenientString,
+  created_at: z.string(),
+  updated_at: z.string(),
+})
+
+export function parseAccusedRow(raw: unknown): AlertAccusedRow | null {
+  const r = AccusedSchema.safeParse(raw)
+  return r.success ? (r.data as AlertAccusedRow) : null
+}
+
+const WitnessSchema = z.object({
+  id: z.string(),
+  case_id: z.string(),
+  organization_id: z.string(),
+  display_name_encrypted: lenientString,
+  display_name_key_version: z.number().nullable().catch(null),
+  role_or_title: lenientString,
+  relationship_to_case: lenientString,
+  interview_at: lenientString,
+  interview_step_id: lenientString,
+  consented: z.boolean().catch(false),
+  consent_recorded_at: lenientString,
+  redacted_at: lenientString,
+  created_by: lenientString,
+  created_at: z.string(),
+  updated_at: z.string(),
+})
+
+export function parseWitnessRow(raw: unknown): AlertWitnessRow | null {
+  const r = WitnessSchema.safeParse(raw)
+  return r.success ? (r.data as AlertWitnessRow) : null
+}
+
+const CoiSchema = z.object({
+  id: z.string(),
+  case_id: z.string(),
+  organization_id: z.string(),
+  handler_user_id: z.string(),
+  questions: z.record(z.string(), z.unknown()).catch({}),
+  answers: z.record(z.string(), z.unknown()).catch({}),
+  outcome: z.enum(['cleared', 'blocked', 'requires_review']).catch('requires_review'),
+  outcome_reason: lenientString,
+  ip_hash: lenientString,
+  ua_hash: lenientString,
+  declared_at: z.string(),
+  reviewed_by: lenientString,
+  reviewed_at: lenientString,
+  review_outcome: z.enum(['cleared', 'blocked']).nullable().catch(null),
+})
+
+export function parseCoiDeclarationRow(raw: unknown): AlertCoiDeclarationRow | null {
+  const r = CoiSchema.safeParse(raw)
+  return r.success ? (r.data as AlertCoiDeclarationRow) : null
+}
+
+const LegalHoldSchema = z.object({
+  id: z.string(),
+  case_id: z.string(),
+  organization_id: z.string(),
+  reason: z.enum(['criminal', 'litigation', 'regulatory', 'internal_review']),
+  reference: z.string(),
+  imposed_by: z.string(),
+  imposed_at: z.string(),
+  released_by: lenientString,
+  released_at: lenientString,
+  notes: lenientString,
+  created_at: z.string(),
+})
+
+export function parseLegalHoldRow(raw: unknown): AlertLegalHoldRow | null {
+  const r = LegalHoldSchema.safeParse(raw)
+  return r.success ? (r.data as AlertLegalHoldRow) : null
+}
+
+const DsarSchema = z.object({
+  id: z.string(),
+  organization_id: z.string(),
+  subject_type: z.enum(['reporter', 'accused', 'witness', 'other']),
+  subject_identifier_hash: z.string(),
+  case_ids: lenientStringArray,
+  state: z.enum(['received', 'in_legal_review', 'redacting', 'fulfilled', 'rejected_rights', 'rejected_excessive']).catch('received'),
+  legal_review_notes_encrypted: lenientString,
+  legal_review_notes_key_version: z.number().nullable().catch(null),
+  response_due_at: z.string(),
+  outcome: lenientString,
+  outcome_at: lenientString,
+  received_at: z.string(),
+  received_by: lenientString,
+  updated_at: z.string(),
+  created_at: z.string(),
+})
+
+export function parseDsarRequestRow(raw: unknown): AlertDsarRequestRow | null {
+  const r = DsarSchema.safeParse(raw)
+  return r.success ? (r.data as AlertDsarRequestRow) : null
+}
+
+const ExportSchema = z.object({
+  id: z.string(),
+  case_id: lenientString,
+  organization_id: z.string(),
+  exported_by: z.string(),
+  export_type: z.enum(['full_case_pdf', 'audit_log', 'redacted_disclosure', 'evidence_zip', 'dsar_response']),
+  purpose: z.string(),
+  recipient: z.string(),
+  file_hash: lenientString,
+  file_size: z.number().nullable().catch(null),
+  expires_at: lenientString,
+  dsar_request_id: lenientString,
+  metadata: z.record(z.string(), z.unknown()).catch({}),
+  created_at: z.string(),
+})
+
+export function parseExportRow(raw: unknown): AlertExportRow | null {
+  const r = ExportSchema.safeParse(raw)
+  return r.success ? (r.data as AlertExportRow) : null
+}
+
+const BreakGlassSchema = z.object({
+  id: z.string(),
+  organization_id: z.string(),
+  initiated_by: z.string(),
+  justification_encrypted: z.string(),
+  justification_key_version: z.number().catch(1),
+  approved_by: lenientString,
+  approved_at: lenientString,
+  state: z.enum(['pending', 'active', 'expired', 'denied', 'revoked']).catch('pending'),
+  initiated_at: z.string(),
+  expires_at: lenientString,
+  revoked_at: lenientString,
+  revoked_by: lenientString,
+  revoke_reason: lenientString,
+  metadata: z.record(z.string(), z.unknown()).catch({}),
+})
+
+export function parseBreakGlassSessionRow(raw: unknown): AlertBreakGlassSessionRow | null {
+  const r = BreakGlassSchema.safeParse(raw)
+  return r.success ? (r.data as AlertBreakGlassSessionRow) : null
+}
+
+const WorkflowTransitionSchema = z.object({
+  id: z.string(),
+  organization_id: lenientString,
+  from_state: z.enum(ALERT_STATUS_VALUES),
+  to_state: z.enum(ALERT_STATUS_VALUES),
+  allowed_roles: lenientStringArray,
+  preconditions: z.record(z.string(), z.unknown()).catch({}),
+  side_effects: z.record(z.string(), z.unknown()).catch({}),
+  sla_action: z.enum(['noop', 'start_feedback', 'start_interim', 'pause_feedback', 'stop_all']).catch('noop'),
+  is_active: z.boolean().catch(true),
+  created_at: z.string(),
+  updated_at: z.string(),
+})
+
+export function parseWorkflowTransitionRow(raw: unknown): AlertWorkflowTransitionRow | null {
+  const r = WorkflowTransitionSchema.safeParse(raw)
+  return r.success ? (r.data as AlertWorkflowTransitionRow) : null
+}
+
+const IntakeFormVersionSchema = z.object({
+  id: z.string(),
+  organization_id: z.string(),
+  system_template_id: lenientString,
+  org_template_id: lenientString,
+  version: z.number(),
+  schema: z.unknown(),
+  privacy_notice_nb: lenientString,
+  privacy_notice_en: lenientString,
+  active: z.boolean().catch(true),
+  published_at: z.string(),
+  published_by: lenientString,
+  retired_at: lenientString,
+  created_at: z.string(),
+})
+
+export function parseIntakeFormVersionRow(raw: unknown): AlertIntakeFormVersionRow | null {
+  const r = IntakeFormVersionSchema.safeParse(raw)
+  return r.success ? (r.data as AlertIntakeFormVersionRow) : null
 }
 
 /** Resolved template — system or org — with overrides merged. The hub

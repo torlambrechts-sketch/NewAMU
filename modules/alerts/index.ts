@@ -9,3 +9,6 @@ export type {
   AlertsNavCategory,
   UseAlertsNavReturn,
 } from './useAlertsNav'
+
+// v1.1 — state machine + encryption helpers.
+export * from './state/stateMachine'

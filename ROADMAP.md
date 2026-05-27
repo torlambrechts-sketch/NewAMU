@@ -303,6 +303,22 @@ New top-level decoupling layer between regulations and module artefacts. Adds an
 
 ---
 
+## 12 · Varslinger v1.1 — whistleblower module upgrade
+
+Extends the v1.0 alerts module (shipped under §11 / archived migrations) to the v1.1 design handover spec.
+Reference: https://claude.ai/public/artifacts/a40eec9b-aeca-422f-848a-8769a0518691
+
+| # | Status | Phase | Notes |
+|---|---|---|---|
+| 12.1 | ✅ | Phase 1 — Schema + envelope encryption + hash-chained audit | 18 migrations (`20261020120000…20261020121700`). anonymity_mode enum (synced with is_anonymous), 12-state status check, `alert_org_key` + encrypted columns on cases & notes, `alert_accused` / `alert_witness` / `alert_coi_declaration`, `alert_intake_form_version`, `alert_legal_hold`, `alert_dsar_request`, `alert_export`, `alert_break_glass_session`, SHA-256 hash chain on timeline events + verifier + backfill, monthly archive partitions, 7 new roles + redacted view. libsodium-wrappers wired (`src/lib/alerts/encryption.ts`). |
+| 12.2 | ✅ | Phase 2 — Intake UX overhaul | 4 migrations (`20261021120000…20261021120300`). `alert_intake_draft` + save-and-resume RPCs, `alert_voice_intake` + Whisper edge function, `public_submit_alert_v2` with strict allowlist + 50–200 ms jitter, `public_alert_status_v2` with sliding throttle. Components: DangerRedirectBanner, AnonymityModePicker, SelfIdentificationScanner, SaveAndResumeBar, VoiceComposer, QrPoster. PWA manifest + service worker. PublicAlertSubmitPage rewrite. |
+| 12.3 | ✅ | Phase 3 — Handler workflow | 5 migrations (`20261022120000…20261022120400`). `alert_interview` + `alert_decision_memo` + `alert_case_link`, `alerts_execute_transition` RPC (role + precondition + side-effect gate), `alerts_bulk_reassign` / `alerts_bulk_recategorise` RPCs. Components: CoiDeclarationForm, AccusedPanel, WitnessPanel, InterviewRecord, DecisionMemoEditor, SnoozePanel, CaseLinkingPanel, StateTransitionMenu. AlertsBulkOpsPage. |
+| 12.4 | ✅ | Phase 4 — DSAR / legal hold / break-glass / redaction / content-free notify | 4 migrations (`20261023120000…20261023120300`). `alert_notification` + dispatch RPC, DSAR state-machine RPCs, break-glass init/approve/revoke RPCs, `alert_redaction` proposal table. Components: DsarRequestForm, RedactionEditor, WatermarkedExportButton, LegalHoldList, BreakGlassApprovalCard. Pages: AlertsDsarConsolePage, AlertsLegalHoldPage, AlertsBreakGlassPage. Edge functions: alerts-dsar-process, alerts-export-pdf, alerts-notify. |
+| 12.5 | ✅ | Phase 5 — Dashboards + polish + verification | 1 migration (`20261024120000`). Dashboard views: alert_dashboard_sla_state, alert_dashboard_anonymity_share, alert_dashboard_retention_horizon, alert_dashboard_dsar_30d_burn, alert_dashboard_break_glass_activity. Datasets + filter dimensions extended. i18n strings (nb + en). ROADMAP + CLAUDE.md updates. |
+| 12.D | ⏸ | Deferred (post-v1.1, per spec) | AI triage / summarisation, voice anonymisation / pitch-shift, phone hotline (Twilio), customer-managed encryption keys admin UI, locales beyond nb + en, Tor `.onion` mirror, native mobile app (PWA covers the use case). |
+
+---
+
 ## Suggested order of work
 
 If picking up cold, do these in this order — each builds on the previous and exposes any abstraction problems early:

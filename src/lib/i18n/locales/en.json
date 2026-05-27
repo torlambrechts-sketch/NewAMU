@@ -285,5 +285,43 @@
       "skipToContent": "Skip to main content",
       "pageError": "Could not display the page"
     }
+  },
+  "alerts": {
+    "title": "Alerts",
+    "intake": {
+      "danger": "Are you or someone in danger?",
+      "anonymityTitle": "How anonymous would you like to be?",
+      "saveDraft": "Save draft",
+      "resume": "Resume"
+    },
+    "handler": {
+      "coiRequired": "Conflict-of-interest declaration must be completed before you can see case content.",
+      "decisionMemoLocked": "Decision memo is locked after finalisation.",
+      "snoozed": "Case snoozed until {{date}}"
+    },
+    "dpo": {
+      "dsarConsole": "DSAR console",
+      "redact": "Redact",
+      "exportWatermarked": "Export with watermark"
+    },
+    "admin": {
+      "legalHold": "Legal hold",
+      "breakGlass": "Break-the-glass",
+      "encryptionKeys": "Encryption keys"
+    },
+    "state": {
+      "received": "Received",
+      "triage": "Triage",
+      "assigned": "Assigned",
+      "under_investigation": "Under investigation",
+      "awaiting_reporter_response": "Awaiting reporter response",
+      "on_hold": "On hold",
+      "decision": "Decision",
+      "closed": "Closed",
+      "rejected": "Rejected",
+      "escalated": "Escalated",
+      "reopened": "Reopened",
+      "withdrawn": "Withdrawn"
+    }
   }
 }
