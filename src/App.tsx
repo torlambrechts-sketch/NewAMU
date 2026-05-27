@@ -57,6 +57,7 @@ import { PublicAlertSubmitPage } from '../modules/alerts/pages/PublicAlertSubmit
 import { PublicAlertStatusPage } from '../modules/alerts/pages/PublicAlertStatusPage'
 import PublicAlertResumePage from '../modules/alerts/pages/PublicAlertResumePage'
 import PublicAlertPosterPage from '../modules/alerts/pages/PublicAlertPosterPage'
+import AlertsBulkOpsPage from '../modules/alerts/pages/AlertsBulkOpsPage'
 
 // Legacy /varsle/:slug and /anonym-aml/:slug redirect to /alerts/public/:slug.
 // Kept permanently (printed materials in worker break rooms point here).
@@ -536,6 +537,7 @@ const router = createBrowserRouter(
                         }
                       />
                       <Route path="alerts/alle" element={<AlertsAllePage />} />
+                      <Route path="alerts/bulk" element={<AlertsBulkOpsPage />} />
                       <Route
                         path="alerts/:caseId"
                         element={
