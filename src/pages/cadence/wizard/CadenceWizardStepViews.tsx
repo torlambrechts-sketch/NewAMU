@@ -23,16 +23,21 @@ import {
 } from '../../../hooks/useAssignableUsers'
 import type { UseCadenceWizardStateReturn } from '../useCadenceWizardState'
 import {
-  AML_CHAPTERS,
   APPROVAL_CHAINS,
+  CHAPTERS_BY_REGELVERK,
   ESCALATION_LADDERS,
   MODULES,
   REGELVERK,
+  REGELVERK_BY_ID,
   ROLES,
+  chapterKey,
   chapterSelectionState,
+  chaptersForRegelverk,
   relevantModules,
+  type CadenceChapter,
   type CadenceModule,
   type CadenceModuleTier,
+  type CadenceRegelverkId,
 } from './cadenceWizardData'
 
 // ─── Common bits ────────────────────────────────────────────────────────────
@@ -218,36 +223,79 @@ export function Step2Paragrafer({
 
   const selectedSet = useMemo(() => new Set(state.paragraphs), [state.paragraphs])
 
-  const totalParagraphs = AML_CHAPTERS.reduce((s, ch) => s + ch.paragraphs.length, 0)
-  const totalChaptersSelected = AML_CHAPTERS.filter((ch) =>
+  // Kapitler kommer KUN fra de regelverk brukeren har valgt i steg 1.
+  // Når et regelverk avvelges fjernes både kapitlene og tilhørende
+  // paragraf-selections (håndtert i useCadenceWizardState.toggleRegelverk).
+  const allChapters = useMemo(
+    () => chaptersForRegelverk(state.regelverk),
+    [state.regelverk],
+  )
+  const totalParagraphs = allChapters.reduce((s, ch) => s + ch.paragraphs.length, 0)
+  const totalChaptersSelected = allChapters.filter((ch) =>
     ch.paragraphs.some((p) => selectedSet.has(p.code)),
   ).length
 
   const searchLower = search.trim().toLowerCase()
-  const filteredChapters = useMemo(() => {
-    if (!searchLower) return AML_CHAPTERS
-    return AML_CHAPTERS.map((ch) => ({
-      ...ch,
-      paragraphs: ch.paragraphs.filter(
-        (p) =>
-          p.code.toLowerCase().includes(searchLower) ||
-          p.title.toLowerCase().includes(searchLower) ||
-          (p.note ?? '').toLowerCase().includes(searchLower),
-      ),
-    })).filter((ch) => ch.paragraphs.length > 0)
-  }, [searchLower])
+  const filteredChapters = useMemo<CadenceChapter[]>(() => {
+    if (!searchLower) return allChapters
+    return allChapters
+      .map((ch) => ({
+        ...ch,
+        paragraphs: ch.paragraphs.filter(
+          (p) =>
+            p.code.toLowerCase().includes(searchLower) ||
+            p.title.toLowerCase().includes(searchLower) ||
+            (p.note ?? '').toLowerCase().includes(searchLower),
+        ),
+      }))
+      .filter((ch) => ch.paragraphs.length > 0)
+  }, [searchLower, allChapters])
 
   // Auto-expand any chapter when search yields results. Computed on
   // render (not as side effect) so we don't trigger a cascading re-render.
   const effectiveExpanded = useMemo(() => {
     if (!searchLower) return expanded
-    return new Set(filteredChapters.map((c) => c.num))
+    return new Set(filteredChapters.map((c) => chapterKey(c)))
   }, [searchLower, filteredChapters, expanded])
+
+  // Gruppér kapitlene per regelverk for header-display, slik at brukeren
+  // tydelig ser «her kommer AML-paragrafene, her kommer Psyk-paragrafene».
+  const chaptersByRegelverk = useMemo(() => {
+    const groups = new Map<CadenceRegelverkId, CadenceChapter[]>()
+    for (const ch of filteredChapters) {
+      const arr = groups.get(ch.regelverk) ?? []
+      arr.push(ch)
+      groups.set(ch.regelverk, arr)
+    }
+    return Array.from(groups.entries())
+  }, [filteredChapters])
+
+  // Tilpass beskrivelsen til faktisk valgte regelverk slik at vi ikke
+  // lyver om «Arbeidsmiljølovens innholdsfortegnelse» når brukeren har
+  // valgt Psyk.
+  const description = useMemo(() => {
+    if (state.regelverk.length === 0) return 'Velg minst ett regelverk i Steg 1 for å se paragrafer her.'
+    const names = state.regelverk
+      .map((id) => REGELVERK_BY_ID[id]?.name ?? id)
+      .join(', ')
+    return `Bygd direkte fra ${names}. Trykk på en kapittel-overskrift for å se enkeltparagrafer. Klarert merker dem som er obligatoriske for din virksomhet.`
+  }, [state.regelverk])
+
+  if (allChapters.length === 0) {
+    return (
+      <StepCard title="Velg kapitler og paragrafer som skal med" description={description}>
+        <Alert variant="warn">
+          Ingen regelverk er valgt ennå. Gå tilbake til <strong>Steg 1 · Regelverk</strong> og
+          velg minst ett regelverk for å se tilgjengelige kapitler og paragrafer.
+        </Alert>
+      </StepCard>
+    )
+  }
 
   return (
     <StepCard
       title="Velg kapitler og paragrafer som skal med"
-      description="Bygd direkte fra Arbeidsmiljølovens innholdsfortegnelse. Trykk på en kapittel-overskrift for å se enkeltparagrafer. Klarert merker dem som er obligatoriske for din virksomhet."
+      description={description}
       rightSlot={
         <div className="flex flex-wrap gap-2 text-[11.5px] tabular-nums text-neutral-500">
           <span className="rounded-md bg-neutral-50 px-2.5 py-1.5">
@@ -256,7 +304,7 @@ export function Step2Paragrafer({
           </span>
           <span className="rounded-md bg-neutral-50 px-2.5 py-1.5">
             <strong className="text-[13px] font-semibold text-neutral-900">{totalChaptersSelected}</strong>
-            /<strong className="font-semibold">{AML_CHAPTERS.length}</strong> kapitler
+            /<strong className="font-semibold">{allChapters.length}</strong> kapitler
           </span>
         </div>
       }
@@ -269,6 +317,7 @@ export function Step2Paragrafer({
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Søk i paragrafer eller titler …"
+            aria-label="Søk i paragrafer"
             className="w-full !py-2 pl-9 text-sm"
           />
         </div>
@@ -280,121 +329,143 @@ export function Step2Paragrafer({
         </Button>
       </div>
 
-      <div className="flex flex-col gap-2">
-        {filteredChapters.map((ch) => {
-          const { selected, total, required } = chapterSelectionState(ch, selectedSet)
-          const isExpanded = effectiveExpanded.has(ch.num)
-          const allSelected = selected === total
-          const partial = selected > 0 && !allSelected
+      <div className="flex flex-col gap-4">
+        {chaptersByRegelverk.map(([regelverkId, chapters]) => {
+          const rvDef = REGELVERK_BY_ID[regelverkId]
+          // Vis bare en regelverk-overskrift når brukeren har valgt mer
+          // enn ett regelverk. Med kun ett gir overskriften visuell støy.
+          const showHeader = state.regelverk.length > 1
+          const rvKapitler = (CHAPTERS_BY_REGELVERK[regelverkId] ?? []).length
           return (
-            <div key={ch.num} className="overflow-hidden rounded-lg bg-neutral-50">
-              <div
-                className={[
-                  'grid grid-cols-[auto_1fr_auto_auto] items-center gap-3 px-4 py-3 transition-colors',
-                  isExpanded ? 'border-b border-neutral-200 bg-neutral-100' : 'hover:bg-neutral-100',
-                ].join(' ')}
-              >
-                <Button
-                  variant="ghost"
-                  type="button"
-                  onClick={() => {
-                    setExpanded((prev) => {
-                      const next = new Set(prev)
-                      if (next.has(ch.num)) next.delete(ch.num)
-                      else next.add(ch.num)
-                      return next
-                    })
-                  }}
-                  className="h-auto p-1 text-left"
-                  aria-expanded={isExpanded}
-                  aria-label={`${isExpanded ? 'Skjul' : 'Vis'} paragrafer i ${ch.num}`}
-                >
-                  {isExpanded ? (
-                    <ChevronDown className="h-4 w-4 text-neutral-500" aria-hidden />
-                  ) : (
-                    <ChevronRight className="h-4 w-4 text-neutral-500" aria-hidden />
-                  )}
-                </Button>
-                <Button
-                  variant="ghost"
-                  type="button"
-                  onClick={() => {
-                    setExpanded((prev) => {
-                      const next = new Set(prev)
-                      if (next.has(ch.num)) next.delete(ch.num)
-                      else next.add(ch.num)
-                      return next
-                    })
-                  }}
-                  className="block h-auto min-w-0 px-1 py-1 text-left font-normal normal-case hover:bg-transparent"
-                >
-                  <span className="block font-mono text-[11px] font-semibold uppercase tracking-wider text-neutral-500">
-                    {ch.num}
+            <div key={regelverkId} className="flex flex-col gap-2">
+              {showHeader && rvDef ? (
+                <div className="flex items-center justify-between border-b border-neutral-200 pb-1.5">
+                  <h3 className="font-serif text-[14px] font-semibold text-neutral-900">
+                    {rvDef.name}
+                  </h3>
+                  <span className="font-mono text-[10.5px] uppercase tracking-wider text-neutral-500">
+                    {rvDef.shortCode} · {chapters.length}/{rvKapitler} kap.
                   </span>
-                  <span className="mt-0.5 block text-[14px] font-semibold text-neutral-900">{ch.title}</span>
-                </Button>
-                <div className="min-w-[90px] text-right text-[11.5px] tabular-nums text-neutral-500">
-                  <div>
-                    <strong className="font-semibold text-neutral-900">{selected}</strong>/{total} valgt
-                  </div>
-                  {required > 0 ? (
-                    <div className="mt-0.5 text-[10px] text-red-700">{required} lovpålagt</div>
-                  ) : (
-                    <div className="mt-0.5 text-[10px] text-neutral-400">Valgfritt</div>
-                  )}
                 </div>
-                <Button
-                  variant="ghost"
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    toggleAllInChapter(ch.num)
-                  }}
-                  className="h-auto p-1"
-                  aria-label={`Veksle alle paragrafer i ${ch.num}`}
-                >
-                  <CheckIcon checked={allSelected} partial={partial} />
-                </Button>
-              </div>
-              {isExpanded && (
-                <div className="p-2">
-                  {ch.paragraphs.map((p) => {
-                    const isSelected = selectedSet.has(p.code)
-                    return (
+              ) : null}
+              {chapters.map((ch) => {
+                const key = chapterKey(ch)
+                const { selected, total, required } = chapterSelectionState(ch, selectedSet)
+                const isExpanded = effectiveExpanded.has(key)
+                const allSelected = selected === total
+                const partial = selected > 0 && !allSelected
+                return (
+                  <div key={key} className="overflow-hidden rounded-lg bg-neutral-50">
+                    <div
+                      className={[
+                        'grid grid-cols-[auto_1fr_auto_auto] items-center gap-3 px-4 py-3 transition-colors',
+                        isExpanded ? 'border-b border-neutral-200 bg-neutral-100' : 'hover:bg-neutral-100',
+                      ].join(' ')}
+                    >
                       <Button
-                        key={p.code}
                         variant="ghost"
                         type="button"
-                        onClick={() => toggleParagraph(p.code)}
-                        className="grid h-auto w-full grid-cols-[auto_auto_1fr_auto] items-center gap-3 rounded p-2.5 text-left font-normal normal-case transition-colors hover:bg-neutral-100"
+                        onClick={() => {
+                          setExpanded((prev) => {
+                            const next = new Set(prev)
+                            if (next.has(key)) next.delete(key)
+                            else next.add(key)
+                            return next
+                          })
+                        }}
+                        className="h-auto p-1 text-left"
+                        aria-expanded={isExpanded}
+                        aria-label={`${isExpanded ? 'Skjul' : 'Vis'} paragrafer i ${ch.num}`}
                       >
-                        <CheckIcon checked={isSelected} />
-                        <span className="rounded bg-[#e7efe9] px-2 py-0.5 text-center font-mono text-[11.5px] font-semibold text-[#1a3d32]">
-                          {p.code}
-                        </span>
-                        <span className="min-w-0 text-[13px] text-neutral-800">
-                          {p.title}
-                          {p.note ? (
-                            <span className="mt-0.5 block text-[11.5px] text-neutral-500">{p.note}</span>
-                          ) : null}
-                        </span>
-                        <span className="flex flex-shrink-0 items-center gap-1.5">
-                          {p.required ? (
-                            <StatusBadge tone="danger">Lovpålagt</StatusBadge>
-                          ) : (
-                            <StatusBadge tone="neutral">Valgfri</StatusBadge>
-                          )}
-                          {p.threshold ? (
-                            <span className="rounded bg-neutral-100 px-1.5 py-0.5 font-mono text-[10px] text-neutral-700">
-                              {p.threshold}
-                            </span>
-                          ) : null}
-                        </span>
+                        {isExpanded ? (
+                          <ChevronDown className="h-4 w-4 text-neutral-500" aria-hidden />
+                        ) : (
+                          <ChevronRight className="h-4 w-4 text-neutral-500" aria-hidden />
+                        )}
                       </Button>
-                    )
-                  })}
-                </div>
-              )}
+                      <Button
+                        variant="ghost"
+                        type="button"
+                        onClick={() => {
+                          setExpanded((prev) => {
+                            const next = new Set(prev)
+                            if (next.has(key)) next.delete(key)
+                            else next.add(key)
+                            return next
+                          })
+                        }}
+                        className="block h-auto min-w-0 px-1 py-1 text-left font-normal normal-case hover:bg-transparent"
+                      >
+                        <span className="block font-mono text-[11px] font-semibold uppercase tracking-wider text-neutral-500">
+                          {ch.num}
+                        </span>
+                        <span className="mt-0.5 block text-[14px] font-semibold text-neutral-900">{ch.title}</span>
+                      </Button>
+                      <div className="min-w-[90px] text-right text-[11.5px] tabular-nums text-neutral-500">
+                        <div>
+                          <strong className="font-semibold text-neutral-900">{selected}</strong>/{total} valgt
+                        </div>
+                        {required > 0 ? (
+                          <div className="mt-0.5 text-[10px] text-red-700">{required} lovpålagt</div>
+                        ) : (
+                          <div className="mt-0.5 text-[10px] text-neutral-400">Valgfritt</div>
+                        )}
+                      </div>
+                      <Button
+                        variant="ghost"
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          toggleAllInChapter(key)
+                        }}
+                        className="h-auto p-1"
+                        aria-label={`Veksle alle paragrafer i ${ch.num}`}
+                      >
+                        <CheckIcon checked={allSelected} partial={partial} />
+                      </Button>
+                    </div>
+                    {isExpanded && (
+                      <div className="p-2">
+                        {ch.paragraphs.map((p) => {
+                          const isSelected = selectedSet.has(p.code)
+                          return (
+                            <Button
+                              key={p.code}
+                              variant="ghost"
+                              type="button"
+                              onClick={() => toggleParagraph(p.code)}
+                              className="grid h-auto w-full grid-cols-[auto_auto_1fr_auto] items-center gap-3 rounded p-2.5 text-left font-normal normal-case transition-colors hover:bg-neutral-100"
+                            >
+                              <CheckIcon checked={isSelected} />
+                              <span className="rounded bg-[#e7efe9] px-2 py-0.5 text-center font-mono text-[11.5px] font-semibold text-[#1a3d32]">
+                                {p.code}
+                              </span>
+                              <span className="min-w-0 text-[13px] text-neutral-800">
+                                {p.title}
+                                {p.note ? (
+                                  <span className="mt-0.5 block text-[11.5px] text-neutral-500">{p.note}</span>
+                                ) : null}
+                              </span>
+                              <span className="flex flex-shrink-0 items-center gap-1.5">
+                                {p.required ? (
+                                  <StatusBadge tone="danger">Lovpålagt</StatusBadge>
+                                ) : (
+                                  <StatusBadge tone="neutral">Valgfri</StatusBadge>
+                                )}
+                                {p.threshold ? (
+                                  <span className="rounded bg-neutral-100 px-1.5 py-0.5 font-mono text-[10px] text-neutral-700">
+                                    {p.threshold}
+                                  </span>
+                                ) : null}
+                              </span>
+                            </Button>
+                          )
+                        })}
+                      </div>
+                    )}
+                  </div>
+                )
+              })}
             </div>
           )
         })}

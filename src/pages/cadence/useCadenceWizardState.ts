@@ -17,7 +17,8 @@ import { useOrgSetupContext } from '../../hooks/useOrgSetupContext'
 import { useWizardRun } from '../../hooks/useWizardRun'
 import {
   APPROVAL_CHAINS,
-  AML_CHAPTERS,
+  chapterKey,
+  chaptersForRegelverk,
   ESCALATION_LADDERS,
   MODULES,
   REGELVERK_BY_ID,
@@ -298,12 +299,22 @@ export function useCadenceWizardState(): UseCadenceWizardStateReturn {
   const toggleRegelverk = useCallback((id: CadenceRegelverkId) => {
     const def = REGELVERK_BY_ID[id]
     if (def?.disabled) return
-    setState((s) => ({
-      ...s,
-      regelverk: s.regelverk.includes(id)
+    setState((s) => {
+      const nextRegelverk = s.regelverk.includes(id)
         ? s.regelverk.filter((r) => r !== id)
-        : [...s.regelverk, id],
-    }))
+        : [...s.regelverk, id]
+      // Når et regelverk avvelges skal også paragrafer fra det
+      // regelverket renskes ut av state.paragraphs — ellers ville
+      // forhåndsvisning og iverksettelse bære med seg «skjulte»
+      // valg som ikke lenger vises i Step 2.
+      const validCodes = new Set(
+        chaptersForRegelverk(nextRegelverk).flatMap((ch) =>
+          ch.paragraphs.map((p) => p.code),
+        ),
+      )
+      const nextParagraphs = s.paragraphs.filter((code) => validCodes.has(code))
+      return { ...s, regelverk: nextRegelverk, paragraphs: nextParagraphs }
+    })
   }, [])
 
   const toggleParagraph = useCallback((code: string) => {
@@ -316,13 +327,16 @@ export function useCadenceWizardState(): UseCadenceWizardStateReturn {
   }, [])
 
   const selectAllRequired = useCallback(() => {
-    const requiredCodes: string[] = []
-    for (const ch of AML_CHAPTERS) {
-      for (const p of ch.paragraphs) {
-        if (p.required) requiredCodes.push(p.code)
-      }
-    }
     setState((s) => {
+      // Bare regelverk brukeren faktisk har valgt i steg 1 — vi skal
+      // ikke smyge inn AML-paragrafer hvis brukeren kun velger Psyk.
+      const chapters = chaptersForRegelverk(s.regelverk)
+      const requiredCodes: string[] = []
+      for (const ch of chapters) {
+        for (const p of ch.paragraphs) {
+          if (p.required) requiredCodes.push(p.code)
+        }
+      }
       const set = new Set(s.paragraphs)
       requiredCodes.forEach((c) => set.add(c))
       return { ...s, paragraphs: Array.from(set) }
@@ -333,11 +347,14 @@ export function useCadenceWizardState(): UseCadenceWizardStateReturn {
     setState((s) => ({ ...s, paragraphs: [] }))
   }, [])
 
-  const toggleAllInChapter = useCallback((chapterNum: string) => {
-    const chapter = AML_CHAPTERS.find((c) => c.num === chapterNum)
-    if (!chapter) return
-    const codes = chapter.paragraphs.map((p) => p.code)
+  // Tar entydig kapittel-key (`<regelverk>::<num>`) i stedet for bare
+  // `num`, slik at samme «Kap. 1» i to forskjellige regelverk aldri
+  // kolliderer.
+  const toggleAllInChapter = useCallback((key: string) => {
     setState((s) => {
+      const chapter = chaptersForRegelverk(s.regelverk).find((c) => chapterKey(c) === key)
+      if (!chapter) return s
+      const codes = chapter.paragraphs.map((p) => p.code)
       const set = new Set(s.paragraphs)
       const allSelected = codes.every((c) => set.has(c))
       if (allSelected) codes.forEach((c) => set.delete(c))
@@ -465,8 +482,12 @@ export function useCadenceWizardState(): UseCadenceWizardStateReturn {
 
       // 2. Skriv paragrafer.
       if (state.paragraphs.length > 0) {
+        // Bygg oppslag fra koder til (chapter, paragraph) over ALLE valgte
+        // regelverk slik at vi finner riktig chapter-tittel også for IK-f,
+        // Psyk, BHT og ISO 45001.
+        const allChapters = chaptersForRegelverk(state.regelverk)
         const paragraphRows = state.paragraphs.map((code) => {
-          const chapter = AML_CHAPTERS.find((c) => c.paragraphs.some((p) => p.code === code))
+          const chapter = allChapters.find((c) => c.paragraphs.some((p) => p.code === code))
           const paragraph = chapter?.paragraphs.find((p) => p.code === code)
           return {
             cadence_plan_id: planId,

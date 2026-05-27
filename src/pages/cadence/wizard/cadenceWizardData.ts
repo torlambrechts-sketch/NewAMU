@@ -116,7 +116,7 @@ export const REGELVERK_BY_ID: Record<CadenceRegelverkId, CadenceRegelverkDef> = 
   {} as Record<CadenceRegelverkId, CadenceRegelverkDef>,
 )
 
-// ── AML kapitler + paragrafer ───────────────────────────────────────────────
+// ── Paragrafer per regelverk ────────────────────────────────────────────────
 
 export type CadenceParagraph = {
   /** Lovreferanse — matcher law_refs[]-strenger andre steder. */
@@ -131,14 +131,26 @@ export type CadenceParagraph = {
 }
 
 export type CadenceChapter = {
+  /** Hvilket regelverk denne kapitlet tilhører — gjør oppslag entydig
+   *  selv om to regelverk har samme `num` ("Kap. 1" etc.). */
+  regelverk: CadenceRegelverkId
   /** Kortform ('Kap. 2'). */
   num: string
   title: string
   paragraphs: CadenceParagraph[]
 }
 
+/** Stabil nøkkel for kapitler på tvers av regelverk.
+ *  «aml::Kap. 2» kolliderer aldri med «psyk::Kap. 2». Brukes som key i
+ *  expanded-state-sett, sortering, og UI-handlere. */
+export function chapterKey(ch: { regelverk: CadenceRegelverkId; num: string }): string {
+  return `${ch.regelverk}::${ch.num}`
+}
+
+// AML — Arbeidsmiljøloven (10 kapitler, 42 paragrafer).
 export const AML_CHAPTERS: CadenceChapter[] = [
   {
+    regelverk: 'aml',
     num: 'Kap. 2',
     title: 'Arbeidsgivers og arbeidstakers plikter',
     paragraphs: [
@@ -150,6 +162,7 @@ export const AML_CHAPTERS: CadenceChapter[] = [
     ],
   },
   {
+    regelverk: 'aml',
     num: 'Kap. 3',
     title: 'Virkemidler i arbeidsmiljøarbeidet',
     paragraphs: [
@@ -162,6 +175,7 @@ export const AML_CHAPTERS: CadenceChapter[] = [
     ],
   },
   {
+    regelverk: 'aml',
     num: 'Kap. 4',
     title: 'Krav til arbeidsmiljøet',
     paragraphs: [
@@ -174,6 +188,7 @@ export const AML_CHAPTERS: CadenceChapter[] = [
     ],
   },
   {
+    regelverk: 'aml',
     num: 'Kap. 6',
     title: 'Verneombud',
     paragraphs: [
@@ -185,6 +200,7 @@ export const AML_CHAPTERS: CadenceChapter[] = [
     ],
   },
   {
+    regelverk: 'aml',
     num: 'Kap. 7',
     title: 'Arbeidsmiljøutvalg (AMU)',
     paragraphs: [
@@ -195,6 +211,7 @@ export const AML_CHAPTERS: CadenceChapter[] = [
     ],
   },
   {
+    regelverk: 'aml',
     num: 'Kap. 8',
     title: 'Informasjon og drøfting',
     paragraphs: [
@@ -204,6 +221,7 @@ export const AML_CHAPTERS: CadenceChapter[] = [
     ],
   },
   {
+    regelverk: 'aml',
     num: 'Kap. 9',
     title: 'Kontrolltiltak i virksomheten',
     paragraphs: [
@@ -215,6 +233,7 @@ export const AML_CHAPTERS: CadenceChapter[] = [
     ],
   },
   {
+    regelverk: 'aml',
     num: 'Kap. 10',
     title: 'Arbeidstid',
     paragraphs: [
@@ -226,6 +245,7 @@ export const AML_CHAPTERS: CadenceChapter[] = [
     ],
   },
   {
+    regelverk: 'aml',
     num: 'Kap. 13',
     title: 'Vern mot diskriminering',
     paragraphs: [
@@ -235,6 +255,7 @@ export const AML_CHAPTERS: CadenceChapter[] = [
     ],
   },
   {
+    regelverk: 'aml',
     num: 'Kap. 14',
     title: 'Ansettelse mv.',
     paragraphs: [
@@ -245,6 +266,206 @@ export const AML_CHAPTERS: CadenceChapter[] = [
   },
 ]
 
+// IK-f — Internkontrollforskriften (FOR-1996-12-06-1127). Lite forskrift,
+// ett samlende «kapittel». § 5 er kjernen («Innholdet i internkontrollen»)
+// med 8 nummererte punkter som strukturerer hele HMS-arbeidet.
+export const IKF_CHAPTERS: CadenceChapter[] = [
+  {
+    regelverk: 'ik-f',
+    num: 'IK-f',
+    title: 'Internkontroll — krav til systematisk HMS-arbeid',
+    paragraphs: [
+      { code: 'IK-f § 1', title: 'Formål', required: true },
+      { code: 'IK-f § 2', title: 'Definisjoner', required: false },
+      { code: 'IK-f § 3', title: 'Hvem forskriften gjelder for', required: true },
+      { code: 'IK-f § 4', title: 'Plikt til internkontroll', note: 'Arbeidsgiver er ansvarlig — uavhengig av størrelse', required: true },
+      { code: 'IK-f § 5 nr. 1', title: 'Sørge for at lover og forskrifter er tilgjengelig', required: true },
+      { code: 'IK-f § 5 nr. 2', title: 'Sørge for at arbeidstakere har tilstrekkelig kunnskap', required: true },
+      { code: 'IK-f § 5 nr. 3', title: 'Sørge for at arbeidstakere medvirker', required: true },
+      { code: 'IK-f § 5 nr. 4', title: 'Fastsette mål for HMS', required: true },
+      { code: 'IK-f § 5 nr. 5', title: 'Ha oversikt over virksomhetens organisasjon', required: true },
+      { code: 'IK-f § 5 nr. 6', title: 'Kartlegge farer og problemer — risikovurdering', note: 'Kjernen i HMS-arbeidet', required: true },
+      { code: 'IK-f § 5 nr. 7', title: 'Iverksette rutiner for å avdekke, rette opp og forebygge', required: true },
+      { code: 'IK-f § 5 nr. 8', title: 'Foreta systematisk overvåking og gjennomgang', note: 'Årlig systemrevisjon', required: true },
+      { code: 'IK-f § 6', title: 'Tilsyn', required: false },
+      { code: 'IK-f § 7', title: 'Reaksjoner ved overtredelse', required: false },
+      { code: 'IK-f § 8', title: 'Dispensasjon', required: false },
+    ],
+  },
+]
+
+// BHT-forskriften (FOR-2009-09-10-1173) — plikt til bedriftshelsetjeneste
+// for risikoutsatte næringer.
+export const BHT_CHAPTERS: CadenceChapter[] = [
+  {
+    regelverk: 'bht',
+    num: 'Kap. 1',
+    title: 'Innledende bestemmelser',
+    paragraphs: [
+      { code: 'BHT § 1', title: 'Formål', required: true },
+      { code: 'BHT § 2', title: 'Virkeområde', note: 'Næringer angitt i forskriften (NACE-koder)', required: true },
+      { code: 'BHT § 3', title: 'Plikt til å knytte BHT', note: 'Industri 28.xxx er pliktig', required: true },
+    ],
+  },
+  {
+    regelverk: 'bht',
+    num: 'Kap. 2',
+    title: 'BHT-tjenestens oppgaver',
+    paragraphs: [
+      { code: 'BHT § 4', title: 'BHT skal bistå arbeidsgiver', required: true },
+      { code: 'BHT § 5', title: 'BHT skal være fri og uavhengig', required: true },
+      { code: 'BHT § 6', title: 'Plan for BHT-arbeidet (årlig)', note: 'Vedtas av AMU. Konkrete oppgaver per år.', required: true },
+      { code: 'BHT § 7', title: 'Rapportering fra BHT', note: 'Årsrapport til AMU + arbeidsgiver', required: true },
+    ],
+  },
+  {
+    regelverk: 'bht',
+    num: 'Kap. 3',
+    title: 'Godkjenning og kompetanse',
+    paragraphs: [
+      { code: 'BHT § 8', title: 'Krav til godkjenning', required: true },
+      { code: 'BHT § 9', title: 'Kompetansekrav til BHT-personell', required: true },
+      { code: 'BHT § 10', title: 'Søknad om godkjenning', required: false },
+      { code: 'BHT § 11', title: 'Tilbakekall av godkjenning', required: false },
+    ],
+  },
+  {
+    regelverk: 'bht',
+    num: 'Kap. 4',
+    title: 'Avsluttende bestemmelser',
+    paragraphs: [
+      { code: 'BHT § 12', title: 'Tilsyn', required: false },
+      { code: 'BHT § 13', title: 'Reaksjoner', required: false },
+      { code: 'BHT § 14', title: 'Ikrafttredelse', required: false },
+      { code: 'BHT § 15', title: 'Overgangsbestemmelser', required: false },
+    ],
+  },
+]
+
+// Psykososial-forskrift (FOR-1357 kap. 1A — trådte i kraft 1.1.2026).
+// Nytt regelverk om psykososialt arbeidsmiljø under Forskrift om
+// utførelse av arbeid; krever halvårlig kartlegging.
+export const PSYK_CHAPTERS: CadenceChapter[] = [
+  {
+    regelverk: 'psyk',
+    num: 'Kap. 1A',
+    title: 'Psykososialt arbeidsmiljø',
+    paragraphs: [
+      { code: 'Psyk § 1A-1', title: 'Virkeområde og formål', note: 'Ny 2026 — supplerer AML § 4-3', required: true },
+      { code: 'Psyk § 1A-2', title: 'Definisjoner — psykososialt arbeidsmiljø', required: true },
+      { code: 'Psyk § 1A-3', title: 'Arbeidsgivers plikt til kartlegging', note: 'Minst 2× pr år', required: true },
+      { code: 'Psyk § 1A-4', title: 'Krav til kartleggingsverktøy', note: 'STAMI-validert el. tilsvarende', required: true },
+      { code: 'Psyk § 1A-5', title: 'Tiltaksplan etter kartlegging', note: 'Innen 3 mnd — vedtas av AMU', required: true },
+      { code: 'Psyk § 1A-6', title: 'Trakassering og vold/trusler — egen oppfølging', required: true },
+      { code: 'Psyk § 1A-7', title: 'Konflikthåndtering — krav til prosedyre', required: false },
+      { code: 'Psyk § 1A-8', title: 'Tilsyn og dokumentasjon', required: true },
+    ],
+  },
+]
+
+// ISO 45001 — Internasjonal standard for arbeidsmiljøledelse.
+// 10 hovedpunkter (1-3 er innledning, 4-10 er reviderbare krav).
+export const ISO_45001_CHAPTERS: CadenceChapter[] = [
+  {
+    regelverk: 'iso-45001',
+    num: 'Punkt 4',
+    title: 'Organisasjonens kontekst',
+    paragraphs: [
+      { code: 'ISO 45001 § 4.1', title: 'Forstå organisasjonen og dens kontekst', required: true },
+      { code: 'ISO 45001 § 4.2', title: 'Forstå interessenters behov og forventninger', required: true },
+      { code: 'ISO 45001 § 4.3', title: 'Bestemme styringssystemets omfang', required: true },
+      { code: 'ISO 45001 § 4.4', title: 'Arbeidsmiljøstyringssystem og prosesser', required: true },
+    ],
+  },
+  {
+    regelverk: 'iso-45001',
+    num: 'Punkt 5',
+    title: 'Lederskap og medvirkning',
+    paragraphs: [
+      { code: 'ISO 45001 § 5.1', title: 'Lederskap og forpliktelse', required: true },
+      { code: 'ISO 45001 § 5.2', title: 'AM-policy', required: true },
+      { code: 'ISO 45001 § 5.3', title: 'Roller, ansvar og myndighet', required: true },
+      { code: 'ISO 45001 § 5.4', title: 'Konsultasjon og medvirkning', note: 'Krav om arbeidstakerinvolvering', required: true },
+    ],
+  },
+  {
+    regelverk: 'iso-45001',
+    num: 'Punkt 6',
+    title: 'Planlegging',
+    paragraphs: [
+      { code: 'ISO 45001 § 6.1', title: 'Tiltak for å håndtere risiko og muligheter', required: true },
+      { code: 'ISO 45001 § 6.2', title: 'AM-mål og planlegging for å nå dem', required: true },
+    ],
+  },
+  {
+    regelverk: 'iso-45001',
+    num: 'Punkt 7',
+    title: 'Støtte',
+    paragraphs: [
+      { code: 'ISO 45001 § 7.1', title: 'Ressurser', required: true },
+      { code: 'ISO 45001 § 7.2', title: 'Kompetanse', required: true },
+      { code: 'ISO 45001 § 7.3', title: 'Bevissthet', required: false },
+      { code: 'ISO 45001 § 7.4', title: 'Kommunikasjon', required: true },
+      { code: 'ISO 45001 § 7.5', title: 'Dokumentert informasjon', required: true },
+    ],
+  },
+  {
+    regelverk: 'iso-45001',
+    num: 'Punkt 8',
+    title: 'Drift',
+    paragraphs: [
+      { code: 'ISO 45001 § 8.1', title: 'Driftsplanlegging og styring', required: true },
+      { code: 'ISO 45001 § 8.2', title: 'Beredskap og respons ved nødssituasjoner', required: true },
+    ],
+  },
+  {
+    regelverk: 'iso-45001',
+    num: 'Punkt 9',
+    title: 'Ytelsesvurdering',
+    paragraphs: [
+      { code: 'ISO 45001 § 9.1', title: 'Overvåking, måling, analyse og evaluering', required: true },
+      { code: 'ISO 45001 § 9.2', title: 'Internrevisjon', note: 'Minst årlig', required: true },
+      { code: 'ISO 45001 § 9.3', title: 'Ledelsens gjennomgang', note: 'Minst årlig', required: true },
+    ],
+  },
+  {
+    regelverk: 'iso-45001',
+    num: 'Punkt 10',
+    title: 'Forbedring',
+    paragraphs: [
+      { code: 'ISO 45001 § 10.1', title: 'Generelt', required: false },
+      { code: 'ISO 45001 § 10.2', title: 'Hendelser, avvik og korrigerende tiltak', required: true },
+      { code: 'ISO 45001 § 10.3', title: 'Kontinuerlig forbedring', required: true },
+    ],
+  },
+]
+
+// ── Regelverk-til-chapters-oppslag ─────────────────────────────────────────
+
+export const CHAPTERS_BY_REGELVERK: Record<CadenceRegelverkId, CadenceChapter[]> = {
+  'aml': AML_CHAPTERS,
+  'ik-f': IKF_CHAPTERS,
+  'bht': BHT_CHAPTERS,
+  'psyk': PSYK_CHAPTERS,
+  'iso-45001': ISO_45001_CHAPTERS,
+  'gdpr': [], // GDPR har egen modul utenfor cadence-veiviseren.
+}
+
+/** Returner alle kapitler for de valgte regelverk, i samme rekkefølge
+ *  som regelverk-IDene ble valgt — slik at UI viser AML først hvis det
+ *  ble huket av først, deretter IK-f, osv. */
+export function chaptersForRegelverk(regelverk: readonly CadenceRegelverkId[]): CadenceChapter[] {
+  return regelverk.flatMap((rv) => CHAPTERS_BY_REGELVERK[rv] ?? [])
+}
+
+/** Total antall paragrafer i de valgte regelverk. Brukes for KPI-pillen
+ *  «X/Y paragrafer» i Step 2. */
+export function totalParagraphsForRegelverk(regelverk: readonly CadenceRegelverkId[]): number {
+  return chaptersForRegelverk(regelverk).reduce((sum, ch) => sum + ch.paragraphs.length, 0)
+}
+
+// Legacy export — beholdt for bakoverkompatibilitet i tester / verktøy.
+// Bruker chaptersForRegelverk(['aml']) når mulig.
 export const TOTAL_PARAGRAPHS = AML_CHAPTERS.reduce((sum, ch) => sum + ch.paragraphs.length, 0)
 
 // ── Moduler (oppgavemaler) ─────────────────────────────────────────────────
@@ -267,49 +488,55 @@ export type CadenceModule = {
   frequencyOptions: string[]
 }
 
+// Hver modul lister law_refs på TVERS av regelverk — slik at en bruker som
+// velger kun IK-f / Psyk / BHT / ISO 45001 fortsatt får relevante moduler.
+// Eks: M01 «Mål & policy» kryss-refererer AML § 2-1 + IK-f § 5 nr. 4 +
+// ISO 45001 § 5.2.
 export const MODULES: CadenceModule[] = [
   // Forankring
-  { id: 'M01', name: 'Mål, policy & ledelsens forankring', group: 'Forankring', tier: 'required', maps: ['AML § 2-1', 'AML § 3-1'], description: 'Årlig vedtak fra styret om HMS-mål og policy. Forplikter ledelsen til arbeidet.', volume: 2, cadenceHint: 'halvarlig', frequencyOptions: ['Årlig (jan)', 'Halvårlig'] },
-  { id: 'M02', name: 'Risikoanalyse — årlig', group: 'Forankring', tier: 'required', maps: ['AML § 3-1', 'AML § 4-1'], description: 'Bedriftsomfattende risikokartlegging med BHT. Grunnlag for hele cadencen.', volume: 1, cadenceHint: 'arlig', frequencyOptions: ['Årlig (feb)', 'Hver 18. mnd'] },
-  { id: 'M03', name: 'Lederopplæring HMS', group: 'Forankring', tier: 'required', maps: ['AML § 3-5'], description: 'Obligatorisk opplæring for arbeidsgiver. Min. 16 timer dokumentert.', volume: 2, cadenceHint: 'arlig', frequencyOptions: ['1 ny leder/år', 'Refresher hver 3. år', 'Engangs'] },
+  { id: 'M01', name: 'Mål, policy & ledelsens forankring', group: 'Forankring', tier: 'required', maps: ['AML § 2-1', 'AML § 3-1', 'IK-f § 5 nr. 4', 'ISO 45001 § 5.1', 'ISO 45001 § 5.2'], description: 'Årlig vedtak fra styret om HMS-mål og policy. Forplikter ledelsen til arbeidet.', volume: 2, cadenceHint: 'halvarlig', frequencyOptions: ['Årlig (jan)', 'Halvårlig'] },
+  { id: 'M02', name: 'Risikoanalyse — årlig', group: 'Forankring', tier: 'required', maps: ['AML § 3-1', 'AML § 4-1', 'IK-f § 5 nr. 6', 'ISO 45001 § 6.1'], description: 'Bedriftsomfattende risikokartlegging med BHT. Grunnlag for hele cadencen.', volume: 1, cadenceHint: 'arlig', frequencyOptions: ['Årlig (feb)', 'Hver 18. mnd'] },
+  { id: 'M03', name: 'Lederopplæring HMS', group: 'Forankring', tier: 'required', maps: ['AML § 3-5', 'IK-f § 5 nr. 2', 'ISO 45001 § 7.2'], description: 'Obligatorisk opplæring for arbeidsgiver. Min. 16 timer dokumentert.', volume: 2, cadenceHint: 'arlig', frequencyOptions: ['1 ny leder/år', 'Refresher hver 3. år', 'Engangs'] },
 
   // Daglig drift / vernerunder
-  { id: 'M04', name: 'Vernerunder — produksjon', group: 'Vernerunder', tier: 'required', maps: ['AML § 4-1', 'AML § 4-4', 'AML § 6-2'], description: 'Systematisk gjennomgang av arbeidsplasser. Funn → avvik → tiltak.', volume: 4, cadenceHint: 'kvartalsvis', frequencyOptions: ['Kvartalsvis (anbefalt)', 'Månedlig', 'Halvårlig'] },
-  { id: 'M05', name: 'Vernerunder — kontor/administrasjon', group: 'Vernerunder', tier: 'recommended', maps: ['AML § 4-1'], description: 'Halvårlig variant for lavrisiko-områder.', volume: 2, cadenceHint: 'halvarlig', frequencyOptions: ['Halvårlig', 'Kvartalsvis'] },
+  { id: 'M04', name: 'Vernerunder — produksjon', group: 'Vernerunder', tier: 'required', maps: ['AML § 4-1', 'AML § 4-4', 'AML § 6-2', 'IK-f § 5 nr. 6', 'ISO 45001 § 9.1'], description: 'Systematisk gjennomgang av arbeidsplasser. Funn → avvik → tiltak.', volume: 4, cadenceHint: 'kvartalsvis', frequencyOptions: ['Kvartalsvis (anbefalt)', 'Månedlig', 'Halvårlig'] },
+  { id: 'M05', name: 'Vernerunder — kontor/administrasjon', group: 'Vernerunder', tier: 'recommended', maps: ['AML § 4-1', 'IK-f § 5 nr. 6', 'ISO 45001 § 9.1'], description: 'Halvårlig variant for lavrisiko-områder.', volume: 2, cadenceHint: 'halvarlig', frequencyOptions: ['Halvårlig', 'Kvartalsvis'] },
 
   // Varsling
-  { id: 'M06', name: 'Varslingsrutine — gjennomgang', group: 'Varsling', tier: 'required', maps: ['AML § 2-4', 'AML § 3-6'], description: 'Årlig vurdering om varslingskanaler fungerer. Inkluderer anonyme tester.', volume: 1, cadenceHint: 'arlig', frequencyOptions: ['Årlig', 'Halvårlig'] },
-  { id: 'M07', name: 'Varslingssaker — håndtering', group: 'Varsling', tier: 'required', maps: ['AML § 2-4', 'AML § 2-5'], description: 'Mottak, undersøkelse, oppfølging. Triggers ad hoc.', volume: 6, cadenceHint: 'ad_hoc', frequencyOptions: ['Per sak (ad hoc)'] },
+  { id: 'M06', name: 'Varslingsrutine — gjennomgang', group: 'Varsling', tier: 'required', maps: ['AML § 2-4', 'AML § 3-6', 'IK-f § 5 nr. 7'], description: 'Årlig vurdering om varslingskanaler fungerer. Inkluderer anonyme tester.', volume: 1, cadenceHint: 'arlig', frequencyOptions: ['Årlig', 'Halvårlig'] },
+  { id: 'M07', name: 'Varslingssaker — håndtering', group: 'Varsling', tier: 'required', maps: ['AML § 2-4', 'AML § 2-5', 'IK-f § 5 nr. 7'], description: 'Mottak, undersøkelse, oppfølging. Triggers ad hoc.', volume: 6, cadenceHint: 'ad_hoc', frequencyOptions: ['Per sak (ad hoc)'] },
 
-  // Psykososialt
-  { id: 'M08', name: 'STAMI-kartlegging vår', group: 'Psykososialt', tier: 'required', maps: ['AML § 4-3'], description: 'Halvårlig psykososialundersøkelse. STAMI-validert instrument.', volume: 1, cadenceHint: 'halvarlig', frequencyOptions: ['Vår (mars-apr)'] },
-  { id: 'M09', name: 'STAMI-kartlegging høst', group: 'Psykososialt', tier: 'required', maps: ['AML § 4-3'], description: 'Andre runde, samme år. Sammenlignbar med vår-runden.', volume: 1, cadenceHint: 'halvarlig', frequencyOptions: ['Høst (sep-okt)'] },
-  { id: 'M10', name: 'Tiltaksplan etter kartlegging', group: 'Psykososialt', tier: 'required', maps: ['AML § 4-3', 'AML § 7-2'], description: 'Innen 31. des: konkret tiltaksplan basert på funn.', volume: 1, cadenceHint: 'arlig', frequencyOptions: ['Årlig (innen 31.12)'] },
-  { id: 'M11', name: 'Konfliktmegling — protokoll', group: 'Psykososialt', tier: 'optional', maps: ['AML § 4-3'], description: 'Standard prosess for konflikthåndtering. Triggers ad hoc.', volume: 3, cadenceHint: 'ad_hoc', frequencyOptions: ['Per sak (ad hoc)'] },
+  // Psykososialt — Psyk-kapittelet er kjernen, AML § 4-3 + ISO 45001 § 5.4
+  // er parallelle krav.
+  { id: 'M08', name: 'STAMI-kartlegging vår', group: 'Psykososialt', tier: 'required', maps: ['AML § 4-3', 'Psyk § 1A-3', 'Psyk § 1A-4', 'ISO 45001 § 9.1'], description: 'Halvårlig psykososialundersøkelse. STAMI-validert instrument.', volume: 1, cadenceHint: 'halvarlig', frequencyOptions: ['Vår (mars-apr)'] },
+  { id: 'M09', name: 'STAMI-kartlegging høst', group: 'Psykososialt', tier: 'required', maps: ['AML § 4-3', 'Psyk § 1A-3', 'Psyk § 1A-4'], description: 'Andre runde, samme år. Sammenlignbar med vår-runden.', volume: 1, cadenceHint: 'halvarlig', frequencyOptions: ['Høst (sep-okt)'] },
+  { id: 'M10', name: 'Tiltaksplan etter kartlegging', group: 'Psykososialt', tier: 'required', maps: ['AML § 4-3', 'AML § 7-2', 'Psyk § 1A-5', 'ISO 45001 § 10.3'], description: 'Innen 31. des: konkret tiltaksplan basert på funn.', volume: 1, cadenceHint: 'arlig', frequencyOptions: ['Årlig (innen 31.12)'] },
+  { id: 'M11', name: 'Konfliktmegling — protokoll', group: 'Psykososialt', tier: 'optional', maps: ['AML § 4-3', 'Psyk § 1A-6', 'Psyk § 1A-7'], description: 'Standard prosess for konflikthåndtering. Triggers ad hoc.', volume: 3, cadenceHint: 'ad_hoc', frequencyOptions: ['Per sak (ad hoc)'] },
 
   // Fysisk
-  { id: 'M12', name: 'Kjemisk eksponering — vurdering', group: 'Fysisk', tier: 'required', maps: ['AML § 4-5'], description: 'Årlig gjennomgang av stoffkartotek og eksponeringsnivåer.', volume: 1, cadenceHint: 'arlig', frequencyOptions: ['Årlig', 'Halvårlig'] },
-  { id: 'M13', name: 'Verneutstyr — inspeksjon', group: 'Fysisk', tier: 'required', maps: ['AML § 4-4'], description: 'Halvårlig kontroll av CE-merking, slitasje, utskifting.', volume: 2, cadenceHint: 'halvarlig', frequencyOptions: ['Halvårlig (anbefalt)', 'Kvartalsvis'] },
-  { id: 'M14', name: 'Stoffkartotek — oppdatering', group: 'Fysisk', tier: 'required', maps: ['AML § 4-5'], description: 'Kvartalsvis: nye stoffer registreres, gamle fjernes, datablader oppdateres.', volume: 4, cadenceHint: 'kvartalsvis', frequencyOptions: ['Kvartalsvis', 'Halvårlig'] },
+  { id: 'M12', name: 'Kjemisk eksponering — vurdering', group: 'Fysisk', tier: 'required', maps: ['AML § 4-5', 'IK-f § 5 nr. 6'], description: 'Årlig gjennomgang av stoffkartotek og eksponeringsnivåer.', volume: 1, cadenceHint: 'arlig', frequencyOptions: ['Årlig', 'Halvårlig'] },
+  { id: 'M13', name: 'Verneutstyr — inspeksjon', group: 'Fysisk', tier: 'required', maps: ['AML § 4-4', 'IK-f § 5 nr. 7'], description: 'Halvårlig kontroll av CE-merking, slitasje, utskifting.', volume: 2, cadenceHint: 'halvarlig', frequencyOptions: ['Halvårlig (anbefalt)', 'Kvartalsvis'] },
+  { id: 'M14', name: 'Stoffkartotek — oppdatering', group: 'Fysisk', tier: 'required', maps: ['AML § 4-5', 'IK-f § 5 nr. 1'], description: 'Kvartalsvis: nye stoffer registreres, gamle fjernes, datablader oppdateres.', volume: 4, cadenceHint: 'kvartalsvis', frequencyOptions: ['Kvartalsvis', 'Halvårlig'] },
 
   // Sykefravær
   { id: 'M15', name: 'Oppfølgingsplan ved sykefravær', group: 'Sykefravær', tier: 'required', maps: ['AML § 4-6'], description: 'Lovkrav innen 4 ukers fravær. Klarert genererer per sak.', volume: 12, cadenceHint: 'ad_hoc', frequencyOptions: ['Per sak (≤4 uker fravær)'] },
   { id: 'M16', name: 'Dialogmøte 1 (innen 7 uker)', group: 'Sykefravær', tier: 'required', maps: ['AML § 4-6'], description: 'Lovbestemt møtepunkt. Arbeidstaker + arbeidsgiver + (BHT/NAV).', volume: 8, cadenceHint: 'ad_hoc', frequencyOptions: ['Per sak (≤7 uker fravær)'] },
 
-  // BHT
-  { id: 'M17', name: 'BHT-plan vedtatt', group: 'BHT', tier: 'required', maps: ['AML § 3-3'], description: 'Årlig avtale med BHT om omfang og tema for året.', volume: 1, cadenceHint: 'arlig', frequencyOptions: ['Årlig (jan)'] },
-  { id: 'M18', name: 'BHT-konsultasjoner — kvartalsvis', group: 'BHT', tier: 'required', maps: ['AML § 3-3'], description: 'Faste konsultasjonsmøter med BHT-rådgiver.', volume: 4, cadenceHint: 'kvartalsvis', frequencyOptions: ['Kvartalsvis (anbefalt)', 'Månedlig'] },
-  { id: 'M19', name: 'BHT-årsrapport', group: 'BHT', tier: 'required', maps: ['AML § 3-3'], description: 'Skriftlig rapport om årets BHT-bidrag, levert AMU og daglig leder.', volume: 1, cadenceHint: 'arlig', frequencyOptions: ['Årlig (nov)'] },
+  // BHT — koblet både til AML § 3-3 og BHT-forskriften.
+  { id: 'M17', name: 'BHT-plan vedtatt', group: 'BHT', tier: 'required', maps: ['AML § 3-3', 'BHT § 3', 'BHT § 6'], description: 'Årlig avtale med BHT om omfang og tema for året.', volume: 1, cadenceHint: 'arlig', frequencyOptions: ['Årlig (jan)'] },
+  { id: 'M18', name: 'BHT-konsultasjoner — kvartalsvis', group: 'BHT', tier: 'required', maps: ['AML § 3-3', 'BHT § 4'], description: 'Faste konsultasjonsmøter med BHT-rådgiver.', volume: 4, cadenceHint: 'kvartalsvis', frequencyOptions: ['Kvartalsvis (anbefalt)', 'Månedlig'] },
+  { id: 'M19', name: 'BHT-årsrapport', group: 'BHT', tier: 'required', maps: ['AML § 3-3', 'BHT § 7'], description: 'Skriftlig rapport om årets BHT-bidrag, levert AMU og daglig leder.', volume: 1, cadenceHint: 'arlig', frequencyOptions: ['Årlig (nov)'] },
 
   // AMU
-  { id: 'M20', name: 'AMU-møter — 4 per år', group: 'AMU', tier: 'required', maps: ['AML § 7-1', 'AML § 7-2'], description: 'Kvartalsvise møter. Agenda, protokoll, vedtak. Lovbestemt fra 30 ansatte.', volume: 4, cadenceHint: 'kvartalsvis', frequencyOptions: ['Kvartalsvis (min. 4)', 'Månedlig'] },
+  { id: 'M20', name: 'AMU-møter — 4 per år', group: 'AMU', tier: 'required', maps: ['AML § 7-1', 'AML § 7-2', 'IK-f § 5 nr. 3'], description: 'Kvartalsvise møter. Agenda, protokoll, vedtak. Lovbestemt fra 30 ansatte.', volume: 4, cadenceHint: 'kvartalsvis', frequencyOptions: ['Kvartalsvis (min. 4)', 'Månedlig'] },
   { id: 'M21', name: 'AMU-årsrapport → styret', group: 'AMU', tier: 'required', maps: ['AML § 7-2'], description: 'Årlig oppsummering av AMU-arbeidet. Vedtas av AMU, signeres av daglig leder.', volume: 1, cadenceHint: 'arlig', frequencyOptions: ['Årlig (des)'] },
 
   // Drøfting
   { id: 'M22', name: 'Drøftingsmøter tillitsvalgte', group: 'Drøfting', tier: 'optional', maps: ['AML § 8-1', 'AML § 8-2'], description: 'Lovpålagt fra 50 ansatte. Under terskel er drøfting frivillig.', volume: 2, cadenceHint: 'halvarlig', frequencyOptions: ['Halvårlig', 'Etter behov'] },
 
-  // Revisjon
-  { id: 'M23', name: 'Systemrevisjon HMS — årlig', group: 'Revisjon', tier: 'required', maps: ['AML § 3-1'], description: 'Internrevisjon av hele HMS-systemet. Sjekker etterlevelse, foreslår forbedringer.', volume: 1, cadenceHint: 'arlig', frequencyOptions: ['Årlig (nov)', 'Halvårlig'] },
+  // Revisjon — Internrevisjon dekker både IK-f § 5 nr. 8, AML § 3-1 og
+  // ISO 45001 § 9.2 / § 9.3.
+  { id: 'M23', name: 'Systemrevisjon HMS — årlig', group: 'Revisjon', tier: 'required', maps: ['AML § 3-1', 'IK-f § 5 nr. 8', 'ISO 45001 § 9.2', 'ISO 45001 § 9.3'], description: 'Internrevisjon av hele HMS-systemet. Sjekker etterlevelse, foreslår forbedringer.', volume: 1, cadenceHint: 'arlig', frequencyOptions: ['Årlig (nov)', 'Halvårlig'] },
 ]
 
 // ── Roller ──────────────────────────────────────────────────────────────────
