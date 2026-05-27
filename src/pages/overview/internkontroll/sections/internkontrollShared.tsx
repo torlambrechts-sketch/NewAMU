@@ -98,9 +98,9 @@ export function StatusPill({ status }: { status: IkKravStatus }) {
   const s = STATUS_TONE[status]
   return (
     <span
-      className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-semibold ${s.bg} ${s.text} ${s.border}`}
+      className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-sm font-semibold ${s.bg} ${s.text} ${s.border}`}
     >
-      <StatusDot status={status} size={6} />
+      <StatusDot status={status} size={8} />
       {s.label}
     </span>
   )
@@ -117,10 +117,10 @@ export function FwChip({
   if (!f) return null
   return (
     <span
-      className="inline-flex items-center gap-1 rounded border px-1.5 py-0.5 text-[10px] font-semibold"
+      className="inline-flex items-center gap-1.5 rounded border px-2 py-0.5 text-sm font-semibold"
       style={{ background: f.color + '14', color: f.color, borderColor: f.color + '40' }}
     >
-      <FrameworkIcon name={f.icon} className="h-2.5 w-2.5" />
+      <FrameworkIcon name={f.icon} className="h-3.5 w-3.5" />
       {f.short}
     </span>
   )
@@ -169,10 +169,10 @@ export function CriticalityChip({ value }: { value: 'høy' | 'middels' | 'lav' }
     <span
       role="img"
       aria-label={`Kritikalitet: ${value}`}
-      className="inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider"
+      className="inline-flex items-center gap-1.5 rounded px-2 py-0.5 text-sm font-semibold uppercase tracking-wider"
       style={{ background: m.bg, color: m.c }}
     >
-      <m.Icon aria-hidden className="h-2.5 w-2.5" />
+      <m.Icon aria-hidden className="h-3.5 w-3.5" />
       <span aria-hidden>{value}</span>
     </span>
   )
@@ -217,9 +217,9 @@ export function KontrollStatusBadge({ status }: { status: IkKontroll['status'] }
   const m = map[status]
   return (
     <span
-      className={`inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] font-semibold ${m.bg} ${m.text}`}
+      className={`inline-flex items-center gap-1.5 rounded px-2 py-0.5 text-sm font-semibold ${m.bg} ${m.text}`}
     >
-      <m.Icon className="h-2.5 w-2.5" />
+      <m.Icon className="h-3.5 w-3.5" />
       {m.label}
     </span>
   )
@@ -245,9 +245,9 @@ export function TiltakStatusPill({
   const m = map[status]
   return (
     <span
-      className={`inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] font-semibold ${m.bg} ${m.text}`}
+      className={`inline-flex items-center gap-1.5 rounded px-2 py-0.5 text-sm font-semibold ${m.bg} ${m.text}`}
     >
-      <m.Icon className="h-2.5 w-2.5" />
+      <m.Icon className="h-3.5 w-3.5" />
       {m.label}
     </span>
   )
@@ -294,9 +294,9 @@ export function BridgeStatusBadge({ status }: { status: string }) {
   return (
     <span
       title={`Oppgave-status: ${status}`}
-      className={`inline-flex items-center gap-1 rounded border border-dashed border-current/20 px-1.5 py-0.5 text-[10px] font-semibold ${bucket.bg} ${bucket.text}`}
+      className={`inline-flex items-center gap-1.5 rounded border border-dashed border-current/20 px-2 py-0.5 text-sm font-semibold ${bucket.bg} ${bucket.text}`}
     >
-      <span className="h-1.5 w-1.5 rounded-full bg-current opacity-50" />
+      <span className="h-2 w-2 rounded-full bg-current opacity-50" />
       {bucket.label}
     </span>
   )
