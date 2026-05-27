@@ -262,20 +262,30 @@ function useDashboardDataInternal(): DashboardData {
   // `loading` er sant kun under FØRSTE last; brukes til å vise det
   // sentrale spinner-skjermbildet. Realtime-trigget reload må ikke
   // blanke ut hele siden, derfor egen flagg `refreshing` for bakgrunns-
-  // refetch (kan brukes av widgets for å vise en diskret indikator).
+  // refetch.
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
-  const [hasLoadedOnce, setHasLoadedOnce] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
+  // hasLoadedOnce + requestId lever i refs, ikke state, slik at:
+  //   1. `load`-callbacken får stabil identitet (ellers re-subscriber
+  //      realtime-effekten på hver vellykket last).
+  //   2. Samtidige load()-kall avbryter hverandre i siste-vinner-stil
+  //      (ny request-id ⇒ tidligere ferdig-handler ignoreres).
+  const hasLoadedOnceRef = useRef(false)
+  const requestIdRef = useRef(0)
 
   const load = useCallback(async () => {
     if (!supabase || !orgId) {
       setLoading(false)
       return
     }
-    if (hasLoadedOnce) setRefreshing(true)
-    else setLoading(true)
+    const myRequestId = ++requestIdRef.current
+    const isFirst = !hasLoadedOnceRef.current
+    if (isFirst) setLoading(true)
+    else setRefreshing(true)
     setError(null)
+    const isStale = () => requestIdRef.current !== myRequestId
 
     try {
       // Step 1 — finn nyeste aktive cadence-plan, faller tilbake til siste draft.
@@ -357,6 +367,11 @@ function useDashboardDataInternal(): DashboardData {
           .limit(500),
       ])
 
+      // Stale-sjekk: hvis en nyere load() har startet etter at vi sendte
+      // Promise.all, hopper vi ut før vi rører state. Forhindrer at en
+      // gammel respons overskriver fersk data.
+      if (isStale()) return
+
       const taskRows = (taskRes.data ?? []) as DashboardTaskRow[]
       const ctlRows = (ctlRes.data ?? []) as DashboardControlRow[]
       const mtgRows = (mtgRes.data ?? []) as DashboardMeetingRow[]
@@ -388,15 +403,17 @@ function useDashboardDataInternal(): DashboardData {
         profilesTruncated: profRows.length >= DASHBOARD_LIMITS.profiles,
       })
 
+      if (isStale()) return // En nyere load() har overtatt — ikke skriv state.
       setLoading(false)
       setRefreshing(false)
-      setHasLoadedOnce(true)
+      hasLoadedOnceRef.current = true
     } catch (e) {
+      if (isStale()) return
       setError(e instanceof Error ? e.message : 'Kunne ikke laste dashboard-data')
       setLoading(false)
       setRefreshing(false)
     }
-  }, [supabase, orgId, hasLoadedOnce])
+  }, [supabase, orgId])
 
   useEffect(() => {
     void load()
@@ -419,6 +436,13 @@ function useDashboardDataInternal(): DashboardData {
 
   useEffect(() => {
     if (!supabase || !orgId) return
+    // Defense-in-depth: orgId havner i kanal-navn + filter-strenger som
+    // realtime-serveren parser. Vi forventer UUID, men sjekker likevel
+    // før vi sender en konstruert streng over wire. RLS er primær
+    // forsvar — denne sjekken hindrer at en feiltypet ID når server.
+    if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(orgId)) {
+      return
+    }
     const channel = supabase
       .channel(`dashboard:org:${orgId}`)
       .on(

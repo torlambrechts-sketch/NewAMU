@@ -179,25 +179,39 @@ export function RaidWidget() {
 
           <WidgetCard title="Risikomatrise" subtitle="Plassering: sannsynlighet × konsekvens">
             <div className="overflow-x-auto">
-              <div className="grid min-w-[600px] grid-cols-[80px_repeat(5,1fr)] gap-0 overflow-hidden rounded-md border border-neutral-200 bg-white">
+              <div
+                role="grid"
+                aria-label="Risikomatrise — sannsynlighet (rad) × konsekvens (kolonne)"
+                aria-rowcount={5}
+                aria-colcount={5}
+                className="grid min-w-[600px] grid-cols-[80px_repeat(5,1fr)] gap-0 overflow-hidden rounded-md border border-neutral-200 bg-white"
+              >
                 <div className="bg-neutral-50 px-3 py-3 text-center font-mono text-[10px] uppercase tracking-wider text-neutral-500" style={{ writingMode: 'vertical-rl' as const }}>
                   Sannsynlighet
                 </div>
-                {/* 5x5 grid */}
-                {[5, 4, 3, 2, 1].map((p) => (
+                {/* 5x5 grid — semantisk grid med aria-rowindex/colindex
+                    for skjermlesere. Topp-til-bunn = høyest sannsynlighet
+                    først (5..1), venstre-til-høyre = økende konsekvens. */}
+                {[5, 4, 3, 2, 1].map((p, rowIdx) => (
                   Array.from({ length: 5 }).map((_, c) => {
                     const cons = c + 1
                     const score = p * cons
                     const cls = riskScoreClass(score).cell
                     const inThisCell = risks.filter((r) => r.probability === p && r.consequence === cons)
+                    const cellSummary = inThisCell.length === 0
+                      ? `Sannsynlighet ${p}, konsekvens ${cons}, score ${score} — ingen risiki`
+                      : `Sannsynlighet ${p}, konsekvens ${cons}, score ${score} — ${inThisCell.length} ${inThisCell.length === 1 ? 'risiko' : 'risiki'}: ${inThisCell.map((r) => r.title).join(', ')}`
                     return (
                       <div
                         key={`${p}-${c}`}
+                        role="gridcell"
+                        aria-rowindex={rowIdx + 1}
+                        aria-colindex={c + 1}
+                        aria-label={cellSummary}
                         className={`relative aspect-[2.5/1] border-l border-t border-neutral-100 ${score >= 15 ? 'bg-[#F0D9D2]' : score >= 9 ? 'bg-[#F4E8D2]' : score >= 4 ? 'bg-[#FFF8E8]' : 'bg-[#E4ECDF]'}`}
-                        aria-label={`Sannsynlighet ${p}, konsekvens ${cons}, score ${score}`}
                       >
-                        <div className="absolute right-1 top-1 font-mono text-[10px] font-semibold text-neutral-700">{score}</div>
-                        <div className="absolute inset-0 flex flex-wrap items-center justify-center gap-1 p-2">
+                        <div className="absolute right-1 top-1 font-mono text-[10px] font-semibold text-neutral-700" aria-hidden>{score}</div>
+                        <div className="absolute inset-0 flex flex-wrap items-center justify-center gap-1 p-2" aria-hidden>
                           {inThisCell.map((r) => (
                             <span key={r.id} className={`flex h-7 w-7 items-center justify-center rounded-full font-mono text-[10px] font-semibold shadow ring-2 ring-white ${cls}`} title={r.title}>
                               {r.id}
