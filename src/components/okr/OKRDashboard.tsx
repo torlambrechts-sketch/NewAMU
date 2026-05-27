@@ -7,80 +7,68 @@
  * - "Matrise" (Matrix): TanStack-style expandable table where each objective
  *   row expands to show its KR rows inline.
  *
- * Confidence colours follow the user's semantic mapping:
+ * Pass `editable` to switch the component into full CRUD mode — create / edit /
+ * delete actions for both objectives and key results, plus a `+ Nytt mål`
+ * button at the top. CRUD state is managed internally; an optional
+ * `onObjectivesChange` callback fires after every mutation so callers can
+ * persist or audit.
+ *
+ * Confidence colours follow the requested mapping:
  *   on_track  → bg-emerald-500
  *   at_risk   → bg-amber-500
  *   off_track → bg-rose-500
  *
- * Roll-up progress on each objective = average of its KR progress percentages.
- *
- * shadcn/ui + TanStack aren't installed in this project, so the Card / Avatar /
- * Progress shapes are local minimal primitives that match the workplace shell
- * (cream header band, forest accent, rounded-xl cards). Lift them into
- * `src/components/ui/` if multiple consumers appear.
+ * Roll-up progress on each objective = average of its KR progress percentages;
+ * roll-up confidence = worst of the children so "at_risk" surfaces upward.
  */
 import { useMemo, useState } from 'react'
-import { ChevronDown, ChevronRight, LayoutGrid, Table2, Target } from 'lucide-react'
+import {
+  ChevronDown,
+  ChevronRight,
+  LayoutGrid,
+  Pencil,
+  Plus,
+  Table2,
+  Target,
+  Trash2,
+} from 'lucide-react'
 import { Tabs, type TabItem } from '../ui/Tabs'
 import { Button } from '../ui/Button'
+import { freshId } from '../../lib/dashboards/freshId'
+import {
+  CONFIDENCE_BG,
+  CONFIDENCE_LABEL,
+  CONFIDENCE_RING,
+  type Confidence,
+  type KeyResult,
+  type Objective,
+  type OKROwner,
+} from './types'
+import {
+  ConfirmDeleteDialog,
+  KeyResultDialog,
+  ObjectiveDialog,
+  type KeyResultDialogMode,
+  type KeyResultFormPayload,
+  type ObjectiveDialogMode,
+  type ObjectiveFormPayload,
+} from './OKREditDialogs'
 
-/* ── Types ────────────────────────────────────────────────────────────────── */
-
-export type Confidence = 'on_track' | 'at_risk' | 'off_track'
-
-export type OKROwner = {
-  name: string
-  /** Two-letter initials override; auto-derived from `name` if omitted. */
-  initials?: string
-  /** Optional avatar image URL. */
-  avatarUrl?: string
-}
-
-export type KeyResult = {
-  id: string
-  title: string
-  /** 0–100 */
-  progress: number
-  confidence: Confidence
-  /** Optional human-readable target ("Q2 NPS ≥ 60"). */
-  target?: string
-  /** Optional current value ("54"). */
-  current?: string
-}
-
-export type Objective = {
-  id: string
-  title: string
-  description?: string
-  owner: OKROwner
-  keyResults: KeyResult[]
-}
+export type { Confidence, KeyResult, Objective, OKROwner } from './types'
 
 export type OKRDashboardProps = {
+  /**
+   * Read-mode: the source of truth.
+   * Edit-mode (`editable` true): initial value only — internal state takes over.
+   */
   objectives: Objective[]
   /** Initial view; uncontrolled. */
   defaultView?: 'cards' | 'matrix'
+  /** When true, exposes create / edit / delete actions on objectives + KRs. */
+  editable?: boolean
+  /** Fired after every CRUD mutation in edit mode. */
+  onObjectivesChange?: (next: Objective[]) => void
   className?: string
-}
-
-/* ── Confidence tokens ────────────────────────────────────────────────────── */
-
-const CONFIDENCE_BG: Record<Confidence, string> = {
-  on_track: 'bg-emerald-500',
-  at_risk: 'bg-amber-500',
-  off_track: 'bg-rose-500',
-}
-
-const CONFIDENCE_RING: Record<Confidence, string> = {
-  on_track: 'ring-emerald-200',
-  at_risk: 'ring-amber-200',
-  off_track: 'ring-rose-200',
-}
-
-const CONFIDENCE_LABEL: Record<Confidence, string> = {
-  on_track: 'På sporet',
-  at_risk: 'Risiko',
-  off_track: 'Bak skjema',
 }
 
 /* ── Local primitives (Card / Avatar / Progress / ConfidenceBadge) ────────── */
@@ -134,11 +122,7 @@ function Avatar({ owner, size = 36 }: { owner: OKROwner; size?: number }) {
       title={owner.name}
     >
       {owner.avatarUrl ? (
-        <img
-          src={owner.avatarUrl}
-          alt=""
-          className="size-full rounded-full object-cover"
-        />
+        <img src={owner.avatarUrl} alt="" className="size-full rounded-full object-cover" />
       ) : (
         initials
       )}
@@ -185,7 +169,24 @@ function ConfidenceBadge({ confidence }: { confidence: Confidence }) {
   )
 }
 
-/* ── Roll-up helper ───────────────────────────────────────────────────────── */
+function ConfidenceBadgeInline({
+  confidence,
+  count,
+}: {
+  confidence: Confidence
+  count: number
+}) {
+  return (
+    <span
+      className={`inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[11px] font-semibold text-white ${CONFIDENCE_BG[confidence]}`}
+    >
+      <span className="inline-block size-1.5 rounded-full bg-white/85" aria-hidden />
+      {count} {CONFIDENCE_LABEL[confidence].toLowerCase()}
+    </span>
+  )
+}
+
+/* ── Roll-up helpers ──────────────────────────────────────────────────────── */
 
 function rollUpProgress(obj: Objective): number {
   if (obj.keyResults.length === 0) return 0
@@ -193,21 +194,45 @@ function rollUpProgress(obj: Objective): number {
   return Math.round(sum / obj.keyResults.length)
 }
 
-/** Roll-up confidence = worst confidence across the objective's KRs. */
 function rollUpConfidence(obj: Objective): Confidence {
   if (obj.keyResults.some((kr) => kr.confidence === 'off_track')) return 'off_track'
   if (obj.keyResults.some((kr) => kr.confidence === 'at_risk')) return 'at_risk'
   return 'on_track'
 }
 
+/* ── Edit handler bundle ──────────────────────────────────────────────────── */
+
+type EditHandlers = {
+  onCreateObjective: () => void
+  onEditObjective: (objective: Objective) => void
+  onDeleteObjective: (objective: Objective) => void
+  onCreateKR: (objective: Objective) => void
+  onEditKR: (objective: Objective, kr: KeyResult) => void
+  onDeleteKR: (objective: Objective, kr: KeyResult) => void
+}
+
 /* ── OKRDashboard (the actual export) ─────────────────────────────────────── */
 
+type DialogState =
+  | { kind: 'none' }
+  | { kind: 'objective'; mode: ObjectiveDialogMode }
+  | { kind: 'kr'; mode: KeyResultDialogMode; objectiveId: string }
+  | { kind: 'delete-objective'; objective: Objective }
+  | { kind: 'delete-kr'; objective: Objective; kr: KeyResult }
+
 export function OKRDashboard({
-  objectives,
+  objectives: incomingObjectives,
   defaultView = 'cards',
+  editable = false,
+  onObjectivesChange,
   className = '',
 }: OKRDashboardProps) {
   const [view, setView] = useState<'cards' | 'matrix'>(defaultView)
+  // In edit mode the prop is treated as initial state; internal state owns
+  // updates from there on. In read mode the prop is the live source.
+  const [localObjectives, setLocalObjectives] = useState<Objective[]>(incomingObjectives)
+  const objectives = editable ? localObjectives : incomingObjectives
+  const [dialog, setDialog] = useState<DialogState>({ kind: 'none' })
 
   const tabs: TabItem[] = useMemo(
     () => [
@@ -229,6 +254,118 @@ export function OKRDashboard({
     const offTrack = objectives.filter((o) => rollUpConfidence(o) === 'off_track').length
     return { totalKRs, avg, atRisk, offTrack }
   }, [objectives])
+
+  const commit = (next: Objective[]) => {
+    setLocalObjectives(next)
+    onObjectivesChange?.(next)
+  }
+
+  /* CRUD ----------------------------------------------------------------- */
+
+  const submitObjective = (payload: ObjectiveFormPayload) => {
+    if (dialog.kind !== 'objective') return
+    if (dialog.mode.kind === 'create') {
+      commit([
+        ...localObjectives,
+        {
+          id: freshId('okr-obj'),
+          title: payload.title,
+          description: payload.description || undefined,
+          owner: payload.owner,
+          keyResults: [],
+        },
+      ])
+    } else {
+      const editingId = dialog.mode.objective.id
+      commit(
+        localObjectives.map((o) =>
+          o.id === editingId
+            ? {
+                ...o,
+                title: payload.title,
+                description: payload.description || undefined,
+                owner: payload.owner,
+              }
+            : o,
+        ),
+      )
+    }
+    setDialog({ kind: 'none' })
+  }
+
+  const submitKR = (payload: KeyResultFormPayload) => {
+    if (dialog.kind !== 'kr') return
+    const objectiveId = dialog.objectiveId
+    if (dialog.mode.kind === 'create') {
+      commit(
+        localObjectives.map((o) =>
+          o.id === objectiveId
+            ? {
+                ...o,
+                keyResults: [
+                  ...o.keyResults,
+                  { id: freshId('okr-kr'), ...payload },
+                ],
+              }
+            : o,
+        ),
+      )
+    } else {
+      const editingKrId = dialog.mode.kr.id
+      commit(
+        localObjectives.map((o) =>
+          o.id === objectiveId
+            ? {
+                ...o,
+                keyResults: o.keyResults.map((kr) =>
+                  kr.id === editingKrId ? { ...kr, ...payload } : kr,
+                ),
+              }
+            : o,
+        ),
+      )
+    }
+    setDialog({ kind: 'none' })
+  }
+
+  const confirmDelete = () => {
+    if (dialog.kind === 'delete-objective') {
+      commit(localObjectives.filter((o) => o.id !== dialog.objective.id))
+    } else if (dialog.kind === 'delete-kr') {
+      commit(
+        localObjectives.map((o) =>
+          o.id === dialog.objective.id
+            ? { ...o, keyResults: o.keyResults.filter((k) => k.id !== dialog.kr.id) }
+            : o,
+        ),
+      )
+    }
+    setDialog({ kind: 'none' })
+  }
+
+  const handlers: EditHandlers | undefined = editable
+    ? {
+        onCreateObjective: () =>
+          setDialog({ kind: 'objective', mode: { kind: 'create' } }),
+        onEditObjective: (objective) =>
+          setDialog({ kind: 'objective', mode: { kind: 'edit', objective } }),
+        onDeleteObjective: (objective) =>
+          setDialog({ kind: 'delete-objective', objective }),
+        onCreateKR: (objective) =>
+          setDialog({
+            kind: 'kr',
+            mode: { kind: 'create', objectiveTitle: objective.title },
+            objectiveId: objective.id,
+          }),
+        onEditKR: (objective, kr) =>
+          setDialog({
+            kind: 'kr',
+            mode: { kind: 'edit', kr, objectiveTitle: objective.title },
+            objectiveId: objective.id,
+          }),
+        onDeleteKR: (objective, kr) => setDialog({ kind: 'delete-kr', objective, kr }),
+      }
+    : undefined
 
   return (
     <div className={className}>
@@ -255,63 +392,140 @@ export function OKRDashboard({
             <ConfidenceBadgeInline confidence="off_track" count={summary.offTrack} />
           ) : null}
         </div>
-        <Tabs
-          items={tabs}
-          activeId={view}
-          onChange={(id) => setView(id as 'cards' | 'matrix')}
-        />
+        <div className="flex flex-wrap items-center gap-2">
+          {handlers ? (
+            <Button
+              type="button"
+              variant="primary"
+              size="sm"
+              icon={<Plus className="size-3.5" />}
+              onClick={handlers.onCreateObjective}
+            >
+              Nytt mål
+            </Button>
+          ) : null}
+          <Tabs
+            items={tabs}
+            activeId={view}
+            onChange={(id) => setView(id as 'cards' | 'matrix')}
+          />
+        </div>
       </div>
 
       {objectives.length === 0 ? (
         <Card className="px-6 py-12 text-center text-sm text-neutral-500">
-          Ingen mål definert ennå.
+          {editable ? (
+            <>
+              <p>Ingen mål definert ennå.</p>
+              <Button
+                type="button"
+                variant="secondary"
+                size="sm"
+                icon={<Plus className="size-3.5" />}
+                onClick={handlers?.onCreateObjective}
+                className="mt-3"
+              >
+                Opprett ditt første mål
+              </Button>
+            </>
+          ) : (
+            'Ingen mål definert ennå.'
+          )}
         </Card>
       ) : view === 'cards' ? (
-        <CardsView objectives={objectives} />
+        <CardsView objectives={objectives} handlers={handlers} />
       ) : (
-        <MatrixView objectives={objectives} />
+        <MatrixView objectives={objectives} handlers={handlers} />
       )}
-    </div>
-  )
-}
 
-function ConfidenceBadgeInline({
-  confidence,
-  count,
-}: {
-  confidence: Confidence
-  count: number
-}) {
-  return (
-    <span
-      className={`inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[11px] font-semibold text-white ${CONFIDENCE_BG[confidence]}`}
-    >
-      <span className="inline-block size-1.5 rounded-full bg-white/85" aria-hidden />
-      {count} {CONFIDENCE_LABEL[confidence].toLowerCase()}
-    </span>
+      {/* Dialogs */}
+      <ObjectiveDialog
+        open={dialog.kind === 'objective'}
+        mode={dialog.kind === 'objective' ? dialog.mode : { kind: 'create' }}
+        onClose={() => setDialog({ kind: 'none' })}
+        onSubmit={submitObjective}
+      />
+      <KeyResultDialog
+        open={dialog.kind === 'kr'}
+        mode={
+          dialog.kind === 'kr'
+            ? dialog.mode
+            : { kind: 'create', objectiveTitle: '' }
+        }
+        onClose={() => setDialog({ kind: 'none' })}
+        onSubmit={submitKR}
+      />
+      <ConfirmDeleteDialog
+        open={dialog.kind === 'delete-objective' || dialog.kind === 'delete-kr'}
+        title={
+          dialog.kind === 'delete-objective'
+            ? 'Slett mål?'
+            : dialog.kind === 'delete-kr'
+              ? 'Slett key result?'
+              : ''
+        }
+        body={
+          dialog.kind === 'delete-objective' ? (
+            <>
+              Du sletter{' '}
+              <span className="font-semibold text-neutral-900">
+                «{dialog.objective.title}»
+              </span>{' '}
+              og alle {dialog.objective.keyResults.length} tilhørende KR. Handlingen
+              kan ikke angres.
+            </>
+          ) : dialog.kind === 'delete-kr' ? (
+            <>
+              Du sletter{' '}
+              <span className="font-semibold text-neutral-900">
+                «{dialog.kr.title}»
+              </span>{' '}
+              fra «{dialog.objective.title}». Handlingen kan ikke angres.
+            </>
+          ) : null
+        }
+        confirmLabel={
+          dialog.kind === 'delete-objective' ? 'Slett mål' : 'Slett KR'
+        }
+        onClose={() => setDialog({ kind: 'none' })}
+        onConfirm={confirmDelete}
+      />
+    </div>
   )
 }
 
 /* ── Cards view ───────────────────────────────────────────────────────────── */
 
-function CardsView({ objectives }: { objectives: Objective[] }) {
+function CardsView({
+  objectives,
+  handlers,
+}: {
+  objectives: Objective[]
+  handlers?: EditHandlers
+}) {
   return (
     <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
       {objectives.map((o) => (
-        <ObjectiveCard key={o.id} objective={o} />
+        <ObjectiveCard key={o.id} objective={o} handlers={handlers} />
       ))}
     </div>
   )
 }
 
-function ObjectiveCard({ objective }: { objective: Objective }) {
+function ObjectiveCard({
+  objective,
+  handlers,
+}: {
+  objective: Objective
+  handlers?: EditHandlers
+}) {
   const rollup = rollUpProgress(objective)
   const conf = rollUpConfidence(objective)
   return (
     <Card className="flex h-full flex-col overflow-hidden">
       <header className="border-b border-neutral-100 bg-[#FBF8F1] px-5 py-4">
         <div className="flex items-start justify-between gap-3">
-          <div className="min-w-0">
+          <div className="min-w-0 flex-1">
             <h3
               className="truncate text-base font-semibold tracking-tight text-neutral-900"
               style={{ fontFamily: "'Libre Baskerville', Georgia, serif" }}
@@ -325,7 +539,34 @@ function ObjectiveCard({ objective }: { objective: Objective }) {
               </p>
             ) : null}
           </div>
-          <Avatar owner={objective.owner} />
+          <div className="flex shrink-0 items-center gap-1">
+            {handlers ? (
+              <>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => handlers.onEditObjective(objective)}
+                  aria-label={`Rediger ${objective.title}`}
+                  title="Rediger mål"
+                >
+                  <Pencil className="size-3.5" />
+                </Button>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => handlers.onDeleteObjective(objective)}
+                  aria-label={`Slett ${objective.title}`}
+                  title="Slett mål"
+                  className="hover:text-rose-600"
+                >
+                  <Trash2 className="size-3.5" />
+                </Button>
+              </>
+            ) : null}
+            <Avatar owner={objective.owner} />
+          </div>
         </div>
         <div className="mt-3 flex items-center justify-between gap-3">
           <ConfidenceBadge confidence={conf} />
@@ -339,35 +580,84 @@ function ObjectiveCard({ objective }: { objective: Objective }) {
       </header>
 
       <ul className="flex-1 divide-y divide-neutral-100">
-        {objective.keyResults.map((kr) => (
-          <li key={kr.id} className="px-5 py-3.5">
-            <div className="flex items-center justify-between gap-3">
-              <div className="min-w-0 flex-1">
-                <p className="truncate text-sm font-medium text-neutral-900" title={kr.title}>
-                  {kr.title}
-                </p>
-                {kr.target || kr.current ? (
-                  <p className="mt-0.5 text-[11px] text-neutral-500">
-                    {kr.current ? <span className="font-mono">{kr.current}</span> : null}
-                    {kr.current && kr.target ? ' / ' : null}
-                    {kr.target ? <span className="font-mono">{kr.target}</span> : null}
-                  </p>
-                ) : null}
-              </div>
-              <ConfidenceBadge confidence={kr.confidence} />
-            </div>
-            <div className="mt-2 flex items-center gap-3">
-              <Progress value={kr.progress} confidence={kr.confidence} size="sm" />
-              <span className="font-mono text-xs font-semibold tabular-nums text-neutral-700">
-                {Math.round(kr.progress)}%
-              </span>
-            </div>
+        {objective.keyResults.length === 0 ? (
+          <li className="px-5 py-6 text-center text-xs text-neutral-500">
+            Ingen key results enda.
           </li>
-        ))}
+        ) : (
+          objective.keyResults.map((kr) => (
+            <li key={kr.id} className="group/kr px-5 py-3.5">
+              <div className="flex items-center justify-between gap-3">
+                <div className="min-w-0 flex-1">
+                  <p
+                    className="truncate text-sm font-medium text-neutral-900"
+                    title={kr.title}
+                  >
+                    {kr.title}
+                  </p>
+                  {kr.target || kr.current ? (
+                    <p className="mt-0.5 text-[11px] text-neutral-500">
+                      {kr.current ? <span className="font-mono">{kr.current}</span> : null}
+                      {kr.current && kr.target ? ' / ' : null}
+                      {kr.target ? <span className="font-mono">{kr.target}</span> : null}
+                    </p>
+                  ) : null}
+                </div>
+                <div className="flex shrink-0 items-center gap-1">
+                  <ConfidenceBadge confidence={kr.confidence} />
+                  {handlers ? (
+                    <div className="opacity-0 transition-opacity group-hover/kr:opacity-100 focus-within:opacity-100">
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => handlers.onEditKR(objective, kr)}
+                        aria-label={`Rediger ${kr.title}`}
+                        title="Rediger KR"
+                      >
+                        <Pencil className="size-3.5" />
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => handlers.onDeleteKR(objective, kr)}
+                        aria-label={`Slett ${kr.title}`}
+                        title="Slett KR"
+                        className="hover:text-rose-600"
+                      >
+                        <Trash2 className="size-3.5" />
+                      </Button>
+                    </div>
+                  ) : null}
+                </div>
+              </div>
+              <div className="mt-2 flex items-center gap-3">
+                <Progress value={kr.progress} confidence={kr.confidence} size="sm" />
+                <span className="font-mono text-xs font-semibold tabular-nums text-neutral-700">
+                  {Math.round(kr.progress)}%
+                </span>
+              </div>
+            </li>
+          ))
+        )}
       </ul>
 
-      <footer className="border-t border-neutral-100 bg-white px-5 py-2.5 text-[11px] text-neutral-500">
-        Eier · <span className="font-medium text-neutral-700">{objective.owner.name}</span>
+      <footer className="flex items-center justify-between gap-2 border-t border-neutral-100 bg-white px-5 py-2.5 text-[11px] text-neutral-500">
+        <span>
+          Eier · <span className="font-medium text-neutral-700">{objective.owner.name}</span>
+        </span>
+        {handlers ? (
+          <Button
+            type="button"
+            variant="secondary"
+            size="sm"
+            icon={<Plus className="size-3" />}
+            onClick={() => handlers.onCreateKR(objective)}
+          >
+            Nytt KR
+          </Button>
+        ) : null}
       </footer>
     </Card>
   )
@@ -379,7 +669,13 @@ const TH =
   'border-b border-neutral-200 bg-[#EFE8DC] px-4 py-3 text-left text-[11px] font-bold uppercase tracking-wide text-neutral-600'
 const TD = 'border-b border-neutral-100 px-4 py-3 text-sm text-neutral-800 align-middle'
 
-function MatrixView({ objectives }: { objectives: Objective[] }) {
+function MatrixView({
+  objectives,
+  handlers,
+}: {
+  objectives: Objective[]
+  handlers?: EditHandlers
+}) {
   const [openIds, setOpenIds] = useState<Set<string>>(
     () => new Set(objectives.slice(0, 2).map((o) => o.id)),
   )
@@ -401,27 +697,24 @@ function MatrixView({ objectives }: { objectives: Objective[] }) {
               <th className={`${TH} w-10 pl-5`} aria-label="Utvid" />
               <th className={TH}>Mål / Key result</th>
               <th className={TH}>Eier</th>
-              <th className={`${TH} w-28 text-right`}>KR</th>
+              <th className={`${TH} w-20 text-right`}>KR</th>
               <th className={`${TH} w-32`}>Tillit</th>
-              <th className={`${TH} pr-5`}>Fremdrift</th>
+              <th className={TH}>Fremdrift</th>
+              {handlers ? (
+                <th className={`${TH} w-28 pr-5 text-right`} aria-label="Handlinger" />
+              ) : null}
             </tr>
           </thead>
           <tbody>
-            {objectives.map((o) => {
-              const isOpen = openIds.has(o.id)
-              const rollup = rollUpProgress(o)
-              const conf = rollUpConfidence(o)
-              return (
-                <FragmentRow
-                  key={o.id}
-                  objective={o}
-                  isOpen={isOpen}
-                  rollup={rollup}
-                  conf={conf}
-                  onToggle={() => toggle(o.id)}
-                />
-              )
-            })}
+            {objectives.map((o) => (
+              <FragmentRow
+                key={o.id}
+                objective={o}
+                isOpen={openIds.has(o.id)}
+                onToggle={() => toggle(o.id)}
+                handlers={handlers}
+              />
+            ))}
           </tbody>
         </table>
       </div>
@@ -432,16 +725,17 @@ function MatrixView({ objectives }: { objectives: Objective[] }) {
 function FragmentRow({
   objective,
   isOpen,
-  rollup,
-  conf,
   onToggle,
+  handlers,
 }: {
   objective: Objective
   isOpen: boolean
-  rollup: number
-  conf: Confidence
   onToggle: () => void
+  handlers?: EditHandlers
 }) {
+  const rollup = rollUpProgress(objective)
+  const conf = rollUpConfidence(objective)
+  const colSpan = handlers ? 7 : 6
   return (
     <>
       <tr
@@ -450,6 +744,7 @@ function FragmentRow({
       >
         <td className={`${TD} pl-5`}>
           <Button
+            type="button"
             variant="ghost"
             size="icon"
             onClick={(e) => {
@@ -484,7 +779,7 @@ function FragmentRow({
         <td className={TD}>
           <ConfidenceBadge confidence={conf} />
         </td>
-        <td className={`${TD} pr-5`}>
+        <td className={TD}>
           <div className="flex items-center gap-2.5">
             <Progress value={rollup} confidence={conf} />
             <span className="w-10 shrink-0 text-right font-mono text-xs font-semibold tabular-nums text-neutral-700">
@@ -492,10 +787,51 @@ function FragmentRow({
             </span>
           </div>
         </td>
+        {handlers ? (
+          <td className={`${TD} pr-5`}>
+            <div
+              className="flex items-center justify-end gap-0.5"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                onClick={() => handlers.onCreateKR(objective)}
+                aria-label="Legg til KR"
+                title="Legg til KR"
+              >
+                <Plus className="size-3.5" />
+              </Button>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                onClick={() => handlers.onEditObjective(objective)}
+                aria-label="Rediger mål"
+                title="Rediger mål"
+              >
+                <Pencil className="size-3.5" />
+              </Button>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                onClick={() => handlers.onDeleteObjective(objective)}
+                aria-label="Slett mål"
+                title="Slett mål"
+                className="hover:text-rose-600"
+              >
+                <Trash2 className="size-3.5" />
+              </Button>
+            </div>
+          </td>
+        ) : null}
       </tr>
 
-      {isOpen
-        ? objective.keyResults.map((kr) => (
+      {isOpen ? (
+        <>
+          {objective.keyResults.map((kr) => (
             <tr key={kr.id} className="bg-[#FBF8F1]/60">
               <td className={`${TD} pl-5`} />
               <td className={TD}>
@@ -523,7 +859,7 @@ function FragmentRow({
               <td className={TD}>
                 <ConfidenceBadge confidence={kr.confidence} />
               </td>
-              <td className={`${TD} pr-5`}>
+              <td className={TD}>
                 <div className="flex items-center gap-2.5">
                   <Progress value={kr.progress} confidence={kr.confidence} size="sm" />
                   <span className="w-10 shrink-0 text-right font-mono text-xs font-semibold tabular-nums text-neutral-700">
@@ -531,9 +867,53 @@ function FragmentRow({
                   </span>
                 </div>
               </td>
+              {handlers ? (
+                <td className={`${TD} pr-5`}>
+                  <div className="flex items-center justify-end gap-0.5">
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => handlers.onEditKR(objective, kr)}
+                      aria-label="Rediger KR"
+                      title="Rediger KR"
+                    >
+                      <Pencil className="size-3.5" />
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => handlers.onDeleteKR(objective, kr)}
+                      aria-label="Slett KR"
+                      title="Slett KR"
+                      className="hover:text-rose-600"
+                    >
+                      <Trash2 className="size-3.5" />
+                    </Button>
+                  </div>
+                </td>
+              ) : null}
             </tr>
-          ))
-        : null}
+          ))}
+          {handlers ? (
+            <tr className="bg-[#FBF8F1]/60">
+              <td className={`${TD} pl-5`} />
+              <td className={TD} colSpan={colSpan - 1}>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="sm"
+                  icon={<Plus className="size-3.5" />}
+                  onClick={() => handlers.onCreateKR(objective)}
+                >
+                  Nytt KR
+                </Button>
+              </td>
+            </tr>
+          ) : null}
+        </>
+      ) : null}
     </>
   )
 }

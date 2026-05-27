@@ -138,11 +138,11 @@ export function TableTestPage() {
           <Section
             number="06"
             badge="shadcn/ui + TanStack · OKR dashboard"
-            title="OKR-dashbord (Kort + Matrise)"
-            blurb="Komponert dashbord som veksler mellom kort-rutenett og ekspanderbar TanStack-matrise via Tabs. Semantiske tillit-tokens (emerald-500 / amber-500 / rose-500), eier-avatarer og rolle-fremdrift som snitt av KR-prosenter."
+            title="OKR-dashbord med full CRUD (Kort + Matrise)"
+            blurb="Komponert dashbord som veksler mellom kort-rutenett og ekspanderbar TanStack-matrise via Tabs. Opprett, rediger og slett både mål og key results direkte fra rad/kort. Semantiske tillit-tokens (emerald-500 / amber-500 / rose-500), eier-avatarer og rolle-fremdrift som snitt av KR-prosenter."
             expandable
           >
-            <OKRDashboard objectives={OKR_OBJECTIVES} />
+            <OKRDashboard objectives={OKR_OBJECTIVES} editable />
           </Section>
         </div>
 
