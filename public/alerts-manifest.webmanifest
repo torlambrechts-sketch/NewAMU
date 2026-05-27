@@ -1,0 +1,19 @@
+{
+  "name": "Varslinger",
+  "short_name": "Varsel",
+  "description": "Trygg varslingsmottakskanal med anonym innsendelse.",
+  "start_url": "/alerts/public",
+  "scope": "/alerts/public",
+  "display": "standalone",
+  "background_color": "#f5f0e8",
+  "theme_color": "#b91c1c",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
