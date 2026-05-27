@@ -32,7 +32,7 @@ import type {
 } from '../../types/planning'
 import type { PlanningTaskRow } from '../../hooks/usePlanningTasks'
 import type { UsePlanningOkrReturn } from '../../hooks/usePlanningOkr'
-import { HEALTH_META, OWNER_OPTIONS, PLANNING_ACCENT, STATUS_META, fmtNum } from './planningConstants'
+import { HEALTH_META, OWNER_OPTIONS, PLANNING_ACCENT, fmtNum, statusMetaFor } from './planningConstants'
 
 type Props = {
   plan: OkrPlanFull
@@ -544,7 +544,7 @@ function ObjectiveDetail({
             ) : (
               <ul className="mt-2 space-y-1.5">
                 {linkedTasks.map((t) => {
-                  const meta = STATUS_META[(t.status as keyof typeof STATUS_META) ?? 'open']
+                  const meta = statusMetaFor(t.status)
                   return (
                     <li
                       key={t.id}
@@ -555,11 +555,11 @@ function ObjectiveDetail({
                         <span
                           className={[
                             'shrink-0 rounded px-1 py-0.5 text-[9px] font-bold',
-                            meta?.bg ?? 'bg-neutral-100',
-                            meta?.text ?? 'text-neutral-700',
+                            meta.bg,
+                            meta.text,
                           ].join(' ')}
                         >
-                          {meta?.label ?? t.status}
+                          {meta.label}
                         </span>
                       </div>
                       <div className="mt-1 flex items-center gap-2 text-[10px] text-neutral-500">

@@ -5,14 +5,17 @@
 //   * recurrence fields
 //   * project link
 //
-// Also exposes mutations for:
-//   * create new task (optionally linked to a KR)
-//   * mark recurring with interval + optional stop date
-//   * stop recurrence (via stop_recurring_task RPC)
-//   * update interval (via update_recurring_task_interval RPC)
-//   * link/unlink to a KR
+// Mutations:
+//   * createTask — optionally linked to a KR + optionally recurring
+//   * updateTaskStatus — optimistic; on close of a recurring task,
+//     fires generate_recurring_task_next RPC (idempotent via DB unique
+//     index)
+//   * setRecurrence / stopRecurrence — wrap the dedicated RPCs
+//   * linkTaskToKr / unlinkTaskFromKr — okr_task_links upsert/delete
+//
+// All errors are surfaced via `error` for the page to render.
 
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useOrgSetupContext } from './useOrgSetupContext'
 import type { TaskItemPriority, TaskItemStatus, TaskPdcaPhase, TaskTemplateKind } from '../types/task'
 
@@ -63,12 +66,18 @@ export type CreatePlanningTaskInput = {
   keyResultId?: string
 }
 
+export type CreatePlanningTaskResult = {
+  id: string | null
+  error: string | null
+}
+
 export type UsePlanningTasksReturn = {
   loading: boolean
   error: string | null
   tasks: PlanningTaskRow[]
   reload: () => void
-  createTask: (input: CreatePlanningTaskInput) => Promise<string | null>
+  /** Returns { id, error } so callers can distinguish per-call success. */
+  createTask: (input: CreatePlanningTaskInput) => Promise<CreatePlanningTaskResult>
   updateTaskStatus: (id: string, status: TaskItemStatus) => Promise<void>
   setRecurrence: (id: string, intervalDays: number | null, stopAt?: string | null) => Promise<void>
   stopRecurrence: (id: string) => Promise<void>
@@ -84,6 +93,13 @@ export function usePlanningTasks(): UsePlanningTasksReturn {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [version, setVersion] = useState(0)
+
+  // Live ref to tasks so async callbacks read the latest snapshot
+  // (eliminates the stale-closure bug in updateTaskStatus).
+  const tasksRef = useRef<PlanningTaskRow[]>([])
+  useEffect(() => {
+    tasksRef.current = tasks
+  }, [tasks])
 
   const reload = useCallback(() => setVersion((v) => v + 1), [])
 
@@ -180,7 +196,11 @@ export function usePlanningTasks(): UsePlanningTasksReturn {
 
   const createTask = useCallback<UsePlanningTasksReturn['createTask']>(
     async (input) => {
-      if (!supabase || !orgId) return null
+      if (!supabase || !orgId) {
+        return { id: null, error: 'Mangler tilgang.' }
+      }
+      // The DB's update_recurring_task_interval RPC computes next_recurrence_date
+      // from due_date — we leave that to the server to avoid timezone drift.
       const payload: Record<string, unknown> = {
         organization_id: orgId,
         title: input.title,
@@ -200,29 +220,42 @@ export function usePlanningTasks(): UsePlanningTasksReturn {
         payload.recurrence_interval_days = input.recurrenceIntervalDays
         payload.recurrence_active = input.recurrenceActive ?? true
         if (input.recurrenceStopAt) payload.recurrence_stop_at = input.recurrenceStopAt
-        if (input.dueDate) {
-          const d = new Date(input.dueDate)
-          d.setDate(d.getDate() + input.recurrenceIntervalDays)
-          payload.next_recurrence_date = d.toISOString().slice(0, 10)
-        }
       }
       const { data, error: insErr } = await supabase
         .from('task_items')
         .insert(payload)
         .select('id')
         .single()
-      if (insErr || !data) return null
+      if (insErr || !data) {
+        const msg = insErr?.message ?? 'Kunne ikke opprette oppgave.'
+        setError(msg)
+        return { id: null, error: msg }
+      }
       const newId = String(data.id)
 
       if (input.keyResultId) {
-        await supabase.from('okr_task_links').insert({
+        const { error: linkErr } = await supabase.from('okr_task_links').insert({
           organization_id: orgId,
           key_result_id: input.keyResultId,
           task_item_id: newId,
         })
+        if (linkErr) {
+          // Soft warning — task is created, link is not. Surface it but
+          // don't roll back the task.
+          setError(`Oppgave opprettet, men kunne ikke knyttes til OKR: ${linkErr.message}`)
+        }
+      }
+      // For recurring tasks, recompute next_recurrence_date via RPC so it
+      // matches the server-side calculation in generate_recurring_task_next.
+      if (input.recurrenceIntervalDays && input.recurrenceIntervalDays > 0) {
+        await supabase.rpc('update_recurring_task_interval', {
+          p_task_id: newId,
+          p_interval_days: input.recurrenceIntervalDays,
+          p_stop_at: input.recurrenceStopAt ?? null,
+        })
       }
       reload()
-      return newId
+      return { id: newId, error: null }
     },
     [supabase, orgId, reload],
   )
@@ -230,31 +263,54 @@ export function usePlanningTasks(): UsePlanningTasksReturn {
   const updateTaskStatus = useCallback<UsePlanningTasksReturn['updateTaskStatus']>(
     async (id, status) => {
       if (!supabase) return
+      // Capture the pre-update task snapshot from the live ref so the
+      // recurring-next branch reads the correct fields even after the
+      // optimistic state has mutated `status` to 'closed'.
+      const snapshot = tasksRef.current.find((t) => t.id === id)
       setTasks((prev) =>
-        prev.map((t) => (t.id === id ? { ...t, status } : t)),
+        prev.map((t) =>
+          t.id === id
+            ? { ...t, status, ...(status === 'closed' ? { closedAt: new Date().toISOString() } : {}) }
+            : t,
+        ),
       )
       const patch: Record<string, unknown> = { status }
       if (status === 'closed') {
         patch.closed_at = new Date().toISOString()
       }
       const { error: upErr } = await supabase.from('task_items').update(patch).eq('id', id)
+      if (upErr) {
+        setError(upErr.message)
+        reload()
+        return
+      }
 
-      // Hvis recurring og lukkes → generer neste forekomst.
-      const t = tasks.find((x) => x.id === id)
-      if (!upErr && status === 'closed' && t?.recurrenceActive && t.recurrenceIntervalDays) {
-        await supabase.rpc('generate_recurring_task_next', { p_completed_task_id: id })
+      // If the task is recurring and we just closed it, ask the DB to
+      // spawn the next instance. The RPC is idempotent so double-fires
+      // are safe.
+      if (
+        status === 'closed'
+        && snapshot
+        && snapshot.recurrenceActive
+        && snapshot.recurrenceIntervalDays
+      ) {
+        const { error: rpcErr } = await supabase.rpc('generate_recurring_task_next', {
+          p_completed_task_id: id,
+        })
+        if (rpcErr) {
+          setError(rpcErr.message)
+        }
         reload()
       }
-      if (upErr) reload()
     },
-    [supabase, tasks, reload],
+    [supabase, reload],
   )
 
   const setRecurrence = useCallback<UsePlanningTasksReturn['setRecurrence']>(
     async (id, intervalDays, stopAt) => {
       if (!supabase) return
       if (intervalDays == null || intervalDays <= 0) {
-        // Disable recurrence completely.
+        // Disable recurrence completely. Bypass the RPC (which rejects null).
         setTasks((prev) =>
           prev.map((t) =>
             t.id === id
@@ -268,7 +324,7 @@ export function usePlanningTasks(): UsePlanningTasksReturn {
               : t,
           ),
         )
-        await supabase
+        const { error: upErr } = await supabase
           .from('task_items')
           .update({
             recurrence_interval_days: null,
@@ -277,8 +333,14 @@ export function usePlanningTasks(): UsePlanningTasksReturn {
             next_recurrence_date: null,
           })
           .eq('id', id)
+        if (upErr) {
+          setError(upErr.message)
+          reload()
+        }
         return
       }
+      // Use the RPC so server computes next_recurrence_date and enforces
+      // the positive-interval check.
       const { error: rpcErr } = await supabase.rpc('update_recurring_task_interval', {
         p_task_id: id,
         p_interval_days: intervalDays,
@@ -318,17 +380,30 @@ export function usePlanningTasks(): UsePlanningTasksReturn {
   const linkTaskToKr = useCallback<UsePlanningTasksReturn['linkTaskToKr']>(
     async (taskId, keyResultId) => {
       if (!supabase || !orgId) return
+      const prevLink = tasksRef.current.find((t) => t.id === taskId)?.okrKeyResultId ?? null
       setTasks((prev) =>
         prev.map((t) => (t.id === taskId ? { ...t, okrKeyResultId: keyResultId } : t)),
       )
-      // Upsert — delete any existing link, then insert.
-      await supabase.from('okr_task_links').delete().eq('task_item_id', taskId)
+      // Upsert pattern: delete-then-insert so a task only has one active link.
+      const { error: delErr } = await supabase
+        .from('okr_task_links')
+        .delete()
+        .eq('task_item_id', taskId)
+      if (delErr) {
+        setError(delErr.message)
+        // Roll back
+        setTasks((prev) => prev.map((t) => (t.id === taskId ? { ...t, okrKeyResultId: prevLink } : t)))
+        return
+      }
       const { error: insErr } = await supabase.from('okr_task_links').insert({
         organization_id: orgId,
         key_result_id: keyResultId,
         task_item_id: taskId,
       })
-      if (insErr) reload()
+      if (insErr) {
+        setError(insErr.message)
+        reload()
+      }
     },
     [supabase, orgId, reload],
   )
@@ -336,6 +411,7 @@ export function usePlanningTasks(): UsePlanningTasksReturn {
   const unlinkTaskFromKr = useCallback<UsePlanningTasksReturn['unlinkTaskFromKr']>(
     async (taskId, keyResultId) => {
       if (!supabase) return
+      const prevLink = tasksRef.current.find((t) => t.id === taskId)?.okrKeyResultId ?? null
       setTasks((prev) =>
         prev.map((t) =>
           t.id === taskId && t.okrKeyResultId === keyResultId ? { ...t, okrKeyResultId: null } : t,
@@ -346,9 +422,12 @@ export function usePlanningTasks(): UsePlanningTasksReturn {
         .delete()
         .eq('task_item_id', taskId)
         .eq('key_result_id', keyResultId)
-      if (delErr) reload()
+      if (delErr) {
+        setError(delErr.message)
+        setTasks((prev) => prev.map((t) => (t.id === taskId ? { ...t, okrKeyResultId: prevLink } : t)))
+      }
     },
-    [supabase, reload],
+    [supabase],
   )
 
   return useMemo(

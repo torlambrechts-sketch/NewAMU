@@ -10,7 +10,8 @@
 // Recurrence handling: every task row shows interval / "stoppet"-status and
 // allows quick stop/change.
 
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import {
   AlertCircle,
   CalendarRange,
@@ -37,9 +38,9 @@ import type { PlanningTaskRow, UsePlanningTasksReturn } from '../../hooks/usePla
 import {
   KANBAN_COLUMNS,
   PRIORITY_META,
-  STATUS_META,
   fmtDateShort,
   kanbanColumnFor,
+  statusMetaFor,
 } from './planningConstants'
 import { RECURRENCE_PRESETS, presetForDays, type RecurrencePresetId } from '../../types/planning'
 
@@ -300,8 +301,9 @@ function TaskCard({
   const okrObj = plan && t.okrKeyResultId
     ? plan.objectives.find((o) => o.keyResults.some((k) => k.id === t.okrKeyResultId))
     : null
-  const meta = STATUS_META[(t.status as keyof typeof STATUS_META) ?? 'open']
-  const prio = PRIORITY_META[t.priority]
+  const meta = statusMetaFor(t.status)
+  const MetaIcon = meta.icon
+  const prio = PRIORITY_META[t.priority] ?? PRIORITY_META.medium
 
   return (
     <article className="cursor-pointer rounded-md border border-neutral-200 bg-white p-2.5 transition-shadow hover:shadow-md">
@@ -366,12 +368,12 @@ function TaskCard({
         <span
           className={[
             'inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[9px] font-semibold',
-            meta?.bg ?? 'bg-neutral-100',
-            meta?.text ?? 'text-neutral-700',
+            meta.bg,
+            meta.text,
           ].join(' ')}
         >
-          <meta.icon className="h-2.5 w-2.5" />
-          {meta?.label ?? t.status}
+          <MetaIcon className="h-2.5 w-2.5" />
+          {meta.label}
         </span>
       </div>
     </article>
@@ -428,8 +430,8 @@ function ListView({
             const okrObj = plan && t.okrKeyResultId
               ? plan.objectives.find((o) => o.keyResults.some((k) => k.id === t.okrKeyResultId))
               : null
-            const meta = STATUS_META[(t.status as keyof typeof STATUS_META) ?? 'open']
-            const prio = PRIORITY_META[t.priority]
+            const meta = statusMetaFor(t.status)
+            const prio = PRIORITY_META[t.priority] ?? PRIORITY_META.medium
             const Icon = meta.icon
             return (
               <tr key={t.id} className="cursor-pointer border-t border-neutral-100 hover:bg-neutral-50/40">
@@ -523,42 +525,48 @@ function RecurrenceCell({
   t: PlanningTaskRow
   tasksCtrl: UsePlanningTasksReturn
 }) {
+  const triggerRef = useRef<HTMLDivElement | null>(null)
   const [editing, setEditing] = useState(false)
   const [intervalDays, setIntervalDays] = useState<number>(t.recurrenceIntervalDays ?? 30)
   const [stopAt, setStopAt] = useState<string>(t.recurrenceStopAt ?? '')
   const [preset, setPreset] = useState<RecurrencePresetId>(presetForDays(t.recurrenceIntervalDays))
 
+  const apply = () => {
+    void tasksCtrl.setRecurrence(t.id, intervalDays, stopAt || null)
+    setEditing(false)
+  }
+
   if (!t.recurrenceActive && !t.recurrenceIntervalDays) {
     return (
-      <Button
-        variant="ghost"
-        size="sm"
-        onClick={() => setEditing((v) => !v)}
-        className="inline-flex items-center gap-1 rounded border border-dashed border-neutral-300 px-2 py-1 text-[10px] font-normal normal-case text-neutral-500 hover:border-[#1a3d32] hover:bg-[#e7efe9]/50 hover:text-[#1a3d32]"
-      >
-        <Repeat className="h-3 w-3" />
-        {editing ? 'Avbryt' : 'Sett rutine'}
+      <div ref={triggerRef} className="relative inline-block">
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => setEditing((v) => !v)}
+          className="inline-flex items-center gap-1 rounded border border-dashed border-neutral-300 px-2 py-1 text-[10px] font-normal normal-case text-neutral-500 hover:border-[#1a3d32] hover:bg-[#e7efe9]/50 hover:text-[#1a3d32]"
+        >
+          <Repeat className="h-3 w-3" />
+          {editing ? 'Avbryt' : 'Sett rutine'}
+        </Button>
         {editing && (
           <RecurrenceEditor
+            anchorRef={triggerRef}
             preset={preset}
             setPreset={setPreset}
             intervalDays={intervalDays}
             setIntervalDays={setIntervalDays}
             stopAt={stopAt}
             setStopAt={setStopAt}
-            onApply={() => {
-              void tasksCtrl.setRecurrence(t.id, intervalDays, stopAt || null)
-              setEditing(false)
-            }}
+            onApply={apply}
             onCancel={() => setEditing(false)}
           />
         )}
-      </Button>
+      </div>
     )
   }
 
   return (
-    <div className="flex items-center gap-2 text-[11px]">
+    <div ref={triggerRef} className="relative flex items-center gap-2 text-[11px]">
       {t.recurrenceActive ? (
         <>
           <span className="inline-flex items-center gap-1 rounded bg-[#e7efe9] px-1.5 py-0.5 text-[10px] font-bold text-[#1a3d32]">
@@ -570,24 +578,26 @@ function RecurrenceCell({
               stopper {fmtDateShort(t.recurrenceStopAt)}
             </span>
           )}
-          {/* eslint-disable-next-line no-restricted-syntax */}
-          <button
-            type="button"
+          <Button
+            variant="ghost"
+            size="icon"
             onClick={() => setEditing((v) => !v)}
-            className="rounded p-1 text-neutral-400 hover:bg-neutral-100 hover:text-neutral-700"
+            className="text-neutral-400 hover:bg-neutral-100 hover:text-neutral-700"
             title="Endre intervall"
+            aria-label="Endre intervall"
           >
             <RefreshCw className="h-3 w-3" />
-          </button>
-          {/* eslint-disable-next-line no-restricted-syntax */}
-          <button
-            type="button"
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
             onClick={() => void tasksCtrl.stopRecurrence(t.id)}
-            className="rounded p-1 text-neutral-400 hover:bg-red-50 hover:text-red-700"
+            className="text-neutral-400 hover:bg-red-50 hover:text-red-700"
             title="Stopp serien"
+            aria-label="Stopp serien"
           >
             <Pause className="h-3 w-3" />
-          </button>
+          </Button>
         </>
       ) : (
         <>
@@ -595,29 +605,28 @@ function RecurrenceCell({
             <AlertCircle className="h-2.5 w-2.5" />
             Stoppet
           </span>
-          {/* eslint-disable-next-line no-restricted-syntax */}
-          <button
-            type="button"
+          <Button
+            variant="ghost"
+            size="icon"
             onClick={() => setEditing((v) => !v)}
-            className="rounded p-1 text-neutral-400 hover:bg-[#e7efe9]/50 hover:text-[#1a3d32]"
+            className="text-neutral-400 hover:bg-[#e7efe9]/50 hover:text-[#1a3d32]"
             title="Reaktiver rutine"
+            aria-label="Reaktiver rutine"
           >
             <Play className="h-3 w-3" />
-          </button>
+          </Button>
         </>
       )}
       {editing && (
         <RecurrenceEditor
+          anchorRef={triggerRef}
           preset={preset}
           setPreset={setPreset}
           intervalDays={intervalDays}
           setIntervalDays={setIntervalDays}
           stopAt={stopAt}
           setStopAt={setStopAt}
-          onApply={() => {
-            void tasksCtrl.setRecurrence(t.id, intervalDays, stopAt || null)
-            setEditing(false)
-          }}
+          onApply={apply}
           onCancel={() => setEditing(false)}
         />
       )}
@@ -625,7 +634,10 @@ function RecurrenceCell({
   )
 }
 
+/** Portal-rendered popover so the editor escapes `overflow-x-auto` on the
+ *  table wrapper. Positions itself below the trigger and tracks scroll/resize. */
 function RecurrenceEditor({
+  anchorRef,
   preset,
   setPreset,
   intervalDays,
@@ -635,6 +647,7 @@ function RecurrenceEditor({
   onApply,
   onCancel,
 }: {
+  anchorRef: React.RefObject<HTMLElement | null>
   preset: RecurrencePresetId
   setPreset: (v: RecurrencePresetId) => void
   intervalDays: number
@@ -644,9 +657,60 @@ function RecurrenceEditor({
   onApply: () => void
   onCancel: () => void
 }) {
-  return (
+  const [pos, setPos] = useState<{ top: number; left: number } | null>(null)
+  const popRef = useRef<HTMLDivElement | null>(null)
+
+  // Compute + track position. Reads ref.current inside the effect.
+  useEffect(() => {
+    const anchor = anchorRef.current
+    if (!anchor) return
+    const update = () => {
+      const r = anchor.getBoundingClientRect()
+      const popWidth = 220
+      const popPadding = 8
+      let left = r.left
+      const overflow = left + popWidth + popPadding - window.innerWidth
+      if (overflow > 0) left -= overflow
+      if (left < popPadding) left = popPadding
+      setPos({ top: r.bottom + 4, left })
+    }
+    update()
+    window.addEventListener('scroll', update, true)
+    window.addEventListener('resize', update)
+    return () => {
+      window.removeEventListener('scroll', update, true)
+      window.removeEventListener('resize', update)
+    }
+  }, [anchorRef])
+
+  // Esc / outside-click closes.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onCancel()
+    }
+    const onDown = (e: MouseEvent) => {
+      const target = e.target as Node
+      if (popRef.current?.contains(target)) return
+      if (anchorRef.current?.contains(target)) return
+      onCancel()
+    }
+    document.addEventListener('keydown', onKey)
+    document.addEventListener('mousedown', onDown)
+    return () => {
+      document.removeEventListener('keydown', onKey)
+      document.removeEventListener('mousedown', onDown)
+    }
+  }, [anchorRef, onCancel])
+
+  if (!pos) return null
+
+  return createPortal(
     <div
-      className="absolute z-10 mt-1 flex flex-col gap-1.5 rounded-md border border-neutral-200 bg-white p-2 shadow-lg"
+      ref={popRef}
+      className="fixed z-[1000] flex w-[220px] flex-col gap-1.5 rounded-md border border-neutral-200 bg-white p-2 shadow-lg"
+      style={{ top: pos.top, left: pos.left }}
+      role="dialog"
+      aria-label="Sett rutine-intervall"
       onClick={(e) => e.stopPropagation()}
     >
       <label className="text-[9px] font-bold uppercase tracking-wider text-neutral-500">
@@ -682,32 +746,32 @@ function RecurrenceEditor({
       <label className="text-[9px] font-bold uppercase tracking-wider text-neutral-500">
         Slutt-dato (valgfri)
       </label>
-      {/* eslint-disable-next-line no-restricted-syntax */}
-      <input
+      <StandardInput
         type="date"
         value={stopAt}
         onChange={(e) => setStopAt(e.target.value)}
-        className="rounded border border-neutral-200 bg-white px-2 py-1 text-[11px] tabular-nums outline-none focus:border-[#1a3d32]"
+        className="px-2 py-1 text-[11px] tabular-nums"
       />
       <div className="flex gap-1">
-        {/* eslint-disable-next-line no-restricted-syntax */}
-        <button
-          type="button"
+        <Button
+          variant="secondary"
+          size="sm"
           onClick={onCancel}
-          className="rounded border border-neutral-200 px-2 py-1 text-[10px] font-semibold text-neutral-600 hover:bg-neutral-50"
+          className="rounded px-2 py-1 text-[10px] font-semibold"
         >
           Avbryt
-        </button>
-        {/* eslint-disable-next-line no-restricted-syntax */}
-        <button
-          type="button"
+        </Button>
+        <Button
+          variant="primary"
+          size="sm"
           onClick={onApply}
-          className="flex-1 rounded bg-[#1a3d32] px-2 py-1 text-[10px] font-bold text-white hover:bg-[#14312a]"
+          className="flex-1 rounded px-2 py-1 text-[10px] font-bold"
         >
           Bekreft
-        </button>
+        </Button>
       </div>
-    </div>
+    </div>,
+    document.body,
   )
 }
 
@@ -934,7 +998,7 @@ function ProjectsView({
               {linkedTasks.length > 0 && (
                 <ul className="mt-2 space-y-1 border-t border-neutral-100 pt-2">
                   {linkedTasks.slice(0, 5).map((t) => {
-                    const meta = STATUS_META[(t.status as keyof typeof STATUS_META) ?? 'open']
+                    const meta = statusMetaFor(t.status)
                     const Icon = meta.icon
                     return (
                       <li

@@ -31,6 +31,16 @@ export function PlanningCreateProjectModal({ open, onClose, onCreate }: Props) {
     setSubmitting(false)
   }, [open])
 
+  // Esc-to-close
+  useEffect(() => {
+    if (!open) return
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose()
+    }
+    document.addEventListener('keydown', onKey)
+    return () => document.removeEventListener('keydown', onKey)
+  }, [open, onClose])
+
   if (!open) return null
 
   const canSubmit = title.trim().length > 0 && !submitting

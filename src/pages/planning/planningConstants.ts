@@ -136,7 +136,7 @@ export const OWNER_OPTIONS = [
   'BHT',
 ]
 
-/** Statusicon helper. */
+/** Status icon helper. */
 export function statusIconFor(id: PlanningStatusId): LucideIcon {
   return STATUS_META[id]?.icon ?? ListChecks
 }
@@ -146,23 +146,37 @@ export function statusColumnFor(id: TaskItemStatus): PlanningStatusId {
   return known ? (id as PlanningStatusId) : 'open'
 }
 
-/** Compute the column to place a task in for the Kanban view. */
+/** Safe meta resolver — never returns undefined.icon. Used by views that
+ *  render arbitrary task_items rows (incl. legacy/unknown status values
+ *  not in STATUS_META). */
+export function statusMetaFor(id: TaskItemStatus | string): (typeof STATUS_META)[PlanningStatusId] {
+  return STATUS_META[id as PlanningStatusId] ?? STATUS_META.open
+}
+
+/** Compute the column to place a task in for the Kanban view.
+ *  Unknown statuses fall through to 'backlog'. The 'cancelled' status
+ *  maps to 'backlog' explicitly so it doesn't get conflated with
+ *  successful closures in the 'fullført' column. */
 export function kanbanColumnFor(
   status: TaskItemStatus,
 ): 'backlog' | 'planlagt' | 'pågår' | 'gjennomgang' | 'fullført' {
+  if (status === 'cancelled') return 'backlog'
   const meta = STATUS_META[status as PlanningStatusId]
   if (!meta) return 'backlog'
-  return meta.column === 'forsinket' ? 'fullført' : meta.column
+  // 'forsinket' isn't a real column — coerce overdue tasks to fullført
+  // would be wrong; coerce to gjennomgang where they're still actionable.
+  if (meta.column === 'forsinket') return 'gjennomgang'
+  return meta.column
 }
 
-/** Norwegian-style date formatting (dd.mm.åååå). */
+/** Norwegian-style date formatting (dd.mm.åååå). Returns the em-dash
+ *  for null/undefined/Invalid Date so callers don't render NaN or
+ *  'Invalid Date' strings. */
 export function fmtDateShort(s: string | null | undefined): string {
   if (!s) return '—'
-  try {
-    return new Date(s).toLocaleDateString('nb-NO', { day: '2-digit', month: '2-digit', year: 'numeric' })
-  } catch {
-    return s
-  }
+  const d = new Date(s)
+  if (Number.isNaN(d.getTime())) return '—'
+  return d.toLocaleDateString('nb-NO', { day: '2-digit', month: '2-digit', year: 'numeric' })
 }
 
 /** Convert numbers to a Norwegian-friendly representation (comma decimal). */

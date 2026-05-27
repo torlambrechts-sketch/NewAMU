@@ -1,17 +1,16 @@
 // usePlanningOkr — fetch + CRUD for the OKR plan used by /planlegging.
 //
 // Behaviour:
-//   * Auto-creates a draft plan if no active plan exists for the org.
+//   * On first load, calls the provision_okr_baseline_for_org RPC which
+//     atomically creates a draft plan + seeds 4 default objectives + 9
+//     RACI rows. Idempotent — concurrent loads / multiple tabs reach the
+//     same plan via the partial unique index on okr_plans(org, pack).
 //   * Fetches objectives + key_results + raci joined.
-//   * Exposes mutation helpers (update objective, update KR, add/remove KR,
-//     RACI upserts).
-//   * All writes are RLS-gated by organization_id and refresh state
-//     locally without round-tripping through reload() unless the schema
-//     of the response is unclear (then reload()).
-//
-// Data shape: OkrPlanFull from src/types/planning.ts.
+//   * Optimistic UI for mutations with error rollback and surfacing.
+//   * All writes are RLS-gated by organization_id; admin-or-creator-write
+//     on plans, admin-or-creator-write on objectives/krs/raci.
 
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useOrgSetupContext } from './useOrgSetupContext'
 import type {
   OkrHealth,
@@ -190,65 +189,6 @@ export type UsePlanningOkrReturn = {
   removeRaci: (id: string) => Promise<void>
 }
 
-const SEED_OBJECTIVES: Array<Omit<DbObjective, 'id' | 'organization_id' | 'plan_id' | 'created_at' | 'updated_at'>> = [
-  {
-    ord_label: 'O1',
-    position: 1,
-    objective: 'Etablere en levende, dokumentert internkontroll som tåler enhver revisjon',
-    why: 'Arbeidstilsynet kan varsle tilsyn når som helst. Vi skal ha ett system, ett spor, full sporbarhet.',
-    law_ref: 'AML § 3-1 — Systematisk HMS',
-    owner_user_id: null,
-    owner_name: 'HMS-leder',
-    health: 'on_track',
-    progress: 0,
-  },
-  {
-    ord_label: 'O2',
-    position: 2,
-    objective: 'Heve det psykososiale arbeidsmiljøet og senke sykefraværet',
-    why: 'Psykososialt arbeidsmiljø er en sentral lovkrav fra 2026. Vi skal sette mål, kartlegge og handle.',
-    law_ref: 'AML § 4-3 — Psykososialt arbeidsmiljø',
-    owner_user_id: null,
-    owner_name: 'HR-leder',
-    health: 'on_track',
-    progress: 0,
-  },
-  {
-    ord_label: 'O3',
-    position: 3,
-    objective: 'Sikre at fysiske forhold er kartlagt og at ansatte aktivt medvirker',
-    why: 'Vernetjenesten skal være synlig og brukt. Vi skal forebygge — ikke reagere.',
-    law_ref: 'AML § 4-1, § 4-2 — Fysisk arbeidsmiljø + medvirkning',
-    owner_user_id: null,
-    owner_name: 'Hovedverneombud',
-    health: 'on_track',
-    progress: 0,
-  },
-  {
-    ord_label: 'O4',
-    position: 4,
-    objective: 'Bygge HMS-kompetanse i hele organisasjonen — fra ledere til vikarer',
-    why: 'Lovens § 3-2 og § 3-5 krever opplæring av både ledere og ansatte.',
-    law_ref: 'AML § 3-2, § 3-5 — Opplæring + verneombud',
-    owner_user_id: null,
-    owner_name: 'HR-leder',
-    health: 'on_track',
-    progress: 0,
-  },
-]
-
-const SEED_RACI: Array<Omit<DbRaci, 'id' | 'organization_id' | 'plan_id' | 'created_at' | 'updated_at'>> = [
-  { position: 1, role_label: 'Styret / CEO', person_label: '', is_responsible: false, is_accountable: true, is_consulted: true, is_informed: false },
-  { position: 2, role_label: 'HMS-leder', person_label: '', is_responsible: true, is_accountable: false, is_consulted: false, is_informed: false },
-  { position: 3, role_label: 'HR-leder', person_label: '', is_responsible: true, is_accountable: false, is_consulted: false, is_informed: false },
-  { position: 4, role_label: 'Hovedverneombud', person_label: '', is_responsible: true, is_accountable: false, is_consulted: true, is_informed: false },
-  { position: 5, role_label: 'AMU', person_label: '', is_responsible: false, is_accountable: false, is_consulted: true, is_informed: true },
-  { position: 6, role_label: 'BHT (ekstern)', person_label: '', is_responsible: false, is_accountable: false, is_consulted: true, is_informed: false },
-  { position: 7, role_label: 'Linjeledere', person_label: '', is_responsible: true, is_accountable: false, is_consulted: false, is_informed: true },
-  { position: 8, role_label: 'Verneombud', person_label: '', is_responsible: false, is_accountable: false, is_consulted: true, is_informed: true },
-  { position: 9, role_label: 'Alle ansatte', person_label: '', is_responsible: false, is_accountable: false, is_consulted: false, is_informed: true },
-]
-
 export function usePlanningOkr(): UsePlanningOkrReturn {
   const { supabase, organization } = useOrgSetupContext()
   const orgId = organization?.id ?? null
@@ -257,6 +197,14 @@ export function usePlanningOkr(): UsePlanningOkrReturn {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [version, setVersion] = useState(0)
+
+  // Keep a live ref to the current plan so callbacks can read it without
+  // re-creating themselves on every mutation. Bonus: avoids stale-closure
+  // bugs in async handlers that fire after the plan has been updated.
+  const planRef = useRef<OkrPlanFull | null>(null)
+  useEffect(() => {
+    planRef.current = plan
+  }, [plan])
 
   const reload = useCallback(() => setVersion((v) => v + 1), [])
 
@@ -268,76 +216,33 @@ export function usePlanningOkr(): UsePlanningOkrReturn {
 
     void (async () => {
       try {
-        // 1. Hent / opprett aktiv plan.
-        let planRow: DbPlan | null = null
-        const planRes = await supabase
-          .from('okr_plans')
-          .select('*')
-          .eq('organization_id', orgId)
-          .is('deleted_at', null)
-          .in('status', ['active', 'draft'])
-          .order('created_at', { ascending: false })
-          .limit(1)
-        if (planRes.error) throw planRes.error
-        planRow = (planRes.data?.[0] as DbPlan | undefined) ?? null
+        // 1. Provision (atomic, idempotent server-side RPC).
+        const provRes = await supabase.rpc('provision_okr_baseline_for_org', {
+          p_org_id: orgId,
+          p_pack: 'aml-amu',
+        })
+        if (provRes.error) throw provRes.error
+        const planId = String(provRes.data)
 
-        if (!planRow) {
-          // Opprett en default draft-plan + seed objectives + RACI.
-          const insRes = await supabase
-            .from('okr_plans')
-            .insert({
-              organization_id: orgId,
-              title: 'Et arbeidsmiljø som er fullt forsvarlig — og målbart bedre.',
-              description: 'Vi skal etterleve Arbeidsmiljøloven til punkt og prikke, og samtidig løfte arbeidsmiljøet utover lovens minstekrav.',
-              legal_basis: 'AML § 1-1, § 3-1, § 4-1 til § 4-3',
-              horizon: `${new Date().getFullYear()} → ${new Date().getFullYear() + 1}`,
-              status: 'draft',
-              pack: 'aml-amu',
-            })
-            .select('*')
-            .single()
-          if (insRes.error) throw insRes.error
-          planRow = insRes.data as DbPlan
-
-          // Seed default objectives.
-          await supabase
-            .from('okr_objectives')
-            .insert(
-              SEED_OBJECTIVES.map((o) => ({
-                ...o,
-                organization_id: orgId,
-                plan_id: planRow!.id,
-              })),
-            )
-
-          // Seed default RACI.
-          await supabase
-            .from('okr_raci')
-            .insert(
-              SEED_RACI.map((r) => ({
-                ...r,
-                organization_id: orgId,
-                plan_id: planRow!.id,
-              })),
-            )
-        }
-
-        // 2. Hent objectives + key results + raci.
-        const [objRes, raciRes] = await Promise.all([
+        // 2. Hent plan, objectives, raci parallelt.
+        const [planRes, objRes, raciRes] = await Promise.all([
+          supabase.from('okr_plans').select('*').eq('id', planId).single(),
           supabase
             .from('okr_objectives')
             .select('*')
-            .eq('plan_id', planRow.id)
+            .eq('plan_id', planId)
             .order('position', { ascending: true }),
           supabase
             .from('okr_raci')
             .select('*')
-            .eq('plan_id', planRow.id)
+            .eq('plan_id', planId)
             .order('position', { ascending: true }),
         ])
+        if (planRes.error) throw planRes.error
         if (objRes.error) throw objRes.error
         if (raciRes.error) throw raciRes.error
 
+        const planRow = planRes.data as DbPlan
         const objectives = (objRes.data ?? []) as DbObjective[]
         const objectiveIds = objectives.map((o) => o.id)
         let keyResults: DbKeyResult[] = []
@@ -377,11 +282,34 @@ export function usePlanningOkr(): UsePlanningOkrReturn {
     }
   }, [supabase, orgId, version])
 
+  // Optimistic mutation helper: applies state, awaits DB write, rolls back
+  // + surfaces error on failure. Avoids the "screen snaps back" UX.
+  // runDb returns a PostgrestFilterBuilder which is a thenable; we await
+  // it directly (it resolves to { error }).
+  const optimisticPlanMutation = useCallback(
+    async <T,>(
+      applyLocal: () => T,
+      runDb: () => PromiseLike<{ error: { message: string } | null }>,
+    ) => {
+      const snapshot = planRef.current
+      applyLocal()
+      const { error: dbErr } = await runDb()
+      if (dbErr) {
+        setError(dbErr.message)
+        if (snapshot) setPlan(snapshot)
+        reload()
+      }
+    },
+    [reload],
+  )
+
   // ── Plan mutations ───────────────────────────────────────────────────────
 
   const updatePlan = useCallback<UsePlanningOkrReturn['updatePlan']>(
     async (patch) => {
-      if (!supabase || !plan) return
+      if (!supabase) return
+      const current = planRef.current
+      if (!current) return
       const dbPatch: Record<string, unknown> = {}
       if (patch.title !== undefined) dbPatch.title = patch.title
       if (patch.description !== undefined) dbPatch.description = patch.description
@@ -394,26 +322,29 @@ export function usePlanningOkr(): UsePlanningOkrReturn {
       if (patch.status !== undefined) dbPatch.status = patch.status
       if (patch.pack !== undefined) dbPatch.pack = patch.pack
       if (Object.keys(dbPatch).length === 0) return
-      setPlan((prev) => (prev ? { ...prev, ...patch, updatedAt: new Date().toISOString() } : prev))
-      const { error: upErr } = await supabase.from('okr_plans').update(dbPatch).eq('id', plan.id)
-      if (upErr) reload()
+      await optimisticPlanMutation(
+        () => setPlan((prev) => (prev ? { ...prev, ...patch, updatedAt: new Date().toISOString() } : prev)),
+        () => supabase.from('okr_plans').update(dbPatch).eq('id', current.id),
+      )
     },
-    [supabase, plan, reload],
+    [supabase, optimisticPlanMutation],
   )
 
   // ── Objective mutations ──────────────────────────────────────────────────
 
   const addObjective = useCallback<UsePlanningOkrReturn['addObjective']>(async () => {
-    if (!supabase || !plan) return null
-    const nextPos = (plan.objectives[plan.objectives.length - 1]?.position ?? 0) + 1
-    const nextOrd = `O${plan.objectives.length + 1}`
+    if (!supabase) return null
+    const current = planRef.current
+    if (!current) return null
+    const maxPos = current.objectives.reduce((m, o) => Math.max(m, o.position), 0)
+    const nextOrd = `O${current.objectives.length + 1}`
     const { data, error: insErr } = await supabase
       .from('okr_objectives')
       .insert({
-        organization_id: plan.organizationId,
-        plan_id: plan.id,
+        organization_id: current.organizationId,
+        plan_id: current.id,
         ord_label: nextOrd,
-        position: nextPos,
+        position: maxPos + 1,
         objective: 'Nytt mål — beskriv det målbare utfallet',
         why: '',
         owner_name: 'HMS-leder',
@@ -422,7 +353,10 @@ export function usePlanningOkr(): UsePlanningOkrReturn {
       })
       .select('*')
       .single()
-    if (insErr || !data) return null
+    if (insErr || !data) {
+      setError(insErr?.message ?? 'Kunne ikke opprette mål.')
+      return null
+    }
     setPlan((prev) =>
       prev
         ? {
@@ -434,8 +368,8 @@ export function usePlanningOkr(): UsePlanningOkrReturn {
           }
         : prev,
     )
-    return data.id as string
-  }, [supabase, plan])
+    return String(data.id)
+  }, [supabase])
 
   const updateObjective = useCallback<UsePlanningOkrReturn['updateObjective']>(
     async (id, patch) => {
@@ -450,44 +384,49 @@ export function usePlanningOkr(): UsePlanningOkrReturn {
       if (patch.ownerName !== undefined) dbPatch.owner_name = patch.ownerName
       if (patch.health !== undefined) dbPatch.health = patch.health
       if (patch.progress !== undefined) dbPatch.progress = patch.progress
-      setPlan((prev) =>
-        prev
-          ? {
-              ...prev,
-              objectives: prev.objectives.map((o) => (o.id === id ? { ...o, ...patch } : o)),
-            }
-          : prev,
+      await optimisticPlanMutation(
+        () =>
+          setPlan((prev) =>
+            prev
+              ? {
+                  ...prev,
+                  objectives: prev.objectives.map((o) => (o.id === id ? { ...o, ...patch } : o)),
+                }
+              : prev,
+          ),
+        () => supabase.from('okr_objectives').update(dbPatch).eq('id', id),
       )
-      const { error: upErr } = await supabase.from('okr_objectives').update(dbPatch).eq('id', id)
-      if (upErr) reload()
     },
-    [supabase, reload],
+    [supabase, optimisticPlanMutation],
   )
 
   const removeObjective = useCallback<UsePlanningOkrReturn['removeObjective']>(
     async (id) => {
       if (!supabase) return
-      setPlan((prev) => (prev ? { ...prev, objectives: prev.objectives.filter((o) => o.id !== id) } : prev))
-      const { error: delErr } = await supabase.from('okr_objectives').delete().eq('id', id)
-      if (delErr) reload()
+      await optimisticPlanMutation(
+        () => setPlan((prev) => (prev ? { ...prev, objectives: prev.objectives.filter((o) => o.id !== id) } : prev)),
+        () => supabase.from('okr_objectives').delete().eq('id', id),
+      )
     },
-    [supabase, reload],
+    [supabase, optimisticPlanMutation],
   )
 
   // ── Key result mutations ─────────────────────────────────────────────────
 
   const addKeyResult = useCallback<UsePlanningOkrReturn['addKeyResult']>(
     async (objectiveId) => {
-      if (!supabase || !plan) return null
-      const obj = plan.objectives.find((o) => o.id === objectiveId)
+      if (!supabase) return null
+      const current = planRef.current
+      if (!current) return null
+      const obj = current.objectives.find((o) => o.id === objectiveId)
       if (!obj) return null
-      const nextPos = (obj.keyResults[obj.keyResults.length - 1]?.position ?? 0) + 1
+      const maxPos = obj.keyResults.reduce((m, k) => Math.max(m, k.position), 0)
       const { data, error: insErr } = await supabase
         .from('okr_key_results')
         .insert({
-          organization_id: plan.organizationId,
+          organization_id: current.organizationId,
           objective_id: objectiveId,
-          position: nextPos,
+          position: maxPos + 1,
           kr: 'Nytt nøkkelresultat — beskriv målbart utfall',
           unit: '%',
           target: 100,
@@ -498,7 +437,10 @@ export function usePlanningOkr(): UsePlanningOkrReturn {
         })
         .select('*')
         .single()
-      if (insErr || !data) return null
+      if (insErr || !data) {
+        setError(insErr?.message ?? 'Kunne ikke opprette nøkkelresultat.')
+        return null
+      }
       setPlan((prev) =>
         prev
           ? {
@@ -511,9 +453,9 @@ export function usePlanningOkr(): UsePlanningOkrReturn {
             }
           : prev,
       )
-      return data.id as string
+      return String(data.id)
     },
-    [supabase, plan],
+    [supabase],
   )
 
   const updateKeyResult = useCallback<UsePlanningOkrReturn['updateKeyResult']>(
@@ -529,54 +471,60 @@ export function usePlanningOkr(): UsePlanningOkrReturn {
       if (patch.invert !== undefined) dbPatch.invert = patch.invert
       if (patch.ownerUserId !== undefined) dbPatch.owner_user_id = patch.ownerUserId
       if (patch.ownerName !== undefined) dbPatch.owner_name = patch.ownerName
-      setPlan((prev) =>
-        prev
-          ? {
-              ...prev,
-              objectives: prev.objectives.map((o) => ({
-                ...o,
-                keyResults: o.keyResults.map((k) => (k.id === id ? { ...k, ...patch } : k)),
-              })),
-            }
-          : prev,
+      await optimisticPlanMutation(
+        () =>
+          setPlan((prev) =>
+            prev
+              ? {
+                  ...prev,
+                  objectives: prev.objectives.map((o) => ({
+                    ...o,
+                    keyResults: o.keyResults.map((k) => (k.id === id ? { ...k, ...patch } : k)),
+                  })),
+                }
+              : prev,
+          ),
+        () => supabase.from('okr_key_results').update(dbPatch).eq('id', id),
       )
-      const { error: upErr } = await supabase.from('okr_key_results').update(dbPatch).eq('id', id)
-      if (upErr) reload()
     },
-    [supabase, reload],
+    [supabase, optimisticPlanMutation],
   )
 
   const removeKeyResult = useCallback<UsePlanningOkrReturn['removeKeyResult']>(
     async (id) => {
       if (!supabase) return
-      setPlan((prev) =>
-        prev
-          ? {
-              ...prev,
-              objectives: prev.objectives.map((o) => ({
-                ...o,
-                keyResults: o.keyResults.filter((k) => k.id !== id),
-              })),
-            }
-          : prev,
+      await optimisticPlanMutation(
+        () =>
+          setPlan((prev) =>
+            prev
+              ? {
+                  ...prev,
+                  objectives: prev.objectives.map((o) => ({
+                    ...o,
+                    keyResults: o.keyResults.filter((k) => k.id !== id),
+                  })),
+                }
+              : prev,
+          ),
+        () => supabase.from('okr_key_results').delete().eq('id', id),
       )
-      const { error: delErr } = await supabase.from('okr_key_results').delete().eq('id', id)
-      if (delErr) reload()
     },
-    [supabase, reload],
+    [supabase, optimisticPlanMutation],
   )
 
   // ── RACI mutations ───────────────────────────────────────────────────────
 
   const addRaci = useCallback<UsePlanningOkrReturn['addRaci']>(async () => {
-    if (!supabase || !plan) return null
-    const nextPos = (plan.raci[plan.raci.length - 1]?.position ?? 0) + 1
+    if (!supabase) return null
+    const current = planRef.current
+    if (!current) return null
+    const maxPos = current.raci.reduce((m, r) => Math.max(m, r.position), 0)
     const { data, error: insErr } = await supabase
       .from('okr_raci')
       .insert({
-        organization_id: plan.organizationId,
-        plan_id: plan.id,
-        position: nextPos,
+        organization_id: current.organizationId,
+        plan_id: current.id,
+        position: maxPos + 1,
         role_label: 'Ny rolle',
         person_label: '',
         is_responsible: false,
@@ -586,12 +534,15 @@ export function usePlanningOkr(): UsePlanningOkrReturn {
       })
       .select('*')
       .single()
-    if (insErr || !data) return null
+    if (insErr || !data) {
+      setError(insErr?.message ?? 'Kunne ikke opprette RACI-rad.')
+      return null
+    }
     setPlan((prev) =>
       prev ? { ...prev, raci: [...prev.raci, mapRaci(data as DbRaci)] } : prev,
     )
-    return data.id as string
-  }, [supabase, plan])
+    return String(data.id)
+  }, [supabase])
 
   const updateRaci = useCallback<UsePlanningOkrReturn['updateRaci']>(
     async (id, patch) => {
@@ -604,25 +555,38 @@ export function usePlanningOkr(): UsePlanningOkrReturn {
       if (patch.isAccountable !== undefined) dbPatch.is_accountable = patch.isAccountable
       if (patch.isConsulted !== undefined) dbPatch.is_consulted = patch.isConsulted
       if (patch.isInformed !== undefined) dbPatch.is_informed = patch.isInformed
-      setPlan((prev) =>
-        prev
-          ? { ...prev, raci: prev.raci.map((r) => (r.id === id ? { ...r, ...patch } : r)) }
-          : prev,
+      // RACI table check constraint requires at least one role flag to be true.
+      // Validate client-side before the round-trip to give immediate feedback.
+      const current = planRef.current?.raci.find((r) => r.id === id)
+      if (current) {
+        const next = { ...current, ...patch }
+        if (!next.isResponsible && !next.isAccountable && !next.isConsulted && !next.isInformed) {
+          setError('Minst én RACI-rolle (R/A/C/I) må være valgt for hver rad.')
+          return
+        }
+      }
+      await optimisticPlanMutation(
+        () =>
+          setPlan((prev) =>
+            prev
+              ? { ...prev, raci: prev.raci.map((r) => (r.id === id ? { ...r, ...patch } : r)) }
+              : prev,
+          ),
+        () => supabase.from('okr_raci').update(dbPatch).eq('id', id),
       )
-      const { error: upErr } = await supabase.from('okr_raci').update(dbPatch).eq('id', id)
-      if (upErr) reload()
     },
-    [supabase, reload],
+    [supabase, optimisticPlanMutation],
   )
 
   const removeRaci = useCallback<UsePlanningOkrReturn['removeRaci']>(
     async (id) => {
       if (!supabase) return
-      setPlan((prev) => (prev ? { ...prev, raci: prev.raci.filter((r) => r.id !== id) } : prev))
-      const { error: delErr } = await supabase.from('okr_raci').delete().eq('id', id)
-      if (delErr) reload()
+      await optimisticPlanMutation(
+        () => setPlan((prev) => (prev ? { ...prev, raci: prev.raci.filter((r) => r.id !== id) } : prev)),
+        () => supabase.from('okr_raci').delete().eq('id', id),
+      )
     },
-    [supabase, reload],
+    [supabase, optimisticPlanMutation],
   )
 
   return useMemo(

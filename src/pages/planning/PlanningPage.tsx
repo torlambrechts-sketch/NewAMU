@@ -126,28 +126,41 @@ export function PlanningPage() {
     async (items: CadenceLibraryItem[]) => {
       setCommittingKadens(true)
       try {
-        // Spread the first due date over the next quarter so cadence items don't all
-        // collide at the same time.
+        // Stagger due dates so cadence items don't all collide on the same day.
+        // toLocaleDateString('sv-SE') gives YYYY-MM-DD in local TZ — avoids
+        // the UTC drift of toISOString().slice(0,10) for Norway timezone.
         const today = new Date()
-        let count = 0
-        for (let i = 0; i < items.length; i += 1) {
-          const item = items[i]
-          const due = new Date(today)
-          // Stagger by 3 days per item to avoid all-the-same-due-date.
-          due.setDate(due.getDate() + 14 + i * 3)
-          const dueStr = due.toISOString().slice(0, 10)
-          const id = await tasksCtrl.createTask({
-            title: item.title,
-            description: `${item.ref}\n${item.lawRefs.join(', ')}\n\nFrekvens: ${item.freq} · Eier: ${item.owner}`,
-            priority: 'medium',
-            dueDate: dueStr,
-            ownerName: item.owner,
-            recurrenceActive: true,
-            recurrenceIntervalDays: item.intervalDays,
-          })
-          if (id) count += 1
+        const results = await Promise.all(
+          items.map(async (item, i) => {
+            const due = new Date(today)
+            due.setDate(due.getDate() + 14 + i * 3)
+            const dueStr = due.toLocaleDateString('sv-SE')
+            return tasksCtrl.createTask({
+              title: item.title,
+              description: `${item.ref}\n${item.lawRefs.join(', ')}\n\nFrekvens: ${item.freq} · Eier: ${item.owner}`,
+              priority: 'medium',
+              dueDate: dueStr,
+              ownerName: item.owner,
+              recurrenceActive: true,
+              recurrenceIntervalDays: item.intervalDays,
+            })
+          }),
+        )
+        const ok = results.filter((r) => r.id != null).length
+        const failed = results.length - ok
+        if (failed === 0) {
+          setKadensBanner(
+            `${ok} oppgave${ok === 1 ? '' : 'r'} lagt til som vedvarende rutiner i planen.`,
+          )
+        } else if (ok === 0) {
+          const firstErr = results.find((r) => r.error)?.error ?? 'Ukjent feil'
+          setKadensBanner(`Kunne ikke legge til oppgavene. (${firstErr})`)
+        } else {
+          const firstErr = results.find((r) => r.error)?.error ?? 'Ukjent feil'
+          setKadensBanner(
+            `${ok} oppgave${ok === 1 ? '' : 'r'} lagt til. ${failed} feilet: ${firstErr}`,
+          )
         }
-        setKadensBanner(`${count} oppgave${count === 1 ? '' : 'r'} lagt til som vedvarende rutiner i planen.`)
       } finally {
         setCommittingKadens(false)
       }
