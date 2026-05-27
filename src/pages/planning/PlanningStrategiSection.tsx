@@ -24,6 +24,7 @@ import { Initials } from '../../components/ui/elearningPrimitives'
 import { Button } from '../../components/ui/Button'
 import { StandardInput } from '../../components/ui/Input'
 import { StandardTextarea } from '../../components/ui/Textarea'
+import { useOrgSetupContext } from '../../hooks/useOrgSetupContext'
 import type {
   OkrHealth,
   OkrKeyResult,
@@ -41,10 +42,52 @@ type Props = {
   onCreateTaskForKr: (objectiveId: string, keyResultId: string) => void
 }
 
+/** Build a stable list of horizon options for the dropdown. Includes the
+ *  current year, the next 3 years, and rolling year-pairs (2026 → 2027 etc.)
+ *  + half-year + quarter presets. The plan's current horizon is included
+ *  even if it's not one of the presets, so custom values from older plans
+ *  stay selectable. */
+function buildHorizonOptions(current: string | undefined): string[] {
+  const year = new Date().getFullYear()
+  const opts = new Set<string>()
+  for (let y = year; y <= year + 3; y += 1) {
+    opts.add(`${y}`)
+    opts.add(`${y} → ${y + 1}`)
+    opts.add(`${y} H1`)
+    opts.add(`${y} H2`)
+  }
+  if (current) opts.add(current)
+  return Array.from(opts)
+}
+
 export function PlanningStrategiSection({ plan, ctrl, tasks, onCreateTaskForKr }: Props) {
+  const { orgProfiles } = useOrgSetupContext()
   const [openId, setOpenId] = useState<string | null>(plan.objectives[0]?.id ?? null)
   const [editing, setEditing] = useState(false)
   const [editPlanFields, setEditPlanFields] = useState(false)
+
+  // Sponsor + facilitator candidates from the org's profile roster.
+  // Include the plan's current value even if the profile is no longer in
+  // the org (e.g. left), so it remains visible.
+  const personOptions = useMemo(() => {
+    const list = orgProfiles
+      .map((p) => ({ id: p.id, name: p.display_name || p.email || 'Bruker' }))
+      .sort((a, b) => a.name.localeCompare(b.name, 'nb'))
+    const extras: Array<{ id: string; name: string }> = []
+    if (plan.sponsorName && !list.some((p) => p.name === plan.sponsorName) && !plan.sponsorUserId) {
+      extras.push({ id: `__sponsor_${plan.sponsorName}`, name: plan.sponsorName })
+    }
+    if (
+      plan.facilitatorName
+      && !list.some((p) => p.name === plan.facilitatorName)
+      && !plan.facilitatorUserId
+    ) {
+      extras.push({ id: `__facilitator_${plan.facilitatorName}`, name: plan.facilitatorName })
+    }
+    return [...list, ...extras]
+  }, [orgProfiles, plan.sponsorName, plan.sponsorUserId, plan.facilitatorName, plan.facilitatorUserId])
+
+  const horizonOptions = useMemo(() => buildHorizonOptions(plan.horizon), [plan.horizon])
 
   const overallProgress = useMemo(() => {
     const all = plan.objectives.flatMap((o) => o.keyResults)
@@ -112,59 +155,102 @@ export function PlanningStrategiSection({ plan, ctrl, tasks, onCreateTaskForKr }
                 value={plan.description}
                 onChange={(e) => ctrl.updatePlan({ description: e.target.value })}
                 rows={3}
-                className="mt-3 w-full max-w-2xl rounded-md bg-white/80 px-3 py-2 text-[14px] leading-relaxed text-neutral-700"
+                className="mt-3 w-full rounded-md bg-white/80 px-3 py-2 text-[14px] leading-relaxed text-neutral-700"
               />
             ) : (
-              <p className="mt-3 max-w-2xl text-[14px] leading-relaxed text-neutral-700">
+              <p className="mt-3 text-[14px] leading-relaxed text-neutral-700">
                 {plan.description}
               </p>
             )}
             <div className="mt-5 grid grid-cols-2 gap-x-6 gap-y-3 text-[12px] text-neutral-700 md:grid-cols-4">
               <div className="flex items-center gap-2">
                 <UserCheck className="h-3.5 w-3.5 text-neutral-500" />
-                <div>
+                <div className="min-w-0 flex-1">
                   <div className="text-[10px] uppercase tracking-wider text-neutral-500">Sponsor</div>
                   {editPlanFields ? (
-                    <StandardInput
-                      value={plan.sponsorName ?? ''}
-                      onChange={(e) => ctrl.updatePlan({ sponsorName: e.target.value })}
-                      placeholder="Navn"
-                      className="border-0 bg-transparent p-0 font-semibold text-neutral-900 focus:ring-0"
-                    />
+                    // eslint-disable-next-line no-restricted-syntax
+                    <select
+                      value={plan.sponsorUserId ?? (plan.sponsorName ? `__name__${plan.sponsorName}` : '')}
+                      onChange={(e) => {
+                        const v = e.target.value
+                        if (v === '') {
+                          ctrl.updatePlan({ sponsorUserId: undefined, sponsorName: undefined })
+                          return
+                        }
+                        if (v.startsWith('__name__')) {
+                          ctrl.updatePlan({ sponsorUserId: undefined, sponsorName: v.slice('__name__'.length) })
+                          return
+                        }
+                        const opt = personOptions.find((p) => p.id === v)
+                        if (opt) ctrl.updatePlan({ sponsorUserId: opt.id, sponsorName: opt.name })
+                      }}
+                      className="w-full rounded border border-neutral-300 bg-white px-1.5 py-1 text-[12px] font-semibold text-neutral-900 outline-none focus:border-[#1a3d32]"
+                    >
+                      <option value="">— Velg —</option>
+                      {personOptions.map((p) => (
+                        <option key={p.id} value={p.id.startsWith('__') ? `__name__${p.name}` : p.id}>
+                          {p.name}
+                        </option>
+                      ))}
+                    </select>
                   ) : (
-                    <div className="font-semibold text-neutral-900">{plan.sponsorName || '—'}</div>
+                    <div className="truncate font-semibold text-neutral-900">{plan.sponsorName || '—'}</div>
                   )}
                 </div>
               </div>
               <div className="flex items-center gap-2">
                 <UserCog className="h-3.5 w-3.5 text-neutral-500" />
-                <div>
+                <div className="min-w-0 flex-1">
                   <div className="text-[10px] uppercase tracking-wider text-neutral-500">Fasilitator</div>
                   {editPlanFields ? (
-                    <StandardInput
-                      value={plan.facilitatorName ?? ''}
-                      onChange={(e) => ctrl.updatePlan({ facilitatorName: e.target.value })}
-                      placeholder="Navn"
-                      className="border-0 bg-transparent p-0 font-semibold text-neutral-900 focus:ring-0"
-                    />
+                    // eslint-disable-next-line no-restricted-syntax
+                    <select
+                      value={plan.facilitatorUserId ?? (plan.facilitatorName ? `__name__${plan.facilitatorName}` : '')}
+                      onChange={(e) => {
+                        const v = e.target.value
+                        if (v === '') {
+                          ctrl.updatePlan({ facilitatorUserId: undefined, facilitatorName: undefined })
+                          return
+                        }
+                        if (v.startsWith('__name__')) {
+                          ctrl.updatePlan({ facilitatorUserId: undefined, facilitatorName: v.slice('__name__'.length) })
+                          return
+                        }
+                        const opt = personOptions.find((p) => p.id === v)
+                        if (opt) ctrl.updatePlan({ facilitatorUserId: opt.id, facilitatorName: opt.name })
+                      }}
+                      className="w-full rounded border border-neutral-300 bg-white px-1.5 py-1 text-[12px] font-semibold text-neutral-900 outline-none focus:border-[#1a3d32]"
+                    >
+                      <option value="">— Velg —</option>
+                      {personOptions.map((p) => (
+                        <option key={p.id} value={p.id.startsWith('__') ? `__name__${p.name}` : p.id}>
+                          {p.name}
+                        </option>
+                      ))}
+                    </select>
                   ) : (
-                    <div className="font-semibold text-neutral-900">{plan.facilitatorName || '—'}</div>
+                    <div className="truncate font-semibold text-neutral-900">{plan.facilitatorName || '—'}</div>
                   )}
                 </div>
               </div>
               <div className="flex items-center gap-2">
                 <CalendarRange className="h-3.5 w-3.5 text-neutral-500" />
-                <div>
+                <div className="min-w-0 flex-1">
                   <div className="text-[10px] uppercase tracking-wider text-neutral-500">Horisont</div>
                   {editPlanFields ? (
-                    <StandardInput
+                    // eslint-disable-next-line no-restricted-syntax
+                    <select
                       value={plan.horizon ?? ''}
                       onChange={(e) => ctrl.updatePlan({ horizon: e.target.value })}
-                      placeholder="2026 → 2027"
-                      className="border-0 bg-transparent p-0 font-semibold text-neutral-900 focus:ring-0"
-                    />
+                      className="w-full rounded border border-neutral-300 bg-white px-1.5 py-1 text-[12px] font-semibold text-neutral-900 outline-none focus:border-[#1a3d32]"
+                    >
+                      <option value="">— Velg —</option>
+                      {horizonOptions.map((h) => (
+                        <option key={h} value={h}>{h}</option>
+                      ))}
+                    </select>
                   ) : (
-                    <div className="font-semibold text-neutral-900">{plan.horizon || '—'}</div>
+                    <div className="truncate font-semibold text-neutral-900">{plan.horizon || '—'}</div>
                   )}
                 </div>
               </div>
