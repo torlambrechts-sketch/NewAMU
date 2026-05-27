@@ -132,6 +132,7 @@ export default defineConfig([
     files: [
       'src/pages/platform/**/*.{ts,tsx}',
       'src/components/platform/**/*.{ts,tsx}',
+      'src/pages/TableTestPage.tsx',
     ],
     rules: { 'no-restricted-syntax': 'off' },
   },
