@@ -183,9 +183,17 @@ export type TaskItem = {
   // Lifecycle gate behaviour captured at creation time
   closureGate: 'hard' | 'soft' | 'none'
 
-  // Recurrence
+  // Recurrence (legacy hint — kept for backward-compat)
   recurrenceCadence?: string
   nextRecurrenceDate?: string
+
+  // Vedvarende rutiner — eksplisitt regenerering med stop-control
+  recurrenceIntervalDays?: number
+  recurrenceActive?: boolean
+  recurrenceStopAt?: string
+  recurrenceStoppedAt?: string
+  recurrenceStoppedBy?: string
+  recurrenceParentItemId?: string
 
   // Legacy source bridge — plain string to avoid coupling to deprecated enum
   sourceType?: string

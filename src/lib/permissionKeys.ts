@@ -266,6 +266,10 @@ export const ROUTE_PERMISSION_ANY: { pathPrefix: string; permissions: Permission
     pathPrefix: '/min-innsikt',
     permissions: ['module.view.dashboard'],
   },
+  {
+    pathPrefix: '/planlegging',
+    permissions: ['module.view.dashboard', 'module.view.admin'],
+  },
 ]
 
 export const DASHBOARD_PERMISSION: PermissionKey = 'module.view.dashboard'

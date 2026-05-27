@@ -21,6 +21,8 @@ import {
   Briefcase,
   CalendarClock,
   CalendarDays,
+  Compass,
+  Target,
   ClipboardList,
   Database,
   FileText,
@@ -1218,6 +1220,56 @@ export function buildNavSections(ctx: NavBuilderContext): NavSection[] {
     ],
   }
 
+  // Planlegging — strategi (OKR), kadens-planlegger, oppgaver/prosjekter.
+  // En topp-level inngang under Styringssystem som binder strategilaget
+  // til kadensen og det daglige oppgavearbeidet. /planlegging har sin
+  // egen tab-stripe (strategi/kadens/oversikt).
+  const planningFixedSubs: SubItem[] = [
+    {
+      label: 'Strategi & OKR',
+      path: '/planlegging?section=strategi',
+      Icon: Target,
+      match: ({ pathname, search }) =>
+        pathname === '/planlegging' &&
+        (new URLSearchParams(search).get('section') ?? 'strategi') === 'strategi',
+      requirePermAny: ADMINISTRASJON_NAV_PERMS,
+    },
+    {
+      label: 'Kadens-planlegger',
+      path: '/planlegging?section=kadens',
+      Icon: Wand2,
+      match: ({ pathname, search }) =>
+        pathname === '/planlegging' &&
+        new URLSearchParams(search).get('section') === 'kadens',
+      requirePermAny: ADMINISTRASJON_NAV_PERMS,
+    },
+    {
+      label: 'Oppgaver & prosjekter',
+      path: '/planlegging?section=oversikt',
+      Icon: Kanban,
+      match: ({ pathname, search }) =>
+        pathname === '/planlegging' &&
+        new URLSearchParams(search).get('section') === 'oversikt',
+      requirePermAny: ADMINISTRASJON_NAV_PERMS,
+    },
+  ]
+  const planningGroup: NavGroup = {
+    id: 'planning',
+    label: 'Planlegging',
+    icon: Compass,
+    modules: [
+      {
+        to: '/planlegging',
+        label: 'Planlegging',
+        end: false,
+        icon: Compass,
+        subs: planningFixedSubs,
+        permAny: ADMINISTRASJON_NAV_PERMS,
+        flatSubs: true,
+      },
+    ],
+  }
+
   // Cadence — Klarert Cadence-veiviser (HMS-årshjul). Egen group i
   // Styringssystem-seksjonen for å holde inngangen synlig — selve siden
   // /cadence har sin egen tab-stripe for veiviser, planer, årshjul.
@@ -1357,6 +1409,7 @@ export function buildNavSections(ctx: NavBuilderContext): NavSection[] {
     groups: [
       hmsOverviewGroup,
       internkontrollGroup,
+      planningGroup,
       cadenceGroup,
       dashboardsGroup,
       alertsGroup,

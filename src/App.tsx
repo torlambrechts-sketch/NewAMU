@@ -118,6 +118,7 @@ import { InternkontrollGapPage } from './pages/overview/internkontroll/Internkon
 import { InternkontrollPlanPage } from './pages/overview/internkontroll/InternkontrollPlanPage'
 import { InternkontrollPage } from './pages/overview/internkontroll/InternkontrollPage'
 import { CadencePage } from './pages/cadence/CadencePage'
+import { PlanningPage } from './pages/planning/PlanningPage'
 import { DashboardPage } from './pages/dashboard/DashboardPage'
 import { InternkontrollAuditorPage } from './pages/auditor/InternkontrollAuditorPage'
 import { ControlsAuditorPage } from './pages/auditor/ControlsAuditorPage'
@@ -463,6 +464,14 @@ const router = createBrowserRouter(
                         element={
                           <RouteErrorBoundary title="Kunne ikke vise Cadence">
                             <CadencePage />
+                          </RouteErrorBoundary>
+                        }
+                      />
+                      <Route
+                        path="planlegging"
+                        element={
+                          <RouteErrorBoundary title="Kunne ikke vise Planlegging">
+                            <PlanningPage />
                           </RouteErrorBoundary>
                         }
                       />
