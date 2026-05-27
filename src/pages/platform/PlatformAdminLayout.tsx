@@ -2,6 +2,7 @@ import { NavLink, Outlet, Link } from 'react-router-dom'
 import type { LucideIcon } from 'lucide-react'
 import {
   Box,
+  CalendarRange,
   GraduationCap,
   LayoutGrid,
   LayoutTemplate,
@@ -27,6 +28,7 @@ const nav: {
   { to: '/platform-admin/box-designer', label: 'Komponentdesigner', icon: Box },
   { to: '/platform-admin/layout-builder', label: 'Layout-designer', icon: Rows3 },
   { to: '/platform-admin/layout', label: 'Layout (arbeidsflate)', icon: LayoutTemplate },
+  { to: '/platform-admin/planlegging-iterations', label: 'Planlegging-iterasjoner', icon: CalendarRange },
   { to: '/platform-admin/course-player', label: 'Kursspiller', icon: GraduationCap },
 ]
 

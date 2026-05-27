@@ -153,6 +153,10 @@ import { PlatformUiAdvancedPage } from './pages/platform/PlatformUiAdvancedPage'
 import { PlatformBoxDesignerPage } from './pages/platform/PlatformBoxDesignerPage'
 import { PlatformLayoutCompositionPage } from './pages/platform/PlatformLayoutCompositionPage'
 import { PlatformLayoutHubPage } from './pages/platform/PlatformLayoutHubPage'
+import {
+  PlanleggingIterationsHubPage,
+  PlanleggingIterationSoloPage,
+} from './pages/platform/PlanleggingIterationsHubPage'
 import { PlatformCoursePlayerHubPage } from './pages/platform/coursePlayer/PlatformCoursePlayerHubPage'
 import { PlatformCoursePlayerFocusPage } from './pages/platform/coursePlayer/PlatformCoursePlayerFocusPage'
 import { PlatformCoursePlayerCinemaPage } from './pages/platform/coursePlayer/PlatformCoursePlayerCinemaPage'
@@ -369,6 +373,12 @@ const router = createBrowserRouter(
                 <Route path="box-designer" element={<PlatformBoxDesignerPage />} />
                 <Route path="layout-builder" element={<PlatformLayoutCompositionPage />} />
                 <Route path="layout" element={<PlatformLayoutHubPage />} />
+                <Route path="planlegging-iterations" element={<PlanleggingIterationsHubPage />} />
+                <Route path="planlegging-iterations/editorial" element={<PlanleggingIterationSoloPage slug="editorial" />} />
+                <Route path="planlegging-iterations/console" element={<PlanleggingIterationSoloPage slug="console" />} />
+                <Route path="planlegging-iterations/focus" element={<PlanleggingIterationSoloPage slug="focus" />} />
+                <Route path="planlegging-iterations/kanban" element={<PlanleggingIterationSoloPage slug="kanban" />} />
+                <Route path="planlegging-iterations/timeline" element={<PlanleggingIterationSoloPage slug="timeline" />} />
                 <Route path="course-player" element={<PlatformCoursePlayerHubPage />} />
                 <Route path="course-player/focus" element={<PlatformCoursePlayerFocusPage />} />
                 <Route path="course-player/cinema" element={<PlatformCoursePlayerCinemaPage />} />
