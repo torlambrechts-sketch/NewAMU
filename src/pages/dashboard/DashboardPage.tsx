@@ -65,12 +65,12 @@ function DashboardContent() {
       <Button
         variant="ghost"
         size="sm"
-        icon={<RefreshCw className={`h-3.5 w-3.5 ${data.loading ? 'animate-spin' : ''}`} />}
+        icon={<RefreshCw className={`h-3.5 w-3.5 ${(data.loading || data.refreshing) ? 'animate-spin' : ''}`} />}
         onClick={() => void data.reload()}
         disabled={data.loading}
         aria-label="Last inn dashboard på nytt"
       >
-        Oppdater
+        {data.refreshing ? 'Oppdaterer …' : 'Oppdater'}
       </Button>
       <Button
         variant="ghost"

@@ -18,6 +18,7 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from 'react'
@@ -168,7 +169,10 @@ export const DASHBOARD_LIMITS = {
 } as const
 
 export type DashboardData = {
+  /** True under første last (sentral spinner). */
   loading: boolean
+  /** True under realtime-trigget bakgrunnsrefetch (diskret indikator). */
+  refreshing: boolean
   error: string | null
   plan: DashboardPlanRow | null
   modules: DashboardPlanModuleRow[]
@@ -255,7 +259,13 @@ function useDashboardDataInternal(): DashboardData {
     auditTruncated: false,
     profilesTruncated: false,
   })
+  // `loading` er sant kun under FØRSTE last; brukes til å vise det
+  // sentrale spinner-skjermbildet. Realtime-trigget reload må ikke
+  // blanke ut hele siden, derfor egen flagg `refreshing` for bakgrunns-
+  // refetch (kan brukes av widgets for å vise en diskret indikator).
   const [loading, setLoading] = useState(true)
+  const [refreshing, setRefreshing] = useState(false)
+  const [hasLoadedOnce, setHasLoadedOnce] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   const load = useCallback(async () => {
@@ -263,7 +273,8 @@ function useDashboardDataInternal(): DashboardData {
       setLoading(false)
       return
     }
-    setLoading(true)
+    if (hasLoadedOnce) setRefreshing(true)
+    else setLoading(true)
     setError(null)
 
     try {
@@ -378,19 +389,68 @@ function useDashboardDataInternal(): DashboardData {
       })
 
       setLoading(false)
+      setRefreshing(false)
+      setHasLoadedOnce(true)
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Kunne ikke laste dashboard-data')
       setLoading(false)
+      setRefreshing(false)
     }
-  }, [supabase, orgId])
+  }, [supabase, orgId, hasLoadedOnce])
 
   useEffect(() => {
     void load()
   }, [load])
 
+  // ── Realtime: re-fetch når task_items eller hse_audit_log endrer seg ────
+  // i denne org-en. Vi debouncer 600ms slik at en burst av endringer (f.eks.
+  // ved cadence-aktivering som genererer 20 task_items på rad) bare gir én
+  // refetch. RLS sikrer at vi bare får events for vår egen org.
+  const reloadDebounceRef = useRef<number | null>(null)
+  const queueReload = useCallback(() => {
+    if (reloadDebounceRef.current != null) {
+      window.clearTimeout(reloadDebounceRef.current)
+    }
+    reloadDebounceRef.current = window.setTimeout(() => {
+      void load()
+      reloadDebounceRef.current = null
+    }, 600)
+  }, [load])
+
+  useEffect(() => {
+    if (!supabase || !orgId) return
+    const channel = supabase
+      .channel(`dashboard:org:${orgId}`)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'task_items', filter: `organization_id=eq.${orgId}` },
+        queueReload,
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'hse_audit_log', filter: `organization_id=eq.${orgId}` },
+        queueReload,
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'cadence_plans', filter: `organization_id=eq.${orgId}` },
+        queueReload,
+      )
+      .subscribe()
+
+    return () => {
+      if (reloadDebounceRef.current != null) {
+        window.clearTimeout(reloadDebounceRef.current)
+        reloadDebounceRef.current = null
+      }
+      void supabase.removeChannel(channel)
+    }
+  }, [supabase, orgId, queueReload])
+
   return useMemo(
     () => ({
       loading,
+      refreshing,
       error,
       plan,
       modules,
@@ -405,7 +465,7 @@ function useDashboardDataInternal(): DashboardData {
       limits,
       reload: load,
     }),
-    [loading, error, plan, modules, roles, approvals, escalations, tasks, controls, meetings, audit, profiles, limits, load],
+    [loading, refreshing, error, plan, modules, roles, approvals, escalations, tasks, controls, meetings, audit, profiles, limits, load],
   )
 }
 

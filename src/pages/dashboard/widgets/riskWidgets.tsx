@@ -403,9 +403,15 @@ function SeverityBadge({ severity }: { severity: 'mild' | 'standard' | 'streng' 
 
 // ── Audit Stream ────────────────────────────────────────────────────────────
 
+const AUDIT_PAGE_SIZE = 20
+
 export function AuditStreamWidget() {
   const data = useDashboardData()
   const [search, setSearch] = useState('')
+  // Sider 1 → 1×PAGE_SIZE = 20 rader, sider 2 → 40 rader osv. Vi
+  // unngår uendelig scroll for at brukeren skal beholde kontekstplassen
+  // i tab-stripa over.
+  const [page, setPage] = useState(1)
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase()
@@ -416,6 +422,9 @@ export function AuditStreamWidget() {
       (a.changed_by_name ?? '').toLowerCase().includes(q),
     )
   }, [data.audit, search])
+
+  const visible = useMemo(() => filtered.slice(0, page * AUDIT_PAGE_SIZE), [filtered, page])
+  const hasMore = visible.length < filtered.length
 
   return (
     <WidgetCard
@@ -440,7 +449,7 @@ export function AuditStreamWidget() {
         <EmptyState Icon={ScrollText} title="Ingen revisjonshendelser" body={search ? `Ingen treff på «${search}».` : 'Audit-loggen er tom — gjør en endring for å se den her.'} />
       ) : (
         <div className="divide-y divide-neutral-100">
-          {filtered.slice(0, 30).map((a) => (
+          {visible.map((a) => (
             <div key={a.id} className="grid grid-cols-[140px_36px_1fr_140px] gap-4 px-5 py-3.5 text-[12.5px]">
               <div className="font-mono text-[11px] text-neutral-500">
                 {new Date(a.changed_at).toLocaleDateString('nb-NO', { day: '2-digit', month: '2-digit', year: 'numeric' })}<br />
@@ -469,9 +478,17 @@ export function AuditStreamWidget() {
           ))}
         </div>
       )}
-      {filtered.length > 30 ? (
-        <div className="border-t border-neutral-100 bg-neutral-50 px-5 py-2.5 text-center text-[11px] text-neutral-500">
-          Viser 30 av {filtered.length} hendelser
+      {filtered.length > 0 ? (
+        <div className="flex items-center justify-between border-t border-neutral-100 bg-neutral-50 px-5 py-2.5 text-[11px] text-neutral-500">
+          <span>
+            Viser {visible.length} av {filtered.length} hendelser
+            {data.limits.auditTruncated ? <> (siste {filtered.length} av totalt mange — last inn modulside for full liste)</> : null}
+          </span>
+          {hasMore ? (
+            <Button variant="ghost" size="sm" onClick={() => setPage((p) => p + 1)}>
+              Vis flere ({Math.min(AUDIT_PAGE_SIZE, filtered.length - visible.length)})
+            </Button>
+          ) : null}
         </div>
       ) : null}
     </WidgetCard>
