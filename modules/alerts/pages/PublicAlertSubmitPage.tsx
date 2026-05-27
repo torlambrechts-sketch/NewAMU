@@ -8,7 +8,7 @@
 // alerts-public-submit edge function.
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Link, useLocation, useNavigate, useParams } from 'react-router-dom'
+import { Link, useLocation, useParams } from 'react-router-dom'
 import { AlertTriangle, Lock, Loader2 } from 'lucide-react'
 import { getSupabaseBrowserClient } from '../../../src/lib/supabaseClient'
 import type { AlertSystemTemplateRow, AlertAnonymityMode, AlertPiiHint } from '../types'
@@ -63,7 +63,6 @@ type ResumeState = {
 export function PublicAlertSubmitPage() {
   const { slug } = useParams<{ slug: string }>()
   const location = useLocation()
-  const navigate = useNavigate()
   const supabase = getSupabaseBrowserClient()
   const resumeState = (location.state ?? {}) as ResumeState
 
@@ -582,13 +581,13 @@ export function PublicAlertSubmitPage() {
               <div>
                 <label className="text-[10px] font-bold uppercase text-neutral-600">
                   {lang === 'nb' ? 'Kontakt (e-post eller telefon)' : 'Contact (email or phone)'}{' '}
-                  {anonymityMode !== 'fully_anonymous' && <span className="text-red-700">*</span>}
+                  <span className="text-red-700">*</span>
                 </label>
                 <input
                   type="text"
                   value={reporterContact}
                   onChange={(e) => setReporterContact(e.target.value)}
-                  required={anonymityMode !== 'fully_anonymous'}
+                  required
                   placeholder="varsler@e-post.no"
                   className={`${R} mt-1 w-full border border-neutral-300 px-3 py-2 text-sm`}
                 />

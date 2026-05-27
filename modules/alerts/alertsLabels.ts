@@ -35,6 +35,16 @@ export const ALERT_STATUS_LABEL: Record<AlertStatus, string> = {
   internal_review: 'Intern gjennomgang',
   closed: 'Lukket',
   dismissed: 'Avvist',
+  // v1.1 additions
+  assigned: 'Tildelt',
+  under_investigation: 'Under undersøkelse',
+  awaiting_reporter_response: 'Venter på varsler',
+  on_hold: 'Satt på vent',
+  decision: 'Vedtak',
+  rejected: 'Avvist',
+  escalated: 'Eskalert',
+  reopened: 'Gjenåpnet',
+  withdrawn: 'Trukket',
 }
 
 export const ALERT_CONFIDENTIALITY_LABEL: Record<AlertConfidentialityLevel, string> = {
