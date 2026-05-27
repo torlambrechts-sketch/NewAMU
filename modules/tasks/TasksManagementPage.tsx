@@ -74,15 +74,21 @@ export function TasksManagementPage() {
   const [selectedItem, setSelectedItem] = useState<TaskItemRow | null>(null)
   const [boardError, setBoardError] = useState<string | null>(null)
 
-  // ?selected=<id> deeplink — derive the matching item synchronously
-  // and strip the param via a router-level effect (no setState inside).
-  // `effectiveSelected` falls back to the user's manual selection.
+  // ?selected=<id> deeplink — derive the matching item, capture it into
+  // `selectedItem`, then strip the param. The router effect runs ONCE
+  // when items load and a matching ID is in the URL. We need the
+  // capture (setSelectedItem) because clearing `?selected` immediately
+  // after would otherwise close the panel — `selectedFromUrl` derives
+  // from URL, so once URL is cleared the panel would lose its source
+  // of truth.
   const selectedFromUrl = useMemo(
     () => (selectedIdParam ? itemData.items.find((it) => it.id === selectedIdParam) ?? null : null),
     [selectedIdParam, itemData.items],
   )
   useEffect(() => {
     if (!selectedFromUrl) return
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setSelectedItem(selectedFromUrl)
     const next = new URLSearchParams(searchParams)
     next.delete('selected')
     setSearchParams(next, { replace: true })
