@@ -678,7 +678,7 @@ export function useInternkontrollPageData(): {
         .is('deleted_at', null)
         .order('created_at', { ascending: false })
         .limit(MAX_PAGE_PROJECTS),
-    ]).then(([reg, cl, ctrl, jn, st, ex, pl, bridges, projects]) => {
+    ]).then(async ([reg, cl, ctrl, jn, st, ex, pl, bridges, projects]) => {
       if (cancelled) return
       // Log non-fatal query failures so they don't disappear into the
       // void. We still build a partial view from whatever did succeed —
@@ -697,12 +697,46 @@ export function useInternkontrollPageData(): {
       if (failures.length > 0) {
         console.warn('[internkontroll] partial load — some sources failed:', failures)
       }
+
+      // Defensive fetch: if the controls SELECT hit the MAX_PAGE_CONTROLS
+      // limit, any junction-referenced control IDs past the cap would be
+      // silently dropped — gap rows for those krav would render as "no
+      // kontroll" even when one exists. Resolve the gap by issuing a
+      // targeted .in(...) query for the missing IDs. Only runs when the
+      // cap was actually reached, so normal-sized orgs pay nothing.
+      let mergedControlRows = (ctrl.data ?? []) as ControlRow[]
+      const junctionRows = (jn.data ?? []) as JunctionRow[]
+      if (mergedControlRows.length >= MAX_PAGE_CONTROLS) {
+        const have = new Set(mergedControlRows.map((c) => c.id))
+        const referenced = new Set<string>()
+        for (const j of junctionRows) referenced.add(j.control_id)
+        const missingIds = [...referenced].filter((id) => !have.has(id))
+        if (missingIds.length > 0) {
+          const { data: extra, error: extraErr } = await supabase
+            .from('internal_controls')
+            .select(
+              'id, slug, name, purpose, control_family, frequency_hint, owner_role, owner_user_id, status, is_active',
+            )
+            .eq('organization_id', orgId)
+            .is('deleted_at', null)
+            .in('id', missingIds)
+          if (extraErr) {
+            console.warn(
+              '[internkontroll] failed to fetch junction-referenced controls past cap:',
+              extraErr.message,
+            )
+          } else if (extra) {
+            mergedControlRows = [...mergedControlRows, ...(extra as ControlRow[])]
+          }
+        }
+      }
+
       setLoaded({
         orgId,
         registerRows: (reg.data ?? []) as RegisterRow[],
         clauseRows: (cl.data ?? []) as ClauseRow[],
-        controlRows: (ctrl.data ?? []) as ControlRow[],
-        junctions: (jn.data ?? []) as JunctionRow[],
+        controlRows: mergedControlRows,
+        junctions: junctionRows,
         statusRows: (st.data ?? []) as StatusRow[],
         executionRows: (ex.data ?? []) as ExecutionRow[],
         planRows: (pl.data ?? []) as PlanItemRow[],

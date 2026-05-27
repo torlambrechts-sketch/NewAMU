@@ -135,6 +135,7 @@ export function ParagraphInspectorPanel({
   open,
   framework,
   lawRef,
+  description,
   entries,
   registerMatches,
   controls,
@@ -147,6 +148,10 @@ export function ParagraphInspectorPanel({
   onDeletePlanItem,
 }: {
   open: boolean
+  /** Plain-language summary of what the paragraph requires (regulation_clauses.description).
+   *  When provided, renders as a sub-heading next to the §-ref so auditors don't need to
+   *  cross-reference lovdata. Optional — falls back to the framework name when absent. */
+  description?: string
   framework: FrameworkId
   lawRef: string | null
   entries: CoverageEntry[]
@@ -228,6 +233,9 @@ export function ParagraphInspectorPanel({
                 {def.fullLabel}
               </p>
             )}
+            {description ? (
+              <p className="mt-1 text-[12px] leading-snug text-neutral-600">{description}</p>
+            ) : null}
           </div>
           <Button
             variant="ghost"

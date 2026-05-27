@@ -55,7 +55,7 @@ import { OversiktSection } from './sections/OversiktSection'
 import { KravSection } from './sections/KravSection'
 import { KontrollerSection } from './sections/KontrollerSection'
 import { ControlDetailView, ControlEditorPanel } from '../../../../modules/compliance-layer'
-import { GapSection } from './sections/GapSection'
+import { GapSection, type CreateControlInitial } from './sections/GapSection'
 import { AarshjulSection } from './sections/AarshjulSection'
 import { TiltakSection } from './sections/TiltakSection'
 import { ProsjekterSection } from './sections/ProsjekterSection'
@@ -217,6 +217,12 @@ export function InternkontrollPage() {
   )
 
   const [createControlOpen, setCreateControlOpen] = useState(false)
+  // Pre-fill payload for ControlEditorPanel — set when a gap row's "Opprett
+  // kontroll" button asks for an auto-bound new control. Cleared when the
+  // panel closes so the header-button create path still gets a blank form.
+  const [createControlInitial, setCreateControlInitial] = useState<
+    CreateControlInitial | null
+  >(null)
   const { data: rawData, loading, bridgesByPlanId, reload: reloadPageData } = useInternkontrollPageData()
   // The plan hook accepts a single FrameworkFilter (string | 'all'). For
   // multi-select we fall back to 'all' and let the section apply the
@@ -497,7 +503,10 @@ export function InternkontrollPage() {
               categories={filters.categories}
               plan={plan}
               search={search}
-              onCreateControl={() => setCreateControlOpen(true)}
+              onCreateControl={(initial) => {
+                setCreateControlInitial(initial)
+                setCreateControlOpen(true)
+              }}
             />
           )}
           {section === 'aarshjul' && (
@@ -531,9 +540,14 @@ export function InternkontrollPage() {
       <ControlEditorPanel
         open={createControlOpen}
         mode="create"
-        onClose={() => setCreateControlOpen(false)}
+        initial={createControlInitial ?? undefined}
+        onClose={() => {
+          setCreateControlOpen(false)
+          setCreateControlInitial(null)
+        }}
         onSaved={async (id) => {
           setCreateControlOpen(false)
+          setCreateControlInitial(null)
           await reloadPageData()
           // Land the user on the new control's detail view inside the
           // Internkontroll chrome so they can immediately add bindings,

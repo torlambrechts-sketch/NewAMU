@@ -40,6 +40,17 @@ import type { IkData, IkKontroll, IkKrav } from '../useInternkontrollPageData'
 import { cadenceLabel, type IkCategoryId } from './internkontrollTokens'
 import type { FrameworkId } from '../frameworkParagraphs'
 import type { CoverageEntry } from '../../../../hooks/useRegelverkCoverage'
+import type { ControlFrequencyHint } from '../../../../types/complianceLayer'
+
+/** Pre-fill payload passed from a gap row's "Opprett kontroll" button up to
+ *  InternkontrollPage, which forwards it to ControlEditorPanel.initial. The
+ *  panel uses `code` to auto-bind the new control to the originating
+ *  paragraph (internal_control_clauses junction). */
+export type CreateControlInitial = {
+  code: string
+  cadence?: ControlFrequencyHint
+  suggestedName?: string
+}
 
 type PlanHook = ReturnType<typeof useCompliancePlanItems>
 
@@ -59,9 +70,11 @@ export function GapSection({
   plan: PlanHook
   /** Free-text search from the page-level Søk row. */
   search: string
-  /** Opens the page-level "Ny kontroll"-panel. Passed through from
-   *  InternkontrollPage so gap rows can offer a one-click create. */
-  onCreateControl?: () => void
+  /** Opens the page-level "Ny kontroll"-panel pre-filled with the krav's
+   *  paragraph code + recommended cadence, so the new control gets
+   *  auto-bound to the originating paragraph. Passed through from
+   *  InternkontrollPage. */
+  onCreateControl?: (initial: CreateControlInitial) => void
 }) {
   const [view, setView] = useState<'matrix' | 'list'>('matrix')
 
@@ -305,7 +318,7 @@ function GapList({
   data: IkData
   sorted: IkKrav[]
   plan: PlanHook
-  onCreateControl?: () => void
+  onCreateControl?: (initial: CreateControlInitial) => void
 }) {
   const [, setSearchParams] = useSearchParams()
   // Use the functional updater form so concurrent URL changes from other
@@ -590,7 +603,7 @@ function RecommendedApproachBlock({
   onCreateControl,
 }: {
   krav: IkKrav
-  onCreateControl?: () => void
+  onCreateControl?: (initial: CreateControlInitial) => void
 }) {
   const isLegalBasis = Boolean(krav.cadenceRationale)
   const cadenceLabelText = cadenceLabel(krav.recommendedCadence)
@@ -679,7 +692,18 @@ function RecommendedApproachBlock({
             variant="primary"
             size="sm"
             icon={<Plus className="h-2.5 w-2.5" />}
-            onClick={onCreateControl}
+            onClick={() =>
+              onCreateControl({
+                code: krav.ref,
+                cadence: krav.recommendedCadence,
+                // Suggest a control name based on the krav's plain-language
+                // title when available — falls back to "Kontroll for <ref>".
+                suggestedName:
+                  krav.title && krav.title !== krav.ref
+                    ? `${krav.title} — kontroll`
+                    : `Kontroll for ${krav.ref}`,
+              })
+            }
           >
             Opprett kontroll
           </Button>

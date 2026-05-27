@@ -26,13 +26,43 @@ import type {
 
 type Mode = 'create' | 'edit'
 
+type CreateInitial = {
+  /** Paragraph code (regulation_clauses.code) the new control should bind to
+   *  after a successful create. The panel resolves the clause_id and INSERTs
+   *  an internal_control_clauses row — best-effort, doesn't block the save. */
+  code?: string
+  /** Pre-fills the frequency field. Strings match ControlFrequencyHint. */
+  cadence?: ControlFrequencyHint
+  /** Pre-fills the name field. */
+  suggestedName?: string
+  /** Pre-fills the purpose field. */
+  suggestedPurpose?: string
+}
+
 type Props = {
   open: boolean
   mode: Mode
   /** Required for mode='edit'. */
   control?: InternalControlRow | null
+  /** Optional defaults for mode='create'. When `initial.code` is set the
+   *  panel will also bind the new control to that paragraph after save. */
+  initial?: CreateInitial
   onClose: () => void
   onSaved?: (id: string) => void | Promise<void>
+}
+
+/** Derive a slug from a paragraph code, e.g. "AML § 4-3" → "kontroll-aml-4-3".
+ *  Drops § / period / parenthesis noise and collapses whitespace to single
+ *  hyphens. Lowercased so the slug rules in internal_controls (lowercase) hold. */
+function deriveSlugFromCode(code: string): string {
+  const cleaned = code
+    .toLowerCase()
+    .replace(/§/g, '')
+    .replace(/[().,]/g, '')
+    .replace(/\s+/g, '-')
+    .replace(/-+/g, '-')
+    .replace(/^-|-$/g, '')
+  return `kontroll-${cleaned}`
 }
 
 const FAMILY_OPTIONS = CONTROL_FAMILIES.map((f) => ({ value: f, label: f }))
@@ -46,6 +76,7 @@ export function ControlEditorPanel({
   open,
   mode,
   control,
+  initial,
   onClose,
   onSaved,
 }: Props) {
@@ -73,16 +104,16 @@ export function ControlEditorPanel({
       setOwnerRole(control.owner_role ?? '')
       setStatus(control.status)
     } else {
-      setSlug('')
-      setName('')
-      setPurpose('')
+      setSlug(initial?.code ? deriveSlugFromCode(initial.code) : '')
+      setName(initial?.suggestedName ?? '')
+      setPurpose(initial?.suggestedPurpose ?? '')
       setFamily('preventive')
-      setFrequency('')
+      setFrequency(initial?.cadence ?? '')
       setOwnerRole('')
       setStatus('draft')
     }
     setLocalError(null)
-  }, [open, mode, control])
+  }, [open, mode, control, initial])
 
   const isSystem = mode === 'edit' && control?.is_system === true
 
@@ -113,6 +144,35 @@ export function ControlEditorPanel({
           status,
         })
         if (id) {
+          // Best-effort: bind the new control to the originating paragraph
+          // when the panel was opened from a gap row (initial.code set).
+          // RLS scopes the lookup to current_org_id() automatically; if the
+          // clause isn't seeded (unlikely after the catalog expansion) we
+          // silently skip — the control is still created.
+          if (initial?.code && supabase) {
+            try {
+              const { data: clauseRow } = await supabase
+                .from('regulation_clauses')
+                .select('id')
+                .eq('code', initial.code)
+                .eq('is_active', true)
+                .is('deleted_at', null)
+                .limit(1)
+                .maybeSingle()
+              if (clauseRow?.id) {
+                await supabase.from('internal_control_clauses').insert({
+                  control_id: id,
+                  clause_id: clauseRow.id,
+                  coverage_level: 'primary',
+                })
+              }
+            } catch {
+              // Binding failed (e.g. duplicate, RLS, transient) — control is
+              // already persisted. User can wire the binding manually from
+              // the control detail page. We don't surface the error to avoid
+              // confusing the success path.
+            }
+          }
           await onSaved?.(id)
           onClose()
         }
@@ -162,6 +222,12 @@ export function ControlEditorPanel({
       {localError ? (
         <div className="rounded border border-rose-200 bg-rose-50 p-2 text-sm text-rose-800">
           {localError}
+        </div>
+      ) : null}
+      {mode === 'create' && initial?.code ? (
+        <div className="rounded border border-[#dbe6e0] bg-[#f3f7f4] px-3 py-2 text-[12px] text-[#1a3d32]">
+          Kontrollen blir automatisk koblet til <span className="font-semibold">{initial.code}</span>{' '}
+          når du lagrer.
         </div>
       ) : null}
       <label className="block text-sm">
