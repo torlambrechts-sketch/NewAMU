@@ -112,6 +112,7 @@ import { InternkontrollGapPage } from './pages/overview/internkontroll/Internkon
 import { InternkontrollPlanPage } from './pages/overview/internkontroll/InternkontrollPlanPage'
 import { InternkontrollPage } from './pages/overview/internkontroll/InternkontrollPage'
 import { CadencePage } from './pages/cadence/CadencePage'
+import { DashboardPage } from './pages/dashboard/DashboardPage'
 import { InternkontrollAuditorPage } from './pages/auditor/InternkontrollAuditorPage'
 import { ControlsAuditorPage } from './pages/auditor/ControlsAuditorPage'
 import { BenchmarkPage } from './pages/dashboards/BenchmarkPage'
@@ -436,7 +437,23 @@ const router = createBrowserRouter(
                       <Route path="overview/regelverk" element={<RegelverkCoveragePage />} />
                       <Route path="internkontroll" element={<InternkontrollPage />} />
                       <Route path="overview/internkontroll" element={<InternkontrollPage />} />
-                      <Route path="cadence" element={<CadencePage />} />
+                      <Route
+                        path="cadence"
+                        element={
+                          <RouteErrorBoundary title="Kunne ikke vise Cadence">
+                            <CadencePage />
+                          </RouteErrorBoundary>
+                        }
+                      />
+                      <Route
+                        path="dashboard"
+                        element={
+                          <RouteErrorBoundary title="Kunne ikke vise dashboard">
+                            <DashboardPage />
+                          </RouteErrorBoundary>
+                        }
+                      />
+                      <Route path="dashboards" element={<Navigate to="/dashboard" replace />} />
                       <Route
                         path="overview/internkontroll/dashboard"
                         element={<InternkontrollDashboardPage />}

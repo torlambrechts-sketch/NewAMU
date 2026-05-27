@@ -1121,6 +1121,67 @@ export function buildNavSections(ctx: NavBuilderContext): NavSection[] {
     ],
   }
 
+  // Dashboards — hub som hoster 19 dashboards basert på cadence-data +
+  // task_items. Egen group så den er lett å finne fra sidebar.
+  const dashboardsFixedSubs: SubItem[] = [
+    {
+      label: 'Tidslinje',
+      path: '/dashboard?dashboard=timeline',
+      Icon: CalendarClock,
+      match: ({ pathname, search }) =>
+        pathname === '/dashboard' && (new URLSearchParams(search).get('dashboard') ?? 'timeline') === 'timeline',
+      requirePermAny: ADMINISTRASJON_NAV_PERMS,
+    },
+    {
+      label: 'Gantt',
+      path: '/dashboard?dashboard=gantt',
+      Icon: BarChart3,
+      match: ({ pathname, search }) =>
+        pathname === '/dashboard' && new URLSearchParams(search).get('dashboard') === 'gantt',
+      requirePermAny: ADMINISTRASJON_NAV_PERMS,
+    },
+    {
+      label: 'Kanban',
+      path: '/dashboard?dashboard=kanban',
+      Icon: Kanban,
+      match: ({ pathname, search }) =>
+        pathname === '/dashboard' && new URLSearchParams(search).get('dashboard') === 'kanban',
+      requirePermAny: ADMINISTRASJON_NAV_PERMS,
+    },
+    {
+      label: 'OKR',
+      path: '/dashboard?dashboard=okr',
+      Icon: Activity,
+      match: ({ pathname, search }) =>
+        pathname === '/dashboard' && new URLSearchParams(search).get('dashboard') === 'okr',
+      requirePermAny: ADMINISTRASJON_NAV_PERMS,
+    },
+    {
+      label: 'RAID',
+      path: '/dashboard?dashboard=raid',
+      Icon: ShieldAlert,
+      match: ({ pathname, search }) =>
+        pathname === '/dashboard' && new URLSearchParams(search).get('dashboard') === 'raid',
+      requirePermAny: ADMINISTRASJON_NAV_PERMS,
+    },
+  ]
+  const dashboardsGroup: NavGroup = {
+    id: 'dashboards',
+    label: 'Dashboards',
+    icon: BarChart3,
+    modules: [
+      {
+        to: '/dashboard',
+        label: 'Dashboards',
+        end: false,
+        icon: BarChart3,
+        subs: dashboardsFixedSubs,
+        permAny: ADMINISTRASJON_NAV_PERMS,
+        flatSubs: true,
+      },
+    ],
+  }
+
   // Cadence — Klarert Cadence-veiviser (HMS-årshjul). Egen group i
   // Styringssystem-seksjonen for å holde inngangen synlig — selve siden
   // /cadence har sin egen tab-stripe for veiviser, planer, årshjul.
@@ -1258,6 +1319,7 @@ export function buildNavSections(ctx: NavBuilderContext): NavSection[] {
       hmsOverviewGroup,
       internkontrollGroup,
       cadenceGroup,
+      dashboardsGroup,
       alertsGroup,
       registersGroup,
       tilsynssakerGroup,
