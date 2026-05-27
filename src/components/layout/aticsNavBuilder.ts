@@ -31,6 +31,7 @@ import {
   Inbox,
   Kanban,
   ListChecks,
+  Lock,
   Megaphone,
   Scale,
   ScrollText,
@@ -815,10 +816,45 @@ export function buildNavSections(ctx: NavBuilderContext): NavSection[] {
       requirePermAny: ALERTS_NAV_PERMS,
     },
     {
+      label: 'Bulk-handlinger',
+      path: '/alerts/bulk',
+      Icon: ShieldCheck,
+      match: ({ pathname }) => pathname.startsWith('/alerts/bulk'),
+      requirePermAny: [
+        'alerts.committee',
+        'alerts.committee_confidential',
+        'alerts.committee_escalated',
+      ],
+    },
+    {
+      label: 'DSAR-konsoll',
+      path: '/alerts/dsar',
+      Icon: ShieldCheck,
+      match: ({ pathname }) => pathname.startsWith('/alerts/dsar'),
+      requirePerm: 'alerts.dpo',
+    },
+    {
+      label: 'Legal hold',
+      path: '/alerts/admin/legal-hold',
+      Icon: Lock,
+      match: ({ pathname }) => pathname.startsWith('/alerts/admin/legal-hold'),
+      requirePermAny: ['alerts.committee_confidential', 'alerts.dpo'],
+    },
+    {
+      label: 'Break-the-glass',
+      path: '/alerts/admin/break-glass',
+      Icon: AlertTriangle,
+      match: ({ pathname }) => pathname.startsWith('/alerts/admin/break-glass'),
+      requirePerm: 'alerts.board_escalation',
+    },
+    {
       label: 'Innstillinger',
       path: '/alerts/admin',
       Icon: Settings,
-      match: ({ pathname }) => pathname.startsWith('/alerts/admin'),
+      match: ({ pathname }) =>
+        pathname.startsWith('/alerts/admin') &&
+        !pathname.startsWith('/alerts/admin/legal-hold') &&
+        !pathname.startsWith('/alerts/admin/break-glass'),
       requirePerm: 'alerts.manage',
     },
     ...(isPlatformAdmin
