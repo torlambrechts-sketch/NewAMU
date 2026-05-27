@@ -33,7 +33,9 @@ import {
 } from '../../../modules/meetings/meetingsLabels'
 import {
   parseMeetingDecisionRow,
+  parseMeetingReportingObligationRow,
   type MeetingDecisionRow,
+  type MeetingReportingObligationRow,
 } from '../../../modules/meetings/types'
 import type { DashboardDimension } from '../../lib/dashboards/dashboardFilters'
 import type { ReportModule } from '../../types/reportBuilder'
@@ -63,6 +65,34 @@ export function MeetingsAnalysePage() {
           if (p.success) parsed.push(p.data)
         }
         setAllDecisions(parsed)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [supabase, meetings.orgId])
+
+  // Reporting obligations (AML § 15-2 NAV, § 7-2 (6), Foretaksregisteret …).
+  // Flat-fetched so the dashboard segment widget can render across all
+  // meetings — RLS still gates per parent meeting visibility.
+  const [allReportingObligations, setAllReportingObligations] = useState<
+    MeetingReportingObligationRow[]
+  >([])
+  useEffect(() => {
+    if (!supabase || !meetings.orgId) return
+    let cancelled = false
+    void supabase
+      .from('meeting_reporting_obligations')
+      .select('*')
+      .order('due_at', { ascending: true, nullsFirst: false })
+      .limit(2000)
+      .then((res) => {
+        if (cancelled || res.error) return
+        const parsed: MeetingReportingObligationRow[] = []
+        for (const raw of res.data ?? []) {
+          const p = parseMeetingReportingObligationRow(raw)
+          if (p.success) parsed.push(p.data)
+        }
+        setAllReportingObligations(parsed)
       })
     return () => {
       cancelled = true
@@ -157,6 +187,7 @@ export function MeetingsAnalysePage() {
     locations: orgSetup.locations,
     departments: orgSetup.departments,
     categoryByMeetingId,
+    reportingObligations: allReportingObligations,
   })
 
   const layout = useMemo(

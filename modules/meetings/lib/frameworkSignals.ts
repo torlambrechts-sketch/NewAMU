@@ -80,6 +80,15 @@ export const FRAMEWORK_SIGNAL_SOURCES: Record<
     'open_decisions',
   ],
   GDPR: ['open_decisions', 'open_ros_high'],
+  // New frameworks added in the v2 research-report extension. Most are
+  // governance/legal frameworks that don't depend on cross-module signal
+  // sources (their meetings are document-driven, not data-binding-driven).
+  Aksjeloven: ['open_decisions'],
+  Folketrygdloven: ['sick_leave_stats'],
+  'AKAN-modellen': [],
+  Arbeidstvistloven: [],
+  Arbeidsmarkedsloven: ['headcount_and_amu_composition'],
+  Byggherreforskriften: ['incidents', 'open_ros_high'],
   INTERNAL: [],
 }
 

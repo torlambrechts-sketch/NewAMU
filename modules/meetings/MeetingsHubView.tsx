@@ -412,8 +412,14 @@ export function MeetingsHubView({ tabs, bodyOnly = false }: MeetingsHubViewProps
   const filteredTemplates = useMemo(() => {
     const term = search.trim().toLowerCase()
     const fwSet = frameworks.length ? new Set(frameworks) : null
+    const canViewAkan = orgSetup.can('meetings.view_akan')
     return meetings.templates.filter((t) => {
       if (!t.isActive) return false
+      // AKAN-perimeter: only users with `meetings.view_akan` see AKAN templates
+      // in the catalog. They can still appear under "completed" if the user
+      // is a participant — that gating happens at the RLS layer on the meetings
+      // table itself. This is the *template-tile* gate.
+      if (t.defaultConfidentialityLevel === 'akan' && !canViewAkan) return false
       if (fwSet && !fwSet.has(t.framework)) return false
       if (term) {
         const hay = `${t.name} ${t.description ?? ''}`.toLowerCase()
@@ -421,7 +427,7 @@ export function MeetingsHubView({ tabs, bodyOnly = false }: MeetingsHubViewProps
       }
       return true
     })
-  }, [meetings.templates, frameworks, search])
+  }, [meetings.templates, frameworks, search, orgSetup])
 
   const upcoming = useMemo(
     () =>

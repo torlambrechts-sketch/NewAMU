@@ -44,6 +44,7 @@ import {
   parseMeetingLiveSessionRow,
   parseMeetingOrgTemplateRow,
   parseMeetingOrgTemplateSettingRow,
+  parseMeetingReportingObligationRow,
   parseMeetingRow,
   parseMeetingSignatureRow,
   parseMeetingSpeakerQueueRow,
@@ -240,6 +241,8 @@ export type UseMeetingsState = {
     ballot: import('./types').MeetingBallot
     side?: Exclude<import('./types').MeetingSide, 'observer'> | null
     isPreVote?: boolean
+    /** Aksjeveid stemmevekt — kun for `weighted` voting_model. */
+    weight?: number | null
   }) => Promise<boolean>
   /** Server-computed result (model-aware) for an agenda item. */
   getVoteResult: (agendaItemId: string) => Promise<import('./types').MeetingVoteResult | null>
@@ -354,6 +357,27 @@ export type UseMeetingsState = {
   listAttachments: (
     agendaItemId: string,
   ) => Promise<import('./types').MeetingAgendaAttachmentRow[]>
+
+  // ── AMU leder-rotasjon (forskriftens § 3-15) ──────────────────────────
+  /** Set the leader-rotation party for an AMU meeting. Drives the
+   *  parity-tie double-vote in `meeting_vote_result()`. Locked post-sign. */
+  setAmuLeaderPeriodParty: (
+    meetingId: string,
+    party: import('./types').MeetingAmuLeaderParty | null,
+  ) => Promise<boolean>
+
+  // ── Reporting obligations (AML § 15-2 / § 7-2 (6) / Foretaksregisteret …) ─
+  /** Load all statutory reporting obligations for a meeting. */
+  loadReportingObligations: (
+    meetingId: string,
+  ) => Promise<import('./types').MeetingReportingObligationRow[]>
+  /** Mark an obligation as fulfilled. Optional evidence URL + notes. */
+  markReportingObligationFulfilled: (
+    obligationId: string,
+    input?: { evidenceUrl?: string | null; notes?: string | null },
+  ) => Promise<boolean>
+  /** Reset an obligation back to open (e.g. submission was rejected). */
+  unmarkReportingObligationFulfilled: (obligationId: string) => Promise<boolean>
 }
 
 const META_DEFAULT: TemplateMetadataSchema = { fields: [] }
@@ -1228,6 +1252,7 @@ export function useMeetings(): UseMeetingsState {
             side: input.side ?? null,
             is_pre_vote: input.isPreVote ?? false,
             cast_at: new Date().toISOString(),
+            ballot_weight: input.weight ?? null,
           },
           { onConflict: 'agenda_item_id,member_id' },
         )
@@ -1954,6 +1979,77 @@ export function useMeetings(): UseMeetingsState {
     [supabase],
   )
 
+  // ── AMU leder-rotasjon (forskriftens § 3-15) ─────────────────────────────
+  const setAmuLeaderPeriodParty: UseMeetingsState['setAmuLeaderPeriodParty'] = useCallback(
+    async (meetingId, party) => {
+      if (!supabase) return false
+      const res = await supabase
+        .from('meetings')
+        .update({ amu_leader_period_party: party })
+        .eq('id', meetingId)
+      if (res.error) {
+        setError(getSupabaseErrorMessage(res.error))
+        return false
+      }
+      if (detailMeetingId === meetingId) await loadDetail(meetingId)
+      return true
+    },
+    [supabase, detailMeetingId, loadDetail],
+  )
+
+  // ── Reporting obligations (AML § 15-2, § 7-2 (6), Foretaksregisteret …) ──
+  const loadReportingObligations: UseMeetingsState['loadReportingObligations'] = useCallback(
+    async (meetingId) => {
+      if (!supabase) return []
+      const res = await supabase
+        .from('meeting_reporting_obligations')
+        .select('*')
+        .eq('meeting_id', meetingId)
+        .order('due_at', { ascending: true, nullsFirst: false })
+      if (res.error || !res.data) return []
+      return collect(res.data, parseMeetingReportingObligationRow)
+    },
+    [supabase],
+  )
+
+  const markReportingObligationFulfilled: UseMeetingsState['markReportingObligationFulfilled'] =
+    useCallback(
+      async (obligationId, input) => {
+        if (!supabase) return false
+        const res = await supabase
+          .from('meeting_reporting_obligations')
+          .update({
+            fulfilled_at: new Date().toISOString(),
+            evidence_url: input?.evidenceUrl ?? null,
+            notes: input?.notes ?? null,
+          })
+          .eq('id', obligationId)
+        if (res.error) {
+          setError(getSupabaseErrorMessage(res.error))
+          return false
+        }
+        return true
+      },
+      [supabase],
+    )
+
+  const unmarkReportingObligationFulfilled: UseMeetingsState['unmarkReportingObligationFulfilled'] =
+    useCallback(
+      async (obligationId) => {
+        if (!supabase) return false
+        const res = await supabase
+          .from('meeting_reporting_obligations')
+          .update({ fulfilled_at: null })
+          .eq('id', obligationId)
+        if (res.error) {
+          setError(getSupabaseErrorMessage(res.error))
+          return false
+        }
+        return true
+      },
+      [supabase],
+    )
+
   const clearError = useCallback(() => setError(null), [])
 
   return {
@@ -2021,5 +2117,9 @@ export function useMeetings(): UseMeetingsState {
     addAttachment,
     removeAttachment,
     listAttachments,
+    setAmuLeaderPeriodParty,
+    loadReportingObligations,
+    markReportingObligationFulfilled,
+    unmarkReportingObligationFulfilled,
   }
 }

@@ -595,3 +595,69 @@ and a CHECK on `meeting_agenda_items.voting_model in ('simple','qualified',
 ### 14.5 Still deferred
 
 Only §8.38 vitest test framework remains — a cross-module infra PR.
+
+---
+
+## 14.6 · v2 extension (research-report close-out)
+
+Shipped on `claude/meeting-module-extension-q9qja` against migrations
+`20261005120000_meetings_extension_v2_schema.sql` (schema) +
+`20261005120100_meetings_extension_v2_templates.sql` (templates). Driver: the
+attached Norwegian-compliance research report enumerated statutory meeting
+types and voting rules the original module did not yet cover.
+
+### Schema additions
+
+| Element | Purpose |
+|---|---|
+| `meeting_agenda_items.voting_model` widened with `aksje_simple_majority_one_third_floor` + `weighted` | Aksjeloven § 6-25 (>½ av møtende AND >1/3 av samtlige) and generalforsamling aksjeveid stemming. |
+| `meeting_votes.ballot_weight numeric` | Carries aksjeantall when `voting_model = 'weighted'`. |
+| `meetings.amu_leader_period_party` | Tracks forskriftens § 3-15 leder-rotasjon. Drives parity-tie double-vote in `meeting_vote_result()`. Locked post-sign. |
+| `meetings.confidentiality_level` widened with `'akan'` | Separate AKAN-perimeter — gated by new permission `meetings.view_akan`. `manage_confidential` does NOT grant AKAN visibility. |
+| `meeting_reporting_obligations` (new table) + auto-materialise trigger | Normalised statutory reporting deadlines (NAV § 15-2, AMU årsrapport § 7-2 (6), Foretaksregisteret-meldinger, Tvisteløsningsnemnda) — first-class queryable rows instead of jsonb on definition. |
+| `meeting_vote_result()` rewrite | Handles all 7 models; surfaces `third_floor`, `weighted_tally`, `leader_party` in the result payload. |
+| `provision_meetings_baseline_for_org()` updated | Now seeds the new `aksjelov` category for every org. |
+
+### Template additions (11 new system templates)
+
+| Slug | Framework | Cadence | Notes |
+|---|---|---|---|
+| `styremote-as` | Aksjeloven | ad_hoc | § 6-25 voting on vedtaksaker; § 6-29 dissens-protokollføring as mandatory item; Foretaksregisteret-melding obligation. |
+| `generalforsamling-ordinaer` | Aksjeloven | annual | `weighted` voting on årsregnskap/utbytte/valg; `qualified` (2/3) for vedtektsendring (§ 5-18); Foretaksregisteret + aksjeeierbok obligations. |
+| `bedriftsforsamling` | Aksjeloven | semiannual | minimum_employee_count = 200 (§ 6-35). |
+| `kontaktmote-tillitsvalgte-styret` | Hovedavtalen | semiannual | HA § 9-13. Default `restricted`. |
+| `forhandlingsmote-lonn` | Hovedavtalen | annual | Forhandlingsprotokoll med begrunnelse; uenighet → Hovedavtaleutvalget. |
+| `akan-oppfolgingsmote` | AKAN-modellen | ad_hoc | Default confidentiality `'akan'`. AKAN-avtale + taushetsplikt-bekreftelse. |
+| `vernerunde` | AML | semiannual | Befaring (distinct from verneombud-mote). dataBinding: incidents (siste halvår) på avvik-punktet. |
+| `drofting-15-1-individuell` | AML | ad_hoc | Confidential. AML § 15-1 7-punkts struktur (grunnlag · utvelgelseskrets · innsigelser · sosiale forhold · annet passende arbeid · videre prosess). |
+| `drofting-15-2-masseoppsigelse` | AML | ad_hoc | 8 obligatoriske § 15-2 (3)-punkter; NAV-melding + Arbeidstilsynet-kopi + 30-dagers suspensiv frist (3 reporting obligations). |
+| `drofting-10-3-arbeidsplan` | AML | semiannual | invitationLeadDays = 14 (§ 10-3-fristen). Arbeidstilsynet-dispensasjon ved unntak. |
+| `drofting-8-1-informasjon` | AML | quarterly | minimum_employee_count = 50. Tvisteløsningsnemnda-tvist som rapporteringsplikt. |
+
+Plus re-framing of the three existing `dialogmote-*` templates from
+`framework='AML'` → `'Folketrygdloven'` (primary basis is § 8-7a; AML § 4-6
+is secondary). Total templates after migration = **30**.
+
+### Frontend wiring
+
+- `modules/meetings/types.ts`: new enums (`MEETING_VOTING_MODEL_VALUES`, `MEETING_AMU_LEADER_PARTY_VALUES`), confidentiality `'akan'`, new framework values (`Aksjeloven`, `Folketrygdloven`, `AKAN-modellen`, `Arbeidstvistloven`, `Arbeidsmarkedsloven`, `Byggherreforskriften`), new row type `MeetingReportingObligationRow`, agenda item `voting_model`, definition `reportingObligations[]`, vote `ballot_weight`, meeting `amu_leader_period_party`.
+- `modules/meetings/meetingsLabels.ts`: framework labels, voting-model labels + hints, vote-reason label map, AMU leader-party label.
+- `modules/meetings/useMeetings.ts`: `castVote()` accepts `weight`; new methods `setAmuLeaderPeriodParty`, `loadReportingObligations`, `markReportingObligationFulfilled`, `unmarkReportingObligationFulfilled`.
+- `modules/meetings/components/MeetingAmuLeaderRotationBadge.tsx` (new): badge surfaces forskriftens § 3-15 dobbeltstemme state.
+- `modules/meetings/components/MeetingReportingObligationsPanel.tsx` (new): full panel — list view, evidence/notes form, status chips (I tide / Snart forfall / Forfalt / Fullført), recipient badges.
+- `src/pages/meetings/MeetingsDetailView.tsx`: new "Rapportering" tab (appears only when obligations exist); AKAN badge in top status bar; AMU leder-rotasjon picker in DeltakereTabPanel (above attendee groups).
+- `src/pages/meetings/MeetingLivePage.tsx`: voting panel shows new model badges + hints, optional aksjeantall input for `weighted`, third-floor + weighted-tally result blocks, parity-tie warning when leder-party missing. AMU leader badge in header.
+- `modules/meetings/MeetingsHubView.tsx`: AKAN-template tiles gated behind `meetings.view_akan` permission.
+- `modules/meetings/dashboards/{useMeetingsDatasets.ts, meetingsDashboardScope.ts}`: new dataset `meeting_reporting_obligations_status` (segments: I tide / Snart forfall / Forfalt / Fullført) + catalog entry `donut-reporting-obligations`. Default layout unchanged — opt-in via "Legg til widget".
+- `src/pages/meetings/MeetingsAnalysePage.tsx`: flat-loads reporting obligations and feeds the datasets hook.
+- `src/lib/permissionKeys.ts`: new keys `meetings.view_akan`, `meetings.manage_reporting_obligations`.
+- `src/components/ui/Badge.tsx`: new variant `'akan'` (purple) for the AKAN confidentiality badge.
+- `modules/meetings/lib/frameworkSignals.ts`: signal-source map extended for new framework keys.
+
+### Still deferred
+
+- BankID/Signicat eSignature flow.
+- Whisper-Norwegian ASR + AI minutes.
+- Secret-ballot elections (handled by `amu-valg-system` in the survey module).
+- Automated dialogmøte-1 scheduling from sickness threshold.
+- Granola/Otter integration.

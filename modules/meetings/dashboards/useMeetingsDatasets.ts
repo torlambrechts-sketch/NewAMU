@@ -10,6 +10,7 @@ import type {
 } from '../../../src/types/organization'
 import type {
   MeetingDecisionRow,
+  MeetingReportingObligationRow,
   MeetingRow,
   MeetingStatus,
   MeetingTemplateAgendaItem,
@@ -123,6 +124,10 @@ export type MeetingsDatasetsArgs = {
   departments: DepartmentRow[]
   /** Resolved at the call site: meetingId → categoryId via the template lookup. */
   categoryByMeetingId: Map<string, string | null>
+  /** Optional — when provided, the `meeting_reporting_obligations_status`
+   *  dataset is populated (segments: I tide / Forfalt / Fullført). Pass
+   *  `[]` to render the widget as "ingen data" rather than omit it. */
+  reportingObligations?: MeetingReportingObligationRow[]
 }
 
 export function useMeetingsDatasets({
@@ -133,6 +138,7 @@ export function useMeetingsDatasets({
   locations,
   departments,
   categoryByMeetingId,
+  reportingObligations,
 }: MeetingsDatasetsArgs): Record<string, unknown> {
   const selectors = useMemo(() => buildSelectors(filters), [filters])
 
@@ -341,6 +347,43 @@ export function useMeetingsDatasets({
       { id: 'missing', label: 'Ikke sendt', value: invMissing },
     ].filter((s) => s.value > 0)
 
+    // Reporting obligations status segments — filtered to meetings in `filtered`
+    // (so the dashboard chips narrow this dataset too). Segments:
+    //   I tide       — due_at >= now AND fulfilled_at IS NULL
+    //   Snart forfall— due_at within 7 days AND fulfilled_at IS NULL
+    //   Forfalt      — due_at < now AND fulfilled_at IS NULL
+    //   Fullført     — fulfilled_at IS NOT NULL
+    const meeting_reporting_obligations_status: Segment[] = (() => {
+      const rows = (reportingObligations ?? []).filter((o) => filteredIds.has(o.meeting_id))
+      if (rows.length === 0) return []
+      const sevenDays = 7 * 24 * 60 * 60 * 1000
+      let inTime = 0
+      let dueSoon = 0
+      let overdue = 0
+      let fulfilled = 0
+      for (const o of rows) {
+        if (o.fulfilled_at) {
+          fulfilled++
+          continue
+        }
+        if (!o.due_at) {
+          inTime++
+          continue
+        }
+        const due = new Date(o.due_at).getTime()
+        const diff = due - now.getTime()
+        if (diff < 0) overdue++
+        else if (diff < sevenDays) dueSoon++
+        else inTime++
+      }
+      return [
+        { id: 'in_time', label: 'I tide', value: inTime },
+        { id: 'due_soon', label: 'Snart forfall', value: dueSoon },
+        { id: 'overdue', label: 'Forfalt', value: overdue },
+        { id: 'fulfilled', label: 'Fullført', value: fulfilled },
+      ].filter((s) => s.value > 0)
+    })()
+
     return {
       meeting_kpi_summary,
       meeting_status_distribution,
@@ -354,6 +397,16 @@ export function useMeetingsDatasets({
       meeting_instances_by_department,
       meeting_law_ref_coverage,
       meeting_invitation_compliance,
+      meeting_reporting_obligations_status,
     }
-  }, [selectors, meetings, decisions, templates, locations, departments, categoryByMeetingId])
+  }, [
+    selectors,
+    meetings,
+    decisions,
+    templates,
+    locations,
+    departments,
+    categoryByMeetingId,
+    reportingObligations,
+  ])
 }

@@ -31,6 +31,7 @@ import {
   FileText,
   Gavel,
   History,
+  Landmark,
   Info,
   ListChecks,
   ListTodo,
@@ -70,6 +71,9 @@ import {
   MEETING_DECISION_STATUS_LABEL,
   MEETING_STATUS_LABEL,
 } from '../../../modules/meetings/meetingsLabels'
+import { MeetingAmuLeaderRotationBadge } from '../../../modules/meetings/components/MeetingAmuLeaderRotationBadge'
+import { MeetingReportingObligationsPanel } from '../../../modules/meetings/components/MeetingReportingObligationsPanel'
+import type { MeetingReportingObligationRow } from '../../../modules/meetings/types'
 import type {
   MeetingActionStatus,
   MeetingAgendaItemRow,
@@ -86,7 +90,7 @@ import type {
   ResolvedMeetingTemplate,
 } from '../../../modules/meetings/types'
 
-type Tab = 'agenda' | 'deltakere' | 'statistikk' | 'vedtak' | 'referat' | 'historikk'
+type Tab = 'agenda' | 'deltakere' | 'statistikk' | 'vedtak' | 'rapportering' | 'referat' | 'historikk'
 
 // ── Status badge variant mapping ─────────────────────────────────────────
 
@@ -213,6 +217,28 @@ export function MeetingsDetailView() {
     void loadDetail(meetingId)
     return () => clearDetail()
   }, [meetingId, loadDetail, clearDetail])
+
+  // ── Reporting obligations (AML § 15-2 NAV, § 7-2 (6), Foretaksregisteret) ─
+  // Auto-materialised by trigger at meeting INSERT; we fetch on detail open.
+  const [reportingObligations, setReportingObligations] = useState<MeetingReportingObligationRow[]>([])
+  const { loadReportingObligations } = meetings
+  useEffect(() => {
+    if (!meetingId) return
+    let cancelled = false
+    void (async () => {
+      const rows = await loadReportingObligations(meetingId)
+      if (!cancelled) setReportingObligations(rows)
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [meetingId, loadReportingObligations])
+
+  const refreshReportingObligations = async () => {
+    if (!meetingId) return
+    const rows = await loadReportingObligations(meetingId)
+    setReportingObligations(rows)
+  }
 
   // Compute bindings unconditionally to keep hook order stable.
   const bindings = useMeetingDataBindings({
@@ -431,6 +457,17 @@ export function MeetingsDetailView() {
       icon: Gavel,
       badgeCount: meetings.detail.decisions.length || undefined,
     },
+    ...(reportingObligations.length > 0
+      ? [
+          {
+            id: 'rapportering' as Tab,
+            label: 'Rapportering',
+            icon: Landmark,
+            badgeCount:
+              reportingObligations.filter((o) => !o.fulfilled_at).length || undefined,
+          },
+        ]
+      : []),
     { id: 'referat', label: 'Referat', icon: FileText },
     {
       id: 'historikk',
@@ -478,11 +515,18 @@ export function MeetingsDetailView() {
           {meeting.confidentiality_level !== 'standard' ? (
             <Badge
               variant={
-                meeting.confidentiality_level === 'confidential' ? 'confidential' : 'restricted'
+                meeting.confidentiality_level === 'akan'
+                  ? 'akan'
+                  : meeting.confidentiality_level === 'confidential'
+                  ? 'confidential'
+                  : 'restricted'
               }
             >
               {MEETING_CONFIDENTIALITY_LABEL[meeting.confidentiality_level]}
             </Badge>
+          ) : null}
+          {meeting.amu_leader_period_party ? (
+            <MeetingAmuLeaderRotationBadge party={meeting.amu_leader_period_party} />
           ) : null}
           {isLocked ? (
             <Badge variant="signed">
@@ -623,8 +667,10 @@ export function MeetingsDetailView() {
               attendees={meetings.detail.attendees}
               memberById={memberById}
               canManage={meetings.canManage}
+              locked={isLocked}
               onInvite={() => setInviteOpen(true)}
               onSetRsvp={meetings.setRsvp}
+              onSetAmuLeaderPeriodParty={meetings.setAmuLeaderPeriodParty}
             />
           ) : null}
 
@@ -659,6 +705,23 @@ export function MeetingsDetailView() {
               onSaveMinorityDissent={(itemId, text) =>
                 meetings.setAgendaMinutes(itemId, { minorityDissentText: text })
               }
+            />
+          ) : null}
+
+          {tab === 'rapportering' ? (
+            <MeetingReportingObligationsPanel
+              obligations={reportingObligations}
+              canManage={meetings.canManage}
+              onMarkFulfilled={async (id, input) => {
+                const ok = await meetings.markReportingObligationFulfilled(id, input)
+                if (ok) await refreshReportingObligations()
+                return ok
+              }}
+              onUnmarkFulfilled={async (id) => {
+                const ok = await meetings.unmarkReportingObligationFulfilled(id)
+                if (ok) await refreshReportingObligations()
+                return ok
+              }}
             />
           ) : null}
 
@@ -1325,16 +1388,20 @@ function DeltakereTabPanel({
   attendees,
   memberById,
   canManage,
+  locked,
   onInvite,
   onSetRsvp,
+  onSetAmuLeaderPeriodParty,
 }: {
   meeting: MeetingRow
   tpl: ResolvedMeetingTemplate | null
   attendees: MeetingAttendeeRow[]
   memberById: Map<string, string>
   canManage: boolean
+  locked: boolean
   onInvite: () => void
   onSetRsvp: ReturnType<typeof useMeetings>['setRsvp']
+  onSetAmuLeaderPeriodParty: ReturnType<typeof useMeetings>['setAmuLeaderPeriodParty']
 }) {
   const isConfidential = meeting.confidentiality_level !== 'standard'
   const isAmuLike = !!tpl?.definition?.minimumQuorum
@@ -1429,6 +1496,61 @@ function DeltakereTabPanel({
                   beslutningsdyktig.
                 </p>
               </div>
+            </div>
+          </div>
+        ) : null}
+
+        {/* AMU leder-rotasjon (forskriftens § 3-15) — dobbeltstemme ved likhet */}
+        {isAmuLike ? (
+          <div className="mt-3 rounded-md border border-cyan-200 bg-cyan-50/40 p-3">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div className="flex-1 min-w-0">
+                <h4 className="text-sm font-semibold text-cyan-900">
+                  AMU-leder-rotasjon (forskriftens § 3-15)
+                </h4>
+                <p className="mt-1 text-[11px] text-cyan-900/80">
+                  Lederen roterer årlig mellom arbeidsgiver- og arbeidstakerrep. og har
+                  dobbeltstemme ved stemmelikhet i partssammensatt voting.
+                </p>
+                <div className="mt-2">
+                  <MeetingAmuLeaderRotationBadge
+                    party={meeting.amu_leader_period_party}
+                    showEmpty
+                  />
+                </div>
+              </div>
+              {canManage && !locked ? (
+                <div className="flex items-center gap-1.5">
+                  <Button
+                    variant={
+                      meeting.amu_leader_period_party === 'arbeidsgiver' ? 'primary' : 'secondary'
+                    }
+                    size="sm"
+                    onClick={() => void onSetAmuLeaderPeriodParty(meeting.id, 'arbeidsgiver')}
+                  >
+                    Arbeidsgiver
+                  </Button>
+                  <Button
+                    variant={
+                      meeting.amu_leader_period_party === 'arbeidstaker' ? 'primary' : 'secondary'
+                    }
+                    size="sm"
+                    onClick={() => void onSetAmuLeaderPeriodParty(meeting.id, 'arbeidstaker')}
+                  >
+                    Arbeidstaker
+                  </Button>
+                  {meeting.amu_leader_period_party ? (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => void onSetAmuLeaderPeriodParty(meeting.id, null)}
+                      title="Fjern leder-party fra møtet"
+                    >
+                      Nullstill
+                    </Button>
+                  ) : null}
+                </div>
+              ) : null}
             </div>
           </div>
         ) : null}

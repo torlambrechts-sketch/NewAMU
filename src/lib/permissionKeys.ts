@@ -112,6 +112,13 @@ export const PERMISSION_KEYS = [
   'meetings.manage',
   /** Møter — innsyn i konfidensielle / begrensede møter (drøftelsessamtaler, varslingsutvalg) */
   'meetings.manage_confidential',
+  /** Møter — AKAN-perimeter. Streng taushetsplikt (helsepersonelloven § 21 +
+   *  GDPR art. 9). meetings.manage_confidential gir IKKE innsyn — denne kreves
+   *  for å se AKAN-oppfølgingsmøter. */
+  'meetings.view_akan',
+  /** Møter — administrer statutoriske rapporteringsplikter (NAV § 15-2,
+   *  AMU årsrapport § 7-2 (6), Foretaksregisteret-meldinger). */
+  'meetings.manage_reporting_obligations',
 
   // ─── Organisation ─────────────────────────────────────────────────────────
   /** Eksporter ansatt/org-data (GDPR Art. 20 forespørsler) */
@@ -204,6 +211,8 @@ export const PERMISSION_LABELS: Record<PermissionKey, string> = {
   'module.view.meetings': 'Møter — lese møter, agenda og vedtak',
   'meetings.manage': 'Møter — administrere møter, agenda, protokoll og maler',
   'meetings.manage_confidential': 'Møter — innsyn i konfidensielle møter (drøfting, varsling)',
+  'meetings.view_akan': 'Møter — AKAN-perimeter (helsedata, streng taushetsplikt)',
+  'meetings.manage_reporting_obligations': 'Møter — administrere statutoriske rapporteringsplikter',
   'org.export': 'Organisasjon — eksportere ansatt- og org-data (GDPR Art. 20)',
   'tilsynsbrev.upload': 'Tilsynsbrev — laste opp og parse inspeksjonsbrev',
   'tilsynsbrev.view_confidential': 'Tilsynsbrev — se konfidensielle saker',

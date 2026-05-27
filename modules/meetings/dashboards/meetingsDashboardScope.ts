@@ -34,6 +34,11 @@ const DATASETS: DatasetMeta[] = [
   { key: 'meeting_instances_by_department', label: 'Per avdeling', shape: 'segments' },
   { key: 'meeting_law_ref_coverage', label: 'Lovreferanser dekket', shape: 'segments' },
   { key: 'meeting_invitation_compliance', label: 'Innkalling i tide', shape: 'segments' },
+  {
+    key: 'meeting_reporting_obligations_status',
+    label: 'Rapporteringsplikter — status',
+    shape: 'segments',
+  },
 ]
 
 const KPI_TOTAL: ReportModuleKpi = {
@@ -183,6 +188,14 @@ const DONUT_INVITATION: ReportModuleDonut = {
   segmentsPath: '',
   colSpan: 'md',
 }
+const DONUT_REPORTING_OBLIGATIONS: ReportModuleDonut = {
+  id: 'donut-reporting-obligations',
+  kind: 'donut',
+  datasetKey: 'meeting_reporting_obligations_status',
+  title: 'Rapporteringsplikter — status',
+  segmentsPath: '',
+  colSpan: 'md',
+}
 
 const DEFAULT_LAYOUT: ReportModule[] = [
   KPI_TOTAL,
@@ -214,6 +227,12 @@ const WIDGET_CATALOG: WidgetCatalogEntry[] = [
   { catalogId: 'donut-department', category: 'Org-kontekst', label: 'Per avdeling', template: DONUT_DEPARTMENT },
   { catalogId: 'table-law-refs', category: 'Etterlevelse', label: 'Lovreferanser dekket', template: TABLE_LAW_REFS },
   { catalogId: 'donut-invitation', category: 'Etterlevelse', label: 'Innkalling i tide', template: DONUT_INVITATION },
+  {
+    catalogId: 'donut-reporting-obligations',
+    category: 'Etterlevelse',
+    label: 'Rapporteringsplikter — status',
+    template: DONUT_REPORTING_OBLIGATIONS,
+  },
 ]
 
 registerDashboardScope({

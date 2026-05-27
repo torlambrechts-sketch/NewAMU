@@ -16,8 +16,14 @@ import { z } from 'zod'
 export const MEETING_STATUS_VALUES = ['planned', 'in_progress', 'completed', 'cancelled'] as const
 export type MeetingStatus = (typeof MEETING_STATUS_VALUES)[number]
 
-export const MEETING_CONFIDENTIALITY_VALUES = ['standard', 'restricted', 'confidential'] as const
+export const MEETING_CONFIDENTIALITY_VALUES = ['standard', 'restricted', 'confidential', 'akan'] as const
 export type MeetingConfidentialityLevel = (typeof MEETING_CONFIDENTIALITY_VALUES)[number]
+
+/** Party that holds the AMU leader seat in the current rotation period.
+ *  Forskriftens § 3-15 — leder roterer årlig mellom arbeidsgiver- og
+ *  arbeidstaker-siden; ved stemmelikhet i parity-voting har leder dobbeltstemme. */
+export const MEETING_AMU_LEADER_PARTY_VALUES = ['arbeidsgiver', 'arbeidstaker'] as const
+export type MeetingAmuLeaderParty = (typeof MEETING_AMU_LEADER_PARTY_VALUES)[number]
 
 export const MEETING_SOURCE_KIND_VALUES = ['system', 'org'] as const
 export type MeetingSourceKind = (typeof MEETING_SOURCE_KIND_VALUES)[number]
@@ -60,6 +66,12 @@ export const MEETING_FRAMEWORK_VALUES = [
   'IK-f',
   'Hovedavtalen',
   'Likestillingsloven',
+  'Aksjeloven',
+  'Folketrygdloven',
+  'AKAN-modellen',
+  'Arbeidstvistloven',
+  'Arbeidsmarkedsloven',
+  'Byggherreforskriften',
   'ISO_9001',
   'ISO_14001',
   'ISO_27001',
@@ -67,6 +79,19 @@ export const MEETING_FRAMEWORK_VALUES = [
   'GDPR',
 ] as const
 export type MeetingFramework = (typeof MEETING_FRAMEWORK_VALUES)[number]
+
+/** Voting model on an agenda item — drives the result function + UI hints.
+ *  See `meeting_vote_result()` in 20261005120000_meetings_extension_v2_schema.sql. */
+export const MEETING_VOTING_MODEL_VALUES = [
+  'simple',
+  'qualified',
+  'parity',
+  'consensus',
+  'anonymous',
+  'aksje_simple_majority_one_third_floor',
+  'weighted',
+] as const
+export type MeetingVotingModel = (typeof MEETING_VOTING_MODEL_VALUES)[number]
 
 // ── Definition jsonb shapes (system + org template body) ──────────────────
 
@@ -148,6 +173,10 @@ export type MeetingTemplateAgendaItem = {
    *  `meeting_agenda_items.duration_minutes` at meeting creation; the
    *  user can override it in the agenda builder. */
   defaultDurationMinutes?: number
+  /** Default voting model the agenda item materialises with. The DB
+   *  column `voting_model` is the source-of-truth at meeting time; this
+   *  is the *template default* used when the agenda item is created. */
+  voting_model?: MeetingVotingModel
 }
 
 export type MeetingTemplatePrepItem = {
@@ -155,6 +184,17 @@ export type MeetingTemplatePrepItem = {
   label: string
   isMandatory: boolean
   lawRef?: string
+}
+
+/** Statutory reporting obligation declared by a template — materialised as a
+ *  row in `meeting_reporting_obligations` at meeting INSERT. See migration
+ *  20261005120000 + 20261005120100. */
+export type MeetingTemplateReportingObligation = {
+  obligation_key: string
+  obligation_label: string
+  recipient: 'NAV' | 'Arbeidstilsynet' | 'Foretaksregisteret' | 'Hovedavtaleutvalget' | 'Tvisteløsningsnemnda' | 'intern' | string
+  law_ref?: string
+  due_offset_days?: number | null
 }
 
 export type MeetingTemplateRequiredAttendee = {
@@ -196,6 +236,9 @@ export type MeetingTemplateDefinition = {
   framework?: MeetingFramework
   /** Optional briefing-dashboard block. See {@link MeetingTemplateDashboard}. */
   dashboard?: MeetingTemplateDashboard
+  /** Statutory reporting obligations the template declares — materialised
+   *  to `meeting_reporting_obligations` on meeting INSERT. */
+  reportingObligations?: MeetingTemplateReportingObligation[]
 }
 
 // ── Metadata schema (shared with compliance / survey / documents) ─────────
@@ -340,6 +383,10 @@ export type MeetingRow = {
   reporting_period_start: string | null
   reporting_period_end: string | null
   reporting_period_label: string | null
+  /** Which party (arbeidsgiver / arbeidstaker) holds the AMU leader seat in
+   *  the rotation period this meeting belongs to. Drives the parity-tie
+   *  double-vote under forskriftens § 3-15. Null = non-AMU meeting. */
+  amu_leader_period_party: MeetingAmuLeaderParty | null
   created_at: string
   updated_at: string
   created_by: string | null
@@ -409,7 +456,6 @@ export type MeetingAttendeeRow = {
   updated_at: string
 }
 
-export type MeetingVotingModel = 'simple' | 'qualified' | 'parity' | 'consensus' | 'anonymous'
 export type MeetingBallot = 'yes' | 'no' | 'blank' | 'abstain'
 
 export type MeetingVoteRow = {
@@ -422,6 +468,9 @@ export type MeetingVoteRow = {
   is_pre_vote: boolean
   cast_at: string
   cast_by_user_id: string | null
+  /** Aksjeveid stemmevekt — kun brukt når agenda_item.voting_model = 'weighted'
+   *  (generalforsamling). Null ellers. */
+  ballot_weight: number | null
 }
 
 export type MeetingVoteResult = {
@@ -429,7 +478,38 @@ export type MeetingVoteResult = {
   passed: boolean | null
   reason: string | null
   tally?: { yes: number; no: number; blank: number; abstain: number; total: number }
-  parity?: { employer_yes: number; employer_no: number; employee_yes: number; employee_no: number }
+  parity?: {
+    employer_yes: number
+    employer_no: number
+    employee_yes: number
+    employee_no: number
+    leader_party?: MeetingAmuLeaderParty | null
+  }
+  /** Set only when model = 'weighted' (aksjeveid stemming). Sum-of-weights per ballot. */
+  weighted_tally?: { yes: number; no: number; blank: number; abstain: number }
+  /** Set only when model = 'aksje_simple_majority_one_third_floor'. */
+  third_floor?: { all_members: number; minimum: number; actual_yes: number }
+}
+
+/** A statutory reporting obligation materialised on a meeting. Driven by
+ *  the template's `definition.reportingObligations` at insert. UI surfaces
+ *  these in MeetingsDetailView "Rapporteringsplikter" tab. */
+export type MeetingReportingObligationRow = {
+  id: string
+  meeting_id: string
+  organization_id: string
+  obligation_key: string
+  obligation_label: string
+  recipient: string
+  law_ref: string | null
+  due_offset_days: number | null
+  due_at: string | null
+  fulfilled_at: string | null
+  fulfilled_by: string | null
+  evidence_url: string | null
+  notes: string | null
+  created_at: string
+  updated_at: string
 }
 
 export type MeetingParityCheck = {
@@ -598,6 +678,17 @@ const MeetingTemplateAgendaItemSchema = z
     recommended: z.boolean().optional(),
     cadenceOverride: MeetingCadenceSchema.optional(),
     defaultDurationMinutes: z.number().int().nonnegative().optional(),
+    voting_model: z.enum(MEETING_VOTING_MODEL_VALUES).optional(),
+  })
+  .passthrough()
+
+const MeetingTemplateReportingObligationSchema = z
+  .object({
+    obligation_key: z.string(),
+    obligation_label: z.string(),
+    recipient: z.string(),
+    law_ref: z.string().optional(),
+    due_offset_days: z.number().int().nullable().optional(),
   })
   .passthrough()
 
@@ -655,6 +746,7 @@ const MeetingTemplateDefinitionSchema = z
     defaultActionTaskModule: z.string().optional(),
     framework: MeetingFrameworkSchema.optional(),
     dashboard: MeetingTemplateDashboardSchema.optional(),
+    reportingObligations: z.array(MeetingTemplateReportingObligationSchema).optional(),
   })
   .passthrough()
 
@@ -774,6 +866,10 @@ export const MeetingRowSchema = z
     reporting_period_start: z.string().nullable().default(null),
     reporting_period_end: z.string().nullable().default(null),
     reporting_period_label: z.string().nullable().default(null),
+    amu_leader_period_party: z
+      .enum(MEETING_AMU_LEADER_PARTY_VALUES)
+      .nullable()
+      .default(null),
     created_at: z.string(),
     updated_at: z.string(),
     created_by: z.string().uuid().nullable(),
@@ -802,7 +898,7 @@ export const MeetingAgendaItemRowSchema = z
     vote_abstain: z.number().int().nullable(),
     minority_dissent_text: z.string().nullable().default(null),
     voting_model: z
-      .enum(['simple', 'qualified', 'parity', 'consensus', 'anonymous'])
+      .enum(MEETING_VOTING_MODEL_VALUES)
       .nullable()
       .default(null),
     pre_vote_opens_at: z.string().nullable().default(null),
@@ -877,6 +973,27 @@ export const MeetingVoteRowSchema = z
     is_pre_vote: z.boolean(),
     cast_at: z.string(),
     cast_by_user_id: z.string().nullable(),
+    ballot_weight: z.number().nullable().default(null),
+  })
+  .passthrough()
+
+export const MeetingReportingObligationRowSchema = z
+  .object({
+    id: z.string().uuid(),
+    meeting_id: z.string().uuid(),
+    organization_id: z.string().uuid(),
+    obligation_key: z.string(),
+    obligation_label: z.string(),
+    recipient: z.string(),
+    law_ref: z.string().nullable(),
+    due_offset_days: z.number().int().nullable(),
+    due_at: z.string().nullable(),
+    fulfilled_at: z.string().nullable(),
+    fulfilled_by: z.string().uuid().nullable(),
+    evidence_url: z.string().nullable(),
+    notes: z.string().nullable(),
+    created_at: z.string(),
+    updated_at: z.string(),
   })
   .passthrough()
 
@@ -1046,6 +1163,9 @@ export const parseMeetingExternalInviteeRow = mk<MeetingExternalInviteeRow>(
 )
 export const parseMeetingDigestRecipientRow = mk<MeetingDigestRecipientRow>(
   MeetingDigestRecipientRowSchema as unknown as z.ZodType<MeetingDigestRecipientRow>,
+)
+export const parseMeetingReportingObligationRow = mk<MeetingReportingObligationRow>(
+  MeetingReportingObligationRowSchema as unknown as z.ZodType<MeetingReportingObligationRow>,
 )
 
 // ── Resolved template — system + per-org setting overlay or org-custom ───

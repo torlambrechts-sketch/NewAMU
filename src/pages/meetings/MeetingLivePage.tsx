@@ -22,9 +22,11 @@ import {
   X,
 } from 'lucide-react'
 import { Button } from '../../components/ui/Button'
+import { StandardInput } from '../../components/ui/Input'
 import { Badge } from '../../components/ui/Badge'
 import { WarningBox } from '../../components/ui/AlertBox'
 import { useMeetings } from '../../../modules/meetings'
+import { MeetingAmuLeaderRotationBadge } from '../../../modules/meetings/components/MeetingAmuLeaderRotationBadge'
 import { useOrgSetupContext } from '../../hooks/useOrgSetupContext'
 import type { RealtimeChannel } from '@supabase/supabase-js'
 import type {
@@ -43,6 +45,8 @@ const VOTING_LABEL: Record<MeetingVotingModel, string> = {
   parity: 'Paritet — AMU',
   consensus: 'Konsensus',
   anonymous: 'Hemmelig',
+  aksje_simple_majority_one_third_floor: 'Aksjelov § 6-25 (flertall + 1/3-gulv)',
+  weighted: 'Vektet (aksjeantall)',
 }
 
 function formatElapsed(s: number): string {
@@ -74,6 +78,8 @@ export default function MeetingLivePage() {
   const [sessionStarted, setSessionStarted] = useState(false)
   const [refreshKey, setRefreshKey] = useState(0)
   const [error, setError] = useState<string | null>(null)
+  /** Aksjeveid stemmevekt — kun aktiv når active item.voting_model = 'weighted'. */
+  const [voteWeight, setVoteWeight] = useState<number | null>(null)
 
   useEffect(() => {
     if (meetingId) void meetings.loadDetail(meetingId)
@@ -278,7 +284,7 @@ export default function MeetingLivePage() {
     setRefreshKey((k) => k + 1)
   }
 
-  async function castBallot(ballot: MeetingBallot) {
+  async function castBallot(ballot: MeetingBallot, weight?: number | null) {
     if (!activeItem || !meetingId) return
     // We need a member_id to record a ballot — anonymous voting is a
     // display-time concern, not a NULL-member pattern (the schema now
@@ -297,6 +303,7 @@ export default function MeetingLivePage() {
       memberId,
       ballot,
       isPreVote: false,
+      weight: weight ?? null,
     })
     if (ok) setRefreshKey((k) => k + 1)
   }
@@ -369,6 +376,11 @@ export default function MeetingLivePage() {
                 : 'Tidspunkt ikke fastsatt'}
               {meeting.location_label ? ` · ${meeting.location_label}` : ''}
             </p>
+            {meeting.amu_leader_period_party ? (
+              <div className="mt-1.5">
+                <MeetingAmuLeaderRotationBadge party={meeting.amu_leader_period_party} />
+              </div>
+            ) : null}
           </div>
           <div className="flex items-center gap-4 rounded-lg bg-white/5 px-3 py-1.5">
             <div>
@@ -557,13 +569,57 @@ export default function MeetingLivePage() {
                     <p className="text-xs font-semibold text-cyan-900">Avstemning</p>
                     <Badge variant="info">{VOTING_LABEL[activeItem.voting_model]}</Badge>
                   </div>
+                  {activeItem.voting_model === 'aksje_simple_majority_one_third_floor' ? (
+                    <p className="mt-1 text-[11px] text-cyan-900/80">
+                      Aksjeloven § 6-25: krever flertall blant møtende OG &gt; 1/3 av samtlige
+                      styremedlemmer. Møtelederens stemme avgjør ved likhet.
+                    </p>
+                  ) : null}
+                  {activeItem.voting_model === 'weighted' ? (
+                    <p className="mt-1 text-[11px] text-cyan-900/80">
+                      Generalforsamling — stemmen vektes etter aksjeantall.
+                      Sett vekt under før stemming.
+                    </p>
+                  ) : null}
+                  {activeItem.voting_model === 'parity'
+                  && !meeting?.amu_leader_period_party ? (
+                    <p className="mt-1 inline-flex items-center gap-1 rounded bg-amber-50 px-2 py-0.5 text-[11px] font-medium text-amber-900 border border-amber-200">
+                      <AlertTriangle className="h-3 w-3" aria-hidden /> AMU-leder-rotasjon ikke
+                      registrert — likhet kan ikke brytes automatisk. Sett party på Deltakere-fanen.
+                    </p>
+                  ) : null}
+                  {activeItem.voting_model === 'weighted' ? (
+                    <div className="mt-2 flex items-center gap-2">
+                      <label htmlFor="vote-weight" className="text-[11px] font-medium text-cyan-900">
+                        Aksjeantall:
+                      </label>
+                      <StandardInput
+                        id="vote-weight"
+                        type="number"
+                        min={0}
+                        step={1}
+                        value={voteWeight ?? ''}
+                        onChange={(e) =>
+                          setVoteWeight(
+                            e.target.value === '' ? null : Math.max(0, Number(e.target.value)),
+                          )
+                        }
+                        className="w-28 text-xs"
+                      />
+                    </div>
+                  ) : null}
                   <div className="mt-3 flex flex-wrap gap-2">
                     {(['yes', 'no', 'blank'] as const).map((b) => (
                       <Button
                         key={b}
                         variant="secondary"
                         size="sm"
-                        onClick={() => void castBallot(b)}
+                        onClick={() =>
+                          void castBallot(
+                            b,
+                            activeItem.voting_model === 'weighted' ? voteWeight : null,
+                          )
+                        }
                         icon={
                           b === 'yes' ? (
                             <Check className="h-3.5 w-3.5" />
@@ -620,6 +676,41 @@ export default function MeetingLivePage() {
                           {voteResult.parity.employee_yes} for · {voteResult.parity.employee_no} mot
                         </p>
                       </div>
+                    </div>
+                  ) : null}
+                  {voteResult?.model === 'aksje_simple_majority_one_third_floor'
+                  && voteResult.third_floor ? (
+                    <div className="mt-3 rounded border border-cyan-200 bg-white p-2 text-xs">
+                      <p className="font-bold uppercase tracking-wider text-cyan-800 text-[10px]">
+                        § 6-25 — 1/3-gulv
+                      </p>
+                      <p className="mt-1 tabular-nums text-neutral-700">
+                        Samtlige styremedlemmer: {voteResult.third_floor.all_members} · Minimum
+                        ja-stemmer for vedtak:{' '}
+                        <strong>{voteResult.third_floor.minimum}</strong> ·
+                        Faktisk ja:{' '}
+                        <strong
+                          className={
+                            voteResult.third_floor.actual_yes >= voteResult.third_floor.minimum
+                              ? 'text-emerald-700'
+                              : 'text-red-700'
+                          }
+                        >
+                          {voteResult.third_floor.actual_yes}
+                        </strong>
+                      </p>
+                    </div>
+                  ) : null}
+                  {voteResult?.model === 'weighted' && voteResult.weighted_tally ? (
+                    <div className="mt-3 rounded border border-cyan-200 bg-white p-2 text-xs">
+                      <p className="font-bold uppercase tracking-wider text-cyan-800 text-[10px]">
+                        Vektet sum (aksjeantall)
+                      </p>
+                      <p className="mt-1 tabular-nums text-neutral-700">
+                        For: <strong>{voteResult.weighted_tally.yes}</strong> · Mot:{' '}
+                        <strong>{voteResult.weighted_tally.no}</strong> · Blank:{' '}
+                        {voteResult.weighted_tally.blank}
+                      </p>
                     </div>
                   ) : null}
                 </div>

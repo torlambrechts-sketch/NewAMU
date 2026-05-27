@@ -16,7 +16,8 @@ const variantClassName: Record<
   | 'critical'
   | 'danger'
   | 'restricted'
-  | 'confidential',
+  | 'confidential'
+  | 'akan',
   string
 > = {
   draft: 'border-neutral-200 bg-neutral-100 text-neutral-700',
@@ -33,6 +34,8 @@ const variantClassName: Record<
   // Confidentiality tiers (AML § 2A, § 8-3, § 15-1)
   restricted: 'border-amber-200 bg-amber-50 text-amber-900',
   confidential: 'border-red-300 bg-red-50 text-red-900',
+  // AKAN-perimeter (helsedata, taushetsplikt etter helsepersonelloven § 21)
+  akan: 'border-purple-300 bg-purple-50 text-purple-900',
 }
 
 export type BadgeVariant = keyof typeof variantClassName
