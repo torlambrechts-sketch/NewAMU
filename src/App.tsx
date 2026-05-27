@@ -379,6 +379,11 @@ const router = createBrowserRouter(
                 <Route path="planlegging-iterations/focus" element={<PlanleggingIterationSoloPage slug="focus" />} />
                 <Route path="planlegging-iterations/kanban" element={<PlanleggingIterationSoloPage slug="kanban" />} />
                 <Route path="planlegging-iterations/timeline" element={<PlanleggingIterationSoloPage slug="timeline" />} />
+                <Route path="planlegging-iterations/wizard" element={<PlanleggingIterationSoloPage slug="wizard" />} />
+                <Route path="planlegging-iterations/powergrid" element={<PlanleggingIterationSoloPage slug="powergrid" />} />
+                <Route path="planlegging-iterations/bento" element={<PlanleggingIterationSoloPage slug="bento" />} />
+                <Route path="planlegging-iterations/heatmap" element={<PlanleggingIterationSoloPage slug="heatmap" />} />
+                <Route path="planlegging-iterations/cockpit" element={<PlanleggingIterationSoloPage slug="cockpit" />} />
                 <Route path="course-player" element={<PlatformCoursePlayerHubPage />} />
                 <Route path="course-player/focus" element={<PlatformCoursePlayerFocusPage />} />
                 <Route path="course-player/cinema" element={<PlatformCoursePlayerCinemaPage />} />

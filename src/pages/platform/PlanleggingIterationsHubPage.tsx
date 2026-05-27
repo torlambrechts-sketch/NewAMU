@@ -1,8 +1,8 @@
 // Hub page for the /platform-admin/planlegging-iterations design exploration.
 //
-// Shows the five iterations as cards (eyebrow, name, intent, when-to-use,
+// Shows the ten iterations as cards (eyebrow, name, intent, when-to-use,
 // primary primitives used), plus inline live previews below each card so
-// reviewers can scroll through all five styles on one screen.
+// reviewers can scroll through all styles on one screen.
 //
 // The chrome here is the dark plattformadmin shell; each iteration
 // renders inside a light "preview frame" so the workspace surfaces (cream
@@ -10,12 +10,31 @@
 
 import type { ReactElement } from 'react'
 import { Link, useLocation } from 'react-router-dom'
-import { ArrowRight, BookOpen, CalendarRange, Compass, Eye, Gauge, KanbanSquare, type LucideIcon } from 'lucide-react'
+import {
+  ArrowRight,
+  BookOpen,
+  CalendarDays,
+  CalendarRange,
+  Compass,
+  Eye,
+  Gauge,
+  Grid3x3,
+  KanbanSquare,
+  LayoutDashboard,
+  Radar,
+  Sparkles,
+  type LucideIcon,
+} from 'lucide-react'
 import { PlanleggingIteration1Editorial } from './planleggingIterations/PlanleggingIteration1Editorial'
 import { PlanleggingIteration2Console } from './planleggingIterations/PlanleggingIteration2Console'
 import { PlanleggingIteration3Focus } from './planleggingIterations/PlanleggingIteration3Focus'
 import { PlanleggingIteration4Kanban } from './planleggingIterations/PlanleggingIteration4Kanban'
 import { PlanleggingIteration5Timeline } from './planleggingIterations/PlanleggingIteration5Timeline'
+import { PlanleggingIteration6Wizard } from './planleggingIterations/PlanleggingIteration6Wizard'
+import { PlanleggingIteration7PowerGrid } from './planleggingIterations/PlanleggingIteration7PowerGrid'
+import { PlanleggingIteration8Bento } from './planleggingIterations/PlanleggingIteration8Bento'
+import { PlanleggingIteration9Heatmap } from './planleggingIterations/PlanleggingIteration9Heatmap'
+import { PlanleggingIteration10Cockpit } from './planleggingIterations/PlanleggingIteration10Cockpit'
 
 type IterationCard = {
   id: string
@@ -101,6 +120,76 @@ const ITERATIONS: IterationCard[] = [
     icon: CalendarRange,
     Component: PlanleggingIteration5Timeline,
   },
+  {
+    id: '06',
+    slug: 'wizard',
+    eyebrow: '06 · Wizard',
+    name: 'Konversasjon',
+    intent:
+      'Tre-stegs veiviser med rolig en-spørsmål-av-gangen-rytme: velg ambisjon, velg kadens, gjennomgå plan. Sidefelt akkumulerer status og gir kontekstuelle tips.',
+    whenToUse:
+      'Onboarding av ny AMU-leder, "la oss reset årsplanen"-workshop, eller for kunder som ikke har et OKR-rammeverk fra før.',
+    primitives: ['WorkplaceDashboardShell', 'WorkplaceSplit7030Layout'],
+    accent: '#7c3aed',
+    icon: Sparkles,
+    Component: PlanleggingIteration6Wizard,
+  },
+  {
+    id: '07',
+    slug: 'powergrid',
+    eyebrow: '07 · Power Grid',
+    name: 'Datagrid',
+    intent:
+      'Tett regneark med sticky første kolonne, hover-edit-affordances, multi-select-toolbar, og bytte mellom tre datasett (oppgaver / nøkkelresultater / rutiner) i samme grid.',
+    whenToUse:
+      'Power-brukere som vil bulk-redigere — sette ny eier på 12 oppgaver, endre frekvens på en hel kategori, eksportere CSV til analytiker.',
+    primitives: ['WorkplaceStandardListLayout', 'WorkplaceListToolbar', 'HubMenu1Bar'],
+    accent: '#525252',
+    icon: Grid3x3,
+    Component: PlanleggingIteration7PowerGrid,
+  },
+  {
+    id: '08',
+    slug: 'bento',
+    eyebrow: '08 · Bento Mosaic',
+    name: 'Mosaikk',
+    intent:
+      'Bento-rutenett av blandet-stor kort: ett hero-mål, KPI-konfetti, kadens-puls, forfalt-tile som mørkt grønt felt, og en AI-foreslått handling. Visuelt rikt og delbart.',
+    whenToUse:
+      'Når Planlegging brukes som delbar tilstandsrapport — skjermbilde i Teams, intern blogg-post, eller AMU-orientering med varierte fokuspunkter.',
+    primitives: ['WorkplacePageHeading1'],
+    accent: '#db2777',
+    icon: LayoutDashboard,
+    Component: PlanleggingIteration8Bento,
+  },
+  {
+    id: '09',
+    slug: 'heatmap',
+    eyebrow: '09 · Heatmap',
+    name: 'Året på ett blikk',
+    intent:
+      'GitHub-stil heatmap: 7 × 52 ruter farget etter total belastning. Klikk på en celle for å se hva som skjer den dagen, og få en flytte-foreslag for lysere uker.',
+    whenToUse:
+      'Kapasitets-planlegging — finne stille uker for store øvelser, oppdage at Q2 har for mange kollisjoner, planlegge ferieavløsning.',
+    primitives: ['WorkplaceDashboardShell', 'WorkplaceSplit7030Layout', 'HubMenu1Bar'],
+    accent: '#15803d',
+    icon: CalendarDays,
+    Component: PlanleggingIteration9Heatmap,
+  },
+  {
+    id: '10',
+    slug: 'cockpit',
+    eyebrow: '10 · Executive Cockpit',
+    name: 'Styresalen',
+    intent:
+      'Mørkt high-contrast tema. SVG-donut med 96 px tall, gauge-rad, dyp-grønne målkort med inline-KR-chips, sparkline-stolper, og "neste beslutning" som tydelig kall til handling.',
+    whenToUse:
+      'Styremøter, ledergrupper, prosjektor-visning. Bord-klar oppsummering der det viktige skal være lesbart fra andre enden av rommet.',
+    primitives: ['WorkplaceDashboardShell', 'WorkplaceSplit7030Layout'],
+    accent: '#fbbf24',
+    icon: Radar,
+    Component: PlanleggingIteration10Cockpit,
+  },
 ]
 
 export function PlanleggingIterationsHubPage() {
@@ -113,10 +202,10 @@ export function PlanleggingIterationsHubPage() {
             UI-utforskning
           </p>
           <h1 className="text-3xl font-semibold tracking-tight text-white">
-            Planlegging — fem iterasjoner
+            Planlegging — ti iterasjoner
           </h1>
           <p className="text-sm leading-relaxed text-neutral-400">
-            Fem stilistiske retninger for <code className="rounded bg-white/10 px-1 py-0.5 text-amber-200/90">/planlegging</code>,
+            Ti stilistiske retninger for <code className="rounded bg-white/10 px-1 py-0.5 text-amber-200/90">/planlegging</code>,
             alle bygget på samme primitiver fra{' '}
             <Link to="/platform-admin/layout" className="font-medium text-amber-300 underline hover:text-amber-200">
               /platform-admin/layout
@@ -137,7 +226,7 @@ export function PlanleggingIterationsHubPage() {
         </div>
       </header>
 
-      <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+      <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 2xl:grid-cols-5">
         {ITERATIONS.map((it) => {
           const Icon = it.icon
           const isActive = location.hash === `#${it.slug}`
