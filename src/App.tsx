@@ -144,6 +144,7 @@ import { DocumentsOrgTemplateEditorPage } from './pages/documents/DocumentsOrgTe
 import { DocumentsModuleShellLayout, DocumentsWikiOutlet } from '../modules/documents'
 import { RouteErrorBoundary } from './components/RouteErrorBoundary'
 import { TableTestPage } from './pages/TableTestPage'
+import { OKRDashboardPage } from './pages/OKRDashboardPage'
 import { DocumentsLayout } from './hooks/useDocuments'
 import { PlatformAdminLoginPage } from './pages/platform/PlatformAdminLoginPage'
 import { PlatformAdminLayout } from './pages/platform/PlatformAdminLayout'
@@ -346,6 +347,7 @@ const router = createBrowserRouter(
             <Route path="/auditor/controls/:token" element={<ControlsAuditorPage />} />
             <Route path="/r/:token" element={<SharedReportPage />} />
             <Route path="/table-test" element={<TableTestPage />} />
+            <Route path="/okr-dashboard" element={<OKRDashboardPage />} />
             {/* Public marketing — landing + per-module feature pages + etterlevelse + integrations + about + endringer + demo. */}
             <Route element={<MarketingShell />}>
               <Route index element={<LandingPage />} />
