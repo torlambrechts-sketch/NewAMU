@@ -4,7 +4,7 @@
 // shows distribution per (framework, criticality) cell; the list view
 // surfaces gap descriptions and the tiltak attached to each row.
 
-import { useMemo, useState } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import {
   ArrowUpRight,
@@ -37,7 +37,7 @@ import {
 } from './internkontrollShared'
 import type { useCompliancePlanItems } from '../useCompliancePlanItems'
 import type { IkData, IkKontroll, IkKrav } from '../useInternkontrollPageData'
-import { recommendedCadenceFor, type IkCategoryId } from './internkontrollTokens'
+import { cadenceLabel, type IkCategoryId } from './internkontrollTokens'
 import type { FrameworkId } from '../frameworkParagraphs'
 import type { CoverageEntry } from '../../../../hooks/useRegelverkCoverage'
 
@@ -307,13 +307,23 @@ function GapList({
   plan: PlanHook
   onCreateControl?: () => void
 }) {
-  const [searchParams, setSearchParams] = useSearchParams()
-  const openControl = (id: string) => {
-    const sp = new URLSearchParams(searchParams)
-    sp.set('section', 'kontroller')
-    sp.set('control', id)
-    setSearchParams(sp, { replace: false })
-  }
+  const [, setSearchParams] = useSearchParams()
+  // Use the functional updater form so concurrent URL changes from other
+  // effects aren't clobbered by a stale render-time snapshot. (code-review F9)
+  const openControl = useCallback(
+    (id: string) => {
+      setSearchParams(
+        (prev) => {
+          const sp = new URLSearchParams(prev)
+          sp.set('section', 'kontroller')
+          sp.set('control', id)
+          return sp
+        },
+        { replace: false },
+      )
+    },
+    [setSearchParams],
+  )
   const kontrollerById = useMemo(() => {
     const m = new Map<string, IkKontroll>()
     for (const c of data.kontroller) m.set(c.id, c)
@@ -464,8 +474,8 @@ function KontrollReferenceBlock({
       <div className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-neutral-500">
         <ShieldCheck className="h-3 w-3" />
         {controls.length === 1
-          ? '1 kontroll dekker dette kravet'
-          : `${controls.length} kontroller dekker dette kravet`}
+          ? '1 kontroll registrert for dette kravet'
+          : `${controls.length} kontroller registrert for dette kravet`}
       </div>
       <ul className="mt-2 space-y-2">
         {controls.map((c) => (
@@ -545,7 +555,10 @@ function KontrollReferenceBlock({
 // ── RecommendedApproachBlock — Klarert "slik løser vi det" ──────────────────
 //
 // Shown when no control covers the paragraph. Surfaces:
-//   • recommended cadence based on the krav category (legal basis where known),
+//   • recommended cadence sourced from regulation_clauses.recommended_cadence
+//     (with legal basis when cadence_rationale is non-null, Klarert-heuristikk
+//     when null — UI distinguishes the two so auditors don't cite heuristics
+//     as law),
 //   • Klarert library templates already available (checklist / meeting /
 //     document / course / survey) that close the gap if activated,
 //   • a one-click button to open the Ny-kontroll-panel.
@@ -565,6 +578,13 @@ const EVIDENCE_KIND_META: Record<
   task: { label: 'Oppgave', icon: ClipboardList },
 }
 
+// Defensive fallback for any future CoverageEntry.kind that might be added
+// without updating EVIDENCE_KIND_META — TS exhaustiveness catches it at build
+// time, but a stale build deploy or a back-end schema drift could still send
+// an unknown kind at runtime. Without this, the destructure crashes the row.
+// (code-review F7)
+const FALLBACK_EVIDENCE_META = { label: 'Mal', icon: ClipboardList } as const
+
 function RecommendedApproachBlock({
   krav,
   onCreateControl,
@@ -572,7 +592,8 @@ function RecommendedApproachBlock({
   krav: IkKrav
   onCreateControl?: () => void
 }) {
-  const cadence = recommendedCadenceFor(krav.ref, krav.category)
+  const isLegalBasis = Boolean(krav.cadenceRationale)
+  const cadenceLabelText = cadenceLabel(krav.recommendedCadence)
   // Dedupe by (kind, id) so a template that mentions the same § twice in
   // its body doesn't list itself twice. Cap at 4 entries to keep the row
   // scannable — auditors don't want a wall of templates.
@@ -601,9 +622,24 @@ function RecommendedApproachBlock({
           <Repeat className="h-3 w-3 text-[#1a3d32]" />
           Anbefalt frekvens:
         </span>
-        <span className="font-semibold text-[#1a3d32]">{cadence.label}</span>
-        {cadence.rationale && (
-          <span className="text-[11px] text-neutral-600">{cadence.rationale}</span>
+        <span className="font-semibold text-[#1a3d32]">{cadenceLabelText}</span>
+        <span
+          className={[
+            'rounded px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider',
+            isLegalBasis
+              ? 'bg-[#1a3d32]/10 text-[#1a3d32]'
+              : 'bg-neutral-100 text-neutral-600',
+          ].join(' ')}
+          title={
+            isLegalBasis
+              ? 'Frekvens forankret i lov eller forskrift.'
+              : 'Frekvens er en Klarert-anbefaling, ikke et eksplisitt lovkrav.'
+          }
+        >
+          {isLegalBasis ? 'Lovgrunnlag' : 'Klarert-anbefaling'}
+        </span>
+        {krav.cadenceRationale && (
+          <span className="text-[11px] text-neutral-600">{krav.cadenceRationale}</span>
         )}
       </div>
 
@@ -614,7 +650,7 @@ function RecommendedApproachBlock({
           </div>
           <ul className="mt-1.5 space-y-1">
             {templates.map((t) => {
-              const meta = EVIDENCE_KIND_META[t.kind]
+              const meta = EVIDENCE_KIND_META[t.kind] ?? FALLBACK_EVIDENCE_META
               const Icon = meta.icon
               return (
                 <li

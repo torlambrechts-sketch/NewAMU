@@ -84,6 +84,14 @@ export type IkKrav = {
    *  in the org's regulation_clauses table. Surfaced in Gap-analyse rows so
    *  auditors don't need to leave the app to look up the law text. */
   description?: string
+  /** Recommended control cadence sourced from regulation_clauses.recommended_cadence.
+   *  Drives the "Anbefalt frekvens" line in the gap row's RecommendedApproachBlock.
+   *  Undefined when the row isn't seeded. */
+  recommendedCadence?: ControlFrequencyHint
+  /** Optional legal rationale that justifies recommendedCadence
+   *  (regulation_clauses.cadence_rationale). When set, the UI renders the cadence
+   *  with a "Lovgrunnlag" badge; otherwise it's surfaced as a Klarert heuristic. */
+  cadenceRationale?: string
   status: IkKravStatus
   criticality: IkCriticality
   /** Functional category — derived from `ref` via `categorizeLawRef`.
@@ -296,7 +304,15 @@ const MONTH_NAMES = [
 // ── Raw row types from the DB ───────────────────────────────────────────────
 
 type RegisterRow = { id: string; label: string; aml_paragraphs: string[] | null }
-type ClauseRow = { id: string; code: string; title: string | null; description: string | null }
+type ClauseRow = {
+  id: string
+  code: string
+  title: string | null
+  description: string | null
+  recommended_cadence: ControlFrequencyHint | null
+  cadence_rationale: string | null
+  is_system: boolean
+}
 type ControlRow = {
   id: string
   slug: string
@@ -599,7 +615,11 @@ export function useInternkontrollPageData(): {
         .eq('is_active', true),
       supabase
         .from('regulation_clauses')
-        .select('id, code, title, description')
+        .select('id, code, title, description, recommended_cadence, cadence_rationale, is_system')
+        // Order so system-seed rows come first; metaByCode keeps the first
+        // non-empty value per code, so deterministically system wins unless
+        // an org override has explicitly set a non-empty title/description.
+        .order('is_system', { ascending: false })
         .eq('organization_id', orgId)
         .is('deleted_at', null)
         .eq('is_active', true),
@@ -832,19 +852,33 @@ function buildData(input: {
     arr.push(c.id)
     clauseIdsByCode.set(key, arr)
   }
-  // code → { title, description } from the seeded regulation_clauses rows.
-  // First non-empty title/description per code wins (org-level overrides are
-  // edge-cases right now; the system-seed row dominates in practice).
-  const metaByCode = new Map<string, { title: string | null; description: string | null }>()
+  // code → { title, description, cadence, rationale } from regulation_clauses.
+  // First non-empty value per code wins. The SELECT orders system rows first
+  // so the system seed deterministically dominates unless an org override has
+  // explicitly set the field.
+  type ClauseMeta = {
+    title: string | null
+    description: string | null
+    cadence: ControlFrequencyHint | null
+    rationale: string | null
+  }
+  const metaByCode = new Map<string, ClauseMeta>()
   for (const c of clauseRows) {
     const key = normalizeLawRef(c.code)
     const existing = metaByCode.get(key)
     if (!existing) {
-      metaByCode.set(key, { title: c.title, description: c.description })
+      metaByCode.set(key, {
+        title: c.title,
+        description: c.description,
+        cadence: c.recommended_cadence,
+        rationale: c.cadence_rationale,
+      })
       continue
     }
     if (!existing.title && c.title) existing.title = c.title
     if (!existing.description && c.description) existing.description = c.description
+    if (!existing.cadence && c.recommended_cadence) existing.cadence = c.recommended_cadence
+    if (!existing.rationale && c.cadence_rationale) existing.rationale = c.cadence_rationale
   }
 
   const controlsById = new Map<string, ControlRow>()
@@ -971,6 +1005,19 @@ function buildData(input: {
       const meta = metaByCode.get(norm)
       const resolvedTitle = meta?.title?.trim() || p.title || p.code
       const resolvedDescription = meta?.description?.trim() || undefined
+      // Dedupe control ids and drop retired/inactive ones — junction rows
+      // for retired controls would otherwise render under the gap row as
+      // "X kontroll registrert" with status='utgått', contradicting the
+      // krav's gap badge. See code-review F4 + F5 for rationale.
+      const uniqueActiveCtrlIds: string[] = []
+      const seenCtrl = new Set<string>()
+      for (const cid of ctrlIds) {
+        if (seenCtrl.has(cid)) continue
+        const c = controlsById.get(cid)
+        if (!c || !c.is_active || c.status === 'retired') continue
+        seenCtrl.add(cid)
+        uniqueActiveCtrlIds.push(cid)
+      }
       krav.push({
         id: `k-${id}-${p.code}`,
         fw: id,
@@ -978,10 +1025,12 @@ function buildData(input: {
         chapter: p.chapter,
         title: resolvedTitle,
         description: resolvedDescription,
+        recommendedCadence: meta?.cadence ?? undefined,
+        cadenceRationale: meta?.rationale?.trim() || undefined,
         status,
         criticality,
         category: categorizeLawRef(p.code),
-        controls: ctrlIds,
+        controls: uniqueActiveCtrlIds,
         evidence,
         registerCovered,
         owner: ownerName ?? '—',

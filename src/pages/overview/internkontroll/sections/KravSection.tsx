@@ -177,6 +177,11 @@ export function KravSection({
                           </span>
                           <span className="font-medium text-neutral-900">{k.title}</span>
                         </div>
+                        {k.description && (
+                          <div className="mt-0.5 text-[11px] leading-snug text-neutral-500">
+                            {k.description}
+                          </div>
+                        )}
                       </td>
                       <td className="px-5 py-3">
                         <CriticalityChip value={k.criticality} />
