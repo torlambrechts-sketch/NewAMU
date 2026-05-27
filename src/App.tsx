@@ -58,6 +58,9 @@ import { PublicAlertStatusPage } from '../modules/alerts/pages/PublicAlertStatus
 import PublicAlertResumePage from '../modules/alerts/pages/PublicAlertResumePage'
 import PublicAlertPosterPage from '../modules/alerts/pages/PublicAlertPosterPage'
 import AlertsBulkOpsPage from '../modules/alerts/pages/AlertsBulkOpsPage'
+import AlertsDsarConsolePage from '../modules/alerts/pages/AlertsDsarConsolePage'
+import AlertsLegalHoldPage from '../modules/alerts/pages/AlertsLegalHoldPage'
+import AlertsBreakGlassPage from '../modules/alerts/pages/AlertsBreakGlassPage'
 
 // Legacy /varsle/:slug and /anonym-aml/:slug redirect to /alerts/public/:slug.
 // Kept permanently (printed materials in worker break rooms point here).
@@ -538,6 +541,9 @@ const router = createBrowserRouter(
                       />
                       <Route path="alerts/alle" element={<AlertsAllePage />} />
                       <Route path="alerts/bulk" element={<AlertsBulkOpsPage />} />
+                      <Route path="alerts/dsar" element={<AlertsDsarConsolePage />} />
+                      <Route path="alerts/admin/legal-hold" element={<AlertsLegalHoldPage />} />
+                      <Route path="alerts/admin/break-glass" element={<AlertsBreakGlassPage />} />
                       <Route
                         path="alerts/:caseId"
                         element={
