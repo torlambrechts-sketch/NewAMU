@@ -189,9 +189,27 @@ function ProgressBar({
 export function MeetingsDetailView() {
   const { meetingId = '' } = useParams<{ meetingId: string }>()
   const navigate = useNavigate()
-  const { members } = useOrgSetupContext()
+  const { members, supabase } = useOrgSetupContext()
   const meetings = useMeetings()
   const { loadDetail, clearDetail } = meetings
+
+  // H2.3 — materialise an action item as a task_items row via RPC, then
+  // refresh the detail so the «Åpne oppgave»-chip appears.
+  const convertActionToTask = useCallback(
+    async (actionItemId: string): Promise<string | null> => {
+      if (!supabase || !meetingId) return null
+      const { data, error } = await supabase.rpc('meetings_action_item_to_task', {
+        p_action_item_id: actionItemId,
+      })
+      if (error) {
+        console.warn('meetings_action_item_to_task', error.message)
+        return null
+      }
+      await loadDetail(meetingId)
+      return data ? String(data) : null
+    },
+    [supabase, meetingId, loadDetail],
+  )
   const [tab, setTab] = useState<Tab>('agenda')
   const [addAgendaOpen, setAddAgendaOpen] = useState(false)
   const [agendaEditTarget, setAgendaEditTarget] = useState<MeetingAgendaItemRow | null>(null)
@@ -704,6 +722,7 @@ export function MeetingsDetailView() {
               canManage={meetings.canManage}
               onAddAction={meetings.addActionItem}
               onSetActionStatus={meetings.setActionItemStatus}
+              onConvertToTask={convertActionToTask}
               onSaveMinorityDissent={(itemId, text) =>
                 meetings.setAgendaMinutes(itemId, { minorityDissentText: text })
               }
@@ -2231,6 +2250,7 @@ function VedtakTabPanel({
   canManage,
   onAddAction,
   onSetActionStatus,
+  onConvertToTask,
   onSaveMinorityDissent,
 }: {
   meeting: MeetingRow
@@ -2250,6 +2270,7 @@ function VedtakTabPanel({
   canManage: boolean
   onAddAction: ReturnType<typeof useMeetings>['addActionItem']
   onSetActionStatus: ReturnType<typeof useMeetings>['setActionItemStatus']
+  onConvertToTask: (actionItemId: string) => Promise<string | null>
   onSaveMinorityDissent: (agendaItemId: string, text: string | null) => Promise<boolean>
 }) {
   // Capture "now" once per mount via a lazy useState initialiser so the
@@ -2430,6 +2451,25 @@ function VedtakTabPanel({
                                 {fmtDateShort(a.due_date)}
                               </span>
                             </span>
+                          ) : null}
+                          {a.task_id && a.task_module === 'tasks' ? (
+                            <Link
+                              to={`/tasks/management?taskId=${a.task_id}`}
+                              className="inline-flex items-center gap-1 rounded bg-[#e7efe9] px-1.5 py-0.5 font-semibold text-[#14312a] hover:underline"
+                            >
+                              <ListTodo className="h-2.5 w-2.5" aria-hidden />
+                              Åpne oppgave
+                            </Link>
+                          ) : canManage ? (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              icon={<Plus className="h-2.5 w-2.5" />}
+                              onClick={() => void onConvertToTask(a.id)}
+                              className="h-auto rounded border border-neutral-200 px-1.5 py-0.5 text-[11px] font-semibold text-neutral-600 hover:border-neutral-400 hover:text-neutral-900"
+                            >
+                              Opprett oppgave
+                            </Button>
                           ) : null}
                         </div>
                       </div>

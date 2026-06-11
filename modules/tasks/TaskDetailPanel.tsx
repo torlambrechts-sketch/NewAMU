@@ -3,7 +3,8 @@
 // Bevis (evidence), Konsultasjoner (ISO 45001 § 5.4 participation).
 
 import { useCallback, useEffect, useState } from 'react'
-import { Calendar, Clock, User, Users, X } from 'lucide-react'
+import { Link } from 'react-router-dom'
+import { Calendar, CalendarClock, Clock, User, Users, X } from 'lucide-react'
 import { useOrgSetupContext } from '../../src/hooks/useOrgSetupContext'
 import { WORKPLACE_PAGE_SERIF } from '../../src/components/layout/WorkplacePageHeading1'
 import { WORKPLACE_STANDARD_LIST_OVERLAY_Z_INDEX } from '../../src/components/layout/WorkplaceStandardListLayout'
@@ -67,6 +68,8 @@ type DetailRow = {
   createdAt: string
   closedAt: string | null
   templateKind: string | null
+  sourceType: string | null
+  sourceId: string | null
 }
 
 const TABS = [
@@ -89,7 +92,7 @@ export function TaskDetailPanel({ open, onClose, item, onStatusChange, onUpdate 
       const { data } = await supabase
         .from('task_items')
         .select(
-          'id, title, description, status, priority, owner_name, assignee_name, due_date, sla_due_at, created_at, closed_at, template_kind',
+          'id, title, description, status, priority, owner_name, assignee_name, due_date, sla_due_at, created_at, closed_at, template_kind, source_type, source_id',
         )
         .eq('id', id)
         .single()
@@ -107,6 +110,8 @@ export function TaskDetailPanel({ open, onClose, item, onStatusChange, onUpdate 
           createdAt: String(data.created_at),
           closedAt: data.closed_at ? String(data.closed_at) : null,
           templateKind: data.template_kind ? String(data.template_kind) : null,
+          sourceType: data.source_type ? String(data.source_type) : null,
+          sourceId: data.source_id ? String(data.source_id) : null,
         })
       }
     },
@@ -182,6 +187,15 @@ export function TaskDetailPanel({ open, onClose, item, onStatusChange, onUpdate 
                   Forfalt
                 </span>
               )}
+              {detail?.sourceType === 'meeting' && detail.sourceId ? (
+                <Link
+                  to={`/meetings/${detail.sourceId}`}
+                  className="inline-flex items-center gap-1 rounded-full border border-[#1a3d32]/20 bg-[#e7efe9] px-2 py-0.5 text-[11px] font-semibold text-[#14312a] hover:underline"
+                >
+                  <CalendarClock className="size-3" aria-hidden />
+                  Fra møte
+                </Link>
+              ) : null}
             </div>
           </div>
           <Button
