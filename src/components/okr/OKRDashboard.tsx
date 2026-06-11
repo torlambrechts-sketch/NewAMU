@@ -23,6 +23,7 @@
  */
 import { useMemo, useState } from 'react'
 import {
+  CheckCircle2,
   ChevronDown,
   ChevronRight,
   LayoutGrid,
@@ -98,6 +99,8 @@ export type OKRDashboardProps = {
    * (e.g. via Supabase) and re-renders with a fresh `objectives` prop.
    */
   handlers?: OKRDashboardHandlers
+  /** When provided, every KR row gets a "Sjekk inn" action (H2.1). */
+  onCheckinKR?: (objectiveId: string, krId: string) => void
   className?: string
 }
 
@@ -188,6 +191,38 @@ function Progress({
   )
 }
 
+/** Tiny inline SVG sparkline over confidence history (0..1, oldest→newest).
+ *  Hand-rolled to match the existing chart style — no chart lib. */
+function ConfidenceSparkline({ values }: { values: number[] }) {
+  if (values.length < 2) return null
+  const w = 56
+  const h = 16
+  const step = w / (values.length - 1)
+  const points = values
+    .map((v, i) => `${(i * step).toFixed(1)},${(h - 2 - Math.max(0, Math.min(1, v)) * (h - 4)).toFixed(1)}`)
+    .join(' ')
+  const last = values[values.length - 1]!
+  const tone = last >= 0.7 ? '#10b981' : last >= 0.4 ? '#f59e0b' : '#f43f5e'
+  return (
+    <svg
+      width={w}
+      height={h}
+      viewBox={`0 0 ${w} ${h}`}
+      className="shrink-0"
+      role="img"
+      aria-label={`Tillitstrend, siste ${values.length} innsjekk`}
+    >
+      <polyline points={points} fill="none" stroke={tone} strokeWidth="1.5" strokeLinejoin="round" />
+      <circle
+        cx={(values.length - 1) * step}
+        cy={h - 2 - Math.max(0, Math.min(1, last)) * (h - 4)}
+        r="2"
+        fill={tone}
+      />
+    </svg>
+  )
+}
+
 function ConfidenceBadge({ confidence }: { confidence: Confidence }) {
   return (
     <span
@@ -256,6 +291,7 @@ export function OKRDashboard({
   editable = false,
   onObjectivesChange,
   handlers,
+  onCheckinKR,
   className = '',
 }: OKRDashboardProps) {
   const [view, setView] = useState<'cards' | 'matrix'>(defaultView)
@@ -489,9 +525,9 @@ export function OKRDashboard({
           )}
         </Card>
       ) : view === 'cards' ? (
-        <CardsView objectives={objectives} handlers={editHandlers} />
+        <CardsView objectives={objectives} handlers={editHandlers} onCheckin={onCheckinKR} />
       ) : (
-        <MatrixView objectives={objectives} handlers={editHandlers} />
+        <MatrixView objectives={objectives} handlers={editHandlers} onCheckin={onCheckinKR} />
       )}
 
       {/* Dialogs */}
@@ -555,14 +591,16 @@ export function OKRDashboard({
 function CardsView({
   objectives,
   handlers,
+  onCheckin,
 }: {
   objectives: Objective[]
   handlers?: EditHandlers
+  onCheckin?: (objectiveId: string, krId: string) => void
 }) {
   return (
     <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
       {objectives.map((o) => (
-        <ObjectiveCard key={o.id} objective={o} handlers={handlers} />
+        <ObjectiveCard key={o.id} objective={o} handlers={handlers} onCheckin={onCheckin} />
       ))}
     </div>
   )
@@ -571,9 +609,11 @@ function CardsView({
 function ObjectiveCard({
   objective,
   handlers,
+  onCheckin,
 }: {
   objective: Objective
   handlers?: EditHandlers
+  onCheckin?: (objectiveId: string, krId: string) => void
 }) {
   const rollup = rollUpProgress(objective)
   const conf = rollUpConfidence(objective)
@@ -660,7 +700,22 @@ function ObjectiveCard({
                   ) : null}
                 </div>
                 <div className="flex shrink-0 items-center gap-1">
+                  {kr.checkinSpark && kr.checkinSpark.length >= 2 ? (
+                    <ConfidenceSparkline values={kr.checkinSpark} />
+                  ) : null}
                   <ConfidenceBadge confidence={kr.confidence} />
+                  {onCheckin ? (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => onCheckin(objective.id, kr.id)}
+                      aria-label={`Sjekk inn ${kr.title}`}
+                      title="Sjekk inn"
+                    >
+                      <CheckCircle2 className="size-3.5" />
+                    </Button>
+                  ) : null}
                   {handlers ? (
                     <div className="opacity-0 transition-opacity group-hover/kr:opacity-100 focus-within:opacity-100">
                       <Button
@@ -697,6 +752,9 @@ function ObjectiveCard({
               {kr.progressNote ? (
                 <p className="mt-1 text-[11px] text-neutral-500">{kr.progressNote}</p>
               ) : null}
+              {kr.checkinHint ? (
+                <p className="mt-1 text-[11px] font-medium text-amber-700">{kr.checkinHint}</p>
+              ) : null}
             </li>
           ))
         )}
@@ -731,9 +789,11 @@ const TD = 'border-b border-neutral-100 px-4 py-3 text-sm text-neutral-800 align
 function MatrixView({
   objectives,
   handlers,
+  onCheckin,
 }: {
   objectives: Objective[]
   handlers?: EditHandlers
+  onCheckin?: (objectiveId: string, krId: string) => void
 }) {
   const [openIds, setOpenIds] = useState<Set<string>>(
     () => new Set(objectives.slice(0, 2).map((o) => o.id)),
@@ -772,6 +832,7 @@ function MatrixView({
                 isOpen={openIds.has(o.id)}
                 onToggle={() => toggle(o.id)}
                 handlers={handlers}
+                onCheckin={onCheckin}
               />
             ))}
           </tbody>
@@ -786,11 +847,13 @@ function FragmentRow({
   isOpen,
   onToggle,
   handlers,
+  onCheckin,
 }: {
   objective: Objective
   isOpen: boolean
   onToggle: () => void
   handlers?: EditHandlers
+  onCheckin?: (objectiveId: string, krId: string) => void
 }) {
   const rollup = rollUpProgress(objective)
   const conf = rollUpConfidence(objective)
@@ -916,7 +979,12 @@ function FragmentRow({
                 —
               </td>
               <td className={TD}>
-                <ConfidenceBadge confidence={kr.confidence} />
+                <div className="flex items-center gap-2">
+                  <ConfidenceBadge confidence={kr.confidence} />
+                  {kr.checkinSpark && kr.checkinSpark.length >= 2 ? (
+                    <ConfidenceSparkline values={kr.checkinSpark} />
+                  ) : null}
+                </div>
               </td>
               <td className={TD}>
                 <div className="flex items-center gap-2.5">
@@ -928,10 +996,25 @@ function FragmentRow({
                 {kr.progressNote ? (
                   <p className="mt-1 text-[11px] text-neutral-500">{kr.progressNote}</p>
                 ) : null}
+                {kr.checkinHint ? (
+                  <p className="mt-1 text-[11px] font-medium text-amber-700">{kr.checkinHint}</p>
+                ) : null}
               </td>
               {handlers ? (
                 <td className={`${TD} pr-5`}>
                   <div className="flex items-center justify-end gap-0.5">
+                    {onCheckin ? (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => onCheckin(objective.id, kr.id)}
+                        aria-label="Sjekk inn"
+                        title="Sjekk inn"
+                      >
+                        <CheckCircle2 className="size-3.5" />
+                      </Button>
+                    ) : null}
                     <Button
                       type="button"
                       variant="ghost"

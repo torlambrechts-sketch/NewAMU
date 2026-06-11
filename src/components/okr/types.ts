@@ -33,6 +33,10 @@ export type KeyResult = {
   progressNote?: string
   /** When true, the rollup option is unavailable (e.g. invert KRs). */
   rollupDisabled?: boolean
+  /** Check-in confidence history (0..1), oldest→newest, for the sparkline. */
+  checkinSpark?: number[]
+  /** Staleness hint ("Sist innsjekket for 24 dager siden") — shown muted. */
+  checkinHint?: string
 }
 
 export type Objective = {

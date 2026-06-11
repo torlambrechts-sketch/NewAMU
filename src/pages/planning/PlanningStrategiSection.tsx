@@ -28,7 +28,13 @@ import type { UsePlanningOkrReturn } from '../../hooks/usePlanningOkr'
 import { fmtNum } from './planningConstants'
 import { PlanningPlanEditPanel } from './PlanningPlanEditPanel'
 import { PlanningRaciEditPanel } from './PlanningRaciEditPanel'
+import { useOkrCheckins } from '../../hooks/useOkrCheckins'
 import { OKRDashboard } from '../../components/okr/OKRDashboard'
+import {
+  OKRCheckinDialog,
+  type CheckinDialogTarget,
+  type CheckinFormPayload,
+} from '../../components/okr/OKRCheckinDialog'
 import type {
   Confidence,
   KeyResult as DashKR,
@@ -58,17 +64,23 @@ function progressOf(k: PlanningOkrKR): number {
   return Math.round(ratio * 100)
 }
 
+// Confidence lives on the DB's 0..1 scale (okr_key_results.confidence check
+// constraint; PlanningObjectiveEditPanel uses 0.3–1.0). The previous 0–100
+// thresholds here made every badge read off_track and wrote out-of-range
+// values through the KR dialog.
 function numToConfidence(n: number): Confidence {
-  if (n >= 70) return 'on_track'
-  if (n >= 40) return 'at_risk'
+  if (n >= 0.7) return 'on_track'
+  if (n >= 0.4) return 'at_risk'
   return 'off_track'
 }
 
 function confidenceToNum(c: Confidence): number {
-  if (c === 'on_track') return 85
-  if (c === 'at_risk') return 55
-  return 25
+  if (c === 'on_track') return 0.85
+  if (c === 'at_risk') return 0.55
+  return 0.25
 }
+
+const CHECKIN_STALE_DAYS = 21
 
 function fmtKrValue(value: number, unit: string): string {
   const base = fmtNum(value)
@@ -102,6 +114,8 @@ export function PlanningStrategiSection({ plan, ctrl, tasks }: Props) {
   const { orgProfiles } = useOrgSetupContext()
   const [planEditOpen, setPlanEditOpen] = useState(false)
   const [raciEditOpen, setRaciEditOpen] = useState(false)
+  const [checkinTarget, setCheckinTarget] = useState<CheckinDialogTarget | null>(null)
+  const checkins = useOkrCheckins()
 
   const personOptions = useMemo(() => {
     const list = orgProfiles
@@ -151,10 +165,21 @@ export function PlanningStrategiSection({ plan, ctrl, tasks }: Props) {
   }, [tasks])
 
   // Mapping: planning KR → OKRDashboard.KeyResult, applying rollup progress +
-  // narrative when the KR is in task_rollup mode (non-invert only).
+  // narrative when the KR is in task_rollup mode (non-invert only), plus
+  // check-in sparkline (oldest→newest) and staleness hint.
   const krToDash = useCallback(
     (k: PlanningOkrKR): DashKR => {
-      const base = planningKrToDash(k)
+      const history = checkins.byKr.get(k.id) ?? []
+      const checkinSpark =
+        history.length >= 2 ? [...history].reverse().map((c) => c.confidence) : undefined
+      let checkinHint: string | undefined
+      if (history.length > 0) {
+        const days = Math.floor(
+          (Date.now() - new Date(history[0]!.createdAt).getTime()) / 86400000,
+        )
+        if (days > CHECKIN_STALE_DAYS) checkinHint = `Sist innsjekket for ${days} dager siden`
+      }
+      const base = { ...planningKrToDash(k), checkinSpark, checkinHint }
       if (k.progressMode === 'task_rollup' && !k.invert) {
         const c = krTaskCounts.get(k.id)
         const linked = c?.linked ?? 0
@@ -173,7 +198,42 @@ export function PlanningStrategiSection({ plan, ctrl, tasks }: Props) {
       }
       return { ...base, progressMode: 'manual', rollupDisabled: k.invert }
     },
-    [krTaskCounts],
+    [krTaskCounts, checkins.byKr],
+  )
+
+  /* ── Check-in wiring (H2.1) ───────────────────────────────────────────── */
+
+  const openCheckin = useCallback(
+    (objectiveId: string, krId: string) => {
+      const obj = plan.objectives.find((o) => o.id === objectiveId)
+      const k = obj?.keyResults.find((kr) => kr.id === krId)
+      if (!obj || !k) return
+      setCheckinTarget({
+        krId: k.id,
+        krTitle: k.kr,
+        objectiveTitle: obj.objective,
+        currentValue: k.currentValue,
+        unit: k.unit,
+        confidence: numToConfidence(k.confidence),
+        isRollup: k.progressMode === 'task_rollup' && !k.invert,
+      })
+    },
+    [plan.objectives],
+  )
+
+  const submitCheckin = useCallback(
+    async (payload: CheckinFormPayload) => {
+      const ok = await checkins.recordCheckin({
+        keyResultId: payload.krId,
+        confidence: confidenceToNum(payload.confidence),
+        value: payload.value ?? null,
+        note: payload.note,
+      })
+      // The RPC also synced the live KR row — refetch the plan so badges,
+      // bars and the hero rail reflect the new confidence/value.
+      if (ok) ctrl.reload()
+    },
+    [checkins, ctrl],
   )
 
   // Mapping: planning OKR plan → OKRDashboard.Objective[]
@@ -382,6 +442,7 @@ export function PlanningStrategiSection({ plan, ctrl, tasks }: Props) {
           objectives={dashboardObjectives}
           editable
           handlers={handlers}
+          onCheckinKR={openCheckin}
           defaultView="cards"
         />
       </section>
@@ -484,6 +545,12 @@ export function PlanningStrategiSection({ plan, ctrl, tasks }: Props) {
         onClose={() => setRaciEditOpen(false)}
         plan={plan}
         ctrl={ctrl}
+      />
+      <OKRCheckinDialog
+        open={checkinTarget !== null}
+        target={checkinTarget}
+        onClose={() => setCheckinTarget(null)}
+        onSubmit={submitCheckin}
       />
     </div>
   )
