@@ -17,7 +17,8 @@ import {
   WPSTD_FORM_ROW_GRID,
 } from '../../src/components/layout/WorkplaceStandardFormPanel'
 import { useOrgSetupContext } from '../../src/hooks/useOrgSetupContext'
-import { fetchAssignableUsers, type AssignableUser } from '../../src/hooks/useAssignableUsers'
+import { useOrgMembers } from '../../src/hooks/useOrgMembers'
+import { MemberPicker } from '../../src/components/people/MemberPicker'
 import type { TaskTemplateRow } from './useTaskTemplates'
 import type { CreateTaskItemInput } from './useTaskItemsData'
 import type { TaskItemPriority } from '../../src/types/task'
@@ -80,23 +81,19 @@ const EMPTY_FORM = {
   description: '',
   priority: 'medium' as TaskItemPriority,
   assigneeName: '',
+  assigneeUserId: null as string | null,
   ownerName: '',
+  ownerUserId: null as string | null,
   dueDate: '',
 }
 
 export function TaskCreateForm({ open, onClose, template, onCreate }: Props) {
-  const { supabase, organization, locations } = useOrgSetupContext()
+  const { locations } = useOrgSetupContext()
   const [form, setForm] = useState(EMPTY_FORM)
   const [metaValues, setMetaValues] = useState<Record<string, string>>({})
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [orgUsers, setOrgUsers] = useState<AssignableUser[]>([])
-
-  // Load org members once when form opens
-  useEffect(() => {
-    if (!open || !supabase) return
-    void fetchAssignableUsers(supabase, organization?.id).then(setOrgUsers)
-  }, [open, supabase, organization?.id])
+  const orgUsers = useOrgMembers()
 
   const locationOptions = locations.map((l) => l.name)
 
@@ -125,7 +122,9 @@ export function TaskCreateForm({ open, onClose, template, onCreate }: Props) {
         templateSlug: template.slug,
         templateKind: template.templateKind,
         assigneeName: form.assigneeName.trim() || undefined,
+        assigneeUserId: form.assigneeUserId ?? undefined,
         ownerName: form.ownerName.trim() || undefined,
+        ownerUserId: form.ownerUserId ?? undefined,
         dueDate: form.dueDate || undefined,
       })
       if (id) {
@@ -229,10 +228,13 @@ export function TaskCreateForm({ open, onClose, template, onCreate }: Props) {
             <p className={`${WPSTD_FORM_LEAD} mt-1`}>Oppgaveeier</p>
           </div>
           <div>
-            <StandardInput
-              value={form.ownerName}
-              onChange={(e) => set('ownerName', e.target.value)}
-              placeholder="Navn på ansvarlig…"
+            <MemberPicker
+              users={orgUsers}
+              value={{ userId: form.ownerUserId, name: form.ownerName }}
+              onChange={(v) =>
+                setForm((p) => ({ ...p, ownerUserId: v.userId, ownerName: v.name }))
+              }
+              placeholder="Velg ansvarlig…"
             />
           </div>
         </div>
@@ -244,10 +246,13 @@ export function TaskCreateForm({ open, onClose, template, onCreate }: Props) {
             <p className={`${WPSTD_FORM_LEAD} mt-1`}>Utfører av oppgaven</p>
           </div>
           <div>
-            <StandardInput
-              value={form.assigneeName}
-              onChange={(e) => set('assigneeName', e.target.value)}
-              placeholder="Navn på utfører…"
+            <MemberPicker
+              users={orgUsers}
+              value={{ userId: form.assigneeUserId, name: form.assigneeName }}
+              onChange={(v) =>
+                setForm((p) => ({ ...p, assigneeUserId: v.userId, assigneeName: v.name }))
+              }
+              placeholder="Velg utfører…"
             />
           </div>
         </div>

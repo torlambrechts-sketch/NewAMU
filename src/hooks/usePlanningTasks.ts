@@ -28,7 +28,9 @@ export type PlanningTaskRow = {
   templateKind: TaskTemplateKind | null
   templateSlug: string | null
   ownerName: string | null
+  ownerUserId: string | null
   assigneeName: string | null
+  assigneeUserId: string | null
   dueDate: string | null
   createdAt: string
   updatedAt: string
@@ -54,7 +56,9 @@ export type CreatePlanningTaskInput = {
   priority?: TaskItemPriority
   dueDate?: string
   ownerName?: string
+  ownerUserId?: string
   assigneeName?: string
+  assigneeUserId?: string
   templateKind?: TaskTemplateKind
   projectId?: string
   pdcaPhase?: TaskPdcaPhase
@@ -117,7 +121,7 @@ export function usePlanningTasks(): UsePlanningTasksReturn {
             .select(
               [
                 'id, title, description, status, priority',
-                'template_slug, template_kind, owner_name, assignee_name',
+                'template_slug, template_kind, owner_name, owner_user_id, assignee_name, assignee_user_id',
                 'due_date, created_at, updated_at, closed_at',
                 'project_id, pdca_phase, parent_item_id',
                 'recurrence_interval_days, recurrence_active, recurrence_stop_at',
@@ -159,7 +163,9 @@ export function usePlanningTasks(): UsePlanningTasksReturn {
               templateKind: row.template_kind ? (String(row.template_kind) as TaskTemplateKind) : null,
               templateSlug: row.template_slug ? String(row.template_slug) : null,
               ownerName: row.owner_name ? String(row.owner_name) : null,
+              ownerUserId: row.owner_user_id ? String(row.owner_user_id) : null,
               assigneeName: row.assignee_name ? String(row.assignee_name) : null,
+              assigneeUserId: row.assignee_user_id ? String(row.assignee_user_id) : null,
               dueDate: row.due_date ? String(row.due_date) : null,
               createdAt: String(row.created_at),
               updatedAt: String(row.updated_at),
@@ -212,7 +218,9 @@ export function usePlanningTasks(): UsePlanningTasksReturn {
         pdca_phase: input.pdcaPhase ?? 'do',
         template_kind: input.templateKind ?? null,
         owner_name: input.ownerName ?? null,
+        owner_user_id: input.ownerUserId ?? null,
         assignee_name: input.assigneeName ?? null,
+        assignee_user_id: input.assigneeUserId ?? null,
         due_date: input.dueDate ?? null,
         project_id: input.projectId ?? null,
       }

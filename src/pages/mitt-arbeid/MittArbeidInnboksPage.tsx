@@ -81,22 +81,30 @@ export function MittArbeidInnboksPage() {
     return e || 'deg'
   }, [profile?.display_name, user?.email])
 
-  // Open tasks assigned to me — string-name match is the current model;
-  // a user_id link is a follow-up (task_items.assignee_member_id). Fall
-  // back to org-wide open tasks when the user has no display_name set.
+  // Open tasks assigned to me. Match on the stable assignee_user_id /
+  // owner_user_id link (H1.1); fall back to display-name match only for
+  // legacy rows that predate the uuid backfill (both ids null).
+  const myUserId = user?.id ?? null
   const myName = profile?.display_name?.trim() ?? ''
   const myTasks = useMemo(() => {
     const open = tasks.items.filter((t) => t.status !== 'closed' && t.status !== 'cancelled')
-    const mine = myName
-      ? open.filter((t) => t.assigneeName === myName || t.ownerName === myName)
-      : []
+    const mine = open.filter((t) => {
+      const byId =
+        myUserId != null && (t.assigneeUserId === myUserId || t.ownerUserId === myUserId)
+      const legacy =
+        t.assigneeUserId == null &&
+        t.ownerUserId == null &&
+        myName !== '' &&
+        (t.assigneeName === myName || t.ownerName === myName)
+      return byId || legacy
+    })
     // Sort: overdue first, then by due date ascending
     return mine.sort((a, b) => {
       const ad = a.dueDate ?? '9999'
       const bd = b.dueDate ?? '9999'
       return ad.localeCompare(bd)
     })
-  }, [tasks.items, myName])
+  }, [tasks.items, myUserId, myName])
 
   // Upcoming meetings I'm invited to (planned, in the future). Today the
   // participant join is via `participant_member_ids[]` so the precise
@@ -221,7 +229,7 @@ export function MittArbeidInnboksPage() {
           title="Oppgaver tildelt meg"
           icon={ListChecks}
           accent={FOREST}
-          empty={myName ? 'Ingen åpne oppgaver tildelt deg.' : 'Sett visningsnavn i profil for å se mine oppgaver.'}
+          empty="Ingen åpne oppgaver tildelt deg."
           to="/tasks/management"
           toLabel="Åpne Oppgaver"
         >

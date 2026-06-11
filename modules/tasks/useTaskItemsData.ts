@@ -15,7 +15,9 @@ export type TaskItemRow = {
   templateSlug: string | null
   templateKind: TaskTemplateKind | null
   ownerName: string | null
+  ownerUserId: string | null
   assigneeName: string | null
+  assigneeUserId: string | null
   dueDate: string | null
   slaDueAt: string | null
   createdAt: string
@@ -34,7 +36,9 @@ export type CreateTaskItemInput = {
   templateSlug?: string
   templateKind?: TaskTemplateKind
   assigneeName?: string
+  assigneeUserId?: string
   ownerName?: string
+  ownerUserId?: string
   dueDate?: string
   projectId?: string
   pdcaPhase?: TaskPdcaPhase
@@ -86,7 +90,7 @@ export function useTaskItemsData(
     let query = supabase
       .from('task_items')
       .select(
-        'id, title, description, status, priority, template_slug, template_kind, owner_name, assignee_name, due_date, sla_due_at, created_at, updated_at, closed_at, project_id, pdca_phase, parent_item_id',
+        'id, title, description, status, priority, template_slug, template_kind, owner_name, owner_user_id, assignee_name, assignee_user_id, due_date, sla_due_at, created_at, updated_at, closed_at, project_id, pdca_phase, parent_item_id',
       )
       .eq('organization_id', orgId)
       .is('deleted_at', null)
@@ -112,7 +116,9 @@ export function useTaskItemsData(
             templateSlug: r.template_slug ? String(r.template_slug) : null,
             templateKind: r.template_kind ? (r.template_kind as TaskTemplateKind) : null,
             ownerName: r.owner_name ? String(r.owner_name) : null,
+            ownerUserId: r.owner_user_id ? String(r.owner_user_id) : null,
             assigneeName: r.assignee_name ? String(r.assignee_name) : null,
+            assigneeUserId: r.assignee_user_id ? String(r.assignee_user_id) : null,
             dueDate: r.due_date ? String(r.due_date) : null,
             slaDueAt: r.sla_due_at ? String(r.sla_due_at) : null,
             createdAt: String(r.created_at),
@@ -151,7 +157,9 @@ export function useTaskItemsData(
           template_slug: input.templateSlug ?? null,
           template_kind: input.templateKind ?? null,
           assignee_name: input.assigneeName ?? null,
+          assignee_user_id: input.assigneeUserId ?? null,
           owner_name: input.ownerName ?? null,
+          owner_user_id: input.ownerUserId ?? null,
           due_date: input.dueDate ?? null,
           project_id: input.projectId ?? null,
           parent_item_id: input.parentItemId ?? null,

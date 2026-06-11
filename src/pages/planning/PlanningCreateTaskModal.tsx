@@ -12,7 +12,8 @@ import type { OkrPlanFull } from '../../types/planning'
 import { RECURRENCE_PRESETS, type RecurrencePresetId } from '../../types/planning'
 import type { TaskProject } from '../../../modules/tasks/useTaskProjects'
 import type { CreatePlanningTaskInput } from '../../hooks/usePlanningTasks'
-import { OWNER_OPTIONS } from './planningConstants'
+import { useOrgMembers } from '../../hooks/useOrgMembers'
+import { MemberPicker } from '../../components/people/MemberPicker'
 import { Button } from '../../components/ui/Button'
 import { StandardInput } from '../../components/ui/Input'
 import { StandardTextarea } from '../../components/ui/Textarea'
@@ -42,8 +43,10 @@ export function PlanningCreateTaskModal({
   const [description, setDescription] = useState('')
   const [priority, setPriority] = useState<TaskItemPriority>('medium')
   const [dueDate, setDueDate] = useState('')
-  const [ownerName, setOwnerName] = useState('HMS-leder')
+  const [ownerName, setOwnerName] = useState('')
+  const [ownerUserId, setOwnerUserId] = useState<string | null>(null)
   const [projectId, setProjectId] = useState('')
+  const orgMembers = useOrgMembers()
   const [okrObjectiveId, setOkrObjectiveId] = useState<string>('')
   const [keyResultId, setKeyResultId] = useState<string>('')
   const [isRecurring, setIsRecurring] = useState(false)
@@ -58,7 +61,8 @@ export function PlanningCreateTaskModal({
     setDescription('')
     setPriority('medium')
     setDueDate('')
-    setOwnerName('HMS-leder')
+    setOwnerName('')
+    setOwnerUserId(null)
     setProjectId('')
     setOkrObjectiveId(prefill?.objectiveId ?? '')
     setKeyResultId(prefill?.keyResultId ?? '')
@@ -107,6 +111,7 @@ export function PlanningCreateTaskModal({
         priority,
         dueDate: dueDate || undefined,
         ownerName: ownerName || undefined,
+        ownerUserId: ownerUserId ?? undefined,
         projectId: projectId || undefined,
         keyResultId: keyResultId || undefined,
         recurrenceActive: isRecurring,
@@ -206,16 +211,17 @@ export function PlanningCreateTaskModal({
               <span className="text-[10px] font-bold uppercase tracking-wider text-neutral-500">
                 Eier
               </span>
-              {/* eslint-disable-next-line no-restricted-syntax */}
-              <select
-                value={ownerName}
-                onChange={(e) => setOwnerName(e.target.value)}
-                className="mt-1 w-full rounded border border-neutral-300 bg-white px-2 py-1.5 text-sm outline-none focus:border-[#1a3d32]"
-              >
-                {OWNER_OPTIONS.map((o) => (
-                  <option key={o}>{o}</option>
-                ))}
-              </select>
+              <div className="mt-1">
+                <MemberPicker
+                  users={orgMembers}
+                  value={{ userId: ownerUserId, name: ownerName }}
+                  onChange={(v) => {
+                    setOwnerUserId(v.userId)
+                    setOwnerName(v.name)
+                  }}
+                  placeholder="Velg eier…"
+                />
+              </div>
             </label>
             <label className="block">
               <span className="text-[10px] font-bold uppercase tracking-wider text-neutral-500">
