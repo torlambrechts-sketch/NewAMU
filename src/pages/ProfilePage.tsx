@@ -607,6 +607,59 @@ export function ProfilePage() {
                 </div>
               </div>
 
+              {/* Tasks-due digest cadence (H2.5) — only meaningful when the
+                  tasks_due category + email channel are on. */}
+              {notifPrefs.categories.tasks_due ? (
+                <div className="rounded-lg border border-neutral-200 bg-neutral-50/60 p-3">
+                  <h3 className="text-sm font-semibold text-neutral-900">Oppgavefrist-påminnelser på e-post</h3>
+                  <p className="mt-0.5 text-xs text-neutral-500">
+                    Én samle-e-post med dine oppgaver som nærmer seg frist eller er forfalt.
+                    Krever at e-postkanalen over er slått på.
+                  </p>
+                  <div className="mt-2 grid gap-3 sm:grid-cols-2">
+                    <div>
+                      <p className="text-[11px] font-bold uppercase tracking-wider text-neutral-500">Frekvens</p>
+                      <div className="mt-1 flex gap-1.5">
+                        {(
+                          [
+                            ['daily', 'Daglig'],
+                            ['weekly', 'Ukentlig'],
+                          ] as const
+                        ).map(([val, label]) => (
+                          <Button
+                            key={val}
+                            size="sm"
+                            variant={notifPrefs.taskDigestFrequency === val ? 'primary' : 'secondary'}
+                            onClick={() =>
+                              setNotifPrefs((p) =>
+                                mergeNotificationPreferences(p, { taskDigestFrequency: val }),
+                              )
+                            }
+                          >
+                            {label}
+                          </Button>
+                        ))}
+                      </div>
+                    </div>
+                    <div className="flex items-start gap-3 text-sm text-neutral-800">
+                      <ToggleSwitch
+                        checked={notifPrefs.taskDigestPreDue}
+                        onChange={(v) =>
+                          setNotifPrefs((p) => mergeNotificationPreferences(p, { taskDigestPreDue: v }))
+                        }
+                        label="Varsle før frist"
+                      />
+                      <span>
+                        Varsle 3 dager før frist
+                        <span className="mt-0.5 block text-xs font-normal text-neutral-500">
+                          Av = kun varsel når oppgaven er forfalt.
+                        </span>
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              ) : null}
+
               <div className="flex items-start gap-3 text-sm text-neutral-800">
                 <ToggleSwitch
                   checked={notifPrefs.toastEnabled}

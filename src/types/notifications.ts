@@ -26,6 +26,11 @@ export type NotificationPreferences = {
   categories: NotificationCategoryPrefs
   /** Show a short toast banner when new matching notifications appear while using the app. */
   toastEnabled: boolean
+  /** Cadence for the tasks-due digest email (read by the tasks-due-digest
+   *  edge function). «Av» = uncheck the tasks_due category. */
+  taskDigestFrequency: 'daily' | 'weekly'
+  /** Include tasks approaching their due date (≤ 3 days), not just overdue. */
+  taskDigestPreDue: boolean
 }
 
 export type AppNotification = {

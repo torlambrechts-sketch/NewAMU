@@ -22,6 +22,8 @@ export const DEFAULT_NOTIFICATION_PREFS: NotificationPreferences = {
   },
   categories: { ...DEFAULT_CATEGORIES },
   toastEnabled: true,
+  taskDigestFrequency: 'daily',
+  taskDigestPreDue: true,
 }
 
 export function parseNotificationPreferences(raw: unknown): NotificationPreferences {
@@ -48,6 +50,8 @@ export function parseNotificationPreferences(raw: unknown): NotificationPreferen
       documents_moderation: cat?.documents_moderation !== false,
     },
     toastEnabled: o.toastEnabled !== false,
+    taskDigestFrequency: o.taskDigestFrequency === 'weekly' ? 'weekly' : 'daily',
+    taskDigestPreDue: o.taskDigestPreDue !== false,
   }
 }
 
@@ -61,6 +65,10 @@ export function mergeNotificationPreferences(
     webhookSecret: patch.webhookSecret !== undefined ? patch.webhookSecret : current.webhookSecret,
     categories: { ...current.categories, ...patch.categories },
     toastEnabled: patch.toastEnabled !== undefined ? patch.toastEnabled : current.toastEnabled,
+    taskDigestFrequency:
+      patch.taskDigestFrequency !== undefined ? patch.taskDigestFrequency : current.taskDigestFrequency,
+    taskDigestPreDue:
+      patch.taskDigestPreDue !== undefined ? patch.taskDigestPreDue : current.taskDigestPreDue,
   }
 }
 
