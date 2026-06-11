@@ -72,7 +72,7 @@ export function TasksAnalysePage() {
     const { data, error: e } = await supabase
       .from('task_items')
       .select(
-        'id, status, priority, template_kind, template_slug, due_date, sla_due_at, closed_at, created_at',
+        'id, status, priority, template_kind, template_slug, due_date, sla_due_at, closed_at, created_at, assignee_name',
       )
       .eq('organization_id', orgId)
       .is('deleted_at', null)
@@ -94,6 +94,7 @@ export function TasksAnalysePage() {
         slaDueAt: r.sla_due_at ? String(r.sla_due_at) : null,
         closedAt: r.closed_at ? String(r.closed_at) : null,
         createdAt: String(r.created_at),
+        assigneeName: r.assignee_name ? String(r.assignee_name) : null,
       })),
     )
   }, [supabase, orgId, tplData.templates])

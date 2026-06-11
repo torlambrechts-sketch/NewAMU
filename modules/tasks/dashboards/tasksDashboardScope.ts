@@ -33,6 +33,7 @@ const DATASETS: DatasetMeta[] = [
   { key: 'tasks_closed_over_time', label: 'Lukket over tid', shape: 'series' },
   { key: 'tasks_sla_compliance', label: 'SLA-etterlevelse', shape: 'segments' },
   { key: 'tasks_overdue_by_priority', label: 'Forfalt per prioritet', shape: 'segments' },
+  { key: 'tasks_by_assignee', label: 'Belastning per person', shape: 'segments' },
 ]
 
 // ── KPI widgets ──────────────────────────────────────────────────────────
@@ -114,6 +115,19 @@ const BAR_OVERDUE: ReportModuleBar = {
   seriesKeys: [], colSpan: 'md',
 }
 
+// ── Workload (H2.6) ─────────────────────────────────────────────────────
+
+const BAR_ASSIGNEE: ReportModuleBar = {
+  id: 'bar-assignee', kind: 'bar',
+  datasetKey: 'tasks_by_assignee', title: 'Belastning per person',
+  seriesKeys: [], colSpan: 'md',
+}
+const TABLE_ASSIGNEE: ReportModuleTable = {
+  id: 'table-assignee', kind: 'table',
+  datasetKey: 'tasks_by_assignee', title: 'Belastning per person — tabell',
+  rowKeys: [], colSpan: 'full',
+}
+
 // ── Trend widgets ────────────────────────────────────────────────────────
 
 const LINE_CREATED: ReportModuleLine = {
@@ -132,8 +146,8 @@ const LINE_CLOSED: ReportModuleLine = {
 const DEFAULT_LAYOUT: ReportModule[] = [
   KPI_TOTAL, KPI_OPEN, KPI_OVERDUE, KPI_AVVIK_OPEN,
   LINE_CREATED, DONUT_STATUS,
-  BAR_CAPA, DONUT_PRIORITY,
-  BAR_TEMPLATE, DONUT_SLA,
+  BAR_ASSIGNEE, BAR_CAPA,
+  DONUT_PRIORITY, BAR_TEMPLATE, DONUT_SLA,
 ]
 
 // ── Widget catalog ───────────────────────────────────────────────────────
@@ -153,6 +167,8 @@ const WIDGET_CATALOG: WidgetCatalogEntry[] = [
   { catalogId: 'bar-capa-funnel', category: 'CAPA', label: 'CAPA-trakt', description: 'Antall oppgaver per CAPA-fase for avvik/risiko.', template: BAR_CAPA },
   { catalogId: 'donut-sla', category: 'CAPA', label: 'SLA-etterlevelse', template: DONUT_SLA },
   { catalogId: 'bar-overdue', category: 'CAPA', label: 'Forfalt per prioritet', template: BAR_OVERDUE },
+  { catalogId: 'bar-assignee', category: 'Belastning', label: 'Belastning per person', description: 'Åpne oppgaver per person; forfalte flagges i etiketten.', template: BAR_ASSIGNEE },
+  { catalogId: 'table-assignee', category: 'Belastning', label: 'Belastning per person — tabell', template: TABLE_ASSIGNEE },
   { catalogId: 'line-created', category: 'Trend', label: 'Opprettet over tid', template: LINE_CREATED },
   { catalogId: 'line-closed', category: 'Trend', label: 'Lukket over tid', template: LINE_CLOSED },
 ]

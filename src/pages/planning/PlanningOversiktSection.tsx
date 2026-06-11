@@ -12,6 +12,7 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
+import { useSearchParams } from 'react-router-dom'
 import {
   AlertCircle,
   CalendarRange,
@@ -68,7 +69,11 @@ export function PlanningOversiktSection({
   const [view, setView] = useState<ViewId>('kanban')
   const [ownerFilter, setOwnerFilter] = useState<string>('all')
   const [typeFilter, setTypeFilter] = useState<string>('all')
-  const [okrFilter, setOkrFilter] = useState<string>('all')
+  // Deep-linkable OKR filter (H2.6): the KR cards on the strategy tab link
+  // here with ?okr=<objectiveId>. Lazy initialiser only — later changes via
+  // the dropdown stay local (no URL churn).
+  const [searchParams] = useSearchParams()
+  const [okrFilter, setOkrFilter] = useState<string>(() => searchParams.get('okr') ?? 'all')
   const [recurringOnly, setRecurringOnly] = useState(false)
 
   const owners = useMemo(

@@ -156,6 +156,7 @@ export function HmsOverviewPage() {
       slaDueAt: t.slaDueAt,
       closedAt: t.closedAt,
       createdAt: t.createdAt,
+      assigneeName: t.assigneeName,
     })),
     dashboard.filters,
   )

@@ -37,6 +37,8 @@ export type KeyResult = {
   checkinSpark?: number[]
   /** Staleness hint ("Sist innsjekket for 24 dager siden") — shown muted. */
   checkinHint?: string
+  /** Linked-task drill-down chip («3 åpne · 1 forfalt» → filtered task list). */
+  tasksChip?: { label: string; href: string }
 }
 
 export type Objective = {

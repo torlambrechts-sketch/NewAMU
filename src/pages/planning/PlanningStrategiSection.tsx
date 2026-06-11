@@ -153,12 +153,17 @@ export function PlanningStrategiSection({ plan, ctrl, tasks }: Props) {
   // narrative line. Cancelled tasks are excluded from both numerator and
   // denominator (mirrors okr_kr_recompute_rollup in the DB).
   const krTaskCounts = useMemo(() => {
-    const m = new Map<string, { linked: number; closed: number }>()
+    const todayStr = new Date().toISOString().slice(0, 10)
+    const m = new Map<string, { linked: number; closed: number; open: number; overdue: number }>()
     for (const t of tasks) {
       if (!t.okrKeyResultId || t.status === 'cancelled') continue
-      const e = m.get(t.okrKeyResultId) ?? { linked: 0, closed: 0 }
+      const e = m.get(t.okrKeyResultId) ?? { linked: 0, closed: 0, open: 0, overdue: 0 }
       e.linked += 1
       if (t.status === 'closed') e.closed += 1
+      else {
+        e.open += 1
+        if (t.dueDate && t.dueDate < todayStr) e.overdue += 1
+      }
       m.set(t.okrKeyResultId, e)
     }
     return m
@@ -168,7 +173,7 @@ export function PlanningStrategiSection({ plan, ctrl, tasks }: Props) {
   // narrative when the KR is in task_rollup mode (non-invert only), plus
   // check-in sparkline (oldest→newest) and staleness hint.
   const krToDash = useCallback(
-    (k: PlanningOkrKR): DashKR => {
+    (k: PlanningOkrKR, objectiveId: string): DashKR => {
       const history = checkins.byKr.get(k.id) ?? []
       const checkinSpark =
         history.length >= 2 ? [...history].reverse().map((c) => c.confidence) : undefined
@@ -179,7 +184,20 @@ export function PlanningStrategiSection({ plan, ctrl, tasks }: Props) {
         )
         if (days > CHECKIN_STALE_DAYS) checkinHint = `Sist innsjekket for ${days} dager siden`
       }
-      const base = { ...planningKrToDash(k), checkinSpark, checkinHint }
+      // Drill-down chip (H2.6): execution health on the KR card, linking to
+      // the oversikt section pre-filtered to this objective.
+      const counts = krTaskCounts.get(k.id)
+      const tasksChip =
+        counts && counts.open > 0
+          ? {
+              label:
+                counts.overdue > 0
+                  ? `${counts.open} åpne · ${counts.overdue} forfalt`
+                  : `${counts.open} åpne oppgaver`,
+              href: `/planlegging?section=oversikt&okr=${objectiveId}`,
+            }
+          : undefined
+      const base = { ...planningKrToDash(k), checkinSpark, checkinHint, tasksChip }
       if (k.progressMode === 'task_rollup' && !k.invert) {
         const c = krTaskCounts.get(k.id)
         const linked = c?.linked ?? 0
@@ -244,7 +262,7 @@ export function PlanningStrategiSection({ plan, ctrl, tasks }: Props) {
         title: o.objective,
         description: o.why || undefined,
         owner: { name: o.ownerName || '—' },
-        keyResults: o.keyResults.map(krToDash),
+        keyResults: o.keyResults.map((k) => krToDash(k, o.id)),
       })),
     [plan.objectives, krToDash],
   )

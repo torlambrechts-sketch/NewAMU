@@ -19,6 +19,7 @@ export type TaskItemSnapshot = {
   slaDueAt: string | null
   closedAt: string | null
   createdAt: string
+  assigneeName: string | null
 }
 
 const CAPA_PHASES: TaskItemStatus[] = [
@@ -225,6 +226,27 @@ export function useTasksDatasets(
       overdueByPriority.set(lbl, (overdueByPriority.get(lbl) ?? 0) + 1)
     }
 
+    // Workload per assignee (H2.6) — open count, overdue flagged via a
+    // second segment list so both bar and table renderers work. Unassigned
+    // tasks are grouped explicitly: invisible work is the workload problem.
+    const openItems = filtered.filter((t) => t.status !== 'closed' && t.status !== 'cancelled')
+    const byAssignee = new Map<string, { open: number; overdue: number }>()
+    for (const t of openItems) {
+      const key = t.assigneeName?.trim() || '(ikke tildelt)'
+      const e = byAssignee.get(key) ?? { open: 0, overdue: 0 }
+      e.open += 1
+      if (t.dueDate && new Date(t.dueDate) < now) e.overdue += 1
+      byAssignee.set(key, e)
+    }
+    const assigneeSegs = Array.from(byAssignee.entries())
+      .sort((a, b) => b[1].open - a[1].open)
+      .slice(0, 12)
+      .map(([name, v]) => ({
+        id: name,
+        label: v.overdue > 0 ? `${name} (${v.overdue} forfalt)` : name,
+        value: v.open,
+      }))
+
     // Trend: items created over time (last 12 months)
     const months = last12Months()
     const createdByMonth = new Map<string, number>(months.map((m) => [m, 0]))
@@ -256,6 +278,7 @@ export function useTasksDatasets(
         { id: 'closed_late', label: 'Lukket etter SLA', value: slaClosed },
       ],
       tasks_overdue_by_priority: segments(overdueByPriority),
+      tasks_by_assignee: assigneeSegs,
     }
   }, [items, filters])
 }

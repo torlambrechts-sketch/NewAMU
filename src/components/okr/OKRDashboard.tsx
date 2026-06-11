@@ -22,11 +22,13 @@
  * roll-up confidence = worst of the children so "at_risk" surfaces upward.
  */
 import { useMemo, useState } from 'react'
+import { Link } from 'react-router-dom'
 import {
   CheckCircle2,
   ChevronDown,
   ChevronRight,
   LayoutGrid,
+  ListChecks,
   Pencil,
   Plus,
   Table2,
@@ -752,6 +754,15 @@ function ObjectiveCard({
               {kr.progressNote ? (
                 <p className="mt-1 text-[11px] text-neutral-500">{kr.progressNote}</p>
               ) : null}
+              {kr.tasksChip ? (
+                <Link
+                  to={kr.tasksChip.href}
+                  className="mt-1 inline-flex items-center gap-1 rounded bg-neutral-100 px-1.5 py-0.5 text-[10px] font-semibold text-neutral-700 hover:bg-neutral-200"
+                >
+                  <ListChecks className="size-2.5" aria-hidden />
+                  {kr.tasksChip.label}
+                </Link>
+              ) : null}
               {kr.checkinHint ? (
                 <p className="mt-1 text-[11px] font-medium text-amber-700">{kr.checkinHint}</p>
               ) : null}
@@ -995,6 +1006,15 @@ function FragmentRow({
                 </div>
                 {kr.progressNote ? (
                   <p className="mt-1 text-[11px] text-neutral-500">{kr.progressNote}</p>
+                ) : null}
+                {kr.tasksChip ? (
+                  <Link
+                    to={kr.tasksChip.href}
+                    className="mt-1 inline-flex items-center gap-1 rounded bg-neutral-100 px-1.5 py-0.5 text-[10px] font-semibold text-neutral-700 hover:bg-neutral-200"
+                  >
+                    <ListChecks className="size-2.5" aria-hidden />
+                    {kr.tasksChip.label}
+                  </Link>
                 ) : null}
                 {kr.checkinHint ? (
                   <p className="mt-1 text-[11px] font-medium text-amber-700">{kr.checkinHint}</p>
