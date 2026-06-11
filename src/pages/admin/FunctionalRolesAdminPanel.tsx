@@ -67,24 +67,37 @@ export function FunctionalRolesAdminPanel() {
   const [error, setError] = useState<string | null>(null)
   const [savingSlug, setSavingSlug] = useState<string | null>(null)
   const [newAssignments, setNewAssignments] = useState<Record<string, string>>({}) // slug → user_id
+  // role_slug → PermissionKeys the role auto-grants (H3.3)
+  const [grantsByRole, setGrantsByRole] = useState<Map<string, string[]>>(new Map())
 
   const load = useCallback(async () => {
     if (!sb || !organization?.id) return
     setLoading(true)
     setError(null)
     try {
-      const [cRes, aRes, pRes] = await Promise.all([
+      const [cRes, aRes, pRes, gRes] = await Promise.all([
         sb.from('functional_roles').select('*').eq('is_active', true).order('sort_order'),
         sb
           .from('org_active_role_holders')
           .select('*')
           .eq('organization_id', organization.id),
         sb.from('profiles').select('id, display_name, email').eq('organization_id', organization.id),
+        sb.from('functional_role_permission_grants').select('role_slug, permission_key'),
       ])
       if (cRes.error) throw cRes.error
       if (aRes.error) throw aRes.error
       if (pRes.error) throw pRes.error
       setCatalog((cRes.data ?? []) as RoleCatalog[])
+      // Permission grants per role (H3.3) — soft-fail: panel works without.
+      if (!gRes.error) {
+        const m = new Map<string, string[]>()
+        for (const row of (gRes.data ?? []) as Array<{ role_slug: string; permission_key: string }>) {
+          const list = m.get(row.role_slug) ?? []
+          list.push(row.permission_key)
+          m.set(row.role_slug, list)
+        }
+        setGrantsByRole(m)
+      }
       // Map view to Assignment shape (the view doesn't expose all columns we'd need for assignment-id; refetch raw)
       const { data: rawAssign, error: rawErr } = await sb
         .from('org_functional_role_assignments')
@@ -240,6 +253,19 @@ export function FunctionalRolesAdminPanel() {
                           {role.required_from_employees ? (
                             <p className="mt-0.5 text-[11px] text-neutral-500">
                               <strong>Pliktig fra:</strong> {role.required_from_employees} ansatte
+                            </p>
+                          ) : null}
+                          {(grantsByRole.get(role.slug) ?? []).length > 0 ? (
+                            <p className="mt-1 flex flex-wrap items-center gap-1 text-[11px] text-neutral-500">
+                              <strong>Denne rollen gir:</strong>
+                              {(grantsByRole.get(role.slug) ?? []).map((k) => (
+                                <code
+                                  key={k}
+                                  className="rounded bg-[#e7efe9] px-1 py-0.5 text-[10px] font-semibold text-[#14312a]"
+                                >
+                                  {k}
+                                </code>
+                              ))}
                             </p>
                           ) : null}
                         </div>
