@@ -1,4 +1,7 @@
-// Pricing — kept verbatim from the previous LandingPage (3 tiers: Demo / 690 NOK / Enterprise).
+// Pricing — 3 tiers (gratis prøve / 690 NOK / Enterprise). H3.5: copy
+// anchored to outcomes (timer spart, revisjonsklar dokumentasjon) instead of
+// module counts, and the dead /login?demo=1 CTA replaced with /signup (the
+// demo query param was never handled by AuthPage).
 
 import { Link } from 'react-router-dom'
 import { SectionHeader } from '../primitives/SectionHeader'
@@ -9,19 +12,29 @@ const CREAM = '#f5f0e8'
 
 const TIERS = [
   {
-    name: 'Prøv gratis',
-    price: 'Demo',
+    name: 'Prøv gratis i 30 dager',
+    price: 'Gratis',
     period: '',
-    features: ['Alle moduler', 'Forhåndsutfylt data', '10 sekunder oppstart', 'Ingen registrering'],
-    cta: 'Start demo',
-    href: '/login?demo=1',
+    features: [
+      'Alle moduler — full funksjonalitet',
+      'Ferdige maler: kom i gang samme dag',
+      'Ingen betalingskort, ingen binding',
+      'Behold alt du har lagt inn ved kjøp',
+    ],
+    cta: 'Start gratis prøveperiode',
+    href: '/signup',
     highlight: false,
   },
   {
     name: 'Liten virksomhet',
     price: 'fra 690',
     period: 'kr/mnd · per organisasjon',
-    features: ['Opp til 50 ansatte', 'Alle moduler inkludert', 'EU-hosting (Supabase)', 'E-post support innen 1 virkedag'],
+    features: [
+      'Spar timer hver måned: frister, møter og oppfølging purres automatisk',
+      'Revisjonsklar dokumentasjon når Arbeidstilsynet spør — ikke ukene før',
+      'Én pris, alle moduler — opp til 50 ansatte',
+      'EU-hosting · support innen 1 virkedag',
+    ],
     cta: 'Opprett konto',
     href: '/signup',
     highlight: true,
@@ -30,7 +43,12 @@ const TIERS = [
     name: 'Større virksomhet',
     price: 'Kontakt oss',
     period: '',
-    features: ['Ubegrenset antall ansatte', 'SSO og tilgangsstyring', 'Innføring og opplæring', 'Dedikert kundestøtte'],
+    features: [
+      'Ubegrenset antall ansatte',
+      'SSO og tilgangsstyring',
+      'Innføring og opplæring for HMS-teamet',
+      'Dedikert kundestøtte',
+    ],
     cta: 'Ta kontakt',
     href: '/kontakt',
     highlight: false,
@@ -43,8 +61,8 @@ export function PricingSection() {
       <div className="mx-auto max-w-6xl px-4 md:px-8">
         <SectionHeader
           eyebrow="Pris"
-          title="Enkle priser. Alle moduler inkludert."
-          lede="Pris per organisasjon — ikke per modul, ikke per bruker. Alle seks modulene er med fra start."
+          title="Hva koster det å slippe å jakte på dokumentasjon?"
+          lede="Pris per organisasjon — ikke per modul, ikke per bruker. Typisk sparer en HMS-ansvarlig flere timer i uken på automatiske frister, møtereferater og revisjonsklar dokumentasjon."
         />
         <div className="mx-auto mt-14 grid max-w-4xl gap-4 md:grid-cols-3">
           {TIERS.map(({ name, price, period, features, cta, href, highlight }) => (
