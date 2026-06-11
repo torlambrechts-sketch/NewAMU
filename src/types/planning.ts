@@ -23,6 +23,8 @@ export type OkrPlan = {
   facilitatorName?: string
   status: OkrPlanStatus
   pack: TaskPack
+  /** Parent in the alignment tree (company → team). Undefined = root plan. */
+  parentPlanId?: string
   activatedAt?: string
   archivedAt?: string
   createdBy?: string
@@ -44,6 +46,8 @@ export type OkrObjective = {
   ownerName?: string
   health: OkrHealth
   progress: number
+  /** Objective in the PARENT plan this one supports («støtter: O2 …»). */
+  supportsObjectiveId?: string
   createdAt: string
   updatedAt: string
 }

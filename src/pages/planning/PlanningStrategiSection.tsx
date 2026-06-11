@@ -13,11 +13,13 @@ import {
   CalendarRange,
   History,
   Pencil,
+  Plus,
   Target,
   UserCheck,
   UserCog,
 } from 'lucide-react'
 import { Button } from '../../components/ui/Button'
+import { SearchableSelect } from '../../components/ui/SearchableSelect'
 import { useOrgSetupContext } from '../../hooks/useOrgSetupContext'
 import type {
   OkrHealth,
@@ -25,7 +27,7 @@ import type {
   OkrPlanFull,
 } from '../../types/planning'
 import type { PlanningTaskRow } from '../../hooks/usePlanningTasks'
-import type { UsePlanningOkrReturn } from '../../hooks/usePlanningOkr'
+import type { OkrPlanListItem, UsePlanningOkrReturn } from '../../hooks/usePlanningOkr'
 import { fmtNum } from './planningConstants'
 import { PlanningPlanEditPanel } from './PlanningPlanEditPanel'
 import { PlanningRaciEditPanel } from './PlanningRaciEditPanel'
@@ -257,17 +259,27 @@ export function PlanningStrategiSection({ plan, ctrl, tasks }: Props) {
     [checkins, ctrl],
   )
 
-  // Mapping: planning OKR plan → OKRDashboard.Objective[]
+  // Mapping: planning OKR plan → OKRDashboard.Objective[]. Child-plan
+  // objectives get the cascade line («Støtter: O2 — …») appended to the
+  // description when they reference a parent objective.
   const dashboardObjectives: DashObjective[] = useMemo(
     () =>
-      plan.objectives.map((o) => ({
-        id: o.id,
-        title: o.objective,
-        description: o.why || undefined,
-        owner: { name: o.ownerName || '—' },
-        keyResults: o.keyResults.map((k) => krToDash(k, o.id)),
-      })),
-    [plan.objectives, krToDash],
+      plan.objectives.map((o) => {
+        const supports = o.supportsObjectiveId
+          ? ctrl.parentObjectives.find((p) => p.id === o.supportsObjectiveId)
+          : undefined
+        const cascade = supports
+          ? `Støtter: ${supports.ordLabel} — ${supports.objective.slice(0, 60)}`
+          : undefined
+        return {
+          id: o.id,
+          title: o.objective,
+          description: [o.why || undefined, cascade].filter(Boolean).join(' · ') || undefined,
+          owner: { name: o.ownerName || '—' },
+          keyResults: o.keyResults.map((k) => krToDash(k, o.id)),
+        }
+      }),
+    [plan.objectives, krToDash, ctrl.parentObjectives],
   )
 
   // Quick lookup so KR-update can resolve back to the planning row for
@@ -385,8 +397,56 @@ export function PlanningStrategiSection({ plan, ctrl, tasks }: Props) {
   const openPlanEdit = useCallback(() => setPlanEditOpen(true), [])
   const openRaciEdit = useCallback(() => setRaciEditOpen(true), [])
 
+  // Alignment-tree options with depth indentation (roots first, DFS).
+  const ctrlPlans = ctrl.plans
+  const planTreeOptions = useMemo(() => {
+    const byParent = new Map<string | null, OkrPlanListItem[]>()
+    for (const p of ctrlPlans) {
+      const key = p.parentPlanId
+      const list = byParent.get(key) ?? []
+      list.push(p)
+      byParent.set(key, list)
+    }
+    const out: Array<{ value: string; label: string }> = []
+    const walk = (parentId: string | null, depth: number) => {
+      for (const p of byParent.get(parentId) ?? []) {
+        out.push({ value: p.id, label: `${' '.repeat(depth)}${depth > 0 ? '└ ' : ''}${p.title}` })
+        if (depth < 5) walk(p.id, depth + 1)
+      }
+    }
+    walk(null, 0)
+    return out
+  }, [ctrlPlans])
+
   return (
     <div className="space-y-6">
+      {/* ── Alignment tree switcher (H3.2) ──────────────────────────────── */}
+      {ctrl.plans.length > 0 ? (
+        <div className="flex flex-wrap items-center gap-2">
+          <span className={`${SMALLCAPS} text-neutral-500`}>Plan-nivå</span>
+          <div className="min-w-[260px]">
+            <SearchableSelect
+              value={plan.id}
+              options={planTreeOptions}
+              onChange={(id) => {
+                const root = ctrl.plans.find((p) => p.parentPlanId === null)
+                ctrl.selectPlan(id === root?.id ? null : id)
+              }}
+            />
+          </div>
+          <Button
+            variant="secondary"
+            size="sm"
+            icon={<Plus className="size-3.5" />}
+            onClick={() => {
+              void ctrl.createChildPlan('Team-plan (gi den navn via Rediger)', plan.id)
+            }}
+          >
+            Ny team-plan under denne
+          </Button>
+        </div>
+      ) : null}
+
       {/* ── Hero card (navy + aubergine rail) ────────────────────────────── */}
       <article
         className="overflow-hidden rounded-2xl text-white shadow-lg"

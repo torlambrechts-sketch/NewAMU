@@ -35,6 +35,7 @@ type DbPlan = {
   facilitator_name: string | null
   status: OkrPlanStatus
   pack: 'aml-amu' | 'iso-45001'
+  parent_plan_id: string | null
   activated_at: string | null
   archived_at: string | null
   created_by: string | null
@@ -55,6 +56,7 @@ type DbObjective = {
   owner_name: string | null
   health: OkrHealth
   progress: number | string
+  supports_objective_id: string | null
   created_at: string
   updated_at: string
 }
@@ -106,6 +108,7 @@ function mapPlan(r: DbPlan): OkrPlan {
     facilitatorName: r.facilitator_name ?? undefined,
     status: r.status,
     pack: r.pack,
+    parentPlanId: r.parent_plan_id ?? undefined,
     activatedAt: r.activated_at ?? undefined,
     archivedAt: r.archived_at ?? undefined,
     createdBy: r.created_by ?? undefined,
@@ -128,6 +131,7 @@ function mapObjective(r: DbObjective): OkrObjective {
     ownerName: r.owner_name ?? undefined,
     health: r.health,
     progress: Number(r.progress ?? 0),
+    supportsObjectiveId: r.supports_objective_id ?? undefined,
     createdAt: r.created_at,
     updatedAt: r.updated_at,
   }
@@ -170,10 +174,33 @@ function mapRaci(r: DbRaci): OkrRaciEntry {
   }
 }
 
+/** Lightweight row for the plan switcher (alignment tree, H3.2). */
+export type OkrPlanListItem = {
+  id: string
+  title: string
+  parentPlanId: string | null
+  status: OkrPlanStatus
+}
+
+/** Objective stub from the PARENT plan, for the «støtter»-select. */
+export type OkrParentObjective = {
+  id: string
+  ordLabel: string
+  objective: string
+}
+
 export type UsePlanningOkrReturn = {
   loading: boolean
   error: string | null
   plan: OkrPlanFull | null
+  /** All non-archived plans in the org (root + children) for the switcher. */
+  plans: OkrPlanListItem[]
+  /** Objectives of the loaded plan's parent (empty for root plans). */
+  parentObjectives: OkrParentObjective[]
+  /** Switch the loaded plan. null = the provisioned root plan. */
+  selectPlan: (planId: string | null) => void
+  /** Create a team-level child plan under the given parent and switch to it. */
+  createChildPlan: (title: string, parentPlanId: string) => Promise<string | null>
   reload: () => void
   // Plan mutations
   updatePlan: (patch: Partial<Omit<OkrPlan, 'id' | 'organizationId' | 'createdAt' | 'updatedAt'>>) => Promise<void>
@@ -196,6 +223,9 @@ export function usePlanningOkr(): UsePlanningOkrReturn {
   const orgId = organization?.id ?? null
 
   const [plan, setPlan] = useState<OkrPlanFull | null>(null)
+  const [plans, setPlans] = useState<OkrPlanListItem[]>([])
+  const [parentObjectives, setParentObjectives] = useState<OkrParentObjective[]>([])
+  const [activePlanId, setActivePlanId] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [version, setVersion] = useState(0)
@@ -218,13 +248,34 @@ export function usePlanningOkr(): UsePlanningOkrReturn {
 
     void (async () => {
       try {
-        // 1. Provision (atomic, idempotent server-side RPC).
+        // 1. Provision (atomic, idempotent server-side RPC) — guarantees the
+        //    ROOT plan exists. A selected child plan overrides which plan is
+        //    hydrated below.
         const provRes = await supabase.rpc('provision_okr_baseline_for_org', {
           p_org_id: orgId,
           p_pack: 'aml-amu',
         })
         if (provRes.error) throw provRes.error
-        const planId = String(provRes.data)
+        const planId = activePlanId ?? String(provRes.data)
+
+        // 1b. Plan list for the alignment-tree switcher.
+        const listRes = await supabase
+          .from('okr_plans')
+          .select('id, title, parent_plan_id, status')
+          .eq('organization_id', orgId)
+          .is('deleted_at', null)
+          .neq('status', 'archived')
+          .order('created_at', { ascending: true })
+        if (listRes.error) throw listRes.error
+        const planList: OkrPlanListItem[] = (listRes.data ?? []).map((r) => {
+          const row = r as Record<string, unknown>
+          return {
+            id: String(row.id),
+            title: String(row.title ?? ''),
+            parentPlanId: row.parent_plan_id ? String(row.parent_plan_id) : null,
+            status: (row.status ?? 'draft') as OkrPlanStatus,
+          }
+        })
 
         // 2. Hent plan, objectives, raci parallelt.
         const [planRes, objRes, raciRes] = await Promise.all([
@@ -258,6 +309,26 @@ export function usePlanningOkr(): UsePlanningOkrReturn {
           keyResults = (krRes.data ?? []) as DbKeyResult[]
         }
 
+        // Parent objectives for the «støtter»-select (child plans only).
+        let parentObjs: OkrParentObjective[] = []
+        if (planRow.parent_plan_id) {
+          const pRes = await supabase
+            .from('okr_objectives')
+            .select('id, ord_label, objective')
+            .eq('plan_id', planRow.parent_plan_id)
+            .order('position', { ascending: true })
+          if (!pRes.error) {
+            parentObjs = (pRes.data ?? []).map((r) => {
+              const row = r as Record<string, unknown>
+              return {
+                id: String(row.id),
+                ordLabel: String(row.ord_label ?? ''),
+                objective: String(row.objective ?? ''),
+              }
+            })
+          }
+        }
+
         if (cancelled) return
 
         const objWithKrs = objectives.map((o) => ({
@@ -265,6 +336,8 @@ export function usePlanningOkr(): UsePlanningOkrReturn {
           keyResults: keyResults.filter((k) => k.objective_id === o.id).map(mapKeyResult),
         }))
 
+        setPlans(planList)
+        setParentObjectives(parentObjs)
         setPlan({
           ...mapPlan(planRow),
           objectives: objWithKrs,
@@ -282,7 +355,37 @@ export function usePlanningOkr(): UsePlanningOkrReturn {
     return () => {
       cancelled = true
     }
-  }, [supabase, orgId, version])
+  }, [supabase, orgId, version, activePlanId])
+
+  const selectPlan = useCallback<UsePlanningOkrReturn['selectPlan']>((planId) => {
+    setActivePlanId(planId)
+  }, [])
+
+  const createChildPlan = useCallback<UsePlanningOkrReturn['createChildPlan']>(
+    async (title, parentPlanId) => {
+      if (!supabase || !orgId) return null
+      const { data, error: insErr } = await supabase
+        .from('okr_plans')
+        .insert({
+          organization_id: orgId,
+          title: title.trim() || 'Team-plan',
+          description: '',
+          status: 'draft',
+          pack: planRef.current?.pack ?? 'aml-amu',
+          parent_plan_id: parentPlanId,
+        })
+        .select('id')
+        .single()
+      if (insErr || !data) {
+        setError(insErr?.message ?? 'Kunne ikke opprette team-plan.')
+        return null
+      }
+      const id = String(data.id)
+      setActivePlanId(id)
+      return id
+    },
+    [supabase, orgId],
+  )
 
   // Optimistic mutation helper: applies state, awaits DB write, rolls back
   // + surfaces error on failure. Avoids the "screen snaps back" UX.
@@ -386,6 +489,8 @@ export function usePlanningOkr(): UsePlanningOkrReturn {
       if (patch.ownerName !== undefined) dbPatch.owner_name = patch.ownerName
       if (patch.health !== undefined) dbPatch.health = patch.health
       if (patch.progress !== undefined) dbPatch.progress = patch.progress
+      if (patch.supportsObjectiveId !== undefined)
+        dbPatch.supports_objective_id = patch.supportsObjectiveId ?? null
       await optimisticPlanMutation(
         () =>
           setPlan((prev) =>
@@ -597,6 +702,10 @@ export function usePlanningOkr(): UsePlanningOkrReturn {
       loading,
       error,
       plan,
+      plans,
+      parentObjectives,
+      selectPlan,
+      createChildPlan,
       reload,
       updatePlan,
       addObjective,
@@ -613,6 +722,10 @@ export function usePlanningOkr(): UsePlanningOkrReturn {
       loading,
       error,
       plan,
+      plans,
+      parentObjectives,
+      selectPlan,
+      createChildPlan,
       reload,
       updatePlan,
       addObjective,

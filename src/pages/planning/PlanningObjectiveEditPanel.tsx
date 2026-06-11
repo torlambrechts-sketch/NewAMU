@@ -61,6 +61,7 @@ export function PlanningObjectiveEditPanel({
         ownerName: obj.ownerName,
         health: obj.health,
         progress: obj.progress,
+        supportsObjectiveId: obj.supportsObjectiveId,
       })
     } else if (!open) {
       setDraft(null)
@@ -117,6 +118,7 @@ export function PlanningObjectiveEditPanel({
       ownerName: draft.ownerName ?? undefined,
       health: draft.health,
       progress: draft.progress,
+      supportsObjectiveId: draft.supportsObjectiveId,
     })
     onClose()
   }
@@ -247,6 +249,29 @@ export function PlanningObjectiveEditPanel({
                 className="mt-1.5 tabular-nums"
               />
             </div>
+            {ctrl.parentObjectives.length > 0 ? (
+              <div>
+                <p className={WPSTD_FORM_FIELD_LABEL}>Støtter mål i overordnet plan</p>
+                {/* eslint-disable-next-line no-restricted-syntax */}
+                <select
+                  value={draft.supportsObjectiveId ?? ''}
+                  onChange={(e) =>
+                    setDraft({ ...draft, supportsObjectiveId: e.target.value || undefined })
+                  }
+                  className="mt-1.5 w-full rounded border border-neutral-300 bg-white px-3 py-2.5 text-sm outline-none focus:border-[#1a3d32]"
+                >
+                  <option value="">— Ingen kobling —</option>
+                  {ctrl.parentObjectives.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.ordLabel} — {p.objective.slice(0, 60)}
+                    </option>
+                  ))}
+                </select>
+                <p className="mt-1 text-xs text-neutral-500">
+                  Vises som «Støtter: …» på målkortet. Kun tilgjengelig på team-planer.
+                </p>
+              </div>
+            ) : null}
           </div>
         </div>
 
