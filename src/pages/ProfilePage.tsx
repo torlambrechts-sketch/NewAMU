@@ -6,6 +6,7 @@ import {
   Camera,
   CheckCircle2,
   ChevronRight,
+  Download,
   Home,
   KeyRound,
   LayoutGrid,
@@ -730,6 +731,44 @@ export function ProfilePage() {
                 className="mt-4 rounded-full"
               >
                 {t('profile.passwordSave')}
+              </Button>
+            </div>
+          </section>
+
+          {/* GDPR self-service export (H3.8) — Art. 15/20 */}
+          <section id="profile-gdpr" className="scroll-mt-28">
+            <h2 className="mb-3 flex items-center gap-2 text-lg font-semibold text-neutral-900">
+              <Download className="size-5 text-neutral-500" />
+              Mine data (GDPR)
+            </h2>
+            <div className={CARD}>
+              <p className="text-sm text-neutral-600">
+                Last ned en kopi av personopplysningene plattformen har om deg: profil,
+                organisasjonstilknytning, roller og oppgaver du er ansvarlig for (GDPR art. 15
+                og 20). Sletting håndteres av administrator.
+              </p>
+              <Button
+                variant="secondary"
+                className="mt-4 rounded-full"
+                icon={<Download className="size-4" />}
+                onClick={() => {
+                  void (async () => {
+                    if (!supabase) return
+                    const { data, error } = await supabase.rpc('gdpr_export_my_data')
+                    if (error || !data) return
+                    const blob = new Blob([JSON.stringify(data, null, 2)], {
+                      type: 'application/json',
+                    })
+                    const url = URL.createObjectURL(blob)
+                    const a = document.createElement('a')
+                    a.href = url
+                    a.download = `mine-data-${new Date().toISOString().slice(0, 10)}.json`
+                    a.click()
+                    URL.revokeObjectURL(url)
+                  })()
+                }}
+              >
+                Last ned mine data (JSON)
               </Button>
             </div>
           </section>
