@@ -143,6 +143,7 @@ async function processOne(args: {
   isMonday: boolean
   stage1Ids: Set<string>
   stage2Ids: Set<string>
+  failedTaskIds: Set<string>
 }): Promise<{ skipped: boolean; sent: boolean; reason?: string }> {
   const { supabase, profile, appUrl, todayIso, soonIso } = args
   const email = profile.email?.trim()
@@ -163,7 +164,10 @@ async function processOne(args: {
     .not('status', 'in', '("closed","cancelled")')
     .order('due_date', { ascending: true })
     .limit(50)
-  if (error) return { skipped: false, sent: false, reason: error.message }
+  if (error) {
+    // Mid-pass failure: nothing was sent for these tasks, nothing to veto.
+    return { skipped: false, sent: false, reason: error.message }
+  }
 
   const rows = (data ?? []) as TaskRow[]
   const overdue = rows.filter((t) => t.due_date < todayIso)
@@ -190,7 +194,13 @@ async function processOne(args: {
   })
 
   const send = await sendEmail({ to: email, subject, html })
-  if (!send.ok) return { skipped: false, sent: false, reason: send.error }
+  if (!send.ok) {
+    // Veto the stage bump for every task in this user's failed digest —
+    // otherwise a co-recipient (assignee + owner pair) whose email succeeded
+    // would bump the stage and this user would never be retried.
+    for (const t of [...overdue, ...approaching]) args.failedTaskIds.add(t.id)
+    return { skipped: false, sent: false, reason: send.error }
+  }
 
   // Collect stage bumps; applied once after ALL users are processed so a
   // task with distinct assignee + owner reaches both inboxes the same day.
@@ -238,6 +248,7 @@ Deno.serve(async (req: Request) => {
 
   const stage1Ids = new Set<string>()
   const stage2Ids = new Set<string>()
+  const failedTaskIds = new Set<string>()
   const summary = { processed: 0, sent: 0, skipped: 0, failed: 0 }
 
   for (const p of (profiles ?? []) as ProfileRow[]) {
@@ -252,6 +263,7 @@ Deno.serve(async (req: Request) => {
         isMonday,
         stage1Ids,
         stage2Ids,
+        failedTaskIds,
       })
       if (out.skipped) summary.skipped += 1
       else if (out.sent) summary.sent += 1
@@ -262,7 +274,12 @@ Deno.serve(async (req: Request) => {
     }
   }
 
-  // Stage bumps after the full pass (overdue wins over approaching).
+  // Stage bumps after the full pass (overdue wins over approaching). Tasks
+  // in a failed digest are vetoed entirely so the failed recipient retries.
+  for (const id of failedTaskIds) {
+    stage1Ids.delete(id)
+    stage2Ids.delete(id)
+  }
   for (const id of stage2Ids) stage1Ids.delete(id)
   if (stage1Ids.size > 0) {
     await admin.from('task_items').update({ due_notified_stage: 1 }).in('id', [...stage1Ids])

@@ -8,7 +8,7 @@
 //
 // Filter bar mirrors Regelverk-dekning (cream-deep, always visible, × per filter).
 
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import {
   AlignJustify,
@@ -1113,7 +1113,9 @@ export function TasksAllePage() {
 
   const runBulk = useCallback(
     async (action: 'close' | 'cancel' | 'reassign') => {
-      const rows = allItems.items.filter((i) => selectedIds.has(i.id))
+      // Act on VISIBLE selected rows only — a filter change must never
+      // leave hidden rows in the blast radius of a bulk action.
+      const rows = filteredRef.current.filter((i) => selectedIds.has(i.id))
       if (rows.length === 0) return
       setBulkBusy(true)
       setBulkMsg(null)
@@ -1191,6 +1193,7 @@ export function TasksAllePage() {
     return !taskFiltersEqual(filters, { ...EMPTY_FILTERS, ...view.filters })
   }, [activeViewId, filters, saved.views])
 
+  const filteredRef = useRef<TaskItemRow[]>([])
   const filtered = useMemo(() => {
     const q = search.toLowerCase()
     const statusSet = filters.statuses.length ? new Set(filters.statuses) : null
@@ -1205,6 +1208,9 @@ export function TasksAllePage() {
       return true
     })
   }, [allItems.items, filters, search])
+  // Live ref so runBulk (declared above) always acts on the CURRENT visible
+  // rows without a TDZ/dependency-order problem.
+  filteredRef.current = filtered
 
   const toggleRow = (id: string) =>
     setExpandedRows((prev) => {

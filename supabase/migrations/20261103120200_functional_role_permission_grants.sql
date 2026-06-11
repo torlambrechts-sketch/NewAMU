@@ -69,6 +69,15 @@ declare
   v_label text;
   v_active boolean;
 begin
+  -- Defense in depth: when called by a user (triggers/service role have
+  -- auth.uid() null), the caller must be an admin of the SAME org. Without
+  -- this, any authenticated user could write role_definitions/
+  -- role_permissions rows into other tenants' RBAC config.
+  if auth.uid() is not null
+     and (p_org_id is distinct from public.current_org_id() or not public.is_org_admin()) then
+    raise exception 'Kun org-admin kan synkronisere rolletilganger.';
+  end if;
+
   -- Nothing mapped for this functional role → nothing to materialise.
   if not exists (
     select 1 from public.functional_role_permission_grants g where g.role_slug = p_role_slug
@@ -135,6 +144,13 @@ as $$
 declare
   r record;
 begin
+  -- Same gate as functional_role_sync_permissions: org-admin of p_org_id,
+  -- or service role (auth.uid() null) for the cron/reconcile path.
+  if auth.uid() is not null
+     and (p_org_id is distinct from public.current_org_id() or not public.is_org_admin()) then
+    raise exception 'Kun org-admin kan rekonsiliere rolletilganger.';
+  end if;
+
   for r in
     select distinct a.user_id, a.role_slug
       from public.org_functional_role_assignments a

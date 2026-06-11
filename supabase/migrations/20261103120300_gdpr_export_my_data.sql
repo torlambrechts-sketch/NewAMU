@@ -31,7 +31,7 @@ begin
   select jsonb_build_object(
     'exported_at', now(),
     'profile', (
-      select to_jsonb(p) - 'id'
+      select to_jsonb(p)
         from (
           select pr.display_name, pr.email, pr.locale, pr.created_at
             from public.profiles pr where pr.id = v_uid

@@ -50,6 +50,9 @@ begin
   if coalesce(v_invert, false) then
     return;  -- rollup undefined for lower-is-better metrics
   end if;
+  if v_target is null then
+    return;  -- no target → ratio undefined; never null out current_value
+  end if;
 
   select
     count(*),
@@ -72,7 +75,10 @@ begin
 end;
 $$;
 
-grant execute on function public.okr_kr_recompute_rollup(uuid) to authenticated;
+-- Trigger-only: the two triggers below run as the function owner, so no
+-- grant to authenticated is needed — and granting one would let any signed-in
+-- user poke recomputes at other tenants' KR ids (harmless but wrong).
+revoke execute on function public.okr_kr_recompute_rollup(uuid) from public, authenticated;
 
 -- Trigger: a task's status (or soft-delete) changed → recompute every KR it
 -- is linked to (a task may be linked to more than one KR).
