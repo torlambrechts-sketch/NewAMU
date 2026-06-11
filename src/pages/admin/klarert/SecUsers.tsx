@@ -14,11 +14,14 @@ import {
   ShieldCheck,
   ShieldOff,
   Trash2,
+  Upload,
   UserPlus,
+  Users2,
 } from 'lucide-react'
 import { Badge } from '../../../components/ui/Badge'
 import { Button } from '../../../components/ui/Button'
 import { StandardInput } from '../../../components/ui/Input'
+import { StandardTextarea } from '../../../components/ui/Textarea'
 import {
   ADMIN_TABLE_TH,
   ADMIN_TABLE_TR_BODY,
@@ -30,6 +33,12 @@ import {
 import { formatDateTime } from './format'
 import { useAdminUsers } from './useAdminUsers'
 import { useOrgSetupContext } from '../../../hooks/useOrgSetupContext'
+import {
+  createInvitations,
+  parseCsvEmails,
+  parseEmailList,
+  type InviteResult,
+} from '../../../lib/inviteEmails'
 import type { AdminSectionProps } from './types'
 
 type FilterId = 'all' | 'admin' | 'vo' | 'external' | 'no-role' | 'mfa-off'
@@ -54,6 +63,11 @@ export function SecUsers({ easy }: AdminSectionProps) {
   const [inviteMsg, setInviteMsg] = useState<string | null>(null)
   const [inviteLink, setInviteLink] = useState<string | null>(null)
   const [pendingInvites, setPendingInvites] = useState<PendingInvite[]>([])
+  // Bulk invite (H2.4) — paste/CSV → preview with dedupe → batch create.
+  const [bulkOpen, setBulkOpen] = useState(false)
+  const [bulkText, setBulkText] = useState('')
+  const [bulkBusy, setBulkBusy] = useState(false)
+  const [bulkResults, setBulkResults] = useState<InviteResult[] | null>(null)
 
   const loadInvites = useCallback(async () => {
     if (!supabase || !organization) return
@@ -187,6 +201,47 @@ export function SecUsers({ easy }: AdminSectionProps) {
     }
   }
 
+  // Preview rows: parsed input classified against existing members + pending
+  // invites so the admin sees exactly what will happen before creating.
+  const bulkPreview = useMemo(() => {
+    const parsed = parseEmailList(bulkText)
+    const memberEmails = new Set(
+      users.map((u) => u.email?.trim().toLowerCase()).filter((e): e is string => !!e),
+    )
+    const pendingEmails = new Set(pendingInvites.map((i) => i.email.trim().toLowerCase()))
+    return {
+      invalid: parsed.invalid,
+      alreadyMember: parsed.valid.filter((e) => memberEmails.has(e)),
+      alreadyInvited: parsed.valid.filter((e) => !memberEmails.has(e) && pendingEmails.has(e)),
+      ready: parsed.valid.filter((e) => !memberEmails.has(e) && !pendingEmails.has(e)),
+    }
+  }, [bulkText, users, pendingInvites])
+
+  const handleCsvFile = useCallback(async (file: File) => {
+    const text = await file.text()
+    const parsed = parseCsvEmails(text)
+    const all = [...parsed.valid, ...parsed.invalid]
+    if (all.length > 0) {
+      setBulkText((prev) => (prev.trim() ? `${prev.trim()}\n` : '') + all.join('\n'))
+    }
+  }, [])
+
+  const submitBulk = useCallback(async () => {
+    if (!supabase || bulkPreview.ready.length === 0) return
+    setBulkBusy(true)
+    setBulkResults(null)
+    try {
+      const results = await createInvitations(supabase, bulkPreview.ready)
+      setBulkResults(results)
+      if (results.some((r) => r.ok)) {
+        setBulkText('')
+        await Promise.all([refresh(), refreshChildren?.(), loadInvites()])
+      }
+    } finally {
+      setBulkBusy(false)
+    }
+  }, [supabase, bulkPreview.ready, refresh, refreshChildren, loadInvites])
+
   if (loading) return <AdminLoading />
   if (!organization) return <AdminError message="Mangler organisasjon." />
 
@@ -215,6 +270,14 @@ export function SecUsers({ easy }: AdminSectionProps) {
             onClick={() => setInviteOpen((v) => !v)}
           >
             Inviter bruker
+          </Button>
+          <Button
+            variant="secondary"
+            size="sm"
+            icon={<Users2 className="h-3 w-3" />}
+            onClick={() => setBulkOpen((v) => !v)}
+          >
+            Inviter flere
           </Button>
         </div>
       </div>
@@ -274,6 +337,101 @@ export function SecUsers({ easy }: AdminSectionProps) {
           ) : null}
           {inviteMsg ? (
             <span className="basis-full text-[11px] text-neutral-700">{inviteMsg}</span>
+          ) : null}
+        </div>
+      )}
+
+      {bulkOpen && (
+        <div className="space-y-3 border-b border-neutral-100 bg-neutral-50/60 px-5 py-3">
+          <div>
+            <label
+              className="text-[10px] font-bold uppercase tracking-wider text-neutral-500"
+              htmlFor="bulk-invite-emails"
+            >
+              Lim inn e-postadresser (linjeskift, komma eller semikolon)
+            </label>
+            <StandardTextarea
+              id="bulk-invite-emails"
+              value={bulkText}
+              onChange={(e) => setBulkText(e.target.value)}
+              rows={4}
+              placeholder={'kari@firma.no\nole@firma.no, per@firma.no'}
+              className="mt-1 font-mono text-xs"
+            />
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <label className="inline-flex cursor-pointer items-center gap-1.5 rounded-md border border-neutral-200 bg-white px-2.5 py-1.5 text-xs font-semibold text-neutral-700 hover:border-neutral-400">
+              <Upload className="h-3 w-3" aria-hidden />
+              Last opp CSV
+              {/* eslint-disable-next-line no-restricted-syntax -- hidden file input; StandardInput targets text fields */}
+              <input
+                type="file"
+                accept=".csv,text/csv"
+                className="hidden"
+                onChange={(e) => {
+                  const f = e.target.files?.[0]
+                  if (f) void handleCsvFile(f)
+                  e.target.value = ''
+                }}
+              />
+            </label>
+            <span className="text-[11px] text-neutral-500">
+              {bulkPreview.ready.length} klare
+              {bulkPreview.alreadyMember.length > 0
+                ? ` · ${bulkPreview.alreadyMember.length} allerede medlem`
+                : ''}
+              {bulkPreview.alreadyInvited.length > 0
+                ? ` · ${bulkPreview.alreadyInvited.length} allerede invitert`
+                : ''}
+              {bulkPreview.invalid.length > 0 ? ` · ${bulkPreview.invalid.length} ugyldige` : ''}
+            </span>
+            <div className="ml-auto flex items-center gap-2">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  setBulkOpen(false)
+                  setBulkResults(null)
+                }}
+              >
+                Avbryt
+              </Button>
+              <Button
+                variant="primary"
+                size="sm"
+                disabled={bulkBusy || bulkPreview.ready.length === 0}
+                icon={
+                  bulkBusy ? (
+                    <Loader2 className="h-3 w-3 animate-spin" />
+                  ) : (
+                    <UserPlus className="h-3 w-3" />
+                  )
+                }
+                onClick={() => void submitBulk()}
+              >
+                Opprett {bulkPreview.ready.length} invitasjoner
+              </Button>
+            </div>
+          </div>
+          {bulkPreview.invalid.length > 0 ? (
+            <p className="text-[11px] text-red-600">
+              Ugyldige: {bulkPreview.invalid.join(', ')}
+            </p>
+          ) : null}
+          {bulkResults ? (
+            <div className="rounded-md border border-neutral-200 bg-white px-2.5 py-2 text-[11px]">
+              <p className="font-semibold text-neutral-800">
+                {bulkResults.filter((r) => r.ok).length} av {bulkResults.length} invitasjoner
+                opprettet. Lenkene ligger under «Ventende invitasjoner».
+              </p>
+              {bulkResults
+                .filter((r) => !r.ok)
+                .map((r) => (
+                  <p key={r.email} className="mt-0.5 text-red-600">
+                    {r.email}: {r.error}
+                  </p>
+                ))}
+            </div>
           ) : null}
         </div>
       )}

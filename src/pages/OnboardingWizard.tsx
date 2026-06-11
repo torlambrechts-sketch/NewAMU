@@ -1,12 +1,13 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Building2, ChevronLeft, ChevronRight, Loader2, Search } from 'lucide-react'
+import { Building2, ChevronLeft, ChevronRight, Loader2, Mail, Search } from 'lucide-react'
 import { ModulePageIcon } from '../components/ModulePageIcon'
 import { Button } from '../components/ui/Button'
 import { StandardInput } from '../components/ui/Input'
 import { SearchableSelect } from '../components/ui/SearchableSelect'
 import { getSupabaseErrorMessage } from '../lib/supabaseError'
 import { useOrgSetupContext } from '../hooks/useOrgSetupContext'
+import { createInvitations, parseEmailList } from '../lib/inviteEmails'
 import { formatBrregAddress } from '../lib/brreg'
 import type { BrregEnhet } from '../types/brreg'
 
@@ -23,6 +24,7 @@ const steps = [
 export function OnboardingWizard() {
   const navigate = useNavigate()
   const {
+    supabase,
     supabaseConfigured,
     loadState,
     error: bootError,
@@ -61,6 +63,7 @@ export function OnboardingWizard() {
   const [memDept, setMemDept] = useState('')
   const [memTeam, setMemTeam] = useState('')
   const [memLoc, setMemLoc] = useState('')
+  const [inviteAllMsg, setInviteAllMsg] = useState<string | null>(null)
 
   if (!supabaseConfigured) {
     return (
@@ -560,6 +563,49 @@ export function OnboardingWizard() {
             >
               Legg til person
             </Button>
+            {members.some((m) => m.email?.trim()) ? (
+              <div className="rounded-lg border border-neutral-200 bg-neutral-50 p-3">
+                <p className="text-xs text-neutral-600">
+                  Personene over er kun katalogoppføringer. Opprett invitasjons-lenker så de kan
+                  logge inn — lenkene finner du igjen under Admin → Brukere.
+                </p>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  icon={busy ? <Loader2 className="h-3 w-3 animate-spin" /> : <Mail className="h-3 w-3" />}
+                  disabled={busy}
+                  className="mt-2 rounded-lg"
+                  onClick={() => {
+                    void (async () => {
+                      if (!supabase) return
+                      setBusy(true)
+                      setInviteAllMsg(null)
+                      try {
+                        const emails = parseEmailList(
+                          members.map((m) => m.email ?? '').join('\n'),
+                        ).valid
+                        const results = await createInvitations(supabase, emails)
+                        const ok = results.filter((r) => r.ok).length
+                        const failed = results.filter((r) => !r.ok)
+                        setInviteAllMsg(
+                          `${ok} av ${results.length} invitasjoner opprettet.` +
+                            (failed.length > 0
+                              ? ` Feilet: ${failed.map((f) => f.email).join(', ')}.`
+                              : ''),
+                        )
+                      } finally {
+                        setBusy(false)
+                      }
+                    })()
+                  }}
+                >
+                  Inviter alle med e-post ({members.filter((m) => m.email?.trim()).length})
+                </Button>
+                {inviteAllMsg ? (
+                  <p className="mt-2 text-xs text-neutral-700">{inviteAllMsg}</p>
+                ) : null}
+              </div>
+            ) : null}
             <div className="flex gap-2">
               <Button variant="secondary" onClick={back} className="rounded-lg">
                 Tilbake
