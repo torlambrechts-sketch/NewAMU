@@ -3,13 +3,17 @@
 // pålogging. Filter-chips for raske utvalg. Inviter-knapp åpner
 // invitations-flyten (samme RPC som UsersInternalAdminPanel).
 
-import { useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
+  Copy,
   KeyRound,
   Loader2,
+  Mail,
   RefreshCw,
+  RotateCw,
   ShieldCheck,
   ShieldOff,
+  Trash2,
   UserPlus,
 } from 'lucide-react'
 import { Badge } from '../../../components/ui/Badge'
@@ -30,6 +34,16 @@ import type { AdminSectionProps } from './types'
 
 type FilterId = 'all' | 'admin' | 'vo' | 'external' | 'no-role' | 'mfa-off'
 
+type PendingInvite = {
+  id: string
+  email: string
+  token: string
+  expiresAt: string
+  createdAt: string
+}
+
+const inviteLinkFor = (token: string) => `${window.location.origin}/invite/${token}`
+
 export function SecUsers({ easy }: AdminSectionProps) {
   const { users, loading, error, refresh, authMetaAvailable } = useAdminUsers()
   const { supabase, organization, refreshChildren } = useOrgSetupContext()
@@ -38,6 +52,78 @@ export function SecUsers({ easy }: AdminSectionProps) {
   const [inviteEmail, setInviteEmail] = useState('')
   const [inviteBusy, setInviteBusy] = useState(false)
   const [inviteMsg, setInviteMsg] = useState<string | null>(null)
+  const [inviteLink, setInviteLink] = useState<string | null>(null)
+  const [pendingInvites, setPendingInvites] = useState<PendingInvite[]>([])
+
+  const loadInvites = useCallback(async () => {
+    if (!supabase || !organization) return
+    const { data } = await supabase
+      .from('invitations')
+      .select('id, email, token, expires_at, created_at')
+      .eq('organization_id', organization.id)
+      .eq('status', 'pending')
+      .order('created_at', { ascending: false })
+    setPendingInvites(
+      (data ?? []).map((r) => {
+        const row = r as Record<string, unknown>
+        return {
+          id: String(row.id),
+          email: String(row.email ?? ''),
+          token: String(row.token ?? ''),
+          expiresAt: String(row.expires_at ?? ''),
+          createdAt: String(row.created_at ?? ''),
+        }
+      }),
+    )
+  }, [supabase, organization])
+
+  useEffect(() => {
+    void loadInvites()
+  }, [loadInvites])
+
+  const copyInviteLink = useCallback(async (token: string) => {
+    const full = inviteLinkFor(token)
+    await navigator.clipboard.writeText(full).catch(() => undefined)
+    setInviteMsg(`Lenke kopiert: ${full}`)
+  }, [])
+
+  const revokeInvite = useCallback(
+    async (id: string) => {
+      if (!supabase) return
+      const { error: upErr } = await supabase
+        .from('invitations')
+        .update({ status: 'revoked' })
+        .eq('id', id)
+      if (upErr) {
+        setInviteMsg(upErr.message)
+        return
+      }
+      setInviteMsg('Invitasjon trukket tilbake.')
+      await loadInvites()
+    },
+    [supabase, loadInvites],
+  )
+
+  const resendInvite = useCallback(
+    async (invite: PendingInvite) => {
+      if (!supabase) return
+      // Email delivery is a follow-up (edge function + provider). Today the
+      // link is the channel, so "send på nytt" renews validity and re-copies
+      // the link for the admin to share.
+      const { error: upErr } = await supabase
+        .from('invitations')
+        .update({ expires_at: new Date(Date.now() + 14 * 86400000).toISOString() })
+        .eq('id', invite.id)
+      if (upErr) {
+        setInviteMsg(upErr.message)
+        return
+      }
+      await copyInviteLink(invite.token)
+      setInviteMsg(`Gyldighet fornyet 14 dager. Lenke kopiert — del den med ${invite.email}.`)
+      await loadInvites()
+    },
+    [supabase, copyInviteLink, loadInvites],
+  )
 
   const noRoleCount = users.filter((u) => u.roleNames.length === 0).length
   const externalCount = users.filter((u) => u.external).length
@@ -74,6 +160,7 @@ export function SecUsers({ easy }: AdminSectionProps) {
     if (!supabase || !inviteEmail.includes('@')) return
     setInviteBusy(true)
     setInviteMsg(null)
+    setInviteLink(null)
     try {
       const { data, error: rpcErr } = await supabase.rpc('create_invitation', {
         p_email: inviteEmail.trim(),
@@ -85,13 +172,14 @@ export function SecUsers({ easy }: AdminSectionProps) {
       const path = (row as { invite_url_path?: string } | null)?.invite_url_path
       if (path) {
         const full = `${window.location.origin}${path}`
+        setInviteLink(full)
         await navigator.clipboard.writeText(full).catch(() => undefined)
-        setInviteMsg(`Lenke kopiert: ${full}`)
+        setInviteMsg('Invitasjons-lenke opprettet og kopiert. Del den med mottakeren.')
       } else {
         setInviteMsg('Invitasjon opprettet.')
       }
       setInviteEmail('')
-      await Promise.all([refresh(), refreshChildren?.()])
+      await Promise.all([refresh(), refreshChildren?.(), loadInvites()])
     } catch (e) {
       setInviteMsg(e instanceof Error ? e.message : 'Kunne ikke opprette invitasjon')
     } finally {
@@ -165,9 +253,76 @@ export function SecUsers({ easy }: AdminSectionProps) {
           >
             Avbryt
           </Button>
+          {inviteLink ? (
+            <div className="basis-full">
+              <div className="flex items-center gap-2 rounded-md border border-neutral-200 bg-white px-2.5 py-1.5">
+                <Mail className="h-3.5 w-3.5 shrink-0 text-neutral-400" />
+                <code className="min-w-0 flex-1 truncate text-[11px] text-neutral-700">{inviteLink}</code>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  icon={<Copy className="h-3 w-3" />}
+                  onClick={() => void copyInviteLink(inviteLink.split('/invite/')[1] ?? '')}
+                >
+                  Kopier
+                </Button>
+              </div>
+              <p className="mt-1 text-[10px] text-neutral-400">
+                E-postutsending kommer — del lenken manuelt inntil videre.
+              </p>
+            </div>
+          ) : null}
           {inviteMsg ? (
             <span className="basis-full text-[11px] text-neutral-700">{inviteMsg}</span>
           ) : null}
+        </div>
+      )}
+
+      {pendingInvites.length > 0 && (
+        <div className="border-b border-neutral-100 px-5 py-3">
+          <p className="mb-2 text-[10px] font-bold uppercase tracking-wider text-neutral-500">
+            Ventende invitasjoner ({pendingInvites.length})
+          </p>
+          <ul className="flex flex-col gap-1.5">
+            {pendingInvites.map((inv) => (
+              <li
+                key={inv.id}
+                className="flex flex-wrap items-center gap-2 rounded-md border border-neutral-200 bg-white px-2.5 py-1.5"
+              >
+                <Mail className="h-3.5 w-3.5 shrink-0 text-neutral-400" />
+                <span className="min-w-0 flex-1 truncate text-xs font-medium text-neutral-800">
+                  {inv.email}
+                </span>
+                <span className="text-[10px] text-neutral-400">
+                  Utløper {formatDateTime(inv.expiresAt)}
+                </span>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  icon={<Copy className="h-3 w-3" />}
+                  onClick={() => void copyInviteLink(inv.token)}
+                >
+                  Kopier
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  icon={<RotateCw className="h-3 w-3" />}
+                  onClick={() => void resendInvite(inv)}
+                >
+                  Send på nytt
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  icon={<Trash2 className="h-3 w-3" />}
+                  onClick={() => void revokeInvite(inv.id)}
+                >
+                  Trekk tilbake
+                </Button>
+              </li>
+            ))}
+          </ul>
         </div>
       )}
 

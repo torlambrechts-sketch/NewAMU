@@ -11,6 +11,16 @@ type Mode = 'login' | 'signup'
 const FOREST = '#1a3d32'
 const TEAL = '#2dd4bf'
 
+/** Supabase signals an unconfirmed email differently across versions. */
+function isEmailNotConfirmed(err: unknown): boolean {
+  const raw =
+    err && typeof err === 'object' && 'message' in err
+      ? String((err as { message?: string }).message ?? '')
+      : ''
+  const l = raw.toLowerCase()
+  return l.includes('not confirmed') || l.includes('email_not_confirmed')
+}
+
 // ─── Left panel illustration ──────────────────────────────────────────────────
 
 const CAROUSEL = [
@@ -124,6 +134,10 @@ export function AuthPage({ mode }: { mode: Mode }) {
   const [busy, setBusy] = useState(false)
   const [message, setMessage] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
+  // Email-confirmation gate: shown after signup (or a not-confirmed login)
+  // so the user can re-request the verification link instead of being stuck.
+  const [awaitingConfirm, setAwaitingConfirm] = useState(false)
+  const [resendBusy, setResendBusy] = useState(false)
 
   const signupHref = `/signup?redirect=${encodeURIComponent(redirect)}`
   const loginHref = `/login?redirect=${encodeURIComponent(redirect)}`
@@ -136,10 +150,30 @@ export function AuthPage({ mode }: { mode: Mode }) {
     )
   }
 
+  const resendConfirmation = async () => {
+    if (!email.trim()) {
+      setError('Skriv inn e-posten din først.')
+      return
+    }
+    setResendBusy(true)
+    setError(null)
+    setMessage(null)
+    try {
+      const { error: err } = await supabase.auth.resend({ type: 'signup', email: email.trim() })
+      if (err) throw err
+      setMessage(`Bekreftelseslenke sendt på nytt til ${email.trim()}. Sjekk innboksen (og spam).`)
+    } catch (err) {
+      setError(mapAuthError(err))
+    } finally {
+      setResendBusy(false)
+    }
+  }
+
   const submit = async (e: FormEvent) => {
     e.preventDefault()
     setError(null)
     setMessage(null)
+    setAwaitingConfirm(false)
     setBusy(true)
     try {
       if (mode === 'login') {
@@ -168,9 +202,13 @@ export function AuthPage({ mode }: { mode: Mode }) {
           const { data: verify } = await supabase.auth.getSession()
           if (verify.session) { navigate(postLoginRedirectPath(redirect), { replace: true }); return }
         }
-        setMessage('Konto opprettet. Hvis prosjektet krever e-postbekreftelse, sjekk innboksen — åpne lenken før du logger inn.')
+        // No session ⇒ project requires email confirmation. Surface the
+        // gate so the user can resend the link rather than guess.
+        setAwaitingConfirm(true)
+        setMessage(`Konto opprettet. Vi har sendt en bekreftelseslenke til ${email.trim()}. Åpne den før du logger inn.`)
       }
     } catch (err) {
+      if (isEmailNotConfirmed(err)) setAwaitingConfirm(true)
       setError(mapAuthError(err))
     } finally {
       setBusy(false)
@@ -279,6 +317,23 @@ export function AuthPage({ mode }: { mode: Mode }) {
             {message && (
               <div role="status" className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2.5 text-sm text-emerald-900">
                 {message}
+              </div>
+            )}
+            {awaitingConfirm && (
+              <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2.5 text-sm text-amber-900">
+                <p className="font-semibold">Bekreft e-posten din</p>
+                <p className="mt-1 text-amber-800">
+                  Du må åpne bekreftelseslenken før du kan logge inn. Fikk du den ikke?
+                </p>
+                <button
+                  type="button"
+                  onClick={() => void resendConfirmation()}
+                  disabled={resendBusy}
+                  className="mt-2 inline-flex items-center gap-2 rounded-md border border-amber-300 bg-white px-3 py-1.5 text-xs font-semibold text-amber-900 transition hover:bg-amber-100 disabled:opacity-50"
+                >
+                  {resendBusy && <Loader2 className="size-3.5 animate-spin" />}
+                  Send bekreftelse på nytt
+                </button>
               </div>
             )}
 
