@@ -11,6 +11,7 @@
 import { useCallback, useMemo, useState } from 'react'
 import {
   CalendarRange,
+  History,
   Pencil,
   Target,
   UserCheck,
@@ -35,6 +36,7 @@ import {
   type CheckinDialogTarget,
   type CheckinFormPayload,
 } from '../../components/okr/OKRCheckinDialog'
+import { PlanningHistoryPanel } from './PlanningHistoryPanel'
 import type {
   Confidence,
   KeyResult as DashKR,
@@ -115,6 +117,7 @@ export function PlanningStrategiSection({ plan, ctrl, tasks }: Props) {
   const [planEditOpen, setPlanEditOpen] = useState(false)
   const [raciEditOpen, setRaciEditOpen] = useState(false)
   const [checkinTarget, setCheckinTarget] = useState<CheckinDialogTarget | null>(null)
+  const [historyOpen, setHistoryOpen] = useState(false)
   const checkins = useOkrCheckins()
 
   const personOptions = useMemo(() => {
@@ -404,9 +407,18 @@ export function PlanningStrategiSection({ plan, ctrl, tasks }: Props) {
               <Button
                 variant="ghost"
                 size="sm"
+                onClick={() => setHistoryOpen(true)}
+                icon={<History className="size-3.5" />}
+                className="ml-auto text-white/80 hover:bg-white/10 hover:text-white"
+              >
+                Historikk
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
                 onClick={openPlanEdit}
                 icon={<Pencil className="size-3.5" />}
-                className="ml-auto text-white/80 hover:bg-white/10 hover:text-white"
+                className="text-white/80 hover:bg-white/10 hover:text-white"
               >
                 Rediger
               </Button>
@@ -569,6 +581,11 @@ export function PlanningStrategiSection({ plan, ctrl, tasks }: Props) {
         target={checkinTarget}
         onClose={() => setCheckinTarget(null)}
         onSubmit={submitCheckin}
+      />
+      <PlanningHistoryPanel
+        open={historyOpen}
+        onClose={() => setHistoryOpen(false)}
+        planId={plan.id}
       />
     </div>
   )
