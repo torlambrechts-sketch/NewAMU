@@ -3,10 +3,7 @@
 import { Link } from 'react-router-dom'
 import { INTEGRATIONS, STATUS_META } from '../content/integrations'
 import { SectionHeader } from '../primitives/SectionHeader'
-
-const FOREST = '#1a3d32'
-const TEAL = '#2dd4bf'
-const CREAM = '#f5f0e8'
+import { CREAM, FOREST, TEAL } from '../theme'
 
 const TONE_BG: Record<'live' | 'soon' | 'planned', string> = {
   live: '#22c55e',

@@ -6,10 +6,7 @@ import type { ModuleFeature } from '../content/features'
 import { LawRefChip } from '../primitives/LawRefChip'
 import { BrowserMockup } from '../primitives/BrowserMockup'
 import { ModuleMockup } from '../primitives/ModuleMockup'
-
-const FOREST = '#1a3d32'
-const TEAL = '#2dd4bf'
-const CREAM = '#f5f0e8'
+import { CREAM, FOREST, TEAL } from '../theme'
 
 type Props = {
   feature: ModuleFeature

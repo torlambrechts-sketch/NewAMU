@@ -2,9 +2,7 @@
 // Shows the framework name, a paragraph-count proof, and a one-line summary.
 
 import type { Framework } from '../content/compliance'
-
-const FOREST = '#1a3d32'
-const TEAL = '#2dd4bf'
+import { FOREST, TEAL } from '../theme'
 
 type Props = {
   framework: Framework

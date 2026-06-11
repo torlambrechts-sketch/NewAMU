@@ -4,10 +4,7 @@ import { INTEGRATIONS, STATUS_META, type IntegrationStatus } from './content/int
 import { SeoHead } from './primitives/SeoHead'
 import { SectionHeader } from './primitives/SectionHeader'
 import { CtaBannerSection } from './sections/CtaBannerSection'
-
-const FOREST = '#1a3d32'
-const TEAL = '#2dd4bf'
-const CREAM = '#f5f0e8'
+import { CREAM, FOREST, TEAL } from './theme'
 
 const TONE_COLOR: Record<IntegrationStatus, string> = {
   live: '#22c55e',

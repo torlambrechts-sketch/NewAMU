@@ -5,10 +5,7 @@
 
 import { Link } from 'react-router-dom'
 import { SectionHeader } from '../primitives/SectionHeader'
-
-const FOREST = '#1a3d32'
-const TEAL = '#2dd4bf'
-const CREAM = '#f5f0e8'
+import { CREAM, FOREST, TEAL } from '../theme'
 
 const TIERS = [
   {

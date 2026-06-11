@@ -4,10 +4,7 @@ import { Link } from 'react-router-dom'
 import { SeoHead } from './primitives/SeoHead'
 import { SectionHeader } from './primitives/SectionHeader'
 import { CtaBannerSection } from './sections/CtaBannerSection'
-
-const FOREST = '#1a3d32'
-const TEAL = '#2dd4bf'
-const CREAM = '#f5f0e8'
+import { CREAM, FOREST, TEAL } from './theme'
 
 const PRINCIPLES = [
   {

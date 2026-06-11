@@ -45,6 +45,8 @@ import { TaskSubtaskList } from './components/TaskSubtaskList'
 import { TaskDetailPanel } from './TaskDetailPanel'
 import { useTaskItemsData, type TaskItemRow } from './useTaskItemsData'
 import { useSubtaskCounts } from './useSubtaskCounts'
+import { useOrgMembers } from '../../src/hooks/useOrgMembers'
+import { MemberPicker, type MemberPickerValue } from '../../src/components/people/MemberPicker'
 import type { TaskItemStatus, TaskItemPriority, TaskTemplateKind } from '../../src/types/task'
 
 // ── Subtask priority helpers (for aligned table rows) ─────────────────────────
@@ -980,7 +982,7 @@ function SubtaskTableRows({ taskItemId }: { taskItemId: string }) {
           editingId === sub.id ? (
             <tr key={`${sub.id}-edit`} className="border-b border-[#c2410c]/20 bg-orange-50/40">
               <td className="w-10 px-3 py-2" />
-              <td colSpan={7} className="px-3 py-2">
+              <td colSpan={8} className="px-3 py-2">
                 <div className="space-y-2 pl-5">
                   <StandardInput
                     autoFocus
@@ -1032,7 +1034,7 @@ function SubtaskTableRows({ taskItemId }: { taskItemId: string }) {
       {/* Quick-add row */}
       <tr className="border-b border-neutral-100 bg-neutral-50/50">
         <td className="w-10 px-3 py-2" />
-        <td className="px-3 py-1.5" colSpan={7}>
+        <td className="px-3 py-1.5" colSpan={8}>
           <div className="flex items-center gap-2 pl-5">
             <Plus className="h-3.5 w-3.5 shrink-0 text-neutral-300" />
             <StandardInput
@@ -1084,6 +1086,73 @@ export function TasksAllePage() {
   const [viewMode, setViewMode] = useState<ViewMode>('list')
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set())
 
+  // Bulk actions (H3.6) — list view only. CAPA-gated kinds (avvik/
+  // nestenulykke/risiko) are skipped by «Fullfør» unless already at
+  // effectiveness_verified, mirroring the detail-panel close gate.
+  const { supabase: sb } = useOrgSetupContext()
+  const orgMembers = useOrgMembers()
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
+  const [bulkAssign, setBulkAssign] = useState<MemberPickerValue>({ userId: null, name: '' })
+  const [bulkBusy, setBulkBusy] = useState(false)
+  const [bulkMsg, setBulkMsg] = useState<string | null>(null)
+
+  const toggleSelected = useCallback((id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }, [])
+
+  const isCapaGated = useCallback((row: TaskItemRow) => {
+    const capa =
+      row.templateKind === 'avvik' || row.templateKind === 'nestenulykke' || row.templateKind === 'risiko'
+    return capa && row.status !== 'effectiveness_verified'
+  }, [])
+
+  const runBulk = useCallback(
+    async (action: 'close' | 'cancel' | 'reassign') => {
+      const rows = allItems.items.filter((i) => selectedIds.has(i.id))
+      if (rows.length === 0) return
+      setBulkBusy(true)
+      setBulkMsg(null)
+      try {
+        if (action === 'reassign') {
+          if (!sb || (!bulkAssign.userId && !bulkAssign.name.trim())) return
+          const { error } = await sb
+            .from('task_items')
+            .update({
+              assignee_user_id: bulkAssign.userId,
+              assignee_name: bulkAssign.name.trim() || null,
+            })
+            .in('id', rows.map((r) => r.id))
+          if (error) {
+            setBulkMsg(error.message)
+            return
+          }
+          allItems.reload()
+          setBulkMsg(`${rows.length} oppgaver omfordelt til ${bulkAssign.name || '—'}.`)
+        } else if (action === 'close') {
+          const closable = rows.filter((r) => !isCapaGated(r))
+          for (const r of closable) await allItems.updateStatus(r.id, 'closed')
+          const skipped = rows.length - closable.length
+          setBulkMsg(
+            `${closable.length} fullført.` +
+              (skipped > 0 ? ` ${skipped} hoppet over (CAPA-flyt må fullføres først).` : ''),
+          )
+        } else {
+          for (const r of rows) await allItems.updateStatus(r.id, 'cancelled')
+          setBulkMsg(`${rows.length} kansellert.`)
+        }
+        setSelectedIds(new Set())
+      } finally {
+        setBulkBusy(false)
+      }
+    },
+    [allItems, selectedIds, sb, bulkAssign, isCapaGated],
+  )
+
   const clear = useCallback(() => { setFilters(EMPTY_FILTERS); setSearch('') }, [])
   const activeFilterCount = countActiveTaskFilters(filters)
 
@@ -1101,7 +1170,6 @@ export function TasksAllePage() {
       const match = saved.views.find((v) =>
         taskFiltersEqual(filters, { ...EMPTY_FILTERS, ...v.filters }),
       )
-      // eslint-disable-next-line react-hooks/set-state-in-effect
       if (match) setActiveViewId(match.id)
       setDefaultApplied(true)
       return
@@ -1329,10 +1397,60 @@ export function TasksAllePage() {
               toolbar={null}
               footer={null}
             >
+              {selectedIds.size > 0 || bulkMsg ? (
+                <div className="flex flex-wrap items-center gap-2 border-b border-neutral-200 bg-[#fff7ed] px-4 py-2.5">
+                  {selectedIds.size > 0 ? (
+                    <>
+                      <span className="text-xs font-semibold text-neutral-800">
+                        {selectedIds.size} valgt
+                      </span>
+                      <Button size="sm" variant="secondary" disabled={bulkBusy} onClick={() => void runBulk('close')}>
+                        Fullfør
+                      </Button>
+                      <Button size="sm" variant="secondary" disabled={bulkBusy} onClick={() => void runBulk('cancel')}>
+                        Kanseller
+                      </Button>
+                      <div className="flex items-center gap-1.5">
+                        <div className="w-52">
+                          <MemberPicker
+                            users={orgMembers}
+                            value={bulkAssign}
+                            onChange={setBulkAssign}
+                            placeholder="Omfordel til…"
+                          />
+                        </div>
+                        <Button
+                          size="sm"
+                          variant="secondary"
+                          disabled={bulkBusy || (!bulkAssign.userId && !bulkAssign.name.trim())}
+                          onClick={() => void runBulk('reassign')}
+                        >
+                          Omfordel
+                        </Button>
+                      </div>
+                      <Button size="sm" variant="ghost" disabled={bulkBusy} onClick={() => setSelectedIds(new Set())}>
+                        Tøm valg
+                      </Button>
+                    </>
+                  ) : null}
+                  {bulkMsg ? <span className="text-xs text-neutral-600">{bulkMsg}</span> : null}
+                </div>
+              ) : null}
               <div className="w-full overflow-x-auto">
                 <table className="w-full min-w-[900px] border-collapse text-left text-sm">
                   <thead>
                     <tr className={`${LAYOUT_TABLE1_POSTINGS_HEADER_ROW} bg-neutral-50/90`}>
+                      <th className={`w-8 ${LAYOUT_TABLE1_POSTINGS_TH}`}>
+                        <StandardInput
+                          type="checkbox"
+                          aria-label="Velg alle"
+                          checked={filtered.length > 0 && filtered.every((r) => selectedIds.has(r.id))}
+                          onChange={(e) =>
+                            setSelectedIds(e.target.checked ? new Set(filtered.map((r) => r.id)) : new Set())
+                          }
+                          className="h-3.5 w-3.5"
+                        />
+                      </th>
                       <th className={LAYOUT_TABLE1_POSTINGS_TH}>Type</th>
                       <th className={LAYOUT_TABLE1_POSTINGS_TH}>Tittel</th>
                       <th className={LAYOUT_TABLE1_POSTINGS_TH}>Kategori</th>
@@ -1347,13 +1465,13 @@ export function TasksAllePage() {
                   <tbody>
                     {allItems.loading && filtered.length === 0 ? (
                       <tr>
-                        <td colSpan={9} className="py-12 text-center text-sm text-neutral-500">
+                        <td colSpan={10} className="py-12 text-center text-sm text-neutral-500">
                           Laster…
                         </td>
                       </tr>
                     ) : filtered.length === 0 ? (
                       <tr>
-                        <td colSpan={9}>
+                        <td colSpan={10}>
                           <div className="py-12 text-center">
                             <p className="text-sm text-neutral-500">
                               {activeFilterCount > 0
@@ -1387,6 +1505,17 @@ export function TasksAllePage() {
                               isExpanded ? 'bg-neutral-50' : 'hover:bg-neutral-50'
                             }`}
                           >
+                            {/* Bulk select */}
+                            <td className="px-3 py-4">
+                              <StandardInput
+                                type="checkbox"
+                                aria-label={`Velg ${row.title}`}
+                                checked={selectedIds.has(row.id)}
+                                onChange={() => toggleSelected(row.id)}
+                                className="h-3.5 w-3.5"
+                              />
+                            </td>
+
                             {/* Type icon */}
                             <td className="px-5 py-4">
                               {row.templateKind ? (

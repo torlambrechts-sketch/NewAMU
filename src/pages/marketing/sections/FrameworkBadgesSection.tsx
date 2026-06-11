@@ -3,8 +3,7 @@
 
 import { Link } from 'react-router-dom'
 import { FRAMEWORKS } from '../content/compliance'
-
-const TEAL = '#2dd4bf'
+import { TEAL } from '../theme'
 
 export function FrameworkBadgesSection() {
   return (

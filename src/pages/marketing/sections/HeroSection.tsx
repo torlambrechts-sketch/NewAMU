@@ -3,9 +3,7 @@
 import { Link } from 'react-router-dom'
 import { KlarertLogo } from '../../../components/brand/KlarertLogo'
 import { BrowserMockup } from '../primitives/BrowserMockup'
-
-const FOREST = '#1a3d32'
-const TEAL = '#2dd4bf'
+import { FOREST, TEAL } from '../theme'
 
 const HERO_STATS = [
   { value: '6', label: 'integrerte moduler' },

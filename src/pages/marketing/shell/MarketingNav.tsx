@@ -6,9 +6,7 @@ import { Link, useLocation } from 'react-router-dom'
 import { KlarertLogo } from '../../../components/brand/KlarertLogo'
 import { getNavLinks } from '../content/navigation'
 import { useT } from '../../../hooks/useT'
-
-const FOREST = '#1a3d32'
-const TEAL = '#2dd4bf'
+import { FOREST, TEAL } from '../theme'
 
 export function MarketingNav() {
   const { t } = useT()

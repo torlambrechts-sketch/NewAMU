@@ -10,8 +10,7 @@ import {
   getFooterLegal,
 } from '../content/navigation'
 import { useT } from '../../../hooks/useT'
-
-const TEAL = '#2dd4bf'
+import { TEAL } from '../theme'
 
 function FooterLink({ to, label, external }: { to: string; label: string; external?: boolean }) {
   if (external || to.startsWith('mailto:') || to.startsWith('http')) {

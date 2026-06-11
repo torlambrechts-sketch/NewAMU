@@ -3,11 +3,7 @@
 // No real data — purely a visual that signals what the module looks like.
 
 import type { FeatureModuleSlug } from '../content/features'
-
-const FOREST = '#1a3d32'
-const TEAL = '#2dd4bf'
-const CREAM = '#f5f0e8'
-const FOREST_DEEP = '#0a2218'
+import { CREAM, FOREST, FOREST_DEEP, TEAL } from '../theme'
 
 type Props = { slug: FeatureModuleSlug }
 

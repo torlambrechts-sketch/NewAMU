@@ -1,8 +1,7 @@
 // Eyebrow + h2 (serif) + lede triplet, repeated 15+ times across the marketing surface.
 // Variants for light cream sections and dark forest sections.
 
-const FOREST = '#1a3d32'
-const TEAL = '#2dd4bf'
+import { FOREST, TEAL } from '../theme'
 
 type Props = {
   eyebrow?: string

@@ -1,9 +1,7 @@
 // Final-screen CTA banner — used on landing and at the bottom of every feature page.
 
 import { Link } from 'react-router-dom'
-
-const FOREST = '#1a3d32'
-const TEAL = '#2dd4bf'
+import { FOREST, TEAL } from '../theme'
 
 type Props = {
   heading?: string

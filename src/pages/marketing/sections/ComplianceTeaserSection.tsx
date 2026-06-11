@@ -3,9 +3,7 @@
 import { Link } from 'react-router-dom'
 import { FRAMEWORKS } from '../content/compliance'
 import { SectionHeader } from '../primitives/SectionHeader'
-
-const FOREST = '#1a3d32'
-const TEAL = '#2dd4bf'
+import { FOREST, TEAL } from '../theme'
 
 export function ComplianceTeaserSection() {
   const totalParagraphs = FRAMEWORKS.reduce((sum, f) => sum + f.paragraphs.length, 0)

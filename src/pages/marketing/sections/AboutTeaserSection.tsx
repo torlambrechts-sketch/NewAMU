@@ -1,9 +1,7 @@
 // About teaser — short mission + founder line, full bio at /om-oss.
 
 import { Link } from 'react-router-dom'
-
-const FOREST = '#1a3d32'
-const TEAL = '#2dd4bf'
+import { FOREST, TEAL } from '../theme'
 
 export function AboutTeaserSection() {
   return (
