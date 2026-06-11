@@ -70,6 +70,7 @@ type DbKeyResult = {
   current_value: number | string
   confidence: number | string
   invert: boolean
+  progress_mode: 'manual' | 'task_rollup' | null
   owner_user_id: string | null
   owner_name: string | null
   created_at: string
@@ -144,6 +145,7 @@ function mapKeyResult(r: DbKeyResult): OkrKeyResult {
     currentValue: Number(r.current_value ?? 0),
     confidence: Number(r.confidence ?? 0),
     invert: r.invert,
+    progressMode: r.progress_mode ?? 'manual',
     ownerUserId: r.owner_user_id ?? undefined,
     ownerName: r.owner_name ?? undefined,
     createdAt: r.created_at,
@@ -469,6 +471,7 @@ export function usePlanningOkr(): UsePlanningOkrReturn {
       if (patch.currentValue !== undefined) dbPatch.current_value = patch.currentValue
       if (patch.confidence !== undefined) dbPatch.confidence = patch.confidence
       if (patch.invert !== undefined) dbPatch.invert = patch.invert
+      if (patch.progressMode !== undefined) dbPatch.progress_mode = patch.progressMode
       if (patch.ownerUserId !== undefined) dbPatch.owner_user_id = patch.ownerUserId
       if (patch.ownerName !== undefined) dbPatch.owner_name = patch.ownerName
       await optimisticPlanMutation(

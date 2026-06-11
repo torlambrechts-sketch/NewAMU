@@ -26,6 +26,13 @@ export type KeyResult = {
   target?: string
   /** Optional current value ("54"). */
   current?: string
+  /** How progress is maintained. 'task_rollup' = derived from linked tasks;
+   *  the progress/current fields are then read-only in the editor. */
+  progressMode?: 'manual' | 'task_rollup'
+  /** Narrative shown under the bar in rollup mode ("3 av 5 oppgaver fullført"). */
+  progressNote?: string
+  /** When true, the rollup option is unavailable (e.g. invert KRs). */
+  rollupDisabled?: boolean
 }
 
 export type Objective = {

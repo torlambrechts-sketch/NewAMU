@@ -134,6 +134,48 @@ export function PlanningStrategiSection({ plan, ctrl, tasks }: Props) {
     return Array.from(opts)
   }, [plan.horizon])
 
+  // Per-KR linked/closed task counts, derived live from the tasks already
+  // loaded for the page (no extra query). Drives rollup-mode progress + the
+  // narrative line. Cancelled tasks are excluded from both numerator and
+  // denominator (mirrors okr_kr_recompute_rollup in the DB).
+  const krTaskCounts = useMemo(() => {
+    const m = new Map<string, { linked: number; closed: number }>()
+    for (const t of tasks) {
+      if (!t.okrKeyResultId || t.status === 'cancelled') continue
+      const e = m.get(t.okrKeyResultId) ?? { linked: 0, closed: 0 }
+      e.linked += 1
+      if (t.status === 'closed') e.closed += 1
+      m.set(t.okrKeyResultId, e)
+    }
+    return m
+  }, [tasks])
+
+  // Mapping: planning KR → OKRDashboard.KeyResult, applying rollup progress +
+  // narrative when the KR is in task_rollup mode (non-invert only).
+  const krToDash = useCallback(
+    (k: PlanningOkrKR): DashKR => {
+      const base = planningKrToDash(k)
+      if (k.progressMode === 'task_rollup' && !k.invert) {
+        const c = krTaskCounts.get(k.id)
+        const linked = c?.linked ?? 0
+        const closed = c?.closed ?? 0
+        return {
+          ...base,
+          progress: linked > 0 ? Math.round((closed / linked) * 100) : 0,
+          current: linked > 0 ? `${closed}/${linked} oppgaver` : '0 oppgaver',
+          progressMode: 'task_rollup',
+          progressNote:
+            linked > 0
+              ? `${closed} av ${linked} koblede oppgaver fullført`
+              : 'Ingen koblede oppgaver ennå — koble oppgaver for å beregne fremdrift',
+          rollupDisabled: false,
+        }
+      }
+      return { ...base, progressMode: 'manual', rollupDisabled: k.invert }
+    },
+    [krTaskCounts],
+  )
+
   // Mapping: planning OKR plan → OKRDashboard.Objective[]
   const dashboardObjectives: DashObjective[] = useMemo(
     () =>
@@ -142,9 +184,9 @@ export function PlanningStrategiSection({ plan, ctrl, tasks }: Props) {
         title: o.objective,
         description: o.why || undefined,
         owner: { name: o.ownerName || '—' },
-        keyResults: o.keyResults.map(planningKrToDash),
+        keyResults: o.keyResults.map(krToDash),
       })),
-    [plan.objectives],
+    [plan.objectives, krToDash],
   )
 
   // Quick lookup so KR-update can resolve back to the planning row for
@@ -183,12 +225,22 @@ export function PlanningStrategiSection({ plan, ctrl, tasks }: Props) {
       const unit = hasNumericCurrent || hasNumericTarget
         ? existing?.unit ?? ''
         : existing?.unit ?? '%'
+      const progressMode = p.progressMode ?? 'manual'
+      // In rollup mode the value is owned by the DB trigger; seed it now from
+      // the live counts so the bar matches immediately on mode switch (the
+      // trigger then keeps it in sync as tasks close).
+      let finalCurrent = currentValue
+      if (progressMode === 'task_rollup' && existing) {
+        const c = krTaskCounts.get(existing.id)
+        finalCurrent = c && c.linked > 0 ? (target * c.closed) / c.linked : existing.currentValue
+      }
       return {
         kr: p.title,
         confidence: confidenceToNum(p.confidence),
-        currentValue,
+        currentValue: finalCurrent,
         target,
         unit,
+        progressMode,
       }
     }
 
@@ -215,24 +267,25 @@ export function PlanningStrategiSection({ plan, ctrl, tasks }: Props) {
         await ctrl.removeKeyResult(krId)
       },
     }
-  }, [ctrl, planningKrById])
+  }, [ctrl, planningKrById, krTaskCounts])
 
   /* ── Stats for the hero rail ────────────────────────────────────────── */
 
   const stats = useMemo(() => {
-    const totalKr = plan.objectives.reduce((s, o) => s + o.keyResults.length, 0)
-    const allKrs = plan.objectives.flatMap((o) => o.keyResults)
+    // Average over the mapped dashboard KRs so the hero figure matches the
+    // bars (rollup KRs included with their task-derived progress).
+    const allDashKrs = dashboardObjectives.flatMap((o) => o.keyResults)
     const avgProgress =
-      allKrs.length === 0
+      allDashKrs.length === 0
         ? 0
-        : Math.round(allKrs.reduce((s, k) => s + progressOf(k), 0) / allKrs.length)
+        : Math.round(allDashKrs.reduce((s, k) => s + k.progress, 0) / allDashKrs.length)
     return {
       totalObj: plan.objectives.length,
-      totalKr,
+      totalKr: allDashKrs.length,
       taskCount: tasks.length,
       avgProgress,
     }
-  }, [plan.objectives, tasks.length])
+  }, [plan.objectives.length, dashboardObjectives, tasks.length])
 
   const updatedShort = useMemo(() => {
     try {

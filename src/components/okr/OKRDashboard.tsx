@@ -694,6 +694,9 @@ function ObjectiveCard({
                   {Math.round(kr.progress)}%
                 </span>
               </div>
+              {kr.progressNote ? (
+                <p className="mt-1 text-[11px] text-neutral-500">{kr.progressNote}</p>
+              ) : null}
             </li>
           ))
         )}
@@ -922,6 +925,9 @@ function FragmentRow({
                     {Math.round(kr.progress)}%
                   </span>
                 </div>
+                {kr.progressNote ? (
+                  <p className="mt-1 text-[11px] text-neutral-500">{kr.progressNote}</p>
+                ) : null}
               </td>
               {handlers ? (
                 <td className={`${TD} pr-5`}>

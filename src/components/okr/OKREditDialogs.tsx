@@ -355,6 +355,7 @@ export type KeyResultFormPayload = {
   confidence: Confidence
   target?: string
   current?: string
+  progressMode: 'manual' | 'task_rollup'
 }
 
 export function KeyResultDialog({
@@ -404,7 +405,13 @@ function KeyResultDialogInner({
   const [target, setTarget] = useState(
     mode.kind === 'edit' ? (mode.kr.target ?? '') : '',
   )
+  const [progressMode, setProgressMode] = useState<'manual' | 'task_rollup'>(
+    mode.kind === 'edit' ? (mode.kr.progressMode ?? 'manual') : 'manual',
+  )
   const [touched, setTouched] = useState(false)
+
+  const rollupDisabled = mode.kind === 'edit' ? Boolean(mode.kr.rollupDisabled) : false
+  const isRollup = progressMode === 'task_rollup'
 
   const submit = (e?: FormEvent) => {
     e?.preventDefault()
@@ -416,6 +423,7 @@ function KeyResultDialogInner({
       confidence,
       current: current.trim() || undefined,
       target: target.trim() || undefined,
+      progressMode,
     })
   }
 
@@ -459,24 +467,60 @@ function KeyResultDialogInner({
           ) : null}
         </Field>
 
-        <Field label="Fremdrift">
-          <ProgressInput
-            value={progress}
-            confidence={confidence}
-            onChange={setProgress}
-          />
+        <Field
+          label="Fremdriftskilde"
+          hint={
+            rollupDisabled
+              ? 'Beregning fra oppgaver støtter ikke «lavere = bedre»-mål. Bruk manuell.'
+              : isRollup
+                ? 'Fremdriften beregnes fra andelen koblede oppgaver som er fullført.'
+                : 'Manuell — sett fremdrift selv.'
+          }
+        >
+          <div className="grid grid-cols-2 gap-1.5">
+            <Button
+              type="button"
+              variant={!isRollup ? 'primary' : 'secondary'}
+              size="sm"
+              aria-pressed={!isRollup}
+              onClick={() => setProgressMode('manual')}
+            >
+              Manuell
+            </Button>
+            <Button
+              type="button"
+              variant={isRollup ? 'primary' : 'secondary'}
+              size="sm"
+              aria-pressed={isRollup}
+              disabled={rollupDisabled}
+              onClick={() => setProgressMode('task_rollup')}
+            >
+              Fra oppgaver
+            </Button>
+          </div>
         </Field>
+
+        {!isRollup ? (
+          <Field label="Fremdrift">
+            <ProgressInput
+              value={progress}
+              confidence={confidence}
+              onChange={setProgress}
+            />
+          </Field>
+        ) : null}
 
         <Field label="Tillit">
           <ConfidencePicker value={confidence} onChange={setConfidence} />
         </Field>
 
         <div className="grid grid-cols-2 gap-3">
-          <Field label="Nå-verdi" hint="Valgfri">
+          <Field label="Nå-verdi" hint={isRollup ? 'Beregnes fra oppgaver' : 'Valgfri'}>
             <StandardInput
               value={current}
               onChange={(e) => setCurrent(e.target.value)}
               placeholder="47"
+              disabled={isRollup}
             />
           </Field>
           <Field label="Mål-verdi" hint="Valgfri">

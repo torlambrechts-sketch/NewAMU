@@ -60,6 +60,9 @@ export type OkrKeyResult = {
   currentValue: number
   confidence: number
   invert: boolean
+  /** manual = current_value edited by hand; task_rollup = derived from the
+   *  share of linked tasks that are closed (see okr_kr_recompute_rollup). */
+  progressMode: 'manual' | 'task_rollup'
   ownerUserId?: string
   ownerName?: string
   createdAt: string
