@@ -26,6 +26,7 @@ import { HubMenu1Bar, type HubMenu1Item } from '../components/layout/HubMenu1Bar
 import { PageContainer } from '../components/layout/PageContainer'
 import { WorkplacePageHeading1 } from '../components/layout/WorkplacePageHeading1'
 import { OrgSetupChecklistCard } from '../components/welcome/OrgSetupChecklistCard'
+import { AttentionStrip } from '../components/welcome/AttentionStrip'
 
 const CREAM_DEEP = '#EFE8DC'
 const FOREST = '#1a3d32'
@@ -43,6 +44,9 @@ export function WelcomeDashboardPage() {
     upcomingMeetings,
     nextMeeting,
     weekDays,
+    openHighRisks,
+    overdueMilestones,
+    annualEvents,
   } = useWorkspaceDashboardData()
 
   const { unreadList, unreadCount } = useNotifications()
@@ -107,7 +111,7 @@ export function WelcomeDashboardPage() {
     <>
       <PageContainer py="py-6">
         <WorkplacePageHeading1
-          breadcrumb={[{ label: 'Workspace', to: '/' }, { label: 'Hjem' }]}
+          breadcrumb={[{ label: 'Hjem' }]}
           title={`Velkommen tilbake, ${displayName}`}
           description={
             <>
@@ -141,6 +145,13 @@ export function WelcomeDashboardPage() {
         <div className="mt-8 grid grid-cols-1 gap-8 lg:grid-cols-[minmax(0,7fr)_minmax(260px,3fr)] lg:items-start">
           {/* Main 70% */}
           <div className="min-w-0 space-y-6">
+            <AttentionStrip
+              openCount={openTasks.length}
+              overdueCount={overdueTasks.length}
+              nextMeeting={nextMeeting ? { startsAt: nextMeeting.startsAt, title: nextMeeting.title } : null}
+              riskCount={openHighRisks.length + overdueMilestones.length}
+              nextDeadline={annualEvents[0]?.date ?? null}
+            />
             <OrgSetupChecklistCard
               supabase={supabase}
               organizationId={organization?.id ?? null}
@@ -268,6 +279,10 @@ export function WelcomeDashboardPage() {
                   <div
                     className="grid size-44 shrink-0 place-items-center rounded-full"
                     style={{ background: `conic-gradient(${donutGradient})` }}
+                    role="img"
+                    aria-label={`Fordeling av ${openTasks.length} åpne oppgaver: ${donutStops
+                      .map((s) => `${s.label} ${Math.round(s.pct)} prosent`)
+                      .join(', ')}`}
                   >
                     <div className="flex size-24 flex-col items-center justify-center rounded-full bg-white text-center shadow-inner">
                       <p className="text-[10px] font-semibold uppercase text-neutral-500">Totalt</p>
