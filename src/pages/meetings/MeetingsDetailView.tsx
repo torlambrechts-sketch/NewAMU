@@ -64,6 +64,8 @@ import { SlidePanel } from '../../components/layout/SlidePanel'
 import { WPSTD_FORM_FIELD_LABEL } from '../../components/layout/WorkplaceStandardFormPanel'
 import { useOrgSetupContext } from '../../hooks/useOrgSetupContext'
 import { useMeetings, useMeetingDataBindings } from '../../../modules/meetings'
+import type { OkrBindingKr } from '../../../modules/meetings/useMeetingDataBindings'
+import { MeetingOkrReviewPanel } from './MeetingOkrReviewPanel'
 import {
   MEETING_ACTION_STATUS_LABEL,
   MEETING_ATTENDEE_ROLE_LABEL,
@@ -1907,7 +1909,13 @@ function StatistikkTabPanel({
       ) : (
         <div className="mt-4 grid grid-cols-1 gap-3 lg:grid-cols-2">
           {cards.map(({ key, item, snap }) => (
-            <StatistikkCard key={key} item={item} snap={snap} />
+            <StatistikkCard
+              key={key}
+              item={item}
+              snap={snap}
+              meetingId={meeting.id}
+              onRefresh={onRefresh}
+            />
           ))}
         </div>
       )}
@@ -1950,9 +1958,13 @@ function StatistikkTabPanel({
 function StatistikkCard({
   item,
   snap,
+  meetingId,
+  onRefresh,
 }: {
   item: MeetingAgendaItemRow
   snap: RenderedBindingResult
+  meetingId: string
+  onRefresh: () => Promise<void>
 }) {
   // Extract a top-level metric if the binding includes numeric data rows.
   const headlineNumber = useMemo(() => extractHeadline(snap), [snap])
@@ -2028,13 +2040,25 @@ function StatistikkCard({
         </span>
       </div>
 
-      {/* Sparkline if we can extract one */}
-      {snap.dataRows && snap.dataRows.length > 1 ? (
-        <Sparkline data={snap.dataRows} />
-      ) : null}
+      {snap.source === 'okr_status' ? (
+        // Interactive OKR review (H2.2) — KR rows with in-meeting check-in.
+        // The generic sparkline/breakdown renderers don't fit these rows.
+        <MeetingOkrReviewPanel
+          meetingId={meetingId}
+          rows={(snap.dataRows ?? []) as unknown as OkrBindingKr[]}
+          onChanged={onRefresh}
+        />
+      ) : (
+        <>
+          {/* Sparkline if we can extract one */}
+          {snap.dataRows && snap.dataRows.length > 1 ? (
+            <Sparkline data={snap.dataRows} />
+          ) : null}
 
-      {/* Breakdown — subsequent dataRows with label+value structure */}
-      <BreakdownList rows={snap.dataRows ?? []} />
+          {/* Breakdown — subsequent dataRows with label+value structure */}
+          <BreakdownList rows={snap.dataRows ?? []} />
+        </>
+      )}
 
       {/* Narrative */}
       <p className="mt-3 whitespace-pre-wrap text-[12px] leading-relaxed text-neutral-700">

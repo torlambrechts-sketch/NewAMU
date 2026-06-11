@@ -268,6 +268,21 @@ type ResolveCtx = {
  * Cached in {@link useCrossModuleCounts} and refreshed whenever the
  * meeting's reporting period changes.
  */
+/** Per-KR snapshot for the `okr_status` binding — carries everything the
+ *  meeting-side check-in panel needs (id, mode, value, unit) so it can open
+ *  the shared OKRCheckinDialog without re-querying the planning module. */
+export type OkrBindingKr = {
+  krId: string
+  objectiveLabel: string
+  objectiveTitle: string
+  krTitle: string
+  unit: string
+  target: number
+  currentValue: number
+  confidence: number
+  isRollup: boolean
+}
+
 export type CrossModuleCounts = {
   loading: boolean
   openDecisions: Array<{
@@ -290,6 +305,7 @@ export type CrossModuleCounts = {
     closed: number
     total: number
   }
+  okrKrs: OkrBindingKr[]
 }
 
 const EMPTY_CROSS_MODULE: CrossModuleCounts = {
@@ -304,6 +320,7 @@ const EMPTY_CROSS_MODULE: CrossModuleCounts = {
     closed: 0,
     total: 0,
   },
+  okrKrs: [],
 }
 
 /**
@@ -334,7 +351,7 @@ function useCrossModuleCounts(
       // Loading flag is set asynchronously to avoid a synchronous setState
       // inside the effect body (react-hooks/set-state-in-effect).
       setState((prev) => ({ ...prev, loading: true }))
-      const [decisionsRes, checklistOpenRes, checklistCritRes, checklistYtdRes, wbRes] =
+      const [decisionsRes, checklistOpenRes, checklistCritRes, checklistYtdRes, wbRes, okrObjRes, okrKrRes] =
         await Promise.all([
           supabase
             .from('meeting_decisions')
@@ -365,6 +382,16 @@ function useCrossModuleCounts(
             .eq('organization_id', orgId)
             .gte('received_at', startIso)
             .lte('received_at', endIso),
+          supabase
+            .from('okr_objectives')
+            .select('id, ord_label, objective')
+            .eq('organization_id', orgId)
+            .order('position', { ascending: true }),
+          supabase
+            .from('okr_key_results')
+            .select('id, objective_id, kr, unit, target, current_value, confidence, progress_mode, invert')
+            .eq('organization_id', orgId)
+            .order('position', { ascending: true }),
         ])
 
       if (cancelled) return
@@ -382,6 +409,30 @@ function useCrossModuleCounts(
         }
       }
 
+      const objById = new Map<string, { ordLabel: string; objective: string }>()
+      for (const row of (okrObjRes.data ?? []) as Array<Record<string, unknown>>) {
+        objById.set(String(row.id), {
+          ordLabel: String(row.ord_label ?? ''),
+          objective: String(row.objective ?? ''),
+        })
+      }
+      const okrKrs: OkrBindingKr[] = ((okrKrRes.data ?? []) as Array<Record<string, unknown>>).map(
+        (row) => {
+          const obj = objById.get(String(row.objective_id))
+          return {
+            krId: String(row.id),
+            objectiveLabel: obj?.ordLabel ?? '',
+            objectiveTitle: obj?.objective ?? '',
+            krTitle: String(row.kr ?? ''),
+            unit: String(row.unit ?? ''),
+            target: Number(row.target ?? 0),
+            currentValue: Number(row.current_value ?? 0),
+            confidence: Number(row.confidence ?? 0),
+            isRollup: row.progress_mode === 'task_rollup' && !row.invert,
+          }
+        },
+      )
+
       setState({
         loading: false,
         openDecisions: ((decisionsRes.data ?? []) as Array<{
@@ -397,6 +448,7 @@ function useCrossModuleCounts(
           ytdCompleted: checklistYtdRes.count ?? 0,
         },
         whistleblowing: { ...wbByStatus, total: wbRes.count ?? 0 },
+        okrKrs,
       })
     })()
 
@@ -443,6 +495,8 @@ function resolveBinding(
       return resolveComplianceChecklistStatus(binding, resolvedAt, ctx)
     case 'whistleblowing_anonymized':
       return resolveWhistleblowingAnonymized(binding, resolvedAt, ctx)
+    case 'okr_status':
+      return resolveOkrStatus(binding, resolvedAt, ctx)
     case 'bht_annual_report':
     case 'ik_annual_review_status':
       return {
@@ -847,6 +901,49 @@ function resolveWhistleblowingAnonymized(
       { status: 'Intern gjennomgang', count: w.internal_review },
       { status: 'Lukket', count: w.closed },
     ],
+  }
+}
+
+function resolveOkrStatus(
+  binding: MeetingDataBinding,
+  resolvedAt: string,
+  { crossModule }: ResolveCtx,
+): RenderedBindingResult {
+  const krs = crossModule.okrKrs
+  if (krs.length === 0) {
+    return {
+      source: 'okr_status',
+      window: binding.window,
+      resolvedAt,
+      summaryMarkdown:
+        'Ingen OKR-plan med nøkkelresultater funnet. Sett opp strategien under Planlegging → Strategi & OKR.',
+    }
+  }
+  // Same tiers as planning (0..1 scale): ≥0.7 på spor, ≥0.4 risiko.
+  const onTrack = krs.filter((k) => k.confidence >= 0.7).length
+  const atRisk = krs.filter((k) => k.confidence >= 0.4 && k.confidence < 0.7).length
+  const offTrack = krs.length - onTrack - atRisk
+  const objectives = new Set(krs.map((k) => k.objectiveLabel)).size
+  const worst = [...krs].sort((a, b) => a.confidence - b.confidence).slice(0, 3)
+
+  const summary = [
+    `**${objectives}** mål med **${krs.length}** nøkkelresultater — ${onTrack} på spor, ${atRisk} i risiko, ${offTrack} ute av kurs.`,
+    offTrack + atRisk > 0
+      ? `Trenger oppmerksomhet: ${worst
+          .filter((k) => k.confidence < 0.7)
+          .map((k) => `«${k.krTitle.slice(0, 50)}» (${k.objectiveLabel})`)
+          .join('; ')}.`
+      : 'Alle nøkkelresultater er på spor.',
+    'Sjekk inn per nøkkelresultat under — innsjekken protokollføres med møtereferanse.',
+  ].join('\n')
+
+  return {
+    source: 'okr_status',
+    window: binding.window,
+    resolvedAt,
+    summaryMarkdown: summary,
+    // Full per-KR rows: the meeting check-in panel reads these directly.
+    dataRows: krs.map((k) => ({ ...k })),
   }
 }
 

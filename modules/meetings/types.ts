@@ -111,6 +111,7 @@ export const MEETING_DATA_BINDING_SOURCES = [
   'bht_annual_report',
   'ik_annual_review_status',
   'headcount_and_amu_composition',
+  'okr_status',
 ] as const
 export type MeetingDataBindingSource = (typeof MEETING_DATA_BINDING_SOURCES)[number]
 

@@ -4,7 +4,8 @@
 // the ctrl callbacks.
 
 import { useEffect, useMemo, useState } from 'react'
-import { Plus, Target, Trash2 } from 'lucide-react'
+import { CalendarClock, Plus, Target, Trash2 } from 'lucide-react'
+import { Link } from 'react-router-dom'
 import { Button } from '../../components/ui/Button'
 import { StandardInput } from '../../components/ui/Input'
 import { StandardTextarea } from '../../components/ui/Textarea'
@@ -18,7 +19,8 @@ import { Initials } from '../../components/ui/elearningPrimitives'
 import type { OkrHealth, OkrKeyResult, OkrObjectiveWithKrs, OkrPlanFull } from '../../types/planning'
 import type { PlanningTaskRow } from '../../hooks/usePlanningTasks'
 import type { UsePlanningOkrReturn } from '../../hooks/usePlanningOkr'
-import { HEALTH_META, OWNER_OPTIONS, fmtNum, statusMetaFor } from './planningConstants'
+import { useOkrCheckins, type OkrCheckin } from '../../hooks/useOkrCheckins'
+import { HEALTH_META, OWNER_OPTIONS, fmtNum, fmtDateShort, statusMetaFor } from './planningConstants'
 
 type Props = {
   open: boolean
@@ -71,6 +73,20 @@ export function PlanningObjectiveEditPanel({
       (t) => t.okrKeyResultId && obj.keyResults.some((k) => k.id === t.okrKeyResultId),
     )
   }, [tasks, obj])
+
+  // Recent check-ins for this objective's KRs (newest first), with KR title
+  // resolved for display and «fra møte»-chip when recorded from a meeting.
+  const checkins = useOkrCheckins()
+  const recentCheckins = useMemo(() => {
+    if (!obj) return []
+    const out: Array<OkrCheckin & { krTitle: string }> = []
+    for (const k of obj.keyResults) {
+      for (const c of checkins.byKr.get(k.id) ?? []) {
+        out.push({ ...c, krTitle: k.kr })
+      }
+    }
+    return out.sort((a, b) => b.createdAt.localeCompare(a.createdAt)).slice(0, 6)
+  }, [obj, checkins.byKr])
 
   if (!obj || !draft) {
     return (
@@ -296,6 +312,61 @@ export function PlanningObjectiveEditPanel({
                     <div className="mt-1 flex items-center gap-2 text-[10px] text-neutral-500">
                       <Initials name={t.ownerName ?? '—'} size={14} />
                       <span>{t.ownerName ?? '—'}</span>
+                    </div>
+                  </div>
+                )
+              })
+            )}
+          </div>
+        </div>
+
+        {/* Check-in history — append-only log (H2.1); meeting chip = H2.2 */}
+        <div className={WPSTD_FORM_ROW_GRID}>
+          <p className={WPSTD_FORM_LEAD}>
+            Siste innsjekk
+            <br />
+            <span className="text-xs text-neutral-500">
+              Historikken er append-only og protokollføres med møtereferanse når
+              innsjekken gjøres fra et møte.
+            </span>
+          </p>
+          <div className="space-y-1">
+            {recentCheckins.length === 0 ? (
+              <p className="text-[12.5px] italic text-neutral-500">
+                Ingen innsjekk på {obj.ordLabel} ennå. Bruk «Sjekk inn» på KR-raden.
+              </p>
+            ) : (
+              recentCheckins.map((c) => {
+                const tier =
+                  c.confidence >= 0.7 ? HEALTH_META.on_track
+                  : c.confidence >= 0.4 ? HEALTH_META.at_risk
+                  : HEALTH_META.off_track
+                return (
+                  <div
+                    key={c.id}
+                    className="rounded border border-neutral-200 bg-white p-2 text-[12px]"
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="min-w-0 truncate font-medium text-neutral-900" title={c.krTitle}>
+                        {c.krTitle}
+                      </span>
+                      <span className={`shrink-0 rounded px-1 py-0.5 text-[9px] font-bold ${tier.bg} ${tier.text}`}>
+                        {tier.label}
+                      </span>
+                    </div>
+                    <div className="mt-1 flex flex-wrap items-center gap-2 text-[10px] text-neutral-500">
+                      <span>{fmtDateShort(c.createdAt)}</span>
+                      {c.value != null ? <span>verdi {fmtNum(c.value)}</span> : null}
+                      {c.meetingId ? (
+                        <Link
+                          to={`/meetings/${c.meetingId}`}
+                          className="inline-flex items-center gap-1 rounded bg-[#e7efe9] px-1.5 py-0.5 font-semibold text-[#14312a] hover:underline"
+                        >
+                          <CalendarClock className="h-2.5 w-2.5" aria-hidden />
+                          fra møte
+                        </Link>
+                      ) : null}
+                      {c.note ? <span className="basis-full text-neutral-600">{c.note}</span> : null}
                     </div>
                   </div>
                 )

@@ -145,6 +145,10 @@ export const SIGNAL_LABEL: Record<
     title: 'IK-årsgjennomgang',
     topic: 'IK-årsgjennomgang',
   },
+  okr_status: {
+    title: 'Strategi & OKR — status',
+    topic: 'OKR-gjennomgang — nøkkelresultater og tillit',
+  },
 }
 
 /**
