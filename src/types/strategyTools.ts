@@ -178,3 +178,46 @@ export type StrategyFoundation = {
   values: FoundationValue[]
   intentLead: string
 }
+
+/* ───────────────────────── Strategy v2 — Execution (initiatives) ───────────────────────── */
+
+export type InitiativeStage = 'backlog' | 'planned' | 'active' | 'review' | 'done'
+export type InitiativeHealth = 'on' | 'risk' | 'off' | 'done'
+
+export type StrategyInitiative = {
+  id: string
+  organizationId: string
+  key: string
+  title: string
+  summary: string
+  pillar: string // pillar code ('' if none)
+  objectiveId: string | null
+  owner: string // owner user id ('' if none)
+  ownerName: string
+  stage: InitiativeStage
+  health: InitiativeHealth
+  progress: number // 0..100
+  s: number // start month 0..11
+  e: number // end month 0..11
+  budget: number
+  spent: number
+  team: string[] // member display labels (name or id)
+  depends: string[] // initiative ids this one depends on
+}
+
+export type RiskStatus = 'open' | 'watch' | 'closed'
+export type StrategyRisk = {
+  id: string
+  initiativeId: string | null
+  title: string
+  owner: string
+  ownerName: string
+  likelihood: number // 1..3
+  impact: number // 1..3
+  status: RiskStatus
+  mitigation: string
+}
+
+export type RaciRole = 'R' | 'A' | 'C' | 'I'
+/** raci[initiativeId][personLabel] = role */
+export type InitiativeRaciMap = Record<string, Record<string, RaciRole>>

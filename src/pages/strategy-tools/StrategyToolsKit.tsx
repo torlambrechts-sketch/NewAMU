@@ -18,7 +18,8 @@ import {
 } from 'react'
 import { createPortal } from 'react-dom'
 import './strategyTools.css'
-import type { ToolPerson } from '../../types/strategyTools'
+import type { InitiativeHealth, InitiativeStage, ToolPerson } from '../../types/strategyTools'
+import { HEALTH_DOT, HEALTH_META, STAGE_META } from './strategyDerive'
 
 /* ───────────────────────── data context (mirrors window.SD) ───────────────────────── */
 
@@ -296,5 +297,57 @@ export function Toast({ message }: { message: string | null }) {
     <Portal>
       <div className={'toast' + (message ? ' show' : '')}><Icon name="ok" cls="sm" />{message}</div>
     </Portal>
+  )
+}
+
+/* ───────────────────────── Status chips + pillar bits + avatar stack ─────────────────────────
+   Used across the Execution / Insight views (ported from the design's
+   HealthBadge / StageBadge / PillarChip / AvatarStack). */
+
+export function HealthBadge({ h }: { h: InitiativeHealth }) {
+  const m = HEALTH_META[h]
+  return (
+    <span className={'badge badge--' + m.cls}>
+      <span className="hdot" style={{ background: HEALTH_DOT[h] }} />
+      {m.label}
+    </span>
+  )
+}
+
+export function HealthDot({ h }: { h: InitiativeHealth }) {
+  return <span className={'sdot ' + h} />
+}
+
+export function StageBadge({ stage }: { stage: InitiativeStage }) {
+  const m = STAGE_META[stage]
+  return (
+    <span className="badge badge--neutral" style={{ color: m.fg }}>
+      <span className="hdot" style={{ background: m.fg }} />
+      {m.label}
+    </span>
+  )
+}
+
+export function PillarDot({ color }: { color: string }) {
+  return <span className="pdot" style={{ background: color }} />
+}
+
+export function PillarChip({ pillar }: { pillar: { name: string; color: string; softColor?: string } }) {
+  return (
+    <span className="pchip" style={{ background: pillar.softColor || 'var(--n-100)', color: pillar.color }}>
+      <span className="pdot" style={{ background: pillar.color }} />
+      {pillar.name}
+    </span>
+  )
+}
+
+export function AvatarStack({ ids = [], size = 'xs', max = 4 }: { ids?: string[]; size?: string; max?: number }) {
+  const show = ids.slice(0, max)
+  const extra = ids.length - show.length
+  return (
+    <div className="astack">
+      {show.map((id) => <Avatar key={id} id={id} size={size} />)}
+      {extra > 0 && <div className={'avatar ' + size} style={{ background: 'var(--n-200)', color: 'var(--n-600)' }}>+{extra}</div>}
+    </div>
   )
 }
