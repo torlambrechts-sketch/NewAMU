@@ -1287,6 +1287,63 @@ export function buildNavSections(ctx: NavBuilderContext): NavSection[] {
       match: ({ pathname }) => pathname === '/planlegging/assessments',
       requirePermAny: ADMINISTRASJON_NAV_PERMS,
     },
+    // Strategy v2 — Execution group. One workspace at /planlegging/initiativer
+    // with ?view= switching (initiatives · projects · timeline · roadmap ·
+    // kanban · tasks), each surfaced as its own flat sub.
+    {
+      label: 'Initiatives',
+      path: '/planlegging/initiativer?view=overview',
+      Icon: FolderKanban,
+      match: ({ pathname, search }) =>
+        pathname === '/planlegging/initiativer' &&
+        (new URLSearchParams(search).get('view') ?? 'overview') === 'overview',
+      requirePermAny: ADMINISTRASJON_NAV_PERMS,
+    },
+    {
+      label: 'Projects',
+      path: '/planlegging/initiativer?view=projects',
+      Icon: Briefcase,
+      match: ({ pathname, search }) =>
+        pathname === '/planlegging/initiativer' &&
+        new URLSearchParams(search).get('view') === 'projects',
+      requirePermAny: ADMINISTRASJON_NAV_PERMS,
+    },
+    {
+      label: 'Timeline',
+      path: '/planlegging/initiativer?view=gantt',
+      Icon: CalendarClock,
+      match: ({ pathname, search }) =>
+        pathname === '/planlegging/initiativer' &&
+        new URLSearchParams(search).get('view') === 'gantt',
+      requirePermAny: ADMINISTRASJON_NAV_PERMS,
+    },
+    {
+      label: 'Roadmap',
+      path: '/planlegging/initiativer?view=roadmap',
+      Icon: CalendarDays,
+      match: ({ pathname, search }) =>
+        pathname === '/planlegging/initiativer' &&
+        new URLSearchParams(search).get('view') === 'roadmap',
+      requirePermAny: ADMINISTRASJON_NAV_PERMS,
+    },
+    {
+      label: 'Kanban',
+      path: '/planlegging/initiativer?view=kanban',
+      Icon: Kanban,
+      match: ({ pathname, search }) =>
+        pathname === '/planlegging/initiativer' &&
+        new URLSearchParams(search).get('view') === 'kanban',
+      requirePermAny: ADMINISTRASJON_NAV_PERMS,
+    },
+    {
+      label: 'Tasks',
+      path: '/planlegging/initiativer?view=tasks',
+      Icon: ListChecks,
+      match: ({ pathname, search }) =>
+        pathname === '/planlegging/initiativer' &&
+        new URLSearchParams(search).get('view') === 'tasks',
+      requirePermAny: ADMINISTRASJON_NAV_PERMS,
+    },
   ]
   const planningGroup: NavGroup = {
     id: 'planning',

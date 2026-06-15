@@ -123,6 +123,7 @@ import { FrameworksPage } from './pages/strategy-tools/FrameworksPage'
 import { WhiteboardPage } from './pages/strategy-tools/WhiteboardPage'
 import { AssessmentsPage } from './pages/strategy-tools/AssessmentsPage'
 import { FoundationPage } from './pages/strategy-tools/FoundationPage'
+import { ExecutionPage } from './pages/strategy-tools/ExecutionPage'
 import { DashboardPage } from './pages/dashboard/DashboardPage'
 import { InternkontrollAuditorPage } from './pages/auditor/InternkontrollAuditorPage'
 import { ControlsAuditorPage } from './pages/auditor/ControlsAuditorPage'
@@ -510,6 +511,14 @@ const router = createBrowserRouter(
                         element={
                           <RouteErrorBoundary title="Kunne ikke vise Foundation">
                             <FoundationPage />
+                          </RouteErrorBoundary>
+                        }
+                      />
+                      <Route
+                        path="planlegging/initiativer"
+                        element={
+                          <RouteErrorBoundary title="Kunne ikke vise Initiatives">
+                            <ExecutionPage />
                           </RouteErrorBoundary>
                         }
                       />
