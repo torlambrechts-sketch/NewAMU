@@ -1373,6 +1373,21 @@ export function buildNavSections(ctx: NavBuilderContext): NavSection[] {
         new URLSearchParams(search).get('view') === 'raci',
       requirePermAny: ADMINISTRASJON_NAV_PERMS,
     },
+    // Strategy v2 — Admin: board-pack reports + workspace settings.
+    {
+      label: 'Reports',
+      path: '/planlegging/rapporter',
+      Icon: FileText,
+      match: ({ pathname }) => pathname === '/planlegging/rapporter',
+      requirePermAny: ADMINISTRASJON_NAV_PERMS,
+    },
+    {
+      label: 'Strategy settings',
+      path: '/planlegging/strategi-innstillinger',
+      Icon: Settings,
+      match: ({ pathname }) => pathname === '/planlegging/strategi-innstillinger',
+      requirePermAny: ADMINISTRASJON_NAV_PERMS,
+    },
   ]
   const planningGroup: NavGroup = {
     id: 'planning',
