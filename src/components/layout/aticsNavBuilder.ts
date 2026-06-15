@@ -1391,6 +1391,34 @@ export function buildNavSections(ctx: NavBuilderContext): NavSection[] {
         new URLSearchParams(search).get('view') === 'raci',
       requirePermAny: ADMINISTRASJON_NAV_PERMS,
     },
+    // Strategy v2 — Cadence: check-ins, reviews, decision log.
+    {
+      label: 'Check-ins',
+      path: '/planlegging/kadens-strategi?view=checkins',
+      Icon: Inbox,
+      match: ({ pathname, search }) =>
+        pathname === '/planlegging/kadens-strategi' &&
+        (new URLSearchParams(search).get('view') ?? 'checkins') === 'checkins',
+      requirePermAny: ADMINISTRASJON_NAV_PERMS,
+    },
+    {
+      label: 'Reviews',
+      path: '/planlegging/kadens-strategi?view=reviews',
+      Icon: ScrollText,
+      match: ({ pathname, search }) =>
+        pathname === '/planlegging/kadens-strategi' &&
+        new URLSearchParams(search).get('view') === 'reviews',
+      requirePermAny: ADMINISTRASJON_NAV_PERMS,
+    },
+    {
+      label: 'Decision log',
+      path: '/planlegging/kadens-strategi?view=history',
+      Icon: History,
+      match: ({ pathname, search }) =>
+        pathname === '/planlegging/kadens-strategi' &&
+        new URLSearchParams(search).get('view') === 'history',
+      requirePermAny: ADMINISTRASJON_NAV_PERMS,
+    },
     // Strategy v2 — Admin: board-pack reports + workspace settings.
     {
       label: 'Reports',
