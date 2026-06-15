@@ -43,6 +43,7 @@ import {
 } from './strategyDerive'
 import { useStrategyInitiatives } from '../../hooks/useStrategyInitiatives'
 import { useStrategyFoundation } from '../../hooks/useStrategyFoundation'
+import { HealthView, DependencyView, RaciView } from './InsightViews'
 import type {
   InitiativeHealth,
   InitiativeStage,
@@ -56,7 +57,7 @@ import type {
 type CSSVars = React.CSSProperties & Record<string, string | number>
 
 type Filters = { pillar: string; owner: string; q: string }
-type ExecView = 'overview' | 'projects' | 'gantt' | 'roadmap' | 'kanban' | 'tasks'
+type ExecView = 'overview' | 'projects' | 'gantt' | 'roadmap' | 'kanban' | 'tasks' | 'health' | 'deps' | 'raci'
 type SideState = { type: 'new' | 'edit'; id?: string }
 
 /* ───────────────────────── context (replaces AppV2 ctx) ───────────────────────── */
@@ -92,7 +93,7 @@ type ExecContextValue = {
 }
 
 const ExecCtx = createContext<ExecContextValue | null>(null)
-function useExec(): ExecContextValue {
+export function useExec(): ExecContextValue {
   const v = useContext(ExecCtx)
   if (!v) throw new Error('useExec must be used within ExecutionWorkspace')
   return v
@@ -1105,6 +1106,9 @@ export function ExecutionWorkspace() {
       {view === 'roadmap' && <RoadmapView />}
       {view === 'kanban' && <KanbanView />}
       {view === 'tasks' && <TasksView />}
+      {view === 'health' && <HealthView />}
+      {view === 'deps' && <DependencyView />}
+      {view === 'raci' && <RaciView />}
 
       {detailId && <DetailView key={detailId} />}
 

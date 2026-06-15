@@ -1344,6 +1344,35 @@ export function buildNavSections(ctx: NavBuilderContext): NavSection[] {
         new URLSearchParams(search).get('view') === 'tasks',
       requirePermAny: ADMINISTRASJON_NAV_PERMS,
     },
+    // Strategy v2 — Insight group (same workspace; read views over the
+    // initiatives portfolio): health & risk, dependency graph, RACI matrix.
+    {
+      label: 'Health & risk',
+      path: '/planlegging/initiativer?view=health',
+      Icon: ShieldAlert,
+      match: ({ pathname, search }) =>
+        pathname === '/planlegging/initiativer' &&
+        new URLSearchParams(search).get('view') === 'health',
+      requirePermAny: ADMINISTRASJON_NAV_PERMS,
+    },
+    {
+      label: 'Dependencies',
+      path: '/planlegging/initiativer?view=deps',
+      Icon: FolderTree,
+      match: ({ pathname, search }) =>
+        pathname === '/planlegging/initiativer' &&
+        new URLSearchParams(search).get('view') === 'deps',
+      requirePermAny: ADMINISTRASJON_NAV_PERMS,
+    },
+    {
+      label: 'RACI matrix',
+      path: '/planlegging/initiativer?view=raci',
+      Icon: Scale,
+      match: ({ pathname, search }) =>
+        pathname === '/planlegging/initiativer' &&
+        new URLSearchParams(search).get('view') === 'raci',
+      requirePermAny: ADMINISTRASJON_NAV_PERMS,
+    },
   ]
   const planningGroup: NavGroup = {
     id: 'planning',
