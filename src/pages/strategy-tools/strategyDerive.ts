@@ -37,6 +37,12 @@ export const HEALTH_DOT: Record<InitiativeHealth, string> = {
   on: 'var(--ok)', risk: 'var(--warn)', off: 'var(--critical)', done: 'var(--n-400)',
 }
 
+/** Current epoch ms via a module-scope function — keeps the impure Date.now()
+ *  out of React render scope (callers compute "days since X" in render). */
+export function nowMs(): number {
+  return Date.now()
+}
+
 export function ageLabel(days: number): string {
   if (days <= 0) return 'today'
   if (days === 1) return 'yesterday'

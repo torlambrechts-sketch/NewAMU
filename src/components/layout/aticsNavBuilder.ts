@@ -1228,6 +1228,14 @@ export function buildNavSections(ctx: NavBuilderContext): NavSection[] {
   // til kadensen og det daglige oppgavearbeidet. /planlegging har sin
   // egen tab-stripe (strategi/kadens/oversikt).
   const planningFixedSubs: SubItem[] = [
+    // Strategy v2 — Home.
+    {
+      label: 'My work',
+      path: '/planlegging/mitt-arbeid',
+      Icon: Star,
+      match: ({ pathname }) => pathname === '/planlegging/mitt-arbeid',
+      requirePermAny: ADMINISTRASJON_NAV_PERMS,
+    },
     {
       label: 'Strategi & OKR',
       path: '/planlegging?section=strategi',
@@ -1279,6 +1287,20 @@ export function buildNavSections(ctx: NavBuilderContext): NavSection[] {
       match: ({ pathname, search }) =>
         pathname === '/planlegging/maal' &&
         new URLSearchParams(search).get('view') === 'map',
+      requirePermAny: ADMINISTRASJON_NAV_PERMS,
+    },
+    {
+      label: 'Dashboard',
+      path: '/planlegging/strategi-dashbord',
+      Icon: BarChart3,
+      match: ({ pathname }) => pathname === '/planlegging/strategi-dashbord',
+      requirePermAny: ADMINISTRASJON_NAV_PERMS,
+    },
+    {
+      label: 'Alignment',
+      path: '/planlegging/justering',
+      Icon: FolderTree,
+      match: ({ pathname }) => pathname === '/planlegging/justering',
       requirePermAny: ADMINISTRASJON_NAV_PERMS,
     },
     // Strategy Tools (design "Tools" group) — ported from Strategy v2.
@@ -1391,6 +1413,13 @@ export function buildNavSections(ctx: NavBuilderContext): NavSection[] {
         new URLSearchParams(search).get('view') === 'raci',
       requirePermAny: ADMINISTRASJON_NAV_PERMS,
     },
+    {
+      label: 'Data sources',
+      path: '/planlegging/datakilder',
+      Icon: Database,
+      match: ({ pathname }) => pathname === '/planlegging/datakilder',
+      requirePermAny: ADMINISTRASJON_NAV_PERMS,
+    },
     // Strategy v2 — Cadence: check-ins, reviews, decision log.
     {
       label: 'Check-ins',
@@ -1425,6 +1454,13 @@ export function buildNavSections(ctx: NavBuilderContext): NavSection[] {
       path: '/planlegging/rapporter',
       Icon: FileText,
       match: ({ pathname }) => pathname === '/planlegging/rapporter',
+      requirePermAny: ADMINISTRASJON_NAV_PERMS,
+    },
+    {
+      label: 'Accountability',
+      path: '/planlegging/ansvarlighet',
+      Icon: ShieldCheck,
+      match: ({ pathname }) => pathname === '/planlegging/ansvarlighet',
       requirePermAny: ADMINISTRASJON_NAV_PERMS,
     },
     {

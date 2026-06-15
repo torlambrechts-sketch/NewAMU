@@ -128,6 +128,11 @@ import { ReportsPage } from './pages/strategy-tools/ReportsPage'
 import { SettingsPage as StrategySettingsPage } from './pages/strategy-tools/SettingsPage'
 import { ObjectivesPage } from './pages/strategy-tools/ObjectivesPage'
 import { StrategyCadencePage } from './pages/strategy-tools/StrategyCadencePage'
+import { DataSourcesPage } from './pages/strategy-tools/DataSourcesPage'
+import { MyWorkPage } from './pages/strategy-tools/MyWorkPage'
+import { AccountabilityPage } from './pages/strategy-tools/AccountabilityPage'
+import { StrategyDashboardPage } from './pages/strategy-tools/StrategyDashboardPage'
+import { AlignmentPage } from './pages/strategy-tools/AlignmentPage'
 import { DashboardPage } from './pages/dashboard/DashboardPage'
 import { InternkontrollAuditorPage } from './pages/auditor/InternkontrollAuditorPage'
 import { ControlsAuditorPage } from './pages/auditor/ControlsAuditorPage'
@@ -547,6 +552,46 @@ const router = createBrowserRouter(
                         element={
                           <RouteErrorBoundary title="Kunne ikke vise Cadence">
                             <StrategyCadencePage />
+                          </RouteErrorBoundary>
+                        }
+                      />
+                      <Route
+                        path="planlegging/mitt-arbeid"
+                        element={
+                          <RouteErrorBoundary title="Kunne ikke vise My work">
+                            <MyWorkPage />
+                          </RouteErrorBoundary>
+                        }
+                      />
+                      <Route
+                        path="planlegging/strategi-dashbord"
+                        element={
+                          <RouteErrorBoundary title="Kunne ikke vise Dashboard">
+                            <StrategyDashboardPage />
+                          </RouteErrorBoundary>
+                        }
+                      />
+                      <Route
+                        path="planlegging/justering"
+                        element={
+                          <RouteErrorBoundary title="Kunne ikke vise Alignment">
+                            <AlignmentPage />
+                          </RouteErrorBoundary>
+                        }
+                      />
+                      <Route
+                        path="planlegging/datakilder"
+                        element={
+                          <RouteErrorBoundary title="Kunne ikke vise Data sources">
+                            <DataSourcesPage />
+                          </RouteErrorBoundary>
+                        }
+                      />
+                      <Route
+                        path="planlegging/ansvarlighet"
+                        element={
+                          <RouteErrorBoundary title="Kunne ikke vise Accountability">
+                            <AccountabilityPage />
                           </RouteErrorBoundary>
                         }
                       />
