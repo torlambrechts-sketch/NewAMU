@@ -33,6 +33,7 @@ import {
   History,
   Inbox,
   Kanban,
+  Layers,
   ListChecks,
   Lock,
   Megaphone,
@@ -1252,6 +1253,14 @@ export function buildNavSections(ctx: NavBuilderContext): NavSection[] {
       match: ({ pathname, search }) =>
         pathname === '/planlegging' &&
         new URLSearchParams(search).get('section') === 'oversikt',
+      requirePermAny: ADMINISTRASJON_NAV_PERMS,
+    },
+    // Strategy v2 — Foundation (vision · mission · ambition · values · intent).
+    {
+      label: 'Foundation',
+      path: '/planlegging/foundation',
+      Icon: Layers,
+      match: ({ pathname }) => pathname === '/planlegging/foundation',
       requirePermAny: ADMINISTRASJON_NAV_PERMS,
     },
     // Strategy Tools (design "Tools" group) — ported from Strategy v2.

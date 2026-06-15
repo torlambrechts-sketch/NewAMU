@@ -152,3 +152,29 @@ export type AssessmentCampaign = {
    reaching for a global. Built from the org's members in the page wrapper. */
 
 export type ToolPerson = { id: string; name: string; initials: string; role?: string }
+
+/* ───────────────────────── Strategy v2 — Foundation & pillars ───────────────────────── */
+
+export type StrategyPillar = {
+  id: string
+  code: string
+  name: string
+  missionQuestion: string
+  color: string
+  softColor: string
+  position: number
+}
+
+export type AmbitionStat = { big: string; unit: string; label: string }
+export type FoundationValue = { t: string; b: string }
+
+export type StrategyFoundation = {
+  visionText: string
+  visionTag: string
+  missionTitle: string
+  missionBody: string
+  ambitionTitle: string
+  ambitionStats: AmbitionStat[]
+  values: FoundationValue[]
+  intentLead: string
+}
