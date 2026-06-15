@@ -126,6 +126,7 @@ import { FoundationPage } from './pages/strategy-tools/FoundationPage'
 import { ExecutionPage } from './pages/strategy-tools/ExecutionPage'
 import { ReportsPage } from './pages/strategy-tools/ReportsPage'
 import { SettingsPage as StrategySettingsPage } from './pages/strategy-tools/SettingsPage'
+import { ObjectivesPage } from './pages/strategy-tools/ObjectivesPage'
 import { DashboardPage } from './pages/dashboard/DashboardPage'
 import { InternkontrollAuditorPage } from './pages/auditor/InternkontrollAuditorPage'
 import { ControlsAuditorPage } from './pages/auditor/ControlsAuditorPage'
@@ -513,6 +514,14 @@ const router = createBrowserRouter(
                         element={
                           <RouteErrorBoundary title="Kunne ikke vise Foundation">
                             <FoundationPage />
+                          </RouteErrorBoundary>
+                        }
+                      />
+                      <Route
+                        path="planlegging/maal"
+                        element={
+                          <RouteErrorBoundary title="Kunne ikke vise Objectives">
+                            <ObjectivesPage />
                           </RouteErrorBoundary>
                         }
                       />

@@ -1255,12 +1255,30 @@ export function buildNavSections(ctx: NavBuilderContext): NavSection[] {
         new URLSearchParams(search).get('section') === 'oversikt',
       requirePermAny: ADMINISTRASJON_NAV_PERMS,
     },
-    // Strategy v2 — Foundation (vision · mission · ambition · values · intent).
+    // Strategy v2 — Strategy group: Foundation, Objectives (OKR tree), Strategy map.
     {
       label: 'Foundation',
       path: '/planlegging/foundation',
       Icon: Layers,
       match: ({ pathname }) => pathname === '/planlegging/foundation',
+      requirePermAny: ADMINISTRASJON_NAV_PERMS,
+    },
+    {
+      label: 'Objectives',
+      path: '/planlegging/maal?view=tree',
+      Icon: Target,
+      match: ({ pathname, search }) =>
+        pathname === '/planlegging/maal' &&
+        (new URLSearchParams(search).get('view') ?? 'tree') === 'tree',
+      requirePermAny: ADMINISTRASJON_NAV_PERMS,
+    },
+    {
+      label: 'Strategy map',
+      path: '/planlegging/maal?view=map',
+      Icon: Compass,
+      match: ({ pathname, search }) =>
+        pathname === '/planlegging/maal' &&
+        new URLSearchParams(search).get('view') === 'map',
       requirePermAny: ADMINISTRASJON_NAV_PERMS,
     },
     // Strategy Tools (design "Tools" group) — ported from Strategy v2.
