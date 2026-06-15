@@ -119,6 +119,9 @@ import { InternkontrollPlanPage } from './pages/overview/internkontroll/Internko
 import { InternkontrollPage } from './pages/overview/internkontroll/InternkontrollPage'
 import { CadencePage } from './pages/cadence/CadencePage'
 import { PlanningPage } from './pages/planning/PlanningPage'
+import { FrameworksPage } from './pages/strategy-tools/FrameworksPage'
+import { WhiteboardPage } from './pages/strategy-tools/WhiteboardPage'
+import { AssessmentsPage } from './pages/strategy-tools/AssessmentsPage'
 import { DashboardPage } from './pages/dashboard/DashboardPage'
 import { InternkontrollAuditorPage } from './pages/auditor/InternkontrollAuditorPage'
 import { ControlsAuditorPage } from './pages/auditor/ControlsAuditorPage'
@@ -474,6 +477,30 @@ const router = createBrowserRouter(
                         element={
                           <RouteErrorBoundary title="Kunne ikke vise Planlegging">
                             <PlanningPage />
+                          </RouteErrorBoundary>
+                        }
+                      />
+                      <Route
+                        path="planlegging/frameworks"
+                        element={
+                          <RouteErrorBoundary title="Kunne ikke vise Frameworks">
+                            <FrameworksPage />
+                          </RouteErrorBoundary>
+                        }
+                      />
+                      <Route
+                        path="planlegging/whiteboard"
+                        element={
+                          <RouteErrorBoundary title="Kunne ikke vise Whiteboard">
+                            <WhiteboardPage />
+                          </RouteErrorBoundary>
+                        }
+                      />
+                      <Route
+                        path="planlegging/assessments"
+                        element={
+                          <RouteErrorBoundary title="Kunne ikke vise Assessments">
+                            <AssessmentsPage />
                           </RouteErrorBoundary>
                         }
                       />

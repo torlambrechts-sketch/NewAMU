@@ -136,4 +136,22 @@ export default defineConfig([
     ],
     rules: { 'no-restricted-syntax': 'off' },
   },
+  // Whitelist: Strategy Tools (Frameworks · Whiteboard · Assessments) is a
+  // pixel-faithful port of the external "Strategy v2" design and ships its
+  // own self-contained design system, scoped under `.stratools`
+  // (src/pages/strategy-tools/strategyTools.css). It deliberately uses raw
+  // <button>/<input>/<textarea> styled by that ported CSS rather than the
+  // in-app primitives — same rationale as the marketing + platform surfaces
+  // above. The scoped CSS guarantees these never affect the host app.
+  {
+    files: ['src/pages/strategy-tools/**/*.{ts,tsx}'],
+    rules: {
+      'no-restricted-syntax': 'off',
+      // The scoped UI kit + shell deliberately co-locate the ported design
+      // primitives with their data context, hooks and the icon sprite (a
+      // cohesive "kit"). Fast-refresh granularity is a non-issue for this
+      // leaf module; keeping the kit together is the clearer structure.
+      'react-refresh/only-export-components': 'off',
+    },
+  },
 ])

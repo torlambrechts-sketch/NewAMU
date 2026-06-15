@@ -28,6 +28,7 @@ import {
   FileText,
   FolderKanban,
   FolderTree,
+  Gauge,
   GraduationCap,
   History,
   Inbox,
@@ -41,6 +42,7 @@ import {
   ShieldCheck,
   Settings,
   Star,
+  StickyNote,
   Wand2,
 } from 'lucide-react'
 import type { PermissionKey } from '../../lib/permissionKeys'
@@ -1250,6 +1252,30 @@ export function buildNavSections(ctx: NavBuilderContext): NavSection[] {
       match: ({ pathname, search }) =>
         pathname === '/planlegging' &&
         new URLSearchParams(search).get('section') === 'oversikt',
+      requirePermAny: ADMINISTRASJON_NAV_PERMS,
+    },
+    // Strategy Tools (design "Tools" group) — ported from Strategy v2.
+    // Standalone, database-driven surfaces: analysis frameworks, a freeform
+    // whiteboard, and interactive diagnostics. English labels match the design.
+    {
+      label: 'Frameworks',
+      path: '/planlegging/frameworks',
+      Icon: ClipboardList,
+      match: ({ pathname }) => pathname === '/planlegging/frameworks',
+      requirePermAny: ADMINISTRASJON_NAV_PERMS,
+    },
+    {
+      label: 'Whiteboard',
+      path: '/planlegging/whiteboard',
+      Icon: StickyNote,
+      match: ({ pathname }) => pathname === '/planlegging/whiteboard',
+      requirePermAny: ADMINISTRASJON_NAV_PERMS,
+    },
+    {
+      label: 'Assessments',
+      path: '/planlegging/assessments',
+      Icon: Gauge,
+      match: ({ pathname }) => pathname === '/planlegging/assessments',
       requirePermAny: ADMINISTRASJON_NAV_PERMS,
     },
   ]
