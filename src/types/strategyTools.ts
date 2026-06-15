@@ -221,3 +221,25 @@ export type StrategyRisk = {
 export type RaciRole = 'R' | 'A' | 'C' | 'I'
 /** raci[initiativeId][personLabel] = role */
 export type InitiativeRaciMap = Record<string, Record<string, RaciRole>>
+
+/* ───────────────────────── Strategy v2 — Settings ───────────────────────── */
+
+export type CustomField = { label: string; type: string; applies: string; options?: string[] }
+export type WorkspaceSettings = {
+  activeFramework: string
+  enforceFramework: boolean
+  allowMixed: boolean
+  accentColor: string
+  logoPath: string | null
+  modulesEnabled: Record<string, boolean>
+  customFields: CustomField[]
+}
+export type NudgePrefs = {
+  capPerWeek: number
+  quietHours: boolean
+  quietFrom: string
+  quietTo: string
+  timezone: string
+  muted: string[]
+  channelsOn: string[]
+}

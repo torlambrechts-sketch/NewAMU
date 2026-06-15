@@ -30,8 +30,9 @@ export function StrategyToolsShell({ children }: { children: ReactNode }) {
     members?: Array<{ id: string; display_name?: string | null; email?: string | null }>
     user?: { id?: string; email?: string | null } | null
     profile?: { display_name?: string | null } | null
+    organization?: { name?: string | null } | null
   }
-  const { orgProfiles, members, user, profile } = ctx
+  const { orgProfiles, members, user, profile, organization } = ctx
 
   const [toast, setToast] = useState<string | null>(null)
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -49,8 +50,8 @@ export function StrategyToolsShell({ children }: { children: ReactNode }) {
     })
     const currentUserId = user?.id || ''
     const currentUserName = profile?.display_name || user?.email || 'You'
-    return buildToolsData(people, currentUserId, currentUserName)
-  }, [orgProfiles, members, user, profile])
+    return buildToolsData(people, currentUserId, currentUserName, organization?.name || '')
+  }, [orgProfiles, members, user, profile, organization])
 
   return (
     <div className="stratools">

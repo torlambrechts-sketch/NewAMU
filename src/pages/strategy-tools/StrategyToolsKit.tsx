@@ -30,6 +30,7 @@ export type ToolsData = {
   months: string[]
   currentUserId: string
   currentUserName: string
+  orgName: string
 }
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
@@ -41,7 +42,7 @@ function defaultFmtDate(iso: string): string {
 }
 
 const ToolsDataContext = createContext<ToolsData>({
-  people: [], P: {}, fmtDate: defaultFmtDate, months: MONTHS, currentUserId: '', currentUserName: '',
+  people: [], P: {}, fmtDate: defaultFmtDate, months: MONTHS, currentUserId: '', currentUserName: '', orgName: '',
 })
 export const ToolsDataProvider = ToolsDataContext.Provider
 export function useToolsData(): ToolsData {
@@ -52,6 +53,7 @@ export function buildToolsData(
   members: ToolPerson[],
   currentUserId: string,
   currentUserName: string,
+  orgName = '',
 ): ToolsData {
   const people = members.length
     ? members
@@ -63,7 +65,7 @@ export function buildToolsData(
     const me = { id: currentUserId, name: currentUserName || 'You', initials: initialsOf(currentUserName || 'You') }
     people.push(me); P[currentUserId] = me
   }
-  return { people, P, fmtDate: defaultFmtDate, months: MONTHS, currentUserId, currentUserName }
+  return { people, P, fmtDate: defaultFmtDate, months: MONTHS, currentUserId, currentUserName, orgName }
 }
 /** Fresh, locally-unique id for whiteboard elements (which live inside a
  *  content JSONB blob, not as DB rows). Module scope keeps the impure
