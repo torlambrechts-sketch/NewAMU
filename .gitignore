@@ -27,3 +27,8 @@ dist-ssr
 # Supabase CLI generated files
 supabase/.temp/
 
+
+# Playwright
+test-results/
+playwright-report/
+e2e/__screens__/
